@@ -203,6 +203,43 @@ export const auth = betterAuth({
 });
 
 /**
+ * AC-12 — signing up again with an address that already has an account refuses
+ * in place, by name.
+ *
+ * better-auth answers a duplicate sign-up with a fabricated success and writes
+ * nothing: it declines to say who holds an account here. A sign-up screen is not
+ * where that silence belongs — it leaves the reader waiting for a mail nobody
+ * sent, which is the dead end R-UI-020 forbids. The duplicate is refused here,
+ * before better-auth answers, in the shape its client already reads.
+ *
+ * Magic link keeps the silence (`sendMagicLink` above): asking for a way in must
+ * never be an oracle, because anyone may ask for any address. A sign-up is the
+ * one screen where the person is claiming the address as their own.
+ *
+ * Returns the refusal, or null to let better-auth handle the request.
+ */
+export async function duplicateSignUp(request: Request): Promise<Response | null> {
+  const url = new URL(request.url);
+  if (!url.pathname.endsWith('/sign-up/email')) return null;
+
+  let body: { email?: unknown };
+  try {
+    // the clone leaves the request's own body unread for better-auth
+    body = (await request.clone().json()) as { email?: unknown };
+  } catch {
+    // not a shape we can read — better-auth refuses it by name
+    return null;
+  }
+
+  if (typeof body.email !== 'string' || !(await accountExists(body.email))) return null;
+
+  return Response.json(
+    { code: REFUSALS.AUTH_EMAIL_TAKEN.code, message: REFUSALS.AUTH_EMAIL_TAKEN.message },
+    { status: 422 },
+  );
+}
+
+/**
  * The claims better-auth signs into a verification link. Reading them here is a
  * look, not a check: the signature is better-auth's to verify a moment later.
  */

@@ -1,5 +1,5 @@
 import { toNextJsHandler } from 'better-auth/next-js';
-import { auth, replayedVerification } from '../../../../server/auth';
+import { auth, duplicateSignUp, replayedVerification } from '../../../../server/auth';
 
 const handler = toNextJsHandler(auth);
 
@@ -13,4 +13,10 @@ export async function GET(request: Request): Promise<Response> {
   return (await replayedVerification(request)) ?? handler.GET(request);
 }
 
-export const POST = handler.POST;
+/**
+ * A sign-up for an address that already has an account is refused here rather
+ * than answered with better-auth's fabricated success (AC-12).
+ */
+export async function POST(request: Request): Promise<Response> {
+  return (await duplicateSignUp(request)) ?? handler.POST(request);
+}

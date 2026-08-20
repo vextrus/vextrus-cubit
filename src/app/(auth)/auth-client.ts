@@ -26,7 +26,9 @@ export function refusalFor(error: ClientError | null | undefined): RefusalCode {
     case 'INVALID_TOKEN':
     case 'TOKEN_EXPIRED':
       return 'AUTH_TOKEN_EXPIRED';
+    // better-auth's own spelling, and ours from the sign-up guard (AC-12)
     case 'USER_ALREADY_EXISTS':
+    case 'AUTH_EMAIL_TAKEN':
       return 'AUTH_EMAIL_TAKEN';
     case 'TENANT_SLUG_TAKEN':
       return 'TENANT_SLUG_TAKEN';
