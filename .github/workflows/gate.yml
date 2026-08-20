@@ -1,0 +1,87 @@
+name: gate
+
+# AC-18 — the gate runs on every PR: the machine's report, then verify, then the
+# live database seam tests, then the journeys.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        # C-07: the product speaks to Postgres on 5544, in CI as in dev
+        ports:
+          - 5544:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      POSTGRES_ADMIN_URL: postgres://postgres:postgres@127.0.0.1:5544/postgres
+      DATABASE_URL_MIGRATE: postgres://cubit_migrate:cubit_migrate@127.0.0.1:5544/cubit_dev
+      DATABASE_URL_APP: postgres://cubit_app:cubit_app@127.0.0.1:5544/cubit_dev
+      DATABASE_URL_AUTH: postgres://cubit_auth:cubit_auth@127.0.0.1:5544/cubit_dev
+      BETTER_AUTH_SECRET: ci-only-secret-0123456789abcdef
+      BETTER_AUTH_URL: http://127.0.0.1:3210
+      MAIL_TRANSPORT: file
+      MAIL_OUTBOX_DIR: .mail-outbox
+      PORT: '3210'
+      E2E_PORT: '3211'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      - name: bootstrap the dev database
+        run: pnpm db:migrate
+
+      - name: checkup
+        run: pnpm checkup
+
+      - name: verify
+        run: pnpm verify
+
+      - name: test:db
+        run: pnpm test:db
+
+      - name: install the browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: e2e
+        run: pnpm e2e --journey J-001 --journey J-000
+
+      - name: keep the evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-evidence
+          path: |
+            test-results/
+            .mail-outbox/
+          if-no-files-found: ignore
+          retention-days: 7

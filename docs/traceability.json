@@ -1,0 +1,227 @@
+{
+  "increment": "inc-000-foundation",
+  "bible": "docs/specs/cubit.bible.xml",
+  "version": "2.0.0",
+  "note": "Requirement id -> the lane that proves it and the journey that shows it. A requirement with no lane is not delivered, whatever the code says.",
+  "lanes": {
+    "verify": "pnpm verify",
+    "database": "pnpm test:db",
+    "journeys": "pnpm e2e",
+    "machine": "pnpm checkup"
+  },
+  "requirements": [
+    {
+      "id": "R-SPINE-001",
+      "statement": "Email + password sign-up/sign-in with verification, magic-link, reset; sessions with device list and revoke; rate-limited auth endpoints.",
+      "lanes": ["journeys", "verify"],
+      "journeys": ["J-001"],
+      "evidence": [
+        "tests/e2e/journeys/j-001.spec.ts",
+        "src/server/auth.ts",
+        "src/app/(auth)/account/sessions/page.tsx"
+      ]
+    },
+    {
+      "id": "R-SPINE-002",
+      "statement": "Every user gets a personal tenant at sign-up; the active tenant is explicit in the URL and in the session.",
+      "lanes": ["journeys", "database"],
+      "journeys": ["J-001", "J-000"],
+      "evidence": ["src/server/tenant.ts", "db/schema/spine.ts", "src/app/t/[slug]/page.tsx"]
+    },
+    {
+      "id": "R-SPINE-060",
+      "statement": "Every user-facing string lives in one typed string table; no string literals in JSX except test ids and codes.",
+      "lanes": ["verify"],
+      "journeys": [],
+      "evidence": [
+        "src/ui/strings/",
+        "eslint-rules/no-jsx-string-literals.mjs",
+        "tests/lint-fixtures/no-jsx-string-literals/"
+      ]
+    },
+    {
+      "id": "R-SPINE-061",
+      "statement": "Numbers, dates, currency and units render only through SEAM-FORMAT with BD_DOCUMENT conventions.",
+      "lanes": ["verify"],
+      "journeys": [],
+      "evidence": ["src/core/format.ts", "src/core/__tests__/format.spec.ts"]
+    },
+    {
+      "id": "R-SPINE-062",
+      "statement": "Closed refusal taxonomy in src/core/errors.ts; the refusal register test covers it.",
+      "lanes": ["verify"],
+      "journeys": ["J-001", "J-000"],
+      "evidence": ["src/core/errors.ts", "src/core/__tests__/errors.spec.ts", "src/core/refusals.deferred.json"]
+    },
+    {
+      "id": "R-UI-001",
+      "statement": "Tokens are CSS variables emitted from one TS source; both themes; no colour literal outside tokens.",
+      "lanes": ["verify", "journeys"],
+      "journeys": ["J-001"],
+      "evidence": [
+        "src/ui/tokens.ts",
+        "scripts/gen-tokens.mjs",
+        "src/ui/__tests__/tokens.spec.ts",
+        "eslint-rules/no-colour-literals.mjs"
+      ]
+    },
+    {
+      "id": "R-UI-002",
+      "statement": "Basis palette is fixed and each basis carries a glyph so it survives greyscale.",
+      "lanes": ["verify"],
+      "journeys": [],
+      "evidence": ["src/ui/tokens.ts", "src/ui/__tests__/tokens.spec.ts"]
+    },
+    {
+      "id": "R-UI-003",
+      "statement": "Inter for UI, JetBrains Mono for every number with tabular-nums slashed-zero; the stated type scale.",
+      "lanes": ["verify", "journeys"],
+      "journeys": ["J-001"],
+      "evidence": ["src/ui/tokens.ts", "src/app/globals.css"]
+    },
+    {
+      "id": "R-UI-004",
+      "statement": "Motion bands, no bounce, prefers-reduced-motion honoured everywhere.",
+      "lanes": ["verify"],
+      "journeys": [],
+      "evidence": ["src/ui/tokens.ts", "src/app/globals.css"]
+    },
+    {
+      "id": "R-UI-012",
+      "statement": "Focus ring 2px cobalt, keyboard reachable, ARIA labelled, axe serious/critical = 0 on every screen.",
+      "lanes": ["journeys"],
+      "journeys": ["J-001", "J-000"],
+      "evidence": ["src/app/globals.css", "tests/e2e/support/axe.ts", "tests/e2e/support/checkpoint.ts"]
+    },
+    {
+      "id": "R-UI-020",
+      "statement": "A refusal is never a toast alone: code, message, remedy, in place.",
+      "lanes": ["journeys", "verify"],
+      "journeys": ["J-001", "J-000"],
+      "evidence": ["src/ui/patterns/refusal-state.tsx", "tests/contract/composition.spec.ts"]
+    },
+    {
+      "id": "R-UI-033",
+      "statement": "First sign-in leads to creating a tenant; empty states teach the next action.",
+      "lanes": ["journeys"],
+      "journeys": ["J-000", "J-001"],
+      "evidence": ["src/app/(auth)/create-tenant/page.tsx", "src/app/t/[slug]/page.tsx"]
+    },
+    {
+      "id": "R-UI-050",
+      "statement": "Every screen defines loading, empty, error, refusal states.",
+      "lanes": ["journeys"],
+      "journeys": ["J-000"],
+      "evidence": ["src/ui/patterns/refusal-state.tsx", "src/app/t/[slug]/page.tsx"]
+    },
+    {
+      "id": "L-FMT-01",
+      "statement": "src/core/format.ts is the tree's sole caller of Intl; toLocaleString and localeCompare are lint errors; en-BD is banned.",
+      "lanes": ["verify"],
+      "journeys": [],
+      "evidence": [
+        "src/core/format.ts",
+        "eslint-rules/no-locale-methods.mjs",
+        "tests/lint-fixtures/no-locale-methods/"
+      ]
+    },
+    {
+      "id": "SEAM-TENANT",
+      "statement": "forTenant / runAsSystem are the only database handles; RLS and tenant columns as backstop; three roles.",
+      "lanes": ["database", "verify"],
+      "journeys": [],
+      "evidence": [
+        "src/core/db.ts",
+        "db/migrations/0001_rls_roles_grants.sql",
+        "db/__tests__/rls.spec.ts",
+        "eslint-rules/db-seam-only.mjs"
+      ]
+    },
+    {
+      "id": "SEAM-FORMAT",
+      "statement": "format.ts (L-FMT-01).",
+      "lanes": ["verify"],
+      "journeys": [],
+      "evidence": ["src/core/format.ts"]
+    },
+    {
+      "id": "C-06",
+      "statement": "The Foundation increment delivers the complete toolchain surface in one reviewed unit.",
+      "lanes": ["verify", "machine"],
+      "journeys": [],
+      "evidence": ["package.json", "scripts/", "eslint.config.mjs", ".github/workflows/gate.yml"]
+    },
+    {
+      "id": "B-15",
+      "statement": "The gate's own toolchain is born before the gate arms, in one increment.",
+      "lanes": ["verify"],
+      "journeys": [],
+      "evidence": ["docs/atlas/foundation.md"]
+    },
+    {
+      "id": "D-01",
+      "statement": "Tenant slug and project URL scheme final form (/t/{slug}/p/{code}).",
+      "lanes": ["journeys"],
+      "journeys": ["J-000"],
+      "evidence": ["src/app/t/[slug]/page.tsx"]
+    },
+    {
+      "id": "Q-07",
+      "statement": "Refusal register: every code exercised by name or deferred by name; no orphan codes.",
+      "lanes": ["verify"],
+      "journeys": [],
+      "evidence": ["src/core/__tests__/errors.spec.ts", "src/core/refusals.deferred.json"]
+    },
+    {
+      "id": "V-DB",
+      "statement": "Live Postgres seam tests: RLS per table, cross-tenant refusal, migration ledger.",
+      "lanes": ["database"],
+      "journeys": [],
+      "evidence": ["scripts/test-db.mjs", "db/__tests__/rls.spec.ts", "db/__tests__/ledger.spec.ts"]
+    },
+    {
+      "id": "V-E2E",
+      "statement": "Builds once, seeds a scratch DB, runs Playwright journeys with traces, axe and visual baselines.",
+      "lanes": ["journeys"],
+      "journeys": ["J-001", "J-000"],
+      "evidence": ["scripts/e2e.mjs", "playwright.config.ts", "tests/e2e/baselines/auth/"]
+    },
+    {
+      "id": "V-CHECKUP",
+      "statement": "The machine's report: pins, Postgres, roles, ledger drift, ports, storage, env.",
+      "lanes": ["machine"],
+      "journeys": [],
+      "evidence": ["scripts/checkup.mjs"]
+    },
+    {
+      "id": "S-Auth",
+      "statement": "Sign in / sign up / magic link / reset / accept invitation. Minimal, branded, fast.",
+      "lanes": ["journeys"],
+      "journeys": ["J-001"],
+      "evidence": ["src/app/(auth)/"],
+      "partial": "accept-invitation arrives with R-SPINE-003 / J-002"
+    }
+  ],
+  "deferred": [
+    {
+      "id": "R-SPINE-003",
+      "reason": "Invite accept and tenant admin are J-002's increment; J-001's invite-accept leg arrives with it."
+    },
+    {
+      "id": "R-UI-005",
+      "reason": "Density persistence needs the workspace shell; tokens are in place, the screens are not."
+    },
+    {
+      "id": "R-UI-030",
+      "reason": "The left rail, top bar and inspector need screens this increment does not deliver."
+    },
+    {
+      "id": "R-UI-031",
+      "reason": "Deep links to a sheet, register line or bid item need those screens; /t/{slug} is live and /t/{slug}/p/{code} is reserved."
+    },
+    {
+      "id": "CHARACTER_NOT_COVERED",
+      "reason": "The document seam (Typst, font coverage) is out of scope here; the code is registered with a written remedy."
+    }
+  ]
+}
