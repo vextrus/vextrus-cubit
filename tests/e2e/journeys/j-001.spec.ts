@@ -69,16 +69,45 @@ test.describe('J-001 auth', () => {
     await expect(page.getByTestId('signin-password')).toHaveAccessibleName(/.+/);
     await expect(page.getByTestId('signin-submit')).toHaveAccessibleName(/.+/);
 
-    // AC-19: both faces load locally
+    // AC-19 / R-UI-003: Inter and JetBrains Mono are declared as real @font-face
+    // rules and actually load. Under C-07/V-E2E there is no network beyond
+    // loopback, so a face reaching status 'loaded' is itself proof it loaded
+    // locally. (document.fonts.check() is useless here: with no @font-face at
+    // all it answers true for every family, including a bogus one.)
     const fonts = await page.evaluate(async () => {
       await document.fonts.ready;
+      const declared: { family: string; status: string }[] = [];
+      document.fonts.forEach((face) =>
+        declared.push({ family: face.family.replace(/["']/g, ''), status: face.status }),
+      );
+      // resolve by the family the page actually declares (e.g. "Inter Variable")
+      const pick = async (re: RegExp) => {
+        const family = declared.find((f) => re.test(f.family))?.family;
+        if (family === undefined) return null;
+        const matched = await document.fonts.load(`16px "${family}"`);
+        return { family, statuses: matched.map((f) => f.status) };
+      };
       return {
-        inter: document.fonts.check('14px Inter'),
-        mono: document.fonts.check('13px "JetBrains Mono"'),
+        size: document.fonts.size,
+        families: declared.map((f) => f.family),
+        inter: await pick(/\bInter\b/),
+        mono: await pick(/JetBrains Mono/),
       };
     });
-    expect(fonts.inter, 'Inter must load locally').toBe(true);
-    expect(fonts.mono, 'JetBrains Mono must load locally').toBe(true);
+
+    // the page ships its own faces — system fallbacks declare nothing
+    expect(fonts.size, 'the page must declare @font-face rules of its own').toBeGreaterThan(0);
+    expect(fonts.inter, `Inter must be declared; declared: ${fonts.families.join(', ')}`).not.toBeNull();
+    expect(
+      fonts.mono,
+      `JetBrains Mono must be declared; declared: ${fonts.families.join(', ')}`,
+    ).not.toBeNull();
+    for (const face of [fonts.inter, fonts.mono]) {
+      expect(face!.statuses.length, `${face!.family} must resolve to a face`).toBeGreaterThan(0);
+      for (const status of face!.statuses) {
+        expect(status, `${face!.family} must load locally`).toBe('loaded');
+      }
+    }
 
     await auth.toggleTheme();
     await expect
