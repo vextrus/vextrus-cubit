@@ -6,8 +6,13 @@
  * C-06: stages arm progressively during increment zero. A lane that does not
  * exist yet prints exactly `SKIP <stage> LANE_NOT_YET_BUILT` — named, recorded,
  * never silently passed. From increment one every stage is armed.
+ *
+ * The whole run reports on one stream. Every stage's stderr is merged into our
+ * stdout and verify itself never writes to stderr, so `VERIFY OK <seconds>s` is
+ * the last line a reader sees however it captures us — a tool's warning on the
+ * other stream must not be able to land after the summary.
  */
-import { loadEnv, run, seconds } from './lib/run.mjs';
+import { loadEnv, run, seconds, wholeSeconds } from './lib/run.mjs';
 
 loadEnv();
 
@@ -39,12 +44,12 @@ for (const stage of STAGES) {
 
   const stageStartedAt = Date.now();
   const [command, args] = stage.command;
-  const code = await run(command, args, { env: stage.env ?? {} });
+  const code = await run(command, args, { env: stage.env ?? {}, mergeStderr: true });
   if (code !== 0) {
-    console.error(`VERIFY FAIL ${stage.name} (exit ${code}) after ${seconds(startedAt)}s`);
+    console.log(`VERIFY FAIL ${stage.name} (exit ${code}) after ${wholeSeconds(startedAt)}s`);
     process.exit(code);
   }
   console.log(`OK ${stage.name} ${seconds(stageStartedAt)}s`);
 }
 
-console.log(`VERIFY OK ${seconds(startedAt)}s`);
+console.log(`VERIFY OK ${wholeSeconds(startedAt)}s`);

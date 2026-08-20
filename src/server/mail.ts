@@ -23,7 +23,14 @@ export interface OutboundMail {
 
 function outboxDir(): string {
   const configured = env.MAIL_OUTBOX_DIR;
-  return path.isAbsolute(configured) ? configured : path.join(process.cwd(), configured);
+  // The outbox is named by the environment, so this join cannot be statically
+  // scoped. Left as it is, the bundler reads it as evidence that the server
+  // reaches anywhere under the working directory and traces the entire project
+  // into the output — a warning on every build, and a build that carries the
+  // whole tree. The outbox is written at run time and never traced.
+  return path.isAbsolute(configured)
+    ? configured
+    : path.join(/* turbopackIgnore: true */ process.cwd(), configured);
 }
 
 export function sendMail(message: OutboundMail): void {
