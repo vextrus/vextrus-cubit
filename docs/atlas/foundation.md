@@ -165,11 +165,20 @@ already proven is refused in place, by name, with the way to get a fresh one.
 The same is true of a spent reset link and a spent magic link — a dead link says
 so and offers the next step, rather than a form nobody can submit.
 
-**Signing up on an address that already has an account** answers exactly as a
-first sign-up does, and writes nothing: better-auth's non-disclosure path, kept
-deliberately. Telling the caller which addresses are registered is an enumeration
-oracle, and it would contradict the magic-link behaviour a paragraph above. The
-account holder's mailbox stays quiet; no second user and no second tenant exists.
+**Signing up on an address that already has an account** refuses in place, by
+name (`AUTH_EMAIL_TAKEN`), and writes nothing. Left to itself better-auth answers
+a duplicate sign-up with a fabricated success — it declines to say who holds an
+account here — and the screen then tells the reader to open a mail nobody sent,
+which is exactly the dead end R-UI-020 forbids. The duplicate is refused in the
+route before better-auth answers, in the shape its client already reads.
+
+That is deliberately not the magic-link posture two paragraphs above, and the
+difference is who is asking. Anyone may ask for a way into anyone's mailbox, so
+the magic-link form must never answer *whether* an address is registered. A
+sign-up is the one screen where the person is claiming the address as their own,
+and the answer they need is the one every product gives: this one is taken. No
+second user and no second tenant is written either way, and the account holder's
+mailbox stays quiet.
 
 **The device list** cannot be empty in the literal sense — reading it takes a
 session. `sessions-empty` therefore says what the reader came to find out: that
@@ -191,6 +200,25 @@ place; the same measurement gives zero.
 with no `.env` runs `pnpm checkup`, `pnpm verify`, `pnpm dev` and the journeys
 out of the box against C-07's fixed local cluster. Anything already exported —
 a real `.env`, CI's job env — wins over both.
+
+**A tree that arrives without its `.git`.** Two tests ask git what this workspace
+holds rather than trusting a glob: the refusal register walks `git ls-files` for
+the corpus it searches (Q-07), and the migration ledger walks `git log` for the
+history it forbids rewriting (AC-08). An export — a copy, a tarball, an unpacked
+artefact — has no answer to give, and `pnpm verify` then fails at its vitest
+stage with `Command failed: git ls-files`, which says nothing about the code.
+`scripts/vitest-global-setup.mjs` makes a workspace that is not a checkout into
+one before the files run, and stages what is there, so `git ls-files` lists
+exactly this tree. It commits nothing: history is not ours to invent, and a test
+that reads history must still meet the truth. In a checkout it does nothing.
+
+**A port that somebody else is holding** is worth a look before blaming the code.
+`pnpm dev` and `pnpm start` bind `PORT` and exit `EADDRINUSE` if it is taken —
+loudly, but only in *their* log. A server left behind by an earlier run answers
+on that port with an earlier build, an earlier database and an earlier outbox,
+and everything driven against it fails in ways that look like product faults.
+`pnpm checkup` reports each port it can bind, which is the cheapest way to find
+this before a suite runs.
 
 ## Composition, pre-wired (AS-A1)
 
