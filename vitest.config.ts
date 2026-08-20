@@ -19,6 +19,8 @@ const INCLUDE = {
 export default defineConfig({
   test: {
     include: [...(lane === 'db' ? INCLUDE.db : INCLUDE.default)],
+    // the register and the ledger read the tree through git (scripts/vitest-global-setup.mjs)
+    globalSetup: ['scripts/vitest-global-setup.mjs'],
     exclude: ['node_modules/**', 'tests/e2e/**', 'tests/lint-fixtures/**', '.next/**', '.scratch/**'],
     environment: 'node',
     reporters: ['default'],
