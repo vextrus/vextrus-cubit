@@ -1,7 +1,9 @@
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { currentSession } from '../../../server/session';
 import { resolveTenant, roleIn } from '../../../server/tenant';
 import { RefusalState } from '../../../ui/patterns/refusal-state';
+import { LoadingSkeleton } from '../../../ui/primitives/screen-state';
 import { strings } from '../../../ui/strings/tenant';
 
 /**
@@ -10,14 +12,27 @@ import { strings } from '../../../ui/strings/tenant';
  *
  * A tenant you do not belong to is refused in place with its code and remedy, not
  * redirected away and not silently rendered empty (R-UI-020, R-UI-050).
+ *
+ * Who is asking is settled before the response starts, so a caller with no
+ * session gets a 307 rather than a streamed shell of a tenant's home; the
+ * skeleton (R-UI-050) covers the tenant lookup below the check, which is why
+ * this route has no `loading.tsx`.
  */
 export default async function TenantHomePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const session = await currentSession();
   if (session === null) redirect('/sign-in');
 
+  return (
+    <Suspense fallback={<LoadingSkeleton />}>
+      <TenantHome slug={slug} userId={session.user.id} />
+    </Suspense>
+  );
+}
+
+async function TenantHome({ slug, userId }: { slug: string; userId: string }) {
   const tenant = await resolveTenant(slug);
-  const role = tenant === null ? null : await roleIn(tenant.tenantId, session.user.id);
+  const role = tenant === null ? null : await roleIn(tenant.tenantId, userId);
 
   if (tenant === null || role === null) {
     return (

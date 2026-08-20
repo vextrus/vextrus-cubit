@@ -68,6 +68,17 @@ the posture we want. Every table carrying `tenant_id` is discovered by that
 column alone in `db/__tests__/rls.spec.ts` — a later table cannot slip past a
 hand-written list.
 
+**The tree's only three lint suppressions** sit on that harness, and they are
+the deliberate half of a trade. `db/__tests__/rls.spec.ts` imports `pg` to hold a
+bare `cubit_app` connection — RLS refusing is only visible from *outside* the
+seam — and `drizzle-orm`'s `sql` to run raw statements *through* the seam handle;
+`db/__tests__/ledger.spec.ts` imports `pg` to read the applied-migration ledger as
+a database fact. The flat config could simply stop applying `cubit/db-seam-only`
+to `db/__tests__`, and then no file would carry a directive; that leaves the
+evidence unlinted, which is the wrong way round when the evidence is what the
+increment is judged on. So the rule covers those files and each exception states
+its reason on the line. No file in `src/**` carries one.
+
 **Not yet proven:** append-only grants. No append-only table exists in this
 increment (acts arrive with the assure lane), so the discovery harness asserts it
 found at least the spine's tenant-scoped tables rather than passing vacuously.
@@ -265,9 +276,10 @@ mailbox stays quiet.
 `RefusalState` in place with code, message and remedy; permission-denied is one
 of those refusals by name (`TENANT_ACCESS_DENIED` on `/t/{slug}`); empty teaches
 the next action (`/t/{slug}`, `sessions-empty`). The other three are the shell's,
-because they belong to every screen equally: `loading.tsx` renders a skeleton
-that keeps the layout — never a spinner (R-UI-004) — for the auth screens,
-`/account/sessions` and the tenant home; `error.tsx` catches a *fault* (as
+because they belong to every screen equally: a skeleton keeps the layout while
+the server works — never a spinner (R-UI-004) — from `loading.tsx` on the public
+auth screens and from a `Suspense` *inside* the gated ones (see below);
+`error.tsx` catches a *fault* (as
 distinct from a refusal the product decided) with a retry and a report id, the
 server's digest where there is one and a fresh id where there is not; and the
 offline banner in the layout says the screen has gone read-only rather than
@@ -293,6 +305,24 @@ The handler sends a *relative* `Location` and compares the form's `Origin`
 against the `Host` the request arrived at — `request.url` reports `localhost`
 whichever spelling of loopback the browser used, so both an absolute redirect and
 an origin check built from it would answer the wrong machine.
+
+**A skeleton never sits above the question of who may look.** Revoking on time is
+only half of the promise; the other half is what the revoked device is *answered*
+with. A `loading.tsx` is a Suspense boundary above the page, so Next flushes its
+shell before the page has read the session: measured on this build, a request
+with no session at all got `200` and the skeleton of `/account/sessions`, and the
+redirect arrived later in the same stream — the browser sat on the URL of a
+screen it may not see for about 200 ms, and anything that looked at that moment
+(the revoked device's own navigation, a test, a screenshot) saw the page rather
+than the refusal. With the boundary removed from above the check the same request
+answers `307 → /sign-in` before a byte of the page exists.
+
+So the gated screens — `/`, `/create-tenant`, `/account/sessions`, `/t/{slug}` —
+have no `loading.tsx`. Each reads the session first and *then* renders a
+`Suspense` around the work that remains (the device list, the memberships, the
+tenant lookup), which is where a skeleton belongs: covering data the reader is
+entitled to, not the decision about whether they are. The public screens keep
+their own `loading.tsx`, one per route, because they gate on nothing.
 
 **The document title is rendered, not exported.** Next streams exported
 `metadata` inside a boundary it tears down and rebuilds on every re-render:

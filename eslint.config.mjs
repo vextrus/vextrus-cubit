@@ -108,6 +108,10 @@ export default tseslint.config(
   },
 
   // SEAM-TENANT: forTenant / runAsSystem are the only database handles.
+  // V-DB's proofs under `db/__tests__` are configured too, deliberately: the
+  // evidence *about* the seam has to stand outside it (RLS refusal is only
+  // visible on a bare `cubit_app` connection, the ledger is read as a database
+  // fact), and those two imports carry the only disable directives in the tree.
   {
     files: ['src/**/*.{ts,tsx}', 'db/__tests__/**/*.ts', FIXTURES],
     ignores: ['src/core/db.ts'],
