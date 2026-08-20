@@ -15,7 +15,7 @@ export async function GET(request: Request): Promise<Response> {
 
 /**
  * A sign-up for an address that already has an account is refused here rather
- * than answered with better-auth's fabricated success (AC-12).
+ * than answered with better-auth's fabricated success (AC-25).
  */
 export async function POST(request: Request): Promise<Response> {
   return (await duplicateSignUp(request)) ?? handler.POST(request);

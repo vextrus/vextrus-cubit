@@ -203,7 +203,7 @@ export const auth = betterAuth({
 });
 
 /**
- * AC-12 — signing up again with an address that already has an account refuses
+ * AC-25 — signing up again with an address that already has an account refuses
  * in place, by name.
  *
  * better-auth answers a duplicate sign-up with a fabricated success and writes
