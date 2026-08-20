@@ -109,10 +109,17 @@
     },
     {
       "id": "R-UI-050",
-      "statement": "Every screen defines loading, empty, error, refusal states.",
+      "statement": "Every screen defines loading, empty, error, refusal, offline and permission-denied states.",
       "lanes": ["journeys"],
       "journeys": ["J-000"],
-      "evidence": ["src/ui/patterns/refusal-state.tsx", "src/app/t/[slug]/page.tsx"]
+      "evidence": [
+        "src/ui/patterns/refusal-state.tsx",
+        "src/ui/primitives/screen-state.tsx",
+        "src/ui/primitives/offline-banner.tsx",
+        "src/app/(auth)/loading.tsx",
+        "src/app/(auth)/error.tsx",
+        "src/app/t/[slug]/page.tsx"
+      ]
     },
     {
       "id": "L-FMT-01",

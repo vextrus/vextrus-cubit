@@ -17,4 +17,12 @@ export const strings = table({
 
   loading: 'Loading…',
   retry: 'Try again',
+
+  /* R-UI-050 — the three states every screen owes besides empty and refusal. */
+  loadingLabel: 'Loading this screen',
+  errorTitle: 'This screen did not finish loading.',
+  errorLede: 'Nothing was changed. Try again, or report the id below with what you were doing.',
+  errorReportLabel: 'Report id',
+  offlineTitle: 'You are offline.',
+  offlineLede: 'This screen is read-only until the connection is back. Nothing you type will be saved.',
 });

@@ -618,3 +618,52 @@ textarea:focus {
   white-space: nowrap;
   border: 0;
 }
+
+/* ------------------------------------------------------------------------- *
+ * R-UI-050 — the states a screen owes besides empty and refusal: loading (a
+ * skeleton that keeps the layout, never a spinner — R-UI-004), error, and
+ * offline. Colours come from the tokens above; nothing here is a literal.
+ * ------------------------------------------------------------------------- */
+
+.skeleton {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  /* the pulse is a hint of progress; prefers-reduced-motion flattens it above */
+  animation: cubit-skeleton var(--duration-slow) ease-out infinite alternate;
+}
+
+.skeleton-title {
+  height: var(--space-6);
+  width: 60%;
+}
+
+.skeleton-line {
+  height: var(--space-4);
+  width: 100%;
+}
+
+.skeleton-block {
+  height: var(--space-12);
+  width: 100%;
+}
+
+@keyframes cubit-skeleton {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.6;
+  }
+}
+
+.offline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--info-text);
+  color: var(--text);
+  font-size: var(--text-dense);
+}

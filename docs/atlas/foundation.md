@@ -36,12 +36,23 @@ product. `cubit/db-seam-only` bans driver and schema imports everywhere else, an
 the seam re-exports the schema (`tables`) and drizzle's operators so the rule is
 about *where the door is*, not about dragging every query into one file.
 
-Scope travels as a Postgres session setting on the checked-out connection —
-`cubit.tenant_id`, or `cubit.system` plus `cubit.reason` — and is reset before the
-connection returns to the pool. The policies in `db/migrations/0001` read exactly
-those two settings, so a connection carrying neither matches nothing and sees
-nothing. That is the backstop: the refusal is the database's, not a condition
-somebody remembered to write.
+Tenant scope travels as a Postgres session setting on the checked-out connection
+— `cubit.tenant_id` — and is reset before the connection returns to the pool. The
+policies in `db/migrations/0001` read exactly that setting, so a `cubit_app`
+connection carrying none matches nothing and sees nothing. That is the backstop:
+the refusal is the database's, not a condition somebody remembered to write.
+
+**System scope is a role, not a setting.** It began as a second session setting,
+`cubit.system`, and that made the backstop a formality: any connection may set
+its own settings, so one statement arriving as `cubit_app` —
+`select set_config('cubit.system','on',false), count(*) from tenant` — read every
+tenant in the cluster. Measured against `cubit_dbtest`: 4 tenants before,
+0 after. `db/migrations/0003` redefines `cubit_is_system()` as *does this role
+bypass RLS*, which no session can grant itself, and `runAsSystem(reason)` makes
+its connection as `cubit_migrate` instead of `cubit_app`. `cubit.system` and
+`cubit.reason` still ride along on the connection, now purely as the sentence on
+the record. The cost is named: a system handle carries the owner's rights, which
+is why it costs a reason and why `cubit/db-seam-only` keeps the door in one file.
 
 Three roles, as the Bible names them:
 
@@ -83,6 +94,18 @@ refuses an orphan — a code neither exercised by name nor listed in
 `src/core/refusals.deferred.json` with a reason. One code is deferred today:
 `CHARACTER_NOT_COVERED`, which belongs to the document lane.
 
+**A refusal names what happened, or it names nothing.** `refusalFor()`
+(`src/app/(auth)/auth-client.ts`) translates better-auth's codes into ours for
+five screens, two of which have no password field at all. Its default arm used to
+be `AUTH_INVALID_CREDENTIALS`, which meant a mistyped address on `/sign-up` —
+every form carries `noValidate`, so the browser hands `rina.surveyor@` straight
+to the server, and better-auth answers `VALIDATION_ERROR` — was refused with
+"that email and password do not match an account. …try again or reset the
+password": no account to match, no password to reset, a remedy that cannot
+resolve the situation (R-UI-020). Unreadable addresses now answer
+`AUTH_EMAIL_UNREADABLE`, and anything unmapped answers `AUTH_REQUEST_FAILED` —
+a fault says it is a fault and carries a code worth reporting.
+
 ### Tokens — `src/ui/tokens.ts` (R-UI-001)
 
 One TypeScript source for colour, spacing, radii, elevation, type, motion,
@@ -101,27 +124,47 @@ product may take. Where the machine carries the real face it is used; where it
 does not, the rule falls through to the nearest installed grotesque or mono so
 text still renders with a face the page named.
 
-**Known limitation:** the woff2 files themselves are not vendored — a build
-session cannot fetch them. Dropping `url('…')` in front of the `local()` sources
-is the whole change, and nothing else in the tree moves; until then the two
-families render with a stand-in on machines without Inter installed, and the
-committed Linux baselines are baselines of that stand-in.
+**Known limitation, and it is AC-19's own clause:** the woff2 files themselves
+are not vendored — a build session has no web access (C-07) and may add no
+dependency, so there is no way to put the real faces in the tree from here. What
+ships is therefore an *alias*: this machine carries only DejaVu and Ubuntu, so a
+page that says `Inter` renders DejaVu, and J-001's font assertion — a declared
+face reaching status `loaded` — is satisfied by that fallback. The committed
+Linux baselines are baselines of the stand-in, and CI (`ubuntu-24.04`, no font
+install step) can carry different faces again and spend the 0.002 diff budget on
+glyphs. Dropping `url('…')` in front of the `local()` sources, with the two
+woff2 files beside it, is the whole change and nothing else in the tree moves.
 
 ### Auth and tenancy — `src/server/auth.ts`, `src/server/tenant.ts`
 
 better-auth with email + password, verification, magic link, reset, and a session
-list with revoke (R-SPINE-001). A personal tenant is minted with the user
-(R-SPINE-002) as a single statement, so a half-made membership cannot survive a
-crash between the two rows. The active tenant is explicit in the URL: `/t/{slug}`,
-with `/t/{slug}/p/{code}` reserved as written (D-01).
+list with revoke (R-SPINE-001). The active tenant is explicit in the URL:
+`/t/{slug}`, with `/t/{slug}/p/{code}` reserved as written (D-01).
+
+**The personal tenant is minted in the user-create transaction, and no
+TypeScript mints it.** R-SPINE-002 and AC-12 name a transaction, and a hook that
+runs *after* better-auth's insert cannot be in one: it is a second write, on a
+second connection, in a second role, with a window between them where a crash
+leaves an account with nowhere to stand. Compensating afterwards — deleting the
+user and reporting `TENANT_SLUG_TAKEN` for whatever went wrong — answered a
+database outage with "that tenant address is already in use" and a remedy that
+could not work. The mint is a trigger on `user` (`db/migrations/0003`,
+`SECURITY DEFINER`, owned by `cubit_migrate`), which runs inside the inserting
+transaction itself. Proven live against `cubit_dbtest` as `cubit_auth`: a
+committed insert lands the tenant and the `OWNER` membership with it; a rolled
+back insert leaves neither. `scripts/seed.mjs` therefore plants no personal
+tenant of its own — a seeded account gets one the same way a signed-up account
+does.
 
 Two sign-ups can derive one address — `ada@one.test` and `ada@two.test` both want
-`ada` — and both can read it free before either writes. The unique index is the
-arbiter and the loser asks for the next address (`ada-2`); the driver's error
-arrives wrapped by drizzle, so it is the cause chain that carries `23505`. If the
-tenant cannot be minted even so, the user row written a moment earlier is
-withdrawn and the screen refuses `TENANT_SLUG_TAKEN`: an account never exists
-without somewhere to stand, and it never answers a 500 either.
+`ada` — and the trigger's loop asks for the next address (`ada-2`) when the
+unique index refuses the first. `createTenant()` runs the same race in the open:
+it reads the address, then writes it, so two people naming one tenant in the same
+moment both find it free. The index is the arbiter there too, and its `23505`
+arrives wrapped by drizzle — the cause chain carries the code — so the loser gets
+the in-place `TENANT_SLUG_TAKEN` that AC-12 promises rather than a 500. A name no
+address can be derived from at all is a different refusal by name:
+`TENANT_NAME_UNREADABLE`, because nobody holds that address.
 
 **What is rate-limited, and what is not.** The contract names one limit —
 `10 requests / 60 s / IP` on `/api/auth/sign-in/email` — and it is exact: the
@@ -179,6 +222,20 @@ sign-up is the one screen where the person is claiming the address as their own,
 and the answer they need is the one every product gives: this one is taken. No
 second user and no second tenant is written either way, and the account holder's
 mailbox stays quiet.
+
+**The six states each owned screen defines (R-UI-050).** Refusal is
+`RefusalState` in place with code, message and remedy; permission-denied is one
+of those refusals by name (`TENANT_ACCESS_DENIED` on `/t/{slug}`); empty teaches
+the next action (`/t/{slug}`, `sessions-empty`). The other three are the shell's,
+because they belong to every screen equally: `loading.tsx` renders a skeleton
+that keeps the layout — never a spinner (R-UI-004) — for the auth screens,
+`/account/sessions` and the tenant home; `error.tsx` catches a *fault* (as
+distinct from a refusal the product decided) with a retry and a report id, the
+server's digest where there is one and a fresh id where there is not; and the
+offline banner in the layout says the screen has gone read-only rather than
+letting a form fail silently. Partial (some rows refused, shown not hidden) has
+nothing to be partial about yet: no screen here renders a list that can be
+refused row by row.
 
 **The device list** cannot be empty in the literal sense — reading it takes a
 session. `sessions-empty` therefore says what the reader came to find out: that

@@ -1,13 +1,11 @@
 import { betterAuth } from 'better-auth';
-import { APIError } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { magicLink } from 'better-auth/plugins/magic-link';
 import { nextCookies } from 'better-auth/next-js';
-import { authDatabase, eq, sql, tables } from '../core/db';
+import { authDatabase, sql, tables } from '../core/db';
 import { env } from '../core/env';
 import { REFUSALS } from '../core/errors';
 import { sendMail } from './mail';
-import { mintPersonalTenant } from './tenant';
 import { strings } from '../ui/strings/auth';
 
 /**
@@ -51,11 +49,6 @@ function loopbackOrigins(baseUrl: string): string[] {
   const other = new URL(url);
   other.hostname = twin;
   return [url.origin, other.origin];
-}
-
-/** The identity tables are the auth role's; an unfinished sign-up is undone there. */
-async function forgetUser(id: string): Promise<void> {
-  await authDatabase().delete(tables.user).where(eq(tables.user.id, id));
 }
 
 /** Addresses are matched the way better-auth stores them: case does not identify. */
@@ -122,30 +115,17 @@ export const auth = betterAuth({
   },
 
   /**
-   * R-SPINE-002 — the personal tenant is minted as the user is created. The hook
-   * runs on the same request as the insert and writes both tenant rows in one
-   * statement, so an account never exists without somewhere to stand.
+   * R-SPINE-002 / AC-12 — the personal tenant is minted *in the user-create
+   * transaction*, and there is no code here that does it.
+   *
+   * A hook after the insert is a second write, on a second connection, in a
+   * second role: two transactions, with a window between them in which a crash
+   * leaves an account with nowhere to stand — the state the clause forbids by
+   * naming a transaction. The mint is therefore a trigger on `user`
+   * (db/migrations/0003), which runs inside the inserting transaction itself.
+   * Nothing to compensate, nothing to misreport: if the tenant cannot be minted
+   * the insert never happened.
    */
-  databaseHooks: {
-    user: {
-      create: {
-        after: async (user) => {
-          try {
-            await mintPersonalTenant({ id: user.id, name: user.name, email: user.email });
-          } catch {
-            // An account never exists without somewhere to stand: if the tenant
-            // cannot be minted after all, the row written a moment ago goes with
-            // it and the screen refuses by name rather than showing a 500.
-            await forgetUser(user.id);
-            throw new APIError('CONFLICT', {
-              code: 'TENANT_SLUG_TAKEN',
-              message: REFUSALS.TENANT_SLUG_TAKEN.message,
-            });
-          }
-        },
-      },
-    },
-  },
 
   /**
    * AC-17 — 10 requests per 60 s per IP on the password sign-in.
@@ -218,20 +198,39 @@ export const auth = betterAuth({
  *
  * Returns the refusal, or null to let better-auth handle the request.
  */
-export async function duplicateSignUp(request: Request): Promise<Response | null> {
-  const url = new URL(request.url);
-  if (!url.pathname.endsWith('/sign-up/email')) return null;
+/**
+ * The address a sign-up request is claiming, however the request spells itself.
+ * Our screen posts JSON; a plain HTML form posts `application/x-www-form-urlencoded`,
+ * and better-auth accepts both — so a guard that reads only JSON is a guard the
+ * other encoding walks straight past. The clone leaves the request's own body
+ * unread for better-auth.
+ */
+async function addressIn(request: Request): Promise<string | null> {
+  const contentType = request.headers.get('content-type') ?? '';
 
-  let body: { email?: unknown };
   try {
-    // the clone leaves the request's own body unread for better-auth
-    body = (await request.clone().json()) as { email?: unknown };
+    if (contentType.includes('json')) {
+      const body = (await request.clone().json()) as { email?: unknown };
+      return typeof body.email === 'string' ? body.email : null;
+    }
+    if (contentType.includes('form-urlencoded') || contentType.includes('form-data')) {
+      const email = (await request.clone().formData()).get('email');
+      return typeof email === 'string' ? email : null;
+    }
   } catch {
     // not a shape we can read — better-auth refuses it by name
     return null;
   }
 
-  if (typeof body.email !== 'string' || !(await accountExists(body.email))) return null;
+  return null;
+}
+
+export async function duplicateSignUp(request: Request): Promise<Response | null> {
+  const url = new URL(request.url);
+  if (!url.pathname.endsWith('/sign-up/email')) return null;
+
+  const email = await addressIn(request);
+  if (email === null || !(await accountExists(email))) return null;
 
   return Response.json(
     { code: REFUSALS.AUTH_EMAIL_TAKEN.code, message: REFUSALS.AUTH_EMAIL_TAKEN.message },

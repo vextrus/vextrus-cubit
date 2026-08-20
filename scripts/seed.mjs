@@ -82,21 +82,12 @@ export async function seed(migrateUrl) {
   return withClient(migrateUrl, async (client) => {
     await clearFixtures(client);
 
+    // R-SPINE-002: a seeded account looks like a signed-up one — the personal
+    // tenant arrives with the user row, in its transaction, because the trigger
+    // in db/migrations/0003 is what mints it for a sign-up too. The seeder
+    // plants no personal tenant of its own; it would collide with that one.
     const owner = await insertUser(client, FIXTURE_USERS.owner);
     const member = await insertUser(client, FIXTURE_USERS.member);
-
-    // R-SPINE-002: a seeded account looks like a signed-up one — it has a personal tenant
-    for (const [userId, fixture] of [
-      [owner, FIXTURE_USERS.owner],
-      [member, FIXTURE_USERS.member],
-    ]) {
-      const personal = await insertTenant(client, {
-        slug: slugify(fixture.email.split('@')[0]),
-        name: fixture.name,
-        kind: 'personal',
-      });
-      await addMember(client, personal, userId, 'OWNER');
-    }
 
     const acme = await insertTenant(client, {
       slug: FIXTURE_TENANTS.acme.slug,

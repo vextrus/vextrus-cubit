@@ -54,12 +54,20 @@ export function formatNumber(value: Decimal): string {
  * Money, ৳ prefixed. Money is a 2-decimal-place quantity: a value carrying more
  * precision has not been rounded yet, and rounding it here would hide the
  * decision, so it is refused by name (PRECISION_NOT_APPLIED).
+ *
+ * A value that carries a fraction renders with both places: `1234.5` is
+ * ৳1,234.50, never ৳1,234.5 — a Decimal drops its trailing zero and money does
+ * not. A whole number of taka carries no decimal point at all, which is the
+ * rendering AC-06 pins by name (`10000000` → `৳1,00,00,000`).
  */
 export function formatTaka(value: Decimal): string {
   if (value.decimalPlaces() > BD_DOCUMENT.moneyDecimalPlaces) {
     throw refusal('PRECISION_NOT_APPLIED', `${value.toFixed()} carries more than 2 decimal places`);
   }
-  return `${BD_DOCUMENT.currencySymbol}${formatNumber(value)}`;
+  const places = value.decimalPlaces() === 0 ? 0 : BD_DOCUMENT.moneyDecimalPlaces;
+  // ES2023 Intl accepts a numeric string, which is how a Decimal keeps its precision
+  const grouped = grouper(places).format(value.toFixed(places) as Intl.StringNumericLiteral);
+  return `${BD_DOCUMENT.currencySymbol}${grouped}`;
 }
 
 /**

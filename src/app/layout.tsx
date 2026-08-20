@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import './globals.css';
 import { ThemeToggle } from '../ui/primitives/theme-toggle';
+import { OfflineBanner } from '../ui/primitives/offline-banner';
 import { THEME_COOKIE, resolveTheme } from '../ui/primitives/theme';
 import { strings } from '../ui/strings/common';
 
@@ -30,6 +31,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <span className="auth-brand">{strings.brand}</span>
           <ThemeToggle initial={theme} />
         </header>
+        {/* R-UI-050: offline is a state of every screen, so it lives in the shell */}
+        <OfflineBanner />
         <main>{children}</main>
       </body>
     </html>

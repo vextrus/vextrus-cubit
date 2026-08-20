@@ -10,10 +10,15 @@ import { refusal } from './errors';
  * file (cubit/db-seam-only); RLS and the tenant column are the backstop that
  * holds even when the lint rule is bypassed.
  *
- * Scope travels as a Postgres session setting on the checked-out connection:
- * `cubit.tenant_id` for a tenant handle, `cubit.system` plus `cubit.reason` for
- * the system handle. The policies in db/migrations read exactly those two
- * settings, so a connection that carries neither sees nothing at all.
+ * Tenant scope travels as a Postgres session setting on the checked-out
+ * connection: `cubit.tenant_id`, which the policies in db/migrations read, so a
+ * cubit_app connection that carries none sees nothing at all.
+ *
+ * System scope does not, and cannot: a setting a connection may write is a
+ * setting it may grant itself. It is a property of the *role* — only the migrate
+ * role bypasses the policies — so the system handle is a different connection,
+ * not a different flag on the same one. `cubit.system` and `cubit.reason` still
+ * ride along, now purely as the sentence on the record.
  */
 
 export interface TenantContext {
@@ -95,20 +100,29 @@ class ScopedPool {
   }
 }
 
-let appPool: Pool | undefined;
-let authPool: Pool | undefined;
+const pools = new Map<'app' | 'auth' | 'system', Pool>();
 
-function pool(which: 'app' | 'auth'): Pool {
-  if (which === 'auth') {
-    authPool ??= new Pool({ connectionString: databaseEnv.DATABASE_URL_AUTH });
-    return authPool;
-  }
-  appPool ??= new Pool({ connectionString: databaseEnv.DATABASE_URL_APP });
-  return appPool;
+const CONNECTION_STRING = {
+  app: () => databaseEnv.DATABASE_URL_APP,
+  auth: () => databaseEnv.DATABASE_URL_AUTH,
+  // system scope is a role attribute, not a session setting: the policies ask
+  // whether *this role* bypasses RLS (db/migrations/0003), and only the migrate
+  // role does. A cubit_app connection therefore cannot grant itself system
+  // scope, whatever it sets on itself — which is what makes RLS a backstop.
+  system: () => databaseEnv.DATABASE_URL_MIGRATE,
+} as const;
+
+function pool(which: 'app' | 'auth' | 'system'): Pool {
+  const existing = pools.get(which);
+  if (existing !== undefined) return existing;
+
+  const created = new Pool({ connectionString: CONNECTION_STRING[which]() });
+  pools.set(which, created);
+  return created;
 }
 
 function handleFor(scope: Scope): Handle {
-  const scoped = new ScopedPool(pool('app'), scope);
+  const scoped = new ScopedPool(pool(scope.system ? 'system' : 'app'), scope);
   return drizzle(scoped as unknown as Pool, { schema });
 }
 
