@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import ts from 'typescript';
 
 const ROOT = process.cwd();
 const read = (p: string) => readFileSync(path.join(ROOT, p), 'utf8');
@@ -24,9 +25,11 @@ describe('AC-01 pinned toolchain (C-06, B-15)', () => {
 
   it('AC-01: tsconfig has strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes', () => {
     const raw = read('tsconfig.json');
-    // tsconfig may carry comments; strip them before parsing
-    const stripped = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '');
-    const tsconfig = JSON.parse(stripped) as { compilerOptions?: Record<string, unknown> };
+    // tsconfig is JSONC: parse it with the compiler's own reader, which knows the
+    // difference between a comment and a `/*` inside a string ("@/*", "**/*.ts").
+    const parsed = ts.parseConfigFileTextToJson('tsconfig.json', raw);
+    expect(parsed.error, 'tsconfig.json must parse as JSONC').toBeUndefined();
+    const tsconfig = (parsed.config ?? {}) as { compilerOptions?: Record<string, unknown> };
     const co = tsconfig.compilerOptions ?? {};
     expect(co.strict).toBe(true);
     expect(co.noUncheckedIndexedAccess).toBe(true);
