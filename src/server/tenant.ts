@@ -1,4 +1,4 @@
-import { and, desc, eq, forTenant, runAsSystem, tables } from '../core/db';
+import { and, desc, eq, forTenant, runAsSystem, sql, tables } from '../core/db';
 import { refusal } from '../core/errors';
 
 /**
@@ -75,21 +75,34 @@ export async function createTenant(userId: string, name: string): Promise<Tenant
   // one tenant at the same moment can both find the address free. The unique
   // index is the arbiter, and its verdict is the same refusal the read gives —
   // a coincidence of timing must not reach the screen as a 500 (AC-12).
-  let created: { tenantId: string }[];
+  //
+  // The tenant and its owner are one fact, so they are written as one statement:
+  // the member rides out of the tenant's own INSERT through a CTE, which is
+  // atomic by construction. Two statements would let a crash between them strand
+  // a tenant nobody owns, still holding the address — its creator refused
+  // TENANT_ACCESS_DENIED at /t/{slug}, everybody else refused TENANT_SLUG_TAKEN,
+  // and no screen this increment ships able to undo it. The trigger path
+  // (db/migrations/0003) writes both in one transaction for the same reason.
+  let inserted;
   try {
-    created = await handle
-      .insert(tables.tenant)
-      .values({ slug, name, kind: 'team' })
-      .returning({ tenantId: tables.tenant.tenantId });
+    inserted = await handle.execute(sql`
+      with created as (
+        insert into ${tables.tenant} (slug, name, kind)
+        values (${slug}, ${name}, 'team')
+        returning tenant_id
+      )
+      insert into ${tables.tenantMember} (tenant_id, user_id, role)
+      select tenant_id, ${userId}, 'OWNER' from created
+      returning tenant_id
+    `);
   } catch (error) {
     if (isAddressTaken(error)) throw refusal('TENANT_SLUG_TAKEN');
     throw error;
   }
 
-  const tenantId = created[0]?.tenantId;
+  const tenantId = (inserted.rows[0] as { tenant_id?: string } | undefined)?.tenant_id;
   if (tenantId === undefined) throw refusal('TENANT_SLUG_TAKEN');
 
-  await handle.insert(tables.tenantMember).values({ tenantId, userId, role: 'OWNER' });
   return { tenantId, slug, name, kind: 'team' };
 }
 

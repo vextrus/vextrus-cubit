@@ -7,6 +7,7 @@ import { Field } from '../../../ui/primitives/field';
 import { RefusalState } from '../../../ui/patterns/refusal-state';
 import { strings } from '../../../ui/strings/auth';
 import { authClient, refusalFor } from '../auth-client';
+import { useHydratedForm } from '../hydrated-form';
 
 /**
  * R-SPINE-001 — password reset, requested. The confirmation says nothing about
@@ -17,6 +18,9 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [refusal, setRefusal] = useState<RefusalCode | null>(null);
   const [busy, setBusy] = useState(false);
+  const { formRef, ready } = useHydratedForm((typed) => {
+    setEmail(typed('email'));
+  });
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,7 +38,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className="auth-shell">
       {/* posts, never gets: a submit that beats hydration must not put an address in the URL */}
-      <form className="auth-card" method="post" onSubmit={onSubmit} noValidate>
+      <form ref={formRef} className="auth-card" method="post" onSubmit={onSubmit} noValidate>
         <div className="auth-heading">
           <h1>{strings.forgotTitle}</h1>
           <p className="auth-lede">{strings.forgotLede}</p>
@@ -60,7 +64,8 @@ export default function ForgotPasswordPage() {
                 onChange={(event) => setEmail(event.target.value)}
               />
             </div>
-            <Button type="submit" data-testid="forgot-submit" disabled={busy}>
+            {/* the submit waits for interactivity: a native POST here is a 405 and a lost address */}
+            <Button type="submit" data-testid="forgot-submit" disabled={!ready || busy} aria-busy={!ready}>
               {strings.forgotSubmit}
             </Button>
           </>

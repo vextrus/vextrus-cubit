@@ -407,6 +407,17 @@ textarea:focus {
     border-color var(--duration-instant) var(--ease-out);
 }
 
+/**
+ * A control that cannot act yet says so rather than swallowing the click: an
+ * auth form's submit is disabled until the screen is interactive (a native POST
+ * to a page route is a 405 and a lost password) and while a request is in
+ * flight.
+ */
+.button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
 .button-primary {
   background: var(--accent);
   color: var(--accent-contrast);

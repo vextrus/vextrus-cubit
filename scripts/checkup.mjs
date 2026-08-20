@@ -10,7 +10,7 @@ import { createServer } from 'node:net';
 import { existsSync, readFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import pg from 'pg';
-import { capture, loadEnv, ROOT } from './lib/run.mjs';
+import { capture, envOrigin, loadEnv, ROOT } from './lib/run.mjs';
 import { PG_HOST, PG_PORT, ROLES, adminUrl, roleUrls } from './lib/postgres.mjs';
 
 loadEnv();
@@ -101,8 +101,14 @@ for (const offset of [process.env.PORT, process.env.E2E_PORT]) {
 }
 for (const port of ports) {
   const free = await bindable(port);
-  // a port already held is a warning about this machine, not a broken toolchain
-  report(`PORT ${port} bindable`, free ? 'OK' : 'NOT_REQUIRED');
+  /**
+   * A port already held is a warning about this machine, not a broken toolchain,
+   * so it does not fail the report — but it does not read NOT_REQUIRED either.
+   * That word means "no lane has asked for this yet", and a reader scanning for
+   * trouble must not see the same word for a tool nothing needs and for the port
+   * their next `pnpm dev` cannot have.
+   */
+  report(`PORT ${port} bindable`, free ? 'OK' : 'IN_USE');
 }
 
 // --- storage root -----------------------------------------------------------
@@ -123,8 +129,22 @@ const REQUIRED_ENV = [
   'BETTER_AUTH_URL',
   'MAIL_TRANSPORT',
 ];
+/**
+ * Where a value came from is half the report. `.env.example` stands in for
+ * whatever a fresh clone has not configured (C-07's fixed local defaults), and
+ * the signing secret is minted per machine when nothing sets it — so a line that
+ * only ever read OK would say a bare workspace and a configured deployment were
+ * the same machine. They are not, and the report says which one this is.
+ */
+const ORIGIN_STATUS = {
+  environment: 'OK',
+  local: 'MINTED',
+  minted: 'MINTED',
+  example: 'DEFAULTED',
+};
 for (const name of REQUIRED_ENV) {
-  report(`ENV ${name}`, process.env[name] ? 'OK' : 'FAIL');
+  const origin = envOrigin(name);
+  report(`ENV ${name}`, process.env[name] ? (ORIGIN_STATUS[origin] ?? 'OK') : 'FAIL');
 }
 
 process.exit(failed ? 1 : 0);

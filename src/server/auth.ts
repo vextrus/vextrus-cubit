@@ -130,14 +130,20 @@ export const auth = betterAuth({
   /**
    * AC-17 — 10 requests per 60 s per IP on the password sign-in.
    *
-   * Every other endpoint carries this instance's general limit, declared here
-   * rather than inherited: better-auth's own defaults are 3 requests per 10 s on
-   * anything under `/sign-in`, `/sign-up` and `/change-…`, and 3 per 60 s on the
-   * reset and verification senders. Nothing in the contract asks for those, and
-   * they refuse legitimate traffic — a suite driving sign-ups back to back, or an
-   * office behind one address — with a refusal the caller never asked for. The
-   * limit the contract names is the tight one; the rest are rate-limited, not
-   * throttled to three.
+   * Only the endpoints named here depart from better-auth's own limits: a
+   * catch-all would silently take the library's tight defaults off the senders
+   * (3 per 60 s on the reset and verification mailers) and turn them into this
+   * instance's general limit, which is a hundred mails a minute at any address
+   * somebody cares to name. Nothing in the contract asked for that.
+   *
+   * `/sign-up/email` is the one relaxation, and it is a relaxation of the burst
+   * only: the default is 3 per 10 s — up to 18 in a minute — where this allows
+   * 10 in a minute however they arrive. The e2e suite signs up several accounts
+   * back to back from one address (127.0.0.1), and so does an office.
+   *
+   * Everything not named keeps its default: 3 per 10 s under `/sign-in`,
+   * `/sign-up` and `/change-…`, 3 per 60 s on the senders, and this instance's
+   * general 100 per 60 s elsewhere.
    *
    * Known limitation: this storage is in-memory and therefore per-process
    * (docs/atlas/foundation.md).
@@ -148,9 +154,12 @@ export const auth = betterAuth({
     window: 60,
     max: 100,
     customRules: {
-      // first match wins, so the named rule is declared before the catch-all
+      // the rule AC-17 names, by its exact path
       '/sign-in/email': { window: 60, max: 10 },
-      '/**': { window: 60, max: 100 },
+      '/sign-up/email': { window: 60, max: 10 },
+      // a magic link is a mail sent to an address, so it is held to the same
+      // ration as the other senders rather than to `/sign-in`'s burst rule
+      '/sign-in/magic-link': { window: 60, max: 3 },
     },
   },
 
@@ -205,17 +214,18 @@ export const auth = betterAuth({
  * other encoding walks straight past. The clone leaves the request's own body
  * unread for better-auth.
  */
-async function addressIn(request: Request): Promise<string | null> {
+async function fieldIn(request: Request, field: string): Promise<string | null> {
   const contentType = request.headers.get('content-type') ?? '';
 
   try {
     if (contentType.includes('json')) {
-      const body = (await request.clone().json()) as { email?: unknown };
-      return typeof body.email === 'string' ? body.email : null;
+      const body = (await request.clone().json()) as Record<string, unknown>;
+      const value = body[field];
+      return typeof value === 'string' ? value : null;
     }
     if (contentType.includes('form-urlencoded') || contentType.includes('form-data')) {
-      const email = (await request.clone().formData()).get('email');
-      return typeof email === 'string' ? email : null;
+      const value = (await request.clone().formData()).get(field);
+      return typeof value === 'string' ? value : null;
     }
   } catch {
     // not a shape we can read — better-auth refuses it by name
@@ -223,6 +233,34 @@ async function addressIn(request: Request): Promise<string | null> {
   }
 
   return null;
+}
+
+async function addressIn(request: Request): Promise<string | null> {
+  return fieldIn(request, 'email');
+}
+
+/**
+ * R-UI-020 — the sign-up screen marks the name required, and every form here
+ * carries `noValidate`, so that promise is the server's to keep: the browser
+ * hands a blank name straight over. It is not a cosmetic field — the personal
+ * tenant minted in the user-create transaction takes the account's name
+ * (db/migrations/0003), so a blank one mints a tenant with no name and no
+ * address anybody typed. The claim is refused in place, by the name the
+ * create-tenant screen already refuses an underivable address with.
+ *
+ * Returns the refusal, or null to let better-auth handle the request.
+ */
+export async function unnamedSignUp(request: Request): Promise<Response | null> {
+  const url = new URL(request.url);
+  if (!url.pathname.endsWith('/sign-up/email')) return null;
+
+  const name = await fieldIn(request, 'name');
+  if (name !== null && name.trim().length > 0) return null;
+
+  return Response.json(
+    { code: REFUSALS.TENANT_NAME_UNREADABLE.code, message: REFUSALS.TENANT_NAME_UNREADABLE.message },
+    { status: 422 },
+  );
 }
 
 export async function duplicateSignUp(request: Request): Promise<Response | null> {

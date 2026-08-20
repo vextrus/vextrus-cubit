@@ -7,6 +7,7 @@ import { Field } from '../../../ui/primitives/field';
 import { RefusalState } from '../../../ui/patterns/refusal-state';
 import { strings } from '../../../ui/strings/auth';
 import { authClient, refusalFor } from '../auth-client';
+import { useHydratedForm } from '../hydrated-form';
 
 /** S-Auth — sign up. Signing up does not sign you in: it asks for the address to be proven. */
 export default function SignUpPage() {
@@ -16,6 +17,11 @@ export default function SignUpPage() {
   const [refusal, setRefusal] = useState<RefusalCode | null>(null);
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const { formRef, ready } = useHydratedForm((typed) => {
+    setName(typed('name'));
+    setEmail(typed('email'));
+    setPassword(typed('password'));
+  });
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,7 +46,7 @@ export default function SignUpPage() {
   return (
     <div className="auth-shell">
       {/* posts, never gets: a submit that beats hydration must not put a password in the URL */}
-      <form className="auth-card" method="post" onSubmit={onSubmit} noValidate>
+      <form ref={formRef} className="auth-card" method="post" onSubmit={onSubmit} noValidate>
         <div className="auth-heading">
           <h1>{strings.signUpTitle}</h1>
           <p className="auth-lede">{strings.signUpLede}</p>
@@ -87,7 +93,8 @@ export default function SignUpPage() {
               />
             </div>
 
-            <Button type="submit" data-testid="signup-submit" disabled={busy}>
+            {/* the submit waits for interactivity: a native POST here is a 405 and a lost account */}
+            <Button type="submit" data-testid="signup-submit" disabled={!ready || busy} aria-busy={!ready}>
               {strings.signUpSubmit}
             </Button>
           </>

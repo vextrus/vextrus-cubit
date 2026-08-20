@@ -59,6 +59,10 @@ export function refusalFor(error: ClientError | null | undefined): RefusalCode {
       return 'AUTH_EMAIL_TAKEN';
     case 'TENANT_SLUG_TAKEN':
       return 'TENANT_SLUG_TAKEN';
+    // ours from the sign-up guard: an account claimed with no name at all mints
+    // a personal tenant no address can be derived from (R-UI-020)
+    case 'TENANT_NAME_UNREADABLE':
+      return 'TENANT_NAME_UNREADABLE';
     case 'PASSWORD_TOO_SHORT':
     case 'PASSWORD_TOO_LONG':
       return 'AUTH_PASSWORD_REJECTED';

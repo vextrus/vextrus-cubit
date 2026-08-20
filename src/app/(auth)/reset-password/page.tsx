@@ -9,6 +9,7 @@ import { Field } from '../../../ui/primitives/field';
 import { RefusalState } from '../../../ui/patterns/refusal-state';
 import { strings } from '../../../ui/strings/auth';
 import { authClient, refusalFor } from '../auth-client';
+import { useHydratedForm } from '../hydrated-form';
 
 function ResetForm() {
   const params = useSearchParams();
@@ -26,6 +27,10 @@ function ResetForm() {
   const [refusal, setRefusal] = useState<RefusalCode | null>(null);
   const [mismatch, setMismatch] = useState(false);
   const [busy, setBusy] = useState(false);
+  const { formRef, ready } = useHydratedForm((typed) => {
+    setPassword(typed('password'));
+    setConfirmation(typed('password-confirm'));
+  });
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,7 +54,7 @@ function ResetForm() {
 
   // posts, never gets: a submit that beats hydration must not put a password in the URL
   return (
-    <form className="auth-card" method="post" onSubmit={onSubmit} noValidate>
+    <form ref={formRef} className="auth-card" method="post" onSubmit={onSubmit} noValidate>
       <div className="auth-heading">
         <h1>{strings.resetTitle}</h1>
         <p className="auth-lede">{strings.resetLede}</p>
@@ -93,7 +98,8 @@ function ResetForm() {
               onChange={(event) => setConfirmation(event.target.value)}
             />
           </div>
-          <Button type="submit" data-testid="reset-submit" disabled={busy}>
+          {/* the submit waits for interactivity: a native POST here is a 405 and a lost password */}
+          <Button type="submit" data-testid="reset-submit" disabled={!ready || busy} aria-busy={!ready}>
             {strings.resetSubmit}
           </Button>
         </>

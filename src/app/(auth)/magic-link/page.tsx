@@ -8,12 +8,16 @@ import { Field } from '../../../ui/primitives/field';
 import { RefusalState } from '../../../ui/patterns/refusal-state';
 import { strings } from '../../../ui/strings/auth';
 import { authClient, refusalFor } from '../auth-client';
+import { useHydratedForm } from '../hydrated-form';
 
 function MagicLinkForm() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [refusal, setRefusal] = useState<RefusalCode | null>(null);
   const [busy, setBusy] = useState(false);
+  const { formRef, ready } = useHydratedForm((typed) => {
+    setEmail(typed('email'));
+  });
   /**
    * A magic link works once. Spending it twice sends the browser back here with
    * `error=…`, and the screen says which link died rather than offering a fresh
@@ -36,7 +40,7 @@ function MagicLinkForm() {
 
   return (
     // posts, never gets: a submit that beats hydration must not put an address in the URL
-    <form className="auth-card" method="post" onSubmit={onSubmit} noValidate>
+    <form ref={formRef} className="auth-card" method="post" onSubmit={onSubmit} noValidate>
       <div className="auth-heading">
         <h1>{strings.magicLinkTitle}</h1>
         <p className="auth-lede">{strings.magicLinkLede}</p>
@@ -63,7 +67,8 @@ function MagicLinkForm() {
               onChange={(event) => setEmail(event.target.value)}
             />
           </div>
-          <Button type="submit" data-testid="magic-link-submit" disabled={busy}>
+          {/* the submit waits for interactivity: a native POST here is a 405 and a lost address */}
+          <Button type="submit" data-testid="magic-link-submit" disabled={!ready || busy} aria-busy={!ready}>
             {strings.magicLinkSubmit}
           </Button>
         </>

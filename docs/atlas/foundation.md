@@ -82,6 +82,13 @@ crore group as `1,00,00,000`, ASCII digits, `৳` prefixed, `DD MMM YYYY`,
 `FY2025-26`, Asia/Dhaka wall clock built from local parts. `en-BD` is not a CLDR
 locale and is banned.
 
+The wall clock is the *document's*, not the host's: `formatDate` and
+`formatFiscalYear` read `BD_DOCUMENT.timeZone`, because the dates they render
+come from `timestamptz` columns — genuine instants — and a server running in UTC
+would otherwise put a session created ten minutes after Dhaka midnight on the
+previous calendar day. Playwright gives the *browser* `timezoneId: 'Asia/Dhaka'`;
+nothing sets `TZ` for the Node process, and after this nothing needs to.
+
 Money is a two-decimal-place quantity. A value carrying more precision has not
 been rounded yet, and rounding it at render time would hide the decision, so it
 is refused by name: `PRECISION_NOT_APPLIED`.
@@ -166,15 +173,29 @@ the in-place `TENANT_SLUG_TAKEN` that AC-12 promises rather than a 500. A name n
 address can be derived from at all is a different refusal by name:
 `TENANT_NAME_UNREADABLE`, because nobody holds that address.
 
+The tenant and its owner are one fact, so `createTenant()` writes them in one
+statement: the `tenant_member` row rides out of the tenant's own `INSERT` through
+a CTE, atomic by construction. Two statements would let a crash between them
+strand a tenant nobody owns while it still holds the address — its creator
+refused `TENANT_ACCESS_DENIED` at `/t/{slug}`, everybody else refused
+`TENANT_SLUG_TAKEN`, and no screen this increment ships able to undo it. The
+trigger path writes both inside the inserting transaction for the same reason.
+
 **What is rate-limited, and what is not.** The contract names one limit —
 `10 requests / 60 s / IP` on `/api/auth/sign-in/email` — and it is exact: the
 eleventh request inside the window is refused `429`, and the screen renders
-`AUTH_RATE_LIMITED` in place with its remedy. Every other auth endpoint carries
-this instance's general limit of 100 per 60 s, declared rather than inherited:
-better-auth's own defaults are *three requests per ten seconds* on anything under
-`/sign-in` and `/sign-up` and three per minute on the reset and verification
-senders, which refuse ordinary traffic — a suite driving sign-ups back to back, an
-office behind one address — with a refusal nobody asked for. Note the shape of the
+`AUTH_RATE_LIMITED` in place with its remedy. Everything else keeps better-auth's
+own defaults — three requests per ten seconds under `/sign-in`, `/sign-up` and
+`/change-…`, three per minute on the reset and verification senders — with two
+named departures and no catch-all. A catch-all would silently lift the senders to
+this instance's general limit, and a hundred password-reset mails a minute at any
+address somebody names is not something the contract asked for. The departures:
+`/sign-up/email` allows ten per minute, because a suite drives sign-ups back to
+back and so does an office behind one address (the default's *three per ten
+seconds* is up to eighteen a minute, so this is a relaxation of the burst and a
+tightening of the minute); `/sign-in/magic-link` allows three per minute, held to
+the senders' ration rather than `/sign-in`'s burst, because it is a mail to an
+address. Note the shape of the
 named limit: it counts requests, not failures, so a suite that spends the window
 proving the limit will meet it again on its next sign-in from the same address.
 
@@ -195,6 +216,23 @@ own offset mails links that come back to itself.
 The five credential forms are client components that `preventDefault`, and they
 also declare `method="post"`: a submit that arrives before hydration must not put
 a password in the query string, the browser history and the server log.
+
+That is half the answer; the other half is that the submit *waits* for
+interactivity. A native POST to a page path is a `405` from the App Router — a
+browser error page, everything typed gone, nothing said — so the control is
+disabled until `useHydratedForm` (`src/app/(auth)/hydrated-form.ts`) reports the
+form hydrated, and the first thing that hook does is adopt whatever was typed
+before React arrived, so the state it takes over with is the person's text rather
+than an empty string. `/create-tenant` needs none of this: its form is a server
+action, which posts without JavaScript at all.
+
+A sign-up with a blank name is refused in place before better-auth answers
+(`unnamedSignUp`). The field is marked `required` and every form here carries
+`noValidate`, so that promise is the server's to keep — and it is not cosmetic:
+the personal tenant minted in the user-create transaction takes the account's
+name, so a blank one mints a tenant with no name and an address nobody typed.
+The refusal is `TENANT_NAME_UNREADABLE`, the same code `/create-tenant` gives an
+underivable name.
 
 **What each mailed link can do.** A magic link signs in; it is never a way to an
 account. Left to itself the plugin mints a user for whatever address follows a
@@ -267,10 +305,22 @@ place; the same measurement gives zero.
 ## The environment
 
 `.env.example` is the contract, and it is also the default. Every script loads
-`.env` first and fills whatever is still unset from `.env.example`, so a clone
-with no `.env` runs `pnpm checkup`, `pnpm verify`, `pnpm dev` and the journeys
-out of the box against C-07's fixed local cluster. Anything already exported —
-a real `.env`, CI's job env — wins over both.
+`.env` first, then this machine's `.env.local`, and fills whatever is still unset
+from `.env.example`, so a clone with no `.env` runs `pnpm checkup`, `pnpm verify`,
+`pnpm dev` and the journeys out of the box against C-07's fixed local cluster.
+Anything already exported — a real `.env`, CI's job env — wins over all three.
+
+**The one value `.env.example` does not carry is the signing secret.** A
+committed `BETTER_AUTH_SECRET` that stands in for an unset one is a deployment
+whose session cookies are signed with a value anyone can read in this repository,
+and — just as bad for a report whose whole job is to say what this machine is — it
+makes an unconfigured machine indistinguishable from a configured one. So the
+example leaves it commented out, and `scripts/lib/run.mjs` mints 32 random bytes
+into the gitignored `.env.local` when nothing else set it: one secret per
+workspace, shared by every process in the lane, surviving a restart. `checkup`
+says which it is — `ENV BETTER_AUTH_SECRET OK` when something configured it,
+`MINTED` when the toolchain stood in, and `DEFAULTED` on the lines `.env.example`
+answered.
 
 **A tree that arrives without its `.git`.** Two tests ask git what this workspace
 holds rather than trusting a glob: the refusal register walks `git ls-files` for
@@ -320,8 +370,11 @@ time in that summary is whole seconds; the per-stage lines keep their tenths.
 `checkup` reports C-07's two fixed ports — 3210 and 3211 — whatever lane it is
 run in, and adds this lane's own offsets when they differ. A report that changed
 which ports it reported with the environment would be no report at all. A port
-already held reads `NOT_REQUIRED`: that is a fact about this machine, not a
-broken toolchain. `next dev` and `next build` are also kept from writing
+already held reads `IN_USE`: that is a fact about this machine, not a broken
+toolchain, so it does not fail the report — but it is not `NOT_REQUIRED` either,
+which means "no lane has asked for this yet". A reader scanning for trouble must
+not meet one word for a tool nothing needs and for the port their next `pnpm dev`
+cannot have. `next dev` and `next build` are also kept from writing
 `AGENTS.md` and `CLAUDE.md` into the tree (`agentRules: false`), because a
 toolchain that dirties the working tree makes every drift check a lie.
 
