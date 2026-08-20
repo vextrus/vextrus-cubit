@@ -4,7 +4,6 @@ import { auth } from '../../../../server/auth';
 import { formatDate } from '../../../../core/format';
 import { Button } from '../../../../ui/primitives/button';
 import { strings } from '../../../../ui/strings/auth';
-import { revokeSessionAction } from './actions';
 
 /**
  * R-SPINE-001 — the device list. Every live session, the current one marked, and
@@ -58,7 +57,7 @@ export default async function SessionsPage() {
                     {strings.sessionsCurrent}
                   </span>
                 ) : (
-                  <form action={revokeSessionAction}>
+                  <form method="post" action="/account/sessions/revoke">
                     <input type="hidden" name="sessionId" value={entry.id} />
                     <Button
                       type="submit"

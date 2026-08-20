@@ -185,6 +185,20 @@ session. `sessions-empty` therefore says what the reader came to find out: that
 nothing *else* is signed in. The list always shows this device with its badge;
 the note appears beside it when no other device holds a session.
 
+**Revoke is a document POST, not a server action.** It is the one control on
+these screens whose promise is about a *different* browser: when it answers, that
+device is out. A server action's submit is a background fetch, so the click is
+over as soon as the request is dispatched — the row disappears from this page a
+moment later, and in that moment the revoked device's next navigation still finds
+a live session. Nothing in the flow ordered the two. `/account/sessions/revoke`
+is a plain `<form method="post">` to a route handler that revokes and answers
+`303`: the browser is still navigating while the server works, so the session is
+gone before the click returns and the redirect brings back a page that says so.
+The handler sends a *relative* `Location` and compares the form's `Origin`
+against the `Host` the request arrived at — `request.url` reports `localhost`
+whichever spelling of loopback the browser used, so both an absolute redirect and
+an origin check built from it would answer the wrong machine.
+
 **The document title is rendered, not exported.** Next streams exported
 `metadata` inside a boundary it tears down and rebuilds on every re-render:
 measured on the device list, one `<title>` removal per revoke, nine across eight.
@@ -236,6 +250,15 @@ composition, so two increments never collide in the same lines.
 | database | `pnpm test:db` | RLS per table, cross-tenant refusal, the migration ledger — live, on 127.0.0.1:5544 |
 | journeys | `pnpm e2e --journey J-001 --journey J-000` | J-001 auth end to end; J-000's seed segment; axe at every checkpoint; visual baselines |
 | machine | `pnpm checkup` | pins, Postgres, roles, ledger, ports, storage, env |
+
+**`verify` reports on one stream.** Its summary line is contractually last, and a
+reader that captures stdout and stderr separately — as the gate does — sees
+everything on stderr *after* everything on stdout, however the two were
+interleaved in time. A single warning from `next build` was enough to put a line
+after `VERIFY OK`. So verify says everything with `console.log`, including its
+failure line, and every stage runs with its stderr wired to verify's own stdout:
+one ordered stream, an empty stderr, and the summary genuinely last. The wall
+time in that summary is whole seconds; the per-stage lines keep their tenths.
 
 `checkup` reports C-07's two fixed ports — 3210 and 3211 — whatever lane it is
 run in, and adds this lane's own offsets when they differ. A report that changed
