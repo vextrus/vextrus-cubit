@@ -371,6 +371,22 @@ and everything driven against it fails in ways that look like product faults.
 `pnpm checkup` reports each port it can bind, which is the cheapest way to find
 this before a suite runs.
 
+**A suite that runs from beside the tree** has to resolve the tree's
+dependencies, and pnpm's `node_modules` is a symlink farm, not a hoisted one:
+Node and Vite both resolve a bare specifier by walking up from the importing
+file, so a directory that sits *next to* this package — rather than inside it —
+reaches no `node_modules` at all. The failure is total and mute. The first
+non-vitest import (`@playwright/test`, `decimal.js`, `pg`) throws while the
+files are being collected, the run reports zero of however many assertions it
+expected, and that reads exactly like every behaviour at once being broken.
+Two things tell the difference in seconds. `MAIL_TRANSPORT=file` makes the
+outbox a receipt: a live auth suite that reached even its first sign-up leaves
+JSON in `MAIL_OUTBOX_DIR`, so an outbox directory that was created and left
+empty means no test ran rather than every test failing. And a build that
+`pnpm verify` has already driven — `next build` imports `decimal.js` through
+`src/core/format.ts` — proves the *package's* install is complete, which leaves
+only the runner's own workspace.
+
 ## Composition, pre-wired (AS-A1)
 
 `src/server/router.ts` mounts `spine` plus `takeoff`, `assure`, `book`,
