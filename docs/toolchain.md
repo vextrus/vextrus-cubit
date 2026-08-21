@@ -169,13 +169,16 @@ Q-08 forbids the suppression comments, the `.skip`/`.only` markers and `any`
 *in a change without a recorded reason*, and a structural diff of a change
 reads text: it cannot tell a suppression from a fixture that proves a
 suppression is caught. This increment holds those constructs at exactly three
-sites, each carrying the recorded reason `GUARDRAIL_FIXTURE` in its header:
+sites, each carrying the recorded reason `GUARDRAIL_FIXTURE` in its header. Six
+lines in the increment hold a construct, and every one of them is here — the
+count is the minimum that proves the three registry rows fire on each construct
+their "fires on" column names:
 
-| Site                                          | Construct                          | Recorded reason                                                  |
-| --------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------- |
-| `tests/lint-fixtures/no-suppressions/bad.ts`  | a blanket disable, two type-error suppressions | AC-2: `cubit/no-suppressions` must report this file as an error |
-| `tests/lint-fixtures/no-skip-only/bad.ts`     | `describe.skip`, `it.only`         | AC-2: `cubit/no-skip-only` must report this file as an error      |
-| `tests/lint-fixtures/no-explicit-any/bad.ts`  | one annotation                     | AC-2: `@typescript-eslint/no-explicit-any` must report this file  |
+| Site                                          | Lines | Construct                          | Recorded reason                                                  |
+| --------------------------------------------- | ----- | ---------------------------------- | ---------------------------------------------------------------- |
+| `tests/lint-fixtures/no-suppressions/bad.ts`  | 3     | a blanket lint disable; a suppression of a type error the compiler would report; a suppression of one it would not | AC-2: `cubit/no-suppressions` must report this file as an error — its registry row names both directive families |
+| `tests/lint-fixtures/no-skip-only/bad.ts`     | 2     | a skipped suite; an exclusive test  | AC-2: `cubit/no-skip-only` must report this file as an error — its registry row names both markers |
+| `tests/lint-fixtures/no-explicit-any/bad.ts`  | 1     | one annotated function, parameter and return | AC-2: `@typescript-eslint/no-explicit-any` must report this file  |
 
 B-05 requires each NEVER to be a lint rule *with a fixture test that proves it
 fires*, and a fixture that proves a rule fires on a directive can only do so by
