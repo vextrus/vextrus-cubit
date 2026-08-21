@@ -212,17 +212,16 @@ describe('inc-000 — the toolchain is born whole (C-06, B-15)', () => {
     expect(existsSync(join(REPO, 'docs/traceability.json'))).toBe(false);
   });
 
-  it('AM-02: increment zero shipped the toolchain ONLY — no product tree in its delivered unit', (ctx) => {
+  it('AM-02: increment zero shipped the toolchain ONLY — no product tree in its delivered unit', () => {
     // "Increment zero is the toolchain ONLY" is a fact about what inc-000 delivered, not a
     // ban on every tree that follows it: the foundation series founds src/ and db/ (inc-001
     // founds both, with SEAM-TENANT and the schema root), and C-06 arms their lanes as they
     // appear. So the claim is put to inc-000's own commit, where it stays true forever.
     const entries = incZeroTree();
-    if (entries === null) {
-      // Recorded reason, never a silent pass: this checkout has no history to read.
-      ctx.skip('AM-02 snapshot: inc-000-foundation is not reachable in this checkout');
-      return;
-    }
+    // C-06 "never silently passed", B-05 "prose is not enforcement": a checkout that cannot
+    // reach the delivered unit fails here rather than vouching for a claim it never checked.
+    expect(entries, "AM-02 is a claim about inc-000's commit — its history must be reachable").not.toBeNull();
+    if (entries === null) throw new Error('unreachable: the assertion above already failed');
     const top = entries('');
     for (const forbidden of ['src', 'db', 'documents']) {
       expect(top, forbidden).not.toContain(forbidden);
