@@ -63,6 +63,14 @@ export default [
     ],
   },
 
+  // Q-08 mechanically, not as a wish: inline configuration cannot turn a rule off at all.
+  // Without this, a blanket suppression at the top of a file silences every rule in it —
+  // including the rule that reports suppressions, which would report on its own comment
+  // and then be suppressed by it.
+  {
+    linterOptions: { noInlineConfig: true },
+  },
+
   {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: typescriptLanguageOptions,

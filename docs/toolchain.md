@@ -114,7 +114,12 @@ rule to its directory.
 | `no-skip-only` | `cubit/no-skip-only` | an excluded or exclusive test marker | Q-08 |
 | `no-explicit-any` | `@typescript-eslint/no-explicit-any` | an explicit `any` annotation | Q-08 |
 
-Three scoping decisions, recorded so they are not re-argued:
+The config sets `noInlineConfig`, so **no comment in this tree can turn a rule off**.
+Without it the guardrail has a hole exactly where it matters: a blanket suppression at the
+top of a file silences every rule in that file, including the rule that reports
+suppressions — which would report on the comment and then be suppressed by it.
+
+Four scoping decisions, recorded so they are not re-argued:
 
 1. **`cubit/db-seam-only` binds to `src/**` only.** `db/**` is the schema, and banning the
    schema import there would ban the schema from importing drizzle to define itself. The
@@ -126,6 +131,11 @@ Three scoping decisions, recorded so they are not re-argued:
 3. **A "code" is the machine's vocabulary, not a short word.** `LANE_NOT_YET_BUILT` and
    `R-UI-001` are codes and may be rendered verbatim; `SAVE`, `OK` and `PAID` are copy in
    upper case and belong in the string table (R-SPINE-060).
+4. **`.npmrc` sets `shell-emulator=true`.** pnpm then runs a script through its own shell
+   rather than the machine's `/bin/sh`, so a script is the same command everywhere and
+   running one does not depend on what the ambient PATH contains — which `pnpm checkup`
+   has to be able to vary in order to report on the machine at all. The same file sets
+   `save-exact`, so a later `pnpm add` cannot quietly unpin the stack.
 
 ## RECORDED REASON — where a Q-08 construct is allowed to exist
 

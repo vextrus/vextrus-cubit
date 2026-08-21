@@ -7,8 +7,9 @@
  * itself in the machine-readable form the structural check reads, and again in
  * docs/toolchain.md. Everywhere else the constructs are assembled or named by category.
  *
- * The directive below names a rule that is not bound in this directory, so it suppresses
- * nothing. The comment is the defect, and the comment is what the rule reports.
+ * The directive below suppresses nothing: the flat config sets noInlineConfig, so no
+ * comment in this tree can turn a rule off. The comment is the defect, and the comment is
+ * what the rule reports.
  */
 /* eslint-disable cubit/no-conversion-literal */ // RECORDED REASON GUARDRAIL_FIXTURE
 
