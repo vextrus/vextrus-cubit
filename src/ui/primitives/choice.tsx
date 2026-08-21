@@ -12,10 +12,11 @@
  *     the next radio and checks it in the same keystroke. It is done on the item's own keydown
  *     — synchronously, off the event that started the move — so it does not depend on when a
  *     focus lands or on a document-level flag a synthetic key press has already cleared.
- *   - **A switch toggles on Space.** A browser turns Space on a `<button>` into a click, and
- *     Radix toggles on the click; a DOM driver that sends the keydown alone does not. So the
- *     keydown toggles, and the click a browser synthesises afterwards is swallowed — one press
- *     is one toggle, whichever of the two the caller's environment sends.
+ *   - **A checkbox and a switch toggle on Space itself.** A browser turns Space on a
+ *     `<button>` into a click, and Radix toggles on the click; a DOM driver that sends the
+ *     keydown alone does not. So the keydown toggles, and the click a browser synthesises
+ *     afterwards is swallowed — one press is one toggle, whichever of the two the caller's
+ *     environment sends.
  *
  * The Slider lives in slider.tsx: it is the one control here that Radix cannot mount without
  * layout, and the reason is written there.

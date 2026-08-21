@@ -335,6 +335,32 @@ describe('Slider — role="slider", and an arrow is one step', () => {
     expect(thumb.getAttribute('aria-valuenow'), 'the value went below its minimum').toBe('0');
   });
 
+  it('keeps a fractional grid: ten presses of 0.1 land on 1', () => {
+    render(<Slider aria-label={NAME} min={0} max={2} step={0.1} defaultValue={[0]} />);
+    const thumb = screen.getByRole('slider');
+
+    thumb.focus();
+    for (const _press of Array.from({ length: 10 })) {
+      fireEvent.keyDown(thumb, { key: 'ArrowRight', code: 'ArrowRight' });
+    }
+
+    // Ten additions of 0.1 in binary floating point is 0.9999999999999999; a value committed
+    // off that would be the float B-07 refuses.
+    expect(thumb.getAttribute('aria-valuenow')).toBe('1');
+  });
+
+  it('holds a grid whose minimum is itself fractional', () => {
+    render(<Slider aria-label={NAME} min={0.5} max={4.5} step={1} defaultValue={[0.5]} />);
+    const thumb = screen.getByRole('slider');
+
+    thumb.focus();
+    fireEvent.keyDown(thumb, { key: 'ArrowRight', code: 'ArrowRight' });
+
+    expect(thumb.getAttribute('aria-valuenow'), 'the step left the grid the minimum sets').toBe(
+      '1.5',
+    );
+  });
+
   it('starts at its minimum when it is given no value', () => {
     render(<Slider aria-label={NAME} min={2} max={10} step={1} />);
     const thumb = screen.getByRole('slider');

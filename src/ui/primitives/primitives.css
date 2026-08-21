@@ -884,7 +884,8 @@
   .datum-tooltip,
   .datum-scrim,
   .datum-dialog,
-  .datum-sheet {
+  .datum-sheet,
+  .datum-tabs-content {
     animation: none;
   }
 }

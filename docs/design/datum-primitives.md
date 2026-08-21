@@ -269,8 +269,9 @@ own: R-UI-004 fixes 120–200 ms for a state change and 240 ms for a panel, so a
 indicator borrows the panel duration rather than inventing a cadence nobody legislated.
 
 Reduced motion: token durations zero via tokens.css; the two looping animations (busy bar,
-Skeleton) and the four arrivals (overlay surface, tooltip, scrim, Dialog/Sheet) are stilled by
-an explicit primitives.css rule, because a zero-length `infinite` animation still runs forever.
+Skeleton) and the five arrivals (overlay surface, tooltip, scrim, Dialog/Sheet, tab panel) are
+stilled by an explicit primitives.css rule, because a zero-length `infinite` animation still
+runs forever.
 Nothing bounces; nothing slides further than 4 px except the Sheet.
 
 ## 16. Both themes

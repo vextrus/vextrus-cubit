@@ -93,7 +93,9 @@ export const Slider = forwardRef<HTMLSpanElement, SliderProps>(function Slider(
 
   const controlled = value !== undefined;
   const values = controlled ? held(value, min) : own;
-  const places = decimals(step);
+  // A step of 1 from a minimum of 0.5 lands on halves, so the rounding has to keep as many
+  // places as the coarser of the two — otherwise settling would move the value off the grid.
+  const places = Math.max(decimals(step), decimals(min));
   const span = max - min;
 
   /** Onto the step grid, inside the bounds, without the float dust a repeated add leaves. */
