@@ -108,8 +108,17 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(function Skele
 export type SeparatorProps = ComponentPropsWithoutRef<typeof SeparatorPrimitive.Root>;
 
 export const Separator = forwardRef<HTMLDivElement, SeparatorProps>(function Separator(
-  { className, ...rest },
+  { className, decorative = true, ...rest },
   ref,
 ) {
-  return <SeparatorPrimitive.Root ref={ref} className={cx('datum-separator', className)} {...rest} />;
+  // A rule between two things is a drawing, not a landmark: it says `role="none"` unless the
+  // screen that mounts it says the division means something (Design Decision §13).
+  return (
+    <SeparatorPrimitive.Root
+      ref={ref}
+      decorative={decorative}
+      className={cx('datum-separator', className)}
+      {...rest}
+    />
+  );
 });

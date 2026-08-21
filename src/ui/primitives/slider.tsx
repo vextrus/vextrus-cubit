@@ -234,6 +234,7 @@ export const Slider = forwardRef<HTMLSpanElement, SliderProps>(function Slider(
               aria-valuemax={max}
               aria-valuenow={at}
               aria-disabled={disabled ? true : undefined}
+              data-orientation={orientation}
               data-disabled={disabled ? '' : undefined}
               className={cx('datum-slider-thumb', 'datum-focus-ring')}
               style={position}

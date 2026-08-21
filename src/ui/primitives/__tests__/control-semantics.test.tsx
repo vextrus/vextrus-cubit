@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 /**
- * The control semantics of Switch, RadioGroup, Slider and Progress (R-UI-010, R-UI-012).
+ * The control semantics of Checkbox, Switch, RadioGroup, Slider and Progress (R-UI-010,
+ * R-UI-012).
  *
- * These four are the primitives whose whole contract is ARIA state plus a key press, so they
+ * These are the primitives whose whole contract is ARIA state plus a key press, so they
  * are the ones a restyle can quietly break: a role that is right and a key that does nothing
  * looks correct in a screenshot. Every behaviour below is asserted twice where the driving
  * matters — once through user-event, which sends the full key sequence a browser sends, and
@@ -17,7 +18,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { Progress, Radio, RadioGroup, Slider, Switch } from '../index';
+import { Checkbox, Progress, Radio, RadioGroup, Slider, Switch } from '../index';
 
 const NAME = 'Field';
 const FIRST = 'First';
@@ -26,6 +27,9 @@ const THIRD = 'Third';
 const OPTION_A = 'a';
 const OPTION_B = 'b';
 const OPTION_C = 'c';
+
+/** Radix's word for a checkbox that is neither checked nor unchecked. */
+const MIXED = 'indeterminate';
 
 const noop = (): void => {
   /* a group nobody is listening to still has to move */
@@ -49,6 +53,28 @@ function renderGroup(onValueChange: (value: string) => void = noop): HTMLElement
 
 const checkedStates = (radios: readonly HTMLElement[]): (string | null)[] =>
   radios.map((radio) => radio.getAttribute('aria-checked'));
+
+describe('Checkbox — Space answers it, whichever way the key arrives', () => {
+  it('toggles under user-event and under a bare keydown alike', async () => {
+    const user = userEvent.setup();
+    render(<Checkbox aria-label={NAME} />);
+    const control = screen.getByRole('checkbox', { name: NAME });
+
+    await user.tab();
+    await user.keyboard('[Space]');
+    expect(control.getAttribute('aria-checked'), 'Space did not check the box').toBe('true');
+
+    fireEvent.keyDown(control, { key: ' ', code: 'Space' });
+    expect(control.getAttribute('aria-checked'), 'a Space keydown did not uncheck it').toBe(
+      'false',
+    );
+  });
+
+  it('reports a mixed state as aria-checked="mixed"', () => {
+    render(<Checkbox aria-label={NAME} checked={MIXED} />);
+    expect(screen.getByRole('checkbox').getAttribute('aria-checked')).toBe('mixed');
+  });
+});
 
 describe('Switch — role="switch", and Space is what toggles it', () => {
   it('renders role="switch" with aria-checked and its name', () => {

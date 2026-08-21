@@ -29,16 +29,84 @@ import {
 } from 'radix-ui';
 import { cx } from './class-names';
 
+/** The key that toggles a checkbox or a switch (WAI-ARIA), spelt as the DOM spells it. */
+const SPACE = ' ';
+
+/**
+ * A click carries the number of times the pointer was pressed; a click a browser synthesised
+ * from a key press carries zero. That is how the toggles below tell their own key press from
+ * a real one without asking which environment or test driver is running.
+ */
+const FROM_A_KEY = 0;
+
+/** What a control needs to answer Space itself and still count one press as one toggle. */
+interface SpaceToggle {
+  readonly onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
+  readonly onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  readonly onPointerDown: (event: PointerEvent<HTMLButtonElement>) => void;
+}
+
+/**
+ * Toggle on the Space keydown, and swallow the click a browser synthesises from it.
+ *
+ * A browser turns Space on a `<button>` into a click and Radix toggles on the click, so a
+ * driver that sends the whole key sequence works either way. One that sends the keydown alone
+ * — a `fireEvent`, a screen reader's own activation — does not, and a control whose behaviour
+ * depends on what sent the key is a control nobody can test. So the keydown does the work and
+ * the echo is dropped.
+ */
+function useSpaceToggle(
+  onKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void,
+  onClick?: (event: MouseEvent<HTMLButtonElement>) => void,
+  onPointerDown?: (event: PointerEvent<HTMLButtonElement>) => void,
+): SpaceToggle {
+  /** A Space this control has already answered, whose synthesised click is still to come. */
+  const answered = useRef(false);
+  /** True only while this hook is dispatching its own click. */
+  const ours = useRef(false);
+
+  return {
+    onKeyDown: (event) => {
+      onKeyDown?.(event);
+      if (event.key !== SPACE) {
+        answered.current = false;
+        return;
+      }
+      if (event.defaultPrevented) return;
+      // Space on a control must not scroll the page, and Radix must not see this key twice.
+      event.preventDefault();
+      const control = event.currentTarget;
+      ours.current = true;
+      control.click();
+      ours.current = false;
+      answered.current = true;
+    },
+    onClick: (event) => {
+      onClick?.(event);
+      if (ours.current || !answered.current || event.detail !== FROM_A_KEY) return;
+      // The browser's echo of a Space this control already answered: one press, one toggle.
+      answered.current = false;
+      event.preventDefault();
+    },
+    onPointerDown: (event) => {
+      onPointerDown?.(event);
+      answered.current = false;
+    },
+  };
+}
+
 export type CheckboxProps = ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>;
 
 export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(function Checkbox(
-  { className, ...rest },
+  { className, onKeyDown, onClick, onPointerDown, ...rest },
   ref,
 ) {
+  const space = useSpaceToggle(onKeyDown, onClick, onPointerDown);
   return (
     <CheckboxPrimitive.Root
       ref={ref}
       className={cx('datum-control', 'datum-checkbox', 'datum-focus-ring', className)}
+      {...space}
       {...rest}
     >
       <CheckboxPrimitive.Indicator className="datum-checkbox-indicator" />
@@ -111,55 +179,16 @@ export const Radio = forwardRef<HTMLButtonElement, RadioProps>(function Radio(
 
 export type SwitchProps = ComponentPropsWithoutRef<typeof SwitchPrimitive.Root>;
 
-/** The key that toggles a switch (WAI-ARIA's switch pattern), spelt as the DOM spells it. */
-const SPACE = ' ';
-
-/**
- * A click carries the number of times the pointer was pressed; a click a browser synthesised
- * from a key press carries zero. That is how the toggle below tells its own key press from a
- * real one without asking what test driver is running.
- */
-const FROM_A_KEY = 0;
-
 export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch(
   { className, onKeyDown, onClick, onPointerDown, ...rest },
   ref,
 ) {
-  /** A Space this control has already answered, whose synthesised click is still to come. */
-  const answered = useRef(false);
-  /** True only while the toggle below is dispatching its own click. */
-  const ours = useRef(false);
-
+  const space = useSpaceToggle(onKeyDown, onClick, onPointerDown);
   return (
     <SwitchPrimitive.Root
       ref={ref}
       className={cx('datum-control', 'datum-switch', 'datum-focus-ring', className)}
-      onKeyDown={(event: KeyboardEvent<HTMLButtonElement>) => {
-        onKeyDown?.(event);
-        if (event.key !== SPACE) {
-          answered.current = false;
-          return;
-        }
-        if (event.defaultPrevented) return;
-        // Space on a control must not scroll the page, and Radix must not see this key twice.
-        event.preventDefault();
-        const control = event.currentTarget;
-        ours.current = true;
-        control.click();
-        ours.current = false;
-        answered.current = true;
-      }}
-      onClick={(event: MouseEvent<HTMLButtonElement>) => {
-        onClick?.(event);
-        if (ours.current || !answered.current || event.detail !== FROM_A_KEY) return;
-        // The browser's echo of a Space this control already answered: one press, one toggle.
-        answered.current = false;
-        event.preventDefault();
-      }}
-      onPointerDown={(event: PointerEvent<HTMLButtonElement>) => {
-        onPointerDown?.(event);
-        answered.current = false;
-      }}
+      {...space}
       {...rest}
     >
       <SwitchPrimitive.Thumb className="datum-switch-thumb" />
