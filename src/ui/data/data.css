@@ -1,0 +1,213 @@
+/*
+ * The data module's stylesheet — the one place this module paints (R-UI-001).
+ *
+ * Not one colour, radius, size or duration is written here as a value: every declaration
+ * resolves through a variable src/ui/tokens.css defines, so a [data-theme] flip reaches the
+ * table and prefers-reduced-motion reaches every transition (the token sheet already resolves
+ * the motion durations to zero under it).
+ *
+ * Imported by src/ui/data/index.ts, so a screen that imports the barrel gets the surfaces with
+ * the components. Decided in docs/design/datum-patterns.md §2-§5.
+ */
+
+/* ---- The table shell (§2) ----------------------------------------------------------- */
+
+.datum-datatable {
+  border: 1px solid var(--graphite-200);
+  border-radius: var(--radius-4);
+  background: var(--graphite-0);
+  overflow: hidden;
+}
+
+.datum-datatable-scroll {
+  position: relative;
+  overflow: auto;
+}
+
+/*
+ * Sticky, so the columns keep saying what they are 40,000 rows down. The z-index is the
+ * sticky layer's, above a pinned cell's own stacking (§3).
+ */
+.datum-datatable-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  min-height: var(--row-compact);
+  background: var(--graphite-50);
+  border-bottom: 1px solid var(--graphite-200);
+}
+
+.datum-datatable-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  min-height: var(--row-compact);
+  padding: 0 var(--space-2);
+  background: var(--graphite-50);
+  border-top: 1px solid var(--graphite-200);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.datum-datatable-head-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 100%;
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-600);
+}
+
+.datum-datatable-head-label {
+  padding: 0 var(--space-2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.datum-datatable-sort {
+  width: 100%;
+  justify-content: flex-start;
+  gap: var(--space-1);
+}
+
+.datum-datatable-sort-mark {
+  color: var(--cobalt-500);
+}
+
+/* The resize hit area: 8 px of edge, showing a hairline while it is being used (§3). */
+.datum-datatable-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--space-2);
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.datum-datatable-resize:hover,
+.datum-datatable-resize:active {
+  background: var(--graphite-300);
+}
+
+/* ---- Body, rows and cells (§2) ------------------------------------------------------ */
+
+.datum-datatable-body {
+  position: relative;
+  width: 100%;
+}
+
+.datum-datatable-row,
+.datum-datatable-group-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--graphite-100);
+  transition: background-color var(--motion-state-duration) var(--motion-ease);
+}
+
+.datum-datatable-row:hover {
+  background: var(--graphite-100);
+}
+
+/* Selected reads as a tint *and* a checked box — never colour alone (R-UI-060). */
+.datum-datatable-row[data-selected] {
+  background: var(--cobalt-100);
+}
+
+.datum-datatable-cell {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 100%;
+  padding: 0 var(--space-2);
+  font-size: var(--text-13);
+  color: var(--graphite-800);
+  background: inherit;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.datum-datatable-cell.numeric {
+  justify-content: flex-end;
+}
+
+.datum-datatable-value {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.datum-datatable-edit {
+  min-height: calc(var(--row-compact) - var(--space-1));
+}
+
+.datum-datatable-select {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  height: 100%;
+}
+
+/* ---- Group rows (§3) ---------------------------------------------------------------- */
+
+.datum-datatable-group-row {
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  background: var(--graphite-50);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.datum-datatable-group-count {
+  color: var(--graphite-600);
+}
+
+/* ---- The empty state (§4) ----------------------------------------------------------- */
+
+.datum-datatable-empty {
+  padding: var(--space-6);
+  text-align: center;
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+/* ---- Chips and badges (§5) ---------------------------------------------------------- */
+
+.datum-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  /* 20 px: a chip sits inside either row density without disturbing its rhythm (§5). */
+  height: 20px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-4);
+  font-size: var(--text-12);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.datum-basis-chip,
+.datum-coverage-chip {
+  background: var(--graphite-0);
+  border: 1px solid var(--graphite-200);
+  color: var(--graphite-700);
+}
+
+.datum-chip-mark {
+  display: inline-flex;
+  font-size: var(--text-12);
+}
+
+.datum-unit-badge {
+  background: var(--graphite-100);
+  color: var(--graphite-700);
+}
