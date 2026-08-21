@@ -2,9 +2,9 @@
  * L-AI-01 — `callModel` in core is the only path to a model. Importing a model
  * SDK anywhere else routes around the seam that carries the refusal register,
  * the budget and the audit trail, so it is an error.
- *
- * @type {import('eslint').Rule.RuleModule}
  */
+import { isInsideSeam } from './seam.mjs';
+
 const SEAM_DIR = 'src/core/';
 
 const MODEL_SDKS = [
@@ -32,7 +32,8 @@ function isModelSdk(specifier) {
   );
 }
 
-export default {
+/** @type {import('eslint').Rule.RuleModule} */
+const rule = {
   meta: {
     type: 'problem',
     docs: {
@@ -44,13 +45,12 @@ export default {
     },
   },
   create(context) {
-    const filename = context.filename.replaceAll('\\', '/');
-    if (filename.includes(SEAM_DIR)) {
+    if (isInsideSeam(context, SEAM_DIR)) {
       return {};
     }
 
     /**
-     * @param {import('estree').Node} node
+     * @param {import('eslint').Rule.Node} node
      * @param {unknown} value
      */
     const check = (node, value) => {
@@ -90,3 +90,5 @@ export default {
     };
   },
 };
+
+export default rule;

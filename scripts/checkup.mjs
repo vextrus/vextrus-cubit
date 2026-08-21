@@ -22,13 +22,30 @@ import { NOT_YET_BUILT, at, say } from './lib/lane.mjs';
 function ask(file, args) {
   const result = spawnSync(file, [...args], { encoding: 'utf8' });
   if (result.error !== undefined) {
-    return { ok: false, text: result.error.message };
+    return { ok: false, text: result.error.message, answer: '' };
   }
   const text = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
   if (result.status !== 0) {
-    return { ok: false, text: `${file} ${args.join(' ')} exited ${result.status}: ${text}` };
+    return { ok: false, text: `${file} ${args.join(' ')} exited ${result.status}: ${text}`, answer: '' };
   }
-  return { ok: true, text };
+  // `text` is for the human reading a FAIL line; `answer` is what the pin is
+  // compared against. They are not the same thing: a corepack download notice,
+  // a Node deprecation warning or an update banner lands on stderr, and a pin
+  // check that concatenates it reports a mismatch on a machine that is pinned
+  // correctly.
+  return { ok: true, text, answer: (result.stdout ?? '').trim() };
+}
+
+/**
+ * The version a tool named, wherever in its answer it put it. A tool is allowed
+ * to be chatty; it is not allowed to make checkup lie about the pin.
+ *
+ * @param {string} text
+ * @returns {string | null}
+ */
+function versionIn(text) {
+  const found = /\b(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\b/.exec(text);
+  return found?.[1] ?? null;
 }
 
 /** A reason is one line: newlines would break the item grammar. @param {string} text */
@@ -81,9 +98,13 @@ const ROSTER = [
       if (!answer.ok) {
         return oneLine(answer.text);
       }
-      return answer.text === pin
+      const running = versionIn(answer.answer);
+      if (running === null) {
+        return `pnpm --version did not name a version: ${oneLine(answer.text)}`;
+      }
+      return running === pin
         ? null
-        : `package.json pins pnpm ${pin}, PATH answers ${oneLine(answer.text)}`;
+        : `package.json pins pnpm ${pin}, PATH answers ${running}`;
     },
   },
   {
@@ -95,16 +116,16 @@ const ROSTER = [
       if (!answer.ok) {
         return oneLine(answer.text);
       }
-      const running = /\buv\s+(\d+\.\d+\.\d+)/.exec(answer.text);
-      if (running === null || running[1] === undefined) {
+      const running = versionIn(answer.answer);
+      if (running === null) {
         return `uv --version did not name a version: ${oneLine(answer.text)}`;
       }
       // "uv exists" is not what C-06 pins. The pin lives in cad/pyproject.toml,
       // where `uv run` itself enforces it; checkup says so at session start
       // rather than at the first cad-ruff failure.
-      return running[1] === pin
+      return running === pin
         ? null
-        : `cad/pyproject.toml pins uv ${pin}, PATH answers ${running[1]}`;
+        : `cad/pyproject.toml pins uv ${pin}, PATH answers ${running}`;
     },
   },
   // typst and libredwg are pinned on paper in docs/toolchain.md; the increment
@@ -128,7 +149,10 @@ for (const item of ROSTER) {
   }
   let reason = null;
   try {
-    reason = item.check();
+    // An armed item without a check is a green light nobody earned, so it
+    // reports a reason rather than an `ok` (C-06: never silently passed).
+    reason =
+      item.check === undefined ? `${item.name} is armed but has no check wired to it` : item.check();
   } catch (error) {
     reason = oneLine(error instanceof Error ? error.message : String(error));
   }

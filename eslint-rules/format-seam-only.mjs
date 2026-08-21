@@ -4,9 +4,9 @@
  * errors everywhere else, and `en-BD` is not a CLDR locale at all: it falls
  * back to Western grouping, which is exactly the bug lakh/crore exists to
  * prevent.
- *
- * @type {import('eslint').Rule.RuleModule}
  */
+import { isSeamFile } from './seam.mjs';
+
 const SEAM = 'src/core/format.ts';
 
 const LOCALE_METHODS = new Set([
@@ -16,7 +16,32 @@ const LOCALE_METHODS = new Set([
   'localeCompare',
 ]);
 
-export default {
+/**
+ * The objects that hold the global `Intl`. `globalThis.Intl.NumberFormat(…)` is
+ * the same seam violation as `Intl.NumberFormat(…)` and reads as ordinary code,
+ * so the member form is not an escape hatch.
+ */
+const GLOBAL_HOLDERS = new Set(['globalThis', 'window', 'self', 'global']);
+
+/**
+ * The property a member expression reads, for `a.b` and for `a['b']` alike.
+ * Bracket notation is ordinary JavaScript, not evasion, and a guardrail that
+ * only understands the dot is a guardrail with a documented way around it.
+ *
+ * @param {import('eslint').Rule.Node & { type: 'MemberExpression' }} node
+ * @returns {string | null}
+ */
+function propertyName(node) {
+  if (node.computed) {
+    return node.property.type === 'Literal' && typeof node.property.value === 'string'
+      ? node.property.value
+      : null;
+  }
+  return node.property.type === 'Identifier' ? node.property.name : null;
+}
+
+/** @type {import('eslint').Rule.RuleModule} */
+const rule = {
   meta: {
     type: 'problem',
     docs: {
@@ -30,30 +55,45 @@ export default {
     },
   },
   create(context) {
-    const filename = context.filename.replaceAll('\\', '/');
-    const isSeam = filename.endsWith(SEAM);
+    const isSeam = isSeamFile(context, SEAM);
 
     return {
       Identifier(node) {
         if (node.name !== 'Intl' || isSeam) {
           return;
         }
-        // Only the global object, not a property or a local binding's key.
-        const parent = /** @type {{ type: string, property?: unknown }} */ (node.parent);
-        if (parent.type === 'MemberExpression' && parent.property === node) {
+        // A member's property and an object literal's key are somebody else's
+        // `Intl`, not the global one. `globalThis.Intl` is reported by the
+        // MemberExpression visitor below, which can tell the two apart.
+        const parent = node.parent;
+        if (parent.type === 'MemberExpression' && parent.property === node && !parent.computed) {
+          return;
+        }
+        if (parent.type === 'Property' && parent.key === node && !parent.computed) {
           return;
         }
         context.report({ node, messageId: 'intl' });
       },
 
       MemberExpression(node) {
-        if (isSeam || node.property.type !== 'Identifier') {
+        if (isSeam) {
           return;
         }
-        if (!LOCALE_METHODS.has(node.property.name)) {
+        const name = propertyName(node);
+        if (name === null) {
           return;
         }
-        context.report({ node: node.property, messageId: 'method', data: { name: node.property.name } });
+        if (LOCALE_METHODS.has(name)) {
+          context.report({ node: node.property, messageId: 'method', data: { name } });
+          return;
+        }
+        if (
+          name === 'Intl' &&
+          node.object.type === 'Identifier' &&
+          GLOBAL_HOLDERS.has(node.object.name)
+        ) {
+          context.report({ node: node.property, messageId: 'intl' });
+        }
       },
 
       Literal(node) {
@@ -64,3 +104,5 @@ export default {
     };
   },
 };
+
+export default rule;

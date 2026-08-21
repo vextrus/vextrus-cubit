@@ -38,6 +38,10 @@ const SURFACE: readonly string[] = [
   'playwright.config.ts',
   'scripts',
   'tests/lint-fixtures',
+  // The acceptance suite is part of the change this increment makes, so Q-08's
+  // structural check reads it too: a suite that reached for `.only` to get
+  // itself green would be the exact failure Q-08 names.
+  'tests/toolchain',
   'tsconfig.json',
   'vitest.config.ts',
 ];

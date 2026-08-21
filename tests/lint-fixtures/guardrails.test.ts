@@ -90,9 +90,15 @@ describe('B-05 the guardrail registry fires', () => {
         messages.filter((message) => message.fatal === true),
         `${row.dir}/good.${row.ext} did not parse`,
       ).toEqual([]);
+      // The contract is the probe's exit code: `eslint --no-ignore
+      // tests/lint-fixtures/<dir>/good.<ext>` exits 0, and that is zero
+      // diagnostics from every rule, not just this row's. Q-08's own rules and
+      // no-explicit-any are bound tree-wide and do reach these files, so a good
+      // fixture that trips one of them would fail the probe while a
+      // rule-filtered assertion stayed green.
       expect(
-        messages.filter((message) => message.ruleId === row.ruleId),
-        `${row.ruleId} false-positived on its own good fixture`,
+        messages.map((message) => `${message.line}:${message.column} ${message.ruleId}`),
+        `${row.dir}/good.${row.ext} must be clean for every rule — the probe's contract is exit 0`,
       ).toEqual([]);
     });
   }

@@ -2,9 +2,9 @@
  * L-FRM-06 — the unit canon is exact and it lives in one file. A conversion
  * constant typed at a call site is a second copy of the canon that nobody will
  * ever update, so it is an error outside `src/core/units.ts`.
- *
- * @type {import('eslint').Rule.RuleModule}
  */
+import { isSeamFile } from './seam.mjs';
+
 const SEAM = 'src/core/units.ts';
 
 /** The exact constants L-FRM-06 names. */
@@ -18,7 +18,8 @@ const CANON = new Map([
 /** kg/MT is an integer, so it only reads as a conversion when it converts. */
 const KG_PER_MT = 1000;
 
-export default {
+/** @type {import('eslint').Rule.RuleModule} */
+const rule = {
   meta: {
     type: 'problem',
     docs: {
@@ -30,8 +31,7 @@ export default {
     },
   },
   create(context) {
-    const filename = context.filename.replaceAll('\\', '/');
-    if (filename.endsWith(SEAM)) {
+    if (isSeamFile(context, SEAM)) {
       return {};
     }
 
@@ -64,3 +64,5 @@ export default {
     };
   },
 };
+
+export default rule;

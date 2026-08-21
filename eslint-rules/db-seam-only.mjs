@@ -2,9 +2,9 @@
  * SEAM-TENANT — `forTenant(ctx)` / `runAsSystem(reason)` are the only database
  * handles, and they live in `src/core/db.ts`. A driver or schema import
  * anywhere else is a handle nobody scoped to a tenant, so it is an error.
- *
- * @type {import('eslint').Rule.RuleModule}
  */
+import { isSeamFile } from './seam.mjs';
+
 const SEAM = 'src/core/db.ts';
 
 const DRIVERS = ['pg', 'pg-pool', 'pg-boss', 'postgres', 'drizzle-orm', 'drizzle-kit'];
@@ -20,7 +20,8 @@ function isBannedModule(specifier) {
   return SCHEMA.test(specifier.replace(/^(@\/|\.\.?\/)+/, '/'));
 }
 
-export default {
+/** @type {import('eslint').Rule.RuleModule} */
+const rule = {
   meta: {
     type: 'problem',
     docs: {
@@ -33,13 +34,12 @@ export default {
     },
   },
   create(context) {
-    const filename = context.filename.replaceAll('\\', '/');
-    if (filename.endsWith(SEAM)) {
+    if (isSeamFile(context, SEAM)) {
       return {};
     }
 
     /**
-     * @param {import('estree').Node} node
+     * @param {import('eslint').Rule.Node} node
      * @param {unknown} value
      */
     const check = (node, value) => {
@@ -79,3 +79,5 @@ export default {
     };
   },
 };
+
+export default rule;

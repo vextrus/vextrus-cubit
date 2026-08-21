@@ -2,14 +2,15 @@
  * R-UI-001 — no colour literal outside tokens. A hex, rgb, hsl or oklch value
  * typed into a component is a token that escaped the system, and the design
  * gallery can never see it.
- *
- * @type {import('eslint').Rule.RuleModule}
  */
+import { isSeamFile } from './seam.mjs';
+
 const SEAM = 'src/ui/tokens.ts';
 
 const COLOUR = /(#[0-9a-fA-F]{3,8}\b)|\b(rgba?|hsla?|hwb|oklch|oklab|lch|lab|color-mix)\s*\(/;
 
-export default {
+/** @type {import('eslint').Rule.RuleModule} */
+const rule = {
   meta: {
     type: 'problem',
     docs: {
@@ -21,13 +22,12 @@ export default {
     },
   },
   create(context) {
-    const filename = context.filename.replaceAll('\\', '/');
-    if (filename.endsWith(SEAM)) {
+    if (isSeamFile(context, SEAM)) {
       return {};
     }
 
     /**
-     * @param {import('estree').Node} node
+     * @param {import('eslint').Rule.Node} node
      * @param {string} text
      */
     const check = (node, text) => {
@@ -47,8 +47,10 @@ export default {
         }
       },
       TemplateElement(node) {
-        check(/** @type {import('estree').Node} */ (node), node.value.raw);
+        check(/** @type {import('eslint').Rule.Node} */ (node), node.value.raw);
       },
     };
   },
 };
+
+export default rule;

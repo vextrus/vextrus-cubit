@@ -20,7 +20,11 @@
 import { spawnSync } from 'node:child_process';
 import { NOT_YET_BUILT, ROOT, at, hasInput, say } from './lib/lane.mjs';
 
-/** node_modules/.bin/<name>, so no stage pays pnpm's start-up twice. */
+/**
+ * node_modules/.bin/<name>, so no stage pays pnpm's start-up twice.
+ *
+ * @param {string} name
+ */
 const bin = (name) => at(`node_modules/.bin/${name}`);
 
 /**
@@ -87,7 +91,7 @@ const ROSTER = [
   },
 ];
 
-/** @param {number} startedAt */
+/** @param {bigint} startedAt a `process.hrtime.bigint()` reading */
 const sinceMs = (startedAt) => Math.round(Number(process.hrtime.bigint() - startedAt) / 1e6);
 
 const startedAt = process.hrtime.bigint();

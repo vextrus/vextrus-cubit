@@ -11,12 +11,13 @@
  * else. A rule that forbade fractional literals there too would forbid the one
  * place the Bible requires them, and the first increment to write the canon
  * would fail the gate on its own seam.
- *
- * @type {import('eslint').Rule.RuleModule}
  */
+import { isSeamFile } from './seam.mjs';
+
 const SEAM = 'src/core/units.ts';
 
-export default {
+/** @type {import('eslint').Rule.RuleModule} */
+const rule = {
   meta: {
     type: 'problem',
     docs: {
@@ -31,7 +32,7 @@ export default {
   },
   create(context) {
     // The unit canon's own file, exactly as no-conversion-literal reads it.
-    if (context.filename.replaceAll('\\', '/').endsWith(SEAM)) {
+    if (isSeamFile(context, SEAM)) {
       return {};
     }
 
@@ -73,3 +74,5 @@ export default {
     };
   },
 };
+
+export default rule;

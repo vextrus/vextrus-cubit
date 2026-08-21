@@ -13,8 +13,6 @@
  *
  * The flat config sets `linterOptions.noInlineConfig`, so a blanket disable
  * directive cannot switch this rule off before it reports.
- *
- * @type {import('eslint').Rule.RuleModule}
  */
 const LINT_DIRECTIVE = ['eslint', 'disable'].join('-');
 const TYPE_SUPPRESSIONS = ['ignore', 'expect-error', 'nocheck'].map((word) => `@ts-${word}`);
@@ -24,7 +22,8 @@ const SUPPRESSIONS = [
   ...TYPE_SUPPRESSIONS.map((directive) => new RegExp(`${directive}\\b`)),
 ];
 
-export default {
+/** @type {import('eslint').Rule.RuleModule} */
+const rule = {
   meta: {
     type: 'problem',
     docs: {
@@ -58,3 +57,5 @@ export default {
     };
   },
 };
+
+export default rule;
