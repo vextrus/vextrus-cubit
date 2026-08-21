@@ -1,0 +1,46 @@
+{
+  // C-06: TypeScript strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes.
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "jsx": "preserve",
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    "noEmit": true,
+    "allowJs": false,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "incremental": false
+  },
+  // Risk note 3: tsc with an empty include errors "no inputs" before src/ exists, so the
+  // toolchain's own TypeScript — configs, the plugin's types, the fixture suites — is the
+  // input set until the product tree lands. The product globs are pre-wired and match
+  // nothing yet.
+  "include": [
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "drizzle.config.ts",
+    "eslint-rules/cubit.d.ts",
+    "tests/lint-fixtures/*.test.ts",
+    "tests/toolchain/**/*.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "db/**/*.ts"
+  ],
+  // The bad fixtures are lint inputs, not compiler inputs: they are broken on purpose.
+  "exclude": ["node_modules", ".next", ".next-verify", ".scratch", "dist", "tests/lint-fixtures/*/"]
+}
