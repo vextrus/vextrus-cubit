@@ -24,12 +24,24 @@ const version = (file, args) => {
   return `${result.stdout ?? ''}`.trim();
 };
 
-/** Node: the .nvmrc pin is the whole statement — 24 (C-06, AC-5). */
+/**
+ * Node: the .nvmrc pin is the whole statement — `24` today (C-06, AC-5).
+ *
+ * The pin says as much as it says: `24` pins the major, `24.5` the minor, `24.5.1` the
+ * patch. So the check compares the segments the pin actually writes, and no more — reading
+ * only the major would pass a mismatched patch, and comparing a full pin against the major
+ * alone would FAIL forever on a correctly pinned machine (B-05: a mechanical guardrail
+ * fires on the right condition).
+ */
 function checkNode() {
   const pin = read('.nvmrc').trim();
-  const [major] = process.versions.node.split('.');
+  const wanted = pin.replace(/^v/, '').split('.');
+  const found = process.versions.node.split('.');
   detail(`node ${process.version} against the .nvmrc pin ${pin}`);
-  if (major !== pin) return `node ${process.version} is not the .nvmrc pin ${pin}`;
+  if (!/^v?\d+(\.\d+)*$/.test(pin)) return `.nvmrc pins ${pin}, which is not a Node version`;
+  if (!wanted.every((part, i) => found[i] === part)) {
+    return `node ${process.version} is not the .nvmrc pin ${pin}`;
+  }
   return null;
 }
 

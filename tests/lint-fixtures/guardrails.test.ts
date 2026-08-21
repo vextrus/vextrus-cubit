@@ -148,6 +148,22 @@ describe('the guardrails fire on the branches no fixture spells (B-05)', () => {
     expect(await ruleIdsFor('src/core/format.ts', collator)).not.toContain('cubit/format-seam-only');
   });
 
+  it('L-FMT-01: reaching the global by another name, or by bracket, is the same reach', async () => {
+    const outside = 'src/ui/table.ts';
+    for (const source of [
+      'export const f = globalThis.Intl.NumberFormat;\n',
+      'export const f = globalThis["Intl"];\n',
+      'export const f = window.Intl;\n',
+      'declare const a: string;\nexport const c = a["localeCompare"]("b");\n',
+      'declare const n: number;\nexport const s = n["toLocaleString"]();\n',
+    ]) {
+      expect(await ruleIdsFor(outside, source), source.trim()).toContain('cubit/format-seam-only');
+    }
+    // A property that merely shares the name is not the global, and stays silent.
+    const named = 'export const formats = { Intl: 1 };\nexport const n = formats.Intl;\n';
+    expect(await ruleIdsFor(outside, named)).not.toContain('cubit/format-seam-only');
+  });
+
   it('B-07: the float rule reads the number, not the spelling, and the canon is exempt', async () => {
     const outside = 'src/services/price.ts';
     for (const source of [

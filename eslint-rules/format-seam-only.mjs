@@ -16,6 +16,29 @@ const LOCALE_METHODS = new Set([
 
 const BANNED_LOCALE = ['en', 'BD'].join('-');
 
+/**
+ * The names that reach the global object. `globalThis.Intl` is the same `Intl` the clause
+ * names; only the spelling is longer.
+ */
+const GLOBAL_OBJECTS = new Set(['globalThis', 'window', 'self', 'global']);
+
+/**
+ * The name a member expression states, whether written `x.localeCompare` or
+ * `x['localeCompare']`. Reading only the dotted form leaves the bracket form as a way round
+ * the rule, which is the same hole with two more characters in it (as no-float-arithmetic
+ * already reads `Number['parseFloat']`).
+ */
+function memberName(node) {
+  const property = node.property;
+  if (!node.computed) return property.type === 'Identifier' ? property.name : null;
+  return property.type === 'Literal' && typeof property.value === 'string' ? property.value : null;
+}
+
+/** True for `globalThis`, `window`, `self`, `global` — the global object under any name. */
+function isGlobalObject(node) {
+  return node.type === 'Identifier' && GLOBAL_OBJECTS.has(node.name);
+}
+
 export default {
   meta: {
     type: 'problem',
@@ -38,20 +61,30 @@ export default {
       Identifier(node) {
         if (node.name !== 'Intl') return;
         const parent = node.parent;
-        // `x.Intl` and `{ Intl: … }` are not the global; `Intl.NumberFormat` is.
+        // `x.Intl` is not the global — unless x is the global object, where
+        // `globalThis.Intl` is exactly it. `{ Intl: … }` is a key, not a reference.
         if (parent?.type === 'MemberExpression' && parent.property === node && !parent.computed) {
+          if (isGlobalObject(parent.object)) {
+            context.report({ node, messageId: 'intl', data: { seam: SEAM } });
+          }
           return;
         }
         if (parent?.type === 'Property' && parent.key === node && !parent.computed) return;
         context.report({ node, messageId: 'intl', data: { seam: SEAM } });
       },
       MemberExpression(node) {
-        if (node.computed || node.property.type !== 'Identifier') return;
-        if (!LOCALE_METHODS.has(node.property.name)) return;
+        const name = memberName(node);
+        if (name === null) return;
+        // `globalThis['Intl']`: the bracket form of the same reach for the global.
+        if (name === 'Intl' && node.computed && isGlobalObject(node.object)) {
+          context.report({ node, messageId: 'intl', data: { seam: SEAM } });
+          return;
+        }
+        if (!LOCALE_METHODS.has(name)) return;
         context.report({
           node: node.property,
           messageId: 'method',
-          data: { name: node.property.name, seam: SEAM },
+          data: { name, seam: SEAM },
         });
       },
       Literal(node) {

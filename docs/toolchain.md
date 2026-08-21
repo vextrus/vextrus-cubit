@@ -196,3 +196,11 @@ LANE_NOT_YET_BUILT` where it does not, then the final wall-time line and nothing
 expectation is derived from the directories, not from `scripts/verify.mjs`, so the check is
 an independent answer rather than the script agreeing with itself — and it needs no
 maintenance when a later increment arms a lane by landing its input root.
+
+That check runs on GitHub, so the tree carries a local one too. verify's fourth stage is
+`vitest run`, so a test cannot spawn `pnpm verify` without running itself; instead the
+roster and the line grammar live in `scripts/lib/verify-roster.mjs`, which `scripts/verify.mjs`
+runs and `tests/toolchain/verify.test.ts` reads. That test asserts the real exported roster
+and its input roots, the armed set against this tree's directories, and — by driving the
+real `runRoster` over a stubbed roster — the `ok`/`SKIP`/`FAIL` line grammar, the final
+wall-time line, and the fail-fast branch that no green run ever reaches.
