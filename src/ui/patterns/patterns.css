@@ -1,0 +1,171 @@
+/*
+ * The patterns module's stylesheet — the one place this module paints (R-UI-001).
+ *
+ * Not one colour, radius, size or duration is written here as a value: every declaration
+ * resolves through a variable src/ui/tokens.css defines, so a [data-theme] flip reaches every
+ * state and prefers-reduced-motion reaches every transition (the token sheet already resolves
+ * the motion durations to zero under it).
+ *
+ * Imported by src/ui/patterns/index.ts. Decided in docs/design/datum-patterns.md §6-§9.
+ */
+
+/* ---- The state block: EmptyState, ErrorState, PermissionDenied (§6) ----------------- */
+
+.datum-state-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 360px;
+  margin: 0 auto;
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.datum-state-title {
+  margin: 0;
+  font-size: var(--text-14);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.datum-state-body {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+.datum-state-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.datum-report-id,
+.datum-permission {
+  font-family: var(--font-mono);
+  color: var(--graphite-700);
+}
+
+/* ---- The bars: PartialNotice and OfflineBanner (§7) --------------------------------- */
+
+.datum-bar {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-4);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+}
+
+/* The meaning is in the words and the count, never the tint alone (R-UI-060). */
+.datum-bar-warn {
+  background: var(--warn-surface);
+  color: var(--warn);
+}
+
+.datum-bar-info {
+  background: var(--info-surface);
+  color: var(--info);
+}
+
+/* ---- RefusalState and EvidenceLink (§8) --------------------------------------------- */
+
+.datum-refusal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 480px;
+  padding: var(--space-4);
+  border: 1px solid var(--graphite-200);
+  border-radius: var(--radius-8);
+  background: var(--graphite-50);
+}
+
+.datum-refusal-code {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.datum-refusal-message {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+}
+
+.datum-refusal-remedy {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+/* Underlined always: a link a reader can only find by its colour is not a link (R-UI-060). */
+.datum-evidence-link {
+  align-self: flex-start;
+  font-size: var(--text-13);
+  color: var(--cobalt-500);
+  text-decoration: underline;
+  transition: color var(--motion-state-duration) var(--motion-ease);
+}
+
+.datum-evidence-link:hover {
+  color: var(--cobalt-600);
+}
+
+/* ---- ConsequenceDialog (§9) --------------------------------------------------------- */
+
+.datum-consequence-stale-note {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-13);
+  color: var(--warn);
+}
+
+/* The commit that did not complete: the danger role's words, in the same place as the stale
+   note, because both are the dialog telling the reader what just happened (§9). */
+.datum-consequence-failed {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-13);
+  color: var(--danger);
+}
+
+.datum-consequence-lines {
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.datum-consequence-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--row-compact);
+  border-bottom: 1px solid var(--graphite-100);
+  font-size: var(--text-13);
+  color: var(--graphite-800);
+  transition: background-color var(--motion-state-duration) var(--motion-ease);
+}
+
+/* A line that says something different now, marked as well as re-rendered (§9). */
+.datum-consequence-line[data-changed] {
+  background: var(--warn-surface);
+}
+
+.datum-consequence-count {
+  color: var(--graphite-900);
+  text-align: right;
+}
+
+.datum-consequence-count.datum-changed {
+  color: var(--warn);
+}
+
+.datum-consequence-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
