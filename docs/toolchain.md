@@ -189,3 +189,10 @@ second `pnpm verify` with the same roster. CI runs that chain on every push and 
 request, which is what keeps it true: verify writes only to gitignored paths
 (`.scratch/`, `.next-verify/`, `cad/.venv/`), so a green run leaves the tree exactly as it
 found it.
+
+CI also reads the first run's roster back and judges it against the checkout: one line per
+stage in roster order, `ok` where the stage's input directory exists and `SKIP
+LANE_NOT_YET_BUILT` where it does not, then the final wall-time line and nothing else. The
+expectation is derived from the directories, not from `scripts/verify.mjs`, so the check is
+an independent answer rather than the script agreeing with itself — and it needs no
+maintenance when a later increment arms a lane by landing its input root.

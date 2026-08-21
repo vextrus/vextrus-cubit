@@ -51,6 +51,52 @@ jobs:
         shell: bash
         run: pnpm verify | tee "${RUNNER_TEMP}/verify-1.txt"
 
+      # AC-1, C-06: the roster of the real tree, judged against the real tree. Arming is a
+      # directory question, so this step asks the directories — an independent answer to the
+      # one verify printed, which is the only way a check on a script's own rule is a check.
+      - name: The roster is the tree's own answer
+        shell: bash
+        run: |
+          set -euo pipefail
+          input_root() {
+            case "$1" in
+              typegen|build) echo src/app ;;
+              db-drift) echo db/schema ;;
+              method-hashes) echo src/core/methods ;;
+              catalogue-drift) echo src/core/catalogue ;;
+              cad-ruff) echo cad ;;
+              cad-pytest) echo cad/tests ;;
+              *) echo '' ;;
+            esac
+          }
+          mapfile -t printed < <(grep '^verify: ' "${RUNNER_TEMP}/verify-1.txt")
+          line=0
+          for stage in typegen tsc eslint vitest db-drift method-hashes catalogue-drift \
+                       cad-ruff cad-pytest build; do
+            root="$(input_root "$stage")"
+            if [ -n "$root" ] && [ ! -d "$root" ]; then
+              want="^verify: ${stage} SKIP LANE_NOT_YET_BUILT\$"
+            else
+              want="^verify: ${stage} ok \\([0-9]+ms\\)\$"
+            fi
+            got="${printed[$line]:-<no line>}"
+            if ! [[ "$got" =~ $want ]]; then
+              echo "roster line $((line + 1)): expected /${want}/, got '${got}'"
+              exit 1
+            fi
+            line=$((line + 1))
+          done
+          final="${printed[$line]:-<no line>}"
+          if ! [[ "$final" =~ ^verify:\ ok\ \([0-9]+(\.[0-9]+)?s\)$ ]]; then
+            echo "final line: expected 'verify: ok (<S>s)', got '${final}'"
+            exit 1
+          fi
+          if [ "${#printed[@]}" -ne $((line + 1)) ]; then
+            echo "the contract is one line per stage and the final line; got:"
+            printf '%s\n' "${printed[@]}"
+            exit 1
+          fi
+
       - name: The tree is untouched
         shell: bash
         run: |
