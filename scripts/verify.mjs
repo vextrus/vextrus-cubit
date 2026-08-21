@@ -15,35 +15,23 @@
  *      increment cannot arm a lane by wishing.
  */
 import { spawnSync } from 'node:child_process';
-import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { LANE_NOT_YET_BUILT, REPO, detail, hasInputDir, say } from './lib/lane.mjs';
+import { checkSchemaDrift } from './lib/schema-drift.mjs';
 
 const bin = (name) => join(REPO, 'node_modules', '.bin', name);
 
-/** Schema drift generates here: gitignored, cold on every run, tree untouched. */
-const DRIFT_SCRATCH = join(REPO, '.scratch', 'db-drift');
-
-const coldScratch = () => {
-  rmSync(DRIFT_SCRATCH, { recursive: true, force: true });
-};
-
 /**
  * The roster, in order. `input` is the directory whose absence skips the stage; a stage
- * with no `input` is armed always.
+ * with no `input` is armed always. A stage is either a command (`file`/`args`) or a `run`
+ * function, for a check that is a comparison rather than one exit code.
  */
 const STAGES = [
   { name: 'typegen', input: 'src/app', file: bin('next'), args: ['typegen'] },
   { name: 'tsc', file: bin('tsc'), args: ['--noEmit'] },
   { name: 'eslint', file: bin('eslint'), args: ['.'] },
   { name: 'vitest', file: bin('vitest'), args: ['run'] },
-  {
-    name: 'db-drift',
-    input: 'db/schema',
-    file: bin('drizzle-kit'),
-    args: ['generate', '--config', 'drizzle.config.ts', '--out', DRIFT_SCRATCH],
-    before: coldScratch,
-  },
+  { name: 'db-drift', input: 'db/schema', run: () => checkSchemaDrift(REPO) },
   {
     name: 'method-hashes',
     input: 'src/core/methods',
@@ -86,8 +74,8 @@ const STAGES = [
 ];
 
 function runStage(stage) {
+  if (stage.run !== undefined) return stage.run();
   if (stage.file === null) return { ok: false, output: stage.unwired };
-  stage.before?.();
   const result = spawnSync(stage.file, stage.args, {
     cwd: stage.cwd ?? REPO,
     env: { ...process.env, CI: '1', FORCE_COLOR: '0', ...(stage.env ?? {}) },

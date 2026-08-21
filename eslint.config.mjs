@@ -78,10 +78,26 @@ export default [
     rules: Q08_RULES,
   },
 
-  // The toolchain's own JavaScript — scripts, configs and the rules themselves.
+  // The toolchain's own JavaScript — scripts, configs and the rules themselves. Every
+  // extension ESLint lints by default is bound, not just the one the tree happens to use
+  // today: a single .js codemod or .cjs plugin config is otherwise a hole in Q-08's
+  // mechanical surface, where a suppression passes `eslint .` unreported.
   {
-    files: ['**/*.mjs'],
-    languageOptions: { ecmaVersion: 'latest', sourceType: 'module' },
+    files: ['**/*.mjs', '**/*.js', '**/*.jsx'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+    plugins: { cubit },
+    rules: {
+      'cubit/no-suppressions': 'error',
+      'cubit/no-skip-only': 'error',
+    },
+  },
+  {
+    files: ['**/*.cjs'],
+    languageOptions: { ecmaVersion: 'latest', sourceType: 'commonjs' },
     plugins: { cubit },
     rules: {
       'cubit/no-suppressions': 'error',

@@ -11,12 +11,26 @@ import { isFile } from './paths.mjs';
 const TOKENS = 'src/ui/tokens.ts';
 
 // The hex has to stand on its own: `#2447f0` is a colour, the fragment in `/docs#abcdef`
-// is not, and a rule that cannot tell them apart is a rule someone turns off.
-const HEX = /(?:^|[\s:(,;])#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-zA-Z_-])/;
-const FUNCTIONAL = /\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color)\s*\(/;
+// is not, and a rule that cannot tell them apart is a rule someone turns off. What makes
+// the fragment a fragment is the path in front of it — not the punctuation, which is why
+// `bg-[#2447f0]` (Tailwind's arbitrary value) and `x=#ff0000` are colours all the same.
+const HEX = /#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-zA-Z_-])/g;
+
+/** The token before the `#` is a path or a URL: it carries a slash or a dot. */
+const FRAGMENT = /(?:^|[\s'"(,;])[^\s'"(),;]*[/.][^\s'"(),;]*$/;
+
+// `color-mix()` is a colour the way `oklch()` is, and `\bcolor\s*\(` does not reach it.
+const FUNCTIONAL = /\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color-mix|color)\s*\(/;
+
+function hasHexColour(text) {
+  for (const match of text.matchAll(HEX)) {
+    if (!FRAGMENT.test(text.slice(0, match.index))) return true;
+  }
+  return false;
+}
 
 function looksLikeColour(text) {
-  return HEX.test(text) || FUNCTIONAL.test(text);
+  return hasHexColour(text) || FUNCTIONAL.test(text);
 }
 
 export default {

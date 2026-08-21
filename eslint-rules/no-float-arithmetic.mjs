@@ -18,6 +18,18 @@ function isFractional(node) {
   return raw.includes('.') || !Number.isInteger(node.value);
 }
 
+/**
+ * The name a member call states, whether it is written `Number.parseFloat(x)` or
+ * `Number['parseFloat'](x)`. Reading only the dotted form leaves the bracket form as a way
+ * round the rule, which is the same hole with two more characters in it.
+ */
+function memberName(callee) {
+  if (callee.type !== 'MemberExpression') return null;
+  const property = callee.property;
+  if (!callee.computed) return property.type === 'Identifier' ? property.name : null;
+  return property.type === 'Literal' && typeof property.value === 'string' ? property.value : null;
+}
+
 export default {
   meta: {
     type: 'problem',
@@ -50,13 +62,12 @@ export default {
           context.report({ node, messageId: 'parseFloat', data: { callee: 'parseFloat' } });
           return;
         }
-        if (
-          callee.type === 'MemberExpression' &&
-          !callee.computed &&
-          callee.property.type === 'Identifier' &&
-          callee.property.name === 'parseFloat'
-        ) {
-          context.report({ node, messageId: 'parseFloat', data: { callee: 'Number.parseFloat' } });
+        if (memberName(callee) === 'parseFloat') {
+          context.report({
+            node,
+            messageId: 'parseFloat',
+            data: { callee: context.sourceCode.getText(callee).slice(0, 40) },
+          });
         }
       },
     };

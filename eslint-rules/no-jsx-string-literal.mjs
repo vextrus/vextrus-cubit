@@ -12,19 +12,88 @@
 const CODE = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/;
 const ID = /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$/;
 
-/** Attributes whose value a person reads. `data-*` is a test id; `className` is not copy. */
-const USER_FACING_ATTRIBUTES = new Set([
-  'alt',
-  'aria-description',
-  'aria-label',
-  'aria-placeholder',
-  'aria-roledescription',
-  'aria-valuetext',
-  'label',
-  'placeholder',
-  'summary',
-  'title',
+/**
+ * R-SPINE-060 says "no string literals in JSX", so the rule reads that way round: an
+ * attribute string is copy unless the attribute is structural. Most copy reaches the UI as
+ * a prop on a component (`<Toast message="Saved" />`), and a whitelist of the handful of
+ * HTML attributes that happen to be read by a person lets every one of those through.
+ * `data-*` is a test id; the aria attributes listed here take ids and tokens, not words.
+ */
+const STRUCTURAL_ATTRIBUTES = new Set([
+  'accept',
+  'action',
+  'align',
+  'aria-activedescendant',
+  'aria-atomic',
+  'aria-controls',
+  'aria-current',
+  'aria-describedby',
+  'aria-expanded',
+  'aria-haspopup',
+  'aria-hidden',
+  'aria-labelledby',
+  'aria-live',
+  'aria-orientation',
+  'aria-owns',
+  'aria-relevant',
+  'as',
+  'autoCapitalize',
+  'autoComplete',
+  'charSet',
+  'class',
+  'className',
+  'clipPath',
+  'cols',
+  'crossOrigin',
+  'd',
+  'dir',
+  'download',
+  'encType',
+  'fill',
+  'fillRule',
+  'form',
+  'height',
+  'href',
+  'htmlFor',
+  'id',
+  'inputMode',
+  'key',
+  'lang',
+  'loading',
+  'method',
+  'name',
+  'orientation',
+  'points',
+  'preserveAspectRatio',
+  'rel',
+  'role',
+  'rows',
+  'side',
+  'sizes',
+  'slot',
+  'span',
+  'src',
+  'srcSet',
+  'stroke',
+  'strokeLinecap',
+  'strokeLinejoin',
+  'strokeWidth',
+  'style',
+  'target',
+  'tone',
+  'transform',
+  'type',
+  'variant',
+  'viewBox',
+  'width',
+  'xlink:href',
+  'xmlns',
 ]);
+
+/** A structural attribute names a shape, a target or a test id — never a word to read. */
+function isStructural(name) {
+  return name.startsWith('data-') || STRUCTURAL_ATTRIBUTES.has(name);
+}
 
 function isCode(text) {
   const trimmed = text.trim();
@@ -81,7 +150,7 @@ export default {
         checkChild(node.expression);
       },
       JSXAttribute(node) {
-        if (!node.value || !USER_FACING_ATTRIBUTES.has(attributeName(node))) return;
+        if (!node.value || isStructural(attributeName(node))) return;
         if (node.value.type === 'Literal') {
           if (typeof node.value.value === 'string' && isCopy(node.value.value)) {
             report(node.value, node.value.value);

@@ -66,7 +66,7 @@ out of order.
 | 2 | tsc | — | yes | `tsc --noEmit` |
 | 3 | eslint | — | yes | `eslint .` |
 | 4 | vitest | — | yes | `vitest run` |
-| 5 | db-drift | `db/schema` | no | `drizzle-kit generate` into `.scratch/db-drift` |
+| 5 | db-drift | `db/schema` | no | `drizzle-kit generate` over a scratch copy of `db/migrations`; new SQL is drift |
 | 6 | method-hashes | `src/core/methods` | no | `scripts/method-hashes.mjs` |
 | 7 | catalogue-drift | `src/core/catalogue` | no | not wired — see below |
 | 8 | cad-ruff | `cad` | yes | `uv run --frozen ruff check .` |
@@ -117,8 +117,8 @@ rule to its directory.
 | `format-seam-only` | `cubit/format-seam-only` | `Intl`, locale-aware string methods, the `en-BD` tag outside `src/core/format.ts` | L-FMT-01 |
 | `model-seam-only` | `cubit/model-seam-only` | a model SDK imported outside `src/core` | L-AI-01 |
 | `db-seam-only` | `cubit/db-seam-only` | driver or schema import outside `src/core/db.ts` | SEAM-TENANT |
-| `no-colour-literal` | `cubit/no-colour-literal` | hex/rgb/hsl/oklch literal outside `src/ui/tokens.ts` | R-UI-001 |
-| `no-jsx-string-literal` | `cubit/no-jsx-string-literal` | copy rendered in JSX; test ids and codes exempt | R-SPINE-060 |
+| `no-colour-literal` | `cubit/no-colour-literal` | hex (bare or in a Tailwind arbitrary value), rgb/hsl/oklch/`color-mix` literal outside `src/ui/tokens.ts` | R-UI-001 |
+| `no-jsx-string-literal` | `cubit/no-jsx-string-literal` | copy rendered in JSX or passed in a JSX attribute; test ids, structural attributes and codes exempt | R-SPINE-060 |
 | `no-conversion-literal` | `cubit/no-conversion-literal` | a canon conversion factor outside `src/core/units.ts` | L-FRM-06 |
 | `no-suppressions` | `cubit/no-suppressions` | a lint suppression or compiler-silencing comment | Q-08 |
 | `no-skip-only` | `cubit/no-skip-only` | an excluded or exclusive test marker | Q-08 |
@@ -129,7 +129,7 @@ Without it the guardrail has a hole exactly where it matters: a blanket suppress
 top of a file silences every rule in that file, including the rule that reports
 suppressions — which would report on the comment and then be suppressed by it.
 
-Four scoping decisions, recorded so they are not re-argued:
+Six scoping decisions, recorded so they are not re-argued:
 
 1. **`cubit/db-seam-only` binds to `src/**` only.** `db/**` is the schema, and banning the
    schema import there would ban the schema from importing drizzle to define itself. The
@@ -146,6 +146,18 @@ Four scoping decisions, recorded so they are not re-argued:
    running one does not depend on what the ambient PATH contains — which `pnpm checkup`
    has to be able to vary in order to report on the machine at all. The same file sets
    `save-exact`, so a later `pnpm add` cannot quietly unpin the stack.
+
+5. **The Q-08 rules bind to every extension ESLint lints** — `.ts`/`.tsx` and
+   `.mjs`/`.js`/`.cjs`/`.jsx`. The tree is `type: module`, so `.mjs` is the norm today, but
+   a single `.js` codemod or `.cjs` plugin config would otherwise be a place where a
+   suppression passes `eslint .` unreported, which is a hole in the mechanical surface this
+   increment exists to install.
+6. **A JSX attribute holds copy unless it is structural.** R-SPINE-060 says "no string
+   literals in JSX", so the rule reads that way round: `className`, `href`, `type`, SVG
+   geometry and `data-*` are structural and silent; everything else — including a component
+   prop such as `message="Saved"`, which is how most copy will actually reach the UI — is
+   copy and must be keyed. A whitelist of the handful of HTML attributes a person reads
+   would let every component prop through.
 
 ## RECORDED REASON — where a Q-08 construct is allowed to exist
 
