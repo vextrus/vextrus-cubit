@@ -99,28 +99,39 @@ describe('V-DB — transactionality and append-only grants (SEAM-TENANT)', () =>
     expect(await noted(both), 'a committed transaction did not keep both of its writes').toBe(2);
   });
 
-  it('V-DB / SEAM-TENANT: the app role may insert but never update or delete', async () => {
+  it('V-DB / SEAM-TENANT: the app role never deletes, and never reaches another tenant', async () => {
     const scoped = await ready(seam.forTenant({ tenantId: tenantA }));
-    // A column each table really has: Postgres resolves names before it checks privileges,
-    // so an UPDATE of a column that does not exist would be refused for the wrong reason.
-    for (const [table, column] of [
-      ['seam_smoke', 'note'],
-      ['tenants', 'name'],
-    ]) {
-      const updated = await attempt(() =>
-        exec(
-          scoped,
-          sql`update ${sql.identifier(String(table))} set ${sql.identifier(String(column))} = ${'rewritten'} where true`,
-        ),
-      );
-      expect(updated.ok, `public.${table} accepted an UPDATE from the app role`).toBe(false);
-      expect(
-        isPrivilegeRefusal(updated.ok ? undefined : updated.error),
-        `the UPDATE on public.${table} failed, but not by an insufficient privilege: ${outcomeText(updated)}`,
-      ).toBe(true);
 
+    // SEAM-TENANT / AC-6: on a table that carries a tenant, the app role may rewrite its
+    // own rows — a cross-tenant UPDATE is refused by RLS finding no such row, not by a
+    // withheld privilege. The statement runs, reports zero rows affected, and the other
+    // tenant's row is still there when the system's whole view reads it. (The tables the
+    // seam only ever appends to keep the tighter grant below.)
+    const tenantB = await createTenant(system, `rollback-b-${RUN}`);
+    const theirs = `rollback-theirs-${RUN}`;
+    await exec(system, sql`insert into seam_smoke (tenant_id, note) values (${tenantB}, ${theirs})`);
+    const across = await exec(
+      scoped,
+      sql`update seam_smoke set note = ${'rewritten'} where tenant_id = ${tenantB}`,
+    );
+    expect(across.rowCount, `forTenant(A) rewrote another tenant's seam_smoke row`).toBe(0);
+    expect(await noted(theirs), `the other tenant's row did not survive the refused UPDATE`).toBe(1);
+
+    // Tenants are founded under system scope, so the app role holds no UPDATE on them.
+    // A column the table really has: Postgres resolves names before it checks privileges,
+    // so an UPDATE of a column that does not exist would be refused for the wrong reason.
+    const rewritten = await attempt(() =>
+      exec(scoped, sql`update tenants set name = ${'rewritten'} where true`),
+    );
+    expect(rewritten.ok, 'public.tenants accepted an UPDATE from the app role').toBe(false);
+    expect(
+      isPrivilegeRefusal(rewritten.ok ? undefined : rewritten.error),
+      `the UPDATE on public.tenants failed, but not by an insufficient privilege: ${outcomeText(rewritten)}`,
+    ).toBe(true);
+
+    for (const table of ['seam_smoke', 'tenants']) {
       const deleted = await attempt(() =>
-        exec(scoped, sql`delete from ${sql.identifier(String(table))} where true`),
+        exec(scoped, sql`delete from ${sql.identifier(table)} where true`),
       );
       expect(deleted.ok, `public.${table} accepted a DELETE from the app role`).toBe(false);
       expect(

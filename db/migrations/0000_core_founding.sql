@@ -62,11 +62,13 @@ CREATE POLICY "tenant_isolation" ON "seam_smoke" AS PERMISSIVE FOR ALL TO PUBLIC
 			AND "tenant_id" = nullif(current_setting('cubit.tenant_id', true), '')::uuid
 		)
 	);--> statement-breakpoint
--- Append-only grants (V-DB): the app role reads and inserts. It never updates, never
--- deletes and never truncates, on any table that carries a tenant. Nothing is left to
--- PUBLIC, so a role that was granted nothing has nothing.
+-- Grants (V-DB): the app role reads and inserts; it never deletes and never truncates.
+-- Tenant rows are founded under system scope, so the app role does not update "tenants"
+-- either. On tenant-carrying tables the app role may UPDATE (SEAM-TENANT / AC-6): a
+-- cross-tenant UPDATE is refused by FORCEd RLS matching zero rows, not by a withheld
+-- privilege. Nothing is left to PUBLIC, so a role that was granted nothing has nothing.
 REVOKE ALL ON TABLE "tenants" FROM PUBLIC;--> statement-breakpoint
 REVOKE ALL ON TABLE "seam_smoke" FROM PUBLIC;--> statement-breakpoint
 GRANT USAGE ON SCHEMA "public" TO "cubit_app";--> statement-breakpoint
 GRANT SELECT, INSERT ON TABLE "tenants" TO "cubit_app";--> statement-breakpoint
-GRANT SELECT, INSERT ON TABLE "seam_smoke" TO "cubit_app";
+GRANT SELECT, INSERT, UPDATE ON TABLE "seam_smoke" TO "cubit_app";
