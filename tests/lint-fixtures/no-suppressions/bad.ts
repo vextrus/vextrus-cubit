@@ -1,4 +1,7 @@
 // Q-08 fixture: a guardrail switched off in a comment instead of in the spec.
+// RECORDED REASON GUARDRAIL_FIXTURE — the constructs below exist so that
+// cubit/no-suppressions can be proved to fire on them (B-05, AC-2).
+// docs/toolchain.md, "The recorded reason for the fixtures themselves".
 /* eslint-disable */
 export const rate = 0.05;
 

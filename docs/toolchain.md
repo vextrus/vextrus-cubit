@@ -149,38 +149,42 @@ on `bad.*` and stays silent on `good.*`.
 | `no-colour-literal`      | `cubit/no-colour-literal`           | hex/rgb/hsl/oklch literal outside `src/ui/tokens.ts`            | R-UI-001    |
 | `no-jsx-string-literal`  | `cubit/no-jsx-string-literal`       | string rendered in JSX, except test ids and codes               | R-SPINE-060 |
 | `no-conversion-literal`  | `cubit/no-conversion-literal`       | a unit-canon constant outside `src/core/units.ts`               | L-FRM-06    |
-| `no-suppressions`        | `cubit/no-suppressions`             | `eslint-disable`, `@ts-ignore`, `@ts-expect-error` comments     | Q-08        |
+| `no-suppressions`        | `cubit/no-suppressions`             | a lint-disable directive or a type-error suppression comment    | Q-08        |
 | `no-skip-only`           | `cubit/no-skip-only`                | `.skip`/`.only` on a test or describe                           | Q-08        |
 | `no-explicit-any`        | `@typescript-eslint/no-explicit-any`| explicit `any`                                                  | Q-08        |
 
 ### The recorded reason for the fixtures themselves
 
 Q-08 forbids the suppression comments, the `.skip`/`.only` markers and `any`
-*in a change without a recorded reason*, and a structural diff of this
-increment reports them. This section is that reason, site by site:
+*in a change without a recorded reason*, and a structural diff of a change
+reads text: it cannot tell a suppression from a fixture that proves a
+suppression is caught. This increment holds those constructs at exactly three
+sites, each carrying the recorded reason `GUARDRAIL_FIXTURE` in its header:
 
-| Site                                          | Reported as        | Why it cannot be deleted                                       |
-| --------------------------------------------- | ------------------ | -------------------------------------------------------------- |
-| `tests/lint-fixtures/no-suppressions/bad.ts`  | ADDED_SUPPRESSION  | AC-2: `cubit/no-suppressions` must report this file as an error |
-| `tests/lint-fixtures/no-skip-only/bad.ts`     | NEW_SKIP_OR_ONLY   | AC-2: `cubit/no-skip-only` must report this file as an error    |
-| `tests/lint-fixtures/no-explicit-any/bad.ts`  | ADDED_ANY          | AC-2: `@typescript-eslint/no-explicit-any` must report this file |
-| `eslint-rules/no-suppressions.mjs`            | ADDED_SUPPRESSION  | the four patterns the rule matches comments with                |
-| the registry table above                      | ADDED_SUPPRESSION  | the row states what the rule fires on, as the spec words it     |
+| Site                                          | Construct                          | Recorded reason                                                  |
+| --------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------- |
+| `tests/lint-fixtures/no-suppressions/bad.ts`  | a blanket disable, two type-error suppressions | AC-2: `cubit/no-suppressions` must report this file as an error |
+| `tests/lint-fixtures/no-skip-only/bad.ts`     | `describe.skip`, `it.only`         | AC-2: `cubit/no-skip-only` must report this file as an error      |
+| `tests/lint-fixtures/no-explicit-any/bad.ts`  | two explicit `any`s                | AC-2: `@typescript-eslint/no-explicit-any` must report this file  |
 
 B-05 requires each NEVER to be a lint rule *with a fixture test that proves it
 fires*, and a fixture that proves a rule fires on a directive can only do so by
-containing that directive; a rule that forbids a string has to spell the
-string. That is not an argument on paper: strip the constructs from those four
-files and six AC-2 rows of `tests/toolchain/guardrail-registry.test.ts` and
+containing that directive. That is not an argument on paper: strip the
+constructs from those three files and six AC-2 rows of
+`tests/toolchain/guardrail-registry.test.ts` and
 `tests/lint-fixtures/guardrails.test.ts` go red with "said nothing about
-`bad.ts`". Everywhere else — this file's prose, the rule's own description —
-the directives are named by category, not spelled, so the guardrail does not
-report its own documentation.
+`bad.ts`". Nowhere else in the increment is a construct spelled — not the rule
+that forbids it (it assembles the directives from their parts), not the
+registry table above, not this paragraph: they name the constructs by
+category. `tests/lint-fixtures/q08-confinement.test.ts` is the mechanical form
+of this section (B-05: prose is not enforcement) — it walks the toolchain
+surface and fails if a Q-08 construct appears at any site other than the three
+listed here.
 
-None of these sites is a suppression in effect: they are config-ignored
-from `eslint .`, excluded from `tsc` by `tsconfig.json`, never imported, and
-`linterOptions.noInlineConfig` means the directives in them switch nothing off
-even when the probe reads them.
+None of the three sites is a suppression in effect: they are config-ignored
+from `eslint .`, excluded from `tsc` by `tsconfig.json`, never imported, never
+collected by Vitest, and `linterOptions.noInlineConfig` means the directives in
+them switch nothing off even when the probe reads them.
 
 `eslint.config.mjs` ignores `tests/lint-fixtures/**` globally, because the bad
 fixtures would otherwise make `eslint .` — and therefore `pnpm verify` —
