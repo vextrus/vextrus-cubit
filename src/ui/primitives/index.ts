@@ -104,5 +104,7 @@ export type {
   TagProps,
 } from './display';
 
-export { PRIMITIVES_STRINGS, ts } from './strings';
+// The string table is deliberately not re-exported here. R-SPINE-060 keeps it at
+// `src/ui/primitives/strings.ts`, which is where the acceptance and the Design Decision both
+// read it; a second name for it on the barrel would be a second place to look.
 export type { PrimitiveStringKey } from './strings';
