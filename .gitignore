@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+cad/.venv/
+
+# Build output
+.next/
+.next-verify/
+out/
+dist/
+*.tsbuildinfo
+
+# Gate scratch — verify writes here and the tree must stay clean (AC-8)
+.cubit-scratch/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# The gate generates and commits this; no increment does (C-10)
+docs/traceability.json
+
+# Local machine state
+.env
+.env.local
+*.log
+.DS_Store

@@ -1,0 +1,68 @@
+{
+  "name": "vextrus-cubit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.5",
+  "scripts": {
+    "verify": "node scripts/verify.mjs",
+    "checkup": "node scripts/checkup.mjs",
+    "dev": "echo 'dev: SKIP LANE_NOT_YET_BUILT'",
+    "build": "echo 'build: SKIP LANE_NOT_YET_BUILT'",
+    "start": "echo 'start: SKIP LANE_NOT_YET_BUILT'",
+    "worker": "echo 'worker: SKIP LANE_NOT_YET_BUILT'",
+    "test:db": "echo 'test:db: SKIP LANE_NOT_YET_BUILT'",
+    "e2e": "node scripts/e2e.mjs",
+    "test:golden": "echo 'test:golden: SKIP LANE_NOT_YET_BUILT'",
+    "test:docs": "echo 'test:docs: SKIP LANE_NOT_YET_BUILT'",
+    "test:perf": "echo 'test:perf: SKIP LANE_NOT_YET_BUILT'",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:drift": "node scripts/db-drift.mjs",
+    "seed": "node scripts/seed.mjs",
+    "gen:fixtures": "node scripts/gen-fixtures.mjs",
+    "traceability": "node scripts/traceability.mjs"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.101.4",
+    "@tanstack/react-table": "8.21.3",
+    "@tanstack/react-virtual": "3.14.10",
+    "@trpc/client": "11.18.0",
+    "@trpc/react-query": "11.18.0",
+    "@trpc/server": "11.18.0",
+    "better-auth": "1.7.1",
+    "cmdk": "1.1.1",
+    "decimal.js": "10.6.0",
+    "drizzle-orm": "0.45.2",
+    "exceljs": "4.4.0",
+    "lucide-react": "1.33.0",
+    "motion": "12.43.0",
+    "next": "16.3.1",
+    "pg": "8.23.0",
+    "pg-boss": "10.4.2",
+    "pixi.js": "8.20.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "recharts": "3.10.1",
+    "zod": "4.4.3",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.62.1",
+    "@types/node": "24.13.3",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "drizzle-kit": "0.31.10",
+    "eslint": "10.8.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.67.0",
+    "vitest": "4.1.10"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

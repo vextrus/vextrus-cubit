@@ -1,0 +1,23 @@
+[project]
+name = "cubit-cad"
+version = "0.0.0"
+description = "CUBIT's drawing side: DWG/DXF ingest, quantity extraction, sheet output."
+requires-python = "==3.13.*"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "ruff==0.16.4",
+    "pytest==9.1.1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
