@@ -86,9 +86,12 @@ describe('inc-000 — the verify roster is the real one (AC-1, V-VERIFY)', () =>
     }
   });
 
-  it('AC-1: against this tree, exactly tsc, eslint, vitest and cad-ruff are armed', () => {
+  it('AC-1: against this tree, exactly tsc, eslint, vitest, db-drift and cad-ruff are armed', () => {
+    // A stage arms when its input root exists and never otherwise (C-06), so this list is a
+    // reading of the tree rather than a setting: db-drift joined it in inc-001, when
+    // db/schema was founded, with no change to scripts/verify.mjs or to the roster.
     const armed = STAGES.filter((s) => s.input === undefined || isDir(s.input)).map((s) => s.name);
-    expect(armed).toEqual(['tsc', 'eslint', 'vitest', 'cad-ruff']);
+    expect(armed).toEqual(['tsc', 'eslint', 'vitest', 'db-drift', 'cad-ruff']);
   });
 });
 

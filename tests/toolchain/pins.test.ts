@@ -178,8 +178,10 @@ describe('inc-000 — the toolchain is born whole (C-06, B-15)', () => {
     expect(ruleFiles.length).toBeGreaterThan(0);
 
     // AM-02: increment zero is the toolchain ONLY — tokens, primitives, shell and the
-    // auth scaffold are later foundation-series increments.
-    for (const forbidden of ['src', 'db', 'documents', 'tests/e2e']) {
+    // auth scaffold are later foundation-series increments. src/ and db/ were born in
+    // inc-001, which founded SEAM-TENANT and the schema root; what inc-000 shipped is a
+    // matter of its own commit, and the trees below are the ones still unborn.
+    for (const forbidden of ['documents', 'tests/e2e']) {
       expect(existsSync(join(REPO, forbidden))).toBe(false);
     }
 
