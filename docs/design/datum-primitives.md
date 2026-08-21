@@ -167,7 +167,8 @@ this control at any moment.
 
 A `--space-4` square (Checkbox, `--radius-2`) or circle (Radio) with `--hairline`, filled
 `--cobalt-500` when checked, the indicator drawn in `--graphite-0`. RadioGroup stacks its
-options `--space-2` apart and is one tab stop: the arrows move between options inside it.
+options `--space-2` apart and is one tab stop: the arrows move between options inside it and
+selection follows the focus, so arriving on an option chooses it.
 States: unchecked · checked · focus (ring) · disabled.
 
 ### Switch
@@ -282,8 +283,9 @@ A `--font-mono` key cap at `--text-12`, `--graphite-50` over `--hairline`, `--ra
 ### Progress
 
 A `--space-2` bar, `--graphite-200` track, `--cobalt-500` fill, growing in 160 ms.
-Determinate only: where the fraction is unknown the answer is a Skeleton, because a bar that
-animates without knowing how far along it is states a number nobody measured.
+Determinate only — there is no indeterminate mode, and a bar given no value stands at zero and
+says so. Where the fraction is unknown the answer is a Skeleton, because a bar that animates
+without knowing how far along it is states a number nobody measured.
 
 ### Skeleton
 

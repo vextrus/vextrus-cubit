@@ -8,8 +8,8 @@
  * is the thumb, not the root — which is also why the thumb is where the accessible name is
  * put, since a name on the root would name a `<span>` nobody can focus.
  */
-import { forwardRef } from 'react';
-import type { ComponentPropsWithoutRef } from 'react';
+import { forwardRef, useRef } from 'react';
+import type { ComponentPropsWithoutRef, FocusEvent, KeyboardEvent, PointerEvent } from 'react';
 import { Checkbox as CheckboxPrimitive, RadioGroup as RadioGroupPrimitive, Slider as SliderPrimitive, Switch as SwitchPrimitive } from 'radix-ui';
 import { cx } from './class-names';
 
@@ -32,11 +32,47 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(function Ch
 
 export type RadioGroupProps = ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Root>;
 
+/** The keys that move the roving focus inside a radio group (WAI-ARIA radiogroup pattern). */
+const ROVING_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
+
 export const RadioGroup = forwardRef<HTMLDivElement, RadioGroupProps>(function RadioGroup(
-  { className, ...rest },
+  { className, onKeyDown, onFocus, onPointerDown, ...rest },
   ref,
 ) {
-  return <RadioGroupPrimitive.Root ref={ref} className={cx('datum-radio-group', className)} {...rest} />;
+  // Selection follows the arrows: in a radio group the roving focus *is* the choice, so
+  // ArrowDown both moves and selects. Radix means to do this too, but decides inside a
+  // document-level keyup flag that a synthetic key press clears before its own focus timer
+  // fires — so the arrow moves and nothing is chosen. Deciding it here, off the keydown that
+  // started the move, does not depend on when the focus lands.
+  const arrowed = useRef(false);
+
+  return (
+    <RadioGroupPrimitive.Root
+      ref={ref}
+      className={cx('datum-radio-group', className)}
+      onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+        onKeyDown?.(event);
+        if (ROVING_KEYS.has(event.key)) arrowed.current = true;
+      }}
+      onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
+        onPointerDown?.(event);
+        // A click or a Tab into the group reads it; only an arrow chooses.
+        arrowed.current = false;
+      }}
+      onFocus={(event: FocusEvent<HTMLDivElement>) => {
+        onFocus?.(event);
+        if (!arrowed.current) return;
+        arrowed.current = false;
+        const item = event.target as HTMLElement;
+        if (item.getAttribute('role') === 'radio' && item.getAttribute('aria-checked') !== 'true') {
+          // Click rather than lift the value ourselves, so Radix's own check path runs and an
+          // uncontrolled group and its onValueChange stay in step.
+          item.click();
+        }
+      }}
+      {...rest}
+    />
+  );
 });
 
 export type RadioProps = ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Item>;

@@ -224,8 +224,8 @@ describe('The value controls answer the keys their role promises', () => {
     expect(toggle.getAttribute('aria-checked'), 'Space did not flip the switch').toBe('true');
   });
 
-  it('is one tab stop whose arrows rove, and Space chooses where they landed', async () => {
-    const user = userEvent.setup();
+  it('is one tab stop whose arrows rove and choose', async () => {
+    const user = userEvent.setup({ delay: null });
     render(
       <RadioGroup aria-label={NAME}>
         <Radio value={OPTION_A} aria-label={LABEL_A} />
@@ -234,15 +234,20 @@ describe('The value controls answer the keys their role promises', () => {
     );
 
     const radios = screen.getAllByRole('radio');
+    const [first, second] = radios as [HTMLElement, HTMLElement];
     await user.tab();
-    expect(document.activeElement, 'one Tab did not reach the group').toBe(radios[0]);
+    expect(document.activeElement, 'one Tab did not reach the group').toBe(first);
 
+    // Selection follows the focus, as the radiogroup pattern asks: an arrow both moves and
+    // chooses, and it does so however fast the keys arrive.
     await user.keyboard('{ArrowDown}');
-    expect(document.activeElement, 'ArrowDown did not rove inside the group').toBe(radios[1]);
+    expect(document.activeElement, 'ArrowDown did not rove inside the group').toBe(second);
+    expect(second.getAttribute('aria-checked'), 'ArrowDown moved without choosing').toBe('true');
 
-    // Selection is committed rather than following the focus: arrowing past an option is
-    // reading it, not choosing it, and a group that commits as the caret passes writes a
-    // choice the user never made.
+    await user.keyboard('{ArrowRight}');
+    expect(document.activeElement, 'ArrowRight did not rove on round').toBe(first);
+    expect(first.getAttribute('aria-checked'), 'ArrowRight moved without choosing').toBe('true');
+
     await user.keyboard('[Space]');
     const chosen = radios.filter((radio) => radio.getAttribute('aria-checked') === 'true');
     expect(chosen, 'Space selected no radio, or more than one').toHaveLength(1);
@@ -275,6 +280,18 @@ describe('The value controls answer the keys their role promises', () => {
     const bar = screen.getByRole('progressbar');
     expect(bar.getAttribute('aria-valuenow'), 'a determinate bar states where it is').toBe('40');
     expect(bar.getAttribute('aria-valuemax')).toBe('100');
+    expect(bar.getAttribute('aria-valuemin')).toBe('0');
     expect(bar.getAttribute('aria-label')).toBe(REGION);
+  });
+
+  it('offers no indeterminate Progress: a bar with no value still stands somewhere', () => {
+    render(<Progress aria-label={REGION} />);
+
+    const bar = screen.getByRole('progressbar');
+    const now = bar.getAttribute('aria-valuenow');
+    expect(now, 'a bar without a value went indeterminate').not.toBeNull();
+    expect(Number.isFinite(Number(now))).toBe(true);
+    expect(bar.getAttribute('aria-valuemin')).toBe('0');
+    expect(bar.getAttribute('aria-valuemax')).toBe('100');
   });
 });

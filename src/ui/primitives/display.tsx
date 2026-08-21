@@ -50,11 +50,14 @@ export const Progress = forwardRef<HTMLDivElement, ProgressProps>(function Progr
   ref,
 ) {
   const ceiling = max ?? 100;
-  const done = value ?? 0;
+  // Radix reads a null value as its indeterminate mode, which drops aria-valuenow. A bar with
+  // no stated position is exactly what R-UI-010 forbids, so a value-less Progress stands at
+  // zero and still says so.
+  const done = Math.min(Math.max(value ?? 0, 0), ceiling);
   return (
     <ProgressPrimitive.Root
       ref={ref}
-      value={value ?? null}
+      value={done}
       max={ceiling}
       className={cx('datum-progress', className)}
       {...rest}
