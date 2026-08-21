@@ -7,7 +7,15 @@
  */
 export default {
   test: {
-    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+    // tests/ holds the suites that judge the tree from outside it; src/**/__tests__ holds the
+    // ones that belong beside their module (the refusal register, Q-07, is the first). Both
+    // are the vitest stage V-VERIFY names — a law that runs nowhere is not applied.
+    include: [
+      'tests/**/*.test.ts',
+      'tests/**/*.test.tsx',
+      'src/**/__tests__/*.test.ts',
+      'src/**/__tests__/*.test.tsx',
+    ],
     // tests/e2e is Playwright's (V-VERIFY keeps the e2e lane out of the vitest stage);
     // tests/lint-fixtures/<rule>/ holds lint inputs, not tests.
     exclude: ['node_modules/**', 'tests/e2e/**', 'tests/lint-fixtures/*/**'],
