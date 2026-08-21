@@ -626,3 +626,24 @@
   width: 1px;
   height: 100%;
 }
+
+/* ---- Reduced motion (R-UI-004: "respected everywhere") ------------------------------ */
+
+/*
+ * The token sheet already resolves every motion duration to zero, which settles the
+ * transitions. It does not settle a keyframe animation: an `infinite alternate` animation with
+ * a zero duration is still an animation running forever, so the four that loop or arrive are
+ * turned off outright here. Nothing else in this file restates the query — a transition reads
+ * its duration from the token and needs no second rule.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .datum-button-busy,
+  .datum-skeleton,
+  .datum-popover-surface,
+  .datum-tooltip,
+  .datum-scrim,
+  .datum-dialog,
+  .datum-sheet {
+    animation: none;
+  }
+}
