@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import ts from 'typescript';
 
 const ROOT = process.cwd();
 
@@ -27,12 +28,16 @@ function manifest(): PackageManifest {
   return JSON.parse(read('package.json')) as PackageManifest;
 }
 
-/** tsconfig.json is JSONC in practice; strip comments before parsing. */
+/**
+ * tsconfig.json is JSONC in practice. Parse it the way tsc itself does — a
+ * comment stripper written as a regex is blind to string context, so a legal
+ * `"@/*": ["./src/*"]` path alias would read as a comment and mangle the file.
+ * The config is written for the compiler, not for this test.
+ */
 function readJsonc(relative: string): Record<string, unknown> {
-  const stripped = read(relative)
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(^|[^:])\/\/.*$/gm, '$1');
-  return JSON.parse(stripped) as Record<string, unknown>;
+  const parsed = ts.parseConfigFileTextToJson(relative, read(relative));
+  expect(parsed.error, `${relative} is not valid JSONC`).toBeUndefined();
+  return (parsed.config ?? {}) as Record<string, unknown>;
 }
 
 /** The stack the spec declares; every one of them must be pinned here (C-06). */
