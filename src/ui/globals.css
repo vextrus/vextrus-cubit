@@ -1,0 +1,150 @@
+/*
+ * The global stylesheet: Tailwind, the Datum token sheet, and the bridge between them
+ * (R-UI-001 — "Tokens are CSS variables emitted from one TS source … consumed by Tailwind").
+ *
+ * Not one colour is spelled here. `@theme` maps tokens into Tailwind's namespaces by var()
+ * reference only, so a utility class and a hand-written rule resolve to the same variable and
+ * a `[data-theme]` flip reaches both. Every value lives in src/ui/tokens.ts and arrives
+ * through ./tokens.css.
+ *
+ * The stylesheet lands here rather than under src/app because this increment ships no Next
+ * application; the shell increment imports it from its layout.
+ */
+@import 'tailwindcss';
+@import './tokens.css';
+
+/*
+ * Every R-UI-001 category enters @theme, because the clause says the tokens are "consumed by
+ * Tailwind" — a category that never reaches a namespace is a grid utilities do not keep. Each
+ * token is mapped into the Tailwind namespace that generates its utilities, keeping its Datum
+ * name: `bg-graphite-50`, `p-2`, `rounded-4`, `shadow-2`, `text-13`, `duration-panel`,
+ * `ease-flyto`, `z-overlay`.
+ *
+ * Where a Datum group already carries Tailwind's namespace name (--radius-*, --shadow-*,
+ * --text-*, --leading-*, --font-mono, --breakpoint-*) the mapping reads as a self-reference.
+ * It resolves: tokens.css arrives unlayered and so outranks the `theme` layer @theme emits
+ * into, and the utility still resolves to the one value in src/ui/tokens.ts.
+ */
+@theme {
+  --color-graphite-0: var(--graphite-0);
+  --color-graphite-50: var(--graphite-50);
+  --color-graphite-100: var(--graphite-100);
+  --color-graphite-200: var(--graphite-200);
+  --color-graphite-300: var(--graphite-300);
+  --color-graphite-400: var(--graphite-400);
+  --color-graphite-500: var(--graphite-500);
+  --color-graphite-600: var(--graphite-600);
+  --color-graphite-700: var(--graphite-700);
+  --color-graphite-800: var(--graphite-800);
+  --color-graphite-900: var(--graphite-900);
+  --color-graphite-950: var(--graphite-950);
+  --color-graphite-1000: var(--graphite-1000);
+
+  --color-cobalt-100: var(--cobalt-100);
+  --color-cobalt-300: var(--cobalt-300);
+  --color-cobalt-500: var(--cobalt-500);
+  --color-cobalt-600: var(--cobalt-600);
+  --color-cobalt-700: var(--cobalt-700);
+
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-warn: var(--warn);
+  --color-warn-surface: var(--warn-surface);
+  --color-danger: var(--danger);
+  --color-danger-surface: var(--danger-surface);
+  --color-info: var(--info);
+  --color-info-surface: var(--info-surface);
+
+  --color-basis-measured: var(--basis-measured);
+  --color-basis-transcribed: var(--basis-transcribed);
+  --color-basis-derived: var(--basis-derived);
+  --color-basis-imported: var(--basis-imported);
+  --color-basis-entered: var(--basis-entered);
+  --color-basis-interpreted: var(--basis-interpreted);
+  --color-basis-defaulted: var(--basis-defaulted);
+
+  --color-element-wall: var(--element-wall);
+  --color-element-column: var(--element-column);
+  --color-element-beam: var(--element-beam);
+  --color-element-slab: var(--element-slab);
+  --color-element-footing: var(--element-footing);
+  --color-element-opening: var(--element-opening);
+  --color-element-rebar: var(--element-rebar);
+  --color-element-generic: var(--element-generic);
+
+  --color-canvas-paper: var(--canvas-paper);
+  --color-canvas-grid: var(--canvas-grid);
+  --color-canvas-ink: var(--canvas-ink);
+  --color-canvas-selection: var(--canvas-selection);
+  --color-canvas-hover: var(--canvas-hover);
+  --color-canvas-pulse: var(--canvas-pulse);
+  --color-canvas-measure: var(--canvas-measure);
+  --color-canvas-snap: var(--canvas-snap);
+
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono);
+  --font-doc: var(--font-doc);
+
+  --font-weight-heading: var(--weight-heading);
+  --font-weight-body: var(--weight-body);
+  --font-weight-body-medium: var(--weight-body-medium);
+
+  --text-12: var(--text-12);
+  --text-13: var(--text-13);
+  --text-14: var(--text-14);
+  --text-16: var(--text-16);
+  --text-20: var(--text-20);
+  --text-24: var(--text-24);
+  --text-32: var(--text-32);
+
+  --leading-ui: var(--leading-ui);
+
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+  --spacing-4: var(--space-4);
+  --spacing-5: var(--space-5);
+  --spacing-6: var(--space-6);
+  --spacing-7: var(--space-7);
+  --spacing-8: var(--space-8);
+  --spacing-9: var(--space-9);
+  --spacing-10: var(--space-10);
+  --spacing-11: var(--space-11);
+  --spacing-12: var(--space-12);
+
+  --radius-2: var(--radius-2);
+  --radius-4: var(--radius-4);
+  --radius-8: var(--radius-8);
+  --radius-12: var(--radius-12);
+
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+  --shadow-3: var(--shadow-3);
+  --shadow-4: var(--shadow-4);
+
+  --transition-duration-state: var(--motion-state-duration);
+  --transition-duration-panel: var(--motion-panel-duration);
+  --transition-duration-flyto: var(--motion-flyto-duration);
+  --ease-motion: var(--motion-ease);
+  --ease-flyto: var(--motion-flyto-ease);
+
+  --z-index-base: var(--z-base);
+  --z-index-sticky: var(--z-sticky);
+  --z-index-overlay: var(--z-overlay);
+  --z-index-toast: var(--z-toast);
+
+  --breakpoint-sm: var(--breakpoint-sm);
+  --breakpoint-md: var(--breakpoint-md);
+  --breakpoint-lg: var(--breakpoint-lg);
+  --breakpoint-xl: var(--breakpoint-xl);
+}
+
+/*
+ * R-UI-003: "JetBrains Mono for every number, code, mark, source key and formula with
+ * `font-variant-numeric: tabular-nums slashed-zero`". One class carries the whole rule, so a
+ * number column is right-aligned and column-aligned by saying `numeric` once.
+ */
+.numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}

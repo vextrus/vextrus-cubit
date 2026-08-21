@@ -64,6 +64,13 @@ export default {
         if (!looksLikeColour(text)) return;
         report(node, text);
       },
+      // Text between JSX tags is neither a Literal nor a TemplateElement, so a colour
+      // painted as content (`<code>#2E5CE6</code>`) would otherwise be the one shape a
+      // component can improvise a colour in without the rule saying anything.
+      JSXText(node) {
+        if (!looksLikeColour(node.value)) return;
+        report(node, node.value);
+      },
     };
   },
 };
