@@ -5,18 +5,17 @@
  *
  * The one decision everything else follows from: **the geometry is the props, never the
  * layout**. `height` says how tall the viewport is and `estimateRowHeight` says how tall a row
- * is, so the visible range is arithmetic on a scroll offset — no ResizeObserver, no
- * IntersectionObserver, no `getBoundingClientRect`. Two things fall out of it. A table mounts
- * in any DOM, including a bare jsdom where the observers do not exist, which is where its
- * behaviour is graded. And a fixed row height is what makes 50,000 rows scannable at a
- * constant rhythm (R-UI-005) — the density is a prop a screen chooses, not a measurement a
- * browser discovers.
+ * is, so the visible range is arithmetic on a scroll offset — nothing here measures an element
+ * or subscribes to its size. Two things fall out of it. A table mounts in any DOM, including
+ * one with none of the browser's measurement APIs in it, which is where its behaviour is
+ * graded. And a fixed row height is what makes 50,000 rows scannable at a constant rhythm
+ * (R-UI-005) — the density is a prop a screen chooses, not a measurement a browser discovers.
  *
  * `@tanstack/react-virtual` supports this directly: its `observeElementRect` and
  * `observeElementOffset` are options, so the rect below is the `height` prop and the offset is
- * the scroll container's own `scrollTop`. The library's defaults would reach for a
- * ResizeObserver and, where there is none, silently report a viewport of zero — which is a
- * table that renders nothing rather than a table that throws.
+ * the scroll container's own `scrollTop`. The library's own defaults measure the element, and
+ * where a DOM cannot measure they report a viewport of zero — a table that renders nothing
+ * rather than one that says so.
  *
  * The second decision: the table never mutates the data it was handed. Selection reports ids
  * from `getRowId`, an inline edit reports `(rowId, columnId, value)`, and what happens next is
@@ -315,6 +314,9 @@ export function DataTable<T>({
     const column = header.column;
     const sorted = column.getIsSorted();
     const label = flexRender(column.columnDef.header, header.getContext());
+    // The column's own words where it has them: "Resize column Quantity" is a name a reader
+    // recognises, and `qty` is one only its author does.
+    const name = typeof column.columnDef.header === 'string' ? column.columnDef.header : column.id;
     return (
       <div
         key={header.id}
@@ -346,7 +348,7 @@ export function DataTable<T>({
           <span
             role="separator"
             tabIndex={0}
-            aria-label={fill('data.table.resize', 'column', column.id)}
+            aria-label={fill('data.table.resize', 'column', name)}
             className={cx('datum-datatable-resize', 'datum-focus-ring')}
             onMouseDown={header.getResizeHandler()}
             onTouchStart={header.getResizeHandler()}
@@ -394,6 +396,11 @@ export function DataTable<T>({
             autoFocus
             className={cx('datum-datatable-edit', numeric && 'numeric')}
             value={editing.value}
+            // Pre-filled and selected (§3): the commonest edit replaces the value outright,
+            // and the second commonest starts by pressing an arrow key.
+            onFocus={(event) => {
+              event.currentTarget.select();
+            }}
             onChange={(event) => {
               setEditing({ ...editing, value: event.target.value });
             }}
@@ -473,10 +480,20 @@ export function DataTable<T>({
     <div
       data-testid="datatable"
       role="grid"
-      aria-rowcount={rows.length + 1}
+      // The true extent, not the window's: a reader is told there are 50,000 rows even while
+      // the DOM holds thirty of them (§2).
+      aria-rowcount={data.length + 1}
       className="datum-datatable"
     >
-      <div ref={scrollRef} className="datum-datatable-scroll" style={{ height: `${String(height)}px` }}>
+      {/* The scroll container is the grid's row group: the header row and the windowed body
+          rows are both inside it, and the spacer that holds the scrollbar open is marked
+          presentational so a row's owner is still the group (§2). */}
+      <div
+        ref={scrollRef}
+        role="rowgroup"
+        className="datum-datatable-scroll"
+        style={{ height: `${String(height)}px` }}
+      >
         <div data-testid="datatable-header" role="row" className="datum-datatable-header">
           {enableRowSelection ? (
             <div
@@ -494,7 +511,11 @@ export function DataTable<T>({
             {emptyReason}
           </div>
         ) : (
-          <div className="datum-datatable-body" style={{ height: `${String(virtualizer.getTotalSize())}px` }}>
+          <div
+            role="none"
+            className="datum-datatable-body"
+            style={{ height: `${String(virtualizer.getTotalSize())}px` }}
+          >
             {items.map((item) => {
               const row = rows[item.index];
               if (row === undefined) return null;
@@ -514,7 +535,10 @@ export function DataTable<T>({
         )}
 
         {footer === undefined ? null : (
-          <div data-testid="datatable-footer" role="row" className="datum-datatable-footer">
+          // Not a row: the footer holds whatever the screen wrote (a total, a count), not a
+          // cell per column, and calling it a row would promise a reader columns to move
+          // along (§2).
+          <div data-testid="datatable-footer" role="none" className="datum-datatable-footer">
             {footer}
           </div>
         )}

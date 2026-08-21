@@ -128,7 +128,9 @@ export function ConsequenceDialog({
       <DialogContent data-testid="consequence-dialog" className="datum-consequence">
         <DialogTitle>{title}</DialogTitle>
 
-        {changed.size === 0 ? null : (
+        {/* Said whenever the preview was restated, not only when a row changed: a line that
+            vanished has no row left to mark, and the reader still has to be told (§9). */}
+        {current === null ? null : (
           <p role={STATUS} className="datum-consequence-stale-note">
             {ps('patterns.consequence.stale')}
           </p>
