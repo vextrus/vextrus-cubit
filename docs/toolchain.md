@@ -165,7 +165,7 @@ sites, each carrying the recorded reason `GUARDRAIL_FIXTURE` in its header:
 | --------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------- |
 | `tests/lint-fixtures/no-suppressions/bad.ts`  | a blanket disable, two type-error suppressions | AC-2: `cubit/no-suppressions` must report this file as an error |
 | `tests/lint-fixtures/no-skip-only/bad.ts`     | `describe.skip`, `it.only`         | AC-2: `cubit/no-skip-only` must report this file as an error      |
-| `tests/lint-fixtures/no-explicit-any/bad.ts`  | two explicit `any`s                | AC-2: `@typescript-eslint/no-explicit-any` must report this file  |
+| `tests/lint-fixtures/no-explicit-any/bad.ts`  | one annotation                     | AC-2: `@typescript-eslint/no-explicit-any` must report this file  |
 
 B-05 requires each NEVER to be a lint rule *with a fixture test that proves it
 fires*, and a fixture that proves a rule fires on a directive can only do so by
