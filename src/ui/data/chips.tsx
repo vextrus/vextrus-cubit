@@ -33,9 +33,15 @@ const labelKey = (basis: BasisCode): StringKey =>
  */
 const SPACE = ' ';
 
-/** A whole number as the document writes it (R-SPINE-061: lakh/crore, through the seam). */
+/**
+ * A whole number as the document writes it (R-SPINE-061: lakh/crore, through the seam).
+ *
+ * Rounded first: `formatNumber(_, 'count')` takes exactly zero fraction digits and refuses
+ * anything else, so a caller's `1.5` would leave a seam error thrown from inside a chip. A
+ * count is a whole number by definition — the nearest one is the reading, not a crash.
+ */
 export function countText(value: number): string {
-  return formatNumber(String(value), 'count');
+  return formatNumber(String(Math.round(value)), 'count');
 }
 
 export interface BasisChipProps {

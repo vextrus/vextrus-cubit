@@ -24,7 +24,7 @@
  *
  * Decided in docs/design/datum-patterns.md §2–§4.
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactElement, ReactNode } from 'react';
 import {
   flexRender,
@@ -203,6 +203,17 @@ function pinnedStyle<T>(column: Column<T, unknown>): CSSProperties {
   return {};
 }
 
+/**
+ * Which side a cell is pinned to, as an attribute the sheet can select on — the opaque surface
+ * and the seam hairline §3 promises are paint, and paint belongs in data.css. `z-index` orders
+ * the layers; it does not fill them, so without this a pinned cell is a window onto the cells
+ * scrolling under it.
+ */
+function pinnedSide<T>(column: Column<T, unknown>): 'left' | 'right' | undefined {
+  const pinned = column.getIsPinned();
+  return pinned === 'left' || pinned === 'right' ? pinned : undefined;
+}
+
 /** A cell's width and pinning, together — the only geometry a cell carries. */
 function cellStyle<T>(column: Column<T, unknown>): CSSProperties {
   return { width: `${String(column.getSize())}px`, ...pinnedStyle(column) };
@@ -286,6 +297,11 @@ export function DataTable<T>({
 
   const rows = table.getRowModel().rows;
 
+  // The library subscribes `observeElementRect` once per scroll element, so the callback it
+  // hands us is the only way back into its rect after mount. Keeping it means the viewport can
+  // still be *the prop*: raise `height` and the window grows with the box (§2).
+  const publishRect = useRef<((rect: { width: number; height: number }) => void) | null>(null);
+
   const virtualizer = useVirtualizer<HTMLDivElement, HTMLElement>({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
@@ -295,10 +311,25 @@ export function DataTable<T>({
     // where this table refuses to run (§1, §2).
     initialRect: { width: 0, height },
     observeElementRect: (_instance, cb) => {
+      publishRect.current = cb;
       cb({ width: 0, height });
+      return () => {
+        publishRect.current = null;
+      };
     },
     observeElementOffset: observeScrollTop,
   });
+
+  // Both halves of the geometry are props, so both are live. A taller viewport re-windows
+  // rather than leaving blank space under the last row; a new `estimateRowHeight` — §2's
+  // density switch, 36 comfortable against 28 compact — rebuilds the measurements, so
+  // `item.start` and a row's own height stay on one pitch instead of overlapping.
+  useEffect(() => {
+    publishRect.current?.({ width: 0, height });
+  }, [height]);
+  useEffect(() => {
+    virtualizer.measure();
+  }, [estimateRowHeight, virtualizer]);
 
   const commitEdit = (cell: EditingCell): void => {
     onCellEdit?.(cell.rowId, cell.columnId, cell.value);
@@ -324,6 +355,7 @@ export function DataTable<T>({
         aria-sort={
           sorted === 'asc' ? ARIA_ASCENDING : sorted === 'desc' ? ARIA_DESCENDING : undefined
         }
+        data-pinned={pinnedSide(column)}
         className="datum-datatable-head-cell"
         style={cellStyle(column)}
       >
@@ -349,6 +381,11 @@ export function DataTable<T>({
             role="separator"
             tabIndex={0}
             aria-label={fill('data.table.resize', 'column', name)}
+            // A focusable separator is a widget, not a divider: ARIA requires it to say where
+            // it stands, and the arrow keys below move exactly this number (§3).
+            aria-orientation="vertical"
+            aria-valuenow={column.getSize()}
+            aria-valuemin={MIN_COLUMN_WIDTH}
             className={cx('datum-datatable-resize', 'datum-focus-ring')}
             onMouseDown={header.getResizeHandler()}
             onTouchStart={header.getResizeHandler()}
@@ -378,6 +415,7 @@ export function DataTable<T>({
         key={cell.id}
         role="gridcell"
         data-editable={editable ? '' : undefined}
+        data-pinned={pinnedSide(column)}
         className={cx('datum-datatable-cell', numeric && 'numeric')}
         style={cellStyle(column)}
         onClick={editable ? start : undefined}
@@ -424,6 +462,7 @@ export function DataTable<T>({
 
   const renderGroupRow = (row: Row<T>, style: CSSProperties, index: number): ReactElement => {
     const open = row.getIsExpanded();
+    const spanned = table.getVisibleLeafColumns().length;
     return (
       <div
         key={row.id}
@@ -433,17 +472,30 @@ export function DataTable<T>({
         className="datum-datatable-group-row"
         style={style}
       >
-        <IconButton
-          label={ds(open ? 'data.table.collapseGroup' : 'data.table.expandGroup')}
-          aria-expanded={open}
-          icon={open ? EXPANDED_MARK : COLLAPSED_MARK}
-          className="datum-datatable-chevron"
-          onClick={row.getToggleExpandedHandler()}
-        />
-        <span className="datum-datatable-group-value">{String(row.getGroupingValue(row.groupingColumnId ?? ''))}</span>
-        <span className={cx('datum-datatable-group-count', 'numeric')}>
-          ({countText(row.subRows.length)})
-        </span>
+        {/* A row's children are cells or it is not a row — a chevron and two loose spans leave
+            a reader inside a grid row with nothing addressable in it. The gutter is the same
+            28 px the data rows and the header spend on selection, so a group row heads the
+            column grid it is over instead of sitting 28 px to its left (§3). */}
+        {enableRowSelection ? (
+          <div
+            role="gridcell"
+            className="datum-datatable-select"
+            style={{ width: `${String(SELECT_COLUMN_WIDTH)}px` }}
+          />
+        ) : null}
+        <div role="gridcell" aria-colspan={spanned} className="datum-datatable-group-cell">
+          <IconButton
+            label={ds(open ? 'data.table.collapseGroup' : 'data.table.expandGroup')}
+            aria-expanded={open}
+            icon={open ? EXPANDED_MARK : COLLAPSED_MARK}
+            className="datum-datatable-chevron"
+            onClick={row.getToggleExpandedHandler()}
+          />
+          <span className="datum-datatable-group-value">{String(row.getGroupingValue(row.groupingColumnId ?? ''))}</span>
+          <span className={cx('datum-datatable-group-count', 'numeric')}>
+            ({countText(row.subRows.length)})
+          </span>
+        </div>
       </div>
     );
   };
@@ -494,7 +546,14 @@ export function DataTable<T>({
         className="datum-datatable-scroll"
         style={{ height: `${String(height)}px` }}
       >
-        <div data-testid="datatable-header" role="row" className="datum-datatable-header">
+        {/* Row 1 of `aria-rowcount`: with an extent declared, every rendered row states where
+            it stands, and the header is the row a reader most often lands on first (§2). */}
+        <div
+          data-testid="datatable-header"
+          role="row"
+          aria-rowindex={1}
+          className="datum-datatable-header"
+        >
           {enableRowSelection ? (
             <div
               role="columnheader"

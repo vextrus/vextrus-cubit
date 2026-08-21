@@ -24,9 +24,13 @@ import { around, fill, ps } from './strings';
 /** ARIA's own vocabulary for a region that announces without stealing focus. */
 const STATUS = 'status';
 
-/** A whole number as the document writes it (R-SPINE-061), through the seam (L-FMT-01). */
+/**
+ * A whole number as the document writes it (R-SPINE-061), through the seam (L-FMT-01).
+ * Rounded first: the seam takes exactly zero fraction digits for a count, so a caller's `1.5`
+ * would throw a seam error from inside the notice instead of reading as a count.
+ */
 function countText(value: number): string {
-  return formatNumber(String(value), 'count');
+  return formatNumber(String(Math.round(value)), 'count');
 }
 
 export interface EmptyStateProps {

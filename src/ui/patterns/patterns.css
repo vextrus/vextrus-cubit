@@ -123,6 +123,14 @@
   color: var(--warn);
 }
 
+/* The commit that did not complete: the danger role's words, in the same place as the stale
+   note, because both are the dialog telling the reader what just happened (§9). */
+.datum-consequence-failed {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-13);
+  color: var(--danger);
+}
+
 .datum-consequence-lines {
   margin: var(--space-4) 0 0;
   padding: 0;

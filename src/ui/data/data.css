@@ -148,6 +148,38 @@
   min-height: calc(var(--row-compact) - var(--space-1));
 }
 
+/*
+ * A pinned cell is opaque, and says where the seam is (§3, §12). `z-index` orders the layers
+ * but paints nothing, so without a fill of its own a pinned cell shows the cells sliding under
+ * it. The surfaces are the row's: resting `--graphite-0`, and the row's own hover and selected
+ * tints where the row has them, so pinning changes position and never colour.
+ */
+.datum-datatable-cell[data-pinned] {
+  background: var(--graphite-0);
+}
+
+.datum-datatable-row:hover .datum-datatable-cell[data-pinned] {
+  background: var(--graphite-100);
+}
+
+.datum-datatable-row[data-selected] .datum-datatable-cell[data-pinned] {
+  background: var(--cobalt-100);
+}
+
+.datum-datatable-head-cell[data-pinned] {
+  background: var(--graphite-50);
+}
+
+.datum-datatable-cell[data-pinned='left'],
+.datum-datatable-head-cell[data-pinned='left'] {
+  border-right: 1px solid var(--graphite-300);
+}
+
+.datum-datatable-cell[data-pinned='right'],
+.datum-datatable-head-cell[data-pinned='right'] {
+  border-left: 1px solid var(--graphite-300);
+}
+
 .datum-datatable-select {
   display: flex;
   align-items: center;
@@ -165,6 +197,19 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   color: var(--graphite-900);
+}
+
+/* The group row's one cell: a row's children are cells, so the chevron, the value and the
+   count sit inside one of them and it spans the column grid (§3). */
+.datum-datatable-group-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1 1 auto;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .datum-datatable-group-count {

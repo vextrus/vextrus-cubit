@@ -21,7 +21,9 @@ no colour literal anywhere (R-UI-001).
   counts, report ids, consequence counts — is `--font-mono` via the `.numeric` utility
   (R-UI-003). Every integer count goes through `formatNumber(String(n), 'count')` from
   `src/core/format.ts` — stringified first, because the seam takes exactly 0 fraction digits
-  for `count`.
+  for `count` and refuses any other shape. The value is rounded to the nearest whole number
+  first, so a caller's fractional count reads as a count instead of throwing a seam error from
+  inside a chip, a notice or a consequence line.
 - **Focus (R-UI-012).** Every interactive element carries `datum-focus-ring` from primitives.css
   — sort buttons, row checkboxes, edit inputs, resize handles, links, dialog buttons.
 - **Bare jsdom.** Nothing here constructs a ResizeObserver or IntersectionObserver, guarded or
@@ -39,8 +41,9 @@ Anatomy, outside in: a wrapper (`data-testid="datatable"`, hairline border `--gr
 body, sticky footer (only when `footer` is given).
 
 - **Semantics.** The wrapper is `role="grid"` with `aria-rowcount` = data length + 1 (header);
-  each body row carries `aria-rowindex`, so a screen reader knows the true extent even though
-  the DOM holds a window. Header cells are `role="columnheader"` (with `aria-sort` when
+  every rendered row carries `aria-rowindex` — the header row is row 1, a body row is its data
+  index + 2 — so a screen reader knows the true extent, and where in it the reader stands, even
+  though the DOM holds a window. Header cells are `role="columnheader"` (with `aria-sort` when
   sortable), body cells `role="gridcell"`. Full arrow-key grid navigation is R-UI-032 (M2);
   until then interactive cell content sits in the natural tab order.
 - **Header** (`data-testid="datatable-header"`): `position: sticky; top: 0;
@@ -52,7 +55,10 @@ body, sticky footer (only when `footer` is given).
   @tanstack/react-virtual from the `height` prop and the scroll container's scrollTop with
   `estimateSize: () => estimateRowHeight` and overscan 10 — never from measured layout, so
   mounting needs no observer and at `height={600}`, `estimateRowHeight={40}` at most
-  15 + 20 = 35 rows exist in the DOM at any offset.
+  15 + 20 = 35 rows exist in the DOM at any offset. Both are live props, not mount-time
+  readings: a changed `height` republishes the viewport rect and a changed
+  `estimateRowHeight` remeasures, so the density switch below re-windows instead of leaving
+  the old pitch under new row heights.
 - **Rows** (`data-testid="datatable-row"`): exactly `estimateRowHeight` px tall — the prop is
   the density switch: a comfortable screen passes 36, a compact one 28 (R-UI-005 rows). Hairline
   bottom divider, cell text `--text-13` `--graphite-800`, cell padding `0 var(--space-2)`,
@@ -93,7 +99,12 @@ internal state with the same rendering.
   `--graphite-900`, a 16 px chevron IconButton (label `data.table.collapseGroup` /
   `data.table.expandGroup`, `aria-expanded`), the grouped value, then the member count in
   parentheses in `.numeric` `--graphite-600`, through the count seam. Groups mount expanded;
-  group rows are the same height as data rows and virtualise with them.
+  group rows are the same height as data rows and virtualise with them. The chevron, value and
+  count sit inside **one `role="gridcell"`** spanning the visible leaf columns (`aria-colspan`):
+  a `role="row"` whose children are not cells is malformed ARIA, and a reader would find a row
+  with nothing addressable in it. Where `enableRowSelection` is on, a group row opens with the
+  same 28 px selection gutter cell the data rows and the header spend — empty, since a group is
+  not itself selectable — so the group heads the column grid rather than sitting left of it.
 - **Pinning.** `state.columnPinning` gives pinned-left/right cells
   `position: sticky; left/right: 0; z-index: 1` (under the header's `--z-sticky`), an opaque
   background (`--graphite-0`, or the row's own hover/selected fill), and a hairline on the
@@ -102,6 +113,9 @@ internal state with the same rendering.
   an 8 px hit area (`role="separator"`, `aria-label` `data.table.resize` with the column label
   in the slot) showing a `--graphite-300` line on hover/drag; drag uses TanStack's pointer
   handlers — no observers. Keyboard: ArrowLeft/ArrowRight adjust by 8 px (one `--space-2`).
+  Because the handle is focusable it is a *widget* separator, not a divider, so it states the
+  value the arrow keys move: `aria-orientation="vertical"`, `aria-valuenow` = the column's
+  current width in px, `aria-valuemin` = 40 (the narrowest a column may be dragged).
 
 ## 4. DataTable — states (R-UI-050 share)
 
@@ -222,7 +236,19 @@ Footer, right-aligned, gap `--space-2`: secondary Button `patterns.consequence.c
   `--warn` `--text-13` renders `patterns.consequence.stale` (it also covers lines that
   vanished). The next confirm carries `stale.digest` — the reader confirms what is shown now,
   never what was shown before (L-ACT-02's stale-digest law, client half).
-- **Cancel and Escape** close without ever calling `onConfirm`.
+- **A commit that never answers** — `onConfirm`'s promise rejects — is the third outcome the
+  typed `ConfirmResult` does not name, and it is still an answer the reader is owed: the confirm
+  button leaves its loading state and a `role="alert"` line in `--danger` `--text-13` renders
+  `patterns.consequence.failed` above the list. Silence after a pressed button is exactly what
+  R-UI-020 forbids. The lines are unchanged (nothing was restated), so the next confirm carries
+  the same digest.
+- **Cancel and Escape** close without ever calling `onConfirm`. Closing also ends the episode:
+  the stale notice, the changed marks and a failure line are cleared, so a dialog reopened later
+  does not greet the reader with the last attempt's news.
+- **The restatement is keyed on `consequence.digest`, not on the prop's object identity.** A
+  screen that passes an inline `{ digest, lines }` re-creates that object on every parent render;
+  discarding the restatement there would put the outdated preview back on screen and send the
+  server a digest it has already refused. A genuinely new preview (a new digest) does clear it.
 
 ## 10. Copy, verbatim
 
@@ -246,6 +272,7 @@ Footer, right-aligned, gap `--space-2`: secondary Button `patterns.consequence.c
 | `patterns.consequence.cancel` | Cancel |
 | `patterns.consequence.confirm` | Confirm |
 | `patterns.consequence.stale` | The preview changed while this dialog was open. Review the updated counts; confirming applies what is shown now. |
+| `patterns.consequence.failed` | This could not be confirmed — the request did not complete. Nothing was changed. Try confirming again. |
 
 Calm, concrete, sentence case, no exclamation marks, no build vocabulary. EmptyState's copy and
 `emptyReason` are the composing screen's, decided in that screen's Design Decision; refusal

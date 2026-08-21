@@ -59,15 +59,25 @@ export interface ConsequenceDialogProps {
 /** ARIA's own vocabulary for a region that announces without stealing focus. */
 const STATUS = 'status';
 
-/** A whole number as the document writes it (R-SPINE-061), through the seam (L-FMT-01). */
+/**
+ * A whole number as the document writes it (R-SPINE-061), through the seam (L-FMT-01).
+ * Rounded first: the seam takes exactly zero fraction digits for a count, so a line arriving
+ * with `1.5` would throw from inside the dialog rather than render.
+ */
 function countText(value: number): string {
-  return formatNumber(String(value), 'count');
+  return formatNumber(String(Math.round(value)), 'count');
 }
 
 /** What a stale preview replaced, and which of its lines are not what the reader read. */
 interface Restated {
-  /** The preview this restatement answers — when the prop moves on, so does the dialog. */
-  readonly base: Consequence;
+  /**
+   * The digest of the preview this restatement answers — when the *server's state* moves on, so
+   * does the dialog. The digest and not the object: a call site that writes
+   * `consequence={{ digest, lines }}` inline hands over a new object on every parent render,
+   * and a restatement discarded by an unrelated re-render would put the outdated preview back
+   * on screen and carry a digest the server has already refused.
+   */
+  readonly base: string;
   readonly shown: Consequence;
   readonly changed: ReadonlySet<string>;
 }
@@ -96,27 +106,45 @@ export function ConsequenceDialog({
 }: ConsequenceDialogProps): ReactElement {
   const [restated, setRestated] = useState<Restated | null>(null);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
 
-  // A restatement belongs to the preview it answered: hand the dialog a new `consequence` and
+  // A restatement belongs to the preview it answered: hand the dialog a *different* preview and
   // the stale one is gone, with no effect to run and nothing to reset.
-  const current = restated !== null && restated.base === consequence ? restated : null;
+  const current = restated !== null && restated.base === consequence.digest ? restated : null;
   const shown = current?.shown ?? consequence;
   const changed = current?.changed ?? new Set<string>();
+
+  // Closing ends the episode: a dialog reopened on a preview that has since committed must not
+  // greet the reader with the last refusal's notice.
+  const close = (next: boolean): void => {
+    if (!next) {
+      setRestated(null);
+      setFailed(false);
+    }
+    onOpenChange(next);
+  };
 
   const confirm = (): void => {
     if (busy) return;
     setBusy(true);
+    setFailed(false);
     void onConfirm(shown.digest)
       .then((result) => {
         if (result.ok) {
-          onOpenChange(false);
+          close(false);
           return;
         }
         setRestated({
-          base: consequence,
+          base: consequence.digest,
           shown: result.stale,
           changed: changedKeys(shown, result.stale),
         });
+      })
+      .catch(() => {
+        // The third outcome the typed contract does not name: the commit never answered. It is
+        // still an answer the reader is owed — R-UI-020's "silence never happens" is exactly
+        // the case where a button stops spinning and nothing is said (§9).
+        setFailed(true);
       })
       .finally(() => {
         setBusy(false);
@@ -124,7 +152,7 @@ export function ConsequenceDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={close}>
       <DialogContent data-testid="consequence-dialog" className="datum-consequence">
         <DialogTitle>{title}</DialogTitle>
 
@@ -135,6 +163,14 @@ export function ConsequenceDialog({
             {ps('patterns.consequence.stale')}
           </p>
         )}
+
+        {/* The commit that never answered. `role="alert"`, not `status`: the reader pressed a
+            button and it did not happen, which is the one thing here worth interrupting for. */}
+        {failed ? (
+          <p role="alert" className="datum-consequence-failed">
+            {ps('patterns.consequence.failed')}
+          </p>
+        ) : null}
 
         <ul className="datum-consequence-lines">
           {shown.lines.map((line) => {
@@ -165,7 +201,7 @@ export function ConsequenceDialog({
             variant="secondary"
             data-testid="consequence-cancel"
             onClick={() => {
-              onOpenChange(false);
+              close(false);
             }}
           >
             {ps('patterns.consequence.cancel')}

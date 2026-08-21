@@ -37,6 +37,9 @@ export const PATTERNS_STRINGS = Object.freeze({
   'patterns.consequence.cancel': 'Cancel',
   /** ConsequenceDialog's commit. */
   'patterns.consequence.confirm': 'Confirm',
+  /** The commit that never answered at all — a rejected promise, said in the reader's terms. */
+  'patterns.consequence.failed':
+    'This could not be confirmed — the request did not complete. Nothing was changed. Try confirming again.',
   /** What a stale digest means, said to the reader rather than reported as an error. */
   'patterns.consequence.stale':
     'The preview changed while this dialog was open. Review the updated counts; confirming applies what is shown now.',
