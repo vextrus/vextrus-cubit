@@ -16,6 +16,10 @@ next-env.d.ts
 # (V-VERIFY: "drizzle-kit generate into scratch, tree untouched").
 .scratch/
 
+# Gate-owned artifacts. scripts/traceability.mjs generates docs/traceability.json at gate
+# time; the script ships, the JSON is never committed by an increment (C-10, leaf note).
+docs/traceability.json
+
 # Test and tool output.
 .ruff_cache/
 .pytest_cache/

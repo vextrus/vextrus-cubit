@@ -22,6 +22,14 @@ jobs:
       # major tag is remote code that can change under the gate between two runs.
       - name: Check out the tree
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # B-05: two checks in `vitest run` are claims about history — the ownership
+          # boundary (an engine-maintained file a commit deleted must be back in the tree)
+          # and AM-02 (inc-000's own commit carried no product tree). The default
+          # fetch-depth: 1 fetches only the tip, so both would judge a truncated history:
+          # one passing vacuously, the other reading the wrong commit as inc-000's. Full
+          # history is the input those stages need, so CI fetches it.
+          fetch-depth: 0
 
       - name: Node, from .nvmrc
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
