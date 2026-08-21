@@ -53,10 +53,13 @@ function isCode(text) {
  *   parent: { type: string },
  *   expression: import('eslint').Rule.Node,
  * }} JsxExpressionContainer
+ * An attribute's value is a plain literal (`placeholder="x"`), a container
+ * holding an expression (`placeholder={x}`), an element, or nothing at all.
+ *
  * @typedef {{
  *   type: 'JSXAttribute',
  *   name: JsxIdentifier,
- *   value: import('eslint').Rule.Node | null,
+ *   value: import('eslint').Rule.Node | JsxExpressionContainer | null,
  * }} JsxAttribute
  */
 
@@ -104,6 +107,26 @@ const rule = {
       });
     };
 
+    /**
+     * The two spellings a braced string can take: `{'text'}` and `{`text`}`.
+     * A template with an interpolation is composition, not a literal, and the
+     * pieces it is composed of are reported where they are written.
+     *
+     * @param {import('eslint').Rule.Node} expression
+     */
+    const checkExpression = (expression) => {
+      if (expression.type === 'Literal' && typeof expression.value === 'string') {
+        check(expression, expression.value);
+        return;
+      }
+      if (expression.type === 'TemplateLiteral' && expression.expressions.length === 0) {
+        const [quasi] = expression.quasis;
+        if (quasi !== undefined) {
+          check(expression, quasi.value.raw);
+        }
+      }
+    };
+
     // ESLint's RuleListener is indexed by ESTree node names, and JSX has none
     // of them; the visitors below are typed for the reader and the compiler,
     // and handed over as the listener ESLint expects.
@@ -119,19 +142,12 @@ const rule = {
       JSXExpressionContainer(node) {
         const parent = node.parent;
         if (parent.type !== 'JSXElement' && parent.type !== 'JSXFragment') {
+          // An attribute's container is read by the JSXAttribute visitor, which
+          // knows whether the attribute reaches a human; every other parent is
+          // not a rendered position.
           return;
         }
-        const expression = node.expression;
-        if (expression.type === 'Literal' && typeof expression.value === 'string') {
-          check(expression, expression.value);
-          return;
-        }
-        if (expression.type === 'TemplateLiteral' && expression.expressions.length === 0) {
-          const [quasi] = expression.quasis;
-          if (quasi !== undefined) {
-            check(expression, quasi.value.raw);
-          }
-        }
+        checkExpression(node.expression);
       },
 
       // <input placeholder="Amount in taka" data-testid="amount" />
@@ -147,6 +163,13 @@ const rule = {
         const value = node.value;
         if (value.type === 'Literal' && typeof value.value === 'string') {
           check(value, value.value);
+          return;
+        }
+        // placeholder={'Amount in taka'} and title={`Total due`} are the same
+        // string reaching the same human; the braces are what a formatter or a
+        // half-finished edit leaves behind, not a different intent.
+        if (value.type === 'JSXExpressionContainer') {
+          checkExpression(value.expression);
         }
       },
     };

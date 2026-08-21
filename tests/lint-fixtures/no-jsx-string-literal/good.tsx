@@ -8,7 +8,8 @@ export function PaymentBanner(): JSX.Element {
       <h2>{strings.paymentReceivedTitle}</h2>
       <p>{strings.paymentReceivedBody}</p>
       <span data-testid="currency-code">BDT</span>
-      <input placeholder={strings.amountPlaceholder} />
+      <input placeholder={strings.amountPlaceholder} title={strings.amountTitle} />
+      <span data-testid={'payment-total'}>{strings.paymentTotal}</span>
     </section>
   );
 }

@@ -117,6 +117,16 @@ would be worse than none, because it would answer `ok`:
 Wiring any of these is a toolchain change, and C-06 already requires the
 increment that lands the input to be tagged `toolchain` and to name the files.
 
+`.github/workflows/ci.yml` runs the whole determinism chain on a fresh
+checkout, in order: `pnpm install --frozen-lockfile`, `pnpm verify`, an empty
+`git status --porcelain --untracked-files=all`, then a *second* `pnpm verify`
+whose roster must match the first line for line with the durations blanked.
+The second pass is the part a single run cannot show: a stage that cached
+something into the tree, or that decides its verdict from the state a previous
+run left behind, is green once and different twice. The logs are written under
+`$RUNNER_TEMP`, never beside the tree, so the porcelain check answers for
+verify alone.
+
 ## `pnpm checkup`
 
 The machine's report, run at session start. One line per item, then `checkup:
@@ -146,8 +156,8 @@ on `bad.*` and stays silent on `good.*`.
 | `format-seam-only`       | `cubit/format-seam-only`            | `Intl` / `toLocale*` / `localeCompare` outside `src/core/format.ts`, and `en-BD` anywhere | L-FMT-01 |
 | `model-seam-only`        | `cubit/model-seam-only`             | model-SDK import outside `src/core`                             | L-AI-01     |
 | `db-seam-only`           | `cubit/db-seam-only`                | driver or `db/schema` import outside `src/core/db.ts`           | SEAM-TENANT |
-| `no-colour-literal`      | `cubit/no-colour-literal`           | hex/rgb/hsl/oklch literal outside `src/ui/tokens.ts`            | R-UI-001    |
-| `no-jsx-string-literal`  | `cubit/no-jsx-string-literal`       | string rendered in JSX, except test ids and codes               | R-SPINE-060 |
+| `no-colour-literal`      | `cubit/no-colour-literal`           | hex/rgb/hsl/oklch literal, or a `0xRRGGBB(AA)` number, outside `src/ui/tokens.ts` | R-UI-001    |
+| `no-jsx-string-literal`  | `cubit/no-jsx-string-literal`       | string rendered in JSX — as text, in `{braces}`, or in a user-facing attribute — except test ids and codes | R-SPINE-060 |
 | `no-conversion-literal`  | `cubit/no-conversion-literal`       | a unit-canon constant outside `src/core/units.ts`               | L-FRM-06    |
 | `no-suppressions`        | `cubit/no-suppressions`             | a lint-disable directive or a type-error suppression comment    | Q-08        |
 | `no-skip-only`           | `cubit/no-skip-only`                | `.skip`/`.only` on a test or describe                           | Q-08        |
@@ -201,12 +211,18 @@ alone:
 - The seam rules are pre-wired to `src/**` and `db/**` and match nothing today.
   They arm themselves the moment a later increment lands product code — no
   config change, no list to keep in step.
-- `src/core/units.ts` is exempt from *both* `cubit/no-conversion-literal` and
-  `cubit/no-float-arithmetic`. L-FRM-06 requires the canon — `0.3048`,
-  `0.028316846592`, `0.09290304`, `0.45359237`, kg/MT — to live there as exact
-  constants, so a float rule that fired there would forbid the one place the
-  Bible demands floats and make the first increment to write the canon fight
-  the gate (B-15).
+- `src/core/units.ts` is exempt from `cubit/no-conversion-literal`, and from
+  the *literal* half of `cubit/no-float-arithmetic`. L-FRM-06 requires the
+  canon — `0.3048`, `0.028316846592`, `0.09290304`, `0.45359237`, kg/MT — to
+  live there as exact constants, so a float rule that fired on them would
+  forbid the one place the Bible demands floats and make the first increment to
+  write the canon fight the gate (B-15). The exemption stops exactly there:
+  `parseFloat` and `Number.parseFloat` are reported inside `src/core/units.ts`
+  like anywhere else, because the canon is a set of written constants and
+  parsing is how a user's typed quantity becomes a binary float in the one file
+  every quantity passes through (B-07). `tests/lint-fixtures/guardrails.test.ts`
+  proves both halves, by linting text at that filename — no fixture file can
+  sit at a seam path this increment does not deliver.
 - `cubit/db-seam-only` is scoped to `src/**` only. `db/**` *is* the schema, so
   banning the schema import there would ban the schema from itself; inside
   `src/**`, `src/core/db.ts` exempts itself.
@@ -229,6 +245,14 @@ it only on an increment whose spec is tagged `toolchain` and names
 
 ## Changing this toolchain
 
-From increment one every gate stage is armed and the toolchain is locked
-(C-06, B-15). A later change rides only on an increment whose spec is tagged
-`toolchain` and names the files it touches.
+Gate stages arm progressively across the foundation series, of which increment
+zero is the first: a lane whose input root does not exist yet is skipped with
+the recorded reason `LANE_NOT_YET_BUILT`, never silently passed. From the end
+of that series — after tokens, primitives, the shell and the auth scaffold have
+landed — every stage is armed (C-06 as amended by AM-02, B-15).
+
+The lock on this toolchain does not wait for that. It is already in force: a
+change to any file listed here rides only on an increment whose spec is tagged
+`toolchain` and names the files it touches. Arming is what the roster does as
+inputs appear; locking is what governs edits to the roster itself, and only the
+first of the two is progressive.

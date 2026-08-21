@@ -104,6 +104,52 @@ describe('B-05 the guardrail registry fires', () => {
   }
 });
 
+/**
+ * B-07 / L-FRM-06 — the one exemption in the registry that no fixture file can
+ * carry, because it is decided by the linted file's path: `src/core/units.ts`
+ * may hold the unit canon's exact decimals and nothing else. A fixture cannot
+ * live at that path (AM-02 keeps src/** out of this increment), so the proof is
+ * a lint of text at that filename.
+ */
+describe('B-07 the units seam is exempt for the canon, not for parseFloat', () => {
+  const lintAsUnits = async (code: string): Promise<readonly Linter.LintMessage[]> => {
+    const linter = new ESLint({
+      cwd: ROOT,
+      overrideConfigFile: path.join(ROOT, 'eslint.config.mjs'),
+      ignore: false,
+    });
+    const [result] = await linter.lintText(code, { filePath: path.join(ROOT, 'src/core/units.ts') });
+    return result?.messages ?? [];
+  };
+
+  const floatRule = (messages: readonly Linter.LintMessage[]): readonly Linter.LintMessage[] =>
+    messages.filter((message) => message.ruleId === 'cubit/no-float-arithmetic');
+
+  it('L-FRM-06: the canon decimals are silent in src/core/units.ts', async () => {
+    const messages = await lintAsUnits(
+      ['export const FT_M = 0.3048;', 'export const CFT_M3 = 0.028316846592;', ''].join('\n'),
+    );
+    expect(
+      floatRule(messages).map((message) => message.message),
+      'the Bible requires the canon to live here as exact constants',
+    ).toEqual([]);
+  });
+
+  it('B-07: parseFloat still fires in src/core/units.ts', async () => {
+    const messages = await lintAsUnits(
+      [
+        'export const a = parseFloat(process.argv[2] ?? "0");',
+        'export const b = Number.parseFloat(process.argv[3] ?? "0");',
+        '',
+      ].join('\n'),
+    );
+    expect(
+      floatRule(messages).length,
+      'the file every quantity passes through is the last place a parsed float may enter',
+    ).toBe(2);
+  });
+});
+
 describe('B-05 the fixtures stay out of the tree-wide run', () => {
   it('eslint . ignores tests/lint-fixtures/**', async () => {
     const treeWide = new ESLint({

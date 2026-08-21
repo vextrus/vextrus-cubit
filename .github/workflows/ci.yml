@@ -45,10 +45,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The log goes to RUNNER_TEMP, not the workspace: a file written beside
+      # the tree would fail the porcelain check below on its own account.
       - name: Verify
-        run: pnpm verify
+        run: |
+          set -euo pipefail
+          pnpm verify | tee "$RUNNER_TEMP/verify-1.log"
 
       # Q-01 and AC-8: verify reads the tree and writes only to gitignored
       # scratch. A dirty tree here means a stage wrote where it must not.
       - name: The tree is exactly as verify found it
+        run: git status --porcelain --untracked-files=all | tee /dev/stderr | wc -l | grep -qx 0
+
+      # The last link of fresh-clone determinism: a second verify on the same
+      # tree is green and prints the same roster. Only the durations may move —
+      # a stage that appeared, vanished, changed verdict or changed place on
+      # the second pass is a non-idempotent gate, and this is where it shows.
+      - name: Verify again, and the roster is identical
+        run: |
+          set -euo pipefail
+          pnpm verify | tee "$RUNNER_TEMP/verify-2.log"
+          roster() {
+            grep '^verify: ' "$1" | sed -E 's/\([0-9]+(\.[0-9]+)?(ms|s)\)/(TIME)/'
+          }
+          roster "$RUNNER_TEMP/verify-1.log" > "$RUNNER_TEMP/roster-1.txt"
+          roster "$RUNNER_TEMP/verify-2.log" > "$RUNNER_TEMP/roster-2.txt"
+          diff -u "$RUNNER_TEMP/roster-1.txt" "$RUNNER_TEMP/roster-2.txt"
+
+      # And the second pass left the tree alone too.
+      - name: The tree is exactly as the second verify found it
         run: git status --porcelain --untracked-files=all | tee /dev/stderr | wc -l | grep -qx 0

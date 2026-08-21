@@ -5,12 +5,18 @@
  *
  * Integers are untouched: counts, indexes and millisecond budgets are honest.
  *
- * One file is exempt, and it is the same file `cubit/no-conversion-literal`
- * exempts: L-FRM-06 says the unit canon — 0.3048, 0.028316846592, 0.09290304,
- * 0.45359237 — lives in `src/core/units.ts` as exact constants and nowhere
- * else. A rule that forbade fractional literals there too would forbid the one
- * place the Bible requires them, and the first increment to write the canon
- * would fail the gate on its own seam.
+ * One file is exempt from *half* of this rule, and it is the same file
+ * `cubit/no-conversion-literal` exempts: L-FRM-06 says the unit canon —
+ * 0.3048, 0.028316846592, 0.09290304, 0.45359237 — lives in
+ * `src/core/units.ts` as exact constants and nowhere else. A rule that forbade
+ * fractional literals there too would forbid the one place the Bible requires
+ * them, and the first increment to write the canon would fail the gate on its
+ * own seam.
+ *
+ * The `parseFloat` half is not exempt anywhere. The canon is a set of written
+ * constants; parsing is what turns a user's typed quantity into a binary float,
+ * and `src/core/units.ts` — the file every quantity passes through — is the
+ * last place B-07 can afford to allow it.
  */
 import { isSeamFile } from './seam.mjs';
 
@@ -31,17 +37,16 @@ const rule = {
     },
   },
   create(context) {
-    // The unit canon's own file, exactly as no-conversion-literal reads it.
-    if (isSeamFile(context, SEAM)) {
-      return {};
-    }
+    // The unit canon's own file, exactly as no-conversion-literal reads it —
+    // and only for the literals, which is all L-FRM-06 asks for.
+    const canonFile = isSeamFile(context, SEAM);
 
     /** @param {string} name */
     const isParseFloat = (name) => name === 'parseFloat';
 
     return {
       Literal(node) {
-        if (typeof node.value !== 'number') {
+        if (canonFile || typeof node.value !== 'number') {
           return;
         }
         // 1.0 and 2e3 are integers however they are spelled; 0.1 is not.

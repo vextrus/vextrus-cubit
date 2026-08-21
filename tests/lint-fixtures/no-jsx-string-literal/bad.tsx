@@ -5,6 +5,7 @@ export function PaymentBanner(): JSX.Element {
       <h2>Payment received</h2>
       <p>{'The client has cleared this invoice.'}</p>
       <input placeholder="Amount in taka" />
+      <input title={'Total due'} aria-label={`Amount outstanding`} />
     </section>
   );
 }
