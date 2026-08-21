@@ -135,3 +135,47 @@ jobs:
             cat "${RUNNER_TEMP}/porcelain-2.txt"
             exit 1
           fi
+
+  # V-E2E: "Runs in CI on every PR and by the harness gate." The baselines are Linux PNGs
+  # taken on ubuntu-24.04, so the runner that diffs them is the one they were taken on.
+  e2e:
+    name: journeys — visual baselines and axe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out the tree
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Node, from .nvmrc
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: pnpm, exact via corepack
+        shell: bash
+        run: |
+          corepack enable
+          corepack prepare --activate
+
+      - name: Install, frozen
+        shell: bash
+        run: pnpm install --frozen-lockfile
+
+      # A runner has no browser until one is installed, and a journey that failed for that
+      # reason would be reporting on the runner rather than on the product.
+      - name: The browser the journeys drive
+        shell: bash
+        run: pnpm exec playwright install chromium --with-deps
+
+      # J-004 is written; J-000 is not, and says so by name (C-09) rather than silently.
+      - name: pnpm e2e — J-004 and J-000
+        shell: bash
+        run: pnpm e2e --journey J-004 --journey J-000
+
+      - name: The failure's own evidence
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-traces
+          path: test-results/
+          if-no-files-found: ignore

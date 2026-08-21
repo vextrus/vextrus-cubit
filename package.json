@@ -11,9 +11,9 @@
   "scripts": {
     "verify": "node scripts/verify.mjs",
     "checkup": "node scripts/checkup.mjs",
-    "dev": "node scripts/lane.mjs dev",
-    "build": "node scripts/lane.mjs build",
-    "start": "node scripts/lane.mjs start",
+    "dev": "next dev -p 3210",
+    "build": "next build",
+    "start": "next start",
     "worker": "node scripts/lane.mjs worker",
     "test:db": "node scripts/test-db.mjs",
     "e2e": "node scripts/e2e.mjs",
@@ -58,6 +58,7 @@
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.62.1",
+    "@tailwindcss/postcss": "4.3.3",
     "@testing-library/dom": "10.4.1",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.5",

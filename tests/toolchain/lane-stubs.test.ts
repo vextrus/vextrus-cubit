@@ -35,13 +35,14 @@ function run(cmd: string, args: string[]): Promise<Ran> {
  * roster: C-06's recorded reason is for a lane that does not exist yet, and a built lane
  * that still printed it would be reporting a lie. Their contract lines are asserted by the
  * V-DB suite in db/__tests__, which is where a test that needs a database belongs.
+ *
+ * inc-007 armed four more the same way — `dev`, `build`, `start` and `e2e` are Next and
+ * Playwright now, and the V-E2E lane's own contract lines (the journey skip, the baselines,
+ * the CI job) are asserted in src/app/design/__tests__/lane.acceptance.test.ts, beside the
+ * screen they exist for. `worker` and the rest are still unbuilt and still say so.
  */
 const STUBS = [
-  'dev',
-  'build',
-  'start',
   'worker',
-  'e2e',
   'test:golden',
   'test:docs',
   'test:perf',
