@@ -10,7 +10,9 @@ import { isFile } from './paths.mjs';
 
 const TOKENS = 'src/ui/tokens.ts';
 
-const HEX = /#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/;
+// The hex has to stand on its own: `#2447f0` is a colour, the fragment in `/docs#abcdef`
+// is not, and a rule that cannot tell them apart is a rule someone turns off.
+const HEX = /(?:^|[\s:(,;])#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-zA-Z_-])/;
 const FUNCTIONAL = /\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color)\s*\(/;
 
 function looksLikeColour(text) {

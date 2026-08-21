@@ -200,6 +200,10 @@ describe('the guardrails fire on the branches no fixture spells (B-05)', () => {
     expect(await ruleIdsFor('src/ui/tokens.ts', 'export const a = "#fff";\n')).not.toContain(
       'cubit/no-colour-literal',
     );
+    // A fragment in a path is not a colour; a rule that cannot tell gets switched off.
+    expect(await ruleIdsFor(outside, 'export const href = "/docs/pins#abcdef";\n')).not.toContain(
+      'cubit/no-colour-literal',
+    );
   });
 
   it('R-SPINE-060: a short upper-case word is copy, a reason code is not', async () => {
