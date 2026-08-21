@@ -14,9 +14,16 @@
 @import './tokens.css';
 
 /*
- * Tailwind's `--color-*` namespace, each token keeping its Datum name: `bg-graphite-50`,
- * `text-basis-measured`, `border-graphite-200`. Fonts and breakpoints follow; nothing else
- * enters @theme, because a token Tailwind does not need is a token that only needs a var().
+ * Every R-UI-001 category enters @theme, because the clause says the tokens are "consumed by
+ * Tailwind" — a category that never reaches a namespace is a grid utilities do not keep. Each
+ * token is mapped into the Tailwind namespace that generates its utilities, keeping its Datum
+ * name: `bg-graphite-50`, `p-2`, `rounded-4`, `shadow-2`, `text-13`, `duration-panel`,
+ * `ease-flyto`, `z-overlay`.
+ *
+ * Where a Datum group already carries Tailwind's namespace name (--radius-*, --shadow-*,
+ * --text-*, --leading-*, --font-mono, --breakpoint-*) the mapping reads as a self-reference.
+ * It resolves: tokens.css arrives unlayered and so outranks the `theme` layer @theme emits
+ * into, and the utility still resolves to the one value in src/ui/tokens.ts.
  */
 @theme {
   --color-graphite-0: var(--graphite-0);
@@ -77,6 +84,54 @@
   --font-sans: var(--font-ui);
   --font-mono: var(--font-mono);
   --font-doc: var(--font-doc);
+
+  --font-weight-heading: var(--weight-heading);
+  --font-weight-body: var(--weight-body);
+  --font-weight-body-medium: var(--weight-body-medium);
+
+  --text-12: var(--text-12);
+  --text-13: var(--text-13);
+  --text-14: var(--text-14);
+  --text-16: var(--text-16);
+  --text-20: var(--text-20);
+  --text-24: var(--text-24);
+  --text-32: var(--text-32);
+
+  --leading-ui: var(--leading-ui);
+
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+  --spacing-4: var(--space-4);
+  --spacing-5: var(--space-5);
+  --spacing-6: var(--space-6);
+  --spacing-7: var(--space-7);
+  --spacing-8: var(--space-8);
+  --spacing-9: var(--space-9);
+  --spacing-10: var(--space-10);
+  --spacing-11: var(--space-11);
+  --spacing-12: var(--space-12);
+
+  --radius-2: var(--radius-2);
+  --radius-4: var(--radius-4);
+  --radius-8: var(--radius-8);
+  --radius-12: var(--radius-12);
+
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+  --shadow-3: var(--shadow-3);
+  --shadow-4: var(--shadow-4);
+
+  --transition-duration-state: var(--motion-state-duration);
+  --transition-duration-panel: var(--motion-panel-duration);
+  --transition-duration-flyto: var(--motion-flyto-duration);
+  --ease-motion: var(--motion-ease);
+  --ease-flyto: var(--motion-flyto-ease);
+
+  --z-index-base: var(--z-base);
+  --z-index-sticky: var(--z-sticky);
+  --z-index-overlay: var(--z-overlay);
+  --z-index-toast: var(--z-toast);
 
   --breakpoint-sm: var(--breakpoint-sm);
   --breakpoint-md: var(--breakpoint-md);

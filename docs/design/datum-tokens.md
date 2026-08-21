@@ -148,12 +148,35 @@ resolves canvas colours independently of UI chrome.
 
 ## 5. globals.css (R-UI-001 — no literal anywhere in this file)
 
-`@import 'tailwindcss';` then `@import './tokens.css';`. The `@theme` block exposes, via
-`var(--…)` references only: every §2 colour under Tailwind's `--color-*` namespace keeping its
-Datum name (`--color-graphite-0: var(--graphite-0);` … through canvas), fonts as
-`--font-sans: var(--font-ui)`, `--font-mono: var(--font-mono)`, `--font-doc: var(--font-doc)`,
-and the four breakpoints as `--breakpoint-*: var(--breakpoint-*)`. Nothing else enters
-`@theme`. One utility:
+`@import 'tailwindcss';` then `@import './tokens.css';`. R-UI-001 says the tokens are "consumed
+by Tailwind", so **every** category reaches a Tailwind namespace — a category that stops at
+`tokens.css` is a grid, a scale or a stacking order that utilities do not keep. The `@theme`
+block exposes, via `var(--…)` references only:
+
+| Datum group | Tailwind namespace | Utilities |
+|---|---|---|
+| every §2 colour, keeping its Datum name | `--color-*` | `bg-graphite-50`, `text-basis-measured` |
+| `--font-ui/--font-mono/--font-doc` | `--font-sans`, `--font-mono`, `--font-doc` | `font-sans`, `font-mono`, `font-doc` |
+| `--weight-heading/body/body-medium` | `--font-weight-*` | `font-heading`, `font-body` |
+| `--text-12 … --text-32` | `--text-*` | `text-13` |
+| `--leading-ui` | `--leading-ui` | `leading-ui` |
+| `--space-1 … --space-12` | `--spacing-1 … --spacing-12` | `p-2`, `gap-4` on the 4-pt grid |
+| `--radius-2/4/8/12` | `--radius-*` | `rounded-4` |
+| `--shadow-1 … --shadow-4` | `--shadow-*` | `shadow-2` |
+| `--motion-*-duration` | `--transition-duration-state/panel/flyto` | `duration-panel` |
+| `--motion-ease`, `--motion-flyto-ease` | `--ease-motion`, `--ease-flyto` | `ease-flyto` |
+| `--z-base/sticky/overlay/toast` | `--z-index-*` | `z-overlay` |
+| `--breakpoint-sm/md/lg/xl` | `--breakpoint-*` | `md:`, `xl:` |
+
+`--hairline` and the density rows (`--row-comfortable/--row-compact`) stay var()-only: Tailwind
+has no namespace for a border shorthand or a row height, and an arbitrary value
+(`h-(--row-compact)`) reads the same token.
+
+Where a Datum group already carries the namespace's own name (`--radius-*`, `--shadow-*`,
+`--text-*`, `--leading-ui`, `--font-mono`, `--breakpoint-*`) the mapping is written as a
+self-reference, exactly as above. It resolves rather than cycles: `@theme` emits into
+`@layer theme`, `tokens.css` arrives unlayered, and an unlayered declaration outranks every
+layer — so `:root` holds the Datum value and the utility reads it. One utility:
 
 ```css
 .numeric {
