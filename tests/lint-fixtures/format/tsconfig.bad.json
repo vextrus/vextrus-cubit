@@ -1,0 +1,11 @@
+{
+  // R-SPINE-060's compiler refusal, as a project of exactly one file.
+  //
+  // "files" and nothing else: an inherited or invented glob would drag the rest of the tree
+  // in and turn any unrelated error into this proof's pass, and the root config's own
+  // exclude never applies to a listed file. "include" is emptied because extends inherits it.
+  "extends": "../../../tsconfig.json",
+  "files": ["missing-key.bad.ts"],
+  "include": [],
+  "exclude": []
+}

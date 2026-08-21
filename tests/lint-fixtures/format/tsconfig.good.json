@@ -1,0 +1,8 @@
+{
+  // The other side of the same proof, in the same shape: one file, no globs (see
+  // tsconfig.bad.json). This project must exit 0 — a registered key is an ordinary call.
+  "extends": "../../../tsconfig.json",
+  "files": ["known-key.good.ts"],
+  "include": [],
+  "exclude": []
+}
