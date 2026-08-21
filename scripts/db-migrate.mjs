@@ -41,6 +41,21 @@ const JOURNAL = join(MIGRATIONS, 'meta', '_journal.json');
 /** drizzle writes this between statements; it is the only place a file may be split. */
 const BREAKPOINT = '--> statement-breakpoint';
 
+/**
+ * An identifier, quoted the way Postgres quotes one: the value goes inside double quotes and
+ * every double quote in it is doubled. Database names come from the environment
+ * (`CUBIT_TEST_DB`, the `DATABASE_URL` path), so they are values, not SQL — a name carrying a
+ * quote must close nothing.
+ */
+export function quoteIdent(name) {
+  return `"${String(name).replace(/"/g, '""')}"`;
+}
+
+/** The same for a string literal, where a quote would otherwise end the statement. */
+export function quoteLiteral(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
 function env(name, fallback) {
   const value = process.env[name];
   return value === undefined || value.trim() === '' ? fallback : value;
@@ -79,17 +94,13 @@ async function connect(url) {
  */
 export async function ensureRoles(admin) {
   for (const role of ROLES) {
-    const attributes = `login inherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls password '${role}'`;
-    await admin.query(
-      `do $$
-       begin
-         if not exists (select 1 from pg_roles where rolname = '${role}') then
-           create role "${role}" ${attributes};
-         else
-           alter role "${role}" with ${attributes};
-         end if;
-       end $$;`,
-    );
+    const attributes = `login inherit nosuperuser nocreatedb nocreaterole noreplication nobypassrls password ${quoteLiteral(role)}`;
+    const existing = await admin.query('select 1 from pg_roles where rolname = $1', [role]);
+    const statement =
+      existing.rowCount === 0
+        ? `create role ${quoteIdent(role)} ${attributes}`
+        : `alter role ${quoteIdent(role)} with ${attributes}`;
+    await admin.query(statement);
   }
 }
 
@@ -97,10 +108,10 @@ export async function ensureRoles(admin) {
 async function ensureDatabase(admin, database) {
   const existing = await admin.query('select 1 from pg_database where datname = $1', [database]);
   if (existing.rowCount === 0) {
-    await admin.query(`create database "${database}" owner "cubit_migrate"`);
+    await admin.query(`create database ${quoteIdent(database)} owner "cubit_migrate"`);
   }
   for (const role of ROLES) {
-    await admin.query(`grant connect on database "${database}" to "${role}"`);
+    await admin.query(`grant connect on database ${quoteIdent(database)} to ${quoteIdent(role)}`);
   }
 }
 
@@ -175,16 +186,75 @@ function statementsOf(sql) {
     .filter((statement) => statement !== '');
 }
 
+/**
+ * What ran, and in which order it ran. `applied_at` is a transaction timestamp and each file
+ * is applied in a transaction of its own, so the column is the ledger's own record of order —
+ * the thing a re-ordered journal has to be checked against.
+ */
 async function readLedger(migrate) {
-  const result = await migrate.query('select filename, checksum from cubit_ops.migration_ledger');
-  return new Map(result.rows.map((row) => [String(row.filename), String(row.checksum)]));
+  const result = await migrate.query(
+    'select filename, checksum, applied_at from cubit_ops.migration_ledger order by applied_at',
+  );
+  const rows = result.rows.map((row) => ({
+    filename: String(row.filename),
+    checksum: String(row.checksum),
+    appliedAt: Number(new Date(row.applied_at).getTime()),
+  }));
+  const checksums = new Map(rows.map((row) => [row.filename, row.checksum]));
+  return { rows, checksums };
+}
+
+/**
+ * The order the tree now claims, against the order the database actually ran (C-06, B-05).
+ * Two ways a journal can lie about it, both of which apply a migration into a database that
+ * neither the tree nor the ledger then describes:
+ *
+ *   - a recorded file was moved ahead of one that ran before it (a bad merge re-ordering
+ *     `_journal.json`), so the recorded sequence and the journal's sequence disagree;
+ *   - a file nobody has applied yet sits ahead of one that has, so applying it now runs it
+ *     out of order against a schema its author never saw.
+ *
+ * Rows sharing an `applied_at` ran in the same instant and the ledger records no order
+ * between them, so nothing is claimed about their relative position.
+ */
+function orderDrift(entries, ledger) {
+  const drift = [];
+  const position = new Map(entries.map((entry, index) => [entry.filename, index]));
+
+  let earlier;
+  for (const row of ledger.rows) {
+    const index = position.get(row.filename);
+    if (index === undefined) continue;
+    if (earlier !== undefined && row.appliedAt > earlier.appliedAt && index < earlier.index) {
+      drift.push(
+        `${row.filename} was applied after ${earlier.filename}, but the journal now orders it first`,
+      );
+    }
+    if (earlier === undefined || row.appliedAt > earlier.appliedAt) {
+      earlier = { filename: row.filename, appliedAt: row.appliedAt, index };
+    }
+  }
+
+  let lastApplied = -1;
+  for (const [index, entry] of entries.entries()) {
+    if (ledger.checksums.has(entry.filename)) lastApplied = index;
+  }
+  for (const [index, entry] of entries.entries()) {
+    if (index < lastApplied && !ledger.checksums.has(entry.filename)) {
+      drift.push(
+        `${entry.filename} has never been applied, but the journal puts it ahead of ${entries[lastApplied]?.filename}, which has`,
+      );
+    }
+  }
+  return drift;
 }
 
 /**
  * What the tree and the ledger disagree about. Empty is the only acceptable answer, and it
  * is read before a single statement is applied.
  */
-function ledgerDrift(entries, recorded) {
+function ledgerDrift(entries, ledger) {
+  const recorded = ledger.checksums;
   const drift = [];
   for (const entry of entries) {
     const was = recorded.get(entry.filename);
@@ -202,7 +272,7 @@ function ledgerDrift(entries, recorded) {
   for (const filename of recorded.keys()) {
     if (!journalled.has(filename)) drift.push(`${filename} was applied, but the journal has dropped it`);
   }
-  return drift;
+  return [...drift, ...orderDrift(entries, ledger)];
 }
 
 async function applyMigration(migrate, entry) {
@@ -250,9 +320,10 @@ export async function migrate() {
   try {
     await ensureLedger(client);
     const entries = journalEntries();
-    const recorded = await readLedger(client);
+    const ledger = await readLedger(client);
+    const recorded = ledger.checksums;
 
-    const drift = ledgerDrift(entries, recorded);
+    const drift = ledgerDrift(entries, ledger);
     if (drift.length > 0) {
       detail(drift.join('\n'));
       return { ok: false, reason: 'LEDGER_DRIFT', applied: 0, recorded: recorded.size };

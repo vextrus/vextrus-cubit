@@ -30,6 +30,18 @@ const DEFAULT_DATABASE_URL = 'postgres://cubit_app:cubit_app@127.0.0.1:5544/cubi
 /** The refusal a caller reads when `runAsSystem` is given no reason to be unscoped. */
 const SYSTEM_REASON_REQUIRED = 'SYSTEM_REASON_REQUIRED';
 
+/** The refusal a caller reads when a tenant id could never be one. */
+const TENANT_ID_INVALID = 'TENANT_ID_INVALID';
+
+/**
+ * The shape `cubit.tenant_id` is cast to inside every policy. A blank id is left alone: it
+ * becomes NULL there and the policy fails closed on it, which is the designed behaviour. A
+ * non-blank id that is not a uuid has no such landing — the cast raises `invalid input syntax
+ * for type uuid` from inside the policy, which reads as a broken database rather than as the
+ * caller's bug it is — so the seam refuses it here, before a connection is borrowed.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** The two settings a policy reads. Spelled once, here, and nowhere else in the tree. */
 const SCOPE_SETTING = 'cubit.scope';
 const TENANT_SETTING = 'cubit.tenant_id';
@@ -170,6 +182,11 @@ function handle(scope: Scope): ScopedDb {
  * writes is checked — by the `tenant_isolation` policy on every table that carries a tenant.
  */
 export function forTenant(ctx: { tenantId: string }): ScopedDb {
+  if (ctx.tenantId !== '' && !UUID.test(ctx.tenantId)) {
+    throw new Error(
+      `${TENANT_ID_INVALID}: forTenant({ tenantId }) takes a uuid, not ${JSON.stringify(ctx.tenantId)}.`,
+    );
+  }
   return handle({ scope: 'tenant', tenantId: ctx.tenantId });
 }
 

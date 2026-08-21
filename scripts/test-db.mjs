@@ -16,7 +16,14 @@ import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import pg from 'pg';
 import { REPO, detail, say } from './lib/lane.mjs';
-import { adminUrl, appUrl, ensureRoles, urlForDatabase } from './db-migrate.mjs';
+import {
+  adminUrl,
+  appUrl,
+  ensureRoles,
+  quoteIdent,
+  targetDatabase,
+  urlForDatabase,
+} from './db-migrate.mjs';
 
 /** The database this lane owns: it drops it, so it is never the one anybody works in. */
 const database = (() => {
@@ -27,6 +34,21 @@ const database = (() => {
 /** The suite reaches its database as the app role — the seam's role, and nothing above it. */
 const url = urlForDatabase(appUrl(), database);
 
+/**
+ * "The dev database is never touched" is prose until something compares the two names (B-05).
+ * This lane drops what CUBIT_TEST_DB names, with force, and the app URL names the database
+ * somebody works in — normally cubit_dev. One stale export is all it takes for those to be
+ * the same word, so the run refuses before it connects rather than after it has dropped.
+ */
+function refusesToDropTheAppDatabase() {
+  const app = targetDatabase(appUrl());
+  if (app !== database) return undefined;
+  return (
+    `test:db: CUBIT_TEST_DB names "${database}", which is the database DATABASE_URL points at.\n` +
+    `This lane drops its database with (force). Point CUBIT_TEST_DB at a database of its own.`
+  );
+}
+
 async function provision() {
   const admin = new pg.Client({ connectionString: adminUrl() });
   await admin.connect();
@@ -34,8 +56,8 @@ async function provision() {
     // The roles are cluster-level and the database is owned by the migrate role, so they
     // have to exist before it can be made.
     await ensureRoles(admin);
-    await admin.query(`drop database if exists "${database}" with (force)`);
-    await admin.query(`create database "${database}" owner "cubit_migrate"`);
+    await admin.query(`drop database if exists ${quoteIdent(database)} with (force)`);
+    await admin.query(`create database ${quoteIdent(database)} owner "cubit_migrate"`);
   } finally {
     await admin.end();
   }
@@ -50,6 +72,14 @@ function spawn(file, args) {
 }
 
 async function main() {
+  const refusal = refusesToDropTheAppDatabase();
+  if (refusal !== undefined) {
+    detail(refusal);
+    say('test:db: FAIL');
+    process.exitCode = 1;
+    return;
+  }
+
   try {
     await provision();
   } catch (error) {
