@@ -3,7 +3,7 @@
  * handles, and they live in `src/core/db.ts`. A driver or schema import
  * anywhere else is a handle nobody scoped to a tenant, so it is an error.
  */
-import { isSeamFile } from './seam.mjs';
+import { isSeamFile, staticSpecifier } from './seam.mjs';
 
 const SEAM = 'src/core/db.ts';
 
@@ -61,19 +61,11 @@ const rule = {
         check(node, node.source.value);
       },
       ImportExpression(node) {
-        if (node.source.type === 'Literal') {
-          check(node, node.source.value);
-        }
+        check(node, staticSpecifier(node.source));
       },
       CallExpression(node) {
-        const [first] = node.arguments;
-        if (
-          node.callee.type === 'Identifier' &&
-          node.callee.name === 'require' &&
-          first !== undefined &&
-          first.type === 'Literal'
-        ) {
-          check(node, first.value);
+        if (node.callee.type === 'Identifier' && node.callee.name === 'require') {
+          check(node, staticSpecifier(node.arguments[0]));
         }
       },
     };

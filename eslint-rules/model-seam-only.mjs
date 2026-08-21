@@ -3,7 +3,7 @@
  * SDK anywhere else routes around the seam that carries the refusal register,
  * the budget and the audit trail, so it is an error.
  */
-import { isInsideSeam } from './seam.mjs';
+import { isInsideSeam, staticSpecifier } from './seam.mjs';
 
 const SEAM_DIR = 'src/core/';
 
@@ -72,19 +72,11 @@ const rule = {
         check(node, node.source.value);
       },
       ImportExpression(node) {
-        if (node.source.type === 'Literal') {
-          check(node, node.source.value);
-        }
+        check(node, staticSpecifier(node.source));
       },
       CallExpression(node) {
-        const [first] = node.arguments;
-        if (
-          node.callee.type === 'Identifier' &&
-          node.callee.name === 'require' &&
-          first !== undefined &&
-          first.type === 'Literal'
-        ) {
-          check(node, first.value);
+        if (node.callee.type === 'Identifier' && node.callee.name === 'require') {
+          check(node, staticSpecifier(node.arguments[0]));
         }
       },
     };

@@ -17,8 +17,10 @@ playwright-report/
 blob-report/
 .playwright/
 
-# The gate generates and commits this; no increment does (C-10)
-docs/traceability.json
+# docs/traceability.json is deliberately NOT ignored: the gate generates and
+# commits it (C-10), and an ignored path cannot be committed by a plain
+# `git add`. This increment simply does not create it — tests/toolchain/
+# surface.test.ts asserts its absence here.
 
 # Local machine state
 .env

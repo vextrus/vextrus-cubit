@@ -22,13 +22,23 @@ const USER_FACING_ATTRIBUTES = new Set([
  * "Upper case" alone is not the test. `SUBMIT`, `PENDING`, `OVERDUE` are prose
  * that happens to be shouted, and a design increment writes them by the dozen;
  * exempting them would hand R-SPINE-060 a hole the string table never learns
- * about. So a code either carries a digit or a separator — the shape of an
- * identifier — or it is a short abbreviation of at most four letters.
+ * about. Length is not the test either: `SAVE`, `DONE`, `PAID`, `OPEN`, `EDIT`,
+ * `NEXT`, `BACK`, `YES` and `OK` are the button captions a design increment
+ * writes by the dozen, and they are shorter than the words above.
+ *
+ * So a code carries a digit or a separator — the shape of an identifier — or it
+ * is one of the domain's own abbreviations, named below.
  */
 const CODE = /^[A-Z0-9][A-Z0-9._:-]*$/;
 
-/** A code made of letters alone must be an abbreviation, not a word. */
-const MAX_ALPHABETIC_CODE = 4;
+/**
+ * The letters-only codes this tree renders as themselves. The list is not a
+ * budget and not a vocabulary to complete: anything absent from it is keyed in
+ * the module string table, which is R-SPINE-060's default answer anyway. It is
+ * here so that adding a bare shouted word to the exempt set is a reviewed line
+ * in a toolchain-tagged increment rather than a side effect of its length.
+ */
+const ALPHABETIC_CODES = new Set(['BDT', 'BOQ', 'CAD', 'GRN', 'MT', 'NOC', 'PO', 'RFI', 'VAT']);
 
 /** Punctuation and separators carry no message to translate. */
 const PUNCTUATION = /^[\s\p{P}\p{S}]*$/u;
@@ -38,7 +48,7 @@ function isCode(text) {
   if (!CODE.test(text)) {
     return false;
   }
-  return /[0-9._:-]/.test(text) || text.length <= MAX_ALPHABETIC_CODE;
+  return /[0-9._:-]/.test(text) || ALPHABETIC_CODES.has(text);
 }
 
 /**

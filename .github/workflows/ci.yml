@@ -15,13 +15,16 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      # Actions are pinned by commit sha, like every other pin in this tree: a
+      # moving tag is remote code that can change between two runs of the gate
+      # (AC-5, C-06). The version beside each sha is what that commit is tagged.
       - name: Check out the tree
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # The pins live in the tree, not in this file: .nvmrc for Node,
       # packageManager for pnpm, cad/pyproject.toml for Python (C-06).
       - name: Install Node from .nvmrc
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
 
@@ -37,7 +40,7 @@ jobs:
       # it here too is the one place CI cannot read the tree, and a mismatch
       # makes uv refuse rather than resolve differently from the dev machine.
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
         with:
           version: '0.12.5'
           enable-cache: true

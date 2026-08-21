@@ -8,7 +8,7 @@
  * Everything a caller is contractually owed goes to stdout: the gate reports
  * stderr after stdout, and `pnpm verify 2>/dev/null` has to keep every line.
  */
-import { existsSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,9 +25,14 @@ export const at = (relative) => path.join(ROOT, relative);
  * A lane's input root decides whether it is armed. That is the whole rule:
  * no flag, no environment variable, no list to keep in step by hand.
  *
+ * The input root is a *directory* — `src/app`, `db/schema`, `cad/tests`. A
+ * plain file of that name is not the lane's input, and arming a stage on one
+ * would report FAIL for a tree that has nothing to check.
+ *
  * @param {string} relative
  */
-export const hasInput = (relative) => existsSync(at(relative));
+export const hasInput = (relative) =>
+  statSync(at(relative), { throwIfNoEntry: false })?.isDirectory() === true;
 
 /** The one place a contract line becomes bytes. @param {string} line */
 export function say(line) {

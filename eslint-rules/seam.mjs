@@ -46,3 +46,37 @@ export function isSeamFile(context, seam) {
 export function isInsideSeam(context, seamDir) {
   return relativeFilename(context).startsWith(seamDir);
 }
+
+/**
+ * The module specifier a dynamic `import()` or a `require()` was written with.
+ *
+ * `import('pg')` and ``import(`pg`)`` are the same import to the loader, but
+ * they are a Literal and a TemplateLiteral to the parser: a seam rule that
+ * reads only the first spelling misses the second, and the backtick is exactly
+ * what a half-finished edit or a formatter leaves behind. A template carrying
+ * an interpolation is computed, not static, and has no answer here.
+ *
+ * The parameter is described structurally rather than as an `estree` node:
+ * @types/estree is eslint's own transitive dependency and is not a dependency
+ * of this increment, and a guardrail is not worth a new one.
+ *
+ * @param {{
+ *   type: string,
+ *   value?: unknown,
+ *   expressions?: readonly unknown[],
+ *   quasis?: readonly { value: { cooked?: string | null | undefined } }[],
+ * } | undefined} node
+ * @returns {string | undefined}
+ */
+export function staticSpecifier(node) {
+  if (node === undefined) {
+    return undefined;
+  }
+  if (node.type === 'Literal') {
+    return typeof node.value === 'string' ? node.value : undefined;
+  }
+  if (node.type === 'TemplateLiteral' && node.expressions?.length === 0) {
+    return node.quasis?.[0]?.value.cooked ?? undefined;
+  }
+  return undefined;
+}
