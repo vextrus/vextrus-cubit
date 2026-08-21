@@ -115,6 +115,44 @@ describe('dates, fiscal years and the Dhaka wall clock', () => {
     expect(formatFiscalYear(1999)).toBe('FY1999-00');
   });
 
+  it('refuses a date part it could only pad into nonsense', () => {
+    // Padding prepends zeros and nothing else, so an unchecked part reaches the page as it was
+    // written: a day of -5 as 0-5, a day of 45 as 45, a day of 3.5 as 3.5.
+    for (const day of [-5, 0, 45, Number('3.5'), Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => formatDate({ year: 2026, month: 8, day })).toThrow(RangeError);
+    }
+    for (const year of [-1, 0, 12345, Number('2026.5'), Number.NaN]) {
+      expect(() => formatDate({ year, month: 8, day: 3 })).toThrow(RangeError);
+    }
+    for (const month of [0, 13, -1, Number('8.5')]) {
+      expect(() => formatDate({ year: 2026, month, day: 3 })).toThrow(RangeError);
+    }
+    // The refusal names the month it was handed (L-FMT-01's reading), and the edges still draw.
+    expect(() => formatDate({ year: 2026, month: 13, day: 3 })).toThrow(/13/);
+    expect(formatDate({ year: 1, month: 1, day: 1 })).toBe('01 Jan 0001');
+    expect(formatDate({ year: 9999, month: 12, day: 31 })).toBe('31 Dec 9999');
+  });
+
+  it('refuses a fiscal year whose two-digit tail would come out negative', () => {
+    // (startYear + 1) % 100 is negative for a negative year: FY-5--4 is a label nobody reads.
+    for (const startYear of [-5, 0, 9999, Number('2025.5'), Number.NaN]) {
+      expect(() => formatFiscalYear(startYear)).toThrow(RangeError);
+    }
+    expect(formatFiscalYear(1)).toBe('FY1-02');
+  });
+
+  it('reads a wall-clock part or says it could not', () => {
+    // A part the runtime does not produce must not become Number('') — a zero that prints 0000.
+    // This runtime produces all three, so the guarantee to pin is that the answer is whole
+    // numbers in range rather than a shape that could have come from a missing part.
+    const parts = dhakaDateParts(Date.UTC(2026, 7, 3, 12, 0));
+    expect(parts).toEqual({ year: 2026, month: 8, day: 3 });
+    for (const value of [parts.year, parts.month, parts.day]) {
+      expect(Number.isInteger(value)).toBe(true);
+      expect(value).toBeGreaterThan(0);
+    }
+  });
+
   it('reads the Dhaka wall clock, not the process’s own', () => {
     // Asia/Dhaka is UTC+6: an instant at 18:30 UTC is already the next day there, and an
     // instant at 02:00 UTC is still the same one — whatever zone the machine sits in.

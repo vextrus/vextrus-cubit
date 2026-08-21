@@ -108,6 +108,48 @@ const DHAKA_DATE = new Intl.DateTimeFormat(BD_DOCUMENT.locale, {
 /** The one collator: L-FMT-01 confines `Intl.Collator` here along with the rest of `Intl`. */
 const COLLATOR = new Intl.Collator(BD_DOCUMENT.locale);
 
+/** What lakh/crore grouping has to make of a crore, checked below against the runtime. */
+const CRORE_GROUPED = '1,00,00,000';
+
+/**
+ * The runtime actually resolved the document's conventions — or nothing renders.
+ *
+ * A locale tag is a request, not a guarantee: on a Node built without full ICU `en-IN` falls
+ * back to root and every amount on every document comes out with Western grouping
+ * (12,345,678.90), which B-07 calls a defect. That fallback happens at run time, so no lint
+ * rule and no type can catch it; only asking the formatters what they resolved to can. The
+ * check runs once, at import, and reads the grouping off a real crore rather than trusting the
+ * tag, because the tag is exactly the thing that lies.
+ */
+function requireResolvedConventions(): void {
+  const grouping = GROUPING.resolvedOptions();
+  const dates = DHAKA_DATE.resolvedOptions();
+  const collation = COLLATOR.resolvedOptions();
+  const complaints: string[] = [];
+  if (!grouping.locale.startsWith(BD_DOCUMENT.locale)) {
+    complaints.push(`number grouping resolved to ${grouping.locale}, not ${BD_DOCUMENT.locale}`);
+  }
+  if (GROUPING.format(10000000n) !== CRORE_GROUPED) {
+    complaints.push(`a crore groups as ${GROUPING.format(10000000n)}, not ${CRORE_GROUPED}`);
+  }
+  if (grouping.numberingSystem !== 'latn' || dates.numberingSystem !== 'latn') {
+    complaints.push('the numbering system is not the ASCII digits a document is written in');
+  }
+  if (dates.timeZone !== BD_DOCUMENT.timeZone) {
+    complaints.push(`the wall clock resolved to ${dates.timeZone}, not ${BD_DOCUMENT.timeZone}`);
+  }
+  if (!collation.locale.startsWith('en')) {
+    complaints.push(`collation resolved to ${collation.locale}, which is not an English one`);
+  }
+  if (complaints.length > 0) {
+    throw new Error(
+      `SEAM-FORMAT needs a runtime with full ICU data: ${complaints.join('; ')}. A document rendered here would be wrong rather than late.`,
+    );
+  }
+}
+
+requireResolvedConventions();
+
 /** A refusal, in the shape SEAM-TENANT already writes one: a code, a colon, a sentence. */
 function refuse(code: string, sentence: string): never {
   throw new Error(`${code}: ${sentence}`);
@@ -181,8 +223,29 @@ export function formatNumber(value: string, kind: 'quantity' | 'count'): string 
   return render(value, kind);
 }
 
+/**
+ * A whole number inside `low`…`high`, or a RangeError naming the part and what it was given.
+ *
+ * `pad` only ever prepends zeros, so a component it cannot widen it prints verbatim: a day of
+ * -5 would reach a document as `0-5` and a day of 3.5 as `3.5`. A date part is checked before
+ * it is written, not padded into something that looks like one.
+ */
+function requireDatePart(name: string, value: number, low: number, high: number): void {
+  if (!Number.isInteger(value) || value < low || value > high) {
+    throw new RangeError(
+      `formatDate takes a ${name} of ${String(low)} to ${String(high)}, a whole number, not ${String(value)}.`,
+    );
+  }
+}
+
 /** A date as DD MMM YYYY: zero-padded day, English month, four-digit year. */
 export function formatDate(parts: { year: number; month: number; day: number }): string {
+  // Four digits is the whole of the year field DD MMM YYYY has room for, and a day of the month
+  // is 1 to 31 — the calendar's own length per month is the caller's to know, but a date this
+  // seam could not write down at all is one it refuses to draw.
+  requireDatePart('year', parts.year, 1, 9999);
+  requireDatePart('month', parts.month, 1, 12);
+  requireDatePart('day', parts.day, 1, 31);
   const month = MONTHS[parts.month - 1];
   if (month === undefined) {
     throw new RangeError(`formatDate takes a month of the year, 1 to 12, not ${String(parts.month)}.`);
@@ -198,13 +261,30 @@ export function formatDate(parts: { year: number; month: number; day: number }):
  */
 export function dhakaDateParts(epochMs: number): { year: number; month: number; day: number } {
   const parts = DHAKA_DATE.formatToParts(epochMs);
-  const partValue = (type: string): number =>
-    Number(parts.find((part) => part.type === type)?.value ?? '');
+  const partValue = (type: string): number => {
+    const found = parts.find((part) => part.type === type);
+    // A part the runtime did not produce is not a zero. `Number(undefined ?? '')` would be one,
+    // and a wall clock that quietly answers year 0 puts 0000 on a document; a reader can act on
+    // a date that is missing, never on one that is wrong.
+    if (found === undefined || !/^[0-9]+$/.test(found.value)) {
+      throw new RangeError(
+        `The Asia/Dhaka wall clock read no ${type} from this runtime for ${String(epochMs)}.`,
+      );
+    }
+    return Number(found.value);
+  };
   return { year: partValue('year'), month: partValue('month'), day: partValue('day') };
 }
 
 /** A fiscal year, labelled from the year it starts in: `formatFiscalYear(2025)` is FY2025-26. */
 export function formatFiscalYear(startYear: number): string {
+  // The tail is a remainder, and a remainder of a negative is negative: FY-5--4 is what an
+  // unchecked -5 writes. A fiscal year starts in a year a document can carry, or it refuses.
+  if (!Number.isInteger(startYear) || startYear < 1 || startYear > 9998) {
+    throw new RangeError(
+      `formatFiscalYear takes the year a fiscal year starts in, 1 to 9998, a whole number, not ${String(startYear)}.`,
+    );
+  }
   return `${BD_DOCUMENT.fiscalPrefix}${String(startYear)}-${pad(String((startYear + 1) % 100), 2)}`;
 }
 
