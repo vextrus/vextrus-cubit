@@ -366,6 +366,21 @@
   display: block;
 }
 
+/*
+ * The hand-rolled surface gets no inline positioning from Radix, so it states its own: absolute
+ * against `.datum-combobox`, under the field, at the field's width. In flow it would push the
+ * page down on every keystroke — the Design Decision says the input sits *over* a floating
+ * surface (AM-03 (3)).
+ */
+.datum-combobox-popover {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  left: 0;
+  max-height: calc(var(--row-comfortable) * 6);
+  overflow-y: auto;
+}
+
 .datum-combobox-list {
   margin: 0;
   padding: 0;

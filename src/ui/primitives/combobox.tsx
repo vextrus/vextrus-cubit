@@ -59,6 +59,7 @@ const AUTOCOMPLETE_LIST = 'list';
 
 export function Combobox({
   loadOptions,
+  value,
   onValueChange,
   'aria-label': name,
   className,
@@ -76,6 +77,12 @@ export function Combobox({
 
   /** The newest request. An older one that lands late is read and discarded. */
   const latest = useRef(0);
+  /** The field and its surface, so a pointer landing elsewhere can be told from one landing here. */
+  const box = useRef<HTMLDivElement>(null);
+  /** Every value/label pair this control has been shown, so a held value can be read back in words. */
+  const labels = useRef(new Map<string, string>());
+  /** The last `value` this control put in the field: a screen echoing it back is not a change. */
+  const held = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     // The mounted control has asked nothing yet, and a listbox nobody opened shows nothing.
@@ -83,6 +90,36 @@ export function Combobox({
       latest.current += 1;
     };
   }, []);
+
+  // A screen that holds the value drives the field: the committed value is shown in words when
+  // this control knows them and as itself when it does not, and clearing the value clears the
+  // field. A commit records what it committed, so the echo of one's own change does not retype
+  // the field underneath the user.
+  useEffect(() => {
+    if (value === undefined) return;
+    if (held.current === value) return;
+    held.current = value;
+    setQuery(value === '' ? '' : (labels.current.get(value) ?? value));
+    setOpen(false);
+    setActive(NONE);
+  }, [value]);
+
+  // The suggestions are dismissed by anything that says the user has moved on: a pointer landing
+  // outside the control, or the focus leaving it. Without this the surface floats over the page
+  // and the input keeps `aria-expanded="true"` long after nobody is looking at it (R-UI-012).
+  useEffect(() => {
+    if (!open) return;
+    const dismiss = (event: Event): void => {
+      const target = event.target;
+      if (target instanceof Node && box.current?.contains(target) === true) return;
+      setOpen(false);
+      setActive(NONE);
+    };
+    document.addEventListener('pointerdown', dismiss, true);
+    return () => {
+      document.removeEventListener('pointerdown', dismiss, true);
+    };
+  }, [open]);
 
   const ask = useCallback(
     (next: string): void => {
@@ -94,6 +131,7 @@ export function Combobox({
       void loadOptions(next).then(
         (resolved) => {
           if (latest.current !== mine) return;
+          for (const option of resolved) labels.current.set(option.value, option.label);
           setOptions(resolved);
           setLoading(false);
         },
@@ -109,6 +147,8 @@ export function Combobox({
   );
 
   const commit = (option: ComboboxOption): void => {
+    labels.current.set(option.value, option.label);
+    held.current = option.value;
     setQuery(option.label);
     setOpen(false);
     setActive(NONE);
@@ -124,7 +164,10 @@ export function Combobox({
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setActive((current) => (current <= 0 ? 0 : current - 1));
+      // Both arrows open, and neither points `aria-activedescendant` at an option that is not
+      // there: with nothing loaded there is nothing to highlight, so the highlight stays off.
+      setOpen(true);
+      setActive((current) => (options.length === 0 ? NONE : current <= 0 ? 0 : current - 1));
       return;
     }
     if (event.key === 'Enter') {
@@ -143,7 +186,18 @@ export function Combobox({
   const nothingMatched = open && !loading && query.length > 0 && options.length === 0;
 
   return (
-    <div className={cx('datum-combobox', className)}>
+    <div
+      ref={box}
+      className={cx('datum-combobox', className)}
+      onBlur={(event) => {
+        // The focus left the control itself — not merely moved inside it — so the suggestions go.
+        if (event.relatedTarget !== null && box.current?.contains(event.relatedTarget) === true) {
+          return;
+        }
+        setOpen(false);
+        setActive(NONE);
+      }}
+    >
       <input
         data-testid="combobox-input"
         role="combobox"
@@ -166,7 +220,14 @@ export function Combobox({
         onKeyDown={onKeyDown}
       />
       {open ? (
-        <div className="datum-popover-surface datum-combobox-popover">
+        <div
+          className="datum-popover-surface datum-combobox-popover"
+          onMouseDown={(event) => {
+            // Pressing an option must not take the focus off the input: ARIA 1.2 keeps it there
+            // for the whole interaction, and a blur here would close the list before the click.
+            event.preventDefault();
+          }}
+        >
           {loading ? (
             <div className="datum-combobox-status" role="status">
               {ts('primitives.combobox.loading')}

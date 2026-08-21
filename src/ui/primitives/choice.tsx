@@ -112,26 +112,35 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch
 export type SliderProps = ComponentPropsWithoutRef<typeof SliderPrimitive.Root>;
 
 export const Slider = forwardRef<HTMLSpanElement, SliderProps>(function Slider(
-  // The name is taken off the root on purpose and put on the thumb below: the thumb is the
+  // The name is taken off the root on purpose and put on the thumbs below: a thumb is the
   // element with role="slider" and the one a Tab reaches, so it is the one R-UI-012 names.
-  { className, 'aria-label': name, ...rest },
+  // `aria-labelledby` travels with it — left on the root it would name a role-less span and
+  // leave the focusable thumb anonymous, which is the same failure spelt differently.
+  { className, 'aria-label': name, 'aria-labelledby': namedBy, ...rest },
   ref,
 ) {
   // Radix draws one thumb per value it holds. A slider given neither `value` nor
   // `defaultValue` holds none, and a slider with no thumb has nothing to focus — so an
   // uncontrolled one starts at its own minimum rather than at nothing.
-  const uncontrolled = rest.value === undefined && rest.defaultValue === undefined;
-  const start = uncontrolled ? { defaultValue: [rest.min ?? 0] } : {};
+  const held = rest.value ?? rest.defaultValue;
+  const values = held ?? [rest.min ?? 0];
+  const start = held === undefined ? { defaultValue: values } : {};
 
   return (
     <SliderPrimitive.Root ref={ref} className={cx('datum-slider', className)} {...start} {...rest}>
       <SliderPrimitive.Track className="datum-slider-track">
         <SliderPrimitive.Range className="datum-slider-range" />
       </SliderPrimitive.Track>
-      <SliderPrimitive.Thumb
-        aria-label={name}
-        className={cx('datum-slider-thumb', 'datum-focus-ring')}
-      />
+      {/* One thumb per value held: a range slider holds two, and a value with no thumb is a
+          value no keyboard can reach. */}
+      {values.map((_value, index) => (
+        <SliderPrimitive.Thumb
+          key={index}
+          aria-label={name}
+          aria-labelledby={namedBy}
+          className={cx('datum-slider-thumb', 'datum-focus-ring')}
+        />
+      ))}
     </SliderPrimitive.Root>
   );
 });

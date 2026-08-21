@@ -62,7 +62,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   );
 });
 
-export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
+export interface IconButtonProps
+  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children' | 'aria-label'> {
   /** The control's name, rendered as its `aria-label` (R-UI-012). Required, deliberately. */
   readonly label: string;
   /** The glyph the button shows instead of that name. */
@@ -78,10 +79,12 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
     <button
       ref={ref}
       type={type ?? 'button'}
-      aria-label={label}
       data-variant={variant}
       className={cx('datum-control', 'datum-button', 'datum-icon-button', 'datum-focus-ring', className)}
       {...rest}
+      // After the spread, not before: `aria-label` is off the prop type, but a caller reaching
+      // past it must not be able to overwrite the one name this control is required to have.
+      aria-label={label}
     >
       {icon}
     </button>

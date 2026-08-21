@@ -131,7 +131,8 @@ the user their place. Disabled is the platform's `disabled`, painted `--graphite
 
 A square Button of side `--row-comfortable` holding one glyph. `label` is required and is
 rendered as `aria-label`: an icon-only control is the commonest unnamed button, and a required
-prop is the only version of that rule the compiler can enforce.
+prop is the only version of that rule the compiler can enforce. `aria-label` is not a prop of
+this component and is written after any spread, so the name is `label`'s and nobody else's.
 
 ### Input
 
@@ -181,7 +182,8 @@ commits immediately, so it is never used for anything that needs a confirmation.
 
 Track `--graphite-200`, range `--cobalt-500`, thumb `--graphite-0` with a 2 px `--cobalt-500`
 border. The thumb is the focusable element, so the thumb — not the root — carries the ring and
-the accessible name.
+the accessible name (`aria-label` and `aria-labelledby` both). One thumb is drawn per value the
+slider holds, so a range slider shows two and each of them is reachable.
 
 ### Select
 
@@ -213,6 +215,19 @@ Three states, and they are three:
 
 The listbox is named `Suggestions`, because it has no visible label of its own. Only the newest
 request may paint, so a slow answer cannot overwrite a fast one.
+
+The surface is absolute against the field — `--space-1` below it, at the field's width, scrolling
+past six rows — so the suggestions never push the page down as the user types. Both arrows open
+it; with nothing loaded neither highlights anything, because `aria-activedescendant` may only
+name an option that is on screen.
+
+Dismissal: Escape, a commit, a pointer landing outside the control, or the focus leaving it.
+A suggestion list that outlives the attention it was opened for is a floating panel over the
+page and an input that claims `aria-expanded="true"` with nobody in it.
+
+A screen may hold the value: `value` drives the field — the committed option's label when this
+control has seen it, the value itself when it has not, and empty when the value is empty, which
+is how a form resets the field after it commits.
 
 ### Tabs
 
