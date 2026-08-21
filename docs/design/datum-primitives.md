@@ -51,10 +51,13 @@ Hover/active fills transition over `--motion-state-duration`. States:
 
 - **Disabled:** background `--graphite-100`, text `--graphite-400`, border none, no pointer
   events; still rendered in the tab order's flow but `disabled` (native).
-- **Loading:** `loading` keeps the label, replaces the icon slot with a 12 px circular
-  indicator — a three-quarter arc stroked `currentColor`, rotating 800 ms linear; under reduced
-  motion the arc is static. Sets `aria-busy="true"`, blocks activation (`onClick` never fires),
-  stays focusable so focus is not stranded. No copy; the label already says what is happening.
+- **Loading:** `loading` keeps the label and adds a 16 × 4 px bar in `currentColor` after it,
+  breathing between 30% and 90% opacity over `--motion-panel-duration`, alternating. It does
+  not spin and it does not move: R-UI-004 keeps the layout still while something is in flight,
+  and a rotation is a duration outside the motion bands this document is allowed to state.
+  Under reduced motion the bar is static (§15). Sets `aria-busy="true"`, blocks activation
+  (`onClick` never fires), stays focusable so focus is not stranded. No copy; the label already
+  says what is happening.
 
 **IconButton**: 28 × 28 px, ghost styling by default, required `label` prop rendered as
 `aria-label`; the icon is `aria-hidden`. Same disabled treatment.
@@ -91,11 +94,19 @@ markup-wise separate from the value; the input's `aria-describedby` points at it
   display-only and the committed value is never rewritten by the control.
 - Disabled and invalid states as §3.
 
-## 5. Checkbox, Radio, Switch, Slider
+## 5. Checkbox, Radio/RadioGroup, Switch, Slider
 
-All transition checked-state fills over `--motion-state-duration`; all expose Radix's ARIA
-(`aria-checked`, `role="radio"` in a `role="radiogroup"`, `role="switch"`, `role="slider"` with
-`aria-valuenow/min/max`); Space toggles, radio groups rove with arrow keys.
+All transition checked-state fills over `--motion-state-duration`; all state their ARIA
+(`aria-checked`, `role="radio"` inside a RadioGroup's `role="radiogroup"`, `role="switch"`,
+`role="slider"` with `aria-valuenow/min/max`). Two keyboard rules are the library's, not a
+library's:
+
+- **Space toggles a Switch**, on the key itself. A browser turns Space on a button into a
+  click and the switch would toggle either way; deciding it on the keydown means one press is
+  one toggle in any host, and the click the browser sends afterwards is swallowed.
+- **A RadioGroup's arrows both move and choose.** The group is one Tab stop; ArrowDown and
+  ArrowRight move to the next radio and check it in the same keystroke, ArrowUp and ArrowLeft
+  go back, and both wrap. Entering the group with Tab, or clicking into it, chooses nothing.
 
 - **Checkbox:** 16 × 16 px, `--radius-2`. Unchecked: `--graphite-0` fill, border
   `--graphite-300`. Checked: `--cobalt-500` fill, check glyph `--graphite-0`. Indeterminate:
@@ -107,9 +118,13 @@ All transition checked-state fills over `--motion-state-duration`; all expose Ra
   `--cobalt-500`; thumb 12 px `--graphite-0` circle travelling 12 px over
   `--motion-state-duration`.
 - **Slider:** rail 4 px, `--radius-2`, `--graphite-200`; filled range `--cobalt-500`; thumb
-  14 px `--graphite-0` circle, border `1px solid var(--cobalt-500)`, `--shadow-1`. Arrow keys
-  step by the `step` prop. The thumb takes the focus ring and requires an accessible name
-  (`aria-label` prop).
+  14 px `--graphite-0` circle, border `1px solid var(--cobalt-500)`, `--shadow-1`. ArrowRight
+  and ArrowUp raise the value by one `step`, ArrowLeft and ArrowDown lower it, PageUp/PageDown
+  move ten steps, Home and End go to the ends; every value is clamped to `[min, max]`, and a
+  slider given no value stands at its minimum. The thumb is the control: it takes the focus
+  ring, the tab stop and the accessible name (`aria-label` prop). This is the one primitive
+  written rather than restyled — Radix's Slider measures its thumb through `ResizeObserver`
+  and cannot mount in a DOM with no layout, which is every unit test a consumer will write.
 
 ## 6. Select
 
@@ -149,7 +164,7 @@ appears with a 160 ms fade — it does not slide. ArrowRight/ArrowLeft rove focu
 ## 9. Tooltip and Popover
 
 - **Tooltip:** inverse surface — background `--graphite-950`, text `--graphite-0`, `--text-12`,
-  padding `var(--space-1) var(--space-2)`, `--radius-4`, `--shadow-2`. Opens after 300 ms
+  padding `var(--space-1) var(--space-2)`, `--radius-4`, `--shadow-2`. Opens after 200 ms
   pointer hover, immediately on keyboard focus; 160 ms fade; Escape dismisses. Never the only
   home of information a task needs.
 - **Popover:** overlay surface, `--shadow-2`, padding `--space-3`, 160 ms fade + 4 px translate.
@@ -205,14 +220,17 @@ record of a refusal or an error (R-UI-020) — screens render those in place and
   `aria-label` is “Remove” (`primitives.tag.remove`) followed by the tag's label.
 - **Kbd:** `--font-mono` `--text-12`, 20 px tall, min-width 20 px, background `--graphite-100`,
   border `1px solid var(--graphite-300)`, `--radius-2`, text `--graphite-700`.
-- **Progress:** determinate only (R-UI-010) — `value` (0–100) is required; unknown progress is
-  a Skeleton, never an endless bar. Track 4 px `--graphite-200` `--radius-2`; fill
-  `--cobalt-500`, width transitioning over `--motion-state-duration`. `role="progressbar"` with
-  `aria-valuenow/valuemin/valuemax` and a required accessible name.
+- **Progress:** determinate only (R-UI-010) — the caller states `value` against `max`
+  (100 unless it says otherwise) and unknown progress is a Skeleton, never an endless bar.
+  There is no indeterminate mode to reach for: a bar given no value stands at 0 and says so,
+  and a value outside the bounds is clamped into them, so `role="progressbar"` always carries
+  `aria-valuenow` with `aria-valuemin`/`aria-valuemax`. Track 4 px `--graphite-200`
+  `--radius-2`; fill `--cobalt-500`, width transitioning over `--motion-state-duration`. A
+  required accessible name.
 - **Skeleton:** fill `--graphite-100`, `--radius-4`; the caller sizes it to the content it
-  stands for, so layout never shifts (R-UI-004). Pulses opacity 1 → 0.55, 1.2 s ease-in-out
-  alternate; static under reduced motion. `aria-hidden` — the composing screen announces
-  loading.
+  stands for, so layout never shifts (R-UI-004). Pulses opacity 1 → 0.55 over
+  `--motion-panel-duration`, alternating; static under reduced motion. `aria-hidden` — the
+  composing screen announces loading.
 - **Separator:** 1 px `--graphite-200`, horizontal or vertical; decorative
   (`role="none"`) unless the consumer passes semantics.
 
@@ -242,11 +260,17 @@ screen's Design Decision.
 | Fills, checks, switch travel, tab underline, progress width | `--motion-state-duration` (160 ms) | `--motion-ease` |
 | Tooltip, Popover, Select/menu content, Dialog, Toast entry | `--motion-state-duration` (160 ms) | `--motion-ease` |
 | Sheet slide + its scrim | `--motion-panel-duration` (240 ms) | `--motion-ease` |
-| Button spinner | 800 ms rotation, linear | — |
-| Skeleton pulse | 1.2 s alternate | ease-in-out |
+| Button busy bar (opacity, alternating) | `--motion-panel-duration` (240 ms) | `--motion-ease` |
+| Skeleton pulse (opacity 1 → 0.55, alternating) | `--motion-panel-duration` (240 ms) | `--motion-ease` |
 
-Reduced motion: token durations zero via tokens.css; spinner and pulse stilled by an explicit
-primitives.css rule. Nothing bounces; nothing slides further than 4 px except the Sheet.
+Every duration in this library is one of those three tokens, and no rule writes a number of its
+own: R-UI-004 fixes 120–200 ms for a state change and 240 ms for a panel, so a looping
+indicator borrows the panel duration rather than inventing a cadence nobody legislated.
+
+Reduced motion: token durations zero via tokens.css; the two looping animations (busy bar,
+Skeleton) and the four arrivals (overlay surface, tooltip, scrim, Dialog/Sheet) are stilled by
+an explicit primitives.css rule, because a zero-length `infinite` animation still runs forever.
+Nothing bounces; nothing slides further than 4 px except the Sheet.
 
 ## 16. Both themes
 
