@@ -26,6 +26,12 @@ dependency in package.json is a bare version with no `^` and no `~`; Python is p
 | pytest | 9.1.1 | `cad/pyproject.toml` dev group |
 | uv | not version-pinned | it is the bootstrapper; what it installs is pinned by `cad/uv.lock` |
 
+`package.json` declares `pnpm.onlyBuiltDependencies` as an empty list: pnpm 10 blocks
+postinstall scripts by default, and stating that explicitly makes it a decision rather than
+a default. Nothing in this stack needs its own build step — esbuild and the rest ship
+prebuilt platform binaries — so an install is the same install every time. A package that
+genuinely needs one is added to that list by name, in the increment that needs it.
+
 ### Binaries this increment does not install
 
 Typst and LibreDWG are subprocesses the document and DWG lanes call. Neither lane exists

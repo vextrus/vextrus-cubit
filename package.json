@@ -50,6 +50,9 @@
     "zod": "4.4.3",
     "zustand": "5.0.15"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": []
+  },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.62.1",

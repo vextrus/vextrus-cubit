@@ -42,5 +42,5 @@
     "db/**/*.ts"
   ],
   // The bad fixtures are lint inputs, not compiler inputs: they are broken on purpose.
-  "exclude": ["node_modules", ".next", ".next-verify", ".scratch", "dist", "tests/lint-fixtures/*/"]
+  "exclude": ["node_modules", ".next", ".next-verify", ".scratch", "dist", "tests/lint-fixtures/*/*"]
 }
