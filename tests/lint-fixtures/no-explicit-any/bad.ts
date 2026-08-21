@@ -4,6 +4,6 @@
 // One site, because one is what the proof costs: the rule is upstream and the
 // fixture's job is to show it bound at severity error over this directory.
 // docs/toolchain.md, "The recorded reason for the fixtures themselves".
-export function normalise(payload: any): any {
+export function normalise(payload: any): unknown { // RECORDED REASON GUARDRAIL_FIXTURE
   return payload;
 }

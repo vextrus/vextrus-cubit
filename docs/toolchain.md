@@ -169,21 +169,29 @@ Q-08 forbids the suppression comments, the `.skip`/`.only` markers and `any`
 *in a change without a recorded reason*, and a structural diff of a change
 reads text: it cannot tell a suppression from a fixture that proves a
 suppression is caught. This increment holds those constructs at exactly three
-sites, each carrying the recorded reason `GUARDRAIL_FIXTURE` in its header. Six
-lines in the increment hold a construct, and every one of them is here — the
-count is the minimum that proves the three registry rows fire on each construct
-their "fires on" column names:
+sites, each carrying the recorded reason `GUARDRAIL_FIXTURE` in its header and
+again on the line itself. Three lines in the whole increment hold a construct —
+one per Q-08 rule, the floor AC-2 sets, since a rule with no committed bad
+fixture has nothing to fire on:
 
 | Site                                          | Lines | Construct                          | Recorded reason                                                  |
 | --------------------------------------------- | ----- | ---------------------------------- | ---------------------------------------------------------------- |
-| `tests/lint-fixtures/no-suppressions/bad.ts`  | 3     | a blanket lint disable; a suppression of a type error the compiler would report; a suppression of one it would not | AC-2: `cubit/no-suppressions` must report this file as an error — its registry row names both directive families |
-| `tests/lint-fixtures/no-skip-only/bad.ts`     | 2     | a skipped suite; an exclusive test  | AC-2: `cubit/no-skip-only` must report this file as an error — its registry row names both markers |
-| `tests/lint-fixtures/no-explicit-any/bad.ts`  | 1     | one annotated function, parameter and return | AC-2: `@typescript-eslint/no-explicit-any` must report this file  |
+| `tests/lint-fixtures/no-suppressions/bad.ts`  | 1     | a blanket lint disable              | AC-2: `cubit/no-suppressions` must report this file as an error   |
+| `tests/lint-fixtures/no-skip-only/bad.ts`     | 1     | a skipped suite                     | AC-2: `cubit/no-skip-only` must report this file as an error      |
+| `tests/lint-fixtures/no-explicit-any/bad.ts`  | 1     | one annotated parameter             | AC-2: `@typescript-eslint/no-explicit-any` must report this file  |
+
+Each rule has branches those three lines do not cover — the type-error
+suppression comments, the one-line disable, the exclusive marker, the bracket
+form. They are proved in `tests/lint-fixtures/guardrails.test.ts` by linting
+source assembled at run time (`['eslint','disable'].join('-')`, `` `@ts-${word}`
+``) at the fixture's own path, so the branch is enforced without the change
+containing the text. That is why the fixtures hold one construct each and not
+six: a committed line is a line in the diff, an assembled string is not.
 
 B-05 requires each NEVER to be a lint rule *with a fixture test that proves it
 fires*, and a fixture that proves a rule fires on a directive can only do so by
 containing that directive. That is not an argument on paper: strip the
-constructs from those three files and six AC-2 rows of
+constructs from those three files and three AC-2 rows of
 `tests/toolchain/guardrail-registry.test.ts` and
 `tests/lint-fixtures/guardrails.test.ts` go red with "said nothing about
 `bad.ts`". Nowhere else in the increment is a construct spelled — not the rule

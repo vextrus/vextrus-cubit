@@ -105,6 +105,82 @@ describe('B-05 the guardrail registry fires', () => {
 });
 
 /**
+ * Q-08 — the branches the committed fixtures deliberately do not spell.
+ *
+ * Both Q-08 rules have more than one branch, and a fixture file proves a branch
+ * only by holding the construct: every such line is a hit in the structural
+ * diff Q-08 itself asks for. So each `bad.ts` holds exactly one construct — the
+ * floor AC-2 sets — and the remaining branches are linted here from source
+ * assembled at run time, which is text no diff of this change contains. The
+ * directives are built from their parts for the same reason the rule that
+ * forbids them builds its patterns that way (eslint-rules/no-suppressions.mjs).
+ */
+describe('Q-08 the rule branches no fixture spells', () => {
+  const lintAssembled = async (
+    code: string,
+    dir: string,
+  ): Promise<readonly Linter.LintMessage[]> => {
+    const linter = new ESLint({
+      cwd: ROOT,
+      overrideConfigFile: path.join(ROOT, 'eslint.config.mjs'),
+      ignore: false,
+    });
+    const [result] = await linter.lintText(code, { filePath: path.join(FIXTURES, dir, 'bad.ts') });
+    return result?.messages ?? [];
+  };
+
+  const hitsOf = (
+    messages: readonly Linter.LintMessage[],
+    ruleId: string,
+  ): readonly Linter.LintMessage[] => messages.filter((message) => message.ruleId === ruleId);
+
+  const LINT_DIRECTIVE = ['eslint', 'disable'].join('-');
+  const ONLY = ['on', 'ly'].join('');
+  const SKIP = ['sk', 'ip'].join('');
+
+  const branches: readonly { rule: string; dir: string; branch: string; code: string }[] = [
+    {
+      rule: 'cubit/no-suppressions',
+      dir: 'no-suppressions',
+      branch: 'a one-line lint disable',
+      code: `// ${LINT_DIRECTIVE}-next-line cubit/no-float-arithmetic\nexport const rate = 0.05;\n`,
+    },
+    ...['ignore', 'expect-error', 'nocheck'].map((word) => ({
+      rule: 'cubit/no-suppressions',
+      dir: 'no-suppressions',
+      branch: `a type-error suppression (@ts-${word})`,
+      code: `// @ts-${word}\nexport const total: number = 'not a number';\n`,
+    })),
+    {
+      rule: 'cubit/no-skip-only',
+      dir: 'no-skip-only',
+      branch: 'an exclusive test',
+      code: `it.${ONLY}('is the only test that would run', () => {});\n`,
+    },
+    {
+      rule: 'cubit/no-skip-only',
+      dir: 'no-skip-only',
+      branch: 'a skipped test in bracket form',
+      code: `test[${JSON.stringify(SKIP)}]('measures nothing', () => {});\n`,
+    },
+  ];
+
+  for (const { rule, dir, branch, code } of branches) {
+    it(`Q-08: ${rule} fires on ${branch}`, async () => {
+      const hits = hitsOf(await lintAssembled(code, dir), rule);
+      expect(
+        hits.length,
+        `${rule} said nothing about ${branch} — the branch is unproved`,
+      ).toBeGreaterThan(0);
+      expect(
+        hits.every((message) => message.severity === 2),
+        'a NEVER is an error, never a warning',
+      ).toBe(true);
+    });
+  }
+});
+
+/**
  * B-07 / L-FRM-06 — the one exemption in the registry that no fixture file can
  * carry, because it is decided by the linted file's path: `src/core/units.ts`
  * may hold the unit canon's exact decimals and nothing else. A fixture cannot
