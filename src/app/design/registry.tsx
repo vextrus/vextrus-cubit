@@ -111,6 +111,8 @@ const HASH = '#';
 const CLOSE_GLYPH_PATH = 'M4 4l8 8M12 4l-8 8';
 const GLYPH_BOX = '0 0 16 16';
 const THREE = 'three';
+/** Checkbox's third value is a state name the component takes, not a word a reader reads. */
+const INDETERMINATE = 'indeterminate';
 const VOLUME_DEFAULT = '1234567.895';
 const VOLUME_DISABLED = '250';
 const VOLUME_INVALID = '0';
@@ -538,7 +540,7 @@ export const galleryEntries: readonly GalleryEntry[] = [
         render: () => (
           <Choice label={ds('design.sample.includeOpenings')}>
             {(id) => (
-              <Checkbox aria-labelledby={id} checked="indeterminate" onCheckedChange={noop} />
+              <Checkbox aria-labelledby={id} checked={INDETERMINATE} onCheckedChange={noop} />
             )}
           </Choice>
         ),

@@ -2,13 +2,18 @@
   // C-06: TypeScript strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes.
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "moduleDetection": "force",
-    "jsx": "preserve",
-    "types": ["node"],
-
+    "jsx": "react-jsx",
+    "types": [
+      "node"
+    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -16,7 +21,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-
     "noEmit": true,
     "allowJs": false,
     "esModuleInterop": true,
@@ -24,7 +28,12 @@
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "incremental": false
+    "incremental": false,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
   // Risk note 3: tsc with an empty include errors "no inputs" before src/ exists, so the
   // toolchain's own TypeScript — configs, the plugin's types, the fixture suites — is the
@@ -39,8 +48,20 @@
     "tests/toolchain/**/*.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
-    "db/**/*.ts"
+    "db/**/*.ts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    ".next-verify/types/**/*.ts",
+    ".next-verify/dev/types/**/*.ts",
+    ".next/dev/dev/types/**/*.ts"
   ],
   // The bad fixtures are lint inputs, not compiler inputs: they are broken on purpose.
-  "exclude": ["node_modules", ".next", ".next-verify", ".scratch", "dist", "tests/lint-fixtures/*/*"]
+  "exclude": [
+    "node_modules",
+    ".next",
+    ".next-verify",
+    ".scratch",
+    "dist",
+    "tests/lint-fixtures/*/*"
+  ]
 }

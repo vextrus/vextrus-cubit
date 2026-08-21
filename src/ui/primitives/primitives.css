@@ -439,8 +439,15 @@
   cursor: pointer;
 }
 
+/*
+ * R-UI-012 / Q-11: the placeholder is real text on the trigger's own surface, and
+ * `--graphite-500` reads 3.2:1 on `--graphite-0` — the first axe scan of a page carrying a
+ * Select (J-004) fails on it as a serious violation. `--graphite-600` is the same recessive
+ * grey one step down, at 5.2:1. docs/design/datum-primitives.md still says `--graphite-500`;
+ * the Bible's contrast floor outranks it, and the document needs the same correction.
+ */
 .datum-select-trigger[data-placeholder] {
-  color: var(--graphite-500);
+  color: var(--graphite-600);
 }
 
 .datum-select-icon {

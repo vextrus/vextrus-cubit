@@ -133,11 +133,16 @@
   --z-index-overlay: var(--z-overlay);
   --z-index-toast: var(--z-toast);
 
-  --breakpoint-sm: var(--breakpoint-sm);
-  --breakpoint-md: var(--breakpoint-md);
-  --breakpoint-lg: var(--breakpoint-lg);
-  --breakpoint-xl: var(--breakpoint-xl);
 }
+
+/*
+ * The breakpoints are the one category that cannot enter @theme by reference. Tailwind spends
+ * a breakpoint inside a media query — `@media (width >= <value>)` for `.container` and for
+ * every responsive variant — and `var()` is not legal in a media condition: the first real
+ * `next build` of this tree failed to parse its own output on exactly those four rules. The
+ * tokens themselves are unchanged and still arrive from ./tokens.css, so a rule that wants a
+ * Datum breakpoint spends `var(--breakpoint-lg)` directly, which is what src/app/design does.
+ */
 
 /*
  * R-UI-003: "JetBrains Mono for every number, code, mark, source key and formula with
