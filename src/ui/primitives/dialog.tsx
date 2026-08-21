@@ -60,6 +60,11 @@ export const DialogContent = forwardRef<HTMLDivElement, DialogContentProps>(func
         {...rest}
       >
         {children}
+        {/* §11: "A close IconButton sits top-right." It is the surface's own, not something a
+            screen has to remember — a modal whose only way out is Escape has no visible
+            dismiss affordance at all. A screen wanting a second, worded one still writes
+            <DialogClose>…</DialogClose> among its children. */}
+        <DialogClose />
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );
@@ -150,6 +155,8 @@ export const SheetContent = forwardRef<HTMLDivElement, SheetContentProps>(functi
         {...rest}
       >
         {children}
+        {/* The panel's own close control, for the reason DialogContent states. */}
+        <SheetClose />
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );

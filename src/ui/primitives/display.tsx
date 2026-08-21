@@ -15,6 +15,7 @@
 import { forwardRef } from 'react';
 import type { ComponentPropsWithoutRef, HTMLAttributes } from 'react';
 import { Progress as ProgressPrimitive, Separator as SeparatorPrimitive } from 'radix-ui';
+import type { AccessibleName } from './accessible-name';
 import { cx } from './class-names';
 import { ts } from './strings';
 
@@ -69,7 +70,13 @@ export const Kbd = forwardRef<HTMLElement, KbdProps>(function Kbd({ className, .
   return <kbd ref={ref} className={cx('datum-kbd', 'numeric', className)} {...rest} />;
 });
 
-export type ProgressProps = ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>;
+/**
+ * A bar states a position; what the position is *of* is the caller's to say, and there is no
+ * text inside a progressbar to say it. Design Decision §13 makes the name required for exactly
+ * that reason ("A required accessible name"), and §1 states the rule it follows from.
+ */
+export type ProgressProps = ComponentPropsWithoutRef<typeof ProgressPrimitive.Root> &
+  AccessibleName;
 
 export const Progress = forwardRef<HTMLDivElement, ProgressProps>(function Progress(
   { className, value, max, ...rest },

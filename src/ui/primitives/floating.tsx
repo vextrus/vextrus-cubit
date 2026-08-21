@@ -9,8 +9,9 @@
  *     that throws unless a screen remembered to wrap the app is a primitive with a trap in
  *     it; the provider is idempotent, so a screen that wraps its own is unaffected.
  *   - A menu item is a tab stop while its menu is open, so it carries the ring class too
- *     (R-UI-012). The ContextMenu trigger deliberately does not: it is a region you press
- *     the context key on, not a control you tab to.
+ *     (R-UI-012). So is the ContextMenu trigger: the keyboard raises a `contextmenu` event
+ *     with Shift+F10 or the Menu key, and it raises it against the focused element — a region
+ *     nothing can focus is a region only a mouse can open (Design Decision §10).
  */
 import { forwardRef } from 'react';
 import type { ComponentPropsWithoutRef, ReactElement } from 'react';
@@ -153,11 +154,15 @@ export const ContextMenu = ContextMenuPrimitive.Root;
 export type ContextMenuTriggerProps = ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Trigger>;
 
 export const ContextMenuTrigger = forwardRef<HTMLSpanElement, ContextMenuTriggerProps>(
-  function ContextMenuTrigger({ className, ...rest }, ref) {
+  function ContextMenuTrigger({ className, tabIndex, ...rest }, ref) {
     return (
       <ContextMenuPrimitive.Trigger
         ref={ref}
-        className={cx('datum-context-trigger', className)}
+        // Shift+F10 and the Menu key fire `contextmenu` at whatever holds the focus, so the
+        // region has to be able to hold it. A consumer that has its own tab stop inside the
+        // region may pass its own `tabIndex` and take this one back out.
+        tabIndex={tabIndex ?? 0}
+        className={cx('datum-context-trigger', 'datum-focus-ring', className)}
         {...rest}
       />
     );

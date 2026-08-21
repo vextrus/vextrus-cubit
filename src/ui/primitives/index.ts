@@ -14,6 +14,8 @@
  */
 import './primitives.css';
 
+export type { AccessibleName } from './accessible-name';
+
 export { Button, IconButton } from './button';
 export type { ButtonProps, ButtonVariant, IconButtonProps } from './button';
 

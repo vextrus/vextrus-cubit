@@ -29,8 +29,17 @@ import type { FocusEvent, InputHTMLAttributes } from 'react';
 import { formatNumber } from '../../core/format';
 import { cx } from './class-names';
 
-/** An integer the seam will group: an optional sign and at least one ASCII digit. */
-const GROUPABLE = /^-?[0-9]+$/;
+/** The magnitude the seam will group: at least one ASCII digit, no sign and no point. */
+const GROUPABLE = /^[0-9]+$/;
+
+/** The integer part of a value that has none — `.5` is half of nothing, and nothing is zero. */
+const NO_WHOLE = '0';
+
+/** The point a half-typed value ends on: `123.` is `123` until a digit follows it. */
+const POINT = '.';
+
+/** A leading minus, kept aside so the seam is only ever asked to group a magnitude. */
+const MINUS = '-';
 
 /**
  * The text, reduced to the decimal string it was trying to be: ASCII digits, at most one
@@ -62,17 +71,32 @@ export function toDecimalString(text: string): string {
 }
 
 /**
- * The value as a document writes it (R-SPINE-061), or the value itself where there is nothing
- * to group yet — an empty field shows an empty field, never `NaN`, and a half-typed `.5` shows
- * what was typed rather than a refusal from the seam.
+ * The value as a document writes it (Design Decision §4, R-SPINE-061).
+ *
+ * The document fixes the three cases the split leaves behind: the integer part is `0` where
+ * the user wrote none, a trailing bare point drops from the display, and an empty field shows
+ * an empty field — never `NaN`. So `1234567.89` reads `12,34,567.89`, `.5` reads `0.5` and
+ * `123.` reads `1,23`'s grouping without the point the caret was resting on. The sign is held
+ * aside rather than handed to the seam, because a magnitude of nothing under a minus is `-0`,
+ * which is a number nobody typed.
+ *
+ * A value that is not a number yet — a lone `-` or a lone `.` — is shown as itself: there is
+ * nothing there to group, and rewriting it to `0` would put a digit in a field the user has
+ * only started.
  */
 export function groupedForDisplay(value: string): string {
   if (value.length === 0) return '';
-  const point = value.indexOf('.');
-  const whole = point === -1 ? value : value.slice(0, point);
-  const fraction = point === -1 ? '' : value.slice(point);
-  if (!GROUPABLE.test(whole)) return value;
-  return `${formatNumber(whole, 'count')}${fraction}`;
+  const sign = value.startsWith(MINUS) ? MINUS : '';
+  const magnitude = value.slice(sign.length);
+  const point = magnitude.indexOf(POINT);
+  const whole = point === -1 ? magnitude : magnitude.slice(0, point);
+  const written = point === -1 ? '' : magnitude.slice(point);
+  // "a trailing bare point drops from display": the point is only shown once it holds digits.
+  const fraction = written === POINT ? '' : written;
+  if (whole.length === 0 && fraction.length === 0) return value;
+  const groupable = whole.length === 0 ? NO_WHOLE : whole;
+  if (!GROUPABLE.test(groupable)) return value;
+  return `${sign}${formatNumber(groupable, 'count')}${fraction}`;
 }
 
 export interface NumberInputProps

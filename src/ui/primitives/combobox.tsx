@@ -24,6 +24,7 @@
  */
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactElement } from 'react';
+import type { AccessibleName } from './accessible-name';
 import { cx } from './class-names';
 import { ts } from './strings';
 
@@ -33,19 +34,24 @@ export interface ComboboxOption {
   readonly label: string;
 }
 
-export interface ComboboxProps {
+export interface ComboboxOwnProps {
   /** Asked for options whenever the query changes. Async by contract, not by accident. */
   readonly loadOptions: (query: string) => Promise<readonly ComboboxOption[]>;
   /** The committed value, if the screen holds one. */
   readonly value?: string;
   /** Asked for a change when an option is committed. */
   readonly onValueChange?: (next: string) => void;
-  /** The field's accessible name (R-UI-012). */
-  readonly 'aria-label'?: string;
   readonly className?: string;
   readonly placeholder?: string;
   readonly disabled?: boolean;
 }
+
+/**
+ * The field's accessible name is required, not offered (Design Decision §1: "No unnamed
+ * control ships"). A Combobox has no visible text of its own to fall back on, so the type
+ * makes the name a condition of mounting one.
+ */
+export type ComboboxProps = ComboboxOwnProps & AccessibleName;
 
 /** Nothing is highlighted yet: the first ArrowDown moves to the first option. */
 const NONE = -1;
@@ -69,6 +75,7 @@ export function Combobox({
   value,
   onValueChange,
   'aria-label': name,
+  'aria-labelledby': namedBy,
   className,
   placeholder,
   disabled,
@@ -162,10 +169,20 @@ export function Combobox({
     onValueChange?.(option.value);
   };
 
+  /**
+   * An arrow on a closed field opens it, and opening it asks. The Design Decision (§7) says
+   * "the list never renders silently blank": a surface opened over a loader nobody called has
+   * no options, no pending row and no empty row, which is exactly that. So the first press is
+   * the request — the pending row appears at once — and the next one moves the highlight.
+   */
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setOpen(true);
+      if (!open) {
+        setOpen(true);
+        ask(query);
+        return;
+      }
       setActive((current) => (options.length === 0 ? NONE : Math.min(current + 1, options.length - 1)));
       return;
     }
@@ -173,7 +190,11 @@ export function Combobox({
       event.preventDefault();
       // Both arrows open, and neither points `aria-activedescendant` at an option that is not
       // there: with nothing loaded there is nothing to highlight, so the highlight stays off.
-      setOpen(true);
+      if (!open) {
+        setOpen(true);
+        ask(query);
+        return;
+      }
       setActive((current) => (options.length === 0 ? NONE : current <= 0 ? 0 : current - 1));
       return;
     }
@@ -190,7 +211,10 @@ export function Combobox({
     }
   };
 
-  const nothingMatched = open && !loading && query.length > 0 && options.length === 0;
+  // The loader has answered and answered with nothing — for a query or for an empty field
+  // alike. An open surface holding neither options, nor the pending row, nor this one is the
+  // silently blank list §7 forbids, so the row is not gated on anything the user typed.
+  const nothingMatched = open && !loading && options.length === 0;
 
   return (
     <div
@@ -209,8 +233,12 @@ export function Combobox({
         data-testid="combobox-input"
         role="combobox"
         aria-label={name}
+        aria-labelledby={namedBy}
         aria-expanded={open ? 'true' : 'false'}
-        aria-controls={listId}
+        // The listbox only exists while the surface is open, and an idref pointing at an
+        // element that is not in the document is a broken reference to a screen reader and an
+        // aria-valid-attr-value finding to axe (R-UI-012, Q-11).
+        aria-controls={open ? listId : undefined}
         aria-autocomplete={AUTOCOMPLETE_LIST}
         aria-activedescendant={active === NONE ? undefined : `${optionId}-${String(active)}`}
         autoComplete="off"
@@ -251,6 +279,7 @@ export function Combobox({
             // The list is the field's own suggestions, so it answers to the field's name
             // (R-UI-012) rather than to a second word this module would have to decide.
             aria-label={name}
+            aria-labelledby={name === undefined ? namedBy : undefined}
             data-testid="combobox-list"
             className="datum-combobox-list"
           >

@@ -22,6 +22,7 @@
 import { forwardRef, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent, PointerEvent, ReactElement } from 'react';
 import { cx } from './class-names';
+import { ts } from './strings';
 
 /** Which way the rail runs. Horizontal unless a screen says otherwise. */
 export type SliderOrientation = 'horizontal' | 'vertical';
@@ -29,7 +30,7 @@ export type SliderOrientation = 'horizontal' | 'vertical';
 /** One value, or several — a range slider is a slider with two thumbs (R-UI-010). */
 export type SliderValue = number | readonly number[];
 
-export interface SliderProps {
+export interface SliderOwnProps {
   /** The values the screen holds. Given, the slider only reports; the screen decides. */
   readonly value?: SliderValue;
   /** Where an uncontrolled slider starts. Defaults to `min`. */
@@ -41,11 +42,19 @@ export interface SliderProps {
   readonly step?: number;
   readonly disabled?: boolean;
   readonly orientation?: SliderOrientation;
-  /** The thumb's accessible name (R-UI-012). */
-  readonly 'aria-label'?: string;
-  readonly 'aria-labelledby'?: string;
   readonly className?: string;
 }
+
+/**
+ * The thumb's accessible name is required, not offered (Design Decision §1: "No unnamed
+ * control ships"). A rail has no words of its own, so a Slider with no name prop is a
+ * `role="slider"` a screen reader can only call "slider".
+ *
+ * It is the words rather than the union the other named primitives take, because a range
+ * slider has two thumbs and each one's name is this control's to extend (§5): a name that
+ * lives in some other element's text is one this file cannot add "lower" to.
+ */
+export type SliderProps = SliderOwnProps & { readonly 'aria-label': string };
 
 const HORIZONTAL: SliderOrientation = 'horizontal';
 
@@ -80,7 +89,6 @@ export const Slider = forwardRef<HTMLSpanElement, SliderProps>(function Slider(
     disabled = false,
     orientation = HORIZONTAL,
     'aria-label': name,
-    'aria-labelledby': namedBy,
     className,
   },
   ref,
@@ -193,6 +201,28 @@ export const Slider = forwardRef<HTMLSpanElement, SliderProps>(function Slider(
     dragging.current = null;
   };
 
+  /**
+   * The bounds a thumb may actually reach — its neighbours, which is what `commit` clamps to.
+   * A range slider whose thumbs both announce the whole rail tells a screen-reader user they
+   * can drag past a limit the control enforces. With one thumb the neighbours are the rail's
+   * own ends, so this is the same pair the simple case has always announced.
+   */
+  const floorOf = (index: number): number => (index === 0 ? min : (values[index - 1] ?? min));
+  const ceilOf = (index: number): number =>
+    index === values.length - 1 ? max : (values[index + 1] ?? max);
+
+  /**
+   * What a thumb answers to. One thumb takes the field's name whole; a range has two, and two
+   * sliders with the same name are two a reader cannot tell apart, so the ends take the words
+   * the Design Decision (§5) fixes for them.
+   */
+  const nameOf = (index: number): string => {
+    if (values.length < 2) return name;
+    if (index === 0) return `${name} ${ts('primitives.slider.lower')}`;
+    if (index === values.length - 1) return `${name} ${ts('primitives.slider.upper')}`;
+    return name;
+  };
+
   const lower = values.length > 1 ? Math.min(...values) : min;
   const upper = values.length > 1 ? Math.max(...values) : (values[0] ?? min);
   const rangeStyle: CSSProperties =
@@ -229,11 +259,10 @@ export const Slider = forwardRef<HTMLSpanElement, SliderProps>(function Slider(
               }}
               role="slider"
               tabIndex={disabled ? -1 : 0}
-              aria-label={name}
-              aria-labelledby={namedBy}
+              aria-label={nameOf(index)}
               aria-orientation={orientation}
-              aria-valuemin={min}
-              aria-valuemax={max}
+              aria-valuemin={floorOf(index)}
+              aria-valuemax={ceilOf(index)}
               aria-valuenow={at}
               aria-disabled={disabled ? true : undefined}
               data-orientation={orientation}

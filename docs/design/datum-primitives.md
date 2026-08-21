@@ -124,7 +124,12 @@ inherited:
   and ArrowUp raise the value by one `step`, ArrowLeft and ArrowDown lower it, PageUp/PageDown
   move ten steps, Home and End go to the ends; every value is clamped to `[min, max]`, and a
   slider given no value stands at its minimum. The thumb is the control: it takes the focus
-  ring, the tab stop and the accessible name (`aria-label` prop). This is the one primitive
+  ring, the tab stop and the accessible name (`aria-label` prop, required). A range Slider has
+  two thumbs, and two thumbs answering to one name are two sliders a screen-reader user cannot
+  tell apart: the first thumb is named “<name> lower bound” (`primitives.slider.lower`) and the
+  last “<name> upper bound” (`primitives.slider.upper`). Each thumb also announces the bounds it
+  can actually reach — its neighbours, which is what the control clamps to — rather than the
+  whole rail's `[min, max]`. This is the one primitive
   written rather than restyled — Radix's Slider measures its thumb through `ResizeObserver`
   and cannot mount in a DOM with no layout, which is every unit test a consumer will write.
 
@@ -151,6 +156,10 @@ the list (`data-testid="combobox-input"`); below it, on the overlay surface, the
 - **Empty:** a resolved query with no matches shows `data-testid="combobox-empty"`: “No matches
   for this search.” (`primitives.combobox.empty`), `--graphite-500`, centred, padding
   `--space-3`. The list never renders silently blank (R-UI-020).
+- ArrowDown or ArrowUp on a closed field opens the list *and* asks the loader for the current
+  query, so an opened surface is always in one of the three states above — never an empty box.
+  Equally, an empty field whose loader resolved to nothing shows the empty row, not a blank
+  list: “resolved to nothing” is the same answer whether or not anything was typed.
 - ArrowDown moves highlight into the list, Enter commits the highlighted option into the input
   and closes, Escape closes and keeps the typed text. `aria-selected` marks the highlight.
 
@@ -180,7 +189,9 @@ Both use the Select content surface (§6): `--shadow-2`, padding `--space-1`, it
 `--danger`. Separators are §13's hairline with `--space-1` margins. Shortcut hints sit
 right-aligned in `--graphite-500` `--font-mono`. DropdownMenu opens from its trigger on Enter,
 Space or ArrowDown; ContextMenu opens at the pointer on right-click and via the keyboard's
-Menu key or Shift+F10. Arrows move, Enter activates, Escape closes and restores focus.
+Menu key or Shift+F10 — which raise the event against whatever holds the focus, so the
+ContextMenu trigger is itself a tab stop carrying the ring (a consumer with its own tab stop
+inside the region passes its own `tabIndex`). Arrows move, Enter activates, Escape closes and restores focus.
 
 ## 11. Dialog and Sheet
 
@@ -188,7 +199,9 @@ Shared: `role="dialog"`, `aria-modal="true"`, labelled by its Title (`--text-16`
 `--weight-heading`, `--graphite-950`); Description `--text-13` `--graphite-600`. Tab and
 Shift+Tab cycle inside while open; Escape closes; focus returns to the trigger. A close
 IconButton sits top-right, `aria-label` “Close” (`primitives.dialog.close` /
-`primitives.sheet.close`). Both sit at `z-index: var(--z-overlay)` above the scrim.
+`primitives.sheet.close`) — rendered by the surface itself, so no modal can ship without a
+visible way out; a screen wanting a second, worded one writes its own `DialogClose` among the
+children. Both sit at `z-index: var(--z-overlay)` above the scrim.
 
 **Scrim** — the one theme-forked rule in primitives.css, because no single token is dark in
 both themes: `background: var(--graphite-1000); opacity: 0.45` in light;
@@ -208,7 +221,11 @@ both). Fades with its overlay's duration.
 an accessible name “Notifications” (`primitives.toast.region`), fixed bottom-right at
 `z-index: var(--z-toast)`, messages announced through an ARIA live region (`role="status"`).
 Toast card: overlay surface, `--shadow-2`, width 360 px, `--text-13` `--graphite-900`; a
-description line, when given, `--graphite-600`. Auto-dismisses after 5 s; hover pauses. Entry
+description line, when given, `--graphite-600`. sonner's own card is turned off (`unstyled`)
+and its parts carry Datum classes — `.datum-toast`, `.datum-toast-title`,
+`.datum-toast-description` in primitives.css — so the card is painted in tokens and follows
+`[data-theme]` like every other surface, rather than in the library's own literals under its
+own light default. Auto-dismisses after 5 s; hover pauses. Entry
 slide + fade within the 120–200 ms band; reduced motion stills it. A toast is never the only
 record of a refusal or an error (R-UI-020) — screens render those in place and may echo here.
 
@@ -246,6 +263,8 @@ Components read only this table; no string literal in JSX except test ids. The w
 |---|---|
 | `primitives.combobox.loading` | Searching… |
 | `primitives.combobox.empty` | No matches for this search. |
+| `primitives.slider.lower` | lower bound |
+| `primitives.slider.upper` | upper bound |
 | `primitives.dialog.close` | Close |
 | `primitives.sheet.close` | Close |
 | `primitives.tag.remove` | Remove |

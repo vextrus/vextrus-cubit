@@ -24,6 +24,10 @@ export const PRIMITIVES_STRINGS = Object.freeze({
   'primitives.dialog.close': 'Close',
   /** The same control on a Sheet; a separate key so the two can diverge without a rename. */
   'primitives.sheet.close': 'Close',
+  /** Follows the field's name on the first thumb of a range Slider — two thumbs, two names. */
+  'primitives.slider.lower': 'lower bound',
+  /** The same for the last thumb of a range Slider. */
+  'primitives.slider.upper': 'upper bound',
   /** The name of a Tag's remove control, followed by the tag's own words. */
   'primitives.tag.remove': 'Remove',
   /** The name of the region toasts are announced in. */

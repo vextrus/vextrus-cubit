@@ -737,6 +737,47 @@
   z-index: var(--z-toast);
 }
 
+/* The card sonner would otherwise paint from its own stylesheet and its own colour literals.
+   `unstyled` toasts carry these instead, so §12's card is Datum's and follows the theme. */
+.datum-toast {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  box-sizing: border-box;
+  width: 360px;
+  padding: var(--space-3);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+  background: var(--graphite-0);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  box-shadow: var(--shadow-2);
+}
+
+.datum-toast-title {
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.datum-toast-description {
+  color: var(--graphite-600);
+}
+
+.datum-toast-action,
+.datum-toast-cancel,
+.datum-toast-close {
+  align-self: flex-start;
+  height: var(--row-compact);
+  padding: 0 var(--space-2);
+  font-size: var(--text-13);
+  color: var(--graphite-800);
+  background: transparent;
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  cursor: pointer;
+}
+
 /* ---- Badge, Tag, Kbd ---------------------------------------------------------------- */
 
 .datum-badge,
