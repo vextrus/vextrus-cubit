@@ -80,6 +80,10 @@ delivering it, not by declaring it. Two consequences worth stating:
 - `cad-pytest` is a stage of its own rather than part of `cad-ruff` because pytest exits 5
   when it collects no tests; the empty `cad/tests` is what keeps the lane skipped, and
   ruff's zero-file run is honestly green.
+- The `build` stage runs with `NEXT_DIST_DIR=.next-verify` so a verify build is cold and
+  never consumes or poisons the dev build. Next reads `distDir` from `next.config`, so the
+  increment that delivers the app must read that variable there; the directory is already
+  gitignored.
 - `catalogue-drift` has no command yet. If `src/core/catalogue` appears before one is
   wired, the stage arms and **fails**, loudly, rather than passing on nothing. Same for
   `method-hashes`. That is C-06's "never silently passed" applied to the gate's own gaps.

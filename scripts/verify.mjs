@@ -78,7 +78,9 @@ const STAGES = [
     input: 'src/app',
     file: bin('next'),
     args: ['build'],
-    // "cold into its own distDir": a verify build never consumes or poisons the dev build.
+    // "cold into its own distDir": a verify build never consumes or poisons the dev
+    // build. Next reads distDir from next.config, so the increment that delivers the app
+    // must read NEXT_DIST_DIR there; .next-verify is gitignored for it already.
     env: { NEXT_DIST_DIR: '.next-verify' },
   },
 ];
