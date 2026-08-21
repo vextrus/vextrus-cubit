@@ -18,11 +18,17 @@ export const REPO = process.cwd();
  * A test in this suite may spawn `pnpm test:db`, whose own suite is this one. The sentinel
  * says "you are already inside a spawned lane": the nested run does the live-database work
  * and skips the spawning, so the recursion is one level deep and terminates.
+ *
+ * B-05: the handshake is exact. Only this suite's own spawn sets the variable to
+ * NESTED_SENTINEL, and only that exact value counts as nesting — an ambient
+ * `CUBIT_VERIFIER_NESTED=1` in someone's shell disables no assertion.
  */
 export const NESTED = 'CUBIT_VERIFIER_NESTED';
 
+export const NESTED_SENTINEL = 'lanes-armed:cubit_test_lane_check';
+
 export function isNested(): boolean {
-  return (process.env[NESTED] ?? '') !== '';
+  return process.env[NESTED] === NESTED_SENTINEL;
 }
 
 export interface Ran {

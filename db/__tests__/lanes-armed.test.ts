@@ -13,7 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { REPO, isNested, lane, lastLine, lines, run } from './support/lanes';
+import { NESTED, NESTED_SENTINEL, REPO, isNested, lane, lastLine, lines, run } from './support/lanes';
 import { APP_ROLE, connectTo, endAll, query, urlFor } from './support/live';
 import type { Client } from 'pg';
 
@@ -34,8 +34,14 @@ const STILL_STUBS = [
 
 const NOW_ARMED = ['test:db', 'db:migrate', 'db:drift'];
 
-/** The database the nested `pnpm test:db` is told to provision — never the one we are in. */
-const NESTED_DB = 'cubit_test_lane_check';
+/**
+ * The database the nested `pnpm test:db` is told to provision — never the one we are in.
+ * C-07 expects parallel lanes on one shared 127.0.0.1:5544 with "per-lane offsets", so the
+ * name is derived from this workspace's own CUBIT_TEST_DB rather than hardcoded: two
+ * concurrent workspaces must not both drop the same database out from under each other.
+ * The `_lane_check` suffix keeps the nested run off the database the outer suite occupies.
+ */
+const NESTED_DB = `${process.env['CUBIT_TEST_DB'] ?? 'cubit_test'}_lane_check`;
 
 const scripts = (): Record<string, string> => {
   const parsed = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8')) as {
@@ -116,11 +122,13 @@ describe('AC-4 — the armed lanes and the gate (C-06)', () => {
     expect(seam.code, `linting the seam itself is not clean\n${seam.merged}`).toBe(0);
   });
 
-  it('AC-4 / V-VERIFY: `pnpm verify` passes with the db-drift stage armed, not skipped', async () => {
+  it('AC-4 / V-VERIFY: `pnpm verify` passes with the db-drift stage armed, not skipped', async (ctx) => {
     // AC-4's "`eslint .` stays green" is this run's eslint stage, which is literally
     // `eslint .` over the tree (scripts/lib/verify-roster.mjs), so it is asserted here
     // rather than spawned twice.
-    if (isNested()) return;
+    // C-06: inside the nested spawn this claim is not made, so it is recorded as a skip —
+    // never a pass, which would report green for verification that never happened.
+    ctx.skip(isNested(), 'NESTED_LANE_RUN — the outer `pnpm test:db` makes this claim');
     const ran = await lane('verify');
     expect(ran.code, `verify failed\n${ran.merged}`).toBe(0);
     const stages = lines(ran.stdout);
@@ -134,15 +142,16 @@ describe('AC-4 — the armed lanes and the gate (C-06)', () => {
     expect(lastLine(ran.stdout)).toMatch(/^verify: ok \([\d.]+s\)$/);
   });
 
-  it('AC-4: `pnpm test:db` cold-provisions CUBIT_TEST_DB and ends `test:db: ok`', async () => {
+  it('AC-4: `pnpm test:db` cold-provisions CUBIT_TEST_DB and ends `test:db: ok`', async (ctx) => {
     // The suite this test belongs to is the one `pnpm test:db` runs, so the nested run is
     // told to provision a different database and to skip the spawning tests. One level
-    // deep, and it terminates.
-    if (isNested()) return;
+    // deep, and it terminates — and the nested level records the skip out loud (C-06)
+    // rather than passing hollowly.
+    ctx.skip(isNested(), 'NESTED_LANE_RUN — the outer `pnpm test:db` makes this claim');
     const ran = await lane('test:db', {
       env: {
         CUBIT_TEST_DB: NESTED_DB,
-        CUBIT_VERIFIER_NESTED: '1',
+        [NESTED]: NESTED_SENTINEL,
         // test:db is what decides where the suite points; it must not inherit ours.
         DATABASE_URL: undefined,
       },
