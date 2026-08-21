@@ -99,12 +99,13 @@ markup-wise separate from the value; the input's `aria-describedby` points at it
 
 All transition checked-state fills over `--motion-state-duration`; all state their ARIA
 (`aria-checked`, `role="radio"` inside a RadioGroup's `role="radiogroup"`, `role="switch"`,
-`role="slider"` with `aria-valuenow/min/max`). Two keyboard rules are the library's, not a
-library's:
+`role="slider"` with `aria-valuenow/min/max`). Two keyboard rules are decided here rather than
+inherited:
 
-- **Space toggles a Switch**, on the key itself. A browser turns Space on a button into a
-  click and the switch would toggle either way; deciding it on the keydown means one press is
-  one toggle in any host, and the click the browser sends afterwards is swallowed.
+- **Space toggles a Checkbox and a Switch**, on the key itself. A browser turns Space on a
+  button into a click and the control would toggle either way; deciding it on the keydown
+  means one press is one toggle in any host, and the click the browser sends afterwards is
+  swallowed.
 - **A RadioGroup's arrows both move and choose.** The group is one Tab stop; ArrowDown and
   ArrowRight move to the next radio and check it in the same keystroke, ArrowUp and ArrowLeft
   go back, and both wrap. Entering the group with Tab, or clicking into it, chooses nothing.

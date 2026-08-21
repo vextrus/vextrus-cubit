@@ -55,7 +55,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       }}
       {...rest}
     >
-      {icon === undefined ? null : <span className="datum-button-icon">{icon}</span>}
+      {/* The glyph repeats the label; a reader that spoke both would say it twice. */}
+      {icon === undefined ? null : (
+        <span aria-hidden="true" className="datum-button-icon">
+          {icon}
+        </span>
+      )}
       {children}
       {loading ? <span className="datum-button-busy" aria-hidden="true" /> : null}
     </button>
@@ -86,7 +91,10 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       // past it must not be able to overwrite the one name this control is required to have.
       aria-label={label}
     >
-      {icon}
+      {/* The `label` is the name; the glyph is decoration and says so. */}
+      <span aria-hidden="true" className="datum-button-icon">
+        {icon}
+      </span>
     </button>
   );
 });
