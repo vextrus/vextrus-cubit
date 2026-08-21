@@ -69,10 +69,36 @@ const treeFiles = (): string[] => walk('src').concat(walk('db'), walk('tests'), 
 const read = (rel: string): string => readFileSync(join(REPO, rel), 'utf8');
 
 /**
- * Every string literal in a TypeScript file, with the offset it started at, comments left
- * out. A regex over quote characters reads the apostrophe in a comment's prose as an opening
- * quote and then swallows everything up to the next one, so this walks the text: a comment is
- * skipped whole, and a quote inside one is a character in a sentence.
+ * The characters a regular expression may follow. A `/` is either division or the start of a
+ * regex literal, and only the token in front of it says which: after a value (an identifier,
+ * a number, a closing bracket) it divides; after an operator, a comma, an opening bracket or
+ * the start of a statement it opens a pattern.
+ */
+const BEFORE_REGEX = new Set([...'(,=:[!&|?{};+-*%~^<>']);
+
+/** The keywords a regex may follow, where the character in front is a plain letter. */
+const KEYWORD_BEFORE_REGEX =
+  /\b(?:return|typeof|instanceof|in|of|new|delete|void|do|else|case|yield|await)$/;
+
+/** The last character of `text` before `i` that is not whitespace, or undefined. */
+function previousToken(text: string, i: number): string | undefined {
+  let j = i - 1;
+  while (j >= 0 && /\s/.test(text.charAt(j))) j -= 1;
+  return j >= 0 ? text.charAt(j) : undefined;
+}
+
+/**
+ * Every string literal in a TypeScript file, with the offset it started at, comments and
+ * regular expressions left out. A regex over quote characters reads the apostrophe in a
+ * comment's prose as an opening quote and then swallows everything up to the next one, so
+ * this walks the text: a comment is skipped whole, and a quote inside one is a character in
+ * a sentence.
+ *
+ * Regex literals are skipped for the same reason and it matters in both directions: a quote
+ * inside a character class (`/['"]/`) would open a string that swallows the real literals
+ * after it, and an escaped slash (`/https:\/\//`) would look like a line comment and discard
+ * the rest of the line. Either way a refusal-shaped literal goes missing and an orphan hides
+ * behind the pattern — the failure that lets the register pass a tree it should refuse.
  */
 function literals(text: string): { value: string; start: number }[] {
   const found: { value: string; start: number }[] = [];
@@ -87,6 +113,10 @@ function literals(text: string): { value: string; start: number }[] {
     if (pair === '/*') {
       const end = text.indexOf('*/', i + 2);
       i = end === -1 ? text.length : end + 2;
+      continue;
+    }
+    if (text[i] === '/' && startsRegex(text, i)) {
+      i = endOfRegex(text, i);
       continue;
     }
     const quote = text[i];
@@ -109,6 +139,36 @@ function literals(text: string): { value: string; start: number }[] {
     found.push({ value, start });
   }
   return found;
+}
+
+/** Whether the `/` at `i` opens a regex literal rather than dividing. */
+function startsRegex(text: string, i: number): boolean {
+  const previous = previousToken(text, i);
+  if (previous === undefined || BEFORE_REGEX.has(previous)) return true;
+  return /[A-Za-z]/.test(previous) && KEYWORD_BEFORE_REGEX.test(text.slice(0, i).trimEnd());
+}
+
+/** The offset just past the regex literal opening at `i`, flags included. */
+function endOfRegex(text: string, i: number): number {
+  let j = i + 1;
+  let inClass = false;
+  while (j < text.length) {
+    const char = text[j];
+    if (char === '\\') {
+      j += 2;
+      continue;
+    }
+    if (char === '\n') break;
+    if (char === '[') inClass = true;
+    else if (char === ']') inClass = false;
+    else if (char === '/' && !inClass) {
+      j += 1;
+      break;
+    }
+    j += 1;
+  }
+  while (j < text.length && /[a-z]/.test(text.charAt(j))) j += 1;
+  return j;
 }
 
 /**
@@ -196,5 +256,22 @@ describe('Q-07 — the refusal register', () => {
       `spelled in product source, unknown to the registry: ${list(result.orphans)}`,
     ).toEqual([]);
     expect(result.ok, 'the register is not clean').toBe(true);
+  });
+
+  it('reads past a regular expression, so no literal can hide behind one', () => {
+    // The scanner's own failure mode, and it fails silently: a quote inside a character class
+    // opens a string that swallows the literals after it, and an escaped slash looks like a
+    // line comment and discards the rest of the line. Either way a refusal-shaped literal
+    // goes missing and the register passes a tree it should have refused. The names below
+    // are fixtures, shaped like codes and registered nowhere.
+    const quoteInClass = `const q = /['"]/; const a = 'FIXTURE_ALPHA';`;
+    expect(codesIn(quoteInClass)).toEqual(['FIXTURE_ALPHA']);
+
+    const escapedSlash = String.raw`const u = /https:\/\//; const b = 'FIXTURE_BRAVO';`;
+    expect(codesIn(escapedSlash)).toEqual(['FIXTURE_BRAVO']);
+
+    // And division still divides: the literal after it is read, not skipped to.
+    const division = `const r = total / count; const c = 'FIXTURE_CHARLIE';`;
+    expect(codesIn(division)).toEqual(['FIXTURE_CHARLIE']);
   });
 });
