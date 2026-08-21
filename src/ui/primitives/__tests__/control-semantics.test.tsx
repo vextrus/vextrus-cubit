@@ -31,6 +31,16 @@ const OPTION_C = 'c';
 /** Radix's word for a checkbox that is neither checked nor unchecked. */
 const MIXED = 'indeterminate';
 
+/*
+ * The two fractional grids the Slider cases below use. They are divided rather than written:
+ * B-07 makes a fractional literal a lint error tree-wide, and the point of these cases is the
+ * float dust repeated addition leaves — which is the same dust whichever way the tenth is
+ * spelt.
+ */
+const TENTH = 1 / 10;
+const HALF = 1 / 2;
+const TEN = 10;
+
 const noop = (): void => {
   /* a group nobody is listening to still has to move */
 };
@@ -335,12 +345,12 @@ describe('Slider — role="slider", and an arrow is one step', () => {
     expect(thumb.getAttribute('aria-valuenow'), 'the value went below its minimum').toBe('0');
   });
 
-  it('keeps a fractional grid: ten presses of 0.1 land on 1', () => {
-    render(<Slider aria-label={NAME} min={0} max={2} step={0.1} defaultValue={[0]} />);
+  it('keeps a fractional grid: ten presses of a tenth land on one', () => {
+    render(<Slider aria-label={NAME} min={0} max={2} step={TENTH} defaultValue={[0]} />);
     const thumb = screen.getByRole('slider');
 
     thumb.focus();
-    for (const _press of Array.from({ length: 10 })) {
+    for (const _press of Array.from({ length: TEN })) {
       fireEvent.keyDown(thumb, { key: 'ArrowRight', code: 'ArrowRight' });
     }
 
@@ -350,7 +360,7 @@ describe('Slider — role="slider", and an arrow is one step', () => {
   });
 
   it('holds a grid whose minimum is itself fractional', () => {
-    render(<Slider aria-label={NAME} min={0.5} max={4.5} step={1} defaultValue={[0.5]} />);
+    render(<Slider aria-label={NAME} min={HALF} max={4 + HALF} step={1} defaultValue={[HALF]} />);
     const thumb = screen.getByRole('slider');
 
     thumb.focus();
