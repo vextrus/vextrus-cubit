@@ -209,7 +209,12 @@ describe('inc-000 — the toolchain is born whole (C-06, B-15)', () => {
     expect(ruleFiles.length).toBeGreaterThan(0);
 
     // C-10 (leaf note): traceability.json is gate-owned; the script ships, the JSON does not.
-    expect(existsSync(join(REPO, 'docs/traceability.json'))).toBe(false);
+    // "Delivered" is what the tree carries, so the claim is put to git and not to the working
+    // directory — an artifact the gate wrote beside the checkout was never delivered (AM: the
+    // existsSync form was both a false positive on that droppings file and a false negative in
+    // a fresh worktree). B-05: the guard is mechanical going forward, hence the ignore line.
+    expect(git(['ls-files', '--', 'docs/traceability.json']).trim()).toBe('');
+    expect(read('.gitignore')).toMatch(/^docs\/traceability\.json$/m);
   });
 
   it('AM-02: increment zero shipped the toolchain ONLY — no product tree in its delivered unit', () => {
