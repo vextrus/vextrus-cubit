@@ -1,0 +1,628 @@
+/*
+ * The Datum primitives' stylesheet — the one place this module paints (R-UI-001).
+ *
+ * Not one colour, radius, size, shadow or duration is written here as a value: every
+ * declaration below resolves through a variable src/ui/tokens.css defines, so a
+ * `[data-theme]` flip reaches every primitive and `prefers-reduced-motion` reaches every
+ * transition (the token sheet already resolves the motion durations to zero under it, which
+ * is why no rule here restates the media query).
+ *
+ * Imported by src/ui/primitives/index.ts, so a consumer that imports the barrel gets the
+ * ring, the surfaces and the motion together with the components — there is no second import
+ * a screen can forget.
+ *
+ * Decided in docs/design/datum-primitives.md.
+ */
+
+/* ---- The focus ring (R-UI-012: "focus ring (2 px cobalt outer)") ------------------- */
+
+/*
+ * Carried by the element the Tab key lands on, in every interactive primitive. `focus-visible`
+ * rather than `focus` so a pointer user is not ringed; the offset puts the ring outside the
+ * control's own border, which is what "outer" asks for.
+ */
+.datum-focus-ring:focus-visible {
+  outline: 2px solid var(--cobalt-500);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* ---- Shared field and control surfaces --------------------------------------------- */
+
+.datum-control {
+  font-family: var(--font-ui);
+  font-size: var(--text-14);
+  font-weight: var(--weight-body);
+  line-height: var(--leading-ui);
+  transition: background-color var(--motion-state-duration) var(--motion-ease),
+    border-color var(--motion-state-duration) var(--motion-ease),
+    color var(--motion-state-duration) var(--motion-ease);
+}
+
+.datum-field {
+  display: block;
+  width: 100%;
+  min-height: var(--row-comfortable);
+  padding: var(--space-2) var(--space-3);
+  color: var(--graphite-900);
+  background: var(--graphite-0);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+}
+
+.datum-field::placeholder {
+  color: var(--graphite-500);
+}
+
+.datum-field:disabled {
+  color: var(--graphite-400);
+  background: var(--graphite-50);
+}
+
+.datum-textarea {
+  min-height: calc(var(--row-comfortable) * 2);
+  resize: vertical;
+}
+
+/* ---- Button and IconButton --------------------------------------------------------- */
+
+.datum-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--row-comfortable);
+  padding: 0 var(--space-4);
+  font-weight: var(--weight-body-medium);
+  border: var(--hairline);
+  border-color: transparent;
+  border-radius: var(--radius-4);
+  cursor: pointer;
+}
+
+.datum-button[data-variant='primary'] {
+  color: var(--graphite-0);
+  background: var(--cobalt-500);
+}
+
+.datum-button[data-variant='primary']:hover {
+  background: var(--cobalt-600);
+}
+
+.datum-button[data-variant='secondary'] {
+  color: var(--graphite-900);
+  background: var(--graphite-0);
+  border: var(--hairline);
+}
+
+.datum-button[data-variant='secondary']:hover {
+  background: var(--graphite-50);
+}
+
+.datum-button[data-variant='ghost'] {
+  color: var(--graphite-800);
+  background: transparent;
+}
+
+.datum-button[data-variant='ghost']:hover {
+  background: var(--graphite-100);
+}
+
+.datum-button[data-variant='danger'] {
+  color: var(--graphite-0);
+  background: var(--danger);
+}
+
+.datum-button[data-variant='danger']:hover {
+  background: var(--danger);
+  filter: saturate(1.1);
+}
+
+.datum-button[data-loading] {
+  cursor: progress;
+}
+
+.datum-button-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+/*
+ * The busy affordance is a bar that pulses in place, never a spinner: R-UI-004 keeps the
+ * layout still while something is in flight.
+ */
+.datum-button-busy {
+  display: block;
+  width: var(--space-4);
+  height: var(--space-1);
+  background: currentcolor;
+  border-radius: var(--radius-2);
+  opacity: 0.6;
+  animation: datum-pulse var(--motion-panel-duration) var(--motion-ease) infinite alternate;
+}
+
+.datum-icon-button {
+  width: var(--row-comfortable);
+  min-width: var(--row-comfortable);
+  padding: 0;
+}
+
+@keyframes datum-pulse {
+  from {
+    opacity: 0.3;
+  }
+  to {
+    opacity: 0.9;
+  }
+}
+
+/* ---- NumberInput ------------------------------------------------------------------- */
+
+.datum-number-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/*
+ * R-SPINE-061: "tabular numerals in UI" — a column of amounts has to line up whether it is
+ * being edited or read, so the field itself is mono and tabular, not only the document.
+ */
+.datum-number-field {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  text-align: right;
+}
+
+.datum-number-suffix {
+  color: var(--graphite-600);
+  font-size: var(--text-13);
+  white-space: nowrap;
+}
+
+/* ---- Checkbox, Radio, Switch ------------------------------------------------------- */
+
+.datum-checkbox,
+.datum-radio {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--space-4);
+  padding: 0;
+  color: var(--graphite-0);
+  background: var(--graphite-0);
+  border: var(--hairline);
+  border-radius: var(--radius-2);
+  cursor: pointer;
+}
+
+.datum-radio {
+  border-radius: var(--space-4);
+}
+
+.datum-checkbox[data-state='checked'],
+.datum-radio[data-state='checked'] {
+  background: var(--cobalt-500);
+  border-color: var(--cobalt-500);
+}
+
+.datum-checkbox-indicator::after {
+  content: '';
+  display: block;
+  width: var(--space-1);
+  height: var(--space-2);
+  border-right: 2px solid currentcolor;
+  border-bottom: 2px solid currentcolor;
+  transform: rotate(45deg);
+}
+
+.datum-radio-indicator::after {
+  content: '';
+  display: block;
+  width: var(--space-2);
+  height: var(--space-2);
+  background: currentcolor;
+  border-radius: var(--space-2);
+}
+
+.datum-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.datum-switch {
+  display: inline-flex;
+  align-items: center;
+  width: calc(var(--space-4) * 2);
+  height: var(--space-5);
+  padding: var(--space-1);
+  background: var(--graphite-300);
+  border: 0;
+  border-radius: var(--space-5);
+  cursor: pointer;
+  transition: background-color var(--motion-state-duration) var(--motion-ease);
+}
+
+.datum-switch[data-state='checked'] {
+  background: var(--cobalt-500);
+}
+
+.datum-switch-thumb {
+  display: block;
+  width: var(--space-3);
+  height: var(--space-3);
+  background: var(--graphite-0);
+  border-radius: var(--space-3);
+  transition: transform var(--motion-state-duration) var(--motion-ease);
+}
+
+.datum-switch[data-state='checked'] .datum-switch-thumb {
+  transform: translateX(var(--space-4));
+}
+
+/* ---- Slider ------------------------------------------------------------------------ */
+
+.datum-slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--space-5);
+  touch-action: none;
+  user-select: none;
+}
+
+.datum-slider-track {
+  position: relative;
+  flex-grow: 1;
+  height: var(--space-1);
+  background: var(--graphite-200);
+  border-radius: var(--radius-2);
+}
+
+.datum-slider-range {
+  position: absolute;
+  height: 100%;
+  background: var(--cobalt-500);
+  border-radius: var(--radius-2);
+}
+
+.datum-slider-thumb {
+  display: block;
+  width: var(--space-4);
+  height: var(--space-4);
+  background: var(--graphite-0);
+  border: 2px solid var(--cobalt-500);
+  border-radius: var(--space-4);
+}
+
+/* ---- Select ------------------------------------------------------------------------ */
+
+.datum-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--row-comfortable);
+  padding: 0 var(--space-3);
+  color: var(--graphite-900);
+  background: var(--graphite-0);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  cursor: pointer;
+}
+
+.datum-select-icon {
+  color: var(--graphite-600);
+}
+
+.datum-popover-surface {
+  z-index: var(--z-overlay);
+  min-width: var(--row-comfortable);
+  padding: var(--space-1);
+  color: var(--graphite-900);
+  background: var(--graphite-0);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  box-shadow: var(--shadow-3);
+  animation: datum-rise var(--motion-state-duration) var(--motion-ease);
+}
+
+.datum-select-item,
+.datum-menu-item,
+.datum-combobox-option {
+  display: flex;
+  align-items: center;
+  min-height: var(--row-compact);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-4);
+  cursor: pointer;
+}
+
+.datum-select-item[data-highlighted],
+.datum-menu-item[data-highlighted],
+.datum-combobox-option[data-active='true'] {
+  background: var(--cobalt-100);
+  outline: none;
+}
+
+@keyframes datum-rise {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--space-1) * -1));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Combobox ---------------------------------------------------------------------- */
+
+.datum-combobox {
+  position: relative;
+  display: block;
+}
+
+.datum-combobox-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.datum-combobox-status {
+  padding: var(--space-2) var(--space-3);
+  color: var(--graphite-600);
+  font-size: var(--text-13);
+}
+
+/* ---- Tabs -------------------------------------------------------------------------- */
+
+.datum-tabs-list {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: var(--hairline);
+}
+
+.datum-tabs-trigger {
+  min-height: var(--row-comfortable);
+  padding: 0 var(--space-3);
+  color: var(--graphite-600);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+
+.datum-tabs-trigger[data-state='active'] {
+  color: var(--graphite-950);
+  border-bottom-color: var(--cobalt-500);
+}
+
+.datum-tabs-content {
+  padding: var(--space-4) 0;
+}
+
+/* ---- Tooltip ----------------------------------------------------------------------- */
+
+.datum-tooltip {
+  z-index: var(--z-overlay);
+  padding: var(--space-1) var(--space-2);
+  color: var(--graphite-0);
+  background: var(--graphite-900);
+  border-radius: var(--radius-4);
+  font-size: var(--text-13);
+  animation: datum-rise var(--motion-state-duration) var(--motion-ease);
+}
+
+/* ---- Dialog, Sheet and the scrim ---------------------------------------------------- */
+
+.datum-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  background: var(--graphite-1000);
+  opacity: 0.4;
+  animation: datum-fade var(--motion-panel-duration) var(--motion-ease);
+}
+
+.datum-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(560px, calc(100% - var(--space-8)));
+  padding: var(--space-6);
+  color: var(--graphite-900);
+  background: var(--graphite-0);
+  border-radius: var(--radius-12);
+  box-shadow: var(--shadow-4);
+  transform: translate(-50%, -50%);
+  animation: datum-fade var(--motion-panel-duration) var(--motion-ease);
+}
+
+.datum-sheet {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(480px, 100%);
+  padding: var(--space-6);
+  color: var(--graphite-900);
+  background: var(--graphite-0);
+  box-shadow: var(--shadow-4);
+  animation: datum-slide-in var(--motion-panel-duration) var(--motion-ease);
+}
+
+.datum-sheet[data-side='right'] {
+  right: 0;
+  border-left: var(--hairline);
+}
+
+.datum-sheet[data-side='left'] {
+  left: 0;
+  border-right: var(--hairline);
+}
+
+.datum-dialog-title {
+  color: var(--graphite-950);
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+}
+
+.datum-dialog-description {
+  color: var(--graphite-700);
+}
+
+.datum-dialog-close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  width: var(--row-compact);
+  height: var(--row-compact);
+  color: var(--graphite-700);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-4);
+  cursor: pointer;
+}
+
+.datum-dialog-close[data-glyph]::before {
+  content: '\00d7';
+  font-size: var(--text-20);
+  line-height: 1;
+}
+
+@keyframes datum-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes datum-slide-in {
+  from {
+    transform: translateX(var(--space-8));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* ---- Toast ------------------------------------------------------------------------- */
+
+.datum-toast-region {
+  z-index: var(--z-toast);
+}
+
+/* ---- Badge, Tag, Kbd ---------------------------------------------------------------- */
+
+.datum-badge,
+.datum-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--row-compact);
+  padding: 0 var(--space-2);
+  font-size: var(--text-13);
+  border-radius: var(--radius-12);
+}
+
+.datum-badge {
+  color: var(--graphite-800);
+  background: var(--graphite-100);
+}
+
+.datum-badge[data-tone='info'] {
+  color: var(--info);
+  background: var(--info-surface);
+}
+
+.datum-badge[data-tone='success'] {
+  color: var(--success);
+  background: var(--success-surface);
+}
+
+.datum-badge[data-tone='warn'] {
+  color: var(--warn);
+  background: var(--warn-surface);
+}
+
+.datum-badge[data-tone='danger'] {
+  color: var(--danger);
+  background: var(--danger-surface);
+}
+
+.datum-tag {
+  color: var(--graphite-700);
+  background: var(--graphite-0);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+}
+
+.datum-kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-1);
+  color: var(--graphite-700);
+  background: var(--graphite-50);
+  border: var(--hairline);
+  border-radius: var(--radius-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+}
+
+/* ---- Progress, Skeleton, Separator --------------------------------------------------- */
+
+.datum-progress {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: var(--space-2);
+  background: var(--graphite-200);
+  border-radius: var(--radius-2);
+}
+
+.datum-progress-indicator {
+  height: 100%;
+  background: var(--cobalt-500);
+  transition: width var(--motion-state-duration) var(--motion-ease);
+}
+
+/*
+ * R-UI-004: "loading uses skeletons that keep layout, never spinners on data tables." A
+ * skeleton is a block of the size the content will be, breathing rather than spinning.
+ */
+.datum-skeleton {
+  display: block;
+  width: 100%;
+  height: var(--row-compact);
+  background: var(--graphite-100);
+  border-radius: var(--radius-4);
+  animation: datum-pulse var(--motion-panel-duration) var(--motion-ease) infinite alternate;
+}
+
+.datum-separator {
+  flex-shrink: 0;
+  background: var(--graphite-200);
+}
+
+.datum-separator[data-orientation='horizontal'] {
+  width: 100%;
+  height: 1px;
+}
+
+.datum-separator[data-orientation='vertical'] {
+  width: 1px;
+  height: 100%;
+}
