@@ -15,7 +15,7 @@
     "build": "node scripts/lane.mjs build",
     "start": "node scripts/lane.mjs start",
     "worker": "node scripts/lane.mjs worker",
-    "test:db": "node scripts/lane.mjs test:db",
+    "test:db": "node scripts/test-db.mjs",
     "e2e": "node scripts/e2e.mjs",
     "test:golden": "node scripts/lane.mjs test:golden",
     "test:docs": "node scripts/lane.mjs test:docs",

@@ -1,9 +1,12 @@
 /**
  * inc-000 acceptance — the pinned toolchain surface (C-06, B-15, AM-02, AC-4, AC-5).
  *
- * Static contract only: every assertion here reads a committed file. Nothing in this
- * file starts a process, so it is safe to run inside `pnpm verify`'s own vitest stage.
+ * Static contract only: every assertion here reads a committed file — the working tree's,
+ * or (for the one claim that is about what increment zero delivered) inc-000's own commit,
+ * read with `git ls-tree`. Nothing here starts a build or a server, so it is safe to run
+ * inside `pnpm verify`'s own vitest stage.
  */
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -11,6 +14,34 @@ import { describe, expect, it } from 'vitest';
 const REPO = process.cwd();
 
 const read = (rel: string): string => readFileSync(join(REPO, rel), 'utf8');
+
+const git = (args: string[]): string =>
+  execFileSync('git', args, { cwd: REPO, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+
+/**
+ * Reads the tree increment zero delivered: `entries('')` is its top level, `entries('tests/')`
+ * what its test tree carried. Null when this checkout cannot answer (no `.git`, or a history
+ * that does not reach inc-000). AM-02 is a claim about that commit and not about every tree
+ * after it, so it is asked of the commit.
+ */
+function incZeroTree(): ((dir: string) => string[]) | null {
+  try {
+    // The delivered unit is the oldest commit whose SUBJECT names the increment; a later
+    // commit that merely mentions it in a body is not it.
+    const delivered = git(['log', '--format=%H%x00%s'])
+      .split('\n')
+      .filter((line) => (line.split('\0')[1] ?? '').includes('inc-000-foundation'))
+      .at(-1)
+      ?.split('\0')[0];
+    if (delivered === undefined) return null;
+    return (dir: string) =>
+      git(['ls-tree', '--name-only', delivered, dir === '' ? '.' : dir])
+        .split('\n')
+        .filter(Boolean);
+  } catch {
+    return null;
+  }
+}
 
 type Manifest = {
   name?: string;
@@ -168,7 +199,7 @@ const DECLARED_DEPENDENCIES = [
 ];
 
 describe('inc-000 — the toolchain is born whole (C-06, B-15)', () => {
-  it('C-06: every file the interfaces section names is delivered, and no product tree ships (AM-02)', () => {
+  it('C-06: every file the interfaces section names is delivered', () => {
     const missing = INTERFACE_FILES.filter((rel) => !existsSync(join(REPO, rel)));
     expect(missing).toEqual([]);
 
@@ -177,14 +208,27 @@ describe('inc-000 — the toolchain is born whole (C-06, B-15)', () => {
     const ruleFiles = readdirSync(join(REPO, 'eslint-rules')).filter((f) => f.endsWith('.mjs'));
     expect(ruleFiles.length).toBeGreaterThan(0);
 
-    // AM-02: increment zero is the toolchain ONLY — tokens, primitives, shell and the
-    // auth scaffold are later foundation-series increments.
-    for (const forbidden of ['src', 'db', 'documents', 'tests/e2e']) {
-      expect(existsSync(join(REPO, forbidden))).toBe(false);
-    }
-
     // C-10 (leaf note): traceability.json is gate-owned; the script ships, the JSON does not.
     expect(existsSync(join(REPO, 'docs/traceability.json'))).toBe(false);
+  });
+
+  it('AM-02: increment zero shipped the toolchain ONLY — no product tree in its delivered unit', () => {
+    // "Increment zero is the toolchain ONLY" is a fact about what inc-000 delivered, not a
+    // ban on every tree that follows it: the foundation series founds src/ and db/ (inc-001
+    // founds both, with SEAM-TENANT and the schema root), and C-06 arms their lanes as they
+    // appear. So the claim is put to inc-000's own commit, where it stays true forever.
+    const entries = incZeroTree();
+    // C-06 "never silently passed", B-05 "prose is not enforcement": a checkout that cannot
+    // reach the delivered unit fails here rather than vouching for a claim it never checked.
+    expect(entries, "AM-02 is a claim about inc-000's commit — its history must be reachable").not.toBeNull();
+    if (entries === null) throw new Error('unreachable: the assertion above already failed');
+    const top = entries('');
+    for (const forbidden of ['src', 'db', 'documents']) {
+      expect(top, forbidden).not.toContain(forbidden);
+    }
+    // tests/ shipped — the toolchain's own suite. What it did not carry was a journey tree.
+    expect(top).toContain('tests');
+    expect(entries('tests/')).not.toContain('tests/e2e');
   });
 
   it('AC-5 / C-06: .nvmrc is the single line 24', () => {

@@ -86,9 +86,43 @@ describe('inc-000 — the verify roster is the real one (AC-1, V-VERIFY)', () =>
     }
   });
 
-  it('AC-1: against this tree, exactly tsc, eslint, vitest and cad-ruff are armed', () => {
+  it('C-06: every stage whose lane exists is armed, and a stage whose lane is absent is skipped with LANE_NOT_YET_BUILT', async () => {
+    // C-06 states a rule, not a roster snapshot: a stage arms when its input root exists,
+    // and a lane that does not exist yet is skipped with the recorded reason, never
+    // silently passed. So this drives the REAL roster through the REAL arming predicate
+    // (runRoster's default, hasInputDir) over this tree, with only the tools stubbed, and
+    // judges each stage's line against the directory it names. It stays true as lanes are
+    // born: what it forbids is a stage that arms without its root, or one that vanishes
+    // quietly when its root is missing.
+    const io = recorder();
+    const code = await runRoster(STAGES, {
+      ...io,
+      run: () => ({ ok: true, output: '' }),
+      now: clock(5),
+    });
+    expect(code).toBe(0);
+    for (const stage of STAGES) {
+      const line = io.stdout.find((l) => l.startsWith(`verify: ${stage.name} `));
+      const laneExists = stage.input === undefined || isDir(stage.input);
+      expect(line, stage.name).toBe(
+        laneExists
+          ? `verify: ${stage.name} ok (5ms)`
+          : `verify: ${stage.name} SKIP LANE_NOT_YET_BUILT`,
+      );
+    }
+  });
+
+  it('AC-1: from increment one every lane this tree has is armed — db/schema is founded, so db-drift is armed', () => {
     const armed = STAGES.filter((s) => s.input === undefined || isDir(s.input)).map((s) => s.name);
-    expect(armed).toEqual(['tsc', 'eslint', 'vitest', 'cad-ruff']);
+    // inc-001 founds db/schema, and C-06 arms its stage on presence alone — no edit to
+    // scripts/verify.mjs, no edit to the roster.
+    expect(isDir('db/schema')).toBe(true);
+    // A lane, once born, stays born: the armed set only ever grows. These five are armed
+    // from inc-001 onwards, and a later increment that founds src/app or cad/tests adds to
+    // this list without contradicting it — the rule above still pins the set exactly.
+    for (const name of ['tsc', 'eslint', 'vitest', 'db-drift', 'cad-ruff']) {
+      expect(armed, name).toContain(name);
+    }
   });
 });
 

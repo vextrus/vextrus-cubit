@@ -28,19 +28,23 @@ function run(cmd: string, args: string[]): Promise<Ran> {
   });
 }
 
-/** AC-4: every script whose lane is not yet built — the full block minus verify and checkup. */
+/**
+ * AC-4: every script whose lane is not yet built — the full block minus verify and checkup.
+ *
+ * inc-001 armed three of them (`test:db`, `db:migrate`, `db:drift`) and took them off this
+ * roster: C-06's recorded reason is for a lane that does not exist yet, and a built lane
+ * that still printed it would be reporting a lie. Their contract lines are asserted by the
+ * V-DB suite in db/__tests__, which is where a test that needs a database belongs.
+ */
 const STUBS = [
   'dev',
   'build',
   'start',
   'worker',
-  'test:db',
   'e2e',
   'test:golden',
   'test:docs',
   'test:perf',
-  'db:migrate',
-  'db:drift',
   'seed',
   'gen:fixtures',
   'traceability',
