@@ -106,7 +106,15 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
         // would hand the browser a float and swallow the string the user typed.
         inputMode="decimal"
         autoComplete="off"
-        className={cx('datum-control', 'datum-field', 'datum-number-field', 'datum-focus-ring')}
+        // `numeric` is R-UI-003's utility (src/ui/globals.css); the sheet restates the rule
+        // for the primitive itself, so a number is tabular with or without the app's globals.
+        className={cx(
+          'datum-control',
+          'datum-field',
+          'datum-number-field',
+          'numeric',
+          'datum-focus-ring',
+        )}
         value={editing ? value : groupedForDisplay(value)}
         onChange={(event) => {
           const next = toDecimalString(event.target.value);

@@ -64,7 +64,9 @@ export const Tag = forwardRef<HTMLSpanElement, TagProps>(function Tag(
 export type KbdProps = HTMLAttributes<HTMLElement>;
 
 export const Kbd = forwardRef<HTMLElement, KbdProps>(function Kbd({ className, ...rest }, ref) {
-  return <kbd ref={ref} className={cx('datum-kbd', className)} {...rest} />;
+  // `numeric` for the same reason NumberInput carries it: a key cap is mono and tabular
+  // (R-UI-003), and the sheet restates the rule so the primitive holds it on its own.
+  return <kbd ref={ref} className={cx('datum-kbd', 'numeric', className)} {...rest} />;
 });
 
 export type ProgressProps = ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>;

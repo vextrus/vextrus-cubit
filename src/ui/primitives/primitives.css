@@ -545,8 +545,14 @@
 
 .datum-combobox-status {
   padding: var(--space-2) var(--space-3);
-  color: var(--graphite-600);
+  color: var(--graphite-500);
   font-size: var(--text-13);
+}
+
+/* An empty result is centred in the surface: it is a sentence, not a row (Design §7). */
+.datum-combobox-status[data-testid='combobox-empty'] {
+  padding: var(--space-3);
+  text-align: center;
 }
 
 /* ---- Tabs -------------------------------------------------------------------------- */

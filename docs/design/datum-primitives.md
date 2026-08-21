@@ -12,7 +12,8 @@ colour anywhere (R-UI-001).
 
 - **Control metric.** Every field, button, trigger and menu item is 28 px tall (the compact row
   rhythm, R-UI-005), `--text-13`, `--radius-4`, horizontal padding `--space-2` (fields, items)
-  or `--space-3` (buttons). Icons inside controls are 16 px, `--graphite-600` unless stated.
+  or `--space-3` (buttons). Icons inside controls are 16 px, `--graphite-600` — except on a
+  filled button (primary, danger), where the icon takes the button's own ink.
 - **Focus (R-UI-012).** The focusable element of every interactive primitive carries the class
   `datum-focus-ring`. `src/ui/primitives/primitives.css` defines:
   `.datum-focus-ring:focus-visible { outline: 2px solid var(--cobalt-500); outline-offset: 1px; }`

@@ -21,10 +21,19 @@ import { cx } from './class-names';
 
 export type TooltipProps = ComponentPropsWithoutRef<typeof TooltipPrimitive.Root>;
 
+/**
+ * How long a pointer rests on the trigger before the tip appears, in milliseconds (Design
+ * Decision §9). Radix's own default is most of a second, which reads as a tooltip that does
+ * not work; a keyboard focus still opens it at once.
+ */
+const DWELL = 200;
+
 export function Tooltip({ children, ...rest }: TooltipProps): ReactElement {
   return (
-    <TooltipPrimitive.Provider>
-      <TooltipPrimitive.Root {...rest}>{children}</TooltipPrimitive.Root>
+    <TooltipPrimitive.Provider delayDuration={DWELL}>
+      <TooltipPrimitive.Root delayDuration={DWELL} {...rest}>
+        {children}
+      </TooltipPrimitive.Root>
     </TooltipPrimitive.Provider>
   );
 }
