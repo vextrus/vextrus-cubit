@@ -1,7 +1,10 @@
 /**
  * The unbuilt lanes that have no script file of their own — dev, build, start, worker,
- * test:db, test:golden, test:docs, test:perf. `node scripts/lane.mjs <script>` announces
- * the lane by the name the caller typed (C-06).
+ * test:golden, test:docs, test:perf. `node scripts/lane.mjs <script>` announces the lane by
+ * the name the caller typed (C-06).
+ *
+ * test:db left this list in inc-001: it is a real lane now (scripts/test-db.mjs), and a
+ * lane that is built must stop announcing itself as unbuilt.
  *
  * Flipping one of these into a real lane is a change to package.json and to this
  * directory, so it rides an increment whose spec is tagged `toolchain` and names them.
