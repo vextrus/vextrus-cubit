@@ -1,0 +1,32 @@
+# Installed trees — the lockfile is the record, not the tree.
+node_modules/
+cad/.venv/
+.venv/
+__pycache__/
+
+# Build output. `next build` writes its own distDir under verify (V-VERIFY).
+.next/
+.next-verify/
+out/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# Scratch. Schema drift generates into .scratch/ so the tree stays untouched
+# (V-VERIFY: "drizzle-kit generate into scratch, tree untouched").
+.scratch/
+
+# Test and tool output.
+.ruff_cache/
+.pytest_cache/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# Local machine state.
+.env
+.env.*
+!.env.example
+.DS_Store
