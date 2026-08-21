@@ -11,6 +11,13 @@ dev = [
     "pytest==9.1.1",
 ]
 
+# C-06 pins uv alongside Node and pnpm. This is the mechanical half (B-05):
+# uv refuses to run at all when the uv on PATH is not this one, so the resolver
+# that produced uv.lock is the resolver every machine and CI use. `pnpm checkup`
+# reads the pin from here rather than keeping a second copy of it.
+[tool.uv]
+required-version = "==0.12.5"
+
 [tool.ruff]
 line-length = 100
 target-version = "py313"

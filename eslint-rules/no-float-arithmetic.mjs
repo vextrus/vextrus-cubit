@@ -5,14 +5,22 @@
  *
  * Integers are untouched: counts, indexes and millisecond budgets are honest.
  *
+ * One file is exempt, and it is the same file `cubit/no-conversion-literal`
+ * exempts: L-FRM-06 says the unit canon — 0.3048, 0.028316846592, 0.09290304,
+ * 0.45359237 — lives in `src/core/units.ts` as exact constants and nowhere
+ * else. A rule that forbade fractional literals there too would forbid the one
+ * place the Bible requires them, and the first increment to write the canon
+ * would fail the gate on its own seam.
+ *
  * @type {import('eslint').Rule.RuleModule}
  */
+const SEAM = 'src/core/units.ts';
+
 export default {
   meta: {
     type: 'problem',
     docs: {
-      description:
-        'forbid fractional number literals and parseFloat; money and quantities are Decimal (B-07)',
+      description: `forbid fractional number literals and parseFloat outside ${SEAM}; money and quantities are Decimal (B-07)`,
     },
     schema: [],
     messages: {
@@ -22,6 +30,11 @@ export default {
     },
   },
   create(context) {
+    // The unit canon's own file, exactly as no-conversion-literal reads it.
+    if (context.filename.replaceAll('\\', '/').endsWith(SEAM)) {
+      return {};
+    }
+
     /** @param {string} name */
     const isParseFloat = (name) => name === 'parseFloat';
 

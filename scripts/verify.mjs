@@ -37,7 +37,6 @@ const bin = (name) => at(`node_modules/.bin/${name}`);
  *   input: string | null,
  *   command: readonly [string, readonly string[]] | null,
  *   cwd?: string,
- *   env?: Record<string, string>,
  * }>}
  */
 const ROSTER = [
@@ -45,16 +44,23 @@ const ROSTER = [
   { name: 'tsc', input: null, command: [bin('tsc'), ['--noEmit']] },
   { name: 'eslint', input: null, command: [bin('eslint'), ['.']] },
   { name: 'vitest', input: null, command: [bin('vitest'), ['run']] },
-  {
-    name: 'db-drift',
-    input: 'db/schema',
-    command: [bin('drizzle-kit'), ['generate', '--out', '.cubit-scratch/drift']],
-  },
-  {
-    name: 'method-hashes',
-    input: 'src/core/methods',
-    command: ['node', ['scripts/method-hashes.mjs', '--check']],
-  },
+  // The three stages below have no command yet, and a command is not something
+  // that can be written in advance of the thing it checks:
+  //
+  //   db-drift        V-VERIFY's check is "generate into scratch and compare
+  //                   against the committed migrations". `drizzle-kit generate`
+  //                   into an empty scratch --out has no journal to compare
+  //                   with, regenerates the whole schema and exits 0 either
+  //                   way, so it would answer `ok` for a drifted tree.
+  //   method-hashes   the manifest is a file that does not exist; scripts/
+  //                   method-hashes.mjs is the skeleton C-06 asks for.
+  //   catalogue-drift there is no catalogue table to drift from.
+  //
+  // Each one is armed by its input root all the same, so the increment that
+  // lands the input meets a loud failure with a recorded reason rather than a
+  // green light nobody earned (C-06: never silently passed).
+  { name: 'db-drift', input: 'db/schema', command: null },
+  { name: 'method-hashes', input: 'src/core/methods', command: null },
   { name: 'catalogue-drift', input: 'src/core/catalogue', command: null },
   {
     name: 'cad-ruff',
@@ -71,9 +77,13 @@ const ROSTER = [
   {
     name: 'build',
     input: 'src/app',
-    command: [bin('next'), ['build']],
-    // A cold build of its own, never the dev server's .next (V-VERIFY).
-    env: { NEXT_DIST_DIR: '.next-verify' },
+    // V-VERIFY wants a cold build into a distDir of its own, never the dev
+    // server's `.next`. Next reads `distDir` from next.config and from nowhere
+    // else — there is no CLI flag for it and no environment variable — so this
+    // command belongs to the increment that lands src/app and its next.config,
+    // where `distDir: '.next-verify'` can actually be written. Until then the
+    // stage stays unwired rather than wired to a build that stomps `.next`.
+    command: null,
   },
 ];
 
@@ -102,7 +112,6 @@ for (const stage of ROSTER) {
   const [file, args] = stage.command;
   const result = spawnSync(file, [...args], {
     cwd: stage.cwd ?? ROOT,
-    env: { ...process.env, ...(stage.env ?? {}) },
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   });

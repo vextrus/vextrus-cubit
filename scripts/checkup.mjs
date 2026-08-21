@@ -43,6 +43,16 @@ function pnpmPin() {
   return String(pkg.packageManager ?? '').replace(/^pnpm@/, '').replace(/\+.*$/, '');
 }
 
+/** @returns {string} the pin recorded in cad/pyproject.toml's [tool.uv] */
+function uvPin() {
+  const pyproject = readFileSync(at('cad/pyproject.toml'), 'utf8');
+  const pinned = /^\s*required-version\s*=\s*["']==\s*([^"'\s]+)["']/m.exec(pyproject);
+  if (pinned === null || pinned[1] === undefined) {
+    throw new Error('cad/pyproject.toml records no exact [tool.uv] required-version');
+  }
+  return pinned[1];
+}
+
 /**
  * The roster, in V-CHECKUP's order. An item's check returns null when it is
  * fine and a reason when it is not; `armed: false` items are not built yet.
@@ -80,13 +90,21 @@ const ROSTER = [
     name: 'uv',
     armed: true,
     check() {
+      const pin = uvPin();
       const answer = ask('uv', ['--version']);
       if (!answer.ok) {
         return oneLine(answer.text);
       }
-      return /\buv\s+\d+\.\d+\.\d+/.test(answer.text)
+      const running = /\buv\s+(\d+\.\d+\.\d+)/.exec(answer.text);
+      if (running === null || running[1] === undefined) {
+        return `uv --version did not name a version: ${oneLine(answer.text)}`;
+      }
+      // "uv exists" is not what C-06 pins. The pin lives in cad/pyproject.toml,
+      // where `uv run` itself enforces it; checkup says so at session start
+      // rather than at the first cad-ruff failure.
+      return running[1] === pin
         ? null
-        : `uv --version did not name a version: ${oneLine(answer.text)}`;
+        : `cad/pyproject.toml pins uv ${pin}, PATH answers ${running[1]}`;
     },
   },
   // typst and libredwg are pinned on paper in docs/toolchain.md; the increment

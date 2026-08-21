@@ -14,6 +14,7 @@ This document is the paper half of that: the pins that are not expressible in
 | -------- | ------------- | --------------------------------------- |
 | Node     | 24            | `.nvmrc` — one line, read by CI          |
 | pnpm     | 10.34.5       | `package.json` `packageManager`, via corepack |
+| uv       | 0.12.5        | `cad/pyproject.toml` `[tool.uv] required-version` |
 | Python   | ==3.13.\*     | `cad/pyproject.toml` `requires-python`    |
 | ruff     | 0.16.4        | `cad/pyproject.toml`, locked in `cad/uv.lock` |
 | pytest   | 9.1.1         | `cad/pyproject.toml`, locked in `cad/uv.lock` |
@@ -23,6 +24,13 @@ This document is the paper half of that: the pins that are not expressible in
 Every JavaScript dependency in `package.json` is an exact version — no `^`, no
 `~` — and `pnpm-lock.yaml` is committed, so `pnpm install --frozen-lockfile`
 installs the same bytes on the dev machine and in CI.
+
+The uv pin is mechanical rather than documentary (B-05): `required-version`
+makes uv itself refuse to run when the uv on `PATH` is not `0.12.5`, so the
+resolver that produced `cad/uv.lock` is the resolver every machine uses.
+`pnpm checkup` reads that same line and reports the mismatch at session start
+instead of leaving it for the first `cad-ruff` failure; `.github/workflows/
+ci.yml` names the version on `setup-uv`, the one place CI cannot read the tree.
 
 ### typst 0.15.1
 
@@ -82,8 +90,32 @@ flag or an environment variable: the tree decides. `cad-pytest` is a stage of
 its own precisely because pytest exits 5 — not 0 — when it collects no tests,
 so the empty `cad/tests` must skip rather than run.
 
-`db-drift` generates into `.cubit-scratch/`, which is gitignored, so the check
-leaves the tree exactly as it found it.
+### Stages that are armed but not yet wired
+
+`db-drift`, `method-hashes`, `catalogue-drift` and `build` carry no command in
+this increment, and the roster records that as `command: null`: the stage arms
+on its input root like every other, and being armed without a command is a
+`FAIL` with a recorded reason, never a pass. A command that cannot do its job
+would be worse than none, because it would answer `ok`:
+
+- `db-drift` — V-VERIFY's check is "generate into scratch and compare with the
+  committed migrations". `drizzle-kit generate` into a scratch `--out` has no
+  journal to compare against, regenerates the whole schema and exits 0 whether
+  the tree has drifted or not. The scratch directory is `.cubit-scratch/`,
+  gitignored, so that when the check is written it leaves the tree as it found
+  it.
+- `method-hashes` — the manifest is a file that does not exist yet;
+  `scripts/method-hashes.mjs` is the skeleton C-06 asks for.
+- `catalogue-drift` — there is no catalogue table to drift from.
+- `build` — V-VERIFY wants a cold build in a distDir of its own, never the dev
+  server's `.next`. Next reads `distDir` from `next.config` and from nowhere
+  else: there is no CLI flag and no environment variable. So the command
+  belongs to the increment that lands `src/app` and its `next.config`, where
+  `distDir: '.next-verify'` can be written; `.gitignore` already carries
+  `.next-verify/` for it.
+
+Wiring any of these is a toolchain change, and C-06 already requires the
+increment that lands the input to be tagged `toolchain` and to name the files.
 
 ## `pnpm checkup`
 
@@ -110,7 +142,7 @@ on `bad.*` and stays silent on `good.*`.
 
 | Fixture directory        | Rule                                | Fires on                                                       | Clause      |
 | ------------------------ | ----------------------------------- | -------------------------------------------------------------- | ----------- |
-| `no-float-arithmetic`    | `cubit/no-float-arithmetic`         | fractional numeric literal or `parseFloat`                      | B-07        |
+| `no-float-arithmetic`    | `cubit/no-float-arithmetic`         | fractional numeric literal or `parseFloat` outside `src/core/units.ts` | B-07  |
 | `format-seam-only`       | `cubit/format-seam-only`            | `Intl` / `toLocale*` / `localeCompare` outside `src/core/format.ts`, and `en-BD` anywhere | L-FMT-01 |
 | `model-seam-only`        | `cubit/model-seam-only`             | model-SDK import outside `src/core`                             | L-AI-01     |
 | `db-seam-only`           | `cubit/db-seam-only`                | driver or `db/schema` import outside `src/core/db.ts`           | SEAM-TENANT |
@@ -120,6 +152,25 @@ on `bad.*` and stays silent on `good.*`.
 | `no-suppressions`        | `cubit/no-suppressions`             | `eslint-disable`, `@ts-ignore`, `@ts-expect-error` comments     | Q-08        |
 | `no-skip-only`           | `cubit/no-skip-only`                | `.skip`/`.only` on a test or describe                           | Q-08        |
 | `no-explicit-any`        | `@typescript-eslint/no-explicit-any`| explicit `any`                                                  | Q-08        |
+
+### The recorded reason for the fixtures themselves
+
+Q-08 forbids `any`, `@ts-ignore`, `@ts-expect-error`, `eslint-disable`, `.skip`
+and `.only` *in a change without a recorded reason*, and a structural diff of
+this increment reports them: `tests/lint-fixtures/no-explicit-any/bad.ts` holds
+two `any`s, `tests/lint-fixtures/no-skip-only/bad.ts` holds a `describe.skip`
+and an `it.only`, `tests/lint-fixtures/no-suppressions/bad.ts` holds all three
+suppression comments, and `eslint-rules/no-suppressions.mjs` holds the patterns
+it matches them with.
+
+This paragraph is that reason. B-05 requires each NEVER to be a lint rule *with
+a fixture test that proves it fires*, and a fixture that proves a rule fires on
+`@ts-ignore` can only do so by containing `@ts-ignore`; a rule that forbids the
+string has to spell the string. AC-2 asserts exactly these files and exactly
+these hits. None of them is a suppression in effect: they are config-ignored
+from `eslint .`, excluded from `tsc` by `tsconfig.json`, never imported, and
+`linterOptions.noInlineConfig` means the directives in them switch nothing off
+even when the probe reads them.
 
 `eslint.config.mjs` ignores `tests/lint-fixtures/**` globally, because the bad
 fixtures would otherwise make `eslint .` — and therefore `pnpm verify` —
@@ -136,6 +187,12 @@ alone:
 - The seam rules are pre-wired to `src/**` and `db/**` and match nothing today.
   They arm themselves the moment a later increment lands product code — no
   config change, no list to keep in step.
+- `src/core/units.ts` is exempt from *both* `cubit/no-conversion-literal` and
+  `cubit/no-float-arithmetic`. L-FRM-06 requires the canon — `0.3048`,
+  `0.028316846592`, `0.09290304`, `0.45359237`, kg/MT — to live there as exact
+  constants, so a float rule that fired there would forbid the one place the
+  Bible demands floats and make the first increment to write the canon fight
+  the gate (B-15).
 - `cubit/db-seam-only` is scoped to `src/**` only. `db/**` *is* the schema, so
   banning the schema import there would ban the schema from itself; inside
   `src/**`, `src/core/db.ts` exempts itself.

@@ -33,9 +33,13 @@ jobs:
           corepack prepare --activate
           pnpm --version
 
+      # The uv pin is cad/pyproject.toml's [tool.uv] required-version; naming
+      # it here too is the one place CI cannot read the tree, and a mismatch
+      # makes uv refuse rather than resolve differently from the dev machine.
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
+          version: '0.12.5'
           enable-cache: true
 
       - name: Install dependencies
