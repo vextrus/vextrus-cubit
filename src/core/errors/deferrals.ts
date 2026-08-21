@@ -8,7 +8,17 @@
  *
  * Empty today, and that is the healthy state: both spine codes are exercised by
  * `src/core/__tests__/seam-refusals.test.ts`, which makes each of them actually fire.
+ *
+ * Frozen down to each row, like the registries: a list of debts an importer can edit is not a
+ * closed taxonomy's ledger.
  */
 import type { RefusalCode } from '../errors';
 
-export const DEFERRED_REFUSALS: ReadonlyArray<{ code: RefusalCode; reason: string }> = [];
+interface Deferral {
+  readonly code: RefusalCode;
+  readonly reason: string;
+}
+
+export const DEFERRED_REFUSALS: ReadonlyArray<Deferral> = Object.freeze(
+  ([] as Deferral[]).map((deferral) => Object.freeze(deferral)),
+);

@@ -17,11 +17,18 @@ export type { RefusalEntry, RefusalSeverity, RefusalSurface } from './errors/typ
 export { auditRefusalRegister } from './errors/audit';
 export type { RegisterAuditInput, RegisterAuditResult } from './errors/audit';
 
-/** Every registered refusal, by code. One module registry today; the fold is the same for n. */
-export const REFUSALS = { ...SPINE_REFUSALS };
+/**
+ * Every registered refusal, by code. One module registry today; the fold is the same for n.
+ *
+ * Frozen, like the module registries it folds: the spread copies references to entries that
+ * `registry()` already froze, so the whole table is inert down to each field.
+ */
+export const REFUSALS = Object.freeze({ ...SPINE_REFUSALS });
 
 /** The closed enum: exactly the codes the table above carries. */
 export type RefusalCode = keyof typeof REFUSALS;
 
 /** The same enum as a value, for the register and for anything that must range over it. */
-export const REFUSAL_CODES: readonly RefusalCode[] = Object.keys(REFUSALS) as RefusalCode[];
+export const REFUSAL_CODES: readonly RefusalCode[] = Object.freeze(
+  Object.keys(REFUSALS) as RefusalCode[],
+);

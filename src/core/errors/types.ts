@@ -33,9 +33,17 @@ export interface RefusalEntry {
  *
  * Written as a function because inference is what carries the literal key types through: a
  * plain annotation would widen the keys to `string` and take `RefusalCode` with it.
+ *
+ * It also freezes what it is handed — every entry, then the table itself. "Closed" in
+ * R-SPINE-062 is a property of the taxonomy at runtime, not of the annotations: a `readonly`
+ * that vanishes at compile time still lets an importer add a code, edit a message or drop a
+ * row. Frozen, the registry is inert from the moment it is imported.
  */
 export function registry<T extends { readonly [K in keyof T]: RefusalEntry & { readonly code: K } }>(
   entries: T,
 ): T {
-  return entries;
+  for (const key of Object.keys(entries) as Array<keyof T>) {
+    Object.freeze(entries[key]);
+  }
+  return Object.freeze(entries);
 }
