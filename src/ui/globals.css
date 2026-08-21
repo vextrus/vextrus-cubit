@@ -1,0 +1,95 @@
+/*
+ * The global stylesheet: Tailwind, the Datum token sheet, and the bridge between them
+ * (R-UI-001 — "Tokens are CSS variables emitted from one TS source … consumed by Tailwind").
+ *
+ * Not one colour is spelled here. `@theme` maps tokens into Tailwind's namespaces by var()
+ * reference only, so a utility class and a hand-written rule resolve to the same variable and
+ * a `[data-theme]` flip reaches both. Every value lives in src/ui/tokens.ts and arrives
+ * through ./tokens.css.
+ *
+ * The stylesheet lands here rather than under src/app because this increment ships no Next
+ * application; the shell increment imports it from its layout.
+ */
+@import 'tailwindcss';
+@import './tokens.css';
+
+/*
+ * Tailwind's `--color-*` namespace, each token keeping its Datum name: `bg-graphite-50`,
+ * `text-basis-measured`, `border-graphite-200`. Fonts and breakpoints follow; nothing else
+ * enters @theme, because a token Tailwind does not need is a token that only needs a var().
+ */
+@theme {
+  --color-graphite-0: var(--graphite-0);
+  --color-graphite-50: var(--graphite-50);
+  --color-graphite-100: var(--graphite-100);
+  --color-graphite-200: var(--graphite-200);
+  --color-graphite-300: var(--graphite-300);
+  --color-graphite-400: var(--graphite-400);
+  --color-graphite-500: var(--graphite-500);
+  --color-graphite-600: var(--graphite-600);
+  --color-graphite-700: var(--graphite-700);
+  --color-graphite-800: var(--graphite-800);
+  --color-graphite-900: var(--graphite-900);
+  --color-graphite-950: var(--graphite-950);
+  --color-graphite-1000: var(--graphite-1000);
+
+  --color-cobalt-100: var(--cobalt-100);
+  --color-cobalt-300: var(--cobalt-300);
+  --color-cobalt-500: var(--cobalt-500);
+  --color-cobalt-600: var(--cobalt-600);
+  --color-cobalt-700: var(--cobalt-700);
+
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-warn: var(--warn);
+  --color-warn-surface: var(--warn-surface);
+  --color-danger: var(--danger);
+  --color-danger-surface: var(--danger-surface);
+  --color-info: var(--info);
+  --color-info-surface: var(--info-surface);
+
+  --color-basis-measured: var(--basis-measured);
+  --color-basis-transcribed: var(--basis-transcribed);
+  --color-basis-derived: var(--basis-derived);
+  --color-basis-imported: var(--basis-imported);
+  --color-basis-entered: var(--basis-entered);
+  --color-basis-interpreted: var(--basis-interpreted);
+  --color-basis-defaulted: var(--basis-defaulted);
+
+  --color-element-wall: var(--element-wall);
+  --color-element-column: var(--element-column);
+  --color-element-beam: var(--element-beam);
+  --color-element-slab: var(--element-slab);
+  --color-element-footing: var(--element-footing);
+  --color-element-opening: var(--element-opening);
+  --color-element-rebar: var(--element-rebar);
+  --color-element-generic: var(--element-generic);
+
+  --color-canvas-paper: var(--canvas-paper);
+  --color-canvas-grid: var(--canvas-grid);
+  --color-canvas-ink: var(--canvas-ink);
+  --color-canvas-selection: var(--canvas-selection);
+  --color-canvas-hover: var(--canvas-hover);
+  --color-canvas-pulse: var(--canvas-pulse);
+  --color-canvas-measure: var(--canvas-measure);
+  --color-canvas-snap: var(--canvas-snap);
+
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono);
+  --font-doc: var(--font-doc);
+
+  --breakpoint-sm: var(--breakpoint-sm);
+  --breakpoint-md: var(--breakpoint-md);
+  --breakpoint-lg: var(--breakpoint-lg);
+  --breakpoint-xl: var(--breakpoint-xl);
+}
+
+/*
+ * R-UI-003: "JetBrains Mono for every number, code, mark, source key and formula with
+ * `font-variant-numeric: tabular-nums slashed-zero`". One class carries the whole rule, so a
+ * number column is right-aligned and column-aligned by saying `numeric` once.
+ */
+.numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}

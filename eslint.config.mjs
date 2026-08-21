@@ -25,6 +25,9 @@ export const REGISTRY = [
   { dir: 'no-suppressions', ruleId: 'cubit/no-suppressions' },
   { dir: 'no-skip-only', ruleId: 'cubit/no-skip-only' },
   { dir: 'no-explicit-any', ruleId: '@typescript-eslint/no-explicit-any' },
+  // inc-004: the same rule, proved on the shapes a *component* takes — a Tailwind arbitrary
+  // value in className and a functional colour in an inline style (R-UI-001).
+  { dir: 'tokens', ruleId: 'cubit/no-colour-literal' },
 ];
 
 const typescriptLanguageOptions = {

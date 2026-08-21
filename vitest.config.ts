@@ -6,6 +6,11 @@
  * runner's own package from wherever the tree happens to be mounted.
  */
 export default {
+  // Vitest 4 transforms with oxc, not esbuild. The repo tsconfig says `jsx: "preserve"` —
+  // Next's setting, which leaves JSX for the framework and therefore untransformed here — so
+  // the runner is told the runtime directly; without this a suite importing a `.tsx` module
+  // dies on the JSX at import time.
+  oxc: { jsx: { runtime: 'automatic', importSource: 'react' } },
   test: {
     // tests/ holds the suites that judge the tree from outside it; src/**/__tests__ holds the
     // ones that belong beside their module (the refusal register, Q-07, is the first). Both

@@ -17,9 +17,10 @@
  * when there is one.
  */
 import { SPINE_STRINGS } from './strings/spine';
+import { TOKENS_STRINGS } from './strings/tokens';
 
-/** Every registered string, by key. One module table today; the fold is the same for n. */
-export const STRINGS = Object.freeze({ ...SPINE_STRINGS });
+/** Every registered string, by key. Two module tables today; the fold is the same for n. */
+export const STRINGS = Object.freeze({ ...SPINE_STRINGS, ...TOKENS_STRINGS });
 
 /** The closed key set: exactly the keys the table above carries. */
 export type StringKey = keyof typeof STRINGS;
