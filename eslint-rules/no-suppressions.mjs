@@ -22,7 +22,7 @@ export default {
   meta: {
     type: 'problem',
     docs: {
-      description: 'forbid eslint-disable, @ts-ignore and @ts-expect-error comments (Q-08)',
+      description: 'forbid lint-disable directives and type-error suppression comments (Q-08)',
     },
     schema: [],
     messages: {

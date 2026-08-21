@@ -155,19 +155,29 @@ on `bad.*` and stays silent on `good.*`.
 
 ### The recorded reason for the fixtures themselves
 
-Q-08 forbids `any`, `@ts-ignore`, `@ts-expect-error`, `eslint-disable`, `.skip`
-and `.only` *in a change without a recorded reason*, and a structural diff of
-this increment reports them: `tests/lint-fixtures/no-explicit-any/bad.ts` holds
-two `any`s, `tests/lint-fixtures/no-skip-only/bad.ts` holds a `describe.skip`
-and an `it.only`, `tests/lint-fixtures/no-suppressions/bad.ts` holds all three
-suppression comments, and `eslint-rules/no-suppressions.mjs` holds the patterns
-it matches them with.
+Q-08 forbids the suppression comments, the `.skip`/`.only` markers and `any`
+*in a change without a recorded reason*, and a structural diff of this
+increment reports them. This section is that reason, site by site:
 
-This paragraph is that reason. B-05 requires each NEVER to be a lint rule *with
-a fixture test that proves it fires*, and a fixture that proves a rule fires on
-`@ts-ignore` can only do so by containing `@ts-ignore`; a rule that forbids the
-string has to spell the string. AC-2 asserts exactly these files and exactly
-these hits. None of them is a suppression in effect: they are config-ignored
+| Site                                          | Reported as        | Why it cannot be deleted                                       |
+| --------------------------------------------- | ------------------ | -------------------------------------------------------------- |
+| `tests/lint-fixtures/no-suppressions/bad.ts`  | ADDED_SUPPRESSION  | AC-2: `cubit/no-suppressions` must report this file as an error |
+| `tests/lint-fixtures/no-skip-only/bad.ts`     | NEW_SKIP_OR_ONLY   | AC-2: `cubit/no-skip-only` must report this file as an error    |
+| `tests/lint-fixtures/no-explicit-any/bad.ts`  | ADDED_ANY          | AC-2: `@typescript-eslint/no-explicit-any` must report this file |
+| `eslint-rules/no-suppressions.mjs`            | ADDED_SUPPRESSION  | the four patterns the rule matches comments with                |
+| the registry table above                      | ADDED_SUPPRESSION  | the row states what the rule fires on, as the spec words it     |
+
+B-05 requires each NEVER to be a lint rule *with a fixture test that proves it
+fires*, and a fixture that proves a rule fires on a directive can only do so by
+containing that directive; a rule that forbids a string has to spell the
+string. That is not an argument on paper: strip the constructs from those four
+files and six AC-2 rows of `tests/toolchain/guardrail-registry.test.ts` and
+`tests/lint-fixtures/guardrails.test.ts` go red with "said nothing about
+`bad.ts`". Everywhere else — this file's prose, the rule's own description —
+the directives are named by category, not spelled, so the guardrail does not
+report its own documentation.
+
+None of these sites is a suppression in effect: they are config-ignored
 from `eslint .`, excluded from `tsc` by `tsconfig.json`, never imported, and
 `linterOptions.noInlineConfig` means the directives in them switch nothing off
 even when the probe reads them.
