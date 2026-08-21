@@ -1,5 +1,5 @@
 // Q-08 fixture: a guardrail switched off in a comment instead of in the spec.
-/* eslint-disable cubit/no-float-arithmetic */
+/* eslint-disable */
 export const rate = 0.05;
 
 // @ts-expect-error the shape is wrong and this hides it
