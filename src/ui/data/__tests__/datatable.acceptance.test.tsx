@@ -195,20 +195,42 @@ function stylesheet(): string {
   return existsSync(path) ? readFileSync(path, 'utf8') : '';
 }
 
-/** True when the module's own stylesheet declares `position: sticky` for this element. */
+/**
+ * True when the module's own stylesheet declares `position: sticky` for this element.
+ *
+ * The rule being proved is R-UI-010's, as this file states it: `position: sticky` *reaches this
+ * element*. So the sheet is read the way a browser reads it — each sticky-declaring rule's
+ * selector list is split on commas and offered to jsdom's own selector engine. A substring test
+ * over the selector text would accept a rule for a longer class name
+ * (`.datum-datatable-header-ghost` for `.datum-datatable-header`) or a state-scoped rule
+ * (`:hover`) that never selects the element as rendered; `matches` enforces the class-token
+ * boundary and leaves interaction pseudo-classes unmatched in the default state, closing both.
+ */
 function sheetDeclaresSticky(element: HTMLElement): boolean {
-  const needles = [...element.classList].map((name) => `.${name}`);
-  const testid = element.getAttribute('data-testid');
-  if (testid !== null) needles.push(`data-testid="${testid}"`, `data-testid='${testid}'`);
-  if (needles.length === 0) return false;
+  // Comments come out first: a brace inside prose would corrupt the `}` split below.
+  const sheet = stylesheet().replace(/\/\*[\s\S]*?\*\//g, '');
 
-  for (const block of stylesheet().split('}')) {
-    const brace = block.indexOf('{');
-    if (brace === -1) continue;
-    const selector = block.slice(0, brace);
-    const body = block.slice(brace + 1).replace(/\s+/g, '');
+  for (const chunk of sheet.split('}')) {
+    // The declaration block is whatever follows the *last* opener in the chunk, so an at-rule
+    // wrapper (`@media … { .sel {`) is unwrapped instead of being read as the selector.
+    const open = chunk.lastIndexOf('{');
+    if (open === -1) continue;
+    const body = chunk.slice(open + 1).replace(/\s+/g, '');
     if (!body.includes('position:sticky')) continue;
-    if (needles.some((needle) => selector.includes(needle))) return true;
+
+    const prelude = chunk.slice(0, open);
+    const nested = prelude.lastIndexOf('{');
+    const selectorList = nested === -1 ? prelude : prelude.slice(nested + 1);
+
+    for (const selector of selectorList.split(',')) {
+      const trimmed = selector.trim();
+      if (trimmed === '' || trimmed.startsWith('@')) continue;
+      try {
+        if (element.matches(trimmed)) return true;
+      } catch {
+        // An unparseable selector selects nothing here, so it is not a match.
+      }
+    }
   }
   return false;
 }
