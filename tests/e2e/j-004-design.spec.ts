@@ -28,7 +28,7 @@
  */
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
-import { designDocText, rosterRows } from '../../src/app/design/__tests__/design-doc';
+import { copyEntries, designDocText, rosterRows } from '../../src/app/design/__tests__/design-doc';
 import { expectNoSeriousOrCritical } from './axe';
 import { DesignGalleryPage } from './setup/design-gallery';
 
@@ -70,6 +70,31 @@ const SPECIMEN = specimenProse(designDocText(REPO));
 const INTERACTIVE = ROSTER.filter(
   (row) => row.states.includes('trigger') || /interaction/i.test(SPECIMEN.get(row.slug) ?? ''),
 );
+
+/**
+ * The specimens §3 says need no activation key, because focus itself is the gesture
+ * ("opens on hover/focus" — Tooltip, datum-primitives §9). Read from the prose, so a later
+ * component that opens on focus is granted the same allowance the day its §3 row lands, and
+ * every other specimen must be *activated*.
+ */
+function opensOnFocus(slug: string): boolean {
+  return /focus/i.test(SPECIMEN.get(slug) ?? '');
+}
+
+/** §6's copy, verbatim — the words a specimen that announces rather than opens must say. */
+const COPY = copyEntries(REPO);
+
+/**
+ * The copy key a §3 row says its specimen fires: "fires `toast(estimateSaved)`" names the §6
+ * key `estimateSaved`, and §6 decides its verbatim value. Derived from the document, so an
+ * announcing specimen added later is held to its own decided copy rather than to this one.
+ * A row that names no key still has to say *something* new (see the journey below).
+ */
+function announcedCopy(slug: string): string | undefined {
+  const key = /`[A-Za-z][\w.]*\(([A-Za-z][\w.]*)\)`/.exec(SPECIMEN.get(slug) ?? '')?.[1];
+  if (key === undefined) return undefined;
+  return COPY.get(key.includes('.') ? key : `design.sample.${key}`);
+}
 
 /** Overlay surfaces a keyboard gesture can raise (datum-primitives §1, §6, §9, §10, §11). */
 const SURFACE = '[role="menu"], [role="listbox"], [role="dialog"], [role="tooltip"]';
@@ -154,58 +179,94 @@ async function surfaceCount(page: Page): Promise<number> {
   return await page.locator(SURFACE).filter({ visible: true }).count();
 }
 
-/** How many elements the page paints right now — a keyboard response that raises no surface
- * (the toast entry announces; it does not open a menu) still shows up here. */
-async function paintedCount(page: Page): Promise<number> {
+/**
+ * The live regions a keyboard response can speak through. A specimen that raises no overlay
+ * surface (the toast entry announces; it does not open a menu) has exactly one contractual
+ * way to be observed: R-UI-012's announcement. datum-primitives §12 mounts the Toaster's
+ * messages in an ARIA live region, and sonner's own container is `aria-live="polite"`, so the
+ * selector is the general one — any live region, whoever raises it.
+ */
+const LIVE = '[role="status"], [role="alert"], [aria-live]:not([aria-live="off"])';
+
+/**
+ * What every live region on the page is currently saying, whitespace-collapsed, silent
+ * regions dropped. This is a *reading of the page's words*, not a count of its nodes: an
+ * unrelated repaint elsewhere (a portal remounting, a previous specimen's toast animating
+ * out) cannot add a sentence here, so it cannot be mistaken for a response.
+ */
+async function announcements(page: Page): Promise<string[]> {
   return await page.evaluate(
-    () =>
-      Array.from(document.querySelectorAll('body *')).filter(
-        (el) => el.getClientRects().length > 0,
-      ).length,
+    (selector) =>
+      Array.from(document.querySelectorAll(selector))
+        .map((region) => (region.textContent ?? '').replace(/\s+/g, ' ').trim())
+        .filter((said) => said !== ''),
+    LIVE,
   );
 }
 
 interface Rest {
   readonly surfaces: number;
-  readonly painted: number;
+  readonly said: readonly string[];
 }
 
 /** The page at rest, before a gesture is tried. */
 async function restingState(page: Page): Promise<Rest> {
-  return { surfaces: await surfaceCount(page), painted: await paintedCount(page) };
+  return { surfaces: await surfaceCount(page), said: await announcements(page) };
+}
+
+interface Outcome {
+  readonly kind: 'surface' | 'announced' | 'none';
+  /** When `announced`: the words that were not being said before the gesture. */
+  readonly said: readonly string[];
 }
 
 /**
- * What the last gesture produced: an overlay surface, some other visible response, or
- * nothing. Surfaces win the race — they are given the whole window before a bare response is
- * reported, so a menu is never mistaken for an announcement.
+ * What the last gesture produced: an overlay surface, a new announcement, or nothing.
+ * Surfaces win the race — they are given the whole window before an announcement is
+ * reported, so a menu is never mistaken for a spoken response.
+ *
+ * `listen: false` refuses the announcement branch outright, which is how a gesture that must
+ * *open* something (see openFromKeyboard) is stopped from claiming a response it did not cause.
  */
-async function outcomeOf(page: Page, rest: Rest): Promise<'surface' | 'response' | 'none'> {
+async function outcomeOf(page: Page, rest: Rest, listen = true): Promise<Outcome> {
   const deadline = Date.now() + 900;
-  let response = false;
+  let said: readonly string[] = [];
   for (;;) {
-    if ((await surfaceCount(page)) > rest.surfaces) return 'surface';
-    if ((await paintedCount(page)) > rest.painted) response = true;
-    if (Date.now() >= deadline) return response ? 'response' : 'none';
+    if ((await surfaceCount(page)) > rest.surfaces) return { kind: 'surface', said: [] };
+    if (listen) {
+      const fresh = (await announcements(page)).filter((line) => !rest.said.includes(line));
+      if (fresh.length > 0) said = fresh;
+    }
+    if (Date.now() >= deadline) {
+      return said.length > 0 ? { kind: 'announced', said } : { kind: 'none', said: [] };
+    }
     await page.waitForTimeout(60);
   }
 }
 
 /**
  * Open the focused specimen with the keyboard, trying the gestures the component decisions
- * name, in order: focus alone (Tooltip opens "immediately on keyboard focus", §9), Enter
- * (buttons, Dialog, Sheet, Popover, DropdownMenu, Select — §6, §10, §11), ArrowDown (a closed
- * Select or Combobox, §6, §7), then the two keyboard gestures that raise a context menu
- * (§10). Returns what the page did.
+ * name, in order: Enter (buttons, Dialog, Sheet, Popover, DropdownMenu, Select — §6, §10,
+ * §11), ArrowDown (a closed Select or Combobox, §6, §7), then the two keyboard gestures that
+ * raise a context menu (§10). Returns what the page did.
+ *
+ * Focus alone is tried first only for the specimens §3 says open on focus (Tooltip: "opens on
+ * hover/focus", §9) — and even for those it can only be answered by a *surface*, never by an
+ * announcement: nothing on this page is supposed to speak merely because focus arrived, so
+ * counting a stray announcement there would let a specimen pass with no activation at all.
  */
-async function openFromKeyboard(page: Page, rest: Rest): Promise<'surface' | 'response' | 'none'> {
-  const gestures = [null, 'Enter', 'ArrowDown', 'ContextMenu', 'Shift+F10'] as const;
-  for (const gesture of gestures) {
-    if (gesture !== null) await page.keyboard.press(gesture);
-    const outcome = await outcomeOf(page, rest);
-    if (outcome !== 'none') return outcome;
+async function openFromKeyboard(page: Page, rest: Rest, opensOnFocus: boolean): Promise<Outcome> {
+  const pressed = ['Enter', 'ArrowDown', 'ContextMenu', 'Shift+F10'] as const;
+  if (opensOnFocus) {
+    const onFocus = await outcomeOf(page, rest, false);
+    if (onFocus.kind !== 'none') return onFocus;
   }
-  return 'none';
+  for (const gesture of pressed) {
+    await page.keyboard.press(gesture);
+    const outcome = await outcomeOf(page, rest);
+    if (outcome.kind !== 'none') return outcome;
+  }
+  return { kind: 'none', said: [] };
 }
 
 test.describe('J-004 — the living gallery in both themes (R-UI-011, AM-03)', () => {
@@ -356,12 +417,26 @@ test.describe('J-004 — the living gallery in both themes (R-UI-011, AM-03)', (
         expect(ring.width, `R-UI-012: ${slug}'s focus ring is 2 px`).toBeGreaterThanOrEqual(2);
 
         // Opened with the keyboard gestures its component decision names — never a pointer.
-        const outcome = await openFromKeyboard(page, rest);
-        expect(outcome, `Q-11: ${slug} responds to a keyboard opening gesture`).not.toBe('none');
+        const outcome = await openFromKeyboard(page, rest, opensOnFocus(slug));
+        expect(outcome.kind, `Q-11: ${slug} responds to a keyboard opening gesture`).not.toBe(
+          'none',
+        );
 
-        if (outcome === 'response') {
-          // No surface to dismiss (the toast entry announces). The focus stayed where the
-          // keyboard put it — activation strands nobody (datum-primitives §1).
+        if (outcome.kind === 'announced') {
+          // No surface to dismiss: this specimen speaks instead (the toast entry announces).
+          // The response is read as words, not as a repaint — and where §3 names the copy the
+          // specimen fires, those are the words §6 decided, verbatim (AM-03 (2): copy is design).
+          const spoken = outcome.said.join(' ');
+          const decided = announcedCopy(slug);
+          if (decided !== undefined) {
+            expect(spoken, `AM-03: ${slug} announces its §6 copy — "${decided}"`).toContain(decided);
+          } else {
+            expect(
+              spoken.length,
+              `Q-11: ${slug}'s keyboard activation announces something`,
+            ).toBeGreaterThan(0);
+          }
+          // The focus stayed where the keyboard put it — activation strands nobody (§1).
           expect(await focusInside(page, slug), `Q-11: ${slug} keeps the focus it was given`).toBe(
             true,
           );
