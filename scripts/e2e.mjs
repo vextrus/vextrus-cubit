@@ -76,17 +76,66 @@ function parseArgs(argv) {
   return journey === undefined || journey.trim() === '' ? {} : { journey };
 }
 
+/** The V-DB lane's own scratch database (scripts/test-db.mjs), which this lane must not take. */
+const TEST_DATABASE = (() => {
+  const name = process.env['CUBIT_TEST_DB'];
+  return name === undefined || name.trim() === '' ? 'cubit_test' : name;
+})();
+
+const clusterOf = (url) => {
+  const parsed = new URL(url);
+  return `${parsed.hostname}:${parsed.port === '' ? '5432' : parsed.port}`;
+};
+
+/**
+ * Every database this lane may not drop, and why. DATABASE_URL's is the one somebody works
+ * in (B-05); DATABASE_ADMIN_URL's is the maintenance database the drop is *issued from*, so
+ * dropping it would be sawing through the branch mid-statement; CUBIT_TEST_DB's belongs to
+ * the V-DB lane, and a `pnpm test:db` running beside this one would have its database pulled
+ * out from under it with (force) — which is what db/__tests__/support/live.ts had to learn to
+ * survive.
+ */
+function protectedDatabases() {
+  return [
+    {
+      name: targetDatabase(appUrl()),
+      why: 'the database DATABASE_URL points at',
+      cluster: clusterOf(appUrl()),
+    },
+    {
+      name: targetDatabase(adminUrl()),
+      why: 'the maintenance database DATABASE_ADMIN_URL connects to, which this lane issues its drop from',
+      cluster: clusterOf(adminUrl()),
+    },
+    {
+      name: TEST_DATABASE,
+      why: "the V-DB lane's scratch database (CUBIT_TEST_DB)",
+      cluster: clusterOf(appUrl()),
+    },
+  ];
+}
+
 /**
  * B-05: "the dev database is never touched" is prose until something compares the names.
- * This lane drops what CUBIT_E2E_DB names, with force, and DATABASE_URL names the database
- * somebody works in. One stale export is all it takes for those to be the same word, so the
- * run refuses here — before a connection is opened and long before anything is dropped.
+ * This lane drops what CUBIT_E2E_DB names, with force; one stale export is all it takes for
+ * that to be a name somebody else is holding, so the run refuses here — before a connection
+ * is opened and long before anything is dropped.
+ *
+ * The comparison is by name across all three handles, deliberately, and not by
+ * host/port/name together: a match on a *different* cluster is far likelier to be a
+ * mispointed URL than a genuine intention to drop a same-named database elsewhere, and the
+ * cost of over-refusing is a message, while the cost of under-refusing is somebody's data.
+ * The cluster each name came from is in the message so the mistake is visible.
  */
 function refusesToDropTheAppDatabase() {
-  if (targetDatabase(appUrl()) !== DATABASE) return undefined;
+  const clash = protectedDatabases().find((entry) => entry.name === DATABASE);
+  if (clash === undefined) return undefined;
+  const here = clusterOf(adminUrl());
+  const elsewhere = clash.cluster === here ? '' : ` on ${clash.cluster}`;
   return (
-    `e2e: CUBIT_E2E_DB names "${DATABASE}", which is the database DATABASE_URL points at.\n` +
-    `This lane drops its database with (force). Point CUBIT_E2E_DB at a database of its own.`
+    `e2e: CUBIT_E2E_DB names "${DATABASE}", which is ${clash.why}${elsewhere}.\n` +
+    `This lane drops its database with (force) on ${here}. ` +
+    `Point CUBIT_E2E_DB at a database of its own.`
   );
 }
 

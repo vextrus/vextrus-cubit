@@ -40,6 +40,14 @@ export default defineConfig({
    * per-platform suffix would silently write a second baseline instead of failing.
    */
   snapshotPathTemplate: 'tests/e2e/baselines/{arg}{ext}',
+  /**
+   * V-E2E: "visual comparisons against committed Linux baselines". Playwright's default is
+   * `'missing'` — "Missing snapshots are created" — under which a journey that forgot its
+   * baseline writes one and then compares it against itself for ever after. `'none'` makes
+   * a missing baseline the failure it is: this lane only ever compares, never authors.
+   * Baselines are produced deliberately, by a run with `--update-snapshots`, and committed.
+   */
+  updateSnapshots: 'none',
   use: {
     baseURL: `http://127.0.0.1:${E2E_PORT}`,
     trace: 'retain-on-failure',
