@@ -1,4 +1,5 @@
 /** Tabs — three panels, one of them showing (§5). */
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../primitives';
 import { gs } from '../strings';
 import type { GalleryEntry } from '../types';
@@ -20,50 +21,55 @@ const ESTIMATES = 'estimates';
 const triggerId = (panel: string): string => `gallery-tabs-trigger-${panel}`;
 const panelId = (panel: string): string => `gallery-tabs-panel-${panel}`;
 
+/**
+ * The sample owns its selection so it can write `hidden` itself.
+ *
+ * `forceMount` is what keeps the two unselected panels in the DOM — Radix wraps content in
+ * `<Presence present={forceMount || isSelected}>`, so without it the inactive triggers'
+ * `aria-controls` are dangling IDREFs on first paint. But `forceMount` also makes Radix pass
+ * `hidden={false}` to every mounted panel, which would show all three at once; the panel's own
+ * props are spread after Radix's, so the cell restates `hidden` from the selected value and §5's
+ * "three panels, one of them showing" holds through every tab click.
+ */
+function TabsSample() {
+  const [selected, setSelected] = useState(SHEETS);
+  const panel = (value: string) => ({
+    value,
+    forceMount: true as const,
+    hidden: value !== selected,
+    id: panelId(value),
+    'aria-labelledby': triggerId(value),
+  });
+  return (
+    <Tabs value={selected} onValueChange={setSelected}>
+      <TabsList aria-label={gs('gallery.entry.tabs')}>
+        <TabsTrigger value={SHEETS} id={triggerId(SHEETS)} aria-controls={panelId(SHEETS)}>
+          {gs('gallery.sample.tabs.sheets')}
+        </TabsTrigger>
+        <TabsTrigger
+          value={MEASUREMENTS}
+          id={triggerId(MEASUREMENTS)}
+          aria-controls={panelId(MEASUREMENTS)}
+        >
+          {gs('gallery.sample.tabs.measurements')}
+        </TabsTrigger>
+        <TabsTrigger value={ESTIMATES} id={triggerId(ESTIMATES)} aria-controls={panelId(ESTIMATES)}>
+          {gs('gallery.sample.tabs.estimates')}
+        </TabsTrigger>
+      </TabsList>
+      {/* Every trigger names a panel, so every panel is mounted: a tab whose `aria-controls`
+          points at nothing is a dangling IDREF. */}
+      <TabsContent {...panel(SHEETS)}>{gs('gallery.sample.tabs.panel')}</TabsContent>
+      <TabsContent {...panel(MEASUREMENTS)}>
+        {gs('gallery.sample.tabs.panel-measurements')}
+      </TabsContent>
+      <TabsContent {...panel(ESTIMATES)}>{gs('gallery.sample.tabs.panel-estimates')}</TabsContent>
+    </Tabs>
+  );
+}
+
 export const entry: GalleryEntry = {
   id: 'tabs',
   covers: ['Tabs', 'TabsContent', 'TabsList', 'TabsTrigger'],
-  states: [
-    {
-      name: 'default',
-      render: () => (
-        <Tabs defaultValue={SHEETS}>
-          <TabsList aria-label={gs('gallery.entry.tabs')}>
-            <TabsTrigger value={SHEETS} id={triggerId(SHEETS)} aria-controls={panelId(SHEETS)}>
-              {gs('gallery.sample.tabs.sheets')}
-            </TabsTrigger>
-            <TabsTrigger
-              value={MEASUREMENTS}
-              id={triggerId(MEASUREMENTS)}
-              aria-controls={panelId(MEASUREMENTS)}
-            >
-              {gs('gallery.sample.tabs.measurements')}
-            </TabsTrigger>
-            <TabsTrigger value={ESTIMATES} id={triggerId(ESTIMATES)} aria-controls={panelId(ESTIMATES)}>
-              {gs('gallery.sample.tabs.estimates')}
-            </TabsTrigger>
-          </TabsList>
-          {/* Every trigger names a panel, so every panel is written: a tab whose `aria-controls`
-              points at nothing is a dangling IDREF, and activating it would empty the cell. */}
-          <TabsContent value={SHEETS} id={panelId(SHEETS)} aria-labelledby={triggerId(SHEETS)}>
-            {gs('gallery.sample.tabs.panel')}
-          </TabsContent>
-          <TabsContent
-            value={MEASUREMENTS}
-            id={panelId(MEASUREMENTS)}
-            aria-labelledby={triggerId(MEASUREMENTS)}
-          >
-            {gs('gallery.sample.tabs.panel-measurements')}
-          </TabsContent>
-          <TabsContent
-            value={ESTIMATES}
-            id={panelId(ESTIMATES)}
-            aria-labelledby={triggerId(ESTIMATES)}
-          >
-            {gs('gallery.sample.tabs.panel-estimates')}
-          </TabsContent>
-        </Tabs>
-      ),
-    },
-  ],
+  states: [{ name: 'default', render: () => <TabsSample /> }],
 };
