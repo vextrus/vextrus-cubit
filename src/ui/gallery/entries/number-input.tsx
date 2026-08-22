@@ -19,22 +19,47 @@ const VALUE = '1234567.89';
 /** The unit through the format seam, never a caller's spelling (L-FMT-02). */
 const UNIT = formatUnit('m2');
 
+/** The state names of §5's row, so each cell's suffix id is written from the cell itself. */
+const DEFAULT_STATE = 'default';
+const DISABLED_STATE = 'disabled';
+const INVALID_STATE = 'invalid';
+
+/**
+ * The unit is written beside the field by the gallery rather than passed as `unit` — and it is
+ * the same span, in the same box, wearing the primitive's own classes (gallery.css).
+ *
+ * `NumberInput` mints its suffix id with `useId`, which counts from a module global: two renders
+ * of the same sheet would carry different ids, and the sheet's markup has to be identical across
+ * renders. `src/ui/primitives/**` is out of this increment's scope, so the cell hands the field a
+ * `aria-describedby` of its own — which flows through untouched while `unit` is undefined — and
+ * draws the suffix under that id itself. The accessible description and §5's "unit written beside
+ * it" both survive; only the id stops being React's.
+ */
+const suffixId = (state: string): string => `gallery-number-input-${state}-unit`;
+
 interface SampleProps {
+  readonly state: string;
   readonly disabled?: boolean;
   readonly invalid?: boolean;
 }
 
-function Sample({ disabled, invalid }: SampleProps): ReactElement {
+function Sample({ state, disabled, invalid }: SampleProps): ReactElement {
   const [value, setValue] = useState(VALUE);
+  const unitId = suffixId(state);
   return (
-    <NumberInput
-      value={value}
-      onValueChange={setValue}
-      unit={UNIT}
-      disabled={disabled}
-      aria-invalid={invalid}
-      aria-label={gs('gallery.sample.number-input.name')}
-    />
+    <div className="datum-number-input datum-gallery-number-input">
+      <NumberInput
+        value={value}
+        onValueChange={setValue}
+        disabled={disabled}
+        aria-invalid={invalid}
+        aria-describedby={unitId}
+        aria-label={gs('gallery.sample.number-input.name')}
+      />
+      <span id={unitId} data-testid="number-input-suffix" className="datum-number-suffix">
+        {UNIT}
+      </span>
+    </div>
   );
 }
 
@@ -42,8 +67,8 @@ export const entry: GalleryEntry = {
   id: 'number-input',
   covers: ['NumberInput'],
   states: [
-    { name: 'default', render: () => <Sample /> },
-    { name: 'disabled', render: () => <Sample disabled /> },
-    { name: 'invalid', render: () => <Sample invalid /> },
+    { name: DEFAULT_STATE, render: () => <Sample state={DEFAULT_STATE} /> },
+    { name: DISABLED_STATE, render: () => <Sample state={DISABLED_STATE} disabled /> },
+    { name: INVALID_STATE, render: () => <Sample state={INVALID_STATE} invalid /> },
   ],
 };

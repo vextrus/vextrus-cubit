@@ -1,23 +1,24 @@
 /**
  * A control and the words that name it, side by side (§1).
  *
- * The id is `useId`'s rather than a constant: the same state cell is drawn once per entry and
- * the sheet holds forty of them, so a hand-written id would be a duplicate id on the page —
- * which is an accessibility finding before it is a naming one (R-UI-012).
+ * The id is the caller's and is written out of the entry id and the state name, never `useId`'s:
+ * a state cell is drawn once per entry on the sheet, so `gallery-labelled-<entry>-<state>` is
+ * already unique page-wide and no duplicate id reaches the accessibility tree (R-UI-012). React's
+ * client `useId` counts from a module global, which makes two renders of the same sheet produce
+ * different markup — determinism is the stronger claim, and it costs the caller one string.
  */
-'use client';
 import type { ReactElement, ReactNode } from 'react';
-import { useId } from 'react';
 
 export interface LabelledProps {
+  /** The id the label carries and the control points at; unique across the sheet. */
+  readonly id: string;
   /** The words, from the entry string table. */
   readonly label: string;
   /** The control, given the id its label carries so it can point at it. */
   readonly control: (id: string) => ReactNode;
 }
 
-export function Labelled({ label, control }: LabelledProps): ReactElement {
-  const id = useId();
+export function Labelled({ id, label, control }: LabelledProps): ReactElement {
   return (
     <span className="datum-gallery-labelled">
       {control(id)}

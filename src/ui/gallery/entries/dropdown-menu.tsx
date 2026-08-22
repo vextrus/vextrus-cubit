@@ -1,4 +1,11 @@
-/** DropdownMenu — the acts a sheet offers, one of them destructive (§5). Drawn closed. */
+/**
+ * DropdownMenu — the acts a sheet offers, one of them destructive (§5). Drawn closed.
+ *
+ * The trigger is given its id here: Radix mints one with React's `useId`, which counts from a
+ * module global and so differs between two renders of the same sheet, and it writes that id onto
+ * the trigger before spreading the caller's props — so a named id overrides it and the closed
+ * trigger's markup is the same drawing every time.
+ */
 import {
   Button,
   DropdownMenu,
@@ -25,7 +32,7 @@ export const entry: GalleryEntry = {
       name: 'default',
       render: () => (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger asChild id="gallery-dropdown-menu-trigger">
             <Button variant="secondary">{gs('gallery.sample.dropdown-menu.trigger')}</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>

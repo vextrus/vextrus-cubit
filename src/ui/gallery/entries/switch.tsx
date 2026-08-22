@@ -6,24 +6,41 @@ import { Labelled } from './labelled';
 
 const label = (): string => gs('gallery.sample.switch.label');
 
+/** One id per state cell, written rather than minted, so the sheet's markup never drifts. */
+const labelId = (state: string): string => `gallery-labelled-switch-${state}`;
+
 export const entry: GalleryEntry = {
   id: 'switch',
   covers: ['Switch'],
   states: [
     {
       name: 'off',
-      render: () => <Labelled label={label()} control={(id) => <Switch aria-labelledby={id} />} />,
+      render: () => (
+        <Labelled
+          id={labelId('off')}
+          label={label()}
+          control={(id) => <Switch aria-labelledby={id} />}
+        />
+      ),
     },
     {
       name: 'on',
       render: () => (
-        <Labelled label={label()} control={(id) => <Switch defaultChecked aria-labelledby={id} />} />
+        <Labelled
+          id={labelId('on')}
+          label={label()}
+          control={(id) => <Switch defaultChecked aria-labelledby={id} />}
+        />
       ),
     },
     {
       name: 'disabled',
       render: () => (
-        <Labelled label={label()} control={(id) => <Switch disabled aria-labelledby={id} />} />
+        <Labelled
+          id={labelId('disabled')}
+          label={label()}
+          control={(id) => <Switch disabled aria-labelledby={id} />}
+        />
       ),
     },
   ],
