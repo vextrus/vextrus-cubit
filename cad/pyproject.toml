@@ -3,12 +3,25 @@ name = "cubit-cad"
 version = "0.0.0"
 description = "The cad/ CLI: DWG/DXF/PDF ingest, vectorisation and render manifests. Python is a subprocess, never a service."
 requires-python = ">=3.13,<3.14"
-dependencies = []
+# ezdxf is MIT and is the DXF extractor L-CAD-04 names by name. The remaining ingest
+# dependencies (pypdfium2, OpenCV, numpy) arrive pinned with the increments that deliver
+# PDF and raster. AGPL PDF libraries are banned outright and cubit_cad.licences enforces
+# it over this file and uv.lock.
+dependencies = [
+    "ezdxf==1.4.4",
+]
 
-# The ingest dependencies (ezdxf, pypdfium2, OpenCV, numpy) arrive pinned with the
-# increment that delivers the ingest code. What is pinned here is the interpreter and the
-# two tools the gate runs: `ruff check` in every verify, `pytest` from the increment that
-# writes cad/tests.
+# `python -m cubit_cad` has to resolve from cad/src, so the project is a package rather
+# than a virtual root: uv installs it editable into the lane's environment.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cubit_cad"]
+
+# What is pinned below is the two tools the gate runs: `ruff check` in every verify,
+# `pytest` from the increment that writes cad/tests.
 [dependency-groups]
 dev = [
     "ruff==0.16.4",
