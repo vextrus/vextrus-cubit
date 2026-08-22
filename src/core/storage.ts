@@ -23,10 +23,15 @@
  * reads `CUBIT_STORAGE_DRIVER` once at module load cannot be pointed at a temp directory by a
  * test, and a seam that only holds under one driver is not a seam.
  */
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 /** The refusal a caller reads when nothing is stored under an address. */
@@ -233,9 +238,18 @@ async function s3Get(key: string, sha256: string): Promise<Uint8Array> {
   }
 }
 
-async function s3Sign(key: string, expiresInSeconds: number): Promise<string> {
+async function s3Sign(key: string, sha256: string, expiresInSeconds: number): Promise<string> {
   const client = s3Client();
   try {
+    // Presigning is a local computation that never asks the bucket anything, so the object's
+    // existence is asked for here: a URL is a read capability, and a tenant may not mint one
+    // for an address it does not hold.
+    try {
+      await client.send(new HeadObjectCommand({ Bucket: s3Bucket(), Key: key }));
+    } catch (error: unknown) {
+      if (isMissingObject(error)) throw missing(sha256);
+      throw error;
+    }
     return await getSignedUrl(client, new GetObjectCommand({ Bucket: s3Bucket(), Key: key }), {
       expiresIn: expiresInSeconds,
     });
@@ -273,6 +287,16 @@ async function fsGet(key: string, sha256: string): Promise<Uint8Array> {
   }
 }
 
+/** The local driver's existence check, in the refusal shape `get` already speaks in. */
+async function fsHead(key: string, sha256: string): Promise<void> {
+  try {
+    await access(fsPath(key));
+  } catch (error: unknown) {
+    if (isNotFound(error)) throw missing(sha256);
+    throw error;
+  }
+}
+
 /**
  * A tenant-scoped handle. The id is checked here, before any object is addressed: an id that
  * could never be a uuid would otherwise become a prefix in the bucket, and a typo would quietly
@@ -302,8 +326,11 @@ export function storageForTenant(ctx: { tenantId: string }): TenantStorage {
 
     async sign(sha256: string, opts: { expiresInSeconds: number }): Promise<string> {
       const key = objectKey(tenantId, sha256);
-      if (isS3()) return s3Sign(key, opts.expiresInSeconds);
+      if (isS3()) return s3Sign(key, sha256, opts.expiresInSeconds);
+      // The secret first — a driver with nothing to sign with refuses before it reads
+      // anything (AC-2) — then the object, for the same reason the S3 driver heads it.
       const secret = storageSecret();
+      await fsHead(key, sha256);
       const exp = String(nowSeconds() + opts.expiresInSeconds);
       return `${STORAGE_PATH}${key}?exp=${exp}&sig=${fsSignature(key, exp, secret)}`;
     },

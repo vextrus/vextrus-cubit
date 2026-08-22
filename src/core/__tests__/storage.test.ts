@@ -162,3 +162,50 @@ describe('SEAM-STORAGE · every revision is kept, on both drivers', () => {
     expect(Uint8Array.from(await store.get(first.sha256))).toEqual(bytes);
   });
 });
+
+/**
+ * Minting a URL is a read: it hands out bytes to whoever holds the link. So `sign` answers an
+ * address the tenant does not hold exactly as `get` does — with STORAGE_OBJECT_MISSING, on both
+ * drivers (SEAM-STORAGE's per-tenant prefixes, Q-12's expiring links).
+ */
+describe('SEAM-STORAGE · sign mints nothing for an object the tenant has not got', () => {
+  let fake: S3Fake | undefined;
+  let dir = '';
+
+  beforeAll(async () => {
+    fake = await startS3Fake();
+    dir = await mkdtemp(join(tmpdir(), 'cubit-storage-sign-'));
+  });
+  afterAll(async () => {
+    await fake?.close();
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it.each(['fs', 's3'])('refuses to sign another tenant’s address (%s)', async (driver) => {
+    for (const name of ['CUBIT_STORAGE_DRIVER', 'CUBIT_STORAGE_DIR', 'CUBIT_STORAGE_SECRET']) {
+      delete process.env[name];
+    }
+    if (driver === 'fs') {
+      process.env['CUBIT_STORAGE_DRIVER'] = 'fs';
+      process.env['CUBIT_STORAGE_DIR'] = dir;
+      process.env['CUBIT_STORAGE_SECRET'] = SECRET;
+    } else {
+      for (const [name, value] of Object.entries(fake?.env ?? {})) process.env[name] = value;
+    }
+
+    const a = storageForTenant({ tenantId: TENANT_A });
+    const b = storageForTenant({ tenantId: TENANT_B });
+
+    const unstored = 'a'.repeat(64);
+    await expect(a.sign(unstored, { expiresInSeconds: 60 })).rejects.toThrow(
+      /^STORAGE_OBJECT_MISSING: /,
+    );
+
+    const { sha256 } = await a.put(bytesOf(`a signable revision (${driver})`));
+    // The address is right and the bytes exist — under A's prefix, which is not B's.
+    await expect(b.sign(sha256, { expiresInSeconds: 60 })).rejects.toThrow(
+      /^STORAGE_OBJECT_MISSING: /,
+    );
+    await expect(a.sign(sha256, { expiresInSeconds: 60 })).resolves.toEqual(expect.any(String));
+  });
+});
