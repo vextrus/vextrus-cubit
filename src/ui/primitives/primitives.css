@@ -51,8 +51,16 @@
   border-radius: var(--radius-4);
 }
 
+/*
+ * R-UI-012 / Q-11: a placeholder is text a reader has to read, and `--graphite-500` reads
+ * 3.2:1 on the field's `--graphite-0` — under the 4.5:1 floor. `--graphite-600` is the same
+ * recessive grey one step down, at 5.2:1. The arbitration on docs/design/datum-primitives.md
+ * §3 makes this the decided colour for the Input and Textarea placeholder, and that document
+ * is amended to match: the floor applies to every rendered text state, not only to the one
+ * axe happens to evaluate at rest.
+ */
 .datum-field::placeholder {
-  color: var(--graphite-500);
+  color: var(--graphite-600);
 }
 
 .datum-field:disabled {
@@ -443,8 +451,8 @@
  * R-UI-012 / Q-11: the placeholder is real text on the trigger's own surface, and
  * `--graphite-500` reads 3.2:1 on `--graphite-0` — the first axe scan of a page carrying a
  * Select (J-004) fails on it as a serious violation. `--graphite-600` is the same recessive
- * grey one step down, at 5.2:1. docs/design/datum-primitives.md still says `--graphite-500`;
- * the Bible's contrast floor outranks it, and the document needs the same correction.
+ * grey one step down, at 5.2:1. The arbitration on §6 decides it, and
+ * docs/design/datum-primitives.md is amended to say so.
  */
 .datum-select-trigger[data-placeholder] {
   color: var(--graphite-600);
@@ -550,9 +558,16 @@
   list-style: none;
 }
 
+/*
+ * R-UI-012 / Q-11 again, and for the same reason as the placeholder above: this class carries
+ * both the loading row ("Searching…") and the empty row, and the arbitration on §7 of
+ * docs/design/datum-primitives.md decides them at `--graphite-600` (5.2:1) rather than
+ * `--graphite-500` (3.2:1). The rows are closed at rest, so no axe scan reaches them — which
+ * is precisely why the rule is written down here rather than left to the scanner.
+ */
 .datum-combobox-status {
   padding: var(--space-2) var(--space-3);
-  color: var(--graphite-500);
+  color: var(--graphite-600);
   font-size: var(--text-13);
 }
 

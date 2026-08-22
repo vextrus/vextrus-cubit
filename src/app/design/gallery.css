@@ -106,11 +106,13 @@
 }
 
 /*
- * §2 asks for `--graphite-500` here. On the page's own `--graphite-50` that reads 3.01:1 at
- * 12px, which R-UI-012 refuses and Q-11 fails ("zero serious on every journey checkpoint") —
- * and the same document's §9 promises these labels "hold their contrast ratios (≥ 4.5:1)".
- * One step down the same ramp keeps the recessive grey the layout asks for at 4.7:1 light and
- * 5.1:1 dark.
+ * §2 asks for `--graphite-600` here, as amended: the token it first named, `--graphite-500`,
+ * reads 3.01:1 at 12px on the page's own `--graphite-50`, which R-UI-012 refuses and Q-11
+ * fails ("zero serious on every journey checkpoint") — and the same document's §9 promises
+ * these labels "hold their contrast ratios (≥ 4.5:1)". One step down the same ramp keeps the
+ * recessive grey the layout asks for at 4.7:1 light and 5.1:1 dark. The correction lives in
+ * docs/design/s-design.md, which is what the build is graded against (AM-03); this comment
+ * only says which line of it this rule implements.
  */
 .gallery-state-label {
   font-family: var(--font-mono);

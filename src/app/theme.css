@@ -1,0 +1,34 @@
+/*
+ * The document itself, themed (S-Design §2, §9).
+ *
+ * §2 decides "Page background `--graphite-50`" and §9 promises `?theme=dark` "flips the whole
+ * page". A background painted on the gallery's own centred column keeps that promise only as
+ * far as the column's edge: on a viewport wider than `--breakpoint-lg` the dark page would sit
+ * in a white browser gutter, because the canvas takes its colour from `<html>`/`<body>` and
+ * nothing had told them. So the page background lives here, on the document, where the canvas
+ * reads it — and the column inherits the same token rather than owning it.
+ *
+ * `color-scheme` is the other half, and it is the half no stylesheet can paint: it is what the
+ * *browser* renders out of its own chrome — the scrollbar, the caret, the default selection
+ * and focus colours, native form widgets. Left at `light` under a dark page, a reader gets a
+ * white scrollbar down the side of a near-black gallery and a light caret in a dark field. The
+ * attribute the root layout sets before first paint decides it, so the chrome is never briefly
+ * the other theme.
+ *
+ * This is the root layout's stylesheet, not the gallery's: every screen the layout wraps is a
+ * document, and a document's canvas is not a screen's business.
+ */
+
+html {
+  background: var(--graphite-50);
+  color: var(--graphite-900);
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--graphite-50);
+}

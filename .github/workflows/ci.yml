@@ -167,6 +167,19 @@ jobs:
         shell: bash
         run: pnpm exec playwright install chromium --with-deps
 
+      # Q-06 compares this runner's pixels against a developer machine's committed PNGs, and
+      # text is the one thing a browser draws out of the host rather than out of the tree: no
+      # face is shipped, and `--with-deps` brings fonts-liberation, which fontconfig puts under
+      # the token stack's `Arial` — a font the baseline machine does not have. tests/e2e/
+      # fonts.conf pins every family the tokens name onto the DejaVu faces; this step makes
+      # sure the runner has them, so the pinning has something to resolve to.
+      - name: The faces the baselines were drawn with
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-dejavu-core
+          fc-cache -f
+
       # J-004 is written; J-000 is not, and says so by name (C-09) rather than silently.
       - name: pnpm e2e — J-004 and J-000
         shell: bash

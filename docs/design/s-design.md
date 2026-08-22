@@ -7,6 +7,15 @@ Component anatomy is fixed by `docs/design/datum-primitives.md` and
 `docs/design/datum-patterns.md`; this document decides only what the page shows and says. No
 colour literal anywhere (R-UI-001); every string a reader sees comes from the typed table in §6.
 
+**Amendment (inc-007, settled reading on §2 vs §9 / R-UI-012 / Q-11).** The state-name label is
+`--graphite-600`, not the `--graphite-500` §2 and §8 first named. `--graphite-500` on this
+page's `--graphite-50` measures 3.01:1 at 12 px — 43 serious axe violations on both
+checkpoints, and §9 of this same document promises these labels hold at least 4.5:1. The
+contrast floor outranks the shade, so the shade moves and the document says so here rather
+than leaving the built page and the committed decision to disagree (AM-03: this file, not a
+comment in a stylesheet, is what the build is graded against). §2 and §8 below carry the
+corrected token.
+
 ## 1. Route and theme
 
 - `GET /design`. `?theme=dark` sets `data-theme="dark"` on `<html>`; `?theme=light`, an unknown
@@ -35,7 +44,7 @@ colour literal anywhere (R-UI-001); every string a reader sees comes from the ty
   `--weight-heading` `--graphite-900` — export identifiers are data, not copy.
 - **State block:** inside each entry, one block per state, laid out in a wrapping row, gap
   `--space-4`. A block is a `<div data-gallery-state="<state name>">`: the state name as a label,
-  `--font-mono` `--text-12` `--graphite-500`, above a specimen card — background `--graphite-0`,
+  `--font-mono` `--text-12` `--graphite-600`, above a specimen card — background `--graphite-0`,
   hairline border `--graphite-200`, `--radius-8`, padding `--space-4`, min-width 240 px.
   DataTable and ConsequenceDialog blocks span the full column width.
 - One `<Toaster />` mounts once at page root (its region is a fixed singleton at `--z-toast`);
@@ -203,7 +212,7 @@ so the baselines are deterministic either way.
 ## 8. Tokens
 
 Page chrome uses only: `--graphite-50` (page), `--graphite-0` (specimen cards),
-`--graphite-200` (hairlines), `--graphite-500/600/900/950` (labels, lede, headings),
+`--graphite-200` (hairlines), `--graphite-600/900/950` (labels, lede, headings),
 `--cobalt-500/600` (theme links, via the EvidenceLink treatment), `--space-1/4/6/8`,
 `--radius-8`, `--text-12/13/14/20/24`, `--font-ui`, `--font-mono`, `--weight-heading`,
 `--weight-body-medium`, `--leading-ui`, `--breakpoint-lg`, `--z-toast` (via Toaster).

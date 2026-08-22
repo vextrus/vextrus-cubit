@@ -17,7 +17,7 @@
  * never written here (AM-03 (2)). Marks, quantities, identifiers, glyphs and option values
  * are sample *data*, and they live here as module constants, rendered verbatim.
  */
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import {
   Badge,
@@ -301,9 +301,36 @@ function confirmVoid(): Promise<ConfirmResult> {
 
 function SampleConsequence(): ReactElement {
   const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+
+  /*
+   * datum-primitives §11: "Escape closes; focus returns to the trigger." A ConsequenceDialog
+   * is driven by its caller's `open` flag and has no DialogTrigger of its own, so the modal
+   * knows no element to hand the focus back to: on close it cancels the focus scope's restore
+   * and focuses the trigger it does not have. Focus is left on the removed content, which is
+   * to say on `<body>`, and a reader who arrived by keyboard has to start the page again
+   * (Q-11's keyboard journey). The trigger belongs to this caller, so this caller takes the
+   * focus back.
+   *
+   * It has to happen *after* that close — an effect, not the change handler. `onOpenChange`
+   * runs before React commits the unmount, and the modal's own restore, running in the
+   * commit, would take the focus off the button again.
+   */
+  useEffect(() => {
+    if (open) {
+      wasOpen.current = true;
+      return;
+    }
+    if (!wasOpen.current) return;
+    wasOpen.current = false;
+    trigger.current?.focus();
+  }, [open]);
+
   return (
     <>
       <Button
+        ref={trigger}
         onClick={() => {
           setOpen(true);
         }}
@@ -1140,7 +1167,17 @@ function SampleSelect({
       </span>
       <Select value={chosen ? ELEMENT_COLUMN : ''} disabled={disabled} onValueChange={noop}>
         <SelectTrigger aria-labelledby={id}>
-          <SelectValue placeholder={ds('design.sample.elementPlaceholder')} />
+          {/*
+           * §1: "First paint is the content." Left to itself, a Select paints its trigger empty
+           * and portals the chosen item's text into it from the mounted list — so the selected
+           * specimen is blank until hydration, the server and client markup disagree, and the
+           * baseline screenshot races the portal. Naming the value here renders it in the
+           * server's own HTML; the value node then has children of its own and the portal that
+           * would have written it a second time stands down.
+           */}
+          <SelectValue placeholder={ds('design.sample.elementPlaceholder')}>
+            {chosen ? ds('design.sample.column') : undefined}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ELEMENT_WALL}>{ds('design.sample.wall')}</SelectItem>

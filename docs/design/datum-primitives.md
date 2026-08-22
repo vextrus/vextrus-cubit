@@ -8,6 +8,15 @@ itself owns — hover, active, focus, disabled, loading, invalid, open, empty �
 component below. Token names are the Datum sheet in `docs/design/datum-tokens.md`; no literal
 colour anywhere (R-UI-001).
 
+**Amendment (inc-007, arbitration on Q-11 / V-E2E / J-004 / AM-03(3) / R-UI-011).** Every
+recessive body-size grey this document set at `--graphite-500` now reads `--graphite-600`:
+the §3 Input and Textarea placeholder, the §6 Select placeholder, the §7 Combobox loading and
+empty rows, and the §10 menu shortcut hints. `--graphite-500` (#8591a0) measures 3.2:1 on
+`--graphite-0`, below R-UI-012's 4.5:1 floor; `--graphite-600` is the same recessive step at
+5.2:1. The floor applies to every text state the gallery renders, not only to the one an axe
+scan reaches at rest — the closed Combobox rows and the shortcut hints are read by the same
+eyes as the Select placeholder axe flagged. Nothing else in the document moves.
+
 ## 1. Shared laws
 
 - **Control metric.** Every field, button, trigger and menu item is 28 px tall (the compact row
@@ -66,7 +75,7 @@ Hover/active fills transition over `--motion-state-duration`. States:
 ## 3. Input and Textarea
 
 Background `--graphite-0`, border `1px solid var(--graphite-300)`, `--radius-4`, text
-`--graphite-900`, placeholder `--graphite-500`, padding `0 var(--space-2)` (Textarea:
+`--graphite-900`, placeholder `--graphite-600`, padding `0 var(--space-2)` (Textarea:
 `var(--space-2)` all round, minimum three lines, `resize: vertical` only). States:
 
 - **Disabled:** background `--graphite-100`, text and placeholder `--graphite-400`.
@@ -136,7 +145,7 @@ inherited:
 ## 6. Select
 
 Trigger: an Input-shaped box (§3) whose right edge holds a chevron (`--graphite-600`); the
-chosen option's label sits left; empty shows the consumer's `placeholder` in `--graphite-500`.
+chosen option's label sits left; empty shows the consumer's `placeholder` in `--graphite-600`.
 Enter, Space or ArrowDown opens. Content: the overlay surface (§1), `--shadow-2`, padding
 `--space-1`, entering with a 160 ms fade plus 4 px translate from the trigger. Options are
 `role="option"`, 28 px, selected shows a 16 px check glyph in `--cobalt-500` at the left.
@@ -151,10 +160,10 @@ the list (`data-testid="combobox-input"`); below it, on the overlay surface, the
 `data-testid="combobox-option"`). Typing calls `loadOptions(query)`; results replace the list.
 
 - **Loading:** while the loader is unresolved the list shows one non-interactive row —
-  “Searching…” (`primitives.combobox.loading`) in `--graphite-500` — inside an `aria-live="polite"`
+  “Searching…” (`primitives.combobox.loading`) in `--graphite-600` — inside an `aria-live="polite"`
   region. Text, not a spinner; the layout does not jump when results land.
 - **Empty:** a resolved query with no matches shows `data-testid="combobox-empty"`: “No matches
-  for this search.” (`primitives.combobox.empty`), `--graphite-500`, centred, padding
+  for this search.” (`primitives.combobox.empty`), `--graphite-600`, centred, padding
   `--space-3`. The list never renders silently blank (R-UI-020).
 - ArrowDown or ArrowUp on a closed field opens the list *and* asks the loader for the current
   query, so an opened surface is always in one of the three states above — never an empty box.
@@ -187,7 +196,7 @@ appears with a 160 ms fade — it does not slide. ArrowRight/ArrowLeft rove focu
 Both use the Select content surface (§6): `--shadow-2`, padding `--space-1`, items
 `role="menuitem"` at 28 px with highlight `--graphite-100`. A destructive item's text is
 `--danger`. Separators are §13's hairline with `--space-1` margins. Shortcut hints sit
-right-aligned in `--graphite-500` `--font-mono`. DropdownMenu opens from its trigger on Enter,
+right-aligned in `--graphite-600` `--font-mono`. DropdownMenu opens from its trigger on Enter,
 Space or ArrowDown; ContextMenu opens at the pointer on right-click and via the keyboard's
 Menu key or Shift+F10 — which raise the event against whatever holds the focus, so the
 ContextMenu trigger is itself a tab stop carrying the ring (a consumer with its own tab stop
