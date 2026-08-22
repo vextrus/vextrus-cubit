@@ -55,6 +55,15 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A content address, as this seam writes and reads it: 64 lowercase hex digits. */
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
+/**
+ * A whole object key, as this seam mints them and as it will accept them back. Nothing else is
+ * a key: the prefix is the tenant isolation R-SPINE-021 asks for, and a string that merely
+ * begins with the prefix — `t/{id}/sha256/../../…` — is a read of somebody else's object once
+ * `path.join` has normalised it.
+ */
+const OBJECT_KEY =
+  /^t\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/sha256\/[0-9a-f]{64}$/i;
+
 /** Where the local driver keeps objects when the environment names no directory. */
 const DEFAULT_STORAGE_DIR = 'var/storage';
 
@@ -194,7 +203,21 @@ function isMissingObject(error: unknown): boolean {
 }
 
 function missing(sha256: string): Error {
-  return new Error(`${STORAGE_OBJECT_MISSING}: nothing is stored under sha256 ${sha256}.`);
+  return new Error(
+    `${STORAGE_OBJECT_MISSING}: nothing is stored under sha256 ${JSON.stringify(sha256)}.`,
+  );
+}
+
+/**
+ * The key for an address a caller handed in — or the refusal that address earns. A content
+ * address is 64 hex digits and nothing else: anything carrying a slash or a `..` segment would
+ * be normalised by `path.join` into a path outside the tenant's prefix, and the prefix is the
+ * isolation (R-SPINE-021). A tenant holds no object at a string that is not an address, so the
+ * answer is the same one `get` gives for an address nobody put.
+ */
+function addressedKey(tenantId: string, sha256: string): string {
+  if (!SHA256_HEX.test(sha256)) throw missing(sha256);
+  return objectKey(tenantId, sha256);
 }
 
 /** The S3 client, built per call from the environment the call reads. */
@@ -258,7 +281,13 @@ async function s3Sign(key: string, sha256: string, expiresInSeconds: number): Pr
   }
 }
 
+/**
+ * Where the local driver keeps one object. Every caller has already checked the address it
+ * built the key from; this checks the key itself, because `join` is where a `..` becomes a
+ * path outside the root and one choke point is cheaper to trust than four call sites.
+ */
 function fsPath(key: string): string {
+  if (!OBJECT_KEY.test(key)) throw missing(key);
   return join(storageDir(), key);
 }
 
@@ -320,16 +349,16 @@ export function storageForTenant(ctx: { tenantId: string }): TenantStorage {
     },
 
     async get(sha256: string): Promise<Uint8Array> {
-      const key = objectKey(tenantId, sha256);
+      const key = addressedKey(tenantId, sha256);
       return isS3() ? s3Get(key, sha256) : fsGet(key, sha256);
     },
 
     async sign(sha256: string, opts: { expiresInSeconds: number }): Promise<string> {
-      const key = objectKey(tenantId, sha256);
-      if (isS3()) return s3Sign(key, sha256, opts.expiresInSeconds);
+      if (isS3()) return s3Sign(addressedKey(tenantId, sha256), sha256, opts.expiresInSeconds);
       // The secret first — a driver with nothing to sign with refuses before it reads
       // anything (AC-2) — then the object, for the same reason the S3 driver heads it.
       const secret = storageSecret();
+      const key = addressedKey(tenantId, sha256);
       await fsHead(key, sha256);
       const exp = String(nowSeconds() + opts.expiresInSeconds);
       return `${STORAGE_PATH}${key}?exp=${exp}&sig=${fsSignature(key, exp, secret)}`;
@@ -350,8 +379,61 @@ export async function serveSigned(url: string): Promise<Uint8Array> {
   return isS3() ? serveSignedS3(url) : serveSignedFs(url);
 }
 
+/**
+ * The origins this seam's own presigned URLs can name: the configured S3-compatible endpoint
+ * when there is one, and otherwise the two hosts the SDK addresses a real bucket at.
+ */
+function s3Origins(): string[] {
+  const endpoint = process.env['CUBIT_S3_ENDPOINT'];
+  if (endpoint !== undefined && endpoint !== '') {
+    try {
+      return [new URL(endpoint).origin];
+    } catch {
+      return [];
+    }
+  }
+  const region = process.env['CUBIT_S3_REGION'] ?? 'us-east-1';
+  const bucket = s3Bucket();
+  return [`https://${bucket}.s3.${region}.amazonaws.com`, `https://s3.${region}.amazonaws.com`];
+}
+
+/**
+ * The URL `serveSigned` is about to fetch, once it is established that this seam could have
+ * minted it: an absolute http(s) URL, on the configured bucket's own origin, naming that
+ * bucket. Without this check the S3 lane is a fetch-and-return-bytes primitive — hand it any
+ * URL and the server retrieves it for the caller — and the moment a route passes a request
+ * parameter through, that is an open proxy. Under the local driver the HMAC is what says "this
+ * seam minted it"; the presigned lane has no such proof until the bucket answers, so the
+ * origin is checked here, before anything leaves the process.
+ */
+function s3UrlToFetch(url: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    // Includes the relative `/storage/<key>` shape: an fs URL served under the s3 driver is a
+    // URL this driver did not mint, and it is refused by name rather than escaping as a
+    // TypeError out of `fetch`.
+    throw new Error(`${STORAGE_URL_INVALID}: the download URL is not an absolute http(s) URL.`);
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`${STORAGE_URL_INVALID}: the download URL is not an absolute http(s) URL.`);
+  }
+  const bucket = s3Bucket();
+  const namesBucket =
+    parsed.hostname.startsWith(`${bucket}.`) ||
+    parsed.pathname === `/${bucket}` ||
+    parsed.pathname.startsWith(`/${bucket}/`);
+  if (!s3Origins().includes(parsed.origin) || bucket === '' || !namesBucket) {
+    throw new Error(
+      `${STORAGE_URL_INVALID}: the download URL does not name this seam's own bucket.`,
+    );
+  }
+  return parsed;
+}
+
 async function serveSignedS3(url: string): Promise<Uint8Array> {
-  const answer = await fetch(url);
+  const answer = await fetch(s3UrlToFetch(url));
   if (answer.ok) {
     // The bucket judges the signature, and it judges it first — a URL that got this far was
     // signed as it stands. What the bucket rounds to whole seconds, the seam does not: a
@@ -398,9 +480,10 @@ async function serveSignedFs(url: string): Promise<Uint8Array> {
     throw new Error(`${STORAGE_URL_EXPIRED}: the signed download URL expired at ${exp}.`);
   }
 
-  const sha256 = key.slice(key.lastIndexOf('/') + 1);
-  if (!SHA256_HEX.test(sha256)) {
+  // The whole key, not just its last segment: a path that merely ends in a content address
+  // can still walk out of the tenant's prefix, and the prefix is the isolation.
+  if (!OBJECT_KEY.test(key)) {
     throw new Error(`${STORAGE_URL_INVALID}: the signed download URL names no content address.`);
   }
-  return fsGet(key, sha256);
+  return fsGet(key, key.slice(key.lastIndexOf('/') + 1));
 }

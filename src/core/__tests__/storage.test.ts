@@ -107,6 +107,34 @@ describe('SEAM-STORAGE · the fs driver', () => {
     await expect(serveSigned(bare)).rejects.toThrow(/^STORAGE_URL_INVALID: /);
   });
 
+  it('refuses an address that is not an address, as STORAGE_OBJECT_MISSING', async () => {
+    // The prefix is the isolation (R-SPINE-021), and `path.join` normalises away a `..`: an
+    // address carrying one would otherwise read another tenant's object — or a file that is
+    // no object at all — through a seam whose whole surface is one tenant's objects.
+    const mine = storageForTenant({ tenantId: TENANT_A });
+    const theirs = storageForTenant({ tenantId: TENANT_B });
+    const secret = await theirs.put(bytesOf('tenant B secret drawing'));
+
+    const escape = `../../${TENANT_B}/sha256/${secret.sha256}`;
+    await expect(mine.get(escape)).rejects.toThrow(/^STORAGE_OBJECT_MISSING: /);
+    await expect(mine.sign(escape, { expiresInSeconds: 60 })).rejects.toThrow(
+      /^STORAGE_OBJECT_MISSING: /,
+    );
+
+    // And the same for a path that leaves the storage root altogether.
+    const outside = '../'.repeat(8) + 'etc/passwd';
+    await expect(mine.get(outside)).rejects.toThrow(/^STORAGE_OBJECT_MISSING: /);
+    await expect(mine.sign(outside, { expiresInSeconds: 60 })).rejects.toThrow(
+      /^STORAGE_OBJECT_MISSING: /,
+    );
+
+    // The address B really does hold still reads for B: the guard is on the shape, not on
+    // reading at all.
+    expect(Uint8Array.from(await theirs.get(secret.sha256))).toEqual(
+      bytesOf('tenant B secret drawing'),
+    );
+  });
+
   it('refuses a tenant id that could never be a uuid, as TENANT_ID_INVALID', () => {
     // The spine's code, reused: the storage seam does not invent a second name for it.
     expect(() => storageForTenant({ tenantId: 'T-0001' })).toThrow(/^TENANT_ID_INVALID: /);
@@ -131,9 +159,11 @@ describe('SEAM-STORAGE · every revision is kept, on both drivers', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  it('exports no verb that removes an object', () => {
+  it('exports no verb that removes an object', async () => {
     // Deletion is not a path this module has and then guards; it is a path it does not have.
-    const seam: Readonly<Record<string, unknown>> = { objectKey, serveSigned, storageForTenant };
+    // The module's own namespace, not a literal assembled here from three named imports: a
+    // list this test wrote could never grow a `remove` the seam had grown.
+    const seam = await import('../storage');
     expect(Object.keys(seam).sort()).toEqual(['objectKey', 'serveSigned', 'storageForTenant']);
 
     const store = storageForTenant({ tenantId: TENANT_A });
@@ -160,6 +190,68 @@ describe('SEAM-STORAGE · every revision is kept, on both drivers', () => {
 
     expect(again).toEqual(first);
     expect(Uint8Array.from(await store.get(first.sha256))).toEqual(bytes);
+  });
+});
+
+/**
+ * `serveSigned` is a seam verb, not a fetch. Under the S3 driver the bytes come back over the
+ * network, so the URL it is handed is checked to be one this seam could have minted — the
+ * configured endpoint, this bucket — before anything leaves the process. A seam that fetched
+ * whatever string it was given would be an open proxy the day a route passed a request
+ * parameter through it (Q-12).
+ */
+describe('SEAM-STORAGE · serveSigned fetches this seam’s bucket and nothing else', () => {
+  let fake: S3Fake | undefined;
+  let elsewhere: S3Fake | undefined;
+
+  beforeAll(async () => {
+    fake = await startS3Fake();
+    elsewhere = await startS3Fake();
+  });
+  afterAll(async () => {
+    await fake?.close();
+    await elsewhere?.close();
+  });
+  beforeEach(() => {
+    for (const [name, value] of Object.entries(fake?.env ?? {})) process.env[name] = value;
+  });
+
+  it('refuses a URL on another origin, as STORAGE_URL_INVALID', async () => {
+    // The bytes exist and are readable — on a host that is not this seam's bucket. Whether
+    // that host would have answered is exactly the question the seam must not ask.
+    for (const [name, value] of Object.entries(elsewhere?.env ?? {})) process.env[name] = value;
+    const store = storageForTenant({ tenantId: TENANT_A });
+    const stored = await store.put(bytesOf('bytes on somebody else’s server'));
+    const foreign = await store.sign(stored.sha256, { expiresInSeconds: 60 });
+
+    for (const [name, value] of Object.entries(fake?.env ?? {})) process.env[name] = value;
+    await expect(serveSigned(foreign)).rejects.toThrow(/^STORAGE_URL_INVALID: /);
+  });
+
+  it('refuses an arbitrary URL that is not a bucket URL at all, as STORAGE_URL_INVALID', async () => {
+    await expect(serveSigned('http://169.254.169.254/latest/meta-data/')).rejects.toThrow(
+      /^STORAGE_URL_INVALID: /,
+    );
+    await expect(serveSigned(`${fake?.endpoint ?? ''}/other-bucket/t/x`)).rejects.toThrow(
+      /^STORAGE_URL_INVALID: /,
+    );
+  });
+
+  it('refuses an fs-shaped URL under the s3 driver by name, not as a TypeError', async () => {
+    // A stale URL kept across a driver migration is a misconfiguration, and this seam answers
+    // a misconfiguration in its own taxonomy rather than letting undici's parse error escape.
+    await expect(
+      serveSigned(`/storage/${objectKey(TENANT_A, 'a'.repeat(64))}?exp=2000000000&sig=abcd`),
+    ).rejects.toThrow(/^STORAGE_URL_INVALID: /);
+  });
+
+  it('still serves a URL it minted itself', async () => {
+    const store = storageForTenant({ tenantId: TENANT_A });
+    const bytes = bytesOf('a URL this seam minted');
+    const stored = await store.put(bytes);
+    const url = await store.sign(stored.sha256, { expiresInSeconds: 60 });
+
+    expect(Uint8Array.from(await serveSigned(url))).toEqual(bytes);
   });
 });
 
