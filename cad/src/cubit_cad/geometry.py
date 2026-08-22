@@ -49,7 +49,8 @@ def flatten(entity: Any) -> tuple[list[Point], bool]:
         path = ezpath.make_path(entity)
     except Exception:
         return [], False
-    points = [_pt(vertex) for vertex in islice(path.flattening(FLATTEN_TOLERANCE), FLATTEN_POINT_CAP + 1)]
+    vertices = islice(path.flattening(FLATTEN_TOLERANCE), FLATTEN_POINT_CAP + 1)
+    points = [_pt(vertex) for vertex in vertices]
     if len(points) > FLATTEN_POINT_CAP:
         return points[:FLATTEN_POINT_CAP], True
     return points, False
