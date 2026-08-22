@@ -23,7 +23,8 @@
  * would redden the increment that lawfully builds the next one.
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -33,7 +34,12 @@ const REPO = process.cwd();
 /** The two files the toolchain change names, and the workflow that has to run the lane. */
 const E2E_SCRIPT = 'scripts/e2e.mjs';
 const NEXT_CONFIG = 'next.config.ts';
+const PLAYWRIGHT_CONFIG = 'playwright.config.ts';
 const WORKFLOWS = '.github/workflows';
+
+/** The font pin the baselines are drawn through, and the token stacks it has to cover. */
+const FONTS_CONF = 'tests/e2e/fonts.conf';
+const TOKENS = 'src/ui/tokens.css';
 
 /** AC-4 names the committed baselines by path; the checkpoints are the journey's own. */
 const BASELINE_DIR = 'tests/e2e/baselines/design';
@@ -123,6 +129,82 @@ function resolveTemplate(template: string, arg: string): { path: string; unknown
     return `{${name}}`;
   });
   return { path: path.replace(/^\.\//, ''), unknown };
+}
+
+/**
+ * One family a token stack names, and whether it is a monospaced stack (R-UI-003 sets every
+ * numeral in --font-mono, so a mono family that resolved to a proportional face would move
+ * every digit on the page).
+ */
+interface TokenFamily {
+  readonly family: string;
+  readonly mono: boolean;
+}
+
+/**
+ * Every family the `--font-*` tokens name, read at run time from src/ui/tokens.css. Derived,
+ * not frozen: a later increment that adds a family to a stack is covered by the same rule
+ * rather than reddening a copied list.
+ */
+function tokenFamilies(): TokenFamily[] {
+  const css = readFileSync(join(REPO, TOKENS), 'utf8');
+  const found = new Map<string, boolean>();
+  for (const match of css.matchAll(/--font-([a-z0-9-]+)\s*:\s*([^;{}]+);/g)) {
+    const token = match[1] ?? '';
+    const stack = match[2] ?? '';
+    if (stack.includes('var(')) continue;
+    for (const raw of stack.split(',')) {
+      const family = raw.trim().replace(/^['"]|['"]$/g, '').trim();
+      if (family === '') continue;
+      const mono = token.includes('mono') || family.toLowerCase() === 'monospace';
+      found.set(family, (found.get(family) ?? false) || mono);
+    }
+  }
+  return [...found].map(([family, mono]) => ({ family, mono }));
+}
+
+/**
+ * The families this repository ships a face for, from every `@font-face` under src/. Today
+ * there are none — "unshipped fonts" is the standing AM-03 design finding, and it is why the
+ * pin exists at all. When the increment that ships the faces lands, those families stop being
+ * a property of the host and the rule below stops demanding a substitution for them.
+ */
+function shippedFamilies(): Set<string> {
+  const shipped = new Set<string>();
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (entry.name.endsWith('.css')) {
+        for (const face of readFileSync(path, 'utf8').matchAll(/@font-face\s*\{([^}]*)\}/g)) {
+          const declared = /font-family\s*:\s*([^;]+);/.exec(face[1] ?? '');
+          if (declared === null) continue;
+          shipped.add((declared[1] ?? '').trim().replace(/^['"]|['"]$/g, '').trim());
+        }
+      }
+    }
+  };
+  walk(join(REPO, 'src'));
+  return shipped;
+}
+
+/**
+ * The `family → assigned family` substitutions tests/e2e/fonts.conf declares, as fontconfig
+ * reads them: a `<match target="pattern">` that tests a family name and assigns another.
+ */
+function fontSubstitutions(): Map<string, string> {
+  const xml = readFileSync(join(REPO, FONTS_CONF), 'utf8');
+  const substitutions = new Map<string, string>();
+  for (const block of xml.matchAll(/<match[^>]*target="pattern"[^>]*>([\s\S]*?)<\/match>/g)) {
+    const body = block[1] ?? '';
+    const from = /<test[^>]*name="family"[^>]*>\s*<string>([^<]*)<\/string>/.exec(body);
+    const to = /<edit[^>]*name="family"[^>]*mode="assign"[^>]*>\s*<string>([^<]*)<\/string>/.exec(
+      body,
+    );
+    if (from === null || to === null) continue;
+    substitutions.set((from[1] ?? '').trim(), (to[1] ?? '').trim());
+  }
+  return substitutions;
 }
 
 describe('inc-007 — the V-E2E lane (AC-3, AC-4)', () => {
@@ -246,5 +328,114 @@ describe('inc-007 — the V-E2E lane (AC-3, AC-4)', () => {
     // The runner has no browser until one is installed; a job that skipped this would fail
     // for a reason that has nothing to do with the product.
     expect(text, 'V-E2E: the job installs the browser it drives').toContain('playwright install');
+  });
+
+  /**
+   * AC-4 / Q-06 / V-E2E — the font pin, as the arbitration on tests/e2e/fonts.conf settled it.
+   *
+   * V-E2E's "visual comparisons against committed Linux baselines" at maxDiffPixelRatio 0.002
+   * entails cross-host determinism, and this repository ships no font face: which glyphs
+   * `--font-ui: Inter, 'Helvetica Neue', Arial, sans-serif` paints is a property of the host's
+   * fontconfig unless the tree decides it. The committed pin (FONTCONFIG_FILE +
+   * tests/e2e/fonts.conf) is the sanctioned mechanism — the ruling was explicit that removing it
+   * would make the committed PNGs a property of the host's font installation and redden Q-06
+   * for reasons unrelated to the tree. Nothing below asks for its absence; the two things
+   * asserted are that it covers every entry point and that it maps to the Linux defaults an
+   * unpinned host would have resolved anyway.
+   */
+  it('AC-4 / Q-06: loading playwright.config.ts pins FONTCONFIG_FILE at the committed fonts.conf', () => {
+    const conf = join(REPO, FONTS_CONF);
+    expect(existsSync(conf), `Q-06: ${FONTS_CONF} is committed — the baselines are drawn through it`).toBe(
+      true,
+    );
+
+    const env: Record<string, string> = {};
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value !== undefined && key !== 'FONTCONFIG_FILE') env[key] = value;
+    }
+    env['CUBIT_PW_CONFIG_URL'] = pathToFileURL(join(REPO, PLAYWRIGHT_CONFIG)).href;
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '--eval',
+        "await import(process.env['CUBIT_PW_CONFIG_URL']);" +
+          "process.stdout.write(String(process.env['FONTCONFIG_FILE']));",
+      ],
+      { env, cwd: REPO, encoding: 'utf8' },
+    );
+
+    // The config is loaded before any browser is launched, so pinning here — rather than only
+    // in scripts/e2e.mjs — covers `pnpm exec playwright test` too: no entry point can judge or
+    // rewrite a committed baseline through the host's own fonts.
+    expect(
+      result.stdout.trim(),
+      `V-E2E: ${PLAYWRIGHT_CONFIG} points FONTCONFIG_FILE at ${FONTS_CONF} for every entry point`,
+    ).toBe(conf);
+  }, 60_000);
+
+  it('AC-4 / Q-06: a config whose fonts.conf is missing refuses to run rather than fall back', () => {
+    // The guard is read where it bites: the config resolves the pin relative to its own file,
+    // so a copy of it in a directory with no tests/e2e/fonts.conf is the missing-file case. An
+    // unpinned run's verdict on a committed baseline means nothing, so it must not produce one.
+    const dir = mkdtempSync(join(tmpdir(), 'cubit-fontpin-'));
+    try {
+      symlinkSync(join(REPO, 'node_modules'), join(dir, 'node_modules'), 'dir');
+      copyFileSync(join(REPO, PLAYWRIGHT_CONFIG), join(dir, PLAYWRIGHT_CONFIG));
+
+      const env: Record<string, string> = {};
+      for (const [key, value] of Object.entries(process.env)) {
+        if (value !== undefined && key !== 'FONTCONFIG_FILE') env[key] = value;
+      }
+      env['CUBIT_PW_CONFIG_URL'] = pathToFileURL(join(dir, PLAYWRIGHT_CONFIG)).href;
+      const result = spawnSync(
+        process.execPath,
+        ['--input-type=module', '--eval', "await import(process.env['CUBIT_PW_CONFIG_URL']);"],
+        { env, cwd: dir, encoding: 'utf8' },
+      );
+
+      expect(result.status, 'Q-06: an unpinned suite is a hard stop, not a silent fallback').not.toBe(
+        0,
+      );
+      // Named so a resolution failure cannot pass for the refusal being asserted.
+      expect(
+        `${result.stdout}${result.stderr}`,
+        'Q-06: the refusal names the missing pin',
+      ).toContain('fonts.conf');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it('AC-4 / Q-06: every token-stack family is assigned to the standard Linux default face', () => {
+    const substitutions = fontSubstitutions();
+    const shipped = shippedFamilies();
+    const families = tokenFamilies();
+    expect(families.length, `Q-06: ${TOKENS} names the font stacks the gallery paints in`).toBeGreaterThan(
+      0,
+    );
+
+    for (const { family, mono } of families) {
+      const assigned = substitutions.get(family);
+      if (shipped.has(family) && assigned === undefined) continue;
+      // A family this tree ships no face for and the pin does not name is resolved by the host
+      // — the divergence the arbitration ruled the pin exists to close — so a stack that grows
+      // has to grow with it.
+      expect(assigned, `Q-06: ${FONTS_CONF} assigns "${family}" (${TOKENS}, no shipped face)`).toBeDefined();
+      // Liberation/DejaVu are what an unpinned Linux reader resolves for these stacks anyway:
+      // the pin makes that deterministic, it does not substitute for a shipped typeface.
+      expect(
+        assigned ?? '',
+        `Q-06: "${family}" is assigned a metric-compatible Linux default (Liberation/DejaVu)`,
+      ).toMatch(/^(Liberation|DejaVu)\b/);
+      // R-UI-003 sets every numeral in --font-mono; a mono stack that landed on a proportional
+      // face would move every digit in the baseline.
+      expect(
+        /\bMono\b/.test(assigned ?? ''),
+        mono
+          ? `R-UI-003: the mono family "${family}" is assigned a monospaced face`
+          : `Q-06: the proportional family "${family}" is not assigned a monospaced face`,
+      ).toBe(mono);
+    }
   });
 });
