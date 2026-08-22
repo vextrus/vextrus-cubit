@@ -64,7 +64,12 @@ test.describe('J-004 — the living gallery in both themes (R-UI-011, AM-03)', (
       await expectNoSeriousOrCritical(page, 'gallery-light');
 
       // Q-06 / AC-4: the committed Linux baseline, no platform suffix, no volatile mask.
-      await expect(page).toHaveScreenshot('design/gallery-light.png', {
+      // The name is an array, not 'design/gallery-light.png': Playwright sanitises a string
+      // name before it reaches {arg} and turns the separator into a hyphen, so the string
+      // form would target baselines/design-gallery-light.png and never compare against the
+      // committed baselines/design/gallery-light.png this comment claims. Only the array
+      // form is path-joined and keeps the directory segment.
+      await expect(page).toHaveScreenshot(['design', 'gallery-light.png'], {
         fullPage: true,
         animations: 'disabled',
         maxDiffPixelRatio: 0.002,
@@ -80,7 +85,8 @@ test.describe('J-004 — the living gallery in both themes (R-UI-011, AM-03)', (
 
       await expectNoSeriousOrCritical(page, 'gallery-dark');
 
-      await expect(page).toHaveScreenshot('design/gallery-dark.png', {
+      // Q-06 / AC-4: the array form again — see the light checkpoint above.
+      await expect(page).toHaveScreenshot(['design', 'gallery-dark.png'], {
         fullPage: true,
         animations: 'disabled',
         maxDiffPixelRatio: 0.002,

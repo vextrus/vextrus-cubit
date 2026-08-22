@@ -3,9 +3,25 @@
  *
  * C-06: "a lane that does not exist yet is skipped with the recorded reason
  * LANE_NOT_YET_BUILT, never silently passed; from increment one, every stage is armed".
- * Three lanes stop being stubs in this increment and eleven remain stubs; a lane that is
- * armed must no longer announce itself as unbuilt, and a lane that is still a stub must
- * still say so out loud.
+ * Three lanes stopped being stubs in this increment (`test:db`, `db:migrate`, `db:drift`);
+ * a lane that is armed must no longer announce itself as unbuilt, and a lane that is still
+ * a stub must still say so out loud.
+ *
+ * AMENDED (arbitration, 2026-08-22): the roster below is the still-unbuilt set at each
+ * increment's *sanctioned* state, not a count. C-06 fixes no number — it makes the stub
+ * roster a shrinking quantity whose only hard requirement is that a lane which does not
+ * exist yet skips out loud. inc-007's spec arms `dev`, `build`, `start` and `e2e` (AC-3:
+ * those four "leave the lane-stub roster" while worker and the rest still announce SKIP),
+ * so exactly those four came off this list. It stays explicit and frozen at that state —
+ * never derived at run time from which scripts point at the stub runner, which would let a
+ * lane be un-stubbed in silence, the very silence C-06 forbids. A roster change rides an
+ * increment whose spec sanctions it, and this comment records the evidence.
+ *
+ * The stub probe runs only against the entries below. It must not be pointed at an armed
+ * lane: `pnpm dev` and `pnpm start` launch real servers that burn the suite's timeout and
+ * hold C-07's ports. The armed lanes' behaviour is asserted where it belongs —
+ * src/app/design/__tests__/lane.acceptance.test.ts for the V-E2E lane, and the suites below
+ * for the database lanes.
  *
  * These assertions spawn `pnpm test:db` and `pnpm verify`, so they live here rather than in
  * tests/toolchain: the vitest stage of `pnpm verify` and CI both run without a database.
@@ -17,13 +33,15 @@ import { NESTED, NESTED_SENTINEL, REPO, isNested, lane, lastLine, lines, run } f
 import { APP_ROLE, connectTo, endAll, query, urlFor } from './support/live';
 import type { Client } from 'pg';
 
-/** AC-4: "exactly the eleven still-unbuilt lanes (only `test:db`, `db:migrate`, `db:drift` removed)". */
+/**
+ * AC-4 / C-06: the lanes that do not exist yet, at this increment's sanctioned state.
+ *
+ * inc-001 took `test:db`, `db:migrate` and `db:drift` off this list; inc-007's spec takes
+ * `dev`, `build`, `start` and `e2e` off it and no others. Seven remain, and this file and
+ * tests/toolchain/lane-stubs.test.ts hold the same seven in lockstep (asserted below).
+ */
 const STILL_STUBS = [
-  'dev',
-  'build',
-  'start',
   'worker',
-  'e2e',
   'test:golden',
   'test:docs',
   'test:perf',
@@ -32,7 +50,12 @@ const STILL_STUBS = [
   'traceability',
 ];
 
-const NOW_ARMED = ['test:db', 'db:migrate', 'db:drift'];
+/**
+ * Lanes this repo has armed, which must therefore be off the stub roster. Read only as text
+ * here — none of these is spawned by this test. `dev`, `build`, `start` and `e2e` run Next
+ * and Playwright now; their contract lines belong to the V-E2E acceptance beside the screen.
+ */
+const NOW_ARMED = ['test:db', 'db:migrate', 'db:drift', 'dev', 'build', 'start', 'e2e'];
 
 /**
  * The database the nested `pnpm test:db` is told to provision — never the one we are in.
@@ -64,7 +87,7 @@ describe('AC-4 — the armed lanes and the gate (C-06)', () => {
     expect(block['db:drift']).toBe('node scripts/db-drift.mjs');
   });
 
-  it('AC-4 / C-06: exactly the eleven still skip out loud; the armed lanes do not', async () => {
+  it('AC-4 / C-06: exactly the seven still skip out loud; the db lanes do not', async () => {
     for (const script of STILL_STUBS) {
       const ran = await lane(script);
       expect(ran.code, `pnpm ${script} exited ${ran.code}\n${ran.merged}`).toBe(0);
@@ -72,15 +95,18 @@ describe('AC-4 — the armed lanes and the gate (C-06)', () => {
         `${script}: SKIP LANE_NOT_YET_BUILT`,
       );
     }
-    // The other half of the same claim: an armed lane that still prints the recorded
-    // reason is a lane that was never built (`pnpm test:db` is spawned below, not here).
+    // The other half of the same claim, for the database lanes this suite owns: an armed
+    // lane that still prints the recorded reason is a lane that was never built (`pnpm
+    // test:db` is spawned below, not here). Both of these terminate on their own; the
+    // long-running armed lanes — `dev`, `start`, `build`, `e2e` — are never spawned from
+    // here, because a server that outlives the assertion is weather, not a verdict.
     for (const script of ['db:migrate', 'db:drift']) {
       const ran = await lane(script);
       expect(ran.merged, `pnpm ${script} is still a stub`).not.toContain('SKIP LANE_NOT_YET_BUILT');
     }
   });
 
-  it('AC-4: tests/toolchain/lane-stubs.test.ts lists exactly the eleven', () => {
+  it('AC-4: tests/toolchain/lane-stubs.test.ts lists exactly the same seven', () => {
     const source = readFileSync(join(REPO, 'tests', 'toolchain', 'lane-stubs.test.ts'), 'utf8');
     const roster = /const STUBS = \[([\s\S]*?)\];/.exec(source)?.[1] ?? '';
     expect(roster, 'the STUBS roster is not where the inc-000 test keeps it').not.toBe('');
