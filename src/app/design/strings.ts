@@ -123,7 +123,10 @@ export const DESIGN_STRINGS = Object.freeze({
   'design.sample.colBasis': 'Basis',
   'design.sample.total': 'Total',
   'design.sample.tableEmpty': 'No items measured yet. Measure a condition on the sheet to add rows.',
-  'design.sample.holder': 'Ayesha Rahman, the project owner',
+  // The pattern's remedy reads "Ask {holder} to grant it or to make the change for you." — a
+  // comma-appositive holder ("Ayesha Rahman, the project owner") is left open by that sentence
+  // and runs into the verb phrase. The role is parenthesised so the composed line closes.
+  'design.sample.holder': 'Ayesha Rahman (the project owner)',
 } as const);
 
 /** The closed key set: exactly the keys the table above carries. */

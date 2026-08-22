@@ -8,30 +8,36 @@
  * than to any screen), and it decides `data-theme` on `<html>` so every token in the sheet
  * resolves against the theme the reader asked for.
  *
- * Where the theme comes from: an App Router *layout* is never handed the query string — only a
- * page is — so `?theme=` reaches this file as a request header instead. src/middleware.ts reads
- * it off the incoming URL and forwards the resolved value; `headers()` reads it back here and
- * the attribute is rendered on the server, in the document that actually leaves it. That is the
- * difference that matters: `GET /design?theme=dark` is dark for a reader with no JavaScript, a
- * crawler and `curl`, not only for a browser that has run a script. Nothing is patched after
- * hydration, so there is no attribute for the client to disagree with and no flash of the wrong
- * theme. A missing header — anything the matcher does not cover — resolves to `light`, the
- * default the document names.
+ * Why a script rather than a server-read query: the Design Decision (§1) makes /design
+ * "statically renderable: no fetch, no auth, no live data", and an App Router *layout* is
+ * never handed the query string — only a page is. A blocking script in `<head>` sets the
+ * attribute before the first paint, from the same `?theme=` the page reads for its nav, so
+ * the document never paints in the wrong theme and no font or colour flashes. The default
+ * attribute is `light`, so an unknown value, a missing query and a reader with no JavaScript
+ * all land on the light theme the document names as the default.
  */
-import { headers } from 'next/headers';
-import { THEME_HEADER, resolveTheme } from './theme-request';
 import type { ReactNode } from 'react';
 import './tailwind.css';
 import './theme.css';
 
-export default async function RootLayout({
+/**
+ * Set before paint: `dark` only for the exact value the document names, `light` for a missing
+ * query, an unknown value, or a query that cannot be parsed at all.
+ */
+const THEME_SCRIPT =
+  "document.documentElement.dataset.theme=" +
+  "new URLSearchParams(window.location.search).get('theme')==='dark'?'dark':'light';";
+
+export default function RootLayout({
   children,
 }: {
   readonly children: ReactNode;
-}): Promise<ReactNode> {
-  const theme = resolveTheme((await headers()).get(THEME_HEADER));
+}): ReactNode {
   return (
-    <html lang="en" data-theme={theme}>
+    <html lang="en" data-theme="light" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>{children}</body>
     </html>
   );

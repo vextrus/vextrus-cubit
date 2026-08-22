@@ -142,6 +142,13 @@ table; identifiers and numerals (marks, quantities, `RPT-3F82C1`, `estimate.sign
 `S-201 Column layout`, `three`, `⌘`, `K`, unit codes, refusal codes) are sample data, rendered
 verbatim from the registry. Keys below drop the `design.sample.` prefix where shown bare in §3.
 
+> Amended (inc-007, on a survey finding — AM-03 (2), a copy defect is a defect): `holder` read
+> `Ayesha Rahman, the project owner`. The pattern sentence it is composed into —
+> `patterns.permission.remedy`, "Ask {holder} to grant it or to make the change for you." —
+> leaves that comma-appositive unclosed, so the rendered line ran "Ask Ayesha Rahman, the
+> project owner to grant it…" and stumbles on first reading. The role is parenthesised instead;
+> the sentence closes, and the remedy pattern (out of this increment's scope) is untouched.
+
 Label keys, verbatim, as `key` → value runs (page keys first, then `design.sample.*` bare):
 
 - `design.docTitle` → Datum gallery · `design.title` → Datum · `design.theme.label` → Theme ·
@@ -172,7 +179,7 @@ Label keys, verbatim, as `key` → value runs (page keys first, then `design.sam
   `voidSignature` → Void a signature · `voidSignatures` → Signatures voided ·
   `voidUnfrozen` → Quantities unfrozen · `voidSuperseded` → Documents marked superseded ·
   `colMark` → Mark · `colElement` → Element · `colQuantity` → Quantity (m³) ·
-  `colBasis` → Basis · `total` → Total · `holder` → Ayesha Rahman, the project owner
+  `colBasis` → Basis · `total` → Total · `holder` → Ayesha Rahman (the project owner)
 
 Sentence copy:
 

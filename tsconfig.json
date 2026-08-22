@@ -52,14 +52,17 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     ".next-verify/types/**/*.ts",
-    ".next-verify/dev/types/**/*.ts",
-    ".next/dev/dev/types/**/*.ts"
+    ".next-verify/dev/types/**/*.ts"
   ],
   // The bad fixtures are lint inputs, not compiler inputs: they are broken on purpose.
+  //
+  // Neither build directory is listed here: TypeScript's exclude filters what include matched,
+  // so a bare ".next" would cancel the generated-type globs above and Next's own page/route
+  // validators — the machinery that catches a wrong searchParams or params shape — would never
+  // be compiled. Nothing outside those globs reaches the compiler from either directory: the
+  // include list matches build output nowhere else.
   "exclude": [
     "node_modules",
-    ".next",
-    ".next-verify",
     ".scratch",
     "dist",
     "tests/lint-fixtures/*/*"

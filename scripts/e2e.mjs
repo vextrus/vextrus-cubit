@@ -74,25 +74,51 @@ function pinFonts() {
   process.env['FONTCONFIG_FILE'] = FONTS_CONF;
 }
 
-/** `--journey J-004 --journey J-000 --update-baselines`, as the caller wrote it. */
+/** The shape every journey id has: `J-nnn`, three digits, as V-E2E writes them. */
+const JOURNEY_ID = /^J-\d{3}$/;
+
+/**
+ * `--journey J-004 --journey J-000 --update-baselines`, as the caller wrote it.
+ *
+ * A `--journey` the caller got wrong is refused by name rather than absorbed. Left silent, a
+ * trailing `--journey` with no id contributed nothing, `journeys` came out empty, and the lane
+ * took the "run every journey spec" branch — so a typo ran the whole suite, and with
+ * `--update-baselines` it could rewrite every committed PNG (Q-06) off a slip of the shell.
+ * A misspelled id was worse than that: `--journey j-004` matched no spec, printed
+ * JOURNEY_NOT_YET_WRITTEN for a journey that is written, and exited 0 green. Ids are therefore
+ * upper-cased before they are looked up, and anything that is not `J-nnn` stops the lane.
+ */
 function parseArgs(argv) {
   const journeys = [];
+  const errors = [];
   let updateBaselines = false;
+  const take = (raw, written) => {
+    const id = raw.toUpperCase();
+    if (!JOURNEY_ID.test(id)) {
+      errors.push(`e2e: ${written} is not a journey id — expected J-nnn, e.g. --journey J-004`);
+      return;
+    }
+    journeys.push(id);
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--journey') {
       const value = argv[index + 1];
-      if (value !== undefined) journeys.push(value);
+      if (value === undefined || value.startsWith('--')) {
+        errors.push('e2e: --journey needs a journey id after it, e.g. --journey J-004');
+        continue;
+      }
+      take(value, `--journey ${value}`);
       index += 1;
       continue;
     }
     if (arg.startsWith('--journey=')) {
-      journeys.push(arg.slice('--journey='.length));
+      take(arg.slice('--journey='.length), arg);
       continue;
     }
     if (arg === '--update-baselines') updateBaselines = true;
   }
-  return { journeys, updateBaselines };
+  return { journeys, updateBaselines, errors };
 }
 
 /** Every journey spec in the tree: `J-004` → `tests/e2e/j-004-design.spec.ts`. */
@@ -230,7 +256,13 @@ function stopServer(child) {
 }
 
 async function main() {
-  const { journeys, updateBaselines } = parseArgs(process.argv.slice(2));
+  const { journeys, updateBaselines, errors } = parseArgs(process.argv.slice(2));
+  // A malformed invocation is never run as if it had been written correctly: nothing is built,
+  // nothing is served, and no baseline is touched.
+  if (errors.length > 0) {
+    for (const error of errors) detail(error);
+    return 2;
+  }
   const specs = specsByJourney();
 
   const running = [];
