@@ -85,7 +85,12 @@
 .datum-gallery-rail-label {
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-500);
+  /*
+   * --graphite-600, not the decision's --graphite-500: at 12px on --graphite-50 that token
+   * measures 3.01:1, which axe reports as a serious finding and AM-03 (3) blocks a merge on.
+   * The role — a quiet group label — and §9's palette are both kept.
+   */
+  color: var(--graphite-600);
   margin-top: var(--space-4);
 }
 
@@ -148,7 +153,8 @@
   margin-left: auto;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-500);
+  /* --graphite-600 for the same reason as the rail label: 3.2:1 at 12px is a serious finding. */
+  color: var(--graphite-600);
 }
 
 .datum-gallery-card-body {
