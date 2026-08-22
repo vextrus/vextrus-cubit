@@ -35,17 +35,20 @@ function run(cmd: string, args: string[]): Promise<Ran> {
  * roster: C-06's recorded reason is for a lane that does not exist yet, and a built lane
  * that still printed it would be reporting a lie. Their contract lines are asserted by the
  * V-DB suite in db/__tests__, which is where a test that needs a database belongs.
+ *
+ * inc-007a armed `e2e` and `seed` and took them off it for the same reason and by the same
+ * precedent. Their arming is not un-asserted by that: tests/toolchain/e2e-lane.test.ts
+ * checks this roster from the other side (a script still routed through scripts/lane.mjs
+ * must still be listed here), and db/__tests__/e2e-lane.test.ts spawns both lanes.
  */
 const STUBS = [
   'dev',
   'build',
   'start',
   'worker',
-  'e2e',
   'test:golden',
   'test:docs',
   'test:perf',
-  'seed',
   'gen:fixtures',
   'traceability',
 ];

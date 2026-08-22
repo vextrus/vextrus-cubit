@@ -46,17 +46,30 @@ export function databaseName(): string {
   return new URL(appUrl()).pathname.replace(/^\//, '');
 }
 
-/** A connection that has had no `cubit.scope` or `cubit.tenant_id` set on it. */
-export async function connectAs(role: string): Promise<Client> {
-  const client = new pg.Client({ connectionString: urlAs(role) });
+/**
+ * A live connection whose server-side death is not the runner's death.
+ *
+ * `pnpm e2e` drops its scratch database `with (force)`, which terminates every other
+ * session on that database (57P01). A pg Client with no `error` listener re-emits that as
+ * an uncaught exception and takes the whole vitest process down, long after the test that
+ * opened it has passed. The listener weakens nothing: `connect()` still rejects when a
+ * connection cannot be made, a query on a dead connection still rejects, and every refusal
+ * these suites prove is read from a rejected query.
+ */
+async function connected(url: string): Promise<Client> {
+  const client = new pg.Client({ connectionString: url });
+  client.on('error', () => undefined);
   await client.connect();
   return client;
 }
 
+/** A connection that has had no `cubit.scope` or `cubit.tenant_id` set on it. */
+export async function connectAs(role: string): Promise<Client> {
+  return connected(urlAs(role));
+}
+
 export async function connectTo(url: string): Promise<Client> {
-  const client = new pg.Client({ connectionString: url });
-  await client.connect();
-  return client;
+  return connected(url);
 }
 
 export async function query(
