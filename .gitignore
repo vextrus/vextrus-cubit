@@ -4,9 +4,12 @@ cad/.venv/
 .venv/
 __pycache__/
 
-# Build output. `next build` writes its own distDir under verify (V-VERIFY).
+# Build output. Each lane builds into a distDir of its own so none of them consumes or
+# poisons another's: verify uses .next-verify (V-VERIFY), `pnpm e2e` uses .next-e2e and
+# serves it on 3211 (V-E2E), and `next dev` keeps .next.
 .next/
 .next-verify/
+.next-e2e/
 out/
 dist/
 *.tsbuildinfo

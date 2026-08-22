@@ -135,3 +135,71 @@ jobs:
             cat "${RUNNER_TEMP}/porcelain-2.txt"
             exit 1
           fi
+
+  # V-E2E: "Runs in CI on every PR and by the harness gate." A job of its own rather than a
+  # stage of verify: the lane needs a database and a browser, and verify is the check that
+  # must stay runnable on a machine that has neither.
+  e2e:
+    name: V-E2E — build once, seed, serve on 3211, run the journeys
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      # C-07 puts PostgreSQL 16 on 127.0.0.1:5544, which is the address every default URL
+      # in scripts/db-migrate.mjs names. AS-01 forbids Docker *in dev*, on the development
+      # machine; a service container on a disposable CI runner is not that machine.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5544:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Check out the tree
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Node, from .nvmrc
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: pnpm, exact via corepack
+        shell: bash
+        run: |
+          corepack enable
+          corepack prepare --activate
+
+      - name: Install, frozen
+        shell: bash
+        run: pnpm install --frozen-lockfile
+
+      # A Playwright lane with no browser installed fails for a reason that is not the
+      # code's. The baselines are Linux-rendered and this runner is the Linux they were
+      # rendered for (ubuntu-24.04); --with-deps brings the system libraries chromium and
+      # its font stack need.
+      - name: chromium, with its system dependencies
+        shell: bash
+        run: pnpm exec playwright install --with-deps chromium
+
+      # The whole lane, exactly as a developer runs it: build once, drop/recreate/migrate/
+      # seed the scratch database, serve the build on 3211, run the journeys, exit with the
+      # run's true status.
+      - name: e2e
+        shell: bash
+        run: pnpm e2e
+
+      - name: The tree is untouched
+        shell: bash
+        run: |
+          git status --porcelain > "${RUNNER_TEMP}/porcelain-e2e.txt"
+          if [ -s "${RUNNER_TEMP}/porcelain-e2e.txt" ]; then
+            echo "the e2e lane modified the tree:"
+            cat "${RUNNER_TEMP}/porcelain-e2e.txt"
+            exit 1
+          fi

@@ -52,8 +52,12 @@ export default [
   {
     ignores: [
       'node_modules/**',
+      // Every lane's build output. Next generates route validators and type shims into its
+      // distDir, and generated code is not code this tree's rules have anything to say
+      // about — .next-e2e is `pnpm e2e`'s (next.config.ts).
       '.next/**',
       '.next-verify/**',
+      '.next-e2e/**',
       '.scratch/**',
       'dist/**',
       'out/**',
