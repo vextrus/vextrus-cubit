@@ -12,6 +12,11 @@ dist/
 *.tsbuildinfo
 next-env.d.ts
 
+# Stored objects. SEAM-STORAGE's fs driver keeps content-addressed objects under
+# CUBIT_STORAGE_DIR, which defaults to var/storage in dev; tests point it at a temp dir.
+# The objects are a dev machine's uploads, never the repo's (R-SPINE-021).
+var/
+
 # Scratch. Schema drift generates into .scratch/ so the tree stays untouched
 # (V-VERIFY: "drizzle-kit generate into scratch, tree untouched").
 .scratch/
