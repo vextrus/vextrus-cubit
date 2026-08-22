@@ -25,6 +25,11 @@ import { expectNoAxeViolations } from './axe';
  * prove nothing about the configured ratio. */
 const PATCH = 120;
 
+/** What a screenshot comparison says when it *compared* and refused: "<n> pixels (ratio
+ * <r> of all image pixels) are different." Anything else in the rejection — a stabilisation
+ * timeout, a missing file, a thrown helper — is not the ratio doing its job. */
+const PIXELS_DIFFER = /\d+ pixels \(ratio \d+(?:\.\d+)? of all image pixels\) are different/;
+
 test.describe('HARNESS-SELF', () => {
   test('HARNESS-SELF axe: the helper passes a clean page and rejects an injected violation', async ({
     page,
@@ -60,6 +65,15 @@ test.describe('HARNESS-SELF', () => {
       'expectNoAxeViolations accepted a page carrying an image with no alt text: the axe ' +
         'check does not fire, and every "axe-clean" checkpoint in every journey is hollow',
     ).toBeDefined();
+    // A rejection alone is not the check firing — a helper that threw a TypeError on any
+    // violating page would produce one too. The rejection has to name what axe found, which
+    // is also what makes a red journey actionable from the log.
+    expect(
+      String(rejected),
+      'expectNoAxeViolations rejected the damaged page without naming axe\'s `image-alt` ' +
+        'violation: whatever rejected is not the axe rule set reporting, so the helper is ' +
+        'not proved to fire',
+    ).toContain('image-alt');
   });
 
   test('HARNESS-SELF visual: the comparison passes the render it baselined and rejects a perturbed one', async ({
@@ -102,5 +116,16 @@ test.describe('HARNESS-SELF', () => {
         'visual comparison does not fire at maxDiffPixelRatio 0.002, and every committed ' +
         'baseline in the tree is decoration',
     ).toBeDefined();
+    // And the rejection must be the *comparison* rejecting. toHaveScreenshot has to capture
+    // a stable screenshot before it compares anything, so a slow machine can reject with
+    // "Failed to take two consecutive stable screenshots." — a timeout that would arrive
+    // just the same if maxDiffPixelRatio had been widened until nothing could ever differ.
+    // Only the pixel-diff report proves the ratio was applied and the render was refused.
+    expect(
+      String(rejected),
+      'toHaveScreenshot rejected the perturbed render without reporting a pixel difference ' +
+        '(a capture/stabilisation timeout, or some other failure): the comparison itself is ' +
+        'not proved to fire, so maxDiffPixelRatio 0.002 is unproven',
+    ).toMatch(PIXELS_DIFFER);
   });
 });
