@@ -100,6 +100,8 @@ interface OverlayGesture {
   readonly dismissible: boolean;
   /** Radix returns focus to the trigger on close — the modal surfaces do (R-UI-012). */
   readonly returnsFocus: boolean;
+  /** The surface leaves on its own clock and has to be raised again for the scan behind it. */
+  readonly transient: boolean;
 }
 
 const OVERLAY_GESTURES: Readonly<Record<OverlayEntry, OverlayGesture>> = {
@@ -110,6 +112,7 @@ const OVERLAY_GESTURES: Readonly<Record<OverlayEntry, OverlayGesture>> = {
     surface: '.datum-dialog',
     dismissible: true,
     returnsFocus: true,
+    transient: false,
   },
   sheet: {
     cell: 'default',
@@ -118,6 +121,7 @@ const OVERLAY_GESTURES: Readonly<Record<OverlayEntry, OverlayGesture>> = {
     surface: '.datum-sheet',
     dismissible: true,
     returnsFocus: true,
+    transient: false,
   },
   'consequence-dialog': {
     cell: 'default',
@@ -126,6 +130,7 @@ const OVERLAY_GESTURES: Readonly<Record<OverlayEntry, OverlayGesture>> = {
     surface: '[data-testid="consequence-dialog"]',
     dismissible: true,
     returnsFocus: true,
+    transient: false,
   },
   'dropdown-menu': {
     cell: 'default',
@@ -134,6 +139,7 @@ const OVERLAY_GESTURES: Readonly<Record<OverlayEntry, OverlayGesture>> = {
     surface: '.datum-menu',
     dismissible: true,
     returnsFocus: false,
+    transient: false,
   },
   'context-menu': {
     cell: 'default',
@@ -144,6 +150,7 @@ const OVERLAY_GESTURES: Readonly<Record<OverlayEntry, OverlayGesture>> = {
     surface: '.datum-menu',
     dismissible: true,
     returnsFocus: false,
+    transient: false,
   },
   popover: {
     cell: 'default',
@@ -152,14 +159,21 @@ const OVERLAY_GESTURES: Readonly<Record<OverlayEntry, OverlayGesture>> = {
     surface: '.datum-popover-surface',
     dismissible: true,
     returnsFocus: false,
+    transient: false,
   },
   tooltip: {
     cell: 'default',
     trigger: 'button',
-    keys: [],
+    // The tip opens on a focus and on nothing else, and it wants a focus the *keyboard*
+    // delivered. `locator.focus()` makes the trigger `document.activeElement` and fires
+    // `focusin` on it, yet the tip followed only about one run in three on this machine;
+    // travelling off the control and back — Tab, then Shift+Tab — opened it in eight runs out
+    // of eight. So the gesture stays "focus alone", pressed rather than called.
+    keys: ['Tab', 'Shift+Tab'],
     surface: '.datum-tooltip',
     dismissible: true,
     returnsFocus: false,
+    transient: false,
   },
   select: {
     cell: 'placeholder',
@@ -168,6 +182,7 @@ const OVERLAY_GESTURES: Readonly<Record<OverlayEntry, OverlayGesture>> = {
     surface: '.datum-select-content',
     dismissible: true,
     returnsFocus: false,
+    transient: false,
   },
   combobox: {
     cell: 'default',
@@ -176,6 +191,7 @@ const OVERLAY_GESTURES: Readonly<Record<OverlayEntry, OverlayGesture>> = {
     surface: '[data-testid="combobox-list"]',
     dismissible: true,
     returnsFocus: false,
+    transient: false,
   },
   toaster: {
     cell: 'default',
@@ -183,9 +199,11 @@ const OVERLAY_GESTURES: Readonly<Record<OverlayEntry, OverlayGesture>> = {
     keys: ['Enter'],
     surface: '.datum-toast',
     // Nothing to dismiss: sonner takes the card away itself, which is also why the journey
-    // photographs it the moment it is visible.
+    // photographs it the moment it is visible — and why it is the one surface the scan behind
+    // the shot may have to raise a second time.
     dismissible: false,
     returnsFocus: false,
+    transient: true,
   },
 };
 
@@ -298,15 +316,17 @@ export class DesignPage {
   }
 
   /**
-   * The surface is still open when the caller looks again — and open once more if it is not.
+   * The surface is still open when the caller looks again — and raised once more if it is not.
    *
    * Only the toast needs this: sonner takes its card away after about four seconds, which is
    * long enough for a screenshot and not always long enough for the axe scan behind it. Firing
    * a second notification is the same keyboard gesture, and by then the pixels are captured.
+   * Every other surface stays where the gesture put it, and re-running that gesture on a
+   * surface that is already up would be a second question about a settled answer.
    */
   async keepOverlayOpen(entry: OverlayEntry): Promise<void> {
-    const surface = this.overlaySurface(entry);
-    if (await surface.isVisible()) return;
+    if (!OVERLAY_GESTURES[entry].transient) return;
+    if (await this.overlaySurface(entry).isVisible()) return;
     await this.openOverlayByKeyboard(entry);
   }
 
