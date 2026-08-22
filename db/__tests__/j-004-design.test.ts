@@ -16,8 +16,9 @@
  *
  * The run is read from the outside — an exit status, the contract line on stdout, and the
  * working tree afterwards. The two source scans below assert rules the criteria state
- * (array snapshot names, the lane's own axe helper, keyboard-only opens); they pin no
- * count, no ordering and no roster that a later increment may lawfully grow.
+ * (array snapshot names, an unnarrowed axe scan gating on serious/critical per
+ * INT-J004-axe-impact-threshold, keyboard-only opens); they pin no count, no ordering and no
+ * roster that a later increment may lawfully grow.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -140,9 +141,10 @@ describe('inc-007c — the /design gallery as gate evidence (J-004, Q-06, Q-11, 
     ]) {
       expect(there(file), `${file} is gone; the lane J-000 runs on has changed`).toBe(true);
     }
-    // AC-3: the helper every checkpoint calls still asserts *every* violation. If this
-    // increment had cured an axe finding by narrowing the shared helper it would show here
-    // — and an axe defect rooted in a merged primitive blocks per AM-03 instead.
+    // AC-3 / C-03: the lane's shared helper — J-000's own axe check, out of this
+    // increment's reach — still asserts *every* violation on the full rule set. If this
+    // increment had cured an axe finding by narrowing the helper the whole lane trusts, it
+    // would show here; an axe defect rooted in a merged primitive blocks per AM-03 instead.
     const axe = code(read('tests', 'e2e', 'axe.ts'));
     for (const narrowing of ['disableRules', 'withRules', 'withTags']) {
       expect(axe, `tests/e2e/axe.ts now narrows axe with ${narrowing}`).not.toContain(narrowing);
@@ -231,24 +233,38 @@ describe('inc-007c — the /design gallery as gate evidence (J-004, Q-06, Q-11, 
     }
   });
 
-  it('AC-3: every checkpoint goes through the lane’s axe helper, unnarrowed', () => {
+  it('AC-3: every checkpoint is scanned on axe’s full rule set, gating on serious/critical', () => {
     expect(there(JOURNEY), `${JOURNEY} is not in the tree`).toBe(true);
     const { journey, pageObject } = ownedSources();
     const both = `${journey}\n${pageObject}`;
 
-    // Q-11 / R-UI-012: the helper asserts zero violations of any impact. A journey that
-    // built its own AxeBuilder could quietly narrow the rule set for one page, and twelve
-    // hand-rolled builders cannot be proved to fire the way one helper can.
-    expect(
-      both,
-      `${JOURNEY} does not import expectNoAxeViolations from the lane's axe helper`,
-    ).toMatch(/import\s*\{[^}]*expectNoAxeViolations[^}]*\}\s*from\s*['"][^'"]*axe['"]/);
-    expect(both, 'the journey builds an AxeBuilder of its own').not.toMatch(/AxeBuilder/);
+    // The threshold is the arbitration's (INT-J004-axe-impact-threshold): Q-11 says "axe:
+    // zero serious/critical on every journey checkpoint", R-UI-012 says the same of every
+    // screen, and AM-03(3) blocks on "serious accessibility findings". So the journey's scan
+    // gates on those two impacts by name.
+    for (const impact of ['serious', 'critical']) {
+      expect(both, `the journey's axe scan never names the gating impact ${impact}`).toContain(
+        impact,
+      );
+    }
+
+    // What the split may not become is a quiet allowlist. A finding below the threshold is
+    // recorded into the run — AM-03(3) still wants it read and cured against the surface
+    // that owns it (C-03) — and a scan that dropped it would leave the design finding
+    // nowhere.
+    expect(both, 'findings below the threshold are dropped rather than recorded').toMatch(
+      /annotations|attach/,
+    );
+
+    // AC-3's surviving half, which the arbitration left standing: "No rule set is narrowed
+    // … no per-page exception introduced." The impact split is the whole of the filtering.
     for (const narrowing of ['disableRules', 'withRules', 'withTags', 'setLegacyMode']) {
       expect(both, `the journey narrows axe with ${narrowing}`).not.toContain(narrowing);
     }
-    // AC-3: "no violation filtered, no per-page exception introduced."
-    expect(both, 'the journey filters axe violations').not.toMatch(/violations\s*\.\s*filter/);
+
+    // And the lane's shared helper — which asserts every impact and is what J-000's own
+    // checkpoints call — is untouched by this increment (C-03). AC-1 above reads it back.
+    expect(there('tests', 'e2e', 'axe.ts'), 'the lane lost its axe helper').toBe(true);
   });
 
   it('AC-4: the journey opens every overlay by keyboard, and polls for the surface', () => {

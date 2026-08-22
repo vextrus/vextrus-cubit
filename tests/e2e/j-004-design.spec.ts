@@ -12,8 +12,23 @@
  * and the ten overlays that are drawn closed and have to be opened to be seen. Each one is
  * compared with its committed Linux baseline under the lane's own config — maxDiffPixelRatio
  * 0.002, updateSnapshots 'none', so a missing baseline is a failure and not a first write
- * (Q-06) — and each one is handed to the lane's axe helper, which asserts zero violations of
- * any impact and so subsumes Q-11's zero serious/critical.
+ * (Q-06) — and each one is scanned by axe.
+ *
+ * What the scan gates on is settled by arbitration (INT-J004-axe-impact-threshold, on this
+ * journey's overlay checkpoints): Q-11 states one threshold — "axe: zero serious/critical on
+ * every journey checkpoint" — R-UI-012 repeats it ("axe serious/critical = 0 on every
+ * screen") and AM-03(3) blocks a merge on "serious accessibility findings". So a serious or
+ * critical violation fails the checkpoint, at every checkpoint including the open overlays and
+ * in both themes; a moderate or minor one is emitted into the report as a recorded design
+ * finding (AM-03/R-UI-012) and does not fail the lane. Nothing else moves: no rule is
+ * disabled, no violation of a gating impact is filtered away, no mask is added and no
+ * checkpoint is skipped or moved — the ruling is explicit that the overlay-open state is a
+ * legitimate state under R-UI-011 and may not be masked.
+ *
+ * The scan is built here rather than through tests/e2e/axe.ts because that helper asserts an
+ * empty violation list of any impact and belongs to the lane (C-03 puts it out of this
+ * increment's reach): it is unchanged, still unnarrowed, and still what J-000's own
+ * checkpoints call. The rule set below is axe's default, exactly as the helper's is.
  *
  * Every overlay is opened with a key on a focused element and never with a pointer, because
  * the second half of Q-11 is a keyboard journey and a surface that only answers a mouse is a
@@ -24,10 +39,61 @@
  * The describe carries `J-004` so that Playwright's grep — which matches the full title path
  * — selects this journey and nothing else.
  */
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { expectNoAxeViolations } from './axe';
+import type { Page } from '@playwright/test';
 import { DesignPage, MODULE_SECTIONS, OVERLAY_ENTRIES, SCREEN_STATES } from './pages/design';
 import type { DesignTheme } from './pages/design';
+
+/** The impacts Q-11, R-UI-012 and AM-03(3) gate on. Everything else is recorded, not gating. */
+const BLOCKING_IMPACTS: readonly string[] = ['serious', 'critical'];
+
+/** What axe calls a violation, read off the builder rather than off a package of its own. */
+type AxeViolation = Awaited<ReturnType<AxeBuilder['analyze']>>['violations'][number];
+
+/** Every violation, said in the words axe used, so both halves of the split are actionable. */
+function describeViolations(violations: readonly AxeViolation[]): string {
+  return violations
+    .map((violation) => {
+      const where = violation.nodes.map((node) => node.target.join(' ')).join(', ');
+      return `${violation.id} (${violation.impact ?? 'unknown'}): ${violation.help} — ${where}`;
+    })
+    .join('\n');
+}
+
+/**
+ * Scan `checkpoint` with axe's default rule set and split the findings on the one threshold
+ * the Bible states.
+ *
+ * Serious and critical fail here (Q-11, R-UI-012, AM-03(3)). Moderate, minor and
+ * impact-less findings are attached to the run as recorded design findings — AM-03(3) still
+ * wants them read and cured against the surface that owns them (C-03), it just does not make
+ * them the gate. A finding is never dropped: it is either asserted on or written down.
+ */
+async function expectNoBlockingAxeViolations(page: Page, checkpoint: string): Promise<void> {
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  const blocking = violations.filter((violation) =>
+    BLOCKING_IMPACTS.includes(violation.impact ?? ''),
+  );
+  const recorded = violations.filter(
+    (violation) => !BLOCKING_IMPACTS.includes(violation.impact ?? ''),
+  );
+
+  if (recorded.length > 0) {
+    const body = `recorded design findings — ${checkpoint} (${page.url()}):\n${describeViolations(recorded)}`;
+    test.info().annotations.push({ type: 'design-finding', description: body });
+    await test.info().attach(`design-findings-${checkpoint}.txt`, {
+      body,
+      contentType: 'text/plain',
+    });
+  }
+
+  expect(
+    blocking.map((violation) => violation.id),
+    `axe found ${blocking.length} serious/critical violation(s) at ${checkpoint} (${page.url()}):\n${describeViolations(blocking)}\n\n` +
+      `recorded (non-gating) findings:\n${describeViolations(recorded) || 'none'}`,
+  ).toEqual([]);
+}
 
 /**
  * Light is the fresh navigation — no `data-theme` is the light default (s-design.md §10) —
@@ -56,8 +122,8 @@ test.describe('J-004', () => {
       }
 
       // R-UI-012 / Q-11 on the whole sheet: every component of the design system, in every
-      // state its entry declares, scanned at once.
-      await expectNoAxeViolations(page);
+      // state its entry declares, scanned at once, gating on serious/critical.
+      await expectNoBlockingAxeViolations(page, `live-gallery (${theme})`);
     });
   }
 
@@ -72,7 +138,7 @@ test.describe('J-004', () => {
         // The viewport as the navigation left it: chrome always rendered, scroll at the top,
         // and for partial and offline the notice above the sheet it did not replace.
         await expect(page).toHaveScreenshot(['design', theme, `state-${state}.png`]);
-        await expectNoAxeViolations(page);
+        await expectNoBlockingAxeViolations(page, `state-${state} (${theme})`);
       });
     }
   }
@@ -90,9 +156,10 @@ test.describe('J-004', () => {
         await design.openOverlayByKeyboard(entry);
         await expect(page).toHaveScreenshot(['design', theme, `overlay-${entry}.png`]);
 
-        // The scan wants the surface up too, and the toast leaves on its own clock.
+        // The scan wants the surface up too, and the toast leaves on its own clock. The
+        // ruling is explicit that this open state stays a checkpoint and is not masked.
         await design.keepOverlayOpen(entry);
-        await expectNoAxeViolations(page);
+        await expectNoBlockingAxeViolations(page, `overlay-${entry} (${theme})`);
       });
     }
   }
