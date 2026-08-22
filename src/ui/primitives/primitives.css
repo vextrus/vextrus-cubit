@@ -52,7 +52,7 @@
 }
 
 .datum-field::placeholder {
-  color: var(--graphite-500);
+  color: var(--graphite-600);
 }
 
 .datum-field:disabled {
@@ -440,7 +440,7 @@
 }
 
 .datum-select-trigger[data-placeholder] {
-  color: var(--graphite-500);
+  color: var(--graphite-600);
 }
 
 .datum-select-icon {
@@ -545,7 +545,7 @@
 
 .datum-combobox-status {
   padding: var(--space-2) var(--space-3);
-  color: var(--graphite-500);
+  color: var(--graphite-600);
   font-size: var(--text-13);
 }
 
