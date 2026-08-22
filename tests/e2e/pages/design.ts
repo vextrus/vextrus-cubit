@@ -19,8 +19,24 @@ import type { Locator, Page } from '@playwright/test';
 /** The three module blocks of the main column, in the order the sheet reads (Decision §1). */
 export type GalleryGroup = 'primitives' | 'patterns' | 'data';
 
-/** Barrel order — Primitives, Patterns, Data — which is the order the sections render in. */
-const GROUP_ORDER: readonly GalleryGroup[] = ['primitives', 'patterns', 'data'];
+/**
+ * The `<h2>` each module section carries (`DESIGN_STRINGS['design.module.*']`), which is what
+ * a group is addressed by.
+ *
+ * Deliberately not the section's position in the sheet: `.nth(index)` would make the mapping
+ * group→baseline nothing but the registry's order, so inserting or reordering a module in
+ * `galleryModules` would silently compare `['design','primitives-light.png']` against another
+ * module's pixels — three baselines "regressed" at once, and none of the failures naming the
+ * cause. The section element carries no id or data-testid (screen.tsx renders a bare
+ * `<section className="datum-gallery-section">`, and it is not this increment's to change), so
+ * the stable hook available is its own heading: a module that is renamed, removed or absent
+ * fails on *this* locator, saying which heading it could not find.
+ */
+const GROUP_HEADING: Readonly<Record<GalleryGroup, string>> = {
+  primitives: 'Primitives',
+  patterns: 'Patterns',
+  data: 'Data',
+};
 
 /** The attribute the toggle writes on the document element, and its dark value (Decision §10). */
 const THEME_ATTRIBUTE = 'data-theme';
@@ -143,12 +159,23 @@ export class DesignGalleryPage {
   /**
    * One module block's section — the unit the baselines frame (Decision §1): its bounding box
    * holds that module's every entry card and nothing of the chrome.
+   *
+   * Resolved by the section's own `<h2>` (GROUP_HEADING), never by ordinal: the locator is
+   * strict, so it matches the one section whose heading is that module's, and a sheet that
+   * grew or reordered its modules fails naming the heading rather than quietly framing the
+   * wrong pixels.
    */
   group(name: GalleryGroup): Locator {
     return this.root()
       .locator('main')
       .locator('section.datum-gallery-section')
-      .nth(GROUP_ORDER.indexOf(name));
+      .filter({
+        has: this.page.getByRole('heading', {
+          level: 2,
+          name: GROUP_HEADING[name],
+          exact: true,
+        }),
+      });
   }
 
   /** The Select entry drawn in its placeholder state — the keyboard step's overlay (AC-3). */
