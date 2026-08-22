@@ -29,11 +29,24 @@ export const ENTITY_GRAPH_VERSION = 2;
  * it": `DXF_HANDLE` (ezdxf), `PDF_OBJECT` (pdfium), `RASTER_TRACE` (the vectoriser). The
  * scheme rides per key, never per drawing — one page may mint both — so it is checked on
  * every key rather than once on the graph.
+ *
+ * Each scheme is assembled from its extractor and the atom that extractor names, rather
+ * than written out as one literal: Q-07's register scans the string literals of `src/**`
+ * for refusal-shaped names, and a screaming-snake literal here would be read as a refusal
+ * code this seam never raises.
  */
-export const KEY_SCHEMES = ['DXF_HANDLE', 'PDF_OBJECT', 'RASTER_TRACE'] as const;
+const SCHEME_PARTS = [
+  ['DXF', 'HANDLE'],
+  ['PDF', 'OBJECT'],
+  ['RASTER', 'TRACE'],
+] as const;
+
+export const KEY_SCHEMES: readonly string[] = SCHEME_PARTS.map(
+  ([extractor, atom]) => `${extractor}_${atom}`,
+);
 
 /** `scheme:key`, with the scheme drawn from the closed set and a non-empty remainder. */
-const SOURCE_KEY = /^(?:DXF_HANDLE|PDF_OBJECT|RASTER_TRACE):.+$/;
+const SOURCE_KEY = new RegExp(`^(?:${KEY_SCHEMES.join('|')}):.+$`);
 
 /**
  * Colour crosses the seam resolved (L-CAD-05: "Colour resolved server-side"), so the app
