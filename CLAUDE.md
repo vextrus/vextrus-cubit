@@ -24,13 +24,3 @@ pnpm verify · pnpm test:db · pnpm e2e --journey <J> · pnpm checkup
 - Reviewer/skeptic sessions burn turns rediscovering the read-only allowlist: Across this increment, reviewer and skeptic sessions collectively hit ~35 denials for writes or non-allowlisted Bash (uv, python3 -c, node -e, pnpm install, mkdir, rm -rf, pnpm dev, etc.) before converging on the allowed
 - a held-out roster assertion must derive the armed set by probing input roots, never freeze the set that was armed on delivery day: inc-000's held-out AC-6 originally carried a frozen `ARMED_STAGES = ['tsc','eslint','vitest','cad-ruff']` and asserted "the ok stages equal ARMED_STAGES". Once inc-001 founded `db/schema`, `pnpm verify` legitimately prin
 <!-- builder:lessons:end -->
-
-<!-- BEGIN:nextjs-agent-rules -->
-
-# This is NOT the Next.js you know
-
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
