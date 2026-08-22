@@ -6,6 +6,7 @@
  * and one module per entry is this module's own business, the same rule the primitives,
  * patterns and data barrels state.
  */
+'use client';
 export { GalleryScreen } from './screen';
 export type { GalleryScreenProps } from './screen';
 

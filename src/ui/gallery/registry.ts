@@ -10,6 +10,7 @@
  * components lives in each entry's `covers` and is compared, at run time, with the barrels
  * (`coverageReport`).
  */
+'use client';
 import { entry as badge } from './entries/badge';
 import { entry as basisChip } from './entries/basis-chip';
 import { entry as button } from './entries/button';
