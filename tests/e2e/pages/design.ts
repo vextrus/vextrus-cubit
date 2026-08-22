@@ -214,7 +214,14 @@ const TAB_BUDGET = 12;
 const FOCUS_SETTLE_TIMEOUT = 10_000;
 
 export class DesignPage {
-  constructor(private readonly page: Page) {}
+  // Assigned in the body rather than declared as a constructor parameter property: a parameter
+  // property is the one piece of TypeScript that a strip-only loader cannot erase, and it would
+  // make this module refuse to load anywhere it is imported without a full transform.
+  private readonly page: Page;
+
+  constructor(page: Page) {
+    this.page = page;
+  }
 
   /** The screen's root, present in every state including `loading`. */
   get root(): Locator {

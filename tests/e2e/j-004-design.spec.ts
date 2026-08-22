@@ -179,5 +179,11 @@ test.describe('J-004', () => {
     await page.keyboard.press('Enter');
 
     await expect(page).toHaveURL(new RegExp(`#${ANCHORED_ENTRY}$`));
+
+    // And read the fragment back off the address itself: AC-4 asks for `#<entry-id>`, not for
+    // an address that merely ends in those characters. `URL.hash` is the browser's own parse
+    // of it, so a rail that navigated somewhere else entirely — or appended a second fragment —
+    // is caught here rather than passing a regex that only looked at the tail.
+    expect(new URL(page.url()).hash).toBe(`#${ANCHORED_ENTRY}`);
   });
 });
