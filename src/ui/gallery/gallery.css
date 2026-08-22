@@ -1,0 +1,233 @@
+/*
+ * The gallery sheet's own layout (Design Decision §1–§3, §9).
+ *
+ * Every colour, space, radius and z-index is a token reference: the sheet is screenshotted in
+ * both themes, so a spelled value here is a value the dark theme would never reach (R-UI-001).
+ * The px dimensions that remain — the 48 px bar, the 200 px rail, the 1040 px column, the
+ * skeleton geometry — are layout dimensions the decision states, not token roles.
+ *
+ * No motion is declared: the sheet is a reference arriving by navigation, and the motion on it
+ * is the components' own (§8).
+ */
+
+.datum-gallery-root {
+  min-height: 100vh;
+  background: var(--graphite-50);
+  font-family: var(--font-ui);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+}
+
+/* ---- Top bar (§1) ------------------------------------------------------------------- */
+
+.datum-gallery-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 var(--space-6);
+  background: var(--graphite-0);
+  border-bottom: 1px solid var(--graphite-200);
+}
+
+.datum-gallery-title {
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-950);
+  margin: 0;
+}
+
+.datum-gallery-count {
+  margin-left: var(--space-3);
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.datum-gallery-theme {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.datum-gallery-theme-label {
+  margin-right: var(--space-2);
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}
+
+/* ---- Rail and columns (§1) ----------------------------------------------------------- */
+
+.datum-gallery-body {
+  display: flex;
+  align-items: flex-start;
+}
+
+.datum-gallery-rail {
+  position: sticky;
+  top: 48px;
+  flex: 0 0 200px;
+  width: 200px;
+  padding: var(--space-4);
+}
+
+/*
+ * 960px is `--breakpoint-md`'s value, spelled: Tailwind 4 spends breakpoints inside media
+ * queries and a `var()` there is a query no browser can parse (the tokens lesson).
+ */
+@media (width < 960px) {
+  .datum-gallery-rail {
+    display: none;
+  }
+}
+
+.datum-gallery-rail-label {
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-500);
+  margin-top: var(--space-4);
+}
+
+.datum-gallery-rail-link {
+  display: block;
+  line-height: 28px;
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+  text-decoration: none;
+}
+
+.datum-gallery-rail-link:hover {
+  color: var(--graphite-950);
+}
+
+.datum-gallery-main {
+  flex: 1 1 auto;
+  max-width: 1040px;
+  padding: var(--space-6);
+}
+
+.datum-gallery-section {
+  margin-bottom: var(--space-8);
+}
+
+.datum-gallery-section-title {
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-950);
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--graphite-200);
+}
+
+/* ---- Entry card (§1) ----------------------------------------------------------------- */
+
+.datum-gallery-card {
+  background: var(--graphite-0);
+  border: 1px solid var(--graphite-200);
+  border-radius: var(--radius-8);
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.datum-gallery-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.datum-gallery-card-title {
+  font-size: var(--text-14);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+  margin: 0;
+}
+
+.datum-gallery-card-covers {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-500);
+}
+
+.datum-gallery-card-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-6);
+}
+
+.datum-gallery-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+/* A table is a column of its own: it has no business sharing a row with a chip (§1). */
+.datum-gallery-cell-wide {
+  flex: 1 0 100%;
+}
+
+.datum-gallery-cell-label {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* ---- Shapes the entries themselves ask for ------------------------------------------- */
+
+.datum-gallery-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.datum-gallery-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.datum-gallery-labelled {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.datum-gallery-labelled-text {
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}
+
+.datum-gallery-context-target {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--graphite-200);
+  border-radius: var(--radius-8);
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}
+
+/* ---- The screen's own states (§2) ---------------------------------------------------- */
+
+.datum-gallery-state {
+  display: block;
+}
+
+.datum-gallery-state-banner {
+  margin-bottom: var(--space-4);
+}
+
+.datum-gallery-loading-bar {
+  width: 120px;
+  height: 12px;
+  margin-bottom: var(--space-3);
+}
+
+.datum-gallery-loading-card {
+  width: 100%;
+  height: 160px;
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-8);
+}

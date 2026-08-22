@@ -29,9 +29,12 @@ interface SampleProps {
   readonly disabled?: boolean;
 }
 
-function Sample({ value, chosen, disabled }: SampleProps): ReactElement {
+function Sample({ value, chosen, disabled = false }: SampleProps): ReactElement {
+  // Spread rather than passed: an explicit `defaultValue={undefined}` is a property the field
+  // does not have, which `exactOptionalPropertyTypes` is right to refuse.
+  const chosenValue = value === undefined ? {} : { defaultValue: value };
   return (
-    <Select defaultValue={value} disabled={disabled}>
+    <Select {...chosenValue} disabled={disabled}>
       <SelectTrigger aria-label={gs('gallery.entry.select')}>
         <SelectValue placeholder={gs('gallery.sample.select.placeholder')}>{chosen}</SelectValue>
       </SelectTrigger>
