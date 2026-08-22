@@ -70,8 +70,14 @@ const THEMES: readonly string[] = ['light', 'dark'];
 /** The heading AC-1 names for the appended section of the Design Decision. */
 const APPENDED_SECTION = 'Placeholder and status-text colour';
 
-/** The section that is last in the doc today: the append has to land after it, not inside it. */
-const PREVIOUS_LAST_SECTION = '## 17. Test hooks';
+/**
+ * The section that is last in the doc today: the append has to land after it, not inside it.
+ * Matched by heading TEXT, not by number — C-05's contract list fixes routes, testids, page-object
+ * surface, procedure names, fixtures, stdout lines and env vars, and no clause freezes a Design
+ * Decision's heading numerals. A later increment that inserts a section and renumbers is lawful
+ * and must not redden this assertion (2026-08-23 arbitration, TEST_AMENDED).
+ */
+const PREVIOUS_LAST_SECTION = /^## \d+\.\s*Test hooks\s*$/m;
 
 /** The lane's success line, exactly as the runner says it (scripts/e2e.mjs `say`). */
 const LANE_OK = /^e2e: ok \(\d+(\.\d+)?s\)$/;
@@ -141,8 +147,11 @@ describe('inc-007e AC-1 / AC-2 / AC-4 — the committed surface journey J-004 gr
     // AC-1: "the doc edit is that append only" — the section that used to end the file is
     // still there, and the new one is after it. Asserting the order rather than the bytes
     // leaves a later increment free to append a section of its own.
-    const previous = doc.indexOf(PREVIOUS_LAST_SECTION);
-    expect(previous, `the doc no longer carries “${PREVIOUS_LAST_SECTION}”`).toBeGreaterThan(-1);
+    const previous = doc.search(PREVIOUS_LAST_SECTION);
+    expect(
+      previous,
+      'the doc no longer carries a “Test hooks” section heading (any section number)',
+    ).toBeGreaterThan(-1);
     expect(appended, 'the new section is not appended after the doc’s existing sections').
       toBeGreaterThan(previous);
 
