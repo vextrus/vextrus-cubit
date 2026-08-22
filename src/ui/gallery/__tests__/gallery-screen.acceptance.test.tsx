@@ -16,7 +16,8 @@
  * The module is loaded inside each test, never in a hook: a throwing `beforeAll` makes vitest
  * report its tests as skipped, and a skipped acceptance proves nothing (standing lesson).
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 // Type-only: erased before the module is resolved, and still binds the names the Increment
@@ -111,7 +112,7 @@ describe('AC-3 — every component of the public surface has an entry (R-UI-011)
     expect(strays, `cells for undeclared entry states: ${strays.join(', ')}`).toEqual([]);
   });
 
-  it('paints the same roster in both themes (R-UI-011)', async () => {
+  it('paints a roster that is invariant under data-theme (Design Decision §10)', async () => {
     const { GalleryScreen } = await gallery();
 
     render(<GalleryScreen />);
@@ -119,12 +120,16 @@ describe('AC-3 — every component of the public surface has an entry (R-UI-011)
     expect(light.length, 'the gallery painted no cells in the default theme').toBeGreaterThan(0);
     cleanup();
 
-    // The flip is the token sheet's (Design Decision §10): the same components, drawn on the
-    // other surface — an entry that disappears in dark is not "every component in both themes".
+    // Scope, honestly stated: this is the no-forked-markup guard of Design Decision §10 ("No
+    // forked CSS in this screen"), not the both-themes grade. jsdom applies no CSS, so a render
+    // under `data-theme="dark"` can only differ if the gallery branches its own markup on the
+    // attribute — which the decision forbids, and which would let an entry vanish in dark. The
+    // dark theme's existence is graded below off the shipped token sheet; the actual paint in
+    // both themes is the visual-baseline suite's, where AM-03 (4) puts it.
     document.documentElement.setAttribute('data-theme', 'dark');
     render(<GalleryScreen />);
 
-    expect(paintedCells().sort(), 'the dark theme paints a different roster').toEqual(light);
+    expect(paintedCells().sort(), 'the roster changes when data-theme is set').toEqual(light);
   });
 
   it('ships one entry module per root component at src/ui/gallery/entries/<component>.tsx', async () => {
@@ -145,6 +150,146 @@ describe('AC-3 — every component of the public surface has an entry (R-UI-011)
         expect(typeof state.render, `${entry.id}/${state.name} has no render()`).toBe('function');
       }
     }
+  });
+});
+
+describe('R-UI-011 — the dark theme the gallery is drawn in exists (Design Decision §9, §10)', () => {
+  /*
+   * The token half of "in both themes". jsdom paints nothing, so the browser-side half — the
+   * screen actually rendered on both surfaces — is the visual-baseline suite's under AM-03 (4)
+   * ("screenshotted in both themes and diffed across increments"). What is checkable here, and
+   * fails by name when it is wrong, is the premise that whole arrangement rests on: §10 says
+   * "the flip is the token sheet's", so every token this screen paints with has to be given a
+   * dark value by the sheet the segment loads. A build with no dark theme reddens here.
+   *
+   * Nothing below names a token or a count: the consumed names are read out of the shipped
+   * sources and the scopes out of the shipped sheet, so a later increment that paints with one
+   * more token is graded on the same rule rather than against today's list.
+   */
+
+  /** The stylesheet the `/design` segment loads, with its relative `@import`s inlined. */
+  function segmentStylesheet(): string {
+    const layout = readFileSync(absolute('src/app/design/layout.tsx'), 'utf8');
+    const entry = /import\s+['"](\.[^'"]+\.css)['"]/.exec(layout)?.[1];
+    expect(entry, 'src/app/design/layout.tsx imports no stylesheet (AC-4)').toBeDefined();
+
+    const read = (relative: string, seen: Set<string>): string => {
+      if (seen.has(relative)) return '';
+      seen.add(relative);
+      expect(existsSync(absolute(relative)), `the segment's sheet imports missing ${relative}`).toBe(
+        true,
+      );
+      const source = readFileSync(absolute(relative), 'utf8');
+      let out = source;
+      for (const [, imported] of source.matchAll(/@import\s+['"](\.[^'"]+)['"]/g)) {
+        out += read(join(dirname(relative), imported ?? ''), seen);
+      }
+      return out;
+    };
+    return read(join('src/app/design', entry ?? ''), new Set());
+  }
+
+  /** Drop `@media` blocks: their overrides are conditional, not a theme scope. */
+  function withoutMediaBlocks(css: string): string {
+    let out = '';
+    for (let index = 0; index < css.length; index += 1) {
+      if (!css.startsWith('@media', index)) {
+        out += css[index];
+        continue;
+      }
+      let depth = 0;
+      for (; index < css.length; index += 1) {
+        if (css[index] === '{') depth += 1;
+        else if (css[index] === '}' && (depth -= 1) === 0) break;
+      }
+    }
+    return out;
+  }
+
+  /** Every custom property the given selectors declare, last declaration winning. */
+  function scopeDeclarations(css: string, selectors: readonly string[]): Map<string, string> {
+    const declared = new Map<string, string>();
+    for (const [, selectorList, body] of withoutMediaBlocks(css).matchAll(
+      /([^{}]*)\{([^{}]*)\}/g,
+    )) {
+      const listed = (selectorList ?? '').split(',').map((one) => one.trim());
+      if (!listed.some((one) => selectors.includes(one))) continue;
+      for (const [, name, value] of (body ?? '').matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) {
+        declared.set(name ?? '', (value ?? '').trim());
+      }
+    }
+    return declared;
+  }
+
+  /** Every `var(--token)` the gallery's shipped sources paint with, derived at run time. */
+  function consumedTokens(): string[] {
+    const found = new Set<string>();
+    const walk = (relative: string): void => {
+      for (const item of readdirSync(absolute(relative), { withFileTypes: true })) {
+        const child = `${relative}/${item.name}`;
+        if (item.isDirectory()) {
+          // The acceptance suite's own files are not the screen.
+          if (item.name !== '__tests__') walk(child);
+          continue;
+        }
+        // Wherever the screen spends a token: its own sheet, or a style prop in a module.
+        if (!/\.(tsx?|css)$/.test(item.name)) continue;
+        for (const [, token] of readFileSync(absolute(child), 'utf8').matchAll(
+          /var\(\s*(--[a-z0-9-]+)/g,
+        )) {
+          found.add(token ?? '');
+        }
+      }
+    };
+    for (const root of ['src/ui/gallery', 'src/app/design']) walk(root);
+    return [...found].sort();
+  }
+
+  it('gives every token the gallery paints with a value under [data-theme="dark"]', () => {
+    const css = segmentStylesheet();
+    const consumed = consumedTokens();
+
+    // Derivation guard: with no consumed token the rest would be vacuously green.
+    expect(consumed.length, 'the gallery paints with no Datum token at all').toBeGreaterThan(0);
+
+    const light = scopeDeclarations(css, [':root', '[data-theme="light"]']);
+    const dark = scopeDeclarations(css, ['[data-theme="dark"]']);
+
+    expect(dark.size, 'the token sheet defines no [data-theme="dark"] scope').toBeGreaterThan(0);
+
+    // An orphan var() is a token role the sheet never defines — the light half of §9.
+    const undefinedInLight = consumed.filter((token) => !light.has(token));
+    expect(
+      undefinedInLight,
+      `tokens the gallery paints with that no light scope defines: ${undefinedInLight.join(', ')}`,
+    ).toEqual([]);
+
+    // §10: the flip is the token sheet's, so the dark scope has to reach every one of them.
+    const undefinedInDark = consumed.filter((token) => !dark.has(token));
+    expect(
+      undefinedInDark,
+      `tokens with no [data-theme="dark"] value: ${undefinedInDark.join(', ')}`,
+    ).toEqual([]);
+  });
+
+  it('repaints the colour roles the gallery paints with, rather than repeating light', () => {
+    const css = segmentStylesheet();
+    const light = scopeDeclarations(css, [':root', '[data-theme="light"]']);
+    const dark = scopeDeclarations(css, ['[data-theme="dark"]']);
+
+    // A colour value, by its syntax — no token is named here.
+    const isColour = (value: string): boolean =>
+      /#[0-9a-f]{3,8}\b/i.test(value) || /\b(rgba?|hsla?|oklch|lab|lch|color-mix)\(/.test(value);
+
+    const colours = consumedTokens().filter((token) => isColour(light.get(token) ?? ''));
+    expect(colours.length, 'the gallery paints with no colour token').toBeGreaterThan(0);
+
+    // A colour role that reads identically on both surfaces is one theme wearing two names.
+    const unflipped = colours.filter((token) => dark.get(token) === light.get(token));
+    expect(
+      unflipped,
+      `colour tokens the dark scope leaves at their light value: ${unflipped.join(', ')}`,
+    ).toEqual([]);
   });
 });
 
