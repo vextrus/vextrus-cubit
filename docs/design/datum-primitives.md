@@ -309,3 +309,14 @@ sheet fixes them.
 No routes. Test ids introduced (the C-05 contract): `number-input-field`,
 `number-input-suffix` (§4); `combobox-input`, `combobox-list`, `combobox-option`,
 `combobox-empty` (§7); `dialog-content`, `sheet-content` (§11); `toast-region` (§12).
+
+## Placeholder and status-text colour
+
+Amended by the inc-007-design-gallery arbitration's remedy, superseding the `--graphite-500`
+mentions in §3, §6 and §7: placeholder and status text at `--graphite-500` reads at about
+3.2:1 (light) and 3.3:1 (dark) on the `--graphite-0` field surface, under R-UI-012's 4.5:1.
+The Input and Textarea placeholder (`.datum-field::placeholder`), the Select trigger
+placeholder (`.datum-select-trigger[data-placeholder]`) and the Combobox status rows —
+“Searching…” and “No matches for this search.” (`.datum-combobox-status`) — render in
+`--graphite-600`: about 5.0:1 light, 5.4:1 dark. Disabled placeholders stay `--graphite-400`
+(§3); no other rule changes.
