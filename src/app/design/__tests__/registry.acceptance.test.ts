@@ -141,15 +141,30 @@ describe('inc-007 — the gallery registry (AC-2, R-UI-011)', () => {
     expect(stale, 'AC-2: a covers name that is no longer exported is a stale entry').toEqual([]);
   });
 
-  it('AC-2 / R-UI-011: the completeness rule bites — an uncovered export is reported', async () => {
+  it('AC-2: the derived roster draws from all three barrels', async () => {
+    const roster = await derivedRoster();
+    // AC-2: "derives the component roster AT RUN TIME from the three barrels". Each barrel the
+    // criterion names must contribute at least one capitalised export, so a derivation that
+    // goes blind to one of them reddens here directly rather than only once a name goes stale.
+    // The expected set is the barrel list the criterion fixes, never a count copied from today.
+    expect(
+      new Set(roster.values()),
+      'AC-2: every one of the three barrels contributes to the derived roster',
+    ).toEqual(new Set(Object.keys(BARRELS)));
+  });
+
+  it('AC-2: uncovered() reports a missing name — the roster test’s completeness assertion is not vacuous', async () => {
     const roster = await derivedRoster();
     const covers = coveredNames(await galleryEntries());
-    // The rule is exercised against a component the barrels do not export yet: this is what
-    // the next increment's addition looks like to this suite, and it must not pass silently.
-    const withNewExport = [...roster.keys(), 'ComponentAddedByALaterIncrement'];
+    // A vacuity guard for the test above, not the clause's teeth: a real barrel export with no
+    // gallery entry fails the roster test, which runs uncovered() over the derivation itself.
+    // Here a name the barrels do not export is appended by hand, so that if the shared helper
+    // ever stopped reporting misses, the roster test's `toEqual([])` could no longer pass for
+    // the wrong reason without this one going red.
+    const withMissingName = [...roster.keys(), 'ComponentAddedByALaterIncrement'];
     expect(
-      uncovered(withNewExport, covers),
-      'R-UI-011: adding a barrel export without a gallery entry fails this test',
+      uncovered(withMissingName, covers),
+      'AC-2: uncovered() must report a name no entry covers',
     ).toEqual(['ComponentAddedByALaterIncrement']);
   });
 
