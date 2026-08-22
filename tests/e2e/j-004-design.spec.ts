@@ -12,13 +12,23 @@
  * zero serious or critical) and compared against its committed Linux baseline (Q-06,
  * maxDiffPixelRatio 0.002, animations disabled, an empty mask because the gallery is static).
  *
+ * Q-11 has a second half, and it is a separate obligation from the axe scan: "keyboard journey
+ * J-004/J-011 pass." So this file also conducts J-004 from the keyboard alone — focus reached
+ * by Tab, the focus indicator visible where the Tab landed (R-UI-012), activation by
+ * Enter/Space, focus moved into the opened content and returned to the trigger on Escape
+ * (docs/design/datum-primitives.md §1, §9, §11, which AM-03 makes contractual) — and operates
+ * every specimen the Design Decision §3 designates as interactive without touching a pointer.
+ *
  * The roster is not written here. It is read from the Design Decision's §3 table, so this
  * journey follows the document rather than a list that was true the day it was written: a
- * component added to a barrel is added to §3 and to the registry, and this file finds it.
+ * component added to a barrel is added to §3 and to the registry, and this file finds it. The
+ * keyboard journey draws its specimens from the same table, by what §3 says about them — a
+ * state named `trigger`, or a specimen whose state is reached by interaction — never from a
+ * list typed here.
  */
 import { fileURLToPath } from 'node:url';
-import { expect, test } from '@playwright/test';
-import { rosterRows } from '../../src/app/design/__tests__/design-doc';
+import { expect, test, type Page } from '@playwright/test';
+import { designDocText, rosterRows } from '../../src/app/design/__tests__/design-doc';
 import { expectNoSeriousOrCritical } from './axe';
 import { DesignGalleryPage } from './setup/design-gallery';
 
@@ -27,6 +37,46 @@ const REPO = fileURLToPath(new URL('../..', import.meta.url));
 
 /** Every entry the Design Decision decides, and the states each must render (§3, §10). */
 const ROSTER = rosterRows(REPO);
+
+/**
+ * §3's fourth column, the specimen prose, keyed by slug. `rosterRows` reads the first three
+ * columns; the fourth is what designates a specimen as one that is *operated* rather than
+ * posed ("Closed; opening is interaction", "they open on interaction"). Rows of other tables
+ * in the document have fewer cells and are skipped.
+ */
+function specimenProse(text: string): Map<string, string> {
+  const prose = new Map<string, string>();
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('|')) continue;
+    const parts = trimmed.split('|').map((cell) => cell.trim());
+    parts.shift();
+    if (parts[parts.length - 1] === '') parts.pop();
+    if (parts.length < 4) continue;
+    prose.set(parts[0] ?? '', parts[3] ?? '');
+  }
+  return prose;
+}
+
+const SPECIMEN = specimenProse(designDocText(REPO));
+
+/**
+ * The interactive specimens, per §3 itself: an entry whose state is literally named `trigger`
+ * (the state *is* the interaction — nothing else of it is on the page at rest), or one whose
+ * specimen prose says its states are reached by interaction (select, combobox: a listbox
+ * cannot sit open in a static page). Derived, so a later increment's interactive component is
+ * operated here the day its §3 row lands.
+ */
+const INTERACTIVE = ROSTER.filter(
+  (row) => row.states.includes('trigger') || /interaction/i.test(SPECIMEN.get(row.slug) ?? ''),
+);
+
+/** Overlay surfaces a keyboard gesture can raise (datum-primitives §1, §6, §9, §10, §11). */
+const SURFACE = '[role="menu"], [role="listbox"], [role="dialog"], [role="tooltip"]';
+
+/** The items inside such a surface, when it has any: arrows move, Enter activates (§1). */
+const ITEM =
+  '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]';
 
 /** What a checkpoint asserts about the page before it is scanned and screenshotted. */
 function assertRoster(rendered: readonly { slug: string; states: readonly string[] }[]): void {
@@ -46,6 +96,116 @@ function assertRoster(rendered: readonly { slug: string; states: readonly string
       0,
     );
   }
+}
+
+/** Is the focus inside this entry's section? (Overlay content is portalled out of it.) */
+async function focusInside(page: Page, slug: string): Promise<boolean> {
+  return await page.evaluate(
+    (entry) => document.activeElement?.closest(`[data-testid="gallery-entry-${entry}"]`) !== null,
+    slug,
+  );
+}
+
+/**
+ * Tab — and only Tab — until the focus lands inside this entry. No pointer touches the page:
+ * reachability by keyboard is itself part of what Q-11 asks J-004 to prove.
+ */
+async function tabInto(page: Page, slug: string, budget = 400): Promise<void> {
+  for (let press = 0; press < budget; press += 1) {
+    await page.keyboard.press('Tab');
+    if (await focusInside(page, slug)) return;
+  }
+  throw new Error(`Q-11: no Tab stop inside gallery-entry-${slug} within ${budget} presses`);
+}
+
+/**
+ * The focus indicator on whatever the Tab landed on, with the live value of the token it is
+ * supposed to be painted in. datum-primitives §1 (R-UI-012):
+ * `.datum-focus-ring:focus-visible { outline: 2px solid var(--cobalt-500); outline-offset: 1px }`
+ * — the token is read from the page rather than pinned to a hex, because §9 forks it per theme.
+ */
+async function focusRing(page: Page): Promise<{
+  style: string;
+  width: number;
+  color: string;
+  cobalt: string;
+  name: string;
+}> {
+  return await page.evaluate(() => {
+    const el = document.activeElement as HTMLElement | null;
+    const style = getComputedStyle(el ?? document.body);
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--cobalt-500)';
+    document.body.append(probe);
+    const cobalt = getComputedStyle(probe).color;
+    probe.remove();
+    return {
+      style: style.outlineStyle,
+      width: Number.parseFloat(style.outlineWidth),
+      color: style.outlineColor,
+      cobalt,
+      name: (el?.textContent ?? el?.getAttribute('aria-label') ?? '').trim(),
+    };
+  });
+}
+
+/** How many overlay surfaces are open and visible right now. */
+async function surfaceCount(page: Page): Promise<number> {
+  return await page.locator(SURFACE).filter({ visible: true }).count();
+}
+
+/** How many elements the page paints right now — a keyboard response that raises no surface
+ * (the toast entry announces; it does not open a menu) still shows up here. */
+async function paintedCount(page: Page): Promise<number> {
+  return await page.evaluate(
+    () =>
+      Array.from(document.querySelectorAll('body *')).filter(
+        (el) => el.getClientRects().length > 0,
+      ).length,
+  );
+}
+
+interface Rest {
+  readonly surfaces: number;
+  readonly painted: number;
+}
+
+/** The page at rest, before a gesture is tried. */
+async function restingState(page: Page): Promise<Rest> {
+  return { surfaces: await surfaceCount(page), painted: await paintedCount(page) };
+}
+
+/**
+ * What the last gesture produced: an overlay surface, some other visible response, or
+ * nothing. Surfaces win the race — they are given the whole window before a bare response is
+ * reported, so a menu is never mistaken for an announcement.
+ */
+async function outcomeOf(page: Page, rest: Rest): Promise<'surface' | 'response' | 'none'> {
+  const deadline = Date.now() + 900;
+  let response = false;
+  for (;;) {
+    if ((await surfaceCount(page)) > rest.surfaces) return 'surface';
+    if ((await paintedCount(page)) > rest.painted) response = true;
+    if (Date.now() >= deadline) return response ? 'response' : 'none';
+    await page.waitForTimeout(60);
+  }
+}
+
+/**
+ * Open the focused specimen with the keyboard, trying the gestures the component decisions
+ * name, in order: focus alone (Tooltip opens "immediately on keyboard focus", §9), Enter
+ * (buttons, Dialog, Sheet, Popover, DropdownMenu, Select — §6, §10, §11), ArrowDown (a closed
+ * Select or Combobox, §6, §7), then the two keyboard gestures that raise a context menu
+ * (§10). Returns what the page did.
+ */
+async function openFromKeyboard(page: Page, rest: Rest): Promise<'surface' | 'response' | 'none'> {
+  const gestures = [null, 'Enter', 'ArrowDown', 'ContextMenu', 'Shift+F10'] as const;
+  for (const gesture of gestures) {
+    if (gesture !== null) await page.keyboard.press(gesture);
+    const outcome = await outcomeOf(page, rest);
+    if (outcome !== 'none') return outcome;
+  }
+  return 'none';
 }
 
 test.describe('J-004 — the living gallery in both themes (R-UI-011, AM-03)', () => {
@@ -107,14 +267,158 @@ test.describe('J-004 — the living gallery in both themes (R-UI-011, AM-03)', (
     await expect(gallery.root).toBeVisible();
   });
 
-  test('AC-1: the Dialog example has a visible trigger, opens, and closes on Escape', async ({
+  test('Q-11: the keyboard journey — the Dialog is reached, opened, trapped and dismissed by keyboard alone', async ({
     page,
   }) => {
     const gallery = new DesignGalleryPage(page);
     await gallery.open();
 
     // The test contract: "Interactive examples on the page include at least one Dialog with a
-    // visible trigger." The Design Decision §3 makes gallery-entry-dialog that example.
+    // visible trigger." §3 marks gallery-entry-dialog "the contractual interactive Dialog".
+    const trigger = gallery.entry('dialog').getByRole('button').first();
+    await expect(trigger, 'AC-1: the dialog entry has a visible trigger').toBeVisible();
+
+    // Q-11: the journey is conducted from the keyboard — the trigger is *reached* by Tab, and
+    // nothing here is clicked. The pointer path is a separate test below (R-UI-030).
+    await tabInto(page, 'dialog');
+    await expect(trigger, 'Q-11: Tab reaches the dialog trigger').toBeFocused();
+
+    // R-UI-012 / datum-primitives §1: where the Tab landed is visibly indicated — a 2 px
+    // cobalt outer ring, compared against the live token value (§9 forks it per theme).
+    const ring = await focusRing(page);
+    expect(ring.style, 'R-UI-012: the focused trigger carries an outline').toBe('solid');
+    expect(ring.width, 'R-UI-012: a 2 px outer ring').toBeGreaterThanOrEqual(2);
+    expect(ring.color, 'R-UI-012: the ring is painted in --cobalt-500').toBe(ring.cobalt);
+
+    // datum-primitives §11: Enter on the trigger opens; focus moves into the content.
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog, 'Q-11: Enter on the focused trigger opens the dialog').toBeVisible();
+    await expect
+      .poll(
+        () => page.evaluate(() => document.activeElement?.closest('[role="dialog"]') !== null),
+        { message: 'datum-primitives §11: focus moves into the dialog content on open' },
+      )
+      .toBe(true);
+
+    // §11: "Tab and Shift+Tab cycle inside while open" — the focus never escapes the dialog.
+    for (let press = 0; press < 8; press += 1) {
+      await page.keyboard.press('Tab');
+      const trapped = await page.evaluate(
+        () => document.activeElement?.closest('[role="dialog"]') !== null,
+      );
+      expect(trapped, `Q-11: Tab ${press + 1} stays inside the open dialog`).toBe(true);
+    }
+
+    // §11: "Escape closes; focus returns to the trigger."
+    await page.keyboard.press('Escape');
+    await expect(dialog, 'Q-11: Escape dismisses the dialog').toBeHidden();
+    await expect(trigger, 'Q-11: focus returns to the trigger on close').toBeFocused();
+  });
+
+  test('Q-11: every §3 interactive specimen is operated from the keyboard alone', async ({
+    page,
+  }) => {
+    const gallery = new DesignGalleryPage(page);
+    await gallery.open();
+
+    expect(
+      INTERACTIVE.length,
+      'AM-03: §3 designates the specimens that are operated, not posed',
+    ).toBeGreaterThan(0);
+
+    // Walk the specimens in the order the page lays them out, so one forward Tab pass reaches
+    // them all — the order is read from the page, not assumed from the document.
+    const laidOut = await page
+      .locator('[data-testid^="gallery-entry-"]')
+      .evaluateAll((sections) =>
+        sections.map((section) =>
+          (section.getAttribute('data-testid') ?? '').replace('gallery-entry-', ''),
+        ),
+      );
+    const specimens = INTERACTIVE.map((row) => row.slug)
+      .filter((slug) => laidOut.includes(slug))
+      .sort((left, right) => laidOut.indexOf(left) - laidOut.indexOf(right));
+    expect(
+      specimens.length,
+      'R-UI-011: every §3 interactive specimen has an entry on the page',
+    ).toBe(INTERACTIVE.length);
+
+    for (const slug of specimens) {
+      await test.step(`keyboard: ${slug}`, async () => {
+        const rest = await restingState(page);
+
+        // Reached by Tab, and the landing is visible (R-UI-012 — the ring's colour is asserted
+        // against the token on the dialog above; here every specimen must at least show one).
+        await tabInto(page, slug);
+        const ring = await focusRing(page);
+        expect(ring.style, `R-UI-012: ${slug}'s tab stop shows a focus indicator`).not.toBe('none');
+        expect(ring.width, `R-UI-012: ${slug}'s focus ring is 2 px`).toBeGreaterThanOrEqual(2);
+
+        // Opened with the keyboard gestures its component decision names — never a pointer.
+        const outcome = await openFromKeyboard(page, rest);
+        expect(outcome, `Q-11: ${slug} responds to a keyboard opening gesture`).not.toBe('none');
+
+        if (outcome === 'response') {
+          // No surface to dismiss (the toast entry announces). The focus stayed where the
+          // keyboard put it — activation strands nobody (datum-primitives §1).
+          expect(await focusInside(page, slug), `Q-11: ${slug} keeps the focus it was given`).toBe(
+            true,
+          );
+          return;
+        }
+
+        const items = page.locator(SURFACE).filter({ visible: true }).locator(ITEM);
+        if ((await items.count()) > 0) {
+          // datum-primitives §1: "the highlight moves with ArrowUp/ArrowDown, Enter activates,
+          // Escape closes and returns focus to the trigger."
+          await page.keyboard.press('ArrowDown');
+          const moved = await page.evaluate(
+            ({ surfaceSelector, itemSelector }) => {
+              const active = document.activeElement;
+              if (active?.closest(itemSelector) != null) return true;
+              const described = active?.getAttribute('aria-activedescendant');
+              if (described != null && document.getElementById(described) != null) return true;
+              return Array.from(document.querySelectorAll(surfaceSelector))
+                .filter((surface) => surface.getClientRects().length > 0)
+                .some(
+                  (surface) =>
+                    surface.querySelector('[data-highlighted], [aria-selected="true"]') != null,
+                );
+            },
+            { surfaceSelector: SURFACE, itemSelector: ITEM },
+          );
+          expect(moved, `Q-11: ArrowDown moves ${slug}'s highlight`).toBe(true);
+
+          // Enter commits the highlighted item and closes the surface.
+          await page.keyboard.press('Enter');
+        } else {
+          // A surface with nothing to arrow through (Dialog, Sheet, Popover, Tooltip): Escape.
+          await page.keyboard.press('Escape');
+        }
+
+        await expect
+          .poll(() => surfaceCount(page), {
+            message: `Q-11: ${slug}'s surface closes from the keyboard`,
+          })
+          .toBe(rest.surfaces);
+        // datum-primitives §1/§11 (which datum-patterns §9 composes): closing "returns focus to
+        // the trigger". A keyboard reader left on <body> has to start the page again.
+        await expect
+          .poll(() => focusInside(page, slug), {
+            message: `Q-11: ${slug} returns the focus to its trigger, not to <body>`,
+          })
+          .toBe(true);
+      });
+    }
+  });
+
+  test('R-UI-030: the Dialog example also opens from the pointer and closes on Escape', async ({
+    page,
+  }) => {
+    const gallery = new DesignGalleryPage(page);
+    await gallery.open();
+
     const trigger = gallery.entry('dialog').getByRole('button').first();
     await expect(trigger, 'AC-1: the dialog entry has a visible trigger').toBeVisible();
 
