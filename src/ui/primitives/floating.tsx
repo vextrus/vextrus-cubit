@@ -17,6 +17,7 @@ import { forwardRef } from 'react';
 import type { ComponentPropsWithoutRef, ReactElement } from 'react';
 import { ContextMenu as ContextMenuPrimitive, DropdownMenu as DropdownMenuPrimitive, Popover as PopoverPrimitive, Tooltip as TooltipPrimitive } from 'radix-ui';
 import { cx } from './class-names';
+import { surfaceContainer } from './surface-container';
 
 /* ---- Tooltip ---------------------------------------------------------------------- */
 
@@ -58,7 +59,7 @@ export type TooltipContentProps = ComponentPropsWithoutRef<typeof TooltipPrimiti
 export const TooltipContent = forwardRef<HTMLDivElement, TooltipContentProps>(
   function TooltipContent({ className, ...rest }, ref) {
     return (
-      <TooltipPrimitive.Portal>
+      <TooltipPrimitive.Portal container={surfaceContainer()}>
         <TooltipPrimitive.Content ref={ref} className={cx('datum-tooltip', className)} {...rest} />
       </TooltipPrimitive.Portal>
     );
@@ -88,7 +89,7 @@ export type PopoverContentProps = ComponentPropsWithoutRef<typeof PopoverPrimiti
 export const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
   function PopoverContent({ className, ...rest }, ref) {
     return (
-      <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Portal container={surfaceContainer()}>
         <PopoverPrimitive.Content
           ref={ref}
           className={cx('datum-popover-surface', className)}
@@ -101,7 +102,17 @@ export const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
 
 /* ---- DropdownMenu ------------------------------------------------------------------ */
 
-export const DropdownMenu = DropdownMenuPrimitive.Root;
+export type DropdownMenuProps = ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Root>;
+
+/**
+ * Non-modal by default. Radix's Root opens modal, which `aria-hidden`s every sibling of the
+ * portal — the page's own heading and every control on it leave the accessibility tree, and
+ * axe reports `aria-hidden-focus` and `page-has-heading-one` against a menu that has taken
+ * the page away from the reader. A menu is a layer, not a mode (this file's own heading).
+ */
+export function DropdownMenu({ modal, ...rest }: DropdownMenuProps): ReactElement {
+  return <DropdownMenuPrimitive.Root modal={modal ?? false} {...rest} />;
+}
 
 export type DropdownMenuTriggerProps = ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Trigger>;
 
@@ -122,7 +133,7 @@ export type DropdownMenuContentProps = ComponentPropsWithoutRef<typeof DropdownM
 export const DropdownMenuContent = forwardRef<HTMLDivElement, DropdownMenuContentProps>(
   function DropdownMenuContent({ className, ...rest }, ref) {
     return (
-      <DropdownMenuPrimitive.Portal>
+      <DropdownMenuPrimitive.Portal container={surfaceContainer()}>
         <DropdownMenuPrimitive.Content
           ref={ref}
           className={cx('datum-popover-surface', 'datum-menu', className)}
@@ -149,7 +160,12 @@ export const DropdownMenuItem = forwardRef<HTMLDivElement, DropdownMenuItemProps
 
 /* ---- ContextMenu -------------------------------------------------------------------- */
 
-export const ContextMenu = ContextMenuPrimitive.Root;
+export type ContextMenuProps = ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Root>;
+
+/** Non-modal by default, for the reason DropdownMenu is. */
+export function ContextMenu({ modal, ...rest }: ContextMenuProps): ReactElement {
+  return <ContextMenuPrimitive.Root modal={modal ?? false} {...rest} />;
+}
 
 export type ContextMenuTriggerProps = ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Trigger>;
 
@@ -174,7 +190,7 @@ export type ContextMenuContentProps = ComponentPropsWithoutRef<typeof ContextMen
 export const ContextMenuContent = forwardRef<HTMLDivElement, ContextMenuContentProps>(
   function ContextMenuContent({ className, ...rest }, ref) {
     return (
-      <ContextMenuPrimitive.Portal>
+      <ContextMenuPrimitive.Portal container={surfaceContainer()}>
         <ContextMenuPrimitive.Content
           ref={ref}
           className={cx('datum-popover-surface', 'datum-menu', className)}

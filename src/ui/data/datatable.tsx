@@ -557,6 +557,7 @@ export function DataTable<T>({
           {enableRowSelection ? (
             <div
               role="columnheader"
+              aria-label={ds('data.table.selectColumn')}
               className="datum-datatable-select"
               style={{ width: `${String(SELECT_COLUMN_WIDTH)}px` }}
             />
