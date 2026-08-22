@@ -1,0 +1,4005 @@
+{
+  "version": 2,
+  "ingest": {
+    "extractor": {
+      "name": "ezdxf",
+      "version": "1.4.4",
+      "parameter_set_hash": "1caff16140d0c4fee7d5ad097be0502b9663e01c0f329fb147284403bd7d2e45"
+    },
+    "file_sha256": "ed13329c100ec9dd0601541a070978d13e8774d00dad9815e8e3a8b4ff79649f"
+  },
+  "units": {
+    "insunits_code": 4,
+    "unit": "mm",
+    "insunits_unmapped": false
+  },
+  "layouts": [
+    {
+      "name": "Model",
+      "kind": "model",
+      "bbox": [
+        0.0,
+        0.0,
+        118.0,
+        98.0
+      ]
+    },
+    {
+      "name": "Sheet1",
+      "kind": "paper",
+      "bbox": [
+        0.0,
+        0.0,
+        420.0,
+        297.0
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "key": "DXF_HANDLE:8D",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          0.0,
+          0.0
+        ],
+        "end": [
+          8.0,
+          8.0
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            8.0,
+            8.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:8E",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          10.0,
+          0.0
+        ],
+        "end": [
+          18.0,
+          8.0
+        ],
+        "points": [
+          [
+            10.0,
+            0.0
+          ],
+          [
+            18.0,
+            8.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:8F",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          20.0,
+          0.0
+        ],
+        "end": [
+          28.0,
+          8.0
+        ],
+        "points": [
+          [
+            20.0,
+            0.0
+          ],
+          [
+            28.0,
+            8.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:90",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          30.0,
+          0.0
+        ],
+        "end": [
+          38.0,
+          8.0
+        ],
+        "points": [
+          [
+            30.0,
+            0.0
+          ],
+          [
+            38.0,
+            8.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:91",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          40.0,
+          0.0
+        ],
+        "end": [
+          48.0,
+          8.0
+        ],
+        "points": [
+          [
+            40.0,
+            0.0
+          ],
+          [
+            48.0,
+            8.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:92",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          50.0,
+          0.0
+        ],
+        "end": [
+          58.0,
+          8.0
+        ],
+        "points": [
+          [
+            50.0,
+            0.0
+          ],
+          [
+            58.0,
+            8.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:93",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          60.0,
+          0.0
+        ],
+        "end": [
+          68.0,
+          8.0
+        ],
+        "points": [
+          [
+            60.0,
+            0.0
+          ],
+          [
+            68.0,
+            8.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:94",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          70.0,
+          0.0
+        ],
+        "end": [
+          78.0,
+          8.0
+        ],
+        "points": [
+          [
+            70.0,
+            0.0
+          ],
+          [
+            78.0,
+            8.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:95",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          80.0,
+          0.0
+        ],
+        "end": [
+          88.0,
+          8.0
+        ],
+        "points": [
+          [
+            80.0,
+            0.0
+          ],
+          [
+            88.0,
+            8.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:96",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          90.0,
+          0.0
+        ],
+        "end": [
+          98.0,
+          8.0
+        ],
+        "points": [
+          [
+            90.0,
+            0.0
+          ],
+          [
+            98.0,
+            8.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:97",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          0.0
+        ],
+        "end": [
+          108.0,
+          8.0
+        ],
+        "points": [
+          [
+            100.0,
+            0.0
+          ],
+          [
+            108.0,
+            8.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:98",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          110.0,
+          0.0
+        ],
+        "end": [
+          118.0,
+          8.0
+        ],
+        "points": [
+          [
+            110.0,
+            0.0
+          ],
+          [
+            118.0,
+            8.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:99",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          0.0,
+          10.0
+        ],
+        "end": [
+          8.0,
+          18.0
+        ],
+        "points": [
+          [
+            0.0,
+            10.0
+          ],
+          [
+            8.0,
+            18.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:9A",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          10.0,
+          10.0
+        ],
+        "end": [
+          18.0,
+          18.0
+        ],
+        "points": [
+          [
+            10.0,
+            10.0
+          ],
+          [
+            18.0,
+            18.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:9B",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          20.0,
+          10.0
+        ],
+        "end": [
+          28.0,
+          18.0
+        ],
+        "points": [
+          [
+            20.0,
+            10.0
+          ],
+          [
+            28.0,
+            18.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:9C",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          30.0,
+          10.0
+        ],
+        "end": [
+          38.0,
+          18.0
+        ],
+        "points": [
+          [
+            30.0,
+            10.0
+          ],
+          [
+            38.0,
+            18.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:9D",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          40.0,
+          10.0
+        ],
+        "end": [
+          48.0,
+          18.0
+        ],
+        "points": [
+          [
+            40.0,
+            10.0
+          ],
+          [
+            48.0,
+            18.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:9E",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          50.0,
+          10.0
+        ],
+        "end": [
+          58.0,
+          18.0
+        ],
+        "points": [
+          [
+            50.0,
+            10.0
+          ],
+          [
+            58.0,
+            18.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:9F",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          60.0,
+          10.0
+        ],
+        "end": [
+          68.0,
+          18.0
+        ],
+        "points": [
+          [
+            60.0,
+            10.0
+          ],
+          [
+            68.0,
+            18.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:A0",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          70.0,
+          10.0
+        ],
+        "end": [
+          78.0,
+          18.0
+        ],
+        "points": [
+          [
+            70.0,
+            10.0
+          ],
+          [
+            78.0,
+            18.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:A1",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          80.0,
+          10.0
+        ],
+        "end": [
+          88.0,
+          18.0
+        ],
+        "points": [
+          [
+            80.0,
+            10.0
+          ],
+          [
+            88.0,
+            18.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:A2",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          90.0,
+          10.0
+        ],
+        "end": [
+          98.0,
+          18.0
+        ],
+        "points": [
+          [
+            90.0,
+            10.0
+          ],
+          [
+            98.0,
+            18.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:A3",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          10.0
+        ],
+        "end": [
+          108.0,
+          18.0
+        ],
+        "points": [
+          [
+            100.0,
+            10.0
+          ],
+          [
+            108.0,
+            18.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:A4",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          110.0,
+          10.0
+        ],
+        "end": [
+          118.0,
+          18.0
+        ],
+        "points": [
+          [
+            110.0,
+            10.0
+          ],
+          [
+            118.0,
+            18.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:A5",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          0.0,
+          20.0
+        ],
+        "end": [
+          8.0,
+          28.0
+        ],
+        "points": [
+          [
+            0.0,
+            20.0
+          ],
+          [
+            8.0,
+            28.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:A6",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          10.0,
+          20.0
+        ],
+        "end": [
+          18.0,
+          28.0
+        ],
+        "points": [
+          [
+            10.0,
+            20.0
+          ],
+          [
+            18.0,
+            28.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:A7",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          20.0,
+          20.0
+        ],
+        "end": [
+          28.0,
+          28.0
+        ],
+        "points": [
+          [
+            20.0,
+            20.0
+          ],
+          [
+            28.0,
+            28.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:A8",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          30.0,
+          20.0
+        ],
+        "end": [
+          38.0,
+          28.0
+        ],
+        "points": [
+          [
+            30.0,
+            20.0
+          ],
+          [
+            38.0,
+            28.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:A9",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          40.0,
+          20.0
+        ],
+        "end": [
+          48.0,
+          28.0
+        ],
+        "points": [
+          [
+            40.0,
+            20.0
+          ],
+          [
+            48.0,
+            28.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:AA",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          50.0,
+          20.0
+        ],
+        "end": [
+          58.0,
+          28.0
+        ],
+        "points": [
+          [
+            50.0,
+            20.0
+          ],
+          [
+            58.0,
+            28.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:AB",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          60.0,
+          20.0
+        ],
+        "end": [
+          68.0,
+          28.0
+        ],
+        "points": [
+          [
+            60.0,
+            20.0
+          ],
+          [
+            68.0,
+            28.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:AC",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          70.0,
+          20.0
+        ],
+        "end": [
+          78.0,
+          28.0
+        ],
+        "points": [
+          [
+            70.0,
+            20.0
+          ],
+          [
+            78.0,
+            28.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:AD",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          80.0,
+          20.0
+        ],
+        "end": [
+          88.0,
+          28.0
+        ],
+        "points": [
+          [
+            80.0,
+            20.0
+          ],
+          [
+            88.0,
+            28.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:AE",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          90.0,
+          20.0
+        ],
+        "end": [
+          98.0,
+          28.0
+        ],
+        "points": [
+          [
+            90.0,
+            20.0
+          ],
+          [
+            98.0,
+            28.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:AF",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          20.0
+        ],
+        "end": [
+          108.0,
+          28.0
+        ],
+        "points": [
+          [
+            100.0,
+            20.0
+          ],
+          [
+            108.0,
+            28.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:B0",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          110.0,
+          20.0
+        ],
+        "end": [
+          118.0,
+          28.0
+        ],
+        "points": [
+          [
+            110.0,
+            20.0
+          ],
+          [
+            118.0,
+            28.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:B1",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          0.0,
+          30.0
+        ],
+        "end": [
+          8.0,
+          38.0
+        ],
+        "points": [
+          [
+            0.0,
+            30.0
+          ],
+          [
+            8.0,
+            38.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:B2",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          10.0,
+          30.0
+        ],
+        "end": [
+          18.0,
+          38.0
+        ],
+        "points": [
+          [
+            10.0,
+            30.0
+          ],
+          [
+            18.0,
+            38.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:B3",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          20.0,
+          30.0
+        ],
+        "end": [
+          28.0,
+          38.0
+        ],
+        "points": [
+          [
+            20.0,
+            30.0
+          ],
+          [
+            28.0,
+            38.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:B4",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          30.0,
+          30.0
+        ],
+        "end": [
+          38.0,
+          38.0
+        ],
+        "points": [
+          [
+            30.0,
+            30.0
+          ],
+          [
+            38.0,
+            38.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:B5",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          40.0,
+          30.0
+        ],
+        "end": [
+          48.0,
+          38.0
+        ],
+        "points": [
+          [
+            40.0,
+            30.0
+          ],
+          [
+            48.0,
+            38.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:B6",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          50.0,
+          30.0
+        ],
+        "end": [
+          58.0,
+          38.0
+        ],
+        "points": [
+          [
+            50.0,
+            30.0
+          ],
+          [
+            58.0,
+            38.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:B7",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          60.0,
+          30.0
+        ],
+        "end": [
+          68.0,
+          38.0
+        ],
+        "points": [
+          [
+            60.0,
+            30.0
+          ],
+          [
+            68.0,
+            38.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:B8",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          70.0,
+          30.0
+        ],
+        "end": [
+          78.0,
+          38.0
+        ],
+        "points": [
+          [
+            70.0,
+            30.0
+          ],
+          [
+            78.0,
+            38.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:B9",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          80.0,
+          30.0
+        ],
+        "end": [
+          88.0,
+          38.0
+        ],
+        "points": [
+          [
+            80.0,
+            30.0
+          ],
+          [
+            88.0,
+            38.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:BA",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          90.0,
+          30.0
+        ],
+        "end": [
+          98.0,
+          38.0
+        ],
+        "points": [
+          [
+            90.0,
+            30.0
+          ],
+          [
+            98.0,
+            38.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:BB",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          30.0
+        ],
+        "end": [
+          108.0,
+          38.0
+        ],
+        "points": [
+          [
+            100.0,
+            30.0
+          ],
+          [
+            108.0,
+            38.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:BC",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          110.0,
+          30.0
+        ],
+        "end": [
+          118.0,
+          38.0
+        ],
+        "points": [
+          [
+            110.0,
+            30.0
+          ],
+          [
+            118.0,
+            38.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:BD",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          0.0,
+          40.0
+        ],
+        "end": [
+          8.0,
+          48.0
+        ],
+        "points": [
+          [
+            0.0,
+            40.0
+          ],
+          [
+            8.0,
+            48.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:BE",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          10.0,
+          40.0
+        ],
+        "end": [
+          18.0,
+          48.0
+        ],
+        "points": [
+          [
+            10.0,
+            40.0
+          ],
+          [
+            18.0,
+            48.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:BF",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          20.0,
+          40.0
+        ],
+        "end": [
+          28.0,
+          48.0
+        ],
+        "points": [
+          [
+            20.0,
+            40.0
+          ],
+          [
+            28.0,
+            48.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:C0",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          30.0,
+          40.0
+        ],
+        "end": [
+          38.0,
+          48.0
+        ],
+        "points": [
+          [
+            30.0,
+            40.0
+          ],
+          [
+            38.0,
+            48.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:C1",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          40.0,
+          40.0
+        ],
+        "end": [
+          48.0,
+          48.0
+        ],
+        "points": [
+          [
+            40.0,
+            40.0
+          ],
+          [
+            48.0,
+            48.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:C2",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          50.0,
+          40.0
+        ],
+        "end": [
+          58.0,
+          48.0
+        ],
+        "points": [
+          [
+            50.0,
+            40.0
+          ],
+          [
+            58.0,
+            48.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:C3",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          60.0,
+          40.0
+        ],
+        "end": [
+          68.0,
+          48.0
+        ],
+        "points": [
+          [
+            60.0,
+            40.0
+          ],
+          [
+            68.0,
+            48.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:C4",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          70.0,
+          40.0
+        ],
+        "end": [
+          78.0,
+          48.0
+        ],
+        "points": [
+          [
+            70.0,
+            40.0
+          ],
+          [
+            78.0,
+            48.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:C5",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          80.0,
+          40.0
+        ],
+        "end": [
+          88.0,
+          48.0
+        ],
+        "points": [
+          [
+            80.0,
+            40.0
+          ],
+          [
+            88.0,
+            48.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:C6",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          90.0,
+          40.0
+        ],
+        "end": [
+          98.0,
+          48.0
+        ],
+        "points": [
+          [
+            90.0,
+            40.0
+          ],
+          [
+            98.0,
+            48.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:C7",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          40.0
+        ],
+        "end": [
+          108.0,
+          48.0
+        ],
+        "points": [
+          [
+            100.0,
+            40.0
+          ],
+          [
+            108.0,
+            48.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:C8",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          110.0,
+          40.0
+        ],
+        "end": [
+          118.0,
+          48.0
+        ],
+        "points": [
+          [
+            110.0,
+            40.0
+          ],
+          [
+            118.0,
+            48.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:C9",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          0.0,
+          50.0
+        ],
+        "end": [
+          8.0,
+          58.0
+        ],
+        "points": [
+          [
+            0.0,
+            50.0
+          ],
+          [
+            8.0,
+            58.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:CA",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          10.0,
+          50.0
+        ],
+        "end": [
+          18.0,
+          58.0
+        ],
+        "points": [
+          [
+            10.0,
+            50.0
+          ],
+          [
+            18.0,
+            58.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:CB",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          20.0,
+          50.0
+        ],
+        "end": [
+          28.0,
+          58.0
+        ],
+        "points": [
+          [
+            20.0,
+            50.0
+          ],
+          [
+            28.0,
+            58.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:CC",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          30.0,
+          50.0
+        ],
+        "end": [
+          38.0,
+          58.0
+        ],
+        "points": [
+          [
+            30.0,
+            50.0
+          ],
+          [
+            38.0,
+            58.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:CD",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          40.0,
+          50.0
+        ],
+        "end": [
+          48.0,
+          58.0
+        ],
+        "points": [
+          [
+            40.0,
+            50.0
+          ],
+          [
+            48.0,
+            58.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:CE",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          50.0,
+          50.0
+        ],
+        "end": [
+          58.0,
+          58.0
+        ],
+        "points": [
+          [
+            50.0,
+            50.0
+          ],
+          [
+            58.0,
+            58.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:CF",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          60.0,
+          50.0
+        ],
+        "end": [
+          68.0,
+          58.0
+        ],
+        "points": [
+          [
+            60.0,
+            50.0
+          ],
+          [
+            68.0,
+            58.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:D0",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          70.0,
+          50.0
+        ],
+        "end": [
+          78.0,
+          58.0
+        ],
+        "points": [
+          [
+            70.0,
+            50.0
+          ],
+          [
+            78.0,
+            58.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:D1",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          80.0,
+          50.0
+        ],
+        "end": [
+          88.0,
+          58.0
+        ],
+        "points": [
+          [
+            80.0,
+            50.0
+          ],
+          [
+            88.0,
+            58.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:D2",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          90.0,
+          50.0
+        ],
+        "end": [
+          98.0,
+          58.0
+        ],
+        "points": [
+          [
+            90.0,
+            50.0
+          ],
+          [
+            98.0,
+            58.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:D3",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          50.0
+        ],
+        "end": [
+          108.0,
+          58.0
+        ],
+        "points": [
+          [
+            100.0,
+            50.0
+          ],
+          [
+            108.0,
+            58.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:D4",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          110.0,
+          50.0
+        ],
+        "end": [
+          118.0,
+          58.0
+        ],
+        "points": [
+          [
+            110.0,
+            50.0
+          ],
+          [
+            118.0,
+            58.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:D5",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          0.0,
+          60.0
+        ],
+        "end": [
+          8.0,
+          68.0
+        ],
+        "points": [
+          [
+            0.0,
+            60.0
+          ],
+          [
+            8.0,
+            68.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:D6",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          10.0,
+          60.0
+        ],
+        "end": [
+          18.0,
+          68.0
+        ],
+        "points": [
+          [
+            10.0,
+            60.0
+          ],
+          [
+            18.0,
+            68.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:D7",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          20.0,
+          60.0
+        ],
+        "end": [
+          28.0,
+          68.0
+        ],
+        "points": [
+          [
+            20.0,
+            60.0
+          ],
+          [
+            28.0,
+            68.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:D8",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          30.0,
+          60.0
+        ],
+        "end": [
+          38.0,
+          68.0
+        ],
+        "points": [
+          [
+            30.0,
+            60.0
+          ],
+          [
+            38.0,
+            68.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:D9",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          40.0,
+          60.0
+        ],
+        "end": [
+          48.0,
+          68.0
+        ],
+        "points": [
+          [
+            40.0,
+            60.0
+          ],
+          [
+            48.0,
+            68.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:DA",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          50.0,
+          60.0
+        ],
+        "end": [
+          58.0,
+          68.0
+        ],
+        "points": [
+          [
+            50.0,
+            60.0
+          ],
+          [
+            58.0,
+            68.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:DB",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          60.0,
+          60.0
+        ],
+        "end": [
+          68.0,
+          68.0
+        ],
+        "points": [
+          [
+            60.0,
+            60.0
+          ],
+          [
+            68.0,
+            68.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:DC",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          70.0,
+          60.0
+        ],
+        "end": [
+          78.0,
+          68.0
+        ],
+        "points": [
+          [
+            70.0,
+            60.0
+          ],
+          [
+            78.0,
+            68.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:DD",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          80.0,
+          60.0
+        ],
+        "end": [
+          88.0,
+          68.0
+        ],
+        "points": [
+          [
+            80.0,
+            60.0
+          ],
+          [
+            88.0,
+            68.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:DE",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          90.0,
+          60.0
+        ],
+        "end": [
+          98.0,
+          68.0
+        ],
+        "points": [
+          [
+            90.0,
+            60.0
+          ],
+          [
+            98.0,
+            68.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:DF",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          60.0
+        ],
+        "end": [
+          108.0,
+          68.0
+        ],
+        "points": [
+          [
+            100.0,
+            60.0
+          ],
+          [
+            108.0,
+            68.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:E0",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          110.0,
+          60.0
+        ],
+        "end": [
+          118.0,
+          68.0
+        ],
+        "points": [
+          [
+            110.0,
+            60.0
+          ],
+          [
+            118.0,
+            68.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:E1",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          0.0,
+          70.0
+        ],
+        "end": [
+          8.0,
+          78.0
+        ],
+        "points": [
+          [
+            0.0,
+            70.0
+          ],
+          [
+            8.0,
+            78.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:E2",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          10.0,
+          70.0
+        ],
+        "end": [
+          18.0,
+          78.0
+        ],
+        "points": [
+          [
+            10.0,
+            70.0
+          ],
+          [
+            18.0,
+            78.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:E3",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          20.0,
+          70.0
+        ],
+        "end": [
+          28.0,
+          78.0
+        ],
+        "points": [
+          [
+            20.0,
+            70.0
+          ],
+          [
+            28.0,
+            78.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:E4",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          30.0,
+          70.0
+        ],
+        "end": [
+          38.0,
+          78.0
+        ],
+        "points": [
+          [
+            30.0,
+            70.0
+          ],
+          [
+            38.0,
+            78.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:E5",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          40.0,
+          70.0
+        ],
+        "end": [
+          48.0,
+          78.0
+        ],
+        "points": [
+          [
+            40.0,
+            70.0
+          ],
+          [
+            48.0,
+            78.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:E6",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          50.0,
+          70.0
+        ],
+        "end": [
+          58.0,
+          78.0
+        ],
+        "points": [
+          [
+            50.0,
+            70.0
+          ],
+          [
+            58.0,
+            78.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:E7",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          60.0,
+          70.0
+        ],
+        "end": [
+          68.0,
+          78.0
+        ],
+        "points": [
+          [
+            60.0,
+            70.0
+          ],
+          [
+            68.0,
+            78.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:E8",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          70.0,
+          70.0
+        ],
+        "end": [
+          78.0,
+          78.0
+        ],
+        "points": [
+          [
+            70.0,
+            70.0
+          ],
+          [
+            78.0,
+            78.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:E9",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          80.0,
+          70.0
+        ],
+        "end": [
+          88.0,
+          78.0
+        ],
+        "points": [
+          [
+            80.0,
+            70.0
+          ],
+          [
+            88.0,
+            78.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:EA",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          90.0,
+          70.0
+        ],
+        "end": [
+          98.0,
+          78.0
+        ],
+        "points": [
+          [
+            90.0,
+            70.0
+          ],
+          [
+            98.0,
+            78.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:EB",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          70.0
+        ],
+        "end": [
+          108.0,
+          78.0
+        ],
+        "points": [
+          [
+            100.0,
+            70.0
+          ],
+          [
+            108.0,
+            78.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:EC",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          110.0,
+          70.0
+        ],
+        "end": [
+          118.0,
+          78.0
+        ],
+        "points": [
+          [
+            110.0,
+            70.0
+          ],
+          [
+            118.0,
+            78.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:ED",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          0.0,
+          80.0
+        ],
+        "end": [
+          8.0,
+          88.0
+        ],
+        "points": [
+          [
+            0.0,
+            80.0
+          ],
+          [
+            8.0,
+            88.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:EE",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          10.0,
+          80.0
+        ],
+        "end": [
+          18.0,
+          88.0
+        ],
+        "points": [
+          [
+            10.0,
+            80.0
+          ],
+          [
+            18.0,
+            88.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:EF",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          20.0,
+          80.0
+        ],
+        "end": [
+          28.0,
+          88.0
+        ],
+        "points": [
+          [
+            20.0,
+            80.0
+          ],
+          [
+            28.0,
+            88.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:F0",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          30.0,
+          80.0
+        ],
+        "end": [
+          38.0,
+          88.0
+        ],
+        "points": [
+          [
+            30.0,
+            80.0
+          ],
+          [
+            38.0,
+            88.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:F1",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          40.0,
+          80.0
+        ],
+        "end": [
+          48.0,
+          88.0
+        ],
+        "points": [
+          [
+            40.0,
+            80.0
+          ],
+          [
+            48.0,
+            88.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:F2",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          50.0,
+          80.0
+        ],
+        "end": [
+          58.0,
+          88.0
+        ],
+        "points": [
+          [
+            50.0,
+            80.0
+          ],
+          [
+            58.0,
+            88.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:F3",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          60.0,
+          80.0
+        ],
+        "end": [
+          68.0,
+          88.0
+        ],
+        "points": [
+          [
+            60.0,
+            80.0
+          ],
+          [
+            68.0,
+            88.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:F4",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          70.0,
+          80.0
+        ],
+        "end": [
+          78.0,
+          88.0
+        ],
+        "points": [
+          [
+            70.0,
+            80.0
+          ],
+          [
+            78.0,
+            88.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:F5",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          80.0,
+          80.0
+        ],
+        "end": [
+          88.0,
+          88.0
+        ],
+        "points": [
+          [
+            80.0,
+            80.0
+          ],
+          [
+            88.0,
+            88.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:F6",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          90.0,
+          80.0
+        ],
+        "end": [
+          98.0,
+          88.0
+        ],
+        "points": [
+          [
+            90.0,
+            80.0
+          ],
+          [
+            98.0,
+            88.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:F7",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          80.0
+        ],
+        "end": [
+          108.0,
+          88.0
+        ],
+        "points": [
+          [
+            100.0,
+            80.0
+          ],
+          [
+            108.0,
+            88.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:F8",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          110.0,
+          80.0
+        ],
+        "end": [
+          118.0,
+          88.0
+        ],
+        "points": [
+          [
+            110.0,
+            80.0
+          ],
+          [
+            118.0,
+            88.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:F9",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          0.0,
+          90.0
+        ],
+        "end": [
+          8.0,
+          98.0
+        ],
+        "points": [
+          [
+            0.0,
+            90.0
+          ],
+          [
+            8.0,
+            98.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:FA",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          10.0,
+          90.0
+        ],
+        "end": [
+          18.0,
+          98.0
+        ],
+        "points": [
+          [
+            10.0,
+            90.0
+          ],
+          [
+            18.0,
+            98.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:FB",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          20.0,
+          90.0
+        ],
+        "end": [
+          28.0,
+          98.0
+        ],
+        "points": [
+          [
+            20.0,
+            90.0
+          ],
+          [
+            28.0,
+            98.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:FC",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          30.0,
+          90.0
+        ],
+        "end": [
+          38.0,
+          98.0
+        ],
+        "points": [
+          [
+            30.0,
+            90.0
+          ],
+          [
+            38.0,
+            98.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:FD",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          40.0,
+          90.0
+        ],
+        "end": [
+          48.0,
+          98.0
+        ],
+        "points": [
+          [
+            40.0,
+            90.0
+          ],
+          [
+            48.0,
+            98.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:FE",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          50.0,
+          90.0
+        ],
+        "end": [
+          58.0,
+          98.0
+        ],
+        "points": [
+          [
+            50.0,
+            90.0
+          ],
+          [
+            58.0,
+            98.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:FF",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          60.0,
+          90.0
+        ],
+        "end": [
+          68.0,
+          98.0
+        ],
+        "points": [
+          [
+            60.0,
+            90.0
+          ],
+          [
+            68.0,
+            98.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:100",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          70.0,
+          90.0
+        ],
+        "end": [
+          78.0,
+          98.0
+        ],
+        "points": [
+          [
+            70.0,
+            90.0
+          ],
+          [
+            78.0,
+            98.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:101",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          80.0,
+          90.0
+        ],
+        "end": [
+          88.0,
+          98.0
+        ],
+        "points": [
+          [
+            80.0,
+            90.0
+          ],
+          [
+            88.0,
+            98.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:102",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          90.0,
+          90.0
+        ],
+        "end": [
+          98.0,
+          98.0
+        ],
+        "points": [
+          [
+            90.0,
+            90.0
+          ],
+          [
+            98.0,
+            98.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:103",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          90.0
+        ],
+        "end": [
+          108.0,
+          98.0
+        ],
+        "points": [
+          [
+            100.0,
+            90.0
+          ],
+          [
+            108.0,
+            98.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:104",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          110.0,
+          90.0
+        ],
+        "end": [
+          118.0,
+          98.0
+        ],
+        "points": [
+          [
+            110.0,
+            90.0
+          ],
+          [
+            118.0,
+            98.0
+          ]
+        ]
+      }
+    },
+    {
+      "key": "DXF_HANDLE:105",
+      "type": "CIRCLE",
+      "layer": "GRID",
+      "space": "model",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "center": [
+          1000000.0,
+          1000000.0
+        ],
+        "radius": 5.0,
+        "points": [
+          [
+            1000005.0,
+            1000000.0
+          ],
+          [
+            1000004.974185564,
+            999999.488779045
+          ],
+          [
+            1000004.898417771,
+            999998.992325603
+          ],
+          [
+            1000004.775209896,
+            999998.513152949
+          ],
+          [
+            1000004.607075215,
+            999998.053774356
+          ],
+          [
+            1000004.396527,
+            999997.616703099
+          ],
+          [
+            1000004.146078528,
+            999997.204452454
+          ],
+          [
+            1000003.858243071,
+            999996.819535694
+          ],
+          [
+            1000003.535533906,
+            999996.464466094
+          ],
+          [
+            1000003.180464306,
+            999996.141756929
+          ],
+          [
+            1000002.795547546,
+            999995.853921472
+          ],
+          [
+            1000002.383296901,
+            999995.603473
+          ],
+          [
+            1000001.946225644,
+            999995.392924785
+          ],
+          [
+            1000001.486847051,
+            999995.224790104
+          ],
+          [
+            1000001.007674397,
+            999995.101582229
+          ],
+          [
+            1000000.511220955,
+            999995.025814436
+          ],
+          [
+            1000000.0,
+            999995.0
+          ],
+          [
+            999999.488779045,
+            999995.025814436
+          ],
+          [
+            999998.992325603,
+            999995.101582229
+          ],
+          [
+            999998.513152949,
+            999995.224790104
+          ],
+          [
+            999998.053774356,
+            999995.392924785
+          ],
+          [
+            999997.616703099,
+            999995.603473
+          ],
+          [
+            999997.204452454,
+            999995.853921472
+          ],
+          [
+            999996.819535694,
+            999996.141756929
+          ],
+          [
+            999996.464466094,
+            999996.464466094
+          ],
+          [
+            999996.141756929,
+            999996.819535694
+          ],
+          [
+            999995.853921472,
+            999997.204452454
+          ],
+          [
+            999995.603473,
+            999997.616703099
+          ],
+          [
+            999995.392924785,
+            999998.053774356
+          ],
+          [
+            999995.224790104,
+            999998.513152949
+          ],
+          [
+            999995.101582229,
+            999998.992325603
+          ],
+          [
+            999995.025814436,
+            999999.488779045
+          ],
+          [
+            999995.0,
+            1000000.0
+          ],
+          [
+            999995.025814436,
+            1000000.511220955
+          ],
+          [
+            999995.101582229,
+            1000001.007674397
+          ],
+          [
+            999995.224790104,
+            1000001.486847051
+          ],
+          [
+            999995.392924785,
+            1000001.946225644
+          ],
+          [
+            999995.603473,
+            1000002.383296901
+          ],
+          [
+            999995.853921472,
+            1000002.795547546
+          ],
+          [
+            999996.141756929,
+            1000003.180464306
+          ],
+          [
+            999996.464466094,
+            1000003.535533906
+          ],
+          [
+            999996.819535694,
+            1000003.858243071
+          ],
+          [
+            999997.204452454,
+            1000004.146078528
+          ],
+          [
+            999997.616703099,
+            1000004.396527
+          ],
+          [
+            999998.053774356,
+            1000004.607075215
+          ],
+          [
+            999998.513152949,
+            1000004.775209896
+          ],
+          [
+            999998.992325603,
+            1000004.898417771
+          ],
+          [
+            999999.488779045,
+            1000004.974185564
+          ],
+          [
+            1000000.0,
+            1000005.0
+          ],
+          [
+            1000000.511220955,
+            1000004.974185564
+          ],
+          [
+            1000001.007674397,
+            1000004.898417771
+          ],
+          [
+            1000001.486847051,
+            1000004.775209896
+          ],
+          [
+            1000001.946225644,
+            1000004.607075215
+          ],
+          [
+            1000002.383296901,
+            1000004.396527
+          ],
+          [
+            1000002.795547546,
+            1000004.146078528
+          ],
+          [
+            1000003.180464306,
+            1000003.858243071
+          ],
+          [
+            1000003.535533906,
+            1000003.535533906
+          ],
+          [
+            1000003.858243071,
+            1000003.180464306
+          ],
+          [
+            1000004.146078528,
+            1000002.795547546
+          ],
+          [
+            1000004.396527,
+            1000002.383296901
+          ],
+          [
+            1000004.607075215,
+            1000001.946225644
+          ],
+          [
+            1000004.775209896,
+            1000001.486847051
+          ],
+          [
+            1000004.898417771,
+            1000001.007674397
+          ],
+          [
+            1000004.974185564,
+            1000000.511220955
+          ],
+          [
+            1000005.0,
+            1000000.0
+          ]
+        ]
+      },
+      "closed": true,
+      "area": 78.435424805
+    },
+    {
+      "key": "DXF_HANDLE:106",
+      "type": "LWPOLYLINE",
+      "layer": "GRID",
+      "space": "Sheet1",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            420.0,
+            0.0
+          ],
+          [
+            420.0,
+            297.0
+          ],
+          [
+            0.0,
+            297.0
+          ],
+          [
+            0.0,
+            0.0
+          ]
+        ],
+        "closed": true
+      },
+      "closed": true,
+      "area": 124740.0
+    },
+    {
+      "key": "DXF_HANDLE:107",
+      "type": "TEXT",
+      "layer": "WALLS",
+      "space": "Sheet1",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "anchor": [
+          10.0,
+          10.0
+        ],
+        "points": [
+          [
+            10.0,
+            10.0
+          ]
+        ]
+      },
+      "text": "A3 SHEET",
+      "height": 10.0,
+      "anchor": [
+        10.0,
+        10.0
+      ]
+    }
+  ],
+  "derived": [],
+  "attributes": [],
+  "counters": {
+    "layouts_dropped": 1,
+    "per_layout": {
+      "Model": {
+        "explode_truncated": false,
+        "explode_losses": {},
+        "flatten_capped": 0,
+        "strays_rejected": 1
+      },
+      "Sheet1": {
+        "explode_truncated": false,
+        "explode_losses": {},
+        "flatten_capped": 0,
+        "strays_rejected": 0
+      }
+    }
+  }
+}

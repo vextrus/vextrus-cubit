@@ -1,0 +1,975 @@
+{
+  "version": 2,
+  "ingest": {
+    "extractor": {
+      "name": "ezdxf",
+      "version": "1.4.4",
+      "parameter_set_hash": "1caff16140d0c4fee7d5ad097be0502b9663e01c0f329fb147284403bd7d2e45"
+    },
+    "file_sha256": "761905ac16785db07aab36ce047c83ac0826c1f284a44f777bb724e9e7be0ec2"
+  },
+  "units": {
+    "insunits_code": 4,
+    "unit": "mm",
+    "insunits_unmapped": false
+  },
+  "layouts": [
+    {
+      "name": "Model",
+      "kind": "model",
+      "bbox": [
+        0.0,
+        -70.0,
+        201.0,
+        60.0
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "key": "DXF_HANDLE:E1",
+      "type": "INSERT",
+      "layer": "GRID",
+      "space": "model",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "name": "NEST_0",
+        "insert": [
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "rotation": 0.0
+      }
+    },
+    {
+      "key": "DXF_HANDLE:E3",
+      "type": "INSERT",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#FFFF00",
+        "source": "explicit"
+      },
+      "geometry": {
+        "name": "PALETTE",
+        "insert": [
+          100.0,
+          0.0
+        ],
+        "scale": [
+          3.0,
+          3.0,
+          1.0
+        ],
+        "rotation": 0.0
+      }
+    },
+    {
+      "key": "DXF_HANDLE:E5",
+      "type": "INSERT",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "name": "ROOM_TAG",
+        "insert": [
+          200.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "rotation": 0.0
+      }
+    },
+    {
+      "key": "DXF_HANDLE:E9",
+      "type": "LWPOLYLINE",
+      "layer": "ROOF",
+      "space": "model",
+      "colour": {
+        "rgb": "#123456",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "points": [
+          [
+            0.0,
+            -50.0
+          ],
+          [
+            60.0,
+            -50.0
+          ],
+          [
+            60.0,
+            -20.0
+          ],
+          [
+            0.0,
+            -20.0
+          ],
+          [
+            0.0,
+            -50.0
+          ]
+        ],
+        "closed": true
+      },
+      "closed": true,
+      "area": 1800.0
+    },
+    {
+      "key": "DXF_HANDLE:EA",
+      "type": "TEXT",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "anchor": [
+          0.0,
+          60.0
+        ],
+        "points": [
+          [
+            0.0,
+            60.0
+          ]
+        ]
+      },
+      "text": "PLAN AT LEVEL ONE",
+      "height": 5.0,
+      "anchor": [
+        0.0,
+        60.0
+      ]
+    },
+    {
+      "key": "DXF_HANDLE:EB",
+      "type": "DIMENSION",
+      "layer": "GRID",
+      "space": "model",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "defpoint": [
+          0.0,
+          -70.0
+        ],
+        "text_midpoint": [
+          30.0,
+          -69.775
+        ],
+        "points": [
+          [
+            0.0,
+            -70.0
+          ],
+          [
+            30.0,
+            -69.775
+          ]
+        ]
+      }
+    }
+  ],
+  "derived": [
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "LINE",
+      "layer": "GRID",
+      "space": "model",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          0.0,
+          0.0
+        ],
+        "end": [
+          10.0,
+          0.0
+        ],
+        "points": [
+          [
+            0.0,
+            0.0
+          ],
+          [
+            10.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "INSERT",
+      "layer": "0",
+      "space": "model",
+      "colour": {
+        "rgb": "#FFFFFF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "name": "NEST_1",
+        "insert": [
+          1.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "rotation": 0.0
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "LINE",
+      "layer": "GRID",
+      "space": "model",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          1.0,
+          1.0
+        ],
+        "end": [
+          11.0,
+          1.0
+        ],
+        "points": [
+          [
+            1.0,
+            1.0
+          ],
+          [
+            11.0,
+            1.0
+          ]
+        ]
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "INSERT",
+      "layer": "0",
+      "space": "model",
+      "colour": {
+        "rgb": "#FFFFFF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "name": "NEST_2",
+        "insert": [
+          2.0,
+          2.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "rotation": 0.0
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "LINE",
+      "layer": "GRID",
+      "space": "model",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          2.0,
+          2.0
+        ],
+        "end": [
+          12.0,
+          2.0
+        ],
+        "points": [
+          [
+            2.0,
+            2.0
+          ],
+          [
+            12.0,
+            2.0
+          ]
+        ]
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "INSERT",
+      "layer": "0",
+      "space": "model",
+      "colour": {
+        "rgb": "#FFFFFF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "name": "NEST_3",
+        "insert": [
+          3.0,
+          3.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "rotation": 0.0
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "LINE",
+      "layer": "GRID",
+      "space": "model",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          3.0,
+          3.0
+        ],
+        "end": [
+          13.0,
+          3.0
+        ],
+        "points": [
+          [
+            3.0,
+            3.0
+          ],
+          [
+            13.0,
+            3.0
+          ]
+        ]
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "INSERT",
+      "layer": "0",
+      "space": "model",
+      "colour": {
+        "rgb": "#FFFFFF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "name": "NEST_4",
+        "insert": [
+          4.0,
+          4.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "rotation": 0.0
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "LINE",
+      "layer": "GRID",
+      "space": "model",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          4.0,
+          4.0
+        ],
+        "end": [
+          14.0,
+          4.0
+        ],
+        "points": [
+          [
+            4.0,
+            4.0
+          ],
+          [
+            14.0,
+            4.0
+          ]
+        ]
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "INSERT",
+      "layer": "0",
+      "space": "model",
+      "colour": {
+        "rgb": "#FFFFFF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "name": "NEST_5",
+        "insert": [
+          5.0,
+          5.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "rotation": 0.0
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "LINE",
+      "layer": "GRID",
+      "space": "model",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          5.0,
+          5.0
+        ],
+        "end": [
+          15.0,
+          5.0
+        ],
+        "points": [
+          [
+            5.0,
+            5.0
+          ],
+          [
+            15.0,
+            5.0
+          ]
+        ]
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "INSERT",
+      "layer": "0",
+      "space": "model",
+      "colour": {
+        "rgb": "#FFFFFF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "name": "NEST_6",
+        "insert": [
+          6.0,
+          6.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "rotation": 0.0
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "LINE",
+      "layer": "GRID",
+      "space": "model",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          6.0,
+          6.0
+        ],
+        "end": [
+          16.0,
+          6.0
+        ],
+        "points": [
+          [
+            6.0,
+            6.0
+          ],
+          [
+            16.0,
+            6.0
+          ]
+        ]
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "INSERT",
+      "layer": "0",
+      "space": "model",
+      "colour": {
+        "rgb": "#FFFFFF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "name": "NEST_7",
+        "insert": [
+          7.0,
+          7.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "rotation": 0.0
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "LINE",
+      "layer": "GRID",
+      "space": "model",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          7.0,
+          7.0
+        ],
+        "end": [
+          17.0,
+          7.0
+        ],
+        "points": [
+          [
+            7.0,
+            7.0
+          ],
+          [
+            17.0,
+            7.0
+          ]
+        ]
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E1",
+      "type": "INSERT",
+      "layer": "0",
+      "space": "model",
+      "colour": {
+        "rgb": "#FFFFFF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "name": "NEST_8",
+        "insert": [
+          8.0,
+          8.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "rotation": 0.0
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E3",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          0.0
+        ],
+        "end": [
+          130.0,
+          0.0
+        ],
+        "points": [
+          [
+            100.0,
+            0.0
+          ],
+          [
+            130.0,
+            0.0
+          ]
+        ]
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E3",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#FFFF00",
+        "source": "byblock"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          6.0
+        ],
+        "end": [
+          130.0,
+          6.0
+        ],
+        "points": [
+          [
+            100.0,
+            6.0
+          ],
+          [
+            130.0,
+            6.0
+          ]
+        ]
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E3",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#FF0000",
+        "source": "explicit"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          12.0
+        ],
+        "end": [
+          130.0,
+          12.0
+        ],
+        "points": [
+          [
+            100.0,
+            12.0
+          ],
+          [
+            130.0,
+            12.0
+          ]
+        ]
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E3",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#C86432",
+        "source": "true_colour"
+      },
+      "geometry": {
+        "start": [
+          100.0,
+          18.0
+        ],
+        "end": [
+          130.0,
+          18.0
+        ],
+        "points": [
+          [
+            100.0,
+            18.0
+          ],
+          [
+            130.0,
+            18.0
+          ]
+        ]
+      }
+    },
+    {
+      "src": "DXF_HANDLE:E3",
+      "type": "TEXT",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": {
+        "rgb": "#00FF00",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "anchor": [
+          100.0,
+          24.0
+        ],
+        "points": [
+          [
+            100.0,
+            24.0
+          ]
+        ]
+      },
+      "text": "BLOCK LABEL",
+      "height": 6.0,
+      "anchor": [
+        100.0,
+        24.0
+      ]
+    },
+    {
+      "src": "DXF_HANDLE:E5",
+      "type": "CIRCLE",
+      "layer": "GRID",
+      "space": "model",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "center": [
+          200.0,
+          0.0
+        ],
+        "radius": 1.0,
+        "points": [
+          [
+            201.0,
+            0.0
+          ],
+          [
+            200.979683554,
+            -0.201534879
+          ],
+          [
+            200.921415043,
+            -0.389245129
+          ],
+          [
+            200.829215706,
+            -0.559109509
+          ],
+          [
+            200.707106781,
+            -0.707106781
+          ],
+          [
+            200.559109509,
+            -0.829215706
+          ],
+          [
+            200.389245129,
+            -0.921415043
+          ],
+          [
+            200.201534879,
+            -0.979683554
+          ],
+          [
+            200.0,
+            -1.0
+          ],
+          [
+            199.798465121,
+            -0.979683554
+          ],
+          [
+            199.610754871,
+            -0.921415043
+          ],
+          [
+            199.440890491,
+            -0.829215706
+          ],
+          [
+            199.292893219,
+            -0.707106781
+          ],
+          [
+            199.170784294,
+            -0.559109509
+          ],
+          [
+            199.078584957,
+            -0.389245129
+          ],
+          [
+            199.020316446,
+            -0.201534879
+          ],
+          [
+            199.0,
+            0.0
+          ],
+          [
+            199.020316446,
+            0.201534879
+          ],
+          [
+            199.078584957,
+            0.389245129
+          ],
+          [
+            199.170784294,
+            0.559109509
+          ],
+          [
+            199.292893219,
+            0.707106781
+          ],
+          [
+            199.440890491,
+            0.829215706
+          ],
+          [
+            199.610754871,
+            0.921415043
+          ],
+          [
+            199.798465121,
+            0.979683554
+          ],
+          [
+            200.0,
+            1.0
+          ],
+          [
+            200.201534879,
+            0.979683554
+          ],
+          [
+            200.389245129,
+            0.921415043
+          ],
+          [
+            200.559109509,
+            0.829215706
+          ],
+          [
+            200.707106781,
+            0.707106781
+          ],
+          [
+            200.829215706,
+            0.559109509
+          ],
+          [
+            200.921415043,
+            0.389245129
+          ],
+          [
+            200.979683554,
+            0.201534879
+          ],
+          [
+            201.0,
+            0.0
+          ]
+        ]
+      },
+      "closed": true,
+      "area": 3.12228929
+    },
+    {
+      "src": "DXF_HANDLE:EB",
+      "type": "TEXT",
+      "layer": "GRID",
+      "space": "model",
+      "colour": {
+        "rgb": "#0000FF",
+        "source": "bylayer"
+      },
+      "geometry": {
+        "anchor": [
+          30.0,
+          -69.775
+        ],
+        "points": [
+          [
+            30.0,
+            -69.775
+          ]
+        ]
+      },
+      "text": "60",
+      "height": 0.25,
+      "anchor": [
+        30.0,
+        -69.775
+      ]
+    }
+  ],
+  "attributes": [
+    {
+      "src": "DXF_HANDLE:E5",
+      "tag": "ROOM",
+      "text": "R-101"
+    },
+    {
+      "src": "DXF_HANDLE:E5",
+      "tag": "AREA",
+      "text": "18.5 sqm"
+    }
+  ],
+  "counters": {
+    "layouts_dropped": 1,
+    "per_layout": {
+      "Model": {
+        "explode_truncated": true,
+        "explode_losses": {
+          "INSERT": 1,
+          "LINE": 1
+        },
+        "flatten_capped": 0,
+        "strays_rejected": 0
+      }
+    }
+  }
+}

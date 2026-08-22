@@ -1,0 +1,44 @@
+{
+  "_why": "DELIBERATELY INVALID (declared in the increment spec's testContract.fixtures). L-CAD-02: 'Every original entity carries a source key scheme:key.' The second original below carries none, so it names no atom and both runtimes must refuse the graph.",
+  "version": 2,
+  "ingest": {
+    "extractor": {
+      "name": "ezdxf",
+      "version": "1.4.4",
+      "parameter_set_hash": "1caff16140d0c4fee7d5ad097be0502b9663e01c0f329fb147284403bd7d2e45"
+    },
+    "file_sha256": "65abaf9555ab758be094d257929b235212be4e17c55de22c4f546b72334ccf9d"
+  },
+  "units": { "insunits_code": 4, "unit": "mm", "insunits_unmapped": false },
+  "layouts": [{ "name": "Model", "kind": "model", "bbox": [0, 0, 5000, 0] }],
+  "entities": [
+    {
+      "key": "DXF_HANDLE:8D",
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": { "rgb": "#00FF00", "source": "bylayer" },
+      "geometry": { "start": [0, 0], "end": [5000, 0], "points": [[0, 0], [5000, 0]] }
+    },
+    {
+      "type": "LINE",
+      "layer": "WALLS",
+      "space": "model",
+      "colour": { "rgb": "#00FF00", "source": "bylayer" },
+      "geometry": { "start": [0, 0], "end": [0, 3200], "points": [[0, 0], [0, 3200]] }
+    }
+  ],
+  "derived": [],
+  "attributes": [],
+  "counters": {
+    "layouts_dropped": 0,
+    "per_layout": {
+      "Model": {
+        "explode_truncated": false,
+        "explode_losses": {},
+        "flatten_capped": 0,
+        "strays_rejected": 0
+      }
+    }
+  }
+}
