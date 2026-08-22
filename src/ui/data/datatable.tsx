@@ -559,7 +559,14 @@ export function DataTable<T>({
               role="columnheader"
               className="datum-datatable-select"
               style={{ width: `${String(SELECT_COLUMN_WIDTH)}px` }}
-            />
+            >
+              {/* The gutter is empty on the screen by design (datum-patterns.md §3), and a
+                  column header with nothing in it is a column a reader is never told the name
+                  of (R-UI-012). The word is said in the cell and taken off the screen rather
+                  than out of the accessibility tree — an `aria-label` would name the cell for
+                  a screen reader and still leave the header text-empty. */}
+              <span className="datum-datatable-select-name">{ds('data.table.selectColumn')}</span>
+            </div>
           ) : null}
           {table.getHeaderGroups().map((group) => group.headers.map((header) => renderHeaderCell(header)))}
         </div>

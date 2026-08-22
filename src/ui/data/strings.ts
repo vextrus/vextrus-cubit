@@ -16,6 +16,8 @@
 export const DATA_STRINGS = Object.freeze({
   /** The name of one row's selection control; the slot carries that row's own id. */
   'data.table.selectRow': 'Select row {id}',
+  /** The selection gutter's own column header — read before the checkbox under it. */
+  'data.table.selectColumn': 'Select',
   /** The name of a collapsed group's chevron. */
   'data.table.expandGroup': 'Expand group',
   /** The same control once the group is open. */

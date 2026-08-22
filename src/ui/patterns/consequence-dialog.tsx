@@ -20,7 +20,7 @@
  *
  * Decided in docs/design/datum-patterns.md §9.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '../primitives/dialog';
 import { Button } from '../primitives/button';
@@ -108,6 +108,24 @@ export function ConsequenceDialog({
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  // R-UI-012's "keyboard reachable", read to the end of the episode: this dialog is controlled
+  // and renders no DialogTrigger of its own, so Radix's close handler prevents the focus
+  // scope's restore and then focuses a trigger that does not exist — the reader is left on
+  // `<body>` with their place gone. Refocusing from `onOpenChange` does not cure it, because
+  // the scope unmounts after and takes the focus away again; `onCloseAutoFocus` is the one
+  // moment Radix hands the decision over.
+  //
+  // The opener is read during the render that opens the dialog rather than from an effect:
+  // the content's own mount effect is what moves the focus, and every effect of ours runs
+  // after it, when the opener is no longer what is focused.
+  const opener = useRef<HTMLElement | null>(null);
+  const wasOpen = useRef(false);
+  if (open && !wasOpen.current && typeof document !== 'undefined') {
+    const active = document.activeElement;
+    opener.current = active instanceof HTMLElement ? active : null;
+  }
+  wasOpen.current = open;
+
   // A restatement belongs to the preview it answered: hand the dialog a *different* preview and
   // the stale one is gone, with no effect to run and nothing to reset.
   const current = restated !== null && restated.base === consequence.digest ? restated : null;
@@ -153,7 +171,14 @@ export function ConsequenceDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent data-testid="consequence-dialog" className="datum-consequence">
+      <DialogContent
+        data-testid="consequence-dialog"
+        className="datum-consequence"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          opener.current?.focus();
+        }}
+      >
         <DialogTitle>{title}</DialogTitle>
 
         {/* Said whenever the preview was restated, not only when a row changed: a line that
