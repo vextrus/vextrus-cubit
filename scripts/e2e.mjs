@@ -170,6 +170,41 @@ function runToCompletion(file, args, env = {}) {
   });
 }
 
+/**
+ * Prove the lane's fontconfig is actually read before a pixel is rendered.
+ *
+ * Fontconfig treats an unparseable configuration as advice: it writes `Cannot load config
+ * file` to stderr and carries on with /etc/fonts, so exporting FONTCONFIG_FILE is not by
+ * itself evidence that anything was pinned — the baselines would quietly become a property
+ * of the machine's font set again. `fc-match` reads the file through the same loader
+ * Chromium's does; if it cannot load it, the run stops here rather than producing pixels
+ * nobody can reproduce.
+ *
+ * Resolves to a failure line, or undefined when the file loaded (or when fontconfig's tools
+ * are not installed — then there is nothing to ask, and Chromium's own loader is all there
+ * is).
+ */
+function fontConfigLoads(env) {
+  return new Promise((resolve) => {
+    const running = child('fc-match', ['sans-serif'], env);
+    let complaints = '';
+    running.stderr?.on('data', (chunk) => {
+      complaints += String(chunk);
+    });
+    running.stdout?.on('data', () => {});
+    running.on('error', () => resolve(undefined));
+    running.on('close', (code) => {
+      if (/cannot load config file|not well-formed/i.test(complaints)) {
+        resolve(
+          `e2e: ${env.FONTCONFIG_FILE} did not load — the baselines would render under the machine's own fonts.\n${complaints.trim()}`
+        );
+        return;
+      }
+      resolve(code === 0 ? undefined : `e2e: fc-match exited ${code}\n${complaints.trim()}`);
+    });
+  });
+}
+
 /** The cold database, made from nothing, owned by the migrate role (V-DB's bootstrap). */
 async function provision() {
   const admin = new pg.Client({ connectionString: adminUrl() });
@@ -291,6 +326,12 @@ async function main() {
     say('e2e: FAIL');
     process.exitCode = 1;
   };
+
+  const fontFailure = await fontConfigLoads(laneEnv);
+  if (fontFailure !== undefined) {
+    fail(fontFailure);
+    return;
+  }
 
   // Once. The server serves this build, and the journeys never rebuild between specs.
   const built = await runToCompletion(bin('next'), ['build'], laneEnv);
