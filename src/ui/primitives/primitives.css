@@ -440,7 +440,7 @@
 }
 
 .datum-select-trigger[data-placeholder] {
-  color: var(--graphite-600);
+  color: var(--graphite-500);
 }
 
 .datum-select-icon {

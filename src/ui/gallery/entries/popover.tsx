@@ -14,9 +14,7 @@ export const entry: GalleryEntry = {
           <PopoverTrigger asChild>
             <Button variant="secondary">{gs('gallery.sample.popover.trigger')}</Button>
           </PopoverTrigger>
-          <PopoverContent aria-label={gs('gallery.sample.popover.trigger')}>
-            {gs('gallery.sample.popover.body')}
-          </PopoverContent>
+          <PopoverContent>{gs('gallery.sample.popover.body')}</PopoverContent>
         </Popover>
       ),
     },

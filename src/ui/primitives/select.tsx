@@ -14,37 +14,10 @@
  * stylesheet rather than written into the option, so the accessible name of an option stays
  * the word the user is choosing.
  */
-import { forwardRef, useEffect } from 'react';
+import { forwardRef } from 'react';
 import type { ComponentPropsWithoutRef } from 'react';
 import { Select as SelectPrimitive } from 'radix-ui';
 import { cx } from './class-names';
-import { surfaceContainer } from './surface-container';
-
-/**
- * Radix's Select hides the rest of the page from the accessibility tree while the list is
- * open, and — unlike DropdownMenu and ContextMenu — exposes no `modal` prop to say otherwise.
- * The page's heading and every control on it then leave the tree, which axe reports as
- * `aria-hidden-focus` and `page-has-heading-one`: a picker has taken the page away from the
- * reader. This puts back the one attribute that did it, leaving Radix's own `data-aria-hidden`
- * bookkeeping alone so its cleanup still runs.
- */
-function useNonModalSurface(): void {
-  useEffect(() => {
-    const unhide = (): void => {
-      for (const node of document.querySelectorAll('[data-aria-hidden="true"][aria-hidden]')) {
-        node.removeAttribute('aria-hidden');
-      }
-    };
-    unhide();
-    const observer = new MutationObserver(unhide);
-    observer.observe(document.body, {
-      attributes: true,
-      subtree: true,
-      attributeFilter: ['aria-hidden'],
-    });
-    return () => { observer.disconnect(); };
-  }, []);
-}
 
 export const Select = SelectPrimitive.Root;
 export const SelectValue = SelectPrimitive.Value;
@@ -72,9 +45,8 @@ export const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(func
   { className, children, position, ...rest },
   ref,
 ) {
-  useNonModalSurface();
   return (
-    <SelectPrimitive.Portal container={surfaceContainer()}>
+    <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         ref={ref}
         position={position ?? 'popper'}
