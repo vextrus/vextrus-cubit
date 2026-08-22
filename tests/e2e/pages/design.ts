@@ -210,6 +210,9 @@ const OVERLAY_GESTURES: Readonly<Record<OverlayEntry, OverlayGesture>> = {
 /** How many tab stops the toggle may be behind — it is the top bar's only control (§1). */
 const TAB_BUDGET = 12;
 
+/** How long a trigger is given to hold the focus a dismissed surface is still handing back. */
+const FOCUS_SETTLE_TIMEOUT = 10_000;
+
 export class DesignPage {
   constructor(private readonly page: Page) {}
 
@@ -306,13 +309,41 @@ export class DesignPage {
    */
   async openOverlayByKeyboard(entry: OverlayEntry): Promise<Locator> {
     const gesture = OVERLAY_GESTURES[entry];
-    await this.overlayTrigger(entry).focus();
+    await this.takeFocus(this.overlayTrigger(entry));
     for (const key of gesture.keys) {
       await this.page.keyboard.press(key);
     }
     const surface = this.overlaySurface(entry);
     await expect(surface).toBeVisible();
     return surface;
+  }
+
+  /**
+   * Put the focus on `target` and prove it stayed there before a key is pressed on it.
+   *
+   * A surface dismissed a moment ago is still giving its focus back. Radix restores it from an
+   * unmount cleanup, which runs *after* the surface has already left the DOM — so a journey
+   * that reads `toBeHidden` and moves straight on aims at the next trigger and presses on the
+   * previous one. Measured on this tree in four runs out of four, each time on a different
+   * entry: the context menu's Shift+F10 went to the dropdown's trigger, the tooltip's Tab to
+   * the popover's, the combobox's ArrowDown to the select's.
+   *
+   * So the focus is taken, given two frames and a turn of the event loop to be stolen back,
+   * and taken again if it was. That adds a claim to the journey rather than relaxing one: a
+   * trigger that never accepts the focus now fails here, saying so, instead of failing later
+   * as a surface that mysteriously would not open.
+   */
+  private async takeFocus(target: Locator): Promise<void> {
+    await expect(async () => {
+      await target.focus();
+      await this.page.evaluate(
+        () =>
+          new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 0)));
+          }),
+      );
+      await expect(target).toBeFocused({ timeout: 1_000 });
+    }).toPass({ timeout: FOCUS_SETTLE_TIMEOUT });
   }
 
   /**
