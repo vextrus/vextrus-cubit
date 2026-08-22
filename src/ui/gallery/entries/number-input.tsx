@@ -25,8 +25,7 @@ const DISABLED_STATE = 'disabled';
 const INVALID_STATE = 'invalid';
 
 /**
- * The unit is written beside the field by the gallery rather than passed as `unit` — and it is
- * the same span, in the same box, wearing the primitive's own classes (gallery.css).
+ * The unit is written beside the field by the gallery rather than passed as `unit`.
  *
  * `NumberInput` mints its suffix id with `useId`, which counts from a module global: two renders
  * of the same sheet would carry different ids, and the sheet's markup has to be identical across
@@ -34,6 +33,10 @@ const INVALID_STATE = 'invalid';
  * `aria-describedby` of its own — which flows through untouched while `unit` is undefined — and
  * draws the suffix under that id itself. The accessible description and §5's "unit written beside
  * it" both survive; only the id stops being React's.
+ *
+ * The primitive is left alone inside its own box: the cell is a plain row that puts the unit next
+ * to it, and never restyles `.datum-number-input`. What the sheet shows of this component is what
+ * the component ships — including the invalid border, which primitives.css draws (R-UI-011).
  */
 const suffixId = (state: string): string => `gallery-number-input-${state}-unit`;
 
@@ -47,7 +50,7 @@ function Sample({ state, disabled, invalid }: SampleProps): ReactElement {
   const [value, setValue] = useState(VALUE);
   const unitId = suffixId(state);
   return (
-    <div className="datum-number-input datum-gallery-number-input">
+    <div className="datum-gallery-number-input">
       <NumberInput
         value={value}
         onValueChange={setValue}

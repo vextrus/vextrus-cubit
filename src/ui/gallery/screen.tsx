@@ -13,7 +13,7 @@
  */
 'use client';
 import type { ReactElement, ReactNode } from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { DESIGN_STRINGS, dsg } from '../../app/design/strings';
 import { formatNumber } from '../../core/format';
 import {
@@ -72,14 +72,11 @@ const SCREEN_STATES: readonly ScreenStateName[] = [
 const isScreenState = (value: string | undefined): value is ScreenStateName =>
   value !== undefined && (SCREEN_STATES as readonly string[]).includes(value);
 
-/** The states that stand in place of the sheet; `partial` and `offline` stand above it (§2). */
-const BLOCKING: readonly ScreenStateName[] = [
-  'loading',
-  'empty',
-  'error',
-  'refusal',
-  'permission-denied',
-];
+/*
+ * `partial` and `offline` do not stand in place of the sheet: ForcedState draws their banner and
+ * the whole sheet beneath it (R-UI-050 — refused rows are shown, not hidden). Every other forced
+ * state stands alone. So the live sheet below is rendered when, and only when, no state is forced.
+ */
 
 /**
  * The one entry whose samples are given the card's full width (§1): a virtualised table beside
@@ -225,7 +222,15 @@ export interface GalleryScreenProps {
 }
 
 export function GalleryScreen({ screenState }: GalleryScreenProps): ReactElement {
-  const [forced, setForced] = useState<string | undefined>(screenState);
+  /*
+   * What the query asks for is a prop, and the prop is read on every render — never copied into
+   * state, which React would seed once and then ignore. A client navigation between `?state=`
+   * URLs re-renders this same instance with a new `screenState`, and the screen has to follow it.
+   *
+   * The one thing held locally is the retry: the state the visitor has just recovered *out of*.
+   * It cancels that state and nothing else, so a later navigation to another state is still drawn.
+   */
+  const [dismissed, setDismissed] = useState<string | undefined>(undefined);
   const [dark, setDark] = useState(false);
 
   const flip = useCallback((next: boolean): void => {
@@ -233,15 +238,25 @@ export function GalleryScreen({ screenState }: GalleryScreenProps): ReactElement
     document.documentElement.setAttribute(THEME_ATTRIBUTE, next ? DARK : LIGHT);
   }, []);
 
-  // The honest recovery from a forced state: drop the query and render the live sheet. The
-  // URL is replaced rather than pushed — a state nobody navigated to is not a step back (§2).
-  const retry = useCallback((): void => {
-    setForced(undefined);
-    window.history.replaceState({}, '', ROUTE);
-  }, []);
+  // Nothing else in the product offers a theme yet and the choice is not persisted (§10), so the
+  // attribute belongs to this screen's lifetime: it leaves with the screen.
+  useEffect(
+    () => (): void => {
+      document.documentElement.removeAttribute(THEME_ATTRIBUTE);
+    },
+    [],
+  );
 
-  const state = isScreenState(forced) ? forced : undefined;
-  const blocking = state !== undefined && BLOCKING.includes(state);
+  // The honest recovery from a forced state: drop the query and render the live sheet. The URL
+  // is replaced rather than pushed — a state nobody navigated to is not a step back (§2) — and
+  // the App Router patches `replaceState` so its own canonical URL follows (next 16 app-router).
+  const retry = useCallback((): void => {
+    setDismissed(screenState);
+    window.history.replaceState({}, '', ROUTE);
+  }, [screenState]);
+
+  const asked = screenState === dismissed ? undefined : screenState;
+  const state = isScreenState(asked) ? asked : undefined;
   const [countBefore, countAfter] = dsg('design.count').split(COUNT_SLOT);
   const count = galleryModules.reduce((total, group) => total + group.entries.length, 0);
 
@@ -269,7 +284,7 @@ export function GalleryScreen({ screenState }: GalleryScreenProps): ReactElement
         <Rail loading={state === 'loading'} />
         <main className="datum-gallery-main">
           {state !== undefined && <ForcedState state={state} onRetry={retry} />}
-          {!blocking && state === undefined && <Sheet />}
+          {state === undefined && <Sheet />}
         </main>
       </div>
     </div>

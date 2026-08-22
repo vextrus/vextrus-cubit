@@ -43,8 +43,24 @@ export const entry: GalleryEntry = {
               {gs('gallery.sample.tabs.estimates')}
             </TabsTrigger>
           </TabsList>
+          {/* Every trigger names a panel, so every panel is written: a tab whose `aria-controls`
+              points at nothing is a dangling IDREF, and activating it would empty the cell. */}
           <TabsContent value={SHEETS} id={panelId(SHEETS)} aria-labelledby={triggerId(SHEETS)}>
             {gs('gallery.sample.tabs.panel')}
+          </TabsContent>
+          <TabsContent
+            value={MEASUREMENTS}
+            id={panelId(MEASUREMENTS)}
+            aria-labelledby={triggerId(MEASUREMENTS)}
+          >
+            {gs('gallery.sample.tabs.panel-measurements')}
+          </TabsContent>
+          <TabsContent
+            value={ESTIMATES}
+            id={panelId(ESTIMATES)}
+            aria-labelledby={triggerId(ESTIMATES)}
+          >
+            {gs('gallery.sample.tabs.panel-estimates')}
           </TabsContent>
         </Tabs>
       ),

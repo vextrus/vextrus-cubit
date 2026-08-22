@@ -195,20 +195,14 @@
 }
 
 /*
- * The number-input cell draws the unit itself (entries/number-input.tsx), so its box is the one
- * wearing the primitive's border and the field inside it is borderless — the two read as the one
- * control the primitive draws, invalid state included.
+ * The number-input cell draws the unit itself (entries/number-input.tsx), so the cell is a row
+ * that sets the unit beside the control — §5's "unit written beside it". The primitive keeps its
+ * own box, its own border and its own invalid state: the sheet draws components as they ship.
  */
-.datum-gallery-number-input > .datum-number-input {
-  flex: 1;
-  min-height: auto;
-  padding-right: 0;
-  background: transparent;
-  border: 0;
-}
-
-.datum-gallery-number-input:has(.datum-field[aria-invalid='true']) {
-  border-color: var(--danger);
+.datum-gallery-number-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .datum-gallery-labelled {

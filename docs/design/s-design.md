@@ -124,7 +124,7 @@ the `<state>` segment of `gallery-entry-<entry-id>-<state>`. All quoted copy is 
 | `slider` | — | single · range · disabled | "Sheet opacity", 0–100 at 60; range "Storey range", thumbs 2 and 7 of 0–12 |
 | `select` | SelectContent, SelectItem, SelectTrigger, SelectValue | placeholder · selected · disabled | Placeholder "Choose an element class"; options "Wall" "Column" "Beam" "Slab"; selected "Column" |
 | `combobox` | — | default | Placeholder "Search layers"; loader resolves to "S-COL" "S-BEAM" "S-SLAB" |
-| `tabs` | TabsContent, TabsList, TabsTrigger | default | Triggers "Sheets" "Measurements" "Estimates", first active; panel "Every sheet in this set, newest first." |
+| `tabs` | TabsContent, TabsList, TabsTrigger | default | Triggers "Sheets" "Measurements" "Estimates", first active; a panel per trigger — "Every sheet in this set, newest first." / "Every measurement taken off these sheets." / "Every estimate line these measurements price." |
 | `tooltip` | TooltipContent, TooltipTrigger | default | IconButton trigger "Snap settings"; tip "Snap to grid intersections" |
 | `popover` | PopoverContent, PopoverTrigger | default | Trigger "Sheet details"; body "Scale 1:100. Calibrated against grid line A–B." |
 | `dropdown-menu` | DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger | default | Trigger "Sheet actions"; items "Rename sheet" "Duplicate sheet", destructive "Delete sheet" |
@@ -158,9 +158,11 @@ run time via `coverageReport` — this table is the design, never a frozen list 
 ## 6. The data-table entry
 
 Columns: "Element" · "Quantity" (numeric) · "Unit" · "Basis" — header labels from the gallery
-table. Eight fixed rows of element quantities (walls, columns, beams, slabs with literal
-quantities like `126.40`, unit via UnitBadge, basis via BasisChip — each row exercising a
-different basis where sensible). `height={240}`. comfortable: `estimateRowHeight={36}`,
+table. Eight fixed rows of element quantities with literal quantities like `126.40`, unit via
+UnitBadge, basis via BasisChip — each row exercising a different basis where sensible. The
+"Element" cell holds the row's element *class*, two rows each of "Wall" "Column" "Beam" "Slab",
+so that grouping on it draws those four groups rather than eight groups of one; a row is told
+apart by its quantity and its basis. `height={240}`. comfortable: `estimateRowHeight={36}`,
 `enableRowSelection` with the first row selected. compact: 28, no selection. grouped: grouping
 on "Element". empty: `data={[]}` with `emptyReason` "No measurements match this filter."
 

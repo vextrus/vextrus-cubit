@@ -77,6 +77,8 @@ export const ENTRY_STRINGS = Object.freeze({
   'gallery.sample.tabs.measurements': 'Measurements',
   'gallery.sample.tabs.estimates': 'Estimates',
   'gallery.sample.tabs.panel': 'Every sheet in this set, newest first.',
+  'gallery.sample.tabs.panel-measurements': 'Every measurement taken off these sheets.',
+  'gallery.sample.tabs.panel-estimates': 'Every estimate line these measurements price.',
   'gallery.sample.tooltip.trigger': 'Snap settings',
   'gallery.sample.tooltip.tip': 'Snap to grid intersections',
   'gallery.sample.popover.trigger': 'Sheet details',
@@ -125,14 +127,19 @@ export const ENTRY_STRINGS = Object.freeze({
   'gallery.sample.data-table.unit': 'Unit',
   'gallery.sample.data-table.basis': 'Basis',
   'gallery.sample.data-table.empty': 'No measurements match this filter.',
-  'gallery.sample.data-table.row-1': 'Exterior wall',
-  'gallery.sample.data-table.row-2': 'Interior wall',
-  'gallery.sample.data-table.row-3': 'Column C1',
-  'gallery.sample.data-table.row-4': 'Column C2',
-  'gallery.sample.data-table.row-5': 'Beam B1',
-  'gallery.sample.data-table.row-6': 'Beam B2',
-  'gallery.sample.data-table.row-7': 'Ground slab',
-  'gallery.sample.data-table.row-8': 'Roof slab',
+  /*
+   * The element of a row is its class, not its name: two walls, two columns, two beams and two
+   * slabs, so `grouped` — which groups on this column (§6) — draws the four groups §6 names
+   * rather than eight groups of one. The row's identity is carried by its quantity and basis.
+   */
+  'gallery.sample.data-table.row-1': 'Wall',
+  'gallery.sample.data-table.row-2': 'Wall',
+  'gallery.sample.data-table.row-3': 'Column',
+  'gallery.sample.data-table.row-4': 'Column',
+  'gallery.sample.data-table.row-5': 'Beam',
+  'gallery.sample.data-table.row-6': 'Beam',
+  'gallery.sample.data-table.row-7': 'Slab',
+  'gallery.sample.data-table.row-8': 'Slab',
 } as const);
 
 /** The keys this half of the module table carries. */
