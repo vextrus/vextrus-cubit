@@ -1,0 +1,40 @@
+/*
+ * The application's Tailwind entry (R-UI-001).
+ *
+ * It is one line of substance: it pulls in the design system's own sheet — `src/ui/globals.css`,
+ * which imports Tailwind and the Datum token sheet and maps every token category into `@theme`
+ * — and then adds the one bridge that cannot be written inside that `@theme` block.
+ *
+ * The breakpoints are that one. Tailwind spends a breakpoint inside a media condition — `@media
+ * (width >= <value>)` for every responsive variant and for `.container` — and `var()` is not
+ * legal there: with `--breakpoint-md: var(--breakpoint-md)` mapped by reference, `next build`
+ * emits `@media (width >= var(--breakpoint-md))` and fails to parse its own output. Dropping
+ * the mapping is not neutral either: it leaves the responsive utilities on Tailwind's *own*
+ * scale, where the `md` variant means 768px on a design system whose md is 960px, and nothing
+ * would ever report it.
+ *
+ * So the four breakpoints — and only they — are re-declared here as literals. A later `@theme`
+ * declaration of the same name wins, so this block overrides the by-reference mapping that
+ * `src/ui/globals.css` makes, and every responsive utility compiles against the value
+ * `src/ui/tokens.ts` and `src/ui/tokens.css` carry. It is written here rather than there
+ * because this increment owns `src/app/**` and consumes `src/ui/**` as it stands.
+ *
+ * A rule that wants a Datum breakpoint in plain CSS still spends `var(--breakpoint-lg)`
+ * directly — the token itself is unchanged and still arrives from `src/ui/tokens.css` — which
+ * is what `src/app/design` does.
+ */
+@import '../ui/globals.css';
+
+/*
+ * Tailwind's automatic source detection starts at the directory of the entry it processes —
+ * this file — so the product's source tree is named once here, or a utility class spent inside
+ * `src/ui/**` (the components the gallery renders) would silently never be generated.
+ */
+@source '../../src';
+
+@theme {
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 960px;
+  --breakpoint-lg: 1280px;
+  --breakpoint-xl: 1680px;
+}

@@ -1,8 +1,9 @@
 /**
  * The root layout — the whole application shell this increment founds.
  *
- * It does three things and no more: it brings in the one global stylesheet (Tailwind, the
- * Datum token sheet, the bridge between them — R-UI-001) and the document's own theming
+ * It does three things and no more: it brings in the one global stylesheet (./tailwind.css —
+ * the application's Tailwind entry, which imports src/ui/globals.css: Tailwind, the Datum token
+ * sheet, the bridge between them — R-UI-001) and the document's own theming
  * (./theme.css: the canvas colour and `color-scheme`, which belong to the document rather
  * than to any screen), and it decides `data-theme` on `<html>` so every token in the sheet
  * resolves against the theme the reader asked for.
@@ -16,7 +17,7 @@
  * all land on the light theme the document names as the default.
  */
 import type { ReactNode } from 'react';
-import '../ui/globals.css';
+import './tailwind.css';
 import './theme.css';
 
 /**
