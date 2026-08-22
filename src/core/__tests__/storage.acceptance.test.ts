@@ -278,15 +278,50 @@ describe.each([fsLane(), s3Lane()])('SEAM-STORAGE contract · $driver driver', (
     await expect(serveSigned(extended)).rejects.toThrow(/^STORAGE_URL_INVALID: /);
   });
 
+  // AC-2 (Q-12, R-SPINE-021) — the signature is REQUIRED, not merely checked when present.
+  // Strip the query and what is left is the object's raw address; if that served, "signed
+  // download URLs" would be a URL format over an open bucket and "signed URLs expire" would
+  // gate nothing, since the expiring part could simply be dropped.
+  it('AC-2 · refuses an unsigned URL for a stored object, as STORAGE_URL_INVALID', async () => {
+    const { storageForTenant, serveSigned } = await seam();
+    const store = storageForTenant({ tenantId: TENANT_A });
+    const bytes = bytesOf(`GA-06 rev A — no signature at all (${lane.driver})`);
+    const stored = await store.put(bytes);
+
+    const url = await store.sign(stored.sha256, { expiresInSeconds: 60 });
+    expect(url).toContain('?');
+    const unsigned = url.slice(0, url.indexOf('?'));
+    expect(unsigned).toContain(stored.sha256);
+
+    await expect(serveSigned(unsigned)).rejects.toThrow(/^STORAGE_URL_INVALID: /);
+
+    if (lane.driver === 's3') {
+      // Proven by the store refusing, not by the seam recognising a URL shape: fetched raw,
+      // the bucket itself answers 403 AccessDenied for an object it really does hold.
+      const direct = await fetch(unsigned);
+      expect(direct.status).toBe(403);
+      expect(await direct.text()).toContain('AccessDenied');
+    }
+  });
+
   // AC-2 (Q-12) — expiry proven by real time: one second's TTL, and more than a second waited.
-  it('AC-2 · refuses a URL past its TTL, as STORAGE_URL_EXPIRED', async () => {
+  //
+  // Two URLs on purpose. `expiresInSeconds` is second-granular and S3-compatible: the expiry
+  // is computed from a floored signing second, so a URL minted at X.999s holds ~0ms of real
+  // life. Serving the one-second URL first would race a loopback round trip against a second
+  // boundary — a flake on a correct seam. The comfortable TTL carries "serves while valid"
+  // (R-SPINE-021) with no boundary in reach; the one-second URL is never served before the
+  // wait, so its refusal is the expiry (Q-12) and nothing else.
+  it('AC-2 · serves inside its TTL and refuses past it, as STORAGE_URL_EXPIRED', async () => {
     const { storageForTenant, serveSigned } = await seam();
     const store = storageForTenant({ tenantId: TENANT_A });
     const bytes = bytesOf(`GA-05 rev A — one second of life (${lane.driver})`);
     const stored = await store.put(bytes);
 
+    const living = await store.sign(stored.sha256, { expiresInSeconds: 60 });
+    expect(Uint8Array.from(await serveSigned(living))).toEqual(bytes);
+
     const url = await store.sign(stored.sha256, { expiresInSeconds: 1 });
-    expect(Uint8Array.from(await serveSigned(url))).toEqual(bytes);
 
     await wait(PAST_ONE_SECOND_MS);
 
@@ -361,7 +396,10 @@ describe("SEAM-STORAGE's refusals are registered, not invented (R-SPINE-062, Q-0
     const { REFUSALS, REFUSAL_CODES } = await import('../errors');
     const table: Readonly<Record<string, RefusalEntry | undefined>> = REFUSALS;
 
-    expect(Object.keys(STORAGE_REFUSALS).sort()).toEqual([...CODES].sort());
+    // Containment, not closure: the criterion asks that these four are registered and folded
+    // into the barrel. It does not freeze the key set, and Q-12's "uploads validated" plans a
+    // later upload-validation refusal that would legitimately add a fifth.
+    expect(Object.keys(STORAGE_REFUSALS)).toEqual(expect.arrayContaining([...CODES]));
     expect(Object.isFrozen(STORAGE_REFUSALS)).toBe(true);
 
     for (const code of CODES) {

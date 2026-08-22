@@ -7,14 +7,20 @@
  * S3. Nothing here is the product: the fake is a stand-in for a bucket, so the same contract
  * suite can run twice and the two drivers can be held to the same answers.
  *
- * Three behaviours are the point, because two acceptance criteria rest on them:
+ * Four behaviours are the point, because two acceptance criteria rest on them:
  *
- *   1. A presigned GET is *verified*, by recomputing SigV4 over the request as it arrived —
+ *   1. The bucket is PRIVATE. An object read that carries no signature at all — neither a
+ *      presigned query nor the SigV4 `Authorization` header the seam's own calls sign with —
+ *      is refused 403 `AccessDenied`, as real S3 refuses an anonymous GET. R-SPINE-021's
+ *      "signed download URLs" and Q-12's "signed URLs expire" are access-control clauses, and
+ *      they are only real properties if an unsigned read is refused; a fake that answered one
+ *      with 200 would make signing decoration and let a URL stripped of its signature serve.
+ *   2. A presigned GET is *verified*, by recomputing SigV4 over the request as it arrived —
  *      not by trusting that a signature is present. A URL whose key, expiry or signature has
  *      been edited therefore fails here the way it would fail at a real bucket.
- *   2. The signature is checked BEFORE the expiry (AC-2). Real S3 does the same, and it is
+ *   3. The signature is checked BEFORE the expiry (AC-2). Real S3 does the same, and it is
  *      what makes a forged `X-Amz-Expires` a rejected URL rather than an extended one.
- *   3. The error *text* mirrors S3's, because the seam maps a response to a refusal code by
+ *   4. The error *text* mirrors S3's, because the seam maps a response to a refusal code by
  *      what the bucket said: `SignatureDoesNotMatch` and `Request has expired` are the two
  *      sentences that separate STORAGE_URL_INVALID from STORAGE_URL_EXPIRED.
  *
@@ -154,6 +160,20 @@ function signatureMatches(
     }
   }
   return false;
+}
+
+/**
+ * Does this request carry SigV4 in an `Authorization` header? The seam's own calls — `put`
+ * and `get`, made through the SDK client — sign that way rather than in the query, so the
+ * private bucket has to honour them. The check is deliberately shallow: it asks whether the
+ * caller presented this bucket's credential under this algorithm, which is what separates the
+ * seam from an anonymous reader. Recomputing a header signature would additionally have to
+ * reproduce the SDK's payload-signing choices (whole-buffer, `STREAMING-…`, `aws-chunked`),
+ * and a mismatch there would refuse a request that a real bucket accepts.
+ */
+function hasSignedAuthorization(req: IncomingMessage): boolean {
+  const header = String(req.headers.authorization ?? '');
+  return header.startsWith(`${ALGORITHM} `) && header.includes(`Credential=${ACCESS_KEY_ID}/`);
 }
 
 /** `YYYYMMDDTHHMMSSZ` to unix seconds; `undefined` when the parameter is not that shape. */
@@ -335,6 +355,15 @@ async function handle(
   }
 
   if (method === 'GET' || method === 'HEAD') {
+    // The bucket is private: a read that presented no signature at all is refused before the
+    // key is looked up, which is how a real private bucket answers an anonymous GET. This is
+    // what makes `sign` an access gate rather than a URL format — R-SPINE-021's signed
+    // download URLs and Q-12's expiring ones both rest on the unsigned read being refused.
+    if (presigned === undefined && !hasSignedAuthorization(req)) {
+      refuse(res, 403, 'AccessDenied', 'Access Denied');
+      return;
+    }
+
     const body = objects.get(key);
     if (body === undefined) {
       if (method === 'HEAD') {
