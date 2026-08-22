@@ -213,9 +213,18 @@ so the baselines are deterministic either way.
 
 Page chrome uses only: `--graphite-50` (page), `--graphite-0` (specimen cards),
 `--graphite-200` (hairlines), `--graphite-600/900/950` (labels, lede, headings),
-`--cobalt-500/600` (theme links, via the EvidenceLink treatment), `--space-1/4/6/8`,
+`--cobalt-500/600` (theme links, via the EvidenceLink treatment), `--space-1/2/4/6/8`,
 `--radius-8`, `--text-12/13/14/20/24`, `--font-ui`, `--font-mono`, `--weight-heading`,
-`--weight-body-medium`, `--leading-ui`, `--breakpoint-lg`, `--z-toast` (via Toaster).
+`--weight-body-medium`, `--leading-ui`, `--breakpoint-lg`, `--danger` (the field-message
+specimen's error text), `--z-toast` (via Toaster).
+
+> Amended (inc-007, on a review finding): `--space-2` and `--danger` were spent by the built
+> stylesheet but missing from this list. `--space-2` is the tight rhythm inside a specimen —
+> the gap between a choice control and its label, between key caps, between stacked
+> separators, in a dialog or table footer — a step the coarser `--space-4` cannot carry
+> without the specimens reading as separate blocks; `--danger` is the one token that can
+> paint an error message, and §3 requires the Field error state to be shown. The list is
+> corrected rather than the stylesheet, the way §2's label shade was.
 Fonts are the token stacks only — nothing is loaded that the repo does not ship (an unshipped
 font is a recorded design-finding class).
 

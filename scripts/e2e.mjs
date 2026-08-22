@@ -25,6 +25,13 @@ import { REPO, detail, say } from './lib/lane.mjs';
 /** The recorded reason for a journey id the tree has no spec for. */
 const JOURNEY_NOT_YET_WRITTEN = 'SKIP JOURNEY_NOT_YET_WRITTEN';
 
+/**
+ * The recorded reason for a bare `pnpm e2e` over a tree that holds no journey spec at all.
+ * C-06 forbids a silently passed lane: the "run everything" path has no journey id to name,
+ * so it names the condition instead rather than exiting 0 on an empty stream.
+ */
+const NO_JOURNEYS_YET_WRITTEN = 'SKIP NO_JOURNEYS_YET_WRITTEN';
+
 /** C-07: the e2e build serves on 3211 unless the harness offsets the lane. */
 const PORT = Number(process.env['E2E_PORT'] ?? 3211);
 
@@ -241,8 +248,11 @@ async function main() {
   }
 
   if (running.length === 0) {
-    // Every requested journey is unwritten (or the tree holds no journey at all). The lane
-    // has said so, by name, on stdout; building an app to run nothing would say it slower.
+    // Every requested journey is unwritten, and the lane has said so by name on stdout;
+    // building an app to run nothing would say it slower. The one path with no journey id
+    // to name — a bare `pnpm e2e` over an empty spec tree — still records its reason, so a
+    // bad testDir or a renamed spec is never a silent green (C-06).
+    if (journeys.length === 0) say(`e2e: ${NO_JOURNEYS_YET_WRITTEN}`);
     return 0;
   }
 

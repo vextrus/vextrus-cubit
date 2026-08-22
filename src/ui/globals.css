@@ -25,8 +25,8 @@
  * tokens.css arrives unlayered and so outranks the `theme` layer @theme emits into, and the
  * utility still resolves to the one value in src/ui/tokens.ts.
  *
- * --breakpoint-* is the one category held out: Tailwind spends it inside `@media (width >= v)`,
- * where a var() is not legal, and `next build` fails to parse its own output on those rules.
+ * The breakpoints are the exception, and they are handled below the block rather than in it —
+ * a media condition cannot hold a `var()`. See the note over the `@custom-variant` runs.
  */
 @theme {
   --color-graphite-0: var(--graphite-0);
@@ -136,6 +136,34 @@
   --z-index-overlay: var(--z-overlay);
   --z-index-toast: var(--z-toast);
 }
+
+/*
+ * The breakpoints are the one R-UI-001 category that cannot enter @theme. Tailwind spends a
+ * breakpoint inside a media query — `@media (width >= <value>)` for every responsive variant
+ * — and `var()` is not legal in a media condition: the first real `next build` of this tree
+ * failed to parse its own output on exactly those four rules. A literal in `@theme` is not
+ * the way out either: a value spelled out there is a second place a token lives, which is
+ * what `src/ui/__tests__/tokens.acceptance.test.ts` holds the block to.
+ *
+ * But R-UI-001 says the tokens are "consumed by Tailwind", and leaving the namespace unset
+ * does not leave the utilities unbuilt — it leaves them on Tailwind's *own* scale, where
+ * `md:` means 768px on a design system whose md is 960px, and nothing would ever report it.
+ * So the four variants are declared here instead, where a literal is legal and is the
+ * breakpoint's one written form outside ./tokens.css. `@custom-variant` overrides the stock
+ * variant of the same name, so `md:flex` compiles to `@media (width >= 960px)`.
+ *
+ * A rule that wants a Datum breakpoint in plain CSS still spends `var(--breakpoint-lg)`
+ * directly — the token itself is unchanged and still arrives from ./tokens.css — which is
+ * what src/app/design does.
+ */
+@custom-variant sm (@media (width >= 640px));
+@custom-variant md (@media (width >= 960px));
+@custom-variant lg (@media (width >= 1280px));
+@custom-variant xl (@media (width >= 1680px));
+@custom-variant max-sm (@media (width < 640px));
+@custom-variant max-md (@media (width < 960px));
+@custom-variant max-lg (@media (width < 1280px));
+@custom-variant max-xl (@media (width < 1680px));
 
 /*
  * R-UI-003: "JetBrains Mono for every number, code, mark, source key and formula with

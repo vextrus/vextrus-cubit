@@ -97,14 +97,14 @@ export function Gallery({ theme }: { readonly theme: Theme }): ReactElement {
         <p className="gallery-lede">{ds('design.lede')}</p>
         <nav className="gallery-themes" aria-label={ds('design.theme.label')}>
           <a
-            className="gallery-theme-link"
+            className="gallery-theme-link datum-focus-ring"
             href={LIGHT_HREF}
             aria-current={theme === 'light' ? CURRENT : undefined}
           >
             {ds('design.theme.light')}
           </a>
           <a
-            className="gallery-theme-link"
+            className="gallery-theme-link datum-focus-ring"
             href={DARK_HREF}
             aria-current={theme === 'dark' ? CURRENT : undefined}
           >

@@ -48,7 +48,12 @@
   font-size: var(--text-13);
 }
 
-/* The EvidenceLink treatment: cobalt, underlined — the current theme's link is neither. */
+/*
+ * The EvidenceLink treatment: cobalt, underlined — the current theme's link is neither.
+ * EvidenceLink also carries `.datum-focus-ring`, and so do these links in the markup: the
+ * screen that demonstrates the system's conventions does not exempt its own chrome from
+ * R-UI-012's 2px cobalt ring (the UA outline is not the Datum indicator).
+ */
 .gallery-theme-link {
   color: var(--cobalt-600);
   text-decoration: underline;
