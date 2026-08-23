@@ -20,7 +20,6 @@ import { TenantAdmin } from './tenant-admin';
 import type { InvitationView, MemberView } from './tenant-admin';
 import { ten } from '../../strings';
 import { administers, listInvitations, listMembers } from '../../../../modules/spine/members';
-import { PermissionDenied } from '../../../../ui/patterns';
 import { SIGN_IN_PATH, tenantContext } from '../../../../server/session';
 import { tenantPath } from '../../../../ui/shell';
 
@@ -61,21 +60,13 @@ export default async function TenantSettingsPage({
     <div data-testid="tenant-settings">
       <h1 className="tenant-title">{ten('tenant.settings.title')}</h1>
       <p className="tenant-lead">{ten('tenant.settings.lead')}</p>
-      {mayManage ? (
-        <TenantAdmin
-          tenantSlug={context.slug}
-          sessionsHref={tenantPath(context.slug, SESSIONS_SEGMENT)}
-          members={members}
-          invitations={invitations}
-        />
-      ) : (
-        <div className="tenant-settings-denied">
-          <PermissionDenied
-            permission={ten('tenant.settings.permission')}
-            holder={ten('tenant.settings.permissionHolder')}
-          />
-        </div>
-      )}
+      <TenantAdmin
+        mayManage={mayManage}
+        tenantSlug={context.slug}
+        sessionsHref={tenantPath(context.slug, SESSIONS_SEGMENT)}
+        members={members}
+        invitations={invitations}
+      />
     </div>
   );
 }

@@ -20,6 +20,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button } from '../../../../ui/primitives';
+import { PermissionDenied } from '../../../../ui/patterns';
 import { REFUSALS } from '../../../../core/errors';
 import { AreaEmptyState } from '../area-empty-state';
 import { around, fill, ten } from '../../strings';
@@ -149,6 +150,8 @@ function RoleSelect({
 }
 
 export interface TenantAdminProps {
+  /** Whether this reader administers the workspace (Interpretation 1). */
+  readonly mayManage: boolean;
   readonly tenantSlug: string;
   readonly sessionsHref: string;
   readonly members: readonly MemberView[];
@@ -156,6 +159,7 @@ export interface TenantAdminProps {
 }
 
 export function TenantAdmin({
+  mayManage,
   tenantSlug,
   sessionsHref,
   members,
@@ -308,6 +312,19 @@ export function TenantAdmin({
     refused !== null && refused.section === section && !keys.includes(refused.rowKey);
 
   const [invitedBefore, invitedAfter] = around('tenant.invitations.invited', 'time');
+
+  // §6: a MEMBER viewer. Both sections are replaced; the h1 and the lead above stay, because
+  // the reader is in the right workspace and this is the right address for what they came for.
+  if (!mayManage) {
+    return (
+      <div className="tenant-settings-denied">
+        <PermissionDenied
+          permission={ten('tenant.settings.permission')}
+          holder={ten('tenant.settings.permissionHolder')}
+        />
+      </div>
+    );
+  }
 
   return (
     <>
