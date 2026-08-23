@@ -10,18 +10,38 @@
  */
 import { runAsSystem } from '../core/db';
 
-/** The whole of `kind ∈ {…}`: the three mails the identity spine sends (R-SPINE-001). */
-export type AuthMailKind = 'verify' | 'magic-link' | 'reset';
+/**
+ * The whole of `kind ∈ {…}`: the three mails the identity spine sends (R-SPINE-001), and the
+ * invitation tenant administration sends (R-SPINE-003, docs/design/s-settings.md §9).
+ */
+export type AuthMailKind = 'verify' | 'magic-link' | 'reset' | 'invite';
+
+/** The composed words of a mail, for the sends that write their own (§9). */
+export interface MailBody {
+  readonly subject: string;
+  readonly body: string;
+}
 
 /**
  * Record one outbound mail. Unscoped on purpose: an address that has no account yet belongs
- * to no tenant, and the reset and magic-link answers are deliberately existence-neutral.
+ * to no tenant, and the reset and magic-link answers are deliberately existence-neutral — the
+ * invitation is sent to an address that has no account either.
+ *
+ * The three auth mails leave their words to better-auth's own templates and carry only the
+ * link; a caller that composed its own passes them, and they are stored beside it.
  */
 export async function sendAuthMail(
   kind: AuthMailKind,
   toEmail: string,
   url: string,
+  composed?: MailBody,
 ): Promise<void> {
   const db = runAsSystem('auth mail: an address has no tenant until it has an account');
-  await db.insert(db._.fullSchema.authMailOutbox).values({ toEmail, kind, url });
+  await db.insert(db._.fullSchema.authMailOutbox).values({
+    toEmail,
+    kind,
+    url,
+    subject: composed?.subject ?? null,
+    body: composed?.body ?? null,
+  });
 }

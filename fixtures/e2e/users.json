@@ -1,0 +1,26 @@
+[
+  {
+    "id": "e2e00000-0000-4000-8000-000000000011",
+    "email": "owner@cubit-e2e.test",
+    "name": "E2E Owner",
+    "emailVerified": true,
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "e2e00000-0000-4000-8000-000000000012",
+    "email": "worker@cubit-e2e.test",
+    "name": "E2E Worker",
+    "emailVerified": true,
+    "createdAt": "2026-01-01T00:00:01.000Z",
+    "updatedAt": "2026-01-01T00:00:01.000Z"
+  },
+  {
+    "id": "e2e00000-0000-4000-8000-000000000013",
+    "email": "idle@cubit-e2e.test",
+    "name": "E2E Idle",
+    "emailVerified": true,
+    "createdAt": "2026-01-01T00:00:02.000Z",
+    "updatedAt": "2026-01-01T00:00:02.000Z"
+  }
+]

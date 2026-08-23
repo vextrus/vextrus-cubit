@@ -7,7 +7,7 @@
  * it. The membership minted at sign-up is the personal one; every other way of granting a
  * membership (invitations) belongs to a later increment.
  */
-import { pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { check, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { tenants } from '../core/tenants';
 import { users } from './users';
@@ -24,11 +24,18 @@ export const tenantMemberships = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    /** What the member may do. At M0 there is one value and no permission model over it. */
+    /**
+     * What the member may do: `owner`, `admin` or `member` (R-SPINE-003's closed set), closed
+     * by the check constraint below so the column cannot hold a fourth role a caller invented.
+     * `src/modules/spine/members` speaks the codes OWNER/ADMIN/MEMBER over this spelling.
+     */
     role: text('role').notNull().default('owner'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .default(sql`now()`),
   },
-  (table) => [unique('tenant_memberships_tenant_id_user_id_unique').on(table.tenantId, table.userId)],
+  (table) => [
+    unique('tenant_memberships_tenant_id_user_id_unique').on(table.tenantId, table.userId),
+    check('tenant_memberships_role_check', sql`${table.role} in ('owner', 'admin', 'member')`),
+  ],
 );

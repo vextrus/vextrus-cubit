@@ -14,13 +14,14 @@
 import { FORMAT_REFUSALS } from './errors/format';
 import { SPINE_REFUSALS } from './errors/spine';
 import { STORAGE_REFUSALS } from './errors/storage';
+import { TENANT_ADMIN_REFUSALS } from './errors/tenant-admin';
 
 export type { RefusalEntry, RefusalSeverity, RefusalSurface } from './errors/types';
 export { auditRefusalRegister } from './errors/audit';
 export type { RegisterAuditInput, RegisterAuditResult } from './errors/audit';
 
 /**
- * Every registered refusal, by code. Three module registries today; the fold is the same for n.
+ * Every registered refusal, by code. Four module registries today; the fold is the same for n.
  *
  * Frozen, like the module registries it folds: the spread copies references to entries that
  * `registry()` already froze, so the whole table is inert down to each field.
@@ -29,6 +30,7 @@ export const REFUSALS = Object.freeze({
   ...SPINE_REFUSALS,
   ...FORMAT_REFUSALS,
   ...STORAGE_REFUSALS,
+  ...TENANT_ADMIN_REFUSALS,
 });
 
 /** The closed enum: exactly the codes the table above carries. */
