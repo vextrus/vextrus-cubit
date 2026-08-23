@@ -7,9 +7,13 @@
  * before `/t/{tenantSlug}`.
  *
  * A link that expired arrives here too — better-auth appends `?error=` to the callback it was
- * given — and, with no session to resolve, becomes §3's refusal on `/sign-in`.
+ * given — and, with no session to resolve, becomes §3's refusal on `/sign-in`. A verification
+ * link that was already used is the one spent link that says nothing on its way back (its
+ * token is a stateless JWT, so the reply is a plain redirect to the callback); it is
+ * recognised by the mark its callback carries instead.
  */
 import { redirect } from 'next/navigation';
+import { VERIFY_CALLBACK_PARAM, VERIFY_CALLBACK_VALUE } from '../../server/auth-policy';
 import { signedInLanding } from '../../server/session';
 
 const SIGN_IN = '/sign-in';
@@ -23,5 +27,7 @@ export default async function TenantEntryPage({
   const landing = await signedInLanding();
   if (landing !== null) redirect(landing);
   const query = await searchParams;
-  redirect(query['error'] === undefined ? SIGN_IN : REFUSED);
+  const spent =
+    query['error'] !== undefined || query[VERIFY_CALLBACK_PARAM] === VERIFY_CALLBACK_VALUE;
+  redirect(spent ? REFUSED : SIGN_IN);
 }

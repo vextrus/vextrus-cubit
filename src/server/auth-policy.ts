@@ -1,11 +1,10 @@
 /**
- * The two numbers the auth instance, the sign-up action and the sign-up form all have to
- * agree on (R-SPINE-001).
+ * The rules the auth instance, the sign-up action, the sign-up form and the `/t` entry all
+ * have to agree on (R-SPINE-001).
  *
- * They live in a module of their own, with no imports, because one of the three readers runs
- * in the browser: a form that validated against a copy of the rule would eventually disagree
- * with the server that enforces it, and a rule stated twice is a rule stated once and
- * remembered wrong.
+ * They live in a module of their own, with no imports, because some of the readers run in the
+ * browser: a form that validated against a copy of the rule would eventually disagree with the
+ * server that enforces it, and a rule stated twice is a rule stated once and remembered wrong.
  */
 
 /** better-auth's `minPasswordLength`, and the number `auth.error.passwordLength` quotes. */
@@ -17,3 +16,18 @@ export const MIN_PASSWORD_LENGTH = 8;
  * regular expression that argues with RFC 5322 refuses real people's addresses.
  */
 export const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * The mark every verification link's callback carries, and the one `/t` reads back.
+ *
+ * Every other spent link says so itself: the magic-link and reset tokens are rows in
+ * `verifications`, deleted on use, so a replay comes back with an `error` in the query and `/t`
+ * turns it into §3's refusal. A verification token is a stateless JWT that is never consumed —
+ * replaying one whose user is already verified takes better-auth's `emailVerified` branch,
+ * which redirects to the callback with no session *and no error*. The mark is the only thing
+ * that distinguishes that arrival from somebody typing `/t` with no session at all; a live
+ * link is unaffected, because it carries its new session and `/t` resolves the slug before it
+ * ever looks at the query.
+ */
+export const VERIFY_CALLBACK_PARAM = 'from';
+export const VERIFY_CALLBACK_VALUE = 'verify';

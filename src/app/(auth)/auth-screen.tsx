@@ -17,7 +17,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Button, Input } from '../../ui/primitives';
 import { OfflineBanner } from '../../ui/patterns';
-import { EMAIL_SHAPE, MIN_PASSWORD_LENGTH } from '../../server/auth-policy';
+import {
+  EMAIL_SHAPE,
+  MIN_PASSWORD_LENGTH,
+  VERIFY_CALLBACK_PARAM,
+  VERIFY_CALLBACK_VALUE,
+} from '../../server/auth-policy';
 import { signUpWithPersonalTenant } from './actions';
 import type { AuthScreenKind } from './cards';
 import { around, aus } from './strings';
@@ -35,6 +40,13 @@ const RESET_PASSWORD = '/reset-password';
  * `/t` resolves it from the session and redirects on to `/t/{slug}` (R-SPINE-002).
  */
 const TENANT_ENTRY = '/t';
+
+/**
+ * Where a verification mail's link comes back to. Same entry, marked: a verification token is
+ * never consumed, so a replayed link arrives with no session and nothing else to say — the
+ * mark is what lets `/t` answer it with §3's refusal instead of a bare `/sign-in`.
+ */
+const VERIFY_ENTRY = `${TENANT_ENTRY}?${VERIFY_CALLBACK_PARAM}=${VERIFY_CALLBACK_VALUE}`;
 
 export interface AuthScreenProps {
   readonly kind: AuthScreenKind;
@@ -221,7 +233,7 @@ export function AuthScreen({ kind, refused = false, token }: AuthScreenProps) {
     }
     const sent = await callAuth('/send-verification-email', {
       email: address,
-      callbackURL: TENANT_ENTRY,
+      callbackURL: VERIFY_ENTRY,
     });
     if (sent === null) {
       setFailure(REQUEST_FAILED);
@@ -237,9 +249,12 @@ export function AuthScreen({ kind, refused = false, token }: AuthScreenProps) {
 
   const signIn = useCallback(async (address: string, secret: string) => {
     const reply = await callAuth('/sign-in/email', {
+      // §4: an unverified account makes this endpoint re-send the verification mail, and the
+      // link it bakes in is this callback — so it is the marked one, not the bare entry. The
+      // successful branch below navigates on its own and never reads it back.
       email: address,
       password: secret,
-      callbackURL: TENANT_ENTRY,
+      callbackURL: VERIFY_ENTRY,
     });
     if (reply === null) {
       setFailure(REQUEST_FAILED);
