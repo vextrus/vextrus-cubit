@@ -23,7 +23,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { EvidenceLink } from '../patterns';
+import { EvidenceLink, OfflineBanner } from '../patterns';
 import {
   Button,
   DropdownMenu,
@@ -417,13 +417,6 @@ export function AppShell({
     };
   }, []);
 
-  const content =
-    offline ? (
-      <ShellAreaState state={SHELL_STATES.offline}>{children}</ShellAreaState>
-    ) : (
-      children
-    );
-
   return (
     <div className="shell-frame" data-collapsed={collapsed ? TRUE : FALSE}>
       <nav
@@ -543,7 +536,17 @@ export function AppShell({
 
         <div className="shell-body">
           <main data-testid="shell-main" className="shell-main">
-            <div className="shell-main-column">{content}</div>
+            {/* §6: the banner is a bar across the whole of `shell-main`, above the area
+                content — and it is a *sibling* of the column, never a wrapper around it.
+                Re-parenting the area on an `offline` event would unmount everything the
+                reader had in hand (a half-typed field, an open surface) at the exact moment
+                the connection went, which is the opposite of "content stays visible". */}
+            {offline ? (
+              <div className="shell-offline-bar">
+                <OfflineBanner />
+              </div>
+            ) : null}
+            <div className="shell-main-column">{children}</div>
           </main>
           <aside
             data-testid="shell-inspector"

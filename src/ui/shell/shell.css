@@ -92,6 +92,14 @@
 .shell-nav-label {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* §8: "Rail labels leaving/arriving (opacity)". Arriving is this rule: the label is back in
+   the layout on the same frame the rail starts widening, and its words fade in. */
+.shell-nav-label,
+.shell-tenant-name,
+.shell-tenant-chevron {
+  opacity: 1;
   transition: opacity var(--motion-state-duration) var(--motion-ease);
 }
 
@@ -105,6 +113,7 @@
 .shell-rail[data-collapsed='true'] .shell-nav-label,
 .shell-rail[data-collapsed='true'] .shell-tenant-name,
 .shell-rail[data-collapsed='true'] .shell-tenant-chevron {
+  opacity: 0;
   position: absolute;
   width: 1px;
   height: 1px;
@@ -114,6 +123,23 @@
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+  /* §8: leaving is a fade, so the words go over --motion-state-duration and the
+     visually-hidden box that takes them out of the layout — and keeps them in the
+     accessibility tree — lands only once the fade is done. Without the delay the box
+     applies on the first frame and the opacity change happens on something already
+     invisible, which is a declared transition nobody can see. Reduced motion zeroes the
+     token, delay included, and the rail snaps as §8 asks. */
+  transition:
+    opacity var(--motion-state-duration) var(--motion-ease),
+    position 0s var(--motion-state-duration),
+    width 0s var(--motion-state-duration),
+    height 0s var(--motion-state-duration),
+    padding 0s var(--motion-state-duration),
+    margin 0s var(--motion-state-duration),
+    overflow 0s var(--motion-state-duration),
+    clip-path 0s var(--motion-state-duration),
+    border-width 0s var(--motion-state-duration);
+  transition-behavior: allow-discrete;
 }
 
 .shell-glyph {
@@ -320,6 +346,17 @@
   min-width: 0;
   overflow-y: auto;
   background: var(--graphite-0);
+}
+
+/* §6: offline is a full-width bar at the top of the main region, above the area column —
+   the seam it announces is the whole screen's, not one column's. */
+.shell-offline-bar {
+  width: 100%;
+}
+
+.shell-offline-bar .datum-bar {
+  padding: var(--space-2) var(--space-6);
+  border-radius: 0;
 }
 
 .shell-main-column {
