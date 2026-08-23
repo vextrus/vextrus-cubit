@@ -119,9 +119,12 @@
   color: var(--graphite-700);
 }
 
+/* §4: the set-password notice's way back, styled as the under-card links are. */
 .auth-notice-link {
   display: block;
   margin: var(--space-3) 0 0;
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
 }
 
 /* §3: the expired-link refusal, above the h1 and inside the card. */
