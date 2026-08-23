@@ -8,6 +8,13 @@
       "when": 1787297818876,
       "tag": "0000_core_founding",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787448512819,
+      "tag": "0001_spine_auth",
+      "breakpoints": true
     }
   ]
 }

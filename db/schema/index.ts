@@ -7,3 +7,4 @@
  * and one line here.
  */
 export * from './core/index';
+export * from './spine/index';

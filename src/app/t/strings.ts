@@ -1,0 +1,47 @@
+/**
+ * The signed-in `/t` screens' string table (R-SPINE-060).
+ *
+ * The minimal top bar, the landing's empty state, the session device list and the 404 the
+ * guard answers with. Every value is `docs/design/s-auth.md` §10, verbatim.
+ */
+export const TENANT_STRINGS = Object.freeze({
+  'tenant.brand': 'Cubit',
+  'tenant.nav.sessions': 'Sessions',
+  'tenant.signOut': 'Sign out',
+  'tenant.home.empty.title': 'No projects in this workspace yet.',
+  'tenant.home.empty.teach':
+    'This is where your projects will appear. Review your active sessions in the meantime.',
+  'tenant.home.empty.action': 'View sessions',
+  'tenant.sessions.title': 'Sessions',
+  'tenant.sessions.lead':
+    'Every device signed in to your account. Revoking a session signs that device out immediately.',
+  'tenant.sessions.current': 'This device',
+  'tenant.sessions.revoke': 'Revoke',
+  'tenant.sessions.signedIn': 'Signed in {time}',
+  'tenant.sessions.unknownDevice': 'Unknown device',
+  'tenant.sessions.revoked': 'Session revoked.',
+  'tenant.sessions.revokeFailed': 'The session could not be revoked. Try again.',
+  'tenant.notFound.title': 'This workspace could not be found.',
+  'tenant.notFound.teach': 'Check the address, or sign in with an account that belongs to it.',
+  'tenant.notFound.action': 'Sign in',
+} as const);
+
+/** The closed key set: exactly the keys the table above carries. */
+export type TenantStringKey = keyof typeof TENANT_STRINGS;
+
+/** Read one string by a key the compiler can check. */
+export function ten(key: TenantStringKey): string {
+  return TENANT_STRINGS[key];
+}
+
+/**
+ * Split a template around its `{slot}`, so the slot renders as its own element — the signed-in
+ * time in `.numeric` — without the component composing the sentence.
+ */
+export function around(key: TenantStringKey, slot: string): readonly [string, string] {
+  const template = ten(key);
+  const marker = `{${slot}}`;
+  const at = template.indexOf(marker);
+  if (at === -1) return [template, ''];
+  return [template.slice(0, at), template.slice(at + marker.length)];
+}
