@@ -1,0 +1,198 @@
+/*
+ * S-Project-Settings, ruleset pane: the pin, its lineage and the seventeen parameters
+ * (docs/design/s-project-settings.md §1–§5, §8–§10).
+ *
+ * The card surfaces are the settings lists' — a stack of rows on one card with hairline
+ * dividers — because they are the same object. Nothing here is interactive, so there is no
+ * hover fill, no transition and no motion of any kind (§8). No colour literal: every rule
+ * reads a Datum token, which is what makes both themes the token sheet's business (§10).
+ */
+
+/* §1: the sections, stacked under the lead. */
+.project-ruleset-section {
+  margin-top: var(--space-8);
+}
+
+.project-ruleset-heading {
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-950);
+  margin: 0 0 var(--space-3);
+}
+
+/* §2: the project's code is an identifier, so it wears the slug treatment. */
+.project-ruleset-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* §3, §4: one card, rows divided by hairlines. */
+.project-ruleset-card {
+  margin: 0;
+  padding: 0;
+  background: var(--graphite-0);
+  border: var(--hairline) solid var(--graphite-200);
+  border-radius: var(--radius-8);
+  list-style: none;
+}
+
+.project-ruleset-pin {
+  margin-top: var(--space-6);
+}
+
+/* §3: a 96 px label beside its value, three times. */
+.project-ruleset-pin-row {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.project-ruleset-pin-row + .project-ruleset-pin-row {
+  border-top: var(--hairline) solid var(--graphite-200);
+}
+
+.project-ruleset-pin-label {
+  flex: 0 0 96px;
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+.project-ruleset-pin-value {
+  min-width: 0;
+}
+
+/* §3.1: the headline fact of the screen. */
+.project-ruleset-edition {
+  font-family: var(--font-mono);
+  font-size: var(--text-16);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-950);
+}
+
+/* §3.2: the full digest, never clipped and never truncated. */
+.project-ruleset-digest {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-800);
+  overflow-wrap: anywhere;
+}
+
+.project-ruleset-methods {
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+/* §4: the lineage, platform first. */
+.project-ruleset-lineage-lead {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+.project-ruleset-lineage-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+}
+
+.project-ruleset-lineage-item + .project-ruleset-lineage-item {
+  border-top: var(--hairline) solid var(--graphite-200);
+}
+
+.project-ruleset-lineage-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.project-ruleset-scope {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-800);
+}
+
+.project-ruleset-key,
+.project-ruleset-lineage-digest {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.project-ruleset-lineage-digest {
+  overflow-wrap: anywhere;
+}
+
+/* §5: seventeen static rows on the list-card surface — not a DataTable. */
+.project-ruleset-params {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--graphite-0);
+  border: var(--hairline) solid var(--graphite-200);
+  border-radius: var(--radius-8);
+  overflow: hidden;
+}
+
+.project-ruleset-params-head {
+  height: 28px;
+  padding: 0 var(--space-3);
+  background: var(--graphite-50);
+  border-bottom: var(--hairline) solid var(--graphite-200);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-600);
+  text-align: left;
+}
+
+.project-ruleset-params-head-value {
+  text-align: right;
+}
+
+.project-ruleset-params-head-unit {
+  width: 72px;
+}
+
+.project-ruleset-param + .project-ruleset-param {
+  border-top: var(--hairline) solid var(--graphite-200);
+}
+
+.project-ruleset-param-cell {
+  padding: var(--space-2) var(--space-3);
+  vertical-align: top;
+}
+
+.project-ruleset-param-name {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.project-ruleset-param-label {
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-800);
+}
+
+.project-ruleset-param-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.project-ruleset-param-value {
+  text-align: right;
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+  white-space: nowrap;
+}
+
+.project-ruleset-param-unit {
+  width: 72px;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  white-space: nowrap;
+}
