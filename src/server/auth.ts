@@ -39,7 +39,7 @@ import { activeTenantSlugFor, ensurePersonalTenant } from './tenancy';
  * constant rather than anything credential-shaped, so nobody can mistake it for one that
  * leaked. In production `BETTER_AUTH_SECRET` is the only source.
  */
-const INSECURE_DEV_SECRET = 'cubit-insecure-dev-secret';
+const INSECURE_DEV_SECRET = 'cubit-insecure-dev-secret-do-not-use-in-production';
 
 /** Where a screen sends anyone whose tenant it does not yet know: `/t` resolves the slug. */
 export const TENANT_ENTRY_PATH = '/t';
@@ -62,6 +62,19 @@ const SIGN_IN_ATTEMPTS_PER_WINDOW = 15;
 /** The link-minting endpoints. A link is cheap to ask for and expensive to send. */
 const LINK_REQUESTS_PER_WINDOW = 20;
 
+/** C-07: the addresses this product answers on when nobody has named another. */
+const LOOPBACK_HOSTS: readonly string[] = ['127.0.0.1:*', 'localhost:*', '[::1]:*'];
+
+/** The hosts a request may claim to have been addressed to, and whose origins are trusted. */
+function allowedHosts(): string[] {
+  const named = process.env['BETTER_AUTH_ALLOWED_HOSTS'];
+  if (named === undefined || named.trim() === '') return [...LOOPBACK_HOSTS];
+  return named
+    .split(',')
+    .map((host) => host.trim())
+    .filter((host) => host !== '');
+}
+
 /** The seam's handle: one per process, and the only way this module reaches a row. */
 const database = runAsSystem('better-auth: identity is not scoped to one tenant');
 
@@ -70,6 +83,23 @@ export const auth = betterAuth({
   database: drizzleAdapter(database, { provider: 'pg', usePlural: true }),
   secret: process.env['BETTER_AUTH_SECRET'] ?? INSECURE_DEV_SECRET,
   advanced: { database: { generateId: 'uuid' } },
+
+  /**
+   * Where this process is being reached, decided per request (Q-12).
+   *
+   * The app answers on a different address in every lane — 3210 in dev, 3211 for the e2e
+   * build, a free port for whatever probes that build afterwards — so a base URL fixed at
+   * boot would be wrong in two of the three, and better-auth's fallback (the URL Next hands
+   * it) normalises the host to `localhost` whatever the browser actually typed. That split
+   * matters: a verification link addressed to a host the browser is not on sets its session
+   * cookie somewhere the reader never goes back to.
+   *
+   * So the host is read off the request itself and checked against an allowlist, which is
+   * also what tells better-auth which `Origin` headers to trust. The default is loopback,
+   * because loopback is the whole of M0's world (C-07); a deployment with a name of its own
+   * names it in `BETTER_AUTH_ALLOWED_HOSTS`.
+   */
+  baseURL: { allowedHosts: allowedHosts(), protocol: 'auto' },
 
   emailAndPassword: {
     enabled: true,

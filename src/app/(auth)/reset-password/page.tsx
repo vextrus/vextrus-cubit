@@ -9,7 +9,8 @@
  * followed a reset link while a session happened to be open still means to set a password.
  */
 import { redirect } from 'next/navigation';
-import { AuthScreen, CARD } from '../auth-screen';
+import { AuthScreen } from '../auth-screen';
+import { CARD } from '../cards';
 import { signedInLanding } from '../../../server/session';
 import { aus } from '../strings';
 

@@ -5,7 +5,8 @@
  * mints nothing: §4, and better-auth's `disableSignUp`. §3: a spent link comes back here.
  */
 import { redirect } from 'next/navigation';
-import { AuthScreen, CARD } from '../auth-screen';
+import { AuthScreen } from '../auth-screen';
+import { CARD } from '../cards';
 import { signedInLanding } from '../../../server/session';
 import { aus } from '../strings';
 

@@ -97,7 +97,7 @@
 
 /* §8: the list — one surface, rows divided by hairlines. */
 .tenant-sessions {
-  margin-top: var(--space-4);
+  margin: var(--space-4) 0 0;
   background: var(--graphite-0);
   border: var(--hairline) solid var(--graphite-200);
   border-radius: var(--radius-8);

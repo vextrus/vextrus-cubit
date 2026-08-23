@@ -5,7 +5,8 @@
  * that can mint a new one; the query says so and the card renders the refusal above its form.
  */
 import { redirect } from 'next/navigation';
-import { AuthScreen, CARD } from '../auth-screen';
+import { AuthScreen } from '../auth-screen';
+import { CARD } from '../cards';
 import { signedInLanding } from '../../../server/session';
 import { aus } from '../strings';
 

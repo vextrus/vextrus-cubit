@@ -4,7 +4,8 @@
  * A signed-in visitor has no business here: §1 sends them to the tenant they are already in.
  */
 import { redirect } from 'next/navigation';
-import { AuthScreen, CARD } from '../auth-screen';
+import { AuthScreen } from '../auth-screen';
+import { CARD } from '../cards';
 import { signedInLanding } from '../../../server/session';
 import { aus } from '../strings';
 

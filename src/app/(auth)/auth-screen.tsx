@@ -19,6 +19,7 @@ import { Button, Input } from '../../ui/primitives';
 import { OfflineBanner } from '../../ui/patterns';
 import { EMAIL_SHAPE, MIN_PASSWORD_LENGTH } from '../../server/auth-policy';
 import { signUpWithPersonalTenant } from './actions';
+import type { AuthScreenKind } from './cards';
 import { around, aus } from './strings';
 import type { AuthStringKey } from './strings';
 import './auth.css';
@@ -34,22 +35,6 @@ const RESET_PASSWORD = '/reset-password';
  * `/t` resolves it from the session and redirects on to `/t/{slug}` (R-SPINE-002).
  */
 const TENANT_ENTRY = '/t';
-
-/** The five cards this component is. `reset-set` is /reset-password's second phase. */
-export type AuthScreenKind = 'sign-up' | 'sign-in' | 'magic-link' | 'reset-request' | 'reset-set';
-
-/**
- * The five kinds, named. A page says `kind={CARD.signUp}` rather than spelling the value: a
- * discriminator is the component's own vocabulary, not copy, and naming it keeps the two
- * apart at the one place a reader could confuse them (R-SPINE-060).
- */
-export const CARD = Object.freeze({
-  signUp: 'sign-up',
-  signIn: 'sign-in',
-  magic: 'magic-link',
-  resetRequest: 'reset-request',
-  resetSet: 'reset-set',
-} as const) satisfies Readonly<Record<string, AuthScreenKind>>;
 
 export interface AuthScreenProps {
   readonly kind: AuthScreenKind;

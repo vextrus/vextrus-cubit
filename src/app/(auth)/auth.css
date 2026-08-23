@@ -85,6 +85,7 @@
 
 /* §2: one alert line per card, between the field stack and the submit. */
 .auth-error {
+  margin: 0;
   margin-top: var(--space-3);
   margin-bottom: calc(var(--space-3) - var(--space-4));
   font-size: var(--text-13);
@@ -120,7 +121,7 @@
 
 .auth-notice-link {
   display: block;
-  margin-top: var(--space-3);
+  margin: var(--space-3) 0 0;
 }
 
 /* §3: the expired-link refusal, above the h1 and inside the card. */
@@ -165,6 +166,10 @@
   line-height: var(--leading-ui);
   color: var(--graphite-600);
   text-align: center;
+}
+
+.auth-links p {
+  margin: 0;
 }
 
 .auth-links a,
