@@ -1,0 +1,174 @@
+/*
+ * S-Auth §5–§8: the minimal signed-in chrome, the landing and the session device list.
+ *
+ * R-UI-030's full shell belongs to the workspace increments; what is here is the top bar and
+ * one centred column. No colour literal: every rule reads a Datum token, so both themes are
+ * the token sheet's business (§12).
+ */
+
+.tenant-shell {
+  min-height: 100dvh;
+  background: var(--graphite-50);
+  font-family: var(--font-ui);
+}
+
+/* §5: sticky, 48px, hairline bottom border. */
+.tenant-bar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 var(--space-6);
+  background: var(--graphite-0);
+  border-bottom: var(--hairline) solid var(--graphite-200);
+}
+
+.tenant-bar-brand {
+  font-size: var(--text-14);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-950);
+}
+
+.tenant-bar-separator {
+  margin: 0 var(--space-3);
+  height: 16px;
+}
+
+.tenant-bar-name {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+}
+
+.tenant-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+/* §5: navigation chrome — no underline at rest. */
+.tenant-bar-link {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+  text-decoration: none;
+}
+
+.tenant-bar-link:hover {
+  color: var(--graphite-950);
+}
+
+/* §5: one centred column on both screens. */
+.tenant-main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-6);
+}
+
+.tenant-title {
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-950);
+  margin: 0;
+}
+
+.tenant-slug {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  margin: var(--space-2) 0 0;
+}
+
+.tenant-lead {
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+  margin: var(--space-2) 0 0;
+}
+
+.tenant-home-empty {
+  margin-top: var(--space-6);
+}
+
+/* §8: the list — one surface, rows divided by hairlines. */
+.tenant-sessions {
+  margin: var(--space-4) 0 0;
+  background: var(--graphite-0);
+  border: var(--hairline) solid var(--graphite-200);
+  border-radius: var(--radius-8);
+  list-style: none;
+  padding: 0;
+}
+
+.tenant-session-row {
+  display: flex;
+  align-items: center;
+  min-height: var(--row-comfortable);
+  padding: 0 var(--space-3);
+  border-top: var(--hairline) solid var(--graphite-200);
+}
+
+.tenant-session-row:first-child {
+  border-top: none;
+}
+
+.tenant-session-device {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-13);
+  color: var(--graphite-800);
+}
+
+.tenant-session-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: auto;
+}
+
+.tenant-session-when {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* §8: a failed revoke says so above the list, in the alert line's own voice. */
+.tenant-alert {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--danger);
+}
+
+/* §8: the announcement is for a screen reader, not for the page. */
+.tenant-announce {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* §7: the 404 has no top bar — there is nothing tenant-scoped to show. */
+.tenant-notfound {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: var(--space-6);
+  background: var(--graphite-50);
+  font-family: var(--font-ui);
+}
+
+.tenant-notfound-inner {
+  width: min(480px, 100%);
+}
