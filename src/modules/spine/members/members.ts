@@ -67,21 +67,12 @@ export async function listMembers(ctx: AdminContext): Promise<readonly TenantMem
  * The membership is read before it is written, in the transaction that writes it: an UPDATE
  * matching no row resolves as happily as one that changed something, and the screen would
  * announce a change that never happened to a member another administrator had just removed.
- *
- * `expectedRole` is the caller saying which role they were shown — L-ACT-02's carried
- * Consequence, when the caller is the act pair. Reading the role and then writing it are two
- * statements, so a check made before the UPDATE decides nothing: the guard is the UPDATE's own
- * `where`, which Postgres re-evaluates against the row it locked, so a role another
- * administrator moved in between matches nothing and this call writes nothing. Callers with no
- * Consequence to carry (the settings screen's server action) omit it and the write is
- * unconditional, exactly as before.
  */
 export async function setMemberRole(
   ctx: AdminContext,
-  args: { readonly userId: string; readonly role: string; readonly expectedRole?: string },
+  args: { readonly userId: string; readonly role: string },
 ): Promise<void> {
   const role = roleName(args.role);
-  const expected = args.expectedRole === undefined ? undefined : roleName(args.expectedRole);
   const db = scopedTo(ctx);
   const { and, eq } = operators(db);
   const memberships = db._.fullSchema.tenantMemberships;
@@ -98,23 +89,10 @@ export async function setMemberRole(
       throw new Error(`no membership in this tenant holds the user ${args.userId}`);
     }
 
-    const moved = await tx
+    await tx
       .update(memberships)
       .set({ role })
-      .where(
-        and(
-          eq(memberships.tenantId, ctx.tenantId),
-          eq(memberships.userId, args.userId),
-          expected === undefined ? undefined : eq(memberships.role, expected),
-        ),
-      )
-      .returning({ userId: memberships.userId });
-
-    // The row is there — the read above found it — so nothing matching means the guard did:
-    // the role is no longer the one the caller carried in.
-    if (expected !== undefined && moved.length === 0) {
-      throw new Error(`the membership of ${args.userId} no longer holds "${expected}"`);
-    }
+      .where(and(eq(memberships.tenantId, ctx.tenantId), eq(memberships.userId, args.userId)));
   });
 }
 

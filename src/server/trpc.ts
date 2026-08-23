@@ -68,8 +68,13 @@ export function consequenceDigest(value: unknown): string {
  * instance, a function, a symbol — is refused loudly rather than digested as nothing.
  */
 function canonical(value: unknown): string {
-  if (value === undefined) return 'null';
+  // `undefined` is dropped from objects but holds a position in an array, so it needs a form of
+  // its own: through `JSON.stringify` it would be `null`, and `[undefined]` would digest as
+  // `[null]`. The same goes for the numbers JSON cannot write — NaN and the infinities.
+  if (value === undefined) return 'undefined';
   if (typeof value === 'bigint') return `"${value.toString()}n"`;
+  if (typeof value === 'number' && !Number.isFinite(value)) return `Number(${String(value)})`;
+  if (Object.is(value, -0)) return '-0';
   if (typeof value === 'function' || typeof value === 'symbol') throw undigestable(value);
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
