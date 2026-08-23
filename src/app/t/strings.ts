@@ -38,11 +38,44 @@ export const TENANT_STRINGS = Object.freeze({
   'tenant.books.empty.teach':
     "A book prices a project's measured work. Create a project first; its books appear here.",
   'tenant.books.empty.action': 'Go to Projects',
+  /* Settings: the tenant slice — members, invitations, roles (docs/design/s-settings.md §8). */
   'tenant.settings.title': 'Settings',
+  'tenant.settings.lead': 'The people in this workspace and the invitations awaiting an answer.',
   'tenant.settings.empty.title': 'Nothing to configure yet.',
   'tenant.settings.empty.teach':
     'Workspace settings will appear here. The one thing to manage today is your signed-in sessions.',
   'tenant.settings.empty.action': 'View sessions',
+  'tenant.settings.actionFailed':
+    'The request did not complete. Check your connection and try again.',
+  'tenant.settings.permission': 'settings.members.manage',
+  'tenant.settings.permissionHolder': 'a workspace owner or admin',
+  'tenant.members.title': 'Members',
+  'tenant.members.you': 'You',
+  'tenant.members.role': 'Role of {email}',
+  'tenant.members.remove': 'Remove',
+  'tenant.members.removeLabel': 'Remove {email}',
+  'tenant.members.roleChanged': 'Role updated.',
+  'tenant.members.removed': 'Member removed.',
+  'tenant.role.owner': 'OWNER',
+  'tenant.role.admin': 'ADMIN',
+  'tenant.role.member': 'MEMBER',
+  'tenant.invitations.title': 'Invitations',
+  'tenant.invitations.email': 'Email',
+  'tenant.invitations.role': 'Role',
+  'tenant.invitations.submit': 'Send invitation',
+  'tenant.invitations.emailInvalid': 'Enter a valid email address.',
+  'tenant.invitations.invited': 'Invited {time}',
+  'tenant.invitations.resend': 'Resend',
+  'tenant.invitations.resendLabel': 'Resend the invitation to {email}',
+  'tenant.invitations.revoke': 'Revoke',
+  'tenant.invitations.revokeLabel': 'Revoke the invitation to {email}',
+  'tenant.invitations.sent': 'Invitation sent to {email}.',
+  'tenant.invitations.resent': 'Invitation sent again.',
+  'tenant.invitations.revoked': 'Invitation revoked.',
+  /* The invitation mail (§9): server-composed copy, in the same voice as the screen. */
+  'tenant.mail.invite.subject': 'You are invited to {tenant} on Cubit',
+  'tenant.mail.invite.body':
+    '{inviter} invited you to join {tenant} as {role}. Create an account with this email address to accept: {url}',
   /** Who to ask for a permission this reader does not hold (R-UI-050, §6). */
   'tenant.permission.holder': 'the workspace owner',
   'tenant.notFound.title': 'This workspace could not be found.',
@@ -68,4 +101,18 @@ export function around(key: TenantStringKey, slot: string): readonly [string, st
   const at = template.indexOf(marker);
   if (at === -1) return [template, ''];
   return [template.slice(0, at), template.slice(at + marker.length)];
+}
+
+/**
+ * The same template with its slots filled, for the strings that are one string: an accessible
+ * name, a live region's sentence, the subject and body of a mail. A slot nobody filled is left
+ * as it is written rather than blanked — a sentence with a hole in it says something is
+ * missing, which is true.
+ */
+export function fill(key: TenantStringKey, slots: Readonly<Record<string, string>>): string {
+  let filled: string = ten(key);
+  for (const [slot, value] of Object.entries(slots)) {
+    filled = filled.split(`{${slot}}`).join(value);
+  }
+  return filled;
 }
