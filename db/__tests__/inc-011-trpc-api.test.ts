@@ -742,8 +742,12 @@ describe('AC-2 — the request whose context is the tenant scope (R-SPINE-004, Q
       expect(ROLE_CODES, `${row.email} holds ${row.role}, outside the closed set`).toContain(
         row.role,
       );
-      // The module's own row, JSON-plain: `{ userId, email, role }` and nothing around it.
-      expect(Object.keys(row).sort()).toEqual(['email', 'role', 'userId']);
+      // The module's own row, JSON-plain: the three named keys are present and string-valued.
+      // Amended per arbitration (2026-08-24): C-05's frozen surface does not include response row
+      // shapes, so a later increment may lawfully widen this row — presence, not an exact census.
+      expect(Object.keys(row)).toEqual(expect.arrayContaining(['email', 'role', 'userId']));
+      expect(typeof row.userId).toBe('string');
+      expect(typeof row.email).toBe('string');
     }
     // …and nobody else's tenant leaks into it.
     expect(byId.has(found.guest.userId), 'a member of another tenant is listed').toBe(false);
