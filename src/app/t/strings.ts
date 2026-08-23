@@ -22,6 +22,29 @@ export const TENANT_STRINGS = Object.freeze({
   'tenant.sessions.unknownDevice': 'Unknown device',
   'tenant.sessions.revoked': 'Session revoked.',
   'tenant.sessions.revokeFailed': 'The session could not be revoked. Try again.',
+  /* The three rail areas the shell opens onto (docs/design/shell.md §4, §7). */
+  'tenant.projects.title': 'Projects',
+  'tenant.projects.empty.title': 'No projects yet.',
+  'tenant.projects.empty.teach': 'Create a project, then upload a drawing to start measuring.',
+  'tenant.projects.empty.action': 'Create a project',
+  /* §4: the action is honest about what it can do today — creating projects is deferred. */
+  'tenant.projects.create.title': 'Create a project',
+  'tenant.projects.create.body':
+    'Creating projects is not available yet. A project will start with a name and its first drawing upload.',
+  'tenant.projects.create.sample':
+    'A sample project, clearly labelled SAMPLE, will also be available to explore.',
+  'tenant.books.title': 'Books',
+  'tenant.books.empty.title': 'No books yet.',
+  'tenant.books.empty.teach':
+    "A book prices a project's measured work. Create a project first; its books appear here.",
+  'tenant.books.empty.action': 'Go to Projects',
+  'tenant.settings.title': 'Settings',
+  'tenant.settings.empty.title': 'Nothing to configure yet.',
+  'tenant.settings.empty.teach':
+    'Workspace settings will appear here. The one thing to manage today is your signed-in sessions.',
+  'tenant.settings.empty.action': 'View sessions',
+  /** Who to ask for a permission this reader does not hold (R-UI-050, §6). */
+  'tenant.permission.holder': 'the workspace owner',
   'tenant.notFound.title': 'This workspace could not be found.',
   'tenant.notFound.teach': 'Check the address, or sign in with an account that belongs to it.',
   'tenant.notFound.action': 'Sign in',

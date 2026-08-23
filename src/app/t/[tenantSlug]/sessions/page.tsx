@@ -9,7 +9,6 @@
  */
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
-import { TenantBar } from '../../tenant-bar';
 import { SessionList } from './session-list';
 import type { SessionRow } from './session-list';
 import { ten } from '../../strings';
@@ -47,13 +46,10 @@ export default async function TenantSessionsPage({
   }));
 
   return (
-    <div className="tenant-shell">
-      <TenantBar tenantName={context.name} slug={context.slug} />
-      <main className="tenant-main">
-        <h1 className="tenant-title">{ten('tenant.sessions.title')}</h1>
-        <p className="tenant-lead">{ten('tenant.sessions.lead')}</p>
-        <SessionList sessions={rows} />
-      </main>
+    <div data-testid="tenant-sessions">
+      <h1 className="tenant-title">{ten('tenant.sessions.title')}</h1>
+      <p className="tenant-lead">{ten('tenant.sessions.lead')}</p>
+      <SessionList sessions={rows} />
     </div>
   );
 }

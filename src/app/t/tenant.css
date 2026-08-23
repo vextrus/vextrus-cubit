@@ -1,69 +1,13 @@
 /*
- * S-Auth §5–§8: the minimal signed-in chrome, the landing and the session device list.
+ * S-Auth §6–§8: the landing, the session device list and the 404.
  *
- * R-UI-030's full shell belongs to the workspace increments; what is here is the top bar and
- * one centred column. No colour literal: every rule reads a Datum token, so both themes are
- * the token sheet's business (§12).
+ * The frame itself is `src/ui/shell/shell.css` (docs/design/shell.md); what is here is what
+ * the screens inside it hold — the heading rhythm, the session list, the 404. No colour
+ * literal: every rule reads a Datum token, so both themes are the token sheet's business
+ * (§12).
  */
 
-.tenant-shell {
-  min-height: 100dvh;
-  background: var(--graphite-50);
-  font-family: var(--font-ui);
-}
-
-/* §5: sticky, 48px, hairline bottom border. */
-.tenant-bar {
-  position: sticky;
-  top: 0;
-  z-index: var(--z-sticky);
-  display: flex;
-  align-items: center;
-  height: 48px;
-  padding: 0 var(--space-6);
-  background: var(--graphite-0);
-  border-bottom: var(--hairline) solid var(--graphite-200);
-}
-
-.tenant-bar-brand {
-  font-size: var(--text-14);
-  font-weight: var(--weight-heading);
-  color: var(--graphite-950);
-}
-
-.tenant-bar-separator {
-  margin: 0 var(--space-3);
-  height: 16px;
-}
-
-.tenant-bar-name {
-  font-size: var(--text-13);
-  font-weight: var(--weight-body-medium);
-  color: var(--graphite-700);
-}
-
-.tenant-bar-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-left: auto;
-}
-
-/* §5: navigation chrome — no underline at rest. */
-.tenant-bar-link {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  font-size: var(--text-13);
-  color: var(--graphite-700);
-  text-decoration: none;
-}
-
-.tenant-bar-link:hover {
-  color: var(--graphite-950);
-}
-
-/* §5: one centred column on both screens. */
+/* §5: one centred column, kept for the surfaces above the shell (the error boundary). */
 .tenant-main {
   max-width: 720px;
   margin: 0 auto;
@@ -93,6 +37,14 @@
 
 .tenant-home-empty {
   margin-top: var(--space-6);
+}
+
+/* shell.md §4: the honest create dialog says what a project will start with, and no more. */
+.tenant-projects-sample {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
 }
 
 /* §8: the list — one surface, rows divided by hairlines. */
