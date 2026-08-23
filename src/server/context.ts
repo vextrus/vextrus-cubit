@@ -25,7 +25,7 @@ import { membershipOf } from './tenancy';
 export const TENANT_HEADER = 'x-cubit-tenant';
 
 /** One of tRPC's transport codes, without importing the union from its unstable core. */
-type TrpcCode = ConstructorParameters<typeof TRPCError>[0]['code'];
+export type TrpcCode = ConstructorParameters<typeof TRPCError>[0]['code'];
 
 /**
  * A code assembled from its parts rather than spelled (Q-07).
@@ -36,11 +36,25 @@ type TrpcCode = ConstructorParameters<typeof TRPCError>[0]['code'];
  * and does not, and putting a message, a remedy and a surface on tRPC's own vocabulary would
  * make the transport part of the domain taxonomy. So the code is built, and the register is
  * told the truth by this comment rather than by a registration that would misdescribe it.
+ *
+ * The assembly carries its parts in its type, so what it builds is checked the way a spelled
+ * literal would be: a mistyped part makes a string tRPC's vocabulary does not carry, and the
+ * annotation below refuses it at compile time instead of at the first request that needs it.
  */
-const assembled = (...parts: string[]): string => parts.join('_');
+type Joined<Parts extends readonly string[]> = Parts extends readonly [
+  infer Head extends string,
+  ...infer Rest extends string[],
+]
+  ? Rest extends readonly []
+    ? Head
+    : `${Head}_${Joined<Rest>}`
+  : '';
+
+const assembled = <const Parts extends readonly string[]>(...parts: Parts): Joined<Parts> =>
+  parts.join('_') as Joined<Parts>;
 
 /** What an unresolvable tenant — absent, unknown or not held — answers with (Q-12). */
-export const NOT_FOUND = assembled('NOT', 'FOUND') as TrpcCode;
+export const NOT_FOUND: TrpcCode = assembled('NOT', 'FOUND');
 
 /** Everything a procedure is given — and the only handle it can reach a row through. */
 export interface TenantCtx {

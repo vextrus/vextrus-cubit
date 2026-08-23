@@ -13,9 +13,14 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { listMembers, refusalCodeOf, setMemberRole } from '../../modules/spine/members';
-import type { AdminContext, TenantMember, TenantRole } from '../../modules/spine/members';
+import type {
+  AdminContext,
+  TenantAdminCode,
+  TenantMember,
+  TenantRole,
+} from '../../modules/spine/members';
 import { NOT_FOUND } from '../context';
-import type { TenantCtx } from '../context';
+import type { TenantCtx, TrpcCode } from '../context';
 import { actPair, consequenceDigest, router, tenantProcedure } from '../trpc';
 
 /**
@@ -80,14 +85,53 @@ async function consequenceOf(
   };
 }
 
-/** Run a module call, surfacing its refusal code as the message of a FORBIDDEN TRPCError. */
+/**
+ * Which transport code each of the module's refusals travels as.
+ *
+ * The map is total over the taxonomy (`TenantAdminCode`), so a code the module adds is a compile
+ * error here rather than a refusal that quietly inherits somebody else's meaning. Only one of the
+ * three is about authority: `NOT_TENANT_ADMIN` is a caller who may not do this, while
+ * `MEMBER_HAS_ACTS` and `INVITATION_NOT_PENDING` are preconditions the *state* fails — the same
+ * kind of no as a stale digest, and answered with the same code.
+ */
+const TRANSPORT_OF: Readonly<Record<TenantAdminCode, TrpcCode>> = {
+  NOT_TENANT_ADMIN: 'FORBIDDEN',
+  MEMBER_HAS_ACTS: 'CONFLICT',
+  INVITATION_NOT_PENDING: 'CONFLICT',
+};
+
+/** Run a module call, surfacing its refusal code as the exact message of its transport code. */
 async function performing<T>(act: () => Promise<T>): Promise<T> {
   try {
     return await act();
   } catch (error: unknown) {
     const code = refusalCodeOf(error);
     if (code === null) throw error;
-    throw new TRPCError({ code: 'FORBIDDEN', message: code });
+    throw new TRPCError({ code: TRANSPORT_OF[code], message: code });
+  }
+}
+
+/**
+ * The write, with the target re-read when the module faults.
+ *
+ * `setMemberRole` opens its own transaction, so the membership the Consequence was computed from
+ * can be removed between the two — and the module raises a plain Error for a member it cannot
+ * find, which would reach the caller as INTERNAL_SERVER_ERROR. A caller asking about somebody who
+ * is no longer in the tenant has made the same "no such thing" mistake `consequenceOf` already
+ * answers, so the recompute below decides which of the two it was: it throws NOT_FOUND when the
+ * target has gone, and the original fault stands when it has not.
+ */
+async function writing<T>(
+  ctx: TenantCtx,
+  input: z.infer<typeof setRoleInput>,
+  act: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await performing(act);
+  } catch (error: unknown) {
+    if (error instanceof TRPCError) throw error;
+    await consequenceOf(ctx, input);
+    throw error;
   }
 }
 
@@ -109,7 +153,7 @@ const setRole = actPair({
       if (consequenceDigest(consequence) !== input.consequenceDigest) {
         throw new TRPCError({ code: 'CONFLICT', message: CONSEQUENCES_NOT_CARRIED });
       }
-      await performing(async () =>
+      await writing(ctx, input, async () =>
         setMemberRole(acting(ctx), { userId: input.userId, role: consequence.proposedRole }),
       );
       return { consequence };
