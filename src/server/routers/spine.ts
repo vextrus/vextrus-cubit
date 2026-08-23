@@ -114,23 +114,33 @@ async function performing<T>(act: () => Promise<T>): Promise<T> {
 /**
  * The write, with the target re-read when the module faults.
  *
- * `setMemberRole` opens its own transaction, so the membership the Consequence was computed from
- * can be removed between the two — and the module raises a plain Error for a member it cannot
- * find, which would reach the caller as INTERNAL_SERVER_ERROR. A caller asking about somebody who
- * is no longer in the tenant has made the same "no such thing" mistake `consequenceOf` already
- * answers, so the recompute below decides which of the two it was: it throws NOT_FOUND when the
- * target has gone, and the original fault stands when it has not.
+ * `setMemberRole` opens its own transaction, which is why the digest is carried *into* it as
+ * `expectedRole`: the comparison below is made on a handle of this request's, and the state it
+ * compared can move before the module's transaction takes the row. Only the write itself can
+ * settle that, so the module guards its UPDATE with the role the Consequence names and writes
+ * nothing when the row no longer holds it.
+ *
+ * A guard that refuses is a plain Error, as is a member the module cannot find at all, and both
+ * would reach the caller as INTERNAL_SERVER_ERROR. So a fault that is not already a refusal sends
+ * this back to current state to say which one it was: the target has gone (`consequenceOf` throws
+ * NOT_FOUND, the same "no such thing" preview answers), state has moved under the digest
+ * (`CONSEQUENCES_NOT_CARRIED`, the same no the check below gives), or neither — and then the
+ * fault is a real one and stands.
  */
 async function writing<T>(
   ctx: TenantCtx,
   input: z.infer<typeof setRoleInput>,
+  digest: string,
   act: () => Promise<T>,
 ): Promise<T> {
   try {
     return await performing(act);
   } catch (error: unknown) {
     if (error instanceof TRPCError) throw error;
-    await consequenceOf(ctx, input);
+    const current = await consequenceOf(ctx, input);
+    if (consequenceDigest(current) !== digest) {
+      throw new TRPCError({ code: 'CONFLICT', message: CONSEQUENCES_NOT_CARRIED });
+    }
     throw error;
   }
 }
@@ -145,6 +155,10 @@ const setRole = actPair({
    * L-ACT-02: the Consequence is recomputed from current state and the digest carried in must
    * be the one it produces. A stale or foreign digest means the state the caller was shown is
    * not the state they are about to change, so nothing is written — `CONSEQUENCES_NOT_CARRIED`.
+   *
+   * The check answers the caller; the Consequence's `currentRole` travels on to the write as
+   * `expectedRole`, so the row is taken under the same fact this refused on and no change made
+   * between the two can slip through (`writing` turns that guard into the same refusal).
    */
   commit: tenantProcedure
     .input(setRoleInput.extend({ consequenceDigest: z.string() }))
@@ -153,8 +167,12 @@ const setRole = actPair({
       if (consequenceDigest(consequence) !== input.consequenceDigest) {
         throw new TRPCError({ code: 'CONFLICT', message: CONSEQUENCES_NOT_CARRIED });
       }
-      await writing(ctx, input, async () =>
-        setMemberRole(acting(ctx), { userId: input.userId, role: consequence.proposedRole }),
+      await writing(ctx, input, input.consequenceDigest, async () =>
+        setMemberRole(acting(ctx), {
+          userId: input.userId,
+          role: consequence.proposedRole,
+          expectedRole: consequence.currentRole,
+        }),
       );
       return { consequence };
     }),
