@@ -7,7 +7,6 @@
  * session list — the projects R-UI-033 teaches arrive with the project screens.
  */
 import { notFound, redirect } from 'next/navigation';
-import { TenantBar } from '../tenant-bar';
 import { NavEmptyState } from '../nav-empty-state';
 import { ten } from '../strings';
 import { SIGN_IN_PATH, tenantContext } from '../../../server/session';
@@ -23,20 +22,17 @@ export default async function TenantHomePage({
   if (context === 'not-found') notFound();
 
   return (
-    <div className="tenant-shell">
-      <TenantBar tenantName={context.name} slug={context.slug} />
-      <main className="tenant-main" data-testid="tenant-home">
-        <h1 className="tenant-title">{context.name}</h1>
-        <p className="tenant-slug">{context.slug}</p>
-        <div className="tenant-home-empty">
-          <NavEmptyState
-            title={ten('tenant.home.empty.title')}
-            teach={ten('tenant.home.empty.teach')}
-            actionLabel={ten('tenant.home.empty.action')}
-            href={`/t/${context.slug}/sessions`}
-          />
-        </div>
-      </main>
+    <div data-testid="tenant-home">
+      <h1 className="tenant-title">{context.name}</h1>
+      <p className="tenant-slug">{context.slug}</p>
+      <div className="tenant-home-empty">
+        <NavEmptyState
+          title={ten('tenant.home.empty.title')}
+          teach={ten('tenant.home.empty.teach')}
+          actionLabel={ten('tenant.home.empty.action')}
+          href={`/t/${context.slug}/sessions`}
+        />
+      </div>
     </div>
   );
 }

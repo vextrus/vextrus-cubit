@@ -13,7 +13,7 @@
 import { headers } from 'next/headers';
 import { runAsSystem } from '../core/db';
 import { auth } from './auth';
-import { activeTenantSlugFor, membershipOf } from './tenancy';
+import { activeTenantSlugFor, membershipOf, membershipsFor } from './tenancy';
 
 /** Where a signed-in reader belongs, and where `/t` sends them. */
 export const TENANT_ENTRY_PATH = '/t';
@@ -25,6 +25,8 @@ export interface SignedIn {
   readonly userId: string;
   readonly sessionToken: string;
   readonly activeTenantSlug: string | null;
+  /** The address the account signs in with — the shell's user slot shows it (shell.md §3). */
+  readonly email: string;
 }
 
 /** The session behind this request, or null. Reads the request's own cookies, so it is dynamic. */
@@ -36,7 +38,23 @@ export async function currentSession(): Promise<SignedIn | null> {
     userId: found.user.id,
     sessionToken: found.session.token,
     activeTenantSlug: carried ?? null,
+    email: found.user.email,
   };
+}
+
+/**
+ * The workspaces this reader may switch to (R-UI-030's tenant switcher).
+ *
+ * It is a read of the reader's own memberships across tenants — the same question
+ * `signedInLanding` asks — so it runs as the system, like the guard beside it.
+ */
+export async function readerMemberships(
+  session: SignedIn,
+): Promise<readonly { slug: string; name: string }[]> {
+  return await membershipsFor(
+    runAsSystem('the tenant switcher lists one reader’s memberships across tenants'),
+    session.userId,
+  );
 }
 
 /**
