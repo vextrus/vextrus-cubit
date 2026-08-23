@@ -2,10 +2,11 @@
  * The signed-in `/t` screens' string table (R-SPINE-060).
  *
  * The minimal top bar, the landing's empty state, the session device list and the 404 the
- * guard answers with. Every value is `docs/design/s-auth.md` §10, verbatim.
+ * guard answers with. Every value is `docs/design/s-auth.md` §10, verbatim — and only those:
+ * the wordmark the top bar carries is the same word the card screens carry, so it is read
+ * from `auth.brand` rather than registered a second time under a second name.
  */
 export const TENANT_STRINGS = Object.freeze({
-  'tenant.brand': 'Cubit',
   'tenant.nav.sessions': 'Sessions',
   'tenant.signOut': 'Sign out',
   'tenant.home.empty.title': 'No projects in this workspace yet.',

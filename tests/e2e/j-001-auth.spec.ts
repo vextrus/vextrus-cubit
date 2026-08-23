@@ -45,6 +45,12 @@ const PASSWORD = 'j001-Passw0rd!';
 const NEW_PASSWORD = 'j001-Passw0rd!-changed';
 
 /**
+ * The seeded tenant (fixtures/e2e/tenant.json). Nobody is a member of it, which is what
+ * makes it the one workspace a signed-in stranger can be refused from.
+ */
+const SEEDED_TENANT = 'cubit-e2e';
+
+/**
  * Sign up, follow the verification link, and land in the personal tenant the mint made.
  *
  * The whole of AC-1 in one helper because three checkpoints share it and the sessions
@@ -198,6 +204,33 @@ test.describe('J-001', () => {
     await submitButton(page).click();
     await expect(tenantHome(page)).toBeVisible();
     expect(new URL(page.url()).pathname).toBe(`/t/${slug}`);
+  });
+
+  test('J-001 verified-landing guard: a stranger is sent to sign-in, and a member of nothing is told the workspace is not there', async ({
+    page,
+  }) => {
+    await page.goto(SIGN_IN_ROUTE);
+    const address = new URL(`/t/${SEEDED_TENANT}`, page.url()).toString();
+
+    // No session: a redirect, answered before any byte of the workspace. Node's fetch rather
+    // than the runner's request context — that one rejects outright on a 3xx it is told not
+    // to follow, instead of handing back the answer.
+    const anonymous = await fetch(address, { redirect: 'manual' });
+    const streamed = await anonymous.text();
+    expect(anonymous.status, `/t/${SEEDED_TENANT} answered ${anonymous.status} to a stranger`)
+      .toBeGreaterThanOrEqual(300);
+    expect(anonymous.status).toBeLessThan(400);
+    expect(anonymous.headers.get('location')).toBe(SIGN_IN_ROUTE);
+    expect(streamed, 'the workspace shell was streamed past the guard').not.toContain(
+      'tenant-home',
+    );
+
+    // A session, but no membership: the same answer a slug nobody holds gets — 404, never a
+    // named permission, because naming one would confirm the workspace exists (Q-12).
+    await signUpAndVerify(page, freshEmail('stranger-member'));
+    const refused = await page.goto(`/t/${SEEDED_TENANT}`);
+    expect(refused?.status(), 'a non-member was not answered 404').toBe(404);
+    await expect(tenantHome(page)).toHaveCount(0);
   });
 
   test('J-001 sessions: two devices, the current one marked, and revoking the other ejects it', async ({

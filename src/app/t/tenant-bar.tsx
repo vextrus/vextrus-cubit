@@ -12,6 +12,7 @@
  */
 import { useCallback, useState } from 'react';
 import { Button, Separator } from '../../ui/primitives';
+import { aus } from '../(auth)/strings';
 import { ten } from './strings';
 
 const SIGN_IN = '/sign-in';
@@ -40,7 +41,7 @@ export function TenantBar({ tenantName, slug }: TenantBarProps) {
 
   return (
     <header className="tenant-bar">
-      <span className="tenant-bar-brand">{ten('tenant.brand')}</span>
+      <span className="tenant-bar-brand">{aus('auth.brand')}</span>
       <Separator className="tenant-bar-separator" orientation="vertical" />
       <span className="tenant-bar-name">{tenantName}</span>
       <div className="tenant-bar-actions">
