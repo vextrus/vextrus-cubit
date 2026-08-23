@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * `ShellAreaState` — the seven states R-UI-050 requires of every screen, in one component
  * (docs/design/shell.md §6).
@@ -141,8 +143,8 @@ export function ShellAreaState(props: ShellAreaStateProps): ReactElement {
         <EmptyState
           title={props.title}
           teach={props.teach}
-          actionLabel={props.actionLabel}
-          onAction={props.onAction}
+          {...(props.actionLabel === undefined ? {} : { actionLabel: props.actionLabel })}
+          {...(props.onAction === undefined ? {} : { onAction: props.onAction })}
         />
       );
     case 'error':
@@ -152,7 +154,7 @@ export function ShellAreaState(props: ShellAreaStateProps): ReactElement {
         <RefusalState
           code={props.code}
           evidenceHref={props.evidenceHref}
-          evidenceLabel={props.evidenceLabel}
+          {...(props.evidenceLabel === undefined ? {} : { evidenceLabel: props.evidenceLabel })}
         />
       );
     case 'partial':

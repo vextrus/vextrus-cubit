@@ -47,7 +47,6 @@ import {
   sessionRows,
   settled,
   tenantSwitcher,
-  tenantSwitcherItems,
   tenantUrl,
   toggleRail,
   topbar,

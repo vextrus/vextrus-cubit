@@ -130,9 +130,9 @@ const BooksIcon = (): ReactElement => (
 const SettingsIcon = (): ReactElement => (
   <Glyph>
     <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />
-    <circle cx="6" cy="4.5" r="1.5" />
-    <circle cx="10" cy="8" r="1.5" />
-    <circle cx="5" cy="11.5" r="1.5" />
+    <path d="M4.5 4.5a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0" />
+    <path d="M8.5 8a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0" />
+    <path d="M3.5 11.5a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0" />
   </Glyph>
 );
 
@@ -163,7 +163,7 @@ const ChevronDownIcon = (): ReactElement => (
 /** Jobs — a clock face, because a job is work that takes time (§3). */
 const JobsIcon = (): ReactElement => (
   <Glyph>
-    <circle cx="8" cy="8" r="5.5" />
+    <path d="M2.5 8a5.5 5.5 0 1 0 11 0 5.5 5.5 0 1 0-11 0" />
     <path d="M8 5v3.2l2 1.3" />
   </Glyph>
 );
