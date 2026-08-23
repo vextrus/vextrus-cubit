@@ -186,8 +186,14 @@ function LineageEntry({ edition }: { edition: EditionView }) {
 function ParameterTable({ parameters }: { parameters: RuleSetParameters }) {
   return (
     <table
-      className="project-ruleset-params"
+      className="project-ruleset-params datum-focus-ring"
       aria-labelledby={PARAMS_HEADING}
+      // The pane mints no act and carries no control (Interpretation 1), so without this the
+      // shell's scrolling main region holds nothing a keyboard can reach and a keyboard reader
+      // cannot scroll the page at all — axe's `scrollable-region-focusable`, and the lane
+      // filters no violation. The table is the thing worth reaching, and focusing it announces
+      // its own name; it is a stop on the tab ring, not a control (nothing here writes).
+      tabIndex={0}
       data-testid="ruleset-params"
     >
       <thead>
@@ -247,27 +253,29 @@ function RulesetPane({ pin }: { pin: ProjectPin }) {
         {closing}
       </p>
 
-      {/* §3: the pin card — the edition, its digest, and the methods in force. */}
-      <div className="project-ruleset-card project-ruleset-pin">
+      {/* §3: the pin card — the edition, its digest, and the methods in force. Three
+          definition rows, so a reader who hears the card hears each label with its own value
+          rather than one run of text. */}
+      <dl className="project-ruleset-card project-ruleset-pin">
         <div className="project-ruleset-pin-row">
-          <span className="project-ruleset-pin-label">{ten('project.ruleset.edition')}</span>
-          <span className="project-ruleset-pin-value project-ruleset-edition" data-testid="ruleset-edition">
+          <dt className="project-ruleset-pin-label">{ten('project.ruleset.edition')}</dt>
+          <dd className="project-ruleset-pin-value project-ruleset-edition" data-testid="ruleset-edition">
             {pin.edition.key}
-          </span>
+          </dd>
         </div>
         <div className="project-ruleset-pin-row">
-          <span className="project-ruleset-pin-label">{ten('project.ruleset.digest')}</span>
-          <span className="project-ruleset-pin-value project-ruleset-digest" data-testid="ruleset-digest">
+          <dt className="project-ruleset-pin-label">{ten('project.ruleset.digest')}</dt>
+          <dd className="project-ruleset-pin-value project-ruleset-digest" data-testid="ruleset-digest">
             {pin.edition.digest}
-          </span>
+          </dd>
         </div>
         <div className="project-ruleset-pin-row">
-          <span className="project-ruleset-pin-label">{ten('project.ruleset.methods')}</span>
-          <span className="project-ruleset-pin-value project-ruleset-methods">
+          <dt className="project-ruleset-pin-label">{ten('project.ruleset.methods')}</dt>
+          <dd className="project-ruleset-pin-value project-ruleset-methods">
             {ten('project.ruleset.methodsNone')}
-          </span>
+          </dd>
         </div>
-      </div>
+      </dl>
 
       {/* §4: the fork chain, platform first. */}
       <section className="project-ruleset-section">

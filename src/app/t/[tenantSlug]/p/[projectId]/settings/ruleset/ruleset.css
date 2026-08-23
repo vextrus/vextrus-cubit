@@ -53,13 +53,16 @@
 }
 
 .project-ruleset-pin-label {
+  margin: 0;
   flex: 0 0 96px;
   font-size: var(--text-12);
   line-height: var(--leading-ui);
   color: var(--graphite-600);
 }
 
+/* `dd` carries a UA indent the card has no use for. */
 .project-ruleset-pin-value {
+  margin: 0;
   min-width: 0;
 }
 
