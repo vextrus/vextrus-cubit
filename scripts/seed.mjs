@@ -22,11 +22,22 @@ import { appUrl, quoteIdent, targetDatabase } from './db-migrate.mjs';
 const FIXTURES = 'fixtures/e2e';
 
 /**
- * Fixture file → the table its rows belong in. V-E2E names "tenant/users/project"; the
- * schema defines tenants today, so that is what the roster carries. A later increment that
- * founds users or projects adds its fixture and one row here.
+ * Fixture file → the table its rows belong in, in the order the foreign keys need: a
+ * membership needs its tenant and its user, an account needs its user, an act needs both. A
+ * later increment that founds a table adds its fixture and one row here.
+ *
+ * The roster the journeys drive is J-002's (R-SPINE-003): owner@ administers, worker@ is a
+ * member holding one act on an open campaign — so their removal is refused `MEMBER_HAS_ACTS`
+ * — and idle@ is a member holding none, so theirs is not. Every one of them signs in with the
+ * same password, held here as the credential hash better-auth would have written.
  */
-const ROSTER = [{ file: 'tenant.json', table: 'tenants' }];
+const ROSTER = [
+  { file: 'tenant.json', table: 'tenants' },
+  { file: 'users.json', table: 'users' },
+  { file: 'accounts.json', table: 'accounts' },
+  { file: 'tenant-memberships.json', table: 'tenant_memberships' },
+  { file: 'acts.json', table: 'acts' },
+];
 
 /** The acceptance reads the fixture's keys as column names the same way (`createdAt` → `created_at`). */
 function columnFor(key) {
