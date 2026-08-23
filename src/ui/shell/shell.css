@@ -20,6 +20,13 @@
 
 /* ─────────────────────────────────────── the rail (§2) ─────────────────────────────────────── */
 
+/* §1's figures are the boxes a reader measures — padding and hairline live inside them. */
+.shell-rail,
+.shell-topbar,
+.shell-inspector {
+  box-sizing: border-box;
+}
+
 .shell-rail {
   display: flex;
   flex-direction: column;

@@ -86,6 +86,21 @@ export async function settled(locator: Locator): Promise<void> {
   });
 }
 
+/**
+ * Wait until *nothing on the page* is moving.
+ *
+ * A theme flip repaints every control at once, and each one carries its own colour
+ * transition — so settling one element is not enough before a scan that reads colour
+ * (`document.getAnimations()` is the whole document's, subtrees included).
+ */
+export async function pageSettled(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await Promise.all(
+      document.getAnimations().map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
+}
+
 /** The rail's width as the browser paints it, once the transition has finished. */
 export async function railWidth(page: Page): Promise<number> {
   await settled(rail(page));

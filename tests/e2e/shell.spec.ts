@@ -38,6 +38,7 @@ import {
   notifications,
   openArea,
   openTenantSwitcher,
+  pageSettled,
   pathOf,
   projectSwitcher,
   rail,
@@ -125,6 +126,13 @@ test.describe('J-000', () => {
 
     // With nothing open and nothing moving: the frame itself is accessible (R-UI-060).
     await settled(rail(page));
+    await expectNoAxeViolations(page);
+
+    // R-UI-011/R-UI-060: the same frame in the token sheet's dark scope. The shell owns no
+    // toggle, so the scope is set the way the sheet reads it, and the flip is let settle
+    // before the scan — a mid-transition colour is neither theme's.
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+    await pageSettled(page);
     await expectNoAxeViolations(page);
   });
 
