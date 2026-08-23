@@ -183,6 +183,39 @@ export async function activeTenantSlugFor(db: ScopedDb, userId: string): Promise
   return tenant?.slug ?? null;
 }
 
+/**
+ * Every tenant this user belongs to, oldest membership first — what the shell's tenant
+ * switcher lists (R-UI-030, docs/design/shell.md §2).
+ *
+ * The order is `activeTenantSlugFor`'s own: the tenant a session lands in is the first row
+ * here, so the switcher never disagrees with the workspace the reader was sent to, and the
+ * list does not reshuffle when a later increment adds a second membership.
+ */
+export async function membershipsFor(
+  db: ScopedDb,
+  userId: string,
+): Promise<readonly { slug: string; name: string }[]> {
+  const memberships = await db.query.tenantMemberships.findMany({
+    columns: { tenantId: true },
+    where: (row, { eq }) => eq(row.userId, userId),
+    orderBy: (row, { asc }) => [asc(row.createdAt)],
+  });
+  if (memberships.length === 0) return [];
+
+  const tenants = await db.query.tenants.findMany({
+    columns: { id: true, name: true, slug: true },
+    where: (row, { inArray }) => inArray(row.id, memberships.map((membership) => membership.tenantId)),
+  });
+  const byId = new Map(tenants.map((tenant) => [tenant.id, tenant]));
+
+  // Joined in the memberships' order rather than the tenants': the read above is what fixes
+  // which workspace is first, and a database is free to return the rows of an `in` any way.
+  return memberships.flatMap((membership) => {
+    const tenant = byId.get(membership.tenantId);
+    return tenant === undefined ? [] : [{ slug: tenant.slug, name: tenant.name }];
+  });
+}
+
 /** Whether this user holds a membership in the tenant the URL names (R-SPINE-002). */
 export async function membershipOf(
   db: ScopedDb,
