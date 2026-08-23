@@ -13,20 +13,40 @@
  * looking at, already stating the device and the time. R-UI-021's server-computed preview is
  * for acts whose blast radius the reader cannot see; here the row *is* the preview.
  *
- * The signed-in time is device-local (§8), so it is formatted after mount rather than during
- * the server's render — the server's clock is not the reader's.
+ * The signed-in time is device-local (§8), and a browser's zone is not something the server
+ * knows, so the row is rendered in UTC and re-rendered in the reader's zone after mount. It
+ * is never rendered blank: "Signed in" with an empty slot reads as a value that is missing
+ * rather than one that is a frame away.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button } from '../../../../ui/primitives';
 import { around, ten } from '../../strings';
 
+const pad = (value: number): string => String(value).padStart(2, '0');
+
 /** §8's time format: `YYYY-MM-DD HH:mm`, in the reader's own zone. */
 function localTime(iso: string): string {
   const when = new Date(iso);
-  const pad = (value: number): string => String(value).padStart(2, '0');
   return (
     `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())} ` +
     `${pad(when.getHours())}:${pad(when.getMinutes())}`
+  );
+}
+
+/**
+ * The same format in UTC — what the row carries until the browser has told us its zone.
+ *
+ * §8 asks the row to carry the session's creation time, and a slot rendered empty is a
+ * missing value rather than a pending one: a reader on a slow connection, or one whose bundle
+ * never arrives, would read "Signed in" and then nothing. The server and the first client
+ * frame agree on this string (both compute it from the same instant with no zone of their
+ * own), so hydration is quiet, and the effect below swaps in the reader's zone.
+ */
+function utcTime(iso: string): string {
+  const when = new Date(iso);
+  return (
+    `${when.getUTCFullYear()}-${pad(when.getUTCMonth() + 1)}-${pad(when.getUTCDate())} ` +
+    `${pad(when.getUTCHours())}:${pad(when.getUTCMinutes())}`
   );
 }
 
@@ -123,7 +143,9 @@ export function SessionList({ sessions }: { sessions: readonly SessionRow[] }) {
               <span className="tenant-session-right">
                 <span className="tenant-session-when">
                   {before}
-                  <span className="numeric">{mounted ? localTime(row.createdAt) : ''}</span>
+                  <span className="numeric">
+                    {mounted ? localTime(row.createdAt) : utcTime(row.createdAt)}
+                  </span>
                   {after}
                 </span>
                 {row.current ? null : (

@@ -26,6 +26,16 @@ const CREDENTIAL_ISSUER = 'local:credential';
 /** A slug is what the URL says (`/t/{tenantSlug}/…`), so it stays short and speakable. */
 const SLUG_MAX_LENGTH = 40;
 
+/**
+ * The constraint behind `users.email`, named so a caller can tell *which* uniqueness the
+ * database refused. The mint writes four rows behind four unique constraints, and only this
+ * one means "an account with this email already exists"; see src/app/(auth)/actions.ts.
+ */
+export const USER_EMAIL_CONSTRAINT = 'users_email_unique';
+
+/** How many slugs the mint will try before it gives up — the seed, then disambiguated ones. */
+const SLUG_ATTEMPTS = 5;
+
 /** What a personal tenant is called when the email's local part yields nothing usable. */
 const FALLBACK_SLUG = 'workspace';
 
@@ -52,10 +62,11 @@ function tablesOf(db: ScopedDb): ScopedDb['_']['fullSchema'] {
 }
 
 /**
- * What `freeSlug` needs of a handle: the relational reader. A transaction is one of these
- * too, which is how the lookup runs inside the mint rather than beside it.
+ * What the slug search needs of a handle: the relational reader, to pick a seed nobody
+ * visibly holds, and the writer, because the read is only advice. A transaction is one of
+ * these too, which is how the search runs inside the mint rather than beside it.
  */
-type SlugReader = Pick<ScopedDb, 'query'>;
+type SlugWriter = Pick<ScopedDb, 'query' | 'insert'>;
 
 /** The readable half of an email address, reduced to what a URL segment may carry. */
 export function slugSeedFor(email: string): string {
@@ -76,17 +87,41 @@ function tenantNameFor(input: PersonalTenantInput): string {
 }
 
 /**
- * A slug nobody holds. The seed is tried first so the common case reads as the person's own
- * name; a collision takes a suffix rather than a counter, because a counter is a second
- * round trip per attempt and tells the next reader how many people share a name.
+ * The tenant row, on a slug nobody holds. The seed is tried first so the common case reads
+ * as the person's own name; a collision takes a suffix rather than a counter, because a
+ * counter is a second round trip per attempt and tells the next reader how many people share
+ * a name.
+ *
+ * The read is advice, not a decision: `tenants.slug` is UNIQUE, and under READ COMMITTED two
+ * sign-ups whose addresses reduce to the same seed — `john@a.com` and `john@b.com`, or two
+ * addresses that agree after `SLUG_MAX_LENGTH` truncation — both see it free. So the insert
+ * itself decides, with `on conflict do nothing`: the loser writes no row, gets no 23505 (and
+ * so does not poison the transaction it is inside), and takes a suffix on the next turn. That
+ * is what keeps an unrelated slug collision between two *different* addresses from surfacing
+ * as "an account with this email already exists".
  */
-async function freeSlug(db: SlugReader, seed: string): Promise<string> {
-  const taken = await db.query.tenants.findFirst({
+async function mintTenant(
+  db: SlugWriter,
+  tables: ScopedDb['_']['fullSchema'],
+  seed: string,
+  name: string,
+): Promise<{ id: string; slug: string }> {
+  const advised = await db.query.tenants.findFirst({
     columns: { id: true },
     where: (tenant, { eq }) => eq(tenant.slug, seed),
   });
-  if (taken === undefined) return seed;
-  return `${seed}-${randomUUID().slice(0, DISAMBIGUATOR_LENGTH)}`;
+  let slug = advised === undefined ? seed : `${seed}-${randomUUID().slice(0, DISAMBIGUATOR_LENGTH)}`;
+
+  for (let attempt = 0; attempt < SLUG_ATTEMPTS; attempt += 1) {
+    const [tenant] = await db
+      .insert(tables.tenants)
+      .values({ slug, name })
+      .onConflictDoNothing({ target: tables.tenants.slug })
+      .returning({ id: tables.tenants.id });
+    if (tenant !== undefined) return { id: tenant.id, slug };
+    slug = `${seed}-${randomUUID().slice(0, DISAMBIGUATOR_LENGTH)}`;
+  }
+  throw new Error('the personal tenant was not written: no free slug after several attempts');
 }
 
 /**
@@ -105,13 +140,8 @@ export async function createUserWithPersonalTenant(
   const passwordHash = input.password === undefined ? undefined : await hashPassword(input.password);
 
   return await db.transaction(async (tx) => {
-    const slug = await freeSlug(tx, slugSeedFor(email));
-
-    const [tenant] = await tx
-      .insert(tables.tenants)
-      .values({ slug, name: tenantNameFor(input) })
-      .returning({ id: tables.tenants.id });
-    if (tenant === undefined) throw new Error('the personal tenant was not written');
+    const tenant = await mintTenant(tx, tables, slugSeedFor(email), tenantNameFor(input));
+    const slug = tenant.slug;
 
     const [user] = await tx
       .insert(tables.users)
@@ -190,12 +220,12 @@ export async function ensurePersonalTenant(
   if (existing !== undefined) return;
 
   await db.transaction(async (tx) => {
-    const slug = await freeSlug(tx, slugSeedFor(user.email));
-    const [tenant] = await tx
-      .insert(tables.tenants)
-      .values({ slug, name: tenantNameFor({ email: user.email, name: user.name ?? '' }) })
-      .returning({ id: tables.tenants.id });
-    if (tenant === undefined) throw new Error('the personal tenant was not written');
+    const tenant = await mintTenant(
+      tx,
+      tables,
+      slugSeedFor(user.email),
+      tenantNameFor({ email: user.email, name: user.name ?? '' }),
+    );
     await tx.insert(tables.tenantMemberships).values({ tenantId: tenant.id, userId: user.id });
   });
 }

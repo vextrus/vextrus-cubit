@@ -31,3 +31,20 @@ export const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 export const VERIFY_CALLBACK_PARAM = 'from';
 export const VERIFY_CALLBACK_VALUE = 'verify';
+
+/**
+ * The same mark, on the error callback the magic-link and reset links are minted with.
+ *
+ * §3/§13 pin the refusal's query as `?error=link-expired` on all three screens, but the value
+ * on those two callbacks is not this product's to choose: better-auth `set`s `error` to its
+ * own code (`INVALID_TOKEN`) on the URL it was given, replacing anything already there. So the
+ * product marks the callback with a param better-auth does not touch, exactly as the verify
+ * path does, and the screen canonicalises the arrival to the documented query before it
+ * renders. The mark is also what tells a real spent link apart from a hand-typed `?error=…`:
+ * without it, an `error` the product never minted is not a refusal and no `AUTH_LINK_EXPIRED`
+ * block appears for a link that never existed.
+ */
+export const LINK_REFUSAL_VALUE = 'link';
+
+/** The one `error` value §3/§13 name, and the only one the screens render a refusal for. */
+export const LINK_EXPIRED = 'link-expired';

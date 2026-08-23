@@ -7,6 +7,7 @@
 import { redirect } from 'next/navigation';
 import { AuthScreen } from '../auth-screen';
 import { CARD } from '../cards';
+import { linkRefusal } from '../link-refusal';
 import { signedInLanding } from '../../../server/session';
 import { aus } from '../strings';
 
@@ -20,5 +21,7 @@ export default async function SignInPage({
   const landing = await signedInLanding();
   if (landing !== null) redirect(landing);
   const query = await searchParams;
-  return <AuthScreen kind={CARD.signIn} refused={query['error'] !== undefined} />;
+  const refusal = linkRefusal(query, '/sign-in');
+  if (refusal.canonical !== null) redirect(refusal.canonical);
+  return <AuthScreen kind={CARD.signIn} refused={refusal.refused} />;
 }

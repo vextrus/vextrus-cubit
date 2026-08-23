@@ -26,6 +26,7 @@
  *      journey can both live inside, while staying far under the twenty consecutive attempts
  *      Q-12 says must produce a 429.
  */
+import { createHash, randomBytes } from 'node:crypto';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { customSession, magicLink } from 'better-auth/plugins';
@@ -37,9 +38,78 @@ import { activeTenantSlugFor, ensurePersonalTenant } from './tenancy';
 /**
  * Q-12, "no secrets in repo": outside production the secret is an obviously-insecure
  * constant rather than anything credential-shaped, so nobody can mistake it for one that
- * leaked. In production `BETTER_AUTH_SECRET` is the only source.
+ * leaked. It is scoped to non-production *by the condition in `authSecret()`*, because a
+ * published constant that signs a real deployment's session tokens, verification JWTs and
+ * reset tokens lets anyone holding this repository mint a session for any account.
  */
 const INSECURE_DEV_SECRET = 'cubit-insecure-dev-secret-do-not-use-in-production';
+
+/**
+ * The key everything this instance signs is signed with (Q-12).
+ *
+ * `BETTER_AUTH_SECRET` is the only source anyone should use, and the only one a deployment
+ * that means it will have. The two fallbacks below exist because better-auth issues no
+ * warning when a secret *was* supplied, so a forgotten variable would otherwise boot
+ * silently:
+ *
+ *   - outside production, the obviously-insecure constant, stable so a dev session survives
+ *     a reload and unmistakable if it ever turns up in a real deployment;
+ *   - in production, a value derived from `DATABASE_URL` — never published here, stable
+ *     across a restart and across every worker process `next start` may fork (a per-boot
+ *     random would sign a token one process could not verify), and loudly announced. It is
+ *     a stopgap that keeps a misconfigured deploy from signing with a constant this file
+ *     spells out; it is not a substitute for the variable.
+ *
+ * With neither — a production process with no database either, which cannot serve a request
+ * anyway, and `next build`, which signs nothing — it is a fresh random value per process.
+ * Never the published constant: whatever this module is being loaded for, it is not a
+ * development run.
+ */
+function authSecret(): string {
+  const named = process.env['BETTER_AUTH_SECRET'];
+  if (named !== undefined && named.trim() !== '') return named;
+  if (process.env['NODE_ENV'] !== 'production') return INSECURE_DEV_SECRET;
+
+  const deployment = process.env['DATABASE_URL'];
+  if (deployment === undefined || deployment.trim() === '') return randomBytes(32).toString('hex');
+  console.warn(
+    'BETTER_AUTH_SECRET is unset in production. Signing with a value derived from ' +
+      'DATABASE_URL; every session, verification and reset token is invalidated the moment ' +
+      'that URL changes. Set BETTER_AUTH_SECRET.',
+  );
+  return createHash('sha256').update(`cubit:auth-secret:${deployment}`).digest('hex');
+}
+
+/**
+ * How this deployment resolves the client behind a request, which is what the rate limiter
+ * keys its buckets on (Q-12).
+ *
+ * Measured on this tree: `next start` *does* fill `x-forwarded-for` from the socket's
+ * remote address when the request carries none (next/dist/server/base-server.js), so the
+ * limiter already keys per client rather than into one shared bucket — twenty wrong
+ * passwords from one address meet a 429 while a second address is still answered. What it
+ * cannot do on its own is tell that header apart from one the client wrote itself, so a
+ * deployment that puts a proxy in front names it: `BETTER_AUTH_TRUSTED_PROXIES` (IPs or
+ * CIDR ranges) makes better-auth walk the forwarded chain from the right to the first hop
+ * it does not trust, and `BETTER_AUTH_IP_HEADERS` names the header if it is not the
+ * standard one.
+ */
+function ipAddressConfig(): { ipAddressHeaders?: string[]; trustedProxies?: string[] } {
+  const list = (named: string | undefined): string[] | undefined => {
+    if (named === undefined || named.trim() === '') return undefined;
+    const entries = named
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry !== '');
+    return entries.length === 0 ? undefined : entries;
+  };
+  const headers = list(process.env['BETTER_AUTH_IP_HEADERS']);
+  const proxies = list(process.env['BETTER_AUTH_TRUSTED_PROXIES']);
+  return {
+    ...(headers === undefined ? {} : { ipAddressHeaders: headers }),
+    ...(proxies === undefined ? {} : { trustedProxies: proxies }),
+  };
+}
 
 /** Where a screen sends anyone whose tenant it does not yet know: `/t` resolves the slug. */
 export const TENANT_ENTRY_PATH = '/t';
@@ -81,8 +151,8 @@ const database = runAsSystem('better-auth: identity is not scoped to one tenant'
 export const auth = betterAuth({
   appName: 'Cubit',
   database: drizzleAdapter(database, { provider: 'pg', usePlural: true }),
-  secret: process.env['BETTER_AUTH_SECRET'] ?? INSECURE_DEV_SECRET,
-  advanced: { database: { generateId: 'uuid' } },
+  secret: authSecret(),
+  advanced: { database: { generateId: 'uuid' }, ipAddress: ipAddressConfig() },
 
   /**
    * Where this process is being reached, decided per request (Q-12).

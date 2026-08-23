@@ -19,6 +19,7 @@ import { Button, Input } from '../../ui/primitives';
 import { OfflineBanner } from '../../ui/patterns';
 import {
   EMAIL_SHAPE,
+  LINK_REFUSAL_VALUE,
   MIN_PASSWORD_LENGTH,
   VERIFY_CALLBACK_PARAM,
   VERIFY_CALLBACK_VALUE,
@@ -47,6 +48,15 @@ const TENANT_ENTRY = '/t';
  * mark is what lets `/t` answer it with §3's refusal instead of a bare `/sign-in`.
  */
 const VERIFY_ENTRY = `${TENANT_ENTRY}?${VERIFY_CALLBACK_PARAM}=${VERIFY_CALLBACK_VALUE}`;
+
+/**
+ * Where a spent magic link and a spent reset link come back to (§3), marked the same way.
+ * better-auth `set`s its own `error` code on whichever URL it is handed, so the mark rather
+ * than the code is what tells the screen this arrival was a link — and the screen answers by
+ * landing on §13's documented `?error=link-expired`.
+ */
+const MAGIC_LINK_REFUSED = `${MAGIC_LINK}?${VERIFY_CALLBACK_PARAM}=${LINK_REFUSAL_VALUE}`;
+const RESET_RETURN = `${RESET_PASSWORD}?${VERIFY_CALLBACK_PARAM}=${LINK_REFUSAL_VALUE}`;
 
 export interface AuthScreenProps {
   readonly kind: AuthScreenKind;
@@ -227,6 +237,10 @@ export function AuthScreen({ kind, refused = false, token }: AuthScreenProps) {
   const signUp = useCallback(async (address: string, secret: string) => {
     const minted = await signUpWithPersonalTenant({ email: address, password: secret });
     if (!minted.ok) {
+      if (minted.error === 'auth.error.rateLimited') {
+        setFailure(RATE_LIMITED);
+        return;
+      }
       const field = minted.error === 'auth.error.passwordLength' ? 'password' : 'email';
       setFailure({ copy: minted.error, field });
       return;
@@ -236,6 +250,18 @@ export function AuthScreen({ kind, refused = false, token }: AuthScreenProps) {
       callbackURL: VERIFY_ENTRY,
     });
     if (sent === null) {
+      setFailure(REQUEST_FAILED);
+      return;
+    }
+    // §2: *every* failure routes through `auth-error`, "HTTP 429 (`auth.error.rateLimited`)"
+    // included. The notice below says a link is on its way; saying it when the mail was never
+    // written leaves the reader waiting for something that does not exist, with the form gone
+    // and no way to ask again.
+    if (sent.status === TOO_MANY_REQUESTS) {
+      setFailure(RATE_LIMITED);
+      return;
+    }
+    if (!sent.ok) {
       setFailure(REQUEST_FAILED);
       return;
     }
@@ -353,14 +379,14 @@ export function AuthScreen({ kind, refused = false, token }: AuthScreenProps) {
         else if (kind === 'magic-link') {
           await requestLink(
             '/sign-in/magic-link',
-            { email: address, callbackURL: TENANT_ENTRY, errorCallbackURL: MAGIC_LINK },
+            { email: address, callbackURL: TENANT_ENTRY, errorCallbackURL: MAGIC_LINK_REFUSED },
             'auth.notice.magic',
             address,
           );
         } else if (kind === 'reset-request') {
           await requestLink(
             '/request-password-reset',
-            { email: address, redirectTo: RESET_PASSWORD },
+            { email: address, redirectTo: RESET_RETURN },
             'auth.notice.reset',
             address,
           );
