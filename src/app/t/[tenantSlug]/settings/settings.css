@@ -85,8 +85,20 @@
   color: var(--graphite-700);
 }
 
+/*
+ * §2's 120 px and §1's 28 px compact metric — the box itself is `.datum-select-trigger`
+ * (primitives §6), which the control wears, so the surface, border and height are the Datum
+ * ones and not the UA's. What stays the UA's on a native select is the disclosure arrow and
+ * the option list, and those read `color-scheme`: without it the browser paints its light
+ * palette under the dark scope's tokens (§12: contrast held in both themes).
+ */
 .tenant-role-select {
   width: 120px;
+  color-scheme: light;
+}
+
+[data-theme="dark"] .tenant-role-select {
+  color-scheme: dark;
 }
 
 .tenant-role-static {

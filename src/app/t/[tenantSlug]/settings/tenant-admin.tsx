@@ -134,7 +134,7 @@ function RoleSelect({
   return (
     <select
       data-testid={testId}
-      className="datum-control datum-focus-ring tenant-role-select"
+      className="datum-control datum-select-trigger datum-focus-ring tenant-role-select"
       aria-label={label}
       aria-busy={busy === true ? true : undefined}
       value={value}
@@ -423,7 +423,7 @@ export function TenantAdmin({
             <select
               id="tenant-invite-role"
               data-testid="invite-role"
-              className="datum-control datum-focus-ring tenant-role-select"
+              className="datum-control datum-select-trigger datum-focus-ring tenant-role-select"
               value={inviteRole}
               onChange={(event) => setInviteRole(event.target.value)}
             >

@@ -15,7 +15,7 @@ import type { AdminContext } from './access';
 import { sendInvitationMail } from './mail';
 import { operators } from './operators';
 import { refused } from './refusals';
-import { roleCode, roleName } from './roles';
+import { mayAssign, roleCode, roleName } from './roles';
 import type { TenantRole } from './roles';
 
 /** The one status the screen lists, and the one either act may be performed on. */
@@ -77,7 +77,11 @@ export async function inviteMember(
   ctx: AdminContext,
   args: { readonly email: string; readonly role: string },
 ): Promise<Invitation> {
-  await assertAdmin(ctx);
+  const role = roleName(args.role);
+  // The same rule the role control obeys: OWNER is the owner's to give (`mayAssign`), and an
+  // invitation is how a role is handed out to someone who is not here yet.
+  const actor = await assertAdmin(ctx);
+  if (!mayAssign(actor, role)) throw refused('NOT_TENANT_ADMIN');
   const db = scopedTo(ctx);
   const table = db._.fullSchema.invitations;
 
@@ -86,7 +90,7 @@ export async function inviteMember(
     .values({
       tenantId: ctx.tenantId,
       email: args.email.trim().toLowerCase(),
-      role: roleName(args.role),
+      role,
       invitedBy: ctx.userId,
       status: PENDING,
     })

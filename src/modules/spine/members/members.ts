@@ -14,11 +14,11 @@
  * refines it here.
  */
 import { runAsSystem } from '../../../core/db';
-import { assertAdmin, scopedTo } from './access';
+import { assertAdminOn, scopedTo } from './access';
 import type { AdminContext } from './access';
 import { operators } from './operators';
 import { refused } from './refusals';
-import { roleCode, roleName } from './roles';
+import { mayAssign, roleCode, roleName } from './roles';
 import type { TenantRole } from './roles';
 
 /** One membership, as a caller and the screen read it. */
@@ -61,43 +61,71 @@ export async function listMembers(ctx: AdminContext): Promise<readonly TenantMem
   });
 }
 
-/** Move a member to another role in the closed set. */
+/**
+ * Move a member to another role in the closed set.
+ *
+ * The membership is read before it is written, in the transaction that writes it: an UPDATE
+ * matching no row resolves as happily as one that changed something, and the screen would
+ * announce a change that never happened to a member another administrator had just removed.
+ */
 export async function setMemberRole(
   ctx: AdminContext,
   args: { readonly userId: string; readonly role: string },
 ): Promise<void> {
-  await assertAdmin(ctx);
+  const role = roleName(args.role);
   const db = scopedTo(ctx);
   const { and, eq } = operators(db);
   const memberships = db._.fullSchema.tenantMemberships;
-  await db
-    .update(memberships)
-    .set({ role: roleName(args.role) })
-    .where(and(eq(memberships.tenantId, ctx.tenantId), eq(memberships.userId, args.userId)));
+
+  await db.transaction(async (tx) => {
+    const actor = await assertAdminOn(tx, ctx);
+    if (!mayAssign(actor, role)) throw refused('NOT_TENANT_ADMIN');
+
+    const held = await tx.query.tenantMemberships.findFirst({
+      columns: { userId: true },
+      where: (row, { eq: is }) => is(row.userId, args.userId),
+    });
+    if (held === undefined) {
+      throw new Error(`no membership in this tenant holds the user ${args.userId}`);
+    }
+
+    await tx
+      .update(memberships)
+      .set({ role })
+      .where(and(eq(memberships.tenantId, ctx.tenantId), eq(memberships.userId, args.userId)));
+  });
 }
 
 /**
  * Remove a member, unless they hold an act on an open campaign — in which case nothing is
  * written at all: the predicate is read before the delete, so a refusal leaves the membership
  * and the ledger exactly as they were, and the row stays listed (R-UI-050's partial rule).
+ *
+ * Guard, predicate and delete share one transaction, because on separate handles they are
+ * separate transactions on separate connections: an act written for this member between the
+ * predicate and the delete would go unseen and the membership would go anyway — exactly what
+ * `MEMBER_HAS_ACTS` exists to prevent.
  */
 export async function removeMember(
   ctx: AdminContext,
   args: { readonly userId: string },
 ): Promise<void> {
-  await assertAdmin(ctx);
   const db = scopedTo(ctx);
-
-  const held = await db.query.acts.findFirst({
-    columns: { id: true },
-    where: (row, { and, eq, isNotNull }) =>
-      and(eq(row.actorId, args.userId), isNotNull(row.campaignRef)),
-  });
-  if (held !== undefined) throw refused('MEMBER_HAS_ACTS');
-
   const { and, eq } = operators(db);
   const memberships = db._.fullSchema.tenantMemberships;
-  await db
-    .delete(memberships)
-    .where(and(eq(memberships.tenantId, ctx.tenantId), eq(memberships.userId, args.userId)));
+
+  await db.transaction(async (tx) => {
+    await assertAdminOn(tx, ctx);
+
+    const held = await tx.query.acts.findFirst({
+      columns: { id: true },
+      where: (row, { and: both, eq: is, isNotNull }) =>
+        both(is(row.actorId, args.userId), isNotNull(row.campaignRef)),
+    });
+    if (held !== undefined) throw refused('MEMBER_HAS_ACTS');
+
+    await tx
+      .delete(memberships)
+      .where(and(eq(memberships.tenantId, ctx.tenantId), eq(memberships.userId, args.userId)));
+  });
 }

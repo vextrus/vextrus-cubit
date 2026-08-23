@@ -18,6 +18,20 @@ export type TenantRoleName = 'owner' | 'admin' | 'member';
 /** Who administers a tenant (P-ADMIN, Interpretation 1): the owner and the admins. */
 export const ADMIN_ROLE_NAMES: readonly TenantRoleName[] = Object.freeze(['owner', 'admin']);
 
+/**
+ * Whether an administrator holding `actor` may hand out `target`.
+ *
+ * P-ADMIN grants an admin "invite people, assign project roles"; nothing in R-SPINE-003 or
+ * P-ADMIN lets an admin mint an owner, and a server action is a public endpoint — the screen
+ * hiding the control on the reader's own row is a courtesy, not an enforcement point. So OWNER
+ * is the owner's to give and every other role is any administrator's. This is not last-OWNER
+ * protection (explicitly out of scope) and it invents no code: refusing here is the seam
+ * saying, as it already does, that this member does not administer *this* change.
+ */
+export function mayAssign(actor: TenantRoleName, target: TenantRoleName): boolean {
+  return target === 'owner' ? actor === 'owner' : true;
+}
+
 /** The code for a stored name. A name outside the set means the column was written past. */
 export function roleCode(name: string): TenantRole {
   const code = name.toUpperCase();

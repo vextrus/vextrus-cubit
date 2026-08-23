@@ -41,6 +41,13 @@ export const TENANT_STRINGS = Object.freeze({
   /* Settings: the tenant slice — members, invitations, roles (docs/design/s-settings.md §8). */
   'tenant.settings.title': 'Settings',
   'tenant.settings.lead': 'The people in this workspace and the invitations awaiting an answer.',
+  /*
+   * §8 of s-settings.md would re-word this to "No pending invitations.", but the value is
+   * pinned to docs/design/shell.md §7 by src/ui/shell/__tests__/shell-copy.test.ts, which
+   * compares every `tenant.*` key against that table verbatim. Both the table and that test
+   * belong to inc-009 and are outside this increment's ownership, so the re-wording is
+   * raised as an objection rather than taken here.
+   */
   'tenant.settings.empty.title': 'Nothing to configure yet.',
   'tenant.settings.empty.teach':
     'Workspace settings will appear here. The one thing to manage today is your signed-in sessions.',
