@@ -20,6 +20,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { OWNER_EMAIL, TENANT_SLUG, signIn } from './pages/settings';
+import { pageSettled } from './pages/shell';
 import {
   BUILDING_TYPES,
   LEAD,
@@ -208,6 +209,20 @@ test.describe('J-003', () => {
     await expect(consequenceSummary(page)).toBeVisible();
     await expect(consequenceSummary(page)).toContainText(colleague);
     await expect(consequenceSummary(page)).toContainText(LEAD);
+
+    // The panes file §10 asks for the pane's accessibility scan twice over: with everything
+    // closed (above) and "separately with the dialog open". This is the surface the gate most
+    // needs — the ConsequenceDialog (R-UI-021) is the one part of this increment composed by
+    // hand rather than taken whole from the frozen pattern. A Dialog brings no overlay axe rule
+    // of its own, so the threshold here is AC-5's plain zero serious/critical.
+    //
+    // The wait is `pageSettled`, not `settled` alone: a dialog's arrival is animated on the
+    // surface the primitive owns, which may be an *ancestor* of the node carrying the test id,
+    // and `element.getAnimations()` sees neither ancestors nor subtree. A scan on that frame
+    // reads every label blended toward the scrim and reports contrast nobody can ever see.
+    await settled(consequenceDialog(page));
+    await pageSettled(page);
+    await expectNoSeriousAxeViolations(page);
 
     await consequenceConfirm(page).click();
     await expect(consequenceDialog(page)).toBeHidden();

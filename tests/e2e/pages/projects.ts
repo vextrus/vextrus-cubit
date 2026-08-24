@@ -99,7 +99,18 @@ export const participantAssign = (page: Page): Locator => page.getByTestId('part
 export const consequenceDialog = (page: Page): Locator => page.getByTestId('consequence-dialog');
 export const consequenceSummary = (page: Page): Locator => page.getByTestId('consequence-summary');
 export const consequenceConfirm = (page: Page): Locator => page.getByTestId('consequence-confirm');
-export const consequenceStale = (page: Page): Locator => page.getByTestId('consequence-stale');
+/**
+ * The lines of a stale restatement — one node per *changed* line, not one node.
+ *
+ * R-UI-021 says a stale digest re-renders the dialog "with what changed", a plural the design
+ * refinement spells out (datum-patterns §9: mark every changed line), so a preview where two
+ * facts moved marks two rows. A singular locator would promise single-element assertions are
+ * safe and break by strict-mode violation in exactly that case — the interesting one. Address
+ * this collection with `toHaveCount(n)`, or `.filter({ hasText: … })` for one line; never with
+ * a bare single-element assertion.
+ */
+export const consequenceStaleLines = (page: Page): Locator =>
+  page.getByTestId('consequence-stale');
 export const consequenceRefusal = (page: Page): Locator => page.getByTestId('consequence-refusal');
 export const roleHistory = (page: Page): Locator => page.getByTestId('role-history');
 export const roleHistoryEntries = (page: Page): Locator => page.getByTestId('role-history-entry');
