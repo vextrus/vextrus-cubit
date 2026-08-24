@@ -25,7 +25,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Badge, Button, Dialog, DialogContent, DialogTitle } from '../../../../../../../ui/primitives';
 import { REFUSALS } from '../../../../../../../core/errors';
 import { LocalTime } from '../../../../../local-time';
-import { fill, ten } from '../../../../../strings';
+import { around, fill, ten } from '../../../../../strings';
 import { formatNumber } from '../../../../../../../core/format';
 import type {
   ParticipantView,
@@ -49,6 +49,13 @@ interface Episode {
   /** Which lines the restatement changed, when a stale digest sent the preview round again. */
   readonly stale: ReadonlySet<string>;
 }
+
+/** §5's entry, split around its role slot so the code renders as the code it is. */
+const HISTORY_ENTRY = 'project.participants.historyEntry';
+
+/** The other two slots that sentence keeps, filled into the half before the role. */
+const ACTOR_SLOT = '{actor}';
+const MEMBER_SLOT = '{member}';
 
 /** The lines a restatement can mark (§6's `consequence-stale`). */
 const CURRENT = 'current';
@@ -196,6 +203,7 @@ export function ParticipantsPane({
     }
   }, [closeDialog, episode, projectId, restate, tenantSlug]);
 
+  const [historyHead, historyTail] = around(HISTORY_ENTRY, 'role');
   const paneRefusal = paneRefused === null ? null : REFUSALS[paneRefused];
   const dialogRefusal = dialogRefused === null ? null : REFUSALS[dialogRefused];
   const consequence = episode?.previewed.consequence;
@@ -301,12 +309,12 @@ export function ParticipantsPane({
         <ol className="project-list-card" data-testid="role-history">
           {grants.map((grant) => (
             <li key={grant.actId} className="project-list-row" data-testid="role-history-entry">
+              {/* §5, Interpretation 8: the role is a mono code inside the sentence, never a
+                  word the sentence inflects. */}
               <span className="project-history-entry">
-                {fill('project.participants.historyEntry', {
-                  actor: grant.actorEmail,
-                  member: grant.email,
-                  role: grant.role,
-                })}
+                {historyHead.split(ACTOR_SLOT).join(grant.actorEmail).split(MEMBER_SLOT).join(grant.email)}
+                <span className="project-history-role">{grant.role}</span>
+                {historyTail}
               </span>
               <span className="project-history-when">
                 <LocalTime iso={grant.at} />
@@ -357,7 +365,7 @@ export function ParticipantsPane({
                   <dt className="project-consequence-label">
                     {ten('project.participants.summary.current')}
                   </dt>
-                  <dd className="project-consequence-value project-role-code">
+                  <dd className="project-consequence-value project-consequence-role">
                     {consequence.currentRole ?? ten('project.participants.summary.currentNone')}
                   </dd>
                 </div>
@@ -368,7 +376,7 @@ export function ParticipantsPane({
                   <dt className="project-consequence-label">
                     {ten('project.participants.summary.proposed')}
                   </dt>
-                  <dd className="project-consequence-value project-role-code">
+                  <dd className="project-consequence-value project-consequence-role">
                     {consequence.proposedRole}
                   </dd>
                 </div>

@@ -103,9 +103,15 @@
   color: var(--graphite-600);
 }
 
+/* An anchor wearing a Button's surface is still an anchor: the underline is the link's, and
+   a button does not carry one. */
+a.datum-button {
+  text-decoration: none;
+}
+
 .project-archived-toggle {
   margin-top: var(--space-3);
-  display: inline-block;
+  display: inline-flex;
 }
 
 .project-empty {
@@ -386,6 +392,18 @@
 .project-consequence-value {
   font-size: var(--text-13);
   color: var(--graphite-900);
+}
+
+/* The dialog's own role codes: mono like every role code, but reading beside their label
+   rather than pushed to the far edge the way a roster row's is. */
+.project-consequence-role {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+}
+
+.project-history-role {
+  font-family: var(--font-mono);
 }
 
 .project-consequence-count {
