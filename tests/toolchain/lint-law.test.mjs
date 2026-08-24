@@ -4,7 +4,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ARCH_01_BRANCHES, NEVER_BRANCHES } from "./support/contract.mjs";
+import { ARCH_01_BRANCH_RULE, ARCH_01_BRANCHES, CORPUS_DIR_RULE, NEVER_BRANCHES } from "./support/contract.mjs";
 import { pnpmRun, readJson, removeTree, repoRoot, scratchTree } from "./support/tree.mjs";
 
 const CORPUS = "tests/lint-fixtures";
@@ -39,6 +39,21 @@ const payload = (dir, kind) => {
 function declaredCorpusDirs(root) {
   const base = join(root, CORPUS);
   return fixtureDirs(root).filter((d) => dirname(d) === base);
+}
+
+/**
+ * The rule a fixture directory declares, found by walking its corpus-relative path from the longest
+ * prefix down — so the one-deep NEVER directories and the deeper ARCH-01 ones resolve by the same
+ * mechanism, with no depth written into this file. `rule: null` means the corpus carries a branch
+ * the contract file has not declared, which is a hole in the proof, not a pass.
+ */
+function declaredRule(root, dirAbs) {
+  const segments = relative(join(root, CORPUS), dirAbs).split(/[\\/]/);
+  for (let n = segments.length; n > 0; n -= 1) {
+    const key = segments.slice(0, n).join("/");
+    if (Object.hasOwn(CORPUS_DIR_RULE, key)) return { key, rule: CORPUS_DIR_RULE[key] };
+  }
+  return { key: segments.join("/"), rule: null };
 }
 
 const MARKER = /\/\/ RECORDED REASON [A-Z0-9_-]+/g;
@@ -102,6 +117,14 @@ describe("AC-3-LINT-NEVERS", () => {
       const real = bad.messages.filter((m) => m.ruleId && !m.fatal);
       expect(real.length, `${name}/bad.* fired no rule — the branch is not armed`).toBeGreaterThan(0);
       expect(bad.messages.filter((m) => m.fatal).length, `${name}/bad.* is a parse error, not a flagged construct`).toBe(0);
+
+      // ARCH-01: "every rule branch has a fixture test proving IT fires" — the branch's own rule, not
+      // merely something. The expected id comes from the directory's declaration in
+      // tests/toolchain/support/contract.mjs, resolved from the corpus layout, so a fixture whose rule
+      // is switched off stays red even if an unrelated rule happens to flag the payload.
+      const { key, rule } = declaredRule(repoRoot(), d);
+      expect(rule, `${name}: no rule id declared for corpus directory \`${key}\` — add its entry to tests/toolchain/support/contract.mjs`).toBeTruthy();
+      expect(real.map((m) => m.ruleId), `${name}/bad.* fired ${JSON.stringify(real.map((m) => m.ruleId))} but not its declared rule \`${rule}\` — that branch is not armed`).toContain(rule);
 
       const good = await lint(repoRoot(), payload(d, "good"));
       expect(good.messages.filter((m) => m.ruleId || m.fatal), `${name}/good.* must not fire: ${JSON.stringify(good.messages)}`).toEqual([]);
@@ -271,6 +294,11 @@ describe("AC-3-LINT-NEVERS", () => {
       ["server→ui", "src/server/probe_k.ts", "src/ui/probe_target"],
     ];
     expect(cases.map((c) => c[0]).concat("file-grain cycle")).toEqual(ARCH_01_BRANCHES);
+    // Every branch the contract enumerates names the rule that arms it, so no probe below can be
+    // checked against an undefined expectation.
+    expect(Object.keys(ARCH_01_BRANCH_RULE).sort(), "a branch of ARCH_01_BRANCHES declares no rule in tests/toolchain/support/contract.mjs").toEqual(
+      [...ARCH_01_BRANCHES].sort(),
+    );
 
     const written = [];
     const plant = (rel, body) => {
@@ -285,12 +313,27 @@ describe("AC-3-LINT-NEVERS", () => {
         const body = `${specifiers(from, target).map((s) => `import "${s}";`).join("\n")}\nexport const probe = "${branch}";\n`;
         const abs = plant(from, body);
         const result = await lint(dir, abs);
-        expect(result.messages.filter((m) => m.ruleId && !m.fatal).length, `${branch}: ${from} importing ${target} was not flagged (ARCH-01)`).toBeGreaterThan(0);
+        const fired = result.messages.filter((m) => m.ruleId && !m.fatal);
+        expect(result.messages.filter((m) => m.fatal).length, `${branch}: ${from} is a parse error, not a flagged import`).toBe(0);
+        expect(fired.length, `${branch}: ${from} importing ${target} was not flagged (ARCH-01)`).toBeGreaterThan(0);
+        // The branch's OWN rule, named per-branch in the contract file: "every rule branch has a
+        // fixture test proving IT fires". Anything weaker stays green on an unrelated rule flagging
+        // the probe body while the branch itself is dead.
+        expect(
+          fired.map((m) => m.ruleId),
+          `${branch}: ${from} importing ${target} fired ${JSON.stringify(fired.map((m) => m.ruleId))} — not \`${ARCH_01_BRANCH_RULE[branch]}\`, the rule this branch is armed by (ARCH-01)`,
+        ).toContain(ARCH_01_BRANCH_RULE[branch]);
       }
       const a = plant("src/core/cycle_a.ts", 'import { b } from "./cycle_b.ts";\nexport const a = b;\n');
       plant("src/core/cycle_b.ts", 'import { a } from "./cycle_a.ts";\nexport const b = a;\n');
       const cycle = await lint(dir, a);
-      expect(cycle.messages.filter((m) => m.ruleId && !m.fatal).length, "a file-grain cycle in src/core was not flagged (ARCH-01)").toBeGreaterThan(0);
+      const cycleFired = cycle.messages.filter((m) => m.ruleId && !m.fatal);
+      expect(cycle.messages.filter((m) => m.fatal).length, "the file-grain cycle probe is a parse error, not a flagged cycle").toBe(0);
+      expect(cycleFired.length, "a file-grain cycle in src/core was not flagged (ARCH-01)").toBeGreaterThan(0);
+      expect(
+        cycleFired.map((m) => m.ruleId),
+        `the file-grain cycle fired ${JSON.stringify(cycleFired.map((m) => m.ruleId))} — not \`${ARCH_01_BRANCH_RULE["file-grain cycle"]}\`, the rule this branch is armed by (ARCH-01)`,
+      ).toContain(ARCH_01_BRANCH_RULE["file-grain cycle"]);
     } finally {
       for (const abs of written) rmSync(abs, { force: true });
     }
