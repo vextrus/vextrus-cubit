@@ -18,7 +18,13 @@ function binary(command) {
 }
 
 function runLane(lane) {
-  for (const [command, args] of LANE_COMMANDS[lane] ?? []) {
+  const commands = LANE_COMMANDS[lane];
+  if (!commands || commands.length === 0) {
+    // An armed lane with nothing to run would be a green verdict nothing proved (B-23).
+    process.stderr.write(`${lane}: armed but no command is bound to it\n`);
+    return 1;
+  }
+  for (const [command, args] of commands) {
     const result = spawnSync(binary(command), args, { cwd: rootDir, stdio: "inherit" });
     if (result.error) {
       process.stderr.write(`${lane}: cannot run ${command} — ${result.error.message}\n`);
