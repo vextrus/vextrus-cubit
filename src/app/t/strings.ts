@@ -85,6 +85,56 @@ export const TENANT_STRINGS = Object.freeze({
     '{inviter} invited you to join {tenant} as {role}. Create an account with this email address to accept: {url}',
   /** Who to ask for a permission this reader does not hold (R-UI-050, §6). */
   'tenant.permission.holder': 'the workspace owner',
+  /*
+   * The project settings ruleset pane (docs/design/s-project-settings.md §7, verbatim; the
+   * seventeen parameter labels are §5's table, first column, keyed by its third).
+   *
+   * The units are strings here rather than `formatUnit`'s closed enum: L-FMT-02 carries
+   * m/m²/m³/kg/nos and cannot spell sft, ft, in or cm², and widening the format seam is not
+   * this pane's to do (Interpretation 2). The seven dimensionless parameters say `ratio`,
+   * because an empty unit cell is silence and silence is never lawful (Interpretation 3).
+   */
+  'project.ruleset.title': 'Rule set',
+  'project.ruleset.lead':
+    '{name} ({code}) pinned this edition when the project was created. Every measurement in the project reads these values.',
+  'project.ruleset.edition': 'Edition',
+  'project.ruleset.digest': 'Digest',
+  'project.ruleset.methods': 'Methods',
+  'project.ruleset.methodsNone':
+    'No measurement methods are in force yet. The digest covers the parameter values alone.',
+  'project.ruleset.lineage.title': 'Lineage',
+  'project.ruleset.lineage.lead':
+    'This edition was forked from the workspace template, itself forked from the platform seed, when the project was created. Matching digests mean each fork copied its parent verbatim.',
+  'project.ruleset.lineage.platform': 'Platform seed',
+  'project.ruleset.lineage.tenant': 'Workspace template',
+  'project.ruleset.lineage.project': 'This project',
+  'project.ruleset.params.title': 'Parameters',
+  'project.ruleset.params.parameter': 'Parameter',
+  'project.ruleset.params.value': 'Value',
+  'project.ruleset.params.unit': 'Unit',
+  'project.ruleset.unit.m2': 'm²',
+  'project.ruleset.unit.cm2': 'cm²',
+  'project.ruleset.unit.sft': 'sft',
+  'project.ruleset.unit.ft': 'ft',
+  'project.ruleset.unit.in': 'in',
+  'project.ruleset.unit.ratio': 'ratio',
+  'project.ruleset.param.openingDeductionMinM2': 'Opening deduction minimum',
+  'project.ruleset.param.memberEndNoDeductMaxCm2': 'Member end no-deduction maximum',
+  'project.ruleset.param.embeddedDuctNoDeductMaxCm2': 'Embedded duct no-deduction maximum',
+  'project.ruleset.param.finishOpeningDeductionMinM2': 'Finish opening deduction minimum',
+  'project.ruleset.param.finishMinOutlineArea': 'Finish outline minimum area',
+  'project.ruleset.param.finishMaxOutlineArea': 'Finish outline maximum area',
+  'project.ruleset.param.scaleVerificationTolerance': 'Scale verification tolerance',
+  'project.ruleset.param.scaleAnisotropyTolerance': 'Scale anisotropy tolerance',
+  'project.ruleset.param.earthworkWorkingAllowance': 'Earthwork working allowance',
+  'project.ruleset.param.earthworkDepthExtra': 'Earthwork depth extra',
+  'project.ruleset.param.blindingProjection': 'Blinding projection',
+  'project.ruleset.param.blindingThickness': 'Blinding thickness',
+  'project.ruleset.param.placementContainmentMerge': 'Placement containment merge share',
+  'project.ruleset.param.placementNearAnchor': 'Placement near-anchor share',
+  'project.ruleset.param.placementFootprintMin': 'Placement footprint minimum',
+  'project.ruleset.param.placementFootprintMax': 'Placement footprint maximum',
+  'project.ruleset.param.placementHumanSnap': 'Placement human snap share',
   'tenant.notFound.title': 'This workspace could not be found.',
   'tenant.notFound.teach': 'Check the address, or sign in with an account that belongs to it.',
   'tenant.notFound.action': 'Sign in',
