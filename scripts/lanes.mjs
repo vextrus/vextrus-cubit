@@ -30,7 +30,20 @@ export const DB_INPUT_ROOT = "src/server/db/schema";
 
 const IGNORED_DIRS = new Set(["node_modules", ".git", ".next", "dist", "coverage"]);
 
-/** The unit lane's root holds work when it carries a test file anywhere outside `tests/e2e`. */
+/**
+ * The one home of the unit lane's corpus: vitest.config.ts reads these, and so does the probe
+ * below, so a test the roster counts is exactly a test `vitest run` executes (B-23, V-VERIFY).
+ * `tests/e2e` is Playwright's; `tests/lint-fixtures` is the Q-08 corpus, whose payload is a
+ * deliberate violation that must never be executed as an assertion.
+ */
+export const UNIT_INCLUDE = ["tests/**/*.test.?(c|m)[jt]s?(x)"];
+export const UNIT_EXCLUDE_DIRS = ["tests/e2e", "tests/lint-fixtures"];
+export const UNIT_EXCLUDE = ["node_modules/**", ...UNIT_EXCLUDE_DIRS.map((d) => `${d}/**`)];
+
+/** The `tests/`-relative first segments the unit corpus leaves out — `e2e`, `lint-fixtures`. */
+const UNIT_EXCLUDED_SEGMENTS = new Set(UNIT_EXCLUDE_DIRS.map((d) => d.slice("tests/".length)));
+
+/** The unit lane's root holds work when it carries a test file vitest's corpus would run. */
 function containsUnitTest(dir, testsRoot) {
   let entries;
   try {
@@ -42,7 +55,7 @@ function containsUnitTest(dir, testsRoot) {
     const abs = join(dir, entry.name);
     if (entry.isDirectory()) {
       if (IGNORED_DIRS.has(entry.name)) continue;
-      if (relative(testsRoot, abs).split(sep)[0] === "e2e") continue;
+      if (UNIT_EXCLUDED_SEGMENTS.has(relative(testsRoot, abs).split(sep)[0])) continue;
       if (containsUnitTest(abs, testsRoot)) return true;
     } else if (/\.test\.[cm]?[jt]sx?$/.test(entry.name)) {
       return true;

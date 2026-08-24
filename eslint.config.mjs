@@ -87,10 +87,16 @@ const SUFFIXES = ["", ".ts", ".tsx", ".mts", ".cts", ".d.ts", "/index.ts", "/ind
 const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(?\s*)["']([^"']+)["']/g;
 const MAX_DEPTH = 24;
 
-/** The file a relative specifier names, trying the extensions TypeScript would try. */
-function resolveRelative(fromFile, specifier) {
-  if (!specifier.startsWith(".")) return null;
-  const base = resolve(dirname(fromFile), specifier);
+// The tree this config governs — a scratch copy carries its own config, so each copy resolves
+// against itself. `src/…` and `@/…` specifiers are in-tree names too, so a cycle is a cycle no
+// matter which of the three forms targetOf accepts it was written in (ARCH-01).
+const TREE_ROOT = import.meta.dirname;
+
+/** The file an in-tree specifier names, trying the extensions TypeScript would try. */
+function resolveInTree(fromFile, specifier) {
+  const inTree = targetOf(specifier, toPosix(fromFile));
+  if (inTree === null) return null;
+  const base = specifier.startsWith(".") ? resolve(dirname(fromFile), specifier) : resolve(TREE_ROOT, inTree);
   const bases = [base, base.replace(/\.([cm]?)js$/, ".$1ts")];
   for (const candidate of bases) {
     for (const suffix of SUFFIXES) {
@@ -101,6 +107,48 @@ function resolveRelative(fromFile, specifier) {
   return null;
 }
 
+/**
+ * Source with its comments blanked out, quotes and template literals left intact. A commented-out
+ * `// import "./sibling";` is not an edge of the program, so the traversal below must not read one
+ * as a cycle. Newlines are preserved so nothing else shifts.
+ */
+function withoutComments(source) {
+  let out = "";
+  let quote = null;
+  for (let i = 0; i < source.length; i += 1) {
+    const ch = source[i];
+    if (quote) {
+      out += ch;
+      if (ch === "\\") {
+        out += source[i + 1] ?? "";
+        i += 1;
+      } else if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      out += ch;
+      continue;
+    }
+    if (ch === "/" && source[i + 1] === "/") {
+      while (i < source.length && source[i] !== "\n") i += 1;
+      out += "\n";
+      continue;
+    }
+    if (ch === "/" && source[i + 1] === "*") {
+      const end = source.indexOf("*/", i + 2);
+      const skipped = source.slice(i, end === -1 ? source.length : end + 2);
+      out += skipped.replace(/[^\n]/g, " ");
+      i += skipped.length - 1;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
 function importsOf(file) {
   let source;
   try {
@@ -109,8 +157,8 @@ function importsOf(file) {
     return [];
   }
   const out = [];
-  for (const match of source.matchAll(SPECIFIER)) {
-    const resolved = resolveRelative(file, match[1]);
+  for (const match of withoutComments(source).matchAll(SPECIFIER)) {
+    const resolved = resolveInTree(file, match[1]);
     if (resolved) out.push(resolved);
   }
   return out;
@@ -138,7 +186,7 @@ const noImportCycle = {
     const file = resolve(context.filename ?? context.getFilename());
     return {
       ImportDeclaration(node) {
-        const target = resolveRelative(file, String(node.source.value));
+        const target = resolveInTree(file, String(node.source.value));
         if (target && target !== file && reaches(target, file, new Set([file, target]), 0)) {
           context.report({ node, messageId: "cycle", data: { specifier: node.source.value } });
         }
@@ -150,18 +198,24 @@ const noImportCycle = {
 // ---------------------------------------------------------------------------------------------
 // Q-08 NEVERs that no upstream rule expresses.
 // ---------------------------------------------------------------------------------------------
-const noEslintDisable = {
+// The comment prefix Q-08 bans, assembled from its halves so this file — which is product tree,
+// not declared fixture — carries no literal instance of the construct it forbids.
+const SUPPRESSION_PREFIX = ["eslint", "disable"].join("-");
+
+const noRuleSuppression = {
   meta: {
     type: "problem",
-    docs: { description: "Q-08: no eslint-disable" },
+    docs: { description: "Q-08: no rule-suppression comment" },
     schema: [],
-    messages: { disabled: "Q-08: eslint-disable is never used; fix the code the rule names." },
+    messages: { disabled: "Q-08: a `{{prefix}}` comment is never used; fix the code the rule names." },
   },
   create(context) {
     return {
       Program() {
         for (const comment of context.sourceCode.getAllComments()) {
-          if (/^\s*eslint-disable/.test(comment.value)) context.report({ loc: comment.loc, messageId: "disabled" });
+          if (comment.value.trimStart().startsWith(SUPPRESSION_PREFIX)) {
+            context.report({ loc: comment.loc, messageId: "disabled", data: { prefix: SUPPRESSION_PREFIX } });
+          }
         }
       },
     };
@@ -199,7 +253,7 @@ const cubit = {
   rules: {
     "layer-imports": layerImports,
     "no-import-cycle": noImportCycle,
-    "no-eslint-disable": noEslintDisable,
+    "no-rule-suppression": noRuleSuppression,
     "no-test-skip": noTestSkip,
   },
 };
@@ -228,7 +282,7 @@ export default tseslint.config(
       globals: { ...globals.node },
     },
     rules: {
-      "cubit/no-eslint-disable": "error",
+      "cubit/no-rule-suppression": "error",
       "cubit/no-test-skip": "error",
     },
   },

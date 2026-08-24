@@ -3,6 +3,13 @@
 // tool beside the version this machine actually has, then the database, the ports, the storage
 // root and the environment. It probes what the tree needs *today*: a tool or probe only a stub
 // lane would need is reported and forgiven, one an armed lane needs is a failure (B-23).
+//
+// Owed, and deliberately absent today (B-23: this header states what the file does *now*):
+//   · database roles and ledger drift — V-CHECKUP names both; both read the database, which
+//     inc-000 scopes out. They land with the increment that delivers src/server/db/schema.
+//   · tool hashes beside the pins — scripts/pins.json holds bare version strings; hashes need a
+//     provenance source this tree does not have yet.
+// Amending this file is a `toolchain`-tagged increment's business (C-06).
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { Socket, createServer } from "node:net";
@@ -26,11 +33,22 @@ function pins() {
   };
 }
 
-/** The first dotted version in a tool's own `--version` chatter, or ABSENT if it will not run. */
+const VERSION = /\d+\.\d+(?:\.\d+)?(?:[-+][0-9A-Za-z.-]+)?/;
+
+/**
+ * The version in a tool's own `--version` chatter, or ABSENT if it will not run. Tools name
+ * themselves first (`uv 0.12.5 (…)`, `Typst 0.13.1`), so the token right after the command's own
+ * name is preferred; only when the banner does not name it do we fall back to the first dotted
+ * number, and a banner leading with some other dotted number (a date, a bundled Python) no longer
+ * silently becomes the version.
+ */
 function probeVersion(command, args = ["--version"]) {
   const result = spawnSync(command, args, { encoding: "utf8", timeout: 20_000 });
   if (result.error || result.status !== 0) return "ABSENT";
-  const found = /\d+\.\d+(\.\d+)?/.exec(`${result.stdout ?? ""}${result.stderr ?? ""}`);
+  const chatter = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  const named = new RegExp(`\\b${command}\\b\\s+v?(${VERSION.source})`, "i").exec(chatter);
+  if (named) return named[1];
+  const found = VERSION.exec(chatter);
   return found ? found[0] : "ABSENT";
 }
 
@@ -77,7 +95,9 @@ const want = pins();
 for (const [tool, pin] of Object.entries(want)) {
   const found = FOUND[tool]();
   process.stdout.write(`pin ${tool} want=${pin} found=${found}\n`);
-  const agrees = found !== "ABSENT" && bare(found).startsWith(bare(pin));
+  // A pin a wrong version satisfies is not a pin: 0.12.50 must not pass for 0.12.5, so the
+  // comparison is equality on the bare version, never a prefix.
+  const agrees = found !== "ABSENT" && bare(found) === bare(pin);
   const lanes = needed(LANE_TOOLS, tool);
   if (!agrees && lanes.length > 0) failures.push(`${tool} (armed lane${lanes.length > 1 ? "s" : ""}: ${lanes.join(", ")})`);
 }

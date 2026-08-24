@@ -20,6 +20,10 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
+    /* vitest.config.ts reads the unit lane's corpus from scripts/lanes.mjs — the roster's one home
+       — so the config may follow an import into plain ESM and infer its types. `include` is an
+       explicit list, so this pulls in nothing beyond what a config actually imports. */
+    "allowJs": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "noEmit": true,

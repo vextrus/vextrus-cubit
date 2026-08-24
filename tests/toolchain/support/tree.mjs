@@ -92,7 +92,46 @@ export function createRoot(dir, rel) {
   return () => rmSync(topmost, { recursive: true, force: true });
 }
 
+/**
+ * JSONC minus its comments. String-aware by construction: a `//` or `/*` inside a JSON string —
+ * the `https://…` of a repository or homepage field, a path — is content, not a comment, and
+ * survives untouched. A regex cannot tell those apart, so this walks the text instead.
+ */
+function stripJsonComments(raw) {
+  let out = "";
+  let inString = false;
+  for (let i = 0; i < raw.length; i += 1) {
+    const ch = raw[i];
+    if (inString) {
+      out += ch;
+      if (ch === "\\") {
+        out += raw[i + 1] ?? "";
+        i += 1;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+      continue;
+    }
+    if (ch === "/" && raw[i + 1] === "/") {
+      while (i < raw.length && raw[i] !== "\n") i += 1;
+      out += "\n";
+      continue;
+    }
+    if (ch === "/" && raw[i + 1] === "*") {
+      const end = raw.indexOf("*/", i + 2);
+      i = end === -1 ? raw.length : end + 1;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
 export function readJson(path) {
-  const raw = readFileSync(path, "utf8");
-  return JSON.parse(raw.replace(/^\uFEFF/, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'\\])\/\/.*$/gm, "$1"));
+  return JSON.parse(stripJsonComments(readFileSync(path, "utf8").replace(/^\uFEFF/, "")));
 }
