@@ -13,8 +13,18 @@
  * R-SPINE-062 filed, not a second copy of it drifting beside the first.
  */
 import { REFUSALS } from '../errors';
-import type { RefusalCode } from '../errors';
+import type { ACT_REFUSALS } from '../errors/acts';
 import type { ActType, Permission } from './vocabulary';
+
+/**
+ * The three codes this seam can answer with — its own registry's keys, not the whole taxonomy's.
+ *
+ * Narrower than `RefusalCode` on purpose: a caller mapping refusals onto transport codes (the
+ * tRPC layer does) can then be total over what the seam actually throws, and a fourth code
+ * founded here would be a compile error there rather than a refusal that quietly inherits
+ * somebody else's meaning.
+ */
+export type ActRefusalCode = keyof typeof ACT_REFUSALS;
 
 /**
  * What a refusal knows beyond its code. L-ACT-03: "`PERMISSION_NOT_HELD` carries the act type
@@ -28,13 +38,13 @@ export interface RefusalDetail {
 
 export class ActSeamRefusal extends Error {
   /** Which of the closed taxonomy's codes this is — the field a caller branches on. */
-  readonly code: RefusalCode;
+  readonly code: ActRefusalCode;
   /** The act that was refused, when the refusal is about an act in particular. */
   readonly actType: ActType | undefined;
   /** The permission the actor's role does not bundle (L-ACT-03). */
   readonly missingPermission: Permission | undefined;
 
-  constructor(code: RefusalCode, detail: RefusalDetail = {}) {
+  constructor(code: ActRefusalCode, detail: RefusalDetail = {}) {
     super(`${code}: ${REFUSALS[code].message}`);
     this.name = ActSeamRefusal.name;
     this.code = code;
@@ -44,6 +54,6 @@ export class ActSeamRefusal extends Error {
 }
 
 /** The code a refusal carries, or `null` for anything that is not one of the seam's. */
-export function refusalCodeOf(error: unknown): RefusalCode | null {
+export function refusalCodeOf(error: unknown): ActRefusalCode | null {
   return error instanceof ActSeamRefusal ? error.code : null;
 }

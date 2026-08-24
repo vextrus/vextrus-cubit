@@ -26,7 +26,7 @@ export {
 export type { ActType, Permission, PermissionBundle, Role } from './vocabulary';
 
 export { ActSeamRefusal, refusalCodeOf } from './refusal';
-export type { RefusalDetail } from './refusal';
+export type { ActRefusalCode, RefusalDetail } from './refusal';
 
 export { commitAct, foundPrincipal, listParticipantHistory, previewAct } from './seam';
 export type { ConsequenceOf, Previewed } from './seam';

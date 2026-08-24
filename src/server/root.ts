@@ -12,10 +12,12 @@
  */
 import { initTRPC } from '@trpc/server';
 import type { TenantCtx } from './context';
+import { actsRouter } from './routers/acts';
 import { spineRouter } from './routers/spine';
 import { router } from './trpc';
 
 export const appRouter = router({
+  acts: actsRouter,
   spine: spineRouter,
 });
 
