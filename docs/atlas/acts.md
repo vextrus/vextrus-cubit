@@ -59,6 +59,51 @@ on live Postgres in `db/__tests__/acts.test.ts`, not assumed.
 The `sql` tag itself is borrowed off the relational reader (`operators.ts`) rather than imported,
 because `drizzle-orm` is lint-banned outside `src/core/db.ts` (SEAM-TENANT).
 
+## The guard is the project's, so the guard holds a lock
+
+L-ACT-03's *the last PRINCIPAL cannot be removed* is a claim about the project's state, not about
+one request's arithmetic. One statement makes the write atomic; it does not make the **read that
+decided it** and the write one thing. `commitAct` therefore runs the whole of it —
+permission, recomputed Consequence, guard, digest, write — inside `underProjectLock`
+(`participation.ts`): one drizzle transaction (`ScopedPool.connect()` pins it and carries the
+scope), opened with `pg_advisory_xact_lock` keyed on the project.
+
+The lock is its own statement, **ahead of** the read. Under READ COMMITTED each statement takes
+its own snapshot, so a lock taken in the same statement as the read would be acquired after that
+statement's snapshot was already fixed: the callers would queue and the second would still read
+stale rows. Taken first, the second caller's read sees the first one's committed write and the
+guard refuses — the sequential outcome, which is the one the law describes. Without it, two
+principals demoting each other each read "one would remain" and the project ends with none; since
+`ADMINISTER_PROJECT` is bundled by `PRINCIPAL` alone and the log is append-only, no act could ever
+put one back. `db/__tests__/inc-013-act-seam-breaker.test.ts` runs the two commits together.
+
+`foundPrincipal` takes the same lock, and under it asks whether the project has participants yet.
+It skips the permission check because the bootstrap has nobody to ask — on a project that already
+has participants there *is* somebody, so it is an ordinary assignment and answers to
+`ACT_PERMISSIONS` like any other. Otherwise the hook, which is exported, would mint a `PRINCIPAL`
+on any project id for any caller.
+
+## Ids, order and tenant
+
+Three smaller things the seam decides rather than the driver:
+
+- **Ids are uuids at the border.** `identity.ts` refuses a `projectId` or `userId` that is not
+  one, with the same `TypeError` the seam already raised for a missing id. Left to the driver it
+  arrives as `22P02 invalid input syntax for type uuid`, which is no refusal a caller can branch
+  on — `refusalCodeOf` does not know it, so the router rethrows and the caller is told the server
+  broke. The router types them `z.uuid()` for the same reason, one border earlier.
+- **History order is insertion order.** `created_at` defaults to `now()`, the *transaction's*
+  timestamp, so grants written at one instant tie — and the tie was broken by `id`, a random
+  uuid, which makes "the current role" a coin toss between a promotion and the demotion that
+  replaced it. `participant_roles.seq` is a `bigserial`, monotonic per insert; every ordering is
+  `created_at` then `seq`. Nothing above the seam reads it.
+- **A participation belongs to its project's tenant.** `tenant_id` comes from the writer's scope
+  and `project_id` is a plain foreign key, and foreign keys are checked without RLS — so the two
+  could disagree. `participation_belongs_to_tenant` (0005) is an AFTER INSERT trigger on both
+  tables, after the policy's `WITH CHECK` so a plainly cross-tenant row is still refused as one.
+  Binding participation to *tenant membership* as well is not done: `db/__tests__/acts.test.ts`
+  mints participants for users who hold no `tenant_memberships` row.
+
 ## Adding an act type
 
 1. Add the name to `ACT_TYPES` in `vocabulary.ts` — an **unquoted identifier key**, never a

@@ -24,7 +24,14 @@
 import { REFUSALS } from '../errors';
 import { assignParticipantRole } from './assign-participant-role';
 import { consequenceDigest } from './digest';
-import { currentRoles, grantHistory, recordGrant } from './participation';
+import { requireIdentity } from './identity';
+import {
+  currentRoles,
+  grantHistory,
+  hasParticipants,
+  recordGrant,
+  underProjectLock,
+} from './participation';
 import type { ActCtx, ParticipantGrant } from './participation';
 import { ActSeamRefusal } from './refusal';
 import { ACT_PERMISSIONS, ACT_TYPE, ROLE, isActType, roleHolds } from './vocabulary';
@@ -65,13 +72,14 @@ export interface Previewed<T extends ActType> {
   readonly digest: string;
 }
 
-/** The project an act is performed on. Every act the seam renders names one. */
+/**
+ * The project an act is performed on. Every act the seam renders names one, and names it as an
+ * id the database could hold — an id that is not a uuid names nothing, and the seam says so
+ * rather than letting the driver's `22P02` answer for it.
+ */
 function projectOf(input: unknown): string {
   const named = (input ?? {}) as { projectId?: unknown };
-  if (typeof named.projectId !== 'string' || named.projectId === '') {
-    throw new TypeError('an act names the project it is performed on');
-  }
-  return named.projectId;
+  return requireIdentity(named.projectId, 'an act names the project it is performed on');
 }
 
 function renderingOf(actType: string): ActRendering {
@@ -135,13 +143,22 @@ export async function commitAct<T extends ActType>(
   digest: string,
 ): Promise<{ actId: string }> {
   const rendering = renderingOf(actType);
-  await checkPermission(ctx, actType, projectOf(input));
-  const consequence = await rendering.preview(ctx, input);
-  rendering.guard(consequence);
-  if (consequenceDigest(consequence) !== digest) {
-    throw new ActSeamRefusal(REFUSALS.CONSEQUENCES_NOT_CARRIED.code, { actType });
-  }
-  return rendering.commit(ctx, consequence);
+  const projectId = projectOf(input);
+  // Under the project's lock, so that the guard below decides the project's state and not just
+  // this request's arithmetic: two principals demoting each other at the same moment would each
+  // read "one would remain", each pass, and leave the project with none — and since
+  // `ADMINISTER_PROJECT` is bundled by `PRINCIPAL` alone and the log is append-only, no act could
+  // ever put one back. Serialised, the second caller reads the first one's write and is refused,
+  // which is the sequential outcome L-ACT-03 describes.
+  return underProjectLock(ctx, projectId, async (locked) => {
+    await checkPermission(locked, actType, projectId);
+    const consequence = await rendering.preview(locked, input);
+    rendering.guard(consequence);
+    if (consequenceDigest(consequence) !== digest) {
+      throw new ActSeamRefusal(REFUSALS.CONSEQUENCES_NOT_CARRIED.code, { actType });
+    }
+    return rendering.commit(locked, consequence);
+  });
 }
 
 /**
@@ -158,17 +175,43 @@ export async function commitAct<T extends ActType>(
  * act arrive together or not at all.
  */
 export async function foundPrincipal(ctx: ActCtx, projectId: string): Promise<{ actId: string }> {
-  return recordGrant(ctx, ACT_TYPE.ASSIGN_PARTICIPANT_ROLE, {
-    projectId,
-    userId: ctx.actorId,
-    role: ROLE.PRINCIPAL,
+  const project = requireIdentity(projectId, 'a founding names the project it founds');
+  return underProjectLock(ctx, project, async (locked) => {
+    // The bootstrap's precondition, and the reason it may skip the permission check: there is
+    // nobody to ask. On a project that already has participants there is — this is then an
+    // ordinary assignment of `PRINCIPAL`, and it answers to `ACT_PERMISSIONS` like any other, so
+    // a stranger cannot reach through the hook to make themselves a principal of a project they
+    // take no part in. Both the test and the write are under the lock, so a second caller cannot
+    // found a project between them.
+    if (await hasParticipants(locked, project)) {
+      await checkPermission(locked, ACT_TYPE.ASSIGN_PARTICIPANT_ROLE, project);
+    }
+    return recordGrant(locked, ACT_TYPE.ASSIGN_PARTICIPANT_ROLE, {
+      projectId: project,
+      userId: locked.actorId,
+      role: ROLE.PRINCIPAL,
+    });
   });
 }
 
-/** R-SPINE-011's "role history visible": every grant this project has made, oldest first. */
+/**
+ * R-SPINE-011's "role history visible": every grant this project has made, oldest first.
+ *
+ * Visible to whom is the question R-SPINE-011 leaves open, and L-ACT-03 answers it: participation
+ * is "mandatory" and is the unit of a project's access, so the audience for a project's role
+ * history is the project's participants. RLS already bounds the read to the tenant; without this
+ * it would let any member of the tenant enumerate who holds what on projects they take no part
+ * in. Any role suffices — reading the history is not an act, so no permission is what it asks
+ * for; the refusal is the same one a stranger meets anywhere else at this seam.
+ */
 export async function listParticipantHistory(
   ctx: ActCtx,
   projectId: string,
 ): Promise<readonly ParticipantGrant[]> {
-  return grantHistory(ctx, projectId);
+  const project = requireIdentity(projectId, 'a role history names the project it is of');
+  const held = await currentRoles(ctx, project);
+  if (!held.has(ctx.actorId)) {
+    throw new ActSeamRefusal(REFUSALS.PERMISSION_NOT_HELD.code);
+  }
+  return grantHistory(ctx, project);
 }

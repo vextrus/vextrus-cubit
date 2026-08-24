@@ -66,7 +66,13 @@ const text = (row: Record<string, unknown>, column: string): string => String(ro
  * Everybody's *current* role on a project, by user id.
  *
  * `distinct on (user_id)` with the history ordered newest-first is the last grant for each pair
- * — the append-only table's answer to "what does this person hold now". A grant whose role is
+ * — the append-only table's answer to "what does this person hold now". "Newest" is `created_at`
+ * and then `seq`: `created_at` defaults to `now()`, which is the *transaction's* timestamp, so
+ * two grants written at the same instant tie, and the tie-break has to be the order they were
+ * written in rather than `id`, which is a random uuid. A coin toss there would read a demotion's
+ * predecessor as the current role.
+ *
+ * A grant whose role is
  * not a member of the closed enum is left out rather than trusted: the column is text, and a
  * role the vocabulary does not carry is a role no bundle can be read off.
  */
@@ -77,7 +83,7 @@ export async function currentRoles(ctx: ActCtx, projectId: string): Promise<Map<
     sql`select distinct on (user_id) user_id, role
           from participant_roles
          where project_id = ${projectId}
-         order by user_id, created_at desc, id desc`,
+         order by user_id, created_at desc, seq desc`,
   );
   const held = new Map<string, Role>();
   for (const row of rows) {
@@ -85,6 +91,52 @@ export async function currentRoles(ctx: ActCtx, projectId: string): Promise<Map<
     if (isRole(role)) held.set(text(row, 'user_id'), role);
   }
   return held;
+}
+
+/** Whether anybody takes part in this project yet — the precondition the bootstrap has. */
+export async function hasParticipants(ctx: ActCtx, projectId: string): Promise<boolean> {
+  const sql = sqlTag(ctx.db);
+  const rows = await rowsOf(
+    ctx.db,
+    sql`select 1 as taking_part from participants where project_id = ${projectId} limit 1`,
+  );
+  return rows.length > 0;
+}
+
+/**
+ * Everything between the read and the write, run so that no second caller can slip between them.
+ *
+ * L-ACT-03's "the last PRINCIPAL cannot be removed" is a claim about the project's state, not
+ * about one request's arithmetic: a guard that reads the roles in one transaction and writes in
+ * another is not enforced against a caller acting at the same moment, and two principals demoting
+ * each other both read "one would remain" and both write. What closes that is a lock taken
+ * *before* the read.
+ *
+ * Three things make this the lock to take. It is a transaction-scoped advisory lock, so it is
+ * released when the write commits or rolls back and no failure path can strand it. It is keyed on
+ * the project, so acts on different projects never wait for each other. And it is a statement of
+ * its own, ahead of the read: under READ COMMITTED every statement takes its own snapshot, so the
+ * read that follows the lock sees whatever the caller we waited for committed — a lock taken in
+ * the same statement as the read would be acquired after that statement's snapshot was already
+ * fixed, and would serialise the callers while still showing the second one stale rows.
+ *
+ * The whole body runs inside one drizzle transaction, which pins one connection (`ScopedPool`
+ * exists for that) and carries the scope on it, so the read, the guard and the single-statement
+ * CTE all speak as the same tenant on the same connection.
+ */
+export async function underProjectLock<T>(
+  ctx: ActCtx,
+  projectId: string,
+  body: (locked: ActCtx) => Promise<T>,
+): Promise<T> {
+  return ctx.db.transaction(async (transaction) => {
+    const locked: ActCtx = { ...ctx, db: transaction as unknown as ScopedDb };
+    const sql = sqlTag(locked.db);
+    await locked.db.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${projectId}::text, 0))`,
+    );
+    return body(locked);
+  });
 }
 
 /** The whole history of a project's grants, oldest first (R-SPINE-011: "role history visible"). */
@@ -98,7 +150,7 @@ export async function grantHistory(
     sql`select user_id, role, act_id, created_at
           from participant_roles
          where project_id = ${projectId}
-         order by created_at asc, id asc`,
+         order by created_at asc, seq asc`,
   );
   return rows.map((row) => ({
     userId: text(row, 'user_id'),

@@ -38,14 +38,24 @@ import { actPair, router, tenantProcedure } from '../trpc';
  */
 const roleNames = Object.keys(ROLE_BUNDLES) as [Role, ...Role[]];
 
+/**
+ * The ids reach `uuid` columns, so the router types them as what they are.
+ *
+ * A malformed id is the caller's mistake and zod answers it as one — a `BAD_REQUEST` naming the
+ * field. Typed as a bare string it would travel all the way to the driver and come back as
+ * `22P02 invalid input syntax for type uuid`, which `refusalCodeOf` does not recognise, so
+ * `performing` would rethrow it and the caller would be told the server broke. The seam refuses
+ * the same shape on its own account (`src/core/acts/identity.ts`) — this is the border check, not
+ * the only one.
+ */
 const assignInput = z.object({
-  projectId: z.string(),
-  userId: z.string(),
+  projectId: z.uuid(),
+  userId: z.uuid(),
   role: z.enum(roleNames),
 });
 
 /** The project whose history is being read. */
-const historyInput = z.object({ projectId: z.string() });
+const historyInput = z.object({ projectId: z.uuid() });
 
 /**
  * The seam's context, built from the request's own (SEAM-ACT: "refuses non-human actors by

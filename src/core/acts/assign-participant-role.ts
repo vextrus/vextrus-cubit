@@ -13,6 +13,7 @@
  * the number the guard reads are the same number.
  */
 import { REFUSALS } from '../errors';
+import { requireIdentity } from './identity';
 import { ActSeamRefusal } from './refusal';
 import { currentRoles, recordGrant } from './participation';
 import type { ActCtx } from './participation';
@@ -55,16 +56,12 @@ interface Read {
 function readInput(input: unknown): Read {
   const given = (input ?? {}) as AssignParticipantRoleInput;
   const proposed: unknown = given.proposedRole ?? given.role;
-  if (typeof given.projectId !== 'string' || given.projectId === '') {
-    throw new TypeError('an assignment names the project it is on');
-  }
-  if (typeof given.userId !== 'string' || given.userId === '') {
-    throw new TypeError('an assignment names the person it is about');
-  }
+  const projectId = requireIdentity(given.projectId, 'an assignment names the project it is on');
+  const userId = requireIdentity(given.userId, 'an assignment names the person it is about');
   if (!isRole(proposed)) {
     throw new TypeError(`${JSON.stringify(proposed)} is not one of the roles a human may pick`);
   }
-  return { projectId: given.projectId, userId: given.userId, proposedRole: proposed };
+  return { projectId, userId, proposedRole: proposed };
 }
 
 /**

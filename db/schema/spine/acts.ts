@@ -20,7 +20,16 @@
  * neither UPDATE nor DELETE, so an act that happened cannot be edited into one that did not.
  * Writing them is the act seam's alone (`src/core/acts`); nothing else in `src/` may reach them.
  */
-import { foreignKey, index, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import {
+  bigserial,
+  foreignKey,
+  index,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { tenants } from '../core/tenants';
 import { projects } from './projects';
@@ -139,6 +148,18 @@ export const participantRoles = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .default(sql`now()`),
+    /**
+     * The order the grants were written in, which is the order the history is read in.
+     *
+     * `created_at` cannot carry that on its own: it defaults to `now()`, which is the
+     * *transaction's* timestamp, so two grants written at the same instant tie — and the tie was
+     * being broken by `id`, a `gen_random_uuid()`. A random tie-break makes "the current role"
+     * (the last row of a pair's history) a coin toss between a promotion and the demotion that
+     * replaced it, and makes R-SPINE-011's history not the order anything happened in. A sequence
+     * is monotonic per insert rather than per transaction, so it answers exactly the question the
+     * ordering asks. Nothing reads it above the seam; it exists to be ordered by.
+     */
+    seq: bigserial('seq', { mode: 'number' }).notNull(),
   },
   (table) => [
     index('participant_roles_project_id_user_id_idx').on(table.projectId, table.userId),
