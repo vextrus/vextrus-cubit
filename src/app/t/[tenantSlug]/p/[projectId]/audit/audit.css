@@ -1,0 +1,143 @@
+/*
+ * The audit segment's own paint (docs/design/s-audit.md §9) — the three panes' list card,
+ * entry anatomy, filter row and codes.
+ *
+ * Not one colour, radius, size or duration is written as a value: every declaration resolves
+ * through a variable src/ui/tokens.css defines, so a [data-theme] flip reaches all of it
+ * (R-UI-001, §10). The sub-nav, the h1 and the lead are painted already — the nav wears
+ * `project-settings-nav` verbatim (§2) and the headings the shell's `tenant-title` /
+ * `tenant-lead` — so nothing here repeats them.
+ */
+
+/* ─────────────────────────── §3: the filter row, one quiet line ───────────────────────── */
+
+.project-audit-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-6);
+}
+
+.project-audit-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* The act type's vocabulary is codes, so the control that offers them reads as code does. */
+.project-audit-filter-type {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+}
+
+/* ─────────────────────────────── §3: the log, a list card ─────────────────────────────── */
+
+.project-audit-log {
+  margin-top: var(--space-4);
+  background: var(--graphite-0);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+}
+
+.project-audit-entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.project-audit-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: var(--hairline);
+}
+
+.project-audit-entry:first-child {
+  border-top: none;
+}
+
+/* The headline fact on the left, the instant it happened on the right. */
+.project-audit-entry-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.project-audit-act-type {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.project-audit-when {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  white-space: nowrap;
+}
+
+/* The four definition rows: a 96 px label beside its value, the pin card's metric shape. */
+.project-audit-rows {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.project-audit-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.project-audit-row-label {
+  width: 96px;
+  flex: 0 0 96px;
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.project-audit-row-value {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-800);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* An absence, taught: the same size as a value it stands in for, one step quieter. */
+.project-audit-evidence {
+  color: var(--graphite-600);
+  white-space: normal;
+}
+
+.project-audit-role {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+}
+
+/* §3: the clear-filters affordance — an EvidenceLink, not a button; it navigates. */
+.project-audit-clear {
+  font-size: var(--text-13);
+  color: var(--cobalt-500);
+  text-decoration: underline;
+}
+
+.project-audit-clear:hover {
+  color: var(--cobalt-600);
+}
+
+/* ─────────────────── §4 and §5: the two teaching panes, bare state blocks ─────────────── */
+
+.project-audit-pane {
+  display: block;
+  margin-top: var(--space-4);
+}

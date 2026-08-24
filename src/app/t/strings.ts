@@ -225,6 +225,46 @@ export const TENANT_STRINGS = Object.freeze({
   'project.ruleset.param.placementFootprintMin': 'Placement footprint minimum',
   'project.ruleset.param.placementFootprintMax': 'Placement footprint maximum',
   'project.ruleset.param.placementHumanSnap': 'Placement human snap share',
+  /*
+   * S-Audit — the act log explorer, the model-call ledger and the job history
+   * (docs/design/s-audit.md §7, verbatim). One key per pane names it three times over: the
+   * sub-nav item, the breadcrumb's pane crumb and the pane's own h1 (Interpretation 2).
+   */
+  'project.audit.nav': 'Audit',
+  'project.audit.nav.acts': 'Act log',
+  'project.audit.nav.models': 'Model calls',
+  'project.audit.nav.jobs': 'Job history',
+  'project.audit.acts.lead':
+    'Every recorded act on {name} ({code}), newest first. Each entry shows who acted, who it concerned, what it changed and what it cited.',
+  'project.audit.filter.type': 'Act type',
+  'project.audit.filter.actor': 'Actor',
+  'project.audit.filter.subject': 'Subject',
+  'project.audit.filter.anyType': 'All act types',
+  'project.audit.filter.anyActor': 'All actors',
+  'project.audit.filter.anySubject': 'All subjects',
+  'project.audit.filter.apply': 'Apply filters',
+  'project.audit.entry.consequence': 'Consequence',
+  'project.audit.entry.evidence': 'Evidence',
+  'project.audit.entry.setRole': '{member} was set to {role}.',
+  'project.audit.entry.subjectNone': 'Nobody recorded. This act names no subject.',
+  'project.audit.entry.consequenceNone':
+    'No consequence recorded. The act stands in the log; when this release can derive what it changed, the change appears here.',
+  'project.audit.entry.evidenceNone':
+    'No evidence cited. When acts cite drawings and documents, the citations appear here.',
+  'project.audit.acts.empty.title': 'No acts match these filters.',
+  'project.audit.acts.empty.teach':
+    'Widen a filter, or clear them all to see every recorded act.',
+  'project.audit.acts.empty.clear': 'Clear filters',
+  'project.audit.models.lead':
+    'The model calls made for this project — every call, its cost and its outcome.',
+  'project.audit.models.empty.title': 'No model calls yet.',
+  'project.audit.models.empty.teach':
+    'When this project uses a model, each call is recorded here with its cost and its outcome.',
+  'project.audit.jobs.lead':
+    "The runs of this project's long-running work — imports, partitions, document renders.",
+  'project.audit.jobs.empty.title': 'No job runs yet.',
+  'project.audit.jobs.empty.teach':
+    'When this project runs a job — importing a drawing, running a partition, rendering a document — each run appears here with its outcome.',
   'tenant.notFound.title': 'This workspace could not be found.',
   'tenant.notFound.teach': 'Check the address, or sign in with an account that belongs to it.',
   'tenant.notFound.action': 'Sign in',
