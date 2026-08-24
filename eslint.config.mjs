@@ -235,6 +235,13 @@ export default tseslint.config(
   ...tseslint.configs.recommended.map((config) => ({ ...config, files: TS })),
   {
     files: TS,
+    languageOptions: {
+      parserOptions: {
+        // Anchored to this config's own tree, so linting a scratch copy of the tree in the same
+        // process as the tree itself resolves one root per copy instead of guessing between them.
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/ban-ts-comment": [

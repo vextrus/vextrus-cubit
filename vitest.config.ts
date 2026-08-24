@@ -5,7 +5,9 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["tests/**/*.test.{js,mjs,ts,mts}", "src/**/__tests__/**/*.test.ts"],
+    // Exactly what the unit lane probes for — any *.test.* under tests/ outside tests/e2e — so a
+    // test the roster counts is a test this run executes, and nothing green here went unrun (B-23).
+    include: ["tests/**/*.test.?(c|m)[jt]s?(x)"],
     exclude: ["node_modules/**", "tests/e2e/**", "tests/lint-fixtures/**"],
     // The toolchain suite shells out to `pnpm verify` on scratch copies of the tree, so its hooks
     // and cases are minutes-scale by nature.
