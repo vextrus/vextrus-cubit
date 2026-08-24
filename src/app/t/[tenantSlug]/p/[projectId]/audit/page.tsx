@@ -310,7 +310,9 @@ export default async function ProjectAuditActsPage({
         ) : (
           <ol className="project-audit-entries">
             {entries.map((entry) => (
-              <Entry entry={entry} key={entry.actId} />
+              // One act with several subjects (a confirm-all, L-ACT-01) is several entries of
+              // the same act id, so the key names the pair the row actually is.
+              <Entry entry={entry} key={`${entry.actId}:${entry.subjectId}`} />
             ))}
           </ol>
         )}
