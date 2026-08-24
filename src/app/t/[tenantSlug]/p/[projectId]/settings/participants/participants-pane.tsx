@@ -21,8 +21,15 @@
  * zero like any other count, the refusal renders inside the open dialog, and confirm stays
  * live: a re-confirm asks the server again and gets the same honest answer.
  */
-import { useCallback, useMemo, useState } from 'react';
-import { Badge, Button, Dialog, DialogContent, DialogTitle } from '../../../../../../../ui/primitives';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '../../../../../../../ui/primitives';
 import { REFUSALS } from '../../../../../../../core/errors';
 import { LocalTime } from '../../../../../local-time';
 import { around, fill, ten } from '../../../../../strings';
@@ -104,6 +111,17 @@ export function ParticipantsPane({
   const [dialogRefused, setDialogRefused] = useState<Refused | null>(null);
   const [dialogFailed, setDialogFailed] = useState(false);
   const [announced, setAnnounced] = useState('');
+
+  /**
+   * The control the dialog was opened from, and the one focus is owed back to.
+   *
+   * This Dialog is controlled by `episode` and has no `DialogTrigger`, so Radix's close handler
+   * focuses a `triggerRef` that is null here and drops the reader on `<body>` — the whole shell
+   * to tab through again (R-UI-060, WCAG 2.4.3). Every way out of the surface — Escape, the
+   * scrim, Cancel, the corner close, and the commit that closes it — runs the same handler, so
+   * the default is prevented once and the assign control takes focus back.
+   */
+  const assignRef = useRef<HTMLButtonElement>(null);
 
   const userIdOf = useCallback(
     (email: string) => members.find((each) => each.email === email)?.userId ?? '',
@@ -255,6 +273,7 @@ export function ParticipantsPane({
           </select>
         </div>
         <Button
+          ref={assignRef}
           data-testid="participant-assign"
           loading={busy}
           onClick={() => {
@@ -331,7 +350,13 @@ export function ParticipantsPane({
         }}
       >
         {episode === null || consequence === undefined ? null : (
-          <DialogContent className="project-dialog">
+          <DialogContent
+            className="project-dialog"
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              assignRef.current?.focus();
+            }}
+          >
             <div data-testid="consequence-dialog">
               <DialogTitle>
                 {fill('project.participants.dialogTitle', {
@@ -339,6 +364,9 @@ export function ParticipantsPane({
                   email: episode.email,
                 })}
               </DialogTitle>
+              {/* §9: the surface says what it is for as well as what it is called — without a
+                  Description the dialog is named by its title alone and Radix says so. */}
+              <DialogDescription>{ten('project.participants.dialogLead')}</DialogDescription>
 
               {episode.stale.size === 0 ? null : (
                 <p className="project-consequence-stale-line" role="status">
@@ -351,8 +379,12 @@ export function ParticipantsPane({
                 </p>
               ) : null}
 
+              {/* datum-patterns §9, verbatim: every consequence row is a `consequence-line`,
+                  and a row a restatement changed carries `data-changed` and marks its own
+                  value `consequence-stale` — the id sits on the value, so the row keeps the
+                  one id the pattern gives every line everywhere. */}
               <dl className="project-consequence-summary" data-testid="consequence-summary">
-                <div className="project-consequence-row">
+                <div className="project-consequence-row" data-testid="consequence-line">
                   <dt className="project-consequence-label">
                     {ten('project.participants.summary.person')}
                   </dt>
@@ -360,34 +392,46 @@ export function ParticipantsPane({
                 </div>
                 <div
                   className="project-consequence-row"
-                  data-testid={episode.stale.has(CURRENT) ? 'consequence-stale' : undefined}
+                  data-testid="consequence-line"
+                  data-changed={episode.stale.has(CURRENT) ? '' : undefined}
                 >
                   <dt className="project-consequence-label">
                     {ten('project.participants.summary.current')}
                   </dt>
-                  <dd className="project-consequence-value project-consequence-role">
+                  <dd
+                    className="project-consequence-value project-consequence-role"
+                    data-testid={episode.stale.has(CURRENT) ? 'consequence-stale' : undefined}
+                  >
                     {consequence.currentRole ?? ten('project.participants.summary.currentNone')}
                   </dd>
                 </div>
                 <div
                   className="project-consequence-row"
-                  data-testid={episode.stale.has(PROPOSED) ? 'consequence-stale' : undefined}
+                  data-testid="consequence-line"
+                  data-changed={episode.stale.has(PROPOSED) ? '' : undefined}
                 >
                   <dt className="project-consequence-label">
                     {ten('project.participants.summary.proposed')}
                   </dt>
-                  <dd className="project-consequence-value project-consequence-role">
+                  <dd
+                    className="project-consequence-value project-consequence-role"
+                    data-testid={episode.stale.has(PROPOSED) ? 'consequence-stale' : undefined}
+                  >
                     {consequence.proposedRole}
                   </dd>
                 </div>
                 <div
                   className="project-consequence-row"
-                  data-testid={episode.stale.has(PRINCIPALS) ? 'consequence-stale' : undefined}
+                  data-testid="consequence-line"
+                  data-changed={episode.stale.has(PRINCIPALS) ? '' : undefined}
                 >
                   <dt className="project-consequence-label">
                     {ten('project.participants.summary.principals')}
                   </dt>
-                  <dd className="project-consequence-count numeric">
+                  <dd
+                    className="project-consequence-count numeric"
+                    data-testid={episode.stale.has(PRINCIPALS) ? 'consequence-stale' : undefined}
+                  >
                     {formatNumber(String(consequence.principalsAfter), 'count')}
                   </dd>
                 </div>

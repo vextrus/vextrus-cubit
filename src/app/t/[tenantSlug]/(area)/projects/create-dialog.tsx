@@ -42,6 +42,28 @@ const RETURN_FOCUS = [
 /** How many frames to keep looking for it while the navigation lands. */
 const FOCUS_ATTEMPTS = 30;
 
+/**
+ * Did the reader arrive here from inside the app, so that going *back* returns them to it?
+ *
+ * `window.history.length` cannot answer this: it counts every entry in the tab, cross-origin
+ * ones included, so a reader who followed the `/projects/new` link from anywhere else would be
+ * navigated off the product by pressing Escape. What actually distinguishes the two cases is
+ * whether this document was *loaded* at this address: a fresh GET has a navigation timing entry
+ * whose URL is this one and nothing of ours behind it, while a client-side arrival left the
+ * document at the address it was served for. Reading the entry rather than the counter keeps
+ * the fallback honest, and its worst case — a reader who loaded this address, wandered off in
+ * the app and came back — is a push to the projects area, which is inside the product.
+ */
+function arrivedFromInsideTheApp(): boolean {
+  const [entry] = window.performance.getEntriesByType('navigation');
+  if (entry === undefined) return false;
+  try {
+    return new URL(entry.name, window.location.href).pathname !== window.location.pathname;
+  } catch {
+    return false;
+  }
+}
+
 function focusCreateAffordance(attemptsLeft: number): void {
   const found = RETURN_FOCUS.map((selector) => document.querySelector(selector)).find(
     (element): element is HTMLElement => element instanceof HTMLElement,
@@ -87,9 +109,9 @@ export function CreateProjectDialog({ tenantSlug }: CreateProjectDialogProps) {
       router.replace(leavingTo);
       return;
     }
-    // A fresh GET of this address has nothing behind it, so there is somewhere to go back to
-    // only when the reader arrived here from inside the app.
-    if (window.history.length > 1) router.back();
+    // A fresh GET of this address has nothing of ours behind it, so there is somewhere to go
+    // back to only when the reader arrived here from inside the app.
+    if (arrivedFromInsideTheApp()) router.back();
     else router.push(`/t/${tenantSlug}/projects`);
   }, [leavingTo, open, router, tenantSlug]);
 
@@ -162,13 +184,12 @@ export function CreateProjectDialog({ tenantSlug }: CreateProjectDialogProps) {
             <Button variant="secondary" onClick={close}>
               {ten('project.form.cancel')}
             </Button>
-            <Button
-              data-testid="project-submit"
-              loading={busy}
-              onClick={() => {
-                void submit();
-              }}
-            >
+            {/* The form's own submit control, so Enter in any field creates the project the
+                way a reader of a nine-field form expects. Datum's Button is a `type="button"`
+                by default (a primitive that submits by accident writes a document by accident),
+                so this one says what it is; the work is the form's `onSubmit`, once, and the
+                primitive's loading guard still refuses the second activation. */}
+            <Button data-testid="project-submit" type="submit" loading={busy}>
               {ten('project.form.submit')}
             </Button>
           </div>

@@ -135,6 +135,7 @@ export const TENANT_STRINGS = Object.freeze({
   'project.form.nameRequired': 'Enter a name.',
   'project.form.codeRequired': 'Enter a code.',
   'project.form.storeysWhole': 'Storeys must be a whole number.',
+  'project.form.gfaDecimal': 'Target GFA must be a plain number, without a comma or a space.',
   'project.form.failed': 'The request did not complete. Check your connection and try again.',
   /*
    * S-Project-Settings — the project fields pane and the participants pane
@@ -167,6 +168,8 @@ export const TENANT_STRINGS = Object.freeze({
   'project.participants.assign': 'Preview assignment',
   'project.participants.you': 'You',
   'project.participants.dialogTitle': 'Assign {role} to {email}',
+  'project.participants.dialogLead':
+    'The server worked out what this assignment would do. Confirming applies exactly what is shown below.',
   'project.participants.summary.person': 'Participant',
   'project.participants.summary.current': 'Current role',
   'project.participants.summary.currentNone': 'Not a participant yet',

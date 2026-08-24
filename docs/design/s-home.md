@@ -161,11 +161,24 @@ A `<form>`, `--space-3` below the Description, stacked rows gap `--space-3`. Eac
    `project.form.gfaM2`, unit `project.form.unitM2` (m²) beside it.
 6. `project-field-notes` — Textarea, label `project.form.notes`, three lines.
 7. Footer, right-aligned, gap `--space-2`: a secondary Button `project.form.cancel` (closes
-   per Interpretation 2), then `project-submit` — a primary Button `project.form.submit`.
+   per Interpretation 2), then `project-submit` — a primary Button `project.form.submit`,
+   `type="submit"`: it is the form's own submit control, so **Enter in any field submits**.
+   Datum's Button is a `type="button"` unless told otherwise, and a form with more than one
+   text field and no submit button performs no implicit submission at all — a nine-field form
+   that ignores Enter is a gesture every reader expects and does not get (R-UI-060). The work
+   is the form's `onSubmit`, once; the primitive's loading state still refuses the second
+   activation, so Enter cannot write two projects either. The fields pane's `project-save`
+   carries the same rule (panes file §2).
 
 **Validation, client-side, no request made:** empty name → `project.form.nameRequired`; empty
-code → `project.form.codeRequired`; storeys with a fraction → `project.form.storeysWhole`.
-Each renders `--text-12` `--danger` directly under its field with `aria-invalid` on the
+code → `project.form.codeRequired`; storeys with a fraction → `project.form.storeysWhole`;
+a target GFA that is not a plain decimal — `1,000`, `1 000`, `-5`, `12.5.3` — →
+`project.form.gfaDecimal`. That last line exists because the module takes the GFA as the exact
+decimal the `numeric` column holds and refuses anything else by throwing: without it a grouped
+`1,000`, which is exactly what a reader of an en-IN product types into a quantity box, arrives
+at the screen as `project.form.failed` — "the request did not complete" — which is untrue
+twice over, since the request completed and the reader can fix it (R-UI-020 wants the message
+and the remedy in place). Each renders `--text-12` `--danger` directly under its field with `aria-invalid` on the
 control (primitives §3) and a `--motion-state-duration` fade; the first invalid field takes
 focus. **Submit:** the button enters its loading state and calls `createProject`; success
 navigates to `/t/{slug}/p/{id}/settings/project` (Interpretation 6). A request that never
@@ -246,6 +259,7 @@ re-worded here; key names locked. No string literal in JSX except test ids.
 | `project.form.nameRequired` | Enter a name. |
 | `project.form.codeRequired` | Enter a code. |
 | `project.form.storeysWhole` | Storeys must be a whole number. |
+| `project.form.gfaDecimal` | Target GFA must be a plain number, without a comma or a space. |
 | `project.form.failed` | The request did not complete. Check your connection and try again. |
 
 Calm, concrete, sentence case, no exclamation marks, no build or internal vocabulary.

@@ -23,7 +23,6 @@ import {
   validateProjectForm,
 } from '../../../../../project-form';
 import type { ProjectFormErrors, ProjectFormValues } from '../../../../../project-form';
-import { REFUSALS } from '../../../../../../../core/errors';
 import { around, fill, ten } from '../../../../../strings';
 import { archiveProjectAction, updateProjectAction } from '../actions';
 
@@ -55,7 +54,6 @@ export function ProjectFieldsPane({ tenantSlug, project, gfaSftText }: ProjectFi
   const [archived, setArchived] = useState(project.archived);
   const [saved, setSaved] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [refused, setRefused] = useState<keyof typeof REFUSALS | null>(null);
   const [announced, setAnnounced] = useState('');
 
   const change = useCallback((field: keyof ProjectFormValues, value: string) => {
@@ -64,7 +62,6 @@ export function ProjectFieldsPane({ tenantSlug, project, gfaSftText }: ProjectFi
     // §2: "the next edit clears it" — a saved line above a changed field is a lie.
     setSaved(false);
     setFailed(false);
-    setRefused(null);
   }, []);
 
   const save = useCallback(async () => {
@@ -72,7 +69,6 @@ export function ProjectFieldsPane({ tenantSlug, project, gfaSftText }: ProjectFi
     setErrors(found);
     setSaved(false);
     setFailed(false);
-    setRefused(null);
     const first = firstInvalidField(found);
     if (first !== null) {
       const control = document.querySelector(`[data-testid="${PROJECT_FIELD_TESTIDS[first]}"]`);
@@ -83,8 +79,10 @@ export function ProjectFieldsPane({ tenantSlug, project, gfaSftText }: ProjectFi
     try {
       const outcome = await updateProjectAction(tenantSlug, project.id, values);
       if (!outcome.ok) {
-        if (outcome.code === null) setFailed(true);
-        else setRefused(outcome.code);
+        // §2 gives Save two outcomes and no third: it saved, or the request did not complete.
+        // Neither saving nor archiving is an act (Interpretation 1), so nothing on this path
+        // can raise a refusal from the register — there is no refusal block on this pane.
+        setFailed(true);
         return;
       }
       setSaved(true);
@@ -100,15 +98,13 @@ export function ProjectFieldsPane({ tenantSlug, project, gfaSftText }: ProjectFi
 
   const toggleArchive = useCallback(async () => {
     setFailed(false);
-    setRefused(null);
     setSaved(false);
     setArchiving(true);
     const next = !archived;
     try {
       const outcome = await archiveProjectAction(tenantSlug, project.id, next);
       if (!outcome.ok) {
-        if (outcome.code === null) setFailed(true);
-        else setRefused(outcome.code);
+        setFailed(true);
         return;
       }
       setArchived(next);
@@ -122,7 +118,6 @@ export function ProjectFieldsPane({ tenantSlug, project, gfaSftText }: ProjectFi
   }, [archived, project.id, router, tenantSlug]);
 
   const [leadBefore, leadAfter] = around('project.fields.lead', 'code');
-  const refusal = refused === null ? null : REFUSALS[refused];
 
   return (
     <div data-testid="project-settings-fields">
@@ -179,19 +174,6 @@ export function ProjectFieldsPane({ tenantSlug, project, gfaSftText }: ProjectFi
             </p>
           }
         />
-        {refusal === null ? null : (
-          <div className="project-refusal" role="alert" data-testid="participants-refusal">
-            <p className="project-refusal-code" data-testid="refusal-code">
-              {refusal.code}
-            </p>
-            <p className="project-refusal-message" data-testid="refusal-message">
-              {refusal.message}
-            </p>
-            <p className="project-refusal-remedy" data-testid="refusal-remedy">
-              {refusal.remedy}
-            </p>
-          </div>
-        )}
         {failed ? (
           <p className="project-form-error" role="alert" data-testid="project-form-error">
             {ten('project.form.failed')}
@@ -203,13 +185,10 @@ export function ProjectFieldsPane({ tenantSlug, project, gfaSftText }: ProjectFi
           </p>
         ) : null}
         <div className="project-form-footer">
-          <Button
-            data-testid="project-save"
-            loading={busy}
-            onClick={() => {
-              void save();
-            }}
-          >
+          {/* The form's own submit control, so Enter in any field saves — Datum's Button is a
+              `type="button"` unless it says otherwise, and a form with no submit button
+              performs no implicit submission at all. The work stays the form's `onSubmit`. */}
+          <Button data-testid="project-save" type="submit" loading={busy}>
             {ten('project.fields.save')}
           </Button>
         </div>

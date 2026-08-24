@@ -111,6 +111,18 @@ function projectOf(ref: ProjectRef): string {
   return named;
 }
 
+/**
+ * The shape of a project id, checked before it reaches a `::uuid` cast.
+ *
+ * A project id is a URL segment, which is whatever the browser said. Interpretation 6 promises
+ * that "non-member, cross-tenant and unknown project ids all answer the standard 404" (Q-12) —
+ * the whole point being that the answer must not vary with what the id looks like. Handed to
+ * Postgres, a malformed one raises 22P02 and the reader gets the error boundary and a report
+ * id, which is a difference an enumerator can read off two requests. So a segment that is not a
+ * uuid names no row here, exactly as an unknown-but-well-formed one does.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** A required line of text — a project is citable by name and code from birth. */
 function required(value: unknown, field: string): string {
   const text = typeof value === 'string' ? value.trim() : '';
@@ -335,6 +347,7 @@ export async function listProjects(
 /** One project, or null when this workspace holds no such row (Interpretation 6 — a 404). */
 export async function readProject(ctx: ProjectCtx, input: ProjectRef): Promise<ProjectView | null> {
   const projectId = projectOf(input);
+  if (!UUID.test(projectId)) return null;
   const sql = sqlTag(ctx.db);
   const rows = await rowsOf(
     ctx.db,

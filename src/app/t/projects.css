@@ -412,12 +412,13 @@ a.datum-button {
   color: var(--graphite-900);
 }
 
-.project-consequence-row[data-testid='consequence-stale'] {
+/* datum-patterns §9: a changed line takes the warn surface, and its value the warn ink. */
+.project-consequence-row[data-changed] {
   background: var(--warn-surface);
 }
 
-.project-consequence-row[data-testid='consequence-stale'] .project-consequence-value,
-.project-consequence-row[data-testid='consequence-stale'] .project-consequence-count {
+.project-consequence-row[data-changed] .project-consequence-value,
+.project-consequence-row[data-changed] .project-consequence-count {
   color: var(--warn);
 }
 

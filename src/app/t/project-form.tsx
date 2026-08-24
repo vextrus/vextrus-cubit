@@ -52,13 +52,26 @@ export const EMPTY_PROJECT_FORM: ProjectFormValues = Object.freeze({
 });
 
 /** Which fields can be wrong, and what each says when it is (§5). */
-export type ProjectFormErrors = Partial<Record<'name' | 'code' | 'storeys', TenantStringKey>>;
+export type ProjectFormErrors = Partial<
+  Record<'name' | 'code' | 'storeys' | 'gfaM2', TenantStringKey>
+>;
 
 /** The order the first invalid field takes focus in (§5). */
-const FIELD_ORDER: readonly (keyof ProjectFormErrors)[] = ['name', 'code', 'storeys'];
+const FIELD_ORDER: readonly (keyof ProjectFormErrors)[] = ['name', 'code', 'storeys', 'gfaM2'];
 
 /** A whole number and nothing else — a fraction of a storey is not a storey. */
 const WHOLE = /^\d+$/;
+
+/**
+ * A plain decimal, which is what the `numeric` column takes (`gfaOf` in the module, verbatim).
+ *
+ * The module refuses anything else by throwing, and a throw two layers down arrives at the
+ * screen as "the request did not complete" — which is untrue twice over: the request completed,
+ * and the reader can fix it. A reader of an en-IN product types `1,000` into a quantity box
+ * often enough that the grouped form is the case this line exists for (R-UI-020: the message
+ * and the remedy, in place).
+ */
+const DECIMAL = /^\d+(\.\d+)?$/;
 
 /**
  * §5's validation, client-side, before any request is made.
@@ -71,11 +84,14 @@ export function validateProjectForm(values: ProjectFormValues): ProjectFormError
     name?: TenantStringKey;
     code?: TenantStringKey;
     storeys?: TenantStringKey;
+    gfaM2?: TenantStringKey;
   } = {};
   if (values.name.trim() === '') errors.name = 'project.form.nameRequired';
   if (values.code.trim() === '') errors.code = 'project.form.codeRequired';
   const storeys = values.storeys.trim();
   if (storeys !== '' && !WHOLE.test(storeys)) errors.storeys = 'project.form.storeysWhole';
+  const gfa = values.gfaM2.trim();
+  if (gfa !== '' && !DECIMAL.test(gfa)) errors.gfaM2 = 'project.form.gfaDecimal';
   return errors;
 }
 
@@ -297,7 +313,12 @@ export function ProjectFormFields({
               inputMode="decimal"
               autoComplete="off"
               disabled={busy === true}
-              aria-describedby={at('gfaM2-unit')}
+              aria-invalid={errors.gfaM2 !== undefined}
+              aria-describedby={
+                errors.gfaM2 === undefined
+                  ? at('gfaM2-unit')
+                  : `${at('gfaM2-unit')} ${errorAt('gfaM2')}`
+              }
               value={values.gfaM2}
               onChange={(event) => onChange('gfaM2', event.target.value)}
             />
@@ -305,6 +326,9 @@ export function ProjectFormFields({
               {ten('project.form.unitM2')}
             </span>
           </div>
+          {errors.gfaM2 === undefined ? null : (
+            <FieldError id={errorAt('gfaM2')} message={ten(errors.gfaM2)} />
+          )}
           {gfaFooter}
         </div>
       </div>

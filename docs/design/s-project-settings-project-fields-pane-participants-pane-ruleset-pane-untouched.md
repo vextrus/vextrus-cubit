@@ -110,12 +110,16 @@ under the GFA field, `data-testid="project-gfa-sft"` (`--text-12` `--graphite-60
 `.numeric`): `project.fields.gfaSft` with the Interpretation 9 conversion of the **saved**
 value in the slot — e.g. `≈ 10,764 sft` — or `project.fields.gfaSftNone` when no GFA is
 saved (silence is never lawful). The footer replaces s-home's: right-aligned,
-`data-testid="project-save"`, a primary Button `project.fields.save`. Save enters loading,
+`data-testid="project-save"`, a primary Button `project.fields.save`, `type="submit"` so that
+Enter in any field saves (s-home §5's rule, same reason). Save enters loading,
 calls `updateProject`; success re-renders the saved values (the sft line follows) and shows
 `project.fields.saved` — `role="status"`, `data-testid="project-saved"`, `--text-13`
 `--success`, fading in over `--motion-state-duration`; the next edit clears it. A request
 that never completes renders `project.form.failed` in the s-home §5 alert idiom
-(`project-form-error`).
+(`project-form-error`). Those two are the whole outcome set: **this pane mints no refusal
+block.** Neither saving nor archiving is an act (Interpretation 1), so nothing on the path can
+raise a code from the register — and `participants-refusal` is §7's id, belonging to the other
+pane. A block here would be unreachable markup wearing a name that is already spoken for.
 
 ## 3. Participants pane frame (`participants-pane`)
 
@@ -165,8 +169,12 @@ reads like any other entry: the creator assigned themselves PRINCIPAL (Interpret
 
 Opened only with a preview in hand. A Dialog (primitives §11); inner wrapper
 `data-testid="consequence-dialog"`. Title: `project.participants.dialogTitle` with the role
-code and email in its slots. Below, `data-testid="consequence-summary"` — the server's typed
-consequence and nothing computed by the UI:
+code and email in its slots, then a DialogDescription `project.participants.dialogLead` — a
+modal is named by its title *and* says what it is for, and a Dialog without a Description is
+one Radix itself complains about. Below, `data-testid="consequence-summary"` — the server's
+typed consequence and nothing computed by the UI. **Every row carries
+`data-testid="consequence-line"`** (datum-patterns §9, verbatim: one per consequence row), so
+a scan that knows the pattern reads this act's lines like any other's:
 
 1. Three definition rows (28 px, hairline dividers; 120 px label `--text-12` `--graphite-600`;
    values `--text-13` `--graphite-900`): `project.participants.summary.person` — the email;
@@ -185,8 +193,11 @@ digest. Outcomes:
   entry, and a visually hidden `role="status"` region announces
   `project.participants.committed`.
 - **`CONSEQUENCES_NOT_CARRIED`** — the pane re-runs the preview and restates the open dialog
-  from it: every changed row or count carries `data-testid="consequence-stale"` (background
-  `--warn-surface`, changed value in `--warn`, `--motion-state-duration` fade), a
+  from it: every changed line takes `data-changed` on its row (background `--warn-surface`,
+  `--motion-state-duration` fade) and `data-testid="consequence-stale"` on the value that
+  moved, in `--warn` — the pattern's own anatomy, where the row is the line and the mark sits
+  on the fact that changed, so a row is never made to wear two ids. A restatement where two
+  facts moved marks two values (R-UI-021's plural; arbitration of 2026-08-24). A
   `role="status"` line in `--warn` `--text-13` above the summary renders
   `project.participants.stale`, and the next confirm carries the new digest (§9 law, kept).
 - **`PROJECT_WOULD_HAVE_NO_PRINCIPAL`** — `data-testid="consequence-refusal"`, a
@@ -203,6 +214,15 @@ digest. Outcomes:
 
 Cancel, Escape, scrim and the close button close without confirming; closing clears stale
 marks, refusal and failure — a reopened dialog starts from a fresh preview.
+
+**Focus on the way out.** This Dialog is controlled by the open preview and has no
+`DialogTrigger` above it, so Radix restores focus to a trigger that does not exist and drops
+the reader on `<body>` — the whole shell to tab through again to get back to where they were.
+Every exit — Escape, the scrim, Cancel, the corner close, and the commit that closes the
+surface itself — prevents that default and gives focus back to `participant-assign`, the
+control the dialog was opened from (R-UI-060, WCAG 2.4.3; the same law s-home Interpretation 8
+states for the create surface). Neither axe nor the journey's `toBeHidden` can see this, so it
+is claimed in a component test beside the pane.
 
 ## 7. Refusal block and 8. states (R-UI-050)
 
@@ -255,6 +275,7 @@ Joins `TENANT_STRINGS`; switcher keys join `SHELL_STRINGS`. ⊙ = existing key r
 | `project.participants.assign` | Preview assignment |
 | `project.participants.you` | You |
 | `project.participants.dialogTitle` | Assign {role} to {email} |
+| `project.participants.dialogLead` | The server worked out what this assignment would do. Confirming applies exactly what is shown below. |
 | `project.participants.summary.person` | Participant |
 | `project.participants.summary.current` | Current role |
 | `project.participants.summary.currentNone` | Not a participant yet |

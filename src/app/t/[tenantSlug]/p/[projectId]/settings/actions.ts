@@ -26,6 +26,7 @@ import {
   updateProject,
 } from '../../../../../../modules/spine/projects';
 import type { ParticipantView, RoleGrantView } from '../../../../../../modules/spine/projects';
+import { listMembers } from '../../../../../../modules/spine/members';
 import { tenantContext } from '../../../../../../server/session';
 
 /** What a pane's act answers with: it worked, it was refused by code, or it did not complete. */
@@ -63,6 +64,25 @@ async function actorOn(tenantSlug: string) {
   const context = await tenantContext(tenantSlug);
   if (context === 'signed-out' || context === 'not-found') return null;
   return projectContext({ tenantId: context.tenantId, userId: context.session.userId });
+}
+
+/**
+ * Is this person in the workspace at all?
+ *
+ * A server action is a public endpoint: the `userId` it is handed is whatever the request said,
+ * and the pane's member list filters nobody but the reader who uses the pane. The seam checks
+ * the *actor's* ADMINISTER_PROJECT and the role's name, and neither of those is a question
+ * about the subject — so without this an admin could mint participants and participant_roles
+ * rows for any user id in the system. L-ACT-03 makes participation mandatory and the unit of a
+ * project's access, and the log is append-only, so that is a state no screen could ever undo.
+ *
+ * A subject the workspace does not hold is not a refusal in the closed taxonomy — it is a
+ * request no screen of ours can produce — so it is answered as one that did not complete, and
+ * nothing is written.
+ */
+async function memberOfWorkspace(ctx: { tenantId: string; actorId: string }, userId: string) {
+  const members = await listMembers({ tenantId: ctx.tenantId, userId: ctx.actorId });
+  return members.some((member) => member.userId === userId);
 }
 
 export async function updateProjectAction(
@@ -120,6 +140,7 @@ export async function previewAssignmentAction(
 ): Promise<PaneOutcome<PreviewedAssignment>> {
   const ctx = await actorOn(tenantSlug);
   if (ctx === null) return { ok: false, code: null };
+  if (!(await memberOfWorkspace(ctx, userId))) return { ok: false, code: null };
   try {
     const previewed = await previewAct(ctx, ACT_TYPE.ASSIGN_PARTICIPANT_ROLE, {
       projectId,
@@ -145,6 +166,9 @@ export async function commitAssignmentAction(
 ): Promise<PaneOutcome<ParticipantsView>> {
   const ctx = await actorOn(tenantSlug);
   if (ctx === null) return { ok: false, code: null };
+  // Asked again at the commit, not carried from the preview: the two are separate requests and
+  // a membership can end between them.
+  if (!(await memberOfWorkspace(ctx, userId))) return { ok: false, code: null };
   try {
     await commitAct(ctx, ACT_TYPE.ASSIGN_PARTICIPANT_ROLE, { projectId, userId, role }, digest);
     return {
