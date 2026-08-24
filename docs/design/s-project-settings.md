@@ -6,9 +6,10 @@ project pinned at creation — its key, its digest, its platform → workspace �
 and all seventeen L-MEA-01 parameters with units. It renders inside the shell
 (`docs/design/shell.md`) in `shell-main`'s centred 720 px column. Token names are
 `docs/design/datum-tokens.md`; state anatomy is `datum-patterns.md`; no colour literal
-anywhere (R-UI-001). Every other pane of project settings — project fields, participants,
-roles, method files, authoring — is a later increment and is not designed anywhere yet; this
-file grows those panes when they ship.
+anywhere (R-UI-001). The project-fields and participants panes are decided in
+`docs/design/s-project-settings-project-fields-pane-participants-pane-ruleset-pane-untouched.md`
+(inc-014), which also adds the pane nav above this pane's content (its §1) — nothing else
+here changes. Method files, authoring and every later pane remain undesigned.
 
 Interpretations recorded:
 
@@ -35,7 +36,9 @@ Interpretations recorded:
 6. **The breadcrumb stays the tenant crumb alone.** Navigation-shell changes are out of scope
    this increment; shell §3's derivation knows no project areas, so the top bar shows the
    tenant name and no rail item carries `aria-current`. The page names its project itself
-   (§2's lead). The project crumb and rail treatment arrive with the J-003 project increment.
+   (§2's lead). The project crumb and rail treatment arrive with the J-003 project increment —
+   now resolved by the panes file's Interpretation 5 (breadcrumb tenant / project / pane,
+   `rail-nav-projects` current on `/p/**`), which supersedes this deferral.
 7. **Non-member, cross-tenant and unknown project ids all answer the standard 404**
    (s-auth Interpretation 4, Q-12). RLS makes a foreign project row invisible, so the seam
    read finds nothing and the page notFounds — indistinguishable from a project that does not
