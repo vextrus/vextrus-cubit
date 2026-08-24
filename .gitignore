@@ -6,3 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Toolchain outputs: everything the gate writes while it runs, none of it tracked.
+.storage/
+drizzle/
+playwright-report/
+test-results/
+*.tsbuildinfo
+.eslintcache
+.vitest-cache/

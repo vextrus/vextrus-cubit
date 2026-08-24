@@ -1,0 +1,60 @@
+# The gate, where merges are decided (B-22). It runs the roster-driven `pnpm verify` rather than a
+# hand-listed subset of lanes, so every lane the tree has runs here from the day that lane exists —
+# and a lane that arms in a later increment needs no change to this file. Reference machine parity
+# (AS-01): ubuntu-latest with a Postgres 16 service on 5544.
+name: gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cubit
+        ports:
+          - 5544:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5544/cubit
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # No version here on purpose: the action reads the packageManager pin out of package.json,
+      # so the pin has exactly one home (C-06).
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: machine health
+        run: pnpm checkup
+
+      - name: gate
+        run: pnpm verify
+
+      - name: toolchain surface
+        run: pnpm exec vitest run tests/toolchain

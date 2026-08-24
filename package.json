@@ -1,0 +1,30 @@
+{
+  "name": "cubit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=24.19.0"
+  },
+  "scripts": {
+    "verify": "node scripts/verify.mjs",
+    "checkup": "node scripts/checkup.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "e2e": "node scripts/e2e.mjs",
+    "seed": "node scripts/seed.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:drift": "node scripts/db-drift.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "drizzle-kit": "0.31.10",
+    "eslint": "10.8.1",
+    "globals": "17.11.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.67.0",
+    "vitest": "4.1.11"
+  }
+}
