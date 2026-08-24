@@ -921,17 +921,29 @@ let readerOnce: Promise<Reader> | undefined;
  * the seam in this process against the same database the build is served from.
  */
 function reader(): Promise<Reader> {
-  readerOnce ??= (async () => {
+  readerOnce ??= newMember('inc012', 'Meghna Heights', 'MH');
+  return readerOnce;
+}
+
+/**
+ * One such member, minted whole: the door, the verification, the sign-in, and a project of
+ * their own created through the seam against the database the build is served from.
+ *
+ * Parameterised because SEAM-TENANT's cross-tenant claim needs a *second* one — a person who
+ * holds a workspace of their own and no membership of anybody else's.
+ */
+async function newMember(label: string, projectName: string, codePrefix: string): Promise<Reader> {
+  const member = (async (): Promise<Reader> => {
     const port = await servedApp();
     const origin = `http://127.0.0.1:${String(port)}`;
     const run = randomUUID().slice(0, 8);
-    const email = `inc012-${run}@example.test`;
+    const email = `${label}-${run}@example.test`;
     const jar: Jar = new Map();
 
     const signedUp = await post(`${origin}/api/auth/sign-up/email`, {
       email,
       password: PASSWORD,
-      name: `inc012 ${run}`,
+      name: `${label} ${run}`,
     }, jar);
     expect(
       signedUp.status,
@@ -965,13 +977,13 @@ function reader(): Promise<Reader> {
     const handle = await tenantHandle(tenantId);
     const pinned = await create(handle, {
       tenantId,
-      name: `Meghna Heights ${run}`,
-      code: `MH-${run}`,
+      name: `${projectName} ${run}`,
+      code: `${codePrefix}-${run}`,
     });
 
     return { jar, slug, port, pinned };
   })();
-  return readerOnce;
+  return member;
 }
 
 /** The pane, as the server sends it. One GET, many claims. */
@@ -1090,9 +1102,61 @@ describe('AC-3 / R-SPINE-012, J-003 — the rule-set pin, in the HTML the server
   });
 });
 
-/* ─────────────── the tenant guard, on the same served build (AC-3, Q-12) ─────────────── */
+/* ────────── the tenant guard and the tenancy line, on the same served build ──────────── */
 
-describe('AC-3 / Q-12 — the pane is reachable only through a membership', () => {
+/** The declared second workspace, for the seam half: founded here, pinned through the seam. */
+interface Neighbour {
+  readonly tenantId: string;
+  readonly pinned: Pinned;
+}
+
+let neighbourOnce: Promise<Neighbour> | undefined;
+
+function neighbour(): Promise<Neighbour> {
+  neighbourOnce ??= (async () => {
+    const run = randomUUID().slice(0, 8);
+    const system = await systemHandle();
+    const tenantId = await createTenant(system, `inc012-b-${run}`);
+    const create = await createPinnedProject();
+    const handle = await tenantHandle(tenantId);
+    const pinned = await create(handle, {
+      tenantId,
+      name: `Padma Works ${run}`,
+      code: `PW-${run}`,
+    });
+    return { tenantId, pinned };
+  })();
+  return neighbourOnce;
+}
+
+/** The declared second workspace, for the served half: a person who holds only their own. */
+let neighbourReaderOnce: Promise<Reader> | undefined;
+
+function neighbourReader(): Promise<Reader> {
+  neighbourReaderOnce ??= newMember('inc012b', 'Padma Works', 'PW');
+  return neighbourReaderOnce;
+}
+
+/**
+ * What a reader of the page sees: scripts and styles gone, then tags, entities and whitespace.
+ *
+ * "Indistinguishable" is a claim about the answer a person is given, not about the bytes: the
+ * RSC payload two 404s of the same route carry can name the URL each was asked for, and a route
+ * echoing back the id in a script chunk tells a stranger nothing it did not already know. The
+ * payload is inside `<script>`, which is why that goes first.
+ */
+function visibleText(html: string): string {
+  return decodeEntities(
+    html
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]*>/g, ' '),
+  )
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+describe('AC-3 / Q-12, SEAM-TENANT — the pane is reachable only through a membership of its own workspace', () => {
   it('the same URL that serves the pin to its member serves nothing to a stranger', async () => {
     const { html } = await pane();
     // The control first: the pane is genuinely on this URL for the member who holds it.
@@ -1112,5 +1176,121 @@ describe('AC-3 / Q-12 — the pane is reachable only through a membership', () =
       answered.url.includes('/sign-in') || answered.status >= 400,
       `a signed-out GET of ${path} answered ${String(answered.status)} at ${answered.url}`,
     ).toBe(true);
+  });
+
+  /**
+   * SEAM-TENANT / L-REG-07 / C-SPINE-PROJECT — the Tenancy line of the test contract: "a
+   * project outside the caller's tenant answers the app's standard not-found".
+   *
+   * A signed-out guard proves authentication, not tenancy. This one is a signed-in member of
+   * the second declared workspace, asking their *own* workspace's URL for another workspace's
+   * project id: the one probe where the membership check has nothing to say and the pin is the
+   * only thing standing between the reader and someone else's rule set.
+   *
+   * "The app's standard not-found" is not retyped here; it is read off the app, from the same
+   * route asked with a well-formed uuid that names no project at all. Whatever the app answers
+   * there is the standard, and the cross-tenant answer has to be that one — status and visible
+   * words alike — or the pane has told a stranger which project ids exist (Q-12).
+   */
+  it('a member of another workspace gets the standard not-found for this project', async () => {
+    const mine = await reader();
+    const guest = await neighbourReader();
+    const origin = `http://127.0.0.1:${String(guest.port)}`;
+
+    // The control: this reader is genuinely signed in and the route genuinely serves a pane to
+    // them, so the two refusals below are about whose project it is and nothing else.
+    const own = await ask(
+      `${origin}${rulesetPath(guest.slug, guest.pinned.projectId)}`,
+      guest.jar,
+    );
+    expect(
+      own.status,
+      `the guest's own pane answered ${String(own.status)} at ${own.url}`,
+    ).toBe(200);
+    expect(carries(own.body, PARAMS_ID), 'the guest was served no pane of their own').toBe(true);
+
+    const unknownId = randomUUID();
+    const unknown = await ask(`${origin}${rulesetPath(guest.slug, unknownId)}`, guest.jar);
+    const crossed = await ask(
+      `${origin}${rulesetPath(guest.slug, mine.pinned.projectId)}`,
+      guest.jar,
+    );
+
+    expect(
+      unknown.status,
+      `a project id nobody holds answered ${String(unknown.status)} — the standard not-found is not a refusal`,
+    ).toBeGreaterThanOrEqual(400);
+    expect(
+      crossed.status,
+      `another workspace's project answered ${String(crossed.status)} where an unknown id answers ${String(unknown.status)}`,
+    ).toBe(unknown.status);
+    expect(
+      visibleText(crossed.body),
+      'another workspace’s project reads differently from an id nobody holds — which tells a stranger it exists',
+    ).toBe(visibleText(unknown.body));
+
+    // And nothing of the pin leaks through the refusal: not the pane, not the edition, not the
+    // digest whose equality is the whole point of the lineage.
+    for (const id of [EDITION_ID, DIGEST_ID, LINEAGE_ID, PARAMS_ID, ...LINEAGE_ROWS]) {
+      expect(carries(crossed.body, id), `the not-found still carries ${id}`).toBe(false);
+    }
+    expect(crossed.body, 'the not-found leaked the other workspace’s digest').not.toContain(
+      mine.pinned.digest,
+    );
+    expect(crossed.body, `the not-found leaked ${EDITION_KEY}`).not.toContain(EDITION_KEY);
+  });
+
+  /**
+   * The same clause one layer down, where the page leans: `readProjectPin` filters by project
+   * id, so if RLS ever served another workspace's row the pane would render it and every claim
+   * above would still be green. Read the rows directly, through the second workspace's own
+   * scoped handle.
+   */
+  it('SEAM-TENANT: another workspace’s project and editions are not rows this scope can see', async () => {
+    const { tenantId: theirs, first } = await forked();
+    const { tenantId: mine, pinned } = await neighbour();
+    const handle = await tenantHandle(mine);
+
+    // The control: through this very handle, this workspace's own rows are there — so the
+    // empty reads below are RLS and not a handle that reads nothing.
+    const ownProject = await rowsOf(
+      handle,
+      sql`select id from projects where id = ${pinned.projectId}`,
+    );
+    expect(ownProject.length, 'the workspace cannot see its own project').toBe(1);
+    const ownEditions = await rowsOf(
+      handle,
+      sql`select id from rule_set_editions where tenant_id = ${mine}`,
+    );
+    expect(ownEditions.length, 'the workspace cannot see its own editions').toBeGreaterThan(0);
+
+    const theirProject = await rowsOf(
+      handle,
+      sql`select id, name, code, rule_set_edition_id from projects where id = ${first.projectId}`,
+    );
+    expect(theirProject, 'another workspace’s project is visible under this scope').toEqual([]);
+    const theirProjects = await rowsOf(
+      handle,
+      sql`select id from projects where tenant_id = ${theirs}`,
+    );
+    expect(theirProjects, 'another workspace’s projects are enumerable under this scope').toEqual(
+      [],
+    );
+
+    const theirEdition = await rowsOf(
+      handle,
+      sql`select id, digest, parameters from rule_set_editions where id = ${first.editionId}`,
+    );
+    expect(theirEdition, 'another workspace’s pinned edition is readable under this scope').toEqual(
+      [],
+    );
+    const theirEditions = await rowsOf(
+      handle,
+      sql`select id from rule_set_editions where tenant_id = ${theirs}`,
+    );
+    expect(
+      theirEditions,
+      'another workspace’s editions are enumerable under this scope',
+    ).toEqual([]);
   });
 });
