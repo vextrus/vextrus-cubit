@@ -46,6 +46,11 @@ export default async function ProjectSegmentLayout({
         project: ten('project.settings.nav.project'),
         participants: ten('project.settings.nav.participants'),
         ruleset: ten('project.settings.nav.ruleset'),
+        /* The audit segment's three panes, named by the same keys their sub-nav uses
+           (docs/design/s-audit.md Interpretation 2). */
+        audit: ten('project.audit.nav.acts'),
+        models: ten('project.audit.nav.models'),
+        jobs: ten('project.audit.nav.jobs'),
       }}
     >
       {children}
