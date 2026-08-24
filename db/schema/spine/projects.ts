@@ -51,8 +51,15 @@ export const projects = pgTable(
     district: text('district'),
     buildingType: text('building_type'),
     storeys: integer('storeys'),
-    /** Target gross floor area in m², exact decimal — the sft display is derived, never stored. */
-    targetGfaM2: numeric('target_gfa_m2', { precision: 14, scale: 2 }),
+    /**
+     * Target gross floor area in m², exact decimal — the sft display is derived, never stored.
+     *
+     * `numeric` with no precision and no scale on purpose: Postgres then keeps the value
+     * exactly as it was written, so a project entered as `1000` reads back `1000` and one
+     * entered as `1000.5` reads back `1000.5`. A fixed scale would hand every field on every
+     * screen a rounding nobody typed, which is the opposite of what B-07 asks of a quantity.
+     */
+    targetGfaM2: numeric('target_gfa_m2'),
     notes: text('notes'),
     /** When the project left the default workspace home, or null while it is active. */
     archivedAt: timestamp('archived_at', { withTimezone: true }),

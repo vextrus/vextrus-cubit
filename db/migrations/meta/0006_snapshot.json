@@ -1,5 +1,5 @@
 {
-  "id": "fd4d58f8-80b4-4348-80a2-be440febabe5",
+  "id": "c8345d9c-443a-46d6-b6de-a48bb04ab48e",
   "prevId": "d236f2d6-4a3f-43ed-9540-e78c44e69b0f",
   "version": "7",
   "dialect": "postgresql",
@@ -852,7 +852,7 @@
         },
         "target_gfa_m2": {
           "name": "target_gfa_m2",
-          "type": "numeric(14, 2)",
+          "type": "numeric",
           "primaryKey": false,
           "notNull": false
         },

@@ -18,10 +18,10 @@ import { notFound, redirect } from 'next/navigation';
 import './settings.css';
 import { TenantAdmin } from './tenant-admin';
 import type { InvitationView, MemberView } from './tenant-admin';
-import { ten } from '../../strings';
-import { administers, listInvitations, listMembers } from '../../../../modules/spine/members';
-import { SIGN_IN_PATH, tenantContext } from '../../../../server/session';
-import { tenantPath } from '../../../../ui/shell';
+import { ten } from '../../../strings';
+import { administers, listInvitations, listMembers } from '../../../../../modules/spine/members';
+import { SIGN_IN_PATH, tenantContext } from '../../../../../server/session';
+import { tenantPath } from '../../../../../ui/shell';
 
 /** Where the invitations empty state's action goes — the one thing a reader manages today. */
 const SESSIONS_SEGMENT = 'sessions';

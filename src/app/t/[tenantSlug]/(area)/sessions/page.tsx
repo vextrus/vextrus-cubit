@@ -11,9 +11,9 @@ import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { SessionList } from './session-list';
 import type { SessionRow } from './session-list';
-import { ten } from '../../strings';
-import { auth } from '../../../../server/auth';
-import { SIGN_IN_PATH, tenantContext } from '../../../../server/session';
+import { ten } from '../../../strings';
+import { auth } from '../../../../../server/auth';
+import { SIGN_IN_PATH, tenantContext } from '../../../../../server/session';
 
 /** What better-auth's session list gives back, reduced to what the row needs. */
 interface ListedSession {

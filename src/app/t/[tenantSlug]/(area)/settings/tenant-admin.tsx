@@ -19,12 +19,12 @@
  * it is open. The keyboard behaviour, the accessible name and the tokens are the primitive's.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button } from '../../../../ui/primitives';
-import { PermissionDenied } from '../../../../ui/patterns';
-import { REFUSALS } from '../../../../core/errors';
+import { Badge, Button } from '../../../../../ui/primitives';
+import { PermissionDenied } from '../../../../../ui/patterns';
+import { REFUSALS } from '../../../../../core/errors';
 import { AreaEmptyState } from '../area-empty-state';
-import { around, fill, ten } from '../../strings';
-import type { TenantStringKey } from '../../strings';
+import { around, fill, ten } from '../../../strings';
+import type { TenantStringKey } from '../../../strings';
 import {
   inviteMemberAction,
   removeMemberAction,

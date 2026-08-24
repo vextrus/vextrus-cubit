@@ -43,6 +43,7 @@ import {
 import { cx } from '../primitives/class-names';
 import { ShellAreaState } from './shell-area-state';
 import {
+  PROJECT_SEGMENT,
   RAIL_AREAS,
   SHELL_STATES,
   TENANT_HOME_SEGMENT,
@@ -50,7 +51,7 @@ import {
   tenantPath,
 } from './contract';
 import type { RailArea } from './contract';
-import { sh } from './strings';
+import { sh, shFill } from './strings';
 
 /** ARIA and DOM vocabulary — machine words, not copy (R-SPINE-060). */
 const TRUE = 'true';
@@ -368,10 +369,28 @@ function UserSlot({ accountEmail, signOutLabel }: UserSlotProps): ReactElement {
 
 /* ──────────────────────────────────────── the shell ──────────────────────────────────────── */
 
+/**
+ * The project the URL has open, when it has one (docs/design/s-project-settings-…
+ * Interpretation 5). `href` is where its name links: the project's own settings pane, which is
+ * its only destination at M0.
+ */
+export interface OpenProject {
+  readonly name: string;
+  readonly href: string;
+}
+
 export interface AppShellProps {
   /** The workspace the URL names, as a person reads it. */
   readonly tenantName: string;
   readonly slug: string;
+  /** The open project, on `/t/{slug}/p/{projectId}/…` and nowhere else. */
+  readonly project?: OpenProject | undefined;
+  /**
+   * URL tail → the crumb it reads as, for the panes a project route ends on. The tail rather
+   * than the area segment, because every one of them sits under the same `/p/{projectId}` and
+   * the segment alone could not tell them apart.
+   */
+  readonly paneLabels?: Readonly<Record<string, string>> | undefined;
   /** Every workspace this reader belongs to, oldest membership first (§2). */
   readonly memberships: readonly TenantOption[];
   /** The signed-in account, shown in the user slot. */
@@ -379,13 +398,15 @@ export interface AppShellProps {
   /** `tenant.signOut`, handed down: the areas' copy is the `/t` segment's table, not the shell's. */
   readonly signOutLabel: string;
   /** URL segment → breadcrumb label, for the areas the rail does not carry (Interpretation 7). */
-  readonly areaLabels?: Readonly<Record<string, string>>;
+  readonly areaLabels?: Readonly<Record<string, string>> | undefined;
   readonly children: ReactNode;
 }
 
 export function AppShell({
   tenantName,
   slug,
+  project,
+  paneLabels,
   memberships,
   accountEmail,
   signOutLabel,
@@ -398,6 +419,17 @@ export function AppShell({
 
   // R-UI-031: the URL, and nothing kept beside it, says which area is open.
   const segment = segmentOf(pathname ?? tenantPath(slug));
+
+  // Interpretation 5: a project route is inside the Projects area, so the rail's Projects item
+  // is the marked one there too — a project is where that area leads.
+  const railSegment = segment === PROJECT_SEGMENT ? RAIL_AREAS[0] : segment;
+
+  // Interpretation 5: on a project route the last crumb is the open pane, by its own label.
+  const paneLabel = useMemo(() => {
+    if (project === undefined) return undefined;
+    const parts = (pathname ?? '').split('/').filter((part) => part !== '');
+    return paneLabels?.[parts[parts.length - 1] ?? ''];
+  }, [paneLabels, pathname, project]);
 
   const crumb = useMemo(() => {
     if (segment === TENANT_HOME_SEGMENT) return undefined;
@@ -435,7 +467,12 @@ export function AppShell({
         <ul className="shell-nav">
           {RAIL_AREAS.map((area) => (
             <li key={area} className="shell-nav-row">
-              <RailItem area={area} slug={slug} current={area === segment} collapsed={collapsed} />
+              <RailItem
+                area={area}
+                slug={slug}
+                current={area === railSegment}
+                collapsed={collapsed}
+              />
             </li>
           ))}
         </ul>
@@ -457,7 +494,7 @@ export function AppShell({
             aria-label={sh('shell.breadcrumb')}
             className="shell-breadcrumb"
           >
-            {crumb === undefined ? (
+            {project === undefined && crumb === undefined ? (
               <span className="shell-crumb-current">{tenantName}</span>
             ) : (
               <>
@@ -467,10 +504,29 @@ export function AppShell({
                 >
                   {tenantName}
                 </Link>
-                <span aria-hidden={HIDDEN} className="shell-crumb-separator">
-                  /
-                </span>
-                <span className="shell-crumb-current">{crumb}</span>
+                {/* Interpretation 5: on a project route the project's own name sits between
+                    the workspace and the open pane, as an anchor to the project itself. */}
+                {project === undefined ? null : (
+                  <>
+                    <span aria-hidden={HIDDEN} className="shell-crumb-separator">
+                      /
+                    </span>
+                    <Link
+                      href={project.href}
+                      className={cx('shell-crumb-link', 'datum-focus-ring')}
+                    >
+                      {project.name}
+                    </Link>
+                  </>
+                )}
+                {paneLabel === undefined && crumb === undefined ? null : (
+                  <>
+                    <span aria-hidden={HIDDEN} className="shell-crumb-separator">
+                      /
+                    </span>
+                    <span className="shell-crumb-current">{paneLabel ?? crumb}</span>
+                  </>
+                )}
               </>
             )}
           </nav>
@@ -483,13 +539,19 @@ export function AppShell({
                   data-testid="topbar-project-switcher"
                   className="shell-project-trigger"
                 >
-                  <span className="shell-project-none">{sh('shell.topbar.project.none')}</span>
+                  <span className="shell-project-none">
+                    {project?.name ?? sh('shell.topbar.project.none')}
+                  </span>
                   <span aria-hidden={HIDDEN} className="shell-slot-chevron">
                     <ChevronDownIcon />
                   </span>
                 </Button>
               }
-              body={sh('shell.topbar.project.empty')}
+              body={
+                project === undefined
+                  ? sh('shell.topbar.project.empty')
+                  : shFill('shell.topbar.project.current', { name: project.name })
+              }
               action={{
                 href: tenantPath(slug, RAIL_AREAS[0]),
                 label: sh('shell.topbar.project.action'),

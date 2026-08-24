@@ -19,11 +19,11 @@ import {
   resendInvitation,
   revokeInvitation,
   setMemberRole,
-} from '../../../../modules/spine/members';
-import type { Invitation } from '../../../../modules/spine/members';
-import { refusalCodeOf } from '../../../../modules/spine/members';
-import type { TenantAdminCode } from '../../../../modules/spine/members';
-import { tenantContext } from '../../../../server/session';
+} from '../../../../../modules/spine/members';
+import type { Invitation } from '../../../../../modules/spine/members';
+import { refusalCodeOf } from '../../../../../modules/spine/members';
+import type { TenantAdminCode } from '../../../../../modules/spine/members';
+import { tenantContext } from '../../../../../server/session';
 
 /** What an act answers with: it worked, it was refused by code, or it did not complete. */
 export type ActOutcome<T = undefined> =

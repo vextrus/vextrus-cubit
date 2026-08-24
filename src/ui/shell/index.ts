@@ -12,12 +12,13 @@
 import './shell.css';
 
 export { AppShell } from './app-shell';
-export type { AppShellProps, TenantOption } from './app-shell';
+export type { AppShellProps, OpenProject, TenantOption } from './app-shell';
 
 export { ShellAreaState } from './shell-area-state';
 export type { ShellAreaStateProps } from './shell-area-state';
 
 export {
+  PROJECT_SEGMENT,
   RAIL_AREAS,
   SHELL_SHAPES,
   SHELL_STATES,

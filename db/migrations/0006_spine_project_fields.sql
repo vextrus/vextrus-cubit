@@ -3,7 +3,7 @@ ALTER TABLE "projects" ADD COLUMN "site_address" text;--> statement-breakpoint
 ALTER TABLE "projects" ADD COLUMN "district" text;--> statement-breakpoint
 ALTER TABLE "projects" ADD COLUMN "building_type" text;--> statement-breakpoint
 ALTER TABLE "projects" ADD COLUMN "storeys" integer;--> statement-breakpoint
-ALTER TABLE "projects" ADD COLUMN "target_gfa_m2" numeric(14, 2);--> statement-breakpoint
+ALTER TABLE "projects" ADD COLUMN "target_gfa_m2" numeric;--> statement-breakpoint
 ALTER TABLE "projects" ADD COLUMN "notes" text;--> statement-breakpoint
 ALTER TABLE "projects" ADD COLUMN "archived_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_building_type_check" CHECK ("projects"."building_type" is null or "projects"."building_type" in ('residential', 'commercial', 'mixed', 'industrial', 'infrastructure'));--> statement-breakpoint

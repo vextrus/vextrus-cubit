@@ -9,10 +9,11 @@
 export const TENANT_STRINGS = Object.freeze({
   'tenant.nav.sessions': 'Sessions',
   'tenant.signOut': 'Sign out',
-  'tenant.home.empty.title': 'No projects in this workspace yet.',
+  /* S-Home §3: the teaching empty state, re-worded now that a project can be created. */
+  'tenant.home.empty.title': 'No projects yet.',
   'tenant.home.empty.teach':
-    'This is where your projects will appear. Review your active sessions in the meantime.',
-  'tenant.home.empty.action': 'View sessions',
+    'Create the first project. It starts with a name and a code; drawings and measurement follow from there.',
+  'tenant.home.empty.action': 'Create a project',
   'tenant.sessions.title': 'Sessions',
   'tenant.sessions.lead':
     'Every device signed in to your account. Revoking a session signs that device out immediately.',
@@ -27,10 +28,11 @@ export const TENANT_STRINGS = Object.freeze({
   'tenant.projects.empty.title': 'No projects yet.',
   'tenant.projects.empty.teach': 'Create a project, then upload a drawing to start measuring.',
   'tenant.projects.empty.action': 'Create a project',
-  /* §4: the action is honest about what it can do today — creating projects is deferred. */
+  /* s-home §4: the create Dialog's own head, now that the form is behind it. */
   'tenant.projects.create.title': 'Create a project',
   'tenant.projects.create.body':
-    'Creating projects is not available yet. A project will start with a name and its first drawing upload.',
+    "Name the project and give it a code. Everything else here is optional and can be changed later in the project's settings.",
+  /* s-home Interpretation 2: the value stands, but the SAMPLE offer is out of scope at M0. */
   'tenant.projects.create.sample':
     'A sample project, clearly labelled SAMPLE, will also be available to explore.',
   'tenant.books.title': 'Books',
@@ -94,6 +96,91 @@ export const TENANT_STRINGS = Object.freeze({
    * this pane's to do (Interpretation 2). The seven dimensionless parameters say `ratio`,
    * because an empty unit cell is silence and silence is never lawful (Interpretation 3).
    */
+  /*
+   * S-Home — the projects grid, the create form and recent documents
+   * (docs/design/s-home.md §8, verbatim).
+   */
+  'project.home.projectsTitle': 'Projects',
+  'project.home.create': 'New project',
+  'project.home.status.active': 'Active',
+  'project.home.status.archived': 'Archived',
+  'project.home.stats.sheets': 'Sheets',
+  'project.home.stats.campaigns': 'Campaigns',
+  'project.home.stats.estimates': 'Estimates',
+  'project.home.stats.bids': 'Bids',
+  'project.home.lastActivity': 'Last activity {time}',
+  'project.home.showArchived': 'Show archived ({count})',
+  'project.home.hideArchived': 'Hide archived',
+  'project.home.documentsTitle': 'Recent documents',
+  'project.home.documentsNone':
+    'No documents yet. Uploaded drawings and generated documents will appear here.',
+  'project.form.name': 'Name',
+  'project.form.code': 'Code',
+  'project.form.client': 'Client',
+  'project.form.siteAddress': 'Site address',
+  'project.form.district': 'District',
+  'project.form.buildingType': 'Building type',
+  'project.form.buildingTypePlaceholder': 'Select a type',
+  'project.buildingType.residential': 'Residential',
+  'project.buildingType.commercial': 'Commercial',
+  'project.buildingType.mixed': 'Mixed',
+  'project.buildingType.industrial': 'Industrial',
+  'project.buildingType.infrastructure': 'Infrastructure',
+  'project.form.storeys': 'Storeys',
+  'project.form.gfaM2': 'Target GFA',
+  'project.form.unitM2': 'm²',
+  'project.form.notes': 'Notes',
+  'project.form.cancel': 'Cancel',
+  'project.form.submit': 'Create project',
+  'project.form.nameRequired': 'Enter a name.',
+  'project.form.codeRequired': 'Enter a code.',
+  'project.form.storeysWhole': 'Storeys must be a whole number.',
+  'project.form.failed': 'The request did not complete. Check your connection and try again.',
+  /*
+   * S-Project-Settings — the project fields pane and the participants pane
+   * (docs/design/s-project-settings-project-fields-pane-participants-pane-ruleset-pane-untouched.md
+   * §8, verbatim).
+   */
+  'project.settings.nav': 'Project settings',
+  'project.settings.nav.project': 'Project',
+  'project.settings.nav.participants': 'Participants',
+  'project.settings.nav.ruleset': 'Rule set',
+  'project.fields.title': 'Project',
+  'project.fields.lead':
+    'The details of {name} ({code}). Documents cite the project by them; measurements never read them.',
+  'project.fields.status': 'Status',
+  'project.fields.archive': 'Archive project',
+  'project.fields.restore': 'Restore project',
+  'project.fields.archivedDone': 'Project archived.',
+  'project.fields.restoredDone': 'Project restored.',
+  'project.fields.archivedNote':
+    'This project is archived and stays off the workspace home. Restore it to bring it back.',
+  'project.fields.gfaSft': '≈ {sft} sft',
+  'project.fields.gfaSftNone': 'No target GFA set.',
+  'project.fields.save': 'Save changes',
+  'project.fields.saved': 'Changes saved.',
+  'project.participants.title': 'Participants',
+  'project.participants.lead':
+    'The people on this project and the roles they hold. A role is assigned by a recorded act; the history below is that record.',
+  'project.participants.member': 'Member',
+  'project.participants.role': 'Role',
+  'project.participants.assign': 'Preview assignment',
+  'project.participants.you': 'You',
+  'project.participants.dialogTitle': 'Assign {role} to {email}',
+  'project.participants.summary.person': 'Participant',
+  'project.participants.summary.current': 'Current role',
+  'project.participants.summary.currentNone': 'Not a participant yet',
+  'project.participants.summary.proposed': 'Proposed role',
+  'project.participants.summary.principals': 'Principals after this change',
+  'project.participants.cancel': 'Cancel',
+  'project.participants.confirm': 'Confirm',
+  'project.participants.stale':
+    'The preview changed while this dialog was open. Review the updated values; confirming applies what is shown now.',
+  'project.participants.failed':
+    'This could not be confirmed — the request did not complete. Nothing was changed. Try confirming again.',
+  'project.participants.committed': 'Role assigned.',
+  'project.participants.historyTitle': 'Role history',
+  'project.participants.historyEntry': '{actor} set {member} to {role}',
   'project.ruleset.title': 'Rule set',
   'project.ruleset.lead':
     '{name} ({code}) pinned this edition when the project was created. Every measurement in the project reads these values.',

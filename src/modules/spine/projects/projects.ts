@@ -393,7 +393,15 @@ export async function participantRoster(
   const byEmail = await emailsOf(rows.map((row) => text(row, 'user_id')));
   return rows
     .slice()
-    .sort((left, right) => text(left, 'joined_at').localeCompare(text(right, 'joined_at')))
+    // Ordered by the instant itself, compared as the ordinal it is. `localeCompare` would sort
+    // two timestamps by the ambient locale's collation, which is the format seam's business and
+    // not a comparison at all (L-FMT-01).
+    .sort((left, right) => {
+      const first = Number(new Date(text(left, 'joined_at')));
+      const second = Number(new Date(text(right, 'joined_at')));
+      if (first === second) return 0;
+      return first < second ? -1 : 1;
+    })
     .map((row) => ({
       userId: text(row, 'user_id'),
       email: byEmail.get(text(row, 'user_id')) ?? '',
