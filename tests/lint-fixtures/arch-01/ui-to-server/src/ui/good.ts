@@ -1,4 +1,4 @@
-// ARCH-01: the lawful twin of ui-to-server — this import the matrix allows.
-import "../core/types";
+// ARCH-01: the lawful twin of ui-to-server — this import the matrix allows: core, as a type.
+import type { Unit } from "../core/types";
 
-export const payload = "ui-to-server";
+export type Payload = Unit;

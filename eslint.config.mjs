@@ -20,6 +20,13 @@ const MAY_IMPORT = {
   worker: ["core", "modules", "worker"],
 };
 
+/**
+ * ARCH-01 narrows one cell of the matrix beyond reachability: "src/ui imports nothing outside
+ * itself except core *types*". So ui may name src/core, but only in a form that erases — a
+ * type-only import — never a runtime value.
+ */
+const TYPE_ONLY = { ui: ["core"] };
+
 const LAYER = /(?:^|\/)src\/(core|modules|server|app|ui|worker)(?:\/|$)/;
 
 /** The layer a path belongs to — and, inside src/modules, which module owns it. */
@@ -50,6 +57,7 @@ const layerImports = {
     messages: {
       forbidden: "ARCH-01: src/{{from}} must not import src/{{to}} ({{specifier}}).",
       crossModule: "ARCH-01: module {{from}} must not import module {{to}} ({{specifier}}) — modules reach core and their own module only.",
+      valueNotType: "ARCH-01: src/{{from}} reaches src/{{to}} for types only ({{specifier}}) — use `import type`.",
     },
   },
   create(context) {
@@ -57,7 +65,7 @@ const layerImports = {
     const here = locate(file);
     if (!here) return {};
 
-    const check = (node, specifier) => {
+    const check = (node, specifier, typeOnly) => {
       if (typeof specifier !== "string") return;
       const target = targetOf(specifier, file);
       const there = target && locate(target);
@@ -68,14 +76,28 @@ const layerImports = {
       }
       if (here.layer === "modules" && there.layer === "modules" && here.module !== there.module) {
         context.report({ node, messageId: "crossModule", data: { from: here.module, to: there.module, specifier } });
+        return;
+      }
+      if (!typeOnly && here.layer !== there.layer && (TYPE_ONLY[here.layer] ?? []).includes(there.layer)) {
+        context.report({ node, messageId: "valueNotType", data: { from: here.layer, to: there.layer, specifier } });
       }
     };
 
+    // A declaration erases when it is written `import type` / `export type`, or when every one of
+    // its specifiers is. A bare side-effect import (`import "./x"`) and a dynamic `import()` both
+    // survive to runtime, so neither counts as type-only.
+    const importErases = (node) =>
+      node.importKind === "type" ||
+      (node.specifiers.length > 0 && node.specifiers.every((s) => s.importKind === "type"));
+    const exportErases = (node) =>
+      node.exportKind === "type" ||
+      ((node.specifiers ?? []).length > 0 && node.specifiers.every((s) => s.exportKind === "type"));
+
     return {
-      ImportDeclaration: (node) => check(node, node.source.value),
-      ExportNamedDeclaration: (node) => node.source && check(node, node.source.value),
-      ExportAllDeclaration: (node) => check(node, node.source.value),
-      ImportExpression: (node) => node.source.type === "Literal" && check(node, node.source.value),
+      ImportDeclaration: (node) => check(node, node.source.value, importErases(node)),
+      ExportNamedDeclaration: (node) => node.source && check(node, node.source.value, exportErases(node)),
+      ExportAllDeclaration: (node) => check(node, node.source.value, node.exportKind === "type"),
+      ImportExpression: (node) => node.source.type === "Literal" && check(node, node.source.value, false),
     };
   },
 };
@@ -184,13 +206,20 @@ const noImportCycle = {
   },
   create(context) {
     const file = resolve(context.filename ?? context.getFilename());
+    // Every edge kind the traversal below can follow must also be an edge it can report on, or a
+    // cycle written entirely in `export … from` / `import()` closes with nothing naming it.
+    const check = (node, specifier) => {
+      if (typeof specifier !== "string") return;
+      const target = resolveInTree(file, specifier);
+      if (target && target !== file && reaches(target, file, new Set([file, target]), 0)) {
+        context.report({ node, messageId: "cycle", data: { specifier } });
+      }
+    };
     return {
-      ImportDeclaration(node) {
-        const target = resolveInTree(file, String(node.source.value));
-        if (target && target !== file && reaches(target, file, new Set([file, target]), 0)) {
-          context.report({ node, messageId: "cycle", data: { specifier: node.source.value } });
-        }
-      },
+      ImportDeclaration: (node) => check(node, node.source.value),
+      ExportNamedDeclaration: (node) => node.source && check(node, node.source.value),
+      ExportAllDeclaration: (node) => check(node, node.source.value),
+      ImportExpression: (node) => node.source.type === "Literal" && check(node, node.source.value),
     };
   },
 };
@@ -276,6 +305,14 @@ export default tseslint.config(
   {
     files: ["**/*.js", "**/*.mjs", "**/*.cjs", ...TS],
     plugins: { cubit },
+    linterOptions: {
+      // Q-08 bans rule-suppression comments, and cubit/no-rule-suppression reports them — but an
+      // inline directive silences every report on the file including that one, so a single blanket
+      // suppression at the top of a file would switch off the NEVERs and the ARCH-01 matrix while
+      // `eslint .` still exited 0. Directives are therefore not honoured at all: the rule reports
+      // the comment, and nothing the comment says can call the reporting off (B-18).
+      noInlineConfig: true,
+    },
     languageOptions: {
       ecmaVersion: 2024,
       sourceType: "module",

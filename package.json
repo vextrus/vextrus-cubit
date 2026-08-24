@@ -10,7 +10,7 @@
   "scripts": {
     "verify": "node scripts/verify.mjs",
     "checkup": "node scripts/checkup.mjs",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "node scripts/e2e.mjs",

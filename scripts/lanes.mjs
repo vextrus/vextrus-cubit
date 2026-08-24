@@ -64,9 +64,19 @@ function containsUnitTest(dir, testsRoot) {
   return false;
 }
 
-/** The first declared root a lane is missing — what its recorded skip must name (B-23). */
+/**
+ * A lane whose declared roots all exist can still be a stub, because its probe found no work there.
+ * Its skip must then name something genuinely absent rather than a directory that is plainly on
+ * disk — a skip naming a present root is exactly the toolchain lie B-23 forbids. The unit lane's
+ * real input is a test file of vitest's own corpus, so the skip names that corpus.
+ */
+const PROBED_INPUT = { unit: UNIT_INCLUDE[0] };
+
+/** The declared input a lane is missing — what its recorded skip must name (B-23). */
 export function absentRootOf(entry, rootDir) {
-  return entry.inputRoots.find((rel) => !existsSync(join(rootDir, rel))) ?? entry.inputRoots[0];
+  const missing = entry.inputRoots.find((rel) => !existsSync(join(rootDir, rel)));
+  if (missing !== undefined) return missing;
+  return PROBED_INPUT[entry.lane] ?? entry.inputRoots[0];
 }
 
 /** The recorded-skip line every stub prints, in the contract's byte-exact form. */
@@ -104,7 +114,9 @@ export function rosterLine(entry, rootDir) {
 export const LANE_COMMANDS = {
   typegen: [["next", ["typegen"]]],
   typecheck: [["tsc", ["--noEmit"]]],
-  lint: [["eslint", ["."]]],
+  // `--max-warnings=0`: a rule set to `warn` would otherwise report a standing violation and still
+  // exit 0 — a green lane over a live finding (Q-16, B-23). Mirrors the `lint` script.
+  lint: [["eslint", [".", "--max-warnings=0"]]],
   unit: [["vitest", ["run"]]],
   "db-drift": [["node", ["scripts/db-drift.mjs"]]],
   "method-hash": [["node", ["scripts/method-hash.mjs"]]],

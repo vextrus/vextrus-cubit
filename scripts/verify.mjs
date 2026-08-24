@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // `pnpm verify` — the gate the whole contract hangs on (V-VERIFY). It walks the V-VERIFY lanes in
-// order, printing one recorded line per lane before it acts on it: `RUN <lane>` for a lane whose
-// input roots exist, `SKIP <lane>: input root <path> absent` for one whose inputs the tree does not
-// have yet (B-23). Armed lanes run fail-fast; the wall time is printed; the exit code is the whole
+// order, printing one recorded line per lane — the whole roster — before it acts on any of them:
+// `RUN <lane>` for a lane whose input roots exist, `SKIP <lane>: input root <path> absent` for one
+// whose inputs the tree does not have yet (B-23). Armed lanes run fail-fast; wall time printed; the
 // contract. Which lanes are armed is never decided here — scripts/lanes.mjs probes the tree.
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -39,9 +39,14 @@ function runLane(lane) {
 const started = process.hrtime.bigint();
 const elapsed = () => (Number(process.hrtime.bigint() - started) / 1e9).toFixed(1);
 
+// The roster is decided, and printed whole, before any lane acts — so a failing run reports the
+// same nine lines as a passing one. Printing it lane-by-lane would truncate it at the first
+// failure, making the roster a function of the exit code (B-23).
+const roster = deriveLaneRoster(rootDir);
+for (const entry of roster) process.stdout.write(`${rosterLine(entry, rootDir)}\n`);
+
 let failure = 0;
-for (const entry of deriveLaneRoster(rootDir)) {
-  process.stdout.write(`${rosterLine(entry, rootDir)}\n`);
+for (const entry of roster) {
   if (!entry.armed) continue;
   failure = runLane(entry.lane);
   if (failure !== 0) break;
