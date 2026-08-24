@@ -1,44 +1,8 @@
-# Installed trees — the lockfile is the record, not the tree.
+# Founder seed — inc-000 Foundation owns and extends this (C-06).
 node_modules/
-cad/.venv/
-.venv/
-__pycache__/
-
-# Build output. Each lane builds into a distDir of its own so none of them consumes or
-# poisons another's: verify uses .next-verify (V-VERIFY), `pnpm e2e` uses .next-e2e and
-# serves it on 3211 (V-E2E), and `next dev` keeps .next.
-.next/
-.next-verify/
-.next-e2e/
-out/
+.next*/
 dist/
-*.tsbuildinfo
-next-env.d.ts
-
-# Stored objects. SEAM-STORAGE's fs driver keeps content-addressed objects under
-# CUBIT_STORAGE_DIR, which defaults to var/storage in dev; tests point it at a temp dir.
-# The objects are a dev machine's uploads, never the repo's (R-SPINE-021).
-var/
-
-# Scratch. Schema drift generates into .scratch/ so the tree stays untouched
-# (V-VERIFY: "drizzle-kit generate into scratch, tree untouched").
-.scratch/
-
-# Gate-owned artifacts. scripts/traceability.mjs generates docs/traceability.json at gate
-# time; the script ships, the JSON is never committed by an increment (C-10, leaf note).
-docs/traceability.json
-
-# Test and tool output.
-.ruff_cache/
-.pytest_cache/
 coverage/
-test-results/
-playwright-report/
-blob-report/
-.playwright/
-
-# Local machine state.
-.env
-.env.*
+*.log
+.env*
 !.env.example
-.DS_Store
