@@ -40,6 +40,8 @@ import type { ActType } from './vocabulary';
  */
 interface ActRendering {
   preview(ctx: ActCtx, input: unknown): Promise<object>;
+  /** The act's own precondition on the state it would leave — see `commitAct`'s ordering. */
+  guard(consequence: object): void;
   commit(ctx: ActCtx, consequence: object): Promise<{ actId: string }>;
 }
 
@@ -119,10 +121,12 @@ export async function previewAct<T extends ActType>(
  *
  * The order of the three refusals is the order of the questions. An actor who may not perform
  * the act is refused before any question about state is asked — the answer would tell them
- * something they are not entitled to know. Then the Consequence is recomputed, which is where a
- * rendering's own guard speaks (L-ACT-03's last principal). Only then is the caller's digest
- * compared: a digest that current state does not produce means the human confirmed a state that
- * is no longer there, and nothing is written.
+ * something they are not entitled to know. Then the Consequence is recomputed and the
+ * rendering's own guard speaks (L-ACT-03's last principal): an act that cannot be performed at
+ * all is refused for that, and not for the state having moved underneath it — a caller told
+ * `CONSEQUENCES_NOT_CARRIED` would confirm again and be refused again. Only then is the
+ * caller's digest compared: a digest that current state does not produce means the human
+ * confirmed a state that is no longer there, and nothing is written.
  */
 export async function commitAct<T extends ActType>(
   ctx: ActCtx,
@@ -133,6 +137,7 @@ export async function commitAct<T extends ActType>(
   const rendering = renderingOf(actType);
   await checkPermission(ctx, actType, projectOf(input));
   const consequence = await rendering.preview(ctx, input);
+  rendering.guard(consequence);
   if (consequenceDigest(consequence) !== digest) {
     throw new ActSeamRefusal(REFUSALS.CONSEQUENCES_NOT_CARRIED.code, { actType });
   }

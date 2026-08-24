@@ -320,6 +320,45 @@ describe('the act log, as Postgres holds it (L-ACT-01, L-ACT-03, V-DB)', () => {
     }
   });
 
+  it('L-ACT-03: the last principal cannot be demoted away, and the preview still shows why', async () => {
+    // The guard is the commit's, not the preview's: `principalsAfter` is in the Consequence
+    // precisely so a dialog can show the state that is about to be refused, and a caller that
+    // could not preview could not obtain the digest a commit requires.
+    const found = await fixture();
+    const system = await systemClient();
+    const { previewAct, commitAct, ACT_TYPE, ROLE } = await actSeam();
+    const actType = String(ACT_TYPE['ASSIGN_PARTICIPANT_ROLE']);
+    const demotion = assignment(found.projectId, found.principalId, String(ROLE['MEASURER']));
+
+    const previewed = await previewAct(found.ctx, actType, demotion);
+    expect(
+      previewed.consequence['principalsAfter'],
+      'the preview refused instead of showing the state the guard refuses',
+    ).toBe(0);
+
+    const before = await query(
+      system,
+      'select count(*)::int as n from public.acts where project_id = $1',
+      [found.projectId],
+    );
+    let refused: unknown;
+    try {
+      await commitAct(found.ctx, actType, demotion, previewed.digest);
+    } catch (error: unknown) {
+      refused = error;
+    }
+    expect(
+      String((refused as { code?: unknown })?.code ?? ''),
+      'demoting the only principal was allowed',
+    ).toBe('PROJECT_WOULD_HAVE_NO_PRINCIPAL');
+    const after = await query(
+      system,
+      'select count(*)::int as n from public.acts where project_id = $1',
+      [found.projectId],
+    );
+    expect(after[0]?.['n'], 'the refused demotion still wrote an act').toBe(before[0]?.['n']);
+  });
+
   it('R-SPINE-011: the history the seam reads is the history the database holds, oldest first', async () => {
     const found = await fixture();
     const system = await systemClient();

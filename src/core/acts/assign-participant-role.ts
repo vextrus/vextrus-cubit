@@ -96,27 +96,34 @@ async function consequenceOf(
   };
 }
 
-/**
- * L-ACT-03: "the last PRINCIPAL cannot be removed (`PROJECT_WOULD_HAVE_NO_PRINCIPAL`)."
- *
- * Checked on the *preview*, and so on the commit that recomputes it: an act that cannot be
- * performed is not one a human should be shown the consequences of and invited to confirm. M0
- * has no act that removes a participant outright, so a demotion is the only way a project can
- * lose its last principal.
- */
-function refuseIfPrincipalless(consequence: AssignParticipantRoleConsequence): void {
-  if (consequence.principalsAfter > 0) return;
-  throw new ActSeamRefusal(REFUSALS.PROJECT_WOULD_HAVE_NO_PRINCIPAL.code, {
-    actType: ACT_TYPE.ASSIGN_PARTICIPANT_ROLE,
-  });
-}
-
 /** The pair L-ACT-02 makes every act type: what it would do, and doing it. */
 export const assignParticipantRole = {
+  /**
+   * L-ACT-02: a preview is a read, and it answers with what the act *would* do — including when
+   * the answer is one the guard below will refuse.
+   *
+   * `principalsAfter: 0` is exactly the state R-UI-021's dialog has to be able to show: a
+   * preview that refused it could never be observed, and a caller could not even obtain the
+   * digest the commit it is about to be refused for requires. So the only refusal a preview
+   * makes is the seam's own, about authority.
+   */
   async preview(ctx: ActCtx, input: unknown): Promise<AssignParticipantRoleConsequence> {
-    const consequence = await consequenceOf(ctx, readInput(input));
-    refuseIfPrincipalless(consequence);
-    return consequence;
+    return consequenceOf(ctx, readInput(input));
+  },
+
+  /**
+   * L-ACT-03: "the last PRINCIPAL cannot be removed (`PROJECT_WOULD_HAVE_NO_PRINCIPAL`)."
+   *
+   * The commit's own precondition, checked by the seam before the digest is compared: a project
+   * about to lose its last principal is refused for what it would do, not for having been
+   * confirmed against a state that moved. M0 has no act that removes a participant outright, so
+   * a demotion is the only way a project can get there.
+   */
+  guard(consequence: AssignParticipantRoleConsequence): void {
+    if (consequence.principalsAfter > 0) return;
+    throw new ActSeamRefusal(REFUSALS.PROJECT_WOULD_HAVE_NO_PRINCIPAL.code, {
+      actType: ACT_TYPE.ASSIGN_PARTICIPANT_ROLE,
+    });
   },
 
   /**
