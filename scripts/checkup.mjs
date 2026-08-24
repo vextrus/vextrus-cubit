@@ -1,20 +1,23 @@
 #!/usr/bin/env node
 // `pnpm checkup` — the machine's report (V-CHECKUP), run at session start. It prints every pinned
-// tool beside the version this machine actually has, then the database, the ports, the storage
-// root and the environment. It probes what the tree needs *today*: a tool or probe only a stub
-// lane would need is reported and forgiven, one an armed lane needs is a failure (B-23).
+// tool beside the version this machine actually has and the hash of the binary that answered, then
+// the database (reachability, roles, ledger drift), the ports, the storage root and the
+// environment. It probes what the tree needs *today*: a tool or probe only a stub lane would need
+// is reported and forgiven, one an armed lane needs is a failure (B-23).
 //
-// Owed, and deliberately absent today (B-23: this header states what the file does *now*):
-//   · database roles and ledger drift — V-CHECKUP names both; both read the database, which
-//     inc-000 scopes out. They land with the increment that delivers src/server/db/schema.
-//   · tool hashes beside the pins — scripts/pins.json holds bare version strings; hashes need a
-//     provenance source this tree does not have yet.
+// Two V-CHECKUP items are recorded skips rather than probes today, each with an unforgeable
+// trigger — the genuine existence of src/server/db/schema, which inc-000 scopes out:
+//   · database roles · ledger drift. Both read a database this tree has no schema for. The moment
+//     that root exists the skip is gone and checkup refuses loudly until the probes land (B-23).
+// The pins themselves carry versions, not hashes (scripts/pins.json), so the hash line reports the
+// binary this machine actually ran and compares against nothing: want=UNPINNED.
 // Amending this file is a `toolchain`-tagged increment's business (C-06).
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { Socket, createServer } from "node:net";
 import { join, resolve } from "node:path";
-import { LANE_PROBES, LANE_TOOLS, deriveLaneRoster } from "./lanes.mjs";
+import { DB_INPUT_ROOT, LANE_PROBES, LANE_TOOLS, deriveLaneRoster, skipLine } from "./lanes.mjs";
 
 const rootDir = resolve(process.cwd());
 const read = (rel) => readFileSync(join(rootDir, rel), "utf8");
@@ -61,6 +64,36 @@ const FOUND = {
   libredwg: () => probeVersion("dwgread"),
 };
 
+/** The executable each pinned tool answers with — the thing a hash can be taken of. */
+const BINARY = {
+  node: () => process.execPath,
+  pnpm: () => onPath("pnpm"),
+  uv: () => onPath("uv"),
+  typst: () => onPath("typst"),
+  libredwg: () => onPath("dwgread"),
+};
+
+/** The path `command` resolves to on this machine's PATH, or null when it has none. */
+function onPath(command) {
+  const result = spawnSync("sh", ["-c", `command -v ${command}`], { encoding: "utf8", timeout: 20_000 });
+  const path = String(result.stdout ?? "").trim().split("\n")[0];
+  return result.status === 0 && path && existsSync(path) ? path : null;
+}
+
+/**
+ * The sha256 of the binary that answered — the provenance half of V-CHECKUP's "pins and hashes".
+ * scripts/pins.json stores versions and no hashes, so this reports and compares against nothing.
+ */
+function hashOf(tool) {
+  const path = BINARY[tool]();
+  if (!path) return "ABSENT";
+  try {
+    return `sha256:${createHash("sha256").update(readFileSync(path)).digest("hex")}`;
+  } catch {
+    return "ABSENT";
+  }
+}
+
 function reachable(host, port) {
   return new Promise((done) => {
     const socket = new Socket();
@@ -95,6 +128,7 @@ const want = pins();
 for (const [tool, pin] of Object.entries(want)) {
   const found = FOUND[tool]();
   process.stdout.write(`pin ${tool} want=${pin} found=${found}\n`);
+  process.stdout.write(`hash ${tool} want=UNPINNED found=${hashOf(tool)}\n`);
   // A pin a wrong version satisfies is not a pin: 0.12.50 must not pass for 0.12.5, so the
   // comparison is equality on the bare version, never a prefix.
   const agrees = found !== "ABSENT" && bare(found) === bare(pin);
@@ -106,6 +140,19 @@ const PG_PORT = 5544;
 const pgUp = await reachable("127.0.0.1", PG_PORT);
 process.stdout.write(`postgres 127.0.0.1:${PG_PORT} ${pgUp ? "reachable" : "unreachable"}\n`);
 if (!pgUp && needed(LANE_PROBES, "postgres").length > 0) failures.push("postgres 5544");
+
+// V-CHECKUP's roles and ledger drift both read a database this tree has no schema for. While the
+// schema root is absent each is a recorded skip; the moment it exists the skip is gone and checkup
+// refuses loudly rather than passing on a probe that never ran (B-23, C-06).
+const dbSchemaExists = existsSync(join(rootDir, DB_INPUT_ROOT));
+for (const probe of ["roles", "ledger-drift"]) {
+  if (dbSchemaExists) {
+    process.stdout.write(`${probe} probe not implemented\n`);
+    failures.push(`${probe} (${DB_INPUT_ROOT} exists; its probe has not landed)`);
+  } else {
+    process.stdout.write(`${skipLine(probe, DB_INPUT_ROOT)}\n`);
+  }
+}
 
 const ports = [Number(process.env.PORT) || 3210, Number(process.env.E2E_PORT) || 3211];
 for (const port of ports) {
