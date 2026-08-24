@@ -201,17 +201,23 @@ export class DesignGalleryPage {
   }
 
   /**
-   * The focus ring R-UI-012 requires: 2 px solid, in the active theme's own `--cobalt-500`.
+   * The focus ring R-UI-012 requires: 2 px solid, in the active theme's own `--beam-500`.
+   *
+   * AM-04 (arbitration, 2026-08-24, TEST_AMENDED): AM-04 supersedes R-UI-001's `one accent
+   * "cobalt" for interactive` with `one accent "beam"`, and deletes the cobalt group
+   * wholesale rather than aliasing it — so the interactive accent this ring is painted in is
+   * `--beam-500`. The assertion's shape is unchanged: the active theme resolves the accent
+   * token, and outline-color equals it.
    *
    * The colour is resolved from the token at run time and never written as a literal — the
-   * two themes carry different cobalt values, and a hard-coded one would pass in light and
-   * be wrong in dark (R-UI-001).
+   * two themes carry different beam values, and a hard-coded one would pass in light and
+   * be wrong in dark (R-UI-001 as amended by AM-04).
    */
   async expectFocusRing(target: Locator): Promise<void> {
     const ring = await target.evaluate((element) => {
       const style = getComputedStyle(element);
       const token = getComputedStyle(document.documentElement)
-        .getPropertyValue('--cobalt-500')
+        .getPropertyValue('--beam-500')
         .trim();
       // The token is resolved through the browser's own colour parser rather than by hand:
       // `outline-color` is serialised as `rgb(...)`, and comparing that to a hex string is
@@ -231,11 +237,12 @@ export class DesignGalleryPage {
       };
     });
 
-    expect(ring.token, 'the active theme resolves no --cobalt-500').not.toBe('');
+    // AM-04: the interactive accent is beam; the theme carries no cobalt at all.
+    expect(ring.token, 'the active theme resolves no --beam-500 (AM-04)').not.toBe('');
     expect(ring.focusVisible, 'the element does not match :focus-visible').toBe(true);
     expect(ring.width, 'the focus ring is not 2 px (R-UI-012)').toBe('2px');
     expect(ring.style, 'the focus ring is not a solid outline (R-UI-012)').toBe('solid');
-    expect(ring.colour, 'the focus ring is not the theme’s --cobalt-500 (R-UI-012)').toBe(
+    expect(ring.colour, 'the focus ring is not the theme’s --beam-500 (R-UI-012, AM-04)').toBe(
       ring.expected,
     );
   }

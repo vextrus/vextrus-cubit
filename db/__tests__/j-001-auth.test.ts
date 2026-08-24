@@ -23,8 +23,9 @@
  *   proved by making the *database* refuse a write inside the mint and then showing that
  *   nothing of the mint survives — no knowledge of how the function spells its statements.
  *
- *   LANE — `pnpm e2e --journey J-001`, then the cold e2e database it leaves behind, then the
- *   rate limit, probed against the build that lane already produced.
+ *   LANE — the e2e lane (build, cold database, migrations, seed, `--journey J-000`), then
+ *   J-001 itself against the build it left, then the cold e2e database both filled, then the
+ *   rate limit, probed against that same build.
  *
  * Nothing here reads src/server/** or src/app/** to find out what the Builder meant. The
  * function under test is loaded by its exported name; everything else is an exit code, a
@@ -597,7 +598,8 @@ async function allowInsertsOn(owner: Client, table: string): Promise<void> {
 /* ────────────────────────────────────── LANE ────────────────────────────────────── */
 
 /**
- * `pnpm e2e --journey J-001`, run once for every claim that reads it.
+ * The lane, run once for every claim that reads it: a build, a cold database, migrations and
+ * the seed, and the journey this node's gate line names.
  *
  * A `beforeAll` that threw would report its tests as skipped rather than failed, so the run
  * is memoised into a promise each test awaits: a lane that cannot start fails every test
@@ -606,15 +608,58 @@ async function allowInsertsOn(owner: Client, table: string): Promise<void> {
  * AC-6 names the composite invocation `pnpm e2e --journey J-001 --journey J-000`. The runner
  * keeps the *last* `--journey` it is given (scripts/e2e.mjs `parseArgs`, and scripts/** is
  * out of this increment's scope), so that command runs J-000 alone and would be green
- * whatever this increment did to J-001. Running `--journey J-001` on its own is strictly
- * stronger; J-000's half of AC-6 is pinned above, byte for byte, and by the default
- * `pnpm e2e` run in db/__tests__/e2e-lane.test.ts, which greps nothing and therefore runs
- * both journeys. Recorded as an Interpretation in the handoff.
+ * whatever this increment did to J-001. This file therefore runs the two halves separately:
+ * the lane on J-000 here, and J-001 itself in `journeyRun()` below — strictly stronger than
+ * the composite, because both halves are asserted rather than one.
+ *
+ * AM-04 / AM-05 (arbitration, 2026-08-24, TEST_AMENDED): J-001's two `toHaveScreenshot`
+ * checkpoints compare against `tests/e2e/baselines/auth/sign-{up,in}.png`, captured from the
+ * superseded v1 paint (cobalt accent, Inter / JetBrains Mono). Those baselines are inc-018's
+ * to regenerate; until they land, a screenshot comparison here would assert the design the
+ * Bible now forbids — and, because the sign-up comparison is the first statement of its test,
+ * it would also take the functional evidence (users, memberships, mail, sessions) down with
+ * it. So J-001 is run with Playwright's own `--ignore-snapshots`: every functional and axe
+ * assertion of the journey runs and is asserted; the snapshot comparisons are the only thing
+ * left out, and they belong to a node that owns those pixels.
  */
+const GATE_JOURNEY = 'J-000';
+const LANE_JOURNEY = 'J-001';
+
 let laneOnce: Promise<Ran> | undefined;
 function laneRun(): Promise<Ran> {
-  laneOnce ??= run('pnpm', ['run', 'e2e', '--journey', 'J-001']);
+  laneOnce ??= run('pnpm', ['run', 'e2e', '--journey', GATE_JOURNEY]);
   return laneOnce;
+}
+
+/**
+ * J-001 itself, against the build the lane produced and the cold database it left seeded,
+ * served by `servedApp()`. Playwright is invoked through the same config and the same pinned
+ * binary the lane uses (scripts/e2e.mjs); `--ignore-snapshots` is the runner's own switch for
+ * "run the test, skip its snapshot comparisons", so no assertion is rewritten to say less.
+ *
+ * DATABASE_URL is the lane's scratch database: tests/e2e/pages/auth.ts reads the mail outbox
+ * through it, and E2E_PORT is what playwright.config.ts builds its baseURL from.
+ */
+let journeyOnce: Promise<Ran> | undefined;
+function journeyRun(): Promise<Ran> {
+  journeyOnce ??= (async () => {
+    const { port } = await servedApp();
+    return run(
+      at('node_modules', '.bin', 'playwright'),
+      ['test', '--config', 'playwright.config.ts', '--grep', LANE_JOURNEY, '--ignore-snapshots'],
+      {
+        env: {
+          DATABASE_URL: urlFor(E2E_DB, APP_ROLE),
+          CUBIT_E2E_DB: E2E_DB,
+          NEXT_DIST_DIR: E2E_DIST,
+          E2E_PORT: String(port),
+          FONTCONFIG_FILE: at('tests', 'e2e', 'setup', 'fonts.conf'),
+          FORCE_COLOR: '0',
+        },
+      },
+    );
+  })();
+  return journeyOnce;
 }
 
 /**
@@ -628,7 +673,7 @@ function servedApp(): Promise<{ port: number; stop: () => Promise<void> }> {
     await laneRun();
     if (!existsSync(at(E2E_DIST))) {
       throw new Error(
-        `${E2E_DIST} is not in the tree — \`pnpm e2e --journey J-001\` did not get as far as a build`,
+        `${E2E_DIST} is not in the tree — \`pnpm e2e --journey ${GATE_JOURNEY}\` did not get as far as a build`,
       );
     }
     const port = await freePort();
@@ -648,16 +693,28 @@ afterAll(async () => {
 
 describe('inc-008 — the journey lane and the rate limit (AC-1, AC-3, AC-4, AC-5, AC-6)', () => {
   it(
-    'AC-6 (V-E2E, C-09): `pnpm e2e --journey J-001` exits 0 and says so, and the cold database it leaves shows every user minted into a personal tenant and all three kinds of auth mail sent',
+    'AC-6 (V-E2E, C-09): the lane exits 0 and says so, J-001 passes against the build it left, and the cold database shows every user minted into a personal tenant and all three kinds of auth mail sent',
     async (ctx) => {
       // A nested `pnpm test:db` must not spawn a lane of its own (support/lanes.ts).
       if (isNested()) ctx.skip();
       const ran = await laneRun();
 
-      expect(ran.code, `pnpm e2e --journey J-001 exited ${ran.code}\n${tail(ran.merged)}`).toBe(0);
+      expect(
+        ran.code,
+        `pnpm e2e --journey ${GATE_JOURNEY} exited ${ran.code}\n${tail(ran.merged)}`,
+      ).toBe(0);
       // The contract line is on stdout; the build, the migrations and Playwright's report
       // are detail on stderr.
       expect(lastLine(ran.stdout), tail(ran.merged)).toMatch(LANE_OK);
+
+      // AM-04 / AM-05: J-001's own assertions — functional and axe, its snapshot comparisons
+      // deferred to inc-018's re-baseline — against the build and the seeded database the
+      // lane left behind. Everything below reads the rows this run produced.
+      const journey = await journeyRun();
+      expect(
+        journey.code,
+        `J-001 exited ${journey.code} (snapshots ignored)\n${tail(journey.merged)}`,
+      ).toBe(0);
 
       // The journey ran against a cold database the lane made, migrated and seeded, and it
       // is still there afterwards. What it holds is the evidence for AC-1, AC-3 and AC-4:
