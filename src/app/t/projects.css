@@ -458,6 +458,16 @@
   animation: project-fade var(--motion-state-duration) var(--motion-ease);
 }
 
+/*
+ * §9: the create Dialog arrives as one thing. The surface fades in on primitives §15's clock,
+ * and the form inside it fades on the same one — otherwise the form is settled while the
+ * surface around it is still half transparent, and a colour read on that frame is a value
+ * neither state paints (an accessibility scan's reading included).
+ */
+.project-dialog .project-form {
+  animation: project-fade var(--motion-state-duration) var(--motion-ease);
+}
+
 /* The dialog's own footer, and the create Dialog's width (s-home §4). */
 
 .project-dialog {
@@ -487,6 +497,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .project-card,
+  .project-dialog .project-form,
   .project-field-error,
   .project-form-error,
   .project-form-saved,

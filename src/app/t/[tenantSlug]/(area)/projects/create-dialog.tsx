@@ -12,8 +12,14 @@
  * close handler focuses a `triggerRef` that is null here — which drops the reader on `<body>`
  * and makes them tab the whole shell again (R-UI-060, WCAG 2.4.3). So the default is prevented
  * and the create affordance of the page being returned to takes focus once it is there.
+ *
+ * Every exit closes the surface *first* and navigates afterwards, in an effect. A modal takes
+ * the page's pointer events for itself while it is open and gives them back when it closes; a
+ * navigation started in the same gesture can unmount the whole subtree before that cleanup
+ * runs, and the page it lands on is then one no click reaches at all. Closing, committing the
+ * close, and only then moving is the order that leaves nothing behind.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from '../../../../../ui/primitives';
 import {
@@ -58,6 +64,14 @@ export function CreateProjectDialog({ tenantSlug }: CreateProjectDialogProps) {
   // The Dialog is open because the URL says so; it closes here first and navigates after, so
   // the exit is the surface's own and the address follows it in the same gesture.
   const [open, setOpen] = useState(true);
+  /**
+   * Where the closed Dialog goes. `null` is the ordinary exit — back to the address it was
+   * opened from, by going *back*: a modal that lives at its own URL is one history step, and
+   * an entry per open-and-close would make the browser's back button walk through dialogs
+   * nobody opened twice (R-UI-031: "browser back works everywhere"). A string is the project
+   * that was just created, which replaces the form rather than stacking on it.
+   */
+  const [leavingTo, setLeavingTo] = useState<string | null>(null);
   const [values, setValues] = useState<ProjectFormValues>(EMPTY_PROJECT_FORM);
   const [errors, setErrors] = useState<ProjectFormErrors>({});
   const [busy, setBusy] = useState(false);
@@ -65,8 +79,19 @@ export function CreateProjectDialog({ tenantSlug }: CreateProjectDialogProps) {
 
   const close = useCallback(() => {
     setOpen(false);
-    router.push(`/t/${tenantSlug}/projects`);
-  }, [router, tenantSlug]);
+  }, []);
+
+  useEffect(() => {
+    if (open) return;
+    if (leavingTo !== null) {
+      router.replace(leavingTo);
+      return;
+    }
+    // A fresh GET of this address has nothing behind it, so there is somewhere to go back to
+    // only when the reader arrived here from inside the app.
+    if (window.history.length > 1) router.back();
+    else router.push(`/t/${tenantSlug}/projects`);
+  }, [leavingTo, open, router, tenantSlug]);
 
   const change = useCallback((field: keyof ProjectFormValues, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
@@ -94,13 +119,14 @@ export function CreateProjectDialog({ tenantSlug }: CreateProjectDialogProps) {
       }
       // Interpretation 6: creation lands on the project's own fields pane — the saved values
       // on screen are the confirmation.
-      router.push(`/t/${tenantSlug}/p/${outcome.projectId}/settings/project`);
+      setLeavingTo(`/t/${tenantSlug}/p/${outcome.projectId}/settings/project`);
+      setOpen(false);
     } catch {
       setFailed(true);
     } finally {
       setBusy(false);
     }
-  }, [router, tenantSlug, values]);
+  }, [tenantSlug, values]);
 
   return (
     <Dialog
@@ -119,6 +145,7 @@ export function CreateProjectDialog({ tenantSlug }: CreateProjectDialogProps) {
         <DialogTitle>{ten('tenant.projects.create.title')}</DialogTitle>
         <DialogDescription>{ten('tenant.projects.create.body')}</DialogDescription>
         <form
+          className="project-form"
           data-testid="project-form"
           onSubmit={(event) => {
             event.preventDefault();

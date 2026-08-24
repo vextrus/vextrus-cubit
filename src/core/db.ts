@@ -66,6 +66,12 @@ type Statement = string | pg.QueryConfig;
  */
 const OPENS_TRANSACTION = /^\s*begin\b/i;
 
+/**
+ * The name `ScopedPool` answers to, written down where a bundler cannot rename it (see the
+ * `Object.defineProperty` below the class).
+ */
+const SCOPED_POOL_NAME = 'ScopedPool';
+
 function statementText(statement: Statement): string {
   return typeof statement === 'string' ? statement : statement.text;
 }
@@ -166,6 +172,21 @@ class ScopedPool {
     return new ScopedConnection(await pool().connect(), this.scope);
   }
 }
+
+/**
+ * The class's own name, pinned so a bundler cannot take it away.
+ *
+ * drizzle decides whether it may borrow one connection for the length of a transaction by
+ * reading `Object.getPrototypeOf(client).constructor.name` and looking for `Pool` in it. A
+ * production build renames the class — `ScopedPool` becomes `p` — so the check fails there and
+ * only there: `begin`, the caller's statements and `commit` each take a connection of their
+ * own, every statement commits by itself, and a savepoint one of them opened is gone by the
+ * time the next tries to roll back to it. Development and the vitest lanes run unminified and
+ * never see it, which is exactly what makes it worth naming here.
+ *
+ * The name is behaviour, not documentation, so it is written down as behaviour.
+ */
+Object.defineProperty(ScopedPool, 'name', { value: SCOPED_POOL_NAME });
 
 /**
  * The handle drizzle hands back. The cast is the seam's one concession to the driver's
