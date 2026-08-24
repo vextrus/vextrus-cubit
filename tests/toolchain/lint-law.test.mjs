@@ -169,6 +169,64 @@ describe("AC-3-LINT-NEVERS", () => {
     }
   }, 600_000);
 
+  // Amended after arbitration on the gate's structural stage: Q-08's exception is defined by
+  // construct, line and path — not by which detector found it — so the structural NEVER/diff scan
+  // honours it too. A finding on a marked line whose path matches the canonical glob
+  // `tests/lint-fixtures/*/bad.*` is recorded (printed with its code, never silently passed) and
+  // never blocking; an unmarked construct in the same file still blocks; the marker does nothing
+  // outside the corpus. The two guardrails are what keep that downgrade as narrow as Q-08 wrote
+  // it, and both are mechanical facts about the committed tree — so the tree carries them, rather
+  // than leaving them to the arbitration record. The detector here is ESLint because ESLint is
+  // the detector this tree owns; the constructs it finds are the constructs the scan scans.
+  it("AC-3-LINT-NEVERS: the recorded-not-blocking downgrade reaches every marked corpus line and none beyond (Q-08)", async () => {
+    const canonical = declaredCorpusDirs(repoRoot());
+    expect(canonical.length, "no fixture sits at the corpus path Q-08's exception names").toBeGreaterThan(0);
+
+    // The NEVER rule ids are whatever the canonical corpus's own payloads fire — derived, never
+    // listed, so a later increment that adds a NEVER branch extends the set by adding its fixture.
+    const neverRules = new Set();
+
+    for (const d of canonical) {
+      const file = payload(d, "bad");
+      const name = relative(repoRoot(), file);
+      const text = readFileSync(file, "utf8");
+      const marks = markedLines(text);
+      const fired = (await lint(repoRoot(), file)).messages.filter((m) => m.ruleId && !m.fatal);
+      expect(fired.length, `${name}: nothing fired, so the downgrade has nothing to record`).toBeGreaterThan(0);
+      for (const m of fired) neverRules.add(m.ruleId);
+
+      // Guardrail one — an unmarked construct in the same file still blocks. The corpus is only
+      // safe to downgrade wholesale if every construct it carries is on a marked line: one
+      // detected line without a marker is a construct that blocks, and the fixture would be a trap.
+      const unmarked = fired.filter((m) => !marks.includes(m.line)).map((m) => `${m.line}:${m.ruleId}`);
+      expect(unmarked, `${name}: detected on unmarked line(s) ${JSON.stringify(unmarked)} — an unmarked construct still blocks (Q-08)`).toEqual([]);
+
+      // Recorded, never silently passed: the gate tail prints the finding WITH its code, so every
+      // marker must actually name one.
+      for (const line of marks) {
+        const code = (text.split("\n")[line - 1].match(/\/\/ RECORDED REASON ([A-Z0-9_-]+)/) ?? [])[1];
+        expect(code, `${name}:${line}: the marker names no <CODE> for the gate tail to print (Q-08)`).toBeTruthy();
+      }
+    }
+
+    // Guardrail two — the marker has no effect outside the declared corpus, so nothing outside the
+    // canonical glob may carry a construct the NEVER rules detect: a marker there would not be
+    // honoured and the construct would block. Covers the deeper ARCH-01 fixtures (import payloads,
+    // markers and all) and every good.* twin.
+    for (const d of fixtureDirs(repoRoot())) {
+      for (const kind of ["bad", "good"]) {
+        const file = payload(d, kind);
+        if (!file || (kind === "bad" && canonical.includes(d))) continue;
+        const name = relative(repoRoot(), file);
+        const leaked = (await lint(repoRoot(), file)).messages.filter((m) => m.ruleId && neverRules.has(m.ruleId));
+        expect(
+          leaked.map((m) => `${m.line}:${m.ruleId}`),
+          `${name} is outside the canonical corpus \`${CORPUS}/*/bad.*\`, where the marker does nothing — a construct here blocks (Q-08)`,
+        ).toEqual([]);
+      }
+    }
+  }, 600_000);
+
   it("AC-3-LINT-NEVERS: a RECORDED REASON marker exempts nothing outside a declared fixture", async () => {
     const source = fixtureDirs(repoRoot())
       .filter((d) => /any|ts-ignore|ts-expect|eslint-disable/.test(d))
