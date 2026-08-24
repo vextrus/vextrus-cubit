@@ -115,6 +115,17 @@ a flexible spacer, the collapse toggle. No wordmark — the brand lives on the a
 
 ## 4. Areas and routes (R-UI-031, R-UI-033)
 
+**Superseded in part by inc-014** (which owns this file). `docs/design/s-home.md` decides
+`/t/{slug}` — the tenant home is now S-Home's projects grid, create affordance and recent
+documents rather than the sessions-teaching EmptyState — and `/t/{slug}/projects`, whose empty
+state now leads to the real create form at `/t/{slug}/projects/new` instead of the placeholder
+dialog described below. `docs/design/s-project-settings-project-fields-pane-participants-pane-ruleset-pane-untouched.md`
+Interpretation 5 decides the breadcrumb, the rail mark and the project switcher on
+`/t/{slug}/p/{projectId}/…`, superseding §3's tenant-only crumb there; its Interpretation 13
+records the `(area)` route group the areas below now sit in, which names no URL segment and
+leaves every address here exactly where it is. The bullets below stand for Books, Settings and
+Sessions, and read as history for the two the newer files decide.
+
 Server-guarded via `tenantContext(slug)` before any byte: `'signed-out'` → 303 to
 `SIGN_IN_PATH`; `'not-found'` → the s-auth §7 404. Every route below is deep-linkable by a
 fresh GET and reachable by rail navigation; browser back walks the history exactly (AC-2).

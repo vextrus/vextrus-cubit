@@ -58,6 +58,19 @@ Interpretations recorded:
    anywhere (B-07).
 10. **An archived project stays editable.** Archive changes visibility on S-Home, not
     writability; the same control restores it.
+11. **The pane nav is a layout, not a component each pane renders** (recorded by the build,
+    inc-014). §1's nav sits above all three panes including the ruleset pane, which is
+    otherwise untouched; a nav every pane had to import would be a nav the next pane forgets.
+12. **The two assign Selects are native `<select>`s wearing the Datum control surface**, the
+    same reading s-home Interpretation 10 records: a closed set's options have to be in the
+    document the server sends, and a Radix Select mounts its options only while it is open.
+13. **The project's chrome is drawn by the project's own layout.** A Next layout is handed the
+    dynamic params of the segments above it and no deeper, so a single layout at
+    `/t/{tenantSlug}` cannot know which project is open — and Interpretation 5 needs the name.
+    The workspace areas therefore sit in an `(area)` route group with a layout of their own and
+    `/p/{projectId}` has a sibling one; the group names no URL segment, so every address
+    R-UI-031 fixed is exactly where it was. Both draw the same frame; only what they tell it
+    about the open project differs.
 
 ## 1. Pane frame (both routes)
 
@@ -115,10 +128,12 @@ Wrapper `data-testid="participants-pane"`. h1 `project.participants.title`; lead
 **Assign row** — one row, gap `--space-2`, bottoms aligned; stacks below `--breakpoint-sm`.
 Labels `--space-1` above controls (the field idiom):
 
-1. `participant-assign-member` — Select, label `project.participants.member`, one option per
+1. `participant-assign-member` — Select (Interpretation 12), label
+   `project.participants.member`, one option per
    tenant member (from `listMembers`, membership order), option text the email; preselected:
    the first member who is not the reader.
-2. `participant-assign-role` — Select, label `project.participants.role`, 160 px, six options
+2. `participant-assign-role` — Select (Interpretation 12), label `project.participants.role`,
+   160 px, six options
    `PRINCIPAL`, `MEASURER`, `REVIEWER`, `LEAD`, `ESTIMATOR`, `BID_MANAGER` (the vocabulary,
    verbatim, mono per Interpretation 8); `MEASURER` preselected — no placeholder ever shows.
 3. `participant-assign` — a primary Button `project.participants.assign`. Click enters

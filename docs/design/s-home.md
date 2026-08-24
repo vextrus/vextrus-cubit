@@ -49,6 +49,29 @@ Interpretations recorded:
    to (`empty-state-action` or `home-create-project`). A route-driven Dialog has no Radix
    trigger to restore focus to, and stranding focus on `<body>` is a known defect of the
    controlled pattern; the landing page sets it after the Dialog unmounts.
+9. **Closing goes *back*, and creating *replaces*** (recorded by the build, inc-014). A modal
+   that lives at its own address is one history entry, so the exit that returns the reader
+   where they were is `back()` and not a second push — R-UI-031's "browser back works
+   everywhere" is a claim about a history with no dialogs stacked in it, and shell.spec's
+   Projects → Books → Settings walk is exactly that claim. A fresh GET of `/projects/new` has
+   nothing behind it and falls back to the area's own address. Success replaces the form with
+   the created project's pane, so the reader's back goes to the area rather than to a form
+   they have already submitted. The surface closes first and the navigation follows in an
+   effect: a modal takes the page's pointer events while it is open and gives them back when
+   it closes, and a navigation started in the same gesture can unmount the subtree before that
+   cleanup runs.
+10. **Select is a native `<select>` wearing the Datum control surface** — the idiom
+    `tenant-admin.tsx` established for R-SPINE-003's roles, for the same reason: a closed
+    enum's options have to be in the document the server sends, and a Radix Select mounts its
+    options only while it is open. The keyboard behaviour, the accessible name and the tokens
+    are the primitive's.
+11. **Storeys and target GFA are plain decimal Inputs, not `NumberInput`.** The primitive
+    groups its value through the format seam while it is at rest (`1000` reads `1,000`), and a
+    field a reader is editing must answer with the exact decimal they typed — the increment's
+    page object reads it straight back. The unit still renders beside the number and never
+    inside it (L-FMT-02), both fields stay `numeric` with a decimal `inputMode`, and the
+    grouping R-SPINE-061 legislates happens where a *reader* meets a number: the sft line and
+    the cards' counts, through the seam and nowhere else.
 
 ## 1. Layout and hierarchy — `/t/{tenantSlug}`
 
@@ -127,14 +150,15 @@ A `<form>`, `--space-3` below the Description, stacked rows gap `--space-3`. Eac
    (an identifier). Required. · `project-field-client` — Input, label `project.form.client`.
 3. `project-field-site-address` — Input, label `project.form.siteAddress`.
 4. Pair: `project-field-district` — Input, label `project.form.district` (stored and
-   displayed only; zone derivation is M5). · `project-field-building-type` — Select, label
+   displayed only; zone derivation is M5). · `project-field-building-type` — Select
+   (Interpretation 10), label
    `project.form.buildingType`, placeholder `project.form.buildingTypePlaceholder`, five
    options labelled `project.buildingType.residential` Residential / `.commercial` Commercial
    / `.mixed` Mixed / `.industrial` Industrial / `.infrastructure` Infrastructure — values
    the closed enum verbatim.
-5. Pair: `project-field-storeys` — NumberInput, label `project.form.storeys`, no unit. ·
-   `project-field-gfa-m2` — NumberInput, label `project.form.gfaM2`, unit
-   `project.form.unitM2` (m²).
+5. Pair: `project-field-storeys` — decimal Input (Interpretation 11), label
+   `project.form.storeys`, no unit. · `project-field-gfa-m2` — decimal Input, label
+   `project.form.gfaM2`, unit `project.form.unitM2` (m²) beside it.
 6. `project-field-notes` — Textarea, label `project.form.notes`, three lines.
 7. Footer, right-aligned, gap `--space-2`: a secondary Button `project.form.cancel` (closes
    per Interpretation 2), then `project-submit` — a primary Button `project.form.submit`.
