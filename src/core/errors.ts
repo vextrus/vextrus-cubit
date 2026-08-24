@@ -11,6 +11,7 @@
  * refusals and human deferrals." `RefusalCode` is that enum, derived from the table rather
  * than declared beside it, so a code cannot exist as a type without a message to go with it.
  */
+import { ACT_REFUSALS } from './errors/acts';
 import { FORMAT_REFUSALS } from './errors/format';
 import { RULESET_REFUSALS } from './errors/rulesets';
 import { SPINE_REFUSALS } from './errors/spine';
@@ -22,7 +23,7 @@ export { auditRefusalRegister } from './errors/audit';
 export type { RegisterAuditInput, RegisterAuditResult } from './errors/audit';
 
 /**
- * Every registered refusal, by code. Five module registries today; the fold is the same for n.
+ * Every registered refusal, by code. Six module registries today; the fold is the same for n.
  *
  * Frozen, like the module registries it folds: the spread copies references to entries that
  * `registry()` already froze, so the whole table is inert down to each field.
@@ -33,6 +34,7 @@ export const REFUSALS = Object.freeze({
   ...STORAGE_REFUSALS,
   ...TENANT_ADMIN_REFUSALS,
   ...RULESET_REFUSALS,
+  ...ACT_REFUSALS,
 });
 
 /** The closed enum: exactly the codes the table above carries. */

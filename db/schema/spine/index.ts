@@ -14,6 +14,6 @@ export { verifications } from './verifications';
 export { tenantMemberships } from './tenant-memberships';
 export { authMailOutbox } from './auth-mail-outbox';
 export { invitations } from './invitations';
-export { acts } from './acts';
+export { acts, participants, participantRoles } from './acts';
 export { ruleSetEditions } from './rulesets';
 export { projects } from './projects';
