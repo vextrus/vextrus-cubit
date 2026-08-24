@@ -1,10 +1,22 @@
-# Design Decision — datum-tokens
+# Design Decision — datum-tokens (Datum v2, "The Total Station")
 
 Not a routed screen. This document fixes the Datum token sheet — every variable name and both
 theme values — and the BasisMark primitive. It is the contract for `src/ui/tokens.ts`,
-`src/ui/tokens.css`, `src/ui/globals.css` and `src/ui/basis.tsx`. The `/design` gallery that
-renders this sheet ships later under R-UI-011; R-UI-050 screen states therefore do not apply
-here (§8 covers the one runtime state BasisMark owns).
+`src/ui/tokens.css`, `src/ui/globals.css`, `src/ui/fonts/fonts.css` and `src/ui/basis.tsx`. The
+`/design` gallery that renders this sheet ships under R-UI-011; R-UI-050 screen states therefore
+do not apply here (§8 covers the one runtime state BasisMark owns).
+
+The sheet is Datum v2, the founder-final direction chosen 2026-08-24 and fixed value-by-value in
+`docs/specs/datum-v2-total-station.md` §2. Three laws of R-UI-001 move, and only three: the
+interactive accent is **beam** (the brand indigo) and the v1 accent group is deleted outright
+(AM-04); a scarce **act** copper joins it, reserved for act commitment — affirm, sign, issue,
+confirm-with-consequence — and for nothing else, never a hover, never a chart, at most one act
+colour per screen (AM-04); and the families are Spline Sans / Spline Sans Mono, vendored in-repo
+(AM-05). The graphite ramp is retinted slot-for-slot with its roles unchanged. Everything else —
+semantics, basis, element and canvas membership, the 4-pt grid, radii, elevation with hairlines
+first, the type scale, motion, z, breakpoints, both themes on `:root`/`[data-theme]`, the
+no-colour-literal lint — stands as written. Values here are quoted from §2, never re-derived: a
+hex that differs from §2 is a defect, and the doc may not disagree with the emitter.
 
 ## 1. Emission shape (R-UI-001)
 
@@ -28,33 +40,51 @@ never consumer code.
 
 ## 2. Colour — values in both themes
 
-### Graphite (surfaces and ink)
+Group order is emission order: graphite, beam, act, semantics, basis, element, canvas.
+
+### Graphite (surfaces and ink — retinted slot-for-slot, roles unchanged)
 
 | Var | Role | Light | Dark |
 |---|---|---|---|
-| `--graphite-0` | app background | `#FFFFFF` | `#0C0E12` |
-| `--graphite-50` | panel, rail, top bar | `#F7F8FA` | `#111419` |
-| `--graphite-100` | inset, hover fill | `#EFF1F4` | `#161A21` |
-| `--graphite-200` | hairline borders | `#E2E5EA` | `#1F242D` |
-| `--graphite-300` | strong borders | `#CBD1D9` | `#2A303B` |
-| `--graphite-400` | disabled text/icon | `#A6AEBB` | `#414957` |
-| `--graphite-500` | placeholder | `#8591A0` | `#5C6678` |
-| `--graphite-600` | secondary text | `#66707F` | `#7E8899` |
-| `--graphite-700` | icons, labels | `#4C5563` | `#9AA4B2` |
-| `--graphite-800` | body text | `#353D49` | `#BFC6D1` |
-| `--graphite-900` | emphasised text | `#232933` | `#E2E6EC` |
-| `--graphite-950` | headings | `#171C24` | `#F1F3F6` |
-| `--graphite-1000` | maximum ink | `#0F1319` | `#FBFCFD` |
+| `--graphite-0` | app background (light is instrument grey-white, deliberately not white) | `#F4F5F4` | `#0C0E11` |
+| `--graphite-50` | panel, rail, top bar | `#EFF0EF` | `#101318` |
+| `--graphite-100` | inset, hover fill | `#E9EBEA` | `#12151A` |
+| `--graphite-200` | hairline borders — the seam value moves with the ramp | `#DDE0E0` | `#22262E` |
+| `--graphite-300` | strong borders | `#C9CDD1` | `#333A46` |
+| `--graphite-400` | disabled text/icon | `#B0B6BC` | `#414957` |
+| `--graphite-500` | placeholder, disabled text (≥ 3:1 floor) | `#7F868D` | `#66707F` |
+| `--graphite-600` | secondary text, captions, overlines (≥ 4.5:1) | `#5F6772` | `#7E8899` |
+| `--graphite-700` | icons, labels | `#4A515B` | `#9AA3B2` |
+| `--graphite-800` | body text | `#363C45` | `#C3C9D2` |
+| `--graphite-900` | emphasised text | `#262B33` | `#E7EAEE` |
+| `--graphite-950` | headings | `#191D24` | `#F1F4F7` |
+| `--graphite-1000` | maximum ink | `#101318` | `#FBFCFD` |
 
-### Cobalt (the one interactive accent)
+### Beam (the one interactive accent — AM-04)
+
+Anchored on the logo indigos: if it is beam, you can act on it. Light descends darker upward,
+dark ascends lighter. (v1 history: this group replaces the deleted five-slot cobalt accent
+slot-for-slot; consumers are re-pointed in the sweep increment.)
 
 | Var | Role | Light | Dark |
 |---|---|---|---|
-| `--cobalt-100` | selected-row tint, chip fill | `#E7EDFD` | `#16203B` |
-| `--cobalt-300` | decorative accent, chart line | `#9AB1F4` | `#35509F` |
-| `--cobalt-500` | interactive default, focus ring (R-UI-012) | `#2E5CE6` | `#5B82F0` |
-| `--cobalt-600` | hover | `#2349BE` | `#7D9BF4` |
-| `--cobalt-700` | active / pressed | `#1B3893` | `#A6BCF8` |
+| `--beam-100` | selected-row tint, chip fill | `#E8E6F7` | `#1A1830` |
+| `--beam-300` | decorative accent, chart line | `#B7B1E8` | `#3B3478` |
+| `--beam-500` | interactive default, the reticle stroke (R-UI-012) | `#5A4FB0` | `#6E63C8` |
+| `--beam-600` | hover; AA text on `--graphite-0` in dark | `#473E92` | `#8B84E8` |
+| `--beam-700` | active / pressed | `#38316F` | `#A7A1F0` |
+
+### Act (the copper that commits — AM-04)
+
+Fired only when a human commits: affirm, sign, issue, confirm-with-consequence. Never a hover,
+never a chart, at most one act colour on a screen. The mark's spark is a brand asset, not this
+token.
+
+| Var | Role | Light | Dark |
+|---|---|---|---|
+| `--act-surface` | the quiet ground behind an act control | `#FBEFE4` | `#1D1610` |
+| `--act-500` | fills, borders, the act dot | `#A85B28` | `#C97F4A` |
+| `--act-600` | text on `--act-surface` (≥ 4.5:1 both themes) | `#9A5326` | `#E29A68` |
 
 ### Semantics — the colour and its surface tint, nothing more
 
@@ -81,7 +111,7 @@ only with the matching foreground or `--graphite-800`+.
 | `--basis-interpreted` | magenta | `#B01E77` | `#EE6DB8` |
 
 (Emission order is the Bible's: measured, transcribed, derived, imported, entered, interpreted,
-defaulted.) Transcribed blue is azure, deliberately apart from cobalt's violet-blue so an
+defaulted.) Transcribed blue is azure, deliberately apart from the beam's indigo so an
 interactive control and a TRANSCRIBED chip never read as the same thing.
 
 ### Element-class palette (full membership — the classes the viewer paints)
@@ -101,17 +131,35 @@ interactive control and a TRANSCRIBED chip never read as the same thing.
 
 | Var | Role | Light | Dark |
 |---|---|---|---|
-| `--canvas-paper` | sheet background, warmer than chrome | `#FCFCFB` | `#14161A` |
-| `--canvas-grid` | grid lines | `#E9EAE7` | `#23262C` |
+| `--canvas-paper` | sheet background, warmer than chrome | `#FCFCFB` | `#101216` |
+| `--canvas-grid` | grid lines | `#E9EAE7` | `#1B1F26` |
 | `--canvas-ink` | default entity stroke | `#23282F` | `#D5D9DF` |
-| `--canvas-selection` | selected entities | `#2E5CE6` | `#5B82F0` |
-| `--canvas-hover` | hover wash over entities | `rgba(46, 92, 230, 0.20)` | `rgba(91, 130, 240, 0.28)` |
+| `--canvas-selection` | selected entities | `#5A4FB0` | `#8B84E8` |
+| `--canvas-hover` | hover wash over entities | `rgba(90, 79, 176, 0.18)` | `rgba(139, 132, 232, 0.26)` |
 | `--canvas-pulse` | trace fly-to pulse (R-UI-022) | `#E8930C` | `#FFB224` |
 | `--canvas-measure` | measurement ink | `#C13515` | `#FF7A4D` |
 | `--canvas-snap` | snap marker | `#1D7A46` | `#4CC38A` |
 
-Selection repeats cobalt's value on purpose but stays a separate variable: the render manifest
-resolves canvas colours independently of UI chrome.
+Only four keys moved for v2: paper and grid cool in dark, selection and hover re-point to the
+beam; `--canvas-ink`, `--canvas-pulse`, `--canvas-measure`, `--canvas-snap` and the light
+paper/grid values are untouched. Selection repeats the beam's value on purpose (light
+`--beam-500`, dark `--beam-600`) but stays a separate variable: the render manifest resolves
+canvas colours independently of UI chrome.
+
+### Contrast facts the retint must keep true (WCAG 2.x, R-UI-060)
+
+These pairs are load-bearing: they are what makes the ramp legible, they were verified when the
+values were fixed, and they are asserted against the sheet rather than eyeballed. A value change
+that breaks one of them is a defect in the change, not in the floor.
+
+| Pair | Floor | Light | Dark |
+|---|---|---|---|
+| `--graphite-600` on `--graphite-0` — captions, overlines, secondary text | 4.5:1 (AA text) | ≈ 5.2:1 | ≈ 5.4:1 |
+| `--graphite-500` on `--graphite-100` — disabled text on an inset | 3:1 (disabled floor) | ≈ 3.1:1 | ≈ 3.7:1 |
+| `--beam-600` on `--graphite-0` — accent text on the app background | 4.5:1 in dark | ≈ 8.1:1 | ≈ 6.0:1 |
+| `--act-600` on `--act-surface` — the label of an act control | 4.5:1 both themes | ≈ 5.1:1 | ≈ 7.7:1 |
+
+Semantic foregrounds keep ≥ 4.5:1 on `--graphite-0` in their theme (stated with them above).
 
 ## 3. Non-colour tokens (identical values in both theme blocks)
 
@@ -119,16 +167,25 @@ resolves canvas colours independently of UI chrome.
 - Radii: `--radius-2: 2px`, `--radius-4: 4px`, `--radius-8: 8px`, `--radius-12: 12px`.
 - Hairline: `--hairline: 1px solid var(--graphite-200)` — the var() reference resolves per
   theme, so the value string is the same in both blocks. Hairlines are preferred over shadows.
-- Fonts (named, not loaded — the shell increment loads them):
-  `--font-ui: Inter, 'Helvetica Neue', Arial, sans-serif`;
-  `--font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace`;
-  `--font-doc: 'Noto Sans', Inter, Arial, sans-serif`.
+- Fonts (AM-05 — Spline Sans for UI, Spline Sans Mono for every number, code, mark, source key
+  and formula, Noto Sans for documents):
+  `--font-ui: 'Spline Sans', 'Helvetica Neue', Arial, sans-serif`;
+  `--font-mono: 'Spline Sans Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace`;
+  `--font-doc: 'Noto Sans', 'Spline Sans', Arial, sans-serif`.
+  Both Spline families are **vendored in-repo** at `src/ui/fonts` (variable woff2, wght 300–700,
+  latin + latin-ext, SIL OFL texts beside them) and loaded by four `@font-face` blocks in
+  `src/ui/fonts/fonts.css`, which `globals.css` imports; each `src` is a relative
+  `url('./<file>.woff2')` and `font-display: swap` so text paints in the fallback rather than
+  not at all. Build sessions and lanes are loopback-only, so a font fetched at build or runtime
+  is unlawful — no `@import` of a foundry URL, and no `next/font/google`.
 - Type scale (R-UI-003): `--text-12: 12px`, `--text-13: 13px`, `--text-14: 14px`,
   `--text-16: 16px`, `--text-20: 20px`, `--text-24: 24px`, `--text-32: 32px`;
   `--leading-ui: 1.45`; `--weight-heading: 600`, `--weight-body: 400`,
   `--weight-body-medium: 500`.
 - Motion (R-UI-004): `--motion-state-duration: 160ms` (inside the 120–200 ms band),
   `--motion-panel-duration: 240ms`, `--motion-flyto-duration: 320ms`,
+  `--motion-reticle-duration: 120ms` (the focus reticle is drawn in one state-change beat,
+  R-UI-012 as amended; instant under reduced motion by the §1 suffix rule),
   `--motion-ease: cubic-bezier(0.2, 0, 0, 1)` (decelerating, no bounce),
   `--motion-flyto-ease: cubic-bezier(0.45, 0.05, 0.25, 1)` (ease-in-out for camera travel).
 - Z-layers, exactly four: `--z-base: 0`, `--z-sticky: 100`, `--z-overlay: 200`,
@@ -148,7 +205,9 @@ resolves canvas colours independently of UI chrome.
 
 ## 5. globals.css (R-UI-001 — no literal anywhere in this file)
 
-`@import 'tailwindcss';` then `@import './tokens.css';`. R-UI-001 says the tokens are "consumed
+`@import 'tailwindcss';`, then `@import './tokens.css';`, then `@import './fonts/fonts.css';` —
+the vendored `@font-face` blocks arrive through the global stylesheet, not through `next/font`,
+so the loading path is one file and stays inside `src/ui`. R-UI-001 says the tokens are "consumed
 by Tailwind", so **every** category reaches a Tailwind namespace — a category that stops at
 `tokens.css` is a grid, a scale or a stacking order that utilities do not keep. The `@theme`
 block exposes, via `var(--…)` references only:
@@ -163,7 +222,7 @@ block exposes, via `var(--…)` references only:
 | `--space-1 … --space-12` | `--spacing-1 … --spacing-12` | `p-2`, `gap-4` on the 4-pt grid |
 | `--radius-2/4/8/12` | `--radius-*` | `rounded-4` |
 | `--shadow-1 … --shadow-4` | `--shadow-*` | `shadow-2` |
-| `--motion-*-duration` | `--transition-duration-state/panel/flyto` | `duration-panel` |
+| `--motion-*-duration` | `--transition-duration-state/panel/flyto/reticle` | `duration-panel` |
 | `--motion-ease`, `--motion-flyto-ease` | `--ease-motion`, `--ease-flyto` | `ease-flyto` |
 | `--z-base/sticky/overlay/toast` | `--z-index-*` | `z-overlay` |
 | `--breakpoint-sm/md/lg/xl` | `--breakpoint-*` | `md:`, `xl:` |
@@ -236,7 +295,7 @@ any future consumer of `--motion-*-duration` is inert under `prefers-reduced-mot
 
 ## 9. Both themes — summary of what differs
 
-Graphite, cobalt, semantics, basis, element, canvas and the four shadows carry distinct dark
+Graphite, beam, act, semantics, basis, element, canvas and the four shadows carry distinct dark
 values (§2, §4). Spacing, radii, hairline (by reference), fonts, type, motion, z, breakpoints
 and rows are byte-identical across both blocks — but every variable is emitted in both, so
 `cssVariables('light')` and `cssVariables('dark')` have identical key sets and a theme flip

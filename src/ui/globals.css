@@ -12,6 +12,7 @@
  */
 @import 'tailwindcss';
 @import './tokens.css';
+@import './fonts/fonts.css';
 
 /*
  * Every R-UI-001 category enters @theme, because the clause says the tokens are "consumed by
@@ -40,11 +41,15 @@
   --color-graphite-950: var(--graphite-950);
   --color-graphite-1000: var(--graphite-1000);
 
-  --color-cobalt-100: var(--cobalt-100);
-  --color-cobalt-300: var(--cobalt-300);
-  --color-cobalt-500: var(--cobalt-500);
-  --color-cobalt-600: var(--cobalt-600);
-  --color-cobalt-700: var(--cobalt-700);
+  --color-beam-100: var(--beam-100);
+  --color-beam-300: var(--beam-300);
+  --color-beam-500: var(--beam-500);
+  --color-beam-600: var(--beam-600);
+  --color-beam-700: var(--beam-700);
+
+  --color-act-surface: var(--act-surface);
+  --color-act-500: var(--act-500);
+  --color-act-600: var(--act-600);
 
   --color-success: var(--success);
   --color-success-surface: var(--success-surface);
@@ -125,6 +130,7 @@
   --transition-duration-state: var(--motion-state-duration);
   --transition-duration-panel: var(--motion-panel-duration);
   --transition-duration-flyto: var(--motion-flyto-duration);
+  --transition-duration-reticle: var(--motion-reticle-duration);
   --ease-motion: var(--motion-ease);
   --ease-flyto: var(--motion-flyto-ease);
 
@@ -140,9 +146,9 @@
 }
 
 /*
- * R-UI-003: "JetBrains Mono for every number, code, mark, source key and formula with
- * `font-variant-numeric: tabular-nums slashed-zero`". One class carries the whole rule, so a
- * number column is right-aligned and column-aligned by saying `numeric` once.
+ * R-UI-003 as amended by AM-05: "Spline Sans Mono for every number, code, mark, source key and
+ * formula" with `font-variant-numeric: tabular-nums slashed-zero` kept. One class carries the
+ * whole rule, so a number column is right-aligned and column-aligned by saying `numeric` once.
  */
 .numeric {
   font-family: var(--font-mono);

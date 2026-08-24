@@ -16,7 +16,7 @@ colour anywhere (R-UI-001).
   filled button (primary, danger), where the icon takes the button's own ink.
 - **Focus (R-UI-012).** The focusable element of every interactive primitive carries the class
   `datum-focus-ring`. `src/ui/primitives/primitives.css` defines:
-  `.datum-focus-ring:focus-visible { outline: 2px solid var(--cobalt-500); outline-offset: 1px; }`
+  `.datum-focus-ring:focus-visible { outline: 2px solid var(--beam-500); outline-offset: 1px; }`
   — a 2 px cobalt outer ring, never clipped (no `overflow: hidden` on a focusable's box).
 - **Names.** Every interactive element has an ARIA name: from its visible text, its `<label>`,
   or a required `label`/`aria-label` prop (IconButton, Slider, Progress, Combobox). No unnamed
@@ -43,7 +43,7 @@ Anatomy: optional 16 px icon slot, then label, gap `--space-2`. Height 28 px, pa
 
 | Variant | Rest | Hover | Active | Text |
 |---|---|---|---|---|
-| primary | `--cobalt-500` | `--cobalt-600` | `--cobalt-700` | `--graphite-0` |
+| primary | `--beam-500` | `--beam-600` | `--beam-700` | `--graphite-0` |
 | secondary | `--graphite-0` + border `--graphite-300` | fill `--graphite-100` | fill `--graphite-200` | `--graphite-800` |
 | ghost | transparent | `--graphite-100` | `--graphite-200` | `--graphite-700` |
 | danger | `--danger` | `--danger` at `opacity: 0.9` | `opacity: 0.8` | `--graphite-0` |
@@ -111,16 +111,16 @@ inherited:
   go back, and both wrap. Entering the group with Tab, or clicking into it, chooses nothing.
 
 - **Checkbox:** 16 × 16 px, `--radius-2`. Unchecked: `--graphite-0` fill, border
-  `--graphite-300`. Checked: `--cobalt-500` fill, check glyph `--graphite-0`. Indeterminate:
+  `--graphite-300`. Checked: `--beam-500` fill, check glyph `--graphite-0`. Indeterminate:
   same fill, horizontal dash, `aria-checked="mixed"`. Disabled: fill `--graphite-100`, border
   `--graphite-200`, glyph `--graphite-400`.
-- **Radio:** 16 × 16 px circle, same palette; checked is a `--cobalt-500` ring with a 6 px
-  `--cobalt-500` inner dot.
+- **Radio:** 16 × 16 px circle, same palette; checked is a `--beam-500` ring with a 6 px
+  `--beam-500` inner dot.
 - **Switch:** track 28 × 16 px, full-radius (`--radius-8`); off `--graphite-300`, on
-  `--cobalt-500`; thumb 12 px `--graphite-0` circle travelling 12 px over
+  `--beam-500`; thumb 12 px `--graphite-0` circle travelling 12 px over
   `--motion-state-duration`.
-- **Slider:** rail 4 px, `--radius-2`, `--graphite-200`; filled range `--cobalt-500`; thumb
-  14 px `--graphite-0` circle, border `1px solid var(--cobalt-500)`, `--shadow-1`. ArrowRight
+- **Slider:** rail 4 px, `--radius-2`, `--graphite-200`; filled range `--beam-500`; thumb
+  14 px `--graphite-0` circle, border `1px solid var(--beam-500)`, `--shadow-1`. ArrowRight
   and ArrowUp raise the value by one `step`, ArrowLeft and ArrowDown lower it, PageUp/PageDown
   move ten steps, Home and End go to the ends; every value is clamped to `[min, max]`, and a
   slider given no value stands at its minimum. The thumb is the control: it takes the focus
@@ -139,7 +139,7 @@ Trigger: an Input-shaped box (§3) whose right edge holds a chevron (`--graphite
 chosen option's label sits left; empty shows the consumer's `placeholder` in `--graphite-500`.
 Enter, Space or ArrowDown opens. Content: the overlay surface (§1), `--shadow-2`, padding
 `--space-1`, entering with a 160 ms fade plus 4 px translate from the trigger. Options are
-`role="option"`, 28 px, selected shows a 16 px check glyph in `--cobalt-500` at the left.
+`role="option"`, 28 px, selected shows a 16 px check glyph in `--beam-500` at the left.
 ArrowDown/ArrowUp move, Enter selects and closes, Escape closes without selecting; either way
 focus returns to the trigger.
 
@@ -167,7 +167,7 @@ the list (`data-testid="combobox-input"`); below it, on the overlay surface, the
 
 `role="tablist"` with a full-width hairline (`--graphite-200`) under it. Triggers: 32 px tall,
 `--text-13`, `--weight-body-medium`, inactive `--graphite-600`, hover `--graphite-800`, active
-`--graphite-900` with a 2 px `--cobalt-500` underline sitting on the hairline. The underline
+`--graphite-900` with a 2 px `--beam-500` underline sitting on the hairline. The underline
 appears with a 160 ms fade — it does not slide. ArrowRight/ArrowLeft rove focus and activate
 (automatic activation); the active trigger has `aria-selected="true"`; each panel is
 `role="tabpanel"`, associated via `aria-controls`/`aria-labelledby`, fading in over 160 ms.
@@ -244,7 +244,7 @@ record of a refusal or an error (R-UI-020) — screens render those in place and
   There is no indeterminate mode to reach for: a bar given no value stands at 0 and says so,
   and a value outside the bounds is clamped into them, so `role="progressbar"` always carries
   `aria-valuenow` with `aria-valuemin`/`aria-valuemax`. Track 4 px `--graphite-200`
-  `--radius-2`; fill `--cobalt-500`, width transitioning over `--motion-state-duration`. A
+  `--radius-2`; fill `--beam-500`, width transitioning over `--motion-state-duration`. A
   required accessible name.
 - **Skeleton:** fill `--graphite-100`, `--radius-4`; the caller sizes it to the content it
   stands for, so layout never shifts (R-UI-004). Pulses opacity 1 → 0.55 over

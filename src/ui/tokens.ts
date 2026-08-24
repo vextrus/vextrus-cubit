@@ -31,30 +31,48 @@ const dual = (light: string, dark: string): TokenValue => Object.freeze({ light,
  * order docs/design/datum-tokens.md lists them in.
  */
 export const tokens = Object.freeze({
-  /** Surfaces and ink. 0 is the app background in both themes; 1000 is maximum ink. */
+  /**
+   * Surfaces and ink, retinted for Datum v2 ("The Total Station", AM-04) slot-for-slot: the
+   * roles do not move, only the values. 0 is the app background in both themes — instrument
+   * grey-white in light, deliberately not white — and 1000 is maximum ink.
+   */
   graphite: Object.freeze({
-    '0': dual('#FFFFFF', '#0C0E12'),
-    '50': dual('#F7F8FA', '#111419'),
-    '100': dual('#EFF1F4', '#161A21'),
-    '200': dual('#E2E5EA', '#1F242D'),
-    '300': dual('#CBD1D9', '#2A303B'),
-    '400': dual('#A6AEBB', '#414957'),
-    '500': dual('#8591A0', '#5C6678'),
-    '600': dual('#66707F', '#7E8899'),
-    '700': dual('#4C5563', '#9AA4B2'),
-    '800': dual('#353D49', '#BFC6D1'),
-    '900': dual('#232933', '#E2E6EC'),
-    '950': dual('#171C24', '#F1F3F6'),
-    '1000': dual('#0F1319', '#FBFCFD'),
+    '0': dual('#F4F5F4', '#0C0E11'),
+    '50': dual('#EFF0EF', '#101318'),
+    '100': dual('#E9EBEA', '#12151A'),
+    '200': dual('#DDE0E0', '#22262E'),
+    '300': dual('#C9CDD1', '#333A46'),
+    '400': dual('#B0B6BC', '#414957'),
+    '500': dual('#7F868D', '#66707F'),
+    '600': dual('#5F6772', '#7E8899'),
+    '700': dual('#4A515B', '#9AA3B2'),
+    '800': dual('#363C45', '#C3C9D2'),
+    '900': dual('#262B33', '#E7EAEE'),
+    '950': dual('#191D24', '#F1F4F7'),
+    '1000': dual('#101318', '#FBFCFD'),
   }),
 
-  /** The one interactive accent (R-UI-001: "one accent 'cobalt' for interactive"). */
-  cobalt: Object.freeze({
-    '100': dual('#E7EDFD', '#16203B'),
-    '300': dual('#9AB1F4', '#35509F'),
-    '500': dual('#2E5CE6', '#5B82F0'),
-    '600': dual('#2349BE', '#7D9BF4'),
-    '700': dual('#1B3893', '#A6BCF8'),
+  /**
+   * The one interactive accent (AM-04: "one accent 'beam' (the brand indigo) for
+   * interactive"), anchored on the logo indigos. If it is beam, you can act on it.
+   */
+  beam: Object.freeze({
+    '100': dual('#E8E6F7', '#1A1830'),
+    '300': dual('#B7B1E8', '#3B3478'),
+    '500': dual('#5A4FB0', '#6E63C8'),
+    '600': dual('#473E92', '#8B84E8'),
+    '700': dual('#38316F', '#A7A1F0'),
+  }),
+
+  /**
+   * The act colour (AM-04): copper, "reserved for act commitment (affirm / sign / issue /
+   * confirm-with-consequence) and for nothing else — never a hover, never a chart, at most one
+   * act colour per screen". 500 fills and borders, 600 is text on the act surface.
+   */
+  act: Object.freeze({
+    surface: dual('#FBEFE4', '#1D1610'),
+    '500': dual('#A85B28', '#C97F4A'),
+    '600': dual('#9A5326', '#E29A68'),
   }),
 
   /** Semantics: the colour and its surface tint, nothing more. Unprefixed by naming law. */
@@ -71,8 +89,8 @@ export const tokens = Object.freeze({
 
   /**
    * The basis palette (R-UI-002, fixed): teal, blue, violet, slate, amber, magenta, grey, in
-   * the Bible's order. Transcribed blue is azure, deliberately apart from cobalt's
-   * violet-blue, so an interactive control and a TRANSCRIBED chip never read as one thing.
+   * the Bible's order. Transcribed blue is azure, deliberately apart from the beam's indigo,
+   * so an interactive control and a TRANSCRIBED chip never read as one thing.
    */
   basis: Object.freeze({
     measured: dual('#0E7A70', '#34C7B5'),
@@ -97,16 +115,16 @@ export const tokens = Object.freeze({
   }),
 
   /**
-   * The viewer's own surfaces and marks. Selection repeats cobalt's value on purpose but
+   * The viewer's own surfaces and marks. Selection repeats the beam's value on purpose but
    * stays a separate variable: the render manifest resolves canvas colour independently of
    * UI chrome.
    */
   canvas: Object.freeze({
-    paper: dual('#FCFCFB', '#14161A'),
-    grid: dual('#E9EAE7', '#23262C'),
+    paper: dual('#FCFCFB', '#101216'),
+    grid: dual('#E9EAE7', '#1B1F26'),
     ink: dual('#23282F', '#D5D9DF'),
-    selection: dual('#2E5CE6', '#5B82F0'),
-    hover: dual('rgba(46, 92, 230, 0.20)', 'rgba(91, 130, 240, 0.28)'),
+    selection: dual('#5A4FB0', '#8B84E8'),
+    hover: dual('rgba(90, 79, 176, 0.18)', 'rgba(139, 132, 232, 0.26)'),
     pulse: dual('#E8930C', '#FFB224'),
     measure: dual('#C13515', '#FF7A4D'),
     snap: dual('#1D7A46', '#4CC38A'),
@@ -144,11 +162,16 @@ export const tokens = Object.freeze({
     hairline: '1px solid var(--graphite-200)',
   }),
 
-  /** Families are named here and loaded by the shell increment (R-UI-003). */
+  /**
+   * Families (R-UI-003 as amended by AM-05): Spline Sans for UI, Spline Sans Mono for every
+   * number, code, mark, source key and formula, Noto Sans for documents. Both Spline families
+   * are vendored at `src/ui/fonts/` and loaded by `@font-face` from `globals.css` — sessions
+   * and lanes are loopback-only, so a fetched font is not a font.
+   */
   font: Object.freeze({
-    ui: "Inter, 'Helvetica Neue', Arial, sans-serif",
-    mono: "'JetBrains Mono', 'SF Mono', Consolas, monospace",
-    doc: "'Noto Sans', Inter, Arial, sans-serif",
+    ui: "'Spline Sans', 'Helvetica Neue', Arial, sans-serif",
+    mono: "'Spline Sans Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace",
+    doc: "'Noto Sans', 'Spline Sans', Arial, sans-serif",
   }),
 
   /** The type scale (R-UI-003): 12/13/14/16/20/24/32, each token its own px number. */
@@ -176,12 +199,14 @@ export const tokens = Object.freeze({
 
   /**
    * Motion (R-UI-004): state changes inside the 120–200 ms band, panels 240 ms, the viewer
-   * fly-to 320 ms. Both easings decelerate; neither overshoots, because "no bounce".
+   * fly-to 320 ms, the focus reticle drawn in 120 ms. Both easings decelerate; neither
+   * overshoots, because "no bounce".
    */
   motion: Object.freeze({
     'state-duration': '160ms',
     'panel-duration': '240ms',
     'flyto-duration': '320ms',
+    'reticle-duration': '120ms',
     ease: 'cubic-bezier(0.2, 0, 0, 1)',
     'flyto-ease': 'cubic-bezier(0.45, 0.05, 0.25, 1)',
   }),
@@ -225,12 +250,19 @@ export const tokens = Object.freeze({
 type TokenGroup = {
   readonly prefix: string;
   readonly entries: Readonly<Record<string, TokenValue>>;
+  /**
+   * Key order, where the object cannot carry it: JavaScript enumerates integer-like keys
+   * first, ascending, whatever the source order — harmless for a pure ramp like graphite, but
+   * `act` reads surface, 500, 600, so that group states its order here.
+   */
+  readonly keys?: readonly string[];
 };
 
 /** Emission order, once, for both the flat map and the sheet. */
 const GROUPS: readonly TokenGroup[] = [
   { prefix: 'graphite', entries: tokens.graphite },
-  { prefix: 'cobalt', entries: tokens.cobalt },
+  { prefix: 'beam', entries: tokens.beam },
+  { prefix: 'act', entries: tokens.act, keys: ['surface', '500', '600'] },
   { prefix: '', entries: tokens.semantic },
   { prefix: 'basis', entries: tokens.basis },
   { prefix: 'element', entries: tokens.element },
@@ -249,6 +281,12 @@ const GROUPS: readonly TokenGroup[] = [
   { prefix: 'shadow', entries: tokens.shadow },
 ];
 
+/** One group's tokens, in emission order: its stated key order, or the object's own. */
+const groupEntries = (group: TokenGroup): ReadonlyArray<readonly [string, TokenValue]> =>
+  group.keys === undefined
+    ? Object.entries(group.entries)
+    : group.keys.map((key) => [key, group.entries[key] as TokenValue] as const);
+
 const variableName = (prefix: string, key: string): string =>
   prefix === '' ? `--${key}` : `--${prefix}-${key}`;
 
@@ -263,7 +301,7 @@ const resolve = (value: TokenValue, theme: Theme): string =>
 export function cssVariables(theme: Theme): Record<string, string> {
   const variables: Record<string, string> = {};
   for (const group of GROUPS) {
-    for (const [key, value] of Object.entries(group.entries)) {
+    for (const [key, value] of groupEntries(group)) {
       variables[variableName(group.prefix, key)] = resolve(value, theme);
     }
   }
@@ -307,7 +345,7 @@ const BOTH_THEMES = `${LIGHT_SELECTOR}, ${DARK_SELECTOR}`;
 /** One theme rule: every group, in order, a blank line apart. */
 function themeBlock(selector: string, theme: Theme, indent: string): string {
   const groups = GROUPS.map((group) =>
-    Object.entries(group.entries)
+    groupEntries(group)
       .map(([key, value]) => `${indent}  ${variableName(group.prefix, key)}: ${resolve(value, theme)};`)
       .join('\n'),
   );

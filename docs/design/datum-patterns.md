@@ -63,7 +63,7 @@ body, sticky footer (only when `footer` is given).
   the density switch: a comfortable screen passes 36, a compact one 28 (R-UI-005 rows). Hairline
   bottom divider, cell text `--text-13` `--graphite-800`, cell padding `0 var(--space-2)`,
   content vertically centred, single line, `text-overflow: ellipsis`. Hover fill
-  `--graphite-100`; selected rows tint `--cobalt-100` (plus the checked checkbox — never colour
+  `--graphite-100`; selected rows tint `--beam-100` (plus the checked checkbox — never colour
   alone, R-UI-060). A column whose def sets `meta: { numeric: true }` renders its cells
   right-aligned in `.numeric`.
 - **Footer** (`data-testid="datatable-footer"`): `position: sticky; bottom: 0;
@@ -78,7 +78,7 @@ internal state with the same rendering.
 
 - **Sort.** A sortable column's header renders one ghost button (`data-testid="datatable-sort"`)
   filling the header cell, named by the column label, cycling ascending → descending → unsorted.
-  Sorted state shows ↑ or ↓ after the label in `--cobalt-500` and sets
+  Sorted state shows ↑ or ↓ after the label in `--beam-500` and sets
   `aria-sort="ascending" | "descending"`.
 - **Filter.** `globalFilter` narrows rows by case-insensitive substring over cell string values
   (TanStack `includesString`). Zero survivors renders the empty state (§4) — a filtered-out
@@ -208,8 +208,8 @@ from REFUSALS throws `Error('Unknown refusal code: <value>')` at render (the Bas
 precedent): a plausible-looking refusal nobody registered must never reach a reader.
 
 **EvidenceLink** (`data-testid="evidence-link"`) is the Trace affordance, exported standalone:
-an anchor, `--text-13` `--cobalt-500`, always underlined (never colour-only), hover
-`--cobalt-600`, focus ring class; renders `children`, or `patterns.evidence.default` when none
+an anchor, `--text-13` `--beam-500`, always underlined (never colour-only), hover
+`--beam-600`, focus ring class; renders `children`, or `patterns.evidence.default` when none
 given.
 
 ## 9. ConsequenceDialog (R-UI-021, L-ACT-02)
@@ -293,7 +293,7 @@ needs an explicit stilling rule because nothing loops.
 ## 12. Both themes
 
 Every rule reads role-stable tokens, so the theme flip is the token sheet's: chrome
-(`--graphite-0/50/100`), hairlines, `--cobalt-100` selection tint, `--warn`/`--warn-surface`
+(`--graphite-0/50/100`), hairlines, `--beam-100` selection tint, `--warn`/`--warn-surface`
 and `--info`/`--info-surface` all carry their own dark values with contrast held (§2 of the
 sheet). Pinned-cell backgrounds stay opaque in both themes by reading the same surface token as
 the row they sit in. No forked CSS in either module.
