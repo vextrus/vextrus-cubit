@@ -7,9 +7,9 @@ coverage/
 .env*
 !.env.example
 
-# Toolchain outputs: everything the gate writes while it runs, none of it tracked.
+# Toolchain outputs: everything the gate writes while it runs, none of it tracked. Generated SQL
+# migrations are not here on purpose — those are reviewed artefacts and belong in the tree.
 .storage/
-drizzle/
 playwright-report/
 test-results/
 *.tsbuildinfo
