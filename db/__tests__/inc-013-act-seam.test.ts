@@ -645,6 +645,13 @@ describe('AC-3 — act row and state change commit together or not at all (L-ACT
     // simply refused earlier, or of no commit at all. This is the control.
     const found = await fixture();
     const owner = await ownerClient();
+    // FORCEd row-level security binds the owner too, so this connection must carry a scope
+    // before it can read or write a row — exactly as `systemClient()` does. Unscoped, the
+    // INSERT … SELECT below would filter its source rows to none, affect nothing, and succeed
+    // in silence: the per-row trigger would never fire and the control would prove the opposite
+    // of what it claims. DDL and the catalogue reads elsewhere on this connection do not depend
+    // on the setting.
+    await query(owner, "select set_config('cubit.scope', 'system', false)");
     await query(
       owner,
       `create or replace function public.inc013_probe_refusal() returns trigger

@@ -254,10 +254,22 @@ describe('L-MEA-01 — the database refuses to change a rule-set edition', () =>
 
     // The control: the fixture's own fork already minted the seed through this very scope, so
     // the platform arm is open and the refusals below are its bounds, not its absence.
+    //
+    // Read by the seed's own identity, never by "everything in the platform namespace": that
+    // namespace is shared, and any other lawful platform write (this lane's own RLS probes mint
+    // one) would otherwise make this control count a row L-MEA-01 says nothing about — and, with
+    // no ORDER BY, aim the rogue cases below at a key that is not the seed's.
+    const module = await importProduct(SEED_MODULE);
+    const identity = module['IS1200_SEED'] as { name?: string; version?: string } | undefined;
+    expect(
+      typeof identity?.name === 'string' && typeof identity.version === 'string',
+      `${SEED_MODULE} exports no IS1200_SEED with a name and a version`,
+    ).toBe(true);
     const seed = await rowsOf(
       scoped,
       sql`select id, name, version, digest from rule_set_editions
-           where scope = 'platform' and tenant_id is null`,
+           where scope = 'platform' and tenant_id is null
+             and name = ${identity?.name} and version = ${identity?.version}`,
     );
     expect(seed.length, 'no platform seed was minted under a tenant scope at all').toBe(1);
     const digest = String(seed[0]?.['digest']);
