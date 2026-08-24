@@ -8,6 +8,9 @@ import { pnpmRun, readJson, removeTree, repoRoot, scratchTree } from "./support/
 
 const PIN_LINE = /^pin ([a-z]+) want=(\S+) found=(\S+)$/;
 
+/** A version token normalised for comparison — the leading `v` is spelling, not version. */
+const bare = (version) => String(version).trim().replace(/^v/, "");
+
 describe("AC-4-CHECKUP", () => {
   let dir;
   let run;
@@ -51,7 +54,7 @@ describe("AC-4-CHECKUP", () => {
 
   it("AC-4-CHECKUP: a tool only a stub lane needs may be ABSENT without failing the run (B-23)", () => {
     const found = pins();
-    const armedToolsAgree = ["node", "pnpm"].every((t) => found[t].found !== "ABSENT" && found[t].found.replace(/^v/, "").startsWith(found[t].want.replace(/^v/, "")));
+    const armedToolsAgree = ["node", "pnpm"].every((t) => found[t].found !== "ABSENT" && bare(found[t].found) === bare(found[t].want));
     if (armedToolsAgree) {
       expect(run.code, `checkup failed although only stub-lane tools are missing\n${run.out}`).toBe(0);
     } else {
@@ -59,6 +62,29 @@ describe("AC-4-CHECKUP", () => {
       expect(run.code, "checkup passed although an armed lane's tool mismatches its pin").not.toBe(0);
     }
   });
+
+  it("AC-4-CHECKUP: a pin the found version merely starts with is a mismatch, not a match", () => {
+    // "Pinned" is equality after normalisation, never a prefix: 0.12.50 must not satisfy a 0.12.5
+    // pin (C-06 pinned Node/pnpm, V-CHECKUP's pin report, B-23 — a prefix match is a lie about
+    // which version this machine has). Built from the version this machine actually reports, so
+    // no literal version is frozen here.
+    const actual = bare(pins().node.found);
+    expect(actual, "checkup reported no node version to build a prefix from").toMatch(/^\d+(\.\d+)+/);
+    const prefix = actual.slice(0, -1);
+    expect(actual.startsWith(prefix) && actual !== prefix, "the probe pin is not a proper prefix of the found version").toBe(true);
+
+    const probe = scratchTree("ac4-prefix");
+    try {
+      writeFileSync(join(probe, ".nvmrc"), `${prefix}\n`);
+      const run = pnpmRun(probe, ["checkup"]);
+      const line = run.lines.find((l) => PIN_LINE.exec(l)?.[1] === "node");
+      expect(line, `checkup printed no node pin line\n${run.out}`).toBeTruthy();
+      expect(bare(PIN_LINE.exec(line)[2]), "checkup did not report the prefix pin it was given").toBe(prefix);
+      expect(run.code, `checkup accepted found=${actual} for pin ${prefix} — a prefix is not a pin (B-23)\n${run.out}`).not.toBe(0);
+    } finally {
+      removeTree(probe);
+    }
+  }, 300_000);
 
   it("AC-4-CHECKUP: a pin an armed lane needs, mismatched, fails the run", () => {
     const probe = scratchTree("ac4-mismatch");

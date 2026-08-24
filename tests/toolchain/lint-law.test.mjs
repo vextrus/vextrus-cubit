@@ -2,7 +2,7 @@
 // corpus (each bad.* fires, each good.* twin stays silent) and by synthesised violations on real
 // product paths; and `eslint .` on the tree itself is clean (Q-16).
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ARCH_01_BRANCHES, NEVER_BRANCHES } from "./support/contract.mjs";
 import { pnpmRun, readJson, removeTree, repoRoot, scratchTree } from "./support/tree.mjs";
@@ -29,6 +29,26 @@ const payload = (dir, kind) => {
   const name = readdirSync(dir).find((e) => new RegExp(`^${kind}\\.`).test(e));
   return name ? join(dir, name) : null;
 };
+
+/**
+ * The fixtures Q-08's exception is written against: the committed corpus at
+ * `tests/lint-fixtures/<rule>/bad.<ext>` — one directory deep, no further. Derived from the glob, so a
+ * later increment that adds a NEVER branch is covered without editing this file, and the deeper
+ * ARCH-01 fixtures (whose payload is an import, not a Q-08 banned construct) are correctly out.
+ */
+function declaredCorpusDirs(root) {
+  const base = join(root, CORPUS);
+  return fixtureDirs(root).filter((d) => dirname(d) === base);
+}
+
+const MARKER = /\/\/ RECORDED REASON [A-Z0-9_-]+/g;
+
+/** The 1-based lines of <text> that carry a RECORDED REASON marker. */
+const markedLines = (text) =>
+  text
+    .split("\n")
+    .map((line, i) => (new RegExp(MARKER.source).test(line) ? i + 1 : 0))
+    .filter((n) => n > 0);
 
 /** The alias prefix that maps onto src/, if the tree configures one. */
 function srcAlias(root) {
@@ -88,6 +108,67 @@ describe("AC-3-LINT-NEVERS", () => {
     }
   }, 600_000);
 
+  // -------------------------------------------------------------------------------------------
+  // Q-08's one exception, and both of its guardrails. Settled reading: the marker is honoured by
+  // the gate's structural NEVER scan, not by ESLint — the rules fire on every file including the
+  // corpus (that firing IS the record), and the corpus is excluded from `eslint .` of the product
+  // tree, so the marked payload is recorded and never blocking. The two guardrails must hold in
+  // the same breath: an unmarked construct in the same file is no more exempt than a marked one,
+  // and the marker buys nothing outside the declared corpus.
+  // -------------------------------------------------------------------------------------------
+
+  it("AC-3-LINT-NEVERS: a declared fixture's marked payload is recorded, never blocking (Q-08)", async () => {
+    const dirs = declaredCorpusDirs(repoRoot());
+    expect(dirs.length, "no fixture sits at the corpus path Q-08's exception names").toBeGreaterThan(0);
+
+    for (const d of dirs) {
+      const file = payload(d, "bad");
+      const name = relative(repoRoot(), file);
+      const marks = markedLines(readFileSync(file, "utf8"));
+      expect(marks.length, `${name} carries no RECORDED REASON marker, so the exception cannot reach it`).toBeGreaterThan(0);
+
+      // Recorded: the rule still fires, and it fires ON the marked line — Q-08's exception is
+      // line-level, so the marker must sit beside the construct it records, not somewhere else.
+      const fired = (await lint(repoRoot(), file)).messages.filter((m) => m.ruleId && !m.fatal);
+      expect(fired.length, `${name}: nothing fired, so nothing was recorded`).toBeGreaterThan(0);
+      expect(
+        fired.map((m) => m.line).filter((l) => marks.includes(l)).length,
+        `${name}: the rule fired on ${JSON.stringify(fired.map((m) => m.line))} but the marker is on ${JSON.stringify(marks)} — the exception is line-level (Q-08)`,
+      ).toBeGreaterThan(0);
+    }
+
+    // Never blocking: the same payloads, present and unaltered, do not fail the tree's own lint.
+    const run = pnpmRun(dir, ["lint"]);
+    expect(run.code, `the declared corpus blocked \`eslint .\` — Q-08 says recorded, never blocking\n${run.out}`).toBe(0);
+  }, 600_000);
+
+  it("AC-3-LINT-NEVERS: an unmarked construct in a declared fixture is exempt from nothing (Q-08)", async () => {
+    const planted = [];
+    try {
+      for (const d of declaredCorpusDirs(repoRoot())) {
+        const file = payload(d, "bad");
+        const name = relative(repoRoot(), file);
+        const marked = readFileSync(file, "utf8");
+        const unmarked = marked.replace(MARKER, "");
+        expect(unmarked, `${name}: stripping the marker changed nothing — there is no marker to strip`).not.toBe(marked);
+
+        // Same directory, same config context, same payload: the marker is the only difference.
+        const twin = join(dir, relative(repoRoot(), d), `unmarked_${basename(file)}`);
+        mkdirSync(dirname(twin), { recursive: true });
+        writeFileSync(twin, unmarked);
+        planted.push(twin);
+
+        const before = new Set((await lint(repoRoot(), file)).messages.filter((m) => m.ruleId && !m.fatal).map((m) => m.ruleId));
+        const after = (await lint(dir, twin)).messages.filter((m) => m.ruleId && !m.fatal);
+        expect(after.length, `${name}: the unmarked twin fired nothing`).toBeGreaterThan(0);
+        const missing = [...before].filter((r) => !after.some((m) => m.ruleId === r));
+        expect(missing, `${name}: removing the marker silenced ${JSON.stringify(missing)} — the marker is doing work it must not do`).toEqual([]);
+      }
+    } finally {
+      for (const abs of planted) rmSync(abs, { force: true });
+    }
+  }, 600_000);
+
   it("AC-3-LINT-NEVERS: a RECORDED REASON marker exempts nothing outside a declared fixture", async () => {
     const source = fixtureDirs(repoRoot())
       .filter((d) => /any|ts-ignore|ts-expect|eslint-disable/.test(d))
@@ -101,6 +182,10 @@ describe("AC-3-LINT-NEVERS", () => {
     try {
       const result = await lint(dir, planted);
       expect(result.messages.filter((m) => m.ruleId && !m.fatal).length, "the marker silenced a NEVER outside the declared corpus (Q-08)").toBeGreaterThan(0);
+      // …and it must not merely be reported: outside the corpus the same construct BLOCKS. The
+      // corpus exclusion is path-bound, so `eslint .` — the tree's own blocking surface — fails.
+      const run = pnpmRun(dir, ["lint"]);
+      expect(run.code, `a marked NEVER at a product path passed \`eslint .\` — the marker is path-bound (Q-08)\n${run.out}`).not.toBe(0);
     } finally {
       rmSync(planted, { force: true });
     }
