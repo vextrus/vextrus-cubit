@@ -18,42 +18,42 @@
  */
 import type { ScopedDb } from '../db';
 
-/** The relational reader's config for the table this borrows from. */
-type QueryConfig = NonNullable<Parameters<ScopedDb['query']['tenants']['findFirst']>[0]>;
-
-type WhereArgument = NonNullable<QueryConfig['where']>;
-
 /**
- * `where` is either a condition or a callback that builds one; the callback's second argument
- * is the operator set. The conditional distributes over that union, so the condition arm
- * contributes `never` and what is left is the operators.
+ * One built statement — what `db.execute()` takes, named by what produces it.
+ *
+ * Taken off the reader rather than off the tag: the relational config's `where` collapses to
+ * `never` once `KnownKeysOnly` has narrowed it against an unresolved selection, so the operator
+ * set carries no readable type here (`src/modules/spine/members/operators.ts` survives that only
+ * because it never reads a property off what it captured). `execute`'s own parameter is the same
+ * value from the other end, and it is the type this seam actually needs to honour.
  */
-type OperatorsOf<W> = W extends (fields: never, operators: infer O) => unknown ? O : never;
-
-type Operators = OperatorsOf<WhereArgument>;
+export type Statement = Parameters<ScopedDb['execute']>[0];
 
 /** The tag itself, as the seam passes it around. */
-export type SqlTag = Operators['sql'];
+export type SqlTag = (strings: TemplateStringsArray, ...values: unknown[]) => Statement;
 
-/** One built statement — what `db.execute()` takes, named by what produces it. */
-export type Statement = ReturnType<SqlTag>;
+/** The shape borrowed off the reader — the one operator this seam uses, and nothing else. */
+interface BorrowedOperators {
+  sql: SqlTag;
+}
 
-let captured: Operators | undefined;
+let captured: SqlTag | undefined;
 
 /** The `sql` tag, borrowed once per process. */
 export function sqlTag(db: ScopedDb): SqlTag {
-  if (captured !== undefined) return captured.sql;
+  if (captured !== undefined) return captured;
   db.query.tenants
     .findFirst({
       columns: { id: true },
-      where: (row, given) => {
-        captured = given;
-        return given.eq(row.id, row.id);
+      where: (_row, given) => {
+        captured = (given as BorrowedOperators).sql;
+        // No condition: the borrow is the point, and a built statement is never run.
+        return undefined;
       },
     })
     .toSQL();
   if (captured === undefined) {
     throw new Error('the relational reader did not offer its operators');
   }
-  return captured.sql;
+  return captured;
 }
