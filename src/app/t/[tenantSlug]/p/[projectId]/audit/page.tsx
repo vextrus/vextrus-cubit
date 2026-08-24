@@ -158,7 +158,7 @@ function EntryRow({
 }) {
   return (
     <div className="project-audit-row">
-      <dt className="project-audit-row-label">{label}</dt>
+      <dt className="project-audit-row-label">{label}</dt>{' '}
       <dd
         className={
           quiet ? 'project-audit-row-value project-audit-evidence' : 'project-audit-row-value'
@@ -166,7 +166,7 @@ function EntryRow({
         data-testid={testId}
       >
         {children}
-      </dd>
+      </dd>{' '}
     </div>
   );
 }
@@ -176,11 +176,15 @@ function Entry({ entry }: { readonly entry: ActLogEntry }) {
   const [said, ended] = around('project.audit.entry.setRole', 'role');
   return (
     <li className="project-audit-entry" data-testid="act-log-entry" data-act-type={entry.actType}>
+      {/* The two spaces are text, not layout: an entry read aloud — or read by a journey — is
+          one run of characters, and a headline that ran into its own timestamp would say
+          `ASSIGN_PARTICIPANT_ROLE24 Aug 2026`. A whitespace-only anonymous flex item is not
+          rendered (CSS flexbox §4), so the row is laid out exactly as it was without them. */}
       <div className="project-audit-entry-head">
-        <span className="project-audit-act-type">{entry.actType}</span>
+        <span className="project-audit-act-type">{entry.actType}</span>{' '}
         <time className="project-audit-when numeric" dateTime={entry.at}>
           {stamp(entry.at)}
-        </time>
+        </time>{' '}
       </div>
       <dl className="project-audit-rows">
         <EntryRow label={ten('project.audit.filter.actor')}>{entry.actorEmail}</EntryRow>
