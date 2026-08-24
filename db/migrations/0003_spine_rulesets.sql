@@ -62,6 +62,14 @@ CREATE POLICY "tenant_isolation" ON "projects" AS PERMISSIVE FOR ALL TO PUBLIC
 -- "forked platform → tenant → project at creation, in one transaction"). The arm is on the
 -- WITH CHECK too, for the one write that mints the seed inside that transaction; a row
 -- carrying somebody else's tenant_id is still refused, which is what isolation means here.
+--
+-- On the WITH CHECK the platform arm is bounded to that one row and no other. A platform row
+-- is readable by every tenant and, by the trigger below, can never be deleted — so an arm
+-- that accepted any tenant_id-NULL row would let one workspace permanently write into the
+-- namespace every other workspace reads. What it accepts instead is exactly L-MEA-01's seed:
+-- its name, its version, and the digest of its parameter values × its (rule id, version)
+-- pairs, which is what L-MEA-01 keys an edition by and therefore what fixes its content. Any
+-- other platform row is a system-scope write (M3's authoring), not a tenant's.
 ALTER TABLE "rule_set_editions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "rule_set_editions" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "rule_set_editions" AS PERMISSIVE FOR ALL TO PUBLIC
@@ -80,8 +88,14 @@ CREATE POLICY "tenant_isolation" ON "rule_set_editions" AS PERMISSIVE FOR ALL TO
 		OR (
 			current_setting('cubit.scope', true) = 'tenant'
 			AND (
-				"tenant_id" IS NULL
-				OR "tenant_id" = nullif(current_setting('cubit.tenant_id', true), '')::uuid
+				"tenant_id" = nullif(current_setting('cubit.tenant_id', true), '')::uuid
+				OR (
+					"tenant_id" IS NULL
+					AND "scope" = 'platform'
+					AND "name" = 'IS1200_IN'
+					AND "version" = '2026.08'
+					AND "digest" = '6c4622a631d5b7aa2228ac0f4a85ddcc7adf47ce057d4fb3ec98fc2438d84e63'
+				)
 			)
 		)
 	);--> statement-breakpoint

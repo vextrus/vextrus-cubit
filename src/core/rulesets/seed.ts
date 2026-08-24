@@ -196,7 +196,15 @@ async function mintTenantTemplate(tx: RuleSetTx, tenantId: string): Promise<Edit
 
   const platform = await mintPlatformSeed(tx);
   try {
-    return await forkEdition(tx, platform, TENANT, tenantId);
+    // A savepoint, not a bare INSERT. Postgres aborts the whole transaction on a unique-index
+    // violation and refuses every statement after it until a rollback (25P02) — so a bare fork
+    // here would poison the read below (it would raise "current transaction is aborted" instead
+    // of returning the raced row) and the caller's `projects` INSERT with it. `tx.transaction()`
+    // is drizzle's SAVEPOINT: the refusal rolls back to the point before the fork and leaves the
+    // surrounding transaction alive, which is the only way this recovery can recover.
+    return await tx.transaction(async (fork: RuleSetTx) =>
+      forkEdition(fork, platform, TENANT, tenantId),
+    );
   } catch (error: unknown) {
     // The template's own partial unique index refused it, which means another transaction
     // committed one between the read above and this write. Its row is as good as ours.
