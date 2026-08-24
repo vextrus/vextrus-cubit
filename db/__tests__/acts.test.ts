@@ -26,6 +26,7 @@ import { pathToFileURL } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { REPO } from './support/lanes';
 import { APP_ROLE, INSUFFICIENT_PRIVILEGE, connectAs, endAll, query } from './support/live';
+import { renderOffence, scanActLog } from './support/act-log-scan';
 import type { Client } from 'pg';
 
 const ACTS_SEAM = 'src/core/acts';
@@ -398,21 +399,18 @@ function walk(dir: string): string[] {
 
 describe('L-ACT-01 — the seam is unimportable elsewhere', () => {
   it('nothing under src/ outside src/core/acts names the three tables at all', async () => {
-    const names = /\b(acts|participants|participant_roles|participantRoles)\b/;
-    const offences: string[] = [];
-    for (const relative of walk('src')) {
-      if (relative.startsWith(`${ACTS_SEAM}/`)) continue;
-      if (relative.split('/').includes('__tests__')) continue;
-      const text = readFileSync(at(relative), 'utf8');
-      for (const line of text.split('\n')) {
-        // Only a line that reaches a *table* is an offence: the tRPC namespace is called `acts`
-        // too, and a router that mounts it is not a writer of the log.
-        if (!/fullSchema|db\/schema|insert\s+into|update\s+|delete\s+from/i.test(line)) continue;
-        if (names.test(line)) offences.push(`${relative}: ${line.trim()}`);
-      }
-    }
+    // Both halves of AC-3 call the same scanner (db/__tests__/support/act-log-scan.ts) so they
+    // cannot drift: a line filter of this file's own reads only the lines it thought of, and the
+    // codebase's idiomatic write — `db.insert(acts).values(…)` over a binding taken from a
+    // re-export — is on no such line. The scanner closes the table bindings over every import and
+    // re-export edge instead, and reads both write shapes.
+    const modules = [...walk('src'), ...walk('db')].map((relative) => ({
+      path: relative,
+      text: readFileSync(at(relative), 'utf8'),
+    }));
+    const { offences } = scanActLog(modules);
     expect(
-      offences,
+      offences.map(renderOffence),
       'L-ACT-01: the act seam "is the sole writer of the log and unimportable elsewhere"',
     ).toEqual([]);
   });

@@ -39,6 +39,8 @@ import { pathToFileURL } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { REPO } from './support/lanes';
 import { APP_ROLE, MIGRATE_ROLE, connectAs, endAll, query } from './support/live';
+import { renderOffence, scanActLog } from './support/act-log-scan';
+import type { Offence, SourceModule } from './support/act-log-scan';
 import type { Client } from 'pg';
 
 /* ─────────────────────────────── what the spec names ────────────────────────────────── */
@@ -701,57 +703,121 @@ function walk(dir: string): string[] {
 const read = (relative: string): string => readFileSync(at(relative), 'utf8');
 
 /**
- * The two ways a drizzle table object can reach code in this tree: an import from `db/schema`
- * (which the lint rule already confines to src/core/db.ts), and a read off the handle's own
- * `_.fullSchema`, which is how every module above the seam names a table today.
- *
- * Only the three tables of the act log are looked for, and only as *table objects* — a read
- * through `tx.query.acts` is a read, and L-ACT-01 makes the seam the sole *writer*.
+ * The corpus the scan runs over: every product module in the tree. Chains are followed through
+ * db/ as well as src/, because a re-export can run through a module that is innocent itself; the
+ * scanner grades only what AC-3 asks about.
  */
-function tableObjectReferences(text: string): string[] {
-  const names = ['acts', 'participants', 'participantRoles', 'participant_roles'];
-  const found: string[] = [];
-  for (const match of text.matchAll(/fullSchema\s*(?:\.\s*(\w+)|\[\s*['"](\w+)['"]\s*\])/g)) {
-    const name = match[1] ?? match[2] ?? '';
-    if (names.includes(name)) found.push(`fullSchema.${name}`);
-  }
-  for (const match of text.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"][^'"]*db\/schema[^'"]*['"]/g)) {
-    for (const named of (match[1] ?? '').split(',')) {
-      const name = named.trim().split(/\s+/)[0] ?? '';
-      if (names.includes(name)) found.push(`import { ${name} } from db/schema`);
-    }
-  }
-  return found;
-}
+const corpus = (): SourceModule[] =>
+  [...walk('src'), ...walk('db')].map((relative) => ({ path: relative, text: read(relative) }));
 
-/** A statement that changes one of the three tables, spelled as SQL rather than as drizzle. */
-function writeStatements(text: string): string[] {
-  const pattern =
-    /\b(insert\s+into|update|delete\s+from)\s+(?:public\s*\.\s*)?"?(acts|participants|participant_roles)"?\b/gi;
-  return [...text.matchAll(pattern)].map((match) => `${String(match[1])} ${String(match[2])}`);
-}
+/**
+ * The shapes the scanner must catch before its silence on the real tree means anything. This is
+ * the codebase's own idiomatic write — `db.insert(acts).values(…)` over a binding reached by a
+ * re-export chain — plus the two shapes an earlier pair of regexes recognised, and two innocent
+ * modules that must stay unflagged (a relational *read*, and the tRPC namespace that is called
+ * `acts` without being a writer).
+ */
+const FIXTURE: readonly SourceModule[] = [
+  { path: 'db/schema/spine/acts.ts', text: "export const acts = pgTable('acts', { id: uuid() });" },
+  { path: 'db/schema/index.ts', text: "export * from './spine/acts';" },
+  // The re-export chain: an ordinary-looking module hands the table object on under its own name.
+  { path: 'src/modules/x/tables.ts', text: "export { acts } from '../../../db/schema';" },
+  {
+    path: 'src/modules/x/writer.ts',
+    text:
+      "import { acts } from './tables';\n" +
+      'export async function grant(db) { await db.insert(acts).values({ id }); }\n',
+  },
+  { path: 'src/modules/x/fuller.ts', text: 'const t = db._.fullSchema.participantRoles;\n' },
+  { path: 'src/modules/x/rawsql.ts', text: 'await db.execute(sql`insert into public.acts (id) values (1)`);\n' },
+  { path: 'src/modules/x/reader.ts', text: 'export const read = (tx) => tx.query.acts.findMany();\n' },
+  {
+    path: 'src/server/routers/acts.ts',
+    text: "export const actsRouter = router({ assignParticipantRole: actPair(preview, commit) });\n",
+  },
+];
+
+const offendersIn = (result: { offences: readonly Offence[] }): string[] => [
+  ...new Set(result.offences.map((offence) => offence.path)),
+];
 
 describe('AC-3 / L-ACT-01 — the act seam is the sole writer of the log', () => {
   it('AC-3: nothing under src/ outside src/core/acts reaches the three tables to write them', async () => {
-    const offences: string[] = [];
-    for (const relative of walk('src')) {
-      if (relative.startsWith(`${ACTS_SEAM}/`) || relative === `${ACTS_SEAM}.ts`) continue;
-      if (relative.split('/').includes('__tests__')) continue;
-      const text = read(relative);
-      for (const reference of tableObjectReferences(text)) offences.push(`${relative}: ${reference}`);
-      for (const statement of writeStatements(text)) offences.push(`${relative}: ${statement}`);
+    // ── first, the inversion. A scanner that certifies only the shapes it already handles is how
+    // the gap the arbitration found stayed hidden: the empty verdict below is worth exactly what
+    // this fixture proves. Every assertion here is about the scanner, not about the tree.
+    const proof = scanActLog(FIXTURE);
+    const caught = offendersIn(proof);
+    expect(
+      caught,
+      'the scanner does not catch a re-export chain, so its verdict on the real tree is worthless',
+    ).toContain('src/modules/x/tables.ts');
+    expect(
+      caught,
+      'the scanner does not catch `db.insert(acts).values(…)` over a re-exported binding — the ' +
+        'codebase’s own idiomatic write',
+    ).toContain('src/modules/x/writer.ts');
+    expect(
+      proof.offences.filter((o) => o.path === 'src/modules/x/writer.ts').map((o) => o.what).join(' | '),
+    ).toMatch(/insert/i);
+    expect(caught, 'the scanner does not catch a read off _.fullSchema').toContain(
+      'src/modules/x/fuller.ts',
+    );
+    expect(caught, 'the scanner does not catch a raw-SQL insert').toContain('src/modules/x/rawsql.ts');
+    // …and it is not simply flagging everything: a relational read holds no table object, and a
+    // tRPC namespace that happens to be called `acts` writes nothing.
+    expect(caught, 'a relational read through tx.query.acts is not a write').not.toContain(
+      'src/modules/x/reader.ts',
+    );
+    expect(caught, 'the tRPC namespace named `acts` is not a writer of the log').not.toContain(
+      'src/server/routers/acts.ts',
+    );
+
+    // ── and the same, planted into the *real* corpus, so the verdict below cannot be vacuous
+    // through the tree's own schema barrel: the bindings must be found where they are declared
+    // and must travel every edge that actually exists in this repo.
+    const tree = corpus();
+    const planted: SourceModule[] = [
+      { path: 'src/modules/planted/tables.ts', text: "export { acts } from '../../../db/schema';\n" },
+      {
+        path: 'src/modules/planted/writer.ts',
+        text:
+          "import { acts } from './tables';\n" +
+          'export const grant = (db) => db.insert(acts).values({ id });\n',
+      },
+    ];
+    const plantedCaught = offendersIn(scanActLog([...tree, ...planted]));
+    expect(
+      plantedCaught,
+      'a module that re-exports `acts` from the tree’s own db/schema barrel went unnoticed, so ' +
+        'the empty verdict below proves nothing about the real tree',
+    ).toContain('src/modules/planted/tables.ts');
+    expect(
+      plantedCaught,
+      'a `db.insert(acts).values(…)` reached through that re-export went unnoticed',
+    ).toContain('src/modules/planted/writer.ts');
+
+    // ── now the tree itself. L-ACT-01: "the sole writer of the log and unimportable elsewhere" —
+    // no module outside the seam may hold a binding to the three tables by any import or
+    // re-export chain, nor write them in SQL text or as a builder statement.
+    const { offences, holders } = scanActLog(tree);
+    const declared = new Set<string>();
+    for (const [path, bindings] of holders) {
+      if (!path.startsWith('db/schema/')) continue;
+      for (const table of bindings.values()) declared.add(table);
+    }
+    for (const table of ACT_TABLES) {
+      expect(
+        [...declared],
+        `no module under db/schema declares the ${table} table, so the scan below has nothing to ` +
+          'look for — the tables have moved, or the declaration no longer reads as one',
+      ).toContain(table);
     }
     expect(
-      offences,
+      offences.map(renderOffence),
       'L-ACT-01: the act seam "is the sole writer of the log and unimportable elsewhere". ' +
-        'These modules reach the act log’s tables directly',
+        'These modules reach the act log’s tables',
     ).toEqual([]);
-
-    // The scanners find what they are looking for, or the empty result above means nothing.
-    expect(tableObjectReferences(`const t = db._.fullSchema.participantRoles;`)).toHaveLength(1);
-    expect(tableObjectReferences(`import { acts } from '../../db/schema';`)).toHaveLength(1);
-    expect(writeStatements(`sql\`insert into public.acts (id) values (1)\``)).toHaveLength(1);
-    expect(writeStatements(`sql\`select * from acts\``)).toHaveLength(0);
   });
 
   it('AC-3 / B-05: cubit_app holds SELECT and INSERT on all three tables, and neither UPDATE nor DELETE', async () => {
