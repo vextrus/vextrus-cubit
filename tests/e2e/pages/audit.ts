@@ -131,8 +131,19 @@ export async function applyFilters(
   if (choice.subject !== undefined) await selectOption(filterSubject(page), choice.subject);
   await filterApply(page).click();
   // The filter is a GET: the answer is a fresh document at a new address, so the journey waits
-  // for the address before reading a single row of the list it asked for.
-  await page.waitForLoadState('domcontentloaded');
+  // for the address — not for a load state, which the *current* document has already reached
+  // and which would therefore let a caller read the unfiltered page and call it filtered.
+  // Each key the caller chose must be present at its chosen value; keys left undefined are
+  // unconstrained, and the "all" choice is the empty string a GET-submitted empty select puts
+  // in the query.
+  const expected: Readonly<Record<string, string>> = {
+    ...(choice.type !== undefined ? { [TYPE_PARAM]: choice.type } : {}),
+    ...(choice.actor !== undefined ? { [ACTOR_PARAM]: choice.actor } : {}),
+    ...(choice.subject !== undefined ? { [SUBJECT_PARAM]: choice.subject } : {}),
+  };
+  await page.waitForURL((url: URL) =>
+    Object.entries(expected).every(([param, value]) => url.searchParams.get(param) === value),
+  );
 }
 
 /**
