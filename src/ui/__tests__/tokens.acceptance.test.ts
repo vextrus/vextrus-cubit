@@ -118,7 +118,10 @@ const TEXT_STEPS = [12, 13, 14, 16, 20, 24, 32];
 
 const REQUIRED_NAMES: string[] = [
   ...GRAPHITE_STEPS.map((step) => `--graphite-${step}`),
-  '--cobalt-500',
+  // AM-04 (inc-016): R-UI-001's `one accent "cobalt" for interactive` is superseded by
+  // `one accent "beam" (the brand indigo) for interactive`. The claim is unchanged — the
+  // sheet emits the one interactive accent — only the accent's name moved.
+  '--beam-500',
   '--success',
   '--warn',
   '--danger',
@@ -348,9 +351,13 @@ describe('AC-2 — every R-UI-001 category is defined, in both themes', () => {
         // "a type scale of 12/13/14/16/20/24/32" — each token is its own px number.
         expect(variables[`--text-${step}`], `--text-${step} in ${theme}`).toBe(`${step}px`);
       }
-      // "Inter for UI … JetBrains Mono for every number … document typography Noto Sans".
-      expect(variables['--font-ui'], `--font-ui in ${theme}`).toContain('Inter');
-      expect(variables['--font-mono'], `--font-mono in ${theme}`).toContain('JetBrains Mono');
+      // "Inter for UI … JetBrains Mono for every number … document typography Noto Sans" —
+      // AM-05 (inc-016) supersedes the two families: `Inter for UI` becomes `Spline Sans for
+      // UI`, `JetBrains Mono for every number…` becomes `Spline Sans Mono for every number…`,
+      // Noto Sans for documents kept. The claim — a UI family, a mono family, a doc family,
+      // each named in the sheet — is unchanged.
+      expect(variables['--font-ui'], `--font-ui in ${theme}`).toContain('Spline Sans');
+      expect(variables['--font-mono'], `--font-mono in ${theme}`).toContain('Spline Sans Mono');
       expect(variables['--font-doc'], `--font-doc in ${theme}`).toContain('Noto Sans');
       // "14 px base … 1.45 line height"; "headings weight 600, body 400/500".
       expect(variables['--leading-ui'], `--leading-ui in ${theme}`).toBe('1.45');
