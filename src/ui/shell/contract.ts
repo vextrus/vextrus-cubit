@@ -43,6 +43,15 @@ export type RailArea = (typeof RAIL_AREAS)[number];
 /** The tenant home, whose segment is the empty one — `/t/{slug}` and nothing after it. */
 export const TENANT_HOME_SEGMENT = '';
 
+/**
+ * The segment a project's own routes sit on: `/t/{slug}/p/{projectId}/…`.
+ *
+ * It is not a rail area — the rail's Projects item stays the marked one on every project route
+ * (docs/design/s-project-settings-… Interpretation 5), because a project is where the Projects
+ * area leads.
+ */
+export const PROJECT_SEGMENT = 'p';
+
 /** `/t/{slug}` and `/t/{slug}/{segment}` — the addresses R-UI-031 makes the source of truth. */
 export function tenantPath(slug: string, segment: string = TENANT_HOME_SEGMENT): string {
   return segment === TENANT_HOME_SEGMENT ? `/t/${slug}` : `/t/${slug}/${segment}`;

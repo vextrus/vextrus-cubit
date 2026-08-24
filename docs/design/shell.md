@@ -115,6 +115,17 @@ a flexible spacer, the collapse toggle. No wordmark — the brand lives on the a
 
 ## 4. Areas and routes (R-UI-031, R-UI-033)
 
+**Superseded in part by inc-014** (which owns this file). `docs/design/s-home.md` decides
+`/t/{slug}` — the tenant home is now S-Home's projects grid, create affordance and recent
+documents rather than the sessions-teaching EmptyState — and `/t/{slug}/projects`, whose empty
+state now leads to the real create form at `/t/{slug}/projects/new` instead of the placeholder
+dialog described below. `docs/design/s-project-settings-project-fields-pane-participants-pane-ruleset-pane-untouched.md`
+Interpretation 5 decides the breadcrumb, the rail mark and the project switcher on
+`/t/{slug}/p/{projectId}/…`, superseding §3's tenant-only crumb there; its Interpretation 13
+records the `(area)` route group the areas below now sit in, which names no URL segment and
+leaves every address here exactly where it is. The bullets below stand for Books, Settings and
+Sessions, and read as history for the two the newer files decide.
+
 Server-guarded via `tenantContext(slug)` before any byte: `'signed-out'` → 303 to
 `SIGN_IN_PATH`; `'not-found'` → the s-auth §7 404. Every route below is deep-linkable by a
 fresh GET and reachable by rail navigation; browser back walks the history exactly (AC-2).
@@ -198,7 +209,8 @@ test ids and the code `SHELL-0000`.
 | `shell.nav.settings` | Settings |
 | `shell.breadcrumb` | Breadcrumb |
 | `shell.topbar.project.none` | No project |
-| `shell.topbar.project.empty` | No projects exist in this workspace yet. The first project will appear here. |
+| `shell.topbar.project.empty` | No project is open. Choose one from the Projects list. |
+| `shell.topbar.project.current` | You are working in {name}. |
 | `shell.topbar.project.action` | Go to Projects |
 | `shell.topbar.command` | Search and commands |
 | `shell.topbar.command.empty` | The command palette is not available yet. Use the rail to move between areas. |
@@ -216,7 +228,7 @@ test ids and the code `SHELL-0000`.
 | `tenant.projects.empty.teach` | Create a project, then upload a drawing to start measuring. |
 | `tenant.projects.empty.action` | Create a project |
 | `tenant.projects.create.title` | Create a project |
-| `tenant.projects.create.body` | Creating projects is not available yet. A project will start with a name and its first drawing upload. |
+| `tenant.projects.create.body` | Name the project and give it a code. Everything else here is optional and can be changed later in the project's settings. |
 | `tenant.projects.create.sample` | A sample project, clearly labelled SAMPLE, will also be available to explore. |
 | `tenant.books.title` | Books |
 | `tenant.books.empty.title` | No books yet. |
@@ -229,8 +241,14 @@ test ids and the code `SHELL-0000`.
 | `tenant.permission.holder` | the workspace owner |
 
 Calm, concrete, sentence case, no exclamation marks, no build or internal vocabulary.
-`tenant.signOut`, `tenant.sessions.*`, `tenant.home.empty.*` and `tenant.notFound.*` stand
-unchanged from s-auth §10.
+`tenant.signOut`, `tenant.sessions.*` and `tenant.notFound.*` stand unchanged from s-auth §10.
+
+Three rows above were re-worded by inc-014, which owns this file, because the sentences they
+carried were true only while projects could not be created: `shell.topbar.project.empty` and
+`shell.topbar.project.current` are the project switcher's two states now that a project can be
+open (docs/design/s-project-settings-… Interpretation 5), and `tenant.projects.create.body`
+describes the create form that §4's dialog now holds (docs/design/s-home.md §8). The key names
+are unchanged. `tenant.home.empty.*` left this section with s-home §8, which decides it now.
 
 ## 8. Motion (R-UI-004)
 

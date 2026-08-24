@@ -7,9 +7,9 @@
  */
 import { notFound, redirect } from 'next/navigation';
 import { AreaEmptyState } from '../area-empty-state';
-import { ten } from '../../strings';
-import { SIGN_IN_PATH, tenantContext } from '../../../../server/session';
-import { RAIL_AREAS, tenantPath } from '../../../../ui/shell';
+import { ten } from '../../../strings';
+import { SIGN_IN_PATH, tenantContext } from '../../../../../server/session';
+import { RAIL_AREAS, tenantPath } from '../../../../../ui/shell';
 
 export default async function TenantBooksPage({
   params,

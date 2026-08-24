@@ -12,7 +12,7 @@
  * `src/app/t/error.tsx` stays for the failures above this segment, which have no shell to
  * render inside.
  */
-import { SHELL_STATES, ShellAreaState } from '../../../ui/shell';
+import { SHELL_STATES, ShellAreaState } from '../../../../ui/shell';
 
 const NO_DIGEST = 'SHELL-0000';
 

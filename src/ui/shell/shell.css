@@ -255,6 +255,12 @@
   font-size: var(--text-13);
   color: var(--graphite-600);
   text-decoration: none;
+  /* A project name is as long as somebody named it; the crumb ellipsizes rather than
+     wrapping the whole top bar onto a second line (panes file Interpretation 5). */
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   border-radius: var(--radius-4);
   transition: color var(--motion-state-duration) var(--motion-ease);
 }
@@ -264,6 +270,7 @@
 }
 
 .shell-crumb-separator {
+  flex: none;
   margin: 0 var(--space-2);
   color: var(--graphite-400);
 }
@@ -294,6 +301,11 @@
 .shell-project-none {
   color: var(--graphite-600);
   font-size: var(--text-13);
+  /* Interpretation 5: the open project's name, at most 160 px of it, on one line. */
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .shell-slot-chevron {

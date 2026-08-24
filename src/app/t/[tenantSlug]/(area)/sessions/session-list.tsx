@@ -19,8 +19,8 @@
  * rather than one that is a frame away.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button } from '../../../../ui/primitives';
-import { around, ten } from '../../strings';
+import { Badge, Button } from '../../../../../ui/primitives';
+import { around, ten } from '../../../strings';
 
 const pad = (value: number): string => String(value).padStart(2, '0');
 

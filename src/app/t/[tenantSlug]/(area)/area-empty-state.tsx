@@ -10,7 +10,7 @@
  * button expects to find it.
  */
 import { useRouter } from 'next/navigation';
-import { SHELL_STATES, ShellAreaState } from '../../../ui/shell';
+import { SHELL_STATES, ShellAreaState } from '../../../../ui/shell';
 
 export interface AreaEmptyStateProps {
   readonly title: string;

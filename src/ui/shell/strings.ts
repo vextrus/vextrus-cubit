@@ -21,10 +21,11 @@ export const SHELL_STRINGS = Object.freeze({
   'shell.nav.settings': 'Settings',
   /** The breadcrumb's accessible name. */
   'shell.breadcrumb': 'Breadcrumb',
-  /** The project switcher's own words while no project exists (M0). */
+  /** The project switcher's own words while no project is open. */
   'shell.topbar.project.none': 'No project',
-  'shell.topbar.project.empty':
-    'No projects exist in this workspace yet. The first project will appear here.',
+  'shell.topbar.project.empty': 'No project is open. Choose one from the Projects list.',
+  /** …and while one is (docs/design/s-project-settings-… Interpretation 5). */
+  'shell.topbar.project.current': 'You are working in {name}.',
   'shell.topbar.project.action': 'Go to Projects',
   /** ⌘K's accessible name — the palette itself is M2. */
   'shell.topbar.command': 'Search and commands',
@@ -51,4 +52,18 @@ export type ShellStringKey = keyof typeof SHELL_STRINGS;
 /** Read one string by a key the compiler can check. */
 export function sh(key: ShellStringKey): string {
   return SHELL_STRINGS[key];
+}
+
+/**
+ * The same string with its `{slot}`s filled — the `/t` table's `fill`, for the one shell
+ * sentence that names something the frame was handed. A slot nobody filled is left as it is
+ * written rather than blanked: a sentence with a hole in it says something is missing, which
+ * is true.
+ */
+export function shFill(key: ShellStringKey, slots: Readonly<Record<string, string>>): string {
+  let filled: string = sh(key);
+  for (const [slot, value] of Object.entries(slots)) {
+    filled = filled.split(`{${slot}}`).join(value);
+  }
+  return filled;
 }
