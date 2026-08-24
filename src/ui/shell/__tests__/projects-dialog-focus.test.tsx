@@ -4,32 +4,40 @@
  *
  * R-UI-060 asks for keyboard operability on every screen, and WCAG 2.4.3 (focus order) is
  * what a dismissed modal owes: the reader goes back to where they were, not to the top of
- * the document. The dialog is opened from the projects area's create affordance rather than
- * from a `DialogTrigger`, and Radix restores focus only to a trigger it rendered itself — its
- * close handler prevents the FocusScope fallback and then focuses a `triggerRef` that is null
- * here. Left alone, Escape drops the reader on `<body>` and they have to tab the whole shell
- * again.
+ * the document. The create surface is a route-driven Dialog with no `DialogTrigger` above it,
+ * and Radix restores focus only to a trigger it rendered itself — its close handler prevents
+ * the FocusScope fallback and then focuses a `triggerRef` that is null here. Left alone,
+ * Escape drops the reader on `<body>` and they have to tab the whole shell again.
  *
  * The two dismissals are both exercised: Escape, and the dialog's own close control. Each one
  * asserts the element that holds focus afterwards, because `toBeHidden` passing is exactly
  * what hid this defect from the journey.
  *
- * inc-014 re-pointed this claim, unchanged, at the component that now holds it. The dialog
- * docs/design/shell.md §4 fixed was an in-place one opened from `ProjectsEmptyState`; s-home
- * Interpretation 2 makes it route-driven — `/t/{slug}/projects/new` *is* the projects area
- * with the create Dialog open — so the affordance it returns focus to is the one on the page
- * it navigates back to (`home-create-project` or `empty-state-action`, s-home
- * Interpretation 8). Same law, same two dismissals, same assertions; only the component that
- * owes it moved.
+ * s-home Interpretation 8 is where this claim now lives: the focus law belongs to the Projects
+ * create surface as behaviour, and `/t/{slug}/projects/new` *is* the projects area with that
+ * Dialog open (s-home Interpretation 2), so the control focus is owed back to is the create
+ * affordance of the page the dismissal returns to. Same law, same two dismissals, same
+ * assertions; only the component that owes it moved (arbitration of 2026-08-24, TEST_AMENDED).
  */
 import { cleanup, getByLabelText, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PRIMITIVES_STRINGS } from '../../primitives/strings';
 
-/** The route-driven Dialog navigates on close; the navigation itself is Next's, not the claim's. */
+/**
+ * The route-driven Dialog navigates on close; the navigation itself is Next's, not the claim's.
+ * Every method the surface may reach for is present, so a missing one can never be mistaken for
+ * a focus defect — whichever way out it takes, the assertions below still read the DOM.
+ */
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: () => undefined, refresh: () => undefined }),
+  useRouter: () => ({
+    push: () => undefined,
+    replace: () => undefined,
+    back: () => undefined,
+    forward: () => undefined,
+    refresh: () => undefined,
+    prefetch: () => undefined,
+  }),
   usePathname: () => '/t/acme/projects/new',
 }));
 
@@ -71,6 +79,7 @@ describe('the Projects create dialog', () => {
     await user.keyboard('{Escape}');
 
     await waitFor(() => expect(screen.queryByTestId('dialog-content')).toBeNull());
+    // R-UI-060 / WCAG 2.4.3: the concrete opening control, and never the top of the document.
     await waitFor(() => expect(document.activeElement).toBe(action));
     expect(document.activeElement).not.toBe(document.body);
   });
@@ -83,6 +92,8 @@ describe('the Projects create dialog', () => {
     await user.click(getByLabelText(dialog, PRIMITIVES_STRINGS['primitives.dialog.close']));
 
     await waitFor(() => expect(screen.queryByTestId('dialog-content')).toBeNull());
+    // R-UI-060 / WCAG 2.4.3: the same law the Escape case proves, on the other way out.
     await waitFor(() => expect(document.activeElement).toBe(action));
+    expect(document.activeElement).not.toBe(document.body);
   });
 });
