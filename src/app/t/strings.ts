@@ -246,6 +246,9 @@ export const TENANT_STRINGS = Object.freeze({
   'project.audit.entry.consequence': 'Consequence',
   'project.audit.entry.evidence': 'Evidence',
   'project.audit.entry.setRole': '{member} was set to {role}.',
+  'project.audit.entry.subjectNone': 'Nobody recorded. This act names no subject.',
+  'project.audit.entry.consequenceNone':
+    'No consequence recorded. The act stands in the log; when this release can derive what it changed, the change appears here.',
   'project.audit.entry.evidenceNone':
     'No evidence cited. When acts cite drawings and documents, the citations appear here.',
   'project.audit.acts.empty.title': 'No acts match these filters.',

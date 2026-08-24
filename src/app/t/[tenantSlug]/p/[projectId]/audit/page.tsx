@@ -174,6 +174,11 @@ function EntryRow({
 /** §3: one act, as a reader reads it — the headline, the two people, the consequence, the cite. */
 function Entry({ entry }: { readonly entry: ActLogEntry }) {
   const [said, ended] = around('project.audit.entry.setRole', 'role');
+  // The read LEFT JOINs `participant_roles` so an act whose consequence M0 cannot derive is
+  // still listed (act-log.ts §, settled reading). Such a row carries no subject and no role, and
+  // the two slots that would name them teach the absence — the same answer §3 gives the
+  // evidence slot (R-UI-020) — rather than composing a sentence with holes in it.
+  const derived = entry.role !== '' && entry.subjectEmail !== '';
   return (
     <li className="project-audit-entry" data-testid="act-log-entry" data-act-type={entry.actType}>
       {/* The two spaces are text, not layout: an entry read aloud — or read by a journey — is
@@ -188,11 +193,23 @@ function Entry({ entry }: { readonly entry: ActLogEntry }) {
       </div>
       <dl className="project-audit-rows">
         <EntryRow label={ten('project.audit.filter.actor')}>{entry.actorEmail}</EntryRow>
-        <EntryRow label={ten('project.audit.filter.subject')}>{entry.subjectEmail}</EntryRow>
-        <EntryRow label={ten('project.audit.entry.consequence')} testId={CONSEQUENCE_ID}>
-          {said.split(MEMBER_SLOT).join(entry.subjectEmail)}
-          <span className="project-audit-role">{entry.role}</span>
-          {ended}
+        <EntryRow label={ten('project.audit.filter.subject')} quiet={!derived}>
+          {derived ? entry.subjectEmail : ten('project.audit.entry.subjectNone')}
+        </EntryRow>
+        <EntryRow
+          label={ten('project.audit.entry.consequence')}
+          testId={CONSEQUENCE_ID}
+          quiet={!derived}
+        >
+          {derived ? (
+            <>
+              {said.split(MEMBER_SLOT).join(entry.subjectEmail)}
+              <span className="project-audit-role">{entry.role}</span>
+              {ended}
+            </>
+          ) : (
+            ten('project.audit.entry.consequenceNone')
+          )}
         </EntryRow>
         <EntryRow label={ten('project.audit.entry.evidence')} testId={EVIDENCE_ID} quiet>
           {ten('project.audit.entry.evidenceNone')}

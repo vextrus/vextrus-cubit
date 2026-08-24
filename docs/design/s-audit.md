@@ -121,6 +121,16 @@ gap:
      `project.audit.entry.evidenceNone`, `--text-13` `--graphite-600` — an absence, taught,
      never a blank cell (R-UI-020; `evidence` is `readonly []` in M0).
 
+  **An entry with no derivable consequence.** The read LEFT JOINs `participant_roles`, so an act
+  whose consequence this release cannot derive is still listed (Interpretation 9's join, kept
+  honest). Such an entry carries no subject and no role, and rows 2 and 3 take the evidence
+  slot's treatment rather than a sentence with holes in it: row 2 renders
+  `project.audit.entry.subjectNone` and row 3 `project.audit.entry.consequenceNone`, both
+  `--text-13` `--graphite-600` (the quiet value). No M0 act produces this — every
+  `ASSIGN_PARTICIPANT_ROLE` writes its role row in the same transaction — but the join exists to
+  surface the act type that does not, and the surface must teach that absence on arrival
+  (R-UI-020).
+
 **Filtered-empty** (`act-log-empty`) — when the filtered read returns nothing, the card body
 renders the state block (patterns §6: centred column, max-width 360 px, padding `--space-8`):
 title `project.audit.acts.empty.title` (`--text-14` `--weight-body-medium` `--graphite-900`),
@@ -187,6 +197,8 @@ except test ids and codes; act-type codes reach the page only through `ACT_TYPE`
 | `project.audit.entry.consequence` | Consequence |
 | `project.audit.entry.evidence` | Evidence |
 | `project.audit.entry.setRole` | {member} was set to {role}. |
+| `project.audit.entry.subjectNone` | Nobody recorded. This act names no subject. |
+| `project.audit.entry.consequenceNone` | No consequence recorded. The act stands in the log; when this release can derive what it changed, the change appears here. |
 | `project.audit.entry.evidenceNone` | No evidence cited. When acts cite drawings and documents, the citations appear here. |
 | `project.audit.acts.empty.title` | No acts match these filters. |
 | `project.audit.acts.empty.teach` | Widen a filter, or clear them all to see every recorded act. |
