@@ -1,0 +1,130 @@
+/*
+ * The handwritten half of the theme: the vendored @font-face declarations and the base
+ * typographic ground the product stands on (R-UI-003, B-24). Every value here is a `var(--…)`
+ * read from the generated `src/ui/tokens.css` — a colour literal outside the token source is
+ * unlawful (R-UI-001).
+ *
+ * Both Spline families load from the files vendored at `src/ui/fonts/`; there is no build-time
+ * or runtime fetch, and there cannot be one (R-UI-003, B-24). The subsets and unicode ranges are
+ * the upstream ones, with `src` re-pointed into this tree; `font-weight: 400 700` is the
+ * variable range the product uses.
+ */
+
+/* Spline Sans — latin */
+@font-face {
+  font-family: 'Spline Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/spline-sans-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Spline Sans — latin-ext */
+@font-face {
+  font-family: 'Spline Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/spline-sans-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Spline Sans Mono — latin */
+@font-face {
+  font-family: 'Spline Sans Mono';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/spline-sans-mono-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Spline Sans Mono — latin-ext */
+@font-face {
+  font-family: 'Spline Sans Mono';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('../fonts/spline-sans-mono-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* The theme the browser paints its own chrome with — scrollbars and form controls follow the
+   token themes rather than fighting them (R-UI-001). */
+:root {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* 14 px Spline Sans at 1.45, graphite 900 on graphite 0 — the app's ground (R-UI-001, R-UI-003). */
+html {
+  background-color: var(--graphite-0);
+  color: var(--graphite-900);
+  font-family: var(--font-ui);
+  font-size: var(--text-14);
+  font-weight: var(--weight-body);
+  line-height: var(--leading-ui);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: inherit;
+  color: inherit;
+  font: inherit;
+}
+
+/* Every number, code, mark, source key and formula is mono with tabular, slashed-zero figures
+   (R-UI-003). */
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* Headings carry weight 600 and never letter-spaced uppercase (R-UI-003); their sizes come from
+   the type scale where each screen's Design Decision places them. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-ui);
+}
+
+/* The focus ring is the beam, one ring everywhere (R-UI-001). */
+:focus-visible {
+  outline: 2px solid var(--beam-500);
+  outline-offset: 2px;
+}
+
+::selection {
+  background-color: var(--beam-100);
+}
+
+hr {
+  border: none;
+  border-top: var(--hairline);
+  margin: 0;
+}

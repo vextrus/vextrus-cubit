@@ -1,0 +1,267 @@
+/* Generated from src/ui/tokens.ts (R-UI-001). Edit the source, never this file. */
+
+:root {
+  /* graphite */
+  --graphite-0: #F4F5F4;
+  --graphite-50: #EFF0EF;
+  --graphite-100: #E9EBEA;
+  --graphite-200: #DDE0E0;
+  --graphite-300: #C9CDD1;
+  --graphite-400: #B0B6BC;
+  --graphite-500: #7F868D;
+  --graphite-600: #5F6772;
+  --graphite-700: #4A515B;
+  --graphite-800: #363C45;
+  --graphite-900: #262B33;
+  --graphite-950: #191D24;
+  --graphite-1000: #101318;
+  /* beam */
+  --beam-100: #E8E6F7;
+  --beam-300: #B7B1E8;
+  --beam-500: #5A4FB0;
+  --beam-600: #473E92;
+  --beam-700: #38316F;
+  /* act */
+  --act-surface: #FBEFE4;
+  --act-500: #A85B28;
+  --act-600: #9A5326;
+  /* semantic */
+  --success: #1D7A46;
+  --success-surface: #E7F5EC;
+  --warn: #9A5B00;
+  --warn-surface: #FCF2E3;
+  --danger: #C22A2A;
+  --danger-surface: #FBEAEA;
+  --info: #1866D1;
+  --info-surface: #E9F1FC;
+  /* basis */
+  --basis-measured: #0E7A70;
+  --basis-transcribed: #1D6FB8;
+  --basis-derived: #6B3FC9;
+  --basis-imported: #55617A;
+  --basis-entered: #9A6200;
+  --basis-interpreted: #B01E77;
+  --basis-defaulted: #6B7280;
+  /* element */
+  --element-wall: #3E7CB8;
+  --element-column: #C2492F;
+  --element-beam: #B57F16;
+  --element-slab: #4F8A5D;
+  --element-footing: #7A5CC0;
+  --element-opening: #21A0A8;
+  --element-rebar: #B8478F;
+  --element-generic: #6B7280;
+  /* canvas */
+  --canvas-paper: #FCFCFB;
+  --canvas-grid: #E9EAE7;
+  --canvas-ink: #23282F;
+  --canvas-selection: #5A4FB0;
+  --canvas-hover: rgba(90,79,176,0.18);
+  --canvas-pulse: #E8930C;
+  --canvas-measure: #C13515;
+  --canvas-snap: #1D7A46;
+  /* space */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-11: 44px;
+  --space-12: 48px;
+  /* radius */
+  --radius-2: 2px;
+  --radius-4: 4px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  /* hairline */
+  --hairline: 1px solid var(--graphite-200);
+  /* font */
+  --font-ui: 'Spline Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Spline Sans Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --font-doc: 'Noto Sans', 'Spline Sans', Arial, sans-serif;
+  /* text */
+  --text-12: 12px;
+  --text-13: 13px;
+  --text-14: 14px;
+  --text-16: 16px;
+  --text-20: 20px;
+  --text-24: 24px;
+  --text-32: 32px;
+  /* leading */
+  --leading-ui: 1.45;
+  /* weight */
+  --weight-heading: 600;
+  --weight-body: 400;
+  --weight-body-medium: 500;
+  /* motion */
+  --motion-state: 160ms;
+  --motion-panel: 240ms;
+  --motion-flyto: 320ms;
+  --motion-reticle: 120ms;
+  --ease: cubic-bezier(0.2,0,0,1);
+  --ease-flyto: cubic-bezier(0.45,0.05,0.25,1);
+  /* z */
+  --z-base: 0;
+  --z-sticky: 100;
+  --z-overlay: 200;
+  --z-toast: 300;
+  /* breakpoint */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 960px;
+  --breakpoint-lg: 1280px;
+  --breakpoint-xl: 1680px;
+  /* row */
+  --row-comfortable: 36px;
+  --row-compact: 28px;
+  /* shadow */
+  --shadow-1: 0 1px 2px 0 rgba(16,20,26,0.06);
+  --shadow-2: 0 2px 8px -2px rgba(16,20,26,0.10);
+  --shadow-3: 0 8px 24px -4px rgba(16,20,26,0.14);
+  --shadow-4: 0 16px 48px -8px rgba(16,20,26,0.20);
+}
+
+[data-theme="dark"] {
+  /* graphite */
+  --graphite-0: #0C0E11;
+  --graphite-50: #101318;
+  --graphite-100: #12151A;
+  --graphite-200: #22262E;
+  --graphite-300: #333A46;
+  --graphite-400: #414957;
+  --graphite-500: #66707F;
+  --graphite-600: #7E8899;
+  --graphite-700: #9AA3B2;
+  --graphite-800: #C3C9D2;
+  --graphite-900: #E7EAEE;
+  --graphite-950: #F1F4F7;
+  --graphite-1000: #FBFCFD;
+  /* beam */
+  --beam-100: #1A1830;
+  --beam-300: #3B3478;
+  --beam-500: #6E63C8;
+  --beam-600: #8B84E8;
+  --beam-700: #A7A1F0;
+  /* act */
+  --act-surface: #1D1610;
+  --act-500: #C97F4A;
+  --act-600: #E29A68;
+  /* semantic */
+  --success: #4CC38A;
+  --success-surface: #12271C;
+  --warn: #E8A33D;
+  --warn-surface: #2A2113;
+  --danger: #F26D6D;
+  --danger-surface: #2C1717;
+  --info: #6CA8F5;
+  --info-surface: #14202F;
+  /* basis */
+  --basis-measured: #34C7B5;
+  --basis-transcribed: #55A7F0;
+  --basis-derived: #A78BF5;
+  --basis-imported: #93A1BC;
+  --basis-entered: #E5B04E;
+  --basis-interpreted: #EE6DB8;
+  --basis-defaulted: #98A0AC;
+  /* element */
+  --element-wall: #6BA6DC;
+  --element-column: #E07B5F;
+  --element-beam: #D9A83C;
+  --element-slab: #7FB68A;
+  --element-footing: #A78BE0;
+  --element-opening: #4FC4CC;
+  --element-rebar: #DD7FB4;
+  --element-generic: #98A0AC;
+  /* canvas */
+  --canvas-paper: #101216;
+  --canvas-grid: #1B1F26;
+  --canvas-ink: #D5D9DF;
+  --canvas-selection: #8B84E8;
+  --canvas-hover: rgba(139,132,232,0.26);
+  --canvas-pulse: #FFB224;
+  --canvas-measure: #FF7A4D;
+  --canvas-snap: #4CC38A;
+  /* space */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-11: 44px;
+  --space-12: 48px;
+  /* radius */
+  --radius-2: 2px;
+  --radius-4: 4px;
+  --radius-8: 8px;
+  --radius-12: 12px;
+  /* hairline */
+  --hairline: 1px solid var(--graphite-200);
+  /* font */
+  --font-ui: 'Spline Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Spline Sans Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --font-doc: 'Noto Sans', 'Spline Sans', Arial, sans-serif;
+  /* text */
+  --text-12: 12px;
+  --text-13: 13px;
+  --text-14: 14px;
+  --text-16: 16px;
+  --text-20: 20px;
+  --text-24: 24px;
+  --text-32: 32px;
+  /* leading */
+  --leading-ui: 1.45;
+  /* weight */
+  --weight-heading: 600;
+  --weight-body: 400;
+  --weight-body-medium: 500;
+  /* motion */
+  --motion-state: 160ms;
+  --motion-panel: 240ms;
+  --motion-flyto: 320ms;
+  --motion-reticle: 120ms;
+  --ease: cubic-bezier(0.2,0,0,1);
+  --ease-flyto: cubic-bezier(0.45,0.05,0.25,1);
+  /* z */
+  --z-base: 0;
+  --z-sticky: 100;
+  --z-overlay: 200;
+  --z-toast: 300;
+  /* breakpoint */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 960px;
+  --breakpoint-lg: 1280px;
+  --breakpoint-xl: 1680px;
+  /* row */
+  --row-comfortable: 36px;
+  --row-compact: 28px;
+  /* shadow */
+  --shadow-1: 0 1px 2px 0 rgba(0,0,0,0.40);
+  --shadow-2: 0 2px 8px -2px rgba(0,0,0,0.50);
+  --shadow-3: 0 8px 24px -4px rgba(0,0,0,0.55);
+  --shadow-4: 0 16px 48px -8px rgba(0,0,0,0.60);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-state: 0ms;
+    --motion-panel: 0ms;
+    --motion-flyto: 0ms;
+    --motion-reticle: 0ms;
+  }
+
+  [data-theme="dark"] {
+    --motion-state: 0ms;
+    --motion-panel: 0ms;
+    --motion-flyto: 0ms;
+    --motion-reticle: 0ms;
+  }
+}
