@@ -29,8 +29,19 @@ const UNATTRIBUTED = "unattributed";
  * One failure, one answer. tRPC shows the same error twice — to `onError` and to the error
  * formatter — and B-21 wants exactly one FaultRecord per failure, so the decision is taken once
  * and memoised against the error itself; whichever side asks first is the one that records it.
+ *
+ * The memo is scoped to the request that provoked it, because an error object is not a failure: a
+ * module-scope error constant, a cached error or a retry that re-throws the same instance would
+ * otherwise answer every later request with the first one's faultId and leave the operator with no
+ * record of the second outage. Same object, same request — one record; same object, next request —
+ * a new record with that request's own id.
  */
-const decided = new WeakMap<object, ErrorAnswer>();
+interface Decision {
+  requestId: string;
+  answer: ErrorAnswer;
+}
+
+const decided = new WeakMap<object, Decision>();
 
 export interface AnswerRequest {
   error: unknown;
@@ -39,25 +50,29 @@ export interface AnswerRequest {
 }
 
 /**
- * Decide (and, for a fault, record) how this failure is answered. Idempotent per error object.
+ * Decide (and, for a fault, record) how this failure is answered. Idempotent within one request.
  */
 export function answerFor(request: AnswerRequest): ErrorAnswer {
   const key = typeof request.error === "object" && request.error !== null ? request.error : null;
+  const requestId = request.ctx?.requestId ?? UNATTRIBUTED;
   const remembered = key === null ? undefined : decided.get(key);
-  if (remembered !== undefined) return remembered;
+  if (remembered !== undefined && remembered.requestId === requestId) return remembered.answer;
 
-  const answer = decide(request);
-  if (key !== null) decided.set(key, answer);
+  const answer = decide(request, requestId);
+  if (key !== null) decided.set(key, { requestId, answer });
   return answer;
 }
 
-function decide(request: AnswerRequest): ErrorAnswer {
+function decide(request: AnswerRequest, requestId: string): ErrorAnswer {
   const failure = thrownValue(request.error);
 
-  const refusalCode = refusalCodeOf(failure);
+  // Read the marker on the value the seam was handed AND on the value the procedure actually threw
+  // — each one level deep, as the interface declares. A transport that throws a marked `TRPCError`
+  // carrying the underlying failure as its `cause` is a refusal that happens to keep its cause, and
+  // unwrapping first would answer it as an outage and file a record no operator should see.
+  const refusalCode = refusalCodeOf(request.error) ?? refusalCodeOf(failure);
   if (refusalCode !== null) return { kind: "refusal", refusalCode };
 
-  const requestId = request.ctx?.requestId ?? UNATTRIBUTED;
   const { faultId } = reportFault({
     requestId,
     actor: request.ctx?.actor ?? UNATTRIBUTED,
@@ -69,7 +84,7 @@ function decide(request: AnswerRequest): ErrorAnswer {
 
 /**
  * What the procedure actually threw. tRPC wraps anything that is not already a `TRPCError`, and
- * the refusal marker — like the message an operator needs — sits on the wrapped value.
+ * the message an operator needs sits on the wrapped value.
  */
 function thrownValue(error: unknown): unknown {
   if (error instanceof TRPCError && error.cause !== undefined) return error.cause;
