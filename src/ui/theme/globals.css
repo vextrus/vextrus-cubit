@@ -72,21 +72,22 @@ body {
   padding: 0;
 }
 
-/* 14 px Spline Sans at 1.45, graphite 900 on graphite 0 — the app's ground (R-UI-001, R-UI-003). */
+/* 14 px Spline Sans at 1.45, graphite 900 on graphite 0 — the app's ground (R-UI-001, R-UI-003).
+   The base size sits on `body`, not on the root element: R-UI-003's 14 px governs UI text, and
+   pinning `html` would rebase every rem and override the reader's own browser text size. */
 html {
   background-color: var(--graphite-0);
   color: var(--graphite-900);
-  font-family: var(--font-ui);
-  font-size: var(--text-14);
-  font-weight: var(--weight-body);
-  line-height: var(--leading-ui);
   -webkit-text-size-adjust: 100%;
 }
 
 body {
   background-color: inherit;
   color: inherit;
-  font: inherit;
+  font-family: var(--font-ui);
+  font-size: var(--text-14);
+  font-weight: var(--weight-body);
+  line-height: var(--leading-ui);
 }
 
 /* Every number, code, mark, source key and formula is mono with tabular, slashed-zero figures
@@ -111,12 +112,6 @@ h6 {
   margin: 0;
   font-weight: var(--weight-heading);
   line-height: var(--leading-ui);
-}
-
-/* The focus ring is the beam, one ring everywhere (R-UI-001). */
-:focus-visible {
-  outline: 2px solid var(--beam-500);
-  outline-offset: 2px;
 }
 
 ::selection {
