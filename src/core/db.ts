@@ -91,14 +91,16 @@ async function inScope<T>(sql: postgres.Sql, scope: Scope, work: (session: postg
   }
 }
 
+/** One statement on one session, in whichever of the two shapes drizzle asked for it. */
+async function issue(session: Pick<postgres.Sql, "unsafe">, query: string, params: DriverParams, asValues: boolean): Promise<unknown> {
+  const pending = session.unsafe(query, params);
+  return asValues ? await pending.values() : await pending;
+}
+
 /** A query that has not run yet, and runs — once — in whichever shape drizzle asks it for. */
-function scopedQuery(sql: postgres.Sql, scope: Scope, query: string, params: DriverParams): PendingRows {
+function pendingRows(execute: (asValues: boolean) => Promise<unknown>): PendingRows {
   let started: Promise<unknown> | undefined;
-  const start = (asValues: boolean): Promise<unknown> =>
-    (started ??= inScope(sql, scope, async (session) => {
-      const pending = session.unsafe(query, params);
-      return asValues ? await pending.values() : await pending;
-    }));
+  const start = (asValues: boolean): Promise<unknown> => (started ??= execute(asValues));
   return {
     values: () => ({ then: (onRows, onFailure) => start(true).then(onRows, onFailure) }),
     then: (onRows, onFailure) => start(false).then(onRows, onFailure),
@@ -106,19 +108,47 @@ function scopedQuery(sql: postgres.Sql, scope: Scope, query: string, params: Dri
 }
 
 /**
+ * `SET TRANSACTION ISOLATION LEVEL ...`, which drizzle issues when the caller names an isolation
+ * level, must come before every query of its transaction — and arming the scope is a query. So
+ * inside a transaction the configuration statements go first and the arming waits for the first
+ * statement that is not one.
+ */
+const CONFIGURES_TRANSACTION = /^\s*set\s+transaction\b/i;
+
+/**
+ * The client drizzle is handed inside a transaction: the same connection throughout, with the scope
+ * armed on demand rather than as the opening statement, so the caller's isolation level is not
+ * refused with 25001. The scope is still armed before anything reads or writes.
+ */
+function transactionClient(tx: postgres.TransactionSql, scope: Scope): postgres.TransactionSql {
+  let arming: Promise<unknown> | undefined;
+  const armedFor = (query: string): Promise<unknown> =>
+    CONFIGURES_TRANSACTION.test(query) ? Promise.resolve() : (arming ??= tx.unsafe(ARM_SCOPE, [scope.tenantId, scope.systemReason] as DriverParams));
+
+  // No `options` here: drizzle reads a client's options once, when the handle is built, and inside a
+  // transaction it reaches this object for `unsafe` and `savepoint` alone.
+  const client = {
+    unsafe: (query: string, params: DriverParams = []): PendingRows =>
+      pendingRows(async (asValues) => {
+        await armedFor(query);
+        return issue(tx, query, params, asValues);
+      }),
+    savepoint: (work: (nested: postgres.TransactionSql) => Promise<unknown>): Promise<unknown> => tx.savepoint((nested) => work(transactionClient(nested, scope))),
+  };
+  return client as unknown as postgres.TransactionSql;
+}
+
+/**
  * The client drizzle is handed. Its driver reaches a client through `unsafe`, `begin` and `options`
- * alone, and each of the three answers here with the scope already armed — including inside a
- * transaction, where the whole transaction runs on the one connection it opened.
+ * alone, and each of the three answers here with the scope armed before any statement of it — inside
+ * a transaction too, where the whole transaction runs on the one connection it opened.
  */
 function scopedClient(sql: postgres.Sql, scope: Scope): postgres.Sql {
   const client = {
     options: sql.options,
-    unsafe: (query: string, params: DriverParams = []): PendingRows => scopedQuery(sql, scope, query, params),
-    begin: (work: (tx: postgres.TransactionSql) => Promise<unknown>): Promise<unknown> =>
-      sql.begin(async (tx) => {
-        await tx.unsafe(ARM_SCOPE, [scope.tenantId, scope.systemReason] as DriverParams);
-        return work(tx);
-      }),
+    unsafe: (query: string, params: DriverParams = []): PendingRows =>
+      pendingRows((asValues) => inScope(sql, scope, (session) => issue(session, query, params, asValues))),
+    begin: (work: (tx: postgres.TransactionSql) => Promise<unknown>): Promise<unknown> => sql.begin((tx) => work(transactionClient(tx, scope))),
   };
   return client as unknown as postgres.Sql;
 }
@@ -141,9 +171,27 @@ function handleFor(scope: Scope): PostgresJsDatabase<typeof schema> {
   return boundSurface(drizzle({ client: scopedClient(connection(), scope), schema }));
 }
 
+/**
+ * The shape a tenant id has. The policies cast `cubit.tenant_id` to uuid, so an id that is not one
+ * makes every statement the handle issues fail as a cast error (22P02) rather than as a refusal.
+ */
+const TENANT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The tenant a handle may be opened for: one the policies can read. Refused as the handle is taken,
+ * like `runAsSystem`'s reason — a caller who names no lawful tenant gets no handle, rather than a
+ * server error on every query it makes.
+ */
+function scopedTenantId(tenantId: string): string {
+  if (!TENANT_ID.test(tenantId)) {
+    throw new Error(`forTenant({ tenantId }) needs a tenant uuid — ${JSON.stringify(tenantId)} names no tenant the policies can read (SEAM-TENANT)`);
+  }
+  return tenantId;
+}
+
 /** The tenant's handle: the only way a tenant's rows are read or written (SEAM-TENANT). */
 export function forTenant(ctx: { tenantId: string }): TenantDb {
-  return handleFor({ tenantId: ctx.tenantId, systemReason: "" });
+  return handleFor({ tenantId: scopedTenantId(ctx.tenantId), systemReason: "" });
 }
 
 /**
