@@ -54,7 +54,7 @@ export default {
       const to = targetOf(value, context.filename);
       if (to === null) return;
       const detail = judge(from, to, typeOnly);
-      if (detail !== null) context.report({ node: /** @type {any} */ (node), messageId: "boundary", data: { detail } });
+      if (detail !== null) context.report({ node, messageId: "boundary", data: { detail } });
     });
   },
 };

@@ -48,7 +48,7 @@ export default {
           let match = shape.pattern.exec(text);
           while (match !== null) {
             context.report({
-              node: /** @type {any} */ (node),
+              node,
               loc: locateAt(text, match.index),
               messageId: "colour",
               data: { shape: shape.name },

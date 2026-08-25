@@ -43,7 +43,7 @@ export default {
       MemberExpression: (node) => {
         const property = propertyName(node, sourceCode);
         if (property !== "skip" && property !== "only") return;
-        const object = /** @type {any} */ (node).object;
+        const object = node.object;
         const root = object.type === "MemberExpression" ? object.object : object;
         if (root.type !== "Identifier" || !RUNNERS.has(root.name)) return;
         context.report({ node, messageId: "unrun", data: { what: `${root.name}.${property}` } });

@@ -30,10 +30,10 @@ export default {
     const sourceCode = context.sourceCode;
     return {
       CatchClause: (node) => {
-        const body = sourceCode.getText(/** @type {any} */ (node.body));
+        const body = sourceCode.getText(node.body);
         if (FAULT.test(body) || REFUSAL.test(body)) return;
         if (/\bthrow\b/.test(body)) return;
-        context.report({ node: /** @type {any} */ (node), messageId: "unanswered" });
+        context.report({ node, messageId: "unanswered" });
       },
     };
   },

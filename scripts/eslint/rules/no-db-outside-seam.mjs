@@ -30,8 +30,8 @@ export default {
     const sourceCode = context.sourceCode;
     return {
       ...specifierVisitors(context, ({ value, node }) => {
-        if (DRIVERS.test(value)) context.report({ node: /** @type {any} */ (node), messageId: "driver", data: { specifier: value } });
-        else if (SCHEMA.test(value)) context.report({ node: /** @type {any} */ (node), messageId: "schema", data: { specifier: value } });
+        if (DRIVERS.test(value)) context.report({ node, messageId: "driver", data: { specifier: value } });
+        else if (SCHEMA.test(value)) context.report({ node, messageId: "schema", data: { specifier: value } });
       }),
       MemberExpression: (node) => {
         if (propertyName(node, sourceCode) === "_") context.report({ node, messageId: "internal" });

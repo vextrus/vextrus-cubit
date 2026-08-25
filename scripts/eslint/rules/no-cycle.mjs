@@ -89,7 +89,7 @@ export default {
       const chain = pathBack(target, new Set());
       if (chain === null) return;
       const readable = [entry, ...chain].map((file) => relative(rootDir, file).replace(/\\/g, "/")).join(" → ");
-      context.report({ node: /** @type {any} */ (node), messageId: "cycle", data: { chain: readable } });
+      context.report({ node, messageId: "cycle", data: { chain: readable } });
     });
   },
 };

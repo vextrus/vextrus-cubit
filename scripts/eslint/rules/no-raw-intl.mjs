@@ -23,11 +23,11 @@ export default {
     const filename = context.filename.replace(/\\/g, "/");
     if (filename.endsWith(ALLOWED)) return {};
     const sourceCode = context.sourceCode;
-    /** @param {any} node @param {string} what */
+    /** @param {import("eslint").Rule.Node} node @param {string} what */
     const report = (node, what) => context.report({ node, messageId: "intl", data: { what } });
     return {
       Identifier: (node) => {
-        const parent = /** @type {any} */ (node).parent;
+        const parent = node.parent;
         if (node.name !== "Intl") return;
         if (parent !== undefined && parent.type === "MemberExpression" && parent.property === node && !parent.computed) return;
         if (parent !== undefined && parent.type === "Property" && parent.key === node && !parent.computed) return;
