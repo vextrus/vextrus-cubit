@@ -28,8 +28,9 @@ function suppliedRequestId(req: Request): string | null {
 }
 
 /**
- * Mint the context. Sessions and real actors arrive in a later spine increment; until then every
- * caller is anonymous, and saying so plainly beats inventing an identity the tier cannot prove.
+ * Mint the context. The tier has no session yet, so every caller is anonymous: saying so plainly
+ * beats inventing an identity the tier cannot prove, and B-21 wants the actor a fault records to
+ * be the truth.
  */
 export function createContext({ req }: { req: Request }): AppContext {
   return {

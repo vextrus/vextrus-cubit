@@ -243,5 +243,5 @@ const t = initTRPC.context<AppContext>().create({
 /** The router factory every lane composes with — and so the formatter every lane answers through. */
 export const router = t.router;
 
-/** The procedure every lane builds on. Guards and sessions arrive in later spine increments. */
+/** The procedure every lane builds on; guards layer on top of it, never beside it (SEAM-ACT). */
 export const publicProcedure = t.procedure;

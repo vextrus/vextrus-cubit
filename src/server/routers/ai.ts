@@ -1,5 +1,5 @@
-// The ai lane. The lane owns this file from the spine's first increment so the increment that
-// brings ai's procedures edits only here and never the composition root (ARCH-02).
+// The ai lane's one home (ARCH-02): ai's procedures are added here, never at the
+// composition root, so the root never changes hands (ARCH-01).
 import { router } from "../trpc";
 
 export const aiRouter = router({});

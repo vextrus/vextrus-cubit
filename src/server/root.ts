@@ -1,5 +1,5 @@
 // The composition root: one namespace per module lane, each defined in its own file, so a lane's
-// increment edits its own router and the root never changes hands (ARCH-01, ARCH-02).
+// procedures are added in that lane's file and the root never changes hands (ARCH-01, ARCH-02).
 import { aiRouter } from "./routers/ai";
 import { assureRouter } from "./routers/assure";
 import { bidRouter } from "./routers/bid";
