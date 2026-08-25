@@ -1,0 +1,6 @@
+/* R-UI-001: the stylesheet consumes the emitted variables and spells no colour of its own. */
+.panel {
+  color: var(--token-text-primary);
+  background: var(--token-surface-raised);
+  box-shadow: 0 1px 2px var(--token-shadow-ambient);
+}

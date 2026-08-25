@@ -32,6 +32,7 @@ export default {
     return {
       Program: () => {
         for (const comment of sourceCode.getAllComments()) {
+          if (comment.loc == null) continue;
           for (const suppression of SUPPRESSIONS) {
             if (suppression.pattern.test(comment.value)) {
               context.report({ loc: comment.loc, messageId: "suppression", data: { what: suppression.what } });
