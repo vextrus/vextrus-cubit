@@ -9,6 +9,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, test } from "vitest";
 import { deriveLanes, deriveStages } from "../../scripts/lib/lanes.mjs";
+import { announce } from "../../scripts/lib/report.mjs";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 
@@ -52,6 +53,23 @@ function plant(rootDir: string, probe: string): string {
   return concrete;
 }
 
+/** What the one home writes for a lane in this state, captured instead of printed. */
+function spelling(lane: { id: string; status: "armed" | "stub"; probe: string }): string {
+  const written: string[] = [];
+  const stdout = process.stdout;
+  const original = stdout.write.bind(stdout);
+  stdout.write = ((chunk: unknown) => {
+    written.push(String(chunk));
+    return true;
+  }) as typeof stdout.write;
+  try {
+    announce(lane);
+  } finally {
+    stdout.write = original;
+  }
+  return written.join("");
+}
+
 function workflows(): { file: string; text: string }[] {
   const dir = join(REPO_ROOT, ".github", "workflows");
   expect(existsSync(dir), ".github/workflows/ does not exist — no lane runs where merges are decided (B-22)").toBe(true);
@@ -91,7 +109,18 @@ describe("the skip vanishes the moment its input exists (C-06, B-23)", () => {
 describe("every runner records its skip in the one spelling (C-06)", () => {
   test.each(RUNNERS)("$stage prints SKIP <id> missing=<probe> and exits 0", ({ stage, argv }) => {
     const expected = deriveStages(REPO_ROOT).find((entry) => entry.id === stage);
-    expect(expected?.status, `${stage} is armed on this tree — this fixture describes its stub`).toBe("stub");
+    expect(expected, `${stage} is not on the toolchain's roster`).toBeDefined();
+
+    // Which runners still have a skip to print is the tree's answer, never a list kept here: a
+    // runner the tree has armed has no skip left, and a fixture that froze today's stubs would call
+    // the next lane's arming a failure (B-19, B-23). An armed runner is proved against the one home
+    // that writes the line, because spawning it would run its whole lane inside this one.
+    if (expected?.status === "armed") {
+      expect(spelling({ id: stage, status: "stub", probe: expected.probe }), `${stage} would not record its skip in the one spelling`).toBe(
+        `SKIP ${stage} missing=${expected.probe}\n`,
+      );
+      return;
+    }
 
     const result = spawnSync(process.execPath, argv, { cwd: REPO_ROOT, encoding: "utf8", timeout: 120_000 });
     expect(result.status, `${stage} exited ${String(result.status)}: ${result.stderr}`).toBe(0);
