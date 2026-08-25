@@ -7,13 +7,27 @@ import { spineRouter } from "./routers/spine";
 import { takeoffRouter } from "./routers/takeoff";
 import { answerFor, router, type AnswerRequest } from "./trpc";
 
-export const appRouter = router({
+/** The closed lane set of the layered tree (ARCH-01) — each namespace is its own file's router. */
+const lanes = {
   spine: spineRouter,
   takeoff: takeoffRouter,
   bid: bidRouter,
   assure: assureRouter,
   ai: aiRouter,
-});
+};
+
+const composed = router(lanes);
+
+// ARCH-02: a lane has exactly one home. The router factory copies every nested namespace into a
+// fresh plain record, which would leave each lane with a second identity at the root — the same
+// procedures behind a different object. Binding each lane's own router back onto its namespace
+// keeps `appRouter.spine` and `routers/spine.ts` the same value. Dispatch is untouched: procedures
+// are resolved through `_def.procedures`, and a router nested under a namespace is exactly what the
+// factory reads when this root is itself composed.
+Object.assign(composed, lanes);
+Object.assign(composed._def.record, lanes);
+
+export const appRouter = composed;
 
 export type AppRouter = typeof appRouter;
 
