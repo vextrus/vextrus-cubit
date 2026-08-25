@@ -10,7 +10,9 @@ export default defineConfig({
   oxc: { jsx: { runtime: "automatic" } },
   test: {
     environment: "node",
-    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx", "src/**/__tests__/*.test.ts", "src/**/__tests__/*.test.tsx"],
+    // A suite may sit in `src/**/__tests__/` or directly beside the module it judges — R-UI-001
+    // puts the generated stylesheet's drift test next to `src/ui/tokens.ts`. Both shapes collect.
+    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx", "src/**/*.test.ts", "src/**/*.test.tsx"],
     exclude: ["node_modules/**", "tests/e2e/**", "tests/lint-fixtures/**"],
     testTimeout: 60_000,
     hookTimeout: 60_000,
