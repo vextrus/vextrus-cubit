@@ -36,11 +36,20 @@ export type SystemDb = PostgresJsDatabase<typeof schema>;
 /** How many connections one process holds, and how long an idle one is kept (in seconds). */
 const POOL = { max: 10, idleTimeout: 20, connectTimeout: 10 } as const;
 
-/** The one pool. Built on first use, so importing the seam neither reads nor needs a live server. */
-let pool: postgres.Sql | undefined;
+/**
+ * One pool per database the seam is pointed at, built on first use — so importing the seam neither
+ * reads nor needs a live server, and a process told to reach a different database reaches it rather
+ * than answering out of a pool built for the last one.
+ */
+const pools = new Map<string, postgres.Sql>();
 
 function connection(): postgres.Sql {
-  return (pool ??= postgres(databaseUrl(), { max: POOL.max, idle_timeout: POOL.idleTimeout, connect_timeout: POOL.connectTimeout }));
+  const url = databaseUrl();
+  const existing = pools.get(url);
+  if (existing !== undefined) return existing;
+  const sql = postgres(url, { max: POOL.max, idle_timeout: POOL.idleTimeout, connect_timeout: POOL.connectTimeout });
+  pools.set(url, sql);
+  return sql;
 }
 
 function databaseUrl(): string {
