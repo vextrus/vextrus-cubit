@@ -28,12 +28,23 @@ const defaultSink: FaultSink = (record) => {
   process.stderr.write(`${JSON.stringify(record)}\n`);
 };
 
-let sink: FaultSink = defaultSink;
+/**
+ * ARCH-02 reads "one home" as an identity property, and a module-scope binding only holds it for as
+ * long as the module instance does — a bundler that compiles this file into two graphs, or a module
+ * runner that instantiates it twice under a racing first import, would leave the tier with two
+ * sinks. Half the faults would then go to a sink the host swapped out, which is silence by
+ * packaging accident. The one sink is therefore anchored to the process.
+ */
+const SINK_KEY = Symbol.for("vextrus.cubit.core.faults.sink");
+
+const processScope = globalThis as typeof globalThis & { [SINK_KEY]?: { current: FaultSink } };
+
+const held: { current: FaultSink } = (processScope[SINK_KEY] ??= { current: defaultSink });
 
 /** Swap the sink, answering with the one replaced so a caller can always put it back. */
 export function setFaultSink(next: FaultSink): FaultSink {
-  const previous = sink;
-  sink = next;
+  const previous = held.current;
+  held.current = next;
   return previous;
 }
 
@@ -53,7 +64,7 @@ export function reportFault(input: FaultInput): { faultId: string; requestId: st
     at: new Date().toISOString(),
   };
   try {
-    sink(record);
+    held.current(record);
   } catch {
     // A sink that throws is itself an outage, and an outage inside the seam may not propagate:
     // the caller's own failure is the one the tier is answering (ARCH-03).

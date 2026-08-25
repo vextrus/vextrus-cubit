@@ -7,7 +7,32 @@
  */
 import { TRPCError } from "@trpc/server";
 import { describe, expect, test } from "vitest";
-import { callWire, errorData, loadContext, loadFaults, loadTrpc, probeHandler, withFaultSink, type FaultRecord } from "./support/wire";
+import { join } from "node:path";
+import {
+  FAULTS_MODULE,
+  REPO_ROOT,
+  TRPC_MODULE,
+  callWire,
+  errorData,
+  loadContext,
+  loadFaults,
+  loadTrpc,
+  probeHandler,
+  withFaultSink,
+  type FaultRecord,
+  type FaultsModule,
+  type TrpcModule,
+} from "./support/wire";
+
+/**
+ * Load a SECOND instance of a product module. Nothing in the tier may assume it is instantiated
+ * once: Next compiles the server into more than one graph, and a module runner can instantiate a
+ * file twice when two importers race its first import — which is how a memo keyed in module scope
+ * silently becomes two memos.
+ */
+async function secondInstanceOf<T>(relative: string): Promise<T> {
+  return (await import(`${join(REPO_ROOT, relative)}?second-instance`)) as T;
+}
 
 /** An error object shared across requests — a module-scope constant, or one a retry re-throws. */
 const SHARED = new Error("the pool is down");
@@ -164,6 +189,37 @@ describe("one failure, one record — and one record per failure (B-21)", () => 
       expect(second.faultId, "the second reader was told a different fault id").toBe(first.faultId);
       expect(records, "one failure, one record").toHaveLength(1);
       expect((records[0] as FaultRecord).faultId).toBe(first.faultId);
+    });
+  });
+
+  test("a second instance of the transport shares the one memo — one failure, still one record (ARCH-02)", async () => {
+    const faults = await loadFaults();
+    const first = await loadTrpc();
+    const second = await secondInstanceOf<TrpcModule>(TRPC_MODULE);
+    expect(second.answerFor, "the duplicate import was deduplicated, so this proves nothing").not.toBe(first.answerFor);
+
+    await withFaultSink(faults, async (records) => {
+      // The two readers of one failure (onError and the error formatter) can come from different
+      // instances of this file. If each kept its own memo the outage would be recorded twice under
+      // two ids — the operator reading double (B-21).
+      const call = { error: new Error("the pool is down"), path: "spine.health", ctx: { requestId: "req-two-instances", actor: "anonymous" } };
+      const a = first.answerFor(call);
+      const b = second.answerFor(call);
+
+      expect(b.faultId, "the second instance decided the same failure all over again").toBe(a.faultId);
+      expect(records, "one failure, one record, however many times the module was instantiated").toHaveLength(1);
+    });
+  });
+
+  test("a second instance of the fault seam shares the one sink — a swapped sink is never half-applied (ARCH-02)", async () => {
+    const first = await loadFaults();
+    const second = await secondInstanceOf<FaultsModule>(FAULTS_MODULE);
+    expect(second.reportFault, "the duplicate import was deduplicated, so this proves nothing").not.toBe(first.reportFault);
+
+    await withFaultSink(first, async (records) => {
+      second.reportFault({ requestId: "req-other-instance", actor: "anonymous", route: "spine.health", cause: new Error("the pool is down") });
+      expect(records, "the fault went to a sink the host had already swapped out — silence by packaging accident").toHaveLength(1);
+      expect((records[0] as FaultRecord).requestId).toBe("req-other-instance");
     });
   });
 
