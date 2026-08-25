@@ -7,7 +7,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   // tsconfig keeps `jsx: preserve` because Next compiles the app; the test transform has no such
   // compiler behind it, so it is told the runtime explicitly here.
-  oxc: { jsx: "automatic" },
+  oxc: { jsx: { runtime: "automatic" } },
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx", "src/**/__tests__/*.test.ts", "src/**/__tests__/*.test.tsx"],

@@ -1,13 +1,23 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "moduleDetection": "force",
-    "types": ["node"],
-    "jsx": "preserve",
-    "plugins": [{ "name": "next" }],
+    "types": [
+      "node"
+    ],
+    "jsx": "react-jsx",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "allowJs": true,
     "checkJs": true,
     "esModuleInterop": true,
@@ -24,8 +34,26 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "baseUrl": ".",
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
   },
-  "include": ["next-env.d.ts", "scripts/**/*.mjs", "tests/**/*.ts", "src/**/*.ts", "src/**/*.tsx", "db/**/*.ts", "*.config.ts", ".next-cubit/types/**/*.ts"],
-  "exclude": ["node_modules", "tests/lint-fixtures", "tests/e2e"]
+  "include": [
+    "next-env.d.ts",
+    "scripts/**/*.mjs",
+    "tests/**/*.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "db/**/*.ts",
+    "*.config.ts",
+    ".next-cubit/types/**/*.ts",
+    ".next-cubit/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "tests/lint-fixtures",
+    "tests/e2e"
+  ]
 }

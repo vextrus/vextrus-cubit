@@ -226,7 +226,9 @@ export async function probeHandler(procedures: Record<string, (ctx: AppContext) 
       endpoint: TRPC_ENDPOINT,
       req,
       router: probeRouter as never,
-      createContext: (opts: { req: Request }) => createContext({ req: opts.req }),
+      // `router` is erased above, so the adapter infers its context type as `never`; the mount is
+      // the product's own `createContext` either way, so only the static type is bridged here.
+      createContext: ((opts: { req: Request }) => createContext({ req: opts.req })) as never,
       onError: trpcOnError,
     });
 }
