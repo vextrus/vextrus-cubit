@@ -2,6 +2,7 @@
 // tenancy-base migration whose generated DDL stays pure while the hand-written RLS, policies and
 // grants live after the marker (SEAM-TENANT). The drift lane's self-proof depends on that purity,
 // so this file asserts it of drizzle's snapshots too.
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -56,6 +57,20 @@ describe("SEAM-TENANT: the first schema tree and its tenancy-base migration", ()
     expect(handWritten, `${name} must declare a tenant policy reading ${GUC_TENANT}`).toMatch(new RegExp(`create\\s+policy[\\s\\S]*${GUC_TENANT.replace(".", "\\.")}`, "i"));
     expect(handWritten, `${name} must declare a system policy reading ${GUC_SYSTEM_REASON}`).toMatch(new RegExp(`create\\s+policy[\\s\\S]*${GUC_SYSTEM_REASON.replace(".", "\\.")}`, "i"));
     expect(handWritten, `${name} must grant ${ROLE_APP} its runtime privileges`).toMatch(new RegExp(`grant[\\s\\S]*${ROLE_APP}`, "i"));
+  });
+
+  it("AC-2: the schema-drift stage inside pnpm verify reports no drift", () => {
+    // `node scripts/db-drift.mjs --scratch` *is* the verify chain's schema-drift lane (the script
+    // says so itself), so this asserts the observable AC-2 names without re-entering pnpm verify —
+    // whose unit lane would run this very file. The lane is armed by db/schema.ts, which the first
+    // test in this file requires: with no schema in the tree it would exit 0 having proven nothing.
+    const before = migrationFiles().sort();
+    const lane = spawnSync(process.execPath, [join(ROOT, "scripts", "db-drift.mjs"), "--scratch"], { cwd: ROOT, encoding: "utf8", timeout: 300_000 });
+    expect(
+      lane.status,
+      `the schema-drift lane exited ${lane.status} — regenerating from the committed schema against the committed migration state must write nothing (SEAM-TENANT: the drift lane's self-proof needs generated DDL pure)\n${`${lane.stdout ?? ""}${lane.stderr ?? ""}`.slice(-1600)}`,
+    ).toBe(0);
+    expect(migrationFiles().sort(), "the schema-drift lane must generate into a throwaway directory and leave db/migrations untouched").toEqual(before);
   });
 
   it("AC-2: drizzle's snapshots never learn about the appended SQL", () => {
