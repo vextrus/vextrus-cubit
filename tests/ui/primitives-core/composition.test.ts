@@ -7,8 +7,10 @@
  * Decision fixes. Q-11 is honoured literally: the travel begins on the keyboard from the document
  * body, the gate is serious/critical only, and nothing is asserted by counting painted nodes.
  */
+import type { ReactElement } from "react";
 import { afterEach, describe, expect, test } from "vitest";
-import { cleanup, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
+import type { UserEventLike } from "./support/primitives";
 import {
   COPY,
   COVERAGE_SAMPLE,
@@ -18,8 +20,33 @@ import {
   loadBarrel,
   seriousOrCritical,
   tabOrder,
+  tabTo,
 } from "./support/primitives";
 import { composition, el, mount, themed } from "./support/render";
+
+/**
+ * Open the composition's Tooltip the way a keyboard user does (Q-11: begin on the keyboard, never a
+ * click on a focused element) and hand back the trigger and the content the Decision §3 names.
+ *
+ * Queries are document-scoped, not container-scoped, because whether the Content sits inline or in a
+ * Radix Portal is the Builder's call — the Decision fixes the behaviour and the id, not the mount
+ * point. For the same reason the axe context below is the document body.
+ */
+async function openTooltipByKeyboard(
+  ui: ReactElement,
+  criterion: string,
+): Promise<{ user: UserEventLike; trigger: HTMLElement; content: HTMLElement }> {
+  const user = await keyboardUser(criterion);
+  mount(ui);
+  const trigger = screen.getByRole("button", { name: COPY.tooltipTrigger });
+  await tabTo(user, trigger, `the Tooltip trigger "${COPY.tooltipTrigger}"`);
+  const content = await screen.findByTestId(
+    TESTIDS.tooltipContent,
+    {},
+    { timeout: 2000 },
+  );
+  return { user, trigger, content };
+}
 
 afterEach(() => {
   cleanup();
@@ -43,6 +70,70 @@ describe("AC-5: keyboard reach across the composition", () => {
     ];
     const missed = owed.filter(([, element]) => !reached.includes(element as HTMLElement)).map(([what]) => what);
     expect(missed, "R-UI-012: Tab travel alone must reach every interactive primitive in the composition").toEqual([]);
+  });
+
+  /**
+   * R-UI-012: "a hint only a pointer can reach is not a hint" — reaching the trigger is not the
+   * hint, the hint is the content. Design Decision §3 fixes the behaviour verbatim: "Focus on the
+   * trigger opens it (Radix default); Escape closes." Q-11 fixes how it is proven: begin on the
+   * keyboard from the body, and observe the response semantically — the tooltip role, the copy the
+   * Decision writes, and the description the trigger advertises — never by counting painted nodes.
+   */
+  test("AC-5: focus opens the Tooltip with the Decision's copy, described to the trigger; Escape closes it", async () => {
+    const mod = await loadBarrel();
+    const { user, trigger, content } = await openTooltipByKeyboard(composition(mod), "AC-5");
+
+    expect(
+      content.getAttribute("role"),
+      `the hint a keyboard user reaches must be announced as one — Design Decision §3 renders it on data-testid="${TESTIDS.tooltipContent}"`,
+    ).toBe("tooltip");
+    expect(
+      content.textContent,
+      "the tooltip carries the copy the Design Decision §4 fixes, verbatim (copy is design, never improvised)",
+    ).toContain(COPY.tooltip);
+
+    const describedBy = trigger.getAttribute("aria-describedby");
+    expect(describedBy, "R-UI-012: the open tooltip is described to the focused trigger, not merely painted near it").toBeTruthy();
+    const described = describedBy
+      ?.split(/\s+/)
+      .filter(Boolean)
+      .map((id) => document.getElementById(id))
+      .filter((node): node is HTMLElement => node !== null);
+    expect(
+      described?.some((node) => node === content || node.contains(content) || content.contains(node)),
+      `aria-describedby="${String(describedBy)}" must resolve to the tooltip content itself`,
+    ).toBe(true);
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId(TESTIDS.tooltipContent),
+        "Design Decision §3: Escape closes the tooltip — a hint a keyboard user cannot dismiss is a trap",
+      ).toBeNull();
+    });
+  });
+});
+
+describe("AC-5: Skeleton is the loading placeholder the Decision rules", () => {
+  /**
+   * Design Decision §3 gives Skeleton the contract testid and rules its ARIA: `aria-hidden` —
+   * "the owning screen announces loading, not each bone" (R-UI-004: loading uses skeletons that
+   * keep layout, never spinners). The pulse's 1600 ms and its reduced-motion branch are authored
+   * CSS, proven at the token source and by the visual baseline suite, never by jsdom timing.
+   */
+  test("AC-5: Skeleton renders on its contract testid, hidden from the accessibility tree", async () => {
+    const mod = await loadBarrel();
+    const container = mount(el(mod, "Skeleton", {}));
+    const skeleton = within(container).getByTestId(TESTIDS.skeleton);
+
+    expect(
+      skeleton.getAttribute("aria-hidden"),
+      "Design Decision §3: each bone is aria-hidden — the owning screen announces loading, not the placeholder",
+    ).toBe("true");
+    expect(
+      skeleton.textContent?.trim(),
+      "a placeholder that keeps layout announces nothing itself (R-UI-004)",
+    ).toBe("");
   });
 });
 
@@ -102,4 +193,24 @@ describe("AC-5: axe on the composition, in both themes (Q-11)", () => {
     const violations = await seriousOrCritical(container, "AC-5");
     expect(violations.length, `Q-11: zero serious/critical under the dark theme\n${describeViolations(violations)}`).toBe(0);
   });
+
+  /**
+   * Q-11 gates every checkpoint, and an open tooltip is a state of this composition a keyboard user
+   * arrives at — a run that only ever walks the closed tree audits a tree the user never sees. The
+   * axe context is the document, so the content is judged whether it renders inline or in a portal.
+   */
+  for (const [theme, wrap] of [
+    ["the default theme", (ui: ReactElement) => ui],
+    ["[data-theme=\"dark\"]", themed],
+  ] as [string, (ui: ReactElement) => ReactElement][]) {
+    test(`AC-5: zero serious/critical violations with the Tooltip open, in ${theme}`, async () => {
+      const mod = await loadBarrel();
+      await openTooltipByKeyboard(wrap(composition(mod)), "AC-5");
+      const violations = await seriousOrCritical(document.body, "AC-5");
+      expect(
+        violations.length,
+        `Q-11: zero serious/critical with the tooltip open in ${theme}\n${describeViolations(violations)}`,
+      ).toBe(0);
+    });
+  }
 });
