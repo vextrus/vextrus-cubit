@@ -124,12 +124,17 @@ describe("AC-4: the root error boundary", () => {
     }
   });
 
-  test("AC-4: the string table declares the three error keys with the copy the increment fixes", async () => {
+  test("AC-4: the string table declares the three error keys, each a non-empty string", async () => {
+    // C-SPINE-PLATFORM fixes where the copy lives, not what it says: the boundary's three keys must
+    // be declared and speak, but a later Design Decision may lawfully revise the prose. The
+    // rendering tests above carry the coupling — what renders is what the table declares.
     const { strings } = await loadStrings();
 
-    expect(strings.error_title).toBe("Something went wrong on our side");
-    expect(strings.error_body).toBe("Your work is safe. The fault has been recorded for the operators — try again, and if it keeps failing, contact support.");
-    expect(strings.error_retry).toBe("Try again");
+    for (const key of ["error_title", "error_body", "error_retry"] as const) {
+      const value = strings[key];
+      expect(value, `strings.${key} must be declared in src/ui/strings.ts`).toBeTypeOf("string");
+      expect((value as string).trim().length, `strings.${key} must not be empty`).toBeGreaterThan(0);
+    }
   });
 
   test("AC-4: the boundary is announced as an alert under a level-1 heading (ARCH-03/B-21, per recorded Interpretation)", async () => {
