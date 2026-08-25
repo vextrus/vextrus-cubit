@@ -192,6 +192,33 @@ describe("one failure, one record — and one record per failure (B-21)", () => 
     });
   });
 
+  test("a failure only ONE reader ever saw cannot suppress the next outage's record (B-21)", async () => {
+    const faults = await loadFaults();
+    const { answerFor } = await loadTrpc();
+
+    await withFaultSink(faults, async (records) => {
+      // The two readers of a failure are `onError` and the error formatter, but nothing guarantees
+      // both come: an aborted or streamed-away response is never shaped, and a mount may wire only
+      // `onError`. What such a half-read failure leaves behind must not be handed to a LATER one —
+      // and the shapes that make that reachable are all repeatable: a module-scope error object, a
+      // caller-supplied (therefore repeated) request id, and the same route.
+      const half = { error: SHARED, path: "spine.health", ctx: { requestId: "req-repeated", actor: "anonymous" } };
+      const seenOnce = answerFor(half);
+
+      // A genuinely later outage: same error object, same supplied id, same route — a new request,
+      // so a new context object.
+      const later = { error: SHARED, path: "spine.health", ctx: { requestId: "req-repeated", actor: "anonymous" } };
+      const first = answerFor(later);
+      const second = answerFor(later);
+
+      expect(first.kind).toBe("fault");
+      expect(first.faultId, "the later outage was answered with the stale failure's id").not.toBe(seenOnce.faultId);
+      expect(second.faultId, "the second reader of the later outage was told a different id").toBe(first.faultId);
+      expect(records, "two outages, two records — the half-read one did not swallow the next").toHaveLength(2);
+      expect(records.map((record) => (record as FaultRecord).faultId)).toEqual([seenOnce.faultId, first.faultId]);
+    });
+  });
+
   test("a second instance of the transport shares the one memo — one failure, still one record (ARCH-02)", async () => {
     const faults = await loadFaults();
     const first = await loadTrpc();
@@ -240,7 +267,6 @@ describe("one failure, one record — and one record per failure (B-21)", () => 
 
 describe("the caller's request id is honoured within bounds", () => {
   const request = (value: string) => new Request("http://cubit.test/api/trpc/spine.health", { headers: { "x-request-id": value } });
-  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   test("an ordinary supplied id is echoed verbatim", async () => {
     const { createContext } = await loadContext();
@@ -257,20 +283,31 @@ describe("the caller's request id is honoured within bounds", () => {
     expect((await createContext({ req: request("café-req-1") })).requestId).toBe("café-req-1");
   });
 
-  test("an unbounded id is not an id: the operator log cannot be flooded through the header", async () => {
+  test("a long id is still the caller's id and is echoed verbatim (AC-2)", async () => {
     const { createContext } = await loadContext();
-    const ctx = await createContext({ req: request("x".repeat(100_000)) });
-
-    expect(ctx.requestId).toMatch(UUID);
+    // The declared interface is `x-request-id ?? randomUUID()` with no bound on the value. Minting
+    // over a long id would break the caller's trace silently — no fault, no signal — which is the
+    // opposite of what B-21 asks a tier to do with something it will not honour.
+    const long = "x".repeat(100_000);
+    expect((await createContext({ req: request(long) })).requestId).toBe(long);
   });
 
-  test("a control character in the id is refused and a fresh one is minted", async () => {
+  test("a control character in the id neither mints over it nor breaks the sink's framing", async () => {
+    const faults = await loadFaults();
     const { createContext } = await loadContext();
     // Built by hand: the fetch Request rejects a header value carrying a control character before
     // the seam could ever see it, and the seam must not lean on that for its own soundness.
     const control = `req${String.fromCharCode(7)}bell`;
     const ctx = await createContext({ req: { headers: { get: () => control } } as unknown as Request });
 
-    expect(ctx.requestId).toMatch(UUID);
+    expect(ctx.requestId, "the caller's trace was silently replaced").toBe(control);
+
+    // The framing the old rejection existed to protect: a record is JSON, so the control character
+    // is escaped and the record is still exactly one line.
+    await withFaultSink(faults, async (records) => {
+      faults.reportFault({ requestId: ctx.requestId, actor: ctx.actor, route: "spine.health", cause: new Error("the pool is down") });
+      const line = JSON.stringify(records[0]);
+      expect(line.includes("\n"), "the record would have spanned two lines").toBe(false);
+    });
   });
 });

@@ -30,31 +30,54 @@ const UNATTRIBUTED = "unattributed";
  * formatter — and B-21 wants exactly one FaultRecord per failure, so the decision is taken once and
  * handed to whichever of the two asks second.
  *
- * The memo is keyed on the *call*, not on the error object, because an error object is not a
- * failure. A module-scope constant, a cached error or a retry that re-throws the same instance is
- * one object across many failures; keying on the object alone would answer a later outage with an
- * earlier one's faultId and leave the operator with no record of it. The call is identified by the
- * request that provoked it and the route that failed — which is also what separates two failing
- * procedures inside one batch, since those share a request id.
+ * The memo is anchored on the *context object* the request was minted with, because that object is
+ * the only thing in reach whose lifetime is the request's. Nothing may be assumed about the second
+ * reader arriving at all: a response can be aborted or streamed away before it is shaped, a mount
+ * may wire `onError` and no formatter, and a future adapter may call only one of the two. An entry
+ * left unconsumed by such a failure must never be able to answer a *later* one — a later request
+ * carries a different context object, so it cannot reach this entry, and the entry itself is
+ * collected with the request that made it. (Keying on the thrown object instead cannot do this: a
+ * module-scope constant or a re-thrown singleton is one object across many failures, and a stale
+ * entry under a caller-supplied — therefore repeatable — request id would hand a real outage the
+ * earlier failure's answer, so `reportFault` would never run and the operator would get no record.)
+ *
+ * Within one context the entry is keyed by the failing route and the identity of the thrown value,
+ * which is what separates two failing procedures inside one batch — those share one context.
  *
  * The two callbacks are not in the same synchronous tick (@trpc/server 11.18.0 calls `onError`
  * inside the per-call catch and `getErrorShape` after the batch's calls settle), so entries must
  * survive interleaving and must not clobber each other: each call keeps its own entry, and the
- * second reader consumes it. An entry whose second reader never comes is evicted by the cap.
+ * second reader consumes it.
  */
-const CALLS_REMEMBERED_PER_ERROR = 64;
-const CALLS_REMEMBERED_FOR_PRIMITIVES = 256;
+const CALLS_REMEMBERED_PER_REQUEST = 64;
+const CALLS_REMEMBERED_UNANCHORED = 256;
+
+/**
+ * How long a decision taken for a failure that had NO context survives. Such a failure has nothing
+ * request-scoped to hang on, so staleness is bounded in time instead: far longer than the gap
+ * between a call's `onError` and the batch's `getErrorShape`, far shorter than the interval over
+ * which a second, genuinely different outage could be mistaken for it.
+ */
+const UNANCHORED_MEMO_TTL_MS = 30_000;
+
+interface UnanchoredEntry {
+  answer: ErrorAnswer;
+  expiresAt: number;
+}
 
 interface AnswerMemo {
-  /** Decisions for a thrown object, held only as long as the object itself is. */
-  byError: WeakMap<object, Map<string, ErrorAnswer>>;
+  /** Decisions for one request, held only as long as that request's context object is. */
+  byRequest: WeakMap<object, Map<string, ErrorAnswer>>;
   /**
-   * Decisions for a thrown value that cannot key a WeakMap. Unreachable through the shipped
-   * transport — tRPC funnels everything through `getTRPCErrorFromUnknown` first — but `answerFor`
-   * is an exported seam function, and an unmemoised primitive would be decided and recorded twice:
-   * two FaultRecords with two faultIds for one failure, only one of which the caller is ever told.
+   * Decisions for a failure with no context to anchor to — the transport failed before it minted
+   * one. Unreachable through the shipped route handler, but `answerFor` is an exported seam, and an
+   * unmemoised failure would be decided and recorded twice: two FaultRecords with two faultIds for
+   * one failure, only one of which the caller is ever told. Capped and deadlined.
    */
-  byValue: Map<string, ErrorAnswer>;
+  unanchored: Map<string, UnanchoredEntry>;
+  /** A string name for a thrown object's identity, so it can take part in a composite key. */
+  identities: WeakMap<object, string>;
+  minted: number;
 }
 
 /**
@@ -71,8 +94,10 @@ const MEMO_KEY = Symbol.for("vextrus.cubit.server.trpc.answerMemo");
 const processScope = globalThis as typeof globalThis & { [MEMO_KEY]?: AnswerMemo };
 
 const memos: AnswerMemo = (processScope[MEMO_KEY] ??= {
-  byError: new WeakMap<object, Map<string, ErrorAnswer>>(),
-  byValue: new Map<string, ErrorAnswer>(),
+  byRequest: new WeakMap<object, Map<string, ErrorAnswer>>(),
+  unanchored: new Map<string, UnanchoredEntry>(),
+  identities: new WeakMap<object, string>(),
+  minted: 0,
 });
 
 export interface AnswerRequest {
@@ -88,40 +113,73 @@ export interface AnswerRequest {
 export function answerFor(request: AnswerRequest): ErrorAnswer {
   const requestId = request.ctx?.requestId ?? UNATTRIBUTED;
   const route = request.path !== undefined && request.path !== "" ? request.path : UNATTRIBUTED;
-  const memo = memoFor(request.error);
-  // Length-prefixed rather than delimited: a caller-supplied request id may carry any printable
-  // character, so no separator is provably absent from it, and two different calls that collided
-  // into one key would leave one FaultRecord for two outages, the second an outage the operator
-  // never sees (B-21).
-  const callKey = `${requestId.length}:${requestId}:${route}`;
+  const thrown = identityOf(request.error);
+  // Length-prefixed rather than delimited: neither a route nor a thrown value's name is provably
+  // free of any separator byte, and two different calls that collided into one key would leave one
+  // FaultRecord for two outages, the second an outage the operator never sees (B-21).
+  const callKey = `${thrown.length}:${thrown}:${route}`;
+  const anchor = anchorOf(request.ctx);
 
-  const remembered = memo.entries.get(callKey);
+  if (anchor === null) return unanchoredAnswer(request, requestId, route, callKey);
+
+  let entries = memos.byRequest.get(anchor);
+  if (entries === undefined) {
+    entries = new Map<string, ErrorAnswer>();
+    memos.byRequest.set(anchor, entries);
+  }
+
+  const remembered = entries.get(callKey);
   if (remembered !== undefined) {
     // Consumed: one failure is shown to exactly two readers, and the entry has now served both.
-    memo.entries.delete(callKey);
+    entries.delete(callKey);
     return remembered;
   }
 
   const answer = decide(request, requestId, route);
-  memo.entries.set(callKey, answer);
-  evictOldest(memo.entries, memo.cap);
+  entries.set(callKey, answer);
+  evictOldest(entries, CALLS_REMEMBERED_PER_REQUEST);
   return answer;
 }
 
-function memoFor(error: unknown): { entries: Map<string, ErrorAnswer>; cap: number } {
-  if (typeof error !== "object" || error === null) {
-    return { entries: memos.byValue, cap: CALLS_REMEMBERED_FOR_PRIMITIVES };
+/**
+ * The request-scoped object a decision may be remembered against: the context tRPC minted for this
+ * request and hands to both `onError` and the error formatter. It is the anchor precisely because
+ * it dies with the request — a later failure gets a later context and can never read this one's
+ * entries, so an entry no second reader ever came for suppresses nothing.
+ */
+function anchorOf(ctx: AnswerRequest["ctx"]): object | null {
+  return typeof ctx === "object" && ctx !== null ? ctx : null;
+}
+
+/** A stable string standing for the thrown value's identity, so it can take part in the call key. */
+function identityOf(error: unknown): string {
+  if (typeof error !== "object" || error === null) return `value:${String(error)}`;
+  let identity = memos.identities.get(error);
+  if (identity === undefined) {
+    memos.minted += 1;
+    identity = `object:${memos.minted}`;
+    memos.identities.set(error, identity);
   }
-  let entries = memos.byError.get(error);
-  if (entries === undefined) {
-    entries = new Map();
-    memos.byError.set(error, entries);
+  return identity;
+}
+
+/** A failure that had no context: remembered under a deadline, since nothing else bounds it. */
+function unanchoredAnswer(request: AnswerRequest, requestId: string, route: string, callKey: string): ErrorAnswer {
+  const now = Date.now();
+  const remembered = memos.unanchored.get(callKey);
+  if (remembered !== undefined) {
+    memos.unanchored.delete(callKey);
+    if (remembered.expiresAt > now) return remembered.answer;
   }
-  return { entries, cap: CALLS_REMEMBERED_PER_ERROR };
+
+  const answer = decide(request, requestId, route);
+  memos.unanchored.set(callKey, { answer, expiresAt: now + UNANCHORED_MEMO_TTL_MS });
+  evictOldest(memos.unanchored, CALLS_REMEMBERED_UNANCHORED);
+  return answer;
 }
 
 /** Insertion-ordered, so the oldest unconsumed entry goes first — a memo is never a leak. */
-function evictOldest(entries: Map<string, ErrorAnswer>, cap: number): void {
+function evictOldest(entries: Map<string, unknown>, cap: number): void {
   while (entries.size > cap) {
     const oldest = entries.keys().next();
     if (oldest.done === true) return;
