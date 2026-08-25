@@ -1,0 +1,395 @@
+/*
+ * The core primitive set's stylesheet (R-UI-010). Every colour, size, weight and duration is a
+ * read into the committed Datum token source (R-UI-001, R-UI-003, R-UI-004): the rules here are
+ * identical in light and dark, and the themes differ only in what the tokens are worth.
+ *
+ * Focus is not styled here. It has one home — reticle.css (B-17, R-UI-012).
+ *
+ * The few bare pixel values are the instrument's own geometry that no token expresses: the 7 px
+ * copper dot R-UI-010 names, 1 px borders and hairline compensations, and the tooltip's 280 px
+ * measure.
+ */
+
+/* ------------------------------------------------------------------ Button (R-UI-010) */
+
+.cx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--space-8);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--graphite-300);
+  border-radius: var(--radius-4);
+  background-color: var(--graphite-0);
+  color: var(--graphite-900);
+  font-family: var(--font-ui);
+  font-size: var(--text-14);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-state) var(--ease),
+    border-color var(--motion-state) var(--ease),
+    color var(--motion-state) var(--ease),
+    box-shadow var(--motion-state) var(--ease);
+}
+
+.cx-btn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cx-btn[data-variant="primary"] {
+  background-color: var(--beam-700);
+  border-color: var(--beam-700);
+  color: var(--graphite-0);
+}
+
+.cx-btn[data-variant="primary"]:hover:not(:disabled) {
+  background-color: var(--beam-600);
+  border-color: var(--beam-600);
+}
+
+.cx-btn[data-variant="secondary"] {
+  background-color: var(--graphite-0);
+  border-color: var(--graphite-300);
+  color: var(--graphite-900);
+}
+
+.cx-btn[data-variant="secondary"]:hover:not(:disabled) {
+  background-color: var(--graphite-100);
+}
+
+/* Ghost carries no border, so it carries the border's pixel as padding instead: one geometry
+   across every variant (R-UI-010). */
+.cx-btn[data-variant="ghost"] {
+  background: none;
+  border-width: 0;
+  padding-inline: calc(var(--space-3) + 1px);
+  color: var(--graphite-700);
+}
+
+.cx-btn[data-variant="ghost"]:hover:not(:disabled) {
+  background-color: var(--graphite-100);
+  color: var(--graphite-900);
+}
+
+/* Danger is quiet at rest and fills to commit — both legs clear the text contrast floor. */
+.cx-btn[data-variant="danger"] {
+  background-color: var(--danger-surface);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.cx-btn[data-variant="danger"]:hover:not(:disabled) {
+  background-color: var(--danger);
+  color: var(--graphite-0);
+}
+
+/* The act variant — the confirm of every consequential action. Copper stays scarce: these three
+   tokens and nothing else (R-UI-010). */
+.cx-btn[data-variant="act"] {
+  background-color: var(--act-surface);
+  border-color: var(--act-500);
+  color: var(--act-600);
+}
+
+.cx-btn[data-variant="act"]:hover:not(:disabled) {
+  box-shadow: var(--shadow-1);
+}
+
+.cx-act-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-8);
+  background-color: var(--act-500);
+}
+
+.cx-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* Loading keeps the layout, the label and the focus; only the content quiets (R-UI-004). */
+.cx-btn[data-loading="true"] {
+  cursor: progress;
+}
+
+.cx-btn[data-loading="true"] .cx-btn-label {
+  opacity: 0.6;
+}
+
+/* Disabled is one answer for every variant — the dot is identity, so it keeps its colour. */
+.cx-btn:disabled {
+  background-color: var(--graphite-100);
+  border-color: var(--graphite-200);
+  color: var(--graphite-500);
+  cursor: not-allowed;
+}
+
+/* ------------------------------------------------------------------ Input · Textarea */
+
+.cx-input,
+.cx-textarea {
+  border: 1px solid var(--graphite-300);
+  border-radius: var(--radius-4);
+  background-color: var(--graphite-0);
+  color: var(--graphite-900);
+  font-family: var(--font-ui);
+  font-size: var(--text-14);
+  font-weight: var(--weight-body);
+  line-height: var(--leading-ui);
+  transition: border-color var(--motion-state) var(--ease);
+}
+
+.cx-input {
+  height: var(--space-8);
+  padding-inline: var(--space-3);
+}
+
+.cx-textarea {
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+}
+
+.cx-input::placeholder,
+.cx-textarea::placeholder {
+  color: var(--graphite-500);
+}
+
+.cx-input:hover:not(:disabled),
+.cx-textarea:hover:not(:disabled) {
+  border-color: var(--graphite-400);
+}
+
+.cx-input[aria-invalid="true"],
+.cx-textarea[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.cx-input:disabled,
+.cx-textarea:disabled {
+  background-color: var(--graphite-100);
+  border-color: var(--graphite-200);
+  color: var(--graphite-500);
+  cursor: not-allowed;
+}
+
+/* ------------------------------------------------------------------ Badge · Chip */
+
+.cx-badge {
+  display: inline-flex;
+  align-items: center;
+  height: var(--space-5);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-4);
+  background-color: var(--graphite-100);
+  color: var(--graphite-700);
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+}
+
+.cx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--space-6);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--graphite-200);
+  border-radius: var(--radius-12);
+  background-color: var(--graphite-50);
+  color: var(--graphite-700);
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+  transition:
+    background-color var(--motion-state) var(--ease),
+    border-color var(--motion-state) var(--ease),
+    color var(--motion-state) var(--ease);
+}
+
+button.cx-chip {
+  cursor: pointer;
+}
+
+button.cx-chip:hover:not(:disabled) {
+  background-color: var(--graphite-100);
+  color: var(--graphite-900);
+}
+
+.cx-chip[data-selected="true"] {
+  background-color: var(--beam-100);
+  border-color: var(--beam-500);
+  color: var(--graphite-900);
+}
+
+/* ------------------------------------------------------------------ BasisChip (R-UI-002) */
+
+/* The pair: each basis wears its own token, on the glyph and on the border. The label stays
+   graphite so the text contrast floor never depends on the palette. */
+.cx-basis-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--space-5);
+  padding-inline: var(--space-2);
+  border: 1px solid var(--cx-basis);
+  border-radius: var(--radius-4);
+  background: none;
+  color: var(--graphite-700);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-basis-glyph {
+  color: var(--cx-basis);
+}
+
+.cx-basis-chip[data-basis="MEASURED"] {
+  --cx-basis: var(--basis-measured);
+}
+
+.cx-basis-chip[data-basis="TRANSCRIBED"] {
+  --cx-basis: var(--basis-transcribed);
+}
+
+.cx-basis-chip[data-basis="DERIVED"] {
+  --cx-basis: var(--basis-derived);
+}
+
+.cx-basis-chip[data-basis="IMPORTED"] {
+  --cx-basis: var(--basis-imported);
+}
+
+.cx-basis-chip[data-basis="ENTERED"] {
+  --cx-basis: var(--basis-entered);
+}
+
+.cx-basis-chip[data-basis="INTERPRETED"] {
+  --cx-basis: var(--basis-interpreted);
+}
+
+.cx-basis-chip[data-basis="DEFAULTED"] {
+  --cx-basis: var(--basis-defaulted);
+}
+
+/* ------------------------------------------------------------------ CoverageChip · UnitBadge */
+
+.cx-coverage-chip,
+.cx-unit-badge {
+  display: inline-flex;
+  align-items: center;
+  height: var(--space-5);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-coverage-chip {
+  padding-inline: var(--space-2);
+}
+
+/* The band tints a numeral that already says the same thing — never colour alone (Q-11). */
+.cx-coverage-chip[data-band="low"] {
+  color: var(--danger);
+}
+
+.cx-coverage-chip[data-band="partial"] {
+  color: var(--warn);
+}
+
+.cx-coverage-chip[data-band="high"] {
+  color: var(--success);
+}
+
+.cx-unit-badge {
+  padding-inline: var(--space-1);
+  color: var(--graphite-600);
+}
+
+/* ------------------------------------------------------------------ Kbd */
+
+.cx-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--space-5);
+  height: var(--space-5);
+  padding-inline: var(--space-1);
+  border: 1px solid var(--graphite-300);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-4);
+  background-color: var(--graphite-50);
+  color: var(--graphite-700);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+}
+
+/* ------------------------------------------------------------------ Skeleton (R-UI-004) */
+
+.cx-skeleton {
+  display: block;
+  height: var(--space-4);
+  border-radius: var(--radius-4);
+  background-color: var(--graphite-100);
+  animation: cx-skeleton-pulse 1600ms ease-in-out infinite;
+}
+
+@keyframes cx-skeleton-pulse {
+  0%,
+  100% {
+    background-color: var(--graphite-100);
+  }
+
+  50% {
+    background-color: var(--graphite-200);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-skeleton {
+    animation: none;
+    background-color: var(--graphite-100);
+  }
+}
+
+/* ------------------------------------------------------------------ Tooltip */
+
+/* An inverted surface: the roles flip values with the theme, so one rule reads in both. */
+.cx-tooltip {
+  max-width: 280px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-4);
+  background-color: var(--graphite-900);
+  color: var(--graphite-0);
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  box-shadow: var(--shadow-2);
+  z-index: var(--z-overlay);
+  animation: cx-tooltip-in var(--motion-state) var(--ease) both;
+}
+
+@keyframes cx-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
