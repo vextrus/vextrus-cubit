@@ -88,20 +88,25 @@ scarce: only act wears it.
   on pointer or keyboard activation. Still focusable — focus is never dropped mid-action. No
   spinner (R-UI-004): `aria-busy` is the announcement; tests observe it as role state (Q-11).
 - **Disabled** (native `disabled`): every variant collapses to fill `var(--graphite-100)`,
-  border `var(--graphite-200)`, text `var(--graphite-500)` (the ≥ 3:1 disabled floor);
-  `cursor: not-allowed`. A disabled act button keeps its dot in `var(--act-500)` — the dot is
-  identity, not affordance.
+  border `var(--graphite-200)`, text `var(--graphite-600)`; `cursor: not-allowed`. A disabled
+  act button keeps its dot in `var(--act-500)` — the dot is identity, not affordance.
+  `graphite-600` on `graphite-100` measures 4.78:1 light and 5.11:1 dark on the founder
+  values: R-UI-012 puts the floor for text at ≥ 4.5:1 and writes no disabled carve-out, so
+  this Decision claims none. Disabled reads quiet through fill and cursor, not through text a
+  reader has to squint at.
 
 ### Input (`cx-input cx-reticle`) · Textarea (`cx-textarea cx-reticle`)
 Fill `var(--graphite-0)`, border 1 px solid `var(--graphite-300)`, radius `var(--radius-4)`,
-text `var(--graphite-900)` at `var(--text-14)`, placeholder `var(--graphite-500)` (a
-placeholder is a hint, never a label). Input: height `var(--space-8)`, padding-inline
+text `var(--graphite-900)` at `var(--text-14)`, placeholder `var(--graphite-600)` (a
+placeholder is a hint, never a label — but it is rendered text, so it clears R-UI-012's
+4.5:1 floor: 5.20:1 light and 5.42:1 dark against `var(--graphite-0)`). Input: height
+`var(--space-8)`, padding-inline
 `var(--space-3)`. Textarea: padding `var(--space-2)` `var(--space-3)`, default `rows={3}`,
 `resize: vertical`, line-height `var(--leading-ui)`.
 States — hover: border `var(--graphite-400)`. Focus: the reticle fallback only; the border
 does not change (one focus indicator, no double signal). Invalid (`aria-invalid="true"`):
 border `var(--danger)`. Disabled: fill `var(--graphite-100)`, border `var(--graphite-200)`,
-text `var(--graphite-500)`.
+text `var(--graphite-600)` (the same 4.5:1 reading as Button's disabled).
 
 ### Badge (`cx-badge`, `<span>`) — static, non-interactive
 Fill `var(--graphite-100)`, text `var(--graphite-700)`, `var(--text-12)`
@@ -113,9 +118,16 @@ consumer's increment — never a comment in src, Q-17).
 With `onClick`: a `<button type="button">` with `cx-reticle`; without: a `<span>`. Pill,
 fill `var(--graphite-50)`, border 1 px solid `var(--graphite-200)`, text
 `var(--graphite-700)`, padding-inline `var(--space-3)`. Hover (interactive): fill
-`var(--graphite-100)`, text `var(--graphite-900)`. `selected` prop → `aria-pressed="true"`,
-fill `var(--beam-100)`, border `var(--beam-500)`, text `var(--graphite-900)` (the R-UI-030
-selection idiom).
+`var(--graphite-100)`, text `var(--graphite-900)`. `selected` prop → fill `var(--beam-100)`,
+border `var(--beam-500)`, text `var(--graphite-900)` at `var(--weight-heading)` (the
+R-UI-030 selection idiom). The weight shift is deliberate: selection travels on a second,
+non-colour channel, so it survives greyscale and colour-blindness like every other state
+this system paints (R-UI-002, Q-11).
+
+Selection is also announced, on both branches — a state only colour reports is reported to
+nobody. Interactive: `aria-pressed`, the toggle it is. Read-only (`<span>`, no `onClick`):
+`aria-current` — the chip reports which of a set is selected and offers no press to
+announce; `aria-pressed` on a non-widget would lie about the affordance.
 
 ### BasisChip (`cx-basis-chip`, `<span data-testid="basis-chip" data-basis={basis}>`)
 Glyph then label, gap `var(--space-1)`, no fill, border 1 px solid the matching
@@ -126,6 +138,18 @@ IMPORTED ⇩ · ENTERED ✎ · INTERPRETED ▦ · DEFAULTED ○) — the single 
 The label is the basis name verbatim (it is the enum value, not styled uppercase) in
 `var(--graphite-700)` — guaranteed ≥ 4.5:1 in both themes; the basis colour rides the glyph
 and border (≥ 3:1 UI), and the glyph pair survives greyscale (R-UI-002). No other colour.
+
+**Recorded IOU — glyph font coverage.** `src/ui/theme/globals.css` vendors Spline Sans and
+Spline Sans Mono with `latin` and `latin-ext` unicode-ranges only. Of the seven glyphs only
+ƒ (U+0192) falls inside them; ◆ U+25C6, ▣ U+25A3, ⇩ U+21E9, ✎ U+270E, ▦ U+25A6 and ○ U+25CB
+are painted by the `ui-monospace`/Consolas fallback in `var(--font-mono)`. It renders — the
+pair still survives greyscale, so R-UI-002 holds — but it renders in a face the system did
+not choose, and it varies by platform. This increment cannot fix it: the fonts and the token
+source are out of scope here, and B-24 forbids a runtime fetch. Owner: the increment that
+owns `src/ui/theme/globals.css` and the vendored subsets, which must either extend the
+ranges to cover the six or vendor a symbol face for `.cx-basis-glyph`. Detector: the /design
+gallery leaf's visual baselines (R-UI-011), which screenshot all seven. Recorded here, never
+as a comment in `src/` (B-17, Q-17).
 
 ### CoverageChip (`cx-coverage-chip`, `<span data-testid="coverage-chip">`)
 Chrome: no fill, border `var(--hairline)`, mono `var(--text-12)`, padding-inline
@@ -155,7 +179,17 @@ pulsing to `var(--graphite-200)` and back over 1600 ms ease-in-out infinite; und
 ### Tooltip (Radix `@radix-ui/react-tooltip`)
 `Tooltip` renders its own Provider + Root (`delayDuration` 300, `skipDelayDuration` 300) —
 no consumer setup. The single child is the trigger via `asChild`; the trigger must be
-focusable and carries `cx-reticle` (our primitives already do). Content
+focusable, and `Tooltip` itself clones `cx-reticle` onto it (idempotent — a child that
+already wears the class is left untouched). R-UI-012's "a visible focus indicator is never
+optional" is the component's guarantee, not the consumer's good manners: a bare `<a>` or a
+`tabIndex` icon wrapped in a Tooltip gets the reticle from the Tooltip.
+
+Content is **portalled** (`TooltipPrimitive.Portal`, default container `document.body`): an
+overlay rendered inline is clipped by the first ancestor with `overflow: hidden` and
+out-ranked by the first that opens a stacking context, which makes its `z-index` inert in
+exactly the places the named consumers put it — table cells, sheets, scroll areas (shell
+inc-013, register M2). The portal escapes to the document, and the theme travels with it
+because `[data-theme]` sits at the document root (`globals.css`), not on a panel. Content
 (`data-testid="tooltip-content"`, class `cx-tooltip`): fill `var(--graphite-900)`, text
 `var(--graphite-0)` (inverted surface — the roles flip values so it reads in both themes),
 `var(--text-12)`, padding `var(--space-1)` `var(--space-2)`, radius `var(--radius-4)`,
@@ -198,7 +232,7 @@ difference between light and dark arrives through token values (R-UI-001). The o
 character change: primary Button is deep indigo with near-white text in light and flips to
 the light periwinkle beam-700 with near-black text in dark; both read `var(--beam-700)` +
 `var(--graphite-0)`. Contrast holds in both themes for every pair ruled in §3 (act-600 on
-act-surface and graphite-500/600 floors are R-UI-001 founder facts; the beam/danger pairs
+act-surface and the graphite-600 floors are R-UI-001 founder facts; the beam/danger pairs
 were checked against the founder values).
 
 ## 7. Test hooks (closed contract, C-05)
@@ -207,7 +241,8 @@ Routes: none — no route ships in this increment. Test ids, exactly these seven
 elements ruled in §3: `act-dot` · `basis-chip` · `basis-glyph` · `coverage-chip` ·
 `unit-badge` · `tooltip-content` · `skeleton`. Behavioural hooks under test, without new
 ids: Button `data-variant`/`data-loading`/`aria-busy`; BasisChip `data-basis`; Chip
-`aria-pressed`; Input `aria-invalid`; the `cx-reticle` class on every focusable primitive.
+`aria-pressed` (interactive) / `aria-current` (read-only); Input `aria-invalid`; the
+`cx-reticle` class on every focusable primitive, including one the Tooltip clones it onto.
 Suites render under jsdom (`@vitest-environment jsdom`) inside a default root and a
 `[data-theme="dark"]` ancestor; reticle and dot geometry are asserted as authored CSS text
 (jsdom does not lay out), per the increment's risk notes.

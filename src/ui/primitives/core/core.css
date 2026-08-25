@@ -121,11 +121,13 @@
   opacity: 0.6;
 }
 
-/* Disabled is one answer for every variant — the dot is identity, so it keeps its colour. */
+/* Disabled is one answer for every variant — the dot is identity, so it keeps its colour. The
+   text quiets to graphite-600, not further: R-UI-012's 4.5:1 text floor carries no disabled
+   carve-out, and a control a reader cannot read is not a state, it is a hole. */
 .cx-btn:disabled {
   background-color: var(--graphite-100);
   border-color: var(--graphite-200);
-  color: var(--graphite-500);
+  color: var(--graphite-600);
   cursor: not-allowed;
 }
 
@@ -154,9 +156,11 @@
   resize: vertical;
 }
 
+/* A placeholder is a hint, never a label — but it is rendered text, so it clears R-UI-012's
+   4.5:1 floor like every other glyph the field paints. */
 .cx-input::placeholder,
 .cx-textarea::placeholder {
-  color: var(--graphite-500);
+  color: var(--graphite-600);
 }
 
 .cx-input:hover:not(:disabled),
@@ -173,7 +177,7 @@
 .cx-textarea:disabled {
   background-color: var(--graphite-100);
   border-color: var(--graphite-200);
-  color: var(--graphite-500);
+  color: var(--graphite-600);
   cursor: not-allowed;
 }
 
@@ -222,10 +226,13 @@ button.cx-chip:hover:not(:disabled) {
   color: var(--graphite-900);
 }
 
+/* Selection carries a weight shift as well as the beam pair: colour is never the only channel
+   a state travels on (R-UI-002, Q-11). */
 .cx-chip[data-selected="true"] {
   background-color: var(--beam-100);
   border-color: var(--beam-500);
   color: var(--graphite-900);
+  font-weight: var(--weight-heading);
 }
 
 /* ------------------------------------------------------------------ BasisChip (R-UI-002) */

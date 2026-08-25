@@ -8,21 +8,41 @@
  * (R-UI-004).
  */
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import type { ReactNode } from "react";
+import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
+import { cx } from "./class-names";
+
+const RETICLE = "cx-reticle";
 
 export interface TooltipProps {
   content: ReactNode;
   children: ReactNode;
 }
 
+/**
+ * The trigger is focusable, so it wears the reticle — and Tooltip puts it there itself rather
+ * than trusting the child to have brought one. "A visible focus indicator is never optional"
+ * (R-UI-012) is the component's guarantee, not the consumer's good manners.
+ */
+function reticled(children: ReactNode): ReactNode {
+  if (!isValidElement<{ className?: string }>(children)) return children;
+  const existing = children.props.className;
+  if (typeof existing === "string" && existing.split(/\s+/).includes(RETICLE)) return children;
+  return cloneElement(children as ReactElement<{ className?: string }>, { className: cx(existing, RETICLE) });
+}
+
 export function Tooltip({ content, children }: TooltipProps) {
   return (
     <TooltipPrimitive.Provider delayDuration={300} skipDelayDuration={300}>
       <TooltipPrimitive.Root>
-        <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
-        <TooltipPrimitive.Content className="cx-tooltip" data-testid="tooltip-content" side="top" sideOffset={6}>
-          {content}
-        </TooltipPrimitive.Content>
+        <TooltipPrimitive.Trigger asChild>{reticled(children)}</TooltipPrimitive.Trigger>
+        {/* Portalled: an overlay that renders inline is clipped by the first ancestor with
+            `overflow: hidden` and out-ranked by the first that opens a stacking context, so its
+            z-index is inert exactly where a table cell, sheet or scroll area needs it. */}
+        <TooltipPrimitive.Portal>
+          <TooltipPrimitive.Content className="cx-tooltip" data-testid="tooltip-content" side="top" sideOffset={6}>
+            {content}
+          </TooltipPrimitive.Content>
+        </TooltipPrimitive.Portal>
       </TooltipPrimitive.Root>
     </TooltipPrimitive.Provider>
   );
