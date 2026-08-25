@@ -15,6 +15,7 @@ import { describe, expect, test } from "vitest";
 import { REPO_ROOT, loadStrings, productModule } from "../server/support/wire";
 
 const GLOBAL_ERROR_MODULE = "src/app/global-error.tsx";
+const ROUTE_ERROR_MODULE = "src/app/error.tsx";
 const INTERNAL = "layout-crashed-while-reading-the-session-7";
 
 interface ReactLike {
@@ -79,6 +80,15 @@ async function mount(): Promise<Mounted> {
   };
 }
 
+/** Every component/element type in a React element tree, however deeply the boundary nests it. */
+function typesIn(node: unknown): unknown[] {
+  if (Array.isArray(node)) return node.flatMap(typesIn);
+  if (typeof node !== "object" || node === null) return [];
+  const element = node as { type?: unknown; props?: { children?: unknown } };
+  if (element.type === undefined) return [];
+  return [element.type, ...typesIn(element.props?.children)];
+}
+
 describe("the global error boundary (a throw in the root layout)", () => {
   test("it exists, so a root-layout throw never reaches Next's framework screen", () => {
     expect(existsSync(join(REPO_ROOT, GLOBAL_ERROR_MODULE)), `${GLOBAL_ERROR_MODULE} is missing — a throw in src/app/layout.tsx would render Next's built-in error screen`).toBe(true);
@@ -120,16 +130,25 @@ describe("the global error boundary (a throw in the root layout)", () => {
     }
   });
 
-  test("ARCH-02/B-17: the error state markup is imported, not a second copy", () => {
+  test("ARCH-02/B-17: the error state markup is imported, not a second copy", async () => {
     const source = readFileSync(join(REPO_ROOT, GLOBAL_ERROR_MODULE), "utf8");
     // The law is "imported from its one home", not "imported from this particular path": a later
     // design increment may move `ErrorState` to its Datum home and this must still hold.
     expect(source, "global-error.tsx must import the error state, not re-spell it").toMatch(
       /import\s*\{[^}]*\bErrorState\b[^}]*\}\s*from\s*["'][^"']+["']/,
     );
-    // The contracted test ids appear once each, in that one home — never re-spelled here.
-    for (const id of ["error-state-title", "error-state-message", "error-retry"]) {
-      expect(source, `${id} is re-spelled in ${GLOBAL_ERROR_MODULE} instead of being reused from src/app/error.tsx`).not.toContain(id);
-    }
+
+    // And the imported component is what actually renders. Proved on the element tree rather than
+    // on the source text: the boundary's own output must contain an element whose *type is* the
+    // very `ErrorState` function src/app/error.tsx exports. A verbatim copy of the markup fails
+    // this however identical it renders today, while a lawful change here — a wrapper element, a
+    // comment naming the test ids while explaining the reuse — still passes.
+    const { ErrorState } = await productModule<{ ErrorState: unknown }>(ROUTE_ERROR_MODULE);
+    const s = await staged();
+    const rendered = (s.Boundary as (props: { error: Error; reset: () => void }) => unknown)({
+      error: new Error(INTERNAL),
+      reset: () => {},
+    });
+    expect(typesIn(rendered), `${GLOBAL_ERROR_MODULE} re-spells the error state instead of rendering src/app/error.tsx's one home`).toContain(ErrorState);
   });
 });

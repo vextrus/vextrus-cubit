@@ -219,6 +219,34 @@ describe("one failure, one record — and one record per failure (B-21)", () => 
     });
   });
 
+  test("a large batch's first failure is still one record when the last one is decided (B-21)", async () => {
+    const faults = await loadFaults();
+    const { answerFor } = await loadTrpc();
+
+    await withFaultSink(faults, async (records) => {
+      // @trpc/server 11.18.0 calls `onError` for every call in a batch inside the per-call catch and
+      // only then shapes each answer, so every entry a batch makes is unconsumed until the batch
+      // settles. Nothing bounds how many calls a batch carries: if the memo forgot the oldest entry
+      // to stay under a size, the first call's formatter would decide its failure all over again and
+      // file a second FaultRecord — the operator reading one outage as two (B-21).
+      const ctx = { requestId: "req-big-batch", actor: "anonymous" };
+      const calls = Array.from({ length: 512 }, (_, index) => ({
+        error: new Error(`call ${index} failed`),
+        path: `probeBatch${index}`,
+        ctx,
+      }));
+
+      const first = calls.map((call) => answerFor(call));
+      const second = calls.map((call) => answerFor(call));
+
+      expect(second.map((answer) => answer.faultId), "a formatter re-decided a failure onError had already recorded").toEqual(
+        first.map((answer) => answer.faultId),
+      );
+      expect(records, "one record per failure, however many failures the batch carried").toHaveLength(calls.length);
+      expect(new Set(records.map((record) => (record as FaultRecord).faultId)).size).toBe(calls.length);
+    });
+  });
+
   test("a second instance of the transport shares the one memo — one failure, still one record (ARCH-02)", async () => {
     const faults = await loadFaults();
     const first = await loadTrpc();

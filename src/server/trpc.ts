@@ -41,43 +41,29 @@ const UNATTRIBUTED = "unattributed";
  * entry under a caller-supplied — therefore repeatable — request id would hand a real outage the
  * earlier failure's answer, so `reportFault` would never run and the operator would get no record.)
  *
- * Within one context the entry is keyed by the failing route and the identity of the thrown value,
+ * Within one context an entry is matched on the failing route and the thrown value's own identity,
  * which is what separates two failing procedures inside one batch — those share one context.
  *
  * The two callbacks are not in the same synchronous tick (@trpc/server 11.18.0 calls `onError`
  * inside the per-call catch and `getErrorShape` after the batch's calls settle), so entries must
  * survive interleaving and must not clobber each other: each call keeps its own entry, and the
- * second reader consumes it.
+ * second reader consumes it. Nothing bounds how many calls a batch may carry, and every one of them
+ * is unconsumed until the batch settles, so the entries a request holds are never capped: evicting
+ * one before its formatter arrives would have that formatter decide the failure a second time and
+ * file a second FaultRecord — the double record B-21 forbids, and the very thing the memo is for.
+ * They need no cap to be safe: the whole set is anchored on the request's context object, so it is
+ * collected with the request whether or not the second readers ever came.
  */
-const CALLS_REMEMBERED_PER_REQUEST = 64;
-const CALLS_REMEMBERED_UNANCHORED = 256;
-
-/**
- * How long a decision taken for a failure that had NO context survives. Such a failure has nothing
- * request-scoped to hang on, so staleness is bounded in time instead: far longer than the gap
- * between a call's `onError` and the batch's `getErrorShape`, far shorter than the interval over
- * which a second, genuinely different outage could be mistaken for it.
- */
-const UNANCHORED_MEMO_TTL_MS = 30_000;
-
-interface UnanchoredEntry {
+interface MemoEntry {
+  /** The thrown value, compared by identity — two failures are the same failure or they are not. */
+  error: unknown;
+  route: string;
   answer: ErrorAnswer;
-  expiresAt: number;
 }
 
 interface AnswerMemo {
   /** Decisions for one request, held only as long as that request's context object is. */
-  byRequest: WeakMap<object, Map<string, ErrorAnswer>>;
-  /**
-   * Decisions for a failure with no context to anchor to — the transport failed before it minted
-   * one. Unreachable through the shipped route handler, but `answerFor` is an exported seam, and an
-   * unmemoised failure would be decided and recorded twice: two FaultRecords with two faultIds for
-   * one failure, only one of which the caller is ever told. Capped and deadlined.
-   */
-  unanchored: Map<string, UnanchoredEntry>;
-  /** A string name for a thrown object's identity, so it can take part in a composite key. */
-  identities: WeakMap<object, string>;
-  minted: number;
+  byRequest: WeakMap<object, MemoEntry[]>;
 }
 
 /**
@@ -94,10 +80,7 @@ const MEMO_KEY = Symbol.for("vextrus.cubit.server.trpc.answerMemo");
 const processScope = globalThis as typeof globalThis & { [MEMO_KEY]?: AnswerMemo };
 
 const memos: AnswerMemo = (processScope[MEMO_KEY] ??= {
-  byRequest: new WeakMap<object, Map<string, ErrorAnswer>>(),
-  unanchored: new Map<string, UnanchoredEntry>(),
-  identities: new WeakMap<object, string>(),
-  minted: 0,
+  byRequest: new WeakMap<object, MemoEntry[]>(),
 });
 
 export interface AnswerRequest {
@@ -113,31 +96,34 @@ export interface AnswerRequest {
 export function answerFor(request: AnswerRequest): ErrorAnswer {
   const requestId = request.ctx?.requestId ?? UNATTRIBUTED;
   const route = request.path !== undefined && request.path !== "" ? request.path : UNATTRIBUTED;
-  const thrown = identityOf(request.error);
-  // Length-prefixed rather than delimited: neither a route nor a thrown value's name is provably
-  // free of any separator byte, and two different calls that collided into one key would leave one
-  // FaultRecord for two outages, the second an outage the operator never sees (B-21).
-  const callKey = `${thrown.length}:${thrown}:${route}`;
   const anchor = anchorOf(request.ctx);
 
-  if (anchor === null) return unanchoredAnswer(request, requestId, route, callKey);
+  // A failure that arrived with no context has nothing request-scoped to remember it against. It is
+  // decided afresh, because every substitute anchor is worse: a deadline, or the thrown value on its
+  // own, would hand a genuinely later unattributed outage the earlier one's answer — `reportFault`
+  // would never run for it and the operator would get no record at all, which is the failure B-21
+  // forbids most. Deciding twice at worst records twice; deciding never records nothing.
+  if (anchor === null) return decide(request, requestId, route);
 
   let entries = memos.byRequest.get(anchor);
   if (entries === undefined) {
-    entries = new Map<string, ErrorAnswer>();
+    entries = [];
     memos.byRequest.set(anchor, entries);
   }
 
-  const remembered = entries.get(callKey);
+  // Matched on the thrown value's own identity and the failing route — what separates two failing
+  // procedures inside one batch, which share one context. Comparing the value itself rather than a
+  // key derived from it means two different calls can never collide into one entry and leave one
+  // FaultRecord for two outages (B-21).
+  const remembered = entries.find((entry) => Object.is(entry.error, request.error) && entry.route === route);
   if (remembered !== undefined) {
     // Consumed: one failure is shown to exactly two readers, and the entry has now served both.
-    entries.delete(callKey);
-    return remembered;
+    entries.splice(entries.indexOf(remembered), 1);
+    return remembered.answer;
   }
 
   const answer = decide(request, requestId, route);
-  entries.set(callKey, answer);
-  evictOldest(entries, CALLS_REMEMBERED_PER_REQUEST);
+  entries.push({ error: request.error, route, answer });
   return answer;
 }
 
@@ -149,42 +135,6 @@ export function answerFor(request: AnswerRequest): ErrorAnswer {
  */
 function anchorOf(ctx: AnswerRequest["ctx"]): object | null {
   return typeof ctx === "object" && ctx !== null ? ctx : null;
-}
-
-/** A stable string standing for the thrown value's identity, so it can take part in the call key. */
-function identityOf(error: unknown): string {
-  if (typeof error !== "object" || error === null) return `value:${String(error)}`;
-  let identity = memos.identities.get(error);
-  if (identity === undefined) {
-    memos.minted += 1;
-    identity = `object:${memos.minted}`;
-    memos.identities.set(error, identity);
-  }
-  return identity;
-}
-
-/** A failure that had no context: remembered under a deadline, since nothing else bounds it. */
-function unanchoredAnswer(request: AnswerRequest, requestId: string, route: string, callKey: string): ErrorAnswer {
-  const now = Date.now();
-  const remembered = memos.unanchored.get(callKey);
-  if (remembered !== undefined) {
-    memos.unanchored.delete(callKey);
-    if (remembered.expiresAt > now) return remembered.answer;
-  }
-
-  const answer = decide(request, requestId, route);
-  memos.unanchored.set(callKey, { answer, expiresAt: now + UNANCHORED_MEMO_TTL_MS });
-  evictOldest(memos.unanchored, CALLS_REMEMBERED_UNANCHORED);
-  return answer;
-}
-
-/** Insertion-ordered, so the oldest unconsumed entry goes first — a memo is never a leak. */
-function evictOldest(entries: Map<string, unknown>, cap: number): void {
-  while (entries.size > cap) {
-    const oldest = entries.keys().next();
-    if (oldest.done === true) return;
-    entries.delete(oldest.value);
-  }
 }
 
 function decide(request: AnswerRequest, requestId: string, route: string): ErrorAnswer {
