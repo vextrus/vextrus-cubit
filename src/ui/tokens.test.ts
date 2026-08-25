@@ -1,5 +1,5 @@
 /**
- * inc-003-datum-tokens — public acceptance, AC-1 … AC-4.
+ * Public acceptance for the Datum token system (R-UI-001, R-UI-003, R-UI-004): AC-1 … AC-4.
  *
  * The founder-final values are read from the law itself (docs/specs/cubit.bible.xml, R-UI-001's
  * table), never re-spelled here. Two reasons, both binding: a colour literal outside
