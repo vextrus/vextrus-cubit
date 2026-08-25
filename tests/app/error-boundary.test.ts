@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
 /**
  * AC-4 — the root error boundary renders the product's own error state (ARCH-03, B-21,
- * C-SPINE-PLATFORM, and the Design Decision in
- * docs/design/root-error-boundary-the-product-s-error-state-unstyled-semantic-markup-pending-the-design-system.md).
+ * C-SPINE-PLATFORM).
  *
- * The component is rendered directly under jsdom with a stubbed `reset`, as the Decision's §7
- * prescribes. No JSX is written here: the boundary is invoked through `React.createElement`, so
- * this file collects under the existing unit lane whatever the config does with `.tsx`.
+ * The component is rendered directly under jsdom with a stubbed `reset`. No JSX is written here:
+ * the boundary is invoked through `React.createElement`, so this file collects under the existing
+ * unit lane whatever the config does with `.tsx`.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -133,7 +132,7 @@ describe("AC-4: the root error boundary", () => {
     expect(strings.error_retry).toBe("Try again");
   });
 
-  test("AC-4: the boundary is announced as an alert under a level-1 heading (Design Decision §1)", async () => {
+  test("AC-4: the boundary is announced as an alert under a level-1 heading (ARCH-03/B-21, per recorded Interpretation)", async () => {
     const view = await mount();
     try {
       const alert = view.q.getByRole("alert");
