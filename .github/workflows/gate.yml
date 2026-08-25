@@ -1,0 +1,76 @@
+# B-22: the suite that proves a guarantee runs everywhere merges are decided. Every lane the tree
+# has runs here on every pull request; a lane whose inputs are not in the tree yet records its skip
+# and says which input root it is waiting for, so this workflow never needs editing to arm a lane
+# (C-06, B-23). The system tools are installed only when the tree has the inputs that need them —
+# the same probe the roster uses, asked in shell.
+name: gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: cubit
+          POSTGRES_USER: cubit
+          POSTGRES_DB: cubit
+        ports:
+          - 5544:5432
+        options: >-
+          --health-cmd "pg_isready -U cubit"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://cubit:cubit@127.0.0.1:5544/cubit
+      PORT: "3210"
+      E2E_PORT: "3211"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: pnpm (pinned by packageManager)
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      - name: browsers (only once journeys exist)
+        run: if [ -d tests/e2e ]; then pnpm exec playwright install --with-deps chromium; fi
+
+      - name: python toolchain (only once the cad tree exists)
+        run: |
+          if [ -d cad ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: checkup
+        run: pnpm checkup
+
+      - name: verify
+        run: pnpm verify
+
+      - name: database suite
+        run: pnpm test:db
+
+      - name: journey smoke
+        run: pnpm e2e --journey J-000

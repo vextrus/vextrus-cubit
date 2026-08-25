@@ -6,3 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Toolchain outputs (C-06)
+*.tsbuildinfo
+.eslintcache
+test-results/
+playwright-report/
+blob-report/
+.vitest-reports/
+.scratch/
