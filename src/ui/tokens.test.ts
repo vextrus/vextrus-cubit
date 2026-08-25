@@ -395,6 +395,92 @@ describe("AC-2: the founder-final values, verbatim", () => {
   });
 });
 
+/* --------------------------------------------- R-UI-001's contrast facts */
+
+/**
+ * R-UI-001 closes its table with four "contrast facts to keep true". They are an invariant OVER the
+ * founder values, not a restatement of them: equality to the table does not prove them, and they
+ * must be re-proven if the table is ever amended. So they are computed here, from the values the
+ * product exports — never from a hex re-spelled in this file (cubit/no-colour-literal binds it), and
+ * never against a remembered ratio (B-19: the clause fixes floors, not exact values).
+ *
+ * They live under AC-2, the criterion that owns R-UI-001's founder table; AC-5 and AC-6 are this
+ * increment's held-out ids and are not free to reuse.
+ */
+
+/** WCAG 2.x relative luminance of an sRGB hex colour: linearize each channel, then weight it. */
+function relativeLuminance(hex: string): number {
+  const digits = hex.slice(1);
+  const pairs =
+    digits.length === 3
+      ? digits.split("").map((d) => d + d)
+      : [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 6)];
+  const [r, g, b] = pairs.map((pair) => {
+    const channel = parseInt(pair, 16) / 255;
+    return channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+  }) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** (L1 + 0.05) / (L2 + 0.05), lighter over darker. */
+function contrastRatio(a: string, b: string): number {
+  const [x, y] = [relativeLuminance(a), relativeLuminance(b)];
+  const [lighter, darker] = x > y ? [x, y] : [y, x];
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+const HEX_COLOUR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+/** One token's value, proved to be a hex colour — a contrast fact is computable from nothing else. */
+function hexToken(table: Readonly<Record<string, string>>, key: string, theme: string): string {
+  const value = (table[key] ?? "").trim();
+  expect(
+    HEX_COLOUR.test(value),
+    `${theme} ${key} = ${JSON.stringify(table[key] ?? null)} — R-UI-001 states this token as a hex colour and pins a contrast fact to it (AC-2)`,
+  ).toBe(true);
+  return value;
+}
+
+const THEMES = [
+  ["light", lightTokens],
+  ["dark", darkTokens],
+] as const;
+
+/** The themes in which a fact falls below its floor, reported with the ratio that failed. */
+function belowFloor(
+  themes: readonly (readonly [string, Readonly<Record<string, string>>])[],
+  foreground: string,
+  background: string,
+  floor: number,
+): string[] {
+  return themes
+    .map(([theme, table]) => ({
+      theme,
+      ratio: contrastRatio(hexToken(table, foreground, theme), hexToken(table, background, theme)),
+    }))
+    .filter((fact) => fact.ratio < floor)
+    .map((fact) => `${fact.theme}: ${foreground} on ${background} = ${fact.ratio.toFixed(3)}:1, R-UI-001 requires ≥ ${floor}:1`);
+}
+
+describe("AC-2: R-UI-001's contrast facts, computed from the founder values", () => {
+  test("AC-2: --beam-600 on --graphite-0 clears 4.5:1 in the dark theme", () => {
+    // The clause pins this one fact to dark, so it is asserted where the clause states it.
+    expect(belowFloor([THEMES[1]], "--beam-600", "--graphite-0", 4.5), "interactive text on the app background (R-UI-001)").toEqual([]);
+  });
+
+  test("AC-2: --graphite-500 on --graphite-100 clears the 3:1 disabled floor in both themes", () => {
+    expect(belowFloor(THEMES, "--graphite-500", "--graphite-100", 3), "graphite-500 is the disabled role and never drops below 3:1 (R-UI-001)").toEqual([]);
+  });
+
+  test("AC-2: --graphite-600 on --graphite-0 clears 4.5:1 in both themes", () => {
+    expect(belowFloor(THEMES, "--graphite-600", "--graphite-0", 4.5), "graphite-600 is caption text on the app background (R-UI-001)").toEqual([]);
+  });
+
+  test("AC-2: --act-600 on --act-surface clears 4.5:1 in both themes", () => {
+    expect(belowFloor(THEMES, "--act-600", "--act-surface", 4.5), "act-600 is the text on act-surface (R-UI-001)").toEqual([]);
+  });
+});
+
 /* ------------------------------------------------------------------- AC-3 */
 
 describe("AC-3: identical key sets on both themes", () => {
@@ -446,6 +532,17 @@ function fontFaces(): { prelude: string; decls: Decl[]; raw: string }[] {
 
 const declOf = (face: { decls: Decl[] }, name: string): string | undefined => face.decls.find((d) => d.name === name)?.value;
 
+/** The url() targets of one `src:` descriptor, in source order. */
+const srcUrls = (src: string): string[] =>
+  [...src.matchAll(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g)].map((m) => (m[2] ?? "").trim());
+
+/** Absolute path a relative in-tree url() points at under src/ui/fonts/, or undefined if it escapes. */
+function vendoredTarget(url: string): string | undefined {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith("//") || url.startsWith("/")) return undefined;
+  const target = resolve(at("src/ui/theme"), url.split("?")[0] ?? url);
+  return target.startsWith(`${at(FONT_DIR)}/`) ? target : undefined;
+}
+
 describe("AC-4: the fonts are vendored, never fetched", () => {
   test("AC-4: globals.css declares @font-face for both Spline families at font-weight 400 700", () => {
     const faces = fontFaces();
@@ -461,36 +558,57 @@ describe("AC-4: the fonts are vendored, never fetched", () => {
     expect(wrongWeight, "each @font-face declares the variable range font-weight: 400 700 (AC-4)").toEqual([]);
   });
 
-  test("AC-4: every src is a relative url() into src/ui/fonts/, and every vendored woff2 is referenced", () => {
-    const vendored = readdirSync(at(FONT_DIR)).filter((file) => file.endsWith(".woff2"));
-    expect(vendored.length, `${FONT_DIR} holds no vendored woff2 files`).toBeGreaterThan(0);
-    const referenced = new Set<string>();
+  test("AC-4: every @font-face src in globals.css is a relative in-tree pointer that resolves (B-24)", () => {
+    // B-24's arrow runs pointer → file: every reference resolves inside this tree. It says nothing
+    // about a vendored file having a consumer, so this quantifies over the srcs, not the directory.
     const bad: string[] = [];
     for (const face of fontFaces()) {
+      const family = norm(declOf(face, "font-family") ?? "?");
       const src = declOf(face, "src");
       if (src === undefined) {
-        bad.push(`${norm(declOf(face, "font-family") ?? "?")}: no src`);
+        bad.push(`${family}: no src`);
         continue;
       }
-      const urls = [...src.matchAll(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g)].map((m) => (m[2] ?? "").trim());
-      if (urls.length === 0) bad.push(`${norm(declOf(face, "font-family") ?? "?")}: src declares no url()`);
+      const urls = srcUrls(src);
+      if (urls.length === 0) bad.push(`${family}: src declares no url()`);
       for (const url of urls) {
-        if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith("//") || url.startsWith("/")) {
-          bad.push(`${url} is not a relative url() into ${FONT_DIR} (B-24)`);
-          continue;
-        }
-        const target = resolve(at("src/ui/theme"), url.split("?")[0] ?? url);
-        const inside = target.startsWith(`${at(FONT_DIR)}/`);
-        if (!inside || !target.endsWith(".woff2")) bad.push(`${url} resolves outside ${FONT_DIR} or is not a .woff2`);
-        else if (!existsSync(target)) bad.push(`${url} resolves to a file that does not exist`);
-        else referenced.add(target.slice(`${at(FONT_DIR)}/`.length));
+        const target = vendoredTarget(url);
+        if (target === undefined) bad.push(`${family}: ${url} is not a relative url() into ${FONT_DIR} — a fetch or a pointer outside this tree (R-UI-003, B-24)`);
+        else if (!existsSync(target)) bad.push(`${family}: ${url} resolves to a file that does not exist — a broken pointer by construction (B-24)`);
       }
     }
-    expect(bad, "every face loads from the vendored files in this tree (R-UI-003, B-24, AC-4)").toEqual([]);
+    expect(bad, "every face loads from a vendored file in this tree; a build-time or runtime fetch is unlawful (R-UI-003, B-24, AC-4)").toEqual([]);
+  });
+
+  test("AC-4: the two Spline families together reference exactly the four vendored woff2 files", () => {
+    // AC-4's closed set is four: sans 400–700 variable and mono 400–700 variable. The set is closed
+    // over what these two families reference — never over src/ui/fonts/, which a later increment may
+    // lawfully extend (R-UI-003 names Noto Sans for document typography; B-24 compels vendoring it).
+    const spline = fontFaces().filter((face) =>
+      ["Spline Sans", "Spline Sans Mono"].includes(norm(declOf(face, "font-family") ?? "").replace(/'/g, "")),
+    );
+    for (const family of ["Spline Sans", "Spline Sans Mono"]) {
+      expect(
+        spline.some((face) => norm(declOf(face, "font-family") ?? "").replace(/'/g, "") === family),
+        `${GLOBALS_CSS} declares no @font-face for '${family}' (R-UI-003, AC-4)`,
+      ).toBe(true);
+    }
+    const referenced = new Set<string>();
+    const bad: string[] = [];
+    for (const face of spline) {
+      const family = norm(declOf(face, "font-family") ?? "?");
+      for (const url of srcUrls(declOf(face, "src") ?? "")) {
+        const target = vendoredTarget(url);
+        if (target === undefined || !existsSync(target)) bad.push(`${family}: ${url} does not resolve to a vendored file under ${FONT_DIR}`);
+        else if (!target.endsWith(".woff2")) bad.push(`${family}: ${url} is not a .woff2 (AC-4)`);
+        else referenced.add(target);
+      }
+    }
+    expect(bad, "each Spline face loads from a vendored woff2 in this tree (R-UI-003, B-24, AC-4)").toEqual([]);
     expect(
-      vendored.filter((file) => !referenced.has(file)),
-      `every vendored woff2 in ${FONT_DIR} must be referenced by a @font-face src (AC-4)`,
-    ).toEqual([]);
+      [...referenced].map((target) => target.slice(`${at(FONT_DIR)}/`.length)).sort(),
+      `the Spline sans and mono faces reference the four vendored woff2 files this increment ships (sans and mono, 400–700 variable) — found ${referenced.size} (AC-4)`,
+    ).toHaveLength(4);
   });
 
   test("AC-4: no stylesheet this increment owns fetches over the network", () => {
