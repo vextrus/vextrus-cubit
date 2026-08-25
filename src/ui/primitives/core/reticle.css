@@ -1,0 +1,88 @@
+/*
+ * The focus reticle — R-UI-012, and its only home in the tree (B-17).
+ *
+ * Four corner ticks, a 2 px beam stroke, 8 px arms, sitting 4 px outside the element's box: an
+ * absolutely positioned overlay whose background is eight no-repeat gradient layers, two per
+ * corner. It draws in 120 ms — `var(--motion-reticle)` — on an ease-out curve, and instantly under
+ * `prefers-reduced-motion`. A visible focus indicator is never optional, so the UA outline is
+ * suppressed only where these ticks replace it.
+ *
+ * The geometry is spelled in pixels because it is a fixed instrument, not a spacing decision: no
+ * token expresses a 2 px stroke or an 8 px arm. Every colour and every duration is a token read
+ * (R-UI-001, R-UI-004).
+ */
+
+.cx-reticle {
+  position: relative;
+}
+
+.cx-reticle:focus-visible {
+  outline: none;
+}
+
+.cx-reticle:focus-visible::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: var(--radius-4);
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--beam-500), var(--beam-500)),
+    linear-gradient(var(--beam-500), var(--beam-500)),
+    linear-gradient(var(--beam-500), var(--beam-500)),
+    linear-gradient(var(--beam-500), var(--beam-500)),
+    linear-gradient(var(--beam-500), var(--beam-500)),
+    linear-gradient(var(--beam-500), var(--beam-500)),
+    linear-gradient(var(--beam-500), var(--beam-500)),
+    linear-gradient(var(--beam-500), var(--beam-500));
+  background-repeat: no-repeat;
+  background-size:
+    8px 2px,
+    2px 8px,
+    8px 2px,
+    2px 8px,
+    8px 2px,
+    2px 8px,
+    8px 2px,
+    2px 8px;
+  background-position:
+    left top,
+    left top,
+    right top,
+    right top,
+    right bottom,
+    right bottom,
+    left bottom,
+    left bottom;
+  animation: cx-reticle-draw var(--motion-reticle) var(--ease) both;
+}
+
+/*
+ * The fallback R-UI-012 names: replaced elements host no `::after`, so where the corner ticks
+ * cannot render the indicator is a 2 px beam outline at 2 px offset — documented here, never left
+ * to the user agent.
+ */
+input.cx-reticle:focus-visible,
+textarea.cx-reticle:focus-visible,
+select.cx-reticle:focus-visible {
+  outline: 2px solid var(--beam-500);
+  outline-offset: 2px;
+}
+
+@keyframes cx-reticle-draw {
+  from {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-reticle:focus-visible::after {
+    animation: none;
+  }
+}
