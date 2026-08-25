@@ -1,0 +1,41 @@
+{
+  "name": "cubit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=24.19.0"
+  },
+  "cubit": {
+    "comment": "C-06 pins Node, pnpm, uv and typst. Node is pinned by .nvmrc and pnpm by packageManager; uv and typst are system tools, so their pins live here and `pnpm checkup` refuses a machine whose version differs. The CI workflow installs the pinned uv version and nothing else.",
+    "tools": {
+      "uv": "0.12.5",
+      "typst": "0.13.1"
+    }
+  },
+  "scripts": {
+    "verify": "node scripts/verify.mjs",
+    "checkup": "node scripts/checkup.mjs",
+    "test:db": "node scripts/db-test.mjs",
+    "e2e": "node scripts/e2e.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:drift": "node scripts/db-drift.mjs",
+    "seed": "node scripts/seed.mjs",
+    "method-hashes": "node scripts/method-hashes.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.62.1",
+    "@types/node": "26.2.0",
+    "drizzle-kit": "0.31.10",
+    "eslint": "10.8.1",
+    "globals": "17.11.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.67.0",
+    "vitest": "4.1.11"
+  }
+}

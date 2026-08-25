@@ -1,0 +1,81 @@
+# B-22: the suite that proves a guarantee runs everywhere merges are decided. Every lane the tree
+# has runs here on every pull request; a lane whose inputs are not in the tree yet records its skip
+# and says which input root it is waiting for, so this workflow never needs editing to arm a lane
+# (C-06, B-23). The system tools are installed only when the tree has the inputs that need them —
+# the same probe the roster uses, asked in shell.
+name: gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: cubit
+          POSTGRES_USER: cubit
+          POSTGRES_DB: cubit
+        ports:
+          - 5544:5432
+        options: >-
+          --health-cmd "pg_isready -U cubit"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      # The ports are not restated here: scripts/lib/ports.mjs is their one home (ARCH-02), and a
+      # job that spelled them again could drift from the tree it is gating.
+      DATABASE_URL: postgres://cubit:cubit@127.0.0.1:5544/cubit
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: pnpm (pinned by packageManager)
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      - name: browsers (only once journeys exist)
+        run: if [ -d tests/e2e ]; then pnpm exec playwright install --with-deps chromium; fi
+
+      # The installed version is the version package.json pins (C-06), and the installer is fetched
+      # to disk from that version's own URL rather than piped from a moving one into a shell; the
+      # checkup step below then refuses the job if what landed is not the pin (B-23).
+      - name: python toolchain (only once the cad tree exists)
+        run: |
+          if [ -d cad ]; then
+            uv_pin="$(node -p "require('./package.json').cubit.tools.uv")"
+            curl -fLsS "https://astral.sh/uv/${uv_pin}/install.sh" -o "${RUNNER_TEMP}/uv-install.sh"
+            sh "${RUNNER_TEMP}/uv-install.sh"
+            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: checkup
+        run: pnpm checkup
+
+      - name: verify
+        run: pnpm verify
+
+      - name: database suite
+        run: pnpm test:db
+
+      - name: journey smoke
+        run: pnpm e2e --journey J-000
