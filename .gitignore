@@ -15,3 +15,8 @@ playwright-report/
 blob-report/
 .vitest-reports/
 .scratch/
+
+# The storage root V-CHECKUP probes once src/app exists. The directory is committed empty; what
+# the product ever writes into it is runtime data and never source.
+storage/*
+!storage/.gitkeep
