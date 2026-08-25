@@ -122,7 +122,11 @@ describe("the global error boundary (a throw in the root layout)", () => {
 
   test("ARCH-02/B-17: the error state markup is imported, not a second copy", () => {
     const source = readFileSync(join(REPO_ROOT, GLOBAL_ERROR_MODULE), "utf8");
-    expect(source, "global-error.tsx must reuse the one home of the error state").toContain('from "./error"');
+    // The law is "imported from its one home", not "imported from this particular path": a later
+    // design increment may move `ErrorState` to its Datum home and this must still hold.
+    expect(source, "global-error.tsx must import the error state, not re-spell it").toMatch(
+      /import\s*\{[^}]*\bErrorState\b[^}]*\}\s*from\s*["'][^"']+["']/,
+    );
     // The contracted test ids appear once each, in that one home — never re-spelled here.
     for (const id of ["error-state-title", "error-state-message", "error-retry"]) {
       expect(source, `${id} is re-spelled in ${GLOBAL_ERROR_MODULE} instead of being reused from src/app/error.tsx`).not.toContain(id);

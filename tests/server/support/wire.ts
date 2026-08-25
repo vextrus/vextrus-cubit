@@ -87,6 +87,12 @@ export interface RouterLike {
 export interface TrpcModule {
   router: (record: Record<string, unknown>) => RouterLike;
   publicProcedure: ProcedureBuilder;
+  /** The seam both callbacks answer through; exported, so its contract holds off the transport too. */
+  answerFor: (request: { error: unknown; path?: string; ctx?: { requestId?: string; actor?: string } }) => {
+    kind: string;
+    faultId?: string;
+    refusalCode?: string;
+  };
 }
 
 export interface AppContext {
