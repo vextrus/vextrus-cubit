@@ -7,7 +7,7 @@
 // SIGNED_OUT with its registered sign-in remedy for a missing, unknown or revoked cookie, so no
 // procedure body has to remember to check (ARCH-03, B-21).
 import { publicProcedure, router } from "../trpc";
-import { signedOut } from "./refusals";
+import { credentialsNotValid, signedOut } from "./refusals";
 import {
   consumeMagicLink,
   listSessions,
@@ -56,29 +56,54 @@ function bagOf(input: unknown): Record<string, unknown> {
 }
 
 /**
- * A named string field. `input` is whatever crossed the wire, so every field is proved to be a
- * non-empty string here rather than assumed: a door handed a number would otherwise reach the seam
- * and fail there as a fault, when what the caller actually did was call it wrongly.
+ * A named string field, proved to be a *string* and nothing more. `input` is whatever crossed the
+ * wire, so a door handed a number would otherwise reach the seam and fail there as a fault, when
+ * what the caller actually did was call it wrongly — no browser can produce that, and a plain throw
+ * for it is honest.
+ *
+ * What the string *says* is deliberately not judged here. A reader that also rejected a blank value
+ * would be judging, and a judgement thrown as a plain `Error` reaches the caller as a fault id with
+ * a FaultRecord filed behind it (R-SPINE-007, ARCH-03/B-21) — "the machine failed" for a slipped
+ * space bar. The browser's `required` cannot stop a single space (Design Decision I-13 forbids the
+ * screen inventing a rule that would), so every blank a caller can present is answered below with a
+ * code the closed taxonomy registers, or passed to the seam that already answers it.
  */
 function field(input: unknown, name: string): string {
   const value = bagOf(input)[name];
-  if (typeof value !== "string" || value.trim() === "") throw new Error(`spine.auth: "${name}" is required and must be a non-empty string`);
+  if (typeof value !== "string") throw new Error(`spine.auth: "${name}" is required and must be a string`);
+  return value;
+}
+
+/**
+ * An address or a password, as the person typed it. A blank one identifies no account — it is a
+ * credential that names nobody, which is exactly what CREDENTIALS_NOT_VALID is registered for
+ * (R-SPINE-062) — and on the doors that *set* a password it is the same answer, so a password the
+ * sign-in door would never admit can never be stored either.
+ */
+function credential(input: unknown, name: string): string {
+  const value = field(input, name);
+  if (value.trim() === "") throw credentialsNotValid();
   return value;
 }
 
 /**
  * A door whose whole input is one value — `verifyEmail(token)`, `revokeSession(id)`. The value may
  * arrive named or bare, because both readings of a one-argument door are honest and the caller
- * should not have to guess which one this tree chose.
+ * should not have to guess which one this tree chose. When a caller supplies more than one of the
+ * names, a value that says something wins over a blank one.
+ *
+ * A blank value is returned rather than rejected: every door reading through here — a token, a
+ * session id, an address a link is mailed to — already answers a value that matches nothing
+ * (TOKEN_NOT_VALID, an unchanged revoke, the same `{ sent: true }` an unknown address gets), so
+ * rejecting it here would replace those answers with a fault.
  */
 function only(input: unknown, names: readonly string[]): string {
-  if (typeof input === "string" && input.trim() !== "") return input;
+  if (typeof input === "string") return input;
   const bag = bagOf(input);
-  for (const name of names) {
-    const value = bag[name];
-    if (typeof value === "string" && value.trim() !== "") return value;
-  }
-  throw new Error(`spine.auth: this door takes ${names.map((name) => `"${name}"`).join(" or ")}, named or as a bare string`);
+  const supplied = names.map((name) => bag[name]).filter((value): value is string => typeof value === "string");
+  const value = supplied.find((candidate) => candidate.trim() !== "") ?? supplied[0];
+  if (value === undefined) throw new Error(`spine.auth: this door takes ${names.map((name) => `"${name}"`).join(" or ")}, named or as a bare string`);
+  return value;
 }
 
 /* ------------------------------------------------------------------ *
@@ -93,7 +118,7 @@ const signedInProcedure = publicProcedure.use(({ ctx, next }) => {
 
 export const authRouter = router({
   signUp: publicProcedure
-    .input((input: unknown) => ({ email: field(input, "email"), password: field(input, "password"), tenantName: field(input, "tenantName") }))
+    .input((input: unknown) => ({ email: credential(input, "email"), password: credential(input, "password"), tenantName: field(input, "tenantName") }))
     .mutation(async ({ ctx, input }) => {
       const answer = await signUp({ ...input, deviceLabel: ctx.deviceLabel, origin: ctx.origin });
       ctx.cookies.push(sessionCookie(answer.sessionToken));
@@ -101,7 +126,7 @@ export const authRouter = router({
     }),
 
   signIn: publicProcedure
-    .input((input: unknown) => ({ email: field(input, "email"), password: field(input, "password") }))
+    .input((input: unknown) => ({ email: credential(input, "email"), password: credential(input, "password") }))
     .mutation(async ({ ctx, input }) => {
       const answer = await signIn({ ...input, deviceLabel: ctx.deviceLabel });
       ctx.cookies.push(sessionCookie(answer.sessionToken));
@@ -133,7 +158,7 @@ export const authRouter = router({
     .mutation(({ ctx, input }) => requestPasswordReset({ ...input, origin: ctx.origin })),
 
   resetPassword: publicProcedure
-    .input((input: unknown) => ({ token: field(input, "token"), password: field(input, "password") }))
+    .input((input: unknown) => ({ token: field(input, "token"), password: credential(input, "password") }))
     .mutation(async ({ ctx, input }) => {
       const answer = await resetPassword({ ...input, deviceLabel: ctx.deviceLabel });
       ctx.cookies.push(sessionCookie(answer.sessionToken));

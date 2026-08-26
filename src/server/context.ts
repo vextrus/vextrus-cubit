@@ -61,13 +61,42 @@ function presentedToken(req: Request): string | null {
 }
 
 /**
- * The address the request arrived on. A transport that hands the seam something without a readable
- * url leaves the origin empty, and a link built on it is root-relative — still a link inside the
- * app, never a throw on a request that was otherwise answerable.
+ * Where the product answers, as something other than the caller says. Next builds a route handler's
+ * `Request.url` from the incoming `Host` header, so the request's own origin is a value the caller
+ * writes — and this origin is what a mailed reset or magic link points at (session.ts). An
+ * unauthenticated caller who posted `requestPasswordReset` with `Host: attacker.example` would
+ * otherwise have a link to the attacker's host mailed to the victim, and the victim's click would
+ * hand over a single-use credential. R-SPINE-001 legislates against exactly this shape for the
+ * limiter — "never client-influencable headers alone" — and a link's destination is the same class.
+ */
+const PUBLIC_ORIGIN_VAR = "CUBIT_PUBLIC_ORIGIN";
+
+/** Loopback names: the only hosts a request can claim that a deployment is not reachable at. */
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+
+/** The deployment's own statement of its address, when it made one. */
+function configuredOrigin(): string | null {
+  const configured = process.env[PUBLIC_ORIGIN_VAR]?.trim();
+  if (configured === undefined || configured === "") return null;
+  return URL.parse(configured)?.origin ?? null;
+}
+
+/**
+ * The address a link built on this request points back at. The configured origin when the
+ * deployment named one; otherwise the request's own origin only while it names a loopback host,
+ * which is a development machine and the journeys' own server and can be nothing else.
+ *
+ * Everything else leaves the origin empty and the link root-relative — still a link inside the app,
+ * followed from the address the person is already on, never a throw on a request that was otherwise
+ * answerable and never a link out to a host the caller chose.
  */
 function originOf(req: Request): string {
-  const url = typeof req.url === "string" ? req.url : "";
-  return URL.parse(url)?.origin ?? "";
+  const configured = configuredOrigin();
+  if (configured !== null) return configured;
+
+  const url = URL.parse(typeof req.url === "string" ? req.url : "");
+  if (url === null) return "";
+  return LOOPBACK_HOSTS.has(url.hostname) ? url.origin : "";
 }
 
 /**

@@ -11,8 +11,14 @@ import { refusalCodeOf } from "../../core/faults/refusal-marker";
 import { strings } from "../../ui/strings";
 import { AUTH_ROUTES, type AuthRoute } from "./routes";
 
-/** What the screen renders: the registered refusal, or the fault surface (R-SPINE-007). */
-export type Answer = { kind: "refusal"; refusal: RefusalEntry } | { kind: "fault"; faultId: string | null };
+/**
+ * What the screen renders: the registered refusal, or the fault surface (R-SPINE-007). A fault also
+ * carries whether the server was reached at all, because that is what chooses between the fault
+ * card's two bodies — and it is not the same question as whether an id came back. A server that
+ * answered something that is not the envelope (Next's 500 page, a proxy's) reached the screen with
+ * no id, and telling that person to check their connection would be false (Decision I-12).
+ */
+export type Answer = { kind: "refusal"; refusal: RefusalEntry } | { kind: "fault"; faultId: string | null; reached: boolean };
 
 /** A call that has settled, without a rejection anybody has to catch. */
 export type Settled<T> = { ok: true; value: T } | { ok: false; answer: Answer };
@@ -33,7 +39,18 @@ export function settle<T>(work: Promise<T>): Promise<Settled<T>> {
 export function answerOf(failure: unknown): Answer {
   const code = registeredCodeIn(failure);
   if (code !== null) return { kind: "refusal", refusal: REFUSALS[code] };
-  return { kind: "fault", faultId: faultIdIn(failure) };
+  const faultId = faultIdIn(failure);
+  return { kind: "fault", faultId, reached: faultId !== null || answeredByServer(failure) };
+}
+
+/**
+ * Whether this failure came back from the server rather than instead of it: the wire stamps every
+ * error answer with its `kind` (src/server/trpc.ts's formatter), and the transport stamps the same
+ * field on a reply it could not read as an envelope. A `fetch` that never arrived carries neither.
+ */
+function answeredByServer(failure: unknown): boolean {
+  const bag = bagOf(failure);
+  return [bag["data"], bagOf(bag["shape"])["data"]].some((carrier) => stringAt(carrier, "kind") !== null);
 }
 
 /** Anything with named fields, as a bag; anything else carries no fields to read. */

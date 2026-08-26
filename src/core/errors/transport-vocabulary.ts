@@ -46,7 +46,10 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // The machine's environment (AS-01), read at the seams that need it — `DATABASE_URL` in the
     // database seam above all. An environment name is a key, never a code answered to anyone.
     vocabulary: "environment variable names",
-    codes: Object.freeze(["DATABASE_URL", "STORAGE_ROOT", "NODE_ENV"]),
+    // `CUBIT_PUBLIC_ORIGIN` is the deployment's statement of the address it answers at, read in
+    // `src/server/context.ts`: a mailed link may not be pointed by the caller's own Host header
+    // (R-SPINE-001), so the origin comes from the machine rather than from the request.
+    codes: Object.freeze(["DATABASE_URL", "STORAGE_ROOT", "NODE_ENV", "CUBIT_PUBLIC_ORIGIN"]),
   }),
   Object.freeze({
     // L-ACT-02's act-type enum, spelled as the law spells it. An act type names what a human did; it

@@ -233,15 +233,26 @@ async function createAccount(db: SystemDb, account: NewAccount): Promise<{ sessi
   } catch (failure) {
     // The unique index is the belt the seam-side guard wears: two sign-ups racing one address reach
     // here, and both deserve the registered answer rather than one of them getting a fault id.
-    if (isUniqueViolation(failure)) throw accountAlreadyExists();
+    if (violates(failure, EMAIL_TAKEN_CONSTRAINT)) throw accountAlreadyExists();
     throw failure;
   }
 }
 
-/** A duplicate key, as postgres reports it through the driver — the one constraint a user can reach. */
-function isUniqueViolation(failure: unknown): boolean {
-  const cause = (failure as { cause?: { code?: unknown } } | null)?.cause;
-  return typeof cause === "object" && cause !== null && cause.code === "23505";
+/**
+ * The one constraint inside this transaction a person can reach: two sign-ups on one address. The
+ * transaction also writes `auth_tokens.token_hash` and `sessions.token_hash`, both UNIQUE, and a
+ * violation of either is a minted-secret collision — an outage the operator must see, never a first
+ * time signer-up being told they already have an account. So the belt is buckled to this constraint
+ * by name rather than to the SQLSTATE, and a unique index added inside this transaction later stays
+ * a fault until somebody decides what it answers.
+ */
+const EMAIL_TAKEN_CONSTRAINT = "users_email_unique";
+
+/** A named constraint violation, as postgres reports it through the driver. */
+function violates(failure: unknown, constraint: string): boolean {
+  const cause = (failure as { cause?: { code?: unknown; constraint_name?: unknown } } | null)?.cause;
+  if (typeof cause !== "object" || cause === null || cause.code !== "23505") return false;
+  return cause.constraint_name === constraint;
 }
 
 /* ------------------------------------------------------------------ *

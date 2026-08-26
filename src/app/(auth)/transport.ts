@@ -32,12 +32,31 @@ interface Envelope {
  * The answer, or the failure as this tier must see it. `data` travels onto the thrown value so the
  * refusal code or the fault id survives the throw; nothing else of the envelope does, because a
  * fault's internals belong on the sink and never on a screen (ARCH-03).
+ *
+ * A body that is not the tRPC envelope — Next's own 500 page, a proxy's error page, a 404 from a
+ * mount that moved — is still a server that answered. Reading it with `.json()` and letting the
+ * SyntaxError escape would make it indistinguishable from a fetch that never arrived, and the screen
+ * would tell the person to check their connection for a machine that replied. Decision I-12 rules
+ * the *unreachable* variant for a transport failure, and this is not one, so the failure is stamped
+ * with the fault answer's own `kind`: the server was reached, and it carried no id to quote.
  */
 async function answerOf(response: Response): Promise<unknown> {
-  const envelope = (await response.json()) as Envelope;
+  const envelope = await envelopeOf(response);
   const failure = envelope.error;
   if (failure !== undefined) throw Object.assign(new Error(failure.message ?? ""), { data: failure.data });
   return envelope.result?.data;
+}
+
+/** The envelope this response carries — or the failure of a server that answered something else. */
+async function envelopeOf(response: Response): Promise<Envelope> {
+  const body = await response.text();
+  try {
+    return JSON.parse(body) as Envelope;
+  } catch {
+    throw Object.assign(new Error(`the server answered ${response.status} with a body that is not a tRPC envelope`), {
+      data: { kind: "fault", faultId: null },
+    });
+  }
 }
 
 /** A door that changes something. */

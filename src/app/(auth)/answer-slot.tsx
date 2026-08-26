@@ -21,14 +21,18 @@ export function RefusalSlot({ answer, route }: { answer: Extract<Answer, { kind:
 /**
  * The distinct answer R-SPINE-007 demands. A fault that reached the screen with an id quotes it, so
  * a person can hand the operator the one string that finds the record; a failure that never reached
- * the server has no id to quote and says so instead (Decision I-12) — never silence, and never an
- * impersonated refusal.
+ * the server says so instead (Decision I-12) — never silence, and never an impersonated refusal.
+ *
+ * Which body reads is decided by whether the server answered, not by whether an id came back: a
+ * reply the transport could not read as an envelope reached the screen with no id, and the
+ * unreachable body would tell that person to check a connection that plainly worked. It gets the
+ * recorded-fault body without the id line — there is no id, and inventing one would be worse.
  */
-export function FaultSlot({ faultId }: { faultId: string | null }) {
+export function FaultSlot({ faultId, reached }: { faultId: string | null; reached: boolean }) {
   return (
     <div className="cx-auth-fault" data-testid="s-auth-fault" role="alert">
       <p className="cx-auth-fault-title">{strings.auth_fault_title}</p>
-      <p className="cx-auth-fault-body">{faultId === null ? strings.auth_fault_unreachable_body : strings.auth_fault_body}</p>
+      <p className="cx-auth-fault-body">{reached ? strings.auth_fault_body : strings.auth_fault_unreachable_body}</p>
       {faultId === null ? null : (
         <p className="cx-auth-fault-id">
           <span>{strings.auth_fault_id_label}</span>
@@ -52,5 +56,5 @@ export function NoticeSlot({ message }: { message: string }) {
 export function AnswerSlot({ answer, route }: { answer: Answer | null; route: AuthRoute }) {
   if (answer === null) return null;
   if (answer.kind === "refusal") return <RefusalSlot answer={answer} route={route} />;
-  return <FaultSlot faultId={answer.faultId} />;
+  return <FaultSlot faultId={answer.faultId} reached={answer.reached} />;
 }
