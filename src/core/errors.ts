@@ -29,7 +29,8 @@ export type RefusalCode =
   | "SIGNED_OUT"
   | "CONSEQUENCES_NOT_CARRIED"
   | "PERMISSION_NOT_HELD"
-  | "ACTOR_NOT_HUMAN";
+  | "ACTOR_NOT_HUMAN"
+  | "ACT_CHANGES_NOTHING";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -86,6 +87,13 @@ export const REFUSALS: Readonly<Record<RefusalCode, RefusalEntry>> = Object.free
     remedy: "Perform the action as a signed-in person.",
     severity: "error",
     surface: "banner",
+  }),
+  ACT_CHANGES_NOTHING: Object.freeze({
+    code: "ACT_CHANGES_NOTHING",
+    message: "This action would leave the project exactly as it is, so nothing was recorded.",
+    remedy: "Choose a change that moves something — what you asked for is already the case.",
+    severity: "info",
+    surface: "dialog",
   }),
 } satisfies Record<RefusalCode, RefusalEntry>);
 

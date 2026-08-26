@@ -4,12 +4,12 @@
 // change in one transaction or neither (L-ACT-01). Every transport over it is thin: authenticate,
 // mint a ctx, call these two functions under these same guards — a transport-local digest or guard
 // set is a defect, because two doors to one write must be provably the same door (B-17, ARCH-02).
-import { acts, forTenant } from "../db";
+import { acts, forTenant, holdStateLock } from "../db";
 import { assignParticipantRole, type AssignParticipantRoleInput } from "./assign-participant-role";
-import { consequenceDigest, type Consequence } from "./consequence";
+import { consequenceDigest, movesNothing, type Consequence } from "./consequence";
 import { ACT_TYPES, type ActType } from "./law";
 import { requirePermission } from "./participation";
-import { actorNotHuman, consequencesNotCarried } from "./refusals";
+import { actChangesNothing, actorNotHuman, consequencesNotCarried } from "./refusals";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
 export { consequenceDigest, type Consequence, type ConsequenceSubject } from "./consequence";
@@ -74,9 +74,21 @@ export async function commit(ctx: ActorCtx, input: ActInput, carriedDigest: stri
   return forTenant(ctx).transaction(async (tx) => {
     await requirePermission(tx, ctx, actType, input.projectId);
 
+    // The guard is only as good as the read it compares: under READ COMMITTED two commits racing on
+    // one project would each recompute a Consequence the other is about to invalidate, agree with
+    // their own digest, and both write — so each act would claim an `after` that is not the state
+    // that resulted. The lock is taken on the project's state before it is read, and held until the
+    // transaction ends, which is what makes "the digest is the one CURRENT state produces" true at
+    // the moment of the write rather than only at the moment of the read (L-ACT-02).
+    await holdStateLock(tx, projectState(ctx, input));
+
     const consequence = await rendering.preview(ctx, input, tx);
     const digest = consequenceDigest(consequence);
     if (digest !== carriedDigest) throw consequencesNotCarried(actType, carriedDigest, digest);
+    // A carried digest can agree with the current state and still describe nothing happening — a
+    // role already held, granted again. That is not an act, and the seam says so by name rather than
+    // writing the act row and letting the ledger's uniqueness belt refuse the caller (L-ACT-01).
+    if (movesNothing(consequence)) throw actChangesNothing(actType, consequence.subjects.map((subject) => subject.subjectId));
 
     const written = await tx
       .insert(acts)
@@ -96,6 +108,14 @@ export async function commit(ctx: ActorCtx, input: ActInput, carriedDigest: stri
     await rendering.commit(ctx, input, act, tx);
     return { actId, consequenceDigest: digest, consequence };
   });
+}
+
+/**
+ * The state a commit's Consequence is computed from, named so it can be locked: every act moves
+ * some part of one project in one tenant, and the writers of one project take their turns.
+ */
+function projectState(ctx: ActorCtx, input: ActInput): string {
+  return `${ctx.tenantId}:${input.projectId}`;
 }
 
 /** L-ACT-01: the log is human-only, and the seam refuses a non-human actor by type (SEAM-ACT). */

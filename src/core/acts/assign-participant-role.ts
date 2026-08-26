@@ -1,7 +1,7 @@
 // ASSIGN_PARTICIPANT_ROLE (L-ACT-03: "assignment is itself an act"), rendered as L-ACT-02's pair.
 // The Consequence names the subject and the roles it would hold before and after, so the digest the
 // actor carries binds the very state a second assignment would move.
-import { participantRoles, type TenantTx } from "../db";
+import { participantRoles, participants, type TenantTx } from "../db";
 import type { Consequence } from "./consequence";
 import { isRole, type Role } from "./law";
 import { rolesGranted } from "./participation";
@@ -37,6 +37,17 @@ export const assignParticipantRole: ActRendering<AssignParticipantRoleInput> = {
   },
 
   async commit(ctx: ActorCtx, input: AssignParticipantRoleInput, act: WrittenAct, tx: TenantTx): Promise<void> {
+    // L-ACT-03: "Participants attach to (project, user), append-only, mandatory ... assignment is
+    // itself an act." Giving a person a role on a project is what attaches them to it, so the
+    // attachment lands here, in the act's own transaction. The grant's composite FK to `participants`
+    // is then the backstop the law calls it — a belt behind this write, not the thing a first
+    // assignment trips over. Nothing is rewritten: a person already attached stays attached, at the
+    // moment they first were, which is what an append-only participation means.
+    await tx
+      .insert(participants)
+      .values({ tenantId: ctx.tenantId, projectId: input.projectId, userId: input.subjectUserId })
+      .onConflictDoNothing();
+
     await tx.insert(participantRoles).values({
       tenantId: ctx.tenantId,
       projectId: input.projectId,

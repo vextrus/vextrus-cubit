@@ -3,7 +3,7 @@
 // the suite is bound by that ban like the rest of the tree (cubit/no-db-outside-seam). Everything
 // here derives from the migrated database — nothing is transcribed from the tree (B-19).
 import { spawnSync } from "node:child_process";
-import { AUDIT_REASON, GUC_SYSTEM_REASON, SEEDED_TENANTS, SEED_REASON, TENANT_COLUMN, TENANTS_TABLE } from "./fixtures";
+import { AUDIT_REASON, GUC_SYSTEM_REASON, ROLE_APP, SEEDED_TENANTS, SEED_REASON, TENANT_COLUMN, TENANTS_TABLE } from "./fixtures";
 
 /** A column separator no catalogue value can contain. */
 const SEP = "\u0001";
@@ -100,6 +100,40 @@ export function deriveTenantScopedTables(url: string): TableRef[] {
     if (schema === undefined || table === undefined) throw new Error(`unreadable catalogue row: ${row.join(" ")}`);
     return { schema, table, sql: `${ident(schema)}.${ident(table)}` };
   });
+}
+
+/** The trigger name an append-only belt wears, as the migrations spell it: `<table>_append_only`. */
+const APPEND_ONLY_TRIGGER = "%\\_append\\_only%";
+
+/**
+ * Every tenant-scoped ledger the migrated database says is append-only — derived, never listed, so
+ * the next ledger to wear these belts is judged by the same cases the moment it lands (B-19).
+ *
+ * The set is the union of two independent readings: a table carrying an append-only trigger, and a
+ * table the runtime may INSERT into but holds neither UPDATE nor DELETE on. A union rather than an
+ * intersection, deliberately — a ledger wearing one belt and not the other belongs in the set
+ * precisely so that the belt it lacks fails a case, instead of dropping out of the enumeration
+ * unjudged. It also keeps the enumeration honest against a tree that lost its triggers: the grants
+ * would still name the ledgers, and every trigger case would fail.
+ */
+export function deriveAppendOnlyLedgers(url: string): TableRef[] {
+  const tenantScoped = new Map(deriveTenantScopedTables(url).map((table) => [qualified(table), table]));
+  const belted = run(
+    url,
+    `select n.nspname, c.relname
+       from pg_trigger t
+       join pg_class c on c.oid = t.tgrelid
+       join pg_namespace n on n.oid = c.relnamespace
+      where not t.tgisinternal and t.tgname like ${lit(APPEND_ONLY_TRIGGER)}
+      union
+     select g.table_schema, g.table_name
+       from information_schema.role_table_grants g
+      where g.grantee = ${lit(ROLE_APP)}
+      group by g.table_schema, g.table_name
+     having bool_or(g.privilege_type = 'INSERT') and not bool_or(g.privilege_type in ('UPDATE', 'DELETE'))
+      order by 1, 2;`,
+  );
+  return belted.map((row) => tenantScoped.get(`${row[0] ?? ""}.${row[1] ?? ""}`)).filter((table): table is TableRef => table !== undefined);
 }
 
 /** How a table is named for a human, and for comparison against the harness's enumeration. */

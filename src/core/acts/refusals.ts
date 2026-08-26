@@ -35,6 +35,18 @@ export function consequencesNotCarried(actType: ActType, carried: string, curren
   });
 }
 
+/**
+ * L-ACT-01: an act is "a human write that CHANGES what the machine would derive" — a Consequence
+ * whose subjects end as they began is not one. The seam answers so, rather than writing a record of
+ * nothing and leaving the ledger's uniqueness belt to answer the caller with a driver error.
+ */
+export function actChangesNothing(actType: ActType, subjectIds: readonly string[]): Error {
+  return refusal("ACT_CHANGES_NOTHING", `${actType} would leave every subject it names exactly as it found them, so there is no act to record`, {
+    actType,
+    subjectIds,
+  });
+}
+
 /** SEAM-ACT: the seam "refuses non-human actors by type" — L-ACT-01's log is human-only. */
 export function actorNotHuman(actType: ActType, actorKind: ActorKind): Error {
   return refusal("ACTOR_NOT_HUMAN", `${actType} was attempted by a ${actorKind} actor; the act log is human-only`, {

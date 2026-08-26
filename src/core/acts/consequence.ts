@@ -33,6 +33,20 @@ export function consequenceDigest(consequence: Consequence): string {
 }
 
 /**
+ * Whether the act would move anything at all. L-ACT-01's act is "a human write that changes what the
+ * machine would derive", so a Consequence whose every subject ends as it began records nothing — the
+ * seam refuses it by name instead of writing an act row the state write cannot follow.
+ */
+export function movesNothing(consequence: Consequence): boolean {
+  return consequence.subjects.every((subject) => same(subject.before, subject.after));
+}
+
+/** Two readings of one subject's state, compared as the ordered lists the previews build them as. */
+function same(before: readonly string[], after: readonly string[]): boolean {
+  return before.length === after.length && before.every((held, index) => held === after[index]);
+}
+
+/**
  * The canonical form a digest is taken over: object keys in code-point order, arrays in their own
  * order, nothing else. Key order is a property of how a value was built, never of what it says, so
  * it is removed before hashing — otherwise the same consequence would digest two ways.

@@ -6,7 +6,7 @@
 // The table definitions sit here rather than in db/schema/*.ts because the ORM's table builders are
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql as statement } from "drizzle-orm";
 import { foreignKey, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -114,6 +114,17 @@ export type TenantDb = PostgresJsDatabase<typeof schema>;
  * naming the driver's own types (SEAM-TENANT).
  */
 export type TenantTx = Parameters<Parameters<TenantDb["transaction"]>[0]>[0];
+
+/**
+ * Hold a transaction-scoped lock on a named piece of state, so that everything a transaction reads
+ * about that state stays true until it commits. Rows a transaction has not read yet cannot be locked
+ * with `FOR UPDATE` — a row a concurrent writer is about to insert is locked by nothing — so the
+ * lock is taken on the name of the state rather than on the rows that happen to hold it now. It is
+ * released when the transaction ends, whichever way it ends.
+ */
+export async function holdStateLock(tx: TenantTx, key: string): Promise<void> {
+  await tx.execute(statement`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+}
 
 /** A handle running under an attributable system reason: the same surface, unfiltered by tenant. */
 export type SystemDb = PostgresJsDatabase<typeof schema>;
