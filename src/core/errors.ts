@@ -32,7 +32,6 @@ export type RefusalCode =
   | "ACTOR_NOT_HUMAN"
   | "ACT_CHANGES_NOTHING"
   | "CREDENTIALS_NOT_VALID"
-  | "DETAIL_NOT_GIVEN"
   | "TOKEN_NOT_VALID"
   | "RATE_LIMITED"
   | "ACCOUNT_ALREADY_EXISTS";
@@ -104,13 +103,6 @@ export const REFUSALS: Readonly<Record<RefusalCode, RefusalEntry>> = Object.free
     code: "CREDENTIALS_NOT_VALID",
     message: "The email and password do not match an account.",
     remedy: "Check both and try again, or reset your password.",
-    severity: "error",
-    surface: "inline",
-  }),
-  DETAIL_NOT_GIVEN: Object.freeze({
-    code: "DETAIL_NOT_GIVEN",
-    message: "One of the details this form needs was left blank.",
-    remedy: "Fill in every field, then submit again.",
     severity: "error",
     surface: "inline",
   }),

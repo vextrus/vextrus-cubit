@@ -28,14 +28,6 @@ test.describe("J-001a — auth and sessions", () => {
     await expect(screen.workspace).toBeVisible();
     await checkpoint(page, testInfo, "s-auth-sign-up");
 
-    // A single space is a value the browser's own requiredness admits and no screen may lawfully
-    // reject (Decision I-13), so the door judges it — and answers the entry that is true of a person
-    // creating an account, not the one that says their email and password match no account.
-    await screen.signUpWith(EMAIL, " ", WORKSPACE);
-    await screen.refusedWith("DETAIL_NOT_GIVEN");
-    await screen.signUpWith(EMAIL, PASSWORD, "   ");
-    await screen.refusedWith("DETAIL_NOT_GIVEN");
-
     await screen.signUpWith(EMAIL, PASSWORD, WORKSPACE);
     await screen.expectNotice();
     // The heading names what the screen is showing now: the form it named is gone.

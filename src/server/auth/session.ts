@@ -26,7 +26,7 @@ import {
 import { reportFault } from "../../core/faults/report";
 import { deliver } from "./mail";
 import { admitAttempt } from "./rate-limit";
-import { accountAlreadyExists, credentialsNotValid, detailNotGiven } from "./refusals";
+import { accountAlreadyExists, credentialsNotValid } from "./refusals";
 import { absorbPassword, digestOf, hashPassword, mintSecret, verifyPassword } from "./secrets";
 import { consumeToken, issueToken, TOKEN_KINDS, type AuthTokenPurpose } from "./tokens";
 
@@ -110,21 +110,6 @@ function accountAddress(email: string): string {
   const address = normalisedEmail(email);
   if (Buffer.byteLength(address, "utf8") > EMAIL_MAX_OCTETS) throw credentialsNotValid();
   return address;
-}
-
-/**
- * The workspace's name, as it will be read back. R-SPINE-002 makes sign-up the act that names the
- * personal tenant, so the name is stored the way the address is: trimmed, because " Meridian " and
- * "Meridian" are one workspace and only one of them reads as a name in a list or a switcher.
- *
- * A name that is only whitespace names nothing, and a tenant nobody can refer to is worse than a
- * refused sign-up — so it is judged here as well as at the door, because the seam is what R-SPINE-002
- * binds and a second door onto this function must not be able to write a nameless workspace.
- */
-function workspaceName(tenantName: string): string {
-  const name = tenantName.trim();
-  if (name === "") throw detailNotGiven("tenantName");
-  return name;
 }
 
 /**
@@ -239,7 +224,6 @@ const SIGN_UP_ROUTE = "spine.auth.signUp";
  */
 export async function signUp(request: SignUpRequest): Promise<SessionAnswer> {
   const email = accountAddress(request.email);
-  const tenantName = workspaceName(request.tenantName);
   await admitAttempt("signUp", email);
 
   // Derived before the transaction opens: scrypt is deliberately slow, and a transaction holding a
@@ -247,7 +231,7 @@ export async function signUp(request: SignUpRequest): Promise<SessionAnswer> {
   const passwordHash = await hashPassword(request.password);
   const db = runAsSystem("R-SPINE-002 sign-up: the account, its personal workspace and the membership joining them, written as one transaction");
 
-  const created = await createAccount(db, { email, passwordHash, tenantName, deviceLabel: request.deviceLabel });
+  const created = await createAccount(db, { email, passwordHash, tenantName: request.tenantName, deviceLabel: request.deviceLabel });
 
   // Sent only once the transaction has committed: a mail for an account that was rolled back is a
   // link nobody can follow.

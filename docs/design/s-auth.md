@@ -41,6 +41,17 @@ Skeleton, and the one `RefusalState` renderer — a screen-local refusal block i
   person has not filled in. Without it a blank submit is answered by the fault surface —
   R-SPINE-007's "the machine failed" shown for an empty box, with an operator fault record
   filed behind it (ARCH-03 / B-21).
+- **I-14 — the door's side of I-13: a creating door takes the value as presented.** The
+  taxonomy is closed (R-SPINE-062, B-06) and registers no code for a detail left blank, and
+  CREDENTIALS_NOT_VALID cannot stand in for one on `/sign-up` or on the token half of
+  `/reset`: "the email and password do not match an account" is false of a person who is
+  making one, and its remedy sends them to reset a password they have not got. Ruling: the
+  doors that *create* an account or *set* a password judge nothing about what a string says
+  — sign-up names the personal workspace with what it was given (R-SPINE-002) and hashes the
+  password presented, there being no password policy in the law to break — while the doors
+  that *identify* somebody answer CREDENTIALS_NOT_VALID for a value that names no account,
+  where the entry is true. So the whitespace `required` admits is never the fault card
+  (R-SPINE-007) and never a refusal the registry does not hold.
 
 ## 1. Layout and hierarchy — the auth frame
 
@@ -98,7 +109,7 @@ Fields: **Email** (`type="email"` `autocomplete="email"`, testid `s-auth-email`)
 (R-UI-033: sign-up names the tenant; rename lives in settings.) Submit **Create account**
 (`s-auth-submit`). Success → the heading becomes **Check your email** over the sent notice: **Check your
 email — we sent you a verification link.** (a heading names what the screen is showing,
-and the form it named is gone) Refusals here: ACCOUNT_ALREADY_EXISTS, DETAIL_NOT_GIVEN, RATE_LIMITED. Footer:
+and the form it named is gone) Refusals here: ACCOUNT_ALREADY_EXISTS, RATE_LIMITED. Footer:
 **Already have an account?** **Sign in** → `/sign-in`.
 
 ### /sign-in — title **Sign in to Vextrus**
@@ -133,7 +144,7 @@ Without `?token=`: field **Email** · submit **Email me a reset link** · succes
 With `?token=`: field **New password** (`type="password"` `autocomplete="new-password"`,
 testid `s-auth-password`) · submit **Set new password** · success heading **Your password is set** over
 notice **Your password is set and your other devices were signed out.** with footer link **Continue** → `/` —
-R-SPINE-001's revocation, said plainly. Refusals: TOKEN_NOT_VALID, DETAIL_NOT_GIVEN (the new password), RATE_LIMITED. Footer
+R-SPINE-001's revocation, said plainly. Refusals: TOKEN_NOT_VALID, RATE_LIMITED. Footer
 (both modes): **Back to sign-in** → `/sign-in`.
 
 ### /sessions — title **Sessions**, caption **Everywhere you are signed in.**
@@ -154,23 +165,14 @@ Recorded IOU: R-UI-031's visible navigation to `/sessions` is owed by the shell 
 (inc-013) — until then the route is journey- and URL-reachable, and this Decision records
 that as the shell's debt, not this screen's.
 
-## 3. Registry entries (R-SPINE-062) — the new codes, verbatim
+## 3. Registry entries (R-SPINE-062) — the four new codes, verbatim
 
 Copy obeys the refusal-state Decision's rules: one present-tense sentence of what was
 refused; remedy verb-first; no "sorry", no "please", no exclamation marks.
 
-DETAIL_NOT_GIVEN is the fifth entry, and it is what the doors that *create* an account or
-*set* a password answer when a field arrives blank — a single typed space, which the
-browser's own requiredness admits and no screen may lawfully reject (I-13). Those doors
-cannot answer CREDENTIALS_NOT_VALID: "the email and password do not match an account" is
-false of a person who is making one, its remedy sends them to reset a password they have
-not got, and its evidence link points at `/reset`. Sign-in keeps CREDENTIALS_NOT_VALID for
-the same blank, where it is true — a credential that names no account.
-
 | code | severity | surface | message | remedy |
 |---|---|---|---|---|
 | CREDENTIALS_NOT_VALID | error | inline | **The email and password do not match an account.** | **Check both and try again, or reset your password.** |
-| DETAIL_NOT_GIVEN | error | inline | **One of the details this form needs was left blank.** | **Fill in every field, then submit again.** |
 | TOKEN_NOT_VALID | error | inline | **This link is no longer valid — it may have expired or already been used.** | **Request a fresh link and use the newest email.** |
 | RATE_LIMITED | warning | inline | **Too many attempts in a short time, so this one was not tried.** | **Wait a minute, then try again.** |
 | ACCOUNT_ALREADY_EXISTS | error | inline | **An account with this email already exists.** | **Sign in instead, or reset the password if you have lost it.** |
@@ -182,8 +184,7 @@ in stride. Evidence (caller-supplied, per screen): CREDENTIALS_NOT_VALID
 issues a fresh token — `/magic-link` **Request a new link** on magic-link, `/reset`
 **Request a new link** on reset, `/sign-in` **Go to sign-in** on verify · RATE_LIMITED
 `{ href: <the current route>, label: "Try again" }` — after the window, the same door is
-the resolving place · DETAIL_NOT_GIVEN the same `{ href: <the current route>, label: "Try
-again" }`: the blank field is on the form the person is standing on. On `/sessions`, a dead or missing session answers SIGNED_OUT: the
+the resolving place. On `/sessions`, a dead or missing session answers SIGNED_OUT: the
 registered banner entry renders in the refusal wrapper **in place of the list**, full
 region width, evidence `{ href: "/sign-in", label: "Go to sign-in" }`.
 

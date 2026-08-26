@@ -18,16 +18,6 @@ export function credentialsNotValid(): Error {
   return refusal("CREDENTIALS_NOT_VALID", "the address and password presented do not identify an account", {});
 }
 
-/**
- * A field the door needs, arriving blank on a door that *creates* an account or *sets* a password.
- * Sign-in answers CREDENTIALS_NOT_VALID for the same blank because there it is true — nothing is
- * named — but a person creating an account has no account for a credential to fail to match, and
- * telling them to reset a password they have not got is false in every word (R-SPINE-007).
- */
-export function detailNotGiven(field: string): Error {
-  return refusal("DETAIL_NOT_GIVEN", `"${field}" arrived blank on a door that requires it`, { field });
-}
-
 /** A mailed token that was never issued, has expired, or has already been spent (R-SPINE-001). */
 export function tokenNotValid(purpose: string): Error {
   return refusal("TOKEN_NOT_VALID", `the ${purpose} token presented is unknown, expired or already consumed`, { purpose });

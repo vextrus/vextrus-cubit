@@ -102,9 +102,7 @@ export interface RefusalEvidence {
  * tokens it cannot re-issue.
  */
 export function evidenceFor(code: RefusalCode, route: AuthRoute): RefusalEvidence {
-  // A blank field and a rate limit both resolve where the person is standing: the form they are
-  // looking at is the one with the empty box, and after the window the same door is the way through.
-  if (code === "RATE_LIMITED" || code === "DETAIL_NOT_GIVEN") return { href: route, label: strings.auth_evidence_try_again };
+  if (code === "RATE_LIMITED") return { href: route, label: strings.auth_evidence_try_again };
   if (code === "CREDENTIALS_NOT_VALID") return { href: AUTH_ROUTES.reset, label: strings.auth_evidence_reset_password };
   if (code === "TOKEN_NOT_VALID" && route !== AUTH_ROUTES.verify) return { href: route, label: strings.auth_evidence_request_new_link };
   return { href: AUTH_ROUTES.signIn, label: strings.auth_evidence_go_to_sign_in };
