@@ -23,6 +23,7 @@ import { fileURLToPath } from "node:url";
 import * as ts from "typescript";
 import { REFUSALS } from "../../src/core/errors";
 import { TRANSPORT_VOCABULARY } from "../../src/core/errors/transport-vocabulary";
+import unitLaneConfig from "../../vitest.config";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -39,11 +40,11 @@ const SOURCE_EXTENSIONS = [".ts", ".tsx", ".mts"];
 const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", "coverage", "test-results", "playwright-report"]);
 
 /**
- * The corpora the exercise question is asked of, as repo-relative directories the walk stays out of:
- * this register itself — else the register test would exercise every code it names and the question
- * would answer itself — and the lint corpus, whose files are deliberate payload no lane executes.
+ * The one corpus the exercise question is withheld from: this register itself. Were it counted, the
+ * register test would exercise every code it names and the question would answer itself. Everything
+ * else about "does a lane run this file" is asked of the lane's own config, never of a list here.
  */
-const NOT_AN_EXERCISE = ["tests/refusal-register", "tests/lint-fixtures", "tests/e2e"];
+const NOT_AN_EXERCISE = ["tests/refusal-register"];
 
 /** One finding: the name, and the file that spells it. */
 export type RefusalFinding = {
@@ -70,10 +71,58 @@ function displayPath(file: string): string {
 
 const isTestFile = (name: string): boolean => name.includes(".test.");
 
+/**
+ * One glob as a regular expression over a repo-relative POSIX path, in the grammar the lane's globs
+ * are written in: a doubled star followed by a separator spans any number of directories including
+ * none, a doubled star alone spans anything, and `*` and `?` stop at a separator.
+ */
+function globToRegExp(glob: string): RegExp {
+  let pattern = "";
+  let index = 0;
+  while (index < glob.length) {
+    if (glob.startsWith("**/", index)) {
+      pattern += "(?:.*/)?";
+      index += 3;
+      continue;
+    }
+    if (glob.startsWith("**", index)) {
+      pattern += ".*";
+      index += 2;
+      continue;
+    }
+    const char = glob.charAt(index);
+    index += 1;
+    if (char === "*") pattern += "[^/]*";
+    else if (char === "?") pattern += "[^/]";
+    else pattern += char.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${pattern}$`);
+}
+
+const globs = (patterns: string | readonly string[] | undefined): RegExp[] =>
+  (typeof patterns === "string" ? [patterns] : (patterns ?? [])).map(globToRegExp);
+
+/**
+ * "Executed" answered by the lane, not by a list: a file is exercised only if the unit lane's own
+ * `include` collects it and its `exclude` does not drop it (Q-07 — a name in a lane nothing runs
+ * exercises nothing). Read off `vitest.config.ts` itself, so a glob changed there changes this.
+ */
+const LANE_INCLUDE = globs(unitLaneConfig.test?.include);
+const LANE_EXCLUDE = globs(unitLaneConfig.test?.exclude);
+
+/** Does an armed lane collect this file — and is it a corpus the exercise question is asked of? */
+export function isExecutedTest(file: string): boolean {
+  const where = relative(REPO_ROOT, file);
+  if (where.startsWith("..")) return false;
+  const posix = where.split(sep).join("/");
+  if (NOT_AN_EXERCISE.some((directory) => posix === directory || posix.startsWith(`${directory}/`))) return false;
+  return LANE_INCLUDE.some((glob) => glob.test(posix)) && !LANE_EXCLUDE.some((glob) => glob.test(posix));
+}
+
 const isSourceName = (name: string): boolean => SOURCE_EXTENSIONS.some((extension) => name.endsWith(extension)) && !name.endsWith(".d.ts");
 
 /** Every source file under a root, in a stable order, minus the directories nothing is scanned in. */
-function sourceFilesUnder(root: string, accept: (name: string) => boolean): string[] {
+function sourceFilesUnder(root: string, accept: (path: string) => boolean): string[] {
   const absolute = resolve(root);
   if (!statSync(absolute, { throwIfNoEntry: false })?.isDirectory()) {
     throw new Error(`the scan was pointed at "${root}", which is not a directory — there is nothing to read there`);
@@ -87,7 +136,7 @@ function sourceFilesUnder(root: string, accept: (name: string) => boolean): stri
       if (entry.isDirectory()) {
         if (SKIPPED_DIRECTORIES.has(entry.name) || entry.name.startsWith(".")) continue;
         walk(path);
-      } else if (entry.isFile() && isSourceName(entry.name) && accept(entry.name)) {
+      } else if (entry.isFile() && isSourceName(entry.name) && accept(path)) {
         found.push(path);
       }
     }
@@ -139,16 +188,36 @@ function staticText(node: ts.Node): string | null {
   return null;
 }
 
+/**
+ * The name a declaration spells as an unquoted key, or null. `{ SOME_CODE: … }` and `"SOME_CODE": …`
+ * are the same spelling to a reader, and quoting is typography — so the scan reads both.
+ */
+function declaredKey(node: ts.Node): string | null {
+  if (!ts.isPropertyAssignment(node) && !ts.isPropertySignature(node) && !ts.isEnumMember(node) && !ts.isMethodDeclaration(node)) return null;
+  return node.name !== undefined && ts.isIdentifier(node.name) ? node.name.text : null;
+}
+
 /** The refusal-shaped names a file spells — every static spelling, and nothing a comment says. */
 function literalNames(source: ts.SourceFile): Set<string> {
   const names = new Set<string>();
+  const add = (text: string | null): void => {
+    if (text !== null && REFUSAL_SHAPE.test(text)) names.add(text);
+  };
   const walk = (node: ts.Node): void => {
     const text = staticText(node);
     if (text !== null) {
       // The parts of one spelling are not spellings of their own, so a folded name ends the descent.
-      if (REFUSAL_SHAPE.test(text)) names.add(text);
+      add(text);
       return;
     }
+    // Text a screen paints is a spelling: `<span>SOME_CODE</span>` shows a user the same name a
+    // string literal would, and a screen-local refusal block is exactly the shape R-UI-020 refuses.
+    if (ts.isJsxText(node)) {
+      add(node.text.trim());
+      return;
+    }
+    // A key is a spelling, but only the key — the value under it is spelled in its own right.
+    add(declaredKey(node));
     node.forEachChild(walk);
   };
   source.forEachChild(walk);
@@ -169,14 +238,50 @@ function specifiers(source: ts.SourceFile): string[] {
   return found;
 }
 
+/** One `paths` entry, split at its wildcard: `"@/*": ["./src/*"]` reads prefix `@/`, suffix `""`. */
+type PathAlias = { prefix: string; suffix: string; targets: readonly string[] };
+
+/**
+ * The module aliases tsconfig declares, read from the file so the scan resolves a specifier the way
+ * the compiler does. `@/core/errors` is this tree's established idiom for reaching src, and an alias
+ * import is an import (Q-07): a file wired through one is wired.
+ */
+function pathAliases(): { baseUrl: string; aliases: PathAlias[] } {
+  const read = ts.readConfigFile(join(REPO_ROOT, "tsconfig.json"), ts.sys.readFile);
+  const options: unknown = (read.config as { compilerOptions?: unknown } | undefined)?.compilerOptions;
+  const { baseUrl, paths } = (options ?? {}) as { baseUrl?: string; paths?: Record<string, string[]> };
+  const aliases: PathAlias[] = [];
+  for (const [pattern, targets] of Object.entries(paths ?? {})) {
+    const star = pattern.indexOf("*");
+    if (star === -1) aliases.push({ prefix: pattern, suffix: "", targets });
+    else aliases.push({ prefix: pattern.slice(0, star), suffix: pattern.slice(star + 1), targets });
+  }
+  return { baseUrl: resolve(REPO_ROOT, baseUrl ?? "."), aliases };
+}
+
+const { baseUrl: ALIAS_BASE, aliases: PATH_ALIASES } = pathAliases();
+
+/** Every path a specifier could name from this file — relative resolution, then each alias. */
+function specifierBases(file: string, specifier: string): string[] {
+  if (specifier.startsWith(".")) return [resolve(dirname(file), specifier)];
+  const bases: string[] = [];
+  for (const { prefix, suffix, targets } of PATH_ALIASES) {
+    if (!specifier.startsWith(prefix) || !specifier.endsWith(suffix)) continue;
+    if (specifier.length < prefix.length + suffix.length) continue;
+    const matched = specifier.slice(prefix.length, specifier.length - suffix.length);
+    for (const target of targets) bases.push(resolve(ALIAS_BASE, target.replace("*", matched)));
+  }
+  return bases;
+}
+
 /** Does this file read the register — is it wired to the taxonomy, or only in agreement with it? */
 function importsRegister(file: string, source: ts.SourceFile): boolean {
   if (resolve(file) === REGISTER) return true;
-  return specifiers(source).some((specifier) => {
-    if (!specifier.startsWith(".")) return false;
-    const base = resolve(dirname(file), specifier);
-    return [base, `${base}.ts`, `${base}.tsx`, `${base}.mts`, join(base, "index.ts")].some((candidate) => candidate === REGISTER);
-  });
+  return specifiers(source).some((specifier) =>
+    specifierBases(file, specifier).some((base) =>
+      [base, `${base}.ts`, `${base}.tsx`, `${base}.mts`, join(base, "index.ts")].some((candidate) => candidate === REGISTER),
+    ),
+  );
 }
 
 /**
@@ -189,7 +294,7 @@ export async function scanRefusals(root: string): Promise<RefusalScan> {
   const foreignNames = declaredForeign();
   const scan: RefusalScan = { orphans: [], unwired: [], foreign: [] };
 
-  for (const file of sourceFilesUnder(root, (name) => !isTestFile(name))) {
+  for (const file of sourceFilesUnder(root, (path) => !isTestFile(relative(root, path)))) {
     const source = parse(file);
     const names = literalNames(source);
     if (names.size === 0) continue;
@@ -214,7 +319,6 @@ export async function scanRefusals(root: string): Promise<RefusalScan> {
  * when a comment mentions it (Q-07).
  */
 export async function exercisedNames(roots: readonly string[]): Promise<Map<string, string[]>> {
-  const excluded = NOT_AN_EXERCISE.map((directory) => join(REPO_ROOT, directory));
   const spoken = new Map<string, string[]>();
   const record = (code: string, file: string): void => {
     const already = spoken.get(code);
@@ -223,8 +327,7 @@ export async function exercisedNames(roots: readonly string[]): Promise<Map<stri
   };
 
   for (const root of roots) {
-    for (const file of sourceFilesUnder(root, isTestFile)) {
-      if (excluded.some((directory) => resolve(file).startsWith(directory + sep))) continue;
+    for (const file of sourceFilesUnder(root, isExecutedTest)) {
       const source = parse(file);
       const where = displayPath(file);
       eachNode(source, (node) => {
@@ -234,4 +337,22 @@ export async function exercisedNames(roots: readonly string[]): Promise<Map<stri
     }
   }
   return spoken;
+}
+
+/**
+ * Q-07's admission, in one place: a registered code is admitted when an executed test names it, or
+ * when a deferral names it with an owner — and a code with neither is returned here, unadmitted.
+ * The two branches are independent, so the deferral half can be proved on a corpus that names
+ * nothing (which is the only condition under which that half is what does the admitting).
+ */
+export function unadmittedCodes(
+  codes: readonly string[],
+  spoken: ReadonlyMap<string, readonly string[]>,
+  deferrals: Readonly<Record<string, string>>,
+): string[] {
+  return codes.filter((code) => {
+    const exercised = spoken.get(code) ?? [];
+    const deferral = deferrals[code] ?? "";
+    return exercised.length === 0 && deferral.trim().length === 0;
+  });
 }
