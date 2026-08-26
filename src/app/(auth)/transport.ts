@@ -6,7 +6,7 @@
 // with which of ARCH-03's answers it is — so the screen decides between a refusal and a fault from
 // what the server decided, never from a status code or a message it re-reads.
 
-/** The doors of the lane, as the increment's test contract names them. */
+/** The doors of the identity lane (R-SPINE-001, R-SPINE-002), named so a typo is a compile error. */
 export type AuthProcedure =
   | "signUp"
   | "signIn"

@@ -1,6 +1,6 @@
 // The outbox transport, and the only one this tree ships. Every mail the identity doors send is
-// written as one JSON file under `storage/mail-outbox`, so a journey, an acceptance suite or a
-// developer reads the token out of the tree instead of standing up SMTP (AS-01). `storage/` is
+// written as one JSON file under `storage/mail-outbox`, so a journey, a test or a developer reads
+// the token out of the tree instead of standing up SMTP (AS-01). `storage/` is
 // gitignored, so what the doors send never dirties the working tree.
 //
 // A mail is a fact about what was sent, not a template: it carries the address, what the link is
@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { isAbsolute, join, resolve } from "node:path";
 
-/** The outbox's one home, repo-relative as the increment's interfaces state it. */
+/** The outbox's one home (ARCH-02), repo-relative so it resolves inside whatever tree is running. */
 export const MAIL_OUTBOX_DIR = "storage/mail-outbox";
 
 /** What a mailed link is for. One kind per door that sends one (R-SPINE-001). */

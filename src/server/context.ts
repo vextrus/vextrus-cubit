@@ -44,7 +44,7 @@ function suppliedRequestId(req: Request): string | null {
 /**
  * The session token this request presents, or null. Read from the raw Cookie header rather than from
  * an adapter's jar, because the seam is handed a plain `Request` by every transport that serves it
- * — the acceptance suites included. A header that carries no `cubit_session` at all resolves to null
+ * — and by every harness that drives it directly. A header carrying no `cubit_session` resolves to null
  * without touching the database: a request that presents nothing is not a lookup.
  */
 function presentedToken(req: Request): string | null {

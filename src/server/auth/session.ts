@@ -26,7 +26,7 @@ import { accountAlreadyExists, credentialsNotValid } from "./refusals";
 import { digestOf, hashPassword, mintSecret, verifyPassword } from "./secrets";
 import { consumeToken, issueToken, TOKEN_KINDS, type AuthTokenPurpose } from "./tokens";
 
-/** The cookie a session travels in, named once (the increment's interfaces). */
+/** The cookie a session travels in, named once (ARCH-02, R-SPINE-001). */
 export const SESSION_COOKIE = "cubit_session";
 
 /** Who a live session belongs to: the row that proves it, and the account it proves. */
@@ -40,7 +40,7 @@ export interface SessionAnswer {
   sessionToken: string;
 }
 
-/** One row of the device list (the increment's interfaces). */
+/** One row of the device list R-SPINE-001 owes a person: what it is, when it began, and if it is here. */
 export interface SessionRow {
   id: string;
   deviceLabel: string;
@@ -221,7 +221,7 @@ export interface SignInRequest {
  * Verification is not a gate here. The closed taxonomy (R-SPINE-062) registers no code for "this
  * address is not verified yet", and inventing an unregistered answer — or dressing the refusal as a
  * wrong credential — are both worse than admitting the account that just proved it holds the
- * password; what verification gates is a later increment's business, spelled as its own code.
+ * password. A gate on verification is a refusal, and a refusal needs a registered code to be given.
  */
 export async function signIn(request: SignInRequest): Promise<SessionAnswer> {
   const email = normalisedEmail(request.email);

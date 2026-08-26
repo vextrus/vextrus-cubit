@@ -15,7 +15,7 @@ import { settle, type Answer } from "../answers";
 import { AUTH_ROUTES } from "../routes";
 import { mutate, query } from "../transport";
 
-/** One row of the answer, as `spine.auth.listSessions` gives it (the increment's interfaces). */
+/** One row of the answer, as `spine.auth.listSessions` gives it (R-SPINE-001). */
 interface SessionRow {
   id: string;
   deviceLabel: string;
