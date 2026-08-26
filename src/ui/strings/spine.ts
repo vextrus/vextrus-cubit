@@ -3,6 +3,8 @@
 // table — the platform shell and the surfaces it owns; each module keeps its keys in its own file
 // beside this one, and `index.ts` aggregates them.
 export const spine = {
+  app_title: "Vextrus Cubit",
+  home_tagline: "From drawing to bill of quantities.",
   error_title: "Something went wrong on our side",
   error_body: "Your work is safe. The fault has been recorded for the operators — try again, and if it keeps failing, contact support.",
   error_retry: "Try again",
