@@ -131,14 +131,17 @@ inline-SVG chevron (`aria-hidden`, 12 px, stroke `var(--graphite-600)` at 2 px p
 rotating 90° when expanded over `var(--motion-state)` `var(--ease)`; a leaf renders a
 spacer, never `aria-expanded`. States — hover: fill `var(--graphite-100)`. Selected
 (`aria-selected="true"`): fill `var(--beam-100)`, `var(--weight-heading)` (the non-colour
-second channel, as core's Chip). Roving tabindex: exactly one item is tabbable (the
-selected item, else the first). Keyboard: ArrowDown/ArrowUp move focus; ArrowRight
+second channel, as core's Chip). Roving tabindex: exactly one item is tabbable — the item the
+arrows last landed on, so Tab leaves the tree and Shift+Tab returns to where the keyboard
+was; before any focus it is the selected item, else the first. Keyboard: ArrowDown/ArrowUp move focus; ArrowRight
 expands or enters children; ArrowLeft collapses or moves to the parent; Home/End jump;
 Enter/Space select and invoke `onSelect`. Expand/collapse is instant; only the chevron
 turns.
 
 ### ScrollArea (`cx-scrollarea`, Radix ScrollArea, `type="hover"`)
-Viewport: the consumer's box, no chrome of its own. Scrollbar: an 8 px strip (I-1), no
+Viewport: the consumer's box, no chrome of its own; it is itself a tab stop
+(`tabindex="0"`, `cx-reticle`) so a region that scrolls can be scrolled from the keyboard
+and shows the reticle while it is (R-UI-012). Scrollbar: an 8 px strip (I-1), no
 track fill; thumb fill `var(--graphite-300)`, radius `var(--radius-4)`, hover
 `var(--graphite-400)`. Bars fade in on hover/scroll and out after 600 ms, opacity over
 `var(--motion-state)` `var(--ease)`.

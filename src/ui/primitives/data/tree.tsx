@@ -7,7 +7,14 @@
  * Selection rides two channels, the beam fill and the heavier weight, so it never depends on colour
  * alone. Expanding is instant; only the chevron turns (R-UI-004).
  */
-import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+  type KeyboardEvent,
+} from "react";
 import { cx } from "../core/class-names";
 
 export interface TreeItem {
@@ -16,11 +23,11 @@ export interface TreeItem {
   children?: TreeItem[];
 }
 
-export interface TreeProps {
+/** The tree owns no copy, so its accessible name — like any other div attribute — comes from the consumer. */
+export interface TreeProps extends Omit<ComponentPropsWithoutRef<"div">, "onSelect" | "children"> {
   items: TreeItem[];
   onSelect?: (id: string) => void;
   defaultExpandedIds?: string[];
-  className?: string;
 }
 
 /** A row as the keyboard sees it: the flattened, currently visible order. */
@@ -48,15 +55,21 @@ function flatten(items: TreeItem[], expanded: ReadonlySet<string>, depth = 0, pa
   return rows;
 }
 
-export function Tree({ items, onSelect, defaultExpandedIds, className }: TreeProps) {
+export function Tree({ items, onSelect, defaultExpandedIds, className, ...rest }: TreeProps) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(defaultExpandedIds ?? []));
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   const rows = useMemo(() => flatten(items, expanded), [items, expanded]);
 
-  /** Exactly one item is tabbable: the selected one where it is visible, else the first. */
-  const tabbableId = rows.some((row) => row.item.id === selectedId) ? selectedId : (rows[0]?.item.id ?? null);
+  /**
+   * A roving tabindex: exactly one item is tabbable, and it is the one the arrows last landed on —
+   * so Tab leaves the tree and Shift+Tab returns to where the keyboard was (R-UI-012). Before any
+   * focus, the selected item holds the stop, and failing that the first.
+   */
+  const visible = (id: string | null): id is string => id !== null && rows.some((row) => row.item.id === id);
+  const tabbableId = visible(focusedId) ? focusedId : visible(selectedId) ? selectedId : (rows[0]?.item.id ?? null);
 
   const focusRow = useCallback((id: string): void => {
     const node = rootRef.current?.querySelector<HTMLElement>(`[data-tree-id="${CSS.escape(id)}"]`);
@@ -130,7 +143,7 @@ export function Tree({ items, onSelect, defaultExpandedIds, className }: TreePro
   };
 
   return (
-    <div ref={rootRef} role="tree" data-testid="tree" className={cx("cx-tree", className)}>
+    <div {...rest} ref={rootRef} role="tree" data-testid="tree" className={cx("cx-tree", className)}>
       {rows.map((row, index) => {
         const selected = row.item.id === selectedId;
         return (
@@ -145,6 +158,7 @@ export function Tree({ items, onSelect, defaultExpandedIds, className }: TreePro
             tabIndex={row.item.id === tabbableId ? 0 : -1}
             className={cx("cx-tree-item", "cx-reticle")}
             style={{ paddingLeft: `${INDENT_BASE_PX + row.depth * INDENT_STEP_PX}px` }}
+            onFocus={() => setFocusedId(row.item.id)}
             onKeyDown={(event) => onKeyDown(event, index)}
             onClick={() => {
               if (row.hasChildren) toggle(row.item.id, !row.expanded);

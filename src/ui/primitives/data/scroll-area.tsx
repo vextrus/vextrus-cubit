@@ -14,8 +14,14 @@ export interface ScrollAreaProps extends ComponentProps<typeof ScrollAreaPrimiti
 
 export function ScrollArea({ className, children, orientation = "vertical", ...rest }: ScrollAreaProps) {
   return (
-    <ScrollAreaPrimitive.Root {...rest} type="hover" className={cx("cx-scrollarea", className)}>
-      <ScrollAreaPrimitive.Viewport data-testid="scrollarea-viewport" className="cx-scrollarea-viewport">
+    <ScrollAreaPrimitive.Root type="hover" {...rest} className={cx("cx-scrollarea", className)}>
+      <ScrollAreaPrimitive.Viewport
+        data-testid="scrollarea-viewport"
+        // A region that scrolls must be reachable and scrollable from the keyboard, and it wears the
+        // reticle like anything else that takes focus (R-UI-012).
+        tabIndex={0}
+        className={cx("cx-scrollarea-viewport", "cx-reticle")}
+      >
         {children}
       </ScrollAreaPrimitive.Viewport>
       {orientation !== "horizontal" ? <Bar orientation="vertical" /> : null}
