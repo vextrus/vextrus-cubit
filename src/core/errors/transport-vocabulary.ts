@@ -48,4 +48,39 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     vocabulary: "environment variable names",
     codes: Object.freeze(["DATABASE_URL", "STORAGE_ROOT", "NODE_ENV"]),
   }),
+  Object.freeze({
+    // L-ACT-02's act-type enum, spelled as the law spells it. An act type names what a human did; it
+    // is written to the act log and read by the seam's map, and no user is ever answered with one.
+    // Its home is `../acts/law.ts` (ARCH-02) — this declaration is what tells a name belonging to
+    // that closed set apart from a refusal nobody registered.
+    vocabulary: "act types (L-ACT-02)",
+    codes: Object.freeze(["ASSIGN_PARTICIPANT_ROLE"]),
+  }),
+  Object.freeze({
+    // L-ACT-03's closed permission enum and the roles that bundle it. A permission is what an act
+    // moves and a role is what a human picks; both are checked at the act seam, and a person is
+    // answered with the registered refusal above, never with one of these names.
+    vocabulary: "act permissions and roles (L-ACT-03)",
+    codes: Object.freeze([
+      "PIN_SET",
+      "AUTHOR_LEVEL_STACK",
+      "AUTHOR_PROJECT_FACT",
+      "MEASURE",
+      "SET_BILL_BOUNDARY",
+      "ADMINISTER_SAMPLE",
+      "ENTER_BLIND_FIGURE",
+      "REVIEW",
+      "SIGN",
+      "ADMINISTER_PROJECT",
+      "ADMINISTER_BOOK",
+      "PRICE",
+      "BID",
+      "MEASURER",
+      "REVIEWER",
+      "LEAD",
+      "ESTIMATOR",
+      "BID_MANAGER",
+      "PRINCIPAL",
+    ]),
+  }),
 ]);
