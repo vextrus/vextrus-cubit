@@ -14,8 +14,10 @@ const NEXT = "node_modules/next/dist/bin/next";
 
 export default defineConfig({
   testDir: "tests/e2e",
-  // The journeys are named for what they walk, not for the runner's default glob.
-  testMatch: "**/*.e2e.ts",
+  // The journeys are named for what they walk, not for the runner's default glob — and the lane
+  // carries both spellings a journey has been written in, so neither convention is collected by
+  // nothing (V-E2E: a journey the gate does not run is green by omission).
+  testMatch: ["**/*.e2e.ts", "**/*.spec.ts"],
   fullyParallel: false,
   forbidOnly: true,
   retries: 0,
@@ -33,20 +35,13 @@ export default defineConfig({
     // alone. A run therefore carries one screenshot per journey test at minimum, always.
     screenshot: "on",
   },
+  // V-E2E: the journeys drive the built product, never a dev server — what CI ships is what they
+  // walk. One home for the port (ARCH-02): `portFor("e2e")` above, and one home for the database
+  // the built server opens: the journeys' own scratch, named here and made in the global setup.
   webServer: {
     command: `node ${NEXT} build && node ${NEXT} start --hostname 127.0.0.1 --port ${port}`,
     url: `http://127.0.0.1:${port}`,
-    reuseExistingServer: false,
-    timeout: 300_000,
-    stdout: "pipe",
-    stderr: "pipe",
     env: { DATABASE_URL: e2eDatabaseUrl() },
-  },
-  // V-E2E: the journeys drive the built product, never a dev server — what CI ships is what they
-  // walk. One home for the port (ARCH-02): `portFor("e2e")` above.
-  webServer: {
-    command: `pnpm exec next build && pnpm exec next start --hostname 127.0.0.1 --port ${port}`,
-    url: `http://127.0.0.1:${port}`,
     // Reuse is opt-in by name, never the default: when the port already answers, Playwright skips
     // the command entirely, so neither `next build` nor `next start` runs and the journey would
     // walk whatever bundle an earlier session left behind. A run that reuses must say so
