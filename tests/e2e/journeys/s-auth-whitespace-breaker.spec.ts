@@ -56,7 +56,7 @@ function faultCardReport(where: string, calls: readonly string[]): string {
   );
 }
 
-test.describe("S-AUTH-BREAKER — a whitespace credential is not a server fault", () => {
+test.describe("J-001 S-AUTH-BREAKER — a whitespace credential is not a server fault", () => {
   test("S-AUTH-BREAKER: /sign-in with a password of one space does not answer the fault card", async ({ page }) => {
     const calls = watchCalls(page);
     const screen = new SAuthPage(page);
