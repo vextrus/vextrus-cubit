@@ -44,6 +44,26 @@ type DeclaredPermission = Acts["PERMISSIONS"][number];
 type Covers<A, B> = [A] extends [B] ? true : false;
 
 /**
+ * Key-exactness, and it is the half that actually binds. `Covers` on its own is satisfied by a map
+ * declared `Record<string, …>` — a string index signature is structurally assignable to every named
+ * property it covers — and by `any`, which is bidirectionally compatible with everything. Either
+ * declaration renders today's one act type correctly and still compiles the day a LATER act type
+ * joins the enum with no rendering, which is precisely what L-ACT-02 makes a compile error. So the
+ * map's KEY TYPE must be the declared enum itself: not wider (`string`, `any`, an index signature),
+ * not narrower (a member with no entry). `keyof` of a widened map is `string`, and
+ * `Exclude<string, "ASSIGN_PARTICIPANT_ROLE">` is `string`, never `never` — so the widened map
+ * resolves `false` here and `const … : false = true` is the error the law asks for.
+ *
+ * B-19: the denominator is the enum the tree declares, never a list. A later increment that adds an
+ * act type with both a rendering and a permission passes this unchanged.
+ */
+type KeyedExactlyBy<Shape, Keys> = [Exclude<Keys, keyof Shape>] extends [never]
+  ? [Exclude<keyof Shape, Keys>] extends [never]
+    ? true
+    : false
+  : false;
+
+/**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
  * compile error)." If ACT_MAP lacks an entry for any declared act type, `Covers` is `false` and
  * `const … : false = true` is the compile error the law asks for.
@@ -51,13 +71,25 @@ type Covers<A, B> = [A] extends [B] ? true : false;
 export type ActMapIsTotal = Covers<Acts["ACT_MAP"], Record<DeclaredActType, { preview: unknown; commit: unknown }>>;
 export const actMapIsTotal: ActMapIsTotal = true;
 
+/** …and totality is only enforceable if the map is keyed by the enum and nothing wider. */
+export type ActMapIsKeyedByTheEnum = KeyedExactlyBy<Acts["ACT_MAP"], DeclaredActType>;
+export const actMapIsKeyedByTheEnum: ActMapIsKeyedByTheEnum = true;
+
 /** L-ACT-03: "A total map act type → permission sits beside the total act map." */
 export type ActPermissionIsTotal = Covers<Acts["ACT_PERMISSION"], Record<DeclaredActType, DeclaredPermission>>;
 export const actPermissionIsTotal: ActPermissionIsTotal = true;
 
+/** …keyed by the act-type enum itself, so a new act type without a permission cannot compile. */
+export type ActPermissionIsKeyedByTheEnum = KeyedExactlyBy<Acts["ACT_PERMISSION"], DeclaredActType>;
+export const actPermissionIsKeyedByTheEnum: ActPermissionIsKeyedByTheEnum = true;
+
 /** L-ACT-03: roles bundle permissions, and a role without a bundle is a role nobody can be given. */
 export type RolePermissionsIsTotal = Covers<Acts["ROLE_PERMISSIONS"], Record<Acts["ROLES"][number], readonly DeclaredPermission[]>>;
 export const rolePermissionsIsTotal: RolePermissionsIsTotal = true;
+
+/** …keyed by the role enum itself, for the same reason the other two maps are. */
+export type RolePermissionsIsKeyedByTheEnum = KeyedExactlyBy<Acts["ROLE_PERMISSIONS"], Acts["ROLES"][number]>;
+export const rolePermissionsIsKeyedByTheEnum: RolePermissionsIsKeyedByTheEnum = true;
 
 /* ------------------------------------------------------------------ *
  * The law, spelled as L-ACT-03 spells it.

@@ -61,6 +61,7 @@ type ActSeam = {
   preview?: (ctx: ActorCtx, input: AssignInput) => unknown;
   commit?: (ctx: ActorCtx, input: AssignInput, consequenceDigest: string) => unknown;
   consequenceDigest?: (consequence: unknown) => string;
+  ROLE_PERMISSIONS?: Record<string, readonly string[]>;
 };
 
 async function loadActSeam(databaseUrl: string): Promise<ActSeam> {
@@ -84,6 +85,26 @@ function commitOf(seam: ActSeam): NonNullable<ActSeam["commit"]> {
   const fn = seam.commit;
   if (typeof fn !== "function") throw new Error(`${ACTS_MODULE} exports no commit(ctx, input, consequenceDigest) — L-ACT-02 makes every act type a (preview, commit) pair`);
   return fn;
+}
+
+/**
+ * Every role whose bundle does NOT carry the permission this act moves, read off the seam's own
+ * ROLE_PERMISSIONS. Derived, never listed: the assertion is the rule — "a participant whose role's
+ * bundle lacks the permission cannot perform the act" — so a later increment that ships another
+ * role extends the case set by itself, and one that wrongly hands a bundle ADMINISTER_PROJECT
+ * removes it from here only to be caught by AC-1's "no role other than PRINCIPAL holds it" (B-19).
+ */
+function rolesWhoseBundleLacksTheActsPermission(seam: ActSeam): string[] {
+  const bundles = seam.ROLE_PERMISSIONS;
+  if (typeof bundles !== "object" || bundles === null) {
+    throw new Error(`${ACTS_MODULE} exports no ROLE_PERMISSIONS — L-ACT-03's bundles are the only thing a permission check can read`);
+  }
+  const without = Object.keys(bundles).filter((role) => !(bundles[role] ?? []).includes(ADMINISTER_PROJECT));
+  expect(
+    without.length,
+    `L-ACT-03 makes ${ADMINISTER_PROJECT} PRINCIPAL-only — "no other bundle gains it" — so ROLE_PERMISSIONS must name roles that lack it`,
+  ).toBeGreaterThan(0);
+  return without;
 }
 
 function digestOf(seam: ActSeam): NonNullable<ActSeam["consequenceDigest"]> {
@@ -393,6 +414,40 @@ describe(`AC-4: ${PERMISSION_NOT_HELD} names the act type and the missing permis
     expect(actsBy(url, tenantId, scene.subject), `a refused act writes no ${ACTS} row`).toEqual([]);
     expect(actsBy(url, tenantId, scene.principal), "the PRINCIPAL only previewed, so it wrote nothing either").toEqual([]);
     expect(rolesGrantedTo(url, tenantId, scene.subjectRow), `a refused act writes no ${PARTICIPANT_ROLES} row`).toEqual([]);
+  }, 300_000);
+
+  it(`AC-4: a participant holding a real role whose bundle lacks ${ADMINISTER_PROJECT} is refused, previewing and committing`, async () => {
+    const { seam, url, tenantId } = await staged();
+
+    // The case the two above cannot reach: both of those actors hold NO grant at all, so a seam that
+    // asked only "does this actor have a participant_roles row?" would pass them and still let a
+    // MEASURER assign roles. Here the actor holds a genuine grant from the closed enum — the check
+    // must read the ROLE's BUNDLE, not the row's existence (L-ACT-03).
+    for (const role of rolesWhoseBundleLacksTheActsPermission(seam)) {
+      const scene = await scenario();
+      const holderId = randomUUID();
+      const holderRow = seedParticipant(url, tenantId, scene.projectId, holderId);
+      seedRoleGrant(url, tenantId, holderRow, role);
+      expect(rolesGrantedTo(url, tenantId, holderRow), `the case must really seed the ${role} grant, or it proves nothing about bundles`).toEqual([role]);
+
+      const input = assign(scene.projectId, scene.subject, REVIEWER);
+      const digest = digestOf(seam)(await previewOf(seam)(ctxFor(tenantId, scene.principal), input));
+
+      const holder = ctxFor(tenantId, holderId);
+      for (const [what, work] of [
+        ["previewing", () => Promise.resolve(previewOf(seam)(holder, input))],
+        ["committing", () => Promise.resolve(commitOf(seam)(holder, input, digest))],
+      ] as const) {
+        const thrown = await refusalFrom(work, `${what} ${ASSIGN_PARTICIPANT_ROLE} while holding ${role} and nothing more`);
+        refusedWith(thrown, PERMISSION_NOT_HELD, `${what} an act whose permission the actor's ${role} bundle does not carry (L-ACT-03)`);
+        expect(refusalProperty(thrown, "actType"), `${PERMISSION_NOT_HELD} carries the act type`).toBe(ASSIGN_PARTICIPANT_ROLE);
+        expect(refusalProperty(thrown, "permission"), `${PERMISSION_NOT_HELD} carries the missing permission`).toBe(ADMINISTER_PROJECT);
+      }
+
+      expect(actsBy(url, tenantId, holderId), `a refused act writes no ${ACTS} row (actor held ${role})`).toEqual([]);
+      expect(rolesGrantedTo(url, tenantId, scene.subjectRow), `a refused act writes no ${PARTICIPANT_ROLES} row (actor held ${role})`).toEqual([]);
+      expect(rolesGrantedTo(url, tenantId, holderRow), `and the refused actor's own grants are untouched`).toEqual([role]);
+    }
   }, 300_000);
 
   it("AC-4: a non-participant of the project is refused the same way", async () => {
