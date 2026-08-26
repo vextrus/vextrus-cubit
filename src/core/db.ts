@@ -6,10 +6,17 @@
 // The table definitions sit here rather than in db/schema/*.ts because the ORM's table builders are
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { and, eq } from "drizzle-orm";
+import { foreignKey, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { attributableReason } from "./db/reason";
+
+// The query operators a caller needs to say which rows it means. They are the driver's, so they are
+// handed out from here rather than imported at a call site: SEAM-TENANT makes this file the one
+// lawful home of the driver, and a module that reached for them itself would be holding half a
+// handle (ARCH-02).
+export { and, eq };
 
 export { recordSystemReasonsWith, type SystemReasonRecord, type SystemReasonRecorder } from "./db/reason";
 
@@ -24,11 +31,89 @@ export const tenants = pgTable("tenants", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Participation: who may act on a project at all (L-ACT-03). The pair (project, user) is the
+ * identity, so the act log can point at it with one composite key; the row is append-only, and the
+ * migration's trigger is what makes that true of the owner too.
+ */
+export const participants = pgTable(
+  "participants",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.tenantId, table.projectId, table.userId] })],
+);
+
+/**
+ * The act log (L-ACT-01): one row per human act, carrying the digest of the consequence the actor
+ * was shown. The actor's participation is a composite foreign key rather than a check the writer
+ * remembers to make — L-ACT-03 puts the participation link in the log itself.
+ */
+export const acts = pgTable(
+  "acts",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    actId: uuid("act_id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    actorId: uuid("actor_id").notNull(),
+    actType: text("act_type").notNull(),
+    // The facts judged, at the granularity performed: a confirm-all is one act with N subjects.
+    subjects: jsonb("subjects").$type<readonly string[]>().notNull(),
+    consequenceDigest: text("consequence_digest").notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.tenantId, table.projectId, table.actorId],
+      foreignColumns: [participants.tenantId, participants.projectId, participants.userId],
+      name: "acts_actor_participates_fk",
+    }),
+  ],
+);
+
+/**
+ * Role grants, append-only: a role is bundled permissions, and holding one is a fact the log made.
+ * `act_id` is nullable because a grant can predate the act log's writ over it — a project's first
+ * PRINCIPAL is installed by project creation, which is not an act somebody performed.
+ */
+export const participantRoles = pgTable(
+  "participant_roles",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    grantId: uuid("grant_id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    role: text("role").notNull(),
+    actId: uuid("act_id"),
+    grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.tenantId, table.projectId, table.userId],
+      foreignColumns: [participants.tenantId, participants.projectId, participants.userId],
+      name: "participant_roles_participant_fk",
+    }),
+    foreignKey({ columns: [table.actId], foreignColumns: [acts.actId], name: "participant_roles_act_fk" }),
+    // A role is held or it is not: the same role twice over is a second row saying the same thing.
+    unique("participant_roles_role_once").on(table.tenantId, table.projectId, table.userId, table.role),
+  ],
+);
+
 /** Everything the typed surface covers. A table joins the surface by joining this object. */
-const schema = { tenants };
+const schema = { tenants, participants, acts, participantRoles };
 
 /** A handle scoped to one tenant: the typed read/write surface, filtered by row-level security. */
 export type TenantDb = PostgresJsDatabase<typeof schema>;
+
+/**
+ * The handle drizzle hands a transaction body — the same typed surface, on the one connection the
+ * transaction opened. Named here so a caller can take a transaction's handle as a parameter without
+ * naming the driver's own types (SEAM-TENANT).
+ */
+export type TenantTx = Parameters<Parameters<TenantDb["transaction"]>[0]>[0];
 
 /** A handle running under an attributable system reason: the same surface, unfiltered by tenant. */
 export type SystemDb = PostgresJsDatabase<typeof schema>;

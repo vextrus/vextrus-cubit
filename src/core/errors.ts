@@ -23,7 +23,13 @@ export type RefusalSeverity = "error" | "warning" | "info";
 export type RefusalSurface = "inline" | "banner" | "dialog";
 
 /** Every code the taxonomy holds. The union is the registry's key set — the two cannot drift. */
-export type RefusalCode = "PRECISION_NOT_APPLIED" | "CHARACTER_NOT_COVERED" | "SIGNED_OUT";
+export type RefusalCode =
+  | "PRECISION_NOT_APPLIED"
+  | "CHARACTER_NOT_COVERED"
+  | "SIGNED_OUT"
+  | "CONSEQUENCES_NOT_CARRIED"
+  | "PERMISSION_NOT_HELD"
+  | "ACTOR_NOT_HUMAN";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -58,6 +64,27 @@ export const REFUSALS: Readonly<Record<RefusalCode, RefusalEntry>> = Object.free
     message: "Your session has ended, so this request was not carried out.",
     remedy: "Sign in again to continue.",
     severity: "warning",
+    surface: "banner",
+  }),
+  CONSEQUENCES_NOT_CARRIED: Object.freeze({
+    code: "CONSEQUENCES_NOT_CARRIED",
+    message: "This change was reviewed against an earlier state of the project, which has moved since.",
+    remedy: "Review the change again — what it would do now is not what was shown.",
+    severity: "warning",
+    surface: "dialog",
+  }),
+  PERMISSION_NOT_HELD: Object.freeze({
+    code: "PERMISSION_NOT_HELD",
+    message: "Your roles on this project do not carry the permission this action needs.",
+    remedy: "Ask a principal of the project to give you a role that carries it.",
+    severity: "error",
+    surface: "banner",
+  }),
+  ACTOR_NOT_HUMAN: Object.freeze({
+    code: "ACTOR_NOT_HUMAN",
+    message: "This action is recorded as a human act, so only a person may perform it.",
+    remedy: "Perform the action as a signed-in person.",
+    severity: "error",
     surface: "banner",
   }),
 } satisfies Record<RefusalCode, RefusalEntry>);
