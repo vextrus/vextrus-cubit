@@ -1,0 +1,266 @@
+/*
+ * The overlay primitive set's stylesheet (R-UI-010). Every colour, size and duration is a read into
+ * the committed token source (R-UI-001, R-UI-003, R-UI-004), so the rules are identical in light
+ * and dark and the themes differ only in what the tokens are worth — no theme selector appears
+ * here.
+ *
+ * Focus is not styled here: it has one home, reticle.css (B-17, R-UI-012).
+ *
+ * The few bare pixel values are instrument geometry no token expresses: the 1 px borders and the
+ * measures the Design Decision fixes for a dialog, a sheet, a popover and a menu.
+ */
+
+/* ------------------------------------------------------------------ the scrim (Decision I-3) */
+
+.cx-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  background-color: var(--graphite-0);
+  opacity: 0.6;
+  animation: cx-overlay-fade var(--motion-state) var(--ease) both;
+}
+
+/* ------------------------------------------------------------------ Dialog */
+
+.cx-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: var(--z-overlay);
+  transform: translate(-50%, -50%);
+  width: min(480px, calc(100vw - var(--space-8)));
+  max-height: calc(100dvh - var(--space-12));
+  overflow: auto;
+  padding: var(--space-5);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-8);
+  background-color: var(--graphite-0);
+  box-shadow: var(--shadow-3);
+  color: var(--graphite-900);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  animation: cx-dialog-enter var(--motion-state) var(--ease) both;
+}
+
+.cx-dialog-title {
+  margin: 0;
+  padding-right: var(--space-7);
+  color: var(--graphite-900);
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+}
+
+.cx-dialog-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  padding: 0;
+  border-width: 0;
+  border-radius: var(--radius-4);
+  background: none;
+  color: var(--graphite-600);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-state) var(--ease),
+    color var(--motion-state) var(--ease);
+}
+
+.cx-dialog-close:hover {
+  background-color: var(--graphite-100);
+  color: var(--graphite-900);
+}
+
+/* ------------------------------------------------------------------ Sheet */
+
+.cx-sheet {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: var(--z-overlay);
+  width: min(420px, calc(100vw - var(--space-10)));
+  overflow: auto;
+  padding: var(--space-5);
+  background-color: var(--graphite-0);
+  box-shadow: var(--shadow-4);
+  color: var(--graphite-900);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+}
+
+.cx-sheet[data-side="right"] {
+  right: 0;
+  border-left: 1px solid var(--hairline);
+  animation: cx-sheet-enter-right var(--motion-panel) var(--ease) both;
+}
+
+.cx-sheet[data-side="left"] {
+  left: 0;
+  border-right: 1px solid var(--hairline);
+  animation: cx-sheet-enter-left var(--motion-panel) var(--ease) both;
+}
+
+/* ------------------------------------------------------------------ Popover */
+
+.cx-popover {
+  z-index: var(--z-overlay);
+  max-width: 280px;
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-8);
+  background-color: var(--graphite-0);
+  box-shadow: var(--shadow-2);
+  color: var(--graphite-900);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  animation: cx-overlay-rise var(--motion-state) var(--ease) both;
+}
+
+/* ------------------------------------------------------------------ DropdownMenu · ContextMenu */
+
+.cx-menu {
+  z-index: var(--z-overlay);
+  min-width: 180px;
+  padding: var(--space-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-8);
+  background-color: var(--graphite-0);
+  box-shadow: var(--shadow-2);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  animation: cx-overlay-rise var(--motion-state) var(--ease) both;
+}
+
+.cx-menu-item {
+  display: flex;
+  align-items: center;
+  height: var(--space-7);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-4);
+  color: var(--graphite-900);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--motion-state) var(--ease),
+    color var(--motion-state) var(--ease);
+}
+
+.cx-menu-item[data-highlighted] {
+  background-color: var(--beam-100);
+}
+
+.cx-menu-item[data-variant="danger"] {
+  color: var(--danger);
+}
+
+.cx-menu-item[data-variant="danger"][data-highlighted] {
+  background-color: var(--danger-surface);
+}
+
+.cx-menu-item[data-disabled] {
+  color: var(--graphite-600);
+  cursor: not-allowed;
+}
+
+/* ------------------------------------------------------------------ Toast (sonner's hooks) */
+
+.cx-toaster {
+  z-index: var(--z-toast);
+}
+
+.cx-toast {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-8);
+  background-color: var(--graphite-0);
+  box-shadow: var(--shadow-3);
+  font-family: var(--font-ui);
+}
+
+.cx-toast-title {
+  color: var(--graphite-900);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-toast-description {
+  color: var(--graphite-600);
+  font-size: var(--text-12);
+}
+
+/* ------------------------------------------------------------------ motion (R-UI-004) */
+
+@keyframes cx-overlay-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 0.6;
+  }
+}
+
+@keyframes cx-dialog-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes cx-overlay-rise {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cx-sheet-enter-right {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes cx-sheet-enter-left {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-scrim,
+  .cx-dialog,
+  .cx-sheet,
+  .cx-popover,
+  .cx-menu {
+    animation: none;
+  }
+}
