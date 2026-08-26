@@ -13,7 +13,6 @@ import {
   eq,
   gt,
   isNull,
-  isStorableText,
   isUuid,
   lt,
   memberships,
@@ -94,76 +93,43 @@ function normalisedEmail(email: string): string {
 }
 
 /**
- * Can this value ever be the address of an account? One way it cannot: it is not text postgres can
- * hold. A NUL is refused as a *parameter*, before any column is reached (`isStorableText`), so a
- * value carrying one names no `users` row — and it has to be settled on this side of the wire,
- * because the driver's refusal carries no marker: a caller presenting one would be handed a fault id
- * and the operator an outage record for a value that was never looked up.
- *
- * Length is deliberately not asked about here. Reading is not writing: a `SELECT … WHERE email = $1`
- * carrying a long parameter matches nothing and costs nothing, so a door that only *looks* an
- * address up has no reason to bound it — and a bound it does not need would be a second rule about
- * what a person may type, which Design Decision I-13/I-14 keeps out of this tree. The one place a
- * length is a fact rather than a judgement is the door that *writes* the address, and it states its
- * own (`WRITABLE_EMAIL_MAX_OCTETS`).
- */
-function nameable(address: string): boolean {
-  return isStorableText(address);
-}
-
-/**
- * The address as an account's name on a door that *identifies* somebody. A value that could never be
- * one names no account, so sign-in answers the code the closed taxonomy registers for a credential
- * that identifies no account — which is true of it in every word.
- *
- * The creating door does not read through here: see `createdAddress`. Nor do the mailing doors —
- * they answer `{ sent: true }` for every address whether an account exists or not, so an address
- * that could not name one already has its answer, and a refusal only on the unnameable ones would
- * tell a caller something the identical answer withholds.
- */
-function accountAddress(email: string): string {
-  const address = normalisedEmail(email);
-  if (!nameable(address)) throw credentialsNotValid();
-  return address;
-}
-
-/**
- * The longest an address the creating door can write. `users.email` carries a UNIQUE index and
- * postgres refuses a btree row over 2704 bytes with SQLSTATE 54000, an error carrying no refusal
- * marker; this sits far enough below that ceiling that the index is never the thing that says no,
+ * The longest an address `users.email` carries as presented. The column has a UNIQUE index, and
+ * postgres refuses a btree row over 2704 bytes with SQLSTATE 54000 — an error carrying no refusal
+ * marker. This sits far enough below that ceiling that the index is never the thing that says no,
  * and far enough above every address a person has (RFC 5321 bounds one at 254 octets) that no
- * address is turned away by it.
+ * address a browser can produce is ever folded by it.
  */
 const WRITABLE_EMAIL_MAX_OCTETS = 2000;
 
 /**
- * The address as the *creating* door writes it: taken as presented, and judged not at all.
+ * The address as the database carries it — the one home every auth door reads it through, so the
+ * address that made an account is the address that signs into it and the address a link is mailed
+ * about (B-17). No door judges what the string *says*: Design Decision I-14 rules that the doors
+ * which create an account or set a password "judge nothing about what a string says", and §2 lists
+ * the creating door's refusals as exactly ACCOUNT_ALREADY_EXISTS and RATE_LIMITED — CREDENTIALS_NOT_VALID
+ * may not stand in for either, because "the email and password do not match an account" is false of
+ * a person who is making one and its remedy sends them to reset a password they have not got.
  *
- * Design Decision I-14 rules this precisely — "the doors that create an account or set a password
- * judge nothing about what a string says" — and rules out the obvious shortcut by name:
- * CREDENTIALS_NOT_VALID may not stand in on `/sign-up`, because "the email and password do not match
- * an account" is false of a person who is making one and its remedy sends them to reset a password
- * they have not got. §2 lists this door's refusals as exactly ACCOUNT_ALREADY_EXISTS and
- * RATE_LIMITED, and this is neither.
+ * Two things postgres cannot carry are therefore *folded* rather than refused, each in the way that
+ * keeps one caller one key:
  *
- * So what a `text` column cannot represent is dropped rather than refused, exactly as
- * `workspaceName` treats the workspace name and for the settled reason recorded there — and exactly
- * as `signIn` reads it back, so the address that made an account is the address that signs into it.
- * Nothing between 255 octets and the index ceiling is turned away either: a long address is still an
- * address, and this door is not the place that says otherwise.
+ *   - U+0000, which `text` cannot hold at any length and which the driver refuses on the parameter
+ *     itself, before a column is reached, with no marker on the refusal. It is dropped, exactly as
+ *     `workspaceName` drops it and for the settled reason recorded there.
+ *   - a value past `WRITABLE_EMAIL_MAX_OCTETS`, which the UNIQUE index could not carry as a row. It
+ *     is counted under its own digest, exactly as `rate-limit.ts`'s `keyed` folds an over-long
+ *     identity, and tagged for the same reason: a digest is deterministic, so the account remains
+ *     reachable by presenting the same address again, and the tag keeps the folded space and the
+ *     presented space from ever meeting.
  *
- * What is left is a value so long that `users.email`'s UNIQUE index could not carry the row — no
- * browser and no address produces one. It cannot be written, so the door must say something, and
- * every answer available to it is wrong in some word: the closed taxonomy registers no code for "no
- * account can be named that" and this increment's grant of four is spent (R-SPINE-062, B-06), while
- * a plain throw is the fault card and an operator record for a value the door never judged, which
- * db/__tests__/auth-limiter-breaker.test.ts pins shut. The least-wrong registered answer is taken
- * under protest, and the gap is raised rather than papered over — see the handoff's objection.
+ * Folding rather than refusing is what makes the *reading* doors honest too. Left unfolded on one
+ * side only, an account created from a value carrying a NUL could never be signed into again, and a
+ * long address would be refused by the creating door in words that are untrue of it. Neither door
+ * has to bound what a person may type, which is what I-13/I-14 keeps out of this tree.
  */
-function createdAddress(email: string): string {
+function storedAddress(email: string): string {
   const address = storableText(normalisedEmail(email));
-  if (Buffer.byteLength(address, "utf8") > WRITABLE_EMAIL_MAX_OCTETS) throw credentialsNotValid();
-  return address;
+  return Buffer.byteLength(address, "utf8") <= WRITABLE_EMAIL_MAX_OCTETS ? address : `digest of ${digestOf(address)}`;
 }
 
 /**
@@ -298,7 +264,7 @@ const SIGN_UP_ROUTE = "spine.auth.signUp";
  * transaction down and reach the person as a fault card and the operator as an outage record, for a
  * workspace the door never wrote. The settled reading of exactly that shape is that a value the
  * database cannot store is not an outage (R-SPINE-062 / R-SPINE-007, ARCH-03, B-21), and it is the
- * reading the address (`nameable`) and the limiter's key (`countable`) already follow.
+ * reading the address (`storedAddress`) and the limiter's key (`countable`) already follow.
  *
  * The closed taxonomy registers no code for "that name cannot be stored" and this increment's grant
  * of four is spent, so refusing is not open either. What is left is the nearest thing to what was
@@ -311,7 +277,7 @@ function workspaceName(presented: string): string {
 }
 
 export async function signUp(request: SignUpRequest): Promise<SessionAnswer> {
-  const email = createdAddress(request.email);
+  const email = storedAddress(request.email);
   await admitAttempt("signUp", email);
 
   // Derived before the transaction opens: scrypt is deliberately slow, and a transaction holding a
@@ -416,7 +382,7 @@ export interface SignInRequest {
  * to prevent, read off a stopwatch instead. An address with no account pays the derivation anyway.
  */
 export async function signIn(request: SignInRequest): Promise<SessionAnswer> {
-  const email = accountAddress(request.email);
+  const email = storedAddress(request.email);
   await admitAttempt("signIn", email);
 
   const db = runAsSystem("R-SPINE-001 sign-in: matching a presented address and password against the account it names");
@@ -453,17 +419,16 @@ async function mailLinkFor(
   door: "requestMagicLink" | "requestPasswordReset",
   request: { email: string; origin: string; requestId: string },
 ): Promise<{ sent: true }> {
-  const email = normalisedEmail(request.email);
+  const email = storedAddress(request.email);
   await admitAttempt(door, email);
   const began = Date.now();
 
   const db = runAsSystem(`R-SPINE-001 ${TOKEN_REASONS[purpose]}: issuing a single-use link for the address a caller named`);
-  // An address that could never name an account is not asked about: the lookup for one carrying a
-  // NUL is refused by the driver on the parameter itself, and that refusal carries no marker, so the
-  // caller would be handed a fault id where every other unknown address gets `{ sent: true }`. Not
-  // looking is the same answer arrived at without the round trip — and the identical answer these
-  // doors owe is preserved, because it is the answer an unknown address already gets.
-  const [account] = nameable(email) ? await db.select({ userId: users.userId }).from(users).where(eq(users.email, email)).limit(1) : [];
+  // Every address is looked up, whatever it carries: `storedAddress` has already folded the two
+  // things postgres cannot hold, so the parameter is one the driver accepts and the lookup either
+  // finds the account that address made or finds nothing. A branch that skipped the round trip for
+  // some addresses would also be a difference a caller holding a clock could read.
+  const [account] = await db.select({ userId: users.userId }).from(users).where(eq(users.email, email)).limit(1);
   if (account !== undefined) {
     mail(request.origin, email, purpose, await issueToken(db, account.userId, purpose), {
       requestId: request.requestId,
@@ -616,29 +581,43 @@ export async function signOut(session: AuthSession): Promise<{ signedOut: true }
  * A deployment that named neither leaves the origin empty, and the link then reads `/verify?token=…`
  * — a path a browser resolves and a mail client cannot, so the person is mailed a link they cannot
  * follow. The mail is still written, because the token in it is the recoverable half and an operator
- * who fixes the configuration wants the account's outstanding links to still exist. What may not
- * happen is that it happens quietly: the door answers `{ sent: true }` on purpose (it may not
- * disclose whether the address names an account, misconfigured or not), so the miss goes to the one
- * place an operator reads, the fault seam, naming the configuration that would cure it (ARCH-03).
+ * who fixes the configuration wants the account's outstanding links to still exist; the door answers
+ * `{ sent: true }` either way, because it may not disclose whether the address names an account,
+ * misconfigured or not.
  *
- * Recorded once per process, not once per mail. A missing origin is a standing state of the
- * deployment rather than something that happened to a request: filed per call it would put a
+ * What may not happen is that it happens quietly: the miss goes to the one place an operator reads,
+ * the fault seam, naming the variable and the cure (ARCH-03).
+ *
+ * Recorded once a *window*, not once a mail and not once a process. Once a mail would put a
  * FaultRecord behind every sign-up on the happy path, and an outage log that fills with one repeated
- * entry is an outage log nobody reads the next entry of. One record names the variable and the cure;
- * the rest would say the same sentence again.
+ * entry is an outage log nobody reads the next entry of. Once a process is the opposite mistake and
+ * the worse one: a misconfiguration is a standing state, and a single record filed at some unknown
+ * point in a server's lifetime is gone by the next restart, absent from every window an operator
+ * actually looks at, and silent for every mail after the first. Once a window is a signal that lasts
+ * exactly as long as the fault does — an operator reading any hour of the log sees it — while
+ * costing at most one line a minute.
  */
+const ORIGIN_OUTAGE_WINDOW_MS = 60_000;
+
 const ORIGIN_OUTAGE_KEY = Symbol.for("vextrus.cubit.server.auth.public-origin-outage");
-const originScope = globalThis as typeof globalThis & { [ORIGIN_OUTAGE_KEY]?: { recorded: boolean } };
-const originOutage: { recorded: boolean } = (originScope[ORIGIN_OUTAGE_KEY] ??= { recorded: false });
+const originScope = globalThis as typeof globalThis & { [ORIGIN_OUTAGE_KEY]?: { at: number } };
+const originOutage: { at: number } = (originScope[ORIGIN_OUTAGE_KEY] ??= { at: Number.NEGATIVE_INFINITY });
+
+/** Is this the first time this window that the deployment's missing address has been reported? */
+function outageDue(now: number): boolean {
+  if (now - originOutage.at < ORIGIN_OUTAGE_WINDOW_MS) return false;
+  originOutage.at = now;
+  return true;
+}
 
 function mail(origin: string, to: string, purpose: AuthTokenPurpose, token: string, under: { requestId: string; actor: string; route: string }): void {
-  if (origin === "" && !originOutage.recorded) {
-    originOutage.recorded = true;
+  if (origin === "" && outageDue(Date.now())) {
     reportFault({
       ...under,
       cause: new Error(
         `the deployment named no public origin and this request did not arrive on loopback, so the ${TOKEN_KINDS[purpose]} link mailed to this address is root-relative ` +
-          `("${LINK_PATHS[purpose]}") and cannot be followed from a mail client — set the origin this deployment answers at (R-SPINE-001)`,
+          `("${LINK_PATHS[purpose]}") and cannot be followed from a mail client — set the origin this deployment answers at (R-SPINE-001). ` +
+          `This is a standing state of the deployment, re-reported once a minute for as long as it lasts, not once per mail.`,
       ),
     });
   }
