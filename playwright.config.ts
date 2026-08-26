@@ -24,6 +24,12 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     trace: "retain-on-failure",
+    // V-E2E owes a screenshot at every named checkpoint. `tests/e2e/support/checkpoint.ts` attaches
+    // the ones it is called at under their own names; this is the floor beneath it, so a declared
+    // checkpoint a journey stands on without calling that helper — j-000-home, the smoke's single
+    // checkpoint at `/` — is still evidenced by an image of the page rather than by an assertion
+    // alone. A run therefore carries one screenshot per journey test at minimum, always.
+    screenshot: "on",
   },
   webServer: {
     command: `node ${NEXT} build && node ${NEXT} start --hostname 127.0.0.1 --port ${port}`,
