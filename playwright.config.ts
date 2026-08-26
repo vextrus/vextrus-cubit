@@ -24,7 +24,11 @@ export default defineConfig({
   webServer: {
     command: `pnpm exec next build && pnpm exec next start --hostname 127.0.0.1 --port ${port}`,
     url: `http://127.0.0.1:${port}`,
-    reuseExistingServer: process.env["CI"] === undefined,
+    // Reuse is opt-in by name, never the default: when the port already answers, Playwright skips
+    // the command entirely, so neither `next build` nor `next start` runs and the journey would
+    // walk whatever bundle an earlier session left behind. A run that reuses must say so
+    // (E2E_REUSE_SERVER=1), and CI never may — what CI ships is what the journeys walk (V-E2E).
+    reuseExistingServer: process.env["CI"] === undefined && process.env["E2E_REUSE_SERVER"] === "1",
     timeout: 300_000,
     stdout: "pipe",
     stderr: "pipe",

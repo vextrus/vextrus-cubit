@@ -196,6 +196,19 @@ Behavioural hooks without new ids:
 - The J-000 spec (`tests/e2e/j-000-golden-path.e2e.ts`, title containing "J-000") compares
   its light and dark full-page captures at runtime with `Buffer.equals` and asserts
   inequality; no baseline file is committed (the full V-E2E lane is out of scope).
+- The capture comparison does not stand alone, and may not: `color-scheme: light|dark` on
+  `:root` repaints the browser's own canvas whether or not a token ever resolved, so two
+  differing captures alone would also be produced by a document that loaded no stylesheet.
+  Each checkpoint therefore reads the ground off `html` in the running browser —
+  `--graphite-0`'s resolved value (non-empty, i.e. tokens.css is on the document), and
+  `html`'s computed `background-color`, which must equal that same token value pushed through
+  the browser's colour parser — and the two checkpoints together assert the token *value*
+  differs between light and dark. That is what binds AC-2's byte difference to R-UI-001's
+  token flip rather than to the UA canvas.
+- `webServer.reuseExistingServer` is opt-in (`E2E_REUSE_SERVER=1`, and never under `CI`), not
+  the scaffold's off-CI default. Playwright skips the whole `next build && next start` command
+  when the port already answers, so a leftover listener from an earlier session would silently
+  hand the journey a stale bundle to walk; a gate or plain local run therefore always builds.
 - Journey checkpoints: **root-entry** (light: the landmark, heading and tagline on the
   graphite-0 ground, non-empty title, axe clean) · **root-entry-dark** (the same page under
   dark emulation with `html[data-theme="dark"]` and a differing capture).
