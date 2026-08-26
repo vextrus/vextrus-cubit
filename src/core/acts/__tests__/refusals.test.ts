@@ -9,7 +9,7 @@ import { preview } from "../index";
 import { ACT_PERMISSION, type ActType } from "../law";
 import { actorNotHuman, consequencesNotCarried, permissionNotHeld, type ActorKind } from "../refusals";
 
-/** The act type this increment renders, and the one input shape its callers pass. */
+/** The act type these refusals are raised over, and the input shape its callers pass. */
 const ASSIGN_PARTICIPANT_ROLE: ActType = "ASSIGN_PARTICIPANT_ROLE";
 
 const input = {
