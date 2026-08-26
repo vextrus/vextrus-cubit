@@ -1,0 +1,357 @@
+/*
+ * The data primitive set's stylesheet (R-UI-005, R-UI-010). Every colour, size and duration is a
+ * read into the committed token source (R-UI-001, R-UI-003, R-UI-004): the rules are identical in
+ * light and dark, and no theme selector appears here.
+ *
+ * Focus is not styled here: it has one home, reticle.css (B-17, R-UI-012).
+ *
+ * The bare pixel values are instrument geometry no token expresses — 1 px rules, the 2 px selection
+ * underline, the 8 px scrollbar strip and handle, the 12 px chevron.
+ */
+
+/* ------------------------------------------------------------------ Tabs */
+
+.cx-tabs {
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+}
+
+.cx-tabs-list {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.cx-tabs-trigger {
+  height: var(--space-8);
+  padding-inline: var(--space-3);
+  border-width: 0;
+  border-bottom: 2px solid var(--graphite-0);
+  margin-bottom: -1px;
+  background: none;
+  color: var(--graphite-600);
+  font-family: inherit;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  cursor: pointer;
+  transition:
+    color var(--motion-state) var(--ease),
+    border-color var(--motion-state) var(--ease);
+}
+
+.cx-tabs-trigger:hover {
+  color: var(--graphite-900);
+}
+
+.cx-tabs-trigger[data-state="active"] {
+  border-bottom-color: var(--beam-500);
+  color: var(--graphite-900);
+}
+
+.cx-tabs-trigger[data-disabled] {
+  color: var(--graphite-600);
+  cursor: not-allowed;
+}
+
+.cx-tabs-content {
+  padding-top: var(--space-4);
+  color: var(--graphite-900);
+}
+
+/* ------------------------------------------------------------------ Tree */
+
+.cx-tree {
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+}
+
+/* The indent is a spacing read, not a pixel: each row publishes its depth as --cx-tree-depth and
+   the step is the token the Design Decision fixes. */
+.cx-tree-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--space-7);
+  padding-left: calc(var(--space-2) + var(--cx-tree-depth, 0) * var(--space-4));
+  border-radius: var(--radius-4);
+  color: var(--graphite-900);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color var(--motion-state) var(--ease);
+}
+
+.cx-tree-item:hover {
+  background-color: var(--graphite-100);
+}
+
+.cx-tree-item[aria-selected="true"] {
+  background-color: var(--beam-100);
+  font-weight: var(--weight-heading);
+}
+
+.cx-tree-chevron {
+  flex: none;
+  color: var(--graphite-600);
+  transition: transform var(--motion-state) var(--ease);
+}
+
+.cx-tree-chevron[data-open] {
+  transform: rotate(90deg);
+}
+
+/* A sheet name is as long as the drawing office made it: the row truncates rather than growing. */
+.cx-tree-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cx-tree-spacer {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+/* ------------------------------------------------------------------ ScrollArea */
+
+.cx-scrollarea {
+  overflow: hidden;
+}
+
+.cx-scrollarea-viewport {
+  width: 100%;
+  height: 100%;
+}
+
+.cx-scrollarea-bar {
+  display: flex;
+  padding: 1px;
+  background: none;
+  touch-action: none;
+  user-select: none;
+  transition: opacity var(--motion-state) var(--ease);
+}
+
+.cx-scrollarea-bar[data-orientation="vertical"] {
+  width: 8px;
+}
+
+.cx-scrollarea-bar[data-orientation="horizontal"] {
+  height: 8px;
+  flex-direction: column;
+}
+
+.cx-scrollarea-thumb {
+  flex: 1;
+  border-radius: var(--radius-4);
+  background-color: var(--graphite-300);
+  transition: background-color var(--motion-state) var(--ease);
+}
+
+.cx-scrollarea-thumb:hover {
+  background-color: var(--graphite-400);
+}
+
+/* ------------------------------------------------------------------ Resizable panels */
+
+.cx-resizable {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.cx-resizable-panel {
+  overflow: hidden;
+}
+
+.cx-resizable-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 8px;
+  background: none;
+}
+
+.cx-resizable-line {
+  width: 1px;
+  height: 100%;
+  background-color: var(--graphite-200);
+  transition:
+    background-color var(--motion-state) var(--ease),
+    width var(--motion-state) var(--ease);
+}
+
+.cx-resizable-handle:hover .cx-resizable-line {
+  background-color: var(--graphite-400);
+}
+
+.cx-resizable-handle[data-resize-handle-active] .cx-resizable-line {
+  width: 2px;
+  background-color: var(--beam-500);
+}
+
+/* ------------------------------------------------------------------ DataTable (R-UI-005) */
+
+.cx-table {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+}
+
+.cx-table-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.cx-table-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  background-color: var(--graphite-0);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.cx-table-row {
+  display: flex;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.cx-table-header .cx-table-row {
+  position: relative;
+  border-bottom-width: 0;
+}
+
+.cx-table-body {
+  position: relative;
+}
+
+/* R-UI-005's two row heights. The filter row is exempt: it holds the core Input, whose control
+   height stands at either density (Decision I-5), so a compact table would clip it. */
+.cx-table[data-density="comfortable"] .cx-table-row:not(.cx-table-filters) {
+  height: var(--row-comfortable);
+}
+
+.cx-table[data-density="compact"] .cx-table-row:not(.cx-table-filters) {
+  height: var(--row-compact);
+}
+
+.cx-table-body .cx-table-row:hover {
+  background-color: var(--graphite-50);
+}
+
+.cx-table-cell {
+  display: flex;
+  align-items: center;
+  flex: none;
+  min-width: 0;
+  padding-inline: var(--space-3);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cx-table[data-density="compact"] .cx-table-cell {
+  padding-inline: var(--space-2);
+}
+
+.cx-table-headercell {
+  color: var(--graphite-600);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-table-cell[data-align="right"] {
+  justify-content: flex-end;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  text-align: right;
+}
+
+.cx-table-cell[data-pinned] {
+  position: sticky;
+  z-index: var(--z-sticky);
+  background-color: var(--graphite-0);
+}
+
+.cx-table-cell[data-pinned="left"] {
+  border-right: 1px solid var(--hairline);
+}
+
+.cx-table-cell[data-pinned="right"] {
+  border-left: 1px solid var(--hairline);
+}
+
+.cx-table-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border-width: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-table-sort[data-direction] {
+  color: var(--graphite-900);
+}
+
+.cx-table-sort-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cx-table-sort-mark {
+  color: var(--beam-600);
+}
+
+.cx-table-filters {
+  height: auto;
+  padding-block: var(--space-1);
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* The filter cell gives the Input its own height rather than the row's clipped one (I-5). */
+.cx-table-filtercell {
+  overflow: visible;
+}
+
+.cx-table-cell-button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border-width: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: text;
+}
+
+.cx-table-cell[data-align="right"] .cx-table-cell-button {
+  justify-content: flex-end;
+}
+
+.cx-table-editor {
+  width: 100%;
+}
