@@ -10,6 +10,8 @@
  * Nothing here transcribes the roster (B-19): the questions are asked of whatever `REFUSALS` holds,
  * so a code registered later is judged by this file without an edit.
  */
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
@@ -119,6 +121,26 @@ describe("Q-07: the scan's three findings, each proved to fire", () => {
     expect(foreign[0]?.file, "the finding names the file that spells it").toContain("declared-transport.ts");
     expect(codesIn(orphans), "a declared foreign name is never an orphan — that is what declaring it is for (Q-07)").toEqual([]);
     expect(codesIn(unwired), "a foreign name is not the register's to be wired to").toEqual([]);
+  });
+
+  test("AC-3: a code assembled from static parts is the same spelling — no evasion idiom exists (Q-07)", async () => {
+    // Written outside the tree: the point is a spelling nobody would ever commit, and a fixture
+    // corpus is for source the tree keeps.
+    const scratch = mkdtempSync(join(tmpdir(), "cubit-refusal-scan-"));
+    try {
+      writeFileSync(
+        join(scratch, "assembled.ts"),
+        ['export const JOINED = "FIXTURE" + "_ASSEMBLED_CODE";', 'export const WOVEN = `FIXTURE_${"WOVEN"}_CODE`;', ""].join("\n"),
+        "utf8",
+      );
+      const { orphans } = await scanRefusals(scratch);
+      expect(
+        codesIn(orphans).sort(),
+        "a name written in parts is the name it spells — assembling it hides it from nothing (Q-07)",
+      ).toEqual(["FIXTURE_ASSEMBLED_CODE", "FIXTURE_WOVEN_CODE"]);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
   });
 
   test("AC-3: the control — a registered code spelled by a file that reads the register finds nothing", async () => {

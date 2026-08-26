@@ -6,7 +6,7 @@
 // not exist. `refusalOf` throws on a code the registry lacks rather than inventing an entry, so a
 // mistyped code fails loudly at its call site instead of reaching a user as an empty answer.
 //
-// The copy is fixed by docs/design/refusal-state.md § 3 and its rules bind every later code: the
+// The copy is fixed by docs/design/refusal-state.md § 3, whose rules bind every entry here: the
 // message is one present-tense sentence saying what was refused and why, the remedy one sentence
 // beginning with the verb that resolves it. Operator detail — the internal "why" a seam carries
 // alongside the code — never appears here; it travels with the thrown marker instead.

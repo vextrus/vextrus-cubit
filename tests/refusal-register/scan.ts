@@ -12,9 +12,10 @@
  *   code, a vendor code, a rule-set name, an environment key. Declared once, never an orphan.
  *
  * Names are read off the syntax tree, never off the text: a code named in a comment is prose, and
- * prose spells nothing (Q-07). "Refusal-shaped" is the literal shape below, applied to string
- * literals and to templates with nothing substituted into them — a name assembled from parts is not
- * a spelling of anything, which is why no evasion idiom exists to write.
+ * prose spells nothing (Q-07). "Refusal-shaped" is the literal shape below, applied to every name a
+ * file spells statically — a string literal, a template with nothing substituted into it, and a
+ * concatenation or an interpolation whose parts are themselves static. Assembling a code from parts
+ * is therefore the same spelling as writing it out, and buys nothing: no evasion idiom exists.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
@@ -113,13 +114,44 @@ function eachNode(source: ts.SourceFile, visit: (node: ts.Node) => void): void {
   source.forEachChild(descend);
 }
 
-/** The refusal-shaped names a file spells as a literal — the only spelling Q-07 counts as one. */
+/**
+ * The text a node spells statically, or null when the value is only known at run time. A literal, a
+ * template with nothing substituted, and a concatenation or interpolation of such parts all spell
+ * one name — the parts an expression is written in are a matter of typography, not of meaning.
+ */
+function staticText(node: ts.Node): string | null {
+  if (ts.isStringLiteralLike(node)) return node.text;
+  if (ts.isParenthesizedExpression(node)) return staticText(node.expression);
+  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    const left = staticText(node.left);
+    const right = staticText(node.right);
+    return left === null || right === null ? null : left + right;
+  }
+  if (ts.isTemplateExpression(node)) {
+    let text = node.head.text;
+    for (const span of node.templateSpans) {
+      const substituted = staticText(span.expression);
+      if (substituted === null) return null;
+      text += substituted + span.literal.text;
+    }
+    return text;
+  }
+  return null;
+}
+
+/** The refusal-shaped names a file spells — every static spelling, and nothing a comment says. */
 function literalNames(source: ts.SourceFile): Set<string> {
   const names = new Set<string>();
-  eachNode(source, (node) => {
-    if (!ts.isStringLiteral(node) && !ts.isNoSubstitutionTemplateLiteral(node)) return;
-    if (REFUSAL_SHAPE.test(node.text)) names.add(node.text);
-  });
+  const walk = (node: ts.Node): void => {
+    const text = staticText(node);
+    if (text !== null) {
+      // The parts of one spelling are not spellings of their own, so a folded name ends the descent.
+      if (REFUSAL_SHAPE.test(text)) names.add(text);
+      return;
+    }
+    node.forEachChild(walk);
+  };
+  source.forEachChild(walk);
   return names;
 }
 
