@@ -10,3 +10,12 @@ export const strings = {
 } as const;
 
 export type StringKey = keyof typeof strings;
+
+/**
+ * A registered string with its named slots filled — `{date}` and its kin (R-SPINE-060). Substitution
+ * has one home here rather than a `replace` at each call site, so a slot the caller has no value for
+ * is left standing as itself instead of becoming the word "undefined" on a screen.
+ */
+export function fill(template: string, values: Readonly<Record<string, string>>): string {
+  return template.replace(/\{(\w+)\}/g, (slot, name: string) => values[name] ?? slot);
+}

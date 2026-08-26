@@ -1,0 +1,108 @@
+"use client";
+// The one form every S-Auth door is asked through (Decision § 1, B-17): fields stacked over the
+// answer slot over a full-width submit, submitted natively so Enter submits.
+//
+// Decision I-13: no screen invents a credential rule. The closed taxonomy registers no code for a
+// weak password or a malformed address, so the fields submit as entered and the server's answer —
+// a registered refusal or a fault — is the only judge. While a submit is in flight the fields are
+// disabled and the submit takes the core loading state; on any answer the form re-enables with its
+// values intact, rate limits included, because the remedy says when to retry and the screen never
+// disarms the retry.
+import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
+import { Button, Input } from "../../ui/primitives/core";
+import { strings, type StringKey } from "../../ui/strings";
+import { AnswerSlot, NoticeSlot } from "./answer-slot";
+import { settle, type Answer } from "./answers";
+import { FooterLines, type FooterLine } from "./footer";
+import type { AuthRoute } from "./routes";
+
+/** One field of a door: what it is called, what it is for, and what the browser should offer. */
+export interface AuthField {
+  name: string;
+  testId: string;
+  label: StringKey;
+  autoComplete: string;
+  type?: "text" | "email" | "password";
+  placeholder?: StringKey;
+  hint?: StringKey;
+}
+
+/**
+ * What success means here. A door whose work is finished says so in a notice that replaces the form
+ * — nothing is left to submit, and re-submitting would only invite a rate limit — while a door that
+ * has signed the person in sends them where they were going.
+ */
+export type AuthSuccess = { notice: StringKey; then?: FooterLine } | { goTo: string };
+
+export interface AuthFormProps {
+  route: AuthRoute;
+  fields: readonly AuthField[];
+  submit: StringKey;
+  perform: (values: Readonly<Record<string, string>>) => Promise<unknown>;
+  success: AuthSuccess;
+}
+
+export function AuthForm({ route, fields, submit, perform, success }: AuthFormProps) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [answer, setAnswer] = useState<Answer | null>(null);
+  const [done, setDone] = useState(false);
+
+  const onSubmit = (event: FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    const entered = new FormData(event.currentTarget);
+    const values: Record<string, string> = {};
+    for (const field of fields) values[field.name] = String(entered.get(field.name) ?? "");
+
+    setBusy(true);
+    setAnswer(null);
+    void settle(perform(values)).then((settled) => {
+      setBusy(false);
+      if (!settled.ok) {
+        setAnswer(settled.answer);
+        return;
+      }
+      if ("goTo" in success) router.push(success.goTo);
+      else setDone(true);
+    });
+  };
+
+  if (done && "notice" in success) {
+    return (
+      <>
+        <NoticeSlot message={strings[success.notice]} />
+        <FooterLines lines={success.then === undefined ? [] : [success.then]} />
+      </>
+    );
+  }
+
+  return (
+    <form className="cx-auth-body" onSubmit={onSubmit}>
+      {fields.map((field) => (
+        <div className="cx-auth-field" key={field.name}>
+          <label htmlFor={field.testId}>{strings[field.label]}</label>
+          {field.hint === undefined ? null : (
+            <p className="cx-auth-hint" id={`${field.testId}-hint`}>
+              {strings[field.hint]}
+            </p>
+          )}
+          <Input
+            id={field.testId}
+            name={field.name}
+            data-testid={field.testId}
+            type={field.type ?? "text"}
+            autoComplete={field.autoComplete}
+            placeholder={field.placeholder === undefined ? undefined : strings[field.placeholder]}
+            aria-describedby={field.hint === undefined ? undefined : `${field.testId}-hint`}
+            disabled={busy}
+          />
+        </div>
+      ))}
+      <AnswerSlot answer={answer} route={route} />
+      <Button className="cx-auth-submit" type="submit" data-testid="s-auth-submit" variant="primary" loading={busy}>
+        {strings[submit]}
+      </Button>
+    </form>
+  );
+}
