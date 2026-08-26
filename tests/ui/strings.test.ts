@@ -75,7 +75,15 @@ function isTable(value: unknown): value is Record<string, string> {
   return entries.length > 0 && entries.every(([, entry]) => typeof entry === "string" && entry.length > 0);
 }
 
-/** Every module table under `src/ui/strings/`, found by reading the directory — never a roster. */
+/**
+ * Every module table under `src/ui/strings/`, found by reading the directory — never a roster.
+ *
+ * A module file's table is its DESIGNATED export: the one named for the file's basename
+ * (`spine.ts` → `spine`), the convention the first test proves. Other exports of the file are
+ * ignored, because R-SPINE-060 requires each module to have a table — not that everything a module
+ * file exports be one; a lawful code→label map or re-exported constant living beside the table is
+ * none of this test's business.
+ */
 async function moduleTables(): Promise<{ file: string; table: Record<string, string> }[]> {
   const dir = at(STRINGS_DIR);
   expect(existsSync(dir) && statSync(dir).isDirectory(), `${STRINGS_DIR} must be a directory of per-module tables (R-SPINE-060)`).toBe(true);
@@ -85,10 +93,11 @@ async function moduleTables(): Promise<{ file: string; table: Record<string, str
   expect(files.length, `${STRINGS_DIR} must hold at least one module table beside its index`).toBeGreaterThan(0);
   const found: { file: string; table: Record<string, string> }[] = [];
   for (const name of files) {
+    const designated = name.slice(0, -".ts".length);
     const loaded = await moduleAt(`${STRINGS_DIR}/${name}`);
-    for (const value of Object.values(loaded)) {
-      if (isTable(value)) found.push({ file: name, table: value });
-    }
+    const value = loaded[designated];
+    expect(isTable(value), `${STRINGS_DIR}/${name} must export \`${designated}\` — a record of non-empty strings keyed by id (R-SPINE-060)`).toBe(true);
+    found.push({ file: name, table: value as Record<string, string> });
   }
   return found;
 }
