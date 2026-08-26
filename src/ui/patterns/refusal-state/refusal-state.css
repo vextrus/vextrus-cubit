@@ -1,0 +1,102 @@
+/*
+ * The refusal pattern's stylesheet (R-UI-020). Every colour, size, weight and duration is a read
+ * into the committed Datum token source (R-UI-001, R-UI-003, R-UI-004): the rules are identical in
+ * light and dark, and the themes differ only in what the tokens are worth. No `[data-theme]`
+ * selector appears here.
+ *
+ * Focus is not styled here either — the evidence link wears the reticle from its one home
+ * (B-17, R-UI-012).
+ *
+ * Severity paints; it does not mean (R-UI-060). The meaning of a refusal is its code, message and
+ * remedy, which read identically in greyscale, so the tint and border are redundant emphasis and no
+ * glyph is added beside them. The 1 px borders are the instrument's own hairlines, which no token
+ * expresses.
+ */
+
+.cx-refusal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-4);
+  background-color: var(--danger-surface);
+}
+
+.cx-refusal-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--danger);
+}
+
+.cx-refusal-message {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+}
+
+.cx-refusal-remedy {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body);
+  line-height: var(--leading-ui);
+  color: var(--graphite-700);
+}
+
+/* The action stands slightly apart, and sizes to its text rather than to the card (Decision § 1). */
+.cx-refusal-link {
+  align-self: start;
+  margin-block-start: var(--space-2);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+  color: var(--beam-600);
+  /* Interactive text on a tinted surface never rides colour alone (R-UI-060). */
+  text-decoration: underline;
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-refusal-link:hover {
+  color: var(--beam-500);
+}
+
+/* ------------------------------------------------------------- Severity (R-UI-001's pairs) */
+
+.cx-refusal[data-severity="warning"] {
+  border-color: var(--warn);
+  background-color: var(--warn-surface);
+}
+
+.cx-refusal[data-severity="warning"] .cx-refusal-code {
+  color: var(--warn);
+}
+
+.cx-refusal[data-severity="info"] {
+  border-color: var(--info);
+  background-color: var(--info-surface);
+}
+
+.cx-refusal[data-severity="info"] .cx-refusal-code {
+  color: var(--info);
+}
+
+/* ------------------------------------------------------------------------------- Surfaces */
+
+/*
+ * `inline` and `dialog` are chrome-identical: the hint routes placement — inside the flow that
+ * raised the refusal — not different paint, and a second dialect of the card is what B-17 forbids.
+ * `banner` is the region-width answer: it spans what it voids, so it keeps its block borders and
+ * drops the corners and the inline edges the region already provides.
+ */
+.cx-refusal[data-surface="banner"] {
+  width: 100%;
+  padding: var(--space-3) var(--space-5);
+  border-inline-width: 0;
+  border-radius: 0;
+}
