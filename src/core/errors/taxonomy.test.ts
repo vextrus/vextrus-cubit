@@ -12,7 +12,7 @@
  * names AC-2 (c) names, are asserted by name. A later increment that adds a code passes this file
  * unchanged — and fails it the moment the new entry breaks a rule.
  */
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
@@ -165,6 +165,70 @@ describe("AC-2 (c): the transport-vocabulary table tells foreign from orphan", (
           `"${code}" is declared foreign by vocabulary "${entry.vocabulary}" and also registered as a refusal — the scan could not tell "foreign, declared" from a refusal (Q-07)`,
         ).toBe(false);
       }
+    }
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * inc-009 (the identity core): the four codes the auth doors answer with.
+ *
+ * B-20 — this increment changes taxonomy law, so it owns the acceptance the old law froze. The
+ * expected copy is not transcribed here: it is read out of the Decision that fixes it
+ * (docs/design/s-auth.md § 3), so the registry and the Decision cannot drift apart, and a later
+ * Decision that re-baselines a line re-baselines this assertion with it (B-19, B-20).
+ * ------------------------------------------------------------------ */
+
+/** The Decision this increment commits, whose § 3 table fixes the new entries verbatim. */
+const S_AUTH_DECISION = "docs/design/s-auth.md";
+
+/** The four codes AC-2 requires this increment to register. */
+const AUTH_CODES = ["CREDENTIALS_NOT_VALID", "TOKEN_NOT_VALID", "RATE_LIMITED", "ACCOUNT_ALREADY_EXISTS"] as const;
+
+interface DecidedEntry {
+  code: string;
+  severity: string;
+  surface: string;
+  message: string;
+  remedy: string;
+}
+
+/** Strip a markdown cell down to its text: the Decision bolds the copy it fixes. */
+const cellText = (cell: string): string => cell.trim().replace(/^\*\*/, "").replace(/\*\*$/, "").trim();
+
+/** Every refusal the Decision's registry table fixes — derived from the document, never listed. */
+function decidedRefusals(): DecidedEntry[] {
+  const path = join(REPO_ROOT, S_AUTH_DECISION);
+  expect(existsSync(path), `${S_AUTH_DECISION} is committed by this increment — it is the Decision these entries are read from (B-20)`).toBe(true);
+  const decided: DecidedEntry[] = [];
+  for (const line of readFileSync(path, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("|")) continue;
+    const cells = trimmed.replace(/^\|/, "").replace(/\|$/, "").split("|").map(cellText);
+    if (cells.length !== 5) continue;
+    const [code, severity, surface, message, remedy] = cells;
+    if (code === undefined || !REFUSAL_SHAPE.test(code)) continue;
+    decided.push({ code, severity: severity ?? "", surface: surface ?? "", message: message ?? "", remedy: remedy ?? "" });
+  }
+  return decided;
+}
+
+describe("AC-2 (inc-009): the four codes the identity core registers", () => {
+  test("AC-2: every code the Decision fixes is registered with exactly the decided message, remedy, severity and surface", async () => {
+    const mod = await loadErrors();
+    const decided = decidedRefusals();
+    // The reading is checked before it is trusted: a table this file failed to parse would assert
+    // nothing at all, and pass while the registry drifted.
+    const read = decided.map((entry) => entry.code);
+    for (const code of AUTH_CODES) {
+      expect(read, `${code}'s entry is fixed by ${S_AUTH_DECISION} § 3 — the table read: ${read.join(", ") || "no rows"}`).toContain(code);
+    }
+    for (const entry of decided) {
+      expect(codesOf(mod), `${entry.code} is registered in src/core/errors.ts (R-SPINE-062, AC-2)`).toContain(entry.code);
+      const held = mod.refusalOf(entry.code);
+      expect(held.message, `${entry.code}'s message is the one ${S_AUTH_DECISION} § 3 decided`).toBe(entry.message);
+      expect(held.remedy, `${entry.code}'s remedy is the one ${S_AUTH_DECISION} § 3 decided`).toBe(entry.remedy);
+      expect(held.severity, `${entry.code}'s severity is the one ${S_AUTH_DECISION} § 3 decided`).toBe(entry.severity);
+      expect(held.surface, `${entry.code}'s surface is the one ${S_AUTH_DECISION} § 3 decided`).toBe(entry.surface);
     }
   });
 });
