@@ -201,20 +201,119 @@ export function seedTenants(url: string): Record<string, string> {
   return ids;
 }
 
+/** Every column of a table, in declaration order, with the ones a row may leave empty marked. */
+function allColumns(url: string, table: TableRef): { name: string; nullable: boolean }[] {
+  return run(
+    url,
+    `select column_name, is_nullable
+       from information_schema.columns
+      where table_schema = ${lit(table.schema)} and table_name = ${lit(table.table)}
+      order by ordinal_position;`,
+  ).map((row) => ({ name: row[0] ?? "", nullable: row[1] === "YES" }));
+}
+
+/** One foreign key of a table: which of its columns point at which columns of which table. */
+type ForeignKey = { parent: TableRef; pairs: { child: string; parent: string }[]; optional: boolean };
+
+/**
+ * The foreign keys a probe row has to satisfy, read from the catalogue rather than assumed — a table
+ * a later increment adds is seeded correctly the moment it lands (B-19). A key whose own columns may
+ * all be empty is optional: leaving it null is a lawful row, so the probe does not build a parent for
+ * it. tenant_id is not counted there, since the caller always supplies the tenant itself.
+ */
+function foreignKeys(url: string, table: TableRef): ForeignKey[] {
+  const rows = run(
+    url,
+    `select cn.nspname,
+            cl.relname,
+            (select string_agg(a.attname, ',' order by k.ord)
+               from unnest(c.conkey) with ordinality k(attnum, ord)
+               join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k.attnum),
+            (select string_agg(a.attname, ',' order by k.ord)
+               from unnest(c.confkey) with ordinality k(attnum, ord)
+               join pg_attribute a on a.attrelid = c.confrelid and a.attnum = k.attnum)
+       from pg_constraint c
+       join pg_class ch on ch.oid = c.conrelid
+       join pg_namespace chn on chn.oid = ch.relnamespace
+       join pg_class cl on cl.oid = c.confrelid
+       join pg_namespace cn on cn.oid = cl.relnamespace
+      where c.contype = 'f' and chn.nspname = ${lit(table.schema)} and ch.relname = ${lit(table.table)}
+      order by c.conname;`,
+  );
+  const nullable = new Map(allColumns(url, table).map((column) => [column.name, column.nullable]));
+  return rows.map((row) => {
+    const child = (row[2] ?? "").split(",");
+    const parent = (row[3] ?? "").split(",");
+    const pairs = child.map((name, index) => ({ child: name, parent: parent[index] ?? "" }));
+    return {
+      parent: { schema: row[0] ?? "", table: row[1] ?? "", sql: `${ident(row[0] ?? "")}.${ident(row[1] ?? "")}` },
+      pairs,
+      optional: pairs.every(({ child: name }) => name === TENANT_COLUMN || (nullable.get(name) ?? true)),
+    };
+  });
+}
+
+/** A row of this table owned by this tenant, whole and as text, or nothing if the tenant has none. */
+function anyRowOf(url: string, table: TableRef, tenantId: string): Record<string, string> | undefined {
+  const columns = allColumns(url, table).map((column) => column.name);
+  const rows = run(
+    url,
+    withSession(
+      { [GUC_SYSTEM_REASON]: SEED_REASON },
+      `select ${columns.map((name) => `${ident(name)}::text`).join(", ")} from ${table.sql} where ${ident(TENANT_COLUMN)} = ${lit(tenantId)} limit 1;`,
+    ),
+  );
+  const row = rows[0];
+  if (row === undefined) return undefined;
+  const record: Record<string, string> = {};
+  columns.forEach((name, index) => {
+    record[name] = row[index] ?? "";
+  });
+  return record;
+}
+
+/**
+ * One row of this table owned by this tenant, made if the tenant has none. A table whose row cannot
+ * exist without a parent's gets that parent made first, with the parent's own key values copied into
+ * the child — so the probe satisfies a composite foreign key the same way real data does.
+ */
+function ensureRowForTenant(url: string, table: TableRef, tenantId: string): Record<string, string> {
+  const existing = anyRowOf(url, table, tenantId);
+  if (existing !== undefined) return existing;
+
+  const inherited = new Map<string, string>();
+  for (const key of foreignKeys(url, table)) {
+    if (key.optional) continue;
+    const parent = ensureRowForTenant(url, key.parent, tenantId);
+    for (const pair of key.pairs) {
+      if (pair.child === TENANT_COLUMN) continue;
+      inherited.set(pair.child, lit(parent[pair.parent] ?? ""));
+    }
+  }
+
+  const chosen = new Map<string, string>([[TENANT_COLUMN, `${lit(tenantId)}::uuid`]]);
+  for (const column of requiredColumns(url, table)) chosen.set(column.name, inherited.get(column.name) ?? probeValue(column));
+  for (const [name, value] of inherited) chosen.set(name, value);
+
+  run(
+    url,
+    withSession(
+      { [GUC_SYSTEM_REASON]: SEED_REASON },
+      `insert into ${table.sql} (${[...chosen.keys()].map(ident).join(", ")}) values (${[...chosen.values()].join(", ")});`,
+    ),
+  );
+  const made = anyRowOf(url, table, tenantId);
+  if (made === undefined) throw new Error(`seeding a probe row into ${qualified(table)} for tenant ${tenantId} left nothing behind`);
+  return made;
+}
+
 /**
  * Give every tenant-scoped table at least one row per tenant, so "exactly alpha's rows and none of
  * beta's" can never pass by both sides being empty.
  */
 export function ensureRowsForTenants(url: string, tables: TableRef[], tenantIds: string[]): void {
   for (const table of tables) {
-    for (const tenantId of tenantIds) {
-      const present = count(url, withSession({ [GUC_SYSTEM_REASON]: SEED_REASON }, `select count(*) from ${table.sql} where ${ident(TENANT_COLUMN)} = ${lit(tenantId)};`));
-      if (present > 0) continue;
-      const columns = requiredColumns(url, table);
-      const names = [ident(TENANT_COLUMN), ...columns.map((column) => ident(column.name))].join(", ");
-      const values = [`${lit(tenantId)}::uuid`, ...columns.map(probeValue)].join(", ");
-      run(url, withSession({ [GUC_SYSTEM_REASON]: SEED_REASON }, `insert into ${table.sql} (${names}) values (${values});`));
-    }
+    for (const tenantId of tenantIds) ensureRowForTenant(url, table, tenantId);
   }
 }
 
