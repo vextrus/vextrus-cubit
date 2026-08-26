@@ -40,18 +40,29 @@ const GROUPING = new Intl.NumberFormat(BD_DOCUMENT.locale, {
   maximumFractionDigits: 0,
 });
 
+/**
+ * An integer part as a figure is written: `0`, or a digit string that does not begin with one. A
+ * leading zero is a shape the seam has no answer for but the one it refuses with — normalising
+ * `0007` to `7` would be the seam transforming the figure it was handed (L-FMT-02).
+ */
+const INTEGER_PART = "(0|[1-9]\\d*)";
+
 /** Money: a sign, an integer part, and exactly the paisa digits the convention states. */
-const MONEY_SHAPE = new RegExp(`^(-?)(\\d+)\\.(\\d{${BD_DOCUMENT.moneyFractionDigits}})$`);
+const MONEY_SHAPE = new RegExp(`^(-?)${INTEGER_PART}\\.(\\d{${BD_DOCUMENT.moneyFractionDigits}})$`);
 
 /** A user-owned figure: a sign, an integer part, and whatever fraction the human wrote (B-07). */
-const USER_FIGURE_SHAPE = /^(-?)(\d+)(?:\.(\d+))?$/;
+const USER_FIGURE_SHAPE = new RegExp(`^(-?)${INTEGER_PART}(?:\\.(\\d+))?$`);
 
 /**
  * What the pinned document font covers, as data. ARCH-01 keeps `src/core` from reaching into the
  * UI's font assets, so the repertoire is stated here: printable ASCII, the Bengali block (the taka
- * sign U+09F3 among it), and the typographic punctuation the product's copy is written with.
+ * sign U+09F3 among it), and the typographic punctuation the product's copy is written with. The
+ * line and tab breaks a multi-line field is written with are here too: they are the shape of the
+ * text, not characters a font could be missing, and `CHARACTER_NOT_COVERED` is only for the latter.
  */
 const COVERED_RANGES: readonly (readonly [number, number])[] = [
+  [0x0009, 0x000a], // tab, line feed — layout of a multi-line field, not glyphs a font can lack
+  [0x000d, 0x000d], // carriage return, the other half of a CRLF break
   [0x0020, 0x007e], // printable ASCII
   [0x00a0, 0x00a0], // no-break space
   [0x0980, 0x09ff], // Bengali, including ৳
@@ -106,10 +117,12 @@ export function formatDate(parts: { year: number; month: number; day: number }):
 
 /**
  * The fiscal-year label for a year that begins in `startYear`: `FY2025-26` (L-FMT-01). Derived from
- * the start year, so no table of labels can drift away from the years it names.
+ * the start year, so no table of labels can drift away from the years it names. The last year the
+ * label can name is 9998-99: a year beginning in 9999 ends in 10000, which the two-digit tail of
+ * `FY2025-26` cannot say, and the seam refuses a label it cannot state rather than writing `-00`.
  */
 export function formatFiscalYear(startYear: number): string {
-  if (!isWholeNumber(startYear) || startYear < 1000 || startYear > 9999) throw refusal(PRECISION_NOT_APPLIED, "a fiscal year is labelled from a whole four-digit start year (L-FMT-01)");
+  if (!isWholeNumber(startYear) || startYear < 1000 || startYear > 9998) throw refusal(PRECISION_NOT_APPLIED, "a fiscal year is labelled from a whole four-digit start year whose following year is four digits too (L-FMT-01)");
   return `${BD_DOCUMENT.fiscalYearPrefix}${startYear}-${pad((startYear + 1) % 100, 2)}`;
 }
 
@@ -136,7 +149,15 @@ export function assertCharactersCovered(text: string): string {
 function decimalParts(value: string, shape: RegExp): DecimalParts {
   const matched = typeof value === "string" ? shape.exec(value) : null;
   if (matched === null) throw refusal(PRECISION_NOT_APPLIED, "the figure is not a decimal at exactly the stated precision — the seam refuses rather than rounding or padding (L-FMT-02)");
-  return { sign: matched[1] ?? "", integer: matched[2] ?? "", fraction: matched[3] };
+  const sign = matched[1] ?? "";
+  const integer = matched[2] ?? "";
+  const fraction = matched[3];
+  // Zero carries no sign. `-0.00` is a figure at no quantity wearing a direction, and rendering it
+  // as `-৳0.00` would put a minus on a document in front of nothing (L-FMT-02).
+  if (sign === "-" && !/[1-9]/.test(`${integer}${fraction ?? ""}`)) {
+    throw refusal(PRECISION_NOT_APPLIED, "a zero figure carries no sign — the seam refuses a negative zero rather than rendering one (L-FMT-02)");
+  }
+  return { sign, integer, fraction };
 }
 
 /** The integer part, grouped lakh/crore in ASCII digits (L-FMT-01). */
