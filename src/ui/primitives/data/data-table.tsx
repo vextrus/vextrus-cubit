@@ -32,7 +32,8 @@ import { Input } from "../core/input";
 
 export type DataTableDensity = "comfortable" | "compact";
 
-/** What a column may tell the table about itself beyond its accessor (the increment's interfaces). */
+/** What a column may tell the table about itself beyond its accessor: alignment, filtering and inline
+ * editing, the three column facts R-UI-005 and R-UI-010 give the table. */
 export interface DataTableColumnMeta {
   align?: "right";
   filterable?: boolean;
