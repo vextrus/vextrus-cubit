@@ -287,11 +287,7 @@ function foreignKeys(url: string, table: TableRef): ForeignKey[] {
   });
 }
 
-/**
- * Does this table belong to a tenant at all? A tenant-scoped table's mandatory parent need not be
- * one — an account is one person across every workspace they belong to (R-SPINE-002) — so a global
- * parent is seeded once and shared, rather than being asked for a tenant column it does not carry.
- */
+/** Does this table carry a tenant column at all? A tenant-scoped table's mandatory parent need not. */
 function carriesTenant(url: string, table: TableRef): boolean {
   return allColumns(url, table).some((column) => column.name === TENANT_COLUMN);
 }
@@ -302,7 +298,10 @@ function anyRowOf(url: string, table: TableRef, tenantId: string): Record<string
   const scope = carriesTenant(url, table) ? ` where ${ident(TENANT_COLUMN)} = ${lit(tenantId)}` : "";
   const rows = run(
     url,
-    withSession({ [GUC_SYSTEM_REASON]: SEED_REASON }, `select ${columns.map((name) => `${ident(name)}::text`).join(", ")} from ${table.sql}${scope} limit 1;`),
+    withSession(
+      { [GUC_SYSTEM_REASON]: SEED_REASON },
+      `select ${columns.map((name) => `${ident(name)}::text`).join(", ")} from ${table.sql}${scope} limit 1;`,
+    ),
   );
   const row = rows[0];
   if (row === undefined) return undefined;
