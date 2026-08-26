@@ -23,6 +23,7 @@ import {
   type SystemDb,
   type TenantTx,
 } from "../../core/db";
+import { reportFault } from "../../core/faults/report";
 import { deliver } from "./mail";
 import { admitAttempt } from "./rate-limit";
 import { accountAlreadyExists, credentialsNotValid } from "./refusals";
@@ -81,6 +82,34 @@ const LINK_PATHS: Readonly<Record<AuthTokenPurpose, string>> = Object.freeze({
  */
 function normalisedEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+/**
+ * The longest an address can be and still be one: RFC 5321 §4.5.3.1.3 bounds a path at 256 octets,
+ * angle brackets included, so 254 is the whole address. This is not a rule about what a person may
+ * type — Design Decision I-13 keeps that judgement off the screen and this is not a second spelling
+ * of it — but the definition of the thing the account is named after.
+ *
+ * It has to be stated somewhere on this side of the wire, because `users.email` carries a UNIQUE
+ * index and postgres refuses a btree row over 2704 bytes with SQLSTATE 54000 — an error carrying no
+ * refusal marker, so a caller presenting a longer value would be handed a fault id and the operator
+ * an outage record for a value the door never looked up (R-SPINE-007, R-SPINE-062, ARCH-03).
+ */
+const EMAIL_MAX_OCTETS = 254;
+
+/**
+ * The address as an account's name. A value too long to be an address names no account and can never
+ * become one, on either door: sign-in finds nothing under it and sign-up cannot write it, so both
+ * answer the code the closed taxonomy registers for a credential that identifies no account.
+ *
+ * The mailing doors do not read through here. They answer `{ sent: true }` for every address whether
+ * an account exists or not, so an address that could not name one already has its answer, and a
+ * refusal only on the over-long ones would tell a caller something the identical answer withholds.
+ */
+function accountAddress(email: string): string {
+  const address = normalisedEmail(email);
+  if (Buffer.byteLength(address, "utf8") > EMAIL_MAX_OCTETS) throw credentialsNotValid();
+  return address;
 }
 
 /**
@@ -175,7 +204,12 @@ export interface SignUpRequest {
   tenantName: string;
   deviceLabel: string;
   origin: string;
+  /** The request this sign-up is being answered under, so a failure after the commit is attributable. */
+  requestId: string;
 }
+
+/** What the fault seam calls this door, when the door has to record one itself (ARCH-03). */
+const SIGN_UP_ROUTE = "spine.auth.signUp";
 
 /**
  * R-SPINE-002, in one transaction: the account, the personal workspace it is created with, and the
@@ -189,7 +223,7 @@ export interface SignUpRequest {
  * told to sign in (R-SPINE-007).
  */
 export async function signUp(request: SignUpRequest): Promise<SessionAnswer> {
-  const email = normalisedEmail(request.email);
+  const email = accountAddress(request.email);
   await admitAttempt("signUp", email);
 
   // Derived before the transaction opens: scrypt is deliberately slow, and a transaction holding a
@@ -201,7 +235,21 @@ export async function signUp(request: SignUpRequest): Promise<SessionAnswer> {
 
   // Sent only once the transaction has committed: a mail for an account that was rolled back is a
   // link nobody can follow.
-  mail(request.origin, email, "verifyEmail", created.verifyToken);
+  //
+  // And the answer does not depend on the sending. The account, its workspace and this device's
+  // session are already committed, so a delivery that fails — a read-only outbox, a full disk — is
+  // an outage *after* the act, not a failure of it. Thrown from here it would take the answer with
+  // it: the person would be shown the fault card holding no session, for an account they can never
+  // create again (a second attempt answers ACCOUNT_ALREADY_EXISTS), which is the worst of the three
+  // possible endings. So it is recorded through the one fault seam, where the operator sees it
+  // (ARCH-03, B-21), and the session the person earned is handed over. The verification link is the
+  // recoverable half: a magic link verifies the address too (see `consumeMagicLink`), and sign-in
+  // does not gate on verification.
+  try {
+    mail(request.origin, email, "verifyEmail", created.verifyToken);
+  } catch (undelivered) {
+    reportFault({ requestId: request.requestId, actor: created.userId, route: SIGN_UP_ROUTE, cause: undelivered });
+  }
   return { sessionToken: created.sessionToken };
 }
 
@@ -212,7 +260,7 @@ interface NewAccount {
   deviceLabel: string;
 }
 
-async function createAccount(db: SystemDb, account: NewAccount): Promise<{ sessionToken: string; verifyToken: string }> {
+async function createAccount(db: SystemDb, account: NewAccount): Promise<{ userId: string; sessionToken: string; verifyToken: string }> {
   try {
     return await db.transaction(async (tx) => {
       const taken = await tx.select({ userId: users.userId }).from(users).where(eq(users.email, account.email)).limit(1);
@@ -228,7 +276,7 @@ async function createAccount(db: SystemDb, account: NewAccount): Promise<{ sessi
 
       const verifyToken = await issueToken(tx, user.userId, "verifyEmail");
       const { sessionToken } = await startSession(tx, user.userId, account.deviceLabel);
-      return { sessionToken, verifyToken };
+      return { userId: user.userId, sessionToken, verifyToken };
     });
   } catch (failure) {
     // The unique index is the belt the seam-side guard wears: two sign-ups racing one address reach
@@ -280,7 +328,7 @@ export interface SignInRequest {
  * to prevent, read off a stopwatch instead. An address with no account pays the derivation anyway.
  */
 export async function signIn(request: SignInRequest): Promise<SessionAnswer> {
-  const email = normalisedEmail(request.email);
+  const email = accountAddress(request.email);
   await admitAttempt("signIn", email);
 
   const db = runAsSystem("R-SPINE-001 sign-in: matching a presented address and password against the account it names");

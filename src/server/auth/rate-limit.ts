@@ -12,6 +12,7 @@
 // same address, and given back in full by every restart.
 import { and, asc, authAttempts, eq, gt, holdStateLock, lt, runAsSystem } from "../../core/db";
 import { rateLimited } from "./refusals";
+import { digestOf } from "./secrets";
 
 /** One door's allowance: how many attempts, over how long a sliding window. */
 export interface RateLimit {
@@ -45,9 +46,28 @@ export type LimitedDoor = keyof typeof AUTH_RATE_LIMITS;
  */
 const REASON = "R-SPINE-001 rate limiting: counting one server-derived identity's recent attempts at a limited auth door";
 
-/** The identity as it is counted: the same person under two spellings is one caller. */
+/**
+ * The longest a key may be before it is counted under its digest instead. The key is written to
+ * `auth_attempts.identity`, which the btree index `auth_attempts_window` covers, and postgres refuses
+ * an index row over 2704 bytes (SQLSTATE 54000). The identity is server-derived but not
+ * server-*sized*: it is the address the caller wrote, at whatever length they wrote it, and no screen
+ * may bound it first (Design Decision I-13). Left unbounded, the limiter fails at its own INSERT —
+ * the door refuses nothing, counts nothing, and the caller is handed a fault id for an address that
+ * was never looked up (R-SPINE-007, R-SPINE-062). 256 bytes is comfortably above every address and
+ * account id a door actually presents and far below the ceiling.
+ */
+const IDENTITY_MAX_BYTES = 256;
+
+/**
+ * The identity as it is counted: the same person under two spellings is one caller.
+ *
+ * A value longer than the index can hold is counted under its own digest. A digest is deterministic,
+ * so one caller is still one key and the allowance the law states is still the allowance enforced;
+ * it is prefixed so that it can never collide with a real address, which cannot contain a space.
+ */
 function keyed(identity: string): string {
-  return identity.trim().toLowerCase();
+  const folded = identity.trim().toLowerCase();
+  return Buffer.byteLength(folded, "utf8") <= IDENTITY_MAX_BYTES ? folded : `digest of ${digestOf(folded)}`;
 }
 
 /** The longest window any door is limited over — older than that, a row can count towards nothing. */

@@ -82,6 +82,20 @@ function configuredOrigin(): string | null {
 }
 
 /**
+ * Whether the deployment has stated that it is reached over TLS — the one thing in reach that can
+ * answer "is the session cookie safe to mark `Secure`?" (R-SPINE-001).
+ *
+ * Read from the origin the deployment configured and never from the request. The request's scheme
+ * and `Host` are the caller's to write (see `originOf`), and a caller who could turn the flag *off*
+ * would have stripped the protection the flag exists to give. Absent a configured origin the answer
+ * is no: what is left is the loopback http the journeys and a developer's machine serve on, where a
+ * `Secure` cookie is a cookie the browser refuses to keep.
+ */
+export function deploymentIsSecure(): boolean {
+  return configuredOrigin()?.startsWith("https:") ?? false;
+}
+
+/**
  * The address a link built on this request points back at. The configured origin when the
  * deployment named one; otherwise the request's own origin only while it names a loopback host,
  * which is a development machine and the journeys' own server and can be nothing else.

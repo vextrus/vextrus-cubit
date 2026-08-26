@@ -197,27 +197,59 @@
   list-style: none;
 }
 
+/*
+ * Every row is the same height, whichever control it carries, and every divider therefore sits the
+ * same distance from the line above it. Two things make that true rather than nearly true: the text
+ * stack is exactly two lines at a stated leading in every row (the device label never wraps — the
+ * seam already cuts it to 48 characters, so the ellipsis is a belt), and the control sits in a slot
+ * as tall as the tallest control the row can hold. Left to the content, a row with a 32 px Revoke
+ * button stands taller than a row with a 20 px badge, and the two rules land at different distances.
+ */
 .cx-auth-session-row {
   display: flex;
   gap: var(--space-4);
   align-items: center;
   justify-content: space-between;
   min-height: var(--row-comfortable);
+  padding-block: var(--space-2);
   border-block-end: var(--hairline);
+}
+
+/* The stack that says what the session is. `min-width: 0` so the label may ellipsise rather than
+   push the control off the row. */
+.cx-auth-session-what {
+  min-width: 0;
 }
 
 .cx-auth-session-device {
   display: block;
+  overflow: hidden;
   font-size: var(--text-13);
+  line-height: var(--leading-ui);
   color: var(--graphite-900);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
+/*
+ * The date is set in tabular figures so a column of them lines up, but in the interface face: the
+ * line is a sentence, and English words in the mono face read as a leaked debug style rather than as
+ * a measurement (R-UI-004, L-FMT-01).
+ */
 .cx-auth-session-since {
   display: block;
-  font-family: var(--font-mono);
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
+  line-height: var(--leading-ui);
   color: var(--graphite-600);
+}
+
+/* The control slot: as tall as the Button, so a badge row is exactly as tall as a revoke row. */
+.cx-auth-session-control {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  min-block-size: var(--space-8);
 }
 
 .cx-auth-session-skeleton {

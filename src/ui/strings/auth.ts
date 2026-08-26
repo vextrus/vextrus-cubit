@@ -46,6 +46,10 @@ export const auth = {
   auth_sessions_signed_in: "Signed in {date}",
   auth_sessions_current: "This device",
   auth_sessions_revoke: "Revoke",
+  // Every row's button reads "Revoke", which is right on the screen — the row it sits in says which
+  // session it ends. A reader moving by control hears the names alone, so the accessible name says
+  // the device as well; a destructive control that cannot be told from the one beside it is a trap.
+  auth_sessions_revoke_device: "Revoke {device}",
   auth_sessions_sign_out: "Sign out",
 
   // Where a refusal is resolved (R-UI-020): a place, named verb-first in the button voice.

@@ -35,6 +35,15 @@ function signedInOn(createdAt: string): string {
   return fill(strings.auth_sessions_signed_in, { date: formatDate({ year: at.getFullYear(), month: at.getMonth() + 1, day: at.getDate() }) });
 }
 
+/**
+ * The screen's caption, rendered by the list rather than by the frame. It promises a list — the one
+ * the SIGNED_OUT answer says cannot be shown — so it stands only on the legs that have one, loading
+ * included, where the bones are the list arriving.
+ */
+function Caption() {
+  return <p className="cx-auth-caption">{strings.auth_sessions_caption}</p>;
+}
+
 function rowsOf(value: unknown): SessionRow[] {
   return Array.isArray(value) ? (value as SessionRow[]) : [];
 }
@@ -75,30 +84,42 @@ export function SessionList() {
 
   if (rows === null) {
     return (
-      <div className="cx-auth-session-list">
-        {LOADING_ROWS.map((row) => (
-          <Skeleton className="cx-auth-session-skeleton" key={row} />
-        ))}
-      </div>
+      <>
+        <Caption />
+        <div className="cx-auth-session-list">
+          {LOADING_ROWS.map((row) => (
+            <Skeleton className="cx-auth-session-skeleton" key={row} />
+          ))}
+        </div>
+      </>
     );
   }
 
   return (
     <>
+      <Caption />
       <ul className="cx-auth-session-list">
         {rows.map((row) => (
           <li className="cx-auth-session-row" data-testid="s-auth-session-row" key={row.id}>
-            <span>
+            <span className="cx-auth-session-what">
               <span className="cx-auth-session-device">{row.deviceLabel}</span>
               <span className="cx-auth-session-since">{signedInOn(row.createdAt)}</span>
             </span>
-            {row.current ? (
-              <Badge data-testid="s-auth-session-current">{strings.auth_sessions_current}</Badge>
-            ) : (
-              <Button data-testid="s-auth-session-revoke" variant="danger" loading={ending === row.id} onClick={() => revoke(row.id)}>
-                {strings.auth_sessions_revoke}
-              </Button>
-            )}
+            <span className="cx-auth-session-control">
+              {row.current ? (
+                <Badge data-testid="s-auth-session-current">{strings.auth_sessions_current}</Badge>
+              ) : (
+                <Button
+                  aria-label={fill(strings.auth_sessions_revoke_device, { device: row.deviceLabel })}
+                  data-testid="s-auth-session-revoke"
+                  variant="danger"
+                  loading={ending === row.id}
+                  onClick={() => revoke(row.id)}
+                >
+                  {strings.auth_sessions_revoke}
+                </Button>
+              )}
+            </span>
           </li>
         ))}
       </ul>

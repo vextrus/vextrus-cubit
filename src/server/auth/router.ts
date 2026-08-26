@@ -6,6 +6,7 @@
 // A door that needs a session states so once, through `signedInProcedure`: the middleware answers
 // SIGNED_OUT with its registered sign-in remedy for a missing, unknown or revoked cookie, so no
 // procedure body has to remember to check (ARCH-03, B-21).
+import { deploymentIsSecure } from "../context";
 import { publicProcedure, router } from "../trpc";
 import { credentialsNotValid, signedOut } from "./refusals";
 import {
@@ -32,18 +33,33 @@ import {
 const COOKIE_MAX_AGE_SECONDS = Math.floor(SESSION_LIFETIME_MS / 1000);
 
 /**
- * The cookie a session travels home in. `HttpOnly` keeps the token out of scripts and `SameSite=Lax`
- * out of cross-site posts; `Secure` is deliberately not set, because the flag would make the cookie
- * unusable over the loopback http the journeys and a developer's machine serve on, and the transport
- * has no way to know from here whether it is behind TLS. Deployment terminates that concern.
+ * The attributes every `cubit_session` cookie carries. `HttpOnly` keeps the token out of scripts and
+ * `SameSite=Lax` out of cross-site posts.
+ *
+ * `Secure` is set exactly when the deployment has said it is reached over TLS (`deploymentIsSecure`,
+ * which reads the configured `CUBIT_PUBLIC_ORIGIN` and never the caller's own `Host`). A deployment
+ * behind TLS that handed out a cookie without the flag would hand out a token an attacker on the
+ * network can strip to http and capture — the whole session, for the price of one plain request.
+ * Unconditionally set, the flag would instead make the cookie unusable over the loopback http the
+ * journeys and a developer's machine serve on, where no origin is configured; so the deployment's
+ * own statement of its address decides, and it is the one statement no caller can write.
  */
-function sessionCookie(sessionToken: string): string {
-  return `${SESSION_COOKIE}=${sessionToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${COOKIE_MAX_AGE_SECONDS}`;
+function cookieAttributes(): string {
+  return `Path=/; HttpOnly; SameSite=Lax${deploymentIsSecure() ? "; Secure" : ""}`;
 }
 
-/** The same cookie, ended: a sign-out that left the token in the browser would be a half sign-out. */
+/** The cookie a session travels home in. */
+function sessionCookie(sessionToken: string): string {
+  return `${SESSION_COOKIE}=${sessionToken}; ${cookieAttributes()}; Max-Age=${COOKIE_MAX_AGE_SECONDS}`;
+}
+
+/**
+ * The same cookie, ended: a sign-out that left the token in the browser would be a half sign-out.
+ * The attributes are the ones it was set with — a browser matches an expiry against them, so a
+ * clearing cookie that dropped `Secure` would leave the original sitting in the jar.
+ */
 function clearedCookie(): string {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  return `${SESSION_COOKIE}=; ${cookieAttributes()}; Max-Age=0`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -120,7 +136,7 @@ export const authRouter = router({
   signUp: publicProcedure
     .input((input: unknown) => ({ email: credential(input, "email"), password: credential(input, "password"), tenantName: field(input, "tenantName") }))
     .mutation(async ({ ctx, input }) => {
-      const answer = await signUp({ ...input, deviceLabel: ctx.deviceLabel, origin: ctx.origin });
+      const answer = await signUp({ ...input, deviceLabel: ctx.deviceLabel, origin: ctx.origin, requestId: ctx.requestId });
       ctx.cookies.push(sessionCookie(answer.sessionToken));
       return answer;
     }),
