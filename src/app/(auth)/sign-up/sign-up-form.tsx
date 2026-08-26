@@ -25,7 +25,7 @@ export function SignUpForm() {
       fields={FIELDS}
       submit="auth_sign_up_submit"
       perform={(values) => mutate("signUp", { email: values["email"] ?? "", password: values["password"] ?? "", tenantName: values["tenantName"] ?? "" })}
-      success={{ notice: "auth_sign_up_sent" }}
+      success={{ title: "auth_sign_up_sent_title", notice: "auth_sign_up_sent" }}
     />
   );
 }

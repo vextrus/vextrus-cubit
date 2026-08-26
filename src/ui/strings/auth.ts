@@ -12,6 +12,9 @@ export const auth = {
 
   auth_sign_up_title: "Create your account",
   auth_sign_up_submit: "Create account",
+  // The heading a finished door leaves behind: what the screen is showing now, not what the person
+  // came to do. The notice under it stays the whole sentence (Decision § 2).
+  auth_sign_up_sent_title: "Check your email",
   auth_sign_up_sent: "Check your email — we sent you a verification link.",
   auth_sign_up_footer_prose: "Already have an account?",
   auth_sign_up_footer_link: "Sign in",
@@ -24,18 +27,22 @@ export const auth = {
   auth_sign_in_footer_link: "Create account",
 
   auth_verify_title: "Verify your email",
+  auth_verify_done_title: "Your email is verified",
   auth_verify_done: "Your email is verified — sign in to continue.",
   auth_verify_no_token: "This page needs the verification link from your email — open the link to continue.",
 
   auth_magic_link_title: "Sign in with a magic link",
   auth_magic_link_submit: "Email me a link",
+  auth_magic_link_sent_title: "Check your email",
   auth_magic_link_sent: "Check your email — your sign-in link is on its way.",
   auth_magic_link_footer_link: "Use a password instead",
 
   auth_reset_title: "Reset your password",
   auth_reset_request_submit: "Email me a reset link",
+  auth_reset_sent_title: "Check your email",
   auth_reset_sent: "Check your email — a reset link is on its way.",
   auth_reset_submit: "Set new password",
+  auth_reset_done_title: "Your password is set",
   auth_reset_done: "Your password is set and your other devices were signed out.",
   auth_reset_continue: "Continue",
   auth_back_to_sign_in: "Back to sign-in",

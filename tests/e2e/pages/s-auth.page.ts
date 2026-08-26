@@ -24,6 +24,14 @@ export const S_AUTH = Object.freeze({
 export class SAuthPage {
   constructor(private readonly page: Page) {}
 
+  /**
+   * The column's one `<h1>`. Not a test id: the heading is a landmark of the document, and reading
+   * it by role is how a person using a screen reader finds out what the screen is showing.
+   */
+  get heading(): Locator {
+    return this.page.getByRole("heading", { level: 1 });
+  }
+
   get email(): Locator {
     return this.page.getByTestId("s-auth-email");
   }

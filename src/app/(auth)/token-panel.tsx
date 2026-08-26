@@ -12,10 +12,11 @@ import { strings, type StringKey } from "../../ui/strings";
 import { AnswerSlot, NoticeSlot } from "./answer-slot";
 import { settle, type Answer } from "./answers";
 import type { AuthRoute } from "./routes";
+import { useDoneTitle } from "./title";
 import { mutate, type AuthProcedure } from "./transport";
 
 /** What spending the token achieved: a stated outcome, or the session it just started. */
-export type TokenOutcome = { notice: StringKey } | { goTo: string };
+export type TokenOutcome = { notice: StringKey; title: StringKey } | { goTo: string };
 
 export interface TokenPanelProps {
   route: AuthRoute;
@@ -26,6 +27,7 @@ export interface TokenPanelProps {
 
 export function TokenPanel({ route, token, procedure, outcome }: TokenPanelProps) {
   const router = useRouter();
+  const setDoneTitle = useDoneTitle();
   const spent = useRef<string | null>(null);
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [done, setDone] = useState(false);
@@ -39,9 +41,12 @@ export function TokenPanel({ route, token, procedure, outcome }: TokenPanelProps
         return;
       }
       if ("goTo" in outcome) router.push(outcome.goTo);
-      else setDone(true);
+      else {
+        setDone(true);
+        setDoneTitle(outcome.title);
+      }
     });
-  }, [outcome, procedure, router, token]);
+  }, [outcome, procedure, router, setDoneTitle, token]);
 
   if (answer !== null) return <AnswerSlot answer={answer} route={route} />;
   if (done && "notice" in outcome) return <NoticeSlot message={strings[outcome.notice]} />;

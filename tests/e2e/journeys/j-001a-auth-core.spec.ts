@@ -5,6 +5,7 @@
 // The invitation segments of J-001 are the J-001b leaf's: this file walks only the segments this
 // increment builds, and names itself J-001a so nothing claims the whole journey.
 import { expect, test } from "@playwright/test";
+import { auth } from "../../../src/ui/strings/auth";
 import { SAuthPage, SESSION_COOKIE, S_AUTH } from "../pages/s-auth.page";
 import { checkpoint } from "../support/checkpoint";
 import { newestMail } from "../support/outbox";
@@ -27,8 +28,18 @@ test.describe("J-001a — auth and sessions", () => {
     await expect(screen.workspace).toBeVisible();
     await checkpoint(page, testInfo, "s-auth-sign-up");
 
+    // A single space is a value the browser's own requiredness admits and no screen may lawfully
+    // reject (Decision I-13), so the door judges it — and answers the entry that is true of a person
+    // creating an account, not the one that says their email and password match no account.
+    await screen.signUpWith(EMAIL, " ", WORKSPACE);
+    await screen.refusedWith("DETAIL_NOT_GIVEN");
+    await screen.signUpWith(EMAIL, PASSWORD, "   ");
+    await screen.refusedWith("DETAIL_NOT_GIVEN");
+
     await screen.signUpWith(EMAIL, PASSWORD, WORKSPACE);
     await screen.expectNotice();
+    // The heading names what the screen is showing now: the form it named is gone.
+    await expect(screen.heading, "a finished door renames the screen it finished on").toHaveText(auth.auth_sign_up_sent_title);
 
     /* --- verify: the token comes out of the outbox, exactly as a person's mail would --- */
     const verifyMail = await newestMail(EMAIL, "verify-email");
@@ -70,6 +81,7 @@ test.describe("J-001a — auth and sessions", () => {
     await screen.password.fill(NEW_PASSWORD);
     await screen.submit.click();
     await screen.expectNotice();
+    await expect(screen.heading, "the reset screen says the password is set, rather than still asking for one").toHaveText(auth.auth_reset_done_title);
     await checkpoint(page, testInfo, "s-auth-reset-done");
 
     const other = await browser.newContext({ baseURL });

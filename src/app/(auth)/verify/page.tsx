@@ -20,7 +20,7 @@ export default async function VerifyPage({ searchParams }: { searchParams: Promi
       {token === null ? (
         <NoticeSlot message={strings.auth_verify_no_token} />
       ) : (
-        <TokenPanel route={AUTH_ROUTES.verify} token={token} procedure="verifyEmail" outcome={{ notice: "auth_verify_done" }} />
+        <TokenPanel route={AUTH_ROUTES.verify} token={token} procedure="verifyEmail" outcome={{ title: "auth_verify_done_title", notice: "auth_verify_done" }} />
       )}
     </AuthFrame>
   );

@@ -8,7 +8,7 @@
 // procedure body has to remember to check (ARCH-03, B-21).
 import { deploymentIsSecure } from "../context";
 import { publicProcedure, router } from "../trpc";
-import { credentialsNotValid, signedOut } from "./refusals";
+import { credentialsNotValid, detailNotGiven, signedOut } from "./refusals";
 import {
   consumeMagicLink,
   listSessions,
@@ -91,14 +91,31 @@ function field(input: unknown, name: string): string {
 }
 
 /**
- * An address or a password, as the person typed it. A blank one identifies no account — it is a
- * credential that names nobody, which is exactly what CREDENTIALS_NOT_VALID is registered for
- * (R-SPINE-062) — and on the doors that *set* a password it is the same answer, so a password the
- * sign-in door would never admit can never be stored either.
+ * An address or a password presented to *identify* somebody, as the person typed it. A blank one
+ * identifies no account — it is a credential that names nobody, which is exactly what
+ * CREDENTIALS_NOT_VALID is registered for (R-SPINE-062). The doors that create an account or set a
+ * password read through `given` instead: the same blank, judged the same way, answered with the
+ * entry that is true of them.
  */
 function credential(input: unknown, name: string): string {
   const value = field(input, name);
   if (value.trim() === "") throw credentialsNotValid();
+  return value;
+}
+
+/**
+ * A field the door cannot do its work without, on the doors that *make* something rather than
+ * identify somebody: sign-up's address, password and workspace name, and the password a reset sets.
+ *
+ * The judgement is the same one `credential` makes — a value that is only whitespace is blank, and
+ * the browser's `required` cannot stop a single space (Design Decision I-13) — but the answer is
+ * not. CREDENTIALS_NOT_VALID says the email and password match no account, and offers a password
+ * reset as the remedy: nothing a person creating an account or setting a new password can act on.
+ * DETAIL_NOT_GIVEN is the entry the closed taxonomy registers for exactly this (R-SPINE-062).
+ */
+function given(input: unknown, name: string): string {
+  const value = field(input, name);
+  if (value.trim() === "") throw detailNotGiven(name);
   return value;
 }
 
@@ -134,7 +151,7 @@ const signedInProcedure = publicProcedure.use(({ ctx, next }) => {
 
 export const authRouter = router({
   signUp: publicProcedure
-    .input((input: unknown) => ({ email: credential(input, "email"), password: credential(input, "password"), tenantName: field(input, "tenantName") }))
+    .input((input: unknown) => ({ email: given(input, "email"), password: given(input, "password"), tenantName: given(input, "tenantName") }))
     .mutation(async ({ ctx, input }) => {
       const answer = await signUp({ ...input, deviceLabel: ctx.deviceLabel, origin: ctx.origin, requestId: ctx.requestId });
       ctx.cookies.push(sessionCookie(answer.sessionToken));
@@ -174,7 +191,7 @@ export const authRouter = router({
     .mutation(({ ctx, input }) => requestPasswordReset({ ...input, origin: ctx.origin })),
 
   resetPassword: publicProcedure
-    .input((input: unknown) => ({ token: field(input, "token"), password: credential(input, "password") }))
+    .input((input: unknown) => ({ token: field(input, "token"), password: given(input, "password") }))
     .mutation(async ({ ctx, input }) => {
       const answer = await resetPassword({ ...input, deviceLabel: ctx.deviceLabel });
       ctx.cookies.push(sessionCookie(answer.sessionToken));

@@ -9,8 +9,9 @@
 import type { ReactNode } from "react";
 import markDark from "../../ui/brand/vextrus-mark-dark.svg";
 import markLight from "../../ui/brand/vextrus-mark.svg";
-import { strings, type StringKey } from "../../ui/strings";
+import type { StringKey } from "../../ui/strings";
 import { FooterLines, type FooterLine } from "./footer";
+import { AuthHeading } from "./title";
 
 /** The mark's size in CSS pixels, stated on the elements so the column never reflows as it loads. */
 const MARK_PX = 48;
@@ -38,11 +39,9 @@ export function AuthFrame({ title, caption, surface = "unauthenticated", footer 
           <img className="cx-auth-mark-dark" src={markDark.src} alt="" aria-hidden="true" width={MARK_PX} height={MARK_PX} />
         </span>
       ) : null}
-      <h1 className="cx-auth-title" id={TITLE_ID}>
-        {strings[title]}
-      </h1>
-      {caption === undefined ? null : <p className="cx-auth-caption">{strings[caption]}</p>}
-      {children}
+      <AuthHeading title={title} caption={caption} titleId={TITLE_ID}>
+        {children}
+      </AuthHeading>
       <FooterLines lines={footer} />
     </div>
   );

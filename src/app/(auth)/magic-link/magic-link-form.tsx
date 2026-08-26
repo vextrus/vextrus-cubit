@@ -14,7 +14,7 @@ export function MagicLinkForm() {
       fields={FIELDS}
       submit="auth_magic_link_submit"
       perform={(values) => mutate("requestMagicLink", { email: values["email"] ?? "" })}
-      success={{ notice: "auth_magic_link_sent" }}
+      success={{ title: "auth_magic_link_sent_title", notice: "auth_magic_link_sent" }}
     />
   );
 }

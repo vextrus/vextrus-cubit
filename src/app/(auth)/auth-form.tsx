@@ -21,6 +21,7 @@ import { AnswerSlot, NoticeSlot } from "./answer-slot";
 import { settle, type Answer } from "./answers";
 import { FooterLines, type FooterLine } from "./footer";
 import type { AuthRoute } from "./routes";
+import { useDoneTitle } from "./title";
 
 /** One field of a door: what it is called, what it is for, and what the browser should offer. */
 export interface AuthField {
@@ -36,9 +37,11 @@ export interface AuthField {
 /**
  * What success means here. A door whose work is finished says so in a notice that replaces the form
  * — nothing is left to submit, and re-submitting would only invite a rate limit — while a door that
- * has signed the person in sends them where they were going.
+ * has signed the person in sends them where they were going. A door that finishes on the screen also
+ * names what the screen has become: the notice is the body of a different state, and the heading
+ * above it says so rather than going on naming the form that is no longer there.
  */
-export type AuthSuccess = { notice: StringKey; then?: FooterLine } | { goTo: string };
+export type AuthSuccess = { notice: StringKey; title: StringKey; then?: FooterLine } | { goTo: string };
 
 export interface AuthFormProps {
   route: AuthRoute;
@@ -50,6 +53,7 @@ export interface AuthFormProps {
 
 export function AuthForm({ route, fields, submit, perform, success }: AuthFormProps) {
   const router = useRouter();
+  const setDoneTitle = useDoneTitle();
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [done, setDone] = useState(false);
@@ -69,7 +73,10 @@ export function AuthForm({ route, fields, submit, perform, success }: AuthFormPr
         return;
       }
       if ("goTo" in success) router.push(success.goTo);
-      else setDone(true);
+      else {
+        setDone(true);
+        setDoneTitle(success.title);
+      }
     });
   };
 

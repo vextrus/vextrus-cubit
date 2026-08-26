@@ -22,7 +22,7 @@ export function ResetRequestForm() {
       fields={EMAIL_FIELD}
       submit="auth_reset_request_submit"
       perform={(values) => mutate("requestPasswordReset", { email: values["email"] ?? "" })}
-      success={{ notice: "auth_reset_sent" }}
+      success={{ title: "auth_reset_sent_title", notice: "auth_reset_sent" }}
     />
   );
 }
@@ -34,7 +34,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       fields={PASSWORD_FIELD}
       submit="auth_reset_submit"
       perform={(values) => mutate("resetPassword", { token, password: values["password"] ?? "" })}
-      success={{ notice: "auth_reset_done", then: CONTINUE }}
+      success={{ title: "auth_reset_done_title", notice: "auth_reset_done", then: CONTINUE }}
     />
   );
 }
