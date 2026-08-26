@@ -50,6 +50,12 @@ I-1 (geometry constants in px) and I-2 (no `transparent` keyword) remain in forc
   R-UI-003); titles `var(--text-16)` `var(--weight-heading)` `var(--graphite-900)`;
   captions `var(--text-12)` `var(--graphite-600)`. Every numeral in the DataTable renders
   `var(--font-mono)` with `font-variant-numeric: tabular-nums slashed-zero`.
+- Overlay triggers (Dialog, Sheet, Popover, DropdownMenu) render a real `<button>`, so they
+  wear core's shipped Button — class `cx-btn`, `data-variant="ghost"` — rather than a second
+  copy of its chrome (B-17); a consumer overrides the variant, or passes its own Button
+  through `asChild`. The per-primitive `cx-…-trigger` class rides alongside as a targeting
+  hook only, carrying no chrome of its own. The ContextMenu's trigger is a surface, not a
+  button: `cx-menu-surface` sets type tokens and suppresses text selection, nothing more.
 - Every focusable element — triggers, close buttons, menu items, tab triggers, tree items,
   resize handles, sort buttons, cell-edit targets — carries `cx-reticle`.
 - ARIA: DialogContent requires an accessible name (a `DialogTitle` or `aria-label`);
@@ -133,7 +139,9 @@ spacer, never `aria-expanded`. States — hover: fill `var(--graphite-100)`. Sel
 (`aria-selected="true"`): fill `var(--beam-100)`, `var(--weight-heading)` (the non-colour
 second channel, as core's Chip). Roving tabindex: exactly one item is tabbable — the item the
 arrows last landed on, so Tab leaves the tree and Shift+Tab returns to where the keyboard
-was; before any focus it is the selected item, else the first. Keyboard: ArrowDown/ArrowUp move focus; ArrowRight
+was; before any focus it is the selected item, else the first — the selection a consumer
+restores arrives as `defaultSelectedId`, so the selected state is mountable and not only
+reachable by a click. Keyboard: ArrowDown/ArrowUp move focus; ArrowRight
 expands or enters children; ArrowLeft collapses or moves to the parent; Home/End jump;
 Enter/Space select and invoke `onSelect`. Expand/collapse is instant; only the chevron
 turns.
@@ -156,7 +164,10 @@ keyboard (library behaviour). Remembered sizes are not wired here (they bind to 
 viewer, M1, per R-UI-005).
 
 ### DataTable (`cx-table`, TanStack Table + TanStack Virtual)
-Root: `role="table"`, `aria-rowcount` = data length + 1, `data-density` reflecting the
+Root: `role="table"`, `aria-rowcount` = every row the user can reach — the header rows (the
+column-header row, plus the filter row when one renders) and the rows currently in the
+table's row model, so a filtered table counts what it shows; body `aria-rowindex` continues
+from the last header row's. `data-density` reflecting the
 prop (`"comfortable"` default | `"compact"`). Scroll container `cx-table-viewport`
 (`overflow: auto`) holds a sticky header and the virtualiser's total-size element with
 absolutely positioned rows — a plain scroll div, not ScrollArea (the virtualiser owns the
@@ -168,7 +179,9 @@ measurements).
   header's `aria-sort` ascending → descending → none; while sorted the label reads
   `var(--graphite-900)` with an ↑/↓ glyph (`aria-hidden`) in `var(--beam-600)`. When any
   column has `meta.filterable`, a second header row renders the core Input (I-5) per
-  filterable column, `aria-label` = `Filter` + the column header; typing narrows rows.
+  filterable column, `aria-label` = `Filter` + the column header; typing narrows rows. The
+  filter row is exempt from the density row heights — core's control height stands at either
+  density (I-5), so the row sizes to its Input with `var(--space-1)` block padding.
 - **Rows** (`role="row"`, `aria-rowindex`): height `var(--row-comfortable)` /
   `var(--row-compact)` by `[data-density]` (R-UI-005), border-bottom `var(--hairline)`,
   hover fill `var(--graphite-50)`.
@@ -180,9 +193,12 @@ measurements).
   hover), and a `var(--hairline)` seam on the inner edge.
 - **Inline edit** (`meta.editable` + `onCellEdit`): the cell's value renders inside a
   full-cell ghost button (`cx-reticle`); Enter/Space or double-click swaps it for the core
-  Input (I-5), value prefilled, `aria-label` = the column header, focused on mount. Enter
-  or blur commits — one `onCellEdit(rowId, columnId, value)` call; Escape cancels; either
-  way focus returns to the cell button. No optimistic styling: the consumer re-renders
+  Input (I-5), value prefilled, `aria-label` = the column header as text (a render-function
+  or element header names nothing, so the column id stands in), focused on mount. Enter or
+  blur commits — one `onCellEdit(rowId, columnId, value)` call; Escape cancels; either way
+  focus returns to the cell button. Whichever gesture ends the edit settles it: the blur that
+  follows from unmounting the editor never commits a second time, nor turns a cancel into a
+  commit. No optimistic styling: the consumer re-renders
   the committed value.
 - **Empty after filter**: per I-6. Loading: the owning screen keeps layout with Skeleton
   rows — never a spinner on a table (R-UI-004).

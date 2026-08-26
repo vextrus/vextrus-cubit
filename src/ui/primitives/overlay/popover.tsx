@@ -15,8 +15,15 @@ export function Popover(props: PopoverProps) {
 
 export type PopoverTriggerProps = ComponentProps<typeof PopoverPrimitive.Trigger>;
 
+/** The ghost button the Design Decision names, taken from core's Button rather than redrawn (B-17). */
 export function PopoverTrigger({ className, ...rest }: PopoverTriggerProps) {
-  return <PopoverPrimitive.Trigger {...rest} className={cx("cx-popover-trigger", "cx-reticle", className)} />;
+  return (
+    <PopoverPrimitive.Trigger
+      data-variant="ghost"
+      {...rest}
+      className={cx("cx-btn", "cx-popover-trigger", "cx-reticle", className)}
+    />
+  );
 }
 
 export type PopoverContentProps = ComponentProps<typeof PopoverPrimitive.Content>;

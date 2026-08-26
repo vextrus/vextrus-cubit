@@ -66,11 +66,15 @@ const OVERSCAN_ROWS = 8;
 const metaOf = (column: { columnDef: { meta?: unknown } }): DataTableColumnMeta =>
   (column.columnDef.meta as DataTableColumnMeta | undefined) ?? {};
 
-/** A column header as text, for the accessible names the filter and the editor owe (R-UI-012). */
-function headerText<TRow>(header: Header<TRow, unknown>): string {
-  const label = header.column.columnDef.header;
+/**
+ * A column header as text, for the accessible names the filter and the editor owe (R-UI-012). A
+ * header may be a render function or an element, and neither stringifies into anything a screen
+ * reader can use — the column id is the honest fallback.
+ */
+function headerText(column: { id: string; columnDef: { header?: unknown } }): string {
+  const label = column.columnDef.header;
   if (typeof label === "string") return label;
-  return header.column.id;
+  return column.id;
 }
 
 export function DataTable<TRow>({
@@ -129,8 +133,18 @@ export function DataTable<TRow>({
     overscan: OVERSCAN_ROWS,
   });
 
+  // The virtualiser caches its measurements and does not watch `estimateSize`, so a density change
+  // would otherwise leave every row sitting at the old offset over the old scroll extent: the
+  // density switch R-UI-005 requires has to re-measure the list.
+  useEffect(() => {
+    virtualizer.measure();
+  }, [virtualizer, rowHeight]);
+
   const headerGroups = table.getHeaderGroups();
   const filterable = table.getAllLeafColumns().some((column) => column.getCanFilter());
+  // Every row the user can reach, header rows included: the filter row is one of them, and after a
+  // filter the reachable body rows are the surviving ones, not the whole data prop (R-UI-012).
+  const headerRowCount = headerGroups.length * (filterable ? 2 : 1);
 
   return (
     <div
@@ -138,20 +152,25 @@ export function DataTable<TRow>({
       data-testid="datatable"
       data-density={density}
       role="table"
-      aria-rowcount={data.length + 1}
+      aria-rowcount={headerRowCount + rows.length}
     >
       <div className="cx-table-viewport" data-testid="datatable-viewport" ref={viewportRef}>
         <div className="cx-table-header" data-testid="datatable-header" role="rowgroup">
-          {headerGroups.map((group) => (
-            <div key={group.id} className="cx-table-row" role="row" aria-rowindex={1}>
+          {headerGroups.map((group, groupIndex) => (
+            <div key={group.id} className="cx-table-row" role="row" aria-rowindex={groupIndex + 1}>
               {group.headers.map((header) => (
                 <HeaderCell key={header.id} header={header} />
               ))}
             </div>
           ))}
           {filterable
-            ? headerGroups.map((group) => (
-                <div key={`filters-${group.id}`} className="cx-table-row cx-table-filters" role="row">
+            ? headerGroups.map((group, groupIndex) => (
+                <div
+                  key={`filters-${group.id}`}
+                  className="cx-table-row cx-table-filters"
+                  role="row"
+                  aria-rowindex={headerGroups.length + groupIndex + 1}
+                >
                   {group.headers.map((header) => (
                     <FilterCell key={header.id} header={header} />
                   ))}
@@ -174,11 +193,11 @@ export function DataTable<TRow>({
                 className="cx-table-row"
                 data-testid="datatable-row"
                 role="row"
-                aria-rowindex={virtualRow.index + 2}
-                style={{
-                  height: `${virtualRow.size}px`,
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
+                aria-rowindex={headerRowCount + virtualRow.index + 1}
+                // Only the offset is written here. The row's height is the stylesheet's, read from
+                // R-UI-005's density tokens — an inline pixel height would beat that rule and give
+                // the two densities a second, silent home (B-17).
+                style={{ transform: `translateY(${virtualRow.start}px)` }}
               >
                 {row.getVisibleCells().map((cell) => (
                   <BodyCell key={cell.id} cell={cell} rowId={row.id} onCellEdit={onCellEdit} />
@@ -256,7 +275,7 @@ function FilterCell<TRow>({ header }: { header: Header<TRow, unknown> }) {
       {column.getCanFilter() ? (
         <Input
           data-testid={`datatable-filter-${column.id}`}
-          aria-label={`Filter ${headerText(header)}`}
+          aria-label={`Filter ${headerText(column)}`}
           value={typeof value === "string" ? value : ""}
           onChange={(event) => column.setFilterValue(event.target.value)}
         />
@@ -281,6 +300,10 @@ function BodyCell<TRow>({ cell, rowId, onCellEdit }: BodyCellProps<TRow>) {
   const [draft, setDraft] = useState("");
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const wasEditing = useRef(false);
+  // One edit, one outcome. Enter commits and Escape cancels by unmounting the editor, and removing
+  // a focused field fires a native blur — which would reach the still-attached `onBlur` and either
+  // commit twice or turn a cancel into a commit. The gesture that ends the edit claims it first.
+  const settled = useRef(false);
 
   // Leaving the editor puts focus back where the gesture started — a keyboard journey never ends
   // on the document body (R-UI-012).
@@ -291,12 +314,21 @@ function BodyCell<TRow>({ cell, rowId, onCellEdit }: BodyCellProps<TRow>) {
 
   const startEditing = (): void => {
     setDraft(String(cell.getValue() ?? ""));
+    settled.current = false;
     setEditing(true);
   };
 
   const commit = (): void => {
+    if (settled.current) return;
+    settled.current = true;
     setEditing(false);
     onCellEdit?.(rowId, column.id, draft);
+  };
+
+  const cancel = (): void => {
+    if (settled.current) return;
+    settled.current = true;
+    setEditing(false);
   };
 
   const onEditorKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
@@ -307,7 +339,7 @@ function BodyCell<TRow>({ cell, rowId, onCellEdit }: BodyCellProps<TRow>) {
     }
     if (event.key === "Escape") {
       event.preventDefault();
-      setEditing(false);
+      cancel();
     }
   };
 
@@ -330,7 +362,7 @@ function BodyCell<TRow>({ cell, rowId, onCellEdit }: BodyCellProps<TRow>) {
         <Input
           data-testid="datatable-cell-editor"
           className="cx-table-editor"
-          aria-label={String(column.columnDef.header ?? column.id)}
+          aria-label={headerText(column)}
           autoFocus
           value={draft}
           onChange={(event) => setDraft(event.target.value)}

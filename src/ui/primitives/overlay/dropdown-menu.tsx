@@ -17,8 +17,15 @@ export function DropdownMenu(props: DropdownMenuProps) {
 
 export type DropdownMenuTriggerProps = ComponentProps<typeof DropdownMenuPrimitive.Trigger>;
 
+/** The trigger is the shipped core Button in its ghost variant, as every overlay trigger is (B-17). */
 export function DropdownMenuTrigger({ className, ...rest }: DropdownMenuTriggerProps) {
-  return <DropdownMenuPrimitive.Trigger {...rest} className={cx("cx-menu-trigger", "cx-reticle", className)} />;
+  return (
+    <DropdownMenuPrimitive.Trigger
+      data-variant="ghost"
+      {...rest}
+      className={cx("cx-btn", "cx-menu-trigger", "cx-reticle", className)}
+    />
+  );
 }
 
 export type DropdownMenuContentProps = ComponentProps<typeof DropdownMenuPrimitive.Content>;

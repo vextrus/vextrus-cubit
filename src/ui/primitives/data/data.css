@@ -67,11 +67,14 @@
   line-height: var(--leading-ui);
 }
 
+/* The indent is a spacing read, not a pixel: each row publishes its depth as --cx-tree-depth and
+   the step is the token the Design Decision fixes. */
 .cx-tree-item {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   height: var(--space-7);
+  padding-left: calc(var(--space-2) + var(--cx-tree-depth, 0) * var(--space-4));
   border-radius: var(--radius-4);
   color: var(--graphite-900);
   cursor: pointer;
@@ -96,6 +99,14 @@
 
 .cx-tree-chevron[data-open] {
   transform: rotate(90deg);
+}
+
+/* A sheet name is as long as the drawing office made it: the row truncates rather than growing. */
+.cx-tree-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .cx-tree-spacer {
@@ -228,11 +239,13 @@
   position: relative;
 }
 
-.cx-table[data-density="comfortable"] .cx-table-row {
+/* R-UI-005's two row heights. The filter row is exempt: it holds the core Input, whose control
+   height stands at either density (Decision I-5), so a compact table would clip it. */
+.cx-table[data-density="comfortable"] .cx-table-row:not(.cx-table-filters) {
   height: var(--row-comfortable);
 }
 
-.cx-table[data-density="compact"] .cx-table-row {
+.cx-table[data-density="compact"] .cx-table-row:not(.cx-table-filters) {
   height: var(--row-compact);
 }
 
@@ -299,12 +312,26 @@
   color: var(--graphite-900);
 }
 
+.cx-table-sort-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .cx-table-sort-mark {
   color: var(--beam-600);
 }
 
 .cx-table-filters {
+  height: auto;
+  padding-block: var(--space-1);
   border-bottom: 1px solid var(--hairline);
+}
+
+/* The filter cell gives the Input its own height rather than the row's clipped one (I-5). */
+.cx-table-filtercell {
+  overflow: visible;
 }
 
 .cx-table-cell-button {

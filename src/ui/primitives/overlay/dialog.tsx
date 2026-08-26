@@ -18,8 +18,19 @@ export function Dialog(props: DialogProps) {
 
 export type DialogTriggerProps = ComponentProps<typeof DialogPrimitive.Trigger>;
 
+/**
+ * Radix renders a real `<button>`, so the trigger wears the shipped core Button's chrome — its
+ * class and its ghost variant, never a second copy of it (B-17). A consumer that passes its own
+ * `data-variant`, or its own Button through `asChild`, overrides both.
+ */
 export function DialogTrigger({ className, ...rest }: DialogTriggerProps) {
-  return <DialogPrimitive.Trigger {...rest} className={cx("cx-dialog-trigger", "cx-reticle", className)} />;
+  return (
+    <DialogPrimitive.Trigger
+      data-variant="ghost"
+      {...rest}
+      className={cx("cx-btn", "cx-dialog-trigger", "cx-reticle", className)}
+    />
+  );
 }
 
 export type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content>;

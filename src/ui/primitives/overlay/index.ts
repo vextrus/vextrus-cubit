@@ -5,8 +5,12 @@
  *
  * Every content in this slice portals to `document.body`, where the document root's `[data-theme]`
  * themes it and no ancestor's overflow or stacking context can clip it.
+ *
+ * Core's stylesheet comes too: an overlay trigger is the shipped ghost Button, and a set that
+ * re-drew a button's chrome for itself would be the copy B-17 blocks.
  */
 import "../core/reticle.css";
+import "../core/core.css";
 import "./overlay.css";
 
 export { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger } from "./dialog";

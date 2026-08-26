@@ -20,8 +20,15 @@ export function Sheet(props: SheetProps) {
 
 export type SheetTriggerProps = ComponentProps<typeof DialogPrimitive.Trigger>;
 
+/** The trigger is the shipped core Button in its ghost variant, as the Dialog's is (B-17). */
 export function SheetTrigger({ className, ...rest }: SheetTriggerProps) {
-  return <DialogPrimitive.Trigger {...rest} className={cx("cx-sheet-trigger", "cx-reticle", className)} />;
+  return (
+    <DialogPrimitive.Trigger
+      data-variant="ghost"
+      {...rest}
+      className={cx("cx-btn", "cx-sheet-trigger", "cx-reticle", className)}
+    />
+  );
 }
 
 export interface SheetContentProps extends ComponentProps<typeof DialogPrimitive.Content> {

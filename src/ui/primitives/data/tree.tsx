@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
   type ComponentPropsWithoutRef,
+  type CSSProperties,
   type KeyboardEvent,
 } from "react";
 import { cx } from "../core/class-names";
@@ -28,6 +29,9 @@ export interface TreeProps extends Omit<ComponentPropsWithoutRef<"div">, "onSele
   items: TreeItem[];
   onSelect?: (id: string) => void;
   defaultExpandedIds?: string[];
+  /** The item selected before any interaction — the state a consumer restores, and the item that
+   * holds the tab stop until the arrows move it (R-UI-012). */
+  defaultSelectedId?: string;
 }
 
 /** A row as the keyboard sees it: the flattened, currently visible order. */
@@ -39,9 +43,6 @@ interface VisibleRow {
   expanded: boolean;
 }
 
-/** The indent step the Design Decision fixes, in px — instrument geometry, not a spacing decision. */
-const INDENT_STEP_PX = 16;
-const INDENT_BASE_PX = 8;
 
 function flatten(items: TreeItem[], expanded: ReadonlySet<string>, depth = 0, parentId: string | null = null): VisibleRow[] {
   const rows: VisibleRow[] = [];
@@ -55,9 +56,16 @@ function flatten(items: TreeItem[], expanded: ReadonlySet<string>, depth = 0, pa
   return rows;
 }
 
-export function Tree({ items, onSelect, defaultExpandedIds, className, ...rest }: TreeProps) {
+export function Tree({
+  items,
+  onSelect,
+  defaultExpandedIds,
+  defaultSelectedId,
+  className,
+  ...rest
+}: TreeProps) {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(defaultExpandedIds ?? []));
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(defaultSelectedId ?? null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -157,7 +165,9 @@ export function Tree({ items, onSelect, defaultExpandedIds, className, ...rest }
             aria-selected={selected}
             tabIndex={row.item.id === tabbableId ? 0 : -1}
             className={cx("cx-tree-item", "cx-reticle")}
-            style={{ paddingLeft: `${INDENT_BASE_PX + row.depth * INDENT_STEP_PX}px` }}
+            // Depth is the only fact the row knows; the indent it buys is the stylesheet's, spelled
+            // in the spacing tokens the Design Decision names (R-UI-003).
+            style={{ "--cx-tree-depth": row.depth } as CSSProperties}
             onFocus={() => setFocusedId(row.item.id)}
             onKeyDown={(event) => onKeyDown(event, index)}
             onClick={() => {

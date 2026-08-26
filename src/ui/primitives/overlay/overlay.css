@@ -142,6 +142,16 @@
   animation: cx-overlay-rise var(--motion-state) var(--ease) both;
 }
 
+/* The ContextMenu's trigger is a surface, not a button: it keeps the consumer's own layout and asks
+   only that the right-click gesture not drag a text selection behind it. */
+.cx-menu-surface {
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+  user-select: none;
+}
+
 .cx-menu-item {
   display: flex;
   align-items: center;
