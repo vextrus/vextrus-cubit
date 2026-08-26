@@ -8,6 +8,8 @@ const port = portFor("e2e");
 
 export default defineConfig({
   testDir: "tests/e2e",
+  // The journeys are named for what they walk, not for the runner's default glob.
+  testMatch: "**/*.e2e.ts",
   fullyParallel: false,
   forbidOnly: true,
   retries: 0,
@@ -16,5 +18,15 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${port}`,
     trace: "retain-on-failure",
+  },
+  // V-E2E: the journeys drive the built product, never a dev server — what CI ships is what they
+  // walk. One home for the port (ARCH-02): `portFor("e2e")` above.
+  webServer: {
+    command: `pnpm exec next build && pnpm exec next start --hostname 127.0.0.1 --port ${port}`,
+    url: `http://127.0.0.1:${port}`,
+    reuseExistingServer: process.env["CI"] === undefined,
+    timeout: 300_000,
+    stdout: "pipe",
+    stderr: "pipe",
   },
 });
