@@ -287,15 +287,22 @@ function foreignKeys(url: string, table: TableRef): ForeignKey[] {
   });
 }
 
+/**
+ * Does this table belong to a tenant at all? A tenant-scoped table's mandatory parent need not be
+ * one — an account is one person across every workspace they belong to (R-SPINE-002) — so a global
+ * parent is seeded once and shared, rather than being asked for a tenant column it does not carry.
+ */
+function carriesTenant(url: string, table: TableRef): boolean {
+  return allColumns(url, table).some((column) => column.name === TENANT_COLUMN);
+}
+
 /** A row of this table owned by this tenant, whole and as text, or nothing if the tenant has none. */
 function anyRowOf(url: string, table: TableRef, tenantId: string): Record<string, string> | undefined {
   const columns = allColumns(url, table).map((column) => column.name);
+  const scope = carriesTenant(url, table) ? ` where ${ident(TENANT_COLUMN)} = ${lit(tenantId)}` : "";
   const rows = run(
     url,
-    withSession(
-      { [GUC_SYSTEM_REASON]: SEED_REASON },
-      `select ${columns.map((name) => `${ident(name)}::text`).join(", ")} from ${table.sql} where ${ident(TENANT_COLUMN)} = ${lit(tenantId)} limit 1;`,
-    ),
+    withSession({ [GUC_SYSTEM_REASON]: SEED_REASON }, `select ${columns.map((name) => `${ident(name)}::text`).join(", ")} from ${table.sql}${scope} limit 1;`),
   );
   const row = rows[0];
   if (row === undefined) return undefined;
@@ -325,7 +332,7 @@ function ensureRowForTenant(url: string, table: TableRef, tenantId: string): Rec
     }
   }
 
-  const chosen = new Map<string, string>([[TENANT_COLUMN, `${lit(tenantId)}::uuid`]]);
+  const chosen = new Map<string, string>(carriesTenant(url, table) ? [[TENANT_COLUMN, `${lit(tenantId)}::uuid`]] : []);
   for (const column of requiredColumns(url, table)) chosen.set(column.name, inherited.get(column.name) ?? probeValue(column));
   for (const [name, value] of inherited) chosen.set(name, value);
 

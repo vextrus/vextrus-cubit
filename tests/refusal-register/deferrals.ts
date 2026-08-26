@@ -5,5 +5,5 @@
  */
 export const DEFERRED_CODES: Readonly<Record<string, string>> = Object.freeze({
   SIGNED_OUT:
-    "the auth/session increment — it is the one that maps an expired session to this refusal and renders the sign-in remedy (ARCH-03, B-21); until it lands, no flow can raise a session refusal to exercise.",
+    "the identity lane — spine.auth's signed-in doors raise it for a missing, unknown or revoked session and the sign-in remedy renders from the register (ARCH-03, B-21). The proofs that walk that refusal live in the database suite and in journey J-001a, neither of which the unit lane collects, so the deferral is what admits the code here and names where it is actually exercised.",
 });
