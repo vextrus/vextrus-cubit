@@ -38,6 +38,8 @@ import { afterAll, describe, expect, test } from "vitest";
 import { REFUSALS } from "../../src/core/errors";
 import { refusalCodeOf } from "../../src/core/faults/refusal-marker";
 import { provisionScratchDb } from "./harness";
+import { BOOTSTRAP_URL } from "./support/fixtures";
+import { ident, lit, run } from "./support/live-sql";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -46,7 +48,15 @@ const ROOT_MODULE = "src/server/root.ts";
 const CONTEXT_MODULE = "src/server/context.ts";
 const SESSION_MODULE = "src/server/auth/session.ts";
 
+/** The identity tables the interfaces name (src/core/db.ts, re-exported by db/schema/identity.ts). */
+const USERS = "users";
+const MEMBERSHIPS = "memberships";
+const TENANTS = "tenants";
+
 const PASSWORD = "correct-horse-battery-staple-9";
+
+/** A uuid as the tree mints them — how a row's own key is picked out of its rendered JSON. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * The one character postgres cannot hold in `text` at all — refused as a bind parameter, so no
@@ -74,6 +84,8 @@ interface ContextModule {
 }
 
 interface Staged {
+  /** The scratch database as a role that sees every row, for reading what the door left behind. */
+  admin: string;
   auth(token?: string): Promise<AuthCaller>;
 }
 
@@ -112,9 +124,13 @@ async function build(): Promise<Staged> {
   scratch = db;
   process.env["DATABASE_URL"] = db.urlApp;
 
+  const adminUrl = new URL(BOOTSTRAP_URL);
+  adminUrl.pathname = new URL(db.urlApp).pathname;
+
   const [root, context] = await Promise.all([productModule<RootModule>(ROOT_MODULE), productModule<ContextModule>(CONTEXT_MODULE)]);
 
   return {
+    admin: adminUrl.toString(),
     auth: async (token?: string): Promise<AuthCaller> => {
       const headers = new Headers();
       if (token !== undefined) headers.set("cookie", `${cookie}=${token}`);
@@ -150,6 +166,29 @@ function shown(name: string): string {
   return JSON.stringify(name).replaceAll(NUL, "\\u0000");
 }
 
+/* ------------------------------------------------------------------ *
+ * Reading rows without transcribing a column name.
+ * ------------------------------------------------------------------ */
+
+/** Every row of a table whose rendered JSON contains this value — the row the scenario minted. */
+function rowsHolding(admin: string, table: string, value: string): Record<string, unknown>[] {
+  return run(admin, `select to_jsonb(t)::text from ${ident("public")}.${ident(table)} t where to_jsonb(t)::text like ${lit(`%${value}%`)};`).map(
+    (row) => JSON.parse(row[0] ?? "{}") as Record<string, unknown>,
+  );
+}
+
+/** The uuid-shaped values a row carries — one of them is its own key, whatever the column is called. */
+const uuidsOf = (row: Record<string, unknown>): string[] => Object.values(row).filter((value): value is string => typeof value === "string" && UUID.test(value));
+
+/** The rows of `table` that name any of these keys, counted once each however many keys match. */
+function rowsNaming(admin: string, table: string, keys: readonly string[]): Record<string, unknown>[] {
+  const found = new Map<string, Record<string, unknown>>();
+  for (const key of keys) {
+    for (const row of rowsHolding(admin, table, key)) found.set(JSON.stringify(row), row);
+  }
+  return [...found.values()];
+}
+
 describe("BREAKER — an unstorable workspace name is answered, never reported as an outage", () => {
   for (const tenantName of UNSTORABLE_WORKSPACE_NAMES) {
     test(`spine.auth.signUp with a workspace name of ${shown(tenantName)} does not hand the caller an unmarked fault`, async () => {
@@ -174,16 +213,55 @@ describe("BREAKER — an unstorable workspace name is answered, never reported a
     });
   }
 
-  test("an unstorable workspace name leaves no account behind, and the address is still free (AC-1, R-SPINE-002)", async () => {
-    const { auth } = await stage();
+  test("an unstorable workspace name leaves nothing half-written, whichever ending the door takes (AC-1, R-SPINE-002)", async () => {
+    const { admin, auth } = await stage();
     const anonymous = await auth();
     const email = freshEmail("rollback");
 
-    await Promise.allSettled([anonymous["signUp"]?.({ email, password: PASSWORD, tenantName: `Acme${NUL} Ltd` })]);
+    const [settled] = await Promise.allSettled([anonymous["signUp"]?.({ email, password: PASSWORD, tenantName: `Acme${NUL} Ltd` })]);
 
-    // Whatever the door decided above, the write was one transaction: an account that belongs
-    // nowhere is unrepresentable, so the address must still be one a person can sign up with.
-    const answer = (await anonymous["signUp"]?.({ email, password: PASSWORD, tenantName: "Acme Ltd" })) as { sessionToken?: string };
-    expect(typeof answer?.sessionToken, "a rejected workspace name must leave the address free to sign up with").toBe("string");
+    // I-14 leaves the door two lawful endings, and this file never converts that disjunction into a
+    // mandate. AC-1's promise — "when any part of that write fails, no user row survives" — is a
+    // conditional whose antecedent is a failed write, so it is the refusal ending that engages it.
+    if (settled!.status === "rejected") {
+      const failure = (settled as PromiseRejectedResult).reason;
+      // The floor first, in this branch as in the three above: a refusal is a code the closed
+      // taxonomy registers, never an unmarked fault filed as an outage (R-SPINE-007, R-SPINE-062).
+      expect(
+        registeredCodeOf(failure),
+        `spine.auth.signUp refused the workspace name ${shown(`Acme${NUL} Ltd`)} with something the closed taxonomy does not ` +
+          `register, so the person is shown the fault card and the operator gets a FaultRecord for a name the door never ` +
+          `wrote (ARCH-03, B-21). It failed with: ${describeFailure(failure)}`,
+      ).not.toBeNull();
+
+      expect(
+        rowsHolding(admin, USERS, email).length,
+        `AC-1: the sign-up failed, so no user row for ${email} survives — the user, the tenant and the membership are ONE transaction (R-SPINE-002)`,
+      ).toBe(0);
+      const again = (await anonymous["signUp"]?.({ email, password: PASSWORD, tenantName: "Acme Ltd" })) as { sessionToken?: string };
+      expect(typeof again?.sessionToken, "AC-1: a sign-up that failed leaves the address free to sign up with").toBe("string");
+      return;
+    }
+
+    // The door answered. Nothing failed, so AC-1's antecedent is not engaged and the address is
+    // rightly taken. What R-SPINE-002 still requires of the answer is that the account it created
+    // belongs somewhere: one user, joined by one membership, to one tenant — nothing half-written.
+    const users = rowsHolding(admin, USERS, email);
+    expect(users.length, `R-SPINE-002: the answered sign-up left exactly one account row for ${email} in "${USERS}"`).toBe(1);
+
+    const accountIds = uuidsOf(users[0] as Record<string, unknown>);
+    expect(accountIds.length, `the account row for ${email} carries a key to join a membership to`).toBeGreaterThan(0);
+
+    const memberships = rowsNaming(admin, MEMBERSHIPS, accountIds);
+    expect(
+      memberships.length,
+      `R-SPINE-002: the answered sign-up left exactly one membership in "${MEMBERSHIPS}" for ${email} — an account that belongs nowhere, or twice over, is unrepresentable`,
+    ).toBe(1);
+
+    const tenantKeys = uuidsOf(memberships[0] as Record<string, unknown>).filter((value) => !accountIds.includes(value));
+    expect(
+      rowsNaming(admin, TENANTS, tenantKeys).length,
+      `R-SPINE-002: that membership joins the account to exactly one tenant row in "${TENANTS}" — the personal tenant the same transaction created`,
+    ).toBe(1);
   });
 });
