@@ -46,9 +46,34 @@ ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_user_id_fk" FOREIG
 -- only holds while the generated DDL above is what the generator would write.
 --
 -- `users`, `sessions` and `auth_tokens` carry no tenant id: a person is one account across every
--- workspace they belong to (R-SPINE-002), so the tenancy policies have no column to read on them
--- and none is declared. `memberships` is the join that does carry one, and it is scoped like every
--- other tenant-scoped table in the tree.
+-- workspace they belong to (R-SPINE-002), so no *tenant* policy can be written for them. Having no
+-- tenant column is not a reason to have no policy: `cubit_app` is the one role the runtime connects
+-- as, and a table it holds DML on with no policy is reachable by any handle in the tree, tenant
+-- handles included — every password hash and every live session digest, readable and writable
+-- without naming a reason. So the three are scoped exactly as the tenancy base scopes its own
+-- global table `tenants`: FORCE row-level security with a system-scope policy, which makes
+-- session.ts's `runAsSystem(reason)` the enforced way in rather than the conventional one, and
+-- makes "runAsSystem reasons recorded and attributable" (R-SPINE-007) true of identity too.
+-- `memberships` is the join that does carry a tenant id, and it is scoped like every other
+-- tenant-scoped table in the tree.
+ALTER TABLE "users" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "users" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "users_system_scope" ON "users"
+	FOR ALL
+	USING (nullif(current_setting('cubit.system_reason', true), '') IS NOT NULL)
+	WITH CHECK (nullif(current_setting('cubit.system_reason', true), '') IS NOT NULL);--> statement-breakpoint
+ALTER TABLE "sessions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "sessions" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "sessions_system_scope" ON "sessions"
+	FOR ALL
+	USING (nullif(current_setting('cubit.system_reason', true), '') IS NOT NULL)
+	WITH CHECK (nullif(current_setting('cubit.system_reason', true), '') IS NOT NULL);--> statement-breakpoint
+ALTER TABLE "auth_tokens" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "auth_tokens" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "auth_tokens_system_scope" ON "auth_tokens"
+	FOR ALL
+	USING (nullif(current_setting('cubit.system_reason', true), '') IS NOT NULL)
+	WITH CHECK (nullif(current_setting('cubit.system_reason', true), '') IS NOT NULL);--> statement-breakpoint
 ALTER TABLE "memberships" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 -- WITH FORCE: without it the table's owner reads and writes past its own policies, and a guarantee
 -- the owner escapes is not a guarantee (SEAM-TENANT).

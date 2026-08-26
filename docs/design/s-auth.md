@@ -35,7 +35,12 @@ Skeleton, and the one `RefusalState` renderer — a screen-local refusal block i
 - **I-13 — no client-side credential rules.** The closed taxonomy has no password-strength
   or email-format code, so the screens invent no local validation copy; the fields submit as
   entered and the server's answer (a registered refusal or a fault) is the only judge. The
-  inputs still declare `type`/`autocomplete` so the browser and password managers behave.
+  inputs still declare `type`/`autocomplete` so the browser and password managers behave, and
+  every field a door takes carries `required`. Requiredness is not a credential rule: it
+  invents no copy and judges no value, it only keeps the browser from sending a form the
+  person has not filled in. Without it a blank submit is answered by the fault surface —
+  R-SPINE-007's "the machine failed" shown for an empty box, with an operator fault record
+  filed behind it (ARCH-03 / B-21).
 
 ## 1. Layout and hierarchy — the auth frame
 

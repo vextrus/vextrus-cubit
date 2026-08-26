@@ -51,6 +51,19 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return key.length === expected.length && timingSafeEqual(key, expected);
 }
 
+/**
+ * Spend on this password what verifying a real one costs, and answer nothing. A door that has no
+ * stored hash to compare against — an address with no account — calls this instead of returning
+ * early, so the time it takes says nothing about whether the address is registered. The decoy is
+ * derived once per process from a value nobody holds, so no password can ever match it.
+ */
+export async function absorbPassword(password: string): Promise<void> {
+  decoy ??= hashPassword(mintSecret());
+  await verifyPassword(password, await decoy);
+}
+
+let decoy: Promise<string> | null = null;
+
 function derive(
   password: string,
   salt: Buffer,

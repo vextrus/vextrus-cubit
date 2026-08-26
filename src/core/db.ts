@@ -6,8 +6,8 @@
 // The table definitions sit here rather than in db/schema/*.ts because the ORM's table builders are
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
-import { and, asc, eq, gt, isNull, sql as statement } from "drizzle-orm";
-import { foreignKey, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { and, asc, eq, gt, isNull, lt, sql as statement } from "drizzle-orm";
+import { foreignKey, index, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { attributableReason } from "./db/reason";
@@ -16,7 +16,7 @@ import { attributableReason } from "./db/reason";
 // handed out from here rather than imported at a call site: SEAM-TENANT makes this file the one
 // lawful home of the driver, and a module that reached for them itself would be holding half a
 // handle (ARCH-02).
-export { and, asc, eq, gt, isNull };
+export { and, asc, eq, gt, isNull, lt };
 
 export { recordSystemReasonsWith, type SystemReasonRecord, type SystemReasonRecorder } from "./db/reason";
 
@@ -105,8 +105,10 @@ export const participantRoles = pgTable(
 /**
  * Identity (R-SPINE-001): an account, the sessions it is signed in through, and the single-use
  * tokens that verify an address or stand in for a password. None of the three carries a tenant id —
- * a person is one account across every workspace they belong to (R-SPINE-002) — so they are not
- * tenant-scoped tables and the tenancy policies have nothing to say about them.
+ * a person is one account across every workspace they belong to (R-SPINE-002) — so no *tenant*
+ * policy can be written for them. That is not the same as no policy: like `tenants`, each of the
+ * three is under FORCE row-level security with a system-scope policy, so only a handle that named
+ * an attributable reason reaches them at all (SEAM-TENANT, R-SPINE-007).
  *
  * Nothing here stores a secret in the clear: a session token and a mailed token are held as the
  * digest of the value the user was given, so a reader of these rows cannot sign in as anybody.
@@ -148,6 +150,29 @@ export const authTokens = pgTable("auth_tokens", {
 });
 
 /**
+ * R-SPINE-001's rate limiting, counted where every instance of the product can see it: one row per
+ * attempt at a limited door by one server-derived identity. A counter held in a process is a counter
+ * a restart clears and a second instance doubles, so the allowance the law states would be the
+ * allowance only of a single-process deployment.
+ */
+export const authAttempts = pgTable(
+  "auth_attempts",
+  {
+    attemptId: uuid("attempt_id").primaryKey().defaultRandom(),
+    door: text("door").notNull(),
+    // The server-derived identity the attempt was made against — never anything a caller wrote into
+    // a header (R-SPINE-001). What derives it is the limiter's business; this column only holds it.
+    identity: text("identity").notNull(),
+    attemptedAt: timestamp("attempted_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // The two reads the limiter makes: one key's window, and every row old enough to drop.
+    index("auth_attempts_window").on(table.door, table.identity, table.attemptedAt),
+    index("auth_attempts_attempted_at").on(table.attemptedAt),
+  ],
+);
+
+/**
  * R-SPINE-002: the join that makes an account belong somewhere. The pair is the identity — a person
  * is a member of a workspace once — and the row is written in the same transaction as the account
  * and its personal tenant, so an account that belongs nowhere is unrepresentable.
@@ -167,7 +192,7 @@ export const memberships = pgTable(
 );
 
 /** Everything the typed surface covers. A table joins the surface by joining this object. */
-const schema = { tenants, participants, acts, participantRoles, users, sessions, authTokens, memberships };
+const schema = { tenants, participants, acts, participantRoles, users, sessions, authTokens, memberships, authAttempts };
 
 /** A handle scoped to one tenant: the typed read/write surface, filtered by row-level security. */
 export type TenantDb = PostgresJsDatabase<typeof schema>;
@@ -331,11 +356,18 @@ function handleFor(scope: Scope): PostgresJsDatabase<typeof schema> {
   return boundSurface(drizzle({ client: scopedClient(connection(), scope), schema }));
 }
 
+/** The shape a uuid column — and the `cubit.tenant_id` cast the policies make — can hold. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
- * The shape a tenant id has. The policies cast `cubit.tenant_id` to uuid, so an id that is not one
- * makes every statement the handle issues fail as a cast error (22P02) rather than as a refusal.
+ * Can a uuid column hold this value? Handed out from the seam because the answer belongs to the
+ * columns the seam defines: a value that is not one makes any statement comparing it fail as a cast
+ * error (22P02) — a fault — rather than simply matching no row, so a door that takes an id from a
+ * caller asks here before it asks the database (ARCH-02).
  */
-const TENANT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isUuid(value: string): boolean {
+  return UUID.test(value);
+}
 
 /**
  * The tenant a handle may be opened for: one the policies can read. Refused as the handle is taken,
@@ -343,7 +375,7 @@ const TENANT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
  * server error on every query it makes.
  */
 function scopedTenantId(tenantId: string): string {
-  if (!TENANT_ID.test(tenantId)) {
+  if (!isUuid(tenantId)) {
     throw new Error(`forTenant({ tenantId }) needs a tenant uuid — ${JSON.stringify(tenantId)} names no tenant the policies can read (SEAM-TENANT)`);
   }
   return tenantId;

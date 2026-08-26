@@ -16,6 +16,7 @@ import {
   resetPassword,
   revokeSession,
   SESSION_COOKIE,
+  SESSION_LIFETIME_MS,
   signIn,
   signOut,
   signUp,
@@ -23,11 +24,12 @@ import {
 } from "./session";
 
 /**
- * How long a browser keeps the cookie. It is not the session's own lifetime — the row is what makes
- * a session live, and revoking it ends it everywhere at once — only how long the browser bothers to
- * present it before asking the person to sign in again.
+ * How long a browser keeps the cookie: the session's own lifetime, read from the seam that enforces
+ * it. It is a hint and not the bound — the row is what makes a session live, `resolveSession` is
+ * what ends it, and revoking ends it everywhere at once — but a browser told to keep a token longer
+ * than the server will honour it would present a dead cookie, so the two are one number.
  */
-const COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+const COOKIE_MAX_AGE_SECONDS = Math.floor(SESSION_LIFETIME_MS / 1000);
 
 /**
  * The cookie a session travels home in. `HttpOnly` keeps the token out of scripts and `SameSite=Lax`

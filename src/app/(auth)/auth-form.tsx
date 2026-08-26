@@ -4,7 +4,12 @@
 //
 // Decision I-13: no screen invents a credential rule. The closed taxonomy registers no code for a
 // weak password or a malformed address, so the fields submit as entered and the server's answer —
-// a registered refusal or a fault — is the only judge. While a submit is in flight the fields are
+// a registered refusal or a fault — is the only judge. Every field a door takes is one the door
+// requires, so each input carries the browser's own `required`: that invents no rule and no copy —
+// it only keeps the browser from sending a form the person has not filled in. Without it a blank
+// submit reaches the door's input reader, comes back unmarked, and is reported as a fault, which
+// tells the person the machine broke and files an operator record for an empty box (R-SPINE-007,
+// ARCH-03). While a submit is in flight the fields are
 // disabled and the submit takes the core loading state; on any answer the form re-enables with its
 // values intact, rate limits included, because the remedy says when to retry and the screen never
 // disarms the retry.
@@ -95,6 +100,7 @@ export function AuthForm({ route, fields, submit, perform, success }: AuthFormPr
             autoComplete={field.autoComplete}
             placeholder={field.placeholder === undefined ? undefined : strings[field.placeholder]}
             aria-describedby={field.hint === undefined ? undefined : `${field.testId}-hint`}
+            required
             disabled={busy}
           />
         </div>
