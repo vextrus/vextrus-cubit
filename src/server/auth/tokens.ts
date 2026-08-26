@@ -63,6 +63,30 @@ export async function issueToken(db: Writer, userId: string, purpose: AuthTokenP
 }
 
 /**
+ * Spend every link this account still has outstanding, so none of them can be followed again.
+ *
+ * A mailed link is a bearer credential: whoever holds the mail can mint a session (magic link) or
+ * set the password (reset) on demand. R-SPINE-001 states the reset with its consequence attached —
+ * "a reset revokes the account's other sessions" — and a link nobody has spent yet is a session that
+ * has not been claimed, plus, for a reset link, the means of taking the account away from the person
+ * who just recovered it. Revoking the `sessions` rows and leaving these standing would end the holds
+ * on the account and leave behind the means of making another.
+ *
+ * Every kind goes, not only the two that hand out a session: an unspent verification link is spent
+ * by an act that proves the same address (the reset marks the account verified), so leaving it live
+ * would leave a credential outstanding for a question already answered.
+ *
+ * Marked consumed rather than deleted: `auth_tokens` is the record of which links were issued and
+ * what became of them, and a link that was invalidated by a reset is a thing that happened.
+ */
+export async function spendOutstandingTokens(db: Writer, userId: string): Promise<void> {
+  await db
+    .update(authTokens)
+    .set({ consumedAt: new Date() })
+    .where(and(eq(authTokens.userId, userId), isNull(authTokens.consumedAt)));
+}
+
+/**
  * Spend a token, or refuse. Unknown, expired, already consumed and issued-for-something-else are one
  * answer (TOKEN_NOT_VALID): a door that distinguished them would say which links exist. The row is
  * claimed by the UPDATE's own predicate, so the first of two racing callers gets the account and the

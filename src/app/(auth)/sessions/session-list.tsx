@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { Badge, Button, Skeleton } from "../../../ui/primitives/core";
 import { formatDate } from "../../../core/format";
 import { fill, strings } from "../../../ui/strings";
-import { AnswerSlot } from "../answer-slot";
+import { AnswerSlot, NoticeSlot } from "../answer-slot";
 import { settle, type Answer } from "../answers";
 import { AUTH_ROUTES } from "../routes";
 import { mutate, query } from "../transport";
@@ -53,6 +53,8 @@ export function SessionList() {
   const [rows, setRows] = useState<SessionRow[] | null>(null);
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [ending, setEnding] = useState<string | null>(null);
+  // The device the last revoke ended, so the act is acknowledged in words rather than by an absence.
+  const [revoked, setRevoked] = useState<string | null>(null);
 
   useEffect(() => {
     void settle(query("listSessions")).then((settled) => {
@@ -61,12 +63,19 @@ export function SessionList() {
     });
   }, []);
 
-  const revoke = (id: string): void => {
+  // The row leaves the list on success (Decision § 2) and the notice says so: a list one row shorter
+  // is an absence, and an absence reads the same as a click that missed. The acknowledgement names
+  // the device the person picked, and it is `role="status"`, so a reader who cannot see the list
+  // reflow is told what happened (R-UI-050).
+  const revoke = (id: string, deviceLabel: string): void => {
     setEnding(id);
+    setRevoked(null);
     void settle(mutate("revokeSession", { id })).then((settled) => {
       setEnding(null);
-      if (settled.ok) setRows((live) => (live ?? []).filter((row) => row.id !== id));
-      else setAnswer(settled.answer);
+      if (settled.ok) {
+        setRows((live) => (live ?? []).filter((row) => row.id !== id));
+        setRevoked(deviceLabel);
+      } else setAnswer(settled.answer);
     });
   };
 
@@ -98,6 +107,7 @@ export function SessionList() {
   return (
     <>
       <Caption />
+      {revoked === null ? null : <NoticeSlot message={fill(strings.auth_sessions_revoked, { device: revoked })} />}
       <ul className="cx-auth-session-list">
         {rows.map((row) => (
           <li className="cx-auth-session-row" data-testid="s-auth-session-row" key={row.id}>
@@ -114,7 +124,7 @@ export function SessionList() {
                   data-testid="s-auth-session-revoke"
                   variant="danger"
                   loading={ending === row.id}
-                  onClick={() => revoke(row.id)}
+                  onClick={() => revoke(row.id, row.deviceLabel)}
                 >
                   {strings.auth_sessions_revoke}
                 </Button>

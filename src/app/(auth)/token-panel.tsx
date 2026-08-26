@@ -12,7 +12,7 @@ import { strings, type StringKey } from "../../ui/strings";
 import { AnswerSlot, NoticeSlot } from "./answer-slot";
 import { settle, type Answer } from "./answers";
 import type { AuthRoute } from "./routes";
-import { useDoneTitle } from "./title";
+import { useDoneTitle } from "./column";
 import { mutate, type AuthProcedure } from "./transport";
 
 /** What spending the token achieved: a stated outcome, or the session it just started. */
@@ -40,7 +40,12 @@ export function TokenPanel({ route, token, procedure, outcome }: TokenPanelProps
         setAnswer(settled.answer);
         return;
       }
-      if ("goTo" in outcome) router.push(outcome.goTo);
+      // Replaced, never pushed: the URL this panel was mounted at carries a single-use token that
+      // has just been spent. Pushed, it stays in the session history, and Back — the first thing a
+      // person does when they land somewhere and want to see what happened — mounts the panel again
+      // on a token that is gone. They would be told "this link is no longer valid" seconds after it
+      // worked, with a live session at that very moment (R-SPINE-001, Decision § 2).
+      if ("goTo" in outcome) router.replace(outcome.goTo);
       else {
         setDone(true);
         setDoneTitle(outcome.title);

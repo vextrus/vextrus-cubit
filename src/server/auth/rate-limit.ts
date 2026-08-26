@@ -11,6 +11,7 @@
 // product's allowance: a count one process holds is multiplied by however many instances serve the
 // same address, and given back in full by every restart.
 import { and, asc, authAttempts, eq, gt, holdStateLock, isStorableText, lt, runAsSystem } from "../../core/db";
+import { reportFault } from "../../core/faults/report";
 import { rateLimited } from "./refusals";
 import { digestOf } from "./secrets";
 
@@ -99,12 +100,31 @@ const SWEEP_KEY = Symbol.for("vextrus.cubit.server.auth.attempts-swept-at");
 const processScope = globalThis as typeof globalThis & { [SWEEP_KEY]?: { at: number } };
 const sweptAt: { at: number } = (processScope[SWEEP_KEY] ??= { at: Number.NEGATIVE_INFINITY });
 
-/** Drop every row too old to count towards any window — at most once a window, whoever asks. */
+/**
+ * Drop every row too old to count towards any window — at most once a window, whoever asks.
+ *
+ * The window is marked swept only once the DELETE has actually run: written before it, a rejected
+ * sweep would leave the table unswept and the tree believing otherwise for a whole window, which is
+ * the one thing this bookkeeping exists to get right.
+ *
+ * And a sweep that fails is not the caller's failure. It is housekeeping about every identity except
+ * this one's, and the attempt it was called before has been neither counted nor refused — thrown
+ * from here it would hand the caller a fault id for an attempt the limiter never made a decision
+ * about. So it is recorded where an operator reads outages (ARCH-03) and the door goes on to count.
+ */
 async function sweepSpentAttempts(db: ReturnType<typeof runAsSystem>, now: number): Promise<void> {
   if (now - sweptAt.at < LONGEST_WINDOW_MS) return;
-  sweptAt.at = now;
-  await db.delete(authAttempts).where(lt(authAttempts.attemptedAt, new Date(now - LONGEST_WINDOW_MS)));
+  try {
+    await db.delete(authAttempts).where(lt(authAttempts.attemptedAt, new Date(now - LONGEST_WINDOW_MS)));
+    sweptAt.at = now;
+  } catch (unswept) {
+    reportFault({ requestId: UNATTRIBUTED, actor: UNATTRIBUTED, route: SWEEP_ROUTE, cause: unswept });
+  }
 }
+
+/** What the operator's record calls this work: nobody's request, and the tier's own housekeeping. */
+const UNATTRIBUTED = "unattributed";
+const SWEEP_ROUTE = "spine.auth rate-limit sweep";
 
 /**
  * The name the count is serialised on — one door, one identity. Counting is a read followed by a

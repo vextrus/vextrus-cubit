@@ -88,6 +88,15 @@ of three things may occupy it:
   and "done" states the notice **replaces** the form (nothing is left to submit;
   re-submission only invites RATE_LIMITED) and the footer links remain.
 
+A footer line stands down while the answer slot already offers its place. A refusal states
+its remedy as a link to where it is resolved (§3), and a footer line to the same `href` is a
+second control with the same words and the same destination stacked under the first — on
+`/verify` an invalid token's **Go to sign-in** sat 48 px above the footer's identical **Go
+to sign-in**. The line is suppressed by destination, not by label, and only while that
+answer is on screen: when the refusal goes, the line comes back. Lines the answer does not
+duplicate are untouched (on `/reset` the refusal offers **Request a new link** and the
+footer's **Back to sign-in** is a different place, so both stand).
+
 Footer links are real `<a>`s in the evidence-link idiom: `var(--text-13)`
 `var(--weight-body-medium)` `var(--beam-600)` underlined at rest, hover `var(--beam-500)`
 over `var(--motion-state)` `var(--ease)`, reticle on focus. A footer line that pairs prose
@@ -169,7 +178,13 @@ YYYY, L-FMT-01). Right: the current row carries the core Badge **This device**
 (`s-auth-session-current`) and no revoke control; every other row carries a core Button
 `data-variant="danger"` **Revoke** (`s-auth-session-revoke`) — danger, never copper: ending
 a session is destructive, not an act. Revoke takes the Button's loading state; on success
-the row leaves the list with no animation. Below the list, `var(--space-5)` above, a
+the row leaves the list with no animation, and the notice **{device} is signed out.**
+(`s-auth-notice`, `role="status"`) takes its place between the caption and the list, naming
+the device the person picked. The row's absence is not the acknowledgement: a list one row
+shorter reads the same as a click that missed, and a reader who cannot see the list reflow
+is told nothing at all (R-UI-050's settled leg). One notice at a time — a second revoke
+replaces it — and it is not offered as an undo, because a revoked session cannot be given
+back. Below the list, `var(--space-5)` above, a
 secondary Button **Sign out** (`s-auth-signout`); success navigates to `/sign-in`.
 Recorded IOU: R-UI-031's visible navigation to `/sessions` is owed by the shell increment
 (inc-013) — until then the route is journey- and URL-reachable, and this Decision records

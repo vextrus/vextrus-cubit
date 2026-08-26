@@ -61,6 +61,11 @@ export const auth = {
   // session it ends. A reader moving by control hears the names alone, so the accessible name says
   // the device as well; a destructive control that cannot be told from the one beside it is a trap.
   auth_sessions_revoke_device: "Revoke {device}",
+  // What a revoke leaves behind. The row it ended is gone from the list, and a list one row shorter
+  // is the only evidence a person would otherwise have that the act they asked for happened at all —
+  // an absence, which reads the same as a click that missed. The notice says it in words, and names
+  // the device, because the person chose one row out of several (R-UI-050's settled leg).
+  auth_sessions_revoked: "{device} is signed out.",
   auth_sessions_sign_out: "Sign out",
 
   // Where a refusal is resolved (R-UI-020): a place, named verb-first in the button voice.

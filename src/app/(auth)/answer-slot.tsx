@@ -1,3 +1,4 @@
+"use client";
 // The answer slot (Decision § 1): exactly one of a refusal, a fault or a notice sits between the
 // last field and the submit, so the answer to the previous attempt reads before the retry.
 //
@@ -7,13 +8,23 @@
 import { RefusalState } from "../../ui/patterns/refusal-state";
 import { strings } from "../../ui/strings";
 import { evidenceFor, type Answer } from "./answers";
+import { useOffersPlace } from "./column";
 import type { AuthRoute } from "./routes";
 
-/** A registered refusal, in place, with the link to where it is resolved. */
+/**
+ * A registered refusal, in place, with the link to where it is resolved.
+ *
+ * That link is the refusal's remedy made clickable, and the column's footer is told about it: a
+ * footer line leading where the refusal already leads would be a second control with the same words
+ * and the same destination, stacked under the first (Decision § 1, R-UI-020). The footer stands its
+ * line down for as long as this refusal is on screen.
+ */
 export function RefusalSlot({ answer, route }: { answer: Extract<Answer, { kind: "refusal" }>; route: AuthRoute }) {
+  const evidence = evidenceFor(answer.refusal.code, route);
+  useOffersPlace(evidence.href);
   return (
     <div className="cx-auth-answer" data-testid="s-auth-refusal">
-      <RefusalState refusal={answer.refusal} evidence={evidenceFor(answer.refusal.code, route)} />
+      <RefusalState refusal={answer.refusal} evidence={evidence} />
     </div>
   );
 }

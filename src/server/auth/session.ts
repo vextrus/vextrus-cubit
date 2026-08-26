@@ -30,7 +30,7 @@ import { deliver } from "./mail";
 import { admitAttempt } from "./rate-limit";
 import { accountAlreadyExists, credentialsNotValid } from "./refusals";
 import { absorbPassword, digestOf, hashPassword, mintSecret, verifyPassword } from "./secrets";
-import { consumeToken, issueToken, TOKEN_KINDS, type AuthTokenPurpose } from "./tokens";
+import { consumeToken, issueToken, spendOutstandingTokens, TOKEN_KINDS, type AuthTokenPurpose } from "./tokens";
 
 /** The cookie a session travels in, named once (ARCH-02, R-SPINE-001). */
 export const SESSION_COOKIE = "cubit_session";
@@ -434,11 +434,19 @@ async function mailLinkFor(
   // doors owe is preserved, because it is the answer an unknown address already gets.
   const [account] = nameable(email) ? await db.select({ userId: users.userId }).from(users).where(eq(users.email, email)).limit(1) : [];
   if (account !== undefined) {
-    mail(request.origin, email, purpose, await issueToken(db, account.userId, purpose), {
-      requestId: request.requestId,
-      actor: account.userId,
-      route: `spine.auth.${door}`,
-    });
+    const under = { requestId: request.requestId, actor: account.userId, route: `spine.auth.${door}` };
+    // Delivery is the one part of this door that can fail *after* the branch has been taken, and the
+    // identical answer is what the door is for. Writing the outbox touches a filesystem — a read-only
+    // volume, a full disk, a directory another uid made — and a failure thrown from here would answer
+    // an address that has an account with a fault id while an address that has none still answers
+    // `{ sent: true }`: the enumeration the identical answer exists to prevent, read off a broken
+    // outbox instead of a clock. So it ends where `signUp` sends its own undelivered mail — the one
+    // fault seam, where the operator sees the outage (ARCH-03, B-21) — and the answer stays the same.
+    try {
+      mail(request.origin, email, purpose, await issueToken(db, account.userId, purpose), under);
+    } catch (undelivered) {
+      reportFault({ ...under, cause: undelivered });
+    }
   }
 
   await noSoonerThan(began);
@@ -500,6 +508,11 @@ export async function resetPassword(request: { token: string; password: string; 
     // Written unconditionally it would rewrite an account's verification instant on every reset.
     await tx.update(users).set({ emailVerifiedAt: new Date() }).where(and(eq(users.userId, userId), isNull(users.emailVerifiedAt)));
     await tx.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
+    // And every link the account still had outstanding, for the same reason the sessions go: an
+    // unspent magic link mints a session on demand and an older reset link sets the password again,
+    // so a reset that left them live would revoke the account's holds on itself and leave behind the
+    // means of making another (see `spendOutstandingTokens`).
+    await spendOutstandingTokens(tx, userId);
     return startSession(tx, userId, request.deviceLabel);
   });
 }

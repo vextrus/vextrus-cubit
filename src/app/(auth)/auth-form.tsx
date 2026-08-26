@@ -21,7 +21,7 @@ import { AnswerSlot, NoticeSlot } from "./answer-slot";
 import { settle, type Answer } from "./answers";
 import { FooterLines, type FooterLine } from "./footer";
 import type { AuthRoute } from "./routes";
-import { useDoneTitle } from "./title";
+import { useDoneTitle } from "./column";
 
 /** One field of a door: what it is called, what it is for, and what the browser should offer. */
 export interface AuthField {

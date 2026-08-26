@@ -7,7 +7,7 @@
 // SIGNED_OUT with its registered sign-in remedy for a missing, unknown or revoked cookie, so no
 // procedure body has to remember to check (ARCH-03, B-21).
 import { publicProcedure, router } from "../trpc";
-import { credentialsNotValid, signedOut } from "./refusals";
+import { signedOut } from "./refusals";
 import {
   consumeMagicLink,
   listSessions,
@@ -90,19 +90,6 @@ function field(input: unknown, name: string): string {
 }
 
 /**
- * An address or a password presented to *identify* somebody, as the person typed it. A blank one
- * identifies no account — it is a credential that names nobody, which is exactly what
- * CREDENTIALS_NOT_VALID is registered for (R-SPINE-062). The doors that create an account or set a
- * password read through `field` instead: the entry says the email and password match no account and
- * offers a password reset, which is false in every word of a person who is making one.
- */
-function credential(input: unknown, name: string): string {
-  const value = field(input, name);
-  if (value.trim() === "") throw credentialsNotValid();
-  return value;
-}
-
-/**
  * A door whose whole input is one value — `verifyEmail(token)`, `revokeSession(id)`. The value may
  * arrive named or bare, because both readings of a one-argument door are honest and the caller
  * should not have to guess which one this tree chose. When a caller supplies more than one of the
@@ -141,8 +128,15 @@ export const authRouter = router({
       return answer;
     }),
 
+  // Read through `field` like the creating doors, and for the reason R-SPINE-001 names the pair for:
+  // sign-up takes the address as presented, so an address it will build an account under has to be
+  // an address this door will look one up under. A blank credential judged here — before any lookup —
+  // answered CREDENTIALS_NOT_VALID for an account that exists, stranding it: unreachable by this
+  // door, and unbuildable again because a second sign-up answers ACCOUNT_ALREADY_EXISTS. Judged by
+  // the seam instead, a credential that names no account gets exactly the same registered refusal
+  // (`accountAddress`, then the password), and one that names an account is admitted.
   signIn: publicProcedure
-    .input((input: unknown) => ({ email: credential(input, "email"), password: credential(input, "password") }))
+    .input((input: unknown) => ({ email: field(input, "email"), password: field(input, "password") }))
     .mutation(async ({ ctx, input }) => {
       const answer = await signIn({ ...input, deviceLabel: ctx.deviceLabel });
       ctx.cookies.push(sessionCookie(ctx, answer.sessionToken));
