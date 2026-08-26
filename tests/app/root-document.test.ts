@@ -14,16 +14,27 @@
  * collects.
  */
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import { deriveStage } from "../../scripts/lib/lanes.mjs";
 import { portFor } from "../../scripts/lib/ports.mjs";
-import { REPO_ROOT, productModule } from "../server/support/wire";
+import { REPO_ROOT, loadStrings, productModule } from "../server/support/wire";
 import playwrightConfig from "../../playwright.config";
 
 const LAYOUT_MODULE = "src/app/layout.tsx";
-const JOURNEY_SPEC = "tests/e2e/j-000-golden-path.e2e.ts";
+const JOURNEY_DIR = "tests/e2e/";
+const JOURNEY_SPEC = `${JOURNEY_DIR}j-000-golden-path.e2e.ts`;
 const JOURNEY_ID = "J-000";
+
+/**
+ * A file Playwright reported, as this checkout names it: the report's paths are relative to its own
+ * `config.rootDir`, so that is what resolves them — never an assumption about where testDir points.
+ */
+function repoRelative(file: string, rootDir: string): string {
+  const absolute = resolve(rootDir, file).replace(/\\/g, "/");
+  const root = REPO_ROOT.replace(/\\/g, "/");
+  return absolute.startsWith(`${root}/`) ? absolute.slice(root.length + 1) : absolute;
+}
 
 /** A React element, seen through the only surface these assertions need. */
 interface ElementLike {
@@ -122,13 +133,22 @@ describe("AC-2: the Datum theme resolves on the document", () => {
     expect(resolveTheme(scripts, serverRendered, false), "under a light OS preference the server-rendered attribute stands untouched").toBe(serverRendered);
   });
 
-  test("AC-2: the root layout exports metadata with a non-empty title", async () => {
-    // AC-4's checkpoint reads `document.title` at `/`; it is non-empty only if this is.
+  test("AC-2: the root layout exports metadata whose title is the string table's app_title", async () => {
+    // The document title is a user-facing string, so R-SPINE-060 / C-SPINE-PLATFORM puts it in the
+    // typed table like every other word in the product. Neither of that clause's named enforcers
+    // reaches a `metadata` export — it is not JSX and not a key lookup the compiler can miss — so
+    // this assertion is the only instrument that holds the title to the table. AC-4's checkpoint
+    // reads `document.title` at `/`; it is non-empty only because the table entry is.
     const layout = await productModule<LayoutModule>(LAYOUT_MODULE);
     expect(layout.metadata, `${LAYOUT_MODULE} must export Next \`metadata\``).toBeTypeOf("object");
     const title = layout.metadata?.title;
     expect(title, "metadata.title must be a string — the document title the journey reads").toBeTypeOf("string");
-    expect(String(title).trim().length, "metadata.title must not be empty").toBeGreaterThan(0);
+
+    const { strings } = await loadStrings();
+    const appTitle = strings["app_title"];
+    expect(appTitle, "strings.app_title must be declared — the document title is a user-facing string and lives in the table (C-SPINE-PLATFORM)").toBeTypeOf("string");
+    expect(String(appTitle).trim().length, "strings.app_title must not be empty, or the equality below would hold vacuously").toBeGreaterThan(0);
+    expect(title, `metadata.title must be strings.app_title itself, not a literal spelled in ${LAYOUT_MODULE} — every user-facing string lives in the table (R-SPINE-060)`).toBe(appTitle);
   });
 });
 
@@ -187,8 +207,16 @@ describe("AC-4: the J-000 journey runs", () => {
 
       const journeys = collected.filter((spec) => spec.title.includes(JOURNEY_ID));
       expect(journeys.length, `at least one collected spec must carry ${JOURNEY_ID} in its title — the runner selects the journey by title, not by file name (collected: ${JSON.stringify(collected)})`).toBeGreaterThan(0);
-      for (const journey of journeys) {
-        expect(journey.file.replace(/\\/g, "/").endsWith(JOURNEY_SPEC.slice(JOURNEY_SPEC.lastIndexOf("/") + 1)), `the ${JOURNEY_ID} journey lives at ${JOURNEY_SPEC}, not at ${journey.file}`).toBe(true);
+
+      // J-000 is "extended per milestone", so the set of specs carrying its id is open: what this
+      // increment owes is that the golden-path spec is among them and that every journey lives in
+      // the journeys' home. Which further files later milestones add there is theirs to decide.
+      const rootDir = report.config?.rootDir;
+      expect(rootDir, "playwright --list must report the rootDir its spec paths are relative to").toBeTypeOf("string");
+      const homes = [...new Set(journeys.map((journey) => repoRelative(journey.file, String(rootDir))))].sort();
+      expect(homes, `${JOURNEY_SPEC} must be among the collected ${JOURNEY_ID} journeys — it is this increment's golden-path smoke`).toContain(JOURNEY_SPEC);
+      for (const home of homes) {
+        expect(home.startsWith(JOURNEY_DIR), `every ${JOURNEY_ID} journey lives under ${JOURNEY_DIR}, and this one is at ${home}`).toBe(true);
       }
     },
     120_000,
@@ -209,5 +237,6 @@ interface ListSuite {
 }
 
 interface ListReport {
+  config?: { rootDir?: string };
   suites?: ListSuite[];
 }
