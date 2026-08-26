@@ -6,7 +6,7 @@
 // A token is a bearer secret, so the row holds only its digest (`./secrets`): a reader of the table
 // cannot present anything. Spending is a single conditional UPDATE rather than a read followed by a
 // write, so two callers racing one link cannot both be admitted.
-import { and, authTokens, eq, gt, isNull, type SystemDb, type TenantTx } from "../../core/db";
+import { and, authTokens, eq, gt, inArray, isNull, type SystemDb, type TenantTx } from "../../core/db";
 import { digestOf, mintSecret } from "./secrets";
 import { tokenNotValid } from "./refusals";
 
@@ -60,6 +60,23 @@ export async function issueToken(db: Writer, userId: string, purpose: AuthTokenP
     expiresAt: new Date(Date.now() + AUTH_TOKEN_TTLS[purpose]),
   });
   return secret;
+}
+
+/**
+ * End every link of these kinds the account still has outstanding, so nobody can spend one.
+ *
+ * A revoked session and a live link are the same standing under two names: a magic link is a session
+ * for the asking and a reset link is the password for the asking, so a sweep that ended the sessions
+ * and left the links is a sweep that comes undone the moment one is spent (R-SPINE-001). Ended by
+ * consuming rather than by deleting: a spent row is what `consumeToken` already refuses, so a dead
+ * link answers TOKEN_NOT_VALID like any other — "it may have expired or already been used" is what
+ * happened — and no second idea of validity is introduced.
+ */
+export async function endOutstandingTokens(db: Writer, userId: string, purposes: readonly AuthTokenPurpose[]): Promise<void> {
+  await db
+    .update(authTokens)
+    .set({ consumedAt: new Date() })
+    .where(and(eq(authTokens.userId, userId), isNull(authTokens.consumedAt), inArray(authTokens.kind, purposes.map((purpose) => TOKEN_KINDS[purpose]))));
 }
 
 /**

@@ -59,11 +59,11 @@ const REASON = "R-SPINE-001 rate limiting: counting one server-derived identity'
 const IDENTITY_MAX_BYTES = 256;
 
 /**
- * The identity as it is counted: the same person under two spellings is one caller.
+ * The identity as it is counted: the same person under two spellings is one caller — and, just as
+ * importantly, two callers are never one key.
  *
  * A value longer than the index can hold is counted under its own digest. A digest is deterministic,
- * so one caller is still one key and the allowance the law states is still the allowance enforced;
- * it is prefixed so that it can never collide with a real address, which cannot contain a space.
+ * so one caller is still one key and the allowance the law states is still the allowance enforced.
  *
  * A value the column cannot hold at all is folded the same way and for the same reason: `identity`
  * is the address the caller wrote, and one carrying a NUL is not text postgres can store or even
@@ -71,13 +71,25 @@ const IDENTITY_MAX_BYTES = 256;
  * serialised on would fail on its own argument — the limiter counts nothing, refuses nothing, and
  * the caller is handed a fault id for an attempt that was never made (R-SPINE-007, R-SPINE-062).
  * Under its digest the attempt is counted like any other, which is what the allowance is for.
+ *
+ * Both keys say which of the two they are, because otherwise the fold is not injective. A prefix on
+ * the digest alone rests on the folded value never wearing it — and nothing bounds or shapes what a
+ * door is handed: the two mailing doors take the caller's string with no length check at all
+ * (`mailLinkFor`), so a caller could present a long value, compute the same unsecret digest
+ * themselves, and present the literal `digest of <that hex>` as a second, short identity. Two
+ * identities would then share one row-group and one lock name. Tagged on both sides the two spaces
+ * cannot meet: a presented value is only ever equal to itself.
  */
 function keyed(identity: string): string {
   const folded = identity.trim().toLowerCase();
-  return countable(folded) ? folded : `digest of ${digestOf(folded)}`;
+  return countable(folded) ? `as presented ${folded}` : `digest of ${digestOf(folded)}`;
 }
 
-/** Can this key be written to `auth_attempts.identity` and indexed there as it stands? */
+/**
+ * Can this identity be written to `auth_attempts.identity` and indexed there as it stands? Asked of
+ * the folded value rather than of the tagged key: the bound is about how much of a caller's own
+ * string is carried, and the tag is a fixed handful of bytes on top, still far below the ceiling.
+ */
 function countable(folded: string): boolean {
   return isStorableText(folded) && Buffer.byteLength(folded, "utf8") <= IDENTITY_MAX_BYTES;
 }

@@ -30,7 +30,7 @@ import { deliver } from "./mail";
 import { admitAttempt } from "./rate-limit";
 import { accountAlreadyExists, credentialsNotValid } from "./refusals";
 import { absorbPassword, digestOf, hashPassword, mintSecret, verifyPassword } from "./secrets";
-import { consumeToken, issueToken, TOKEN_KINDS, type AuthTokenPurpose } from "./tokens";
+import { consumeToken, endOutstandingTokens, issueToken, TOKEN_KINDS, type AuthTokenPurpose } from "./tokens";
 
 /** The cookie a session travels in, named once (ARCH-02, R-SPINE-001). */
 export const SESSION_COOKIE = "cubit_session";
@@ -94,44 +94,75 @@ function normalisedEmail(email: string): string {
 }
 
 /**
- * The longest an address can be and still be one: RFC 5321 §4.5.3.1.3 bounds a path at 256 octets,
- * angle brackets included, so 254 is the whole address. This is not a rule about what a person may
- * type — Design Decision I-13 keeps that judgement off the screen and this is not a second spelling
- * of it — but the definition of the thing the account is named after.
+ * Can this value ever be the address of an account? One way it cannot: it is not text postgres can
+ * hold. A NUL is refused as a *parameter*, before any column is reached (`isStorableText`), so a
+ * value carrying one names no `users` row — and it has to be settled on this side of the wire,
+ * because the driver's refusal carries no marker: a caller presenting one would be handed a fault id
+ * and the operator an outage record for a value that was never looked up.
  *
- * It has to be stated somewhere on this side of the wire, because `users.email` carries a UNIQUE
- * index and postgres refuses a btree row over 2704 bytes with SQLSTATE 54000 — an error carrying no
- * refusal marker, so a caller presenting a longer value would be handed a fault id and the operator
- * an outage record for a value the door never looked up (R-SPINE-007, R-SPINE-062, ARCH-03).
- */
-const EMAIL_MAX_OCTETS = 254;
-
-/**
- * Can this value ever be the address of an account? Two ways it cannot: it is too long to be an
- * address at all, or it is not text postgres can hold — a NUL is refused as a *parameter*, before
- * any column is reached (`isStorableText`), so a value carrying one names no `users` row and no
- * write could ever make it name one.
- *
- * Both are the same fact for a door's purposes, and both have to be settled on this side of the
- * wire: the driver's refusal for either carries no marker, so a caller presenting one would be
- * handed a fault id and the operator an outage record for a value that was never looked up.
+ * Length is deliberately not asked about here. Reading is not writing: a `SELECT … WHERE email = $1`
+ * carrying a long parameter matches nothing and costs nothing, so a door that only *looks* an
+ * address up has no reason to bound it — and a bound it does not need would be a second rule about
+ * what a person may type, which Design Decision I-13/I-14 keeps out of this tree. The one place a
+ * length is a fact rather than a judgement is the door that *writes* the address, and it states its
+ * own (`WRITABLE_EMAIL_MAX_OCTETS`).
  */
 function nameable(address: string): boolean {
-  return isStorableText(address) && Buffer.byteLength(address, "utf8") <= EMAIL_MAX_OCTETS;
+  return isStorableText(address);
 }
 
 /**
- * The address as an account's name. A value that could never be one names no account, on either
- * door: sign-in finds nothing under it and sign-up cannot write it, so both answer the code the
- * closed taxonomy registers for a credential that identifies no account.
+ * The address as an account's name on a door that *identifies* somebody. A value that could never be
+ * one names no account, so sign-in answers the code the closed taxonomy registers for a credential
+ * that identifies no account — which is true of it in every word.
  *
- * The mailing doors do not read through here. They answer `{ sent: true }` for every address whether
- * an account exists or not, so an address that could not name one already has its answer, and a
- * refusal only on the unnameable ones would tell a caller something the identical answer withholds.
+ * The creating door does not read through here: see `createdAddress`. Nor do the mailing doors —
+ * they answer `{ sent: true }` for every address whether an account exists or not, so an address
+ * that could not name one already has its answer, and a refusal only on the unnameable ones would
+ * tell a caller something the identical answer withholds.
  */
 function accountAddress(email: string): string {
   const address = normalisedEmail(email);
   if (!nameable(address)) throw credentialsNotValid();
+  return address;
+}
+
+/**
+ * The longest an address the creating door can write. `users.email` carries a UNIQUE index and
+ * postgres refuses a btree row over 2704 bytes with SQLSTATE 54000, an error carrying no refusal
+ * marker; this sits far enough below that ceiling that the index is never the thing that says no,
+ * and far enough above every address a person has (RFC 5321 bounds one at 254 octets) that no
+ * address is turned away by it.
+ */
+const WRITABLE_EMAIL_MAX_OCTETS = 2000;
+
+/**
+ * The address as the *creating* door writes it: taken as presented, and judged not at all.
+ *
+ * Design Decision I-14 rules this precisely — "the doors that create an account or set a password
+ * judge nothing about what a string says" — and rules out the obvious shortcut by name:
+ * CREDENTIALS_NOT_VALID may not stand in on `/sign-up`, because "the email and password do not match
+ * an account" is false of a person who is making one and its remedy sends them to reset a password
+ * they have not got. §2 lists this door's refusals as exactly ACCOUNT_ALREADY_EXISTS and
+ * RATE_LIMITED, and this is neither.
+ *
+ * So what a `text` column cannot represent is dropped rather than refused, exactly as
+ * `workspaceName` treats the workspace name and for the settled reason recorded there — and exactly
+ * as `signIn` reads it back, so the address that made an account is the address that signs into it.
+ * Nothing between 255 octets and the index ceiling is turned away either: a long address is still an
+ * address, and this door is not the place that says otherwise.
+ *
+ * What is left is a value so long that `users.email`'s UNIQUE index could not carry the row — no
+ * browser and no address produces one. It cannot be written, so the door must say something, and
+ * every answer available to it is wrong in some word: the closed taxonomy registers no code for "no
+ * account can be named that" and this increment's grant of four is spent (R-SPINE-062, B-06), while
+ * a plain throw is the fault card and an operator record for a value the door never judged, which
+ * db/__tests__/auth-limiter-breaker.test.ts pins shut. The least-wrong registered answer is taken
+ * under protest, and the gap is raised rather than papered over — see the handoff's objection.
+ */
+function createdAddress(email: string): string {
+  const address = storableText(normalisedEmail(email));
+  if (Buffer.byteLength(address, "utf8") > WRITABLE_EMAIL_MAX_OCTETS) throw credentialsNotValid();
   return address;
 }
 
@@ -280,7 +311,7 @@ function workspaceName(presented: string): string {
 }
 
 export async function signUp(request: SignUpRequest): Promise<SessionAnswer> {
-  const email = accountAddress(request.email);
+  const email = createdAddress(request.email);
   await admitAttempt("signUp", email);
 
   // Derived before the transaction opens: scrypt is deliberately slow, and a transaction holding a
@@ -483,10 +514,25 @@ export async function consumeMagicLink(request: { token: string; deviceLabel: st
 }
 
 /**
+ * The links a reset ends along with the sessions. Both of these hand out standing on their own — a
+ * magic link is a session for the asking, a reset link is the password for the asking — so either
+ * one left live outlasts the sweep. A verification link is not swept: it proves the address and
+ * grants nothing, and ending it would leave an account that cannot finish verifying.
+ */
+const LINKS_A_RESET_ENDS: readonly AuthTokenPurpose[] = Object.freeze(["magicLink", "passwordReset"]);
+
+/**
  * R-SPINE-001's reset: the password changes and every session the account held ends with it — the
  * point of a reset is that whoever was signed in on the strength of the old one no longer is. The
  * device this reset was done on is signed in afresh, so the person who just proved they hold the
  * address is not signed out by their own remedy.
+ *
+ * The account's outstanding mailed links end with the sessions, for the reason the sessions do. A
+ * person resets because they believe somebody else can get in, and a link issued before the reset is
+ * that somebody's way back: an older magic link answers `{ sessionToken }` after the sweep, and an
+ * older reset link sets the password again *and* revokes every session as it goes — so spending it
+ * takes the account and signs out the person whose remedy it was. Whoever held the account before
+ * the reset holds nothing after it, or the clause means nothing.
  */
 export async function resetPassword(request: { token: string; password: string; deviceLabel: string }): Promise<SessionAnswer> {
   const passwordHash = await hashPassword(request.password);
@@ -500,6 +546,8 @@ export async function resetPassword(request: { token: string; password: string; 
     // Written unconditionally it would rewrite an account's verification instant on every reset.
     await tx.update(users).set({ emailVerifiedAt: new Date() }).where(and(eq(users.userId, userId), isNull(users.emailVerifiedAt)));
     await tx.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
+    // Swept after this reset's own token was consumed, so it is not this link that is being ended.
+    await endOutstandingTokens(tx, userId, LINKS_A_RESET_ENDS);
     return startSession(tx, userId, request.deviceLabel);
   });
 }
@@ -572,9 +620,20 @@ export async function signOut(session: AuthSession): Promise<{ signedOut: true }
  * happen is that it happens quietly: the door answers `{ sent: true }` on purpose (it may not
  * disclose whether the address names an account, misconfigured or not), so the miss goes to the one
  * place an operator reads, the fault seam, naming the configuration that would cure it (ARCH-03).
+ *
+ * Recorded once per process, not once per mail. A missing origin is a standing state of the
+ * deployment rather than something that happened to a request: filed per call it would put a
+ * FaultRecord behind every sign-up on the happy path, and an outage log that fills with one repeated
+ * entry is an outage log nobody reads the next entry of. One record names the variable and the cure;
+ * the rest would say the same sentence again.
  */
+const ORIGIN_OUTAGE_KEY = Symbol.for("vextrus.cubit.server.auth.public-origin-outage");
+const originScope = globalThis as typeof globalThis & { [ORIGIN_OUTAGE_KEY]?: { recorded: boolean } };
+const originOutage: { recorded: boolean } = (originScope[ORIGIN_OUTAGE_KEY] ??= { recorded: false });
+
 function mail(origin: string, to: string, purpose: AuthTokenPurpose, token: string, under: { requestId: string; actor: string; route: string }): void {
-  if (origin === "") {
+  if (origin === "" && !originOutage.recorded) {
+    originOutage.recorded = true;
     reportFault({
       ...under,
       cause: new Error(

@@ -6,7 +6,7 @@
 // The table definitions sit here rather than in db/schema/*.ts because the ORM's table builders are
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
-import { and, asc, eq, gt, isNull, lt, sql as statement } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lt, sql as statement } from "drizzle-orm";
 import { foreignKey, index, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -16,7 +16,7 @@ import { attributableReason } from "./db/reason";
 // handed out from here rather than imported at a call site: SEAM-TENANT makes this file the one
 // lawful home of the driver, and a module that reached for them itself would be holding half a
 // handle (ARCH-02).
-export { and, asc, eq, gt, isNull, lt };
+export { and, asc, eq, gt, inArray, isNull, lt };
 
 export { recordSystemReasonsWith, type SystemReasonRecord, type SystemReasonRecorder } from "./db/reason";
 

@@ -51,36 +51,46 @@ function rowsOf(value: unknown): SessionRow[] {
 export function SessionList() {
   const router = useRouter();
   const [rows, setRows] = useState<SessionRow[] | null>(null);
-  const [answer, setAnswer] = useState<Answer | null>(null);
+  const [loadAnswer, setLoadAnswer] = useState<Answer | null>(null);
+  const [attemptAnswer, setAttemptAnswer] = useState<Answer | null>(null);
   const [ending, setEnding] = useState<string | null>(null);
 
   useEffect(() => {
     void settle(query("listSessions")).then((settled) => {
       if (settled.ok) setRows(rowsOf(settled.value));
-      else setAnswer(settled.answer);
+      else setLoadAnswer(settled.answer);
     });
   }, []);
 
   const revoke = (id: string): void => {
     setEnding(id);
+    setAttemptAnswer(null);
     void settle(mutate("revokeSession", { id })).then((settled) => {
       setEnding(null);
       if (settled.ok) setRows((live) => (live ?? []).filter((row) => row.id !== id));
-      else setAnswer(settled.answer);
+      else setAttemptAnswer(settled.answer);
     });
   };
 
   const signOut = (): void => {
     setEnding(null);
+    setAttemptAnswer(null);
     void settle(mutate("signOut", {})).then((settled) => {
       if (settled.ok) router.push(AUTH_ROUTES.signIn);
-      else setAnswer(settled.answer);
+      else setAttemptAnswer(settled.answer);
     });
   };
 
-  // A dead or missing session answers SIGNED_OUT, and it stands in place of the list: there is no
-  // list to show somebody who is not signed in (Decision § 3).
-  if (answer !== null) return <AnswerSlot answer={answer} route={AUTH_ROUTES.sessions} />;
+  // The load leg's own answer stands in place of the list, because there is no list: a dead or
+  // missing session answers SIGNED_OUT and a fault means the rows never arrived (Decision § 3, and
+  // § 4's matrix, which rules that leg and only that leg).
+  //
+  // A revoke or a sign-out that comes back refused or faulted is a *settled attempt*, not a failed
+  // load, and § 1's rule for one is that the surface stays and re-enables. Standing an attempt's
+  // answer in place of the list would replace every row with a single card — no other revoke
+  // control, no sign-out, and nothing but a reload to get back — for one row's revoke that did not
+  // land. So it renders in the slot below the list, which is still there to try again from.
+  if (loadAnswer !== null) return <AnswerSlot answer={loadAnswer} route={AUTH_ROUTES.sessions} />;
 
   if (rows === null) {
     return (
@@ -123,6 +133,7 @@ export function SessionList() {
           </li>
         ))}
       </ul>
+      <AnswerSlot answer={attemptAnswer} route={AUTH_ROUTES.sessions} />
       <Button className="cx-auth-signout" data-testid="s-auth-signout" variant="secondary" onClick={signOut}>
         {strings.auth_sessions_sign_out}
       </Button>

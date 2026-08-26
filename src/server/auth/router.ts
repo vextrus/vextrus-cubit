@@ -7,7 +7,7 @@
 // SIGNED_OUT with its registered sign-in remedy for a missing, unknown or revoked cookie, so no
 // procedure body has to remember to check (ARCH-03, B-21).
 import { publicProcedure, router } from "../trpc";
-import { credentialsNotValid, signedOut } from "./refusals";
+import { signedOut } from "./refusals";
 import {
   consumeMagicLink,
   listSessions,
@@ -80,25 +80,13 @@ function bagOf(input: unknown): Record<string, unknown> {
  * screen inventing a rule that would), and the closed taxonomy registers no code for a detail left
  * blank (R-SPINE-062, B-06), so the doors that *create* an account or *set* a password take the
  * value as presented: no password policy exists to break, and R-SPINE-002 names the personal
- * workspace with what sign-up was given. Only the doors that *identify* somebody judge, through
- * `credential` below, where the taxonomy does register the answer.
+ * workspace with what sign-up was given. The doors that *identify* somebody read through here too,
+ * and judge in the seam instead — a value that names no account is refused where that is true, not
+ * where it can only be guessed at.
  */
 function field(input: unknown, name: string): string {
   const value = bagOf(input)[name];
   if (typeof value !== "string") throw new Error(`spine.auth: "${name}" is required and must be a string`);
-  return value;
-}
-
-/**
- * An address or a password presented to *identify* somebody, as the person typed it. A blank one
- * identifies no account — it is a credential that names nobody, which is exactly what
- * CREDENTIALS_NOT_VALID is registered for (R-SPINE-062). The doors that create an account or set a
- * password read through `field` instead: the entry says the email and password match no account and
- * offers a password reset, which is false in every word of a person who is making one.
- */
-function credential(input: unknown, name: string): string {
-  const value = field(input, name);
-  if (value.trim() === "") throw credentialsNotValid();
   return value;
 }
 
@@ -142,7 +130,16 @@ export const authRouter = router({
     }),
 
   signIn: publicProcedure
-    .input((input: unknown) => ({ email: credential(input, "email"), password: credential(input, "password") }))
+    // Read through `field`, exactly as sign-up reads them. A door that judged a credential here
+    // would be judging one half of a pair: `field` is what sign-up writes a password with, so a
+    // value this reader refused would be a value that *made* an account and can never sign into it
+    // — the person is told "the email and password do not match an account" about the account they
+    // just created, and a second sign-up answers ACCOUNT_ALREADY_EXISTS, so the password door is
+    // shut on them for good. The password sign-up accepts is the password sign-in admits
+    // (R-SPINE-001). A blank or whitespace value still answers CREDENTIALS_NOT_VALID — from the
+    // seam, where it is true: it matches no account's stored hash, and an address with no account
+    // is the refusal `signIn` already registers.
+    .input((input: unknown) => ({ email: field(input, "email"), password: field(input, "password") }))
     .mutation(async ({ ctx, input }) => {
       const answer = await signIn({ ...input, deviceLabel: ctx.deviceLabel });
       ctx.cookies.push(sessionCookie(ctx, answer.sessionToken));
