@@ -1,15 +1,29 @@
 // The per-request context every procedure is answered under. It is minted once per request so one
 // user action carries one traceable id across the tier, which is what makes a fault record
-// attributable at all (ARCH-03, B-21).
+// attributable at all (ARCH-03, B-21) — and, since R-SPINE-001, so that one request resolves the
+// presented `cubit_session` exactly once, whatever it goes on to do with it.
 import { randomUUID } from "node:crypto";
+import { resolveSession, SESSION_COOKIE, deviceLabelFrom, type AuthSession } from "./auth/session";
 
 export interface AppContext {
   requestId: string;
-  actor: "anonymous";
+  /** Who the request is answered as: the account's id, or `anonymous` when no session was presented. */
+  actor: string;
+  /** The address this request arrived on — what a mailed link points back at (R-SPINE-001). */
+  origin: string;
+  /** What to call the device in the session list, derived from the request rather than asked for. */
+  deviceLabel: string;
+  /** The live session the cookie resolved to, or null. A refusal for null is the procedure's to make. */
+  session: AuthSession | null;
+  /** `Set-Cookie` values the answer must carry: the transport drains this, so no door writes a header. */
+  cookies: string[];
 }
 
 /** The header a gateway stamps so a request keeps its id across hops. */
 const REQUEST_ID_HEADER = "x-request-id";
+
+/** What a request with no session is answered as — the truth, never an invented identity (B-21). */
+const ANONYMOUS = "anonymous";
 
 /**
  * The declared contract is `requestId = x-request-id header ?? crypto.randomUUID()`: a supplied id
@@ -28,13 +42,48 @@ function suppliedRequestId(req: Request): string | null {
 }
 
 /**
- * Mint the context. The tier has no session yet, so every caller is anonymous: saying so plainly
- * beats inventing an identity the tier cannot prove, and B-21 wants the actor a fault records to
- * be the truth.
+ * The session token this request presents, or null. Read from the raw Cookie header rather than from
+ * an adapter's jar, because the seam is handed a plain `Request` by every transport that serves it
+ * — the acceptance suites included. A header that carries no `cubit_session` at all resolves to null
+ * without touching the database: a request that presents nothing is not a lookup.
  */
-export function createContext({ req }: { req: Request }): AppContext {
+function presentedToken(req: Request): string | null {
+  const jar = req.headers.get("cookie");
+  if (jar === null) return null;
+  for (const pair of jar.split(";")) {
+    const at = pair.indexOf("=");
+    if (at === -1) continue;
+    if (pair.slice(0, at).trim() !== SESSION_COOKIE) continue;
+    const value = pair.slice(at + 1).trim();
+    return value === "" ? null : value;
+  }
+  return null;
+}
+
+/**
+ * The address the request arrived on. A transport that hands the seam something without a readable
+ * url leaves the origin empty, and a link built on it is root-relative — still a link inside the
+ * app, never a throw on a request that was otherwise answerable.
+ */
+function originOf(req: Request): string {
+  const url = typeof req.url === "string" ? req.url : "";
+  return URL.parse(url)?.origin ?? "";
+}
+
+/**
+ * Mint the context. The actor is the account the presented session resolved to and nothing else: a
+ * cookie that names no live session is anonymous, exactly like a request that presented none, so a
+ * revoked device cannot be recorded as the person it used to belong to.
+ */
+export async function createContext({ req }: { req: Request }): Promise<AppContext> {
+  const token = presentedToken(req);
+  const session = token === null ? null : await resolveSession(token);
   return {
     requestId: suppliedRequestId(req) ?? randomUUID(),
-    actor: "anonymous",
+    actor: session?.userId ?? ANONYMOUS,
+    origin: originOf(req),
+    deviceLabel: deviceLabelFrom(req.headers.get("user-agent")),
+    session,
+    cookies: [],
   };
 }
