@@ -15,6 +15,8 @@ export interface AppContext {
   deviceLabel: string;
   /** The live session the cookie resolved to, or null. A refusal for null is the procedure's to make. */
   session: AuthSession | null;
+  /** Whether a cookie set on this answer must carry `Secure` (`deploymentIsSecure`). */
+  secureCookies: boolean;
   /** `Set-Cookie` values the answer must carry: the transport drains this, so no door writes a header. */
   cookies: string[];
 }
@@ -82,17 +84,36 @@ function configuredOrigin(): string | null {
 }
 
 /**
- * Whether the deployment has stated that it is reached over TLS — the one thing in reach that can
- * answer "is the session cookie safe to mark `Secure`?" (R-SPINE-001).
+ * Whether a session cookie set on this answer must carry `Secure` (R-SPINE-001).
  *
- * Read from the origin the deployment configured and never from the request. The request's scheme
- * and `Host` are the caller's to write (see `originOf`), and a caller who could turn the flag *off*
- * would have stripped the protection the flag exists to give. Absent a configured origin the answer
- * is no: what is left is the loopback http the journeys and a developer's machine serve on, where a
- * `Secure` cookie is a cookie the browser refuses to keep.
+ * The rule is stated so that forgetting to configure anything is the *safe* answer, because a
+ * session token is the whole session: a deployment behind TLS whose operator never set
+ * `CUBIT_PUBLIC_ORIGIN` would otherwise hand out a thirty-day token an attacker on the network
+ * strips to http and captures, and it would do it silently — nothing about the deployment says it
+ * is missing a variable. So absence is not permission. The flag is dropped only where a `Secure`
+ * cookie is a cookie the browser will not keep at all, and the two cases where that is true are the
+ * only two exemptions:
+ *
+ *   - the deployment configured its own origin and said it is plain http — a deliberate statement,
+ *     made by the one party entitled to make it;
+ *   - nothing is configured and the request arrived on a loopback host, which is a developer's
+ *     machine or the journeys' own server (`LOOPBACK_HOSTS`) and can be nothing else.
+ *
+ * Everything else — an unconfigured deployment answering on a real hostname — is treated as TLS.
+ * The request is read only to recognise loopback, never to grant security: a caller who writes a
+ * `Host` cannot turn the flag on, and the only thing writing one can turn it off for is a request
+ * claiming to be a request to the machine it is already running on.
  */
-export function deploymentIsSecure(): boolean {
-  return configuredOrigin()?.startsWith("https:") ?? false;
+export function deploymentIsSecure(req: Request): boolean {
+  const configured = configuredOrigin();
+  if (configured !== null) return configured.startsWith("https:");
+  return !isLoopbackRequest(req);
+}
+
+/** Did this request arrive on a loopback name — the development and journey servers, and nothing else? */
+function isLoopbackRequest(req: Request): boolean {
+  const url = URL.parse(typeof req.url === "string" ? req.url : "");
+  return url !== null && LOOPBACK_HOSTS.has(url.hostname);
 }
 
 /**
@@ -108,9 +129,8 @@ function originOf(req: Request): string {
   const configured = configuredOrigin();
   if (configured !== null) return configured;
 
-  const url = URL.parse(typeof req.url === "string" ? req.url : "");
-  if (url === null) return "";
-  return LOOPBACK_HOSTS.has(url.hostname) ? url.origin : "";
+  if (!isLoopbackRequest(req)) return "";
+  return URL.parse(typeof req.url === "string" ? req.url : "")?.origin ?? "";
 }
 
 /**
@@ -127,6 +147,7 @@ export async function createContext({ req }: { req: Request }): Promise<AppConte
     origin: originOf(req),
     deviceLabel: deviceLabelFrom(req.headers.get("user-agent")),
     session,
+    secureCookies: deploymentIsSecure(req),
     cookies: [],
   };
 }

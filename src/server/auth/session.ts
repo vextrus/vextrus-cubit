@@ -13,6 +13,7 @@ import {
   eq,
   gt,
   isNull,
+  isStorableText,
   isUuid,
   lt,
   memberships,
@@ -98,17 +99,31 @@ function normalisedEmail(email: string): string {
 const EMAIL_MAX_OCTETS = 254;
 
 /**
- * The address as an account's name. A value too long to be an address names no account and can never
- * become one, on either door: sign-in finds nothing under it and sign-up cannot write it, so both
- * answer the code the closed taxonomy registers for a credential that identifies no account.
+ * Can this value ever be the address of an account? Two ways it cannot: it is too long to be an
+ * address at all, or it is not text postgres can hold — a NUL is refused as a *parameter*, before
+ * any column is reached (`isStorableText`), so a value carrying one names no `users` row and no
+ * write could ever make it name one.
+ *
+ * Both are the same fact for a door's purposes, and both have to be settled on this side of the
+ * wire: the driver's refusal for either carries no marker, so a caller presenting one would be
+ * handed a fault id and the operator an outage record for a value that was never looked up.
+ */
+function nameable(address: string): boolean {
+  return isStorableText(address) && Buffer.byteLength(address, "utf8") <= EMAIL_MAX_OCTETS;
+}
+
+/**
+ * The address as an account's name. A value that could never be one names no account, on either
+ * door: sign-in finds nothing under it and sign-up cannot write it, so both answer the code the
+ * closed taxonomy registers for a credential that identifies no account.
  *
  * The mailing doors do not read through here. They answer `{ sent: true }` for every address whether
  * an account exists or not, so an address that could not name one already has its answer, and a
- * refusal only on the over-long ones would tell a caller something the identical answer withholds.
+ * refusal only on the unnameable ones would tell a caller something the identical answer withholds.
  */
 function accountAddress(email: string): string {
   const address = normalisedEmail(email);
-  if (Buffer.byteLength(address, "utf8") > EMAIL_MAX_OCTETS) throw credentialsNotValid();
+  if (!nameable(address)) throw credentialsNotValid();
   return address;
 }
 
@@ -366,7 +381,12 @@ async function mailLinkFor(purpose: "magicLink" | "passwordReset", door: "reques
   const began = Date.now();
 
   const db = runAsSystem(`R-SPINE-001 ${TOKEN_REASONS[purpose]}: issuing a single-use link for the address a caller named`);
-  const [account] = await db.select({ userId: users.userId }).from(users).where(eq(users.email, email)).limit(1);
+  // An address that could never name an account is not asked about: the lookup for one carrying a
+  // NUL is refused by the driver on the parameter itself, and that refusal carries no marker, so the
+  // caller would be handed a fault id where every other unknown address gets `{ sent: true }`. Not
+  // looking is the same answer arrived at without the round trip — and the identical answer these
+  // doors owe is preserved, because it is the answer an unknown address already gets.
+  const [account] = nameable(email) ? await db.select({ userId: users.userId }).from(users).where(eq(users.email, email)).limit(1) : [];
   if (account !== undefined) mail(request.origin, email, purpose, await issueToken(db, account.userId, purpose));
 
   await noSoonerThan(began);

@@ -10,7 +10,7 @@
 // The count is kept in the database rather than in the process. An allowance the law states is the
 // product's allowance: a count one process holds is multiplied by however many instances serve the
 // same address, and given back in full by every restart.
-import { and, asc, authAttempts, eq, gt, holdStateLock, lt, runAsSystem } from "../../core/db";
+import { and, asc, authAttempts, eq, gt, holdStateLock, isStorableText, lt, runAsSystem } from "../../core/db";
 import { rateLimited } from "./refusals";
 import { digestOf } from "./secrets";
 
@@ -64,10 +64,22 @@ const IDENTITY_MAX_BYTES = 256;
  * A value longer than the index can hold is counted under its own digest. A digest is deterministic,
  * so one caller is still one key and the allowance the law states is still the allowance enforced;
  * it is prefixed so that it can never collide with a real address, which cannot contain a space.
+ *
+ * A value the column cannot hold at all is folded the same way and for the same reason: `identity`
+ * is the address the caller wrote, and one carrying a NUL is not text postgres can store or even
+ * receive as a parameter (`isStorableText`). Left as it is, the advisory lock this count is
+ * serialised on would fail on its own argument — the limiter counts nothing, refuses nothing, and
+ * the caller is handed a fault id for an attempt that was never made (R-SPINE-007, R-SPINE-062).
+ * Under its digest the attempt is counted like any other, which is what the allowance is for.
  */
 function keyed(identity: string): string {
   const folded = identity.trim().toLowerCase();
-  return Buffer.byteLength(folded, "utf8") <= IDENTITY_MAX_BYTES ? folded : `digest of ${digestOf(folded)}`;
+  return countable(folded) ? folded : `digest of ${digestOf(folded)}`;
+}
+
+/** Can this key be written to `auth_attempts.identity` and indexed there as it stands? */
+function countable(folded: string): boolean {
+  return isStorableText(folded) && Buffer.byteLength(folded, "utf8") <= IDENTITY_MAX_BYTES;
 }
 
 /** The longest window any door is limited over — older than that, a row can count towards nothing. */

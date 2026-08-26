@@ -6,7 +6,6 @@
 // A door that needs a session states so once, through `signedInProcedure`: the middleware answers
 // SIGNED_OUT with its registered sign-in remedy for a missing, unknown or revoked cookie, so no
 // procedure body has to remember to check (ARCH-03, B-21).
-import { deploymentIsSecure } from "../context";
 import { publicProcedure, router } from "../trpc";
 import { credentialsNotValid, signedOut } from "./refusals";
 import {
@@ -36,21 +35,18 @@ const COOKIE_MAX_AGE_SECONDS = Math.floor(SESSION_LIFETIME_MS / 1000);
  * The attributes every `cubit_session` cookie carries. `HttpOnly` keeps the token out of scripts and
  * `SameSite=Lax` out of cross-site posts.
  *
- * `Secure` is set exactly when the deployment has said it is reached over TLS (`deploymentIsSecure`,
- * which reads the configured `CUBIT_PUBLIC_ORIGIN` and never the caller's own `Host`). A deployment
- * behind TLS that handed out a cookie without the flag would hand out a token an attacker on the
- * network can strip to http and capture — the whole session, for the price of one plain request.
- * Unconditionally set, the flag would instead make the cookie unusable over the loopback http the
- * journeys and a developer's machine serve on, where no origin is configured; so the deployment's
- * own statement of its address decides, and it is the one statement no caller can write.
+ * `Secure` is carried unless the request was answered somewhere a `Secure` cookie could not be kept
+ * — the context decides that once per request (`deploymentIsSecure`), and it decides it so that a
+ * deployment which configured nothing gets the flag rather than losing it. The flag is dropped only
+ * for loopback http and for a deployment that configured a plain-http origin of its own.
  */
-function cookieAttributes(): string {
-  return `Path=/; HttpOnly; SameSite=Lax${deploymentIsSecure() ? "; Secure" : ""}`;
+function cookieAttributes(secure: boolean): string {
+  return `Path=/; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`;
 }
 
 /** The cookie a session travels home in. */
-function sessionCookie(sessionToken: string): string {
-  return `${SESSION_COOKIE}=${sessionToken}; ${cookieAttributes()}; Max-Age=${COOKIE_MAX_AGE_SECONDS}`;
+function sessionCookie(ctx: { secureCookies: boolean }, sessionToken: string): string {
+  return `${SESSION_COOKIE}=${sessionToken}; ${cookieAttributes(ctx.secureCookies)}; Max-Age=${COOKIE_MAX_AGE_SECONDS}`;
 }
 
 /**
@@ -58,8 +54,8 @@ function sessionCookie(sessionToken: string): string {
  * The attributes are the ones it was set with — a browser matches an expiry against them, so a
  * clearing cookie that dropped `Secure` would leave the original sitting in the jar.
  */
-function clearedCookie(): string {
-  return `${SESSION_COOKIE}=; ${cookieAttributes()}; Max-Age=0`;
+function clearedCookie(ctx: { secureCookies: boolean }): string {
+  return `${SESSION_COOKIE}=; ${cookieAttributes(ctx.secureCookies)}; Max-Age=0`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -141,7 +137,7 @@ export const authRouter = router({
     .input((input: unknown) => ({ email: field(input, "email"), password: field(input, "password"), tenantName: field(input, "tenantName") }))
     .mutation(async ({ ctx, input }) => {
       const answer = await signUp({ ...input, deviceLabel: ctx.deviceLabel, origin: ctx.origin, requestId: ctx.requestId });
-      ctx.cookies.push(sessionCookie(answer.sessionToken));
+      ctx.cookies.push(sessionCookie(ctx, answer.sessionToken));
       return answer;
     }),
 
@@ -149,13 +145,13 @@ export const authRouter = router({
     .input((input: unknown) => ({ email: credential(input, "email"), password: credential(input, "password") }))
     .mutation(async ({ ctx, input }) => {
       const answer = await signIn({ ...input, deviceLabel: ctx.deviceLabel });
-      ctx.cookies.push(sessionCookie(answer.sessionToken));
+      ctx.cookies.push(sessionCookie(ctx, answer.sessionToken));
       return answer;
     }),
 
   signOut: signedInProcedure.mutation(async ({ ctx }) => {
     const answer = await signOut(ctx.session);
-    ctx.cookies.push(clearedCookie());
+    ctx.cookies.push(clearedCookie(ctx));
     return answer;
   }),
 
@@ -169,7 +165,7 @@ export const authRouter = router({
     .input((input: unknown) => ({ token: only(input, ["token"]) }))
     .mutation(async ({ ctx, input }) => {
       const answer = await consumeMagicLink({ ...input, deviceLabel: ctx.deviceLabel });
-      ctx.cookies.push(sessionCookie(answer.sessionToken));
+      ctx.cookies.push(sessionCookie(ctx, answer.sessionToken));
       return answer;
     }),
 
@@ -181,7 +177,7 @@ export const authRouter = router({
     .input((input: unknown) => ({ token: field(input, "token"), password: field(input, "password") }))
     .mutation(async ({ ctx, input }) => {
       const answer = await resetPassword({ ...input, deviceLabel: ctx.deviceLabel });
-      ctx.cookies.push(sessionCookie(answer.sessionToken));
+      ctx.cookies.push(sessionCookie(ctx, answer.sessionToken));
       return answer;
     }),
 

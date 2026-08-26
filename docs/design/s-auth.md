@@ -107,9 +107,12 @@ Fields: **Email** (`type="email"` `autocomplete="email"`, testid `s-auth-email`)
 `s-auth-tenant-name`) with hint line under the label, `var(--text-12)`
 `var(--graphite-600)`: **Your company or team — you can rename it later in settings.**
 (R-UI-033: sign-up names the tenant; rename lives in settings.) Submit **Create account**
-(`s-auth-submit`). Success → the heading becomes **Check your email** over the sent notice: **Check your
-email — we sent you a verification link.** (a heading names what the screen is showing,
-and the form it named is gone) Refusals here: ACCOUNT_ALREADY_EXISTS, RATE_LIMITED. Footer:
+(`s-auth-submit`). Success → the heading becomes **Check your email** over the sent notice: **We sent a
+verification link to {email}.** (a heading names what the screen is showing, and the form it
+named is gone; the notice then says only what the heading has not, and names the address the
+mail went to — repeating "Check your email" two lines under itself is dead weight, and a
+person who mistyped can only catch it if the screen shows what they typed. `{email}` is the
+submitted field, filled by the string seam's `fill`.) Refusals here: ACCOUNT_ALREADY_EXISTS, RATE_LIMITED. Footer:
 **Already have an account?** **Sign in** → `/sign-in`.
 
 ### /sign-in — title **Sign in to Vextrus**
@@ -131,8 +134,7 @@ needs the verification link from your email — open the link to continue.**
 
 ### /magic-link — title **Sign in with a magic link**
 Without `?token=`: field **Email** (`autocomplete="email"`) · submit **Email me a link**.
-Success → heading **Check your email** over notice **Check your email — your sign-in
-link is on its way.** Refusal:
+Success → heading **Check your email** over notice **Your sign-in link is on its way.** Refusal:
 RATE_LIMITED (requesting a link for an unknown email still answers the sent notice — the
 outbox stays silent, the screen never confirms which emails exist). With `?token=`: the
 /verify pattern — Skeleton while `consumeMagicLink(token)` runs, success navigates to `/`,
@@ -140,7 +142,7 @@ an invalid token → TOKEN_NOT_VALID. Footer: **Use a password instead** → `/s
 
 ### /reset — title **Reset your password**
 Without `?token=`: field **Email** · submit **Email me a reset link** · success heading
-**Check your email** over notice **Check your email — a reset link is on its way.** (same non-disclosure as magic-link).
+**Check your email** over notice **A reset link is on its way.** (same non-disclosure as magic-link).
 With `?token=`: field **New password** (`type="password"` `autocomplete="new-password"`,
 testid `s-auth-password`) · submit **Set new password** · success heading **Your password is set** over
 notice **Your password is set and your other devices were signed out.** with footer link **Continue** → `/` —
@@ -188,7 +190,9 @@ the resolving place. On `/sessions`, a dead or missing session answers SIGNED_OU
 registered banner entry renders in the refusal wrapper **in place of the list**, full
 region width, evidence `{ href: "/sign-in", label: "Go to sign-in" }`.
 
-Fault strings (`auth.ts`): `auth_fault_title` **Something went wrong on our side** ·
+Fault strings (`auth.ts`): `auth_fault_title` **Something went wrong on our side** — the
+key is an alias of `spine.error_title`, not a second spelling of it, so "the root-boundary
+voice, kept" is kept by construction (B-17) ·
 `auth_fault_body` **The fault has been recorded for the operators — try again.** ·
 `auth_fault_unreachable_body` **We could not reach the server — check your connection and
 try again.** (I-12) · `auth_fault_id_label` **Fault id**. The root-boundary voice, kept.

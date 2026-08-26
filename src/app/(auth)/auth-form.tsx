@@ -16,7 +16,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button, Input } from "../../ui/primitives/core";
-import { strings, type StringKey } from "../../ui/strings";
+import { fill, strings, type StringKey } from "../../ui/strings";
 import { AnswerSlot, NoticeSlot } from "./answer-slot";
 import { settle, type Answer } from "./answers";
 import { FooterLines, type FooterLine } from "./footer";
@@ -40,6 +40,10 @@ export interface AuthField {
  * has signed the person in sends them where they were going. A door that finishes on the screen also
  * names what the screen has become: the notice is the body of a different state, and the heading
  * above it says so rather than going on naming the form that is no longer there.
+ *
+ * The notice reads through the string seam's `fill`, with the submitted fields as its slots: a
+ * notice that names the address the mail went to (`{email}`) is a notice a person who mistyped can
+ * catch, and a notice whose door takes no such field is left exactly as it is written.
  */
 export type AuthSuccess = { notice: StringKey; title: StringKey; then?: FooterLine } | { goTo: string };
 
@@ -57,6 +61,8 @@ export function AuthForm({ route, fields, submit, perform, success }: AuthFormPr
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [done, setDone] = useState(false);
+  // What the finished door was given, kept so the notice it leaves can name it back.
+  const [submitted, setSubmitted] = useState<Readonly<Record<string, string>>>({});
 
   const onSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
@@ -74,6 +80,7 @@ export function AuthForm({ route, fields, submit, perform, success }: AuthFormPr
       }
       if ("goTo" in success) router.push(success.goTo);
       else {
+        setSubmitted(values);
         setDone(true);
         setDoneTitle(success.title);
       }
@@ -83,7 +90,7 @@ export function AuthForm({ route, fields, submit, perform, success }: AuthFormPr
   if (done && "notice" in success) {
     return (
       <>
-        <NoticeSlot message={strings[success.notice]} />
+        <NoticeSlot message={fill(strings[success.notice], submitted)} />
         <FooterLines lines={success.then === undefined ? [] : [success.then]} />
       </>
     );

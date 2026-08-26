@@ -369,6 +369,21 @@ export function isUuid(value: string): boolean {
   return UUID.test(value);
 }
 
+/** The one code point no `text` column can carry, written as an escape so this file stays readable. */
+const UNSTORABLE_BYTE = "\u0000";
+
+/**
+ * Can a `text` column hold this value at all? Postgres carries text as a NUL-terminated string, so
+ * U+0000 is not a character it can store at any length — the driver refuses the *parameter*, before
+ * any column is reached, and the refusal it raises carries no refusal marker. Handed out from the
+ * seam for the same reason `isUuid` is (ARCH-02): a door given a caller-written string it is about
+ * to compare or store asks here first, or the driver's refusal reaches the caller as a fault id for
+ * a value the door never judged (R-SPINE-007, R-SPINE-062).
+ */
+export function isStorableText(value: string): boolean {
+  return !value.includes(UNSTORABLE_BYTE);
+}
+
 /**
  * The tenant a handle may be opened for: one the policies can read. Refused as the handle is taken,
  * like `runAsSystem`'s reason — a caller who names no lawful tenant gets no handle, rather than a

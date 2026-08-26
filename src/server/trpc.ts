@@ -3,6 +3,7 @@
 // fault, an expired session and a refusal — so the shape a client reads is stamped with which of
 // them it is, and a fault is recorded through the core seam before anything user-facing is shaped.
 import { TRPCError, initTRPC } from "@trpc/server";
+import { REFUSALS, type RefusalCode } from "../core/errors";
 import { reportFault } from "../core/faults/report";
 import { refusalCodeOf } from "../core/faults/refusal-marker";
 import type { AppContext } from "./context";
@@ -177,6 +178,44 @@ function underlyingCause(error: unknown): unknown {
   return error;
 }
 
+/**
+ * The status a fault travels with: the machine broke, which is what 5xx is for.
+ */
+const FAULT_STATUS = 500;
+
+/**
+ * The status a refusal travels with. ARCH-03's distinction is not only a thing screens draw — it is
+ * a thing the wire says. A refusal is the answer a well-formed request earned, so it can never be a
+ * 5xx: on 500 a registered refusal is indistinguishable from the server having failed, and every
+ * reader that is not our own screen — a browser's console, a proxy, an uptime monitor, an operator
+ * reading access logs — records a live door as an outage.
+ *
+ * 400 is the floor they share: understood, and not carried out. The codes HTTP itself has a name for
+ * are given that name, so those readers agree with the taxonomy rather than merely not contradicting
+ * it. A code with no HTTP name keeps the floor, which is why this table is partial by design — the
+ * taxonomy is closed and this is a translation of it, not a second copy (B-17). It is keyed by
+ * `RefusalCode`, so a code renamed or retired in the register is a compile error here.
+ */
+const REFUSAL_STATUS_FLOOR = 400;
+
+const REFUSAL_STATUS: Readonly<Partial<Record<RefusalCode, number>>> = Object.freeze({
+  SIGNED_OUT: 401,
+  PERMISSION_NOT_HELD: 403,
+  ACCOUNT_ALREADY_EXISTS: 409,
+  RATE_LIMITED: 429,
+});
+
+/**
+ * What the transport puts on the response for this answer — read by tRPC's own status resolver.
+ * The code is checked against the register rather than trusted: only a registered refusal can claim
+ * a refusal's status, and anything else travels as what it is.
+ */
+function httpStatusOf(answer: ErrorAnswer): number {
+  if (answer.kind === "fault") return FAULT_STATUS;
+  if (!Object.hasOwn(REFUSALS, answer.refusalCode)) return FAULT_STATUS;
+  return REFUSAL_STATUS[answer.refusalCode as RefusalCode] ?? REFUSAL_STATUS_FLOOR;
+}
+
 const t = initTRPC.context<AppContext>().create({
   errorFormatter({ shape, error, ctx, path }) {
     const answer = answerFor({ error, path, ctx });
@@ -185,7 +224,10 @@ const t = initTRPC.context<AppContext>().create({
       // The user-facing answer carries the id or the code and nothing the tier knows internally:
       // a fault's cause belongs on the fault sink, never on the wire (ARCH-03).
       message: answer.kind === "fault" ? answer.faultId : answer.refusalCode,
-      data: answer,
+      // `data` is replaced whole, so the status @trpc/server would otherwise have read off the
+      // TRPCError's code is restated here — a refusal thrown as a plain marked Error arrives wrapped
+      // as INTERNAL_SERVER_ERROR, and taking that at its word is the very confusion above.
+      data: { ...answer, httpStatus: httpStatusOf(answer) },
     };
   },
 });
