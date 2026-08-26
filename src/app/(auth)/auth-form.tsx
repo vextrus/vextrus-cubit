@@ -30,7 +30,6 @@ export interface AuthField {
   label: StringKey;
   autoComplete: string;
   type?: "text" | "email" | "password";
-  placeholder?: StringKey;
   hint?: StringKey;
 }
 
@@ -112,7 +111,6 @@ export function AuthForm({ route, fields, submit, perform, success }: AuthFormPr
             data-testid={field.testId}
             type={field.type ?? "text"}
             autoComplete={field.autoComplete}
-            placeholder={field.placeholder === undefined ? undefined : strings[field.placeholder]}
             aria-describedby={field.hint === undefined ? undefined : `${field.testId}-hint`}
             required
             disabled={busy}

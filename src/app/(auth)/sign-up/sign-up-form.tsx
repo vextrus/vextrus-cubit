@@ -13,7 +13,6 @@ const FIELDS: readonly AuthField[] = [
     testId: "s-auth-tenant-name",
     label: "auth_workspace_label",
     autoComplete: "organization",
-    placeholder: "auth_workspace_placeholder",
     hint: "auth_workspace_hint",
   },
 ];

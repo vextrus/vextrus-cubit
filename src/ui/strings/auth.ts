@@ -9,7 +9,6 @@ export const auth = {
   auth_password_label: "Password",
   auth_new_password_label: "New password",
   auth_workspace_label: "Workspace name",
-  auth_workspace_placeholder: "e.g. Meridian Builders",
   auth_workspace_hint: "Your company or team — you can rename it later in settings.",
 
   auth_sign_up_title: "Create your account",

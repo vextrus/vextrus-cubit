@@ -159,7 +159,7 @@ export const authRouter = router({
 
   requestMagicLink: publicProcedure
     .input((input: unknown) => ({ email: only(input, ["email"]) }))
-    .mutation(({ ctx, input }) => requestMagicLink({ ...input, origin: ctx.origin })),
+    .mutation(({ ctx, input }) => requestMagicLink({ ...input, origin: ctx.origin, requestId: ctx.requestId })),
 
   consumeMagicLink: publicProcedure
     .input((input: unknown) => ({ token: only(input, ["token"]) }))
@@ -171,7 +171,7 @@ export const authRouter = router({
 
   requestPasswordReset: publicProcedure
     .input((input: unknown) => ({ email: only(input, ["email"]) }))
-    .mutation(({ ctx, input }) => requestPasswordReset({ ...input, origin: ctx.origin })),
+    .mutation(({ ctx, input }) => requestPasswordReset({ ...input, origin: ctx.origin, requestId: ctx.requestId })),
 
   resetPassword: publicProcedure
     .input((input: unknown) => ({ token: field(input, "token"), password: field(input, "password") }))

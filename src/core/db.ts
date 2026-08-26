@@ -385,6 +385,20 @@ export function isStorableText(value: string): boolean {
 }
 
 /**
+ * The nearest thing a `text` column can hold to the value a caller presented: the same string with
+ * the one code point postgres has no representation for dropped, and nothing else touched.
+ *
+ * Handed out from the same one home as `isStorableText` and for the same reason (ARCH-02). A door
+ * that only *compares* a caller-written string can ask whether it is storable and answer without
+ * looking; a door that must *store* one has no such option — it either writes something or hands the
+ * caller a fault id for a value it never wrote — so it is given the fold rather than left to spell
+ * U+0000 a second time.
+ */
+export function storableText(value: string): string {
+  return value.replaceAll(UNSTORABLE_BYTE, "");
+}
+
+/**
  * The tenant a handle may be opened for: one the policies can read. Refused as the handle is taken,
  * like `runAsSystem`'s reason — a caller who names no lawful tenant gets no handle, rather than a
  * server error on every query it makes.

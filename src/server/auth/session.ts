@@ -19,6 +19,7 @@ import {
   memberships,
   runAsSystem,
   sessions,
+  storableText,
   tenants,
   users,
   type SystemDb,
@@ -47,6 +48,13 @@ export const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 function liveSince(): Date {
   return new Date(Date.now() - SESSION_LIFETIME_MS);
 }
+
+/**
+ * How stale a session's last-seen may be before resolving it stamps the row again. The device list
+ * answers "where am I signed in, and when was that device last here" — a question a minute's
+ * resolution answers exactly as well as a millisecond's, at a fraction of the write.
+ */
+const LAST_SEEN_RESOLUTION_MS = 60_000;
 
 /** The longest a device label may be, so a caller cannot make the list unreadable (see `deviceLabelFrom`). */
 const DEVICE_LABEL_MAX = 48;
@@ -195,18 +203,30 @@ async function startSession(db: Writer, userId: string, deviceLabel: string): Pr
  * answers SIGNED_OUT — the refusal is the transport's to make, because "no session" is not a failure
  * of this lookup. The lifetime is read here rather than trusted to the cookie: the predicate is what
  * makes a session end, so a token presented by anything other than the browser it was set on expires
- * too. The row's last-seen is stamped by the same statement that reads it, so the device list says
- * when a device was last here without a second round trip.
+ * too.
+ *
+ * Resolving is a read. `createContext` runs before every procedure, so this is the hottest statement
+ * in the tier, and stamping last-seen from the same statement made every authenticated request — a
+ * health check included — take a row lock and write a WAL record, and made concurrent requests
+ * sharing one session queue on that row. The stamp is therefore written only when the value it would
+ * replace is already stale (`LAST_SEEN_RESOLUTION_MS`), which is a second round trip at most once a
+ * minute per device and none at all on the common path.
  */
 export async function resolveSession(sessionToken: string): Promise<AuthSession | null> {
   if (sessionToken.trim() === "") return null;
   const db = runAsSystem("R-SPINE-001 session resolution: which account a presented cubit_session cookie belongs to");
   const live = await db
-    .update(sessions)
-    .set({ lastSeenAt: new Date() })
+    .select({ sessionId: sessions.sessionId, userId: sessions.userId, lastSeenAt: sessions.lastSeenAt })
+    .from(sessions)
     .where(and(eq(sessions.tokenHash, digestOf(sessionToken)), isNull(sessions.revokedAt), gt(sessions.createdAt, liveSince())))
-    .returning({ sessionId: sessions.sessionId, userId: sessions.userId });
-  return live[0] ?? null;
+    .limit(1);
+
+  const session = live[0];
+  if (session === undefined) return null;
+  if (Date.now() - session.lastSeenAt.getTime() >= LAST_SEEN_RESOLUTION_MS) {
+    await db.update(sessions).set({ lastSeenAt: new Date() }).where(eq(sessions.sessionId, session.sessionId));
+  }
+  return { sessionId: session.sessionId, userId: session.userId };
 }
 
 /* ------------------------------------------------------------------ *
@@ -237,6 +257,28 @@ const SIGN_UP_ROUTE = "spine.auth.signUp";
  * fault — a person who simply already has an account would be handed a fault id instead of being
  * told to sign in (R-SPINE-007).
  */
+/**
+ * The workspace name as `tenants.name` can hold it.
+ *
+ * R-SPINE-002 names the personal workspace with what the person presented, and this door judges
+ * nothing about what a string says (Design Decision I-14) — but U+0000 is not a character postgres
+ * carries in `text` at any length. The driver refuses it on the *parameter*, before a column is
+ * reached, and that refusal carries no marker, so a name containing one would take the whole sign-up
+ * transaction down and reach the person as a fault card and the operator as an outage record, for a
+ * workspace the door never wrote. The settled reading of exactly that shape is that a value the
+ * database cannot store is not an outage (R-SPINE-062 / R-SPINE-007, ARCH-03, B-21), and it is the
+ * reading the address (`nameable`) and the limiter's key (`countable`) already follow.
+ *
+ * The closed taxonomy registers no code for "that name cannot be stored" and this increment's grant
+ * of four is spent, so refusing is not open either. What is left is the nearest thing to what was
+ * presented that a `text` column holds: the same name, with what postgres has no representation for
+ * dropped. Case, spacing and length are untouched — they are the person's, and settings is where
+ * they rename it.
+ */
+function workspaceName(presented: string): string {
+  return storableText(presented);
+}
+
 export async function signUp(request: SignUpRequest): Promise<SessionAnswer> {
   const email = accountAddress(request.email);
   await admitAttempt("signUp", email);
@@ -246,7 +288,7 @@ export async function signUp(request: SignUpRequest): Promise<SessionAnswer> {
   const passwordHash = await hashPassword(request.password);
   const db = runAsSystem("R-SPINE-002 sign-up: the account, its personal workspace and the membership joining them, written as one transaction");
 
-  const created = await createAccount(db, { email, passwordHash, tenantName: request.tenantName, deviceLabel: request.deviceLabel });
+  const created = await createAccount(db, { email, passwordHash, tenantName: workspaceName(request.tenantName), deviceLabel: request.deviceLabel });
 
   // Sent only once the transaction has committed: a mail for an account that was rolled back is a
   // link nobody can follow.
@@ -261,7 +303,7 @@ export async function signUp(request: SignUpRequest): Promise<SessionAnswer> {
   // recoverable half: a magic link verifies the address too (see `consumeMagicLink`), and sign-in
   // does not gate on verification.
   try {
-    mail(request.origin, email, "verifyEmail", created.verifyToken);
+    mail(request.origin, email, "verifyEmail", created.verifyToken, { requestId: request.requestId, actor: created.userId, route: SIGN_UP_ROUTE });
   } catch (undelivered) {
     reportFault({ requestId: request.requestId, actor: created.userId, route: SIGN_UP_ROUTE, cause: undelivered });
   }
@@ -375,7 +417,11 @@ export async function verifyEmail(request: { token: string }): Promise<{ verifie
  * holding a clock. Both answers are therefore held back to the same floor, which is longer than the
  * work either side does, so the two are indistinguishable from outside.
  */
-async function mailLinkFor(purpose: "magicLink" | "passwordReset", door: "requestMagicLink" | "requestPasswordReset", request: { email: string; origin: string }): Promise<{ sent: true }> {
+async function mailLinkFor(
+  purpose: "magicLink" | "passwordReset",
+  door: "requestMagicLink" | "requestPasswordReset",
+  request: { email: string; origin: string; requestId: string },
+): Promise<{ sent: true }> {
   const email = normalisedEmail(request.email);
   await admitAttempt(door, email);
   const began = Date.now();
@@ -387,7 +433,13 @@ async function mailLinkFor(purpose: "magicLink" | "passwordReset", door: "reques
   // looking is the same answer arrived at without the round trip — and the identical answer these
   // doors owe is preserved, because it is the answer an unknown address already gets.
   const [account] = nameable(email) ? await db.select({ userId: users.userId }).from(users).where(eq(users.email, email)).limit(1) : [];
-  if (account !== undefined) mail(request.origin, email, purpose, await issueToken(db, account.userId, purpose));
+  if (account !== undefined) {
+    mail(request.origin, email, purpose, await issueToken(db, account.userId, purpose), {
+      requestId: request.requestId,
+      actor: account.userId,
+      route: `spine.auth.${door}`,
+    });
+  }
 
   await noSoonerThan(began);
   return { sent: true };
@@ -411,11 +463,11 @@ const TOKEN_REASONS: Readonly<Record<"magicLink" | "passwordReset", string>> = O
   passwordReset: "password reset",
 });
 
-export function requestMagicLink(request: { email: string; origin: string }): Promise<{ sent: true }> {
+export function requestMagicLink(request: { email: string; origin: string; requestId: string }): Promise<{ sent: true }> {
   return mailLinkFor("magicLink", "requestMagicLink", request);
 }
 
-export function requestPasswordReset(request: { email: string; origin: string }): Promise<{ sent: true }> {
+export function requestPasswordReset(request: { email: string; origin: string; requestId: string }): Promise<{ sent: true }> {
   return mailLinkFor("passwordReset", "requestPasswordReset", request);
 }
 
@@ -442,7 +494,11 @@ export async function resetPassword(request: { token: string; password: string; 
 
   return db.transaction(async (tx) => {
     const { userId } = await consumeToken(tx, request.token, "passwordReset");
-    await tx.update(users).set({ passwordHash, emailVerifiedAt: new Date() }).where(eq(users.userId, userId));
+    await tx.update(users).set({ passwordHash }).where(eq(users.userId, userId));
+    // The same guard `consumeMagicLink` uses, and for the same reason: `email_verified_at` is when
+    // the address was *first* proven, and a reset proves it again without un-proving the original.
+    // Written unconditionally it would rewrite an account's verification instant on every reset.
+    await tx.update(users).set({ emailVerifiedAt: new Date() }).where(and(eq(users.userId, userId), isNull(users.emailVerifiedAt)));
     await tx.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
     return startSession(tx, userId, request.deviceLabel);
   });
@@ -505,11 +561,28 @@ export async function signOut(session: AuthSession): Promise<{ signedOut: true }
  * ------------------------------------------------------------------ */
 
 /**
- * Put the link in the outbox. The origin is the one the request arrived on, so a link is followed
- * back to the server that sent it without a second name for the product's own address; a caller the
- * origin could not be read from gets a root-relative link, which still resolves inside the app.
+ * Put the link in the outbox. The origin is the deployment's own (`src/server/context.ts`): the
+ * address it was configured with, or the request's when the request came from loopback — never a
+ * `Host` the caller wrote, which would let a caller point a mailed link at a host of their choosing.
+ *
+ * A deployment that named neither leaves the origin empty, and the link then reads `/verify?token=…`
+ * — a path a browser resolves and a mail client cannot, so the person is mailed a link they cannot
+ * follow. The mail is still written, because the token in it is the recoverable half and an operator
+ * who fixes the configuration wants the account's outstanding links to still exist. What may not
+ * happen is that it happens quietly: the door answers `{ sent: true }` on purpose (it may not
+ * disclose whether the address names an account, misconfigured or not), so the miss goes to the one
+ * place an operator reads, the fault seam, naming the configuration that would cure it (ARCH-03).
  */
-function mail(origin: string, to: string, purpose: AuthTokenPurpose, token: string): void {
+function mail(origin: string, to: string, purpose: AuthTokenPurpose, token: string, under: { requestId: string; actor: string; route: string }): void {
+  if (origin === "") {
+    reportFault({
+      ...under,
+      cause: new Error(
+        `the deployment named no public origin and this request did not arrive on loopback, so the ${TOKEN_KINDS[purpose]} link mailed to this address is root-relative ` +
+          `("${LINK_PATHS[purpose]}") and cannot be followed from a mail client — set the origin this deployment answers at (R-SPINE-001)`,
+      ),
+    });
+  }
   const url = `${origin}${LINK_PATHS[purpose]}?token=${encodeURIComponent(token)}`;
   deliver({ to, kind: TOKEN_KINDS[purpose], url, token });
 }

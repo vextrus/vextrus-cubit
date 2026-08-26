@@ -103,10 +103,18 @@ and the screen never disarms the retry.
 ### /sign-up — title **Create your account**
 Fields: **Email** (`type="email"` `autocomplete="email"`, testid `s-auth-email`) ·
 **Password** (`type="password"` `autocomplete="new-password"`, `s-auth-password`) ·
-**Workspace name** (`autocomplete="organization"`, placeholder **e.g. Meridian Builders**,
+**Workspace name** (`autocomplete="organization"`,
 `s-auth-tenant-name`) with hint line under the label, `var(--text-12)`
 `var(--graphite-600)`: **Your company or team — you can rename it later in settings.**
-(R-UI-033: sign-up names the tenant; rename lives in settings.) Submit **Create account**
+(R-UI-033: sign-up names the tenant; rename lives in settings.)
+
+No field on any S-Auth route carries a placeholder. Three empty boxes in a column read as one
+control repeated; giving one of them grey text inside and the other two nothing makes the row
+uneven for no gain, and a placeholder that survives into a filled field is a label that
+disappears exactly when it is being relied on. The one field that needs saying more than its
+label says — the workspace, which names a thing the person has not met yet — says it in the hint
+line under the label, where it stays legible while they type and where `aria-describedby` reads
+it out. Submit **Create account**
 (`s-auth-submit`). Success → the heading becomes **Check your email** over the sent notice: **We sent a
 verification link to {email}.** (a heading names what the screen is showing, and the form it
 named is gone; the notice then says only what the heading has not, and names the address the

@@ -86,6 +86,27 @@ function countable(folded: string): boolean {
 const LONGEST_WINDOW_MS = Math.max(...Object.values(AUTH_RATE_LIMITS).map((limit) => limit.windowMs));
 
 /**
+ * When the spent rows were last swept, so the sweep is not paid for on every attempt.
+ *
+ * The sweep is a scan of the whole table, and it is the one statement here that is not about the
+ * caller's own window: run per call it is a per-attempt cost that grows with exactly the traffic the
+ * limiter exists to police, which is the shape a limiter must not have. Run once a window it still
+ * bounds the table at what one window's traffic can put in it, which is all the deletion was ever
+ * for. Held per process rather than in the table: a second instance sweeping the same rows a second
+ * time deletes rows already gone, and the count itself is serialised on its own lock either way.
+ */
+const SWEEP_KEY = Symbol.for("vextrus.cubit.server.auth.attempts-swept-at");
+const processScope = globalThis as typeof globalThis & { [SWEEP_KEY]?: { at: number } };
+const sweptAt: { at: number } = (processScope[SWEEP_KEY] ??= { at: Number.NEGATIVE_INFINITY });
+
+/** Drop every row too old to count towards any window — at most once a window, whoever asks. */
+async function sweepSpentAttempts(db: ReturnType<typeof runAsSystem>, now: number): Promise<void> {
+  if (now - sweptAt.at < LONGEST_WINDOW_MS) return;
+  sweptAt.at = now;
+  await db.delete(authAttempts).where(lt(authAttempts.attemptedAt, new Date(now - LONGEST_WINDOW_MS)));
+}
+
+/**
  * The name the count is serialised on — one door, one identity. Counting is a read followed by a
  * write, and a burst is the traffic a limiter exists to stop: without this, N callers on one address
  * all read a window one short of full and all insert, so the allowance the law states is not the
@@ -115,7 +136,7 @@ export async function admitAttempt(door: LimitedDoor, identity: string): Promise
   // A row older than the longest window counts towards nothing, whoever it belonged to. Dropped
   // here, or the table is a leak keyed by address — every address ever presented, kept for ever.
   // Outside the count's own transaction, because it is about every identity but this one's window.
-  await db.delete(authAttempts).where(lt(authAttempts.attemptedAt, new Date(now - LONGEST_WINDOW_MS)));
+  await sweepSpentAttempts(db, now);
 
   await db.transaction(async (tx) => {
     await holdStateLock(tx, lockName(door, key));

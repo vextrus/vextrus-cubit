@@ -7,7 +7,6 @@
 // cannot present anything. Spending is a single conditional UPDATE rather than a read followed by a
 // write, so two callers racing one link cannot both be admitted.
 import { and, authTokens, eq, gt, isNull, type SystemDb, type TenantTx } from "../../core/db";
-import type { MailKind } from "./mail";
 import { digestOf, mintSecret } from "./secrets";
 import { tokenNotValid } from "./refusals";
 
@@ -24,6 +23,15 @@ export const AUTH_TOKEN_TTLS: Readonly<Record<"verifyEmail" | "magicLink" | "pas
 
 /** What a token authorises — the compiler's own list, so a purpose cannot be spelled by a typo. */
 export type AuthTokenPurpose = keyof typeof AUTH_TOKEN_TTLS;
+
+/**
+ * What a mailed link is for. One kind per door that sends one (R-SPINE-001) — declared beside the
+ * purposes it names rather than in the outbox, because the outbox has to know how long a mail's
+ * credential lives (`AUTH_TOKEN_TTLS`) and a tree where two files each import the other is a cycle
+ * (ARCH-01). `./mail` re-exports it, so a reader of the file on disk still finds the type beside the
+ * shape it types.
+ */
+export type MailKind = "verify-email" | "magic-link" | "password-reset";
 
 /**
  * A purpose and the mail that carries it are the same fact under two names, so the row's `kind`

@@ -121,9 +121,10 @@ function isLoopbackRequest(req: Request): boolean {
  * deployment named one; otherwise the request's own origin only while it names a loopback host,
  * which is a development machine and the journeys' own server and can be nothing else.
  *
- * Everything else leaves the origin empty and the link root-relative — still a link inside the app,
- * followed from the address the person is already on, never a throw on a request that was otherwise
- * answerable and never a link out to a host the caller chose.
+ * Everything else leaves the origin empty rather than trusting the caller's `Host`, which would let
+ * a caller point a mailed link at a host of their choosing. That is a deployment that has named no
+ * address, and the mailing seam records it as the outage it is rather than throwing on a request
+ * that was otherwise answerable — see `mail` in src/server/auth/session.ts.
  */
 function originOf(req: Request): string {
   const configured = configuredOrigin();
