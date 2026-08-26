@@ -16,6 +16,10 @@
 // come back as the machine's failure. It asserts nothing about *how* the blank is stopped — a
 // `required` input, which invents no copy and no credential rule (Decision I-13 bans password
 // strength and address formats, not requiredness), satisfies it exactly as well as anything else.
+//
+// The describe title carries the J-001 tag so `pnpm e2e --journey J-001` (which forwards to
+// Playwright's --grep) collects this file: a guarantee no gate invocation runs is green-by-omission,
+// which J-001's own words forbid.
 import { expect, test } from "@playwright/test";
 
 /** The tRPC lane the S-Auth forms speak through (src/app/(auth)/transport.ts). */
@@ -33,7 +37,7 @@ function watchCalls(page: import("@playwright/test").Page): string[] {
   return calls;
 }
 
-test.describe("S-AUTH-BREAKER — a blank submit is not a server fault", () => {
+test.describe("J-001 S-AUTH-BREAKER — a blank submit is not a server fault", () => {
   test("S-AUTH-BREAKER: /sign-up with every field blank does not answer the fault card", async ({ page }) => {
     const calls = watchCalls(page);
     await page.goto("/sign-up");
