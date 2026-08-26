@@ -52,6 +52,62 @@ async function groundOf(page: Page): Promise<Ground> {
   });
 }
 
+/**
+ * "Before first paint" is a claim about the *served document*, not about what an attribute reads
+ * once the page has settled: every late resolver — the same script emitted after `{children}`, one
+ * wrapped in a load listener, a client component flipping the attribute on mount — leaves
+ * `data-theme` correct by the time a post-load assertion runs, while painting the wrong theme
+ * first. So the source itself is read: the resolver must be a blocking inline `<script>` standing
+ * ahead of anything that can paint, exactly as the Design Decision's theme-resolution section
+ * fixes it (R-UI-001, AC-2).
+ */
+async function assertResolverRunsBeforeFirstPaint(page: Page, checkpoint: string): Promise<void> {
+  const response = await page.request.get("/");
+  expect(response.ok(), `/ must be served for the source read (${checkpoint})`).toBe(true);
+  const html = await response.text();
+
+  const bodyOpen = /<body\b[^>]*>/.exec(html);
+  expect(bodyOpen, "the served document has a <body>").not.toBeNull();
+  const body = html.slice((bodyOpen as RegExpExecArray).index + (bodyOpen as RegExpExecArray)[0].length);
+
+  // The resolver, found by what it does rather than by where it is — so a mis-placed one is found
+  // and then failed, not merely missed.
+  const inlineScript = /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/g;
+  let resolver: { attrs: string; code: string; index: number } | null = null;
+  for (let match = inlineScript.exec(body); match !== null; match = inlineScript.exec(body)) {
+    if (match[2].includes("data-theme")) {
+      resolver = { attrs: match[1], code: match[2], index: match.index };
+      break;
+    }
+  }
+  expect(resolver, `the theme resolver is an inline <script> in <body> (${checkpoint})`).not.toBeNull();
+  const { attrs, code, index } = resolver as { attrs: string; code: string; index: number };
+
+  // Blocking: the parser must stop and run it. `defer`, `async` and `type="module"` all release the
+  // parser and let content paint first.
+  expect(/\b(?:defer|async)\b/.test(attrs), `the resolver script blocks the parser (${checkpoint})`).toBe(false);
+  expect(/type\s*=\s*"module"/.test(attrs), `the resolver script is not a module (${checkpoint})`).toBe(false);
+
+  // …and the code itself must not hand the work to a later turn.
+  expect(
+    /addEventListener|DOMContentLoaded|onload|setTimeout|requestAnimationFrame|requestIdleCallback/.test(code),
+    `the resolver runs inline, not from a deferred callback (${checkpoint})`,
+  ).toBe(false);
+
+  // First child of <body>: nothing that can paint precedes it. React's own hidden bookkeeping div
+  // and its comment markers render nothing, so they are the only lawful company ahead of it.
+  const ahead = body
+    .slice(0, index)
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<div hidden(?:="")?>\s*<\/div>/g, "")
+    .trim();
+  expect(ahead, `nothing paintable precedes the theme resolver in <body> (${checkpoint})`).toBe("");
+
+  const landmark = body.indexOf('data-testid="root-home-main"');
+  expect(landmark, "the landmark is in the served document").toBeGreaterThan(-1);
+  expect(index, `the resolver is emitted before {children} (${checkpoint})`).toBeLessThan(landmark);
+}
+
 /** Run axe over the whole document and answer only the violations the law counts. */
 async function blockingViolations(page: Page): Promise<Violation[]> {
   await page.evaluate(AXE_SOURCE);
@@ -87,7 +143,8 @@ async function rootEntry(
     await expect(page.getByTestId("root-home-tagline")).toBeVisible();
 
     const theme = await page.locator("html").getAttribute("data-theme");
-    expect(theme, `the document resolves the ${colorScheme} theme before first paint (R-UI-001)`).toBe(colorScheme);
+    expect(theme, `the document resolves the ${colorScheme} theme (R-UI-001)`).toBe(colorScheme);
+    await assertResolverRunsBeforeFirstPaint(page, checkpoint);
 
     const ground = await groundOf(page);
     expect(ground.token, `tokens.css is loaded on the document — --graphite-0 has a value (${checkpoint})`).not.toBe("");

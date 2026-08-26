@@ -6,7 +6,10 @@ inc-019-root-document. Law: R-UI-001/003/004/012/050, C-SPINE-PLATFORM, R-SPINE-
 J-000 (the Golden Path's first checkpoint). This file replaces the deliberately unstyled
 placeholders inc-000-foundation left at the app root; the root-error-boundary Decision's §0
 scope ruling ("the token source does not exist yet") is hereby spent — from this increment on,
-every route stands on the Datum ground.
+every route that renders *inside* this root layout stands on the Datum ground. One document
+does not, and is named rather than glossed: `src/app/global-error.tsx` (inc-002, unowned here)
+replaces the root layout entirely when the layout itself throws, so it supplies its own
+`<html><body>` and receives none of this file's work. §1 records that gap.
 
 ## 0. Interpretations (recorded per the Law section of CLAUDE.md)
 
@@ -66,6 +69,19 @@ inc-013's (out of scope). The ground — graphite-0 fill, graphite-900 text, Spl
 (`src/app/error.tsx`, unchanged) stand on it without importing anything. That is how AC-2's
 "single loader" is observable: the themed ground is present at `/` and on the error route with
 no per-page imports.
+
+**The one document outside that reach — a recorded gap, not a claim.** `src/app/global-error.tsx`
+is not a route rendered inside `RootLayout`: Next mounts it *in place of* the root layout when the
+layout itself throws, and it therefore renders its own `<html lang="en"><body>` (its inc-002 code
+comment says as much). It imports neither `tokens.css` nor `globals.css`, carries no `data-theme`,
+and runs no pre-paint resolver — so the single most severe fault surface in the product currently
+draws on the UA canvas in UA fonts, in either OS theme. Fixing it is not in this increment's
+ownership (`src/app/global-error.tsx` is not in the Ownership list, and the spec scopes no work
+there), and the honest reading of "loaded once for every route" is that a second document shell is
+a second root, owing its own loader. This Decision therefore claims nothing about that file and
+records the gap: a future increment owes `global-error.tsx` the same two stylesheet imports, the
+`data-theme="light"` server attribute and the same `THEME_RESOLVER` as body's first child — or a
+ruling that an outage screen deliberately stands on UA defaults.
 
 ### Theme resolution (the mechanism this file is required to record)
 
@@ -199,6 +215,15 @@ Behavioural hooks without new ids:
   Playwright context, `"dark"` in a context created with `colorScheme: "dark"`, observable
   immediately after load (the emulation lever; the OS is never coupled).
 - `document.title` is non-empty and equals **Vextrus Cubit**.
+- "Before first paint" is read off the **served HTML**, not off a settled attribute: at each
+  checkpoint the journey fetches `/` and asserts the resolver is an inline `<script>` in `<body>`
+  whose code mentions `data-theme`, carries no `defer`/`async`/`type="module"`, contains no
+  deferring call (`addEventListener`, `DOMContentLoaded`, `onload`, `setTimeout`,
+  `requestAnimationFrame`, `requestIdleCallback`), stands ahead of the landmark, and has nothing
+  paintable before it in `<body>` (React's `<div hidden>` bookkeeping and comment markers are the
+  only lawful company). A post-load `data-theme` read cannot tell a pre-paint resolver from a
+  late one — every late variant leaves the attribute correct once the page has settled — so this
+  source read, not that attribute, is what binds AC-2's "before first paint".
 - axe (injected from `node_modules/axe-core`) at `/`: violations with impact `serious` or
   `critical` number exactly 0 — never widened to any-impact (Q-11).
 - The J-000 spec (`tests/e2e/j-000-golden-path.e2e.ts`, title containing "J-000") compares
