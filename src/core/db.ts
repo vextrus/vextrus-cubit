@@ -6,7 +6,7 @@
 // The table definitions sit here rather than in db/schema/*.ts because the ORM's table builders are
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
-import { and, eq, sql as statement } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, sql as statement } from "drizzle-orm";
 import { foreignKey, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -16,7 +16,7 @@ import { attributableReason } from "./db/reason";
 // handed out from here rather than imported at a call site: SEAM-TENANT makes this file the one
 // lawful home of the driver, and a module that reached for them itself would be holding half a
 // handle (ARCH-02).
-export { and, eq };
+export { and, asc, eq, gt, isNull };
 
 export { recordSystemReasonsWith, type SystemReasonRecord, type SystemReasonRecorder } from "./db/reason";
 
@@ -102,8 +102,72 @@ export const participantRoles = pgTable(
   ],
 );
 
+/**
+ * Identity (R-SPINE-001): an account, the sessions it is signed in through, and the single-use
+ * tokens that verify an address or stand in for a password. None of the three carries a tenant id —
+ * a person is one account across every workspace they belong to (R-SPINE-002) — so they are not
+ * tenant-scoped tables and the tenancy policies have nothing to say about them.
+ *
+ * Nothing here stores a secret in the clear: a session token and a mailed token are held as the
+ * digest of the value the user was given, so a reader of these rows cannot sign in as anybody.
+ */
+export const users = pgTable("users", {
+  userId: uuid("user_id").primaryKey().defaultRandom(),
+  // The address is the account's name, and the door refuses a second account for it by name
+  // (ACCOUNT_ALREADY_EXISTS): the unique index below is the belt, never the answer.
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** A signed-in device: what to call it in the list, when it arrived, when it was last seen, and — the whole point of revoke — when it stopped counting. */
+export const sessions = pgTable("sessions", {
+  sessionId: uuid("session_id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.userId),
+  tokenHash: text("token_hash").notNull().unique(),
+  deviceLabel: text("device_label").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+});
+
+/** One mailed token: what it authorises, when it stops working, and whether it has been spent. */
+export const authTokens = pgTable("auth_tokens", {
+  authTokenId: uuid("auth_token_id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.userId),
+  kind: text("kind").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * R-SPINE-002: the join that makes an account belong somewhere. The pair is the identity — a person
+ * is a member of a workspace once — and the row is written in the same transaction as the account
+ * and its personal tenant, so an account that belongs nowhere is unrepresentable.
+ */
+export const memberships = pgTable(
+  "memberships",
+  {
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.tenantId),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.userId),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.tenantId, table.userId] })],
+);
+
 /** Everything the typed surface covers. A table joins the surface by joining this object. */
-const schema = { tenants, participants, acts, participantRoles };
+const schema = { tenants, participants, acts, participantRoles, users, sessions, authTokens, memberships };
 
 /** A handle scoped to one tenant: the typed read/write surface, filtered by row-level security. */
 export type TenantDb = PostgresJsDatabase<typeof schema>;

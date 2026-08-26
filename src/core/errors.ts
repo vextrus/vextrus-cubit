@@ -30,7 +30,11 @@ export type RefusalCode =
   | "CONSEQUENCES_NOT_CARRIED"
   | "PERMISSION_NOT_HELD"
   | "ACTOR_NOT_HUMAN"
-  | "ACT_CHANGES_NOTHING";
+  | "ACT_CHANGES_NOTHING"
+  | "CREDENTIALS_NOT_VALID"
+  | "TOKEN_NOT_VALID"
+  | "RATE_LIMITED"
+  | "ACCOUNT_ALREADY_EXISTS";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -94,6 +98,34 @@ export const REFUSALS: Readonly<Record<RefusalCode, RefusalEntry>> = Object.free
     remedy: "Choose a change that moves something — what you asked for is already the case.",
     severity: "info",
     surface: "dialog",
+  }),
+  CREDENTIALS_NOT_VALID: Object.freeze({
+    code: "CREDENTIALS_NOT_VALID",
+    message: "The email and password do not match an account.",
+    remedy: "Check both and try again, or reset your password.",
+    severity: "error",
+    surface: "inline",
+  }),
+  TOKEN_NOT_VALID: Object.freeze({
+    code: "TOKEN_NOT_VALID",
+    message: "This link is no longer valid — it may have expired or already been used.",
+    remedy: "Request a fresh link and use the newest email.",
+    severity: "error",
+    surface: "inline",
+  }),
+  RATE_LIMITED: Object.freeze({
+    code: "RATE_LIMITED",
+    message: "Too many attempts in a short time, so this one was not tried.",
+    remedy: "Wait a minute, then try again.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  ACCOUNT_ALREADY_EXISTS: Object.freeze({
+    code: "ACCOUNT_ALREADY_EXISTS",
+    message: "An account with this email already exists.",
+    remedy: "Sign in instead, or reset the password if you have lost it.",
+    severity: "error",
+    surface: "inline",
   }),
 } satisfies Record<RefusalCode, RefusalEntry>);
 
