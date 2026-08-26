@@ -26,7 +26,7 @@ export const TRPC_MODULE = "src/server/trpc.ts";
 export const CONTEXT_MODULE = "src/server/context.ts";
 export const ROOT_MODULE = "src/server/root.ts";
 export const ROUTE_MODULE = "src/app/api/trpc/[trpc]/route.ts";
-export const STRINGS_MODULE = "src/ui/strings.ts";
+export const STRINGS_MODULE = "src/ui/strings/index.ts";
 export const ERROR_BOUNDARY_MODULE = "src/app/error.tsx";
 export const ROUTERS_DIR = "src/server/routers";
 
