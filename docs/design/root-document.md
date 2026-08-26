@@ -20,9 +20,16 @@ every route stands on the Datum ground.
   (globals.css and tokens.css are out of scope; ownership grants no new stylesheet), and no
   shipped primitive owns "a centered holding page", so B-17 is not in play. Ruling: the few
   styles §1 fixes are authored as React `style` objects on the three elements, and every
-  colour, size and space value in them is a `var(--…)` token — a literal is a defect
-  (R-UI-001). When the shell (inc-013) re-homes `/` inside real chrome, these inline styles go
-  with this markup.
+  *design* value in them — every colour, every type size, every unit of space on the 4-pt grid
+  — is a `var(--…)` token; such a literal is a defect (R-UI-001). Two values in §1 are not
+  design values and are named here so the exception is closed rather than implied:
+  `minHeight: "100dvh"` on the `main` (a viewport-relative box keyword — R-UI-001's scale
+  measures space between things, and emits no token for the size of the viewport) and
+  `margin: 0` on the `h1` and the `p` (a UA-default reset to zero; the gap between the two
+  elements is carried by the flex `gap: "var(--space-2)"`, which is the tokened value). These
+  two, and no others: any third literal is a defect, and if the token source later emits a
+  viewport or reset value this exception is spent. When the shell (inc-013) re-homes `/`
+  inside real chrome, these inline styles go with this markup.
 - **I-12 — metadata is the title alone.** The interfaces line fixes `metadata.title` as
   `strings.app_title`. A description, Open Graph set, or title template would be user-facing
   copy needing keys the contract does not grant. Ruling: `export const metadata: Metadata =
@@ -168,7 +175,8 @@ Named directly by this screen: `--space-2`, `--space-5`, `--text-32`, `--text-16
 `--graphite-700`. Inherited from the `globals.css` ground rather than restated:
 `--graphite-0`, `--graphite-900`, `--font-ui`, `--text-14`, `--weight-body`,
 `--weight-heading`, `--leading-ui`. No other token, and no literal colour, size or duration,
-may appear in `layout.tsx` or `page.tsx`.
+may appear in `layout.tsx` or `page.tsx` — save the two non-design layout keywords I-11 names
+and closes (`minHeight: "100dvh"`, `margin: 0`), for which the token source emits nothing.
 
 ## 6. Themes
 
