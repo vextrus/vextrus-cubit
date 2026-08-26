@@ -8,6 +8,9 @@ import { AUTH_ROUTES, tokenFrom } from "../routes";
 import { TokenPanel } from "../token-panel";
 import { strings } from "../../../ui/strings";
 
+// The document names the screen it is, from the table the heading reads (R-SPINE-060).
+export const metadata = { title: strings.auth_verify_title };
+
 const FOOTER: readonly FooterLine[] = [{ label: "auth_evidence_go_to_sign_in", href: AUTH_ROUTES.signIn }];
 
 export default async function VerifyPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

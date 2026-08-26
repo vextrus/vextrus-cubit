@@ -3,7 +3,11 @@
 import { AuthFrame } from "../auth-frame";
 import type { FooterLine } from "../footer";
 import { AUTH_ROUTES, tokenFrom } from "../routes";
+import { strings } from "../../../ui/strings";
 import { ResetPasswordForm, ResetRequestForm } from "./reset-forms";
+
+// The document names the screen it is, from the table the heading reads (R-SPINE-060).
+export const metadata = { title: strings.auth_reset_title };
 
 const FOOTER: readonly FooterLine[] = [{ label: "auth_back_to_sign_in", href: AUTH_ROUTES.signIn }];
 

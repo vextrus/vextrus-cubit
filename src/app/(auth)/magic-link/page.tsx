@@ -4,7 +4,11 @@ import { AuthFrame } from "../auth-frame";
 import type { FooterLine } from "../footer";
 import { AUTH_ROUTES, tokenFrom } from "../routes";
 import { TokenPanel } from "../token-panel";
+import { strings } from "../../../ui/strings";
 import { MagicLinkForm } from "./magic-link-form";
+
+// The document names the screen it is, from the table the heading reads (R-SPINE-060).
+export const metadata = { title: strings.auth_magic_link_title };
 
 const FOOTER: readonly FooterLine[] = [{ label: "auth_magic_link_footer_link", href: AUTH_ROUTES.signIn }];
 
