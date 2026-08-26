@@ -6,4 +6,9 @@ export const spine = {
   error_title: "Something went wrong on our side",
   error_body: "Your work is safe. The fault has been recorded for the operators — try again, and if it keeps failing, contact support.",
   error_retry: "Try again",
+
+  // The shell at `/`: the product named, and the way to each screen the tier ships (R-UI-031).
+  home_title: "Vextrus",
+  home_sign_in: "Sign in",
+  home_sign_up: "Create account",
 } as const;
