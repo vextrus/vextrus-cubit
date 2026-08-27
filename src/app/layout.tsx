@@ -20,12 +20,14 @@ export const metadata: Metadata = { title: strings.app_title };
 // next document they happen to load. Resolved once at load, a session that began light stayed light
 // through every later render while the surface around it — anything keyed on `prefers-color-scheme`
 // in the browser itself — had already flipped, which is the palette-mid-flow disagreement a reader
-// sees. The listener is on the query, so it fires only when the OS answer actually changes, and it
-// writes the same single attribute the first resolution wrote: still one lever, never consumer code.
+// sees. The re-resolution hangs off the query's own `onchange`, so it fires only when the OS answer
+// actually changes, and it writes the same single attribute the first resolution wrote: still one
+// lever, never consumer code. Nothing here defers the *first* resolution — the script still runs to
+// completion as the parser reaches it, ahead of anything that can paint.
 const THEME_RESOLVER =
   'try{var q=window.matchMedia("(prefers-color-scheme: dark)");' +
   'var r=function(){document.documentElement.setAttribute("data-theme",q.matches?"dark":"light")};' +
-  'r();q.addEventListener("change",r)}catch(_){}';
+  'r();q.onchange=r}catch(_){}';
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
