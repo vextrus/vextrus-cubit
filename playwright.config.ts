@@ -12,6 +12,13 @@ import { e2eDatabaseUrl } from "./tests/e2e/support/scratch-db";
 const port = portFor("e2e");
 const NEXT = "node_modules/next/dist/bin/next";
 
+/**
+ * The address the journeys' server answers at, in one place: it is both what the journeys drive
+ * (`use.baseURL`) and what that server states about itself, so a mailed link points where the
+ * browser already is.
+ */
+const baseURL = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: "tests/e2e",
   // The journeys are named for what they walk, not for the runner's default glob — and the lane
@@ -26,7 +33,7 @@ export default defineConfig({
   globalSetup: "./tests/e2e/support/global-setup.ts",
   timeout: 120_000,
   use: {
-    baseURL: `http://127.0.0.1:${port}`,
+    baseURL,
     trace: "retain-on-failure",
     // V-E2E owes a screenshot at every named checkpoint. `tests/e2e/support/checkpoint.ts` attaches
     // the ones it is called at under their own names; this is the floor beneath it, so a declared
@@ -38,10 +45,15 @@ export default defineConfig({
   // V-E2E: the journeys drive the built product, never a dev server — what CI ships is what they
   // walk. One home for the port (ARCH-02): `portFor("e2e")` above, and one home for the database
   // the built server opens: the journeys' own scratch, named here and made in the global setup.
+  //
+  // It is a deployment, so it states its own address. A mailed reset or magic link is built on
+  // `CUBIT_PUBLIC_ORIGIN` and on nothing else (src/server/context.ts) — no property of a request
+  // substitutes, because a caller writes those — so a journeys' server that named no address would
+  // answer LINK_NOT_SENDABLE and every mailed-link journey would stop walking a link (R-SPINE-001).
   webServer: {
     command: `node ${NEXT} build && node ${NEXT} start --hostname 127.0.0.1 --port ${port}`,
-    url: `http://127.0.0.1:${port}`,
-    env: { DATABASE_URL: e2eDatabaseUrl() },
+    url: baseURL,
+    env: { DATABASE_URL: e2eDatabaseUrl(), CUBIT_PUBLIC_ORIGIN: baseURL },
     // Reuse is opt-in by name, never the default: when the port already answers, Playwright skips
     // the command entirely, so neither `next build` nor `next start` runs and the journey would
     // walk whatever bundle an earlier session left behind. A run that reuses must say so

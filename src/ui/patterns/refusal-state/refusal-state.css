@@ -7,7 +7,7 @@
  * Focus is not styled here either — the evidence link wears the reticle from its one home
  * (B-17, R-UI-012).
  *
- * Severity paints; it does not mean (R-UI-060). The meaning of a refusal is its code, message and
+ * Severity paints; it does not mean (R-UI-060). The meaning of a refusal is its message and its
  * remedy, which read identically in greyscale, so the tint and border are redundant emphasis and no
  * glyph is added beside them. The 1 px borders are the instrument's own hairlines, which no token
  * expresses.
@@ -21,13 +21,6 @@
   border: 1px solid var(--danger);
   border-radius: var(--radius-4);
   background-color: var(--danger-surface);
-}
-
-.cx-refusal-code {
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--danger);
 }
 
 .cx-refusal-message {
@@ -73,17 +66,9 @@
   background-color: var(--warn-surface);
 }
 
-.cx-refusal[data-severity="warning"] .cx-refusal-code {
-  color: var(--warn);
-}
-
 .cx-refusal[data-severity="info"] {
   border-color: var(--info);
   background-color: var(--info-surface);
-}
-
-.cx-refusal[data-severity="info"] .cx-refusal-code {
-  color: var(--info);
 }
 
 /* ------------------------------------------------------------------------------- Surfaces */

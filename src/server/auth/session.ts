@@ -26,6 +26,7 @@ import {
 } from "../../core/db";
 import { reportFault } from "../../core/faults/report";
 import { refusalCodeOf } from "../../core/faults/refusal-marker";
+import { foldedKey } from "./folded-key";
 import { deliver } from "./mail";
 import { admitAttempt, admitSignIn } from "./rate-limit";
 import { accountAlreadyExists, credentialsNotValid, linkNotSendable } from "./refusals";
@@ -118,19 +119,37 @@ const WRITABLE_EMAIL_MAX_OCTETS = 2000;
  *     itself, before a column is reached, with no marker on the refusal. It is dropped, exactly as
  *     `workspaceName` drops it and for the settled reason recorded there.
  *   - a value past `WRITABLE_EMAIL_MAX_OCTETS`, which the UNIQUE index could not carry as a row. It
- *     is counted under its own digest, exactly as `rate-limit.ts`'s `keyed` folds an over-long
- *     identity, and tagged for the same reason: a digest is deterministic, so the account remains
- *     reachable by presenting the same address again, and the tag keeps the folded space and the
- *     presented space from ever meeting.
+ *     is carried under its own digest instead, so the account stays reachable by presenting the
+ *     same address again.
  *
- * Folding rather than refusing is what makes the *reading* doors honest too. Left unfolded on one
- * side only, an account created from a value carrying a NUL could never be signed into again, and a
- * long address would be refused by the creating door in words that are untrue of it. Neither door
- * has to bound what a person may type, which is what I-13/I-14 keeps out of this tree.
+ * Both go through `foldedKey`, the one home of that fold (B-17), which is what makes the *identity*
+ * survive the fold rather than merely the row. An untagged presented side would leave the two
+ * spaces overlapping on one string: the literal `digest of <hex>` is a short, well-formed value any
+ * stranger can compute from an address they never held, and presented at the identifying door it
+ * would name the account that address made (R-SPINE-001). Tagged on both sides, `as presented
+ * digest of <hex>` and `digest of <hex>` are two keys, and two different presented addresses can
+ * never meet on one account. `as presented ` is a dozen bytes on top of at most
+ * `WRITABLE_EMAIL_MAX_OCTETS`, so the tagged key is still far below what the UNIQUE index takes.
+ *
+ * Folding rather than refusing is what makes the *reading* doors honest too. Left unfolded, an
+ * account created from a value carrying a NUL could never be signed into again, and a long address
+ * would be refused by the creating door in words that are untrue of it. Neither door has to bound
+ * what a person may type, which is what I-13/I-14 keeps out of this tree.
  */
 function storedAddress(email: string): string {
-  const address = storableText(normalisedEmail(email));
-  return Buffer.byteLength(address, "utf8") <= WRITABLE_EMAIL_MAX_OCTETS ? address : `digest of ${digestOf(address)}`;
+  const address = presentedAddress(email);
+  return foldedKey(address, Buffer.byteLength(address, "utf8") <= WRITABLE_EMAIL_MAX_OCTETS);
+}
+
+/**
+ * The address itself, as a mail is addressed to it: normalised and storable, carrying no key tag.
+ *
+ * The key an account is stored under and the address a link is sent to are two different values —
+ * a digest is not somewhere mail arrives, and neither is a tagged key. Every door therefore looks
+ * the account up under `storedAddress` and hands `mail` this.
+ */
+function presentedAddress(email: string): string {
+  return storableText(normalisedEmail(email));
 }
 
 /**
@@ -301,7 +320,11 @@ export async function signUp(request: SignUpRequest): Promise<SessionAnswer> {
   // recoverable half: a magic link verifies the address too (see `consumeMagicLink`), and sign-in
   // does not gate on verification.
   try {
-    mail(request.origin, email, "verifyEmail", created.verifyToken, { requestId: request.requestId, actor: created.userId, route: SIGN_UP_ROUTE });
+    mail(request.origin, presentedAddress(request.email), "verifyEmail", created.verifyToken, {
+      requestId: request.requestId,
+      actor: created.userId,
+      route: SIGN_UP_ROUTE,
+    });
   } catch (undelivered) {
     // A deployment that has named no address of its own has already been recorded by `mail`, once a
     // window rather than once a sign-up, and it is a standing state rather than an incident: filing
@@ -431,18 +454,22 @@ async function mailLinkFor(
   door: "requestMagicLink" | "requestPasswordReset",
   request: { email: string; origin: string; requestId: string },
 ): Promise<{ sent: true }> {
-  const email = storedAddress(request.email);
-  await admitAttempt(door, email);
-  const began = Date.now();
-
-  // Asked of the deployment before the address is looked up: a deployment that cannot send answers
-  // every caller the same way, whether or not the address names an account. Asked after the lookup
-  // it would be an enumeration oracle — a refusal for the addresses that have accounts and
-  // `{ sent: true }` for the rest — which is the one thing this door exists not to disclose.
+  // Asked of the deployment first, before the address is looked up and before an attempt is counted
+  // against the caller. A deployment that cannot send answers every caller the same way, whether or
+  // not the address names an account: asked after the lookup it would be an enumeration oracle — a
+  // refusal for the addresses that have accounts and `{ sent: true }` for the rest — which is the one
+  // thing this door exists not to disclose. Asked after the allowance it would spend a caller's
+  // attempts on a door that could not have sent anything either way, and then name the caller
+  // (RATE_LIMITED) for what is the operator's unnamed address (R-SPINE-007: a refusal says what was
+  // actually refused).
   if (!canSendLinks(request.origin)) {
     recordOriginOutage(purpose, { requestId: request.requestId, actor: UNIDENTIFIED_CALLER, route: `spine.auth.${door}` });
     throw linkNotSendable(TOKEN_KINDS[purpose]);
   }
+
+  const email = storedAddress(request.email);
+  await admitAttempt(door, email);
+  const began = Date.now();
 
   const db = runAsSystem(`R-SPINE-001 ${TOKEN_REASONS[purpose]}: issuing a single-use link for the address a caller named`);
   // Every address is looked up, whatever it carries: `storedAddress` has already folded the two
@@ -451,7 +478,7 @@ async function mailLinkFor(
   // some addresses would also be a difference a caller holding a clock could read.
   const [account] = await db.select({ userId: users.userId }).from(users).where(eq(users.email, email)).limit(1);
   if (account !== undefined) {
-    mail(request.origin, email, purpose, await issueToken(db, account.userId, purpose), {
+    mail(request.origin, presentedAddress(request.email), purpose, await issueToken(db, account.userId, purpose), {
       requestId: request.requestId,
       actor: account.userId,
       route: `spine.auth.${door}`,
@@ -595,10 +622,10 @@ export async function signOut(session: AuthSession): Promise<{ signedOut: true }
  * ------------------------------------------------------------------ */
 
 /**
- * Can a link be built at all? The origin is the deployment's own (`src/server/context.ts`): the
- * address it was configured with, or the request's when the request came from loopback — never a
- * `Host` the caller wrote, which would let a caller point a mailed link at a host of their choosing
- * (R-SPINE-001).
+ * Can a link be built at all? The origin is the deployment's own statement of its address and
+ * nothing else (`src/server/context.ts`): no property of the request substitutes for it, because
+ * every one of them is written by whoever sent the request, and a caller who could move the origin
+ * could point a mailed credential at a host of their choosing (R-SPINE-001).
  *
  * A deployment that named neither leaves the origin empty, and nothing is sent. The alternative is a
  * link that reads `/verify?token=…` — a path a browser resolves and a mail client cannot — so the
@@ -652,7 +679,7 @@ function recordOriginOutage(purpose: AuthTokenPurpose, under: { requestId: strin
   reportFault({
     ...under,
     cause: new Error(
-      `the deployment named no public origin and this request did not arrive on loopback, so the ${TOKEN_KINDS[purpose]} link this door owes ` +
+      `the deployment named no public origin, so the ${TOKEN_KINDS[purpose]} link this door owes ` +
         `("${LINK_PATHS[purpose]}") could not be built and nothing was sent — set the origin this deployment answers at (R-SPINE-001). ` +
         `This is a standing state of the deployment, re-reported once a minute for as long as it lasts, not once per mail.`,
     ),
