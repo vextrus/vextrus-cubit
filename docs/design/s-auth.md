@@ -53,6 +53,25 @@ Skeleton, and the one `RefusalState` renderer — a screen-local refusal block i
   where the entry is true. So the whitespace `required` admits is never the fault card
   (R-SPINE-007) and never a refusal the registry does not hold.
 
+Recorded IOU — the one-time re-key of `users.email`. Closing the identity fold (inc-020)
+changed the key every door writes and reads: an address the column can carry is now stored
+as `as presented <address>` where it was previously stored verbatim, so that a presented
+value can never meet a folded one (R-SPINE-001; `src/server/auth/folded-key.ts`). Rows
+written before that change carry the untagged form, and no door reads it: `signIn` would
+answer CREDENTIALS_NOT_VALID for an account that exists, `requestPasswordReset` and
+`requestMagicLink` would miss the lookup and still answer `{ sent: true }` (non-disclosure,
+so the person gets no signal), and `signUp`'s ACCOUNT_ALREADY_EXISTS pre-check would miss
+the row while the UNIQUE index still holds it — surfacing the duplicate as an unmarked
+23505 fault instead of the registered refusal. No deployment carries such rows today:
+`db/migrations/0002_identity.sql` created the column in the immediately preceding commit
+(inc-009-auth-core), inside the same unreleased milestone. This Decision therefore records
+the debt rather than paying it — DB schema and migrations are out of inc-020's scope, and
+a compatibility read that also accepted the untagged key would re-open the very overlap the
+increment closes. **Owed by the first increment that deploys onto rows written before
+inc-020:** a migration that rewrites every `users.email` the column can carry to
+`as presented <address>`, leaving the over-long rows alone — their key, `digest of <hex>`,
+is unchanged by inc-020.
+
 ## 1. Layout and hierarchy — the auth frame
 
 The five unauthenticated routes share one frame: a single centred column, width
