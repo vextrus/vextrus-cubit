@@ -132,8 +132,11 @@ type Card = {
   /** The paint, and the token values it is graded against, resolved in the same document. */
   edgeColour: string;
   fillColour: string;
-  /** What the surface shows a person, and how many visible code chips it renders (AC-3: none). */
+  /** What the surface shows a person — the instrument for message and remedy being visible. */
   pageText: string;
+  /** Every text node the surface renders, visible or not — the instrument for AC-3's absence. */
+  allText: string;
+  /** Chip elements in the DOM, counted whether or not they paint (AC-3: none). */
   codeChips: number;
   expectedEdge: string;
   expectedFill: string;
@@ -212,11 +215,17 @@ test.beforeAll(async ({ browser }) => {
           inlineBorderEndPx: Number.parseFloat(style.borderInlineEndWidth),
           edgeColour: style.borderBlockStartColor,
           fillColour: style.backgroundColor,
-          // AC-3: the taxonomy code is never user-facing copy. `innerText` is what the browser
-          // shows a person — it drops what is clipped, collapsed or hidden — so this reads the
-          // rendered text of the whole surface the card sits on, not only of the card.
+          // Two readings of the same surface, each answering the question it can answer.
+          // `innerText` is what the browser shows a person — it drops what is clipped, collapsed
+          // or hidden — so it is the honest instrument for "the message and the remedy are
+          // visible". It is the wrong instrument for AC-3's "appears in no rendered text node":
+          // a `visibility: hidden` or sr-only chip still occupies the render tree and is still
+          // announced inside `role="alert"`, yet `innerText` omits it. `textContent` is a
+          // superset of the rendered text nodes, so absence from it entails the clause with no
+          // false passes — and it is the same strict reading the jsdom sibling already encodes.
           codeChips: document.querySelectorAll('[data-testid="refusal-code"]').length,
           pageText: document.body.innerText,
+          allText: document.body.textContent ?? "",
           expectedEdge: colourOf(given.edge),
           expectedFill: colourOf(given.fill),
           expectedRadiusPx: given.radius === null ? 0 : lengthOf(given.radius),
@@ -261,6 +270,7 @@ test.beforeAll(async ({ browser }) => {
       edgeColour: measured.edgeColour,
       fillColour: measured.fillColour,
       pageText: measured.pageText,
+      allText: measured.allText,
       codeChips: measured.codeChips,
       expectedEdge: measured.expectedEdge,
       expectedFill: measured.expectedFill,
@@ -365,10 +375,12 @@ test.describe("J-001 S-AUTH-BREAKER — every refusal is the one card, and its o
       // above read every card's identity from, and it is copy on no surface (AC-3, B-20 — this
       // file's own code-chip probes are re-baselined by exactly this assertion).
       expect(card.code, `${card.what} — the card still names its taxonomy code machine-readably`).not.toBe("");
-      expect(card.codeChips, `${card.what} — no visible code chip is rendered anywhere on the surface`).toBe(0);
+      expect(card.codeChips, `${card.what} — no code chip element is rendered anywhere on the surface, painted or not`).toBe(0);
+      // Read off `textContent`, not `innerText`: AC-3's words are "appears in no rendered text
+      // node", and a hidden or sr-only chip is a rendered text node a screen reader announces.
       expect(
-        card.pageText.includes(card.code),
-        `${card.what} — "${card.code}" appears in no text ${card.route} renders: a taxonomy code is an operator's handle, never a person's copy (R-SPINE-062)`,
+        card.allText.includes(card.code),
+        `${card.what} — "${card.code}" appears in no text node ${card.route} renders, hidden ones included: a taxonomy code is an operator's handle, never a person's copy (R-SPINE-062)`,
       ).toBe(false);
     }
   });
