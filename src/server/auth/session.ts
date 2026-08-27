@@ -118,10 +118,9 @@ const WRITABLE_EMAIL_MAX_OCTETS = 2000;
  *     itself, before a column is reached, with no marker on the refusal. It is dropped, exactly as
  *     `workspaceName` drops it and for the settled reason recorded there.
  *   - a value past `WRITABLE_EMAIL_MAX_OCTETS`, which the UNIQUE index could not carry as a row. It
- *     is counted under its own digest, exactly as `rate-limit.ts`'s `keyed` folds an over-long
- *     identity, and tagged for the same reason: a digest is deterministic, so the account remains
- *     reachable by presenting the same address again, and the tag keeps the folded space and the
- *     presented space from ever meeting.
+ *     is carried under its own digest by `foldedAddress`, exactly as `rate-limit.ts`'s `keyed` folds
+ *     an over-long identity: a digest is deterministic, so the account remains reachable by
+ *     presenting the same address again.
  *
  * Folding rather than refusing is what makes the *reading* doors honest too. Left unfolded on one
  * side only, an account created from a value carrying a NUL could never be signed into again, and a
@@ -130,7 +129,35 @@ const WRITABLE_EMAIL_MAX_OCTETS = 2000;
  */
 function storedAddress(email: string): string {
   const address = storableText(normalisedEmail(email));
-  return Buffer.byteLength(address, "utf8") <= WRITABLE_EMAIL_MAX_OCTETS ? address : `digest of ${digestOf(address)}`;
+  return Buffer.byteLength(address, "utf8") <= WRITABLE_EMAIL_MAX_OCTETS ? address : foldedAddress(address);
+}
+
+/**
+ * The padding that puts a folded address out of the presented space. Any byte would do; a dot is one
+ * the digest line already reads as filler rather than as part of the hex.
+ */
+const FOLD_PAD = ".";
+
+/**
+ * The key an over-long address is carried under — and a key no caller can spell.
+ *
+ * The fold has to be injective or it is not a key: `rate-limit.ts`'s `keyed` says why in as many
+ * words, and the same argument is available here — the digest is unkeyed sha-256 over a value the
+ * presenter chose, so a caller can compute `digest of <hex>` themselves and present it as a second,
+ * short address. Untagged, that presented value and the folded one are the same string, and
+ * `users.email` being UNIQUE the two identities would share one account row.
+ *
+ * `keyed` separates the two spaces by tagging both sides, because its `identity` column is read by
+ * nothing but the limiter. This column is not: it is the address the account is reachable by and the
+ * `to` of every mail the doors write, so tagging what a person presented would change the address
+ * every account is stored and delivered under. The two spaces are separated by *length* instead —
+ * the fold is written past `WRITABLE_EMAIL_MAX_OCTETS`, which is precisely the bound below which a
+ * value is stored exactly as presented. A presented value that long is itself folded, so no string
+ * is ever both, and a presented value is only ever equal to itself. The result stays far below the
+ * btree ceiling the bound was chosen against (2704 bytes).
+ */
+function foldedAddress(address: string): string {
+  return `digest of ${digestOf(address)}`.padEnd(WRITABLE_EMAIL_MAX_OCTETS + 1, FOLD_PAD);
 }
 
 /**

@@ -18,7 +18,7 @@
 
 @media (min-width: 640px) {
   .cx-auth-page {
-    padding-block-start: calc(var(--space-12) * 2);
+    padding-block: calc(var(--space-12) * 2);
   }
 }
 
@@ -26,6 +26,12 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  /* The column sits on the page's optical centre rather than under its top edge: the auth surface is
+     one short card on an otherwise empty page, and top-anchored it leaves the lower two thirds of a
+     tall viewport dead. `margin-block: auto` centres it *and* yields — a column taller than the
+     viewport starts at the block padding and scrolls, where `align-items: center` would push its
+     head off the top edge (Decision § 1). */
+  margin-block: auto;
   width: min(380px, calc(100vw - var(--space-8)));
 }
 

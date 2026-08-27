@@ -57,8 +57,11 @@ Skeleton, and the one `RefusalState` renderer — a screen-local refusal block i
 
 The five unauthenticated routes share one frame: a single centred column, width
 `min(380px, calc(100vw - var(--space-8)))`, on the bare `var(--graphite-0)` page ground —
-no card, no border, no shadow (minimal, branded, fast: the page is the card). Block padding
-top `var(--space-12)` doubled (96 px) on ≥ sm, `var(--space-8)` below sm. Vertical order,
+no card, no border, no shadow (minimal, branded, fast: the page is the card). The column is
+centred in the block direction too — `margin-block: auto`, so it sits on the page's optical
+centre on a tall viewport and yields to the block padding when it is taller than one. Block
+padding `var(--space-12)` doubled (96 px) on ≥ sm, `var(--space-8)` below sm — the floor the
+centring never eats into, never a top anchor. Vertical order,
 gaps in `var(--space-…)`: mark (48 px, per I-10) · 6 · `<h1>` title `var(--text-20)`
 `var(--weight-heading)` `var(--graphite-900)` · 5 · the body (form or token panel) · 4 ·
 footer links. Fields stack at gap `var(--space-4)`; a field is label over input at gap
