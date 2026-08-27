@@ -2,7 +2,7 @@
 // composed router, and hands every failure to the one fault seam through `trpcOnError` (ARCH-03).
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { createContext } from "../../../../server/context";
-import { appRouter, trpcOnError } from "../../../../server/root";
+import { appRouter, trpcOnError, trpcResponseMeta } from "../../../../server/root";
 
 const ENDPOINT = "/api/trpc";
 
@@ -13,6 +13,7 @@ function handler(req: Request): Promise<Response> {
     router: appRouter,
     createContext: (opts) => createContext({ req: opts.req }),
     onError: trpcOnError,
+    responseMeta: trpcResponseMeta,
   });
 }
 

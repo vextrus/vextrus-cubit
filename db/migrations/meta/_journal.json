@@ -15,6 +15,20 @@
       "when": 1787723045967,
       "tag": "0001_act-log",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787728529024,
+      "tag": "0002_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787734835962,
+      "tag": "0003_identity_attempts",
+      "breakpoints": true
     }
   ]
 }

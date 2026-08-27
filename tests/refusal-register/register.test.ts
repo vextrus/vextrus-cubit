@@ -84,31 +84,51 @@ describe("Q-07: the register against the product tree", () => {
     ).toEqual([]);
   });
 
-  test("AC-2 (d): the deferral branch is what admits SIGNED_OUT when nothing names it — and nothing else does", () => {
-    // The live corpus happens to name SIGNED_OUT, so on the tree the exercise branch answers first
-    // and the deferral is never asked. Asked of a corpus that names nothing, the deferral is the
-    // only thing that can admit — which is the mechanism the spec says SIGNED_OUT proves.
+  test("AC-2 (d): the deferral branch is real — a named deferral is what admits a code nothing names", () => {
+    // The mechanism, asked of corpora built here rather than of the tree's own roster: which code
+    // occupies the deferral branch today is the register's history, not its law (B-19), so the
+    // branch is proved on a code this test supplies and the tree is free to defer none at all.
     const namesNothing = new Map<string, readonly string[]>();
+    const owned = { A_DEFERRED_CODE: "the increment that will exercise it, named here" };
     expect(
-      unadmittedCodes(["SIGNED_OUT"], namesNothing, DEFERRED_CODES),
-      "SIGNED_OUT is admitted by its named deferral even when no executed test names it (Q-07)",
+      unadmittedCodes(["A_DEFERRED_CODE"], namesNothing, owned),
+      "a code with a named deferral is admitted even when no executed test names it (Q-07)",
     ).toEqual([]);
     expect(
-      unadmittedCodes(["SIGNED_OUT"], namesNothing, {}),
+      unadmittedCodes(["A_DEFERRED_CODE"], namesNothing, {}),
       "and with neither an exercise nor a deferral, the same code fails the register — the branch is real, not decorative",
-    ).toEqual(["SIGNED_OUT"]);
+    ).toEqual(["A_DEFERRED_CODE"]);
   });
 
-  test("AC-2 (d): a deferral names a registered code and states its owner — SIGNED_OUT proves the mechanism", async () => {
+  test("AC-2 (d): a deferral names a registered code and states its owner, and nothing else is left unaccounted for", async () => {
     const registered = Object.keys(REFUSALS);
     for (const [code, owner] of Object.entries(DEFERRED_CODES)) {
       expect(registered, `"${code}" is deferred but is not a registered refusal — a deferral defers a code the taxonomy holds`).toContain(code);
       expect(owner.trim().length, `"${code}" is deferred to nobody — a deferral names the owner who will exercise it (Q-07)`).toBeGreaterThan(0);
     }
-    expect(
-      Object.keys(DEFERRED_CODES),
-      "SIGNED_OUT is deferred to the increment that maps an expired session (ARCH-03, B-21) — the deferral half of Q-07 is exercised, not merely available",
-    ).toContain("SIGNED_OUT");
+
+    // R-SPINE-062's demand, stated structurally rather than as a roster: every code the taxonomy
+    // holds is accounted for by one of the two branches. The worked examples are whichever codes
+    // this test itself proves the live corpus does not name — so an example stops being one the
+    // moment its exercise lands, instead of standing in the way of removing its deferral (B-19).
+    const spoken = await exercisedNames([PRODUCT_SOURCE, TEST_TREE]);
+    const unexercised = registered.filter((code) => (spoken.get(code) ?? []).length === 0);
+    for (const code of unexercised) {
+      expect(
+        Object.keys(DEFERRED_CODES),
+        `"${code}" is registered and no executed test names it, so the deferral branch is the only thing that can account for it — defer it by name (Q-07)`,
+      ).toContain(code);
+      expect(
+        (DEFERRED_CODES[code] ?? "").trim().length,
+        `"${code}" is deferred to nobody — the deferral that accounts for it names the increment that will exercise it (Q-07)`,
+      ).toBeGreaterThan(0);
+    }
+    for (const code of registered) {
+      expect(
+        (spoken.get(code) ?? []).length > 0 || (DEFERRED_CODES[code] ?? "").trim().length > 0,
+        `"${code}" is registered but is neither exercised by name in the live corpus nor deferred by name with an owner (R-SPINE-062, Q-07)`,
+      ).toBe(true);
+    }
   });
 
   test("AC-2 (d): \"executed\" is answered by the lane's own collection rules, not by a list of directories", () => {

@@ -1,0 +1,262 @@
+/*
+ * S-Auth's stylesheet (docs/design/s-auth.md). The page is the card: one centred column on the bare
+ * page ground, no border and no shadow. Every value is a token read (R-UI-001) and every duration is
+ * a motion token, so reduced motion is honoured at source rather than re-stated here.
+ *
+ * Exactly one `[data-theme]` rule lives in this file — the I-10 mark swap. It cannot travel through
+ * token values: the brand colours are founder-fixed sRGB inside the vendored assets, so the light
+ * and dark marks are two files and the theme chooses which one is displayed.
+ */
+
+.cx-auth-page {
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-8) var(--space-4);
+  background-color: var(--graphite-0);
+}
+
+@media (min-width: 640px) {
+  .cx-auth-page {
+    padding-block-start: calc(var(--space-12) * 2);
+  }
+}
+
+.cx-auth-column {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: min(380px, calc(100vw - var(--space-8)));
+}
+
+.cx-auth-column[data-width="wide"] {
+  width: min(560px, calc(100vw - var(--space-8)));
+}
+
+/* The mark: 48 px, decoration beside the heading that names the product (I-10). */
+.cx-auth-mark {
+  --cx-auth-mark-light: block;
+  --cx-auth-mark-dark: none;
+
+  display: block;
+  align-self: start;
+  margin-block-end: var(--space-6);
+}
+
+.cx-auth-mark img {
+  width: 48px;
+  height: 48px;
+}
+
+.cx-auth-mark-light {
+  display: var(--cx-auth-mark-light);
+}
+
+.cx-auth-mark-dark {
+  display: var(--cx-auth-mark-dark);
+}
+
+[data-theme="dark"] .cx-auth-mark {
+  --cx-auth-mark-light: none;
+  --cx-auth-mark-dark: block;
+}
+
+.cx-auth-title {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-auth-caption {
+  margin: calc(var(--space-5) * -1 + var(--space-2)) 0 var(--space-5);
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-auth-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cx-auth-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-block-start: var(--space-4);
+}
+
+.cx-auth-footer-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body);
+  color: var(--graphite-600);
+}
+
+.cx-auth-link {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--beam-600);
+  text-decoration: underline;
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-auth-link:hover {
+  color: var(--beam-500);
+}
+
+/* A field: label over input, with the optional hint under the label (R-UI-033). */
+.cx-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-auth-field label {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+}
+
+.cx-auth-hint {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-auth-field .cx-input {
+  width: 100%;
+}
+
+.cx-auth-submit {
+  width: 100%;
+}
+
+/* The answer slot: exactly one of a refusal, a fault or a notice sits here. */
+.cx-auth-answer {
+  display: block;
+}
+
+.cx-auth-fault {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--graphite-300);
+  border-radius: var(--radius-4);
+  background-color: var(--graphite-50);
+}
+
+.cx-auth-fault-title {
+  margin: 0;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-auth-fault-body {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}
+
+.cx-auth-fault-id {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--graphite-700);
+}
+
+.cx-auth-notice {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--info);
+  border-radius: var(--radius-4);
+  background-color: var(--info-surface);
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+}
+
+/* The token panels' loading leg: layout kept, no spinner (R-UI-050). */
+.cx-auth-panel-skeleton {
+  height: 48px;
+}
+
+/* /sessions — the device list. */
+.cx-auth-session-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * Every row is the same height, whichever control it carries, and every divider therefore sits the
+ * same distance from the line above it. Two things make that true rather than nearly true: the text
+ * stack is exactly two lines at a stated leading in every row (the device label never wraps — the
+ * seam already cuts it to 48 characters, so the ellipsis is a belt), and the control sits in a slot
+ * as tall as the tallest control the row can hold. Left to the content, a row with a 32 px Revoke
+ * button stands taller than a row with a 20 px badge, and the two rules land at different distances.
+ */
+.cx-auth-session-row {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--row-comfortable);
+  padding-block: var(--space-2);
+  border-block-end: var(--hairline);
+}
+
+/* The stack that says what the session is. `min-width: 0` so the label may ellipsise rather than
+   push the control off the row. */
+.cx-auth-session-what {
+  min-width: 0;
+}
+
+.cx-auth-session-device {
+  display: block;
+  overflow: hidden;
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/*
+ * The date is set in tabular figures so a column of them lines up, but in the interface face: the
+ * line is a sentence, and English words in the mono face read as a leaked debug style rather than as
+ * a measurement (R-UI-004, L-FMT-01).
+ */
+.cx-auth-session-since {
+  display: block;
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+/* The control slot: as tall as the Button, so a badge row is exactly as tall as a revoke row. */
+.cx-auth-session-control {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  min-block-size: var(--space-8);
+}
+
+.cx-auth-session-skeleton {
+  height: var(--row-comfortable);
+}
+
+.cx-auth-signout {
+  align-self: start;
+  margin-block-start: var(--space-5);
+}

@@ -6,8 +6,8 @@
 // The table definitions sit here rather than in db/schema/*.ts because the ORM's table builders are
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
-import { and, eq, sql as statement } from "drizzle-orm";
-import { foreignKey, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { and, asc, eq, gt, inArray, isNull, lt, sql as statement } from "drizzle-orm";
+import { foreignKey, index, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { attributableReason } from "./db/reason";
@@ -16,7 +16,7 @@ import { attributableReason } from "./db/reason";
 // handed out from here rather than imported at a call site: SEAM-TENANT makes this file the one
 // lawful home of the driver, and a module that reached for them itself would be holding half a
 // handle (ARCH-02).
-export { and, eq };
+export { and, asc, eq, gt, inArray, isNull, lt };
 
 export { recordSystemReasonsWith, type SystemReasonRecord, type SystemReasonRecorder } from "./db/reason";
 
@@ -102,8 +102,97 @@ export const participantRoles = pgTable(
   ],
 );
 
+/**
+ * Identity (R-SPINE-001): an account, the sessions it is signed in through, and the single-use
+ * tokens that verify an address or stand in for a password. None of the three carries a tenant id —
+ * a person is one account across every workspace they belong to (R-SPINE-002) — so no *tenant*
+ * policy can be written for them. That is not the same as no policy: like `tenants`, each of the
+ * three is under FORCE row-level security with a system-scope policy, so only a handle that named
+ * an attributable reason reaches them at all (SEAM-TENANT, R-SPINE-007).
+ *
+ * Nothing here stores a secret in the clear: a session token and a mailed token are held as the
+ * digest of the value the user was given, so a reader of these rows cannot sign in as anybody.
+ */
+export const users = pgTable("users", {
+  userId: uuid("user_id").primaryKey().defaultRandom(),
+  // The address is the account's name, and the door refuses a second account for it by name
+  // (ACCOUNT_ALREADY_EXISTS): the unique index below is the belt, never the answer.
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** A signed-in device: what to call it in the list, when it arrived, when it was last seen, and — the whole point of revoke — when it stopped counting. */
+export const sessions = pgTable("sessions", {
+  sessionId: uuid("session_id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.userId),
+  tokenHash: text("token_hash").notNull().unique(),
+  deviceLabel: text("device_label").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+});
+
+/** One mailed token: what it authorises, when it stops working, and whether it has been spent. */
+export const authTokens = pgTable("auth_tokens", {
+  authTokenId: uuid("auth_token_id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.userId),
+  kind: text("kind").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * R-SPINE-001's rate limiting, counted where every instance of the product can see it: one row per
+ * attempt at a limited door by one server-derived identity. A counter held in a process is a counter
+ * a restart clears and a second instance doubles, so the allowance the law states would be the
+ * allowance only of a single-process deployment.
+ */
+export const authAttempts = pgTable(
+  "auth_attempts",
+  {
+    attemptId: uuid("attempt_id").primaryKey().defaultRandom(),
+    door: text("door").notNull(),
+    // The server-derived identity the attempt was made against — never anything a caller wrote into
+    // a header (R-SPINE-001). What derives it is the limiter's business; this column only holds it.
+    identity: text("identity").notNull(),
+    attemptedAt: timestamp("attempted_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // The two reads the limiter makes: one key's window, and every row old enough to drop.
+    index("auth_attempts_window").on(table.door, table.identity, table.attemptedAt),
+    index("auth_attempts_attempted_at").on(table.attemptedAt),
+  ],
+);
+
+/**
+ * R-SPINE-002: the join that makes an account belong somewhere. The pair is the identity — a person
+ * is a member of a workspace once — and the row is written in the same transaction as the account
+ * and its personal tenant, so an account that belongs nowhere is unrepresentable.
+ */
+export const memberships = pgTable(
+  "memberships",
+  {
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.tenantId),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.userId),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.tenantId, table.userId] })],
+);
+
 /** Everything the typed surface covers. A table joins the surface by joining this object. */
-const schema = { tenants, participants, acts, participantRoles };
+const schema = { tenants, participants, acts, participantRoles, users, sessions, authTokens, memberships, authAttempts };
 
 /** A handle scoped to one tenant: the typed read/write surface, filtered by row-level security. */
 export type TenantDb = PostgresJsDatabase<typeof schema>;
@@ -267,11 +356,47 @@ function handleFor(scope: Scope): PostgresJsDatabase<typeof schema> {
   return boundSurface(drizzle({ client: scopedClient(connection(), scope), schema }));
 }
 
+/** The shape a uuid column — and the `cubit.tenant_id` cast the policies make — can hold. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
- * The shape a tenant id has. The policies cast `cubit.tenant_id` to uuid, so an id that is not one
- * makes every statement the handle issues fail as a cast error (22P02) rather than as a refusal.
+ * Can a uuid column hold this value? Handed out from the seam because the answer belongs to the
+ * columns the seam defines: a value that is not one makes any statement comparing it fail as a cast
+ * error (22P02) — a fault — rather than simply matching no row, so a door that takes an id from a
+ * caller asks here before it asks the database (ARCH-02).
  */
-const TENANT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isUuid(value: string): boolean {
+  return UUID.test(value);
+}
+
+/** The one code point no `text` column can carry, written as an escape so this file stays readable. */
+const UNSTORABLE_BYTE = "\u0000";
+
+/**
+ * Can a `text` column hold this value at all? Postgres carries text as a NUL-terminated string, so
+ * U+0000 is not a character it can store at any length — the driver refuses the *parameter*, before
+ * any column is reached, and the refusal it raises carries no refusal marker. Handed out from the
+ * seam for the same reason `isUuid` is (ARCH-02): a door given a caller-written string it is about
+ * to compare or store asks here first, or the driver's refusal reaches the caller as a fault id for
+ * a value the door never judged (R-SPINE-007, R-SPINE-062).
+ */
+export function isStorableText(value: string): boolean {
+  return !value.includes(UNSTORABLE_BYTE);
+}
+
+/**
+ * The nearest thing a `text` column can hold to the value a caller presented: the same string with
+ * the one code point postgres has no representation for dropped, and nothing else touched.
+ *
+ * Handed out from the same one home as `isStorableText` and for the same reason (ARCH-02). A door
+ * that only *compares* a caller-written string can ask whether it is storable and answer without
+ * looking; a door that must *store* one has no such option — it either writes something or hands the
+ * caller a fault id for a value it never wrote — so it is given the fold rather than left to spell
+ * U+0000 a second time.
+ */
+export function storableText(value: string): string {
+  return value.replaceAll(UNSTORABLE_BYTE, "");
+}
 
 /**
  * The tenant a handle may be opened for: one the policies can read. Refused as the handle is taken,
@@ -279,7 +404,7 @@ const TENANT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
  * server error on every query it makes.
  */
 function scopedTenantId(tenantId: string): string {
-  if (!TENANT_ID.test(tenantId)) {
+  if (!isUuid(tenantId)) {
     throw new Error(`forTenant({ tenantId }) needs a tenant uuid — ${JSON.stringify(tenantId)} names no tenant the policies can read (SEAM-TENANT)`);
   }
   return tenantId;

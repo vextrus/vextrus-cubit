@@ -14,6 +14,20 @@ const REPO_ROOT = join(import.meta.dirname, "..", "..");
 /** A scratch database, addressed as each of the two live roles, and the way to take it away again. */
 export type ScratchDb = { urlMigrate: string; urlApp: string; drop(): Promise<void> };
 
+/**
+ * The address this scratch deployment answers at (R-SPINE-001). The doors that mail a link build it
+ * from the address the deployment named and never from the one a request carries — a `Host` is
+ * written by whoever sent the request — so a deployment that has named none sends nothing at all and
+ * says so. A suite that drives those doors is a deployment, and names one, exactly as it names the
+ * database it writes to.
+ *
+ * Deliberately not the host the suite's own requests carry: were the two the same string, a run
+ * could not tell a link built from the deployment's address from one built from the caller's.
+ * An operator's own value is never overwritten.
+ */
+const PUBLIC_ORIGIN_VAR = "CUBIT_PUBLIC_ORIGIN";
+process.env[PUBLIC_ORIGIN_VAR] ??= "https://cubit.example";
+
 /** Local development passwords for the two live roles; CI may already have created them. */
 const PASSWORD: Record<string, string> = { [ROLE_MIGRATE]: ROLE_MIGRATE, [ROLE_APP]: ROLE_APP };
 

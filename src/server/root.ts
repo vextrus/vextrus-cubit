@@ -6,6 +6,7 @@ import { bidRouter } from "./routers/bid";
 import { spineRouter } from "./routers/spine";
 import { takeoffRouter } from "./routers/takeoff";
 import { answerFor, router, type AnswerRequest } from "./trpc";
+import type { AppContext } from "./context";
 
 /** The closed lane set of the layered tree (ARCH-01) — each namespace is its own file's router. */
 const lanes = {
@@ -38,4 +39,19 @@ export type AppRouter = typeof appRouter;
  */
 export function trpcOnError(opts: AnswerRequest): void {
   answerFor(opts);
+}
+
+/**
+ * R-SPINE-001: the transport's other hand-off. A door that hands out or ends a session puts the
+ * cookie on the context (`AppContext.cookies`) and never touches a header; this is the one place
+ * those become `Set-Cookie`, so no procedure knows the wire and the header is written exactly once
+ * per response. Mounted as `responseMeta` by every handler that serves this router, beside
+ * `trpcOnError` — the handler stays wiring.
+ */
+export function trpcResponseMeta({ ctx }: { ctx?: AppContext | undefined }): { headers?: Headers } {
+  const cookies = ctx?.cookies ?? [];
+  if (cookies.length === 0) return {};
+  const headers = new Headers();
+  for (const cookie of cookies) headers.append("set-cookie", cookie);
+  return { headers };
 }
