@@ -37,6 +37,17 @@ export function rateLimited(door: string, retryAfterMs: number): Error {
   return refusal("RATE_LIMITED", `${door} was called more often than its window allows, so this attempt was not tried`, { door, retryAfterMs });
 }
 
+/**
+ * R-SPINE-001: a mailed link is only a link if it points back at an address this deployment actually
+ * answers at, and the only party entitled to name that address is the deployment itself. A request's
+ * `Host` is written by whoever sent it, so building the link from one hands a caller the power to
+ * mail somebody else a link to a host of their choosing. A deployment that has named no address can
+ * therefore send nothing, and the door says so instead of mailing a link that leads nowhere.
+ */
+export function linkNotSendable(purpose: string): Error {
+  return refusal("LINK_NOT_SENDABLE", `the deployment named no address of its own, so no ${purpose} link can be built`, { purpose });
+}
+
 /** ARCH-03, B-21: no live session, so the request was not carried out — the remedy is signing in. */
 export function signedOut(): Error {
   return refusal("SIGNED_OUT", "the request presented no live session", {});

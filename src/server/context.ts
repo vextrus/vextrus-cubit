@@ -125,8 +125,9 @@ function isLoopbackRequest(req: Request): boolean {
  *
  * Everything else leaves the origin empty rather than trusting the caller's `Host`, which would let
  * a caller point a mailed link at a host of their choosing. That is a deployment that has named no
- * address, and the mailing seam records it as the standing outage it is rather than throwing on a
- * request that was otherwise answerable — see `mail` in src/server/auth/session.ts.
+ * address, and the mailing doors send nothing at all on an empty origin: they answer the registered
+ * LINK_NOT_SENDABLE and record the configuration outage for the operator (R-SPINE-001) — see
+ * `canSendLinks` and `mail` in src/server/auth/session.ts.
  */
 function originOf(req: Request): string {
   const configured = configuredOrigin();

@@ -25,9 +25,10 @@ import {
   type TenantTx,
 } from "../../core/db";
 import { reportFault } from "../../core/faults/report";
+import { refusalCodeOf } from "../../core/faults/refusal-marker";
 import { deliver } from "./mail";
 import { admitAttempt, admitSignIn } from "./rate-limit";
-import { accountAlreadyExists, credentialsNotValid } from "./refusals";
+import { accountAlreadyExists, credentialsNotValid, linkNotSendable } from "./refusals";
 import { absorbPassword, digestOf, hashPassword, mintSecret, verifyPassword } from "./secrets";
 import { consumeToken, endOutstandingTokens, issueToken, TOKEN_KINDS, type AuthTokenPurpose } from "./tokens";
 
@@ -302,7 +303,13 @@ export async function signUp(request: SignUpRequest): Promise<SessionAnswer> {
   try {
     mail(request.origin, email, "verifyEmail", created.verifyToken, { requestId: request.requestId, actor: created.userId, route: SIGN_UP_ROUTE });
   } catch (undelivered) {
-    reportFault({ requestId: request.requestId, actor: created.userId, route: SIGN_UP_ROUTE, cause: undelivered });
+    // A deployment that has named no address of its own has already been recorded by `mail`, once a
+    // window rather than once a sign-up, and it is a standing state rather than an incident: filing
+    // it again here would put a record behind every sign-up for as long as the misconfiguration
+    // lasts. Every other way a delivery fails is an incident and is recorded as one.
+    if (refusalCodeOf(undelivered) === null) {
+      reportFault({ requestId: request.requestId, actor: created.userId, route: SIGN_UP_ROUTE, cause: undelivered });
+    }
   }
   return { sessionToken: created.sessionToken };
 }
@@ -427,6 +434,15 @@ async function mailLinkFor(
   const email = storedAddress(request.email);
   await admitAttempt(door, email);
   const began = Date.now();
+
+  // Asked of the deployment before the address is looked up: a deployment that cannot send answers
+  // every caller the same way, whether or not the address names an account. Asked after the lookup
+  // it would be an enumeration oracle — a refusal for the addresses that have accounts and
+  // `{ sent: true }` for the rest — which is the one thing this door exists not to disclose.
+  if (!canSendLinks(request.origin)) {
+    recordOriginOutage(purpose, { requestId: request.requestId, actor: UNIDENTIFIED_CALLER, route: `spine.auth.${door}` });
+    throw linkNotSendable(TOKEN_KINDS[purpose]);
+  }
 
   const db = runAsSystem(`R-SPINE-001 ${TOKEN_REASONS[purpose]}: issuing a single-use link for the address a caller named`);
   // Every address is looked up, whatever it carries: `storedAddress` has already folded the two
@@ -579,19 +595,26 @@ export async function signOut(session: AuthSession): Promise<{ signedOut: true }
  * ------------------------------------------------------------------ */
 
 /**
- * Put the link in the outbox. The origin is the deployment's own (`src/server/context.ts`): the
+ * Can a link be built at all? The origin is the deployment's own (`src/server/context.ts`): the
  * address it was configured with, or the request's when the request came from loopback — never a
- * `Host` the caller wrote, which would let a caller point a mailed link at a host of their choosing.
+ * `Host` the caller wrote, which would let a caller point a mailed link at a host of their choosing
+ * (R-SPINE-001).
  *
- * A deployment that named neither leaves the origin empty, and the link then reads `/verify?token=…`
- * — a path a browser resolves and a mail client cannot, so the person is mailed a link they cannot
- * follow. The mail is still written, because the token in it is the recoverable half and an operator
- * who fixes the configuration wants the account's outstanding links to still exist; the door answers
- * `{ sent: true }` either way, because it may not disclose whether the address names an account,
- * misconfigured or not.
- *
+ * A deployment that named neither leaves the origin empty, and nothing is sent. The alternative is a
+ * link that reads `/verify?token=…` — a path a browser resolves and a mail client cannot — so the
+ * choice is between mailing a live credential to an address in a form nobody can follow and sending
+ * nothing at all. Sending nothing is the honest half, and the door says so: `LINK_NOT_SENDABLE` is
+ * an answer, and the token is never minted, so no credential is written to disk for a mail that
+ * cannot be read.
+ */
+function canSendLinks(origin: string): boolean {
+  return origin !== "";
+}
+
+/**
  * What may not happen is that it happens quietly: the miss goes to the one place an operator reads,
- * the fault seam, naming the variable and the cure (ARCH-03).
+ * the fault seam, naming the cure (ARCH-03). The refusal tells the person in front of the form; this
+ * tells the only party who can fix it.
  *
  * Recorded once a *window*, not once a mail and not once a process. Once a mail would put a
  * FaultRecord behind every sign-up on the happy path, and an outage log that fills with one repeated
@@ -615,16 +638,35 @@ function outageDue(now: number): boolean {
   return true;
 }
 
+/**
+ * Whom an outage the mailing doors record is recorded against. The doors refuse a deployment that
+ * cannot send before they look the address up, so at that moment they know nobody — and a record
+ * naming the account the address might belong to would be asserting the very thing the door took
+ * care not to learn.
+ */
+const UNIDENTIFIED_CALLER = "an unidentified caller";
+
+/** File the standing configuration outage for the operator, at most once a window. */
+function recordOriginOutage(purpose: AuthTokenPurpose, under: { requestId: string; actor: string; route: string }): void {
+  if (!outageDue(Date.now())) return;
+  reportFault({
+    ...under,
+    cause: new Error(
+      `the deployment named no public origin and this request did not arrive on loopback, so the ${TOKEN_KINDS[purpose]} link this door owes ` +
+        `("${LINK_PATHS[purpose]}") could not be built and nothing was sent — set the origin this deployment answers at (R-SPINE-001). ` +
+        `This is a standing state of the deployment, re-reported once a minute for as long as it lasts, not once per mail.`,
+    ),
+  });
+}
+
+/**
+ * Put the link in the outbox, or refuse to. A deployment with no address of its own is answered
+ * before anything is written: no token in a file, no mail nobody can follow.
+ */
 function mail(origin: string, to: string, purpose: AuthTokenPurpose, token: string, under: { requestId: string; actor: string; route: string }): void {
-  if (origin === "" && outageDue(Date.now())) {
-    reportFault({
-      ...under,
-      cause: new Error(
-        `the deployment named no public origin and this request did not arrive on loopback, so the ${TOKEN_KINDS[purpose]} link mailed to this address is root-relative ` +
-          `("${LINK_PATHS[purpose]}") and cannot be followed from a mail client — set the origin this deployment answers at (R-SPINE-001). ` +
-          `This is a standing state of the deployment, re-reported once a minute for as long as it lasts, not once per mail.`,
-      ),
-    });
+  if (!canSendLinks(origin)) {
+    recordOriginOutage(purpose, under);
+    throw linkNotSendable(TOKEN_KINDS[purpose]);
   }
   const url = `${origin}${LINK_PATHS[purpose]}?token=${encodeURIComponent(token)}`;
   deliver({ to, kind: TOKEN_KINDS[purpose], url, token });

@@ -142,9 +142,9 @@ needs the verification link from your email — open the link to continue.**
 
 ### /magic-link — title **Sign in with a magic link**
 Without `?token=`: field **Email** (`autocomplete="email"`) · submit **Email me a link**.
-Success → heading **Check your email** over notice **Your sign-in link is on its way.** Refusal:
-RATE_LIMITED (requesting a link for an unknown email still answers the sent notice — the
-outbox stays silent, the screen never confirms which emails exist). With `?token=`: the
+Success → heading **Check your email** over notice **Your sign-in link is on its way.** Refusals:
+RATE_LIMITED, LINK_NOT_SENDABLE (requesting a link for an unknown email still answers the sent
+notice — the outbox stays silent, the screen never confirms which emails exist). With `?token=`: the
 /verify pattern — Skeleton while `consumeMagicLink(token)` runs, success navigates to `/`,
 an invalid token → TOKEN_NOT_VALID. Footer: **Use a password instead** → `/sign-in`.
 
@@ -154,7 +154,8 @@ Without `?token=`: field **Email** · submit **Email me a reset link** · succes
 With `?token=`: field **New password** (`type="password"` `autocomplete="new-password"`,
 testid `s-auth-password`) · submit **Set new password** · success heading **Your password is set** over
 notice **Your password is set and your other devices were signed out.** with footer link **Continue** → `/` —
-R-SPINE-001's revocation, said plainly. Refusals: TOKEN_NOT_VALID, RATE_LIMITED. Footer
+R-SPINE-001's revocation, said plainly. Refusals: TOKEN_NOT_VALID, RATE_LIMITED, and
+LINK_NOT_SENDABLE on the mailing half. Footer
 (both modes): **Back to sign-in** → `/sign-in`.
 
 ### /sessions — title **Sessions**, caption **Everywhere you are signed in.**
@@ -175,7 +176,7 @@ Recorded IOU: R-UI-031's visible navigation to `/sessions` is owed by the shell 
 (inc-013) — until then the route is journey- and URL-reachable, and this Decision records
 that as the shell's debt, not this screen's.
 
-## 3. Registry entries (R-SPINE-062) — the four new codes, verbatim
+## 3. Registry entries (R-SPINE-062) — the new codes, verbatim
 
 Copy obeys the refusal-state Decision's rules: one present-tense sentence of what was
 refused; remedy verb-first; no "sorry", no "please", no exclamation marks.
@@ -186,6 +187,15 @@ refused; remedy verb-first; no "sorry", no "please", no exclamation marks.
 | TOKEN_NOT_VALID | error | inline | **This link is no longer valid — it may have expired or already been used.** | **Request a fresh link and use the newest email.** |
 | RATE_LIMITED | warning | inline | **Too many attempts in a short time, so this one was not tried.** | **Wait a minute, then try again.** |
 | ACCOUNT_ALREADY_EXISTS | error | inline | **An account with this email already exists.** | **Sign in instead, or reset the password if you have lost it.** |
+| LINK_NOT_SENDABLE | error | inline | **No link was sent, because this installation has not been given the web address its links point back to.** | **Ask an operator to set the address this installation answers at, then ask for the link again.** |
+
+LINK_NOT_SENDABLE is the mailing doors' answer when the deployment has named no address of
+its own (R-SPINE-001): a link can only point back at an address the installation actually
+answers at, and the address a request carries is written by whoever sent it — so an
+installation that named none sends nothing rather than mailing a live credential to a link
+nobody can follow. It is `error`: refused, and needing a correction only an operator can
+make. The refusal is the same for every address, decided before the address is looked up,
+so it discloses no more than the sent notice does.
 
 RATE_LIMITED is `warning` by the fixed severity rule: refused but expected and recoverable
 in stride. Evidence (caller-supplied, per screen): CREDENTIALS_NOT_VALID
@@ -194,7 +204,8 @@ in stride. Evidence (caller-supplied, per screen): CREDENTIALS_NOT_VALID
 issues a fresh token — `/magic-link` **Request a new link** on magic-link, `/reset`
 **Request a new link** on reset, `/sign-in` **Go to sign-in** on verify · RATE_LIMITED
 `{ href: <the current route>, label: "Try again" }` — after the window, the same door is
-the resolving place. On `/sessions`, a dead or missing session answers SIGNED_OUT: the
+the resolving place · LINK_NOT_SENDABLE `{ href: "/sign-in", label: "Go to sign-in" }` — no
+mailed link is coming, so the password door is the way in that remains. On `/sessions`, a dead or missing session answers SIGNED_OUT: the
 registered banner entry renders in the refusal wrapper **in place of the list**, full
 region width, evidence `{ href: "/sign-in", label: "Go to sign-in" }`.
 

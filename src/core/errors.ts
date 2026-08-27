@@ -34,7 +34,8 @@ export type RefusalCode =
   | "CREDENTIALS_NOT_VALID"
   | "TOKEN_NOT_VALID"
   | "RATE_LIMITED"
-  | "ACCOUNT_ALREADY_EXISTS";
+  | "ACCOUNT_ALREADY_EXISTS"
+  | "LINK_NOT_SENDABLE";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -124,6 +125,13 @@ export const REFUSALS: Readonly<Record<RefusalCode, RefusalEntry>> = Object.free
     code: "ACCOUNT_ALREADY_EXISTS",
     message: "An account with this email already exists.",
     remedy: "Sign in instead, or reset the password if you have lost it.",
+    severity: "error",
+    surface: "inline",
+  }),
+  LINK_NOT_SENDABLE: Object.freeze({
+    code: "LINK_NOT_SENDABLE",
+    message: "No link was sent, because this installation has not been given the web address its links point back to.",
+    remedy: "Ask an operator to set the address this installation answers at, then ask for the link again.",
     severity: "error",
     surface: "inline",
   }),
