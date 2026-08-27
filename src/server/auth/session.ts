@@ -454,18 +454,22 @@ async function mailLinkFor(
   door: "requestMagicLink" | "requestPasswordReset",
   request: { email: string; origin: string; requestId: string },
 ): Promise<{ sent: true }> {
-  const email = storedAddress(request.email);
-  await admitAttempt(door, email);
-  const began = Date.now();
-
-  // Asked of the deployment before the address is looked up: a deployment that cannot send answers
-  // every caller the same way, whether or not the address names an account. Asked after the lookup
-  // it would be an enumeration oracle — a refusal for the addresses that have accounts and
-  // `{ sent: true }` for the rest — which is the one thing this door exists not to disclose.
+  // Asked of the deployment first, before the address is looked up and before an attempt is counted
+  // against the caller. A deployment that cannot send answers every caller the same way, whether or
+  // not the address names an account: asked after the lookup it would be an enumeration oracle — a
+  // refusal for the addresses that have accounts and `{ sent: true }` for the rest — which is the one
+  // thing this door exists not to disclose. Asked after the allowance it would spend a caller's
+  // attempts on a door that could not have sent anything either way, and then name the caller
+  // (RATE_LIMITED) for what is the operator's unnamed address (R-SPINE-007: a refusal says what was
+  // actually refused).
   if (!canSendLinks(request.origin)) {
     recordOriginOutage(purpose, { requestId: request.requestId, actor: UNIDENTIFIED_CALLER, route: `spine.auth.${door}` });
     throw linkNotSendable(TOKEN_KINDS[purpose]);
   }
+
+  const email = storedAddress(request.email);
+  await admitAttempt(door, email);
+  const began = Date.now();
 
   const db = runAsSystem(`R-SPINE-001 ${TOKEN_REASONS[purpose]}: issuing a single-use link for the address a caller named`);
   // Every address is looked up, whatever it carries: `storedAddress` has already folded the two
