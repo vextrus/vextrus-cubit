@@ -9,7 +9,10 @@ export interface AppContext {
   requestId: string;
   /** Who the request is answered as: the account's id, or `anonymous` when no session was presented. */
   actor: string;
-  /** The address this request arrived on — what a mailed link points back at (R-SPINE-001). */
+  /**
+   * The address the deployment states it answers at (`CUBIT_PUBLIC_ORIGIN`) — what a mailed link
+   * points back at, and empty when nothing was configured (R-SPINE-001).
+   */
   origin: string;
   /** What to call the device in the session list, derived from the request rather than asked for. */
   deviceLabel: string;
@@ -119,22 +122,27 @@ function isLoopbackRequest(req: Request): boolean {
 }
 
 /**
- * The address a link built on this request points back at. The configured origin when the
- * deployment named one; otherwise the request's own origin only while it names a loopback host,
- * which is a development machine and the journeys' own server and can be nothing else.
+ * The address a mailed link points back at: the deployment's own statement of it, and nothing else.
  *
- * Everything else leaves the origin empty rather than trusting the caller's `Host`, which would let
- * a caller point a mailed link at a host of their choosing. That is a deployment that has named no
- * address, and the mailing doors send nothing at all on an empty origin: they answer the registered
- * LINK_NOT_SENDABLE and record the configuration outage for the operator (R-SPINE-001) — see
- * `canSendLinks` and `mail` in src/server/auth/session.ts.
+ * The request is not consulted at all. Every part of a request's own origin is written by whoever
+ * sent it — Next composes a route handler's `Request.url` from the incoming `Host`, and the scheme
+ * of that URL is decided by `x-forwarded-proto` — so a link built on it is a link addressed where
+ * the caller chose. Recognising loopback does not rescue it either: `Host: 127.0.0.1` is a header
+ * like any other, and even a request genuinely from loopback carries a scheme and a port a caller
+ * wrote, so the link a victim is mailed under a stranger's `x-forwarded-proto: https` is one nobody
+ * can follow while the door answers as though it sent it. A mailed link is a live credential
+ * (R-SPINE-001), and there is exactly one party entitled to say where it points.
+ *
+ * A deployment that named no address leaves this empty, and the mailing doors then send nothing at
+ * all: they answer the registered LINK_NOT_SENDABLE before any address is looked up, and record the
+ * configuration outage for the operator (R-SPINE-007) — see `canSendLinks` and `mail` in
+ * src/server/auth/session.ts.
+ *
+ * `deploymentIsSecure` still reads the request, and for the opposite reason: it reads it only to
+ * *drop* a guarantee where a `Secure` cookie is one no browser would keep, never to grant one.
  */
-function originOf(req: Request): string {
-  const configured = configuredOrigin();
-  if (configured !== null) return configured;
-
-  if (!isLoopbackRequest(req)) return "";
-  return URL.parse(typeof req.url === "string" ? req.url : "")?.origin ?? "";
+function originOf(): string {
+  return configuredOrigin() ?? "";
 }
 
 /**
@@ -168,7 +176,7 @@ export async function createContext({ req }: { req: Request }): Promise<AppConte
   return {
     requestId: suppliedRequestId(req) ?? randomUUID(),
     actor: session?.userId ?? ANONYMOUS,
-    origin: originOf(req),
+    origin: originOf(),
     deviceLabel: deviceLabelFrom(req.headers.get("user-agent")),
     client: UNOBSERVED_CLIENT,
     session,

@@ -27,7 +27,7 @@ copy rules every later code is graded against.
   the registry entry through ownership of `src/core/errors.ts`, not the call site — the hint
   is taxonomy, not styling.
 - **I-9 — severity colour is presentation, not meaning.** R-UI-060 bans colour-only meaning.
-  The meaning of a refusal travels entirely in text — code, message, remedy — which is
+  The meaning of a refusal travels entirely in text — message, remedy — which is
   identical in greyscale; the semantic tint and border are redundant emphasis. No severity
   glyph is added: a glyph would imply the colour carries information the text lacks.
 
@@ -38,12 +38,11 @@ exporting `RefusalState` only, stylesheet `refusal-state.css` beside them. `impo
 { RefusalEntry } from "…core/errors"` — type-only; the `refusalOf` lookup happens in the
 caller, so ui stays value-import-free of core (ARCH-01). The component owns no product copy:
 every visible string arrives through the entry or the evidence prop; the only literals in the
-JSX are the five test ids and fixed attribute values.
+JSX are the four test ids and fixed attribute values.
 
 ```
 <div class="cx-refusal" data-testid="refusal-state" role="alert"
      data-severity={refusal.severity} data-surface={refusal.surface} data-code={refusal.code}>
-  <span data-testid="refusal-code">PRECISION_NOT_APPLIED</span>
   <p    data-testid="refusal-message">…</p>
   <p    data-testid="refusal-remedy">…</p>
   <a    data-testid="refusal-evidence-link" class="cx-reticle" href={evidence.href}>
@@ -52,8 +51,8 @@ JSX are the five test ids and fixed attribute values.
 </div>
 ```
 
-Document order is reading order is the hierarchy: the code names it, the message says what
-happened, the remedy says what to do, the link goes to where it is done. Column flex, gap
+Document order is reading order is the hierarchy: the message says what happened, the remedy
+says what to do, the link goes to where it is done. Column flex, gap
 `var(--space-1)`, with `var(--space-2)` above the link (the action stands slightly apart).
 The link is `align-self: start` — a real `<a>`, never a button, because evidence is a place
 (R-UI-022's Trace affordance grows from here). No heading element: the owning screen's
@@ -61,9 +60,12 @@ hierarchy provides headings; a refusal is content, not a landmark. No icon, no i
 no close button — a refusal is dismissed by resolving it, not by hiding it. No toast is ever
 the carrier (R-UI-020); adopters that also toast are adding status, not moving the answer.
 
-- **Code** — `var(--font-mono)` `var(--text-12)` with `font-variant-numeric: tabular-nums
-  slashed-zero`, coloured by severity (§ table below). It is the literal registry code, not
-  styled uppercase (the BasisChip ruling) — no letter-spacing.
+- **Code** — not rendered. The taxonomy code is machine-readable only: it reaches a journey, a
+  bug report and an operator through `data-code` on the container, and appears in no text node
+  the card renders. R-SPINE-062 owes a person the register's *message and remedy*; a code shown
+  beside them is a label from a table only the product holds, and it takes the first line of the
+  card from the sentence that says what to do. (Re-baselines the code chip this Decision ruled
+  in its first edition, B-20 — its typography and its severity colour row are withdrawn with it.)
 - **Message** — `var(--font-ui)` `var(--text-13)` `var(--weight-body-medium)`
   `var(--graphite-900)`, line-height `var(--leading-ui)`. The dominant line.
 - **Remedy** — `var(--text-13)` weight 400, `var(--graphite-700)`.
@@ -88,16 +90,16 @@ the carrier (R-UI-020); adopters that also toast are adding status, not moving t
 
 ### Severity tokens (`data-severity`)
 
-| severity | fill | border + code text |
+| severity | fill | border |
 |---|---|---|
 | error | `var(--danger-surface)` | `var(--danger)` |
 | warning | `var(--warn-surface)` | `var(--warn)` |
 | info | `var(--info-surface)` | `var(--info)` |
 
-R-UI-001 pairs each semantic colour with its surface tint by law; on the founder values the
-code text clears 4.5:1 on its tint in both themes, `graphite-900`/`graphite-700` hold their
-usual floors on the pale tints, and `beam-600` clears 4.5:1 on all three tints in both
-themes. No other colour appears; copper never appears here — a refusal is never an act.
+Severity paints the fill and the border and nothing else: with the code chip withdrawn there
+is no severity-coloured *text* in the card at all. R-UI-001 pairs each semantic colour with
+its surface tint by law; on the founder values `graphite-900`/`graphite-700` hold their usual
+floors on the pale tints, and `beam-600` clears 4.5:1 on all three tints in both themes. No other colour appears; copper never appears here — a refusal is never an act.
 
 ## 2. In-dialog composition
 
@@ -136,7 +138,9 @@ Copy rules, binding on every later code (the registry grows under later ownershi
 voice is fixed here): the message is one sentence of plain English stating what was refused
 and why, in present tense; the remedy is one sentence naming the action that resolves it,
 starting with the verb. Never "Oops", never "sorry", never "please", no exclamation marks.
-The code is never repeated inside the message. Bible clause ids and build vocabulary
+The code never appears inside the message or the remedy — it is not rendered anywhere a
+person reads, so a message that spells it is the only way one could leak into copy, and it
+must not. Bible clause ids and build vocabulary
 (L-FMT-02, seam, lane, increment) never appear — those belong to the internal detail strings
 `refusal()` carries in `src/core/format.ts`, which are for operators and stay out of the
 registry. `error` = the request was refused and needs correcting; `warning` = refused but
@@ -177,10 +181,11 @@ portal's document-root `[data-theme]`, per the overlay Decision.
 
 ## 7. Test hooks (closed contract, C-05)
 
-Routes: none. Test ids, exactly these five, on the elements ruled in §1: `refusal-state`
-(the container) · `refusal-code` · `refusal-message` · `refusal-remedy` ·
-`refusal-evidence-link` (the `<a>`; its `href` is the evidence href, its text the evidence
-label). Behavioural hooks without new ids: `role="alert"` on the container;
+Routes: none. Test ids, exactly these four, on the elements ruled in §1: `refusal-state`
+(the container) · `refusal-message` · `refusal-remedy` · `refusal-evidence-link` (the `<a>`;
+its `href` is the evidence href, its text the evidence label). `refusal-code` is withdrawn
+along with the chip it hung on, and its absence is itself asserted: the code appears in no
+rendered text node. Behavioural hooks without new ids: `role="alert"` on the container;
 `data-severity`, `data-surface`, `data-code` reflecting the entry; `cx-reticle` on the link.
 The acceptance sample render (jsdom, `@vitest-environment jsdom`): `refusalOf`'s entry for
 each of the three registered codes, with sample evidence for the in-dialog case —

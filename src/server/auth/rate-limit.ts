@@ -11,8 +11,8 @@
 // product's allowance: a count one process holds is multiplied by however many instances serve the
 // same address, and given back in full by every restart.
 import { and, asc, authAttempts, eq, gt, holdStateLock, isStorableText, lt, runAsSystem } from "../../core/db";
+import { foldedKey } from "./folded-key";
 import { rateLimited } from "./refusals";
-import { digestOf } from "./secrets";
 
 /** One door's allowance: how many attempts, over how long a sliding window. */
 export interface RateLimit {
@@ -72,17 +72,14 @@ const IDENTITY_MAX_BYTES = 256;
  * the caller is handed a fault id for an attempt that was never made (R-SPINE-007, R-SPINE-062).
  * Under its digest the attempt is counted like any other, which is what the allowance is for.
  *
- * Both keys say which of the two they are, because otherwise the fold is not injective. A prefix on
- * the digest alone rests on the folded value never wearing it — and nothing bounds or shapes what a
- * door is handed: the two mailing doors take the caller's string with no length check at all
- * (`mailLinkFor`), so a caller could present a long value, compute the same unsecret digest
- * themselves, and present the literal `digest of <that hex>` as a second, short identity. Two
- * identities would then share one row-group and one lock name. Tagged on both sides the two spaces
- * cannot meet: a presented value is only ever equal to itself.
+ * Both folds go through `foldedKey`, which tags both spaces so they cannot meet: were only the
+ * folded side tagged, a caller could present a long value, compute the same unsecret digest
+ * themselves, and present the literal `digest of <that hex>` as a second, short identity — two
+ * identities sharing one row-group and one lock name.
  */
 function keyed(identity: string): string {
   const folded = identity.trim().toLowerCase();
-  return countable(folded) ? `as presented ${folded}` : `digest of ${digestOf(folded)}`;
+  return foldedKey(folded, countable(folded));
 }
 
 /**
