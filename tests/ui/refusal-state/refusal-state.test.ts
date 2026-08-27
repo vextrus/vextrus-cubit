@@ -1,8 +1,16 @@
 // @vitest-environment jsdom
 /**
- * Public acceptance for the single RefusalState renderer (R-UI-020, B-17, ARCH-01/02): AC-4.
+ * Public acceptance for the single RefusalState renderer (R-UI-020, B-17, ARCH-01/02): AC-4 of the
+ * pattern's own increment, re-baselined by AC-3 of the auth-hardening leaf (B-20).
  *
- * The renderer is observed through the closed test contract only — the five `data-testid`s of
+ * The re-baseline: a refusal surface shows the register's message and remedy (R-SPINE-062), and the
+ * taxonomy code is never user-facing copy. The code is machine-readable only — `data-code` on the
+ * container — so this file asserts its ABSENCE from the rendered text as strictly as it used to
+ * assert the chip that carried it. Nothing else about the renderer changes: the props, the
+ * `role="alert"`, `data-severity` and `data-surface` are all still asserted below, and no check that
+ * survived the re-baseline was weakened.
+ *
+ * The renderer is observed through the closed test contract only — the `data-testid`s of
  * docs/design/refusal-state.md §7 and the container's `role="alert"` (Decision I-7). No stylesheet
  * fact is asserted: jsdom lays nothing out, and the tints, borders and banner geometry are the
  * gallery leaf's baselines (Decision §7).
@@ -33,14 +41,16 @@ const PATTERN_DIR = "src/ui/patterns/refusal-state";
 const PATTERN_BARREL = `${PATTERN_DIR}/index.ts`;
 const ERRORS_MODULE = "src/core/errors.ts";
 
-/** The five ids of the closed contract (test contract, Decision §7). */
+/** The ids of the closed contract (test contract, Decision §7). */
 const TESTIDS = {
   state: "refusal-state",
-  code: "refusal-code",
   message: "refusal-message",
   remedy: "refusal-remedy",
   evidenceLink: "refusal-evidence-link",
 } as const;
+
+/** The id the removed chip carried. Named here so its absence is asserted, never merely unasserted. */
+const REMOVED_CODE_CHIP = "refusal-code";
 
 /** The Decision §7 sample evidence — a place, verb-first label. */
 const EVIDENCE = { href: "/settings/documents", label: "Open document settings" } as const;
@@ -106,7 +116,7 @@ describe("AC-4: the refusal renders in place, with its evidence link", () => {
     expect(typeof bag.RefusalState, "RefusalState is a component").toBe("function");
   });
 
-  test("AC-4: every registered refusal renders code, message, remedy and evidence inside one alert container", async () => {
+  test("AC-4: every registered refusal renders message, remedy and evidence inside one alert container", async () => {
     const { RefusalState } = await productModule<ModuleBag>(PATTERN_BARREL);
     const errors = await productModule<ErrorsModule>(ERRORS_MODULE);
 
@@ -120,7 +130,6 @@ describe("AC-4: the refusal renders in place, with its evidence link", () => {
       expect(state.getAttribute("role"), `${code}: the refusal announces itself as an alert (Decision I-7)`).toBe("alert");
 
       const parts = within(state);
-      expect(textOf(parts.getByTestId(TESTIDS.code)), `${code}: the container names the code`).toBe(entry.code);
       expect(textOf(parts.getByTestId(TESTIDS.message)), `${code}: the registry's message is what is shown`).toBe(entry.message);
       expect(textOf(parts.getByTestId(TESTIDS.remedy)), `${code}: the registry's remedy is what is shown`).toBe(entry.remedy);
 
@@ -132,17 +141,31 @@ describe("AC-4: the refusal renders in place, with its evidence link", () => {
       ).toBe(EVIDENCE.href);
       expect(textOf(link), `${code}: the link reads as the caller's label`).toBe(EVIDENCE.label);
 
+      // The code travels machine-readably and nowhere else (AC-3, R-SPINE-062): a person is shown
+      // what happened and what resolves it, and an operator — or a test — reads the taxonomy off
+      // the attribute. `textContent` is jsdom's honest reading of the rendered text: it lays
+      // nothing out, so a code hidden by a stylesheet would still be caught here.
+      expect(state.getAttribute("data-code"), `${code}: the container carries its code machine-readably`).toBe(entry.code);
+      expect(
+        document.body.querySelector(`[data-testid="${REMOVED_CODE_CHIP}"]`),
+        `${code}: the visible code chip is gone — the code is not copy (AC-3)`,
+      ).toBeNull();
+      expect(
+        (document.body.textContent ?? "").includes(entry.code),
+        `${code}: the taxonomy code appears in no rendered text — the surface shows the register's message and remedy instead (R-SPINE-062)`,
+      ).toBe(false);
+
       cleanup();
     }
   });
 
-  test("AC-4: all four parts live inside the refusal container — the answer renders in place, never as a toast", async () => {
+  test("AC-4: every part lives inside the refusal container — the answer renders in place, never as a toast", async () => {
     const { RefusalState } = await productModule<ModuleBag>(PATTERN_BARREL);
     const errors = await productModule<ErrorsModule>(ERRORS_MODULE);
     const firstCode = Object.keys(errors.REFUSALS)[0] as string;
     const state = renderRefusal(RefusalState, errors.refusalOf(firstCode));
 
-    for (const id of [TESTIDS.code, TESTIDS.message, TESTIDS.remedy, TESTIDS.evidenceLink]) {
+    for (const id of [TESTIDS.message, TESTIDS.remedy, TESTIDS.evidenceLink]) {
       const part = document.body.querySelector(`[data-testid="${id}"]`);
       expect(part, `"${id}" is rendered`).toBeTruthy();
       expect(

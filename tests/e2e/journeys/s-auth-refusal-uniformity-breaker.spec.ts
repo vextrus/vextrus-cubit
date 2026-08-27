@@ -132,7 +132,9 @@ type Card = {
   /** The paint, and the token values it is graded against, resolved in the same document. */
   edgeColour: string;
   fillColour: string;
-  codeColour: string;
+  /** What the surface shows a person, and how many visible code chips it renders (AC-3: none). */
+  pageText: string;
+  codeChips: number;
   expectedEdge: string;
   expectedFill: string;
   /** The measure of the thing the screen renders the refusal into. */
@@ -148,10 +150,10 @@ type Card = {
 
 const cards: Card[] = [];
 
-function registered(code: string, what: string): { severity: RefusalSeverity; surface: RefusalSurface } {
+function registered(code: string, what: string): { severity: RefusalSeverity; surface: RefusalSurface; message: string; remedy: string } {
   expect(Object.hasOwn(REFUSALS, code), `${what} answered with "${code}", which the closed taxonomy registers (R-SPINE-062)`).toBe(true);
   const entry = REFUSALS[code as RefusalCode];
-  return { severity: entry.severity, surface: entry.surface };
+  return { severity: entry.severity, surface: entry.surface, message: entry.message, remedy: entry.remedy };
 }
 
 test.beforeAll(async ({ browser }) => {
@@ -189,7 +191,6 @@ test.beforeAll(async ({ browser }) => {
         };
 
         const style = getComputedStyle(element);
-        const codeElement = element.querySelector('[data-testid="refusal-code"]');
         const viewport = document.documentElement.clientWidth;
         const spaceEight = lengthOf("--space-8");
         const out = {
@@ -211,7 +212,11 @@ test.beforeAll(async ({ browser }) => {
           inlineBorderEndPx: Number.parseFloat(style.borderInlineEndWidth),
           edgeColour: style.borderBlockStartColor,
           fillColour: style.backgroundColor,
-          codeColour: codeElement === null ? "" : getComputedStyle(codeElement).color,
+          // AC-3: the taxonomy code is never user-facing copy. `innerText` is what the browser
+          // shows a person — it drops what is clipped, collapsed or hidden — so this reads the
+          // rendered text of the whole surface the card sits on, not only of the card.
+          codeChips: document.querySelectorAll('[data-testid="refusal-code"]').length,
+          pageText: document.body.innerText,
           expectedEdge: colourOf(given.edge),
           expectedFill: colourOf(given.fill),
           expectedRadiusPx: given.radius === null ? 0 : lengthOf(given.radius),
@@ -255,7 +260,8 @@ test.beforeAll(async ({ browser }) => {
       inlineBorderPx: measured.inlineBorderPx,
       edgeColour: measured.edgeColour,
       fillColour: measured.fillColour,
-      codeColour: measured.codeColour,
+      pageText: measured.pageText,
+      codeChips: measured.codeChips,
       expectedEdge: measured.expectedEdge,
       expectedFill: measured.expectedFill,
       widthPx: box?.width ?? -1,
@@ -304,6 +310,11 @@ test.describe("J-001 S-AUTH-BREAKER — every refusal is the one card, and its o
     const stylesheets = sourceFiles(".css").filter((file) => readFileSync(join(process.cwd(), file), "utf8").includes(`.${CARD_STEM}`));
     expect(stylesheets, "the card's rules have one home — no screen and no surface re-declares them").toEqual([PATTERN_STYLESHEET]);
 
+    // AC-3: the code is not copy, so nothing paints it — the chip's class carries no rule anywhere,
+    // its severity colour rows included (B-20 re-baseline of the Decision's typography table).
+    const paintsTheCode = sourceFiles(".css").filter((file) => readFileSync(join(process.cwd(), file), "utf8").includes(`.${CARD_STEM}-code`));
+    expect(paintsTheCode, `no shipped stylesheet dresses .${CARD_STEM}-code — the element it painted is gone`).toEqual([]);
+
     for (const card of cards) {
       expect(card.classes.split(/\s+/), `${card.what} — the painted element is the pattern's card`).toContain(CARD_STEM);
       expect(card.inlineStyle, `${card.what} — the card wears no inline style, which would be an override no stylesheet can be grepped for`).toBeNull();
@@ -336,12 +347,29 @@ test.describe("J-001 S-AUTH-BREAKER — every refusal is the one card, and its o
       const paint = SEVERITY_PAINT[card.severity as RefusalSeverity];
       expect(card.edgeColour, `${card.what} — the border is ${paint.edge}, the colour its registered severity pairs with`).toBe(card.expectedEdge);
       expect(card.fillColour, `${card.what} — the fill is ${paint.fill}, the tint its registered severity pairs with`).toBe(card.expectedFill);
-      expect(card.codeColour, `${card.what} — the code text takes the border's colour (the Decision's severity table)`).toBe(card.expectedEdge);
       // The other card's paint is the wrong answer for this one: severity paints, it does not mean,
       // and two severities that painted alike would be the finding this file replaces, inverted.
       for (const other of cards.filter((c) => c.severity !== card.severity)) {
         expect(card.edgeColour, `${card.what} does not wear ${other.what}'s paint — different severities are allowed to differ (R-SPINE-062, R-UI-060)`).not.toBe(other.edgeColour);
       }
+    }
+  });
+
+  test("S-AUTH-BREAKER: every refusal surface shows the register's message and remedy, and its code to nobody", () => {
+    for (const card of cards) {
+      const entry = registered(card.code, card.what);
+      // R-SPINE-062: what a person is shown is what happened and what resolves it.
+      expect(card.pageText, `${card.what} — the register's message is what the surface shows`).toContain(entry.message);
+      expect(card.pageText, `${card.what} — and its remedy beside it`).toContain(entry.remedy);
+      // The code is machine-readable and nothing else: it travels as `data-code`, which the probes
+      // above read every card's identity from, and it is copy on no surface (AC-3, B-20 — this
+      // file's own code-chip probes are re-baselined by exactly this assertion).
+      expect(card.code, `${card.what} — the card still names its taxonomy code machine-readably`).not.toBe("");
+      expect(card.codeChips, `${card.what} — no visible code chip is rendered anywhere on the surface`).toBe(0);
+      expect(
+        card.pageText.includes(card.code),
+        `${card.what} — "${card.code}" appears in no text ${card.route} renders: a taxonomy code is an operator's handle, never a person's copy (R-SPINE-062)`,
+      ).toBe(false);
     }
   });
 

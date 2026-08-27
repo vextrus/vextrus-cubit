@@ -47,7 +47,14 @@ describe("R-UI-020: the one renderer inside the product's Dialog, and the hints 
     const state = within(content).getByTestId("refusal-state");
 
     expect(state.getAttribute("role"), "an alert inside a dialog announces on mount (Decision § 2)").toBe("alert");
-    expect(within(state).getByTestId("refusal-code").textContent).toBe(entry.code);
+    // The code is machine-readable and never copy — on this surface as on every other (AC-3 of the
+    // auth-hardening leaf, R-SPINE-062; B-20 re-baseline of the chip this line used to assert).
+    expect(state.getAttribute("data-code"), "the card carries its code as data, inside the dialog too").toBe(entry.code);
+    expect(within(state).queryByTestId("refusal-code"), "no visible code chip is rendered inside the dialog").toBeNull();
+    expect(
+      (content.textContent ?? "").includes(entry.code),
+      "the taxonomy code appears in no text the dialog renders — the register's message and remedy are what is shown",
+    ).toBe(false);
     expect(within(state).getByTestId("refusal-message").textContent).toBe(entry.message);
     expect(within(state).getByTestId("refusal-remedy").textContent).toBe(entry.remedy);
 
