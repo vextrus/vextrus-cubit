@@ -141,7 +141,7 @@ export const authRouter = router({
     // is the refusal `signIn` already registers.
     .input((input: unknown) => ({ email: field(input, "email"), password: field(input, "password") }))
     .mutation(async ({ ctx, input }) => {
-      const answer = await signIn({ ...input, deviceLabel: ctx.deviceLabel });
+      const answer = await signIn({ ...input, deviceLabel: ctx.deviceLabel, client: ctx.client });
       ctx.cookies.push(sessionCookie(ctx, answer.sessionToken));
       return answer;
     }),

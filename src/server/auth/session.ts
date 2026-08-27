@@ -26,7 +26,7 @@ import {
 } from "../../core/db";
 import { reportFault } from "../../core/faults/report";
 import { deliver } from "./mail";
-import { admitAttempt } from "./rate-limit";
+import { admitAttempt, admitSignIn } from "./rate-limit";
 import { accountAlreadyExists, credentialsNotValid } from "./refusals";
 import { absorbPassword, digestOf, hashPassword, mintSecret, verifyPassword } from "./secrets";
 import { consumeToken, endOutstandingTokens, issueToken, TOKEN_KINDS, type AuthTokenPurpose } from "./tokens";
@@ -365,6 +365,8 @@ export interface SignInRequest {
   email: string;
   password: string;
   deviceLabel: string;
+  /** Who is calling, as the server itself can tell (`AppContext.client`) — half of the limiter's key. */
+  client: string;
 }
 
 /**
@@ -383,7 +385,10 @@ export interface SignInRequest {
  */
 export async function signIn(request: SignInRequest): Promise<SessionAnswer> {
   const email = storedAddress(request.email);
-  await admitAttempt("signIn", email);
+  // Two counters, one door (`admitSignIn`): the caller's, which refuses, and the address's, which
+  // only slows the answer — a refusal keyed on the address alone is an account-lockout lever any
+  // stranger can pull (R-SPINE-001).
+  await admitSignIn(request.client, email);
 
   const db = runAsSystem("R-SPINE-001 sign-in: matching a presented address and password against the account it names");
   const [account] = await db.select({ userId: users.userId, passwordHash: users.passwordHash }).from(users).where(eq(users.email, email)).limit(1);

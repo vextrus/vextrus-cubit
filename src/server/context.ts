@@ -13,6 +13,8 @@ export interface AppContext {
   origin: string;
   /** What to call the device in the session list, derived from the request rather than asked for. */
   deviceLabel: string;
+  /** Who is calling, as far as the server itself can tell (`observedClient`) — the sign-in limiter's key. */
+  client: string;
   /** The live session the cookie resolved to, or null. A refusal for null is the procedure's to make. */
   session: AuthSession | null;
   /** Whether a cookie set on this answer must carry `Secure` (`deploymentIsSecure`). */
@@ -135,6 +137,26 @@ function originOf(req: Request): string {
 }
 
 /**
+ * What the server can tell one caller from another by, for the half of the sign-in limit that
+ * refuses (R-SPINE-001, and `rate-limit.ts`'s `admitSignIn`). A hard refusal keyed on the address
+ * somebody is signing in *as* is a lever any stranger can pull on any account — they hammer the
+ * address and its owner is the one locked out — so the refusing key is the caller, and the address's
+ * own counter only slows an attempt down.
+ *
+ * The caller is the connection, never a header. `X-Forwarded-For` is written by whoever sent the
+ * request unless a proxy the deployment trusts overwrote it, and R-SPINE-001 legislates against a key
+ * a caller can rotate ("never client-influencable headers alone") — a limiter keyed on a value the
+ * limited party chooses limits nobody.
+ *
+ * This seam is handed a plain `Request` by every transport that serves it — Next's route handler, the
+ * journeys' server, a harness calling `createContext` directly — and a `Request` carries no peer
+ * address. So a deployment that has not put this seam behind something that can name its callers
+ * cannot tell two of them apart, and says exactly that: every such request is the same unnamed
+ * caller, which spends one allowance between them rather than a caller-chosen allowance each.
+ */
+const UNOBSERVED_CLIENT = "an unobserved caller";
+
+/**
  * Mint the context. The actor is the account the presented session resolved to and nothing else: a
  * cookie that names no live session is anonymous, exactly like a request that presented none, so a
  * revoked device cannot be recorded as the person it used to belong to.
@@ -147,6 +169,7 @@ export async function createContext({ req }: { req: Request }): Promise<AppConte
     actor: session?.userId ?? ANONYMOUS,
     origin: originOf(req),
     deviceLabel: deviceLabelFrom(req.headers.get("user-agent")),
+    client: UNOBSERVED_CLIENT,
     session,
     secureCookies: deploymentIsSecure(req),
     cookies: [],

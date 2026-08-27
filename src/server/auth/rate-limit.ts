@@ -135,11 +135,52 @@ function lockName(door: LimitedDoor, key: string): string {
  * already full. Refused *before* the work is done, so the answer does not depend on whether the
  * credential was right — a limiter that only counted failures tells an attacker which tries counted.
  *
- * The refusal is thrown from inside the transaction, so the transaction ends with nothing written:
- * a refused attempt is not a new attempt, and hammering a limited door cannot push the allowance
- * further away than the law says it is.
+ * A full window is answered before anything is written, so a refused attempt is not a new attempt:
+ * hammering a limited door cannot push the allowance further away than the law says it is.
  */
 export async function admitAttempt(door: LimitedDoor, identity: string): Promise<void> {
+  const full = await countAttempt(door, identity);
+  if (full !== null) throw rateLimited(door, full);
+}
+
+/**
+ * R-SPINE-001's sign-in limit, in the two halves a lockout lever has to be taken apart into.
+ *
+ * A hard refusal keyed on the address somebody is signing in *as* is a lever any stranger can pull:
+ * they hammer a door with somebody else's address, and it is that person who is refused when they
+ * come to sign in. So the refusing key names the *caller* as well — the same address presented by two
+ * callers is two counts, and one of them cannot spend the other's allowance (`AppContext.client`).
+ * Where the deployment cannot yet tell its callers apart, the key is still not the address alone; it
+ * is that address as presented by the one caller the server can see, and it becomes per-caller the
+ * moment the deployment can name them.
+ *
+ * The address's own counter is kept, because a stuffing run spread across callers is exactly what the
+ * caller key cannot see — but it never refuses. It slows the answer down instead: pressure on one
+ * account costs the attacker wall-clock on every attempt past the allowance, and costs the account's
+ * owner a slower sign-in rather than a door they cannot open at all.
+ */
+export async function admitSignIn(client: string, email: string): Promise<void> {
+  await admitAttempt("signIn", `${client} signing in as ${email}`);
+  if ((await countAttempt("signIn", `the account ${email}`)) !== null) await pause(ACCOUNT_PRESSURE_DELAY_MS);
+}
+
+/**
+ * What an attempt past the address's own allowance costs the caller who made it. Long enough that a
+ * run of guesses against one account is measured in hours rather than minutes, short enough that the
+ * person whose account is under that run still signs in on the attempt they make.
+ */
+const ACCOUNT_PRESSURE_DELAY_MS = 1_000;
+
+function pause(ms: number): Promise<void> {
+  return new Promise((settle) => setTimeout(settle, ms));
+}
+
+/**
+ * Count one attempt at this door under this key, and answer how long the window stays full for — or
+ * null when the attempt was counted and the caller may proceed. What a full window *means* is the
+ * caller's to decide: `admitAttempt` refuses, `admitSignIn`'s account half slows the answer down.
+ */
+async function countAttempt(door: LimitedDoor, identity: string): Promise<number | null> {
   const limit = AUTH_RATE_LIMITS[door];
   const now = Date.now();
   const key = keyed(identity);
@@ -150,7 +191,7 @@ export async function admitAttempt(door: LimitedDoor, identity: string): Promise
   // Outside the count's own transaction, because it is about every identity but this one's window.
   await sweepSpentAttempts(db, now);
 
-  await db.transaction(async (tx) => {
+  return db.transaction(async (tx) => {
     await holdStateLock(tx, lockName(door, key));
 
     const window = await tx
@@ -160,8 +201,9 @@ export async function admitAttempt(door: LimitedDoor, identity: string): Promise
       .orderBy(asc(authAttempts.attemptedAt));
 
     const oldest = window[0];
-    if (oldest !== undefined && window.length >= limit.attempts) throw rateLimited(door, limit.windowMs - (now - oldest.at.getTime()));
+    if (oldest !== undefined && window.length >= limit.attempts) return limit.windowMs - (now - oldest.at.getTime());
 
     await tx.insert(authAttempts).values({ door, identity: key });
+    return null;
   });
 }
