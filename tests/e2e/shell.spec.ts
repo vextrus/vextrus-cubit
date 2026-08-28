@@ -84,6 +84,35 @@ test.describe("J-004 — the signed-in application shell", () => {
 
     /* --- j004-shell-light: the R-UI-030 frame, all four regions --- */
     await shell.expectFrame();
+
+    /* --- the identity every checkpoint below is graded wearing is ESTABLISHED here, not assumed
+       (V-E2E). The two names must be disjoint first, or neither the guard nor the rename walk can
+       tell them apart: every name assertion in this file is a substring match. --- */
+    expect(
+      WORKSPACE_RENAMED.includes(WORKSPACE) || WORKSPACE.includes(WORKSPACE_RENAMED),
+      "the two names must be disjoint, or the substring assertions below cannot tell them apart",
+    ).toBe(false);
+
+    const renameWorkspaceTo = async (name: string): Promise<void> => {
+      await shell.renameInput.fill(name);
+      await shell.renameSubmit.click();
+      await expect(shell.settingsName.getByRole("status"), "a saved name says so").toHaveText(strings.shell_rename_saved);
+      await expect(shell.renameRefusal, "a member renaming their own workspace is refused nothing").toHaveCount(0);
+    };
+
+    // The lane's database outlives a run (V-E2E), so a run killed between the two renames of the
+    // walk further down — timeout, crash, cancelled gate, none of which execute the rename back —
+    // leaves the workspace wearing WORKSPACE_RENAMED. Normalise on ARRIVAL, the same idempotent
+    // posture the enrolment above takes with ACCOUNT_ALREADY_EXISTS, before the first observation
+    // that depends on the name and therefore before both pixel baselines: a fixed identity at every
+    // checkpoint cannot be restored by a remedy that runs after the checkpoints.
+    if (!((await shell.breadcrumb.textContent()) ?? "").includes(WORKSPACE)) {
+      await shell.open(SHELL.settings(tenantId));
+      await renameWorkspaceTo(WORKSPACE);
+      await shell.open(SHELL.workspace(tenantId));
+      await shell.expectFrame();
+    }
+
     await expect(shell.railMark, "the rail carries the quiet mark (R-UI-070)").toBeVisible();
     await expect(shell.railCollapse).toHaveAttribute("aria-expanded", "true");
     await expect(shell.tenantSwitcher, "the switcher wears the name entered at sign-up (R-UI-033)").toContainText(WORKSPACE);
@@ -171,28 +200,7 @@ test.describe("J-004 — the signed-in application shell", () => {
     await expect(page.locator(`a[href="${SHELL.workspace(tenantId)}"]`), "the remedy is a place they can actually go").toBeVisible();
 
     /* --- the rename answers, and the frame re-reads the name it saved (R-UI-033) --- */
-    expect(
-      WORKSPACE_RENAMED.includes(WORKSPACE) || WORKSPACE.includes(WORKSPACE_RENAMED),
-      "the two names must be disjoint, or the substring assertions below cannot tell them apart",
-    ).toBe(false);
-
-    const renameWorkspaceTo = async (name: string): Promise<void> => {
-      await shell.renameInput.fill(name);
-      await shell.renameSubmit.click();
-      await expect(shell.settingsName.getByRole("status"), "a saved name says so").toHaveText(strings.shell_rename_saved);
-      await expect(shell.renameRefusal, "a member renaming their own workspace is refused nothing").toHaveCount(0);
-    };
-
     await shell.open(SHELL.settings(tenantId));
-    await expect(shell.breadcrumb).toBeVisible();
-
-    // The lane's database outlives a run (V-E2E), so a run that crashed between the two renames
-    // below would leave the workspace wearing the renamed name. Normalise on arrival — the same
-    // idempotent posture the enrolment above takes with ACCOUNT_ALREADY_EXISTS — so the walk starts
-    // from the fixed identity the pixel baselines were taken against.
-    if (((await shell.breadcrumb.textContent()) ?? "").includes(WORKSPACE_RENAMED)) {
-      await renameWorkspaceTo(WORKSPACE);
-    }
     await expect(shell.breadcrumb, "the rename walk begins from the identity the baselines are fixed to").toContainText(WORKSPACE);
 
     // A rename is only observed when a DIFFERENT name reaches the frame: a success notice alone
