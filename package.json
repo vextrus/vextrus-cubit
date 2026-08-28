@@ -25,7 +25,8 @@
     "method-hashes": "node scripts/method-hashes.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "worker": "tsx src/worker/main.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
