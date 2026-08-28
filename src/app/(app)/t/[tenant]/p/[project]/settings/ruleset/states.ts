@@ -18,8 +18,9 @@ export const RULESET_SETTINGS_STATES: Readonly<Record<ShellStateName, ShellState
     why: "the root error boundary is the tree's one error state, and its own Decision rules retry and the report id",
   },
   refusal: {
-    declared: "impossible",
-    why: "the screen is read-only: it performs no procedure and reaches no registered refusal code, so the closed taxonomy stays untouched (I-28)",
+    declared: "delegated",
+    to: "src/app/error.tsx",
+    why: "the screen is read-only and registers no code of its own (I-28), but it is not refusal-free: every parameter renders through formatUserFigure, which refuses PRECISION_NOT_APPLIED for a stored value that is not a well-formed decimal. That is an inconsistency of the store, not an answer to the reader, so it surfaces on the root error boundary like any other read fault — no RefusalState renders here",
   },
   partial: {
     declared: "impossible",

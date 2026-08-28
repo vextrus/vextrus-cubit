@@ -114,6 +114,22 @@ async function fork(
 }
 
 /**
+ * The workspace's template, minted on first use. Only the minting path takes the tenant-wide lock:
+ * once the template is there nothing can race, and a lock held for the rest of every
+ * project-creation transaction would serialise creations that have nothing to settle between them.
+ * Under the lock the read is taken again, because the transaction waited on is the one that minted
+ * it — and behind both stands `tenant_ruleset_editions_template_once`, so a workspace holds one
+ * template whatever the isolation level.
+ */
+async function workspaceTemplate(tx: TenantTx, tenantId: string): Promise<ForkSource> {
+  const held = await ownEdition(tx, tenantId, "tenant", null);
+  if (held !== undefined) return held;
+
+  await holdStateLock(tx, templateLockKey(tenantId));
+  return (await ownEdition(tx, tenantId, "tenant", null)) ?? (await fork(tx, tenantId, await platformSeed(tx), "tenant", null));
+}
+
+/**
  * Pin the project to its own edition, forking the workspace's template — and the platform seed
  * behind it — on first use (L-REG-07). Runs on the transaction it is handed, so the pin and the
  * project it belongs to commit together or not at all.
@@ -122,12 +138,9 @@ async function fork(
  * authored act with its own permission (L-MEA-01), never something a repeated creation does quietly.
  */
 export async function pinRulesetForProject(tx: TenantTx, { tenantId, projectId }: { tenantId: string; projectId: string }): Promise<PinnedEdition> {
-  await holdStateLock(tx, templateLockKey(tenantId));
-
   const existing = await ownEdition(tx, tenantId, "project", projectId);
   if (existing !== undefined) return { editionId: existing.editionId, digest: existing.contentDigest };
 
-  const template = (await ownEdition(tx, tenantId, "tenant", null)) ?? (await fork(tx, tenantId, await platformSeed(tx), "tenant", null));
-  const pin = await fork(tx, tenantId, template, "project", projectId);
+  const pin = await fork(tx, tenantId, await workspaceTemplate(tx, tenantId), "project", projectId);
   return { editionId: pin.editionId, digest: pin.contentDigest };
 }

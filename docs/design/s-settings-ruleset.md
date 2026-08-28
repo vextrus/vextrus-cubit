@@ -52,6 +52,18 @@ M3, inc-304).
   neither). No density control ships here — the per-user preference seam binds to DataTable
   surfaces, and a control that restyles one static table would be theatre.
 
+- **I-30 — the rail states the area, and a project is in Projects.** This route sits under a
+  workspace and names no shell area, so `areaOf` answers `projects` and the shell selects the
+  Projects row — `aria-current="page"` and the beam bar — and the crumb reads Projects. The
+  screen takes that as it stands rather than working around it: `ShellArea` is a closed
+  roster of three with no "no area" member, the mapping and the rail are the shell
+  Decision's homes (B-17), and a row that no address selects would leave a keyboard or
+  screen-reader user with no statement of where they are at all. What the row says is which
+  area the address belongs to; what page inside it the reader is on is the breadcrumb's job,
+  and the project crumbs are inc-011's — the same IOU §1 records. Re-ruling the rail's
+  precision once project surfaces exist (an area row that is an ancestor rather than the
+  page) belongs to the shell node, not to one screen inside it.
+
 ## 1. Layout and hierarchy
 
 Files in the route directory: `page.tsx` (thin server component: reads the two segments,
@@ -62,8 +74,11 @@ segments; the view answers the no-pin shape for anything that names no pin — a
 segment included, never a driver fault (the shell's `scopedTenantId` precedent).
 
 The page renders in `shell-main`, one column `cx-ruleset`: `max-width: 800px`, column flex,
-`gap: var(--space-6)` between sections. Rail and breadcrumb are the shell's; no rail row
-matches a project-level route, so none carries `aria-current` here. Recorded IOU: visible
+`gap: var(--space-6)` between sections. Rail and breadcrumb are the shell's, and this screen
+does not restyle them: `areaOf` (`src/ui/shell/routes.ts`, R-UI-031's one home for the
+address→area mapping) reads any address under a workspace that names neither `books` nor
+`settings` as the workspace's Projects home, so on this route the Projects rail row carries
+`aria-current="page"` and the crumb reads Projects (see I-30). Recorded IOU: visible
 navigation to this screen (project switcher, project crumbs, a settings link inside the
 project) is owed by inc-011, which ships the project surfaces and adopts the `p/[project]`
 base — until then the route is test- and URL-reachable, and that debt is inc-011's, not this
@@ -157,8 +172,12 @@ Declared in the enumerable home `states.ts` (route directory), export
 - **Error** — a render or read fault surfaces the root error boundary
   (`src/app/error.tsx`, unowned here); its Decision rules retry and records the report-id
   deferral.
-- **Refusal** — impossible: the screen performs no procedure and reaches no registered code
-  (I-28). The registry stays untouched.
+- **Refusal** — delegated to the root error boundary. The screen performs no procedure and
+  registers no code of its own (I-28), but it is not refusal-free: values render through
+  `formatUserFigure`, which refuses `PRECISION_NOT_APPLIED` for a stored value that is not a
+  well-formed decimal, and parameters arrive from a `json` column rather than from a literal.
+  A store that holds such a value is inconsistent, not answering the reader, so the throw
+  surfaces on `src/app/error.tsx` like any other read fault; no RefusalState renders here.
 - **Partial** — impossible: one view, answered whole or as the no-pin shape; there are no
   refusable rows.
 - **Offline** — a fault of reachability (shell I-20): server-rendered page, failed
@@ -183,14 +202,17 @@ does not name a project in this workspace. A project pins its rule set when it i
 so a project that exists always has one.** · `ruleset_unpinned_action` **Go to Projects**.
 
 Parameter labels (`ruleset_param_{key}`), with the seed's display value and unit (I-27) —
-this order is the render order:
+this order is the render order. The area units read `m2` and `cm2`: the unit is edition
+content, and L-FMT-02 refuses a character the pinned document font has no glyph for — the
+covered ranges in `src/core/format` hold no U+00B2, so a superscript two stored in an
+edition would be a value no bill could render.
 
 | key | label | value | unit |
 |---|---|---|---|
-| openingDeductionMinM2 | **Opening deduction minimum** | 0.1 | m² |
-| memberEndNoDeductMaxCm2 | **Member end no-deduct maximum** | 500 | cm² |
-| embeddedDuctNoDeductMaxCm2 | **Embedded duct no-deduct maximum** | 100 | cm² |
-| finishOpeningDeductionMinM2 | **Finish opening deduction minimum** | 0.1 | m² |
+| openingDeductionMinM2 | **Opening deduction minimum** | 0.1 | m2 |
+| memberEndNoDeductMaxCm2 | **Member end no-deduct maximum** | 500 | cm2 |
+| embeddedDuctNoDeductMaxCm2 | **Embedded duct no-deduct maximum** | 100 | cm2 |
+| finishOpeningDeductionMinM2 | **Finish opening deduction minimum** | 0.1 | m2 |
 | finishMinOutlineArea | **Finish outline minimum area** | 0.2 | sft |
 | finishMaxOutlineArea | **Finish outline maximum area** | 20,000 | sft |
 | scaleVerificationTolerance | **Scale verification tolerance** | 0.01 | ratio |

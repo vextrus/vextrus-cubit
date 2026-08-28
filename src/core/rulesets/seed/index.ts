@@ -15,13 +15,18 @@ export const SEED_EDITION_IDENTITY: EditionIdentity = { scope: "platform", name:
  *
  * Every value is a decimal string: B-07 keeps a figure exact from here to the page, and the unit is
  * carried beside it because a unit is edition data, not something a surface derives from a key.
+ *
+ * The area units are spelled `m2` and `cm2` rather than with U+00B2: an edition's content is what a
+ * document renders, and L-FMT-02 refuses CHARACTER_NOT_COVERED for a character the pinned font
+ * lacks — src/core/format's covered ranges hold no superscript two, so a squared sign written here
+ * would be a stored value no bill could print.
  */
 export const SEED_EDITION_CONTENT: EditionContent = {
   parameters: {
-    openingDeductionMinM2: { value: "0.1", unit: "m²" },
-    memberEndNoDeductMaxCm2: { value: "500", unit: "cm²" },
-    embeddedDuctNoDeductMaxCm2: { value: "100", unit: "cm²" },
-    finishOpeningDeductionMinM2: { value: "0.1", unit: "m²" },
+    openingDeductionMinM2: { value: "0.1", unit: "m2" },
+    memberEndNoDeductMaxCm2: { value: "500", unit: "cm2" },
+    embeddedDuctNoDeductMaxCm2: { value: "100", unit: "cm2" },
+    finishOpeningDeductionMinM2: { value: "0.1", unit: "m2" },
     finishMinOutlineArea: { value: "0.2", unit: "sft" },
     finishMaxOutlineArea: { value: "20000", unit: "sft" },
     scaleVerificationTolerance: { value: "0.01", unit: "ratio" },

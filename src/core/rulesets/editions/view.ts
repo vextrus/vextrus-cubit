@@ -78,16 +78,22 @@ function stepOf(edition: StoredEdition): EditionLineageStep {
 }
 
 /**
- * The chain an edition was forked along, head first. The walk is capped: a parent link that came
- * back to a row already seen would otherwise be read forever, and a chain nothing terminates is not
- * a lineage.
+ * The chain an edition was forked along, head first. A lineage is shown whole or not at all
+ * (R-SPINE-012): a parent id naming no stored edition, and a chain that runs past the cap, are both
+ * inconsistencies of the store — a shortened chain rendered as if it were the whole one would tell a
+ * reader the edition came from somewhere it did not. Neither is swallowed (ARCH-03).
  */
 async function lineageOf(db: TenantDb, pin: StoredEdition): Promise<EditionLineageStep[]> {
   const chain: EditionLineageStep[] = [stepOf(pin)];
   let parentId = pin.parentEditionId;
-  for (let step = 0; step < LINEAGE_DEPTH_CAP && parentId !== null; step += 1) {
+  while (parentId !== null) {
+    if (chain.length > LINEAGE_DEPTH_CAP) {
+      throw new Error(`the lineage of the pinned rule-set edition runs past ${LINEAGE_DEPTH_CAP} steps — a parent chain that does not end is a cycle, not a lineage (R-SPINE-012)`);
+    }
     const parent: StoredEdition | undefined = await editionById(db, parentId);
-    if (parent === undefined) break;
+    if (parent === undefined) {
+      throw new Error(`the rule-set edition ${parentId} is named as a parent but is not in the store — a lineage with a step missing is an inconsistency, never a shorter chain (R-SPINE-012)`);
+    }
     chain.push(stepOf(parent));
     parentId = parent.parentEditionId;
   }
