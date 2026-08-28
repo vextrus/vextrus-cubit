@@ -7,10 +7,11 @@
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
 import { and, asc, eq, gt, inArray, isNull, lt, sql as statement } from "drizzle-orm";
-import { foreignKey, index, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { foreignKey, index, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { attributableReason } from "./db/reason";
+import type { EditionParameter, EditionScope, MethodPair } from "./rulesets/editions/content";
 
 // The query operators a caller needs to say which rows it means. They are the driver's, so they are
 // handed out from here rather than imported at a call site: SEAM-TENANT makes this file the one
@@ -191,8 +192,85 @@ export const memberships = pgTable(
   (table) => [primaryKey({ columns: [table.tenantId, table.userId] })],
 );
 
+/**
+ * L-REG-07's fork chain, as a column type rather than a convention: platform → tenant → project.
+ * The labels are the `EditionScope` union itself, so the store and the digest cannot come to hold
+ * different ideas of what a scope is; `platform` leads because it is the head of every lineage.
+ */
+const RULESET_SCOPES: readonly [EditionScope, ...EditionScope[]] = ["platform", "tenant", "project"];
+export const rulesetScope = pgEnum("ruleset_scope", RULESET_SCOPES);
+
+/**
+ * The platform rule-set editions (L-MEA-01): the seed `IS1200_IN @ 2026.08` and whatever later
+ * editions the platform mints. No tenant id — a platform edition belongs to no workspace, and a
+ * row in a tenant-scoped table that no tenant owns is a row no policy can answer for.
+ *
+ * The row is immutable: authoring mints a new edition and never updates one, so the migration's
+ * grants and trigger are what the column definitions here cannot say. `content_digest` is
+ * deliberately not unique — a verbatim fork shares its parent's digest by construction, which is
+ * the whole point of a digest over content.
+ */
+export const rulesetEditions = pgTable(
+  "ruleset_editions",
+  {
+    editionId: uuid("edition_id").primaryKey().defaultRandom(),
+    scope: rulesetScope("scope").notNull(),
+    name: text("name").notNull(),
+    version: text("version").notNull(),
+    contentDigest: text("content_digest").notNull(),
+    parameters: jsonb("parameters").$type<Readonly<Record<string, EditionParameter>>>().notNull(),
+    methods: jsonb("methods").$type<readonly MethodPair[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Identity is (scope, name, version), so the same identity twice over is one edition written twice.
+  (table) => [unique("ruleset_editions_identity").on(table.scope, table.name, table.version)],
+);
+
+/**
+ * A workspace's own editions (L-REG-07): the tenant template forked from the platform seed, and the
+ * project pins forked from that template. `parent_edition_id` names the edition this one was forked
+ * from — across both tables, so it carries no foreign key: the parent of a template lives in
+ * `ruleset_editions` and the parent of a pin lives here.
+ */
+export const tenantRulesetEditions = pgTable(
+  "tenant_ruleset_editions",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    editionId: uuid("edition_id").primaryKey().defaultRandom(),
+    scope: rulesetScope("scope").notNull(),
+    // Null on the template, which belongs to the workspace rather than to any one project.
+    projectId: uuid("project_id"),
+    parentEditionId: uuid("parent_edition_id").notNull(),
+    name: text("name").notNull(),
+    version: text("version").notNull(),
+    contentDigest: text("content_digest").notNull(),
+    parameters: jsonb("parameters").$type<Readonly<Record<string, EditionParameter>>>().notNull(),
+    methods: jsonb("methods").$type<readonly MethodPair[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One template per workspace, and one pin per project: L-REG-07 pins a project once, at creation.
+    uniqueIndex("tenant_ruleset_editions_template_once").on(table.tenantId).where(statement`"scope" = 'tenant'`),
+    uniqueIndex("tenant_ruleset_editions_pin_once").on(table.tenantId, table.projectId).where(statement`"scope" = 'project'`),
+    // The two reads a pinned project makes: its own pin, and the template a second project reuses.
+    index("tenant_ruleset_editions_scope").on(table.tenantId, table.scope),
+  ],
+);
+
 /** Everything the typed surface covers. A table joins the surface by joining this object. */
-const schema = { tenants, participants, acts, participantRoles, users, sessions, authTokens, memberships, authAttempts };
+const schema = {
+  tenants,
+  participants,
+  acts,
+  participantRoles,
+  users,
+  sessions,
+  authTokens,
+  memberships,
+  authAttempts,
+  rulesetEditions,
+  tenantRulesetEditions,
+};
 
 /** A handle scoped to one tenant: the typed read/write surface, filtered by row-level security. */
 export type TenantDb = PostgresJsDatabase<typeof schema>;
