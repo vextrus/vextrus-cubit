@@ -16,9 +16,11 @@ from .ingest import ENTITYGRAPH_VERSION, SCHEME
 from .units import INSUNITS
 
 #: A source key: the closed scheme, then the file's own handle in uppercase hex (L-CAD-02).
-SOURCE_KEY: Final = re.compile(rf"^{SCHEME}:[0-9A-F]+$")
+#: `\Z` rather than `$`, so a trailing newline is no more admissible here than it is to the Zod
+#: mirror's `$` — the two sides are one shape, not two tolerances (L-CAD-05).
+SOURCE_KEY: Final = re.compile(rf"^{SCHEME}:[0-9A-F]+\Z")
 
-PARAMETER_SET_HASH: Final = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
+PARAMETER_SET_HASH: Final = re.compile(r"^[0-9a-f]{64}\Z", re.IGNORECASE)
 
 COLOUR_SOURCES: Final = frozenset({"truecolor", "explicit", "bylayer", "byblock"})
 LAYOUT_KINDS: Final = frozenset({"model", "paper"})
@@ -88,11 +90,19 @@ def _number(value: Any, where: str) -> float:
 
 
 def _integer(value: Any, where: str, *, minimum: int | None = None) -> int:
-    if isinstance(value, bool) or not isinstance(value, int):
+    """A whole number, however JSON spelled it.
+
+    JSON draws no line between `3` and `3.0`, and the Zod mirror's `z.number().int()` reads both as
+    an integer; this side reads them the same way rather than being the stricter of two tolerances.
+    """
+    if isinstance(value, bool) or not isinstance(value, int | float):
         _fail(where, f"expected an integer, found {type(value).__name__}")
-    if minimum is not None and value < minimum:
+    if isinstance(value, float) and not value.is_integer():
+        _fail(where, f"expected an integer, found {value!r}")
+    number = int(value)
+    if minimum is not None and number < minimum:
         _fail(where, f"must be at least {minimum}")
-    return value
+    return number
 
 
 def _boolean(value: Any, where: str) -> bool:

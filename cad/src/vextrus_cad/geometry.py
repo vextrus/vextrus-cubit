@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable, Sequence
+from typing import Any
 
 from ezdxf import path as dxfpath
 
@@ -30,15 +31,21 @@ def quantise(value: float) -> float:
     return 0.0 if rounded == 0.0 else rounded
 
 
-def flatten(entity: object) -> tuple[list[Point], bool] | None:
+def flatten(entity: Any) -> tuple[list[Point], bool] | None:
     """An entity's geometry as points, truncated at the pinned cap.
 
     Returns the points and whether the cap truncated them, or None when the entity carries no
     path-shaped geometry at all.
+
+    Only the type test is answered with None. A ValueError is ezdxf saying that a type it *does*
+    build paths for carries malformed geometry, and a ValueError out of `quantise` says the
+    flattening left the finite world; either is a real loss of an entity's geometry, so it travels
+    on and refuses the sheet by name rather than leaving an entity silently point-less in the
+    artifact with no counter to show for it (L-CAD-04, R-TO-001).
     """
     try:
-        path = dxfpath.make_path(entity)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
+        path = dxfpath.make_path(entity)
+    except TypeError:
         return None
 
     points: list[Point] = []

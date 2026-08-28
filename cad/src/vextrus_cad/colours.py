@@ -6,7 +6,7 @@ the chain resolved them, so a renderer never re-derives it.
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Any, Final
 
 from ezdxf.colors import DXF_DEFAULT_COLORS
 
@@ -54,13 +54,13 @@ class LayerColours:
         return self._resolved.get(name, from_index(DEFAULT_INDEX))
 
 
-def resolve(entity: object, layers: LayerColours, inherited: Channels | None) -> dict[str, object]:
+def resolve(entity: Any, layers: LayerColours, inherited: Channels | None) -> dict[str, object]:
     """The artifact's `colour` record for one entity.
 
     `inherited` is the resolved colour of the block reference that painted this entity, which is
     what BYBLOCK names; an entity nothing painted falls back to its layer.
     """
-    dxf = entity.dxf  # type: ignore[attr-defined]
+    dxf = entity.dxf
     layer = str(getattr(dxf, "layer", "0"))
 
     if dxf.hasattr("true_color"):

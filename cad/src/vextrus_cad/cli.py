@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .ingest import IngestError, ingest_dxf
+from .model import EntityGraphError, parse_entity_graph
 from .serialise import write_artifact
 
 #: Nothing was written, and the drawing was named on stderr.
@@ -35,7 +36,12 @@ def _parser() -> argparse.ArgumentParser:
 def _ingest(source: str, destination: str) -> int:
     try:
         artifact = ingest_dxf(Path(source))
-    except IngestError as error:
+        # The artifact is the whole hand-off across the seam (L-CAD-05), so the extractor reads its
+        # own output through the mirror before pinning it as a revision: a drawing that mints one
+        # handle twice, or an attribute with no tag, is a drawing this extractor cannot represent,
+        # and refusing it by name beats writing a file neither mirror will parse (L-CAD-02).
+        parse_entity_graph(artifact)
+    except (IngestError, EntityGraphError) as error:
         print(f"vextrus-cad: cannot ingest {source}: {error}", file=sys.stderr)
         return EXIT_REFUSED
 

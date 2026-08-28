@@ -256,8 +256,9 @@ class _Extractor:
             if entity.dxftype() in _PAINTS_DERIVED:
                 if entity.dxftype() == "INSERT":
                     self.collect_attributes(entity, key, space)
-                painted = tuple(int(channel) for channel in record["colour"]["rgb"])
-                self.explode(entity, key, space, painted, 1)  # type: ignore[arg-type]
+                rgb = record["colour"]["rgb"]
+                painted: colours.Channels = (int(rgb[0]), int(rgb[1]), int(rgb[2]))
+                self.explode(entity, key, space, painted, 1)
         return space
 
 
@@ -326,7 +327,11 @@ def ingest_dxf(source: Path) -> dict[str, Any]:
         raise IngestError(f"unparseable DXF: {error}") from error
     try:
         return ingest_document(doc)
-    except ezdxf.DXFError as error:
+    except (ezdxf.DXFError, ValueError) as error:
         # A drawing ezdxf opens but cannot be read through refuses the sheet by name rather than
-        # writing half an artifact (L-CAD-04).
+        # writing half an artifact (L-CAD-04). ValueError is the extractor's own half of that: a
+        # coordinate that is not finite, an area that overflowed the double it is computed in, a
+        # header field spelling $INSUNITS as something other than a number. Each is a drawing this
+        # extractor cannot read through, and none of them may leave as a traceback, because a
+        # traceback names geometry.py where the contract requires the drawing's own name.
         raise IngestError(f"unextractable DXF: {error}") from error
