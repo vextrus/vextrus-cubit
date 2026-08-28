@@ -2,12 +2,12 @@
  * Public acceptance for AC-4's seam and copy halves (R-UI-033).
  *
  * The onboarding SCREEN — shell-empty teaching the next action, the SAMPLE offer as a single
- * visible click target, and the seam's answer rendered at shell-sample-outcome — is walked in a
- * browser by the journey this increment delivers (tests/e2e/shell.spec.ts, checkpoint
- * j004-shell-onboarding: the offer visible and labelled, and the unavailable notice after a
- * click). What a unit lane can judge without a second, weaker mount of the same screen is what
- * this file judges: that the seams the screen is built on exist and answer as declared, and that
- * the offer's words live in the string table.
+ * visible click target, and the seam's answer rendered at shell-sample-outcome after a real click
+ * — is walked in a browser against a freshly signed-up workspace with no projects, and by the
+ * journey this increment delivers (tests/e2e/shell.spec.ts, checkpoint j004-shell-onboarding).
+ * What a unit lane can judge without a second, weaker mount of the same screen is what this file
+ * judges: that the seams the screen is built on exist and answer as declared, and that the offer's
+ * words live in the string table.
  *
  * `.ts`, not `.tsx`: tsconfig includes `tests/**\/*.ts`, so `pnpm verify`'s `tsc` reads this file.
  */

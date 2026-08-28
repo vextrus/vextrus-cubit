@@ -6,10 +6,11 @@
  *
  * What is NOT here, deliberately: the painted frame. "shell-root contains shell-rail…", the 3 px
  * inset beam bar and the beam-100 row fill are claims about layout and paint, and jsdom lays
- * nothing out and resolves no `var()`. Those are graded in a browser — by the journey this
- * increment delivers (tests/e2e/shell.spec.ts, checkpoints j004-shell-light / j004-shell-dark,
- * baselines + axe) and by the held-out set's in-page token probe. Asserting them here against a
- * hand-built mount would be a second, weaker idea of the same guarantee (ARCH-02).
+ * nothing out and resolves no `var()`. Those are graded in a browser, against a signed-in member's
+ * real workspace: containment is asserted region by region inside `[data-testid="shell-root"]`, and
+ * the selection's paint is resolved through an in-page token probe and compared with an unselected
+ * row. Asserting them here against a hand-built mount would be a second, weaker idea of the same
+ * guarantee (ARCH-02).
  *
  * The two source scans below are marked where they happen: AC-1's "never redrawn" is a statement
  * about the tree, and no runtime observation can see it (docs/design/shell.md §7).
