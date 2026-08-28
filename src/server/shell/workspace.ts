@@ -8,7 +8,7 @@
 // reason (src/server/auth/session.ts). Reading and writing it therefore runs as the system, with
 // the reason recorded beside the statement.
 import { cache } from "react";
-import { and, asc, eq, memberships, runAsSystem, storableText, tenants } from "../../core/db";
+import { and, asc, eq, isUuid, memberships, runAsSystem, storableText, tenants } from "../../core/db";
 import type { RefusalCode } from "../../core/errors";
 import { resolveSession } from "../auth/session";
 import { sessionOf } from "./resolve";
@@ -59,10 +59,19 @@ export const workspaceFor = cache(async (sessionToken: string | null): Promise<W
  * (R-SPINE-002): case, spacing and length are the person's. What `text` has no representation for
  * is dropped through the seam's own `storableText`, because a value the database cannot store is
  * not an outage — the same settled reading sign-up follows.
+ *
+ * The workspace, by contrast, is a handle and is judged before it is used. It arrives from a form
+ * field a caller can write anything into, and `tenants.tenant_id` is a `uuid`: a value that is not
+ * one makes postgres raise 22P02, a driver error carrying no refusal marker, so a tampered or
+ * missing field would answer a fault id for a request this door did judge. A string that names no
+ * tenant names no tenant this session is a member of, which is PERMISSION_NOT_HELD — the same
+ * answer the membership query gives, refused as the value is taken (the shape `scopedTenantId`
+ * takes in src/core/db.ts).
  */
 export async function renameWorkspace(request: RenameRequest): Promise<RenameAnswer> {
   const session = request.sessionToken === null ? null : await resolveSession(request.sessionToken);
   if (session === null) return { renamed: false, refusal: "SIGNED_OUT" };
+  if (!isUuid(request.tenantId)) return { renamed: false, refusal: "PERMISSION_NOT_HELD" };
 
   const db = runAsSystem("R-UI-033 workspace rename: the membership that admits the write, and the name a member gave their workspace");
   const held = await db

@@ -3,9 +3,10 @@
 // (the user menu, holding the two doors a signed-in person always owes — the device list and the
 // way out). The occupants whose features are not built yet are absent rather than dead (I-15).
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/overlay";
 import { strings } from "../strings";
+import { useFailureHandOff } from "./failure-hand-off";
 import { shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
 
 export interface ShellTopBarProps {
@@ -27,21 +28,17 @@ const AREA_LABEL: Readonly<Record<ShellArea, string>> = {
 export function ShellTopBar({ workspace, area, email, signOut }: ShellTopBarProps) {
   const [signingOut, startSignOut] = useTransition();
   // A failed sign-out is a failure, not a silence: the menu used to close over a discarded promise
-  // and say nothing (ARCH-03, B-21). The rejection is held and re-thrown while rendering, which is
-  // how a client component hands a failure to the error boundary the shell's state matrix names as
-  // its `error` home (src/app/error.tsx) — a report id and a retry, rather than nothing at all.
-  const [failure, setFailure] = useState<unknown>(null);
-  if (failure !== null) throw failure;
+  // and say nothing (ARCH-03, B-21). The hand-off holds the rejection and re-throws it while
+  // rendering, which is how a client component reaches the error boundary — see ./failure-hand-off.
+  const handing = useFailureHandOff();
 
   const askToSignOut = (): void => {
     if (signingOut) return;
-    startSignOut(async () => {
-      try {
+    startSignOut(() =>
+      handing(async () => {
         await signOut();
-      } catch (cause) {
-        setFailure(cause);
-      }
-    });
+      }),
+    );
   };
 
   return (

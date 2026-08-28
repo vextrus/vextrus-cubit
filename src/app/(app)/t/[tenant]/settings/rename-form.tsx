@@ -34,13 +34,20 @@ export function RenameForm({ tenantId, name }: RenameFormProps) {
         <p className="cx-shell-field-hint" id={hintId}>
           {strings.shell_settings_name_hint}
         </p>
+        {/* In flight the field is read-only rather than disabled. A person who types the name and
+            presses Enter submits from the field itself; disabling it mid-transition would remove
+            the focused element from the tab order and drop focus to the document body, so the
+            answer would arrive with focus nowhere and keyboard travel would restart at the top of
+            the page (Q-11 asks for a focus destination, not a lost one). Read-only keeps the focus
+            and the tab stop while still refusing an edit to a value already travelling. */}
         <Input
           id={inputId}
           name="name"
           data-testid="shell-rename-input"
           defaultValue={name}
           aria-describedby={hintId}
-          disabled={pending}
+          readOnly={pending}
+          aria-busy={pending}
         />
         {/* In flight the slot is empty (§1): `useActionState` keeps the last answer for the whole
             pending window, and leaving it painted would tell a person that the submission they are

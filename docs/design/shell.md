@@ -50,14 +50,17 @@ primitives (core Button/Input/Skeleton, overlay DropdownMenu, the one RefusalSta
   are server-rendered; a navigation that cannot reach the server surfaces the error state,
   never silence and never an invented banner. The R-UI-050 offline banner binds screens that
   hold data which can age; the shell's M0 screens hold none.
-- **I-21 — the stored key is not the address, so the fold gains its inverse.** `users.email`
-  holds the folded key an account is looked up under (`as presented …` / `digest of …`), not
-  an address: rendered raw, the user menu would show a person a tag they never typed. The
-  read-back belongs beside the fold, so `src/server/auth/folded-key.ts` gains
-  `presentedValue`, and the shell's viewer seam reads through it — the alternative, restating
-  the tag inside `src/server/shell/**`, would be a second copy of that invariant (B-17). A
-  digest key stands for an address no column could carry: there is nothing to show, and the
-  trigger falls back to `shell_user_account`.
+- **I-21 — the stored key is not the address, so the shell reads it back through the fold.**
+  `users.email` holds the folded key an account is looked up under (`as presented …` /
+  `digest of …`), not an address: rendered raw, the user menu would show a person a tag they
+  never typed. The read-back therefore lives in the shell's own viewer seam
+  (`src/server/shell/viewer.ts`), because `src/server/auth/**` is another node's file and a
+  Decision may not widen this node's ownership. It is still not a second copy of the invariant
+  (B-17): the tag is not restated but *computed by the fold itself* —
+  `const PRESENTED_PREFIX = foldedKey("", true)` — so a change to the tagging in its one home
+  carries into the read-back and cannot drift from it. A digest key stands for an address no
+  column could carry: there is nothing to show, and the trigger falls back to
+  `shell_user_account`.
 - **I-22 — "an entered name" is a name with something visible in it.** R-UI-033 asks the
   workspace to be *named*, and the contract names a rename-refusal string of its own, so the
   rename door judges blankness: a submission whose name shows nothing is answered inline at
@@ -195,8 +198,11 @@ a core primary Button, `data-testid="shell-sample-offer"`, label `shell_sample_o
 (the label carries the word SAMPLE, from the string table). Clicking invokes the exported
 `sampleSeed` seam through a server action; while pending the Button takes core's loading
 state (`aria-busy`, no spinner). The answer's home is an always-mounted, initially empty
-live region (`cx-shell-live`: `aria-live="polite"`, `display: contents` so an empty region
-adds no box and no gap to the column) — a region has to be observed empty before its text
+live region (`cx-shell-live`: `aria-live="polite"`; while empty it is taken out of flow —
+`:empty { position: absolute; inline-size: 0; block-size: 0 }` — so it adds no row and none of
+the column's gaps, and it keeps a box, because `display: contents` removes an element from the
+box tree and engines have dropped such elements and their ARIA from the accessibility tree, in
+which case the region would announce nothing) — a region has to be observed empty before its text
 arrives or the answer may never be announced (Q-11), and the same wrapper carries the
 settings screen's saved notice. Inside it the answer renders at
 `<div data-testid="shell-sample-outcome" role="status">`, `var(--space-3)` below the slot:
@@ -217,13 +223,17 @@ real `<a>` to `/t/{t}` in the evidence-link idiom (`var(--text-13)`
 then `<section data-testid="shell-settings-name">` (aria-labelledby its label), column,
 max-width 380 px, gap `var(--space-1)`: `<label for…>` `shell_settings_name_label`
 (`var(--text-13)` `var(--weight-body-medium)` `var(--graphite-700)`) · hint
-`shell_settings_name_hint` (`var(--text-12)` `var(--graphite-600)`, wired via
+`shell_settings_name_hint` (`var(--text-12)` `var(--graphite-600)`, `text-wrap: pretty` so the
+sentence does not leave its last word alone on a second line at this measure, wired via
 `aria-describedby`) · the core Input, `data-testid="shell-rename-input"`, prefilled with the
 current workspace name, with no `required` and no other client rule — every submission,
 empty included, reaches the door and is answered there (I-22) · the answer slot · `var(--space-3)` · a core primary
 Button `data-testid="shell-rename-submit"`, label `shell_rename_submit`, `align-self: start`,
 submitting the native `<form>` whose server action calls `renameWorkspace`. In flight: Button
-loading, Input disabled, slot cleared. Success: the saved name re-renders in Input, switcher
+loading, Input `readOnly` and `aria-busy` (never `disabled` — the form is submittable with Enter
+from the field itself, and disabling the focused element mid-transition removes it from the tab
+order and drops focus to the body, so the answer would arrive with focus nowhere; Q-11 asks for a
+focus destination), slot cleared. Success: the saved name re-renders in Input, switcher
 and breadcrumb, and the slot's live region (`cx-shell-live`, mounted empty from first paint)
 receives a `role="status"` notice (the §1 notice chrome) reading
 `shell_rename_saved`. The wrapper is `aria-live`, not `role="status"`, so what a journey finds
@@ -237,7 +247,12 @@ a rejected save that wears it differs from a completed one only in its sentence.
 renders in the same slot wrapping exactly one RefusalState — reachable codes:
 `SIGNED_OUT`, evidence `{ href: "/sign-in", label: shell_evidence_sign_in }`, and
 (defensively — membership cannot lapse in the one-membership M0 world, but the seam checks
-it) `PERMISSION_NOT_HELD`, evidence `{ href: "/", label: shell_evidence_home }`. The form
+it) `PERMISSION_NOT_HELD`, evidence `{ href: "/", label: shell_evidence_home }`. The workspace
+the form carries is a caller-writable hidden field over a `uuid` column, so `renameWorkspace`
+judges it before it queries: a value that is no uuid names no tenant this session is a member
+of and is answered `PERMISSION_NOT_HELD` — refused as the handle is taken, the shape
+`scopedTenantId` takes, rather than a 22P02 driver error the seam would have to answer as an
+unmarked fault. The form
 re-enables with the value intact. Renaming is a plain write, not an act: no copper, no
 ConsequenceDialog.
 

@@ -13,9 +13,6 @@
 // presented value is only ever equal to itself (R-SPINE-001).
 import { digestOf } from "./secrets";
 
-/** The tag the carriable side wears, in one place because both directions read it. */
-const PRESENTED = "as presented";
-
 /**
  * The key this value is carried under: the value itself when the caller of this fold says the
  * column can carry it, and its digest when it cannot.
@@ -24,16 +21,5 @@ const PRESENTED = "as presented";
  * how much of it an index will take differ per column, while the tagging does not.
  */
 export function foldedKey(value: string, carriable: boolean): string {
-  return carriable ? `${PRESENTED} ${value}` : `digest of ${digestOf(value)}`;
-}
-
-/**
- * The value behind a key, when the key is a presented one — and nothing when it is a digest, which
- * is not a value anybody presented and so not one anybody may be shown.
- *
- * The inverse belongs beside the fold rather than beside a screen (B-17): the tag is one spelling,
- * and a caller that read it back by restating it would hold a second copy of this invariant.
- */
-export function presentedValue(key: string): string | null {
-  return key.startsWith(`${PRESENTED} `) ? key.slice(PRESENTED.length + 1) : null;
+  return carriable ? `as presented ${value}` : `digest of ${digestOf(value)}`;
 }

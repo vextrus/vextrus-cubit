@@ -291,12 +291,19 @@
   margin-block-start: var(--space-3);
 }
 
-/* The always-mounted live region an answer is inserted into. `display: contents` gives it no box
-   of its own, so an empty region adds no row and no gap to the column it waits in: the frame is
-   laid out exactly as it is when the region carries a notice, and the notice keeps its own
-   spacing. Announcement does not depend on a box — only on the region being in the tree first. */
-.cx-shell-live {
-  display: contents;
+/* The always-mounted live region an answer is inserted into. It keeps a box of its own: a region
+   with `display: contents` is removed from the box tree, and engines have repeatedly dropped such
+   elements — and their ARIA — from the accessibility tree, which would leave the region announcing
+   nothing and defeat the whole reason it is mounted early (§1).
+   While it is empty it is taken out of flow instead, so it adds neither a row nor one of the
+   column's gaps and the frame is laid out exactly as it is when the region carries a notice. Out
+   of flow is not out of the tree: the element and its `aria-live` remain rendered, and the moment
+   an answer is inserted the rule stops matching and the notice takes its place in the column. */
+.cx-shell-live:empty {
+  position: absolute;
+  inline-size: 0;
+  block-size: 0;
+  overflow: hidden;
 }
 
 /* The notice an absence is stated in: an answer, not a refusal (R-UI-050's empty leg). */
@@ -354,10 +361,16 @@
   color: var(--graphite-700);
 }
 
+/* The hint under a field's label. At the section's 380 px measure this sentence broke with its last
+   word alone on a second line, directly above the input — the one ragged edge on the screen. The
+   measure is the Decision's and the copy is the string table's, so neither moves: the line breaking
+   is what is asked to be better, and `pretty` is the property for exactly that (it rebalances to
+   avoid a short last line). An engine that does not implement it simply breaks as before. */
 .cx-shell-field-hint {
   margin: 0;
   font-size: var(--text-12);
   color: var(--graphite-600);
+  text-wrap: pretty;
 }
 
 .cx-shell-submit {
