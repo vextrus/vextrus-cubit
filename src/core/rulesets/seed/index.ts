@@ -1,6 +1,6 @@
 // L-MEA-01's seed rule set, `IS1200_IN @ 2026.08`, as the tree's one statement of it: the migration
-// seeds exactly this content and the acceptance compares the stored digest against a digest taken
-// over it, so the values a measurement reads and the values written here can never drift apart.
+// seeds exactly this content, and the digest it stores is `editionDigest` over what is written here
+// — so the values a measurement reads and the values written here cannot drift apart unnoticed.
 //
 // The version string names India because Bangladesh has no measurement authority for these values.
 import type { EditionContent, EditionIdentity } from "../editions/content";

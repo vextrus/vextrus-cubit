@@ -40,8 +40,8 @@ function LineageStep({ step }: { step: EditionLineageStep }) {
         <span className="cx-ruleset-lineage-scope">{step.scope}</span>
         <span className="cx-ruleset-lineage-edition">{editionLabel(step)}</span>
       </div>
-      {/* Whole, like every digest here: at M0 the three read identically, and that sameness is the
-          verbatim fork this section exists to show (L-MEA-01, I-26). */}
+      {/* Whole, like every digest here: while the chain is a verbatim fork every step reads the
+          same, and that sameness is what this section exists to show (L-MEA-01, I-26). */}
       <div className="cx-ruleset-lineage-digest">{step.digest}</div>
     </li>
   );

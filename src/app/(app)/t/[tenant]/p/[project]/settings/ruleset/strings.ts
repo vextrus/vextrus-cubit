@@ -1,6 +1,6 @@
 // R-SPINE-060: this screen's copy, and all of it — the section carries no string literal of its own
-// beyond test ids and fixed attribute values. The keys read `ruleset_…` and follow the same
-// discipline as `src/ui/strings/*`, which this increment does not own (Design Decision I-24).
+// beyond test ids and fixed attribute values. The keys read `ruleset_…`, under the same discipline
+// as the tables in `src/ui/strings/*` (Design Decision I-24).
 //
 // "Workspace" rather than "tenant" in prose (s-auth I-11); `tenant` appears only as data on the
 // screen — the scope of an edition — which is model vocabulary and renders verbatim (I-25).
