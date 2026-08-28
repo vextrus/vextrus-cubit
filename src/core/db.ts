@@ -540,6 +540,15 @@ type RawJobEvent = {
   elapsed_ms: number | null;
 };
 
+/**
+ * An event's detail as the driver writes it. The log's detail is an ordinary JSON object — every
+ * one of them is built from literals in this tree — but the seam above states it as the open shape
+ * its own callers speak, so the narrowing to what a `jsonb` parameter accepts happens here, once.
+ */
+function jsonDetail(detail: Record<string, unknown> | null): postgres.JSONValue {
+  return (detail ?? null) as postgres.JSONValue;
+}
+
 /** `seq` is a bigint, which the driver hands over as text; the log's instants are read as ISO. */
 function eventRow(raw: RawJobEvent): JobEventRow {
   return {
@@ -656,7 +665,7 @@ export function jobsStore(url: string): JobsStore {
       const rows = await sql<RawJobEvent[]>`
         insert into ${sql(JOBS_SCHEMA)}.job_events (job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, elapsed_ms)
         values (${draft.jobId}, ${draft.kind}, ${draft.key}, ${draft.step}, ${draft.status}, ${draft.attempt},
-                ${draft.refusalCode}, ${draft.faultId}, ${sql.json(draft.detail)}, ${draft.elapsedMs})
+                ${draft.refusalCode}, ${draft.faultId}, ${sql.json(jsonDetail(draft.detail))}, ${draft.elapsedMs})
         returning seq, job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, at, elapsed_ms`;
       const row = rows[0];
       if (row === undefined) throw new Error("the job event log accepted no row for this event (R-SPINE-030)");
