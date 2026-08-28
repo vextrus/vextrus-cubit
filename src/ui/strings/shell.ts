@@ -11,7 +11,9 @@ export const shell = {
   // The rail is a landmark of its own, so the controls that live in it are inside a region a reader
   // can tour to; this is its name, and it is not the inspector's.
   shell_rail_label: "Workspace sidebar",
-  shell_rail_collapse_label: "Sidebar",
+  // A control is named by what it does. The state is `aria-expanded`'s to carry, so the name stays
+  // the same in both states — and a speech-input user has a verb to say, which a bare noun denied.
+  shell_rail_collapse_label: "Toggle sidebar",
   shell_rail_nav_label: "Main navigation",
   shell_tenant_switcher_label: "Switch workspace",
   shell_nav_projects: "Projects",

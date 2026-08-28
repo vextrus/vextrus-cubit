@@ -40,10 +40,13 @@ export function ProjectsOnboarding() {
         // The live region is mounted from the first paint and observed empty, so the answer is an
         // insertion into a region assistive technology is already watching (Q-11). A region that
         // arrives with its text already in it is unreliably announced — and it is the wrapper that
-        // waits, never the notice, so nothing is painted until there is something to read.
+        // waits, never the notice, so nothing is painted until there is something to read. The
+        // notice keeps `role="status"` — that is what it is, and what a reader queries for — but
+        // says `aria-live="off"`: one sentence inserted into one live region, announced once,
+        // rather than a status region nested inside a polite one for two AT stacks to read twice.
         <div className="cx-shell-live" aria-live="polite">
           {unavailable ? (
-            <div className="cx-shell-outcome cx-shell-notice" data-testid="shell-sample-outcome" role="status">
+            <div className="cx-shell-outcome cx-shell-notice" data-testid="shell-sample-outcome" role="status" aria-live="off">
               {strings.shell_sample_unavailable}
             </div>
           ) : null}

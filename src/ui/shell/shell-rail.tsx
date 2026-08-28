@@ -57,7 +57,17 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
   // (and this state with it) survives every move between the areas rather than being re-mounted
   // expanded by a fresh document load.
   const [expanded, setExpanded] = useState(true);
-  const railId = useId();
+  // What the toggle discloses is the rail's body — the switcher and the areas — not the rail
+  // itself: `aria-controls` naming the ancestor the control sits inside points a reader at the
+  // region it is already in. The body element is mounted whether or not it holds anything, so the
+  // reference resolves in both states.
+  const bodyId = useId();
+  // The open menu is portalled, and a menu parked at the document root is page content outside
+  // every landmark — the axe `region` violation the top bar's own menu names. The rail is itself a
+  // landmark, and the switcher's menu belongs to it, so the rail is that menu's portal container
+  // (the portalled node is the popper's `position: fixed` box, so the rail's `overflow: hidden`
+  // neither clips nor lays it out). State rather than a ref: the element is known after first render.
+  const [rail, setRail] = useState<HTMLElement | null>(null);
 
   return (
     // A landmark, not a bare box: the collapse and the switcher are the rail's own controls, and in
@@ -66,7 +76,7 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
     <aside
       className="cx-shell-rail"
       data-testid="shell-rail"
-      id={railId}
+      ref={setRail}
       data-collapsed={expanded ? "false" : "true"}
       aria-label={strings.shell_rail_label}
     >
@@ -81,54 +91,58 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
           data-testid="shell-rail-collapse"
           aria-label={strings.shell_rail_collapse_label}
           aria-expanded={expanded}
-          aria-controls={railId}
+          aria-controls={bodyId}
           onClick={() => setExpanded((open) => !open)}
         >
           <Chevron direction="left" />
         </button>
       </div>
 
-      {/* Collapsed, the rail keeps only what stays legible at 48 px: the labels have no icon
-          stand-ins, and a column of truncated letters would be guesswork, not navigation. */}
-      {expanded ? (
-        <>
-          {/* `modal={false}`: the modal treatment marks the rest of the frame `aria-hidden` while
-              leaving its links focusable, which axe reports as a serious `aria-hidden-focus` — and
-              Q-11 admits no serious violation at any checkpoint. Nothing here needs the page
-              inert: the menu still dismisses on an outside press and on Escape. */}
-          <DropdownMenu modal={false}>
-            {/* No `aria-label` here: the workspace name is the trigger's only visible text, so an
-                override would leave a speech-input user saying a name the control does not answer
-                to (WCAG 2.5.3, label-in-name). The purpose is carried by the menu it opens. */}
-            <DropdownMenuTrigger className="cx-shell-switcher" data-testid="shell-tenant-switcher">
-              <span className="cx-shell-switcher-name">{workspaceLabel(workspace)}</span>
-              <Chevron direction="down" />
-            </DropdownMenuTrigger>
-            {/* The memberships the seam answers with — one, today. */}
-            <DropdownMenuContent align="start" aria-label={strings.shell_tenant_switcher_label}>
-              <DropdownMenuItem asChild>
-                <Link className="cx-shell-menu-item" href={shellHref(workspace.tenantId, "projects")}>
-                  {workspaceLabel(workspace)}
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+      {/* The disclosed region itself, and the toggle's `aria-controls` target. Collapsed, the rail
+          keeps only what stays legible at 48 px: the labels have no icon stand-ins, and a column of
+          truncated letters would be guesswork, not navigation — so the body empties rather than
+          unmounting, which is also what keeps the reference resolvable in both states. */}
+      <div className="cx-shell-rail-body" id={bodyId}>
+        {expanded ? (
+          <>
+            {/* `modal={false}`: the modal treatment marks the rest of the frame `aria-hidden` while
+                leaving its links focusable, which axe reports as a serious `aria-hidden-focus` — and
+                Q-11 admits no serious violation at any checkpoint. Nothing here needs the page
+                inert: the menu still dismisses on an outside press and on Escape. */}
+            <DropdownMenu modal={false}>
+              {/* No `aria-label` here: the workspace name is the trigger's only visible text, so an
+                  override would leave a speech-input user saying a name the control does not answer
+                  to (WCAG 2.5.3, label-in-name). The purpose is carried by the menu it opens. */}
+              <DropdownMenuTrigger className="cx-shell-switcher" data-testid="shell-tenant-switcher">
+                <span className="cx-shell-switcher-name">{workspaceLabel(workspace)}</span>
+                <Chevron direction="down" />
+              </DropdownMenuTrigger>
+              {/* The memberships the seam answers with — one, today. */}
+              <DropdownMenuContent align="start" container={rail} aria-label={strings.shell_tenant_switcher_label}>
+                <DropdownMenuItem asChild>
+                  <Link className="cx-shell-menu-item" href={shellHref(workspace.tenantId, "projects")}>
+                    {workspaceLabel(workspace)}
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          <nav className="cx-shell-nav" aria-label={strings.shell_rail_nav_label}>
-            {ENTRIES.map((entry) => (
-              <Link
-                key={entry.area}
-                className="cx-shell-nav-row cx-reticle"
-                data-testid={entry.testId}
-                href={shellHref(workspace.tenantId, entry.area)}
-                aria-current={entry.area === area ? "page" : undefined}
-              >
-                {entry.label}
-              </Link>
-            ))}
-          </nav>
-        </>
-      ) : null}
+            <nav className="cx-shell-nav" aria-label={strings.shell_rail_nav_label}>
+              {ENTRIES.map((entry) => (
+                <Link
+                  key={entry.area}
+                  className="cx-shell-nav-row cx-reticle"
+                  data-testid={entry.testId}
+                  href={shellHref(workspace.tenantId, entry.area)}
+                  aria-current={entry.area === area ? "page" : undefined}
+                >
+                  {entry.label}
+                </Link>
+              ))}
+            </nav>
+          </>
+        ) : null}
+      </div>
     </aside>
   );
 }

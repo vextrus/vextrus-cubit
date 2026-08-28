@@ -103,6 +103,19 @@
   background: var(--graphite-100);
 }
 
+/* Both menu triggers are the shipped core Button (`.cx-btn`, B-17), which carries the button type
+   ramp — `var(--text-14)` at `--weight-body-medium`. §1 rules all of the frame's chrome at
+   `var(--text-13)`, and a single class only wins that where the shell's sheet happens to be served
+   after the core's: a chunk order nothing here decides. Named with `.cx-btn`, the frame's own size
+   wins in either order, so the workspace identity and the account identity read at the size the
+   Decision gives them rather than at the button's. The family is the button's own `var(--font-ui)`
+   in both cases — the whole of the type system, not two of the ramp's three axes. */
+.cx-btn.cx-shell-switcher,
+.cx-btn.cx-shell-user-trigger {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+}
+
 .cx-shell-switcher-name {
   overflow: hidden;
   white-space: nowrap;

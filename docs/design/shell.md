@@ -116,7 +116,14 @@ nowhere.
   at exactly 26 × 26 px, `alt=""` (I-16). Never any other size or asset here.
 - **Collapse toggle** — `data-testid="shell-rail-collapse"`, ghost square button
   (`var(--space-8)`), `cx-reticle`, `aria-label` = `shell_rail_collapse_label`,
-  `aria-expanded` `"true"`/`"false"`, `aria-controls` the rail's `id`. Glyph: inline-SVG
+  `aria-expanded` `"true"`/`"false"`, `aria-controls` the id of the rail's **body** — the
+  element holding the switcher and the nav, which is what the toggle discloses. Not the
+  rail's own id: a control that names its ancestor points a reader at the region it is
+  already standing in. The body element stays mounted in both states (it empties rather
+  than unmounting) so the reference resolves whether the rail is open or shut. The name is
+  a verb — `shell_rail_collapse_label` is **Toggle sidebar**, not a bare noun — because a
+  speech-input user has to be able to say what the control does; the state is
+  `aria-expanded`'s to carry, so the name does not flip with it. Glyph: inline-SVG
   chevron (12 px, stroke `var(--graphite-600)` at 2 px, `aria-hidden`) pointing left when
   expanded, right when collapsed, rotating over `var(--motion-state)` `var(--ease)`.
   Collapsed, the rail keeps only mark and toggle; switcher and nav unmount (labels have no
@@ -133,12 +140,22 @@ Below the top row: **tenant switcher** (`data-testid="shell-tenant-switcher"`) �
 DropdownMenu whose trigger is a full-width ghost button, height `var(--space-9)`,
 padding-inline `var(--space-3)`, text left, showing the workspace name (`var(--text-13)`
 `var(--weight-body-medium)` `var(--graphite-900)`, single line, ellipsis) with a
-chevron-down glyph. The trigger carries NO `aria-label`: the workspace name is its only
+chevron-down glyph. Both menu triggers — this one and the top bar's — are the shipped core
+Button, which carries the button type ramp (`var(--text-14)`); the frame's chrome is
+`var(--text-13)`, and the shell's rules name `.cx-btn` alongside their own class so the
+frame's size wins by specificity rather than by whichever stylesheet the bundler happens to
+serve second. The workspace identity and the account identity read at the size this Decision
+gives them, in the button's own `var(--font-ui)`, in either order. The trigger carries NO
+`aria-label`: the workspace name is its only
 visible text, and an override would leave its accessible name holding none of the words a
 speech-input user can see and say (WCAG 2.5.3, label-in-name) — the same rule the user
 trigger already keeps by naming itself with the visible address. `shell_tenant_switcher_label`
 names the menu the trigger opens (`aria-label` on the menu content), which is where the
-control's purpose belongs. Both shell menus are `modal={false}`: the modal treatment marks
+control's purpose belongs. The switcher's open menu is portalled into the RAIL, exactly as the
+user menu is portalled into the top bar and for the same reason: the rail is a landmark, and a
+menu parked at `document.body` is page content outside every landmark — the axe `region`
+violation the container prop exists to answer. A landmark whose own control's menu escapes it
+undoes what the landmark was for. Both shell menus are `modal={false}`: the modal treatment marks
 the rest of the frame `aria-hidden` while its links stay focusable, which axe reports as a
 serious `aria-hidden-focus` on every open menu — inadmissible under Q-11, and nothing in
 either menu needs the page inert. The menu lists the
@@ -178,7 +195,7 @@ on `/sign-in`, which is itself the visible way back in (AC-2). The open menu is 
 the top bar itself, not to `document.body`: a menu parked at the document root is page content
 outside every landmark, which axe reports as `region` the moment `shell-user` is opened, and the
 bar is the landmark the menu belongs to. The shipped DropdownMenu takes the container as an
-optional prop (default `document.body`, unchanged for every other caller) and portals the
+optional prop (default `document.body`, unchanged for every caller outside this frame) and portals the
 popper's own `position: fixed` box `asChild`, so the container contributes no layout and nothing
 is rendered in the bar while the menu is closed — the frame's baselines are untouched.
 
@@ -211,7 +228,11 @@ box tree and engines have dropped such elements and their ARIA from the accessib
 which case the region would announce nothing) — a region has to be observed empty before its text
 arrives or the answer may never be announced (Q-11), and the same wrapper carries the
 settings screen's saved notice. Inside it the answer renders at
-`<div data-testid="shell-sample-outcome" role="status">`, `var(--space-3)` below the slot:
+`<div data-testid="shell-sample-outcome" role="status" aria-live="off">`, `var(--space-3)`
+below the slot. The `aria-live="off"` is what keeps the pair from being two nested live
+regions over one sentence: the notice keeps the `status` ROLE — that is what it is, and what a
+journey queries it by — while the announcement is the wrapper's alone, made once. The same
+pairing carries the settings screen's saved notice:
 for `{ available: false }` (the M0 shipped answer) the s-auth notice chrome — fill
 `var(--info-surface)`, border `var(--hairline)` re-keyed to `border-color: var(--info)`,
 radius `var(--radius-4)`, padding
@@ -222,7 +243,9 @@ after an unavailable answer — a retry is never disarmed.
 
 **Books shell** (`/t/{t}/books`): `<h1>` `shell_books_heading`, then `ShellEmptyState` —
 `<h2>` `shell_books_empty_heading` · body `shell_books_empty_body` · action slot holding a
-real `<a>` to `/t/{t}` in the evidence-link idiom (`var(--text-13)`
+real `<a>` to `/t/{t}` — rendered by `next/link`, because it is a move INSIDE the frame and
+every one of those travels through the router (the rail's own collapse survives it) — in the
+evidence-link idiom (`var(--text-13)`
 `var(--weight-body-medium)` `var(--beam-600)`, underlined, hover `var(--beam-500)`,
 `cx-reticle`), label `shell_books_empty_action` — the honest next action lives in Projects.
 
@@ -242,9 +265,11 @@ from the field itself, and disabling the focused element mid-transition removes 
 order and drops focus to the body, so the answer would arrive with focus nowhere; Q-11 asks for a
 focus destination), slot cleared. Success: the saved name re-renders in Input, switcher
 and breadcrumb, and the slot's live region (`cx-shell-live`, mounted empty from first paint)
-receives a `role="status"` notice (the §1 notice chrome) reading
+receives a `role="status" aria-live="off"` notice (the §1 notice chrome) reading
 `shell_rename_saved`. The wrapper is `aria-live`, not `role="status"`, so what a journey finds
-by role inside `shell-settings-name` is the notice itself and only when there is one. A blank or whitespace-only name renders in the slot as `<div
+by role inside `shell-settings-name` is the notice itself and only when there is one; the
+notice's own `aria-live="off"` leaves exactly one live region over the sentence rather than a
+polite region nested inside a polite region for some AT stacks to read twice. A blank or whitespace-only name renders in the slot as `<div
 data-testid="shell-rename-refusal">` wrapping one `role="alert"` line reading
 `shell_rename_refusal` (I-22) — the door's own copy, no registry entry. That line wears the
 ALERT chrome (`cx-shell-alert`: `var(--danger-surface)` fill, `var(--hairline)` border
@@ -309,7 +334,7 @@ forbids; this section is the ruling, `SHELL_STATES` is the same ruling in a walk
 ## 3. Copy, verbatim (`src/ui/strings/shell.ts`)
 
 `shell_home_workspace_door` **Open your workspace** · `shell_rail_label` **Workspace
-sidebar** · `shell_rail_collapse_label` **Sidebar**
+sidebar** · `shell_rail_collapse_label` **Toggle sidebar**
 · `shell_rail_nav_label` **Main navigation** · `shell_tenant_switcher_label` **Switch
 workspace** · `shell_nav_projects` **Projects** · `shell_nav_books` **Books** ·
 `shell_nav_settings` **Settings** · `shell_breadcrumb_label` **Breadcrumb** ·

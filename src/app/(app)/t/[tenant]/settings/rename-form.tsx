@@ -55,10 +55,12 @@ export function RenameForm({ tenantId, name }: RenameFormProps) {
         {/* The region waits here from the first paint, empty, so the saved notice is an insertion
             into something a reader is already watching rather than a `role="status"` node that
             arrives with its sentence already inside it (Q-11). The wrapper carries no `status`
-            role of its own — the notice is what claims to be one, and only when there is one. */}
+            role of its own — the notice is what claims to be one, and only when there is one, and
+            it says `aria-live="off"` so that the sentence is one insertion into one live region
+            rather than a live region nested inside a live region, read twice on some AT stacks. */}
         <div className="cx-shell-live" aria-live="polite">
           {!pending && answer !== null && answer.renamed ? (
-            <div className="cx-shell-outcome cx-shell-notice" role="status">
+            <div className="cx-shell-outcome cx-shell-notice" role="status" aria-live="off">
               {strings.shell_rename_saved}
             </div>
           ) : null}
