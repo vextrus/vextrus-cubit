@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { sampleSeed, type SampleSeedAnswer } from "../../../../server/shell/sample-seed";
 import { endSession, presentedSessionToken } from "../../../../server/shell/session";
 import { renameWorkspace, type RenameAnswer } from "../../../../server/shell/workspace";
-import { shellHref } from "../../../../ui/shell";
+import { hasVisibleText, shellHref } from "../../../../ui/shell";
 
 /** The user menu's way out: the session ends, and `/sign-in` is itself the visible way back in. */
 export async function signOutAction(): Promise<void> {
@@ -42,7 +42,9 @@ export type RenameFormState = RenameAnswer | BlankNameAnswer | null;
 export async function renameWorkspaceAction(_shown: RenameFormState, form: FormData): Promise<RenameFormState> {
   const tenantId = String(form.get("tenantId") ?? "");
   const name = String(form.get("name") ?? "");
-  if (name.trim() === "") return { renamed: false, blankName: true };
+  // "An entered name is a name with something visible in it" (I-22) is judged in its one home, so
+  // a name of zero-width characters is refused here exactly as a name of spaces is.
+  if (!hasVisibleText(name)) return { renamed: false, blankName: true };
 
   const answer = await renameWorkspace({
     sessionToken: await presentedSessionToken(),

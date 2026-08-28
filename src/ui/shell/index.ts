@@ -10,7 +10,8 @@ export { ShellEmptyState } from "./shell-empty-state";
 export { ShellInspector } from "./shell-inspector";
 export { ShellRail } from "./shell-rail";
 export { ShellTopBar } from "./shell-top-bar";
-export { areaOf, shellHref } from "./routes";
+export { areaOf, hasVisibleText, shellHref } from "./routes";
+export { SHELL_STATES } from "./states";
 
 export type { AppShellProps } from "./app-shell";
 export type { ShellDeniedProps } from "./shell-denied";
@@ -18,3 +19,4 @@ export type { ShellEmptyStateProps } from "./shell-empty-state";
 export type { ShellRailProps } from "./shell-rail";
 export type { ShellTopBarProps } from "./shell-top-bar";
 export type { ShellArea, ShellWorkspace } from "./routes";
+export type { ShellStateCell, ShellStateMatrix, ShellStateName } from "./states";

@@ -24,6 +24,13 @@ primitives (core Button/Input/Skeleton, overlay DropdownMenu, the one RefusalSta
   both themes via `<img>` static import — decorative (`alt=""` `aria-hidden`), so no
   contrast floor binds it. Recorded IOU, owner: the increment owning `src/ui/brand/**`
   (B-24) — a dark/quiet-chrome sibling, adopted via the s-auth I-10 display swap.
+  The debt is visible, not theoretical: R-UI-070's colour states give the DARK surface the
+  primary-dark facets `#564BA8`/`#6E63C8`, and the one vendored no-spark asset carries the
+  primary-light pair `#3A2F86`/`#5A4FB0`, so the committed dark baseline shows a dark indigo
+  mark on the dark rail ground. It is left standing deliberately: the geometry is never
+  redrawn (R-UI-070, B-24) and no dark no-spark asset is vendored, so recolouring the mark
+  from the shell would be the worse defect. The fix is the vendored sibling, and it belongs
+  to `src/ui/brand/**`.
 - **I-17 — the un-membered denial is frameless and registry-answered.** A person denied the
   workspace is not shown a rail of links into it: a signed-in request for a tenant the
   session does not hold renders the §2 denial surface in place of the frame, built on the
@@ -53,9 +60,16 @@ primitives (core Button/Input/Skeleton, overlay DropdownMenu, the one RefusalSta
   trigger falls back to `shell_user_account`.
 - **I-22 — "an entered name" is a name with something visible in it.** R-UI-033 asks the
   workspace to be *named*, and the contract names a rename-refusal string of its own, so the
-  rename door judges blankness: a submission whose name trims to nothing is answered inline at
+  rename door judges blankness: a submission whose name shows nothing is answered inline at
   `shell-rename-refusal` with `shell_rename_refusal`, and `renameWorkspace` is never called —
-  the stored name is untouched by construction. The judgement is the door's, not the taxonomy's:
+  the stored name is untouched by construction. "Shows nothing" is perceptual, and `trim()` is
+  not it: `trim()` strips only the ECMAScript whitespace set, so a name of a single U+200B ZERO
+  WIDTH SPACE (or ZWNJ, ZWJ, the BOM, a Hangul filler, an empty Braille cell) would pass the door
+  and then paint a link with no glyph in it — the exact failure this interpretation exists to
+  prevent. `hasVisibleText()` (`src/ui/shell/routes.ts`) is the one home of the standard: it
+  removes whitespace, the Unicode format and control categories, lone surrogates and the
+  blank-by-design glyphs, and asks whether anything is left. Both guards read it — the door here
+  and `workspaceLabel` in I-23 — so they cannot disagree about the same string. The judgement is the door's, not the taxonomy's:
   no `RefusalCode` is registered for it (`src/core/errors.ts` is another node's, and R-SPINE-062
   is closed), and `RenameAnswer` keeps its settled two arms — the form's own state gains a third,
   `{ renamed: false, blankName: true }`. The rejected alternative was s-auth I-13's "take it as
@@ -66,7 +80,8 @@ primitives (core Button/Input/Skeleton, overlay DropdownMenu, the one RefusalSta
 - **I-23 — nothing paints a nameless workspace.** `workspaceLabel(workspace)`
   (`src/ui/shell/routes.ts`) is the one home for the name the frame shows — the breadcrumb link,
   the switcher trigger and its one membership item all read it. A stored name with nothing
-  visible in it shows as `shell_workspace_unnamed`; anything else shows exactly as it stands.
+  visible in it — judged by I-22's `hasVisibleText`, not by `trim()` — shows as
+  `shell_workspace_unnamed`; anything else shows exactly as it stands.
   Sign-up still takes its `tenantName` as presented (R-SPINE-002 is another node's door), so the
   guard is reachable and is not dead code.
 
@@ -81,10 +96,17 @@ segment (or is null), it renders the denial surface (§2) instead of the frame.
 `auto 1fr`, `minHeight: 100dvh`, ground `var(--graphite-0)`. Left column full-height rail;
 right column stacks top bar over a row of main + inspector.
 
-**Rail** (`ShellRail`, `data-testid="shell-rail"`): width 240 px expanded, 48 px collapsed
-(panel measures are px per core I-1), fill `var(--graphite-50)`, border-right
-`var(--hairline)`, column flex. Top row, height `var(--space-12)`, padding-inline
-`var(--space-3)`, mark left and collapse toggle right:
+**Rail** (`ShellRail`, `data-testid="shell-rail"`): an `<aside>` `aria-label` =
+`shell_rail_label` — the rail is a landmark, so the collapse toggle and the switcher are
+controls inside a region rather than orphans at the document root; it is the frame's second
+complementary region and carries a name the inspector's does not. Width 240 px expanded,
+48 px collapsed (panel measures are px per core I-1), fill `var(--graphite-50)`,
+border-right `var(--hairline)`, column flex. Top row, height `var(--space-12)`,
+padding-inline `var(--space-3)`, mark left and collapse toggle right; collapsed, that row
+stacks (column, `gap: var(--space-2)`, padding-block `var(--space-3)`, no padding-inline,
+auto height) so that mark AND toggle stay inside the 48 px box — at 240 px spacing they
+would push the toggle out of the rail, leaving the only control that expands it painted
+nowhere.
 
 - **Mark** — `<span data-testid="shell-rail-mark" aria-hidden="true">` wrapping `QuietMark`
   (`src/ui/brand-usage`): `<img>` of the vendored `src/ui/brand/vextrus-mark-nospark.svg`
@@ -129,7 +151,11 @@ separator (`aria-hidden`, `var(--graphite-500)`), then the area crumb — `shell
 (`var(--text-13)` `var(--graphite-700)`, ellipsis past 280 px); the visible address is the
 accessible name. The address is the value the account presented, read back out of the folded
 key `users.email` stores it under (I-21); an account whose key is a digest has no address to
-show and the trigger is named `shell_user_account`. Items, in order: `shell-user-sessions` — a link item to `/sessions`, label
+show and the trigger is named `shell_user_account`. Both items wear the menu's own idiom
+(`cx-shell-menu-item`: no underline; the colour is the menu item's own) — an item that happens to be a link
+may not arrive underlined beside one that is not, or the pair reads as one hovered row and
+one plain sentence rather than as peers. The same class carries the switcher's link item.
+Items, in order: `shell-user-sessions` — a link item to `/sessions`, label
 `shell_user_sessions` (paying s-auth's recorded R-UI-031 debt) · `shell-user-signout` —
 label `shell_user_signout`, invoking the sign-out server action; on success the person lands
 on `/sign-in`, which is itself the visible way back in (AC-2).
@@ -184,7 +210,11 @@ loading, Input disabled, slot cleared. Success: the saved name re-renders in Inp
 and breadcrumb, and the slot shows a `role="status"` notice (the §1 notice chrome) reading
 `shell_rename_saved`. A blank or whitespace-only name renders in the slot as `<div
 data-testid="shell-rename-refusal">` wrapping one `role="alert"` line reading
-`shell_rename_refusal` (I-22) — the door's own copy, no registry entry. A settled refusal
+`shell_rename_refusal` (I-22) — the door's own copy, no registry entry. That line wears the
+ALERT chrome (`cx-shell-alert`: `var(--danger-surface)` fill, 1 px `var(--danger)` border,
+`var(--radius-4)`, padding `var(--space-3) var(--space-4)`, `var(--weight-body-medium)`),
+never the notice chrome: the notice belongs to the saved answer and the sample outcome, and
+a rejected save that wears it differs from a completed one only in its sentence. A settled refusal
 renders in the same slot wrapping exactly one RefusalState — reachable codes:
 `SIGNED_OUT`, evidence `{ href: "/sign-in", label: shell_evidence_sign_in }`, and
 (defensively — membership cannot lapse in the one-membership M0 world, but the seam checks
@@ -199,6 +229,15 @@ underlined), label `shell_home_workspace_door`. `HomePage` resolves the branch t
 `workspaceFor` server-side.
 
 ## 2. States (R-UI-050), ruled cell by cell
+
+The cells are ruled here and **declared in one enumerable place the suite reflects over**:
+`src/ui/shell/states.ts` exports `SHELL_STATES`, one row per shipped screen and one cell per
+one of R-UI-050's seven states, each cell saying it is rendered (naming its module and its
+hook), delegated (naming the owner and why) or impossible (with the reason).
+`tests/ui/shell/state-matrix.test.ts` walks it: a screen that declares six states fails, a
+row for an area the shell does not ship fails, and a cell claiming a hook no source spells
+fails. Prose alone would make a missing state a review note, which is what the clause
+forbids; this section is the ruling, `SHELL_STATES` is the same ruling in a walkable form.
 
 - **Loading** — one `loading.tsx` at `t/[tenant]/` renders in `shell-main`, frame intact:
   three core Skeletons keeping the page's layout — 24 px × 240 px (the heading line), then
@@ -227,7 +266,8 @@ underlined), label `shell_home_workspace_door`. `HomePage` resolves the branch t
 
 ## 3. Copy, verbatim (`src/ui/strings/shell.ts`)
 
-`shell_home_workspace_door` **Open your workspace** · `shell_rail_collapse_label` **Sidebar**
+`shell_home_workspace_door` **Open your workspace** · `shell_rail_label` **Workspace
+sidebar** · `shell_rail_collapse_label` **Sidebar**
 · `shell_rail_nav_label` **Main navigation** · `shell_tenant_switcher_label` **Switch
 workspace** · `shell_nav_projects` **Projects** · `shell_nav_books` **Books** ·
 `shell_nav_settings` **Settings** · `shell_breadcrumb_label` **Breadcrumb** ·
@@ -287,6 +327,15 @@ hairlines; selection is beam-100 fill + beam-500 bar in both. The one theme-stab
 is the mark (I-16): fixed indigo facets in both themes, decorative. Contrast holds on
 founder facts: graphite-700 and 600 on graphite-0/50 ≥ 4.5:1, graphite-900 on beam-100,
 beam-600 on graphite-0 and info-surface ≥ 4.5:1, beam-500 bar ≥ 3:1 as UI.
+
+**Recorded, not fixed here: the theme resolves once, at document load.** `src/app/layout.tsx`
+sets `data-theme` at first paint from a one-shot `matchMedia` read with no `change` listener,
+so a person who flips their OS theme with the app open keeps the stale theme until a full
+navigation. The root layout is another node's (`src/app/layout.tsx` is outside this
+increment's ownership), so this is recorded rather than repaired. Two consequences for this
+increment: the dark baseline must be captured on a FRESH LOAD under the emulated preference —
+flipping the emulation on an already-open page re-photographs the light shell — and a later
+increment owning the root layout owes the `change` subscription.
 
 ## 7. Test hooks (closed contract, C-05)
 

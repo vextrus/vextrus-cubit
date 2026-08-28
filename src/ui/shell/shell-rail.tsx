@@ -53,7 +53,16 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
   const railId = useId();
 
   return (
-    <div className="cx-shell-rail" data-testid="shell-rail" id={railId} data-collapsed={expanded ? "false" : "true"}>
+    // A landmark, not a bare box: the collapse and the switcher are the rail's own controls, and in
+    // a div they hang at the document root, outside every region a reader tours by. The inspector
+    // is the frame's other complementary region, and the two carry different names.
+    <aside
+      className="cx-shell-rail"
+      data-testid="shell-rail"
+      id={railId}
+      data-collapsed={expanded ? "false" : "true"}
+      aria-label={strings.shell_rail_label}
+    >
       <div className="cx-shell-rail-top">
         {/* Decorative (R-UI-070, I-16): the mark names the product, and the document already does. */}
         <span className="cx-shell-rail-mark" data-testid="shell-rail-mark" aria-hidden="true">
@@ -88,7 +97,9 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
             {/* The memberships the seam answers with — one, today. */}
             <DropdownMenuContent align="start">
               <DropdownMenuItem asChild>
-                <a href={shellHref(workspace.tenantId, "projects")}>{workspaceLabel(workspace)}</a>
+                <a className="cx-shell-menu-item" href={shellHref(workspace.tenantId, "projects")}>
+                  {workspaceLabel(workspace)}
+                </a>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -108,6 +119,6 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
           </nav>
         </>
       ) : null}
-    </div>
+    </aside>
   );
 }

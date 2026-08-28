@@ -1,8 +1,8 @@
 /* The signed-in frame (R-UI-030) and the screens it holds. Every value is a token (R-UI-001); the
    px literals are the closed set the shell's Design Decision fixes — rail 240/48, inspector 280,
    the 3 px selection bar, the chevron's 12 px box, the user trigger's 280 px ellipsis, the column
-   measures, and the lg breakpoint a media query cannot read a var() for. No [data-theme] selector
-   is authored anywhere: light and dark differ only in what the token values resolve to. */
+   measures, and the sm and lg breakpoints a media query cannot read a var() for. No [data-theme]
+   selector is authored anywhere: light and dark differ only in what the token values resolve to. */
 
 .cx-shell {
   display: grid;
@@ -34,6 +34,18 @@
   gap: var(--space-3);
   height: var(--space-12);
   padding-inline: var(--space-3);
+}
+
+/* Collapsed, the rail keeps mark AND toggle (§1). At 240 px they sit at either end of one row; at
+   48 px that row is narrower than the pair, and the toggle would be pushed out of the box — the
+   only control that expands the rail again, painted nowhere. Stacked, both stay inside 48 px. */
+.cx-shell-rail[data-collapsed="true"] .cx-shell-rail-top {
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+  height: auto;
+  padding-block: var(--space-3);
+  padding-inline: 0;
 }
 
 .cx-shell-rail-mark {
@@ -286,6 +298,25 @@
   color: var(--graphite-900);
 }
 
+/* The alert a rejected save wears. Not the notice's chrome: a refusal and a completed save may not
+   be told apart by their sentence alone, so the danger surface and border carry it too. */
+.cx-shell-alert {
+  margin: 0;
+  background: var(--danger-surface);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-4);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+/* An item of a menu that happens to be a link wears the menu's own idiom, never the link idiom:
+   the underline would read as a hover state on an item the pointer is not over. */
+.cx-shell-menu-item {
+  text-decoration: none;
+}
+
 .cx-shell-link {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
@@ -338,6 +369,13 @@
   width: min(560px, calc(100vw - var(--space-8)));
   margin-inline: auto;
   padding-block-start: var(--space-12);
+}
+
+/* The s-auth frame's own sm step, doubled: the denial surface sits where the auth screens sit. */
+@media (min-width: 640px) {
+  .cx-shell-denied {
+    padding-block-start: calc(var(--space-12) * 2);
+  }
 }
 
 .cx-shell-denied-heading {

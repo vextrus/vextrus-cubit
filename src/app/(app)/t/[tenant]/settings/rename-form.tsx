@@ -42,15 +42,20 @@ export function RenameForm({ tenantId, name }: RenameFormProps) {
           aria-describedby={hintId}
           disabled={pending}
         />
-        {answer !== null && answer.renamed ? (
+        {/* In flight the slot is empty (§1): `useActionState` keeps the last answer for the whole
+            pending window, and leaving it painted would tell a person that the submission they are
+            waiting on is already saved — or already refused. */}
+        {!pending && answer !== null && answer.renamed ? (
           <div className="cx-shell-outcome cx-shell-notice" role="status">
             {strings.shell_rename_saved}
           </div>
         ) : null}
-        {answer !== null && !answer.renamed ? (
+        {!pending && answer !== null && !answer.renamed ? (
           <div className="cx-shell-outcome" data-testid="shell-rename-refusal">
             {"blankName" in answer ? (
-              <p className="cx-shell-notice" role="alert">
+              // An alert is not a notice: a rejected save may not wear the chrome a completed one
+              // wears, or the only channel telling them apart is the sentence itself.
+              <p className="cx-shell-alert" role="alert">
                 {strings.shell_rename_refusal}
               </p>
             ) : (

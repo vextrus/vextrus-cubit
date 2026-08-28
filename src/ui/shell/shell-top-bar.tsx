@@ -47,8 +47,12 @@ export function ShellTopBar({ workspace, area, email, signOut }: ShellTopBarProp
           {email ?? strings.shell_user_account}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {/* Both items are peers of one menu, so both wear the menu's idiom: an item that happens
+              to be a link may not arrive underlined beside one that is not. */}
           <DropdownMenuItem asChild data-testid="shell-user-sessions">
-            <a href="/sessions">{strings.shell_user_sessions}</a>
+            <a className="cx-shell-menu-item" href="/sessions">
+              {strings.shell_user_sessions}
+            </a>
           </DropdownMenuItem>
           <DropdownMenuItem
             data-testid="shell-user-signout"

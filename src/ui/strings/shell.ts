@@ -8,6 +8,9 @@
 export const shell = {
   shell_home_workspace_door: "Open your workspace",
 
+  // The rail is a landmark of its own, so the controls that live in it are inside a region a reader
+  // can tour to; this is its name, and it is not the inspector's.
+  shell_rail_label: "Workspace sidebar",
   shell_rail_collapse_label: "Sidebar",
   shell_rail_nav_label: "Main navigation",
   shell_tenant_switcher_label: "Switch workspace",
