@@ -332,10 +332,23 @@ beam-600 on graphite-0 and info-surface ≥ 4.5:1, beam-500 bar ≥ 3:1 as UI.
 sets `data-theme` at first paint from a one-shot `matchMedia` read with no `change` listener,
 so a person who flips their OS theme with the app open keeps the stale theme until a full
 navigation. The root layout is another node's (`src/app/layout.tsx` is outside this
-increment's ownership), so this is recorded rather than repaired. Two consequences for this
-increment: the dark baseline must be captured on a FRESH LOAD under the emulated preference —
-flipping the emulation on an already-open page re-photographs the light shell — and a later
-increment owning the root layout owes the `change` subscription.
+increment's ownership), so this is recorded rather than repaired — and it is not repairable
+from here even with the file in hand, for two standing reasons. `docs/design/root-document.md`
+settles the resolver's code verbatim and puts the behaviour out of scope by name: it "registers
+no change listener — a user-facing theme setting, persistence, and live reaction to OS changes
+after first paint are out of scope by name". And `tests/e2e/j-000-golden-path.e2e.ts` asserts
+the resolver's own source contains no `addEventListener` (with `DOMContentLoaded`, `onload`,
+`setTimeout`, `requestAnimationFrame`, `requestIdleCallback`) — the guarantee that it runs
+inline rather than from a deferred callback — so putting the subscription inside the resolver
+turns another node's shipped journey red. A subscription elsewhere would be a second writer of
+the one root attribute, in a layer that covers `/t/**` and leaves `/` and `/sign-in` stale
+(B-17). The live reaction therefore belongs to the root-document node, as one change to the
+resolver's settled contract plus its own acceptance.
+
+What this increment owes and holds instead: the shell branches on no theme, so a document that
+states `[data-theme=dark]` paints dark through token values alone — J-004's dark checkpoint
+proves it, and the baseline is captured on a FRESH LOAD under the emulated preference, since
+flipping the emulation on an already-open page re-photographs the light shell.
 
 ## 7. Test hooks (closed contract, C-05)
 
