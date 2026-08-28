@@ -2,10 +2,12 @@
 // screen imports `strings` and never a module table directly, so a key moving between modules is
 // not a rename at the call site; `StringKey` is the union the compiler refuses a missing key with.
 import { auth } from "./auth";
+import { shell } from "./shell";
 import { spine } from "./spine";
 
 export const strings = {
   ...auth,
+  ...shell,
   ...spine,
 } as const;
 

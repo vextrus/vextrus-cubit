@@ -1,0 +1,117 @@
+// The workspace behind the signed-in frame (R-UI-030, R-UI-033): which one the session holds, and
+// the one write that renames it. Both go through the existing seams — `resolveSession` for who is
+// asking (R-SPINE-001) and the handles of SEAM-TENANT for what is read and written — so this file
+// owns no identity rule and no handle of its own.
+//
+// Membership is not tenant-scoped state a tenant handle could read: it is the row that says which
+// tenant a person may be scoped to at all, and it is written by sign-up under the same system
+// reason (src/server/auth/session.ts). Reading it therefore runs as the system, with the reason
+// recorded beside the statement. A tenant's OWN row is the other case: `tenants` is under FORCE row
+// security with `tenants_tenant_scope`, so the rename is written through `forTenant` — "the tenant's
+// handle: the only way a tenant's rows are read or written" (src/core/db.ts) — and the policy, not
+// the membership check five lines above it, is what makes a cross-tenant write impossible.
+import { cache } from "react";
+import { and, asc, eq, forTenant, isUuid, memberships, runAsSystem, storableText, tenants } from "../../core/db";
+import type { RefusalCode } from "../../core/errors";
+import { resolveSession } from "../auth/session";
+import { sessionOf } from "./resolve";
+
+/** The workspace a person is in: the uuid the URL names it by, and the name they gave it. */
+export interface Workspace {
+  tenantId: string;
+  name: string;
+}
+
+/** What the rename answers with: the saved workspace, or the registered refusal that stopped it. */
+export type RenameAnswer = { renamed: true; workspace: Workspace } | { renamed: false; refusal: RefusalCode };
+
+/** The rename as a caller states it: who is asking, which workspace, and the name as presented. */
+export interface RenameRequest {
+  sessionToken: string | null;
+  tenantId: string;
+  name: string;
+}
+
+/**
+ * The workspace the presented session holds, or null when it holds none — a dead cookie, a session
+ * that has been revoked, or an account whose membership has gone. R-UI-031 makes the uuid the URL's
+ * `{tenant}` segment, so the answer carries it beside the name the switcher and breadcrumb show.
+ *
+ * Multi-workspace membership is not part of the shipped product, so one membership is the one
+ * workspace a person is in; `memberships` widening is what makes a switcher list longer. Which one
+ * that is is stated rather than left to the planner: the earliest membership, which is the one
+ * sign-up minted with the account. An unordered `limit 1` would let the frame, the breadcrumb, the
+ * `/` door and the rename target name a different workspace from run to run the moment a second
+ * membership exists — and the layout's tenant-mismatch branch would then deny a workspace the
+ * person genuinely holds.
+ *
+ * Request-scoped (`cache`, see ./resolve): the layout and the screen inside it both ask.
+ */
+export const workspaceFor = cache(async (sessionToken: string | null): Promise<Workspace | null> => {
+  const session = await sessionOf(sessionToken);
+  if (session === null) return null;
+  return earliestWorkspaceOf(session.userId);
+});
+
+/**
+ * R-UI-033's rename, membership-checked: a person may rename the workspace they are a member of and
+ * no other. A request with no live session is answered SIGNED_OUT and one from a non-member
+ * PERMISSION_NOT_HELD — both registered answers, never faults (ARCH-03, B-21).
+ *
+ * The name is taken as presented, exactly as the door that first named the workspace takes it
+ * (R-SPINE-002): case, spacing and length are the person's. What `text` has no representation for
+ * is dropped through the seam's own `storableText`, because a value the database cannot store is
+ * not an outage — the same settled reading sign-up follows.
+ *
+ * The workspace, by contrast, is a handle and is judged before it is used. It arrives from a form
+ * field a caller can write anything into, and `tenants.tenant_id` is a `uuid`: a value that is not
+ * one makes postgres raise 22P02, a driver error carrying no refusal marker, so a tampered or
+ * missing field would answer a fault id for a request this door did judge. A string that names no
+ * tenant names no tenant this session is a member of, which is PERMISSION_NOT_HELD — the same
+ * answer the membership query gives, refused as the value is taken (the shape `scopedTenantId`
+ * takes in src/core/db.ts).
+ */
+export async function renameWorkspace(request: RenameRequest): Promise<RenameAnswer> {
+  const session = request.sessionToken === null ? null : await resolveSession(request.sessionToken);
+  if (session === null) return { renamed: false, refusal: "SIGNED_OUT" };
+  if (!isUuid(request.tenantId)) return { renamed: false, refusal: "PERMISSION_NOT_HELD" };
+
+  const admitting = runAsSystem("R-UI-033 workspace rename: the membership that admits the write");
+  const held = await admitting
+    .select({ tenantId: memberships.tenantId })
+    .from(memberships)
+    .where(and(eq(memberships.userId, session.userId), eq(memberships.tenantId, request.tenantId)))
+    .limit(1);
+  if (held[0] === undefined) return { renamed: false, refusal: "PERMISSION_NOT_HELD" };
+
+  // Scoped to the tenant the membership admitted, so the boundary is the policy's and not this
+  // function's: `tenants_tenant_scope` matches the row by `cubit.tenant_id`, and a statement that
+  // named another tenant's row would touch nothing however the check above were reordered or lost.
+  const saved = await forTenant({ tenantId: request.tenantId })
+    .update(tenants)
+    .set({ name: storableText(request.name) })
+    .where(eq(tenants.tenantId, request.tenantId))
+    .returning({ tenantId: tenants.tenantId, name: tenants.name });
+
+  const row = saved[0];
+  if (row === undefined) return { renamed: false, refusal: "PERMISSION_NOT_HELD" };
+  return { renamed: true, workspace: { tenantId: row.tenantId, name: row.name } };
+}
+
+/**
+ * The workspace a membership joins this account to, with the name the tenant row carries. The order
+ * is total, not merely stated: `created_at` names the earliest membership, and the tenant uuid
+ * settles the tie two memberships written in the same transaction would otherwise leave open.
+ */
+async function earliestWorkspaceOf(userId: string): Promise<Workspace | null> {
+  const db = runAsSystem("R-UI-030 shell frame: the workspace a signed-in account is a member of, and the name it wears");
+  const rows = await db
+    .select({ tenantId: tenants.tenantId, name: tenants.name })
+    .from(memberships)
+    .innerJoin(tenants, eq(tenants.tenantId, memberships.tenantId))
+    .where(eq(memberships.userId, userId))
+    .orderBy(asc(memberships.createdAt), asc(memberships.tenantId))
+    .limit(1);
+  const row = rows[0];
+  return row === undefined ? null : { tenantId: row.tenantId, name: row.name };
+}

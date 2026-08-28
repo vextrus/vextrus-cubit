@@ -23,3 +23,17 @@ import { digestOf } from "./secrets";
 export function foldedKey(value: string, carriable: boolean): string {
   return carriable ? `as presented ${value}` : `digest of ${digestOf(value)}`;
 }
+
+/**
+ * The fold read the other way: the value behind a key that carries one, and null for a key that is
+ * a digest — a value the column could not carry, which no reader can be shown and no caller can
+ * recover. Only the carriable side is invertible, which is the whole shape of the fold above.
+ *
+ * It lives here because the tag is this file's invariant (B-17): a screen that unwrapped a key by
+ * slicing a prefix of its own would be a second home for the rule, free to drift from the one that
+ * writes it.
+ */
+export function presentedValue(key: string): string | null {
+  const presented = foldedKey("", true);
+  return key.startsWith(presented) ? key.slice(presented.length) : null;
+}
