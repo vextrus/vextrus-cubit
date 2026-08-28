@@ -132,7 +132,9 @@ test.describe("J-004 — the signed-in application shell", () => {
 
     /* --- the user menu holds the two doors a signed-in person always owes --- */
     await shell.openUserMenu();
-    await expect(shell.user, "the menu names the account it belongs to").toContainText(EMAIL);
+    // The address itself, not the key it is stored under: `users.email` carries a folded key, and
+    // the tag on its carriable side is not part of anybody's address (R-SPINE-001).
+    await expect(shell.user, "the menu names the account it belongs to").toHaveText(EMAIL);
     await shell.userSessions.click();
     await expect(page, "the device list is reachable from the shell, never by a typed URL alone").toHaveURL(`${origin}${S_AUTH.sessions}`);
 

@@ -9,8 +9,8 @@ import { shellHref, type ShellArea, type ShellWorkspace } from "./routes";
 export interface ShellTopBarProps {
   workspace: ShellWorkspace;
   area: ShellArea;
-  /** The address the session belongs to, shown as the menu's own name. */
-  email: string;
+  /** The address the session belongs to, shown as the menu's own name; null when there is none. */
+  email: string | null;
   /** Ending the session is the server's to do; the menu only asks for it. */
   signOut: () => void | Promise<void>;
 }
@@ -44,7 +44,7 @@ export function ShellTopBar({ workspace, area, email, signOut }: ShellTopBarProp
       <DropdownMenu>
         {/* The visible address is the accessible name: a person reads the account they are in. */}
         <DropdownMenuTrigger className="cx-shell-user-trigger" data-testid="shell-user">
-          {email}
+          {email ?? strings.shell_user_account}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem asChild data-testid="shell-user-sessions">

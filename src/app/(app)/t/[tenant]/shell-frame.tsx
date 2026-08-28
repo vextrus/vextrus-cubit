@@ -8,7 +8,7 @@ import { AppShell, areaOf, type ShellWorkspace } from "../../../../ui/shell";
 
 export interface ShellFrameProps {
   workspace: ShellWorkspace;
-  email: string;
+  email: string | null;
   signOut: () => Promise<void>;
   children: ReactNode;
 }

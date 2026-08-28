@@ -16,6 +16,8 @@ export const shell = {
   shell_nav_settings: "Settings",
 
   shell_breadcrumb_label: "Breadcrumb",
+  // What the user menu is named when the account's address is not a value that can be shown.
+  shell_user_account: "Your account",
   shell_user_sessions: "Sessions",
   shell_user_signout: "Sign out",
 

@@ -10,7 +10,7 @@ import type { ShellArea, ShellWorkspace } from "./routes";
 export interface AppShellProps {
   workspace: ShellWorkspace;
   area: ShellArea;
-  email: string;
+  email: string | null;
   signOut: () => void | Promise<void>;
   children: ReactNode;
 }
