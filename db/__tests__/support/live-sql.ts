@@ -313,6 +313,74 @@ function anyRowOf(url: string, table: TableRef, tenantId: string): Record<string
 }
 
 /**
+ * The values a single-column CHECK constraint shuts this column to, read from the catalogue — so a
+ * column closed to a set ('live' | 'fixture', say) gets a value it will actually admit instead of
+ * the generic probe string, which every such CHECK refuses. Derived, never listed: a table a later
+ * increment adds is seeded correctly the moment it lands (B-19). A constraint spanning more than one
+ * column is not read here; the caller tries the alternatives against the database instead.
+ */
+function closedValues(url: string, table: TableRef, column: string): string[] {
+  const definitions = run(
+    url,
+    `select pg_get_constraintdef(c.oid)
+       from pg_constraint c
+       join pg_class ch on ch.oid = c.conrelid
+       join pg_namespace n on n.oid = ch.relnamespace
+      where c.contype = 'c' and n.nspname = ${lit(table.schema)} and ch.relname = ${lit(table.table)}
+        and array_length(c.conkey, 1) = 1
+        and c.conkey[1] = (select a.attnum from pg_attribute a where a.attrelid = ch.oid and a.attname = ${lit(column)})
+      order by c.conname;`,
+  ).map((row) => row[0] ?? "");
+  const values: string[] = [];
+  for (const definition of definitions) {
+    for (const quoted of definition.match(/'(?:[^']|'')*'/g) ?? []) {
+      const value = quoted.slice(1, -1).replace(/''/g, "'");
+      if (!values.includes(value)) values.push(value);
+    }
+  }
+  return values;
+}
+
+/** Every combination of the alternatives, oldest column first, capped so a wide table cannot explode. */
+function combinations(closed: Map<string, string[]>): Map<string, string>[] {
+  let combos: Map<string, string>[] = [new Map()];
+  for (const [name, values] of closed) {
+    const next: Map<string, string>[] = [];
+    for (const combo of combos) {
+      for (const value of values.slice(0, 6)) next.push(new Map([...combo, [name, value]]));
+    }
+    combos = next.slice(0, 64);
+  }
+  return combos;
+}
+
+/**
+ * Write the probe row. With nothing closed there is one candidate and one attempt; where columns are
+ * closed to a set, the alternatives are tried until the table admits one — which is how a row that
+ * has to satisfy a CHECK across two columns (an outcome and the code that explains it, say) gets
+ * built without this helper knowing what either column means. Any refusal that is not a CHECK
+ * violation stops the search and is reported: it is a real fault in the seeding, not a bad guess.
+ */
+function insertProbeRow(url: string, table: TableRef, chosen: Map<string, string>, closed: Map<string, string[]>): void {
+  let last: SqlResult | undefined;
+  for (const combo of combinations(closed)) {
+    const values = new Map(chosen);
+    for (const [name, value] of combo) values.set(name, value);
+    const result = psql(
+      url,
+      withSession(
+        { [GUC_SYSTEM_REASON]: SEED_REASON },
+        `insert into ${table.sql} (${[...values.keys()].map(ident).join(", ")}) values (${[...values.values()].join(", ")});`,
+      ),
+    );
+    if (result.ok) return;
+    last = result;
+    if (result.sqlstate !== "23514") break;
+  }
+  throw new Error(`no probe row could be written to ${qualified(table)} (SQLSTATE ${last?.sqlstate ?? "none"}):\n${last?.stderr.slice(-1200) ?? ""}`);
+}
+
+/**
  * One row of this table owned by this tenant, made if the tenant has none. A table whose row cannot
  * exist without a parent's gets that parent made first, with the parent's own key values copied into
  * the child — so the probe satisfies a composite foreign key the same way real data does.
@@ -332,16 +400,19 @@ function ensureRowForTenant(url: string, table: TableRef, tenantId: string): Rec
   }
 
   const chosen = new Map<string, string>(carriesTenant(url, table) ? [[TENANT_COLUMN, `${lit(tenantId)}::uuid`]] : []);
-  for (const column of requiredColumns(url, table)) chosen.set(column.name, inherited.get(column.name) ?? probeValue(column));
+  const closed = new Map<string, string[]>();
+  for (const column of requiredColumns(url, table)) {
+    if (inherited.has(column.name)) continue;
+    // The values a CHECK shuts the column to come first, and the generic probe stays behind them as
+    // the last candidate — so a column closed to a set is seeded with a member of it, and a CHECK
+    // that means something else is still reached by the value every other table is seeded with.
+    const candidates = [...closedValues(url, table, column.name).map(lit), probeValue(column)];
+    chosen.set(column.name, candidates[0] ?? probeValue(column));
+    if (candidates.length > 1) closed.set(column.name, candidates);
+  }
   for (const [name, value] of inherited) chosen.set(name, value);
 
-  run(
-    url,
-    withSession(
-      { [GUC_SYSTEM_REASON]: SEED_REASON },
-      `insert into ${table.sql} (${[...chosen.keys()].map(ident).join(", ")}) values (${[...chosen.values()].join(", ")});`,
-    ),
-  );
+  insertProbeRow(url, table, chosen, closed);
   const made = anyRowOf(url, table, tenantId);
   if (made === undefined) throw new Error(`seeding a probe row into ${qualified(table)} for tenant ${tenantId} left nothing behind`);
   return made;
