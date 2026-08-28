@@ -2,9 +2,13 @@
 // frame at `/t/{tenant}`, the empty Projects home that teaches the next action, and the URL as the
 // source of truth under a deep link and the browser's own back button.
 //
-// The four checkpoints the Increment Spec names stand in this file: at each one a screenshot is
-// attached and axe judges the page (Q-11, at the impacts `support/checkpoint.ts` blocks on and no
-// others), and the light and dark frames are compared against the committed Linux baselines.
+// The four checkpoints the Increment Spec names stand in this file unchanged: at each one a
+// screenshot is attached and axe judges the page (Q-11, at the impacts `support/checkpoint.ts`
+// blocks on and no others), and the light and dark frames are compared against the committed Linux
+// baselines. Two further checkpoints stand on the two OVERLAY states the walk itself opens — the
+// rail's tenant switcher and the user menu — because a state this journey walks in which a serious
+// violation can manifest, and which no other checkpoint stands in, is a state Q-11 goes ungraded on
+// (settled: checkpoint placement is part of the law, not only the threshold).
 import { expect, test } from "@playwright/test";
 import { strings } from "../../src/ui/strings";
 import { SAuthPage, S_AUTH } from "./pages/s-auth.page";
@@ -252,8 +256,39 @@ test.describe("J-004 — the signed-in application shell", () => {
     await expect(shell.railCollapse).toHaveAttribute("aria-expanded", "true");
     await expect(shell.nav("projects")).toBeVisible();
 
+    /* --- j004-shell-tenant-switcher-open: an OPEN overlay is a state this journey walks, so it is
+       a state axe judges (settled Q-11/V-E2E: a checkpoint must stand in every walked state where a
+       serious impact can manifest). The rail's switcher parks its menu outside the frame's
+       landmarks, so the page it is graded on is not the page any closed-menu checkpoint grades.
+       Both new baselines are taken of the viewport rather than of shell-root, because where an open
+       menu is portalled is the implementation's business and a shell-root crop would miss one.
+       No mask: the settled V-E2E ruling for this journey keeps determinism by a FIXED identity
+       (WORKSPACE, EMAIL) rather than by masking, and a masked region is a region nothing grades. --- */
+    await shell.tenantSwitcher.click();
+    await expect(shell.tenantSwitcher, "the switcher states that it is open, rather than only painting it open").toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    const switcherMenu = page.getByRole("menu");
+    await expect(switcherMenu, "…and the memberships it offers are on the screen being graded").toBeVisible();
+
+    await expect(page).toHaveScreenshot("shell-tenant-switcher-open.png");
+    await checkpoint(page, testInfo, "j004-shell-tenant-switcher-open");
+
+    await page.keyboard.press("Escape");
+    await expect(switcherMenu, "the overlay closes again, so what follows is walked on the plain frame").toHaveCount(0);
+    await expect(shell.tenantSwitcher).toHaveAttribute("aria-expanded", "false");
+
     /* --- the user menu holds the two doors a signed-in person always owes --- */
     await shell.openUserMenu();
+
+    /* --- j004-shell-user-menu-open: the same law, on the other overlay. The frame is judged WHILE
+       the menu is open, which is the only state in which the serious finding this shell cures
+       (focusable content under an `aria-hidden` frame) can manifest at all — graded here, a
+       regression to the modal treatment reddens the journey instead of passing it. --- */
+    await expect(page).toHaveScreenshot("shell-user-menu-open.png");
+    await checkpoint(page, testInfo, "j004-shell-user-menu-open");
+
     // The address itself, not the key it is stored under: `users.email` carries a folded key, and
     // the tag on its carriable side is not part of anybody's address (R-SPINE-001).
     await expect(shell.user, "the menu names the account it belongs to").toHaveText(EMAIL);
