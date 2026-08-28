@@ -241,11 +241,13 @@ class _Extractor:
     def read_space(self, layout: Any, name: str, kind: str) -> _Space:
         space = _Space(name=name, kind=kind)
         for entity in layout:
-            record = self.entity_record(entity, space, None)
-            if record is None:
-                continue
             handle = entity.dxf.get("handle", None)
             if handle is None:
+                # Nothing to mint a source key from, so this is no atom of the extraction surface
+                # (L-CAD-02) — and it must not reach the extents of a space it does not appear in.
+                continue
+            record = self.entity_record(entity, space, None)
+            if record is None:
                 continue
             key = source_key(str(handle))
             record["key"] = key
