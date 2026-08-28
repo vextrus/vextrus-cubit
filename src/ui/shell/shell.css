@@ -152,14 +152,16 @@
 }
 
 /* R-UI-030's selection, verbatim: a 3 px inset beam bar and the beam-100 row fill. The weight is
-   the second, non-colour channel that says the same thing (R-UI-060). */
-.cx-shell-nav-row[aria-current="page"] {
+   the second, non-colour channel that says the same thing (R-UI-060). Any `aria-current` value
+   paints: the row is selected both at the area's own home ("page") and on a screen inside the
+   area ("true"), and the two differ in what they claim, not in how they look. */
+.cx-shell-nav-row[aria-current] {
   background: var(--beam-100);
   color: var(--graphite-900);
   font-weight: var(--weight-heading);
 }
 
-.cx-shell-nav-row[aria-current="page"]::before {
+.cx-shell-nav-row[aria-current]::before {
   content: "";
   position: absolute;
   inset-block: 0;

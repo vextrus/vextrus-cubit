@@ -12,6 +12,8 @@ import { shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "
 export interface ShellTopBarProps {
   workspace: ShellWorkspace;
   area: ShellArea;
+  /** Whether the address is the area's own home; deeper, the area crumb is a step, not the page. */
+  atAreaHome: boolean;
   /** The address the session belongs to, shown as the menu's own name; null when there is none. */
   email: string | null;
   /** Ending the session is the server's to do; the menu only asks for it. */
@@ -25,7 +27,7 @@ const AREA_LABEL: Readonly<Record<ShellArea, string>> = {
   settings: strings.shell_nav_settings,
 };
 
-export function ShellTopBar({ workspace, area, email, signOut }: ShellTopBarProps) {
+export function ShellTopBar({ workspace, area, atAreaHome, email, signOut }: ShellTopBarProps) {
   const [signingOut, startSignOut] = useTransition();
   // A failed sign-out is a failure, not a silence: the menu used to close over a discarded promise
   // and say nothing (ARCH-03, B-21). The hand-off holds the rejection and re-throws it while
@@ -55,9 +57,20 @@ export function ShellTopBar({ workspace, area, email, signOut }: ShellTopBarProp
           <li className="cx-shell-crumb-separator" aria-hidden="true">
             ›
           </li>
-          <li className="cx-shell-crumb-current" aria-current="page">
-            {AREA_LABEL[area]}
-          </li>
+          {/* The area crumb is the current page only at the area's own home. On a screen deeper
+              inside the area it is a step on the way — a link the reader can take back — and
+              saying `aria-current="page"` there would name an address they are not at. */}
+          {atAreaHome ? (
+            <li className="cx-shell-crumb-current" aria-current="page">
+              {AREA_LABEL[area]}
+            </li>
+          ) : (
+            <li>
+              <Link className="cx-shell-crumb-link cx-reticle" href={shellHref(workspace.tenantId, area)}>
+                {AREA_LABEL[area]}
+              </Link>
+            </li>
+          )}
         </ol>
       </nav>
 

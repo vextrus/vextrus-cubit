@@ -86,4 +86,11 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
       "PRINCIPAL",
     ]),
   }),
+  Object.freeze({
+    // L-MEA-01's rule-set names, spelled as the law spells them. `IS1200_IN` is the name half of an
+    // edition's identity (scope, name, version) — data held in the store and shown on the settings
+    // screen, never an answer given to anybody. Its home is `../rulesets/seed` (ARCH-02).
+    vocabulary: "rule-set edition names (L-MEA-01)",
+    codes: Object.freeze(["IS1200_IN"]),
+  }),
 ]);
