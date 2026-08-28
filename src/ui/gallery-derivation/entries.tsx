@@ -102,8 +102,6 @@ const copy = {
   },
   resizable: { list: "Sheet list", viewer: "Viewer", handle: "Resize panels" },
   refusal: {
-    infoMessage: "This list is empty because no drawing has been uploaded yet.",
-    infoRemedy: "Upload a drawing to begin.",
     errorEvidence: { href: "/settings/documents", label: "Open document settings" },
     warningEvidence: { href: "/design", label: "Try again" },
     infoEvidence: { href: "/", label: "Open the project" },
@@ -347,9 +345,8 @@ const tableStates: readonly GalleryState[] = [
 /**
  * A sample refusal, authored as data (Decision I-18): the ui layer holds no value import of core,
  * so `RefusalEntry` arrives as a type and the entry itself is written here. Where a severity has a
- * registered code the sample reuses that code and its copy verbatim; the registry holds no info
- * code yet, so the info sample carries a gallery code — machine-readable only, never read by a
- * person.
+ * registered code the sample reuses that code and its copy verbatim — every severity does, so the
+ * gallery spells no name the taxonomy does not own (Q-07, B-17).
  */
 const sampleRefusal = (severity: RefusalSeverity, surface: RefusalSurface): RefusalEntry => {
   if (severity === "error") {
@@ -371,9 +368,9 @@ const sampleRefusal = (severity: RefusalSeverity, surface: RefusalSurface): Refu
     };
   }
   return {
-    code: "GALLERY_SAMPLE_INFO" as RefusalEntry["code"],
-    message: copy.refusal.infoMessage,
-    remedy: copy.refusal.infoRemedy,
+    code: "ACT_CHANGES_NOTHING",
+    message: "This action would leave the project exactly as it is, so nothing was recorded.",
+    remedy: "Choose a change that moves something — what you asked for is already the case.",
     severity,
     surface,
   };
