@@ -98,7 +98,7 @@ def percentile(sorted_values: Sequence[float], fraction: float) -> float:
 
 
 def inter_percentile_window(values: Sequence[float]) -> tuple[float, float]:
-    """L-CAD-05's window: the 2nd–98th inter-percentile range, widened by 25% of its span."""
+    """L-CAD-05's window: the 2nd-98th inter-percentile range, widened by 25% of its span."""
     ordered = sorted(values)
     low = percentile(ordered, STRAY_LOWER_PERCENTILE)
     high = percentile(ordered, STRAY_UPPER_PERCENTILE)

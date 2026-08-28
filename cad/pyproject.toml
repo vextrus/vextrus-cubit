@@ -30,3 +30,8 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.ruff.lint.isort]
+# The suite's own helper module sits beside the tests rather than inside the package, so name both
+# halves of this project explicitly; import order should not depend on where ruff was invoked from.
+known-first-party = ["corpus", "vextrus_cad"]

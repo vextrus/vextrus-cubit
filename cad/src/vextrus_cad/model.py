@@ -121,7 +121,7 @@ def _colour(value: Any, where: str) -> None:
     for index, channel in enumerate(channels):
         value_ = _integer(channel, f"{where}.rgb[{index}]", minimum=0)
         if value_ > 255:
-            _fail(f"{where}.rgb[{index}]", "a channel is 0–255")
+            _fail(f"{where}.rgb[{index}]", "a channel is 0-255")
     if _string(colour.get("source"), f"{where}.source") not in COLOUR_SOURCES:
         _fail(f"{where}.source", f"{colour['source']!r} is outside the closed set")
 
@@ -181,7 +181,8 @@ def _ingest_record(value: Any) -> None:
         _fail("ingest.scheme", f"a DXF ingest mints {SCHEME} keys")
     _string(record.get("tool"), "ingest.tool", non_empty=True)
     _string(record.get("tool_version"), "ingest.tool_version", non_empty=True)
-    if PARAMETER_SET_HASH.match(_string(record.get("parameter_set_hash"), "ingest.parameter_set_hash")) is None:
+    digest = _string(record.get("parameter_set_hash"), "ingest.parameter_set_hash")
+    if PARAMETER_SET_HASH.match(digest) is None:
         _fail("ingest.parameter_set_hash", "must be 64 hex characters")
 
 
