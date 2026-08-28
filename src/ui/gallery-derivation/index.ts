@@ -2,8 +2,8 @@
  * The gallery's completeness surface, derived (R-UI-011, B-19). What `/design` must render is not
  * written down anywhere: the barrels are reflected over at runtime, the components each publishes
  * are computed from the namespace itself, and the entries the catalogue owes are their product. A
- * component added by a later increment therefore joins the required set by existing, and an entry
- * nobody wrote fails `missingEntries()` rather than sliding past a frozen list.
+ * component joins the required set by existing, and an entry nobody wrote fails `missingEntries()`
+ * rather than sliding past a frozen list.
  *
  * The roster below is spelled with static imports because a route's module graph is resolved
  * statically — a directory read cannot produce a bundled namespace. That is the one thing here that

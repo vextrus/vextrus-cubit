@@ -43,14 +43,27 @@ no barrel-internal import path and no colour literal. Stylesheet:
   derivation module is ui-layer, so it takes `import type { RefusalEntry }` and authors
   sample entries as data (the refusal-state ruling: `refusalOf` lookups belong to callers,
   and ARCH-01 keeps ui value-import-free of core). Where a severity has a registered code
-  the sample reuses that code and its copy verbatim (error → PRECISION_NOT_APPLIED,
-  warning → RATE_LIMITED); the registry holds no info code yet, so the info sample's code
-  is `GALLERY_SAMPLE_INFO` with copy fixed in §3 — codes are machine-readable only
-  (`data-code`), so no fabricated code ever reaches a person's eyes.
+  the sample reuses that code and **its registered copy verbatim** — and every severity has
+  one: error → `PRECISION_NOT_APPLIED`, warning → `RATE_LIMITED`, info →
+  `ACT_CHANGES_NOTHING` (registered at severity `info` in `src/core/errors.ts`). The gallery
+  therefore spells no code and no refusal sentence the taxonomy does not already own, which
+  is also what Q-07's orphan-code scan requires; growing the registry is not this screen's
+  to do. Only the evidence links beside each sample are §3's.
 - **I-19 — demo geometry constants are px (I-1 extended).** Sample data needs boxes no
   token measures: the Skeleton bone renders 240 px wide, the ScrollArea and Resizable demos
   160 px tall, the DataTable viewport 320 px tall. These four constants, in `design.css`
-  only; any fifth is a defect.
+  only; any fifth is a defect. Width is not among them: the Resizable demo needs a definite
+  inline size too — a panel group sized to its content collapses to its labels and breaks
+  **Sheet list** mid-word — and it takes `var(--breakpoint-sm)` capped at `100%`, a token
+  read, so the px count stays at four.
+
+Recorded IOU — the ghost trigger's rest affordance (owner: the overlay primitive increment,
+`src/ui/primitives/overlay` + core's `.cx-btn[data-variant="ghost"]`). Every overlay trigger
+in §2 is the shipped ghost Button, whose rest paint is background-less and border-less, so a
+column of triggers reads as prose until it is hovered or focused. That paint is the owning
+Decisions', ruled and rendered in `src/ui/primitives/**`, which this screen may neither
+restyle (B-17) nor wrap in chrome of its own (§1); the gallery shows the trigger exactly as
+the product ships it. Recorded here so the reading is evidence, not an oversight.
 
 Recorded IOU — visible navigation. R-UI-031 owes every shipped screen a visible path from
 the shell; no shell exists yet. `/design` is journey- and URL-reachable until the shell
@@ -100,7 +113,11 @@ One column on the `var(--graphite-0)` page ground: `main.cx-gallery`, max-width
   verbatim: `var(--font-mono)` `var(--text-14)` `var(--weight-heading)`
   `var(--graphite-900)`. States lay in a wrapping flex row, gap `var(--space-5)`
   `var(--space-4)`; a wide sample (DataTable, Resizable, Tabs, ScrollArea, banner-surface
-  refusals) naturally takes the full row.
+  refusals) naturally takes the full row. One exception, keyed on this screen's own
+  `data-entry` hook (§7) and never on a pattern's class: the **RefusalState** entry's nine
+  cells lay on one track — a grid of `minmax(min(100%, var(--breakpoint-sm)), 1fr)` columns —
+  because the point of that entry is comparing severity against surface, which content-sized
+  cells at jumping column starts and differing widths defeat.
 - **State cell** — label over sample at gap `var(--space-2)`; label `var(--font-mono)`
   `var(--text-12)` `var(--graphite-600)`, the state name verbatim, lowercase kebab-case.
   The sample is exactly `render()`'s output — the gallery wraps it in no extra chrome.
@@ -126,7 +143,9 @@ entry designed to these rules, not an edit to a frozen list here.
 - **CoverageChip** — `low` (0.32 → 32%) · `mid` (0.82 → 82%) · `full` (1 → 100%).
 - **Tooltip** — `rest` (closed; content one hover/focus away, I-15).
 - **Dialog** / **Sheet** / **Popover** / **DropdownMenu** / **ContextMenu** — `closed`
-  (the family's canonical composition, trigger reachable); every family part
+  (the family's canonical composition in full — for Dialog that includes primitives-data
+  §4's footer, secondary **Cancel** then primary **Save changes** — trigger reachable);
+  every family part
   (`DialogTrigger`…`ContextMenuItem`) — `composed` (I-16).
 - **Toaster** — `ready`: the mounted Toaster plus one ghost Button (§3's trigger) that
   fires the primitives-data sample toast on activation.
@@ -152,9 +171,9 @@ entry designed to these rules, not an edit to a frozen list here.
 - Toaster trigger (ghost Button) — **Save quantity** (activating it shows the
   primitives-data sample toast: **Quantity updated** / **Line 4 — 7.25 CUM saved to the
   register.**)
-- Info sample refusal (code `GALLERY_SAMPLE_INFO`, I-18) — message **This list is empty
-  because no drawing has been uploaded yet.** · remedy **Upload a drawing to begin.** —
-  the future why-this-is-empty voice (R-UI-020, R-UI-033), obeying the registry copy rules.
+- Sample refusals (I-18) — no new copy: each severity's sample is a registered entry, message
+  and remedy verbatim from `src/core/errors.ts` (`PRECISION_NOT_APPLIED` ·
+  `RATE_LIMITED` · `ACT_CHANGES_NOTHING`).
 - Sample evidence links — error cells `{ href: "/settings/documents", label: "Open
   document settings" }` (the refusal-state Decision's sample) · warning cells
   `{ href: "/design", label: "Try again" }` (RATE_LIMITED's idiom, current route) · info

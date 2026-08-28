@@ -91,6 +91,23 @@
   gap: var(--space-2);
 }
 
+/*
+ * The refusal entry's nine severity × surface cells are a comparison, so they lay on one track
+ * rather than wrapping at their content widths: same start, same width, read straight down
+ * (s-design.md § 1). `data-entry` is this screen's own hook (§ 7), not a class of the pattern's.
+ */
+.cx-gallery-entry[data-entry$="/RefusalState"] .cx-gallery-states {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--breakpoint-sm)), 1fr));
+}
+
+/* The dialog sample's footer, as its Decision composes it: secondary then primary, trailing. */
+.cx-gallery-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
 .cx-gallery-state-label {
   margin: 0;
   font-family: var(--font-mono);
@@ -107,8 +124,15 @@
   height: 160px;
 }
 
+/*
+ * The panel demo is a box no token measures in either axis: content-sizing it collapses the group
+ * to its labels, which breaks "Sheet list" mid-word and leaves the handle no target. The height is
+ * I-19's constant; the width is a token read, so the file's px constants stay at four.
+ */
 .cx-gallery-resizable {
   height: 160px;
+  width: var(--breakpoint-sm);
+  max-width: 100%;
 }
 
 .cx-gallery-table {

@@ -3,16 +3,16 @@
  * The derivation's own suite (R-UI-011, B-19): the one place that binds the hand-written barrel
  * roster to the tree it claims to reflect, and the catalogue to the components the barrels publish.
  *
- * Nothing here is a list. The barrels come from a filesystem scan of the same two globs the
- * roster's ids are spelled from, the components from each namespace at runtime, and the required
- * entries from their product — so a barrel or a component a later increment adds moves these
- * expectations by itself, and the increment that forgot its gallery entry reds here.
+ * Nothing here is a list. The barrels come from a filesystem scan of `src/ui`, the components from
+ * each namespace at runtime, and the required entries from their product — so a barrel or a
+ * component the tree grows moves these expectations by itself, and a component export with no
+ * gallery entry reds here (R-UI-011).
  *
  * jsdom, because reflecting over the barrels imports live primitives whose modules want a document.
  */
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, test } from "vitest";
 import { componentExports, galleryBarrels, galleryEntries, missingEntries } from "./index";
 
@@ -30,30 +30,40 @@ function indexOf(dir: string): string | null {
   return null;
 }
 
-/**
- * Every barrel on disk: `src/ui/primitives/*` and `src/ui/patterns/*` that publish an index, plus
- * `src/ui/shell` when a later increment grows one. A scan, so the roster cannot quietly fall behind
- * the tree.
- */
-function barrelIdsOnDisk(): string[] {
-  const found: string[] = [];
-  for (const group of ["patterns", "primitives"]) {
-    const groupDir = join(UI_DIR, group);
-    if (!existsSync(groupDir)) continue;
-    for (const name of readdirSync(groupDir).sort()) {
-      const dir = join(groupDir, name);
-      if (!statSync(dir).isDirectory()) continue;
-      if (indexOf(dir) !== null) found.push(`${group}/${name}`);
-    }
+/** Every directory under `src/ui` that publishes an index file, as its path relative to `src/ui`. */
+function indexedDirsUnderUi(dir: string = UI_DIR, prefix = ""): { id: string; index: string }[] {
+  const found: { id: string; index: string }[] = [];
+  for (const name of readdirSync(dir).sort()) {
+    const child = join(dir, name);
+    if (!statSync(child).isDirectory()) continue;
+    const id = prefix === "" ? name : `${prefix}/${name}`;
+    const index = indexOf(child);
+    if (index !== null) found.push({ id, index });
+    found.push(...indexedDirsUnderUi(child, id));
   }
-  const shellDir = join(UI_DIR, "shell");
-  if (existsSync(shellDir) && statSync(shellDir).isDirectory() && indexOf(shellDir) !== null) found.push("shell");
+  return found;
+}
+
+/**
+ * Every barrel on disk, at whatever depth under `src/ui` it sits: a directory whose index publishes
+ * at least one component the gallery can mount. The predicate is the thing itself — "a barrel is a
+ * directory that publishes components" — rather than a written-down set of parent directories, so a
+ * barrel under a group nobody anticipated joins the completeness surface by existing (B-19). The
+ * directories that publish only helpers or types (`strings`, this module) are not barrels and owe no
+ * entry.
+ */
+async function barrelIdsOnDisk(): Promise<string[]> {
+  const found: string[] = [];
+  for (const { id, index } of indexedDirsUnderUi()) {
+    const ns = (await import(pathToFileURL(index).href)) as Record<string, unknown>;
+    if (componentExports(ns).length > 0) found.push(id);
+  }
   return found.sort();
 }
 
 describe("the barrel roster reflects the tree", () => {
-  test("galleryBarrels' keys are the barrel index files on disk", () => {
-    const onDisk = barrelIdsOnDisk();
+  test("galleryBarrels' keys are the barrel index files on disk", async () => {
+    const onDisk = await barrelIdsOnDisk();
     expect(onDisk.length, "src/ui publishes barrels for the scan to find").toBeGreaterThan(0);
     expect(Object.keys(galleryBarrels).sort(), "a barrel with an index owes a roster key, and the roster names no barrel the tree lacks").toEqual(
       onDisk,

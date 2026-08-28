@@ -171,6 +171,10 @@ const dialogSample = (): ReactNode => (
       <DialogTitle>{copy.dialog.title}</DialogTitle>
       <p>{copy.dialog.body}</p>
       <Input aria-label={copy.input.label} defaultValue={copy.input.value} />
+      <div className="cx-gallery-dialog-footer">
+        <Button variant="secondary">{copy.button.secondary}</Button>
+        <Button variant="primary">{copy.button.primary}</Button>
+      </div>
       <DialogClose aria-label={copy.dialog.close} />
     </DialogContent>
   </Dialog>
@@ -273,12 +277,19 @@ const scrollAreaSample = (): ReactNode => (
   </ScrollArea>
 );
 
+/**
+ * The panel group sizes itself to its box (`width: 100%` is its own inline style), so the demo
+ * geometry belongs to the box around it (Decision I-19) — sized to content, the group collapses to
+ * its labels and breaks "Sheet list" mid-word.
+ */
 const resizableSample = (): ReactNode => (
-  <ResizablePanelGroup direction="horizontal" className="cx-gallery-resizable">
-    <ResizablePanel defaultSize={30}>{copy.resizable.list}</ResizablePanel>
-    <ResizableHandle aria-label={copy.resizable.handle} />
-    <ResizablePanel defaultSize={70}>{copy.resizable.viewer}</ResizablePanel>
-  </ResizablePanelGroup>
+  <div className="cx-gallery-resizable">
+    <ResizablePanelGroup direction="horizontal">
+      <ResizablePanel defaultSize={30}>{copy.resizable.list}</ResizablePanel>
+      <ResizableHandle aria-label={copy.resizable.handle} />
+      <ResizablePanel defaultSize={70}>{copy.resizable.viewer}</ResizablePanel>
+    </ResizablePanelGroup>
+  </div>
 );
 
 /* ------------------------------------------------------------------ the table's sample register */
