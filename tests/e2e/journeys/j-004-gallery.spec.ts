@@ -54,7 +54,9 @@ async function galleryCheckpoint(page: Page, theme: "light" | "dark", checkpoint
   // Q-06: the baseline is of the shell region itself, animations disabled, routed under
   // tests/e2e/baselines/ by the config's snapshotPathTemplate.
   const shell = design.shell;
-  await expect(shell).toHaveScreenshot(`design/gallery-shell-${theme}.png`, { animations: "disabled" });
+  // The name is given as path segments: a single string's separators are sanitised away, and the
+  // baseline would land beside the directory it names rather than inside it.
+  await expect(shell).toHaveScreenshot(["design", `gallery-shell-${theme}.png`], { animations: "disabled" });
 }
 
 test.describe("J-004 Design gallery", () => {
