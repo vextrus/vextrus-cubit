@@ -9,6 +9,7 @@ over the artifact this writes.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
@@ -33,6 +34,18 @@ MODEL_SPACE: Final = "model"
 #: vertices and sequence ends belong to their owner, and a viewport frames paint rather than being
 #: paint. None of them is an atom a source key names.
 _NOT_CONTENT: Final = frozenset({"ATTRIB", "ATTDEF", "SEQEND", "VERTEX", "VIEWPORT"})
+
+#: Originals that carry paint of their own (L-CAD-03): a block reference paints its block, and a
+#: dimension paints its rendered geometry — its measurement text among it. Both stay originals and
+#: the paint they carry becomes derived entities naming them.
+_PAINTS_DERIVED: Final = frozenset({"INSERT", "DIMENSION"})
+
+#: The DXF names for "where this entity sits", in the order they are asked for. A type answers to
+#: at most one of them, and asking for the other raises rather than returning nothing.
+_ANCHOR_ATTRIBUTES: Final = ("insert", "location")
+
+#: How near a full turn an elliptical parameter range must come to count as closed.
+_FULL_TURN_EPSILON: Final = 1e-9
 
 
 class IngestError(Exception):
@@ -95,7 +108,10 @@ def _closed_flag(entity: Any, dxftype: str) -> bool | None:
     if dxftype == "CIRCLE":
         return True
     if dxftype == "ELLIPSE":
-        return bool(entity.is_closed)
+        # An ellipse carries no closed flag of its own: it closes when its parameter range spans a
+        # whole turn, and an elliptical arc does not.
+        span = abs(float(entity.dxf.end_param) - float(entity.dxf.start_param))
+        return span >= math.tau - _FULL_TURN_EPSILON
     return None
 
 
@@ -113,12 +129,15 @@ def _text_of(entity: Any, dxftype: str) -> tuple[str, float] | None:
 
 def _anchor(entity: Any) -> tuple[float, float] | None:
     """An entity's own location, for spaces whose extents nothing else would place it in."""
-    insert = entity.dxf.get("insert", None)
-    if insert is None:
-        insert = entity.dxf.get("location", None)
-    if insert is None:
-        return None
-    return (geometry.quantise(insert.x), geometry.quantise(insert.y))
+    for name in _ANCHOR_ATTRIBUTES:
+        try:
+            anchor = entity.dxf.get(name, None)
+        except ezdxf.DXFAttributeError:
+            # The name is not part of this type's namespace at all, which is not the same as unset.
+            continue
+        if anchor is not None:
+            return (geometry.quantise(anchor.x), geometry.quantise(anchor.y))
+    return None
 
 
 class _Extractor:
@@ -173,7 +192,7 @@ class _Extractor:
 
         box = geometry.bounds(points) if points else None
         if box is None:
-            anchor = _anchor(entity) if dxftype != "INSERT" else None
+            anchor = _anchor(entity) if dxftype not in _PAINTS_DERIVED else None
             if anchor is not None:
                 box = (anchor[0], anchor[1], anchor[0], anchor[1])
         if box is not None:
@@ -189,9 +208,16 @@ class _Extractor:
                 {"src": key, "tag": str(attrib.dxf.tag), "text": text[0], "height": text[1]}
             )
 
-    def explode(self, insert: Any, key: str, space: _Space, inherited: colours.Channels, depth: int) -> None:
-        """Explode one block reference to world coordinates, for rendering only (L-CAD-03)."""
-        for virtual in insert.virtual_entities():
+    def explode(
+        self,
+        instance: Any,
+        key: str,
+        space: _Space,
+        inherited: colours.Channels,
+        depth: int,
+    ) -> None:
+        """Explode one painting original to world coordinates, for rendering only (L-CAD-03)."""
+        for virtual in instance.virtual_entities():
             dxftype = virtual.dxftype()
             if dxftype == "INSERT":
                 self.collect_attributes(virtual, key, space)
@@ -225,8 +251,9 @@ class _Extractor:
             record["key"] = key
             space.entities.append(record)
 
-            if entity.dxftype() == "INSERT":
-                self.collect_attributes(entity, key, space)
+            if entity.dxftype() in _PAINTS_DERIVED:
+                if entity.dxftype() == "INSERT":
+                    self.collect_attributes(entity, key, space)
                 painted = tuple(int(channel) for channel in record["colour"]["rgb"])
                 self.explode(entity, key, space, painted, 1)  # type: ignore[arg-type]
         return space
@@ -295,4 +322,9 @@ def ingest_dxf(source: Path) -> dict[str, Any]:
         raise IngestError(str(error)) from error
     except ezdxf.DXFError as error:
         raise IngestError(f"unparseable DXF: {error}") from error
-    return ingest_document(doc)
+    try:
+        return ingest_document(doc)
+    except ezdxf.DXFError as error:
+        # A drawing ezdxf opens but cannot be read through refuses the sheet by name rather than
+        # writing half an artifact (L-CAD-04).
+        raise IngestError(f"unextractable DXF: {error}") from error
