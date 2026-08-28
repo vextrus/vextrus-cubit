@@ -1,0 +1,116 @@
+/*
+ * S-Design's stylesheet (docs/design/s-design.md § 1, § 6). One column on the page ground, hairline
+ * cards, mono identifiers. Every value is a token read (R-UI-001) except the four demo geometry
+ * constants Interpretation I-19 mandates in px — a sample box no token measures. No `[data-theme]`
+ * selector lives here: the light and dark captures differ because the token values do.
+ *
+ * The gallery adds no chrome to a sample and re-draws no primitive (B-17): nothing below styles a
+ * `cx-` class it does not own.
+ */
+
+.cx-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-width: var(--breakpoint-lg);
+  margin-inline: auto;
+  padding: var(--space-4);
+  background-color: var(--graphite-0);
+}
+
+@media (min-width: 640px) {
+  .cx-gallery {
+    padding: var(--space-6);
+  }
+}
+
+/* The chrome the baselines capture: a heading, a caption, a rule beneath. Nothing else. */
+.cx-gallery-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block-end: var(--space-4);
+  border-block-end: var(--hairline);
+}
+
+.cx-gallery-title {
+  margin: 0;
+  font-size: var(--text-24);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-gallery-caption {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-gallery-barrel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.cx-gallery-barrel-name {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+/* An entry is a hairline card with no fill: the page ground shows through it in both themes. */
+.cx-gallery-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+}
+
+.cx-gallery-entry-name {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-gallery-states {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-5) var(--space-4);
+}
+
+.cx-gallery-state {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-gallery-state-label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* I-19's four demo geometry constants — the only px in this file. */
+.cx-gallery-bone {
+  width: 240px;
+}
+
+.cx-gallery-scroll {
+  height: 160px;
+}
+
+.cx-gallery-resizable {
+  height: 160px;
+}
+
+.cx-gallery-table {
+  height: 320px;
+}
