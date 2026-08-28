@@ -149,6 +149,20 @@ test.describe("J-004 — the signed-in application shell", () => {
     await expect(page, "browser back returns to the screen the person came from").toHaveURL(`${origin}${SHELL.workspace(tenantId)}`);
     expect(await shell.selectedArea()).toEqual(["projects"]);
 
+    /* --- the rail collapses from the keyboard, and says so semantically (Q-11) --- */
+    await page.keyboard.press("Tab");
+    for (let step = 0; step < 12 && (await shell.railCollapse.evaluate((node) => node !== document.activeElement)); step += 1) {
+      await page.keyboard.press("Tab");
+    }
+    await expect(shell.railCollapse, "Tab travel reaches the collapse control").toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(shell.railCollapse, "and the control states what it did, rather than only painting it").toHaveAttribute("aria-expanded", "false");
+    await expect(shell.nav("projects"), "a collapsed rail carries no half-legible row").toHaveCount(0);
+
+    await page.keyboard.press("Enter");
+    await expect(shell.railCollapse).toHaveAttribute("aria-expanded", "true");
+    await expect(shell.nav("projects")).toBeVisible();
+
     /* --- the user menu holds the two doors a signed-in person always owes --- */
     await shell.openUserMenu();
     // The address itself, not the key it is stored under: `users.email` carries a folded key, and
