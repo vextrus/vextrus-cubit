@@ -3,7 +3,7 @@
 // (the user menu, holding the two doors a signed-in person always owes — the device list and the
 // way out). The occupants whose features are not built yet are absent rather than dead (I-15).
 import Link from "next/link";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/overlay";
 import { strings } from "../strings";
 import { useFailureHandOff } from "./failure-hand-off";
@@ -31,6 +31,11 @@ export function ShellTopBar({ workspace, area, email, signOut }: ShellTopBarProp
   // and say nothing (ARCH-03, B-21). The hand-off holds the rejection and re-throws it while
   // rendering, which is how a client component reaches the error boundary — see ./failure-hand-off.
   const handing = useFailureHandOff();
+  // The open menu is portalled, and a menu parked at the document root is content outside every
+  // landmark — an axe `region` violation the moment `shell-user` is opened. The bar is itself a
+  // landmark, and the menu belongs to it, so the bar is the menu's portal container. State rather
+  // than a ref, because the container is only known after the first render.
+  const [bar, setBar] = useState<HTMLElement | null>(null);
 
   const askToSignOut = (): void => {
     if (signingOut) return;
@@ -42,7 +47,7 @@ export function ShellTopBar({ workspace, area, email, signOut }: ShellTopBarProp
   };
 
   return (
-    <header className="cx-shell-topbar" data-testid="shell-topbar">
+    <header className="cx-shell-topbar" data-testid="shell-topbar" ref={setBar}>
       <nav data-testid="shell-breadcrumb" aria-label={strings.shell_breadcrumb_label}>
         <ol className="cx-shell-crumbs">
           <li>
@@ -69,7 +74,7 @@ export function ShellTopBar({ workspace, area, email, signOut }: ShellTopBarProp
         <DropdownMenuTrigger className="cx-shell-user-trigger" data-testid="shell-user">
           {email ?? strings.shell_user_account}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" container={bar}>
           {/* Both items are peers of one menu, so both wear the menu's idiom: an item that happens
               to be a link may not arrive underlined beside one that is not. */}
           <DropdownMenuItem asChild data-testid="shell-user-sessions">

@@ -174,7 +174,13 @@ one plain sentence rather than as peers. The same class carries the switcher's l
 Items, in order: `shell-user-sessions` — a link item to `/sessions`, label
 `shell_user_sessions` (paying s-auth's recorded R-UI-031 debt) · `shell-user-signout` —
 label `shell_user_signout`, invoking the sign-out server action; on success the person lands
-on `/sign-in`, which is itself the visible way back in (AC-2).
+on `/sign-in`, which is itself the visible way back in (AC-2). The open menu is portalled into
+the top bar itself, not to `document.body`: a menu parked at the document root is page content
+outside every landmark, which axe reports as `region` the moment `shell-user` is opened, and the
+bar is the landmark the menu belongs to. The shipped DropdownMenu takes the container as an
+optional prop (default `document.body`, unchanged for every other caller) and portals the
+popper's own `position: fixed` box `asChild`, so the container contributes no layout and nothing
+is rendered in the bar while the menu is closed — the frame's baselines are untouched.
 
 **Main** (`data-testid="shell-main"`): the routed page, `<main>`, padding `var(--space-6)`,
 `overflow: auto`. **Inspector** (`ShellInspector`, `data-testid="shell-inspector"`):
