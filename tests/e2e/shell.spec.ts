@@ -22,6 +22,17 @@ const EMAIL = "j004-shell@cubit.test";
 const PASSWORD = "shell-journey-password";
 const WORKSPACE = "Datum Works";
 
+/**
+ * The name the rename walk writes, so that "the frame wears the saved name" is an observation of a
+ * CHANGED name reaching the frame rather than of the name it already wore (Q-11: observe the
+ * response semantically). It is deliberately disjoint from WORKSPACE — neither string contains the
+ * other — because every assertion below is a substring match, and a renamed name that still
+ * contained the old one would make `not.toContainText(WORKSPACE)` unsatisfiable and
+ * `toContainText(WORKSPACE)` blind. The walk renames back, so the identity the baselines are fixed
+ * to is what the frame wears at every checkpoint.
+ */
+const WORKSPACE_RENAMED = "Meridian Renamed";
+
 /** An address that names no workspace of this account — what an anonymous request is turned from. */
 const STRANGER = "/t/9d1f0e7c-4a2b-4c3d-8e5f-1a2b3c4d5e6f";
 
@@ -150,12 +161,37 @@ test.describe("J-004 — the signed-in application shell", () => {
     await expect(page.locator(`a[href="${SHELL.workspace(tenantId)}"]`), "the remedy is a place they can actually go").toBeVisible();
 
     /* --- the rename answers, and the frame re-reads the name it saved (R-UI-033) --- */
+    expect(
+      WORKSPACE_RENAMED.includes(WORKSPACE) || WORKSPACE.includes(WORKSPACE_RENAMED),
+      "the two names must be disjoint, or the substring assertions below cannot tell them apart",
+    ).toBe(false);
+
+    const renameWorkspaceTo = async (name: string): Promise<void> => {
+      await shell.renameInput.fill(name);
+      await shell.renameSubmit.click();
+      await expect(shell.settingsName.getByRole("status"), "a saved name says so").toHaveText(strings.shell_rename_saved);
+      await expect(shell.renameRefusal, "a member renaming their own workspace is refused nothing").toHaveCount(0);
+    };
+
     await shell.open(SHELL.settings(tenantId));
-    await shell.renameInput.fill(WORKSPACE);
-    await shell.renameSubmit.click();
-    await expect(shell.settingsName.getByRole("status"), "a saved name says so").toHaveText(strings.shell_rename_saved);
-    await expect(shell.renameRefusal, "a member renaming their own workspace is refused nothing").toHaveCount(0);
-    await expect(shell.breadcrumb, "and the frame wears the saved name").toContainText(WORKSPACE);
+    await expect(shell.breadcrumb).toBeVisible();
+
+    // The lane's database outlives a run (V-E2E), so a run that crashed between the two renames
+    // below would leave the workspace wearing the renamed name. Normalise on arrival — the same
+    // idempotent posture the enrolment above takes with ACCOUNT_ALREADY_EXISTS — so the walk starts
+    // from the fixed identity the pixel baselines were taken against.
+    if (((await shell.breadcrumb.textContent()) ?? "").includes(WORKSPACE_RENAMED)) {
+      await renameWorkspaceTo(WORKSPACE);
+    }
+    await expect(shell.breadcrumb, "the rename walk begins from the identity the baselines are fixed to").toContainText(WORKSPACE);
+
+    // A rename is only observed when a DIFFERENT name reaches the frame: a success notice alone
+    // proves a rename-shaped form, not a rename, and re-typing the name the workspace already wears
+    // would pass whether or not anything was written or the layout re-read (Q-11).
+    await renameWorkspaceTo(WORKSPACE_RENAMED);
+    await expect(shell.tenantSwitcher, "the switcher wears the saved name, not the one it was rendered with").toContainText(WORKSPACE_RENAMED);
+    await expect(shell.breadcrumb, "and so does the breadcrumb — the frame was re-read, not just the form").toContainText(WORKSPACE_RENAMED);
+    await expect(shell.breadcrumb, "the name it wore before is gone from the frame").not.toContainText(WORKSPACE);
 
     // R-UI-033 asks for an entered name: a name with nothing visible in it is refused inline, in
     // the shell's own copy, and nothing is stored — the frame still wears the name it had.
@@ -165,14 +201,24 @@ test.describe("J-004 — the signed-in application shell", () => {
       strings.shell_rename_refusal,
     );
     await expect(shell.settingsName.getByRole("status"), "and nothing claims to have been saved").toHaveCount(0);
-    await expect(shell.breadcrumb, "the stored name is untouched").toContainText(WORKSPACE);
+    await expect(shell.breadcrumb, "the stored name is untouched").toContainText(WORKSPACE_RENAMED);
 
+    // A fresh read, on another screen: the rename was written, not only painted.
     await shell.open(SHELL.workspace(tenantId));
-    await expect(shell.breadcrumb, "on a fresh read too").toContainText(WORKSPACE);
+    await expect(shell.breadcrumb, "the saved name survives a fresh read of another screen").toContainText(WORKSPACE_RENAMED);
+
+    // …and back, which proves the propagation a second, independent time and restores the identity
+    // every screenshot and axe checkpoint in this file is taken against.
+    await shell.open(SHELL.settings(tenantId));
+    await renameWorkspaceTo(WORKSPACE);
+    await expect(shell.tenantSwitcher, "the switcher follows the second rename too").toContainText(WORKSPACE);
+    await expect(shell.breadcrumb, "and the breadcrumb with it").toContainText(WORKSPACE);
+    await expect(shell.breadcrumb, "the renamed name is gone in its turn").not.toContainText(WORKSPACE_RENAMED);
 
     /* --- j004-shell-deeplink: the address alone is enough, and back restores what was there --- */
     await shell.open(SHELL.books(tenantId));
     await shell.expectFrame();
+    await expect(shell.breadcrumb, "the restored identity is what this checkpoint is graded wearing").toContainText(WORKSPACE);
     await expect(shell.nav("books")).toHaveAttribute("aria-current", "page");
     expect(await shell.selectedArea(), "a deep link selects its own area and no other").toEqual(["books"]);
     await checkpoint(page, testInfo, "j004-shell-deeplink");
