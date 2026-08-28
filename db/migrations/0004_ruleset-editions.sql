@@ -5,8 +5,8 @@ CREATE TABLE "ruleset_editions" (
 	"name" text NOT NULL,
 	"version" text NOT NULL,
 	"content_digest" text NOT NULL,
-	"parameters" jsonb NOT NULL,
-	"methods" jsonb NOT NULL,
+	"parameters" json NOT NULL,
+	"methods" json NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "ruleset_editions_identity" UNIQUE("scope","name","version")
 );
@@ -20,8 +20,8 @@ CREATE TABLE "tenant_ruleset_editions" (
 	"name" text NOT NULL,
 	"version" text NOT NULL,
 	"content_digest" text NOT NULL,
-	"parameters" jsonb NOT NULL,
-	"methods" jsonb NOT NULL,
+	"parameters" json NOT NULL,
+	"methods" json NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -63,8 +63,8 @@ INSERT INTO "ruleset_editions" ("scope", "name", "version", "content_digest", "p
 			"placementFootprintMin": { "value": "0.6", "unit": "ratio" },
 			"placementFootprintMax": { "value": "2.5", "unit": "ratio" },
 			"placementHumanSnap": { "value": "0.5", "unit": "ratio" }
-		}'::jsonb,
-		'[]'::jsonb
+		}'::json,
+		'[]'::json
 	);--> statement-breakpoint
 -- `ruleset_editions` carries no tenant id: a platform edition belongs to no workspace (L-REG-07).
 -- Having no tenant column is not a reason to have no policy — `cubit_app` is the one role the

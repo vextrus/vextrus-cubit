@@ -7,7 +7,7 @@
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
 import { and, asc, eq, gt, inArray, isNull, lt, sql as statement } from "drizzle-orm";
-import { foreignKey, index, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { foreignKey, index, json, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { attributableReason } from "./db/reason";
@@ -209,6 +209,12 @@ export const rulesetScope = pgEnum("ruleset_scope", RULESET_SCOPES);
  * grants and trigger are what the column definitions here cannot say. `content_digest` is
  * deliberately not unique — a verbatim fork shares its parent's digest by construction, which is
  * the whole point of a digest over content.
+ *
+ * The content columns are `json` rather than `jsonb`: an edition is held exactly as it was written,
+ * and `jsonb` would re-order its parameter keys on the way in — an edition's own order is what a
+ * surface reads its parameters back in (R-SPINE-012), and a store that shuffled it would leave no
+ * order for anything downstream to answer with. Nothing here queries inside the document, which is
+ * the only thing `jsonb` would buy.
  */
 export const rulesetEditions = pgTable(
   "ruleset_editions",
@@ -218,8 +224,8 @@ export const rulesetEditions = pgTable(
     name: text("name").notNull(),
     version: text("version").notNull(),
     contentDigest: text("content_digest").notNull(),
-    parameters: jsonb("parameters").$type<Readonly<Record<string, EditionParameter>>>().notNull(),
-    methods: jsonb("methods").$type<readonly MethodPair[]>().notNull(),
+    parameters: json("parameters").$type<Readonly<Record<string, EditionParameter>>>().notNull(),
+    methods: json("methods").$type<readonly MethodPair[]>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   // Identity is (scope, name, version), so the same identity twice over is one edition written twice.
@@ -244,8 +250,8 @@ export const tenantRulesetEditions = pgTable(
     name: text("name").notNull(),
     version: text("version").notNull(),
     contentDigest: text("content_digest").notNull(),
-    parameters: jsonb("parameters").$type<Readonly<Record<string, EditionParameter>>>().notNull(),
-    methods: jsonb("methods").$type<readonly MethodPair[]>().notNull(),
+    parameters: json("parameters").$type<Readonly<Record<string, EditionParameter>>>().notNull(),
+    methods: json("methods").$type<readonly MethodPair[]>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

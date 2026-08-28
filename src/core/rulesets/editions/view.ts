@@ -106,7 +106,7 @@ export async function projectRulesetView({ tenantId, projectId }: { tenantId: st
   const pins = await db
     .select(TENANT_COLUMNS)
     .from(tenantRulesetEditions)
-    .where(and(eq(tenantRulesetEditions.projectId, projectId), eq(tenantRulesetEditions.scope, "project")))
+    .where(and(eq(tenantRulesetEditions.tenantId, tenantId), eq(tenantRulesetEditions.projectId, projectId), eq(tenantRulesetEditions.scope, "project")))
     .limit(1);
   const pin = pins[0];
   if (pin === undefined) return { pinned: false, tenantId };

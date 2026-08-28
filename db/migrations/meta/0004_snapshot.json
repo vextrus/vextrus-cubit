@@ -1,5 +1,5 @@
 {
-  "id": "a6281bd0-5a1e-4773-b8d4-f5a44106ed99",
+  "id": "467e5f99-c154-4942-aa4e-7a3b76de4e73",
   "prevId": "a777b8a0-7a6e-4683-8613-9d1104036e33",
   "version": "7",
   "dialect": "postgresql",
@@ -663,13 +663,13 @@
         },
         "parameters": {
           "name": "parameters",
-          "type": "jsonb",
+          "type": "json",
           "primaryKey": false,
           "notNull": true
         },
         "methods": {
           "name": "methods",
-          "type": "jsonb",
+          "type": "json",
           "primaryKey": false,
           "notNull": true
         },
@@ -755,13 +755,13 @@
         },
         "parameters": {
           "name": "parameters",
-          "type": "jsonb",
+          "type": "json",
           "primaryKey": false,
           "notNull": true
         },
         "methods": {
           "name": "methods",
-          "type": "jsonb",
+          "type": "json",
           "primaryKey": false,
           "notNull": true
         },
