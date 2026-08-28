@@ -9,6 +9,7 @@
 // start, its steps and how it ended, and a terminal failure that is not a refusal carries the fault
 // id the fault seam recorded for it (ARCH-03, B-21). A refusal carries its registered code and no
 // fault id, because a refusal is an answer.
+import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -56,6 +57,16 @@ const NOTHING_WENT_WRONG = Symbol("nothing went wrong");
 /** How long a watcher waits for a nudge before reading the log again anyway. */
 const WATCH_POLL_MS = 250;
 
+/**
+ * How often a runtime that runs the kinds looks for a job the queue has finished with but that
+ * recorded no ending — an attempt whose process was killed, or one the queue expired out from
+ * under it. Rare, so rarely looked for; never, so it must be looked for at all (R-SPINE-030).
+ */
+const SWEEP_MS = 30_000;
+
+/** What the sweep's own failures are recorded against — it answers to no request and no job. */
+const SWEEP_ROUTE = "job/sweep";
+
 /** What one job carries through the queue: its key, so every event can name it, and its payload. */
 type Envelope = { key: string; payload: unknown };
 
@@ -64,6 +75,10 @@ type Runtime = {
   url: string;
   store: JobsStore;
   consumers: boolean;
+  /** Set the moment the runtime is being given back, so a watcher ends rather than breaks. */
+  closing: boolean;
+  /** The sweep for endings nobody managed to write, on the runtimes that run the work. */
+  sweep?: ReturnType<typeof setInterval>;
   /** Who is watching which job, so an appended event wakes a stream instead of a poll finding it. */
   watchers: Map<string, Set<() => void>>;
 };
@@ -108,28 +123,49 @@ function jobEvent(row: JobEventRow): JobEvent {
   return { ...row, kind: row.kind as JobKind, status: row.status as JobStatus };
 }
 
-/** Open a runtime against one database, with or without taking work off its queues. */
+/**
+ * Open a runtime against one database, with or without taking work off its queues.
+ *
+ * Only a runtime that runs the kinds manages the storage: it is the one that creates the log and
+ * declares the queues. A process that merely reads the log opens no queue and creates nothing, so
+ * reading needs no privilege to create and starts no queue maintenance where requests are served.
+ */
 async function openRuntime(url: string, consumers: boolean): Promise<Runtime> {
   const store = jobsStore(url);
-  const running: Runtime = { url, store, consumers, watchers: new Map() };
-  await store.open();
-  for (const kind of KIND_NAMES) await store.declareQueue(kind, JOB_KINDS[kind]);
+  const running: Runtime = { url, store, consumers, closing: false, watchers: new Map() };
+  await store.open({ manage: consumers });
+  if (consumers) for (const kind of KIND_NAMES) await store.declareQueue(kind, JOB_KINDS[kind]);
   await store.listen((jobId) => {
     for (const wake of running.watchers.get(jobId) ?? []) wake();
   });
   if (consumers) {
     for (const kind of KIND_NAMES) await store.consume(kind, JOB_KINDS[kind], (job) => perform(running, kind, job));
+    running.sweep = setInterval(() => void sweepAbandoned(running), SWEEP_MS);
+    running.sweep.unref();
   }
   return running;
+}
+
+/**
+ * Hold one opening as the process's runtime. An opening that fails is *not* held: the whole point
+ * of a process-anchored holder is that everything shares one runtime, and a rejection kept there
+ * would be answered to every later caller for the life of the process, long after the database came
+ * back. A failed open is therefore forgotten, and the next caller opens again.
+ */
+function holdOpening(opening: Promise<Runtime>): Promise<Runtime> {
+  const held = opening.catch((failure: unknown) => {
+    if (holder.current === held) holder.current = undefined;
+    throw failure;
+  });
+  holder.current = held;
+  return held;
 }
 
 /** The runtime this process has, opening a consumer-free one against DATABASE_URL if it has none. */
 async function runtime(): Promise<Runtime> {
   const current = holder.current;
   if (current !== undefined) return await current;
-  const opening = openRuntime(configuredUrl(), false);
-  holder.current = opening;
-  return await opening;
+  return await holdOpening(openRuntime(configuredUrl(), false));
 }
 
 /**
@@ -139,13 +175,15 @@ async function runtime(): Promise<Runtime> {
 export async function startJobsRuntime(databaseUrl: string): Promise<void> {
   const current = holder.current;
   if (current !== undefined) {
-    const running = await current;
-    if (running.url === databaseUrl && running.consumers) return;
-    await stopJobsRuntime();
+    // A held opening that failed is nothing to stop and nothing to keep: it has already taken
+    // itself out of the holder, and this call is the recovery.
+    const running = await current.catch(() => undefined);
+    if (running !== undefined) {
+      if (running.url === databaseUrl && running.consumers) return;
+      await stopJobsRuntime();
+    }
   }
-  const opening = openRuntime(databaseUrl, true);
-  holder.current = opening;
-  await opening;
+  await holdOpening(openRuntime(databaseUrl, true));
 }
 
 /** Stop consuming, let what is in flight finish, and give the connections back (R-SPINE-031). */
@@ -153,7 +191,13 @@ export async function stopJobsRuntime(): Promise<void> {
   const current = holder.current;
   holder.current = undefined;
   if (current === undefined) return;
-  const running = await current;
+  const running = await current.catch(() => undefined);
+  if (running === undefined) return;
+  // Told, not cut off: a subscriber still attached to a job's stream is woken and ends its watch
+  // cleanly. A shutdown is nobody's failure, so it must not be recorded as one (ARCH-03).
+  running.closing = true;
+  if (running.sweep !== undefined) clearInterval(running.sweep);
+  for (const watchers of running.watchers.values()) for (const wake of [...watchers]) wake();
   running.watchers.clear();
   await running.store.close();
 }
@@ -173,12 +217,81 @@ export async function enqueue<K extends JobKind>(kind: K, payload: JobPayloads[K
   const policy = JOB_KINDS[kind];
   return await running.store.withKeyLock(kind, options.key, async () => {
     const live = await running.store.liveJobFor(kind, options.key, [...TERMINAL_STATUSES]);
-    if (live !== null) return { jobId: live, deduplicated: true };
-    const envelope: Envelope = { key: options.key, payload };
-    const jobId = await running.store.publish(kind, { ...envelope }, policy);
+    // A claim whose job the queue is already done with is a job whose ending nobody wrote. It is
+    // ended here — and reported — before this call decides whether the key is busy, so an attempt
+    // that did not survive to write its own ending can never hold a key for good.
+    if (live !== null && !(await settleAbandoned(running, kind, options.key, live))) {
+      return { jobId: live, deduplicated: true };
+    }
+    // Claimed before it is sent, and with an id of the seam's own: a crash between the two then
+    // leaves a claim naming a job the queue never received, which the settlement above ends and
+    // frees. Sending first would leave a job no claim guards, and the key's one-at-a-time promise
+    // would be quietly broken instead of recoverably wrong (SEAM-JOBS).
+    const jobId = randomUUID();
     await running.store.claimKey(kind, options.key, jobId);
+    const envelope: Envelope = { key: options.key, payload };
+    try {
+      await running.store.publish(kind, jobId, { ...envelope }, policy);
+    } catch (failure) {
+      await running.store.releaseKey(kind, options.key, jobId).catch(() => undefined);
+      throw failure;
+    }
     return { jobId, deduplicated: false };
   });
+}
+
+/**
+ * End a job the queue has finished with but that recorded no ending of its own, answering whether
+ * it did so. An attempt whose process was killed, or one the queue expired, leaves the log with no
+ * last word — which is exactly the silent failure R-SPINE-030 forbids, and (because a key is free
+ * only once its job has ended) a key nothing could ever be enqueued under again.
+ *
+ * It is a failure of ours rather than the job's, so it crosses the fault seam and carries the id it
+ * was recorded under, like every other terminal failure that is not a refusal (ARCH-03, B-21).
+ */
+async function settleAbandoned(running: Runtime, kind: JobKind, key: string, jobId: string): Promise<boolean> {
+  if ((await running.store.queueStateOf(kind, jobId)) !== "ended") return false;
+  const recorded = await running.store.read(jobId, 0);
+  const cause = new Error(`job ${jobId} (${kind}) ended in the queue without recording how — its attempt did not survive to write its own ending (R-SPINE-030)`);
+  const { faultId } = reportFault({ requestId: jobId, actor: `${kind}:${key}`, route: `job/${kind}`, cause });
+  await running.store.append({
+    jobId,
+    kind,
+    key,
+    step: FINISH_STEP,
+    status: "failed",
+    attempt: recorded.at(-1)?.attempt ?? 1,
+    refusalCode: null,
+    faultId,
+    detail: { cause: String(cause) },
+    elapsedMs: null,
+  });
+  return true;
+}
+
+/**
+ * Look over every key still held for a job the queue has finished with. Waiting for the next
+ * enqueue of a key to notice would make "a job never fails silently" mean "unless nobody asks
+ * again", so the runtimes that run the work look for themselves, on a timer that never holds the
+ * process open.
+ */
+async function sweepAbandoned(running: Runtime): Promise<void> {
+  if (running.closing) return;
+  try {
+    for (const claim of await running.store.liveClaims([...TERMINAL_STATUSES])) {
+      if (running.closing) return;
+      if (!KIND_NAMES.includes(claim.kind as JobKind)) continue;
+      await running.store.withKeyLock(claim.kind, claim.key, async () => {
+        const live = await running.store.liveJobFor(claim.kind, claim.key, [...TERMINAL_STATUSES]);
+        if (live === claim.jobId) await settleAbandoned(running, claim.kind as JobKind, claim.key, live);
+      });
+    }
+  } catch (failure) {
+    // The sweep is itself ours to answer for: a pass that could not run is recorded and the next
+    // one tries again, rather than becoming an unhandled rejection on a timer (ARCH-03).
+    // The database URL carries a password, so the sweep names itself rather than what it reached.
+    if (!running.closing) reportFault({ requestId: SWEEP_ROUTE, actor: "sweep", route: SWEEP_ROUTE, cause: failure });
+  }
 }
 
 /** Everything the log holds about one job, in the order it recorded it. */
@@ -220,7 +333,18 @@ export async function* watchJob(jobId: string, signal?: AbortSignal): AsyncGener
   const running = await runtime();
   let lastSeq = 0;
   for (;;) {
-    for (const row of await running.store.read(jobId, lastSeq)) {
+    // A runtime being given back is not an outage: the log is simply no longer readable from here,
+    // so the watch ends the way an aborted one does rather than becoming a fault a subscriber is
+    // told about and an operator has to read (ARCH-03).
+    if (running.closing) return;
+    let batch: JobEventRow[];
+    try {
+      batch = await running.store.read(jobId, lastSeq);
+    } catch (failure) {
+      if (running.closing) return;
+      throw failure;
+    }
+    for (const row of batch) {
       const event = jobEvent(row);
       lastSeq = event.seq;
       yield event;

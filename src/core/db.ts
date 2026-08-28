@@ -12,6 +12,7 @@ import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import PgBoss from "pg-boss";
 import postgres from "postgres";
 import { attributableReason } from "./db/reason";
+import { reportFault } from "./faults/report";
 
 // The query operators a caller needs to say which rows it means. They are the driver's, so they are
 // handed out from here rather than imported at a call site: SEAM-TENANT makes this file the one
@@ -457,6 +458,27 @@ const QUEUE_POLL_SECONDS = 0.5;
 /** How many connections the log holds. Its own pool, so closing it cannot close a tenant's handle. */
 const JOBS_POOL = { max: 5, idleTimeout: 20, connectTimeout: 10 } as const;
 
+/**
+ * The key lock's connections, which are deliberately not the log's.
+ *
+ * A session advisory lock is held on one physical connection for the whole of the guarded section,
+ * and that section reads and writes the log — on the pool. Taking both from one pool is a deadlock
+ * with no way out: as many concurrent enqueues of *different* keys as the pool is wide would each
+ * hold a reservation and each wait for a connection only another one of them could give back. The
+ * lock therefore has a pool of its own, so a waiter only ever waits for a lock holder to finish.
+ */
+const LOCK_POOL = { max: 8, idleTimeout: 20, connectTimeout: 10 } as const;
+
+/**
+ * How the queue's own outages are recorded. A lost connection or a failed maintenance pass is a
+ * non-refusal server-side failure like any other, so it crosses the one fault seam rather than
+ * being written down in a dialect of its own (ARCH-03, ARCH-02). It belongs to no request, so the
+ * seam names itself as the thing that failed.
+ */
+const QUEUE_REQUEST = "jobs/queue";
+const QUEUE_ACTOR = "pg-boss";
+const QUEUE_ROUTE = "jobs/queue";
+
 /** One row of the event log, as the storage holds it before the seam gives it its meaning. */
 export type JobEventDraft = {
   jobId: string;
@@ -480,15 +502,34 @@ export type QueuedJob = { jobId: string; data: unknown; attempt: number };
 /** The queue policy one kind is run under, as the seam above declares it. */
 export type QueueShape = { concurrency: number; retryLimit: number; retryDelaySeconds: number; retryBackoff: boolean };
 
+/** A claim on a (kind, key) pair whose job the log records no ending for. */
+export type LiveClaim = { kind: string; key: string; jobId: string };
+
+/**
+ * Where a job has got to according to the queue itself, which is a different question from where
+ * the log says it got to. `ended` covers every way the queue is done with a job — finished,
+ * cancelled, failed, or no longer there at all.
+ */
+export type QueueState = "pending" | "active" | "ended";
+
 /** The one handle on the queue and on the event log (ARCH-02). Nothing else speaks to either. */
 export interface JobsStore {
-  open(): Promise<void>;
+  /**
+   * Reach the server. `manage` says whether this opener is the one that owns the storage: only a
+   * managing opener creates the log's tables and migrates the queue's own schema. A tier that
+   * merely reads the log opens neither, so reading needs no privilege to create anything and
+   * starts no queue maintenance in the reader's process.
+   */
+  open(options: { manage: boolean }): Promise<void>;
   declareQueue(name: string, shape: QueueShape): Promise<void>;
   consume(name: string, shape: QueueShape, run: (job: QueuedJob) => Promise<void>): Promise<void>;
-  publish(name: string, data: Record<string, unknown>, shape: QueueShape): Promise<string>;
+  publish(name: string, jobId: string, data: Record<string, unknown>, shape: QueueShape): Promise<string>;
+  queueStateOf(name: string, jobId: string): Promise<QueueState>;
   withKeyLock<T>(kind: string, key: string, work: () => Promise<T>): Promise<T>;
   liveJobFor(kind: string, key: string, endedStatuses: readonly string[]): Promise<string | null>;
+  liveClaims(endedStatuses: readonly string[]): Promise<LiveClaim[]>;
   claimKey(kind: string, key: string, jobId: string): Promise<void>;
+  releaseKey(kind: string, key: string, jobId: string): Promise<void>;
   append(draft: JobEventDraft): Promise<JobEventRow>;
   read(jobId: string, afterSeq: number): Promise<JobEventRow[]>;
   deadLetterRows(endedStatuses: readonly string[]): Promise<JobEventRow[]>;
@@ -568,8 +609,29 @@ function eventRow(raw: RawJobEvent): JobEventRow {
 }
 
 /**
+ * A resource reached lazily and then remembered. A failed attempt is forgotten rather than kept:
+ * one outage at the moment of the first call must not leave the process holding a rejection it
+ * answers every later caller with, long after the server has come back.
+ */
+function reachedOnce<T>(reach: () => Promise<T>): () => Promise<T> {
+  let held: Promise<T> | undefined;
+  return () => {
+    const reaching: Promise<T> = (held ??= reach().catch((failure: unknown) => {
+      if (held === reaching) held = undefined;
+      throw failure;
+    }));
+    return reaching;
+  };
+}
+
+/**
  * The job store for one database. Nothing is opened by building it — `open()` is what reaches the
  * server — so a module that merely imports the seam neither needs nor makes a connection.
+ *
+ * Neither the queue library nor the log's schema is touched by a tier that only reads: the pg-boss
+ * instance is built the first time something actually uses the queue, and the storage is created
+ * only by the opener that says it manages it. Reading the event log therefore needs no privilege to
+ * create anything and starts no queue maintenance in the reader's process.
  */
 export function jobsStore(url: string): JobsStore {
   const sql = postgres(url, {
@@ -578,22 +640,56 @@ export function jobsStore(url: string): JobsStore {
     connect_timeout: JOBS_POOL.connectTimeout,
     onnotice: () => undefined,
   });
-  const boss = new PgBoss({ connectionString: url, schema: BOSS_SCHEMA, pollingIntervalSeconds: QUEUE_POLL_SECONDS });
-  // The library reports a lost connection or a maintenance failure on this emitter, and an emitter
-  // with no listener throws the error at the process instead. A worker's outage is the operator's
-  // to read, never a reason for the process running the queue to die (R-SPINE-031).
-  boss.on("error", (failure) => process.stderr.write(`${JSON.stringify({ queue: "pg-boss", cause: String(failure) })}\n`));
+  const locks = postgres(url, {
+    max: LOCK_POOL.max,
+    idle_timeout: LOCK_POOL.idleTimeout,
+    connect_timeout: LOCK_POOL.connectTimeout,
+    onnotice: () => undefined,
+  });
+
+  /** Whether this opener owns the storage: only it creates the log and migrates the queue. */
+  let managing = false;
+  /** Whether a queue was ever started, so closing one that was never opened opens nothing. */
+  let queueStarted = false;
+
+  const createLog = reachedOnce(async () => {
+    for (const statement of JOBS_DDL) await sql.unsafe(statement);
+  });
+
+  const queue = reachedOnce(async () => {
+    const boss = new PgBoss({
+      connectionString: url,
+      schema: BOSS_SCHEMA,
+      pollingIntervalSeconds: QUEUE_POLL_SECONDS,
+      migrate: managing,
+      supervise: managing,
+      schedule: false,
+    });
+    // The library reports a lost connection or a maintenance failure on this emitter, and an emitter
+    // with no listener throws the error at the process instead. A worker's outage is the operator's
+    // to read through the one fault seam, never a reason for the process running the queue to die
+    // (ARCH-03, R-SPINE-031).
+    boss.on("error", (failure) => {
+      reportFault({ requestId: QUEUE_REQUEST, actor: QUEUE_ACTOR, route: QUEUE_ROUTE, cause: failure });
+    });
+    await boss.start();
+    queueStarted = true;
+    return boss;
+  });
 
   /** The advisory-lock key a (kind, key) pair is serialised on. */
   const lockName = (kind: string, key: string): string => `${kind}:${key}`;
 
   return {
-    open: async () => {
-      for (const statement of JOBS_DDL) await sql.unsafe(statement);
-      await boss.start();
+    open: async ({ manage }) => {
+      managing = manage;
+      if (!manage) return;
+      await createLog();
+      await queue();
     },
 
     declareQueue: async (name, shape) => {
+      const boss = await queue();
       await boss.createQueue(name, {
         name,
         retryLimit: shape.retryLimit,
@@ -603,6 +699,7 @@ export function jobsStore(url: string): JobsStore {
     },
 
     consume: async (name, shape, run) => {
+      const boss = await queue();
       // One worker per slot, each taking a single job at a time, so a kind's concurrency limit is
       // exactly how many of its jobs one process can have in flight (R-SPINE-030). A batch shared
       // by several jobs would make one job's failure the whole batch's.
@@ -613,20 +710,35 @@ export function jobsStore(url: string): JobsStore {
       }
     },
 
-    publish: async (name, data, shape) => {
-      const jobId = await boss.send(name, data, {
+    publish: async (name, jobId, data, shape) => {
+      const boss = await queue();
+      // The id is the seam's rather than the queue's: it is written down as the key's claim before
+      // the job exists, so a crash between the two leaves a claim naming a job the queue never got
+      // — which is recoverable — instead of a job no claim guards (SEAM-JOBS).
+      const sent = await boss.send(name, data, {
+        id: jobId,
         retryLimit: shape.retryLimit,
         retryDelay: shape.retryDelaySeconds,
         retryBackoff: shape.retryBackoff,
       });
-      if (jobId === null) throw new Error(`the queue "${name}" accepted no job for this send (SEAM-JOBS)`);
-      return jobId;
+      if (sent === null) throw new Error(`the queue "${name}" accepted no job for this send (SEAM-JOBS)`);
+      return sent;
+    },
+
+    queueStateOf: async (name, jobId) => {
+      const boss = await queue();
+      const job = await boss.getJobById(name, jobId, { includeArchive: true });
+      // A job the queue has never heard of, or no longer holds, is one it is done with — including
+      // the job a send never managed to insert.
+      if (job === null) return "ended";
+      if (job.state === "active") return "active";
+      return job.state === "created" || job.state === "retry" ? "pending" : "ended";
     },
 
     withKeyLock: async (kind, key, work) => {
       // A session lock rather than a transaction one: the work it guards reads and writes on other
       // connections, so it must not be inside a transaction of its own that hides them.
-      const session = await sql.reserve();
+      const session = await locks.reserve();
       try {
         await session`select pg_advisory_lock(hashtextextended(${lockName(kind, key)}, 0))`;
         try {
@@ -654,11 +766,31 @@ export function jobsStore(url: string): JobsStore {
       return rows[0]?.job_id ?? null;
     },
 
+    liveClaims: async (endedStatuses) => {
+      const rows = await sql<{ kind: string; key: string; job_id: string }[]>`
+        select claim.kind, claim.key, claim.job_id
+          from ${sql(JOBS_SCHEMA)}.job_claims as claim
+         where not exists (
+                 select 1
+                   from ${sql(JOBS_SCHEMA)}.job_events as ended
+                  where ended.job_id = claim.job_id
+                    and ended.status in ${sql(endedStatuses as string[])}
+               )`;
+      return rows.map((row) => ({ kind: row.kind, key: row.key, jobId: row.job_id }));
+    },
+
     claimKey: async (kind, key, jobId) => {
       await sql`
         insert into ${sql(JOBS_SCHEMA)}.job_claims (kind, key, job_id)
         values (${kind}, ${key}, ${jobId})
         on conflict (kind, key) do update set job_id = excluded.job_id, claimed_at = clock_timestamp()`;
+    },
+
+    releaseKey: async (kind, key, jobId) => {
+      // Only this claim: a claim some later enqueue has already replaced is that enqueue's to keep.
+      await sql`
+        delete from ${sql(JOBS_SCHEMA)}.job_claims
+         where kind = ${kind} and key = ${key} and job_id = ${jobId}`;
     },
 
     append: async (draft) => {
@@ -699,8 +831,10 @@ export function jobsStore(url: string): JobsStore {
     },
 
     close: async () => {
-      await boss.stop({ close: true, graceful: true, wait: true });
-      await sql.end({ timeout: 5 });
+      // A queue that was never started has nothing to drain, and asking for one here would open the
+      // very instance this store took care not to open.
+      if (queueStarted) await (await queue()).stop({ close: true, graceful: true, wait: true });
+      await Promise.all([sql.end({ timeout: 5 }), locks.end({ timeout: 5 })]);
     },
   };
 }
