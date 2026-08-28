@@ -57,19 +57,27 @@ describe("AC7: checkup reports the machine honestly", () => {
   });
 
   test("AC7: the checks whose inputs this tree does not have are recorded as skips, not passed over", async () => {
-    // checkup probes the same input roots as deriveLanes, so the tree — not a roster in this file —
-    // decides whether a skip is owed at all.
+    // The roster checkup itself walks decides which skips are owed — the machine checks, not the
+    // verify chain's lanes — and the correspondence runs both ways: a stub check that prints no SKIP
+    // is a silent pass-over, and a SKIP for a check whose input root is present is a stale skip that
+    // should have vanished when the tree grew that input. Both sides empty is the lawful answer for a
+    // tree that has every input root (C-06/B-23).
     const lanesModule = join(REPO_ROOT, "scripts/lib/lanes.mjs");
     expect(existsSync(lanesModule), "scripts/lib/lanes.mjs does not exist — the roster has no exported home").toBe(true);
     const loaded: unknown = await import(pathToFileURL(lanesModule).href);
-    const derive = (loaded as Record<string, unknown>)["deriveLanes"] as ((root: string) => { status: string }[]) | undefined;
-    expect(typeof derive, "scripts/lib/lanes.mjs does not export deriveLanes(rootDir)").toBe("function");
-    const stubs = (await Promise.resolve(derive!(REPO_ROOT))).filter((lane) => lane.status === "stub");
+    const derive = (loaded as Record<string, unknown>)["deriveMachineChecks"] as
+      | ((root: string) => { id: string; status: string; probe: string }[])
+      | undefined;
+    expect(typeof derive, "scripts/lib/lanes.mjs does not export deriveMachineChecks(rootDir)").toBe("function");
+    const owed = derive!(REPO_ROOT)
+      .filter((check) => check.status === "stub")
+      .map((check) => `SKIP ${check.id} missing=${check.probe}`)
+      .sort();
 
     const stdout = checkup().stdout;
-    const skips = skipLines(stdout);
-    if (stubs.length > 0) {
-      expect(skips.length, `${stubs.length} input roots are missing, yet checkup printed no 'SKIP <checkId> missing=<probePath>' line at all:\n${stdout}`).toBeGreaterThan(0);
-    }
+    const printed = skipLines(stdout)
+      .map((skip) => `SKIP ${skip.id} missing=${skip.probe}`)
+      .sort();
+    expect(printed, `checkup's skips do not match the machine checks whose input roots are absent:\n${stdout}`).toEqual(owed);
   });
 });
