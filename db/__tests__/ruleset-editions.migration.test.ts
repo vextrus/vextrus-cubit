@@ -35,7 +35,7 @@ import {
 } from "../../tests/rulesets/support/editions";
 import { provisionScratchDb } from "./harness";
 import { AUDIT_REASON, BOOTSTRAP_URL, GUC_SYSTEM_REASON, GUC_TENANT, HANDWRITTEN_MARKER, ROLE_APP, TENANT_ALPHA, TENANT_COLUMN } from "./support/fixtures";
-import { ident, lit, run, scalar, seedTenants, withSession } from "./support/live-sql";
+import { ident, isTrue, lit, run, scalar, seedTenants, withSession } from "./support/live-sql";
 
 const ROOT = join(import.meta.dirname, "..", "..");
 const MIGRATIONS = join(ROOT, "db", "migrations");
@@ -138,11 +138,11 @@ function privilegesOf(url: string, table: string, role: string): string[] {
 function rowSecurityOf(url: string, table: string): { enabled: boolean; forced: boolean } {
   const row = run(
     url,
-    `select c.relrowsecurity::text, c.relforcerowsecurity::text
+    `select c.relrowsecurity, c.relforcerowsecurity
        from pg_class c join pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'public' and c.relname = ${lit(table)};`,
   )[0];
-  return { enabled: row?.[0] === "t", forced: row?.[1] === "t" };
+  return { enabled: isTrue(row?.[0] ?? ""), forced: isTrue(row?.[1] ?? "") };
 }
 
 /** Every policy on a table, with the expression it is written against. */
