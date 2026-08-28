@@ -170,6 +170,110 @@ export interface DxfLayer {
   readonly trueColour: number | null;
 }
 
+/** A record inside a DXF's ENTITIES or BLOCKS section, read only through its group-code pairs. */
+export interface DxfRecord {
+  readonly type: string;
+  /** The file's own handle (group 5), normalised for comparison. */
+  readonly handle: string;
+  readonly section: string;
+  /** Group 8; a DXF entity that omits it sits on layer "0". */
+  readonly layer: string;
+  /** Group 62 — the colour index, magnitude taken (a negative index means the entity is off). */
+  readonly aci: number | null;
+  /** Group 420 — a packed 24-bit true colour. */
+  readonly trueColour: number | null;
+}
+
+/**
+ * Handles are hex written without a fixed width, so compare them case- and zero-insensitively:
+ * `0x2f`, `2F` and `02F` are one handle. This is only a comparison form — the artifact's own key
+ * format (uppercase hex) is graded separately.
+ */
+export function normaliseHandle(hex: string): string {
+  return hex.trim().toUpperCase().replace(/^0+(?=.)/, "");
+}
+
+/** The handle half of a `scheme:key` source key, or null when the key carries no scheme. */
+export function handleOfKey(key: string): string | null {
+  const split = key.indexOf(":");
+  return split < 0 ? null : normaliseHandle(key.slice(split + 1));
+}
+
+/** A DXF packed true colour (group 420) as its three channels. */
+export function unpackTrueColour(packed: number): [number, number, number] {
+  return [(packed >> 16) & 255, (packed >> 8) & 255, packed & 255];
+}
+
+/**
+ * Every handle-bearing record in a committed DXF's ENTITIES and BLOCKS sections, by handle. This is
+ * the independent read of the drawing that lets acceptance bind an artifact's source key back to
+ * "the file's own handle" (L-CAD-02) and an entity's colour back to the group codes it was resolved
+ * from (L-CAD-05) — the DXF is an input, never implementation.
+ */
+export function dxfRecordsByHandle(text: string): Map<string, DxfRecord> {
+  const pairs = dxfPairs(text);
+  const table = new Map<string, DxfRecord>();
+  let section: string | null = null;
+
+  for (let i = 0; i < pairs.length; i += 1) {
+    const head = pairs[i]!;
+    if (head.code !== 0) continue;
+    if (head.value === "SECTION") {
+      const next = pairs[i + 1];
+      section = next !== undefined && next.code === 2 ? next.value : null;
+      continue;
+    }
+    if (head.value === "ENDSEC") {
+      section = null;
+      continue;
+    }
+    if (section !== "ENTITIES" && section !== "BLOCKS") continue;
+
+    let handle: string | null = null;
+    let layer: string | null = null;
+    let aci: number | null = null;
+    let trueColour: number | null = null;
+    for (let j = i + 1; j < pairs.length && pairs[j]!.code !== 0; j += 1) {
+      const { code, value } = pairs[j]!;
+      if (code === 5 && handle === null) handle = normaliseHandle(value);
+      else if (code === 8 && layer === null) layer = value;
+      else if (code === 62 && aci === null) aci = Math.abs(Number(value));
+      else if (code === 420 && trueColour === null) trueColour = Number(value);
+    }
+    if (handle !== null && handle.length > 0) {
+      table.set(handle, { type: head.value, handle, section, layer: layer ?? "0", aci, trueColour });
+    }
+  }
+  return table;
+}
+
+/**
+ * A DXF this suite writes itself, to force the pinned flatten point cap to trip: one ARC of radius
+ * 1e7 spanning 359°, which no flattening at the pinned 0.01-unit tolerance can describe in 5000
+ * points (ezdxf's own flattening of this arc yields ~70 000). Written rather than committed because
+ * the committed corpus is the Builder's and nothing in the contract obliges its geometry to reach
+ * the cap — a rule that only fires on a lucky fixture is a rule nothing checks.
+ */
+export const FLATTEN_CAP_TRIP_DXF = [
+  "0", "SECTION", "2", "HEADER",
+  "9", "$ACADVER", "1", "AC1009",
+  "9", "$INSUNITS", "70", "4",
+  "0", "ENDSEC",
+  "0", "SECTION", "2", "TABLES",
+  "0", "TABLE", "2", "LAYER", "70", "1",
+  "0", "LAYER", "5", "310", "2", "0", "70", "0", "62", "7", "6", "CONTINUOUS",
+  "0", "ENDTAB",
+  "0", "ENDSEC",
+  "0", "SECTION", "2", "ENTITIES",
+  "0", "ARC", "5", "7A1", "8", "0", "62", "30",
+  "10", "0.0", "20", "0.0", "30", "0.0",
+  "40", "10000000.0", "50", "0.0", "51", "359.0",
+  "0", "LINE", "5", "7A2", "8", "0", "62", "1",
+  "10", "0.0", "20", "0.0", "30", "0.0", "11", "10.0", "21", "0.0", "31", "0.0",
+  "0", "ENDSEC",
+  "0", "EOF", "",
+].join("\n");
+
 /**
  * The LAYER table of a committed DXF, by layer name: group 62 is the colour index (negative when
  * the layer is off — the colour is its magnitude) and group 420 a packed true colour.

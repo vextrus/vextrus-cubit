@@ -5,12 +5,16 @@
 // the extractor, so a fixture added later is judged by it too. The derived→original rule is graded
 // wherever derived paint exists, and the blocks fixture — defined by the contract as the one with
 // nested INSERTs — is required to have some.
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   asArray,
   asObject,
   asString,
   committedArtifactNames,
+  dxfRecordsByHandle,
+  fixtureDxfPath,
+  handleOfKey,
   NAMED_FIXTURES,
   readCommittedArtifact,
   records,
@@ -34,6 +38,43 @@ describe("AC-3: source keys and extractor identity", () => {
       expect(malformed, `${name}: keys must be DXF_HANDLE:<UPPERCASE-HEX>`).toEqual([]);
       expect(new Set(keys).size, `${name}: source keys are not unique`).toBe(keys.length);
     }
+  });
+
+  it("AC-3: a key's hex IS the entity's own handle in the source DXF, not a well-formed invention", () => {
+    // L-CAD-02 spells the DXF scheme as "the file's own handle", and the interface note repeats it.
+    // A well-formed, unique, deterministic key can still be minted from a counter, so the drawing is
+    // read independently — every handle-bearing record in the committed DXF's own ENTITIES/BLOCKS
+    // sections — and each artifact key is looked up in it. The layer the DXF gives that handle must
+    // be the layer the artifact gives the entity, so the binding is per entity and not a set trick.
+    let graded = 0;
+    const withHandles: string[] = [];
+
+    for (const name of committedArtifactNames()) {
+      const table = dxfRecordsByHandle(readFileSync(fixtureDxfPath(name), "utf8"));
+      if (table.size === 0) continue;
+      withHandles.push(name);
+
+      for (const [i, entity] of records(readCommittedArtifact(name).graph, "entities").entries()) {
+        const key = asString(entity["key"], `${name}.entities[${i}].key`);
+        const handle = handleOfKey(key);
+        const record = handle === null ? undefined : table.get(handle);
+        expect(
+          record,
+          `${name}.entities[${i}]: key ${key} carries handle ${String(handle)}, which the committed ${name}.dxf does not carry — a source key is the file's own handle (L-CAD-02)`,
+        ).toBeDefined();
+        expect(
+          asString(entity["layer"], `${name}.entities[${i}].layer`),
+          `${name}.entities[${i}]: key ${key} points at a DXF ${record!.type} on layer "${record!.layer}", but the entity is on another layer — the key names some other entity`,
+        ).toBe(record!.layer);
+        graded += 1;
+      }
+    }
+
+    expect(
+      withHandles,
+      `no committed DXF carries entity handles, so no key can be one — ${NAMED_FIXTURES[0]}.dxf must`,
+    ).toContain(NAMED_FIXTURES[0]);
+    expect(graded, "no source key was bound back to a handle in its own drawing").toBeGreaterThan(0);
   });
 
   it("AC-3: the ingest record pins the extractor identity that scopes those keys", () => {
