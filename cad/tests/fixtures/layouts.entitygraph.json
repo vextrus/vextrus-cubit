@@ -1,0 +1,1341 @@
+{
+  "block_attributes": [],
+  "counters": [
+    {
+      "explode_losses": {},
+      "explode_truncated": false,
+      "flatten_capped": {},
+      "space": "model"
+    },
+    {
+      "explode_losses": {},
+      "explode_truncated": false,
+      "flatten_capped": {},
+      "space": "SHEET A1"
+    }
+  ],
+  "derived": [],
+  "dropped_layouts": [
+    "Layout1"
+  ],
+  "entities": [
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:30",
+      "layer": "PLAN",
+      "points": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          4.0,
+          3.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:31",
+      "layer": "PLAN",
+      "points": [
+        [
+          6.0,
+          0.0
+        ],
+        [
+          10.0,
+          3.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:32",
+      "layer": "PLAN",
+      "points": [
+        [
+          12.0,
+          0.0
+        ],
+        [
+          16.0,
+          3.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:33",
+      "layer": "PLAN",
+      "points": [
+        [
+          18.0,
+          0.0
+        ],
+        [
+          22.0,
+          3.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:34",
+      "layer": "PLAN",
+      "points": [
+        [
+          24.0,
+          0.0
+        ],
+        [
+          28.0,
+          3.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:35",
+      "layer": "PLAN",
+      "points": [
+        [
+          30.0,
+          0.0
+        ],
+        [
+          34.0,
+          3.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:36",
+      "layer": "PLAN",
+      "points": [
+        [
+          36.0,
+          0.0
+        ],
+        [
+          40.0,
+          3.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:37",
+      "layer": "PLAN",
+      "points": [
+        [
+          42.0,
+          0.0
+        ],
+        [
+          46.0,
+          3.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:38",
+      "layer": "PLAN",
+      "points": [
+        [
+          48.0,
+          0.0
+        ],
+        [
+          52.0,
+          3.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:39",
+      "layer": "PLAN",
+      "points": [
+        [
+          54.0,
+          0.0
+        ],
+        [
+          58.0,
+          3.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:3A",
+      "layer": "PLAN",
+      "points": [
+        [
+          0.0,
+          6.0
+        ],
+        [
+          4.0,
+          9.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:3B",
+      "layer": "PLAN",
+      "points": [
+        [
+          6.0,
+          6.0
+        ],
+        [
+          10.0,
+          9.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:3C",
+      "layer": "PLAN",
+      "points": [
+        [
+          12.0,
+          6.0
+        ],
+        [
+          16.0,
+          9.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:3D",
+      "layer": "PLAN",
+      "points": [
+        [
+          18.0,
+          6.0
+        ],
+        [
+          22.0,
+          9.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:3E",
+      "layer": "PLAN",
+      "points": [
+        [
+          24.0,
+          6.0
+        ],
+        [
+          28.0,
+          9.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:3F",
+      "layer": "PLAN",
+      "points": [
+        [
+          30.0,
+          6.0
+        ],
+        [
+          34.0,
+          9.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:40",
+      "layer": "PLAN",
+      "points": [
+        [
+          36.0,
+          6.0
+        ],
+        [
+          40.0,
+          9.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:41",
+      "layer": "PLAN",
+      "points": [
+        [
+          42.0,
+          6.0
+        ],
+        [
+          46.0,
+          9.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:42",
+      "layer": "PLAN",
+      "points": [
+        [
+          48.0,
+          6.0
+        ],
+        [
+          52.0,
+          9.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:43",
+      "layer": "PLAN",
+      "points": [
+        [
+          54.0,
+          6.0
+        ],
+        [
+          58.0,
+          9.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:44",
+      "layer": "PLAN",
+      "points": [
+        [
+          0.0,
+          12.0
+        ],
+        [
+          4.0,
+          15.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:45",
+      "layer": "PLAN",
+      "points": [
+        [
+          6.0,
+          12.0
+        ],
+        [
+          10.0,
+          15.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:46",
+      "layer": "PLAN",
+      "points": [
+        [
+          12.0,
+          12.0
+        ],
+        [
+          16.0,
+          15.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:47",
+      "layer": "PLAN",
+      "points": [
+        [
+          18.0,
+          12.0
+        ],
+        [
+          22.0,
+          15.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:48",
+      "layer": "PLAN",
+      "points": [
+        [
+          24.0,
+          12.0
+        ],
+        [
+          28.0,
+          15.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:49",
+      "layer": "PLAN",
+      "points": [
+        [
+          30.0,
+          12.0
+        ],
+        [
+          34.0,
+          15.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:4A",
+      "layer": "PLAN",
+      "points": [
+        [
+          36.0,
+          12.0
+        ],
+        [
+          40.0,
+          15.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:4B",
+      "layer": "PLAN",
+      "points": [
+        [
+          42.0,
+          12.0
+        ],
+        [
+          46.0,
+          15.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:4C",
+      "layer": "PLAN",
+      "points": [
+        [
+          48.0,
+          12.0
+        ],
+        [
+          52.0,
+          15.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:4D",
+      "layer": "PLAN",
+      "points": [
+        [
+          54.0,
+          12.0
+        ],
+        [
+          58.0,
+          15.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:4E",
+      "layer": "PLAN",
+      "points": [
+        [
+          0.0,
+          18.0
+        ],
+        [
+          4.0,
+          21.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:4F",
+      "layer": "PLAN",
+      "points": [
+        [
+          6.0,
+          18.0
+        ],
+        [
+          10.0,
+          21.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:50",
+      "layer": "PLAN",
+      "points": [
+        [
+          12.0,
+          18.0
+        ],
+        [
+          16.0,
+          21.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:51",
+      "layer": "PLAN",
+      "points": [
+        [
+          18.0,
+          18.0
+        ],
+        [
+          22.0,
+          21.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:52",
+      "layer": "PLAN",
+      "points": [
+        [
+          24.0,
+          18.0
+        ],
+        [
+          28.0,
+          21.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:53",
+      "layer": "PLAN",
+      "points": [
+        [
+          30.0,
+          18.0
+        ],
+        [
+          34.0,
+          21.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:54",
+      "layer": "PLAN",
+      "points": [
+        [
+          36.0,
+          18.0
+        ],
+        [
+          40.0,
+          21.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:55",
+      "layer": "PLAN",
+      "points": [
+        [
+          42.0,
+          18.0
+        ],
+        [
+          46.0,
+          21.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:56",
+      "layer": "PLAN",
+      "points": [
+        [
+          48.0,
+          18.0
+        ],
+        [
+          52.0,
+          21.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:57",
+      "layer": "PLAN",
+      "points": [
+        [
+          54.0,
+          18.0
+        ],
+        [
+          58.0,
+          21.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:58",
+      "layer": "PLAN",
+      "points": [
+        [
+          0.0,
+          24.0
+        ],
+        [
+          4.0,
+          27.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:59",
+      "layer": "PLAN",
+      "points": [
+        [
+          6.0,
+          24.0
+        ],
+        [
+          10.0,
+          27.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:5A",
+      "layer": "PLAN",
+      "points": [
+        [
+          12.0,
+          24.0
+        ],
+        [
+          16.0,
+          27.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:5B",
+      "layer": "PLAN",
+      "points": [
+        [
+          18.0,
+          24.0
+        ],
+        [
+          22.0,
+          27.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:5C",
+      "layer": "PLAN",
+      "points": [
+        [
+          24.0,
+          24.0
+        ],
+        [
+          28.0,
+          27.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:5D",
+      "layer": "PLAN",
+      "points": [
+        [
+          30.0,
+          24.0
+        ],
+        [
+          34.0,
+          27.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:5E",
+      "layer": "PLAN",
+      "points": [
+        [
+          36.0,
+          24.0
+        ],
+        [
+          40.0,
+          27.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:5F",
+      "layer": "PLAN",
+      "points": [
+        [
+          42.0,
+          24.0
+        ],
+        [
+          46.0,
+          27.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:60",
+      "layer": "PLAN",
+      "points": [
+        [
+          48.0,
+          24.0
+        ],
+        [
+          52.0,
+          27.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:61",
+      "layer": "PLAN",
+      "points": [
+        [
+          54.0,
+          24.0
+        ],
+        [
+          58.0,
+          27.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:62",
+      "layer": "PLAN",
+      "points": [
+        [
+          1000000.0,
+          1000000.0
+        ],
+        [
+          1000004.0,
+          1000003.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "area": 249480.0,
+      "closed": true,
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:67",
+      "layer": "PLAN",
+      "points": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          594.0,
+          0.0
+        ],
+        [
+          594.0,
+          420.0
+        ],
+        [
+          0.0,
+          420.0
+        ]
+      ],
+      "space": "SHEET A1",
+      "type": "LWPOLYLINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          255,
+          255,
+          0
+        ],
+        "source": "bylayer"
+      },
+      "height": 8.0,
+      "key": "DXF_HANDLE:68",
+      "layer": "PLAN",
+      "space": "SHEET A1",
+      "text": "SHEET A1 %%C",
+      "type": "TEXT"
+    }
+  ],
+  "entitygraph_version": 2,
+  "ingest": {
+    "parameter_set_hash": "68744a7590470ed7cd0f569f463639b3bba8217de316ca007af5b75f48076322",
+    "scheme": "DXF_HANDLE",
+    "tool": "ezdxf",
+    "tool_version": "1.4.4"
+  },
+  "insunits": {
+    "code": 4,
+    "unit": "mm",
+    "unmapped": false
+  },
+  "layouts": [
+    {
+      "bbox": {
+        "max": [
+          58.0,
+          27.0
+        ],
+        "min": [
+          0.0,
+          0.0
+        ]
+      },
+      "kind": "model",
+      "name": "model",
+      "strays_rejected": 1
+    },
+    {
+      "bbox": {
+        "max": [
+          594.0,
+          420.0
+        ],
+        "min": [
+          0.0,
+          0.0
+        ]
+      },
+      "kind": "paper",
+      "name": "SHEET A1",
+      "strays_rejected": 0
+    }
+  ]
+}
