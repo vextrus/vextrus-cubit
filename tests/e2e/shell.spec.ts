@@ -110,7 +110,13 @@ test.describe("J-004 — the signed-in application shell", () => {
     await expect(shell.root).toHaveScreenshot("shell-light.png");
     await checkpoint(page, testInfo, "j004-shell-light");
 
-    /* --- j004-shell-dark: the same frame, the same tokens, other values (Decision § 6) --- */
+    /* --- j004-shell-dark: the same frame, the same tokens, other values (Decision § 6).
+       The preference is emulated and the page is then RELOADED, because J-004 asks that both
+       themes render and that the OS preference be honoured once, pre-paint, at load — the
+       attribute's single home is the root document's resolver (settled R-UI-001/B-17), and no
+       clause asks the shell to track prefers-color-scheme mid-session. Nothing here asserts a
+       live flip: an expectation of re-resolution without a reload is not part of this node's
+       acceptance. --- */
     await page.emulateMedia({ colorScheme: "dark" });
     await page.reload();
     await shell.expectFrame();
