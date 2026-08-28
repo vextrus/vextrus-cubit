@@ -92,6 +92,43 @@ export class ShellPage {
     return this.page.getByTestId("shell-sample-outcome");
   }
 
+  /* --- the settings screen's rename (R-UI-033) --- */
+
+  get settingsName(): Locator {
+    return this.page.getByTestId("shell-settings-name");
+  }
+
+  get renameInput(): Locator {
+    return this.page.getByTestId("shell-rename-input");
+  }
+
+  get renameSubmit(): Locator {
+    return this.page.getByTestId("shell-rename-submit");
+  }
+
+  get renameRefusal(): Locator {
+    return this.page.getByTestId("shell-rename-refusal");
+  }
+
+  /* --- the frameless denial surface (R-UI-050's permission-denied state) --- */
+
+  get denied(): Locator {
+    return this.page.getByTestId("shell-permission-denied");
+  }
+
+  get deniedPermission(): Locator {
+    return this.page.getByTestId("shell-denied-permission");
+  }
+
+  get deniedHolder(): Locator {
+    return this.page.getByTestId("shell-denied-holder");
+  }
+
+  /** The registered refusal a screen is answering with, read from the one renderer. */
+  get refusalState(): Locator {
+    return this.page.getByTestId("refusal-state");
+  }
+
   /** The rail entry for an area, by the id the Design Decision gives it. */
   nav(area: "projects" | "books" | "settings"): Locator {
     return this.page.getByTestId(`shell-nav-${area}`);

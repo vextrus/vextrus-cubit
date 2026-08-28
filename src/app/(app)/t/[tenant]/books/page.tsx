@@ -1,4 +1,4 @@
-// Books, as far as M0 builds it: the area exists and is reachable from the rail, and it says
+// Books: the area is reachable from the rail, and it says
 // honestly that it holds nothing yet (R-UI-050). Its next action is not here — a book is written
 // by projects — so the action is the way to the screen where the work starts.
 import { ShellEmptyState, shellHref } from "../../../../../ui/shell";

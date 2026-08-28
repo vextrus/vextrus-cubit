@@ -1,4 +1,4 @@
-// Settings, and the one setting M0 has: what the workspace is called (R-UI-033 — the name is
+// Settings, and the setting a workspace has: what it is called (R-UI-033 — the name is
 // entered at sign-up, and this is where it is changed afterwards).
 import { redirect } from "next/navigation";
 import { presentedSessionToken } from "../../../../../server/shell/session";

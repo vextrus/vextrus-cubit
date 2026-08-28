@@ -47,8 +47,8 @@ function Chevron({ direction }: { direction: "left" | "down" }) {
 }
 
 export function ShellRail({ workspace, area }: ShellRailProps) {
-  // Not persisted: the per-person preference seam arrives with the density control, and a
-  // remembered width nothing can yet write would be a promise the product does not keep.
+  // Not persisted: nothing in the product writes a per-person preference, and a remembered
+  // width nothing can write would be a promise it does not keep.
   const [expanded, setExpanded] = useState(true);
   const railId = useId();
 
@@ -72,8 +72,8 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
         </button>
       </div>
 
-      {/* Collapsed, the rail keeps only what stays legible at 48 px: labels have no icon stand-ins
-          in M0, and a column of truncated letters would be guesswork rather than navigation. */}
+      {/* Collapsed, the rail keeps only what stays legible at 48 px: the labels have no icon
+          stand-ins, and a column of truncated letters would be guesswork, not navigation. */}
       {expanded ? (
         <>
           <DropdownMenu>

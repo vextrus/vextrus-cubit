@@ -109,7 +109,7 @@ test.describe("J-004 — the signed-in application shell", () => {
     await shell.nav("settings").click();
     await expect(page).toHaveURL(`${origin}${SHELL.settings(tenantId)}`);
     expect(await shell.selectedArea()).toEqual(["settings"]);
-    await expect(page.getByTestId("shell-settings-name"), "the rename R-UI-033 puts in settings is on the settings screen").toBeVisible();
+    await expect(shell.settingsName, "the rename R-UI-033 puts in settings is on the settings screen").toBeVisible();
 
     // Browser back works everywhere: the address goes back and the selection goes with it.
     await page.goBack();
@@ -118,6 +118,25 @@ test.describe("J-004 — the signed-in application shell", () => {
     await page.goBack();
     await expect(page).toHaveURL(`${origin}${SHELL.workspace(tenantId)}`);
     expect(await shell.selectedArea()).toEqual(["projects"]);
+
+    /* --- the workspace a session does not hold is refused, not framed (R-UI-050, ARCH-03) --- */
+    await shell.open(STRANGER);
+    await expect(shell.denied, "an address naming somebody else's workspace answers the denial surface").toBeVisible();
+    await expect(shell.root, "and no rail of links into a workspace they cannot see").toHaveCount(0);
+    await expect(shell.deniedPermission, "which permission is missing").toBeVisible();
+    await expect(shell.deniedHolder, "and who holds it").toBeVisible();
+    await expect(shell.refusalState, "the registered code, rendered by the one renderer").toHaveAttribute("data-code", "PERMISSION_NOT_HELD");
+    await expect(page.locator(`a[href="${SHELL.workspace(tenantId)}"]`), "the remedy is a place they can actually go").toBeVisible();
+
+    /* --- the rename answers, and the frame re-reads the name it saved (R-UI-033) --- */
+    await shell.open(SHELL.settings(tenantId));
+    await shell.renameInput.fill(WORKSPACE);
+    await shell.renameSubmit.click();
+    await expect(shell.settingsName.getByRole("status"), "a saved name says so").toHaveText(strings.shell_rename_saved);
+    await expect(shell.renameRefusal, "a member renaming their own workspace is refused nothing").toHaveCount(0);
+    await expect(shell.breadcrumb, "and the frame wears the saved name").toContainText(WORKSPACE);
+
+    await shell.open(SHELL.workspace(tenantId));
 
     /* --- j004-shell-deeplink: the address alone is enough, and back restores what was there --- */
     await shell.open(SHELL.books(tenantId));

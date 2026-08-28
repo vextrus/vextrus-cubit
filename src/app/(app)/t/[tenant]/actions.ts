@@ -15,7 +15,7 @@ export async function signOutAction(): Promise<void> {
   redirect("/sign-in");
 }
 
-/** R-UI-033's one-click SAMPLE offer, answered by the seam that will seed it (I-003, M1). */
+/** R-UI-033's one-click SAMPLE offer, answered by the seam that seeds the set. */
 export async function offerSampleAction(): Promise<SampleSeedAnswer> {
   return sampleSeed();
 }

@@ -43,6 +43,14 @@ primitives (core Button/Input/Skeleton, overlay DropdownMenu, the one RefusalSta
   are server-rendered; a navigation that cannot reach the server surfaces the error state,
   never silence and never an invented banner. The R-UI-050 offline banner binds screens that
   hold data which can age; the shell's M0 screens hold none.
+- **I-21 — the stored key is not the address, so the fold gains its inverse.** `users.email`
+  holds the folded key an account is looked up under (`as presented …` / `digest of …`), not
+  an address: rendered raw, the user menu would show a person a tag they never typed. The
+  read-back belongs beside the fold, so `src/server/auth/folded-key.ts` gains
+  `presentedValue`, and the shell's viewer seam reads through it — the alternative, restating
+  the tag inside `src/server/shell/**`, would be a second copy of that invariant (B-17). A
+  digest key stands for an address no column could carry: there is nothing to show, and the
+  trigger falls back to `shell_user_account`.
 
 ## 1. Layout and hierarchy
 
@@ -101,7 +109,9 @@ separator (`aria-hidden`, `var(--graphite-500)`), then the area crumb — `shell
 `var(--weight-body-medium)` with `aria-current="page"`. Right: **user menu**
 (`data-testid="shell-user"`) — a DropdownMenu whose ghost trigger shows the signed-in email
 (`var(--text-13)` `var(--graphite-700)`, ellipsis past 280 px); the visible address is the
-accessible name. Items, in order: `shell-user-sessions` — a link item to `/sessions`, label
+accessible name. The address is the value the account presented, read back out of the folded
+key `users.email` stores it under (I-21); an account whose key is a digest has no address to
+show and the trigger is named `shell_user_account`. Items, in order: `shell-user-sessions` — a link item to `/sessions`, label
 `shell_user_sessions` (paying s-auth's recorded R-UI-031 debt) · `shell-user-signout` —
 label `shell_user_signout`, invoking the sign-out server action; on success the person lands
 on `/sign-in`, which is itself the visible way back in (AC-2).
@@ -201,7 +211,8 @@ underlined), label `shell_home_workspace_door`. `HomePage` resolves the branch t
 · `shell_rail_nav_label` **Main navigation** · `shell_tenant_switcher_label` **Switch
 workspace** · `shell_nav_projects` **Projects** · `shell_nav_books` **Books** ·
 `shell_nav_settings` **Settings** · `shell_breadcrumb_label` **Breadcrumb** ·
-`shell_user_sessions` **Sessions** · `shell_user_signout` **Sign out** ·
+`shell_user_account` **Your account** · `shell_user_sessions` **Sessions** ·
+`shell_user_signout` **Sign out** ·
 `shell_inspector_label` **Details** · `shell_inspector_empty` **Details of what you select
 appear here.** · `shell_projects_heading` **Projects** · `shell_projects_empty_heading`
 **No projects yet** · `shell_projects_empty_body` **A project holds your drawings and
