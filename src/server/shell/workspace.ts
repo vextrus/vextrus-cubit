@@ -1,14 +1,17 @@
 // The workspace behind the signed-in frame (R-UI-030, R-UI-033): which one the session holds, and
 // the one write that renames it. Both go through the existing seams — `resolveSession` for who is
-// asking (R-SPINE-001) and `runAsSystem` for the read and the write (SEAM-TENANT) — so this file
+// asking (R-SPINE-001) and the handles of SEAM-TENANT for what is read and written — so this file
 // owns no identity rule and no handle of its own.
 //
 // Membership is not tenant-scoped state a tenant handle could read: it is the row that says which
 // tenant a person may be scoped to at all, and it is written by sign-up under the same system
-// reason (src/server/auth/session.ts). Reading and writing it therefore runs as the system, with
-// the reason recorded beside the statement.
+// reason (src/server/auth/session.ts). Reading it therefore runs as the system, with the reason
+// recorded beside the statement. A tenant's OWN row is the other case: `tenants` is under FORCE row
+// security with `tenants_tenant_scope`, so the rename is written through `forTenant` — "the tenant's
+// handle: the only way a tenant's rows are read or written" (src/core/db.ts) — and the policy, not
+// the membership check five lines above it, is what makes a cross-tenant write impossible.
 import { cache } from "react";
-import { and, asc, eq, isUuid, memberships, runAsSystem, storableText, tenants } from "../../core/db";
+import { and, asc, eq, forTenant, isUuid, memberships, runAsSystem, storableText, tenants } from "../../core/db";
 import type { RefusalCode } from "../../core/errors";
 import { resolveSession } from "../auth/session";
 import { sessionOf } from "./resolve";
@@ -73,15 +76,18 @@ export async function renameWorkspace(request: RenameRequest): Promise<RenameAns
   if (session === null) return { renamed: false, refusal: "SIGNED_OUT" };
   if (!isUuid(request.tenantId)) return { renamed: false, refusal: "PERMISSION_NOT_HELD" };
 
-  const db = runAsSystem("R-UI-033 workspace rename: the membership that admits the write, and the name a member gave their workspace");
-  const held = await db
+  const admitting = runAsSystem("R-UI-033 workspace rename: the membership that admits the write");
+  const held = await admitting
     .select({ tenantId: memberships.tenantId })
     .from(memberships)
     .where(and(eq(memberships.userId, session.userId), eq(memberships.tenantId, request.tenantId)))
     .limit(1);
   if (held[0] === undefined) return { renamed: false, refusal: "PERMISSION_NOT_HELD" };
 
-  const saved = await db
+  // Scoped to the tenant the membership admitted, so the boundary is the policy's and not this
+  // function's: `tenants_tenant_scope` matches the row by `cubit.tenant_id`, and a statement that
+  // named another tenant's row would touch nothing however the check above were reordered or lost.
+  const saved = await forTenant({ tenantId: request.tenantId })
     .update(tenants)
     .set({ name: storableText(request.name) })
     .where(eq(tenants.tenantId, request.tenantId))

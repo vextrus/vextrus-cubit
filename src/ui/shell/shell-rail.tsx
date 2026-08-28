@@ -62,12 +62,6 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
   // region it is already in. The body element is mounted whether or not it holds anything, so the
   // reference resolves in both states.
   const bodyId = useId();
-  // The open menu is portalled, and a menu parked at the document root is page content outside
-  // every landmark — the axe `region` violation the top bar's own menu names. The rail is itself a
-  // landmark, and the switcher's menu belongs to it, so the rail is that menu's portal container
-  // (the portalled node is the popper's `position: fixed` box, so the rail's `overflow: hidden`
-  // neither clips nor lays it out). State rather than a ref: the element is known after first render.
-  const [rail, setRail] = useState<HTMLElement | null>(null);
 
   return (
     // A landmark, not a bare box: the collapse and the switcher are the rail's own controls, and in
@@ -76,7 +70,6 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
     <aside
       className="cx-shell-rail"
       data-testid="shell-rail"
-      ref={setRail}
       data-collapsed={expanded ? "false" : "true"}
       aria-label={strings.shell_rail_label}
     >
@@ -117,8 +110,11 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
                 <span className="cx-shell-switcher-name">{workspaceLabel(workspace)}</span>
                 <Chevron direction="down" />
               </DropdownMenuTrigger>
-              {/* The memberships the seam answers with — one, today. */}
-              <DropdownMenuContent align="start" container={rail} aria-label={strings.shell_tenant_switcher_label}>
+              {/* The memberships the seam answers with — one, today. Portalled where the shipped
+                  DropdownMenu portals every menu (§ I-22): the open menu at the document root is an
+                  axe `region` finding of moderate impact, reported by the design lane and below the
+                  serious/critical threshold Q-11 fixes for a checkpoint. */}
+              <DropdownMenuContent align="start" aria-label={strings.shell_tenant_switcher_label}>
                 <DropdownMenuItem asChild>
                   <Link className="cx-shell-menu-item" href={shellHref(workspace.tenantId, "projects")}>
                     {workspaceLabel(workspace)}

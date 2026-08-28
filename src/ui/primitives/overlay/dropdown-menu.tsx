@@ -2,7 +2,7 @@
 /**
  * R-UI-010's DropdownMenu, restyled Radix. Radix unifies pointer and keyboard highlight on
  * `[data-highlighted]`, so the menu has one highlighted state rather than two (R-UI-012); the
- * content is portalled to `document.body` unless the caller names a container of its own.
+ * content is portalled to `document.body`.
  */
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import type { ComponentProps } from "react";
@@ -28,20 +28,11 @@ export function DropdownMenuTrigger({ className, ...rest }: DropdownMenuTriggerP
   );
 }
 
-export interface DropdownMenuContentProps extends ComponentProps<typeof DropdownMenuPrimitive.Content> {
-  /**
-   * Where the open menu is portalled. Default `document.body`, as before; a caller passes its own
-   * element when the menu must land inside a landmark — content parked at the document root is an
-   * axe `region` violation, and only the caller knows which of its regions the menu belongs to.
-   * The portalled node is the popper's own `position: fixed` box (Radix portals `asChild`), so a
-   * container contributes no layout, and nothing is rendered there while the menu is closed.
-   */
-  container?: ComponentProps<typeof DropdownMenuPrimitive.Portal>["container"];
-}
+export type DropdownMenuContentProps = ComponentProps<typeof DropdownMenuPrimitive.Content>;
 
-export function DropdownMenuContent({ className, side = "bottom", sideOffset = 6, container, ...rest }: DropdownMenuContentProps) {
+export function DropdownMenuContent({ className, side = "bottom", sideOffset = 6, ...rest }: DropdownMenuContentProps) {
   return (
-    <DropdownMenuPrimitive.Portal container={container}>
+    <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         {...rest}
         side={side}

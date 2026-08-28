@@ -191,13 +191,16 @@ one plain sentence rather than as peers. The same class carries the switcher's l
 Items, in order: `shell-user-sessions` — a link item to `/sessions`, label
 `shell_user_sessions` (paying s-auth's recorded R-UI-031 debt) · `shell-user-signout` —
 label `shell_user_signout`, invoking the sign-out server action; on success the person lands
-on `/sign-in`, which is itself the visible way back in (AC-2). The open menu is portalled into
-the top bar itself, not to `document.body`: a menu parked at the document root is page content
-outside every landmark, which axe reports as `region` the moment `shell-user` is opened, and the
-bar is the landmark the menu belongs to. The shipped DropdownMenu takes the container as an
-optional prop (default `document.body`, unchanged for every caller outside this frame) and portals the
-popper's own `position: fixed` box `asChild`, so the container contributes no layout and nothing
-is rendered in the bar while the menu is closed — the frame's baselines are untouched.
+on `/sign-in`, which is itself the visible way back in (AC-2). Both shell menus carry
+`modal={false}` — the modal treatment marks the rest of the frame `aria-hidden` while leaving its
+links focusable, a serious `aria-hidden-focus` Q-11 admits at no checkpoint — and both are
+portalled where the shipped DropdownMenu portals every menu in the tree, to `document.body`.
+**I-22**: an open menu at the document root is page content outside every landmark, which axe
+reports as `region` at moderate impact; the design lane reports it and the checkpoint threshold
+(serious and critical, `tests/e2e/support/checkpoint.ts`) does not fail on it. Giving the
+primitive a portal container would widen a component the whole tree shares, from an increment
+that does not own `src/ui/primitives/**`, so that cure belongs to the primitive's own node —
+with an entry in its own Decision and a test in the primitives suite covering the new prop.
 
 **Main** (`data-testid="shell-main"`): the routed page, `<main>`, padding `var(--space-6)`,
 `overflow: auto`. **Inspector** (`ShellInspector`, `data-testid="shell-inspector"`):
@@ -331,6 +334,17 @@ forbids; this section is the ruling, `SHELL_STATES` is the same ruling in a walk
   no workspace at all, `{ href: "/", label: shell_evidence_home }` — the visible way onward.
   Unauthenticated is never this state: it is the `/sign-in` redirect (AC-3).
 
+  **Recorded, not fixed here: the shell's prose and the registered refusal beneath it speak
+  different vocabularies.** On this one 560 px column the shell says *workspace* and *membership*
+  and describes an address that was opened, while the registered `PERMISSION_NOT_HELD` entry
+  directly under it says "Your roles on this **project** do not carry the permission this
+  **action** needs. Ask a principal of the project to give you a role that carries it." Three
+  clashes — project/workspace, roles/membership, and an action nobody performed — read as a bug
+  rather than as generic copy precisely because the two sentences are adjacent. I-17 records the
+  refusal wording as registry-owned and renders it as registered, and `src/core/errors.ts` is
+  another node's, so the fix is that node's: either a workspace-neutral registered sentence, or a
+  per-surface remedy the registry admits. Nothing here paraphrases a registered refusal.
+
 ## 3. Copy, verbatim (`src/ui/strings/shell.ts`)
 
 `shell_home_workspace_door` **Open your workspace** · `shell_rail_label` **Workspace
@@ -407,6 +421,17 @@ hairlines; selection is beam-100 fill + beam-500 bar in both. The one theme-stab
 is the mark (I-16): fixed indigo facets in both themes, decorative. Contrast holds on
 founder facts: graphite-700 and 600 on graphite-0/50 ≥ 4.5:1, graphite-900 on beam-100,
 beam-600 on graphite-0 and info-surface ≥ 4.5:1, beam-500 bar ≥ 3:1 as UI.
+
+**Recorded, not fixed here: in light theme the one-stop step reads as no step at all.** At
+1440×900 the light frame's rail, main field and inspector read as one continuous flat field and
+the structure is carried entirely by the two hairlines; dark delivers the same step plainly. The
+paint is exactly what this section promises — graphite-50 against graphite-0, one stop, no
+literal — so this is a perceptual note about the founder palette's light end, not a token
+violation, and the remedy is a palette question (`src/ui/tokens`, another node's) rather than a
+shell one: a shell-side override would author a value outside the ramp. It is also not
+repairable from here in fact: `tests/e2e/baselines/design/shell-user-menu-open.png` and
+`shell-tenant-switcher-open.png` are locked Verifier baselines of the light frame, and any
+repaint of the rail's ground reddens both.
 
 **Recorded, not fixed here: the theme resolves once, at document load.** `src/app/layout.tsx`
 sets `data-theme` at first paint from a one-shot `matchMedia` read with no `change` listener,
