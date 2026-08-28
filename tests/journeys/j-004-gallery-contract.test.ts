@@ -13,7 +13,7 @@
  * Nothing below transcribes the spec's prose: each assertion is a property the contract fixes,
  * read off whatever the increment ships.
  */
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
@@ -28,8 +28,12 @@ const CONFIG = "playwright.config.ts";
 const BASELINES = ["tests/e2e/baselines/design/gallery-shell-light.png", "tests/e2e/baselines/design/gallery-shell-dark.png"];
 const SNAPSHOT_TEMPLATE = "tests/e2e/baselines/{arg}{ext}";
 
-/** The journeys J-000 still owns after this increment — the files the gate's other invocation walks. */
-const J000_SPECS = ["tests/e2e/j-000-golden-path.e2e.ts", "tests/e2e/journeys/j-000-smoke.spec.ts"];
+/**
+ * The tag the gate's other invocation greps for. Which FILES carry it is J-000's own surface to
+ * arrange — a rename, a split or a consolidation there is lawful — so this suite names the tag and
+ * derives the files, never the other way round (B-19).
+ */
+const OTHER_JOURNEY = "J-000";
 
 /** The impacts Q-11 gates on — never widened to any impact, never narrowed away. */
 const BLOCKING_IMPACTS = ["critical", "serious"];
@@ -240,11 +244,47 @@ function globToRegExp(glob: string): RegExp {
   return new RegExp(`^${pattern}$`);
 }
 
+function testDirOf(configCode: string): string {
+  return stringProperty(configCode, "testDir") ?? "tests/e2e";
+}
+
+function testMatchGlobs(configCode: string): string[] {
+  return [...configCode.matchAll(/\btestMatch\s*:\s*(\[[\s\S]*?\])/g)].flatMap((match) => stringArrays(match[1] ?? "")).flat();
+}
+
 function collectsSpec(configCode: string, specPath: string): boolean {
-  const testDir = stringProperty(configCode, "testDir") ?? "tests/e2e";
+  const testDir = testDirOf(configCode);
   const relative = specPath.startsWith(`${testDir}/`) ? specPath.slice(testDir.length + 1) : specPath;
-  const matchArrays = [...configCode.matchAll(/\btestMatch\s*:\s*(\[[\s\S]*?\])/g)].flatMap((match) => stringArrays(match[1] ?? ""));
-  return matchArrays.flat().some((glob) => globToRegExp(glob).test(relative));
+  return testMatchGlobs(configCode).some((glob) => globToRegExp(glob).test(relative));
+}
+
+/**
+ * Every spec file the config collects, as repo-relative paths: the tree under `testDir`, walked,
+ * filtered by the config's own `testMatch` globs. A config `grep` would not narrow this — the gate
+ * invokes `--grep <journey>` on the command line, and Playwright's CLI grep replaces the config's —
+ * so which of these files a given invocation runs is decided by their titles alone, below.
+ */
+function collectedSpecs(configCode: string): string[] {
+  const testDir = testDirOf(configCode);
+  const globs = testMatchGlobs(configCode);
+  const root = join(REPO_ROOT, testDir);
+  const found: string[] = [];
+  const walk = (directory: string, prefix: string): void => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const relative = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
+      if (entry.isDirectory()) walk(join(directory, entry.name), relative);
+      else if (globs.some((glob) => globToRegExp(glob).test(relative))) found.push(`${testDir}/${relative}`);
+    }
+  };
+  if (existsSync(root)) walk(root, "");
+  return found.sort();
+}
+
+/** The collected specs whose own titles mark them as a journey's — what `--grep <journey>` runs. */
+function specsTagged(configCode: string, journey: string): string[] {
+  return collectedSpecs(configCode).filter((spec) =>
+    titlesIn(stripComments(readFileSync(join(REPO_ROOT, spec), "utf8"))).some((title) => title.includes(journey)),
+  );
 }
 
 describe("AC-3 — the gate collects J-004, and J-004 drives /design in both themes", () => {
@@ -258,21 +298,30 @@ describe("AC-3 — the gate collects J-004, and J-004 drives /design in both the
     ).toBeGreaterThan(0);
   });
 
-  test("AC-3: playwright.config.ts still collects J-004 and both J-000 spellings", () => {
+  test("AC-3: playwright.config.ts collects the J-004 spec", () => {
     const configCode = readCode(CONFIG);
-    for (const spec of [SPEC, ...J000_SPECS]) {
-      expect(collectsSpec(configCode, spec), `${spec} is matched by a testMatch entry — a spec the config does not collect is green by omission`).toBe(true);
-    }
+    expect(
+      collectsSpec(configCode, SPEC),
+      `${SPEC} is matched by a testMatch entry — a spec the config does not collect is green by omission`,
+    ).toBe(true);
   });
 
-  test("AC-3: J-000's specs are still in the tree and still carry their tag", () => {
-    for (const spec of J000_SPECS) {
-      const code = readCode(spec);
-      expect(
-        titlesIn(code).filter((title) => title.includes("J-000")).length,
-        `${spec} still carries its J-000 tag — this increment adds a route and changes nothing J-000 walks`,
-      ).toBeGreaterThan(0);
-    }
+  test("AC-3: the gate's other invocation still walks a collected, J-000-tagged surface", () => {
+    const configCode = readCode(CONFIG);
+    // Which files J-000 is written in is J-000's own business — this increment adds a route and
+    // changes nothing it walks. What must hold is that `pnpm e2e --journey J-000` still finds
+    // something: at least one collected spec whose titles carry the tag the grep looks for.
+    const otherJourney = specsTagged(configCode, OTHER_JOURNEY);
+    expect(
+      otherJourney.length,
+      `\`pnpm e2e --journey ${OTHER_JOURNEY}\` becomes \`--grep ${OTHER_JOURNEY}\`, and an unmatched grep exits 1: after this increment at least one spec the config collects must still carry that tag. Collected specs: ${JSON.stringify(collectedSpecs(configCode))}`,
+    ).toBeGreaterThan(0);
+    // …and it is a surface of its own: this increment's spec answers to J-004, never to the grep
+    // that runs the other journey.
+    expect(
+      otherJourney.includes(SPEC),
+      `${SPEC} is J-004's spec — carrying ${OTHER_JOURNEY} in a title would smuggle it into the other invocation`,
+    ).toBe(false);
   });
 
   test("AC-3: the journey drives /design and both document themes", () => {
