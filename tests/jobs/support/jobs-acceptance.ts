@@ -301,3 +301,118 @@ export function eventIdentity(event: JobEvent): string {
 export function uniqueKey(label: string): string {
   return `${label}-${process.pid.toString(36)}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
+
+/** What one polling-transport answer said about a job: its log, and whether the job has ended. */
+export type PollSnapshot = { events: JobEvent[]; done: boolean };
+
+/**
+ * Poll a job to its end through the polling transport, judging every snapshot against its OWN
+ * events: while a snapshot's log has not reached a terminal event, that snapshot is not done.
+ *
+ * Reading `done` and the events out of one answer is what makes this fair — the job finishing
+ * between two readings can never turn a correct answer into a failure. `unfinished` counts the
+ * snapshots taken while the job was still queued-or-active, so a caller can insist the
+ * not-yet-done case was actually reached: a `done` that is a constant rather than an answer about
+ * the log cannot survive being asked before the job ends.
+ */
+export async function pollToFinished(
+  poll: (jobId: string) => Promise<Response>,
+  jobId: string,
+  budgetMs: number,
+  everyMs = 100,
+): Promise<{ unfinished: number; last: PollSnapshot }> {
+  let unfinished = 0;
+  let last: PollSnapshot = { events: [], done: false };
+  await waitUntil(
+    async () => {
+      const answer = await poll(jobId);
+      expect(answer.status, "the poll fallback answers 200 while the job is still running too").toBe(200);
+      last = (await answer.json()) as PollSnapshot;
+      if (isTerminal(last.events.at(-1))) return true;
+      unfinished += 1;
+      expect(
+        last.done,
+        `a poll snapshot of job ${jobId} whose last event is ${JSON.stringify(last.events.at(-1)?.status ?? null)} has not reached a terminal event, so it is not done`,
+      ).toBe(false);
+      return false;
+    },
+    `the poll transport reported job ${jobId} as finished`,
+    budgetMs,
+    everyMs,
+  );
+  return { unfinished, last };
+}
+
+/** One kind's policy, read from the seam — acceptance never transcribes a limit of its own (B-19). */
+export function policyFor(jobs: JobsModule, kind: string): JobKindPolicy {
+  const policy = jobs.JOB_KINDS[kind];
+  expect(policy, `JOB_KINDS must carry \`${kind}\`, the kind the spec builds in`).toBeDefined();
+  for (const field of ["concurrency", "retryLimit", "retryDelaySeconds"] as const) {
+    expect(typeof policy?.[field], `JOB_KINDS.${kind}.${field} must be a number acceptance can read`).toBe("number");
+  }
+  return policy as JobKindPolicy;
+}
+
+/**
+ * Every slot one runtime has for a kind, taken by jobs of that kind — the way a test proves that
+ * something OTHER than the calling process ran a job.
+ *
+ * `slots` is `JOB_KINDS[kind].concurrency`, read from the seam rather than transcribed: a kind whose
+ * limit is raised later fills more slots instead of reddening the proof (B-19).
+ */
+export type Blockade = { jobIds: string[]; kind: string; slots: number };
+
+/** A step delay long enough to read in a log, short enough that a long hold is just many steps. */
+export const HOLD_STEP_MS = 2000;
+
+/**
+ * Fill every slot the CALLING process's runtime has for a kind, and wait until it is demonstrably
+ * full — each holding job has an attempt of its own under way.
+ *
+ * This must be done while the calling process is the ONLY consumer in existence (before any worker
+ * is spawned), so the slots it takes are demonstrably its own. R-SPINE-030's concurrency limit then
+ * says the calling process cannot start anything else of that kind: whatever runs the next job
+ * enqueued is somewhere else. `stepCount` sets how long the hold lasts — at least
+ * `(stepCount - 1) * HOLD_STEP_MS`, whether the seam waits before each step or between them.
+ */
+export async function holdEveryLocalSlot(jobs: JobsModule, kind: string, label: string, stepCount: number): Promise<Blockade> {
+  const policy = policyFor(jobs, kind);
+  const steps = Array.from({ length: stepCount }, (_unused, index) => `hold-${index}`);
+  const jobIds: string[] = [];
+  for (let slot = 0; slot < policy.concurrency; slot += 1) {
+    const { jobId } = await jobs.enqueue(kind, { steps, stepDelayMs: HOLD_STEP_MS }, { key: uniqueKey(`${label}-hold-${slot}`) });
+    jobIds.push(jobId);
+  }
+  await waitUntil(
+    async () => {
+      for (const jobId of jobIds) if (startsOf(await jobs.jobEvents(jobId)).length === 0) return false;
+      return true;
+    },
+    `all ${policy.concurrency} of the calling runtime's \`${kind}\` slots were taken (JOB_KINDS.${kind}.concurrency)`,
+    180_000,
+  );
+  return { jobIds, kind, slots: policy.concurrency };
+}
+
+/**
+ * How many of those slots were still occupied at one instant, read from the holds' own event logs: a
+ * hold occupies a slot from its attempt's `started` until its terminal event, and a hold that has
+ * not ended yet is still holding.
+ */
+export async function slotsHeldAt(jobs: JobsModule, blockade: Blockade, instantMs: number): Promise<number> {
+  let held = 0;
+  for (const jobId of blockade.jobIds) {
+    const events = await jobs.jobEvents(jobId);
+    const start = startsOf(events)[0];
+    const last = events.at(-1);
+    if (start === undefined || last === undefined) continue;
+    const until = isTerminal(last) ? atMs(last) : Number.POSITIVE_INFINITY;
+    if (atMs(start) <= instantMs && instantMs <= until) held += 1;
+  }
+  return held;
+}
+
+/** Let the holds run out, so nothing of ours is still in flight when the runtime is stopped. */
+export async function releaseHolds(jobs: JobsModule, blockade: Blockade, budgetMs: number): Promise<void> {
+  for (const jobId of blockade.jobIds) await waitForTerminal(jobs, jobId, budgetMs);
+}

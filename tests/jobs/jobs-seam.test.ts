@@ -17,6 +17,12 @@
  * that also *runs* the registered kinds in the calling process; the separate worker process
  * (AC-3) is the same runtime in its own process, not the only place work can happen.
  *
+ * That reading is exactly why AC-3 cannot simply watch a job finish: this process would have
+ * finished it. So AC-3 first takes every slot this runtime has for the kind — while no worker exists
+ * anywhere, so the slots are demonstrably ours — and only then enqueues the job it judges.
+ * R-SPINE-030's concurrency limit makes that job unreachable from here, so "processed by that
+ * worker" is what the terminal event means, and a worker that subscribes to nothing cannot pass.
+ *
  * The suite stages once, lazily and memoised, and every test awaits that staging as its first line:
  * a `beforeAll` that throws leaves every test skipped, and a skipped test judges no criterion.
  */
@@ -26,11 +32,16 @@ import {
   EVENTS_ROUTE_MODULE,
   eventIdentity,
   freePort,
+  holdEveryLocalSlot,
   isTerminal,
   jobFrames,
   JOBS_MODULE,
+  policyFor,
+  pollToFinished,
   productModule,
   readEventStream,
+  releaseHolds,
+  slotsHeldAt,
   spawnWorker,
   startsOf,
   TERMINAL_STATUSES,
@@ -57,6 +68,16 @@ const ORDER_SLACK_MS = 500;
 
 /** Long enough that a second enqueue lands while the first job is still queued-or-active. */
 const SLOW_STEP_MS = 1200;
+
+/**
+ * How many steps a holding job runs for while AC-3 proves the worker did the work. Each step waits
+ * `HOLD_STEP_MS`, so the hold outlasts spawning a worker and running a two-step probe by a wide
+ * margin, and the test waits the holds out before it ends rather than leaving work behind.
+ */
+const AC3_HOLD_STEPS = 50;
+
+/** How long AC-3 watches a job this process is not allowed to touch, before a worker exists. */
+const UNREACHABLE_MS = 4000;
 
 type Staged = { jobs: JobsModule; databaseUrl: string };
 
@@ -89,16 +110,6 @@ afterAll(async () => {
   }
   await dropDatabase?.();
 }, 120_000);
-
-/** The policy for one kind, read from the seam — never transcribed into this file. */
-function policyFor(jobs: JobsModule, kind: string) {
-  const policy = jobs.JOB_KINDS[kind];
-  expect(policy, `JOB_KINDS must carry \`${kind}\`, the kind the spec builds in`).toBeDefined();
-  for (const field of ["concurrency", "retryLimit", "retryDelaySeconds"] as const) {
-    expect(typeof policy?.[field], `JOB_KINDS.${kind}.${field} must be a number acceptance can read`).toBe("number");
-  }
-  return policy!;
-}
 
 /** Every event of a job, in the order the log holds them, with the seq order it claims. */
 function expectSeqOrder(events: readonly JobEvent[], what: string): void {
@@ -234,7 +245,14 @@ describe("SEAM-JOBS: the typed, idempotent queue and its event log", () => {
       await route.GET(new Request(`http://127.0.0.1/api/events?jobId=${encodeURIComponent(jobId)}${transport === undefined ? "" : `&transport=${transport}`}`));
 
     // A job no SSE client ever attaches to — the polling fallback must stand on its own.
-    const polled = await jobs.enqueue(PROBE, { steps: ["survey", "settle"], stepDelayMs: 50 }, { key: uniqueKey("ac4-poll") });
+    const polled = await jobs.enqueue(PROBE, { steps: ["survey", "settle", "sign"], stepDelayMs: 400 }, { key: uniqueKey("ac4-poll") });
+
+    // `done` is an answer about the log, not a constant: while the job is still queued-or-active the
+    // snapshot must say so. Every snapshot is judged against its own events, so nothing here races
+    // the job finishing, and the count proves the not-yet-done case was really reached.
+    const watchedPoll = await pollToFinished(async (jobId) => await ask(jobId, "poll"), polled.jobId, 180_000);
+    expect(watchedPoll.unfinished, "the poll transport was asked at least once while the job was still queued-or-active").toBeGreaterThan(0);
+
     const polledEvents = await waitForTerminal(jobs, polled.jobId, 120_000);
 
     const pollAnswer = await ask(polled.jobId, "poll");
@@ -266,8 +284,23 @@ describe("SEAM-JOBS: the typed, idempotent queue and its event log", () => {
     expect(jobFrames(backfillRead.frames).map(eventIdentity), "a late subscriber receives the full history first").toEqual(streamedLog.map(eventIdentity));
   }, 300_000);
 
-  test("AC-3: the worker is a separate process with a health endpoint, and drains on SIGTERM", async () => {
+  test("AC-3: the worker is a separate process that does the work, has a health endpoint, and drains on SIGTERM", async () => {
     const { jobs, databaseUrl } = await staged();
+    const policy = policyFor(jobs, PROBE);
+
+    // "…processed by that worker" is the whole point of AC-3, so the job under test is put somewhere
+    // this process CANNOT reach it. Every slot this runtime has for the kind is taken first, while
+    // no worker exists anywhere — so the holds are demonstrably ours — and R-SPINE-030's concurrency
+    // limit then says nothing else of that kind may start here. Whatever runs the next job is not us.
+    const blockade = await holdEveryLocalSlot(jobs, PROBE, "ac3", AC3_HOLD_STEPS);
+
+    const { jobId } = await jobs.enqueue(PROBE, { steps: ["survey", "settle"], stepDelayMs: 50 }, { key: uniqueKey("ac3") });
+    await new Promise((resolveWait) => setTimeout(resolveWait, UNREACHABLE_MS));
+    expect(
+      startsOf(await jobs.jobEvents(jobId)).length,
+      `all ${blockade.slots} of this runtime's ${PROBE} slots (JOB_KINDS.${PROBE}.concurrency = ${policy.concurrency}) are held, so job ${jobId} cannot begin here — it is waiting for a worker`,
+    ).toBe(0);
+
     const healthPort = await freePort();
     const worker = spawnWorker(databaseUrl, healthPort);
     try {
@@ -283,10 +316,23 @@ describe("SEAM-JOBS: the typed, idempotent queue and its event log", () => {
       expect(reported.queues, "the worker's health answer lists every kind the seam registers").toEqual(expect.arrayContaining(Object.keys(jobs.JOB_KINDS)));
       expect(Object.keys(jobs.JOB_KINDS), "the built-in probe kind is one of them").toContain(PROBE);
 
-      const { jobId } = await jobs.enqueue(PROBE, { steps: ["survey", "settle"], stepDelayMs: 50 }, { key: uniqueKey("ac3") });
-      const events = await waitForTerminal(jobs, jobId, 180_000);
-      expect(events.at(-1)?.status, "a probe enqueued while the worker runs reaches a terminal succeeded event").toBe("succeeded");
+      const events = await waitForTerminal(jobs, jobId, 240_000);
+      expect(events.at(-1)?.status, "a probe the worker picks up reaches a terminal succeeded event").toBe("succeeded");
       expect(TERMINAL_STATUSES.has(events.at(-1)!.status), "the last event is terminal").toBe(true);
+
+      // …and it was the worker that processed it: this process was still full at both ends of the job,
+      // so neither the attempt that began it nor the one that ended it can have been ours.
+      const began = startsOf(events)[0];
+      expect(began, `job ${jobId} reached a terminal event without ever recording an attempt start`).toBeDefined();
+      for (const [when, instant] of [
+        ["began", atMs(began!)],
+        ["ended", atMs(events.at(-1)!)],
+      ] as const) {
+        expect(
+          await slotsHeldAt(jobs, blockade, instant),
+          `when job ${jobId} ${when}, all ${blockade.slots} of this process's ${PROBE} slots were still held by the holding jobs — the spawned worker is the only thing that could have run it`,
+        ).toBeGreaterThanOrEqual(blockade.slots);
+      }
 
       worker.kill("SIGTERM");
       await worker.waitForLine("worker: draining", 60_000);
@@ -301,5 +347,6 @@ describe("SEAM-JOBS: the typed, idempotent queue and its event log", () => {
       worker.kill("SIGKILL");
       await worker.exited();
     }
-  }, 420_000);
+    await releaseHolds(jobs, blockade, 600_000);
+  }, 900_000);
 });
