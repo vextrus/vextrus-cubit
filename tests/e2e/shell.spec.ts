@@ -8,7 +8,7 @@
 import { expect, test } from "@playwright/test";
 import { strings } from "../../src/ui/strings";
 import { SAuthPage, S_AUTH } from "./pages/s-auth.page";
-import { ShellPage, SHELL } from "./pages/shell.page";
+import { ShellPage, SHELL, SHELL_AREAS } from "./pages/shell.page";
 import { checkpoint } from "./support/checkpoint";
 import { newestMail } from "./support/outbox";
 
@@ -74,6 +74,27 @@ test.describe("J-004 — the signed-in application shell", () => {
     await expect(shell.tenantSwitcher, "the switcher wears the name entered at sign-up (R-UI-033)").toContainText(WORKSPACE);
     await expect(shell.breadcrumb, "and so does the breadcrumb").toContainText(WORKSPACE);
     expect(await shell.selectedArea(), "the workspace home selects Projects, because the URL says so").toEqual(["projects"]);
+
+    /* --- and the selection is PAINTED the way R-UI-030 spells it (3 px inset beam bar + beam-100
+       row fill). A browser is the only lane that can grade this: jsdom lays nothing out and
+       resolves no `var()`. Both sides of every comparison are resolved inside the page, by token
+       name, so nothing here spells a colour (R-UI-001). --- */
+    const palette = await shell.tokenPalette();
+    const beam = palette.filter((token) => token.name.startsWith("--beam-")).map((token) => token.colour);
+    expect(beam.length, "the page declares a --beam-* token family for the selection bar to be drawn from").toBeGreaterThan(0);
+    const rowFill = palette.find((token) => token.name === "--beam-100")?.colour;
+    expect(rowFill, "R-UI-030 names --beam-100 for the selected row's fill, and the page declares it").toBeTruthy();
+
+    const [selected = "projects"] = await shell.selectedArea();
+    expect(await shell.paintedFill(selected), `R-UI-030: the selected entry (${selected}) wears the beam-100 row fill`).toBe(rowFill);
+    const bars = (await shell.insetStrips(selected, "3px")).filter((strip) => beam.includes(strip.colour));    expect(bars.length, `R-UI-030: the selected entry (${selected}) paints a 3 px inset beam bar`).toBeGreaterThan(0);
+
+    // The other half of "selection = …": an entry that is not selected wears neither, or the paint
+    // is decoration rather than a reading of the URL.
+    for (const area of SHELL_AREAS.filter((candidate) => candidate !== selected)) {
+      expect(await shell.paintedFill(area), `${area} is not selected, so it does not wear the selected row's fill`).not.toBe(rowFill);
+      expect((await shell.insetStrips(area, "3px")).filter((strip) => beam.includes(strip.colour)), `${area} is not selected, so it carries no beam bar`).toStrictEqual([]);
+    }
 
     await expect(shell.root).toHaveScreenshot("shell-light.png");
     await checkpoint(page, testInfo, "j004-shell-light");
