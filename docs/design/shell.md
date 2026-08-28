@@ -213,7 +213,8 @@ arrives or the answer may never be announced (Q-11), and the same wrapper carrie
 settings screen's saved notice. Inside it the answer renders at
 `<div data-testid="shell-sample-outcome" role="status">`, `var(--space-3)` below the slot:
 for `{ available: false }` (the M0 shipped answer) the s-auth notice chrome — fill
-`var(--info-surface)`, border 1 px solid `var(--info)`, radius `var(--radius-4)`, padding
+`var(--info-surface)`, border `var(--hairline)` re-keyed to `border-color: var(--info)`,
+radius `var(--radius-4)`, padding
 `var(--space-3)` `var(--space-4)`, text `var(--text-13)` `var(--graphite-900)` — reading
 `shell_sample_unavailable`; never a fault, never a refusal code. For `{ seeded: true, goTo }`
 (I-003, M1) the client navigates to `goTo`; no outcome text renders. The offer stays enabled
@@ -246,7 +247,8 @@ receives a `role="status"` notice (the §1 notice chrome) reading
 by role inside `shell-settings-name` is the notice itself and only when there is one. A blank or whitespace-only name renders in the slot as `<div
 data-testid="shell-rename-refusal">` wrapping one `role="alert"` line reading
 `shell_rename_refusal` (I-22) — the door's own copy, no registry entry. That line wears the
-ALERT chrome (`cx-shell-alert`: `var(--danger-surface)` fill, 1 px `var(--danger)` border,
+ALERT chrome (`cx-shell-alert`: `var(--danger-surface)` fill, `var(--hairline)` border
+re-keyed to `border-color: var(--danger)`,
 `var(--radius-4)`, padding `var(--space-3) var(--space-4)`, `var(--weight-body-medium)`),
 never the notice chrome: the notice belongs to the saved answer and the sample outcome, and
 a rejected save that wears it differs from a completed one only in its sentence. A settled refusal
@@ -366,12 +368,10 @@ token zeroed at source under reduced motion; no bounce anywhere.
 `--motion-state/--motion-panel/--ease`. Px
 literals, closed set (core I-1's class): rail 240/48, inspector 280, mark 26, beam bar 3,
 chevron 12 with 2 px stroke, trigger ellipsis 280, column measures min(380/420/480/560px …),
-skeleton bones 24/16 × 240/480, the lg media-query value, and the 1 px width of the notice's
-and the alert's own border. That last one is not an omission being covered over: `--hairline`
-is a whole shorthand (`1px solid var(--graphite-200)`) and cannot carry a `--info` or
-`--danger` edge, so a coloured 1 px border is spelled `1px solid var(--token)` exactly as the
-tree spells it everywhere else it draws one (`refusal-state.css`, `s-auth.css`, `core.css`) —
-which §1 already prescribes for both. Any other literal is a defect.
+skeleton bones 24/16 × 240/480, and the lg media-query value. A coloured edge adds nothing to
+that set: the notice and the alert take width and style from `var(--hairline)` and re-key only
+the colour (`border-color: var(--info)` / `var(--danger)`), which is what §1 prescribes for
+both. Any other literal is a defect.
 
 ## 6. Themes
 
