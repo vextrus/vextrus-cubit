@@ -50,6 +50,9 @@ export type DeadLetter = { jobId: string; kind: JobKind; key: string; cause: str
 const START_STEP = "start";
 const FINISH_STEP = "finish";
 
+/** What an attempt holds instead of a failure when it had none — `undefined` is a lawful throw. */
+const NOTHING_WENT_WRONG = Symbol("nothing went wrong");
+
 /** How long a watcher waits for a nudge before reading the log again anyway. */
 const WATCH_POLL_MS = 250;
 
@@ -288,26 +291,47 @@ async function perform(running: Runtime, kind: JobKind, job: QueuedJob): Promise
   };
 
   await write("started", START_STEP, { detail: { tempDir } });
+  let failure: unknown = NOTHING_WENT_WRONG;
   try {
     await dispatch(kind, envelope.payload, progress);
+  } catch (thrown) {
+    // Held rather than answered here: how an attempt ended is decided below, once — and the
+    // invocation's directory is taken away before that ending is recorded, whichever ending it is.
+    failure = thrown;
+  }
+  // Per invocation, and gone before the attempt's last word is written (R-SPINE-031): a reader that
+  // has seen an attempt end can trust that the directory that attempt named is no longer there.
+  await discard(tempDir, { jobId: job.jobId, kind, key });
+
+  if (failure === NOTHING_WENT_WRONG) {
     await write("succeeded", FINISH_STEP);
-  } catch (failure) {
-    const refusalCode = refusalCodeOf(failure);
-    // A refusal is an answer, so it ends the job here rather than being retried, and no fault is
-    // reported for it (B-21).
-    if (refusalCode !== null) {
-      await write("refused", lastStep, { refusalCode, detail: { cause: String(failure) } });
-      return;
-    }
-    if (job.attempt <= policy.retryLimit) {
-      await write("progress", lastStep, { detail: { cause: String(failure), attemptFailed: job.attempt, willRetry: true } });
-      throw failure;
-    }
-    const { faultId } = reportFault({ requestId: job.jobId, actor: `${kind}:${key}`, route: `job/${kind}`, cause: failure });
-    await write("failed", lastStep, { faultId, detail: { cause: String(failure) } });
+    return;
+  }
+  const refusalCode = refusalCodeOf(failure);
+  // A refusal is an answer, so it ends the job here rather than being retried, and no fault is
+  // reported for it (B-21).
+  if (refusalCode !== null) {
+    await write("refused", lastStep, { refusalCode, detail: { cause: String(failure) } });
+    return;
+  }
+  if (job.attempt <= policy.retryLimit) {
+    await write("progress", lastStep, { detail: { cause: String(failure), attemptFailed: job.attempt, willRetry: true } });
     throw failure;
-  } finally {
-    // Per invocation, and gone when the invocation is (R-SPINE-031).
+  }
+  const { faultId } = reportFault({ requestId: job.jobId, actor: `${kind}:${key}`, route: `job/${kind}`, cause: failure });
+  await write("failed", lastStep, { faultId, detail: { cause: String(failure) } });
+  throw failure;
+}
+
+/**
+ * Take the invocation's directory away. A cleanup that fails is an outage of ours and not the
+ * job's, so it is reported to the fault seam and the attempt's ending is still recorded — a job
+ * that ran must never lose its ending to a directory that would not go (ARCH-03, R-SPINE-030).
+ */
+async function discard(tempDir: string, job: { jobId: string; kind: JobKind; key: string }): Promise<void> {
+  try {
     await rm(tempDir, { recursive: true, force: true });
+  } catch (failure) {
+    reportFault({ requestId: job.jobId, actor: `${job.kind}:${job.key}`, route: `job/${job.kind}`, cause: failure });
   }
 }
