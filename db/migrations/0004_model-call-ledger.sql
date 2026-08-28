@@ -13,7 +13,9 @@ CREATE TABLE "model_calls" (
 	"called_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "model_calls_transport_closed" CHECK ("model_calls"."transport" in ('live', 'fixture')),
 	CONSTRAINT "model_calls_outcome_closed" CHECK ("model_calls"."outcome" in ('proposed', 'refused')),
-	CONSTRAINT "model_calls_refusal_code_iff_refused" CHECK (("model_calls"."refusal_code" is not null) = ("model_calls"."outcome" = 'refused'))
+	CONSTRAINT "model_calls_refusal_code_iff_refused" CHECK (("model_calls"."refusal_code" is not null) = ("model_calls"."outcome" = 'refused')),
+	CONSTRAINT "model_calls_tokens_counted" CHECK ("model_calls"."input_tokens" >= 0 and "model_calls"."output_tokens" >= 0),
+	CONSTRAINT "model_calls_cost_is_money" CHECK ("model_calls"."attributed_cost" >= 0 and "model_calls"."attributed_cost" < 'Infinity'::numeric)
 );
 --> statement-breakpoint
 CREATE TABLE "model_fixtures" (

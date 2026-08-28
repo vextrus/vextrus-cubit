@@ -1,5 +1,5 @@
 {
-  "id": "767ae428-e23a-4bd8-989d-ef3deb361b2f",
+  "id": "f2490b36-489c-4e55-a0fc-8a6d0c1ea3e9",
   "prevId": "a777b8a0-7a6e-4683-8613-9d1104036e33",
   "version": "7",
   "dialect": "postgresql",
@@ -757,6 +757,14 @@
         "model_calls_refusal_code_iff_refused": {
           "name": "model_calls_refusal_code_iff_refused",
           "value": "(\"model_calls\".\"refusal_code\" is not null) = (\"model_calls\".\"outcome\" = 'refused')"
+        },
+        "model_calls_tokens_counted": {
+          "name": "model_calls_tokens_counted",
+          "value": "\"model_calls\".\"input_tokens\" >= 0 and \"model_calls\".\"output_tokens\" >= 0"
+        },
+        "model_calls_cost_is_money": {
+          "name": "model_calls_cost_is_money",
+          "value": "\"model_calls\".\"attributed_cost\" >= 0 and \"model_calls\".\"attributed_cost\" < 'Infinity'::numeric"
         }
       },
       "isRLSEnabled": false

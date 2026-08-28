@@ -226,6 +226,15 @@ export const modelCalls = pgTable(
     check("model_calls_outcome_closed", statement`${table.outcome} in ('proposed', 'refused')`),
     // A refused call says which refusal it was, and a proposed one names none: nothing refused it.
     check("model_calls_refusal_code_iff_refused", statement`(${table.refusalCode} is not null) = (${table.outcome} = 'refused')`),
+    // A call spends a whole, non-negative number of tokens — the same judgement `modelCallCost`
+    // makes at the seam's edge, made again by the column, because the ledger is a table other
+    // writers reach and a negative count would subtract from a tenant's attribution.
+    check("model_calls_tokens_counted", statement`${table.inputTokens} >= 0 and ${table.outputTokens} >= 0`),
+    // Money the ledger can add up. `numeric` also admits 'NaN' and the infinities, and sum()
+    // spreads either across every row of the tenant — one such row would make per-project spend
+    // unanswerable rather than wrong by itself. NaN sorts above every number, so the upper bound
+    // shuts it out along with 'Infinity'.
+    check("model_calls_cost_is_money", statement`${table.attributedCost} >= 0 and ${table.attributedCost} < 'Infinity'::numeric`),
     // The read R-AI-005's surfaces make: one tenant's spend, gathered by project.
     index("model_calls_by_project").on(table.tenantId, table.projectId),
   ],
@@ -493,6 +502,30 @@ export type ModelSpend = {
   attributedCost: string;
 };
 
+/** The tenant a handle is armed for, read back from the session the handle's own queries run on. */
+async function armedTenantId(db: TenantDb): Promise<string> {
+  const rows = await db.execute<{ tenantId: string | null }>(statement`select nullif(current_setting('${statement.raw(TENANT_GUC)}', true), '') as "tenantId"`);
+  const tenantId = rows[0]?.tenantId ?? "";
+  if (tenantId === "") {
+    throw new Error("modelSpendByProject needs a tenant's handle — a system-scoped handle would answer one entry per project across every tenant, which no caller could tell from a scoped answer (SEAM-TENANT)");
+  }
+  return tenantId;
+}
+
+/**
+ * A count postgres answered with, as a number. Counts and token sums come back as text because they
+ * are `bigint`s, and one past what a double counts exactly would come back quietly rounded — in the
+ * one surface whose whole job is exact attribution. Unreachable by ordinary spending, and a fault
+ * rather than a wrong total if it ever is reached.
+ */
+function counted(value: string, field: string): number {
+  const total = Number(value);
+  if (!Number.isSafeInteger(total)) {
+    throw new Error(`model spend's ${field} totals ${value}, which is past the last whole number a double counts exactly — the total would be rounded, not reported`);
+  }
+  return total;
+}
+
 /**
  * Per-project model spend for the tenant the handle is scoped to (R-AI-005): one entry per project
  * the tenant has calls for, counting proposed and refused alike — L-AI-01 records every call, and a
@@ -501,8 +534,15 @@ export type ModelSpend = {
  * The money is summed by the database, whose numeric addition is exact, and comes back as a decimal
  * string: a total that became a double on the way out would be a different total. The counts are
  * what postgres answers a count with — text — turned back into numbers here, so no caller has to.
+ *
+ * The tenant is named in the query as well as left to row-level security. `TenantDb` and `SystemDb`
+ * are the same typed surface, so a system handle reaches this function without a type error, and a
+ * read governed by policy alone would answer it with every tenant's calls merged into one entry per
+ * project — an answer indistinguishable from a scoped one. So the handle is asked which tenant it is
+ * armed for: one that names none is refused where it is taken, like `forTenant`'s own tenant id.
  */
 export async function modelSpendByProject(db: TenantDb): Promise<ModelSpend[]> {
+  const tenantId = await armedTenantId(db);
   const rows = await db
     .select({
       projectId: modelCalls.projectId,
@@ -514,16 +554,17 @@ export async function modelSpendByProject(db: TenantDb): Promise<ModelSpend[]> {
       attributedCost: statement<string>`coalesce(sum(${modelCalls.attributedCost}), 0)::text`,
     })
     .from(modelCalls)
+    .where(eq(modelCalls.tenantId, tenantId))
     .groupBy(modelCalls.projectId)
     .orderBy(asc(modelCalls.projectId));
 
   return rows.map((row) => ({
     projectId: row.projectId,
-    calls: Number(row.calls),
-    proposed: Number(row.proposed),
-    refused: Number(row.refused),
-    inputTokens: Number(row.inputTokens),
-    outputTokens: Number(row.outputTokens),
+    calls: counted(row.calls, "calls"),
+    proposed: counted(row.proposed, "proposed"),
+    refused: counted(row.refused, "refused"),
+    inputTokens: counted(row.inputTokens, "inputTokens"),
+    outputTokens: counted(row.outputTokens, "outputTokens"),
     attributedCost: minimalDecimal(row.attributedCost),
   }));
 }
