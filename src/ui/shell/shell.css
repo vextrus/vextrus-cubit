@@ -1,7 +1,10 @@
 /* The signed-in frame (R-UI-030) and the screens it holds. Every value is a token (R-UI-001); the
    px literals are the closed set the shell's Design Decision fixes — rail 240/48, inspector 280,
    the 3 px selection bar, the chevron's 12 px box, the user trigger's 280 px ellipsis, the column
-   measures, and the sm and lg breakpoints a media query cannot read a var() for. No [data-theme]
+   measures, the sm and lg breakpoints a media query cannot read a var() for, and the 1 px width of
+   the notice's and the alert's coloured border (--hairline is a whole shorthand carrying its own
+   graphite edge, so a border in --info or --danger is spelled the way the rest of the tree spells
+   one — refusal-state.css, s-auth.css and core.css all draw theirs as 1px solid var(--token)). No [data-theme]
    selector is authored anywhere: light and dark differ only in what the token values resolve to. */
 
 .cx-shell {
@@ -286,6 +289,14 @@
 
 .cx-shell-outcome {
   margin-block-start: var(--space-3);
+}
+
+/* The always-mounted live region an answer is inserted into. `display: contents` gives it no box
+   of its own, so an empty region adds no row and no gap to the column it waits in: the frame is
+   laid out exactly as it is when the region carries a notice, and the notice keeps its own
+   spacing. Announcement does not depend on a box — only on the region being in the tree first. */
+.cx-shell-live {
+  display: contents;
 }
 
 /* The notice an absence is stated in: an answer, not a refusal (R-UI-050's empty leg). */

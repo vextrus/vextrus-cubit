@@ -28,11 +28,17 @@ export function ProjectsOnboarding() {
       heading={strings.shell_projects_empty_heading}
       body={strings.shell_projects_empty_body}
       answer={
-        unavailable ? (
-          <div className="cx-shell-outcome cx-shell-notice" data-testid="shell-sample-outcome" role="status">
-            {strings.shell_sample_unavailable}
-          </div>
-        ) : null
+        // The live region is mounted from the first paint and observed empty, so the answer is an
+        // insertion into a region assistive technology is already watching (Q-11). A region that
+        // arrives with its text already in it is unreliably announced — and it is the wrapper that
+        // waits, never the notice, so nothing is painted until there is something to read.
+        <div className="cx-shell-live" aria-live="polite">
+          {unavailable ? (
+            <div className="cx-shell-outcome cx-shell-notice" data-testid="shell-sample-outcome" role="status">
+              {strings.shell_sample_unavailable}
+            </div>
+          ) : null}
+        </div>
       }
     >
       <Button data-testid="shell-sample-offer" loading={pending} onClick={offer}>

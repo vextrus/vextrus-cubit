@@ -7,8 +7,9 @@
  *
  *   - every shipped shell screen is in the table, and every one of R-UI-050's seven states is in
  *     every screen — a screen that forgets `offline` fails here rather than being noticed by eye;
- *   - the table's screens are exactly the shell's areas, both ways, so a fourth area cannot ship
- *     without declaring its matrix and a stale row cannot linger;
+ *   - the table's screens are exactly the shell's areas, both ways — read from the shell's own
+ *     roster at runtime and from `ShellArea` at compile time, never copied here — so a fourth area
+ *     cannot ship without declaring its matrix and a stale row cannot linger;
  *   - a cell that claims a state is RENDERED names a module that exists in the checkout, and the
  *     hook it names is really spelled in `src/` — a claim nothing backs is the review note this
  *     clause exists to abolish;
@@ -29,8 +30,22 @@ const STATES_MODULE = "src/ui/shell/states.ts";
 /** R-UI-050's seven, spelled here so the table cannot define the law it is graded against. */
 const R_UI_050_STATES: readonly ShellStateName[] = ["loading", "empty", "error", "refusal", "partial", "offline", "permissionDenied"];
 
-/** The areas the shell ships (R-UI-030's rail entries), likewise spelled rather than derived. */
-const SHELL_AREAS: readonly ShellArea[] = ["projects", "books", "settings"];
+/**
+ * The areas the shell ships are NOT spelled here. R-UI-050's rule is a relation — "the table's
+ * screens are exactly the shell's areas" — and the shell's areas have one home, the roster
+ * `SHELL_AREAS` exported from `src/ui/shell/routes.ts` that the rail itself builds its entries
+ * from. Reading the roster is what makes this file grade the rule; a copy of today's three would
+ * only freeze them, so that a fourth area could not ship without editing a public acceptance file
+ * (B-19's snapshot-freeze class). Exactness in the other direction is the compiler's, below.
+ */
+const ROSTER_MODULE = "src/ui/shell/routes.ts";
+
+async function shellAreas(): Promise<readonly ShellArea[]> {
+  const module = await productModule<{ SHELL_AREAS?: readonly ShellArea[] }>(ROSTER_MODULE);
+  const areas = module.SHELL_AREAS;
+  expect(Array.isArray(areas) && areas.length > 0, `${ROSTER_MODULE} must export SHELL_AREAS — the shell's areas in their one home`).toBe(true);
+  return areas as readonly ShellArea[];
+}
 
 /** Where a rendered cell's testid may be spelled: the shell's components and the workspace routes. */
 const HOOK_ROOTS = ["src/ui/shell", "src/app/(app)"];
@@ -82,12 +97,12 @@ const HOOK_SOURCES: string[] = HOOK_ROOTS.flatMap((root) => sourcesUnder(root));
 describe("R-UI-050: the shell's state matrix is enumerable, and every cell is declared", () => {
   test("R-UI-050: the table's screens are exactly the shell's shipped areas", async () => {
     const table = await matrix();
-    expect(Object.keys(table).sort(), "SHELL_STATES declares one row per shipped shell screen — no more, no fewer").toStrictEqual([...SHELL_AREAS].sort());
+    expect(Object.keys(table).sort(), "SHELL_STATES declares one row per shipped shell screen — no more, no fewer").toStrictEqual([...(await shellAreas())].sort());
   });
 
   test("R-UI-050: every screen declares all seven states — a missing state fails here", async () => {
     const table = await matrix();
-    for (const area of SHELL_AREAS) {
+    for (const area of await shellAreas()) {
       const row = table[area] as Readonly<Record<string, ShellStateCell>>;
       for (const state of R_UI_050_STATES) {
         expect(
@@ -101,7 +116,7 @@ describe("R-UI-050: the shell's state matrix is enumerable, and every cell is de
 
   test("R-UI-050: a rendered cell names a module that exists and a hook that is really spelled", async () => {
     const table = await matrix();
-    for (const area of SHELL_AREAS) {
+    for (const area of await shellAreas()) {
       for (const state of R_UI_050_STATES) {
         const cell = table[area][state];
         if (cell.declared !== "rendered") continue;
@@ -115,7 +130,7 @@ describe("R-UI-050: the shell's state matrix is enumerable, and every cell is de
 
   test("R-UI-050: a delegated cell names its owner, and an impossible cell gives its reason", async () => {
     const table = await matrix();
-    for (const area of SHELL_AREAS) {
+    for (const area of await shellAreas()) {
       for (const state of R_UI_050_STATES) {
         const cell = table[area][state];
         if (cell.declared === "delegated") {

@@ -13,25 +13,42 @@ import mark from "../brand/vextrus-mark-nospark.svg";
 /** How a variant treats the beam spark: never painted, or painted only at or above the floor. */
 export type SparkRule = "never" | "at-or-above-32";
 
-/** One row of R-UI-070's usage law: which asset, how small it may go, its spark, and where. */
+/**
+ * One row of R-UI-070's usage law: which asset, how small it may go, its spark, where it goes —
+ * and what it may never share that surface with, because the clause states one rule of that shape
+ * ("a DRAFT banner never shares a page with the spark") and a table without a place for it cannot
+ * be read for it.
+ */
 export interface BrandUsage {
   variant: string;
   minSizePx: number;
   sparkRule: SparkRule;
   surface: string;
+  /** Variants this row may never appear beside on the same surface; empty when none is barred. */
+  neverWith: readonly string[];
 }
 
 /**
- * R-UI-070 verbatim, enumerated: the rail carries the quiet no-spark mark (the beam spark is
- * omitted below 32 px), the full spark mark appears only on sign-in and on certificates, and issued
- * PDFs carry the light lockup. Copper is scarce across brand and product alike, so no row outside
- * these puts a spark anywhere.
+ * R-UI-070 verbatim, enumerated. Every asset the clause places is a row: the rail's quiet no-spark
+ * mark (the spark is omitted below 32 px), the full spark mark on the only two surfaces that carry
+ * it — sign-in and certificates — and the two an issued PDF carries, the light lockup *and the
+ * quiet watermark*. Copper is scarce across brand and product alike, so no row outside sign-in and
+ * certificates puts a spark anywhere; the lockup and the watermark are quiet by that same law. The
+ * DRAFT banner is the clause's one co-occurrence rule, and it is carried where a reader looks for
+ * it: on the spark-bearing rows themselves, which may never share their page with it.
  */
 export const BRAND_USAGE: readonly BrandUsage[] = Object.freeze([
-  Object.freeze({ variant: "mark-nospark", minSizePx: 16, sparkRule: "never", surface: "rail" }),
-  Object.freeze({ variant: "mark", minSizePx: 32, sparkRule: "at-or-above-32", surface: "sign-in" }),
-  Object.freeze({ variant: "mark", minSizePx: 32, sparkRule: "at-or-above-32", surface: "certificates" }),
-  Object.freeze({ variant: "lockup-light", minSizePx: 104, sparkRule: "at-or-above-32", surface: "issued-pdf" }),
+  Object.freeze({ variant: "mark-nospark", minSizePx: 16, sparkRule: "never", surface: "rail", neverWith: Object.freeze([]) }),
+  Object.freeze({ variant: "mark", minSizePx: 32, sparkRule: "at-or-above-32", surface: "sign-in", neverWith: Object.freeze(["draft-banner"]) }),
+  Object.freeze({ variant: "mark", minSizePx: 32, sparkRule: "at-or-above-32", surface: "certificates", neverWith: Object.freeze(["draft-banner"]) }),
+  // The lockup's floor is LOGO-SPEC's 104 px horizontal minimum; it is quiet, because R-UI-070
+  // gives the full spark mark to sign-in and certificates and to nothing else.
+  Object.freeze({ variant: "lockup-light", minSizePx: 104, sparkRule: "never", surface: "issued-pdf", neverWith: Object.freeze([]) }),
+  // The watermark is the mark's no-spark geometry, so it wears the mark's own 16 px floor.
+  Object.freeze({ variant: "watermark-quiet", minSizePx: 16, sparkRule: "never", surface: "issued-pdf", neverWith: Object.freeze([]) }),
+  // The banner itself: it carries no brand geometry, which is exactly why it is spark-less, and it
+  // names the same bar from its own side so neither row can be read without the other.
+  Object.freeze({ variant: "draft-banner", minSizePx: 16, sparkRule: "never", surface: "issued-pdf", neverWith: Object.freeze(["mark"]) }),
 ]);
 
 /** The size the rail paints the quiet mark at (R-UI-070), stated once. */

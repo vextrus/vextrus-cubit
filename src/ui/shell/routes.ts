@@ -38,8 +38,16 @@ export function workspaceLabel(workspace: ShellWorkspace): string {
   return hasVisibleText(workspace.name) ? workspace.name : strings.shell_workspace_unnamed;
 }
 
-/** The areas the shell ships. Each is one rail entry, one address and one breadcrumb crumb. */
-export type ShellArea = "projects" | "books" | "settings";
+/**
+ * The areas the shell ships, in the order R-UI-030 names them. Each is one rail entry, one address
+ * and one breadcrumb crumb — and this is their one home (B-17): the rail's entries, the state
+ * matrix's rows and the suite that reflects over it all read the roster from here, so adding a
+ * fourth area is one edit rather than four lists that can drift apart.
+ */
+export const SHELL_AREAS = ["projects", "books", "settings"] as const;
+
+/** The area type, derived from the roster so the two can never name different sets. */
+export type ShellArea = (typeof SHELL_AREAS)[number];
 
 /** The address of an area within a workspace — Projects is the workspace's own home. */
 export function shellHref(tenantId: string, area: ShellArea): string {

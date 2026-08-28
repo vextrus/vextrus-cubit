@@ -2,11 +2,12 @@
 // R-UI-030's left rail: the quiet mark, the workspace switcher, the three areas, and the collapse.
 // Selection follows the URL and nothing else (R-UI-031) — the area is handed in, and the selected
 // row says so twice: `aria-current="page"` for a reader, and the beam bar and fill for an eye.
+import Link from "next/link";
 import { useId, useState } from "react";
 import { QuietMark } from "../brand-usage";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/overlay";
 import { strings } from "../strings";
-import { shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
+import { SHELL_AREAS, shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
 
 export interface ShellRailProps {
   workspace: ShellWorkspace;
@@ -19,12 +20,15 @@ interface RailEntry {
   label: string;
 }
 
-/** The areas the rail carries, in the order R-UI-030 names them. */
-const ENTRIES: readonly RailEntry[] = [
-  { area: "projects", testId: "shell-nav-projects", label: strings.shell_nav_projects },
-  { area: "books", testId: "shell-nav-books", label: strings.shell_nav_books },
-  { area: "settings", testId: "shell-nav-settings", label: strings.shell_nav_settings },
-];
+/** What each area is called and found by. Total over the roster, so a new area cannot be forgotten. */
+const ENTRY: Readonly<Record<ShellArea, Omit<RailEntry, "area">>> = {
+  projects: { testId: "shell-nav-projects", label: strings.shell_nav_projects },
+  books: { testId: "shell-nav-books", label: strings.shell_nav_books },
+  settings: { testId: "shell-nav-settings", label: strings.shell_nav_settings },
+};
+
+/** The areas the rail carries, in the order the roster (R-UI-030's order) names them. */
+const ENTRIES: readonly RailEntry[] = SHELL_AREAS.map((area) => ({ area, ...ENTRY[area] }));
 
 /** The rail's one glyph, in the two directions it points. Decorative: the control carries the name. */
 function Chevron({ direction }: { direction: "left" | "down" }) {
@@ -47,8 +51,11 @@ function Chevron({ direction }: { direction: "left" | "down" }) {
 }
 
 export function ShellRail({ workspace, area }: ShellRailProps) {
-  // Not persisted: nothing in the product writes a per-person preference, and a remembered
-  // width nothing can write would be a promise it does not keep.
+  // Not persisted across sessions: nothing in the product writes a per-person preference, and a
+  // remembered width nothing can write would be a promise it does not keep. It does have to hold
+  // for the very next click, though — the rail navigates with `next/link`, so the frame's layout
+  // (and this state with it) survives every move between the areas rather than being re-mounted
+  // expanded by a fresh document load.
   const [expanded, setExpanded] = useState(true);
   const railId = useId();
 
@@ -85,28 +92,31 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
           stand-ins, and a column of truncated letters would be guesswork, not navigation. */}
       {expanded ? (
         <>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className="cx-shell-switcher"
-              data-testid="shell-tenant-switcher"
-              aria-label={strings.shell_tenant_switcher_label}
-            >
+          {/* `modal={false}`: the modal treatment marks the rest of the frame `aria-hidden` while
+              leaving its links focusable, which axe reports as a serious `aria-hidden-focus` — and
+              Q-11 admits no serious violation at any checkpoint. Nothing here needs the page
+              inert: the menu still dismisses on an outside press and on Escape. */}
+          <DropdownMenu modal={false}>
+            {/* No `aria-label` here: the workspace name is the trigger's only visible text, so an
+                override would leave a speech-input user saying a name the control does not answer
+                to (WCAG 2.5.3, label-in-name). The purpose is carried by the menu it opens. */}
+            <DropdownMenuTrigger className="cx-shell-switcher" data-testid="shell-tenant-switcher">
               <span className="cx-shell-switcher-name">{workspaceLabel(workspace)}</span>
               <Chevron direction="down" />
             </DropdownMenuTrigger>
             {/* The memberships the seam answers with — one, today. */}
-            <DropdownMenuContent align="start">
+            <DropdownMenuContent align="start" aria-label={strings.shell_tenant_switcher_label}>
               <DropdownMenuItem asChild>
-                <a className="cx-shell-menu-item" href={shellHref(workspace.tenantId, "projects")}>
+                <Link className="cx-shell-menu-item" href={shellHref(workspace.tenantId, "projects")}>
                   {workspaceLabel(workspace)}
-                </a>
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
           <nav className="cx-shell-nav" aria-label={strings.shell_rail_nav_label}>
             {ENTRIES.map((entry) => (
-              <a
+              <Link
                 key={entry.area}
                 className="cx-shell-nav-row cx-reticle"
                 data-testid={entry.testId}
@@ -114,7 +124,7 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
                 aria-current={entry.area === area ? "page" : undefined}
               >
                 {entry.label}
-              </a>
+              </Link>
             ))}
           </nav>
         </>

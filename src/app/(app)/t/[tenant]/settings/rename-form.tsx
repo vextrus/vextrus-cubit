@@ -45,11 +45,17 @@ export function RenameForm({ tenantId, name }: RenameFormProps) {
         {/* In flight the slot is empty (§1): `useActionState` keeps the last answer for the whole
             pending window, and leaving it painted would tell a person that the submission they are
             waiting on is already saved — or already refused. */}
-        {!pending && answer !== null && answer.renamed ? (
-          <div className="cx-shell-outcome cx-shell-notice" role="status">
-            {strings.shell_rename_saved}
-          </div>
-        ) : null}
+        {/* The region waits here from the first paint, empty, so the saved notice is an insertion
+            into something a reader is already watching rather than a `role="status"` node that
+            arrives with its sentence already inside it (Q-11). The wrapper carries no `status`
+            role of its own — the notice is what claims to be one, and only when there is one. */}
+        <div className="cx-shell-live" aria-live="polite">
+          {!pending && answer !== null && answer.renamed ? (
+            <div className="cx-shell-outcome cx-shell-notice" role="status">
+              {strings.shell_rename_saved}
+            </div>
+          ) : null}
+        </div>
         {!pending && answer !== null && !answer.renamed ? (
           <div className="cx-shell-outcome" data-testid="shell-rename-refusal">
             {"blankName" in answer ? (

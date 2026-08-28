@@ -118,17 +118,30 @@ nowhere.
   expanded, right when collapsed, rotating over `var(--motion-state)` `var(--ease)`.
   Collapsed, the rail keeps only mark and toggle; switcher and nav unmount (labels have no
   icon stand-ins in M0 — a truncated letter column would be guesswork). State is component
-  state, default expanded, not persisted (the per-user preference seam ships with the
-  density control, not here).
+  state, default expanded, not persisted across sessions (the per-user preference seam ships
+  with the density control, not here). It does hold across the very next click: every move
+  inside the frame — the three nav rows, the switcher's membership item and the breadcrumb's
+  workspace link — goes through `next/link`, so the shared workspace layout (and the rail's
+  state with it) survives the navigation instead of being re-mounted expanded by a fresh
+  document load. A collapse that reverts the moment a person navigates is not an affordance.
+  Doors that leave the frame (`/sessions`, sign-out's `/sign-in`) stay plain anchors.
 
 Below the top row: **tenant switcher** (`data-testid="shell-tenant-switcher"`) — a shipped
 DropdownMenu whose trigger is a full-width ghost button, height `var(--space-9)`,
 padding-inline `var(--space-3)`, text left, showing the workspace name (`var(--text-13)`
 `var(--weight-body-medium)` `var(--graphite-900)`, single line, ellipsis) with a
-chevron-down glyph; `aria-label` = `shell_tenant_switcher_label`. The menu lists the
+chevron-down glyph. The trigger carries NO `aria-label`: the workspace name is its only
+visible text, and an override would leave its accessible name holding none of the words a
+speech-input user can see and say (WCAG 2.5.3, label-in-name) — the same rule the user
+trigger already keeps by naming itself with the visible address. `shell_tenant_switcher_label`
+names the menu the trigger opens (`aria-label` on the menu content), which is where the
+control's purpose belongs. Both shell menus are `modal={false}`: the modal treatment marks
+the rest of the frame `aria-hidden` while its links stay focusable, which axe reports as a
+serious `aria-hidden-focus` on every open menu — inadmissible under Q-11, and nothing in
+either menu needs the page inert. The menu lists the
 memberships the seam returns — one today — each item the workspace name, activating a
 navigation to `/t/{tenantId}`. Then `var(--space-4)`, then **nav** (`<nav>` `aria-label` =
-`shell_rail_nav_label`): three full-width `<a>` rows (`data-testid` `shell-nav-projects` /
+`shell_rail_nav_label`): three full-width link rows (`data-testid` `shell-nav-projects` /
 `shell-nav-books` / `shell-nav-settings` → `/t/{t}`, `/t/{t}/books`, `/t/{t}/settings`),
 height `var(--space-9)`, padding-inline `var(--space-3)`, gap `var(--space-1)`, radius 0
 (flush, so the beam bar sits on the rail's edge), `var(--text-13)`
@@ -181,7 +194,11 @@ data-testid="shell-empty-action">` holding this screen's one action: the SAMPLE 
 a core primary Button, `data-testid="shell-sample-offer"`, label `shell_sample_offer`
 (the label carries the word SAMPLE, from the string table). Clicking invokes the exported
 `sampleSeed` seam through a server action; while pending the Button takes core's loading
-state (`aria-busy`, no spinner). The answer renders at
+state (`aria-busy`, no spinner). The answer's home is an always-mounted, initially empty
+live region (`cx-shell-live`: `aria-live="polite"`, `display: contents` so an empty region
+adds no box and no gap to the column) — a region has to be observed empty before its text
+arrives or the answer may never be announced (Q-11), and the same wrapper carries the
+settings screen's saved notice. Inside it the answer renders at
 `<div data-testid="shell-sample-outcome" role="status">`, `var(--space-3)` below the slot:
 for `{ available: false }` (the M0 shipped answer) the s-auth notice chrome — fill
 `var(--info-surface)`, border 1 px solid `var(--info)`, radius `var(--radius-4)`, padding
@@ -207,8 +224,10 @@ empty included, reaches the door and is answered there (I-22) · the answer slot
 Button `data-testid="shell-rename-submit"`, label `shell_rename_submit`, `align-self: start`,
 submitting the native `<form>` whose server action calls `renameWorkspace`. In flight: Button
 loading, Input disabled, slot cleared. Success: the saved name re-renders in Input, switcher
-and breadcrumb, and the slot shows a `role="status"` notice (the §1 notice chrome) reading
-`shell_rename_saved`. A blank or whitespace-only name renders in the slot as `<div
+and breadcrumb, and the slot's live region (`cx-shell-live`, mounted empty from first paint)
+receives a `role="status"` notice (the §1 notice chrome) reading
+`shell_rename_saved`. The wrapper is `aria-live`, not `role="status"`, so what a journey finds
+by role inside `shell-settings-name` is the notice itself and only when there is one. A blank or whitespace-only name renders in the slot as `<div
 data-testid="shell-rename-refusal">` wrapping one `role="alert"` line reading
 `shell_rename_refusal` (I-22) — the door's own copy, no registry entry. That line wears the
 ALERT chrome (`cx-shell-alert`: `var(--danger-surface)` fill, 1 px `var(--danger)` border,
@@ -294,12 +313,21 @@ membership.** · `shell_denied_evidence` **Go to your workspace** · `shell_evid
 **Go to sign-in** · `shell_evidence_home` **Go to the home page**.
 
 `src/ui/brand-usage/index.ts` also exports `BRAND_USAGE`, the enumerable R-UI-070 table —
-`{ variant; minSizePx; sparkRule: "never" | "at-or-above-32"; surface }`, exactly four rows:
+`{ variant; minSizePx; sparkRule: "never" | "at-or-above-32"; surface; neverWith }`, one row
+per thing R-UI-070 places on a surface — all four of its usage sentences, not two:
 `("mark-nospark", 16, "never", "rail")` · `("mark", 32, "at-or-above-32", "sign-in")` ·
-`("mark", 32, "at-or-above-32", "certificates")` · `("lockup-light", 104, "at-or-above-32",
-"issued-pdf")`. The unit test reflects: the rail's only row is the no-spark variant; spark
-never appears below 32 px; spark-bearing surfaces are exactly sign-in, certificates and
-issued PDFs — copper's one scarcity, shared with act.
+`("mark", 32, "at-or-above-32", "certificates")` · `("lockup-light", 104, "never",
+"issued-pdf")` · `("watermark-quiet", 16, "never", "issued-pdf")` · `("draft-banner", 16,
+"never", "issued-pdf")`. Two corrections the clause forces: an issued PDF carries the light
+lockup **and the quiet watermark**, so the watermark is a row; and the lockup is quiet, because
+the full spark mark appears **only** on sign-in and on certificates — a `sparkRule` of
+`at-or-above-32` on the PDF row said otherwise. `neverWith` carries the clause's one
+co-occurrence rule, "a DRAFT banner never shares a page with the spark", from both sides: the
+two spark-bearing rows bar `draft-banner`, and the banner's own row bars `mark`. The unit
+tests reflect: the rail's only row is the no-spark variant; spark never appears below 32 px;
+spark-bearing surfaces are exactly sign-in and certificates — copper's one scarcity, shared
+with act — nothing on an issued PDF carries a spark, and the DRAFT bar is readable from
+either row (`tests/ui/shell/brand-usage-completeness.test.ts`).
 
 ## 4. Motion (R-UI-004)
 
@@ -312,11 +340,17 @@ token zeroed at source under reduced motion; no bounce anywhere.
 ## 5. Tokens
 
 `--graphite-0/50/100/500/600/700/900` · `--beam-100/500/600` · `--info/--info-surface` ·
-`--hairline` · `--space-1/3/4/5/6/8/9/12` · `--radius-4` · `--text-12/13/14/16/20` ·
-`--weight-body-medium/--weight-heading` · `--motion-state/--motion-panel/--ease`. Px
+`--danger/--danger-surface` · `--hairline` · `--space-1/3/4/5/6/8/9/12` · `--radius-4` ·
+`--text-12/13/14/16/20` · `--weight-body-medium/--weight-heading` ·
+`--motion-state/--motion-panel/--ease`. Px
 literals, closed set (core I-1's class): rail 240/48, inspector 280, mark 26, beam bar 3,
 chevron 12 with 2 px stroke, trigger ellipsis 280, column measures min(380/420/480/560px …),
-skeleton bones 24/16 × 240/480, and the lg media-query value. Any other literal is a defect.
+skeleton bones 24/16 × 240/480, the lg media-query value, and the 1 px width of the notice's
+and the alert's own border. That last one is not an omission being covered over: `--hairline`
+is a whole shorthand (`1px solid var(--graphite-200)`) and cannot carry a `--info` or
+`--danger` edge, so a coloured 1 px border is spelled `1px solid var(--token)` exactly as the
+tree spells it everywhere else it draws one (`refusal-state.css`, `s-auth.css`, `core.css`) —
+which §1 already prescribes for both. Any other literal is a defect.
 
 ## 6. Themes
 
