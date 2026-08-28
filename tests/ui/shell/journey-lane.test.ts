@@ -26,6 +26,10 @@ const SHELL_SPEC = "tests/e2e/shell.spec.ts";
 const PLAYWRIGHT_CONFIG = "playwright.config.ts";
 const BASELINE_DIR = "tests/e2e/baselines/design";
 const CHECKPOINT_HELPER = "tests/e2e/support/checkpoint.ts";
+const E2E_DIR = "tests/e2e";
+
+/** The two spellings `playwright.config.ts`'s testMatch collects (guarded by its own test below). */
+const SPEC_SUFFIXES = [".spec.ts", ".e2e.ts"] as const;
 
 /** The journey this increment turns green, and the ones whose collection must not change. */
 const OWN_JOURNEY = "J-004";
@@ -48,6 +52,22 @@ function sourceOf(relative: string): string {
 
 function titlesIn(relative: string): string[] {
   return [...sourceOf(relative).matchAll(TITLE)].map((match) => match[2] ?? "");
+}
+
+/**
+ * Every Playwright spec under `tests/e2e`, repo-relative, in either collected spelling.
+ *
+ * A scan, not a roster: which file carries a journey's tag is the tree's business, and a rename
+ * that keeps the tag leaves the gate line collecting identically.
+ */
+function specsUnder(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(REPO_ROOT, relative), { withFileTypes: true })) {
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...specsUnder(child));
+    else if (SPEC_SUFFIXES.some((suffix) => entry.name.endsWith(suffix))) found.push(child);
+  }
+  return found;
 }
 
 /**
@@ -111,11 +131,23 @@ describe("AC-5: the shell journey is collected by the gate line that runs it", (
     }
   });
 
-  test("AC-5: the journeys J-000 already runs are still there, still tagged", () => {
-    const existing = ["tests/e2e/j-000-golden-path.e2e.ts", "tests/e2e/journeys/j-000-smoke.spec.ts"];
-    for (const file of existing) {
-      expect(titlesIn(file).some((title) => title.includes("J-000")), `${file} is one of the journeys \`pnpm e2e --journey J-000\` collects; it stays exactly as it is (out of scope)`).toBe(true);
-    }
+  /**
+   * `--journey J-000` is a `--grep J-000` over whatever the config's globs collect, so "stays green
+   * unchanged" is a claim about titles surviving somewhere, never about which file holds them: a
+   * rename or a consolidation that keeps the tag leaves the gate line collecting identically. What
+   * this increment must not do is leave J-000 with nothing to grep (an unmatched grep exits 1) — or
+   * hand J-000 the shell, which is what the paired assertion below refuses.
+   */
+  test("AC-5: J-000 still has journeys of its own to collect, and the shell is not one of them", () => {
+    const journey = OTHER_JOURNEYS[0];
+    const collected = specsUnder(E2E_DIR);
+    expect(collected.length, `${E2E_DIR} holds no Playwright spec in either collected spelling — the journey lane collects nothing at all`).toBeGreaterThan(0);
+    const tagged = collected.filter((file) => titlesIn(file).some((title) => title.includes(journey)));
+    expect(
+      tagged.length,
+      `no spec under ${E2E_DIR} carries ${journey} in a title any more, so \`pnpm e2e --journey ${journey}\` greps nothing and exits 1; those journeys stay exactly as they are (out of scope). Scanned: ${JSON.stringify(collected)}`,
+    ).toBeGreaterThan(0);
+    expect(tagged.includes(SHELL_SPEC), `${SHELL_SPEC} is this increment's journey; carrying ${journey} would make \`--journey ${journey}\` walk the shell, which is not "unchanged" (AC-5)`).toBe(false);
   });
 
   test("AC-5: the journey lane still collects both spellings, from one webServer", () => {
