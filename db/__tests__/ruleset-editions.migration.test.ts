@@ -35,7 +35,7 @@ import {
 } from "../../tests/rulesets/support/editions";
 import { provisionScratchDb } from "./harness";
 import { AUDIT_REASON, BOOTSTRAP_URL, GUC_SYSTEM_REASON, GUC_TENANT, HANDWRITTEN_MARKER, ROLE_APP, TENANT_ALPHA, TENANT_COLUMN } from "./support/fixtures";
-import { ident, isTrue, lit, run, scalar, seedTenants, withSession } from "./support/live-sql";
+import { ident, isTrue, lit, probeValue, psql, requiredColumns, run, scalar, seedTenants, withSession, type TableRef } from "./support/live-sql";
 
 const ROOT = join(import.meta.dirname, "..", "..");
 const MIGRATIONS = join(ROOT, "db", "migrations");
@@ -48,6 +48,16 @@ const WRITE_AWAY = ["UPDATE", "DELETE", "TRUNCATE"];
 
 /** The GUC a tenant policy has to read to be a tenant policy (SEAM-TENANT). */
 const GUC_TENANT_FRAGMENT = "cubit.tenant_id";
+
+/** What Postgres answers when a row a session tried to write fails the table's policies. */
+const RLS_REFUSAL = "42501";
+
+/** This suite's own attribution for the system-scoped write it attempts — as named as any other. */
+const PROBE_REASON = "test: attempt a platform edition under each scope";
+
+/** The policy commands that can admit an INSERT, and those that can admit a read (pg_policy.polcmd). */
+const WRITE_COMMANDS = ["*", "a"];
+const READ_COMMANDS = ["*", "r"];
 
 /* ------------------------------------------------------------------ *
  * The migration, as a file.
@@ -105,9 +115,21 @@ function bootstrapUrlFor(databaseUrl: string): string {
  * between seeing a tenant's rows and seeing none where one does.
  */
 function jsonRows(url: string, table: string, gucs: Record<string, string> = {}): Record<string, unknown>[] {
-  return run(url, withSession({ [GUC_SYSTEM_REASON]: AUDIT_REASON, ...gucs }, `select to_jsonb(r)::text from public.${ident(table)} r;`)).map(
-    (row) => JSON.parse(row[0] ?? "{}") as Record<string, unknown>,
-  );
+  return jsonRowsScoped(url, table, { [GUC_SYSTEM_REASON]: AUDIT_REASON, ...gucs });
+}
+
+/**
+ * Every row a session holding EXACTLY these GUCs can see — nothing is armed for it. What a handle
+ * that names only a tenant may read is a question about the policies, and a reading that quietly
+ * armed a system reason could never ask it.
+ */
+function jsonRowsScoped(url: string, table: string, gucs: Record<string, string>): Record<string, unknown>[] {
+  return run(url, withSession(gucs, `select to_jsonb(r)::text from public.${ident(table)} r;`)).map((row) => JSON.parse(row[0] ?? "{}") as Record<string, unknown>);
+}
+
+/** A table of the store, spelled the way the live-sql helpers address one. */
+function refFor(table: string): TableRef {
+  return { schema: "public", table, sql: `public.${ident(table)}` };
 }
 
 /** Does this table carry the tenant column that makes a table tenant-scoped? */
@@ -145,15 +167,46 @@ function rowSecurityOf(url: string, table: string): { enabled: boolean; forced: 
   return { enabled: isTrue(row?.[0] ?? ""), forced: isTrue(row?.[1] ?? "") };
 }
 
-/** Every policy on a table, with the expression it is written against. */
-function policiesOf(url: string, table: string): { name: string; expression: string }[] {
+/**
+ * Every policy on a table: which commands it answers for, the expression it admits a visible row by
+ * (USING) and the one it admits a written row by (WITH CHECK), kept apart — a policy can be
+ * generous on one side and closed on the other, and a test that read them as one string could not
+ * tell "a tenant may read this" from "a tenant may write this".
+ */
+type Policy = { name: string; command: string; using: string; check: string; expression: string };
+
+function policiesOf(url: string, table: string): Policy[] {
   return run(
     url,
-    `select p.polname, coalesce(pg_get_expr(p.polqual, p.polrelid), '') || ' ' || coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '')
+    `select p.polname,
+            p.polcmd::text,
+            coalesce(pg_get_expr(p.polqual, p.polrelid), ''),
+            coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '')
        from pg_policy p join pg_class c on c.oid = p.polrelid join pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'public' and c.relname = ${lit(table)}
       order by 1;`,
-  ).map((row) => ({ name: row[0] ?? "", expression: row[1] ?? "" }));
+  ).map((row) => {
+    const using = row[2] ?? "";
+    const check = row[3] ?? "";
+    return { name: row[0] ?? "", command: row[1] ?? "", using, check, expression: `${using} ${check}` };
+  });
+}
+
+/**
+ * An INSERT of one lawful row of this table, attempted and then rolled back — so the question "may
+ * this scope write here?" is asked of the running database without leaving the store changed. The
+ * row is built from the columns the catalogue says a row cannot exist without, exactly as the live
+ * suite's own seeder builds one, so a table this test has never seen is probed the moment it lands
+ * (B-19). RETURNING gives the successful attempt something to show for itself.
+ */
+function probeInsert(url: string, table: string): string {
+  const ref = refFor(table);
+  const columns = requiredColumns(url, ref);
+  const values =
+    columns.length === 0
+      ? "default values"
+      : `(${columns.map((column) => ident(column.name)).join(", ")}) values (${columns.map(probeValue).join(", ")})`;
+  return `begin;\ninsert into ${ref.sql} ${values} returning 1;\nrollback;`;
 }
 
 /* ------------------------------------------------------------------ *
@@ -173,6 +226,8 @@ afterAll(async () => {
 
 type Stage = {
   bootstrapUrl: string;
+  /** The same database as the role the runtime really connects as — the role the policies judge. */
+  appUrl: string;
   tenantId: string;
   tables: string[];
   seedContent: EditionContentLike;
@@ -193,6 +248,7 @@ const staged = (): Promise<Stage> =>
     process.env["DATABASE_URL"] = provisioned.urlApp;
     return {
       bootstrapUrl: bootstrapUrlFor(provisioned.urlMigrate),
+      appUrl: provisioned.urlApp,
       tenantId,
       tables: storeTables(),
       seedContent: await loadSeedContent(),
@@ -305,6 +361,58 @@ describe("AC-2: the rule-set edition store lands append-only, under the seam's p
         `${table} has no policy reading ${GUC_TENANT_FRAGMENT}; policies found: ${policies.map((policy) => policy.name).join(", ") || "none"}`,
       ).toBe(true);
     }
+  });
+
+  // The other half of the same partition. V-DB enumerates RLS per TABLE, and names the system-only
+  // side of it separately: a table that carries no tenant_id is not a table with nothing to prove,
+  // it is a table whose posture is the other one. `cubit_app` is the single role the runtime
+  // connects as, so a store table it holds INSERT on with a policy any handle satisfies is a
+  // platform edition any handle can mint. Both branches read the same storeTables(), so every table
+  // this migration lands — and every table a later one adds — falls into one of them (B-19).
+  it("AC-2: every table of the store that is not tenant-scoped is system-write and tenant-readable", async () => {
+    const { bootstrapUrl, appUrl, tenantId, tables } = await staged();
+    const platform = tables.filter((table) => !isTenantScoped(bootstrapUrl, table));
+    expect(platform.length, "a platform edition belongs to no workspace, so the store must hold it in a table without tenant_id (L-REG-07)").toBeGreaterThan(0);
+
+    for (const table of platform) {
+      const security = rowSecurityOf(bootstrapUrl, table);
+      expect(security.enabled, `${table} carries no ${TENANT_COLUMN} and no row-level security either — nothing stands between a tenant's handle and it (V-DB)`).toBe(true);
+      expect(security.forced, `${table}'s row-level security is not FORCED — an owner that escapes its own policies is not a guarantee`).toBe(true);
+
+      const policies = policiesOf(bootstrapUrl, table);
+      const named = policies.map((policy) => `${policy.name} (${policy.command})`).join(", ") || "none";
+      expect(
+        policies.some((policy) => WRITE_COMMANDS.includes(policy.command) && policy.check.includes(GUC_SYSTEM_REASON) && !policy.check.includes(GUC_TENANT_FRAGMENT)),
+        `${table} has no write-side policy admitting a row by ${GUC_SYSTEM_REASON} alone — minting a platform edition is system work (L-MEA-01); policies found: ${named}`,
+      ).toBe(true);
+      expect(
+        policies.some((policy) => READ_COMMANDS.includes(policy.command) && policy.using.includes(GUC_TENANT_FRAGMENT)),
+        `${table} has no read-side policy admitting a session that names ${GUC_TENANT_FRAGMENT} — a workspace's own pin is a fork of the platform edition and cannot be made blind (L-REG-07); policies found: ${named}`,
+      ).toBe(true);
+
+      // The policies as the running database applies them, through the role the runtime really is.
+      // The two attempts are the same statement under two scopes: the refusal proves the scope was
+      // what refused it only because the success proves the statement itself is a lawful row.
+      const attempt = probeInsert(bootstrapUrl, table);
+      const asTenant = psql(appUrl, withSession({ [GUC_TENANT]: tenantId }, attempt));
+      expect(
+        asTenant.ok,
+        `${ROLE_APP} armed with nothing but ${GUC_TENANT_FRAGMENT} inserted a row into ${table} — a tenant handle may fork a platform edition, never mint one (L-MEA-01)`,
+      ).toBe(false);
+      expect(asTenant.sqlstate, `that INSERT into ${table} failed, but not as a policy refusal:\n${asTenant.stderr.slice(-800)}`).toBe(RLS_REFUSAL);
+
+      const asSystem = psql(appUrl, withSession({ [GUC_SYSTEM_REASON]: PROBE_REASON }, attempt));
+      expect(asSystem.ok, `${ROLE_APP} under system scope could not write ${table} at all, so the refusal above shows nothing about scope:\n${asSystem.stderr.slice(-800)}`).toBe(true);
+      expect(asSystem.rows.some((row) => row[0] === "1"), `the system-scoped INSERT into ${table} returned no row`).toBe(true);
+    }
+
+    // And the read that the whole posture exists for: the platform seed, seen by a session that
+    // names a tenant and nothing else — the reading the pin and the view are built out of.
+    const seenAsTenant = platform.flatMap((table) => jsonRowsScoped(appUrl, table, { [GUC_TENANT]: tenantId }).filter((row) => row["name"] === SEED_NAME));
+    expect(
+      seenAsTenant.length,
+      `${TENANT_ALPHA}, arming ${GUC_TENANT_FRAGMENT} and no reason, cannot read the platform edition ${SEED_NAME} — the fork every pin begins with reads it under exactly that scope (L-REG-07)`,
+    ).toBeGreaterThan(0);
   });
 });
 
