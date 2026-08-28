@@ -1,0 +1,73 @@
+"use client";
+// The rename, as a form the browser submits and the server answers (R-UI-033). Requiredness is the
+// only rule the screen holds: the door takes the name as presented, so no client-side shaping
+// stands between what a person typed and what the seam is asked to save (s-auth I-13/I-14).
+//
+// The answer is whatever the seam answered — the saved notice, or the registered refusal rendered
+// by the one renderer, with the evidence that resolves it (ARCH-03, B-21). Renaming is a plain
+// write and not an act: no copper, no consequence to carry.
+import { useActionState, useId } from "react";
+import { refusalOf, type RefusalCode } from "../../../../../core/errors";
+import { RefusalState } from "../../../../../ui/patterns/refusal-state";
+import { Button, Input } from "../../../../../ui/primitives/core";
+import { strings } from "../../../../../ui/strings";
+import { renameWorkspaceAction, type RenameFormState } from "../actions";
+
+export interface RenameFormProps {
+  tenantId: string;
+  name: string;
+}
+
+export function RenameForm({ tenantId, name }: RenameFormProps) {
+  const [answer, submit, pending] = useActionState<RenameFormState, FormData>(renameWorkspaceAction, null);
+  const inputId = useId();
+  const labelId = useId();
+  const hintId = useId();
+
+  return (
+    <form action={submit}>
+      <section className="cx-shell-section" data-testid="shell-settings-name" aria-labelledby={labelId}>
+        <input type="hidden" name="tenantId" value={tenantId} />
+        <label className="cx-shell-field-label" id={labelId} htmlFor={inputId}>
+          {strings.shell_settings_name_label}
+        </label>
+        <p className="cx-shell-field-hint" id={hintId}>
+          {strings.shell_settings_name_hint}
+        </p>
+        <Input
+          id={inputId}
+          name="name"
+          data-testid="shell-rename-input"
+          defaultValue={name}
+          aria-describedby={hintId}
+          disabled={pending}
+          required
+        />
+        {answer !== null && answer.renamed ? (
+          <div className="cx-shell-outcome cx-shell-notice" role="status">
+            {strings.shell_rename_saved}
+          </div>
+        ) : null}
+        {answer !== null && !answer.renamed ? (
+          <div className="cx-shell-outcome" data-testid="shell-rename-refusal">
+            <RefusalState refusal={refusalOf(answer.refusal)} evidence={evidenceFor(answer.refusal)} />
+          </div>
+        ) : null}
+        <Button className="cx-shell-submit" type="submit" data-testid="shell-rename-submit" loading={pending}>
+          {strings.shell_rename_submit}
+        </Button>
+      </section>
+    </form>
+  );
+}
+
+/**
+ * The way onward for the refusals this door can answer with: a session that ended is resolved at
+ * sign-in, and a membership that is not held is resolved nowhere inside the workspace — so the
+ * evidence is the home page, which is where a person's own workspaces are reachable from.
+ */
+function evidenceFor(code: RefusalCode): { href: string; label: string } {
+  return code === "SIGNED_OUT"
+    ? { href: "/sign-in", label: strings.shell_evidence_sign_in }
+    : { href: "/", label: strings.shell_evidence_home };
+}
