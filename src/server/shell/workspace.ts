@@ -1,0 +1,88 @@
+// The workspace behind the signed-in frame (R-UI-030, R-UI-033): which one the session holds, and
+// the one write that renames it. Both go through the existing seams — `resolveSession` for who is
+// asking (R-SPINE-001) and `runAsSystem` for the read and the write (SEAM-TENANT) — so this file
+// owns no identity rule and no handle of its own.
+//
+// Membership is not tenant-scoped state a tenant handle could read: it is the row that says which
+// tenant a person may be scoped to at all, and it is written by sign-up under the same system
+// reason (src/server/auth/session.ts). Reading and writing it therefore runs as the system, with
+// the reason recorded beside the statement.
+import { and, eq, memberships, runAsSystem, storableText, tenants } from "../../core/db";
+import type { RefusalCode } from "../../core/errors";
+import { resolveSession } from "../auth/session";
+
+/** The workspace a person is in: the uuid the URL names it by, and the name they gave it. */
+export interface Workspace {
+  tenantId: string;
+  name: string;
+}
+
+/** What the rename answers with: the saved workspace, or the registered refusal that stopped it. */
+export type RenameAnswer = { renamed: true; workspace: Workspace } | { renamed: false; refusal: RefusalCode };
+
+/** The rename as a caller states it: who is asking, which workspace, and the name as presented. */
+export interface RenameRequest {
+  sessionToken: string | null;
+  tenantId: string;
+  name: string;
+}
+
+/**
+ * The workspace the presented session holds, or null when it holds none — a dead cookie, a session
+ * that has been revoked, or an account whose membership has gone. R-UI-031 makes the uuid the URL's
+ * `{tenant}` segment, so the answer carries it beside the name the switcher and breadcrumb show.
+ *
+ * Multi-workspace membership is not part of the shipped product, so the newest membership is the
+ * one workspace a person is in; `memberships` widening is what makes a switcher list longer.
+ */
+export async function workspaceFor(sessionToken: string | null): Promise<Workspace | null> {
+  const session = sessionToken === null ? null : await resolveSession(sessionToken);
+  if (session === null) return null;
+  return firstWorkspaceOf(session.userId);
+}
+
+/**
+ * R-UI-033's rename, membership-checked: a person may rename the workspace they are a member of and
+ * no other. A request with no live session is answered SIGNED_OUT and one from a non-member
+ * PERMISSION_NOT_HELD — both registered answers, never faults (ARCH-03, B-21).
+ *
+ * The name is taken as presented, exactly as the door that first named the workspace takes it
+ * (R-SPINE-002): case, spacing and length are the person's. What `text` has no representation for
+ * is dropped through the seam's own `storableText`, because a value the database cannot store is
+ * not an outage — the same settled reading sign-up follows.
+ */
+export async function renameWorkspace(request: RenameRequest): Promise<RenameAnswer> {
+  const session = request.sessionToken === null ? null : await resolveSession(request.sessionToken);
+  if (session === null) return { renamed: false, refusal: "SIGNED_OUT" };
+
+  const db = runAsSystem("R-UI-033 workspace rename: the membership that admits the write, and the name a member gave their workspace");
+  const held = await db
+    .select({ tenantId: memberships.tenantId })
+    .from(memberships)
+    .where(and(eq(memberships.userId, session.userId), eq(memberships.tenantId, request.tenantId)))
+    .limit(1);
+  if (held[0] === undefined) return { renamed: false, refusal: "PERMISSION_NOT_HELD" };
+
+  const saved = await db
+    .update(tenants)
+    .set({ name: storableText(request.name) })
+    .where(eq(tenants.tenantId, request.tenantId))
+    .returning({ tenantId: tenants.tenantId, name: tenants.name });
+
+  const row = saved[0];
+  if (row === undefined) return { renamed: false, refusal: "PERMISSION_NOT_HELD" };
+  return { renamed: true, workspace: { tenantId: row.tenantId, name: row.name } };
+}
+
+/** The workspace a membership joins this account to, with the name the tenant row carries. */
+async function firstWorkspaceOf(userId: string): Promise<Workspace | null> {
+  const db = runAsSystem("R-UI-030 shell frame: the workspace a signed-in account is a member of, and the name it wears");
+  const rows = await db
+    .select({ tenantId: tenants.tenantId, name: tenants.name })
+    .from(memberships)
+    .innerJoin(tenants, eq(tenants.tenantId, memberships.tenantId))
+    .where(eq(memberships.userId, userId))
+    .limit(1);
+  const row = rows[0];
+  return row === undefined ? null : { tenantId: row.tenantId, name: row.name };
+}
