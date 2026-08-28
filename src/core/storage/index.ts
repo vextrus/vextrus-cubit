@@ -107,11 +107,12 @@ function objectPath(root: string, tenantId: string, sha256: string): string {
 /** Whole seconds, the unit `expires` is written in. */
 const unixSeconds = (at: Date): number => Math.floor(at.getTime() / 1000);
 
-/** Was this filesystem answer simply "nothing is stored there"? */
-const isMissing = (error: unknown): boolean => {
-  const code = (error as { code?: unknown } | null)?.code;
-  return code === "ENOENT" || code === "ENOTDIR" || code === "EISDIR";
-};
+/**
+ * Was this filesystem answer simply "nothing is stored there"? Only `ENOENT` says that. A directory
+ * standing at an address (`EISDIR`), or a file standing where a tenant prefix belongs (`ENOTDIR`),
+ * is a corrupt volume, and a corrupt volume must not read as an ordinary miss (ARCH-03, B-21).
+ */
+const isMissing = (error: unknown): boolean => (error as { code?: unknown } | null)?.code === "ENOENT";
 
 /**
  * The seam over a local filesystem root. Every knob is a value on `options`, so two seams over the
@@ -147,7 +148,9 @@ export function makeStorage(options: StorageOptions): Storage {
       } catch (error) {
         if ((error as { code?: unknown }).code !== "EEXIST") throw error;
       } finally {
-        await unlink(staging);
+        // Removing the staging copy is cleanup, not the operation: if it fails, the caller still
+        // owes the story of what went wrong with `link`, so its rejection never replaces that one.
+        await unlink(staging).catch(() => undefined);
       }
       return { sha256 };
     },
@@ -170,7 +173,7 @@ export function makeStorage(options: StorageOptions): Storage {
     },
 
     verify(url: string, at?: Date): SignVerification {
-      // A URL is caller input from the far side of a browser, so nothing here throws: an argument
+      // A URL is caller input from the far side of a browser, so no shape of one throws: a string
       // this seam did not mint is simply not vouched for.
       const parts = typeof url === "string" ? SIGNED_URL_SHAPE.exec(url) : null;
       if (parts === null) return { ok: false, reason: "invalid" };
@@ -179,14 +182,25 @@ export function makeStorage(options: StorageOptions): Storage {
       if (!TENANT_SHAPE.test(tenantId) || !ADDRESS_SHAPE.test(sha256)) return { ok: false, reason: "invalid" };
 
       const expires = Number(expiresText);
-      if (!Number.isSafeInteger(expires)) return { ok: false, reason: "invalid" };
+      // One expiry, one spelling: `0000000900` reads as 900 but is not the text that was signed,
+      // so the artefact stays canonical and a padded copy is not a URL this seam minted.
+      if (!Number.isSafeInteger(expires) || String(expires) !== expiresText) return { ok: false, reason: "invalid" };
 
-      const expected = Buffer.from(signatureOf(tenantId, sha256, expires), "hex");
-      const presented = Buffer.from(signature, "hex");
+      // The signature is compared as the text it travels as, never as decoded bytes: hex decoding
+      // drops a trailing unpaired nibble without complaining, so a signature with a character
+      // appended would decode to the minted bytes and vouch for a URL nobody signed.
+      const expected = Buffer.from(signatureOf(tenantId, sha256, expires), "utf8");
+      const presented = Buffer.from(signature, "utf8");
       // The comparison is constant time, and a length that cannot match is answered without one.
       if (presented.length !== expected.length || !timingSafeEqual(presented, expected)) return { ok: false, reason: "invalid" };
 
-      const moment = at instanceof Date && Number.isFinite(at.getTime()) ? at : clock();
+      // A moment to judge against is the caller's own argument, not far-side input: an unusable
+      // Date is a caller error, and falling back to this seam's clock would quietly judge an
+      // expiring URL against a time the caller never asked for.
+      if (at !== undefined && (!(at instanceof Date) || !Number.isFinite(at.getTime()))) {
+        throw new TypeError("storage: at must be a valid Date");
+      }
+      const moment = at ?? clock();
       // The URL is good up to its expiry and refused at it — an expiry that has arrived has passed.
       if (unixSeconds(moment) >= expires) return { ok: false, reason: "expired" };
 
