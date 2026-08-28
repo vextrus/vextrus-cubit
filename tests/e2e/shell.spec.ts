@@ -216,6 +216,11 @@ test.describe("J-004 — the signed-in application shell", () => {
     await expect(shell.breadcrumb, "the renamed name is gone in its turn").not.toContainText(WORKSPACE_RENAMED);
 
     /* --- j004-shell-deeplink: the address alone is enough, and back restores what was there --- */
+    // The screen the person comes from, so that back below has a screen to return to: the rename
+    // walk above ends on settings and pins the page there (R-UI-031 asks that back reach the actual
+    // previous entry, not that a deep link know the workspace home).
+    await shell.open(SHELL.workspace(tenantId));
+    await shell.expectFrame();
     await shell.open(SHELL.books(tenantId));
     await shell.expectFrame();
     await expect(shell.breadcrumb, "the restored identity is what this checkpoint is graded wearing").toContainText(WORKSPACE);
