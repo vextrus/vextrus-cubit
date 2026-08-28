@@ -20,7 +20,7 @@ import {
   missingEntries,
 } from "../../../src/ui/gallery-derivation";
 import type { GalleryEntry, GalleryState } from "../../../src/ui/gallery-derivation";
-import { REPO_ROOT, barrelIdsOnDisk } from "./support/gallery-contract";
+import { REPO_ROOT, barrelIdsOnDisk, rendersComponent } from "./support/gallery-contract";
 
 /**
  * The interfaces line's types, bound at compile time rather than by a runtime shape guess: `tsc`
@@ -39,6 +39,28 @@ function isRenderableComponent(value: unknown): boolean {
   if (typeof value === "function") return true;
   if (typeof value !== "object" || value === null) return false;
   return typeof (value as { $$typeof?: unknown }).$$typeof === "symbol";
+}
+
+/**
+ * The barrel an entry key belongs to, and the export it names — split at the boundary the roster
+ * itself fixes, because a barrel id carries slashes of its own ("primitives/core/Button" is the
+ * `Button` of `primitives/core`, never the `core/Button` of `primitives`).
+ */
+function ownerOf(key: string): { barrelId: string; exportName: string } | null {
+  for (const barrelId of Object.keys(galleryBarrels)) {
+    if (key.startsWith(`${barrelId}/`)) return { barrelId, exportName: key.slice(barrelId.length + 1) };
+  }
+  return null;
+}
+
+/** The value a barrel publishes under an entry key — the component the entry claims to catalogue. */
+function componentFor(key: string): unknown {
+  const owner = ownerOf(key);
+  expect(owner, `${key} names a barrel galleryBarrels holds`).not.toBeNull();
+  const { barrelId, exportName } = owner as { barrelId: string; exportName: string };
+  const namespace = galleryBarrels[barrelId] ?? {};
+  expect(componentExports(namespace), `${key}: ${exportName} is a component ${barrelId} publishes`).toContain(exportName);
+  return namespace[exportName];
 }
 
 /** The entry keys the derivation owes: every barrel crossed with every component it publishes. */
@@ -113,6 +135,23 @@ describe("AC-1 — galleryEntries carries one entry per component, with sample d
           rendered === null || rendered === undefined,
           `${key}/${state.name}: render() returns sample data to show, not nothing`,
         ).toBe(false);
+      }
+      const names = states.map((state) => state.name);
+      expect(names.length, `${key}: no state name is declared twice — data-state is what names a state in the DOM`).toBe(new Set(names).size);
+    }
+  });
+
+  test("AC-1: every state renders the barrel export its key names, not a stand-in", () => {
+    const keys = Object.keys(galleryEntries);
+    expect(keys.length, "there are entries whose samples can be judged").toBeGreaterThan(0);
+    for (const key of keys) {
+      const component = componentFor(key);
+      expect(component, `${key}: the barrel publishes the export the entry catalogues`).toBeDefined();
+      for (const state of galleryEntries[key]?.states ?? []) {
+        expect(
+          rendersComponent(state.render(), component),
+          `${key}/${state.name}: render() must put ${key} itself on the screen — the gallery is evidence of the component, so a sample that renders anything else (a string, a bare div, some other component) shows nothing of it (R-UI-011)`,
+        ).toBe(true);
       }
     }
   });

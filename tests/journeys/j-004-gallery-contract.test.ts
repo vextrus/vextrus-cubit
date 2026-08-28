@@ -22,6 +22,8 @@ import { stripComments } from "../ui/s-design/support/gallery-contract";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 const SPEC = "tests/e2e/journeys/j-004-gallery.spec.ts";
+/** The journey's own page object — where its locators and helpers may live (test contract). */
+const PAGE_OBJECT = "tests/e2e/pages/s-design.page.ts";
 const CONFIG = "playwright.config.ts";
 const BASELINES = ["tests/e2e/baselines/design/gallery-shell-light.png", "tests/e2e/baselines/design/gallery-shell-dark.png"];
 const SNAPSHOT_TEMPLATE = "tests/e2e/baselines/{arg}{ext}";
@@ -36,7 +38,8 @@ const BLOCKING_IMPACTS = ["critical", "serious"];
 const NON_BLOCKING_IMPACTS = ["minor", "moderate"];
 
 /** The four test ids the closed contract fixes, and the route the journey walks. */
-const TESTIDS = ["gallery-shell", "gallery-barrel", "gallery-entry", "gallery-state"];
+const SHELL_TESTID = "gallery-shell";
+const TESTIDS = [SHELL_TESTID, "gallery-barrel", "gallery-entry", "gallery-state"];
 const ROUTE = "/design";
 
 function readIfPresent(file: string): string | null {
@@ -73,6 +76,150 @@ function stringProperty(code: string, key: string): string | null {
 
 function occurrences(code: string, key: string): number {
   return [...code.matchAll(new RegExp(`\\b${key}\\s*:`, "g"))].length;
+}
+
+/* ------------------------------------------------------------------ reading what the spec binds */
+
+/**
+ * The journey's own sources: the spec, and the page object it is allowed to keep its locators and
+ * helpers in. A helper that lives one file over is still the journey's, so both are read as one
+ * body of code — otherwise a spec that delegates would be judged as a spec that does nothing.
+ */
+function journeySource(): string {
+  const pageObject = readIfPresent(PAGE_OBJECT);
+  return `${readCode(SPEC)}\n${pageObject === null ? "" : stripComments(pageObject)}`;
+}
+
+/** The text between a bracket opened just before `start` and its match, strings honoured. */
+function balancedFrom(code: string, start: number): string {
+  let depth = 1;
+  let quote: string | null = null;
+  for (let index = start; index < code.length; index += 1) {
+    const char = code[index] ?? "";
+    if (quote !== null) {
+      if (char === "\\") index += 1;
+      else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === "`") quote = char;
+    else if (char === "(" || char === "[" || char === "{") depth += 1;
+    else if (char === ")" || char === "]" || char === "}") {
+      depth -= 1;
+      if (depth === 0) return code.slice(start, index);
+    }
+  }
+  return code.slice(start);
+}
+
+/**
+ * The file's statements: split at every `;` and newline that stands outside all brackets and
+ * strings, so a declaration keeps its whole initialiser — the `page.evaluate(async () => { … })`
+ * that runs axe stays one statement with the name it was bound to.
+ */
+function statementsOf(code: string): string[] {
+  const statements: string[] = [];
+  let current = "";
+  let depth = 0;
+  let quote: string | null = null;
+  for (let index = 0; index < code.length; index += 1) {
+    const char = code[index] ?? "";
+    current += char;
+    if (quote !== null) {
+      if (char === "\\") {
+        current += code[index + 1] ?? "";
+        index += 1;
+      } else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === "`") quote = char;
+    else if (char === "(" || char === "[" || char === "{") depth += 1;
+    else if (char === ")" || char === "]" || char === "}") depth = Math.max(0, depth - 1);
+    else if (depth === 0 && (char === ";" || char === "\n")) {
+      statements.push(current);
+      current = "";
+    }
+  }
+  statements.push(current);
+  return statements.filter((statement) => statement.trim() !== "");
+}
+
+/** Every name a statement binds — declarations, destructurings, functions, class members. */
+function declaredNames(statement: string): string[] {
+  const names: string[] = [];
+  for (const match of statement.matchAll(/\bfunction\s+(\w+)/g)) names.push(match[1] ?? "");
+  for (const match of statement.matchAll(/\b(?:const|let|var)\s+(\w+)/g)) names.push(match[1] ?? "");
+  for (const match of statement.matchAll(/\b(?:const|let|var)\s*\{([^}]*)\}/g)) {
+    for (const part of (match[1] ?? "").split(",")) {
+      const bound = (part.split(":").pop() ?? "").trim();
+      if (/^\w+$/.test(bound)) names.push(bound);
+    }
+  }
+  for (const match of statement.matchAll(/\bget\s+(\w+)\s*\(/g)) names.push(match[1] ?? "");
+  for (const match of statement.matchAll(/(\w+)\s*=[^=]/g)) names.push(match[1] ?? "");
+  return names.filter((name) => name !== "");
+}
+
+function mentions(text: string, name: string): boolean {
+  return new RegExp(`\\b${name}\\b`).test(text);
+}
+
+/**
+ * The names whose value flows from an axe run inside the page. The seed is the statement that runs
+ * axe in the browser — `evaluate` around a `.run(` on axe — and taint spreads to anything declared
+ * from a statement that reads a tainted name, so `blockingViolations` → `violations` → the array an
+ * assertion counts is one traceable chain (the shape tests/e2e/j-000-golden-path.e2e.ts already
+ * uses). A hardcoded empty array is bound to nothing and never joins the set.
+ */
+function axeResultNames(code: string): { runsInPage: boolean; tainted: Set<string> } {
+  const statements = statementsOf(code);
+  const tainted = new Set<string>();
+  let runsInPage = false;
+
+  for (const statement of statements) {
+    if (!/\bevaluate\s*\(/.test(statement)) continue;
+    if (!/\.\s*run\s*\(/.test(statement)) continue;
+    if (!/\baxe\b/i.test(statement)) continue;
+    runsInPage = true;
+    for (const name of declaredNames(statement)) tainted.add(name);
+  }
+
+  for (let pass = 0; pass < 8; pass += 1) {
+    const before = tainted.size;
+    for (const statement of statements) {
+      if (![...tainted].some((name) => mentions(statement, name))) continue;
+      for (const name of declaredNames(statement)) tainted.add(name);
+    }
+    if (tainted.size === before) break;
+  }
+  return { runsInPage, tainted };
+}
+
+/** Every `expect(<subject>)` whose matcher is one of `matchers`, with the subject and the arguments. */
+function expectations(code: string, matchers: string[]): { subject: string; args: string }[] {
+  const found: { subject: string; args: string }[] = [];
+  const matcher = new RegExp(`^\\s*(?:\\.(?!not\\b)\\w+\\s*)*\\.\\s*(?:${matchers.join("|")})\\s*\\(`);
+  for (const match of code.matchAll(/\bexpect\s*\(/g)) {
+    const start = (match.index ?? 0) + match[0].length;
+    const subject = balancedFrom(code, start);
+    const after = code.slice(start + subject.length + 1);
+    const tail = matcher.exec(after);
+    if (tail === null) continue;
+    found.push({ subject, args: balancedFrom(after, tail[0].length) });
+  }
+  return found;
+}
+
+/** The names that hold a `gallery-shell` locator — the region AC-4 says the capture must be of. */
+function shellLocatorNames(code: string): Set<string> {
+  const names = new Set<string>();
+  // The id must be inside the locator call itself: a `gallery-shell` that is only the name of a
+  // screenshot file says nothing about what the capture was taken of.
+  const locatesShell = new RegExp(`\\b(?:getByTestId|locator)\\s*\\(\\s*[^)]{0,60}${SHELL_TESTID}`);
+  for (const statement of statementsOf(code)) {
+    if (!locatesShell.test(statement)) continue;
+    for (const name of declaredNames(statement)) names.add(name);
+  }
+  return names;
 }
 
 /** A Playwright testMatch glob as a regex over the path relative to testDir. */
@@ -129,7 +276,7 @@ describe("AC-3 — the gate collects J-004, and J-004 drives /design in both the
   });
 
   test("AC-3: the journey drives /design and both document themes", () => {
-    const code = readCode(SPEC);
+    const code = journeySource();
     expect(code, `the journey walks ${ROUTE}`).toContain(ROUTE);
     expect(code, "the dark pass is driven by prefers-color-scheme emulation, not by a click on a theme control").toContain("emulateMedia");
     expect(/\bcolorScheme\b/.test(code), "the lever is colorScheme, so the machine's own theme is never consulted").toBe(true);
@@ -144,7 +291,7 @@ describe("AC-3 — the gate collects J-004, and J-004 drives /design in both the
   });
 
   test("AC-3: the journey asserts every barrel is populated and every entry holds states", () => {
-    const code = readCode(SPEC);
+    const code = journeySource();
     for (const testid of TESTIDS) {
       expect(code, `the journey drives the ${testid} hook the Design Decision fixes`).toContain(testid);
     }
@@ -153,7 +300,7 @@ describe("AC-3 — the gate collects J-004, and J-004 drives /design in both the
 
 describe("AC-3 — axe runs from the checkout, and gates exactly at serious and critical (Q-11)", () => {
   test("AC-3: axe is injected from the checkout's own axe-core, and the journey adds no package", () => {
-    const code = readCode(SPEC);
+    const code = journeySource();
     expect(code, "axe comes from the copy already installed, resolved through createRequire").toContain("createRequire");
     expect(code, "the resolved file is axe-core's built bundle").toContain("axe-core/axe.min.js");
     expect(/readFileSync\s*\(/.test(code), "the bundle is read off disk and added as an init script").toBe(true);
@@ -174,7 +321,7 @@ describe("AC-3 — axe runs from the checkout, and gates exactly at serious and 
   });
 
   test("AC-3: the impacts gated on are exactly serious and critical, never widened", () => {
-    const code = readCode(SPEC);
+    const code = journeySource();
     const spells = (word: string): boolean => code.includes(`"${word}"`) || code.includes(`'${word}'`) || code.includes(`\`${word}\``);
 
     for (const impact of BLOCKING_IMPACTS) {
@@ -190,25 +337,68 @@ describe("AC-3 — axe runs from the checkout, and gates exactly at serious and 
     }
   });
 
-  test("AC-3: the violations counted are the ones impact selected, and the count asserted is zero", () => {
-    const code = readCode(SPEC);
+  test("AC-3: the zero asserted is axe's own answer, running inside the page", () => {
+    const code = journeySource();
     expect(code, "impact is what selects the violations that block — not their bare number").toContain("impact");
     expect(code, "the axe result's violations are what is read").toContain("violations");
+
+    const { runsInPage, tainted } = axeResultNames(code);
     expect(
-      // Either idiom binds the same law: a count compared to zero, or the selected violations
-      // compared to the empty array as tests/e2e/j-000-golden-path.e2e.ts does.
-      /(?:toHaveLength|toBe|toEqual|toStrictEqual)\s*\(\s*(?:0|\[\s*\])\s*\)/.test(code),
-      "the selected violations are asserted to number exactly 0, in both themes",
+      runsInPage,
+      `the journey must RUN axe in the browser — a page.evaluate whose body calls axe's own run(), as tests/e2e/j-000-golden-path.e2e.ts does. Injecting the bundle and never running it leaves Q-11 unenforced, and the run exits 0 either way`,
     ).toBe(true);
+
+    // Either idiom binds the same law: a count compared to zero, or the selected violations
+    // compared to the empty array as tests/e2e/j-000-golden-path.e2e.ts does — but the value
+    // compared must be the one axe answered, traced through whatever filtered it.
+    const zeroes = expectations(code, ["toHaveLength", "toBe", "toEqual", "toStrictEqual"]).filter((expectation) =>
+      /^\s*(?:0|\[\s*\])\s*$/.test(expectation.args.split(",")[0] ?? ""),
+    );
+    expect(zeroes.length, "the journey asserts a count of exactly 0 somewhere").toBeGreaterThan(0);
+
+    const bound = zeroes.filter((expectation) => [...tainted].some((name) => mentions(expectation.subject, name)));
+    expect(
+      bound.length,
+      `the "= 0" that gates the journey must be axe's own result — a value declared from the run and narrowed by impact. None of the zero assertions read one: ${JSON.stringify(zeroes.map((expectation) => expectation.subject.trim().slice(0, 60)))}, while the values that flow from axe are ${JSON.stringify([...tainted])}`,
+    ).toBeGreaterThan(0);
+
+    // …and the narrowing that produced it is the impact filter, not a slice of something else.
+    const narrowedByImpact = bound.some((expectation) =>
+      statementsOf(code).some(
+        (statement) =>
+          statement.includes("impact") &&
+          declaredNames(statement).some((name) => mentions(expectation.subject, name) && tainted.has(name)),
+      ) || expectation.subject.includes("impact"),
+    );
+    expect(narrowedByImpact, "the violations counted are the ones impact selected (Q-11: serious and critical, never any-impact)").toBe(true);
   });
 });
 
 describe("AC-4 — the shell captures are routed, committed, and actually differ (Q-06)", () => {
-  test("AC-4: the spec captures the gallery-shell region with animations disabled", () => {
-    const code = readCode(SPEC);
-    expect(/toHaveScreenshot\s*\(/.test(code), "the shell region is captured with toHaveScreenshot").toBe(true);
-    expect(/animations\s*:\s*(["'`])disabled\1/.test(code), "captures run with animations disabled so they are deterministic").toBe(true);
-    expect(code, "the capture is the gallery-shell locator, not the whole page").toContain("gallery-shell");
+  test("AC-4: the capture is OF the gallery-shell region, with animations disabled", () => {
+    const code = journeySource();
+    const captures = expectations(code, ["toHaveScreenshot"]);
+    expect(captures.length, "the shell region is captured with toHaveScreenshot").toBeGreaterThan(0);
+
+    const shellNames = shellLocatorNames(code);
+    const ofTheShell = captures.filter(
+      (capture) => capture.subject.includes(SHELL_TESTID) || [...shellNames].some((name) => mentions(capture.subject, name)),
+    );
+    expect(
+      ofTheShell.length,
+      `the subject of toHaveScreenshot must be the ${SHELL_TESTID} locator itself — a full-page capture beside an unused shell locator satisfies "both appear in the file" while capturing the wrong region (Q-06). Captured subjects: ${JSON.stringify(captures.map((capture) => capture.subject.trim().slice(0, 60)))}; locators that hold the shell: ${JSON.stringify([...shellNames])}`,
+    ).toBeGreaterThan(0);
+
+    for (const capture of ofTheShell) {
+      expect(
+        /animations\s*:\s*(["'`])disabled\1/.test(capture.args),
+        `the shell capture disables animations in its own options, so it is deterministic: ${capture.args.trim().slice(0, 80)}`,
+      ).toBe(true);
+      expect(
+        capture.args.includes(SHELL_TESTID),
+        `the capture is named for the region it takes — "design/${SHELL_TESTID}-<theme>.png" (Q-06, snapshotPathTemplate): ${capture.args.trim().slice(0, 80)}`,
+      ).toBe(true);
+    }
   });
 
   test("AC-4: playwright.config.ts gains snapshotPathTemplate and nothing else doubles", () => {

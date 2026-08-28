@@ -10,9 +10,21 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import * as React from "react";
+import { expect, vi } from "vitest";
 
 /** The checkout root — this file sits at tests/ui/s-design/support/. */
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
+
+/**
+ * Read a file the increment owes, failing by name when it is not there yet. Every scan below goes
+ * through this, so a missing module reds as the missing module rather than as an ENOENT.
+ */
+export function readRepoFile(file: string): string {
+  const path = join(REPO_ROOT, file);
+  expect(existsSync(path), `${file} is missing from the checkout — the increment owes it`).toBe(true);
+  return readFileSync(path, "utf8");
+}
 
 /** The two barrel groups AC-1's scan reads, plus the shell barrel a later increment may grow. */
 const BARREL_GROUPS = ["primitives", "patterns"] as const;
@@ -36,6 +48,7 @@ function indexOf(dir: string): string | null {
  */
 export function barrelDirsOnDisk(): { id: string; dir: string; index: string }[] {
   const uiDir = join(REPO_ROOT, "src/ui");
+  expect(existsSync(uiDir), "src/ui holds the barrels the gallery's completeness surface is derived from").toBe(true);
   const found: { id: string; dir: string; index: string }[] = [];
 
   for (const group of BARREL_GROUPS) {
@@ -168,7 +181,7 @@ export function importSpecifiers(source: string): string[] {
  * behind its barrel.
  */
 export function barrelInternalImports(file: string): string[] {
-  const source = readFileSync(join(REPO_ROOT, file), "utf8");
+  const source = readRepoFile(file);
   const fileDir = dirname(join(REPO_ROOT, file));
   const barrels = barrelDirsOnDisk();
   const offences: string[] = [];
@@ -203,7 +216,7 @@ const COLOUR_SHAPES: { name: string; pattern: RegExp }[] = [
 
 /** The colour literals a file spells outside the token source (R-UI-001). */
 export function colourLiterals(file: string): string[] {
-  const text = stripComments(readFileSync(join(REPO_ROOT, file), "utf8"));
+  const text = stripComments(readRepoFile(file));
   const offences: string[] = [];
   for (const shape of COLOUR_SHAPES) {
     for (const match of text.matchAll(shape.pattern)) offences.push(`${file}: ${shape.name} at index ${match.index}`);
@@ -275,4 +288,175 @@ export function installGalleryDomStubs(): void {
     };
   if (typeof proto.setPointerCapture !== "function") proto.setPointerCapture = function setPointerCapture(): void {};
   if (typeof proto.releasePointerCapture !== "function") proto.releasePointerCapture = function releasePointerCapture(): void {};
+}
+
+/* ------------------------------------------------- the component a state actually renders (AC-1) */
+
+/**
+ * Every identity a component wears: itself, and — for `memo` and `forwardRef` — whatever it wraps.
+ * A barrel that publishes `memo(Button)` and an entry that renders `<Button/>` are the same
+ * component, and neither spelling may be the difference between a bound test and a hollow one.
+ */
+function componentIdentities(value: unknown, depth = 0): unknown[] {
+  const found: unknown[] = [value];
+  if (depth > 4 || typeof value !== "object" || value === null) return found;
+  const wrapper = value as { type?: unknown; render?: unknown };
+  if (wrapper.type !== undefined && wrapper.type !== null) found.push(...componentIdentities(wrapper.type, depth + 1));
+  if (typeof wrapper.render === "function") found.push(...componentIdentities(wrapper.render, depth + 1));
+  return found;
+}
+
+/** Are these two values the same component, through any number of memo/forwardRef wrappers? */
+export function sameComponent(a: unknown, b: unknown): boolean {
+  if (a === undefined || b === undefined) return false;
+  if (a === b) return true;
+  const left = componentIdentities(a);
+  return componentIdentities(b).some((identity) => identity !== undefined && left.includes(identity));
+}
+
+/**
+ * Does this ReactNode actually put `target` on the screen (R-UI-011: the gallery renders the
+ * component, and a state whose sample is a bare string shows nothing of it)?
+ *
+ * The node is walked as React built it: arrays and fragments, `props.children`, and element-valued
+ * props (a `trigger`, a `content`, an `icon`). A state that wraps its component in a local demo
+ * component is met by calling that wrapper once and walking what it produced — guarded, because a
+ * component that needs a real renderer throws instead, and that is not this predicate's business.
+ */
+export function rendersComponent(node: unknown, target: unknown, depth = 0): boolean {
+  if (node === null || node === undefined || depth > 6) return false;
+  if (Array.isArray(node)) return node.some((child) => rendersComponent(child, target, depth + 1));
+  if (typeof node !== "object") return false;
+  if (sameComponent(node, target)) return true;
+
+  const element = node as { type?: unknown; props?: Record<string, unknown> };
+  if (element.type === undefined) return false;
+  if (sameComponent(element.type, target)) return true;
+
+  const props = element.props ?? {};
+  for (const value of Object.values(props)) {
+    if (rendersComponent(value, target, depth + 1)) return true;
+  }
+
+  if (typeof element.type === "function" && depth < 3) {
+    try {
+      const produced = (element.type as (props: unknown) => unknown)(props);
+      if (rendersComponent(produced, target, depth + 1)) return true;
+    } catch {
+      /* a component that needs a renderer cannot be unwrapped by calling it */
+    }
+  }
+  return false;
+}
+
+/* ------------------------------------------------------ mounting /design over a derivation (AC-2) */
+
+/** One named state of a gallery entry, as the interfaces line declares it. */
+export interface StateShape {
+  readonly name: string;
+  readonly render: () => unknown;
+}
+
+/** The derivation module's public surface — what `/design` may read, and all it may read. */
+export interface DerivationShape {
+  galleryBarrels: Record<string, Record<string, unknown>>;
+  componentExports: (namespace: Record<string, unknown>) => string[];
+  galleryEntries: Record<string, { states: readonly StateShape[] }>;
+  missingEntries: (entries?: Record<string, { states: readonly StateShape[] }>) => string[];
+}
+
+/** The derivation module the page renders, as the interfaces line spells it. */
+export function derivationPath(): string {
+  const dir = join(REPO_ROOT, "src/ui/gallery-derivation");
+  return indexOf(dir) ?? join(dir, "index.ts");
+}
+
+/** The `/design` route's page module, as the test contract spells it. */
+export function pagePath(): string {
+  return join(REPO_ROOT, "src/app/(app)/design/page.tsx");
+}
+
+/**
+ * A derivation that no hand-written page could be carrying: two barrels and three entries that
+ * exist nowhere in the tree. Mounting the page over this is how "renders the derivation" is told
+ * apart from "transcribes what the derivation happens to hold today" — the second renders the real
+ * keys whatever the module says, and the first renders these (B-19).
+ */
+export function syntheticDerivation(): DerivationShape {
+  const cell = (label: string): unknown => React.createElement("output", null, label);
+  const Alpha = (): unknown => cell("alpha");
+  const Beta = (): unknown => cell("beta");
+  const Gamma = (): unknown => cell("gamma");
+
+  const galleryBarrels: Record<string, Record<string, unknown>> = {
+    "probe/first": { Alpha, Beta },
+    "probe/second": { Gamma },
+  };
+  const galleryEntries: Record<string, { states: readonly StateShape[] }> = {
+    "probe/first/Alpha": {
+      states: [
+        { name: "resting", render: () => React.createElement(Alpha as never) },
+        { name: "busy", render: () => React.createElement(Alpha as never) },
+      ],
+    },
+    "probe/first/Beta": { states: [{ name: "resting", render: () => React.createElement(Beta as never) }] },
+    "probe/second/Gamma": {
+      states: [
+        { name: "resting", render: () => React.createElement(Gamma as never) },
+        { name: "empty", render: () => React.createElement(Gamma as never) },
+        { name: "refused", render: () => React.createElement(Gamma as never) },
+      ],
+    },
+  };
+
+  const componentExports = (namespace: Record<string, unknown>): string[] =>
+    Object.keys(namespace)
+      .filter((name) => /^[A-Z]/.test(name) && typeof namespace[name] === "function")
+      .sort();
+  const missingEntries = (entries: Record<string, { states: readonly StateShape[] }> = galleryEntries): string[] =>
+    Object.keys(galleryBarrels)
+      .flatMap((id) => componentExports(galleryBarrels[id] ?? {}).map((name) => `${id}/${name}`))
+      .filter((key) => !(key in entries))
+      .sort();
+
+  return { galleryBarrels, componentExports, galleryEntries, missingEntries };
+}
+
+/** A mounted `/design`, with the cleanup of the very renderer that mounted it. */
+export interface MountedPage {
+  container: HTMLElement;
+  cleanup: () => void;
+}
+
+/**
+ * Mount `/design`'s default export, optionally over a derivation of the caller's choosing.
+ *
+ * The page module is imported fresh for every mount, after the mock is registered, so a page that
+ * reads the derivation once at module scope is judged the same way as one that reads it per render.
+ * React and the renderer are re-imported through the same registry the page came from, so there is
+ * only ever one React in the graph that is rendering.
+ */
+export async function mountDesignPage(derivation?: DerivationShape): Promise<MountedPage> {
+  vi.resetModules();
+  if (derivation === undefined) vi.doUnmock(derivationPath());
+  else vi.doMock(derivationPath(), () => derivation);
+
+  const react = (await import("react")) as unknown as typeof React;
+  const renderer = (await import("@testing-library/react")) as unknown as {
+    render: (node: unknown) => { container: HTMLElement };
+    cleanup: () => void;
+  };
+
+  const path = pagePath();
+  expect(existsSync(path), "src/app/(app)/design/page.tsx is missing — the /design route is not there yet").toBe(true);
+  const module = (await import(path)) as { default?: unknown };
+  const component = module.default;
+  const mountable =
+    typeof component === "function" ||
+    (typeof component === "object" && component !== null && typeof (component as { $$typeof?: unknown }).$$typeof === "symbol");
+  expect(mountable, "src/app/(app)/design/page.tsx default-exports a component jsdom can mount").toBe(true);
+
+  installGalleryDomStubs();
+  const { container } = renderer.render(react.createElement(component as never));
+  return { container, cleanup: () => renderer.cleanup() };
 }
