@@ -7,10 +7,11 @@
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
 import { and, asc, eq, gt, inArray, isNull, lt, sql as statement } from "drizzle-orm";
-import { foreignKey, index, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { check, foreignKey, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { attributableReason } from "./db/reason";
+import { minimalDecimal } from "./model-ledger.types";
 
 // The query operators a caller needs to say which rows it means. They are the driver's, so they are
 // handed out from here rather than imported at a call site: SEAM-TENANT makes this file the one
@@ -191,8 +192,65 @@ export const memberships = pgTable(
   (table) => [primaryKey({ columns: [table.tenantId, table.userId] })],
 );
 
+/**
+ * The model-call ledger (L-AI-01): one row per call to a model, whether it was proposed or refused,
+ * with the request hash it was made under, the transport it went over and what it spent. Every call
+ * is recorded, so the row is written before the outcome is known to anyone else — a refusal is a
+ * ledger row too, carrying the code that explains it.
+ *
+ * The cost is stored beside the token counts rather than derived at read time: a rate can be
+ * re-baselined, and what a call cost when it was made is a fact about that call.
+ */
+export const modelCalls = pgTable(
+  "model_calls",
+  {
+    callId: uuid("call_id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.tenantId),
+    projectId: uuid("project_id").notNull(),
+    modelId: text("model_id").notNull(),
+    requestHash: text("request_hash").notNull(),
+    transport: text("transport").notNull(),
+    outcome: text("outcome").notNull(),
+    refusalCode: text("refusal_code"),
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    // Money, as an exact decimal: numeric, never a binary float (L-AI-01 attributes tokens to a
+    // tenant, and an attribution that rounds attributes something else).
+    attributedCost: numeric("attributed_cost").notNull(),
+    calledAt: timestamp("called_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("model_calls_transport_closed", statement`${table.transport} in ('live', 'fixture')`),
+    check("model_calls_outcome_closed", statement`${table.outcome} in ('proposed', 'refused')`),
+    // A refused call says which refusal it was, and a proposed one names none: nothing refused it.
+    check("model_calls_refusal_code_iff_refused", statement`(${table.refusalCode} is not null) = (${table.outcome} = 'refused')`),
+    // The read R-AI-005's surfaces make: one tenant's spend, gathered by project.
+    index("model_calls_by_project").on(table.tenantId, table.projectId),
+  ],
+);
+
+/**
+ * The fixture registry (L-AI-01): which recorded fixture answers a given request hash, per tenant.
+ * The digest rather than the fixture — what is replayed is held where fixtures are held, and this
+ * table is the registry that says a request hash has one and which one it is.
+ */
+export const modelFixtures = pgTable(
+  "model_fixtures",
+  {
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.tenantId),
+    requestHash: text("request_hash").notNull(),
+    fixtureDigest: text("fixture_digest").notNull(),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.tenantId, table.requestHash] })],
+);
+
 /** Everything the typed surface covers. A table joins the surface by joining this object. */
-const schema = { tenants, participants, acts, participantRoles, users, sessions, authTokens, memberships, authAttempts };
+const schema = { tenants, participants, acts, participantRoles, users, sessions, authTokens, memberships, authAttempts, modelCalls, modelFixtures };
 
 /** A handle scoped to one tenant: the typed read/write surface, filtered by row-level security. */
 export type TenantDb = PostgresJsDatabase<typeof schema>;
@@ -422,4 +480,50 @@ export function forTenant(ctx: { tenantId: string }): TenantDb {
  */
 export function runAsSystem(reason: string): SystemDb {
   return handleFor({ tenantId: "", systemReason: attributableReason(reason) });
+}
+
+/** What one project spent on model calls: how many were made, how they ended, and what they cost. */
+export type ModelSpend = {
+  projectId: string;
+  calls: number;
+  proposed: number;
+  refused: number;
+  inputTokens: number;
+  outputTokens: number;
+  attributedCost: string;
+};
+
+/**
+ * Per-project model spend for the tenant the handle is scoped to (R-AI-005): one entry per project
+ * the tenant has calls for, counting proposed and refused alike — L-AI-01 records every call, and a
+ * spend report that dropped the refusals would understate what the tenant was charged.
+ *
+ * The money is summed by the database, whose numeric addition is exact, and comes back as a decimal
+ * string: a total that became a double on the way out would be a different total. The counts are
+ * what postgres answers a count with — text — turned back into numbers here, so no caller has to.
+ */
+export async function modelSpendByProject(db: TenantDb): Promise<ModelSpend[]> {
+  const rows = await db
+    .select({
+      projectId: modelCalls.projectId,
+      calls: statement<string>`count(*)`,
+      proposed: statement<string>`count(*) filter (where ${modelCalls.outcome} = 'proposed')`,
+      refused: statement<string>`count(*) filter (where ${modelCalls.outcome} = 'refused')`,
+      inputTokens: statement<string>`coalesce(sum(${modelCalls.inputTokens}), 0)`,
+      outputTokens: statement<string>`coalesce(sum(${modelCalls.outputTokens}), 0)`,
+      attributedCost: statement<string>`coalesce(sum(${modelCalls.attributedCost}), 0)::text`,
+    })
+    .from(modelCalls)
+    .groupBy(modelCalls.projectId)
+    .orderBy(asc(modelCalls.projectId));
+
+  return rows.map((row) => ({
+    projectId: row.projectId,
+    calls: Number(row.calls),
+    proposed: Number(row.proposed),
+    refused: Number(row.refused),
+    inputTokens: Number(row.inputTokens),
+    outputTokens: Number(row.outputTokens),
+    attributedCost: minimalDecimal(row.attributedCost),
+  }));
 }
