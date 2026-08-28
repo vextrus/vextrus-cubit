@@ -9,6 +9,7 @@
 import { and, asc, eq, gt, inArray, isNull, lt, sql as statement } from "drizzle-orm";
 import { foreignKey, index, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import PgBoss from "pg-boss";
 import postgres from "postgres";
 import { attributableReason } from "./db/reason";
 
@@ -422,4 +423,275 @@ export function forTenant(ctx: { tenantId: string }): TenantDb {
  */
 export function runAsSystem(reason: string): SystemDb {
   return handleFor({ tenantId: "", systemReason: attributableReason(reason) });
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * SEAM-JOBS' storage (R-SPINE-030, R-SPINE-031).
+ *
+ * A queue library is a database driver by the same reading that makes `postgres` one, so pg-boss is
+ * imported here and nowhere else (SEAM-TENANT). What follows hands `src/core/jobs` a driver-free
+ * handle on two things and only two: the queue, and the durable per-step event log the clause asks
+ * for. The meaning of a job — which kinds exist, what a refusal is, when a key is free again —
+ * belongs to the seam above; this is where those decisions are stored, not where they are made
+ * (ARCH-02).
+ *
+ * Both stores are runtime-managed: pg-boss migrates its own schema when it starts, and the log's
+ * schema is created the same way, by the role the caller's URL names. Neither is in the schema tree
+ * drizzle-kit reads, so neither is a migration and neither can drift from one.
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The schema the event log lives in; the queue library keeps its own tables beside it. */
+const JOBS_SCHEMA = "cubit_jobs";
+const BOSS_SCHEMA = "pgboss";
+
+/** The channel every appended event is announced on, so a reader elsewhere need not poll hard. */
+const EVENTS_CHANNEL = "cubit_job_events";
+
+/**
+ * How often a queue asks for work when nothing has woken it. The library's floor is 500ms, and the
+ * floor is what is wanted: a retry's backoff is only observable to the accuracy of the poll that
+ * picks the retry up.
+ */
+const QUEUE_POLL_SECONDS = 0.5;
+
+/** How many connections the log holds. Its own pool, so closing it cannot close a tenant's handle. */
+const JOBS_POOL = { max: 5, idleTimeout: 20, connectTimeout: 10 } as const;
+
+/** One row of the event log, as the storage holds it before the seam gives it its meaning. */
+export type JobEventDraft = {
+  jobId: string;
+  kind: string;
+  key: string;
+  step: string;
+  status: string;
+  attempt: number;
+  refusalCode: string | null;
+  faultId: string | null;
+  detail: Record<string, unknown> | null;
+  elapsedMs: number | null;
+};
+
+/** An appended event, with the sequence and the instant the log gave it. */
+export type JobEventRow = JobEventDraft & { seq: number; at: string };
+
+/** A job handed to a consumer: which job it is, what it carries, and which attempt this is. */
+export type QueuedJob = { jobId: string; data: unknown; attempt: number };
+
+/** The queue policy one kind is run under, as the seam above declares it. */
+export type QueueShape = { concurrency: number; retryLimit: number; retryDelaySeconds: number; retryBackoff: boolean };
+
+/** The one handle on the queue and on the event log (ARCH-02). Nothing else speaks to either. */
+export interface JobsStore {
+  open(): Promise<void>;
+  declareQueue(name: string, shape: QueueShape): Promise<void>;
+  consume(name: string, shape: QueueShape, run: (job: QueuedJob) => Promise<void>): Promise<void>;
+  publish(name: string, data: Record<string, unknown>, shape: QueueShape): Promise<string>;
+  withKeyLock<T>(kind: string, key: string, work: () => Promise<T>): Promise<T>;
+  liveJobFor(kind: string, key: string, endedStatuses: readonly string[]): Promise<string | null>;
+  claimKey(kind: string, key: string, jobId: string): Promise<void>;
+  append(draft: JobEventDraft): Promise<JobEventRow>;
+  read(jobId: string, afterSeq: number): Promise<JobEventRow[]>;
+  deadLetterRows(endedStatuses: readonly string[]): Promise<JobEventRow[]>;
+  listen(onJob: (jobId: string) => void): Promise<void>;
+  close(): Promise<void>;
+}
+
+/** The log's tables, as the runtime makes them. Statement by statement, each one repeatable. */
+const JOBS_DDL: readonly string[] = [
+  `create schema if not exists ${JOBS_SCHEMA}`,
+  `create table if not exists ${JOBS_SCHEMA}.job_events (
+     seq bigserial primary key,
+     job_id text not null,
+     kind text not null,
+     key text not null,
+     step text not null,
+     status text not null,
+     attempt integer not null,
+     refusal_code text,
+     fault_id text,
+     detail jsonb,
+     at timestamptz not null default clock_timestamp(),
+     elapsed_ms integer
+   )`,
+  `create index if not exists job_events_by_job on ${JOBS_SCHEMA}.job_events (job_id, seq)`,
+  `create index if not exists job_events_by_status on ${JOBS_SCHEMA}.job_events (status, seq)`,
+  `create table if not exists ${JOBS_SCHEMA}.job_claims (
+     kind text not null,
+     key text not null,
+     job_id text not null,
+     claimed_at timestamptz not null default clock_timestamp(),
+     primary key (kind, key)
+   )`,
+];
+
+/** The row as the driver hands it back, before it is folded into the shape the seam publishes. */
+type RawJobEvent = {
+  seq: string;
+  job_id: string;
+  kind: string;
+  key: string;
+  step: string;
+  status: string;
+  attempt: number;
+  refusal_code: string | null;
+  fault_id: string | null;
+  detail: Record<string, unknown> | null;
+  at: Date;
+  elapsed_ms: number | null;
+};
+
+/** `seq` is a bigint, which the driver hands over as text; the log's instants are read as ISO. */
+function eventRow(raw: RawJobEvent): JobEventRow {
+  return {
+    seq: Number(raw.seq),
+    jobId: raw.job_id,
+    kind: raw.kind,
+    key: raw.key,
+    step: raw.step,
+    status: raw.status,
+    attempt: raw.attempt,
+    refusalCode: raw.refusal_code,
+    faultId: raw.fault_id,
+    detail: raw.detail,
+    at: raw.at.toISOString(),
+    elapsedMs: raw.elapsed_ms,
+  };
+}
+
+/**
+ * The job store for one database. Nothing is opened by building it — `open()` is what reaches the
+ * server — so a module that merely imports the seam neither needs nor makes a connection.
+ */
+export function jobsStore(url: string): JobsStore {
+  const sql = postgres(url, {
+    max: JOBS_POOL.max,
+    idle_timeout: JOBS_POOL.idleTimeout,
+    connect_timeout: JOBS_POOL.connectTimeout,
+    onnotice: () => undefined,
+  });
+  const boss = new PgBoss({ connectionString: url, schema: BOSS_SCHEMA, pollingIntervalSeconds: QUEUE_POLL_SECONDS });
+  // The library reports a lost connection or a maintenance failure on this emitter, and an emitter
+  // with no listener throws the error at the process instead. A worker's outage is the operator's
+  // to read, never a reason for the process running the queue to die (R-SPINE-031).
+  boss.on("error", (failure) => process.stderr.write(`${JSON.stringify({ queue: "pg-boss", cause: String(failure) })}\n`));
+
+  /** The advisory-lock key a (kind, key) pair is serialised on. */
+  const lockName = (kind: string, key: string): string => `${kind}:${key}`;
+
+  return {
+    open: async () => {
+      for (const statement of JOBS_DDL) await sql.unsafe(statement);
+      await boss.start();
+    },
+
+    declareQueue: async (name, shape) => {
+      await boss.createQueue(name, {
+        name,
+        retryLimit: shape.retryLimit,
+        retryDelay: shape.retryDelaySeconds,
+        retryBackoff: shape.retryBackoff,
+      });
+    },
+
+    consume: async (name, shape, run) => {
+      // One worker per slot, each taking a single job at a time, so a kind's concurrency limit is
+      // exactly how many of its jobs one process can have in flight (R-SPINE-030). A batch shared
+      // by several jobs would make one job's failure the whole batch's.
+      for (let slot = 0; slot < shape.concurrency; slot += 1) {
+        await boss.work<Record<string, unknown>>(name, { batchSize: 1, includeMetadata: true, pollingIntervalSeconds: QUEUE_POLL_SECONDS }, async (batch) => {
+          for (const job of batch) await run({ jobId: job.id, data: job.data, attempt: job.retryCount + 1 });
+        });
+      }
+    },
+
+    publish: async (name, data, shape) => {
+      const jobId = await boss.send(name, data, {
+        retryLimit: shape.retryLimit,
+        retryDelay: shape.retryDelaySeconds,
+        retryBackoff: shape.retryBackoff,
+      });
+      if (jobId === null) throw new Error(`the queue "${name}" accepted no job for this send (SEAM-JOBS)`);
+      return jobId;
+    },
+
+    withKeyLock: async (kind, key, work) => {
+      // A session lock rather than a transaction one: the work it guards reads and writes on other
+      // connections, so it must not be inside a transaction of its own that hides them.
+      const session = await sql.reserve();
+      try {
+        await session`select pg_advisory_lock(hashtextextended(${lockName(kind, key)}, 0))`;
+        try {
+          return await work();
+        } finally {
+          await session`select pg_advisory_unlock(hashtextextended(${lockName(kind, key)}, 0))`;
+        }
+      } finally {
+        session.release();
+      }
+    },
+
+    liveJobFor: async (kind, key, endedStatuses) => {
+      const rows = await sql<{ job_id: string }[]>`
+        select claim.job_id
+          from ${sql(JOBS_SCHEMA)}.job_claims as claim
+         where claim.kind = ${kind}
+           and claim.key = ${key}
+           and not exists (
+             select 1
+               from ${sql(JOBS_SCHEMA)}.job_events as ended
+              where ended.job_id = claim.job_id
+                and ended.status in ${sql(endedStatuses as string[])}
+           )`;
+      return rows[0]?.job_id ?? null;
+    },
+
+    claimKey: async (kind, key, jobId) => {
+      await sql`
+        insert into ${sql(JOBS_SCHEMA)}.job_claims (kind, key, job_id)
+        values (${kind}, ${key}, ${jobId})
+        on conflict (kind, key) do update set job_id = excluded.job_id, claimed_at = clock_timestamp()`;
+    },
+
+    append: async (draft) => {
+      const rows = await sql<RawJobEvent[]>`
+        insert into ${sql(JOBS_SCHEMA)}.job_events (job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, elapsed_ms)
+        values (${draft.jobId}, ${draft.kind}, ${draft.key}, ${draft.step}, ${draft.status}, ${draft.attempt},
+                ${draft.refusalCode}, ${draft.faultId}, ${sql.json(draft.detail)}, ${draft.elapsedMs})
+        returning seq, job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, at, elapsed_ms`;
+      const row = rows[0];
+      if (row === undefined) throw new Error("the job event log accepted no row for this event (R-SPINE-030)");
+      // Announced rather than waited for: a reader in another process is told there is something to
+      // read, and reads it for itself. The payload is the job, never the event — a notification has
+      // a size limit and an event does not.
+      await sql`select pg_notify(${EVENTS_CHANNEL}, ${row.job_id})`;
+      return eventRow(row);
+    },
+
+    read: async (jobId, afterSeq) => {
+      const rows = await sql<RawJobEvent[]>`
+        select seq, job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, at, elapsed_ms
+          from ${sql(JOBS_SCHEMA)}.job_events
+         where job_id = ${jobId} and seq > ${afterSeq}
+         order by seq asc`;
+      return rows.map(eventRow);
+    },
+
+    deadLetterRows: async (endedStatuses) => {
+      const rows = await sql<RawJobEvent[]>`
+        select seq, job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, at, elapsed_ms
+          from ${sql(JOBS_SCHEMA)}.job_events
+         where status in ${sql(endedStatuses as string[])}
+         order by seq asc`;
+      return rows.map(eventRow);
+    },
+
+    listen: async (onJob) => {
+      await sql.listen(EVENTS_CHANNEL, (jobId) => onJob(jobId));
+    },
+
+    close: async () => {
+      await boss.stop({ close: true, graceful: true, wait: true });
+      await sql.end({ timeout: 5 });
+    },
+  };
 }
