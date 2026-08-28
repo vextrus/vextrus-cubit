@@ -4,7 +4,7 @@
 // way out). The occupants whose features are not built yet are absent rather than dead (I-15).
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/overlay";
 import { strings } from "../strings";
-import { shellHref, type ShellArea, type ShellWorkspace } from "./routes";
+import { shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
 
 export interface ShellTopBarProps {
   workspace: ShellWorkspace;
@@ -29,7 +29,7 @@ export function ShellTopBar({ workspace, area, email, signOut }: ShellTopBarProp
         <ol className="cx-shell-crumbs">
           <li>
             <a className="cx-shell-crumb-link cx-reticle" href={shellHref(workspace.tenantId, "projects")}>
-              {workspace.name}
+              {workspaceLabel(workspace)}
             </a>
           </li>
           <li className="cx-shell-crumb-separator" aria-hidden="true">

@@ -1,11 +1,11 @@
 "use client";
-// The rename, as a form the browser submits and the server answers (R-UI-033). Requiredness is the
-// only rule the screen holds: the door takes the name as presented, so no client-side shaping
-// stands between what a person typed and what the seam is asked to save (s-auth I-13/I-14).
+// The rename, as a form the browser submits and the server answers (R-UI-033). The screen holds no
+// rule of its own: nothing is shaped, nothing is judged here, and even the empty submission travels
+// to the door — so what a person reads is always an answer the server gave, never a browser bubble.
 //
-// The answer is whatever the seam answered — the saved notice, or the registered refusal rendered
-// by the one renderer, with the evidence that resolves it (ARCH-03, B-21). Renaming is a plain
-// write and not an act: no copper, no consequence to carry.
+// Three answers can come back and each is shown where it belongs: the saved notice, the door's own
+// blank-name sentence, and a registered refusal rendered by the one renderer with the evidence that
+// resolves it (ARCH-03, B-21). Renaming is a plain write and not an act: no copper to carry.
 import { useActionState, useId } from "react";
 import { refusalOf, type RefusalCode } from "../../../../../core/errors";
 import { RefusalState } from "../../../../../ui/patterns/refusal-state";
@@ -41,7 +41,6 @@ export function RenameForm({ tenantId, name }: RenameFormProps) {
           defaultValue={name}
           aria-describedby={hintId}
           disabled={pending}
-          required
         />
         {answer !== null && answer.renamed ? (
           <div className="cx-shell-outcome cx-shell-notice" role="status">
@@ -50,7 +49,13 @@ export function RenameForm({ tenantId, name }: RenameFormProps) {
         ) : null}
         {answer !== null && !answer.renamed ? (
           <div className="cx-shell-outcome" data-testid="shell-rename-refusal">
-            <RefusalState refusal={refusalOf(answer.refusal)} evidence={evidenceFor(answer.refusal)} />
+            {"blankName" in answer ? (
+              <p className="cx-shell-notice" role="alert">
+                {strings.shell_rename_refusal}
+              </p>
+            ) : (
+              <RefusalState refusal={refusalOf(answer.refusal)} evidence={evidenceFor(answer.refusal)} />
+            )}
           </div>
         ) : null}
         <Button className="cx-shell-submit" type="submit" data-testid="shell-rename-submit" loading={pending}>

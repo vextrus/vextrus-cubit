@@ -1,11 +1,22 @@
 // The frame's areas and the addresses they live at (R-UI-031): the URL is the source of truth, so
 // the mapping between an address and the entry that is selected has one home — the rail, the
 // breadcrumb and the routes themselves all read it from here rather than each spelling `/t/…`.
+import { strings } from "../strings";
 
 /** The workspace the frame is showing: the uuid its address names it by, and the name it wears. */
 export interface ShellWorkspace {
   tenantId: string;
   name: string;
+}
+
+/**
+ * The name a workspace is shown by, in one home for every place the frame paints it. A stored name
+ * is taken as the person presented it (s-auth I-13), so it can hold nothing visible; painting that
+ * raw would leave the breadcrumb link with no discernible name — a serious Q-11 violation written
+ * from data. Nothing is invented: a name that says something is shown as it stands.
+ */
+export function workspaceLabel(workspace: ShellWorkspace): string {
+  return workspace.name.trim() === "" ? strings.shell_workspace_unnamed : workspace.name;
 }
 
 /** The areas the shell ships. Each is one rail entry, one address and one breadcrumb crumb. */

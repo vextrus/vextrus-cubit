@@ -6,7 +6,7 @@ import { useId, useState } from "react";
 import { QuietMark } from "../brand-usage";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/overlay";
 import { strings } from "../strings";
-import { shellHref, type ShellArea, type ShellWorkspace } from "./routes";
+import { shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
 
 export interface ShellRailProps {
   workspace: ShellWorkspace;
@@ -82,13 +82,13 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
               data-testid="shell-tenant-switcher"
               aria-label={strings.shell_tenant_switcher_label}
             >
-              <span className="cx-shell-switcher-name">{workspace.name}</span>
+              <span className="cx-shell-switcher-name">{workspaceLabel(workspace)}</span>
               <Chevron direction="down" />
             </DropdownMenuTrigger>
             {/* The memberships the seam answers with — one, today. */}
             <DropdownMenuContent align="start">
               <DropdownMenuItem asChild>
-                <a href={shellHref(workspace.tenantId, "projects")}>{workspace.name}</a>
+                <a href={shellHref(workspace.tenantId, "projects")}>{workspaceLabel(workspace)}</a>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

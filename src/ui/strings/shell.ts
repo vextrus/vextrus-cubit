@@ -43,6 +43,13 @@ export const shell = {
   shell_settings_name_hint: "The name appears in the sidebar and on every screen of this workspace.",
   shell_rename_submit: "Save name",
   shell_rename_saved: "The workspace name is saved.",
+  // R-UI-033 asks for an entered name: a name with nothing visible in it names nothing, and the
+  // screen says so where the answer is read rather than saving it (this is the door's own copy —
+  // not a refusal of the closed taxonomy, R-SPINE-062).
+  shell_rename_refusal: "A workspace name needs at least one visible character — nothing was saved.",
+  // What a workspace is called on screen when its stored name has nothing visible in it. Without
+  // it the breadcrumb link would carry no discernible name at all (Q-11).
+  shell_workspace_unnamed: "Unnamed workspace",
 
   shell_denied_heading: "You do not have access to this workspace",
   shell_denied_permission: "Seeing it needs membership of the workspace this address names, which your account does not hold.",

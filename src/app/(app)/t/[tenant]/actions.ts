@@ -20,8 +20,19 @@ export async function offerSampleAction(): Promise<SampleSeedAnswer> {
   return sampleSeed();
 }
 
-/** What the settings form is showing: nothing yet, or the answer the seam last gave it. */
-export type RenameFormState = RenameAnswer | null;
+/**
+ * The name the door would not carry to the seam: R-UI-033 asks for an entered name, and a name
+ * with nothing visible in it enters nothing. The stored name is untouched by construction — the
+ * seam is never asked — and the screen says so in its own copy, so the closed refusal taxonomy
+ * (R-SPINE-062) gains nothing for a value the door itself can judge.
+ */
+export interface BlankNameAnswer {
+  renamed: false;
+  blankName: true;
+}
+
+/** What the settings form is showing: nothing yet, or the answer the last submission produced. */
+export type RenameFormState = RenameAnswer | BlankNameAnswer | null;
 
 /**
  * R-UI-033's rename, driven by the form itself: the name as the person presented it, and the
@@ -30,10 +41,13 @@ export type RenameFormState = RenameAnswer | null;
  */
 export async function renameWorkspaceAction(_shown: RenameFormState, form: FormData): Promise<RenameFormState> {
   const tenantId = String(form.get("tenantId") ?? "");
+  const name = String(form.get("name") ?? "");
+  if (name.trim() === "") return { renamed: false, blankName: true };
+
   const answer = await renameWorkspace({
     sessionToken: await presentedSessionToken(),
     tenantId,
-    name: String(form.get("name") ?? ""),
+    name,
   });
   if (answer.renamed) revalidatePath(shellHref(tenantId, "projects"), "layout");
   return answer;

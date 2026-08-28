@@ -136,7 +136,18 @@ test.describe("J-004 — the signed-in application shell", () => {
     await expect(shell.renameRefusal, "a member renaming their own workspace is refused nothing").toHaveCount(0);
     await expect(shell.breadcrumb, "and the frame wears the saved name").toContainText(WORKSPACE);
 
+    // R-UI-033 asks for an entered name: a name with nothing visible in it is refused inline, in
+    // the shell's own copy, and nothing is stored — the frame still wears the name it had.
+    await shell.renameInput.fill("   ");
+    await shell.renameSubmit.click();
+    await expect(shell.renameRefusal, "a name with nothing visible in it is refused where it was typed").toHaveText(
+      strings.shell_rename_refusal,
+    );
+    await expect(shell.settingsName.getByRole("status"), "and nothing claims to have been saved").toHaveCount(0);
+    await expect(shell.breadcrumb, "the stored name is untouched").toContainText(WORKSPACE);
+
     await shell.open(SHELL.workspace(tenantId));
+    await expect(shell.breadcrumb, "on a fresh read too").toContainText(WORKSPACE);
 
     /* --- j004-shell-deeplink: the address alone is enough, and back restores what was there --- */
     await shell.open(SHELL.books(tenantId));

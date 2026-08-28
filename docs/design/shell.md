@@ -51,6 +51,24 @@ primitives (core Button/Input/Skeleton, overlay DropdownMenu, the one RefusalSta
   the tag inside `src/server/shell/**`, would be a second copy of that invariant (B-17). A
   digest key stands for an address no column could carry: there is nothing to show, and the
   trigger falls back to `shell_user_account`.
+- **I-22 — "an entered name" is a name with something visible in it.** R-UI-033 asks the
+  workspace to be *named*, and the contract names a rename-refusal string of its own, so the
+  rename door judges blankness: a submission whose name trims to nothing is answered inline at
+  `shell-rename-refusal` with `shell_rename_refusal`, and `renameWorkspace` is never called —
+  the stored name is untouched by construction. The judgement is the door's, not the taxonomy's:
+  no `RefusalCode` is registered for it (`src/core/errors.ts` is another node's, and R-SPINE-062
+  is closed), and `RenameAnswer` keeps its settled two arms — the form's own state gains a third,
+  `{ renamed: false, blankName: true }`. The rejected alternative was s-auth I-13's "take it as
+  presented" carried over from the auth doors: it stores a nameless workspace, and the frame then
+  paints a breadcrumb link with no discernible name — a serious Q-11 axe failure written from
+  data. The `required` attribute is gone from `shell-rename-input` for the same reason: an empty
+  submission must reach the door and be answered by it, not stopped by a browser bubble.
+- **I-23 — nothing paints a nameless workspace.** `workspaceLabel(workspace)`
+  (`src/ui/shell/routes.ts`) is the one home for the name the frame shows — the breadcrumb link,
+  the switcher trigger and its one membership item all read it. A stored name with nothing
+  visible in it shows as `shell_workspace_unnamed`; anything else shows exactly as it stands.
+  Sign-up still takes its `tenantName` as presented (R-SPINE-002 is another node's door), so the
+  guard is reachable and is not dead code.
 
 ## 1. Layout and hierarchy
 
@@ -158,14 +176,16 @@ max-width 380 px, gap `var(--space-1)`: `<label for…>` `shell_settings_name_la
 (`var(--text-13)` `var(--weight-body-medium)` `var(--graphite-700)`) · hint
 `shell_settings_name_hint` (`var(--text-12)` `var(--graphite-600)`, wired via
 `aria-describedby`) · the core Input, `data-testid="shell-rename-input"`, prefilled with the
-current workspace name, `required` (s-auth I-13/I-14: requiredness only; the door takes the
-value as presented, no client rules) · the answer slot · `var(--space-3)` · a core primary
+current workspace name, with no `required` and no other client rule — every submission,
+empty included, reaches the door and is answered there (I-22) · the answer slot · `var(--space-3)` · a core primary
 Button `data-testid="shell-rename-submit"`, label `shell_rename_submit`, `align-self: start`,
 submitting the native `<form>` whose server action calls `renameWorkspace`. In flight: Button
 loading, Input disabled, slot cleared. Success: the saved name re-renders in Input, switcher
 and breadcrumb, and the slot shows a `role="status"` notice (the §1 notice chrome) reading
-`shell_rename_saved`. A settled refusal renders in the slot as `<div
-data-testid="shell-rename-refusal">` wrapping exactly one RefusalState — reachable codes:
+`shell_rename_saved`. A blank or whitespace-only name renders in the slot as `<div
+data-testid="shell-rename-refusal">` wrapping one `role="alert"` line reading
+`shell_rename_refusal` (I-22) — the door's own copy, no registry entry. A settled refusal
+renders in the same slot wrapping exactly one RefusalState — reachable codes:
 `SIGNED_OUT`, evidence `{ href: "/sign-in", label: shell_evidence_sign_in }`, and
 (defensively — membership cannot lapse in the one-membership M0 world, but the seam checks
 it) `PERMISSION_NOT_HELD`, evidence `{ href: "/", label: shell_evidence_home }`. The form
@@ -225,6 +245,8 @@ around in.** · `shell_sample_offer` **Add the SAMPLE project** · `shell_sample
 `shell_settings_name_label` **Workspace name** · `shell_settings_name_hint` **The name
 appears in the sidebar and on every screen of this workspace.** · `shell_rename_submit`
 **Save name** · `shell_rename_saved` **The workspace name is saved.** ·
+`shell_rename_refusal` **A workspace name needs at least one visible character — nothing was
+saved.** · `shell_workspace_unnamed` **Unnamed workspace** ·
 `shell_denied_heading` **You do not have access to this workspace** ·
 `shell_denied_permission` **Seeing it needs membership of the workspace this address names,
 which your account does not hold.** · `shell_denied_holder` **Its existing members hold that
