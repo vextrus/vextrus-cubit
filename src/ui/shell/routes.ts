@@ -63,3 +63,18 @@ export function areaOf(pathname: string | null): ShellArea {
   if (trailing.endsWith("/settings")) return "settings";
   return "projects";
 }
+
+/**
+ * Whether an address IS the area's own home, or a screen that merely lives inside it — the other
+ * half of the selection reading, in the same home as the mapping it refines (B-17).
+ *
+ * `aria-current="page"` is a claim about THIS page, and the rail entry points at the area's home:
+ * on a screen deeper in the area (a project's settings, say) that claim names an address the
+ * reader is not at, and the frame would state it twice — once in the rail and once in the crumb.
+ * What is true there is `aria-current="true"`: the current item of the set, an ancestor rather
+ * than the page (Q-11, R-UI-031).
+ */
+export function isAreaHome(pathname: string | null, tenantId: string): boolean {
+  if (pathname === null) return false;
+  return pathname.replace(/\/+$/, "") === shellHref(tenantId, areaOf(pathname));
+}

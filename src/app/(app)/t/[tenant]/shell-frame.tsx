@@ -4,7 +4,7 @@
 // area — so the pathname is read here, and the frame is handed the area it names.
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { AppShell, areaOf, type ShellWorkspace } from "../../../../ui/shell";
+import { AppShell, areaOf, isAreaHome, type ShellWorkspace } from "../../../../ui/shell";
 
 export interface ShellFrameProps {
   workspace: ShellWorkspace;
@@ -14,8 +14,15 @@ export interface ShellFrameProps {
 }
 
 export function ShellFrame({ workspace, email, signOut, children }: ShellFrameProps) {
+  const pathname = usePathname();
   return (
-    <AppShell workspace={workspace} area={areaOf(usePathname())} email={email} signOut={signOut}>
+    <AppShell
+      workspace={workspace}
+      area={areaOf(pathname)}
+      atAreaHome={isAreaHome(pathname, workspace.tenantId)}
+      email={email}
+      signOut={signOut}
+    >
       {children}
     </AppShell>
   );

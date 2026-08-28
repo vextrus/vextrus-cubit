@@ -52,17 +52,18 @@ M3, inc-304).
   neither). No density control ships here — the per-user preference seam binds to DataTable
   surfaces, and a control that restyles one static table would be theatre.
 
-- **I-30 — the rail states the area, and a project is in Projects.** This route sits under a
-  workspace and names no shell area, so `areaOf` answers `projects` and the shell selects the
-  Projects row — `aria-current="page"` and the beam bar — and the crumb reads Projects. The
-  screen takes that as it stands rather than working around it: `ShellArea` is a closed
-  roster of three with no "no area" member, the mapping and the rail are the shell
-  Decision's homes (B-17), and a row that no address selects would leave a keyboard or
-  screen-reader user with no statement of where they are at all. What the row says is which
-  area the address belongs to; what page inside it the reader is on is the breadcrumb's job,
-  and the project crumbs are inc-011's — the same IOU §1 records. Re-ruling the rail's
-  precision once project surfaces exist (an area row that is an ancestor rather than the
-  page) belongs to the shell node, not to one screen inside it.
+- **I-30 — the rail states the area, and it says ancestor rather than page.** This route sits
+  under a workspace and names no shell area, so `areaOf` answers `projects` and the shell
+  selects the Projects row. It does not claim to BE that page: `isAreaHome`
+  (`src/ui/shell/routes.ts`, beside the mapping it refines, B-17) reads the address against
+  the area's own home, and the row carries `aria-current="page"` only there — on this route
+  it carries `aria-current="true"`, the current item of the set. The paint is the same in
+  both (the selection rules key on `[aria-current]`, not on its value), so a keyboard or
+  screen-reader user still has a statement of where they are; what differs is that the
+  statement is true. The breadcrumb follows the same reading: at the area's home the area
+  crumb is the current page, and here it is a link back to Projects, with no crumb claiming
+  to be this page — naming the project and this screen in the trail is inc-011's, the same
+  IOU §1 records.
 
 ## 1. Layout and hierarchy
 
@@ -77,8 +78,9 @@ The page renders in `shell-main`, one column `cx-ruleset`: `max-width: 800px`, c
 `gap: var(--space-6)` between sections. Rail and breadcrumb are the shell's, and this screen
 does not restyle them: `areaOf` (`src/ui/shell/routes.ts`, R-UI-031's one home for the
 address→area mapping) reads any address under a workspace that names neither `books` nor
-`settings` as the workspace's Projects home, so on this route the Projects rail row carries
-`aria-current="page"` and the crumb reads Projects (see I-30). Recorded IOU: visible
+`settings` as being in Projects, so on this route the Projects rail row is selected and
+carries `aria-current="true"` — the area it is in, not the page it is — while the Projects
+crumb is a link back rather than the current page (see I-30). Recorded IOU: visible
 navigation to this screen (project switcher, project crumbs, a settings link inside the
 project) is owed by inc-011, which ships the project surfaces and adopts the `p/[project]`
 base — until then the route is test- and URL-reachable, and that debt is inc-011's, not this

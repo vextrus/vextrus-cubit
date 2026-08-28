@@ -10,17 +10,19 @@ import type { ShellArea, ShellWorkspace } from "./routes";
 export interface AppShellProps {
   workspace: ShellWorkspace;
   area: ShellArea;
+  /** Whether the address is the area's own home, or a screen inside it — see `isAreaHome`. */
+  atAreaHome: boolean;
   email: string | null;
   signOut: () => void | Promise<void>;
   children: ReactNode;
 }
 
-export function AppShell({ workspace, area, email, signOut, children }: AppShellProps) {
+export function AppShell({ workspace, area, atAreaHome, email, signOut, children }: AppShellProps) {
   return (
     <div className="cx-shell" data-testid="shell-root">
-      <ShellRail workspace={workspace} area={area} />
+      <ShellRail workspace={workspace} area={area} atAreaHome={atAreaHome} />
       <div className="cx-shell-body">
-        <ShellTopBar workspace={workspace} area={area} email={email} signOut={signOut} />
+        <ShellTopBar workspace={workspace} area={area} atAreaHome={atAreaHome} email={email} signOut={signOut} />
         <div className="cx-shell-content">
           <main className="cx-shell-main" data-testid="shell-main">
             {children}

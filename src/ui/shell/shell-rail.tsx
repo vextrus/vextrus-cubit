@@ -1,7 +1,7 @@
 "use client";
 // R-UI-030's left rail: the quiet mark, the workspace switcher, the three areas, and the collapse.
 // Selection follows the URL and nothing else (R-UI-031) — the area is handed in, and the selected
-// row says so twice: `aria-current="page"` for a reader, and the beam bar and fill for an eye.
+// row says so twice: `aria-current` for a reader, and the beam bar and fill for an eye.
 import Link from "next/link";
 import { useId, useState } from "react";
 import { QuietMark } from "../brand-usage";
@@ -12,6 +12,8 @@ import { SHELL_AREAS, shellHref, workspaceLabel, type ShellArea, type ShellWorks
 export interface ShellRailProps {
   workspace: ShellWorkspace;
   area: ShellArea;
+  /** Whether the address is the area's own home; a deeper screen makes the row an ancestor. */
+  atAreaHome: boolean;
 }
 
 interface RailEntry {
@@ -50,7 +52,7 @@ function Chevron({ direction }: { direction: "left" | "down" }) {
   );
 }
 
-export function ShellRail({ workspace, area }: ShellRailProps) {
+export function ShellRail({ workspace, area, atAreaHome }: ShellRailProps) {
   // Not persisted across sessions: nothing in the product writes a per-person preference, and a
   // remembered width nothing can write would be a promise it does not keep. It does have to hold
   // for the very next click, though — the rail navigates with `next/link`, so the frame's layout
@@ -130,7 +132,11 @@ export function ShellRail({ workspace, area }: ShellRailProps) {
                   className="cx-shell-nav-row cx-reticle"
                   data-testid={entry.testId}
                   href={shellHref(workspace.tenantId, entry.area)}
-                  aria-current={entry.area === area ? "page" : undefined}
+                  // The row states what is true of the address: at the area's own home it is the
+                  // page, and on a screen deeper inside the area it is the current item of the set
+                  // — an ancestor, not this page. Both wear the selection paint; only one claims to
+                  // be where the reader is (Q-11).
+                  aria-current={entry.area === area ? (atAreaHome ? "page" : "true") : undefined}
                 >
                   {entry.label}
                 </Link>

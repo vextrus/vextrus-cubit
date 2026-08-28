@@ -11,7 +11,7 @@ export { ShellInspector } from "./shell-inspector";
 export { ShellRail } from "./shell-rail";
 export { ShellTopBar } from "./shell-top-bar";
 export { useFailureHandOff } from "./failure-hand-off";
-export { SHELL_AREAS, areaOf, hasVisibleText, shellHref } from "./routes";
+export { SHELL_AREAS, areaOf, hasVisibleText, isAreaHome, shellHref } from "./routes";
 export { SHELL_STATES } from "./states";
 
 export type { AppShellProps } from "./app-shell";
