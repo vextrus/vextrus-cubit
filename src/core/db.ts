@@ -11,6 +11,7 @@ import { check, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTabl
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { attributableReason } from "./db/reason";
+import { BUILDING_TYPES, type BuildingType } from "./projects";
 import type { EditionParameter, EditionScope, MethodPair } from "./rulesets/editions/content";
 
 // The query operators a caller needs to say which rows it means. They are the driver's, so they are
@@ -31,17 +32,6 @@ export const tenants = pgTable("tenants", {
   name: text("name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
-
-/**
- * The building types R-SPINE-010 closes the field over. The list is here because it is the domain of
- * a column this file defines — the CHECK below is written from it, so the store and the tree cannot
- * come to hold different ideas of what a building type is (ARCH-02); `src/modules/spine/projects`
- * hands it on to callers under the same name.
- */
-export const BUILDING_TYPES = ["residential", "commercial", "mixed", "industrial", "infrastructure"] as const;
-
-/** One of the five R-SPINE-010 admits, as a type. */
-export type BuildingType = (typeof BUILDING_TYPES)[number];
 
 /** The five, as a SQL value list, so the constraint spells them exactly once (B-17). */
 const BUILDING_TYPE_LIST = statement.raw(BUILDING_TYPES.map((type) => `'${type}'`).join(", "));

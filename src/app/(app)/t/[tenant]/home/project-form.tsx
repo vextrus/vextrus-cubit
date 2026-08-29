@@ -10,7 +10,8 @@
 import { useActionState, useEffect, useId, useState } from "react";
 import { refusalOf, type RefusalCode } from "../../../../../core/errors";
 import { formatSquareFeet } from "../../../../../core/format";
-import { BUILDING_TYPES, type BuildingType, type Project } from "../../../../../modules/spine/projects";
+import { BUILDING_TYPES, type BuildingType } from "../../../../../core/projects";
+import type { Project } from "../../../../../modules/spine/projects";
 import { RefusalState } from "../../../../../ui/patterns/refusal-state";
 import { Button, Chip, Input, Textarea, UnitBadge } from "../../../../../ui/primitives/core";
 import { shellHref } from "../../../../../ui/shell";

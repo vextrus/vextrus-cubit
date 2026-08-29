@@ -8,9 +8,10 @@
 // R-SPINE-010 closes over five names — the store's CHECK is the belt, and this file is the guard in
 // front of it, so a value from outside the five is a mistake in the caller and never a driver error
 // reaching a person as a fault id (ARCH-03).
-import { BUILDING_TYPES, storableText, type BuildingType } from "../../../core/db";
+import { storableText } from "../../../core/db";
+import { BUILDING_TYPES, isBuildingType, type BuildingType } from "../../../core/projects";
 
-export { BUILDING_TYPES, type BuildingType };
+export { BUILDING_TYPES, isBuildingType, type BuildingType };
 
 /** A project as R-SPINE-010 names it, presented for a create or an edit. Only the name is required. */
 export interface ProjectDraft {
@@ -31,11 +32,6 @@ export type ProjectChanges = Partial<ProjectDraft> & { readonly notes?: string |
 
 /** The whole draft, notes included — creation takes every field R-SPINE-010 names. */
 export type ProjectFields = ProjectDraft & { readonly notes?: string | null };
-
-/** Is this one of the five R-SPINE-010 admits? The door asks before it presents a chosen type. */
-export function isBuildingType(value: string): value is BuildingType {
-  return (BUILDING_TYPES as readonly string[]).includes(value);
-}
 
 /** A figure a `numeric` column can hold: a sign, digits, and at most one plain decimal fraction. */
 const DECIMAL = /^-?(0|[1-9]\d*)(\.\d+)?$/;
