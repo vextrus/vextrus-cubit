@@ -3,3 +3,4 @@
 export * from "./tenants";
 export * from "./acts";
 export * from "./identity";
+export * from "./prefs";

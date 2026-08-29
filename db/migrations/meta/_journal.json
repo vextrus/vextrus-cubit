@@ -36,6 +36,13 @@
       "when": 1787956899079,
       "tag": "0004_ruleset-editions",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788001546012,
+      "tag": "0005_user-prefs",
+      "breakpoints": true
     }
   ]
 }

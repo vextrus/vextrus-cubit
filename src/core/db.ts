@@ -7,10 +7,11 @@
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
 import { and, asc, eq, gt, inArray, isNull, lt, sql as statement } from "drizzle-orm";
-import { foreignKey, index, json, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { check, foreignKey, index, json, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { attributableReason } from "./db/reason";
+import { DEFAULT_DENSITY, DENSITIES, type Density } from "./prefs/density";
 import type { EditionParameter, EditionScope, MethodPair } from "./rulesets/editions/content";
 
 // The query operators a caller needs to say which rows it means. They are the driver's, so they are
@@ -263,6 +264,27 @@ export const tenantRulesetEditions = pgTable(
   ],
 );
 
+/**
+ * SEAM-PREFS' store (R-UI-005): what one person has chosen for themselves, one row per account. The
+ * key is the account, so a second choice overwrites in place — a preference is a value, not a
+ * history. Like the identity tables it carries no tenant id: a person is one account across every
+ * workspace they belong to, so the row is scoped by the system-scope policy the migration appends.
+ *
+ * `density` is closed by a CHECK built from the seam's own roster, so the store cannot hold a mode
+ * no table can draw; its DEFAULT is the same answer the seam gives an account with no row at all.
+ */
+export const userPrefs = pgTable(
+  "user_prefs",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.userId),
+    density: text("density").$type<Density>().notNull().default(DEFAULT_DENSITY),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [check("user_prefs_density_closed", statement`${table.density} in (${statement.raw(DENSITIES.map((mode) => `'${mode}'`).join(", "))})`)],
+);
+
 /** Everything the typed surface covers. A table joins the surface by joining this object. */
 const schema = {
   tenants,
@@ -276,6 +298,7 @@ const schema = {
   authAttempts,
   rulesetEditions,
   tenantRulesetEditions,
+  userPrefs,
 };
 
 /** A handle scoped to one tenant: the typed read/write surface, filtered by row-level security. */
