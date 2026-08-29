@@ -12,7 +12,7 @@
  */
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import {
   componentExports,
   galleryBarrels,
@@ -20,7 +20,7 @@ import {
   missingEntries,
 } from "../../../src/ui/gallery-derivation";
 import type { GalleryEntry, GalleryState } from "../../../src/ui/gallery-derivation";
-import { REPO_ROOT, barrelIdsOnDisk, rendersComponent } from "./support/gallery-contract";
+import { REPO_ROOT, barrelIdsOnDisk, derivationPath, rendersComponent } from "./support/gallery-contract";
 
 /**
  * The interfaces line's types, bound at compile time rather than by a runtime shape guess: `tsc`
@@ -70,6 +70,73 @@ function requiredKeys(): string[] {
     for (const exportName of componentExports(namespace)) keys.push(`${barrelId}/${exportName}`);
   }
   return keys.sort();
+}
+
+/* --------------------------- the derivation's own suite, run over a catalogue one entry poorer */
+
+/** A gallery catalogue, as `galleryEntries` is one — the record the completeness rule reads. */
+type Catalogue = Record<string, GalleryEntry>;
+
+/** The vitest suites the increment shipped beside the derivation — a scan, never a name. */
+function productSuites(): string[] {
+  const dir = join(REPO_ROOT, "src/ui/gallery-derivation");
+  expect(existsSync(dir), "src/ui/gallery-derivation/ holds the derivation R-UI-011 asks for").toBe(true);
+  return readdirSync(dir)
+    .filter((name) => /\.test\.tsx?$/.test(name))
+    .sort();
+}
+
+/**
+ * The derivation module's surface with a catalogue of the caller's choosing. Only the catalogue is
+ * substituted: `missingEntries` is still the shipped algorithm, reading the record it defaults to —
+ * so a suite run over this is exercising the product's own rule against a poorer tree.
+ */
+function derivationSurface(entries: Catalogue): Record<string, unknown> {
+  return {
+    galleryBarrels,
+    componentExports,
+    galleryEntries: entries,
+    missingEntries: (given: Catalogue = entries) => missingEntries(given),
+  };
+}
+
+/**
+ * Run a product-owned suite in this process over a substituted derivation, and report what it
+ * registered and what threw. `vitest` itself is substituted so the suite's `test()` calls hand
+ * their bodies here instead of registering with a collector that has long since finished — the
+ * assertions inside them are the real `expect`, so a failure is a genuine failure of that suite.
+ */
+async function runProductSuite(suite: string, entries: Catalogue): Promise<{ registered: number; failures: string[] }> {
+  const cases: { name: string; run: () => unknown }[] = [];
+  vi.resetModules();
+  vi.doMock(derivationPath(), () => derivationSurface(entries));
+  vi.doMock("vitest", async () => {
+    const actual = await vi.importActual<Record<string, unknown>>("vitest");
+    const register = (name: string, run: () => unknown): void => {
+      cases.push({ name, run });
+    };
+    const group = (_name: string, body: () => unknown): void => {
+      void body();
+    };
+    return { ...actual, describe: group, suite: group, test: register, it: register };
+  });
+
+  try {
+    await import(join(REPO_ROOT, "src/ui/gallery-derivation", suite));
+    const failures: string[] = [];
+    for (const one of cases) {
+      try {
+        await one.run();
+      } catch (error) {
+        failures.push(`${suite} › ${one.name}: ${String((error as Error).message ?? error).split("\n")[0] ?? ""}`);
+      }
+    }
+    return { registered: cases.length, failures };
+  } finally {
+    vi.doUnmock("vitest");
+    vi.doUnmock(derivationPath());
+    vi.resetModules();
+  }
 }
 
 describe("AC-1 — the barrel roster is a filesystem scan, not a transcription", () => {
@@ -164,14 +231,48 @@ describe("AC-1 — galleryEntries carries one entry per component, with sample d
   });
 });
 
-describe("AC-1 — the derivation carries its own product-owned suite", () => {
-  test("AC-1: a vitest suite lives inside src/ui/gallery-derivation/", () => {
-    const dir = join(REPO_ROOT, "src/ui/gallery-derivation");
-    expect(existsSync(dir), "src/ui/gallery-derivation/ exists").toBe(true);
-    const suites = readdirSync(dir).filter((name) => name.endsWith(".test.ts") || name.endsWith(".test.tsx"));
+describe("AC-1 — the derivation carries its own product-owned suite, and it binds", () => {
+  test("AC-1: the roster is the disk scan and no component export lacks an entry", () => {
+    // R-UI-011's rule, proven here rather than delegated: the completeness surface is the barrels
+    // the filesystem holds, and nothing they publish is uncatalogued (B-19, completeness by
+    // reflection).
+    const onDisk = barrelIdsOnDisk();
+    expect(onDisk.length, "src/ui publishes barrels for the scan to find").toBeGreaterThan(0);
+    expect(Object.keys(galleryBarrels).sort(), "the roster is what the scan finds — never a list (B-19)").toEqual(onDisk);
+    expect(missingEntries(), "a component export without a gallery entry is a missing entry (R-UI-011)").toEqual([]);
+  });
+
+  test("AC-1: the suite beside the derivation reds when a component loses its entry", async () => {
+    // white-box: AC-1 — R-UI-011 asks that the guard travel with the product tree ("a component
+    // without a gallery entry FAILS A TEST"), so the thing judged is a src/ file's behaviour. It is
+    // run here twice, over the shipped catalogue and over one entry poorer; a file with the right
+    // basename and no assertions registers nothing and passes neither half.
+    const suites = productSuites();
     expect(
       suites.length,
       "AC-1 asks for a product-owned suite beside the derivation; the root vitest config collects src/**/*.test.ts{,x}",
+    ).toBeGreaterThan(0);
+
+    const keys = Object.keys(galleryEntries).sort();
+    expect(keys.length, "the catalogue holds an entry that can be taken away").toBeGreaterThan(0);
+    const removed = keys[0] as string;
+    const poorer: Catalogue = Object.fromEntries(Object.entries(galleryEntries).filter(([key]) => key !== removed));
+
+    let registered = 0;
+    const shipped: string[] = [];
+    const mutated: string[] = [];
+    for (const suite of suites) {
+      const control = await runProductSuite(suite, galleryEntries);
+      registered += control.registered;
+      shipped.push(...control.failures);
+      mutated.push(...(await runProductSuite(suite, poorer)).failures);
+    }
+
+    expect(registered, `${suites.join(", ")} register tests — a hollow file guards nothing`).toBeGreaterThan(0);
+    expect(shipped, "the shipped catalogue passes the suite that ships beside it").toEqual([]);
+    expect(
+      mutated.length,
+      `dropping ${removed} from the catalogue must red a suite inside src/ui/gallery-derivation/ — that is the test R-UI-011 says a component without an entry fails. Suites run: ${suites.join(", ")}`,
     ).toBeGreaterThan(0);
   });
 

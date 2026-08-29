@@ -38,8 +38,15 @@ const OTHER_JOURNEY = "J-000";
 /** The impacts Q-11 gates on — never widened to any impact, never narrowed away. */
 const BLOCKING_IMPACTS = ["critical", "serious"];
 
-/** The impacts Q-11 does NOT gate on; a roster that swept them in has widened the law. */
+/**
+ * The impacts Q-11 does NOT gate on. Q-11 binds the GATE, never the vocabulary: these words are
+ * read only where the axe result is compared or tested for membership, so a failure message, an
+ * aria-label or a data attribute that happens to say "moderate" is nobody's defect.
+ */
 const NON_BLOCKING_IMPACTS = ["minor", "moderate"];
+
+/** axe-core's own closed impact vocabulary — the only words the gate scan below reads. */
+const AXE_IMPACTS = [...BLOCKING_IMPACTS, ...NON_BLOCKING_IMPACTS];
 
 /** The four test ids the closed contract fixes, and the route the journey walks. */
 const SHELL_TESTID = "gallery-shell";
@@ -196,6 +203,45 @@ function axeResultNames(code: string): { runsInPage: boolean; tainted: Set<strin
     if (tainted.size === before) break;
   }
   return { runsInPage, tainted };
+}
+
+/**
+ * The statements the axe result flows through: the run itself, and everything that reads a value
+ * derived from it. This is the surface Q-11 binds — whatever these statements select violations by
+ * is what decides which impacts block — and it is the only surface the impact scan below reads.
+ */
+function gatingStatements(code: string): string[] {
+  const { tainted } = axeResultNames(code);
+  return statementsOf(code).filter(
+    (statement) =>
+      (/\bevaluate\s*\(/.test(statement) && /\.\s*run\s*\(/.test(statement) && /\baxe\b/i.test(statement)) ||
+      [...tainted].some((name) => mentions(statement, name)),
+  );
+}
+
+/**
+ * The impacts a statement names in a *gating* position — compared against something called impact,
+ * or handed to a membership test. A roster spelled as an array is judged by the roster loop below;
+ * this catches the bespoke filter that never spells one (`v.impact !== "minor"`, `set.has("moderate")`).
+ */
+function widenedImpactsIn(statement: string): string[] {
+  const positions = [
+    // an impact compared against a literal, either way round
+    /[\w$.]*[Ii]mpact\b\s*(?:===?|!==?)\s*(["'`])([^"'`]*)\1/g,
+    /(["'`])([^"'`]*)\1\s*(?:===?|!==?)\s*[\w$.]*[Ii]mpact\b/g,
+    // a literal handed to a membership test…
+    /\.\s*(?:includes|has|indexOf|lastIndexOf)\s*\(\s*(["'`])([^"'`]*)\1/g,
+    // …or a literal, or the tail of a roster of them, that IS the membership test's receiver
+    /(["'`])([^"'`]*)\1\s*\]?\s*\.\s*(?:includes|has|indexOf|lastIndexOf)\s*\(/g,
+  ];
+  const found: string[] = [];
+  for (const pattern of positions) {
+    for (const match of statement.matchAll(pattern)) {
+      const word = match[2] ?? "";
+      if (AXE_IMPACTS.includes(word) && !BLOCKING_IMPACTS.includes(word)) found.push(word);
+    }
+  }
+  return found;
 }
 
 /** Every `expect(<subject>)` whose matcher is one of `matchers`, with the subject and the arguments. */
@@ -376,14 +422,23 @@ describe("AC-3 — axe runs from the checkout, and gates exactly at serious and 
     for (const impact of BLOCKING_IMPACTS) {
       expect(spells(impact), `the journey names ${impact} as an impact it blocks on (Q-11)`).toBe(true);
     }
-    for (const widened of NON_BLOCKING_IMPACTS) {
-      expect(spells(widened), `gating on ${widened} widens Q-11's law without a signature, and the helper that does it is itself the defect`).toBe(false);
-    }
     // However the roster is spelled — an array as tests/e2e/j-000-golden-path.e2e.ts spells it, or a
     // comparison — an array that names one blocking impact names both and nothing else.
     for (const roster of stringArrays(code).filter((array) => array.some((item) => BLOCKING_IMPACTS.includes(item)))) {
       expect([...roster].sort(), "the blocking-impact roster is serious and critical — no more, no fewer (Q-11)").toEqual(BLOCKING_IMPACTS);
     }
+    // …and the gate that spells no roster at all is judged where it lives: inside the statements the
+    // axe result flows through, an impact named in a comparison or a membership test is one the
+    // journey blocks on, and Q-11 admits exactly two of them.
+    const gating = gatingStatements(code);
+    expect(gating.length, "the axe result reaches statements this scan can read — otherwise it grades nothing").toBeGreaterThan(0);
+    const widened = gating.flatMap((statement) =>
+      widenedImpactsIn(statement).map((impact) => `${impact} — in: ${statement.trim().slice(0, 90)}`),
+    );
+    expect(
+      widened,
+      `these statements select the violations the journey counts, and gating on an impact beyond ${BLOCKING_IMPACTS.join(" and ")} widens Q-11's law without a signature — the helper that does it is itself the defect`,
+    ).toEqual([]);
   });
 
   test("AC-3: the zero asserted is axe's own answer, running inside the page", () => {
