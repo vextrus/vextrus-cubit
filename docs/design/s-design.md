@@ -86,8 +86,9 @@ One column on the `var(--graphite-0)` page ground: `main.cx-gallery`, max-width
   <section data-testid="gallery-barrel" data-barrel="<barrelId>">
     <h2><barrelId></h2>
     …one per matching galleryEntries key, in componentExports order…
-    <section data-testid="gallery-entry" data-entry="<barrelId>/<ExportName>">
-      <h3><ExportName></h3>
+    <section data-testid="gallery-entry" data-entry="<barrelId>/<ExportName>"
+             aria-labelledby="gallery-entry-<barrelId>-<ExportName>">
+      <h3 id="gallery-entry-<barrelId>-<ExportName>"><ExportName></h3>
       <div class="cx-gallery-states">
         …one per declared state, in declared order…
         <div data-testid="gallery-state" data-state="<name>">
@@ -111,7 +112,12 @@ One column on the `var(--graphite-0)` page ground: `main.cx-gallery`, max-width
 - **Entry** — a hairline card: border `var(--hairline)`, radius `var(--radius-8)`, padding
   `var(--space-4)`, no fill (the page ground shows through). `h3` is the export name
   verbatim: `var(--font-mono)` `var(--text-14)` `var(--weight-heading)`
-  `var(--graphite-900)`. States lay in a wrapping flex row, gap `var(--space-5)`
+  `var(--graphite-900)`. The `h3` carries an id and the `section` borrows it through
+  `aria-labelledby`, which is what makes the card a *named* region: a family part renders its
+  family's whole composition (I-16), so "Rename project" appears once per Dialog part and
+  "Row actions" once per DropdownMenu part, and a reader browsing by control — not by heading
+  — needs the surrounding region to say which entry it is standing in. The id is the entry key
+  with its separators folded to hyphens, unique because the key is. States lay in a wrapping flex row, gap `var(--space-5)`
   `var(--space-4)`; a wide sample (DataTable, Resizable, Tabs, ScrollArea, banner-surface
   refusals) naturally takes the full row. One exception, keyed on this screen's own
   `data-entry` hook (§7) and never on a pattern's class: the **RefusalState** entry's nine

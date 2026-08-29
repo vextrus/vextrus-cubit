@@ -22,6 +22,17 @@ function exportNameOf(key: string): string {
   return key.slice(key.lastIndexOf("/") + 1);
 }
 
+/**
+ * The id the entry's heading carries so its `<section>` can borrow it as a name. A family part
+ * renders its family's whole composition (I-16), so the page mounts the same sample once per part
+ * and the same control names repeat down the page; a named region is what tells a reader browsing
+ * by control that this "Rename project" is DialogTrigger's and that one is DialogClose's. Derived
+ * from the entry key — unique by construction — with the separators an id may not carry folded out.
+ */
+function headingIdOf(key: string): string {
+  return `gallery-entry-${key.replace(/[^A-Za-z0-9]+/g, "-")}`;
+}
+
 export default function DesignGalleryPage() {
   const barrelIds = Object.keys(galleryBarrels).sort();
   const entryKeys = Object.keys(galleryEntries).sort();
@@ -40,8 +51,10 @@ export default function DesignGalleryPage() {
           {entryKeys
             .filter((key) => barrelOf(key) === barrelId)
             .map((key) => (
-              <section className="cx-gallery-entry" data-testid="gallery-entry" data-entry={key} key={key}>
-                <h3 className="cx-gallery-entry-name">{exportNameOf(key)}</h3>
+              <section aria-labelledby={headingIdOf(key)} className="cx-gallery-entry" data-testid="gallery-entry" data-entry={key} key={key}>
+                <h3 className="cx-gallery-entry-name" id={headingIdOf(key)}>
+                  {exportNameOf(key)}
+                </h3>
 
                 <div className="cx-gallery-states">
                   {(galleryEntries[key]?.states ?? []).map((state) => (
