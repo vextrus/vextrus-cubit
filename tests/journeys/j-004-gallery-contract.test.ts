@@ -26,7 +26,6 @@ const SPEC = "tests/e2e/journeys/j-004-gallery.spec.ts";
 const PAGE_OBJECT = "tests/e2e/pages/s-design.page.ts";
 const CONFIG = "playwright.config.ts";
 const BASELINES = ["tests/e2e/baselines/design/gallery-shell-light.png", "tests/e2e/baselines/design/gallery-shell-dark.png"];
-const SNAPSHOT_TEMPLATE = "tests/e2e/baselines/{arg}{ext}";
 
 /**
  * The tag the gate's other invocation greps for. Which FILES carry it is J-000's own surface to
@@ -478,6 +477,97 @@ describe("AC-3 — axe runs from the checkout, and gates exactly at serious and 
   });
 });
 
+/* --------------------------------------------- routing a capture to the file it is compared with */
+
+/**
+ * A stand-in for a value the spec interpolates into a capture name at run time — `${theme}` in
+ * `gallery-shell-${theme}.png`. One name spelled once stands for one file per theme, so the routing
+ * below is read as a pattern rather than as a single path.
+ */
+const INTERPOLATED = String.fromCharCode(0);
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** The top-level comma-separated pieces of an argument list, strings and brackets honoured. */
+function topLevelArgs(args: string): string[] {
+  const pieces: string[] = [];
+  let current = "";
+  let depth = 0;
+  let quote: string | null = null;
+  for (let index = 0; index < args.length; index += 1) {
+    const char = args[index] ?? "";
+    if (quote !== null) {
+      current += char;
+      if (char === "\\") {
+        current += args[index + 1] ?? "";
+        index += 1;
+      } else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === "`") quote = char;
+    else if (char === "(" || char === "[" || char === "{") depth += 1;
+    else if (char === ")" || char === "]" || char === "}") depth -= 1;
+    else if (char === "," && depth === 0) {
+      pieces.push(current);
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  pieces.push(current);
+  return pieces.map((piece) => piece.trim()).filter((piece) => piece !== "");
+}
+
+/** A quoted or template string as a path segment, each `${…}` standing in as INTERPOLATED. */
+function literalSegment(piece: string): string | null {
+  const quote = piece[0] ?? "";
+  if (quote !== '"' && quote !== "'" && quote !== "`") return null;
+  if (piece.length < 2 || piece[piece.length - 1] !== quote) return null;
+  const body = piece.slice(1, -1);
+  return quote === "`" ? body.replace(/\$\{[^}]*\}/g, INTERPOLATED) : body;
+}
+
+/** What a bare identifier was declared as, so a name lifted into a constant still resolves. */
+function boundTo(code: string, identifier: string): string | null {
+  const match = new RegExp(`\\b(?:const|let|var)\\s+${identifier}\\s*=\\s*([^;\\n]+)`).exec(code);
+  return match === null ? null : (match[1] ?? "").trim().replace(/,$/, "");
+}
+
+/**
+ * The `{arg}` path segments a `toHaveScreenshot` call names, or null when the name is not spelled
+ * where the capture is made. Playwright joins an array of segments with "/" and sanitises the
+ * separators out of a single string, so both spellings are read here as the segments they become.
+ */
+function captureSegments(code: string, args: string): string[] | null {
+  let first = topLevelArgs(args)[0] ?? "";
+  if (/^[A-Za-z_$][\w$]*$/.test(first)) first = boundTo(code, first) ?? first;
+  const pieces = first.startsWith("[") ? topLevelArgs(first.slice(1, -1)) : [first];
+  const segments: string[] = [];
+  for (const piece of pieces) {
+    const segment = literalSegment(piece);
+    if (segment === null) return null;
+    segments.push(segment);
+  }
+  return segments.length === 0 ? null : segments;
+}
+
+/**
+ * Where Playwright writes that capture: the config's own template with `{arg}` (the name without
+ * its extension) and `{ext}` filled in. A placeholder the config spells and this substitution does
+ * not fill — a platform or project suffix — survives into the pattern as literal text, so a routed
+ * path that carries one matches no committed baseline, which is exactly what it would mean.
+ */
+function routedPattern(template: string, segments: string[]): RegExp {
+  const joined = segments.join("/");
+  const dot = joined.lastIndexOf(".");
+  const ext = dot === -1 ? "" : joined.slice(dot);
+  const arg = dot === -1 ? joined : joined.slice(0, dot);
+  const routed = template.split("{arg}").join(arg).split("{ext}").join(ext);
+  return new RegExp(`^${escapeRegExp(routed).split(INTERPOLATED).join("[^/]+")}$`);
+}
+
 describe("AC-4 — the shell captures are routed, committed, and actually differ (Q-06)", () => {
   test("AC-4: the capture is OF the gallery-shell region, with animations disabled", () => {
     const code = journeySource();
@@ -500,15 +590,54 @@ describe("AC-4 — the shell captures are routed, committed, and actually differ
       ).toBe(true);
       expect(
         capture.args.includes(SHELL_TESTID),
-        `the capture is named for the region it takes — "design/${SHELL_TESTID}-<theme>.png" (Q-06, snapshotPathTemplate): ${capture.args.trim().slice(0, 80)}`,
+        `the capture is named for the region it takes — a name carrying "${SHELL_TESTID}" and the theme, wherever the config's snapshotPathTemplate then routes it (Q-06): ${capture.args.trim().slice(0, 80)}`,
       ).toBe(true);
     }
   });
 
-  test("AC-4: playwright.config.ts gains snapshotPathTemplate and nothing else doubles", () => {
+  test("AC-4: the snapshotPathTemplate routes the shell captures onto the committed baselines", () => {
     const configCode = readCode(CONFIG);
-    expect(occurrences(configCode, "snapshotPathTemplate"), "exactly one snapshotPathTemplate key").toBe(1);
-    expect(stringProperty(configCode, "snapshotPathTemplate"), "the template routes captures under tests/e2e/baselines, platform-suffix-free").toBe(SNAPSHOT_TEMPLATE);
+    expect(occurrences(configCode, "snapshotPathTemplate"), "exactly one snapshotPathTemplate key — the lane says where a baseline lives in one place").toBe(1);
+    const template = stringProperty(configCode, "snapshotPathTemplate");
+    expect(
+      template,
+      `${CONFIG} names a snapshotPathTemplate: without one Playwright writes into its own per-spec *-snapshots directory and Q-06 compares against nothing committed`,
+    ).not.toBeNull();
+
+    // AC-4 fixes a ROUTING rule, and neither half of it can be read alone — the template's text is
+    // the lane's to settle, and so is the name the spec passes; what must hold is that composing
+    // them lands on the files the increment commits. Reading either half as a literal would grade a
+    // spelling instead of the rule (B-19), and would call a capture correct while Playwright wrote
+    // it somewhere nothing compares.
+    const code = journeySource();
+    const captures = expectations(code, ["toHaveScreenshot"]);
+    expect(captures.length, "the journey captures the shell with toHaveScreenshot").toBeGreaterThan(0);
+
+    const routed: { args: string; pattern: RegExp }[] = [];
+    const unreadable: string[] = [];
+    for (const capture of captures) {
+      const segments = captureSegments(code, capture.args);
+      if (segments === null) unreadable.push(capture.args.trim().slice(0, 60));
+      else routed.push({ args: capture.args.trim().slice(0, 60), pattern: routedPattern(template ?? "", segments) });
+    }
+    expect(
+      routed.length,
+      `at least one capture names its snapshot where the capture is made — as a string, a template string or an array of path segments — so the file it is compared against can be read: ${JSON.stringify(unreadable)}`,
+    ).toBeGreaterThan(0);
+
+    for (const capture of routed) {
+      expect(
+        BASELINES.some((baseline) => capture.pattern.test(baseline)),
+        `"${template}" with the name ${capture.args} routes a capture to ${capture.pattern.source}, which is none of the committed baselines ${JSON.stringify(BASELINES)} — a capture written anywhere else is compared against nothing, and the run still exits 0 (Q-06)`,
+      ).toBe(true);
+    }
+    for (const baseline of BASELINES) {
+      expect(
+        routed.some((capture) => capture.pattern.test(baseline)),
+        `${baseline} is committed evidence, so the template and the names the journey passes must route a capture onto it — otherwise it is a file nothing compares (Q-06). Routes: ${JSON.stringify(routed.map((capture) => capture.pattern.source))}`,
+      ).toBe(true);
+    }
+
     expect(
       occurrences(configCode, "webServer"),
       "exactly one webServer key — a merge has left this config with two before, and the later one silently wins",
