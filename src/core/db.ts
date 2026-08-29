@@ -6,8 +6,8 @@
 // The table definitions sit here rather than in db/schema/*.ts because the ORM's table builders are
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
-import { and, asc, eq, gt, inArray, isNull, lt, sql as statement } from "drizzle-orm";
-import { foreignKey, index, json, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, sql as statement } from "drizzle-orm";
+import { check, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { attributableReason } from "./db/reason";
@@ -17,7 +17,7 @@ import type { EditionParameter, EditionScope, MethodPair } from "./rulesets/edit
 // handed out from here rather than imported at a call site: SEAM-TENANT makes this file the one
 // lawful home of the driver, and a module that reached for them itself would be holding half a
 // handle (ARCH-02).
-export { and, asc, eq, gt, inArray, isNull, lt };
+export { and, asc, desc, eq, gt, inArray, isNull, lt };
 
 export { recordSystemReasonsWith, type SystemReasonRecord, type SystemReasonRecorder } from "./db/reason";
 
@@ -31,6 +31,58 @@ export const tenants = pgTable("tenants", {
   name: text("name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * The building types R-SPINE-010 closes the field over. The list is here because it is the domain of
+ * a column this file defines — the CHECK below is written from it, so the store and the tree cannot
+ * come to hold different ideas of what a building type is (ARCH-02); `src/modules/spine/projects`
+ * hands it on to callers under the same name.
+ */
+export const BUILDING_TYPES = ["residential", "commercial", "mixed", "industrial", "infrastructure"] as const;
+
+/** One of the five R-SPINE-010 admits, as a type. */
+export type BuildingType = (typeof BUILDING_TYPES)[number];
+
+/** The five, as a SQL value list, so the constraint spells them exactly once (B-17). */
+const BUILDING_TYPE_LIST = statement.raw(BUILDING_TYPES.map((type) => `'${type}'`).join(", "));
+
+/**
+ * A project (R-SPINE-010): what it is called and where it stands, in the workspace that owns it.
+ *
+ * Only the name is required. R-SPINE-010 enumerates the fields a project carries, and a workspace
+ * naming a project before it knows its client or its storey count is naming a real project — so
+ * every other field is nullable and stored as presented, and the door is where presentability is
+ * judged. `building_type` is the one exception to "stored as presented": the clause closes it over
+ * five names, so the CHECK admits those and nothing else, whatever writes the row.
+ *
+ * Target GFA is held in m² as `numeric` — B-07 keeps a figure a person entered exact from the
+ * column to the page — and the square-feet readout is a conversion the format seam makes, never a
+ * second stored fact.
+ *
+ * `archived_at` is the archived marker: AC-4's archive flips it and deletes nothing, and holding the
+ * moment rather than a boolean answers "when" as well as "whether" for the same width.
+ */
+export const projects = pgTable(
+  "projects",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    code: text("code"),
+    client: text("client"),
+    siteAddress: text("site_address"),
+    // Stored text at M0: the district → zone derivation is book law, and nothing here derives from it.
+    district: text("district"),
+    buildingType: text("building_type").$type<BuildingType>(),
+    storeys: integer("storeys"),
+    targetGfaM2: numeric("target_gfa_m2"),
+    notes: text("notes"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [check("projects_building_type_closed", statement`${table.buildingType} in (${BUILDING_TYPE_LIST})`)],
+);
 
 /**
  * Participation: who may act on a project at all (L-ACT-03). The pair (project, user) is the
@@ -266,6 +318,7 @@ export const tenantRulesetEditions = pgTable(
 /** Everything the typed surface covers. A table joins the surface by joining this object. */
 const schema = {
   tenants,
+  projects,
   participants,
   acts,
   participantRoles,
