@@ -2,16 +2,32 @@
 // The copy comes from the string table (C-SPINE-PLATFORM) and every value below is a token
 // (R-UI-001); the ground, the heading weight and the line height are inherited from globals.css.
 import "../ui/primitives/core/reticle.css";
+import { presentedSessionToken } from "../server/shell/session";
+import { workspaceFor } from "../server/shell/workspace";
 import { strings } from "../ui/strings";
 
 // R-UI-031: the sign-in and sign-up screens are reachable by a visible control, never by a typed
 // URL alone. The nameplate carries exactly those two — the landmark owes a state for anything more.
-const DOORS = [
+interface HomeDoor {
+  href: string;
+  label: string;
+  testId?: string;
+}
+
+const DOORS: readonly HomeDoor[] = [
   { href: "/sign-in", label: strings.home_sign_in },
   { href: "/sign-up", label: strings.home_sign_up },
-] as const;
+];
 
-export default function HomePage() {
+/**
+ * The nameplate is one screen with two branches. A visitor holding a workspace is offered the way
+ * into it — a link, so the address the browser is at stays `/` — and the auth doors go, because
+ * they are the remedy for not being signed in and this visitor already is.
+ */
+export default async function HomePage() {
+  const workspace = await workspaceFor(await presentedSessionToken());
+  const doors: readonly HomeDoor[] =
+    workspace === null ? DOORS : [{ href: `/t/${workspace.tenantId}`, label: strings.shell_home_workspace_door, testId: "root-home-workspace-door" }];
   return (
     <main
       data-testid="root-home-main"
@@ -33,10 +49,11 @@ export default function HomePage() {
         {strings.home_tagline}
       </p>
       <div style={{ display: "flex", gap: "var(--space-4)", marginTop: "var(--space-3)" }}>
-        {DOORS.map((door) => (
+        {doors.map((door) => (
           <a
             className="cx-reticle"
             key={door.href}
+            data-testid={door.testId}
             href={door.href}
             style={{
               fontSize: "var(--text-14)",
