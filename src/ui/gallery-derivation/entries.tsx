@@ -219,10 +219,22 @@ const contextMenuSample = (): ReactNode => (
   </ContextMenu>
 );
 
+/**
+ * A toast expires: sonner retires it after four seconds, which leaves the gallery's only Toaster
+ * evidence gone by the time anyone looks at it. The sample raises it with no expiry and under one
+ * id, so the surface stands to be graded and re-activating the trigger re-uses the same toast
+ * rather than stacking a column of them (Decision I-21).
+ */
+const TOAST_ID = "gallery-toast";
+
+const raiseSampleToast = (): void => {
+  toast(copy.toast.title, { id: TOAST_ID, description: copy.toast.description, duration: Infinity });
+};
+
 const toasterSample = (): ReactNode => (
   <>
     <Toaster />
-    <Button variant="ghost" onClick={() => toast(copy.toast.title, { description: copy.toast.description })}>
+    <Button variant="ghost" onClick={raiseSampleToast}>
       {copy.toast.trigger}
     </Button>
   </>
@@ -304,12 +316,24 @@ interface SampleRow {
   basis: string;
 }
 
+/**
+ * Every column carries its filter. The table renders one filter cell per column and leaves the
+ * cell of an unfilterable column empty — an empty `columnheader`, which axe reports and which
+ * shows a person a gap where the column's own control belongs. Filtering the whole sample register
+ * is also the truer demonstration: the filter row is the table's, not one column's.
+ */
 const TABLE_COLUMNS = [
   { id: "item", accessorKey: "item", header: "Item", meta: { filterable: true } },
-  { id: "element", accessorKey: "element", header: "Element" },
-  { id: "qty", accessorKey: "qty", header: "Qty", enableSorting: true, meta: { align: "right", editable: true } },
-  { id: "unit", accessorKey: "unit", header: "Unit" },
-  { id: "basis", accessorKey: "basis", header: "Basis" },
+  { id: "element", accessorKey: "element", header: "Element", meta: { filterable: true } },
+  {
+    id: "qty",
+    accessorKey: "qty",
+    header: "Qty",
+    enableSorting: true,
+    meta: { align: "right", editable: true, filterable: true },
+  },
+  { id: "unit", accessorKey: "unit", header: "Unit", meta: { filterable: true } },
+  { id: "basis", accessorKey: "basis", header: "Basis", meta: { filterable: true } },
 ] as ColumnDef<SampleRow, unknown>[];
 
 const TABLE_ROWS: readonly SampleRow[] = [
@@ -342,10 +366,25 @@ const tableStates: readonly GalleryState[] = [
   { name: "comfortable", render: () => <DataTable columns={TABLE_COLUMNS} data={[...TABLE_ROWS]} getRowId={rowId} density="comfortable" /> },
   { name: "compact", render: () => <DataTable columns={TABLE_COLUMNS} data={[...TABLE_ROWS]} getRowId={rowId} density="compact" /> },
   {
+    // Pinning only shows itself where the columns outrun their box, so this sample's box is
+    // narrower than the register is wide (Decision I-19): Item holds the leading edge while the
+    // rest of the row scrolls under it. At the full width the other states use, a pinned column
+    // and an unpinned one paint the same picture.
     name: "pinned",
-    render: () => <DataTable columns={TABLE_COLUMNS} data={[...TABLE_ROWS]} getRowId={rowId} columnPinning={{ left: ["item"] }} />,
+    render: () => (
+      <DataTable
+        columns={TABLE_COLUMNS}
+        data={[...TABLE_ROWS]}
+        getRowId={rowId}
+        columnPinning={{ left: ["item"] }}
+        className="cx-gallery-table-pinned"
+      />
+    ),
   },
   {
+    // A window shorter than the five-line states are tall, holding a thousand lines: the register
+    // runs past the bottom edge mid-row and scrolls, which is what virtualisation looks like from
+    // outside. A window taller than its data would paint exactly the comfortable state again.
     name: "virtualised",
     render: () => <DataTable columns={TABLE_COLUMNS} data={generatedRows()} getRowId={rowId} className="cx-gallery-table" />,
   },

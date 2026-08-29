@@ -1,6 +1,6 @@
 /*
  * S-Design's stylesheet (docs/design/s-design.md § 1, § 6). One column on the page ground, hairline
- * cards, mono identifiers. Every declaration is a token read (R-UI-001) except the four demo
+ * cards, mono identifiers. Every declaration is a token read (R-UI-001) except the five demo
  * geometry constants Interpretation I-19 mandates in px — a sample box no token measures — and the
  * single media condition I-20 rules, which states `--breakpoint-sm`'s value because a media query
  * is evaluated before the cascade and cannot read a custom property. No `[data-theme]` selector
@@ -139,6 +139,17 @@
   max-width: 100%;
 }
 
+/*
+ * The virtualised sample's window, shorter than five comfortable rows are tall so the thousand-line
+ * register crops at the bottom edge instead of ending, and the pinned sample's box, narrower than
+ * the five columns are wide so the leading column has something to hold still against. Both are
+ * I-19 constants: a viewport no token measures.
+ */
 .cx-gallery-table {
-  height: 320px;
+  height: 240px;
+}
+
+.cx-gallery-table-pinned {
+  width: 400px;
+  max-width: 100%;
 }

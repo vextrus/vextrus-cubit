@@ -51,12 +51,23 @@ no barrel-internal import path and no colour literal. Stylesheet:
   to do. Only the evidence links beside each sample are §3's.
 - **I-19 — demo geometry constants are px (I-1 extended).** Sample data needs boxes no
   token measures: the Skeleton bone renders 240 px wide, the ScrollArea and Resizable demos
-  160 px tall, the DataTable viewport 320 px tall. These four constants are the only px in a
-  *declaration* in `design.css`; a fifth declaration in px is a defect. Width is not among
-  them: the Resizable demo needs a definite inline size too — a panel group sized to its
-  content collapses to its labels and breaks **Sheet list** mid-word — and it takes
-  `var(--breakpoint-sm)` capped at `100%`, a token read, so the px count stays at four.
-  I-20 rules the one px outside a declaration.
+  160 px tall, the DataTable's virtualised viewport 240 px tall, and its pinned sample
+  400 px wide (capped at `100%`). These five constants are the only px in a *declaration* in
+  `design.css`; a sixth declaration in px is a defect. Two of them measure a state rather
+  than a box, and are the state's evidence: a viewport **shorter** than the five-line states
+  are tall is what makes the thousand-line register crop and scroll instead of repeating the
+  `comfortable` picture, and a box **narrower** than the five columns are wide is what gives
+  the pinned column something to hold still against. A sample geometry that hides the state
+  it names is the defect the constant exists to prevent. The Resizable demo needs a definite
+  inline size too — a panel group sized to its content collapses to its labels and breaks
+  **Sheet list** mid-word — and it takes `var(--breakpoint-sm)` capped at `100%`, a token
+  read, so it adds none. I-20 rules the one px outside a declaration.
+- **I-21 — a sample toast does not expire.** The Toaster's only reachable demonstration is
+  its trigger, and sonner retires a toast after four seconds, so an expiring sample leaves
+  the entry blank for everyone who looks a moment later — the component's one state,
+  ungradeable. The sample raises its toast with no expiry, under a fixed id so re-activating
+  the trigger re-uses that toast rather than stacking a column. Duration and identity are
+  the caller's arguments, not paint: nothing here restyles the Toaster (B-17).
 - **I-20 — a media condition states its breakpoint in px, because CSS gives it no other
   way.** §1's ground padding steps at sm, so `design.css` carries
   `@media (min-width: 640px)`. A media condition is evaluated before the cascade and cannot
@@ -77,6 +88,37 @@ column of triggers reads as prose until it is hovered or focused. That paint is 
 Decisions', ruled and rendered in `src/ui/primitives/**`, which this screen may neither
 restyle (B-17) nor wrap in chrome of its own (§1); the gallery shows the trigger exactly as
 the product ships it. Recorded here so the reading is evidence, not an oversight.
+
+Recorded IOU — the overlay surfaces' hairline (owner: the overlay and data primitive
+increments, `src/ui/primitives/overlay/overlay.css` and `src/ui/primitives/data/data.css`).
+`--hairline` is registered as the whole shorthand (`1px solid var(--graphite-200)`,
+`src/ui/tokens.css`), so `border: 1px solid var(--hairline)` — the form both stylesheets use
+for the menu, popover, dialog, sheet and the table's pinned edge and row rules — is an
+invalid declaration and paints no border at all. Nothing separates an open menu from the
+page in dark, where its `var(--graphite-0)` fill is the ground's own value, and a pinned
+column shows no edge. The one home of that rule is the owning primitive's stylesheet
+(B-17); the gallery may neither restyle a `cx-` class it does not own nor keep a corrected
+copy of it, so what this screen can do it does — the pinned sample is given a box narrow
+enough that the state reads from position (I-19) — and the border itself is recorded here
+against its owners. Discovered from the gallery, which is what the gallery is for.
+
+Recorded IOU — the toast's dark paint (owner: the overlay primitive increment,
+`src/ui/primitives/overlay/toast.tsx` + `overlay.css`'s `.cx-toast`). With the sample toast
+standing (I-21) the gallery shows what a four-second toast hid: in dark the card paints on
+sonner's own light default, not on the `.cx-toast` token read, so it is the one surface on
+the page that does not turn with the theme. Its one home is the Toaster's own module and
+rule; this screen passes no style and keeps no corrected copy (B-17).
+
+Recorded IOU — RefusalState's `inline` and `dialog` surfaces paint alike, by that pattern's
+own ruling (owner: `src/ui/patterns/refusal-state`). Its Decision states it verbatim in
+`refusal-state.css`: "`inline` and `dialog` are chrome-identical: the hint routes placement
+— inside the flow that raised the refusal — not different paint, and a second dialect of the
+card is what B-17 forbids." The nine severity × surface cells in §2 therefore evidence six
+paints and three placements; the surface each cell carries is legible as `data-surface` on
+the card, which is where the pattern publishes it. The gallery declares the states the
+component takes, not the states its stylesheet happens to distinguish — collapsing the three
+surfaces to two rows would hide a prop the pattern accepts, and painting the difference here
+would be the second dialect its owner forbids.
 
 Recorded IOU — visible navigation. R-UI-031 owes every shipped screen a visible path from
 the shell; no shell exists yet. `/design` is journey- and URL-reachable until the shell
@@ -167,14 +209,18 @@ entry designed to these rules, not an edit to a frozen list here.
   every family part
   (`DialogTrigger`…`ContextMenuItem`) — `composed` (I-16).
 - **Toaster** — `ready`: the mounted Toaster plus one ghost Button (§3's trigger) that
-  fires the primitives-data sample toast on activation.
+  fires the primitives-data sample toast on activation. The toast does not expire and is
+  raised under a fixed id, so it stands as the entry's evidence and re-activation re-uses it
+  (I-21).
 - **Tabs** — `rest` (Overview active) · `disabled` (the History trigger disabled);
   `TabsList` / `TabsTrigger` / `TabsContent` — `composed`.
 - **Tree** — `rest` (the §4 sample, expanded and selected). **ScrollArea** — `rest`
   (forty lines, 160 px, I-19). **ResizablePanelGroup** — `rest` (Sheet list 30 / Viewer
   70, 160 px); `ResizablePanel` / `ResizableHandle` — `composed`.
-- **DataTable** — `comfortable` · `compact` · `pinned` (Item pinned left) · `virtualised`
-  (the generated 1000-row set, 320 px viewport, I-19).
+- **DataTable** — `comfortable` · `compact` · `pinned` (Item pinned left, in a 400 px box so
+  the rest of the row scrolls under it, I-19) · `virtualised` (the generated 1000-row set,
+  240 px viewport, I-19). Every column of the sample register carries its filter, so the
+  filter row holds a labelled field per column and no column header stands empty.
 - **RefusalState** — the nine severity × surface cells its Decision §4 enumerates, named
   `<severity>-<surface>`: `error-inline` · `error-dialog` · `error-banner` ·
   `warning-inline` · `warning-dialog` · `warning-banner` · `info-inline` · `info-dialog` ·
@@ -241,7 +287,7 @@ Named by this screen's chrome: `--graphite-900`, `--graphite-600`, `--hairline`,
 `--weight-heading`, `--space-1/2/4/5/6/8`, `--radius-8`, `--breakpoint-lg`,
 `--breakpoint-sm` (the Resizable demo's inline size and the RefusalState track's `minmax`,
 and — as its value, per I-20 — the one media condition). Ground and body type inherit from
-`globals.css`; no other value appears in `design.css` beyond I-19's four px constants and
+`globals.css`; no other value appears in `design.css` beyond I-19's five px constants and
 I-20's single condition. `design.css` contains no `[data-theme]` selector and no focus rule; every
 light/dark difference arrives through token values (R-UI-001) — which is exactly what makes
 the two committed shell baselines differ without being told to. The theme is read off
