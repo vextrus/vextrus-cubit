@@ -1,0 +1,431 @@
+/* The signed-in frame (R-UI-030) and the screens it holds. Every value is a token (R-UI-001); the
+   px literals are the closed set the shell's Design Decision fixes — rail 240/48, inspector 280,
+   the 3 px selection bar, the chevron's 12 px box, the user trigger's 280 px ellipsis, the column
+   measures, and the sm and lg breakpoints a media query cannot read a var() for. A coloured edge
+   takes its width and style from var(--hairline) and re-keys only its colour. No [data-theme]
+   selector is authored anywhere: light and dark differ only in what the token values resolve to. */
+
+.cx-shell {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  min-height: 100dvh;
+  background: var(--graphite-0);
+}
+
+/* --- the rail ------------------------------------------------------------------------ */
+
+.cx-shell-rail {
+  display: flex;
+  flex-direction: column;
+  width: 240px;
+  background: var(--graphite-50);
+  border-inline-end: var(--hairline);
+  overflow: hidden;
+  transition: width var(--motion-panel) var(--ease);
+}
+
+.cx-shell-rail[data-collapsed="true"] {
+  width: 48px;
+}
+
+.cx-shell-rail-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: var(--space-12);
+  padding-inline: var(--space-3);
+}
+
+/* Collapsed, the rail keeps mark AND toggle (§1). At 240 px they sit at either end of one row; at
+   48 px that row is narrower than the pair, and the toggle would be pushed out of the box — the
+   only control that expands the rail again, painted nowhere. Stacked, both stay inside 48 px. */
+.cx-shell-rail[data-collapsed="true"] .cx-shell-rail-top {
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+  height: auto;
+  padding-block: var(--space-3);
+  padding-inline: 0;
+}
+
+.cx-shell-rail-mark {
+  display: inline-flex;
+}
+
+.cx-shell-rail-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-4);
+  background: transparent;
+  color: var(--graphite-600);
+  cursor: pointer;
+  transition: background var(--motion-state) var(--ease);
+}
+
+.cx-shell-rail-toggle:hover {
+  background: var(--graphite-100);
+}
+
+.cx-shell-rail-chevron {
+  transition: transform var(--motion-state) var(--ease);
+}
+
+.cx-shell-rail-toggle[aria-expanded="false"] .cx-shell-rail-chevron {
+  transform: rotate(180deg);
+}
+
+.cx-shell-switcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--space-9);
+  padding-inline: var(--space-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--motion-state) var(--ease);
+}
+
+.cx-shell-switcher:hover {
+  background: var(--graphite-100);
+}
+
+/* Both menu triggers are the shipped core Button (`.cx-btn`, B-17), which carries the button type
+   ramp — `var(--text-14)` at `--weight-body-medium`. §1 rules all of the frame's chrome at
+   `var(--text-13)`, and a single class only wins that where the shell's sheet happens to be served
+   after the core's: a chunk order nothing here decides. Named with `.cx-btn`, the frame's own size
+   wins in either order, so the workspace identity and the account identity read at the size the
+   Decision gives them rather than at the button's. The family is the button's own `var(--font-ui)`
+   in both cases — the whole of the type system, not two of the ramp's three axes. */
+.cx-btn.cx-shell-switcher,
+.cx-btn.cx-shell-user-trigger {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-shell-switcher-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cx-shell-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-block-start: var(--space-4);
+}
+
+.cx-shell-nav-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--space-9);
+  padding-inline: var(--space-3);
+  border-radius: 0;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background var(--motion-state) var(--ease),
+    color var(--motion-state) var(--ease);
+}
+
+.cx-shell-nav-row:hover {
+  background: var(--graphite-100);
+  color: var(--graphite-900);
+}
+
+/* R-UI-030's selection, verbatim: a 3 px inset beam bar and the beam-100 row fill. The weight is
+   the second, non-colour channel that says the same thing (R-UI-060). Any `aria-current` value
+   paints: the row is selected both at the area's own home ("page") and on a screen inside the
+   area ("true"), and the two differ in what they claim, not in how they look. */
+.cx-shell-nav-row[aria-current] {
+  background: var(--beam-100);
+  color: var(--graphite-900);
+  font-weight: var(--weight-heading);
+}
+
+.cx-shell-nav-row[aria-current]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 3px;
+  background: var(--beam-500);
+}
+
+/* --- the top bar --------------------------------------------------------------------- */
+
+.cx-shell-body {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+}
+
+.cx-shell-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  height: var(--space-12);
+  padding-inline: var(--space-5);
+  background: var(--graphite-0);
+  border-block-end: var(--hairline);
+}
+
+.cx-shell-crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-13);
+}
+
+.cx-shell-crumb-link {
+  color: var(--graphite-700);
+  text-decoration: none;
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-shell-crumb-link:hover {
+  color: var(--graphite-900);
+}
+
+.cx-shell-crumb-separator {
+  color: var(--graphite-500);
+}
+
+.cx-shell-crumb-current {
+  color: var(--graphite-900);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-shell-user-trigger {
+  max-width: 280px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}
+
+/* --- main and inspector --------------------------------------------------------------- */
+
+.cx-shell-content {
+  display: flex;
+  min-height: 0;
+}
+
+.cx-shell-main {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-6);
+  overflow: auto;
+}
+
+/* The inspector is the lg-and-up region; below it, main takes the width so the shell still reads
+   at 200 % zoom (R-UI-060). A media query cannot consume a var(), so the breakpoint's value is the
+   one lawful literal here. */
+.cx-shell-inspector {
+  display: none;
+  width: 280px;
+  padding: var(--space-5);
+  border-inline-start: var(--hairline);
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+@media (min-width: 1280px) {
+  .cx-shell-inspector {
+    display: block;
+  }
+}
+
+.cx-shell-inspector-line {
+  margin: 0;
+}
+
+/* --- the screens ---------------------------------------------------------------------- */
+
+.cx-shell-heading {
+  margin: 0;
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-shell-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 420px;
+  margin-inline: auto;
+  padding-block-start: var(--space-12);
+  text-align: center;
+}
+
+.cx-shell-empty-heading {
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-shell-empty-body {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-shell-empty-action {
+  margin-block-start: var(--space-4);
+}
+
+.cx-shell-outcome {
+  margin-block-start: var(--space-3);
+}
+
+/* The always-mounted live region an answer is inserted into. It keeps a box of its own: a region
+   with `display: contents` is removed from the box tree, and engines have repeatedly dropped such
+   elements — and their ARIA — from the accessibility tree, which would leave the region announcing
+   nothing and defeat the whole reason it is mounted early (§1).
+   While it is empty it is taken out of flow instead, so it adds neither a row nor one of the
+   column's gaps and the frame is laid out exactly as it is when the region carries a notice. Out
+   of flow is not out of the tree: the element and its `aria-live` remain rendered, and the moment
+   an answer is inserted the rule stops matching and the notice takes its place in the column. */
+.cx-shell-live:empty {
+  position: absolute;
+  inline-size: 0;
+  block-size: 0;
+  overflow: hidden;
+}
+
+/* The notice an absence is stated in: an answer, not a refusal (R-UI-050's empty leg). */
+.cx-shell-notice {
+  background: var(--info-surface);
+  border: var(--hairline);
+  border-color: var(--info);
+  border-radius: var(--radius-4);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+}
+
+/* The alert a rejected save wears. Not the notice's chrome: a refusal and a completed save may not
+   be told apart by their sentence alone, so the danger surface and border carry it too. */
+.cx-shell-alert {
+  margin: 0;
+  background: var(--danger-surface);
+  border: var(--hairline);
+  border-color: var(--danger);
+  border-radius: var(--radius-4);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+/* An item of a menu that happens to be a link wears the menu's own idiom, never the link idiom:
+   the underline would read as a hover state on an item the pointer is not over. */
+.cx-shell-menu-item {
+  text-decoration: none;
+}
+
+.cx-shell-link {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--beam-600);
+  text-decoration: underline;
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-shell-link:hover {
+  color: var(--beam-500);
+}
+
+.cx-shell-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 380px;
+  margin-block-start: var(--space-5);
+}
+
+.cx-shell-field-label {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+}
+
+/* The hint under a field's label. At the section's 380 px measure this sentence broke with its last
+   word alone on a second line, directly above the input — the one ragged edge on the screen. The
+   measure is the Decision's and the copy is the string table's, so neither moves: the line breaking
+   is what is asked to be better, and `pretty` is the property for exactly that (it rebalances to
+   avoid a short last line). An engine that does not implement it simply breaks as before. */
+.cx-shell-field-hint {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  text-wrap: pretty;
+}
+
+.cx-shell-submit {
+  align-self: start;
+  margin-block-start: var(--space-3);
+}
+
+.cx-shell-skeletons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* --- the denial surface (R-UI-050's permission-denied leg) ------------------------------ */
+
+.cx-shell-denied {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: min(560px, calc(100vw - var(--space-8)));
+  margin-inline: auto;
+  padding-block-start: var(--space-12);
+}
+
+/* The s-auth frame's own sm step, doubled: the denial surface sits where the auth screens sit. */
+@media (min-width: 640px) {
+  .cx-shell-denied {
+    padding-block-start: calc(var(--space-12) * 2);
+  }
+}
+
+.cx-shell-denied-heading {
+  margin: 0;
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-shell-denied-line {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}

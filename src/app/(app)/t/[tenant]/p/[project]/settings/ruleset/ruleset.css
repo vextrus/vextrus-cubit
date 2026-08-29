@@ -1,0 +1,190 @@
+/* The project rule-set settings screen (R-SPINE-012). Colour, motion and rhythm come from tokens
+   alone — no literal but the closed set of px measures the Decision rules: the 800 px page measure,
+   the 160 px label column and the 88 px scope column. No [data-theme] selector: every light/dark
+   difference arrives through the token values themselves (R-UI-001). */
+
+.cx-ruleset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 800px;
+}
+
+.cx-ruleset-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-ruleset-caption {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-ruleset-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-ruleset-section-heading {
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-ruleset-hint {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* --- the pinned edition: identity and digest, side by side and never one for the other --------- */
+
+.cx-ruleset-facts {
+  margin: 0;
+}
+
+.cx-ruleset-fact {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  column-gap: var(--space-4);
+  padding-block: var(--space-2);
+}
+
+.cx-ruleset-fact-label {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+}
+
+.cx-ruleset-identity {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.cx-ruleset-scope {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-ruleset-edition {
+  font-family: var(--font-mono);
+  font-size: var(--text-16);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* A digest exists to be compared, so it renders whole: it wraps rather than truncates, and one
+   click selects the whole value to copy (I-26). */
+.cx-ruleset-digest {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+  font-variant-numeric: tabular-nums slashed-zero;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+/* --- the lineage: the chain the pin was forked along, head first ------------------------------ */
+
+.cx-ruleset-lineage {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-ruleset-lineage-step {
+  padding-block: var(--space-2);
+}
+
+.cx-ruleset-lineage-step + .cx-ruleset-lineage-step {
+  border-top: var(--hairline);
+}
+
+.cx-ruleset-lineage-identity {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.cx-ruleset-lineage-scope {
+  min-width: 88px;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-ruleset-lineage-edition {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+}
+
+.cx-ruleset-lineage-digest {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+/* --- the parameter table: seventeen closed rows, nothing interactive -------------------------- */
+
+.cx-ruleset-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cx-ruleset-col {
+  padding-inline: var(--space-3);
+  border-bottom: var(--hairline);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-600);
+  text-align: left;
+}
+
+.cx-ruleset-col-value {
+  text-align: right;
+}
+
+.cx-ruleset-row {
+  height: var(--row-comfortable);
+  border-bottom: var(--hairline);
+}
+
+.cx-ruleset-param {
+  padding-inline: var(--space-3);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+  text-align: left;
+}
+
+.cx-ruleset-key {
+  padding-inline: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-ruleset-value {
+  padding-inline: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+  font-variant-numeric: tabular-nums slashed-zero;
+  text-align: right;
+}
+
+.cx-ruleset-unit {
+  padding-inline: var(--space-3);
+}
