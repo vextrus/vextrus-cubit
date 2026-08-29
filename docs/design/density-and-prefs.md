@@ -89,7 +89,9 @@ Promise<void> }`). Renders `<section class="cx-density">`: column flex, max-widt
   data-testid="density-option-comfortable" | "density-option-compact"
   class="cx-density-option cx-reticle">`, labels `shell_density_comfortable` /
   `shell_density_compact`, in that fixed order (comfortable first — the default reads
-  first). Height `var(--space-6)`, padding-inline `var(--space-3)`, radius
+  first). Height `var(--space-8)` — the tree's button ramp, the height every other button-like
+  control stands at (core Button's `.cx-btn`); an interactive target is not shrunk to the
+  WCAG 2.5.8 floor for sitting inside a group. Padding-inline `var(--space-3)`, radius
   `var(--radius-2)`, `var(--text-13)` `var(--weight-body-medium)`, no border of their own.
   Unchecked: no fill, text `var(--graphite-700)`; hover fill `var(--graphite-100)`, text
   `var(--graphite-900)`. Checked (`aria-checked="true"`): fill `var(--beam-100)`, text
@@ -179,9 +181,11 @@ contract, on the elements ruled in §1: `density-toggle` (the radiogroup) ·
 already; no other id is added.
 
 Behavioural hooks without new ids: `data-density` on `shell-root` (the frame's published
-mode) and on `datatable` (primitives-data's existing contract — asserted in this
-increment's jsdom suite with `DENSITIES` members only, no DB from a UI test, and no product
-DataTable screen ships); `aria-checked` on each option, `aria-busy` on the in-flight group,
+mode) and on `datatable` (primitives-data's existing contract, untouched here: no product
+DataTable screen ships in this increment, so nothing renders one and this increment's jsdom
+suite asserts no `data-density` on it at runtime — what it does prove of that contract is
+the type identity below, which is what makes a stored mode a valid table density);
+`aria-checked` on each option, `aria-busy` on the in-flight group,
 `aria-labelledby`/`aria-describedby` naming the group from the strings table's values
 (asserted via the `strings` import, never a spelled literal); the roving `tabIndex` pair;
 `cx-reticle` on both options. At compile time the toggle's `Density` prop, the seam's

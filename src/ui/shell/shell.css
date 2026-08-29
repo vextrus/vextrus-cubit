@@ -467,7 +467,9 @@
 }
 
 .cx-density-option {
-  height: var(--space-6);
+  /* The tree's button ramp: every button-like control stands var(--space-8) tall (.cx-btn), and an
+     interactive target is not shrunk below it for sitting inside a group (R-UI-012). */
+  height: var(--space-8);
   padding-inline: var(--space-3);
   border: none;
   border-radius: var(--radius-2);

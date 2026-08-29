@@ -61,19 +61,39 @@ export function DensityToggle({ density, action }: DensityToggleProps) {
   const labelId = useId();
   const hintId = useId();
   const options = useRef(new Map<Density, HTMLButtonElement | null>());
+  // The tail of the writes still in flight, and the ticket of the newest activation. Two rapid
+  // activations are two upserts of one row, and nothing promises they settle in the order they were
+  // sent — so a later choice must not be overtaken by an earlier one. Writes are queued end to end:
+  // the mode chosen last is the mode written last, and the store cannot end on the other one. With
+  // nothing in flight the queue is empty and the write leaves at once, as a single click always did.
+  const queue = useRef<Promise<void> | null>(null);
+  const newest = useRef(0);
 
   function choose(mode: Density): void {
     // Re-activating the checked option changes nothing, so it writes nothing.
     if (mode === chosen) return;
     setChosen(mode);
     setPending(true);
-    void action(mode).then(
-      () => setPending(false),
+    const ticket = (newest.current += 1);
+    const previous = queue.current;
+    const settled = (previous === null ? action(mode) : previous.then(() => action(mode))).then(
+      () => {
+        // Only the newest activation owns the busy state: an earlier write settling says nothing
+        // about the choice now on screen, which the queue behind it is still carrying.
+        if (ticket === newest.current) setPending(false);
+      },
       (cause: unknown) => {
-        setPending(false);
+        if (ticket === newest.current) setPending(false);
+        // A failure is re-thrown whichever write it was: an unwritten preference is unwritten.
         setFailure(cause instanceof Error ? cause : new Error(String(cause)));
       },
     );
+    queue.current = settled;
+    // Drained back to empty once the tail is this write, so the next gesture is not chained onto a
+    // promise that has already settled.
+    void settled.then(() => {
+      if (queue.current === settled) queue.current = null;
+    });
   }
 
   return (
