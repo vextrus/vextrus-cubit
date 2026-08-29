@@ -21,7 +21,7 @@ const UI_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** The groups whose every child directory is a barrel. */
 const BARREL_GROUPS = ["primitives", "patterns"] as const;
 
-/** The group-less barrel a later increment may grow, named by its own directory. */
+/** The group-less barrel, named by its own directory rather than by a group above it. */
 const SHELL_BARREL = "shell";
 
 /** The index-file spellings a barrel may carry. */

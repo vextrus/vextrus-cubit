@@ -63,6 +63,8 @@ import {
   Toaster,
   toast,
 } from "../primitives/overlay";
+import { AppShell, SHELL_AREAS, ShellDenied, ShellEmptyState, ShellInspector, ShellRail, ShellTopBar, type ShellWorkspace } from "../shell";
+import { strings } from "../strings";
 import type { GalleryEntries, GalleryState } from "./types";
 
 /* ------------------------------------------------------------------ sample copy (Decision I-17) */
@@ -442,6 +444,47 @@ const refusalStates: readonly GalleryState[] = REFUSAL_SEVERITIES.flatMap((sever
   })),
 );
 
+/* ------------------------------------------------------------------ shell samples */
+
+/**
+ * The workspace the frame samples are shown around. Its name is the core Decision's own sample
+ * project name and its address the fixed sample the shell's states use; nothing here is a second
+ * spelling of copy the string table already owns — the frame's words all come from `strings`.
+ */
+const SAMPLE_WORKSPACE: ShellWorkspace = { tenantId: "00000000-0000-4000-8000-00000000c017", name: copy.input.value };
+
+/** The address the sampled session belongs to; `null` is the state where a session carries none. */
+const SAMPLE_EMAIL = "estimator@cubit.test";
+
+/**
+ * The refusal the denied frame stands on, authored as data (Decision I-18): `PERMISSION_NOT_HELD`
+ * with the register's own message and remedy, so the gallery spells no sentence the taxonomy does
+ * not already own (Q-07, B-17).
+ */
+const SAMPLE_DENIAL: RefusalEntry = {
+  code: "PERMISSION_NOT_HELD",
+  message: "Your roles on this project do not carry the permission this action needs.",
+  remedy: "Ask a principal of the project to give you a role that carries it.",
+  severity: "error",
+  surface: "banner",
+};
+
+/** What a screen renders inside the frame: the empty state its own entry samples on its own. */
+const shellChildSample = (): ReactNode => (
+  <ShellEmptyState heading={strings.shell_books_empty_heading} body={strings.shell_books_empty_body}>
+    <Button variant="secondary">{strings.shell_books_empty_action}</Button>
+  </ShellEmptyState>
+);
+
+/**
+ * The rail carries the selection the URL is in, so its states are the areas themselves — read from
+ * `SHELL_AREAS` rather than listed here, which is what keeps a fourth area from being forgotten.
+ */
+const shellRailStates: readonly GalleryState[] = SHELL_AREAS.map((area) => ({
+  name: area,
+  render: () => <ShellRail workspace={SAMPLE_WORKSPACE} area={area} atAreaHome={true} />,
+}));
+
 /* ------------------------------------------------------------------ the catalogue */
 
 /**
@@ -511,4 +554,59 @@ export const galleryEntries: GalleryEntries = {
   "primitives/overlay/SheetContent": { states: composed(sheetSample) },
   "primitives/overlay/SheetTrigger": { states: composed(sheetSample) },
   "primitives/overlay/Toaster": { states: [{ name: "ready", render: toasterSample }] },
+
+  "shell/AppShell": {
+    states: [
+      {
+        name: "rest",
+        render: () => (
+          <AppShell workspace={SAMPLE_WORKSPACE} area="projects" atAreaHome={true} email={SAMPLE_EMAIL} signOut={noop}>
+            {shellChildSample()}
+          </AppShell>
+        ),
+      },
+    ],
+  },
+  "shell/ShellDenied": {
+    states: [{ name: "rest", render: () => <ShellDenied refusal={SAMPLE_DENIAL} evidence={{ href: "/", label: strings.shell_denied_evidence }} /> }],
+  },
+  "shell/ShellEmptyState": {
+    states: [
+      { name: "rest", render: shellChildSample },
+      {
+        name: "answered",
+        render: () => (
+          <ShellEmptyState
+            heading={strings.shell_projects_empty_heading}
+            body={strings.shell_projects_empty_body}
+            answer={
+              <div className="cx-shell-outcome cx-shell-notice" role="status">
+                {strings.shell_sample_unavailable}
+              </div>
+            }
+          >
+            <Button>{strings.shell_sample_offer}</Button>
+          </ShellEmptyState>
+        ),
+      },
+    ],
+  },
+  "shell/ShellInspector": { states: [{ name: "empty", render: () => <ShellInspector /> }] },
+  "shell/ShellRail": { states: shellRailStates },
+  "shell/ShellTopBar": {
+    states: [
+      {
+        name: "at-area-home",
+        render: () => <ShellTopBar workspace={SAMPLE_WORKSPACE} area="projects" atAreaHome={true} email={SAMPLE_EMAIL} signOut={noop} />,
+      },
+      {
+        name: "inside-area",
+        render: () => <ShellTopBar workspace={SAMPLE_WORKSPACE} area="settings" atAreaHome={false} email={SAMPLE_EMAIL} signOut={noop} />,
+      },
+      {
+        name: "no-address",
+        render: () => <ShellTopBar workspace={SAMPLE_WORKSPACE} area="books" atAreaHome={true} email={null} signOut={noop} />,
+      },
+    ],
+  },
 };

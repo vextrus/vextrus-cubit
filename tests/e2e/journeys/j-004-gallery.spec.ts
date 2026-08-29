@@ -15,7 +15,9 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
 import { SDesignPage, S_DESIGN_ROUTE } from "../pages/s-design.page";
+import { newestMail } from "../support/outbox";
 
 /** axe runs from the copy already in the checkout; the journey adds no package (Q-11). */
 const AXE_SOURCE = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
@@ -54,14 +56,47 @@ async function galleryCheckpoint(page: Page, theme: "light" | "dark", checkpoint
   // Q-06: the baseline is of the shell region itself, animations disabled, routed under
   // tests/e2e/baselines/ by the config's snapshotPathTemplate.
   const shell = design.shell;
-  // The name is given as path segments: a single string's separators are sanitised away, and the
-  // baseline would land beside the directory it names rather than inside it.
-  await expect(shell).toHaveScreenshot(["design", `gallery-shell-${theme}.png`], { animations: "disabled" });
+  // The name carries no separator: the lane's `snapshotPathTemplate` supplies the directory the
+  // committed baselines live in, and the same template routes every other journey's captures.
+  await expect(shell).toHaveScreenshot(`gallery-shell-${theme}.png`, { animations: "disabled" });
+}
+
+/**
+ * The gallery stands behind the signed-in door like every other screen of the product: a request
+ * with no session is sent to `/sign-in` (src/app/(app)/layout.tsx), so the journey enrols and signs
+ * in before it walks. The lane's database outlives a run, so the enrolment is idempotent: a second
+ * run meets the registered `ACCOUNT_ALREADY_EXISTS` answer rather than a failure.
+ */
+const EMAIL = "j004-gallery@cubit.test";
+const PASSWORD = "gallery-journey-password";
+const WORKSPACE = "Datum Gallery";
+
+async function signIn(page: Page): Promise<void> {
+  const auth = new SAuthPage(page);
+
+  await auth.open(S_AUTH.signUp);
+  await auth.signUpWith(EMAIL, PASSWORD, WORKSPACE);
+  await expect(auth.notice.or(auth.refusal), "the sign-up door answers — a notice or a registered refusal, never nothing").toBeVisible();
+  if ((await auth.notice.count()) > 0) {
+    const verifyMail = await newestMail(EMAIL, "verify-email");
+    await auth.openWithToken(S_AUTH.verify, verifyMail.token);
+    await auth.expectNotice();
+  } else {
+    await auth.refusedWith("ACCOUNT_ALREADY_EXISTS");
+  }
+
+  await auth.open(S_AUTH.signIn);
+  await auth.signInWith(EMAIL, PASSWORD);
+  // The door answers by navigating, so the walk waits for the address to leave it rather than for a
+  // moment to pass; a refusal is read out loud here, where it is still legible.
+  await expect(auth.refusal, "the sign-in door admits the journey's own account").toHaveCount(0);
+  await page.waitForURL((url) => url.pathname !== S_AUTH.signIn);
 }
 
 test.describe("J-004 Design gallery", () => {
   test("J-004 gallery: /design renders every entry in both themes, clean", async ({ page }, testInfo) => {
     await page.emulateMedia({ colorScheme: "light" });
+    await signIn(page);
     await page.goto(S_DESIGN_ROUTE);
     await galleryCheckpoint(page, "light", "j-004-gallery-light", testInfo);
 

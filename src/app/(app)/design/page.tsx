@@ -38,7 +38,12 @@ export default function DesignGalleryPage() {
   const entryKeys = Object.keys(galleryEntries).sort();
 
   return (
-    <main className="cx-gallery">
+    // The gallery mounts page-level components as samples, and two of them publish a `main`
+    // landmark of their own (`AppShell`, `ShellDenied`) — evidence renders the component as it
+    // ships, never a restyled copy of it (B-17). So the page claims no `main` of its own: a
+    // landmark wrapped around the samples would nest theirs inside it, which is the worse reading
+    // of the same document. The chrome stays a `header`, the one landmark this page authors.
+    <div className="cx-gallery">
       <header className="cx-gallery-shell" data-testid="gallery-shell">
         <h1 className="cx-gallery-title">{galleryChrome.heading}</h1>
         <p className="cx-gallery-caption">{galleryChrome.caption}</p>
@@ -68,6 +73,6 @@ export default function DesignGalleryPage() {
             ))}
         </section>
       ))}
-    </main>
+    </div>
   );
 }

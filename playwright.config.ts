@@ -31,13 +31,9 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"]],
   globalSetup: "./tests/e2e/support/global-setup.ts",
-  // Q-06's baselines are committed evidence of a screen, so they live with the journeys that own
-  // them — under `tests/e2e/baselines/` — rather than in the runner's per-spec `*-snapshots`
-  // directory, and they stand as images committed for Linux. The template carries no platform
-  // suffix: the gate and CI render on the same machine class, and a suffixed name would mean a
-  // baseline nothing compares against. `{arg}` is the whole name a comparison passes, so a spec
-  // that names `["design", "…png"]` places its own image under `baselines/design/`.
-  snapshotPathTemplate: "tests/e2e/baselines/{arg}{ext}",
+  // V-E2E: the visual comparisons stand against baselines committed for Linux, in one directory
+  // rather than beside each spec — a journey names its baseline and the lane says where it lives.
+  snapshotPathTemplate: "tests/e2e/baselines/design/{arg}{ext}",
   expect: {
     // V-E2E fixes the tolerance for every visual comparison in the lane.
     toHaveScreenshot: { maxDiffPixelRatio: 0.002 },
