@@ -63,7 +63,7 @@ test.describe("J-000 — Golden Path: sign up, name the workspace, create the fi
     await shell.open(S_HOME.settings(tenantId));
     await shell.renameInput.fill(WORKSPACE);
     await shell.renameSubmit.click();
-    await expect(shell.settingsName, "the saved name is what the settings screen reads back").toContainText(WORKSPACE);
+    await expect(shell.renameInput, "the saved name is what the settings screen reads back").toHaveValue(WORKSPACE);
 
     await home.open(S_HOME.workspace(tenantId));
     await shell.expectFrame();
