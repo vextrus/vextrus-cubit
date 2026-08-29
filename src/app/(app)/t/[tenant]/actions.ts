@@ -10,7 +10,7 @@ import { archiveProject, createProject, restoreProject, updateProject, type Proj
 import { sampleSeed, type SampleSeedAnswer } from "../../../../server/shell/sample-seed";
 import { endSession, presentedSessionToken } from "../../../../server/shell/session";
 import { viewerFor } from "../../../../server/shell/viewer";
-import { renameWorkspace, workspaceFor, type RenameAnswer } from "../../../../server/shell/workspace";
+import { holdsWorkspace, renameWorkspace, type RenameAnswer } from "../../../../server/shell/workspace";
 import { hasVisibleText, shellHref } from "../../../../ui/shell";
 import { judgeProject, presentedProject, type ProjectJudgement } from "./home/judgement";
 
@@ -132,13 +132,18 @@ export async function restoreProjectAction(tenantId: string, projectId: string):
  * that no longer stands for a live session is SIGNED_OUT, whose remedy is signing in again; an
  * address naming a workspace this session does not hold is PERMISSION_NOT_HELD, which is the same
  * answer the layout gives for the same reason (ARCH-03, B-21).
+ *
+ * "Does this account hold THAT workspace" is a membership question, and it is asked as one. The
+ * frame's `workspaceFor` answers a different question — the earliest membership, the one workspace
+ * the shipped switcher shows — and guarding a write with it would refuse every project door in a
+ * second workspace to a person who genuinely holds it. The seam's own row security is what makes the
+ * membership check safe to state this widely: the scope carries the tenant either way.
  */
 async function actorIn(tenantId: string): Promise<ProjectsCtx | RefusalCode> {
   const presented = await presentedSessionToken();
   const viewer = await viewerFor(presented);
   if (viewer === null) return "SIGNED_OUT";
-  const workspace = await workspaceFor(presented);
-  if (workspace === null || workspace.tenantId !== tenantId) return "PERMISSION_NOT_HELD";
+  if (!(await holdsWorkspace(viewer.userId, tenantId))) return "PERMISSION_NOT_HELD";
   return { tenantId, userId: viewer.userId, actorKind: "human" };
 }
 

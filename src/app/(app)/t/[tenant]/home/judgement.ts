@@ -6,7 +6,7 @@
 // Everything the judgements admit is stored as presented: case, spacing and length are the person's
 // (s-auth I-14). A field left blank states nothing, so it is stored as an absence rather than as an
 // empty string.
-import { isBuildingType } from "../../../../../core/projects";
+import { isBuildingType, isDecimalFigure } from "../../../../../core/projects";
 import type { ProjectFields } from "../../../../../modules/spine/projects";
 import { hasVisibleText } from "../../../../../ui/shell";
 
@@ -32,12 +32,16 @@ export type JudgedProject = { readonly presentable: true; readonly fields: Proje
 /** A count of floors: whole, and never fewer than none. */
 const WHOLE_NUMBER = /^\d+$/;
 
-/** A plain decimal area: digits, and at most one plain fraction. No sign, no grouping, no units. */
-const PLAIN_DECIMAL = /^\d+(\.\d+)?$/;
-
-/** Would this text be read as an area? The sft readout renders nothing until it would (I-39). */
+/**
+ * Would this text be read as an area? The sft readout renders nothing until it would (I-39), and
+ * the door refuses a submission carrying anything else.
+ *
+ * The grammar itself is not spelled here: it is `isDecimalFigure`'s, the one the seam's column guard
+ * and the format seam both read, so the door judges exactly the language the seam will accept and no
+ * wider one (I-34). All this file adds is the one narrowing an area owes — a floor area has no sign.
+ */
 export function isPlainDecimal(value: string): boolean {
-  return PLAIN_DECIMAL.test(value);
+  return !value.startsWith("-") && isDecimalFigure(value);
 }
 
 export function judgeProject(presented: PresentedProject): JudgedProject {
@@ -46,7 +50,7 @@ export function judgeProject(presented: PresentedProject): JudgedProject {
   if (!hasVisibleText(presented.name)) return { presentable: false, refused: "name" };
   if (!isBuildingType(presented.buildingType)) return { presentable: false, refused: "buildingType" };
   if (presented.storeys !== "" && !WHOLE_NUMBER.test(presented.storeys)) return { presentable: false, refused: "number" };
-  if (presented.gfaM2 !== "" && !PLAIN_DECIMAL.test(presented.gfaM2)) return { presentable: false, refused: "number" };
+  if (presented.gfaM2 !== "" && !isPlainDecimal(presented.gfaM2)) return { presentable: false, refused: "number" };
 
   return {
     presentable: true,

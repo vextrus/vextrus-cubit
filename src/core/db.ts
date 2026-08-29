@@ -71,7 +71,14 @@ export const projects = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [check("projects_building_type_closed", statement`${table.buildingType} in (${BUILDING_TYPE_LIST})`)],
+  (table) => [
+    check("projects_building_type_closed", statement`${table.buildingType} in (${BUILDING_TYPE_LIST})`),
+    // Every read of this table is tenant-scoped and then ordered by last activity: the policy adds
+    // the same `tenant_id` predicate again, so without this the workspace home is a sequential scan
+    // plus a sort over every tenant's projects. The order the index is built in is the order S-Home
+    // asks in (the shape `tenant_ruleset_editions_scope` already has beside its own table).
+    index("projects_tenant_updated").on(table.tenantId, table.updatedAt),
+  ],
 );
 
 /**

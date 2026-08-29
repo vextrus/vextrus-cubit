@@ -5,7 +5,7 @@
 // visible. I-35 — archive is reversible, so it and restore are plain ghost doors that answer in
 // place: neither is destructive, and neither is an act.
 import Link from "next/link";
-import { useTransition, type ReactNode } from "react";
+import { Fragment, useTransition, type ReactNode } from "react";
 import { refusalOf, type RefusalCode } from "../../../../../core/errors";
 import { formatDate } from "../../../../../core/format";
 import type { BuildingType } from "../../../../../core/projects";
@@ -65,19 +65,19 @@ export function ProjectCard({ tenantId, project, onEdit, refusal, onAnswer }: Pr
       </div>
 
       <p className="cx-home-meta">
+        {/* The status hook is on the card whatever the status is. The WORD, on an archived card, is
+            not stated twice: the Badge two lines up is the scan-level flag, and repeating it 25 px
+            away says nothing a reader did not just read (I-35). */}
         <span data-testid="s-home-project-status" data-status={project.status}>
-          {archived ? strings.home_status_archived : strings.home_status_active}
+          {archived ? null : strings.home_status_active}
         </span>
-        {project.buildingType === null ? null : (
-          <>
-            <Separator />
-            {strings[BUILDING_TYPE_LABEL[project.buildingType]]}
-          </>
-        )}
-        <Separator />
-        <span className="cx-home-meta-date" data-testid="s-home-project-last-activity">
-          {fill(strings.home_project_updated, { date: lastActivity(project.updatedAt) })}
-        </span>
+        {meta(project).map((term, index) => (
+          <Fragment key={term.key}>
+            {/* Nothing to divide from, on a card whose status term is the Badge's instead. */}
+            {archived && index === 0 ? null : <Separator />}
+            {term.said}
+          </Fragment>
+        ))}
       </p>
 
       {/* L-REG-07 made visible: every project shows the edition it pinned, and the link is how a
@@ -115,13 +115,40 @@ export function ProjectCard({ tenantId, project, onEdit, refusal, onAnswer }: Pr
   );
 }
 
-/** The meta line's divider: punctuation, so it is hidden from the accessibility tree (R-UI-012). */
+/**
+ * The meta line's terms after the status, in the order the Decision § 1 sets them: what kind of
+ * building it is, when it was last touched. A term the project states nothing for is not a term.
+ */
+function meta(project: Project): readonly { readonly key: string; readonly said: ReactNode }[] {
+  const terms: { key: string; said: ReactNode }[] = [];
+  if (project.buildingType !== null) terms.push({ key: "type", said: strings[BUILDING_TYPE_LABEL[project.buildingType]] });
+  terms.push({
+    key: "updated",
+    said: (
+      <span className="cx-home-meta-date" data-testid="s-home-project-last-activity">
+        {fill(strings.home_project_updated, { date: lastActivity(project.updatedAt) })}
+      </span>
+    ),
+  });
+  return terms;
+}
+
+/**
+ * The meta line's divider. The `·` is punctuation and stays out of the accessibility tree
+ * (R-UI-012) — but a divider that is only punctuation leaves the terms it divides announced as one
+ * run-on word ("ActiveCommercialUpdated 30 Aug 2026"), which is three facts read as none. So the
+ * pause the eye takes from the dot is stated for the ear as well, in the one place both are drawn:
+ * a comma, present in the tree and absent from the paint.
+ */
 function Separator(): ReactNode {
   return (
-    <span aria-hidden="true">
-      {" "}
-      ·{" "}
-    </span>
+    <>
+      <span aria-hidden="true">
+        {" "}
+        ·{" "}
+      </span>
+      <span className="cx-home-pause">, </span>
+    </>
   );
 }
 

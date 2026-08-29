@@ -16,6 +16,7 @@ CREATE TABLE "projects" (
 	CONSTRAINT "projects_building_type_closed" CHECK ("projects"."building_type" in ('residential', 'commercial', 'mixed', 'industrial', 'infrastructure'))
 );
 --> statement-breakpoint
+CREATE INDEX "projects_tenant_updated" ON "projects" USING btree ("tenant_id","updated_at");--> statement-breakpoint
 -- hand-written: RLS, grants (SEAM-TENANT)
 -- Appended by hand in the form the tenancy-base migration set: the drift lane proves the schema and
 -- the committed migrations agree by generating into a scratch directory, and that proof only holds

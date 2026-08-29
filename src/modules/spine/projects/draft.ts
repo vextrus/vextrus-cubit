@@ -9,7 +9,7 @@
 // front of it, so a value from outside the five is a mistake in the caller and never a driver error
 // reaching a person as a fault id (ARCH-03).
 import { storableText } from "../../../core/db";
-import { BUILDING_TYPES, isBuildingType, type BuildingType } from "../../../core/projects";
+import { BUILDING_TYPES, isBuildingType, isDecimalFigure, type BuildingType } from "../../../core/projects";
 
 export { BUILDING_TYPES, isBuildingType, type BuildingType };
 
@@ -32,9 +32,6 @@ export type ProjectChanges = Partial<ProjectDraft> & { readonly notes?: string |
 
 /** The whole draft, notes included — creation takes every field R-SPINE-010 names. */
 export type ProjectFields = ProjectDraft & { readonly notes?: string | null };
-
-/** A figure a `numeric` column can hold: a sign, digits, and at most one plain decimal fraction. */
-const DECIMAL = /^-?(0|[1-9]\d*)(\.\d+)?$/;
 
 /** The column values a draft names, absent for every field the draft leaves alone. */
 export interface ProjectColumns {
@@ -84,6 +81,6 @@ function wholeCount(value: number | null): number | null {
 }
 
 function decimalFigure(value: string | null): string | null {
-  if (value === null || DECIMAL.test(value)) return value;
+  if (value === null || isDecimalFigure(value)) return value;
   throw new Error(`target GFA is held as a decimal in m², and ${JSON.stringify(value)} is not one (R-SPINE-010, B-07)`);
 }

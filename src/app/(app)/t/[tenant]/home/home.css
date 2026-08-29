@@ -66,6 +66,31 @@
   color: var(--graphite-600);
 }
 
+/* An archived project is still shown, never hidden — but it may not have the presence of a live one,
+   or a grid holding both reads as one class of thing. The card recedes: the hairline and the words
+   soften, and nothing moves, so restoring it costs no reflow. The word is still what carries the
+   meaning (the Badge and this, never colour alone — Q-11). */
+.cx-home-card[data-archived="true"] {
+  border-color: var(--graphite-100);
+}
+
+.cx-home-card[data-archived="true"] .cx-home-card-name {
+  color: var(--graphite-700);
+  font-weight: var(--weight-body-medium);
+}
+
+/* The pause the dot draws for the eye, for the ear: out of the paint, in the accessibility tree.
+   Not `display: none` and not `visibility: hidden` — either would take it out of the tree too, which
+   is the whole point of it. Zero-sized and clipped, so it adds no box and no line of its own. */
+.cx-home-pause {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* A date reads as a figure: the columns line up and the zero cannot be read as an O (R-UI-003). */
 .cx-home-meta-date {
   font-family: var(--font-mono);

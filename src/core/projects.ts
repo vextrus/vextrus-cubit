@@ -21,3 +21,19 @@ export type BuildingType = (typeof BUILDING_TYPES)[number];
 export function isBuildingType(value: string): value is BuildingType {
   return (BUILDING_TYPES as readonly string[]).includes(value);
 }
+
+/**
+ * The one grammar of a decimal figure this product stores: an optional sign, an integer part with no
+ * leading zero, and at most one plain fraction. It is here for the same reason the building types
+ * are — the seam's column guard, the server action and the browser's own judgement must be reading
+ * the same language, or a door admits a value the seam then refuses (I-34, ARCH-02, B-17).
+ *
+ * A second, wider spelling of this grammar is exactly the defect: "00" would pass the door, fail the
+ * column guard, and reach a person as an unmarked fault for a field the door claimed to judge.
+ */
+const DECIMAL_FIGURE = /^-?(0|[1-9]\d*)(\.\d+)?$/;
+
+/** Is this text a decimal figure the store will hold exactly as it stands (B-07)? */
+export function isDecimalFigure(value: string): boolean {
+  return DECIMAL_FIGURE.test(value);
+}

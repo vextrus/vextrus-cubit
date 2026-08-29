@@ -109,10 +109,24 @@ column flex, gap `var(--space-2)`:
   colour-only).
 - **Meta line** — `var(--text-12)` `var(--graphite-600)`, one line: the status
   `<span data-testid="s-home-project-status" data-status={"active"|"archived"}>`
-  (`home_status_active` / `home_status_archived`), a `·` separator (`aria-hidden`), the
-  building type's label (§3), `·`, then
+  (`home_status_active`), a `·` separator, the building type's label (§3), `·`, then
   `<span data-testid="s-home-project-last-activity">` — `home_project_updated` with the
   date through the format seam in `var(--font-mono)` `tabular-nums slashed-zero` (I-37).
+  On an ARCHIVED card the status span stays — it is the card's status hook, and carries
+  `data-status="archived"` — but states no word and takes no separator after it: the Badge in
+  the name row above is where that word is said, and saying it twice 25 px apart tells a
+  reader nothing they did not just read (I-35). The separator is drawn as a `·` that is
+  `aria-hidden` PLUS a visually hidden `", "` (`.cx-home-pause`: absolutely positioned, 1 px,
+  `clip-path: inset(50%)`): punctuation stays out of the accessibility tree, but a divider
+  that is *only* punctuation leaves the terms announced as one run-on word
+  ("ActiveCommercialUpdated 30 Aug 2026"), which is three facts read as none. The pause the
+  dot draws for the eye is stated for the ear too, in the one place both are drawn.
+- **Archived cards recede.** An archived project is shown, never hidden (§1's ordering), but
+  it may not carry the presence of a live one or a grid holding both reads as one class of
+  thing: `[data-archived="true"]` softens the hairline to `var(--graphite-100)` and the name
+  to `var(--graphite-700)` `var(--weight-body-medium)`. Nothing moves and nothing is filled,
+  so restoring costs no reflow — and the meaning is still carried by the word (the Badge),
+  never by the softening alone (Q-11).
 - **Pin link** — `<a data-testid="s-home-project-ruleset">` to
   `/t/{t}/p/{projectId}/settings/ruleset`, a `next/link` move inside the frame, in the
   evidence-link idiom (`var(--text-13)` `var(--weight-body-medium)` `var(--beam-600)`,
@@ -163,7 +177,12 @@ Alert home, owner: a later primitives increment) — or one RefusalState for a s
 `SIGNED_OUT` (evidence `{ href: "/sign-in", label: shell_evidence_sign_in }`) and, on the
 edit path, `PERMISSION_NOT_HELD` (evidence as the card's). The ids the form carries are
 judged before they query (the shell's `scopedTenantId` precedent) — a value naming no project
-of this workspace answers PERMISSION_NOT_HELD, never a driver fault. Footer row, flex gap
+of this workspace answers PERMISSION_NOT_HELD, never a driver fault. A judged submission also
+MOVES FOCUS to the field that stopped it (`project-name`, the first chip of
+`project-building-type`, or whichever of `project-gfa-m2` / `project-storeys` the value names):
+the sheet is a scrolling column and the answer slot sits at its far end, so an alert alone can
+settle below the fold with nothing saying which of nine fields is meant. Focus is both the
+pointer and the way back into the form, and the browser scrolls what it focuses into view. Footer row, flex gap
 `var(--space-2)`: primary submit `data-testid="project-form-submit"`
 (`home_form_submit_create` / `home_form_submit_save`) and a secondary Button
 `home_form_cancel` closing the Sheet. In flight: submit loading, fields `readOnly` +

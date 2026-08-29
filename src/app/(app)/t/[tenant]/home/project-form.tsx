@@ -7,7 +7,7 @@
 //
 // I-31: creation is a plain write, never an act. Nothing here wears copper, nothing carries a
 // digest, and no ConsequenceDialog stands between the person and the save.
-import { useActionState, useEffect, useId, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { refusalOf, type RefusalCode } from "../../../../../core/errors";
 import { formatSquareFeet } from "../../../../../core/format";
 import { BUILDING_TYPES, type BuildingType } from "../../../../../core/projects";
@@ -56,6 +56,7 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
   const [gfaM2, setGfaM2] = useState<string>(project?.targetGfaM2 ?? "");
   const gfaHintId = useId();
   const sftId = useId();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const saved = answer !== null && answer.saved;
   useEffect(() => {
@@ -69,12 +70,27 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
   const refusal = settled !== null && !settled.saved && "refusal" in settled ? settled.refusal : null;
   const judgement = pending ? null : (refusedLocally ?? (settled !== null && !settled.saved && "judgement" in settled ? settled.judgement : null));
 
+  // A judged submission sends the person back to the field that stopped it. The sheet is a scrolling
+  // column and the answer slot sits at the far end of it, so an alert alone can settle below the
+  // fold with nothing saying which of nine fields is meant: focus is both the pointer and the way
+  // back into the form, and the browser scrolls what it focuses into view (§2's refusal cell).
+  const offending = judgement === null ? null : offendingField(judgement, gfaM2);
+  useEffect(() => {
+    if (offending === null) return;
+    const control = formRef.current?.querySelector<HTMLElement>(`[data-testid="${offending}"]`) ?? null;
+    // The building type is a fieldset, which takes no focus of its own — the first chip is what a
+    // person would reach for it with, and it is what the tab order already holds.
+    const focusable = control?.tagName === "FIELDSET" ? control.querySelector<HTMLElement>("button") : control;
+    focusable?.focus();
+  }, [offending, answer]);
+
   return (
     <>
       <h2 className="cx-home-form-heading">
         {project === null ? strings.home_form_create_heading : strings.home_form_edit_heading}
       </h2>
       <form
+        ref={formRef}
         className="cx-home-form"
         data-testid="project-form"
         action={(data: FormData) => {
@@ -170,6 +186,17 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
       </form>
     </>
   );
+}
+
+/**
+ * Which control a judged submission is about. Two fields share the "number" sentence, so the one the
+ * person actually mis-stated is the one the m² value names: an area that would not be read as one is
+ * that field's, and anything else leaves storeys as the only other number on the form.
+ */
+function offendingField(judgement: ProjectJudgement, gfaM2: string): string {
+  if (judgement === "name") return "project-name";
+  if (judgement === "buildingType") return "project-building-type";
+  return gfaM2 !== "" && !isPlainDecimal(gfaM2) ? "project-gfa-m2" : "project-storeys";
 }
 
 /** One label-over-control field, in the idiom every form of this product uses (s-auth's § 1). */
