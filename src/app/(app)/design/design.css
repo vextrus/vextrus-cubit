@@ -1,8 +1,10 @@
 /*
  * S-Design's stylesheet (docs/design/s-design.md § 1, § 6). One column on the page ground, hairline
- * cards, mono identifiers. Every value is a token read (R-UI-001) except the four demo geometry
- * constants Interpretation I-19 mandates in px — a sample box no token measures. No `[data-theme]`
- * selector lives here: the light and dark captures differ because the token values do.
+ * cards, mono identifiers. Every declaration is a token read (R-UI-001) except the four demo
+ * geometry constants Interpretation I-19 mandates in px — a sample box no token measures — and the
+ * single media condition I-20 rules, which states `--breakpoint-sm`'s value because a media query
+ * is evaluated before the cascade and cannot read a custom property. No `[data-theme]` selector
+ * lives here: the light and dark captures differ because the token values do.
  *
  * The gallery adds no chrome to a sample and re-draws no primitive (B-17): nothing below styles a
  * `cx-` class it does not own.
@@ -18,6 +20,8 @@
   background-color: var(--graphite-0);
 }
 
+/* I-20's one condition: 640px is `--breakpoint-sm`'s registered value, spelled here only because a
+   media condition cannot read the token (`src/app/(auth)/s-auth.css` states it the same way). */
 @media (min-width: 640px) {
   .cx-gallery {
     padding: var(--space-6);

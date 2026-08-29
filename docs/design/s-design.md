@@ -51,11 +51,24 @@ no barrel-internal import path and no colour literal. Stylesheet:
   to do. Only the evidence links beside each sample are §3's.
 - **I-19 — demo geometry constants are px (I-1 extended).** Sample data needs boxes no
   token measures: the Skeleton bone renders 240 px wide, the ScrollArea and Resizable demos
-  160 px tall, the DataTable viewport 320 px tall. These four constants, in `design.css`
-  only; any fifth is a defect. Width is not among them: the Resizable demo needs a definite
-  inline size too — a panel group sized to its content collapses to its labels and breaks
-  **Sheet list** mid-word — and it takes `var(--breakpoint-sm)` capped at `100%`, a token
-  read, so the px count stays at four.
+  160 px tall, the DataTable viewport 320 px tall. These four constants are the only px in a
+  *declaration* in `design.css`; a fifth declaration in px is a defect. Width is not among
+  them: the Resizable demo needs a definite inline size too — a panel group sized to its
+  content collapses to its labels and breaks **Sheet list** mid-word — and it takes
+  `var(--breakpoint-sm)` capped at `100%`, a token read, so the px count stays at four.
+  I-20 rules the one px outside a declaration.
+- **I-20 — a media condition states its breakpoint in px, because CSS gives it no other
+  way.** §1's ground padding steps at sm, so `design.css` carries
+  `@media (min-width: 640px)`. A media condition is evaluated before the cascade and cannot
+  read a custom property: `@media (min-width: var(--breakpoint-sm))` is invalid and drops the
+  block, so the value of `--breakpoint-sm` (`src/ui/tokens.css`, 640px) has to be spelled at
+  the condition. It is a transcription of a token, not a new constant, and the house has
+  ruled it once already — `src/app/(auth)/s-auth.css` states the same breakpoint the same
+  way. Ruling: exactly one media condition, carrying exactly `--breakpoint-sm`'s registered
+  value, is lawful in `design.css`; a second condition, a different value, or the same value
+  in any declaration is a defect. Everything a declaration paints or measures stays a token
+  read (R-UI-001) or one of I-19's four constants — and if the registered value of
+  `--breakpoint-sm` ever moves, this condition moves with it.
 
 Recorded IOU — the ghost trigger's rest affordance (owner: the overlay primitive increment,
 `src/ui/primitives/overlay` + core's `.cx-btn[data-variant="ghost"]`). Every overlay trigger
@@ -225,9 +238,11 @@ regardless.
 
 Named by this screen's chrome: `--graphite-900`, `--graphite-600`, `--hairline`,
 `--font-mono`, `--text-24`, `--text-16`, `--text-14`, `--text-13`, `--text-12`,
-`--weight-heading`, `--space-1/2/4/5/6/8`, `--radius-8`, `--breakpoint-lg`. Ground and body
-type inherit from `globals.css`; no other value appears in `design.css` beyond I-19's four
-px constants. `design.css` contains no `[data-theme]` selector and no focus rule; every
+`--weight-heading`, `--space-1/2/4/5/6/8`, `--radius-8`, `--breakpoint-lg`,
+`--breakpoint-sm` (the Resizable demo's inline size and the RefusalState track's `minmax`,
+and — as its value, per I-20 — the one media condition). Ground and body type inherit from
+`globals.css`; no other value appears in `design.css` beyond I-19's four px constants and
+I-20's single condition. `design.css` contains no `[data-theme]` selector and no focus rule; every
 light/dark difference arrives through token values (R-UI-001) — which is exactly what makes
 the two committed shell baselines differ without being told to. The theme is read off
 `html[data-theme]`, set by the root document's resolver; the page offers no theme control
