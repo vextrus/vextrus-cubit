@@ -54,6 +54,34 @@ export const workspaceFor = cache(async (sessionToken: string | null): Promise<W
 });
 
 /**
+ * Does this account hold a membership in that workspace? This is the question every door that acts
+ * *on a named workspace* asks — the rename below, and the project lifecycle doors on `/t/{tenant}`.
+ *
+ * It is deliberately not `workspaceFor`: that answers "the one workspace this person is in", the
+ * EARLIEST membership, which is a different question and the wrong one to guard a write with. The
+ * moment a second membership exists — which is what the shipped switcher anticipates — comparing a
+ * named tenant against the earliest one refuses a person the membership they genuinely hold.
+ *
+ * The workspace arrives from a form field a caller can write anything into, and `tenants.tenant_id`
+ * is a `uuid`: a value that is not one makes postgres raise 22P02, a driver error carrying no
+ * refusal marker. A string that names no tenant names no tenant this account is a member of, so it
+ * is answered here as "no membership" (the shape `scopedTenantId` takes in src/core/db.ts).
+ *
+ * Reading membership runs as the system for the reason stated at the head of this file: it is the
+ * row that says which tenant a person may be scoped to at all, so no tenant handle can read it.
+ */
+export async function holdsWorkspace(userId: string, tenantId: string): Promise<boolean> {
+  if (!isUuid(tenantId)) return false;
+  const admitting = runAsSystem("the membership that admits a write to a named workspace");
+  const held = await admitting
+    .select({ tenantId: memberships.tenantId })
+    .from(memberships)
+    .where(and(eq(memberships.userId, userId), eq(memberships.tenantId, tenantId)))
+    .limit(1);
+  return held[0] !== undefined;
+}
+
+/**
  * R-UI-033's rename, membership-checked: a person may rename the workspace they are a member of and
  * no other. A request with no live session is answered SIGNED_OUT and one from a non-member
  * PERMISSION_NOT_HELD — both registered answers, never faults (ARCH-03, B-21).
@@ -76,13 +104,7 @@ export async function renameWorkspace(request: RenameRequest): Promise<RenameAns
   if (session === null) return { renamed: false, refusal: "SIGNED_OUT" };
   if (!isUuid(request.tenantId)) return { renamed: false, refusal: "PERMISSION_NOT_HELD" };
 
-  const admitting = runAsSystem("R-UI-033 workspace rename: the membership that admits the write");
-  const held = await admitting
-    .select({ tenantId: memberships.tenantId })
-    .from(memberships)
-    .where(and(eq(memberships.userId, session.userId), eq(memberships.tenantId, request.tenantId)))
-    .limit(1);
-  if (held[0] === undefined) return { renamed: false, refusal: "PERMISSION_NOT_HELD" };
+  if (!(await holdsWorkspace(session.userId, request.tenantId))) return { renamed: false, refusal: "PERMISSION_NOT_HELD" };
 
   // Scoped to the tenant the membership admitted, so the boundary is the policy's and not this
   // function's: `tenants_tenant_scope` matches the row by `cubit.tenant_id`, and a statement that

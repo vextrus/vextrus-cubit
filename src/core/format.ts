@@ -104,6 +104,30 @@ export function formatUserFigure(value: string): string {
 }
 
 /**
+ * R-SPINE-010's target GFA is stored in m² and displayed in square feet as well. The factor is one
+ * fact and lives here, in the seam that renders figures, so no screen and no stylesheet spells it.
+ */
+const SFT_PER_M2 = "10.7639";
+
+/** The factor as an exact scaled integer: B-07 keeps a figure a person entered off floats. */
+const SFT_FACTOR = { unscaled: BigInt(SFT_PER_M2.replace(".", "")), scale: 10n ** BigInt(SFT_PER_M2.split(".")[1]?.length ?? 0) } as const;
+
+/**
+ * A target area in square metres, as the square feet a reader knows it by — grouped like any other
+ * user-owned figure and stated to the whole foot, because a target is a target and not a
+ * measurement (L-FMT-01). Input that is not a decimal is refused, like every other figure here.
+ */
+export function formatSquareFeet(areaM2: string): string {
+  const { sign, integer, fraction } = decimalParts(areaM2, USER_FIGURE_SHAPE);
+  const scale = SFT_FACTOR.scale * 10n ** BigInt(fraction?.length ?? 0);
+  const product = BigInt(`${integer}${fraction ?? ""}`) * SFT_FACTOR.unscaled;
+  // Half up, on the magnitude: the sign is carried separately, so the rounding never depends on it.
+  const whole = (product + scale / 2n) / scale;
+  const figure = formatUserFigure(whole.toString());
+  return whole === 0n ? figure : `${sign}${figure}`;
+}
+
+/**
  * A date as `DD MMM YYYY` (L-FMT-01). The caller hands over Asia/Dhaka wall-clock parts with a
  * 1-based month — never an epoch and never a `Date`, because an instant carries a zone with it and
  * the document's day is the one the reader is standing in. Parts that are not a real day are
