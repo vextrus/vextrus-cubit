@@ -14,6 +14,7 @@ import * as patternsRefusalState from "../patterns/refusal-state";
 import * as primitivesCore from "../primitives/core";
 import * as primitivesData from "../primitives/data";
 import * as primitivesOverlay from "../primitives/overlay";
+import * as shell from "../shell";
 import { galleryEntries } from "./entries";
 import type { GalleryEntries } from "./types";
 
@@ -30,6 +31,7 @@ export const galleryBarrels: Record<string, Record<string, unknown>> = {
   "primitives/core": primitivesCore,
   "primitives/data": primitivesData,
   "primitives/overlay": primitivesOverlay,
+  shell,
 };
 
 /**

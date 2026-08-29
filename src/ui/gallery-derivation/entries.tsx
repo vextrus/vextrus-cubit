@@ -63,6 +63,18 @@ import {
   Toaster,
   toast,
 } from "../primitives/overlay";
+import {
+  AppShell,
+  SHELL_AREAS,
+  ShellDenied,
+  ShellEmptyState,
+  ShellInspector,
+  ShellRail,
+  ShellTopBar,
+  shellHref,
+  type ShellArea,
+} from "../shell";
+import { strings } from "../strings";
 import type { GalleryEntries, GalleryState } from "./types";
 
 /* ------------------------------------------------------------------ sample copy (Decision I-17) */
@@ -442,6 +454,72 @@ const refusalStates: readonly GalleryState[] = REFUSAL_SEVERITIES.flatMap((sever
   })),
 );
 
+/* ------------------------------------------------------------------ the frame's samples */
+
+/**
+ * The workspace the frame samples are shown around. Its name is the sample project name the core
+ * Decision already authored, and its id is a well-formed uuid so `shellHref` builds the addresses
+ * the rail and the breadcrumb really link to — the frame reads the URL, so a sample that named no
+ * workspace would paint a frame pointing nowhere.
+ */
+const SAMPLE_WORKSPACE = { tenantId: "9d1f0e7c-4a2b-4c3d-8e5f-1a2b3c4d5e6f", name: copy.input.value };
+
+/** The address the user menu is named by. */
+const SAMPLE_EMAIL = "estimator@cubit.test";
+
+/** Nothing is signed out from a sample frame; the control is evidence, not a consumer's action. */
+const noSignOut = (): void => {};
+
+/**
+ * The one refusal the denial surface renders, authored as data (Decision I-18) and reusing
+ * `PERMISSION_NOT_HELD`'s registered copy verbatim — the gallery spells no sentence the closed
+ * taxonomy does not already own.
+ */
+const deniedRefusal: RefusalEntry = {
+  code: "PERMISSION_NOT_HELD",
+  message: "Your roles on this project do not carry the permission this action needs.",
+  remedy: "Ask a principal of the project to give you a role that carries it.",
+  severity: "error",
+  surface: "banner",
+};
+
+const emptyStateSample = (answer: ReactNode): ReactNode => (
+  <ShellEmptyState heading={strings.shell_projects_empty_heading} body={strings.shell_projects_empty_body} answer={answer}>
+    <Button variant="primary">{strings.shell_sample_offer}</Button>
+  </ShellEmptyState>
+);
+
+const appShellSample = (): ReactNode => (
+  <AppShell workspace={SAMPLE_WORKSPACE} area="projects" atAreaHome email={SAMPLE_EMAIL} signOut={noSignOut}>
+    {emptyStateSample(undefined)}
+  </AppShell>
+);
+
+/** One rail per area, because which entry is selected is the only thing the area changes. */
+const railStates: readonly GalleryState[] = SHELL_AREAS.map((area: ShellArea) => ({
+  name: area,
+  render: () => <ShellRail workspace={SAMPLE_WORKSPACE} area={area} atAreaHome />,
+}));
+
+const topBarStates: readonly GalleryState[] = [
+  {
+    name: "at-area-home",
+    render: () => <ShellTopBar workspace={SAMPLE_WORKSPACE} area="projects" atAreaHome email={SAMPLE_EMAIL} signOut={noSignOut} />,
+  },
+  {
+    name: "inside-area",
+    render: () => (
+      <ShellTopBar workspace={SAMPLE_WORKSPACE} area="settings" atAreaHome={false} email={SAMPLE_EMAIL} signOut={noSignOut} />
+    ),
+  },
+  {
+    // An account whose address is not a value the frame can show: the menu is named all the same,
+    // because a control with no discernible name is a serious finding (Q-11).
+    name: "no-address",
+    render: () => <ShellTopBar workspace={SAMPLE_WORKSPACE} area="projects" atAreaHome email={null} signOut={noSignOut} />,
+  },
+];
+
 /* ------------------------------------------------------------------ the catalogue */
 
 /**
@@ -511,4 +589,28 @@ export const galleryEntries: GalleryEntries = {
   "primitives/overlay/SheetContent": { states: composed(sheetSample) },
   "primitives/overlay/SheetTrigger": { states: composed(sheetSample) },
   "primitives/overlay/Toaster": { states: [{ name: "ready", render: toasterSample }] },
+
+  "shell/AppShell": { states: [{ name: "rest", render: appShellSample }] },
+  "shell/ShellDenied": {
+    states: [
+      {
+        name: "rest",
+        render: () => (
+          <ShellDenied
+            refusal={deniedRefusal}
+            evidence={{ href: shellHref(SAMPLE_WORKSPACE.tenantId, "projects"), label: strings.shell_denied_evidence }}
+          />
+        ),
+      },
+    ],
+  },
+  "shell/ShellEmptyState": {
+    states: [
+      { name: "rest", render: () => emptyStateSample(undefined) },
+      { name: "answered", render: () => emptyStateSample(<p>{strings.shell_sample_unavailable}</p>) },
+    ],
+  },
+  "shell/ShellInspector": { states: [{ name: "empty", render: () => <ShellInspector /> }] },
+  "shell/ShellRail": { states: railStates },
+  "shell/ShellTopBar": { states: topBarStates },
 };

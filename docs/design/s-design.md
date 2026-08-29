@@ -120,10 +120,18 @@ component takes, not the states its stylesheet happens to distinguish — collap
 surfaces to two rows would hide a prop the pattern accepts, and painting the difference here
 would be the second dialect its owner forbids.
 
+- **I-22 — the gallery stands behind the signed-in door.** `/design` lives under the
+  application segment, whose layout turns a request presenting no session to `/sign-in`
+  (R-UI-031). Moving the route out from behind that door to spare the journey a sign-in
+  would be a second door policy for one screen, which is what B-17 forbids; so the gallery
+  is a screen of the signed-in product like any other, and J-004 enrols and signs in before
+  it walks. The enrolment is idempotent, because the lane's database outlives a run.
+
 Recorded IOU — visible navigation. R-UI-031 owes every shipped screen a visible path from
-the shell; no shell exists yet. `/design` is journey- and URL-reachable until the shell
-increment (inc-013) decides its link — that increment's debt, recorded here as S-Auth
-recorded the same for `/sessions`.
+the shell. The rail's roster is `SHELL_AREAS` — Projects, Books, Settings — and it carries
+no entry for the gallery; adding one is the rail's own surface (owner:
+`src/ui/shell/routes.ts`, the shell increment), not this screen's to write. `/design` is
+journey- and URL-reachable meanwhile, as S-Auth recorded the same for `/sessions`.
 
 ## 1. Layout and hierarchy
 
@@ -190,7 +198,7 @@ gallery's own chrome has no rows; the DataTable samples carry their own densitie
 ## 2. State roster per entry (the design of the sample data)
 
 State names and sample data, with copy per I-17 (all from the owning Decisions' §4 unless
-§3 says otherwise). Today's derived key count is 42; this table binds the *states of the
+§3 says otherwise). Today's derived key count is 48; this table binds the *states of the
 entries that exist*, while existence itself stays derived (B-19) — a new export owes a new
 entry designed to these rules, not an edit to a frozen list here.
 
@@ -227,6 +235,19 @@ entry designed to these rules, not an edit to a frozen list here.
   `info-banner`. The card renders directly (its Decision: dialog is chrome-identical to
   inline; placement is the consumer's) — never inside a live Dialog here (I-15). Sample
   entries per I-18, evidence links per §3.
+- **AppShell** — `rest`: the frame around one sample workspace, at the Projects area home,
+  the account's address in the user menu, holding the ShellEmptyState sample as its screen.
+- **ShellRail** — one state per area of `SHELL_AREAS`, named by the area: `projects` ·
+  `books` · `settings`. Which entry is selected is the only thing the area changes, so the
+  roster is the areas themselves rather than a list written here (B-19).
+- **ShellTopBar** — `at-area-home` · `inside-area` (the Settings screen, so the breadcrumb
+  carries the workspace as a link) · `no-address` (the account's address is not a value the
+  frame can show, and the menu is named all the same — Q-11).
+- **ShellInspector** — `empty` (the region says it is empty rather than being absent).
+- **ShellEmptyState** — `rest` (heading, body, the one action) · `answered` (the same, with
+  what the action answered below the slot it was taken in).
+- **ShellDenied** — `rest`: `PERMISSION_NOT_HELD` rendered through the one RefusalState,
+  evidence per §3.
 
 ## 3. Copy, verbatim (only what no earlier Decision fixed)
 
@@ -243,6 +264,15 @@ entry designed to these rules, not an edit to a frozen list here.
   document settings" }` (the refusal-state Decision's sample) · warning cells
   `{ href: "/design", label: "Try again" }` (RATE_LIMITED's idiom, current route) · info
   cells `{ href: "/", label: "Open the project" }`.
+
+- Shell samples — no new copy: every line the frame paints is `src/ui/strings/shell.ts`'s,
+  and `ShellDenied`'s sentences are `PERMISSION_NOT_HELD`'s registered message and remedy.
+  The empty state shows **No projects yet** with its body and the **Add the SAMPLE project**
+  action; its `answered` cell shows the sample's own unavailable line. The evidence link is
+  `{ href: shellHref(<sample workspace>, "projects"), label: "Go to your workspace" }`.
+- Shell sample data (not copy) — the workspace is named **Riverside Tower**, the project
+  name primitives-core §4 already authored, and the account's address is
+  `estimator@cubit.test`.
 
 Voice: calm and concrete, no exclamation marks, no build vocabulary in prose; the mono
 identifiers are data, not prose (I-17).
@@ -305,7 +335,7 @@ name). Behavioural hooks without new ids: the samples' own contracts (roles, `da
 
 - Derivation suite (product-owned, inside `src/ui/gallery-derivation/`): `galleryBarrels`
   keys equal the filesystem's barrel index files (`src/ui/primitives/*/index.ts{,x}`,
-  `src/ui/patterns/*/index.ts{,x}`, plus `src/ui/shell/index.ts{,x}` when it exists);
+  `src/ui/patterns/*/index.ts{,x}`, plus `src/ui/shell/index.ts{,x}`);
   `missingEntries()` is empty; `componentExports` filters uppercase runtime components and
   sorts by code point (never `localeCompare`).
 - jsdom acceptance mounts the page's default export (client component, no server-only
