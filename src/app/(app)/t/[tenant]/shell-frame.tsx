@@ -4,16 +4,19 @@
 // area — so the pathname is read here, and the frame is handed the area it names.
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import type { Density } from "../../../../core/prefs";
 import { AppShell, areaOf, isAreaHome, type ShellWorkspace } from "../../../../ui/shell";
 
 export interface ShellFrameProps {
   workspace: ShellWorkspace;
   email: string | null;
+  /** The stored mode the layout read for this account (R-UI-005); the frame publishes it. */
+  density: Density;
   signOut: () => Promise<void>;
   children: ReactNode;
 }
 
-export function ShellFrame({ workspace, email, signOut, children }: ShellFrameProps) {
+export function ShellFrame({ workspace, email, density, signOut, children }: ShellFrameProps) {
   const pathname = usePathname();
   return (
     <AppShell
@@ -21,6 +24,7 @@ export function ShellFrame({ workspace, email, signOut, children }: ShellFramePr
       area={areaOf(pathname)}
       atAreaHome={isAreaHome(pathname, workspace.tenantId)}
       email={email}
+      density={density}
       signOut={signOut}
     >
       {children}

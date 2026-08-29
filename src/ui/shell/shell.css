@@ -429,3 +429,68 @@
   font-size: var(--text-13);
   color: var(--graphite-700);
 }
+
+/* R-UI-005's density control (docs/design/density-and-prefs.md §1). The section takes the name
+   section's measure so the two settings blocks read as one column. */
+.cx-density {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 380px;
+  margin-block-start: var(--space-6);
+}
+
+.cx-density-label {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+}
+
+.cx-density-hint {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  text-wrap: pretty;
+}
+
+/* The padding is load-bearing: an option's focus reticle draws 4 px outside its box (R-UI-012), and
+   inside this inset it lands within the group's border instead of clipping against it. */
+.cx-density-group {
+  display: inline-flex;
+  align-self: start;
+  margin-block-start: var(--space-2);
+  padding: var(--space-1);
+  gap: var(--space-1);
+  background: var(--graphite-0);
+  border: 1px solid var(--graphite-300);
+  border-radius: var(--radius-4);
+}
+
+.cx-density-option {
+  height: var(--space-6);
+  padding-inline: var(--space-3);
+  border: none;
+  border-radius: var(--radius-2);
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+  cursor: pointer;
+  transition:
+    background var(--motion-state) var(--ease),
+    color var(--motion-state) var(--ease);
+}
+
+.cx-density-option:hover {
+  background: var(--graphite-100);
+  color: var(--graphite-900);
+}
+
+/* R-UI-030's selection idiom: the fill says which mode is held, and the weight shift is the second,
+   non-colour channel — so the checked segment survives greyscale. */
+.cx-density-option[aria-checked="true"] {
+  background: var(--beam-100);
+  color: var(--graphite-900);
+  font-weight: var(--weight-heading);
+}
