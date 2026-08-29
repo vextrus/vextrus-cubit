@@ -228,6 +228,23 @@
   font-weight: var(--weight-body-medium);
 }
 
+/* The answer and the doors, one bar, holding the floor of the sheet that scrolls above it. Nine
+   fields already outrun a laptop's viewport, and inserting the alert grows the column by its own
+   height: with the doors merely last in that column, a refusal pushes both the sentence saying what
+   is wrong and the door to press again below the fold, while focus moves the other way — up, to the
+   offending field. Sticky to the scrolling Sheet's own bottom edge, painted on the sheet's surface
+   so the fields pass under it, and separated by the one hairline every edge of this product uses. */
+.cx-home-form-close {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  border-block-start: var(--hairline);
+  background: var(--graphite-0);
+  padding-block: var(--space-4);
+}
+
 .cx-home-form-footer {
   display: flex;
   gap: var(--space-2);

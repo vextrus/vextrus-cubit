@@ -182,7 +182,23 @@ MOVES FOCUS to the field that stopped it (`project-name`, the first chip of
 `project-building-type`, or whichever of `project-gfa-m2` / `project-storeys` the value names):
 the sheet is a scrolling column and the answer slot sits at its far end, so an alert alone can
 settle below the fold with nothing saying which of nine fields is meant. Focus is both the
-pointer and the way back into the form, and the browser scrolls what it focuses into view. Footer row, flex gap
+pointer and the way back into the form, and the browser scrolls what it focuses into view. That
+field also STATES that it is the judged one: `aria-invalid="true"` — the shipped
+`.cx-input[aria-invalid="true"]` / `.cx-textarea[aria-invalid="true"]` state, re-used and never
+re-invented (B-17); on the chip group, whose `<fieldset>` takes no focus of its own, the group
+carries it — plus `aria-describedby` naming the alert line, so a reader who lands on the control
+can read the sentence that sent them there instead of hearing the label alone. The gfa field keeps
+its hint in that list and gains the alert beside it. And the move re-fires per SUBMISSION, not per
+distinct judgement: pressing the door twice with the same field still wrong is two events, and the
+second earns the same way back as the first (the form counts its attempts; a state set to the
+string it already holds would otherwise bail out of re-rendering and move nothing).
+**Answer-and-doors bar** — the answer slot and the footer row are one sticky element
+(`.cx-home-form-close`: `position: sticky`, `bottom: 0`, column flex gap `var(--space-4)`,
+`border-block-start: var(--hairline)`, `var(--graphite-0)` — the Sheet's own surface — padding-block
+`var(--space-4)`), holding the floor of the scrolling Sheet with the fields passing under it. Nine
+fields already outrun a laptop's viewport, and inserting the alert grows the column by its own
+height: with the doors merely last in that column, a refusal would push the sentence saying what is
+wrong AND the door to press again below the fold, while focus moved the other way. Footer row, flex gap
 `var(--space-2)`: primary submit `data-testid="project-form-submit"`
 (`home_form_submit_create` / `home_form_submit_save`) and a secondary Button
 `home_form_cancel` closing the Sheet. In flight: submit loading, fields `readOnly` +

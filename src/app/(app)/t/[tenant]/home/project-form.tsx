@@ -52,9 +52,15 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
   // What this form judged of the last submission it did NOT send. A judgement describes a
   // submission, so it is spent the moment the person states a new intention by submitting again.
   const [refusedLocally, setRefusedLocally] = useState<ProjectJudgement | null>(null);
+  // How many submissions this form has made. A judgement is about ONE submission, so pressing the
+  // door again is a new event even when it is refused for the identical reason: without this the
+  // state set from the second attempt is the string already held, React bails out, and the effect
+  // below — the whole mechanism of sending somebody back to the offending field — never re-runs.
+  const [attempt, setAttempt] = useState(0);
   const [buildingType, setBuildingType] = useState<string>(project?.buildingType ?? "");
   const [gfaM2, setGfaM2] = useState<string>(project?.targetGfaM2 ?? "");
   const gfaHintId = useId();
+  const alertId = useId();
   const sftId = useId();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -73,7 +79,9 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
   // A judged submission sends the person back to the field that stopped it. The sheet is a scrolling
   // column and the answer slot sits at the far end of it, so an alert alone can settle below the
   // fold with nothing saying which of nine fields is meant: focus is both the pointer and the way
-  // back into the form, and the browser scrolls what it focuses into view (§2's refusal cell).
+  // back into the form, and the browser scrolls what it focuses into view (§2's refusal cell). The
+  // field also STATES that it is the judged one — `aria-invalid` and the alert as its description —
+  // so a reader who arrives there by focus is told what focus alone cannot say.
   const offending = judgement === null ? null : offendingField(judgement, gfaM2);
   useEffect(() => {
     if (offending === null) return;
@@ -82,7 +90,12 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
     // person would reach for it with, and it is what the tab order already holds.
     const focusable = control?.tagName === "FIELDSET" ? control.querySelector<HTMLElement>("button") : control;
     focusable?.focus();
-  }, [offending, answer]);
+    // `attempt`, not the answer: a second submission refused for the same reason is a second event,
+    // and it earns the same way back into the form as the first one did.
+  }, [offending, attempt]);
+
+  /** The alert's id on the field this judgement is about, and nothing on any other field. */
+  const invalidBy = (testId: string): string | null => (offending === testId ? alertId : null);
 
   return (
     <>
@@ -97,6 +110,7 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
           // I-34: the form judges before the seam is called, so a blank name or an unchosen type is
           // answered here and nothing is sent. The taxonomy stays closed (R-SPINE-062).
           const judged = judgeProject(presentedProject(data));
+          setAttempt((made) => made + 1);
           setRefusedLocally(judged.presentable ? null : judged.refused);
           if (judged.presentable) submit(data);
         }}
@@ -104,16 +118,23 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
         <input type="hidden" name="tenantId" value={tenantId} />
         <input type="hidden" name="projectId" value={project?.projectId ?? ""} />
 
-        <Field label="home_field_name" testId="project-name" name="name" defaultValue={project?.name ?? ""} busy={pending} />
-        <Field label="home_field_code" testId="project-code" name="code" defaultValue={project?.code ?? ""} busy={pending} />
-        <Field label="home_field_client" testId="project-client" name="client" defaultValue={project?.client ?? ""} busy={pending} />
-        <Field label="home_field_site_address" testId="project-site-address" name="siteAddress" defaultValue={project?.siteAddress ?? ""} busy={pending} />
-        <Field label="home_field_district" testId="project-district" name="district" defaultValue={project?.district ?? ""} busy={pending} />
+        <Field label="home_field_name" testId="project-name" name="name" defaultValue={project?.name ?? ""} busy={pending} invalidBy={invalidBy("project-name")} />
+        <Field label="home_field_code" testId="project-code" name="code" defaultValue={project?.code ?? ""} busy={pending} invalidBy={null} />
+        <Field label="home_field_client" testId="project-client" name="client" defaultValue={project?.client ?? ""} busy={pending} invalidBy={null} />
+        <Field label="home_field_site_address" testId="project-site-address" name="siteAddress" defaultValue={project?.siteAddress ?? ""} busy={pending} invalidBy={null} />
+        <Field label="home_field_district" testId="project-district" name="district" defaultValue={project?.district ?? ""} busy={pending} invalidBy={null} />
 
         {/* I-33: no Select ships and a native one could not wear the reticle, so the five are
             interactive Chips in a fieldset — exactly one pressed — and a hidden input carries the
             chosen value into the native form. */}
-        <fieldset className="cx-home-types" data-testid="project-building-type">
+        {/* A group takes `aria-invalid` where a fieldset takes no focus of its own: the judgement is
+            about the choice, so it is stated on the thing that holds the five. */}
+        <fieldset
+          className="cx-home-types"
+          data-testid="project-building-type"
+          aria-invalid={invalidBy("project-building-type") === null ? undefined : true}
+          aria-describedby={invalidBy("project-building-type") ?? undefined}
+        >
           <legend className="cx-home-field-label">{strings.home_field_building_type}</legend>
           <div className="cx-home-types-choices">
             {BUILDING_TYPES.map((type) => (
@@ -125,7 +146,15 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
           <input type="hidden" name="buildingType" value={buildingType} />
         </fieldset>
 
-        <Field label="home_field_storeys" testId="project-storeys" name="storeys" defaultValue={String(project?.storeys ?? "")} busy={pending} inputMode="numeric" />
+        <Field
+          label="home_field_storeys"
+          testId="project-storeys"
+          name="storeys"
+          defaultValue={String(project?.storeys ?? "")}
+          busy={pending}
+          inputMode="numeric"
+          invalidBy={invalidBy("project-storeys")}
+        />
 
         <div className="cx-home-field">
           <label className="cx-home-field-label" htmlFor={`${sftId}-gfa`}>
@@ -134,13 +163,15 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
           <p className="cx-home-field-hint" id={gfaHintId}>
             {strings.home_field_gfa_hint}
           </p>
+          {/* The hint stands whatever the judgement said, so a judged field is described by both. */}
           <Input
             id={`${sftId}-gfa`}
             name="gfaM2"
             data-testid="project-gfa-m2"
             inputMode="decimal"
             value={gfaM2}
-            aria-describedby={gfaHintId}
+            aria-describedby={invalidBy("project-gfa-m2") === null ? gfaHintId : `${gfaHintId} ${alertId}`}
+            aria-invalid={invalidBy("project-gfa-m2") === null ? undefined : true}
             readOnly={pending}
             aria-busy={pending || undefined}
             onChange={(event) => setGfaM2(event.currentTarget.value)}
@@ -164,24 +195,30 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
           <Textarea id={`${sftId}-notes`} name="notes" data-testid="project-notes" rows={3} defaultValue={project?.notes ?? ""} readOnly={pending} aria-busy={pending || undefined} />
         </div>
 
-        {/* The answer slot, before the submit: exactly one of the judged sentence and a settled
-            refusal stands in it, and in flight neither does. */}
-        <div data-testid="project-form-refusal">
-          {judgement !== null ? (
-            <p className="cx-home-alert" role="alert">
-              {strings[JUDGEMENT_COPY[judgement]]}
-            </p>
-          ) : null}
-          {refusal !== null ? <RefusalState refusal={refusalOf(refusal)} evidence={evidenceFor(refusal, tenantId)} /> : null}
-        </div>
+        {/* The answer and the doors are one bar, and the bar keeps the sheet's floor: an alert
+            inserted into the slot grows a column that already scrolls, and with the doors merely
+            last in it the sentence saying what is wrong and the door to press again would both be
+            pushed past the fold — away from the field focus has just moved to. */}
+        <div className="cx-home-form-close">
+          {/* The answer slot, before the submit: exactly one of the judged sentence and a settled
+              refusal stands in it, and in flight neither does. */}
+          <div data-testid="project-form-refusal">
+            {judgement !== null ? (
+              <p className="cx-home-alert" role="alert" id={alertId}>
+                {strings[JUDGEMENT_COPY[judgement]]}
+              </p>
+            ) : null}
+            {refusal !== null ? <RefusalState refusal={refusalOf(refusal)} evidence={evidenceFor(refusal, tenantId)} /> : null}
+          </div>
 
-        <div className="cx-home-form-footer">
-          <Button type="submit" data-testid="project-form-submit" loading={pending}>
-            {project === null ? strings.home_form_submit_create : strings.home_form_submit_save}
-          </Button>
-          <Button variant="secondary" onClick={() => onClose?.()}>
-            {strings.home_form_cancel}
-          </Button>
+          <div className="cx-home-form-footer">
+            <Button type="submit" data-testid="project-form-submit" loading={pending}>
+              {project === null ? strings.home_form_submit_create : strings.home_form_submit_save}
+            </Button>
+            <Button variant="secondary" onClick={() => onClose?.()}>
+              {strings.home_form_cancel}
+            </Button>
+          </div>
         </div>
       </form>
     </>
@@ -207,6 +244,7 @@ function Field({
   defaultValue,
   busy,
   inputMode,
+  invalidBy,
 }: {
   label: StringKey;
   testId: string;
@@ -214,6 +252,8 @@ function Field({
   defaultValue: string;
   busy: boolean;
   inputMode?: "numeric" | "decimal";
+  /** The id of the sentence judging this field, or null when the last submission was not about it. */
+  invalidBy: string | null;
 }) {
   const id = useId();
   return (
@@ -222,8 +262,20 @@ function Field({
         {strings[label]}
       </label>
       {/* In flight the field is read-only rather than disabled: disabling the focused element would
-          remove it from the tab order and drop focus to the document body (the shell's ruling). */}
-      <Input id={id} name={name} data-testid={testId} defaultValue={defaultValue} inputMode={inputMode} readOnly={busy} aria-busy={busy || undefined} />
+          remove it from the tab order and drop focus to the document body (the shell's ruling).
+          A judged field wears the shipped invalid state and is described by the sentence judging
+          it — the alert is announced once, and this is how it stays reachable from the control. */}
+      <Input
+        id={id}
+        name={name}
+        data-testid={testId}
+        defaultValue={defaultValue}
+        inputMode={inputMode}
+        readOnly={busy}
+        aria-busy={busy || undefined}
+        aria-invalid={invalidBy === null ? undefined : true}
+        aria-describedby={invalidBy ?? undefined}
+      />
     </div>
   );
 }
