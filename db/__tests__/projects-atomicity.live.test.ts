@@ -13,11 +13,47 @@
  * triggers exist to stop the PRODUCT taking a row away, which is a posture the rule-set increment's
  * own acceptance grades. Nothing about the projects seam is loosened.
  */
+import { existsSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { provisionScratchDb, type ScratchDb } from "./harness";
 import { BOOTSTRAP_URL, GUC_SYSTEM_REASON, TENANT_ALPHA } from "./support/fixtures";
 import { count, lit, run, seedTenants } from "./support/live-sql";
-import { BUILDING_TYPES, PROJECTS_MODULE, productModule, seamFunction } from "./projects-support";
+
+/* ------------------------------------------------------------------ *
+ * The names this suite asserts against — the seam barrel from the increment's interfaces and the
+ * five building types from AC-1, both public literals (B-12).
+ *
+ * NOTE FOR THE BUILDER: product modules are loaded by absolute path, so the `@/*` tsconfig alias is
+ * never resolved inside them — keep imports between `src/` files relative, as `src/core/db.ts` does.
+ * ------------------------------------------------------------------ */
+
+const REPO_ROOT = join(import.meta.dirname, "..", "..");
+
+/** The seam barrel the increment's interfaces name. */
+const PROJECTS_MODULE = "src/modules/spine/projects";
+
+/** AC-1 closes the building type over exactly these five. */
+const BUILDING_TYPES = ["residential", "commercial", "mixed", "industrial", "infrastructure"] as const;
+
+/** Import a product module by repo-relative path, asserting it exists first (the red we want). */
+async function productModule<T = Record<string, unknown>>(relative: string): Promise<T> {
+  let abs = join(REPO_ROOT, relative);
+  expect(existsSync(abs), `${relative} is missing from the checkout — the product does not provide it yet`).toBe(true);
+  if (statSync(abs).isDirectory()) {
+    const barrel = ["index.ts", "index.tsx", "index.mts"].map((file) => join(abs, file)).find((file) => existsSync(file));
+    expect(barrel, `${relative} is a directory with no index barrel`).toBeTruthy();
+    abs = barrel ?? abs;
+  }
+  const specifier: string = abs;
+  return (await import(specifier)) as T;
+}
+
+/** One declared export of the seam barrel, refused as absent rather than called as undefined. */
+function seamFunction(bag: Record<string, unknown>, name: string): (...args: never[]) => Promise<unknown> {
+  expect(typeof bag[name], `${PROJECTS_MODULE} must export ${name} — the increment's declared interface`).toBe("function");
+  return bag[name] as (...args: never[]) => Promise<unknown>;
+}
 
 const SEED_REASON = "test: a workspace whose platform rule-set seed is absent";
 

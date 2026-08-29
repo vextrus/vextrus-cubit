@@ -12,26 +12,76 @@
  * column set is graded as coverage of the fields R-SPINE-010 names, never as a roster: a later
  * increment adding a column must not redden this file.
  */
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { enumerateTenantScopedTables, provisionScratchDb, type ScratchDb } from "./harness";
 import { BOOTSTRAP_URL, GUC_TENANT } from "./support/fixtures";
 import { isTrue, lit, run } from "./support/live-sql";
-import {
-  ARCHIVED_MARKER,
-  BUILDING_TYPES,
-  CREATED_AT,
-  DB_MODULE,
-  PROJECTS_MIGRATION,
-  PROJECTS_TABLE,
-  REPO_ROOT,
-  RSPINE010_FIELDS,
-  SCHEMA_BARREL,
-  SCHEMA_PROJECTS,
-  UPDATED_AT,
-  productModule,
-} from "./projects-support";
+
+/* ------------------------------------------------------------------ *
+ * The names this suite asserts against. Every one is a literal the increment states in public — the
+ * module homes from its interfaces, the five building types and the fields from AC-1's reading of
+ * R-SPINE-010 — so nothing an assertion leans on is hidden from the Builder (B-12).
+ *
+ * NOTE FOR THE BUILDER: product modules are loaded by absolute path, so the `@/*` tsconfig alias is
+ * never resolved inside them — keep imports between `src/` files relative, as `src/core/db.ts` does.
+ * ------------------------------------------------------------------ */
+
+const REPO_ROOT = join(import.meta.dirname, "..", "..");
+
+/** The one home of every cubit table (SEAM-TENANT). */
+const DB_MODULE = "src/core/db.ts";
+/** What drizzle-kit generates from — db/schema.ts → db/schema/index.ts → the per-area file. */
+const SCHEMA_BARREL = "db/schema.ts";
+const SCHEMA_PROJECTS = "db/schema/projects.ts";
+
+/** The migration this increment adds, matched as a glob fragment against db/migrations/*.sql. */
+const PROJECTS_MIGRATION = "projects";
+/** The table it lands, named by the increment's interfaces (`export const projects`). */
+const PROJECTS_TABLE = "projects";
+
+/** AC-1 closes the building type over exactly these five. */
+const BUILDING_TYPES = ["residential", "commercial", "mixed", "industrial", "infrastructure"] as const;
+
+/**
+ * The fields R-SPINE-010 names, each with the shape of a column that would hold it. The pattern is
+ * deliberately loose — this file grades COVERAGE, not a column-naming convention, and a schema that
+ * spells `site_address` or `address_line` satisfies the clause identically.
+ */
+interface FieldMatcher {
+  readonly field: string;
+  readonly column: RegExp;
+}
+const RSPINE010_FIELDS: readonly FieldMatcher[] = [
+  { field: "name", column: /(^|_)name$/ },
+  { field: "code", column: /code/ },
+  { field: "client", column: /client/ },
+  { field: "site address", column: /address/ },
+  { field: "district", column: /district/ },
+  { field: "building type", column: /building.*type|type.*building/ },
+  { field: "storeys", column: /storey/ },
+  { field: "target GFA (m²)", column: /gfa|floor.*area/ },
+  { field: "notes", column: /note/ },
+];
+
+/** AC-1's "archived marker", and the two timestamps beside it. */
+const ARCHIVED_MARKER = /archiv/;
+const CREATED_AT = /created/;
+const UPDATED_AT = /updated/;
+
+/** Import a product module by repo-relative path, asserting it exists first (the red we want). */
+async function productModule<T = Record<string, unknown>>(relative: string): Promise<T> {
+  let abs = join(REPO_ROOT, relative);
+  expect(existsSync(abs), `${relative} is missing from the checkout — the product does not provide it yet`).toBe(true);
+  if (statSync(abs).isDirectory()) {
+    const barrel = ["index.ts", "index.tsx", "index.mts"].map((file) => join(abs, file)).find((file) => existsSync(file));
+    expect(barrel, `${relative} is a directory with no index barrel`).toBeTruthy();
+    abs = barrel ?? abs;
+  }
+  const specifier: string = abs;
+  return (await import(specifier)) as T;
+}
 
 const MIGRATIONS = join(REPO_ROOT, "db", "migrations");
 const JOURNAL = join(MIGRATIONS, "meta", "_journal.json");

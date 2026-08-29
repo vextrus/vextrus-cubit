@@ -11,26 +11,150 @@
  * increment adding a quick stat or a landing route must not redden this file.
  */
 import { randomUUID } from "node:crypto";
+import { existsSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { provisionScratchDb, type ScratchDb } from "./harness";
 import { BOOTSTRAP_URL, GUC_SYSTEM_REASON, TENANT_ALPHA } from "./support/fixtures";
 import { lit, run, seedTenants } from "./support/live-sql";
-import {
-  ARCHIVED_MARKER,
-  BUILDING_TYPES,
-  EDITIONS_MODULE,
-  PERMISSION_NOT_HELD,
-  PRINCIPAL,
-  PROJECTS_MODULE,
-  RSPINE010_FIELDS,
-  callDoor,
-  productModule,
-  projectRows,
-  refusalFrom,
-  rowFor,
-  seamFunction,
-  type SeamFn,
-} from "./projects-support";
+
+/* ------------------------------------------------------------------ *
+ * The names this suite asserts against. Every one is a literal the increment states in public — the
+ * module homes from its interfaces, the five building types and the fields from AC-1's reading of
+ * R-SPINE-010, the role from L-ACT-03, the refusal from the shipped closed taxonomy — so nothing an
+ * assertion leans on is hidden from the Builder (B-12).
+ *
+ * NOTE FOR THE BUILDER: product modules are loaded by absolute path, so the `@/*` tsconfig alias is
+ * never resolved inside them — keep imports between `src/` files relative, as `src/core/db.ts` does.
+ * ------------------------------------------------------------------ */
+
+const REPO_ROOT = join(import.meta.dirname, "..", "..");
+
+/** The seam barrel the increment's interfaces name. */
+const PROJECTS_MODULE = "src/modules/spine/projects";
+/** The shipped read path a pinned edition is read back through (R-SPINE-012). */
+const EDITIONS_MODULE = "src/core/rulesets/editions/index.ts";
+
+/** AC-1 closes the building type over exactly these five. */
+const BUILDING_TYPES = ["residential", "commercial", "mixed", "industrial", "infrastructure"] as const;
+
+/** L-ACT-03's all-permissions bundle — the role project creation installs its creator in. */
+const PRINCIPAL = "PRINCIPAL";
+
+/** The registered refusal AC-4's lifecycle guard answers with. */
+const PERMISSION_NOT_HELD = "PERMISSION_NOT_HELD";
+
+/**
+ * The fields R-SPINE-010 names, each with the shape of a key that would carry it. The pattern is
+ * deliberately loose — this file grades COVERAGE, not a naming convention, and a read model that
+ * spells `siteAddress` or `addressLine` satisfies the clause identically.
+ */
+interface FieldMatcher {
+  readonly field: string;
+  readonly column: RegExp;
+}
+const RSPINE010_FIELDS: readonly FieldMatcher[] = [
+  { field: "name", column: /(^|_)name$/ },
+  { field: "code", column: /code/ },
+  { field: "client", column: /client/ },
+  { field: "site address", column: /address/ },
+  { field: "district", column: /district/ },
+  { field: "building type", column: /building.*type|type.*building/ },
+  { field: "storeys", column: /storey/ },
+  { field: "target GFA (m²)", column: /gfa|floor.*area/ },
+  { field: "notes", column: /note/ },
+];
+
+/** AC-1's "archived marker" — the column AC-4 flips without deleting anything. */
+const ARCHIVED_MARKER = /archiv/;
+
+/* ------------------------------------------------------------------ loading the product */
+
+/** Import a product module by repo-relative path, asserting it exists first (the red we want). */
+async function productModule<T = Record<string, unknown>>(relative: string): Promise<T> {
+  let abs = join(REPO_ROOT, relative);
+  expect(existsSync(abs), `${relative} is missing from the checkout — the product does not provide it yet`).toBe(true);
+  if (statSync(abs).isDirectory()) {
+    const barrel = ["index.ts", "index.tsx", "index.mts"].map((file) => join(abs, file)).find((file) => existsSync(file));
+    expect(barrel, `${relative} is a directory with no index barrel`).toBeTruthy();
+    abs = barrel ?? abs;
+  }
+  const specifier: string = abs;
+  return (await import(specifier)) as T;
+}
+
+type SeamFn = (...args: never[]) => Promise<unknown>;
+
+/** One declared export of the seam barrel, refused as absent rather than called as undefined. */
+function seamFunction(bag: Record<string, unknown>, name: string): SeamFn {
+  expect(typeof bag[name], `${PROJECTS_MODULE} must export ${name} — the increment's declared interface`).toBe("function");
+  return bag[name] as SeamFn;
+}
+
+/* ------------------------------------------------------------------ refusals, as answers */
+
+/** The settled marker a refusal travels as: an Error carrying a registered `refusalCode`. */
+interface RefusalError extends Error {
+  refusalCode: string;
+  permission?: unknown;
+  actType?: unknown;
+}
+
+function isRefusal(thrown: unknown): thrown is RefusalError {
+  return thrown instanceof Error && typeof (thrown as { refusalCode?: unknown }).refusalCode === "string";
+}
+
+/**
+ * Call a lifecycle door on one project. The seam's own `createProject(ctx, draft)` fixes the
+ * module's convention — a context, then what the call is about — so that shape is tried first; a
+ * door that takes the id positionally is called that way rather than reported as broken, because
+ * the criterion is about WHO may archive a project, never about which of two spellings the
+ * argument wears. A refusal is an answer, so it is never retried: it is what the case came for.
+ */
+async function callDoor(door: SeamFn, ctx: unknown, projectId: string, changes: Record<string, unknown> = {}): Promise<unknown> {
+  const call = door as unknown as (...args: unknown[]) => Promise<unknown>;
+  try {
+    return await call(ctx, { projectId, ...changes });
+  } catch (thrown) {
+    if (isRefusal(thrown) || Object.keys(changes).length > 0) throw thrown;
+    return await call(ctx, projectId);
+  }
+}
+
+/** What a door threw, or a loud absence — a call that should have been refused and was not. */
+async function refusalFrom(call: Promise<unknown>, what: string): Promise<RefusalError> {
+  let thrown: unknown;
+  let answered = false;
+  try {
+    await call;
+    answered = true;
+  } catch (error) {
+    thrown = error;
+  }
+  expect(answered, `${what} was carried out; L-ACT-03 requires it to be refused`).toBe(false);
+  expect(isRefusal(thrown), `${what} threw ${String(thrown)}, which carries no registered refusalCode — a refusal is an answer, never a fault (ARCH-03, B-21)`).toBe(true);
+  return thrown as RefusalError;
+}
+
+/* ------------------------------------------------------------------ reading the answers */
+
+/** The list `projectsForHome` answers with, however the answer is wrapped. */
+function projectRows(answer: unknown): Record<string, unknown>[] {
+  if (Array.isArray(answer)) return answer as Record<string, unknown>[];
+  if (answer !== null && typeof answer === "object") {
+    for (const value of Object.values(answer as Record<string, unknown>)) {
+      if (Array.isArray(value)) return value as Record<string, unknown>[];
+    }
+  }
+  throw new Error(`projectsForHome answered ${JSON.stringify(answer)?.slice(0, 240)}, which carries no list of projects`);
+}
+
+/** The row for one project, found by the id it was created under rather than by a key name. */
+function rowFor(rows: Record<string, unknown>[], projectId: string): Record<string, unknown> {
+  const found = rows.find((row) => Object.values(row).includes(projectId));
+  expect(found, `projectsForHome carries no entry for ${projectId}; it answered ${rows.length} row(s)`).toBeTruthy();
+  return found ?? {};
+}
 
 /** This suite's own attribution for the rows it plants — as named as any other write. */
 const SEED_REASON = "test: enrol the two accounts inc-011's lifecycle guard is judged with";
