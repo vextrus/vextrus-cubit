@@ -1,0 +1,209 @@
+/* S-Home, the workspace's projects home (R-SPINE-010). Colour, rhythm and motion come from tokens
+   alone — no literal but the closed set the Decision rules: the 960 px page measure and the 320 px
+   grid column minimum. No [data-theme] selector: every light/dark difference arrives through the
+   token values themselves (R-UI-001). Chrome is the shipped primitives'; these classes place them. */
+
+.cx-home {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 960px;
+}
+
+.cx-home-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+/* --- the grid, and one project's card ---------------------------------------------------------- */
+
+.cx-home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-home-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  padding: var(--space-4);
+}
+
+.cx-home-card-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+/* One line: a card is a scan target, and a name that wrapped would move every row below it. */
+.cx-home-card-name {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--text-14);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cx-home-card-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-home-meta {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* A date reads as a figure: the columns line up and the zero cannot be read as an O (R-UI-003). */
+.cx-home-meta-date {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* The evidence-link idiom: a place to go, underlined, wearing the one focus ring (R-UI-012). */
+.cx-home-pin {
+  align-self: flex-start;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--beam-600);
+  text-decoration: underline;
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-home-pin:hover {
+  color: var(--beam-500);
+}
+
+.cx-home-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.cx-home-stat-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-home-stat-label {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-home-doors {
+  display: flex;
+  gap: var(--space-2);
+  margin-block-start: var(--space-1);
+}
+
+/* --- the recent-documents region: honest, and it says why it is empty (R-UI-020) --------------- */
+
+.cx-home-documents {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-home-documents-heading {
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-home-documents-empty {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+/* --- the project form, one component serving create and edit ---------------------------------- */
+
+.cx-home-form-heading {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-home-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cx-home-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-home-field-label {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+}
+
+.cx-home-field-hint {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* The building-type group: a fieldset carries the grouping, and its legend carries the label. */
+.cx-home-types {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.cx-home-types-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cx-home-sft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* A rejected save may not wear the chrome a completed one wears, or the only channel telling them
+   apart is the sentence itself (the shell's alert recipe, I-34). */
+.cx-home-alert {
+  margin: 0;
+  border: var(--hairline);
+  border-color: var(--danger);
+  border-radius: var(--radius-4);
+  background: var(--danger-surface);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-home-form-footer {
+  display: flex;
+  gap: var(--space-2);
+}
