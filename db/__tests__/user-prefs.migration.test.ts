@@ -15,30 +15,90 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { provisionScratchDb } from "./harness";
-import {
-  COMFORTABLE,
-  COMPACT,
-  CHECK_VIOLATION,
-  DEFAULT_DENSITY,
-  DENSITY_COLUMN,
-  DENSITY_MODES,
-  NOT_A_MODE,
-  PREFS_MIGRATION,
-  PREFS_TABLE,
-  PROBE_REASON,
-  RLS_REFUSAL,
-  UPDATED_AT_COLUMN,
-  USERS_TABLE,
-  USER_ID_COLUMN,
-  address,
-  bootstrapUrlFor,
-  seedUser,
-} from "./density-prefs-fixtures";
-import { GUC_SYSTEM_REASON, HANDWRITTEN_MARKER, ROLE_APP } from "./support/fixtures";
-import { ident, isTrue, lit, psql, run, scalar, withSession } from "./support/live-sql";
+import { BOOTSTRAP_URL, GUC_SYSTEM_REASON, HANDWRITTEN_MARKER, ROLE_APP } from "./support/fixtures";
+import { ident, isTrue, lit, probeValue, psql, requiredColumns, run, scalar, withSession, type TableRef } from "./support/live-sql";
 
 const ROOT = join(import.meta.dirname, "..", "..");
 const MIGRATIONS = join(ROOT, "db", "migrations");
+
+/* ------------------------------------------------------------------ *
+ * The names this suite asserts against. Every one is a literal the increment spec states in public
+ * — the table, its columns, the two modes, the migration's glob fragment — so nothing an assertion
+ * leans on is hidden from the Builder (B-12).
+ * ------------------------------------------------------------------ */
+
+/** The table the increment lands (interfaces line). */
+const PREFS_TABLE = "user_prefs";
+
+/** Its columns, as the test contract spells them. */
+const USER_ID_COLUMN = "user_id";
+const DENSITY_COLUMN = "density";
+const UPDATED_AT_COLUMN = "updated_at";
+
+/** The parent every preference row belongs to (interfaces: `user_id` uuid primary key → `users`). */
+const USERS_TABLE = "users";
+
+/**
+ * R-UI-005's two modes, and the default. Closed by the clause itself — "two modes (comfortable
+ * 36 px rows, compact 28 px)" — not a roster this file froze: a third mode is a Bible change.
+ */
+const COMFORTABLE = "comfortable";
+const COMPACT = "compact";
+const DENSITY_MODES: readonly string[] = [COMFORTABLE, COMPACT];
+const DEFAULT_DENSITY = COMFORTABLE;
+
+/** A value the CHECK must refuse — anything that is not one of the two modes. */
+const NOT_A_MODE = "roomy";
+
+/** The migration this increment adds, matched as a glob fragment against db/migrations/*.sql. */
+const PREFS_MIGRATION = "user-prefs";
+
+/** What Postgres answers when a row a session tried to write fails the table's policies. */
+const RLS_REFUSAL = "42501";
+
+/** What Postgres answers when a row fails a CHECK constraint. */
+const CHECK_VIOLATION = "23514";
+
+/** The reason this suite runs its own system-scoped statements under — attributable, like any other. */
+const PROBE_REASON = "test: probe the user preference store's write posture";
+
+const usersRef = (): TableRef => ({ schema: "public", table: USERS_TABLE, sql: `public.${ident(USERS_TABLE)}` });
+
+/**
+ * The scratch database addressed as the cluster's bootstrap user. Reads and seeds go through it on
+ * purpose: what the store HOLDS is a different question from what a policy admits, and a reading
+ * that had to arm a scope to see a row would grade the policies twice and the rows not at all.
+ */
+function bootstrapUrlFor(databaseUrl: string): string {
+  const url = new URL(BOOTSTRAP_URL);
+  url.pathname = new URL(databaseUrl).pathname;
+  return url.toString();
+}
+
+/**
+ * A real account for the preference to belong to. The row is built from the columns the catalogue
+ * says a `users` row cannot exist without, exactly as the live suite's own seeder builds one, so a
+ * column a later increment adds to `users` is satisfied the moment it lands (B-19) — with the
+ * address overridden per call, since the door makes an account's address its name.
+ */
+function seedUser(bootstrapUrl: string, presented: string): string {
+  const table = usersRef();
+  const columns = requiredColumns(bootstrapUrl, table);
+  const values = columns.map((column) => (column.name === "email" ? lit(presented) : probeValue(column)));
+  const userId = scalar(
+    bootstrapUrl,
+    `insert into ${table.sql} (${columns.map((column) => ident(column.name)).join(", ")})
+       values (${values.join(", ")})
+       returning ${ident(USER_ID_COLUMN)};`,
+  );
+  expect(userId, `seeding an account into ${USERS_TABLE} returned no ${USER_ID_COLUMN}`).not.toBe("");
+  return userId;
+}
+
+/** A unique address for one seeded account, so no case can pass or fail on another's rows. */
+function address(label: string): string {
+  return `density-${label}-${process.pid.toString(36)}-${Date.now().toString(36)}@cubit.test`;
+}
 
 /** The privileges that can take a row away — none of them may reach the runtime role. */
 const WRITE_AWAY = ["DELETE", "TRUNCATE"];

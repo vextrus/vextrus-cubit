@@ -13,22 +13,74 @@ import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { provisionScratchDb } from "./harness";
-import {
-  COMFORTABLE,
-  COMPACT,
-  DEFAULT_DENSITY,
-  DENSITY_COLUMN,
-  DENSITY_MODES,
-  PREFS_MODULE,
-  PREFS_TABLE,
-  USER_ID_COLUMN,
-  address,
-  bootstrapUrlFor,
-  seedUser,
-} from "./density-prefs-fixtures";
-import { ident, lit, run, scalar } from "./support/live-sql";
+import { BOOTSTRAP_URL } from "./support/fixtures";
+import { ident, lit, probeValue, requiredColumns, run, scalar, type TableRef } from "./support/live-sql";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..");
+
+/* ------------------------------------------------------------------ *
+ * The names this suite asserts against. Every one is a literal the increment spec states in public
+ * — the barrel's path, the table, its columns, the two modes — so nothing an assertion leans on is
+ * hidden from the Builder (B-12).
+ * ------------------------------------------------------------------ */
+
+/** SEAM-PREFS' sole entry point (interfaces line). */
+const PREFS_MODULE = "src/core/prefs/index.ts";
+
+/** The table the increment lands, and the columns the test contract spells. */
+const PREFS_TABLE = "user_prefs";
+const USER_ID_COLUMN = "user_id";
+const DENSITY_COLUMN = "density";
+
+/** The parent every preference row belongs to (interfaces: `user_id` uuid primary key → `users`). */
+const USERS_TABLE = "users";
+
+/**
+ * R-UI-005's two modes, and the default. Closed by the clause itself — "two modes (comfortable
+ * 36 px rows, compact 28 px)" — not a roster this file froze: a third mode is a Bible change.
+ */
+const COMFORTABLE = "comfortable";
+const COMPACT = "compact";
+const DENSITY_MODES: readonly string[] = [COMFORTABLE, COMPACT];
+const DEFAULT_DENSITY = COMFORTABLE;
+
+const usersRef = (): TableRef => ({ schema: "public", table: USERS_TABLE, sql: `public.${ident(USERS_TABLE)}` });
+
+/**
+ * The scratch database addressed as the cluster's bootstrap user. Reads and seeds go through it on
+ * purpose: what the store HOLDS is a different question from what the seam answers, and a reading
+ * that had to arm a scope to see a row would grade the policies rather than the seam.
+ */
+function bootstrapUrlFor(databaseUrl: string): string {
+  const url = new URL(BOOTSTRAP_URL);
+  url.pathname = new URL(databaseUrl).pathname;
+  return url.toString();
+}
+
+/**
+ * A real account for the preference to belong to. The row is built from the columns the catalogue
+ * says a `users` row cannot exist without, exactly as the live suite's own seeder builds one, so a
+ * column a later increment adds to `users` is satisfied the moment it lands (B-19) — with the
+ * address overridden per call, since the door makes an account's address its name.
+ */
+function seedUser(bootstrapUrl: string, presented: string): string {
+  const table = usersRef();
+  const columns = requiredColumns(bootstrapUrl, table);
+  const values = columns.map((column) => (column.name === "email" ? lit(presented) : probeValue(column)));
+  const userId = scalar(
+    bootstrapUrl,
+    `insert into ${table.sql} (${columns.map((column) => ident(column.name)).join(", ")})
+       values (${values.join(", ")})
+       returning ${ident(USER_ID_COLUMN)};`,
+  );
+  expect(userId, `seeding an account into ${USERS_TABLE} returned no ${USER_ID_COLUMN}`).not.toBe("");
+  return userId;
+}
+
+/** A unique address for one seeded account, so no case can pass or fail on another's rows. */
+function address(label: string): string {
+  return `density-${label}-${process.pid.toString(36)}-${Date.now().toString(36)}@cubit.test`;
+}
 
 /* ------------------------------------------------------------------ *
  * The seam, as its callers see it.
