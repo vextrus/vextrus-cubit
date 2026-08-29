@@ -28,8 +28,15 @@ import { describe, expect, test } from "vitest";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const JOURNEY_DIR = join(REPO_ROOT, "tests/e2e/journeys");
 
-/** The journeys the gate invokes, and therefore the greps a title must satisfy to be run at all. */
-const GATE_JOURNEYS = ["J-000", "J-001"] as const;
+/**
+ * The journeys the gate invokes, and therefore the greps a title must satisfy to be run at all —
+ * read out of the Bible's own `<journey id>` elements rather than transcribed here. A frozen roster
+ * would answer "unreachable" for the first spec of every journey the tree grows next, which is a
+ * statement about this file's age and not about the spec (B-19).
+ */
+const GATE_JOURNEYS: readonly string[] = [
+  ...readFileSync(join(REPO_ROOT, "docs/specs/cubit.bible.xml"), "utf8").matchAll(/<journey\s+id="(J-\d+)"/g),
+].map((match) => match[1] ?? "");
 
 /** A `test(...)` or `test.describe(...)` title, as the file spells it. */
 const TITLE = /\btest(?:\.describe)?(?:\.\w+)*\s*\(\s*(["'`])((?:\\.|(?!\1).)*)\1/g;
@@ -46,6 +53,10 @@ function titlesIn(file: string): string[] {
 }
 
 describe("BREAKER — every journey spec is reachable by the gate that runs the journeys", () => {
+  test("the journey roster was read out of the Bible", () => {
+    expect(GATE_JOURNEYS, "the tags are read from the Bible's <journey id> elements, so an unread roster passes nothing").toContain("J-000");
+  });
+
   test("tests/e2e/journeys holds spec files to judge", () => {
     expect(specFiles().length, "the increment opens the e2e lane, so tests/e2e/journeys holds specs").toBeGreaterThan(0);
   });
@@ -58,9 +69,9 @@ describe("BREAKER — every journey spec is reachable by the gate that runs the 
       const tagged = titles.filter((title) => GATE_JOURNEYS.some((journey) => title.includes(journey)));
       expect(
         tagged.length,
-        `tests/e2e/journeys/${file} carries none of the tags the gate greps for (${GATE_JOURNEYS.join(", ")}), so ` +
-          `neither \`pnpm e2e --journey J-000\` nor \`pnpm e2e --journey J-001\` collects it and the guarantee it ` +
-          `encodes is enforced by nothing. The settled reading is that every Playwright spec — breaker specs ` +
+        `tests/e2e/journeys/${file} carries none of the journey tags the Bible declares ` +
+          `(${GATE_JOURNEYS.join(", ")}), so no \`pnpm e2e --journey J-nnn\` invocation collects it and the ` +
+          `guarantee it encodes is enforced by nothing. The settled reading is that every Playwright spec — breaker specs ` +
           `included — must carry the J-nnn tag of the journey whose screens it exercises, and that specs may not ` +
           `"live untagged in tests/e2e/journeys/ and count as acceptance by mere presence" (V-E2E, J-001, B-20). ` +
           `Its titles are: ${JSON.stringify(titles)}`,
