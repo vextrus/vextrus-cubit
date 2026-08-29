@@ -25,6 +25,8 @@ const SPEC = "tests/e2e/journeys/j-004-gallery.spec.ts";
 /** The journey's own page object — where its locators and helpers may live (test contract). */
 const PAGE_OBJECT = "tests/e2e/pages/s-design.page.ts";
 const CONFIG = "playwright.config.ts";
+/** Where the lane commits every visual baseline — the roster inside it is read off the tree, never listed. */
+const BASELINE_ROOT = "tests/e2e/baselines";
 const BASELINES = ["tests/e2e/baselines/design/gallery-shell-light.png", "tests/e2e/baselines/design/gallery-shell-dark.png"];
 
 /**
@@ -568,6 +570,26 @@ function routedPattern(template: string, segments: string[]): RegExp {
   return new RegExp(`^${escapeRegExp(routed).split(INTERPOLATED).join("[^/]+")}$`);
 }
 
+/**
+ * Every baseline PNG the tree commits, as repo-relative paths. Q-06 fixes that no capture may be
+ * routed where nothing committed compares against it — a rule any committed baseline satisfies, so
+ * the roster is enumerated from the tree and grows as the component increments land their own
+ * capture-and-baseline pairs (B-19, R-UI-011).
+ */
+function committedBaselines(): string[] {
+  const root = join(REPO_ROOT, BASELINE_ROOT);
+  const found: string[] = [];
+  const walk = (directory: string, prefix: string): void => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const relative = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
+      if (entry.isDirectory()) walk(join(directory, entry.name), relative);
+      else if (entry.name.endsWith(".png")) found.push(`${BASELINE_ROOT}/${relative}`);
+    }
+  };
+  if (existsSync(root)) walk(root, "");
+  return found.sort();
+}
+
 describe("AC-4 — the shell captures are routed, committed, and actually differ (Q-06)", () => {
   test("AC-4: the capture is OF the gallery-shell region, with animations disabled", () => {
     const code = journeySource();
@@ -625,10 +647,14 @@ describe("AC-4 — the shell captures are routed, committed, and actually differ
       `at least one capture names its snapshot where the capture is made — as a string, a template string or an array of path segments — so the file it is compared against can be read: ${JSON.stringify(unreadable)}`,
     ).toBeGreaterThan(0);
 
+    // Every capture must land on SOMETHING committed. Which files those are is enumerated from the
+    // tree, not listed here: the component increments own their own captures under this same root,
+    // and a capture routed onto one of theirs breaks nothing Q-06 protects (B-19).
+    const committed = committedBaselines();
     for (const capture of routed) {
       expect(
-        BASELINES.some((baseline) => capture.pattern.test(baseline)),
-        `"${template}" with the name ${capture.args} routes a capture to ${capture.pattern.source}, which is none of the committed baselines ${JSON.stringify(BASELINES)} — a capture written anywhere else is compared against nothing, and the run still exits 0 (Q-06)`,
+        committed.some((baseline) => capture.pattern.test(baseline)),
+        `"${template}" with the name ${capture.args} routes a capture to ${capture.pattern.source}, which matches no baseline committed under ${BASELINE_ROOT}/ — a capture written where nothing is committed is compared against nothing, and the run still exits 0 (Q-06). Committed baselines: ${JSON.stringify(committed)}`,
       ).toBe(true);
     }
     for (const baseline of BASELINES) {
