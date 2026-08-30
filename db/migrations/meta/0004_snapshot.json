@@ -1,5 +1,5 @@
 {
-  "id": "f2490b36-489c-4e55-a0fc-8a6d0c1ea3e9",
+  "id": "467e5f99-c154-4942-aa4e-7a3b76de4e73",
   "prevId": "a777b8a0-7a6e-4683-8613-9d1104036e33",
   "version": "7",
   "dialect": "postgresql",
@@ -625,20 +625,101 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.model_calls": {
-      "name": "model_calls",
+    "public.ruleset_editions": {
+      "name": "ruleset_editions",
       "schema": "",
       "columns": {
-        "call_id": {
-          "name": "call_id",
+        "edition_id": {
+          "name": "edition_id",
           "type": "uuid",
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "scope": {
+          "name": "scope",
+          "type": "ruleset_scope",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_digest": {
+          "name": "content_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parameters": {
+          "name": "parameters",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "methods": {
+          "name": "methods",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "ruleset_editions_identity": {
+          "name": "ruleset_editions_identity",
+          "nullsNotDistinct": false,
+          "columns": [
+            "scope",
+            "name",
+            "version"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tenant_ruleset_editions": {
+      "name": "tenant_ruleset_editions",
+      "schema": "",
+      "columns": {
         "tenant_id": {
           "name": "tenant_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "edition_id": {
+          "name": "edition_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "scope": {
+          "name": "scope",
+          "type": "ruleset_scope",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -646,58 +727,46 @@
           "name": "project_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
-        },
-        "model_id": {
-          "name": "model_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "request_hash": {
-          "name": "request_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "transport": {
-          "name": "transport",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "outcome": {
-          "name": "outcome",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "refusal_code": {
-          "name": "refusal_code",
-          "type": "text",
-          "primaryKey": false,
           "notNull": false
         },
-        "input_tokens": {
-          "name": "input_tokens",
-          "type": "integer",
+        "parent_edition_id": {
+          "name": "parent_edition_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "output_tokens": {
-          "name": "output_tokens",
-          "type": "integer",
+        "name": {
+          "name": "name",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "attributed_cost": {
-          "name": "attributed_cost",
-          "type": "numeric",
+        "version": {
+          "name": "version",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "called_at": {
-          "name": "called_at",
+        "content_digest": {
+          "name": "content_digest",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parameters": {
+          "name": "parameters",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "methods": {
+          "name": "methods",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
@@ -705,8 +774,24 @@
         }
       },
       "indexes": {
-        "model_calls_by_project": {
-          "name": "model_calls_by_project",
+        "tenant_ruleset_editions_template_once": {
+          "name": "tenant_ruleset_editions_template_once",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"scope\" = 'tenant'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tenant_ruleset_editions_pin_once": {
+          "name": "tenant_ruleset_editions_pin_once",
           "columns": [
             {
               "expression": "tenant_id",
@@ -721,116 +806,53 @@
               "nulls": "last"
             }
           ],
+          "isUnique": true,
+          "where": "\"scope\" = 'project'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tenant_ruleset_editions_scope": {
+          "name": "tenant_ruleset_editions_scope",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "scope",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
           "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
-      "foreignKeys": {
-        "model_calls_tenant_id_tenants_tenant_id_fk": {
-          "name": "model_calls_tenant_id_tenants_tenant_id_fk",
-          "tableFrom": "model_calls",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "tenant_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "model_calls_transport_closed": {
-          "name": "model_calls_transport_closed",
-          "value": "\"model_calls\".\"transport\" in ('live', 'fixture')"
-        },
-        "model_calls_outcome_closed": {
-          "name": "model_calls_outcome_closed",
-          "value": "\"model_calls\".\"outcome\" in ('proposed', 'refused')"
-        },
-        "model_calls_refusal_code_iff_refused": {
-          "name": "model_calls_refusal_code_iff_refused",
-          "value": "(\"model_calls\".\"refusal_code\" is not null) = (\"model_calls\".\"outcome\" = 'refused')"
-        },
-        "model_calls_tokens_counted": {
-          "name": "model_calls_tokens_counted",
-          "value": "\"model_calls\".\"input_tokens\" >= 0 and \"model_calls\".\"output_tokens\" >= 0"
-        },
-        "model_calls_cost_is_money": {
-          "name": "model_calls_cost_is_money",
-          "value": "\"model_calls\".\"attributed_cost\" >= 0 and \"model_calls\".\"attributed_cost\" < 'Infinity'::numeric"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.model_fixtures": {
-      "name": "model_fixtures",
-      "schema": "",
-      "columns": {
-        "tenant_id": {
-          "name": "tenant_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "request_hash": {
-          "name": "request_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "fixture_digest": {
-          "name": "fixture_digest",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "recorded_at": {
-          "name": "recorded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "model_fixtures_tenant_id_tenants_tenant_id_fk": {
-          "name": "model_fixtures_tenant_id_tenants_tenant_id_fk",
-          "tableFrom": "model_fixtures",
-          "tableTo": "tenants",
-          "columnsFrom": [
-            "tenant_id"
-          ],
-          "columnsTo": [
-            "tenant_id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "model_fixtures_tenant_id_request_hash_pk": {
-          "name": "model_fixtures_tenant_id_request_hash_pk",
-          "columns": [
-            "tenant_id",
-            "request_hash"
-          ]
-        }
-      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
     }
   },
-  "enums": {},
+  "enums": {
+    "public.ruleset_scope": {
+      "name": "ruleset_scope",
+      "schema": "public",
+      "values": [
+        "platform",
+        "tenant",
+        "project"
+      ]
+    }
+  },
   "schemas": {},
   "sequences": {},
   "roles": {},

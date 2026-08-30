@@ -1,0 +1,248 @@
+/* S-Audit (R-SPINE-081). Colour, motion and rhythm come from tokens alone — no literal but the
+   closed set of px measures the Design Decision rules: the 1080 px page measure, the 180/240 px
+   filter widths, the 96 px label column and the md breakpoint a media query cannot read a var() in.
+   No [data-theme] selector: every light/dark difference arrives through the token values themselves
+   (R-UI-001). */
+
+.cx-audit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 1080px;
+}
+
+.cx-audit-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-audit-heading {
+  margin: 0;
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-audit-caption {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-audit-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.cx-audit-section-heading {
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+/* --- the filter row ------------------------------------------------------------------------- */
+
+.cx-audit-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.cx-audit-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-audit-filter-label {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+}
+
+/* The platform's own closed choice, wearing the primitive's own chrome (I-31): the select takes
+   `.cx-input` itself rather than restating its declarations, so the border, height, hover, disabled
+   and invalid answers have one home and the screen's selects and its Input cannot drift into two
+   dialects of one control (B-17, ARCH-02). Only the width this row wants lives here, and the user
+   agent's own drop indicator is kept. */
+.cx-audit-select {
+  min-width: 180px;
+}
+
+/* An act type is a source key, so a chosen one renders in the face the log's own values render in
+   (I-25). Chrome — the all-option — is not a model value and does not take it.
+
+   Both classes are named because this rule has to outrank `.cx-input`'s own `font-family`, which is
+   the primitive's default face and is a single-class selector like this one: whichever sheet the
+   bundler happens to serve second would otherwise decide the face, and a screen's paint may not
+   depend on chunk order. The face is the only declaration taken back from the primitive — border,
+   height, hover, disabled and invalid still have their one home in core.css (B-17). */
+.cx-audit-select.cx-audit-select-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-audit-subject {
+  width: 240px;
+}
+
+/* A count is a sentence about the list, not a value out of the store: it reads in the UI face, with
+   the tabular figures every number in the UI is set in (C-SPINE-PLATFORM). */
+.cx-audit-count {
+  margin: 0;
+  margin-left: auto;
+  align-self: center;
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
+  color: var(--graphite-600);
+}
+
+/* --- the log -------------------------------------------------------------------------------- */
+
+.cx-audit-acts {
+  margin: 0;
+  margin-top: var(--space-3);
+  padding: 0;
+  list-style: none;
+  border-top: var(--hairline);
+}
+
+.cx-audit-act {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block: var(--space-3);
+  border-bottom: var(--hairline);
+}
+
+.cx-audit-act-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.cx-audit-act-type {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-audit-act-actor {
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}
+
+.cx-audit-act-when {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--graphite-600);
+}
+
+.cx-audit-act-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.cx-audit-act-label {
+  min-width: 96px;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* A digest and a subject are identifiers: they are shown whole, wrap rather than truncate, and
+   select in one gesture (I-26). */
+.cx-audit-act-value {
+  overflow-wrap: anywhere;
+  user-select: all;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--graphite-700);
+}
+
+.cx-audit-act-evidence {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* --- the empty answer, in the list's place (I-33) ------------------------------------------- */
+
+.cx-audit-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-block: var(--space-6);
+  border-top: var(--hairline);
+}
+
+.cx-audit-empty-heading {
+  margin: 0;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-audit-empty-body {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-audit-empty-clear {
+  align-self: flex-start;
+}
+
+/* --- the panels ----------------------------------------------------------------------------- */
+
+.cx-audit-panels {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 960px) {
+  .cx-audit-panels {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.cx-audit-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  background-color: var(--graphite-50);
+}
+
+.cx-audit-panel-body {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-audit-panel-count {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-24);
+  font-weight: var(--weight-heading);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--graphite-900);
+}
+
+.cx-audit-panel-caption {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}

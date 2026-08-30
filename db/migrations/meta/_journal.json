@@ -33,8 +33,36 @@
     {
       "idx": 4,
       "version": "7",
-      "when": 1787916629292,
-      "tag": "0004_model-call-ledger",
+      "when": 1787956899079,
+      "tag": "0004_ruleset-editions",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788042166111,
+      "tag": "0005_projects",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788051637770,
+      "tag": "0006_participants",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788058488003,
+      "tag": "0007_user-prefs",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788067539131,
+      "tag": "0008_model-call-ledger",
       "breakpoints": true
     }
   ]

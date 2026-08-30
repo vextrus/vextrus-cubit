@@ -12,7 +12,7 @@ import { requirePermission } from "./participation";
 import { actChangesNothing, actorNotHuman, consequencesNotCarried } from "./refusals";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
-export { consequenceDigest, type Consequence, type ConsequenceSubject } from "./consequence";
+export { consequenceDigest, type Consequence, type ConsequenceRendering, type ConsequenceSubject } from "./consequence";
 export {
   ACT_PERMISSION,
   ACT_TYPES,
@@ -25,10 +25,10 @@ export {
   type Permission,
   type Role,
 } from "./law";
-export { permissionsHeld, rolesGranted } from "./participation";
-export { type ActorKind } from "./refusals";
+export { effectiveGrants, holdersOf, permissionsHeld, rolesGranted, type RoleGrant } from "./participation";
+export { permissionNotHeld, projectWouldHaveNoPrincipal, type ActorKind } from "./refusals";
 export { type ActRendering, type ActorCtx, type WrittenAct } from "./rendering";
-export { type AssignParticipantRoleInput } from "./assign-participant-role";
+export { directionOf, type AssignDirection, type AssignParticipantRoleInput } from "./assign-participant-role";
 
 /** Everything a caller may ask the seam to do: one member per act type the enum declares. */
 export type ActInput = AssignParticipantRoleInput;
