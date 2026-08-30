@@ -39,8 +39,21 @@ function migrationFiles(): string[] {
   return readdirSync(MIGRATIONS).filter((name) => name.endsWith(".sql"));
 }
 
+/**
+ * "This SQL CREATEs the table called <name>" — one home for that question (B-17), because a loose
+ * match answers it wrongly in both directions the spec still has ahead of it. The name must sit in
+ * the statement HEAD, directly after CREATE TABLE (optionally IF NOT EXISTS and a schema
+ * qualifier) and directly before the column list's "(" — so a table whose name merely starts with
+ * this one (model_calls_archive), a later table that REFERENCES this one in its body (the composite
+ * FK on (tenant_id, project_id) that SEAM-TENANT owes once projects pair with the ledger), and
+ * prose in a comment are all excluded.
+ */
+function createsTable(name: string): RegExp {
+  return new RegExp(`create\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?(?:"\\w+"\\.|\\w+\\.)?"?${name}"?\\s*\\(`, "i");
+}
+
 function modelMigration(): { name: string; text: string } {
-  const creates = new RegExp(`create\\s+table[^;]*"?${MODEL_CALLS}"?`, "i");
+  const creates = createsTable(MODEL_CALLS);
   const matches = migrationFiles()
     .map((name) => ({ name, text: readFileSync(join(MIGRATIONS, name), "utf8") }))
     .filter((file) => creates.test(file.text));
@@ -65,7 +78,7 @@ describe("AC-1: the model migration's generated DDL is pure", () => {
   it("AC-1: the generated half creates both ledger tables", () => {
     const { name, generated } = halves();
     for (const table of LEDGER_TABLES) {
-      expect(generated, `${name}'s generated DDL must create ${table}`).toMatch(new RegExp(`create\\s+table[^;]*"?${table}"?`, "i"));
+      expect(generated, `${name}'s generated DDL must create ${table}`).toMatch(createsTable(table));
     }
   });
 
