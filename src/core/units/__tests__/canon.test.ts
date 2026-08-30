@@ -5,8 +5,9 @@
  *
  * The five constants are spelled here because L-FRM-06 spells them: they are the law's own text,
  * and acceptance that derived them from the module it judges would prove nothing. This is the one
- * file the literal scan below exempts besides the canon itself — AC-5 says so — and the scan is
- * validated against a planted tree in the same run, so it cannot pass by matching nothing.
+ * file the literal scan below exempts besides the canon itself — AC-5 says so — plus one literal
+ * forgiven by name to the clause that orders it (see SANCTIONED_LITERALS). The scan is validated
+ * against a planted tree in the same run, so it cannot pass by matching nothing.
  *
  * Nothing else here is a transcription. Which units exist is read from the canon's own tables, and
  * the quotient rule is checked over every same-dimension pair those tables yield (B-19).
@@ -56,19 +57,30 @@ const CANON_FILE = resolve(REPO_ROOT, CANON_MODULE);
 const SCANNED_FACTORS: readonly number[] = [M3_PER_CFT, M_PER_FT, M2_PER_SFT, KG_PER_LB];
 
 /**
- * Two readings, because the law bans two different things. The five constants are banned in any
- * form, quoted or not: spelling one as text is the same fact in a costume. A *rounded inverse* is
- * banned only where arithmetic can reach it — as a numeric literal — because a quoted exact decimal
- * is this tree's own way of holding a figure off floats (B-07), and `src/core/format.ts` already
- * carries R-SPINE-010's display factor that way on the base branch. That is a real tension with
- * L-FRM-06 and it is raised as an objection rather than papered over here; what this scan will not
- * do is refuse a merged seam that this increment may not edit.
+ * One reading, over raw source. L-FRM-06 draws no delimiter distinction: a factor spelled in quotes
+ * is the same fact in a costume, and in a tree whose idiom is decimal-string arithmetic (B-07) the
+ * quotes are exactly where arithmetic reaches it. So the sweep below reads the file as written —
+ * strings included.
+ *
+ * A conversion a Bible clause itself orders is not an unlawful literal, but it is forgiven by name
+ * and never by blanket blindness: one exact file, one exact literal, one clause. R-SPINE-010 states
+ * the project's target GFA in "m² and sft display", so the m²→sft display factor `src/core/format.ts`
+ * holds is that clause's own instruction. Nothing else in that file, and no other file, is forgiven.
  */
-function withoutStringLiterals(source: string): string {
-  return source
-    .replace(/"(?:[^"\\\n]|\\.)*"/g, '""')
-    .replace(/'(?:[^'\\\n]|\\.)*'/g, "''")
-    .replace(/`(?:[^`\\]|\\.)*`/g, "``");
+const SANCTIONED_LITERALS: readonly { file: string; literal: string; clause: string; why: string }[] = [
+  {
+    file: resolve(REPO_ROOT, "src/core/format.ts"),
+    literal: "10.7639",
+    clause: "R-SPINE-010",
+    why: "target GFA is stated in m² and sft display, so the display factor is the clause's own instruction",
+  },
+];
+
+type Sanction = { file: string; literal: string; clause: string; why: string };
+
+/** The literals one file is forgiven by name, if any. */
+function sanctionedIn(file: string, sanctions: readonly Sanction[]): ReadonlySet<string> {
+  return new Set(sanctions.filter((entry) => entry.file === file).map((entry) => entry.literal));
 }
 
 /** Every .ts/.tsx file under a directory, absolute and sorted. */
@@ -93,18 +105,22 @@ function sourceFiles(root: string): string[] {
 /**
  * Every conversion literal found under `root`, outside `exempt`: the constants spelled verbatim, and
  * any decimal literal within a ten-thousandth of one of them or of its reciprocal — an inverse
- * hard-coded elsewhere is the same law broken from the other side.
+ * hard-coded elsewhere is the same law broken from the other side. Quoted or bare makes no
+ * difference; only a `sanctions` entry naming this file *and* this literal is passed over.
  */
-function conversionLiteralFindings(root: string, exempt: ReadonlySet<string>): string[] {
+function conversionLiteralFindings(root: string, exempt: ReadonlySet<string>, sanctions: readonly Sanction[] = SANCTIONED_LITERALS): string[] {
   const findings: string[] = [];
   for (const file of sourceFiles(root)) {
     if (exempt.has(file)) continue;
+    const forgiven = sanctionedIn(file, sanctions);
     const source = readFileSync(file, "utf8");
     const where = file.split(sep).join("/");
     for (const factor of SCANNED_FACTORS) {
+      if (forgiven.has(String(factor))) continue;
       if (source.includes(String(factor))) findings.push(`${where} spells the conversion constant ${String(factor)} — the canon is its only home (L-FRM-06)`);
     }
-    for (const match of withoutStringLiterals(source).matchAll(/\d+\.\d+/g)) {
+    for (const match of source.matchAll(/\d+\.\d+/g)) {
+      if (forgiven.has(match[0])) continue;
       const literal = Number(match[0]);
       if (!Number.isFinite(literal) || literal === 0) continue;
       for (const factor of SCANNED_FACTORS) {
@@ -224,11 +240,20 @@ describe("AC-5: the unit canon", () => {
     }
 
     const planted = mkdtempSync(join(tmpdir(), "cubit-conversion-scan-"));
+    const quotedInverse = (1 / M2_PER_SFT).toFixed(4);
     writeFileSync(join(planted, "offender.ts"), `export const cubicMetresPerCubicFoot = ${String(M3_PER_CFT)};\nexport const feetPerMetre = ${String(1 / M_PER_FT)};\n`, "utf8");
-    writeFileSync(join(planted, "innocent.ts"), `export const millisecondsPerSecond = 1000;\nexport const half = 0.5;\nexport const displayFactor = "${(1 / M2_PER_SFT).toFixed(4)}";\n`, "utf8");
-    const plantedFindings = conversionLiteralFindings(planted, new Set());
-    expect(plantedFindings.length, "the scan must catch a conversion constant and a hard-coded inverse in a planted tree").toBeGreaterThanOrEqual(2);
-    expect(plantedFindings.join("\n"), "the scan accuses no file that converts nothing, and no quoted display figure held off floats (B-07)").not.toContain("innocent.ts");
+    writeFileSync(join(planted, "quoted.ts"), `export const squareFeetPerSquareMetre = "${quotedInverse}";\n`, "utf8");
+    writeFileSync(join(planted, "innocent.ts"), `export const millisecondsPerSecond = 1000;\nexport const half = 0.5;\nexport const aspect = "1.7778";\n`, "utf8");
+    const plantedFindings = conversionLiteralFindings(planted, new Set(), []);
+    expect(plantedFindings.join("\n"), "the scan catches a conversion constant spelled bare").toContain("offender.ts");
+    expect(plantedFindings.join("\n"), "the scan catches an inverse spelled in quotes — the delimiter changes nothing (L-FRM-06)").toContain("quoted.ts");
+    expect(plantedFindings.length, "the scan must catch the bare constant, the bare inverse and the quoted inverse").toBeGreaterThanOrEqual(3);
+    expect(plantedFindings.join("\n"), "the scan accuses no file that converts nothing").not.toContain("innocent.ts");
+
+    // A sanction forgives one literal in one named file, and leaves every other finding standing.
+    const narrowed = conversionLiteralFindings(planted, new Set(), [{ file: join(planted, "quoted.ts"), literal: quotedInverse, clause: "R-SPINE-010", why: "self-validation of the by-name exemption" }]);
+    expect(narrowed.join("\n"), "the named sanction forgives the literal it names").not.toContain("quoted.ts");
+    expect(narrowed.join("\n"), "and forgives nothing else — the exemption is by name, never blanket").toContain("offender.ts");
 
     const findings = conversionLiteralFindings(join(REPO_ROOT, "src"), new Set([CANON_FILE, THIS_FILE]));
     expect(findings, findings.join("\n")).toEqual([]);
