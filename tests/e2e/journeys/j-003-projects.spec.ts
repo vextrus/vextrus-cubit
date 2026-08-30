@@ -12,6 +12,7 @@ import { expect, test } from "@playwright/test";
 import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
 import { ShellPage, SHELL } from "../pages/shell.page";
 import { SHomePage, S_HOME } from "../pages/s-home.page";
+import { SParticipantsPage } from "../pages/s-participants.page";
 import { checkpoint } from "../support/checkpoint";
 import { newestMail } from "../support/outbox";
 
@@ -251,5 +252,69 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     await expect(page, "shell-user-menu-open.png pictures the screen that now stands").toHaveScreenshot("shell-user-menu-open.png", {
       maxDiffPixelRatio: 0.002,
     });
+  });
+
+  /**
+   * AC-6's visual sub-clause, where the consequence-dialog Decision § 7 puts it: the open dialog is
+   * compared against the committed baseline `tests/e2e/baselines/design/consequence-dialog-open.png`
+   * — the primitive's own card as the crop, the two per-run texts masked, animations disabled, at
+   * V-E2E's tolerance. The behavioural walk of the same flow is `tests/e2e/participants.e2e.ts`; two
+   * specs comparing two crops on two identities against one file would be a flake, so the pixels are
+   * owned here and only here.
+   *
+   * The identity is per-run, and the crop is still deterministic: everything inside the card is
+   * either fixed chrome (the act type, the title, the hint, the column labels, the role enum values
+   * and the two buttons) or one of the two masked per-run texts.
+   */
+  test("J-003: the open ConsequenceDialog matches its committed baseline (AC-6, R-UI-021)", async ({ page, baseURL }) => {
+    test.setTimeout(600_000);
+    expect(baseURL, "the journeys are driven against the served product").toBeTruthy();
+    const origin = baseURL ?? "";
+    const auth = new SAuthPage(page);
+    const shell = new ShellPage(page);
+    const home = new SHomePage(page);
+    const participants = new SParticipantsPage(page);
+
+    const run = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+    const email = `j003d-${run}@cubit.test`;
+    const password = `consequence-dialog-${run}`;
+
+    await auth.open(S_AUTH.signUp);
+    await auth.signUpWith(email, password, `Consequence ${run}`);
+    await auth.expectNotice();
+    const verifyMail = await newestMail(email, "verify-email");
+    await auth.openWithToken(S_AUTH.verify, verifyMail.token);
+    await auth.expectNotice();
+    await auth.open(S_AUTH.signIn);
+    await auth.signInWith(email, password);
+    await expect(page).toHaveURL(`${origin}${SHELL.home}`);
+
+    await shell.workspaceDoor.click();
+    await expect(page).toHaveURL(new RegExp(`^${origin}/t/[0-9a-f-]{36}$`));
+    const tenantId = new URL(page.url()).pathname.split("/")[2] ?? "";
+
+    // A project of that workspace: its creator is its first PRINCIPAL, by law (L-ACT-03), which is
+    // the `before` list the pictured consequence shows.
+    await home.createWith({ name: `Consequence ${run}`, code: "CD-001", buildingType: 1, storeys: "4" });
+    const card = home.cardNamed(`Consequence ${run}`);
+    await expect(card, "the created project stands on S-Home").toBeVisible();
+    const projectId = (await card.getAttribute("data-project")) ?? "";
+    expect(projectId, "the card names the project it is for").not.toBe("");
+
+    await participants.open(tenantId, projectId);
+    await participants.choose("subject", email.split("@")[0] ?? email);
+    await participants.choose("role", "MEASURER");
+    await participants.choose("direction", "GRANT");
+    await participants.submit("Preview this change").click();
+
+    await expect(participants.dialog, "the act pattern opens on the consequence the seam computed").toBeVisible();
+    await expect(participants.digestLine, "…with the digest line standing before the confirm").toBeVisible();
+    await expect(participants.subjectRows, "…and one row per subject the Consequence names").toHaveCount(1);
+    await expect(participants.confirm, "…and the act-variant confirm that carries the digest").toBeVisible();
+
+    await expect(participants.dialogCard, "consequence-dialog-open.png pictures the dialog that now stands").toHaveScreenshot(
+      "consequence-dialog-open.png",
+      { mask: participants.dialogMasks(), animations: "disabled", maxDiffPixelRatio: 0.002 },
+    );
   });
 });
