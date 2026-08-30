@@ -6,19 +6,20 @@
 // The table definitions sit here rather than in db/schema/*.ts because the ORM's table builders are
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
-import { and, asc, eq, gt, inArray, isNull, lt, sql as statement } from "drizzle-orm";
-import { check, foreignKey, index, json, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, sql as statement } from "drizzle-orm";
+import { check, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { attributableReason } from "./db/reason";
 import { DEFAULT_DENSITY, DENSITIES, type Density } from "./prefs/density";
+import { BUILDING_TYPES, type BuildingType } from "./projects";
 import type { EditionParameter, EditionScope, MethodPair } from "./rulesets/editions/content";
 
 // The query operators a caller needs to say which rows it means. They are the driver's, so they are
 // handed out from here rather than imported at a call site: SEAM-TENANT makes this file the one
 // lawful home of the driver, and a module that reached for them itself would be holding half a
 // handle (ARCH-02).
-export { and, asc, eq, gt, inArray, isNull, lt };
+export { and, asc, desc, eq, gt, inArray, isNull, lt };
 
 export { recordSystemReasonsWith, type SystemReasonRecord, type SystemReasonRecorder } from "./db/reason";
 
@@ -32,6 +33,54 @@ export const tenants = pgTable("tenants", {
   name: text("name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** The five, as a SQL value list, so the constraint spells them exactly once (B-17). */
+const BUILDING_TYPE_LIST = statement.raw(BUILDING_TYPES.map((type) => `'${type}'`).join(", "));
+
+/**
+ * A project (R-SPINE-010): what it is called and where it stands, in the workspace that owns it.
+ *
+ * Only the name is required. R-SPINE-010 enumerates the fields a project carries, and a workspace
+ * naming a project before it knows its client or its storey count is naming a real project — so
+ * every other field is nullable and stored as presented, and the door is where presentability is
+ * judged. `building_type` is the one exception to "stored as presented": the clause closes it over
+ * five names, so the CHECK admits those and nothing else, whatever writes the row.
+ *
+ * Target GFA is held in m² as `numeric` — B-07 keeps a figure a person entered exact from the
+ * column to the page — and the square-feet readout is a conversion the format seam makes, never a
+ * second stored fact.
+ *
+ * `archived_at` is the archived marker: AC-4's archive flips it and deletes nothing, and holding the
+ * moment rather than a boolean answers "when" as well as "whether" for the same width.
+ */
+export const projects = pgTable(
+  "projects",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    code: text("code"),
+    client: text("client"),
+    siteAddress: text("site_address"),
+    // Stored text at M0: the district → zone derivation is book law, and nothing here derives from it.
+    district: text("district"),
+    buildingType: text("building_type").$type<BuildingType>(),
+    storeys: integer("storeys"),
+    targetGfaM2: numeric("target_gfa_m2"),
+    notes: text("notes"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("projects_building_type_closed", statement`${table.buildingType} in (${BUILDING_TYPE_LIST})`),
+    // Every read of this table is tenant-scoped and then ordered by last activity: the policy adds
+    // the same `tenant_id` predicate again, so without this the workspace home is a sequential scan
+    // plus a sort over every tenant's projects. The order the index is built in is the order S-Home
+    // asks in (the shape `tenant_ruleset_editions_scope` already has beside its own table).
+    index("projects_tenant_updated").on(table.tenantId, table.updatedAt),
+  ],
+);
 
 /**
  * Participation: who may act on a project at all (L-ACT-03). The pair (project, user) is the
@@ -101,6 +150,39 @@ export const participantRoles = pgTable(
     foreignKey({ columns: [table.actId], foreignColumns: [acts.actId], name: "participant_roles_act_fk" }),
     // A role is held or it is not: the same role twice over is a second row saying the same thing.
     unique("participant_roles_role_once").on(table.tenantId, table.projectId, table.userId, table.role),
+  ],
+);
+
+/**
+ * The countermanding ledger (R-SPINE-011, L-ACT-03): a role a project took back. `participant_roles`
+ * wears owner-proof immutability, so a withdrawal is never an update or a delete of the grant — it
+ * is a row appended here naming the grant it countermands, and the effective roles a person holds
+ * are the grants this table has not answered. The grant stays on the record, which is what makes the
+ * history readable both ways round.
+ *
+ * `grant_id` is unique because a grant is countermanded once: a second row would say the same thing
+ * twice, and "how many withdrawals stand against this grant" is not a question with two answers.
+ * `act_id` is not null, unlike the grant's — every withdrawal is an act somebody performed, where a
+ * project's first PRINCIPAL is installed by creation.
+ */
+export const participantRoleWithdrawals = pgTable(
+  "participant_role_withdrawals",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    withdrawalId: uuid("withdrawal_id").primaryKey().defaultRandom(),
+    grantId: uuid("grant_id").notNull().unique(),
+    projectId: uuid("project_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    role: text("role").notNull(),
+    actId: uuid("act_id").notNull(),
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({ columns: [table.grantId], foreignColumns: [participantRoles.grantId], name: "participant_role_withdrawals_grant_fk" }),
+    foreignKey({ columns: [table.actId], foreignColumns: [acts.actId], name: "participant_role_withdrawals_act_fk" }),
+    // Every effective-roles read is "this project's withdrawals, for this person": the policy adds
+    // the tenant predicate again, so without this the seam's own permission check scans the ledger.
+    index("participant_role_withdrawals_project_user").on(table.tenantId, table.projectId, table.userId),
   ],
 );
 
@@ -288,9 +370,11 @@ export const userPrefs = pgTable(
 /** Everything the typed surface covers. A table joins the surface by joining this object. */
 const schema = {
   tenants,
+  projects,
   participants,
   acts,
   participantRoles,
+  participantRoleWithdrawals,
   users,
   sessions,
   authTokens,
