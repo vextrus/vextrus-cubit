@@ -8,9 +8,9 @@
 // the other S-Audit unit tests.
 //
 // The assertion is the RULE, not the day's snapshot: a panel is armed exactly when the catalogue
-// holds the table AUDIT_PANEL_TABLES names for it. On today's schema neither table exists, so both
-// answers are `false` — and the increment that ships `model_calls` inherits a case that follows it
-// rather than one that has to be edited (B-19).
+// holds the table AUDIT_PANEL_TABLES names for it, and each posture is judged against what the
+// migrated catalogue actually holds — so the increment that ships `model_calls` moves the panel from
+// one branch of the rule to the other without the rule itself changing (B-19).
 //
 // Raw SQL is spoken through psql, never a driver import: SEAM-TENANT's ban binds this file like the
 // rest of the tree. Product modules are loaded by absolute path, so a module the Builder has not
@@ -128,22 +128,28 @@ describe("AC-3 — on the schema as migrated today, both panels answer that they
     }
   });
 
-  test("AC-3: today that answer is false for both — this increment creates neither table", async () => {
+  test("AC-3: a panel with no table answers exactly { armed: false }, and one with a table counts rows", async () => {
     const stage = await staged();
     const surfaces = (await stage.getAuditSurfaces({ tenantId: stage.tenantId }, stage.projectId)) as unknown as Record<string, AuditPanel>;
 
     for (const [panel, table] of Object.entries(stage.panelTables)) {
+      const answer = surfaces[panel];
+      if (!tableExists(stage.urlMigrate, table)) {
+        expect(answer, `the ${panel} panel answers exactly { armed: false } while its table does not exist — not an error, not a fault, not an empty table pretending the ledger exists`).toEqual({ armed: false });
+        continue;
+      }
+      expect(answer?.armed, `"${table}" is in the migrated schema, so the ${panel} panel answers armed rather than disarmed`).toBe(true);
+      const rowCount = (answer as { armed: true; rowCount: number }).rowCount;
       expect(
-        tableExists(stage.urlMigrate, table),
-        `"${table}" is in the migrated schema. Creating it is out of this increment's scope by name — the ledger (L-AI-01) and jobs (C-SPINE-JOBS) increments own their tables`,
-      ).toBe(false);
-      expect(surfaces[panel], `the ${panel} panel answers exactly { armed: false } while its table does not exist — not an error, not a fault, not an empty table pretending the ledger exists`).toEqual({ armed: false });
+        Number.isSafeInteger(rowCount) && rowCount >= 0,
+        `an armed ${panel} panel answers a whole count of the rows this project may see, not ${String(rowCount)}`,
+      ).toBe(true);
     }
   });
 });
 
 describe("AC-1/AC-3 — the route renders that answer", () => {
-  test("AC-3: the page renders both panels carrying data-armed=\"false\" and the Decision's disarmed copy", async () => {
+  test("AC-3: the page renders each panel's data-armed posture and, where disarmed, the Decision's copy", async () => {
     const stage = await staged();
     const page = await productModule<{ default?: (props: { params: Promise<{ tenant: string; project: string }> }) => Promise<unknown> }>(PAGE_MODULE);
     expect(typeof page.default, `${PAGE_MODULE} must default-export the server component that renders this screen`).toBe("function");
@@ -157,12 +163,17 @@ describe("AC-1/AC-3 — the route renders that answer", () => {
     const copy: Record<string, string> = Object.assign({}, ...Object.values(strings).filter((value) => typeof value === "object" && value !== null && !Array.isArray(value)));
 
     for (const [panel, testId] of Object.entries(PANEL_TESTID)) {
+      const armed = tableExists(stage.urlMigrate, stage.panelTables[panel] ?? "");
       const tag = new RegExp(`<[a-zA-Z]+[^>]*${testId}[^>]*>`).exec(markup)?.[0] ?? "";
       expect(tag, `the page must render [data-testid="${testId}"] — the panel's hook in the test contract`).not.toBe("");
-      expect(/data-armed="false"/.test(tag), `[data-testid="${testId}"] must carry data-armed="false" while its table does not exist. The tag rendered was: ${tag}`).toBe(true);
+      expect(
+        new RegExp(`data-armed="${String(armed)}"`).test(tag),
+        `[data-testid="${testId}"] must carry data-armed="${String(armed)}" while its table ${armed ? "is in" : "is not in"} the migrated schema. The tag rendered was: ${tag}`,
+      ).toBe(true);
 
       const disarmed = copy[DISARMED_KEY[panel] ?? ""] ?? "";
       expect(disarmed, `${STRINGS_MODULE} must hold ${DISARMED_KEY[panel]} — the Decision §3 rules the disarmed body line`).not.toBe("");
+      if (armed) continue;
       expect(markup.includes(escaped(disarmed)), `the ${panel} panel must say, in the Decision's own words, that this installation records none yet — a disarmed panel is a state, not a failure (I-35)`).toBe(true);
     }
   });
