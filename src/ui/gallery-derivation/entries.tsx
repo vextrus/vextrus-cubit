@@ -65,7 +65,7 @@ import {
   Toaster,
   toast,
 } from "../primitives/overlay";
-import { AppShell, SHELL_AREAS, ShellDenied, ShellEmptyState, ShellInspector, ShellRail, ShellTopBar, type ShellWorkspace } from "../shell";
+import { AppShell, DensityToggle, SHELL_AREAS, ShellDenied, ShellEmptyState, ShellInspector, ShellRail, ShellTopBar, type ShellWorkspace } from "../shell";
 import { strings } from "../strings";
 import type { GalleryEntries, GalleryState } from "./types";
 
@@ -121,6 +121,9 @@ const scrollLine = (line: number): string => `Sheet ${line} of ${SCROLL_LINES}`;
 
 /** Nothing happens: the interactive Chip states demonstrate chrome, not a consumer's behaviour. */
 const noop = (): void => {};
+
+/** The gallery persists nothing, so the density sample's write resolves and the checked option moves. */
+const sampleDensityWrite = (): Promise<void> => Promise.resolve();
 
 const buttonStates: readonly GalleryState[] = [
   { name: "primary", render: () => <Button variant="primary">{copy.button.primary}</Button> },
@@ -616,6 +619,12 @@ export const galleryEntries: GalleryEntries = {
           </AppShell>
         ),
       },
+    ],
+  },
+  "shell/DensityToggle": {
+    states: [
+      { name: "comfortable", render: () => <DensityToggle density="comfortable" action={sampleDensityWrite} /> },
+      { name: "compact", render: () => <DensityToggle density="compact" action={sampleDensityWrite} /> },
     ],
   },
   "shell/ShellDenied": {
