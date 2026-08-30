@@ -53,11 +53,38 @@ const ACT_TYPE = "ASSIGN_PARTICIPANT_ROLE";
 /** An authored digest: sample data of the shape a sha-256 digest wears, never a computed one. */
 const DIGEST = "9f2c1d4b7a6e5038c1b2a3d4e5f60718293a4b5c6d7e8f9012a3b4c5d6e7f801";
 
-/** The sample Consequence — this test's own data, and the denominator of every count below. */
+/** The two column labels the Decision fixes verbatim (§ 3), above the values each column holds. */
+const BEFORE_LABEL = "Before";
+const AFTER_LABEL = "After";
+
+/**
+ * The sample Consequence — this test's own data, and the denominator of every count below.
+ *
+ * The third subject is a WITHDRAW shape on purpose: a role held BEFORE and not held AFTER. Without
+ * one, every `before` here would be a subset of its own `after`, and a dialog that rendered the
+ * after list alone (or the union of the two) would satisfy every "shows before" assertion in this
+ * file while never rendering the before column at all — which is the production case R-SPINE-011
+ * adds and the half of R-UI-021's "before and after" that would go ungraded.
+ */
 const SUBJECTS = [
   { subjectId: "user-estimator", before: ["PRINCIPAL"], after: ["MEASURER", "PRINCIPAL"] },
   { subjectId: "user-reviewer", before: ["REVIEWER"], after: ["LEAD", "REVIEWER"] },
+  { subjectId: "user-principal", before: ["LEAD", "PRINCIPAL"], after: ["PRINCIPAL"] },
 ] as const;
+
+/**
+ * A row's two columns, read at the labels the Decision puts above them (§ 1: "Before | After
+ * columns", § 3: the two label strings). Nothing about the markup between them is asserted — only
+ * that a role the subject loses stands under the one label and not under the other, which is the
+ * difference between rendering a transition and rendering a role list.
+ */
+function columnsOf(text: string): { before: string; after: string } {
+  const beforeAt = text.indexOf(BEFORE_LABEL);
+  const afterAt = beforeAt < 0 ? -1 : text.indexOf(AFTER_LABEL, beforeAt + BEFORE_LABEL.length);
+  expect(beforeAt, `a subject row labels its two columns "${BEFORE_LABEL}" and "${AFTER_LABEL}" (Decision § 1, § 3); got ${JSON.stringify(text)}`).toBeGreaterThanOrEqual(0);
+  expect(afterAt, `…and the after column follows the before column; got ${JSON.stringify(text)}`).toBeGreaterThan(beforeAt);
+  return { before: text.slice(beforeAt + BEFORE_LABEL.length, afterAt), after: text.slice(afterAt + AFTER_LABEL.length) };
+}
 
 const CONSEQUENCE = {
   actType: ACT_TYPE,
@@ -133,6 +160,21 @@ describe("AC-5: the dialog renders the consequence it was handed, and commits ex
       const text = row?.textContent ?? "";
       for (const role of subject.before) expect(text, `the row shows what ${subject.subjectId} holds before: ${role}`).toContain(role);
       for (const role of subject.after) expect(text, `the row shows what ${subject.subjectId} would hold after: ${role}`).toContain(role);
+
+      // The transition itself, not a role list: a role the subject LOSES stands under the before
+      // label and nowhere after it, and a role they GAIN stands only after it. A dialog rendering
+      // `after` alone, or the union of the two, fails here.
+      const columns = columnsOf(text);
+      const before: readonly string[] = subject.before;
+      const after: readonly string[] = subject.after;
+      for (const role of before.filter((role) => !after.includes(role))) {
+        expect(columns.before, `${subject.subjectId} holds ${role} before the act, so the before column says so (R-UI-021)`).toContain(role);
+        expect(columns.after, `…and would not hold ${role} after it, so the after column does not say so`).not.toContain(role);
+      }
+      for (const role of after.filter((role) => !before.includes(role))) {
+        expect(columns.after, `${subject.subjectId} would hold ${role} after the act, so the after column says so`).toContain(role);
+        expect(columns.before, `…and does not hold ${role} before it, so the before column does not say so`).not.toContain(role);
+      }
     });
 
     expect(dialog.getAttribute("data-act-type"), "the wrapper names the act type it is confirming (Decision §1)").toBe(ACT_TYPE);

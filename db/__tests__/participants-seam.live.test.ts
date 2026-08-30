@@ -437,6 +437,77 @@ function carriesATime(entry: unknown): boolean {
   return textOf(entry).some((text) => text.length >= 10 && !Number.isNaN(Date.parse(text)));
 }
 
+/** Does this ONE string name this person, rather than the entry's whole flattened bag? */
+function mentions(text: string, person: Person): boolean {
+  const lower = text.toLowerCase();
+  return lower.includes(person.userId.toLowerCase()) || lower.includes(person.email.split("@")[0]?.toLowerCase() ?? person.email.toLowerCase());
+}
+
+/** One leaf of an answer, carried with the path of key names it was found under. */
+interface Leaf {
+  path: string[];
+  text: string;
+}
+
+/** The same walk `textOf` does, keeping the field names — so a value can be judged by where it sits. */
+function leavesOf(value: unknown, path: string[] = [], depth = 0): Leaf[] {
+  if (depth > 4) return [];
+  if (typeof value === "string") return [{ path, text: value }];
+  if (typeof value === "number" || typeof value === "boolean") return [{ path, text: String(value) }];
+  if (value instanceof Date) return [{ path, text: value.toISOString() }];
+  if (Array.isArray(value)) return value.flatMap((held, index) => leavesOf(held, [...path, String(index)], depth + 1));
+  if (typeof value === "object" && value !== null) return Object.entries(value).flatMap(([key, held]) => leavesOf(held, [...path, key], depth + 1));
+  return [];
+}
+
+/**
+ * A field that says it holds the SUBJECT of the act, and one that says it holds who ACTED.
+ *
+ * AC-3 puts two different people in one entry, "the subject user" and "the acting user's identity",
+ * and which is which is a fact about the FIELD and never about the bag: an entry built with the two
+ * transposed still carries both people, and a search over the entry's flattened text cannot tell the
+ * two implementations apart. Nothing but the field's own name can. So the entry is required to say
+ * which is which, in the vocabulary this criterion, the act input (`subjectUserId`) and the screen's
+ * Design Decision (line one the subject's label, line two "by {actor}") already use. Any spelling
+ * carrying the word is accepted, at any depth: `subjectUserId`, `subject.userId`, `subjectUser.email`
+ * — and `actor…`, `acting…`, `actedBy…`, `performedBy…` for the other. `actId`/`actType` are neither.
+ */
+const A_SUBJECT_FIELD = (segment: string): boolean => segment.toLowerCase().includes("subject");
+const AN_ACTOR_FIELD = (segment: string): boolean => {
+  const key = segment.toLowerCase();
+  return key.includes("actor") || key.includes("acting") || key.includes("actedby") || key.includes("performedby") || key === "by" || key.startsWith("byuser");
+};
+
+/**
+ * AC-3's identity half, bound field-to-role. Membership is not enough: an entry that labelled the
+ * actor as the subject would hold both people and still have mislabelled who did what to whom.
+ */
+function bindsSubjectAndActor(entry: unknown, subject: Person, actor: Person, what: string): void {
+  const leaves = leavesOf(entry);
+  const shown = JSON.stringify(entry);
+  const forSubject = leaves.filter((leaf) => mentions(leaf.text, subject));
+  const forActor = leaves.filter((leaf) => mentions(leaf.text, actor));
+  const at = (found: Leaf[]): string[] => found.map((leaf) => leaf.path.join("."));
+
+  expect(at(forSubject), `${what} names the subject the role moved on or off: ${shown}`).not.toEqual([]);
+  expect(at(forActor), `${what} names the acting user's identity: ${shown}`).not.toEqual([]);
+  expect(at(forSubject).filter((path) => at(forActor).includes(path)), `${what} keeps subject and actor in separate fields, never in one: ${shown}`).toEqual([]);
+
+  expect(
+    forSubject.some((leaf) => leaf.path.some(A_SUBJECT_FIELD)),
+    `${what} carries the subject under a field that names the subject (a path segment holding "subject"); the subject is at [${at(forSubject).join(", ")}] in ${shown}`,
+  ).toBe(true);
+  expect(
+    forActor.some((leaf) => leaf.path.some(A_SUBJECT_FIELD)),
+    `${what} must not stand the ACTING user in the subject field — a transposed pair is exactly what this asserts against: ${shown}`,
+  ).toBe(false);
+  expect(
+    forActor.some((leaf) => leaf.path.some(AN_ACTOR_FIELD)),
+    `${what} carries the acting user under a field that names the actor ("actor"/"acting…"/"actedBy…"/"performedBy…"); the actor is at [${at(forActor).join(", ")}] in ${shown}`,
+  ).toBe(true);
+  expect(forSubject.some((leaf) => leaf.path.some(AN_ACTOR_FIELD)), `${what} must not stand the SUBJECT in the actor field: ${shown}`).toBe(false);
+}
+
 async function callHistory(participants: Record<string, unknown>, ctx: ActorCtx, projectId: string): Promise<unknown> {
   const door = exported(participants, "roleHistory", `${PARTICIPANTS_MODULE}/index.ts`);
   try {
@@ -480,6 +551,12 @@ describe("AC-3: the project's role history, behind one guard", () => {
     expect(textOf(last), "and it names the role it moved").toContain(MEASURER);
     expect(names(last, stage.colleague), "the entry names the subject the role was withdrawn from").toBe(true);
     expect(names(last, stage.principal), "the entry names the acting user's identity").toBe(true);
+
+    // Membership in the entry is the weak half: both people are present whichever way round the
+    // fields were filled. This is the half that binds — the subject stands in the subject's field
+    // and the actor in the actor's, so a transposed pair fails (AC-3: "the subject user" and "the
+    // acting user's identity" are two different facts, not one bag of names).
+    bindsSubjectAndActor(last, stage.colleague, stage.principal, "the withdrawal entry");
 
     const grantEntries = entries.filter((entry) => textOf(entry).includes(GRANT));
     expect(grantEntries.length, "the grants are on the record too").toBe(rowsFor(stage.url, PARTICIPANT_ROLES, projectId));
