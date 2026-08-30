@@ -463,8 +463,9 @@ const sampleConsequenceCommit = (): Promise<{ actId: string }> => Promise.resolv
  * by its `open` prop rather than by a trigger of its own, so the sample stands the shipped ghost
  * Button beside it as the affordance a consumer wires — and, like the interactive Chip and toast
  * samples above, the sample demonstrates chrome rather than a consumer's behaviour. The open paint's
- * evidence is this increment's committed baseline, not a modal held open over the whole page
- * (Decision I-46). Nothing here restyles the dialog: everything inside it is the pattern's own.
+ * evidence is the committed journey baseline `tests/e2e/baselines/design/consequence-dialog-open.png`,
+ * not a modal held open over the whole page (Decision I-46). Nothing here restyles the dialog:
+ * everything inside it is the pattern's own.
  */
 const consequenceDialogSample = (): ReactNode => (
   <>

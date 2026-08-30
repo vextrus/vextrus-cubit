@@ -22,8 +22,9 @@ export async function identitiesOf(userIds: readonly string[]): Promise<Readonly
 
 /**
  * One person, named by an identity map — or by their id alone when the store holds no account row
- * for them. `null` is never an answer here: an act was performed by somebody, and a history entry
- * that dropped them would be a record of a change nobody made.
+ * for them. A person the ledger names is never dropped for want of an account row: the id is who
+ * the record says it was, and a roster that omitted them would be a roster nobody can reconcile
+ * against the ledger it was read from.
  */
 export function identityOf(known: ReadonlyMap<string, MemberIdentity>, userId: string): MemberIdentity {
   return known.get(userId) ?? { userId, emailKey: null };

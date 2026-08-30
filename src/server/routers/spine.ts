@@ -2,10 +2,11 @@
 // people come through (R-SPINE-001). The auth namespace is defined in `../auth/router.ts` — the
 // lane composes it here, so `spine.auth.*` has one home and this file stays a table of contents.
 //
-// The participants namespace is the exception the plan grants: it is this file's own, and it is
-// three thin wrappers over one seam. Every rule about who may assign a role, what the act would do
-// and what digest binds it lives in `src/core/acts` (SEAM-ACT); a transport-local guard or digest
-// would be a second answer to a question that has one (B-17, ARCH-02).
+// The participants namespace is this file's own: three thin wrappers over one seam, small enough
+// that a file of their own would say nothing the lane's table of contents does not already say.
+// Every rule about who may assign a role, what the act would do and what digest binds it lives in
+// `src/core/acts` (SEAM-ACT); a transport-local guard or digest would be a second answer to a
+// question that has one (B-17, ARCH-02).
 import {
   commit,
   consequenceDigest,
