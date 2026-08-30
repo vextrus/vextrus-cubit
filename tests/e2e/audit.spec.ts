@@ -27,7 +27,7 @@ const PROJECT = "Ashuganj Terminal";
 test.use({ viewport: { width: 1440, height: 900 } });
 
 test.describe("J-003 — the project's audit surfaces", () => {
-  test("J-003: the act log explorer stands on a project, with the ledger and jobs panels disarmed", async ({ page, baseURL }, testInfo) => {
+  test("J-003: the act log explorer stands on a project, with the model ledger armed and the jobs panel disarmed", async ({ page, baseURL }, testInfo) => {
     expect(baseURL, "the journeys are driven against the served product").toBeTruthy();
     const origin = baseURL ?? "";
     const auth = new SAuthPage(page);
@@ -76,7 +76,7 @@ test.describe("J-003 — the project's audit surfaces", () => {
     await expect(audit.empty, "and the region says why it is empty rather than leaving a bare gap").toBeVisible();
 
     /* --- the panels' posture is the installation's answer, not a roster's (I-35) --- */
-    await expect(audit.modelLedger, "the model ledger reports itself unarmed while its table does not exist").toHaveAttribute("data-armed", "false");
+    await expect(audit.modelLedger, "the model ledger reports itself armed now that L-AI-01 installs its table").toHaveAttribute("data-armed", "true");
     await expect(audit.jobs, "and so does job history").toHaveAttribute("data-armed", "false");
 
     /* --- s-audit/explorer: axe over the page, then the committed Linux baseline --- */
