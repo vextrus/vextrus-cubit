@@ -74,6 +74,7 @@ describe("the act seam's refusals are marked, registered and carry what the law 
       actType: ASSIGN_PARTICIPANT_ROLE,
       tenantId: "00000000-0000-4000-8000-0000000000ff",
       projectId: input.projectId,
+      rendering: "SUBJECTS",
       subjects: [{ subjectId: input.subjectUserId, before, after }],
     });
     expect(movesNothing(over(["REVIEWER"], ["REVIEWER"])), "a role the subject already holds moves nothing").toBe(true);
