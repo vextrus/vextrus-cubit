@@ -259,11 +259,14 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
                 <span className="cx-participants-history-role">{entry.role}</span>
                 <span className="cx-participants-history-subject">{entry.subject.label}</span>
               </p>
+              {/* A grant a project's creation installed was performed by nobody — L-ACT-03 makes
+                  the creating PRINCIPAL a bootstrap rather than an act — so the line says when it
+                  happened and stops. "By an unnamed member" would name a performer that does not
+                  exist, which is worse than saying less (B-21). */}
               <p className="cx-participants-history-by">
-                {fill(strings.spine_participants_history_by, {
-                  actor: entry.actor?.label ?? strings.spine_participants_member_unnamed,
-                  date: dayOf(entry.occurredAt),
-                })}
+                {entry.actor === null
+                  ? dayOf(entry.occurredAt)
+                  : fill(strings.spine_participants_history_by, { actor: entry.actor.label, date: dayOf(entry.occurredAt) })}
               </p>
             </li>
           ))}
