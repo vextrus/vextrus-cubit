@@ -10,10 +10,16 @@ import { and, asc, desc, eq, gt, inArray, isNull, lt, sql as statement } from "d
 import { check, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { ELEMENT_TYPES, type ElementType } from "./catalogue/element-types";
+import { KINDS, type Kind } from "./catalogue/kinds";
 import { attributableReason } from "./db/reason";
 import { DEFAULT_DENSITY, DENSITIES, type Density } from "./prefs/density";
 import { BUILDING_TYPES, type BuildingType } from "./projects";
 import type { EditionParameter, EditionScope, MethodPair } from "./rulesets/editions/content";
+import { DIMENSIONS, type Dimension } from "./units/canon";
+
+/** A closed roster as the SQL fragment a CHECK compares against — the one spelling of that list. */
+const closedList = (roster: readonly string[]): string => roster.map((member) => `'${member}'`).join(", ");
 
 // The query operators a caller needs to say which rows it means. They are the driver's, so they are
 // handed out from here rather than imported at a call site: SEAM-TENANT makes this file the one
@@ -364,7 +370,43 @@ export const userPrefs = pgTable(
     density: text("density").$type<Density>().notNull().default(DEFAULT_DENSITY),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [check("user_prefs_density_closed", statement`${table.density} in (${statement.raw(DENSITIES.map((mode) => `'${mode}'`).join(", "))})`)],
+  (table) => [check("user_prefs_density_closed", statement`${table.density} in (${statement.raw(closedList(DENSITIES))})`)],
+);
+
+/**
+ * L-MEA-04's work-item catalogue, as the database holds it. The consts in `src/core/catalogue` are
+ * the source and this is their landed copy: the migration inserts exactly the emitted rows, and
+ * V-VERIFY's catalogue drift stage is what keeps the two the same table. Every text column is
+ * closed by a CHECK built from the enum itself, so the store cannot hold a kind or a dimension the
+ * code does not know — the same belt `user_prefs.density` wears.
+ */
+export const workItemCatalogue = pgTable(
+  "work_item_catalogue",
+  {
+    kind: text("kind").$type<Kind>().primaryKey(),
+    description: text("description").notNull(),
+    canonicalUnit: text("canonical_unit").notNull(),
+    dimension: text("dimension").$type<Dimension>().notNull(),
+    roundingPrecision: integer("rounding_precision").notNull(),
+  },
+  (table) => [
+    check("work_item_catalogue_kind_closed", statement`${table.kind} in (${statement.raw(closedList(KINDS))})`),
+    check("work_item_catalogue_dimension_closed", statement`${table.dimension} in (${statement.raw(closedList(DIMENSIONS))})`),
+  ],
+);
+
+/** L-MEA-04's `bears` relation: which kinds a class lawfully bears, one row per admitted pair. */
+export const bears = pgTable(
+  "bears",
+  {
+    elementType: text("element_type").$type<ElementType>().notNull(),
+    kind: text("kind").$type<Kind>().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.elementType, table.kind] }),
+    check("bears_element_type_closed", statement`${table.elementType} in (${statement.raw(closedList(ELEMENT_TYPES))})`),
+    check("bears_kind_closed", statement`${table.kind} in (${statement.raw(closedList(KINDS))})`),
+  ],
 );
 
 /** Everything the typed surface covers. A table joins the surface by joining this object. */
@@ -383,6 +425,8 @@ const schema = {
   rulesetEditions,
   tenantRulesetEditions,
   userPrefs,
+  workItemCatalogue,
+  bears,
 };
 
 /** A handle scoped to one tenant: the typed read/write surface, filtered by row-level security. */

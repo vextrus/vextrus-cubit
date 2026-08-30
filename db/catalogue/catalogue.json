@@ -1,0 +1,142 @@
+[
+  {
+    "kind": "backfilling",
+    "description": "Backfilling around and over completed work with approved excavated earth, in layers, watered and compacted",
+    "canonical_unit": "m3",
+    "dimension": "VOLUME",
+    "rounding_precision": 3
+  },
+  {
+    "kind": "brick-soling",
+    "description": "Single layer of picked jhama brick flat soling laid on prepared bed, joints filled with sand",
+    "canonical_unit": "m2",
+    "dimension": "AREA",
+    "rounding_precision": 2
+  },
+  {
+    "kind": "brickwork",
+    "description": "First-class brickwork in cement mortar, including raking joints and curing",
+    "canonical_unit": "m3",
+    "dimension": "VOLUME",
+    "rounding_precision": 3
+  },
+  {
+    "kind": "concrete-casting",
+    "description": "Reinforced cement concrete of the specified grade, mixed, placed, vibrated and cured",
+    "canonical_unit": "m3",
+    "dimension": "VOLUME",
+    "rounding_precision": 3
+  },
+  {
+    "kind": "electrical-point",
+    "description": "Wiring point of the specified type drawn in concealed conduit, complete with switch and accessories",
+    "canonical_unit": "pcs",
+    "dimension": "COUNT",
+    "rounding_precision": 0
+  },
+  {
+    "kind": "excavation",
+    "description": "Earth excavation in all kinds of soil, including shoring and dewatering as required",
+    "canonical_unit": "m3",
+    "dimension": "VOLUME",
+    "rounding_precision": 3
+  },
+  {
+    "kind": "false-ceiling",
+    "description": "Suspended ceiling of the specified board on a levelled metal grid, including hangers and access panels",
+    "canonical_unit": "m2",
+    "dimension": "AREA",
+    "rounding_precision": 2
+  },
+  {
+    "kind": "formwork",
+    "description": "Shuttering and centering to the specified finish, including props, and its removal",
+    "canonical_unit": "m2",
+    "dimension": "AREA",
+    "rounding_precision": 2
+  },
+  {
+    "kind": "lean-concrete",
+    "description": "Lean cement concrete bed with brick chips, laid and levelled under structural work",
+    "canonical_unit": "m3",
+    "dimension": "VOLUME",
+    "rounding_precision": 3
+  },
+  {
+    "kind": "painting",
+    "description": "Paint of the specified type over prepared and primed surface, in the specified number of coats",
+    "canonical_unit": "m2",
+    "dimension": "AREA",
+    "rounding_precision": 2
+  },
+  {
+    "kind": "pipework",
+    "description": "Pipe of the specified material and bore, laid or fixed in position, including jointing and testing",
+    "canonical_unit": "m",
+    "dimension": "LENGTH",
+    "rounding_precision": 2
+  },
+  {
+    "kind": "plastering",
+    "description": "Cement plaster of the specified thickness and mix, finished smooth and cured",
+    "canonical_unit": "m2",
+    "dimension": "AREA",
+    "rounding_precision": 2
+  },
+  {
+    "kind": "railing",
+    "description": "Railing and handrail of the specified material and height, fabricated, fixed and finished",
+    "canonical_unit": "m",
+    "dimension": "LENGTH",
+    "rounding_precision": 2
+  },
+  {
+    "kind": "reinforcement",
+    "description": "Deformed steel bar reinforcement cut, bent, placed and tied in position, including binding wire",
+    "canonical_unit": "kg",
+    "dimension": "MASS",
+    "rounding_precision": 2
+  },
+  {
+    "kind": "sand-filling",
+    "description": "Filling with approved local sand in layers, watered and compacted to the specified density",
+    "canonical_unit": "m3",
+    "dimension": "VOLUME",
+    "rounding_precision": 3
+  },
+  {
+    "kind": "sanitary-ware",
+    "description": "Sanitary appliance of the specified make, supplied and set complete with its fittings",
+    "canonical_unit": "pcs",
+    "dimension": "COUNT",
+    "rounding_precision": 0
+  },
+  {
+    "kind": "skirting",
+    "description": "Skirting of the specified material and height, laid and finished flush with the wall face",
+    "canonical_unit": "m",
+    "dimension": "LENGTH",
+    "rounding_precision": 2
+  },
+  {
+    "kind": "structural-steel",
+    "description": "Structural steel section fabricated, erected and fixed in position, including connections",
+    "canonical_unit": "kg",
+    "dimension": "MASS",
+    "rounding_precision": 2
+  },
+  {
+    "kind": "tiling",
+    "description": "Tile work of the specified size laid in cement mortar, jointed, grouted and cleaned",
+    "canonical_unit": "m2",
+    "dimension": "AREA",
+    "rounding_precision": 2
+  },
+  {
+    "kind": "waterproofing",
+    "description": "Waterproofing treatment of the specified system, including preparation, laps and protective screed",
+    "canonical_unit": "m2",
+    "dimension": "AREA",
+    "rounding_precision": 2
+  }
+]

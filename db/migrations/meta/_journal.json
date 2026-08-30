@@ -57,6 +57,13 @@
       "when": 1788058488003,
       "tag": "0007_user-prefs",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788074848492,
+      "tag": "0008_catalogue-tables",
+      "breakpoints": true
     }
   ]
 }
