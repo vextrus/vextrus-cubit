@@ -10,7 +10,7 @@
  * The screen is a reader (L-ACT-01): nothing here commits an act, so the one action it carries is
  * the clearing of its own filters.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { formatDate, formatUserFigure } from "../../../../../../../core/format";
 import type { AuditAct } from "../../../../../../../modules/spine/audit";
@@ -32,12 +32,31 @@ function byCodePoint(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-/** The date seam's date, from the timestamp's own wall-clock parts (I-34, SEAM-FORMAT). */
+/**
+ * Asia/Dhaka stands six hours ahead of UTC and keeps no daylight saving, so the zone's wall clock is
+ * the instant plus a fixed offset. Spelled here because the date seam takes wall-clock parts and
+ * this is the process that has an instant to convert (L-FMT-01).
+ */
+const DHAKA_AHEAD_OF_UTC_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * The date seam's date, from the act's Asia/Dhaka wall-clock parts (I-34, SEAM-FORMAT). `getDate()`
+ * and its siblings read the host's zone, which on a UTC-clocked server puts an act committed before
+ * six in the morning on the previous day — a wrong date on the one surface whose work is exactness.
+ * The offset is applied first and the parts are then read in UTC, so the day is the reader's day
+ * wherever the process runs.
+ */
 function occurred(at: Date): string {
-  return formatDate({ year: at.getFullYear(), month: at.getMonth() + 1, day: at.getDate() });
+  const dhaka = new Date(at.getTime() + DHAKA_AHEAD_OF_UTC_MS);
+  return formatDate({ year: dhaka.getUTCFullYear(), month: dhaka.getUTCMonth() + 1, day: dhaka.getUTCDate() });
 }
 
 export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
+  // Where focus goes when the control holding it clears the filters: that button stands inside the
+  // filtered-empty block, which the clearing unmounts, and focus dropped to <body> puts a keyboard
+  // reader back at the top of the document (R-UI-012). The first filter is the field the cleared
+  // list is now answering, so it is where the work continues.
+  const firstFilter = useRef<HTMLSelectElement>(null);
   const [actType, setActType] = useState<string>(ANY);
   const [actorId, setActorId] = useState<string>(ANY);
   const [subject, setSubject] = useState<string>("");
@@ -61,6 +80,7 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
     setActType(ANY);
     setActorId(ANY);
     setSubject("");
+    firstFilter.current?.focus();
   };
 
   return (
@@ -75,10 +95,14 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
             {auditStrings.audit_filter_type_label}
           </label>
           <select
-            className="cx-audit-select cx-audit-select-mono cx-reticle"
+            // Mono is I-25's treatment of a model value, and only a chosen act type is one: the
+            // all-option is this control's own chrome and reads in the face the row's other
+            // control reads in.
+            className={`cx-input cx-reticle cx-audit-select${actType === ANY ? "" : " cx-audit-select-mono"}`}
             data-testid="audit-filter-type"
             id="audit-filter-type-field"
             onChange={(event) => setActType(event.target.value)}
+            ref={firstFilter}
             value={actType}
           >
             <option value={ANY}>{auditStrings.audit_filter_any_type}</option>
@@ -95,7 +119,7 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
             {auditStrings.audit_filter_actor_label}
           </label>
           <select
-            className="cx-audit-select cx-reticle"
+            className="cx-input cx-reticle cx-audit-select"
             data-testid="audit-filter-actor"
             id="audit-filter-actor-field"
             onChange={(event) => setActorId(event.target.value)}

@@ -64,26 +64,17 @@
   color: var(--graphite-700);
 }
 
-/* The platform's own closed choice, wearing this screen's control chrome (I-31): the Input idiom,
-   never the Input's CSS, and the user agent's own drop indicator kept. */
+/* The platform's own closed choice, wearing the primitive's own chrome (I-31): the select takes
+   `.cx-input` itself rather than restating its declarations, so the border, height, hover, disabled
+   and invalid answers have one home and the screen's selects and its Input cannot drift into two
+   dialects of one control (B-17, ARCH-02). Only the width this row wants lives here, and the user
+   agent's own drop indicator is kept. */
 .cx-audit-select {
-  height: var(--space-8);
   min-width: 180px;
-  padding-inline: var(--space-3);
-  border: 1px solid var(--graphite-300);
-  border-radius: var(--radius-4);
-  background-color: var(--graphite-0);
-  color: var(--graphite-900);
-  font-family: var(--font-ui);
-  font-size: var(--text-14);
-  transition: border-color var(--motion-state) var(--ease);
 }
 
-.cx-audit-select:hover {
-  border-color: var(--graphite-400);
-}
-
-/* An act type is a source key, so it renders in the same face the log's own values render in. */
+/* An act type is a source key, so a chosen one renders in the face the log's own values render in
+   (I-25). Chrome — the all-option — is not a model value and does not take it. */
 .cx-audit-select-mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums slashed-zero;
@@ -93,13 +84,14 @@
   width: 240px;
 }
 
+/* A count is a sentence about the list, not a value out of the store: it reads in the UI face, with
+   the tabular figures every number in the UI is set in (C-SPINE-PLATFORM). */
 .cx-audit-count {
   margin: 0;
   margin-left: auto;
   align-self: center;
-  font-family: var(--font-mono);
   font-size: var(--text-12);
-  font-variant-numeric: tabular-nums slashed-zero;
+  font-variant-numeric: tabular-nums;
   color: var(--graphite-600);
 }
 

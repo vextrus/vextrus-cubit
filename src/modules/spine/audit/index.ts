@@ -106,26 +106,46 @@ function isYes(answer: unknown): boolean {
 }
 
 /**
- * A panel's posture, probed live. Armed exactly when the catalogue holds the table this panel is
- * named for; and when it does, the count is of the rows this project may see — filtered by
- * `project_id` when the table that has arrived carries one, because R-SPINE-081 names these surfaces
- * per project, and unfiltered when it does not, because a column the table has not got cannot be
- * counted by.
+ * A panel's posture, probed live. Armed exactly when this reader can answer the panel at all — the
+ * catalogue holds the table, and the handle asking holds SELECT on it. The catalogue answers for a
+ * relation the asking role has no privilege on, so arming on existence alone would let the count
+ * raise 42501 and carry a permission fault out to the error boundary of a screen whose panels
+ * answer a posture; a surface this reader may not read is not a surface it can arm.
+ *
+ * When it is armed, the count is of the rows this project may see — filtered by `project_id` when
+ * the table that has arrived carries one, because R-SPINE-081 names these surfaces per project, and
+ * unfiltered when it does not, because a column the table has not got cannot be counted by. The
+ * column is looked for on the relation `to_regclass` actually found rather than on every table of
+ * that name the role can see: a same-named table in a second schema would otherwise decide the
+ * shape of a statement issued against this one.
  */
 async function panelFor(db: TenantDb, table: string, projectId: string): Promise<AuditPanel> {
-  if (!PLAIN_IDENTIFIER.test(table)) return DISARMED;
+  if (!PLAIN_IDENTIFIER.test(table)) {
+    // AUDIT_PANEL_TABLES is this file's own constant, so a name that cannot be written into SQL is a
+    // defect of that constant and says so out loud. Answering DISARMED here would dress a rejected
+    // name as the truthful posture of an installation that holds no such table (ARCH-03, B-21).
+    throw new Error(`"${table}" is no plain table name, so no panel can probe it — AUDIT_PANEL_TABLES names tables (L-AI-01, C-SPINE-JOBS) and is re-pointed under B-20`);
+  }
 
-  const present = await scalar<unknown>(db, `select (to_regclass('${table}') is not null) as answer`);
-  if (!isYes(present)) return DISARMED;
+  const readable = await scalar<unknown>(
+    db,
+    `select (to_regclass('${table}') is not null and coalesce(has_table_privilege(to_regclass('${table}'), 'select'), false)) as answer`,
+  );
+  if (!isYes(readable)) return DISARMED;
 
   const perProject = isYes(
     await scalar<unknown>(
       db,
-      `select (count(*) > 0) as answer from information_schema.columns where table_name = '${table}' and column_name = '${PROJECT_COLUMN}'`,
+      `select (count(*) > 0) as answer from information_schema.columns as held` +
+        ` join pg_catalog.pg_class as relation on relation.relname = held.table_name` +
+        ` join pg_catalog.pg_namespace as within on within.oid = relation.relnamespace and within.nspname = held.table_schema` +
+        ` where relation.oid = to_regclass('${table}') and held.column_name = '${PROJECT_COLUMN}'`,
     ),
   );
   if (perProject && !isUuid(projectId)) return { armed: true, rowCount: 0 };
 
+  // The unqualified name is resolved by the same `search_path` `to_regclass` was answered against,
+  // so the rows counted are the rows of the relation that was armed.
   const where = perProject ? ` where ${PROJECT_COLUMN} = '${projectId}'` : "";
   const counted = await scalar<unknown>(db, `select count(*)::int as answer from ${table}${where}`);
   return { armed: true, rowCount: Number(counted ?? 0) };

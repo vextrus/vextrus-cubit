@@ -89,24 +89,31 @@ margin 0), then the **filter row**: flex, wrap, `gap: var(--space-3)`, align-ite
 control is label over field, `gap: var(--space-1)`, `<label for…>` `var(--text-13)`
 `var(--weight-body-medium)` `var(--graphite-700)`:
 
-- **Act type** — `<select data-testid="audit-filter-type" class="cx-audit-select
-  cx-reticle">` (I-31): height `var(--space-8)`, min-width 180 px, fill `var(--graphite-0)`,
-  border 1 px solid `var(--graphite-300)`, radius `var(--radius-4)`, padding-inline
-  `var(--space-3)`, text `var(--text-14)` `var(--graphite-900)` in `var(--font-mono)`
-  `tabular-nums slashed-zero` — act types are source keys and render verbatim (I-25). Hover:
-  border `var(--graphite-400)`; focus: the reticle fallback (a replaced element hosts no
-  `::after`). First option `audit_filter_any_type`, value empty; then the distinct
-  `actType`s of the given rows, code-point order, each its own verbatim label and value.
-- **Actor** — `<select data-testid="audit-filter-actor">`, same chrome in `var(--font-ui)`
-  (an actor label is prose, not a source key). First option `audit_filter_any_actor`; then
-  the distinct actors, option label `actorLabel`, option value `actorId`.
+- **Act type** — `<select data-testid="audit-filter-type" class="cx-input cx-reticle
+  cx-audit-select">` (I-31): the core Input's own chrome — height, fill, border, radius,
+  padding-inline, `var(--text-14)` `var(--graphite-900)`, hover `var(--graphite-400)`,
+  disabled and invalid — is worn by taking `.cx-input` itself, never restated here (B-17);
+  `.cx-audit-select` adds min-width 180 px and nothing else. Focus: the reticle fallback (a
+  replaced element hosts no `::after`). **While an act type is chosen** the control also
+  takes `.cx-audit-select-mono` — `var(--font-mono)` `tabular-nums slashed-zero` — because a
+  chosen act type is a source key rendered verbatim (I-25); with the all-option showing it
+  reads in `var(--font-ui)`, since that option is the control's own chrome and not a model
+  value, and two adjacent filters must not disagree on typeface over chrome. First option
+  `audit_filter_any_type`, value empty; then the distinct `actType`s of the given rows,
+  code-point order, each its own verbatim label and value.
+- **Actor** — `<select data-testid="audit-filter-actor">`, same chrome, always in
+  `var(--font-ui)` (an actor label is prose, not a source key). First option
+  `audit_filter_any_actor`; then the distinct actors, option label `actorLabel`, option
+  value `actorId`.
 - **Subject** — the core Input, `data-testid="audit-filter-subject"`, width 240 px,
   labelled `audit_filter_subject_label`, no placeholder (the s-auth ruling). Matching per
   I-32, conjunctive with both selects.
 - **The count line** — `<p role="status">`, margin 0, `align-self: center`,
   `margin-left: auto`: `audit_count` filled by the string seam's `fill` with `{shown}` and
-  `{total}` through `formatUserFigure`, `var(--font-mono)` `var(--text-12)`
-  `var(--graphite-600)` `tabular-nums slashed-zero`. Mounted from first paint, so a filter
+  `{total}` through `formatUserFigure`, `var(--font-ui)` `var(--text-12)`
+  `var(--graphite-600)` `tabular-nums` — a sentence about the list rather than a value out of
+  the store, so it takes the UI face with the tabular figures every UI number takes
+  (C-SPINE-PLATFORM). Mounted from first paint, so a filter
   change is announced without a second live region.
 
 Then `var(--space-3)`, then `<ol data-testid="audit-acts">` — list-style none, margin 0,
@@ -139,7 +146,11 @@ heading line `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`,
 `var(--text-13)` `var(--graphite-600)`. With no acts at all: `audit_empty_none_heading` /
 `audit_empty_none_body`, nothing else. With acts but no match: `audit_empty_filtered_heading`
 / `audit_empty_filtered_body`, then `var(--space-2)` and a core ghost Button, label
-`audit_empty_clear`, `align-self: start`, which resets all three filters in place.
+`audit_empty_clear`, `align-self: start`, which resets all three filters in place. Clearing
+unmounts this block and with it the button that was pressed, so the clearing moves focus to
+the act-type filter: a control that deletes its own focus target would drop a keyboard reader
+to `<body>` and back to the top of the document, and a visible focus indicator is never
+optional (R-UI-012).
 
 ### The panels
 
@@ -153,6 +164,12 @@ radius `var(--radius-8)`, padding `var(--space-4)`, column flex `gap: var(--spac
 
 - `<h2>` `audit_ledger_heading` / `audit_jobs_heading` — `var(--text-16)`
   `var(--weight-heading)` `var(--graphite-900)`, margin 0.
+Armed means the panel can be answered for the reader in front of it: the catalogue holds the
+table AND the tenant handle asking holds `select` on it. The catalogue answers about relations
+a role has no privilege on, so arming on existence alone would let the row count raise a
+permission fault and take the whole screen to the error boundary — and a posture is never a
+fault (I-35).
+
 - **Disarmed** (`data-armed="false"`, the M0 shipped answer): one body line,
   `audit_ledger_disarmed` / `audit_jobs_disarmed`, `var(--text-13)` `var(--graphite-600)`.
 - **Armed** (`data-armed="true"`): the row count — `formatUserFigure(String(rowCount))` in
