@@ -69,9 +69,17 @@ BEGIN
 		INTO countermanded
 		FROM "participant_roles" held
 		WHERE held."grant_id" = NEW."grant_id";
-	-- No such grant: the foreign key on `grant_id` refuses this row a moment from now, and a backstop
-	-- inventing a second answer for it would only say the same thing less clearly.
-	IF NOT FOUND OR countermanded.role <> 'PRINCIPAL' THEN
+	-- The read happens under the scope the writer armed, so NOT FOUND covers two rows at once: a
+	-- `grant_id` that names nothing, and a `grant_id` naming a grant row security keeps from this
+	-- session — another tenant's. The foreign key is not the answer to the second one: FK checks
+	-- bypass row security, so such a row would pass the key and land here unjudged, subtracting by
+	-- `grant_id` a PRINCIPAL grant this backstop never counted. A grant this statement may not read
+	-- is a grant it may not countermand, and both cases are refused in the same words.
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'participant_role_withdrawals: grant % is not readable in this session, and a withdrawal is judged against the grant it countermands', NEW."grant_id"
+			USING ERRCODE = '23514';
+	END IF;
+	IF countermanded.role <> 'PRINCIPAL' THEN
 		RETURN NEW;
 	END IF;
 	-- The project's own state lock — the very key the act seam takes before it recomputes a

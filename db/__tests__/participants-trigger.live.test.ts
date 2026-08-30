@@ -25,7 +25,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { REFUSALS } from "../../src/core/errors";
 import { provisionScratchDb, type ScratchDb } from "./harness";
-import { GUC_SYSTEM_REASON, SEED_REASON } from "./support/fixtures";
+import { GUC_SYSTEM_REASON, GUC_TENANT, SEED_REASON } from "./support/fixtures";
 import { ident, lit, psql, run, scalar, withSession } from "./support/live-sql";
 
 /** The registered code the raised message must carry, read from the registry rather than spelled. */
@@ -100,6 +100,28 @@ function psqlAsync(script: string): Promise<{ ok: boolean; stderr: string }> {
   });
 }
 
+/**
+ * Wait until some transaction holds an advisory lock in this database — the project state lock the
+ * trigger takes before it counts standing PRINCIPALs. A wall clock cannot order two psql processes:
+ * a slow spawn would let the second transaction count first, and the case would then assert the
+ * opposite of what happened. The lock is the handshake: it appears exactly when the first INSERT has
+ * reached the guard, and the scratch database is this file's alone, so nothing else takes one.
+ */
+async function firstWithdrawalReachedTheGuard(alreadyFinished: () => boolean): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    // Either the guard is standing on the lock now, or the whole transaction came and went while
+    // this loop slept — both mean the first withdrawal was judged before the second one starts.
+    if (alreadyFinished()) return;
+    const holders = Number(
+      seedScalar(`select count(*) from pg_locks where locktype = 'advisory' and granted and database = (select oid from pg_database where datname = current_database());`),
+    );
+    if (holders > 0) return;
+    await new Promise((wake) => setTimeout(wake, 25));
+  }
+  throw new Error("the first withdrawal never took the project's state lock, so the race was never staged");
+}
+
 describe("the owner-installed last-PRINCIPAL trigger, driven past the seam", () => {
   it("refuses a withdrawal of the project's only effective PRINCIPAL, naming the registered code", () => {
     const person = randomUUID();
@@ -138,6 +160,39 @@ describe("the owner-installed last-PRINCIPAL trigger, driven past the seam", () 
     expect(withdrawalsFor(elsewhere.projectId), "a refused withdrawal writes nothing").toBe(0);
   });
 
+  it("refuses a withdrawal whose countermanded grant the writing session's scope hides", () => {
+    // A grant of another workspace, pointed at from a row this session may lawfully write. The
+    // foreign key takes it — key checks bypass row security — so the key is not what stands between
+    // the ledger and an unjudged subtraction of somebody else's last PRINCIPAL. The trigger reads
+    // the grant under the scope the writer armed, sees nothing, and refuses on that.
+    const stranger = randomUUID();
+    const otherTenant = seedScalar(`insert into tenants (name) values ('Another workspace') returning tenant_id::text;`);
+    const otherProject = seedScalar(`insert into projects (tenant_id, name) values (${lit(otherTenant)}, 'Their project') returning project_id::text;`);
+    seed(`insert into participants (tenant_id, project_id, user_id) values (${lit(otherTenant)}, ${lit(otherProject)}, ${lit(stranger)}) on conflict do nothing;`);
+    const hiddenGrant = seedScalar(
+      `insert into ${ident(PARTICIPANT_ROLES)} (tenant_id, project_id, user_id, role)
+         values (${lit(otherTenant)}, ${lit(otherProject)}, ${lit(stranger)}, ${lit(PRINCIPAL)}) returning grant_id::text;`,
+    );
+
+    const writer = randomUUID();
+    const here = scene([writer]);
+    const attempt = psql(
+      url,
+      withSession(
+        { [GUC_TENANT]: tenantId },
+        withdrawal({ grantId: hiddenGrant, projectId: here.projectId, userId: stranger, role: MEASURER, actId: actOf(here.projectId, writer) }),
+      ),
+    );
+
+    expect(attempt.ok, `a withdrawal of a grant this session cannot read landed unjudged:\n${attempt.stderr}`).toBe(false);
+    expect(attempt.sqlstate, "and is refused by the backstop's own check violation, not by the key it would have passed").toBe("23514");
+    expect(withdrawalsFor(here.projectId), "a refused withdrawal writes nothing").toBe(0);
+    expect(
+      Number(seedScalar(`select count(*) from ${ident(WITHDRAWALS)} where grant_id = ${lit(hiddenGrant)};`)),
+      "and the hidden grant keeps standing: nothing countermanded it",
+    ).toBe(0);
+  });
+
   it("admits a withdrawal while a second PRINCIPAL stands, and refuses the one that would empty the project", () => {
     const first = randomUUID();
     const second = randomUUID();
@@ -167,9 +222,14 @@ describe("the owner-installed last-PRINCIPAL trigger, driven past the seam", () 
     const session = `set ${GUC_SYSTEM_REASON} = ${lit(SEED_REASON)};`;
 
     // The first transaction takes its turn and holds it open; the second arrives while it is still
-    // uncommitted and must not be allowed to count the grant the first is taking away.
-    const held = psqlAsync(`begin; ${session} ${withdrawal({ grantId: grants[0] ?? "", projectId, userId: first, role: PRINCIPAL, actId })} select pg_sleep(2); commit;`);
-    await new Promise((wake) => setTimeout(wake, 500));
+    // uncommitted and must not be allowed to count the grant the first is taking away. Which one is
+    // first is settled by the lock the first one takes, never by how fast either psql starts.
+    let firstFinished = false;
+    const held = psqlAsync(`begin; ${session} ${withdrawal({ grantId: grants[0] ?? "", projectId, userId: first, role: PRINCIPAL, actId })} select pg_sleep(2); commit;`).then((answer) => {
+      firstFinished = true;
+      return answer;
+    });
+    await firstWithdrawalReachedTheGuard(() => firstFinished);
     const racing = psqlAsync(`begin; ${session} ${withdrawal({ grantId: grants[1] ?? "", projectId, userId: second, role: PRINCIPAL, actId })} commit;`);
 
     const [firstAnswer, secondAnswer] = await Promise.all([held, racing]);
