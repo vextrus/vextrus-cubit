@@ -75,8 +75,14 @@ BEGIN
 	-- bypass row security, so such a row would pass the key and land here unjudged, subtracting by
 	-- `grant_id` a PRINCIPAL grant this backstop never counted. A grant this statement may not read
 	-- is a grant it may not countermand, and both cases are refused in the same words.
+	--
+	-- Under the same registered code as the limb below, and for the one reason both limbs serve: a
+	-- grant the backstop cannot read is a grant it cannot prove is not a project's last PRINCIPAL,
+	-- so it is refused by the law it cannot verify. Naming the registered code here too keeps every
+	-- refusal this guard raises machine-readable, rather than one of them being free text a reader
+	-- has to parse (B-19: the code is the registry's, never a second spelling of the law).
 	IF NOT FOUND THEN
-		RAISE EXCEPTION 'participant_role_withdrawals: grant % is not readable in this session, and a withdrawal is judged against the grant it countermands', NEW."grant_id"
+		RAISE EXCEPTION 'PROJECT_WOULD_HAVE_NO_PRINCIPAL: grant % is not readable in this session, so whether withdrawing it empties a project of PRINCIPALs cannot be judged, and a withdrawal is judged against the grant it countermands', NEW."grant_id"
 			USING ERRCODE = '23514';
 	END IF;
 	IF countermanded.role <> 'PRINCIPAL' THEN

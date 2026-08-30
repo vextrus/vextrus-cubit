@@ -101,22 +101,37 @@ function psqlAsync(script: string): Promise<{ ok: boolean; stderr: string }> {
 }
 
 /**
- * Wait until some transaction holds an advisory lock in this database — the project state lock the
- * trigger takes before it counts standing PRINCIPALs. A wall clock cannot order two psql processes:
- * a slow spawn would let the second transaction count first, and the case would then assert the
- * opposite of what happened. The lock is the handshake: it appears exactly when the first INSERT has
- * reached the guard, and the scratch database is this file's alone, so nothing else takes one.
+ * A `count(*)` over the holders of ONE project's state lock — the very key the trigger takes,
+ * `hashtextextended('<tenant>:<project>', 0)`, recomposed from `pg_locks` rather than approximated
+ * by "some advisory lock exists". An advisory lock's 64-bit key is published split in two: the high
+ * 32 bits in `classid`, the low 32 in `objid`, with `objsubid = 1` marking the single-key form. Any
+ * other advisory lock any other session takes — a later case here, a helper opening its own
+ * transaction — therefore cannot answer this question.
  */
-async function firstWithdrawalReachedTheGuard(alreadyFinished: () => boolean): Promise<void> {
+function holdersOfProjectStateLock(projectId: string): string {
+  const key = `hashtextextended(${lit(`${tenantId}:${projectId}`)}, 0)`;
+  return `select count(*) from pg_locks
+     where locktype = 'advisory'
+       and granted
+       and database = (select oid from pg_database where datname = current_database())
+       and objsubid = 1
+       and classid::bigint = ((${key} >> 32) & 4294967295)
+       and objid::bigint = (${key} & 4294967295);`;
+}
+
+/**
+ * Wait until a transaction holds THIS project's state lock — the one the trigger takes before it
+ * counts standing PRINCIPALs. A wall clock cannot order two psql processes: a slow spawn would let
+ * the second transaction count first, and the case would then assert the opposite of what happened.
+ * The lock is the handshake: it appears exactly when the first INSERT has reached the guard.
+ */
+async function firstWithdrawalReachedTheGuard(projectId: string, alreadyFinished: () => boolean): Promise<void> {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
     // Either the guard is standing on the lock now, or the whole transaction came and went while
     // this loop slept — both mean the first withdrawal was judged before the second one starts.
     if (alreadyFinished()) return;
-    const holders = Number(
-      seedScalar(`select count(*) from pg_locks where locktype = 'advisory' and granted and database = (select oid from pg_database where datname = current_database());`),
-    );
-    if (holders > 0) return;
+    if (Number(seedScalar(holdersOfProjectStateLock(projectId))) > 0) return;
     await new Promise((wake) => setTimeout(wake, 25));
   }
   throw new Error("the first withdrawal never took the project's state lock, so the race was never staged");
@@ -229,7 +244,7 @@ describe("the owner-installed last-PRINCIPAL trigger, driven past the seam", () 
       firstFinished = true;
       return answer;
     });
-    await firstWithdrawalReachedTheGuard(() => firstFinished);
+    await firstWithdrawalReachedTheGuard(projectId, () => firstFinished);
     const racing = psqlAsync(`begin; ${session} ${withdrawal({ grantId: grants[1] ?? "", projectId, userId: second, role: PRINCIPAL, actId })} commit;`);
 
     const [firstAnswer, secondAnswer] = await Promise.all([held, racing]);
