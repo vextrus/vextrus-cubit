@@ -92,6 +92,8 @@ export const assignParticipantRole: ActRendering<AssignParticipantRoleInput> = {
       actType: "ASSIGN_PARTICIPANT_ROLE",
       tenantId: ctx.tenantId,
       projectId: input.projectId,
+      // One subject moving between two role lists is exactly the SUBJECTS arm (L-ACT-02).
+      rendering: "SUBJECTS",
       subjects: [{ subjectId: input.subjectUserId, before, after: after(before, role, direction) }],
     };
   },

@@ -47,28 +47,52 @@ CREATE TRIGGER "participant_role_withdrawals_append_only_truncate" BEFORE TRUNCA
 -- none. The raised message carries the registered code so a machine reading the failure knows which
 -- law stopped it; what a person reads is the registry's own entry, rendered by the one renderer.
 --
+-- What it judges is the GRANT this row countermands, read out of `participant_roles` by the row's
+-- own `grant_id`, never the tenant/project/role columns the writer wrote beside it: a withdrawal
+-- subtracts a grant (that is what `effectiveGrants` reads it as), so a row naming MEASURER on some
+-- other project while pointing at a PRINCIPAL grant still takes that PRINCIPAL away. A backstop
+-- that believed the writer's own labels would be countermanded by the very statement it guards.
+--
 -- SECURITY INVOKER, deliberately: the reading has to happen under the scope the writer armed, or a
 -- definer's own unscoped session would see no row through FORCE row-level security and refuse every
 -- withdrawal ever attempted. Owner-proof does not mean owner-scoped — the trigger fires for the
 -- table's owner exactly as it fires for `cubit_app`, which is what makes it a backstop at all.
 CREATE FUNCTION "cubit_project_keeps_a_principal"() RETURNS trigger LANGUAGE plpgsql AS $cubit_project_keeps_a_principal$
 DECLARE
+	countermanded record;
 	standing integer;
 BEGIN
-	IF NEW."role" <> 'PRINCIPAL' THEN
+	-- The grant this row answers. Read plainly: a row lock on an append-only ledger is not available
+	-- to the role that writes withdrawals — `cubit_app` holds SELECT and INSERT and nothing else, and
+	-- `SELECT … FOR UPDATE` wants UPDATE or DELETE — so the turn-taking is taken below instead.
+	SELECT held."tenant_id" AS tenant_id, held."project_id" AS project_id, held."role" AS role
+		INTO countermanded
+		FROM "participant_roles" held
+		WHERE held."grant_id" = NEW."grant_id";
+	-- No such grant: the foreign key on `grant_id` refuses this row a moment from now, and a backstop
+	-- inventing a second answer for it would only say the same thing less clearly.
+	IF NOT FOUND OR countermanded.role <> 'PRINCIPAL' THEN
 		RETURN NEW;
 	END IF;
+	-- The project's own state lock — the very key the act seam takes before it recomputes a
+	-- Consequence (`holdStateLock`, `tenantId:projectId` through `hashtextextended`), so the backstop
+	-- and the seam's advisory-locked guard take turns on one lock rather than two. Without it two
+	-- withdrawals of one project's two PRINCIPALs would each count the other as standing and both
+	-- write. Held until the transaction ends; the counting statement below then runs under a fresh
+	-- snapshot (READ COMMITTED takes one per statement) and so sees what the other transaction
+	-- committed while this one waited.
+	PERFORM pg_advisory_xact_lock(hashtextextended(countermanded.tenant_id::text || ':' || countermanded.project_id::text, 0));
 	SELECT count(DISTINCT held."user_id") INTO standing
 		FROM "participant_roles" held
-		WHERE held."tenant_id" = NEW."tenant_id"
-			AND held."project_id" = NEW."project_id"
+		WHERE held."tenant_id" = countermanded.tenant_id
+			AND held."project_id" = countermanded.project_id
 			AND held."role" = 'PRINCIPAL'
 			AND held."grant_id" <> NEW."grant_id"
 			AND NOT EXISTS (
 				SELECT 1 FROM "participant_role_withdrawals" answered WHERE answered."grant_id" = held."grant_id"
 			);
 	IF standing = 0 THEN
-		RAISE EXCEPTION 'PROJECT_WOULD_HAVE_NO_PRINCIPAL: withdrawing this grant would leave project % with no effective PRINCIPAL, and a project holds at least one at every moment', NEW."project_id"
+		RAISE EXCEPTION 'PROJECT_WOULD_HAVE_NO_PRINCIPAL: withdrawing this grant would leave project % with no effective PRINCIPAL, and a project holds at least one at every moment', countermanded.project_id
 			USING ERRCODE = '23514';
 	END IF;
 	RETURN NEW;

@@ -28,8 +28,7 @@ export type ConsequenceSubject = {
  * How a Consequence renders (L-ACT-02: "a type without a rendering is a compile error"). The arms
  * are a closed union and the act pattern switches over it exhaustively, so an act whose Consequence
  * says something a different shape — L-ACT-02's offered groups, say — adds its arm here and its
- * rendering there, or fails to compile. Absent means `SUBJECTS`: the arm every act shipped so far
- * answers, and the one the field named nothing about before there were two.
+ * rendering there, or fails to compile.
  */
 export type ConsequenceRendering = "SUBJECTS";
 
@@ -38,7 +37,12 @@ export type Consequence = {
   readonly actType: ActType;
   readonly tenantId: string;
   readonly projectId: string;
-  readonly rendering?: ConsequenceRendering;
+  /**
+   * Named, never defaulted: L-ACT-02 makes a type without a rendering a compile error, and an
+   * optional field would let the act that arrives with the second arm's shape compile as the first
+   * one — rendering its groups as a subject list nobody wrote.
+   */
+  readonly rendering: ConsequenceRendering;
   readonly subjects: readonly ConsequenceSubject[];
 };
 
@@ -52,16 +56,20 @@ export function consequenceDigest(consequence: Consequence): string {
 }
 
 /**
- * What the digest binds: the facts the act would move, and nothing about how they are shown. A
- * subject's label and the rendering arm are presentation — a surface that resolved a nicer word for
- * the same person, or a second way of laying the same transition out — and a digest that changed
- * with them would refuse `CONSEQUENCES_NOT_CARRIED` for a state that never moved.
+ * What the digest binds: the facts the act would move, and the arm they are judged as. A subject's
+ * label is presentation — a surface that resolved a nicer word for the same person — and a digest
+ * that changed with it would refuse `CONSEQUENCES_NOT_CARRIED` for a state that never moved. The
+ * rendering arm is not presentation in that sense: it says WHAT KIND of thing the subjects are
+ * (L-ACT-02's offered groups are not a subject list), so a preview shown as one arm and a commit
+ * recomputed as another are not the same consequence, and R-UI-021 makes the digest the thing the
+ * operator confirmed.
  */
 function judged(consequence: Consequence): unknown {
   return {
     actType: consequence.actType,
     tenantId: consequence.tenantId,
     projectId: consequence.projectId,
+    rendering: consequence.rendering,
     subjects: consequence.subjects.map((subject) => ({ subjectId: subject.subjectId, before: subject.before, after: subject.after })),
   };
 }

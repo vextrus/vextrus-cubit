@@ -53,12 +53,18 @@
   padding: 0;
 }
 
+/*
+ * The two halves read as one line: the roles sit beside the member they belong to, not flung to the
+ * far edge of an 800 px measure with the eye asked to carry the pairing across the gap. The name
+ * column takes the width it needs and no more (shrinking to its ellipsis when it must), and the
+ * trailing space falls at the end of the row — the same left-packed reading the history below has.
+ */
 .cx-participants-row {
   display: grid;
   min-height: var(--row-comfortable);
   align-items: center;
   gap: var(--space-4);
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, max-content) auto;
 }
 
 .cx-participants-row + .cx-participants-row {
@@ -147,6 +153,9 @@
 }
 
 .cx-participants-history-row {
+  /* The row's own ruler, stated once and used by both its lines: the direction column's measure. */
+  --participants-direction-column: 88px;
+
   padding-block: var(--space-2);
 }
 
@@ -163,7 +172,7 @@
 
 /* The direction column aligns, so the record scans down its own left edge. */
 .cx-participants-direction {
-  min-width: 88px;
+  min-width: var(--participants-direction-column);
   font-size: var(--text-12);
   color: var(--graphite-600);
 }
@@ -182,9 +191,15 @@
   white-space: nowrap;
 }
 
-/* Line two carries the date, so its figures are tabular and its zeroes slashed. */
+/*
+ * Line two carries the date, so its figures are tabular and its zeroes slashed. It starts where
+ * line one's role does — under the row's own second column, past the direction ruler and the gap —
+ * so the entry reads as one block hanging off its direction, not as a second line breaking back out
+ * to the record's left edge.
+ */
 .cx-participants-history-by {
   margin: var(--space-2) 0 0;
+  padding-inline-start: calc(var(--participants-direction-column) + var(--space-3));
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
   color: var(--graphite-600);

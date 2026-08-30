@@ -92,11 +92,15 @@ Header block (`gap: var(--space-2)`): `<h1>` `spine_participants_heading` —
 `var(--graphite-900)`, margin 0), then `<ul data-testid="participants-list">` — list-style
 none, margin 0, padding 0. One `<li data-testid="participants-row" data-user={userId}>` per
 participant: min-height `var(--row-comfortable)`, border-top `var(--hairline)` after the
-first, align-items center, grid `minmax(0, 1fr) auto`, column gap `var(--space-4)`: the
-member's label (I-51) `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`,
+first, align-items center, grid `minmax(0, max-content) auto`, column gap `var(--space-4)`:
+the member's label (I-51) `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`,
 single line, ellipsis; then the effective roles (I-52), each verbatim in `var(--font-mono)`
 `var(--text-12)` `var(--graphite-700)`, joined with `var(--space-2)` gaps, in the role
-enum's declared order. Nothing here is interactive and no hover fill renders.
+enum's declared order. The two halves pack left, beside each other — the name column takes
+the width it needs and no more, the trailing space falls at the end of the row — so a role
+is read next to the member holding it rather than across the 800 px measure from them; the
+history below reads left-packed for the same reason. Nothing here is interactive and no
+hover fill renders.
 
 ### Assign a role (`<section aria-labelledby>`)
 
@@ -116,6 +120,17 @@ wrapping chip row at gap `var(--space-2)` (I-48):
 Then the **answer slot** `<div data-testid="participants-refusal">` (before the submit, the
 s-auth ordering), then a core primary Button, no testid (the contract is closed; journeys
 find it by role and name), label `spine_participants_assign_submit`, `align-self: start`.
+
+Last in the form, a **status line** `<p role="status" aria-live="polite">` (no testid; the
+contract is closed): `var(--text-12)` `var(--graphite-600)`, margin 0, min-height
+`var(--text-13)` so the form does not jump as it fills and empties. It says
+`spine_participants_assign_pending` while the pre-check is in flight and
+`spine_participants_assign_committed` once the dialog has committed; otherwise it is empty.
+It is announcement, not answer: the visible answer to a commit remains the new history row
+(below), and no toast ships — a reader who cannot see the record grow is told in words that
+an irreversible act was recorded, which R-UI-050's written cell and R-UI-012 together owe
+them. The refusal slot above is unaffected; the two never speak at once (in flight, neither
+the judged sentence nor a settled refusal stands).
 
 **Submission** (I-49): the handler first judges locally (s-home I-34's class) — a member and
 a role are chosen, else one `role="alert"` line `spine_participants_assign_refusal` renders
@@ -151,7 +166,11 @@ padding-block `var(--space-2)`, border-top `var(--hairline)` after the first, tw
   aligns — the ruleset scope-column precedent) · the role verbatim (`var(--font-mono)`
   `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`) · the subject's label
   (`var(--text-13)` `var(--graphite-700)`, ellipsis).
-- Line two: `spine_participants_history_by` with the acting user's label and the date
+- Line two, indented to line one's second column — padding-inline-start of the 88 px
+  direction ruler plus the `var(--space-3)` gap, both stated once as the row's own custom
+  property — so the entry reads as one block hanging off its direction rather than a second
+  line breaking back out to the record's left edge:
+  `spine_participants_history_by` with the acting user's label and the date
   through `src/core/format`'s date seam (DD MMM YYYY, the s-home I-37 class; the date
   renders `var(--font-mono)` `tabular-nums slashed-zero`), `var(--text-12)`
   `var(--graphite-600)`. Direction carries its meaning in the word, never in colour (Q-11):
@@ -200,7 +219,9 @@ will change. Nothing is committed until you confirm it there.** ·
 `spine_participants_field_member` **Member** · `spine_participants_field_role` **Role** ·
 `spine_participants_field_direction` **Direction** · `spine_participants_assign_submit`
 **Preview this change** · `spine_participants_assign_refusal` **Choose a member and a role
-— nothing was previewed.** · `spine_participants_history_heading` **Role history** ·
+— nothing was previewed.** · `spine_participants_assign_pending` **Working out what this
+change would do…** · `spine_participants_assign_committed` **Recorded. The change is on the
+record below.** · `spine_participants_history_heading` **Role history** ·
 `spine_participants_history_hint` **Every grant and withdrawal on this project, oldest
 first. Withdrawn roles stay on the record — nothing here is edited or deleted.** ·
 `spine_participants_history_by` **by {actor} on {date}** (both slots are data) ·
@@ -257,7 +278,8 @@ slot, and the same id wrapping the I-50 denied branch — one id, the screen's o
 answer surface) — plus the ConsequenceDialog's five, ruled in its own Decision. No others
 are added. Behavioural hooks without new ids: `aria-pressed` on the Chips (exactly one per
 group), `aria-invalid`/`aria-describedby` on a judged fieldset, `role="alert"` on the local
-line, `aria-busy` on the loading submit, RefusalState's own ids and `data-code` inside
+line, `role="status"`/`aria-live="polite"` on the form's status line, `aria-busy` on the
+loading submit, RefusalState's own ids and `data-code` inside
 `participants-refusal`.
 
 Journey: `tests/e2e/journeys/j-003-projects.spec.ts` extended (page object
