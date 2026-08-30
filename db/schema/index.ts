@@ -4,3 +4,4 @@ export * from "./tenants";
 export * from "./projects";
 export * from "./acts";
 export * from "./identity";
+export * from "./prefs";

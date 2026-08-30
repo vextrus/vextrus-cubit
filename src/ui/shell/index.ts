@@ -5,6 +5,7 @@ import "../primitives/core/reticle.css";
 import "./shell.css";
 
 export { AppShell } from "./app-shell";
+export { DensityToggle } from "./density-toggle";
 export { ShellDenied } from "./shell-denied";
 export { ShellEmptyState } from "./shell-empty-state";
 export { ShellInspector } from "./shell-inspector";
@@ -15,6 +16,7 @@ export { SHELL_AREAS, areaOf, hasVisibleText, isAreaHome, shellHref } from "./ro
 export { SHELL_STATES } from "./states";
 
 export type { AppShellProps } from "./app-shell";
+export type { DensityToggleProps } from "./density-toggle";
 export type { ShellDeniedProps } from "./shell-denied";
 export type { ShellEmptyStateProps } from "./shell-empty-state";
 export type { ShellRailProps } from "./shell-rail";

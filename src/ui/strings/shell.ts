@@ -56,6 +56,13 @@ export const shell = {
   // it the breadcrumb link would carry no discernible name at all (Q-11).
   shell_workspace_unnamed: "Unnamed workspace",
 
+  // R-UI-005's control. The hint says what the setting does and where it holds, not how it is
+  // stored; the option labels are the plain mode names, never the seam's raw values.
+  shell_density_label: "Table density",
+  shell_density_hint: "Sets the row height of every table. Saved to your account, so it applies wherever you sign in.",
+  shell_density_comfortable: "Comfortable",
+  shell_density_compact: "Compact",
+
   shell_denied_heading: "You do not have access to this workspace",
   shell_denied_permission: "Seeing it needs membership of the workspace this address names, which your account does not hold.",
   shell_denied_holder: "Its existing members hold that membership.",

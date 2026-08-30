@@ -119,7 +119,26 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     expect((await digest.innerText()).trim().length, "the digest is not an empty line").toBeGreaterThan(0);
 
     await checkpoint(page, testInfo, "j-003/ruleset-pin-visible");
-    await expect(page).toHaveScreenshot(["j-003", "ruleset-pin-visible.png"], { animations: "disabled" });
+
+    /**
+     * V-E2E's "per-journey masks for volatile regions", applied to this checkpoint (arbitrated).
+     * Two regions of this page are decided by something other than the screen under comparison:
+     * the top bar wears the account address, whose local part is minted per run at the head of
+     * this file, and the digest rows wear a content fingerprint the seeded rule-set content
+     * decides — neither is a fact this checkpoint asserts, and line 118 above already states what
+     * the identity and the digest are owed (a non-empty line each).
+     *
+     * Everything the checkpoint exists for stays compared: the frame, the pinned edition's
+     * identity, each lineage step's scope/name/version line, and the parameter table. The capture
+     * is still the full page against the committed Linux baseline, at the tolerance the lane's
+     * config fixes for every visual comparison (V-E2E).
+     *
+     * A lineage step's digest carries no id of its own — docs/design/s-settings-ruleset.md § 7
+     * closes that roster at seven ids — so it is addressed where § 1 rules it: the step's second
+     * and last line.
+     */
+    const volatileRegions = [shell.user, digest, page.getByTestId("ruleset-lineage-step").locator("> :last-child")];
+    await expect(page).toHaveScreenshot(["j-003", "ruleset-pin-visible.png"], { mask: volatileRegions, animations: "disabled" });
   });
 
   /**

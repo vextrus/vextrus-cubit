@@ -5,6 +5,7 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { refusalOf } from "../../../../core/errors";
+import { densityFor } from "../../../../core/prefs";
 import { presentedSessionToken } from "../../../../server/shell/session";
 import { viewerFor } from "../../../../server/shell/viewer";
 import { workspaceFor } from "../../../../server/shell/workspace";
@@ -30,8 +31,12 @@ export default async function WorkspaceLayout({ children, params }: { children: 
     return <ShellDenied refusal={refusalOf("PERMISSION_NOT_HELD")} evidence={evidence} />;
   }
 
+  // R-UI-005: the stored mode is read once, here, and published by the frame — every screen inside
+  // it inherits one source of truth rather than asking the seam for itself.
+  const density = await densityFor(viewer.userId);
+
   return (
-    <ShellFrame workspace={workspace} email={viewer.email} signOut={signOutAction}>
+    <ShellFrame workspace={workspace} email={viewer.email} density={density} signOut={signOutAction}>
       {children}
     </ShellFrame>
   );
