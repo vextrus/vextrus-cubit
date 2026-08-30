@@ -74,8 +74,14 @@
 }
 
 /* An act type is a source key, so a chosen one renders in the face the log's own values render in
-   (I-25). Chrome — the all-option — is not a model value and does not take it. */
-.cx-audit-select-mono {
+   (I-25). Chrome — the all-option — is not a model value and does not take it.
+
+   Both classes are named because this rule has to outrank `.cx-input`'s own `font-family`, which is
+   the primitive's default face and is a single-class selector like this one: whichever sheet the
+   bundler happens to serve second would otherwise decide the face, and a screen's paint may not
+   depend on chunk order. The face is the only declaration taken back from the primitive — border,
+   height, hover, disabled and invalid still have their one home in core.css (B-17). */
+.cx-audit-select.cx-audit-select-mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums slashed-zero;
 }
