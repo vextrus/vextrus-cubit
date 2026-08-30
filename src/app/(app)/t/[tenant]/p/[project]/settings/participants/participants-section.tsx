@@ -8,7 +8,7 @@
 // I-49: the screen pre-checks the preview and the dialog opens only on a consequence. A refusal
 // before the dialog opens is this screen's answer, in its own slot; a refusal that arrives once the
 // dialog holds focus is the dialog's, in its own.
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 // The law itself, not the seam's barrel: L-ACT-03's roles are a value that touches no database
 // (src/core/acts/law.ts), and a client component reaching through the barrel would drag the driver
 // into the browser bundle.
@@ -85,6 +85,10 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
   const [refusal, setRefusal] = useState<RefusalCode | null>(null);
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  // Whether the act this screen last carried through the dialog was written. An append-only act
+  // that cannot be undone is not confirmed by a list quietly growing a row: the screen says so, in a
+  // live region, so a reader who is not watching the record hears it too (R-UI-050).
+  const [committed, setCommitted] = useState(false);
   const alertId = useId();
   const headingIds = { current: useId(), assign: useId(), history: useId() };
   const formRef = useRef<HTMLFormElement>(null);
@@ -115,12 +119,27 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
   /** A refusal, in the shape the one act pattern rejects with and the one renderer composes (I-40). */
   const refused = useCallback((code: RefusalCode): unknown => ({ refusal: refusalOf(code), evidence: evidenceFor(code) }), [evidenceFor]);
 
+  /**
+   * The label each member is named by on this screen, keyed by the id the act carries. The fold's
+   * read-back happens once, on the server, for the roster and the subject list (I-51); this is that
+   * same answer, indexed — no second resolution and no second spelling of it (B-17).
+   */
+  const labels = useMemo(() => new Map([...subjects, ...roster].map((member) => [member.userId, member.label] as const)), [subjects, roster]);
+
   const dialogPreview = useCallback(async () => {
     if (assignment === null) throw new Error("the consequence dialog was opened with no assignment to preview");
     const answered: PreviewAnswer = await preview({ projectId, ...assignment });
     if (!answered.previewed) throw refused(answered.refusal);
-    return { consequence: answered.consequence, consequenceDigest: answered.consequenceDigest };
-  }, [assignment, preview, projectId, refused]);
+    // The seam names the subject by the id it moves the role for, which is the fact and the whole of
+    // what the digest binds; the dialog is where a person decides, and it has to name them in the
+    // words this screen already named them by. The label is attached here, at the layer that
+    // resolved it, and the digest travels untouched (I-55).
+    const named = {
+      ...answered.consequence,
+      subjects: answered.consequence.subjects.map((subject) => ({ ...subject, subjectLabel: labels.get(subject.subjectId) ?? subject.subjectId })),
+    };
+    return { consequence: named, consequenceDigest: answered.consequenceDigest };
+  }, [assignment, labels, preview, projectId, refused]);
 
   const dialogCommit = useCallback(
     async ({ consequenceDigest }: { consequenceDigest: string }) => {
@@ -133,8 +152,14 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
   );
 
   const submit = async (): Promise<void> => {
+    // A preview is a round trip, and the door stays where it is while it is in flight: a second
+    // submission would compute a second consequence for the same choice and open the dialog on
+    // whichever answered last. The button reads as busy (`aria-busy`, R-UI-050) and this is what
+    // makes the second press do nothing at all.
+    if (pending) return;
     setAttempt((made) => made + 1);
     setRefusal(null);
+    setCommitted(false);
     // Judged locally first (the s-home class): a submission naming no member or no role states no
     // assignment, so nothing is sent and the taxonomy stays closed (R-SPINE-062).
     if (subjectUserId === "" || role === "") {
@@ -237,6 +262,13 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
           <Button type="submit" className="cx-participants-submit" loading={pending}>
             {strings.spine_participants_assign_submit}
           </Button>
+
+          {/* The two states a round trip has beyond its answer: in flight, and written. Both are
+              announced rather than only drawn — the act is irreversible, and the confirmation is
+              what a reader who cannot see the record grow has instead (R-UI-050, R-UI-012). */}
+          <p className="cx-participants-status" role="status" aria-live="polite">
+            {pending ? strings.spine_participants_assign_pending : committed ? strings.spine_participants_assign_committed : ""}
+          </p>
         </form>
       </section>
 
@@ -287,6 +319,7 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
           setRole("");
           setDirection("GRANT");
           setAssignment(null);
+          setCommitted(true);
         }}
       />
     </div>

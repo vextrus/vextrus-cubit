@@ -201,3 +201,11 @@
   font-size: var(--text-13);
   color: var(--graphite-700);
 }
+
+/* The two round-trip states the form has beyond its answer: in flight, and written (R-UI-050). */
+.cx-participants-status {
+  min-height: var(--text-13);
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}

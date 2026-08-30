@@ -99,14 +99,14 @@ export const participantsRouter = router({
   roleHistory: signedInProcedure
     .input((raw: unknown) => ({ projectId: text(raw, "projectId") }))
     .query(async ({ ctx, input }) => {
-      const actor = await participantsActorFor(ctx.session?.userId ?? "", input.projectId, null);
+      const actor = await participantsActorFor(ctx.session.userId, input.projectId, null);
       return roleHistory(actor, { projectId: input.projectId });
     }),
 
   assignRolePreview: signedInProcedure
     .input((raw: unknown) => ({ input: assignInput(bagOf(raw)["input"]) }))
     .query(async ({ ctx, input }): Promise<{ consequence: Consequence; consequenceDigest: string }> => {
-      const actor = await participantsActorFor(ctx.session?.userId ?? "", input.input.projectId, ASSIGN_PARTICIPANT_ROLE);
+      const actor = await participantsActorFor(ctx.session.userId, input.input.projectId, ASSIGN_PARTICIPANT_ROLE);
       const consequence = await preview(actor, input.input);
       return { consequence, consequenceDigest: consequenceDigest(consequence) };
     }),
@@ -114,7 +114,7 @@ export const participantsRouter = router({
   assignRole: signedInProcedure
     .input((raw: unknown) => ({ input: assignInput(bagOf(raw)["input"]), consequenceDigest: text(raw, "consequenceDigest") }))
     .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
-      const actor = await participantsActorFor(ctx.session?.userId ?? "", input.input.projectId, ASSIGN_PARTICIPANT_ROLE);
+      const actor = await participantsActorFor(ctx.session.userId, input.input.projectId, ASSIGN_PARTICIPANT_ROLE);
       const written = await commit(actor, input.input, input.consequenceDigest);
       return { actId: written.actId };
     }),

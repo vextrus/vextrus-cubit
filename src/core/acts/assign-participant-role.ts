@@ -7,7 +7,7 @@
 // and the act-type enum is closed, so the direction is a field of this one act rather than a second
 // member of the enum. An input that names none grants, which is what every caller before the
 // withdrawal direction existed meant by it.
-import { participantRoleWithdrawals, participantRoles, participants, type TenantTx } from "../db";
+import { isUuid, participantRoleWithdrawals, participantRoles, participants, type TenantTx } from "../db";
 import type { Consequence } from "./consequence";
 import { isRole, type Role } from "./law";
 import { effectiveGrants, holdersOf } from "./participation";
@@ -35,6 +35,21 @@ function assignedRole(input: AssignParticipantRoleInput): Role {
     throw new Error(`"${String(input.role)}" is not a role — roles are the closed set a human picks from (L-ACT-03)`);
   }
   return input.role;
+}
+
+/**
+ * The subject the act moves a role for. The id arrives on the same wire the project id does — a URL
+ * segment or a form field a caller writes freely — and every column it is compared against is a
+ * `uuid`: a value that is not one makes postgres raise 22P02, a driver error carrying no refusal
+ * marker, from inside the preview's own read. It is judged here, at the seam both transports and
+ * both server actions come through (B-17), for the same reason the roster guard judges the project
+ * id before its query: a string that names no user names nobody this act could move a role for.
+ */
+function assignedSubject(input: AssignParticipantRoleInput): string {
+  if (typeof input.subjectUserId !== "string" || !isUuid(input.subjectUserId)) {
+    throw new Error(`"${String(input.subjectUserId)}" is not a user id — ASSIGN_PARTICIPANT_ROLE names the person it moves a role for`);
+  }
+  return input.subjectUserId;
 }
 
 /** The direction the input names, or the one an input naming none has always meant. */
@@ -68,6 +83,7 @@ function after(before: readonly string[], role: Role, direction: AssignDirection
 export const assignParticipantRole: ActRendering<AssignParticipantRoleInput> = {
   async preview(ctx: ActorCtx, input: AssignParticipantRoleInput, tx: TenantTx): Promise<Consequence> {
     const role = assignedRole(input);
+    assignedSubject(input);
     const direction = directionOf(input);
     if (direction === "WITHDRAW") await requireAPrincipalWouldStand(input, tx, role);
 
@@ -82,6 +98,7 @@ export const assignParticipantRole: ActRendering<AssignParticipantRoleInput> = {
 
   async commit(ctx: ActorCtx, input: AssignParticipantRoleInput, act: WrittenAct, tx: TenantTx): Promise<void> {
     const role = assignedRole(input);
+    assignedSubject(input);
     if (directionOf(input) === "WITHDRAW") {
       // The grant the withdrawal countermands, read from the same transaction that judged the
       // Consequence: nothing here rewrites `participant_roles`, because the grant is a record of

@@ -448,7 +448,7 @@ const SAMPLE_CONSEQUENCE: Consequence = {
   actType: "ASSIGN_PARTICIPANT_ROLE",
   tenantId: "00000000-0000-4000-8000-00000000c017",
   projectId: "00000000-0000-4000-8000-0000000c0117",
-  subjects: [{ subjectId: "estimator@cubit.test", before: ["PRINCIPAL"], after: ["PRINCIPAL", "MEASURER"] }],
+  subjects: [{ subjectId: "00000000-0000-4000-8000-00000000e571", subjectLabel: "estimator@cubit.test", before: ["PRINCIPAL"], after: ["PRINCIPAL", "MEASURER"] }],
 };
 
 const SAMPLE_DIGEST = "4e1b8c0d2f3a596871a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708";

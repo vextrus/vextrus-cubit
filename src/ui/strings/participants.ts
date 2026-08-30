@@ -11,6 +11,8 @@ export const participants = {
   spine_participants_field_direction: "Direction",
   spine_participants_assign_submit: "Preview this change",
   spine_participants_assign_refusal: "Choose a member and a role — nothing was previewed.",
+  spine_participants_assign_pending: "Working out what this change would do…",
+  spine_participants_assign_committed: "Recorded. The change is on the record below.",
   spine_participants_history_heading: "Role history",
   spine_participants_history_hint: "Every grant and withdrawal on this project, oldest first. Withdrawn roles stay on the record — nothing here is edited or deleted.",
   spine_participants_history_by: "by {actor} on {date}",

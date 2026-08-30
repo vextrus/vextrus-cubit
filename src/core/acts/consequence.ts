@@ -11,15 +11,34 @@ import type { ActType } from "./law";
  */
 export type ConsequenceSubject = {
   readonly subjectId: string;
+  /**
+   * What a reader recognises the subject by, when the layer that answered the Consequence could
+   * resolve one — an address, a name. It is presentation, never a fact the act judges: only the
+   * layer that may read the identity store can fill it (the fold's one home is above this seam), so
+   * a Consequence computed inside the seam carries none and the id is what a surface then shows.
+   * The digest is deliberately blind to it: what an act would do cannot change because the surface
+   * showing it learned a better word for the same person.
+   */
+  readonly subjectLabel?: string;
   readonly before: readonly string[];
   readonly after: readonly string[];
 };
+
+/**
+ * How a Consequence renders (L-ACT-02: "a type without a rendering is a compile error"). The arms
+ * are a closed union and the act pattern switches over it exhaustively, so an act whose Consequence
+ * says something a different shape — L-ACT-02's offered groups, say — adds its arm here and its
+ * rendering there, or fails to compile. Absent means `SUBJECTS`: the arm every act shipped so far
+ * answers, and the one the field named nothing about before there were two.
+ */
+export type ConsequenceRendering = "SUBJECTS";
 
 /** What an act would do, computed by the committing code path from the state it read (L-ACT-02). */
 export type Consequence = {
   readonly actType: ActType;
   readonly tenantId: string;
   readonly projectId: string;
+  readonly rendering?: ConsequenceRendering;
   readonly subjects: readonly ConsequenceSubject[];
 };
 
@@ -29,7 +48,22 @@ export type Consequence = {
  * people as well as by this seam.
  */
 export function consequenceDigest(consequence: Consequence): string {
-  return createHash("sha256").update(canonical(consequence), "utf8").digest("hex");
+  return createHash("sha256").update(canonical(judged(consequence)), "utf8").digest("hex");
+}
+
+/**
+ * What the digest binds: the facts the act would move, and nothing about how they are shown. A
+ * subject's label and the rendering arm are presentation — a surface that resolved a nicer word for
+ * the same person, or a second way of laying the same transition out — and a digest that changed
+ * with them would refuse `CONSEQUENCES_NOT_CARRIED` for a state that never moved.
+ */
+function judged(consequence: Consequence): unknown {
+  return {
+    actType: consequence.actType,
+    tenantId: consequence.tenantId,
+    projectId: consequence.projectId,
+    subjects: consequence.subjects.map((subject) => ({ subjectId: subject.subjectId, before: subject.before, after: subject.after })),
+  };
 }
 
 /**

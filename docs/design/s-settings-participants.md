@@ -266,8 +266,10 @@ Checkpoints, axe serious/critical = 0 at each, never widened: **j-003-role-grant
 creator selects themself, `MEASURER`, `GRANT`, submits, sees the digest line inside the
 open dialog, confirms; a `GRANT` history row with `data-role="MEASURER"` appears ·
 **j-003-consequence-dialog-open** — at the open-dialog moment, `toHaveScreenshot` on the
-primitive's `dialog-content`, name `["design", "consequence-dialog-open.png"]` under the
-locked template, animations disabled, maxDiffPixelRatio 0.002, masks on
+primitive's `dialog-content`, name `"consequence-dialog-open.png"` — the bare file name,
+because the locked `snapshotPathTemplate` already carries the `design/` segment
+(`tests/e2e/baselines/design/{arg}{ext}`), so an array form would write the segment twice
+and strand the committed baseline — animations disabled, maxDiffPixelRatio 0.002, masks on
 `consequence-digest-line` and `.cx-consequence-subject-label` (the two per-run texts;
 role names and chrome stay unmasked) · **j-003-last-principal-protected** — subject self,
 `PRINCIPAL`, `WITHDRAW`, submit: the registered PROJECT_WOULD_HAVE_NO_PRINCIPAL message

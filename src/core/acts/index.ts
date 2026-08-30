@@ -12,7 +12,7 @@ import { requirePermission } from "./participation";
 import { actChangesNothing, actorNotHuman, consequencesNotCarried } from "./refusals";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
-export { consequenceDigest, type Consequence, type ConsequenceSubject } from "./consequence";
+export { consequenceDigest, type Consequence, type ConsequenceRendering, type ConsequenceSubject } from "./consequence";
 export {
   ACT_PERMISSION,
   ACT_TYPES,

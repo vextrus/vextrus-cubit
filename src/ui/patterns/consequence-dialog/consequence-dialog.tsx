@@ -16,7 +16,7 @@
  * this component's own (Decision I-40).
  */
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import type { Consequence, ConsequenceSubject } from "../../../core/acts";
+import type { Consequence, ConsequenceRendering, ConsequenceSubject } from "../../../core/acts";
 import type { RefusalCode, RefusalEntry } from "../../../core/errors";
 import { Button, Skeleton } from "../../primitives/core";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "../../primitives/overlay";
@@ -188,11 +188,7 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
             </div>
           ) : (
             <>
-              <ul className="cx-consequence-subjects">
-                {shown.consequence.subjects.map((subject) => (
-                  <SubjectRow key={subject.subjectId} subject={subject} />
-                ))}
-              </ul>
+              <ConsequenceBody consequence={shown.consequence} />
               <p className="cx-consequence-digest">
                 <span className="cx-consequence-digest-label">{strings.consequence_dialog_digest_label}</span>
                 <span data-testid="consequence-digest-line">{shown.digest}</span>
@@ -230,14 +226,49 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
 }
 
 /**
+ * I-45: the consequence rendering is a total map. L-ACT-02 makes an act type without a rendering a
+ * compile error, and this component is where acts render — so the body is an exhaustive switch over
+ * the Consequence's closed rendering arms. Today there is one: subjects with before/after lists. A
+ * later act whose Consequence renders a different shape (L-ACT-02's offered groups, R-UI-023) adds
+ * its arm to `ConsequenceRendering` and its case here, or `unrendered` fails to compile.
+ */
+function ConsequenceBody({ consequence }: { consequence: Consequence }) {
+  const arm: ConsequenceRendering = consequence.rendering ?? "SUBJECTS";
+  switch (arm) {
+    case "SUBJECTS":
+      return (
+        <ul className="cx-consequence-subjects">
+          {consequence.subjects.map((subject) => (
+            <SubjectRow key={subject.subjectId} subject={subject} />
+          ))}
+        </ul>
+      );
+    default:
+      return unrendered(arm);
+  }
+}
+
+/**
+ * The compile error itself: an arm with no case above reaches here as something other than `never`,
+ * and no act type ships a rendering this component does not have (L-ACT-02).
+ */
+function unrendered(arm: never): never {
+  throw new Error(`a Consequence rendered as ${JSON.stringify(arm)}, which this dialog has no rendering for (L-ACT-02)`);
+}
+
+/**
  * One fact the act judges, rendered as the transition it is: what the subject holds now under one
  * label, what they would hold under the other. A role list would say what is true without saying
  * what changes, which is the half R-UI-021 asks for.
+ *
+ * The heading is the label the answering layer resolved for the subject, and the id it carries when
+ * none was — the id is what the act moves and is always true, but the one surface where a person
+ * decides has to name the person in the words the rest of the screen named them by.
  */
 function SubjectRow({ subject }: { subject: ConsequenceSubject }) {
   return (
     <li className="cx-consequence-subject" data-testid="consequence-subject-row" data-subject={subject.subjectId}>
-      <p className="cx-consequence-subject-label">{subject.subjectId}</p>
+      <p className="cx-consequence-subject-label">{subject.subjectLabel ?? subject.subjectId}</p>
       <div className="cx-consequence-roles">
         <div className="cx-consequence-column">
           <span className="cx-consequence-column-label">{strings.consequence_dialog_before_label}</span>
