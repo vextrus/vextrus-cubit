@@ -9,9 +9,9 @@
 // withdrawal direction existed meant by it.
 import { isUuid, participantRoleWithdrawals, participantRoles, participants, type TenantTx } from "../db";
 import type { Consequence } from "./consequence";
-import { isRole, type Role } from "./law";
+import { ACT_PERMISSION, isRole, type Role } from "./law";
 import { effectiveGrants, holdersOf } from "./participation";
-import { projectWouldHaveNoPrincipal } from "./refusals";
+import { permissionNotHeld, projectWouldHaveNoPrincipal } from "./refusals";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
 /** Which way the role moves. Absent means GRANT: the direction this act had before it had two. */
@@ -44,10 +44,15 @@ function assignedRole(input: AssignParticipantRoleInput): Role {
  * marker, from inside the preview's own read. It is judged here, at the seam both transports and
  * both server actions come through (B-17), for the same reason the roster guard judges the project
  * id before its query: a string that names no user names nobody this act could move a role for.
+ *
+ * It is answered by the registered refusal the sibling hazard is answered by, never an unmarked
+ * Error (ARCH-03, B-21): a subject id that names nobody and a subject id naming somebody this actor
+ * may not administer draw one answer, so the seam discloses nothing about which it was. The act type
+ * and the permission it needs come from the total map beside the act map (L-ACT-03).
  */
 function assignedSubject(input: AssignParticipantRoleInput): string {
   if (typeof input.subjectUserId !== "string" || !isUuid(input.subjectUserId)) {
-    throw new Error(`"${String(input.subjectUserId)}" is not a user id — ASSIGN_PARTICIPANT_ROLE names the person it moves a role for`);
+    throw permissionNotHeld("ASSIGN_PARTICIPANT_ROLE", ACT_PERMISSION.ASSIGN_PARTICIPANT_ROLE);
   }
   return input.subjectUserId;
 }

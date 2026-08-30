@@ -175,7 +175,7 @@ describe("the owner-installed last-PRINCIPAL trigger, driven past the seam", () 
     const [firstAnswer, secondAnswer] = await Promise.all([held, racing]);
     expect(firstAnswer.ok, `the first withdrawal was lawful when it started and stays lawful:\n${firstAnswer.stderr}`).toBe(true);
     expect(secondAnswer.ok, "two withdrawals racing for the last two PRINCIPALs both landed — the backstop counted a state the other was leaving").toBe(false);
-    expect(secondAnswer.stderr, "the loser of the race is refused by the same registered code as any other last PRINCIPAL").toContain(PROJECT_WOULD_HAVE_NO_PRINCIPAL);
+    expect(secondAnswer.stderr, "the loser of the race is refused by the registered code every last-PRINCIPAL withdrawal draws").toContain(PROJECT_WOULD_HAVE_NO_PRINCIPAL);
     expect(withdrawalsFor(projectId), "one PRINCIPAL stands, so exactly one withdrawal is on the ledger").toBe(1);
   }, 60_000);
 });
