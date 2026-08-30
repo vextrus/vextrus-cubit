@@ -14,3 +14,9 @@ export const consequenceDialog = {
   consequence_dialog_cancel: "Cancel",
   consequence_dialog_close: "Close",
 } as const;
+
+// R-SPINE-060's per-module convention is that a table file's DESIGNATED export is the one named for
+// its basename, and this file's basename is not an identifier. The table is therefore published
+// under both names: the identifier `index.ts` aggregates it by, and the basename the convention
+// designates. One table, two names for it — never two tables.
+export { consequenceDialog as "consequence-dialog" };

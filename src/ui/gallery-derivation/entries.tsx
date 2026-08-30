@@ -12,7 +12,7 @@
  * every other entry from assistive technology (Decision I-15).
  */
 import type { ColumnDef } from "@tanstack/react-table";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { Consequence } from "../../core/acts";
 import type { RefusalEntry, RefusalSeverity, RefusalSurface } from "../../core/errors";
 import { ConsequenceDialog } from "../patterns/consequence-dialog";
@@ -459,29 +459,28 @@ const sampleConsequencePreview = (): Promise<{ consequence: Consequence; consequ
 const sampleConsequenceCommit = (): Promise<{ actId: string }> => Promise.resolve({ actId: "00000000-0000-4000-8000-0000000ac701" });
 
 /**
- * An overlay entry renders closed with its trigger reachable (s-design I-15), and this overlay is
- * driven by its `open` prop rather than by a trigger of its own — so the sample holds the open
- * state the consumer would hold. Nothing here restyles the dialog: the trigger is the shipped ghost
- * Button, and everything inside is the pattern's own (B-17).
+ * An overlay entry renders closed with its trigger reachable (s-design I-15). This overlay is driven
+ * by its `open` prop rather than by a trigger of its own, so the sample stands the shipped ghost
+ * Button beside it as the affordance a consumer wires — and, like the interactive Chip and toast
+ * samples above, the sample demonstrates chrome rather than a consumer's behaviour. The open paint's
+ * evidence is this increment's committed baseline, not a modal held open over the whole page
+ * (Decision I-46). Nothing here restyles the dialog: everything inside it is the pattern's own.
  */
-function ConsequenceDialogSample(): ReactNode {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <Button variant="ghost" onClick={() => setOpen(true)}>
-        {copy.consequence.trigger}
-      </Button>
-      <ConsequenceDialog
-        open={open}
-        actType={SAMPLE_CONSEQUENCE.actType}
-        preview={sampleConsequencePreview}
-        commit={sampleConsequenceCommit}
-        onOpenChange={setOpen}
-        onCommitted={noop}
-      />
-    </>
-  );
-}
+const consequenceDialogSample = (): ReactNode => (
+  <>
+    <Button variant="ghost" onClick={noop}>
+      {copy.consequence.trigger}
+    </Button>
+    <ConsequenceDialog
+      open={false}
+      actType={SAMPLE_CONSEQUENCE.actType}
+      preview={sampleConsequencePreview}
+      commit={sampleConsequenceCommit}
+      onOpenChange={noop}
+      onCommitted={noop}
+    />
+  </>
+);
 
 const REFUSAL_SEVERITIES: readonly RefusalSeverity[] = ["error", "warning", "info"];
 const REFUSAL_SURFACES: readonly RefusalSurface[] = ["inline", "dialog", "banner"];
@@ -542,7 +541,7 @@ const shellRailStates: readonly GalleryState[] = SHELL_AREAS.map((area) => ({
  * computed from the tree rather than sliding past a list nobody read (B-19).
  */
 export const galleryEntries: GalleryEntries = {
-  "patterns/consequence-dialog/ConsequenceDialog": { states: closed(ConsequenceDialogSample) },
+  "patterns/consequence-dialog/ConsequenceDialog": { states: closed(consequenceDialogSample) },
   "patterns/refusal-state/RefusalState": { states: refusalStates },
 
   "primitives/core/Badge": { states: [{ name: "rest", render: () => <Badge>{copy.badge}</Badge> }] },
