@@ -13,9 +13,8 @@
 import { acts, desc, eq, forTenant, isUuid, type TenantDb } from "../../../core/db";
 
 /**
- * The tables the two panels probe. One home for the names (ARCH-02): the increments that ship these
- * surfaces target exactly these tables, or re-point this constant and re-baseline what it froze
- * (B-20).
+ * The tables the two panels probe. One home for the names (ARCH-02): whoever ships these surfaces
+ * targets exactly these tables, or re-points this constant and re-baselines what it froze (B-20).
  */
 export const AUDIT_PANEL_TABLES = { modelLedger: "model_calls", jobs: "jobs" } as const;
 

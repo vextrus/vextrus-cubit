@@ -5,7 +5,7 @@
  * A disarmed panel is a state, not a failure: this installation holds no such table yet, and the
  * panel says so in plain words rather than showing an error, a refusal or an empty table pretending
  * the ledger exists. An armed panel shows how many rows it holds and nothing else — the ledger's
- * columns and job detail are the surfaces of the increments that ship those tables.
+ * columns and job detail belong to the nodes that own those tables (L-AI-01, C-SPINE-JOBS).
  */
 import { formatUserFigure } from "../../../../../../../core/format";
 import type { AuditPanel } from "../../../../../../../modules/spine/audit";
