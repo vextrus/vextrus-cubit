@@ -3,8 +3,12 @@
 // (SEAM-TENANT), and a schema tree that re-exports the two tables so drizzle-kit, the drift lane
 // and the live suite all reach them.
 //
-// The migration is found by the glob the increment names — db/migrations/*model*.sql — never by a
-// number typed here: which ordinal it lands on is the generator's business (B-19). The whole-tree
+// The migration is found by what it DOES — the one committed migration that CREATEs model_calls —
+// never by its name or by a number typed here: which ordinal it lands on, and what else in
+// db/migrations/ may one day be called *model*, is the generator's and the plan's business (B-19).
+// A second migration CREATEing model_calls could never apply to the scratch database the drift
+// stage replays every migration into, so the count of one is Postgres's invariant, not today's
+// directory listing. The whole-tree
 // schema-drift stage is already asserted by tenancy-base.migration.test.ts, which runs
 // `scripts/db-drift.mjs --scratch` over every committed migration including this one; what this file
 // adds is the reason that stage can stay green — the closed-value CHECKs are part of the GENERATED
@@ -17,9 +21,6 @@ import { GUC_SYSTEM_REASON, GUC_TENANT, HANDWRITTEN_MARKER, ROLE_APP } from "./s
 const ROOT = join(import.meta.dirname, "..", "..");
 const MIGRATIONS = join(ROOT, "db", "migrations");
 const META = join(MIGRATIONS, "meta");
-
-/** The migration this increment adds, matched as a glob fragment against db/migrations/*.sql. */
-const MODEL_MIGRATION = "model";
 
 /** The two tables the ledger is made of (the increment's test contract names both). */
 const MODEL_CALLS = "model_calls";
@@ -39,13 +40,17 @@ function migrationFiles(): string[] {
 }
 
 function modelMigration(): { name: string; text: string } {
-  const matches = migrationFiles().filter((name) => name.includes(MODEL_MIGRATION));
+  const creates = new RegExp(`create\\s+table[^;]*"?${MODEL_CALLS}"?`, "i");
+  const matches = migrationFiles()
+    .map((name) => ({ name, text: readFileSync(join(MIGRATIONS, name), "utf8") }))
+    .filter((file) => creates.test(file.text));
   expect(
     matches.length,
-    `exactly one db/migrations/*${MODEL_MIGRATION}*.sql is owed — the model-call ledger's tables, its RLS and its grants land in one migration; found ${matches.length === 0 ? "none" : matches.join(", ")}`,
+    `exactly one migration may create ${MODEL_CALLS} (B-17: one home) — a second CREATE could never apply to the scratch database the drift lane replays every migration into; found ${
+      matches.length === 0 ? "none" : matches.map((file) => file.name).join(", ")
+    }`,
   ).toBe(1);
-  const name = matches[0] ?? "";
-  return { name, text: readFileSync(join(MIGRATIONS, name), "utf8") };
+  return matches[0] ?? { name: "", text: "" };
 }
 
 function halves(): { name: string; generated: string; handWritten: string } {
