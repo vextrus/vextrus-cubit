@@ -52,9 +52,11 @@ export type RefusalEntry = {
 
 /**
  * The registry, keyed by the code itself and frozen entry by entry — a refusal read at a transport
- * or a screen is the registered answer, never a mutated one.
+ * or a screen is the registered answer, never a mutated one. Each entry's `code` keeps the type of
+ * its own key, so a seam that answers with a narrow set of codes can read the value out of the
+ * register instead of re-spelling it as a literal beside it (Q-07).
  */
-export const REFUSALS: Readonly<Record<RefusalCode, RefusalEntry>> = Object.freeze({
+export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C } }> = Object.freeze({
   PRECISION_NOT_APPLIED: Object.freeze({
     code: "PRECISION_NOT_APPLIED",
     message: "The value is not at the exact precision this document requires.",

@@ -17,7 +17,7 @@
 // Rate bases — job, LS, per % cft, hour — are deliberately absent. A rate basis says how a price is
 // quoted, not how a quantity is measured; giving one a factor would let a quantity be converted
 // into a pricing convention.
-import { refusalOf, type RefusalEntry } from "../errors";
+import { REFUSALS, type RefusalEntry } from "../errors";
 
 /* ------------------------------------------------------------------ the physical tier */
 
@@ -113,19 +113,20 @@ export type ProductFactors = { factors?: Record<string, number> };
 
 /* ------------------------------------------------------------------------- the refusals */
 
-/** The codes this seam refuses with. Each is a registered refusal, and the register is its home (R-SPINE-062). */
-export type ConversionRefusalCode = "DIMENSION_MISMATCH" | "PRODUCT_FACTOR_MISSING" | "UNIT_UNKNOWN";
-
 /**
- * The registered entries behind those codes, read from the taxonomy at load. `refusalOf` throws on a
- * code the register lacks, so a code answered from here is one a screen can actually render — the
- * name and the entry cannot drift apart (Q-07, R-SPINE-062).
+ * The registered entries this seam refuses with, read straight out of the taxonomy: the register is
+ * the home of both the name and the copy (R-SPINE-062). The seam answers with an entry's own `code`
+ * rather than a string of its own, so the code a caller receives is the register's value — a code
+ * cannot be spelled here and be absent there, and the two cannot drift apart (Q-07).
  */
-export const CONVERSION_REFUSALS: Readonly<Record<ConversionRefusalCode, RefusalEntry>> = Object.freeze({
-  DIMENSION_MISMATCH: refusalOf("DIMENSION_MISMATCH"),
-  PRODUCT_FACTOR_MISSING: refusalOf("PRODUCT_FACTOR_MISSING"),
-  UNIT_UNKNOWN: refusalOf("UNIT_UNKNOWN"),
-});
+export const CONVERSION_REFUSALS = Object.freeze({
+  DIMENSION_MISMATCH: REFUSALS.DIMENSION_MISMATCH,
+  PRODUCT_FACTOR_MISSING: REFUSALS.PRODUCT_FACTOR_MISSING,
+  UNIT_UNKNOWN: REFUSALS.UNIT_UNKNOWN,
+}) satisfies Readonly<Record<string, RefusalEntry>>;
+
+/** The three codes, as a type: the keys of the entries above, so the roster too has one home (B-17). */
+export type ConversionRefusalCode = keyof typeof CONVERSION_REFUSALS;
 
 /**
  * What a unit resolves to. The refusal arm carries a code and nothing else: there is no factor to
@@ -153,10 +154,10 @@ export function toCanonical(unit: string, product?: ProductFactors): ToCanonical
   if (physical !== undefined) return { ok: true, factor: physical.toCanonical, dimension: physical.dimension };
 
   const packaging = Object.hasOwn(PACKAGING, unit) ? PACKAGING[unit] : undefined;
-  if (packaging === undefined) return { ok: false, code: "UNIT_UNKNOWN" };
+  if (packaging === undefined) return { ok: false, code: CONVERSION_REFUSALS.UNIT_UNKNOWN.code };
 
   const stated = product?.factors?.[unit];
-  if (!statedFactor(stated)) return { ok: false, code: "PRODUCT_FACTOR_MISSING" };
+  if (!statedFactor(stated)) return { ok: false, code: CONVERSION_REFUSALS.PRODUCT_FACTOR_MISSING.code };
   return { ok: true, factor: stated, dimension: packaging };
 }
 
@@ -171,7 +172,7 @@ export function convert(value: number, from: string, to: string, product?: Produ
   if (!source.ok) return { ok: false, code: source.code };
   const target = toCanonical(to, product);
   if (!target.ok) return { ok: false, code: target.code };
-  if (source.dimension !== target.dimension) return { ok: false, code: "DIMENSION_MISMATCH" };
+  if (source.dimension !== target.dimension) return { ok: false, code: CONVERSION_REFUSALS.DIMENSION_MISMATCH.code };
   return { ok: true, value: value * (source.factor / target.factor) };
 }
 
