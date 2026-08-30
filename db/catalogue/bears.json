@@ -313,7 +313,15 @@
   },
   {
     "element_type": "wall",
+    "kind": "concrete-casting"
+  },
+  {
+    "element_type": "wall",
     "kind": "electrical-point"
+  },
+  {
+    "element_type": "wall",
+    "kind": "formwork"
   },
   {
     "element_type": "wall",
@@ -326,6 +334,10 @@
   {
     "element_type": "wall",
     "kind": "plastering"
+  },
+  {
+    "element_type": "wall",
+    "kind": "reinforcement"
   },
   {
     "element_type": "wall",

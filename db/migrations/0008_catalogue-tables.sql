@@ -13,7 +13,8 @@ CREATE TABLE "work_item_catalogue" (
 	"dimension" text NOT NULL,
 	"rounding_precision" integer NOT NULL,
 	CONSTRAINT "work_item_catalogue_kind_closed" CHECK ("work_item_catalogue"."kind" in ('excavation', 'backfilling', 'sand-filling', 'brick-soling', 'lean-concrete', 'concrete-casting', 'reinforcement', 'formwork', 'brickwork', 'plastering', 'tiling', 'painting', 'waterproofing', 'false-ceiling', 'skirting', 'railing', 'pipework', 'sanitary-ware', 'electrical-point', 'structural-steel')),
-	CONSTRAINT "work_item_catalogue_dimension_closed" CHECK ("work_item_catalogue"."dimension" in ('MASS', 'VOLUME', 'LENGTH', 'AREA', 'COUNT'))
+	CONSTRAINT "work_item_catalogue_dimension_closed" CHECK ("work_item_catalogue"."dimension" in ('MASS', 'VOLUME', 'LENGTH', 'AREA', 'COUNT')),
+	CONSTRAINT "work_item_catalogue_unit_matches_dimension" CHECK (("work_item_catalogue"."dimension", "work_item_catalogue"."canonical_unit") in (('MASS', 'kg'), ('VOLUME', 'm3'), ('LENGTH', 'm'), ('AREA', 'm2'), ('COUNT', 'pcs')))
 );
 --> statement-breakpoint
 -- hand-written: the catalogue rows, row-level security and grants (L-MEA-04, SEAM-TENANT).
@@ -123,10 +124,13 @@ INSERT INTO "bears" ("element_type", "kind") VALUES
 	('stair', 'reinforcement'),
 	('stair', 'tiling'),
 	('wall', 'brickwork'),
+	('wall', 'concrete-casting'),
 	('wall', 'electrical-point'),
+	('wall', 'formwork'),
 	('wall', 'painting'),
 	('wall', 'pipework'),
 	('wall', 'plastering'),
+	('wall', 'reinforcement'),
 	('wall', 'sanitary-ware'),
 	('wall', 'skirting'),
 	('wall', 'tiling'),

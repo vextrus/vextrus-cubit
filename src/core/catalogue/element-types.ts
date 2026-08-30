@@ -26,8 +26,3 @@ export const ELEMENT_TYPES = [
 
 /** One of the element classes, as a type. */
 export type ElementType = (typeof ELEMENT_TYPES)[number];
-
-/** Is this one of the classes? Asked wherever a class arrives as text, before a keyed read. */
-export function isElementType(value: string): value is ElementType {
-  return (ELEMENT_TYPES as readonly string[]).includes(value);
-}

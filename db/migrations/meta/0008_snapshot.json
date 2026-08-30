@@ -1020,6 +1020,10 @@
         "work_item_catalogue_dimension_closed": {
           "name": "work_item_catalogue_dimension_closed",
           "value": "\"work_item_catalogue\".\"dimension\" in ('MASS', 'VOLUME', 'LENGTH', 'AREA', 'COUNT')"
+        },
+        "work_item_catalogue_unit_matches_dimension": {
+          "name": "work_item_catalogue_unit_matches_dimension",
+          "value": "(\"work_item_catalogue\".\"dimension\", \"work_item_catalogue\".\"canonical_unit\") in (('MASS', 'kg'), ('VOLUME', 'm3'), ('LENGTH', 'm'), ('AREA', 'm2'), ('COUNT', 'pcs'))"
         }
       },
       "isRLSEnabled": false

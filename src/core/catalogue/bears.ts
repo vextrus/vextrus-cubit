@@ -35,7 +35,26 @@ export const BEARS: Readonly<Partial<Record<ElementType, readonly Kind[]>>> = Ob
     "pipework",
     "electrical-point",
   ]),
-  wall: Object.freeze(["brickwork", "plastering", "tiling", "painting", "waterproofing", "skirting", "pipework", "electrical-point", "sanitary-ware"]),
+  // One class covers every wall the model holds, so it bears the union of what a wall can be made
+  // of: a masonry wall's brickwork, and an RCC shear, core or retaining wall's casting, bar and
+  // shuttering. Leaving the three structural kinds off would make a correct RCC wall line read as
+  // the mapping error this relation exists to name, and would hand L-QTY-07's coverage certificate
+  // a bearer that does not exist. What a given wall actually bears is decided line by line; `bears`
+  // says only what is lawful.
+  wall: Object.freeze([
+    "concrete-casting",
+    "reinforcement",
+    "formwork",
+    "brickwork",
+    "plastering",
+    "tiling",
+    "painting",
+    "waterproofing",
+    "skirting",
+    "pipework",
+    "electrical-point",
+    "sanitary-ware",
+  ]),
   stair: Object.freeze(["concrete-casting", "reinforcement", "formwork", "plastering", "tiling", "painting", "railing"]),
   lintel: Object.freeze(["concrete-casting", "reinforcement", "formwork", "plastering", "painting"]),
   parapet: Object.freeze(["brickwork", "plastering", "painting", "waterproofing", "railing"]),

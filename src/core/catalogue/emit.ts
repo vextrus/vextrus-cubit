@@ -13,7 +13,7 @@ import { BEARS } from "./bears";
 import { CATALOGUE } from "./catalogue";
 
 /** One `work_item_catalogue` row, keyed as the table's columns are. */
-export type CatalogueRow = {
+type CatalogueRow = {
   kind: string;
   description: string;
   canonical_unit: string;
@@ -22,7 +22,7 @@ export type CatalogueRow = {
 };
 
 /** One `bears` row: a class, and a kind it lawfully bears. */
-export type BearsRow = {
+type BearsRow = {
   element_type: string;
   kind: string;
 };
@@ -30,8 +30,8 @@ export type BearsRow = {
 /** Code-point order, so the emission does not depend on a locale or on declaration order. */
 const byCodePoint = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0);
 
-/** The catalogue as rows, one per kind, ordered by kind. */
-export function catalogueTableRows(): CatalogueRow[] {
+/** The catalogue as rows, one per kind, ordered by kind. Reached through `emitCatalogueTables`. */
+function catalogueTableRows(): CatalogueRow[] {
   return Object.entries(CATALOGUE)
     .map(([kind, entry]) => ({
       kind,
@@ -43,8 +43,8 @@ export function catalogueTableRows(): CatalogueRow[] {
     .sort((left, right) => byCodePoint(left.kind, right.kind));
 }
 
-/** The relation as rows, one per (class, kind) pair, ordered by class then kind. */
-export function bearsTableRows(): BearsRow[] {
+/** The relation as rows, one per (class, kind) pair, ordered by class then kind. Likewise internal. */
+function bearsTableRows(): BearsRow[] {
   return Object.entries(BEARS)
     .flatMap(([elementType, kinds]) => (kinds ?? []).map((kind) => ({ element_type: elementType, kind })))
     .sort((left, right) => byCodePoint(left.element_type, right.element_type) || byCodePoint(left.kind, right.kind));

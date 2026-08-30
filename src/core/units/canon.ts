@@ -108,8 +108,19 @@ export const UNIT_ABBREVIATIONS: readonly string[] = Object.freeze([...Object.ke
 
 /* --------------------------------------------------------------------- what a product says */
 
-/** What a product knows about the packaging it is sold in: how much of its material one unit holds. */
-export type ProductFactors = { factors?: Record<string, number> };
+/**
+ * How much of a product's material one packaging unit holds, **expressed in the canonical unit of
+ * that packaging unit's dimension** — kg for a bag or a coil, m3 for a drum (`PACKAGING` above says
+ * which dimension each one fills, and `CANONICAL_UNITS` says that dimension's canonical). The number
+ * is the unit's factor to the canonical and is used as one: a cement bag is recorded as 50, not as
+ * 110 lb or 0.05 MT. A factor stated in any other unit converts everything silently wrong, which is
+ * the failure L-FRM-06 built the second tier to refuse — so a caller holding a figure in some other
+ * unit converts it with `convert` first and records what that answers.
+ */
+type CanonicalPerPackagingUnit = number;
+
+/** What a product knows about the packaging it is sold in: one canonical-unit factor per packaging unit. */
+export type ProductFactors = { factors?: Record<string, CanonicalPerPackagingUnit> };
 
 /* ------------------------------------------------------------------------- the refusals */
 
@@ -174,9 +185,4 @@ export function convert(value: number, from: string, to: string, product?: Produ
   if (!target.ok) return { ok: false, code: target.code };
   if (source.dimension !== target.dimension) return { ok: false, code: CONVERSION_REFUSALS.DIMENSION_MISMATCH.code };
   return { ok: true, value: value * (source.factor / target.factor) };
-}
-
-/** Is this one of the five dimensions? Asked wherever a dimension arrives as text. */
-export function isDimension(value: string): value is Dimension {
-  return (DIMENSIONS as readonly string[]).includes(value);
 }

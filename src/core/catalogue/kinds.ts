@@ -39,11 +39,3 @@ export const KINDS = [
 
 /** One of the closed kinds, as a type. The enum is the type's only source. */
 export type Kind = (typeof KINDS)[number];
-
-/**
- * Is this one of the kinds? Asked wherever a kind arrives as text — a line read from a document, a
- * row read from the store — before anything keyed on the enum is reached.
- */
-export function isKind(value: string): value is Kind {
-  return (KINDS as readonly string[]).includes(value);
-}
