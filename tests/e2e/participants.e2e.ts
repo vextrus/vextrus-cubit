@@ -15,6 +15,15 @@
  * closed pair AC-1 declares and on non-emptiness, never against a frozen role roster; and the
  * project the walk drives is created by the walk.
  *
+ * DEEP-ROUTE CHROME (arbitration on this increment, TEST_AMENDED). The crumb and the rail on this
+ * route are the SHELL's contract, not this screen's: docs/design/s-settings-participants.md § 1
+ * fixes them as "the shell's, unchanged" under ruleset I-30 — `areaOf` answers `projects`, the
+ * Projects rail row states it is current, and the crumb links back. A richer crumb naming the
+ * project or the screen is a shell-contract change owned by the `src/ui/shell/**` node with its own
+ * B-20 re-baseline, and B-17 forbids this screen shadowing the crumb locally. So this spec grades
+ * conformance to the recorded design — the two-entry shape, unmodified by the depth of the route —
+ * and nothing here asks the crumb to name the project or the screen.
+ *
  * SCOPE OF THE VISUAL SUB-CLAUSE (AC-6, B-20). AC-6 also asks that the open dialog match the
  * committed baseline `tests/e2e/baselines/design/consequence-dialog-open.png`. The pixel comparison
  * belongs where the Design Decision § 7 puts it — the increment's own
@@ -32,7 +41,7 @@ import { join } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { REFUSALS } from "../../src/core/errors";
 import { SAuthPage, S_AUTH } from "./pages/s-auth.page";
-import { ShellPage, SHELL } from "./pages/shell.page";
+import { ShellPage, SHELL, SHELL_AREAS } from "./pages/shell.page";
 import { SHomePage } from "./pages/s-home.page";
 import { checkpoint } from "./support/checkpoint";
 import { newestMail } from "./support/outbox";
@@ -42,7 +51,9 @@ const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toStrin
 const EMAIL = `j003p-${RUN}@cubit.test`;
 const PASSWORD = `participants-journey-${RUN}`;
 const WORKSPACE = `Participants ${RUN}`;
-const PROJECT = `Participants ${RUN}`;
+// Deliberately NOT the workspace's own name: the crumb names the workspace, so a project sharing
+// that name would make "the crumb does not name the project" pass on the wrong text (B-19).
+const PROJECT = `Roles ${RUN}`;
 
 /** The test contract's ids, spelled once. */
 const ID = Object.freeze({
@@ -158,6 +169,43 @@ test.describe("J-003 — participants: the roles a project holds, moved by act",
 
     /* --- the screen itself: list, history and the assign form (I-53: reached by URL) --- */
     await page.goto(route(tenantId, projectId));
+
+    /*
+     * AC-6 / Decision § 1 — the deep route wears the shell's crumb and rail UNCHANGED.
+     *
+     * Derived, never transcribed: the area's name is read off the rail row and compared with the
+     * crumb's own current entry, so no copy string is frozen here; the link is compared with the
+     * workspace address this walk already holds. The only count pinned is the one the Decision
+     * itself defines — two entries, the workspace link and the area crumb — which is exactly the
+     * claim "unmodified by the depth of the route" makes.
+     */
+    await shell.expectFrame();
+    const crumb = shell.breadcrumb;
+    for (const area of SHELL_AREAS) {
+      const current = await shell.nav(area).getAttribute("aria-current");
+      // Both spellings the two Decisions use for "this row is the one" are accepted: the shell's
+      // own § 1 says `page`, the participants Decision § 1 paraphrases it as `true`, and ARIA holds
+      // them equivalent. Grading the meaning rather than one document's spelling keeps this off a
+      // red only an out-of-scope shell edit could clear (B-20).
+      const states: (string | null)[] = area === "projects" ? ["page", "true"] : [null];
+      expect(states, `the rail states ${area === "projects" ? "Projects is" : `${area} is not`} the area this route selects (areaOf → projects)`).toContain(current);
+    }
+
+    // The entries a reader is given, decoration excluded — the `›` between them is aria-hidden.
+    const crumbs = crumb.locator("ol > li:not([aria-hidden='true'])");
+    await expect(crumbs, "the crumb is the shell's two entries — the workspace and the area — with no third naming the project or the screen").toHaveCount(2);
+
+    const areaCrumb = crumbs.nth(1).locator("a");
+    await expect(areaCrumb, "and the second of them links back, because a reader this deep in the area is not at its home").toHaveCount(1);
+    expect(
+      new URL((await areaCrumb.getAttribute("href")) ?? "", origin).pathname.replace(/\/+$/, ""),
+      "back to the projects area's home, which is the workspace root",
+    ).toBe(SHELL.workspace(tenantId));
+
+    const areaLabel = ((await crumbs.nth(1).innerText()) ?? "").trim();
+    expect(areaLabel, "the area crumb names the area").not.toBe("");
+    await expect(shell.nav("projects"), "with the rail's own word for it — one home for the area's name (B-17)").toContainText(areaLabel);
+    await expect(crumb, "the crumb does not name the project: a deeper crumb is a shell-contract change, not this screen's (arbitration)").not.toContainText(PROJECT);
 
     const list = page.getByTestId(ID.list);
     await expect(list, "the screen renders the project's current roles").toBeVisible();
