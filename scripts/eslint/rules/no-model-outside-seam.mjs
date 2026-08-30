@@ -2,6 +2,7 @@
 // model provider — a known SDK, or the seam's own interior past its barrel — is refused outside the
 // seam directory src/core/model/, which is this rule's own allowlist so widening the binding in the
 // flat config cannot widen what is allowed.
+import { targetOf } from "../lib/layers.mjs";
 import { specifierVisitors } from "../lib/specifiers.mjs";
 
 /** The one lawful home of the model seam (L-AI-01): a directory, spelled with its trailing slash. */
@@ -36,8 +37,8 @@ const SDKS = Object.freeze([
   "replicate",
 ]);
 
-/** The seam's interior: `core/model/` plus at least one more character. The barrel itself is not. */
-const INTERIOR = /(?:^|\/)core\/model\/./;
+/** The seam's interior, read from a resolved layer path: `core/model/` plus one more character. */
+const INTERIOR = /^core\/model\/./;
 
 /**
  * @param {string} value
@@ -49,23 +50,17 @@ function isModelSdk(value) {
 }
 
 /**
- * A relative specifier names the seam interior only once it is read from the importing file, so it
- * is resolved against that file's directory before the interior test sees it.
+ * Does this specifier reach past the barrel into the seam's interior? The question "which file in
+ * the layered tree does this specifier name" has one home — `targetOf` (ARCH-02) — so a relative
+ * specifier is resolved against the importing file there, and a package specifier resolves to
+ * nothing: `@acme/kit/core/model/schema` names another tree's directory, not this seam.
  * @param {string} value
  * @param {string} filename
- * @returns {string}
+ * @returns {boolean}
  */
-function resolveSpecifier(value, filename) {
-  if (!value.startsWith(".")) return value;
-  const dir = filename.slice(0, filename.lastIndexOf("/"));
-  /** @type {string[]} */
-  const out = [];
-  for (const part of `${dir}/${value}`.split("/")) {
-    if (part === "" || part === ".") continue;
-    if (part === "..") out.pop();
-    else out.push(part);
-  }
-  return out.join("/");
+function reachesInterior(value, filename) {
+  const site = targetOf(value, filename);
+  return site !== null && INTERIOR.test(site.path);
 }
 
 /** @type {import("eslint").Rule.RuleModule} */
@@ -84,7 +79,7 @@ export default {
     if (filename.includes(`/${ALLOWED}`) || filename.startsWith(ALLOWED)) return {};
     return specifierVisitors(context, ({ value, node }) => {
       if (isModelSdk(value)) context.report({ node, messageId: "sdk", data: { specifier: value } });
-      else if (INTERIOR.test(resolveSpecifier(value, filename))) context.report({ node, messageId: "transport", data: { specifier: value } });
+      else if (reachesInterior(value, filename)) context.report({ node, messageId: "transport", data: { specifier: value } });
     });
   },
 };

@@ -23,12 +23,12 @@ export default [
     linterOptions: { noInlineConfig: true },
   },
   {
-    files: ["**/*.mjs", "**/*.js"],
+    files: ["**/*.mjs", "**/*.cjs", "**/*.js"],
     ...js.configs.recommended,
     languageOptions: { ecmaVersion: 2024, sourceType: "module", globals: { ...globals.node } },
   },
   ...tseslint.config({
-    files: ["**/*.ts", "**/*.tsx", "**/*.mts"],
+    files: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: { ecmaVersion: 2024, sourceType: "module", globals: { ...globals.node } },
     rules: {
@@ -37,8 +37,8 @@ export default [
     },
   }),
   {
-    // Q-08 binds every file the tree owns, not only its sources.
-    files: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.mjs", "**/*.js"],
+    // Q-08 binds every file the tree owns, not only its sources — every extension it can write one in.
+    files: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts", "**/*.mjs", "**/*.cjs", "**/*.js"],
     plugins: { cubit },
     rules: { "cubit/no-suppressions": "error" },
   },
@@ -60,7 +60,10 @@ export default [
     // "the tree's sole caller of Intl" and "no colour literal exists outside the source" are false
     // the moment a script, a config or a test may spell one. Their allowlists are exact paths
     // inside the rules, so widening the binding cannot widen what is allowed (B-23).
-    files: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.mjs", "**/*.js"],
+    // The CommonJS extensions are bound here too: `.cjs` and `.cts` are exactly where `require()`
+    // and `import x = require()` are native, so a ban that skipped them would ban only the spelling
+    // a module file can write.
+    files: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts", "**/*.mjs", "**/*.cjs", "**/*.js"],
     plugins: { cubit },
     rules: {
       "cubit/no-colour-literal": "error",

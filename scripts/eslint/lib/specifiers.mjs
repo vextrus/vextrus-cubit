@@ -1,7 +1,8 @@
 // Every shape a module specifier can take, read once (ARCH-02). A rule that only knows the
 // straight `import x from "y"` spelling is half a rule (Q-01), so this collector also reads
-// re-exports, dynamic imports, template-literal specifiers, `require` — including the computed and
-// `globalThis` and `createRequire` spellings — and identifiers bound once to a literal.
+// re-exports, dynamic imports, template-literal specifiers, `import x = require("y")`, and
+// `require` — including the computed and `globalThis` and `createRequire` spellings — and
+// identifiers bound once to a literal.
 
 // The shared syntax-tree types are read off ESLint's own surface rather than from a second
 // declaration package, so the toolchain depends on nothing the increment does not name.
@@ -108,6 +109,21 @@ function isCreatedRequire(callee, sourceCode) {
 }
 
 /**
+ * `import x = require("y")` is TypeScript's own module-loading form: it parses to a
+ * TSImportEqualsDeclaration over a TSExternalModuleReference, which no ESTree visitor names, so a
+ * rule reading only the ESTree shapes would let a CommonJS file reach any banned module (Q-01).
+ * The node type is TypeScript's extension to ESTree, so it is read as the optional shape it is.
+ * @param {object} node
+ * @returns {EsNode | null} the specifier expression, or null when this is not a `require` form
+ */
+function externalModuleSpecifier(node) {
+  const carrier = /** @type {{moduleReference?: {type?: string, expression?: EsNode}}} */ (node);
+  const reference = carrier.moduleReference;
+  if (reference === undefined || reference.type !== "TSExternalModuleReference") return null;
+  return reference.expression ?? null;
+}
+
+/**
  * Visitors that hand every module specifier in a file to `report`.
  * @param {import("eslint").Rule.RuleContext} context
  * @param {(specifier: Specifier) => void} report
@@ -131,6 +147,10 @@ export function specifierVisitors(context, report) {
     },
     ExportAllDeclaration: (node) => offer(node, node.source, kindOf(node) === "type"),
     ImportExpression: (node) => offer(node, node.source, false),
+    TSImportEqualsDeclaration: (/** @type {RuleNode} */ node) => {
+      const source = externalModuleSpecifier(node);
+      if (source !== null) offer(node, source, kindOf(node) === "type");
+    },
     CallExpression: (node) => {
       if (isCallTo(node.callee, "require", sourceCode) || isCallTo(node.callee, "import", sourceCode) || isCreatedRequire(node.callee, sourceCode)) {
         offer(node, node.arguments[0], false);
