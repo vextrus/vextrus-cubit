@@ -10,6 +10,7 @@
  * a human hand touches, so it is the one thing the product suite beside this file checks against a
  * filesystem scan: `galleryBarrels`' keys must equal the barrel index files on disk.
  */
+import * as patternsConsequenceDialog from "../patterns/consequence-dialog";
 import * as patternsRefusalState from "../patterns/refusal-state";
 import * as primitivesCore from "../primitives/core";
 import * as primitivesData from "../primitives/data";
@@ -27,6 +28,7 @@ export type { GalleryEntries, GalleryEntry, GalleryState } from "./types";
  * is the order the gallery renders its sections in.
  */
 export const galleryBarrels: Record<string, Record<string, unknown>> = {
+  "patterns/consequence-dialog": patternsConsequenceDialog,
   "patterns/refusal-state": patternsRefusalState,
   "primitives/core": primitivesCore,
   "primitives/data": primitivesData,

@@ -12,8 +12,10 @@
  * every other entry from assistive technology (Decision I-15).
  */
 import type { ColumnDef } from "@tanstack/react-table";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import type { Consequence } from "../../core/acts";
 import type { RefusalEntry, RefusalSeverity, RefusalSurface } from "../../core/errors";
+import { ConsequenceDialog } from "../patterns/consequence-dialog";
 import { RefusalState } from "../patterns/refusal-state";
 import {
   Badge,
@@ -108,6 +110,7 @@ const copy = {
     warningEvidence: { href: "/design", label: "Try again" },
     infoEvidence: { href: "/", label: "Open the project" },
   },
+  consequence: { trigger: "Assign a role" },
 } as const;
 
 /** A `ScrollArea` line, as the data Decision spells it: "Sheet 1 of 40" … "Sheet 40 of 40". */
@@ -434,6 +437,52 @@ const REFUSAL_EVIDENCE = {
   info: copy.refusal.infoEvidence,
 } as const;
 
+/* ------------------------------------------------------------------ the act pattern (I-46) */
+
+/**
+ * The sample Consequence the act pattern is shown around: one subject gaining a role, in the shape
+ * `ASSIGN_PARTICIPANT_ROLE` answers (Decision I-46). The digest beside it is authored data like a
+ * sample refusal entry — this module computes no digest and compares this string to none.
+ */
+const SAMPLE_CONSEQUENCE: Consequence = {
+  actType: "ASSIGN_PARTICIPANT_ROLE",
+  tenantId: "00000000-0000-4000-8000-00000000c017",
+  projectId: "00000000-0000-4000-8000-0000000c0117",
+  subjects: [{ subjectId: "estimator@cubit.test", before: ["PRINCIPAL"], after: ["PRINCIPAL", "MEASURER"] }],
+};
+
+const SAMPLE_DIGEST = "4e1b8c0d2f3a596871a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708";
+
+const sampleConsequencePreview = (): Promise<{ consequence: Consequence; consequenceDigest: string }> =>
+  Promise.resolve({ consequence: SAMPLE_CONSEQUENCE, consequenceDigest: SAMPLE_DIGEST });
+
+const sampleConsequenceCommit = (): Promise<{ actId: string }> => Promise.resolve({ actId: "00000000-0000-4000-8000-0000000ac701" });
+
+/**
+ * An overlay entry renders closed with its trigger reachable (s-design I-15), and this overlay is
+ * driven by its `open` prop rather than by a trigger of its own — so the sample holds the open
+ * state the consumer would hold. Nothing here restyles the dialog: the trigger is the shipped ghost
+ * Button, and everything inside is the pattern's own (B-17).
+ */
+function ConsequenceDialogSample(): ReactNode {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="ghost" onClick={() => setOpen(true)}>
+        {copy.consequence.trigger}
+      </Button>
+      <ConsequenceDialog
+        open={open}
+        actType={SAMPLE_CONSEQUENCE.actType}
+        preview={sampleConsequencePreview}
+        commit={sampleConsequenceCommit}
+        onOpenChange={setOpen}
+        onCommitted={noop}
+      />
+    </>
+  );
+}
+
 const REFUSAL_SEVERITIES: readonly RefusalSeverity[] = ["error", "warning", "info"];
 const REFUSAL_SURFACES: readonly RefusalSurface[] = ["inline", "dialog", "banner"];
 
@@ -493,6 +542,7 @@ const shellRailStates: readonly GalleryState[] = SHELL_AREAS.map((area) => ({
  * computed from the tree rather than sliding past a list nobody read (B-19).
  */
 export const galleryEntries: GalleryEntries = {
+  "patterns/consequence-dialog/ConsequenceDialog": { states: closed(ConsequenceDialogSample) },
   "patterns/refusal-state/RefusalState": { states: refusalStates },
 
   "primitives/core/Badge": { states: [{ name: "rest", render: () => <Badge>{copy.badge}</Badge> }] },
