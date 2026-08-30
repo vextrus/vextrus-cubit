@@ -153,6 +153,39 @@ export const participantRoles = pgTable(
 );
 
 /**
+ * The countermanding ledger (R-SPINE-011, L-ACT-03): a role a project took back. `participant_roles`
+ * wears owner-proof immutability, so a withdrawal is never an update or a delete of the grant — it
+ * is a row appended here naming the grant it countermands, and the effective roles a person holds
+ * are the grants this table has not answered. The grant stays on the record, which is what makes the
+ * history readable both ways round.
+ *
+ * `grant_id` is unique because a grant is countermanded once: a second row would say the same thing
+ * twice, and "how many withdrawals stand against this grant" is not a question with two answers.
+ * `act_id` is not null, unlike the grant's — every withdrawal is an act somebody performed, where a
+ * project's first PRINCIPAL is installed by creation.
+ */
+export const participantRoleWithdrawals = pgTable(
+  "participant_role_withdrawals",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    withdrawalId: uuid("withdrawal_id").primaryKey().defaultRandom(),
+    grantId: uuid("grant_id").notNull().unique(),
+    projectId: uuid("project_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    role: text("role").notNull(),
+    actId: uuid("act_id").notNull(),
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({ columns: [table.grantId], foreignColumns: [participantRoles.grantId], name: "participant_role_withdrawals_grant_fk" }),
+    foreignKey({ columns: [table.actId], foreignColumns: [acts.actId], name: "participant_role_withdrawals_act_fk" }),
+    // Every effective-roles read is "this project's withdrawals, for this person": the policy adds
+    // the tenant predicate again, so without this the seam's own permission check scans the ledger.
+    index("participant_role_withdrawals_project_user").on(table.tenantId, table.projectId, table.userId),
+  ],
+);
+
+/**
  * Identity (R-SPINE-001): an account, the sessions it is signed in through, and the single-use
  * tokens that verify an address or stand in for a password. None of the three carries a tenant id —
  * a person is one account across every workspace they belong to (R-SPINE-002) — so no *tenant*
@@ -319,6 +352,7 @@ const schema = {
   participants,
   acts,
   participantRoles,
+  participantRoleWithdrawals,
   users,
   sessions,
   authTokens,

@@ -31,6 +31,7 @@ export type RefusalCode =
   | "PERMISSION_NOT_HELD"
   | "ACTOR_NOT_HUMAN"
   | "ACT_CHANGES_NOTHING"
+  | "PROJECT_WOULD_HAVE_NO_PRINCIPAL"
   | "CREDENTIALS_NOT_VALID"
   | "TOKEN_NOT_VALID"
   | "RATE_LIMITED"
@@ -99,6 +100,13 @@ export const REFUSALS: Readonly<Record<RefusalCode, RefusalEntry>> = Object.free
     remedy: "Choose a change that moves something — what you asked for is already the case.",
     severity: "info",
     surface: "dialog",
+  }),
+  PROJECT_WOULD_HAVE_NO_PRINCIPAL: Object.freeze({
+    code: "PROJECT_WOULD_HAVE_NO_PRINCIPAL",
+    message: "This withdrawal would leave the project with no principal, so it was not carried out.",
+    remedy: "Make another member a principal first, then withdraw this one.",
+    severity: "error",
+    surface: "inline",
   }),
   CREDENTIALS_NOT_VALID: Object.freeze({
     code: "CREDENTIALS_NOT_VALID",

@@ -47,6 +47,20 @@ export function actChangesNothing(actType: ActType, subjectIds: readonly string[
   });
 }
 
+/**
+ * L-ACT-03: "the last PRINCIPAL cannot be removed (`PROJECT_WOULD_HAVE_NO_PRINCIPAL`)".
+ * ADMINISTER_PROJECT is PRINCIPAL-only, so a project whose last effective PRINCIPAL was withdrawn
+ * would be a project nobody could ever administer again — the refusal stands at the seam, and the
+ * owner-installed trigger on the withdrawal ledger stands behind it.
+ */
+export function projectWouldHaveNoPrincipal(actType: ActType, projectId: string, subjectUserId: string): Error {
+  return refusal("PROJECT_WOULD_HAVE_NO_PRINCIPAL", `${actType} would leave this project with no effective PRINCIPAL, and a project holds at least one at every moment`, {
+    actType,
+    projectId,
+    subjectUserId,
+  });
+}
+
 /** SEAM-ACT: the seam "refuses non-human actors by type" — L-ACT-01's log is human-only. */
 export function actorNotHuman(actType: ActType, actorKind: ActorKind): Error {
   return refusal("ACTOR_NOT_HUMAN", `${actType} was attempted by a ${actorKind} actor; the act log is human-only`, {
