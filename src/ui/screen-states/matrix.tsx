@@ -77,6 +77,21 @@ const refusal =
   (entry: RefusalEntry, evidence: RefusalEvidence) =>
   (): ReactNode => <Refusal refusal={entry} evidence={evidence} />;
 
+/**
+ * A refusal a screen answers for a reason it can state: what it registers of its own (nothing, on a
+ * screen that runs no procedure), then the code and remedy of the refusal it can still meet.
+ * R-UI-050 asks every screen for a code and a remedy, so the reason stands beside one and never
+ * instead of one.
+ */
+const reasonedRefusal =
+  (why: string, entry: RefusalEntry, evidence: RefusalEvidence) =>
+  (): ReactNode => (
+    <>
+      <StateReason reason={why} />
+      <Refusal refusal={entry} evidence={evidence} />
+    </>
+  );
+
 /** The bones a screen keeps its layout with while it waits. */
 const bones =
   (count: number) =>
@@ -129,7 +144,7 @@ export const screenStates: ScreenStatesMatrix = {
     loading: reason(strings.state_loading_nothing_awaited),
     empty: reason(strings.state_empty_compiled_in),
     error: fault(strings.error_body),
-    refusal: reason(strings.state_refusal_nothing_asked),
+    refusal: reasonedRefusal(strings.state_refusal_ended_session, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
     partial: reason(strings.state_partial_no_rows),
     offline: reason(strings.state_offline_nothing_ages),
     "permission-denied": reason(strings.state_denied_public_entry),
@@ -141,15 +156,10 @@ export const screenStates: ScreenStatesMatrix = {
     loading: reason(strings.state_loading_nothing_awaited),
     empty: reason(strings.state_empty_gallery_complete),
     error: fault(strings.error_body),
-    refusal: reason(strings.state_refusal_nothing_asked),
+    refusal: reasonedRefusal(strings.state_refusal_ended_session, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
     partial: reason(strings.state_partial_no_rows),
     offline: reason(strings.state_offline_nothing_ages),
-    "permission-denied": (): ReactNode => (
-      <>
-        <StateReason reason={strings.state_denied_gallery_session} />
-        <Refusal refusal={REFUSAL_ENTRIES.SIGNED_OUT} evidence={SIGN_IN_EVIDENCE} />
-      </>
-    ),
+    "permission-denied": reasonedRefusal(strings.state_denied_gallery_session, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
   }),
 
   // The magic-link door.
@@ -209,7 +219,7 @@ export const screenStates: ScreenStatesMatrix = {
     empty: (): ReactNode => (
       <EmptyTeaching heading={strings.shell_books_empty_heading} body={strings.shell_books_empty_body} action={strings.shell_books_empty_action} />
     ),
-    refusal: reason(strings.state_refusal_nothing_asked),
+    refusal: reasonedRefusal(strings.state_refusal_ended_session, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
   }),
 
   // The act log (s-audit § 2): one read answered whole, and a value it cannot read is a fault.
@@ -219,7 +229,7 @@ export const screenStates: ScreenStatesMatrix = {
     empty: (): ReactNode => (
       <EmptyTeaching heading={strings.state_empty_audit_heading} body={strings.state_empty_audit_body} action={strings.home_evidence_projects} />
     ),
-    refusal: delegatedToFault(strings.state_refusal_read_fault, strings.error_body),
+    refusal: reasonedRefusal(strings.state_refusal_read_fault, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
   }),
 
   // Participants (s-settings-participants § 2): a project holds a principal at every moment, so the
@@ -253,16 +263,22 @@ export const screenStates: ScreenStatesMatrix = {
     empty: (): ReactNode => (
       <EmptyTeaching heading={strings.state_empty_ruleset_heading} body={strings.state_empty_ruleset_body} action={strings.home_evidence_projects} />
     ),
-    refusal: delegatedToFault(strings.state_refusal_read_fault, strings.error_body),
+    refusal: reasonedRefusal(strings.state_refusal_read_fault, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
   }),
 
   // Workspace settings (shell § 2): a workspace always has a name, and the rename door answers what
-  // it was given in place — the door's own copy, deliberately not one of the closed taxonomy's.
+  // it was given in place — the door's own copy, deliberately not one of the closed taxonomy's. The
+  // registered refusal the screen can still meet stands under it with its code and remedy.
   "/t/[tenant]/settings": declare({
     ...workspaceCells,
     loading: bones(4),
     empty: reason(strings.state_empty_workspace_named),
-    refusal: (): ReactNode => <InlineAnswer text={strings.shell_rename_refusal} />,
+    refusal: (): ReactNode => (
+      <>
+        <InlineAnswer text={strings.shell_rename_refusal} />
+        <Refusal refusal={REFUSAL_ENTRIES.SIGNED_OUT} evidence={SIGN_IN_EVIDENCE} />
+      </>
+    ),
   }),
 
   // The verification panel (s-auth § 4): a token panel, whose empty state is the missing link.

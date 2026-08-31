@@ -20,8 +20,9 @@ export const screenStates = {
   state_empty_ruleset_heading: "No rule set pinned",
   state_empty_ruleset_body: "A project carries its rule set from the moment it is created. This one has pinned no edition yet, so there is nothing here to show.",
 
-  state_refusal_nothing_asked: "This screen asks for nothing that can be refused, so no refusal is answered on it.",
-  state_refusal_read_fault: "This screen performs no procedure and registers no code of its own. A value it cannot read is a fault, not an answer, so the fault state below is what it shows.",
+  state_refusal_ended_session: "This screen registers no refusal of its own. The one any request from it can meet is the ended session, so that is the refusal it answers with.",
+  state_refusal_read_fault:
+    "This screen performs no procedure and registers no code of its own: a value it cannot read is a fault, which the error state shows. The refusal it answers is the ended session, which any request can meet.",
 
   state_partial_one_read: "This screen's answer arrives in one read and is shown whole, so no row of it can be refused on its own.",
   state_partial_no_rows: "This screen shows no rows, so there is no part of it that could be withheld.",
