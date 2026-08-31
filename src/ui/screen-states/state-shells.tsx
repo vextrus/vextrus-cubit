@@ -44,7 +44,7 @@ export function LoadingBones({ bones }: { bones: number }) {
   return (
     <>
       <p role="status">{strings.state_loading}</p>
-      {Array.from({ length: bones }, (unused, index) => (
+      {Array.from({ length: bones }, (_, index) => (
         <Skeleton key={index} />
       ))}
     </>
