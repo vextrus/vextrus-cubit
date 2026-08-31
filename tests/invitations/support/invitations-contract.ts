@@ -14,9 +14,10 @@
  *     static import of a file that does not exist yet would also make `next build` (which type-checks
  *     `tests/**`) refuse the tree.
  */
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { expect } from "vitest";
+import { stripComments } from "../../ui/s-design/support/gallery-contract";
 
 /** The checkout these suites drive — the lane runs at the root of it. */
 export const REPO_ROOT: string = process.cwd();
@@ -166,6 +167,173 @@ export function importSpecifiersOf(file: string): string[] {
 export function resolvedFrom(file: string, specifier: string): string | null {
   if (!specifier.startsWith(".")) return null;
   return repoRelative(resolve(dirname(file), specifier));
+}
+
+/* ------------------------------------------------------- reading CODE rather than reading text
+ *
+ * Everything below strips comments first (the tree's own string-aware stripper, ARCH-02). A symbol
+ * NAMED in prose is not a symbol the program uses: an apology comment saying a guard is applied
+ * elsewhere, or a checklist of refusal codes inside a test that asserts nothing, must not be able to
+ * satisfy a wiring question. The readings are all structural — a call is a parenthesised invocation,
+ * an assertion is the chained statement an `expect` opens — so they answer the same way however the
+ * Builder lays the code out (B-19).
+ */
+
+/** A file's source with its comments removed, by absolute or repo-relative path. */
+export function codeOf(file: string): string {
+  return stripComments(readFileSync(isAbsolute(file) ? file : inRepo(file), "utf8"));
+}
+
+/** Where a name is CALLED in code, by index — a mention that is not an invocation is not a hit. */
+export function callIndices(code: string, name: string): number[] {
+  return [...code.matchAll(new RegExp(`\\b${name}\\s*\\(`, "g"))].map((match) => (match.index ?? 0) + match[0].length - 1);
+}
+
+/** The text a bracket opened at `open` encloses, strings honoured — the argument span of a call. */
+function balancedFrom(code: string, open: number): [number, number] {
+  let depth = 0;
+  let quote: string | null = null;
+  for (let index = open; index < code.length; index += 1) {
+    const char = code[index] ?? "";
+    if (quote !== null) {
+      if (char === "\\") index += 1;
+      else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === "`") quote = char;
+    else if (char === "(" || char === "[" || char === "{") depth += 1;
+    else if (char === ")" || char === "]" || char === "}") {
+      depth -= 1;
+      if (depth === 0) return [open, index];
+    }
+  }
+  return [open, code.length];
+}
+
+/** The argument spans of every call to a name — what that call syntactically WRAPS. */
+export function callSpans(code: string, name: string): [number, number][] {
+  return callIndices(code, name).map((open) => balancedFrom(code, open));
+}
+
+/** The span a bracket at `open` encloses — for a call spelled by something other than a bare name. */
+export const balancedSpanAt = (code: string, open: number): [number, number] => balancedFrom(code, open);
+
+/**
+ * Every `expect(…)` assertion in a file, as the whole chained statement it is written as: from the
+ * call to the `;` (or the line that ends it), brackets and strings honoured. A value named inside one
+ * of these is a value something is graded against; a value named anywhere else is decoration.
+ */
+export function expectStatements(code: string): string[] {
+  const found: string[] = [];
+  for (const match of code.matchAll(/\bexpect\s*[.(]/g)) {
+    const start = match.index ?? 0;
+    let depth = 0;
+    let quote: string | null = null;
+    let end = code.length;
+    for (let index = start; index < code.length; index += 1) {
+      const char = code[index] ?? "";
+      if (quote !== null) {
+        if (char === "\\") index += 1;
+        else if (char === quote) quote = null;
+        continue;
+      }
+      if (char === '"' || char === "'" || char === "`") quote = char;
+      else if (char === "(" || char === "[" || char === "{") depth += 1;
+      else if (char === ")" || char === "]" || char === "}") {
+        depth -= 1;
+        if (depth < 0) {
+          end = index;
+          break;
+        }
+      } else if (depth === 0 && char === ";") {
+        end = index;
+        break;
+      } else if (depth === 0 && char === "\n" && !/^\s*\./.test(code.slice(index + 1, index + 40))) {
+        end = index;
+        break;
+      }
+    }
+    found.push(code.slice(start, end));
+  }
+  return found;
+}
+
+/** The brace blocks enclosing an index — the function body a call is made in, and its parents. */
+export function enclosingBlocks(code: string, index: number): [number, number][] {
+  const open: number[] = [];
+  const found: [number, number][] = [];
+  let quote: string | null = null;
+  for (let at = 0; at < code.length; at += 1) {
+    const char = code[at] ?? "";
+    if (quote !== null) {
+      if (char === "\\") at += 1;
+      else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'" || char === "`") quote = char;
+    else if (char === "{") open.push(at);
+    else if (char === "}") {
+      const from = open.pop();
+      if (from !== undefined && from <= index && index <= at) found.push([from, at]);
+    }
+  }
+  return found;
+}
+
+/** The member or binding an index sits inside, as its file names it — how a page object is pinned. */
+export function enclosingMemberName(code: string, index: number): string | null {
+  const pattern = /(?:^|\n)[ \t]*(?:export\s+|public\s+|private\s+|protected\s+|readonly\s+|static\s+|async\s+|const\s+|let\s+|function\s+|get\s+)*([A-Za-z_$][\w$]*)\s*[(=:]/g;
+  let name: string | null = null;
+  for (const match of code.slice(0, index).matchAll(pattern)) name = match[1] ?? name;
+  return name;
+}
+
+/** Every import a file makes, as the clause it brought in by name and the specifier it came from. */
+export function importsOf(code: string): { clause: string; specifier: string }[] {
+  return [...code.matchAll(/\bimport\s+([^;]*?)\s*from\s*["']([^"']+)["']/g)].map((match) => ({ clause: match[1] ?? "", specifier: match[2] ?? "" }));
+}
+
+/** The file a relative specifier really names, with the extensions a resolver would try. */
+export function resolveSpecifierFile(file: string, specifier: string): string | null {
+  if (!specifier.startsWith(".")) return null;
+  const landed = resolve(dirname(isAbsolute(file) ? file : inRepo(file)), specifier);
+  const candidates = [landed, `${landed}.ts`, `${landed}.tsx`, `${landed}.mts`, `${landed}/index.ts`, `${landed}/index.tsx`];
+  return candidates.find((path) => existsSync(path) && statSync(path).isFile()) ?? null;
+}
+
+/** The landings a specifier may use to name a file: its own path, and its directory when it is an index. */
+export function moduleIdsOf(file: string): string[] {
+  const relative = repoRelative(isAbsolute(file) ? file : inRepo(file)).replace(/\.(?:tsx?|mts)$/, "");
+  return relative.endsWith("/index") ? [relative, relative.slice(0, -"/index".length)] : [relative];
+}
+
+/** Every module a specifier could import an identifier FROM — its home and whatever re-publishes it. */
+export function modulesPublishing(identifier: string): Set<string> {
+  const landings = new Set<string>();
+  for (const file of sourceFilesUnder(inRepo("src"))) {
+    const publishes = codeOf(file)
+      .split("\n")
+      .some((line) => line.includes("export") && new RegExp(`\\b${identifier}\\b`).test(line));
+    if (publishes) for (const id of moduleIdsOf(file)) landings.add(id);
+  }
+  return landings;
+}
+
+/** Every file reachable from an entry by its own imports — what a screen really mounts. */
+export function reachableFrom(entry: string): Set<string> {
+  const seen = new Set<string>();
+  const queue = [isAbsolute(entry) ? entry : inRepo(entry)];
+  while (queue.length > 0) {
+    const file = queue.pop() as string;
+    const relative = repoRelative(file);
+    if (seen.has(relative) || !existsSync(file)) continue;
+    seen.add(relative);
+    for (const specifier of importSpecifiersOf(file)) {
+      const landed = resolveSpecifierFile(file, specifier);
+      if (landed !== null) queue.push(landed);
+    }
+  }
+  return seen;
 }
 
 /* --------------------------------------------------------------------------- the Decisions */

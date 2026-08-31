@@ -7,6 +7,7 @@
  * of a states row is read off the shipped members row — so the Decision stays the one home of the
  * copy (C-13), and a later screen that grows a state or a key is not broken by a roster frozen here.
  */
+import { existsSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import {
   ACCEPT_DECISION,
@@ -18,12 +19,14 @@ import {
   SETTINGS_DECISION,
   STRING_TABLES,
   TESTIDS,
+  codeOf,
   collapse,
   decision,
   decisionCopy,
   decisionEntry,
   inRepo,
   productModule,
+  reachableFrom,
   requireModule,
 } from "./support/invitations-contract";
 
@@ -35,6 +38,9 @@ const ACCEPT_TESTIDS = [TESTIDS.acceptForm, TESTIDS.acceptWorkspace, TESTIDS.acc
 
 /** One registered refusal, as a suite may hold it without the registry's own closed key type. */
 type Entry = { code: string; message: string; remedy: string; severity: string; surface: string };
+
+/** One cell of a route's states row, in the three shapes `src/ui/shell/states.ts` rules (R-UI-050). */
+type Cell = { declared?: string; by?: string; to?: string; testId?: string | null; why?: string };
 
 describe("AC-2: the members Decision is revised to author the invitations panel (discharging I-61)", () => {
   test("AC-2: the revision names every id the panel renders inside I-61's two slots", () => {
@@ -111,23 +117,59 @@ describe("AC-3: the accept screen's Decision, registry entry, copy and states ro
     expect(wrong, "these keys do not carry the sentence the Decision fixes for them — the screen renders the Decision's words (C-13)").toEqual([]);
   });
 
-  test("AC-3: the screen declares its states row in its route, in the shipped cell shape", async () => {
+  test("AC-3: the screen declares its states row in its route, and the state it really renders says so", async () => {
     // The shape is read off the members row the tree already ships, never frozen here: whatever the
     // shell's state names are, the accept screen's row answers all of them and no others (B-19).
     const members = await productModule<Record<string, unknown>>(MODULES.membersStates);
-    const membersRow = members["MEMBERS_STATES"] as Record<string, { declared?: string }> | undefined;
+    const membersRow = members["MEMBERS_STATES"] as Record<string, Cell> | undefined;
     expect(membersRow, "the shipped members row is the shape a route's states row is written in").toBeDefined();
 
     const accept = await productModule<Record<string, unknown>>(MODULES.acceptStates);
-    const acceptRow = accept["ACCEPT_INVITATION_STATES"] as Record<string, { declared?: string }> | undefined;
+    const acceptRow = accept["ACCEPT_INVITATION_STATES"] as Record<string, Cell> | undefined;
     expect(acceptRow, `${MODULES.acceptStates} exports ACCEPT_INVITATION_STATES — the row is declared in the route as well as in the matrix (AC-3, B-19)`).toBeDefined();
 
     const expected = Object.keys(membersRow ?? {}).sort();
     expect(Object.keys(acceptRow ?? {}).sort(), "the row answers every state the shell names, and invents none").toEqual(expected);
+
+    // Every cell is a CLAIM about this screen, and each shape carries the thing that makes the claim
+    // checkable: the surface it is rendered by, the home it was handed to, or the reason it cannot
+    // arise. A cell that names a file names one the tree holds, and a surface that claims an id
+    // renders that id — otherwise a row can say anything at all (R-UI-050, B-19).
+    const unfounded: string[] = [];
     for (const [name, cell] of Object.entries(acceptRow ?? {})) {
+      const declared = String(cell.declared);
+      const why = collapse(String(cell.why ?? ""));
+      if (declared === "rendered") {
+        const by = String(cell.by ?? "");
+        if (by === "" || !existsSync(inRepo(by))) unfounded.push(`${name} is rendered by "${by}", which is not a file of this checkout`);
+        else if (typeof cell.testId === "string" && !codeOf(by).includes(cell.testId)) unfounded.push(`${name} names ${cell.testId}, which ${by} does not render`);
+      } else if (declared === "delegated") {
+        const to = String(cell.to ?? "");
+        if (to === "" || !existsSync(inRepo(to))) unfounded.push(`${name} is delegated to "${to}", which is not a file of this checkout`);
+        if (why === "") unfounded.push(`${name} is delegated with no reason given`);
+      } else if (declared === "impossible") {
+        if (why === "") unfounded.push(`${name} is impossible with no reason attached — the reason is what makes the claim reviewable`);
+      } else {
+        unfounded.push(`${name} says "${declared}", which is not one of rendered / delegated / impossible`);
+      }
+    }
+    expect(unfounded, "these cells claim something the tree does not bear out (R-UI-050, B-19)").toEqual([]);
+
+    // And the row is held against the screen itself. The refusal an unknown, spent or revoked token
+    // meets is one a person SEES — it is driven in a browser in `invitations-live.test.ts` — so the
+    // cell carrying it may not disclaim it. WHICH cell that is is read off the row's own ids rather
+    // than from a state name frozen here, and the surface it names is one the page really mounts.
+    const renderingTheRefusal = Object.entries(acceptRow ?? {}).filter(([, cell]) => cell.testId === TESTIDS.acceptRefusal);
+    expect(
+      renderingTheRefusal.map(([name]) => name),
+      `no cell of the row carries ${TESTIDS.acceptRefusal} — the screen answers an unclaimable token in place, so the state that answers it is declared "rendered" with the id it is answered in; a row whose cells all disclaim this screen describes some other one (AC-3, B-19)`,
+    ).not.toEqual([]);
+    const mounted = reachableFrom(MODULES.acceptPage);
+    for (const [name, cell] of renderingTheRefusal) {
+      expect(String(cell.declared), `the ${name} cell is rendered by this screen — an unclaimable token is refused in place, with the register's own words (AC-3)`).toBe("rendered");
       expect(
-        ["rendered", "delegated", "impossible"].includes(String(cell.declared)),
-        `the ${name} cell says one of the three things a cell may say — rendered here, delegated to a named home, or impossible with a reason (R-UI-050)`,
+        mounted.has(String(cell.by ?? "")),
+        `${name} says it is rendered by ${String(cell.by)}, but ${MODULES.acceptPage} does not reach that file through its own imports — a cell may not name a surface the screen never mounts (B-19)`,
       ).toBe(true);
     }
   });
