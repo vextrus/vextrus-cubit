@@ -25,6 +25,7 @@ export {
   type Permission,
   type Role,
 } from "./law";
+export { actsHeldBy } from "./held";
 export { effectiveGrants, holdersOf, permissionsHeld, rolesGranted, type RoleGrant } from "./participation";
 export { permissionNotHeld, projectWouldHaveNoPrincipal, type ActorKind } from "./refusals";
 export { type ActRendering, type ActorCtx, type WrittenAct } from "./rendering";

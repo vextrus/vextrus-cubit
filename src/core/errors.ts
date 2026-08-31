@@ -43,7 +43,8 @@ export type RefusalCode =
   | "WORKSPACE_PERMISSION_NOT_HELD"
   | "SELF_REMOVAL_NOT_ALLOWED"
   | "WORKSPACE_WOULD_HAVE_NO_OWNER"
-  | "ORIGIN_NOT_VERIFIED";
+  | "ORIGIN_NOT_VERIFIED"
+  | "MEMBER_HAS_ACTS";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -203,6 +204,15 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     remedy: "Return to the workspace in your browser and try the action again from there.",
     severity: "error",
     surface: "banner",
+  }),
+  // SEAM-ACT's coupling: tenant administration sits outside the act log's writ, so a membership the
+  // log names as an author is not taken away underneath the record it made (R-SPINE-003).
+  MEMBER_HAS_ACTS: Object.freeze({
+    code: "MEMBER_HAS_ACTS",
+    message: "This member holds recorded acts on open campaigns, so their membership was not removed.",
+    remedy: "Remove them once those campaigns close — the record keeps its author until then.",
+    severity: "error",
+    surface: "inline",
   }),
 } satisfies Record<RefusalCode, RefusalEntry>);
 
