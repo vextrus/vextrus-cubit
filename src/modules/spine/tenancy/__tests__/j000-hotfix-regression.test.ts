@@ -20,6 +20,7 @@
 // same function, so a transport asking the question asks this one.
 import { describe, expect, test } from "vitest";
 import { refusalOf } from "../../../../core/errors";
+import { refusalCodeOf } from "../../../../core/faults/refusal-marker";
 import { verifyStatedOrigin } from "../guard/origin";
 
 /** What a served loopback deployment states about itself (V-E2E: it states its own address). */
@@ -34,7 +35,12 @@ function refusalFor(claim: { statedOrigin: string | null; requestOrigin: string;
     verifyStatedOrigin(claim);
     return null;
   } catch (thrown) {
-    return (thrown as { refusalCode?: string }).refusalCode ?? `an unregistered throw: ${String(thrown)}`;
+    // A refusal is an answer and carries its registered code; anything else is a fault, and a fault
+    // is not this reader's to turn into an answer — it goes on up (ARCH-03, B-21). The marker has one
+    // reader (ARCH-02) and this asks it rather than re-reading the property.
+    const code = refusalCodeOf(thrown);
+    if (code === null) throw thrown;
+    return code;
   }
 }
 
