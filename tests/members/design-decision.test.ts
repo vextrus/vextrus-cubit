@@ -65,6 +65,29 @@ describe("AC-1: the committed Design Decision rules the members surface", () => 
     expect(missing, "every data-testid this increment's contract fixes is named in the Decision (C-05, C-13) — inc-010b builds against the last two").toEqual([]);
   });
 
+  test("AC-1: the page object's contract is exactly the closed set the Decision fixes", () => {
+    // The page object is the one place the suites read a testid from, and the Builder may edit it
+    // (C-05 names it a page object). So it is pinned both ways against §7's CLOSED contract: an id
+    // renamed, dropped or invented in `support/members-page.ts` alone reds here, and so does one
+    // added to the Decision and never declared. The expected roster is PARSED out of the committed
+    // document, never transcribed into this file (B-19).
+    const text = decision();
+    const section = text.slice(text.indexOf("## 7. Test hooks"));
+    expect(section.length, "the Decision closes its test-hook contract in a section of its own (C-05)").toBeGreaterThan(0);
+
+    // Every backticked hyphenated name §7 spells, minus the attribute and class-name families it
+    // rules alongside them (`data-…`, `aria-…`, `cx-…`), which are hooks without ids of their own.
+    const spelled = new Set(
+      [...section.matchAll(/`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`/g)]
+        .map((match) => match[1] ?? "")
+        .filter((name) => !/^(data|aria|cx)-/.test(name)),
+    );
+    const byCodePoint = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+    expect([...spelled].sort(byCodePoint), "the ids the page object declares are exactly the ids §7 fixes — the contract is closed, and one place holds it (C-05, B-17)").toEqual(
+      [...CONTRACT_TESTIDS].sort(byCodePoint),
+    );
+  });
+
   test("AC-1: it names the server actions the surface's mutations go through", () => {
     const text = decision();
     const missing = ACTION_NAMES.filter((name) => !text.includes(name));

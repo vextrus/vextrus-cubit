@@ -4,9 +4,12 @@
  * asserted (B-19's "fixture identities are declared once"), plus the DOM reading each suite does
  * over them.
  *
- * Only the contract and the mechanics live here. Nothing in this file judges the surface — the
- * rules are in the suites — so it cannot be edited into agreement with a screen that does not
- * satisfy them.
+ * Only the contract and the mechanics live here: this is a page object (C-05 names it one), so it
+ * asserts nothing itself — the rules are in the suites. It is not left free to drift with a screen
+ * that misses them, either. The roster below is pinned BOTH WAYS against §7 of the committed Design
+ * Decision by `design-decision.test.ts`, so an id renamed, dropped or invented here alone reds; and
+ * the ids the surface is driven by are spelled again, out of reach of this file, by the held-out
+ * set. Retuning the contract to fit a screen is a spec revision, not an edit.
  *
  * The queries are written against a structural shape rather than against `Document`, so one reader
  * serves a jsdom document parsed out of a server-rendered response and a container mounted by

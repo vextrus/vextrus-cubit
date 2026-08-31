@@ -256,7 +256,10 @@ describe("AC-3: every sentence comes from a table, by key", () => {
   test("AC-3: the route's own components spell no user-facing string in JSX", () => {
     const directory = join(REPO_ROOT, MEMBERS_ROUTE_DIR);
     expect(existsSync(directory), `${MEMBERS_ROUTE_DIR} is the members surface's route directory`).toBe(true);
-    const files = readdirSync(directory).filter((name) => name.endsWith(".tsx"));
+    // The WHOLE subtree, not its top level: a component the surface composes is the surface's own
+    // copy wherever the Builder files it, so a nested part cannot hide a hardcoded sentence from
+    // this check (the recursive shape the tree's other JSX-literal scans already use).
+    const files = readdirSync(directory, { recursive: true }).map((entry) => String(entry)).filter((name) => name.endsWith(".tsx"));
     expect(files.length, `${MEMBERS_ROUTE_DIR} holds the screen's components`).toBeGreaterThan(0);
 
     /** The attributes a person reads — an accessible name is copy, so it comes from the table. */
