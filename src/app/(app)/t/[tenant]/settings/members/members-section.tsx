@@ -206,35 +206,34 @@ function MemberHistory({ history }: { history: readonly MembersHistoryEntry[] })
       <span className="cx-members-history-label" id={labelId}>
         {membersStrings.members_history_label}
       </span>
-      {history.length === 0 ? (
-        <p className="cx-members-history-none">{membersStrings.members_history_none}</p>
-      ) : (
-        <ol className="cx-members-history" data-testid="members-role-history" aria-labelledby={labelId}>
-          {history.map((entry, index) => (
-            <li
-              className="cx-members-history-row"
-              data-testid="members-history-entry"
-              data-project={entry.projectId}
-              data-direction={entry.direction}
-              data-role={entry.role}
-              key={`${entry.occurredAt}-${entry.projectId}-${entry.direction}-${entry.role}-${index}`}
-            >
-              <p className="cx-members-history-what">
-                <span className="cx-members-direction">{entry.direction}</span>
-                <span className="cx-members-history-role">{entry.role}</span>
-                {/* I-26: the id renders whole, so a person can quote the project it happened on. */}
-                <span className="cx-members-history-project">{entry.projectId}</span>
-              </p>
-              <p className="cx-members-history-by">
-                {fill(membersStrings.members_history_by, {
-                  actor: entry.actorLabel ?? membersStrings.members_member_unnamed,
-                  date: dayOf(entry.occurredAt),
-                })}
-              </p>
-            </li>
-          ))}
-        </ol>
-      )}
+      {/* The record is one list per member whether or not it holds a movement — a member with none
+          has an empty record, not an absent one, and the honest line stands in the list's place. */}
+      <ol className="cx-members-history" data-testid="members-role-history" aria-labelledby={labelId}>
+        {history.map((entry, index) => (
+          <li
+            className="cx-members-history-row"
+            data-testid="members-history-entry"
+            data-project={entry.projectId}
+            data-direction={entry.direction}
+            data-role={entry.role}
+            key={`${entry.occurredAt}-${entry.projectId}-${entry.direction}-${entry.role}-${index}`}
+          >
+            <p className="cx-members-history-what">
+              <span className="cx-members-direction">{entry.direction}</span>
+              <span className="cx-members-history-role">{entry.role}</span>
+              {/* I-26: the id renders whole, so a person can quote the project it happened on. */}
+              <span className="cx-members-history-project">{entry.projectId}</span>
+            </p>
+            <p className="cx-members-history-by">
+              {fill(membersStrings.members_history_by, {
+                actor: entry.actorLabel ?? membersStrings.members_member_unnamed,
+                date: dayOf(entry.occurredAt),
+              })}
+            </p>
+          </li>
+        ))}
+      </ol>
+      {history.length === 0 ? <p className="cx-members-history-none">{membersStrings.members_history_none}</p> : null}
     </div>
   );
 }
