@@ -16,8 +16,9 @@ import { acts, asc, isUuid, type TenantTx } from "../db";
  * `userId` that is not a uuid names nobody the log could carry — `acts.actor_id` is a `uuid`, so
  * carrying it into the statement would raise 22P02, a driver error with no refusal marker on it.
  *
- * The scope is the whole of the tenant's log because at this milestone the log's whole of it is
- * live: a narrower scope belongs in this query, beside the naming rule it refines, and nowhere else.
+ * The scope is the tenant's whole log: every act it names this person in ties the record to them. A
+ * scope narrower than that is a refinement of this predicate, and belongs beside the naming rule it
+ * refines rather than in the caller that asks the question (ARCH-02).
  */
 export async function actsHeldBy(tx: TenantTx, userId: string): Promise<readonly string[]> {
   if (!isUuid(userId)) return [];
