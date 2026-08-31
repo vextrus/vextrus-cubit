@@ -124,6 +124,17 @@ export function deploymentIsSecure(req: Request): boolean {
   return !isLoopbackRequest(req);
 }
 
+/**
+ * The origin of the URL this request arrived at, taken verbatim and judged nowhere here. It is one
+ * of the two addresses R-SPINE-006's origin rule admits a stated `Origin` against, and that rule has
+ * one home (src/modules/spine/tenancy/guard): this seam carries the fact, because a procedure is
+ * handed a context and never the request itself.
+ */
+function arrivalOrigin(req: Request): string {
+  const url = typeof req.url === "string" ? req.url : "";
+  return URL.parse(url)?.origin ?? "";
+}
+
 /** Did this request arrive on a loopback name — the development and journey servers, and nothing else? */
 function isLoopbackRequest(req: Request): boolean {
   const url = URL.parse(typeof req.url === "string" ? req.url : "");
@@ -187,7 +198,7 @@ export async function createContext({ req }: { req: Request }): Promise<AppConte
     actor: session?.userId ?? ANONYMOUS,
     origin: originOf(),
     statedOrigin: req.headers.get("origin"),
-    requestOrigin: URL.parse(typeof req.url === "string" ? req.url : "")?.origin ?? "",
+    requestOrigin: arrivalOrigin(req),
     deviceLabel: deviceLabelFrom(req.headers.get("user-agent")),
     client: UNOBSERVED_CLIENT,
     session,

@@ -7,7 +7,7 @@
 // The one guarded entry is instantiated exactly once, here, with the shipped machinery injected: the
 // module may not import the server layer (ARCH-01), and the counting has one home — the auth tier's
 // `admitAttempt`, bound to the `tenancyAdmin` door whose allowance `AUTH_RATE_LIMITS` states.
-import { isWorkspaceRole, guardTenancyMutation, memberRoleHistory, membersOf, type TenancyActor, type WorkspaceRole } from "../../modules/spine/tenancy";
+import { isWorkspaceRole, guardTenancyMutation, membersOf, type TenancyActor, type WorkspaceRole } from "../../modules/spine/tenancy";
 import { presentedValue } from "../auth/folded-key";
 import { admitAttempt } from "../auth/rate-limit";
 import { signedOut } from "../auth/refusals";
@@ -98,10 +98,6 @@ export const tenancyRouter = router({
       createdAt: member.createdAt,
       email: member.emailKey === null ? null : presentedValue(member.emailKey),
     }));
-  }),
-
-  memberRoleHistory: signedInProcedure.input((raw: unknown) => ({ subjectUserId: text(raw, "subjectUserId") })).query(async ({ ctx, input }) => {
-    return memberRoleHistory(await actorFor(ctx.session.userId), input.subjectUserId);
   }),
 
   assignRole: signedInProcedure

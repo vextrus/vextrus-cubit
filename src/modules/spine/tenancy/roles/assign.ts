@@ -99,9 +99,9 @@ export async function assignWorkspaceRole(actor: TenancyActor, request: RoleAssi
 }
 
 /**
- * Take one membership away (R-SPINE-003's "remove member", R-SPINE-006's guards). Removal while the
- * member holds acts on open campaigns is a separate refusal the register already anticipates, and it
- * is not this node's: nothing here reads a member's holdings.
+ * Take one membership away (R-SPINE-003's "remove member", under R-SPINE-006's guards). The removal
+ * is the seam's own write, under a recorded system reason, and it writes no act row for the reason
+ * an assignment does not (SEAM-ACT).
  */
 export async function removeMember(actor: TenancyActor, request: MemberRef): Promise<MemberRemoved> {
   const { subjectRole, isSelf } = await sidesOf(actor, request.subjectUserId);
