@@ -101,6 +101,57 @@ function judgedAt(code: string, at: number, spends: number[]): boolean {
   return spends.some((call) => blocks.some(([open, close]) => call > open && call < close));
 }
 
+/** Where each invitation door may be imported FROM, derived from the tree rather than spelled. */
+function doorPublishers(): Map<string, Set<string>> {
+  return new Map(BARREL_EXPORTS.map((door) => [door, modulesPublishing(door)] as const));
+}
+
+/**
+ * Where a file CALLS an invitation door: the local name the door was imported under — statically,
+ * or destructured off a dynamic import — resolved through the modules that publish it. A local
+ * helper that borrowed the name, and a door named in a comment, are not calls to the product.
+ */
+function doorCalls(file: string, code: string, publishers: Map<string, Set<string>>): number[] {
+  const names: string[] = [];
+  const bind = (clause: string, landed: string | null): void => {
+    if (landed === null) return;
+    for (const [door, homes] of publishers) {
+      if (!homes.has(landed)) continue;
+      const bound = new RegExp(`\\b${door}\\b(?:\\s+as\\s+([A-Za-z_$][\\w$]*))?`).exec(clause);
+      if (bound !== null) names.push(bound[1] ?? door);
+    }
+  };
+  for (const { clause, specifier } of importsOf(code)) bind(clause, resolvedFrom(file, specifier));
+  for (const match of code.matchAll(/\{([^}]*)\}\s*=\s*(?:await\s+)?(?:import|require)\s*\(\s*["']([^"']+)["']\s*\)/g)) {
+    bind(match[1] ?? "", resolvedFrom(file, match[2] ?? ""));
+  }
+  return [...new Set(names)].flatMap((name) => callIndices(code, name));
+}
+
+/** The `test(…)`/`it(…)` body an index sits in — the case a refusal has to have been made inside. */
+function enclosingCase(code: string, at: number): [number, number] | null {
+  const spans = [...code.matchAll(/\b(?:test|it)\s*(?:\.\w+)*\s*\(/g)]
+    .map((match) => balancedSpanAt(code, (match.index ?? 0) + match[0].length - 1))
+    .filter(([open, close]) => at > open && at < close);
+  return spans.length === 0 ? null : spans.reduce((tightest, span) => (span[1] - span[0] < tightest[1] - tightest[0] ? span : tightest));
+}
+
+/**
+ * Does this assertion grade a VALUE — something the program produced — rather than a literal
+ * standing on its own? `expect("RATE_LIMITED").toBe("RATE_LIMITED")` names a refusal and proves
+ * none: nothing was asked, so nothing refused.
+ */
+function gradesAValue(statement: string): boolean {
+  const open = statement.indexOf("(");
+  if (open < 0) return false;
+  const [from, to] = balancedSpanAt(statement, open);
+  const subject = statement
+    .slice(from + 1, to)
+    .replace(/^\s*await\s+/, "")
+    .trim();
+  return subject !== "" && !/^(["'`])[^"'`]*\1$/.test(subject) && !/^-?\d+(?:\.\d+)?$/.test(subject);
+}
+
 describe("AC-1: the invitation invariant has exactly one home, and every mutation is judged there", () => {
   test("AC-1: the tenancy barrel publishes the five doors and the pending-invitation type", async () => {
     const barrel = await productModule<Record<string, unknown>>(MODULES.barrel);
@@ -213,15 +264,27 @@ describe("AC-1: the invitation invariant has exactly one home, and every mutatio
     }
   });
 
-  test("AC-1: the invitation mail is a kind the one mail home admits, and no second home sends it", async () => {
+  test("AC-1: the invitation mail is a kind the one mail home DECLARES, and no second home sends it", async () => {
     const mail = await productModule<Record<string, unknown>>(MODULES.mail);
     expect(typeof mail["deliver"], "src/server/auth/mail.ts is the mail home the invitation leaves through").toBe("function");
 
-    // The kind union is declared in the mail home's own tier; the assertion is that the tier admits
-    // the kind, wherever inside it the union is written.
-    const authTier = sourceFilesUnder(inRepo("src/server/auth"));
-    const admits = authTier.some((file) => new RegExp(`["']${MAIL_KIND}["']`).test(readFileSync(file, "utf8")));
-    expect(admits, `the src/server/auth mail home admits the mail kind "${MAIL_KIND}" — the invitation is mailed as a registered kind, not as a free-form message`).toBe(true);
+    // The kind union is declared in the mail home's own tier; the assertion is that the tier ADMITS
+    // the kind, wherever inside it the union is written — and admitting it means standing among the
+    // kinds, not being mentioned near them. Two shapes count, and both are declarations: the kind
+    // sits beside a sibling kind in the tier's own list of them (a union `|` or a frozen list `,`),
+    // or it labels a branch in a file that delivers. Comments are stripped first (`codeOf`), so a
+    // line of prose promising the kind admits nothing (Q-17) — which is the whole point: a mail kind
+    // the union does not carry cannot be handed to `deliver`, and one written in a comment can.
+    const beside = new RegExp(`["']${MAIL_KIND}["']\\s*[|,]\\s*["']|["'][^"']*["']\\s*[|,]\\s*["']${MAIL_KIND}["']`);
+    const branch = new RegExp(`case\\s+["']${MAIL_KIND}["']\\s*:`);
+    const declaring = sourceFilesUnder(inRepo("src/server/auth"))
+      .map((file) => ({ file: repoRelative(file), code: codeOf(file) }))
+      .filter(({ code }) => beside.test(code) || (branch.test(code) && callIndices(code, "deliver").length > 0))
+      .map(({ file }) => file);
+    expect(
+      declaring,
+      `no file under src/server/auth DECLARES the mail kind "${MAIL_KIND}" — the invitation is mailed as a kind the one mail home carries in its own union of them (standing beside its siblings), or as a branch that delivers; a kind spelled only in prose is not a kind the mail home admits (B-17, R-SPINE-006, Q-17)`,
+    ).not.toEqual([]);
 
     const senders: string[] = [];
     for (const file of srcFiles()) {
@@ -235,25 +298,54 @@ describe("AC-1: the invitation invariant has exactly one home, and every mutatio
     expect(senders, "only the mail home writes the outbox — every other tier is handed a sender, so mail leaves through one door (B-17, ARCH-01)").toEqual([]);
   });
 
-  test("AC-1: each guard has a refusing test beside the module, that really asserts the refusal", () => {
+  test("AC-1: each guard has a refusing test beside the module that drives the door and grades what came back", () => {
     const testFiles = testFilesUnder(requireModule(MODULES.moduleTests));
     expect(testFiles.length, `${MODULES.moduleTests}/ holds the module's own tests`).toBeGreaterThan(0);
 
-    // A code is GRADED where it stands inside the assertion that grades it — `expect(…).rejects…`,
-    // `toThrow(…)`, `toMatchObject({ code })`. A code listed in a comment, a describe title or a
-    // checklist beside `expect(true).toBe(true)` is a refusal nobody made (Q-17, TEST_INTEGRITY).
+    // A refusal is proved by ASKING and being told no. Three things have to coincide, and the same
+    // machinery that judges the seams above judges them here, so a refusing test is held to what a
+    // guarded seam is held to:
+    //
+    //   1. the case DRIVES the product — it calls a binding of the guarded entry, or one of the
+    //      invitation doors, imported from a module that publishes it (never a local look-alike);
+    //   2. that call stands before the assertion finishes, so the value graded is what came back;
+    //   3. the assertion grades a VALUE, not a literal of its own — `expect("RATE_LIMITED")
+    //      .toBe("RATE_LIMITED")` names a refusal nobody made (Q-17, TEST_INTEGRITY).
+    //
+    // Nothing here says which door refuses which way, how many cases a file holds, or what the
+    // rejection is shaped like: a thrown entry, a rejected promise and a returned refusal all pass,
+    // and a later guard added to the same file passes the same way (B-19).
+    const guardHomes = modulesPublishing(GUARD);
+    const doors = doorPublishers();
+
     const asserting = new Map<string, string[]>();
+    const inert = new Map<string, string[]>();
     for (const file of testFiles) {
-      const graded = expectStatements(codeOf(file));
-      for (const code of GUARD_CODES) if (graded.some((statement) => statement.includes(code))) asserting.set(code, [...(asserting.get(code) ?? []), repoRelative(file)]);
+      const source = codeOf(file);
+      const relative = repoRelative(file);
+      const drives = [...guardCalls(file, source, guardHomes), ...doorCalls(file, source, doors)];
+      for (const statement of expectStatements(source)) {
+        const at = source.indexOf(statement);
+        const named = GUARD_CODES.filter((code) => statement.includes(code));
+        if (named.length === 0) continue;
+        const span = enclosingCase(source, at);
+        const asked = span !== null && drives.some((call) => call > span[0] && call < span[1] && call < at + statement.length);
+        const where = asked && gradesAValue(statement) ? asserting : inert;
+        for (const code of named) where.set(code, [...(where.get(code) ?? []), relative]);
+      }
     }
+
     for (const code of GUARD_CODES) {
       const named = asserting.get(code) ?? [];
       expect(
         named,
-        `no test under ${MODULES.moduleTests}/ ASSERTS ${code} — AC-1 owes every guard (origin, rate limit, permission, unclaimable token) a refusing unit test the day the doors ship, and the refusal has to be the thing an expect(…) grades, not a word the file happens to contain`,
+        `no test under ${MODULES.moduleTests}/ REFUSES with ${code} — AC-1 owes every guard (origin, rate limit, permission, unclaimable token) a refusing unit test the day the doors ship, and a refusing test is one that calls ${GUARD} or an invitation door and grades what came back. ${
+          (inert.get(code) ?? []).length > 0
+            ? `${[...new Set(inert.get(code) ?? [])].join(", ")} names ${code} inside an assertion, but that case asks the product nothing (or grades a literal of its own), so nothing refused (R-SPINE-006, TEST_INTEGRITY)`
+            : `nothing names ${code} inside an assertion at all`
+        }`,
       ).not.toEqual([]);
-      for (const file of named) {
+      for (const file of new Set(named)) {
         expect(isExecutedTest(inRepo(file)), `${file} asserts ${code} but no armed lane collects it — a refusing test in a lane nothing runs refuses nothing (Q-07)`).toBe(true);
       }
     }

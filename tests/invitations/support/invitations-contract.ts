@@ -42,6 +42,10 @@ export const TESTIDS = {
   membersSection: "members-section",
   memberRow: "members-row",
   memberRowRole: "members-row-role",
+  memberRoleForm: "members-role-form",
+  memberRoleSelect: "members-role-select",
+  memberRoleSubmit: "members-role-submit",
+  membersRefusal: "members-refusal",
   switcher: "shell-tenant-switcher",
   membersLink: "settings-members-link",
 } as const;
