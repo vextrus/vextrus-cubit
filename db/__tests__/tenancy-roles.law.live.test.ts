@@ -2,9 +2,11 @@
  * Public acceptance for inc-010a1a, the law half (AC-3 and AC-6), driven live against a scratch
  * database the committed migrations built (V-DB):
  *
- *   AC-3 — the two-sided, server-held role law at the module seam (R-SPINE-006): who may move whom,
- *          what a refusal leaves behind, and the one admitted grant written under a recorded system
- *          reason with no act row beside it.
+ *   AC-3 — the two-sided, server-held role law at the module seam (R-SPINE-006): who may move whom
+ *          and what rank they may grant, the workspace's last-OWNER protection and the self-removal
+ *          refusal, what each refusal leaves behind, and the one admitted grant written under a
+ *          recorded system reason with no act row beside it. Every guard the clause names is driven
+ *          here and observed refusing — a registered code is not a refusing test.
  *   AC-6 — the one guarded wire entry: the three procedures of the test contract, the origin gate
  *          before any role is judged, the tenancyAdmin allowance counted by inc-020's own limiter,
  *          the members read surface, and the role history that goes through the participants
@@ -64,6 +66,8 @@ const ATTEMPTS = "auth_attempts";
 
 /** The four codes this node appends, plus the one inc-020 already registered. */
 const WORKSPACE_PERMISSION_NOT_HELD = "WORKSPACE_PERMISSION_NOT_HELD";
+const SELF_REMOVAL_NOT_ALLOWED = "SELF_REMOVAL_NOT_ALLOWED";
+const WORKSPACE_WOULD_HAVE_NO_OWNER = "WORKSPACE_WOULD_HAVE_NO_OWNER";
 const ORIGIN_NOT_VERIFIED = "ORIGIN_NOT_VERIFIED";
 const RATE_LIMITED = "RATE_LIMITED";
 
@@ -301,6 +305,22 @@ const rowOf = (url: string, tenantId: string, userId: string): string =>
     `select coalesce(md5(string_agg(r::text, '|')), 'no row') from ${ident(MEMBERSHIPS)} r where r.${ident(TENANT_COLUMN)} = ${lit(tenantId)} and r.user_id = ${lit(userId)};`,
   );
 
+/** Every membership of a workspace with the role it holds — what a refusal must leave exactly as it was. */
+const rosterOf = (url: string, tenantId: string): string[][] =>
+  sysRun(
+    url,
+    `select user_id::text, workspace_role::text from ${ident(MEMBERSHIPS)}
+      where ${ident(TENANT_COLUMN)} = ${lit(tenantId)} order by user_id::text;`,
+  );
+
+/** How many of a workspace's memberships hold one role — read back live, so no case assumes its own staging. */
+const holdersOf = (url: string, tenantId: string, role: string): number =>
+  sysCount(url, `select count(*) from ${ident(MEMBERSHIPS)} where ${ident(TENANT_COLUMN)} = ${lit(tenantId)} and workspace_role = ${lit(role)};`);
+
+/** The act rows a workspace holds: a role change writes none (SEAM-ACT), and a refusal writes none either. */
+const actsIn = (url: string, tenantId: string): number =>
+  sysCount(url, `select count(*) from ${ident(ACTS)} where ${ident(TENANT_COLUMN)} = ${lit(tenantId)};`);
+
 type Actor = { tenantId: string; userId: string };
 const actorOf = (workspace: Workspace, person: Person): Actor => ({ tenantId: workspace.tenantId, userId: person.userId });
 
@@ -420,6 +440,77 @@ describe("AC-3: the two-sided role law at the module seam", () => {
     ).toBe(true);
 
     setRole(stage.url, stage.law.tenantId, subject?.userId ?? "", MEMBER);
+  }, 300_000);
+
+  it(`AC-3: an ${ADMIN} granting ${OWNER} is refused ${WORKSPACE_PERMISSION_NOT_HELD} — the granted side of the guard`, async () => {
+    const stage = await staged();
+    const { assign } = await doors();
+    const admin = stage.law.members[2];
+    const subject = stage.law.members[1];
+    setRole(stage.url, stage.law.tenantId, subject?.userId ?? "", MEMBER);
+    const roster = rosterOf(stage.url, stage.law.tenantId);
+    const actsBefore = actsIn(stage.url, stage.law.tenantId);
+
+    // The stripped side is already proven above; this is the other half of "two-sided": the subject
+    // outranks nobody, and the refusal is about the rank being handed out (R-SPINE-006).
+    const thrown = await refusalFrom(
+      () => callFn(assign, actorOf(stage.law, admin as Person), { subjectUserId: subject?.userId ?? "", role: OWNER }),
+      `an ${ADMIN} granting ${OWNER} to a ${MEMBER}`,
+    );
+    refusedWith(thrown, WORKSPACE_PERMISSION_NOT_HELD, `the granted side of the two-sided guard: the actor may not grant a rank above their own (R-SPINE-006)`);
+    expect(rosterOf(stage.url, stage.law.tenantId), "a refused grant leaves every membership and every role exactly as it was").toEqual(roster);
+    expect(actsIn(stage.url, stage.law.tenantId), "and a refused role change writes no act row (SEAM-ACT)").toBe(actsBefore);
+  }, 300_000);
+
+  it(`AC-3: the workspace's only ${OWNER} removing themself is refused ${WORKSPACE_WOULD_HAVE_NO_OWNER}`, async () => {
+    const stage = await staged();
+    const { remove } = await doors();
+
+    // The precondition is read back live rather than assumed: this workspace holds exactly one
+    // OWNER, so the caller is the one whose leaving would empty it.
+    expect(holdersOf(stage.url, stage.law.tenantId, OWNER), `the case needs a workspace whose only ${OWNER} is the caller`).toBe(1);
+    expect(roleOf(stage.url, stage.law.tenantId, stage.law.owner.userId), `and that one ${OWNER} is the caller`).toBe(OWNER);
+    const roster = rosterOf(stage.url, stage.law.tenantId);
+    const actsBefore = actsIn(stage.url, stage.law.tenantId);
+
+    const thrown = await refusalFrom(
+      () => callFn(remove, actorOf(stage.law, stage.law.owner), { subjectUserId: stage.law.owner.userId }),
+      `the workspace's only ${OWNER} removing themself`,
+    );
+    // This call is both a self-removal and the last OWNER's departure, and the settled guard order
+    // judges the workspace's protection first — so the code it answers pins that order too.
+    refusedWith(thrown, WORKSPACE_WOULD_HAVE_NO_OWNER, `a workspace may not be left with no ${OWNER}: last-OWNER protection is judged before self-removal (R-SPINE-006, server-held)`);
+    expect(rosterOf(stage.url, stage.law.tenantId), "a refused removal takes no membership away and moves no role").toEqual(roster);
+    expect(actsIn(stage.url, stage.law.tenantId), "and writes no act row (SEAM-ACT)").toBe(actsBefore);
+  }, 300_000);
+
+  it(`AC-3: with a second ${OWNER} standing, an ${OWNER} removing themself is refused ${SELF_REMOVAL_NOT_ALLOWED}`, async () => {
+    const stage = await staged();
+    const { assign, remove } = await doors();
+    const second = stage.law.members[1];
+
+    // The second OWNER is staged through the lawful path — an OWNER granting OWNER, which the rank
+    // law admits — so this case stands on the law under test rather than on a hand-written row.
+    await callFn(assign, actorOf(stage.law, stage.law.owner), { subjectUserId: second?.userId ?? "", role: OWNER });
+    expect(
+      holdersOf(stage.url, stage.law.tenantId, OWNER),
+      `the lawful grant leaves a second ${OWNER} standing, so last-OWNER protection is not what answers this one`,
+    ).toBe(2);
+    const roster = rosterOf(stage.url, stage.law.tenantId);
+    const actsBefore = actsIn(stage.url, stage.law.tenantId);
+
+    try {
+      const thrown = await refusalFrom(
+        () => callFn(remove, actorOf(stage.law, stage.law.owner), { subjectUserId: stage.law.owner.userId }),
+        `an ${OWNER} removing themself while another ${OWNER} stands`,
+      );
+      refusedWith(thrown, SELF_REMOVAL_NOT_ALLOWED, "self-removal is a server refusal, never UI hiding (R-SPINE-006)");
+      expect(rosterOf(stage.url, stage.law.tenantId), "a refused self-removal takes no membership away and moves no role").toEqual(roster);
+      expect(actsIn(stage.url, stage.law.tenantId), "and writes no act row (SEAM-ACT)").toBe(actsBefore);
+    } finally {
+      // The staging is undone so the workspace this file's later cases read still holds one OWNER.
+      setRole(stage.url, stage.law.tenantId, second?.userId ?? "", MEMBER);
+    }
   }, 300_000);
 });
 

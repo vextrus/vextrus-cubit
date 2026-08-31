@@ -250,14 +250,14 @@ describe("AC-1: the tenancy-roles migration", () => {
     expect(entry, `the journal must name ${tag} — a migration the journal does not hold is a migration the lane never applies`).toBeDefined();
     expect(entry?.idx, `${tag}'s journal index must be the index its filename states`).toBe(Number(prefix));
 
-    // "The next free index", stated as the rule rather than as today's number: the entries are
-    // contiguous from zero and this one is the last of them, so the increment appended rather than
-    // rewrote (history is append-only).
+    // "The next free index", stated as the rule rather than as today's number: every entry's index
+    // is its own position in the journal, so the entries that preceded this one are exactly
+    // 0..idx-1 — it was appended at the first index nobody held, and that stays true however many
+    // migrations land after it (B-19: never a snapshot of the journal's extent today).
     expect(
       entries.map((held) => held.idx),
       "the journal's indexes are contiguous from 0 — a landed migration is superseded, never renumbered",
     ).toEqual(entries.map((_held, index) => index));
-    expect(entry?.idx, `${tag} must be the last journal entry — it is appended at the next free index`).toBe(entries.length - 1);
   });
 
   it("AC-1: its generated DDL adds the column and stays pure, with any hand-written SQL after the marker", () => {
