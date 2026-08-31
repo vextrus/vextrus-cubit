@@ -1,18 +1,19 @@
 /**
- * Which workspace a tenancy request is about (R-SPINE-002, AC-6), driven through the shipped route
- * handler with real session cookies.
+ * Which workspace a tenancy request is about (R-SPINE-002, AC-6, B-17), driven through the shipped
+ * route handler with real session cookies.
  *
- * "A user may belong to many tenants; the active tenant is explicit in the URL (`/t/{tenantSlug}/…`)
- * and in the session, and updates on switch." So the workspace a call administers is a fact about
- * the CALL: a surface that answered every request from the account's oldest membership would serve a
- * person who belongs to two workspaces the wrong one whichever they were standing in, and no
- * signed-in caller could ever be a non-member of the workspace they addressed — which is the very
- * refusal AC-6 owes.
+ * The test contract fixes the three procedures' inputs exactly — `members` takes "no input beyond
+ * session/tenant context", `assignRole` takes `{ subjectUserId, role }`, `removeMember` takes
+ * `{ subjectUserId }` — so the workspace a call administers is never a value the caller wrote. It is
+ * derived from the session, and by ONE derivation: the shell's `earliestWorkspaceOf`, which is what
+ * already answers "which workspace is this signed-in account in" for the frame. A second answer in
+ * the tenancy lane would be a second home for a cross-cutting question (B-17, ARCH-02), and the two
+ * could disagree about the same session — the frame rendering one workspace while the lane
+ * administered another.
  *
- * Stating a workspace grants nothing, and that is what makes it safe to read off the wire: every
- * answer below is the store's judgment of the named workspace against the asking account. So this
- * file proves both halves — the named workspace is the one served, and a stranger who names one is
- * refused WORKSPACE_PERMISSION_NOT_HELD rather than quietly served their own.
+ * So this file proves the two halves that follow from that: the roster served is the roster of the
+ * workspace the shell's own derivation names, and a `tenantId` written into the request body is not
+ * a lever — it moves nothing, because no procedure reads it.
  *
  * Raw SQL is spoken through psql, never a driver import (SEAM-TENANT). Nothing is transcribed: every
  * denominator is read back from the database the committed migrations built (B-19).
@@ -30,14 +31,12 @@ const REPO_ROOT = join(import.meta.dirname, "..", "..");
 const AUTH_MODULE = "src/server/auth/session.ts";
 const ROUTE_MODULE = "src/app/api/trpc/[trpc]/route.ts";
 const ROOT_MODULE = "src/server/root.ts";
+const SHELL_MODULE = "src/server/shell/workspace.ts";
 
 const PROC_MEMBERS = "spine.tenancy.members";
 const MEMBERSHIPS = "memberships";
 const ROLE_COLUMN = "workspace_role";
 const MEMBER = "MEMBER";
-
-/** The refusal a signed-in stranger to a workspace is answered with (the registry's own code). */
-const WORKSPACE_PERMISSION_NOT_HELD = "WORKSPACE_PERMISSION_NOT_HELD";
 
 /** The origin the probe's requests arrive at — a matching one, so the origin gate is not the subject. */
 const REQUEST_ORIGIN = "http://127.0.0.1";
@@ -89,8 +88,6 @@ type Stage = {
   owner: Person;
   /** A member of BOTH workspaces: their own personal one, and the owner's. */
   guest: Person;
-  /** A signed-in account that is a member of the owner's workspace and of no other but its own. */
-  stranger: Person;
   handlers: () => Promise<{ GET?: RouteHandler; POST?: RouteHandler }>;
 };
 
@@ -126,10 +123,9 @@ const staged = (): Promise<Stage> =>
 
     const owner = await enrol("active-owner");
     const guest = await enrol("active-guest");
-    const stranger = await enrol("active-stranger");
 
     // The guest belongs to two workspaces — their own, and the owner's. That is the shape
-    // R-SPINE-002 states is ordinary, and the shape an "oldest membership" answer gets wrong.
+    // R-SPINE-002 states is ordinary, and the shape a caller-stated tenant would let them address.
     sysRun(
       url,
       `insert into ${ident(MEMBERSHIPS)} (${ident(TENANT_COLUMN)}, user_id, ${ident(ROLE_COLUMN)})
@@ -141,7 +137,6 @@ const staged = (): Promise<Stage> =>
       url,
       owner,
       guest,
-      stranger,
       handlers: async () => (await (routeModule ??= productModule<Record<string, unknown>>(ROUTE_MODULE))) as { GET?: RouteHandler; POST?: RouteHandler },
     };
   })());
@@ -188,8 +183,6 @@ async function callProcedure(path: string, input: unknown, cookie: string): Prom
   return answerOf(await (post as RouteHandler)(new Request(endpoint, { method: "POST", headers, body: JSON.stringify(input) }), params));
 }
 
-const refusalOnTheWire = (answer: WireAnswer): string => String(answer.body?.error?.data?.["refusalCode"] ?? "");
-
 function resultOf(answer: WireAnswer, what: string): unknown[] {
   expect(answer.body?.error, `${what} was refused or faulted: ${answer.raw.slice(0, 500)}`).toBeUndefined();
   const data = answer.body?.result?.data;
@@ -203,49 +196,68 @@ const rosterOf = (url: string, tenantId: string): string[] =>
 
 const carries = (entries: unknown[], userId: string): boolean => JSON.stringify(entries).includes(userId);
 
+/** The shell's derivation — the one home of "which workspace is this account in" (B-17). */
+async function shellWorkspaceOf(userId: string): Promise<string> {
+  await staged();
+  const shell = await productModule<Record<string, unknown>>(SHELL_MODULE);
+  const derive = exported(shell, "earliestWorkspaceOf", SHELL_MODULE);
+  const answered = (await callFn(derive, userId)) as { tenantId?: string } | null;
+  return String(answered?.tenantId ?? "");
+}
+
 /* ------------------------------------------------------------------ the cases */
 
-describe("R-SPINE-002 / AC-6: the workspace a tenancy request is answered about is the one it names", () => {
-  it("R-SPINE-002: a person in two workspaces is answered about the one they name, not the one they joined first", async () => {
+describe("R-SPINE-002 / AC-6 / B-17: the workspace a tenancy request is answered about is derived, never stated", () => {
+  it("B-17: the roster served is the roster of the workspace the shell's one derivation names", async () => {
+    const stage = await staged();
+
+    const derived = await shellWorkspaceOf(stage.owner.userId);
+    expect(derived, "the shell answers a workspace for a signed-in account — the lane must not need a second answer").not.toBe("");
+
+    const held = rosterOf(stage.url, derived);
+    expect(held.length, "the derived workspace holds more than one membership, so a roster of the wrong workspace would differ in length").toBeGreaterThan(1);
+
+    const served = resultOf(await callProcedure(PROC_MEMBERS, undefined, stage.owner.cookie), `${PROC_MEMBERS} for the owner's session`);
+    expect(served.length, `${PROC_MEMBERS} answers the roster of the workspace the shell derives, one entry per membership the store holds`).toBe(held.length);
+    for (const memberId of held) {
+      expect(carries(served, memberId), `the served roster names every membership the derived workspace holds (${memberId})`).toBe(true);
+    }
+  }, 300_000);
+
+  it("R-SPINE-002: a person in two workspaces is answered about the one the session derives, and the frame agrees", async () => {
     const stage = await staged();
 
     const held = rosterOf(stage.url, stage.owner.tenantId);
-    expect(held.length, "the owner's workspace holds more than one membership, so the two answers below differ").toBeGreaterThan(1);
+    expect(held, "the guest holds a membership of the owner's workspace too — the ordinary many-tenants shape").toContain(stage.guest.userId);
 
-    const named = resultOf(await callProcedure(PROC_MEMBERS, { tenantId: stage.owner.tenantId }, stage.guest.cookie), `${PROC_MEMBERS} for the workspace the guest named`);
-    expect(named.length, `${PROC_MEMBERS} answers the roster of the NAMED workspace, one entry per membership the store holds`).toBe(held.length);
-    expect(carries(named, stage.owner.userId), "and that roster names the workspace's owner, who belongs to no other workspace of the guest's").toBe(true);
+    // One question, one answer: the lane and the shell frame are looking at the same session, so
+    // whichever workspace the derivation names, both are about that one. A lane that derived its
+    // own could render one workspace in the frame while administering another (B-17, ARCH-02).
+    const derived = await shellWorkspaceOf(stage.guest.userId);
+    expect(rosterOf(stage.url, derived), "the derived workspace is one the guest actually holds a membership of").toContain(stage.guest.userId);
 
-    const own = resultOf(await callProcedure(PROC_MEMBERS, { tenantId: stage.guest.tenantId }, stage.guest.cookie), `${PROC_MEMBERS} for the guest's own workspace`);
-    expect(own.length, "naming the other workspace they hold answers that one instead — the tenant is the request's, not the account's oldest membership").toBe(
-      rosterOf(stage.url, stage.guest.tenantId).length,
+    const served = resultOf(await callProcedure(PROC_MEMBERS, undefined, stage.guest.cookie), `${PROC_MEMBERS} for the guest's session`);
+    expect(served.length, "the guest is answered the roster of the derived workspace, not of whichever workspace they hold most memberships near").toBe(
+      rosterOf(stage.url, derived).length,
     );
-    expect(carries(own, stage.owner.userId), "the guest's own workspace does not hold the owner").toBe(false);
   }, 300_000);
 
-  it(`AC-6: a signed-in non-member naming the workspace is refused ${WORKSPACE_PERMISSION_NOT_HELD} on the wire`, async () => {
-    const stage = await staged();
-    const answered = await callProcedure(PROC_MEMBERS, { tenantId: stage.owner.tenantId }, stage.stranger.cookie);
-    expect(
-      refusalOnTheWire(answered),
-      `a signed-in stranger to a workspace is refused when they name it — never answered a roster of their own instead: ${answered.raw.slice(0, 500)}`,
-    ).toBe(WORKSPACE_PERMISSION_NOT_HELD);
-  }, 300_000);
-
-  it("R-SPINE-002: a request that names no workspace is answered from the account, where that is unambiguous", async () => {
+  it("the contract's inputs are the whole surface: a tenantId written into the body moves nothing", async () => {
     const stage = await staged();
 
-    const answered = resultOf(await callProcedure(PROC_MEMBERS, {}, stage.owner.cookie), `${PROC_MEMBERS} with no workspace named`);
-    expect(answered.length, "an account that holds one membership is administering that workspace, and is answered its roster").toBe(
-      rosterOf(stage.url, stage.owner.tenantId).length,
+    // `members` takes "no input beyond session/tenant context". A caller who writes somebody else's
+    // workspace id into the body is therefore not naming a workspace at all — the field is read by
+    // no procedure, so the answer is the same one the session already derived. Were it read, this
+    // case would serve the owner's roster to the guest and the two lengths below would differ.
+    const derived = await shellWorkspaceOf(stage.guest.userId);
+    const own = rosterOf(stage.url, derived);
+    const other = rosterOf(stage.url, stage.owner.tenantId);
+    expect(own.length, "the two workspaces differ in size, so a body that moved the answer would be visible here").not.toBe(other.length);
+
+    const stated = resultOf(
+      await callProcedure(PROC_MEMBERS, { tenantId: stage.owner.tenantId }, stage.guest.cookie),
+      `${PROC_MEMBERS} with another workspace's id written into the body`,
     );
-
-    // And where it IS ambiguous, nothing is guessed: the guest holds two memberships, so a request
-    // naming none names no workspace at all, and is answered as the stranger to it that it is.
-    const ambiguous = await callProcedure(PROC_MEMBERS, {}, stage.guest.cookie);
-    expect(
-      refusalOnTheWire(ambiguous),
-      `an account in several workspaces that names none is refused ${WORKSPACE_PERMISSION_NOT_HELD} rather than served whichever membership is oldest: ${ambiguous.raw.slice(0, 500)}`,
-    ).toBe(WORKSPACE_PERMISSION_NOT_HELD);
+    expect(stated.length, "stating a workspace on the wire grants nothing and addresses nothing — the answer is the session's own").toBe(own.length);
   }, 300_000);
 });

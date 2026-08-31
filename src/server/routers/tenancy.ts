@@ -7,12 +7,12 @@
 // The one guarded entry is instantiated exactly once, here, with the shipped machinery injected: the
 // module may not import the server layer (ARCH-01), and the counting has one home — the auth tier's
 // `admitAttempt`, bound to the `tenancyAdmin` door whose allowance `AUTH_RATE_LIMITS` states.
-import { actingWorkspaceOf, isWorkspaceRole, guardTenancyMutation, membersOf, type TenancyActor, type WorkspaceRole } from "../../modules/spine/tenancy";
+import { isWorkspaceRole, guardTenancyMutation, membersOf, type TenancyActor, type WorkspaceRole } from "../../modules/spine/tenancy";
 import { presentedValue } from "../auth/folded-key";
 import { admitAttempt } from "../auth/rate-limit";
 import { signedOut } from "../auth/refusals";
+import { earliestWorkspaceOf } from "../shell/workspace";
 import { publicProcedure, router } from "../trpc";
-import { optionalText, text } from "./wire";
 
 /** The door this lane's mutations spend, as `AUTH_RATE_LIMITS` names it (R-SPINE-006). */
 const TENANCY_DOOR = "tenancyAdmin" as const;
@@ -34,25 +34,35 @@ const signedInProcedure = publicProcedure.use(({ ctx, next }) => {
   return next({ ctx: { ...ctx, session: ctx.session } });
 });
 
-/** This lane's name, as `./wire.ts`'s reader puts it in front of a caller who sent the wrong shape. */
-const LANE = "spine.tenancy";
-
-/** The field a request names the workspace it is acting in by (R-SPINE-002's active tenant). */
-const TENANT_FIELD = "tenantId";
+/** The bag a caller sent, or an empty one — a body that is not an object supplies no field. */
+function bagOf(input: unknown): Record<string, unknown> {
+  return typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
+}
 
 /**
- * The workspace the acting session administers, and how this lane comes to know it.
- *
- * The tenant a request states is the tenant it acts in: R-SPINE-002 makes the active tenant explicit
- * for exactly this reason — a person may belong to many workspaces, so which one a call is about is
- * a fact about the call and not about the account. Stating one grants nothing, which is why it may
- * be read off the wire at all: the module judges the named workspace against the store and refuses a
- * stranger to it WORKSPACE_PERMISSION_NOT_HELD, so a signed-in caller who writes somebody else's
- * tenant id learns only that they are not in it. A request that states none is answered from the
- * account, by the module's own rule — never by a second answer derived here (B-17).
+ * A required string field of this lane's wire body, or this lane's own complaint that it is not
+ * there. It is private to the router, which is the shape `../auth/router.ts` and `./spine.ts` both
+ * take: reading a body into the shape a lane declares is that lane's own work, and it names itself
+ * in the complaint. Nothing correctness-critical is decided here — who may do what is the module's
+ * (B-17) — so this stays a reader and never grows a judgment.
  */
-async function actorFor(userId: string, statedTenantId: string | null): Promise<TenancyActor> {
-  return { tenantId: await actingWorkspaceOf(userId, statedTenantId), userId };
+function text(input: unknown, name: string): string {
+  const value = bagOf(input)[name];
+  if (typeof value !== "string") throw new Error(`spine.tenancy: "${name}" is required and must be a string`);
+  return value;
+}
+
+/**
+ * The workspace the acting session administers. It is never taken from the wire: a tenant id a
+ * caller wrote would let a signed-in stranger name somebody else's workspace, and the membership is
+ * what says which workspace an account may be scoped to at all. The one home of that lookup is the
+ * shell's `earliestWorkspaceOf`, so this lane derives no second answer to "which workspace is this
+ * person in" (B-17). A session holding none is answered by the module's own refusal, because a
+ * tenant that names no workspace is a workspace this account is not a member of.
+ */
+async function actorFor(userId: string): Promise<TenancyActor> {
+  const workspace = await earliestWorkspaceOf(userId);
+  return { tenantId: workspace?.tenantId ?? "", userId };
 }
 
 /** One member, as the wire serves them. */
@@ -70,10 +80,7 @@ interface MemberAnswer {
 }
 
 /** What the guarded entry is told about the request, beside the move itself. */
-async function requestFor(
-  ctx: { session: { userId: string }; statedOrigin: string | null; requestOrigin: string; origin: string },
-  statedTenantId: string | null,
-): Promise<{
+async function requestFor(ctx: { session: { userId: string }; statedOrigin: string | null; requestOrigin: string; origin: string }): Promise<{
   actor: TenancyActor;
   identity: string;
   statedOrigin: string | null;
@@ -81,7 +88,7 @@ async function requestFor(
   configuredOrigin: string;
 }> {
   return {
-    actor: await actorFor(ctx.session.userId, statedTenantId),
+    actor: await actorFor(ctx.session.userId),
     identity: ctx.session.userId,
     statedOrigin: ctx.statedOrigin,
     requestOrigin: ctx.requestOrigin,
@@ -90,8 +97,8 @@ async function requestFor(
 }
 
 export const tenancyRouter = router({
-  members: signedInProcedure.input((raw: unknown) => ({ tenantId: optionalText(raw, TENANT_FIELD, LANE) })).query(async ({ ctx, input }): Promise<MemberAnswer[]> => {
-    const held = await membersOf(await actorFor(ctx.session.userId, input.tenantId));
+  members: signedInProcedure.query(async ({ ctx }): Promise<MemberAnswer[]> => {
+    const held = await membersOf(await actorFor(ctx.session.userId));
     return held.map((member) => ({
       userId: member.userId,
       workspaceRole: member.workspaceRole,
@@ -101,18 +108,16 @@ export const tenancyRouter = router({
   }),
 
   assignRole: signedInProcedure
-    .input((raw: unknown): { subjectUserId: string; role: WorkspaceRole; tenantId: string | null } => {
-      const role = text(raw, "role", LANE);
-      if (!isWorkspaceRole(role)) throw new Error(`${LANE}: "${role}" is not a workspace role — the roles are the closed set the store holds (R-SPINE-003)`);
-      return { subjectUserId: text(raw, "subjectUserId", LANE), role, tenantId: optionalText(raw, TENANT_FIELD, LANE) };
+    .input((raw: unknown): { subjectUserId: string; role: WorkspaceRole } => {
+      const role = text(raw, "role");
+      if (!isWorkspaceRole(role)) throw new Error(`spine.tenancy: "${role}" is not a workspace role — the roles are the closed set the store holds (R-SPINE-003)`);
+      return { subjectUserId: text(raw, "subjectUserId"), role };
     })
     .mutation(async ({ ctx, input }) => {
-      return guarded(await requestFor(ctx, input.tenantId), { kind: "assignRole", subjectUserId: input.subjectUserId, role: input.role });
+      return guarded(await requestFor(ctx), { kind: "assignRole", subjectUserId: input.subjectUserId, role: input.role });
     }),
 
-  removeMember: signedInProcedure
-    .input((raw: unknown) => ({ subjectUserId: text(raw, "subjectUserId", LANE), tenantId: optionalText(raw, TENANT_FIELD, LANE) }))
-    .mutation(async ({ ctx, input }) => {
-      return guarded(await requestFor(ctx, input.tenantId), { kind: "removeMember", subjectUserId: input.subjectUserId });
-    }),
+  removeMember: signedInProcedure.input((raw: unknown) => ({ subjectUserId: text(raw, "subjectUserId") })).mutation(async ({ ctx, input }) => {
+    return guarded(await requestFor(ctx), { kind: "removeMember", subjectUserId: input.subjectUserId });
+  }),
 });

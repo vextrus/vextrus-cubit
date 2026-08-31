@@ -13,5 +13,5 @@ export { memberRoleHistory, type MemberRoleHistoryEntry } from "./read/history";
 export { membersOf, type WorkspaceMember } from "./read/members";
 export { assignWorkspaceRole, removeMember, type MemberRef, type MemberRemoved, type RoleAssignment, type RoleMoved } from "./roles/assign";
 export { isWorkspaceRole } from "./roles/rank";
-export { actingWorkspaceOf, type TenancyActor } from "./scope";
+export { type TenancyActor } from "./scope";
 export type { WorkspaceRole } from "../../../core/db";

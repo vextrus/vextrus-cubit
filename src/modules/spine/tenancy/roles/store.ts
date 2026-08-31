@@ -32,22 +32,6 @@ export async function membershipsOf(tenantId: string): Promise<readonly Workspac
   return rows.map((row) => ({ userId: row.userId, workspaceRole: row.workspaceRole, createdAt: row.createdAt, emailKey: row.emailKey }));
 }
 
-/**
- * The one workspace an account is a member of, or null when that is not a question with one answer
- * — either it belongs to none, or it belongs to several and only the request can say which of them
- * it is acting in (R-SPINE-002: a person may belong to many tenants). Two rows are read rather than
- * one, because "exactly one" is the fact being established: an ordered `limit 1` would answer the
- * oldest membership to a person who holds four, which is a different question.
- *
- * A user id that is not a uuid names nobody, and the column is `uuid`: carried into the statement it
- * would raise 22P02, a driver error with no refusal marker.
- */
-export async function soleMembershipOf(userId: string): Promise<string | null> {
-  if (!isUuid(userId)) return null;
-  const held = await runAsSystem(READ_REASON).select({ tenantId: memberships.tenantId }).from(memberships).where(eq(memberships.userId, userId)).limit(2);
-  return held.length === 1 ? (held[0]?.tenantId ?? null) : null;
-}
-
 /** A handle the role reads and writes run on: the system handle, or the transaction holding the lock. */
 type RoleHandle = Pick<SystemDb, "select" | "update" | "delete">;
 
