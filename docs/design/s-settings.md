@@ -191,8 +191,9 @@ ever takes core's loading state: that state swallows the button's own activation
 press swallowed here is an attempt the server's allowance never counts — the answer to a
 burst is the door's `RATE_LIMITED` in the answer slot, which the door can only give if every
 press reaches it (R-SPINE-006). Presses are queued in the order they were made and sent one
-at a time; while any move is in flight the panel's status line speaks. The field clears only
-when the invitation landed. Controls stay enabled during a move and after any refusal — a
+at a time; while any move is in flight the panel's status line speaks. The field clears when
+an invitation landed and nothing else is queued behind it — never under an address already
+typed for the next press. Controls stay enabled during a move and after any refusal — a
 retry is never disarmed.
 
 **Pending list** — `<section data-testid="members-pending-invitations" aria-labelledby>`,

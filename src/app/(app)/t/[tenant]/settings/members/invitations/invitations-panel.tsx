@@ -65,22 +65,28 @@ export function InvitationsPanel({
   // never judged, and R-SPINE-006 answers a burst with the door's own refusal rather than letting the
   // screen swallow it. So they queue: each move waits for the one before it and then goes.
   const queue = useRef<Promise<unknown>>(Promise.resolve());
+  // The same count as `inFlight`, readable inside a move rather than a render: what it decides is
+  // whether the field may be cleared, and clearing it under a submission somebody has already typed
+  // would send the empty address they are about to send instead.
+  const queued = useRef(0);
 
   const submit = (kind: MoveKind, move: () => Promise<InvitationsAnswer>): void => {
-    setInFlight((count) => count + 1);
+    queued.current += 1;
+    setInFlight(queued.current);
     const send = async (): Promise<void> => {
       try {
         const answered = await move();
         if (answered.moved) {
           setRefused(null);
           setSettled(true);
-          if (kind === "invite") setEmail("");
+          if (kind === "invite" && queued.current === 1) setEmail("");
           return;
         }
         setSettled(false);
         setRefused({ code: answered.refusal });
       } finally {
-        setInFlight((count) => count - 1);
+        queued.current -= 1;
+        setInFlight(queued.current);
       }
     };
     // Chained on the one before whether it answered or failed: a fault travels on to the boundary
