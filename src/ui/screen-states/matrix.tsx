@@ -92,7 +92,12 @@ const reasonedRefusal =
     </>
   );
 
-/** The bones a screen keeps its layout with while it waits. */
+/**
+ * The bones a screen keeps its layout with while it waits. The count is the number of Skeletons the
+ * `loading.tsx` that serves the route actually renders, so the declared wait has the shape of the
+ * shipped one: the three workspace screens without a `loading.tsx` of their own are all served by
+ * `t/[tenant]/loading.tsx`'s three bones, and each screen that has its own is counted from it.
+ */
 const bones =
   (count: number) =>
   (): ReactNode => <LoadingBones bones={count} />;
@@ -132,7 +137,7 @@ const formDoor = (title: string, submit: string, entry: RefusalEntry, evidence: 
   error: fault(strings.auth_fault_body),
   refusal: refusal(entry, evidence),
   partial: reason(strings.state_partial_one_answer),
-  offline: fault(strings.auth_fault_unreachable_body),
+  offline: delegatedToFault(strings.state_offline_transport_fault, strings.auth_fault_unreachable_body),
   "permission-denied": reason(strings.state_denied_anonymous_door),
 });
 
@@ -176,7 +181,7 @@ export const screenStates: ScreenStatesMatrix = {
     error: fault(strings.auth_fault_body),
     refusal: refusal(REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
     partial: reason(strings.state_partial_one_read),
-    offline: fault(strings.auth_fault_unreachable_body),
+    offline: delegatedToFault(strings.state_offline_transport_fault, strings.auth_fault_unreachable_body),
     "permission-denied": (): ReactNode => (
       <PermissionDenied
         heading={strings.auth_sessions_title}
@@ -205,7 +210,7 @@ export const screenStates: ScreenStatesMatrix = {
   // in-place lifecycle denial names the principal who holds the permission.
   "/t/[tenant]": declare({
     ...workspaceCells,
-    loading: bones(4),
+    loading: bones(3),
     empty: (): ReactNode => (
       <EmptyTeaching heading={strings.shell_projects_empty_heading} body={strings.shell_projects_empty_body} action={strings.shell_sample_offer} />
     ),
@@ -215,7 +220,7 @@ export const screenStates: ScreenStatesMatrix = {
   // Books (shell § 2): an honest empty state and no data, so it asks for nothing refusable.
   "/t/[tenant]/books": declare({
     ...workspaceCells,
-    loading: bones(4),
+    loading: bones(3),
     empty: (): ReactNode => (
       <EmptyTeaching heading={strings.shell_books_empty_heading} body={strings.shell_books_empty_body} action={strings.shell_books_empty_action} />
     ),
@@ -271,7 +276,7 @@ export const screenStates: ScreenStatesMatrix = {
   // registered refusal the screen can still meet stands under it with its code and remedy.
   "/t/[tenant]/settings": declare({
     ...workspaceCells,
-    loading: bones(4),
+    loading: bones(3),
     empty: reason(strings.state_empty_workspace_named),
     refusal: (): ReactNode => (
       <>
@@ -290,7 +295,7 @@ export const screenStates: ScreenStatesMatrix = {
     error: fault(strings.auth_fault_body),
     refusal: refusal(REFUSAL_ENTRIES.TOKEN_NOT_VALID, { href: "/magic-link", label: strings.auth_evidence_request_new_link }),
     partial: reason(strings.state_partial_one_answer),
-    offline: fault(strings.auth_fault_unreachable_body),
+    offline: delegatedToFault(strings.state_offline_transport_fault, strings.auth_fault_unreachable_body),
     "permission-denied": reason(strings.state_denied_anonymous_door),
   }),
 };

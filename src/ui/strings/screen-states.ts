@@ -15,10 +15,15 @@ export const screenStates = {
   state_empty_project_principal: "A project holds at least one principal at every moment, so this list always has a row.",
   state_empty_session_present: "Seeing this list needs a session of your own, so it always holds at least this device.",
   state_empty_form_asks: "This screen starts empty on purpose — it teaches by asking, and the one next action is below.",
-  state_empty_audit_heading: "Nothing recorded yet",
-  state_empty_audit_body: "Every act on this project appears here as it happens, oldest first. Nothing has been recorded on it yet.",
-  state_empty_ruleset_heading: "No rule set pinned",
-  state_empty_ruleset_body: "A project carries its rule set from the moment it is created. This one has pinned no edition yet, so there is nothing here to show.",
+  // The two screens whose empty state its Decision fixes verbatim and whose table lives beside the
+  // route (`src/app/**/strings.ts`), which `src/ui` may never import (ARCH-01). The sentence is
+  // therefore mirrored here word for word, and `tests/screen-states/copy-fidelity.test.ts` pins each
+  // key to the route table it mirrors — so the two spellings cannot drift apart (C-13, B-17).
+  state_empty_audit_heading: "No acts recorded yet",
+  state_empty_audit_body: "Acts are recorded here the moment they are committed anywhere in this project — there is nothing to set up.",
+  state_empty_ruleset_heading: "No rule set to show",
+  state_empty_ruleset_body:
+    "This address does not name a project in this workspace. A project pins its rule set when it is created, so a project that exists always has one.",
 
   state_refusal_ended_session: "This screen registers no refusal of its own. The one any request from it can meet is the ended session, so that is the refusal it answers with.",
   state_refusal_read_fault:
@@ -30,6 +35,8 @@ export const screenStates = {
 
   state_offline_nothing_ages: "Once this screen has loaded it shows no data that can age, so losing the connection changes nothing on it.",
   state_offline_unreachable: "This screen is drawn on the server, so being unable to reach it is a fault rather than a stale page — nothing here is shown out of date.",
+  state_offline_transport_fault:
+    "This screen reaches the server the moment it is used, so a connection that fails is a fault of reachability — it is shown as the fault below, never as silence and never as a refusal it did not receive.",
 
   state_denied_public_entry: "This is the public entry to the product. No permission gates it, so none can be withheld.",
   state_denied_anonymous_door: "This door exists to be used by someone with no session, so it holds no permission to withhold.",

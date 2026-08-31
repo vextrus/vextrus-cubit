@@ -1,3 +1,4 @@
+"use client";
 /**
  * The seven shapes R-UI-050 names, each in one home (B-17): a skeleton that keeps the layout, an
  * empty state that teaches the next action, a fault card offering retry, a refusal carrying its code
@@ -13,6 +14,7 @@
  * `src/ui` never imports `src/app` (ARCH-01). Its words are the spine table's `error_` keys, so the
  * sentence a person reads still has one home.
  */
+import { useId } from "react";
 import type { ReactNode } from "react";
 import type { RefusalEntry } from "../../core/errors";
 import { Button, Skeleton } from "../primitives/core";
@@ -86,14 +88,20 @@ export function EmptyTeaching({ heading, body, action }: { heading: string; body
  * R-UI-050's error state: what happened, that the work is safe, and a retry that is always
  * available. The report id the clause also names is the styled error primitive's, deferred with a
  * named owner by the root boundary's own Decision (I-1) rather than shown here as a bare digest.
+ *
+ * It carries the shipped boundary's own semantics, not only its words: the region announces itself
+ * as an alert and is named by its heading, exactly as `src/app/error.tsx` does, so a reader who
+ * cannot see the card is still told a fault happened and what it is (R-UI-060). The id is per
+ * instance, so two fault cards on one document name themselves apart.
  */
 export function FaultCard({ body }: { body: string }) {
+  const titleId = useId();
   return (
-    <>
-      <h2>{strings.error_title}</h2>
+    <section role="alert" aria-labelledby={titleId}>
+      <h1 id={titleId}>{strings.error_title}</h1>
       <p>{body}</p>
       <Button variant="secondary">{strings.error_retry}</Button>
-    </>
+    </section>
   );
 }
 
@@ -152,7 +160,15 @@ export function Denial({ refusal, evidence }: { refusal: RefusalEntry; evidence:
  * A state a screen's Decision rules cannot arise on it, with the reason it gave. R-UI-050 asks every
  * screen to declare all seven; a declaration that says why a state cannot occur is a claim with a
  * reason attached, which is what makes it reviewable (the `SHELL_STATES` "impossible" cell).
+ *
+ * It is a note about the screen and never an event, so it is not a live region: where it stands
+ * above a delegated surface, the surface below it is what announces (the fault card's alert), and a
+ * reason read out twice would bury the announcement it introduces.
  */
 export function StateReason({ reason }: { reason: string }) {
-  return <p className="cx-screen-state-reason">{reason}</p>;
+  return (
+    <p className="cx-screen-state-reason" role="note">
+      {reason}
+    </p>
+  );
 }
