@@ -19,7 +19,7 @@
  */
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { join } from "node:path";
 import { expect } from "vitest";
@@ -249,7 +249,14 @@ export async function serveApp(distDir: string): Promise<ServedApp> {
   // The deployment's environment, as a plain record: `NODE_ENV` is required by the tree's own
   // `ProcessEnv`, and the build must not inherit the runner's `test`.
   const childEnv = env as unknown as NodeJS.ProcessEnv;
+  // `next build` rewrites the generated typing shim to point at whichever dist directory it was
+  // given, so the bytes left behind depend on which live suite finished last — churn that says
+  // nothing about behaviour. Every live stage leaves the shim as it found it (the arbitration on
+  // next-env.d.ts); a checkout that does not track the file keeps whatever the build wrote.
+  const shimPath = join(REPO_ROOT, "next-env.d.ts");
+  const shimBefore = existsSync(shimPath) ? readFileSync(shimPath, "utf8") : undefined;
   const built = spawnSync(next, ["build"], { cwd: REPO_ROOT, env: childEnv, encoding: "utf8", timeout: 420_000 });
+  if (shimBefore !== undefined && (!existsSync(shimPath) || readFileSync(shimPath, "utf8") !== shimBefore)) writeFileSync(shimPath, shimBefore);
   expect(built.status, `next build failed:\n${(built.stderr || built.stdout || "").slice(-1500)}`).toBe(0);
 
   const started = spawn(next, ["start", "--hostname", "127.0.0.1", "--port", String(port)], { cwd: REPO_ROOT, env: childEnv, stdio: "ignore" });

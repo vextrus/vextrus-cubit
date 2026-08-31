@@ -154,7 +154,14 @@ describe("AC-2: the invitations panel stands in I-61's slots and moves invitatio
       const invitee = await enrol("invitee-resend");
       const page = await membersScreen(stage);
 
+      // Which row this case revokes is read off the panel, not assumed: the offers other cases made
+      // in this same workspace lawfully still stand, and R-SPINE-003 schedules them all. The identity
+      // that appears between the two readings is the one this case just created.
+      const standingBefore = await pendingRows(page, TESTIDS.row, INVITATION_ATTRIBUTE);
       await invite(page, invitee.email);
+      const revokedId = (await pendingRows(page, TESTIDS.row, INVITATION_ATTRIBUTE)).find((id) => id.length > 0 && !standingBefore.includes(id));
+      expect(revokedId, `the invitation just made stands as a pending row of its own, told apart by ${INVITATION_ATTRIBUTE} (AC-2)`).toBeTruthy();
+
       const afterInvite = invitationsMailed(invitee.email).length;
       expect(afterInvite, "the first send reached the invitee").toBeGreaterThan(0);
 
@@ -163,9 +170,14 @@ describe("AC-2: the invitations panel stands in I-61's slots and moves invitatio
         .poll(() => invitationsMailed(invitee.email).length, { timeout: 60_000, interval: 250 })
         .toBeGreaterThan(afterInvite);
 
-      await page.locator(testId(TESTIDS.revoke)).first().click();
-      await page.locator(testId(TESTIDS.none)).waitFor({ state: "visible", timeout: 60_000 });
-      expect(await countOf(page, TESTIDS.row), "a revoked invitation is no longer pending").toBe(0);
+      // Revoke takes THAT invitation away (R-SPINE-003) — the row it was aimed at, not the panel.
+      // Whether any other offer still stands is that offer's business, so nothing here is asserted
+      // about the panel's emptiness; `invitations-none` is owed only where no offer stands, which is
+      // the fresh workspace the first case reads.
+      await page.locator(`${testId(TESTIDS.row)}[${INVITATION_ATTRIBUTE}="${revokedId}"] ${testId(TESTIDS.revoke)}`).click();
+      await expect
+        .poll(() => pendingRows(page, TESTIDS.row, INVITATION_ATTRIBUTE), { timeout: 60_000, interval: 250 })
+        .not.toContain(revokedId);
       await page.context().close();
     },
     LIVE,
