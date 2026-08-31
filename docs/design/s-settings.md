@@ -186,10 +186,15 @@ names through `aria-describedby`; then a row (flex, wrap, align-items center, ga
 `var(--space-2)`, margin-top `var(--space-1)`): the core Input
 `data-testid="invitations-email"` (`type="email"`, `.cx-input .cx-reticle` worn whole,
 `flex: 1 1 320px`, min-width 240 px) and a core primary Button
-`data-testid="invitations-submit"` labelled `invitations_submit`. While a submission is in
-flight the Button takes core's loading state and the panel's status line speaks; the field
-clears only when the invitation landed. Controls stay enabled after any refusal — a retry is
-never disarmed (R-SPINE-006).
+`data-testid="invitations-submit"` labelled `invitations_submit`. No control in this panel
+ever takes core's loading state: that state swallows the button's own activation, and a
+press swallowed here is an attempt the server's allowance never counts — the answer to a
+burst is the door's `RATE_LIMITED` in the answer slot, which the door can only give if every
+press reaches it (R-SPINE-006). Presses are queued in the order they were made and sent one
+at a time; while any move is in flight the panel's status line speaks. The field clears when
+an invitation landed and nothing else is queued behind it — never under an address already
+typed for the next press. Controls stay enabled during a move and after any refusal — a
+retry is never disarmed.
 
 **Pending list** — `<section data-testid="members-pending-invitations" aria-labelledby>`,
 column flex gap `var(--space-2)`: `<h3 class="cx-invitations-pending-heading">`
@@ -230,9 +235,9 @@ precedent, and the reason `MEMBERS_STATES` and the matrix's members row do not m
 
 Last in the panel, a **status line** `<p role="status" aria-live="polite">` (no testid;
 found by role): `var(--text-12)` `var(--graphite-600)`, margin 0, min-height
-`var(--text-13)`; `invitations_status_pending` while a move is in flight,
-`invitations_status_done` after a commit re-renders the list, empty otherwise. It never
-speaks while a refusal stands.
+`var(--text-13)`; `invitations_status_pending` while any queued move is in flight,
+`invitations_status_done` after a commit re-renders the list and no refusal stands, empty
+otherwise. The done line never speaks over a refusal: the answer slot is the answer.
 
 Route files added under `members/invitations/`: `strings.ts` (§3), `actions.ts`
 (`inviteMemberAction`, `resendInvitationAction`, `revokeInvitationAction` — thin:
