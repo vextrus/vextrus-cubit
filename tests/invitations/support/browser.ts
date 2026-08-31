@@ -11,6 +11,7 @@
  * `next build` also runs) does not need a product change to compile.
  */
 import type { Browser, BrowserContext, Page } from "@playwright/test";
+import { strict as assert } from "node:assert";
 import { readFileSync, readdirSync } from "node:fs";
 import { newestMail } from "../../e2e/support/outbox";
 import { outboxDir } from "../../../src/server/auth/mail";
@@ -26,10 +27,22 @@ export interface Mail {
 /** The mail kind an invitation travels as (the interfaces line). */
 export const INVITATION_KIND = "invitation";
 
-/** The newest invitation mailed to an address, waited for rather than assumed. */
+/** The link an invitation mail carries (the test contract) — what makes the mail spendable. */
+export const ACCEPT_LINK = "/accept-invitation?token=";
+
+/**
+ * The newest invitation mailed to an address, waited for rather than assumed. The mechanics assert
+ * their own precondition: a "mail" carrying no accept link is not an invitation a suite can go on to
+ * spend, and every case downstream of it would be measuring nothing.
+ */
 export async function newestInvitation(to: string): Promise<Mail> {
   const read = newestMail as unknown as (to: string, kind: string) => Promise<Mail>;
-  return read(to, INVITATION_KIND);
+  const mail = await read(to, INVITATION_KIND);
+  assert.ok(
+    typeof mail.url === "string" && mail.url.includes(ACCEPT_LINK),
+    `the invitation mailed to ${to} carries no ${ACCEPT_LINK}<token> link, so there is nothing for the invitee to spend — it answered ${JSON.stringify(mail.url)}`,
+  );
+  return mail;
 }
 
 /** Every invitation the outbox holds for an address — how a resend is told from a first send. */
@@ -87,8 +100,14 @@ export const testId = (name: string): string => `[data-testid="${name}"]`;
 /** How many elements carry a testid right now. */
 export const countOf = async (page: Page, name: string): Promise<number> => page.locator(testId(name)).count();
 
-/** The text a person reads out of the one element carrying a testid, whitespace collapsed. */
+/**
+ * The text a person reads out of the one element carrying a testid, whitespace collapsed. An absent
+ * element is asserted against rather than read as the empty string: "" contains every substring a
+ * caller might have been about to look for, so a silent miss here would pass a case that proved
+ * nothing.
+ */
 export async function textOf(page: Page, name: string): Promise<string> {
+  assert.ok(await countOf(page, name), `nothing on this page carries data-testid="${name}", so there is no text to read out of it`);
   const text = await page.locator(testId(name)).first().textContent();
   return (text ?? "").replace(/\s+/g, " ").trim();
 }
