@@ -309,6 +309,40 @@ export const memberships = pgTable(
 );
 
 /**
+ * R-SPINE-003's invitation: an offer of membership made to an address before there is a membership
+ * to hold it. The row is the offer, never the answer — accepting it writes `memberships`, and this
+ * table only records that the offer was made, at what role, by whom, and how it ended.
+ *
+ * The address is held as the fold `users.email` holds one (`server/auth/folded-key.ts`), so an
+ * invitation and the account that eventually spends it are matched on the same key, and a value too
+ * long for a btree index cannot fault a door that never judged it.
+ *
+ * The token is a bearer secret, so only its digest is stored — the same discipline `auth_tokens`
+ * keeps. `consumed_at` and `revoked_at` are the two ways an offer stops being spendable; both are
+ * recorded rather than deleted, so an invitation that was withdrawn is distinguishable from one that
+ * was never made when an operator asks.
+ */
+export const invitations = pgTable(
+  "invitations",
+  {
+    invitationId: uuid("invitation_id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.tenantId),
+    invitedEmailKey: text("invited_email_key").notNull(),
+    workspaceRole: text("workspace_role").$type<WorkspaceRole>().notNull().default("MEMBER"),
+    tokenHash: text("token_hash").notNull().unique(),
+    invitedBy: uuid("invited_by")
+      .notNull()
+      .references(() => users.userId),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [check("invitations_workspace_role_closed", statement`${table.workspaceRole} in (${statement.raw(closedList(WORKSPACE_ROLES))})`)],
+);
+
+/**
  * L-REG-07's fork chain, as a column type rather than a convention: platform → tenant → project.
  * The labels are the `EditionScope` union itself, so the store and the digest cannot come to hold
  * different ideas of what a scope is; `platform` leads because it is the head of every lineage.
@@ -454,6 +488,7 @@ const schema = {
   sessions,
   authTokens,
   memberships,
+  invitations,
   authAttempts,
   rulesetEditions,
   tenantRulesetEditions,

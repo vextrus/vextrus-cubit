@@ -44,7 +44,8 @@ export type RefusalCode =
   | "SELF_REMOVAL_NOT_ALLOWED"
   | "WORKSPACE_WOULD_HAVE_NO_OWNER"
   | "ORIGIN_NOT_VERIFIED"
-  | "MEMBER_HAS_ACTS";
+  | "MEMBER_HAS_ACTS"
+  | "INVITATION_NOT_CLAIMABLE";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -211,6 +212,16 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     code: "MEMBER_HAS_ACTS",
     message: "This member holds recorded acts on open campaigns, so their membership was not removed.",
     remedy: "Remove them once those campaigns close — the record keeps its author until then.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // R-SPINE-003's ACCEPT flow: the four ways a mailed invitation stops being spendable answer as
+  // one code, because an answer that told them apart would tell the holder of a token which of them
+  // it is — and a stranger's probe would learn whether an address was ever invited.
+  INVITATION_NOT_CLAIMABLE: Object.freeze({
+    code: "INVITATION_NOT_CLAIMABLE",
+    message: "This invitation cannot be accepted — it was never issued, has already been accepted, or was withdrawn.",
+    remedy: "Ask an owner of that workspace to send a fresh invitation to the address you are signed in with.",
     severity: "error",
     surface: "inline",
   }),

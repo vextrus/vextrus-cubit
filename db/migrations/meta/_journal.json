@@ -71,6 +71,13 @@
       "when": 1788165621293,
       "tag": "0009_tenancy-roles",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788201616851,
+      "tag": "0010_invitations",
+      "breakpoints": true
     }
   ]
 }
