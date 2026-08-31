@@ -11,7 +11,7 @@
 //
 // The panel takes what the page composed and the three actions, so a suite mounts the same component
 // a browser renders with the settlement of its choice (the MembersSection precedent).
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { refusalOf, type RefusalCode } from "../../../../../../../core/errors";
 import { RefusalState } from "../../../../../../../ui/patterns/refusal-state";
 import { Button, Input } from "../../../../../../../ui/primitives/core";
@@ -37,19 +37,13 @@ export interface InvitationsPanelProps {
   revoke?: typeof revokeInvitationAction;
 }
 
-/** Which submission is in flight, so the control that made it is the one that reads as busy. */
-interface InFlight {
-  readonly at: string;
-  readonly kind: "invite" | "resend" | "revoke";
-}
+/** The moves a control can ask for. An invite clears the field it was typed in; the others do not. */
+type MoveKind = "invite" | "resend" | "revoke";
 
 /** A refusal that stands, and the move that asked for it — at most one at a time (I-57). */
 interface Refused {
   readonly code: RefusalCode;
 }
-
-/** The invite form's own key in the in-flight record: it belongs to no row. */
-const INVITE_FORM = "";
 
 export function InvitationsPanel({
   tenantId,
@@ -59,31 +53,40 @@ export function InvitationsPanel({
   revoke = revokeInvitationAction,
 }: InvitationsPanelProps) {
   const [email, setEmail] = useState("");
-  const [inFlight, setInFlight] = useState<InFlight | null>(null);
+  const [inFlight, setInFlight] = useState(0);
   const [refused, setRefused] = useState<Refused | null>(null);
   // Whether the last submission landed. The changed list is the visible answer, so the line says
   // only that the answer is on the page — a re-read the revalidation performed.
   const [settled, setSettled] = useState(false);
   const ids = { heading: useId(), pending: useId(), email: useId(), emailHint: useId() };
 
-  const submit = async (at: string, kind: InFlight["kind"], move: () => Promise<InvitationsAnswer>): Promise<void> => {
-    // A move is a round trip and the list stays where it is while one is in flight: a second press
-    // would send a second move for the same offer and paint whichever answered last.
-    if (inFlight !== null) return;
-    setRefused(null);
-    setSettled(false);
-    setInFlight({ at, kind });
-    const answered = await move();
-    setInFlight(null);
-    if (answered.moved) {
-      setSettled(true);
-      if (kind === "invite") setEmail("");
-      return;
-    }
-    setRefused({ code: answered.refusal });
-  };
+  // Every submission is sent, in the order it was made. A move is a round trip, so two at once would
+  // paint whichever answered last — but a press this screen DROPPED would be an attempt the server
+  // never judged, and R-SPINE-006 answers a burst with the door's own refusal rather than letting the
+  // screen swallow it. So they queue: each move waits for the one before it and then goes.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
 
-  const busy = (at: string, kind: InFlight["kind"]): boolean => inFlight?.at === at && inFlight.kind === kind;
+  const submit = (kind: MoveKind, move: () => Promise<InvitationsAnswer>): void => {
+    setInFlight((count) => count + 1);
+    const send = async (): Promise<void> => {
+      try {
+        const answered = await move();
+        if (answered.moved) {
+          setRefused(null);
+          setSettled(true);
+          if (kind === "invite") setEmail("");
+          return;
+        }
+        setSettled(false);
+        setRefused({ code: answered.refusal });
+      } finally {
+        setInFlight((count) => count - 1);
+      }
+    };
+    // Chained on the one before whether it answered or failed: a fault travels on to the boundary
+    // (ARCH-03) and the queue behind it still drains, so no later submission is lost to it.
+    queue.current = queue.current.then(send, send);
+  };
 
   return (
     <div className="cx-invitations">
@@ -100,7 +103,7 @@ export function InvitationsPanel({
         aria-labelledby={ids.heading}
         onSubmit={(event) => {
           event.preventDefault();
-          void submit(INVITE_FORM, "invite", () => invite({ tenantId, email }));
+          submit("invite", () => invite({ tenantId, email }));
         }}
       >
         <label className="cx-invitations-label" htmlFor={ids.email}>
@@ -120,7 +123,10 @@ export function InvitationsPanel({
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
-          <Button type="submit" variant="primary" data-testid="invitations-submit" loading={busy(INVITE_FORM, "invite")}>
+          {/* No loading state on any control here: core's Button swallows its own activation while
+              it is loading, and a submission swallowed on this side is an attempt the server's
+              allowance never counts (R-SPINE-006). The status line below says a move is in flight. */}
+          <Button type="submit" variant="primary" data-testid="invitations-submit">
             {invitationsStrings.invitations_submit}
           </Button>
         </div>
@@ -145,8 +151,7 @@ export function InvitationsPanel({
                   variant="secondary"
                   data-testid="invitations-resend"
                   aria-label={fill(invitationsStrings.invitations_resend_label, { invitee: row.label })}
-                  loading={busy(row.invitationId, "resend")}
-                  onClick={() => void submit(row.invitationId, "resend", () => resend({ tenantId, invitationId: row.invitationId }))}
+                  onClick={() => submit("resend", () => resend({ tenantId, invitationId: row.invitationId }))}
                 >
                   {invitationsStrings.invitations_resend}
                 </Button>
@@ -155,8 +160,7 @@ export function InvitationsPanel({
                   variant="danger"
                   data-testid="invitations-revoke"
                   aria-label={fill(invitationsStrings.invitations_revoke_label, { invitee: row.label })}
-                  loading={busy(row.invitationId, "revoke")}
-                  onClick={() => void submit(row.invitationId, "revoke", () => revoke({ tenantId, invitationId: row.invitationId }))}
+                  onClick={() => submit("revoke", () => revoke({ tenantId, invitationId: row.invitationId }))}
                 >
                   {invitationsStrings.invitations_revoke}
                 </Button>
@@ -176,7 +180,7 @@ export function InvitationsPanel({
 
       {/* I-57: one answer slot for the panel, mounted only while a refusal stands. The controls above
           stay armed — a retry is never disarmed (R-SPINE-006). */}
-      {refused !== null && inFlight === null ? (
+      {refused !== null ? (
         <div className="cx-invitations-answer" data-testid="invitations-refusal">
           <RefusalState
             refusal={refusalOf(refused.code)}
@@ -186,7 +190,7 @@ export function InvitationsPanel({
       ) : null}
 
       <p className="cx-invitations-status" role="status" aria-live="polite">
-        {inFlight !== null
+        {inFlight > 0
           ? invitationsStrings.invitations_status_pending
           : settled && refused === null
             ? invitationsStrings.invitations_status_done

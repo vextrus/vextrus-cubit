@@ -30,14 +30,49 @@ function originOf(value: string): string {
 }
 
 /**
- * Refuse a stated origin this deployment does not answer at, and let every other request through.
- * The deployment's own statement of its address is admitted beside the request's own origin, because
- * a deployment behind a proxy answers at an address the request's URL does not carry.
+ * The names that address the machine a process is already running on. Stated here because this is
+ * where the question is asked: a module may not import the server tier (ARCH-01), and the seam's own
+ * list answers a different question entirely — whether a cookie may be handed out without `Secure`.
  */
+const SELF_HOSTS: ReadonlySet<string> = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+
+/** Does this address name the machine the process runs on, rather than somewhere on a network? */
+function addressesThisMachine(origin: string): boolean {
+  const hostname = URL.parse(origin)?.hostname;
+  return hostname !== undefined && SELF_HOSTS.has(hostname);
+}
+
+/**
+ * The addresses a stated origin is admitted against.
+ *
+ * The deployment's own statement of where it answers is the comparator, because it is the only one of
+ * the three facts no caller writes. The request's OWN origin is composed from the `Host` the request
+ * carried (and the scheme an edge stated), so admitting it would admit a caller that states one
+ * foreign origin coherently twice — the forged `Host` makes the address the request "arrived at" the
+ * attacker's own, and the stated `Origin` then matches it. That is precisely the cross-site request
+ * R-SPINE-006 legislates against, and R-SPINE-001 bans deciding anything on client-written headers.
+ *
+ * It answers in exactly two cases, neither of which a browser can produce against a deployment it
+ * reached over a network — a browser composes `Host` from the address it dialled, so for a browser
+ * the arrival address IS the deployment's:
+ *
+ *   - the deployment named no address at all: a developer's own machine, where there is nothing else
+ *     to compare against and nothing configured to protect;
+ *   - the request arrived at this machine's own address while the deployment answers elsewhere: a
+ *     caller inside the process driving the shipped handler, which composes the URL itself.
+ */
+function answeredAt(claim: OriginClaim): readonly string[] {
+  const configured = originOf(claim.configuredOrigin);
+  const arrivedAt = originOf(claim.requestOrigin);
+  if (configured === "") return [arrivedAt];
+  if (addressesThisMachine(arrivedAt) && !addressesThisMachine(configured)) return [configured, arrivedAt];
+  return [configured];
+}
+
+/** Refuse a stated origin this deployment does not answer at, and let every other request through. */
 export function verifyStatedOrigin(claim: OriginClaim): void {
   if (claim.statedOrigin === null) return;
   const stated = originOf(claim.statedOrigin);
-  const answeredAt = [claim.requestOrigin, claim.configuredOrigin].map(originOf).filter((origin) => origin !== "");
-  if (answeredAt.includes(stated)) return;
+  if (stated !== "" && answeredAt(claim).includes(stated)) return;
   throw originNotVerified(claim.statedOrigin);
 }

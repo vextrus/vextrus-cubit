@@ -94,6 +94,20 @@ describe("R-SPINE-006: every invitation move is judged by the guarded entry, and
     ).rejects.toMatchObject({ refusalCode: refusalOf("ORIGIN_NOT_VERIFIED").code });
   });
 
+  test("a forged Host does not make a foreign page's origin one this deployment answers at", async () => {
+    allowance = "open";
+    heldRole = "OWNER";
+    const forged = "https://attacker.example";
+    await expect(
+      // Everything a caller writes says the same thing: the `Origin` the page stated, and the `Host`
+      // the address the request "arrived at" is composed from (src/server/context.ts). Only the
+      // deployment's own statement of where it answers is not the caller's to write, so only it
+      // decides — R-SPINE-001's ban on judging by client-written headers, on R-SPINE-006's question.
+      guarded({ actor: ACTOR, identity: ACTOR.userId, statedOrigin: forged, requestOrigin: forged, configuredOrigin: ORIGIN }, { kind: "createInvitation", email: "invitee@cubit.test" }),
+      "a stated origin that matches only a Host the caller wrote is still a foreign page: ORIGIN_NOT_VERIFIED, before anything is written or mailed",
+    ).rejects.toMatchObject({ refusalCode: refusalOf("ORIGIN_NOT_VERIFIED").code });
+  });
+
   test("an allowance already spent refuses the invitation before the workspace is read", async () => {
     allowance = "spent";
     heldRole = "OWNER";
