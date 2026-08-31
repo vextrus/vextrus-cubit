@@ -55,7 +55,9 @@
     ".next-members/types/**/*.ts",
     ".next-members/dev/types/**/*.ts",
     ".next-burst/types/**/*.ts",
-    ".next-burst/dev/types/**/*.ts"
+    ".next-burst/dev/types/**/*.ts",
+    ".next-probe/types/**/*.ts",
+    ".next-probe/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
