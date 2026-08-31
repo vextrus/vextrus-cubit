@@ -9,7 +9,7 @@
 // every tenant-scoped one (SEAM-TENANT).
 import {
   and,
-  asc,
+  desc,
   eq,
   invitations,
   isNull,
@@ -61,8 +61,12 @@ export async function writeInvitation(offer: {
 }
 
 /**
- * The offers of this workspace that still stand — neither accepted nor withdrawn — oldest first, and
+ * The offers of this workspace that still stand — neither accepted nor withdrawn — NEWEST first, and
  * settled by the invitation's own id so two made in the same instant still answer one order.
+ *
+ * Newest first because the offer a person has just made is the one they are looking for: the panel
+ * is read straight after a submission far more often than it is read as a queue, and a list that put
+ * the newest at the bottom would scroll the answer out from under them.
  */
 export async function standingInvitations(tenantId: string): Promise<readonly InvitationRow[]> {
   if (!isUuid(tenantId)) return [];
@@ -70,7 +74,7 @@ export async function standingInvitations(tenantId: string): Promise<readonly In
     .select(COLUMNS)
     .from(invitations)
     .where(and(eq(invitations.tenantId, tenantId), isNull(invitations.consumedAt), isNull(invitations.revokedAt)))
-    .orderBy(asc(invitations.createdAt), asc(invitations.invitationId));
+    .orderBy(desc(invitations.createdAt), desc(invitations.invitationId));
 }
 
 /**

@@ -197,8 +197,8 @@ column flex gap `var(--space-2)`: `<h3 class="cx-invitations-pending-heading">`
 `var(--graphite-700)`, margin 0), then `<ul class="cx-invitations-list">` — list-style none,
 margin 0, padding 0, border-top `var(--hairline)` only when it holds a row. One
 `<li data-testid="invitations-row" data-invitation={invitationId}>` per standing offer, in
-the module's own order (oldest first, settled by the invitation id — never re-sorted, never
-localeCompare), flex wrap, align-items center, justify-content space-between, gap
+the module's own order (newest first, settled by the invitation id — never re-sorted, never
+localeCompare: the offer just made is the one the reader is looking for), flex wrap, align-items center, justify-content space-between, gap
 `var(--space-3)`, padding-block `var(--space-3)`, border-bottom `var(--hairline)`:
 
 - **Identity line** — flex, baseline, gap `var(--space-3)`, margin 0: the invitee's address
@@ -369,12 +369,12 @@ elements ruled in §1: `settings-members-link` · `members-section` · `members-
 `members-row` (`data-user`) · `members-row-role` · `members-role-history` ·
 `members-history-entry` (`data-project`, `data-direction`, `data-role`) ·
 `members-role-form` · `members-role-select` · `members-role-submit` ·
-`members-remove-form` · `members-remove-submit` · `members-refusal` · and the invitations
-panel's, on the elements ruled in §1: `members-invite-form` · `members-pending-invitations`
-(I-61's two slots) · `invitations-email` · `invitations-submit` · `invitations-row`
-(`data-invitation`) · `invitations-resend` · `invitations-revoke` · `invitations-refusal` ·
-`invitations-none`. No others are added. Server actions: `changeMemberRoleAction`,
-`removeMemberAction`, `inviteMemberAction`, `resendInvitationAction`,
+`members-remove-form` · `members-remove-submit` · `members-refusal` — plus I-61's two outer
+slots, now rendered: `members-invite-form` · `members-pending-invitations`. No others are
+added at this level; the ids INSIDE those two slots are the invitations panel's own closed
+set, ruled in §1 above and listed there rather than here, so this roster stays exactly the
+one the members page object holds. Server actions: `changeMemberRoleAction`,
+`removeMemberAction`, and the panel's `inviteMemberAction`, `resendInvitationAction`,
 `revokeInvitationAction`. Behavioural hooks without new ids:
 `role="status"` on the status line, `aria-label` on the select from the strings table,
 RefusalState's own ids and `data-code` inside `members-refusal`, `cx-reticle` on link,
