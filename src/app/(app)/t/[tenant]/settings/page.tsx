@@ -9,6 +9,7 @@ import { viewerFor } from "../../../../../server/shell/viewer";
 import { workspaceFor } from "../../../../../server/shell/workspace";
 import { DensityToggle } from "../../../../../ui/shell";
 import { strings } from "../../../../../ui/strings";
+import { SettingsMembersLink } from "./members/members-link";
 import { RenameForm } from "./rename-form";
 
 export const metadata = { title: strings.shell_settings_heading };
@@ -29,6 +30,7 @@ export default async function WorkspaceSettings() {
     <>
       <h1 className="cx-shell-heading">{strings.shell_settings_heading}</h1>
       <RenameForm tenantId={workspace.tenantId} name={workspace.name} />
+      <SettingsMembersLink tenantId={workspace.tenantId} />
       <DensityToggle density={density} action={saveDensity} />
     </>
   );

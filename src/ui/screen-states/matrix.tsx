@@ -108,6 +108,7 @@ const SIGN_IN_EVIDENCE: RefusalEvidence = { href: "/sign-in", label: strings.she
 const WORKSPACE_EVIDENCE: RefusalEvidence = { href: "/", label: strings.shell_denied_evidence };
 const PROJECTS_EVIDENCE: RefusalEvidence = { href: "/", label: strings.home_evidence_projects };
 const TRY_AGAIN_EVIDENCE: RefusalEvidence = { href: "/", label: strings.auth_evidence_try_again };
+const ROSTER_EVIDENCE: RefusalEvidence = { href: "/", label: strings.state_members_evidence_roster };
 
 /* ------------------------------------------------------------- the signed-in workspace screens */
 
@@ -283,6 +284,28 @@ export const screenStates: ScreenStatesMatrix = {
         <InlineAnswer text={strings.shell_rename_refusal} />
         <Refusal refusal={REFUSAL_ENTRIES.SIGNED_OUT} evidence={SIGN_IN_EVIDENCE} />
       </>
+    ),
+  }),
+
+  // The workspace members surface (s-settings § 2): seeing the roster is itself a membership, so the
+  // list can never be empty, and the four refusals the workspace guards register are all reachable
+  // here — they stand together, in the order the removal guard judges them, each with its own
+  // evidence. The denial names the workspace role's permission, which the entry's own words carry.
+  "/t/[tenant]/settings/members": declare({
+    ...workspaceCells,
+    loading: bones(6),
+    empty: reason(strings.state_empty_members_reader),
+    refusal: (): ReactNode => (
+      <>
+        <Refusal refusal={REFUSAL_ENTRIES.WORKSPACE_PERMISSION_NOT_HELD} evidence={ROSTER_EVIDENCE} />
+        <Refusal refusal={REFUSAL_ENTRIES.WORKSPACE_WOULD_HAVE_NO_OWNER} evidence={ROSTER_EVIDENCE} />
+        <Refusal refusal={REFUSAL_ENTRIES.SELF_REMOVAL_NOT_ALLOWED} evidence={ROSTER_EVIDENCE} />
+        <Refusal refusal={REFUSAL_ENTRIES.MEMBER_HAS_ACTS} evidence={PROJECTS_EVIDENCE} />
+      </>
+    ),
+    partial: reason(strings.state_partial_members_scope),
+    "permission-denied": (): ReactNode => (
+      <Denial refusal={REFUSAL_ENTRIES.WORKSPACE_PERMISSION_NOT_HELD} evidence={WORKSPACE_EVIDENCE} />
     ),
   }),
 

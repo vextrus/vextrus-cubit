@@ -24,6 +24,7 @@ export const screenStates = {
   state_empty_ruleset_heading: "No rule set to show",
   state_empty_ruleset_body:
     "This address does not name a project in this workspace. A project pins its rule set when it is created, so a project that exists always has one.",
+  state_empty_members_reader: "Seeing the roster needs membership of the workspace, so the list always holds at least the person reading it.",
 
   state_refusal_ended_session: "This screen registers no refusal of its own. The one any request from it can meet is the ended session, so that is the refusal it answers with.",
   state_refusal_read_fault:
@@ -32,6 +33,7 @@ export const screenStates = {
   state_partial_one_read: "This screen's answer arrives in one read and is shown whole, so no row of it can be refused on its own.",
   state_partial_no_rows: "This screen shows no rows, so there is no part of it that could be withheld.",
   state_partial_one_answer: "One action, one answer — there is no part of it that can be refused by itself.",
+  state_partial_members_scope: "The role histories answer only the projects the reader may read, and the roster's hint says so; every answered row renders.",
 
   state_offline_nothing_ages: "Once this screen has loaded it shows no data that can age, so losing the connection changes nothing on it.",
   state_offline_unreachable: "This screen is drawn on the server, so being unable to reach it is a fault rather than a stale page — nothing here is shown out of date.",
@@ -44,6 +46,10 @@ export const screenStates = {
   state_denied_project_heading: "You do not have access to this part of the project",
   state_denied_session_permission: "Seeing where you are signed in needs a live session of your own, which this request does not carry.",
   state_denied_session_holder: "Only the signed-in account holds it — signing in again is what grants it.",
+
+  // The evidence a refusal on the members surface points at. The screen's own committed spelling
+  // lives beside its route, which `src/ui` may never import (ARCH-01), so this is that mirror.
+  state_members_evidence_roster: "See the members list",
 } as const;
 
 // R-SPINE-060's per-module convention is that a table file's DESIGNATED export is the one named for
