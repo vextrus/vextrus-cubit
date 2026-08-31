@@ -19,7 +19,9 @@
  * B-19: no roster, count or key set is frozen. The history's length is derived from the grants and
  * withdrawals the database holds; the entry shape is graded on COVERAGE of the facts AC-3 names,
  * never on a spelling; and the OWNER/ADMIN limb arms itself from the schema rather than assuming a
- * workspace-role column this tree does not yet declare.
+ * workspace-role column this tree does not yet declare — the limb arms the moment one lands, which
+ * is what inc-010a1a's column does; its arrival is also why the staging below states the role its
+ * joiners join under (B-20, see WORKSPACE_MEMBER).
  *
  * NOTE FOR THE BUILDER: product modules are loaded by absolute path, so the `@/*` tsconfig alias is
  * never resolved inside them — keep imports between `src/` files relative, as `src/core/db.ts` does.
@@ -50,6 +52,20 @@ const MEASURER = "MEASURER";
 const REVIEWER = "REVIEWER";
 const GRANT = "GRANT";
 const WITHDRAW = "WITHDRAW";
+
+/**
+ * The workspace role a joiner states at insert (B-20, inc-010a1a).
+ *
+ * `memberships.workspace_role` arrived with R-SPINE-003's roles, DEFAULT 'OWNER' — the default that
+ * serves R-SPINE-002's "every user gets a personal tenant at sign-up" without touching the sign-up
+ * transaction. It also backfills every row this file's staging wrote without a role, which would
+ * make the colleague and the stranger workspace OWNERs of a workspace they merely joined. AC-3's
+ * refusing limb below (a signed-in member of the workspace who does not participate) would then be
+ * a red no lawful actor could clear, because the guard's OWNER/ADMIN limb — reserved for that
+ * increment and armed by it — would rightly admit them. Stating the role at insert is the whole
+ * re-baseline: a person who joins somebody else's workspace joins it as a MEMBER.
+ */
+const WORKSPACE_MEMBER = "MEMBER";
 
 /** The permission L-ACT-03 makes PRINCIPAL-only, and the refusal codes this increment leans on. */
 const ADMINISTER_PROJECT = "ADMINISTER_PROJECT";
@@ -237,7 +253,10 @@ const staged = (): Promise<Stage> =>
     // One workspace, three members: the colleague and the stranger join the principal's tenant, so
     // "another signed-in member of the tenant" is a real person rather than an outsider (AC-3).
     for (const person of [colleague, stranger]) {
-      sysRun(url, `insert into memberships (tenant_id, user_id) values (${lit(tenantId)}, ${lit(person.userId)}) on conflict do nothing;`);
+      sysRun(
+        url,
+        `insert into memberships (tenant_id, user_id, workspace_role) values (${lit(tenantId)}, ${lit(person.userId)}, ${lit(WORKSPACE_MEMBER)}) on conflict do nothing;`,
+      );
     }
 
     // A project of that workspace, its creator installed as PRINCIPAL exactly as project creation
