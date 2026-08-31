@@ -10,6 +10,8 @@ import type { ShellArea, ShellWorkspace } from "./routes";
 
 export interface AppShellProps {
   workspace: ShellWorkspace;
+  /** Every workspace the account holds, which is what the rail's switcher offers (R-SPINE-003). */
+  workspaces?: readonly ShellWorkspace[];
   area: ShellArea;
   /** Whether the address is the area's own home, or a screen inside it — see `isAreaHome`. */
   atAreaHome: boolean;
@@ -24,12 +26,12 @@ export interface AppShellProps {
   children: ReactNode;
 }
 
-export function AppShell({ workspace, area, atAreaHome, email, density = "comfortable", signOut, children }: AppShellProps) {
+export function AppShell({ workspace, workspaces, area, atAreaHome, email, density = "comfortable", signOut, children }: AppShellProps) {
   return (
     // The stored mode is published once, here, so every table-bearing screen inside the frame reads
     // one source of truth rather than each asking the seam for itself (R-UI-005).
     <div className="cx-shell" data-testid="shell-root" data-density={density}>
-      <ShellRail workspace={workspace} area={area} atAreaHome={atAreaHome} />
+      <ShellRail workspace={workspace} workspaces={workspaces} area={area} atAreaHome={atAreaHome} />
       <div className="cx-shell-body">
         <ShellTopBar workspace={workspace} area={area} atAreaHome={atAreaHome} email={email} signOut={signOut} />
         <div className="cx-shell-content">

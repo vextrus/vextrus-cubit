@@ -25,6 +25,8 @@ export const screenStates = {
   state_empty_ruleset_body:
     "This address does not name a project in this workspace. A project pins its rule set when it is created, so a project that exists always has one.",
   state_empty_members_reader: "Seeing the roster needs membership of the workspace, so the list always holds at least the person reading it.",
+  state_empty_accept_heading: "This page needs an invitation link",
+  state_empty_accept_body: "Open the link from the invitation email itself — it carries the token that says which workspace you were asked to join.",
 
   state_refusal_ended_session: "This screen registers no refusal of its own. The one any request from it can meet is the ended session, so that is the refusal it answers with.",
   state_refusal_read_fault:

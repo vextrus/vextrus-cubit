@@ -54,6 +54,37 @@ export const workspaceFor = cache(async (sessionToken: string | null): Promise<W
 });
 
 /**
+ * Every workspace the presented session's account is a member of, in the order the frame lists them
+ * — the order `workspaceFor` picks its first from, so the switcher's first entry is the workspace a
+ * person lands in when they name none.
+ *
+ * R-SPINE-003's ACCEPT flow is what makes this a list rather than a singleton: a person who spends
+ * an invitation holds a second membership, and "one user, many tenants, the switcher live" is the
+ * proof that clause asks for. Nothing is invented for an account with none — an empty list is the
+ * honest answer for a session that holds no membership at all.
+ *
+ * Request-scoped (`cache`, see ./resolve): the layout asks once and the frame renders from it.
+ */
+export const workspacesFor = cache(async (sessionToken: string | null): Promise<readonly Workspace[]> => {
+  const session = await sessionOf(sessionToken);
+  if (session === null) return [];
+  return workspacesOf(session.userId);
+});
+
+/**
+ * The workspace an address names, when the session's account genuinely holds it — the frame's own
+ * question, asked of the membership rather than of the earliest one. A person who belongs to two
+ * workspaces is inside whichever the URL names (R-SPINE-002: the active tenant is explicit in the
+ * URL), and comparing the named tenant against `workspaceFor`'s earliest would deny them the
+ * membership they hold, which is precisely what `holdsWorkspace` below exists to avoid.
+ */
+export const namedWorkspaceFor = cache(async (sessionToken: string | null, tenantId: string): Promise<Workspace | null> => {
+  const session = await sessionOf(sessionToken);
+  if (session === null || !isUuid(tenantId)) return null;
+  return (await workspacesOf(session.userId)).find((workspace) => workspace.tenantId === tenantId) ?? null;
+});
+
+/**
  * Does this account hold a membership in that workspace? This is the question every door that acts
  * *on a named workspace* asks — the rename below, and the project lifecycle doors on `/t/{tenant}`.
  *
@@ -126,14 +157,17 @@ export async function renameWorkspace(request: RenameRequest): Promise<RenameAns
  * settles the tie two memberships written in the same transaction would otherwise leave open.
  */
 async function earliestWorkspaceOf(userId: string): Promise<Workspace | null> {
-  const db = runAsSystem("R-UI-030 shell frame: the workspace a signed-in account is a member of, and the name it wears");
+  return (await workspacesOf(userId))[0] ?? null;
+}
+
+/** Every membership's workspace, in that same total order — the one statement both readings use. */
+async function workspacesOf(userId: string): Promise<readonly Workspace[]> {
+  const db = runAsSystem("R-UI-030 shell frame: the workspaces a signed-in account is a member of, and the names they wear");
   const rows = await db
     .select({ tenantId: tenants.tenantId, name: tenants.name })
     .from(memberships)
     .innerJoin(tenants, eq(tenants.tenantId, memberships.tenantId))
     .where(eq(memberships.userId, userId))
-    .orderBy(asc(memberships.createdAt), asc(memberships.tenantId))
-    .limit(1);
-  const row = rows[0];
-  return row === undefined ? null : { tenantId: row.tenantId, name: row.name };
+    .orderBy(asc(memberships.createdAt), asc(memberships.tenantId));
+  return rows.map((row) => ({ tenantId: row.tenantId, name: row.name }));
 }

@@ -10,6 +10,16 @@
 // a membership the log names from being removed underneath the record it made (SEAM-ACT).
 export { guardTenancyMutation, tenancyMutationFrom, type GuardedTenancyMutation, type TenancyHardening, type TenancyMutation, type TenancyMutationAnswer, type TenancyRequest } from "./guard";
 export { verifyStatedOrigin, type OriginClaim } from "./guard/origin";
+// R-SPINE-003's invitations. The five doors are implemented under ./invitations and re-exported
+// here, never re-authored beside the barrel (B-17); `offeredInvitation` is the read the accept
+// screen renders its offer from, which is not a move and is therefore not one of the guarded five.
+export { createInvitation, type InvitationMailed } from "./invitations";
+export { pendingInvitations, type PendingInvitation } from "./invitations";
+export { resendInvitation } from "./invitations";
+export { revokeInvitation, type InvitationWithdrawn } from "./invitations";
+export { acceptInvitation, type InvitationClaim, type InvitationClaimed } from "./invitations";
+export { offeredInvitation, type InvitationOffer } from "./invitations";
+export type { InvitationMachinery, InvitationPorts } from "./invitations";
 export { memberRoleHistory, type MemberRoleHistoryEntry } from "./read/history";
 export { membersOf, type WorkspaceMember } from "./read/members";
 export { memberHasActs, removeMember, type ActsHeld } from "./removal";

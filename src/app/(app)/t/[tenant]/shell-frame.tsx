@@ -9,6 +9,8 @@ import { AppShell, areaOf, isAreaHome, type ShellWorkspace } from "../../../../u
 
 export interface ShellFrameProps {
   workspace: ShellWorkspace;
+  /** Every workspace the account holds — the switcher's own list (R-SPINE-003). */
+  workspaces: readonly ShellWorkspace[];
   email: string | null;
   /** The stored mode the layout read for this account (R-UI-005); the frame publishes it. */
   density: Density;
@@ -16,11 +18,12 @@ export interface ShellFrameProps {
   children: ReactNode;
 }
 
-export function ShellFrame({ workspace, email, density, signOut, children }: ShellFrameProps) {
+export function ShellFrame({ workspace, workspaces, email, density, signOut, children }: ShellFrameProps) {
   const pathname = usePathname();
   return (
     <AppShell
       workspace={workspace}
+      workspaces={workspaces}
       area={areaOf(pathname)}
       atAreaHome={isAreaHome(pathname, workspace.tenantId)}
       email={email}

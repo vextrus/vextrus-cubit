@@ -145,6 +145,21 @@ const formDoor = (title: string, submit: string, entry: RefusalEntry, evidence: 
 /* ------------------------------------------------------------------------------ the matrix */
 
 export const screenStates: ScreenStatesMatrix = {
+  // The ACCEPT screen (s-accept-invitation §2): one offer, read off a mailed token, behind the
+  // signed-in group's session door. Its empty state is the address with no link behind it, its
+  // refusal is the token no accept can claim, and its denial is the ended session the door remedies.
+  "/accept-invitation": declare({
+    loading: bones(4),
+    empty: (): ReactNode => (
+      <EmptyTeaching heading={strings.state_empty_accept_heading} body={strings.state_empty_accept_body} action={strings.shell_evidence_home} />
+    ),
+    error: fault(strings.error_body),
+    refusal: refusal(REFUSAL_ENTRIES.INVITATION_NOT_CLAIMABLE, WORKSPACE_EVIDENCE),
+    partial: reason(strings.state_partial_one_answer),
+    offline: delegatedToFault(strings.state_offline_unreachable, strings.auth_fault_unreachable_body),
+    "permission-denied": reasonedRefusal(strings.state_refusal_ended_session, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
+  }),
+
   // The public entry (root-document § 2): static content, compiled in, gating nothing.
   "/": declare({
     loading: reason(strings.state_loading_nothing_awaited),

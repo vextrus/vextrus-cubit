@@ -11,6 +11,12 @@ import { SHELL_AREAS, shellHref, workspaceLabel, type ShellArea, type ShellWorks
 
 export interface ShellRailProps {
   workspace: ShellWorkspace;
+  /**
+   * Every workspace the account holds, which is what the switcher offers (R-SPINE-003: one user,
+   * many tenants). Optional because the frame holds no membership of its own: a caller that names
+   * none is showing the one workspace it was handed, which is what a single membership answers.
+   */
+  workspaces?: readonly ShellWorkspace[];
   area: ShellArea;
   /** Whether the address is the area's own home; a deeper screen makes the row an ancestor. */
   atAreaHome: boolean;
@@ -52,7 +58,10 @@ function Chevron({ direction }: { direction: "left" | "down" }) {
   );
 }
 
-export function ShellRail({ workspace, area, atAreaHome }: ShellRailProps) {
+export function ShellRail({ workspace, workspaces, area, atAreaHome }: ShellRailProps) {
+  // The workspace the frame is showing always stands among the offered ones, so the menu can never
+  // be empty and never omits where the reader currently is.
+  const offered = workspaces === undefined || workspaces.length === 0 ? [workspace] : workspaces;
   // Not persisted across sessions: nothing in the product writes a per-person preference, and a
   // remembered width nothing can write would be a promise it does not keep. It does have to hold
   // for the very next click, though — the rail navigates with `next/link`, so the frame's layout
@@ -112,16 +121,18 @@ export function ShellRail({ workspace, area, atAreaHome }: ShellRailProps) {
                 <span className="cx-shell-switcher-name">{workspaceLabel(workspace)}</span>
                 <Chevron direction="down" />
               </DropdownMenuTrigger>
-              {/* The memberships the seam answers with — one, today. Portalled where the shipped
-                  DropdownMenu portals every menu (§ I-22): the open menu at the document root is an
-                  axe `region` finding of moderate impact, reported by the design lane and below the
+              {/* The memberships the seam answers with. Portalled where the shipped DropdownMenu
+                  portals every menu (§ I-22): the open menu at the document root is an axe `region`
+                  finding of moderate impact, reported by the design lane and below the
                   serious/critical threshold Q-11 fixes for a checkpoint. */}
               <DropdownMenuContent align="start" aria-label={strings.shell_tenant_switcher_label}>
-                <DropdownMenuItem asChild>
-                  <Link className="cx-shell-menu-item" href={shellHref(workspace.tenantId, "projects")}>
-                    {workspaceLabel(workspace)}
-                  </Link>
-                </DropdownMenuItem>
+                {offered.map((held) => (
+                  <DropdownMenuItem asChild key={held.tenantId}>
+                    <Link className="cx-shell-menu-item" href={shellHref(held.tenantId, "projects")}>
+                      {workspaceLabel(held)}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
 

@@ -10,18 +10,21 @@
 // Seeing the roster is itself a permission: a signed-in stranger to this workspace is refused rather
 // than answered with an empty list, and that refusal renders here through the one renderer.
 import "./members.css";
+import "./invitations/invitations.css";
 
 import { redirect } from "next/navigation";
 import { WORKSPACE_ROLES } from "../../../../../../core/db";
 import { refusalOf } from "../../../../../../core/errors";
 import { refusalCodeOf } from "../../../../../../core/faults/refusal-marker";
-import { membersOf, memberRoleHistory, type TenancyActor } from "../../../../../../modules/spine/tenancy";
+import { membersOf, memberRoleHistory, pendingInvitations, type TenancyActor } from "../../../../../../modules/spine/tenancy";
 import { presentedValue } from "../../../../../../server/auth/folded-key";
 import { presentedSessionToken } from "../../../../../../server/shell/session";
 import { sessionOf } from "../../../../../../server/shell/resolve";
 import { RefusalState } from "../../../../../../ui/patterns/refusal-state";
 import { shellHref } from "../../../../../../ui/shell";
 import { strings } from "../../../../../../ui/strings";
+import { InvitationsPanel, type InvitationsRow } from "./invitations/invitations-panel";
+import { invitationsStrings } from "./invitations/strings";
 import { MembersSection, type MembersRow } from "./members-section";
 import { membersStrings } from "./strings";
 
@@ -54,7 +57,22 @@ export default async function WorkspaceMembers({ params }: { params: Promise<{ t
       })),
     );
 
-    return <MembersSection tenantId={tenant} rows={rows} roles={WORKSPACE_ROLES} />;
+    // The offers of membership that still stand, mounted after the roster in I-61's fixed order. The
+    // address behind each stored key is resolved here, on the server, for the reason a member's
+    // label is (I-58): the fold's read-back is the server's own and a browser holds neither its home
+    // nor the right to read it.
+    const invitations: InvitationsRow[] = (await pendingInvitations(actor)).map((offer) => ({
+      invitationId: offer.invitationId,
+      label: inviteeLabelOf(offer.invitedEmailKey),
+      role: offer.workspaceRole,
+    }));
+
+    return (
+      <div className="cx-members-page">
+        <MembersSection tenantId={tenant} rows={rows} roles={WORKSPACE_ROLES} />
+        <InvitationsPanel tenantId={tenant} rows={invitations} />
+      </div>
+    );
   } catch (thrown) {
     const code = refusalCodeOf(thrown);
     if (code !== refusalOf("WORKSPACE_PERMISSION_NOT_HELD").code) throw thrown;
@@ -91,4 +109,9 @@ function MembersDenied({ tenantId }: { tenantId: string }) {
 function labelOf(emailKey: string | null): string {
   const presented = emailKey === null ? null : presentedValue(emailKey);
   return presented ?? membersStrings.members_member_unnamed;
+}
+
+/** The invitee, read back the same way and named as the address the panel calls an unnamed one. */
+function inviteeLabelOf(emailKey: string): string {
+  return presentedValue(emailKey) ?? invitationsStrings.invitations_invitee_unnamed;
 }
