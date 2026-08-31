@@ -164,11 +164,85 @@ found by role): `var(--text-12)` `var(--graphite-600)`, margin 0, min-height
 `members_status_done` after a commit re-renders the roster (the changed row is the visible
 answer, no toast), empty otherwise. It never speaks while a refusal stands.
 
-### Invitations (I-61 — fixed, not rendered)
+### Invitations (I-61, authored — the panel's own layout and copy)
 
-After the roster, in this order, inc-010b mounts: `<form data-testid="members-invite-form">`
-(invite by email) and `<section data-testid="members-pending-invitations">` (the pending
-list with resend and revoke). Nothing renders in their places this increment.
+After the roster, in this order: `<form data-testid="members-invite-form">` (invite by
+email) and `<section data-testid="members-pending-invitations">` (the pending list with
+resend and revoke). Both live inside one `<div class="cx-invitations">` — column flex, gap
+`var(--space-3)` — which stands as the second block of the page column
+(`cx-members-page`: column flex, gap `var(--space-6)`, max-width 800 px, the settings-screen
+measure the roster already uses).
+
+Header block (gap `var(--space-1)`): `<h2 class="cx-invitations-heading">`
+`invitations_heading` — `var(--text-16)` `var(--weight-heading)` `var(--graphite-900)`,
+margin 0 — over `invitations_hint` in `var(--text-12)` `var(--graphite-600)`. The panel's
+`<h2>` sits beside the roster's, one level under the screen's `<h1>`.
+
+**Invite form** — `<form data-testid="members-invite-form" aria-labelledby={the heading}>`,
+column flex gap `var(--space-1)`: a `<label>` `invitations_email_label` (`var(--text-13)`
+`var(--weight-body-medium)` `var(--graphite-700)`) bound to the field by id; a hint
+`invitations_email_hint` (`var(--text-12)` `var(--graphite-600)`, margin 0) which the field
+names through `aria-describedby`; then a row (flex, wrap, align-items center, gap
+`var(--space-2)`, margin-top `var(--space-1)`): the core Input
+`data-testid="invitations-email"` (`type="email"`, `.cx-input .cx-reticle` worn whole,
+`flex: 1 1 320px`, min-width 240 px) and a core primary Button
+`data-testid="invitations-submit"` labelled `invitations_submit`. While a submission is in
+flight the Button takes core's loading state and the panel's status line speaks; the field
+clears only when the invitation landed. Controls stay enabled after any refusal — a retry is
+never disarmed (R-SPINE-006).
+
+**Pending list** — `<section data-testid="members-pending-invitations" aria-labelledby>`,
+column flex gap `var(--space-2)`: `<h3 class="cx-invitations-pending-heading">`
+`invitations_pending_heading` (`var(--text-13)` `var(--weight-body-medium)`
+`var(--graphite-700)`, margin 0), then `<ul class="cx-invitations-list">` — list-style none,
+margin 0, padding 0, border-top `var(--hairline)` only when it holds a row. One
+`<li data-testid="invitations-row" data-invitation={invitationId}>` per standing offer, in
+the module's own order (oldest first, settled by the invitation id — never re-sorted, never
+localeCompare), flex wrap, align-items center, justify-content space-between, gap
+`var(--space-3)`, padding-block `var(--space-3)`, border-bottom `var(--hairline)`:
+
+- **Identity line** — flex, baseline, gap `var(--space-3)`, margin 0: the invitee's address
+  read back through the fold's one home (I-58; `invitations_invitee_unnamed` when the key
+  carries none) in `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`,
+  single line, ellipsis; then the offered role verbatim per I-55, `var(--font-mono)`
+  `var(--text-12)` `var(--graphite-700)`.
+- **Controls** — flex, wrap, gap `var(--space-2)`: a core secondary Button
+  `data-testid="invitations-resend"`, visible label `invitations_resend` and `aria-label`
+  `invitations_resend_label` filled with the row's invitee; beside it a core danger Button
+  `data-testid="invitations-revoke"`, visible label `invitations_revoke` and `aria-label`
+  `invitations_revoke_label` filled with the row's invitee. Every control on a row names the
+  invitation it acts on, for the reason the roster's do: a list read aloud is N distinct
+  controls, not N identical ones. The visible words are the first words of the spoken name.
+- **No pending offer** — `<p data-testid="invitations-none">` `invitations_none`,
+  `var(--text-12)` `var(--graphite-600)`, standing where the rows would be. Never silence
+  (R-UI-020); it steps aside the moment a row stands.
+
+**Answer slot** (I-57) — `<div data-testid="invitations-refusal">`, mounted only while a
+refusal stands, after the pending list and full panel width: one RefusalState, entry
+verbatim from the register with its `data-code`, surface as the entry hints. The reachable
+codes are `WORKSPACE_PERMISSION_NOT_HELD` (a role that does not administer the workspace, or
+an offer of a rank above the inviter's), `RATE_LIMITED` (the tenant-admin door's allowance)
+and `INVITATION_NOT_CLAIMABLE` (a resend or a withdrawal of an offer that stopped standing).
+Evidence for all three: `{ href: this route, label: members_evidence_roster }` — the roster
+above names the owners, and the role form above is where an owner is made. They render
+through the register lookup in this slot and do not join the exhibited matrix four (I-57's
+precedent, and the reason `MEMBERS_STATES` and the matrix's members row do not move).
+
+Last in the panel, a **status line** `<p role="status" aria-live="polite">` (no testid;
+found by role): `var(--text-12)` `var(--graphite-600)`, margin 0, min-height
+`var(--text-13)`; `invitations_status_pending` while a move is in flight,
+`invitations_status_done` after a commit re-renders the list, empty otherwise. It never
+speaks while a refusal stands.
+
+Route files added under `members/invitations/`: `strings.ts` (§3), `actions.ts`
+(`inviteMemberAction`, `resendInvitationAction`, `revokeInvitationAction` — thin:
+authenticate, mint the actor, build the `TenancyRequest` with the stated origin, dispatch
+`{ kind: "createInvitation" | "resendInvitation" | "revokeInvitation" }` through
+`guardTenancyMutation` bound once with the shipped limiter and the shipped invitation
+machinery, revalidate this route), `invitations-panel.tsx` (`InvitationsPanel`, client
+component, props exactly the page's composed rows plus the three actions, jsdom-mountable)
+and `invitations.css`. `page.tsx` changes only to read `pendingInvitations`, resolve each
+invitee's label, and mount the panel after the roster.
 
 ## 2. States (R-UI-050), ruled cell by cell
 
@@ -223,6 +297,22 @@ movements on the projects you may read.** · `members_role_label` **Role for {me
 projects yet.** · `members_member_unnamed` **Unnamed member** · `members_status_pending`
 **Carrying the change out…** · `members_status_done` **Done. The roster shows the result.**
 · `members_evidence_roster` **See the members list**.
+
+Invitations panel table (`invitations/strings.ts`, export `invitationsStrings`, keys
+`invitations_…`): `invitations_heading` **Invitations** · `invitations_hint` **Offers of
+membership this workspace has made that nobody has accepted yet. An invitation is one live
+link at a time: resending replaces the last one, and withdrawing ends it.** ·
+`invitations_email_label` **Email address** · `invitations_email_hint` **The address the
+invitation is mailed to. It becomes a membership when the person signs in and accepts it.**
+· `invitations_submit` **Send invitation** · `invitations_pending_heading` **Pending** ·
+`invitations_resend` **Resend** · `invitations_resend_label` **Resend the invitation to
+{invitee}** · `invitations_revoke` **Withdraw** · `invitations_revoke_label` **Withdraw the
+invitation to {invitee}** (both `{invitee}` slots are data — the row's own label per I-58) ·
+`invitations_none` **No invitation is waiting to be accepted.** ·
+`invitations_invitee_unnamed` **Unnamed address** · `invitations_status_pending` **Carrying
+the invitation out…** · `invitations_status_done` **Done. The list shows the result.** The
+panel's refusal evidence reuses the roster's own `members_evidence_roster`, which is the
+same link to the same place: one sentence, one home (B-17).
 
 Registry copy, already committed in `src/core/errors.ts` and rendered verbatim (never
 re-worded here or anywhere): **WORKSPACE_PERMISSION_NOT_HELD** · error · banner · *Your
@@ -279,10 +369,13 @@ elements ruled in §1: `settings-members-link` · `members-section` · `members-
 `members-row` (`data-user`) · `members-row-role` · `members-role-history` ·
 `members-history-entry` (`data-project`, `data-direction`, `data-role`) ·
 `members-role-form` · `members-role-select` · `members-role-submit` ·
-`members-remove-form` · `members-remove-submit` · `members-refusal` — plus the two inc-010b
-builds against and this increment never renders: `members-invite-form` ·
-`members-pending-invitations` (I-61). No others are added. Server actions:
-`changeMemberRoleAction`, `removeMemberAction`. Behavioural hooks without new ids:
+`members-remove-form` · `members-remove-submit` · `members-refusal` · and the invitations
+panel's, on the elements ruled in §1: `members-invite-form` · `members-pending-invitations`
+(I-61's two slots) · `invitations-email` · `invitations-submit` · `invitations-row`
+(`data-invitation`) · `invitations-resend` · `invitations-revoke` · `invitations-refusal` ·
+`invitations-none`. No others are added. Server actions: `changeMemberRoleAction`,
+`removeMemberAction`, `inviteMemberAction`, `resendInvitationAction`,
+`revokeInvitationAction`. Behavioural hooks without new ids:
 `role="status"` on the status line, `aria-label` on the select from the strings table,
 RefusalState's own ids and `data-code` inside `members-refusal`, `cx-reticle` on link,
 select and Buttons, the `<h1>`/`<h2>` hierarchy, the link's resolved href.
