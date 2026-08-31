@@ -331,7 +331,7 @@ export const invitations = pgTable(
       .references(() => tenants.tenantId),
     invitedEmailKey: text("invited_email_key").notNull(),
     workspaceRole: text("workspace_role").$type<WorkspaceRole>().notNull().default("MEMBER"),
-    tokenHash: text("token_hash").notNull().unique(),
+    tokenHash: text("token_hash").notNull(),
     invitedBy: uuid("invited_by")
       .notNull()
       .references(() => users.userId),
@@ -339,7 +339,14 @@ export const invitations = pgTable(
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
   },
-  (table) => [check("invitations_workspace_role_closed", statement`${table.workspaceRole} in (${statement.raw(closedList(WORKSPACE_ROLES))})`)],
+  (table) => [
+    check("invitations_workspace_role_closed", statement`${table.workspaceRole} in (${statement.raw(closedList(WORKSPACE_ROLES))})`),
+    // The one read a mailed link makes: the offer a presented token names. Indexed rather than made
+    // UNIQUE — the digest is 256 bits of randomness from one mint, so no second row can carry it,
+    // while a unique constraint on a tenant-scoped table's text column is a constraint the seam's
+    // own per-tenant probe cannot satisfy for two tenants at once (SEAM-TENANT, V-DB).
+    index("invitations_token_hash").on(table.tokenHash),
+  ],
 );
 
 /**
