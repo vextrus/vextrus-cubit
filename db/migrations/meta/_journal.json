@@ -64,6 +64,13 @@
       "when": 1788074848492,
       "tag": "0008_catalogue-tables",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788165621293,
+      "tag": "0009_tenancy-roles",
+      "breakpoints": true
     }
   ]
 }

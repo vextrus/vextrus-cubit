@@ -24,6 +24,7 @@ import { authRouter } from "../auth/router";
 import { signedOut } from "../auth/refusals";
 import { holdsWorkspace } from "../shell/workspace";
 import { publicProcedure, router } from "../trpc";
+import { tenancyRouter } from "./tenancy";
 
 /** The one act this lane renders, and the permission L-ACT-03 makes it move. */
 const ASSIGN_PARTICIPANT_ROLE = "ASSIGN_PARTICIPANT_ROLE" as const;
@@ -127,4 +128,6 @@ export const spineRouter = router({
   auth: authRouter,
 
   participants: participantsRouter,
+
+  tenancy: tenancyRouter,
 });

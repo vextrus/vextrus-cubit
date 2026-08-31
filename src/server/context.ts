@@ -14,6 +14,15 @@ export interface AppContext {
    * points back at, and empty when nothing was configured (R-SPINE-001).
    */
   origin: string;
+  /**
+   * The `Origin` the request stated, or null when it stated none — read verbatim and compared
+   * nowhere here. What it MEANS is R-SPINE-006's origin rule, whose one home is the tenancy module's
+   * guard; this seam only carries the fact off the request, because a procedure is handed a context
+   * and never the request itself (ARCH-02, B-17).
+   */
+  statedOrigin: string | null;
+  /** The origin of the URL this request arrived at, carried beside the stated one for the same rule. */
+  requestOrigin: string;
   /** What to call the device in the session list, derived from the request rather than asked for. */
   deviceLabel: string;
   /** Who is calling, as far as the server itself can tell (`observedClient`) — the sign-in limiter's key. */
@@ -177,6 +186,8 @@ export async function createContext({ req }: { req: Request }): Promise<AppConte
     requestId: suppliedRequestId(req) ?? randomUUID(),
     actor: session?.userId ?? ANONYMOUS,
     origin: originOf(),
+    statedOrigin: req.headers.get("origin"),
+    requestOrigin: URL.parse(typeof req.url === "string" ? req.url : "")?.origin ?? "",
     deviceLabel: deviceLabelFrom(req.headers.get("user-agent")),
     client: UNOBSERVED_CLIENT,
     session,

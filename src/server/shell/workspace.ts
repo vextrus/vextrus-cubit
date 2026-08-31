@@ -125,7 +125,7 @@ export async function renameWorkspace(request: RenameRequest): Promise<RenameAns
  * is total, not merely stated: `created_at` names the earliest membership, and the tenant uuid
  * settles the tie two memberships written in the same transaction would otherwise leave open.
  */
-async function earliestWorkspaceOf(userId: string): Promise<Workspace | null> {
+export async function earliestWorkspaceOf(userId: string): Promise<Workspace | null> {
   const db = runAsSystem("R-UI-030 shell frame: the workspace a signed-in account is a member of, and the name it wears");
   const rows = await db
     .select({ tenantId: tenants.tenantId, name: tenants.name })
