@@ -7,6 +7,7 @@
 // `admit` (B-17: none of these gets a second implementation on the way).
 import type { InvitationMachinery } from "../../modules/spine/tenancy";
 import { deliver } from "./mail";
+import { linkNotSendable } from "./refusals";
 import { digestOf, mintSecret } from "./secrets";
 import { mailedAddress, storedAddressKey } from "./session";
 import { presentedValue } from "./folded-key";
@@ -17,10 +18,18 @@ export const ACCEPT_INVITATION_ROUTE = "/accept-invitation";
 /**
  * The link an invitation mail carries. It is built on the address the DEPLOYMENT states it answers
  * at, never on a property of the request that asked for it: a caller writes those, and a link built
- * on one would point wherever the caller said (R-SPINE-001). A deployment that has stated no address
- * still mails a spendable path — relative to whatever origin the reader opens it from.
+ * on one would point wherever the caller said (R-SPINE-001).
+ *
+ * A deployment that has stated no address builds no link at all. What it would otherwise mail is
+ * `/accept-invitation?token=…` — a path a browser resolves and a mail client cannot, because an
+ * email carries no origin to resolve it against — so the choice is between mailing a live credential
+ * in a form nobody can follow and sending nothing. Sending nothing is the honest half, and it is
+ * already how every other mailed link in this tree answers it: `LINK_NOT_SENDABLE`, from the one
+ * home that registers it (`./refusals`, and `canSendLinks` in `./session.ts`). This door answers the
+ * same way rather than growing a second opinion about an unaddressable deployment (B-17).
  */
 export function acceptInvitationUrl(origin: string, token: string): string {
+  if (origin === "") throw linkNotSendable("invitation");
   return `${origin}${ACCEPT_INVITATION_ROUTE}?token=${encodeURIComponent(token)}`;
 }
 

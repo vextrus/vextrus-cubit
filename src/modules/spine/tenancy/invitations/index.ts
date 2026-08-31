@@ -92,9 +92,16 @@ const pendingOf = (row: InvitationRow): PendingInvitation => ({
   createdAt: row.createdAt,
 });
 
-/** The role the acting membership holds, judged as the invitation law judges it (R-SPINE-006). */
-async function administering(actor: TenancyActor, offeredRole: WorkspaceRole): Promise<void> {
-  judgeInvitationOffer(await roleHeld(actor.tenantId, actor.userId), offeredRole);
+/**
+ * The role the acting membership holds, judged as the invitation law judges it (R-SPINE-006), and
+ * answered so a caller that must judge a SECOND rank — the rank a standing offer grants — asks the
+ * same law again about the same fact rather than reading the roster twice.
+ */
+async function administering(actor: TenancyActor, offeredRole: WorkspaceRole): Promise<WorkspaceRole> {
+  const held = await roleHeld(actor.tenantId, actor.userId);
+  judgeInvitationOffer(held, offeredRole);
+  // `judgeInvitationOffer` throws on a membership that holds nothing, so past it the role is held.
+  return held as WorkspaceRole;
 }
 
 /**
@@ -123,7 +130,17 @@ export async function createInvitation(
     invitedBy: actor.userId,
   });
 
-  await ports.send({ to, token, origin: ports.origin });
+  try {
+    await ports.send({ to, token, origin: ports.origin });
+  } catch (thrown) {
+    // The offer and the mail that carries it are one act. A row left standing behind a mail that
+    // never left is an offer nobody can spend — it stands in the panel beside real ones, and the
+    // only person who could tell them apart is the invitee, who was never written to. So the write
+    // is undone and the workspace is left exactly as it was: the remedy is to invite again, not to
+    // guess which of the standing offers was delivered.
+    await withdrawInvitation(actor.tenantId, row.invitationId);
+    throw thrown;
+  }
   return { invitationId: row.invitationId, mailed: true };
 }
 
@@ -142,28 +159,51 @@ export async function pendingInvitations(actor: TenancyActor): Promise<readonly 
  * Mail a standing offer again, with a fresh token. The previous link stops working the moment this
  * one is minted: an invitation is one live link at a time, so what a person spends is the newest
  * mail they hold — the same rule every other mailed link in this tree keeps.
+ *
+ * A resend is the SAME offer with a new secret, so it is judged against the rank that offer grants
+ * and not against the rank a fresh offer carries by default. Otherwise an ADMIN could re-issue a
+ * live, spendable OWNER-granting link for an offer they could never have minted (R-SPINE-006's
+ * granted side: nobody offers a rank above their own) — the promotion the role law refuses, taken
+ * through the mail instead.
+ *
+ * The mail goes BEFORE the token is swapped. The old secret is not held anywhere this function could
+ * put it back from, so it does not spend one until the mail is away: an outbox that throws then
+ * leaves the previously mailed link alive rather than killing it and delivering nothing in its place.
  */
 export async function resendInvitation(
   actor: TenancyActor,
   request: { readonly invitationId: string },
   ports: InvitationPorts,
 ): Promise<InvitationMailed> {
-  await administering(actor, INVITED_ROLE);
+  const actorRole = await administering(actor, INVITED_ROLE);
 
   const standing = await standingInvitation(actor.tenantId, request.invitationId);
   if (standing === null) throw invitationNotClaimable({ reason: "the workspace has no such offer standing" });
+  judgeInvitationOffer(actorRole, standing.workspaceRole);
 
   const token = ports.mintToken();
+  await ports.send({ to: mailableAddress(standing.invitedEmailKey, ports), token, origin: ports.origin });
+
   const reissued = await reissueToken(actor.tenantId, request.invitationId, ports.digestToken(token));
   if (reissued === null) throw invitationNotClaimable({ reason: "the offer stopped standing while it was being re-mailed" });
-
-  await ports.send({ to: mailableAddress(standing.invitedEmailKey, ports), token, origin: ports.origin });
   return { invitationId: reissued.invitationId, mailed: true };
 }
 
-/** Withdraw a standing offer, and kill the token with it. */
+/**
+ * Withdraw a standing offer, and kill the token with it.
+ *
+ * Judged against the rank the offer grants, like the resend above: R-SPINE-006 is two-sided, and a
+ * pending OWNER grant is an OWNER-rank thing to strip. The direction is benign — withdrawing takes
+ * nothing away from anybody who holds it — but an unjudged move is unjudged in both directions, and
+ * the rule that says who may move an OWNER-rank offer has one home.
+ */
 export async function revokeInvitation(actor: TenancyActor, request: { readonly invitationId: string }): Promise<InvitationWithdrawn> {
-  await administering(actor, INVITED_ROLE);
+  const actorRole = await administering(actor, INVITED_ROLE);
+
+  const standing = await standingInvitation(actor.tenantId, request.invitationId);
+  if (standing === null) throw invitationNotClaimable({ reason: "the workspace has no such offer standing" });
+  judgeInvitationOffer(actorRole, standing.workspaceRole);
+
   const withdrawn = await withdrawInvitation(actor.tenantId, request.invitationId);
   if (withdrawn === null) throw invitationNotClaimable({ reason: "the workspace has no such offer standing" });
   return { invitationId: withdrawn.invitationId, revoked: true };

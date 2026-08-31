@@ -3,11 +3,25 @@
    no literal value and no [data-theme] selector, so both themes are the same rules read against
    different token values. */
 
+/* The column IS the frame here (§1): the route sits outside `/t/{tenant}`, so there is no shell
+   above it to be laid inside, and the surface carries its own `<main>` and its own measure — the
+   idiom `cx-shell-denied` already keeps for the other signed-in screen that stands without a rail. */
 .cx-accept {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  max-width: 560px;
+  width: min(560px, calc(100vw - var(--space-8)));
+  margin-inline: auto;
+  padding-block: var(--space-12);
+}
+
+/* The loading leg's bones, in the screen's own column (§2). The shell's skeleton rule is the
+   shell's: this route never loads that stylesheet, so borrowing the class would leave the bones
+   stacked with no gap at all. */
+.cx-accept-skeletons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .cx-accept-header {

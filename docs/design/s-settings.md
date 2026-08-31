@@ -228,7 +228,13 @@ verbatim from the register with its `data-code`, surface as the entry hints. The
 codes are `WORKSPACE_PERMISSION_NOT_HELD` (a role that does not administer the workspace, or
 an offer of a rank above the inviter's), `RATE_LIMITED` (the tenant-admin door's allowance)
 and `INVITATION_NOT_CLAIMABLE` (a resend or a withdrawal of an offer that stopped standing).
-Evidence for all three: `{ href: this route, label: members_evidence_roster }` — the roster
+A fourth is reachable only on a misconfigured deployment: `LINK_NOT_SENDABLE`, which is the
+answer every mailing door in this tree already gives when the deployment has named no address
+of its own — an invitation link with no origin in front of it is a path a mail client cannot
+follow, so nothing is sent and nothing is written down (`canSendLinks`, R-SPINE-001). It is
+named here because a code a person can reach is a code this Decision owes a ruling, not
+because an operator should ever see it.
+Evidence for all of them: `{ href: this route, label: members_evidence_roster }` — the roster
 above names the owners, and the role form above is where an owner is made. They render
 through the register lookup in this slot and do not join the exhibited matrix four (I-57's
 precedent, and the reason `MEMBERS_STATES` and the matrix's members row do not move).

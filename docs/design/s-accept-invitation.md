@@ -35,6 +35,17 @@ because what an acceptance grants is a MEMBERSHIP and a membership belongs to an
   screen navigates to `/t/{tenantId}` in the same session — no re-authentication, and the
   rail's switcher now offers both workspaces (R-SPINE-002: the active tenant is explicit in
   the URL and in the session, and updates on switch).
+- **I-68 — the screen wears no shell, and therefore owes its own landmark and heading.** The
+  shell is the frame of a WORKSPACE (`/t/{tenant}/…`): its rail switches between workspaces,
+  its breadcrumb names a place inside one, and both are read from the tenant in the address.
+  This route has no tenant in its address and, for the person it is written for, no
+  membership to name yet — the whole point of the screen is that they do not hold the
+  workspace it is about. Wrapping it in the shell would mean picking some other workspace of
+  theirs to frame the decision with, or none at all. So it stands on its own, exactly as
+  `ShellDenied` does: it carries the page's single `<main>` itself, its own measure and
+  padding, and an `<h1>` in every state — including the state where a refusal is the only
+  thing on the page, because an alert with no page identity above it is what a screen reader
+  would otherwise land on straight out of the email.
 
 ## 1. Layout and hierarchy
 
@@ -44,14 +55,21 @@ or the registered refusal, or the empty state), `actions.ts` (`acceptInvitationA
 thin: authenticate, build the `TenancyRequest` with the stated origin, dispatch
 `{ kind: "acceptInvitation" }` through `guardTenancyMutation` bound once with the shipped
 limiter and the shipped invitation machinery), `accept-invitation-form.tsx`
-(`AcceptInvitationForm`, `AcceptInvitationRefusal` and `AcceptInvitationNoToken` — client
+(`AcceptInvitationForm`, `AcceptInvitationRefusal`, `AcceptInvitationUnclaimable` and
+`AcceptInvitationNoToken` — client
 components, props exactly the page's composed offer plus the action, jsdom-mountable, the
 `MembersSection` precedent), `loading.tsx`, `states.ts` (§2), `strings.ts` (§3) and
 `accept-invitation.css`.
 
-The screen renders in `shell-main`, one column `cx-accept`: max-width 560 px (a screen with
-one decision on it is narrower than a settings screen), column flex, gap `var(--space-6)`.
-Rail and breadcrumb are the shell's.
+The screen is its own frame (I-68). One column `<main class="cx-accept">`: width
+`min(560px, calc(100vw - var(--space-8)))` (a screen with one decision on it is narrower than
+a settings screen), `margin-inline: auto`, `padding-block: var(--space-12)`, column flex, gap
+`var(--space-6)`. There is no rail and no breadcrumb: the route sits outside `/t/{tenant}`
+and names no workspace to put in either — it is the idiom `cx-shell-denied` already keeps for
+the other signed-in screen that stands without a frame. Every state of this screen is laid in
+that column and carries that one `<main>`: the form, the refusal standing alone, the empty
+state and the loading bones. Nothing on this route paints outside a landmark, and every state
+opens with the `<h1>`.
 
 **Header block** (gap `var(--space-2)`): `<h1 class="cx-accept-heading">` `accept_heading` —
 `var(--text-20)` `var(--weight-heading)` `var(--graphite-900)`, margin 0 — over
@@ -79,7 +97,10 @@ Evidence: `{ href: "/", label: accept_evidence_workspaces }` — whatever became
 the workspaces the person already holds are where they can still go. It stands in two
 places, rendered by the same component in both (`accept-invitation-form.tsx`): alone, where
 the page judged the token before drawing anything (I-65), and beneath the form, where the
-offer stopped standing between the render and the press.
+offer stopped standing between the render and the press. Standing alone it is laid in the
+same `cx-accept` column under the same `<h1>` (`AcceptInvitationUnclaimable`, I-68), so the
+card keeps the screen's measure instead of running edge to edge and the page still says what
+page it is.
 
 **No token** — an address with no link behind it is the empty state, not a refusal: nobody
 presented anything to be refused. The screen renders the header with
@@ -97,8 +118,10 @@ one row, seven cells in the shell matrix's cell shape (the `MEMBERS_STATES` shap
 `src/ui/screen-states/matrix.tsx` gains the route key `"/accept-invitation"`. The suite
 reflects over both (B-19); existing rows do not move.
 
-- **Loading** — `loading.tsx`, frame intact: core Skeletons keeping the layout, gap
-  `var(--space-3)` — 24 × 240 px (heading), 16 × 360 px (caption),
+- **Loading** — `loading.tsx`: core Skeletons keeping the layout, in the screen's own column
+  and its own `<main>` (there is no frame above to stay intact — I-68), wrapped in
+  `cx-accept-skeletons` with gap `var(--space-3)`, which is this route's own rule because
+  this route loads its own stylesheet and no other — 24 × 240 px (heading), 16 × 360 px (caption),
   48 × min(480 px, 100 %) (the offer), 32 × 200 px (the control). Matrix: `bones(4)`.
 - **Empty** — rendered: the address with no token behind it, which teaches what is missing
   rather than showing a form with nothing in it (R-UI-020). Matrix: the `EmptyTeaching`
@@ -109,10 +132,20 @@ reflects over both (B-19); existing rows do not move.
 - **Error** — a render, read or action fault surfaces the root error boundary
   (`src/app/error.tsx`, unowned here); its Decision rules retry and records the report-id
   deferral. Matrix: `fault(strings.error_body)`.
-- **Refusal** — the answer slot above; the one reachable code is
-  `INVITATION_NOT_CLAIMABLE`, rendered with `data-code`, message, remedy and evidence;
-  silence never happens. Matrix: `refusal(REFUSAL_ENTRIES.INVITATION_NOT_CLAIMABLE,
-  WORKSPACE_EVIDENCE)`.
+- **Refusal** — the answer slot above, rendered with `data-code`, message, remedy and
+  evidence; silence never happens. The code this screen is ABOUT is
+  `INVITATION_NOT_CLAIMABLE`, and it is the one the matrix exhibits:
+  `refusal(REFUSAL_ENTRIES.INVITATION_NOT_CLAIMABLE, WORKSPACE_EVIDENCE)`. One further
+  registered code reaches this slot from the guarded entry the accept goes through, and is
+  ruled here rather than left unsaid — the I-57 precedent, where a door's own answer renders
+  through a screen's slot without joining the exhibited matrix cell:
+  - `RATE_LIMITED` — the accept spends the `tenancyAdmin` door's allowance like every other
+    tenancy mutation (R-SPINE-006: "tenant-admin actions carry rate limits", and a mailed
+    token is a credential a burst may not be allowed to grind against). A burst of presses
+    answers the register's own words in this slot, with its `data-code`, and the control
+    stays armed for the retry the remedy names.
+  It is neither silence nor invented copy: it is a registered entry rendered by the same one
+  renderer, which is what R-UI-020 asks of the slot.
 - **Partial** — one offer is read and it renders whole; there is no second read to answer
   half of. Matrix: `reason(strings.state_partial_one_answer)`.
 - **Offline** — a fault of reachability (shell I-20): server-rendered screen, failed
@@ -161,10 +194,12 @@ duration is a token zeroed at source under reduced motion; no bounce anywhere.
 ## 5. Tokens
 
 `--graphite-600/700/900` · `--beam-500/600` (the link home; the refusal card's own tokens are
-RefusalState's) · `--hairline` · `--space-1/2/3/6` · `--text-12/13/16/20` · `--font-mono` ·
+RefusalState's) · `--hairline` · `--space-1/2/3/6/8/12` · `--text-12/13/16/20` · `--font-mono` ·
 `--weight-body-medium/--weight-heading` · `--motion-state/--ease`. Px literals, closed set
 (core I-1's class): the 560 px column measure, and the skeleton bones 24/16/48/32 ×
-240/360/480/200. Any other literal is a defect.
+240/360/480/200. Any other literal is a defect. The column's gutter is not a literal at all —
+`calc(100vw - var(--space-8))` is the viewport minus a spacing token, the same expression
+`cx-shell-denied` uses.
 
 ## 6. Themes
 

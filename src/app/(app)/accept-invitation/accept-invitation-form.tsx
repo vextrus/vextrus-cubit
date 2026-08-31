@@ -41,6 +41,24 @@ export function AcceptInvitationRefusal({ refusal }: { refusal: RefusalEntry }) 
   );
 }
 
+/**
+ * The refusal standing ALONE, where the page judged the token before it drew anything (I-65). It is
+ * the same answer slot as above — one renderer, both places — laid in the screen's own column, which
+ * is what gives it the page's `<main>`, its measure and the heading that says what page this is.
+ * A person arriving from a mail link meets an alert with no page identity otherwise, and a card that
+ * runs off both edges of the window.
+ */
+export function AcceptInvitationUnclaimable({ refusal }: { refusal: RefusalEntry }) {
+  return (
+    <main className="cx-accept">
+      <header className="cx-accept-header">
+        <h1 className="cx-accept-heading">{acceptInvitationStrings.accept_heading}</h1>
+      </header>
+      <AcceptInvitationRefusal refusal={refusal} />
+    </main>
+  );
+}
+
 export function AcceptInvitationForm({ token, offer, accept = acceptInvitationAction }: AcceptInvitationFormProps) {
   const router = useRouter();
   const [inFlight, setInFlight] = useState(false);
@@ -67,7 +85,7 @@ export function AcceptInvitationForm({ token, offer, accept = acceptInvitationAc
   };
 
   return (
-    <div className="cx-accept">
+    <main className="cx-accept">
       <header className="cx-accept-header">
         <h1 className="cx-accept-heading">{acceptInvitationStrings.accept_heading}</h1>
         <p className="cx-accept-caption">{acceptInvitationStrings.accept_caption}</p>
@@ -105,14 +123,14 @@ export function AcceptInvitationForm({ token, offer, accept = acceptInvitationAc
             ? acceptInvitationStrings.accept_status_done
             : ""}
       </p>
-    </div>
+    </main>
   );
 }
 
 /** The screen with no link behind it: it teaches what is missing rather than showing an empty form. */
 export function AcceptInvitationNoToken() {
   return (
-    <div className="cx-accept">
+    <main className="cx-accept">
       <header className="cx-accept-header">
         <h1 className="cx-accept-heading">{acceptInvitationStrings.accept_no_token_heading}</h1>
         <p className="cx-accept-caption">{acceptInvitationStrings.accept_no_token_body}</p>
@@ -122,6 +140,6 @@ export function AcceptInvitationNoToken() {
           {strings.shell_evidence_home}
         </a>
       </p>
-    </div>
+    </main>
   );
 }

@@ -25,6 +25,9 @@ export const ACCEPT_INVITATION_STATES: Readonly<Record<ShellStateName, ShellStat
   },
   refusal: {
     declared: "rendered",
+    // INVITATION_NOT_CLAIMABLE is what this screen is about and what the matrix exhibits; the
+    // guarded entry the accept goes through can also answer the tenancy door's RATE_LIMITED, which
+    // renders in this same slot through the same register lookup (the Decision's §2, I-57).
     by: `${ROUTE}/accept-invitation-form.tsx`,
     testId: "accept-invitation-refusal",
   },

@@ -15,7 +15,7 @@ import { offeredInvitation } from "../../../modules/spine/tenancy";
 import { invitationMachinery } from "../../../server/auth/invitation-mail";
 import { presentedSessionToken } from "../../../server/shell/session";
 import { sessionOf } from "../../../server/shell/resolve";
-import { AcceptInvitationForm, AcceptInvitationNoToken, AcceptInvitationRefusal } from "./accept-invitation-form";
+import { AcceptInvitationForm, AcceptInvitationNoToken, AcceptInvitationUnclaimable } from "./accept-invitation-form";
 import { acceptInvitationStrings } from "./strings";
 
 export const metadata = { title: acceptInvitationStrings.accept_heading };
@@ -39,6 +39,6 @@ export default async function AcceptInvitation({ searchParams }: { searchParams:
     if (code !== refusalOf("INVITATION_NOT_CLAIMABLE").code) throw thrown;
     // Nothing is left to submit over a token no accept can claim, and no disarmed control stands in
     // its place: the answer is the refusal, with its code, its message and its remedy (I-65).
-    return <AcceptInvitationRefusal refusal={refusalOf("INVITATION_NOT_CLAIMABLE")} />;
+    return <AcceptInvitationUnclaimable refusal={refusalOf("INVITATION_NOT_CLAIMABLE")} />;
   }
 }
