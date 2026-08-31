@@ -289,18 +289,19 @@ export const screenStates: ScreenStatesMatrix = {
 
   // The workspace members surface (s-settings § 2): seeing the roster is itself a membership, so the
   // list can never be empty, and the four refusals the workspace guards register are all reachable
-  // here — they stand together, in the order the removal guard judges them, each with its own
-  // evidence. The denial names the workspace role's permission, which the entry's own words carry.
+  // here — they stand together, in the order the removal guard judges them (the acts a member holds
+  // first, then the last owner, then self-removal, and the role's own permission last), each with
+  // its own evidence. The denial names the workspace role's permission, which the entry's own words carry.
   "/t/[tenant]/settings/members": declare({
     ...workspaceCells,
     loading: bones(6),
     empty: reason(strings.state_empty_members_reader),
     refusal: (): ReactNode => (
       <>
-        <Refusal refusal={REFUSAL_ENTRIES.WORKSPACE_PERMISSION_NOT_HELD} evidence={ROSTER_EVIDENCE} />
+        <Refusal refusal={REFUSAL_ENTRIES.MEMBER_HAS_ACTS} evidence={PROJECTS_EVIDENCE} />
         <Refusal refusal={REFUSAL_ENTRIES.WORKSPACE_WOULD_HAVE_NO_OWNER} evidence={ROSTER_EVIDENCE} />
         <Refusal refusal={REFUSAL_ENTRIES.SELF_REMOVAL_NOT_ALLOWED} evidence={ROSTER_EVIDENCE} />
-        <Refusal refusal={REFUSAL_ENTRIES.MEMBER_HAS_ACTS} evidence={PROJECTS_EVIDENCE} />
+        <Refusal refusal={REFUSAL_ENTRIES.WORKSPACE_PERMISSION_NOT_HELD} evidence={ROSTER_EVIDENCE} />
       </>
     ),
     partial: reason(strings.state_partial_members_scope),

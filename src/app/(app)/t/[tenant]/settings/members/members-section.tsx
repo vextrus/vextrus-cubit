@@ -145,7 +145,7 @@ export function MembersSection({
                     className="cx-input cx-reticle cx-members-select"
                     data-testid="members-role-select"
                     name="role"
-                    aria-label={membersStrings.members_role_label}
+                    aria-label={fill(membersStrings.members_role_label, { member: row.label })}
                     value={chosen[row.userId] ?? row.role}
                     onChange={(event) => setChosen((held) => ({ ...held, [row.userId]: event.target.value }))}
                   >
@@ -155,7 +155,15 @@ export function MembersSection({
                       </option>
                     ))}
                   </select>
-                  <Button type="submit" variant="secondary" data-testid="members-role-submit" loading={busy(row, "role")}>
+                  {/* The spoken name names the member: a screen reader moving down the roster meets
+                      one control per member, not N controls called the same thing. */}
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    data-testid="members-role-submit"
+                    aria-label={fill(membersStrings.members_role_submit_label, { member: row.label })}
+                    loading={busy(row, "role")}
+                  >
                     {membersStrings.members_role_submit}
                   </Button>
                 </form>
@@ -169,7 +177,13 @@ export function MembersSection({
                   }}
                 >
                   <input type="hidden" name="subjectUserId" value={row.userId} />
-                  <Button type="submit" variant="danger" data-testid="members-remove-submit" loading={busy(row, "removal")}>
+                  <Button
+                    type="submit"
+                    variant="danger"
+                    data-testid="members-remove-submit"
+                    aria-label={fill(membersStrings.members_remove_submit_label, { member: row.label })}
+                    loading={busy(row, "removal")}
+                  >
                     {membersStrings.members_remove_submit}
                   </Button>
                 </form>

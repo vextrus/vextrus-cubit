@@ -15,9 +15,14 @@ export const membersStrings = {
   members_roster_heading: "Roster",
   members_roster_hint: "Every member, in the store's own order. Each role history lists movements on the projects you may read.",
 
-  members_role_label: "Role",
+  // Every row carries the same two controls, so each one's accessible name names the member it acts
+  // on: a roster read aloud is N distinct controls, not N identical ones. The visible words are the
+  // first words of the spoken name, so the two never disagree.
+  members_role_label: "Role for {member}",
   members_role_submit: "Change role",
+  members_role_submit_label: "Change role for {member}",
   members_remove_submit: "Remove",
+  members_remove_submit_label: "Remove {member}",
 
   members_history_label: "Role history",
   members_history_by: "by {actor} on {date}",

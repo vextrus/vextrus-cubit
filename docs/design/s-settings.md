@@ -119,11 +119,18 @@ class; no DataTable: no sort, no columns, no virtualisation to use):
   class="cx-input cx-reticle cx-members-select">` (the audit I-31 idiom: `.cx-input` worn
   whole, `.cx-members-select` adds min-width 140 px and `var(--font-mono)`
   `tabular-nums slashed-zero` — a role is always chosen, so the mono face always applies;
-  focus is the reticle fallback), `aria-label` `members_role_label`, options the three
-  roles per I-55, the member's current role preselected; then a core secondary Button
-  `data-testid="members-role-submit"`, label `members_role_submit`. Beside it,
-  `<form data-testid="members-remove-form">` — the hidden `subjectUserId` and a core danger
-  Button `data-testid="members-remove-submit"`, label `members_remove_submit`. While an
+  focus is the reticle fallback), `aria-label` `members_role_label` filled with the row's
+  member, options the three roles per I-55, the member's current role preselected; then a
+  core secondary Button `data-testid="members-role-submit"`, visible label
+  `members_role_submit` and `aria-label` `members_role_submit_label` filled with the row's
+  member. Beside it, `<form data-testid="members-remove-form">` — the hidden `subjectUserId`
+  and a core danger Button `data-testid="members-remove-submit"`, visible label
+  `members_remove_submit` and `aria-label` `members_remove_submit_label` filled with the
+  row's member. Every control on a row names the member it acts on: the roster repeats the
+  same two controls, and a name that does not say whom it acts on is the same name N times
+  to anyone reading the page through the accessibility tree — a removal is irreversible, so
+  the button that carries one says whose membership it takes away. The visible words are the
+  first words of the spoken name, so what is read and what is said never disagree. While an
   action is in flight its Button takes core's loading state and the section's status line
   speaks; controls stay enabled after any refusal — a retry is never disarmed.
 - **Answer slot** (I-57) — `<div data-testid="members-refusal">`, mounted only while a
@@ -207,8 +214,10 @@ each member holds, and every role movement on its projects.** · `members_link_l
 **Members** · `members_link_hint` **Who belongs to this workspace and what each member may
 do.** · `members_link_action` **Manage members** · `members_roster_heading` **Roster** ·
 `members_roster_hint` **Every member, in the store's own order. Each role history lists
-movements on the projects you may read.** · `members_role_label` **Role** ·
-`members_role_submit` **Change role** · `members_remove_submit` **Remove** ·
+movements on the projects you may read.** · `members_role_label` **Role for {member}** ·
+`members_role_submit` **Change role** · `members_role_submit_label` **Change role for
+{member}** · `members_remove_submit` **Remove** · `members_remove_submit_label` **Remove
+{member}** (the three `{member}` slots are data — the row's own label per I-58) ·
 `members_history_label` **Role history** · `members_history_by` **by {actor} on {date}**
 (both slots are data) · `members_history_none` **No role movements on this workspace's
 projects yet.** · `members_member_unnamed` **Unnamed member** · `members_status_pending`

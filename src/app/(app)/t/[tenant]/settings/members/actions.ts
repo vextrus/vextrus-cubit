@@ -15,15 +15,13 @@ import { REFUSALS, type RefusalCode } from "../../../../../../core/errors";
 import { refusalCodeOf } from "../../../../../../core/faults/refusal-marker";
 import { guardTenancyMutation, tenancyMutationFrom, type TenancyActor, type TenancyRequest } from "../../../../../../modules/spine/tenancy";
 import { admitAttempt } from "../../../../../../server/auth/rate-limit";
+import { originFactsFromHeaders } from "../../../../../../server/context";
 import { presentedSessionToken } from "../../../../../../server/shell/session";
 import { sessionOf } from "../../../../../../server/shell/resolve";
 import { membersRoute } from "./route-address";
 
 /** The door this screen's mutations spend, as `AUTH_RATE_LIMITS` names it (R-SPINE-006). */
 const TENANCY_DOOR = "tenancyAdmin" as const;
-
-/** The deployment's own statement of the address it answers at, empty when nothing is configured. */
-const PUBLIC_ORIGIN_VAR = "CUBIT_PUBLIC_ORIGIN";
 
 /**
  * The guarded entry, bound once to the shipped limiter — the same binding the tRPC lane makes, so
@@ -92,22 +90,14 @@ async function move(kind: "assignRole" | "removeMember", tenantId: string, body:
  * is taken from the submission: the account is the one the session resolved to, and the workspace is
  * the module's own `actingWorkspaceOf` (R-SPINE-001, SEAM-TENANT).
  *
- * The origin rule is the module's; what this seam owes it are the three facts it judges. A server
- * action carries no `Request`, so the address it arrived at is read off the headers the platform
- * kept — and the deployment's own statement of its address stands beside it, which is what a
- * deployment behind a proxy is admitted by.
+ * The origin rule is the module's; what this seam owes it are the three facts it judges, and it
+ * takes them from the one seam that derives them — `src/server/context.ts`, which the tRPC lane
+ * reads through `createContext`. A server action carries no `Request`, so it hands over the headers
+ * the platform kept instead; the env var's name, the configured value's normalisation and the
+ * arrival address are answered there and nowhere twice (B-17).
  */
 async function requestFor(actor: TenancyActor, identity: string): Promise<TenancyRequest> {
-  const sent = await headers();
-  const host = sent.get("host") ?? "";
-  const scheme = sent.get("x-forwarded-proto") ?? "http";
-  return {
-    actor,
-    identity,
-    statedOrigin: sent.get("origin"),
-    requestOrigin: host === "" ? "" : `${scheme}://${host}`,
-    configuredOrigin: process.env[PUBLIC_ORIGIN_VAR] ?? "",
-  };
+  return { actor, identity, ...originFactsFromHeaders(await headers()) };
 }
 
 /**
