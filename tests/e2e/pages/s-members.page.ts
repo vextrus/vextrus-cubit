@@ -115,21 +115,28 @@ export class SMembersPage {
  * one user, many tenants, the switcher live).
  */
 export async function switcherWorkspaces(page: Page): Promise<string[]> {
-  const trigger = page.getByTestId("shell-tenant-switcher");
-  await trigger.waitFor({ state: "visible", timeout: 30_000 });
-  await trigger.click();
-  const menu = page.locator('[role="menu"]').first();
-  await menu.waitFor({ state: "visible", timeout: 30_000 });
-  const offered = (await menu.locator('[role="menuitem"]').allTextContents()).map((text) => text.replace(/\s+/g, " ").trim());
-  await page.keyboard.press("Escape");
+  const menu = await openSwitcher(page);
+  const offered = (await menu.getByRole("menuitem").allTextContents()).map((text) => text.replace(/\s+/g, " ").trim());
   return offered.filter((text) => text.length > 0);
 }
 
 /** Move to one of the offered workspaces through the switcher, exactly as a person would. */
 export async function switchTo(page: Page, workspaceName: string): Promise<void> {
-  const trigger = page.getByTestId("shell-tenant-switcher");
-  await trigger.click();
-  const menu = page.locator('[role="menu"]').first();
-  await menu.waitFor({ state: "visible", timeout: 30_000 });
+  const menu = await openSwitcher(page);
   await menu.getByRole("menuitem", { name: workspaceName, exact: true }).click();
+}
+
+/**
+ * The switcher's open menu. A menu already standing is the one used — the trigger toggles, so
+ * clicking it a second time would close what a caller is asking to read.
+ */
+async function openSwitcher(page: Page): Promise<Locator> {
+  const menu = page.locator('[role="menu"]:visible');
+  if ((await menu.count()) === 0) {
+    const trigger = page.getByTestId("shell-tenant-switcher");
+    await trigger.waitFor({ state: "visible", timeout: 30_000 });
+    await trigger.click();
+  }
+  await expect(menu.first(), "the workspace switcher opens the menu it names").toBeVisible({ timeout: 30_000 });
+  return menu.first();
 }
