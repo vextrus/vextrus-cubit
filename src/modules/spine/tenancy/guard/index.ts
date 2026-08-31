@@ -11,6 +11,7 @@
 // is judged.
 import type { WorkspaceRole } from "../../../../core/db";
 import { assignWorkspaceRole, removeMember, type MemberRemoved, type RoleMoved } from "../roles/assign";
+import { isWorkspaceRole } from "../roles/rank";
 import type { TenancyActor } from "../scope";
 import { verifyStatedOrigin, type OriginClaim } from "./origin";
 
@@ -37,6 +38,35 @@ export interface TenancyRequest extends OriginClaim {
 export type TenancyMutation =
   | { readonly kind: "assignRole"; readonly subjectUserId: string; readonly role: WorkspaceRole }
   | { readonly kind: "removeMember"; readonly subjectUserId: string };
+
+/**
+ * A field a caller must have stated, read off the body it sent — a body that is not an object states
+ * no field at all.
+ */
+function statedText(body: unknown, name: string): string {
+  const stated = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
+  const value = stated[name];
+  if (typeof value !== "string") throw new Error(`spine.tenancy: "${name}" is required and must be a string`);
+  return value;
+}
+
+/**
+ * One move, read out of the body a caller sent. What a tenancy move is NAMED on the wire is stated
+ * here, beside the union it builds and the closed role set it checks against — so a transport
+ * carries no reader of this module's input and no second opinion about which words name a role
+ * (B-17, ARCH-02). Nothing is judged here: who may move whom is the role law's, below.
+ *
+ * A body missing a field, or naming a role the store does not hold, is malformed rather than
+ * refused — it is not a request the guard judged, so it answers no registered refusal.
+ */
+export function tenancyMutationFrom(kind: TenancyMutation["kind"], body: unknown): TenancyMutation {
+  if (kind === "assignRole") {
+    const role = statedText(body, "role");
+    if (!isWorkspaceRole(role)) throw new Error(`spine.tenancy: "${role}" is not a workspace role — the roles are the closed set the store holds (R-SPINE-003)`);
+    return { kind, subjectUserId: statedText(body, "subjectUserId"), role };
+  }
+  return { kind, subjectUserId: statedText(body, "subjectUserId") };
+}
 
 /** What either move answers with when it lands. */
 export type TenancyMutationAnswer = RoleMoved | MemberRemoved;

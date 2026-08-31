@@ -5,15 +5,19 @@
  * The test contract fixes the three procedures' inputs exactly — `members` takes "no input beyond
  * session/tenant context", `assignRole` takes `{ subjectUserId, role }`, `removeMember` takes
  * `{ subjectUserId }` — so the workspace a call administers is never a value the caller wrote. It is
- * derived from the session, and by ONE derivation: the shell's `earliestWorkspaceOf`, which is what
- * already answers "which workspace is this signed-in account in" for the frame. A second answer in
- * the tenancy lane would be a second home for a cross-cutting question (B-17, ARCH-02), and the two
- * could disagree about the same session — the frame rendering one workspace while the lane
- * administered another.
+ * the account's own: the membership it held FIRST, which is the same membership the signed-in frame
+ * puts a name to, so a roster served is the roster of the workspace the person is looking at.
  *
- * So this file proves the two halves that follow from that: the roster served is the roster of the
- * workspace the shell's own derivation names, and a `tenantId` written into the request body is not
- * a lever — it moves nothing, because no procedure reads it.
+ * Every expectation here is staged, never asked of the product: the cases know which workspace each
+ * account joined first because this file put them there in that order (and reads the two `created_at`
+ * back to prove the staging held), and they know what each roster contains because they read it out
+ * of the database. A lane that answered the NEWEST membership, or another workspace entirely, serves
+ * a different roster than the one staged — which is the whole point of staging a person into two
+ * workspaces of different sizes (B-19: derive the denominator, never restate the implementation).
+ *
+ * So this file proves the two halves that follow: the roster served is the roster of the account's
+ * first workspace, and a `tenantId` written into the request body is not a lever — it moves nothing,
+ * because no procedure reads it.
  *
  * Raw SQL is spoken through psql, never a driver import (SEAM-TENANT). Nothing is transcribed: every
  * denominator is read back from the database the committed migrations built (B-19).
@@ -31,11 +35,11 @@ const REPO_ROOT = join(import.meta.dirname, "..", "..");
 const AUTH_MODULE = "src/server/auth/session.ts";
 const ROUTE_MODULE = "src/app/api/trpc/[trpc]/route.ts";
 const ROOT_MODULE = "src/server/root.ts";
-const SHELL_MODULE = "src/server/shell/workspace.ts";
 
 const PROC_MEMBERS = "spine.tenancy.members";
 const MEMBERSHIPS = "memberships";
 const ROLE_COLUMN = "workspace_role";
+const JOINED_COLUMN = "created_at";
 const MEMBER = "MEMBER";
 
 /** The origin the probe's requests arrive at — a matching one, so the origin gate is not the subject. */
@@ -196,49 +200,62 @@ const rosterOf = (url: string, tenantId: string): string[] =>
 
 const carries = (entries: unknown[], userId: string): boolean => JSON.stringify(entries).includes(userId);
 
-/** The shell's derivation — the one home of "which workspace is this account in" (B-17). */
-async function shellWorkspaceOf(userId: string): Promise<string> {
-  await staged();
-  const shell = await productModule<Record<string, unknown>>(SHELL_MODULE);
-  const derive = exported(shell, "earliestWorkspaceOf", SHELL_MODULE);
-  const answered = (await callFn(derive, userId)) as { tenantId?: string } | null;
-  return String(answered?.tenantId ?? "");
-}
+/**
+ * Did this account join `earlier` before it joined `later`? The staging's own ordering, read back out
+ * of the rows rather than assumed — the two memberships are written by two different doors, and the
+ * case that rests on which came first says so out loud.
+ */
+const joinedFirst = (url: string, userId: string, earlier: string, later: string): string =>
+  sysScalar(
+    url,
+    `select (first.${ident(JOINED_COLUMN)} < second.${ident(JOINED_COLUMN)})::text
+       from ${ident(MEMBERSHIPS)} first, ${ident(MEMBERSHIPS)} second
+      where first.user_id = ${lit(userId)} and first.${ident(TENANT_COLUMN)} = ${lit(earlier)}
+        and second.user_id = ${lit(userId)} and second.${ident(TENANT_COLUMN)} = ${lit(later)};`,
+  );
 
 /* ------------------------------------------------------------------ the cases */
 
-describe("R-SPINE-002 / AC-6 / B-17: the workspace a tenancy request is answered about is derived, never stated", () => {
-  it("B-17: the roster served is the roster of the workspace the shell's one derivation names", async () => {
+describe("R-SPINE-002 / AC-6 / B-17: the workspace a tenancy request is answered about is the account's own", () => {
+  it("the roster served is the roster of the workspace the session's account belongs to", async () => {
     const stage = await staged();
 
-    const derived = await shellWorkspaceOf(stage.owner.userId);
-    expect(derived, "the shell answers a workspace for a signed-in account — the lane must not need a second answer").not.toBe("");
-
-    const held = rosterOf(stage.url, derived);
-    expect(held.length, "the derived workspace holds more than one membership, so a roster of the wrong workspace would differ in length").toBeGreaterThan(1);
+    // The owner holds exactly one membership — the workspace sign-up made them, which the staging
+    // then put a second person into. So the roster this session is owed is that workspace's, read
+    // out of the database rather than counted here.
+    const held = rosterOf(stage.url, stage.owner.tenantId);
+    expect(held, "the owner belongs to the workspace their sign-up created").toContain(stage.owner.userId);
+    expect(held, "the guest was staged into the owner's workspace, so a roster of the wrong workspace is a shorter one").toContain(stage.guest.userId);
 
     const served = resultOf(await callProcedure(PROC_MEMBERS, undefined, stage.owner.cookie), `${PROC_MEMBERS} for the owner's session`);
-    expect(served.length, `${PROC_MEMBERS} answers the roster of the workspace the shell derives, one entry per membership the store holds`).toBe(held.length);
+    expect(served.length, `${PROC_MEMBERS} answers one entry per membership the owner's workspace holds`).toBe(held.length);
     for (const memberId of held) {
-      expect(carries(served, memberId), `the served roster names every membership the derived workspace holds (${memberId})`).toBe(true);
+      expect(carries(served, memberId), `the served roster names every membership that workspace holds (${memberId})`).toBe(true);
     }
   }, 300_000);
 
-  it("R-SPINE-002: a person in two workspaces is answered about the one the session derives, and the frame agrees", async () => {
+  it("R-SPINE-002: a person in two workspaces is answered about the one they joined first", async () => {
     const stage = await staged();
 
-    const held = rosterOf(stage.url, stage.owner.tenantId);
-    expect(held, "the guest holds a membership of the owner's workspace too — the ordinary many-tenants shape").toContain(stage.guest.userId);
+    // The ordinary many-tenants shape, staged in a known order: the guest's own workspace came with
+    // their sign-up, and the owner's workspace was joined afterwards. The rows are asked to confirm
+    // that ordering, because the expectation below rests on it.
+    expect(rosterOf(stage.url, stage.owner.tenantId), "the guest holds a membership of the owner's workspace too").toContain(stage.guest.userId);
+    expect(
+      joinedFirst(stage.url, stage.guest.userId, stage.guest.tenantId, stage.owner.tenantId),
+      "the guest joined their own workspace before the owner's — the staging this case rests on",
+    ).toBe("true");
 
-    // One question, one answer: the lane and the shell frame are looking at the same session, so
-    // whichever workspace the derivation names, both are about that one. A lane that derived its
-    // own could render one workspace in the frame while administering another (B-17, ARCH-02).
-    const derived = await shellWorkspaceOf(stage.guest.userId);
-    expect(rosterOf(stage.url, derived), "the derived workspace is one the guest actually holds a membership of").toContain(stage.guest.userId);
+    const own = rosterOf(stage.url, stage.guest.tenantId);
+    const other = rosterOf(stage.url, stage.owner.tenantId);
+    expect(own.length, "the two workspaces differ in size, so answering the wrong one is visible in the count").not.toBe(other.length);
+    expect(other, "the owner is a member of the owner's workspace and of no other — the marker of a wrong answer").toContain(stage.owner.userId);
 
     const served = resultOf(await callProcedure(PROC_MEMBERS, undefined, stage.guest.cookie), `${PROC_MEMBERS} for the guest's session`);
-    expect(served.length, "the guest is answered the roster of the derived workspace, not of whichever workspace they hold most memberships near").toBe(
-      rosterOf(stage.url, derived).length,
+    expect(served.length, "the guest is answered the roster of the workspace they joined first, not of the one they joined later").toBe(own.length);
+    expect(carries(served, stage.guest.userId), "the roster served to the guest names the guest").toBe(true);
+    expect(carries(served, stage.owner.userId), "the owner appears only in the later-joined workspace, so naming them means the wrong workspace was served").toBe(
+      false,
     );
   }, 300_000);
 
@@ -246,18 +263,17 @@ describe("R-SPINE-002 / AC-6 / B-17: the workspace a tenancy request is answered
     const stage = await staged();
 
     // `members` takes "no input beyond session/tenant context". A caller who writes somebody else's
-    // workspace id into the body is therefore not naming a workspace at all — the field is read by
-    // no procedure, so the answer is the same one the session already derived. Were it read, this
-    // case would serve the owner's roster to the guest and the two lengths below would differ.
-    const derived = await shellWorkspaceOf(stage.guest.userId);
-    const own = rosterOf(stage.url, derived);
-    const other = rosterOf(stage.url, stage.owner.tenantId);
-    expect(own.length, "the two workspaces differ in size, so a body that moved the answer would be visible here").not.toBe(other.length);
-
+    // workspace id into the body is therefore not naming a workspace at all — and this caller is a
+    // member of the workspace they name, so a procedure that read the field and honoured it for
+    // members would answer the owner's roster here. It answers the session's own instead.
+    const own = rosterOf(stage.url, stage.guest.tenantId);
     const stated = resultOf(
       await callProcedure(PROC_MEMBERS, { tenantId: stage.owner.tenantId }, stage.guest.cookie),
       `${PROC_MEMBERS} with another workspace's id written into the body`,
     );
+
     expect(stated.length, "stating a workspace on the wire grants nothing and addresses nothing — the answer is the session's own").toBe(own.length);
+    expect(carries(stated, stage.guest.userId), "the answer is the guest's own workspace, which names the guest").toBe(true);
+    expect(carries(stated, stage.owner.userId), "the stated workspace's other member is absent, so the stated field moved nothing").toBe(false);
   }, 300_000);
 });

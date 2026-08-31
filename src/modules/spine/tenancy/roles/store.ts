@@ -7,7 +7,7 @@
 // migration's policies admit a write under a named system reason and refuse every tenant-scoped one
 // (SEAM-TENANT). The reason travels with the statement and is attributable, never validated and
 // then discarded.
-import { and, eq, holdStateLock, isUuid, memberships, runAsSystem, users, type SystemDb, type TenantTx, type WorkspaceRole } from "../../../../core/db";
+import { and, asc, eq, holdStateLock, isUuid, memberships, runAsSystem, users, type SystemDb, type TenantTx, type WorkspaceRole } from "../../../../core/db";
 import { workspacePermissionNotHeld } from "../refusals";
 
 /** One membership of a workspace, as this module reads it. */
@@ -21,6 +21,37 @@ export interface WorkspaceMembership {
 
 const READ_REASON = "R-SPINE-003 tenancy: the workspace roles a member holds, before a role is moved or a roster is served";
 const MOVE_REASON = "R-SPINE-006 tenancy: moving or removing one member's workspace role, under the workspace's own role lock";
+const ACTOR_REASON = "R-SPINE-006 tenancy: the workspace a signed-in account administers, before any roster is served or role is moved";
+
+/**
+ * Which workspace an account is administering when it asks this module for something.
+ *
+ * It is never a value the caller wrote: the test contract fixes the three procedures' inputs, and a
+ * tenant id on the wire would let a signed-in stranger name somebody else's workspace. The account's
+ * memberships are what say which workspace it may be scoped to at all, and the earliest of them is
+ * the one it is in — ordered by `created_at` and settled by the tenant uuid, so two memberships
+ * written in one transaction still answer one workspace and not either of two.
+ *
+ * That is the same membership the signed-in frame puts a name to, so a roster served here is the
+ * roster of the workspace the person is looking at. The statement is this module's own, under this
+ * module's recorded reason: `memberships` is the tenancy module's row, and a read of it made for
+ * tenant administration may not be recorded as a request to paint the frame (SEAM-TENANT — a reason
+ * is attributable or it is not a reason).
+ *
+ * An account holding no membership answers "" — a tenant that names no workspace, which the role law
+ * refuses as the stranger it is rather than carrying an empty string into a `uuid` column. A user id
+ * that is not a uuid names nobody for the same reason (22P02 is a fault, not a refusal).
+ */
+export async function actingWorkspaceOf(userId: string): Promise<string> {
+  if (!isUuid(userId)) return "";
+  const held = await runAsSystem(ACTOR_REASON)
+    .select({ tenantId: memberships.tenantId })
+    .from(memberships)
+    .where(eq(memberships.userId, userId))
+    .orderBy(asc(memberships.createdAt), asc(memberships.tenantId))
+    .limit(1);
+  return held[0]?.tenantId ?? "";
+}
 
 /** Every membership of one workspace, with the account each names. */
 export async function membershipsOf(tenantId: string): Promise<readonly WorkspaceMembership[]> {
