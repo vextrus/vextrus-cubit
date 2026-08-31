@@ -10,7 +10,8 @@
 // server's to bind, and what this module knows is that an identity must be admitted before a role
 // is judged.
 import type { WorkspaceRole } from "../../../../core/db";
-import { assignWorkspaceRole, removeMember, type MemberRemoved, type RoleMoved } from "../roles/assign";
+import { removeMember } from "../removal";
+import { assignWorkspaceRole, type MemberRemoved, type RoleMoved } from "../roles/assign";
 import { isWorkspaceRole } from "../roles/rank";
 import type { TenancyActor } from "../scope";
 import { verifyStatedOrigin, type OriginClaim } from "./origin";
