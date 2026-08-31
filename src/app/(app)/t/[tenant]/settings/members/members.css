@@ -1,0 +1,206 @@
+/* The members surface (docs/design/s-settings.md §1, §5): one column of variable-height blocks with
+   hairline seams. Colour, spacing, type and motion are tokens only — no literal value and no
+   [data-theme] selector, so both themes are the same rules read against different token values. */
+
+.cx-members {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 800px;
+}
+
+.cx-members-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-members-heading {
+  margin: 0;
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-members-caption {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-members-roster {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-members-section-heading {
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-members-hint {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-members-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: var(--hairline);
+}
+
+.cx-members-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block: var(--space-3);
+  border-bottom: var(--hairline);
+}
+
+.cx-members-identity {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.cx-members-member {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+/* I-55: a role is the store's own word, so it wears the mono face wherever it appears. */
+.cx-members-role {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+}
+
+.cx-members-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.cx-members-form {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The audit I-31 idiom: the Input's own surface worn whole, with the mono face a role is read in. */
+.cx-members-select {
+  min-width: 140px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-members-answer {
+  width: 100%;
+}
+
+.cx-members-history-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  /* Line two of a movement is indented past the direction ruler and its gap, stated once here. */
+  --cx-members-history-indent: calc(88px + var(--space-3));
+}
+
+.cx-members-history-label {
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-600);
+}
+
+.cx-members-history-none {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-members-history {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-members-history-row {
+  padding-block: var(--space-1);
+}
+
+.cx-members-history-what {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+/* Q-11: the direction carries its meaning in the word, never in colour. */
+.cx-members-direction {
+  min-width: 88px;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-members-history-role {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+/* I-26: an identifier renders whole, and is selectable as one thing. */
+.cx-members-history-project {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  user-select: all;
+}
+
+.cx-members-history-by {
+  margin: 0;
+  padding-left: var(--cx-members-history-indent);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-members-status {
+  margin: 0;
+  min-height: var(--text-13);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* I-60: the landing's door to this surface, in the settings-landing measure and idiom. */
+.cx-members-link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 380px;
+  margin-top: var(--space-6);
+}
+
+.cx-members-link-action {
+  align-self: start;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--beam-600);
+  text-decoration: underline;
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-members-link-action:hover {
+  color: var(--beam-500);
+}
