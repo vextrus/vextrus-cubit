@@ -34,14 +34,25 @@ const signedInProcedure = publicProcedure.use(({ ctx, next }) => {
   return next({ ctx: { ...ctx, session: ctx.session } });
 });
 
-/** The bag a caller sent, or an empty one — a body that is not an object supplies no field. */
-function bagOf(input: unknown): Record<string, unknown> {
+/** This lane's name, as the reader below puts it in front of a caller who sent the wrong shape. */
+const LANE = "spine.tenancy";
+
+/**
+ * The bag a caller sent, or an empty one — a body that is not an object supplies no field.
+ *
+ * Reading a named field off a wire body is one behaviour, so it has one home (B-17, ARCH-02), and
+ * this is it: `./spine.ts` composes this router, so a helper living here is reachable from there
+ * without the two files importing each other. The lane naming itself in the message is a parameter
+ * rather than a second copy of the function — that difference was the whole of the duplication.
+ */
+export function bagOf(input: unknown): Record<string, unknown> {
   return typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
 }
 
-function text(input: unknown, name: string): string {
+/** A required string field of a wire body, or the lane's own complaint that it is not there. */
+export function text(input: unknown, name: string, lane: string): string {
   const value = bagOf(input)[name];
-  if (typeof value !== "string") throw new Error(`spine.tenancy: "${name}" is required and must be a string`);
+  if (typeof value !== "string") throw new Error(`${lane}: "${name}" is required and must be a string`);
   return value;
 }
 
@@ -102,15 +113,15 @@ export const tenancyRouter = router({
 
   assignRole: signedInProcedure
     .input((raw: unknown): { subjectUserId: string; role: WorkspaceRole } => {
-      const role = text(raw, "role");
-      if (!isWorkspaceRole(role)) throw new Error(`spine.tenancy: "${role}" is not a workspace role — the roles are the closed set the store holds (R-SPINE-003)`);
-      return { subjectUserId: text(raw, "subjectUserId"), role };
+      const role = text(raw, "role", LANE);
+      if (!isWorkspaceRole(role)) throw new Error(`${LANE}: "${role}" is not a workspace role — the roles are the closed set the store holds (R-SPINE-003)`);
+      return { subjectUserId: text(raw, "subjectUserId", LANE), role };
     })
     .mutation(async ({ ctx, input }) => {
       return guarded(await requestFor(ctx), { kind: "assignRole", subjectUserId: input.subjectUserId, role: input.role });
     }),
 
-  removeMember: signedInProcedure.input((raw: unknown) => ({ subjectUserId: text(raw, "subjectUserId") })).mutation(async ({ ctx, input }) => {
+  removeMember: signedInProcedure.input((raw: unknown) => ({ subjectUserId: text(raw, "subjectUserId", LANE) })).mutation(async ({ ctx, input }) => {
     return guarded(await requestFor(ctx), { kind: "removeMember", subjectUserId: input.subjectUserId });
   }),
 });

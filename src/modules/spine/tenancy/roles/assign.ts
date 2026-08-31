@@ -20,11 +20,16 @@
 // protection comes before self-removal so that a sole OWNER leaving is answered by the fact that
 // matters — the workspace would have no owner — while a co-owner leaving is answered by the fact
 // that they may not let themselves out.
+//
+// All of it — the reads the guards judge and the write they admit — happens inside one move against
+// the store (`movingWorkspaceRoles`), which holds the workspace's role lock for the whole of it. A
+// guard that reads "is this the last owner?" and writes afterwards is only a guard while nothing may
+// happen in between; ./store.ts says why at length.
 import { isUuid, type WorkspaceRole } from "../../../../core/db";
 import { selfRemovalNotAllowed, workspacePermissionNotHeld, workspaceWouldHaveNoOwner } from "../refusals";
 import type { TenancyActor } from "../scope";
 import { mayAdminister, outranks, OWNING_ROLE, standsAtLeast } from "./rank";
-import { dropMembership, membersHolding, roleHeld, writeRole } from "./store";
+import { movingWorkspaceRoles, type RoleMoveScope } from "./store";
 
 /** A role move, as a caller states it: whose membership, and which role it is to carry. */
 export interface RoleAssignment {
@@ -61,14 +66,14 @@ interface Sides {
  * `memberships.user_id` is a `uuid`, so carrying it into a statement would raise 22P02, a driver
  * error with no refusal marker on it — so it is answered as the membership it does not name.
  */
-async function sidesOf(actor: TenancyActor, subjectUserId: string): Promise<Sides> {
+async function sidesOf(store: RoleMoveScope, actor: TenancyActor, subjectUserId: string): Promise<Sides> {
   const refused = (): Error => workspacePermissionNotHeld({ subjectUserId });
 
-  const actorRole = await roleHeld(actor.tenantId, actor.userId);
+  const actorRole = await store.roleHeld(actor.userId);
   if (actorRole === null || !mayAdminister(actorRole)) throw refused();
 
   if (!isUuid(subjectUserId)) throw refused();
-  const subjectRole = await roleHeld(actor.tenantId, subjectUserId);
+  const subjectRole = await store.roleHeld(subjectUserId);
   if (subjectRole === null) throw refused();
 
   // The stripped side: an ADMIN may move the members below them and nobody else, while an OWNER
@@ -85,17 +90,19 @@ async function sidesOf(actor: TenancyActor, subjectUserId: string): Promise<Side
  * the act log's writ (SEAM-ACT).
  */
 export async function assignWorkspaceRole(actor: TenancyActor, request: RoleAssignment): Promise<RoleMoved> {
-  const { actorRole, subjectRole } = await sidesOf(actor, request.subjectUserId);
+  return movingWorkspaceRoles(actor.tenantId, async (store) => {
+    const { actorRole, subjectRole } = await sidesOf(store, actor, request.subjectUserId);
 
-  // The granted side: nobody hands out a rank they do not hold themselves.
-  if (outranks(request.role, actorRole)) throw workspacePermissionNotHeld({ subjectUserId: request.subjectUserId });
+    // The granted side: nobody hands out a rank they do not hold themselves.
+    if (outranks(request.role, actorRole)) throw workspacePermissionNotHeld({ subjectUserId: request.subjectUserId });
 
-  if (subjectRole === OWNING_ROLE && request.role !== OWNING_ROLE && (await membersHolding(actor.tenantId, OWNING_ROLE)) === 1) {
-    throw workspaceWouldHaveNoOwner();
-  }
+    if (subjectRole === OWNING_ROLE && request.role !== OWNING_ROLE && (await store.membersHolding(OWNING_ROLE)) === 1) {
+      throw workspaceWouldHaveNoOwner();
+    }
 
-  const moved = await writeRole(actor, request.subjectUserId, request.role);
-  return { subjectUserId: moved.userId, workspaceRole: moved.workspaceRole };
+    const moved = await store.writeRole(request.subjectUserId, request.role);
+    return { subjectUserId: moved.userId, workspaceRole: moved.workspaceRole };
+  });
 }
 
 /**
@@ -104,12 +111,14 @@ export async function assignWorkspaceRole(actor: TenancyActor, request: RoleAssi
  * an assignment does not (SEAM-ACT).
  */
 export async function removeMember(actor: TenancyActor, request: MemberRef): Promise<MemberRemoved> {
-  const { subjectRole, isSelf } = await sidesOf(actor, request.subjectUserId);
+  return movingWorkspaceRoles(actor.tenantId, async (store) => {
+    const { subjectRole, isSelf } = await sidesOf(store, actor, request.subjectUserId);
 
-  if (subjectRole === OWNING_ROLE && (await membersHolding(actor.tenantId, OWNING_ROLE)) === 1) throw workspaceWouldHaveNoOwner();
-  if (isSelf) throw selfRemovalNotAllowed();
+    if (subjectRole === OWNING_ROLE && (await store.membersHolding(OWNING_ROLE)) === 1) throw workspaceWouldHaveNoOwner();
+    if (isSelf) throw selfRemovalNotAllowed();
 
-  const removed = await dropMembership(actor, request.subjectUserId);
-  if (!removed) throw workspacePermissionNotHeld({ subjectUserId: request.subjectUserId });
-  return { subjectUserId: request.subjectUserId, removed: true };
+    const removed = await store.dropMembership(request.subjectUserId);
+    if (!removed) throw workspacePermissionNotHeld({ subjectUserId: request.subjectUserId });
+    return { subjectUserId: request.subjectUserId, removed: true };
+  });
 }

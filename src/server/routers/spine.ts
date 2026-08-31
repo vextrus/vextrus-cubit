@@ -20,11 +20,12 @@ import {
 } from "../../core/acts";
 import { eq, isUuid, projects, runAsSystem } from "../../core/db";
 import { roleHistory } from "../../modules/spine/participants";
+import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { authRouter } from "../auth/router";
 import { signedOut } from "../auth/refusals";
 import { holdsWorkspace } from "../shell/workspace";
 import { publicProcedure, router } from "../trpc";
-import { tenancyRouter } from "./tenancy";
+import { bagOf, tenancyRouter, text } from "./tenancy";
 
 /** The one act this lane renders, and the permission L-ACT-03 makes it move. */
 const ASSIGN_PARTICIPANT_ROLE = "ASSIGN_PARTICIPANT_ROLE" as const;
@@ -40,30 +41,22 @@ const signedInProcedure = publicProcedure.use(({ ctx, next }) => {
   return next({ ctx: { ...ctx, session: ctx.session } });
 });
 
-/** The bag a caller sent, or an empty one — a body that is not an object supplies no field. */
-function bagOf(input: unknown): Record<string, unknown> {
-  return typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
-}
-
-function text(input: unknown, name: string): string {
-  const value = bagOf(input)[name];
-  if (typeof value !== "string") throw new Error(`spine.participants: "${name}" is required and must be a string`);
-  return value;
-}
+/** This lane's name, as `./tenancy.ts`'s reader puts it in front of a caller who sent the wrong shape. */
+const LANE = "spine.participants";
 
 /** The act's input as it arrives on the wire, read into the shape the seam declares. */
 function assignInput(raw: unknown): AssignParticipantRoleInput {
   const named = bagOf(raw);
-  const role = text(named, "role");
-  if (!isRole(role)) throw new Error(`spine.participants: "${role}" is not a role — roles are the closed set a human picks from (L-ACT-03)`);
+  const role = text(named, "role", LANE);
+  if (!isRole(role)) throw new Error(`${LANE}: "${role}" is not a role — roles are the closed set a human picks from (L-ACT-03)`);
   const direction = named["direction"];
   if (direction !== undefined && direction !== "GRANT" && direction !== "WITHDRAW") {
-    throw new Error(`spine.participants: "${String(direction)}" is not a direction — ASSIGN_PARTICIPANT_ROLE moves a role one of two ways`);
+    throw new Error(`${LANE}: "${String(direction)}" is not a direction — ASSIGN_PARTICIPANT_ROLE moves a role one of two ways`);
   }
   return {
     type: ASSIGN_PARTICIPANT_ROLE,
-    projectId: text(named, "projectId"),
-    subjectUserId: text(named, "subjectUserId"),
+    projectId: text(named, "projectId", LANE),
+    subjectUserId: text(named, "subjectUserId", LANE),
     role,
     ...(direction === undefined ? {} : { direction: direction as AssignDirection }),
   };
@@ -98,7 +91,7 @@ export async function participantsActorFor(userId: string, projectId: string, ac
  */
 export const participantsRouter = router({
   roleHistory: signedInProcedure
-    .input((raw: unknown) => ({ projectId: text(raw, "projectId") }))
+    .input((raw: unknown) => ({ projectId: text(raw, "projectId", LANE) }))
     .query(async ({ ctx, input }) => {
       const actor = await participantsActorFor(ctx.session.userId, input.projectId, null);
       return roleHistory(actor, { projectId: input.projectId });
@@ -113,8 +106,13 @@ export const participantsRouter = router({
     }),
 
   assignRole: signedInProcedure
-    .input((raw: unknown) => ({ input: assignInput(bagOf(raw)["input"]), consequenceDigest: text(raw, "consequenceDigest") }))
+    .input((raw: unknown) => ({ input: assignInput(bagOf(raw)["input"]), consequenceDigest: text(raw, "consequenceDigest", LANE) }))
     .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
+      // R-SPINE-006 unqualified: "cookie-authenticated mutations verify origin". This is one, so it
+      // is verified — by the rule's one home, never a comparison of this transport's own (B-17).
+      // It is asked before the project is read, so a page this deployment does not serve learns
+      // nothing about who stands where.
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
       const actor = await participantsActorFor(ctx.session.userId, input.input.projectId, ASSIGN_PARTICIPANT_ROLE);
       const written = await commit(actor, input.input, input.consequenceDigest);
       return { actId: written.actId };
