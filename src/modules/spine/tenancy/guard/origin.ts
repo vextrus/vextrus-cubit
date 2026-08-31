@@ -52,20 +52,25 @@ function addressesThisMachine(origin: string): boolean {
  * attacker's own, and the stated `Origin` then matches it. That is precisely the cross-site request
  * R-SPINE-006 legislates against, and R-SPINE-001 bans deciding anything on client-written headers.
  *
- * It answers in exactly two cases, neither of which a browser can produce against a deployment it
- * reached over a network — a browser composes `Host` from the address it dialled, so for a browser
- * the arrival address IS the deployment's:
+ * It answers in exactly two cases, and both of them require the request to have arrived at this
+ * machine's own address — which a browser cannot produce against a deployment it reached over a
+ * network, because a browser composes `Host` from the address it dialled, so for a browser the
+ * arrival address IS the deployment's:
  *
- *   - the deployment named no address at all: a developer's own machine, where there is nothing else
- *     to compare against and nothing configured to protect;
+ *   - the deployment named no address at all AND the request arrived on a loopback name: a
+ *     developer's own machine, the only place an unconfigured deployment answers at all — one that
+ *     states no address mails no link either, and says so (R-SPINE-001, src/server/context.ts). An
+ *     unconfigured deployment answering on a real hostname is not a deployment whose cookies this
+ *     rule may spend on a caller's word: absence is not permission;
  *   - the request arrived at this machine's own address while the deployment answers elsewhere: a
  *     caller inside the process driving the shipped handler, which composes the URL itself.
  */
 function answeredAt(claim: OriginClaim): readonly string[] {
   const configured = originOf(claim.configuredOrigin);
   const arrivedAt = originOf(claim.requestOrigin);
-  if (configured === "") return [arrivedAt];
-  if (addressesThisMachine(arrivedAt) && !addressesThisMachine(configured)) return [configured, arrivedAt];
+  const arrivedHere = addressesThisMachine(arrivedAt);
+  if (configured === "") return arrivedHere ? [arrivedAt] : [];
+  if (arrivedHere && !addressesThisMachine(configured)) return [configured, arrivedAt];
   return [configured];
 }
 

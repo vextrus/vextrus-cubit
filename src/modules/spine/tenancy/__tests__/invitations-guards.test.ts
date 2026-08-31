@@ -108,6 +108,18 @@ describe("R-SPINE-006: every invitation move is judged by the guarded entry, and
     ).rejects.toMatchObject({ refusalCode: refusalOf("ORIGIN_NOT_VERIFIED").code });
   });
 
+  test("a deployment that stated no address does not admit a foreign page by the Host it was reached at", async () => {
+    allowance = "open";
+    heldRole = "OWNER";
+    const forged = "https://attacker.example";
+    await expect(
+      // Nothing configured and a request that did not arrive on this machine's own address: there is
+      // no fact left that the caller did not write, so there is nothing to admit the claim against.
+      guarded({ actor: ACTOR, identity: ACTOR.userId, statedOrigin: forged, requestOrigin: forged, configuredOrigin: "" }, { kind: "createInvitation", email: "invitee@cubit.test" }),
+      "an unconfigured deployment answering on a real hostname refuses ORIGIN_NOT_VERIFIED: absence is not permission (R-SPINE-001, R-SPINE-006)",
+    ).rejects.toMatchObject({ refusalCode: refusalOf("ORIGIN_NOT_VERIFIED").code });
+  });
+
   test("an allowance already spent refuses the invitation before the workspace is read", async () => {
     allowance = "spent";
     heldRole = "OWNER";
