@@ -6,12 +6,8 @@
 // what a person reads is the registered entry, rendered by the one renderer.
 import { refusalOf, type RefusalCode } from "../../../core/errors";
 
-/**
- * An Error marked with a registered code and the facts the operator needs beside it — this module's
- * one home for building the marker (ARCH-02, B-17), exported so a submodule that owns a refusal of
- * its own (./removal) builds it here rather than restating the marker's shape beside its own code.
- */
-export function refusal<D extends object>(code: RefusalCode, message: string, detail: D): Error & D {
+/** An Error marked with a registered code and the facts the operator needs beside it. */
+function refusal<D extends object>(code: RefusalCode, message: string, detail: D): Error & D {
   return Object.assign(new Error(message), { refusalCode: refusalOf(code).code }, detail);
 }
 
