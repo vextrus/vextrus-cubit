@@ -34,5 +34,5 @@ export type ScreenStatesMatrix = Readonly<Record<string, ScreenDeclaration>>;
 /** Code point order, never a locale's — `localeCompare` is banned tree-wide (no-raw-intl). */
 export const byCodePoint = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
-/** The identifier a state's rendered root is found by (the increment's test contract). */
+/** The identifier a state's rendered root is found by — one testid for all seven (R-UI-050). */
 export const SCREEN_STATE_TESTID = "screen-state";
