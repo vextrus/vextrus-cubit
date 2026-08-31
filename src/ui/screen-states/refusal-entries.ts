@@ -18,6 +18,10 @@ type DeclaredCode = Extract<
   | "TOKEN_NOT_VALID"
   | "RATE_LIMITED"
   | "LINK_NOT_SENDABLE"
+  | "WORKSPACE_PERMISSION_NOT_HELD"
+  | "SELF_REMOVAL_NOT_ALLOWED"
+  | "WORKSPACE_WOULD_HAVE_NO_OWNER"
+  | "MEMBER_HAS_ACTS"
 >;
 
 /**
@@ -78,6 +82,34 @@ export const REFUSAL_ENTRIES: Readonly<{ [C in DeclaredCode]: RefusalEntry & { c
     code: "LINK_NOT_SENDABLE",
     message: "No link was sent, because this installation has not been given the web address its links point back to.",
     remedy: "Ask an operator to set the address this installation answers at, then ask for the link again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  WORKSPACE_PERMISSION_NOT_HELD: Object.freeze({
+    code: "WORKSPACE_PERMISSION_NOT_HELD",
+    message: "Your role in this workspace does not carry the permission this action needs.",
+    remedy: "Ask an owner of the workspace to carry it out, or to give you a role that carries it.",
+    severity: "error",
+    surface: "banner",
+  }),
+  SELF_REMOVAL_NOT_ALLOWED: Object.freeze({
+    code: "SELF_REMOVAL_NOT_ALLOWED",
+    message: "You cannot remove yourself from a workspace.",
+    remedy: "Ask another owner to remove you, so somebody is left who can undo it.",
+    severity: "error",
+    surface: "inline",
+  }),
+  WORKSPACE_WOULD_HAVE_NO_OWNER: Object.freeze({
+    code: "WORKSPACE_WOULD_HAVE_NO_OWNER",
+    message: "This would leave the workspace with no owner, so it was not carried out.",
+    remedy: "Make another member an owner first, then try again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  MEMBER_HAS_ACTS: Object.freeze({
+    code: "MEMBER_HAS_ACTS",
+    message: "This member holds recorded acts on open campaigns, so their membership was not removed.",
+    remedy: "Remove them once those campaigns close — the record keeps its author until then.",
     severity: "error",
     surface: "inline",
   }),

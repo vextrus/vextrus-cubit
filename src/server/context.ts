@@ -166,6 +166,46 @@ function originOf(): string {
 }
 
 /**
+ * The three facts R-SPINE-006's origin rule judges, for a seam the platform hands headers instead of
+ * a `Request` — a server action, which is handed no request at all. What they MEAN is the tenancy
+ * module's guard, exactly as above; what this seam owes it is the facts, and they are derived here
+ * because the env var's name, the configured value's normalisation and the arrival address have one
+ * home, which the tRPC lane already reads through `createContext` (B-17, ARCH-02).
+ */
+export interface RequestOriginFacts {
+  statedOrigin: string | null;
+  requestOrigin: string;
+  configuredOrigin: string;
+}
+
+/**
+ * Those three facts, off the headers the platform kept about the request.
+ *
+ * Next composes a route handler's `Request.url` — what `arrivalOrigin` reads on the other lane —
+ * from the `Host` the request named and the scheme the edge stated, so the arrival address is
+ * composed from the same two headers here. Where the edge states no scheme, the deployment's own
+ * statement of its address answers for it: a proxy that terminates TLS without stamping
+ * `x-forwarded-proto` would otherwise be read as plain http, and every cookie-authenticated mutation
+ * behind it would be refused as arriving somewhere the browser never stamped.
+ */
+export function originFactsFromHeaders(sent: Headers): RequestOriginFacts {
+  const configured = originOf();
+  const host = sent.get("host") ?? "";
+  const scheme = sent.get("x-forwarded-proto") ?? schemeOf(configured);
+  return {
+    statedOrigin: sent.get("origin"),
+    requestOrigin: host === "" ? "" : (URL.parse(`${scheme}://${host}`)?.origin ?? ""),
+    configuredOrigin: configured,
+  };
+}
+
+/** The scheme an origin is stated in, and http for a deployment that stated no address at all. */
+function schemeOf(origin: string): string {
+  const protocol = URL.parse(origin)?.protocol;
+  return protocol === undefined ? "http" : protocol.slice(0, -1);
+}
+
+/**
  * What the server can tell one caller from another by, for the half of the sign-in limit that
  * refuses (R-SPINE-001, and `rate-limit.ts`'s `admitSignIn`). A hard refusal keyed on the address
  * somebody is signing in *as* is a lever any stranger can pull on any account — they hammer the
