@@ -8,7 +8,7 @@ import { refusalOf } from "../../../../core/errors";
 import { densityFor } from "../../../../core/prefs";
 import { presentedSessionToken } from "../../../../server/shell/session";
 import { viewerFor } from "../../../../server/shell/viewer";
-import { workspaceFor } from "../../../../server/shell/workspace";
+import { namedWorkspaceFor, workspacesFor } from "../../../../server/shell/workspace";
 import { ShellDenied, shellHref } from "../../../../ui/shell";
 import { strings } from "../../../../ui/strings";
 import { signOutAction } from "./actions";
@@ -20,14 +20,20 @@ export default async function WorkspaceLayout({ children, params }: { children: 
   const viewer = await viewerFor(presented);
   if (viewer === null) redirect("/sign-in");
 
-  const workspace = await workspaceFor(presented);
-  if (workspace === null || workspace.tenantId !== tenant) {
-    // The way onward is a place they can actually go: their own workspace when they hold one, and
+  // The workspace is the one the URL names, admitted by the membership the account genuinely holds
+  // — never by comparing the address against the earliest membership. R-SPINE-002 puts the active
+  // tenant in the URL, and a person who has accepted an invitation holds two: measuring the address
+  // against one of them would deny them the other (see `namedWorkspaceFor`).
+  const held = await workspacesFor(presented);
+  const workspace = await namedWorkspaceFor(presented, tenant);
+  if (workspace === null) {
+    // The way onward is a place they can actually go: a workspace they hold when they hold one, and
     // the home page when they hold none at all.
+    const first = held[0];
     const evidence =
-      workspace === null
+      first === undefined
         ? { href: "/", label: strings.shell_evidence_home }
-        : { href: shellHref(workspace.tenantId, "projects"), label: strings.shell_denied_evidence };
+        : { href: shellHref(first.tenantId, "projects"), label: strings.shell_denied_evidence };
     return <ShellDenied refusal={refusalOf("PERMISSION_NOT_HELD")} evidence={evidence} />;
   }
 
@@ -36,7 +42,7 @@ export default async function WorkspaceLayout({ children, params }: { children: 
   const density = await densityFor(viewer.userId);
 
   return (
-    <ShellFrame workspace={workspace} email={viewer.email} density={density} signOut={signOutAction}>
+    <ShellFrame workspace={workspace} workspaces={held} email={viewer.email} density={density} signOut={signOutAction}>
       {children}
     </ShellFrame>
   );

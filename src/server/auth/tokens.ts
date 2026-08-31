@@ -30,8 +30,13 @@ export type AuthTokenPurpose = keyof typeof AUTH_TOKEN_TTLS;
  * credential lives (`AUTH_TOKEN_TTLS`) and a tree where two files each import the other is a cycle
  * (ARCH-01). `./mail` re-exports it, so a reader of the file on disk still finds the type beside the
  * shape it types.
+ *
+ * Not every kind names a purpose here: R-SPINE-003's invitation carries a token of its own, held
+ * beside the offer it belongs to rather than in `auth_tokens`, because what it buys is a membership
+ * and not a session. It is still a kind the one mail home carries, so an outbox reader tells an
+ * invitation from a magic link by the same field it tells any two mails apart by.
  */
-export type MailKind = "verify-email" | "magic-link" | "password-reset";
+export type MailKind = "verify-email" | "magic-link" | "password-reset" | "invitation";
 
 /**
  * A purpose and the mail that carries it are the same fact under two names, so the row's `kind`

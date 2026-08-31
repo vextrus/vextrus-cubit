@@ -22,6 +22,7 @@ type DeclaredCode = Extract<
   | "SELF_REMOVAL_NOT_ALLOWED"
   | "WORKSPACE_WOULD_HAVE_NO_OWNER"
   | "MEMBER_HAS_ACTS"
+  | "INVITATION_NOT_CLAIMABLE"
 >;
 
 /**
@@ -110,6 +111,13 @@ export const REFUSAL_ENTRIES: Readonly<{ [C in DeclaredCode]: RefusalEntry & { c
     code: "MEMBER_HAS_ACTS",
     message: "This member holds recorded acts on open campaigns, so their membership was not removed.",
     remedy: "Remove them once those campaigns close — the record keeps its author until then.",
+    severity: "error",
+    surface: "inline",
+  }),
+  INVITATION_NOT_CLAIMABLE: Object.freeze({
+    code: "INVITATION_NOT_CLAIMABLE",
+    message: "This invitation cannot be accepted — it was never issued, has already been accepted, or was withdrawn.",
+    remedy: "Ask an owner of that workspace to send a fresh invitation to the address you are signed in with.",
     severity: "error",
     surface: "inline",
   }),

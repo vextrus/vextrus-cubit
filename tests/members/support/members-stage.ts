@@ -249,6 +249,12 @@ export async function serveApp(distDir: string): Promise<ServedApp> {
   // The deployment's environment, as a plain record: `NODE_ENV` is required by the tree's own
   // `ProcessEnv`, and the build must not inherit the runner's `test`.
   const childEnv = env as unknown as NodeJS.ProcessEnv;
+  // `next build` rewrites the generated typing shim (next-env.d.ts) to point at whichever dist
+  // directory it was given. This stage does NOT snapshot or restore it: test support never writes a
+  // tracked repository file (the arbitration on next-env.d.ts, B-17). The churn is a toolchain fact
+  // of the product's own build, and its cure — committing the form the tool writes, or ignoring the
+  // shim per the product's convention — is landed once at the shim's home by its owner, not worked
+  // around here.
   const built = spawnSync(next, ["build"], { cwd: REPO_ROOT, env: childEnv, encoding: "utf8", timeout: 420_000 });
   expect(built.status, `next build failed:\n${(built.stderr || built.stdout || "").slice(-1500)}`).toBe(0);
 

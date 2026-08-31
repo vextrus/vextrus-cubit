@@ -10,6 +10,16 @@
 // server's to bind, and what this module knows is that an identity must be admitted before a role
 // is judged.
 import type { WorkspaceRole } from "../../../../core/db";
+import {
+  acceptInvitation,
+  createInvitation,
+  resendInvitation,
+  revokeInvitation,
+  type InvitationClaimed,
+  type InvitationMachinery,
+  type InvitationMailed,
+  type InvitationWithdrawn,
+} from "../invitations";
 import { removeMember } from "../removal";
 import { assignWorkspaceRole, type MemberRemoved, type RoleMoved } from "../roles/assign";
 import { isWorkspaceRole } from "../roles/rank";
@@ -23,6 +33,13 @@ import { verifyStatedOrigin, type OriginClaim } from "./origin";
  */
 export interface TenancyHardening {
   admit(identity: string): Promise<void>;
+  /**
+   * The machinery an invitation is minted, addressed and mailed with — the server's own, injected
+   * for the same reason `admit` is (ARCH-01). It is optional because a transport that dispatches no
+   * invitation move needs none: the tRPC lane binds the entry for the two role moves and is not
+   * obliged to hold a mail sender it never spends.
+   */
+  invitations?: InvitationMachinery;
 }
 
 /** One request at the guarded entry: who is asking, from where, and under whose allowance. */
@@ -35,10 +52,29 @@ export interface TenancyRequest extends OriginClaim {
   readonly identity: string;
 }
 
-/** The two moves the entry dispatches, as a caller states them. */
-export type TenancyMutation =
+/** The two role moves the entry dispatches, as a caller states them. */
+export type RoleMutation =
   | { readonly kind: "assignRole"; readonly subjectUserId: string; readonly role: WorkspaceRole }
   | { readonly kind: "removeMember"; readonly subjectUserId: string };
+
+/**
+ * The invitation moves (R-SPINE-003). They are dispatched by this entry rather than reached
+ * directly, so making, re-mailing, withdrawing and spending an offer of membership are judged by the
+ * same three steps in the same order as a role move — a second sequence beside this one would be a
+ * second opinion about a rule that has one (B-17, R-SPINE-006).
+ *
+ * Accepting is the odd one: the account spending the offer holds no membership of the workspace it
+ * is joining, so the move names no workspace at all. The token names it, and the invitation home
+ * reads it from there.
+ */
+export type InvitationMutation =
+  | { readonly kind: "createInvitation"; readonly email: string; readonly role?: WorkspaceRole }
+  | { readonly kind: "resendInvitation"; readonly invitationId: string }
+  | { readonly kind: "revokeInvitation"; readonly invitationId: string }
+  | { readonly kind: "acceptInvitation"; readonly token: string };
+
+/** Every move the entry dispatches, as a caller states them. */
+export type TenancyMutation = RoleMutation | InvitationMutation;
 
 /**
  * A field a caller must have stated, read off the body it sent — a body that is not an object states
@@ -60,7 +96,7 @@ function statedText(body: unknown, name: string): string {
  * A body missing a field, or naming a role the store does not hold, is malformed rather than
  * refused — it is not a request the guard judged, so it answers no registered refusal.
  */
-export function tenancyMutationFrom(kind: TenancyMutation["kind"], body: unknown): TenancyMutation {
+export function tenancyMutationFrom(kind: RoleMutation["kind"], body: unknown): RoleMutation {
   if (kind === "assignRole") {
     const role = statedText(body, "role");
     if (!isWorkspaceRole(role)) throw new Error(`spine.tenancy: "${role}" is not a workspace role — the roles are the closed set the store holds (R-SPINE-003)`);
@@ -69,8 +105,8 @@ export function tenancyMutationFrom(kind: TenancyMutation["kind"], body: unknown
   return { kind, subjectUserId: statedText(body, "subjectUserId") };
 }
 
-/** What either move answers with when it lands. */
-export type TenancyMutationAnswer = RoleMoved | MemberRemoved;
+/** What a move answers with when it lands. */
+export type TenancyMutationAnswer = RoleMoved | MemberRemoved | InvitationMailed | InvitationWithdrawn | InvitationClaimed;
 
 /** The guarded entry itself, once bound to the machinery the server injected. */
 export type GuardedTenancyMutation = (request: TenancyRequest, mutation: TenancyMutation) => Promise<TenancyMutationAnswer>;
@@ -90,11 +126,41 @@ export function guardTenancyMutation(hardening: TenancyHardening): GuardedTenanc
     // Second: the door's allowance, counted by the one counting home the server injected.
     await hardening.admit(request.identity);
 
-    // Third: the two-sided role law, which is the module's own and reads every fact it judges from
-    // the store rather than from the request.
+    // Third: the module's own law — two-sided for a role, the invitation law for an offer. Both read
+    // every fact they judge from the store rather than from the request.
     if (mutation.kind === "assignRole") {
       return assignWorkspaceRole(request.actor, { subjectUserId: mutation.subjectUserId, role: mutation.role });
     }
-    return removeMember(request.actor, { subjectUserId: mutation.subjectUserId });
+    if (mutation.kind === "removeMember") {
+      return removeMember(request.actor, { subjectUserId: mutation.subjectUserId });
+    }
+
+    // The deployment's own stated address is added to the injected machinery here, from the request
+    // whose origin has just been verified — so a mailed link is built on what this deployment says
+    // it answers at and never on anything a caller wrote (R-SPINE-001).
+    const ports = { ...invitationPortsOf(hardening), origin: request.configuredOrigin };
+    if (mutation.kind === "createInvitation") {
+      return createInvitation(request.actor, { email: mutation.email, ...(mutation.role === undefined ? {} : { role: mutation.role }) }, ports);
+    }
+    if (mutation.kind === "resendInvitation") {
+      return resendInvitation(request.actor, { invitationId: mutation.invitationId }, ports);
+    }
+    if (mutation.kind === "revokeInvitation") {
+      return revokeInvitation(request.actor, { invitationId: mutation.invitationId });
+    }
+    // Accepting names no workspace: the account spending the offer is a stranger to the one it
+    // joins, so only the session's own account and the token it presented are meaningful here.
+    return acceptInvitation({ userId: request.actor.userId, token: mutation.token }, ports);
   };
+}
+
+/**
+ * The invitation machinery the server bound, or the fault of having dispatched an invitation move
+ * through an entry that was never given any. It is a fault rather than a refusal: nobody's request
+ * was judged and found wanting — a transport was bound wrong (ARCH-03, B-21).
+ */
+function invitationPortsOf(hardening: TenancyHardening): InvitationMachinery {
+  const machinery = hardening.invitations;
+  if (machinery === undefined) throw new Error("spine.tenancy: this guarded entry was bound without the invitation machinery, so it dispatches no invitation move");
+  return machinery;
 }

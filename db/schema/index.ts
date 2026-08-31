@@ -4,5 +4,6 @@ export * from "./tenants";
 export * from "./projects";
 export * from "./acts";
 export * from "./identity";
+export * from "./invitations";
 export * from "./prefs";
 export * from "./catalogue";

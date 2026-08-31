@@ -1,0 +1,98 @@
+/* The accept screen (docs/design/s-accept-invitation.md §1, §5): one narrow column — what is being
+   offered, and the single control that takes it. Colour, spacing, type and motion are tokens only —
+   no literal value and no [data-theme] selector, so both themes are the same rules read against
+   different token values. */
+
+/* The column IS the frame here (§1): the route sits outside `/t/{tenant}`, so there is no shell
+   above it to be laid inside, and the surface carries its own `<main>` and its own measure — the
+   idiom `cx-shell-denied` already keeps for the other signed-in screen that stands without a rail. */
+.cx-accept {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  width: min(560px, calc(100vw - var(--space-8)));
+  margin-inline: auto;
+  padding-block: var(--space-12);
+}
+
+/* The loading leg's bones, in the screen's own column (§2). The shell's skeleton rule is the
+   shell's: this route never loads that stylesheet, so borrowing the class would leave the bones
+   stacked with no gap at all. */
+.cx-accept-skeletons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cx-accept-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-accept-heading {
+  margin: 0;
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-accept-caption {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-accept-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.cx-accept-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-block: var(--space-3);
+  border-top: var(--hairline);
+  border-bottom: var(--hairline);
+  width: 100%;
+}
+
+.cx-accept-term {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-accept-value {
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-accept-role {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}
+
+.cx-accept-status {
+  margin: 0;
+  min-height: var(--text-13);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-accept-evidence {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--beam-600);
+  text-decoration: underline;
+}
+
+.cx-accept-evidence:hover {
+  color: var(--beam-500);
+}
