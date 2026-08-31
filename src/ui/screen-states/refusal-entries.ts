@@ -1,0 +1,84 @@
+/**
+ * The registered refusals the declared states render, authored as data (the gallery's I-18
+ * precedent): `src/ui` holds no value import of `src/core` (ARCH-01), so `RefusalEntry` arrives as
+ * a type and the entry is written out here. Every code is one the taxonomy registers, with the
+ * register's own message, remedy, severity and surface verbatim — this module spells no sentence and
+ * no code the register does not own (Q-07, R-SPINE-062, B-17).
+ */
+import type { RefusalCode, RefusalEntry } from "../../core/errors";
+
+/** The codes the shipped screens' Design Decisions name as reachable on them. */
+type DeclaredCode = Extract<
+  RefusalCode,
+  | "SIGNED_OUT"
+  | "PERMISSION_NOT_HELD"
+  | "PROJECT_WOULD_HAVE_NO_PRINCIPAL"
+  | "CREDENTIALS_NOT_VALID"
+  | "ACCOUNT_ALREADY_EXISTS"
+  | "TOKEN_NOT_VALID"
+  | "RATE_LIMITED"
+  | "LINK_NOT_SENDABLE"
+>;
+
+/**
+ * Each entry keeps the type of its own key, so a screen reads its refusal out of this record rather
+ * than re-spelling a code beside it (Q-07's wiring rule, as `REFUSALS` itself is shaped).
+ */
+export const REFUSAL_ENTRIES: Readonly<{ [C in DeclaredCode]: RefusalEntry & { code: C } }> = Object.freeze({
+  SIGNED_OUT: Object.freeze({
+    code: "SIGNED_OUT",
+    message: "Your session has ended, so this request was not carried out.",
+    remedy: "Sign in again to continue.",
+    severity: "warning",
+    surface: "banner",
+  }),
+  PERMISSION_NOT_HELD: Object.freeze({
+    code: "PERMISSION_NOT_HELD",
+    message: "Your roles on this project do not carry the permission this action needs.",
+    remedy: "Ask a principal of the project to give you a role that carries it.",
+    severity: "error",
+    surface: "banner",
+  }),
+  PROJECT_WOULD_HAVE_NO_PRINCIPAL: Object.freeze({
+    code: "PROJECT_WOULD_HAVE_NO_PRINCIPAL",
+    message: "This withdrawal would leave the project with no principal, so it was not carried out.",
+    remedy: "Make another member a principal first, then withdraw this one.",
+    severity: "error",
+    surface: "inline",
+  }),
+  CREDENTIALS_NOT_VALID: Object.freeze({
+    code: "CREDENTIALS_NOT_VALID",
+    message: "The email and password do not match an account.",
+    remedy: "Check both and try again, or reset your password.",
+    severity: "error",
+    surface: "inline",
+  }),
+  ACCOUNT_ALREADY_EXISTS: Object.freeze({
+    code: "ACCOUNT_ALREADY_EXISTS",
+    message: "An account with this email already exists.",
+    remedy: "Sign in instead, or reset the password if you have lost it.",
+    severity: "error",
+    surface: "inline",
+  }),
+  TOKEN_NOT_VALID: Object.freeze({
+    code: "TOKEN_NOT_VALID",
+    message: "This link is no longer valid — it may have expired or already been used.",
+    remedy: "Request a fresh link and use the newest email.",
+    severity: "error",
+    surface: "inline",
+  }),
+  RATE_LIMITED: Object.freeze({
+    code: "RATE_LIMITED",
+    message: "Too many attempts in a short time, so this one was not tried.",
+    remedy: "Wait a minute, then try again.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  LINK_NOT_SENDABLE: Object.freeze({
+    code: "LINK_NOT_SENDABLE",
+    message: "No link was sent, because this installation has not been given the web address its links point back to.",
+    remedy: "Ask an operator to set the address this installation answers at, then ask for the link again.",
+    severity: "error",
+    surface: "inline",
+  }),
+} satisfies Record<DeclaredCode, RefusalEntry>);
