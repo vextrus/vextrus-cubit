@@ -25,7 +25,8 @@ import { authRouter } from "../auth/router";
 import { signedOut } from "../auth/refusals";
 import { holdsWorkspace } from "../shell/workspace";
 import { publicProcedure, router } from "../trpc";
-import { bagOf, tenancyRouter, text } from "./tenancy";
+import { tenancyRouter } from "./tenancy";
+import { bagOf, text } from "./wire";
 
 /** The one act this lane renders, and the permission L-ACT-03 makes it move. */
 const ASSIGN_PARTICIPANT_ROLE = "ASSIGN_PARTICIPANT_ROLE" as const;
@@ -41,7 +42,7 @@ const signedInProcedure = publicProcedure.use(({ ctx, next }) => {
   return next({ ctx: { ...ctx, session: ctx.session } });
 });
 
-/** This lane's name, as `./tenancy.ts`'s reader puts it in front of a caller who sent the wrong shape. */
+/** This lane's name, as `./wire.ts`'s reader puts it in front of a caller who sent the wrong shape. */
 const LANE = "spine.participants";
 
 /** The act's input as it arrives on the wire, read into the shape the seam declares. */
