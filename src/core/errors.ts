@@ -39,7 +39,11 @@ export type RefusalCode =
   | "LINK_NOT_SENDABLE"
   | "DIMENSION_MISMATCH"
   | "PRODUCT_FACTOR_MISSING"
-  | "UNIT_UNKNOWN";
+  | "UNIT_UNKNOWN"
+  | "WORKSPACE_PERMISSION_NOT_HELD"
+  | "SELF_REMOVAL_NOT_ALLOWED"
+  | "WORKSPACE_WOULD_HAVE_NO_OWNER"
+  | "ORIGIN_NOT_VERIFIED";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -171,6 +175,34 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     remedy: "Use a unit the canon lists — nothing is converted through a unit nobody defined.",
     severity: "error",
     surface: "inline",
+  }),
+  WORKSPACE_PERMISSION_NOT_HELD: Object.freeze({
+    code: "WORKSPACE_PERMISSION_NOT_HELD",
+    message: "Your role in this workspace does not carry the permission this action needs.",
+    remedy: "Ask an owner of the workspace to carry it out, or to give you a role that carries it.",
+    severity: "error",
+    surface: "banner",
+  }),
+  SELF_REMOVAL_NOT_ALLOWED: Object.freeze({
+    code: "SELF_REMOVAL_NOT_ALLOWED",
+    message: "You cannot remove yourself from a workspace.",
+    remedy: "Ask another owner to remove you, so somebody is left who can undo it.",
+    severity: "error",
+    surface: "inline",
+  }),
+  WORKSPACE_WOULD_HAVE_NO_OWNER: Object.freeze({
+    code: "WORKSPACE_WOULD_HAVE_NO_OWNER",
+    message: "This would leave the workspace with no owner, so it was not carried out.",
+    remedy: "Make another member an owner first, then try again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  ORIGIN_NOT_VERIFIED: Object.freeze({
+    code: "ORIGIN_NOT_VERIFIED",
+    message: "This request came from a page this deployment does not serve, so it was not carried out.",
+    remedy: "Return to the workspace in your browser and try the action again from there.",
+    severity: "error",
+    surface: "banner",
   }),
 } satisfies Record<RefusalCode, RefusalEntry>);
 

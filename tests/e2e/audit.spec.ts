@@ -11,6 +11,8 @@
 // takes rather than failures — and a fixed identity is what lets the checkpoint compare pixels
 // against a committed baseline at all.
 import { expect, test } from "@playwright/test";
+import { isTrue, scalar } from "../../db/__tests__/support/live-sql";
+import { e2eDatabaseUrl } from "./support/scratch-db";
 import { SAuthPage, S_AUTH } from "./pages/s-auth.page";
 import { SAuditPage } from "./pages/s-audit.page";
 import { SHomePage } from "./pages/s-home.page";
@@ -22,6 +24,30 @@ const EMAIL = "j003-audit@cubit.test";
 const PASSWORD = "audit-journey-password";
 const WORKSPACE = "Ashuganj Works";
 const PROJECT = "Ashuganj Terminal";
+
+/**
+ * The relations the two panels probe for. Their one home is `AUDIT_PANEL_TABLES` in
+ * src/modules/spine/audit, which a journey may not import — that module opens the database seam,
+ * and a Playwright worker loading it would connect a driver from the test process. These two
+ * mirror that entry name for name (ARCH-02/B-17: mirrored under the seam ban, never a second
+ * answer — they are re-pointed with it under B-20).
+ */
+const MODEL_LEDGER_TABLE = "model_calls";
+const JOB_HISTORY_TABLE = "jobs";
+
+/**
+ * Does this installation hold that relation? Each panel's posture is a function of its own input
+ * existing and nothing else, so the journey asks the same question of the same lane database
+ * rather than freezing whichever answer today's cluster happens to give (B-19 — arming by input
+ * existence). One home, two callers (B-17).
+ *
+ * Asked through the shared db test helper (ARCH-02) as the app role the product itself reads with,
+ * so `to_regclass` is resolved against the very `search_path` the panel's probe was answered on;
+ * SEAM-TENANT's driver ban is why this is psql and not a pool.
+ */
+function tableExists(table: string): boolean {
+  return isTrue(scalar(e2eDatabaseUrl(), `select to_regclass('${table}') is not null;`));
+}
 
 /** The width the frame paints all four of its regions at (R-UI-030, lg and up). */
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -76,8 +102,16 @@ test.describe("J-003 — the project's audit surfaces", () => {
     await expect(audit.empty, "and the region says why it is empty rather than leaving a bare gap").toBeVisible();
 
     /* --- the panels' posture is the installation's answer, not a roster's (I-35) --- */
-    await expect(audit.modelLedger, "the model ledger reports itself unarmed while its table does not exist").toHaveAttribute("data-armed", "false");
-    await expect(audit.jobs, "and so does job history").toHaveAttribute("data-armed", "false");
+    const ledgerArmed = tableExists(MODEL_LEDGER_TABLE);
+    await expect(
+      audit.modelLedger,
+      `the model ledger's posture is the installation's own answer: ${MODEL_LEDGER_TABLE} ${ledgerArmed ? "exists in this lane, so the panel arms" : "does not exist in this lane, so the panel stays disarmed"}`,
+    ).toHaveAttribute("data-armed", String(ledgerArmed));
+    const jobsArmed = tableExists(JOB_HISTORY_TABLE);
+    await expect(
+      audit.jobs,
+      `job history's posture is the installation's own answer: ${JOB_HISTORY_TABLE} ${jobsArmed ? "exists in this lane, so the panel arms" : "does not exist in this lane, so the panel stays disarmed"}`,
+    ).toHaveAttribute("data-armed", String(jobsArmed));
 
     /* --- s-audit/explorer: axe over the page, then the committed Linux baseline --- */
     await checkpoint(page, testInfo, "s-audit-explorer");

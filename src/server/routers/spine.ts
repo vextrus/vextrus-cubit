@@ -20,10 +20,12 @@ import {
 } from "../../core/acts";
 import { eq, isUuid, projects, runAsSystem } from "../../core/db";
 import { roleHistory } from "../../modules/spine/participants";
+import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { authRouter } from "../auth/router";
 import { signedOut } from "../auth/refusals";
 import { holdsWorkspace } from "../shell/workspace";
 import { publicProcedure, router } from "../trpc";
+import { tenancyRouter } from "./tenancy";
 
 /** The one act this lane renders, and the permission L-ACT-03 makes it move. */
 const ASSIGN_PARTICIPANT_ROLE = "ASSIGN_PARTICIPANT_ROLE" as const;
@@ -114,6 +116,11 @@ export const participantsRouter = router({
   assignRole: signedInProcedure
     .input((raw: unknown) => ({ input: assignInput(bagOf(raw)["input"]), consequenceDigest: text(raw, "consequenceDigest") }))
     .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
+      // R-SPINE-006 unqualified: "cookie-authenticated mutations verify origin". This is one, so it
+      // is verified — by the rule's one home, never a comparison of this transport's own (B-17).
+      // It is asked before the project is read, so a page this deployment does not serve learns
+      // nothing about who stands where.
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
       const actor = await participantsActorFor(ctx.session.userId, input.input.projectId, ASSIGN_PARTICIPANT_ROLE);
       const written = await commit(actor, input.input, input.consequenceDigest);
       return { actId: written.actId };
@@ -127,4 +134,6 @@ export const spineRouter = router({
   auth: authRouter,
 
   participants: participantsRouter,
+
+  tenancy: tenancyRouter,
 });
