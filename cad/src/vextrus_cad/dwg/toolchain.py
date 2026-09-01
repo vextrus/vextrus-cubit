@@ -70,8 +70,11 @@ def run_pass(program: str, argv: Sequence[str], *, source: Path, timeout_seconds
         raise DwgError(
             f"{source.name}: {program} is not on this machine, so the drawing cannot be converted"
         ) from error
-    except PermissionError as error:
-        raise DwgError(f"{source.name}: {program} cannot be run: {error.strerror}") from error
+    except OSError as error:
+        # Anything else the operating system refuses to spawn — a program that is not executable,
+        # a name that resolves to a directory — is the same refusal: this drawing cannot be
+        # converted, said in words rather than as an interpreter traceback.
+        raise DwgError(f"{source.name}: {program} cannot be run: {error.strerror or error}") from error
     except subprocess.TimeoutExpired as error:
         raise DwgError(
             f"{source.name}: {program} outran its {timeout_seconds:g}s budget and was stopped"
