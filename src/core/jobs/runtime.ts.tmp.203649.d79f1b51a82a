@@ -69,6 +69,17 @@ const SWEEP_MS = 30_000;
 /** What the sweep's own failures are recorded against — it answers to no request and no job. */
 const SWEEP_ROUTE = "job/sweep";
 
+/**
+ * The longest key a job may be enqueued under, in bytes.
+ *
+ * A key is the primary key of the claim row that makes idempotence work, and a btree entry has a
+ * hard ceiling of about 2704 bytes: a longer one is a raw 54000 out of the driver, at the moment of
+ * the insert, with the job neither claimed nor sent. The limit is stated here, well under that
+ * ceiling, so a caller deriving a key from something a user typed is told what is wrong with it
+ * instead of meeting the index's arithmetic.
+ */
+const MAX_KEY_BYTES = 512;
+
 /** What one job carries through the queue: its key, so every event can name it, and its payload. */
 type Envelope = { key: string; payload: unknown };
 

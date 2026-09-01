@@ -785,6 +785,10 @@ const LOCK_POOL = { max: 8, idleTimeout: 20, connectTimeout: 10 } as const;
  * being written down in a dialect of its own (ARCH-03, ARCH-02). It belongs to no request, so the
  * seam names itself as the thing that failed.
  */
+/** What Postgres answers when the log has not been provisioned yet: no such table, no such schema. */
+const UNDEFINED_TABLE = "42P01";
+const INVALID_SCHEMA_NAME = "3F000";
+
 const QUEUE_REQUEST = "jobs/queue";
 const QUEUE_ACTOR = "pg-boss";
 const QUEUE_ROUTE = "jobs/queue";
@@ -809,8 +813,12 @@ export type JobEventRow = JobEventDraft & { seq: number; at: string };
 /** A job handed to a consumer: which job it is, what it carries, and which attempt this is. */
 export type QueuedJob = { jobId: string; data: unknown; attempt: number };
 
-/** The queue policy one kind is run under, as the seam above declares it. */
-export type QueueShape = { concurrency: number; retryLimit: number; retryDelaySeconds: number; retryBackoff: boolean };
+/**
+ * The queue policy one kind is run under, as the seam above declares it. `concurrency` is how many
+ * of the kind's jobs THIS process takes at a time; `expireSeconds` is how long the queue lets one
+ * attempt run before it treats the runner as gone and re-queues the attempt.
+ */
+export type QueueShape = { concurrency: number; retryLimit: number; retryDelaySeconds: number; retryBackoff: boolean; expireSeconds: number };
 
 /** A claim on a (kind, key) pair whose job the log records no ending for. */
 export type LiveClaim = { kind: string; key: string; jobId: string };
@@ -831,6 +839,8 @@ export interface JobsStore {
    * starts no queue maintenance in the reader's process.
    */
   open(options: { manage: boolean }): Promise<void>;
+  /** Reach the server and come back, so a health answer states what is true rather than what is declared. */
+  ping(): Promise<void>;
   declareQueue(name: string, shape: QueueShape): Promise<void>;
   consume(name: string, shape: QueueShape, run: (job: QueuedJob) => Promise<void>): Promise<void>;
   publish(name: string, jobId: string, data: Record<string, unknown>, shape: QueueShape): Promise<string>;
@@ -939,9 +949,15 @@ function reachedOnce<T>(reach: () => Promise<T>): () => Promise<T> {
  * server — so a module that merely imports the seam neither needs nor makes a connection.
  *
  * Neither the queue library nor the log's schema is touched by a tier that only reads: the pg-boss
- * instance is built the first time something actually uses the queue, and the storage is created
- * only by the opener that says it manages it. Reading the event log therefore needs no privilege to
- * create anything and starts no queue maintenance in the reader's process.
+ * instance is built the first time something actually uses the queue, and nothing is created until
+ * something is written. Reading the event log therefore needs no privilege to create anything and
+ * starts no queue maintenance in the reader's process — a read of storage that does not exist yet is
+ * a read that finds nothing, not an outage.
+ *
+ * `manage` says who SUPERVISES: only a managing opener runs the queue's maintenance and consumes.
+ * Provisioning is not the same question — whoever writes first provisions, so a tier that only
+ * enqueues can reach a freshly created database without waiting for a worker to have started there.
+ * Both paths are idempotent (`if not exists` DDL, and the queue library's own migration lock).
  */
 export function jobsStore(url: string): JobsStore {
   const sql = postgres(url, {
@@ -957,7 +973,7 @@ export function jobsStore(url: string): JobsStore {
     onnotice: () => undefined,
   });
 
-  /** Whether this opener owns the storage: only it creates the log and migrates the queue. */
+  /** Whether this opener supervises the storage: only it runs queue maintenance and consumes. */
   let managing = false;
   /** Whether a queue was ever started, so closing one that was never opened opens nothing. */
   let queueStarted = false;
@@ -971,7 +987,11 @@ export function jobsStore(url: string): JobsStore {
       connectionString: url,
       schema: BOSS_SCHEMA,
       pollingIntervalSeconds: QUEUE_POLL_SECONDS,
-      migrate: managing,
+      // Migration is how the queue provisions itself, and it is guarded by a lock of the library's
+      // own, so every opener that actually uses the queue may run it. Asking a non-managing opener
+      // to skip it does not make it a lighter client — it makes its first send throw the library's
+      // "pg-boss is not installed" at a database no worker has started on yet.
+      migrate: true,
       supervise: managing,
       schedule: false,
     });
@@ -990,12 +1010,31 @@ export function jobsStore(url: string): JobsStore {
   /** The advisory-lock key a (kind, key) pair is serialised on. */
   const lockName = (kind: string, key: string): string => `${kind}:${key}`;
 
+  /**
+   * A read of a log that has not been provisioned yet. A tier that reads before anything has ever
+   * been written asks a lawful question about a job that cannot exist, and the honest answer is
+   * "nothing", not an internal error carrying a fault id (ARCH-03, B-21). Any other failure travels.
+   */
+  const readingStored = async <T>(read: () => Promise<T>, whenAbsent: T): Promise<T> => {
+    try {
+      return await read();
+    } catch (failure) {
+      const code = (failure as { code?: unknown }).code;
+      if (code === UNDEFINED_TABLE || code === INVALID_SCHEMA_NAME) return whenAbsent;
+      throw failure;
+    }
+  };
+
   return {
     open: async ({ manage }) => {
       managing = manage;
       if (!manage) return;
       await createLog();
       await queue();
+    },
+
+    ping: async () => {
+      await sql`select 1`;
     },
 
     declareQueue: async (name, shape) => {
@@ -1005,6 +1044,7 @@ export function jobsStore(url: string): JobsStore {
         retryLimit: shape.retryLimit,
         retryDelay: shape.retryDelaySeconds,
         retryBackoff: shape.retryBackoff,
+        expireInSeconds: shape.expireSeconds,
       });
     },
 
@@ -1013,6 +1053,10 @@ export function jobsStore(url: string): JobsStore {
       // One worker per slot, each taking a single job at a time, so a kind's concurrency limit is
       // exactly how many of its jobs one process can have in flight (R-SPINE-030). A batch shared
       // by several jobs would make one job's failure the whole batch's.
+      //
+      // The limit is per process and nothing here coordinates across them: a fleet of N runtimes
+      // serves N × `concurrency` of this kind at once. The seam states the number a single runtime
+      // holds, which is the number the operator multiplies by however many workers are run.
       for (let slot = 0; slot < shape.concurrency; slot += 1) {
         await boss.work<Record<string, unknown>>(name, { batchSize: 1, includeMetadata: true, pollingIntervalSeconds: QUEUE_POLL_SECONDS }, async (batch) => {
           for (const job of batch) await run({ jobId: job.id, data: job.data, attempt: job.retryCount + 1 });
@@ -1030,6 +1074,10 @@ export function jobsStore(url: string): JobsStore {
         retryLimit: shape.retryLimit,
         retryDelay: shape.retryDelaySeconds,
         retryBackoff: shape.retryBackoff,
+        // Stated rather than inherited: the library's default expiration would re-queue an attempt
+        // that outlived it while the first is still running, which is two attempts of one key at
+        // once. The kind declares a window its longest attempt fits inside (R-SPINE-030).
+        expireInSeconds: shape.expireSeconds,
       });
       if (sent === null) throw new Error(`the queue "${name}" accepted no job for this send (SEAM-JOBS)`);
       return sent;
@@ -1049,19 +1097,36 @@ export function jobsStore(url: string): JobsStore {
       // A session lock rather than a transaction one: the work it guards reads and writes on other
       // connections, so it must not be inside a transaction of its own that hides them.
       const session = await locks.reserve();
+      let held = false;
       try {
         await session`select pg_advisory_lock(hashtextextended(${lockName(kind, key)}, 0))`;
+        held = true;
         try {
           return await work();
         } finally {
           await session`select pg_advisory_unlock(hashtextextended(${lockName(kind, key)}, 0))`;
+          held = false;
         }
       } finally {
-        session.release();
+        // A connection whose unlock did not land still holds a session lock, and giving it back to
+        // the pool hands the next enqueue of this key a connection that can never take the lock its
+        // own predecessor is sitting on. It is kept out of the pool instead and the outage is
+        // recorded: one connection short is recoverable, a key wedged for the life of the process
+        // is not (ARCH-03).
+        if (held) {
+          reportFault({
+            requestId: QUEUE_REQUEST,
+            actor: QUEUE_ACTOR,
+            route: QUEUE_ROUTE,
+            cause: new Error(`the key lock for ${lockName(kind, key)} could not be released, so its connection is not returned to the pool (SEAM-JOBS)`),
+          });
+        } else {
+          session.release();
+        }
       }
     },
 
-    liveJobFor: async (kind, key, endedStatuses) => {
+    liveJobFor: async (kind, key, endedStatuses) => await readingStored(async () => {
       const rows = await sql<{ job_id: string }[]>`
         select claim.job_id
           from ${sql(JOBS_SCHEMA)}.job_claims as claim
@@ -1074,9 +1139,9 @@ export function jobsStore(url: string): JobsStore {
                 and ended.status in ${sql(endedStatuses as string[])}
            )`;
       return rows[0]?.job_id ?? null;
-    },
+    }, null),
 
-    liveClaims: async (endedStatuses) => {
+    liveClaims: async (endedStatuses) => await readingStored(async () => {
       const rows = await sql<{ kind: string; key: string; job_id: string }[]>`
         select claim.kind, claim.key, claim.job_id
           from ${sql(JOBS_SCHEMA)}.job_claims as claim
@@ -1087,9 +1152,12 @@ export function jobsStore(url: string): JobsStore {
                     and ended.status in ${sql(endedStatuses as string[])}
                )`;
       return rows.map((row) => ({ kind: row.kind, key: row.key, jobId: row.job_id }));
-    },
+    }, []),
 
     claimKey: async (kind, key, jobId) => {
+      // The first write provisions: a tier that only enqueues reaches a database no worker has
+      // started on yet, rather than failing on storage nobody has made for it.
+      await createLog();
       await sql`
         insert into ${sql(JOBS_SCHEMA)}.job_claims (kind, key, job_id)
         values (${kind}, ${key}, ${jobId})
@@ -1104,6 +1172,7 @@ export function jobsStore(url: string): JobsStore {
     },
 
     append: async (draft) => {
+      await createLog();
       const rows = await sql<RawJobEvent[]>`
         insert into ${sql(JOBS_SCHEMA)}.job_events (job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, elapsed_ms)
         values (${draft.jobId}, ${draft.kind}, ${draft.key}, ${draft.step}, ${draft.status}, ${draft.attempt},
@@ -1118,23 +1187,23 @@ export function jobsStore(url: string): JobsStore {
       return eventRow(row);
     },
 
-    read: async (jobId, afterSeq) => {
+    read: async (jobId, afterSeq) => await readingStored(async () => {
       const rows = await sql<RawJobEvent[]>`
         select seq, job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, at, elapsed_ms
           from ${sql(JOBS_SCHEMA)}.job_events
          where job_id = ${jobId} and seq > ${afterSeq}
          order by seq asc`;
       return rows.map(eventRow);
-    },
+    }, []),
 
-    deadLetterRows: async (endedStatuses) => {
+    deadLetterRows: async (endedStatuses) => await readingStored(async () => {
       const rows = await sql<RawJobEvent[]>`
         select seq, job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, at, elapsed_ms
           from ${sql(JOBS_SCHEMA)}.job_events
          where status in ${sql(endedStatuses as string[])}
          order by seq asc`;
       return rows.map(eventRow);
-    },
+    }, []),
 
     listen: async (onJob) => {
       await sql.listen(EVENTS_CHANNEL, (jobId) => onJob(jobId));

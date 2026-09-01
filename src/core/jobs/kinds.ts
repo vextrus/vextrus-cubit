@@ -8,12 +8,25 @@
 // each keeping a copy of it (ARCH-02).
 import type { RefusalCode } from "../errors";
 
-/** One kind's queue policy: how many at once, how many attempts, and how long between them. */
+/**
+ * One kind's queue policy: how many at once, how many attempts, how long between them, and how long
+ * one attempt may take before the queue decides the process running it is gone.
+ *
+ * `concurrency` is per process, and deliberately so: it is how many of this kind's jobs one runtime
+ * takes at a time, so N workers serve N × concurrency of them. The limit a kind needs across a fleet
+ * is the product, and it is read here as this number times the number of workers run.
+ *
+ * `expireSeconds` is not a timeout the handler is told about: when an attempt outlives it the queue
+ * re-queues that attempt while the original is still running, which is two attempts of one key at
+ * once — exactly what SEAM-JOBS forbids. A kind therefore states a number its longest attempt fits
+ * inside rather than inheriting the library's, and the log refuses a second ending regardless.
+ */
 export type JobKindPolicy = {
   concurrency: number;
   retryLimit: number;
   retryDelaySeconds: number;
   retryBackoff: boolean;
+  expireSeconds: number;
 };
 
 /**
@@ -24,7 +37,7 @@ export type JobKindPolicy = {
  * operator or by a test without a real kind having to be invented first.
  */
 export const JOB_KINDS = Object.freeze({
-  probe: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 1, retryBackoff: true }),
+  probe: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 1, retryBackoff: true, expireSeconds: 900 }),
 }) satisfies Readonly<Record<string, JobKindPolicy>>;
 
 /** The kind vocabulary: the keys of the policy table and nothing else. */
