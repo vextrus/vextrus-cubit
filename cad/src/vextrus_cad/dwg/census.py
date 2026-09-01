@@ -104,10 +104,17 @@ def _spaces(records: list[dict[str, Any]], block_names: dict[int, str]) -> dict[
     return spaces
 
 
-def _drawn_in(spaces: dict[int, str], block_names: dict[int, str], prefix: str) -> int | None:
-    """The block header an ownerless entity of this kind belongs to, if the drawing has one."""
-    found = sorted(handle for handle in spaces if block_names.get(handle, "").lower().startswith(prefix))
-    return found[0] if found else None
+def _drawn_in(spaces: dict[int, str], block_names: dict[int, str], name: str) -> int | None:
+    """The block header an ownerless entity of this kind belongs to, if the drawing has one.
+
+    A drawing with several paper layouts spells them `*Paper_Space`, `*Paper_Space0`, …; an entity
+    that names no owner means the bare one, so that is preferred over its numbered neighbours.
+    """
+    named = sorted(handle for handle in spaces if block_names.get(handle, "").lower() == name)
+    if named:
+        return named[0]
+    numbered = sorted(handle for handle in spaces if block_names.get(handle, "").lower().startswith(name))
+    return numbered[0] if numbered else None
 
 
 def _owner_of(record: dict[str, Any], ownerless: dict[int, int | None]) -> int | None:
