@@ -20,3 +20,10 @@ blob-report/
 # the product ever writes into it is runtime data and never source.
 storage/*
 !storage/.gitkeep
+
+# The cad extraction seam is uv-managed: its virtual environment and caches are build output
+# (L-CAD-04 — stateless, temp per invocation), never source.
+cad/.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/

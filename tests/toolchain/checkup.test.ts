@@ -29,11 +29,63 @@ function skipLines(stdout: string): { id: string; probe: string; raw: string }[]
   return out;
 }
 
+/**
+ * The failures the report declares, each attributed to the check that was announced as running when
+ * it printed — the report states a check with `RUN <id>` and then one detail line per check.
+ */
+function failLines(stdout: string): { id: string; raw: string }[] {
+  const out: { id: string; raw: string }[] = [];
+  let announced = "";
+  for (const raw of stdout.split(/\r?\n/)) {
+    const line = raw.trim();
+    const started = /^RUN\s+(\S+)$/.exec(line);
+    if (started) {
+      announced = started[1]!;
+      continue;
+    }
+    if (/^SKIP\s/.test(line)) {
+      announced = "";
+      continue;
+    }
+    if (/—\s*FAIL$/.test(line)) out.push({ id: announced, raw: line });
+  }
+  return out;
+}
+
+/** checkup's own roster, from the module checkup itself walks — never a list restated here. */
+async function machineChecks(): Promise<{ id: string; status: string; probe: string }[]> {
+  const lanesModule = join(REPO_ROOT, "scripts/lib/lanes.mjs");
+  expect(existsSync(lanesModule), "scripts/lib/lanes.mjs does not exist — the roster has no exported home").toBe(true);
+  const loaded: unknown = await import(pathToFileURL(lanesModule).href);
+  const derive = (loaded as Record<string, unknown>)["deriveMachineChecks"] as
+    | ((root: string) => { id: string; status: string; probe: string }[])
+    | undefined;
+  expect(typeof derive, "scripts/lib/lanes.mjs does not export deriveMachineChecks(rootDir)").toBe("function");
+  return derive!(REPO_ROOT);
+}
+
 describe("AC7: checkup reports the machine honestly", () => {
-  test("AC7: pnpm checkup exits 0 on this tree and prints something", () => {
+  test("AC7: checkup runs to completion and every non-zero exit is explained", async () => {
+    // checkup's exit code is a function of the machine's provisioning, not of the tree: its own
+    // contract says a check whose input exists but whose tool or service is absent *fails the
+    // report*. So the lawful property is that the report is complete and self-explaining — exit 0
+    // exactly when no armed check printed FAIL — never that this machine happened to be green.
     const run = checkup();
-    expect(run.status, `pnpm checkup exited ${String(run.status)}\n${run.stdout}\n${run.stderr}`).toBe(0);
+    expect(run.status, `pnpm checkup never ran to completion\n${run.stdout}\n${run.stderr}`).not.toBeNull();
+    expect([0, 1], `pnpm checkup exited ${String(run.status)}\n${run.stdout}\n${run.stderr}`).toContain(run.status);
     expect(run.stdout.trim().length, "checkup printed nothing — a silent report is not a report").toBeGreaterThan(0);
+
+    const fails = failLines(run.stdout);
+    expect(
+      run.status === 0,
+      `checkup exited ${String(run.status)} while declaring ${fails.length} failure(s):\n${run.stdout}`,
+    ).toBe(fails.length === 0);
+
+    const armed = new Set((await machineChecks()).filter((check) => check.status === "armed").map((check) => check.id));
+    const forged = fails
+      .filter((fail) => !armed.has(fail.id))
+      .map((fail) => `${fail.raw} — announced by ${fail.id === "" ? "no RUN line" : fail.id}`);
+    expect(forged, "a FAIL for a stubbed or unrostered check is a forged failure — the mirror of B-23's forged skip").toEqual([]);
   });
 
   test("AC7: checkup verifies the Node and pnpm pins against .nvmrc and packageManager", () => {
@@ -48,8 +100,9 @@ describe("AC7: checkup reports the machine honestly", () => {
   });
 
   test("AC7: every skip checkup prints names an input root that really is missing", () => {
+    // No exit-code guard: a forged skip is a forged skip at either exit code, and checkup exits 1
+    // whenever an armed check's tool or service is absent on this machine.
     const run = checkup();
-    expect(run.status, `pnpm checkup exited ${String(run.status)}\n${run.stdout}\n${run.stderr}`).toBe(0);
     const forged = skipLines(run.stdout)
       .filter((skip) => existsSync(join(REPO_ROOT, ...skip.probe.replace(/\\/g, "/").split("/"))))
       .map((skip) => `${skip.raw} — but ${skip.probe} exists`);
@@ -57,19 +110,27 @@ describe("AC7: checkup reports the machine honestly", () => {
   });
 
   test("AC7: the checks whose inputs this tree does not have are recorded as skips, not passed over", async () => {
-    // checkup probes the same input roots as deriveLanes, so the tree — not a roster in this file —
-    // decides whether a skip is owed at all.
+    // The roster checkup itself walks decides which skips are owed — the machine checks, not the
+    // verify chain's lanes — and the correspondence runs both ways: a stub check that prints no SKIP
+    // is a silent pass-over, and a SKIP for a check whose input root is present is a stale skip that
+    // should have vanished when the tree grew that input. Both sides empty is the lawful answer for a
+    // tree that has every input root (C-06/B-23).
     const lanesModule = join(REPO_ROOT, "scripts/lib/lanes.mjs");
     expect(existsSync(lanesModule), "scripts/lib/lanes.mjs does not exist — the roster has no exported home").toBe(true);
     const loaded: unknown = await import(pathToFileURL(lanesModule).href);
-    const derive = (loaded as Record<string, unknown>)["deriveLanes"] as ((root: string) => { status: string }[]) | undefined;
-    expect(typeof derive, "scripts/lib/lanes.mjs does not export deriveLanes(rootDir)").toBe("function");
-    const stubs = (await Promise.resolve(derive!(REPO_ROOT))).filter((lane) => lane.status === "stub");
+    const derive = (loaded as Record<string, unknown>)["deriveMachineChecks"] as
+      | ((root: string) => { id: string; status: string; probe: string }[])
+      | undefined;
+    expect(typeof derive, "scripts/lib/lanes.mjs does not export deriveMachineChecks(rootDir)").toBe("function");
+    const owed = derive!(REPO_ROOT)
+      .filter((check) => check.status === "stub")
+      .map((check) => `SKIP ${check.id} missing=${check.probe}`)
+      .sort();
 
     const stdout = checkup().stdout;
-    const skips = skipLines(stdout);
-    if (stubs.length > 0) {
-      expect(skips.length, `${stubs.length} input roots are missing, yet checkup printed no 'SKIP <checkId> missing=<probePath>' line at all:\n${stdout}`).toBeGreaterThan(0);
-    }
+    const printed = skipLines(stdout)
+      .map((skip) => `SKIP ${skip.id} missing=${skip.probe}`)
+      .sort();
+    expect(printed, `checkup's skips do not match the machine checks whose input roots are absent:\n${stdout}`).toEqual(owed);
   });
 });

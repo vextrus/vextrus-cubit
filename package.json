@@ -65,6 +65,7 @@
     "react-dom": "19.2.8",
     "react-resizable-panels": "^2.1.9",
     "sonner": "^2.0.8",
-    "tsx": "4.23.12"
+    "tsx": "4.23.12",
+    "zod": "4.4.3"
   }
 }

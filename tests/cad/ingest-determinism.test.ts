@@ -1,0 +1,108 @@
+// AC-1 — one-shot deterministic ingest (L-CAD-01, L-CAD-02).
+//
+// The roster is read off the corpus, never frozen here: every committed `<name>.entitygraph.json`
+// is owed a `<name>.dxf` beside it that regenerates it byte-for-byte, so a fixture a later
+// increment adds is judged by the same rule without editing this file. The three names the spec
+// calls out are asserted to be *present*, which is a floor, not a ceiling.
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, describe, expect, it } from "vitest";
+import {
+  committedArtifactNames,
+  fixtureArtifactPath,
+  fixtureDxfPath,
+  NAMED_FIXTURES,
+  requireCadPackage,
+  runIngest,
+} from "./support/artifact";
+
+const scratchDirs: string[] = [];
+
+function scratch(): string {
+  const dir = mkdtempSync(join(tmpdir(), "cubit-cad-ac1-"));
+  scratchDirs.push(dir);
+  return dir;
+}
+
+afterAll(() => {
+  for (const dir of scratchDirs) rmSync(dir, { recursive: true, force: true });
+});
+
+/** The object keys in the order the file spells them — JSON.parse preserves non-numeric key order. */
+function keyOrderIsSorted(value: unknown, path: string, problems: string[]): void {
+  if (Array.isArray(value)) {
+    value.forEach((v, i) => keyOrderIsSorted(v, `${path}[${i}]`, problems));
+    return;
+  }
+  if (typeof value !== "object" || value === null) return;
+  const keys = Object.keys(value);
+  const sorted = [...keys].sort();
+  // Element-wise, never a joined string: a separator that can occur inside a key would let an
+  // unsorted roster join identically to its sorted form and pass falsely.
+  if (keys.length !== sorted.length || keys.some((k, i) => k !== sorted[i])) problems.push(`${path}: ${keys.join(", ")}`);
+  for (const key of keys) keyOrderIsSorted((value as Record<string, unknown>)[key], `${path}.${key}`, problems);
+}
+
+describe("AC-1: one-shot deterministic ingest", () => {
+  it("AC-1: the committed corpus names basic, blocks and layouts, each artifact beside its DXF", () => {
+    const names = committedArtifactNames();
+    for (const named of NAMED_FIXTURES) {
+      expect(names, `the committed corpus must include ${named}.entitygraph.json`).toContain(named);
+    }
+    for (const name of names) {
+      expect(() => readFileSync(fixtureDxfPath(name)), `${name}.entitygraph.json has no ${name}.dxf beside it`).not.toThrow();
+    }
+  });
+
+  it("AC-1: every committed artifact regenerates byte-for-byte from its DXF, twice over", () => {
+    requireCadPackage();
+    const names = committedArtifactNames();
+    expect(names.length, "the committed fixture corpus is empty").toBeGreaterThan(0);
+
+    for (const name of names) {
+      const dir = scratch();
+      const first = join(dir, "first.json");
+      const second = join(dir, "second.json");
+
+      const runOne = runIngest(fixtureDxfPath(name), first);
+      expect(runOne.status, `ingest of ${name}.dxf exited ${runOne.status}\n${runOne.stderr}`).toBe(0);
+      const runTwo = runIngest(fixtureDxfPath(name), second);
+      expect(runTwo.status, `second ingest of ${name}.dxf exited ${runTwo.status}\n${runTwo.stderr}`).toBe(0);
+
+      const committed = readFileSync(fixtureArtifactPath(name));
+      const wroteOnce = readFileSync(first);
+      const wroteTwice = readFileSync(second);
+
+      expect(wroteOnce.equals(wroteTwice), `two ingests of ${name}.dxf disagreed byte-for-byte`).toBe(true);
+      expect(
+        wroteOnce.equals(committed),
+        `a fresh ingest of ${name}.dxf does not reproduce the committed ${name}.entitygraph.json`,
+      ).toBe(true);
+    }
+  }, 600_000);
+
+  it("AC-1: committed artifacts are serialised byte-deterministically — UTF-8, LF, sorted keys, two-space indent, one trailing newline", () => {
+    const names = committedArtifactNames();
+    expect(names.length, "the committed fixture corpus is empty").toBeGreaterThan(0);
+
+    for (const name of names) {
+      const bytes = readFileSync(fixtureArtifactPath(name));
+      const text = bytes.toString("utf8");
+      expect(Buffer.from(text, "utf8").equals(bytes), `${name}.entitygraph.json is not valid UTF-8`).toBe(true);
+      expect(text.includes("\r"), `${name}.entitygraph.json contains a CR — the contract pins LF`).toBe(false);
+      expect(text.endsWith("\n"), `${name}.entitygraph.json has no trailing newline`).toBe(true);
+      expect(text.endsWith("\n\n"), `${name}.entitygraph.json has more than one trailing newline`).toBe(false);
+
+      const problems: string[] = [];
+      keyOrderIsSorted(JSON.parse(text), name, problems);
+      expect(problems, `${name}.entitygraph.json spells object keys out of sorted order`).toEqual([]);
+
+      const badIndent = text
+        .split("\n")
+        .map((line, i) => ({ line, i }))
+        .filter(({ line }) => line.length > 0 && (line.length - line.trimStart().length) % 2 !== 0);
+      expect(badIndent.map(({ i }) => i + 1), `${name}.entitygraph.json is not indented in twos`).toEqual([]);
+    }
+  });
+});

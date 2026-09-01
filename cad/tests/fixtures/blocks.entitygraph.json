@@ -1,0 +1,332 @@
+{
+  "block_attributes": [
+    {
+      "height": 1.2,
+      "src": "DXF_HANDLE:6D",
+      "tag": "ROOM",
+      "text": "STAIR CORE"
+    },
+    {
+      "height": 1.2,
+      "src": "DXF_HANDLE:6D",
+      "tag": "LEVEL",
+      "text": "L%%P3"
+    }
+  ],
+  "counters": [
+    {
+      "explode_losses": {
+        "INSERT": 1
+      },
+      "explode_truncated": true,
+      "flatten_capped": {},
+      "space": "model"
+    }
+  ],
+  "derived": [
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "bylayer"
+      },
+      "layer": "BLOCKS",
+      "points": [
+        [
+          10.0,
+          10.0
+        ],
+        [
+          14.0,
+          10.0
+        ]
+      ],
+      "space": "model",
+      "src": "DXF_HANDLE:6D",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          255,
+          255
+        ],
+        "source": "byblock"
+      },
+      "layer": "BLOCKS",
+      "points": [
+        [
+          10.0,
+          11.0
+        ],
+        [
+          14.0,
+          11.0
+        ]
+      ],
+      "space": "model",
+      "src": "DXF_HANDLE:6D",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "bylayer"
+      },
+      "layer": "BLOCKS",
+      "points": [
+        [
+          11.0,
+          12.0
+        ],
+        [
+          14.6,
+          12.0
+        ]
+      ],
+      "space": "model",
+      "src": "DXF_HANDLE:6D",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "bylayer"
+      },
+      "layer": "BLOCKS",
+      "points": [
+        [
+          11.9,
+          13.8
+        ],
+        [
+          15.14,
+          13.8
+        ]
+      ],
+      "space": "model",
+      "src": "DXF_HANDLE:6D",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "bylayer"
+      },
+      "layer": "BLOCKS",
+      "points": [
+        [
+          12.71,
+          15.42
+        ],
+        [
+          15.626,
+          15.42
+        ]
+      ],
+      "space": "model",
+      "src": "DXF_HANDLE:6D",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "bylayer"
+      },
+      "layer": "BLOCKS",
+      "points": [
+        [
+          13.439,
+          16.878
+        ],
+        [
+          16.0634,
+          16.878
+        ]
+      ],
+      "space": "model",
+      "src": "DXF_HANDLE:6D",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "bylayer"
+      },
+      "layer": "BLOCKS",
+      "points": [
+        [
+          14.0951,
+          18.1902
+        ],
+        [
+          16.45706,
+          18.1902
+        ]
+      ],
+      "space": "model",
+      "src": "DXF_HANDLE:6D",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "bylayer"
+      },
+      "layer": "BLOCKS",
+      "points": [
+        [
+          14.68559,
+          19.37118
+        ],
+        [
+          16.811354,
+          19.37118
+        ]
+      ],
+      "space": "model",
+      "src": "DXF_HANDLE:6D",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "bylayer"
+      },
+      "layer": "BLOCKS",
+      "points": [
+        [
+          15.217031,
+          20.434062
+        ],
+        [
+          17.1302186,
+          20.434062
+        ]
+      ],
+      "space": "model",
+      "src": "DXF_HANDLE:6D",
+      "type": "LINE"
+    }
+  ],
+  "dropped_layouts": [
+    "Layout1"
+  ],
+  "entities": [
+    {
+      "colour": {
+        "rgb": [
+          0,
+          255,
+          255
+        ],
+        "source": "explicit"
+      },
+      "key": "DXF_HANDLE:6D",
+      "layer": "BLOCKS",
+      "space": "model",
+      "type": "INSERT"
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "bylayer"
+      },
+      "key": "DXF_HANDLE:71",
+      "layer": "BLOCKS",
+      "points": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          30.0,
+          0.0
+        ]
+      ],
+      "space": "model",
+      "type": "LINE"
+    },
+    {
+      "colour": {
+        "rgb": [
+          0,
+          0,
+          255
+        ],
+        "source": "bylayer"
+      },
+      "height": 2.0,
+      "key": "DXF_HANDLE:72",
+      "layer": "BLOCKS",
+      "space": "model",
+      "text": "GRID A",
+      "type": "TEXT"
+    }
+  ],
+  "entitygraph_version": 2,
+  "ingest": {
+    "parameter_set_hash": "68744a7590470ed7cd0f569f463639b3bba8217de316ca007af5b75f48076322",
+    "scheme": "DXF_HANDLE",
+    "tool": "ezdxf",
+    "tool_version": "1.4.4"
+  },
+  "insunits": {
+    "code": 2,
+    "unit": "foot",
+    "unmapped": false
+  },
+  "layouts": [
+    {
+      "bbox": {
+        "max": [
+          30.0,
+          20.434062
+        ],
+        "min": [
+          0.0,
+          0.0
+        ]
+      },
+      "kind": "model",
+      "name": "model",
+      "strays_rejected": 0
+    }
+  ]
+}
