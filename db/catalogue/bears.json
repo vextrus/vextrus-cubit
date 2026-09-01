@@ -1,0 +1,358 @@
+[
+  {
+    "element_type": "beam",
+    "kind": "concrete-casting"
+  },
+  {
+    "element_type": "beam",
+    "kind": "formwork"
+  },
+  {
+    "element_type": "beam",
+    "kind": "painting"
+  },
+  {
+    "element_type": "beam",
+    "kind": "plastering"
+  },
+  {
+    "element_type": "beam",
+    "kind": "reinforcement"
+  },
+  {
+    "element_type": "beam",
+    "kind": "structural-steel"
+  },
+  {
+    "element_type": "column",
+    "kind": "concrete-casting"
+  },
+  {
+    "element_type": "column",
+    "kind": "formwork"
+  },
+  {
+    "element_type": "column",
+    "kind": "painting"
+  },
+  {
+    "element_type": "column",
+    "kind": "plastering"
+  },
+  {
+    "element_type": "column",
+    "kind": "reinforcement"
+  },
+  {
+    "element_type": "column",
+    "kind": "structural-steel"
+  },
+  {
+    "element_type": "column",
+    "kind": "tiling"
+  },
+  {
+    "element_type": "footing",
+    "kind": "backfilling"
+  },
+  {
+    "element_type": "footing",
+    "kind": "concrete-casting"
+  },
+  {
+    "element_type": "footing",
+    "kind": "excavation"
+  },
+  {
+    "element_type": "footing",
+    "kind": "formwork"
+  },
+  {
+    "element_type": "footing",
+    "kind": "lean-concrete"
+  },
+  {
+    "element_type": "footing",
+    "kind": "reinforcement"
+  },
+  {
+    "element_type": "footing",
+    "kind": "sand-filling"
+  },
+  {
+    "element_type": "footing",
+    "kind": "waterproofing"
+  },
+  {
+    "element_type": "grade-beam",
+    "kind": "backfilling"
+  },
+  {
+    "element_type": "grade-beam",
+    "kind": "concrete-casting"
+  },
+  {
+    "element_type": "grade-beam",
+    "kind": "excavation"
+  },
+  {
+    "element_type": "grade-beam",
+    "kind": "formwork"
+  },
+  {
+    "element_type": "grade-beam",
+    "kind": "lean-concrete"
+  },
+  {
+    "element_type": "grade-beam",
+    "kind": "reinforcement"
+  },
+  {
+    "element_type": "lintel",
+    "kind": "concrete-casting"
+  },
+  {
+    "element_type": "lintel",
+    "kind": "formwork"
+  },
+  {
+    "element_type": "lintel",
+    "kind": "painting"
+  },
+  {
+    "element_type": "lintel",
+    "kind": "plastering"
+  },
+  {
+    "element_type": "lintel",
+    "kind": "reinforcement"
+  },
+  {
+    "element_type": "parapet",
+    "kind": "brickwork"
+  },
+  {
+    "element_type": "parapet",
+    "kind": "painting"
+  },
+  {
+    "element_type": "parapet",
+    "kind": "plastering"
+  },
+  {
+    "element_type": "parapet",
+    "kind": "railing"
+  },
+  {
+    "element_type": "parapet",
+    "kind": "waterproofing"
+  },
+  {
+    "element_type": "pile",
+    "kind": "concrete-casting"
+  },
+  {
+    "element_type": "pile",
+    "kind": "reinforcement"
+  },
+  {
+    "element_type": "pile-cap",
+    "kind": "backfilling"
+  },
+  {
+    "element_type": "pile-cap",
+    "kind": "concrete-casting"
+  },
+  {
+    "element_type": "pile-cap",
+    "kind": "excavation"
+  },
+  {
+    "element_type": "pile-cap",
+    "kind": "formwork"
+  },
+  {
+    "element_type": "pile-cap",
+    "kind": "lean-concrete"
+  },
+  {
+    "element_type": "pile-cap",
+    "kind": "reinforcement"
+  },
+  {
+    "element_type": "plinth",
+    "kind": "brickwork"
+  },
+  {
+    "element_type": "plinth",
+    "kind": "painting"
+  },
+  {
+    "element_type": "plinth",
+    "kind": "plastering"
+  },
+  {
+    "element_type": "plinth",
+    "kind": "waterproofing"
+  },
+  {
+    "element_type": "raft",
+    "kind": "backfilling"
+  },
+  {
+    "element_type": "raft",
+    "kind": "brick-soling"
+  },
+  {
+    "element_type": "raft",
+    "kind": "concrete-casting"
+  },
+  {
+    "element_type": "raft",
+    "kind": "excavation"
+  },
+  {
+    "element_type": "raft",
+    "kind": "formwork"
+  },
+  {
+    "element_type": "raft",
+    "kind": "lean-concrete"
+  },
+  {
+    "element_type": "raft",
+    "kind": "reinforcement"
+  },
+  {
+    "element_type": "raft",
+    "kind": "sand-filling"
+  },
+  {
+    "element_type": "raft",
+    "kind": "waterproofing"
+  },
+  {
+    "element_type": "slab",
+    "kind": "brick-soling"
+  },
+  {
+    "element_type": "slab",
+    "kind": "concrete-casting"
+  },
+  {
+    "element_type": "slab",
+    "kind": "electrical-point"
+  },
+  {
+    "element_type": "slab",
+    "kind": "false-ceiling"
+  },
+  {
+    "element_type": "slab",
+    "kind": "formwork"
+  },
+  {
+    "element_type": "slab",
+    "kind": "painting"
+  },
+  {
+    "element_type": "slab",
+    "kind": "pipework"
+  },
+  {
+    "element_type": "slab",
+    "kind": "plastering"
+  },
+  {
+    "element_type": "slab",
+    "kind": "reinforcement"
+  },
+  {
+    "element_type": "slab",
+    "kind": "skirting"
+  },
+  {
+    "element_type": "slab",
+    "kind": "tiling"
+  },
+  {
+    "element_type": "slab",
+    "kind": "waterproofing"
+  },
+  {
+    "element_type": "stair",
+    "kind": "concrete-casting"
+  },
+  {
+    "element_type": "stair",
+    "kind": "formwork"
+  },
+  {
+    "element_type": "stair",
+    "kind": "painting"
+  },
+  {
+    "element_type": "stair",
+    "kind": "plastering"
+  },
+  {
+    "element_type": "stair",
+    "kind": "railing"
+  },
+  {
+    "element_type": "stair",
+    "kind": "reinforcement"
+  },
+  {
+    "element_type": "stair",
+    "kind": "tiling"
+  },
+  {
+    "element_type": "wall",
+    "kind": "brickwork"
+  },
+  {
+    "element_type": "wall",
+    "kind": "concrete-casting"
+  },
+  {
+    "element_type": "wall",
+    "kind": "electrical-point"
+  },
+  {
+    "element_type": "wall",
+    "kind": "formwork"
+  },
+  {
+    "element_type": "wall",
+    "kind": "painting"
+  },
+  {
+    "element_type": "wall",
+    "kind": "pipework"
+  },
+  {
+    "element_type": "wall",
+    "kind": "plastering"
+  },
+  {
+    "element_type": "wall",
+    "kind": "reinforcement"
+  },
+  {
+    "element_type": "wall",
+    "kind": "sanitary-ware"
+  },
+  {
+    "element_type": "wall",
+    "kind": "skirting"
+  },
+  {
+    "element_type": "wall",
+    "kind": "tiling"
+  },
+  {
+    "element_type": "wall",
+    "kind": "waterproofing"
+  }
+]

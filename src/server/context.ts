@@ -14,6 +14,15 @@ export interface AppContext {
    * points back at, and empty when nothing was configured (R-SPINE-001).
    */
   origin: string;
+  /**
+   * The `Origin` the request stated, or null when it stated none — read verbatim and compared
+   * nowhere here. What it MEANS is R-SPINE-006's origin rule, whose one home is the tenancy module's
+   * guard; this seam only carries the fact off the request, because a procedure is handed a context
+   * and never the request itself (ARCH-02, B-17).
+   */
+  statedOrigin: string | null;
+  /** The origin of the URL this request arrived at, carried beside the stated one for the same rule. */
+  requestOrigin: string;
   /** What to call the device in the session list, derived from the request rather than asked for. */
   deviceLabel: string;
   /** Who is calling, as far as the server itself can tell (`observedClient`) — the sign-in limiter's key. */
@@ -110,15 +119,131 @@ function configuredOrigin(): string | null {
  * claiming to be a request to the machine it is already running on.
  */
 export function deploymentIsSecure(req: Request): boolean {
-  const configured = configuredOrigin();
-  if (configured !== null) return configured.startsWith("https:");
-  return !isLoopbackRequest(req);
+  return answeredScheme(arrivedAtHostname(req)) === "https";
 }
 
-/** Did this request arrive on a loopback name — the development and journey servers, and nothing else? */
-function isLoopbackRequest(req: Request): boolean {
-  const url = URL.parse(typeof req.url === "string" ? req.url : "");
-  return url !== null && LOOPBACK_HOSTS.has(url.hostname);
+/**
+ * The hostname this request was reached at, on the same terms `arrivalOrigin` composes the arrival
+ * address on: the `Host` it stated, and where it stated none the URL it carries.
+ *
+ * A request off a network always states a `Host` — HTTP/1.1 requires it and a hop writes its own —
+ * so a `Request` without one was composed in this process by the caller holding it, a suite driving
+ * the shipped handler, and the address it composed is by construction the address it dialled. Both
+ * screens read that same fact the same way: one request has one arrival address, and a suite that
+ * composes `http://127.0.0.1/…` is not a deployment behind TLS (ARCH-02, B-17).
+ */
+function arrivedAtHostname(req: Request): string | null {
+  const host = req.headers.get("host");
+  if (host !== null) return reachedHostname(host);
+  return URL.parse(req.url)?.hostname ?? null;
+}
+
+/** The hostname half of a `Host`, which is the only part of an address a request states truthfully. */
+function reachedHostname(host: string | null): string | null {
+  if (host === null || host === "") return null;
+  return URL.parse(`http://${host}`)?.hostname ?? null;
+}
+
+/**
+ * The address a request was reached at, off the `Host` it stated — the arrival address both lanes
+ * carry, composed in one place (ARCH-02, B-17).
+ *
+ * `Host` is read and `X-Forwarded-Host` is not, and the asymmetry is the point (R-SPINE-001): a
+ * caller writes both, but `Host` is the name they had to reach to be answered at all, while a
+ * forwarded host is a name they simply nominate. Reading the nominated one would let a caller hand
+ * themselves an address of their own choosing — `localhost:9999`, a page their own machine serves —
+ * as the address this request arrived at. A request stating no `Host` arrived nowhere this can
+ * name, and says so with the empty string; the caller-composed case is answered by `arrivalOrigin`.
+ */
+function arrivedAtFromHost(host: string | null): string {
+  if (host === null || host === "") return "";
+  return URL.parse(`${answeredScheme(reachedHostname(host))}://${host}`)?.origin ?? "";
+}
+
+/**
+ * The scheme the deployment answers in, for a host it was reached at — the other half of an address,
+ * decided by the same party and on the same terms (R-SPINE-001).
+ *
+ * `x-forwarded-proto` is a caller-written header: an edge stamps it and so may anybody, and nothing
+ * on the request tells the two apart. It is not read, because a scheme read off the caller is a
+ * scheme the caller chooses, and where the arrival address is carried at all (this machine, an
+ * unconfigured deployment) that choice would compose an address the deployment does not answer at —
+ * `https://localhost:3210`, a page the visitor's own machine serves at that port — and hand it to the
+ * origin rule as a dialled one. So the deployment's own statement answers, and where it made none the
+ * host is read exactly as `deploymentIsSecure` reads it: only to recognise the two names of this
+ * machine as plain http, never to grant TLS to anything a caller wrote.
+ */
+function answeredScheme(hostname: string | null): "http" | "https" {
+  const configured = configuredOrigin();
+  if (configured !== null) return configured.startsWith("https:") ? "https" : "http";
+  return hostname !== null && LOOPBACK_HOSTS.has(hostname) ? "http" : "https";
+}
+
+/**
+ * The address this request was DIALLED at, judged nowhere here. It is one of the two addresses
+ * R-SPINE-006's origin rule admits a stated `Origin` against, and that rule has one home
+ * (src/modules/spine/tenancy/guard): this seam carries the fact, because a procedure is handed a
+ * context and never the request itself.
+ *
+ * The arrival address is composed from `Host`, and `Host` is not evidence of where anybody dialled
+ * unless the process is the thing the browser reached. A hop rewrites it to the upstream it forwards
+ * to — nginx with a bare `proxy_pass http://127.0.0.1:3000` hands every request the same loopback
+ * name, whoever dialled what — and it does so stamping no header at all, so no mark on the request
+ * can tell the two apart. Asking the request would be asking the caller (R-SPINE-001); `Host` is a
+ * value they write, and `X-Forwarded-Host` more so — an edge mark is not a credential, and reading
+ * one as though a caller could only lose an admission by writing it would let a caller who writes
+ * `X-Forwarded-Host: localhost:3000` hand THEMSELVES an address the deployment never answers at.
+ *
+ * So the party asked is the one entitled to answer: the deployment's own statement of where it
+ * answers. The arrival address is carried when
+ *
+ *   - it IS what the deployment states it answers at — the Host-preserving edge (Cloudflare, an ALB,
+ *     `proxy_set_header Host $host;`) and the direct deployment alike, whatever else was stamped; or
+ *   - the deployment states it answers at this machine, or states nothing at all — a developer's
+ *     machine, the journeys' own server, processes a browser reaches directly, where `localhost` and
+ *     `127.0.0.1` are one machine under two spellings and the arrival address is genuinely the
+ *     dialled one; or
+ *   - the request carried no `Host` at all, which no request off a network is: HTTP/1.1 requires the
+ *     header and a hop writes its own, so a `Request` without one was composed in this process by
+ *     the caller holding it — a suite driving the shipped handler — and the URL it composed is by
+ *     construction the address it dialled.
+ *
+ * Everywhere else — a deployment that states a network address and was reached at some other name —
+ * that name is a hop's upstream or a forgery, never an address a browser dialled, and there is no
+ * dialled address to carry: this says so with the empty string. Nothing here can WIDEN what the rule
+ * admits, because nothing a caller writes is read: what remains beside the empty string is the
+ * deployment's own statement, the one fact no caller writes (R-SPINE-001).
+ */
+function dialledOrigin(arrivedAt: string, statedHost: string | null): string {
+  const configured = configuredOrigin();
+  if (configured === null || arrivedAt === configured || statedHost === null) return arrivedAt;
+  return answersDirectly(configured) ? arrivedAt : "";
+}
+
+/** Does the deployment state it answers at this machine — the one statement a hop cannot be behind? */
+function answersDirectly(configured: string): boolean {
+  const hostname = URL.parse(configured)?.hostname;
+  return hostname !== undefined && LOOPBACK_HOSTS.has(hostname);
+}
+
+/**
+ * The address this request was dialled at, for the lane the platform hands a whole `Request`.
+ *
+ * The platform composes `Request.url` out of headers the caller wrote — Next builds its host from
+ * `X-Forwarded-Host` where one was stamped and its scheme from `X-Forwarded-Proto` — so the URL
+ * handed over is not read for either half of the address. Both halves come from where the other
+ * lane takes them: the `Host` the request had to state, and the scheme the deployment answers in
+ * (`arrivedAtFromHost`). One request therefore has one arrival address, whichever transport carries
+ * it (ARCH-02, B-17).
+ *
+ * A request carrying no `Host` at all was composed in this process by the caller holding it — a
+ * suite driving the shipped handler — and the URL it composed is by construction the address it
+ * dialled: that one, and only that one, is kept verbatim.
+ */
+function arrivalOrigin(req: Request): string {
+  const host = req.headers.get("host");
+  if (host !== null) return dialledOrigin(arrivedAtFromHost(host), host);
+  return dialledOrigin(URL.parse(req.url)?.origin ?? "", null);
 }
 
 /**
@@ -143,6 +268,38 @@ function isLoopbackRequest(req: Request): boolean {
  */
 function originOf(): string {
   return configuredOrigin() ?? "";
+}
+
+/**
+ * The three facts R-SPINE-006's origin rule judges, for a seam the platform hands headers instead of
+ * a `Request` — a server action, which is handed no request at all. What they MEAN is the tenancy
+ * module's guard, exactly as above; what this seam owes it is the facts, and they are derived here
+ * because the env var's name, the configured value's normalisation and the arrival address have one
+ * home, which the tRPC lane already reads through `createContext` (B-17, ARCH-02).
+ */
+export interface RequestOriginFacts {
+  statedOrigin: string | null;
+  requestOrigin: string;
+  configuredOrigin: string;
+}
+
+/**
+ * Those three facts, off the headers the platform kept about the request.
+ *
+ * The arrival address is composed from the `Host` the request named and the scheme the deployment
+ * answers in (`answeredScheme`) — never the scheme a caller stated, which is the whole of what
+ * `x-forwarded-proto` is. A proxy that terminates TLS is answered for by the address its deployment
+ * states, which is the same statement the other lane reads, so both lanes hand the rule the same
+ * address for the same request (ARCH-02, B-17).
+ */
+export function originFactsFromHeaders(sent: Headers): RequestOriginFacts {
+  const configured = originOf();
+  const host = sent.get("host");
+  return {
+    statedOrigin: sent.get("origin"),
+    requestOrigin: dialledOrigin(arrivedAtFromHost(host), host),
+    configuredOrigin: configured,
+  };
 }
 
 /**
@@ -177,6 +334,8 @@ export async function createContext({ req }: { req: Request }): Promise<AppConte
     requestId: suppliedRequestId(req) ?? randomUUID(),
     actor: session?.userId ?? ANONYMOUS,
     origin: originOf(),
+    statedOrigin: req.headers.get("origin"),
+    requestOrigin: arrivalOrigin(req),
     deviceLabel: deviceLabelFrom(req.headers.get("user-agent")),
     client: UNOBSERVED_CLIENT,
     session,

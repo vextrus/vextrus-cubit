@@ -24,15 +24,22 @@ export interface RateLimit {
 const MINUTE = 60_000;
 
 /**
- * The four limited doors. Sign-in and sign-up are given a handful of tries a minute — enough for a
- * person who mistypes, far short of an enumeration — while the two doors that send mail are tighter,
+ * The limited doors. Sign-in and sign-up are given a handful of tries a minute — enough for a person
+ * who mistypes, far short of an enumeration — while the two doors that send mail are tighter,
  * because each attempt puts a message in somebody's inbox.
+ *
+ * `tenancyAdmin` is R-SPINE-006's "tenant-admin actions carry rate limits", counted here rather than
+ * anywhere nearer the workspace, because this table is the one home of what a door allows and
+ * `admitAttempt` the one home of the counting (ARCH-02, B-17). Its allowance is the most generous
+ * of the five: a person settling a workspace's roles moves several people in a sitting, while a
+ * script walking a workspace's members is stopped well short of walking it.
  */
-export const AUTH_RATE_LIMITS: Readonly<Record<"signIn" | "signUp" | "requestMagicLink" | "requestPasswordReset", RateLimit>> = Object.freeze({
+export const AUTH_RATE_LIMITS: Readonly<Record<"signIn" | "signUp" | "requestMagicLink" | "requestPasswordReset" | "tenancyAdmin", RateLimit>> = Object.freeze({
   signIn: Object.freeze({ attempts: 8, windowMs: MINUTE }),
   signUp: Object.freeze({ attempts: 8, windowMs: MINUTE }),
   requestMagicLink: Object.freeze({ attempts: 4, windowMs: MINUTE }),
   requestPasswordReset: Object.freeze({ attempts: 4, windowMs: MINUTE }),
+  tenancyAdmin: Object.freeze({ attempts: 12, windowMs: MINUTE }),
 });
 
 /** The doors the table limits — the compiler's own list, so a door cannot be limited by a typo. */

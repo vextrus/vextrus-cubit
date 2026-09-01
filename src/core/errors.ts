@@ -31,11 +31,21 @@ export type RefusalCode =
   | "PERMISSION_NOT_HELD"
   | "ACTOR_NOT_HUMAN"
   | "ACT_CHANGES_NOTHING"
+  | "PROJECT_WOULD_HAVE_NO_PRINCIPAL"
   | "CREDENTIALS_NOT_VALID"
   | "TOKEN_NOT_VALID"
   | "RATE_LIMITED"
   | "ACCOUNT_ALREADY_EXISTS"
-  | "LINK_NOT_SENDABLE";
+  | "LINK_NOT_SENDABLE"
+  | "DIMENSION_MISMATCH"
+  | "PRODUCT_FACTOR_MISSING"
+  | "UNIT_UNKNOWN"
+  | "WORKSPACE_PERMISSION_NOT_HELD"
+  | "SELF_REMOVAL_NOT_ALLOWED"
+  | "WORKSPACE_WOULD_HAVE_NO_OWNER"
+  | "ORIGIN_NOT_VERIFIED"
+  | "MEMBER_HAS_ACTS"
+  | "INVITATION_NOT_CLAIMABLE";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -48,9 +58,11 @@ export type RefusalEntry = {
 
 /**
  * The registry, keyed by the code itself and frozen entry by entry — a refusal read at a transport
- * or a screen is the registered answer, never a mutated one.
+ * or a screen is the registered answer, never a mutated one. Each entry's `code` keeps the type of
+ * its own key, so a seam that answers with a narrow set of codes can read the value out of the
+ * register instead of re-spelling it as a literal beside it (Q-07).
  */
-export const REFUSALS: Readonly<Record<RefusalCode, RefusalEntry>> = Object.freeze({
+export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C } }> = Object.freeze({
   PRECISION_NOT_APPLIED: Object.freeze({
     code: "PRECISION_NOT_APPLIED",
     message: "The value is not at the exact precision this document requires.",
@@ -100,6 +112,13 @@ export const REFUSALS: Readonly<Record<RefusalCode, RefusalEntry>> = Object.free
     severity: "info",
     surface: "dialog",
   }),
+  PROJECT_WOULD_HAVE_NO_PRINCIPAL: Object.freeze({
+    code: "PROJECT_WOULD_HAVE_NO_PRINCIPAL",
+    message: "This withdrawal would leave the project with no principal, so it was not carried out.",
+    remedy: "Make another member a principal first, then withdraw this one.",
+    severity: "error",
+    surface: "inline",
+  }),
   CREDENTIALS_NOT_VALID: Object.freeze({
     code: "CREDENTIALS_NOT_VALID",
     message: "The email and password do not match an account.",
@@ -132,6 +151,77 @@ export const REFUSALS: Readonly<Record<RefusalCode, RefusalEntry>> = Object.free
     code: "LINK_NOT_SENDABLE",
     message: "No link was sent, because this installation has not been given the web address its links point back to.",
     remedy: "Ask an operator to set the address this installation answers at, then ask for the link again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-FRM-06's three structural conversion refusals. Each is the answer where a conversion has no
+  // meaning rather than no result: the failure arm at the seam carries one of these codes and no
+  // value, so nothing downstream can read a number that was never derived.
+  DIMENSION_MISMATCH: Object.freeze({
+    code: "DIMENSION_MISMATCH",
+    message: "These two units measure different things, so the quantity was not converted.",
+    remedy: "Give the quantity in a unit that measures the same thing — a weight never becomes a volume.",
+    severity: "error",
+    surface: "inline",
+  }),
+  PRODUCT_FACTOR_MISSING: Object.freeze({
+    code: "PRODUCT_FACTOR_MISSING",
+    message: "The quantity is in a packaging unit, and this product does not state how much one of them holds.",
+    remedy: "Record what one unit of this product's packaging holds, then enter the quantity again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  UNIT_UNKNOWN: Object.freeze({
+    code: "UNIT_UNKNOWN",
+    message: "This unit is not one the measurement canon knows, so the quantity was not converted.",
+    remedy: "Use a unit the canon lists — nothing is converted through a unit nobody defined.",
+    severity: "error",
+    surface: "inline",
+  }),
+  WORKSPACE_PERMISSION_NOT_HELD: Object.freeze({
+    code: "WORKSPACE_PERMISSION_NOT_HELD",
+    message: "Your role in this workspace does not carry the permission this action needs.",
+    remedy: "Ask an owner of the workspace to carry it out, or to give you a role that carries it.",
+    severity: "error",
+    surface: "banner",
+  }),
+  SELF_REMOVAL_NOT_ALLOWED: Object.freeze({
+    code: "SELF_REMOVAL_NOT_ALLOWED",
+    message: "You cannot remove yourself from a workspace.",
+    remedy: "Ask another owner to remove you, so somebody is left who can undo it.",
+    severity: "error",
+    surface: "inline",
+  }),
+  WORKSPACE_WOULD_HAVE_NO_OWNER: Object.freeze({
+    code: "WORKSPACE_WOULD_HAVE_NO_OWNER",
+    message: "This would leave the workspace with no owner, so it was not carried out.",
+    remedy: "Make another member an owner first, then try again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  ORIGIN_NOT_VERIFIED: Object.freeze({
+    code: "ORIGIN_NOT_VERIFIED",
+    message: "This request came from a page this deployment does not serve, so it was not carried out.",
+    remedy: "Return to the workspace in your browser and try the action again from there.",
+    severity: "error",
+    surface: "banner",
+  }),
+  // SEAM-ACT's coupling: tenant administration sits outside the act log's writ, so a membership the
+  // log names as an author is not taken away underneath the record it made (R-SPINE-003).
+  MEMBER_HAS_ACTS: Object.freeze({
+    code: "MEMBER_HAS_ACTS",
+    message: "This member holds recorded acts on open campaigns, so their membership was not removed.",
+    remedy: "Remove them once those campaigns close — the record keeps its author until then.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // R-SPINE-003's ACCEPT flow: the four ways a mailed invitation stops being spendable answer as
+  // one code, because an answer that told them apart would tell the holder of a token which of them
+  // it is — and a stranger's probe would learn whether an address was ever invited.
+  INVITATION_NOT_CLAIMABLE: Object.freeze({
+    code: "INVITATION_NOT_CLAIMABLE",
+    message: "This invitation cannot be accepted — it was never issued, has already been accepted, or was withdrawn.",
+    remedy: "Ask an owner of that workspace to send a fresh invitation to the address you are signed in with.",
     severity: "error",
     surface: "inline",
   }),

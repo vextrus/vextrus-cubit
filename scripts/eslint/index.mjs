@@ -6,6 +6,7 @@ import faultOrRefusal from "./rules/fault-or-refusal.mjs";
 import noColourLiteral from "./rules/no-colour-literal.mjs";
 import noCycle from "./rules/no-cycle.mjs";
 import noDbOutsideSeam from "./rules/no-db-outside-seam.mjs";
+import noModelOutsideSeam from "./rules/no-model-outside-seam.mjs";
 import noRawIntl from "./rules/no-raw-intl.mjs";
 import noSuppressions from "./rules/no-suppressions.mjs";
 
@@ -16,6 +17,7 @@ export const cubit = {
     "fault-or-refusal": faultOrRefusal,
     "no-colour-literal": noColourLiteral,
     "no-db-outside-seam": noDbOutsideSeam,
+    "no-model-outside-seam": noModelOutsideSeam,
     "no-raw-intl": noRawIntl,
     "no-suppressions": noSuppressions,
   },

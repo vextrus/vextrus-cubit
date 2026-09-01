@@ -6,19 +6,31 @@
 // The table definitions sit here rather than in db/schema/*.ts because the ORM's table builders are
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
-import { and, asc, eq, gt, inArray, isNull, lt, sql as statement } from "drizzle-orm";
-import { foreignKey, index, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { and, asc, desc, eq, gt, inArray, isNull, lt, sql as statement } from "drizzle-orm";
+import { check, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import PgBoss from "pg-boss";
 import postgres from "postgres";
+import { ELEMENT_TYPES, type ElementType } from "./catalogue/element-types";
+import { KINDS, type Kind } from "./catalogue/kinds";
 import { attributableReason } from "./db/reason";
 import { reportFault } from "./faults/report";
+import { DEFAULT_DENSITY, DENSITIES, type Density } from "./prefs/density";
+import { BUILDING_TYPES, type BuildingType } from "./projects";
+import type { EditionParameter, EditionScope, MethodPair } from "./rulesets/editions/content";
+import { CANONICAL_UNITS, DIMENSIONS, type Dimension } from "./units/canon";
+
+/** A closed roster as the SQL fragment a CHECK compares against — the one spelling of that list. */
+const closedList = (roster: readonly string[]): string => roster.map((member) => `'${member}'`).join(", ");
+
+/** The canon's dimension→canonical-unit map as row values, so a CHECK can close the pair (L-FRM-06). */
+const canonicalUnitPairs = (): string => DIMENSIONS.map((dimension) => `('${dimension}', '${CANONICAL_UNITS[dimension]}')`).join(", ");
 
 // The query operators a caller needs to say which rows it means. They are the driver's, so they are
 // handed out from here rather than imported at a call site: SEAM-TENANT makes this file the one
 // lawful home of the driver, and a module that reached for them itself would be holding half a
 // handle (ARCH-02).
-export { and, asc, eq, gt, inArray, isNull, lt };
+export { and, asc, desc, eq, gt, inArray, isNull, lt };
 
 export { recordSystemReasonsWith, type SystemReasonRecord, type SystemReasonRecorder } from "./db/reason";
 
@@ -32,6 +44,54 @@ export const tenants = pgTable("tenants", {
   name: text("name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** The five, as a SQL value list, so the constraint spells them exactly once (B-17). */
+const BUILDING_TYPE_LIST = statement.raw(BUILDING_TYPES.map((type) => `'${type}'`).join(", "));
+
+/**
+ * A project (R-SPINE-010): what it is called and where it stands, in the workspace that owns it.
+ *
+ * Only the name is required. R-SPINE-010 enumerates the fields a project carries, and a workspace
+ * naming a project before it knows its client or its storey count is naming a real project — so
+ * every other field is nullable and stored as presented, and the door is where presentability is
+ * judged. `building_type` is the one exception to "stored as presented": the clause closes it over
+ * five names, so the CHECK admits those and nothing else, whatever writes the row.
+ *
+ * Target GFA is held in m² as `numeric` — B-07 keeps a figure a person entered exact from the
+ * column to the page — and the square-feet readout is a conversion the format seam makes, never a
+ * second stored fact.
+ *
+ * `archived_at` is the archived marker: AC-4's archive flips it and deletes nothing, and holding the
+ * moment rather than a boolean answers "when" as well as "whether" for the same width.
+ */
+export const projects = pgTable(
+  "projects",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    code: text("code"),
+    client: text("client"),
+    siteAddress: text("site_address"),
+    // Stored text at M0: the district → zone derivation is book law, and nothing here derives from it.
+    district: text("district"),
+    buildingType: text("building_type").$type<BuildingType>(),
+    storeys: integer("storeys"),
+    targetGfaM2: numeric("target_gfa_m2"),
+    notes: text("notes"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("projects_building_type_closed", statement`${table.buildingType} in (${BUILDING_TYPE_LIST})`),
+    // Every read of this table is tenant-scoped and then ordered by last activity: the policy adds
+    // the same `tenant_id` predicate again, so without this the workspace home is a sequential scan
+    // plus a sort over every tenant's projects. The order the index is built in is the order S-Home
+    // asks in (the shape `tenant_ruleset_editions_scope` already has beside its own table).
+    index("projects_tenant_updated").on(table.tenantId, table.updatedAt),
+  ],
+);
 
 /**
  * Participation: who may act on a project at all (L-ACT-03). The pair (project, user) is the
@@ -101,6 +161,39 @@ export const participantRoles = pgTable(
     foreignKey({ columns: [table.actId], foreignColumns: [acts.actId], name: "participant_roles_act_fk" }),
     // A role is held or it is not: the same role twice over is a second row saying the same thing.
     unique("participant_roles_role_once").on(table.tenantId, table.projectId, table.userId, table.role),
+  ],
+);
+
+/**
+ * The countermanding ledger (R-SPINE-011, L-ACT-03): a role a project took back. `participant_roles`
+ * wears owner-proof immutability, so a withdrawal is never an update or a delete of the grant — it
+ * is a row appended here naming the grant it countermands, and the effective roles a person holds
+ * are the grants this table has not answered. The grant stays on the record, which is what makes the
+ * history readable both ways round.
+ *
+ * `grant_id` is unique because a grant is countermanded once: a second row would say the same thing
+ * twice, and "how many withdrawals stand against this grant" is not a question with two answers.
+ * `act_id` is not null, unlike the grant's — every withdrawal is an act somebody performed, where a
+ * project's first PRINCIPAL is installed by creation.
+ */
+export const participantRoleWithdrawals = pgTable(
+  "participant_role_withdrawals",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    withdrawalId: uuid("withdrawal_id").primaryKey().defaultRandom(),
+    grantId: uuid("grant_id").notNull().unique(),
+    projectId: uuid("project_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    role: text("role").notNull(),
+    actId: uuid("act_id").notNull(),
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({ columns: [table.grantId], foreignColumns: [participantRoles.grantId], name: "participant_role_withdrawals_grant_fk" }),
+    foreignKey({ columns: [table.actId], foreignColumns: [acts.actId], name: "participant_role_withdrawals_act_fk" }),
+    // Every effective-roles read is "this project's withdrawals, for this person": the policy adds
+    // the tenant predicate again, so without this the seam's own permission check scans the ledger.
+    index("participant_role_withdrawals_project_user").on(table.tenantId, table.projectId, table.userId),
   ],
 );
 
@@ -175,9 +268,29 @@ export const authAttempts = pgTable(
 );
 
 /**
+ * R-SPINE-003's workspace roles, declared highest rank first: OWNER outranks ADMIN, which outranks
+ * MEMBER. This is their one home — the CHECK below closes the column over it, and every guard that
+ * compares two people reads its ranking from this order rather than restating it (B-17, B-19), the
+ * same way the catalogue's closed text columns are built from the consts they mirror.
+ */
+export const WORKSPACE_ROLES = ["OWNER", "ADMIN", "MEMBER"] as const;
+
+/** One workspace role, as the roster declares them. */
+export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
+
+/** The role a membership carries when nobody named one — see the column's DEFAULT below. */
+const DEFAULT_WORKSPACE_ROLE: WorkspaceRole = "OWNER";
+
+/**
  * R-SPINE-002: the join that makes an account belong somewhere. The pair is the identity — a person
  * is a member of a workspace once — and the row is written in the same transaction as the account
  * and its personal tenant, so an account that belongs nowhere is unrepresentable.
+ *
+ * The role that membership carries is R-SPINE-003's (OWNER, ADMIN, MEMBER), closed by a CHECK built
+ * from `WORKSPACE_ROLES` so the store cannot hold a role the code does not know. Its DEFAULT is
+ * OWNER because the membership sign-up writes is the personal workspace's own: the account that
+ * mints a workspace owns it, and the transaction R-SPINE-002 makes the only user-creating door
+ * names no role at all. A membership a later door adds for somebody else states its role.
  */
 export const memberships = pgTable(
   "memberships",
@@ -188,13 +301,210 @@ export const memberships = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.userId),
+    workspaceRole: text("workspace_role").$type<WorkspaceRole>().notNull().default(DEFAULT_WORKSPACE_ROLE),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.tenantId, table.userId] })],
+  (table) => [
+    primaryKey({ columns: [table.tenantId, table.userId] }),
+    check("memberships_workspace_role_closed", statement`${table.workspaceRole} in (${statement.raw(closedList(WORKSPACE_ROLES))})`),
+  ],
+);
+
+/**
+ * R-SPINE-003's invitation: an offer of membership made to an address before there is a membership
+ * to hold it. The row is the offer, never the answer — accepting it writes `memberships`, and this
+ * table only records that the offer was made, at what role, by whom, and how it ended.
+ *
+ * The address is held as the fold `users.email` holds one (`server/auth/folded-key.ts`), so an
+ * invitation and the account that eventually spends it are matched on the same key, and a value too
+ * long for a btree index cannot fault a door that never judged it.
+ *
+ * The token is a bearer secret, so only its digest is stored — the same discipline `auth_tokens`
+ * keeps. `consumed_at` and `revoked_at` are the two ways an offer stops being spendable; both are
+ * recorded rather than deleted, so an invitation that was withdrawn is distinguishable from one that
+ * was never made when an operator asks.
+ */
+export const invitations = pgTable(
+  "invitations",
+  {
+    invitationId: uuid("invitation_id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.tenantId),
+    invitedEmailKey: text("invited_email_key").notNull(),
+    workspaceRole: text("workspace_role").$type<WorkspaceRole>().notNull().default("MEMBER"),
+    tokenHash: text("token_hash").notNull(),
+    invitedBy: uuid("invited_by")
+      .notNull()
+      .references(() => users.userId),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [
+    check("invitations_workspace_role_closed", statement`${table.workspaceRole} in (${statement.raw(closedList(WORKSPACE_ROLES))})`),
+    // The one read a mailed link makes: the offer a presented token names. Indexed rather than made
+    // UNIQUE — the digest is 256 bits of randomness from one mint, so no second row can carry it,
+    // while a unique constraint on a tenant-scoped table's text column is a constraint the seam's
+    // own per-tenant probe cannot satisfy for two tenants at once (SEAM-TENANT, V-DB).
+    index("invitations_token_hash").on(table.tokenHash),
+  ],
+);
+
+/**
+ * L-REG-07's fork chain, as a column type rather than a convention: platform → tenant → project.
+ * The labels are the `EditionScope` union itself, so the store and the digest cannot come to hold
+ * different ideas of what a scope is; `platform` leads because it is the head of every lineage.
+ */
+const RULESET_SCOPES: readonly [EditionScope, ...EditionScope[]] = ["platform", "tenant", "project"];
+export const rulesetScope = pgEnum("ruleset_scope", RULESET_SCOPES);
+
+/**
+ * The platform rule-set editions (L-MEA-01): the seed `IS1200_IN @ 2026.08` and whatever later
+ * editions the platform mints. No tenant id — a platform edition belongs to no workspace, and a
+ * row in a tenant-scoped table that no tenant owns is a row no policy can answer for.
+ *
+ * The row is immutable: authoring mints a new edition and never updates one, so the migration's
+ * grants and trigger are what the column definitions here cannot say. `content_digest` is
+ * deliberately not unique — a verbatim fork shares its parent's digest by construction, which is
+ * the whole point of a digest over content.
+ *
+ * The content columns are `json` rather than `jsonb`: an edition is held exactly as it was written,
+ * and `jsonb` would re-order its parameter keys on the way in — an edition's own order is what a
+ * surface reads its parameters back in (R-SPINE-012), and a store that shuffled it would leave no
+ * order for anything downstream to answer with. Nothing here queries inside the document, which is
+ * the only thing `jsonb` would buy.
+ */
+export const rulesetEditions = pgTable(
+  "ruleset_editions",
+  {
+    editionId: uuid("edition_id").primaryKey().defaultRandom(),
+    scope: rulesetScope("scope").notNull(),
+    name: text("name").notNull(),
+    version: text("version").notNull(),
+    contentDigest: text("content_digest").notNull(),
+    parameters: json("parameters").$type<Readonly<Record<string, EditionParameter>>>().notNull(),
+    methods: json("methods").$type<readonly MethodPair[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // Identity is (scope, name, version), so the same identity twice over is one edition written twice.
+  (table) => [unique("ruleset_editions_identity").on(table.scope, table.name, table.version)],
+);
+
+/**
+ * A workspace's own editions (L-REG-07): the tenant template forked from the platform seed, and the
+ * project pins forked from that template. `parent_edition_id` names the edition this one was forked
+ * from — across both tables, so it carries no foreign key: the parent of a template lives in
+ * `ruleset_editions` and the parent of a pin lives here.
+ */
+export const tenantRulesetEditions = pgTable(
+  "tenant_ruleset_editions",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    editionId: uuid("edition_id").primaryKey().defaultRandom(),
+    scope: rulesetScope("scope").notNull(),
+    // Null on the template, which belongs to the workspace rather than to any one project.
+    projectId: uuid("project_id"),
+    parentEditionId: uuid("parent_edition_id").notNull(),
+    name: text("name").notNull(),
+    version: text("version").notNull(),
+    contentDigest: text("content_digest").notNull(),
+    parameters: json("parameters").$type<Readonly<Record<string, EditionParameter>>>().notNull(),
+    methods: json("methods").$type<readonly MethodPair[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One template per workspace, and one pin per project: L-REG-07 pins a project once, at creation.
+    uniqueIndex("tenant_ruleset_editions_template_once").on(table.tenantId).where(statement`"scope" = 'tenant'`),
+    uniqueIndex("tenant_ruleset_editions_pin_once").on(table.tenantId, table.projectId).where(statement`"scope" = 'project'`),
+    // The two reads a pinned project makes: its own pin, and the template a second project reuses.
+    index("tenant_ruleset_editions_scope").on(table.tenantId, table.scope),
+  ],
+);
+
+/**
+ * SEAM-PREFS' store (R-UI-005): what one person has chosen for themselves, one row per account. The
+ * key is the account, so a second choice overwrites in place — a preference is a value, not a
+ * history. Like the identity tables it carries no tenant id: a person is one account across every
+ * workspace they belong to, so the row is scoped by the system-scope policy the migration appends.
+ *
+ * `density` is closed by a CHECK built from the seam's own roster, so the store cannot hold a mode
+ * no table can draw; its DEFAULT is the same answer the seam gives an account with no row at all.
+ */
+export const userPrefs = pgTable(
+  "user_prefs",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.userId),
+    density: text("density").$type<Density>().notNull().default(DEFAULT_DENSITY),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [check("user_prefs_density_closed", statement`${table.density} in (${statement.raw(closedList(DENSITIES))})`)],
+);
+
+/**
+ * L-MEA-04's work-item catalogue, as the database holds it. The consts in `src/core/catalogue` are
+ * the source and this is their landed copy: the migration inserts exactly the emitted rows, and
+ * V-VERIFY's catalogue drift stage is what keeps the two the same table. Every text column is
+ * closed by a CHECK built from the enum itself, so the store cannot hold a kind or a dimension the
+ * code does not know — the same belt `user_prefs.density` wears. The unit is closed *against its
+ * dimension* rather than against a bare roster: the pair is what the catalogue asserts, and a row
+ * saying VOLUME is measured in m would be junk the typed surface forbids and the store would keep.
+ */
+export const workItemCatalogue = pgTable(
+  "work_item_catalogue",
+  {
+    kind: text("kind").$type<Kind>().primaryKey(),
+    description: text("description").notNull(),
+    canonicalUnit: text("canonical_unit").notNull(),
+    dimension: text("dimension").$type<Dimension>().notNull(),
+    roundingPrecision: integer("rounding_precision").notNull(),
+  },
+  (table) => [
+    check("work_item_catalogue_kind_closed", statement`${table.kind} in (${statement.raw(closedList(KINDS))})`),
+    check("work_item_catalogue_dimension_closed", statement`${table.dimension} in (${statement.raw(closedList(DIMENSIONS))})`),
+    check(
+      "work_item_catalogue_unit_matches_dimension",
+      statement`(${table.dimension}, ${table.canonicalUnit}) in (${statement.raw(canonicalUnitPairs())})`,
+    ),
+  ],
+);
+
+/** L-MEA-04's `bears` relation: which kinds a class lawfully bears, one row per admitted pair. */
+export const bears = pgTable(
+  "bears",
+  {
+    elementType: text("element_type").$type<ElementType>().notNull(),
+    kind: text("kind").$type<Kind>().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.elementType, table.kind] }),
+    check("bears_element_type_closed", statement`${table.elementType} in (${statement.raw(closedList(ELEMENT_TYPES))})`),
+    check("bears_kind_closed", statement`${table.kind} in (${statement.raw(closedList(KINDS))})`),
+  ],
 );
 
 /** Everything the typed surface covers. A table joins the surface by joining this object. */
-const schema = { tenants, participants, acts, participantRoles, users, sessions, authTokens, memberships, authAttempts };
+const schema = {
+  tenants,
+  projects,
+  participants,
+  acts,
+  participantRoles,
+  participantRoleWithdrawals,
+  users,
+  sessions,
+  authTokens,
+  memberships,
+  invitations,
+  authAttempts,
+  rulesetEditions,
+  tenantRulesetEditions,
+  userPrefs,
+  workItemCatalogue,
+  bears,
+};
 
 /** A handle scoped to one tenant: the typed read/write surface, filtered by row-level security. */
 export type TenantDb = PostgresJsDatabase<typeof schema>;

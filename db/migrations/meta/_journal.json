@@ -29,6 +29,62 @@
       "when": 1787734835962,
       "tag": "0003_identity_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787956899079,
+      "tag": "0004_ruleset-editions",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788042166111,
+      "tag": "0005_projects",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788051637770,
+      "tag": "0006_participants",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788058488003,
+      "tag": "0007_user-prefs",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788074848492,
+      "tag": "0008_catalogue-tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788165621293,
+      "tag": "0009_tenancy-roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788201616851,
+      "tag": "0010_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788204539610,
+      "tag": "0011_invitations-token-index",
+      "breakpoints": true
     }
   ]
 }

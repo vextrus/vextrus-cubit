@@ -31,6 +31,13 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"]],
   globalSetup: "./tests/e2e/support/global-setup.ts",
+  // V-E2E: the visual comparisons stand against baselines committed for Linux, in one directory
+  // rather than beside each spec — a journey names its baseline and the lane says where it lives.
+  snapshotPathTemplate: "tests/e2e/baselines/design/{arg}{ext}",
+  expect: {
+    // V-E2E fixes the tolerance for every visual comparison in the lane.
+    toHaveScreenshot: { maxDiffPixelRatio: 0.002 },
+  },
   timeout: 120_000,
   use: {
     baseURL,

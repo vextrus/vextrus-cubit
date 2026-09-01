@@ -69,7 +69,16 @@ function displayPath(file: string): string {
   return inside.startsWith("..") ? file : inside.split(sep).join("/");
 }
 
-const isTestFile = (name: string): boolean => name.includes(".test.");
+/**
+ * Is this path test-side, and so outside the orphan domain entirely? Q-07 defines an orphan as a
+ * refusal-shaped code spelled in PRODUCT source, and defines "exercised" as being named in a test —
+ * the clause partitions test files out of the domain it judges, or every exercising test would
+ * create the orphan it exists to clear. A `__tests__` directory segment names test scaffolding as
+ * plainly as a `*.test.*` basename does: acceptance support modules carry ordinary basenames and
+ * live beside the cases that import them (settled by arbitration on this increment).
+ */
+const isTestFile = (name: string): boolean =>
+  name.includes(".test.") || name.split(/[/\\]/).includes("__tests__");
 
 /**
  * One glob as a regular expression over a repo-relative POSIX path, in the grammar the lane's globs

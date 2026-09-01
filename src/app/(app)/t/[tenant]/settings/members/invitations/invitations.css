@@ -1,0 +1,143 @@
+/* The invitations panel (docs/design/s-settings.md §1 "Invitations", §5): the invite form, then the
+   offers that still stand — the same variable-height blocks with hairline seams the roster above it
+   is built from. Colour, spacing, type and motion are tokens only — no literal value and no
+   [data-theme] selector, so both themes are the same rules read against different token values. */
+
+/* The screen's column: the roster and the panel beneath it, in the settings-screen measure. */
+.cx-members-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 800px;
+}
+
+.cx-invitations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cx-invitations-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-invitations-heading {
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-invitations-hint {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-invitations-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-invitations-label {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+}
+
+.cx-invitations-field-hint {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-invitations-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.cx-invitations-email {
+  flex: 1 1 320px;
+  min-width: 240px;
+}
+
+.cx-invitations-pending {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-invitations-pending-heading {
+  margin: 0;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+}
+
+.cx-invitations-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-invitations-list:not(:empty) {
+  border-top: var(--hairline);
+}
+
+.cx-invitations-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-3);
+  border-bottom: var(--hairline);
+}
+
+.cx-invitations-identity {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.cx-invitations-invitee {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-invitations-role {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+}
+
+.cx-invitations-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cx-invitations-none {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-invitations-status {
+  margin: 0;
+  min-height: var(--text-13);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}

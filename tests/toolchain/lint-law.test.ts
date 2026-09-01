@@ -22,6 +22,7 @@ const RULE_OF_SLUG: Readonly<Record<string, string>> = {
   "no-colour-literal": "cubit/no-colour-literal",
   "no-raw-intl": "cubit/no-raw-intl",
   "no-db-outside-seam": "cubit/no-db-outside-seam",
+  "no-model-outside-seam": "cubit/no-model-outside-seam",
   "fault-or-refusal": "cubit/fault-or-refusal",
   "no-suppressions": "cubit/no-suppressions",
   "no-explicit-any": "@typescript-eslint/no-explicit-any",
