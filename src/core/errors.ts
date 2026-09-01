@@ -49,11 +49,11 @@ export type RefusalCode =
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
-  code: RefusalCode;
-  message: string;
-  remedy: string;
-  severity: RefusalSeverity;
-  surface: RefusalSurface;
+  readonly code: RefusalCode;
+  readonly message: string;
+  readonly remedy: string;
+  readonly severity: RefusalSeverity;
+  readonly surface: RefusalSurface;
 };
 
 /**
