@@ -31,7 +31,7 @@ TOOL: Final = "libredwg"
 #: readably in its minimal form (`$ACADVER`, `HANDSEED` and the entities — its whole-file spelling
 #: of those carries an `ENDBLK` whose handle is zero, which no DXF reader admits), so that form is
 #: tried next rather than refusing a drawing this toolchain can in fact convert.
-_CONVERSION_FORMS: Final = ((), ("-m",))
+_CONVERSION_FORMS: Final = (("whole", ()), ("minimal", ("-m",)))
 
 #: Where the census pass is asked to write, inside the invocation's own scratch directory.
 _CENSUS_JSON: Final = "census.json"
@@ -108,8 +108,8 @@ def _geometry_pass(
     still found and one attempt's leavings can never be read as another's.
     """
     problems: list[str] = []
-    for index, flags in enumerate(_CONVERSION_FORMS):
-        room = scratch / f"conversion-{index}"
+    for form, flags in _CONVERSION_FORMS:
+        room = scratch / f"conversion-{form}"
         room.mkdir()
         diagnostics = run_pass(
             toolchain.dwg2dxf,
@@ -119,12 +119,12 @@ def _geometry_pass(
         )
         converted = _written(room)
         if converted is None:
-            problems.append(f"the geometry pass wrote no DXF{quote(diagnostics)}")
+            problems.append(f"the {form} conversion wrote no DXF{quote(diagnostics)}")
             continue
         try:
             return converted, geometry_tally(converted)
         except DwgError as error:
-            problems.append(str(error))
+            problems.append(f"the {form} conversion: {error}")
     raise DwgError(f"{source.name}: {'; '.join(problems)}")
 
 
