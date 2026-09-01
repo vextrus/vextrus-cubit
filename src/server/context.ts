@@ -119,7 +119,23 @@ function configuredOrigin(): string | null {
  * claiming to be a request to the machine it is already running on.
  */
 export function deploymentIsSecure(req: Request): boolean {
-  return answeredScheme(reachedHostname(req.headers.get("host"))) === "https";
+  return answeredScheme(arrivedAtHostname(req)) === "https";
+}
+
+/**
+ * The hostname this request was reached at, on the same terms `arrivalOrigin` composes the arrival
+ * address on: the `Host` it stated, and where it stated none the URL it carries.
+ *
+ * A request off a network always states a `Host` — HTTP/1.1 requires it and a hop writes its own —
+ * so a `Request` without one was composed in this process by the caller holding it, a suite driving
+ * the shipped handler, and the address it composed is by construction the address it dialled. Both
+ * screens read that same fact the same way: one request has one arrival address, and a suite that
+ * composes `http://127.0.0.1/…` is not a deployment behind TLS (ARCH-02, B-17).
+ */
+function arrivedAtHostname(req: Request): string | null {
+  const host = req.headers.get("host");
+  if (host !== null) return reachedHostname(host);
+  return URL.parse(typeof req.url === "string" ? req.url : "")?.hostname ?? null;
 }
 
 /** The hostname half of a `Host`, which is the only part of an address a request states truthfully. */

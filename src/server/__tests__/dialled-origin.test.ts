@@ -204,4 +204,18 @@ describe("R-SPINE-006: the seam carries the address a request was dialled at, no
     // cookie on plain http is one no browser keeps, and the journeys' own server is served there.
     expect(deploymentIsSecure(requestAs("http://127.0.0.1:3211/api/trpc/spine.auth.signIn", { host: "127.0.0.1:3211" }))).toBe(false);
   });
+
+  test("a request composed in this process with no Host is read at the address it composed", () => {
+    // `new Request(url)` synthesises no `Host`, and no request off a network lacks one: such a
+    // request was composed here by the caller holding it — a suite driving the shipped handler — so
+    // the URL it composed IS the address it dialled. Both screens read it that way (ARCH-02, B-17):
+    // the arrival address the origin rule is handed, and the flag a session cookie is set under.
+    delete process.env[PUBLIC_ORIGIN_VAR];
+    const composed = requestAs("http://127.0.0.1:3211/api/trpc/spine.auth.signIn", {});
+    expect(composed.headers.get("host"), "the case under test is a request stating no Host at all").toBeNull();
+    expect(deploymentIsSecure(composed), "a suite's own loopback request is not a deployment behind TLS").toBe(false);
+    expect(deploymentIsSecure(requestAs("http://localhost/api/trpc/spine.auth.signIn", {}))).toBe(false);
+    // And the same request off a real hostname is still treated as TLS: absence is not permission.
+    expect(deploymentIsSecure(requestAs("https://cubit.example/api/trpc/spine.auth.signIn", {}))).toBe(true);
+  });
 });
