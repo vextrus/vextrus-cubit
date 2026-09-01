@@ -138,9 +138,19 @@ const isMissing = (error: unknown): boolean => (error as { code?: unknown } | nu
 /**
  * Is the address settled — does a file stand at it? Asked of the volume rather than inferred from a
  * race, so "somebody else already stored these bytes" is never assumed on a volume where nothing is
- * stored at all.
+ * stored at all. Only `ENOENT` is an answer of "nothing is stored here": a denied prefix (`EACCES`),
+ * a symlink loop (`ELOOP`) or a failing device (`EIO`) is the volume declining to answer the
+ * question at all, and a predicate about existence must not report that as an existence answer
+ * (ARCH-03, B-21) — it is raised, and it is the caller of the probe that decides what the story is.
  */
-const isStored = (file: string): Promise<boolean> => access(file).then(() => true).catch(() => false);
+const isStored = (file: string): Promise<boolean> =>
+  access(file).then(
+    () => true,
+    (error: unknown) => {
+      if (isMissing(error)) return false;
+      throw error;
+    },
+  );
 
 /**
  * The seam over a local filesystem root. Every knob is a value on `options`, so two seams over the
@@ -197,7 +207,11 @@ export function makeStorage(options: StorageOptions): Storage {
         // about to settle already settled. Both are absorbed only against the volume's own answer:
         // the address is asked about, never assumed, so an ENOENT with nothing at the address is a
         // story the caller still hears (ARCH-03, B-21).
-        if (code !== "EEXIST" && !(code === "ENOENT" && (await isStored(file)))) throw error;
+        // The probe is asked in service of THIS error's story, so a volume that cannot answer it
+        // changes nothing: without proof that the address is settled, the caller is owed the `link`
+        // failure it already has, and that original error — never the probe's — is what is raised.
+        const settled = code === "ENOENT" && (await isStored(file).catch(() => false));
+        if (code !== "EEXIST" && !settled) throw error;
       } finally {
         // Removing the staging copy is cleanup, not the operation: if it fails, the caller still
         // owes the story of what went wrong with `link`, so its rejection never replaces that one —
