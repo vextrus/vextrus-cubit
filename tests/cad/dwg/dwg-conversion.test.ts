@@ -44,6 +44,8 @@ describe("the DWG lane's conversion and its audit", () => {
 
   it("AC-3: an isolated subprocess, the toolchain's own identity recorded, and nothing left behind", () => {
     requireDwgLane();
-    expectPytestGreen(runPytest([DWG_SUITE, "-q", "-k", "ac3"]), "AC-3", 7);
+    // Among them: the swapped-toolchain case that binds `tool_version` to the programs the call was
+    // given, rather than to a version the lane could spell for itself.
+    expectPytestGreen(runPytest([DWG_SUITE, "-q", "-k", "ac3"]), "AC-3", 8);
   }, PYTEST_BUDGET_MS);
 });

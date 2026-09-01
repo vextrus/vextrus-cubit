@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -36,12 +38,19 @@ from vextrus_cad.dwg import (
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 SOURCE = FIXTURE_DIR / "basic.dwg"
 
+#: cad/tests/dwg/test_dwg_convert.py -> the checkout. Nothing this suite runs may write inside it.
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
 #: `ingest.py` spells the model layout with this lowercase word; the census must agree (L-CAD-04's
 #: "that sheet" is a space of the converted drawing).
 MODEL_SPACE = "model"
 
 #: A budget for the suite's *own* subprocess re-derivations — not the lane's.
 PROBE_TIMEOUT_SECONDS = 300.0
+
+#: A version in a LibreDWG banner's shape that no LibreDWG release reports. A `tool_version` the
+#: lane spells for itself — a literal, or the machine's real banner — cannot hold this.
+STUB_VERSION = "41.42.43"
 
 
 def _assert_tally_shape(tally: dict[str, dict[str, int]], what: str) -> None:
@@ -55,18 +64,91 @@ def _assert_tally_shape(tally: dict[str, dict[str, int]], what: str) -> None:
             assert isinstance(count, int) and count > 0, f"{what}[{space!r}][{dxftype!r}] is not a tally"
 
 
+def _write_dwgread_census(source: Path, target: Path) -> None:
+    """The census pass run by this suite itself, straight off the toolchain's own JSON."""
+    subprocess.run(
+        [DEFAULT_TOOLCHAIN.dwgread, "-O", "JSON", "-o", str(target), str(source)],
+        capture_output=True,
+        check=False,
+        timeout=PROBE_TIMEOUT_SECONDS,
+    )
+    assert target.is_file(), f"dwgread -O JSON wrote no census for {source.name}"
+
+
 def _dwgread_census_document() -> dict[str, Any]:
-    """The census pass run again by this suite, straight off the toolchain's own JSON."""
     with tempfile.TemporaryDirectory() as scratch:
         target = Path(scratch) / "census.json"
-        subprocess.run(
-            [DEFAULT_TOOLCHAIN.dwgread, "-O", "JSON", "-o", str(target), str(SOURCE)],
-            capture_output=True,
-            check=False,
-            timeout=PROBE_TIMEOUT_SECONDS,
-        )
-        assert target.is_file(), "dwgread -O JSON wrote no census for the committed fixture"
+        _write_dwgread_census(SOURCE, target)
         return json.loads(target.read_text(encoding="utf-8", errors="replace"))
+
+
+def _stub_program(path: Path, *, payload: Path, suffix: str, version: str) -> str:
+    """A stand-in for one LibreDWG program, written at test time and executable.
+
+    It answers `--version` with a banner in the real programs' own shape, and otherwise replays a
+    prepared payload — a real census, a real converted DXF — wherever its counterpart was asked to
+    write. Replaying real work is what makes a stubbed run a real success rather than a mutual
+    agreement between the lane and this test's guesses.
+    """
+    path.write_text(
+        _STUB_SOURCE.format(
+            python=sys.executable,
+            version=version,
+            payload=str(payload),
+            suffix=suffix,
+            forbidden=str(REPO_ROOT),
+        ),
+        encoding="utf-8",
+    )
+    path.chmod(0o755)
+    return str(path)
+
+
+_STUB_SOURCE = '''#!{python}
+import sys
+from pathlib import Path
+
+VERSION = {version!r}
+PAYLOAD = {payload!r}
+SUFFIX = {suffix!r}
+FORBIDDEN = Path({forbidden!r}).resolve()
+
+argv = sys.argv[1:]
+if "--version" in argv or "-V" in argv:
+    # `dwgread --version` reports "<program> <version>" on stdout, and so does this.
+    sys.stdout.write(Path(sys.argv[0]).name + " " + VERSION + "\\n")
+    sys.exit(0)
+
+targets = []
+for index, argument in enumerate(argv):
+    if argument in ("-o", "--file") and index + 1 < len(argv):
+        targets.append(Path(argv[index + 1]))
+    elif argument.startswith("--file="):
+        targets.append(Path(argument.split("=", 1)[1]))
+    elif argument.startswith("-o") and len(argument) > 2:
+        targets.append(Path(argument[2:]))
+for argument in argv:
+    if argument.lower().endswith(".dwg"):
+        drawing = Path(argument)
+        targets.append(drawing.with_suffix(SUFFIX))
+        targets.append(Path.cwd() / (drawing.stem + SUFFIX))
+
+body = Path(PAYLOAD).read_bytes()
+for target in targets:
+    try:
+        resolved = target.resolve()
+    except OSError:
+        continue
+    if resolved == FORBIDDEN or FORBIDDEN in resolved.parents:
+        continue  # never write inside the checkout
+    try:
+        resolved.parent.mkdir(parents=True, exist_ok=True)
+        resolved.write_bytes(body)
+    except OSError:
+        pass
+sys.stdout.buffer.write(body)
+sys.exit(0)
+'''
 
 
 def test_ac1_the_committed_fixture_is_a_real_dwg() -> None:
@@ -137,6 +219,12 @@ def test_ac3_leaves_only_the_converted_dxf_and_no_scratch(tmp_path: Path, monkey
 
 
 def test_ac3_records_the_toolchains_own_identity(tmp_path: Path) -> None:
+    """The default toolchain's identity, as the machine reports it.
+
+    This grades agreement with the machine's own LibreDWG; that the field is *read* from whichever
+    toolchain the call was given — rather than known to the lane without asking — is what
+    `test_ac3_tool_version_comes_from_the_toolchain_it_was_given` below binds.
+    """
     out_dir = tmp_path / "out"
     out_dir.mkdir()
 
@@ -159,6 +247,43 @@ def test_ac3_records_the_toolchains_own_identity(tmp_path: Path) -> None:
     machine_version = re.search(r"\d+\.\d+(?:\.\d+)*", banner)
     assert machine_version is not None, f"the toolchain reports no version at all: {banner!r}"
     assert machine_version.group(0) in result.tool_version
+
+
+def test_ac3_tool_version_comes_from_the_toolchain_it_was_given(tmp_path: Path) -> None:
+    # A private copy of the drawing: the stubs replay their payload beside whatever they are pointed
+    # at, and nothing this test runs may write inside the checkout.
+    source = tmp_path / SOURCE.name
+    shutil.copyfile(SOURCE, source)
+
+    # Stage the payloads from the real thing — the toolchain's own census, the lane's own converted
+    # DXF — so the stubbed run below succeeds for the same reason a real one does.
+    golden_dir = tmp_path / "golden"
+    golden_dir.mkdir()
+    golden = convert_dwg(source, golden_dir)
+    census_json = tmp_path / "census.json"
+    _write_dwgread_census(source, census_json)
+
+    # The stubs carry their counterparts' names, so the version in their banner is the one thing
+    # separating this toolchain from the machine's.
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    toolchain = Toolchain(
+        _stub_program(bin_dir / "dwgread", payload=census_json, suffix=".json", version=STUB_VERSION),
+        _stub_program(bin_dir / "dwg2dxf", payload=golden.dxf_path, suffix=".dxf", version=STUB_VERSION),
+        DEFAULT_TOOLCHAIN.timeout_seconds,
+    )
+
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    result = convert_dwg(source, out_dir, toolchain=toolchain)
+
+    assert result.dxf_path.is_file(), "the stubbed pair replayed complete work; the conversion must succeed"
+    assert result.tool == "libredwg", "the tool is the toolchain's family, whichever programs carry it"
+    assert STUB_VERSION in result.tool_version, (
+        f"tool_version {result.tool_version!r} did not come from the toolchain this call was given, "
+        f"whose programs report version {STUB_VERSION} — a version the lane knows without asking the "
+        f"programs it was handed is not read from their own --version output"
+    )
 
 
 @pytest.mark.parametrize("program", ["dwgread", "dwg2dxf"])
