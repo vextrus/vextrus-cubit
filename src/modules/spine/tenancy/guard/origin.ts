@@ -18,7 +18,11 @@ import { originNotVerified } from "../refusals";
 export interface OriginClaim {
   /** The `Origin` header as the request stated it, or null when it stated none. */
   readonly statedOrigin: string | null;
-  /** The origin of the URL the request arrived at. */
+  /**
+   * The address the request was dialled at, empty where there is none to state: what a hop rewrote
+   * `Host` to is its own upstream address and is not one, so a deployment that states a network
+   * address carries an arrival address only where it is the one it states (src/server/context.ts).
+   */
   readonly requestOrigin: string;
   /** The address the deployment states it answers at, empty when nothing is configured. */
   readonly configuredOrigin: string;
@@ -52,7 +56,7 @@ function addressesThisMachine(origin: string): boolean {
  * attacker's own, and the stated `Origin` then matches it. That is precisely the cross-site request
  * R-SPINE-006 legislates against, and R-SPINE-001 bans deciding anything on client-written headers.
  *
- * It answers in exactly two cases, and both of them require the request to have arrived at this
+ * The arrival address is admitted beside it in exactly the cases where the request arrived at this
  * machine's own address — which a browser cannot produce against a deployment it reached over a
  * network, because a browser composes `Host` from the address it dialled, so for a browser the
  * arrival address IS the deployment's:
@@ -62,16 +66,21 @@ function addressesThisMachine(origin: string): boolean {
  *     states no address mails no link either, and says so (R-SPINE-001, src/server/context.ts). An
  *     unconfigured deployment answering on a real hostname is not a deployment whose cookies this
  *     rule may spend on a caller's word: absence is not permission;
- *   - the request arrived at this machine's own address while the deployment answers elsewhere: a
- *     caller inside the process driving the shipped handler, which composes the URL itself.
+ *   - the request arrived at this machine's own address: a caller inside the process driving the
+ *     shipped handler, which composes the URL itself, and a browser that dialled one of this
+ *     machine's several names — `localhost` and `127.0.0.1` are the same machine under two
+ *     spellings, and one served port is not the other. What the deployment states it answers at is
+ *     one of those names, never all of them, so a rule that admitted the arrival address only while
+ *     the deployment answers *elsewhere* would refuse the loopback deployment — the more trusted of
+ *     the two — the very claim it admits for a networked one. The hardening is unmoved either way:
+ *     the arrival address is admitted for being this machine's, never for matching what was stated.
  */
 function answeredAt(claim: OriginClaim): readonly string[] {
   const configured = originOf(claim.configuredOrigin);
   const arrivedAt = originOf(claim.requestOrigin);
   const arrivedHere = addressesThisMachine(arrivedAt);
   if (configured === "") return arrivedHere ? [arrivedAt] : [];
-  if (arrivedHere && !addressesThisMachine(configured)) return [configured, arrivedAt];
-  return [configured];
+  return arrivedHere ? [configured, arrivedAt] : [configured];
 }
 
 /** Refuse a stated origin this deployment does not answer at, and let every other request through. */
