@@ -49,7 +49,10 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // `CUBIT_PUBLIC_ORIGIN` is the deployment's statement of the address it answers at, read in
     // `src/server/context.ts`: a mailed link may not be pointed by the caller's own Host header
     // (R-SPINE-001), so the origin comes from the machine rather than from the request.
-    codes: Object.freeze(["DATABASE_URL", "STORAGE_ROOT", "NODE_ENV", "CUBIT_PUBLIC_ORIGIN"]),
+    // `WORKER_HEALTH_PORT` is where the worker process answers about its own health, read in
+    // `src/worker/main.ts`: the machine says which port it may bind, because the process that runs
+    // the queues is a service the host supervises (R-SPINE-031).
+    codes: Object.freeze(["DATABASE_URL", "STORAGE_ROOT", "NODE_ENV", "CUBIT_PUBLIC_ORIGIN", "WORKER_HEALTH_PORT"]),
   }),
   Object.freeze({
     // L-ACT-02's act-type enum, spelled as the law spells it. An act type names what a human did; it
