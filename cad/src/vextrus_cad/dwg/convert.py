@@ -83,6 +83,7 @@ def _census_pass(source: Path, scratch: Path, toolchain: Toolchain) -> dict[str,
         toolchain.dwgread,
         [toolchain.dwgread, "-O", "JSON", "-o", str(target), str(source)],
         source=source,
+        pass_name="the census pass",
         timeout_seconds=toolchain.timeout_seconds,
     )
     if not target.is_file():
@@ -115,6 +116,7 @@ def _geometry_pass(
             toolchain.dwg2dxf,
             [toolchain.dwg2dxf, *flags, "-o", str(room / f"{source.stem}.dxf"), str(source)],
             source=source,
+            pass_name=f"the geometry pass ({form} conversion)",
             timeout_seconds=toolchain.timeout_seconds,
         )
         converted = _written(room)

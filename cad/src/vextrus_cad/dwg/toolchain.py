@@ -51,8 +51,19 @@ def quote(diagnostics: str) -> str:
     return f" — {said[-_DIAGNOSTIC_TAIL:]}" if said else ""
 
 
-def run_pass(program: str, argv: Sequence[str], *, source: Path, timeout_seconds: float) -> str:
+def run_pass(
+    program: str,
+    argv: Sequence[str],
+    *,
+    source: Path,
+    pass_name: str,
+    timeout_seconds: float,
+) -> str:
     """Spawn one pass and return its diagnostics; refuse the drawing by name if it cannot run.
+
+    Every refusal names the drawing and the pass that was running, because the two passes can be
+    told apart by neither the program's name — a toolchain may name one program twice — nor by an
+    exit code, which L-CAD-04 does not admit as evidence of anything.
 
     The returned text is the program's stdout and stderr together, decoded leniently: a program
     that writes bytes no encoding admits is still a program whose words belong in a refusal.
@@ -68,16 +79,20 @@ def run_pass(program: str, argv: Sequence[str], *, source: Path, timeout_seconds
         )
     except FileNotFoundError as error:
         raise DwgError(
-            f"{source.name}: {program} is not on this machine, so the drawing cannot be converted"
+            f"{source.name}: {pass_name} cannot run because {program} is not on this machine,"
+            " so the drawing cannot be converted"
         ) from error
     except OSError as error:
         # Anything else the operating system refuses to spawn — a program that is not executable,
         # a name that resolves to a directory — is the same refusal: this drawing cannot be
         # converted, said in words rather than as an interpreter traceback.
-        raise DwgError(f"{source.name}: {program} cannot be run: {error.strerror or error}") from error
+        raise DwgError(
+            f"{source.name}: {pass_name} cannot run {program}: {error.strerror or error}"
+        ) from error
     except subprocess.TimeoutExpired as error:
         raise DwgError(
-            f"{source.name}: {program} outran its {timeout_seconds:g}s budget and was stopped"
+            f"{source.name}: {pass_name} outran its {timeout_seconds:g}s budget"
+            f" and {program} was stopped"
         ) from error
 
     return f"{_text(completed.stdout)}\n{_text(completed.stderr)}"
@@ -94,6 +109,7 @@ def tool_version(toolchain: Toolchain, source: Path) -> str:
         toolchain.dwgread,
         [toolchain.dwgread, "--version"],
         source=source,
+        pass_name="the toolchain's version banner",
         timeout_seconds=toolchain.timeout_seconds,
     )
     lines = [line.strip() for line in banner.splitlines() if line.strip()]
