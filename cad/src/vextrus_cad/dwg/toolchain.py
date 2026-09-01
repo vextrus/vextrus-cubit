@@ -156,7 +156,9 @@ def run_pass(
         # Anything else the operating system refuses to spawn — a program that is not executable, a
         # name that resolves to a directory — is the same refusal: this drawing cannot be
         # converted, said in words rather than as an interpreter traceback.
-        raise DwgError(f"{source.name}: {pass_name} cannot run {program}: {error.strerror or error}") from error
+        raise DwgError(
+            f"{source.name}: {pass_name} cannot run {program}: {error.strerror or error}"
+        ) from error
 
     try:
         running.wait(timeout=budget)
