@@ -104,6 +104,48 @@ function mutableFieldsOf(code: string, name: string): string[] {
     .map((line) => line.trim());
 }
 
+/**
+ * A module's comments as the paragraphs they were written in: each `/* … *\/` block is one, and each
+ * run of adjacent `//` lines is one. A sentence is graded against the paragraph it stands in, so a
+ * claim in one comment cannot be answered by an unrelated word in another.
+ */
+function commentParagraphsOf(source: string): string[] {
+  const blocks = source.match(/\/\*[\s\S]*?\*\//g) ?? [];
+  const withoutBlocks = source.replace(/\/\*[\s\S]*?\*\//g, "\n");
+  const runs: string[] = [];
+  let run: string[] = [];
+  for (const line of withoutBlocks.split("\n")) {
+    if (line.trimStart().startsWith("//")) run.push(line.trim());
+    else if (run.length > 0) {
+      runs.push(run.join(" "));
+      run = [];
+    }
+  }
+  if (run.length > 0) runs.push(run.join(" "));
+  return [...blocks, ...runs];
+}
+
+/**
+ * Every argument list handed to a `.where( … )`, balanced by parentheses so a nested `and(eq(…))`
+ * comes back whole. This is how "the filter is stated in the query" is told apart from "the name
+ * appears somewhere in the file": a local nobody passes to the query builder is not a filter.
+ */
+function wherePredicatesOf(code: string): string[] {
+  const predicates: string[] = [];
+  const opens = /\.where\s*\(/g;
+  for (let hit = opens.exec(code); hit !== null; hit = opens.exec(code)) {
+    const from = hit.index + hit[0].length;
+    let depth = 1;
+    let at = from;
+    for (; at < code.length && depth > 0; at += 1) {
+      if (code[at] === "(") depth += 1;
+      else if (code[at] === ")") depth -= 1;
+    }
+    predicates.push(code.slice(from, Math.max(from, at - 1)));
+  }
+  return predicates;
+}
+
 /** One act judging one subject, moving it from `before` to `after`. */
 function consequenceOver(before: readonly string[], after: readonly string[]): Judged {
   return {
@@ -138,16 +180,45 @@ describe("AC-6: movesNothing judges a subject by content, not by position", () =
 
 describe("AC-6: db/reason.ts no longer says the fault seam is unbuilt", () => {
   test("AC-6: the recorder hook's comment states something true about ARCH-03's seam", async () => {
+    // The paragraph reader is graded before it grades anything: adjacent `//` lines are one
+    // paragraph, a blank line ends it, and a block comment is its own.
+    expect(commentParagraphsOf("// one\n// two\n\n// far away\nconst x = 1;\n"), "adjacent // lines are one paragraph, and a blank line ends it").toEqual([
+      "// one // two",
+      "// far away",
+    ]);
+    expect(commentParagraphsOf("/** a block */\n// a line\n"), "a block comment is its own paragraph").toEqual(["/** a block */", "// a line"]);
+
     const source = sourceOf(REASON_MODULE, "SEAM-TENANT records a system reason through this hook");
     expect(
       /not\s+built\s+yet|is\s+not\s+built|isn't\s+built/i.test(source),
       `${REASON_MODULE} must stop saying ARCH-03's fault seam is unbuilt — src/core/faults/report.ts is in the tree, and prose that contradicts the tree is worse than no prose (B-05)`,
     ).toBe(false);
-    // Whatever seam the comment now names must be a file that is actually there: a corrected comment
+
+    // Deleting the false claim is only half the row: the criterion asks the comment to STATE one of
+    // two things — the seam that exists, or what the hook is still waiting for. A comment that
+    // asserts neither leaves the reader exactly where the wrong one did.
+    const named = source.match(/src\/[A-Za-z0-9_.\-/]+\.tsx?/g) ?? [];
+    // Whatever seam the comment names must be a file that is actually there: a corrected comment
     // pointing at nothing would be the same defect wearing a different sentence.
-    for (const named of source.match(/src\/[A-Za-z0-9_.\-/]+\.tsx?/g) ?? []) {
-      expect(existsSync(join(REPO_ROOT, named)), `${REASON_MODULE} names ${named}, which is not in the checkout`).toBe(true);
+    for (const path of named) {
+      expect(existsSync(join(REPO_ROOT, path)), `${REASON_MODULE} names ${path}, which is not in the checkout`).toBe(true);
     }
+    // "Names the seam that exists" means the fault seam, not any file that happens to be mentioned.
+    const namesASeamThatExists = named.some((path) => /fault/i.test(path) && existsSync(join(REPO_ROOT, path)));
+
+    // The other lawful spelling: no path, but a plain statement of what the hook is still waiting
+    // for. It has to be ONE paragraph that says both halves — the waiting, and that it is ARCH-03's
+    // fault seam being waited on. Graded paragraph by paragraph on purpose: this module already says
+    // elsewhere that the recorder is "undefined until something is listening", and a fact about a
+    // variable's default is not a statement about the seam.
+    const paragraphs = commentParagraphsOf(sourceOf(REASON_MODULE, "SEAM-TENANT records a system reason through this hook"));
+    const waiting = /\b(waits?|waiting|awaits?|still|not yet|unwired|unpointed|nothing is listening|nobody is listening)\b/i;
+    const theSeam = /\b(fault|ARCH-03|report)\b/i;
+    const saysWhatItWaitsFor = paragraphs.some((paragraph) => waiting.test(paragraph) && theSeam.test(paragraph));
+    expect(
+      namesASeamThatExists || saysWhatItWaitsFor,
+      `${REASON_MODULE}'s comment must now say something a reader can act on: either it NAMES the seam that exists (a src/… path this checkout holds — src/core/faults/report.ts is the one ARCH-03 built) or it states plainly what the hook is still waiting for. Removing the false sentence and asserting nothing in its place pays the row's cost without paying the row (B-05)`,
+    ).toBe(true);
   });
 });
 
@@ -177,11 +248,31 @@ describe("AC-6: RefusalEntry's fields are readonly", () => {
 
 describe("AC-6: the participation read states its tenant filter beside RLS", () => {
   test("AC-6: the filter is stated in the query, and no exported signature moves", async () => {
+    // The predicate reader is graded before it grades anything: a `.where(...)` argument comes back
+    // whole however it nests or wraps, and a module with no read yields nothing.
+    expect(wherePredicatesOf("q.where(and(eq(t.projectId, p), eq(t.userId, u)));"), "a nested predicate comes back whole").toEqual([
+      "and(eq(t.projectId, p), eq(t.userId, u))",
+    ]);
+    expect(wherePredicatesOf("q\n  .where(\n    inArray(t.grantId, ids.map((g) => g.id)),\n  );"), "a predicate laid out over several lines comes back whole").toEqual([
+      "\n    inArray(t.grantId, ids.map((g) => g.id)),\n  ",
+    ]);
+    expect(wherePredicatesOf("const tenantId = ctx.tenantId;\nq.from(t);"), "a name outside every predicate is not a filter").toEqual([]);
+
     const code = codeOf(PARTICIPATION_MODULE, "L-ACT-03's permission check lives in the act seam");
-    expect(
-      /\btenantId\b/.test(code),
-      `${PARTICIPATION_MODULE} must state its tenant filter explicitly beside row-level security — a read whose only tenant predicate is the policy's is a read that says nothing about what it means (SEAM-TENANT, R-SPINE-004)`,
-    ).toBe(true);
+    const predicates = wherePredicatesOf(code);
+    expect(predicates.length, `${PARTICIPATION_MODULE} reads through the query builder, so it states at least one .where(...) predicate`).toBeGreaterThan(0);
+
+    // The rule, derived from the keys these tables carry rather than from a count of today's reads:
+    // a project is identified by (tenant, project), so a predicate that narrows to a project without
+    // naming the tenant that owns it is a predicate whose meaning is carried entirely by the policy.
+    const projectScoped = predicates.filter((predicate) => /\.projectId\b/.test(predicate));
+    expect(projectScoped.length, `${PARTICIPATION_MODULE} narrows its reads to a project`).toBeGreaterThan(0);
+    for (const predicate of projectScoped) {
+      expect(
+        /\.tenantId\b/.test(predicate),
+        `${PARTICIPATION_MODULE} must state its tenant filter INSIDE the query's own predicate, beside row-level security — a read narrowed to a project must name the tenant that owns it, because a project is identified by the pair. A name that never reaches the query builder filters nothing, and a read whose only tenant predicate is the policy's says nothing about what it means (SEAM-TENANT, R-SPINE-004). This predicate does not: ${predicate.trim()}`,
+      ).toBe(true);
+    }
 
     // "…without changing any exported signature": src/modules/spine/participants/roster.ts calls
     // these, and that file is not this increment's ground, so the arity each one takes is part of
