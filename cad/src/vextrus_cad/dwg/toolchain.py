@@ -45,6 +45,19 @@ class Toolchain:
 DEFAULT_TOOLCHAIN: Final = Toolchain("dwgread", "dwg2dxf", DWG_TIMEOUT_SECONDS)
 
 
+@dataclass(frozen=True)
+class PassOutput:
+    """What one pass said for itself. Its exit code is not here, because it is not evidence."""
+
+    stdout: str
+    stderr: str
+
+    @property
+    def diagnostics(self) -> str:
+        """Both streams together, for a refusal that quotes the program's own words."""
+        return f"{self.stdout}\n{self.stderr}"
+
+
 def quote(diagnostics: str) -> str:
     """A program's own words, trimmed, for a refusal that names what the program said."""
     said = diagnostics.strip()
@@ -57,16 +70,21 @@ def run_pass(
     *,
     source: Path,
     pass_name: str,
+    room: Path,
     timeout_seconds: float,
-) -> str:
+) -> PassOutput:
     """Spawn one pass and return its diagnostics; refuse the drawing by name if it cannot run.
 
     Every refusal names the drawing and the pass that was running, because the two passes can be
     told apart by neither the program's name — a toolchain may name one program twice — nor by an
     exit code, which L-CAD-04 does not admit as evidence of anything.
 
-    The returned text is the program's stdout and stderr together, decoded leniently: a program
-    that writes bytes no encoding admits is still a program whose words belong in a refusal.
+    The pass is started in `room`, a directory of its own: a program that writes where it was
+    started rather than where it was asked leaves that inside the invocation's scratch, where the
+    caller finds it and where it dies with the call.
+
+    The returned streams are decoded leniently: a program that writes bytes no encoding admits is
+    still a program whose words belong in a refusal.
     """
     try:
         # An argv list and no shell: the program is spawned directly, never through a command line
@@ -74,6 +92,7 @@ def run_pass(
         completed = subprocess.run(
             list(argv),
             capture_output=True,
+            cwd=str(room),
             timeout=timeout_seconds,
             check=False,
         )
@@ -95,10 +114,10 @@ def run_pass(
             f" and {program} was stopped"
         ) from error
 
-    return f"{_text(completed.stdout)}\n{_text(completed.stderr)}"
+    return PassOutput(stdout=_text(completed.stdout), stderr=_text(completed.stderr))
 
 
-def tool_version(toolchain: Toolchain, source: Path) -> str:
+def tool_version(toolchain: Toolchain, source: Path, *, room: Path) -> str:
     """The toolchain's own account of itself, from its `--version` output (R-TO-001).
 
     The line carrying a version is the one recorded, so a banner that opens with a greeting or a
@@ -110,9 +129,10 @@ def tool_version(toolchain: Toolchain, source: Path) -> str:
         [toolchain.dwgread, "--version"],
         source=source,
         pass_name="the toolchain's version banner",
+        room=room,
         timeout_seconds=toolchain.timeout_seconds,
     )
-    lines = [line.strip() for line in banner.splitlines() if line.strip()]
+    lines = [line.strip() for line in banner.diagnostics.splitlines() if line.strip()]
     for line in lines:
         if _RELEASE.search(line):
             return line
