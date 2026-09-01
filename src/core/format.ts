@@ -179,12 +179,13 @@ function decimalParts(value: string, shape: RegExp): DecimalParts {
   const sign = matched[1] ?? "";
   const integer = matched[2] ?? "";
   const fraction = matched[3];
-  // Zero carries no sign. `-0.00` is a figure at no quantity wearing a direction, and rendering it
-  // as `-৳0.00` would put a minus on a document in front of nothing (L-FMT-02).
-  if (sign === "-" && !/[1-9]/.test(`${integer}${fraction ?? ""}`)) {
-    throw refusal(PRECISION_NOT_APPLIED, "a zero figure carries no sign — the seam refuses a negative zero rather than rendering one (L-FMT-02)");
-  }
-  return { sign, integer, fraction };
+  // Zero carries no sign, and dropping one is not a refusal. L-FMT-02 refuses a figure that is not
+  // at its kind's stated precision and input that is not a decimal; `-0.00` is neither, so there is
+  // nothing here for the seam to refuse — and nothing is rounded either, because −0 and 0 are one
+  // quantity. What the document must not show is the minus itself: a document never prints a
+  // direction in front of nothing.
+  const magnitude = sign === "-" && !/[1-9]/.test(`${integer}${fraction ?? ""}`) ? "" : sign;
+  return { sign: magnitude, integer, fraction };
 }
 
 /** The integer part, grouped lakh/crore in ASCII digits (L-FMT-01). */

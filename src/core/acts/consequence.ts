@@ -83,9 +83,23 @@ export function movesNothing(consequence: Consequence): boolean {
   return consequence.subjects.every((subject) => same(subject.before, subject.after));
 }
 
-/** Two readings of one subject's state, compared as the ordered lists the previews build them as. */
+/**
+ * Two readings of one subject's state, compared by what they say rather than by the order a reader
+ * happened to build them in. Order is a property of a query's sort, not of what somebody holds, so
+ * the same roles read back two ways are the same state and an act over them moves nothing (L-ACT-01)
+ * — the reading `canonical` already applies to a digest's keys, applied to a subject's own lists.
+ */
 function same(before: readonly string[], after: readonly string[]): boolean {
-  return before.length === after.length && before.every((held, index) => held === after[index]);
+  if (before.length !== after.length) return false;
+  const held = new Map<string, number>();
+  for (const entry of before) held.set(entry, (held.get(entry) ?? 0) + 1);
+  for (const entry of after) {
+    const standing = held.get(entry);
+    if (standing === undefined) return false;
+    if (standing === 1) held.delete(entry);
+    else held.set(entry, standing - 1);
+  }
+  return held.size === 0;
 }
 
 /**

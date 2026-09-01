@@ -12,11 +12,9 @@
 // expiry, so the secret never travels in the artefact a browser carries, and expiry is judged
 // against an injected clock rather than the wall.
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { link, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { link, mkdir, open, readFile, unlink } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
-
-/** A tenant prefix as the tenancy seam mints its ids: a canonical lowercase UUID and nothing else. */
-const TENANT_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+import { isUuid } from "../db";
 
 /** An address as the contract spells it: exactly 64 lowercase hex characters. */
 const ADDRESS_SHAPE = /^[0-9a-f]{64}$/;
@@ -27,8 +25,12 @@ const URL_PREFIX = "/storage/v1/";
 /**
  * A signed URL as it comes back in: the path, the expiry and the signature, with an optional
  * origin the signature deliberately does not cover. Anything else is not a URL this seam minted.
+ *
+ * A scheme is case-insensitive (RFC 3986), so `HTTPS://` carries the same URL as `https://` — the
+ * signature covers neither, and refusing the one spelling would refuse an artefact this seam minted.
+ * Everything the signature does cover stays case-sensitive: the path, the address and the expiry.
  */
-const SIGNED_URL_SHAPE = new RegExp(`^(?:[a-z][a-z0-9+.-]*://[^/]*)?${URL_PREFIX}([^/?#]+)/([^/?#]+)\\?expires=(\\d+)&signature=([0-9a-f]+)$`);
+const SIGNED_URL_SHAPE = new RegExp(`^(?:[A-Za-z][A-Za-z0-9+.-]*://[^/]*)?${URL_PREFIX}([^/?#]+)/([^/?#]+)\\?expires=(\\d+)&signature=([0-9a-f]+)$`);
 
 /** Everything a storage seam is configured with — injected, never read from the environment. */
 export interface StorageOptions {
@@ -38,6 +40,14 @@ export interface StorageOptions {
   signingSecret: string;
   /** The clock `sign` reads for the expiry it mints, and `verify` for the moment it judges. */
   now?: () => Date;
+  /**
+   * Where a staging copy that could not be removed is reported. Cleanup is not the operation — a put
+   * whose bytes are stored has done what it was asked — but a volume that will not let go of a file
+   * is a fact only an operator can act on, and a discarding catch tells nobody (ARCH-03, B-21). It is
+   * an injected hook rather than a call into the fault sink because this module reads no environment
+   * and holds no singleton, which is what lets a test run it over a scratch directory.
+   */
+  onCleanupFailure?: (error: unknown) => void;
 }
 
 /** What `verify` answers: an address it vouches for, or the reason it will not. */
@@ -64,10 +74,21 @@ export interface Storage {
  * path is built from it — `..`, a nested segment and an absolute path all fail this one check.
  */
 function tenantPrefix(tenantId: unknown): string {
-  if (typeof tenantId !== "string" || !TENANT_SHAPE.test(tenantId)) {
+  if (!isTenantPrefix(tenantId)) {
     throw new TypeError("storage: tenantId must be a canonical lowercase UUID");
   }
   return tenantId;
+}
+
+/**
+ * Is this a prefix the seam lays a directory down under? Two questions, and only one of them is
+ * storage's own. Whether a uuid column can hold the value is the tenancy seam's answer and is asked
+ * of it (ARCH-02, B-05) — a second copy of that shape spelled here would agree with the seam's until
+ * the day the two drift apart. Whether it is spelled canonically is storage's own, because a path is
+ * case-sensitive: two spellings of one id would be two prefixes over the same tenant's evidence.
+ */
+function isTenantPrefix(value: unknown): value is string {
+  return typeof value === "string" && value === value.toLowerCase() && isUuid(value);
 }
 
 /** An address the seam will touch the filesystem for: 64 lowercase hex characters, exactly. */
@@ -141,16 +162,34 @@ export function makeStorage(options: StorageOptions): Storage {
       // The object is written aside and then linked into place: `link` fails when the address is
       // already taken, so an object that exists is never rewritten and a reader never sees a
       // half-written file at a settled address (R-SPINE-021).
-      const staging = `${file}.staging-${createHash("sha256").update(`${process.pid}:${Date.now()}:${Math.random()}`).digest("hex").slice(0, 16)}`;
-      await writeFile(staging, content, { flag: "wx" });
+      //
+      // The staging copy's address is derived from the object's own, not from a clock and a random
+      // suffix: a path nothing can name is a path nothing can clean up after a crash, and it leaves
+      // the volume growing a stranded file per interrupted put. Two puts that race here are two puts
+      // of the SAME bytes — the address is the digest of the content — so the copy each writes is
+      // byte-identical, and whichever links first settles the address for both.
+      const staging = `${file}.staging`;
+      // R-SPINE-021 retains every revision forever, and bytes that are only in the page cache are a
+      // promise the module cannot keep on its own: the copy is flushed before it is linked into
+      // place, so the address a caller is handed names bytes the volume has been told to hold.
+      const handle = await open(staging, "w");
+      try {
+        await handle.writeFile(content);
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
       try {
         await link(staging, file);
       } catch (error) {
         if ((error as { code?: unknown }).code !== "EEXIST") throw error;
       } finally {
         // Removing the staging copy is cleanup, not the operation: if it fails, the caller still
-        // owes the story of what went wrong with `link`, so its rejection never replaces that one.
-        await unlink(staging).catch(() => undefined);
+        // owes the story of what went wrong with `link`, so its rejection never replaces that one —
+        // it goes to the operator's hook instead of into a catch that tells nobody.
+        await unlink(staging).catch((failure: unknown) => {
+          options.onCleanupFailure?.(failure);
+        });
       }
       return { sha256 };
     },
@@ -173,13 +212,21 @@ export function makeStorage(options: StorageOptions): Storage {
     },
 
     verify(url: string, at?: Date): SignVerification {
+      // A moment to judge against is the caller's OWN argument, not far-side input, so it is judged
+      // first: an unusable Date is a caller error whatever the URL turns out to say, and answering
+      // "invalid" for it would report the caller's broken clock as somebody else's bad URL (B-21).
+      // Falling back to this seam's clock would be worse still — an expiring URL judged against a
+      // time the caller never asked for.
+      if (at !== undefined && (!(at instanceof Date) || !Number.isFinite(at.getTime()))) {
+        throw new TypeError("storage: at must be a valid Date");
+      }
       // A URL is caller input from the far side of a browser, so no shape of one throws: a string
       // this seam did not mint is simply not vouched for.
       const parts = typeof url === "string" ? SIGNED_URL_SHAPE.exec(url) : null;
       if (parts === null) return { ok: false, reason: "invalid" };
       const [, tenantId, sha256, expiresText, signature] = parts;
       if (tenantId === undefined || sha256 === undefined || expiresText === undefined || signature === undefined) return { ok: false, reason: "invalid" };
-      if (!TENANT_SHAPE.test(tenantId) || !ADDRESS_SHAPE.test(sha256)) return { ok: false, reason: "invalid" };
+      if (!isTenantPrefix(tenantId) || !ADDRESS_SHAPE.test(sha256)) return { ok: false, reason: "invalid" };
 
       const expires = Number(expiresText);
       // One expiry, one spelling: `0000000900` reads as 900 but is not the text that was signed,
@@ -194,12 +241,6 @@ export function makeStorage(options: StorageOptions): Storage {
       // The comparison is constant time, and a length that cannot match is answered without one.
       if (presented.length !== expected.length || !timingSafeEqual(presented, expected)) return { ok: false, reason: "invalid" };
 
-      // A moment to judge against is the caller's own argument, not far-side input: an unusable
-      // Date is a caller error, and falling back to this seam's clock would quietly judge an
-      // expiring URL against a time the caller never asked for.
-      if (at !== undefined && (!(at instanceof Date) || !Number.isFinite(at.getTime()))) {
-        throw new TypeError("storage: at must be a valid Date");
-      }
       const moment = at ?? clock();
       // The URL is good up to its expiry and refused at it — an expiry that has arrived has passed.
       if (unixSeconds(moment) >= expires) return { ok: false, reason: "expired" };

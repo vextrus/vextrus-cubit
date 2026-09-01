@@ -1,7 +1,7 @@
 // L-ACT-03: "Participation is a composite FK from the act log; the permission check lives in the
 // act seam." This is that check — one guard, read from the grants the database holds minus the
 // withdrawals that countermand them, used by every door the seam has (ARCH-02).
-import { and, eq, inArray, participantRoleWithdrawals, participantRoles, type TenantTx } from "../db";
+import { and, eq, inArray, inCurrentScope, participantRoleWithdrawals, participantRoles, type TenantTx } from "../db";
 import { ACT_PERMISSION, isRole, permissionsOf, type ActType, type Permission } from "./law";
 import { permissionNotHeld } from "./refusals";
 import type { ActorCtx } from "./rendering";
@@ -18,6 +18,11 @@ export type RoleGrant = {
  * already cut the rows to the actor's tenant; a person with no participation reads back nothing,
  * which is exactly what holding no permission looks like.
  *
+ * The read states that tenant predicate itself as well (SEAM-TENANT, R-SPINE-004): a project is
+ * identified by the pair (tenant, project), so a query narrowed to a project alone says what it
+ * means only by way of the policy standing behind it — and the composite index these tables carry
+ * begins with the tenant.
+ *
  * "Standing" is the whole point (R-SPINE-011): `participant_roles` is append-only and owner-proof,
  * so a role taken back is still a row there — the withdrawal that answered it is a row in
  * `participant_role_withdrawals`, and the difference is what anybody actually holds.
@@ -26,16 +31,19 @@ export async function effectiveGrants(tx: TenantTx, projectId: string, userId: s
   const granted = await tx
     .select({ grantId: participantRoles.grantId, role: participantRoles.role })
     .from(participantRoles)
-    .where(and(eq(participantRoles.projectId, projectId), eq(participantRoles.userId, userId)));
+    .where(and(inCurrentScope(participantRoles.tenantId), eq(participantRoles.projectId, projectId), eq(participantRoles.userId, userId)));
   if (granted.length === 0) return [];
 
   const withdrawn = await tx
     .select({ grantId: participantRoleWithdrawals.grantId })
     .from(participantRoleWithdrawals)
     .where(
-      inArray(
-        participantRoleWithdrawals.grantId,
-        granted.map((grant) => grant.grantId),
+      and(
+        inCurrentScope(participantRoleWithdrawals.tenantId),
+        inArray(
+          participantRoleWithdrawals.grantId,
+          granted.map((grant) => grant.grantId),
+        ),
       ),
     );
   const countermanded = new Set(withdrawn.map((row) => row.grantId));
@@ -76,16 +84,19 @@ export async function holdersOf(tx: TenantTx, projectId: string, role: string): 
   const granted = await tx
     .select({ grantId: participantRoles.grantId, userId: participantRoles.userId })
     .from(participantRoles)
-    .where(and(eq(participantRoles.projectId, projectId), eq(participantRoles.role, role)));
+    .where(and(inCurrentScope(participantRoles.tenantId), eq(participantRoles.projectId, projectId), eq(participantRoles.role, role)));
   if (granted.length === 0) return [];
 
   const withdrawn = await tx
     .select({ grantId: participantRoleWithdrawals.grantId })
     .from(participantRoleWithdrawals)
     .where(
-      inArray(
-        participantRoleWithdrawals.grantId,
-        granted.map((grant) => grant.grantId),
+      and(
+        inCurrentScope(participantRoleWithdrawals.tenantId),
+        inArray(
+          participantRoleWithdrawals.grantId,
+          granted.map((grant) => grant.grantId),
+        ),
       ),
     );
   const countermanded = new Set(withdrawn.map((row) => row.grantId));

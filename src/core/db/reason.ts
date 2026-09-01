@@ -1,6 +1,8 @@
 // SEAM-TENANT: `runAsSystem`'s reason is recorded and attributable, never validated-then-discarded.
-// The recorder is a hook rather than a direct call because ARCH-03's fault seam is not built yet:
-// when it is, it is pointed at from here once, and no caller of runAsSystem changes.
+// The recorder is a hook rather than a direct call so that the seam's dependency runs one way: the
+// fault seam ARCH-03 built lives at src/core/faults/report.ts, and a deployment that wants system
+// reasons in it points this hook there once — no caller of runAsSystem changes, and this file never
+// reaches for a sink of its own.
 
 /** What a system-scoped handle was opened for, and when it was opened. */
 export type SystemReasonRecord = { readonly reason: string; readonly openedAt: Date };
