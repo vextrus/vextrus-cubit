@@ -135,7 +135,7 @@ export function deploymentIsSecure(req: Request): boolean {
 function arrivedAtHostname(req: Request): string | null {
   const host = req.headers.get("host");
   if (host !== null) return reachedHostname(host);
-  return URL.parse(typeof req.url === "string" ? req.url : "")?.hostname ?? null;
+  return URL.parse(req.url)?.hostname ?? null;
 }
 
 /** The hostname half of a `Host`, which is the only part of an address a request states truthfully. */
@@ -243,7 +243,7 @@ function answersDirectly(configured: string): boolean {
 function arrivalOrigin(req: Request): string {
   const host = req.headers.get("host");
   if (host !== null) return dialledOrigin(arrivedAtFromHost(host), host);
-  return dialledOrigin(URL.parse(typeof req.url === "string" ? req.url : "")?.origin ?? "", null);
+  return dialledOrigin(URL.parse(req.url)?.origin ?? "", null);
 }
 
 /**
