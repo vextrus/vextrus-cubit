@@ -10,6 +10,7 @@ drawing leaves the caller's directory as it found it.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import shutil
 import tempfile
@@ -21,7 +22,18 @@ from .census import census_of
 from .errors import DwgError
 from .reconcile import RefusedClass, reconcile
 from .tally import geometry_tally
-from .toolchain import DEFAULT_TOOLCHAIN, Deadline, PassOutput, Toolchain, quote, run_pass, tool_version
+from .toolchain import (
+    CENSUS_PASS,
+    DEFAULT_TOOLCHAIN,
+    GEOMETRY_PASS,
+    Deadline,
+    PassOutput,
+    Toolchain,
+    quote,
+    refusal,
+    run_pass,
+    tool_version,
+)
 
 #: The extractor identity this lane records; the version beside it is whatever the toolchain on
 #: this machine reports for itself (R-TO-001).
@@ -70,9 +82,7 @@ def convert_dwg(source: Path, out_dir: Path, *, toolchain: Toolchain = DEFAULT_T
         # answer cannot be the reason the drawing outran its budget.
         version = tool_version(toolchain, source, room=_room(scratch, "version"), deadline=deadline)
 
-        out_dir.mkdir(parents=True, exist_ok=True)
-        dxf_path = out_dir / f"{source.stem}.dxf"
-        shutil.move(str(converted), str(dxf_path))
+        dxf_path = _placed(source, converted, out_dir)
     finally:
         _swept(scratch)
 
@@ -94,47 +104,81 @@ def _census_pass(
 ) -> dict[str, dict[str, int]]:
     """`dwgread -O JSON`, tallied — or the drawing refused by name."""
     room = _room(scratch, "census")
-    target = room / _CENSUS_JSON
+    asked = room / _CENSUS_JSON
+    program = toolchain.dwgread
     output = run_pass(
-        toolchain.dwgread,
-        [toolchain.dwgread, "-O", "JSON", "-o", str(target), str(_drawing_in(room, source))],
+        program,
+        [program, "-O", "JSON", "-o", str(asked), str(_drawing_in(room, source))],
         source=source,
-        pass_name="the census pass",
+        pass_name=CENSUS_PASS,
         room=room,
         deadline=deadline,
     )
-    document = _census_document(source, target, output)
+    document = _census_document(source, program, room, asked, output)
     try:
-        # `census_of` speaks about the document alone; the drawing's name is added here, where it
-        # is known, so every refusal this lane raises names the drawing (L-CAD-04).
+        # `census_of` speaks about the document alone; the drawing, the pass and the program are
+        # added here, where they are known, so every refusal this lane raises carries all four
+        # (L-CAD-04). Whatever a document nothing wrote for this reader ends the read with is the
+        # same fact about it — it is not a census — and is answered in words, not as a traceback.
         census = census_of(document)
-    except DwgError as error:
-        raise DwgError(f"{source.name}: {error}") from error
+    except Exception as error:
+        raise DwgError(refusal(source, CENSUS_PASS, program, str(error))) from error
     if not census:
         raise DwgError(
-            f"{source.name}: the census pass named no entity at all, so there is nothing this"
-            f" conversion could be audited against{quote(output.diagnostics)}"
+            refusal(
+                source,
+                CENSUS_PASS,
+                program,
+                "named no entity at all, so there is nothing this conversion could be audited"
+                f" against{quote(output.diagnostics)}",
+            )
         )
     return census
 
 
-def _census_document(source: Path, target: Path, output: PassOutput) -> Any:
+def _census_document(source: Path, program: str, room: Path, asked: Path, output: PassOutput) -> Any:
     """The census document, from what the pass wrote — never from what it exited with.
 
-    `dwgread -O JSON` writes its document to the file it is given and prints it when it is given
-    none, so a pass that answered on stdout has written a census all the same. Nothing else is a
-    census: an empty answer, or one no parser admits, refuses the drawing by name (L-CAD-04).
+    A census is looked for exactly as a conversion is: at the name the pass was given, then
+    anywhere in the room it ran in, and last on the stdout `dwgread` prints a census to when it is
+    given no name at all. Nothing else is a census: an empty answer, or one no parser admits,
+    refuses the drawing by name (L-CAD-04).
+    """
+    written = _written(room, asked)
+    text = ""
+    if written is not None:
+        try:
+            text = written.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            # A file this process cannot read is a pass that wrote no census it can read; the
+            # stdout convention is still owed its turn below.
+            text = ""
+    if not text.strip():
+        text = output.stdout
+    if not text.strip():
+        raise DwgError(
+            refusal(source, CENSUS_PASS, program, f"wrote no JSON{quote(output.diagnostics)}")
+        )
+    try:
+        return _first_document(text)
+    except Exception as error:
+        raise DwgError(
+            refusal(source, CENSUS_PASS, program, f"wrote a census no parser admits: {error}")
+        ) from error
+
+
+def _first_document(text: str) -> Any:
+    """The JSON a pass wrote, whether or not it stopped writing when the document ended.
+
+    A program that prints its census and then says something about it has still written a census,
+    and L-CAD-04 judges a pass by what it wrote rather than by how tidily it stopped. Text that
+    does not open on a JSON document is not a census, and the reader raises to say so.
     """
     try:
-        written = target.read_text(encoding="utf-8", errors="replace") if target.is_file() else output.stdout
-    except OSError as error:
-        raise DwgError(f"{source.name}: the census cannot be read: {error}") from error
-    if not written.strip():
-        raise DwgError(f"{source.name}: the census pass wrote no JSON{quote(output.diagnostics)}")
-    try:
-        return json.loads(written)
-    except ValueError as error:
-        raise DwgError(f"{source.name}: the census cannot be read: {error}") from error
+        return json.loads(text)
+    except ValueError:
+        document, _ = json.JSONDecoder().raw_decode(text.lstrip())
+        return document
 
 
 def _geometry_pass(
@@ -149,14 +193,15 @@ def _geometry_pass(
     found and one attempt's leavings can never be read as another's.
     """
     problems: list[str] = []
+    program = toolchain.dwg2dxf
     for form, flags in _CONVERSION_FORMS:
         room = _room(scratch, f"conversion-{form}")
         asked = room / f"{source.stem}.dxf"
         output = run_pass(
-            toolchain.dwg2dxf,
-            [toolchain.dwg2dxf, *flags, "-o", str(asked), str(_drawing_in(room, source))],
+            program,
+            [program, *flags, "-o", str(asked), str(_drawing_in(room, source))],
             source=source,
-            pass_name="the geometry pass",
+            pass_name=GEOMETRY_PASS,
             room=room,
             deadline=deadline,
         )
@@ -168,7 +213,7 @@ def _geometry_pass(
             return converted, geometry_tally(converted)
         except DwgError as error:
             problems.append(f"the {form} conversion: {error}")
-    raise DwgError(f"{source.name}: {'; '.join(problems)}")
+    raise DwgError(refusal(source, GEOMETRY_PASS, program, "; ".join(problems)))
 
 
 def _room(scratch: Path, name: str) -> Path:
@@ -186,20 +231,53 @@ def _drawing_in(room: Path, source: Path) -> Path:
     where the lane would both find nothing and leave something behind (L-CAD-04's stateless lane).
     """
     drawing = room / source.name
-    shutil.copy2(source, drawing)
+    try:
+        shutil.copy2(source, drawing)
+    except OSError as error:
+        raise DwgError(f"{source.name} ({source}): the drawing cannot be read: {error}") from error
     return drawing
 
 
 def _written(room: Path, asked: Path) -> Path | None:
-    """What an attempt actually produced. The exit code says nothing (L-CAD-04); this does.
+    """What a pass actually produced. The exit code says nothing (L-CAD-04); this does.
 
-    What was asked for is preferred; anything else the room holds is still a conversion, because a
-    program is judged by what it wrote and not by whether it agreed about the name.
+    What was asked for is preferred; anything else of that kind the room holds is the pass's work
+    all the same, because a program is judged by what it wrote and not by whether it agreed about
+    the name — LibreDWG's own programs write beside the drawing they read, and into the directory
+    they were started in, as readily as at the name they were given. Both passes ask this one
+    question, keyed on the suffix each asked for.
     """
-    if asked.is_file():
+    if _holds_something(asked):
         return asked
-    written = sorted(path for path in room.rglob("*.dxf") if path.is_file())
+    written = sorted(path for path in room.rglob(f"*{asked.suffix}") if _holds_something(path))
     return written[0] if written else None
+
+
+def _holds_something(path: Path) -> bool:
+    """A file with bytes in it. An empty one is a name a pass touched, not work it did."""
+    try:
+        return path.is_file() and path.stat().st_size > 0
+    except OSError:
+        return False
+
+
+def _placed(source: Path, converted: Path, out_dir: Path) -> Path:
+    """The converted DXF, moved where the caller asked — the one thing this lane leaves behind.
+
+    A directory that cannot be written is the drawing refused by name, and nothing of a refused
+    conversion stays in it (L-CAD-04's loud failures, stateless lane).
+    """
+    dxf_path = out_dir / f"{source.stem}.dxf"
+    try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(converted), str(dxf_path))
+    except OSError as error:
+        with contextlib.suppress(OSError):
+            dxf_path.unlink(missing_ok=True)
+        raise DwgError(
+            f"{source.name} ({source}): the converted DXF cannot be placed at {dxf_path}: {error}"
+        ) from error
+    return dxf_path
 
 
 def _swept(scratch: Path) -> None:

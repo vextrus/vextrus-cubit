@@ -47,6 +47,25 @@ _REAPING_SECONDS: Final = 10.0
 #: What a release looks like in a banner, so the version line can be told from a greeting.
 _RELEASE: Final = re.compile(r"\d+\.\d+")
 
+#: What a refusal calls each half of the conversion, and the `Toolchain` field whose program runs
+#: it. A toolchain may name one program for both passes — or a program named nothing like LibreDWG
+#: — so neither the program nor the field alone says which half of the conversion ended the
+#: drawing; the pass is named too (L-CAD-04's loud failures).
+CENSUS_PASS: Final = "the census pass (dwgread)"
+GEOMETRY_PASS: Final = "the geometry pass (dwg2dxf)"
+VERSION_PASS: Final = "the version banner (dwgread)"
+
+
+def refusal(source: Path, pass_name: str, program: str, what: str) -> str:
+    """The words every refusal this lane raises owes its caller (L-CAD-04).
+
+    Four facts, because a caller holding the message alone can act on none of them otherwise:
+    which drawing — spelled as it is and said in full, so a caller holding a directory of them and
+    one holding a path are told the same thing — which half of the conversion, which program ran
+    that half, and what happened.
+    """
+    return f"{source.name} ({source}): {pass_name}, running {program}: {what}"
+
 
 @dataclass(frozen=True)
 class Toolchain:
@@ -129,7 +148,7 @@ def run_pass(
     """
     budget = deadline.left()
     if budget <= 0:
-        raise DwgError(_outran(source, pass_name, deadline))
+        raise DwgError(_outran(source, pass_name, program, deadline))
 
     on_stdout = room / _SAID_ON_STDOUT
     on_stderr = room / _SAID_ON_STDERR
@@ -149,22 +168,22 @@ def run_pass(
             )
     except FileNotFoundError as error:
         raise DwgError(
-            f"{source.name}: {pass_name} cannot run because {program} is not on this machine,"
-            " so the drawing cannot be converted"
+            refusal(source, pass_name, program, "that program is not on this machine")
         ) from error
     except OSError as error:
         # Anything else the operating system refuses to spawn — a program that is not executable, a
         # name that resolves to a directory — is the same refusal: this drawing cannot be
         # converted, said in words rather than as an interpreter traceback.
+        said = error.strerror or error
         raise DwgError(
-            f"{source.name}: {pass_name} cannot run {program}: {error.strerror or error}"
+            refusal(source, pass_name, program, f"that program cannot be run: {said}")
         ) from error
 
     try:
         running.wait(timeout=budget)
     except subprocess.TimeoutExpired as error:
         _end_session(running)
-        raise DwgError(_outran(source, pass_name, deadline)) from error
+        raise DwgError(_outran(source, pass_name, program, deadline)) from error
 
     return PassOutput(stdout=_said(on_stdout), stderr=_said(on_stderr))
 
@@ -184,7 +203,7 @@ def tool_version(toolchain: Toolchain, source: Path, *, room: Path, deadline: De
             toolchain.dwgread,
             [toolchain.dwgread, "--version"],
             source=source,
-            pass_name="the toolchain's version banner",
+            pass_name=VERSION_PASS,
             room=room,
             deadline=deadline,
         )
@@ -197,10 +216,12 @@ def tool_version(toolchain: Toolchain, source: Path, *, room: Path, deadline: De
     return lines[0] if lines else ""
 
 
-def _outran(source: Path, pass_name: str, deadline: Deadline) -> str:
-    return (
-        f"{source.name}: {pass_name} outran the {deadline.seconds:g}s budget for converting this"
-        " drawing, and was stopped"
+def _outran(source: Path, pass_name: str, program: str, deadline: Deadline) -> str:
+    return refusal(
+        source,
+        pass_name,
+        program,
+        f"outran the {deadline.seconds:g}s budget for converting this drawing, and was stopped",
     )
 
 

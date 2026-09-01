@@ -36,8 +36,10 @@ SLACK_SECONDS = 15.0
 
 _ANNOUNCES = "this is a program, and it is talking"
 
-#: Replays a prepared payload wherever its counterpart would write, chatters on both streams, and
-#: exits with a code that says nothing about any of it.
+#: Replays a prepared payload where a program of its kind may write — at the name it was given,
+#: beside the drawing it read, or on its own stdout — chatters on both streams, and exits with a
+#: code that says nothing about any of it. LibreDWG's own programs use all three conventions, so a
+#: pass is judged by what it wrote and not by whether it agreed about where (L-CAD-04).
 _REPLAYS = '''#!{python}
 import sys
 from pathlib import Path
@@ -45,6 +47,7 @@ from pathlib import Path
 PAYLOAD = {payload!r}
 SUFFIX = {suffix!r}
 CODE = {code!r}
+WHERE = {where!r}
 
 argv = sys.argv[1:]
 if "--version" in argv:
@@ -53,9 +56,9 @@ if "--version" in argv:
 
 targets = []
 for index, argument in enumerate(argv):
-    if argument == "-o" and index + 1 < len(argv):
+    if argument == "-o" and index + 1 < len(argv) and WHERE in ("anywhere", "asked"):
         targets.append(Path(argv[index + 1]))
-    if argument.lower().endswith(".dwg"):
+    if argument.lower().endswith(".dwg") and WHERE in ("anywhere", "beside"):
         targets.append(Path(argument).with_suffix(SUFFIX))
         targets.append(Path.cwd() / (Path(argument).stem + SUFFIX))
 
@@ -85,7 +88,14 @@ def _program(path: Path, text: str) -> str:
     return str(path)
 
 
-def _replaying(path: Path, *, payload: Path | None, suffix: str, code: int) -> str:
+def _replaying(
+    path: Path,
+    *,
+    payload: Path | None,
+    suffix: str,
+    code: int,
+    where: str = "anywhere",
+) -> str:
     return _program(
         path,
         _REPLAYS.format(
@@ -93,6 +103,7 @@ def _replaying(path: Path, *, payload: Path | None, suffix: str, code: int) -> s
             payload=str(payload) if payload else "",
             suffix=suffix,
             code=code,
+            where=where,
             announces=_ANNOUNCES.encode(),
         ),
     )
@@ -151,6 +162,80 @@ def test_a_pass_that_exits_nonzero_but_did_the_work_converted_the_drawing(
     assert result.census and result.geometry
     assert tuple(result.refused) == (), f"complete work, replayed, reconciles: {result.refused}"
     assert result.tool_version == "dwgread 41.42.43"
+
+
+@pytest.mark.parametrize("where", ["beside", "stdout"])
+def test_work_written_where_the_pass_chose_is_still_the_passs_work(
+    replayable: tuple[Path, Path, Path],
+    tmp_path: Path,
+    where: str,
+) -> None:
+    """A program that wrote its answer somewhere else still wrote it (L-CAD-04).
+
+    Neither pass is asked what it did, only what it left, so the conventions LibreDWG's own
+    programs have are the ones both passes are read under: `dwgread` prints its census when it is
+    given no name for one, and either program may write beside the drawing it read. The stubs here
+    do one of those and nothing at the name they were given.
+    """
+    source, census, dxf = replayable
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    result = convert_dwg(
+        source,
+        out_dir,
+        toolchain=Toolchain(
+            _replaying(bin_dir / "dwgread", payload=census, suffix=".json", code=0, where=where),
+            _replaying(bin_dir / "dwg2dxf", payload=dxf, suffix=".dxf", code=0, where="beside"),
+            DEFAULT_TOOLCHAIN.timeout_seconds,
+        ),
+    )
+
+    assert result.dxf_path.is_file(), f"a census written {where} is a census the lane must read"
+    assert result.census and result.geometry
+    assert tuple(result.refused) == (), f"complete work, replayed, reconciles: {result.refused}"
+
+
+def test_every_refusal_names_the_drawing_the_pass_and_the_program(
+    replayable: tuple[Path, Path, Path],
+    tmp_path: Path,
+) -> None:
+    """Four facts in every refusal: which drawing, said in full, which half, which program.
+
+    A `Toolchain` may name one program for both passes, and the program named for a pass may be
+    called anything at all, so neither of them alone tells a caller which half of the conversion
+    ended the drawing (L-CAD-04's loud failures).
+    """
+    source, census, _dxf = replayable
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    budget = DEFAULT_TOOLCHAIN.timeout_seconds
+    silent_read = _replaying(bin_dir / "quiet-read", payload=None, suffix=".json", code=0)
+    silent_convert = _replaying(bin_dir / "quiet-convert", payload=None, suffix=".dxf", code=0)
+    reads = _replaying(bin_dir / "reads", payload=census, suffix=".json", code=0)
+    absent = str(bin_dir / "not-a-program-at-all")
+    arms = [
+        ("census", silent_read, Toolchain(silent_read, silent_convert, budget)),
+        ("census", absent, Toolchain(absent, silent_convert, budget)),
+        ("geometry", silent_convert, Toolchain(reads, silent_convert, budget)),
+        ("geometry", absent, Toolchain(reads, absent, budget)),
+    ]
+
+    for index, (half, program, toolchain) in enumerate(arms):
+        out_dir = tmp_path / f"out-{index}"
+        out_dir.mkdir()
+
+        with pytest.raises(DwgError) as raised:
+            convert_dwg(source, out_dir, toolchain=toolchain)
+
+        message = str(raised.value)
+        assert source.name in message, f"the refusal does not name the drawing: {message}"
+        assert str(source) in message, f"the refusal does not say which drawing: {message}"
+        assert half in message, f"the refusal does not say which half of the conversion: {message}"
+        assert program in message, f"the refusal does not name the program that ran: {message}"
+        assert _empty(out_dir), "a refused conversion left something behind"
 
 
 @pytest.mark.parametrize(
