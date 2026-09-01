@@ -119,9 +119,26 @@ function configuredOrigin(): string | null {
  * claiming to be a request to the machine it is already running on.
  */
 export function deploymentIsSecure(req: Request): boolean {
+  return answeredScheme(URL.parse(typeof req.url === "string" ? req.url : "")?.hostname ?? null) === "https";
+}
+
+/**
+ * The scheme the deployment answers in, for a host it was reached at — the other half of an address,
+ * decided by the same party and on the same terms (R-SPINE-001).
+ *
+ * `x-forwarded-proto` is a caller-written header: an edge stamps it and so may anybody, and nothing
+ * on the request tells the two apart. It is not read, because a scheme read off the caller is a
+ * scheme the caller chooses, and where the arrival address is carried at all (this machine, an
+ * unconfigured deployment) that choice would compose an address the deployment does not answer at —
+ * `https://localhost:3210`, a page the visitor's own machine serves at that port — and hand it to the
+ * origin rule as a dialled one. So the deployment's own statement answers, and where it made none the
+ * host is read exactly as `deploymentIsSecure` reads it: only to recognise the two names of this
+ * machine as plain http, never to grant TLS to anything a caller wrote.
+ */
+function answeredScheme(hostname: string | null): "http" | "https" {
   const configured = configuredOrigin();
-  if (configured !== null) return configured.startsWith("https:");
-  return !isLoopbackRequest(req);
+  if (configured !== null) return configured.startsWith("https:") ? "https" : "http";
+  return hostname !== null && LOOPBACK_HOSTS.has(hostname) ? "http" : "https";
 }
 
 /**
@@ -171,16 +188,21 @@ function answersDirectly(configured: string): boolean {
   return hostname !== undefined && LOOPBACK_HOSTS.has(hostname);
 }
 
-/** The address this request was dialled at, for the lane the platform hands a whole `Request`. */
+/**
+ * The address this request was dialled at, for the lane the platform hands a whole `Request`.
+ *
+ * The platform's `Request.url` is composed from the caller's `Host` and the caller's
+ * `x-forwarded-proto`, so its scheme is re-derived here from the deployment's own statement — the
+ * same reading the header lane makes, so both lanes hand the origin rule one address per request.
+ * A request carrying no `Host` was composed in this process by the caller holding it, and the URL it
+ * composed is by construction the address it dialled: that one is kept verbatim.
+ */
 function arrivalOrigin(req: Request): string {
-  const url = typeof req.url === "string" ? req.url : "";
-  return dialledOrigin(URL.parse(url)?.origin ?? "", req.headers.get("host"));
-}
-
-/** Did this request arrive on a loopback name — the development and journey servers, and nothing else? */
-function isLoopbackRequest(req: Request): boolean {
   const url = URL.parse(typeof req.url === "string" ? req.url : "");
-  return url !== null && LOOPBACK_HOSTS.has(url.hostname);
+  const host = req.headers.get("host");
+  if (url === null) return dialledOrigin("", host);
+  const arrivedAt = host === null ? url.origin : (URL.parse(`${answeredScheme(url.hostname)}://${url.host}`)?.origin ?? "");
+  return dialledOrigin(arrivedAt, host);
 }
 
 /**
@@ -223,29 +245,22 @@ export interface RequestOriginFacts {
 /**
  * Those three facts, off the headers the platform kept about the request.
  *
- * Next composes a route handler's `Request.url` — what `arrivalOrigin` reads on the other lane —
- * from the `Host` the request named and the scheme the edge stated, so the arrival address is
- * composed from the same two headers here. Where the edge states no scheme, the deployment's own
- * statement of its address answers for it: a proxy that terminates TLS without stamping
- * `x-forwarded-proto` would otherwise be read as plain http, and every cookie-authenticated mutation
- * behind it would be refused as arriving somewhere the browser never stamped.
+ * The arrival address is composed from the `Host` the request named and the scheme the deployment
+ * answers in (`answeredScheme`) — never the scheme a caller stated, which is the whole of what
+ * `x-forwarded-proto` is. A proxy that terminates TLS is answered for by the address its deployment
+ * states, which is the same statement the other lane reads, so both lanes hand the rule the same
+ * address for the same request (ARCH-02, B-17).
  */
 export function originFactsFromHeaders(sent: Headers): RequestOriginFacts {
   const configured = originOf();
   const host = sent.get("host");
-  const scheme = sent.get("x-forwarded-proto") ?? schemeOf(configured);
-  const arrivedAt = host === null || host === "" ? "" : (URL.parse(`${scheme}://${host}`)?.origin ?? "");
+  const hostname = host === null || host === "" ? null : (URL.parse(`http://${host}`)?.hostname ?? null);
+  const arrivedAt = host === null || host === "" ? "" : (URL.parse(`${answeredScheme(hostname)}://${host}`)?.origin ?? "");
   return {
     statedOrigin: sent.get("origin"),
     requestOrigin: dialledOrigin(arrivedAt, host),
     configuredOrigin: configured,
   };
-}
-
-/** The scheme an origin is stated in, and http for a deployment that stated no address at all. */
-function schemeOf(origin: string): string {
-  const protocol = URL.parse(origin)?.protocol;
-  return protocol === undefined ? "http" : protocol.slice(0, -1);
 }
 
 /**

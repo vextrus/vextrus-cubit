@@ -135,6 +135,24 @@ describe("R-SPINE-006: the seam carries the address a request was dialled at, no
     expect(refusalFor({ statedOrigin: "https://localhost:3000", requestOrigin, configuredOrigin: PUBLISHED }), "an address nobody dialled admits nothing").toBe(NOT_VERIFIED);
   });
 
+  test("a caller's stated scheme composes no arrival address on a deployment that answers here", async () => {
+    // The last thing a caller wrote that reached this composition: `x-forwarded-proto`. On the
+    // journeys' server, a developer's machine or an unconfigured deployment the arrival address is
+    // carried, so a caller stamping `https` would otherwise hand themselves `https://localhost:3210`
+    // — a page their own machine serves at that port — as an address this deployment answers at. The
+    // scheme is the deployment's own statement, exactly like the address it is half of (R-SPINE-001).
+    const forged = { host: "localhost:3210", "x-forwarded-proto": "https", origin: "https://localhost:3210" };
+    const served = "http://localhost:3210";
+    expect(dialledOnTheActionLane(forged, served)).toBe(served);
+    // The other lane composes the same address: Next builds `Request.url`'s scheme from that same
+    // header, so a caller writing it moves the URL the platform hands over too.
+    expect(await dialledOnTheRequestLane("https://localhost:3210/api/trpc/spine.tenancy.assignRole", forged, served)).toBe(served);
+    expect(refusalFor({ statedOrigin: "https://localhost:3210", requestOrigin: dialledOnTheActionLane(forged, served), configuredOrigin: served })).toBe(NOT_VERIFIED);
+    // And with nothing configured at all — the same machine, no statement to read — the caller's
+    // scheme is still not one of this deployment's addresses.
+    expect(dialledOnTheActionLane(forged, "")).toBe(served);
+  });
+
   test("the upstream a proxy rewrote Host to is no second origin the deployment answers at", async () => {
     // The cross-site request R-SPINE-006 legislates against, in the shape a hop would otherwise
     // create: a page served at the proxy's upstream address on the visitor's OWN machine, spending
