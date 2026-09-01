@@ -125,14 +125,43 @@ export function deploymentIsSecure(req: Request): boolean {
 }
 
 /**
- * The origin of the URL this request arrived at, taken verbatim and judged nowhere here. It is one
- * of the two addresses R-SPINE-006's origin rule admits a stated `Origin` against, and that rule has
- * one home (src/modules/spine/tenancy/guard): this seam carries the fact, because a procedure is
- * handed a context and never the request itself.
+ * The marks an edge stamps on a request it passes upstream. Any one of them says the request reached
+ * this process through something, and a hop's `Host` is its own upstream address: nginx forwarding to
+ * `proxy_pass http://127.0.0.1:3000` hands every request the same loopback name, whoever dialled what.
  */
+const EDGE_MARKS: readonly string[] = ["x-forwarded-host", "x-forwarded-proto", "x-forwarded-for", "forwarded"];
+
+/** The first value of a header an edge may have appended to on the way through. */
+function firstValue(header: string): string {
+  return (header.split(",")[0] ?? "").trim();
+}
+
+/**
+ * The address this request was DIALLED at, judged nowhere here. It is one of the two addresses
+ * R-SPINE-006's origin rule admits a stated `Origin` against, and that rule has one home
+ * (src/modules/spine/tenancy/guard): this seam carries the fact, because a procedure is handed a
+ * context and never the request itself.
+ *
+ * With nothing in front of the process, that is the address the request arrived at: a browser
+ * composes `Host` from what it dialled. Behind an edge it is not — the hop rewrites `Host` to the
+ * upstream it forwards to — so the address is read from what the edge states the browser dialled
+ * (`X-Forwarded-Host`), and where the edge states none there is no dialled address to carry and this
+ * says so with the empty string. Nothing here can WIDEN what the rule admits: an edge mark a caller
+ * writes itself only takes the arrival address away from them, and the deployment's own statement of
+ * where it answers — the fact no caller writes — stands untouched beside it (R-SPINE-001).
+ */
+function dialledOrigin(sent: Headers, arrivedAt: string): string {
+  if (!EDGE_MARKS.some((mark) => sent.get(mark) !== null)) return arrivedAt;
+  const forwardedHost = firstValue(sent.get("x-forwarded-host") ?? "");
+  if (forwardedHost === "") return "";
+  const scheme = firstValue(sent.get("x-forwarded-proto") ?? "") || schemeOf(originOf());
+  return URL.parse(`${scheme}://${forwardedHost}`)?.origin ?? "";
+}
+
+/** The address this request was dialled at, for the lane the platform hands a whole `Request`. */
 function arrivalOrigin(req: Request): string {
   const url = typeof req.url === "string" ? req.url : "";
-  return URL.parse(url)?.origin ?? "";
+  return dialledOrigin(req.headers, URL.parse(url)?.origin ?? "");
 }
 
 /** Did this request arrive on a loopback name — the development and journey servers, and nothing else? */
@@ -192,9 +221,10 @@ export function originFactsFromHeaders(sent: Headers): RequestOriginFacts {
   const configured = originOf();
   const host = sent.get("host") ?? "";
   const scheme = sent.get("x-forwarded-proto") ?? schemeOf(configured);
+  const arrivedAt = host === "" ? "" : (URL.parse(`${scheme}://${host}`)?.origin ?? "");
   return {
     statedOrigin: sent.get("origin"),
-    requestOrigin: host === "" ? "" : (URL.parse(`${scheme}://${host}`)?.origin ?? ""),
+    requestOrigin: dialledOrigin(sent, arrivedAt),
     configuredOrigin: configured,
   };
 }

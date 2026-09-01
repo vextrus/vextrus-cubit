@@ -18,7 +18,11 @@ import { originNotVerified } from "../refusals";
 export interface OriginClaim {
   /** The `Origin` header as the request stated it, or null when it stated none. */
   readonly statedOrigin: string | null;
-  /** The origin of the URL the request arrived at. */
+  /**
+   * The address the request was dialled at, empty where there is none to state: what a hop rewrote
+   * `Host` to is its own upstream address and is not one, so a seam behind an edge reads the address
+   * off what the edge states the browser dialled, or carries nothing (src/server/context.ts).
+   */
   readonly requestOrigin: string;
   /** The address the deployment states it answers at, empty when nothing is configured. */
   readonly configuredOrigin: string;
@@ -52,39 +56,30 @@ function addressesThisMachine(origin: string): boolean {
  * attacker's own, and the stated `Origin` then matches it. That is precisely the cross-site request
  * R-SPINE-006 legislates against, and R-SPINE-001 bans deciding anything on client-written headers.
  *
- * The arrival address is admitted beside it in exactly the cases where the request reached this
- * process with nothing in between — a browser composes `Host` from the address it dialled, so where
- * no hop rewrote it the arrival address IS an address somebody typed at this deployment:
+ * The arrival address is admitted beside it in exactly the cases where the request arrived at this
+ * machine's own address — which a browser cannot produce against a deployment it reached over a
+ * network, because a browser composes `Host` from the address it dialled, so for a browser the
+ * arrival address IS the deployment's:
  *
  *   - the deployment named no address at all AND the request arrived on a loopback name: a
  *     developer's own machine, the only place an unconfigured deployment answers at all — one that
  *     states no address mails no link either, and says so (R-SPINE-001, src/server/context.ts). An
  *     unconfigured deployment answering on a real hostname is not a deployment whose cookies this
  *     rule may spend on a caller's word: absence is not permission;
- *   - the deployment answers at this machine's own address and the request arrived at one of them
- *     too: a caller inside the process driving the shipped handler, which composes the URL itself,
- *     and a browser that dialled one of this machine's several names — `localhost` and `127.0.0.1`
- *     are the same machine under two spellings, and one served port is not the other. What such a
- *     deployment states it answers at is one of those names, never all of them, so refusing the
- *     arrival address here refuses the deployment its own page.
- *
- * A deployment that answers on a network name is reached through something, and what a hop puts in
- * `Host` is its own upstream address rather than the address the browser dialled: a proxy forwarding
- * to `127.0.0.1:3000` makes EVERY request's arrival address that loopback name, so admitting it would
- * hand the deployment a standing second origin — and any page the visitor's own machine serves at
- * that port could then spend their session cookie on it, which is the cross-site request R-SPINE-006
- * legislates against. Such a deployment is admitted at what it states and nothing else, and it loses
- * nothing by it: a browser dials the name a networked deployment publishes, so its own page states
- * that name already. The extra admission belongs to the deployment that is dialled at whichever of
- * its machine's names the person typed, and to nobody else — the arrival address is admitted for
- * being this machine's own, never for matching what was stated (R-SPINE-001).
+ *   - the request arrived at this machine's own address: a caller inside the process driving the
+ *     shipped handler, which composes the URL itself, and a browser that dialled one of this
+ *     machine's several names — `localhost` and `127.0.0.1` are the same machine under two
+ *     spellings, and one served port is not the other. What the deployment states it answers at is
+ *     one of those names, never all of them, so a rule that admitted the arrival address only while
+ *     the deployment answers *elsewhere* would refuse the loopback deployment — the more trusted of
+ *     the two — the very claim it admits for a networked one. The hardening is unmoved either way:
+ *     the arrival address is admitted for being this machine's, never for matching what was stated.
  */
 function answeredAt(claim: OriginClaim): readonly string[] {
   const configured = originOf(claim.configuredOrigin);
   const arrivedAt = originOf(claim.requestOrigin);
   const arrivedHere = addressesThisMachine(arrivedAt);
   if (configured === "") return arrivedHere ? [arrivedAt] : [];
-  if (!addressesThisMachine(configured)) return [configured];
   return arrivedHere ? [configured, arrivedAt] : [configured];
 }
 

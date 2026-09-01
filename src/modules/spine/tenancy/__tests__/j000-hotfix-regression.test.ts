@@ -2,11 +2,9 @@
 //
 // The rule's comparator is the deployment's own statement of where it answers, because it is the one
 // fact of the three that no caller writes (R-SPINE-001). Beside it stands the address the request
-// arrived at, admitted when — and only when — the deployment answers on this machine and the request
-// arrived at one of this machine's names: a browser composes `Host` from the address it dialled, so
-// where nothing stands in front of the process the arrival address is one somebody typed at this
-// deployment. A deployment reached through a hop is admitted at what it states alone, and the
-// cross-site request
+// arrived at, admitted when — and only when — that address names the machine the process is itself
+// running on: a browser composes `Host` from the address it dialled, so a browser that reached a
+// deployment over a network cannot make the arrival address loopback, and the cross-site request
 // R-SPINE-006 legislates against is refused whatever it states.
 //
 // One machine wears several names, though, and a served deployment states exactly one of them. A
@@ -68,15 +66,9 @@ describe("R-SPINE-006: a page the deployment is serving is admitted at every nam
     expect(refusalFor({ statedOrigin: beside, requestOrigin: beside, configuredOrigin: SERVED })).toBeNull();
   });
 
-  test("a deployment answering on a network name is admitted at its own address, whatever it arrived at", () => {
-    // A deployment nobody reaches without a hop is admitted at what it states and nothing else: what
-    // a proxy forwarding to `127.0.0.1:3000` writes into `Host` is its own upstream address, so an
-    // arrival address is no evidence of where the browser dialled once something stands in front.
+  test("a deployment answering on a network name still admits a request that arrived at this machine", () => {
     const arrived = "http://127.0.0.1:3210";
-    expect(
-      refusalFor({ statedOrigin: arrived, requestOrigin: arrived, configuredOrigin: "https://cubit.example" }),
-      "the loopback address a hop rewrote Host to is not a second origin this deployment answers at",
-    ).toBe(NOT_VERIFIED);
+    expect(refusalFor({ statedOrigin: arrived, requestOrigin: arrived, configuredOrigin: "https://cubit.example" })).toBeNull();
     expect(
       refusalFor({ statedOrigin: "https://cubit.example", requestOrigin: arrived, configuredOrigin: "https://cubit.example" }),
       "the deployment's own stated address is admitted whatever the request arrived at",
