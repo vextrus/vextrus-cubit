@@ -1,0 +1,155 @@
+/*
+ * S-Design's stylesheet (docs/design/s-design.md § 1, § 6). One column on the page ground, hairline
+ * cards, mono identifiers. Every declaration is a token read (R-UI-001) except the five demo
+ * geometry constants Interpretation I-19 mandates in px — a sample box no token measures — and the
+ * single media condition I-20 rules, which states `--breakpoint-sm`'s value because a media query
+ * is evaluated before the cascade and cannot read a custom property. No `[data-theme]` selector
+ * lives here: the light and dark captures differ because the token values do.
+ *
+ * The gallery adds no chrome to a sample and re-draws no primitive (B-17): nothing below styles a
+ * `cx-` class it does not own.
+ */
+
+.cx-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-width: var(--breakpoint-lg);
+  margin-inline: auto;
+  padding: var(--space-4);
+  background-color: var(--graphite-0);
+}
+
+/* I-20's one condition: 640px is `--breakpoint-sm`'s registered value, spelled here only because a
+   media condition cannot read the token (`src/app/(auth)/s-auth.css` states it the same way). */
+@media (min-width: 640px) {
+  .cx-gallery {
+    padding: var(--space-6);
+  }
+}
+
+/* The chrome the baselines capture: a heading, a caption, a rule beneath. Nothing else. */
+.cx-gallery-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block-end: var(--space-4);
+  border-block-end: var(--hairline);
+}
+
+.cx-gallery-title {
+  margin: 0;
+  font-size: var(--text-24);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-gallery-caption {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-gallery-barrel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.cx-gallery-barrel-name {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+/* An entry is a hairline card with no fill: the page ground shows through it in both themes. */
+.cx-gallery-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+}
+
+.cx-gallery-entry-name {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-gallery-states {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-5) var(--space-4);
+}
+
+.cx-gallery-state {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/*
+ * The refusal entry's nine severity × surface cells are a comparison, so they lay on one track
+ * rather than wrapping at their content widths: same start, same width, read straight down
+ * (s-design.md § 1). `data-entry` is this screen's own hook (§ 7), not a class of the pattern's.
+ */
+.cx-gallery-entry[data-entry$="/RefusalState"] .cx-gallery-states {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--breakpoint-sm)), 1fr));
+}
+
+/* The dialog sample's footer, as its Decision composes it: secondary then primary, trailing. */
+.cx-gallery-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.cx-gallery-state-label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* I-19's four demo geometry constants — the only px in this file. */
+.cx-gallery-bone {
+  width: 240px;
+}
+
+.cx-gallery-scroll {
+  height: 160px;
+}
+
+/*
+ * The panel demo is a box no token measures in either axis: content-sizing it collapses the group
+ * to its labels, which breaks "Sheet list" mid-word and leaves the handle no target. The height is
+ * I-19's constant; the width is a token read, so the file's px constants stay at four.
+ */
+.cx-gallery-resizable {
+  height: 160px;
+  width: var(--breakpoint-sm);
+  max-width: 100%;
+}
+
+/*
+ * The virtualised sample's window, shorter than five comfortable rows are tall so the thousand-line
+ * register crops at the bottom edge instead of ending, and the pinned sample's box, narrower than
+ * the five columns are wide so the leading column has something to hold still against. Both are
+ * I-19 constants: a viewport no token measures.
+ */
+.cx-gallery-table {
+  height: 240px;
+}
+
+.cx-gallery-table-pinned {
+  width: 400px;
+  max-width: 100%;
+}

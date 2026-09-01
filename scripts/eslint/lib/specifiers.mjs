@@ -1,7 +1,7 @@
 // Every shape a module specifier can take, read once (ARCH-02). A rule that only knows the
 // straight `import x from "y"` spelling is half a rule (Q-01), so this collector also reads
 // re-exports, dynamic imports, template-literal specifiers, `require` — including the computed and
-// `globalThis` spellings — and identifiers bound once to a literal.
+// `globalThis` and `createRequire` spellings — and identifiers bound once to a literal.
 
 // The shared syntax-tree types are read off ESLint's own surface rather than from a second
 // declaration package, so the toolchain depends on nothing the increment does not name.
@@ -90,6 +90,24 @@ export function isCallTo(callee, name, sourceCode) {
 }
 
 /**
+ * `createRequire(import.meta.url)("x")` reaches a module without ever spelling `require`, straight
+ * or through the identifier it is bound to. Both spellings read as a require here (Q-01).
+ * @param {MemberExpressionNode["object"]} callee
+ * @param {SourceCode} sourceCode
+ * @returns {boolean}
+ */
+function isCreatedRequire(callee, sourceCode) {
+  if (callee.type === "CallExpression") return isCallTo(callee.callee, "createRequire", sourceCode);
+  if (callee.type !== "Identifier") return false;
+  const variable = findVariable(sourceCode, callee);
+  if (variable === null || variable.defs.length !== 1) return false;
+  const def = variable.defs[0];
+  if (def === undefined || def.type !== "Variable" || def.parent.kind !== "const") return false;
+  const init = def.node.init;
+  return init !== null && init !== undefined && init.type === "CallExpression" && isCallTo(init.callee, "createRequire", sourceCode);
+}
+
+/**
  * Visitors that hand every module specifier in a file to `report`.
  * @param {import("eslint").Rule.RuleContext} context
  * @param {(specifier: Specifier) => void} report
@@ -114,7 +132,9 @@ export function specifierVisitors(context, report) {
     ExportAllDeclaration: (node) => offer(node, node.source, kindOf(node) === "type"),
     ImportExpression: (node) => offer(node, node.source, false),
     CallExpression: (node) => {
-      if (isCallTo(node.callee, "require", sourceCode) || isCallTo(node.callee, "import", sourceCode)) offer(node, node.arguments[0], false);
+      if (isCallTo(node.callee, "require", sourceCode) || isCallTo(node.callee, "import", sourceCode) || isCreatedRequire(node.callee, sourceCode)) {
+        offer(node, node.arguments[0], false);
+      }
     },
   };
 }

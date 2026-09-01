@@ -1,0 +1,104 @@
+"use client";
+// R-UI-030's top bar: where you are (the breadcrumb, reading the URL's own truth) and who you are
+// (the user menu, holding the two doors a signed-in person always owes — the device list and the
+// way out). The occupants whose features are not built yet are absent rather than dead (I-15).
+import Link from "next/link";
+import { useTransition } from "react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/overlay";
+import { strings } from "../strings";
+import { useFailureHandOff } from "./failure-hand-off";
+import { shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
+
+export interface ShellTopBarProps {
+  workspace: ShellWorkspace;
+  area: ShellArea;
+  /** Whether the address is the area's own home; deeper, the area crumb is a step, not the page. */
+  atAreaHome: boolean;
+  /** The address the session belongs to, shown as the menu's own name; null when there is none. */
+  email: string | null;
+  /** Ending the session is the server's to do; the menu only asks for it. */
+  signOut: () => void | Promise<void>;
+}
+
+/** The crumb an area is named by — the same words the rail entry carries. */
+const AREA_LABEL: Readonly<Record<ShellArea, string>> = {
+  projects: strings.shell_nav_projects,
+  books: strings.shell_nav_books,
+  settings: strings.shell_nav_settings,
+};
+
+export function ShellTopBar({ workspace, area, atAreaHome, email, signOut }: ShellTopBarProps) {
+  const [signingOut, startSignOut] = useTransition();
+  // A failed sign-out is a failure, not a silence: the menu used to close over a discarded promise
+  // and say nothing (ARCH-03, B-21). The hand-off holds the rejection and re-throws it while
+  // rendering, which is how a client component reaches the error boundary — see ./failure-hand-off.
+  const handing = useFailureHandOff();
+
+  const askToSignOut = (): void => {
+    if (signingOut) return;
+    startSignOut(() =>
+      handing(async () => {
+        await signOut();
+      }),
+    );
+  };
+
+  return (
+    <header className="cx-shell-topbar" data-testid="shell-topbar">
+      <nav data-testid="shell-breadcrumb" aria-label={strings.shell_breadcrumb_label}>
+        <ol className="cx-shell-crumbs">
+          <li>
+            {/* A frame-internal move, so it travels through the router: the crumb lands inside the
+                same layout, which is what keeps the rail's own state (its collapse) across it. */}
+            <Link className="cx-shell-crumb-link cx-reticle" href={shellHref(workspace.tenantId, "projects")}>
+              {workspaceLabel(workspace)}
+            </Link>
+          </li>
+          <li className="cx-shell-crumb-separator" aria-hidden="true">
+            ›
+          </li>
+          {/* The area crumb is the current page only at the area's own home. On a screen deeper
+              inside the area it is a step on the way — a link the reader can take back — and
+              saying `aria-current="page"` there would name an address they are not at. */}
+          {atAreaHome ? (
+            <li className="cx-shell-crumb-current" aria-current="page">
+              {AREA_LABEL[area]}
+            </li>
+          ) : (
+            <li>
+              <Link className="cx-shell-crumb-link cx-reticle" href={shellHref(workspace.tenantId, area)}>
+                {AREA_LABEL[area]}
+              </Link>
+            </li>
+          )}
+        </ol>
+      </nav>
+
+      {/* `modal={false}` for the same reason the rail's switcher carries it: the modal treatment's
+          `aria-hidden` over the rest of the frame leaves focusable links inside it, which axe
+          reports as a serious `aria-hidden-focus` — and Q-11 admits none at a checkpoint. */}
+      <DropdownMenu modal={false}>
+        {/* The visible address is the accessible name: a person reads the account they are in. */}
+        <DropdownMenuTrigger className="cx-shell-user-trigger" data-testid="shell-user">
+          {email ?? strings.shell_user_account}
+        </DropdownMenuTrigger>
+        {/* Portalled where the shipped DropdownMenu portals every menu in the tree, and styled by
+            its own classes rather than by this bar's: an open menu at the document root is an axe
+            `region` finding of moderate impact, which the design lane reports and which is below
+            the serious/critical threshold Q-11 fixes for a checkpoint (§ I-22). */}
+        <DropdownMenuContent align="end">
+          {/* Both items are peers of one menu, so both wear the menu's idiom: an item that happens
+              to be a link may not arrive underlined beside one that is not. */}
+          <DropdownMenuItem asChild data-testid="shell-user-sessions">
+            <a className="cx-shell-menu-item" href="/sessions">
+              {strings.shell_user_sessions}
+            </a>
+          </DropdownMenuItem>
+          <DropdownMenuItem data-testid="shell-user-signout" data-pending={signingOut ? "true" : undefined} onSelect={askToSignOut}>
+            {strings.shell_user_signout}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </header>
+  );
+}

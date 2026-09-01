@@ -104,6 +104,30 @@ export function formatUserFigure(value: string): string {
 }
 
 /**
+ * R-SPINE-010's target GFA is stored in m² and displayed in square feet as well. The factor is one
+ * fact and lives here, in the seam that renders figures, so no screen and no stylesheet spells it.
+ */
+const SFT_PER_M2 = "10.7639";
+
+/** The factor as an exact scaled integer: B-07 keeps a figure a person entered off floats. */
+const SFT_FACTOR = { unscaled: BigInt(SFT_PER_M2.replace(".", "")), scale: 10n ** BigInt(SFT_PER_M2.split(".")[1]?.length ?? 0) } as const;
+
+/**
+ * A target area in square metres, as the square feet a reader knows it by — grouped like any other
+ * user-owned figure and stated to the whole foot, because a target is a target and not a
+ * measurement (L-FMT-01). Input that is not a decimal is refused, like every other figure here.
+ */
+export function formatSquareFeet(areaM2: string): string {
+  const { sign, integer, fraction } = decimalParts(areaM2, USER_FIGURE_SHAPE);
+  const scale = SFT_FACTOR.scale * 10n ** BigInt(fraction?.length ?? 0);
+  const product = BigInt(`${integer}${fraction ?? ""}`) * SFT_FACTOR.unscaled;
+  // Half up, on the magnitude: the sign is carried separately, so the rounding never depends on it.
+  const whole = (product + scale / 2n) / scale;
+  const figure = formatUserFigure(whole.toString());
+  return whole === 0n ? figure : `${sign}${figure}`;
+}
+
+/**
  * A date as `DD MMM YYYY` (L-FMT-01). The caller hands over Asia/Dhaka wall-clock parts with a
  * 1-based month — never an epoch and never a `Date`, because an instant carries a zone with it and
  * the document's day is the one the reader is standing in. Parts that are not a real day are
@@ -155,12 +179,13 @@ function decimalParts(value: string, shape: RegExp): DecimalParts {
   const sign = matched[1] ?? "";
   const integer = matched[2] ?? "";
   const fraction = matched[3];
-  // Zero carries no sign. `-0.00` is a figure at no quantity wearing a direction, and rendering it
-  // as `-৳0.00` would put a minus on a document in front of nothing (L-FMT-02).
-  if (sign === "-" && !/[1-9]/.test(`${integer}${fraction ?? ""}`)) {
-    throw refusal(PRECISION_NOT_APPLIED, "a zero figure carries no sign — the seam refuses a negative zero rather than rendering one (L-FMT-02)");
-  }
-  return { sign, integer, fraction };
+  // Zero carries no sign, and dropping one is not a refusal. L-FMT-02 refuses a figure that is not
+  // at its kind's stated precision and input that is not a decimal; `-0.00` is neither, so there is
+  // nothing here for the seam to refuse — and nothing is rounded either, because −0 and 0 are one
+  // quantity. What the document must not show is the minus itself: a document never prints a
+  // direction in front of nothing.
+  const magnitude = sign === "-" && !/[1-9]/.test(`${integer}${fraction ?? ""}`) ? "" : sign;
+  return { sign: magnitude, integer, fraction };
 }
 
 /** The integer part, grouped lakh/crore in ASCII digits (L-FMT-01). */

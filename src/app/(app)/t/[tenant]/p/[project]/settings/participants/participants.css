@@ -1,0 +1,226 @@
+/*
+ * S-Settings-Participants' own chrome (docs/design/s-settings-participants.md § 1). The frame, the
+ * rail and the breadcrumb are the shell's; the chips, the buttons and the bones are the core
+ * primitives'; the refusal is RefusalState's and the dialog is the one ConsequenceDialog's. Nothing
+ * here re-draws any of them (B-17).
+ *
+ * No [data-theme] selector: every light/dark difference arrives through token values (R-UI-001).
+ */
+
+.cx-participants {
+  display: flex;
+  max-width: 800px;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.cx-participants-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-participants-heading {
+  margin: 0;
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-participants-caption {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-participants-section-heading {
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-participants-hint {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* Current roles: nothing here is interactive, so no hover fill renders. */
+.cx-participants-list {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+}
+
+/*
+ * The two halves read as one line: the roles sit beside the member they belong to, not flung to the
+ * far edge of an 800 px measure with the eye asked to carry the pairing across the gap. The name
+ * column takes the width it needs and no more (shrinking to its ellipsis when it must), and the
+ * trailing space falls at the end of the row — the same left-packed reading the history below has.
+ */
+.cx-participants-row {
+  display: grid;
+  min-height: var(--row-comfortable);
+  align-items: center;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, max-content) auto;
+}
+
+.cx-participants-row + .cx-participants-row {
+  border-top: var(--hairline);
+}
+
+.cx-participants-member {
+  overflow: hidden;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cx-participants-roles {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* I-47: role and direction enum values render verbatim in the mono face, everywhere. */
+.cx-participants-role,
+.cx-participants-direction,
+.cx-participants-history-role {
+  font-family: var(--font-mono);
+}
+
+.cx-participants-role {
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+}
+
+.cx-participants-enum {
+  font-family: var(--font-mono);
+}
+
+.cx-participants-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.cx-participants-field {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.cx-participants-field-label {
+  padding: 0;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+}
+
+.cx-participants-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.cx-participants-alert {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: var(--hairline);
+  border-color: var(--danger);
+  border-radius: var(--radius-4);
+  background: var(--danger-surface);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-participants-submit {
+  align-self: flex-start;
+}
+
+/* The record: a ledger, read downward — oldest first, newest last (I-52). */
+.cx-participants-history {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+}
+
+.cx-participants-history-row {
+  /* The row's own ruler, stated once and used by both its lines: the direction column's measure. */
+  --participants-direction-column: 88px;
+
+  padding-block: var(--space-2);
+}
+
+.cx-participants-history-row + .cx-participants-history-row {
+  border-top: var(--hairline);
+}
+
+.cx-participants-history-what {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+/* The direction column aligns, so the record scans down its own left edge. */
+.cx-participants-direction {
+  min-width: var(--participants-direction-column);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-participants-history-role {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-participants-history-subject {
+  overflow: hidden;
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * Line two carries the date, so its figures are tabular and its zeroes slashed. It starts where
+ * line one's role does — under the row's own second column, past the direction ruler and the gap —
+ * so the entry reads as one block hanging off its direction, not as a second line breaking back out
+ * to the record's left edge.
+ */
+.cx-participants-history-by {
+  margin: var(--space-2) 0 0;
+  padding-inline-start: calc(var(--participants-direction-column) + var(--space-3));
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--graphite-600);
+}
+
+.cx-participants-denied {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-participants-denied-line {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}
+
+/* The two round-trip states the form has beyond its answer: in flight, and written (R-UI-050). */
+.cx-participants-status {
+  min-height: var(--text-13);
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}

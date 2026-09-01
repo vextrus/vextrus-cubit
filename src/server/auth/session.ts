@@ -142,6 +142,16 @@ function storedAddress(email: string): string {
 }
 
 /**
+ * The two halves of the fold above, published under the names the rest of the server calls them by.
+ *
+ * R-SPINE-003's offer of membership is addressed to somebody who may have no account yet, so the
+ * invitation and the account that eventually spends it are matched on the key this fold answers —
+ * and the mail is addressed to the presented address, because a key is not somewhere mail arrives. A
+ * second spelling of either would be two identities for one person (B-17).
+ */
+export { presentedAddress as mailedAddress, storedAddress as storedAddressKey };
+
+/**
  * The address itself, as a mail is addressed to it: normalised and storable, carrying no key tag.
  *
  * The key an account is stored under and the address a link is sent to are two different values —
