@@ -21,6 +21,16 @@ export const REPO_ROOT: string = process.cwd();
  */
 export const PRE_FIX = "7af2a17";
 
+/**
+ * The path whose arrival on the mainline marks the end of this increment's interval. It is this
+ * increment's own acceptance file, so the commit that first tracks it is the commit that merged the
+ * hotfix.
+ */
+const FIX_MARKER = "tests/hotfix-j000/ac2-forward-only.test.ts";
+
+/** Where the mainline is looked for, in the order a checkout is likeliest to answer with it. */
+const MAINLINE_REFS = ["main", "origin/main"] as const;
+
 /** One git command, answered as trimmed text; a non-zero exit is the caller's to catch. */
 export function git(...args: readonly string[]): string {
   return execFileSync("git", args, { cwd: REPO_ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).trim();
@@ -42,12 +52,40 @@ export function resolves(rev: string): boolean {
   }
 }
 
+/**
+ * The far end of the interval this increment is judged over: the mainline commit that first tracks
+ * this increment's own acceptance, i.e. the commit that merged the hotfix. While the branch is
+ * unmerged — which is how the gate sees it — no mainline commit has the marker yet and the answer is
+ * `HEAD`, so the live branch is graded exactly as strictly as it would be without this reading.
+ *
+ * Naming an end matters because J-000 is "extended per milestone" (its Bible clause): a later
+ * increment lawfully adds J-000 specs and re-baselines them, and a reading anchored at `HEAD` would
+ * turn that lawful extension into a red no actor may clear. What this increment claims is a property
+ * of `PRE_FIX..FIX_END`, and that is the range these readings ask about.
+ */
+export const FIX_END: string = ((): string => {
+  for (const ref of MAINLINE_REFS) {
+    if (!resolves(ref)) continue;
+    try {
+      // First-parent, oldest first: on the mainline's own spine, the commit that brought the marker
+      // in is the merge commit itself.
+      const introduced = gitLines("rev-list", "--first-parent", "--reverse", ref, "--", FIX_MARKER);
+      if (introduced[0] !== undefined) return introduced[0];
+    } catch {
+      // A ref git cannot walk is simply not the mainline this reading is looking for.
+    }
+  }
+  return "HEAD";
+})();
+
 /** Every path the branch's end state differs from the pre-fix merge in, repo-relative. */
 export function changedSincePreFix(): string[] {
-  // Both halves matter: what the branch has committed, and what it holds uncommitted. A file the
-  // gate is about to commit is as much a change as one already in a commit.
-  const committed = gitLines("diff", "--name-only", `${PRE_FIX}..HEAD`);
-  const working = gitLines("status", "--porcelain=v1").map((line) => line.slice(3).trim());
+  const committed = gitLines("diff", "--name-only", `${PRE_FIX}..${FIX_END}`);
+  // The uncommitted half belongs to the reading only while the interval ends at the working
+  // checkout: a file the gate is about to commit is as much a change as one already in a commit.
+  // Once the interval is closed by a merge commit, what some later checkout holds uncommitted is
+  // outside the claim.
+  const working = FIX_END === "HEAD" ? gitLines("status", "--porcelain=v1").map((line) => line.slice(3).trim()) : [];
   const renamedTarget = (path: string): string => (path.includes(" -> ") ? (path.split(" -> ")[1] ?? path) : path);
   return [...new Set([...committed, ...working.map(renamedTarget)])].filter((path) => path.length > 0).sort();
 }

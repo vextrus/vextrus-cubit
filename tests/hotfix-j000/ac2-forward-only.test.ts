@@ -15,7 +15,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PRE_FIX, REPO_ROOT, changedSincePreFix, filesAt, objectIdAt, objectIdInTree, withoutComments } from "./support/history";
+import { FIX_END, PRE_FIX, REPO_ROOT, changedSincePreFix, filesAt, objectIdAt, withoutComments } from "./support/history";
 
 /**
  * The three J-000 tests `pnpm e2e --journey J-000` runs, as this increment's interfaces line spells
@@ -50,15 +50,19 @@ describe("AC-2: J-000 is repaired forward, never by editing what grades J-000", 
     ).toEqual([]);
   });
 
-  it("AC-2: every J-000 asset the pre-fix merge tracked is byte-identical in the working tree", () => {
+  it("AC-2: every J-000 asset the pre-fix merge tracked is byte-identical at the end of this fix", () => {
     // Derived, so the freeze covers whatever J-000 was made of at the pin rather than a list that
     // would age. `changedSincePreFix` reads names; this reads content, and catches a same-name
     // rewrite the name reading alone would let through.
+    //
+    // Both ends of the reading are the interval's own: the pin and `FIX_END`. J-000 is "extended per
+    // milestone", so a later milestone may lawfully rewrite these files — what this increment claims
+    // is that IT did not, and that claim is settled once the hotfix lands.
     const frozen = filesAt(PRE_FIX, "tests/").filter(isFrozenGround);
     expect(frozen.length, `no frozen J-000 or shared-journey asset was found at ${PRE_FIX} — the reading below would prove nothing`).toBeGreaterThan(0);
 
-    const moved = frozen.filter((path) => objectIdInTree(path) !== objectIdAt(PRE_FIX, path));
-    expect(moved, `these are byte-frozen at ${PRE_FIX} and the working tree holds a different content (or has deleted them):\n  ${moved.join("\n  ")}`).toEqual([]);
+    const moved = frozen.filter((path) => objectIdAt(FIX_END, path) !== objectIdAt(PRE_FIX, path));
+    expect(moved, `these are byte-frozen at ${PRE_FIX} and ${FIX_END} holds a different content (or has deleted them):\n  ${moved.join("\n  ")}`).toEqual([]);
   });
 
   it("AC-2: the three J-000 tests the interfaces line names are still present and still collected", () => {

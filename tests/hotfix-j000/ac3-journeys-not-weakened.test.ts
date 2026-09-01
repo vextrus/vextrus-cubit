@@ -42,9 +42,17 @@ function currentText(path: string): string | null {
 
 /** Is this a baseline image belonging to one of the two journeys this increment owns? */
 function isOwnedBaseline(path: string): boolean {
-  if (!path.startsWith("tests/e2e/")) return false;
-  if (!/\.(?:png|jpg|jpeg)$/i.test(path)) return false;
-  return path.includes("j-001") || path.includes("j-002");
+  return isBaselineImage(path) && (path.includes("j-001") || path.includes("j-002"));
+}
+
+/**
+ * Is this a journey baseline image at all, whichever journey it grades? B-20 grants every
+ * law-changing increment the ownership to re-baseline what its change froze, so "a `baseline:`
+ * commit carries baselines and nothing else" has to read `baseline` the way B-20 means it — any
+ * journey's image — and not "a baseline this increment happens to own".
+ */
+function isBaselineImage(path: string): boolean {
+  return path.startsWith("tests/e2e/") && /\.(?:png|jpg|jpeg)$/i.test(path);
 }
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {
@@ -105,10 +113,12 @@ describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline
 
   it("AC-3: a `baseline:` commit carries baselines and nothing else", () => {
     // B-20's discipline is "its own commit". A repair smuggled into a re-baseline is a repair that
-    // was reviewed as a picture.
+    // was reviewed as a picture. The stray reading is journey-agnostic on purpose: a later
+    // increment's lawful re-baseline of a journey this increment never owned is still a `baseline:`
+    // commit carrying only baselines, and reading it as all-strays would be a red no actor can clear.
     for (const { sha, subject } of branchCommits()) {
       if (!subject.startsWith("baseline:")) continue;
-      const strays = gitLines("show", "--name-only", "--format=", sha).filter((path) => !isOwnedBaseline(path));
+      const strays = gitLines("show", "--name-only", "--format=", sha).filter((path) => !isBaselineImage(path));
       expect(strays, `the baseline commit "${subject}" also carries files that are not baselines:\n  ${strays.join("\n  ")}`).toEqual([]);
     }
   });
