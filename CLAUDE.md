@@ -17,6 +17,7 @@ pnpm verify · pnpm test:db · pnpm e2e --journey <J> · pnpm checkup
 - Before editing test config, tests/e2e/**, CLAUDE.md or .claude/**: confirm your increment's approved spec owns that path — locked by default, and each attempt costs a denial plus a structural red.
 - Read-only roles (reviewer/skeptic/adversary) verify with the allowlist only: git reads, tsc, `vitest run <file>`, pnpm verify/test/checkup, `psql -c` (read-only SQL), pg_isready, curl localhost — never node -e / python3 -c / heredocs.
 - History is append-only: no amend, no rebase; a landed migration is superseded, never edited; a regenerated snapshot/baseline goes in its own commit whose subject starts `baseline:` and names the proof.
+- Toolchain churn is not yours to keep OR to fight: `next build` rewrites tsconfig.json and next-env.d.ts as a side effect. Never hand-edit them; restore with `git checkout main -- tsconfig.json next-env.d.ts` (a pure restore of a toolchain path is always allowed, even chained after your other git commands), or simply leave the dirt — the engine restores these paths to main's form at the gate and again at merge.
 
 <!-- builder:lessons:start -->
 ## Standing lessons (engine-maintained)
