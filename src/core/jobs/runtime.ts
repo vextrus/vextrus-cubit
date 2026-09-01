@@ -69,6 +69,17 @@ const SWEEP_MS = 30_000;
 /** What the sweep's own failures are recorded against — it answers to no request and no job. */
 const SWEEP_ROUTE = "job/sweep";
 
+/**
+ * The longest key a job may be enqueued under, in bytes.
+ *
+ * A key is the primary key of the claim row that makes idempotence work, and a btree entry has a
+ * hard ceiling of about 2704 bytes: a longer one is a raw 54000 out of the driver, at the moment of
+ * the insert, with the job neither claimed nor sent. The limit is stated here, well under that
+ * ceiling, so a caller deriving a key from something a user typed is told what is wrong with it
+ * instead of meeting the index's arithmetic.
+ */
+const MAX_KEY_BYTES = 512;
+
 /** What one job carries through the queue: its key, so every event can name it, and its payload. */
 type Envelope = { key: string; payload: unknown };
 
@@ -215,14 +226,15 @@ export async function stopJobsRuntime(): Promise<void> {
  * the same key at the same instant still make one job.
  */
 export async function enqueue<K extends JobKind>(kind: K, payload: JobPayloads[K], options: { key: string }): Promise<EnqueueResult> {
+  const key = checkedKey(kind, options.key);
   const running = await runtime();
   const policy = JOB_KINDS[kind];
-  return await running.store.withKeyLock(kind, options.key, async () => {
-    const live = await running.store.liveJobFor(kind, options.key, [...TERMINAL_STATUSES]);
+  return await running.store.withKeyLock(kind, key, async () => {
+    const live = await running.store.liveJobFor(kind, key, [...TERMINAL_STATUSES]);
     // A claim whose job the queue is already done with is a job whose ending nobody wrote. It is
     // ended here — and reported — before this call decides whether the key is busy, so an attempt
     // that did not survive to write its own ending can never hold a key for good.
-    if (live !== null && !(await settleAbandoned(running, kind, options.key, live))) {
+    if (live !== null && !(await settleAbandoned(running, kind, key, live))) {
       return { jobId: live, deduplicated: true };
     }
     // Claimed before it is sent, and with an id of the seam's own: a crash between the two then
@@ -230,16 +242,31 @@ export async function enqueue<K extends JobKind>(kind: K, payload: JobPayloads[K
     // frees. Sending first would leave a job no claim guards, and the key's one-at-a-time promise
     // would be quietly broken instead of recoverably wrong (SEAM-JOBS).
     const jobId = randomUUID();
-    await running.store.claimKey(kind, options.key, jobId);
-    const envelope: Envelope = { key: options.key, payload };
+    await running.store.claimKey(kind, key, jobId);
+    const envelope: Envelope = { key, payload };
     try {
       await running.store.publish(kind, jobId, { ...envelope }, policy);
     } catch (failure) {
-      await running.store.releaseKey(kind, options.key, jobId).catch(() => undefined);
+      await running.store.releaseKey(kind, key, jobId).catch(() => undefined);
       throw failure;
     }
     return { jobId, deduplicated: false };
   });
+}
+
+/**
+ * The key an enqueue may go ahead under. A key longer than the claim row's index can carry is
+ * stopped here, before anything is claimed or sent: left to the insert it would be a raw SQLSTATE
+ * 54000 out of the driver, an error naming an index rather than the argument that was wrong. It is
+ * a failure of the server's side and not a refusal any registered code covers, so it crosses the one
+ * fault seam and the caller is given the id it was recorded under (ARCH-03, B-21).
+ */
+function checkedKey(kind: JobKind, key: string): string {
+  const bytes = new TextEncoder().encode(key).length;
+  if (bytes <= MAX_KEY_BYTES) return key;
+  const cause = new Error(`a ${kind} job key is at most ${MAX_KEY_BYTES} bytes; this one is ${bytes} (SEAM-JOBS)`);
+  const { faultId } = reportFault({ requestId: `${kind}:oversized-key`, actor: `${kind}`, route: `job/${kind}`, cause });
+  throw new Error(`${cause.message} — recorded as fault ${faultId}`);
 }
 
 /**
@@ -298,6 +325,33 @@ async function sweepAbandoned(running: Runtime): Promise<void> {
     // The database URL carries a password, so the sweep names itself rather than what it reached.
     if (!running.closing) reportFault({ requestId: SWEEP_ROUTE, actor: "sweep", route: SWEEP_ROUTE, cause: failure });
   }
+}
+
+/** What this process can truthfully say about the work it is serving right now. */
+export type JobsHealth = { ok: boolean; queues: string[] };
+
+/**
+ * Whether this process is really taking work off the queues, and which kinds it is taking.
+ *
+ * Asked, not assumed: a runtime that was never started, one that is draining, and one whose
+ * database has gone away all answer `ok: false` with nothing served, so a supervisor reading the
+ * worker's health takes a dead worker out of rotation instead of keeping it (R-SPINE-031). The
+ * roster is the kinds this runtime actually consumes rather than the kinds the seam declares —
+ * a process that enqueues but consumes nothing serves no queue at all.
+ */
+export async function jobsHealth(): Promise<JobsHealth> {
+  const current = holder.current;
+  const running = current === undefined ? undefined : await current.catch(() => undefined);
+  if (running === undefined || !running.consumers || running.closing) return { ok: false, queues: [] };
+  try {
+    await running.store.ping();
+  } catch (failure) {
+    // A worker that cannot reach its database is an outage of ours, and the probe's answer is only
+    // half the telling: the operator gets the record too (ARCH-03).
+    reportFault({ requestId: "jobs/health", actor: "worker", route: "jobs/health", cause: failure });
+    return { ok: false, queues: [] };
+  }
+  return { ok: true, queues: [...KIND_NAMES] };
 }
 
 /** Everything the log holds about one job, in the order it recorded it. */

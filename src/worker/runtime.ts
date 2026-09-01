@@ -4,7 +4,7 @@
 // listens for — so a test can run the worker in-process and an operator can run it as a service
 // without two different workers existing (ARCH-02).
 import { createServer, type Server } from "node:http";
-import { JOB_KINDS, startJobsRuntime, stopJobsRuntime } from "../core/jobs";
+import { jobsHealth, startJobsRuntime, stopJobsRuntime } from "../core/jobs";
 
 /** Where the health probe answers, and where nothing else does. */
 const HEALTH_PATH = "/health";
@@ -25,8 +25,8 @@ export type Worker = {
 /** What a worker is told when it starts: which database, and where to answer about its health. */
 export type WorkerOptions = { databaseUrl: string; healthPort: number };
 
-/** What the health probe answers: that the worker is up, and which kinds it serves. */
-export type WorkerHealth = { ok: true; queues: string[] };
+/** What the health probe answers: whether the worker is really working, and on which kinds. */
+export type WorkerHealth = { ok: boolean; queues: string[] };
 
 /**
  * Start the queues and the health endpoint, in that order: a worker that answers "ok" before it is
@@ -56,9 +56,14 @@ export async function runWorker(options: WorkerOptions): Promise<Worker> {
   };
 }
 
-/** The queues this worker serves — every kind the seam registers, which is the roster itself. */
-export function servedQueues(): string[] {
-  return Object.keys(JOB_KINDS);
+/**
+ * What this worker is really serving, asked of the seam rather than declared here. A probe exists so
+ * a supervisor can take a worker that has stopped working out of rotation, so the answer has to be
+ * capable of saying no: a runtime that is draining, or whose database has gone away, answers
+ * `ok: false` and 503, and nothing about the declared roster can dress that up (R-SPINE-031).
+ */
+export async function servedQueues(): Promise<WorkerHealth> {
+  return await jobsHealth();
 }
 
 /** The health endpoint, listening, or a rejection naming why it could not. */
@@ -70,9 +75,11 @@ function listenForHealth(port: number): Promise<Server> {
       response.end(JSON.stringify({ ok: false }));
       return;
     }
-    const answer: WorkerHealth = { ok: true, queues: servedQueues() };
-    response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-    response.end(JSON.stringify(answer));
+    void (async () => {
+      const answer: WorkerHealth = await servedQueues();
+      response.writeHead(answer.ok ? 200 : 503, { "content-type": "application/json", "cache-control": "no-store" });
+      response.end(JSON.stringify(answer));
+    })();
   });
   return new Promise((settle, fail) => {
     server.once("error", fail);

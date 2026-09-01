@@ -780,6 +780,13 @@ const JOBS_POOL = { max: 5, idleTimeout: 20, connectTimeout: 10 } as const;
 const LOCK_POOL = { max: 8, idleTimeout: 20, connectTimeout: 10 } as const;
 
 /**
+ * How long an enqueue waits for another enqueue of the SAME key before giving up, in milliseconds.
+ * Generous — the guarded section is a claim and a send — but finite: a wait with no end turns one
+ * wedged key into every connection in the lock pool, and then into every key (SEAM-JOBS).
+ */
+const LOCK_WAIT_MS = 30_000;
+
+/**
  * How the queue's own outages are recorded. A lost connection or a failed maintenance pass is a
  * non-refusal server-side failure like any other, so it crosses the one fault seam rather than
  * being written down in a dialect of its own (ARCH-03, ARCH-02). It belongs to no request, so the
@@ -1011,6 +1018,66 @@ export function jobsStore(url: string): JobsStore {
   const lockName = (kind: string, key: string): string => `${kind}:${key}`;
 
   /**
+   * Run one piece of work with the (kind, key) pair to itself, under a transaction-scoped advisory
+   * lock on a connection of the lock pool's own.
+   *
+   * The transaction holds the lock and nothing else: every read and write the guarded work does
+   * happens on the log's pool, so no statement of the caller's is hidden inside it. What the
+   * transaction buys is that there is no unlock left to fail — postgres drops an xact lock when the
+   * transaction ends, however it ends, the connection dying included. A session lock has to be given
+   * back by hand, and a hand-back that does not land wedges the key for the life of the process and
+   * either loses its connection or hands the next enqueue one that can never take the lock its own
+   * predecessor is sitting on (SEAM-JOBS, ARCH-03).
+   */
+  const withKeyLock = async <T>(kind: string, key: string, work: () => Promise<T>): Promise<T> => {
+    const guarded = await locks.begin(async (tx) => {
+      // A wait that cannot end is worse than a failure that can: bounded, an enqueue behind a holder
+      // that will not let go fails and says so, instead of holding a connection until the pool has
+      // none left and no key can be enqueued at all.
+      await tx.unsafe(`set local lock_timeout = ${LOCK_WAIT_MS}`);
+      await tx`select pg_advisory_xact_lock(hashtextextended(${lockName(kind, key)}, 0))`;
+      // Wrapped in one: the driver spreads an array a transaction answers with, and a caller's own
+      // array result is not this seam's to spread.
+      return [await work()];
+    });
+    return (guarded as [T])[0];
+  };
+
+  /** Which queues this store has already made, so the row is made once per process, not per send. */
+  const declared = new Map<string, Promise<void>>();
+
+  /**
+   * Make the queue's row if this store has not already made it.
+   *
+   * A send names a queue by name, and the library's insert joins the send against that row: a name
+   * with no row accepts no job at all. Declaring is therefore not the consuming tier's privilege but
+   * every writer's obligation — a tier that only enqueues must be able to reach a database no worker
+   * has ever started on (R-SPINE-030). The statement is an upsert of the library's own, so declaring
+   * a queue a worker already declared changes nothing.
+   */
+  const declareOnce = async (name: string, shape: QueueShape): Promise<void> => {
+    const already = declared.get(name);
+    if (already !== undefined) return await already;
+    const declaring: Promise<void> = (async () => {
+      const boss = await queue();
+      await boss.createQueue(name, {
+        name,
+        retryLimit: shape.retryLimit,
+        retryDelay: shape.retryDelaySeconds,
+        retryBackoff: shape.retryBackoff,
+        expireInSeconds: shape.expireSeconds,
+      });
+    })().catch((failure: unknown) => {
+      // A declaration that failed is forgotten rather than remembered as done: the next send tries
+      // again, instead of every later one being sent at a queue that was never made.
+      if (declared.get(name) === declaring) declared.delete(name);
+      throw failure;
+    });
+    declared.set(name, declaring);
+    await declaring;
+  };
+
+  /**
    * A read of a log that has not been provisioned yet. A tier that reads before anything has ever
    * been written asks a lawful question about a job that cannot exist, and the honest answer is
    * "nothing", not an internal error carrying a fault id (ARCH-03, B-21). Any other failure travels.
@@ -1038,14 +1105,7 @@ export function jobsStore(url: string): JobsStore {
     },
 
     declareQueue: async (name, shape) => {
-      const boss = await queue();
-      await boss.createQueue(name, {
-        name,
-        retryLimit: shape.retryLimit,
-        retryDelay: shape.retryDelaySeconds,
-        retryBackoff: shape.retryBackoff,
-        expireInSeconds: shape.expireSeconds,
-      });
+      await declareOnce(name, shape);
     },
 
     consume: async (name, shape, run) => {
@@ -1066,6 +1126,9 @@ export function jobsStore(url: string): JobsStore {
 
     publish: async (name, jobId, data, shape) => {
       const boss = await queue();
+      // The writer provisions what it writes to, queue row included: a first enqueue from a tier
+      // that consumes nothing must land on a database no worker has started on yet (R-SPINE-030).
+      await declareOnce(name, shape);
       // The id is the seam's rather than the queue's: it is written down as the key's claim before
       // the job exists, so a crash between the two leaves a claim naming a job the queue never got
       // — which is recoverable — instead of a job no claim guards (SEAM-JOBS).
@@ -1093,38 +1156,7 @@ export function jobsStore(url: string): JobsStore {
       return job.state === "created" || job.state === "retry" ? "pending" : "ended";
     },
 
-    withKeyLock: async (kind, key, work) => {
-      // A session lock rather than a transaction one: the work it guards reads and writes on other
-      // connections, so it must not be inside a transaction of its own that hides them.
-      const session = await locks.reserve();
-      let held = false;
-      try {
-        await session`select pg_advisory_lock(hashtextextended(${lockName(kind, key)}, 0))`;
-        held = true;
-        try {
-          return await work();
-        } finally {
-          await session`select pg_advisory_unlock(hashtextextended(${lockName(kind, key)}, 0))`;
-          held = false;
-        }
-      } finally {
-        // A connection whose unlock did not land still holds a session lock, and giving it back to
-        // the pool hands the next enqueue of this key a connection that can never take the lock its
-        // own predecessor is sitting on. It is kept out of the pool instead and the outage is
-        // recorded: one connection short is recoverable, a key wedged for the life of the process
-        // is not (ARCH-03).
-        if (held) {
-          reportFault({
-            requestId: QUEUE_REQUEST,
-            actor: QUEUE_ACTOR,
-            route: QUEUE_ROUTE,
-            cause: new Error(`the key lock for ${lockName(kind, key)} could not be released, so its connection is not returned to the pool (SEAM-JOBS)`),
-          });
-        } else {
-          session.release();
-        }
-      }
-    },
+    withKeyLock,
 
     liveJobFor: async (kind, key, endedStatuses) => await readingStored(async () => {
       const rows = await sql<{ job_id: string }[]>`
