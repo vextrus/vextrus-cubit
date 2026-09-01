@@ -20,8 +20,10 @@ export type RoleGrant = {
  *
  * The read states that tenant predicate itself as well (SEAM-TENANT, R-SPINE-004): a project is
  * identified by the pair (tenant, project), so a query narrowed to a project alone says what it
- * means only by way of the policy standing behind it — and the composite index these tables carry
- * begins with the tenant.
+ * means only by way of the policy standing behind it. What the stated filter buys is that meaning,
+ * not an access path: its fallback arm names the column itself, so the planner reads it as a
+ * per-row recheck rather than an index qualifier, and the tenant-leading index is driven by the
+ * policy's own predicate beside it.
  *
  * "Standing" is the whole point (R-SPINE-011): `participant_roles` is append-only and owner-proof,
  * so a role taken back is still a row there — the withdrawal that answered it is a row in

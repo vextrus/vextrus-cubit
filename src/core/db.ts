@@ -717,6 +717,9 @@ export function isUuid(value: string): boolean {
  * a system handle — which is armed with no tenant on purpose (SEAM-TENANT) — it narrows to the row's
  * own tenant, so the seam's own filter can never contradict the policy it stands beside.
  *
+ * It is a recheck, not an access path: the fallback arm names the column, so the planner cannot use
+ * this predicate as an index qualifier. What it buys is that a read states what it narrows to.
+ *
  * Handed out from here because the setting's name is the migration's and this file is its one home
  * (ARCH-02): a read that spelled `current_setting` itself would be a second copy of that name.
  */

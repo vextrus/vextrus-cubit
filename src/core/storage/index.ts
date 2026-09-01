@@ -12,7 +12,7 @@
 // expiry, so the secret never travels in the artefact a browser carries, and expiry is judged
 // against an injected clock rather than the wall.
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { link, mkdir, open, readFile, unlink } from "node:fs/promises";
+import { access, link, mkdir, open, readFile, unlink } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { isUuid } from "../db";
 
@@ -136,6 +136,13 @@ const unixSeconds = (at: Date): number => Math.floor(at.getTime() / 1000);
 const isMissing = (error: unknown): boolean => (error as { code?: unknown } | null)?.code === "ENOENT";
 
 /**
+ * Is the address settled — does a file stand at it? Asked of the volume rather than inferred from a
+ * race, so "somebody else already stored these bytes" is never assumed on a volume where nothing is
+ * stored at all.
+ */
+const isStored = (file: string): Promise<boolean> => access(file).then(() => true).catch(() => false);
+
+/**
  * The seam over a local filesystem root. Every knob is a value on `options`, so two seams over the
  * same root with different secrets are two independent signers — which is exactly what makes a URL
  * minted elsewhere unverifiable here.
@@ -182,12 +189,25 @@ export function makeStorage(options: StorageOptions): Storage {
       try {
         await link(staging, file);
       } catch (error) {
-        if ((error as { code?: unknown }).code !== "EEXIST") throw error;
+        const code = (error as { code?: unknown }).code;
+        // EEXIST is the ordinary race: another put of these same bytes settled the address first,
+        // and an object that exists is never rewritten. ENOENT is that same race one step further
+        // on — `link` resolves its source first, so a concurrent put that linked the SHARED staging
+        // copy into place and then removed it leaves this one's source gone, with the address it was
+        // about to settle already settled. Both are absorbed only against the volume's own answer:
+        // the address is asked about, never assumed, so an ENOENT with nothing at the address is a
+        // story the caller still hears (ARCH-03, B-21).
+        if (code !== "EEXIST" && !(code === "ENOENT" && (await isStored(file)))) throw error;
       } finally {
         // Removing the staging copy is cleanup, not the operation: if it fails, the caller still
         // owes the story of what went wrong with `link`, so its rejection never replaces that one —
         // it goes to the operator's hook instead of into a catch that tells nobody.
         await unlink(staging).catch((failure: unknown) => {
+          // A staging copy that is already gone is cleanup that HAPPENED, not cleanup that failed:
+          // the copy's address is shared by every put of the same bytes, so a concurrent put removes
+          // the very file this one was about to. Reporting that would name an operator to a put in
+          // which nothing went wrong.
+          if (isMissing(failure)) return;
           options.onCleanupFailure?.(failure);
         });
       }

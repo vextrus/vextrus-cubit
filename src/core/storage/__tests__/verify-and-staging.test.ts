@@ -93,6 +93,38 @@ describe("put stages at an address a caller can name", () => {
     expect(Array.from(await readFile(join(root, TENANT, first.sha256))), "…and an object that exists is never rewritten").toEqual(Array.from(stored));
   });
 
+  test("puts of identical bytes racing at the shared staging address are all clean", async () => {
+    // The staging copy's address is derived from the object's own, so every put of the same bytes
+    // stages at ONE path: whichever links first settles the address and removes the copy the others
+    // are still holding. Nothing went wrong in any of those puts — each answers the address, and the
+    // operator's hook is for a staging copy that would not go away, not for one somebody else took.
+    const cleanupFailures: unknown[] = [];
+    const root = await mkdtemp(join(tmpdir(), "cubit-storage-race-"));
+    const storage = makeStorage({
+      root,
+      signingSecret: SECRET,
+      now: () => NOW,
+      onCleanupFailure: (error: unknown) => {
+        cleanupFailures.push(error);
+      },
+    });
+
+    // Repeated over fresh bytes each round, because the interleaving that matters — a whole
+    // link-and-unlink cycle finishing before another put reaches its own `link` — is the volume's
+    // to choose, and one round of it proves nothing about the next.
+    for (let round = 0; round < 20; round += 1) {
+      const bytes = new Uint8Array([round, 1, 2, 3, 4, 5]);
+      const sha256 = createHash("sha256").update(bytes).digest("hex");
+      const raced = await Promise.all([0, 1, 2, 3, 4, 5].map(async () => storage.put(TENANT, bytes)));
+      expect(
+        raced.map((stored) => stored.sha256),
+        "every put of the same bytes answers the one address those bytes have",
+      ).toEqual(raced.map(() => sha256));
+      expect(Array.from((await storage.get(TENANT, sha256)) ?? []), "…and the bytes are stored").toEqual(Array.from(bytes));
+    }
+    expect(cleanupFailures, "a clean put never calls the hook, and two clean puts racing at the shared staging address are still two clean puts").toEqual([]);
+  });
+
   test("a tenant id the tenancy seam did not mint never reaches the filesystem", async () => {
     const { storage } = await staged();
     for (const notATenant of ["", "..", "not-a-uuid", TENANT.toUpperCase()]) {
