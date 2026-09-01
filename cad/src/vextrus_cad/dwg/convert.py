@@ -270,8 +270,10 @@ def _placed(source: Path, converted: Path, out_dir: Path) -> Path:
     dxf_path = out_dir / f"{source.stem}.dxf"
     try:
         out_dir.mkdir(parents=True, exist_ok=True)
+        # `shutil.Error` alongside `OSError`: a move that cannot be made says so in a class of its
+        # own, and neither belongs in a caller's traceback.
         shutil.move(str(converted), str(dxf_path))
-    except OSError as error:
+    except (OSError, shutil.Error) as error:
         with contextlib.suppress(OSError):
             dxf_path.unlink(missing_ok=True)
         raise DwgError(
