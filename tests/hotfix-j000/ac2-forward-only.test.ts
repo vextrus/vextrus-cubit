@@ -15,7 +15,17 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { FIX_END, PRE_FIX, REPO_ROOT, changedSincePreFix, filesAt, objectIdAt, withoutComments } from "./support/history";
+import {
+  FIX_END,
+  FIX_MARKER,
+  PRE_FIX,
+  REPO_ROOT,
+  changedSincePreFix,
+  filesAt,
+  objectIdAt,
+  objectIdInTree,
+  withoutComments,
+} from "./support/history";
 
 /**
  * The three J-000 tests `pnpm e2e --journey J-000` runs, as this increment's interfaces line spells
@@ -42,6 +52,17 @@ function isFrozenGround(path: string): boolean {
 }
 
 describe("AC-2: J-000 is repaired forward, never by editing what grades J-000", () => {
+  it("AC-2: the commit that closes this increment's interval is one that carries this increment", () => {
+    // The interval's far end is chosen as the oldest mainline commit containing HEAD, which is the
+    // landing under a merge and under a fast-forward alike. This is the guard on that choice: a
+    // FIX_END that does not even track this increment's own acceptance file would be some other
+    // node's commit, and every reading below would then be asking about the wrong range.
+    expect(
+      objectIdAt(FIX_END, FIX_MARKER),
+      `${FIX_END} was taken as the end of this increment's interval, but it does not track ${FIX_MARKER} — it is not a commit this increment landed in, and PRE_FIX..FIX_END is not this increment's range`,
+    ).not.toBeNull();
+  });
+
   it("AC-2: the branch changes no J-000 asset and no shared page object or e2e support file", () => {
     const trespass = changedSincePreFix().filter(isFrozenGround);
     expect(
@@ -61,7 +82,13 @@ describe("AC-2: J-000 is repaired forward, never by editing what grades J-000", 
     const frozen = filesAt(PRE_FIX, "tests/").filter(isFrozenGround);
     expect(frozen.length, `no frozen J-000 or shared-journey asset was found at ${PRE_FIX} — the reading below would prove nothing`).toBeGreaterThan(0);
 
-    const moved = frozen.filter((path) => objectIdAt(FIX_END, path) !== objectIdAt(PRE_FIX, path));
+    // The far end is read exactly as `changedSincePreFix` reads it, so the name scan and the content
+    // scan cover one interval and not two: while the interval is still open at the working checkout,
+    // the content under judgement is the content on disk — an uncommitted rewrite of a frozen asset
+    // under its own name is a trespass the name scan alone cannot see.
+    const contentAtFixEnd = (path: string): string | null => (FIX_END === "HEAD" ? objectIdInTree(path) : objectIdAt(FIX_END, path));
+
+    const moved = frozen.filter((path) => contentAtFixEnd(path) !== objectIdAt(PRE_FIX, path));
     expect(moved, `these are byte-frozen at ${PRE_FIX} and ${FIX_END} holds a different content (or has deleted them):\n  ${moved.join("\n  ")}`).toEqual([]);
   });
 

@@ -22,11 +22,14 @@ export const REPO_ROOT: string = process.cwd();
 export const PRE_FIX = "7af2a17";
 
 /**
- * The path whose arrival on the mainline marks the end of this increment's interval. It is this
- * increment's own acceptance file, so the commit that first tracks it is the commit that merged the
- * hotfix.
+ * This increment's own acceptance file. It does not SELECT the end of the interval — a selector
+ * keyed on "the mainline commit that first tracks this path" equals the landing commit only under a
+ * non-fast-forward merge, which no clause pins, and under a fast-forward landing it would pin to
+ * whichever early branch commit added the file and hand the readings a range with none of the repair
+ * in it. It survives as the subject of a loud assertion instead: whatever commit closes the interval
+ * must actually track this file, or the interval is not this increment's.
  */
-const FIX_MARKER = "tests/hotfix-j000/ac2-forward-only.test.ts";
+export const FIX_MARKER = "tests/hotfix-j000/ac2-forward-only.test.ts";
 
 /** Where the mainline is looked for, in the order a checkout is likeliest to answer with it. */
 const MAINLINE_REFS = ["main", "origin/main"] as const;
@@ -52,11 +55,24 @@ export function resolves(rev: string): boolean {
   }
 }
 
+/** Does a revision already contain the checkout's HEAD — i.e. has this work landed there? */
+export function contains(rev: string): boolean {
+  try {
+    git("merge-base", "--is-ancestor", "HEAD", rev);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * The far end of the interval this increment is judged over: the mainline commit that first tracks
- * this increment's own acceptance, i.e. the commit that merged the hotfix. While the branch is
- * unmerged — which is how the gate sees it — no mainline commit has the marker yet and the answer is
- * `HEAD`, so the live branch is graded exactly as strictly as it would be without this reading.
+ * The far end of the interval this increment is judged over: the OLDEST mainline commit that
+ * contains this branch's HEAD — the commit by which this work had landed, however it landed. Under a
+ * merge that is the merge commit; under a fast-forward it is the branch's own last commit sitting on
+ * the mainline; either way the whole repair is inside `PRE_FIX..FIX_END` and none of a later
+ * milestone's work is. While the branch is unmerged — which is how the gate sees it — no mainline
+ * commit contains HEAD and the answer is `HEAD`, so the live branch is graded exactly as strictly as
+ * it would be without this reading.
  *
  * Naming an end matters because J-000 is "extended per milestone" (its Bible clause): a later
  * increment lawfully adds J-000 specs and re-baselines them, and a reading anchored at `HEAD` would
@@ -67,10 +83,28 @@ export const FIX_END: string = ((): string => {
   for (const ref of MAINLINE_REFS) {
     if (!resolves(ref)) continue;
     try {
-      // First-parent, oldest first: on the mainline's own spine, the commit that brought the marker
-      // in is the merge commit itself.
-      const introduced = gitLines("rev-list", "--first-parent", "--reverse", ref, "--", FIX_MARKER);
-      if (introduced[0] !== undefined) return introduced[0];
+      // Nothing on a mainline that does not itself contain HEAD can contain HEAD either, and this
+      // is the gate's own case: one question, not one per commit in the history.
+      if (!contains(ref)) continue;
+      // Oldest first along the ref's own spine. Each first-parent commit is an ancestor of the next,
+      // so "contains HEAD" is false up to the landing and true from it on — monotone, hence found by
+      // halving rather than by walking.
+      const spine = gitLines("rev-list", "--first-parent", "--reverse", ref);
+      let low = 0;
+      let high = spine.length - 1;
+      let landing: string | undefined;
+      while (low <= high) {
+        const middle = Math.floor((low + high) / 2);
+        const candidate = spine[middle];
+        if (candidate === undefined) break;
+        if (contains(candidate)) {
+          landing = candidate;
+          high = middle - 1;
+        } else {
+          low = middle + 1;
+        }
+      }
+      if (landing !== undefined) return landing;
     } catch {
       // A ref git cannot walk is simply not the mainline this reading is looking for.
     }
@@ -78,14 +112,26 @@ export const FIX_END: string = ((): string => {
   return "HEAD";
 })();
 
+/**
+ * The paths `git status` reports, read WITHOUT trimming the answer: porcelain v1 puts two status
+ * columns and a space before every path, and the first line's leading column is a space whenever the
+ * change is unstaged. Trimming the whole answer — which is what `gitLines` does — would eat that
+ * space and take the first character of the first path with it, and a path that arrives as
+ * `ests/e2e/...` matches no frozen ground at all.
+ */
+function statusPaths(): string[] {
+  const raw = execFileSync("git", ["status", "--porcelain=v1"], { cwd: REPO_ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  return raw.split("\n").filter((line) => line.length > 3).map((line) => line.slice(3).trimEnd());
+}
+
 /** Every path the branch's end state differs from the pre-fix merge in, repo-relative. */
 export function changedSincePreFix(): string[] {
   const committed = gitLines("diff", "--name-only", `${PRE_FIX}..${FIX_END}`);
   // The uncommitted half belongs to the reading only while the interval ends at the working
   // checkout: a file the gate is about to commit is as much a change as one already in a commit.
-  // Once the interval is closed by a merge commit, what some later checkout holds uncommitted is
+  // Once the interval is closed by a landing commit, what some later checkout holds uncommitted is
   // outside the claim.
-  const working = FIX_END === "HEAD" ? gitLines("status", "--porcelain=v1").map((line) => line.slice(3).trim()) : [];
+  const working = FIX_END === "HEAD" ? statusPaths() : [];
   const renamedTarget = (path: string): string => (path.includes(" -> ") ? (path.split(" -> ")[1] ?? path) : path);
   return [...new Set([...committed, ...working.map(renamedTarget)])].filter((path) => path.length > 0).sort();
 }
