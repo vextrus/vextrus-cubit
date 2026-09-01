@@ -20,8 +20,8 @@ export interface OriginClaim {
   readonly statedOrigin: string | null;
   /**
    * The address the request was dialled at, empty where there is none to state: what a hop rewrote
-   * `Host` to is its own upstream address and is not one, so a seam behind an edge reads the address
-   * off what the edge states the browser dialled, or carries nothing (src/server/context.ts).
+   * `Host` to is its own upstream address and is not one, so a deployment that states a network
+   * address carries an arrival address only where it is the one it states (src/server/context.ts).
    */
   readonly requestOrigin: string;
   /** The address the deployment states it answers at, empty when nothing is configured. */

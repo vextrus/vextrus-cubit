@@ -125,43 +125,56 @@ export function deploymentIsSecure(req: Request): boolean {
 }
 
 /**
- * The marks an edge stamps on a request it passes upstream. Any one of them says the request reached
- * this process through something, and a hop's `Host` is its own upstream address: nginx forwarding to
- * `proxy_pass http://127.0.0.1:3000` hands every request the same loopback name, whoever dialled what.
- */
-const EDGE_MARKS: readonly string[] = ["x-forwarded-host", "x-forwarded-proto", "x-forwarded-for", "forwarded"];
-
-/** The first value of a header an edge may have appended to on the way through. */
-function firstValue(header: string): string {
-  return (header.split(",")[0] ?? "").trim();
-}
-
-/**
  * The address this request was DIALLED at, judged nowhere here. It is one of the two addresses
  * R-SPINE-006's origin rule admits a stated `Origin` against, and that rule has one home
  * (src/modules/spine/tenancy/guard): this seam carries the fact, because a procedure is handed a
  * context and never the request itself.
  *
- * With nothing in front of the process, that is the address the request arrived at: a browser
- * composes `Host` from what it dialled. Behind an edge it is not — the hop rewrites `Host` to the
- * upstream it forwards to — so the address is read from what the edge states the browser dialled
- * (`X-Forwarded-Host`), and where the edge states none there is no dialled address to carry and this
- * says so with the empty string. Nothing here can WIDEN what the rule admits: an edge mark a caller
- * writes itself only takes the arrival address away from them, and the deployment's own statement of
- * where it answers — the fact no caller writes — stands untouched beside it (R-SPINE-001).
+ * The arrival address is composed from `Host`, and `Host` is not evidence of where anybody dialled
+ * unless the process is the thing the browser reached. A hop rewrites it to the upstream it forwards
+ * to — nginx with a bare `proxy_pass http://127.0.0.1:3000` hands every request the same loopback
+ * name, whoever dialled what — and it does so stamping no header at all, so no mark on the request
+ * can tell the two apart. Asking the request would be asking the caller (R-SPINE-001); `Host` is a
+ * value they write, and `X-Forwarded-Host` more so — an edge mark is not a credential, and reading
+ * one as though a caller could only lose an admission by writing it would let a caller who writes
+ * `X-Forwarded-Host: localhost:3000` hand THEMSELVES an address the deployment never answers at.
+ *
+ * So the party asked is the one entitled to answer: the deployment's own statement of where it
+ * answers. The arrival address is carried when
+ *
+ *   - it IS what the deployment states it answers at — the Host-preserving edge (Cloudflare, an ALB,
+ *     `proxy_set_header Host $host;`) and the direct deployment alike, whatever else was stamped; or
+ *   - the deployment states it answers at this machine, or states nothing at all — a developer's
+ *     machine, the journeys' own server, processes a browser reaches directly, where `localhost` and
+ *     `127.0.0.1` are one machine under two spellings and the arrival address is genuinely the
+ *     dialled one; or
+ *   - the request carried no `Host` at all, which no request off a network is: HTTP/1.1 requires the
+ *     header and a hop writes its own, so a `Request` without one was composed in this process by
+ *     the caller holding it — a suite driving the shipped handler — and the URL it composed is by
+ *     construction the address it dialled.
+ *
+ * Everywhere else — a deployment that states a network address and was reached at some other name —
+ * that name is a hop's upstream or a forgery, never an address a browser dialled, and there is no
+ * dialled address to carry: this says so with the empty string. Nothing here can WIDEN what the rule
+ * admits, because nothing a caller writes is read: what remains beside the empty string is the
+ * deployment's own statement, the one fact no caller writes (R-SPINE-001).
  */
-function dialledOrigin(sent: Headers, arrivedAt: string): string {
-  if (!EDGE_MARKS.some((mark) => sent.get(mark) !== null)) return arrivedAt;
-  const forwardedHost = firstValue(sent.get("x-forwarded-host") ?? "");
-  if (forwardedHost === "") return "";
-  const scheme = firstValue(sent.get("x-forwarded-proto") ?? "") || schemeOf(originOf());
-  return URL.parse(`${scheme}://${forwardedHost}`)?.origin ?? "";
+function dialledOrigin(arrivedAt: string, statedHost: string | null): string {
+  const configured = configuredOrigin();
+  if (configured === null || arrivedAt === configured || statedHost === null) return arrivedAt;
+  return answersDirectly(configured) ? arrivedAt : "";
+}
+
+/** Does the deployment state it answers at this machine — the one statement a hop cannot be behind? */
+function answersDirectly(configured: string): boolean {
+  const hostname = URL.parse(configured)?.hostname;
+  return hostname !== undefined && LOOPBACK_HOSTS.has(hostname);
 }
 
 /** The address this request was dialled at, for the lane the platform hands a whole `Request`. */
 function arrivalOrigin(req: Request): string {
   const url = typeof req.url === "string" ? req.url : "";
-  return dialledOrigin(req.headers, URL.parse(url)?.origin ?? "");
+  return dialledOrigin(URL.parse(url)?.origin ?? "", req.headers.get("host"));
 }
 
 /** Did this request arrive on a loopback name — the development and journey servers, and nothing else? */
@@ -219,12 +232,12 @@ export interface RequestOriginFacts {
  */
 export function originFactsFromHeaders(sent: Headers): RequestOriginFacts {
   const configured = originOf();
-  const host = sent.get("host") ?? "";
+  const host = sent.get("host");
   const scheme = sent.get("x-forwarded-proto") ?? schemeOf(configured);
-  const arrivedAt = host === "" ? "" : (URL.parse(`${scheme}://${host}`)?.origin ?? "");
+  const arrivedAt = host === null || host === "" ? "" : (URL.parse(`${scheme}://${host}`)?.origin ?? "");
   return {
     statedOrigin: sent.get("origin"),
-    requestOrigin: dialledOrigin(sent, arrivedAt),
+    requestOrigin: dialledOrigin(arrivedAt, host),
     configuredOrigin: configured,
   };
 }

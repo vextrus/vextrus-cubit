@@ -9,11 +9,14 @@
  * second admitted origin for a deployment on a network, for any page the visitor's own machine
  * happens to serve at that port to spend their session cookie on.
  *
- * So the seam carries the address the request was DIALLED at: what arrived where nothing stands in
- * front, what the edge states the browser dialled where something does, and nothing at all where an
- * edge stated none. Both lanes are read here — the tRPC lane's `createContext` and the server
- * actions' `originFactsFromHeaders` — because a rule with one home is only as good as the facts each
- * transport hands it (ARCH-02, B-17).
+ * No mark on the request tells the two apart — a bare `proxy_pass` stamps none, and a caller may
+ * stamp any of them — so the seam asks the one party entitled to answer: the deployment's statement
+ * of where it answers. The arrival address is carried where it IS that address, and where the
+ * deployment states this machine or states nothing (a developer's machine, the journeys' server, a
+ * suite in process); a deployment that states a network address and was reached at some other name
+ * carries no dialled address at all. Both lanes are read here — the tRPC lane's `createContext` and
+ * the server actions' `originFactsFromHeaders` — because a rule with one home is only as good as the
+ * facts each transport hands it (ARCH-02, B-17).
  */
 import { afterEach, describe, expect, test } from "vitest";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
@@ -80,23 +83,56 @@ describe("R-SPINE-006: the seam carries the address a request was dialled at, no
     );
   });
 
-  test("an in-process caller that composed the URL itself keeps its arrival address", async () => {
-    // A suite driving the shipped handler writes no forwarding marks, so nothing stands between it
-    // and the process: the URL it composed is the address it dialled.
-    expect(await dialledOnTheRequestLane("http://127.0.0.1/api/trpc/spine.tenancy.assignRole", { host: "127.0.0.1" }, PUBLISHED)).toBe("http://127.0.0.1");
+  test("a deployment that states this machine keeps the address a request arrived at", async () => {
+    // A suite driving the shipped handler, a developer's own machine, the journeys' server: the
+    // deployment states it answers here, so nothing can stand between it and its caller, and the
+    // URL the caller reached is the address it dialled — under either spelling of this machine.
+    const served = "http://127.0.0.1:3211";
+    expect(await dialledOnTheRequestLane("http://127.0.0.1/api/trpc/spine.tenancy.assignRole", { host: "127.0.0.1" }, served)).toBe("http://127.0.0.1");
+    expect(dialledOnTheActionLane({ host: "localhost:3210" }, served)).toBe("http://localhost:3210");
   });
 
-  test("behind an edge, the address is the one the edge states the browser dialled", async () => {
-    const behindAProxy = { host: "127.0.0.1:3000", "x-forwarded-host": "cubit.example", "x-forwarded-proto": "https", "x-forwarded-for": "203.0.113.7" };
-    expect(await dialledOnTheRequestLane(`${UPSTREAM}/api/trpc/spine.tenancy.assignRole`, behindAProxy, PUBLISHED)).toBe(PUBLISHED);
+  test("a request carrying no Host at all was composed in this process and keeps the URL it composed", async () => {
+    // A suite driving the shipped route handler hands it a `Request` it built: no Host, so nothing
+    // stands between it and the process — HTTP/1.1 requires the header and every hop writes its own.
+    expect(await dialledOnTheRequestLane("http://127.0.0.1/api/trpc/spine.tenancy.assignRole", {}, PUBLISHED)).toBe("http://127.0.0.1");
+  });
+
+  test("a deployment that states nothing keeps it too, and an unrelated mark does not take it away", async () => {
+    // R-SPINE-001: an unconfigured deployment mails no links and answers on a developer's machine.
+    // A Host-preserving edge stamps `x-forwarded-for`/`-proto` and rewrites nothing; a caller can
+    // stamp the same headers, and neither may cost this request the address it actually arrived at.
+    const marked = { host: "localhost:3000", "x-forwarded-for": "203.0.113.7" };
+    expect(await dialledOnTheRequestLane("http://localhost:3000/api/trpc/spine.tenancy.assignRole", marked, "")).toBe("http://localhost:3000");
+    expect(dialledOnTheActionLane(marked, "")).toBe("http://localhost:3000");
+  });
+
+  test("behind a Host-preserving edge, the arrival address is the deployment's own and is carried", async () => {
+    // Cloudflare, an ALB, `proxy_set_header Host $host;`: `Host` survives the hop and the edge marks
+    // only the client and the scheme. The request arrived where the deployment says it answers.
+    const behindAProxy = { host: "cubit.example", "x-forwarded-proto": "https", "x-forwarded-for": "203.0.113.7" };
+    expect(await dialledOnTheRequestLane(`${PUBLISHED}/api/trpc/spine.tenancy.assignRole`, behindAProxy, PUBLISHED)).toBe(PUBLISHED);
     expect(dialledOnTheActionLane(behindAProxy, PUBLISHED)).toBe(PUBLISHED);
   });
 
-  test("an edge that states no dialled address leaves none to carry", async () => {
-    // The hop's `Host` is its own upstream and says nothing about where the browser went.
-    const rewritten = { host: "127.0.0.1:3000", "x-forwarded-proto": "https", "x-forwarded-for": "203.0.113.7" };
-    expect(await dialledOnTheRequestLane(`${UPSTREAM}/api/trpc/spine.tenancy.assignRole`, rewritten, PUBLISHED)).toBe("");
-    expect(dialledOnTheActionLane(rewritten, PUBLISHED)).toBe("");
+  test("behind a Host-rewriting edge that stamps nothing at all, there is no dialled address to carry", async () => {
+    // nginx with a bare `proxy_pass http://127.0.0.1:3000;` — no `proxy_set_header` lines, so the
+    // only headers it adds are `Host: $proxy_host` and `Connection`. The loopback name is the hop's
+    // upstream and nobody dialled it, so the seam reports none rather than inventing one.
+    const bare = { host: "127.0.0.1:3000" };
+    expect(await dialledOnTheRequestLane(`${UPSTREAM}/api/trpc/spine.tenancy.assignRole`, bare, PUBLISHED)).toBe("");
+    expect(dialledOnTheActionLane(bare, PUBLISHED)).toBe("");
+  });
+
+  test("an edge that states a dialled address states it to nobody: the seam reads no forwarded host", async () => {
+    // The shape that would otherwise WIDEN the rule: `Host` names the vhost the caller had to reach,
+    // and the caller adds `X-Forwarded-Host: localhost:3000` to nominate an address of their own.
+    // Nothing a caller writes is read, so what the request arrived at is the deployment's own address.
+    const forged = { host: "cubit.example", "x-forwarded-host": "localhost:3000", "x-forwarded-proto": "https", origin: "https://localhost:3000" };
+    const requestOrigin = await dialledOnTheRequestLane(`${PUBLISHED}/api/trpc/spine.tenancy.assignRole`, forged, PUBLISHED);
+    expect(requestOrigin).toBe(PUBLISHED);
+    expect(dialledOnTheActionLane(forged, PUBLISHED)).toBe(PUBLISHED);
+    expect(refusalFor({ statedOrigin: "https://localhost:3000", requestOrigin, configuredOrigin: PUBLISHED }), "an address nobody dialled admits nothing").toBe(NOT_VERIFIED);
   });
 
   test("the upstream a proxy rewrote Host to is no second origin the deployment answers at", async () => {
@@ -113,8 +149,8 @@ describe("R-SPINE-006: the seam carries the address a request was dialled at, no
   });
 
   test("a caller's own forwarding marks take an admission away from them and hand out none", async () => {
-    // R-SPINE-001: nothing a caller writes decides this. Writing `x-forwarded-host` moves the dialled
-    // address to what they wrote — which is not this machine, so it admits nothing.
+    // R-SPINE-001: nothing a caller writes decides this. `x-forwarded-host` is not read at all, so
+    // the address stays the one the request arrived at and the origin they stated matches nothing.
     const forged = { host: "127.0.0.1:3211", "x-forwarded-host": "attacker.example", "x-forwarded-proto": "https", origin: "https://attacker.example" };
     const served = "http://127.0.0.1:3211";
     const requestOrigin = await dialledOnTheRequestLane(`${served}/api/trpc/spine.tenancy.assignRole`, forged, served);
