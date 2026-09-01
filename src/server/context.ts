@@ -119,7 +119,29 @@ function configuredOrigin(): string | null {
  * claiming to be a request to the machine it is already running on.
  */
 export function deploymentIsSecure(req: Request): boolean {
-  return answeredScheme(URL.parse(typeof req.url === "string" ? req.url : "")?.hostname ?? null) === "https";
+  return answeredScheme(reachedHostname(req.headers.get("host"))) === "https";
+}
+
+/** The hostname half of a `Host`, which is the only part of an address a request states truthfully. */
+function reachedHostname(host: string | null): string | null {
+  if (host === null || host === "") return null;
+  return URL.parse(`http://${host}`)?.hostname ?? null;
+}
+
+/**
+ * The address a request was reached at, off the `Host` it stated — the arrival address both lanes
+ * carry, composed in one place (ARCH-02, B-17).
+ *
+ * `Host` is read and `X-Forwarded-Host` is not, and the asymmetry is the point (R-SPINE-001): a
+ * caller writes both, but `Host` is the name they had to reach to be answered at all, while a
+ * forwarded host is a name they simply nominate. Reading the nominated one would let a caller hand
+ * themselves an address of their own choosing — `localhost:9999`, a page their own machine serves —
+ * as the address this request arrived at. A request stating no `Host` arrived nowhere this can
+ * name, and says so with the empty string; the caller-composed case is answered by `arrivalOrigin`.
+ */
+function arrivedAtFromHost(host: string | null): string {
+  if (host === null || host === "") return "";
+  return URL.parse(`${answeredScheme(reachedHostname(host))}://${host}`)?.origin ?? "";
 }
 
 /**
@@ -191,18 +213,21 @@ function answersDirectly(configured: string): boolean {
 /**
  * The address this request was dialled at, for the lane the platform hands a whole `Request`.
  *
- * The platform's `Request.url` is composed from the caller's `Host` and the caller's
- * `x-forwarded-proto`, so its scheme is re-derived here from the deployment's own statement — the
- * same reading the header lane makes, so both lanes hand the origin rule one address per request.
- * A request carrying no `Host` was composed in this process by the caller holding it, and the URL it
- * composed is by construction the address it dialled: that one is kept verbatim.
+ * The platform composes `Request.url` out of headers the caller wrote — Next builds its host from
+ * `X-Forwarded-Host` where one was stamped and its scheme from `X-Forwarded-Proto` — so the URL
+ * handed over is not read for either half of the address. Both halves come from where the other
+ * lane takes them: the `Host` the request had to state, and the scheme the deployment answers in
+ * (`arrivedAtFromHost`). One request therefore has one arrival address, whichever transport carries
+ * it (ARCH-02, B-17).
+ *
+ * A request carrying no `Host` at all was composed in this process by the caller holding it — a
+ * suite driving the shipped handler — and the URL it composed is by construction the address it
+ * dialled: that one, and only that one, is kept verbatim.
  */
 function arrivalOrigin(req: Request): string {
-  const url = URL.parse(typeof req.url === "string" ? req.url : "");
   const host = req.headers.get("host");
-  if (url === null) return dialledOrigin("", host);
-  const arrivedAt = host === null ? url.origin : (URL.parse(`${answeredScheme(url.hostname)}://${url.host}`)?.origin ?? "");
-  return dialledOrigin(arrivedAt, host);
+  if (host !== null) return dialledOrigin(arrivedAtFromHost(host), host);
+  return dialledOrigin(URL.parse(typeof req.url === "string" ? req.url : "")?.origin ?? "", null);
 }
 
 /**
@@ -254,11 +279,9 @@ export interface RequestOriginFacts {
 export function originFactsFromHeaders(sent: Headers): RequestOriginFacts {
   const configured = originOf();
   const host = sent.get("host");
-  const hostname = host === null || host === "" ? null : (URL.parse(`http://${host}`)?.hostname ?? null);
-  const arrivedAt = host === null || host === "" ? "" : (URL.parse(`${answeredScheme(hostname)}://${host}`)?.origin ?? "");
   return {
     statedOrigin: sent.get("origin"),
-    requestOrigin: dialledOrigin(arrivedAt, host),
+    requestOrigin: dialledOrigin(arrivedAtFromHost(host), host),
     configuredOrigin: configured,
   };
 }

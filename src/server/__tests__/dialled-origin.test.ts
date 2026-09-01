@@ -22,7 +22,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { refusalCodeOf } from "../../core/faults/refusal-marker";
 import { refusalOf } from "../../core/errors";
-import { createContext, originFactsFromHeaders } from "../context";
+import { createContext, deploymentIsSecure, originFactsFromHeaders } from "../context";
 
 const PUBLIC_ORIGIN_VAR = "CUBIT_PUBLIC_ORIGIN";
 const NOT_VERIFIED = refusalOf("ORIGIN_NOT_VERIFIED").code;
@@ -174,5 +174,34 @@ describe("R-SPINE-006: the seam carries the address a request was dialled at, no
     const requestOrigin = await dialledOnTheRequestLane(`${served}/api/trpc/spine.tenancy.assignRole`, forged, served);
     expect(refusalFor({ statedOrigin: "https://attacker.example", requestOrigin, configuredOrigin: served })).toBe(NOT_VERIFIED);
     expect(refusalFor({ statedOrigin: served, requestOrigin, configuredOrigin: served }), "the deployment's own statement is untouched by what a caller wrote").toBeNull();
+  });
+
+  test("the URL the platform composed out of a caller's forwarded host is not the address it arrived at", async () => {
+    // What the lane is actually handed: Next composes `Request.url`'s host from `X-Forwarded-Host`
+    // where one was stamped, so the URL itself carries the caller's nomination. On a deployment that
+    // states this machine — a developer's, the journeys' server — the arrival address is admitted
+    // beside the configured one whenever it names this machine, so a caller who could move it would
+    // nominate `localhost:9999`, a page their own machine serves, and spend a session cookie from it.
+    const nominated = "http://localhost:9999";
+    const served = "http://127.0.0.1:3211";
+    const forged = { host: "127.0.0.1:3211", "x-forwarded-host": "localhost:9999", origin: nominated };
+    const requestOrigin = await dialledOnTheRequestLane(`${nominated}/api/trpc/spine.tenancy.assignRole`, forged, served);
+    expect(requestOrigin, "the address read is the Host the caller had to state to be answered at all").toBe(served);
+    expect(refusalFor({ statedOrigin: nominated, requestOrigin, configuredOrigin: served }), "a nominated address is no address this deployment answers at").toBe(NOT_VERIFIED);
+    // Both lanes are handed the same request and must read the same address out of it (ARCH-02).
+    expect(dialledOnTheActionLane(forged, served)).toBe(requestOrigin);
+  });
+
+  test("a caller's forwarded host cannot drop Secure off a deployment's session cookie", () => {
+    // R-SPINE-001: the same composed URL decides whether a cookie set on this answer carries
+    // `Secure`, and the flag is dropped only where a browser would not keep it — this machine. An
+    // unconfigured deployment answering on a real hostname is treated as TLS, and a caller stamping
+    // `x-forwarded-host: localhost` would otherwise be handed a thirty-day token off the wire.
+    delete process.env[PUBLIC_ORIGIN_VAR];
+    const forged = { host: "cubit.example", "x-forwarded-host": "localhost", "x-forwarded-proto": "http" };
+    expect(deploymentIsSecure(requestAs("http://localhost/api/trpc/spine.auth.signIn", forged))).toBe(true);
+    // And where the request really did reach this machine, the flag is still dropped: a `Secure`
+    // cookie on plain http is one no browser keeps, and the journeys' own server is served there.
+    expect(deploymentIsSecure(requestAs("http://127.0.0.1:3211/api/trpc/spine.auth.signIn", { host: "127.0.0.1:3211" }))).toBe(false);
   });
 });
