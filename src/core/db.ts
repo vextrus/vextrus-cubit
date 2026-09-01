@@ -645,23 +645,21 @@ const CONFIGURES_TRANSACTION = /^\s*set\s+transaction\b/i;
  * armed on demand rather than as the opening statement, so the caller's isolation level is not
  * refused with 25001. The scope is still armed before anything reads or writes.
  */
-function transactionClient(tx: postgres.TransactionSql, scope: Scope, options: postgres.Sql["options"]): postgres.TransactionSql {
+function transactionClient(tx: postgres.TransactionSql, scope: Scope): postgres.TransactionSql {
   let arming: Promise<unknown> | undefined;
   const armedFor = (query: string): Promise<unknown> =>
     CONFIGURES_TRANSACTION.test(query) ? Promise.resolve() : (arming ??= tx.unsafe(ARM_SCOPE, [scope.tenantId, scope.systemReason] as DriverParams));
 
-  // The driver's own options travel with the client. They belong to the pool rather than to the
-  // transaction — the driver states them on the connection it was configured from and not on the
-  // handle it hands a transaction body — so they are carried in, and a handle drizzle builds over
-  // this one reads the settings the connection really has instead of finding none.
+  // The wrapper states the options of the handle it wraps, so a driver reading them off this client
+  // reads the transaction's own settings and never another handle's.
   const client = {
-    options,
+    options: (tx as unknown as { options?: postgres.Sql["options"] }).options,
     unsafe: (query: string, params: DriverParams = []): PendingRows =>
       pendingRows(async (asValues) => {
         await armedFor(query);
         return issue(tx, query, params, asValues);
       }),
-    savepoint: (work: (nested: postgres.TransactionSql) => Promise<unknown>): Promise<unknown> => tx.savepoint((nested) => work(transactionClient(nested, scope, options))),
+    savepoint: (work: (nested: postgres.TransactionSql) => Promise<unknown>): Promise<unknown> => tx.savepoint((nested) => work(transactionClient(nested, scope))),
   };
   return client as unknown as postgres.TransactionSql;
 }
@@ -676,7 +674,7 @@ export function scopedClient(sql: postgres.Sql, scope: Scope): postgres.Sql {
     options: sql.options,
     unsafe: (query: string, params: DriverParams = []): PendingRows =>
       pendingRows((asValues) => inScope(sql, scope, (session) => issue(session, query, params, asValues))),
-    begin: (work: (tx: postgres.TransactionSql) => Promise<unknown>): Promise<unknown> => sql.begin((tx) => work(transactionClient(tx, scope, sql.options))),
+    begin: (work: (tx: postgres.TransactionSql) => Promise<unknown>): Promise<unknown> => sql.begin((tx) => work(transactionClient(tx, scope))),
   };
   return client as unknown as postgres.Sql;
 }

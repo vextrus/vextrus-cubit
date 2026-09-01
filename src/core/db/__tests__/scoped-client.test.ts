@@ -20,10 +20,21 @@ const VALUES = [[1]];
  * connection out of the pool for a statement is the cost this seam must not pay, and a stand-in that
  * did not offer the method at all would prove only that it cannot be called.
  */
-function stubDriver(): { sql: unknown; issued: Issued[]; reserved: () => number; options: unknown } {
+function stubDriver(): { sql: unknown; issued: Issued[]; reserved: () => number; options: unknown; optionsOn: (on: string) => unknown } {
   const issued: Issued[] = [];
   let reserved = 0;
   const options = { host: ["stub"], port: [5432] };
+  // Each handle states its own options object, as a driver that answers a transaction body with a
+  // handle of its own does: a client that mirrored some other handle's settings would pass a stub
+  // that shared one object between them and still be wrong.
+  const perHandle = new Map<string, unknown>();
+  const optionsOn = (on: string): unknown => {
+    const existing = perHandle.get(on);
+    if (existing !== undefined) return existing;
+    const own = { host: [on], port: [5432] };
+    perHandle.set(on, own);
+    return own;
+  };
   const pending = (on: string, query: string, params: readonly unknown[]): unknown => ({
     values: () => {
       issued.push({ on, query, params });
@@ -35,7 +46,7 @@ function stubDriver(): { sql: unknown; issued: Issued[]; reserved: () => number;
     },
   });
   const connection = (on: string): unknown => ({
-    options,
+    options: optionsOn(on),
     unsafe: (query: string, params: readonly unknown[] = []) => pending(on, query, params),
     savepoint: (work: (nested: unknown) => Promise<unknown>) => work(connection(`${on}/savepoint`)),
   });
@@ -48,7 +59,7 @@ function stubDriver(): { sql: unknown; issued: Issued[]; reserved: () => number;
     begin: async (work: (tx: unknown) => Promise<unknown>) => await work(connection("transaction")),
     unsafe: (query: string, params: readonly unknown[] = []) => pending("pool", query, params),
   };
-  return { sql, issued, reserved: () => reserved, options };
+  return { sql, issued, reserved: () => reserved, options, optionsOn };
 }
 
 /** The client as drizzle holds one: the three members the postgres-js driver reaches for. */
@@ -56,6 +67,7 @@ type Client = {
   options: unknown;
   unsafe: (query: string, params?: readonly unknown[]) => PromiseLike<unknown> & { values: () => PromiseLike<unknown> };
   begin: (work: (tx: Client) => Promise<unknown>) => Promise<unknown>;
+  savepoint?: (work: (nested: Client) => Promise<unknown>) => Promise<unknown>;
 };
 
 const clientOver = (sql: unknown): Client => scopedClient(sql as never, SCOPE) as unknown as Client;
@@ -82,16 +94,24 @@ describe("the scoped client pays for one connection, not two", () => {
     expect(await pending.values(), "…and asks the same query for positional tuples when it maps fields itself — replaying the row objects here would hand back something nothing can read by position").toEqual(VALUES);
   });
 
-  test("the client inside a transaction carries the driver's options", async () => {
+  test("the client inside a transaction carries the transaction handle's own options", async () => {
     const driver = stubDriver();
+    const client = clientOver(driver.sql);
     let seen: unknown = "the transaction body never ran";
-    await clientOver(driver.sql).begin(async (tx) => {
+    let seenNested: unknown = "the savepoint body never ran";
+    await client.begin(async (tx) => {
       seen = tx.options;
+      await tx.savepoint?.(async (nested) => {
+        seenNested = nested.options;
+        return null;
+      });
       await tx.unsafe("select 1", []);
       return null;
     });
 
-    expect(seen, "drizzle reads a client's own options off the handle it was built with").toBe(driver.options);
+    expect(client.options, "the pool-level client states the pool's options, which is where the driver reads its parsers off").toBe(driver.options);
+    expect(seen, "drizzle reads a client's options off the handle that client wraps, and inside a transaction that is the transaction's handle").toBe(driver.optionsOn("transaction"));
+    expect(seenNested, "…and a savepoint client states the savepoint handle's own options in turn").toBe(driver.optionsOn("transaction/savepoint"));
     expect(driver.issued.map((issued) => issued.on), "and the whole transaction runs on the one connection it opened").toEqual(["transaction", "transaction"]);
   });
 
