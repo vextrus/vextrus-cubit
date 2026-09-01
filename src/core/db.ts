@@ -800,6 +800,29 @@ const QUEUE_REQUEST = "jobs/queue";
 const QUEUE_ACTOR = "pg-boss";
 const QUEUE_ROUTE = "jobs/queue";
 
+/**
+ * How a failure of the key lock itself is recorded. A wait that hit its bound, a lock connection
+ * that died, a transaction that would not commit: none is a refusal any registered code covers and
+ * all are this seam's own failure, so they cross the one fault seam before the caller sees anything
+ * (ARCH-03, B-21).
+ */
+const LOCK_ACTOR = "jobs/lock";
+const LOCK_ROUTE = "jobs/lock";
+
+/**
+ * A failure the guarded work itself raised, carried out of the lock transaction so the lock's own
+ * handler can tell it from a failure of the locking. The work answers for what it does — its
+ * enqueue reports its own faults and makes its own refusals — and reporting it again here would
+ * write one failure down twice (ARCH-02).
+ */
+class GuardedFailure extends Error {
+  readonly failure: unknown;
+  constructor(failure: unknown) {
+    super("the work under a key lock failed", { cause: failure });
+    this.failure = failure;
+  }
+}
+
 /** One row of the event log, as the storage holds it before the seam gives it its meaning. */
 export type JobEventDraft = {
   jobId: string;
@@ -1030,17 +1053,31 @@ export function jobsStore(url: string): JobsStore {
    * predecessor is sitting on (SEAM-JOBS, ARCH-03).
    */
   const withKeyLock = async <T>(kind: string, key: string, work: () => Promise<T>): Promise<T> => {
-    const guarded = await locks.begin(async (tx) => {
-      // A wait that cannot end is worse than a failure that can: bounded, an enqueue behind a holder
-      // that will not let go fails and says so, instead of holding a connection until the pool has
-      // none left and no key can be enqueued at all.
-      await tx.unsafe(`set local lock_timeout = ${LOCK_WAIT_MS}`);
-      await tx`select pg_advisory_xact_lock(hashtextextended(${lockName(kind, key)}, 0))`;
-      // Wrapped in one: the driver spreads an array a transaction answers with, and a caller's own
-      // array result is not this seam's to spread.
-      return [await work()];
-    });
-    return (guarded as [T])[0];
+    try {
+      const guarded = await locks.begin(async (tx) => {
+        // A wait that cannot end is worse than a failure that can: bounded, an enqueue behind a
+        // holder that will not let go fails and says so, instead of holding a connection until the
+        // pool has none left and no key can be enqueued at all.
+        await tx.unsafe(`set local lock_timeout = ${LOCK_WAIT_MS}`);
+        await tx`select pg_advisory_xact_lock(hashtextextended(${lockName(kind, key)}, 0))`;
+        try {
+          // Wrapped in one: the driver spreads an array a transaction answers with, and a caller's
+          // own array result is not this seam's to spread.
+          return [await work()];
+        } catch (failure) {
+          throw new GuardedFailure(failure);
+        }
+      });
+      return (guarded as [T])[0];
+    } catch (failure) {
+      // The work's own failure travels as it was raised — whoever wrote it answered for it already.
+      if (failure instanceof GuardedFailure) throw failure.failure;
+      // The locking's failure is the seam's own. Left raw, a bound that was hit reaches the caller
+      // as SQLSTATE 55P03 naming the driver's cancellation and nothing else: no fault id, no
+      // registered code, nothing an operator can look up (ARCH-03, B-21).
+      const { faultId } = reportFault({ requestId: lockName(kind, key), actor: LOCK_ACTOR, route: LOCK_ROUTE, cause: failure });
+      throw new Error(`a ${kind} job could not take the lock on key ${key} — recorded as fault ${faultId}`, { cause: failure });
+    }
   };
 
   /** Which queues this store has already made, so the row is made once per process, not per send. */

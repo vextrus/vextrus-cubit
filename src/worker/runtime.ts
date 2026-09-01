@@ -3,14 +3,19 @@
 // does. `main.ts` is only the process around this — the environment it reads and the signals it
 // listens for — so a test can run the worker in-process and an operator can run it as a service
 // without two different workers existing (ARCH-02).
-import { createServer, type Server } from "node:http";
+import { createServer, type Server, type ServerResponse } from "node:http";
 import { jobsHealth, startJobsRuntime, stopJobsRuntime } from "../core/jobs";
+import { reportFault } from "../core/faults/report";
 
 /** Where the health probe answers, and where nothing else does. */
 const HEALTH_PATH = "/health";
 
 /** The loopback interface only: a worker's health is the host's business, never the network's. */
 const HEALTH_HOST = "127.0.0.1";
+
+/** How a probe this worker could not answer is recorded: it belongs to the health route, not a job. */
+const HEALTH_REQUEST = "worker/health";
+const HEALTH_ACTOR = "worker";
 
 /** How long a health connection may stay open before the drain stops waiting for it. */
 const HEALTH_CLOSE_MS = 2000;
@@ -75,11 +80,14 @@ function listenForHealth(port: number): Promise<Server> {
       response.end(JSON.stringify({ ok: false }));
       return;
     }
-    void (async () => {
-      const answer: WorkerHealth = await servedQueues();
-      response.writeHead(answer.ok ? 200 : 503, { "content-type": "application/json", "cache-control": "no-store" });
-      response.end(JSON.stringify(answer));
-    })();
+    void answerHealth(response)
+      // A probe is answered even when working out the answer failed, and it is answered once: this
+      // is a fire-and-forget path, so a rejection with nowhere to go leaves the supervisor's request
+      // hanging until its own timeout and, under Node's default, takes the worker down with it.
+      .catch((failure: unknown) => failedHealth(response, failure))
+      // Last resort: a sink that itself threw, or a socket that died mid-write, must not become the
+      // unhandled rejection the line above exists to prevent.
+      .catch(() => response.destroy());
   });
   return new Promise((settle, fail) => {
     server.once("error", fail);
@@ -88,6 +96,27 @@ function listenForHealth(port: number): Promise<Server> {
       settle(server);
     });
   });
+}
+
+/** Answer one health probe with what the seam says it is really serving. */
+async function answerHealth(response: ServerResponse): Promise<void> {
+  const answer: WorkerHealth = await servedQueues();
+  response.writeHead(answer.ok ? 200 : 503, { "content-type": "application/json", "cache-control": "no-store" });
+  response.end(JSON.stringify(answer));
+}
+
+/**
+ * Answer a probe whose own answer could not be worked out. A liveness endpoint that hangs tells a
+ * supervisor less than one that says no, so the connection is closed with the same 503 an unhealthy
+ * worker answers, and the failure itself crosses the one fault seam first (ARCH-03, R-SPINE-031).
+ */
+function failedHealth(response: ServerResponse, failure: unknown): void {
+  reportFault({ requestId: HEALTH_REQUEST, actor: HEALTH_ACTOR, route: HEALTH_PATH, cause: failure });
+  if (response.writableEnded) return;
+  if (!response.headersSent) {
+    response.writeHead(503, { "content-type": "application/json", "cache-control": "no-store" });
+  }
+  response.end(JSON.stringify({ ok: false, queues: [] }));
 }
 
 /** The port the server actually took, falling back to the one it was asked for. */
