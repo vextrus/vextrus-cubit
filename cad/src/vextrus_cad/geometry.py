@@ -32,10 +32,18 @@ def quantise(value: float) -> float:
 
 
 def flatten(entity: Any) -> tuple[list[Point], bool] | None:
-    """An entity's geometry as points, truncated at the pinned cap.
+    """An entity's geometry as points, coarsened to the pinned cap.
 
-    Returns the points and whether the cap truncated them, or None when the entity carries no
+    Returns the points and whether the cap coarsened them, or None when the entity carries no
     path-shaped geometry at all.
+
+    The cap bounds how *finely* a curve may be described, never how much of it is (L-CAD-05): a
+    circle handed back as the first slice of its own outline would be a different drawing, and the
+    artifact is frozen per revision and never re-opened (L-CAD-01), so every stage downstream — the
+    space's extents, the shoelace area, the paint — would read that fragment as the whole. So a
+    flattening past the cap is counted, then walked again and resampled to exactly the cap's worth of
+    evenly spaced vertices, first and last among them: the whole curve at a coarser spacing rather
+    than the first slice of it at the pinned one.
 
     Only the type test is answered with None. A ValueError is ezdxf saying that a type it *does*
     build paths for carries malformed geometry, and a ValueError out of `quantise` says the
@@ -48,16 +56,23 @@ def flatten(entity: Any) -> tuple[list[Point], bool] | None:
     except TypeError:
         return None
 
-    points: list[Point] = []
-    capped = False
-    for vertex in path.flattening(FLATTEN_TOLERANCE):
-        if len(points) >= FLATTEN_POINT_CAP:
-            capped = True
-            break
-        points.append((quantise(vertex.x), quantise(vertex.y)))
-    if not points:
+    total = sum(1 for _ in path.flattening(FLATTEN_TOLERANCE))
+    if total == 0:
         return None
-    return points, capped
+    if total <= FLATTEN_POINT_CAP:
+        return [(quantise(v.x), quantise(v.y)) for v in path.flattening(FLATTEN_TOLERANCE)], False
+
+    # `total - 1` over `cap - 1` steps lands on 0 and on the last vertex, and every index between
+    # them once: the sample is the cap's worth, spread over the whole curve.
+    kept = {
+        round(step * (total - 1) / (FLATTEN_POINT_CAP - 1)) for step in range(FLATTEN_POINT_CAP)
+    }
+    points = [
+        (quantise(vertex.x), quantise(vertex.y))
+        for index, vertex in enumerate(path.flattening(FLATTEN_TOLERANCE))
+        if index in kept
+    ]
+    return points, True
 
 
 def drop_closing_vertex(points: list[Point]) -> list[Point]:

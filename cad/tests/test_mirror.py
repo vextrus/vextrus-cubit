@@ -89,6 +89,32 @@ def test_an_unmapped_unit_must_carry_its_flag(basic_document: dict[str, Any]) ->
         parse_entity_graph(basic_document)
 
 
+def test_a_nullable_key_that_is_absent_is_refused_as_the_zod_mirror_refuses_it(
+    basic_document: dict[str, Any],
+) -> None:
+    # `insunits.unit` and `layouts[].bbox` are nullable, not optional: the Zod mirror spells them
+    # `.nullable()` inside a strict object, which demands the key and admits `null` as its value.
+    # A document that drops the key is a different document, and both sides say so (L-CAD-05).
+    document = deepcopy(basic_document)
+    document["insunits"] = {"code": 3, "unmapped": True}
+    with pytest.raises(EntityGraphError, match="missing unit"):
+        parse_entity_graph(document)
+
+    document = deepcopy(basic_document)
+    layouts = document["layouts"]
+    assert layouts, "no layout record whose bbox could be dropped"
+    del layouts[0]["bbox"]
+    with pytest.raises(EntityGraphError, match="missing bbox"):
+        parse_entity_graph(document)
+
+
+def test_a_nullable_key_spelled_null_is_admitted(basic_document: dict[str, Any]) -> None:
+    # The other half of the same rule: `null` is the lawful spelling, and it parses.
+    basic_document["insunits"] = {"code": 3, "unit": None, "unmapped": True}
+    basic_document["layouts"][0]["bbox"] = None
+    assert parse_entity_graph(basic_document).version == ENTITYGRAPH_VERSION
+
+
 @pytest.fixture
 def basic_document() -> dict[str, Any]:
     assert NAMES, "no committed artifact to mutate"

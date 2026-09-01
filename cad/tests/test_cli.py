@@ -46,6 +46,22 @@ def test_an_unparseable_drawing_is_refused_by_name(
     assert out.read_text(encoding="utf-8") == "untouched"
 
 
+def test_a_destination_that_cannot_be_written_is_refused_by_name(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A readable drawing and an impossible destination is the third ending the contract has to
+    # spell: still loud, still non-zero, still naming what the operator gave it — never a traceback
+    # naming cli.py, and never a staging directory left behind (L-CAD-04).
+    out = tmp_path / "artifacts"
+    out.mkdir()
+
+    assert main(["ingest", str(drawing_path(NAMES[0])), "--out", str(out)]) == EXIT_REFUSED
+    assert str(out) in capsys.readouterr().err
+    assert out.is_dir()
+    assert list(out.iterdir()) == []
+    assert [entry.name for entry in tmp_path.iterdir() if entry.name.startswith(".vextrus-cad-")] == []
+
+
 def test_a_missing_drawing_is_refused_by_name(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     source = tmp_path / "absent.dxf"
     out = tmp_path / "artifact.json"

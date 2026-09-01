@@ -117,6 +117,17 @@ def _closed_keys(record: dict[str, Any], allowed: frozenset[str], where: str) ->
         _fail(where, f"carries keys outside the closed set: {', '.join(extra)}")
 
 
+def _required(record: dict[str, Any], key: str, where: str) -> None:
+    """A key that must be present even when its value is null.
+
+    The nullable fields (`layouts[].bbox`, `insunits.unit`) are the one place where reading a value
+    with `.get()` cannot tell an explicit null from an absent key. The Zod mirror can — `.nullable()`
+    without `.optional()` inside a strict object — so this side asks the question outright.
+    """
+    if key not in record:
+        _fail(where, f"is missing {key}")
+
+
 def _counts(value: Any, where: str) -> None:
     for dxftype, count in _object(value, where).items():
         _integer(count, f"{where}.{dxftype}", minimum=0)
@@ -201,6 +212,10 @@ def _insunits(value: Any) -> None:
     _closed_keys(record, frozenset({"code", "unit", "unmapped"}), "insunits")
     _integer(record.get("code"), "insunits.code")
     unmapped = _boolean(record.get("unmapped"), "insunits.unmapped")
+    # Nullable is not optional: the Zod mirror's `z.enum(UNITS).nullable()` inside a strict object
+    # demands the key, spelled `null` when there is no unit. A missing key is a different document
+    # and both sides refuse it — one shape, not two tolerances (L-CAD-05).
+    _required(record, "unit", "insunits")
     unit = record.get("unit")
     if unit is None:
         if not unmapped:
@@ -220,6 +235,9 @@ def _layout(value: Any, where: str) -> None:
         _fail(f"{where}.kind", f"{record['kind']!r} is outside the closed set")
     _integer(record.get("strays_rejected"), f"{where}.strays_rejected", minimum=0)
 
+    # As with `insunits.unit`: a layout with no extents spells `"bbox": null`, and a layout record
+    # that drops the key altogether is refused here exactly as the Zod mirror refuses it.
+    _required(record, "bbox", where)
     bbox = record.get("bbox")
     if bbox is None:
         return

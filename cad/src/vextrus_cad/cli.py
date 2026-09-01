@@ -47,13 +47,24 @@ def _ingest(source: str, destination: str) -> int:
 
     out = Path(destination)
     parent = out.parent if str(out.parent) else Path(".")
-    parent.mkdir(parents=True, exist_ok=True)
-    # Staged in a temp directory beside the destination, so a failed write leaves --out untouched
-    # and the move onto it is atomic.
-    with tempfile.TemporaryDirectory(dir=parent, prefix=".vextrus-cad-") as scratch:
-        staged = Path(scratch) / "artifact.json"
-        write_artifact(staged, artifact)
-        os.replace(staged, out)
+    try:
+        parent.mkdir(parents=True, exist_ok=True)
+        # Staged in a temp directory beside the destination, so a failed write leaves --out
+        # untouched and the move onto it is atomic.
+        with tempfile.TemporaryDirectory(dir=parent, prefix=".vextrus-cad-") as scratch:
+            staged = Path(scratch) / "artifact.json"
+            write_artifact(staged, artifact)
+            os.replace(staged, out)
+    except OSError as error:
+        # A destination this invocation cannot write — a directory in the way, an unwritable parent,
+        # a full disk — ends the run the same loud way an unreadable drawing does (L-CAD-04): named
+        # on stderr, non-zero, `--out` as it stood. A traceback names cli.py where the operator needs
+        # the drawing and the destination, and the staging directory is cleaned up on the way out.
+        print(
+            f"vextrus-cad: cannot write the artifact for {source} to {destination}: {error}",
+            file=sys.stderr,
+        )
+        return EXIT_REFUSED
     return 0
 
 

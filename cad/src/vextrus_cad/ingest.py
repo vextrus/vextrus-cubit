@@ -146,7 +146,8 @@ class _Extractor:
     def __init__(self, doc: Any) -> None:
         self._doc = doc
         self._layers = colours.LayerColours.of(doc)
-        self._derived_minted = 0
+        #: How much of the pinned derived-entity budget this invocation has spent walking (L-CAD-03).
+        self._expanded = 0
 
     def entity_record(
         self,
@@ -172,7 +173,9 @@ class _Extractor:
             points, capped = flattened
             if capped:
                 space.counters.cap(dxftype)
-            elif closed:
+            if closed:
+                # A coarsened flattening still comes back round to its start, so the closing vertex
+                # is dropped there too — the artifact spells each vertex once whichever it is.
                 points = geometry.drop_closing_vertex(points)
             record["points"] = [[x, y] for x, y in points]
         elif dxftype == "POINT":
@@ -216,26 +219,40 @@ class _Extractor:
         inherited: colours.Channels,
         depth: int,
     ) -> None:
-        """Explode one painting original to world coordinates, for rendering only (L-CAD-03)."""
+        """Explode one painting original to world coordinates, for rendering only (L-CAD-03).
+
+        The budget bounds the walk, not merely the mint. A block tree that branches even modestly is
+        an exponential number of instances below the depth cap, and an instance whose paint is
+        refused still costs the expansion that discovered it, so charging only minted entities would
+        leave a few kilobytes of lawful drawing able to spend a quarter of an hour of one shot
+        (L-CAD-04's generous timeouts are not an unbounded one). Every virtual entity this extractor
+        looks at is charged against `DERIVED_ENTITY_BUDGET`; once it is spent nothing further is
+        entered, and what is skipped is counted as lost paint.
+        """
         for virtual in instance.virtual_entities():
             dxftype = virtual.dxftype()
+            if self._expanded >= DERIVED_ENTITY_BUDGET:
+                # Structural records are not paint (L-CAD-03), so they are not lost paint either:
+                # a SEQEND or a VERTEX would never have become a derived entity to begin with.
+                if dxftype not in _NOT_CONTENT:
+                    space.counters.lose(dxftype)
+                continue
+            self._expanded += 1
+
             if dxftype == "INSERT":
-                self.collect_attributes(virtual, key, space)
                 if depth + 1 > EXPLODE_DEPTH_CAP:
+                    # The instance is not entered, so its attributes are no more collected than its
+                    # geometry is: the counters and `block_attributes` say the same thing about it.
                     space.counters.lose(dxftype)
                     continue
+                self.collect_attributes(virtual, key, space)
                 self.explode(virtual, key, space, inherited, depth + 1)
-                continue
-
-            if self._derived_minted >= DERIVED_ENTITY_BUDGET:
-                space.counters.lose(dxftype)
                 continue
 
             record = self.entity_record(virtual, space, inherited)
             if record is None:
                 continue
             record["src"] = key
-            self._derived_minted += 1
             space.derived.append(record)
 
     def read_space(self, layout: Any, name: str, kind: str) -> _Space:
