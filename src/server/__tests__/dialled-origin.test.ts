@@ -100,8 +100,9 @@ describe("R-SPINE-006: the seam carries the address a request was dialled at, no
   });
 
   test("the upstream a proxy rewrote Host to is no second origin the deployment answers at", async () => {
-    // The whole of the finding this closes: a page served at the proxy's upstream address on the
-    // visitor's OWN machine, spending their cookie against a deployment answering on a network name.
+    // The cross-site request R-SPINE-006 legislates against, in the shape a hop would otherwise
+    // create: a page served at the proxy's upstream address on the visitor's OWN machine, spending
+    // their cookie against a deployment that answers on a network name.
     const rewritten = { host: "127.0.0.1:3000", "x-forwarded-proto": "https", "x-forwarded-for": "203.0.113.7", origin: UPSTREAM };
     const requestOrigin = await dialledOnTheRequestLane(`${UPSTREAM}/api/trpc/spine.tenancy.assignRole`, rewritten, PUBLISHED);
     expect(
