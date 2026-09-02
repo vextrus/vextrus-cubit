@@ -13,14 +13,22 @@ export type SelectedTransport = { transport: "live" } | { transport: "fixture"; 
 const defaultFixtureRoot = (): string => resolve(process.cwd(), "fixtures", "model");
 
 /**
- * Fixture iff `CUBIT_MODEL_FIXTURE_ROOT` is a non-blank path (resolved) or the process is under test
- * (the default root); live otherwise. Both names are declared in the transport vocabulary (Q-07).
+ * The mode the verify chain runs a process in (V-VERIFY). Inside it every answer replays from a
+ * recording, so verify is network-free (L-AI-01, AS-05).
+ */
+const VERIFY_MODE = "test";
+
+/**
+ * Fixture iff `CUBIT_MODEL_FIXTURE_ROOT` is a non-blank path (resolved) or the handed-in environment
+ * runs in the verify mode (the default root); live otherwise. Both names are declared in the
+ * transport vocabulary (Q-07).
  */
 export function selectTransport(env: ModelEnv): SelectedTransport {
   const configured = env.CUBIT_MODEL_FIXTURE_ROOT;
   if (typeof configured === "string" && configured.trim() !== "") {
     return { transport: "fixture", fixtureRoot: resolve(configured) };
   }
-  if (env.NODE_ENV === "test") return { transport: "fixture", fixtureRoot: defaultFixtureRoot() };
+  const mode = env.NODE_ENV;
+  if (mode === VERIFY_MODE) return { transport: "fixture", fixtureRoot: defaultFixtureRoot() };
   return { transport: "live" };
 }

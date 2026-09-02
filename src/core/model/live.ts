@@ -4,6 +4,7 @@
 // Each such failure crosses the fault seam exactly once and rejects with a plain error naming the
 // fault (ARCH-03, B-21); nothing is parked and no ledger row is written for a call nobody answered.
 import { reportFault } from "../faults/report";
+import { modelCallCost } from "../model-ledger.types";
 import type { ModelEnv } from "./transport";
 import type { JsonValue, ModelRequest, TransportAnswer, TransportPort } from "./types";
 
@@ -59,7 +60,11 @@ async function exchange(env: ModelEnv, fetch: typeof globalThis.fetch, request: 
     await discarded(response);
     throw new Error(`the model provider answered ${response.status} ${response.statusText}`.trimEnd());
   }
-  return answered((await response.json()) as unknown);
+  const answer = answered((await response.json()) as unknown);
+  // Whether the usage counts tokens is the money derivation's one judgement (B-17); it is asked here,
+  // inside the exchange, so a body that fails it is the provider's fault, not the seam's (ARCH-03).
+  modelCallCost(request.modelId, answer.inputTokens, answer.outputTokens);
+  return answer;
 }
 
 /** A body nobody will read, released so the connection is not held until collection. */
@@ -72,17 +77,15 @@ async function discarded(response: Response): Promise<void> {
 }
 
 /** The provider's body as the seam's answer: its content, and the tokens its usage counts. */
-function answered(body: unknown): TransportAnswer {
+function answered(body: unknown): Extract<TransportAnswer, { kind: "answered" }> {
   if (body === null || typeof body !== "object" || !Object.hasOwn(body, "content")) {
     throw new Error("the model provider answered a body without content");
   }
   const usage = (body as { usage?: unknown }).usage;
   const inputTokens = (usage as { input_tokens?: unknown } | undefined)?.input_tokens;
   const outputTokens = (usage as { output_tokens?: unknown } | undefined)?.output_tokens;
-  if (!isTokenCount(inputTokens) || !isTokenCount(outputTokens)) {
-    throw new Error("the model provider answered a body whose usage does not count tokens as whole, non-negative numbers");
+  if (typeof inputTokens !== "number" || typeof outputTokens !== "number") {
+    throw new Error("the model provider answered a body whose usage does not count tokens as numbers");
   }
   return { kind: "answered", payload: (body as { content: JsonValue }).content, inputTokens, outputTokens };
 }
-
-const isTokenCount = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
