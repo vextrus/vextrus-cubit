@@ -172,19 +172,33 @@ def _census_tally(
         raise DwgError(
             refusal(source, CENSUS_PASS, program, f"wrote no JSON{quote(output.diagnostics)}")
         )
-    problems: list[str] = []
+    rejections: list[str] = []
     for text in texts:
-        opened = False
         for document in _documents(text):
-            opened = True
             try:
                 return census_of(document)
             except Exception as error:
-                problems.append(str(error))
-        if not opened:
-            problems.append("no JSON document opens in what it wrote")
+                rejections.append(str(error))
+    if not rejections:
+        raise DwgError(
+            refusal(
+                source,
+                CENSUS_PASS,
+                program,
+                "wrote a census no parser admits: no JSON document opens in what it wrote"
+                f"{quote(output.diagnostics)}",
+            )
+        )
+    # The document that failed is the last one rejected: a greeting that is itself JSON (`[1]`,
+    # `{}`) is rejected first and the census after it, so the refusal names the census, not the
+    # greeting, and says what it was — a document that parsed and was not a census.
     raise DwgError(
-        refusal(source, CENSUS_PASS, program, f"wrote a census no parser admits: {problems[0]}")
+        refusal(
+            source,
+            CENSUS_PASS,
+            program,
+            f"wrote JSON that is not a census: {rejections[-1]}",
+        )
     )
 
 
