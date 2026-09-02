@@ -41,13 +41,15 @@ _DIAGNOSTIC_TAIL: Final = 800
 _SAID_ON_STDOUT: Final = "pass-stdout"
 _SAID_ON_STDERR: Final = "pass-stderr"
 
-#: How long a signalled session is waited for before the invocation stops waiting for it.
+#: How long a signalled session is waited for, at most, before the invocation stops waiting for
+#: it — and never longer than the budget has left, less what the sweep needs.
 _REAPING_SECONDS: Final = 10.0
+_SWEEPING_SECONDS: Final = 0.1
 
 #: What an invocation keeps back from its budget for ending a pass that outran it and sweeping its
 #: scratch, so the refusal is raised within the budget and never just after it: at most this many
 #: seconds, and never more than this share of a small budget.
-_ENDING_SECONDS: Final = 0.25
+_ENDING_SECONDS: Final = 2.0
 _ENDING_SHARE: Final = 0.1
 
 #: What a release looks like in a banner, so the version line can be told from a greeting.
@@ -120,6 +122,14 @@ class Deadline:
         ending = min(_ENDING_SECONDS, self.seconds * _ENDING_SHARE)
         return max(0.0, self.left() - ending)
 
+    def reaping_time(self) -> float:
+        """How long an ended pass may be waited for: the rest of the budget, less the sweep.
+
+        A process stopped mid-write on a slow disk is reaped late; the caller's budget is not
+        extended to wait for it, since the signal has already been sent and the sweep is next.
+        """
+        return max(0.0, min(_REAPING_SECONDS, self.left() - _SWEEPING_SECONDS))
+
 
 @dataclass(frozen=True)
 class PassOutput:
@@ -173,7 +183,7 @@ def run_pass(
             # line something else could read as syntax (L-CAD-04's "isolated subprocess only").
             # A session of its own makes the pass and its descendants one thing that can be ended.
             running = subprocess.Popen(
-                list(argv),
+                [_spawnable(program), *list(argv)[1:]],
                 cwd=str(room),
                 stdin=subprocess.DEVNULL,
                 stdout=to_stdout,
@@ -197,10 +207,20 @@ def run_pass(
     try:
         running.wait(timeout=deadline.running_time())
     except subprocess.TimeoutExpired as error:
-        _end_session(running)
+        _end_session(running, deadline)
         raise DwgError(_outran(source, pass_name, program, deadline)) from error
 
     return PassOutput(stdout=_said(on_stdout), stderr=_said(on_stderr))
+
+
+def _spawnable(program: str) -> str:
+    """The program as the caller named it: a relative path is the caller's, not the room's.
+
+    A pass is started inside its own room, and the operating system resolves a program named by a
+    relative path against that room — so `bin/dwgread` from a caller whose directory holds `bin/`
+    would be refused as not on this machine. A bare name is left to PATH as before.
+    """
+    return os.path.abspath(program) if os.path.dirname(program) else program
 
 
 def tool_version(toolchain: Toolchain, source: Path, *, room: Path, deadline: Deadline) -> str:
@@ -243,12 +263,13 @@ def _outran(source: Path, pass_name: str, program: str, deadline: Deadline) -> s
     )
 
 
-def _end_session(running: subprocess.Popen[bytes]) -> None:
+def _end_session(running: subprocess.Popen[bytes], deadline: Deadline) -> None:
     """End the pass and everything it started (L-CAD-04's stateless lane).
 
     Signalling the session rather than the one process is what makes "nothing left behind" true of
     a program that started a helper: a survivor would go on writing into a scratch directory this
-    invocation is about to remove, and would hold the call open past the budget it was given.
+    invocation is about to remove, and would hold the call open past the budget it was given. The
+    reap is waited for only as long as the budget allows: the refusal lands inside it either way.
     """
     try:
         os.killpg(os.getpgid(running.pid), signal.SIGKILL)
@@ -256,7 +277,7 @@ def _end_session(running: subprocess.Popen[bytes]) -> None:
         # The session is already gone, or was never ours to signal; the process still is.
         running.kill()
     with contextlib.suppress(subprocess.TimeoutExpired):
-        running.wait(timeout=_REAPING_SECONDS)
+        running.wait(timeout=deadline.reaping_time())
 
 
 def _said(path: Path) -> str:

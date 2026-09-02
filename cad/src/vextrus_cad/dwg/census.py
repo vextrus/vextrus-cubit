@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any, Final
 
 from .errors import DwgError
-from .vocabulary import MODEL_SPACE, NOT_TALLIED
+from .vocabulary import MODEL_SPACE, NOT_TALLIED, dxf_spelling
 
 #: LibreDWG's own names for the block headers the two default spaces are drawn in. A drawing may
 #: carry several `*Paper_Space<n>`; the bare one is the layout an ownerless entity means.
@@ -45,15 +45,19 @@ def census_of(document: dict[str, Any]) -> dict[str, dict[str, int]]:
 
     tally: dict[str, dict[str, int]] = {}
     for record in records:
-        dxftype = record.get("entity")
-        if not isinstance(dxftype, str) or not dxftype or dxftype in NOT_TALLIED:
+        entity = record.get("entity")
+        if not isinstance(entity, str) or not entity:
+            continue
+        dxftype = dxf_spelling(entity)
+        if dxftype in NOT_TALLIED:
             continue
         if _handle(record.get("handle")) in delimiters:
             continue
         owner = _owner_of(record, ownerless)
-        if owner is not None and owner in block_names and owner not in spaces:
+        if owner is not None and owner in block_names and not _is_space_block(block_names[owner]):
             # A block definition's own content. It is paint no sheet carries directly, and the
-            # geometry pass walks layouts too, so neither side counts it.
+            # geometry pass walks layouts too, so neither side counts it. A header named as a
+            # space is never that, whether or not a LAYOUT names it: what it owns is counted.
             continue
         space = spaces.get(owner) if owner is not None else None
         types = tally.setdefault(space if space is not None else UNRESOLVED_SPACE, {})
@@ -89,8 +93,20 @@ def _block_headers(records: list[dict[str, Any]]) -> tuple[dict[int, str], set[i
     return names, delimiters
 
 
+def _is_space_block(name: str) -> bool:
+    """A block header named as one of the spaces, whether or not a LAYOUT points at it."""
+    lowered = name.lower()
+    return lowered.startswith(_MODEL_BLOCK) or lowered.startswith(_PAPER_BLOCK)
+
+
 def _spaces(records: list[dict[str, Any]], block_names: dict[int, str]) -> dict[int, str]:
-    """The block headers a layout is drawn in, by handle, under the artifact's space names."""
+    """The block headers a layout is drawn in, by handle, under the artifact's space names.
+
+    A LAYOUT names the header it is drawn in. LibreDWG can also write a second `*Model_Space`
+    header no LAYOUT names; an entity that header owns is model-space paint all the same, so it is
+    resolved to the model space rather than dropped. A paper-space header no LAYOUT names has no
+    layout name to be tallied under and is left unresolved — counted, and refused by name.
+    """
     spaces: dict[int, str] = {}
     for record in records:
         if record.get("object") != "LAYOUT":
@@ -101,6 +117,9 @@ def _spaces(records: list[dict[str, Any]], block_names: dict[int, str]) -> dict[
         name = block_names.get(block, "")
         layout = str(record.get("layout_name", ""))
         spaces[block] = MODEL_SPACE if name.lower().startswith(_MODEL_BLOCK) else (layout or name)
+    for handle, name in block_names.items():
+        if handle not in spaces and name.lower() == _MODEL_BLOCK:
+            spaces[handle] = MODEL_SPACE
     return spaces
 
 
