@@ -975,13 +975,77 @@ ObjectDBX Classes
   0
 CLASS
   1
-SUN
+ACDBPLACEHOLDER
   2
-AcDbSun
+AcDbPlaceHolder
   3
-SCENEOE
+ObjectDBX Classes
+ 90
+0
+ 91
+0
+280
+0
+281
+0
+  0
+CLASS
+  1
+DICTIONARYVAR
+  2
+AcDbDictionaryVar
+  3
+ObjectDBX Classes
+ 90
+0
+ 91
+0
+280
+0
+281
+0
+  0
+CLASS
+  1
+LAYOUT
+  2
+AcDbLayout
+  3
+ObjectDBX Classes
+ 90
+0
+ 91
+0
+280
+0
+281
+0
+  0
+CLASS
+  1
+MATERIAL
+  2
+AcDbMaterial
+  3
+ObjectDBX Classes
  90
 1153
+ 91
+0
+280
+0
+281
+0
+  0
+CLASS
+  1
+MLEADERSTYLE
+  2
+AcDbMLeaderStyle
+  3
+ACDB_MLEADERSTYLE_CLASS
+ 90
+4095
  91
 0
 280
@@ -1007,11 +1071,11 @@ ObjectDBX Classes
   0
 CLASS
   1
-MATERIAL
+SUN
   2
-AcDbMaterial
+AcDbSun
   3
-ObjectDBX Classes
+SCENEOE
  90
 1153
  91
@@ -1046,38 +1110,6 @@ AcDbTableStyle
 ObjectDBX Classes
  90
 4095
- 91
-0
-280
-0
-281
-0
-  0
-CLASS
-  1
-MLEADERSTYLE
-  2
-AcDbMLeaderStyle
-  3
-ACDB_MLEADERSTYLE_CLASS
- 90
-4095
- 91
-0
-280
-0
-281
-0
-  0
-CLASS
-  1
-DICTIONARYVAR
-  2
-AcDbDictionaryVar
-  3
-ObjectDBX Classes
- 90
-0
  91
 0
 280
@@ -1156,38 +1188,6 @@ RASTERVARIABLES
 AcDbRasterVariables
   3
 ISM
- 90
-0
- 91
-0
-280
-0
-281
-0
-  0
-CLASS
-  1
-ACDBPLACEHOLDER
-  2
-AcDbPlaceHolder
-  3
-ObjectDBX Classes
- 90
-0
- 91
-0
-280
-0
-281
-0
-  0
-CLASS
-  1
-LAYOUT
-  2
-AcDbLayout
-  3
-ObjectDBX Classes
  90
 0
  91

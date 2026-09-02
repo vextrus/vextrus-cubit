@@ -9,18 +9,18 @@
   },
   "generator": {
     "path": "fixtures/gen/rcc6.py",
-    "sha256": "3e0714658ea51d589c484fe1f21f3e728c1db05268b900780f82e2090f7b0526"
+    "sha256": "3db0f7704d800ea3eb695fe16111489a9079fbf41f3788728673ecb86ee033c4"
   },
   "files": [
     {
       "path": "fixtures/rcc6/rcc6.dxf",
       "format": "DXF",
-      "sha256": "a64c59aee68dfdc1f2e1bf1edf9aa137a0b1b71f97049bfe6201c6d9f0478974"
+      "sha256": "0c07f86725e878749cb58e9cf602ad63d91644f6e2a9997010f4c643704bad0f"
     },
     {
       "path": "fixtures/rcc6/rcc6.dwg",
       "format": "DWG",
-      "sha256": "031e2e42cde7506c1606492eb96c5109adfc6e57c05113b9fcec1aff2d1c8907"
+      "sha256": "cb13b7fa2b563a68b83eed88fb53cfdaf54a4dd44e75d826dc02a385fcc6959c"
     },
     {
       "path": "fixtures/rcc6/rcc6.pdf",
@@ -90,7 +90,7 @@
     {
       "path": "fixtures/rcc6/manifest.json",
       "format": "MANIFEST",
-      "sha256": "3ecc938c2b355e8b95df48cb97d49ca34d7ec6ab9f49a7738936164487f651f7"
+      "sha256": "1969aa93b0a59d2c84d3996d83af51f0ac61c5cd4bd8820f291677896a6c158a"
     }
   ]
 }

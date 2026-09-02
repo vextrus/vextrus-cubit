@@ -836,6 +836,10 @@ def write_dxf(sheets: list[Sheet], scratch: Path) -> tuple[bytes, dict[str, dict
         drawn[sheet.name] = Counter()
         place(layout, sheet.title, (0, 0), drawn[sheet.name])
     doc.layouts.delete("Layout1")
+    # ezdxf fills the CLASSES section from a set of the entity types in use, whose order follows
+    # the interpreter's hash seed; registering them sorted first keeps the bytes the same run to run.
+    for dxftype in sorted(doc.entitydb.dxf_types_in_use()):
+        doc.classes.add_class(dxftype)
 
     path = scratch / "rcc6.dxf"
     doc.saveas(path)
