@@ -1,7 +1,7 @@
 // The built-in `probe` kind (R-SPINE-030). It exists so that every path a job can take — steps
 // with timings, a retry to exhaustion, a named refusal, a clean success — can be driven from
 // outside by an operator or by a test, before any real kind exists to drive them with.
-import { refusalOf, type RefusalCode } from "../errors";
+import { refusal } from "../faults/refusal-marker";
 import type { JobPayloads } from "./kinds";
 
 /** What a running job is given: its own temp dir, and the way to say where it has got to. */
@@ -11,11 +11,6 @@ export type JobProgress = {
   /** One step, recorded durably before the next one begins. */
   step: (name: string, detail?: Record<string, unknown>) => Promise<void>;
 };
-
-/** An Error marked with a registered code, so the seam reads it as an answer and not a fault (B-21). */
-function refusal(code: RefusalCode, message: string): Error {
-  return Object.assign(new Error(message), { refusalCode: refusalOf(code).code });
-}
 
 /** Wait, without holding a connection or a slot open for anything else while waiting. */
 function pause(ms: number): Promise<void> {

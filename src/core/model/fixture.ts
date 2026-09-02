@@ -4,7 +4,8 @@
 // corpus defect — a plain failure, not a refusal and not a row (B-21).
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { refusalOf } from "../errors";
+import { refusal } from "../faults/refusal-marker";
+import { tokenCount } from "../model-ledger.types";
 import type { JsonValue, ModelFixture, ModelRequest, TransportAnswer, TransportPort } from "./types";
 
 /** A transport over one fixture root. */
@@ -12,12 +13,16 @@ export function fixtureTransport(fixtureRoot: string): TransportPort {
   return {
     transport: "fixture",
     async answer(_ctx, request, hash): Promise<TransportAnswer> {
-      const file = join(fixtureRoot, `${hash}.json`);
+      const fileName = `${hash}.json`;
+      const file = join(fixtureRoot, fileName);
       const text = await recordedText(file);
       if (text === null) {
-        const entry = refusalOf("FIXTURE_MISSING");
-        const refusal = Object.assign(new Error(`no recorded model answer for request ${hash} exists at ${file}`), { refusalCode: entry.code });
-        return { kind: "refused", code: entry.code, refusal };
+        // The refusal names the request and the file it would be filed as, never the root: where the
+        // corpus lives on this machine is the operator's business, and a refusal is shown to callers
+        // (B-21, R-SPINE-062).
+        const code = "FIXTURE_MISSING";
+        const missing = refusal(code, `no recorded model answer exists for request ${hash} — none is filed as ${fileName} under the fixture root`, { requestHash: hash });
+        return { kind: "refused", code, refusal: missing };
       }
       const fixture = parseFixture(text, file, request, hash);
       return { kind: "answered", payload: fixture.payload, inputTokens: fixture.inputTokens, outputTokens: fixture.outputTokens };
@@ -49,12 +54,9 @@ function parseFixture(text: string, file: string, request: ModelRequest, hash: s
     throw new Error(`the recorded model answer at ${file} was given by ${String(modelId)}, not by ${request.modelId} as the request pins`);
   }
   if (!Object.hasOwn(parsed, "payload")) throw new Error(`the recorded model answer at ${file} carries no payload`);
-  // Only the shape is read here; whether a number is a token count is the money derivation's one
-  // judgement (modelCallCost, B-17), which the seam applies before any row is written.
-  if (typeof inputTokens !== "number" || typeof outputTokens !== "number") {
-    throw new Error(`the recorded model answer at ${file} does not count its tokens as numbers`);
-  }
-  return { requestHash: hash, modelId: request.modelId, payload: parsed["payload"] as JsonValue, inputTokens, outputTokens };
+  // Whether a figure is a token count is the money derivation's one judgement (B-17), asked here
+  // before any row is written; a figure that is not one fails as the derivation fails for it.
+  return { requestHash: hash, modelId: request.modelId, payload: parsed["payload"] as JsonValue, inputTokens: tokenCount(inputTokens), outputTokens: tokenCount(outputTokens) };
 }
 
 function parseJson(text: string, file: string): JsonValue {

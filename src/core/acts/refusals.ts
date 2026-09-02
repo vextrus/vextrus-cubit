@@ -1,18 +1,13 @@
 // The three answers this seam gives instead of writing (ARCH-03, B-21: a refusal is an answer, not
 // a fault). Each travels as the settled core marker — an Error carrying a string `refusalCode`,
-// which `faults/refusal-marker.ts` is the one reader of — and carries, as readable properties, the
-// facts the law says the refusal names. The codes themselves belong to the closed taxonomy in
+// built and read by `faults/refusal-marker.ts` alone (B-17) — and carries, as readable properties,
+// the facts the law says the refusal names. The codes themselves belong to the closed taxonomy in
 // `../errors` (R-SPINE-062, ARCH-02); the messages here are operator detail and stay out of it.
-import { refusalOf, type RefusalCode } from "../errors";
+import { refusal } from "../faults/refusal-marker";
 import type { ActType, Permission } from "./law";
 
 /** The actor kinds a context can name; only one of them may write to the act log (L-ACT-01). */
 export type ActorKind = "human" | "machine" | "model";
-
-/** An Error marked with a registered code and the facts that refusal is required to carry. */
-function refusal<D extends object>(code: RefusalCode, message: string, detail: D): Error & D {
-  return Object.assign(new Error(message), { refusalCode: refusalOf(code).code }, detail);
-}
 
 /**
  * L-ACT-03: "`PERMISSION_NOT_HELD` carries the act type and missing permission". The act type is

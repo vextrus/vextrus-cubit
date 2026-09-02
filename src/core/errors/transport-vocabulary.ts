@@ -53,7 +53,7 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // `src/worker/main.ts`: the machine says which port it may bind, because the process that runs
     // the queues is a service the host supervises (R-SPINE-031).
     // `CUBIT_MODEL_FIXTURE_ROOT` and `ANTHROPIC_API_KEY` are read in `src/core/model`: the first
-    // names the directory recorded model answers are replayed from and, by being set, selects the
+    // names the directory recorded model answers are replayed from and, by being non-blank, selects the
     // fixture transport; the second is the live provider's credential (L-AI-01, B-23).
     codes: Object.freeze(["DATABASE_URL", "STORAGE_ROOT", "NODE_ENV", "CUBIT_PUBLIC_ORIGIN", "WORKER_HEALTH_PORT", "CUBIT_MODEL_FIXTURE_ROOT", "ANTHROPIC_API_KEY"]),
   }),

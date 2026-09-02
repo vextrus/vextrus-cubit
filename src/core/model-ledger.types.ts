@@ -15,11 +15,15 @@ export type ModelId = (typeof MODEL_IDS)[number];
  */
 export type ModelRate = { readonly inputPerMillionTokens: string; readonly outputPerMillionTokens: string };
 
-/** The pinned rates, total over the closed const — an id without a rate is a call nobody can bill. */
-export const MODEL_RATES: Record<ModelId, ModelRate> = {
-  "claude-opus-5": { inputPerMillionTokens: "15", outputPerMillionTokens: "75" },
-  "claude-sonnet-5": { inputPerMillionTokens: "3", outputPerMillionTokens: "15" },
-};
+/**
+ * The pinned rates, total over the closed const — an id without a rate is a call nobody can bill.
+ * Frozen at every depth: a rate is a fact about money (L-AI-01), and a table a caller could edit at
+ * runtime would make the derivation answer for a rate nobody pinned.
+ */
+export const MODEL_RATES: Readonly<Record<ModelId, ModelRate>> = Object.freeze({
+  "claude-opus-5": Object.freeze({ inputPerMillionTokens: "15", outputPerMillionTokens: "75" }),
+  "claude-sonnet-5": Object.freeze({ inputPerMillionTokens: "3", outputPerMillionTokens: "15" }),
+});
 
 /** The denominator the rates are quoted against, as the power of ten a cost is divided by. */
 const RATE_DENOMINATOR_SCALE = 6;
@@ -64,12 +68,25 @@ function spellScaled(units: bigint, scale: number): string {
   return minimalDecimal(`${units < 0n ? "-" : ""}${spelled}`);
 }
 
-/** A token count as an exact integer. A count that is not one is a fault, not a cost to guess at. */
-function tokenCount(tokens: number): bigint {
-  if (!Number.isSafeInteger(tokens) || tokens < 0) {
-    throw new Error(`${JSON.stringify(tokens)} is not a token count — a call spends a whole, non-negative number of tokens`);
+/**
+ * Is this figure a token count — a whole, non-negative number a double counts exactly? The one
+ * judgement (B-17): the money derivation below throws through it, and every transport that reads a
+ * figure off a fixture or a provider body asks here rather than re-spelling the test.
+ */
+export function isTokenCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+/**
+ * A figure as the token count it is, or the one failure a figure that is not one raises — a fault,
+ * not a cost to guess at. `modelCallCost` and the transports fail through this same sentence, so a
+ * count refused at the seam's edge and one refused at the derivation are the same refusal (B-17).
+ */
+export function tokenCount(value: unknown): number {
+  if (!isTokenCount(value)) {
+    throw new Error(`${JSON.stringify(value)} is not a token count — a call spends a whole, non-negative number of tokens`);
   }
-  return BigInt(tokens);
+  return value;
 }
 
 /**
@@ -89,6 +106,7 @@ export function modelCallCost(modelId: ModelId, inputTokens: number, outputToken
   const output = scaledUnits(rate.outputPerMillionTokens);
   const scale = Math.max(input.scale, output.scale);
   const units =
-    tokenCount(inputTokens) * input.units * TEN ** BigInt(scale - input.scale) + tokenCount(outputTokens) * output.units * TEN ** BigInt(scale - output.scale);
+    BigInt(tokenCount(inputTokens)) * input.units * TEN ** BigInt(scale - input.scale) +
+    BigInt(tokenCount(outputTokens)) * output.units * TEN ** BigInt(scale - output.scale);
   return spellScaled(units, scale + RATE_DENOMINATOR_SCALE);
 }
