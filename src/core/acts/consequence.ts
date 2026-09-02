@@ -109,9 +109,6 @@ function same(before: readonly string[], after: readonly string[]): boolean {
  * one canonical-JSON home (B-17): the model seam's request hash is taken over it too.
  */
 export function canonical(value: unknown): string {
-  if (typeof value === "number" && !Number.isFinite(value)) {
-    throw new Error(`${String(value)} is not a JSON number, which nothing can digest — JSON would spell it null and file it with a different value`);
-  }
   if (value === null || typeof value === "number" || typeof value === "boolean" || typeof value === "string") {
     return JSON.stringify(value);
   }

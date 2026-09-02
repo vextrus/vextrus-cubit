@@ -10,7 +10,7 @@ import type { JsonValue, ModelRequest } from "./types";
 /**
  * A JSON value spelled one way: object keys sorted by code unit at every depth, array order kept,
  * `undefined`-valued keys omitted, and no whitespace anywhere. Scalars are spelled as JSON spells
- * them; a number JSON cannot spell (NaN, an infinity) is refused rather than filed as `null`.
+ * them.
  */
 export function canonicalJson(value: JsonValue): string {
   return canonical(value);
