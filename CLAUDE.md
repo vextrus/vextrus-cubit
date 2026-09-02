@@ -26,15 +26,15 @@ pnpm verify · pnpm test:db · pnpm e2e --journey <J> · pnpm checkup
 <!-- builder:lessons:start -->
 ## Standing lessons (engine-maintained)
 ### Locked ground & lawful paths
+- A reviewer's psql probe must be a single bare SELECT — Trigger: a reviewer or skeptic wanting to check an ordering or comparison invariant against the live database.
+- A sweep increment must arrive with its inventory already enumerated — Trigger: an increment whose whole purpose is to clear a class of debt across a directory.
 - Fixtures for a build session come from the repo, never from the held-out set — Trigger: an increment that needs realistic inputs to replay, and the most realistic inputs on disk are the ones reserved for grading.
 - On a repeat held-out red, diff settled_rulings against the code before re-diagnosing — an unimplemented ruling is the failing assertion — On the cad dwg increment attempt 4 (2026-09-02) the gate had said "2 of 5 assertions" for two attempts running.
-- A Verifier session that keeps reaching for product source — Across one increment the Verifier role was denied four separate times for touching product source — a migration, a package file, a build script, a test-db surface — each time the same rule fired: the Verifier writes acceptance only, never product source.
-- Weakening or suppressing a failing check instead of fixing it — A build session added a structural suppression and removed an assert from a test to reach green, tripping ADDED_SUPPRESSION and TEST_INTEGRITY findings plus a locked-path-reverted flag — three separate detectors catching the same move.
 ### Tests & acceptance
+- cubit/no-model-outside-seam refuses any import of src/core/model/__tests__/support/seam from outside src/core/model — define rejectionOf/RESOLVED locally; also … — Verified 2026-09-02 on that increment (model/jobs debt sweep): - `cubit/no-model-outside-seam` binds the whole tree, tests included: importing `src/core/model/__tests__/support/seam` (its `rejectionOf`, `RESOLVED`, `member`) from `src/core/__tests__/`, …
 - A \"recorded version/identity\" field is only bound by a stub tool reporting a distinctive version — re-probing the real tool at test time is vacuous — Acceptance for "`X.tool_version` is read from the toolchain's own `--version` output" cannot be graded by running the same real program again at test time and comparing: an implementation that hardcodes the machine's current version (`"0.13.3"`) passes both …
 - LibreDWG 0.13.3's dwg2dxf default output is unreadable by ezdxf 1.4.4; only `-m` round-trips into ingest_dxf — Measured 2026-09-02 while minting `cad/tests/dwg/fixtures/basic.dwg` for that increment. `dwg2dxf` (LibreDWG 0.13.3) writes an `ENDBLK` record whose handle is `0`.
 ### Database
+- postgres.js 3.4.9 facts that shape the jobs key lock — reserve() hangs on an ended pool, begin() masks a guarded failure with CONNECTION_CLOSED, and any … — Measured 2026-09-02 while building the jobs key lock (src/core/db.ts `withKeyLock`) against postgres.js 3.4.9: - `sql.reserve()` on a pool after `sql.end()` HANGS forever when the pool never connected, and resolves a dead connection when it had.
 - A fixture-replay path must not be selected by reading process.env below the composition root — Trigger: an increment whose plan adds a replay or fixture-backed path through code the product also runs for real.
-### Process
-- ezdxf's log records escape to stderr via logging.lastResort and break any driver parsing `${stdout}\\n${stderr}` — Nothing under `cad/src/vextrus_cad/` configures `logging`, so every `WARNING`+ record ezdxf emits goes through `logging.lastResort` straight onto the process's stderr.
 <!-- builder:lessons:end -->
