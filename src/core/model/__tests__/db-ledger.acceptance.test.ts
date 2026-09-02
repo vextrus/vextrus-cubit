@@ -29,13 +29,22 @@ import { seedTenants } from "../../../../db/__tests__/support/live-sql";
 import { closePools, forTenant, isUuid, modelSpendByProject } from "../../db";
 import { refusalCodeOf } from "../../faults/refusal-marker";
 import { MODEL_IDS, modelCallCost } from "../../model-ledger.types";
+import type { ModelFixture } from "../types";
 import { BARREL, REPO_ROOT, RESOLVED, barrel, member, rejectionOf, type Fixture, type Ledger, type LedgerRow, type Request } from "./support/seam";
 
 const SONNET = "claude-sonnet-5";
 const FIXTURE_MISSING = "FIXTURE_MISSING";
 const ENV_ROOT = "CUBIT_MODEL_FIXTURE_ROOT";
 const README = "fixtures/model/README.md";
-const FIXTURE_FIELDS = ["requestHash", "modelId", "payload", "inputTokens", "outputTokens"];
+/**
+ * The fixture format is whatever `ModelFixture` (src/core/model/types.ts) says it is, so the README
+ * is graded against the type, never against a roster of the day (B-19, as arbitrated): `satisfies
+ * Record<keyof ModelFixture, true>` fails `tsc --noEmit` if the type gains a field this map omits,
+ * and excess-property checking fails it if the type loses a field the map still names.
+ */
+const FIXTURE_FIELDS = Object.keys(
+  { requestHash: true, modelId: true, payload: true, inputTokens: true, outputTokens: true } satisfies Record<keyof ModelFixture, true>,
+) as (keyof ModelFixture)[];
 
 type Stage = { tenantId: string; projectId: string; ledger: Ledger; fixtureRoot: string };
 
@@ -212,7 +221,7 @@ describe("AC-6: the shipped ledger adapter writes the real table", () => {
     for (const field of expected) {
       expect(documented.fields, `${README} does not state the ModelFixture field \`${field}\` in its ${documented.form}`).toContain(field);
     }
-    expect([...documented.fields].sort(), `${README}'s ${documented.form} names exactly the ModelFixture fields — no extra keys`).toEqual(expected);
+    expect([...documented.fields].sort(), `${README} documents exactly the fields of ModelFixture (its ${documented.form} names a key the type lacks, or lacks one it has)`).toEqual(expected);
     if (documented.form === "json example") {
       expect(documented.example["requestHash"], `${README}'s example requestHash is 64 lowercase hex chars`).toMatch(/^[0-9a-f]{64}$/);
       expect(MODEL_IDS as readonly string[], `${README}'s example modelId is one of the pinned ids (AS-05)`).toContain(documented.example["modelId"]);

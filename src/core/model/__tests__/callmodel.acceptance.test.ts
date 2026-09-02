@@ -190,8 +190,13 @@ describe("AC-2: fixture replay is deterministic", () => {
       ].join(" "),
     ).toEqual([]);
 
-    const injected = reads.map((read) => `${read.file}:${read.line}`);
-    expect(injected, `the production callModel is createModelSeam over process.env — the process environment is handed in exactly once under ${SEAM_DIR}, at the composition root (I-E); found: ${injected.join(", ") || "none"}`).toHaveLength(1);
+    // The seam must not be silently unwired: at least one composition root hands the process env in
+    // (I-E). How many composition roots exist is not this clause's to pin (as arbitrated): every read
+    // that is not the admitted spelling `env: process.env` is already in `direct` and asserted absent
+    // above — `processEnvReads` classifies a read as injected by exactly that predicate — so every
+    // element of `injected` is the admitted form by construction, whatever their number.
+    const injected = reads.filter((read) => read.injected).map((read) => `${read.file}:${read.line}`);
+    expect(injected.length, `the seam must be wired from at least one composition root via \`env: process.env\` under ${SEAM_DIR} (I-E); found: ${injected.join(", ") || "none"}`).toBeGreaterThanOrEqual(1);
   });
 
   test("AC-2: callModel answers the fixture's payload and tokens, records one proposed row, reaches no fetch", async () => {
