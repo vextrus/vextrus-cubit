@@ -30,7 +30,14 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 /** The one home of the taxonomy: the file a spelling of a registered code has to be reading. */
 const REGISTER = join(REPO_ROOT, "src", "core", "errors.ts");
 
-/** Q-07's refusal shape, verbatim. */
+/**
+ * The scan's refusal shape — its own heuristic for the orphan domain, not a Bible word. Q-07 defines
+ * an orphan as refusal-shaped and unregistered, and a one-word SCREAMING constant (`GET`, `UTC`,
+ * `PDF`) cannot be told from an unregistered one-word code by shape alone, so the underscore
+ * requirement stays for orphans. A REGISTERED code is a refusal code by definition (R-SPINE-062;
+ * L-AI-02 fixes `UNSOURCED` and `MALFORMED` without an underscore) and is admitted as a spelling
+ * wherever the register's own names are asked after, whatever this shape says of it.
+ */
 export const REFUSAL_SHAPE = /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)+$/;
 
 /** The extensions the layered tree is written in. */
@@ -206,11 +213,15 @@ function declaredKey(node: ts.Node): string | null {
   return node.name !== undefined && ts.isIdentifier(node.name) ? node.name.text : null;
 }
 
-/** The refusal-shaped names a file spells — every static spelling, and nothing a comment says. */
-function literalNames(source: ts.SourceFile): Set<string> {
+/**
+ * The refusal-shaped names a file spells — every static spelling, and nothing a comment says. A
+ * registered code is a spelling whatever its shape, so a bare `UNSOURCED` in a file that does not
+ * import the register is still found "spelled but not wired" (Q-07).
+ */
+function literalNames(source: ts.SourceFile, registered: ReadonlySet<string>): Set<string> {
   const names = new Set<string>();
   const add = (text: string | null): void => {
-    if (text !== null && REFUSAL_SHAPE.test(text)) names.add(text);
+    if (text !== null && (REFUSAL_SHAPE.test(text) || registered.has(text))) names.add(text);
   };
   const walk = (node: ts.Node): void => {
     const text = staticText(node);
@@ -305,7 +316,7 @@ export async function scanRefusals(root: string): Promise<RefusalScan> {
 
   for (const file of sourceFilesUnder(root, (path) => !isTestFile(relative(root, path)))) {
     const source = parse(file);
-    const names = literalNames(source);
+    const names = literalNames(source, registered);
     if (names.size === 0) continue;
     const wired = importsRegister(file, source);
     const where = displayPath(file);
@@ -325,10 +336,12 @@ export async function scanRefusals(root: string): Promise<RefusalScan> {
 /**
  * Which refusal-shaped names the executed test corpus actually names, and where. A name counts when
  * a test spells it — as a literal, or as the identifier or property a test reads it by — and never
- * when a comment mentions it (Q-07).
+ * when a comment mentions it (Q-07). A registered code counts whatever its shape: the clause
+ * conditions exercise on the lane and on being a name, never on an underscore count.
  */
 export async function exercisedNames(roots: readonly string[]): Promise<Map<string, string[]>> {
   const spoken = new Map<string, string[]>();
+  const registered = registeredCodes();
   const record = (code: string, file: string): void => {
     const already = spoken.get(code);
     if (already === undefined) spoken.set(code, [file]);
@@ -341,7 +354,7 @@ export async function exercisedNames(roots: readonly string[]): Promise<Map<stri
       const where = displayPath(file);
       eachNode(source, (node) => {
         const name = ts.isIdentifier(node) || ts.isStringLiteralLike(node) ? node.text : null;
-        if (name !== null && REFUSAL_SHAPE.test(name)) record(name, where);
+        if (name !== null && (REFUSAL_SHAPE.test(name) || registered.has(name))) record(name, where);
       });
     }
   }
