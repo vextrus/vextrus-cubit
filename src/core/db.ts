@@ -1007,6 +1007,8 @@ const LOCK_WAIT_MS = 30_000;
 /** What Postgres answers when the log has not been provisioned yet: no such table, no such schema. */
 const UNDEFINED_TABLE = "42P01";
 const INVALID_SCHEMA_NAME = "3F000";
+/** What Postgres answers when a unique index cannot be built over rows that already collide. */
+const UNIQUE_VIOLATION = "23505";
 
 /**
  * How the queue's own outages are recorded. A lost connection, a failed maintenance pass or a
@@ -1159,21 +1161,6 @@ const JOBS_DDL: readonly string[] = [
    )`,
   `create index if not exists job_events_by_job on ${JOBS_SCHEMA}.job_events (job_id, seq)`,
   `create index if not exists job_events_by_status on ${JOBS_SCHEMA}.job_events (status, seq)`,
-  // A log written before the ending was a constraint of the storage may hold a second ending for a
-  // job: two racing writers could both pass a read-committed "no ending yet" check. The first
-  // ending is the one the log keeps — the one that says how the job actually went, the one the
-  // dead-letter view already answers with — so the index below can be built on any log there is
-  // (R-SPINE-030).
-  `delete from ${JOBS_SCHEMA}.job_events as later
-     using ${JOBS_SCHEMA}.job_events as first
-    where later.job_id = first.job_id
-      and first.seq < later.seq
-      and first.status in (${closedList([...TERMINAL_STATUSES])})
-      and later.status in (${closedList([...TERMINAL_STATUSES])})`,
-  // One ending per job is a constraint of the storage, not a courtesy of its callers: two racing
-  // writers cannot both land in a unique index (R-SPINE-030, B-17).
-  `create unique index if not exists job_events_one_ending on ${JOBS_SCHEMA}.job_events (job_id)
-     where status in (${closedList([...TERMINAL_STATUSES])})`,
   `create table if not exists ${JOBS_SCHEMA}.job_claims (
      kind text not null,
      key text not null,
@@ -1182,6 +1169,16 @@ const JOBS_DDL: readonly string[] = [
      primary key (kind, key)
    )`,
 ];
+
+/**
+ * One ending per job is a constraint of the storage, not a courtesy of its callers: two racing
+ * writers cannot both land in a unique index (R-SPINE-030, B-17). Built after the tables, on its
+ * own, because a log written before the ending was a constraint may already hold two endings for
+ * a job — two writers that both passed a read-committed "no ending yet" check — and such a log is
+ * reported, never edited (see `createLog`).
+ */
+const ONE_ENDING_INDEX = `create unique index if not exists job_events_one_ending on ${JOBS_SCHEMA}.job_events (job_id)
+   where status in (${closedList([...TERMINAL_STATUSES])})`;
 
 /** The row as the driver hands it back, before it is folded into the shape the seam publishes. */
 type RawJobEvent = {
@@ -1287,6 +1284,28 @@ export function jobsStore(url: string): JobsStore {
   const createLog = reachedOnce(async () => {
     try {
       for (const statement of JOBS_DDL) await sql.unsafe(statement);
+      try {
+        await sql.unsafe(ONE_ENDING_INDEX);
+      } catch (collision) {
+        if ((collision as { code?: unknown }).code !== UNIQUE_VIOLATION) throw collision;
+        // The log is the seam's own record of how every job went, so no row of it is deleted to
+        // make the constraint fit: the jobs that hold two endings are recorded as a fault, the log
+        // stays writable under the existence check alone, and the index is built by the next
+        // process once an operator has resolved them (R-SPINE-030, ARCH-03).
+        const duplicated = await sql<{ job_id: string }[]>`
+          select job_id
+            from ${sql(JOBS_SCHEMA)}.job_events
+           where status in ${sql([...TERMINAL_STATUSES])}
+           group by job_id
+          having count(*) > 1
+           order by job_id`;
+        const jobs = duplicated.map((row) => row.job_id);
+        const cause = new Error(
+          `the job log holds more than one ending for ${jobs.length} job(s) — ${jobs.join(", ")} — so job_events_one_ending cannot be built until they are resolved (R-SPINE-030)`,
+          { cause: collision },
+        );
+        reportFault({ requestId: LOG_ROUTE, actor: LOG_ACTOR, route: LOG_ROUTE, cause });
+      }
     } catch (failure) {
       // A log that could not be provisioned is this seam's failure to answer for, and one every
       // later write would otherwise repeat unmarked (ARCH-03, B-21).
@@ -1376,6 +1395,7 @@ export function jobsStore(url: string): JobsStore {
 
     let bodyStarted = false;
     let lockTaken = false;
+    let answered: { answer: T } | undefined;
     let guarded: unknown = NOTHING_GUARDED;
     let rollbackFailure: unknown = NOTHING_GUARDED;
     let transactionSettled = false;
@@ -1438,10 +1458,12 @@ export function jobsStore(url: string): JobsStore {
         await exiting();
         throw failure;
       }
-      await exiting();
       // Wrapped in one: the driver spreads an array a transaction answers with, and a caller's own
-      // array result is not this seam's to spread.
-      return { answer };
+      // array result is not this seam's to spread. Kept here too: the work's effects landed on the
+      // log's pool whatever becomes of the lock's connection after this point.
+      answered = { answer };
+      await exiting();
+      return answered;
     });
     const outcome = await transaction.then(
       (held) => {
@@ -1459,6 +1481,14 @@ export function jobsStore(url: string): JobsStore {
     if (guarded !== NOTHING_GUARDED) {
       if (rollbackFailure !== NOTHING_GUARDED) reportFault({ requestId, actor: LOCK_ACTOR, route: LOCK_ROUTE, cause: rollbackFailure });
       throw guarded;
+    }
+    if (answered !== undefined) {
+      // Work that answered has landed: its writes went out on the log's pool and are committed
+      // whatever the lock's connection did afterwards. A lock that died under it, or a COMMIT that
+      // would not land, is recorded on the lock's route — the key was unguarded for the tail of the
+      // work — but the caller hears the answer, not a fault for effects that are there (ARCH-03).
+      if ("failure" in outcome) reportFault({ requestId, actor: LOCK_ACTOR, route: LOCK_ROUTE, cause: outcome.failure });
+      return answered.answer;
     }
     if ("failure" in outcome) throw lockFailure(lockTaken ? "give the lock back" : "take the lock", outcome.failure);
     return outcome.answer;
@@ -1600,6 +1630,7 @@ export function jobsStore(url: string): JobsStore {
     liveClaims: async (endedStatuses, limit, after) => await readingStored(async () => {
       // Keyed on the claim's primary key rather than offset: a claim a batch settled is gone from
       // the table by the next read, and an offset would skip the one that moved into its place.
+      const afterCursor = after === undefined ? sql`` : sql`and (claim.kind, claim.key) > (${after.kind}, ${after.key})`;
       const rows = await sql<{ kind: string; key: string; job_id: string }[]>`
         select claim.kind, claim.key, claim.job_id
           from ${sql(JOBS_SCHEMA)}.job_claims as claim
@@ -1609,7 +1640,7 @@ export function jobsStore(url: string): JobsStore {
                   where ended.job_id = claim.job_id
                     and ended.status in ${sql(endedStatuses as string[])}
                )
-           and (claim.kind, claim.key) > (${after?.kind ?? ""}, ${after?.key ?? ""})
+           ${afterCursor}
          order by claim.kind asc, claim.key asc
          limit ${limit}`;
       return rows.map((row) => ({ kind: row.kind, key: row.key, jobId: row.job_id }));

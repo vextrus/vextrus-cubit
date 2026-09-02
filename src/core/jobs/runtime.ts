@@ -344,24 +344,27 @@ async function ended(running: Runtime, draft: JobEventDraft): Promise<void> {
  * again", so the runtimes that run the work look for themselves, on a timer that never holds the
  * process open. One pass at a time and one batch per pass: a pass that outlives the interval is
  * not joined by a second one over the same keys, and a pass ends whatever the log has grown to.
- * Each pass reads the claims after the last one's batch, and starts over once a batch comes back
- * short: a claim behind a batch of live ones is reached by a later pass, not never.
+ * Each pass reads the claims after the last one it looked at, and starts over once a batch comes
+ * back short: a claim behind a batch of live ones is reached by a later pass, not never. The cursor
+ * moves one claim at a time, once that claim has been looked at, so a pass that fails or is closed
+ * part-way leaves the claims it never reached ahead of the cursor for the next one.
  */
 async function sweepAbandoned(running: Runtime): Promise<void> {
   if (running.closing || running.sweeping) return;
   running.sweeping = true;
   try {
     const batch = await running.store.liveClaims([...TERMINAL_STATUSES], SWEEP_BATCH, running.sweepAfter);
-    const last = batch.at(-1);
-    running.sweepAfter = batch.length < SWEEP_BATCH || last === undefined ? undefined : { kind: last.kind, key: last.key };
     for (const claim of batch) {
       if (running.closing) return;
-      if (!KIND_NAMES.includes(claim.kind as JobKind)) continue;
-      await running.store.withKeyLock(claim.kind, claim.key, claim.jobId, async () => {
-        const live = await running.store.liveJobFor(claim.kind, claim.key, [...TERMINAL_STATUSES]);
-        if (live === claim.jobId) await settleAbandoned(running, claim.kind as JobKind, claim.key, live);
-      });
+      if (KIND_NAMES.includes(claim.kind as JobKind)) {
+        await running.store.withKeyLock(claim.kind, claim.key, claim.jobId, async () => {
+          const live = await running.store.liveJobFor(claim.kind, claim.key, [...TERMINAL_STATUSES]);
+          if (live === claim.jobId) await settleAbandoned(running, claim.kind as JobKind, claim.key, live);
+        });
+      }
+      running.sweepAfter = { kind: claim.kind, key: claim.key };
     }
+    if (batch.length < SWEEP_BATCH) running.sweepAfter = undefined;
   } catch (failure) {
     // The sweep is itself ours to answer for: a pass that could not run is recorded and the next
     // one tries again, rather than becoming an unhandled rejection on a timer (ARCH-03).
