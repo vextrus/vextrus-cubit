@@ -87,9 +87,14 @@ def test_ac5_one_page_per_manifest_sheet(corpus) -> None:
 
 
 def test_ac5_each_page_carries_its_sheet_name(corpus) -> None:
+    sheets, pages = _sheets(corpus), _pages(corpus)
+    assert len(pages) == len(sheets), (
+        f"the vector PDF has {len(pages)} pages for {len(sheets)} sheets: a page per sheet is owed "
+        "before each page can be checked for its sheet's name"
+    )
     unnamed = [
         sheet["name"]
-        for sheet, page in zip(_sheets(corpus), _pages(corpus), strict=False)
+        for sheet, page in zip(sheets, pages, strict=True)
         if sheet["name"] not in _collapsed(page["text"])
     ]
     assert unnamed == [], f"pages whose extracted text lacks their sheet's name: {unnamed}"
