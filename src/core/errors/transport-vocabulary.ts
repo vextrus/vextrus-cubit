@@ -108,4 +108,11 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     vocabulary: "rule-set edition names (L-MEA-01)",
     codes: Object.freeze(["IS1200_IN"]),
   }),
+  Object.freeze({
+    // The database driver's own connection-failure codes, read in `../db.ts` where the key lock
+    // decides whether a connection the driver reports gone may carry one more statement (ARCH-03).
+    // A driver's code is what the seam reads off a failure, never an answer given to anybody.
+    vocabulary: "postgres.js connection error codes",
+    codes: Object.freeze(["CONNECTION_CLOSED", "CONNECTION_DESTROYED", "CONNECTION_ENDED"]),
+  }),
 ]);

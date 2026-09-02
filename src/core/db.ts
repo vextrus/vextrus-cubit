@@ -1018,6 +1018,28 @@ const QUEUE_ROUTE = "jobs/queue";
 const QUEUE_ACTOR = "pg-boss";
 
 /**
+ * How a log that could not be provisioned is recorded. The log's DDL runs on the first write of a
+ * process; a statement of it that fails would otherwise reject every enqueue and every event write
+ * after it with a raw driver error, so it crosses the one fault seam like the queue's own start
+ * (ARCH-03, B-21).
+ */
+const LOG_ROUTE = "jobs/log";
+const LOG_ACTOR = "jobs/log";
+
+/**
+ * The driver's own word that a connection is gone: the socket closed under a statement, the
+ * connection was destroyed, or the pool it came from was ended. Beside them, the server's own
+ * notice that it is terminating this connection (SQLSTATE class 57).
+ */
+const CONNECTION_GONE: ReadonlySet<string> = new Set(["CONNECTION_CLOSED", "CONNECTION_DESTROYED", "CONNECTION_ENDED", "57P01", "57P02", "57P03"]);
+
+/** Whether a failure is the driver or the server reporting the connection itself gone. */
+const connectionGone = (failure: unknown): boolean => {
+  const code = (failure as { code?: unknown } | null)?.code;
+  return typeof code === "string" && CONNECTION_GONE.has(code);
+};
+
+/**
  * How a failure of the key lock itself is recorded. A wait that hit its bound, a lock connection
  * that died, a transaction that would not commit: none is a refusal any registered code covers and
  * all are this seam's own failure, so they cross the one fault seam before the caller sees anything
@@ -1062,6 +1084,9 @@ export type QueueShape = { concurrency: number; retryLimit: number; retryDelaySe
 /** A claim on a (kind, key) pair whose job the log records no ending for. */
 export type LiveClaim = { kind: string; key: string; jobId: string };
 
+/** Where a batch of claims left off: the claim's own primary key, which no later write moves. */
+export type ClaimCursor = { kind: string; key: string };
+
 /**
  * Where a job has got to according to the queue itself, which is a different question from where
  * the log says it got to. `ended` covers every way the queue is done with a job — finished,
@@ -1091,8 +1116,12 @@ export interface JobsStore {
    */
   withKeyLock<T>(kind: string, key: string, requestId: string, work: () => Promise<T>): Promise<T>;
   liveJobFor(kind: string, key: string, endedStatuses: readonly string[]): Promise<string | null>;
-  /** At most `limit` claims whose job the log records no ending for, oldest claim first. */
-  liveClaims(endedStatuses: readonly string[], limit: number): Promise<LiveClaim[]>;
+  /**
+   * At most `limit` claims whose job the log records no ending for, in (kind, key) order, and
+   * only those after `after` where one is given — so a caller reading batch by batch reaches every
+   * claim, however many live ones stand before it.
+   */
+  liveClaims(endedStatuses: readonly string[], limit: number, after?: ClaimCursor): Promise<LiveClaim[]>;
   claimKey(kind: string, key: string, jobId: string): Promise<void>;
   releaseKey(kind: string, key: string, jobId: string): Promise<void>;
   append(draft: JobEventDraft): Promise<JobEventRow>;
@@ -1130,9 +1159,19 @@ const JOBS_DDL: readonly string[] = [
    )`,
   `create index if not exists job_events_by_job on ${JOBS_SCHEMA}.job_events (job_id, seq)`,
   `create index if not exists job_events_by_status on ${JOBS_SCHEMA}.job_events (status, seq)`,
+  // A log written before the ending was a constraint of the storage may hold a second ending for a
+  // job: two racing writers could both pass a read-committed "no ending yet" check. The first
+  // ending is the one the log keeps — the one that says how the job actually went, the one the
+  // dead-letter view already answers with — so the index below can be built on any log there is
+  // (R-SPINE-030).
+  `delete from ${JOBS_SCHEMA}.job_events as later
+     using ${JOBS_SCHEMA}.job_events as first
+    where later.job_id = first.job_id
+      and first.seq < later.seq
+      and first.status in (${closedList([...TERMINAL_STATUSES])})
+      and later.status in (${closedList([...TERMINAL_STATUSES])})`,
   // One ending per job is a constraint of the storage, not a courtesy of its callers: two racing
-  // writers cannot both pass a read-committed "no ending yet" check, but they cannot both land
-  // in a unique index (R-SPINE-030, B-17).
+  // writers cannot both land in a unique index (R-SPINE-030, B-17).
   `create unique index if not exists job_events_one_ending on ${JOBS_SCHEMA}.job_events (job_id)
      where status in (${closedList([...TERMINAL_STATUSES])})`,
   `create table if not exists ${JOBS_SCHEMA}.job_claims (
@@ -1246,7 +1285,14 @@ export function jobsStore(url: string): JobsStore {
   let opening: Promise<void> | undefined;
 
   const createLog = reachedOnce(async () => {
-    for (const statement of JOBS_DDL) await sql.unsafe(statement);
+    try {
+      for (const statement of JOBS_DDL) await sql.unsafe(statement);
+    } catch (failure) {
+      // A log that could not be provisioned is this seam's failure to answer for, and one every
+      // later write would otherwise repeat unmarked (ARCH-03, B-21).
+      const { faultId } = reportFault({ requestId: LOG_ROUTE, actor: LOG_ACTOR, route: LOG_ROUTE, cause: failure });
+      throw new Error(`the job log could not be provisioned — recorded as fault ${faultId}`, { cause: failure });
+    }
   });
 
   const queue = reachedOnce(async () => {
@@ -1271,6 +1317,12 @@ export function jobsStore(url: string): JobsStore {
     try {
       await boss.start();
     } catch (failure) {
+      // The library opens its pool before it checks for its schema and closes nothing when the
+      // check fails, and a start that failed is one it will not stop: the pool is given back here,
+      // or every failed start leaks one.
+      // (The library's typing states its handle as a query runner only; the close is its own.)
+      const handle = boss.getDb() as { close?: () => Promise<void> };
+      await handle.close?.().catch(() => undefined);
       // A queue that would not start — the library's own schema missing where nothing here may
       // create it, or a server that could not be reached — is this seam's failure to answer for
       // (ARCH-03, B-21).
@@ -1310,9 +1362,11 @@ export function jobsStore(url: string): JobsStore {
    * failed work with the ROLLBACK's failure when its socket has closed under it, and the race it
    * runs against the socket rejects the transaction the moment the socket goes. Once the driver has
    * reported the connection closed, no statement may be issued on it — the driver writes to a socket
-   * it no longer holds — so the transaction body waits for its own exit to be safe, and where the
-   * connection is gone it never exits at all: the driver's transaction has already been answered, the
-   * lock died with the connection, and a body left pending holds no connection and no timer.
+   * it no longer holds. So the ROLLBACK goes out only on a connection the driver still holds, the
+   * transaction body waits for its own exit to be safe, and where the connection is gone — by the
+   * driver's report, or by the ROLLBACK's own answer that the connection died under it — the body
+   * never exits at all: the driver's transaction has already been answered, the lock died with the
+   * connection, and a body left pending holds no connection and no timer.
    */
   const withKeyLock = async <T>(kind: string, key: string, requestId: string, work: () => Promise<T>): Promise<T> => {
     const lockFailure = (what: string, cause: unknown): Error => {
@@ -1325,17 +1379,40 @@ export function jobsStore(url: string): JobsStore {
     let guarded: unknown = NOTHING_GUARDED;
     let rollbackFailure: unknown = NOTHING_GUARDED;
     let transactionSettled = false;
+    let transactionFailure: unknown = NOTHING_GUARDED;
     let bodyExited: () => void = () => undefined;
     const exited = new Promise<void>((settle) => {
       bodyExited = settle;
     });
 
-    /** The body is about to exit: safe on a connection the driver still holds, never on one it has closed. */
+    /** Whether the driver has answered the transaction — read a macrotask later, so its report of a closed socket has landed first. */
+    const driverAnswered = async (): Promise<boolean> => {
+      await new Promise<void>((settle) => setImmediate(settle));
+      return transactionSettled;
+    };
+
+    /** A body that must never exit: nothing may be issued on the connection it holds (ARCH-03). */
+    const parked = (): Promise<never> => new Promise<never>(() => undefined);
+
+    /** The body is about to exit: safe on a connection the driver still holds, never on one that is gone. */
     const exiting = async (): Promise<void> => {
       bodyExited();
-      // A macrotask later, so the driver's own report of a closed socket has landed before it is read.
-      await new Promise<void>((settle) => setImmediate(settle));
-      if (transactionSettled) await new Promise<never>(() => undefined);
+      if ((await driverAnswered()) || connectionGone(rollbackFailure)) await parked();
+    };
+
+    /**
+     * Give a failed work's transaction back by hand, answering what stood in the way — or nothing.
+     * Where the driver has already reported the connection closed, no ROLLBACK can be issued and
+     * the driver's report is what stood in the way; the lock died with the connection either way.
+     */
+    const rollingBack = async (tx: postgres.TransactionSql): Promise<unknown> => {
+      if (await driverAnswered()) return transactionFailure;
+      try {
+        await tx.unsafe("rollback");
+        return NOTHING_GUARDED;
+      } catch (rollback) {
+        return rollback;
+      }
     };
 
     const transaction = locks.begin(async (tx) => {
@@ -1357,11 +1434,7 @@ export function jobsStore(url: string): JobsStore {
         answer = await work();
       } catch (failure) {
         guarded = failure;
-        try {
-          await tx.unsafe("rollback");
-        } catch (rollback) {
-          rollbackFailure = rollback;
-        }
+        rollbackFailure = await rollingBack(tx);
         await exiting();
         throw failure;
       }
@@ -1371,10 +1444,16 @@ export function jobsStore(url: string): JobsStore {
       return { answer };
     });
     const outcome = await transaction.then(
-      (held) => ({ answer: (held as { answer: T }).answer }),
-      (failure: unknown) => ({ failure }),
+      (held) => {
+        transactionSettled = true;
+        return { answer: (held as { answer: T }).answer };
+      },
+      (failure: unknown) => {
+        transactionSettled = true;
+        transactionFailure = failure;
+        return { failure };
+      },
     );
-    transactionSettled = true;
     if (bodyStarted) await exited;
 
     if (guarded !== NOTHING_GUARDED) {
@@ -1518,7 +1597,9 @@ export function jobsStore(url: string): JobsStore {
       return rows[0]?.job_id ?? null;
     }, null),
 
-    liveClaims: async (endedStatuses, limit) => await readingStored(async () => {
+    liveClaims: async (endedStatuses, limit, after) => await readingStored(async () => {
+      // Keyed on the claim's primary key rather than offset: a claim a batch settled is gone from
+      // the table by the next read, and an offset would skip the one that moved into its place.
       const rows = await sql<{ kind: string; key: string; job_id: string }[]>`
         select claim.kind, claim.key, claim.job_id
           from ${sql(JOBS_SCHEMA)}.job_claims as claim
@@ -1528,7 +1609,8 @@ export function jobsStore(url: string): JobsStore {
                   where ended.job_id = claim.job_id
                     and ended.status in ${sql(endedStatuses as string[])}
                )
-         order by claim.claimed_at asc
+           and (claim.kind, claim.key) > (${after?.kind ?? ""}, ${after?.key ?? ""})
+         order by claim.kind asc, claim.key asc
          limit ${limit}`;
       return rows.map((row) => ({ kind: row.kind, key: row.key, jobId: row.job_id }));
     }, []),
@@ -1632,7 +1714,7 @@ export function jobsStore(url: string): JobsStore {
       // Waited for, not cut off: an open still in flight finishes first, so what it was provisioning
       // is provisioned and what it started is stopped here rather than leaked. A queue that was never
       // reached has nothing to drain, and asking for one would open the very instance this store took
-      // care not to open; one whose start failed has already given its connections back.
+      // care not to open; one whose start failed gave its pool back where it failed.
       if (opening !== undefined) await opening.catch(() => undefined);
       const started = queue.pending();
       const boss = started === undefined ? undefined : await started.catch(() => undefined);

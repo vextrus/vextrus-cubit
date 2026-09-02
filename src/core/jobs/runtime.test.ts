@@ -129,7 +129,8 @@ describe("the runtime over a recording store", () => {
       await vi.advanceTimersByTimeAsync(CLOCK_STEP_MS);
       elapsed += CLOCK_STEP_MS;
     }
-    expect(callsTo("liveClaims").map((call) => call.args)).toEqual([[expect.any(Array), SWEEP_BATCH]]);
+    // The first pass reads from the start: no batch has left a cursor behind yet.
+    expect(callsTo("liveClaims").map((call) => call.args)).toEqual([[expect.any(Array), SWEEP_BATCH, undefined]]);
     expect(callsTo("withKeyLock").at(-1)?.args).toEqual(["probe", swept.key, swept.jobId]);
   });
 

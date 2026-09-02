@@ -15,7 +15,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { jobsStore, type JobEventDraft, type JobEventRow, type JobsStore, type QueuedJob } from "../db";
+import { jobsStore, type ClaimCursor, type JobEventDraft, type JobEventRow, type JobsStore, type QueuedJob } from "../db";
 import { refusalCodeOf } from "../faults/refusal-marker";
 import { reportFault } from "../faults/report";
 import { JOB_KINDS, KIND_NAMES, type JobKind, type JobPayloads } from "./kinds";
@@ -69,8 +69,9 @@ const SWEEP_ROUTE = "job/sweep";
 
 /**
  * How many held keys one sweep looks over. Bounded so a pass over a log that grew while nobody
- * swept it ends, and the next pass takes the next batch; a claim is released when its job ends, so
- * the table the sweep reads is only ever as large as the work still open.
+ * swept it ends, and the next pass takes the next batch — from where this one left off, so a
+ * backlog of live claims ahead of an abandoned one never hides it; a claim is released when its
+ * job ends, so the table the sweep reads is only ever as large as the work still open.
  */
 export const SWEEP_BATCH = 100;
 
@@ -104,6 +105,8 @@ type Runtime = {
   sweep?: ReturnType<typeof setInterval>;
   /** Set while a sweep is under way, so a pass that outlives the interval is not joined by a second. */
   sweeping: boolean;
+  /** Where the last sweep's batch ended, so the next pass reads the claims after it; unset once a pass reaches the end. */
+  sweepAfter?: ClaimCursor;
   /** Who is watching which job, so an appended event wakes a stream instead of a poll finding it. */
   watchers: Map<string, Set<() => void>>;
 };
@@ -341,12 +344,17 @@ async function ended(running: Runtime, draft: JobEventDraft): Promise<void> {
  * again", so the runtimes that run the work look for themselves, on a timer that never holds the
  * process open. One pass at a time and one batch per pass: a pass that outlives the interval is
  * not joined by a second one over the same keys, and a pass ends whatever the log has grown to.
+ * Each pass reads the claims after the last one's batch, and starts over once a batch comes back
+ * short: a claim behind a batch of live ones is reached by a later pass, not never.
  */
 async function sweepAbandoned(running: Runtime): Promise<void> {
   if (running.closing || running.sweeping) return;
   running.sweeping = true;
   try {
-    for (const claim of await running.store.liveClaims([...TERMINAL_STATUSES], SWEEP_BATCH)) {
+    const batch = await running.store.liveClaims([...TERMINAL_STATUSES], SWEEP_BATCH, running.sweepAfter);
+    const last = batch.at(-1);
+    running.sweepAfter = batch.length < SWEEP_BATCH || last === undefined ? undefined : { kind: last.kind, key: last.key };
+    for (const claim of batch) {
       if (running.closing) return;
       if (!KIND_NAMES.includes(claim.kind as JobKind)) continue;
       await running.store.withKeyLock(claim.kind, claim.key, claim.jobId, async () => {
