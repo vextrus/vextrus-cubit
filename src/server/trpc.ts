@@ -27,44 +27,58 @@ export type ErrorAnswer = FaultAnswer | RefusalAnswer;
 const UNATTRIBUTED = "unattributed";
 
 /**
+ * The most unconsumed answers one request's memo holds. Beyond it the answer whose failure first
+ * appeared longest ago is evicted, and its late reader decides afresh — a second FaultRecord for
+ * one failure, which is the safe direction: an operator reading double still reads it, while an
+ * evicted answer that silenced its reader would leave the outage unrecorded (B-21, ARCH-03).
+ */
+export const ANSWER_MEMO_CAP = 1024;
+
+/**
  * One failure, one answer. tRPC shows the same failure twice — once to `onError`, once to the error
  * formatter — and B-21 wants exactly one FaultRecord per failure, so the decision is taken once and
- * handed to whichever of the two asks second.
+ * handed to whichever of the two asks second (ARCH-03: the fault seam records every failure once,
+ * before anything user-facing is shaped).
  *
- * The memo is anchored on the *context object* the request was minted with, because that object is
- * the only thing in reach whose lifetime is the request's. Nothing may be assumed about the second
- * reader arriving at all: a response can be aborted or streamed away before it is shaped, a mount
- * may wire `onError` and no formatter, and a future adapter may call only one of the two. An entry
- * left unconsumed by such a failure must never be able to answer a *later* one — a later request
- * carries a different context object, so it cannot reach this entry, and the entry itself is
- * collected with the request that made it. (Keying on the thrown object instead cannot do this: a
- * module-scope constant or a re-thrown singleton is one object across many failures, and a stale
- * entry under a caller-supplied — therefore repeatable — request id would hand a real outage the
- * earlier failure's answer, so `reportFault` would never run and the operator would get no record.)
+ * The memo's key is (context, route, identity): the context object the request was minted with, the
+ * route that failed, and the thrown value's own identity. Each part answers a way two readers could
+ * be confused about which failure they are looking at:
  *
- * Within one context an entry is matched on the failing route and the thrown value's own identity,
- * which is what separates two failing procedures inside one batch — those share one context.
+ *   - the CONTEXT is the only thing in reach whose lifetime is the request's, so an entry no second
+ *     reader ever came for (an aborted response, a mount that wires `onError` and no formatter)
+ *     cannot answer a *later* request: a later request carries a different context object and the
+ *     entry is collected with the request that made it. Keying on the thrown value alone cannot do
+ *     this — a re-thrown singleton is one object across many failures — and keying on a
+ *     caller-supplied request id would hand a real outage an earlier failure's answer, so
+ *     `reportFault` would never run and the operator would get no record at all;
+ *   - the ROUTE separates two failing procedures inside one batch, which share one context;
+ *   - the IDENTITY is the object itself for an object and the type-and-value for a primitive, so a
+ *     pool wrapper re-throwing the string `"the pool is down"` on two calls is two failures and the
+ *     number `1` is not the string `"1"`.
+ *
+ * A key holds a FIFO of answers rather than one, so two identical failures on one route in one
+ * request each leave their own record and each reader consumes the answer made for it: the count of
+ * records is the count of failures, never fewer.
  *
  * The two callbacks are not in the same synchronous tick (@trpc/server 11.18.0 calls `onError`
- * inside the per-call catch and `getErrorShape` after the batch's calls settle), so entries must
- * survive interleaving and must not clobber each other: each call keeps its own entry, and the
- * second reader consumes it. Nothing bounds how many calls a batch may carry, and every one of them
- * is unconsumed until the batch settles, so the entries a request holds are never capped: evicting
- * one before its formatter arrives would have that formatter decide the failure a second time and
- * file a second FaultRecord — the double record B-21 forbids, and the very thing the memo is for.
- * They need no cap to be safe: the whole set is anchored on the request's context object, so it is
- * collected with the request whether or not the second readers ever came.
+ * inside the per-call catch and `getErrorShape` after the batch's calls settle), so entries survive
+ * interleaving. What is bounded is the number of answers waiting to be consumed
+ * (`ANSWER_MEMO_CAP`); the key's PLACE in the memo is its first appearance, so a request whose
+ * distinct failures outnumber the cap evicts the same oldest failures each time instead of sweeping
+ * the memo and making every later reader decide again.
  */
-interface MemoEntry {
-  /** The thrown value, compared by identity — two failures are the same failure or they are not. */
-  error: unknown;
-  route: string;
-  answer: ErrorAnswer;
+interface RequestMemo {
+  /** Unconsumed answers per key, in first-appearance order — a Map iterates as it was filled. */
+  byKey: Map<string, ErrorAnswer[]>;
+  unconsumed: number;
 }
 
 interface AnswerMemo {
   /** Decisions for one request, held only as long as that request's context object is. */
-  byRequest: WeakMap<object, MemoEntry[]>;
+  byRequest: WeakMap<object, RequestMemo>;
+  /** The identity a thrown object is remembered by, minted once and collected with the object. */
+  identities: WeakMap<object, string>;
+  minted: number;
 }
 
 /**
@@ -81,7 +95,9 @@ const MEMO_KEY = Symbol.for("vextrus.cubit.server.trpc.answerMemo");
 const processScope = globalThis as typeof globalThis & { [MEMO_KEY]?: AnswerMemo };
 
 const memos: AnswerMemo = (processScope[MEMO_KEY] ??= {
-  byRequest: new WeakMap<object, MemoEntry[]>(),
+  byRequest: new WeakMap<object, RequestMemo>(),
+  identities: new WeakMap<object, string>(),
+  minted: 0,
 });
 
 export interface AnswerRequest {
@@ -106,26 +122,60 @@ export function answerFor(request: AnswerRequest): ErrorAnswer {
   // forbids most. Deciding twice at worst records twice; deciding never records nothing.
   if (anchor === null) return decide(request, requestId, route);
 
-  let entries = memos.byRequest.get(anchor);
-  if (entries === undefined) {
-    entries = [];
-    memos.byRequest.set(anchor, entries);
+  let memo = memos.byRequest.get(anchor);
+  if (memo === undefined) {
+    memo = { byKey: new Map<string, ErrorAnswer[]>(), unconsumed: 0 };
+    memos.byRequest.set(anchor, memo);
   }
 
-  // Matched on the thrown value's own identity and the failing route — what separates two failing
-  // procedures inside one batch, which share one context. Comparing the value itself rather than a
-  // key derived from it means two different calls can never collide into one entry and leave one
-  // FaultRecord for two outages (B-21).
-  const remembered = entries.find((entry) => Object.is(entry.error, request.error) && entry.route === route);
+  // The route is written with its own length, so no route-and-identity pair spells another's key.
+  const keyed = `${route.length}:${route}:${identityOf(request.error)}`;
+  const waiting = memo.byKey.get(keyed);
+  const remembered = waiting?.shift();
   if (remembered !== undefined) {
-    // Consumed: one failure is shown to exactly two readers, and the entry has now served both.
-    entries.splice(entries.indexOf(remembered), 1);
-    return remembered.answer;
+    // Consumed: one failure is shown to exactly two readers, and this answer has now served both.
+    memo.unconsumed -= 1;
+    return remembered;
   }
 
   const answer = decide(request, requestId, route);
-  entries.push({ error: request.error, route, answer });
+  if (waiting === undefined) memo.byKey.set(keyed, [answer]);
+  else waiting.push(answer);
+  memo.unconsumed += 1;
+  if (memo.unconsumed > ANSWER_MEMO_CAP) evictOldest(memo);
   return answer;
+}
+
+/**
+ * The identity a thrown value is remembered by: the value itself for an object (an id minted once
+ * and collected with it), and its type together with its value for a primitive — so `1` and `"1"`
+ * are two failures, as two calls that threw them are (B-21).
+ */
+function identityOf(error: unknown): string {
+  if (typeof error !== "object" && typeof error !== "function") return `${typeof error}:${String(error)}`;
+  if (error === null) return "object:null";
+  const held = memos.identities.get(error);
+  if (held !== undefined) return held;
+  memos.minted += 1;
+  const minted = `object:${memos.minted}`;
+  memos.identities.set(error, minted);
+  return minted;
+}
+
+/**
+ * Make room: the answer whose key first appeared longest ago goes, and its late reader decides
+ * afresh rather than being handed silence (B-21). Keys keep their place once they have one, so a
+ * request that keeps failing past the cap evicts the same oldest failures rather than sweeping the
+ * memo — including, when the memo is full and a long-evicted failure is asked about again, the
+ * answer just made for it.
+ */
+function evictOldest(memo: RequestMemo): void {
+  for (const waiting of memo.byKey.values()) {
+    if (waiting.length === 0) continue;
+    waiting.shift();
+    memo.unconsumed -= 1;
+    return;
+  }
 }
 
 /**
@@ -179,11 +229,6 @@ function underlyingCause(error: unknown): unknown {
 }
 
 /**
- * The status a fault travels with: the machine broke, which is what 5xx is for.
- */
-const FAULT_STATUS = 500;
-
-/**
  * The status a refusal travels with. ARCH-03's distinction is not only a thing screens draw — it is
  * a thing the wire says. A refusal is the answer a well-formed request earned, so it can never be a
  * 5xx: on 500 a registered refusal is indistinguishable from the server having failed, and every
@@ -207,27 +252,43 @@ const REFUSAL_STATUS: Readonly<Partial<Record<RefusalCode, number>>> = Object.fr
 
 /**
  * What the transport puts on the response for this answer — read by tRPC's own status resolver.
+ *
+ * A fault travels with the status tRPC decided for the error it handed over: a procedure nobody
+ * wrote is 404 and a body nobody could read is 400, and answering either as 500 tells the operator
+ * their tier is down when it is answering exactly as it should. A refusal travels with the
+ * register's status instead, whatever TRPCError code carried it, because a refusal is the answer a
+ * well-formed request earned and the code it was thrown under is a transport detail.
+ *
  * The code is checked against the register rather than trusted: only a registered refusal can claim
- * a refusal's status, and anything else travels as what it is.
+ * a refusal's status, and anything else travels as what tRPC says it is.
  */
-function httpStatusOf(answer: ErrorAnswer): number {
-  if (answer.kind === "fault") return FAULT_STATUS;
-  if (!Object.hasOwn(REFUSALS, answer.refusalCode)) return FAULT_STATUS;
+function httpStatusOf(answer: ErrorAnswer, decidedByTrpc: number): number {
+  if (answer.kind === "fault") return decidedByTrpc;
+  if (!Object.hasOwn(REFUSALS, answer.refusalCode)) return decidedByTrpc;
   return REFUSAL_STATUS[answer.refusalCode as RefusalCode] ?? REFUSAL_STATUS_FLOOR;
+}
+
+/** What tRPC states about a failure beside its own message: kept, minus the stack (ARCH-03). */
+interface TrpcErrorData {
+  code: string;
+  httpStatus: number;
+  path?: string | undefined;
+  stack?: string | undefined;
 }
 
 const t = initTRPC.context<AppContext>().create({
   errorFormatter({ shape, error, ctx, path }) {
     const answer = answerFor({ error, path, ctx });
+    // tRPC's own reading of the failure is kept — the code it settled on and the route that failed,
+    // which is what an operator correlates a record with — and its `stack` is dropped: tRPC adds it
+    // under `isDev` and it carries the internal message the wire may not (ARCH-03).
+    const { stack: _internal, ...stated } = shape.data as TrpcErrorData;
     return {
       ...shape,
       // The user-facing answer carries the id or the code and nothing the tier knows internally:
       // a fault's cause belongs on the fault sink, never on the wire (ARCH-03).
       message: answer.kind === "fault" ? answer.faultId : answer.refusalCode,
-      // `data` is replaced whole, so the status @trpc/server would otherwise have read off the
-      // TRPCError's code is restated here — a refusal thrown as a plain marked Error arrives wrapped
-      // as INTERNAL_SERVER_ERROR, and taking that at its word is the very confusion above.
-      data: { ...answer, httpStatus: httpStatusOf(answer) },
+      data: { ...stated, ...answer, httpStatus: httpStatusOf(answer, stated.httpStatus) },
     };
   },
 });
