@@ -7,7 +7,7 @@
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
 import { and, asc, desc, eq, gt, inArray, isNull, lt, sql as statement, type AnyColumn, type SQL } from "drizzle-orm";
-import { check, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { PgDialect, check, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import PgBoss from "pg-boss";
 import postgres from "postgres";
@@ -15,6 +15,8 @@ import { ELEMENT_TYPES, type ElementType } from "./catalogue/element-types";
 import { KINDS, type Kind } from "./catalogue/kinds";
 import { attributableReason } from "./db/reason";
 import { reportFault } from "./faults/report";
+import { TERMINAL_STATUSES } from "./jobs/statuses";
+import { MODEL_IDS, minimalDecimal } from "./model-ledger.types";
 import { DEFAULT_DENSITY, DENSITIES, type Density } from "./prefs/density";
 import { BUILDING_TYPES, type BuildingType } from "./projects";
 import type { EditionParameter, EditionScope, MethodPair } from "./rulesets/editions/content";
@@ -423,6 +425,57 @@ export const tenantRulesetEditions = pgTable(
 );
 
 /**
+ * The model-call ledger (L-AI-01): one row per call to a model, whether it was proposed or refused,
+ * with the request hash it was made under, the transport it went over and what it spent. Every call
+ * is recorded, so the row is written before the outcome is known to anyone else — a refusal is a
+ * ledger row too, carrying the code that explains it.
+ *
+ * The cost is stored beside the token counts rather than derived at read time: a rate can be
+ * re-baselined, and what a call cost when it was made is a fact about that call.
+ */
+export const modelCalls = pgTable(
+  "model_calls",
+  {
+    callId: uuid("call_id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.tenantId),
+    projectId: uuid("project_id").notNull(),
+    modelId: text("model_id").notNull(),
+    requestHash: text("request_hash").notNull(),
+    transport: text("transport").notNull(),
+    outcome: text("outcome").notNull(),
+    refusalCode: text("refusal_code"),
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    // Money, as an exact decimal: numeric, never a binary float (L-AI-01 attributes tokens to a
+    // tenant, and an attribution that rounds attributes something else).
+    attributedCost: numeric("attributed_cost").notNull(),
+    calledAt: timestamp("called_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // The id a call was pinned to is one of the closed const's (AS-05): the column is closed over
+    // the same roster the seam pins from, so the ledger cannot hold a call nobody can bill.
+    check("model_calls_model_id_closed", statement`${table.modelId} in (${statement.raw(closedList(MODEL_IDS))})`),
+    check("model_calls_transport_closed", statement`${table.transport} in ('live', 'fixture')`),
+    check("model_calls_outcome_closed", statement`${table.outcome} in ('proposed', 'refused')`),
+    // A refused call says which refusal it was, and a proposed one names none: nothing refused it.
+    check("model_calls_refusal_code_iff_refused", statement`(${table.refusalCode} is not null) = (${table.outcome} = 'refused')`),
+    // A call spends a whole, non-negative number of tokens — the same judgement `modelCallCost`
+    // makes at the seam's edge, made again by the column, because the ledger is a table other
+    // writers reach and a negative count would subtract from a tenant's attribution.
+    check("model_calls_tokens_counted", statement`${table.inputTokens} >= 0 and ${table.outputTokens} >= 0`),
+    // Money the ledger can add up. `numeric` also admits 'NaN' and the infinities, and sum()
+    // spreads either across every row of the tenant — one such row would make per-project spend
+    // unanswerable rather than wrong by itself. NaN sorts above every number, so the upper bound
+    // shuts it out along with 'Infinity'.
+    check("model_calls_cost_is_money", statement`${table.attributedCost} >= 0 and ${table.attributedCost} < 'Infinity'::numeric`),
+    // The read R-AI-005's surfaces make: one tenant's spend, gathered by project.
+    index("model_calls_by_project").on(table.tenantId, table.projectId),
+  ],
+);
+
+/**
  * SEAM-PREFS' store (R-UI-005): what one person has chosen for themselves, one row per account. The
  * key is the account, so a second choice overwrites in place — a preference is a value, not a
  * history. Like the identity tables it carries no tenant id: a person is one account across every
@@ -441,6 +494,24 @@ export const userPrefs = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [check("user_prefs_density_closed", statement`${table.density} in (${statement.raw(closedList(DENSITIES))})`)],
+);
+
+/**
+ * The fixture registry (L-AI-01): which recorded fixture answers a given request hash, per tenant.
+ * The digest rather than the fixture — what is replayed is held where fixtures are held, and this
+ * table is the registry that says a request hash has one and which one it is.
+ */
+export const modelFixtures = pgTable(
+  "model_fixtures",
+  {
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.tenantId),
+    requestHash: text("request_hash").notNull(),
+    fixtureDigest: text("fixture_digest").notNull(),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.tenantId, table.requestHash] })],
 );
 
 /**
@@ -507,12 +578,19 @@ export const SEAM_SCHEMA = {
   rulesetEditions,
   tenantRulesetEditions,
   userPrefs,
+  modelCalls,
+  modelFixtures,
   workItemCatalogue,
   bears,
 };
 
-/** A handle scoped to one tenant: the typed read/write surface, filtered by row-level security. */
-export type TenantDb = PostgresJsDatabase<typeof SEAM_SCHEMA>;
+/**
+ * A handle scoped to one tenant: the typed read/write surface, filtered by row-level security. The
+ * handle carries the scope it was armed with, so a read that must name its tenant asks the handle
+ * rather than the session — the seam set the setting, and reading it back would be a round trip
+ * spent asking the database what this file already knows (SEAM-TENANT).
+ */
+export type TenantDb = PostgresJsDatabase<typeof SEAM_SCHEMA> & { readonly scope: Scope };
 
 /**
  * The handle drizzle hands a transaction body — the same typed surface, on the one connection the
@@ -529,11 +607,20 @@ export type TenantTx = Parameters<Parameters<TenantDb["transaction"]>[0]>[0];
  * released when the transaction ends, whichever way it ends.
  */
 export async function holdStateLock(tx: TenantTx, key: string): Promise<void> {
-  await tx.execute(statement`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+  await tx.execute(advisoryXactLock(key));
+}
+
+/**
+ * The one spelling of a transaction-scoped advisory lock on a name (B-17): the hash the name is
+ * folded to is a fact both the state lock above and the jobs seam's key lock depend on, and two
+ * spellings of it would be two locks that never contend.
+ */
+function advisoryXactLock(name: string): SQL {
+  return statement`select pg_advisory_xact_lock(hashtextextended(${name}, 0))`;
 }
 
 /** A handle running under an attributable system reason: the same surface, unfiltered by tenant. */
-export type SystemDb = PostgresJsDatabase<typeof SEAM_SCHEMA>;
+export type SystemDb = TenantDb;
 
 /** How many connections one process holds, and how long an idle one is kept (in seconds). */
 const POOL = { max: 10, idleTimeout: 20, connectTimeout: 10 } as const;
@@ -693,8 +780,14 @@ function boundSurface<T extends object>(db: T): T {
   });
 }
 
-function handleFor(scope: Scope): PostgresJsDatabase<typeof SEAM_SCHEMA> {
-  return boundSurface(drizzle({ client: scopedClient(connection(), scope), schema: SEAM_SCHEMA }));
+function handleFor(scope: Scope): TenantDb {
+  const db = drizzle({ client: scopedClient(connection(), scope), schema: SEAM_SCHEMA });
+  // Pinned on the handle, not writable: the scope a handle was armed with is what every query of
+  // it runs under, and a member a caller could overwrite would say one thing while the session
+  // said another.
+  const armed: TenantDb = Object.assign(db, { scope });
+  Object.defineProperty(armed, "scope", { writable: false, configurable: false });
+  return boundSurface(armed);
 }
 
 /** The shape a uuid column — and the `cubit.tenant_id` cast the policies make — can hold. */
@@ -782,6 +875,84 @@ export function runAsSystem(reason: string): SystemDb {
   return handleFor({ tenantId: "", systemReason: attributableReason(reason) });
 }
 
+/** What one project spent on model calls: how many were made, how they ended, and what they cost. */
+export type ModelSpend = {
+  projectId: string;
+  calls: number;
+  proposed: number;
+  refused: number;
+  inputTokens: number;
+  outputTokens: number;
+  attributedCost: string;
+};
+
+/** The tenant a handle is armed for, as the handle itself carries it; a handle armed for none is refused. */
+function armedTenantId(db: TenantDb): string {
+  const tenantId = db.scope.tenantId;
+  if (tenantId === "") {
+    throw new Error("modelSpendByProject needs a tenant's handle — a system-scoped handle would answer one entry per project across every tenant, which no caller could tell from a scoped answer (SEAM-TENANT)");
+  }
+  return tenantId;
+}
+
+/**
+ * A count postgres answered with, as a number. Counts and token sums come back as text because they
+ * are `bigint`s, and one past what a double counts exactly would come back quietly rounded — in the
+ * one surface whose whole job is exact attribution. Unreachable by ordinary spending, and a fault
+ * rather than a wrong total if it ever is reached.
+ */
+function counted(value: string, field: string): number {
+  const total = Number(value);
+  if (!Number.isSafeInteger(total)) {
+    throw new Error(`model spend's ${field} totals ${value}, which is past the last whole number a double counts exactly — the total would be rounded, not reported`);
+  }
+  return total;
+}
+
+/**
+ * Per-project model spend for the tenant the handle is scoped to (R-AI-005): one entry per project
+ * the tenant has calls for, counting proposed and refused alike — L-AI-01 records every call, and a
+ * spend report that dropped the refusals would understate what the tenant was charged.
+ *
+ * The money is summed by the database, whose numeric addition is exact, and comes back as a decimal
+ * string: a total that became a double on the way out would be a different total. The counts are
+ * what postgres answers a count with — text — turned back into numbers here, so no caller has to.
+ *
+ * The tenant is named in the query as well as left to row-level security. `TenantDb` and `SystemDb`
+ * are the same typed surface, so a system handle reaches this function without a type error, and a
+ * read governed by policy alone would answer it with every tenant's calls merged into one entry per
+ * project — an answer indistinguishable from a scoped one. So the handle is asked which tenant it is
+ * armed for, before any statement is issued: one that names none is refused where it is taken, like
+ * `forTenant`'s own tenant id. The read is then the one statement.
+ */
+export async function modelSpendByProject(db: TenantDb): Promise<ModelSpend[]> {
+  const tenantId = armedTenantId(db);
+  const rows = await db
+    .select({
+      projectId: modelCalls.projectId,
+      calls: statement<string>`count(*)`,
+      proposed: statement<string>`count(*) filter (where ${modelCalls.outcome} = 'proposed')`,
+      refused: statement<string>`count(*) filter (where ${modelCalls.outcome} = 'refused')`,
+      inputTokens: statement<string>`coalesce(sum(${modelCalls.inputTokens}), 0)`,
+      outputTokens: statement<string>`coalesce(sum(${modelCalls.outputTokens}), 0)`,
+      attributedCost: statement<string>`coalesce(sum(${modelCalls.attributedCost}), 0)::text`,
+    })
+    .from(modelCalls)
+    .where(eq(modelCalls.tenantId, tenantId))
+    .groupBy(modelCalls.projectId)
+    .orderBy(asc(modelCalls.projectId));
+
+  return rows.map((row) => ({
+    projectId: row.projectId,
+    calls: counted(row.calls, "calls"),
+    proposed: counted(row.proposed, "proposed"),
+    refused: counted(row.refused, "refused"),
+    inputTokens: counted(row.inputTokens, "inputTokens"),
+    outputTokens: counted(row.outputTokens, "outputTokens"),
+    attributedCost: minimalDecimal(row.attributedCost),
+  }));
+}
+
 /* ------------------------------------------------------------------------------------------------
  * SEAM-JOBS' storage (R-SPINE-030, R-SPINE-031).
  *
@@ -792,9 +963,10 @@ export function runAsSystem(reason: string): SystemDb {
  * belongs to the seam above; this is where those decisions are stored, not where they are made
  * (ARCH-02).
  *
- * Both stores are runtime-managed: pg-boss migrates its own schema when it starts, and the log's
- * schema is created the same way, by the role the caller's URL names. Neither is in the schema tree
- * drizzle-kit reads, so neither is a migration and neither can drift from one.
+ * Both stores are runtime-managed: pg-boss migrates its own schema when the managing tier starts
+ * it, and the log's schema is created by whichever tier writes first, by the role the caller's URL
+ * names. Neither is in the schema tree drizzle-kit reads, so neither is a migration and neither can
+ * drift from one.
  * ---------------------------------------------------------------------------------------------- */
 
 /** The schema the event log lives in; the queue library keeps its own tables beside it. */
@@ -832,19 +1004,42 @@ const LOCK_POOL = { max: 8, idleTimeout: 20, connectTimeout: 10 } as const;
  */
 const LOCK_WAIT_MS = 30_000;
 
-/**
- * How the queue's own outages are recorded. A lost connection or a failed maintenance pass is a
- * non-refusal server-side failure like any other, so it crosses the one fault seam rather than
- * being written down in a dialect of its own (ARCH-03, ARCH-02). It belongs to no request, so the
- * seam names itself as the thing that failed.
- */
 /** What Postgres answers when the log has not been provisioned yet: no such table, no such schema. */
 const UNDEFINED_TABLE = "42P01";
 const INVALID_SCHEMA_NAME = "3F000";
+/** What Postgres answers when a unique index cannot be built over rows that already collide. */
+const UNIQUE_VIOLATION = "23505";
 
-const QUEUE_REQUEST = "jobs/queue";
-const QUEUE_ACTOR = "pg-boss";
+/**
+ * How the queue's own outages are recorded. A lost connection, a failed maintenance pass or a
+ * queue that would not start is a non-refusal server-side failure like any other, so it crosses
+ * the one fault seam rather than being written down in a dialect of its own (ARCH-03, ARCH-02).
+ * It belongs to no request, so the one name serves as the request id and the route alike.
+ */
 const QUEUE_ROUTE = "jobs/queue";
+const QUEUE_ACTOR = "pg-boss";
+
+/**
+ * How a log that could not be provisioned is recorded. The log's DDL runs on the first write of a
+ * process; a statement of it that fails would otherwise reject every enqueue and every event write
+ * after it with a raw driver error, so it crosses the one fault seam like the queue's own start
+ * (ARCH-03, B-21).
+ */
+const LOG_ROUTE = "jobs/log";
+const LOG_ACTOR = "jobs/log";
+
+/**
+ * The driver's own word that a connection is gone: the socket closed under a statement, the
+ * connection was destroyed, or the pool it came from was ended. Beside them, the server's own
+ * notice that it is terminating this connection (SQLSTATE class 57).
+ */
+const CONNECTION_GONE: ReadonlySet<string> = new Set(["CONNECTION_CLOSED", "CONNECTION_DESTROYED", "CONNECTION_ENDED", "57P01", "57P02", "57P03"]);
+
+/** Whether a failure is the driver or the server reporting the connection itself gone. */
+const connectionGone = (failure: unknown): boolean => {
+  const code = (failure as { code?: unknown } | null)?.code;
+  return typeof code === "string" && CONNECTION_GONE.has(code);
+};
 
 /**
  * How a failure of the key lock itself is recorded. A wait that hit its bound, a lock connection
@@ -855,19 +1050,11 @@ const QUEUE_ROUTE = "jobs/queue";
 const LOCK_ACTOR = "jobs/lock";
 const LOCK_ROUTE = "jobs/lock";
 
-/**
- * A failure the guarded work itself raised, carried out of the lock transaction so the lock's own
- * handler can tell it from a failure of the locking. The work answers for what it does — its
- * enqueue reports its own faults and makes its own refusals — and reporting it again here would
- * write one failure down twice (ARCH-02).
- */
-class GuardedFailure extends Error {
-  readonly failure: unknown;
-  constructor(failure: unknown) {
-    super("the work under a key lock failed", { cause: failure });
-    this.failure = failure;
-  }
-}
+/** The dialect the lock statement is rendered in for the driver, which takes text and parameters. */
+const LOCK_DIALECT = new PgDialect();
+
+/** What the key lock holds instead of a guarded failure when there was none — `undefined` is a lawful throw. */
+const NOTHING_GUARDED = Symbol("nothing was thrown under the lock");
 
 /** One row of the event log, as the storage holds it before the seam gives it its meaning. */
 export type JobEventDraft = {
@@ -899,6 +1086,9 @@ export type QueueShape = { concurrency: number; retryLimit: number; retryDelaySe
 /** A claim on a (kind, key) pair whose job the log records no ending for. */
 export type LiveClaim = { kind: string; key: string; jobId: string };
 
+/** Where a batch of claims left off: the claim's own primary key, which no later write moves. */
+export type ClaimCursor = { kind: string; key: string };
+
 /**
  * Where a job has got to according to the queue itself, which is a different question from where
  * the log says it got to. `ended` covers every way the queue is done with a job — finished,
@@ -921,14 +1111,33 @@ export interface JobsStore {
   consume(name: string, shape: QueueShape, run: (job: QueuedJob) => Promise<void>): Promise<void>;
   publish(name: string, jobId: string, data: Record<string, unknown>, shape: QueueShape): Promise<string>;
   queueStateOf(name: string, jobId: string): Promise<QueueState>;
-  withKeyLock<T>(kind: string, key: string, work: () => Promise<T>): Promise<T>;
+  /**
+   * Run `work` with the (kind, key) pair to itself. `requestId` is the caller's own — the job an
+   * enqueue minted, the claim a sweep is settling — so a failure of the locking is recorded against
+   * the request it failed, never against a name of the lock's own (ARCH-03).
+   */
+  withKeyLock<T>(kind: string, key: string, requestId: string, work: () => Promise<T>): Promise<T>;
   liveJobFor(kind: string, key: string, endedStatuses: readonly string[]): Promise<string | null>;
-  liveClaims(endedStatuses: readonly string[]): Promise<LiveClaim[]>;
+  /**
+   * At most `limit` claims whose job the log records no ending for, in (kind, key) order, and
+   * only those after `after` where one is given — so a caller reading batch by batch reaches every
+   * claim, however many live ones stand before it.
+   */
+  liveClaims(endedStatuses: readonly string[], limit: number, after?: ClaimCursor): Promise<LiveClaim[]>;
   claimKey(kind: string, key: string, jobId: string): Promise<void>;
   releaseKey(kind: string, key: string, jobId: string): Promise<void>;
   append(draft: JobEventDraft): Promise<JobEventRow>;
+  /**
+   * A job's last word, in one statement: the terminal row is written only if the log holds no
+   * ending for the job yet, and the key's claim — where it still names this job — is released in
+   * the same step. Answers the row written, or null when the job had already ended, so a second
+   * ending is impossible by construction rather than by a check somebody remembers to make
+   * (R-SPINE-030).
+   */
+  appendEnding(draft: JobEventDraft, endedStatuses: readonly string[]): Promise<JobEventRow | null>;
   read(jobId: string, afterSeq: number): Promise<JobEventRow[]>;
-  deadLetterRows(endedStatuses: readonly string[]): Promise<JobEventRow[]>;
+  /** The newest `limit` ending rows in the given statuses, in the order the log recorded them. */
+  deadLetterRows(endedStatuses: readonly string[], limit: number): Promise<JobEventRow[]>;
   listen(onJob: (jobId: string) => void): Promise<void>;
   close(): Promise<void>;
 }
@@ -960,6 +1169,16 @@ const JOBS_DDL: readonly string[] = [
      primary key (kind, key)
    )`,
 ];
+
+/**
+ * One ending per job is a constraint of the storage, not a courtesy of its callers: two racing
+ * writers cannot both land in a unique index (R-SPINE-030, B-17). Built after the tables, on its
+ * own, because a log written before the ending was a constraint may already hold two endings for
+ * a job — two writers that both passed a read-committed "no ending yet" check — and such a log is
+ * reported, never edited (see `createLog`).
+ */
+const ONE_ENDING_INDEX = `create unique index if not exists job_events_one_ending on ${JOBS_SCHEMA}.job_events (job_id)
+   where status in (${closedList([...TERMINAL_STATUSES])})`;
 
 /** The row as the driver hands it back, before it is folded into the shape the seam publishes. */
 type RawJobEvent = {
@@ -1004,19 +1223,26 @@ function eventRow(raw: RawJobEvent): JobEventRow {
   };
 }
 
+/** A resource reached lazily: `reach()` reaches or answers the reach in hand; `pending()` is that reach, if any. */
+type ReachedOnce<T> = { reach: () => Promise<T>; pending: () => Promise<T> | undefined };
+
 /**
  * A resource reached lazily and then remembered. A failed attempt is forgotten rather than kept:
  * one outage at the moment of the first call must not leave the process holding a rejection it
- * answers every later caller with, long after the server has come back.
+ * answers every later caller with, long after the server has come back. The reach in hand is
+ * visible, so a close can wait for a start still in flight instead of ending pools under it.
  */
-function reachedOnce<T>(reach: () => Promise<T>): () => Promise<T> {
+function reachedOnce<T>(reach: () => Promise<T>): ReachedOnce<T> {
   let held: Promise<T> | undefined;
-  return () => {
-    const reaching: Promise<T> = (held ??= reach().catch((failure: unknown) => {
-      if (held === reaching) held = undefined;
-      throw failure;
-    }));
-    return reaching;
+  return {
+    reach: () => {
+      const reaching: Promise<T> = (held ??= reach().catch((failure: unknown) => {
+        if (held === reaching) held = undefined;
+        throw failure;
+      }));
+      return reaching;
+    },
+    pending: () => held,
   };
 }
 
@@ -1030,10 +1256,11 @@ function reachedOnce<T>(reach: () => Promise<T>): () => Promise<T> {
  * starts no queue maintenance in the reader's process — a read of storage that does not exist yet is
  * a read that finds nothing, not an outage.
  *
- * `manage` says who SUPERVISES: only a managing opener runs the queue's maintenance and consumes.
- * Provisioning is not the same question — whoever writes first provisions, so a tier that only
- * enqueues can reach a freshly created database without waiting for a worker to have started there.
- * Both paths are idempotent (`if not exists` DDL, and the queue library's own migration lock).
+ * `manage` says who MANAGES: only a managing opener migrates the queue library's own schema, runs
+ * its maintenance and consumes. The log is provisioned by whoever writes to it first (`if not
+ * exists` DDL, repeatable), so a tier that only enqueues reaches a database a worker has already
+ * provisioned; against one no worker has ever opened, its queue cannot start, and it says so as a
+ * fault rather than migrating storage it does not manage.
  */
 export function jobsStore(url: string): JobsStore {
   const sql = postgres(url, {
@@ -1049,13 +1276,42 @@ export function jobsStore(url: string): JobsStore {
     onnotice: () => undefined,
   });
 
-  /** Whether this opener supervises the storage: only it runs queue maintenance and consumes. */
+  /** Whether this opener manages the storage: only it migrates the queue, runs its maintenance and consumes. */
   let managing = false;
-  /** Whether a queue was ever started, so closing one that was never opened opens nothing. */
-  let queueStarted = false;
+  /** The open in flight, if any, so a close waits for it rather than ending pools under it. */
+  let opening: Promise<void> | undefined;
 
   const createLog = reachedOnce(async () => {
-    for (const statement of JOBS_DDL) await sql.unsafe(statement);
+    try {
+      for (const statement of JOBS_DDL) await sql.unsafe(statement);
+      try {
+        await sql.unsafe(ONE_ENDING_INDEX);
+      } catch (collision) {
+        if ((collision as { code?: unknown }).code !== UNIQUE_VIOLATION) throw collision;
+        // The log is the seam's own record of how every job went, so no row of it is deleted to
+        // make the constraint fit: the jobs that hold two endings are recorded as a fault, the log
+        // stays writable under the existence check alone, and the index is built by the next
+        // process once an operator has resolved them (R-SPINE-030, ARCH-03).
+        const duplicated = await sql<{ job_id: string }[]>`
+          select job_id
+            from ${sql(JOBS_SCHEMA)}.job_events
+           where status in ${sql([...TERMINAL_STATUSES])}
+           group by job_id
+          having count(*) > 1
+           order by job_id`;
+        const jobs = duplicated.map((row) => row.job_id);
+        const cause = new Error(
+          `the job log holds more than one ending for ${jobs.length} job(s) — ${jobs.join(", ")} — so job_events_one_ending cannot be built until they are resolved (R-SPINE-030)`,
+          { cause: collision },
+        );
+        reportFault({ requestId: LOG_ROUTE, actor: LOG_ACTOR, route: LOG_ROUTE, cause });
+      }
+    } catch (failure) {
+      // A log that could not be provisioned is this seam's failure to answer for, and one every
+      // later write would otherwise repeat unmarked (ARCH-03, B-21).
+      const { faultId } = reportFault({ requestId: LOG_ROUTE, actor: LOG_ACTOR, route: LOG_ROUTE, cause: failure });
+      throw new Error(`the job log could not be provisioned — recorded as fault ${faultId}`, { cause: failure });
+    }
   });
 
   const queue = reachedOnce(async () => {
@@ -1063,11 +1319,10 @@ export function jobsStore(url: string): JobsStore {
       connectionString: url,
       schema: BOSS_SCHEMA,
       pollingIntervalSeconds: QUEUE_POLL_SECONDS,
-      // Migration is how the queue provisions itself, and it is guarded by a lock of the library's
-      // own, so every opener that actually uses the queue may run it. Asking a non-managing opener
-      // to skip it does not make it a lighter client — it makes its first send throw the library's
-      // "pg-boss is not installed" at a database no worker has started on yet.
-      migrate: true,
+      // The queue library's migration is the managing tier's alone: a tier that only enqueues runs
+      // against storage a worker provisioned, and one that finds none is told so rather than left
+      // to create it (R-SPINE-031).
+      migrate: managing,
       supervise: managing,
       schedule: false,
     });
@@ -1076,15 +1331,31 @@ export function jobsStore(url: string): JobsStore {
     // to read through the one fault seam, never a reason for the process running the queue to die
     // (ARCH-03, R-SPINE-031).
     boss.on("error", (failure) => {
-      reportFault({ requestId: QUEUE_REQUEST, actor: QUEUE_ACTOR, route: QUEUE_ROUTE, cause: failure });
+      reportFault({ requestId: QUEUE_ROUTE, actor: QUEUE_ACTOR, route: QUEUE_ROUTE, cause: failure });
     });
-    await boss.start();
-    queueStarted = true;
+    try {
+      await boss.start();
+    } catch (failure) {
+      // The library opens its pool before it checks for its schema and closes nothing when the
+      // check fails, and a start that failed is one it will not stop: the pool is given back here,
+      // or every failed start leaks one.
+      // (The library's typing states its handle as a query runner only; the close is its own.)
+      const handle = boss.getDb() as { close?: () => Promise<void> };
+      await handle.close?.().catch(() => undefined);
+      // A queue that would not start — the library's own schema missing where nothing here may
+      // create it, or a server that could not be reached — is this seam's failure to answer for
+      // (ARCH-03, B-21).
+      const { faultId } = reportFault({ requestId: QUEUE_ROUTE, actor: QUEUE_ACTOR, route: QUEUE_ROUTE, cause: failure });
+      throw new Error(`the job queue could not be started — recorded as fault ${faultId}`, { cause: failure });
+    }
     return boss;
   });
 
-  /** The advisory-lock key a (kind, key) pair is serialised on. */
-  const lockName = (kind: string, key: string): string => `${kind}:${key}`;
+  /** The advisory-lock key a (kind, key) pair is serialised on, as the driver takes it. */
+  const lockStatement = (kind: string, key: string): { text: string; params: DriverParams } => {
+    const rendered = LOCK_DIALECT.sqlToQuery(advisoryXactLock(`${kind}:${key}`));
+    return { text: rendered.sql, params: rendered.params as DriverParams };
+  };
 
   /**
    * Run one piece of work with the (kind, key) pair to itself, under a transaction-scoped advisory
@@ -1097,33 +1368,130 @@ export function jobsStore(url: string): JobsStore {
    * back by hand, and a hand-back that does not land wedges the key for the life of the process and
    * either loses its connection or hands the next enqueue one that can never take the lock its own
    * predecessor is sitting on (SEAM-JOBS, ARCH-03).
+   *
+   * Three failures are told apart here, and each is answered once (ARCH-03, B-21). A failure of the
+   * locking — a wait that hit its bound, a pool already ended, a COMMIT that would not land — is the
+   * seam's own: it crosses the fault seam under the caller's request id and reaches the caller as a
+   * fault id. The guarded work's own failure travels exactly as it was raised — whoever wrote it
+   * answered for it already — and is never wrapped. A ROLLBACK that fails on the way out of a failed
+   * work is recorded on the lock's route and masks nothing: the caller still hears the work's
+   * failure, not the ROLLBACK's.
+   *
+   * The ROLLBACK is issued by hand for that reason: the driver's transaction wrapper answers a
+   * failed work with the ROLLBACK's failure when its socket has closed under it, and the race it
+   * runs against the socket rejects the transaction the moment the socket goes. Once the driver has
+   * reported the connection closed, no statement may be issued on it — the driver writes to a socket
+   * it no longer holds. So the ROLLBACK goes out only on a connection the driver still holds, the
+   * transaction body waits for its own exit to be safe, and where the connection is gone — by the
+   * driver's report, or by the ROLLBACK's own answer that the connection died under it — the body
+   * never exits at all: the driver's transaction has already been answered, the lock died with the
+   * connection, and a body left pending holds no connection and no timer.
    */
-  const withKeyLock = async <T>(kind: string, key: string, work: () => Promise<T>): Promise<T> => {
-    try {
-      const guarded = await locks.begin(async (tx) => {
+  const withKeyLock = async <T>(kind: string, key: string, requestId: string, work: () => Promise<T>): Promise<T> => {
+    const lockFailure = (what: string, cause: unknown): Error => {
+      const { faultId } = reportFault({ requestId, actor: LOCK_ACTOR, route: LOCK_ROUTE, cause });
+      return new Error(`a ${kind} job could not ${what} on key ${key} — recorded as fault ${faultId}`, { cause });
+    };
+
+    let bodyStarted = false;
+    let lockTaken = false;
+    let answered: { answer: T } | undefined;
+    let guarded: unknown = NOTHING_GUARDED;
+    let rollbackFailure: unknown = NOTHING_GUARDED;
+    let transactionSettled = false;
+    let transactionFailure: unknown = NOTHING_GUARDED;
+    let bodyExited: () => void = () => undefined;
+    const exited = new Promise<void>((settle) => {
+      bodyExited = settle;
+    });
+
+    /** Whether the driver has answered the transaction — read a macrotask later, so its report of a closed socket has landed first. */
+    const driverAnswered = async (): Promise<boolean> => {
+      await new Promise<void>((settle) => setImmediate(settle));
+      return transactionSettled;
+    };
+
+    /** A body that must never exit: nothing may be issued on the connection it holds (ARCH-03). */
+    const parked = (): Promise<never> => new Promise<never>(() => undefined);
+
+    /** The body is about to exit: safe on a connection the driver still holds, never on one that is gone. */
+    const exiting = async (): Promise<void> => {
+      bodyExited();
+      if ((await driverAnswered()) || connectionGone(rollbackFailure)) await parked();
+    };
+
+    /**
+     * Give a failed work's transaction back by hand, answering what stood in the way — or nothing.
+     * Where the driver has already reported the connection closed, no ROLLBACK can be issued and
+     * the driver's report is what stood in the way; the lock died with the connection either way.
+     */
+    const rollingBack = async (tx: postgres.TransactionSql): Promise<unknown> => {
+      if (await driverAnswered()) return transactionFailure;
+      try {
+        await tx.unsafe("rollback");
+        return NOTHING_GUARDED;
+      } catch (rollback) {
+        return rollback;
+      }
+    };
+
+    const transaction = locks.begin(async (tx) => {
+      bodyStarted = true;
+      try {
         // A wait that cannot end is worse than a failure that can: bounded, an enqueue behind a
         // holder that will not let go fails and says so, instead of holding a connection until the
         // pool has none left and no key can be enqueued at all.
         await tx.unsafe(`set local lock_timeout = ${LOCK_WAIT_MS}`);
-        await tx`select pg_advisory_xact_lock(hashtextextended(${lockName(kind, key)}, 0))`;
-        try {
-          // Wrapped in one: the driver spreads an array a transaction answers with, and a caller's
-          // own array result is not this seam's to spread.
-          return [await work()];
-        } catch (failure) {
-          throw new GuardedFailure(failure);
-        }
-      });
-      return (guarded as [T])[0];
-    } catch (failure) {
-      // The work's own failure travels as it was raised — whoever wrote it answered for it already.
-      if (failure instanceof GuardedFailure) throw failure.failure;
-      // The locking's failure is the seam's own. Left raw, a bound that was hit reaches the caller
-      // as SQLSTATE 55P03 naming the driver's cancellation and nothing else: no fault id, no
-      // registered code, nothing an operator can look up (ARCH-03, B-21).
-      const { faultId } = reportFault({ requestId: lockName(kind, key), actor: LOCK_ACTOR, route: LOCK_ROUTE, cause: failure });
-      throw new Error(`a ${kind} job could not take the lock on key ${key} — recorded as fault ${faultId}`, { cause: failure });
+        const lock = lockStatement(kind, key);
+        await tx.unsafe(lock.text, lock.params);
+      } catch (failure) {
+        await exiting();
+        throw failure;
+      }
+      lockTaken = true;
+      let answer: T;
+      try {
+        answer = await work();
+      } catch (failure) {
+        guarded = failure;
+        rollbackFailure = await rollingBack(tx);
+        await exiting();
+        throw failure;
+      }
+      // Wrapped in one: the driver spreads an array a transaction answers with, and a caller's own
+      // array result is not this seam's to spread. Kept here too: the work's effects landed on the
+      // log's pool whatever becomes of the lock's connection after this point.
+      answered = { answer };
+      await exiting();
+      return answered;
+    });
+    const outcome = await transaction.then(
+      (held) => {
+        transactionSettled = true;
+        return { answer: (held as { answer: T }).answer };
+      },
+      (failure: unknown) => {
+        transactionSettled = true;
+        transactionFailure = failure;
+        return { failure };
+      },
+    );
+    if (bodyStarted) await exited;
+
+    if (guarded !== NOTHING_GUARDED) {
+      if (rollbackFailure !== NOTHING_GUARDED) reportFault({ requestId, actor: LOCK_ACTOR, route: LOCK_ROUTE, cause: rollbackFailure });
+      throw guarded;
     }
+    if (answered !== undefined) {
+      // Work that answered has landed: its writes went out on the log's pool and are committed
+      // whatever the lock's connection did afterwards. A lock that died under it, or a COMMIT that
+      // would not land, is recorded on the lock's route — the key was unguarded for the tail of the
+      // work — but the caller hears the answer, not a fault for effects that are there (ARCH-03).
+      if ("failure" in outcome) reportFault({ requestId, actor: LOCK_ACTOR, route: LOCK_ROUTE, cause: outcome.failure });
+      return answered.answer;
+    }
+    if ("failure" in outcome) throw lockFailure(lockTaken ? "give the lock back" : "take the lock", outcome.failure);
+    return outcome.answer;
   };
 
   /** Which queues this store has already made, so the row is made once per process, not per send. */
@@ -1142,7 +1510,7 @@ export function jobsStore(url: string): JobsStore {
     const already = declared.get(name);
     if (already !== undefined) return await already;
     const declaring: Promise<void> = (async () => {
-      const boss = await queue();
+      const boss = await queue.reach();
       await boss.createQueue(name, {
         name,
         retryLimit: shape.retryLimit,
@@ -1179,8 +1547,11 @@ export function jobsStore(url: string): JobsStore {
     open: async ({ manage }) => {
       managing = manage;
       if (!manage) return;
-      await createLog();
-      await queue();
+      opening = (async () => {
+        await createLog.reach();
+        await queue.reach();
+      })();
+      await opening;
     },
 
     ping: async () => {
@@ -1192,7 +1563,7 @@ export function jobsStore(url: string): JobsStore {
     },
 
     consume: async (name, shape, run) => {
-      const boss = await queue();
+      const boss = await queue.reach();
       // One worker per slot, each taking a single job at a time, so a kind's concurrency limit is
       // exactly how many of its jobs one process can have in flight (R-SPINE-030). A batch shared
       // by several jobs would make one job's failure the whole batch's.
@@ -1208,9 +1579,9 @@ export function jobsStore(url: string): JobsStore {
     },
 
     publish: async (name, jobId, data, shape) => {
-      const boss = await queue();
-      // The writer provisions what it writes to, queue row included: a first enqueue from a tier
-      // that consumes nothing must land on a database no worker has started on yet (R-SPINE-030).
+      const boss = await queue.reach();
+      // The writer declares the queue row it writes to: a first enqueue from a tier that consumes
+      // nothing must land on a provisioned database no worker is running against (R-SPINE-030).
       await declareOnce(name, shape);
       // The id is the seam's rather than the queue's: it is written down as the key's claim before
       // the job exists, so a crash between the two leaves a claim naming a job the queue never got
@@ -1230,7 +1601,7 @@ export function jobsStore(url: string): JobsStore {
     },
 
     queueStateOf: async (name, jobId) => {
-      const boss = await queue();
+      const boss = await queue.reach();
       const job = await boss.getJobById(name, jobId, { includeArchive: true });
       // A job the queue has never heard of, or no longer holds, is one it is done with — including
       // the job a send never managed to insert.
@@ -1256,7 +1627,10 @@ export function jobsStore(url: string): JobsStore {
       return rows[0]?.job_id ?? null;
     }, null),
 
-    liveClaims: async (endedStatuses) => await readingStored(async () => {
+    liveClaims: async (endedStatuses, limit, after) => await readingStored(async () => {
+      // Keyed on the claim's primary key rather than offset: a claim a batch settled is gone from
+      // the table by the next read, and an offset would skip the one that moved into its place.
+      const afterCursor = after === undefined ? sql`` : sql`and (claim.kind, claim.key) > (${after.kind}, ${after.key})`;
       const rows = await sql<{ kind: string; key: string; job_id: string }[]>`
         select claim.kind, claim.key, claim.job_id
           from ${sql(JOBS_SCHEMA)}.job_claims as claim
@@ -1265,14 +1639,17 @@ export function jobsStore(url: string): JobsStore {
                    from ${sql(JOBS_SCHEMA)}.job_events as ended
                   where ended.job_id = claim.job_id
                     and ended.status in ${sql(endedStatuses as string[])}
-               )`;
+               )
+           ${afterCursor}
+         order by claim.kind asc, claim.key asc
+         limit ${limit}`;
       return rows.map((row) => ({ kind: row.kind, key: row.key, jobId: row.job_id }));
     }, []),
 
     claimKey: async (kind, key, jobId) => {
-      // The first write provisions: a tier that only enqueues reaches a database no worker has
-      // started on yet, rather than failing on storage nobody has made for it.
-      await createLog();
+      // The first write provisions the log: a tier that only enqueues reaches a database no worker
+      // has written the log on yet, rather than failing on tables nobody has made for it.
+      await createLog.reach();
       await sql`
         insert into ${sql(JOBS_SCHEMA)}.job_claims (kind, key, job_id)
         values (${kind}, ${key}, ${jobId})
@@ -1287,7 +1664,7 @@ export function jobsStore(url: string): JobsStore {
     },
 
     append: async (draft) => {
-      await createLog();
+      await createLog.reach();
       const rows = await sql<RawJobEvent[]>`
         insert into ${sql(JOBS_SCHEMA)}.job_events (job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, elapsed_ms)
         values (${draft.jobId}, ${draft.kind}, ${draft.key}, ${draft.step}, ${draft.status}, ${draft.attempt},
@@ -1302,6 +1679,38 @@ export function jobsStore(url: string): JobsStore {
       return eventRow(row);
     },
 
+    appendEnding: async (draft, endedStatuses) => {
+      await createLog.reach();
+      // One statement: the ending is written only where none exists, the claim is released only
+      // where an ending was written, and the announcement rides on the row written — so no
+      // reader can see the claim gone before the ending, or two endings for one job. A writer that
+      // races another past the existence check yields to job_events_one_ending instead: no row,
+      // no release, and the caller reads the same null as when the ending was already there.
+      const rows = await sql<RawJobEvent[]>`
+        with ending as (
+          insert into ${sql(JOBS_SCHEMA)}.job_events (job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, elapsed_ms)
+          select ${draft.jobId}::text, ${draft.kind}::text, ${draft.key}::text, ${draft.step}::text, ${draft.status}::text, ${draft.attempt}::integer,
+                 ${draft.refusalCode}::text, ${draft.faultId}::text, ${sql.json(jsonDetail(draft.detail))}::jsonb, ${draft.elapsedMs}::integer
+           where not exists (
+                   select 1
+                     from ${sql(JOBS_SCHEMA)}.job_events as ended
+                    where ended.job_id = ${draft.jobId}
+                      and ended.status in ${sql(endedStatuses as string[])}
+                 )
+              on conflict do nothing
+          returning seq, job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, at, elapsed_ms
+        ), released as (
+          delete from ${sql(JOBS_SCHEMA)}.job_claims as claim
+           where claim.kind = ${draft.kind} and claim.key = ${draft.key} and claim.job_id = ${draft.jobId}
+             and exists (select 1 from ending)
+        )
+        select ending.seq, ending.job_id, ending.kind, ending.key, ending.step, ending.status, ending.attempt, ending.refusal_code,
+               ending.fault_id, ending.detail, ending.at, ending.elapsed_ms, pg_notify(${EVENTS_CHANNEL}, ending.job_id) as announced
+          from ending`;
+      const row = rows[0];
+      return row === undefined ? null : eventRow(row);
+    },
+
     read: async (jobId, afterSeq) => await readingStored(async () => {
       const rows = await sql<RawJobEvent[]>`
         select seq, job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, at, elapsed_ms
@@ -1311,12 +1720,20 @@ export function jobsStore(url: string): JobsStore {
       return rows.map(eventRow);
     }, []),
 
-    deadLetterRows: async (endedStatuses) => await readingStored(async () => {
+    deadLetterRows: async (endedStatuses, limit) => await readingStored(async () => {
+      // The newest endings, bounded, then put back in the order the log wrote them: a view an
+      // operator reads must stay readable however long the log grows (R-SPINE-030).
       const rows = await sql<RawJobEvent[]>`
-        select seq, job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, at, elapsed_ms
-          from ${sql(JOBS_SCHEMA)}.job_events
-         where status in ${sql(endedStatuses as string[])}
-         order by seq asc`;
+        select newest.seq, newest.job_id, newest.kind, newest.key, newest.step, newest.status, newest.attempt, newest.refusal_code,
+               newest.fault_id, newest.detail, newest.at, newest.elapsed_ms
+          from (
+            select seq, job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, at, elapsed_ms
+              from ${sql(JOBS_SCHEMA)}.job_events
+             where status in ${sql(endedStatuses as string[])}
+             order by seq desc
+             limit ${limit}
+          ) as newest
+         order by newest.seq asc`;
       return rows.map(eventRow);
     }, []),
 
@@ -1325,9 +1742,14 @@ export function jobsStore(url: string): JobsStore {
     },
 
     close: async () => {
-      // A queue that was never started has nothing to drain, and asking for one here would open the
-      // very instance this store took care not to open.
-      if (queueStarted) await (await queue()).stop({ close: true, graceful: true, wait: true });
+      // Waited for, not cut off: an open still in flight finishes first, so what it was provisioning
+      // is provisioned and what it started is stopped here rather than leaked. A queue that was never
+      // reached has nothing to drain, and asking for one would open the very instance this store took
+      // care not to open; one whose start failed gave its pool back where it failed.
+      if (opening !== undefined) await opening.catch(() => undefined);
+      const started = queue.pending();
+      const boss = started === undefined ? undefined : await started.catch(() => undefined);
+      if (boss !== undefined) await boss.stop({ close: true, graceful: true, wait: true });
       await Promise.all([sql.end({ timeout: 5 }), locks.end({ timeout: 5 })]);
     },
   };

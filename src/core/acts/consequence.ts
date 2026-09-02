@@ -105,9 +105,10 @@ function same(before: readonly string[], after: readonly string[]): boolean {
 /**
  * The canonical form a digest is taken over: object keys in code-point order, arrays in their own
  * order, nothing else. Key order is a property of how a value was built, never of what it says, so
- * it is removed before hashing — otherwise the same consequence would digest two ways.
+ * it is removed before hashing — otherwise the same consequence would digest two ways. This is the
+ * one canonical-JSON home (B-17): the model seam's request hash is taken over it too.
  */
-function canonical(value: unknown): string {
+export function canonical(value: unknown): string {
   if (value === null || typeof value === "number" || typeof value === "boolean" || typeof value === "string") {
     return JSON.stringify(value);
   }

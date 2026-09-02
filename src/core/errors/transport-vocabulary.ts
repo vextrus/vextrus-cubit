@@ -52,7 +52,10 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // `WORKER_HEALTH_PORT` is where the worker process answers about its own health, read in
     // `src/worker/main.ts`: the machine says which port it may bind, because the process that runs
     // the queues is a service the host supervises (R-SPINE-031).
-    codes: Object.freeze(["DATABASE_URL", "STORAGE_ROOT", "NODE_ENV", "CUBIT_PUBLIC_ORIGIN", "WORKER_HEALTH_PORT"]),
+    // `CUBIT_MODEL_FIXTURE_ROOT` and `ANTHROPIC_API_KEY` are read in `src/core/model`: the first
+    // names the directory recorded model answers are replayed from and, by being non-blank, selects the
+    // fixture transport; the second is the live provider's credential (L-AI-01, B-23).
+    codes: Object.freeze(["DATABASE_URL", "STORAGE_ROOT", "NODE_ENV", "CUBIT_PUBLIC_ORIGIN", "WORKER_HEALTH_PORT", "CUBIT_MODEL_FIXTURE_ROOT", "ANTHROPIC_API_KEY"]),
   }),
   Object.freeze({
     // L-ACT-02's act-type enum, spelled as the law spells it. An act type names what a human did; it
@@ -104,5 +107,12 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // screen, never an answer given to anybody. Its home is `../rulesets/seed` (ARCH-02).
     vocabulary: "rule-set edition names (L-MEA-01)",
     codes: Object.freeze(["IS1200_IN"]),
+  }),
+  Object.freeze({
+    // The database driver's own connection-failure codes, read in `../db.ts` where the key lock
+    // decides whether a connection the driver reports gone may carry one more statement (ARCH-03).
+    // A driver's code is what the seam reads off a failure, never an answer given to anybody.
+    vocabulary: "postgres.js connection error codes",
+    codes: Object.freeze(["CONNECTION_CLOSED", "CONNECTION_DESTROYED", "CONNECTION_ENDED"]),
   }),
 ]);

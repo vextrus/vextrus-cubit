@@ -53,7 +53,7 @@ function tableExists(table: string): boolean {
 test.use({ viewport: { width: 1440, height: 900 } });
 
 test.describe("J-003 — the project's audit surfaces", () => {
-  test("J-003: the act log explorer stands on a project, with the ledger and jobs panels disarmed", async ({ page, baseURL }, testInfo) => {
+  test("J-003: the act log explorer stands on a project, with the model ledger armed and the jobs panel disarmed", async ({ page, baseURL }, testInfo) => {
     expect(baseURL, "the journeys are driven against the served product").toBeTruthy();
     const origin = baseURL ?? "";
     const auth = new SAuthPage(page);

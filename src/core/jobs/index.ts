@@ -4,6 +4,6 @@
 // database except through src/core/db.ts (SEAM-TENANT).
 export { JOB_KINDS, KIND_NAMES } from "./kinds";
 export type { JobKind, JobKindPolicy, JobPayloads } from "./kinds";
-export { deadLetters, enqueue, jobEvents, jobsHealth, startJobsRuntime, stopJobsRuntime, watchJob, TERMINAL_STATUSES } from "./runtime";
+export { DEAD_LETTER_LIMIT, SWEEP_BATCH, deadLetters, enqueue, jobEvents, jobsHealth, startJobsRuntime, stopJobsRuntime, watchJob, TERMINAL_STATUSES } from "./runtime";
 export type { DeadLetter, EnqueueResult, JobEvent, JobsHealth, JobStatus } from "./runtime";
 export type { JobProgress } from "./probe";
