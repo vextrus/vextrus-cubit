@@ -4,6 +4,7 @@
 // hears the outcome. The seam is a factory over an env, a fetch and a ledger so acceptance can hand
 // each one in (B-23); the production entry closes over the process and the tenant's database.
 import { forTenant } from "../db";
+import { reportFault } from "../faults/report";
 import { MODEL_IDS, modelCallCost, type ModelId } from "../model-ledger.types";
 import { fixtureTransport } from "./fixture";
 import { dbModelLedger } from "./ledger";
@@ -11,6 +12,9 @@ import { liveTransport } from "./live";
 import { requestHash } from "./canonical";
 import { selectTransport, type ModelEnv } from "./transport";
 import type { ModelAnswer, ModelCallContext, ModelLedger, ModelRequest, ModelTransport, TransportPort } from "./types";
+
+/** The route the fault seam records this seam's own failures under. */
+const ROUTE = "model/callModel";
 
 /** What a seam is built over. */
 export type ModelSeamOptions = { env: ModelEnv; fetch: typeof globalThis.fetch; ledger: ModelLedger };
@@ -42,7 +46,14 @@ async function answerThroughPort(port: TransportPort, ledger: ModelLedger, ctx: 
   const attribution = { tenantId: ctx.tenantId, projectId: ctx.projectId, modelId, requestHash: hash, transport: port.transport } as const;
 
   if (answer.kind === "refused") {
-    await ledger.record({ ...attribution, outcome: "refused", refusalCode: answer.code, inputTokens: 0, outputTokens: 0, attributedCost: modelCallCost(modelId, 0, 0) });
+    const refusedRow = { ...attribution, outcome: "refused", refusalCode: answer.code, inputTokens: 0, outputTokens: 0, attributedCost: modelCallCost(modelId, 0, 0) } as const;
+    try {
+      await ledger.record(refusedRow);
+    } catch (failure) {
+      // The refusal happened whether or not the ledger could take it: a failed write is a fault of
+      // its own (ARCH-03), recorded once, and the caller still hears the refusal (B-21).
+      reportFault({ requestId: ctx.requestId, actor: ctx.actor, route: ROUTE, cause: failure });
+    }
     throw answer.refusal;
   }
 

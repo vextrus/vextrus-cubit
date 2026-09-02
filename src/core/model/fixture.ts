@@ -49,8 +49,10 @@ function parseFixture(text: string, file: string, request: ModelRequest, hash: s
     throw new Error(`the recorded model answer at ${file} was given by ${String(modelId)}, not by ${request.modelId} as the request pins`);
   }
   if (!Object.hasOwn(parsed, "payload")) throw new Error(`the recorded model answer at ${file} carries no payload`);
-  if (!isTokenCount(inputTokens) || !isTokenCount(outputTokens)) {
-    throw new Error(`the recorded model answer at ${file} does not count its tokens as whole, non-negative numbers`);
+  // Only the shape is read here; whether a number is a token count is the money derivation's one
+  // judgement (modelCallCost, B-17), which the seam applies before any row is written.
+  if (typeof inputTokens !== "number" || typeof outputTokens !== "number") {
+    throw new Error(`the recorded model answer at ${file} does not count its tokens as numbers`);
   }
   return { requestHash: hash, modelId: request.modelId, payload: parsed["payload"] as JsonValue, inputTokens, outputTokens };
 }
@@ -62,5 +64,3 @@ function parseJson(text: string, file: string): JsonValue {
     throw new Error(`the recorded model answer at ${file} is not JSON`, { cause: failure });
   }
 }
-
-const isTokenCount = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0;

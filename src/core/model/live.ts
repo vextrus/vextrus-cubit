@@ -17,6 +17,9 @@ const DEFAULT_MAX_TOKENS = 1024;
 /** The route the fault seam records a failed live call under. */
 const ROUTE = "model/callModel";
 
+/** How long a call waits for the provider before it is a fault: a hang parks nothing either (B-14). */
+const DEADLINE_MS = 120_000;
+
 /** A transport over the provider, reached through the fetch and the environment the seam was handed. */
 export function liveTransport(env: ModelEnv, fetch: typeof globalThis.fetch): TransportPort {
   return {
@@ -37,20 +40,35 @@ async function exchange(env: ModelEnv, fetch: typeof globalThis.fetch, request: 
   const key = env.ANTHROPIC_API_KEY;
   if (typeof key !== "string" || key === "") throw new Error("the environment holds no ANTHROPIC_API_KEY, so the live model transport cannot be reached");
   const params = request.params ?? {};
+  // The pinned id, the prompt and the exchange are spelled after the params, so no param can
+  // stand in for them: what the provider is asked is what the ledger row attributes (AS-05).
   const body = {
+    ...params,
     model: request.modelId,
     system: request.system,
     messages: request.messages.map((message) => ({ role: message.role, content: message.content })),
     max_tokens: params["max_tokens"] ?? DEFAULT_MAX_TOKENS,
-    ...params,
   };
   const response = await fetch(ENDPOINT, {
     method: "POST",
     headers: { "x-api-key": key, "anthropic-version": VERSION, "content-type": "application/json" },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(DEADLINE_MS),
   });
-  if (!response.ok) throw new Error(`the model provider answered ${response.status} ${response.statusText}`.trimEnd());
+  if (!response.ok) {
+    await discarded(response);
+    throw new Error(`the model provider answered ${response.status} ${response.statusText}`.trimEnd());
+  }
   return answered((await response.json()) as unknown);
+}
+
+/** A body nobody will read, released so the connection is not held until collection. */
+async function discarded(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // The status line is the fault; a body that would not close adds nothing to it.
+  }
 }
 
 /** The provider's body as the seam's answer: its content, and the tokens its usage counts. */
