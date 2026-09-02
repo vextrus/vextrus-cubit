@@ -1,9 +1,18 @@
 """AC-7 — the hand takeoff golden recomputes from the authored inputs alone (L-FRM-02/03, L-QTY-06).
 
-Every row's quantity is re-derived here from `inputs.json` by the contract's formulas, in exact
-decimal arithmetic so a half-way case rounds half-even on the true value rather than on a binary
-float's neighbour, and compared as the three-decimal string the golden spells. The drawing is never
-consulted: an input may not be derived from the figure it is compared against.
+Every RCC_CONCRETE and FORMWORK row's quantity is re-derived here from `inputs.json` by the
+contract's formulas, in exact decimal arithmetic so a half-way case rounds half-even on the true
+value rather than on a binary float's neighbour, and compared as the three-decimal string the
+golden spells. The drawing is never consulted: an input may not be derived from the figure it is
+compared against.
+
+The recomputation is scoped to the two kinds this increment's formulas define. The golden is a
+ledger keyed (class, kind, level); a kind a later increment adds (rebar, per R-TO-035) extends it
+without redding these tests — such a row still owes a unique key, a contract class, a level from
+the stack and a three-decimal quantity, and nothing more here.
+
+The inputs themselves are F-RCC6's: its level stack and its mark families are the fixture's
+definition, so the lean-inputs shortcut (two levels, one column) is closed by name.
 """
 
 from __future__ import annotations
@@ -25,7 +34,17 @@ FOUNDATION_CLASSES = frozenset({"FOOTING", "PILE_CAP", "TIE_BEAM"})
 FOUNDATION_LEVEL = "FDN"
 CONCRETE = "RCC_CONCRETE"
 FORMWORK = "FORMWORK"
+#: The kinds whose formulas this increment fixes (L-FRM-02 concrete, L-FRM-03 formwork).
 UNITS = {CONCRETE: "m3", FORMWORK: "m2"}
+
+#: F-RCC6's level stack, in order, and the marks each family draws (the fixture's definition).
+CONTRACT_LEVELS = ("FDN", "GF", "1F", "2F", "3F", "4F", "5F", "ROOF")
+CONTRACT_MARKS: dict[str, frozenset[str]] = {
+    "columns": frozenset({"C1", "C2", "C3", "C4"}),
+    "beams": frozenset({"B1", "B2", "B3", "B4", "B5", "B6"}),
+    "footings": frozenset({"F1", "F2", "F3", "F4"}),
+    "pile_caps": frozenset({"PC1", "PC2"}),
+}
 
 THREE_DECIMALS = re.compile(r"^-?\d+\.\d{3}$")
 QUANTUM = Decimal("0.001")
@@ -38,6 +57,7 @@ Key = tuple[str, str, str]
 
 
 def _golden_keys() -> list[Key]:
+    """The (class, kind, level) keys of the committed golden's RCC_CONCRETE / FORMWORK rows."""
     path = _CORPUS_DIR / GOLDEN_REL
     if not path.is_file():
         return []
@@ -48,7 +68,7 @@ def _golden_keys() -> list[Key]:
     return [
         (str(row.get("class")), str(row.get("kind")), str(row.get("level")))
         for row in rows
-        if isinstance(row, dict)
+        if isinstance(row, dict) and row.get("kind") in UNITS
     ]
 
 
@@ -108,8 +128,34 @@ def _rows_by_key(corpus) -> dict[Key, dict[str, Any]]:
     return {(row["class"], row["kind"], row["level"]): row for row in _golden(corpus)["rows"]}
 
 
+def _formula_rows_by_key(corpus) -> dict[Key, dict[str, Any]]:
+    """The rows of the kinds whose formulas this increment fixes."""
+    return {key: row for key, row in _rows_by_key(corpus).items() if key[1] in UNITS}
+
+
 def _expected(corpus) -> dict[Key, Decimal]:
     return corpus.once("golden-expected", lambda: expected_quantities(_inputs(corpus)))
+
+
+def test_ac7_inputs_carry_f_rcc6s_level_stack_and_mark_families(corpus) -> None:
+    inputs = _inputs(corpus)
+    assert [level["name"] for level in inputs["levels"]] == list(CONTRACT_LEVELS), (
+        "inputs.json's level stack is not F-RCC6's FDN, GF, 1F … 5F, ROOF in order"
+    )
+    offences: list[str] = []
+    for family, marks in sorted(CONTRACT_MARKS.items()):
+        members = inputs.get(family)
+        if not isinstance(members, list):
+            offences.append(f"{family}: not a list")
+            continue
+        drawn = {str(item.get("mark")) for item in members}
+        lacking = sorted(marks - drawn)
+        if lacking:
+            offences.append(f"{family}: F-RCC6's marks {lacking} are not authored")
+        countless = sorted(str(item.get("mark")) for item in members if Decimal(item.get("count", 0)) < 1)
+        if countless:
+            offences.append(f"{family}: marks with count < 1: {countless}")
+    assert offences == [], "\n".join(offences)
 
 
 def test_ac7_rows_are_unique_on_class_kind_level(corpus) -> None:
@@ -130,31 +176,32 @@ def test_ac7_every_row_speaks_the_contract_vocabulary(corpus) -> None:
         key = (row.get("class"), row.get("kind"), row.get("level"))
         if row.get("class") not in CLASSES:
             offences.append(f"{key}: class")
-        if row.get("kind") not in UNITS:
-            offences.append(f"{key}: kind")
+        if not isinstance(row.get("kind"), str) or not row["kind"]:
+            offences.append(f"{key}: kind is not a name")
         if row.get("level") not in level_names:
             offences.append(f"{key}: level not in inputs.levels")
         if row.get("class") in FOUNDATION_CLASSES and row.get("level") != FOUNDATION_LEVEL:
             offences.append(f"{key}: a foundation class off {FOUNDATION_LEVEL}")
-        if row.get("unit") != UNITS.get(row.get("kind")):
-            offences.append(f"{key}: unit {row.get('unit')!r}")
+        if row.get("kind") in UNITS and row.get("unit") != UNITS[row["kind"]]:
+            offences.append(f"{key}: unit {row.get('unit')!r}, the contract's is {UNITS[row['kind']]}")
         if not isinstance(row.get("quantity"), str) or not THREE_DECIMALS.match(row["quantity"]):
             offences.append(f"{key}: quantity {row.get('quantity')!r} is not a three-decimal string")
     assert offences == [], "\n".join(offences)
 
 
-def test_ac7_the_row_set_is_exactly_what_the_inputs_give_rise_to(corpus) -> None:
-    expected, rows = _expected(corpus), _rows_by_key(corpus)
+def test_ac7_the_concrete_and_formwork_rows_are_exactly_what_the_inputs_give_rise_to(corpus) -> None:
+    expected, rows = _expected(corpus), _formula_rows_by_key(corpus)
     assert expected, "inputs.json gives rise to no quantity at all"
+    assert rows, f"the golden holds no {CONCRETE} or {FORMWORK} row"
     lacking = sorted(set(expected) - set(rows))
     assert lacking == [], f"rows the inputs call for that the golden lacks: {lacking}"
     surplus = sorted(set(rows) - set(expected))
-    assert surplus == [], f"golden rows the inputs give no rise to: {surplus}"
+    assert surplus == [], f"{CONCRETE}/{FORMWORK} rows the inputs give no rise to: {surplus}"
 
 
 @pytest.mark.parametrize("key", GOLDEN_KEYS, ids=[":".join(key) for key in GOLDEN_KEYS])
 def test_ac7_each_quantity_recomputes_from_the_inputs(corpus, key: Key) -> None:
-    expected, rows = _expected(corpus), _rows_by_key(corpus)
+    expected, rows = _expected(corpus), _formula_rows_by_key(corpus)
     assert key in expected, f"{key}: the inputs give rise to no such row"
     want = spelled(expected[key])
     assert rows[key]["quantity"] == want, (

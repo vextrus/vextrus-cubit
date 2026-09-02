@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -80,12 +81,48 @@ class Corpus:
             timeout=SUBPROCESS_TIMEOUT_SECONDS,
         )
 
-    def generate(self, out_dir: Path) -> subprocess.CompletedProcess[str]:
-        """The generator CLI, exactly as the spec spells it, writing into `out_dir`."""
+    def require_generator(self) -> Path:
         assert self.generator.is_file(), (
             f"{GENERATOR_REL} is not committed — the generator does not exist yet"
         )
+        return self.generator
+
+    def generate(self, out_dir: Path) -> subprocess.CompletedProcess[str]:
+        """The generator CLI, exactly as the spec spells it, writing into `out_dir`."""
+        self.require_generator()
         return self.run_in_fixtures_group([GENERATOR_REL, "--out", str(out_dir)])
+
+    def generate_from_a_bare_copy(self, scratch: Path) -> tuple[Path, subprocess.CompletedProcess[str]]:
+        """The generator copied ALONE into `scratch` and run from there.
+
+        No corpus sits beside the copy and the working directory is `scratch`, so whatever lands
+        in `scratch/out` can only be what the script authors — L-CAD-09's "authored by committed
+        scripts" is a property of the script, not of the bytes committed next to it. The cad
+        project (its `fixtures` group, `vextrus_cad`) is reached by absolute path.
+        """
+        script = scratch / self.generator.name
+        shutil.copyfile(self.require_generator(), script)
+        out_dir = scratch / "out"
+        run = subprocess.run(
+            [
+                "uv",
+                "run",
+                "--project",
+                str(CAD_ROOT),
+                "--group",
+                FIXTURES_GROUP,
+                "python",
+                str(script),
+                "--out",
+                str(out_dir),
+            ],
+            cwd=scratch,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=SUBPROCESS_TIMEOUT_SECONDS,
+        )
+        return out_dir, run
 
 
 @pytest.fixture(scope="session")
