@@ -2,7 +2,8 @@
  * Public acceptance for AC-1, AC-2 and AC-3 of the proposal contract (L-AI-02, L-AI-01, R-SPINE-062,
  * Q-07): the three resolution refusals registered with the Decision's copy and read from the
  * register, `propose` over the fixture transport answering exactly a Proposal and one proposed row,
- * the barrel's proposal surface beside an untouched `callModel`, and an unsourced answer refused
+ * the barrel's proposal surface beside an untouched `callModel` — ModelAnswer's shape is unchanged by
+ * the proposal path (derived from callModel in the same run) — and an unsourced answer refused
  * UNSOURCED after — not before — its refused row keeps the tokens the transport spent.
  *
  * Every fixture is minted under a mkdtemp root handed in through CUBIT_MODEL_FIXTURE_ROOT (Q-08).
@@ -31,6 +32,7 @@ import {
   memoryLedger,
   rejectionOf,
   silentFetch,
+  type Answer,
   type Context,
   type Fixture,
   type JsonValue,
@@ -295,10 +297,25 @@ type Scan = {
   isExecutedTest(file: string): boolean;
 };
 
-/** The keys inc-113b's ModelAnswer carries — untouched by this increment (AC-2). */
-const MODEL_ANSWER_KEYS = ["attributedCost", "callId", "inputTokens", "modelId", "outcome", "outputTokens", "payload", "requestHash", "transport"];
+/**
+ * The members this increment reads off inc-113b's answer, each owed presence and a type — a SUPERSET
+ * check, never a closed set (arbitration on AC-2). L-AI-01 fixes what `callModel` must do, never the
+ * field list of the value it returns, and inc-113b froze no list either; a member a later increment
+ * lawfully adds to ModelAnswer is none of this file's business, so nothing here counts them.
+ */
+const ANSWER_MEMBERS_READ: ReadonlyArray<{ name: keyof Answer; type: "string" | "number" | "object" }> = [
+  { name: "callId", type: "string" },
+  { name: "modelId", type: "string" },
+  { name: "payload", type: "object" },
+  { name: "inputTokens", type: "number" },
+  { name: "outputTokens", type: "number" },
+];
 
-/** The keys a Proposal carries, and nothing else (L-AI-02). */
+/**
+ * The keys a Proposal carries, and nothing else. L-AI-02 quotes the member list closed — "It returns
+ * `Proposal<T> = { payload, sources: [SourceKey, ...], model, callId }`" — so an exact set here is a
+ * transcription of law, not of an implementation; `kind` is this increment's own brand, which it owns.
+ */
 const PROPOSAL_KEYS = ["callId", "kind", "model", "payload", "sources"];
 
 const shown = (findings: ReadonlyArray<{ code: string; file: string }>): string => (findings.length === 0 ? "none" : findings.map((f) => `${f.code} in ${f.file}`).join(", "));
@@ -351,7 +368,10 @@ describe("AC-2: propose answers exactly a Proposal over the fixture transport", 
 
     const proposal = await staged.propose(staged.ctx, staged.request, { artifact: resolver, decode });
 
-    expect(Object.keys(proposal).sort(), "a Proposal's own enumerable keys are exactly kind, payload, sources, model, callId").toEqual(PROPOSAL_KEYS);
+    expect(
+      Object.keys(proposal).sort(),
+      'a Proposal\'s own enumerable keys are exactly kind, payload, sources, model, callId — L-AI-02 closes the list: "It returns `Proposal<T> = { payload, sources: [SourceKey, ...], model, callId }`"',
+    ).toEqual(PROPOSAL_KEYS);
     expect(proposal.kind, "kind is the barrel's PROPOSAL_KIND").toBe(PROPOSAL_KIND);
     expect(decode.mock.calls, "the caller's decoder read the wire's inner payload once").toEqual([[wirePayload()]]);
     const answered = decode.mock.results[0]?.value as DecodeShape;
@@ -388,10 +408,30 @@ describe("AC-2: propose answers exactly a Proposal over the fixture transport", 
     expect(callModel.length, "callModel(ctx, request) is untouched (inc-113b)").toBe(2);
     const staged = await stageWire(wire([KEY_1F]), "answer");
     expect(staged.seam.callModel.length, "the seam's callModel is untouched too").toBe(2);
-    const answer = await staged.seam.callModel(staged.ctx, staged.request);
-    expect(Object.keys(answer).sort(), "ModelAnswer's shape is inc-113b's").toEqual(MODEL_ANSWER_KEYS);
-    expect(answer.payload, "callModel still hands the transport's payload through as it was carried").toEqual(wire([KEY_1F]));
-    expect(answer.outcome).toBe(OUTCOME_PROPOSED);
+    const viaCallModel = await staged.seam.callModel(staged.ctx, staged.request);
+    expect(viaCallModel.payload, "callModel still hands the transport's payload through as it was carried").toEqual(wire([KEY_1F]));
+    expect(viaCallModel.outcome).toBe(OUTCOME_PROPOSED);
+
+    /* The members this increment reads off the answer are present and typed — a superset, so a member
+     * a later increment lawfully adds to ModelAnswer neither reds this file nor escapes the check
+     * below. */
+    for (const { name, type } of ANSWER_MEMBERS_READ) {
+      expect(viaCallModel[name], `ModelAnswer still carries ${name} — this increment reads it`).toBeDefined();
+      expect(typeof viaCallModel[name], `ModelAnswer's ${name} is a ${type}`).toBe(type);
+    }
+    expect(viaCallModel.modelId, "the answer names the id the request pinned").toBe(staged.request.modelId);
+
+    /* AC-2's real claim: this increment does not change ModelAnswer — the answer read on the proposal
+     * path is the same shape callModel already returns, `propose` adding no member and stripping none.
+     * The reference set is produced by the tree under test in this same run, never transcribed, so a
+     * lawful future member appears on both sides while an added, dropped or renamed one still reds. */
+    const proposedSide = await stageWire(wire([KEY_1F]), "answer-via-propose");
+    const { resolver: sideResolver } = await spiedResolver(ARTIFACT_DIGEST, [KEY_1F]);
+    await proposedSide.propose(proposedSide.ctx, proposedSide.request, { artifact: sideResolver, decode: acceptingDecoder() });
+    const viaPropose = await proposedSide.seam.callModel(proposedSide.ctx, proposedSide.request);
+    expect(Object.keys(viaPropose).sort(), "the answer the proposal path reads is the shape callModel already returns — propose adds no member to it and strips none").toEqual(
+      Object.keys(viaCallModel).sort(),
+    );
   });
 });
 
