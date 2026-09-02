@@ -44,6 +44,12 @@ _SAID_ON_STDERR: Final = "pass-stderr"
 #: How long a signalled session is waited for before the invocation stops waiting for it.
 _REAPING_SECONDS: Final = 10.0
 
+#: What an invocation keeps back from its budget for ending a pass that outran it and sweeping its
+#: scratch, so the refusal is raised within the budget and never just after it: at most this many
+#: seconds, and never more than this share of a small budget.
+_ENDING_SECONDS: Final = 0.25
+_ENDING_SHARE: Final = 0.1
+
 #: What a release looks like in a banner, so the version line can be told from a greeting.
 _RELEASE: Final = re.compile(r"\d+\.\d+")
 
@@ -104,6 +110,16 @@ class Deadline:
     def left(self) -> float:
         return self.seconds - (time.monotonic() - self.opened)
 
+    def running_time(self) -> float:
+        """How long a pass may run before it is ended: what is left, less the ending.
+
+        L-CAD-04's budget is a promise to whoever is waiting, and to them the signal, the reap and
+        the sweep are part of the invocation — so a pass is stopped that much before the budget
+        runs out, and the refusal is raised inside it rather than just after it.
+        """
+        ending = min(_ENDING_SECONDS, self.seconds * _ENDING_SHARE)
+        return max(0.0, self.left() - ending)
+
 
 @dataclass(frozen=True)
 class PassOutput:
@@ -146,8 +162,7 @@ def run_pass(
     The streams are read back leniently: a program that writes bytes no encoding admits is still a
     program whose words belong in a refusal.
     """
-    budget = deadline.left()
-    if budget <= 0:
+    if deadline.left() <= 0:
         raise DwgError(_outran(source, pass_name, program, deadline))
 
     on_stdout = room / _SAID_ON_STDOUT
@@ -180,7 +195,7 @@ def run_pass(
         ) from error
 
     try:
-        running.wait(timeout=budget)
+        running.wait(timeout=deadline.running_time())
     except subprocess.TimeoutExpired as error:
         _end_session(running)
         raise DwgError(_outran(source, pass_name, program, deadline)) from error
@@ -217,11 +232,14 @@ def tool_version(toolchain: Toolchain, source: Path, *, room: Path, deadline: De
 
 
 def _outran(source: Path, pass_name: str, program: str, deadline: Deadline) -> str:
+    # The budget is spelled exactly as the caller gave it (`timeout_seconds`), so the refusal can
+    # be matched against the number the caller holds.
     return refusal(
         source,
         pass_name,
         program,
-        f"outran the {deadline.seconds:g}s budget for converting this drawing, and was stopped",
+        f"timed out: outran the {deadline.seconds}s budget for converting this drawing"
+        f" (timeout_seconds={deadline.seconds}), and was stopped",
     )
 
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -51,6 +52,9 @@ _CENSUS_JSON: Final = "census.json"
 
 #: How many times the invocation's scratch is swept before the lane stops asking.
 _SWEEPS: Final = 3
+
+#: What a DXF printed to stdout opens with: the group code 0 and then a SECTION.
+_SPOKEN_DXF: Final = re.compile(r"^\s*0\s*\r?\n\s*SECTION\s*$", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -170,14 +174,17 @@ def _census_document(source: Path, program: str, room: Path, asked: Path, output
 def _first_document(text: str) -> Any:
     """The JSON a pass wrote, whether or not it stopped writing when the document ended.
 
-    A program that prints its census and then says something about it has still written a census,
-    and L-CAD-04 judges a pass by what it wrote rather than by how tidily it stopped. Text that
-    does not open on a JSON document is not a census, and the reader raises to say so.
+    A program that says something before or after its census has still written a census, and
+    L-CAD-04 judges a pass by what it wrote rather than by how tidily it began or stopped. Text
+    that holds no JSON document at all is not a census, and the reader raises to say so.
     """
     try:
         return json.loads(text)
     except ValueError:
-        document, _ = json.JSONDecoder().raw_decode(text.lstrip())
+        opens = [index for index in (text.find("{"), text.find("[")) if index >= 0]
+        if not opens:
+            raise
+        document, _ = json.JSONDecoder().raw_decode(text[min(opens) :])
         return document
 
 
@@ -205,7 +212,7 @@ def _geometry_pass(
             room=room,
             deadline=deadline,
         )
-        converted = _written(room, asked)
+        converted = _written(room, asked) or _spoken_dxf(asked, output)
         if converted is None:
             problems.append(f"the {form} conversion wrote no DXF{quote(output.diagnostics)}")
             continue
@@ -251,6 +258,22 @@ def _written(room: Path, asked: Path) -> Path | None:
         return asked
     written = sorted(path for path in room.rglob(f"*{asked.suffix}") if _holds_something(path))
     return written[0] if written else None
+
+
+def _spoken_dxf(asked: Path, output: PassOutput) -> Path | None:
+    """A conversion the pass printed rather than wrote, kept at the name it was asked for.
+
+    LibreDWG's readers answer on stdout when given no name to write to, so a converter that did the
+    same has still converted the drawing (L-CAD-04 judges the artifact, not the convention). Only
+    text that opens a DXF section is taken to be one; a program's chatter is not.
+    """
+    if not _SPOKEN_DXF.search(output.stdout):
+        return None
+    try:
+        asked.write_text(output.stdout, encoding="utf-8")
+    except OSError:
+        return None
+    return asked
 
 
 def _holds_something(path: Path) -> bool:

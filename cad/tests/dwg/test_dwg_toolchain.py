@@ -31,9 +31,6 @@ SOURCE = FIXTURE_DIR / "basic.dwg"
 #: starting a program is not mistaken for one.
 SMALL_BUDGET = 3.0
 
-#: What the invocation is allowed to take beyond its budget: starting, signalling and sweeping.
-SLACK_SECONDS = 15.0
-
 _ANNOUNCES = "this is a program, and it is talking"
 
 #: Replays a prepared payload where a program of its kind may write — at the name it was given,
@@ -67,7 +64,12 @@ for target in targets:
     if body:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(body)
-sys.stdout.buffer.write(body + {announces!r})
+if WHERE == "announced":
+    sys.stdout.buffer.write({announces!r} + b"\\n" + body)
+elif WHERE == "stdout":
+    sys.stdout.buffer.write(body)
+else:
+    sys.stdout.buffer.write(body + {announces!r})
 sys.stderr.buffer.write({announces!r})
 sys.exit(CODE)
 '''
@@ -164,18 +166,22 @@ def test_a_pass_that_exits_nonzero_but_did_the_work_converted_the_drawing(
     assert result.tool_version == "dwgread 41.42.43"
 
 
-@pytest.mark.parametrize("where", ["beside", "stdout"])
+@pytest.mark.parametrize(
+    ("census_where", "dxf_where"),
+    [("beside", "beside"), ("stdout", "beside"), ("announced", "beside"), ("asked", "stdout")],
+)
 def test_work_written_where_the_pass_chose_is_still_the_passs_work(
     replayable: tuple[Path, Path, Path],
     tmp_path: Path,
-    where: str,
+    census_where: str,
+    dxf_where: str,
 ) -> None:
     """A program that wrote its answer somewhere else still wrote it (L-CAD-04).
 
     Neither pass is asked what it did, only what it left, so the conventions LibreDWG's own
-    programs have are the ones both passes are read under: `dwgread` prints its census when it is
-    given no name for one, and either program may write beside the drawing it read. The stubs here
-    do one of those and nothing at the name they were given.
+    programs have are the ones both passes are read under: a reader prints its answer when it is
+    given no name for one — after a greeting, if it has one — and either program may write beside
+    the drawing it read. The stubs here do one of those and nothing at the name they were given.
     """
     source, census, dxf = replayable
     bin_dir = tmp_path / "bin"
@@ -187,13 +193,14 @@ def test_work_written_where_the_pass_chose_is_still_the_passs_work(
         source,
         out_dir,
         toolchain=Toolchain(
-            _replaying(bin_dir / "dwgread", payload=census, suffix=".json", code=0, where=where),
-            _replaying(bin_dir / "dwg2dxf", payload=dxf, suffix=".dxf", code=0, where="beside"),
+            _replaying(bin_dir / "dwgread", payload=census, suffix=".json", code=0, where=census_where),
+            _replaying(bin_dir / "dwg2dxf", payload=dxf, suffix=".dxf", code=0, where=dxf_where),
             DEFAULT_TOOLCHAIN.timeout_seconds,
         ),
     )
 
-    assert result.dxf_path.is_file(), f"a census written {where} is a census the lane must read"
+    where = f"census {census_where}, DXF {dxf_where}"
+    assert result.dxf_path.is_file(), f"work written where the pass chose ({where}) is still its work"
     assert result.census and result.geometry
     assert tuple(result.refused) == (), f"complete work, replayed, reconciles: {result.refused}"
 
@@ -312,7 +319,9 @@ def test_a_pass_that_outruns_its_budget_ends_the_invocation_within_it(tmp_path: 
     message = str(raised.value)
     assert SOURCE.name in message, f"the refusal does not name the drawing: {message}"
     assert named in message, f"the refusal does not name the pass that ran out: {message}"
-    assert spent < SMALL_BUDGET + SLACK_SECONDS, f"the invocation outran its own budget: {spent:.1f}s"
+    assert str(SMALL_BUDGET) in message, f"the refusal does not spell the budget as given: {message}"
+    # Within the budget, not just after it: the signal, the reap and the sweep are the invocation's.
+    assert spent < SMALL_BUDGET, f"the invocation outran its own budget: {spent:.3f}s"
     assert _empty(out_dir), "a refused conversion left something behind"
 
 
