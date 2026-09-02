@@ -27,15 +27,15 @@ pnpm verify · pnpm test:db · pnpm e2e --journey <J> · pnpm checkup
 <!-- builder:lessons:start -->
 ## Standing lessons (engine-maintained)
 ### Locked ground & lawful paths
+- A held-out regex over a refusal message must include the Bible clause's own verb; a Builder who echoes the clause (\"outran the budget\") is lawful and the … — On the cad dwg increment (AMEND round, 2026-09-02) the only residual held-out red was `RAN_OUT_OF_TIME = /time|timed|timeout|expire|exceed/i` against the message "…outran the 3s budget for converting this drawing, and was stopped".
+- A binary fixture the Verifier authored is locked like any other acceptance artifact — Trigger: acceptance rests on a binary fixture (a converted drawing, an archive, a golden blob) that the Verifier wrote.
+- An external native binary cannot be probed from a read-only role — Trigger: an increment whose acceptance depends on a third-party command-line converter invoked by a verify lane.
 - A reviewer's psql probe must be a single bare SELECT — Trigger: a reviewer or skeptic wanting to check an ordering or comparison invariant against the live database.
-- A sweep increment must arrive with its inventory already enumerated — Trigger: an increment whose whole purpose is to clear a class of debt across a directory.
-- Fixtures for a build session come from the repo, never from the held-out set — Trigger: an increment that needs realistic inputs to replay, and the most realistic inputs on disk are the ones reserved for grading.
-- On a repeat held-out red, diff settled_rulings against the code before re-diagnosing — an unimplemented ruling is the failing assertion — On the cad dwg increment attempt 4 (2026-09-02) the gate had said "2 of 5 assertions" for two attempts running.
 ### Tests & acceptance
 - cubit/no-model-outside-seam refuses any import of src/core/model/__tests__/support/seam from outside src/core/model — define rejectionOf/RESOLVED locally; also … — Verified 2026-09-02 on that increment (model/jobs debt sweep): - `cubit/no-model-outside-seam` binds the whole tree, tests included: importing `src/core/model/__tests__/support/seam` (its `rejectionOf`, `RESOLVED`, `member`) from `src/core/__tests__/`, …
-- A \"recorded version/identity\" field is only bound by a stub tool reporting a distinctive version — re-probing the real tool at test time is vacuous — Acceptance for "`X.tool_version` is read from the toolchain's own `--version` output" cannot be graded by running the same real program again at test time and comparing: an implementation that hardcodes the machine's current version (`"0.13.3"`) passes both …
-- LibreDWG 0.13.3's dwg2dxf default output is unreadable by ezdxf 1.4.4; only `-m` round-trips into ingest_dxf — Measured 2026-09-02 while minting `cad/tests/dwg/fixtures/basic.dwg` for that increment. `dwg2dxf` (LibreDWG 0.13.3) writes an `ENDBLK` record whose handle is `0`.
 ### Database
 - postgres.js 3.4.9 facts that shape the jobs key lock — reserve() hangs on an ended pool, begin() masks a guarded failure with CONNECTION_CLOSED, and any … — Measured 2026-09-02 while building the jobs key lock (src/core/db.ts `withKeyLock`) against postgres.js 3.4.9: - `sql.reserve()` on a pool after `sql.end()` HANGS forever when the pool never connected, and resolves a dead connection when it had.
-- A fixture-replay path must not be selected by reading process.env below the composition root — Trigger: an increment whose plan adds a replay or fixture-backed path through code the product also runs for real.
+### Process
+- dwgread -O JSON names entity classes in LibreDWG's own vocabulary (DIMENSION_LINEAR, POLYLINE_2D, VERTEX_2D, 3DFACE) while dwg2dxf's DXF read by ezdxf says … — Measured 2026-09-02 (LibreDWG 0.13.3, ezdxf 1.4.4) while breaking the cad DWG lane (that increment): a DWG minted with `dxf2dwg` from an ezdxf R2000 DXF holding a linear dimension, a 2D polyline, a 3DFACE, TEXT, CIRCLE, LINE: - `dwgread -O JSON` census …
+- A subprocess budget is measured by the caller; wait for budget-minus-ending so the refusal lands strictly within timeout_seconds, and spell the budget as the … — On the cad DWG lane (that increment, 2026-09-02) `Popen.wait(timeout=budget)` ended the invocation ~2 ms *after* `timeout_seconds` (2.002 s for 2.0), and the timeout refusal spelled `2.0` as `2s` via `:g`.
 <!-- builder:lessons:end -->
