@@ -177,6 +177,9 @@ TITLE_STRIP_MM = 30.0
 BORDER_MM = 10.0
 
 RASTER_DPI = 200
+#: The budget for LibreDWG's dxf2dwg (L-CAD-04: an isolated subprocess, generous but bounded); a
+#: converter that wedges is a named refusal, not a stalled lane.
+DXF2DWG_TIMEOUT_SECONDS = 120.0
 SKEW_DEG = 0.6
 NOISE_SEED = 20260903
 NOISE_FRACTION = 0.002
@@ -855,9 +858,18 @@ def mint_dwg(dxf_path: Path, scratch: Path) -> bytes:
     if program is None:
         raise RuntimeError("dxf2dwg (LibreDWG) is not on PATH; the DWG cannot be minted")
     target = scratch / "rcc6.dwg"
-    run = subprocess.run(
-        [program, "-y", "-o", str(target), str(dxf_path)], capture_output=True, text=True, check=False
-    )
+    try:
+        run = subprocess.run(
+            [program, "-y", "-o", str(target), str(dxf_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=DXF2DWG_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as expired:
+        raise RuntimeError(
+            f"dxf2dwg outran its {DXF2DWG_TIMEOUT_SECONDS:g}s budget minting the DWG and was stopped"
+        ) from expired
     if not target.is_file() or target.stat().st_size == 0:
         raise RuntimeError(f"dxf2dwg wrote no drawing (exit {run.returncode}): {run.stderr.strip()[-2000:]}")
     return target.read_bytes()
@@ -901,16 +913,16 @@ def paint_text(pdf: canvas.Canvas, s: str, x: float, y: float, size: float, cent
         pdf.drawString(x, y, s)
 
 
-def paint(pdf: canvas.Canvas, scene: Scene, fit: Fit, blocks: dict[str, Scene]) -> None:
+def paint(pdf: canvas.Canvas, scene: Scene, place: Fit, blocks: dict[str, Scene]) -> None:
     """Paint a scene on the current page; the same primitives the DXF placed."""
     for item in scene.items:
         kind = item[0]
         if kind == "LINE":
-            (ax, ay), (bx, by) = fit(item[1]), fit(item[2])
+            (ax, ay), (bx, by) = place(item[1]), place(item[2])
             pdf.line(ax, ay, bx, by)
         elif kind == "LWPOLYLINE":
             path = pdf.beginPath()
-            points = [fit(p) for p in item[1]]
+            points = [place(p) for p in item[1]]
             path.moveTo(*points[0])
             for p in points[1:]:
                 path.lineTo(*p)
@@ -918,19 +930,19 @@ def paint(pdf: canvas.Canvas, scene: Scene, fit: Fit, blocks: dict[str, Scene]) 
                 path.close()
             pdf.drawPath(path, stroke=1, fill=0)
         elif kind == "CIRCLE":
-            (cx, cy), r = fit(item[1]), fit.length(item[2])
+            (cx, cy), r = place(item[1]), place.length(item[2])
             pdf.circle(cx, cy, r, stroke=1, fill=0)
         elif kind == "ARC":
-            (cx, cy), r = fit(item[1]), fit.length(item[2])
+            (cx, cy), r = place(item[1]), place.length(item[2])
             pdf.arc(cx - r, cy - r, cx + r, cy + r, item[3], item[4] - item[3])
         elif kind == "TEXT":
             _, s, p, h, centred, _ = item
-            x, y = fit(p)
-            paint_text(pdf, s, x, y, fit.length(h), centred)
+            x, y = place(p)
+            paint_text(pdf, s, x, y, place.length(h), centred)
         elif kind == "MTEXT":
             _, lines, p, h, _, _ = item
-            x, y = fit(p)
-            size = fit.length(h)
+            x, y = place(p)
+            size = place.length(h)
             for n, line in enumerate(lines):
                 paint_text(pdf, line, x, y - size * (n + 1) * 1.4, size, False)
         elif kind == "INSERT":
@@ -938,14 +950,14 @@ def paint(pdf: canvas.Canvas, scene: Scene, fit: Fit, blocks: dict[str, Scene]) 
             paint(
                 pdf,
                 blocks[name],
-                Fit(fit.scale, fit.dx + p[0] * fit.scale, fit.dy + p[1] * fit.scale),
+                Fit(place.scale, place.dx + p[0] * place.scale, place.dy + p[1] * place.scale),
                 blocks,
             )
         elif kind == "DIMENSION":
-            paint_dimension(pdf, fit, item)
+            paint_dimension(pdf, place, item)
 
 
-def paint_dimension(pdf: canvas.Canvas, fit: Fit, item: tuple[Any, ...]) -> None:
+def paint_dimension(pdf: canvas.Canvas, place: Fit, item: tuple[Any, ...]) -> None:
     _, p1, p2, base, angle, h, _ = item
     ux, uy = math.cos(math.radians(angle)), math.sin(math.radians(angle))
     nx, ny = -uy, ux
@@ -955,17 +967,17 @@ def paint_dimension(pdf: canvas.Canvas, fit: Fit, item: tuple[Any, ...]) -> None
     b = (a[0] + ux * measure, a[1] + uy * measure)
     tick = h * 0.6
     for start, end in ((p1, a), (p2, b), (a, b)):
-        (sx, sy), (ex, ey) = fit(start), fit(end)
+        (sx, sy), (ex, ey) = place(start), place(end)
         pdf.line(sx, sy, ex, ey)
     for p in (a, b):
         (sx, sy), (ex, ey) = (
-            fit((p[0] - (ux + nx) * tick / 2, p[1] - (uy + ny) * tick / 2)),
-            fit((p[0] + (ux + nx) * tick / 2, p[1] + (uy + ny) * tick / 2)),
+            place((p[0] - (ux + nx) * tick / 2, p[1] - (uy + ny) * tick / 2)),
+            place((p[0] + (ux + nx) * tick / 2, p[1] + (uy + ny) * tick / 2)),
         )
         pdf.line(sx, sy, ex, ey)
     mid = ((a[0] + b[0]) / 2 + nx * h * 0.8, (a[1] + b[1]) / 2 + ny * h * 0.8)
-    x, y = fit(mid)
-    paint_text(pdf, f"{abs(measure):.0f}", x, y, fit.length(h), True)
+    x, y = place(mid)
+    paint_text(pdf, f"{abs(measure):.0f}", x, y, place.length(h), True)
 
 
 def page_size_pt() -> tuple[float, float]:

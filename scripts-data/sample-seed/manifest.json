@@ -9,7 +9,7 @@
   },
   "generator": {
     "path": "fixtures/gen/rcc6.py",
-    "sha256": "2bf2db3fe0ef457735e15539b8b8ce4752f8ae7dc18e8aac5eff64fbe7e02188"
+    "sha256": "23e52e26b435fbb3bd005e3f72e19df486d35c6d3c96e5ffc65009519fcab530"
   },
   "files": [
     {
@@ -90,7 +90,7 @@
     {
       "path": "fixtures/rcc6/manifest.json",
       "format": "MANIFEST",
-      "sha256": "c0620acf96f0fc814bfa6fea4f437150d274b8cdb38f25b249f6776157ddf15b"
+      "sha256": "37ea6b5e1e69a0471e3a09ebf5525685869deec5bb0b637a5e73769a41365032"
     }
   ]
 }

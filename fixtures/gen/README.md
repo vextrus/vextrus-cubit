@@ -31,8 +31,10 @@ uv run --project cad --group fixtures python fixtures/gen/rcc6.py [--out DIR]
 
 `DIR` defaults to `fixtures/rcc6`. The script prints `wrote <path> sha256=<hex>` per file and exits
 0; any failure exits non-zero with the reason on stderr and writes nothing. Its dependencies
-(reportlab, pillow, pypdfium2) live in the cad project's `fixtures` dependency group, which nothing
-shipped depends on.
+(reportlab, pillow, pypdfium2) live in the cad project's `fixtures` dependency group. Nothing in
+`cad/src` imports them: `uv run --group fixtures` leaves the group resident in the shared `cad/.venv`,
+so `cad/tests/sanity/test_fixtures_group.py` scans the app's sources for such an import rather than
+trusting a local run.
 
 The output is deterministic — the same script writes the same bytes — except `rcc6.dwg`, whose
 writer is not byte-stable; `cad/tests/sanity/` judges a regenerated DWG by its LibreDWG census and
