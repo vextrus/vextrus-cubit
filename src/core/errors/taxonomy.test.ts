@@ -35,8 +35,19 @@ const SIGNED_OUT = "SIGNED_OUT";
 /** The two foreign names AC-2 (c) requires the vocabulary table to declare. */
 const FOREIGN_NAMES = ["INTERNAL_SERVER_ERROR", "DATABASE_URL"] as const;
 
-/** Q-07's refusal shape, verbatim from the increment's interfaces. */
+/**
+ * The register scan's orphan-domain shape (Q-07's heuristic for telling an unregistered code from a
+ * SCREAMING constant, not a Bible word). Used here only to pick refusal rows out of a Decision table;
+ * registered codes are admitted by definition, whatever their underscore count.
+ */
 const REFUSAL_SHAPE = /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)+$/;
+
+/**
+ * The shape a registry KEY takes: a SCREAMING identifier. The Bible itself fixes one-word codes
+ * (L-AI-02: UNSOURCED, MALFORMED), so a key owes no underscore — R-SPINE-062 closes the taxonomy
+ * over every code the Bible names, and this predicate admits each of them.
+ */
+const REGISTRY_KEY_SHAPE = /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/;
 
 interface RefusalEntryShape {
   code: string;
@@ -94,7 +105,7 @@ describe("AC-1: the closed registry and its lookup", () => {
       expect(entry, `REFUSALS["${key}"] holds an entry`).toBeTruthy();
       const held = entry as RefusalEntryShape;
       expect(held.code, `REFUSALS["${key}"].code equals its key — the registry is keyed by the code itself`).toBe(key);
-      expect(REFUSAL_SHAPE.test(key), `"${key}" is refusal-shaped (Q-07's literal shape)`).toBe(true);
+      expect(REGISTRY_KEY_SHAPE.test(key), `"${key}" is a refusal code shape (R-SPINE-062; L-AI-02 fixes one-word codes)`).toBe(true);
       expect(nonEmpty(held.message), `${key} carries a non-empty English message (R-SPINE-062)`).toBe(true);
       expect(nonEmpty(held.remedy), `${key} carries a non-empty remedy hint (R-SPINE-062)`).toBe(true);
       expect(SEVERITIES as readonly string[], `${key}'s severity is drawn from the closed set`).toContain(held.severity);
