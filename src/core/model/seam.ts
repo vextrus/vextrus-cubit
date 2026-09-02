@@ -110,7 +110,7 @@ async function answerThroughPort<T>(port: TransportPort, ledger: ModelLedger, ct
 
   if (answer.kind === "refused") {
     // Nothing was spent: the transport answered nothing.
-    await recordThroughSeam(ledger, ctx, route, { ...attribution, outcome: "refused", refusalCode: answer.code, inputTokens: 0, outputTokens: 0, attributedCost: modelCallCost(modelId, 0, 0) });
+    await recordedOrNone(ledger, ctx, route, { ...attribution, outcome: "refused", refusalCode: answer.code, inputTokens: 0, outputTokens: 0, attributedCost: modelCallCost(modelId, 0, 0) });
     throw answer.refusal;
   }
 
@@ -119,7 +119,7 @@ async function answerThroughPort<T>(port: TransportPort, ledger: ModelLedger, ct
   const reading = await readOrFault(read, answer.payload, ledger, ctx, route, { ...attribution, ...spent });
   if (!reading.ok) {
     // The model answered, so the tokens it spent stay attributed on the refused row (L-AI-02).
-    const callId = await recordThroughSeam(ledger, ctx, route, { ...attribution, ...spent, outcome: "refused", refusalCode: reading.code });
+    const callId = await recordedOrNone(ledger, ctx, route, { ...attribution, ...spent, outcome: "refused", refusalCode: reading.code });
     throw refusal(reading.code, `the model's answer to request ${hash} was not accepted as a proposal against artifact ${reading.artifactDigest}: ${describe(reading.detail)}`, {
       ...reading.detail,
       callId,
@@ -128,7 +128,7 @@ async function answerThroughPort<T>(port: TransportPort, ledger: ModelLedger, ct
     });
   }
 
-  const { callId } = await ledger.record({ ...attribution, ...spent, outcome: "proposed", refusalCode: null });
+  const callId = await recordThroughSeam(ledger, ctx, route, { ...attribution, ...spent, outcome: "proposed", refusalCode: null });
   return { callId, modelId, requestHash: hash, transport: port.transport, value: reading.value, ...spent };
 }
 
@@ -137,7 +137,10 @@ async function answerThroughPort<T>(port: TransportPort, ledger: ModelLedger, ct
  * the contract, never a refusal (ARCH-03) — cannot swallow the call: the transport already answered
  * and charged, so the call is recorded as the model proposed it (L-AI-01 records every call), the
  * defect crosses the one fault seam under this entry's route (B-21), and the caller hears its own
- * throw unchanged.
+ * throw unchanged. The row reads `proposed` because that is what happened at the model, and the
+ * outcome column spells how the CALL ended: `refused` is the seam's own two judgements — the
+ * transport's refusal and a failed reading. That the caller was handed nothing is the fault
+ * record's to tell, which is why one is written under the same route and request id (B-21).
  */
 async function readOrFault<T>(
   read: Reading<T>,
@@ -150,25 +153,38 @@ async function readOrFault<T>(
   try {
     return read(payload);
   } catch (failure) {
-    await recordThroughSeam(ledger, ctx, route, { ...attributed, outcome: "proposed", refusalCode: null });
+    await recordedOrNone(ledger, ctx, route, { ...attributed, outcome: "proposed", refusalCode: null });
     reportFault({ requestId: ctx.requestId, actor: ctx.actor, route, cause: failure });
     throw failure;
   }
 }
 
 /**
- * The row, written before the caller hears the outcome. The outcome happened whether or not the
- * ledger could take it: a failed write is a fault of its own (ARCH-03), recorded once under the
- * entry the caller used, and the caller still hears the answer (B-21) — with no call id, since none
- * was issued.
+ * The row, written before the caller hears the outcome. A failed write is a fault of its own
+ * (ARCH-03), recorded once under the entry the caller used — every path's write crosses here, the
+ * proposed row included. A call that could not be recorded is no answer: L-AI-01 records every
+ * call, and the id a Proposal and a ModelAnswer carry is the ledger's own, so the caller hears the
+ * write's failure rather than an answer that names no call.
  */
-async function recordThroughSeam(ledger: ModelLedger, ctx: ModelCallContext, route: string, row: ModelLedgerRow): Promise<string | null> {
+async function recordThroughSeam(ledger: ModelLedger, ctx: ModelCallContext, route: string, row: ModelLedgerRow): Promise<string> {
   try {
     return (await ledger.record(row)).callId;
   } catch (failure) {
     reportFault({ requestId: ctx.requestId, actor: ctx.actor, route, cause: failure });
-    return null;
+    throw failure;
   }
+}
+
+/**
+ * The same write on a path that already holds the caller's answer — a refusal to throw, or the
+ * caller's own defect (B-21). The fault is recorded by the write above; here it ends, and the
+ * answer the caller is owed reaches it with no call id, since none was issued.
+ */
+async function recordedOrNone(ledger: ModelLedger, ctx: ModelCallContext, route: string, row: ModelLedgerRow): Promise<string | null> {
+  return recordThroughSeam(ledger, ctx, route, row).then(
+    (callId) => callId,
+    () => null,
+  );
 }
 
 /** How much of one model-supplied fact the operator's message carries before it is clipped. */
