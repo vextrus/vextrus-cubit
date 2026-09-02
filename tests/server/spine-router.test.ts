@@ -37,7 +37,12 @@ describe("AC-2: the tRPC root, its lanes and its context", () => {
   });
 
   test("AC-2: each lane is defined in its own file under src/server/routers/ and mounted from there", async () => {
-    const { appRouter } = await loadRoot();
+    const { appRouter, lanes } = await loadRoot();
+    // The lanes' identity is read from its public home (`lanes`) and proved through the procedures
+    // the root dispatches — tRPC's private `_def.record` is the factory's own copy and is nobody
+    // else's to read or write (ARCH-02).
+    const proceduresOf = (value: unknown): Record<string, unknown> => (value as { _def?: { procedures?: Record<string, unknown> } })._def?.procedures ?? {};
+    const table = (lanes ?? {}) as Record<string, unknown>;
 
     for (const lane of LANES) {
       const relative = `${ROUTERS_DIR}/${lane}.ts`;
@@ -48,12 +53,18 @@ describe("AC-2: the tRPC root, its lanes and its context", () => {
       const laneRouters = Object.values(laneModule).filter((value) => isRouterLike(value));
       expect(laneRouters.length, `${relative} exports no tRPC router`).toBeGreaterThan(0);
 
-      const mountedAt = appRouter._def?.record?.[lane] ?? (appRouter as unknown as Record<string, unknown>)[lane];
-      expect(isRouterLike(mountedAt), `appRouter.${lane} is not a router`).toBe(true);
+      const held = table[lane];
+      expect(isRouterLike(held), `lanes.${lane} is not a router`).toBe(true);
       expect(
-        laneRouters.some((candidate) => Object.is(candidate, mountedAt)),
-        `appRouter mounts something other than the router exported by ${relative} — the lane must be composed from its own file, not re-declared at the root`,
+        laneRouters.some((candidate) => Object.is(candidate, held)),
+        `lanes.${lane} is something other than the router exported by ${relative} — the lane must be composed from its own file, not re-declared at the root`,
       ).toBe(true);
+      for (const path of Object.keys(proceduresOf(held))) {
+        expect(
+          Object.is(proceduresOf(appRouter)[`${lane}.${path}`], proceduresOf(held)[path]),
+          `appRouter dispatches something other than ${relative}'s own procedure for ${lane}.${path}`,
+        ).toBe(true);
+      }
     }
   });
 
