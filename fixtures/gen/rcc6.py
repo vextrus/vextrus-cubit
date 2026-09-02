@@ -317,7 +317,9 @@ def draw_section_markers(scene: Scene) -> None:
     for x, start in ((xs[0] - 3800, 90.0), (xs[-1] + 3800, 270.0)):
         scene.arc((x, y), 500, start, start + 180, "S-TEXT")
         scene.line((x, y - 500), (x, y + 500), "S-TEXT")
-        scene.text("A", (x, y), 400, centred=True)
+        # "A-A", never a bare letter: a bare letter inside a round mark is the grid-axis signature
+        # (L-CAD-07), and a section cut must not read as a seventh axis A.
+        scene.text("A-A", (x, y), 300, centred=True)
 
 
 def caption(scene: Scene, title: str, note: str) -> None:

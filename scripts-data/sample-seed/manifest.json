@@ -9,43 +9,43 @@
   },
   "generator": {
     "path": "fixtures/gen/rcc6.py",
-    "sha256": "3db0f7704d800ea3eb695fe16111489a9079fbf41f3788728673ecb86ee033c4"
+    "sha256": "2bf2db3fe0ef457735e15539b8b8ce4752f8ae7dc18e8aac5eff64fbe7e02188"
   },
   "files": [
     {
       "path": "fixtures/rcc6/rcc6.dxf",
       "format": "DXF",
-      "sha256": "0c07f86725e878749cb58e9cf602ad63d91644f6e2a9997010f4c643704bad0f"
+      "sha256": "e7bd56b8b87f82ea99febd6acdd105c06a17addefdbb3a1afea35510dd1fa303"
     },
     {
       "path": "fixtures/rcc6/rcc6.dwg",
       "format": "DWG",
-      "sha256": "cb13b7fa2b563a68b83eed88fb53cfdaf54a4dd44e75d826dc02a385fcc6959c"
+      "sha256": "88b665a0dbe5baf2860c38c50401427240a7e05cac896611b495c72a1aaab4c9"
     },
     {
       "path": "fixtures/rcc6/rcc6.pdf",
       "format": "VECTOR_PDF",
-      "sha256": "41ced34c5b4893e337b5ce0afb88f4850f7318f5e05256d8b0f1a63a85e06032"
+      "sha256": "7222171d745b22a296c9cd96175f6e4e28a307d46b9c3e57c75928c413dd53ec"
     },
     {
       "path": "fixtures/rcc6/rcc6.raster.pdf",
       "format": "RASTER_PDF",
-      "sha256": "f89f804eb8df8aa7ce27ab6992c4e6ffe5d736b8e52cd842ec4a8dbbffee781c"
+      "sha256": "3a3037aa313a7dee1615b0636f67bc600a2d43a67d69d9fd9d238ba2f322f2b2"
     },
     {
       "path": "fixtures/rcc6/raster/foundation-plan.png",
       "format": "RASTER_PNG",
-      "sha256": "c46a45a6153d4ae07f4ad86fc59aa66744e4b2c94667b8e76bcbd1c43abbd700"
+      "sha256": "9006e42d0a77325211f2a31e14e4d156f522f7c5c2175da137432116609adb56"
     },
     {
       "path": "fixtures/rcc6/raster/typical-floor-plan.png",
       "format": "RASTER_PNG",
-      "sha256": "8e3edd844b28cf89c1690bbc3c0c0a15863a5d0c2d39dda8034c4511db90dcc2"
+      "sha256": "f3a852fb93ed431f884682ec116ed3066835248b3d8ca85e46b6cddc22e56670"
     },
     {
       "path": "fixtures/rcc6/raster/roof-plan.png",
       "format": "RASTER_PNG",
-      "sha256": "57908b59fe35d4f49cb9c62fbf450fc94ef25bf303b450638ff1c6514c52c031"
+      "sha256": "832c1a4e1c22e1a5eb5f9b1aaa7ad4039249523081fa74d3f1ed9dd96722e6b8"
     },
     {
       "path": "fixtures/rcc6/raster/column-schedule.png",
@@ -90,7 +90,7 @@
     {
       "path": "fixtures/rcc6/manifest.json",
       "format": "MANIFEST",
-      "sha256": "1969aa93b0a59d2c84d3996d83af51f0ac61c5cd4bd8820f291677896a6c158a"
+      "sha256": "c0620acf96f0fc814bfa6fea4f437150d274b8cdb38f25b249f6776157ddf15b"
     }
   ]
 }
