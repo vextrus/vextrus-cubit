@@ -1,0 +1,325 @@
+{
+  "levels": [
+    {
+      "name": "FDN",
+      "storey_height_m": 1.5
+    },
+    {
+      "name": "GF",
+      "storey_height_m": 3.0
+    },
+    {
+      "name": "1F",
+      "storey_height_m": 3.0
+    },
+    {
+      "name": "2F",
+      "storey_height_m": 3.0
+    },
+    {
+      "name": "3F",
+      "storey_height_m": 3.0
+    },
+    {
+      "name": "4F",
+      "storey_height_m": 3.0
+    },
+    {
+      "name": "5F",
+      "storey_height_m": 3.0
+    },
+    {
+      "name": "ROOF",
+      "storey_height_m": 2.4
+    }
+  ],
+  "grid": {
+    "letters": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F"
+    ],
+    "numerals": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6"
+    ],
+    "x_mm": [
+      0,
+      4500,
+      9000,
+      13500,
+      18000,
+      22500
+    ],
+    "y_mm": [
+      0,
+      4000,
+      8000,
+      12000,
+      16000,
+      20000
+    ]
+  },
+  "columns": [
+    {
+      "mark": "C1",
+      "b_mm": 300,
+      "d_mm": 300,
+      "count": 4,
+      "levels": [
+        "GF",
+        "1F",
+        "2F",
+        "3F",
+        "4F",
+        "5F"
+      ]
+    },
+    {
+      "mark": "C2",
+      "b_mm": 300,
+      "d_mm": 450,
+      "count": 16,
+      "levels": [
+        "GF",
+        "1F",
+        "2F",
+        "3F",
+        "4F",
+        "5F"
+      ]
+    },
+    {
+      "mark": "C3",
+      "b_mm": 350,
+      "d_mm": 500,
+      "count": 12,
+      "levels": [
+        "GF",
+        "1F",
+        "2F",
+        "3F",
+        "4F",
+        "5F"
+      ]
+    },
+    {
+      "mark": "C4",
+      "b_mm": 400,
+      "d_mm": 600,
+      "count": 4,
+      "levels": [
+        "GF",
+        "1F",
+        "2F",
+        "3F",
+        "4F",
+        "5F",
+        "ROOF"
+      ]
+    }
+  ],
+  "beams": [
+    {
+      "mark": "B1",
+      "b_mm": 250,
+      "d_mm": 450,
+      "span_m": 4.5,
+      "count": 10,
+      "levels": [
+        "1F",
+        "2F",
+        "3F",
+        "4F",
+        "5F",
+        "ROOF"
+      ]
+    },
+    {
+      "mark": "B2",
+      "b_mm": 250,
+      "d_mm": 500,
+      "span_m": 4.5,
+      "count": 20,
+      "levels": [
+        "1F",
+        "2F",
+        "3F",
+        "4F",
+        "5F",
+        "ROOF"
+      ]
+    },
+    {
+      "mark": "B3",
+      "b_mm": 250,
+      "d_mm": 450,
+      "span_m": 4.0,
+      "count": 10,
+      "levels": [
+        "1F",
+        "2F",
+        "3F",
+        "4F",
+        "5F",
+        "ROOF"
+      ]
+    },
+    {
+      "mark": "B4",
+      "b_mm": 250,
+      "d_mm": 500,
+      "span_m": 4.0,
+      "count": 20,
+      "levels": [
+        "1F",
+        "2F",
+        "3F",
+        "4F",
+        "5F",
+        "ROOF"
+      ]
+    },
+    {
+      "mark": "B5",
+      "b_mm": 300,
+      "d_mm": 600,
+      "span_m": 4.5,
+      "count": 4,
+      "levels": [
+        "1F",
+        "2F",
+        "3F",
+        "4F",
+        "5F"
+      ]
+    },
+    {
+      "mark": "B6",
+      "b_mm": 200,
+      "d_mm": 400,
+      "span_m": 4.0,
+      "count": 5,
+      "levels": [
+        "1F",
+        "2F",
+        "3F",
+        "4F",
+        "5F"
+      ]
+    }
+  ],
+  "slab": [
+    {
+      "level": "GF",
+      "area_m2": 450.0,
+      "openings_m2": 15.25,
+      "thickness_mm": 125
+    },
+    {
+      "level": "1F",
+      "area_m2": 450.0,
+      "openings_m2": 15.25,
+      "thickness_mm": 150
+    },
+    {
+      "level": "2F",
+      "area_m2": 450.0,
+      "openings_m2": 15.25,
+      "thickness_mm": 150
+    },
+    {
+      "level": "3F",
+      "area_m2": 450.0,
+      "openings_m2": 15.25,
+      "thickness_mm": 150
+    },
+    {
+      "level": "4F",
+      "area_m2": 450.0,
+      "openings_m2": 15.25,
+      "thickness_mm": 150
+    },
+    {
+      "level": "5F",
+      "area_m2": 450.0,
+      "openings_m2": 15.25,
+      "thickness_mm": 150
+    },
+    {
+      "level": "ROOF",
+      "area_m2": 450.0,
+      "openings_m2": 4.0,
+      "thickness_mm": 150
+    }
+  ],
+  "footings": [
+    {
+      "mark": "F1",
+      "l_mm": 1500,
+      "b_mm": 1500,
+      "depth_mm": 450,
+      "count": 4
+    },
+    {
+      "mark": "F2",
+      "l_mm": 1800,
+      "b_mm": 1800,
+      "depth_mm": 500,
+      "count": 8
+    },
+    {
+      "mark": "F3",
+      "l_mm": 2100,
+      "b_mm": 2100,
+      "depth_mm": 550,
+      "count": 12
+    },
+    {
+      "mark": "F4",
+      "l_mm": 1800,
+      "b_mm": 2100,
+      "depth_mm": 500,
+      "count": 8
+    }
+  ],
+  "pile_caps": [
+    {
+      "mark": "PC1",
+      "l_mm": 2400,
+      "b_mm": 2400,
+      "depth_mm": 900,
+      "count": 2
+    },
+    {
+      "mark": "PC2",
+      "l_mm": 3000,
+      "b_mm": 2400,
+      "depth_mm": 900,
+      "count": 2
+    }
+  ],
+  "tie_beams": [
+    {
+      "mark": "TB1",
+      "b_mm": 250,
+      "d_mm": 400,
+      "span_m": 4.5,
+      "count": 30
+    },
+    {
+      "mark": "TB2",
+      "b_mm": 250,
+      "d_mm": 400,
+      "span_m": 4.0,
+      "count": 30
+    }
+  ]
+}

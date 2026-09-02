@@ -1,0 +1,374 @@
+{
+  "fixture": "F-RCC6",
+  "provenance": "HAND_FROM_AUTHORED_SOURCE",
+  "rows": [
+    {
+      "class": "FOOTING",
+      "kind": "RCC_CONCRETE",
+      "level": "FDN",
+      "quantity": "61.236",
+      "unit": "m3",
+      "formula": "sum(count * l * b * depth)"
+    },
+    {
+      "class": "FOOTING",
+      "kind": "FORMWORK",
+      "level": "FDN",
+      "quantity": "126.240",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (l + b) * depth)"
+    },
+    {
+      "class": "PILE_CAP",
+      "kind": "RCC_CONCRETE",
+      "level": "FDN",
+      "quantity": "23.328",
+      "unit": "m3",
+      "formula": "sum(count * l * b * depth)"
+    },
+    {
+      "class": "PILE_CAP",
+      "kind": "FORMWORK",
+      "level": "FDN",
+      "quantity": "36.720",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (l + b) * depth)"
+    },
+    {
+      "class": "TIE_BEAM",
+      "kind": "RCC_CONCRETE",
+      "level": "FDN",
+      "quantity": "25.500",
+      "unit": "m3",
+      "formula": "sum(count * b * d * span)"
+    },
+    {
+      "class": "TIE_BEAM",
+      "kind": "FORMWORK",
+      "level": "FDN",
+      "quantity": "267.750",
+      "unit": "m2",
+      "formula": "sum(count * (2 * d + b) * span)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "GF",
+      "quantity": "16.740",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "1F",
+      "quantity": "16.740",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "2F",
+      "quantity": "16.740",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "3F",
+      "quantity": "16.740",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "4F",
+      "quantity": "16.740",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "5F",
+      "quantity": "16.740",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "ROOF",
+      "quantity": "2.304",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "GF",
+      "quantity": "171.600",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "1F",
+      "quantity": "171.600",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "2F",
+      "quantity": "171.600",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "3F",
+      "quantity": "171.600",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "4F",
+      "quantity": "171.600",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "5F",
+      "quantity": "171.600",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "ROOF",
+      "quantity": "19.200",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    },
+    {
+      "class": "BEAM",
+      "kind": "RCC_CONCRETE",
+      "level": "1F",
+      "quantity": "35.652",
+      "unit": "m3",
+      "formula": "sum(count * b * d * span)"
+    },
+    {
+      "class": "BEAM",
+      "kind": "RCC_CONCRETE",
+      "level": "2F",
+      "quantity": "35.652",
+      "unit": "m3",
+      "formula": "sum(count * b * d * span)"
+    },
+    {
+      "class": "BEAM",
+      "kind": "RCC_CONCRETE",
+      "level": "3F",
+      "quantity": "35.652",
+      "unit": "m3",
+      "formula": "sum(count * b * d * span)"
+    },
+    {
+      "class": "BEAM",
+      "kind": "RCC_CONCRETE",
+      "level": "4F",
+      "quantity": "35.652",
+      "unit": "m3",
+      "formula": "sum(count * b * d * span)"
+    },
+    {
+      "class": "BEAM",
+      "kind": "RCC_CONCRETE",
+      "level": "5F",
+      "quantity": "35.652",
+      "unit": "m3",
+      "formula": "sum(count * b * d * span)"
+    },
+    {
+      "class": "BEAM",
+      "kind": "RCC_CONCRETE",
+      "level": "ROOF",
+      "quantity": "30.812",
+      "unit": "m3",
+      "formula": "sum(count * b * d * span)"
+    },
+    {
+      "class": "BEAM",
+      "kind": "FORMWORK",
+      "level": "1F",
+      "quantity": "357.250",
+      "unit": "m2",
+      "formula": "sum(count * (2 * d + b) * span)"
+    },
+    {
+      "class": "BEAM",
+      "kind": "FORMWORK",
+      "level": "2F",
+      "quantity": "357.250",
+      "unit": "m2",
+      "formula": "sum(count * (2 * d + b) * span)"
+    },
+    {
+      "class": "BEAM",
+      "kind": "FORMWORK",
+      "level": "3F",
+      "quantity": "357.250",
+      "unit": "m2",
+      "formula": "sum(count * (2 * d + b) * span)"
+    },
+    {
+      "class": "BEAM",
+      "kind": "FORMWORK",
+      "level": "4F",
+      "quantity": "357.250",
+      "unit": "m2",
+      "formula": "sum(count * (2 * d + b) * span)"
+    },
+    {
+      "class": "BEAM",
+      "kind": "FORMWORK",
+      "level": "5F",
+      "quantity": "357.250",
+      "unit": "m2",
+      "formula": "sum(count * (2 * d + b) * span)"
+    },
+    {
+      "class": "BEAM",
+      "kind": "FORMWORK",
+      "level": "ROOF",
+      "quantity": "310.250",
+      "unit": "m2",
+      "formula": "sum(count * (2 * d + b) * span)"
+    },
+    {
+      "class": "SLAB",
+      "kind": "RCC_CONCRETE",
+      "level": "GF",
+      "quantity": "54.344",
+      "unit": "m3",
+      "formula": "(area - openings) * thickness"
+    },
+    {
+      "class": "SLAB",
+      "kind": "RCC_CONCRETE",
+      "level": "1F",
+      "quantity": "65.212",
+      "unit": "m3",
+      "formula": "(area - openings) * thickness"
+    },
+    {
+      "class": "SLAB",
+      "kind": "RCC_CONCRETE",
+      "level": "2F",
+      "quantity": "65.212",
+      "unit": "m3",
+      "formula": "(area - openings) * thickness"
+    },
+    {
+      "class": "SLAB",
+      "kind": "RCC_CONCRETE",
+      "level": "3F",
+      "quantity": "65.212",
+      "unit": "m3",
+      "formula": "(area - openings) * thickness"
+    },
+    {
+      "class": "SLAB",
+      "kind": "RCC_CONCRETE",
+      "level": "4F",
+      "quantity": "65.212",
+      "unit": "m3",
+      "formula": "(area - openings) * thickness"
+    },
+    {
+      "class": "SLAB",
+      "kind": "RCC_CONCRETE",
+      "level": "5F",
+      "quantity": "65.212",
+      "unit": "m3",
+      "formula": "(area - openings) * thickness"
+    },
+    {
+      "class": "SLAB",
+      "kind": "RCC_CONCRETE",
+      "level": "ROOF",
+      "quantity": "66.900",
+      "unit": "m3",
+      "formula": "(area - openings) * thickness"
+    },
+    {
+      "class": "SLAB",
+      "kind": "FORMWORK",
+      "level": "GF",
+      "quantity": "434.750",
+      "unit": "m2",
+      "formula": "area - openings"
+    },
+    {
+      "class": "SLAB",
+      "kind": "FORMWORK",
+      "level": "1F",
+      "quantity": "434.750",
+      "unit": "m2",
+      "formula": "area - openings"
+    },
+    {
+      "class": "SLAB",
+      "kind": "FORMWORK",
+      "level": "2F",
+      "quantity": "434.750",
+      "unit": "m2",
+      "formula": "area - openings"
+    },
+    {
+      "class": "SLAB",
+      "kind": "FORMWORK",
+      "level": "3F",
+      "quantity": "434.750",
+      "unit": "m2",
+      "formula": "area - openings"
+    },
+    {
+      "class": "SLAB",
+      "kind": "FORMWORK",
+      "level": "4F",
+      "quantity": "434.750",
+      "unit": "m2",
+      "formula": "area - openings"
+    },
+    {
+      "class": "SLAB",
+      "kind": "FORMWORK",
+      "level": "5F",
+      "quantity": "434.750",
+      "unit": "m2",
+      "formula": "area - openings"
+    },
+    {
+      "class": "SLAB",
+      "kind": "FORMWORK",
+      "level": "ROOF",
+      "quantity": "446.000",
+      "unit": "m2",
+      "formula": "area - openings"
+    }
+  ]
+}

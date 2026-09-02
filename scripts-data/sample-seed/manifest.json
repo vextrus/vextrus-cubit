@@ -1,0 +1,96 @@
+{
+  "label": "SAMPLE",
+  "fixture": "F-RCC6",
+  "project": {
+    "name": "SAMPLE: six-storey RCC residential building",
+    "code": "SAMPLE-RCC6",
+    "buildingType": "residential",
+    "storeys": 6
+  },
+  "generator": {
+    "path": "fixtures/gen/rcc6.py",
+    "sha256": "3e0714658ea51d589c484fe1f21f3e728c1db05268b900780f82e2090f7b0526"
+  },
+  "files": [
+    {
+      "path": "fixtures/rcc6/rcc6.dxf",
+      "format": "DXF",
+      "sha256": "a64c59aee68dfdc1f2e1bf1edf9aa137a0b1b71f97049bfe6201c6d9f0478974"
+    },
+    {
+      "path": "fixtures/rcc6/rcc6.dwg",
+      "format": "DWG",
+      "sha256": "031e2e42cde7506c1606492eb96c5109adfc6e57c05113b9fcec1aff2d1c8907"
+    },
+    {
+      "path": "fixtures/rcc6/rcc6.pdf",
+      "format": "VECTOR_PDF",
+      "sha256": "41ced34c5b4893e337b5ce0afb88f4850f7318f5e05256d8b0f1a63a85e06032"
+    },
+    {
+      "path": "fixtures/rcc6/rcc6.raster.pdf",
+      "format": "RASTER_PDF",
+      "sha256": "f89f804eb8df8aa7ce27ab6992c4e6ffe5d736b8e52cd842ec4a8dbbffee781c"
+    },
+    {
+      "path": "fixtures/rcc6/raster/foundation-plan.png",
+      "format": "RASTER_PNG",
+      "sha256": "c46a45a6153d4ae07f4ad86fc59aa66744e4b2c94667b8e76bcbd1c43abbd700"
+    },
+    {
+      "path": "fixtures/rcc6/raster/typical-floor-plan.png",
+      "format": "RASTER_PNG",
+      "sha256": "8e3edd844b28cf89c1690bbc3c0c0a15863a5d0c2d39dda8034c4511db90dcc2"
+    },
+    {
+      "path": "fixtures/rcc6/raster/roof-plan.png",
+      "format": "RASTER_PNG",
+      "sha256": "57908b59fe35d4f49cb9c62fbf450fc94ef25bf303b450638ff1c6514c52c031"
+    },
+    {
+      "path": "fixtures/rcc6/raster/column-schedule.png",
+      "format": "RASTER_PNG",
+      "sha256": "0bbe0c064def035f70816baf7394857660dbd705e029be2996f2700e340d0dac"
+    },
+    {
+      "path": "fixtures/rcc6/raster/beam-schedule.png",
+      "format": "RASTER_PNG",
+      "sha256": "b20b3b65b5e0dc857bc23a86048440533ed31b94185f34de7895d2eb93e5f8ae"
+    },
+    {
+      "path": "fixtures/rcc6/raster/footing-schedule.png",
+      "format": "RASTER_PNG",
+      "sha256": "9628ec343f8fdc46733a14bd61d7236a4c06a1be86143ec6e90db1573a912ef0"
+    },
+    {
+      "path": "fixtures/rcc6/raster/sections.png",
+      "format": "RASTER_PNG",
+      "sha256": "c3d77f90b8a7bc96ef950b570242be3620e2512726556a37d979ba56965afad1"
+    },
+    {
+      "path": "fixtures/rcc6/raster/general-notes.png",
+      "format": "RASTER_PNG",
+      "sha256": "bc56781d40f945125078a3069bd1aced9674c06eb419311391cff5390e4ea5b2"
+    },
+    {
+      "path": "fixtures/rcc6/takeoff.golden.json",
+      "format": "GOLDEN",
+      "sha256": "3074f41cecf3b2f96c0a43778b822cfe57443ad634e2516159f78f8f8ba2ccf0"
+    },
+    {
+      "path": "fixtures/rcc6/inputs.json",
+      "format": "INPUTS",
+      "sha256": "535de07f2fa952dd5df47e63987e22a034e48ea73493c699e3b7e256298452b1"
+    },
+    {
+      "path": "fixtures/rcc6/sanity.json",
+      "format": "SANITY",
+      "sha256": "a7eef449b5dfcffb93c6d61543bfc518c6a17271414396d2b9895ccefec7c87c"
+    },
+    {
+      "path": "fixtures/rcc6/manifest.json",
+      "format": "MANIFEST",
+      "sha256": "3ecc938c2b355e8b95df48cb97d49ca34d7ec6ab9f49a7738936164487f651f7"
+    }
+  ]
+}
