@@ -45,7 +45,8 @@ export type RefusalCode =
   | "WORKSPACE_WOULD_HAVE_NO_OWNER"
   | "ORIGIN_NOT_VERIFIED"
   | "MEMBER_HAS_ACTS"
-  | "INVITATION_NOT_CLAIMABLE";
+  | "INVITATION_NOT_CLAIMABLE"
+  | "FIXTURE_MISSING";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -222,6 +223,15 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     code: "INVITATION_NOT_CLAIMABLE",
     message: "This invitation cannot be accepted — it was never issued, has already been accepted, or was withdrawn.",
     remedy: "Ask an owner of that workspace to send a fresh invitation to the address you are signed in with.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-AI-01: under the fixture transport a request nobody recorded an answer for is refused, never
+  // sent to a provider — verify is network-free, and the refusal is a ledger row like any other.
+  FIXTURE_MISSING: Object.freeze({
+    code: "FIXTURE_MISSING",
+    message: "No recorded model answer exists for this request, so it was not carried out.",
+    remedy: "Record the model's answer for this request, then try it again.",
     severity: "error",
     surface: "inline",
   }),
