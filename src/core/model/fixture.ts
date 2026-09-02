@@ -4,9 +4,13 @@
 // corpus defect — a plain failure, not a refusal and not a row (B-21).
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { RefusalCode } from "../errors";
 import { refusal } from "../faults/refusal-marker";
 import { tokenCount } from "../model-ledger.types";
 import type { JsonValue, ModelFixture, ModelRequest, TransportAnswer, TransportPort } from "./types";
+
+/** The one code this transport answers with, read off the closed taxonomy (R-SPINE-062, Q-07). */
+const FIXTURE_MISSING: RefusalCode = "FIXTURE_MISSING";
 
 /** A transport over one fixture root. */
 export function fixtureTransport(fixtureRoot: string): TransportPort {
@@ -20,9 +24,8 @@ export function fixtureTransport(fixtureRoot: string): TransportPort {
         // The refusal names the request and the file it would be filed as, never the root: where the
         // corpus lives on this machine is the operator's business, and a refusal is shown to callers
         // (B-21, R-SPINE-062).
-        const code = "FIXTURE_MISSING";
-        const missing = refusal(code, `no recorded model answer exists for request ${hash} — none is filed as ${fileName} under the fixture root`, { requestHash: hash });
-        return { kind: "refused", code, refusal: missing };
+        const missing = refusal(FIXTURE_MISSING, `no recorded model answer exists for request ${hash} — none is filed as ${fileName} under the fixture root`, { requestHash: hash });
+        return { kind: "refused", code: FIXTURE_MISSING, refusal: missing };
       }
       const fixture = parseFixture(text, file, request, hash);
       return { kind: "answered", payload: fixture.payload, inputTokens: fixture.inputTokens, outputTokens: fixture.outputTokens };
