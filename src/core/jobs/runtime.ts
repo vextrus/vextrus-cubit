@@ -3,9 +3,9 @@
 // One runtime per process. Starting it opens the store, declares every kind's queue and — because a
 // queue nothing consumes is a queue that never answers — subscribes this process to each of them.
 // A process that only enqueues or only reads the log gets the same runtime without consumers, so
-// importing the seam still costs no connection at all. Such a runtime supervises nothing, but it
-// still provisions what it writes to: the first enqueue against a database no worker has started on
-// makes the storage it needs, rather than failing on tables nobody has made yet.
+// importing the seam still costs no connection at all. Such a runtime manages nothing: it enqueues
+// against a database a managing runtime provisioned, and against one none ever has it fails with a
+// fault id rather than migrating storage it does not manage (R-SPINE-031).
 //
 // The durable per-step log is the whole of "a job never fails silently": every attempt records its
 // start, its steps and how it ended, and a terminal failure that is not a refusal carries the fault
@@ -15,17 +15,15 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { jobsStore, type JobEventRow, type JobsStore, type QueuedJob } from "../db";
+import { jobsStore, type ClaimCursor, type JobEventDraft, type JobEventRow, type JobsStore, type QueuedJob } from "../db";
 import { refusalCodeOf } from "../faults/refusal-marker";
 import { reportFault } from "../faults/report";
 import { JOB_KINDS, KIND_NAMES, type JobKind, type JobPayloads } from "./kinds";
 import { runProbe, type JobProgress } from "./probe";
 
-/** How a job's life is recorded, step by step. The last three end it. */
-export type JobStatus = "started" | "progress" | "succeeded" | "refused" | "failed";
+import { TERMINAL_STATUSES, type JobStatus } from "./statuses";
 
-/** The statuses after which nothing more is ever said about a job. */
-export const TERMINAL_STATUSES: ReadonlySet<JobStatus> = new Set<JobStatus>(["succeeded", "refused", "failed"]);
+export { TERMINAL_STATUSES, type JobStatus };
 
 /** One durable record of where a job got to, as the log holds it (R-SPINE-030). */
 export type JobEvent = {
@@ -70,6 +68,17 @@ const SWEEP_MS = 30_000;
 const SWEEP_ROUTE = "job/sweep";
 
 /**
+ * How many held keys one sweep looks over. Bounded so a pass over a log that grew while nobody
+ * swept it ends, and the next pass takes the next batch — from where this one left off, so a
+ * backlog of live claims ahead of an abandoned one never hides it; a claim is released when its
+ * job ends, so the table the sweep reads is only ever as large as the work still open.
+ */
+export const SWEEP_BATCH = 100;
+
+/** How many endings the dead-letter view answers at most, newest first — a view an operator can read. */
+export const DEAD_LETTER_LIMIT = 200;
+
+/**
  * The longest key a job may be enqueued under, in bytes.
  *
  * A key is the primary key of the claim row that makes idempotence work, and a btree entry has a
@@ -88,10 +97,16 @@ type Runtime = {
   url: string;
   store: JobsStore;
   consumers: boolean;
+  /** The kinds the store accepted `consume` for, in the order it accepted them — what this process serves. */
+  served: string[];
   /** Set the moment the runtime is being given back, so a watcher ends rather than breaks. */
   closing: boolean;
   /** The sweep for endings nobody managed to write, on the runtimes that run the work. */
   sweep?: ReturnType<typeof setInterval>;
+  /** Set while a sweep is under way, so a pass that outlives the interval is not joined by a second. */
+  sweeping: boolean;
+  /** Where the last sweep's batch ended, so the next pass reads the claims after it; unset once a pass reaches the end. */
+  sweepAfter?: ClaimCursor;
   /** Who is watching which job, so an appended event wakes a stream instead of a poll finding it. */
   watchers: Map<string, Set<() => void>>;
 };
@@ -145,14 +160,17 @@ function jobEvent(row: JobEventRow): JobEvent {
  */
 async function openRuntime(url: string, consumers: boolean): Promise<Runtime> {
   const store = jobsStore(url);
-  const running: Runtime = { url, store, consumers, closing: false, watchers: new Map() };
+  const running: Runtime = { url, store, consumers, served: [], closing: false, sweeping: false, watchers: new Map() };
   await store.open({ manage: consumers });
   if (consumers) for (const kind of KIND_NAMES) await store.declareQueue(kind, JOB_KINDS[kind]);
   await store.listen((jobId) => {
     for (const wake of running.watchers.get(jobId) ?? []) wake();
   });
   if (consumers) {
-    for (const kind of KIND_NAMES) await store.consume(kind, JOB_KINDS[kind], (job) => perform(running, kind, job));
+    for (const kind of KIND_NAMES) {
+      await store.consume(kind, JOB_KINDS[kind], (job) => perform(running, kind, job));
+      running.served.push(kind);
+    }
     running.sweep = setInterval(() => void sweepAbandoned(running), SWEEP_MS);
     running.sweep.unref();
   }
@@ -229,7 +247,10 @@ export async function enqueue<K extends JobKind>(kind: K, payload: JobPayloads[K
   const key = checkedKey(kind, options.key);
   const running = await runtime();
   const policy = JOB_KINDS[kind];
-  return await running.store.withKeyLock(kind, key, async () => {
+  // Minted before the lock is taken, so a failure of the locking is recorded against the job this
+  // call was making — the id the caller would have been answered with (ARCH-03).
+  const jobId = randomUUID();
+  return await running.store.withKeyLock(kind, key, jobId, async () => {
     const live = await running.store.liveJobFor(kind, key, [...TERMINAL_STATUSES]);
     // A claim whose job the queue is already done with is a job whose ending nobody wrote. It is
     // ended here — and reported — before this call decides whether the key is busy, so an attempt
@@ -241,7 +262,6 @@ export async function enqueue<K extends JobKind>(kind: K, payload: JobPayloads[K
     // leaves a claim naming a job the queue never received, which the settlement above ends and
     // frees. Sending first would leave a job no claim guards, and the key's one-at-a-time promise
     // would be quietly broken instead of recoverably wrong (SEAM-JOBS).
-    const jobId = randomUUID();
     await running.store.claimKey(kind, key, jobId);
     const envelope: Envelope = { key, payload };
     try {
@@ -255,17 +275,24 @@ export async function enqueue<K extends JobKind>(kind: K, payload: JobPayloads[K
 }
 
 /**
- * The key an enqueue may go ahead under. A key longer than the claim row's index can carry is
- * stopped here, before anything is claimed or sent: left to the insert it would be a raw SQLSTATE
- * 54000 out of the driver, an error naming an index rather than the argument that was wrong. It is
- * a failure of the server's side and not a refusal any registered code covers, so it crosses the one
- * fault seam and the caller is given the id it was recorded under (ARCH-03, B-21).
+ * The key an enqueue may go ahead under, judged before anything is claimed or sent. An empty or
+ * blank key names nothing for idempotence to hold on to, and every such enqueue would fold into one
+ * job; a key longer than the claim row's index can carry would be a raw SQLSTATE 54000 out of the
+ * driver at the insert, an error naming an index rather than the argument that was wrong. Either is
+ * a caller's defect on the server's side and not a refusal any registered code covers, so it crosses
+ * the one fault seam and the caller is given the id it was recorded under (ARCH-03, B-21).
  */
 function checkedKey(kind: JobKind, key: string): string {
   const bytes = new TextEncoder().encode(key).length;
-  if (bytes <= MAX_KEY_BYTES) return key;
-  const cause = new Error(`a ${kind} job key is at most ${MAX_KEY_BYTES} bytes; this one is ${bytes} (SEAM-JOBS)`);
-  const { faultId } = reportFault({ requestId: `${kind}:oversized-key`, actor: `${kind}`, route: `job/${kind}`, cause });
+  if (key.trim() === "") return keyDefect(kind, "empty-key", `a ${kind} job key is empty — a job is idempotent on its key, so it needs one (SEAM-JOBS)`);
+  if (bytes > MAX_KEY_BYTES) return keyDefect(kind, "oversized-key", `a ${kind} job key is at most ${MAX_KEY_BYTES} bytes; this one is ${bytes} (SEAM-JOBS)`);
+  return key;
+}
+
+/** A key that cannot be enqueued under, recorded as the fault it is and thrown naming the record. */
+function keyDefect(kind: JobKind, defect: string, message: string): never {
+  const cause = new Error(message);
+  const { faultId } = reportFault({ requestId: `${kind}:${defect}`, actor: `${kind}`, route: `job/${kind}`, cause });
   throw new Error(`${cause.message} — recorded as fault ${faultId}`);
 }
 
@@ -287,7 +314,7 @@ async function settleAbandoned(running: Runtime, kind: JobKind, key: string, job
   if (recorded.some((event) => TERMINAL_STATUSES.has(event.status as JobStatus))) return true;
   const cause = new Error(`job ${jobId} (${kind}) ended in the queue without recording how — its attempt did not survive to write its own ending (R-SPINE-030)`);
   const { faultId } = reportFault({ requestId: jobId, actor: `${kind}:${key}`, route: `job/${kind}`, cause });
-  await running.store.append({
+  await ended(running, {
     jobId,
     kind,
     key,
@@ -303,27 +330,48 @@ async function settleAbandoned(running: Runtime, kind: JobKind, key: string, job
 }
 
 /**
- * Look over every key still held for a job the queue has finished with. Waiting for the next
+ * A job's last word, and the release of its key, in the store's one step: the terminal row lands
+ * only where the log holds no ending yet, and the claim goes with it — so the log never says a job
+ * ended twice, and a key is free the moment its job is over (R-SPINE-030, SEAM-JOBS).
+ */
+async function ended(running: Runtime, draft: JobEventDraft): Promise<void> {
+  await running.store.appendEnding(draft, [...TERMINAL_STATUSES]);
+}
+
+/**
+ * Look over the keys still held for a job the queue has finished with. Waiting for the next
  * enqueue of a key to notice would make "a job never fails silently" mean "unless nobody asks
  * again", so the runtimes that run the work look for themselves, on a timer that never holds the
- * process open.
+ * process open. One pass at a time and one batch per pass: a pass that outlives the interval is
+ * not joined by a second one over the same keys, and a pass ends whatever the log has grown to.
+ * Each pass reads the claims after the last one it looked at, and starts over once a batch comes
+ * back short: a claim behind a batch of live ones is reached by a later pass, not never. The cursor
+ * moves one claim at a time, once that claim has been looked at, so a pass that fails or is closed
+ * part-way leaves the claims it never reached ahead of the cursor for the next one.
  */
 async function sweepAbandoned(running: Runtime): Promise<void> {
-  if (running.closing) return;
+  if (running.closing || running.sweeping) return;
+  running.sweeping = true;
   try {
-    for (const claim of await running.store.liveClaims([...TERMINAL_STATUSES])) {
+    const batch = await running.store.liveClaims([...TERMINAL_STATUSES], SWEEP_BATCH, running.sweepAfter);
+    for (const claim of batch) {
       if (running.closing) return;
-      if (!KIND_NAMES.includes(claim.kind as JobKind)) continue;
-      await running.store.withKeyLock(claim.kind, claim.key, async () => {
-        const live = await running.store.liveJobFor(claim.kind, claim.key, [...TERMINAL_STATUSES]);
-        if (live === claim.jobId) await settleAbandoned(running, claim.kind as JobKind, claim.key, live);
-      });
+      if (KIND_NAMES.includes(claim.kind as JobKind)) {
+        await running.store.withKeyLock(claim.kind, claim.key, claim.jobId, async () => {
+          const live = await running.store.liveJobFor(claim.kind, claim.key, [...TERMINAL_STATUSES]);
+          if (live === claim.jobId) await settleAbandoned(running, claim.kind as JobKind, claim.key, live);
+        });
+      }
+      running.sweepAfter = { kind: claim.kind, key: claim.key };
     }
+    if (batch.length < SWEEP_BATCH) running.sweepAfter = undefined;
   } catch (failure) {
     // The sweep is itself ours to answer for: a pass that could not run is recorded and the next
     // one tries again, rather than becoming an unhandled rejection on a timer (ARCH-03).
     // The database URL carries a password, so the sweep names itself rather than what it reached.
     if (!running.closing) reportFault({ requestId: SWEEP_ROUTE, actor: "sweep", route: SWEEP_ROUTE, cause: failure });
+  } finally {
+    running.sweeping = false;
   }
 }
 
@@ -333,11 +381,12 @@ export type JobsHealth = { ok: boolean; queues: string[] };
 /**
  * Whether this process is really taking work off the queues, and which kinds it is taking.
  *
- * Asked, not assumed: a runtime that was never started, one that is draining, and one whose
- * database has gone away all answer `ok: false` with nothing served, so a supervisor reading the
- * worker's health takes a dead worker out of rotation instead of keeping it (R-SPINE-031). The
- * roster is the kinds this runtime actually consumes rather than the kinds the seam declares —
- * a process that enqueues but consumes nothing serves no queue at all.
+ * Asked, not assumed: `ok` is a round trip to the store made now, so a runtime that was never
+ * started, one that is draining, and one whose database has gone away all answer `ok: false` with
+ * nothing served, and a supervisor reading the worker's health takes a dead worker out of rotation
+ * instead of keeping it (R-SPINE-031). `queues` is the roster this runtime's store accepted
+ * `consume` for, in that order — never the kinds the seam declares: a process that enqueues but
+ * consumes nothing serves no queue at all.
  */
 export async function jobsHealth(): Promise<JobsHealth> {
   const current = holder.current;
@@ -351,7 +400,7 @@ export async function jobsHealth(): Promise<JobsHealth> {
     reportFault({ requestId: "jobs/health", actor: "worker", route: "jobs/health", cause: failure });
     return { ok: false, queues: [] };
   }
-  return { ok: true, queues: [...KIND_NAMES] };
+  return { ok: true, queues: [...running.served] };
 }
 
 /** Everything the log holds about one job, in the order it recorded it. */
@@ -368,7 +417,7 @@ export async function jobEvents(jobId: string): Promise<JobEvent[]> {
  */
 export async function deadLetters(): Promise<DeadLetter[]> {
   const running = await runtime();
-  const rows = await running.store.deadLetterRows(["failed", "refused"]);
+  const rows = await running.store.deadLetterRows(["failed", "refused"], DEAD_LETTER_LIMIT);
   // One entry per job, not per row: the view answers "which jobs ran out of answers", and a job that
   // somehow recorded two endings is still one job an operator has to deal with. The first ending is
   // the one kept — it is the one that says how the job actually went (R-SPINE-030).
@@ -454,19 +503,24 @@ async function perform(running: Runtime, kind: JobKind, job: QueuedJob): Promise
   const tempDir = await mkdtemp(join(tmpdir(), `cubit-job-${kind}-`));
   let lastStep = START_STEP;
 
+  const draft = (status: JobStatus, step: string, extra: Partial<JobEventRow> = {}): JobEventDraft => ({
+    jobId: job.jobId,
+    kind,
+    key,
+    step,
+    status,
+    attempt: job.attempt,
+    refusalCode: extra.refusalCode ?? null,
+    faultId: extra.faultId ?? null,
+    detail: extra.detail ?? null,
+    elapsedMs: status === "started" ? null : Date.now() - startedAtMs,
+  });
+  // A step is appended; an ending goes through the store's one terminal step, so the key is
+  // released with the last word and no second ending can land (R-SPINE-030).
   const write = async (status: JobStatus, step: string, extra: Partial<JobEventRow> = {}): Promise<void> => {
-    await running.store.append({
-      jobId: job.jobId,
-      kind,
-      key,
-      step,
-      status,
-      attempt: job.attempt,
-      refusalCode: extra.refusalCode ?? null,
-      faultId: extra.faultId ?? null,
-      detail: extra.detail ?? null,
-      elapsedMs: status === "started" ? null : Date.now() - startedAtMs,
-    });
+    const row = draft(status, step, extra);
+    if (TERMINAL_STATUSES.has(status)) await ended(running, row);
+    else await running.store.append(row);
   };
 
   const progress: JobProgress = {

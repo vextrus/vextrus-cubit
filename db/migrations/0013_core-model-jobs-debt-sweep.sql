@@ -1,0 +1,1 @@
+ALTER TABLE "model_calls" ADD CONSTRAINT "model_calls_model_id_closed" CHECK ("model_calls"."model_id" in ('claude-opus-5', 'claude-sonnet-5'));

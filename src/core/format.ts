@@ -5,10 +5,11 @@
 // both take one code, because "nearly right" and "not a number" are the same answer to a document.
 //
 // ARCH-03, B-21: a refusal is an answer, not a fault. It travels as the settled core marker — an
-// Error carrying a string `refusalCode`, which `faults/refusal-marker.ts` is the one reader of. The
-// codes themselves belong to the closed taxonomy in `./errors` (R-SPINE-062, ARCH-02) — this seam
-// names two of them and registers none of its own.
-import { refusalOf, type RefusalCode } from "./errors";
+// Error carrying a string `refusalCode`, built and read by `faults/refusal-marker.ts` alone (B-17).
+// The codes themselves belong to the closed taxonomy in `./errors` (R-SPINE-062, ARCH-02) — this
+// seam names two of them and registers none of its own.
+import type { RefusalCode } from "./errors";
+import { refusal } from "./faults/refusal-marker";
 
 /**
  * The document convention (L-FMT-01). `en-IN` is the CLDR locale whose numbering groups the last
@@ -191,16 +192,6 @@ function decimalParts(value: string, shape: RegExp): DecimalParts {
 /** The integer part, grouped lakh/crore in ASCII digits (L-FMT-01). */
 function group(integer: string): string {
   return GROUPING.format(BigInt(integer));
-}
-
-/**
- * An error carrying the core refusal marker `faults/refusal-marker.ts` reads (ARCH-03, B-21). The
- * code is taken from the closed taxonomy (R-SPINE-062): `refusalOf` answers only for a registered
- * code, so a refusal this seam throws is one the registry can put a message and a remedy to. The
- * `message` here is the operator's detail and stays out of the registry.
- */
-function refusal(refusalCode: RefusalCode, message: string): Error {
-  return Object.assign(new Error(message), { refusalCode: refusalOf(refusalCode).code });
 }
 
 /** A part of a date is a count of days or months, so a fraction of one is not a part at all. */
