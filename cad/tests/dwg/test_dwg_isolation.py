@@ -55,13 +55,67 @@ def test_ac3_no_module_binds_libredwg_in_process() -> None:
     assert offenders == [], "L-CAD-04 admits LibreDWG in an isolated subprocess only"
 
 
+#: The two modules whose names a spawn is reached through; their aliases are resolved per module.
+SPAWN_MODULES = frozenset({"os", "subprocess"})
+
+#: Shelled-out spawns by definition: each routes its command through `/bin/sh -c` and carries no
+#: `shell=` keyword to be caught.
+SHELL_SPAWNS = frozenset({"os.system", "os.popen", "subprocess.getoutput", "subprocess.getstatusoutput"})
+
+#: subprocess entry points whose ninth positional argument is Popen's `shell` slot.
+POPEN_LIKE = frozenset({"Popen", "run", "call", "check_call", "check_output"})
+POPEN_SHELL_SLOT = 8
+
+
+def _spawn_aliases(tree: ast.AST) -> dict[str, str]:
+    """`import subprocess as sp` / `from os import popen as p` -> local name -> dotted origin."""
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name in SPAWN_MODULES:
+                    aliases[alias.asname or alias.name] = alias.name
+        elif isinstance(node, ast.ImportFrom) and node.module in SPAWN_MODULES:
+            for alias in node.names:
+                aliases[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+    return aliases
+
+
+def _callee_of(node: ast.Call, aliases: dict[str, str]) -> str:
+    """The dotted name a call resolves to, with module and member aliases folded back to their origin."""
+    dotted = ast.unparse(node.func)
+    root, _, rest = dotted.partition(".")
+    origin = aliases.get(root)
+    if origin is None:
+        return dotted
+    return f"{origin}.{rest}" if rest else origin
+
+
 def test_ac3_no_subprocess_is_spawned_through_a_shell() -> None:
     offenders: list[str] = []
     for module in _modules():
         tree = ast.parse(module.read_text(encoding="utf-8"), filename=str(module))
+        aliases = _spawn_aliases(tree)
         for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module in SPAWN_MODULES:
+                for alias in node.names:
+                    if f"{node.module}.{alias.name}" in SHELL_SPAWNS:
+                        offenders.append(
+                            f"{module.name}:{node.lineno} imports {alias.name} from {node.module}"
+                        )
+                continue
             if not isinstance(node, ast.Call):
                 continue
+            callee = _callee_of(node, aliases)
+            if callee in SHELL_SPAWNS:
+                offenders.append(f"{module.name}:{node.lineno} spawns through a shell via {callee}")
+            head, _, member = callee.rpartition(".")
+            if head == "subprocess" and member in POPEN_LIKE and len(node.args) > POPEN_SHELL_SLOT:
+                slot = node.args[POPEN_SHELL_SLOT]
+                if not (isinstance(slot, ast.Constant) and slot.value is False):
+                    offenders.append(
+                        f"{module.name}:{node.lineno} passes shell positionally as {ast.unparse(slot)}"
+                    )
             for keyword in node.keywords:
                 if keyword.arg == "shell" and not (
                     isinstance(keyword.value, ast.Constant) and keyword.value.value is False
