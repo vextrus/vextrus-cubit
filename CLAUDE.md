@@ -26,15 +26,15 @@ pnpm verify · pnpm test:db · pnpm e2e --journey <J> · pnpm checkup
 <!-- builder:lessons:start -->
 ## Standing lessons (engine-maintained)
 ### Locked ground & lawful paths
-- The engine's structural TEST_ENV_BRANCH scan still fires on an inline `env.NODE_ENV === \"test\"` after an arbitration ruled the injected comparison lawful; … — On the model-seam increment (that increment, 2026-09-02) an arbitration on `structural:TEST_ENV_BRANCH` settled that comparing the INJECTED env record's `NODE_ENV` inside `selectTransport(env)` is lawful (only `process.env.*` reads in product source are the …
 - Fixtures for a build session come from the repo, never from the held-out set — Trigger: an increment that needs realistic inputs to replay, and the most realistic inputs on disk are the ones reserved for grading.
 - On a repeat held-out red, diff settled_rulings against the code before re-diagnosing — an unimplemented ruling is the failing assertion — On the cad dwg increment attempt 4 (2026-09-02) the gate had said "2 of 5 assertions" for two attempts running.
 - A Verifier session that keeps reaching for product source — Across one increment the Verifier role was denied four separate times for touching product source — a migration, a package file, a build script, a test-db surface — each time the same rule fired: the Verifier writes acceptance only, never product source.
+- Weakening or suppressing a failing check instead of fixing it — A build session added a structural suppression and removed an assert from a test to reach green, tripping ADDED_SUPPRESSION and TEST_INTEGRITY findings plus a locked-path-reverted flag — three separate detectors catching the same move.
 ### Tests & acceptance
 - A \"recorded version/identity\" field is only bound by a stub tool reporting a distinctive version — re-probing the real tool at test time is vacuous — Acceptance for "`X.tool_version` is read from the toolchain's own `--version` output" cannot be graded by running the same real program again at test time and comparing: an implementation that hardcodes the machine's current version (`"0.13.3"`) passes both …
 - LibreDWG 0.13.3's dwg2dxf default output is unreadable by ezdxf 1.4.4; only `-m` round-trips into ingest_dxf — Measured 2026-09-02 while minting `cad/tests/dwg/fixtures/basic.dwg` for that increment. `dwg2dxf` (LibreDWG 0.13.3) writes an `ENDBLK` record whose handle is `0`.
 ### Database
-- A fixture-replay path must not be selected by reading the environment — Trigger: an increment whose plan adds a replay or fixture-backed path through code the product also runs for real.
+- A fixture-replay path must not be selected by reading process.env below the composition root — Trigger: an increment whose plan adds a replay or fixture-backed path through code the product also runs for real.
 ### Process
 - ezdxf's log records escape to stderr via logging.lastResort and break any driver parsing `${stdout}\\n${stderr}` — Nothing under `cad/src/vextrus_cad/` configures `logging`, so every `WARNING`+ record ezdxf emits goes through `logging.lastResort` straight onto the process's stderr.
 <!-- builder:lessons:end -->
