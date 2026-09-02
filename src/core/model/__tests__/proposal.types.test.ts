@@ -10,7 +10,10 @@
  * `sources` is a non-empty tuple of well-formed keys, never a plain array or a bare handle.
  */
 import { expect, test } from "vitest";
-import { proposalBarrel } from "./proposal.support";
+import { barrel } from "./support/seam";
+
+/** The barrel's proposal surface as this anchor reads it — optional, so absence is a finding. */
+type ProposalBarrel = { propose?: unknown };
 
 /* ------------------------------------------------------------------ *
  * The helper aliases, as src/core/model-ledger.types.test.ts spells them.
@@ -94,6 +97,6 @@ export type CompileTimeAcceptance = [
  * ------------------------------------------------------------------ */
 
 test("AC-6: the barrel's propose is a function (runtime anchor for the compile-time proofs above)", async () => {
-  const loaded = await proposalBarrel();
+  const loaded = (await barrel()) as unknown as ProposalBarrel;
   expect(typeof loaded.propose, "src/core/model/index.ts exports propose(ctx, request, contract) (L-AI-02)").toBe("function");
 });
