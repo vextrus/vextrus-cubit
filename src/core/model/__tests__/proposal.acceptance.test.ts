@@ -408,6 +408,13 @@ describe("AC-2: propose answers exactly a Proposal over the fixture transport", 
     expect(callModel.length, "callModel(ctx, request) is untouched (inc-113b)").toBe(2);
     const staged = await stageWire(wire([KEY_1F]), "answer");
     expect(staged.seam.callModel.length, "the seam's callModel is untouched too").toBe(2);
+
+    /* One seam, one request, one fixture, asked twice: the proposal path first — its decoder keeping
+     * the payload it was handed — then `callModel` over the same request, so the answer graded below
+     * and the proposal graded against it were produced by the same tree in the same run. */
+    const { resolver: answerResolver } = await spiedResolver(ARTIFACT_DIGEST, [KEY_1F]);
+    const answerDecode = transformingDecoder();
+    const proposal = await staged.propose(staged.ctx, staged.request, { artifact: answerResolver, decode: answerDecode });
     const viaCallModel = await staged.seam.callModel(staged.ctx, staged.request);
     expect(viaCallModel.payload, "callModel still hands the transport's payload through as it was carried").toEqual(wire([KEY_1F]));
     expect(viaCallModel.outcome).toBe(OUTCOME_PROPOSED);
@@ -421,17 +428,62 @@ describe("AC-2: propose answers exactly a Proposal over the fixture transport", 
     }
     expect(viaCallModel.modelId, "the answer names the id the request pinned").toBe(staged.request.modelId);
 
-    /* AC-2's real claim: this increment does not change ModelAnswer — the answer read on the proposal
-     * path is the same shape callModel already returns, `propose` adding no member and stripping none.
-     * The reference set is produced by the tree under test in this same run, never transcribed, so a
-     * lawful future member appears on both sides while an added, dropped or renamed one still reds. */
-    const proposedSide = await stageWire(wire([KEY_1F]), "answer-via-propose");
-    const { resolver: sideResolver } = await spiedResolver(ARTIFACT_DIGEST, [KEY_1F]);
-    await proposedSide.propose(proposedSide.ctx, proposedSide.request, { artifact: sideResolver, decode: acceptingDecoder() });
-    const viaPropose = await proposedSide.seam.callModel(proposedSide.ctx, proposedSide.request);
-    expect(Object.keys(viaPropose).sort(), "the answer the proposal path reads is the shape callModel already returns — propose adds no member to it and strips none").toEqual(
-      Object.keys(viaCallModel).sort(),
-    );
+    /* AC-2's real claim: the proposal path reads the whole of the transport's answer and nothing of it
+     * is lost — every member the answer carries has a projection the proposal path was OBSERVED to
+     * make of it, either on the Proposal it returned or on the row it recorded. The key set is
+     * computed from the answer this run produced, never transcribed, and the accounting is asserted
+     * total, so a member `propose` neither projects nor records reds this test. */
+    expect(staged.record.mock.calls.length, "the propose call and the callModel call recorded one row each").toBe(2);
+    const proposeRow = staged.record.mock.calls[0]?.[0];
+    const [proposeCallId, answerCallId] = await answeredCallIds(staged.record);
+    const handedToDecode = answerDecode.mock.calls[0]?.[0];
+
+    const accounting: ReadonlyArray<{ key: string; check(): void }> = [
+      { key: "modelId", check: () => expect(proposal.model, "the Proposal's model is the id the answer pins").toBe(viaCallModel.modelId) },
+      {
+        key: "callId",
+        check: () => {
+          expect(proposal.callId, "the Proposal's callId is the id the ledger answered for the propose row").toBe(proposeCallId);
+          expect(viaCallModel.callId, "and the answer's callId is the id the ledger answered for its own row").toBe(answerCallId);
+          expect(proposal.callId, "the proposal path's call is its own — a call is ledgered once, so the two ids differ").not.toBe(answerCallId);
+        },
+      },
+      {
+        key: "payload",
+        check: () => {
+          expect(handedToDecode, "the caller's decoder was handed the `payload` member of the very wire the answer carries").toEqual((viaCallModel.payload as { payload: JsonValue }).payload);
+          expect(proposal.payload, "and the Proposal's payload is what that decoder read it into").toEqual(decodedReading(handedToDecode as JsonValue));
+        },
+      },
+      { key: "requestHash", check: () => expect(proposeRow?.requestHash, "the propose row carries the same request hash the answer names").toBe(viaCallModel.requestHash) },
+      {
+        key: "transport",
+        check: () => {
+          expect(viaCallModel.transport, "the fixture root selected the fixture transport").toBe(TRANSPORT_FIXTURE);
+          expect(proposeRow?.transport, "the propose row names the transport the answer came over").toBe(viaCallModel.transport);
+        },
+      },
+      {
+        key: "outcome",
+        check: () => {
+          expect(viaCallModel.outcome, "an answered call is proposed").toBe(OUTCOME_PROPOSED);
+          expect(proposeRow?.outcome, "a resolved proposal's row carries that same outcome").toBe(viaCallModel.outcome);
+        },
+      },
+      { key: "inputTokens", check: () => expect(proposeRow?.inputTokens, "the propose row attributes the input tokens the transport reported").toBe(viaCallModel.inputTokens) },
+      { key: "outputTokens", check: () => expect(proposeRow?.outputTokens, "the propose row attributes the output tokens the transport reported").toBe(viaCallModel.outputTokens) },
+      { key: "attributedCost", check: () => expect(proposeRow?.attributedCost, "the propose row attributes the cost those tokens cost (L-AI-02)").toBe(viaCallModel.attributedCost) },
+    ];
+
+    for (const { key, check } of accounting) {
+      expect(Object.keys(viaCallModel), `ModelAnswer no longer carries ${key} — the proposal path projects it`).toContain(key);
+      check();
+    }
+    const accountedFor = new Set(accounting.map((entry) => entry.key));
+    expect(
+      Object.keys(viaCallModel).filter((key) => !accountedFor.has(key)),
+      "every member of the transport's answer is accounted for by an observed proposal-path fact — a member propose neither returns on the Proposal nor records on its row is carried nowhere",
+    ).toEqual([]);
   });
 });
 
