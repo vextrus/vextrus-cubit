@@ -6,8 +6,8 @@
  * tomorrow's.
  */
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, vi } from "vitest";
 
@@ -131,6 +131,56 @@ export function rejectionOf(promise: Promise<unknown>): Promise<unknown> {
     () => RESOLVED,
     (reason: unknown) => reason,
   );
+}
+
+/** The seam's product directory, relative to the repo root. */
+export const SEAM_DIR = "src/core/model";
+
+/** The one lawful spelling of the process environment inside the seam: handed in whole as the env record. */
+export const INJECTED_ENV = /\benv\s*:\s*process\.env\b(?!\s*[.[])/g;
+
+/** Any spelling of the process environment at all. */
+const PROCESS_ENV = /\bprocess\.env\b/g;
+
+/** One place the process environment is spelled in product source. */
+export type ProcessEnvRead = { file: string; line: number; text: string; injected: boolean };
+
+/** Every `*.ts` under `dir` (recursively), skipping test directories and declaration files. */
+function productSources(dir: string): string[] {
+  const found: string[] = [];
+  for (const name of readdirSync(dir).sort()) {
+    const abs = join(dir, name);
+    if (statSync(abs).isDirectory()) {
+      if (name !== "__tests__" && name !== "node_modules") found.push(...productSources(abs));
+    } else if (/\.tsx?$/.test(name) && !name.endsWith(".d.ts") && !/\.(test|spec)\.tsx?$/.test(name)) {
+      found.push(abs);
+    }
+  }
+  return found;
+}
+
+/** Source with every comment and string literal blanked (line structure kept), so prose and copy cannot spell a read. */
+function bareCode(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`/g, (match) => match.replace(/[^\n]/g, " "));
+}
+
+/**
+ * Every spelling of `process.env` in the seam's product source (comments and strings blanked), each
+ * marked as the injected form (`env: process.env`, the record handed whole to createModelSeam) or a
+ * direct read (anything else — a property, an index, a destructuring, an alias).
+ */
+export function processEnvReads(root: string = REPO_ROOT): ProcessEnvRead[] {
+  const reads: ProcessEnvRead[] = [];
+  for (const abs of productSources(join(root, SEAM_DIR))) {
+    const lines = bareCode(readFileSync(abs, "utf8")).split("\n");
+    lines.forEach((text, index) => {
+      const all = text.match(PROCESS_ENV)?.length ?? 0;
+      if (all === 0) return;
+      const injected = text.match(INJECTED_ENV)?.length ?? 0;
+      reads.push({ file: relative(root, abs), line: index + 1, text: text.trim(), injected: injected === all });
+    });
+  }
+  return reads;
 }
 
 /** The call ids a ledger mock answered with, in order. */

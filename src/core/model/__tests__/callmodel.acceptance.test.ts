@@ -20,11 +20,13 @@ import {
   BARREL,
   REPO_ROOT,
   RESOLVED,
+  SEAM_DIR,
   answeredCallIds,
   barrel,
   context,
   member,
   memoryLedger,
+  processEnvReads,
   rejectionOf,
   silentFetch,
   type Fixture,
@@ -165,6 +167,31 @@ describe("AC-2: fixture replay is deterministic", () => {
   test("AC-2: a seam over NODE_ENV=test and CUBIT_MODEL_FIXTURE_ROOT reports the fixture transport", async () => {
     const { seam } = await fixtureSeam(fixtureRoot());
     expect(seam.transport, "createModelSeam probes the env it is handed (B-23)").toBe(TRANSPORT_FIXTURE);
+  });
+
+  test("AC-2: the seam reads process.env once, at the composition root, and never as a test flag (TEST_ENV_BRANCH, as arbitrated)", async () => {
+    // The arbitrated reading of TEST_ENV_BRANCH for this seam (settled ruling "B-23 (selectTransport)",
+    // L-AI-01): comparing the INJECTED env record's NODE_ENV or CUBIT_MODEL_FIXTURE_ROOT is the
+    // dependency-injected probe the approved interface spells, and is no finding. What the rule
+    // forbids is product code reading the PROCESS's own flags — `process.env.NODE_ENV`, any
+    // `process.env.*`, a destructuring or an alias — anywhere in the seam: that would be a hidden
+    // test mode verify's green could not vouch for. The exemption is a property, not a file waiver:
+    // it holds only while nothing under the seam reads process.env directly, so a later edit that
+    // reaches for it re-arms the finding. The one admitted spelling is the composition root's
+    // `env: process.env`, handed whole to createModelSeam by the production callModel.
+    const reads = processEnvReads(REPO_ROOT);
+    const direct = reads.filter((read) => !read.injected);
+    expect(
+      direct.map((read) => `${read.file}:${read.line} ${read.text}`),
+      [
+        `TEST_ENV_BRANCH: ${SEAM_DIR} reads the process's own environment directly.`,
+        `Per the settled ruling "B-23 (selectTransport)" and L-AI-01, the seam selects its transport by comparing the env record handed to createModelSeam;`,
+        `only the composition root may spell process.env, and only as \`env: process.env\`. Route the read through the composition root.`,
+      ].join(" "),
+    ).toEqual([]);
+
+    const injected = reads.map((read) => `${read.file}:${read.line}`);
+    expect(injected, `the production callModel is createModelSeam over process.env — the process environment is handed in exactly once under ${SEAM_DIR}, at the composition root (I-E); found: ${injected.join(", ") || "none"}`).toHaveLength(1);
   });
 
   test("AC-2: callModel answers the fixture's payload and tokens, records one proposed row, reaches no fetch", async () => {
