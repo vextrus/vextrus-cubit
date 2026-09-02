@@ -66,13 +66,12 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     codes: Object.freeze(["ASSIGN_PARTICIPANT_ROLE"]),
   }),
   Object.freeze({
-    // L-CAD-02's closed source-key scheme set, spelled by the extractor that mints the keys and by
-    // the EntityGraph mirror that parses them. A scheme names who read the file bytes; it rides on
-    // an artifact key at the `cad/` seam and is never answered to a user. Only the scheme this tree
-    // actually spells is declared — a declaration answering for nobody is dead amnesty, not a
-    // vocabulary (Q-07).
+    // L-CAD-02's closed source-key scheme set, spelled by the extractor that mints the keys, by the
+    // EntityGraph mirror that parses them, and by the model seam's key grammar in
+    // `src/core/model/sources.ts`, which resolves a proposal's citations (L-AI-02). A scheme names
+    // who read the file bytes; it rides on an artifact key and is never answered to a user.
     vocabulary: "EntityGraph source-key schemes (L-CAD-02)",
-    codes: Object.freeze(["DXF_HANDLE"]),
+    codes: Object.freeze(["DXF_HANDLE", "PDF_OBJECT", "RASTER_TRACE"]),
   }),
   Object.freeze({
     // L-ACT-03's closed permission enum and the roles that bundle it. A permission is what an act

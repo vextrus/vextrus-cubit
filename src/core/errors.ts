@@ -46,7 +46,10 @@ export type RefusalCode =
   | "ORIGIN_NOT_VERIFIED"
   | "MEMBER_HAS_ACTS"
   | "INVITATION_NOT_CLAIMABLE"
-  | "FIXTURE_MISSING";
+  | "FIXTURE_MISSING"
+  | "UNSOURCED"
+  | "SOURCE_UNRESOLVED"
+  | "MALFORMED";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -232,6 +235,30 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     code: "FIXTURE_MISSING",
     message: "No recorded model answer exists for this request, so it was not carried out.",
     remedy: "Record the model's answer for this request, then try it again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-AI-02: a model's answer is a proposal only once every source it cites is resolved against the
+  // artifact; the three ways it fails that are refusals, each recorded in the ledger as a refused
+  // call that still keeps the tokens the transport spent.
+  UNSOURCED: Object.freeze({
+    code: "UNSOURCED",
+    message: "The model's answer names no source entity in the drawing, so it was not accepted as a proposal.",
+    remedy: "Request the answer again with the entities it rests on cited — nothing uncited is carried forward.",
+    severity: "error",
+    surface: "inline",
+  }),
+  SOURCE_UNRESOLVED: Object.freeze({
+    code: "SOURCE_UNRESOLVED",
+    message: "The model's answer cites a source entity the drawing does not contain, so it was not accepted as a proposal.",
+    remedy: "Request the answer again against the drawing as ingested — a citation must name an entity that exists in it.",
+    severity: "error",
+    surface: "inline",
+  }),
+  MALFORMED: Object.freeze({
+    code: "MALFORMED",
+    message: "The model's answer is not in the shape a proposal takes, so it was not accepted.",
+    remedy: "Request the answer again — an answer that cannot be read as a proposal is never guessed at.",
     severity: "error",
     surface: "inline",
   }),
