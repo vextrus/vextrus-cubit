@@ -1,0 +1,97 @@
+{
+  "fixture": "F-RCC6",
+  "generator": {
+    "path": "fixtures/gen/rcc6.py",
+    "sha256": "23e52e26b435fbb3bd005e3f72e19df486d35c6d3c96e5ffc65009519fcab530"
+  },
+  "sheets": [
+    {
+      "name": "FOUNDATION PLAN",
+      "slug": "foundation-plan",
+      "page": {
+        "width_mm": 420.0,
+        "height_mm": 297.0
+      }
+    },
+    {
+      "name": "TYPICAL FLOOR PLAN",
+      "slug": "typical-floor-plan",
+      "page": {
+        "width_mm": 420.0,
+        "height_mm": 297.0
+      }
+    },
+    {
+      "name": "ROOF PLAN",
+      "slug": "roof-plan",
+      "page": {
+        "width_mm": 420.0,
+        "height_mm": 297.0
+      }
+    },
+    {
+      "name": "COLUMN SCHEDULE",
+      "slug": "column-schedule",
+      "page": {
+        "width_mm": 420.0,
+        "height_mm": 297.0
+      }
+    },
+    {
+      "name": "BEAM SCHEDULE",
+      "slug": "beam-schedule",
+      "page": {
+        "width_mm": 420.0,
+        "height_mm": 297.0
+      }
+    },
+    {
+      "name": "FOOTING SCHEDULE",
+      "slug": "footing-schedule",
+      "page": {
+        "width_mm": 420.0,
+        "height_mm": 297.0
+      }
+    },
+    {
+      "name": "SECTIONS",
+      "slug": "sections",
+      "page": {
+        "width_mm": 420.0,
+        "height_mm": 297.0
+      }
+    },
+    {
+      "name": "GENERAL NOTES",
+      "slug": "general-notes",
+      "page": {
+        "width_mm": 420.0,
+        "height_mm": 297.0
+      }
+    }
+  ],
+  "raster": {
+    "dpi": 200,
+    "skew_deg": 0.6,
+    "noise_seed": 20260903,
+    "noise_fraction": 0.002
+  },
+  "files": [
+    "rcc6.dxf",
+    "rcc6.dwg",
+    "rcc6.pdf",
+    "rcc6.raster.pdf",
+    "raster/foundation-plan.png",
+    "raster/typical-floor-plan.png",
+    "raster/roof-plan.png",
+    "raster/column-schedule.png",
+    "raster/beam-schedule.png",
+    "raster/footing-schedule.png",
+    "raster/sections.png",
+    "raster/general-notes.png",
+    "inputs.json",
+    "takeoff.golden.json",
+    "sanity.json",
+    "manifest.json"
+  ]
+}

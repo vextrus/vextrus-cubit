@@ -1,0 +1,46 @@
+{
+  "generator": "fixtures/gen/rcc6.py",
+  "drawn": {
+    "model": {
+      "ARC": 6,
+      "CIRCLE": 50,
+      "DIMENSION": 29,
+      "LINE": 492,
+      "LWPOLYLINE": 125,
+      "MTEXT": 6,
+      "TEXT": 365
+    },
+    "FOUNDATION PLAN": {
+      "INSERT": 1,
+      "TEXT": 3
+    },
+    "TYPICAL FLOOR PLAN": {
+      "INSERT": 1,
+      "TEXT": 3
+    },
+    "ROOF PLAN": {
+      "INSERT": 1,
+      "TEXT": 3
+    },
+    "COLUMN SCHEDULE": {
+      "INSERT": 1,
+      "TEXT": 3
+    },
+    "BEAM SCHEDULE": {
+      "INSERT": 1,
+      "TEXT": 3
+    },
+    "FOOTING SCHEDULE": {
+      "INSERT": 1,
+      "TEXT": 3
+    },
+    "SECTIONS": {
+      "INSERT": 1,
+      "TEXT": 3
+    },
+    "GENERAL NOTES": {
+      "INSERT": 1,
+      "TEXT": 3
+    }
+  }
+}

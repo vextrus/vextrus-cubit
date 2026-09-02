@@ -13,6 +13,10 @@ vextrus-cad = "vextrus_cad.cli:main"
 
 [dependency-groups]
 dev = ["pytest==8.4.2", "ruff==0.16.4"]
+# Fixture generation only (D-04: reportlab is acceptable in fixtures generation, never in the app).
+# `uv run --group fixtures` leaves these resident in the shared .venv, so a stray import would pass
+# locally; cad/tests/sanity/test_fixtures_group.py scans src/vextrus_cad for one on every run.
+fixtures = ["reportlab==4.4.9", "pillow==12.3.0", "pypdfium2==5.13.0"]
 
 [build-system]
 requires = ["hatchling"]
