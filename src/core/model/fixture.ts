@@ -1,7 +1,7 @@
 // L-AI-01: the fixture transport. A request is answered from `<root>/<requestHash>.json`, the file
 // format every recorded answer is kept in (F-MODEL), and nothing else: an answer nobody recorded is
 // the FIXTURE_MISSING refusal, never a network call. A file that exists but is not a fixture is a
-// corpus defect — a plain failure, not a refusal and not a row (I-D).
+// corpus defect — a plain failure, not a refusal and not a row (B-21).
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { refusalOf } from "../errors";

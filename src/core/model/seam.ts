@@ -2,7 +2,7 @@
 // is identified by its request hash, goes over the transport the environment selects (B-23), and is
 // recorded in the ledger whether it was proposed or refused — the row is written before the caller
 // hears the outcome. The seam is a factory over an env, a fetch and a ledger so acceptance can hand
-// each one in (I-E); the production entry closes over the process and the tenant's database.
+// each one in (B-23); the production entry closes over the process and the tenant's database.
 import { forTenant } from "../db";
 import { MODEL_IDS, modelCallCost, type ModelId } from "../model-ledger.types";
 import { fixtureTransport } from "./fixture";
@@ -70,7 +70,7 @@ async function answerThroughPort(port: TransportPort, ledger: ModelLedger, ctx: 
 
 /**
  * The id as one of the closed const's, checked at runtime too: a caller that reaches past the type
- * with an unpinned id has a programming defect, answered plainly — no fetch, no row (AS-05, I-D).
+ * with an unpinned id has a programming defect, answered plainly — no fetch, no row (AS-05, B-21).
  */
 function pinned(modelId: string): ModelId {
   if (!(MODEL_IDS as readonly string[]).includes(modelId)) {

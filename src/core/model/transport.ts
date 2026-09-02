@@ -3,7 +3,7 @@
 // implies one under the tree's own fixture directory; anything else is the live provider.
 import { resolve } from "node:path";
 
-/** The environment as a seam reads it — a record, so acceptance can hand one in (I-E). */
+/** The environment as a seam reads it — a record, so a caller can hand one in (B-23). */
 export type ModelEnv = Readonly<Record<string, string | undefined>>;
 
 /** The chosen transport, and for fixtures the resolved root the answers are read from. */
