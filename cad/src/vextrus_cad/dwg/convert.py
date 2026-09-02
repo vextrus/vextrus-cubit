@@ -16,6 +16,7 @@ import os
 import re
 import shutil
 import tempfile
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
@@ -127,15 +128,7 @@ def _census_pass(
         room=room,
         deadline=deadline,
     )
-    document = _census_document(source, program, _written(room, asked, drawing), output)
-    try:
-        # `census_of` speaks about the document alone; the drawing, the pass and the program are
-        # added here, where they are known, so every refusal this lane raises carries all four
-        # (L-CAD-04). Whatever a document nothing wrote for this reader ends the read with is the
-        # same fact about it — it is not a census — and is answered in words, not as a traceback.
-        census = census_of(document)
-    except Exception as error:
-        raise DwgError(refusal(source, CENSUS_PASS, program, str(error))) from error
+    census = _census_tally(source, program, _written(room, asked, drawing), output)
     if not census:
         raise DwgError(
             refusal(
@@ -149,13 +142,23 @@ def _census_pass(
     return census
 
 
-def _census_document(source: Path, program: str, written: list[Path], output: PassOutput) -> Any:
-    """The census document, from what the pass wrote — never from what it exited with.
+def _census_tally(
+    source: Path,
+    program: str,
+    written: list[Path],
+    output: PassOutput,
+) -> dict[str, dict[str, int]]:
+    """The census, tallied from what the pass wrote — never from what it exited with.
 
     A census is looked for exactly as a conversion is: at the name the pass was given, then
     anywhere in the room it ran in, and last on the stdout `dwgread` prints a census to when it is
-    given no name at all. The first of those a parser admits is the census; nothing else is one,
-    and an empty answer, or one no parser admits, refuses the drawing by name (L-CAD-04).
+    given no name at all. Each place may hold several JSON documents — a greeting that is itself
+    one (`[1]`, `{}`), a leaving of the pass's own — so the first document `census_of` admits is
+    the census, just as the first DXF a reader admits is the conversion; one it rejects is not a
+    census and the next is owed its turn. Nothing else is a census, and an empty answer, or one
+    holding no census at all, refuses the drawing by name (L-CAD-04). `census_of` speaks about the
+    document alone; the drawing, the pass and the program are added here, where they are known,
+    so the refusal carries all four, in words and not as a traceback.
     """
     texts: list[str] = []
     for path in written:
@@ -171,38 +174,39 @@ def _census_document(source: Path, program: str, written: list[Path], output: Pa
         )
     problems: list[str] = []
     for text in texts:
-        try:
-            return _first_document(text)
-        except Exception as error:
-            problems.append(str(error))
+        opened = False
+        for document in _documents(text):
+            opened = True
+            try:
+                return census_of(document)
+            except Exception as error:
+                problems.append(str(error))
+        if not opened:
+            problems.append("no JSON document opens in what it wrote")
     raise DwgError(
         refusal(source, CENSUS_PASS, program, f"wrote a census no parser admits: {problems[0]}")
     )
 
 
-def _first_document(text: str) -> Any:
-    """The JSON a pass wrote, whether or not it stopped writing when the document ended.
+def _documents(text: str) -> Iterator[Any]:
+    """Every JSON document a pass wrote, in order, however untidily it began or stopped.
 
     A program that says something before or after its census has still written a census, and
     L-CAD-04 judges a pass by what it wrote rather than by how tidily it began or stopped. A
     greeting may itself carry a brace or a bracket (`[INFO]`, `{basic.dwg}`), so every place a
-    document could open is tried in turn until one parses; a failed try is skipped past to where
-    the parser stopped, so a bracket inside a document that is not one is never re-read. Text that
-    holds no JSON document at all is not a census, and the reader raises to say so.
+    document could open is tried in turn; a document that parses is yielded and the scan resumes
+    where it ended, and a failed try is skipped past to where the parser stopped, so a bracket
+    inside a document that is not one is never re-read — one walk over the text, however chatty.
     """
-    try:
-        return json.loads(text)
-    except ValueError as first:
-        decoder = json.JSONDecoder()
-        position = 0
-        while (opens := _OPENS_JSON.search(text, position)) is not None:
-            try:
-                document, _ = decoder.raw_decode(text, opens.start())
-            except json.JSONDecodeError as error:
-                position = max(error.pos, opens.start() + 1)
-                continue
-            return document
-        raise first
+    decoder = json.JSONDecoder()
+    position = 0
+    while (opens := _OPENS_JSON.search(text, position)) is not None:
+        try:
+            document, position = decoder.raw_decode(text, opens.start())
+        except json.JSONDecodeError as error:
+            position = max(error.pos, opens.start() + 1)
+            continue
+        yield document
 
 
 def _geometry_pass(
