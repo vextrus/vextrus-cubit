@@ -28,7 +28,7 @@ import { TENANT_ALPHA } from "../../../../db/__tests__/support/fixtures";
 import { seedTenants } from "../../../../db/__tests__/support/live-sql";
 import { closePools, forTenant, isUuid, modelSpendByProject } from "../../db";
 import { refusalCodeOf } from "../../faults/refusal-marker";
-import { modelCallCost } from "../../model-ledger.types";
+import { MODEL_IDS, modelCallCost } from "../../model-ledger.types";
 import { BARREL, REPO_ROOT, RESOLVED, barrel, member, rejectionOf, type Fixture, type Ledger, type LedgerRow, type Request } from "./support/seam";
 
 const SONNET = "claude-sonnet-5";
@@ -197,9 +197,47 @@ describe("AC-6: the shipped ledger adapter writes the real table", () => {
     const file = join(REPO_ROOT, README);
     expect(existsSync(file), `${README} is missing — the fixture format every later F-MODEL fixture is recorded in must be stated`).toBe(true);
     const text = readFileSync(file, "utf8");
-    expect(text, "the README names the <requestHash>.json file naming").toMatch(/requestHash[^\n]{0,4}\.json/);
-    for (const field of FIXTURE_FIELDS) {
-      expect(text.includes(field), `the README lists the ModelFixture field ${field}`).toBe(true);
+
+    // The naming rule is stated as a literal file pattern in a code span, not as prose that happens
+    // to mention both words: `<requestHash>.json` (brackets optional).
+    expect(text, `${README} states the file naming as a code span \`<requestHash>.json\``).toMatch(/`[<{]?requestHash[>}]?\.json`/);
+    expect(text, `${README} names the fixture-root variable as a code span \`${ENV_ROOT}\``).toContain(`\`${ENV_ROOT}\``);
+
+    // The field list is stated as a set, not as five words scattered through prose: either a fenced
+    // JSON example whose keys ARE the ModelFixture fields (and which is itself a well-formed fixture),
+    // or a table / list whose code-spanned identifiers are exactly those fields.
+    const documented = documentedFixtureFields(text);
+    expect(documented.form, `${README} documents the ModelFixture fields as a fenced \`\`\`json example or as a table/list of code-spanned field names`).not.toBe("none");
+    const expected = [...FIXTURE_FIELDS].sort();
+    for (const field of expected) {
+      expect(documented.fields, `${README} does not state the ModelFixture field \`${field}\` in its ${documented.form}`).toContain(field);
+    }
+    expect([...documented.fields].sort(), `${README}'s ${documented.form} names exactly the ModelFixture fields — no extra keys`).toEqual(expected);
+    if (documented.form === "json example") {
+      expect(documented.example["requestHash"], `${README}'s example requestHash is 64 lowercase hex chars`).toMatch(/^[0-9a-f]{64}$/);
+      expect(MODEL_IDS as readonly string[], `${README}'s example modelId is one of the pinned ids (AS-05)`).toContain(documented.example["modelId"]);
     }
   });
 });
+
+/**
+ * The ModelFixture fields the README states, and the form it states them in: the keys of its first
+ * fenced ```json block when it has one, else the code-spanned identifiers in the first column of its
+ * table rows or at the head of its list items.
+ */
+function documentedFixtureFields(text: string): { form: "json example"; fields: string[]; example: Record<string, unknown> } | { form: "table or list"; fields: string[] } | { form: "none"; fields: string[] } {
+  const fenced = /```json[^\n]*\n([\s\S]*?)\n```/.exec(text);
+  if (fenced?.[1] !== undefined) {
+    const example: unknown = JSON.parse(fenced[1]);
+    expect(example !== null && typeof example === "object" && !Array.isArray(example), "the README's fenced json example parses to an object").toBe(true);
+    const record = example as Record<string, unknown>;
+    return { form: "json example", fields: Object.keys(record), example: record };
+  }
+  const fields: string[] = [];
+  for (const line of text.split("\n")) {
+    const cell = /^\|\s*`([A-Za-z_$][\w$]*)`\s*\|/.exec(line) ?? /^\s*[-*]\s+`([A-Za-z_$][\w$]*)`/.exec(line);
+    if (cell?.[1] !== undefined) fields.push(cell[1]);
+  }
+  if (fields.length === 0) return { form: "none", fields };
+  return { form: "table or list", fields };
+}

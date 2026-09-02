@@ -78,12 +78,31 @@ export async function barrel(): Promise<Barrel> {
   return (await import(abs)) as Barrel;
 }
 
-/** A member of the barrel, asserted present and a function before it is used. */
+/**
+ * Every barrel member's declared shape: MODEL_IDS is the closed const of L-AI-01 (a readonly array),
+ * everything else is callable. A Record over keyof Barrel is exhaustive, so a member cannot be added
+ * to the surface without declaring its shape here.
+ */
+const SHAPE: Record<keyof Barrel, "array" | "function"> = {
+  MODEL_IDS: "array",
+  canonicalJson: "function",
+  requestHash: "function",
+  selectTransport: "function",
+  createModelSeam: "function",
+  callModel: "function",
+  dbModelLedger: "function",
+};
+
+/** A member of the barrel, asserted present and of its declared shape before it is used. */
 export async function member<K extends keyof Barrel>(name: K): Promise<NonNullable<Barrel[K]>> {
   const loaded = await barrel();
   const value = loaded[name];
-  expect(typeof value, `${BARREL} does not export ${String(name)}`).toBe(typeof value === "object" ? "object" : "function");
-  expect(value, `${BARREL} exports no ${String(name)}`).toBeDefined();
+  expect(value, `${BARREL} does not export ${String(name)}`).toBeDefined();
+  if (SHAPE[name] === "array") {
+    expect(Array.isArray(value), `${BARREL} exports ${String(name)} but it is not an array (the closed const of L-AI-01)`).toBe(true);
+  } else {
+    expect(typeof value, `${BARREL} exports ${String(name)} but it is not a function`).toBe("function");
+  }
   return value as NonNullable<Barrel[K]>;
 }
 
