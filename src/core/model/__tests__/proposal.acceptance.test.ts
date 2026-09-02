@@ -207,6 +207,20 @@ function acceptingDecoder(): ReturnType<typeof vi.fn<(payload: JsonValue) => Dec
   return vi.fn<(payload: JsonValue) => DecodeShape>((payload) => ({ ok: true, value: payload }));
 }
 
+/** What a transforming decoder answers for a wire payload: a typed reading that is not the wire itself. */
+function decodedReading(payload: JsonValue): { read: JsonValue; decodedBy: string } {
+  return { read: payload, decodedBy: "acceptance" };
+}
+
+/**
+ * A caller's typed decoder that actually reads: its `value` is a new object around the payload, not the
+ * payload, so a seam that only gates on `ok` and hands the raw wire through is told apart from one
+ * that returns the decoder's value (L-AI-02: the Proposal's payload is the caller's decoded T).
+ */
+function transformingDecoder(): ReturnType<typeof vi.fn<(payload: JsonValue) => DecodeShape>> {
+  return vi.fn<(payload: JsonValue) => DecodeShape>((payload) => ({ ok: true, value: decodedReading(payload) }));
+}
+
 /* ------------------------------------------------------------------ *
  * The rows the seam owes.
  * ------------------------------------------------------------------ */
@@ -332,18 +346,18 @@ describe("AC-2: propose answers exactly a Proposal over the fixture transport", 
     const PROPOSAL_KIND = await proposalMember("PROPOSAL_KIND");
     expect(typeof PROPOSAL_KIND, "PROPOSAL_KIND is a symbol value, so a Proposal is nothing JSON can carry").toBe("symbol");
     const { resolver } = await spiedResolver(ARTIFACT_DIGEST, [KEY_1F]);
-    const decode = acceptingDecoder();
+    const decode = transformingDecoder();
     const staged = await stageWire(wire([KEY_1F]), "wire");
 
     const proposal = await staged.propose(staged.ctx, staged.request, { artifact: resolver, decode });
 
     expect(Object.keys(proposal).sort(), "a Proposal's own enumerable keys are exactly kind, payload, sources, model, callId").toEqual(PROPOSAL_KEYS);
     expect(proposal.kind, "kind is the barrel's PROPOSAL_KIND").toBe(PROPOSAL_KIND);
-    expect(decode.mock.calls.length, "the caller's decoder read the payload once").toBe(1);
+    expect(decode.mock.calls, "the caller's decoder read the wire's inner payload once").toEqual([[wirePayload()]]);
     const answered = decode.mock.results[0]?.value as DecodeShape;
     expect(answered.ok, "the decoder accepted the payload").toBe(true);
-    expect(proposal.payload, "payload is what the decoder answered").toEqual(answered.ok ? answered.value : undefined);
-    expect(proposal.payload, "which for the WIRE scenario is the wire's inner payload").toEqual(wirePayload());
+    expect(proposal.payload, "payload is the value the decoder answered — the caller's typed reading").toEqual(decodedReading(wirePayload()));
+    expect(proposal.payload, "payload is never the raw wire payload when the decoder read it into something else").not.toEqual(wirePayload());
     expect(proposal.sources, "sources are the wire's keys, resolved").toEqual([KEY_1F]);
     expect(proposal.model, "model is the request's pinned id").toBe(staged.request.modelId);
 
