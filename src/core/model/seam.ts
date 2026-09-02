@@ -22,8 +22,8 @@ import type { SourceKey } from "./sources";
 import { selectTransport, type ModelEnv } from "./transport";
 import type { JsonValue, ModelAnswer, ModelCallContext, ModelLedger, ModelLedgerRow, ModelRequest, ModelTransport, TransportPort } from "./types";
 
-/** The route the fault seam records this seam's own failures under. */
-const ROUTE = "model/callModel";
+/** The routes the fault seam records this seam's own failures under — one per public entry (B-21). */
+const ROUTES = { callModel: "model/callModel", propose: "model/propose" } as const;
 
 /** What a seam is built over. */
 export type ModelSeamOptions = { env: ModelEnv; fetch: typeof globalThis.fetch; ledger: ModelLedger };
@@ -41,8 +41,8 @@ export function createModelSeam(options: ModelSeamOptions): ModelSeam {
   const port: TransportPort = selected.transport === "fixture" ? fixtureTransport(selected.fixtureRoot) : liveTransport(options.env, options.fetch);
   return {
     transport: port.transport,
-    callModel: (ctx, request) => answerThroughPort(port, options.ledger, ctx, request, asCarried).then(modelAnswer),
-    propose: (ctx, request, contract) => answerThroughPort(port, options.ledger, ctx, request, asProposal(contract)).then(proposal),
+    callModel: (ctx, request) => answerThroughPort(port, options.ledger, ctx, request, asCarried, ROUTES.callModel).then(modelAnswer),
+    propose: (ctx, request, contract) => answerThroughPort(port, options.ledger, ctx, request, asProposal(contract), ROUTES.propose).then(proposal),
   };
 }
 
@@ -102,7 +102,7 @@ function proposal<T>(settled: Settled<ResolvedProposal<T>>): Proposal<T> {
 }
 
 /** One call: pin the id, hash the request, ask the transport, read the answer, record the row, settle or refuse. */
-async function answerThroughPort<T>(port: TransportPort, ledger: ModelLedger, ctx: ModelCallContext, request: ModelRequest, read: Reading<T>): Promise<Settled<T>> {
+async function answerThroughPort<T>(port: TransportPort, ledger: ModelLedger, ctx: ModelCallContext, request: ModelRequest, read: Reading<T>, route: string): Promise<Settled<T>> {
   const modelId = pinned(request.modelId);
   const hash = requestHash(request);
   const answer = await port.answer(ctx, request, hash);
@@ -110,16 +110,16 @@ async function answerThroughPort<T>(port: TransportPort, ledger: ModelLedger, ct
 
   if (answer.kind === "refused") {
     // Nothing was spent: the transport answered nothing.
-    await recordRefused(ledger, ctx, { ...attribution, outcome: "refused", refusalCode: answer.code, inputTokens: 0, outputTokens: 0, attributedCost: modelCallCost(modelId, 0, 0) });
+    await recordThroughSeam(ledger, ctx, route, { ...attribution, outcome: "refused", refusalCode: answer.code, inputTokens: 0, outputTokens: 0, attributedCost: modelCallCost(modelId, 0, 0) });
     throw answer.refusal;
   }
 
   const attributedCost = modelCallCost(modelId, answer.inputTokens, answer.outputTokens);
   const spent = { inputTokens: answer.inputTokens, outputTokens: answer.outputTokens, attributedCost } as const;
-  const reading = read(answer.payload);
+  const reading = await readOrFault(read, answer.payload, ledger, ctx, route, { ...attribution, ...spent });
   if (!reading.ok) {
     // The model answered, so the tokens it spent stay attributed on the refused row (L-AI-02).
-    const callId = await recordRefused(ledger, ctx, { ...attribution, ...spent, outcome: "refused", refusalCode: reading.code });
+    const callId = await recordThroughSeam(ledger, ctx, route, { ...attribution, ...spent, outcome: "refused", refusalCode: reading.code });
     throw refusal(reading.code, `the model's answer to request ${hash} was not accepted as a proposal against artifact ${reading.artifactDigest}: ${describe(reading.detail)}`, {
       ...reading.detail,
       callId,
@@ -133,23 +133,60 @@ async function answerThroughPort<T>(port: TransportPort, ledger: ModelLedger, ct
 }
 
 /**
- * The refused row, written before the caller hears the refusal. The refusal happened whether or not
- * the ledger could take it: a failed write is a fault of its own (ARCH-03), recorded once, and the
- * caller still hears the refusal (B-21) — with no call id, since none was issued.
+ * The reading, taken so that a caller whose `decode` or `artifact.has` throws — a defect against
+ * the contract, never a refusal (ARCH-03) — cannot swallow the call: the transport already answered
+ * and charged, so the call is recorded as the model proposed it (L-AI-01 records every call), the
+ * defect crosses the one fault seam under this entry's route (B-21), and the caller hears its own
+ * throw unchanged.
  */
-async function recordRefused(ledger: ModelLedger, ctx: ModelCallContext, row: ModelLedgerRow): Promise<string | null> {
+async function readOrFault<T>(
+  read: Reading<T>,
+  payload: JsonValue,
+  ledger: ModelLedger,
+  ctx: ModelCallContext,
+  route: string,
+  attributed: Omit<ModelLedgerRow, "outcome" | "refusalCode">,
+): Promise<ReturnType<Reading<T>>> {
+  try {
+    return read(payload);
+  } catch (failure) {
+    await recordThroughSeam(ledger, ctx, route, { ...attributed, outcome: "proposed", refusalCode: null });
+    reportFault({ requestId: ctx.requestId, actor: ctx.actor, route, cause: failure });
+    throw failure;
+  }
+}
+
+/**
+ * The row, written before the caller hears the outcome. The outcome happened whether or not the
+ * ledger could take it: a failed write is a fault of its own (ARCH-03), recorded once under the
+ * entry the caller used, and the caller still hears the answer (B-21) — with no call id, since none
+ * was issued.
+ */
+async function recordThroughSeam(ledger: ModelLedger, ctx: ModelCallContext, route: string, row: ModelLedgerRow): Promise<string | null> {
   try {
     return (await ledger.record(row)).callId;
   } catch (failure) {
-    reportFault({ requestId: ctx.requestId, actor: ctx.actor, route: ROUTE, cause: failure });
+    reportFault({ requestId: ctx.requestId, actor: ctx.actor, route, cause: failure });
     return null;
   }
 }
 
-/** The operator's detail of a failed reading, as `key=value` facts; an empty detail says nothing more. */
+/** How much of one model-supplied fact the operator's message carries before it is clipped. */
+const FACT_LIMIT = 200;
+
+/**
+ * The operator's detail of a failed reading, as `key=value` facts; an empty detail says nothing
+ * more. Every value is model-supplied — a rejected source string, a decoder's detail, the list of
+ * unresolved keys — so each fact is clipped to a readable length: the whole of it lives on the
+ * refusal's detail, and the message never amplifies what a model answered.
+ */
 function describe(detail: Record<string, JsonValue>): string {
-  const facts = Object.entries(detail).map(([key, value]) => `${key}=${JSON.stringify(value)}`);
+  const facts = Object.entries(detail).map(([key, value]) => `${key}=${clip(JSON.stringify(value) ?? "null")}`);
   return facts.length === 0 ? "no source was cited" : facts.join(", ");
+}
+
+function clip(text: string): string {
+  return text.length <= FACT_LIMIT ? text : `${text.slice(0, FACT_LIMIT)}… (${text.length - FACT_LIMIT} more characters)`;
 }
 
 /**
