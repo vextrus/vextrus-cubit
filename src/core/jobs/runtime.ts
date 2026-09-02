@@ -21,11 +21,9 @@ import { reportFault } from "../faults/report";
 import { JOB_KINDS, KIND_NAMES, type JobKind, type JobPayloads } from "./kinds";
 import { runProbe, type JobProgress } from "./probe";
 
-/** How a job's life is recorded, step by step. The last three end it. */
-export type JobStatus = "started" | "progress" | "succeeded" | "refused" | "failed";
+import { TERMINAL_STATUSES, type JobStatus } from "./statuses";
 
-/** The statuses after which nothing more is ever said about a job. */
-export const TERMINAL_STATUSES: ReadonlySet<JobStatus> = new Set<JobStatus>(["succeeded", "refused", "failed"]);
+export { TERMINAL_STATUSES, type JobStatus };
 
 /** One durable record of where a job got to, as the log holds it (R-SPINE-030). */
 export type JobEvent = {

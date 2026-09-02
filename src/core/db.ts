@@ -15,6 +15,7 @@ import { ELEMENT_TYPES, type ElementType } from "./catalogue/element-types";
 import { KINDS, type Kind } from "./catalogue/kinds";
 import { attributableReason } from "./db/reason";
 import { reportFault } from "./faults/report";
+import { TERMINAL_STATUSES } from "./jobs/statuses";
 import { MODEL_IDS, minimalDecimal } from "./model-ledger.types";
 import { DEFAULT_DENSITY, DENSITIES, type Density } from "./prefs/density";
 import { BUILDING_TYPES, type BuildingType } from "./projects";
@@ -1129,6 +1130,11 @@ const JOBS_DDL: readonly string[] = [
    )`,
   `create index if not exists job_events_by_job on ${JOBS_SCHEMA}.job_events (job_id, seq)`,
   `create index if not exists job_events_by_status on ${JOBS_SCHEMA}.job_events (status, seq)`,
+  // One ending per job is a constraint of the storage, not a courtesy of its callers: two racing
+  // writers cannot both pass a read-committed "no ending yet" check, but they cannot both land
+  // in a unique index (R-SPINE-030, B-17).
+  `create unique index if not exists job_events_one_ending on ${JOBS_SCHEMA}.job_events (job_id)
+     where status in (${closedList([...TERMINAL_STATUSES])})`,
   `create table if not exists ${JOBS_SCHEMA}.job_claims (
      kind text not null,
      key text not null,
@@ -1564,7 +1570,9 @@ export function jobsStore(url: string): JobsStore {
       await createLog.reach();
       // One statement: the ending is written only where none exists, the claim is released only
       // where an ending was written, and the announcement rides on the row written — so no
-      // reader can see the claim gone before the ending, or two endings for one job.
+      // reader can see the claim gone before the ending, or two endings for one job. A writer that
+      // races another past the existence check yields to job_events_one_ending instead: no row,
+      // no release, and the caller reads the same null as when the ending was already there.
       const rows = await sql<RawJobEvent[]>`
         with ending as (
           insert into ${sql(JOBS_SCHEMA)}.job_events (job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, elapsed_ms)
@@ -1576,6 +1584,7 @@ export function jobsStore(url: string): JobsStore {
                     where ended.job_id = ${draft.jobId}
                       and ended.status in ${sql(endedStatuses as string[])}
                  )
+              on conflict do nothing
           returning seq, job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, at, elapsed_ms
         ), released as (
           delete from ${sql(JOBS_SCHEMA)}.job_claims as claim
