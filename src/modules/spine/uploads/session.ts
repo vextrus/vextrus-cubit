@@ -350,20 +350,41 @@ async function complete(db: TenantDb, actor: UploadActor, session: SessionRow, r
   try {
     ended = await settleStaged(db, actor, session, path);
   } catch (cause) {
-    await stepBack(db, session, resumeFrom);
+    await stepBack(db, session, path, resumeFrom);
     throw cause;
   }
-  await rm(path, { force: true });
+  await discardStaged(path);
   return ended;
 }
 
 /**
- * Put the session back where its last chunk began. The staging copy is left as it is: it is longer
- * than the row now admits to, and that is precisely the disagreement `reconcile` settles on the next
- * chunk — the lower of the two counts, with the copy trimmed to match (UPLOAD_NOT_RESUMABLE's remedy).
+ * Put the session back where its last chunk began — and never let the putting back displace what
+ * ended the transfer. The likeliest reason a settlement threw is the very thing that would make this
+ * throw too (a lost connection, a pool that timed out), and a failure must surface as itself rather
+ * than as the symptom that followed it (ARCH-03), so neither step is allowed to raise.
+ *
+ * The row and the staging copy are stepped back together because they fail apart: an outage takes
+ * the update, a volume takes the truncate, and either count alone standing at `resumeFrom` is enough
+ * for `reconcile` to settle the transfer there on the next chunk — the lower of the two, with the
+ * other made to match (UPLOAD_NOT_RESUMABLE's remedy, "resume from the point the server reports").
+ * Leaving only the row to carry it would strand a session that arrived at its declared size: every
+ * further chunk would overrun the size and be refused from an offset nothing can be sent from.
  */
-async function stepBack(db: TenantDb, session: SessionRow, resumeFrom: number): Promise<void> {
-  await db.update(uploads).set({ receivedBytes: resumeFrom }).where(eq(uploads.uploadId, session.uploadId));
+async function stepBack(db: TenantDb, session: SessionRow, path: string, resumeFrom: number): Promise<void> {
+  await Promise.allSettled([
+    db.update(uploads).set({ receivedBytes: resumeFrom }).where(eq(uploads.uploadId, session.uploadId)),
+    truncate(path, resumeFrom),
+  ]);
+}
+
+/**
+ * Let go of the staged copy of a session that ended. It ran as a means and the ending is already
+ * written when this runs — the bytes are stored and the rows committed — so a volume that refuses
+ * the unlink leaves a file behind and nothing more: answering the caller a fault for an upload the
+ * server did store would be a failure that is not one (ARCH-03).
+ */
+async function discardStaged(path: string): Promise<void> {
+  await rm(path, { force: true }).catch(() => undefined);
 }
 
 /**
