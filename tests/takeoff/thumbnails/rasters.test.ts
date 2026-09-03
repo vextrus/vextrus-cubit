@@ -24,8 +24,10 @@ import { waitUntil } from "../../jobs/support/jobs-acceptance";
 import { closeStage, type Person } from "../../spine/uploads/support/upload-stage";
 import { cadFixture, productModule, sha256Of, stageDrawing, tempDir, unique, type IngestRecord, type ProgressLike, type StagedDrawing } from "../support/ingest-stage";
 import {
+  bboxSpansOf,
   byCodePoint,
   ERRORS_MODULE,
+  fittedCanvas,
   inRasterOrder,
   JOBS_MODULE,
   layoutsOf,
@@ -167,7 +169,7 @@ function rendered(): Promise<Rendered> {
 
 describe("AC-1 — every sheet, at every tier, stored at its own address and recorded once", () => {
   test(
-    "AC-1: one run leaves one PNG per sheet per tier, sized by the tier's long edge, and walks resolve → render → store → record",
+    "AC-1: one run leaves one PNG per sheet per tier, sized by the tier's long edge and shaped by its sheet, and walks resolve → render → store → record",
     async () => {
       const stage = await staged();
       const { record, drawing, layouts, steps, jobId } = await rendered();
@@ -203,10 +205,37 @@ describe("AC-1 — every sheet, at every tier, stored at its own address and rec
 
         const header = pngHeader(held, what);
         expect(header, `${what}'s own header agrees with the size its row records`).toStrictEqual({ width: row.width, height: row.height });
-        expect(
-          Math.max(header.width, header.height),
-          `${what}'s long edge is the tier's (RASTER_TIER_LONG_EDGE.${row.tier})`,
-        ).toBe(stage.thumbnails.RASTER_TIER_LONG_EDGE[row.tier]);
+        const longEdge = stage.thumbnails.RASTER_TIER_LONG_EDGE[row.tier] as number;
+        expect(Math.max(header.width, header.height), `${what}'s long edge is the tier's (RASTER_TIER_LONG_EDGE.${row.tier})`).toBe(longEdge);
+
+        // A raster of a sheet carries that sheet's own shape. The proportions are taken from the
+        // record's artifact at the moment it is judged — a corpus whose sheets change shape changes
+        // this expectation with them — so nothing here would accept a canvas the layout's extent
+        // played no part in.
+        const sheet = layouts.find((candidate) => candidate.name === row.layoutName);
+        expect(sheet, `${what} names a sheet the record's artifact carries`).toBeDefined();
+        const spans = bboxSpansOf(sheet as ArtifactLayout);
+
+        if (spans === null) {
+          expect({ width: header.width, height: header.height }, `${what} is of a sheet with no bounding box, and that is the one square canvas`).toStrictEqual({
+            width: longEdge,
+            height: longEdge,
+          });
+          continue;
+        }
+
+        const fitted = fittedCanvas(spans, longEdge);
+        const shape = `${what} is ${header.width}×${header.height} px for a sheet reaching ${spans.x}×${spans.y} in its own units, whose raster stands at ${fitted.width.toFixed(1)}×${fitted.height.toFixed(1)} px (a pixel either way for rounding)`;
+        for (const axis of ["width", "height"] as const) {
+          expect(header[axis], `${shape}: its ${axis} is short of that`).toBeGreaterThanOrEqual(Math.max(1, Math.floor(fitted[axis])));
+          expect(header[axis], `${shape}: its ${axis} overruns that`).toBeLessThanOrEqual(Math.max(1, Math.ceil(fitted[axis])));
+        }
+
+        // Said plainly for the case the shape rule exists to refuse: a sheet the artifact says is
+        // not square is never rendered as the tier's square.
+        if (Math.max(1, Math.ceil(fitted.width)) < longEdge || Math.max(1, Math.ceil(fitted.height)) < longEdge) {
+          expect(Math.min(header.width, header.height), `${shape}: a sheet that is not square is not rendered square`).toBeLessThan(Math.max(header.width, header.height));
+        }
       }
 
       const reached = stepOrder(steps, RASTER_STEPS);

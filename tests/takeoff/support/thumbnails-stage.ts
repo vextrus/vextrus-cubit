@@ -194,6 +194,52 @@ export async function layoutsOf(storage: StorageLike, tenantId: string, record: 
   return layouts;
 }
 
+/* ------------------------------------------------------------------ what shape a sheet is */
+
+/** How far one sheet reaches along each axis, in the artifact's own units. */
+export type SheetSpans = { x: number; y: number };
+
+/** One corner of a bounding box, read out of the artifact rather than assumed. */
+function corner(value: JsonValue | undefined, what: string): { x: number; y: number } {
+  const point = (Array.isArray(value) ? value : []) as JsonValue[];
+  expect(point.length, `${what} is a point of the plane`).toBeGreaterThanOrEqual(2);
+  const x = Number(point[0]);
+  const y = Number(point[1]);
+  expect([Number.isFinite(x), Number.isFinite(y)], `${what} is a pair of finite numbers`).toEqual([true, true]);
+  return { x, y };
+}
+
+/**
+ * How far a layout's bounding box reaches along each axis, or null when the artifact carries none
+ * for that sheet — the case the interface answers with a blank square canvas.
+ *
+ * Read off the artifact under test at the moment it is judged, so the proportions a raster is held
+ * to are the corpus's own and grow with it, rather than a pair transcribed here (B-19).
+ */
+export function bboxSpansOf(layout: ArtifactLayout): SheetSpans | null {
+  const bbox = layout.bbox;
+  if (bbox === null || bbox === undefined || typeof bbox !== "object" || Array.isArray(bbox)) return null;
+  const box = bbox as { [key: string]: JsonValue };
+  const what = `layout ${JSON.stringify(layout.name)}'s bbox`;
+  const min = corner(box["min"], `${what}.min`);
+  const max = corner(box["max"], `${what}.max`);
+  return { x: max.x - min.x, y: max.y - min.y };
+}
+
+/**
+ * The canvas a sheet of these spans fills at a tier's long edge: the sheet's longer axis takes the
+ * whole long edge and its other axis stands in the sheet's own proportion to it.
+ *
+ * Real numbers, not pixels — a rasteriser may round a fitted axis either way, and that pixel is all
+ * the latitude the criterion grants.
+ */
+export function fittedCanvas(spans: SheetSpans, longEdge: number): { width: number; height: number } {
+  const longest = Math.max(spans.x, spans.y);
+  expect(longest, "a sheet's bounding box reaches somewhere along at least one axis").toBeGreaterThan(0);
+  const scale = longEdge / longest;
+  return { width: spans.x * scale, height: spans.y * scale };
+}
+
 /* ------------------------------------------------------------------ reading a PNG */
 
 /** What a PNG's own header says it is — the only thing that can settle a raster's size. */
