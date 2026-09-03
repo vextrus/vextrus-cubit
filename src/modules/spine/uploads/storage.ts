@@ -37,7 +37,7 @@ export function storageRoot(): string {
 
 /**
  * The key signed download URLs are minted with. An installation that states none gets one minted per
- * process: nothing this increment ships signs a URL, and a secret written into the tree as a default
+ * process: no door of this seam signs a URL, and a secret written into the tree as a default
  * would be a secret in the repo (Q-12, B-23). A deployment that hands out download links states the
  * name above, and the links then survive a restart.
  */
@@ -68,7 +68,7 @@ export function uploadStorage(): Storage {
   return storage;
 }
 
-/** Where the bytes of an open upload session are staged (increment interfaces). */
+/** Where the bytes of an open upload session are staged, under the root above (R-SPINE-020). */
 export function stagingPath(tenantId: string, uploadId: string): string {
   return join(storageRoot(), STAGING_DIR, tenantId, uploadId);
 }

@@ -10,7 +10,7 @@
 // host swapped out — silence by packaging accident.
 import type { ScanVerdict } from "../../../core/uploads";
 
-/** What an installation wires in: bytes and the name they arrived under, judged (interfaces). */
+/** What an installation wires in: bytes and the name they arrived under, judged (R-SPINE-020). */
 export interface UploadScanner {
   scan(bytes: Uint8Array, name: string): Promise<{ verdict: ScanVerdict; detail?: string }>;
 }

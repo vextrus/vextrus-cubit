@@ -20,7 +20,7 @@ import { strings } from "../../strings";
 /** Where a row stands. Five states, and a row is always in exactly one of them (Decision § 2). */
 export type DropzoneItemState = "queued" | "uploading" | "stored" | "duplicate" | "refused";
 
-/** One row of the queue, as the consumer composes it (increment interfaces). */
+/** One row of the queue, as the consumer composes it (Decision § 1, I-74). */
 export interface DropzoneItem {
   /** The path the file arrived under — a folder drop's relative path, or an archive member's. */
   name: string;
