@@ -20,7 +20,7 @@ export type IngestFormat = "dxf" | "dwg";
 /** The machine's override of the CLI command prefix, whitespace-split (AS-01). */
 export const CAD_COMMAND_VAR = "CUBIT_CAD_COMMAND";
 
-/** The invocation the test contract spells, when the machine names none. */
+/** How `cad/` is reached when the machine names nothing: its own project, run from the checkout. */
 const DEFAULT_CAD_COMMAND: readonly string[] = ["uv", "run", "--project", "cad", "vextrus-cad"];
 
 /** The one subcommand `cad/` ships, and the flag it writes its artifact behind. */
@@ -44,7 +44,7 @@ const STDERR_TAIL_CHARS = 4000;
 export type IngestOutcome = { ok: true; graph: EntityGraph; artifact: Uint8Array } | { ok: false; refusal: SheetNotIngestable; detail: string };
 
 /** The sha256 of some bytes, lowercase hex — the address SEAM-STORAGE holds them under. */
-export function digestOf(bytes: Uint8Array): string {
+function digestOf(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 

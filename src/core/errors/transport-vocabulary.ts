@@ -57,6 +57,9 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // fixture transport; the second is the live provider's credential (L-AI-01, B-23).
     // `CUBIT_STORAGE_SIGNING_SECRET` is the key `src/modules/spine/uploads/storage.ts` mints signed
     // download URLs with (R-SPINE-021, Q-12): a secret is the machine's to state, never the repo's.
+    // `CUBIT_CAD_COMMAND` is how the machine names the command `src/modules/takeoff/ingest` spawns
+    // the extractor with (L-CAD-04): the default is `cad/`'s own project, and a deployment that
+    // installs the CLI elsewhere says so rather than having the path written into the tree.
     codes: Object.freeze([
       "DATABASE_URL",
       "STORAGE_ROOT",
@@ -66,6 +69,7 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
       "CUBIT_MODEL_FIXTURE_ROOT",
       "ANTHROPIC_API_KEY",
       "CUBIT_STORAGE_SIGNING_SECRET",
+      "CUBIT_CAD_COMMAND",
     ]),
   }),
   Object.freeze({

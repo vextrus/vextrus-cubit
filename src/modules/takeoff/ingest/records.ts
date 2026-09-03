@@ -88,7 +88,7 @@ export async function ingestRecordOfJob(tenantId: string, jobId: string): Promis
  * attempt: `ingests_job_once` is the belt, and a second attempt of one job finds the row it already
  * wrote rather than adding to the drawing's history (SEAM-JOBS: every job idempotent on its key).
  */
-export async function writeIngestRecord(entry: IngestEntry): Promise<IngestRecord | null> {
+export async function writeIngestRecord(entry: IngestEntry): Promise<void> {
   const db = forTenant({ tenantId: entry.tenantId });
   await db
     .insert(ingests)
@@ -107,5 +107,4 @@ export async function writeIngestRecord(entry: IngestEntry): Promise<IngestRecor
       declaredReason: entry.declaredReason,
     })
     .onConflictDoNothing({ target: [ingests.tenantId, ingests.jobId] });
-  return await ingestRecordOfJob(entry.tenantId, entry.jobId);
 }
