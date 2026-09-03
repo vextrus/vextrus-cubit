@@ -90,6 +90,8 @@ const CONSEQUENCE = {
   actType: ACT_TYPE,
   tenantId: "tenant-sample",
   projectId: "project-sample",
+  // The arm the body renders is the Consequence's own, named and never defaulted (L-ACT-02).
+  rendering: "SUBJECTS",
   subjects: SUBJECTS,
 } as const;
 

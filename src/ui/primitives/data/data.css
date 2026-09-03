@@ -189,7 +189,9 @@
   background-color: var(--graphite-400);
 }
 
-.cx-resizable-handle[data-resize-handle-active] .cx-resizable-line {
+/* A drag in progress, not a keystroke: react-resizable-panels sets this attribute to "keyboard"
+   while the handle merely holds focus, and the focus reticle is what says so (R-UI-012). */
+.cx-resizable-handle[data-resize-handle-active="pointer"] .cx-resizable-line {
   width: 2px;
   background-color: var(--beam-500);
 }
@@ -326,7 +328,6 @@
 .cx-table-filters {
   height: auto;
   padding-block: var(--space-1);
-  border-bottom: 1px solid var(--hairline);
 }
 
 /* The filter cell gives the Input its own height rather than the row's clipped one (I-5). */

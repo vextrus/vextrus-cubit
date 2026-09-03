@@ -17,6 +17,7 @@ import type { Consequence } from "../../core/acts";
 import type { RefusalEntry, RefusalSeverity, RefusalSurface } from "../../core/errors";
 import { ConsequenceDialog } from "../patterns/consequence-dialog";
 import { RefusalState } from "../patterns/refusal-state";
+import { SAMPLE_REFUSAL_BY_SEVERITY, sampleRefusal } from "./sample-refusals";
 import {
   Badge,
   BasisChip,
@@ -330,7 +331,7 @@ interface SampleRow {
  * shows a person a gap where the column's own control belongs. Filtering the whole sample register
  * is also the truer demonstration: the filter row is the table's, not one column's.
  */
-const TABLE_COLUMNS = [
+const TABLE_COLUMNS: ColumnDef<SampleRow, unknown>[] = [
   { id: "item", accessorKey: "item", header: "Item", meta: { filterable: true } },
   { id: "element", accessorKey: "element", header: "Element", meta: { filterable: true } },
   {
@@ -342,7 +343,7 @@ const TABLE_COLUMNS = [
   },
   { id: "unit", accessorKey: "unit", header: "Unit", meta: { filterable: true } },
   { id: "basis", accessorKey: "basis", header: "Basis", meta: { filterable: true } },
-] as ColumnDef<SampleRow, unknown>[];
+];
 
 const TABLE_ROWS: readonly SampleRow[] = [
   { id: "line-1", item: "Line 1", element: "Column C-12", qty: "4.80", unit: "CUM", basis: "MEASURED" },
@@ -399,40 +400,6 @@ const tableStates: readonly GalleryState[] = [
 ];
 
 /* ------------------------------------------------------------------ the refusal sample matrix */
-
-/**
- * A sample refusal, authored as data (Decision I-18): the ui layer holds no value import of core,
- * so `RefusalEntry` arrives as a type and the entry itself is written here. Where a severity has a
- * registered code the sample reuses that code and its copy verbatim — every severity does, so the
- * gallery spells no name the taxonomy does not own (Q-07, B-17).
- */
-const sampleRefusal = (severity: RefusalSeverity, surface: RefusalSurface): RefusalEntry => {
-  if (severity === "error") {
-    return {
-      code: "PRECISION_NOT_APPLIED",
-      message: "The value is not at the exact precision this document requires.",
-      remedy: "Enter the value at the stated precision — nothing is rounded or padded on your behalf.",
-      severity,
-      surface,
-    };
-  }
-  if (severity === "warning") {
-    return {
-      code: "RATE_LIMITED",
-      message: "Too many attempts in a short time, so this one was not tried.",
-      remedy: "Wait a minute, then try again.",
-      severity,
-      surface,
-    };
-  }
-  return {
-    code: "ACT_CHANGES_NOTHING",
-    message: "This action would leave the project exactly as it is, so nothing was recorded.",
-    remedy: "Choose a change that moves something — what you asked for is already the case.",
-    severity,
-    surface,
-  };
-};
 
 const REFUSAL_EVIDENCE = {
   error: copy.refusal.errorEvidence,
@@ -493,7 +460,7 @@ const REFUSAL_SURFACES: readonly RefusalSurface[] = ["inline", "dialog", "banner
 const refusalStates: readonly GalleryState[] = REFUSAL_SEVERITIES.flatMap((severity) =>
   REFUSAL_SURFACES.map((surface) => ({
     name: `${severity}-${surface}`,
-    render: () => <RefusalState refusal={sampleRefusal(severity, surface)} evidence={REFUSAL_EVIDENCE[severity]} />,
+    render: () => <RefusalState refusal={sampleRefusal(SAMPLE_REFUSAL_BY_SEVERITY[severity], surface)} evidence={REFUSAL_EVIDENCE[severity]} />,
   })),
 );
 
@@ -510,17 +477,10 @@ const SAMPLE_WORKSPACE: ShellWorkspace = { tenantId: "00000000-0000-4000-8000-00
 const SAMPLE_EMAIL = "estimator@cubit.test";
 
 /**
- * The refusal the denied frame stands on, authored as data (Decision I-18): `PERMISSION_NOT_HELD`
- * with the register's own message and remedy, so the gallery spells no sentence the taxonomy does
- * not already own (Q-07, B-17).
+ * The refusal the denied frame stands on, taken from the one sample table (Decision I-18, B-17):
+ * `PERMISSION_NOT_HELD` on the banner surface a denied frame answers with.
  */
-const SAMPLE_DENIAL: RefusalEntry = {
-  code: "PERMISSION_NOT_HELD",
-  message: "Your roles on this project do not carry the permission this action needs.",
-  remedy: "Ask a principal of the project to give you a role that carries it.",
-  severity: "error",
-  surface: "banner",
-};
+const SAMPLE_DENIAL: RefusalEntry = sampleRefusal("PERMISSION_NOT_HELD", "banner");
 
 /** What a screen renders inside the frame: the empty state its own entry samples on its own. */
 const shellChildSample = (): ReactNode => (

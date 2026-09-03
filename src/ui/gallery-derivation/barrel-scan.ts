@@ -1,13 +1,13 @@
 /**
- * Where "a barrel" is defined, once (B-17). The gallery's completeness surface (R-UI-011, B-19) is
- * a filesystem scan and never a list — but a scan is a rule, and a rule with two implementations
- * can drift until no roster satisfies both. So the rule lives here, in one function, and the
- * product suite that binds `galleryBarrels` to the tree calls it rather than restating it.
+ * What "a barrel" is, as `src/ui` spells it — here and nowhere else in this layer (B-17). The
+ * gallery's completeness surface (R-UI-011, B-19) is a filesystem scan rather than a list, and a
+ * scan is a rule: a rule with two implementations drifts until no roster satisfies both. So the
+ * rule is this one function, and the suite that binds `galleryBarrels` to the tree calls it.
  *
- * The rule is the one the Design Decision and the acceptance spell: a barrel is a directory with an
- * index file at `src/ui/primitives/<name>/`, `src/ui/patterns/<name>/`, or `src/ui/shell/` — the
- * groups the gallery consumes. `src/ui`'s other directories (`strings`, `theme`, this module) hold
- * helpers and tokens, not mountable components, and owe no entry.
+ * The rule the Design Decision and the acceptance spell: a barrel is a directory with an index file
+ * at `src/ui/primitives/<name>/`, `src/ui/patterns/<name>/`, or `src/ui/shell/` — the groups the
+ * gallery consumes. `src/ui`'s other directories hold helpers and tokens, not mountable components,
+ * and owe no entry.
  *
  * Node-only: nothing the page bundles imports this file.
  */
@@ -42,7 +42,7 @@ function indexOf(dir: string): string | null {
   return null;
 }
 
-/** The barrels the tree publishes today, code-point sorted by id. */
+/** The barrels the tree publishes, code-point sorted by id (R-UI-011). */
 export function barrelsOnDisk(uiDir: string = UI_DIR): BarrelOnDisk[] {
   const found: BarrelOnDisk[] = [];
 

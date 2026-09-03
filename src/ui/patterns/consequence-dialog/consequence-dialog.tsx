@@ -228,12 +228,12 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
 /**
  * I-45: the consequence rendering is a total map. L-ACT-02 makes an act type without a rendering a
  * compile error, and this component is where acts render — so the body is an exhaustive switch over
- * the Consequence's closed rendering arms. Today there is one: subjects with before/after lists. A
- * later act whose Consequence renders a different shape (L-ACT-02's offered groups, R-UI-023) adds
- * its arm to `ConsequenceRendering` and its case here, or `unrendered` fails to compile.
+ * the Consequence's closed rendering arms, each named by the Consequence itself and never defaulted
+ * here. An arm added to `ConsequenceRendering` (L-ACT-02's offered groups, R-UI-023) owes its case
+ * below, or `unrendered` fails to compile.
  */
 function ConsequenceBody({ consequence }: { consequence: Consequence }) {
-  const arm: ConsequenceRendering = consequence.rendering ?? "SUBJECTS";
+  const arm: ConsequenceRendering = consequence.rendering;
   switch (arm) {
     case "SUBJECTS":
       return (
