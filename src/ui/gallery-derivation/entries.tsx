@@ -114,14 +114,15 @@ const copy = {
   },
   consequence: { trigger: "Assign a role" },
   dropzone: {
-    queued: "structural/S-101.dxf",
+    stored: "structural/S-101.dxf",
     uploading: "structural/S-102.dxf",
-    stored: "structural/S-103.dxf",
-    duplicate: "structural/S-104.dxf",
-    refused: "site-notes.txt",
-    waiting: "0 B of 4.2 MB",
-    sending: "1.8 MB of 4.2 MB",
-    sent: "4.2 MB",
+    queued: "structural/S-103.dxf",
+    duplicate: "arch/A-201.pdf",
+    refused: "notes.txt",
+    sent: "12.4 MB",
+    sending: "8.4 MB of 24.1 MB",
+    waiting: "0 B of 9.7 MB",
+    linked: "4.1 MB",
     none: "",
   },
 } as const;
@@ -484,15 +485,32 @@ const refusalStates: readonly GalleryState[] = REFUSAL_SEVERITIES.flatMap((sever
  * the registered entry — all standing together, none hidden behind a tally.
  */
 const dropzoneQueue: DropzoneItem[] = [
-  { name: copy.dropzone.queued, progress: copy.dropzone.waiting, state: "queued" },
-  { name: copy.dropzone.uploading, progress: copy.dropzone.sending, state: "uploading" },
   { name: copy.dropzone.stored, progress: copy.dropzone.sent, state: "stored" },
-  { name: copy.dropzone.duplicate, progress: copy.dropzone.sent, state: "duplicate" },
+  { name: copy.dropzone.uploading, progress: copy.dropzone.sending, state: "uploading" },
+  { name: copy.dropzone.queued, progress: copy.dropzone.waiting, state: "queued" },
+  { name: copy.dropzone.duplicate, progress: copy.dropzone.linked, state: "duplicate" },
   { name: copy.dropzone.refused, progress: copy.dropzone.none, state: "refused", refusal: sampleRefusal("FORMAT_NOT_ACCEPTED", "inline") },
 ];
 
+/**
+ * The `dragging` paint is DOM-driven (Decision I-76), so the gallery reaches it the way a person
+ * does — by handing the pattern the `dragenter` it listens for, once, as the sample mounts. Nothing
+ * here draws the state: the pattern decides what a drag looks like, and this only starts one.
+ */
+const startDrag = (node: HTMLElement | null): void => {
+  node?.querySelector('[data-testid="dropzone"]')?.dispatchEvent(new Event("dragenter", { bubbles: true }));
+};
+
 const dropzoneStates: readonly GalleryState[] = [
-  { name: "empty", render: () => <Dropzone onFiles={noop} items={[]} /> },
+  { name: "idle", render: () => <Dropzone onFiles={noop} items={[]} /> },
+  {
+    name: "dragging",
+    render: () => (
+      <div ref={startDrag}>
+        <Dropzone onFiles={noop} items={[]} />
+      </div>
+    ),
+  },
   { name: "queue", render: () => <Dropzone onFiles={noop} items={dropzoneQueue} /> },
 ];
 

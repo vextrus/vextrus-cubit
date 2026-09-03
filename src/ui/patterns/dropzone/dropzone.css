@@ -62,7 +62,12 @@
   white-space: nowrap;
 }
 
+/* The three columns are the queue's, not each row's: tracks sized per row would leave the state
+   words and the figures on a different edge in every row, which is a staircase where the Decision
+   asks for a table (§ 1). */
 .cx-dropzone-queue {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -70,7 +75,8 @@
 
 .cx-dropzone-item {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
   gap: var(--space-3);
   min-height: var(--row-comfortable);

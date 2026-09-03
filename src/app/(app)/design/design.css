@@ -105,6 +105,16 @@
   grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--breakpoint-sm)), 1fr));
 }
 
+/*
+ * The drop target's own Decision rules that it sizes to its container and keeps one size whether or
+ * not a queue stands under it. Laid out at its content width it would grow with the rows it
+ * produced, so its states stand on one full-width track: the container is the card, in every state.
+ */
+.cx-gallery-entry[data-entry$="/Dropzone"] .cx-gallery-states {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
 /* The dialog sample's footer, as its Decision composes it: secondary then primary, trailing. */
 .cx-gallery-dialog-footer {
   display: flex;

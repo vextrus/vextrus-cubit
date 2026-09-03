@@ -8,13 +8,13 @@
 // single one of them reaches the store (Q-12).
 //
 // Everything an upload is refused for is a registered code (R-SPINE-062): nothing here invents a
-// message, and a refusal is never a fault (ARCH-03). What is genuinely ours to answer for — a staging
-// file that no longer holds what the row says it holds — is thrown, and the route that called in
-// records it at the fault seam.
+// message, and a refusal is never a fault (ARCH-03). A staging copy whose length disagrees with the
+// row is not an outage either: the transfer resumes from the bytes both of them vouch for, under the
+// registered code whose remedy is exactly that correction.
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
-import { mkdir, open, readFile, rm, stat } from "node:fs/promises";
-import { drawings, eq, files, forTenant, isUuid, projects, runAsSystem, uploads, type TenantDb } from "../../../core/db";
+import { createReadStream, existsSync } from "node:fs";
+import { mkdir, open, readFile, rm, stat, truncate } from "node:fs/promises";
+import { drawings, eq, files, forTenant, holdStateLock, isUuid, projects, runAsSystem, uploads, type TenantDb, type TenantTx } from "../../../core/db";
 import { REFUSALS } from "../../../core/errors";
 import type { UploadRefusalCode } from "./refusals";
 import { UPLOAD_CHUNK_BYTES, UPLOAD_MAX_BYTES, type AcceptedFormat, type ScanVerdict, type UploadState } from "../../../core/uploads";
@@ -148,8 +148,24 @@ function handle(actor: UploadActor): TenantDb {
   return forTenant({ tenantId: actor.tenantId });
 }
 
+/**
+ * A tenant's typed surface, whether the caller is running on the handle itself or inside the
+ * transaction one chunk is taken in. The statements this seam writes are the same either way.
+ */
+type Handle = TenantDb | TenantTx;
+
+/**
+ * The state a second concurrent chunk of the same transfer waits behind: everything appendChunk
+ * reads about a session — its state, its acknowledged offset, the length of its staging copy — has
+ * to stay true until the chunk it judged has been written and counted, or two retries of one chunk
+ * both pass the same checks and the transfer is counted twice.
+ */
+function sessionLockKey(uploadId: string): string {
+  return `spine.uploads.session:${uploadId}`;
+}
+
 /** The session this caller named, or null when their workspace holds none under that id. */
-async function sessionOf(db: TenantDb, uploadId: string): Promise<SessionRow | null> {
+async function sessionOf(db: Handle, uploadId: string): Promise<SessionRow | null> {
   if (!isUuid(uploadId)) return null;
   const rows = await db
     .select({
@@ -201,20 +217,28 @@ export async function createUpload(request: CreateUploadRequest): Promise<Upload
  * a chunk offered from anywhere else adds nothing and says where to resume from (R-SPINE-020).
  */
 export async function appendChunk(request: AppendChunkRequest): Promise<UploadAdvanced | UploadRefused> {
-  const db = handle(request.actor);
-  const session = await sessionOf(db, request.uploadId);
-  if (session === null) return NOT_THEIRS;
-  if (session.state !== "open") return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: session.receivedBytes };
-  if (request.offset !== session.receivedBytes) return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: session.receivedBytes };
-  if (session.receivedBytes + request.bytes.length > session.declaredSize) {
-    return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: session.receivedBytes };
-  }
+  // One transfer's chunks are taken one at a time: the lock is held on the session's name for the
+  // whole read-judge-write, so a retry racing the request it was retrying cannot pass the same
+  // checks twice and record the transfer twice (the shape every check-then-act writer here uses).
+  return handle(request.actor).transaction(async (tx) => {
+    await holdStateLock(tx, sessionLockKey(request.uploadId));
+    const session = await sessionOf(tx, request.uploadId);
+    if (session === null) return NOT_THEIRS;
+    if (session.state !== "open") return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: session.receivedBytes };
 
-  const received = await stage(request.actor, session, request.bytes);
-  await db.update(uploads).set({ receivedBytes: received }).where(eq(uploads.uploadId, session.uploadId));
-  if (received < session.declaredSize) return { uploadId: session.uploadId, receivedBytes: received };
+    const acknowledged = await reconcile(tx, request.actor, session);
+    if (acknowledged !== session.receivedBytes) return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: acknowledged };
+    if (request.offset !== acknowledged) return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: acknowledged };
+    if (acknowledged + request.bytes.length > session.declaredSize) {
+      return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: acknowledged };
+    }
 
-  return complete(db, request.actor, { ...session, receivedBytes: received });
+    const received = await stage(request.actor, session, request.bytes);
+    await tx.update(uploads).set({ receivedBytes: received }).where(eq(uploads.uploadId, session.uploadId));
+    if (received < session.declaredSize) return { uploadId: session.uploadId, receivedBytes: received };
+
+    return complete(tx, request.actor, { ...session, receivedBytes: received });
+  });
 }
 
 /** Where an open session stands (test contract: the GET answer). */
@@ -231,18 +255,31 @@ export async function uploadStatus(request: UploadStatusRequest): Promise<Upload
 }
 
 /**
- * Write the chunk at the offset the row acknowledged, and answer the server's new count. The staged
- * file's own length is checked against that offset first: a staging copy that no longer holds what
- * the row says it holds is our outage, not the client's mistake, and it is raised rather than
- * papered over (ARCH-03, B-21).
+ * What the server can honestly resume from, with the row and the staging copy made to agree on it.
+ * The two can disagree — a process that died between the write and the count, a staging copy a
+ * volume lost — and only the bytes both of them vouch for are resumable, so the transfer continues
+ * from the lower of the two rather than becoming unsendable. The correction is the client's to make,
+ * so it travels as the registered refusal that carries the server's own count (R-SPINE-020,
+ * UPLOAD_NOT_RESUMABLE's remedy: "resume from the point the server reports").
  */
+async function reconcile(db: Handle, actor: UploadActor, session: SessionRow): Promise<number> {
+  const path = stagingPath(actor.tenantId, session.uploadId);
+  const held = await stagedLength(path);
+  if (held === session.receivedBytes) return held;
+
+  const resumable = Math.min(held, session.receivedBytes);
+  if (held > resumable) {
+    if (resumable === 0) await rm(path, { force: true });
+    else await truncate(path, resumable);
+  }
+  await db.update(uploads).set({ receivedBytes: resumable }).where(eq(uploads.uploadId, session.uploadId));
+  return resumable;
+}
+
+/** Write the chunk at the offset the row acknowledged, and answer the server's new count. */
 async function stage(actor: UploadActor, session: SessionRow, bytes: Uint8Array): Promise<number> {
   const path = stagingPath(actor.tenantId, session.uploadId);
   await mkdir(stagingDir(actor.tenantId), { recursive: true });
-  const held = session.receivedBytes === 0 ? 0 : await stagedLength(path);
-  if (held !== session.receivedBytes) {
-    throw new Error(`upload ${session.uploadId} holds ${held} staged bytes where the session records ${session.receivedBytes} (R-SPINE-020)`);
-  }
   const handle = await open(path, session.receivedBytes === 0 ? "w" : "r+");
   try {
     await handle.write(bytes, 0, bytes.length, session.receivedBytes);
@@ -252,15 +289,13 @@ async function stage(actor: UploadActor, session: SessionRow, bytes: Uint8Array)
   return session.receivedBytes + bytes.length;
 }
 
-/** How many bytes the staging copy holds, or none at all when there is no copy. */
+/**
+ * How many bytes the staging copy holds — none at all when there is no copy, which is a state an
+ * open session can genuinely be in and the count `reconcile` answers from.
+ */
 async function stagedLength(path: string): Promise<number> {
-  try {
-    return (await stat(path)).size;
-  } catch {
-    // A staging copy that has gone while its session is open is the same outage as one of the wrong
-    // length, and it is raised in the same breath rather than treated as an empty file.
-    throw new Error(`the staged bytes of an open upload are missing from ${path} (R-SPINE-020)`);
-  }
+  if (!existsSync(path)) return 0;
+  return (await stat(path)).size;
 }
 
 /** The seam's own digest of the staged bytes, streamed — a 500 MB file is never held in memory to hash. */
@@ -286,7 +321,7 @@ async function stagedHead(path: string): Promise<Uint8Array> {
  * The last byte: hash, format, scan, store, record — in that order, because each one is a reason not
  * to do the next. Whatever the answer, the staged copy goes: it was a means, never a record.
  */
-async function complete(db: TenantDb, actor: UploadActor, session: SessionRow): Promise<UploadAdvanced | UploadRefused> {
+async function complete(db: Handle, actor: UploadActor, session: SessionRow): Promise<UploadAdvanced | UploadRefused> {
   const path = stagingPath(actor.tenantId, session.uploadId);
   try {
     const digest = await stagedDigest(path);
@@ -317,7 +352,7 @@ async function complete(db: TenantDb, actor: UploadActor, session: SessionRow): 
  * neither stored nor recorded. A member the product does not read is named in `skipped` with the
  * registered reason — R-UI-050's partial, answered rather than hidden.
  */
-async function completeArchive(db: TenantDb, actor: UploadActor, session: SessionRow, path: string): Promise<UploadAdvanced | UploadRefused> {
+async function completeArchive(db: Handle, actor: UploadActor, session: SessionRow, path: string): Promise<UploadAdvanced | UploadRefused> {
   const expansion = expandZip(new Uint8Array(await readFile(path)));
   if (!expansion.readable) return await refuse(db, session, REFUSALS.FORMAT_NOT_ACCEPTED.code);
 
@@ -342,17 +377,24 @@ async function completeArchive(db: TenantDb, actor: UploadActor, session: Sessio
 
 /** One content and the drawing made of it: stored once per workspace, recorded once per presented name. */
 async function record(
-  db: TenantDb,
+  db: Handle,
   actor: UploadActor,
   session: SessionRow,
   content: { name: string; bytes: Uint8Array; format: AcceptedFormat; digest: string; verdict: ScanVerdict },
 ): Promise<RecordedDrawing> {
   const held = await db.select({ sha256: files.sha256 }).from(files).where(eq(files.sha256, content.digest)).limit(1);
   const duplicate = held[0] !== undefined;
-  if (!duplicate) {
+  // R-SPINE-021's retention is a property of the store, not of two stores agreeing: a row saying the
+  // content is already held is trusted only as far as the object it points at, so bytes that are not
+  // at their address are laid down now, while the sender still has them. Identical content that is
+  // genuinely stored is linked and not written again.
+  const atItsAddress = duplicate && (await uploadStorage().get(actor.tenantId, content.digest)) !== null;
+  if (!atItsAddress) {
     // The bytes reach the store before the row that points at them: an object with no row is a
     // retention nobody reads, where a row with no object is a drawing that cannot be opened.
     await uploadStorage().put(actor.tenantId, content.bytes);
+  }
+  if (!duplicate) {
     await db
       .insert(files)
       .values({
@@ -381,13 +423,13 @@ async function record(
 }
 
 /** End the session as stored, and answer what the transfer amounted to. */
-async function settle(db: TenantDb, session: SessionRow, recorded: RecordedDrawing[], skipped: SkippedMember[]): Promise<UploadAdvanced> {
+async function settle(db: Handle, session: SessionRow, recorded: RecordedDrawing[], skipped: SkippedMember[]): Promise<UploadAdvanced> {
   await db.update(uploads).set({ state: "stored", completedAt: new Date() }).where(eq(uploads.uploadId, session.uploadId));
   return { uploadId: session.uploadId, receivedBytes: session.receivedBytes, complete: true, drawings: recorded, skipped };
 }
 
 /** End the session as refused. The row stands with the state it ended in — nothing is taken away. */
-async function refuse(db: TenantDb, session: SessionRow, code: UploadRefusalCode): Promise<UploadRefused> {
+async function refuse(db: Handle, session: SessionRow, code: UploadRefusalCode): Promise<UploadRefused> {
   await db.update(uploads).set({ state: "refused", completedAt: new Date() }).where(eq(uploads.uploadId, session.uploadId));
   return { refusal: code, receivedBytes: session.receivedBytes };
 }

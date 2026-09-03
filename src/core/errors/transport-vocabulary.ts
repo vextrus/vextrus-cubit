@@ -69,6 +69,15 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     ]),
   }),
   Object.freeze({
+    // Node's own error codes, spelled where a seam judges one. `ERR_BUFFER_TOO_LARGE` is what
+    // `node:zlib` raises when an archive member expands past the ceiling the reader gave it
+    // (`src/modules/spine/uploads/zip.ts`): the runtime's name for a bound being hit, read to tell
+    // an oversized member from an unreadable one. The person is answered with the registered
+    // refusal, never with this.
+    vocabulary: "Node runtime error codes",
+    codes: Object.freeze(["ERR_BUFFER_TOO_LARGE"]),
+  }),
+  Object.freeze({
     // L-ACT-02's act-type enum, spelled as the law spells it. An act type names what a human did; it
     // is written to the act log and read by the seam's map, and no user is ever answered with one.
     // Its home is `../acts/law.ts` (ARCH-02) — this declaration is what tells a name belonging to

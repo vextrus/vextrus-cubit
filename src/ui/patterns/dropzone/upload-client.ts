@@ -52,17 +52,27 @@ export interface SkippedUpload {
 export interface UploadOutcome {
   name: string;
   uploadId: string | null;
-  state: "stored" | "refused";
+  /**
+   * `refused` is an answer the product means and always carries the registered entry it was refused
+   * under; `failed` is the other thing that can happen to a transfer — the server answered for an
+   * outage of its own, or the connection went and never came back — and it is never dressed as a
+   * refusal, because a row saying "Refused" with nothing to say is an outage with the evidence
+   * thrown away (ARCH-03, B-21). The consuming screen shows a failure in its error cell with the
+   * fault id the door reported (Decision § 2's error state); a refusal is a row.
+   */
+  state: "stored" | "refused" | "failed";
   drawings: UploadedDrawing[];
   skipped: SkippedUpload[];
   refusal?: RefusalEntry;
+  /** The id the door recorded its outage under, where it gave one — what a person quotes. */
+  faultId?: string;
 }
 
 /** What a caller watching a transfer is told, as often as the server acknowledges anything. */
 export interface UploadProgress {
   name: string;
   uploadId: string | null;
-  state: "queued" | "uploading" | "stored" | "refused";
+  state: "queued" | "uploading" | "stored" | "refused" | "failed";
   receivedBytes: number;
   size: number;
 }
@@ -84,6 +94,7 @@ interface UploadAnswer {
   drawings?: UploadedDrawing[];
   skipped?: SkippedUpload[];
   refusal?: RefusalEntry;
+  faultId?: string;
 }
 
 /** An answer, with the status it came under. */
@@ -108,9 +119,17 @@ async function call(send: FetchLike, path: string, init: RequestInit): Promise<A
   return { status: answer.status, body: JSON.parse(text) as UploadAnswer };
 }
 
-/** A refused outcome, carrying the registered entry the door answered with. */
-function refused(name: string, uploadId: string | null, answer: Answered): UploadOutcome {
-  return { name, uploadId, state: "refused", drawings: [], skipped: [], ...(answer.body.refusal === undefined ? {} : { refusal: answer.body.refusal }) };
+/**
+ * What the door's answer amounted to: the refusal it named, or a failure. An answer with no
+ * registered entry is not a refusal — a refusal is a sentence the product means, and an answer that
+ * carries none is an outage, reported as one with whatever the door recorded it under.
+ */
+function settled(name: string, uploadId: string | null, answer: Answered): UploadOutcome {
+  const refusal = answer.body.refusal;
+  if (refusal === undefined) {
+    return { name, uploadId, state: "failed", drawings: [], skipped: [], ...(answer.body.faultId === undefined ? {} : { faultId: answer.body.faultId }) };
+  }
+  return { name, uploadId, state: "refused", drawings: [], skipped: [], refusal };
 }
 
 /**
@@ -140,7 +159,10 @@ async function uploadOne(presented: { name: string; file: Blob }, options: Uploa
     body: JSON.stringify({ projectId: options.projectId, name: presented.name, size, sha256 }),
   });
   const uploadId = created.body.uploadId ?? "";
-  if (created.status !== 201 || uploadId === "") return refused(presented.name, null, created);
+  if (created.status !== 201 || uploadId === "") {
+    report(created.body.refusal === undefined ? "failed" : "refused", null, 0);
+    return settled(presented.name, null, created);
+  }
 
   const chunkBytes = created.body.chunkBytes ?? size;
   let offset = created.body.receivedBytes ?? 0;
@@ -166,24 +188,54 @@ async function uploadOne(presented: { name: string; file: Blob }, options: Uploa
       report("uploading", uploadId, offset);
       continue;
     }
-    report("refused", uploadId, offset);
-    return refused(presented.name, uploadId, sent);
+    return await asked(presented.name, uploadId, offset, send, sent, report);
   }
 
   // Every byte was acknowledged without the door ever saying the upload completed — the server's own
   // account of the transfer is what settles it, so it is asked.
-  const probed = await call(send, ROUTES.one(uploadId), { method: "GET" });
-  report(probed.body.complete === true ? "stored" : "uploading", uploadId, probed.body.receivedBytes ?? offset);
-  return { name: presented.name, uploadId, state: "stored", drawings: [], skipped: [] };
+  return await asked(presented.name, uploadId, offset, send, { status: 0, body: {} }, report);
+}
+
+/**
+ * What the transfer amounted to when the chunk loop stopped without an answer that settled it: the
+ * server is asked, and its account decides. An acknowledgement that never arrived is not a refusal
+ * and not a failure — the last chunk may well have landed, and a transfer the server calls complete
+ * is stored no matter what happened to the answer that said so (R-SPINE-020). Only when the server
+ * says the transfer is unfinished does the door's own answer stand as what it was.
+ */
+async function asked(
+  name: string,
+  uploadId: string,
+  offset: number,
+  send: FetchLike,
+  answer: Answered,
+  report: (state: UploadProgress["state"], uploadId: string | null, receivedBytes: number) => void,
+): Promise<UploadOutcome> {
+  let probed: Answered = { status: 0, body: {} };
+  try {
+    probed = await call(send, ROUTES.one(uploadId), { method: "GET" });
+  } catch {
+    // The probe did not arrive either; the door's own answer is all there is to go on.
+  }
+  if (probed.body.complete === true) {
+    report("stored", uploadId, probed.body.receivedBytes ?? offset);
+    return { name, uploadId, state: "stored", drawings: answer.body.drawings ?? [], skipped: answer.body.skipped ?? [] };
+  }
+  const outcome = settled(name, uploadId, answer);
+  report(outcome.state === "refused" ? "refused" : "failed", uploadId, probed.body.receivedBytes ?? offset);
+  return outcome;
 }
 
 /**
  * One chunk, offered again when the request never arrives. A transfer that loses its connection asks
  * the server what it holds and continues from there — the interruption costs the chunk that was in
  * flight and nothing else (R-SPINE-020).
+ *
+ * A chunk that has spent its attempts answers rather than throwing: this file is sent one file at a
+ * time, and an exception here would carry away the outcomes of every file already stored behind it.
+ * What became of the transfer is then the server's to say, and the caller asks it.
  */
 async function sendChunk(send: FetchLike, uploadId: string, offset: number, chunk: Blob): Promise<Answered> {
-  let last: unknown;
   for (let attempt = 0; attempt < CHUNK_ATTEMPTS; attempt += 1) {
     try {
       return await call(send, ROUTES.one(uploadId), {
@@ -191,8 +243,7 @@ async function sendChunk(send: FetchLike, uploadId: string, offset: number, chun
         headers: { "content-type": "application/octet-stream", [OFFSET_HEADER]: String(offset) },
         body: await chunk.arrayBuffer(),
       });
-    } catch (failure) {
-      last = failure;
+    } catch {
       const held = await probe(send, uploadId);
       // The server took some of the chunk before the connection went: the caller is told where it
       // got to and sends the bytes from there, rather than the ones it already holds. A server that
@@ -200,7 +251,7 @@ async function sendChunk(send: FetchLike, uploadId: string, offset: number, chun
       if (held !== null && held !== offset) return { status: 0, body: { receivedBytes: held } };
     }
   }
-  throw last;
+  return { status: 0, body: {} };
 }
 
 /** What the server holds, or null when the probe itself did not arrive. */

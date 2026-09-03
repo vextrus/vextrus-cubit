@@ -275,7 +275,9 @@ and asserts the §1 structure, the barrel's two exports, the §3 copy read from
 drop, and one `dropzone-item` per item with its verbatim progress text; a `refused` item
 asserts RefusalState's ids inside the row and no sentence of the pattern's own beside them
 (I-72). The gallery entry (`src/ui/gallery-derivation/entries.tsx`, no hooks in `render()`)
-publishes `patterns/dropzone/Dropzone` with two states — `idle` (`items: []`) and `queue`,
+publishes `patterns/dropzone/Dropzone` with three states — `idle` (`items: []`), `dragging`
+(the same mount, handed the `dragenter` the root listens for, so §4's one piece of motion and
+the two channels it moves are on the review surface rather than in jsdom alone) and `queue`,
 five rows in this order: **structural/S-101.dxf** `stored` **12.4 MB** · **structural/
 S-102.dxf** `uploading` **8.4 MB of 24.1 MB** · **structural/S-103.dxf** `queued` **0 B of
 9.7 MB** · **arch/A-201.pdf** `duplicate` **4.1 MB** · **notes.txt** `refused` (empty

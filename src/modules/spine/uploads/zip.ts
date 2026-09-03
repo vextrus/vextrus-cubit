@@ -33,6 +33,10 @@ const DEFLATE = 8;
 /** The sentinel a zip64 archive parks in a 32-bit size field. */
 const ZIP64_SENTINEL = 4294967295;
 
+/** The code points a member path may not carry: everything below space, and delete. */
+const CONTROL_CEILING = 32;
+const DELETE_CODE = 127;
+
 /** One member the reader recovered: the path the archive records, and the member's own bytes. */
 export interface ZipMember {
   path: string;
@@ -128,12 +132,20 @@ export function expandZip(bytes: Uint8Array): ZipExpansion {
       continue;
     }
 
+    // A member path is recorded verbatim as the drawing's name, so it has to be a path this product
+    // would write itself: a traversal segment, an absolute path or a NUL is a name no archive needs
+    // and one every later consumer that resolves a drawing by name would inherit (Q-12).
+    if (!isMemberPath(path)) {
+      skipped.push({ name: path, reason: REFUSALS.FORMAT_NOT_ACCEPTED.code });
+      continue;
+    }
+
     const stored = memberBytes(bytes, localOffset, compressedSize);
     if (stored === null) {
       skipped.push({ name: path, reason: REFUSALS.FORMAT_NOT_ACCEPTED.code });
       continue;
     }
-    const expanded = method === STORED ? stored : inflated(stored);
+    const expanded = method === STORED ? stored : inflated(stored, uncompressedSize);
     if (typeof expanded === "string") {
       skipped.push({ name: path, reason: expanded });
       continue;
@@ -145,16 +157,34 @@ export function expandZip(bytes: Uint8Array): ZipExpansion {
 }
 
 /**
- * A deflated member, expanded — or the registered reason it was not. A member whose compressed bytes
- * will not expand is a member this product does not read, which is an answer the seam means rather
- * than an outage of ours: the caller records it beside the rest of the archive's skipped members
- * (ARCH-03, B-21).
+ * A path this reader will carry as a drawing's name: relative, with no traversal segment, no drive
+ * or root, no backslash separator and no control character. The archive supplies the name, so the
+ * name is judged like anything else a caller wrote.
  */
-function inflated(stored: Uint8Array): Uint8Array | UploadRefusalCode {
+function isMemberPath(path: string): boolean {
+  if (path === "" || path.startsWith("/") || path.includes("\\") || path.includes(":")) return false;
+  for (const character of path) {
+    const code = character.codePointAt(0) ?? 0;
+    if (code < CONTROL_CEILING || code === DELETE_CODE) return false;
+  }
+  return !path.split("/").some((segment) => segment === "." || segment === "..");
+}
+
+/**
+ * A deflated member, expanded within the bytes it may amount to — or the registered reason it was
+ * not. The archive's own account of a member's size is a claim, so it bounds the expansion rather
+ * than standing in for it: a stream that expands past the smaller of that claim and the upload
+ * ceiling is refused as the oversized member it is, and never materialised (Q-12). A member whose
+ * compressed bytes will not expand at all is one this product does not read, which is an answer the
+ * seam means rather than an outage of ours (ARCH-03, B-21).
+ */
+function inflated(stored: Uint8Array, declared: number): Uint8Array | UploadRefusalCode {
+  const ceiling = Math.min(declared, UPLOAD_MAX_BYTES);
   try {
-    return new Uint8Array(inflateRawSync(stored));
-  } catch {
-    return refused();
+    const expanded = new Uint8Array(inflateRawSync(stored, { maxOutputLength: ceiling + 1 }));
+    return expanded.length > ceiling ? REFUSALS.FILE_TOO_LARGE.code : expanded;
+  } catch (failure) {
+    return (failure as { code?: unknown }).code === "ERR_BUFFER_TOO_LARGE" ? REFUSALS.FILE_TOO_LARGE.code : refused();
   }
 }
 
