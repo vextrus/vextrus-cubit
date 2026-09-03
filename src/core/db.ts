@@ -21,6 +21,7 @@ import { MODEL_IDS, minimalDecimal } from "./model-ledger.types";
 import type { SourceScheme } from "./model";
 import { DEFAULT_DENSITY, DENSITIES, type Density } from "./prefs/density";
 import { BUILDING_TYPES, type BuildingType } from "./projects";
+import { DISCIPLINES, type Discipline } from "./sheets/law";
 import type { EditionParameter, EditionScope, MethodPair } from "./rulesets/editions/content";
 import { CANONICAL_UNITS, DIMENSIONS, type Dimension } from "./units/canon";
 
@@ -791,6 +792,45 @@ export const sheetRasters = pgTable(
 );
 
 /**
+ * L-REG-03's confirmed discipline: one append-only row per sheet a person confirmed, naming the act
+ * that carried it (L-ACT-01 — the act row and the state change land in one transaction or neither).
+ *
+ * A confirmation is never a before-image: the machine's proposal is not stored at all, so nothing
+ * here overwrites a machine value — the row is the human's own observation, with the act as its
+ * basis. `sheet_disciplines_once` is what makes a sheet confirmed once per record; a re-ingest mints
+ * a new record and its sheets are unconfirmed again, which is what "drawing-scoped, human-confirmed,
+ * fails closed" means when the drawing is read a second time.
+ */
+export const sheetDisciplines = pgTable(
+  "sheet_disciplines",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    confirmationId: uuid("confirmation_id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id")
+      .notNull()
+      .references(() => drawings.drawingId),
+    ingestId: uuid("ingest_id")
+      .notNull()
+      .references(() => ingests.ingestId),
+    layoutName: text("layout_name").notNull(),
+    discipline: text("discipline").$type<Discipline>().notNull(),
+    actId: uuid("act_id")
+      .notNull()
+      .references(() => acts.actId),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("sheet_disciplines_discipline_closed", statement`${table.discipline} in (${statement.raw(closedList(DISCIPLINES))})`),
+    // One confirmation per sheet of one record: a second confirmation of the same sheet is a
+    // competing observation, which L-ACT-01 gives its own path and this increment does not render.
+    uniqueIndex("sheet_disciplines_once").on(table.tenantId, table.ingestId, table.layoutName),
+    // The read the sheet index makes: one project's confirmations.
+    index("sheet_disciplines_by_project").on(table.tenantId, table.projectId),
+  ],
+);
+
+/**
  * Everything the typed surface covers. A table joins the surface by joining this object, and it is
  * exported because the binding to the schema tree is a check rather than a sentence: `db/schema.ts`
  * is the barrel drizzle-kit and the drift lane read, and a test beside this file compares the two
@@ -821,6 +861,7 @@ export const SEAM_SCHEMA = {
   uploads,
   ingests,
   sheetRasters,
+  sheetDisciplines,
 };
 
 /**
