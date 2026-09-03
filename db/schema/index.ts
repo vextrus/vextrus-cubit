@@ -8,3 +8,4 @@ export * from "./invitations";
 export * from "./prefs";
 export * from "./catalogue";
 export * from "./model";
+export * from "./drawings";

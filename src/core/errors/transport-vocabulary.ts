@@ -55,7 +55,27 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // `CUBIT_MODEL_FIXTURE_ROOT` and `ANTHROPIC_API_KEY` are read in `src/core/model`: the first
     // names the directory recorded model answers are replayed from and, by being non-blank, selects the
     // fixture transport; the second is the live provider's credential (L-AI-01, B-23).
-    codes: Object.freeze(["DATABASE_URL", "STORAGE_ROOT", "NODE_ENV", "CUBIT_PUBLIC_ORIGIN", "WORKER_HEALTH_PORT", "CUBIT_MODEL_FIXTURE_ROOT", "ANTHROPIC_API_KEY"]),
+    // `CUBIT_STORAGE_SIGNING_SECRET` is the key `src/modules/spine/uploads/storage.ts` mints signed
+    // download URLs with (R-SPINE-021, Q-12): a secret is the machine's to state, never the repo's.
+    codes: Object.freeze([
+      "DATABASE_URL",
+      "STORAGE_ROOT",
+      "NODE_ENV",
+      "CUBIT_PUBLIC_ORIGIN",
+      "WORKER_HEALTH_PORT",
+      "CUBIT_MODEL_FIXTURE_ROOT",
+      "ANTHROPIC_API_KEY",
+      "CUBIT_STORAGE_SIGNING_SECRET",
+    ]),
+  }),
+  Object.freeze({
+    // Node's own error codes, spelled where a seam judges one. `ERR_BUFFER_TOO_LARGE` is what
+    // `node:zlib` raises when an archive member expands past the ceiling the reader gave it
+    // (`src/modules/spine/uploads/zip.ts`): the runtime's name for a bound being hit, read to tell
+    // an oversized member from an unreadable one. The person is answered with the registered
+    // refusal, never with this.
+    vocabulary: "Node runtime error codes",
+    codes: Object.freeze(["ERR_BUFFER_TOO_LARGE"]),
   }),
   Object.freeze({
     // L-ACT-02's act-type enum, spelled as the law spells it. An act type names what a human did; it

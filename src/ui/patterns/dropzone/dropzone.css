@@ -1,0 +1,134 @@
+/* The upload pattern's paint (docs/design/dropzone.md § 1, § 4, § 5). Colour, spacing and motion come
+   from tokens only; the focus ring is the reticle's, drawn in its own single home (R-UI-012), and no
+   duration is branched on here — every motion token is zeroed at source under reduced motion. */
+
+.cx-dropzone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* The zone keeps one size whether or not the queue below it has filled: a target that shrinks under
+   the rows it produced is a target that moves while a person is dropping on it. */
+.cx-dropzone-zone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 160px;
+  padding: var(--space-6) var(--space-5);
+  border: 1px dashed var(--graphite-300);
+  border-radius: var(--radius-8);
+  background: none;
+  transition:
+    border-color var(--motion-state) var(--ease),
+    border-style var(--motion-state) var(--ease),
+    background-color var(--motion-state) var(--ease);
+}
+
+/* Two channels carry the state — the border turns solid and the fill arrives — never colour alone. */
+.cx-dropzone[data-state="dragging"] .cx-dropzone-zone {
+  border-style: solid;
+  border-color: var(--beam-500);
+  background-color: var(--beam-100);
+}
+
+.cx-dropzone-prompt {
+  margin: 0;
+  font-size: var(--text-14);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-dropzone-doors {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.cx-dropzone-accepts {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* I-71: the pickers are hidden and unreachable — their Buttons carry the names and open them. */
+.cx-dropzone-door-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* The three columns are the queue's, not each row's: tracks sized per row would leave the state
+   words and the figures on a different edge in every row, which is a staircase where the Decision
+   asks for a table (§ 1). */
+.cx-dropzone-queue {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-dropzone-item {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-comfortable);
+  padding-block: var(--space-2);
+}
+
+/* I-75: density arrives from the frame's published attribute, never from a prop. */
+[data-density="compact"] .cx-dropzone-item {
+  min-height: var(--row-compact);
+}
+
+.cx-dropzone-item + .cx-dropzone-item {
+  border-top: var(--hairline);
+}
+
+.cx-dropzone-item-name {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cx-dropzone-item-state {
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-600);
+}
+
+.cx-dropzone-item[data-state="stored"] .cx-dropzone-item-state {
+  color: var(--success);
+}
+
+.cx-dropzone-item[data-state="duplicate"] .cx-dropzone-item-state {
+  color: var(--graphite-700);
+}
+
+.cx-dropzone-item[data-state="refused"] .cx-dropzone-item-state {
+  color: var(--danger);
+}
+
+/* R-UI-005's numerals: mono, tabular, right-aligned, so two rows' figures line up digit by digit. */
+.cx-dropzone-item-progress {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--graphite-700);
+  text-align: right;
+}
+
+/* The refusal takes the row's full width, below the three columns (§ 1). */
+.cx-dropzone-item > .cx-refusal {
+  grid-column: 1 / -1;
+}
