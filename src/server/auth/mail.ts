@@ -9,6 +9,7 @@
 import { chmodSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { isAbsolute, join, resolve } from "node:path";
+import { oncePerWindow } from "./once-per-window";
 import { AUTH_TOKEN_TTLS, type MailKind } from "./tokens";
 
 /** The outbox's one home (ARCH-02), repo-relative so it resolves inside whatever tree is running. */
@@ -51,6 +52,23 @@ const MAIL_MODE = 0o600;
  */
 const OUTBOX_RETENTION_MS = Math.max(...Object.values(AUTH_TOKEN_TTLS));
 
+/**
+ * How often the outbox is swept. A sweep is a `readdir` plus a `stat` per file, taken synchronously
+ * on the thread that is answering somebody's sign-up: run per delivery it is a cost that grows with
+ * the number of mails already sent, paid by the person waiting for the next one. The retention it
+ * enforces is measured in hours (`OUTBOX_RETENTION_MS`), so a minute's resolution enforces it exactly
+ * as well — at most one pass a minute, whoever delivers.
+ */
+export const OUTBOX_SWEEP_WINDOW_MS = 60_000;
+
+/** That schedule, from the one home of "at most once a window per process" (`./once-per-window`, ARCH-02). */
+const sweep = oncePerWindow("outbox-sweep", OUTBOX_SWEEP_WINDOW_MS);
+
+/** Arm the sweep again, so the next delivery takes a pass. */
+export function resetOutboxSweep(): void {
+  sweep.reset();
+}
+
 /** Drop every mail whose credential can no longer be spent. `force` so a concurrent send racing us is not an error. */
 function dropSpentMail(directory: string, now: number): void {
   for (const name of readdirSync(directory)) {
@@ -75,7 +93,8 @@ export function deliver(mail: OutboxMail): void {
   // `mkdir`'s mode only applies to a directory it creates: an outbox already on disk from an earlier
   // run keeps whatever it was made with, so the mode is stated on every send rather than once.
   chmodSync(directory, OUTBOX_MODE);
-  dropSpentMail(directory, Date.now());
+  const now = Date.now();
+  if (sweep.due(now)) dropSpentMail(directory, now);
   writeFileSync(join(directory, `${Date.now().toString(36)}-${randomUUID()}.json`), `${JSON.stringify(mail, null, 2)}\n`, {
     encoding: "utf8",
     mode: MAIL_MODE,

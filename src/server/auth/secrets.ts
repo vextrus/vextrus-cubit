@@ -58,11 +58,19 @@ export async function verifyPassword(password: string, stored: string): Promise<
  * derived once per process from a value nobody holds, so no password can ever match it.
  */
 export async function absorbPassword(password: string): Promise<void> {
-  decoy ??= hashPassword(mintSecret());
-  await verifyPassword(password, await decoy);
+  decoy ??= await hashPassword(mintSecret());
+  await verifyPassword(password, decoy);
 }
 
-let decoy: Promise<string> | null = null;
+/**
+ * The decoy, memoised only once it has settled. Held as the promise, a derivation that *failed* —
+ * an exhausted machine, a crypto seam that refused — was memoised as a rejection for the life of the
+ * process: every later call at the door awaited the same rejected promise, so the one door that
+ * exists to spend time instead threw immediately, and an address with no account was answered
+ * measurably sooner than a wrong password ever after. A settled value is remembered; a failure leaves
+ * nothing behind, and the next call derives again.
+ */
+let decoy: string | null = null;
 
 function derive(
   password: string,

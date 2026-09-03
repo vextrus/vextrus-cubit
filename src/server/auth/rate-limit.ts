@@ -12,38 +12,17 @@
 // same address, and given back in full by every restart.
 import { and, asc, authAttempts, eq, gt, holdStateLock, isStorableText, lt, runAsSystem } from "../../core/db";
 import { foldedKey } from "./folded-key";
+import { AUTH_RATE_LIMITS, type LimitedDoor, type RateLimit } from "./limits";
+import { pruneWhenDue } from "./prune";
 import { rateLimited } from "./refusals";
 
-/** One door's allowance: how many attempts, over how long a sliding window. */
-export interface RateLimit {
-  attempts: number;
-  windowMs: number;
-}
-
-/** A minute is the window every auth door is limited over; the allowances differ by what the door costs. */
-const MINUTE = 60_000;
-
 /**
- * The limited doors. Sign-in and sign-up are given a handful of tries a minute — enough for a person
- * who mistypes, far short of an enumeration — while the two doors that send mail are tighter,
- * because each attempt puts a message in somebody's inbox.
- *
- * `tenancyAdmin` is R-SPINE-006's "tenant-admin actions carry rate limits", counted here rather than
- * anywhere nearer the workspace, because this table is the one home of what a door allows and
- * `admitAttempt` the one home of the counting (ARCH-02, B-17). Its allowance is the most generous
- * of the five: a person settling a workspace's roles moves several people in a sitting, while a
- * script walking a workspace's members is stopped well short of walking it.
+ * The allowances, published from the door that enforces them. They are declared in `./limits` so that
+ * the hygiene pass this file starts can read its window from the same table without the two files
+ * depending on each other's initialisation; a caller still reads them from here, which is where the
+ * counting is (ARCH-02, B-17).
  */
-export const AUTH_RATE_LIMITS: Readonly<Record<"signIn" | "signUp" | "requestMagicLink" | "requestPasswordReset" | "tenancyAdmin", RateLimit>> = Object.freeze({
-  signIn: Object.freeze({ attempts: 8, windowMs: MINUTE }),
-  signUp: Object.freeze({ attempts: 8, windowMs: MINUTE }),
-  requestMagicLink: Object.freeze({ attempts: 4, windowMs: MINUTE }),
-  requestPasswordReset: Object.freeze({ attempts: 4, windowMs: MINUTE }),
-  tenancyAdmin: Object.freeze({ attempts: 12, windowMs: MINUTE }),
-});
-
-/** The doors the table limits — the compiler's own list, so a door cannot be limited by a typo. */
-export type LimitedDoor = keyof typeof AUTH_RATE_LIMITS;
+export { AUTH_RATE_LIMITS, type LimitedDoor, type RateLimit };
 
 /**
  * Where the attempts are counted: the database, one row per attempt. An allowance is a statement
@@ -96,30 +75,6 @@ function keyed(identity: string): string {
  */
 function countable(folded: string): boolean {
   return isStorableText(folded) && Buffer.byteLength(folded, "utf8") <= IDENTITY_MAX_BYTES;
-}
-
-/** The longest window any door is limited over — older than that, a row can count towards nothing. */
-const LONGEST_WINDOW_MS = Math.max(...Object.values(AUTH_RATE_LIMITS).map((limit) => limit.windowMs));
-
-/**
- * When the spent rows were last swept, so the sweep is not paid for on every attempt.
- *
- * The sweep is a scan of the whole table, and it is the one statement here that is not about the
- * caller's own window: run per call it is a per-attempt cost that grows with exactly the traffic the
- * limiter exists to police, which is the shape a limiter must not have. Run once a window it still
- * bounds the table at what one window's traffic can put in it, which is all the deletion was ever
- * for. Held per process rather than in the table: a second instance sweeping the same rows a second
- * time deletes rows already gone, and the count itself is serialised on its own lock either way.
- */
-const SWEEP_KEY = Symbol.for("vextrus.cubit.server.auth.attempts-swept-at");
-const processScope = globalThis as typeof globalThis & { [SWEEP_KEY]?: { at: number } };
-const sweptAt: { at: number } = (processScope[SWEEP_KEY] ??= { at: Number.NEGATIVE_INFINITY });
-
-/** Drop every row too old to count towards any window — at most once a window, whoever asks. */
-async function sweepSpentAttempts(db: ReturnType<typeof runAsSystem>, now: number): Promise<void> {
-  if (now - sweptAt.at < LONGEST_WINDOW_MS) return;
-  sweptAt.at = now;
-  await db.delete(authAttempts).where(lt(authAttempts.attemptedAt, new Date(now - LONGEST_WINDOW_MS)));
 }
 
 /**
@@ -190,13 +145,17 @@ async function countAttempt(door: LimitedDoor, identity: string): Promise<number
   const key = keyed(identity);
   const db = runAsSystem(REASON);
 
-  // A row older than the longest window counts towards nothing, whoever it belonged to. Dropped
-  // here, or the table is a leak keyed by address — every address ever presented, kept for ever.
-  // Outside the count's own transaction, because it is about every identity but this one's window.
-  await sweepSpentAttempts(db, now);
-
-  return db.transaction(async (tx) => {
+  const full = await db.transaction(async (tx) => {
     await holdStateLock(tx, lockName(door, key));
+
+    // This key's own spent rows, dropped under the same lock the count is taken under: they can
+    // count towards nothing, and the index the window is read through (`auth_attempts_window`) is
+    // the index this predicate uses, so it costs the read it saves. Scoped to the caller: a
+    // statement over every identity's rows is a whole-table DELETE on the hot path, which is the
+    // shape a limiter must not have — that pass is the prune's, started below and awaited by nobody.
+    await tx
+      .delete(authAttempts)
+      .where(and(eq(authAttempts.door, door), eq(authAttempts.identity, key), lt(authAttempts.attemptedAt, new Date(now - limit.windowMs))));
 
     const window = await tx
       .select({ at: authAttempts.attemptedAt })
@@ -210,4 +169,10 @@ async function countAttempt(door: LimitedDoor, identity: string): Promise<number
     await tx.insert(authAttempts).values({ door, identity: key });
     return null;
   });
+
+  // The hygiene every auth table owes, once a window at most and never on this answer's path: it is
+  // started after the lock has been given back, and deliberately not awaited — the rows it removes
+  // are rows nothing would read again, so no caller's answer may wait on them going (`./prune`).
+  void pruneWhenDue();
+  return full;
 }
