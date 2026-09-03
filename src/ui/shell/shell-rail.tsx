@@ -7,7 +7,7 @@ import { useId, useState } from "react";
 import { QuietMark } from "../brand-usage";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/overlay";
 import { strings } from "../strings";
-import { SHELL_AREAS, shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
+import { SHELL_AREAS, areaLabel, shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
 
 export interface ShellRailProps {
   workspace: ShellWorkspace;
@@ -28,15 +28,19 @@ interface RailEntry {
   label: string;
 }
 
-/** What each area is called and found by. Total over the roster, so a new area cannot be forgotten. */
-const ENTRY: Readonly<Record<ShellArea, Omit<RailEntry, "area">>> = {
-  projects: { testId: "shell-nav-projects", label: strings.shell_nav_projects },
-  books: { testId: "shell-nav-books", label: strings.shell_nav_books },
-  settings: { testId: "shell-nav-settings", label: strings.shell_nav_settings },
+/** The hook each area's row is found by. Total over the roster, so a new area cannot be forgotten. */
+const TEST_ID: Readonly<Record<ShellArea, string>> = {
+  projects: "shell-nav-projects",
+  books: "shell-nav-books",
+  settings: "shell-nav-settings",
 };
 
-/** The areas the rail carries, in the order the roster (R-UI-030's order) names them. */
-const ENTRIES: readonly RailEntry[] = SHELL_AREAS.map((area) => ({ area, ...ENTRY[area] }));
+/**
+ * The areas the rail carries, in the order the roster (R-UI-030's order) names them. The words come
+ * from `areaLabel`, the one home the breadcrumb reads them from too, so a row and its crumb can
+ * never call the same area two different things (B-17).
+ */
+const ENTRIES: readonly RailEntry[] = SHELL_AREAS.map((area) => ({ area, testId: TEST_ID[area], label: areaLabel(area) }));
 
 /** The rail's one glyph, in the two directions it points. Decorative: the control carries the name. */
 function Chevron({ direction }: { direction: "left" | "down" }) {

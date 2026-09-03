@@ -7,10 +7,31 @@
 // A cell says one of three things and is never silent: the state is rendered here, it is handed to
 // a module outside this screen, or it cannot arise on this screen and says why. "Impossible" is a
 // claim with a reason attached, which is what makes it reviewable.
+import { STATE_NAMES } from "../screen-states/contract";
+import type { ScreenStateName } from "../screen-states/contract";
 import type { ShellArea } from "./routes";
 
-/** The seven states R-UI-050 names, in the clause's own order. */
-export type ShellStateName = "loading" | "empty" | "error" | "refusal" | "partial" | "offline" | "permissionDenied";
+/** The clause's kebab name in the key form an object is keyed by — the type half of the converter. */
+type KeyForm<Name extends string> = Name extends `${infer Head}-${infer Tail}` ? `${Head}${Capitalize<KeyForm<Tail>>}` : Name;
+
+/**
+ * The seven states R-UI-050 names, in the shell matrix's key form. The names themselves have one
+ * home — `STATE_NAMES` in `../screen-states/contract` — and this type is derived from it, so a state
+ * the clause names can never be spelled a second time here to drift (B-17, B-19).
+ */
+export type ShellStateName = KeyForm<ScreenStateName>;
+
+/**
+ * The one converter from a clause name to the key the matrix files it under: the segments after the
+ * first are capitalised and joined, so a name carrying no separator keeps its spelling exactly.
+ */
+export function shellStateKey(name: ScreenStateName): ShellStateName {
+  const [head = "", ...rest] = name.split("-");
+  return [head, ...rest.map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)].join("") as ShellStateName;
+}
+
+/** R-UI-050's roster in the shell's key form, in the clause's own order (B-19). */
+export const SHELL_STATE_NAMES: readonly ShellStateName[] = STATE_NAMES.map(shellStateKey);
 
 /** What a screen declares about one state. */
 export type ShellStateCell =

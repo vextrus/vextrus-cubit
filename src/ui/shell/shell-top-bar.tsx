@@ -1,37 +1,37 @@
 "use client";
 // R-UI-030's top bar: where you are (the breadcrumb, reading the URL's own truth) and who you are
 // (the user menu, holding the two doors a signed-in person always owes — the device list and the
-// way out). The occupants whose features are not built yet are absent rather than dead (I-15).
+// way out). The bar carries only occupants that lead somewhere: a control with no destination is
+// absent rather than shown dead (I-15).
 import Link from "next/link";
 import { useTransition } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/overlay";
 import { strings } from "../strings";
 import { useFailureHandOff } from "./failure-hand-off";
-import { shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
+import { areaLabel, shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
 
 export interface ShellTopBarProps {
   workspace: ShellWorkspace;
   area: ShellArea;
   /** Whether the address is the area's own home; deeper, the area crumb is a step, not the page. */
   atAreaHome: boolean;
+  /**
+   * The screen inside the area, named as its own crumb. Optional because a screen that is the
+   * area's own home names nothing beneath it, and the words are the caller's — the page's own
+   * name, never a key this module invents (R-UI-031).
+   */
+  page?: string;
   /** The address the session belongs to, shown as the menu's own name; null when there is none. */
   email: string | null;
   /** Ending the session is the server's to do; the menu only asks for it. */
   signOut: () => void | Promise<void>;
 }
 
-/** The crumb an area is named by — the same words the rail entry carries. */
-const AREA_LABEL: Readonly<Record<ShellArea, string>> = {
-  projects: strings.shell_nav_projects,
-  books: strings.shell_nav_books,
-  settings: strings.shell_nav_settings,
-};
-
-export function ShellTopBar({ workspace, area, atAreaHome, email, signOut }: ShellTopBarProps) {
+export function ShellTopBar({ workspace, area, atAreaHome, page, email, signOut }: ShellTopBarProps) {
   const [signingOut, startSignOut] = useTransition();
-  // A failed sign-out is a failure, not a silence: the menu used to close over a discarded promise
-  // and say nothing (ARCH-03, B-21). The hand-off holds the rejection and re-throws it while
-  // rendering, which is how a client component reaches the error boundary — see ./failure-hand-off.
+  // A failed sign-out is a failure, not a silence: a discarded promise would leave the control idle
+  // and the screen claiming nothing happened (ARCH-03, B-21). The hand-off holds the rejection and
+  // re-throws it while rendering, which is how a client component reaches the error boundary.
   const handing = useFailureHandOff();
 
   const askToSignOut = (): void => {
@@ -62,15 +62,28 @@ export function ShellTopBar({ workspace, area, atAreaHome, email, signOut }: She
               saying `aria-current="page"` there would name an address they are not at. */}
           {atAreaHome ? (
             <li className="cx-shell-crumb-current" aria-current="page">
-              {AREA_LABEL[area]}
+              {areaLabel(area)}
             </li>
           ) : (
             <li>
               <Link className="cx-shell-crumb-link cx-reticle" href={shellHref(workspace.tenantId, area)}>
-                {AREA_LABEL[area]}
+                {areaLabel(area)}
               </Link>
             </li>
           )}
+          {/* The page's own crumb, and only inside the area: at the area's own home the area crumb
+              already is the page, and a second `aria-current="page"` would make the trail claim two
+              addresses at once (Q-11). A screen that names no page ends the trail at the area. */}
+          {!atAreaHome && page !== undefined ? (
+            <>
+              <li className="cx-shell-crumb-separator" aria-hidden="true">
+                ›
+              </li>
+              <li className="cx-shell-crumb-current" aria-current="page" data-testid="shell-crumb-page">
+                {page}
+              </li>
+            </>
+          ) : null}
         </ol>
       </nav>
 

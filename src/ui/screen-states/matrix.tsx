@@ -93,10 +93,9 @@ const reasonedRefusal =
   );
 
 /**
- * The bones a screen keeps its layout with while it waits. The count is the number of Skeletons the
- * `loading.tsx` that serves the route actually renders, so the declared wait has the shape of the
- * shipped one: the three workspace screens without a `loading.tsx` of their own are all served by
- * `t/[tenant]/loading.tsx`'s three bones, and each screen that has its own is counted from it.
+ * The bones a screen keeps its layout with while it waits (R-UI-004: bones, never a spinner). The
+ * count is the declaration's own answer to how many bones hold this screen's layout, and nothing
+ * here reads it off another module — the declaration is the claim a reviewer grades.
  */
 const bones =
   (count: number) =>

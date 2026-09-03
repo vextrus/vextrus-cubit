@@ -376,11 +376,11 @@
   color: var(--graphite-700);
 }
 
-/* The hint under a field's label. At the section's 380 px measure this sentence broke with its last
-   word alone on a second line, directly above the input — the one ragged edge on the screen. The
-   measure is the Decision's and the copy is the string table's, so neither moves: the line breaking
-   is what is asked to be better, and `pretty` is the property for exactly that (it rebalances to
-   avoid a short last line). An engine that does not implement it simply breaks as before. */
+/* The hint under a field's label. The measure is the Decision's and the copy is the string table's,
+   so neither moves to fix a ragged edge: the line breaking is what is asked to be better, and
+   `text-wrap: pretty` is the property for exactly that — it rebalances the last lines so a single
+   word cannot stand alone above the input (R-UI-003). An engine without it breaks the paragraph
+   the ordinary way, which is a plainer edge and never a broken layout. */
 .cx-shell-field-hint {
   margin: 0;
   font-size: var(--text-12);
