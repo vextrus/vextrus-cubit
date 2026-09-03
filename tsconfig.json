@@ -49,7 +49,11 @@
     "db/**/*.ts",
     "*.config.ts",
     ".next-cubit/types/**/*.ts",
-    ".next-cubit/dev/types/**/*.ts"
+    ".next-cubit/dev/types/**/*.ts",
+    ".next-probe/types/**/*.ts",
+    ".next-probe/dev/types/**/*.ts",
+    ".next-sheets-acceptance/types/**/*.ts",
+    ".next-sheets-acceptance/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
