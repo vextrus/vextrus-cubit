@@ -117,10 +117,11 @@ export async function requestThumbnails(request: ThumbnailsRequest): Promise<Thu
  * Whether a record's every sheet stands recorded at every tier — what makes asking again a repeat.
  *
  * The sheets are the record's own facts, so the expectation is read off the record rather than
- * counted: a row set that is one tier short of one sheet is work still owed, not work done.
+ * counted: a row set that is one tier short of one sheet is work still owed, not work done. A record
+ * whose artifact carries no sheets at all (the mirror admits an empty `layouts`) owes no rasters, so
+ * it is done from the start and asking for it never queues a render of nothing.
  */
 async function isFullyRendered(tenantId: string, record: IngestRecord): Promise<boolean> {
-  if (record.facts.layouts.length === 0) return false;
   const rows = await sheetRasterRecords({ tenantId, ingestId: record.ingestId });
   const recorded = new Set(rows.map((row) => `${row.tier} ${row.layoutName}`));
   return record.facts.layouts.every((layout) => RASTER_TIERS.every((tier) => recorded.has(`${tier} ${recordedLayoutName(layout.name)}`)));
