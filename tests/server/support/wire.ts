@@ -167,6 +167,92 @@ export function productSource(relative: string): string {
   return readFileSync(abs, "utf8");
 }
 
+/** The lexical mode a character of a source file sits in. */
+type ScanMode = "code" | "line" | "block" | "single" | "double" | "template";
+
+interface ScannedChar {
+  readonly index: number;
+  readonly char: string;
+  readonly mode: ScanMode;
+}
+
+/**
+ * Every character of a source file with the mode it belongs to: code, a line or block comment, a
+ * single/double-quoted string, or a template's literal text. A template substitution (`${…}`) is
+ * code again, and nests. Both readings this file makes of a source — dropping comments, and
+ * bounding a call by its own delimiters — walk this ONE scanner rather than each spelling its own
+ * dialect of it (ARCH-02).
+ */
+function* scanned(source: string): Generator<ScannedChar> {
+  let mode: ScanMode = "code";
+  /** The brace depth each open `${` was seen at — the stack a nested template unwinds. */
+  const substitutions: number[] = [];
+  let braces = 0;
+  let i = 0;
+  while (i < source.length) {
+    const c = source[i] as string;
+    const next = source[i + 1];
+    if (mode === "code") {
+      if (c === "/" && (next === "/" || next === "*")) {
+        mode = next === "/" ? "line" : "block";
+        yield { index: i, char: c, mode };
+        yield { index: i + 1, char: next, mode };
+        i += 2;
+        continue;
+      }
+      yield { index: i, char: c, mode: "code" };
+      if (c === "'") mode = "single";
+      else if (c === '"') mode = "double";
+      else if (c === "`") mode = "template";
+      else if (c === "{") braces += 1;
+      else if (c === "}") {
+        braces -= 1;
+        if (substitutions.length > 0 && substitutions[substitutions.length - 1] === braces) {
+          substitutions.pop();
+          mode = "template";
+        }
+      }
+      i += 1;
+      continue;
+    }
+    if (mode === "line") {
+      yield { index: i, char: c, mode: "line" };
+      if (c === "\n") mode = "code";
+      i += 1;
+      continue;
+    }
+    if (mode === "block") {
+      yield { index: i, char: c, mode: "block" };
+      if (c === "*" && next === "/") {
+        yield { index: i + 1, char: next, mode: "block" };
+        mode = "code";
+        i += 2;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+    if (c === "\\") {
+      yield { index: i, char: c, mode };
+      if (next !== undefined) yield { index: i + 1, char: next, mode };
+      i += 2;
+      continue;
+    }
+    if (mode === "template" && c === "$" && next === "{") {
+      yield { index: i, char: c, mode: "code" };
+      yield { index: i + 1, char: next, mode: "code" };
+      substitutions.push(braces);
+      braces += 1;
+      mode = "code";
+      i += 2;
+      continue;
+    }
+    yield { index: i, char: c, mode };
+    if ((mode === "single" && c === "'") || (mode === "double" && c === '"') || (mode === "template" && c === "`")) mode = "code";
+    i += 1;
+  }
+}
+
 /**
  * The same source with every comment removed and every string literal kept, so a phrase counted in
  * code is never a phrase written in prose. Line structure is preserved: a stripped comment leaves
@@ -174,57 +260,27 @@ export function productSource(relative: string): string {
  */
 export function stripComments(source: string): string {
   let out = "";
-  let mode: "code" | "line" | "block" | "single" | "double" | "template" = "code";
-  let i = 0;
-  while (i < source.length) {
-    const c = source[i] as string;
-    const next = source[i + 1];
-    if (mode === "code") {
-      if (c === "/" && next === "/") {
-        mode = "line";
-        i += 2;
-        continue;
-      }
-      if (c === "/" && next === "*") {
-        mode = "block";
-        i += 2;
-        continue;
-      }
-      if (c === "'") mode = "single";
-      else if (c === '"') mode = "double";
-      else if (c === "`") mode = "template";
-      out += c;
-      i += 1;
+  for (const { char, mode } of scanned(source)) {
+    if (mode === "line" || mode === "block") {
+      if (char === "\n") out += char;
       continue;
     }
-    if (mode === "line") {
-      if (c === "\n") {
-        mode = "code";
-        out += c;
-      }
-      i += 1;
-      continue;
-    }
-    if (mode === "block") {
-      if (c === "*" && next === "/") {
-        mode = "code";
-        i += 2;
-        continue;
-      }
-      if (c === "\n") out += c;
-      i += 1;
-      continue;
-    }
-    if (c === "\\") {
-      out += c + (next ?? "");
-      i += 2;
-      continue;
-    }
-    if ((mode === "single" && c === "'") || (mode === "double" && c === '"') || (mode === "template" && c === "`")) mode = "code";
-    out += c;
-    i += 1;
+    out += char;
   }
   return out;
+}
+
+/**
+ * The same source with every non-code character blanked to a space and every code character kept in
+ * place, so an index into the mask is an index into the file. Delimiters are counted here: a `)` in
+ * a comment, a string or a template's text is not a delimiter of anything.
+ */
+function codeMask(source: string): string {
+  const out = new Array<string>(source.length).fill(" ");
+  for (const { index, char, mode } of scanned(source)) {
+    if (mode === "code") out[index] = char;
+  }
+  return out.join("");
 }
 
 /** Every `/** … *\/` doc comment in a file, as text — what a criterion about a comment's citation reads. */
@@ -256,42 +312,72 @@ export function enclosingFunctionsOf(source: string, needle: string): string[] {
   return found;
 }
 
-/** A suite split at each `test(` boundary: its prologue, then one segment per test. */
-export function testBlocksOf(source: string): string[] {
-  return source.split(/(?=\n\s*test\()/);
+/** One test as the audit bounds it: what it is called, its own text, and the lines it spans. */
+export interface BoundedTest {
+  readonly title: string;
+  readonly text: string;
+  /** 1-indexed, inclusive. `endLine - startLine` is the extent a re-bound would move. */
+  readonly startLine: number;
+  readonly endLine: number;
+}
+
+/** The title a test declares — the identity a recorded body is matched by, never its position. */
+function titleAt(source: string, at: number): string | null {
+  const match = /^(?:test|it)\s*\(\s*(["'`])((?:[^\\]|\\.)*?)\1/.exec(source.slice(at));
+  return match === null ? null : (match[2] as string);
 }
 
 /**
- * One test's own text: the `test(` line through the line that closes that call at the same
- * indentation. Bounding a block by its own closer rather than by the next test's start is what
- * keeps a test's identity stable when a LATER test is inserted after it.
+ * Where the `(` at `open` closes, by balanced delimiters over the code mask: every `(`/`{`/`[` in
+ * code deepens and every `)`/`}`/`]` in code unwinds, so the bound follows the call's own structure.
+ * `null` when the delimiters never balance (or unwind past the call) before the end of the file.
  */
-function testBodyOf(block: string): string | null {
-  const lines = block.split("\n");
-  const open = lines.findIndex((line) => /^\s*test\(/.test(line));
-  if (open < 0) return null;
-  const closer = `${/^\s*/.exec(lines[open] as string)?.[0] ?? ""}});`;
-  for (let at = open + 1; at < lines.length; at += 1) {
-    if (lines[at] === closer) return lines.slice(open, at + 1).join("\n");
+function closesAt(mask: string, open: number): number | null {
+  let depth = 0;
+  for (let at = open; at < mask.length; at += 1) {
+    const c = mask[at] as string;
+    if (c === "(" || c === "{" || c === "[") depth += 1;
+    else if (c === ")" || c === "}" || c === "]") {
+      depth -= 1;
+      if (depth < 0) return null;
+      if (depth === 0) return c === ")" ? at : null;
+    }
   }
   return null;
 }
 
-/** The title a test declares — the identity a recorded block is matched by, never its position. */
-function titleOf(body: string): string | null {
-  const match = /^\s*test\(\s*(["'`])((?:[^\\]|\\.)*?)\1/.exec(body);
-  return match === null ? null : (match[2] as string);
-}
-
-/** Every test a suite holds, as title → the test's own text. */
-export function testBodiesOf(source: string): Map<string, string> {
-  const found = new Map<string, string>();
-  for (const block of testBlocksOf(source)) {
-    const body = testBodyOf(block);
-    if (body === null) continue;
-    const title = titleOf(body);
+/**
+ * Every test a suite holds, as title → the test's own text and extent. A test is bounded by the
+ * delimiters of its own `test(`/`it(` call — from the start of the line the call opens on through
+ * the end of the line where that `(` closes — never by the first line that looks like its closer: a
+ * nested call closed at the same indentation, a `});` inside a template literal, or a reformat all
+ * leave the bound exactly where it was.
+ *
+ * A call whose delimiters never balance is an audit fault, not a shorter body: it is reported by
+ * name here rather than silently digested as a prefix, because a digest over a prefix would leave
+ * every edit after the premature closer invisible to the very audit that exists to freeze it.
+ */
+export function testBodiesOf(source: string, where: string): Map<string, BoundedTest> {
+  const mask = codeMask(source);
+  const lineOf = (index: number): number => source.slice(0, index).split("\n").length;
+  const found = new Map<string, BoundedTest>();
+  let bounded = -1;
+  for (const match of mask.matchAll(/(^|[^A-Za-z0-9_$.])(?:test|it)\s*\(/g)) {
+    const at = (match.index as number) + (match[1] as string).length;
+    // A `test(` inside a body already bounded belongs to that body; it is not a test of its own.
+    if (at < bounded) continue;
+    const title = titleAt(source, at);
     if (title === null) continue;
-    found.set(title, body);
+    const close = closesAt(mask, mask.indexOf("(", at));
+    expect(
+      close,
+      `the audit could not bound ${JSON.stringify(title)} in ${where} — the call opened at line ${lineOf(at)} never closes (B-20)`,
+    ).not.toBeNull();
+    const end = close as number;
+    const start = source.lastIndexOf("\n", at) + 1;
+    const stop = source.indexOf("\n", end);
+    bounded = stop < 0 ? source.length : stop;
+    found.set(title, { title, text: source.slice(start, bounded), startLine: lineOf(start), endLine: lineOf(end) });
   }
   return found;
 }
@@ -305,6 +391,18 @@ export const digestOf = (text: string): string => createHash("sha256").update(te
  * branch ref that moves under it (Q-17: fixture identities are single-sourced; V-VERIFY: the exit
  * code is a fact about the product, never about a date).
  */
+/**
+ * One test as the pre-fix suite held it: its title, the digest of its own text, and the lines it
+ * spanned. The extent is recorded alongside the digest so that a body bounded differently reads as
+ * an extent change — a fact about the audit's own reach — rather than as an unexplained hash.
+ */
+export interface RecordedTest {
+  readonly title: string;
+  readonly digest: string;
+  readonly startLine: number;
+  readonly endLine: number;
+}
+
 export interface RebaselinedSuite {
   /** The title the pre-fix suite gave the test whose law changed — the audit's handle. */
   readonly title: string;
@@ -314,8 +412,8 @@ export interface RebaselinedSuite {
   readonly states: readonly string[];
   /** The superseded expectation, which the suite must no longer hold anywhere. */
   readonly superseded: readonly string[];
-  /** Every test the pre-fix suite held, as `[title, digest of its own text]`. */
-  readonly blocks: readonly (readonly [title: string, digest: string])[];
+  /** Every test the pre-fix suite held. */
+  readonly blocks: readonly RecordedTest[];
 }
 
 /**
@@ -330,21 +428,21 @@ export const REBASELINED_SUITES: Readonly<Record<string, RebaselinedSuite>> = {
     states: ["REQUEST_ID_MAX_LENGTH"],
     superseded: [").requestId).toBe(long);"],
     blocks: [
-      ["a refusal marker on a TRPCError that also carries a cause is still a refusal (ARCH-03)", "467b53f445fa02445c38f24842bdecc34f33763c85b49d0f88fe532f965456bb"],
-      ["a marker two hops below a directly-thrown TRPCError is an outage, not a refusal (ARCH-03)", "26776f52b32aa12403b8c5579e7c8338e030363d693c1da47381cedff10f0e92"],
-      ["the same error object thrown by two requests records both, each under its own request id", "e071ce42330c99edd1ce4c53da9a34f379e3705df4d5082e727bb44132291e17"],
-      ["a re-thrown TRPCError constant is a new outage on every request, never a replay of the first", "d32b673016ef7abab36de3c288725fd195b9a308e52e18ebfcd4e7a4e2861e26"],
-      ["two procedures in ONE batch that throw the same error object leave two records, one per route", "54cd5796846d907de791aa8fc912d681987b60c0f022e409a2d299f19c7d37fc"],
-      ["a primitive thrown value handed to the seam twice is still one failure, one record", "2f9138867bc3ea6cd11253fdeeb586522aefb9d6eda086e080119772c8fb9236"],
-      ["a failure only ONE reader ever saw cannot suppress the next outage's record (B-21)", "714e7cf91c445680edcae1eee6576be28064554934da380c77475f4530b74ebc"],
-      ["a large batch's first failure is still one record when the last one is decided (B-21)", "7724f01b9f668164014e8ca3264d2203bebe428ecf76d685cbd79228519356f6"],
-      ["a second instance of the transport shares the one memo — one failure, still one record (ARCH-02)", "af230e3f8131b4cd3f277f389480cf7fee1317f9faf0b7bf91964008b6a854fd"],
-      ["a second instance of the fault seam shares the one sink — a swapped sink is never half-applied (ARCH-02)", "b80b3d589fff11006d1c03cdf461e92eef37e570ba68b593c38851b3417d8bf2"],
-      ["one failing request still leaves exactly one record", "7f0a2150de119996b5991ee92bfcec9a18f597b274d34a7a25f29669ed23f9fc"],
-      ["an ordinary supplied id is echoed verbatim", "9bc377ba846c70147c1b198fb30405408e1a8437e32544a51edc933dd20f8f37"],
-      ["a printable non-ASCII id is still an id and is honoured verbatim (AC-2)", "0afe3a093c961795ee23748dd36a70c1c394fb920eec15264a6318d057470f0d"],
-      ["a long id is still the caller's id and is echoed verbatim (AC-2)", "4a0fc5e742eab9657013994247d5647b65f957294349760f570335a51c6db8b8"],
-      ["a control character in the id neither mints over it nor breaks the sink's framing", "d36ce644c1c343ba580fd3c090ff0e09172c85b72d2c4ae97a1fb651188f6632"],
+      { title: "a refusal marker on a TRPCError that also carries a cause is still a refusal (ARCH-03)", digest: "467b53f445fa02445c38f24842bdecc34f33763c85b49d0f88fe532f965456bb", startLine: 47, endLine: 64 },
+      { title: "a marker two hops below a directly-thrown TRPCError is an outage, not a refusal (ARCH-03)", digest: "26776f52b32aa12403b8c5579e7c8338e030363d693c1da47381cedff10f0e92", startLine: 66, endLine: 88 },
+      { title: "the same error object thrown by two requests records both, each under its own request id", digest: "e071ce42330c99edd1ce4c53da9a34f379e3705df4d5082e727bb44132291e17", startLine: 92, endLine: 114 },
+      { title: "a re-thrown TRPCError constant is a new outage on every request, never a replay of the first", digest: "d32b673016ef7abab36de3c288725fd195b9a308e52e18ebfcd4e7a4e2861e26", startLine: 116, endLine: 137 },
+      { title: "two procedures in ONE batch that throw the same error object leave two records, one per route", digest: "54cd5796846d907de791aa8fc912d681987b60c0f022e409a2d299f19c7d37fc", startLine: 139, endLine: 172 },
+      { title: "a primitive thrown value handed to the seam twice is still one failure, one record", digest: "2f9138867bc3ea6cd11253fdeeb586522aefb9d6eda086e080119772c8fb9236", startLine: 174, endLine: 193 },
+      { title: "a failure only ONE reader ever saw cannot suppress the next outage's record (B-21)", digest: "714e7cf91c445680edcae1eee6576be28064554934da380c77475f4530b74ebc", startLine: 195, endLine: 220 },
+      { title: "a large batch's first failure is still one record when the last one is decided (B-21)", digest: "7724f01b9f668164014e8ca3264d2203bebe428ecf76d685cbd79228519356f6", startLine: 222, endLine: 248 },
+      { title: "a second instance of the transport shares the one memo — one failure, still one record (ARCH-02)", digest: "af230e3f8131b4cd3f277f389480cf7fee1317f9faf0b7bf91964008b6a854fd", startLine: 250, endLine: 267 },
+      { title: "a second instance of the fault seam shares the one sink — a swapped sink is never half-applied (ARCH-02)", digest: "b80b3d589fff11006d1c03cdf461e92eef37e570ba68b593c38851b3417d8bf2", startLine: 269, endLine: 279 },
+      { title: "one failing request still leaves exactly one record", digest: "7f0a2150de119996b5991ee92bfcec9a18f597b274d34a7a25f29669ed23f9fc", startLine: 281, endLine: 293 },
+      { title: "an ordinary supplied id is echoed verbatim", digest: "9bc377ba846c70147c1b198fb30405408e1a8437e32544a51edc933dd20f8f37", startLine: 299, endLine: 302 },
+      { title: "a printable non-ASCII id is still an id and is honoured verbatim (AC-2)", digest: "0afe3a093c961795ee23748dd36a70c1c394fb920eec15264a6318d057470f0d", startLine: 304, endLine: 312 },
+      { title: "a long id is still the caller's id and is echoed verbatim (AC-2)", digest: "4a0fc5e742eab9657013994247d5647b65f957294349760f570335a51c6db8b8", startLine: 314, endLine: 321 },
+      { title: "a control character in the id neither mints over it nor breaks the sink's framing", digest: "d36ce644c1c343ba580fd3c090ff0e09172c85b72d2c4ae97a1fb651188f6632", startLine: 323, endLine: 340 },
     ],
   },
   "tests/server/spine-router.test.ts": {
@@ -352,12 +450,12 @@ export const REBASELINED_SUITES: Readonly<Record<string, RebaselinedSuite>> = {
     states: ["lanes", "procedures"],
     superseded: ["appRouter._def?.record?.[lane]"],
     blocks: [
-      ["AC-2: appRouter composes exactly the five module lanes and no other top-level key", "eab7c66fb8216753369bf46f2f877b9fcbe87ad1f327e68513837a401a0f0344"],
-      ["AC-2: each lane is defined in its own file under src/server/routers/ and mounted from there", "e61bcbb413617bb9cdeca1075845aa499a760494297e3d88f9d00e2453b95f91"],
-      ["AC-2: the composed procedure roster carries spine.health", "83004c133535fd29c1981cd4c2d9f64c39888e6038fcbda13c1b99d6a1c656c2"],
-      ["AC-2: createContext echoes an x-request-id header and mints the anonymous actor", "225a6199ce1d46a43a95afda385fd79e16bf95715f8bd204b9faafbe0171fc53"],
-      ["AC-2: createContext mints a fresh UUID request id when no header is supplied", "80e834b3b896d0e35613dc9e490e9a9b2124f538b096270803cbd90742467162"],
-      ["AC-2: GET /api/trpc/spine.health answers { ok: true, requestId } echoing the supplied x-request-id", "9e796f26f86829542a710a54fcbdfd4279a6bf01dadaff6141c96ca64a7037cb"],
+      { title: "AC-2: appRouter composes exactly the five module lanes and no other top-level key", digest: "eab7c66fb8216753369bf46f2f877b9fcbe87ad1f327e68513837a401a0f0344", startLine: 32, endLine: 37 },
+      { title: "AC-2: each lane is defined in its own file under src/server/routers/ and mounted from there", digest: "e61bcbb413617bb9cdeca1075845aa499a760494297e3d88f9d00e2453b95f91", startLine: 39, endLine: 58 },
+      { title: "AC-2: the composed procedure roster carries spine.health", digest: "83004c133535fd29c1981cd4c2d9f64c39888e6038fcbda13c1b99d6a1c656c2", startLine: 60, endLine: 66 },
+      { title: "AC-2: createContext echoes an x-request-id header and mints the anonymous actor", digest: "225a6199ce1d46a43a95afda385fd79e16bf95715f8bd204b9faafbe0171fc53", startLine: 68, endLine: 74 },
+      { title: "AC-2: createContext mints a fresh UUID request id when no header is supplied", digest: "80e834b3b896d0e35613dc9e490e9a9b2124f538b096270803cbd90742467162", startLine: 76, endLine: 84 },
+      { title: "AC-2: GET /api/trpc/spine.health answers { ok: true, requestId } echoing the supplied x-request-id", digest: "9e796f26f86829542a710a54fcbdfd4279a6bf01dadaff6141c96ca64a7037cb", startLine: 86, endLine: 92 },
     ],
   },
 };
@@ -383,23 +481,32 @@ export function assertOnlyOneTestRebaselined(relative: string, title: string): v
   const suite = recorded as RebaselinedSuite;
   expect(suite.title, `the recorded baseline for ${relative} names a different re-baselined test — the audit is pointed at the wrong assertion`).toBe(title);
 
-  const bodies = testBodiesOf(productSource(relative));
-  for (const [held, digest] of suite.blocks) {
-    if (held === title) continue;
-    const standing = bodies.get(held);
+  const bodies = testBodiesOf(productSource(relative), relative);
+  for (const held of suite.blocks) {
+    if (held.title === title) continue;
+    const standing = bodies.get(held.title);
     expect(
-      standing === undefined ? "<the suite no longer holds this test>" : digestOf(standing),
-      `${relative}: ${JSON.stringify(held)} is not the test that stood before — a re-baseline moves only ${JSON.stringify(title)} (B-20)`,
-    ).toBe(digest);
+      standing !== undefined ? "<held>" : "<the suite no longer holds this test>",
+      `${relative}: ${JSON.stringify(held.title)} is not the test that stood before — a re-baseline moves only ${JSON.stringify(title)} (B-20)`,
+    ).toBe("<held>");
+    const body = standing as BoundedTest;
+    expect(
+      body.endLine - body.startLine,
+      `${relative}: ${JSON.stringify(held.title)} now spans lines ${body.startLine}–${body.endLine} where it stood over ${held.endLine - held.startLine + 1} — its extent moved, so what the audit digests is no longer the test it recorded (B-20)`,
+    ).toBe(held.endLine - held.startLine);
+    expect(
+      digestOf(body.text),
+      `${relative}: ${JSON.stringify(held.title)} is not the test that stood before — a re-baseline moves only ${JSON.stringify(title)} (B-20)`,
+    ).toBe(held.digest);
   }
 
-  const before = suite.blocks.find(([held]) => held === title)?.[1];
+  const before = suite.blocks.find((held) => held.title === title)?.digest;
   expect(before, `the recorded baseline for ${relative} holds no digest for ${JSON.stringify(title)}`).toBeTypeOf("string");
   const named = bodies.get(title);
-  if (named !== undefined && digestOf(named) === before) return;
+  if (named !== undefined && digestOf(named.text) === before) return;
 
   const anchor = suite.anchor ?? title;
-  const anchored = [...bodies.values()].filter((body) => body.includes(anchor));
+  const anchored = [...bodies.values()].map((held) => held.text).filter((body) => body.includes(anchor));
   expect(anchored.length, `${relative}: exactly one test may carry the re-baselined assertion (${JSON.stringify(anchor)}) — ${anchored.length} do`).toBe(1);
   const body = anchored[0] ?? "";
   for (const stated of suite.states) {
