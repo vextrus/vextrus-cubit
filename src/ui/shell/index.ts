@@ -12,8 +12,8 @@ export { ShellInspector } from "./shell-inspector";
 export { ShellRail } from "./shell-rail";
 export { ShellTopBar } from "./shell-top-bar";
 export { useFailureHandOff } from "./failure-hand-off";
-export { SHELL_AREAS, areaOf, hasVisibleText, isAreaHome, shellHref } from "./routes";
-export { SHELL_STATES } from "./states";
+export { SHELL_AREAS, areaLabel, areaOf, hasVisibleText, isAreaHome, shellHref, workspaceLabel, workspaceOf } from "./routes";
+export { SHELL_STATES, SHELL_STATE_NAMES, shellStateKey } from "./states";
 
 export type { AppShellProps } from "./app-shell";
 export type { DensityToggleProps } from "./density-toggle";

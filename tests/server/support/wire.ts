@@ -16,6 +16,10 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
+// Both readings this file makes of a source — dropping comments, and bounding a call by its own
+// delimiters — walk the ONE scanner every suite walks (B-17), rather than each spelling its own
+// dialect of it.
+import { scanned } from "../../support/source-lex";
 
 /** The checkout these tests run against. */
 export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -165,92 +169,6 @@ export function productSource(relative: string): string {
   const abs = join(REPO_ROOT, relative);
   expect(existsSync(abs) && statSync(abs).isFile(), `${relative} is missing from the checkout — the product does not provide it yet`).toBe(true);
   return readFileSync(abs, "utf8");
-}
-
-/** The lexical mode a character of a source file sits in. */
-type ScanMode = "code" | "line" | "block" | "single" | "double" | "template";
-
-interface ScannedChar {
-  readonly index: number;
-  readonly char: string;
-  readonly mode: ScanMode;
-}
-
-/**
- * Every character of a source file with the mode it belongs to: code, a line or block comment, a
- * single/double-quoted string, or a template's literal text. A template substitution (`${…}`) is
- * code again, and nests. Both readings this file makes of a source — dropping comments, and
- * bounding a call by its own delimiters — walk this ONE scanner rather than each spelling its own
- * dialect of it (ARCH-02).
- */
-function* scanned(source: string): Generator<ScannedChar> {
-  let mode: ScanMode = "code";
-  /** The brace depth each open `${` was seen at — the stack a nested template unwinds. */
-  const substitutions: number[] = [];
-  let braces = 0;
-  let i = 0;
-  while (i < source.length) {
-    const c = source[i] as string;
-    const next = source[i + 1];
-    if (mode === "code") {
-      if (c === "/" && (next === "/" || next === "*")) {
-        mode = next === "/" ? "line" : "block";
-        yield { index: i, char: c, mode };
-        yield { index: i + 1, char: next, mode };
-        i += 2;
-        continue;
-      }
-      yield { index: i, char: c, mode: "code" };
-      if (c === "'") mode = "single";
-      else if (c === '"') mode = "double";
-      else if (c === "`") mode = "template";
-      else if (c === "{") braces += 1;
-      else if (c === "}") {
-        braces -= 1;
-        if (substitutions.length > 0 && substitutions[substitutions.length - 1] === braces) {
-          substitutions.pop();
-          mode = "template";
-        }
-      }
-      i += 1;
-      continue;
-    }
-    if (mode === "line") {
-      yield { index: i, char: c, mode: "line" };
-      if (c === "\n") mode = "code";
-      i += 1;
-      continue;
-    }
-    if (mode === "block") {
-      yield { index: i, char: c, mode: "block" };
-      if (c === "*" && next === "/") {
-        yield { index: i + 1, char: next, mode: "block" };
-        mode = "code";
-        i += 2;
-        continue;
-      }
-      i += 1;
-      continue;
-    }
-    if (c === "\\") {
-      yield { index: i, char: c, mode };
-      if (next !== undefined) yield { index: i + 1, char: next, mode };
-      i += 2;
-      continue;
-    }
-    if (mode === "template" && c === "$" && next === "{") {
-      yield { index: i, char: c, mode: "code" };
-      yield { index: i + 1, char: next, mode: "code" };
-      substitutions.push(braces);
-      braces += 1;
-      mode = "code";
-      i += 2;
-      continue;
-    }
-    yield { index: i, char: c, mode };
-    if ((mode === "single" && c === "'") || (mode === "double" && c === '"') || (mode === "template" && c === "`")) mode = "code";
-    i += 1;
-  }
 }
 
 /**

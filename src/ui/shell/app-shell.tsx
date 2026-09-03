@@ -15,6 +15,8 @@ export interface AppShellProps {
   area: ShellArea;
   /** Whether the address is the area's own home, or a screen inside it — see `isAreaHome`. */
   atAreaHome: boolean;
+  /** The name of the screen inside the area, when there is one — the breadcrumb's last crumb. */
+  page?: string;
   email: string | null;
   /**
    * The mode this account's tables are drawn at (R-UI-005), read from SEAM-PREFS above the frame.
@@ -26,14 +28,14 @@ export interface AppShellProps {
   children: ReactNode;
 }
 
-export function AppShell({ workspace, workspaces, area, atAreaHome, email, density = "comfortable", signOut, children }: AppShellProps) {
+export function AppShell({ workspace, workspaces, area, atAreaHome, page, email, density = "comfortable", signOut, children }: AppShellProps) {
   return (
     // The stored mode is published once, here, so every table-bearing screen inside the frame reads
     // one source of truth rather than each asking the seam for itself (R-UI-005).
     <div className="cx-shell" data-testid="shell-root" data-density={density}>
       <ShellRail workspace={workspace} workspaces={workspaces} area={area} atAreaHome={atAreaHome} />
       <div className="cx-shell-body">
-        <ShellTopBar workspace={workspace} area={area} atAreaHome={atAreaHome} email={email} signOut={signOut} />
+        <ShellTopBar workspace={workspace} area={area} atAreaHome={atAreaHome} page={page} email={email} signOut={signOut} />
         <div className="cx-shell-content">
           <main className="cx-shell-main" data-testid="shell-main">
             {children}

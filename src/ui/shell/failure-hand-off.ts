@@ -18,15 +18,18 @@ import { useCallback, useState } from "react";
  * Call it inside the transition: `start(() => handing(async () => { … }))`.
  */
 export function useFailureHandOff(): (work: () => Promise<void>) => Promise<void> {
-  const [failure, setFailure] = useState<unknown>(null);
-  // Re-thrown during render, which is what the boundary observes; state is what carries it there.
-  if (failure !== null) throw failure;
+  // The rejection is held boxed, never bare: a rejection whose value is `null` or `undefined` is
+  // still a failure, and an unboxed one would be indistinguishable from "nothing failed" and be
+  // swallowed — the shrug ARCH-03 forbids. The box also keeps a thrown function from being read as
+  // a state updater. Re-thrown during render, which is what the boundary observes (B-21).
+  const [failure, setFailure] = useState<{ cause: unknown } | null>(null);
+  if (failure !== null) throw failure.cause;
 
   return useCallback(async (work: () => Promise<void>): Promise<void> => {
     try {
       await work();
     } catch (cause) {
-      setFailure(cause);
+      setFailure({ cause });
     }
   }, []);
 }

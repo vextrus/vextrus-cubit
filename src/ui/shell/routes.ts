@@ -49,10 +49,37 @@ export const SHELL_AREAS = ["projects", "books", "settings"] as const;
 /** The area type, derived from the roster so the two can never name different sets. */
 export type ShellArea = (typeof SHELL_AREAS)[number];
 
+/**
+ * What each area is called, in the one home every surface that names an area reads (B-17): the rail
+ * entry and the breadcrumb crumb wear the same words because they ask the same function for them,
+ * and the words themselves stay the string table's (R-UI-030, Q-11).
+ */
+const AREA_LABEL: Readonly<Record<ShellArea, string>> = {
+  projects: strings.shell_nav_projects,
+  books: strings.shell_nav_books,
+  settings: strings.shell_nav_settings,
+};
+
+/** The name an area is shown by, wherever the frame names it. */
+export function areaLabel(area: ShellArea): string {
+  return AREA_LABEL[area];
+}
+
 /** The address of an area within a workspace — Projects is the workspace's own home. */
 export function shellHref(tenantId: string, area: ShellArea): string {
   const home = `/t/${tenantId}`;
   return area === "projects" ? home : `${home}/${area}`;
+}
+
+/**
+ * The workspace an address is inside: the segment `/t/<segment>` names, and null for an address that
+ * names no workspace at all. One home for reading the URL's own truth about which workspace a
+ * reader is in (R-UI-031, B-17).
+ */
+export function workspaceOf(pathname: string | null): string | null {
+  if (pathname === null) return null;
+  const match = /^\/t\/([^/]+)(?:\/|$)/.exec(pathname);
+  return match === null ? null : (match[1] ?? null);
 }
 
 /** Which area an address is in. Anything under a workspace that names no area is its Projects home. */
@@ -75,6 +102,10 @@ export function areaOf(pathname: string | null): ShellArea {
  * than the page (Q-11, R-UI-031).
  */
 export function isAreaHome(pathname: string | null, tenantId: string): boolean {
-  if (pathname === null) return false;
+  // The address must be inside the workspace the caller names before any claim is made about it:
+  // the frame reads the pathname and the tenant from two sources (the router and the loaded
+  // workspace), and during a move between workspaces they disagree for a render. A foreign address
+  // is answered false rather than thrown at — a transient mismatch may not tear the layout down.
+  if (pathname === null || workspaceOf(pathname) !== tenantId) return false;
   return pathname.replace(/\/+$/, "") === shellHref(tenantId, areaOf(pathname));
 }

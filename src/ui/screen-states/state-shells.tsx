@@ -1,9 +1,10 @@
 "use client";
 /**
- * The seven shapes R-UI-050 names, each in one home (B-17): a skeleton that keeps the layout, an
- * empty state that teaches the next action, a fault card offering retry, a refusal carrying its code
- * and remedy, a partial answer that shows what it could not get rather than hiding it, an offline
- * answer that says what is still true, and a denial that names the permission and who holds it.
+ * The shapes R-UI-050's states are rendered in, each in one home (B-17): a skeleton that keeps the
+ * layout, an empty state that teaches the next action, a fault card offering retry, a refusal
+ * carrying its code and remedy, and a denial that names the permission and who holds it. A state no
+ * shipped screen can reach is declared with its reason (`StateReason`) rather than given a shape
+ * here — an unreachable shape is code with no caller, and the reason is what a reviewer grades.
  *
  * Nothing here is a second implementation of a shipped surface. The empty state is the frame
  * `src/ui/shell` publishes, the refusal is the one renderer `src/ui/patterns/refusal-state`
@@ -93,12 +94,17 @@ export function EmptyTeaching({ heading, body, action }: { heading: string; body
  * as an alert and is named by its heading, exactly as `src/app/error.tsx` does, so a reader who
  * cannot see the card is still told a fault happened and what it is (R-UI-060). The id is per
  * instance, so two fault cards on one document name themselves apart.
+ *
+ * It heads at the level its siblings in this module head at: a state rendered inside a screen sits
+ * under that screen's own title, so an in-screen fault that took the document's `<h1>` would claim
+ * to be the page (R-UI-060, Q-11). The frameless denial is the exception, and keeps its `<h1>`
+ * because no screen title stands above it.
  */
 export function FaultCard({ body }: { body: string }) {
   const titleId = useId();
   return (
     <section role="alert" aria-labelledby={titleId}>
-      <h1 id={titleId}>{strings.error_title}</h1>
+      <h2 id={titleId}>{strings.error_title}</h2>
       <p>{body}</p>
       <Button variant="secondary">{strings.error_retry}</Button>
     </section>
@@ -108,19 +114,6 @@ export function FaultCard({ body }: { body: string }) {
 /** R-UI-050's refusal state, through the one renderer: the register's message, remedy and evidence. */
 export function Refusal({ refusal, evidence }: { refusal: RefusalEntry; evidence: RefusalEvidence }) {
   return <RefusalState refusal={refusal} evidence={evidence} />;
-}
-
-/**
- * R-UI-050's partial state: rows that were refused are shown, not hidden — the answer that did
- * arrive stands, and the refusal that stopped the rest renders in place beside it.
- */
-export function PartialAnswer({ shown, refusal, evidence }: { shown: string; refusal: RefusalEntry; evidence: RefusalEvidence }) {
-  return (
-    <>
-      <p role="status">{shown}</p>
-      <RefusalState refusal={refusal} evidence={evidence} />
-    </>
-  );
 }
 
 /**

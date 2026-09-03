@@ -39,7 +39,10 @@ function routeKeyOf(segments: readonly string[]): string {
  * thrown at (the `barrelsOnDisk` precedent).
  */
 export function routesOnDisk(appDir: string = APP_DIR): string[] {
-  const found: string[] = [];
+  // A set, because two route groups can hold the same segment — `(a)/x` and `(b)/x` are one address
+  // and must be one entry: a roster that answered it twice would ask a screen to declare its seven
+  // states twice over (R-UI-050, B-19). Which of the two files serves it is `next build`'s question.
+  const found = new Set<string>();
 
   const walk = (dir: string, segments: readonly string[]): void => {
     // A path that vanished between the read and the stat is not a screen; nothing is invented for it.
@@ -49,10 +52,10 @@ export function routesOnDisk(appDir: string = APP_DIR): string[] {
       const stats = statSync(child, { throwIfNoEntry: false });
       if (stats === undefined) continue;
       if (stats.isDirectory()) walk(child, [...segments, name]);
-      else if (name === PAGE_FILE) found.push(routeKeyOf(segments));
+      else if (name === PAGE_FILE) found.add(routeKeyOf(segments));
     }
   };
 
   walk(resolve(appDir), []);
-  return found.sort(byCodePoint);
+  return [...found].sort(byCodePoint);
 }

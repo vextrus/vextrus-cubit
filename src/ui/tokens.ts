@@ -18,7 +18,7 @@ type Token = readonly [name: string, light: string, dark: string];
 type Group = { readonly label: string; readonly tokens: readonly Token[] };
 
 /** A token table keyed by custom-property name; both themes carry identical key sets. */
-export type TokenTable = Readonly<Record<string, string>>;
+type TokenTable = Readonly<Record<string, string>>;
 
 const graphite: Group = {
   label: "graphite",
@@ -79,7 +79,7 @@ const semantic: Group = {
   ],
 };
 
-/** The basis palette (R-UI-002); the glyph half of the pair belongs to the primitives. */
+/** The basis palette (R-UI-002): one colour per basis, the colour half of the colour/glyph pair. */
 const basis: Group = {
   label: "basis",
   tokens: [
@@ -257,11 +257,15 @@ const REDUCED_MOTION_ZEROED: readonly string[] = [
   "--motion-reticle",
 ];
 
+/**
+ * Which of a token's two values a theme carries — the one place the theme is chosen (B-17). The
+ * table and the emitted stylesheet both ask this, so the two can never disagree about a value.
+ */
+const themeValue = (token: Token, theme: "light" | "dark"): string => (theme === "light" ? token[1] : token[2]);
+
 const table = (theme: "light" | "dark"): TokenTable =>
   Object.freeze(
-    Object.fromEntries(
-      GROUPS.flatMap((group) => group.tokens.map((token) => [token[0], theme === "light" ? token[1] : token[2]])),
-    ),
+    Object.fromEntries(GROUPS.flatMap((group) => group.tokens.map((token) => [token[0], themeValue(token, theme)]))),
   );
 
 /** The light theme, carried by `:root` (R-UI-001). */
@@ -277,7 +281,7 @@ function themeBlock(selector: string, theme: "light" | "dark", indent: string): 
   for (const group of GROUPS) {
     lines.push(`${indent}${INDENT}/* ${group.label} */`);
     for (const token of group.tokens) {
-      lines.push(`${indent}${INDENT}${token[0]}: ${theme === "light" ? token[1] : token[2]};`);
+      lines.push(`${indent}${INDENT}${token[0]}: ${themeValue(token, theme)};`);
     }
   }
   lines.push(`${indent}}`);
