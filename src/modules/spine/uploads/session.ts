@@ -236,7 +236,7 @@ export async function appendChunk(request: AppendChunkRequest): Promise<UploadAd
   // go of first: exactly one chunk can bring the count to the declared size under the lock, and
   // every other chunk that arrives while that one settles is refused by the checks above, because
   // the row and the staging copy both stand at the declared size until the settling is written.
-  const taken: UploadAdvanced | UploadRefused | { settling: SessionRow } = await db.transaction(async (tx) => {
+  const taken: UploadAdvanced | UploadRefused | { settling: SessionRow; resumeFrom: number } = await db.transaction(async (tx) => {
     await holdStateLock(tx, sessionLockKey(request.uploadId));
     const session = await sessionOf(tx, request.uploadId);
     if (session === null) return NOT_THEIRS;
@@ -253,11 +253,11 @@ export async function appendChunk(request: AppendChunkRequest): Promise<UploadAd
     await tx.update(uploads).set({ receivedBytes: received }).where(eq(uploads.uploadId, session.uploadId));
     if (received < session.declaredSize) return { uploadId: session.uploadId, receivedBytes: received };
 
-    return { settling: { ...session, receivedBytes: received } };
+    return { settling: { ...session, receivedBytes: received }, resumeFrom: acknowledged };
   });
 
   if (!("settling" in taken)) return taken;
-  return complete(db, request.actor, taken.settling);
+  return complete(db, request.actor, taken.settling, taken.resumeFrom);
 }
 
 /** Where an open session stands (test contract: the GET answer). */
@@ -337,32 +337,56 @@ async function stagedHead(path: string): Promise<Uint8Array> {
 }
 
 /**
- * The last byte: hash, format, scan, store, record — in that order, because each one is a reason not
- * to do the next. Whatever the answer, the staged copy goes: it was a means, never a record.
+ * The last byte, and what becomes of the staged copy either way. A session that ended — stored or
+ * refused — has no further use for it: it was a means, never a record. A settlement that *failed*
+ * is a different thing entirely. The session is still open and the bytes are still staged, so
+ * throwing them away would make a 500 MB transfer that got as far as its last chunk start again
+ * from nothing; instead the acknowledged count steps back to where that last chunk began and the
+ * transfer resumes by re-sending it, which is also what re-runs the settlement (R-SPINE-020).
  */
-async function complete(db: TenantDb, actor: UploadActor, session: SessionRow): Promise<UploadAdvanced | UploadRefused> {
+async function complete(db: TenantDb, actor: UploadActor, session: SessionRow, resumeFrom: number): Promise<UploadAdvanced | UploadRefused> {
   const path = stagingPath(actor.tenantId, session.uploadId);
+  let ended: UploadAdvanced | UploadRefused;
   try {
-    const digest = await stagedDigest(path);
-    if (digest !== session.declaredSha256) return await refuse(db, session, REFUSALS.DIGEST_MISMATCH.code);
-
-    const head = await stagedHead(path);
-    if (isArchiveName(session.name)) {
-      if (!isArchiveContent(head)) return await refuse(db, session, REFUSALS.FORMAT_NOT_ACCEPTED.code);
-      return await completeArchive(db, actor, session, path);
-    }
-
-    const format = detectFormat(session.name, head);
-    if (format === null) return await refuse(db, session, REFUSALS.FORMAT_NOT_ACCEPTED.code);
-
-    const bytes = new Uint8Array(await readFile(path));
-    const scan = await scanUpload(bytes, session.name);
-    if (scan.verdict === "infected") return await refuse(db, session, REFUSALS.SCAN_REJECTED.code);
-
-    return await settle(db, actor, session, [{ name: session.name, bytes, format, digest, verdict: scan.verdict }], []);
-  } finally {
-    await rm(path, { force: true });
+    ended = await settleStaged(db, actor, session, path);
+  } catch (cause) {
+    await stepBack(db, session, resumeFrom);
+    throw cause;
   }
+  await rm(path, { force: true });
+  return ended;
+}
+
+/**
+ * Put the session back where its last chunk began. The staging copy is left as it is: it is longer
+ * than the row now admits to, and that is precisely the disagreement `reconcile` settles on the next
+ * chunk — the lower of the two counts, with the copy trimmed to match (UPLOAD_NOT_RESUMABLE's remedy).
+ */
+async function stepBack(db: TenantDb, session: SessionRow, resumeFrom: number): Promise<void> {
+  await db.update(uploads).set({ receivedBytes: resumeFrom }).where(eq(uploads.uploadId, session.uploadId));
+}
+
+/**
+ * Hash, format, scan, store, record — in that order, because each one is a reason not to do the next.
+ */
+async function settleStaged(db: TenantDb, actor: UploadActor, session: SessionRow, path: string): Promise<UploadAdvanced | UploadRefused> {
+  const digest = await stagedDigest(path);
+  if (digest !== session.declaredSha256) return await refuse(db, session, REFUSALS.DIGEST_MISMATCH.code);
+
+  const head = await stagedHead(path);
+  if (isArchiveName(session.name)) {
+    if (!isArchiveContent(head)) return await refuse(db, session, REFUSALS.FORMAT_NOT_ACCEPTED.code);
+    return await completeArchive(db, actor, session, path);
+  }
+
+  const format = detectFormat(session.name, head);
+  if (format === null) return await refuse(db, session, REFUSALS.FORMAT_NOT_ACCEPTED.code);
+
+  const bytes = new Uint8Array(await readFile(path));
+  const scan = await scanUpload(bytes, session.name);
+  if (scan.verdict === "infected") return await refuse(db, session, REFUSALS.SCAN_REJECTED.code);
+
+  return await settle(db, actor, session, [{ name: session.name, bytes, format, digest, verdict: scan.verdict }], []);
 }
 
 /**
