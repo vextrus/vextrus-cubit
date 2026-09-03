@@ -1,0 +1,11 @@
+-- hand-written: the job store's own storage (SEAM-JOBS, R-SPINE-030). No table changes.
+-- SEAM-JOBS provisions its event log and its queue library's schema at runtime, by whichever tier
+-- manages the queue — "the log is provisioned by whoever writes to it first". This tree has two
+-- roles, and the tier that runs the worker and enqueues from a screen is `cubit_app`; from this
+-- increment on a person's upload asks for a job and the shipped worker consumes it, so that role has
+-- to be able to create the two schemas the job store lives in. `create schema` is checked against
+-- the database, so the privilege is granted there. It grants nothing over the tables the migrations
+-- own: their row-level security, their grants and their append-only triggers bind the app role
+-- exactly as before. Roles are cluster-level and a migration only names them, so this is written
+-- against whichever database the migration is applied to.
+DO $$ BEGIN EXECUTE format('GRANT CREATE ON DATABASE %I TO %I', current_database(), 'cubit_app'); END $$;
