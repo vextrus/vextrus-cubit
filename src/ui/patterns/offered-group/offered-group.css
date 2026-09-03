@@ -1,0 +1,71 @@
+/*
+ * The offered-group pattern's stylesheet (L-ACT-02, R-UI-023). Every colour, size, weight and
+ * spacing is a read into the committed Datum token source (R-UI-001, R-UI-003): the rules are
+ * identical in light and dark, and the themes differ only in what the tokens are worth. No
+ * `[data-theme]` selector appears here.
+ *
+ * No px literal at all: the pattern measures nothing a token does not measure, and it sizes to its
+ * container — outer spacing is always the consumer's (Decision § 5).
+ *
+ * Focus is not styled here: the confirm wears the reticle from its one home (B-17, R-UI-012).
+ * Nothing moves — rows mount with no entrance and the count is replaced text with no tween (§ 4).
+ */
+
+.cx-offered {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cx-offered-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-offered-group {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  min-height: var(--row-comfortable);
+  padding-block: var(--space-2);
+}
+
+/* A seam between rows, never above the first: the list's own edge is the consumer's to draw. */
+.cx-offered-group + .cx-offered-group {
+  border-top: var(--hairline);
+}
+
+/* The shell publishes its density, and a row reads it as the contract it is (the dropzone I-75). */
+[data-density="compact"] .cx-offered-group {
+  min-height: var(--row-compact);
+}
+
+.cx-offered-label {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+}
+
+/* The membership is the number a person checks before confirming, so it reads as a numeral. */
+.cx-offered-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+  text-align: right;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-offered-empty {
+  margin: 0;
+  padding-block: var(--space-3);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}

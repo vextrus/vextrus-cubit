@@ -17,6 +17,7 @@ import type { Consequence } from "../../core/acts";
 import type { RefusalEntry, RefusalSeverity, RefusalSurface } from "../../core/errors";
 import { ConsequenceDialog } from "../patterns/consequence-dialog";
 import { Dropzone, type DropzoneItem } from "../patterns/dropzone";
+import { OfferedGroups, type OfferedGroupItem } from "../patterns/offered-group";
 import { RefusalState } from "../patterns/refusal-state";
 import { SAMPLE_REFUSAL_BY_SEVERITY, sampleRefusal } from "./sample-refusals";
 import {
@@ -124,6 +125,15 @@ const copy = {
     waiting: "0 B of 9.7 MB",
     linked: "4.1 MB",
     none: "",
+  },
+  /** The three groups the offered-group Decision § 7 fixes, with the counts its consumer formatted. */
+  offered: {
+    structuralDrawing: "STRUCTURAL proposed from the title block on rcc6.dxf",
+    architecturalDrawing: "ARCHITECTURAL proposed from the title block on tower-arch.dxf",
+    structuralSheet: "STRUCTURAL proposed for S-104 — Typical column schedule",
+    nine: "9 sheets",
+    three: "3 sheets",
+    one: "1 sheet",
   },
 } as const;
 
@@ -514,6 +524,24 @@ const dropzoneStates: readonly GalleryState[] = [
   { name: "queue", render: () => <Dropzone onFiles={noop} items={dropzoneQueue} /> },
 ];
 
+/* ------------------------------------------------------------------ offered-group samples */
+
+/**
+ * The offer as its Decision § 7 fixes it: two groups keyed on a proposed discipline and one keyed on
+ * a single sheet, at fixed sample uuids. The counts are strings the consumer produced — the pattern
+ * never counts (I-78) — and the labels are its sentences, rendered verbatim (I-79).
+ */
+const offeredGroupItems: OfferedGroupItem[] = [
+  { key: { kind: "PROPOSED_DISCIPLINE", drawingId: "8f3a0f0e-3f7d-4a2f-9d40-1a2b3c4d5e6f", discipline: "STRUCTURAL" }, label: copy.offered.structuralDrawing, count: copy.offered.nine },
+  { key: { kind: "PROPOSED_DISCIPLINE", drawingId: "1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f", discipline: "ARCHITECTURAL" }, label: copy.offered.architecturalDrawing, count: copy.offered.three },
+  { key: { kind: "SHEET", sheetId: "0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e:S-104", discipline: "STRUCTURAL" }, label: copy.offered.structuralSheet, count: copy.offered.one },
+];
+
+const offeredGroupStates: readonly GalleryState[] = [
+  { name: "groups", render: () => <OfferedGroups groups={offeredGroupItems} onConfirm={noop} /> },
+  { name: "empty", render: () => <OfferedGroups groups={[]} onConfirm={noop} /> },
+];
+
 /* ------------------------------------------------------------------ shell samples */
 
 /**
@@ -558,6 +586,7 @@ const shellRailStates: readonly GalleryState[] = SHELL_AREAS.map((area) => ({
 export const galleryEntries: GalleryEntries = {
   "patterns/consequence-dialog/ConsequenceDialog": { states: closed(consequenceDialogSample) },
   "patterns/dropzone/Dropzone": { states: dropzoneStates },
+  "patterns/offered-group/OfferedGroups": { states: offeredGroupStates },
   "patterns/refusal-state/RefusalState": { states: refusalStates },
 
   "primitives/core/Badge": { states: [{ name: "rest", render: () => <Badge>{copy.badge}</Badge> }] },
