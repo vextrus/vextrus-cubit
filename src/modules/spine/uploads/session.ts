@@ -454,8 +454,16 @@ async function record(db: Handle, actor: UploadActor, session: SessionRow, conte
  * without its object would be a drawing that cannot be opened (R-SPINE-021).
  */
 async function settle(db: TenantDb, actor: UploadActor, session: SessionRow, contents: SettledContent[], skipped: SkippedMember[]): Promise<UploadAdvanced> {
+  // One content is one file row however many times the transfer presents it: an archive holding the
+  // same bytes under two names lays them down once and links the second, exactly as a second upload
+  // of content the workspace already holds is linked (R-SPINE-020).
   const placed: { content: SettledContent; duplicate: boolean }[] = [];
-  for (const content of contents) placed.push({ content, duplicate: await place(db, actor, content) });
+  const laid = new Set<string>();
+  for (const content of contents) {
+    const duplicate = laid.has(content.digest) || (await place(db, actor, content));
+    laid.add(content.digest);
+    placed.push({ content, duplicate });
+  }
 
   const recorded = await db.transaction(async (tx) => {
     const written: RecordedDrawing[] = [];
