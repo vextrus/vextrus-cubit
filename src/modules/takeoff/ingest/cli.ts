@@ -9,7 +9,8 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { entityGraphSchema, type EntityGraph } from "../../../core/entitygraph/schema";
 import { REFUSALS } from "../../../core/errors";
 import type { SheetNotIngestable } from "./refusals";
@@ -40,6 +41,14 @@ const CLI_TIMEOUT_MS = 1_800_000;
 /** How much of the extractor's own account of a refusal is carried back to the operator. */
 const STDERR_TAIL_CHARS = 4000;
 
+/**
+ * The checkout `uv run --project cad` resolves `cad` from, read off this file's own place in the
+ * tree rather than off the directory the worker happened to be started in: a unit or an entrypoint
+ * with a working directory of its own would otherwise spawn the CLI against a `cad` that is not
+ * there. Four levels up from `src/modules/takeoff/ingest`.
+ */
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
+
 /** What one invocation amounted to: the geometry and the bytes that carry it, or a refused sheet. */
 export type IngestOutcome = { ok: true; graph: EntityGraph; artifact: Uint8Array } | { ok: false; refusal: SheetNotIngestable; detail: string };
 
@@ -55,7 +64,7 @@ function commandPrefix(): string[] {
 }
 
 /** What one run of the CLI said and how it ended — neither of which decides whether it worked. */
-type Run = { stderr: string; ended: string };
+type Run = { stderr: string; ended: string; signal: NodeJS.Signals | null };
 
 /**
  * Run the drawing through `cad/` once, in the directory the attempt was given.
@@ -71,6 +80,15 @@ export async function ingestDrawing(bytes: Uint8Array, format: IngestFormat, opt
   await writeFile(input, bytes);
 
   const run = await invoke([SUBCOMMAND, input, OUT_FLAG, out]);
+
+  // A run something on this side killed — the timeout above, an OOM reaper, an operator's signal —
+  // never finished reading the sheet, so nothing it left says anything about the sheet. That is an
+  // outage of ours and travels as a failure, the way a spawn error does; telling the operator to
+  // export their drawing again would be blaming them for our own (ARCH-03, B-21).
+  if (run.signal !== null) {
+    const said = run.stderr.trim() === "" ? "" : `\n${run.stderr.trim()}`;
+    throw new Error(`the cad extractor was killed by signal ${run.signal} before it finished reading the sheet${said}`);
+  }
 
   let artifact: Uint8Array;
   try {
@@ -98,17 +116,19 @@ export async function ingestDrawing(bytes: Uint8Array, format: IngestFormat, opt
 function invoke(argv: readonly string[]): Promise<Run> {
   const [command, ...prefix] = commandPrefix();
   return new Promise((settle, fail) => {
-    const child = spawn(command ?? "", [...prefix, ...argv], { cwd: process.cwd(), stdio: ["ignore", "ignore", "pipe"], timeout: CLI_TIMEOUT_MS });
+    const child = spawn(command ?? "", [...prefix, ...argv], { cwd: REPO_ROOT, stdio: ["ignore", "ignore", "pipe"], timeout: CLI_TIMEOUT_MS });
     let stderr = "";
     child.stderr?.setEncoding("utf8");
     child.stderr?.on("data", (chunk: string) => {
-      stderr += chunk;
+      // Only the tail is ever read, so only the tail is held: an extractor that talks for the whole
+      // budget cannot grow the worker by what it said (this lane runs untrusted geometry).
+      stderr = (stderr + chunk).slice(-STDERR_TAIL_CHARS);
     });
     // A CLI that could not be spawned at all is an outage of ours, not a sheet's fault: it travels
     // to the caller as a failure rather than being dressed up as a refusal (ARCH-03).
     child.on("error", fail);
     child.on("close", (code, signal) => {
-      settle({ stderr, ended: signal === null ? `exit status ${String(code)}` : `signal ${signal}` });
+      settle({ stderr, ended: signal === null ? `exit status ${String(code)}` : `signal ${signal}`, signal });
     });
   });
 }
