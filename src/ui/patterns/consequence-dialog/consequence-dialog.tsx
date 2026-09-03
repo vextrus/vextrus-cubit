@@ -59,6 +59,13 @@ export interface ConsequenceDialogProps {
  */
 const STALE: RefusalCode = "CONSEQUENCES_NOT_CARRIED";
 
+/**
+ * The arms this dialog renders, as a value the preview seam can test an answered payload against.
+ * The type makes it the same closed set the body switches over: an arm added to
+ * `ConsequenceRendering` is a compile error here as well as there (L-ACT-02, I-45).
+ */
+const RENDERED: Readonly<Record<ConsequenceRendering, true>> = Object.freeze({ SUBJECTS: true });
+
 /** The bones that keep the layout while a preview is in flight (Decision § 1). */
 const SUBJECT_BONES = [
   { height: "16px", width: "min(360px, 100%)" },
@@ -107,6 +114,13 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
     try {
       const answered = await preview();
       if (opening.current !== mine) return;
+      // The preview crosses a wire, so its rendering arm is checked before the body is asked to
+      // render it: an answer carrying an arm this dialog has no case for is a failure, not a
+      // consequence, and it takes the fault path every other malformed answer takes.
+      if (!Object.hasOwn(RENDERED, answered.consequence.rendering)) {
+        setFault(unrenderedError(answered.consequence.rendering));
+        return;
+      }
       setBody({ phase: "consequence", consequence: answered.consequence, digest: answered.consequenceDigest });
     } catch (thrown) {
       if (opening.current !== mine) return;
@@ -253,7 +267,12 @@ function ConsequenceBody({ consequence }: { consequence: Consequence }) {
  * and no act type ships a rendering this component does not have (L-ACT-02).
  */
 function unrendered(arm: never): never {
-  throw new Error(`a Consequence rendered as ${JSON.stringify(arm)}, which this dialog has no rendering for (L-ACT-02)`);
+  throw unrenderedError(arm);
+}
+
+/** What an unrenderable arm is reported as, from render and from the preview seam alike (B-17). */
+function unrenderedError(arm: unknown): Error {
+  return new Error(`a Consequence rendered as ${JSON.stringify(arm)}, which this dialog has no rendering for (L-ACT-02)`);
 }
 
 /**

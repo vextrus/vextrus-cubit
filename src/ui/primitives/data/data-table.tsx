@@ -28,7 +28,6 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
-import { lightTokens } from "../../tokens";
 import { cx } from "../core/class-names";
 import { Input } from "../core/input";
 
@@ -74,21 +73,17 @@ export interface DataTableProps<TRow> {
   className?: string;
 }
 
-/** A density token's pixel length, as a number the virtualiser can measure in. */
-function rowHeightOf(token: "--row-comfortable" | "--row-compact"): number {
-  const px = Number.parseInt(lightTokens[token] ?? "", 10);
-  if (Number.isNaN(px)) throw new Error(`${token} is not a pixel length (R-UI-005)`);
-  return px;
-}
-
 /**
- * R-UI-005's two row heights, in px. The stylesheet draws the row from the density tokens and the
- * virtualiser estimates in numbers; the two are the same instrument, so the numbers are read from
- * the token table the stylesheet is generated from rather than transcribed beside it (B-17).
+ * R-UI-005's two row heights, in px. The stylesheet draws the row from the density tokens
+ * `--row-comfortable` and `--row-compact`, and the virtualiser estimates in numbers; the two are
+ * the same instrument, so `row-height.test.ts` beside this file reads those tokens out of
+ * src/ui/tokens.ts — the one home the stylesheet is generated from — and reds if either number
+ * drifts from it (B-17). The token table is a computed value over every Datum token group, and a
+ * client primitive does not carry it into the browser for two integers.
  */
 export const ROW_HEIGHT_PX: Readonly<Record<DataTableDensity, number>> = Object.freeze({
-  comfortable: rowHeightOf("--row-comfortable"),
-  compact: rowHeightOf("--row-compact"),
+  comfortable: 36,
+  compact: 28,
 });
 
 const DEFAULT_COLUMN_WIDTH_PX = 150;

@@ -15,7 +15,8 @@
  */
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, test } from "vitest";
+import { Component, type ReactNode } from "react";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { ConsequenceDialog } from "./index";
 import type { RefusalEntry } from "../../../core/errors";
 
@@ -122,5 +123,45 @@ describe("R-UI-020: every other refusal renders in the slot, and the retry is ne
     expect(within(dialog).queryByTestId("consequence-digest-line")?.textContent, "the consequence still stands behind the answer").toBe(FRESH_DIGEST);
     const retry = await screen.findByTestId("consequence-confirm");
     expect(retry.getAttribute("aria-disabled"), "a retry is never disarmed by a refusal (R-UI-020)").toBeNull();
+  });
+});
+
+/** The boundary a fault belongs to, standing where the consumer's would: what it caught, as text. */
+class Boundary extends Component<{ children: ReactNode }, { caught: Error | null }> {
+  override state: { caught: Error | null } = { caught: null };
+
+  static getDerivedStateFromError(caught: Error): { caught: Error } {
+    return { caught };
+  }
+
+  override render(): ReactNode {
+    if (this.state.caught !== null) return <p data-testid="boundary">{this.state.caught.message}</p>;
+    return this.props.children;
+  }
+}
+
+describe("L-ACT-02: a preview whose rendering arm this dialog has no case for is a fault", () => {
+  test("the malformed payload reaches the error boundary, and no half-rendered consequence stands", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const withoutRendering = { actType: ACT_TYPE, tenantId: "tenant-sample", projectId: "project-sample", subjects: [SUBJECT] };
+
+    render(
+      <Boundary>
+        <ConsequenceDialog
+          open
+          actType={ACT_TYPE}
+          preview={() => Promise.resolve({ consequence: withoutRendering, consequenceDigest: FRESH_DIGEST } as never)}
+          commit={() => Promise.reject(rejection("ACT_CHANGES_NOTHING"))}
+          onOpenChange={() => undefined}
+          onCommitted={() => undefined}
+        />
+      </Boundary>,
+    );
+
+    const boundary = await screen.findByTestId("boundary");
+    expect(boundary.textContent, "the arm is named in what the boundary caught").toContain("L-ACT-02");
+    expect(screen.queryByTestId("consequence-digest-line"), "no consequence is shown for an answer the dialog cannot render").toBeNull();
+    expect(screen.queryByTestId("consequence-confirm"), "…and nothing is left to confirm").toBeNull();
+    logged.mockRestore();
   });
 });
