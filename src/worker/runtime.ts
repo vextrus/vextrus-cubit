@@ -6,6 +6,7 @@
 import { createServer, type Server, type ServerResponse } from "node:http";
 import { jobsHealth, startJobsRuntime, stopJobsRuntime } from "../core/jobs";
 import { reportFault } from "../core/faults/report";
+import { registerIngestHandler } from "./handlers/ingest";
 
 /** Where the health probe answers, and where nothing else does. */
 const HEALTH_PATH = "/health";
@@ -39,6 +40,9 @@ export type WorkerHealth = { ok: boolean; queues: string[] };
  * runtime does.
  */
 export async function runWorker(options: WorkerOptions): Promise<Worker> {
+  // Registered before anything is consumed: a queue this process takes work off with no handler for
+  // its kind is a job that can only fail (SEAM-JOBS).
+  registerIngestHandler();
   await startJobsRuntime(options.databaseUrl);
   let health: Server;
   try {

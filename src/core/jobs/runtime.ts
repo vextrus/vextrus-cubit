@@ -132,17 +132,52 @@ function configuredUrl(): string {
   return url;
 }
 
-/** Every handler the seam knows, one per kind — the roster and the code are the same roster. */
-const HANDLERS: { [K in JobKind]: (payload: JobPayloads[K], progress: JobProgress) => Promise<void> } = {
-  probe: runProbe,
-};
+/** What one kind's work is, whichever layer wrote it. */
+type Handler<K extends JobKind> = (payload: JobPayloads[K], progress: JobProgress) => Promise<void>;
+
+/**
+ * A handler as the table holds it. The table is keyed by a kind read at run time, so the payload it
+ * can promise a handler is nothing at all: the type is kept at `registerJobHandler`, which is where
+ * the kind and its handler are named together, and given up here.
+ */
+type RegisteredHandler = (payload: never, progress: JobProgress) => Promise<void>;
+
+/**
+ * Every handler the seam knows, one per kind.
+ *
+ * `probe` is built in because it is core's own kind and reaches nothing above core. A kind whose
+ * work needs a module or a subprocess cannot be named here at all — src/core imports nothing above
+ * it (ARCH-01) — so it registers its handler from the layer that may compose one, and the runtime
+ * that consumes the queue is started after that registration (R-SPINE-031).
+ *
+ * Anchored to the process for the reason the runtime holder is: one home is an identity property,
+ * and a second module instance would leave this process consuming a queue whose handler was
+ * registered into the other one's table (ARCH-02).
+ */
+const HANDLERS_KEY = Symbol.for("vextrus.cubit.core.jobs.handlers");
+
+const handlerScope = globalThis as typeof globalThis & { [HANDLERS_KEY]?: Partial<Record<JobKind, RegisteredHandler>> };
+
+const HANDLERS: Partial<Record<JobKind, RegisteredHandler>> = (handlerScope[HANDLERS_KEY] ??= { probe: runProbe });
+
+/**
+ * Say which function does a kind's work. A kind is registered before the runtime that consumes it
+ * is started — that ordering is the composition root's, and a kind consumed with none registered is
+ * a defect of ours the job fails naming (ARCH-03).
+ */
+export function registerJobHandler<K extends JobKind>(kind: K, handler: Handler<K>): void {
+  HANDLERS[kind] = handler;
+}
 
 /**
  * Run the kind's handler. The payload arrives from storage, where it is untyped by definition, so
  * the one place the type is re-asserted is here — at the boundary the enqueuer's typing guards.
  */
 async function dispatch(kind: JobKind, payload: unknown, progress: JobProgress): Promise<void> {
-  const handler = HANDLERS[kind] as (given: unknown, reporting: JobProgress) => Promise<void>;
+  const handler = HANDLERS[kind] as ((given: unknown, reporting: JobProgress) => Promise<void>) | undefined;
+  if (handler === undefined) {
+    throw new Error(`no handler is registered for the job kind "${kind}" — this process consumes a queue nothing in it can do (SEAM-JOBS)`);
+  }
   await handler(payload, progress);
 }
 
@@ -242,7 +277,14 @@ export async function stopJobsRuntime(): Promise<void> {
  *
  * The claim, the look-up and the send are serialised on the key itself, so two processes enqueueing
  * the same key at the same instant still make one job.
+ *
+ * One call signature per kind, and not one generic signature over the roster: what a call site
+ * demands is then that kind's own payload — an indexed access `JobPayloads[K]` read back off a
+ * generic signature is no longer any kind's payload once the roster holds more than one, and
+ * "typed payloads" (SEAM-JOBS) is a promise about the call site rather than about the declaration.
  */
+export async function enqueue(kind: "ingest", payload: JobPayloads["ingest"], options: { key: string }): Promise<EnqueueResult>;
+export async function enqueue(kind: "probe", payload: JobPayloads["probe"], options: { key: string }): Promise<EnqueueResult>;
 export async function enqueue<K extends JobKind>(kind: K, payload: JobPayloads[K], options: { key: string }): Promise<EnqueueResult> {
   const key = checkedKey(kind, options.key);
   const running = await runtime();
@@ -524,6 +566,7 @@ async function perform(running: Runtime, kind: JobKind, job: QueuedJob): Promise
   };
 
   const progress: JobProgress = {
+    jobId: job.jobId,
     tempDir,
     step: async (name, detail) => {
       lastStep = name;
