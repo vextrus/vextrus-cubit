@@ -33,6 +33,9 @@ interface Stamp {
  * opening one name over different periods would share a stamp while each enforcing its own idea of
  * how long it lasts, which is two schedules wearing one name. That is a mistake in the caller, and
  * the primitive says so at the point it is made rather than letting the name silently mean two things.
+ * Every caller opens its schedule at module scope, so that throw aborts module evaluation at boot —
+ * deliberately, since a programmer error in the schedule's own definition has no request to be
+ * reported against and no user-facing answer to map to (ARCH-03 governs failures on the request path).
  */
 export function oncePerWindow(name: string, windowMs: number): OncePerWindow {
   const key = Symbol.for(`vextrus.cubit.server.auth.once-per-window:${name}`);

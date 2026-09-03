@@ -89,7 +89,11 @@ async function settledDecoy(): Promise<string> {
     decoy = settled;
     return settled;
   } finally {
-    // A refused derivation leaves neither memo behind, so the next caller derives again.
+    // A refused derivation is never remembered as the settled value, and the in-flight promise is
+    // dropped here, so any call made after this frame runs derives again. A caller that arrived while
+    // the failing derivation was still in flight — including one entering between the rejection and
+    // this line — waits on that same rejection and fails with it: it asked during the outage, and that
+    // is its truthful answer. What must not happen is the *next* one inheriting it, and it cannot.
     deriving = null;
   }
 }
