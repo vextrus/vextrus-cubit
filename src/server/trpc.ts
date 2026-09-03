@@ -282,13 +282,13 @@ const t = initTRPC.context<AppContext>().create({
     // tRPC's own reading of the failure is kept — the code it settled on and the route that failed,
     // which is what an operator correlates a record with — and its `stack` is dropped: tRPC adds it
     // under `isDev` and it carries the internal message the wire may not (ARCH-03).
-    const { stack: _internal, ...stated } = shape.data as TrpcErrorData;
+    const stated = shape.data as TrpcErrorData;
     return {
       ...shape,
       // The user-facing answer carries the id or the code and nothing the tier knows internally:
       // a fault's cause belongs on the fault sink, never on the wire (ARCH-03).
       message: answer.kind === "fault" ? answer.faultId : answer.refusalCode,
-      data: { ...stated, ...answer, httpStatus: httpStatusOf(answer, stated.httpStatus) },
+      data: { code: stated.code, path: stated.path, ...answer, httpStatus: httpStatusOf(answer, stated.httpStatus) },
     };
   },
 });
