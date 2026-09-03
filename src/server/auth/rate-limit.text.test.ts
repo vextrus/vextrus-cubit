@@ -31,9 +31,12 @@ function numstatRow(base: string): string[] | undefined {
     .find((fields) => fields[2] === LIMITER);
 }
 
+/** The base names a checkout may hold, spelled once so the skip reason can name the same set. */
+const BASE_REFS = ["main", "origin/main"] as const;
+
 /** A base a checkout may or may not hold: detached and fork checkouts have neither name. */
 function baseRef(): string | undefined {
-  for (const ref of ["main", "origin/main"]) {
+  for (const ref of BASE_REFS) {
     const found = spawnSync("git", ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], { cwd: REPO_ROOT, encoding: "utf8" });
     if (found.status === 0) return ref;
   }
@@ -57,9 +60,15 @@ describe("the limiter's file stays something git and grep can read", () => {
     expect([added, removed], `numstat answers "-\t-" for a file git reads as binary`).toEqual([expect.stringMatching(/^\d+$/), expect.stringMatching(/^\d+$/)]);
   });
 
-  test("AC-1(c): where the limiter does differ from the base, that diff too is line counts", () => {
+  // Skippable corroboration only: the empty-tree case above carries AC-1(c)'s proof unconditionally.
+  // A checkout that holds no base reports a skip, never a pass — a green line for a run in which no
+  // assertion executed would be a claim nobody made.
+  test("AC-1(c) corroboration: where the limiter does differ from the base, that diff too is line counts", (ctx) => {
     const base = baseRef();
-    if (base === undefined) return; // a detached or fork checkout holds no base to read; the empty-tree test carries the proof
+    if (base === undefined) {
+      ctx.skip(`no base commit here: neither ${BASE_REFS.join(" nor ")} resolves in this checkout, so there is no base diff to read — this says nothing about whether ${LIMITER} is readable`);
+      return;
+    }
 
     const row = numstatRow(base);
     if (row === undefined) {
