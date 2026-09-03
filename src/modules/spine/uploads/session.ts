@@ -105,6 +105,15 @@ export interface UploadOutcome {
   refusal?: UploadRefusalCode;
 }
 
+/** One content a settlement lays down: the bytes, and everything already judged true about them. */
+interface SettledContent {
+  name: string;
+  bytes: Uint8Array;
+  format: AcceptedFormat;
+  digest: string;
+  verdict: ScanVerdict;
+}
+
 /** The row this seam reads a session out of, whichever door asked. */
 interface SessionRow {
   uploadId: string;
@@ -331,7 +340,7 @@ async function stagedHead(path: string): Promise<Uint8Array> {
  * The last byte: hash, format, scan, store, record — in that order, because each one is a reason not
  * to do the next. Whatever the answer, the staged copy goes: it was a means, never a record.
  */
-async function complete(db: Handle, actor: UploadActor, session: SessionRow): Promise<UploadAdvanced | UploadRefused> {
+async function complete(db: TenantDb, actor: UploadActor, session: SessionRow): Promise<UploadAdvanced | UploadRefused> {
   const path = stagingPath(actor.tenantId, session.uploadId);
   try {
     const digest = await stagedDigest(path);
@@ -350,8 +359,7 @@ async function complete(db: Handle, actor: UploadActor, session: SessionRow): Pr
     const scan = await scanUpload(bytes, session.name);
     if (scan.verdict === "infected") return await refuse(db, session, REFUSALS.SCAN_REJECTED.code);
 
-    const drawing = await record(db, actor, session, { name: session.name, bytes, format, digest, verdict: scan.verdict });
-    return await settle(db, session, [drawing], []);
+    return await settle(db, actor, session, [{ name: session.name, bytes, format, digest, verdict: scan.verdict }], []);
   } finally {
     await rm(path, { force: true });
   }
@@ -362,11 +370,11 @@ async function complete(db: Handle, actor: UploadActor, session: SessionRow): Pr
  * neither stored nor recorded. A member the product does not read is named in `skipped` with the
  * registered reason — R-UI-050's partial, answered rather than hidden.
  */
-async function completeArchive(db: Handle, actor: UploadActor, session: SessionRow, path: string): Promise<UploadAdvanced | UploadRefused> {
+async function completeArchive(db: TenantDb, actor: UploadActor, session: SessionRow, path: string): Promise<UploadAdvanced | UploadRefused> {
   const expansion = expandZip(new Uint8Array(await readFile(path)));
   if (!expansion.readable) return await refuse(db, session, REFUSALS.FORMAT_NOT_ACCEPTED.code);
 
-  const recorded: RecordedDrawing[] = [];
+  const contents: SettledContent[] = [];
   const skipped: SkippedMember[] = [...expansion.skipped];
   for (const member of expansion.members) {
     const format = detectFormat(member.path, member.bytes.subarray(0, FORMAT_HEAD_BYTES));
@@ -380,30 +388,34 @@ async function completeArchive(db: Handle, actor: UploadActor, session: SessionR
       continue;
     }
     const digest = createHash("sha256").update(member.bytes).digest("hex");
-    recorded.push(await record(db, actor, session, { name: member.path, bytes: member.bytes, format, digest, verdict: scan.verdict }));
+    contents.push({ name: member.path, bytes: member.bytes, format, digest, verdict: scan.verdict });
   }
-  return await settle(db, session, recorded, skipped);
+  return await settle(db, actor, session, contents, skipped);
 }
 
-/** One content and the drawing made of it: stored once per workspace, recorded once per presented name. */
-async function record(
-  db: Handle,
-  actor: UploadActor,
-  session: SessionRow,
-  content: { name: string; bytes: Uint8Array; format: AcceptedFormat; digest: string; verdict: ScanVerdict },
-): Promise<RecordedDrawing> {
+/**
+ * Lay one content down in the store, and answer whether this workspace already held it.
+ *
+ * R-SPINE-021's retention is a property of the store, not of two stores agreeing: a row saying the
+ * content is already held is trusted only as far as the object it points at, so bytes that are not at
+ * their address are laid down now, while the sender still has them. Identical content that is
+ * genuinely stored is linked and not written again (R-SPINE-020).
+ *
+ * The bytes reach the store before the rows that point at them: an object with no row is a retention
+ * nobody reads, where a row with no object is a drawing that cannot be opened. That ordering is also
+ * why storing happens outside the transaction the rows are written in — a put of up to 500 MB must
+ * not hold a pooled connection open in an open transaction.
+ */
+async function place(db: Handle, actor: UploadActor, content: SettledContent): Promise<boolean> {
   const held = await db.select({ sha256: files.sha256 }).from(files).where(eq(files.sha256, content.digest)).limit(1);
   const duplicate = held[0] !== undefined;
-  // R-SPINE-021's retention is a property of the store, not of two stores agreeing: a row saying the
-  // content is already held is trusted only as far as the object it points at, so bytes that are not
-  // at their address are laid down now, while the sender still has them. Identical content that is
-  // genuinely stored is linked and not written again.
   const atItsAddress = duplicate && (await uploadStorage().get(actor.tenantId, content.digest)) !== null;
-  if (!atItsAddress) {
-    // The bytes reach the store before the row that points at them: an object with no row is a
-    // retention nobody reads, where a row with no object is a drawing that cannot be opened.
-    await uploadStorage().put(actor.tenantId, content.bytes);
-  }
+  if (!atItsAddress) await uploadStorage().put(actor.tenantId, content.bytes);
+  return duplicate;
+}
+
+/** One content and the drawing made of it: recorded once per workspace, once per presented name. */
+async function record(db: Handle, actor: UploadActor, session: SessionRow, content: SettledContent, duplicate: boolean): Promise<RecordedDrawing> {
   if (!duplicate) {
     await db
       .insert(files)
@@ -432,9 +444,25 @@ async function record(
   return { drawingId: written[0]?.drawingId ?? "", name: content.name, sha256: content.digest, format: content.format, duplicate };
 }
 
-/** End the session as stored, and answer what the transfer amounted to. */
-async function settle(db: Handle, session: SessionRow, recorded: RecordedDrawing[], skipped: SkippedMember[]): Promise<UploadAdvanced> {
-  await db.update(uploads).set({ state: "stored", completedAt: new Date() }).where(eq(uploads.uploadId, session.uploadId));
+/**
+ * End the session as stored, and answer what the transfer amounted to.
+ *
+ * A settlement is one fact: the `files` rows the contents were held under, the drawings made of them
+ * and the session's own ending are written in a single transaction, so no failure between them can
+ * leave a drawing whose upload never ended, or an ended upload with fewer drawings than it answered.
+ * The bytes are already in the store by then — a stored object with no row is inert, where a row
+ * without its object would be a drawing that cannot be opened (R-SPINE-021).
+ */
+async function settle(db: TenantDb, actor: UploadActor, session: SessionRow, contents: SettledContent[], skipped: SkippedMember[]): Promise<UploadAdvanced> {
+  const placed: { content: SettledContent; duplicate: boolean }[] = [];
+  for (const content of contents) placed.push({ content, duplicate: await place(db, actor, content) });
+
+  const recorded = await db.transaction(async (tx) => {
+    const written: RecordedDrawing[] = [];
+    for (const { content, duplicate } of placed) written.push(await record(tx, actor, session, content, duplicate));
+    await tx.update(uploads).set({ state: "stored", completedAt: new Date() }).where(eq(uploads.uploadId, session.uploadId));
+    return written;
+  });
   return { uploadId: session.uploadId, receivedBytes: session.receivedBytes, complete: true, drawings: recorded, skipped };
 }
 
