@@ -15,6 +15,7 @@
  * Nothing here reads product source: every name below is one the increment's interface list or its
  * test contract publishes.
  */
+import { inflateSync } from "node:zlib";
 import { expect } from "vitest";
 import { enrol, openStage, stageProject, type Person } from "../../spine/uploads/support/upload-stage";
 import {
@@ -112,6 +113,7 @@ export type ThumbnailsSeam = {
   thumbnailsJobKey: (tenantId: string, ingestId: string) => string;
   requestThumbnails: (request: { tenantId: string; drawingId: string; requestedBy: string }) => Promise<ThumbnailsAnswer>;
   runThumbnailsJob: (payload: unknown, progress: ProgressLike, deps: { storage: StorageLike }) => Promise<void>;
+  renderSheet: (graph: ArtifactGraph, layoutName: string, longEdge: number) => { png: Uint8Array; width: number; height: number };
   sheetRasterRecords: (scope: { tenantId: string; ingestId: string }) => Promise<SheetRasterRecord[]>;
   sheetRastersOf: (scope: { tenantId: string; drawingId: string }) => Promise<SheetRasters[]>;
 };
@@ -129,6 +131,14 @@ export type JobsLike = {
 
 /** One layout of an EntityGraph artifact — a sheet, which is what a raster is of (L-CAD-05). */
 export type ArtifactLayout = { name: string; kind: string; bbox: JsonValue };
+
+/**
+ * An EntityGraph artifact as this acceptance reads it: the sheet inventory, plus the two rosters
+ * of drawn records L-CAD-03 spells (the originals and the paint derived from block instances).
+ * Loose in its records because nothing here re-describes the vocabulary — the fields read below
+ * are only `space` and `points`, which is what a line rasteriser is given to draw.
+ */
+export type ArtifactGraph = { layouts: ArtifactLayout[]; entities?: unknown[]; derived?: unknown[] };
 
 export type { IngestRecord, Person, ProgressLike, StagedDrawing };
 
@@ -181,17 +191,27 @@ export async function stageIngested(person: Person, projectId: string, fixture: 
 }
 
 /**
- * The layouts of the artifact a record points at, read out of SEAM-STORAGE by the record's own
- * address. Every expectation about "one per sheet" is derived from this rather than transcribed:
- * a corpus that grows a layout grows the expected roster with it (B-19).
+ * The whole EntityGraph a record points at, read out of SEAM-STORAGE by the record's own address.
+ * It is the corpus every expectation about the rasters is derived from — which sheets there are,
+ * and what geometry each of them carries — so a corpus that changes changes the expectations with
+ * it rather than leaving a transcription behind (B-19).
  */
-export async function layoutsOf(storage: StorageLike, tenantId: string, record: IngestRecord): Promise<ArtifactLayout[]> {
+export async function artifactOf(storage: StorageLike, tenantId: string, record: IngestRecord): Promise<ArtifactGraph> {
   const bytes = await storage.get(tenantId, record.artifactSha256);
   expect(bytes, `the artifact at ${record.artifactSha256} is held by SEAM-STORAGE — a record pointing at nothing has no sheets`).not.toBeNull();
-  const document = JSON.parse(new TextDecoder().decode(bytes as Uint8Array)) as { layouts?: ArtifactLayout[] };
+  const document = JSON.parse(new TextDecoder().decode(bytes as Uint8Array)) as Partial<ArtifactGraph>;
   const layouts = document.layouts ?? [];
   expect(layouts.length, "the artifact carries the sheets its rasters are of (L-CAD-05: model space and every paper layout)").toBeGreaterThan(0);
-  return layouts;
+  return { ...document, layouts } as ArtifactGraph;
+}
+
+/**
+ * The layouts of the artifact a record points at. Every expectation about "one per sheet" is
+ * derived from this rather than transcribed: a corpus that grows a layout grows the expected
+ * roster with it (B-19).
+ */
+export async function layoutsOf(storage: StorageLike, tenantId: string, record: IngestRecord): Promise<ArtifactLayout[]> {
+  return (await artifactOf(storage, tenantId, record)).layouts;
 }
 
 /* ------------------------------------------------------------------ what shape a sheet is */
@@ -217,13 +237,90 @@ function corner(value: JsonValue | undefined, what: string): { x: number; y: num
  * to are the corpus's own and grow with it, rather than a pair transcribed here (B-19).
  */
 export function bboxSpansOf(layout: ArtifactLayout): SheetSpans | null {
+  const box = bboxOf(layout);
+  return box === null ? null : { x: box.max.x - box.min.x, y: box.max.y - box.min.y };
+}
+
+/** A sheet's extents as the artifact states them, or null where it states none. */
+export type SheetBox = { min: { x: number; y: number }; max: { x: number; y: number } };
+
+/** The bounding box a layout declares, read out of the artifact under test (B-19). */
+export function bboxOf(layout: ArtifactLayout): SheetBox | null {
   const bbox = layout.bbox;
   if (bbox === null || bbox === undefined || typeof bbox !== "object" || Array.isArray(bbox)) return null;
   const box = bbox as { [key: string]: JsonValue };
   const what = `layout ${JSON.stringify(layout.name)}'s bbox`;
-  const min = corner(box["min"], `${what}.min`);
-  const max = corner(box["max"], `${what}.max`);
-  return { x: max.x - min.x, y: max.y - min.y };
+  return { min: corner(box["min"], `${what}.min`), max: corner(box["max"], `${what}.max`) };
+}
+
+/* --------------------------------------------------- what geometry a sheet carries, from the corpus */
+
+/** A rectangle on a raster or a sheet, stated as fractions of its width and its height. */
+export type UnitBox = { x0: number; x1: number; y0: number; y1: number };
+
+/** What the corpus says is drawn on one sheet: how many path records, and how far they reach. */
+export type SheetGeometry = { drawn: number; box: UnitBox };
+
+/** One point of a path record, or null for anything that is not a pair of finite numbers. */
+function pointOf(value: unknown): { x: number; y: number } | null {
+  if (!Array.isArray(value) || value.length < 2) return null;
+  const x = Number(value[0]);
+  const y = Number(value[1]);
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+}
+
+/**
+ * How far the geometry the artifact puts on one sheet reaches, as fractions of that sheet's own
+ * bounding box — the extent a raster of the sheet has to show ink over, derived from the corpus
+ * rather than measured off today's output (B-19). `y` runs the drawing's way, upward from the
+ * box's minimum; which way up a raster writes its rows is the raster's business.
+ *
+ * A path record is counted only when at least one of its points is on the sheet, and each of its
+ * points is held to the sheet's own extents: a stray reaching a million units away is off the
+ * canvas, and the segment that leaves is cut where the sheet ends. Null when the sheet declares no
+ * box, has no extent along an axis, or carries no path record at all — the cases where there is no
+ * derived extent to hold a raster to.
+ */
+export function drawnExtentOf(graph: ArtifactGraph, layoutName: string): SheetGeometry | null {
+  const layout = graph.layouts.find((candidate) => candidate.name === layoutName);
+  if (layout === undefined) return null;
+  const sheet = bboxOf(layout);
+  if (sheet === null) return null;
+  const spanX = sheet.max.x - sheet.min.x;
+  const spanY = sheet.max.y - sheet.min.y;
+  if (!(spanX > 0) || !(spanY > 0)) return null;
+
+  const hold = (value: number, low: number, high: number): number => Math.min(Math.max(value, low), high);
+  let drawn = 0;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const record of [...(graph.entities ?? []), ...(graph.derived ?? [])]) {
+    const drawnRecord = record as { space?: unknown; points?: unknown };
+    if (drawnRecord.space !== layoutName) continue;
+    const points = (Array.isArray(drawnRecord.points) ? drawnRecord.points : []).map(pointOf).filter((point): point is { x: number; y: number } => point !== null);
+    // Two points is what makes a path: a record carrying one is an insertion, and glyphs are not
+    // rendered (this increment's scope note).
+    if (points.length < 2) continue;
+    if (!points.some((point) => point.x >= sheet.min.x && point.x <= sheet.max.x && point.y >= sheet.min.y && point.y <= sheet.max.y)) continue;
+    drawn += 1;
+    for (const point of points) {
+      const x = hold(point.x, sheet.min.x, sheet.max.x);
+      const y = hold(point.y, sheet.min.y, sheet.max.y);
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  if (drawn === 0) return null;
+  return {
+    drawn,
+    box: { x0: (minX - sheet.min.x) / spanX, x1: (maxX - sheet.min.x) / spanX, y0: (minY - sheet.min.y) / spanY, y1: (maxY - sheet.min.y) / spanY },
+  };
 }
 
 /**
@@ -256,6 +353,158 @@ export function pngHeader(bytes: Uint8Array, what: string): PngHeader {
   expect(new TextDecoder().decode(bytes.subarray(12, 16)), `${what}'s first chunk is the IHDR the format begins with`).toBe("IHDR");
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   return { width: view.getUint32(16), height: view.getUint32(20) };
+}
+
+/* ------------------------------------------------------------------ reading a PNG's pixels */
+
+/** How coarse the signature that says two rasters depict different sheets is. */
+const INK_SIGNATURE_CELLS = 16;
+
+/** One byte's worth of channel, and the number of distinct values one carries. */
+const CHANNEL_VALUES = 256;
+
+/** The colour types this reader knows how to un-filter: truecolour, with or without alpha. */
+const RGB_COLOUR_TYPE = 2;
+const RGBA_COLOUR_TYPE = 6;
+
+/**
+ * What one raster's pixels say: the paper it stands on (the colour most of it is), how much of it
+ * is marked, how far the marks reach, and a coarse signature of where they fall.
+ *
+ * The background is derived from the raster itself rather than named here: the Bible fixes no
+ * palette, so ink is judged as "not the paper" and never against a transcribed colour.
+ */
+export type Ink = {
+  width: number;
+  height: number;
+  background: number;
+  count: number;
+  ratio: number;
+  box: UnitBox | null;
+  signature: string;
+};
+
+/** Paeth's predictor, as the PNG format defines filter type 4. */
+function paeth(left: number, above: number, corner: number): number {
+  const estimate = left + above - corner;
+  const toLeft = Math.abs(estimate - left);
+  const toAbove = Math.abs(estimate - above);
+  const toCorner = Math.abs(estimate - corner);
+  if (toLeft <= toAbove && toLeft <= toCorner) return left;
+  return toAbove <= toCorner ? above : corner;
+}
+
+/** The scanlines of an inflated image datastream, with each line's filter undone. */
+function unfiltered(raw: Uint8Array, width: number, height: number, channels: number, what: string): Uint8Array {
+  const stride = width * channels;
+  expect(raw.length, `${what}'s image data is ${height} filtered scanlines of ${stride} bytes`).toBe((stride + 1) * height);
+  const out = new Uint8Array(stride * height);
+  const none = new Uint8Array(stride);
+  let at = 0;
+  for (let row = 0; row < height; row += 1) {
+    const filter = raw[at] ?? 0;
+    expect(filter, `${what}'s scanline ${row} carries one of the five filters the format defines`).toBeLessThanOrEqual(4);
+    at += 1;
+    const line = out.subarray(row * stride, (row + 1) * stride);
+    const prior = row === 0 ? none : out.subarray((row - 1) * stride, row * stride);
+    for (let index = 0; index < stride; index += 1) {
+      const value = raw[at + index] ?? 0;
+      const left = index >= channels ? (line[index - channels] ?? 0) : 0;
+      const above = prior[index] ?? 0;
+      const corner = index >= channels ? (prior[index - channels] ?? 0) : 0;
+      let restored = value;
+      if (filter === 1) restored = value + left;
+      else if (filter === 2) restored = value + above;
+      else if (filter === 3) restored = value + Math.floor((left + above) / 2);
+      else if (filter === 4) restored = value + paeth(left, above, corner);
+      line[index] = restored % CHANNEL_VALUES;
+    }
+    at += stride;
+  }
+  return out;
+}
+
+/**
+ * The marks on one stored raster, read out of the PNG itself.
+ *
+ * The format is decoded rather than trusted — signature, IHDR, every IDAT inflated through
+ * `node:zlib` and the scanline filters undone — because the question the criteria ask is what the
+ * bytes DEPICT, and a container of the right size depicts nothing on its own (R-SPINE-022).
+ */
+export function inkOf(bytes: Uint8Array, what: string): Ink {
+  const header = pngHeader(bytes, what);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const depth = bytes[24] ?? 0;
+  const colourType = bytes[25] ?? 0;
+  const interlace = bytes[28] ?? 0;
+  expect({ depth, interlace }, `${what} is an eight-bit, non-interlaced PNG, which is what its IHDR has to say for these pixels to be readable`).toStrictEqual({ depth: 8, interlace: 0 });
+  expect([RGB_COLOUR_TYPE, RGBA_COLOUR_TYPE], `${what} is truecolour (its IHDR says colour type ${colourType})`).toContain(colourType);
+  const channels = colourType === RGBA_COLOUR_TYPE ? 4 : 3;
+
+  const parts: Uint8Array[] = [];
+  let at = 8;
+  while (at + 8 <= bytes.length) {
+    const length = view.getUint32(at);
+    const chunk = new TextDecoder().decode(bytes.subarray(at + 4, at + 8));
+    if (chunk === "IDAT") parts.push(bytes.subarray(at + 8, at + 8 + length));
+    if (chunk === "IEND") break;
+    at += length + 12;
+  }
+  expect(parts.length, `${what} carries the image data every PNG must (at least one IDAT chunk)`).toBeGreaterThan(0);
+
+  const pixels = unfiltered(new Uint8Array(inflateSync(Buffer.concat(parts))), header.width, header.height, channels, what);
+  const total = header.width * header.height;
+  const packed = new Uint32Array(total);
+  for (let index = 0; index < total; index += 1) {
+    const from = index * channels;
+    const red = pixels[from] ?? 0;
+    const green = pixels[from + 1] ?? 0;
+    const blue = pixels[from + 2] ?? 0;
+    const alpha = channels === 4 ? (pixels[from + 3] ?? 0) : CHANNEL_VALUES - 1;
+    packed[index] = ((red * CHANNEL_VALUES + green) * CHANNEL_VALUES + blue) * CHANNEL_VALUES + alpha;
+  }
+
+  // The paper is whichever colour most of the raster is — asked of the raster, never transcribed.
+  const tally = new Map<number, number>();
+  for (const value of packed) tally.set(value, (tally.get(value) ?? 0) + 1);
+  let background = packed[0] ?? 0;
+  let commonest = -1;
+  for (const [value, count] of tally) {
+    if (count > commonest) {
+      background = value;
+      commonest = count;
+    }
+  }
+
+  const cells = new Uint8Array(INK_SIGNATURE_CELLS * INK_SIGNATURE_CELLS);
+  let count = 0;
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (let y = 0; y < header.height; y += 1) {
+    for (let x = 0; x < header.width; x += 1) {
+      if ((packed[y * header.width + x] ?? 0) === background) continue;
+      count += 1;
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+      const column = Math.min(INK_SIGNATURE_CELLS - 1, Math.floor((x * INK_SIGNATURE_CELLS) / header.width));
+      const row = Math.min(INK_SIGNATURE_CELLS - 1, Math.floor((y * INK_SIGNATURE_CELLS) / header.height));
+      cells[row * INK_SIGNATURE_CELLS + column] = 1;
+    }
+  }
+
+  return {
+    width: header.width,
+    height: header.height,
+    background,
+    count,
+    ratio: total === 0 ? 0 : count / total,
+    box: count === 0 ? null : { x0: minX / header.width, x1: (maxX + 1) / header.width, y0: minY / header.height, y1: (maxY + 1) / header.height },
+    signature: [...cells].map((cell) => (cell === 1 ? "#" : ".")).join(""),
+  };
 }
 
 /* ------------------------------------------------------------------ comparing rosters */

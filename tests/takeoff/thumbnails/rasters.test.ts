@@ -2,9 +2,17 @@
  * AC-1 … AC-3 — sheet rasters end to end (R-SPINE-022, R-SPINE-021, SEAM-JOBS, Q-12).
  *
  * One job renders every sheet an ingest record's EntityGraph carries, at every tier the seam
- * declares; every raster is stored at its own address and recorded once; one read door answers the
- * signed URLs a sheet card will render from; and the door that asks for the work refuses what is
- * not this workspace's and what has never been ingested.
+ * declares; every raster BEARS THAT SHEET'S OWN GEOMETRY; every raster is stored at its own address
+ * and recorded once; one read door answers the signed URLs a sheet card will render from; and the
+ * door that asks for the work refuses what is not this workspace's and what has never been ingested.
+ *
+ * WHAT A RASTER IS. R-SPINE-022 spends these on the sheet index and the viewer background, and a
+ * raster is OF a sheet: a PNG of the right size at the right address depicts nothing on its own, so
+ * AC-1 decodes the stored bytes and holds the ink to where the record's own artifact says that
+ * sheet's geometry reaches. Two limits on that, both deliberate: the Bible fixes no palette, so the
+ * paper is derived from each raster (the colour most of it is) and ink is simply "not the paper" —
+ * never a colour spelled here; and every number the ink is judged against comes from the corpus, so
+ * there is no golden hash, no transcribed pixel count and no snapshot of today's bytes (B-19).
  *
  * Everything is driven through names the increment publishes. The ingest record the rasters are of
  * is written by the shipped ingest job over the committed `<fixture>.entitygraph.json` artifact
@@ -24,13 +32,15 @@ import { waitUntil } from "../../jobs/support/jobs-acceptance";
 import { closeStage, type Person } from "../../spine/uploads/support/upload-stage";
 import { cadFixture, productModule, sha256Of, stageDrawing, tempDir, unique, type IngestRecord, type ProgressLike, type StagedDrawing } from "../support/ingest-stage";
 import {
+  artifactOf,
   bboxSpansOf,
   byCodePoint,
+  drawnExtentOf,
   ERRORS_MODULE,
   fittedCanvas,
+  inkOf,
   inRasterOrder,
   JOBS_MODULE,
-  layoutsOf,
   openThumbnailsStage,
   pngHeader,
   RASTER_NOT_AVAILABLE,
@@ -43,12 +53,15 @@ import {
   THUMBNAILS_HANDLER_MODULE,
   THUMBNAILS_MODULE,
   WORKSPACE_PERMISSION_NOT_HELD,
+  type ArtifactGraph,
   type ArtifactLayout,
+  type Ink,
   type JobsLike,
   type SheetRasterRecord,
   type StorageLike,
   type ThumbnailsHandlerModule,
   type ThumbnailsSeam,
+  type UnitBox,
 } from "../support/thumbnails-stage";
 
 /** The tiers and their long edges, as the test contract fixes them (C-05: constants). */
@@ -133,6 +146,7 @@ afterAll(async () => {
 interface Rendered {
   drawing: StagedDrawing;
   record: IngestRecord;
+  graph: ArtifactGraph;
   layouts: ArtifactLayout[];
   steps: string[];
   jobId: string;
@@ -148,7 +162,8 @@ function rendered(): Promise<Rendered> {
   return (rendering ??= (async () => {
     const stage = await staged();
     const { drawing, record } = await stageIngested(stage.person, stage.projectId, "layouts");
-    const layouts = await layoutsOf(stage.storage, stage.person.tenantId, record);
+    const graph = await artifactOf(stage.storage, stage.person.tenantId, record);
+    const layouts = graph.layouts;
 
     const steps: string[] = [];
     const jobId = unique("raster-job");
@@ -163,16 +178,73 @@ function rendered(): Promise<Rendered> {
       },
       { storage: stage.storage },
     );
-    return { drawing, record, layouts, steps, jobId };
+    return { drawing, record, graph, layouts, steps, jobId };
   })());
 }
 
+/**
+ * How far a raster's ink may stand from where the corpus says the sheet's geometry reaches, as a
+ * fraction of the canvas: a fiftieth of it, and never less than two pixels. A rasteriser rounds a
+ * scaled coordinate either way and lays a stroke of some width around it, and that is all the
+ * latitude the placement of a sheet's own geometry is granted.
+ */
+function placementTolerance(pixels: number): number {
+  return Math.max(2 / pixels, 0.02);
+}
+
+/** How far apart two boxes stand, as the widest disagreement between their edges. */
+function boxGap(seen: UnitBox, want: UnitBox): { x: number; y: number } {
+  return { x: Math.max(Math.abs(seen.x0 - want.x0), Math.abs(seen.x1 - want.x1)), y: Math.max(Math.abs(seen.y0 - want.y0), Math.abs(seen.y1 - want.y1)) };
+}
+
+/**
+ * The same box read the other way up. A drawing's `y` climbs and an image's rows descend, and
+ * nothing in R-SPINE-022 says which way round a raster is written — so a sheet's derived extent is
+ * matched against whichever reading it is written in, and it is the placement and the scale that
+ * are judged rather than the seam's choice of origin.
+ */
+function flipped(box: UnitBox): UnitBox {
+  return { x0: box.x0, x1: box.x1, y0: 1 - box.y1, y1: 1 - box.y0 };
+}
+
+/** The gap to whichever way up the raster was written — the smaller disagreement of the two. */
+function placementGap(seen: UnitBox, want: UnitBox): { x: number; y: number } {
+  const upright = boxGap(seen, want);
+  const inverted = boxGap(seen, flipped(want));
+  return upright.y <= inverted.y ? upright : inverted;
+}
+
+/** How much of a canvas a box covers. */
+function coverage(box: UnitBox): number {
+  return Math.max(0, box.x1 - box.x0) * Math.max(0, box.y1 - box.y0);
+}
+
+/**
+ * How much ink a raster carries per pixel of its long edge.
+ *
+ * Ink is strokes, so its area grows with the length of what is drawn — one dimension — while the
+ * canvas grows with two. The share of a canvas that is ink therefore falls as the canvas grows,
+ * and it is this quantity, not the share, that the three tiers of one sheet have in common.
+ */
+function inkDensity(ink: { ratio: number }, longEdge: number): number {
+  return ink.ratio * longEdge;
+}
+
+/**
+ * How far two tiers' densities may stand apart: a factor of four. Strokes hold a width in pixels
+ * while the drawing shrinks under them, so neighbouring lines merge into one at the cheap tiers and
+ * count once instead of twice. The bound is loose because the thing it exists to catch is not
+ * loose: a tier that is left blank, or drawn from something other than this sheet, is off by
+ * everything rather than by a factor.
+ */
+const DENSITY_FACTOR = 4;
+
 describe("AC-1 — every sheet, at every tier, stored at its own address and recorded once", () => {
   test(
-    "AC-1: one run leaves one PNG per sheet per tier, sized by the tier's long edge and shaped by its sheet, and walks resolve → render → store → record",
+    "AC-1: one run leaves one PNG per sheet per tier, sized by the tier's long edge, shaped by its sheet and bearing that sheet's own geometry, and walks resolve → render → store → record",
     async () => {
       const stage = await staged();
-      const { record, drawing, layouts, steps, jobId } = await rendered();
+      const { record, drawing, graph, layouts, steps, jobId } = await rendered();
 
       // The vocabulary the test contract fixes (C-05), read from the seam so no caller re-spells it.
       expect([...stage.thumbnails.RASTER_TIERS], "RASTER_TIERS is the three zoom tiers R-SPINE-022 names").toEqual([...TIERS]);
@@ -190,6 +262,9 @@ describe("AC-1 — every sheet, at every tier, stored at its own address and rec
       // corpus that grows a layout, or a seam that grows a tier, grows this expectation with it.
       const expected = byCodePoint(layouts.flatMap((layout) => stage.thumbnails.RASTER_TIERS.map((tier) => rasterKey({ layoutName: layout.name, tier }))));
       expect(inRasterOrder(rows).map(rasterKey), "exactly one raster per (sheet, tier), each sheet of the record's own artifact").toEqual(expected);
+
+      /** What each stored raster actually depicts, kept so the tiers and the sheets can be compared. */
+      const inks = new Map<string, Ink>();
 
       for (const row of rows) {
         const what = `the ${row.tier} raster of sheet ${JSON.stringify(row.layoutName)}`;
@@ -216,6 +291,33 @@ describe("AC-1 — every sheet, at every tier, stored at its own address and rec
         expect(sheet, `${what} names a sheet the record's artifact carries`).toBeDefined();
         const spans = bboxSpansOf(sheet as ArtifactLayout);
 
+        // What the bytes DEPICT. A raster is of a sheet — R-SPINE-022 spends these on the sheet
+        // index and the viewer background, and a background showing nothing is not a background of
+        // the drawing. The paper is whichever colour the raster is mostly made of, read off the
+        // raster itself: the Bible fixes no palette, so ink is "not the paper" and never a colour
+        // spelled here.
+        const ink = inkOf(held, what);
+        expect({ width: ink.width, height: ink.height }, `${what}'s pixels fill the canvas its own header declares`).toStrictEqual({ width: header.width, height: header.height });
+        inks.set(rasterKey(row), ink);
+
+        // Which sheets are drawn on, and how far over each the drawing reaches, is asked of the
+        // record's own artifact — the same corpus the roster above was derived from (B-19).
+        const geometry = drawnExtentOf(graph, row.layoutName);
+        if (geometry === null) {
+          expect(ink.count, `${what} is of a sheet the record's artifact puts no path on, and a sheet with nothing drawn on it rasterises blank`).toBe(0);
+        } else {
+          const reaches = `${what} carries ink over ${JSON.stringify(ink.box)} of its canvas, where the artifact puts ${geometry.drawn} path records reaching ${JSON.stringify(geometry.box)} of the sheet`;
+          expect(ink.count, `${reaches}: it is blank, and a blank canvas is not a raster of a sheet that has ${geometry.drawn} paths on it (R-SPINE-022)`).toBeGreaterThan(0);
+          expect(ink.ratio, `${reaches}: it is one flat colour edge to edge, which depicts a sheet no better than a blank one does`).toBeLessThan(1);
+
+          const seen = ink.box as UnitBox;
+          const gap = placementGap(seen, geometry.box);
+          const room = { x: placementTolerance(ink.width), y: placementTolerance(ink.height) };
+          expect(gap.x, `${reaches}: along x that is out by ${gap.x.toFixed(4)} of the canvas, past the ${room.x.toFixed(4)} a rasteriser's rounding and stroke width are granted`).toBeLessThanOrEqual(room.x);
+          expect(gap.y, `${reaches}: along y that is out by ${gap.y.toFixed(4)} of the canvas, past the ${room.y.toFixed(4)} a rasteriser's rounding and stroke width are granted`).toBeLessThanOrEqual(room.y);
+          expect(coverage(seen), `${reaches}: what it marks covers too little of what that geometry spans — a dot, or one path of many, is not the sheet`).toBeGreaterThanOrEqual(coverage(geometry.box) / 2);
+        }
+
         if (spans === null) {
           expect({ width: header.width, height: header.height }, `${what} is of a sheet with no bounding box, and that is the one square canvas`).toStrictEqual({
             width: longEdge,
@@ -238,8 +340,100 @@ describe("AC-1 — every sheet, at every tier, stored at its own address and rec
         }
       }
 
+      // Two sheets are two drawings, and the three tiers of one sheet are three zooms of one. Both
+      // are asked of the decoded ink rather than of the addresses: content addressing makes two
+      // addresses differ the moment one byte does, so distinct addresses come free and say nothing
+      // about what was drawn (R-SPINE-021).
+      const drawnSheets = layouts.filter((layout) => drawnExtentOf(graph, layout.name) !== null);
+      expect(drawnSheets.length, "the record's artifact puts geometry on at least two of its sheets, which is what makes the two comparisons below comparisons of something").toBeGreaterThanOrEqual(2);
+
+      for (const tier of stage.thumbnails.RASTER_TIERS) {
+        for (let first = 0; first < drawnSheets.length; first += 1) {
+          for (let second = first + 1; second < drawnSheets.length; second += 1) {
+            const one = (drawnSheets[first] as ArtifactLayout).name;
+            const other = (drawnSheets[second] as ArtifactLayout).name;
+            const here = inks.get(rasterKey({ layoutName: one, tier })) as Ink;
+            const there = inks.get(rasterKey({ layoutName: other, tier })) as Ink;
+            expect(
+              here.signature,
+              `the ${tier} rasters of sheets ${JSON.stringify(one)} and ${JSON.stringify(other)} carry their ink in exactly the same places, so they depict the same thing — a renderer answering one image for every sheet satisfies every count, size and address above`,
+            ).not.toBe(there.signature);
+          }
+        }
+      }
+
+      for (const layout of drawnSheets) {
+        const perTier = stage.thumbnails.RASTER_TIERS.map((tier) => ({ tier, ink: inks.get(rasterKey({ layoutName: layout.name, tier })) as Ink, longEdge: stage.thumbnails.RASTER_TIER_LONG_EDGE[tier] as number }));
+        const finest = perTier.reduce((left, right) => (right.longEdge > left.longEdge ? right : left));
+        for (const at of perTier) {
+          if (at.tier === finest.tier) continue;
+          const shown = `sheet ${JSON.stringify(layout.name)} at ${at.tier} beside the same sheet at ${finest.tier}`;
+          const gap = boxGap(at.ink.box as UnitBox, finest.ink.box as UnitBox);
+          const room = { x: placementTolerance(at.ink.width), y: placementTolerance(at.ink.height) };
+          expect(
+            Math.max(gap.x - room.x, gap.y - room.y),
+            `${shown}: the two mark different parts of their canvases (out by ${gap.x.toFixed(4)} along x and ${gap.y.toFixed(4)} along y), so they are not two zooms of one drawing`,
+          ).toBeLessThanOrEqual(0);
+          const density = inkDensity(at.ink, at.longEdge);
+          const against = inkDensity(finest.ink, finest.longEdge);
+          expect(
+            Math.max(density, against) / Math.min(density, against),
+            `${shown}: it carries ${density.toFixed(1)} of ink per pixel of long edge to the other's ${against.toFixed(1)} — the cheap tiers are the same drawing seen smaller, never blanks or something else`,
+          ).toBeLessThanOrEqual(DENSITY_FACTOR);
+        }
+      }
+
       const reached = stepOrder(steps, RASTER_STEPS);
       expect(reached, `the job's steps stand in the order it takes them (it reported: ${steps.join(" → ")})`).toEqual([...reached].sort((left, right) => left - right));
+    },
+    CASE_BUDGET_MS,
+  );
+
+  test(
+    "AC-1: renderSheet draws the sheet it is handed at the long edge it is given, and answers a blank square for a sheet with no bounding box",
+    async () => {
+      const stage = await staged();
+      const { graph } = await rendered();
+
+      // The cheapest tier the seam declares, taken from the seam rather than named here.
+      const longEdge = Math.min(...stage.thumbnails.RASTER_TIERS.map((tier) => stage.thumbnails.RASTER_TIER_LONG_EDGE[tier] as number));
+
+      // The sheet of the corpus that carries the most geometry — the one a renderer that drops
+      // entities has the most to answer for.
+      const drawn = graph.layouts
+        .map((layout) => ({ layout, geometry: drawnExtentOf(graph, layout.name) }))
+        .filter((candidate): candidate is { layout: ArtifactLayout; geometry: NonNullable<ReturnType<typeof drawnExtentOf>> } => candidate.geometry !== null)
+        .reduce((left, right) => (right.geometry.drawn > left.geometry.drawn ? right : left));
+
+      const sheet = stage.thumbnails.renderSheet(graph, drawn.layout.name, longEdge);
+      const what = `renderSheet over sheet ${JSON.stringify(drawn.layout.name)} at a long edge of ${longEdge}`;
+      const drawnInk = inkOf(sheet.png, what);
+      expect({ width: drawnInk.width, height: drawnInk.height }, `${what} answers a PNG of the canvas it reports`).toStrictEqual({ width: sheet.width, height: sheet.height });
+      expect(Math.max(sheet.width, sheet.height), `${what} stands at that long edge`).toBe(longEdge);
+
+      const spans = bboxSpansOf(drawn.layout);
+      const fitted = fittedCanvas(spans as { x: number; y: number }, longEdge);
+      for (const axis of ["width", "height"] as const) {
+        expect(sheet[axis], `${what} is ${sheet.width}×${sheet.height} px where the sheet's own extent fits ${fitted.width.toFixed(1)}×${fitted.height.toFixed(1)} px: its ${axis} is short of that`).toBeGreaterThanOrEqual(Math.max(1, Math.floor(fitted[axis])));
+        expect(sheet[axis], `${what} is ${sheet.width}×${sheet.height} px where the sheet's own extent fits ${fitted.width.toFixed(1)}×${fitted.height.toFixed(1)} px: its ${axis} overruns that`).toBeLessThanOrEqual(Math.max(1, Math.ceil(fitted[axis])));
+      }
+
+      expect(drawnInk.count, `${what} draws nothing, though the artifact puts ${drawn.geometry.drawn} path records on that sheet (R-SPINE-022)`).toBeGreaterThan(0);
+      const gap = placementGap(drawnInk.box as UnitBox, drawn.geometry.box);
+      expect(
+        Math.max(gap.x - placementTolerance(drawnInk.width), gap.y - placementTolerance(drawnInk.height)),
+        `${what} marks ${JSON.stringify(drawnInk.box)} of its canvas where that geometry reaches ${JSON.stringify(drawn.geometry.box)} of the sheet (out by ${gap.x.toFixed(4)} along x and ${gap.y.toFixed(4)} along y)`,
+      ).toBeLessThanOrEqual(0);
+
+      // The other branch the interface publishes: a sheet the artifact states no extent for. The
+      // layout is built here out of the vocabulary the artifact itself uses, so the branch is asked
+      // for through the published interface rather than read out of the rasteriser.
+      const blankName = unique("no-extent-sheet");
+      const withoutExtent: ArtifactGraph = { ...graph, layouts: [...graph.layouts, { name: blankName, kind: "paper", bbox: null, strays_rejected: 0 } as unknown as ArtifactLayout] };
+      const blank = stage.thumbnails.renderSheet(withoutExtent, blankName, longEdge);
+      const blankInk = inkOf(blank.png, `renderSheet over a sheet with no bounding box at a long edge of ${longEdge}`);
+      expect({ width: blank.width, height: blank.height }, "a sheet the artifact states no bounding box for renders as the tier's square").toStrictEqual({ width: longEdge, height: longEdge });
+      expect(blankInk.count, "and that square is blank — there is no extent to draw anything within").toBe(0);
     },
     CASE_BUDGET_MS,
   );
@@ -358,17 +552,44 @@ describe("AC-3 — the door enqueues once, and refuses what is not its to render
         "a drawing this tenant scope cannot see is not a drawing this workspace may render",
       ).toStrictEqual({ refusal: WORKSPACE_PERMISSION_NOT_HELD });
 
+      // That request DID name a record, so there is a key the door could have used, and asking
+      // whether it is free is a question about the door. Both spellings are asked: the workspace
+      // that was refused and the workspace that owns the record.
+      const earlier: string[] = [];
       for (const tenantId of [stage.person.tenantId, stranger.person.tenantId]) {
-        await expectKeyFree(stage, stage.thumbnails.thumbnailsJobKey(tenantId, theirs.record.ingestId), "the refused cross-workspace request");
+        earlier.push(await expectKeyFree(stage, stage.thumbnails.thumbnailsJobKey(tenantId, theirs.record.ingestId), "the refused cross-workspace request"));
       }
 
       // In scope, and nothing has ever been taken from it: there is no record to render sheets of.
       const unrecorded = await stageDrawing(stage.person, stage.projectId, cadFixture("basic"), { name: unique("unrendered.dxf"), format: "dxf" });
+
+      // What the whole kind had handed over before the door was asked. Read at the one place the
+      // seam hands a payload over — the handler this file registered for the kind — which is the
+      // only key-agnostic view there is: this process consumes the thumbnails queue, so a job of
+      // that kind under ANY spelling of key arrives here. The probes above are waited for first, so
+      // the snapshot is a settled state rather than a moment in a race.
+      await waitUntil(() => earlier.every((probe) => delivered.some((job) => job.jobId === probe)), "the probes the arm above cost were handed over before this arm's snapshot", DELIVERY_BUDGET_MS);
+      const before = delivered.length;
+
       expect(
         await stage.thumbnails.requestThumbnails({ tenantId: stage.person.tenantId, drawingId: unrecorded.drawingId, requestedBy: stage.person.userId }),
         "a drawing with no ingest record is answered by name, not by an empty job",
       ).toStrictEqual({ refusal: RASTER_NOT_AVAILABLE });
-      await expectKeyFree(stage, stage.thumbnails.thumbnailsJobKey(stage.person.tenantId, unrecorded.drawingId), "the refused un-ingested request");
+
+      // A marker of this file's own, enqueued after the refusal and then waited for. The queue hands
+      // its work over oldest first, so once the marker has arrived anything the door had enqueued
+      // ahead of it has arrived too — which is what makes "nothing arrived" a settled state rather
+      // than a race. The key it is enqueued under is the only thing the key helper can be asked here
+      // and mean anything: a drawing with no ingest record has no ingestId, so no key of that shape
+      // is one the door could ever have minted, and its being free guards the narrow conflation of a
+      // drawingId for an ingestId — never "nothing was enqueued", which the line below proves.
+      const marker = await expectKeyFree(stage, stage.thumbnails.thumbnailsJobKey(stage.person.tenantId, unrecorded.drawingId), "the refused un-ingested request took a drawing id for an ingest id");
+      await waitUntil(() => delivered.some((job) => job.jobId === marker), `the queue handed this file's marker job ${marker} over`, DELIVERY_BUDGET_MS);
+
+      expect(
+        delivered.slice(before).map((job) => job.jobId),
+        "an un-ingested request queues nothing for the thumbnails kind — not merely nothing under one key: everything the queue handed over across the refusal is this file's own marker",
+      ).toStrictEqual([marker]);
     },
     CASE_BUDGET_MS,
   );
@@ -377,10 +598,17 @@ describe("AC-3 — the door enqueues once, and refuses what is not its to render
 /**
  * Nothing of the thumbnails kind stands under this key. Asked of the seam rather than assumed from
  * the refusal's shape: enqueueing a key again is answered `deduplicated: false` only when no job of
- * it is queued or active, which is exactly what "enqueued nothing" means (SEAM-JOBS' idempotency).
- * The probe job the question costs is held by the stand-in and released when the file ends.
+ * it is queued or active, which is exactly what "no job under this key" means (SEAM-JOBS'
+ * idempotency).
+ *
+ * What it proves is bounded by what a key is: a key the door could have minted, left free, says the
+ * door minted nothing under it. It says nothing about any other spelling — which is why the arms
+ * that need "nothing at all" read the handler the kind is delivered to instead. The probe job the
+ * question costs names no record, so the stand-in lets it go at once; its id is answered so a caller
+ * can wait for it and tell it apart from anything else the queue hands over.
  */
-async function expectKeyFree(stage: Staged, key: string, what: string): Promise<void> {
+async function expectKeyFree(stage: Staged, key: string, what: string): Promise<string> {
   const probe = await stage.jobs.enqueue(stage.thumbnails.THUMBNAILS_KIND, { key }, { key });
-  expect(probe.deduplicated, `${what} enqueued nothing: the key ${key} was free for this probe to take`).toBe(false);
+  expect(probe.deduplicated, `${what} left no job under the key ${key}: it was free for this probe to take`).toBe(false);
+  return probe.jobId;
 }
