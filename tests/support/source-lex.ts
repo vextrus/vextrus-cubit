@@ -1,8 +1,12 @@
 /**
  * ONE lexical machine for every source question the suites ask of a file (B-17: one invariant, one
- * home). Two readings are derived from it and nothing re-derives them: dropping or reading
- * COMMENTS (Q-17), and masking a file down to its CODE so a phrase counted in code is never a
- * phrase written in prose or in a literal.
+ * home). Three readings are derived from it and nothing re-derives them: dropping or reading
+ * COMMENTS (Q-17); masking a file down to its CODE so a phrase counted in code is never a phrase
+ * written in prose or in a literal; and collecting the rendered TEXT a JSX element wraps, for the
+ * consumer that genuinely asks what a file says to a reader. Element children are prose, so they
+ * belong to the third reading and never to the second: `<p>Shape is gone</p>` must not keep `Shape`
+ * counted as code. What a `{…}` expression holds re-enters TS, an attribute value lexes as a string,
+ * and an element name lexes in tag context, so a real `<Shape />` is still code.
  *
  * A regex stripper answers both wrongly — `//` inside a URL literal opens a comment that never
  * closes, `/*` inside a glob or a character class swallows the code after it, and a quote inside a
@@ -55,7 +59,9 @@ export interface Lexed {
   readonly comments: readonly string[];
   /** The content of every string, template piece and CSS quoted literal, as written (escapes raw). */
   readonly strings: readonly string[];
-  /** The source with every comment and literal blanked out, so code can be scanned on its own. */
+  /** Every run of rendered JSX children, whitespace-normalised; the copy a reader sees, never code. */
+  readonly text: readonly string[];
+  /** The source with comments, literals and rendered JSX copy blanked out, so code scans on its own. */
   readonly code: string;
   /** Every place the scan could not decide. A non-empty list is a red, never a shrug. */
   readonly diagnostics: readonly LexDiagnostic[];
@@ -343,18 +349,24 @@ export function lex(source: string, dialect: Dialect = "ts"): Lexed {
   const mask = new Array<string>(source.length).fill(" ");
   const comments: { text: string; line: number; endLine: number; kind: "line" | "block" }[] = [];
   const strings: string[] = [];
+  const text: string[] = [];
   let run: { mode: ScanMode; text: string; line: number; endLine: number } | null = null;
   let line = 1;
 
   const closeRun = (): void => {
     if (run === null) return;
     if (run.mode === "line" || run.mode === "block") comments.push({ text: run.text, line: run.line, endLine: run.endLine, kind: run.mode });
-    else strings.push(run.text);
+    // Rendered children are the third reading: kept as copy, and blanked out of the code mask. A run
+    // of nothing but layout whitespace says nothing to a reader, so it is not copy either.
+    else if (run.mode === "jsx-text") {
+      const copy = normalise(run.text);
+      if (copy !== "") text.push(copy);
+    } else strings.push(run.text);
     run = null;
   };
 
   for (const { index, char, mode, edge } of scanned(source, dialect, (diagnostic) => diagnostics.push(diagnostic))) {
-    const collecting = mode === "line" || mode === "block" || mode === "single" || mode === "double" || mode === "template";
+    const collecting = mode === "line" || mode === "block" || mode === "single" || mode === "double" || mode === "template" || mode === "jsx-text";
     if (collecting) {
       if (run === null || run.mode !== mode || edge === "open") {
         closeRun();
@@ -365,7 +377,7 @@ export function lex(source: string, dialect: Dialect = "ts"): Lexed {
       mask[index] = char === "\n" ? "\n" : " ";
     } else {
       closeRun();
-      mask[index] = mode === "code" || mode === "jsx-text" || char === "\n" ? char : " ";
+      mask[index] = mode === "code" || char === "\n" ? char : " ";
     }
     if (char === "\n") line += 1;
   }
@@ -387,6 +399,7 @@ export function lex(source: string, dialect: Dialect = "ts"): Lexed {
   return {
     comments: grouped.map((comment) => normalise(comment.text)),
     strings,
+    text,
     code: mask.join(""),
     diagnostics,
   };

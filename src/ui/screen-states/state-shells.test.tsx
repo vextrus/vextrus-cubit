@@ -66,15 +66,44 @@ describe("the module's published shapes", () => {
     const callers = sourcesUnder(resolve(dirname(here), "..", "..")).filter((file) => file !== mine && file !== here);
     expect(callers.length).toBeGreaterThan(0);
 
-    // A name is reached where it is CODE. Prose in a docblock and a word inside a string literal
-    // mention a shape; neither renders it, and reading raw bytes would let the module's own
-    // enumerating comment keep a deleted shape alive. The tree's one lexer answers what is code
-    // (B-17, Q-17), and it goes red rather than quiet on a file it cannot decide.
+    // A name is reached where it is CODE, and a shape is mentioned in three channels that render
+    // nothing: prose in a docblock, a word inside a string literal, and rendered copy in JSX
+    // children (`<p>Shape is gone</p>` is a sentence, not a call). Reading raw bytes would let any
+    // of the three keep a deleted shape alive. An element name in a tag IS code, so a genuine
+    // `<Shape />` still counts. The tree's one lexer answers all of this (B-17, Q-17), and it goes
+    // red rather than quiet on a file it cannot decide; the fixture below grades the reading itself.
     const code = callers.map((file) => lexFile(file, readFileSync(file, "utf8")).code);
 
     const published = Object.keys(shells);
     expect(published.length).toBeGreaterThan(0);
     const uncalled = published.filter((name) => !code.some((text) => new RegExp(`\\b${name}\\b`).test(text)));
     expect(uncalled).toEqual([]);
+  });
+
+  /**
+   * The roster above is only as sound as "reached where it is CODE", so the reading is graded on a
+   * fixture rather than assumed (B-19): one name mentioned in all three non-rendering channels, one
+   * rendered as an element beside it.
+   */
+  test("a shape named only in prose, a literal or rendered copy is not a caller; an element name is", () => {
+    const fixture = [
+      "/** GhostShape is named in this docblock and rendered nowhere. */",
+      "export function Panel(): unknown {",
+      '  const label = "GhostShape";',
+      "  return (",
+      "    <section aria-label={label}>",
+      "      <p>GhostShape is gone</p>",
+      "      <LiveShape />",
+      "    </section>",
+      "  );",
+      "}",
+      "",
+    ].join("\n");
+    const { code, comments, text } = lexFile("<fixture>/mentions.tsx", fixture);
+
+    expect(code, "a name mentioned only in prose, a literal and rendered copy is not code").not.toMatch(/\bGhostShape\b/);
+    expect(code, "an element name in a tag is code").toMatch(/\bLiveShape\b/);
+    expect(comments.some((comment) => comment.includes("GhostShape")), "the docblock mention is read as a comment").toBe(true);
+    expect(text, "the rendered copy is read as copy").toContain("GhostShape is gone");
   });
 });

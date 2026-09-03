@@ -33,15 +33,18 @@ interface RoutesModule {
   SHELL_AREAS: readonly string[];
 }
 
+/** The clause spells its names in lower-case words joined by `-` — a property of the form, not a roster. */
+const CLAUSE_SPELLING = /^[a-z]+(?:-[a-z]+)*$/;
+
 /**
- * The shell's key form of a clause name, as the criterion states the rule: the kebab segments after
- * the first are capitalised and joined, so a name with no `-` in it keeps its spelling exactly.
- * Computed here so the product's converter is compared with the rule rather than with itself.
+ * The clause's form of a shell key: every capital expands back to `-` and its lower case. The key is
+ * graded BACKWARDS through this inverse, sharing no arithmetic with the converter, so the product is
+ * never compared with a second spelling of itself (B-19 derives rather than transcribes; Q-17 calls
+ * one code path under two labels a defect; B-17 keeps the converter existing exactly once, in the
+ * product). The round trip is total because every clause name matches `CLAUSE_SPELLING`, asserted
+ * from the product's own roster before it is relied on.
  */
-function keyForm(name: string): string {
-  const [head, ...rest] = name.split("-");
-  return [head ?? "", ...rest.map((part) => (part === "" ? "" : `${part.charAt(0).toUpperCase()}${part.slice(1)}`))].join("");
-}
+const nameForm = (key: string): string => key.replace(/[A-Z]/g, (capital) => `-${capital.toLowerCase()}`);
 
 /**
  * AC-1(c): the shell's name type is DERIVED from the clause's, not a hand-typed union — stated to
@@ -64,7 +67,10 @@ describe("AC-1: the shell derives R-UI-050's names from the clause's one home", 
 
     expect(STATE_NAMES.length, "the clause names states to convert").toBeGreaterThan(0);
     for (const name of STATE_NAMES) {
-      expect(shellStateKey(name), `${name} converts to the shell's key form`).toBe(keyForm(name));
+      expect(name, `${name} is spelled in the clause's form, which the inverse below inverts`).toMatch(CLAUSE_SPELLING);
+      const key = shellStateKey(name);
+      expect(key, `${name}'s key form carries no separator`).not.toMatch(/-/);
+      expect(nameForm(key), `${key} expands back to the clause's name`).toBe(name);
     }
     // The converter changes the form of exactly the names that carry a separator, and no others.
     const changed = STATE_NAMES.filter((name) => shellStateKey(name) !== name);
@@ -75,12 +81,21 @@ describe("AC-1: the shell derives R-UI-050's names from the clause's one home", 
     const { STATE_NAMES } = await productModule<ContractModule>(CONTRACT_MODULE);
     const states = await productModule<StatesModule>(STATES_MODULE);
     expect(states.SHELL_STATE_NAMES, `${STATES_MODULE} exports SHELL_STATE_NAMES`).toBeDefined();
-    expect([...(states.SHELL_STATE_NAMES as readonly string[])]).toEqual(STATE_NAMES.map(keyForm));
+    for (const name of STATE_NAMES) {
+      expect(name, `${name} is spelled in the clause's form, which the inverse below inverts`).toMatch(CLAUSE_SPELLING);
+    }
+    const keys = [...(states.SHELL_STATE_NAMES as readonly string[])];
+    // Graded backwards, which still pins roster, order and form without restating the converter.
+    expect(keys.map(nameForm)).toEqual([...STATE_NAMES]);
+    expect(keys.some((key) => key.includes("-")), "the shell's roster is in the key form throughout").toBe(false);
   });
 
   test("AC-1(d): states.ts spells none of the seven names as a string literal of its own", async () => {
     const { STATE_NAMES } = await productModule<ContractModule>(CONTRACT_MODULE);
-    const spellings = new Set<string>([...STATE_NAMES, ...STATE_NAMES.map(keyForm)]);
+    const states = await productModule<StatesModule>(STATES_MODULE);
+    // Both spellings come from the tree — the clause's roster and the shell's own — so nothing here
+    // restates the transform (B-19).
+    const spellings = new Set<string>([...STATE_NAMES, ...(states.SHELL_STATE_NAMES as readonly string[])]);
     const { strings } = lex(sourceOf(STATES_MODULE), "ts");
     const spelled = strings.filter((literal) => spellings.has(literal.trim()));
     expect(spelled, `${STATES_MODULE} names a state as its own literal instead of deriving it`).toEqual([]);

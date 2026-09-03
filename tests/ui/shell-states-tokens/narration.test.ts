@@ -11,8 +11,10 @@
  * A scan of this shape passes when it looks and finds nothing, and it also passes when it never
  * looked — so the looking itself is asserted (B-19): the dialect follows the extension so a quote in
  * JSX copy cannot open a phantom literal that blanks a span, a scan that cannot decide throws naming
- * the file and the line, every file that visibly carries comments must have yielded one, and the
- * instrument is exercised against a fixture whose narration it must surface.
+ * the file and the line, every file must yield AT LEAST as many comment runs as its raw text opens
+ * on their own lines — an extent bound, both sides computed per file at run time, never a frozen
+ * count — and the instrument is exercised against fixtures whose narration it must surface and whose
+ * shortfall the bound must catch.
  */
 import { readFileSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -54,6 +56,32 @@ const JSX_COPY_FIXTURE = {
   ].join("\n"),
 };
 
+/**
+ * The second fixture, declared once beside the first (B-19): rendered copy followed by several
+ * comments in three shapes. It grades the EXTENT bound — a scan that reads one of them and stops is
+ * the "passes by not looking" failure, and the bound must say so with both numbers.
+ */
+const SEVERAL_COMMENTS_FIXTURE = {
+  file: "<fixture>/several-comments.tsx",
+  source: [
+    "export function Card(): unknown {",
+    "  return (",
+    "    <section>",
+    "      <p>It's the workspace name</p>",
+    "    </section>",
+    "  );",
+    "}",
+    "",
+    "/** What the card is for (R-UI-050). */",
+    "",
+    "// One rule, stated on its own line.",
+    "",
+    "/* And a third run. */",
+    "const bones = 3;",
+    "",
+  ].join("\n"),
+};
+
 interface Offence {
   file: string;
   comment: string;
@@ -74,22 +102,69 @@ function offencesIn(file: string, comments: readonly string[]): Offence[] {
 }
 
 /**
- * A line that BEGINS with a comment opener is a comment in every dialect read here — nothing can
- * precede it on its line to make it anything else — unless it sits inside the one literal that may
- * span lines, a template, which an odd count of backticks above it marks. Read off the raw text and
- * never off the scanner being graded: an instrument cannot be its own witness.
+ * How many comment RUNS the raw text opens on their own lines. Read off the raw text and never off
+ * the scanner being graded: an instrument cannot be its own witness.
+ *
+ * This is a LOWER BOUND on what a sound scan must yield for the file, by construction:
+ *  - a comment that begins mid-line (a trailing `// …` after code) is yielded by the scanner and is
+ *    invisible to a line-initial counter, so the true number can only be higher;
+ *  - a line inside a block comment already open, or inside a template literal, opens nothing — a
+ *    `//` line or a decorative `/*` line inside a docblock belongs to the run above it;
+ *  - `//` lines that continue a run just above open nothing either, so a line-initial `//` counts
+ *    only where the line before it held no `//` at all.
+ * Where the raw text is ambiguous the reading below prefers to believe a span is open or a run
+ * continues, which only lowers the bound and never raises it.
  */
 function plainCommentOpeners(source: string, file: string): number {
-  const openers = file.endsWith(".css") ? ["/*"] : ["//", "/*"];
-  const templatesPossible = !file.endsWith(".css");
+  const ts = !file.endsWith(".css");
+  let inBlock = false;
   let backticks = 0;
   let found = 0;
-  for (const line of source.split("\n")) {
-    const insideATemplate = templatesPossible && backticks % 2 === 1;
-    if (!insideATemplate && openers.some((opener) => line.trim().startsWith(opener))) found += 1;
-    backticks += (line.match(/`/g) ?? []).length;
+  let previousLineHeldSlashes = false;
+  for (const raw of source.split("\n")) {
+    const line = raw.trim();
+    const insideATemplate = ts && backticks % 2 === 1;
+    const opensLine = ts && line.startsWith("//");
+    const opensBlock = line.startsWith("/*");
+    if (!inBlock && !insideATemplate && (opensLine || opensBlock) && !(opensLine && previousLineHeldSlashes)) {
+      found += 1;
+    }
+
+    // Carry the block-comment span across lines, so a one-line `/* … */` counts once and the lines
+    // of a docblock under it count for nothing.
+    let at = 0;
+    while (!insideATemplate && at < raw.length) {
+      if (inBlock) {
+        const close = raw.indexOf("*/", at);
+        if (close === -1) break;
+        inBlock = false;
+        at = close + 2;
+        continue;
+      }
+      const open = raw.indexOf("/*", at);
+      const slashes = ts ? raw.indexOf("//", at) : -1;
+      if (open === -1 || (slashes !== -1 && slashes < open)) break;
+      inBlock = true;
+      at = open + 2;
+    }
+
+    previousLineHeldSlashes = ts && raw.includes("//");
+    backticks += (raw.match(/`/g) ?? []).length;
   }
   return found;
+}
+
+/**
+ * The extent the scan owes a file: at least as many comment runs as its raw text opens. `>=` and not
+ * `===` is deliberate — the witness above is a lower bound by construction. Answers the shortfall as
+ * a sentence naming the file and both numbers, or null where the file was read to its extent.
+ */
+function underRead(file: string, openers: number, comments: readonly string[]): string | null {
+  // A comment's opening delimiter is yielded as a run of its own, so a run holding no text is an
+  // artefact of the reading rather than a comment; the bound counts what a reader would count.
+  const read = comments.filter((comment) => comment !== "").length;
+  if (openers === 0 || read >= openers) return null;
+  return `${file} opens ${openers} comment(s) on their own lines; the scan read ${read}`;
 }
 
 describe("AC-5(d): the swept ground's comments state rules, not build history (Q-17)", () => {
@@ -105,11 +180,10 @@ describe("AC-5(d): the swept ground's comments state rules, not build history (Q
       // that blanks a span it did not understand would report green over ground it never read.
       const { comments } = lexFile(name, source);
 
-      // Per file, not across the pile: a blinded file cannot hide behind its neighbours' counts.
-      const openers = plainCommentOpeners(source, name);
-      if (openers > 0) {
-        expect(comments.length, `${name} opens ${openers} comment(s) on their own lines, and the scan must read them`).toBeGreaterThan(0);
-      }
+      // Per file and to its extent, not across the pile and not merely armed: a file whose comments
+      // were mostly classified as something else cannot hide behind the one it did yield.
+      const shortfall = underRead(name, plainCommentOpeners(source, name), comments);
+      expect(shortfall, "the scan must read every comment run the file opens, not merely one").toBeNull();
 
       offences.push(...offencesIn(name, comments));
     }
@@ -128,6 +202,21 @@ describe("AC-5(d): the swept ground's comments state rules, not build history (Q
       "names an increment id",
       'narrates: "not built yet"',
     ]);
+  });
+
+  test("the extent bound surfaces a scan that reads some of a file's comments and stops", () => {
+    const { file, source } = SEVERAL_COMMENTS_FIXTURE;
+    const openers = plainCommentOpeners(source, file);
+    const { comments } = lexFile(file, source);
+
+    expect(openers, "the fixture opens several comment runs after its rendered copy").toBeGreaterThan(1);
+    expect(underRead(file, openers, comments), "the real scan reads the fixture to its extent").toBeNull();
+    // The same arithmetic over a scan that lost every run but the first: the bound must name the
+    // file and both sides rather than pass on the one run it was handed.
+    const truncated = comments.filter((comment) => comment !== "").slice(0, 1);
+    const short = underRead(file, openers, truncated);
+    expect(short, "a scan that stops after one run is a red, not a green").toContain(file);
+    expect(short, "the shortfall names what was opened and what was read").toContain(`${openers}`);
   });
 
   test("the same copy read in the wrong dialect goes loud, never quietly green", () => {
