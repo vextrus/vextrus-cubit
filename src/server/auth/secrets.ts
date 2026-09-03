@@ -58,11 +58,45 @@ export async function verifyPassword(password: string, stored: string): Promise<
  * derived once per process from a value nobody holds, so no password can ever match it.
  */
 export async function absorbPassword(password: string): Promise<void> {
-  decoy ??= hashPassword(mintSecret());
-  await verifyPassword(password, await decoy);
+  await verifyPassword(password, await settledDecoy());
 }
 
-let decoy: Promise<string> | null = null;
+/**
+ * The decoy, memoised only once it has settled. Held as the promise, a derivation that *failed* —
+ * an exhausted machine, a crypto seam that refused — was memoised as a rejection for the life of the
+ * process: every later call at the door awaited the same rejected promise, so the one door that
+ * exists to spend time instead threw immediately, and an address with no account was answered
+ * measurably sooner than a wrong password ever after. A settled value is remembered; a failure leaves
+ * nothing behind, and the next call derives again.
+ */
+let decoy: string | null = null;
+
+/** The first derivation, while it runs: what callers arriving before it settles wait on. */
+let deriving: Promise<string> | null = null;
+
+/**
+ * The decoy, derived at most once whether the callers arrive one at a time or all at once. The
+ * memo of the *settled* value is what a failure must not poison; the in-flight promise is a second,
+ * shorter-lived one that only exists between the first call and that value — without it a burst of
+ * unknown addresses would each start a full scrypt derivation at the very door whose cost is
+ * deliberately high, and the limiter cannot bound that, since every address is its own key.
+ */
+async function settledDecoy(): Promise<string> {
+  if (decoy !== null) return decoy;
+  deriving ??= hashPassword(mintSecret());
+  try {
+    const settled = await deriving;
+    decoy = settled;
+    return settled;
+  } finally {
+    // A refused derivation is never remembered as the settled value, and the in-flight promise is
+    // dropped here, so any call made after this frame runs derives again. A caller that arrived while
+    // the failing derivation was still in flight — including one entering between the rejection and
+    // this line — waits on that same rejection and fails with it: it asked during the outage, and that
+    // is its truthful answer. What must not happen is the *next* one inheriting it, and it cannot.
+    deriving = null;
+  }
+}
 
 function derive(
   password: string,

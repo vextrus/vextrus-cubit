@@ -14,7 +14,6 @@ import {
   gt,
   isNull,
   isUuid,
-  lt,
   memberships,
   runAsSystem,
   sessions,
@@ -27,7 +26,9 @@ import {
 import { reportFault } from "../../core/faults/report";
 import { refusalCodeOf } from "../../core/faults/refusal-marker";
 import { foldedKey } from "./folded-key";
+import { SESSION_LIFETIME_MS } from "./limits";
 import { deliver } from "./mail";
+import { oncePerWindow } from "./once-per-window";
 import { admitAttempt, admitSignIn } from "./rate-limit";
 import { accountAlreadyExists, credentialsNotValid, linkNotSendable } from "./refusals";
 import { absorbPassword, digestOf, hashPassword, mintSecret, verifyPassword } from "./secrets";
@@ -62,13 +63,11 @@ export function clearedSessionCookie(secure: boolean): ClearedSessionCookie {
 }
 
 /**
- * How long a session is live for, counted from when it began — the server's own bound, and the one
- * the cookie's Max-Age is derived from rather than the other way round. A Max-Age is a request to a
- * browser: a token copied out of a cookie jar, or replayed from a capture, is presented by something
- * that never agreed to it, so a lifetime only the browser keeps is no lifetime at all. Thirty days
- * is long enough that a person who uses the product weekly is never signed out mid-work.
+ * How long a session is live for, published from the doors that keep it. The figure itself is stated
+ * in `./limits`, beside the door allowances, so the hygiene pass measured in it can read it without
+ * importing the doors back (ARCH-01, ARCH-02).
  */
-export const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
+export { SESSION_LIFETIME_MS };
 
 /** The moment a session must have begun after to still be live. */
 function liveSince(): Date {
@@ -80,10 +79,10 @@ function liveSince(): Date {
  * answers "where am I signed in, and when was that device last here" — a question a minute's
  * resolution answers exactly as well as a millisecond's, at a fraction of the write.
  */
-const LAST_SEEN_RESOLUTION_MS = 60_000;
+export const LAST_SEEN_RESOLUTION_MS = 60_000;
 
-/** The longest a device label may be, so a caller cannot make the list unreadable (see `deviceLabelFrom`). */
-const DEVICE_LABEL_MAX = 48;
+/** The longest a device label may be, counted in characters, so a caller cannot make the list unreadable (see `deviceLabelFrom`). */
+export const DEVICE_LABEL_MAX = 48;
 
 /** Who a live session belongs to: the row that proves it, and the account it proves. */
 export interface AuthSession {
@@ -201,9 +200,18 @@ export function deviceLabelFrom(userAgent: string | null | undefined): string {
   return clipped(namedDevice(userAgent));
 }
 
-/** The label, cut to a length a row can show. */
+/**
+ * The label, cut to a length a row can show — and cut where a character ends.
+ *
+ * Counted and sliced in code points (`Array.from`) rather than in UTF-16 code units: a cut taken by
+ * index lands inside a surrogate pair whenever the boundary falls in one, and half a character is a
+ * lone surrogate — a string no reader renders, that `text` should not carry, and that any well-formed
+ * check on the row fails. What a person sees is characters, so characters is what the bound counts.
+ */
 function clipped(label: string): string {
-  return label.length <= DEVICE_LABEL_MAX ? label : `${label.slice(0, DEVICE_LABEL_MAX - 1).trimEnd()}…`;
+  const characters = Array.from(label);
+  if (characters.length <= DEVICE_LABEL_MAX) return label;
+  return `${characters.slice(0, DEVICE_LABEL_MAX - 1).join("").trimEnd()}…`;
 }
 
 function namedDevice(userAgent: string | null | undefined): string {
@@ -238,13 +246,13 @@ type Writer = SystemDb | TenantTx;
  * Start a session for this account. The token is minted here and answered once; the row holds only
  * its digest, so revoking a device is the whole story of ending it — nobody, including this tree,
  * can read a live token back out of the table.
+ *
+ * It deletes nothing on its way. Ending the expired rows of whichever account happened to sign in
+ * was hygiene keyed on who turned up: an account that never comes back is never swept, and the
+ * account that does pays for the sweep inside its own sign-in transaction. That pass belongs to every
+ * account at once and to no request, and it has one home (`./prune`, ARCH-02).
  */
 async function startSession(db: Writer, userId: string, deviceLabel: string): Promise<SessionAnswer> {
-  // A session past its lifetime can never be resolved again, so the row is only a row nobody will
-  // ever read. Cleared here, scoped to the one account this write is already about: the table would
-  // otherwise grow by one row per sign-in for ever, with nothing in the tree to prune it.
-  await db.delete(sessions).where(and(eq(sessions.userId, userId), lt(sessions.createdAt, liveSince())));
-
   const sessionToken = mintSecret();
   await db.insert(sessions).values({ userId, tokenHash: digestOf(sessionToken), deviceLabel });
   return { sessionToken };
@@ -321,14 +329,21 @@ const SIGN_UP_ROUTE = "spine.auth.signUp";
  * database cannot store is not an outage (R-SPINE-062 / R-SPINE-007, ARCH-03, B-21), and it is the
  * reading the address (`storedAddress`) and the limiter's key (`countable`) already follow.
  *
- * The closed taxonomy registers no code for "that name cannot be stored" and this increment's grant
- * of four is spent, so refusing is not open either. What is left is the nearest thing to what was
- * presented that a `text` column holds: the same name, with what postgres has no representation for
- * dropped. Case, spacing and length are untouched — they are the person's, and settings is where
- * they rename it.
+ * The closed taxonomy registers no code for "that name cannot be stored" (R-SPINE-062), so refusing
+ * is not open either. What is left is the nearest thing to what was presented that a `text` column
+ * holds: the same name, with what postgres has no representation for dropped. Case, spacing and
+ * length are untouched — they are the person's, and settings is where they rename it.
+ *
+ * A presented name with nothing left in it once that fold is taken — whitespace only, or whitespace
+ * around a byte the column cannot hold — is not a name at all, and a workspace stored under it is a
+ * blank row in every list that shows one. The fallback is the address the account was made with:
+ * R-SPINE-002 gives every account a personal workspace, and the person's own address is the truest
+ * thing this door knows about it. It invents no copy and needs no refusal (Design Decision I-14
+ * forbids one here), and the person renames it in settings like any other workspace.
  */
-function workspaceName(presented: string): string {
-  return storableText(presented);
+function workspaceName(presented: string, fallback: string): string {
+  const stored = storableText(presented);
+  return stored.trim() === "" ? fallback : stored;
 }
 
 export async function signUp(request: SignUpRequest): Promise<SessionAnswer> {
@@ -340,7 +355,12 @@ export async function signUp(request: SignUpRequest): Promise<SessionAnswer> {
   const passwordHash = await hashPassword(request.password);
   const db = runAsSystem("R-SPINE-002 sign-up: the account, its personal workspace and the membership joining them, written as one transaction");
 
-  const created = await createAccount(db, { email, passwordHash, tenantName: workspaceName(request.tenantName), deviceLabel: request.deviceLabel });
+  const created = await createAccount(db, {
+    email,
+    passwordHash,
+    tenantName: workspaceName(request.tenantName, presentedAddress(request.email)),
+    deviceLabel: request.deviceLabel,
+  });
 
   // Sent only once the transaction has committed: a mail for an account that was rolled back is a
   // link nobody can follow.
@@ -633,16 +653,23 @@ export async function listSessions(session: AuthSession): Promise<SessionRow[]> 
  * of the database it would be a cast error (22P02) rather than a miss — an unmarked fault, so the
  * caller would be handed a fault id for presenting a value the door never checked, and the operator
  * a record of a failure that never happened (R-SPINE-062, ARCH-03).
+ *
+ * What is answered is what was revoked, and nothing else: `revoked` carries the id only when the
+ * statement claimed a row, and null otherwise. Echoing the presented value back made the answer a
+ * mirror of the request — a caller was told its own string, whether it named a session of theirs, a
+ * session of somebody else's, or nothing at all. Null says the same thing about all three, which is
+ * exactly as much as the door may say (the taxonomy registers no "that session is not yours").
  */
-export async function revokeSession(session: AuthSession, sessionId: string): Promise<{ revoked: string }> {
-  if (!isUuid(sessionId)) return { revoked: sessionId };
+export async function revokeSession(session: AuthSession, sessionId: string): Promise<{ revoked: string | null }> {
+  if (!isUuid(sessionId)) return { revoked: null };
 
   const db = runAsSystem("R-SPINE-001 session revoke: ending a session the requesting account holds");
-  await db
+  const [ended] = await db
     .update(sessions)
     .set({ revokedAt: new Date() })
-    .where(and(eq(sessions.sessionId, sessionId), eq(sessions.userId, session.userId), isNull(sessions.revokedAt)));
-  return { revoked: sessionId };
+    .where(and(eq(sessions.sessionId, sessionId), eq(sessions.userId, session.userId), isNull(sessions.revokedAt)))
+    .returning({ id: sessions.sessionId });
+  return { revoked: ended?.id ?? null };
 }
 
 /** Sign out: this device's session ends, and the others are untouched. */
@@ -689,15 +716,17 @@ function canSendLinks(origin: string): boolean {
  */
 const ORIGIN_OUTAGE_WINDOW_MS = 60_000;
 
-const ORIGIN_OUTAGE_KEY = Symbol.for("vextrus.cubit.server.auth.public-origin-outage");
-const originScope = globalThis as typeof globalThis & { [ORIGIN_OUTAGE_KEY]?: { at: number } };
-const originOutage: { at: number } = (originScope[ORIGIN_OUTAGE_KEY] ??= { at: Number.NEGATIVE_INFINITY });
+/**
+ * The schedule it is recorded on, taken from the one home of "at most once a window per process"
+ * (`./once-per-window`, ARCH-02) rather than hand-rolled here — and armed again by
+ * `resetOriginOutageWindow`, so a caller that needs the record to happen is not at the mercy of
+ * whatever else in the process reported one first.
+ */
+const originOutage = oncePerWindow("public-origin-outage", ORIGIN_OUTAGE_WINDOW_MS);
 
-/** Is this the first time this window that the deployment's missing address has been reported? */
-function outageDue(now: number): boolean {
-  if (now - originOutage.at < ORIGIN_OUTAGE_WINDOW_MS) return false;
-  originOutage.at = now;
-  return true;
+/** Arm the outage record again, as if this process had never filed one. */
+export function resetOriginOutageWindow(): void {
+  originOutage.reset();
 }
 
 /**
@@ -710,7 +739,7 @@ const UNIDENTIFIED_CALLER = "an unidentified caller";
 
 /** File the standing configuration outage for the operator, at most once a window. */
 function recordOriginOutage(purpose: AuthTokenPurpose, under: { requestId: string; actor: string; route: string }): void {
-  if (!outageDue(Date.now())) return;
+  if (!originOutage.due(Date.now())) return;
   reportFault({
     ...under,
     cause: new Error(
