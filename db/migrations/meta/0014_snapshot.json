@@ -1,5 +1,5 @@
 {
-  "id": "947910d7-d974-445d-a6f8-46125e151c1c",
+  "id": "c7d41ad2-a91a-4584-804a-2b6f08e8126d",
   "prevId": "2e76880c-2f4a-4f22-bdc5-3398c15071d1",
   "version": "7",
   "dialect": "postgresql",
@@ -1542,10 +1542,6 @@
           "name": "files_scan_verdict_closed",
           "value": "\"files\".\"scan_verdict\" in ('clean', 'infected', 'skipped')"
         },
-        "files_sha256_is_an_address": {
-          "name": "files_sha256_is_an_address",
-          "value": "\"files\".\"sha256\" ~ '^[0-9a-f]{64}$'"
-        },
         "files_byte_length_counted": {
           "name": "files_byte_length_counted",
           "value": "\"files\".\"byte_length\" >= 0"
@@ -1645,10 +1641,6 @@
         "uploads_declared_size_counted": {
           "name": "uploads_declared_size_counted",
           "value": "\"uploads\".\"declared_size\" >= 0 and \"uploads\".\"declared_size\" <= 524288000"
-        },
-        "uploads_declared_sha256_is_an_address": {
-          "name": "uploads_declared_sha256_is_an_address",
-          "value": "\"uploads\".\"declared_sha256\" ~ '^[0-9a-f]{64}$'"
         }
       },
       "isRLSEnabled": false

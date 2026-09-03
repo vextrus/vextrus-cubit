@@ -20,7 +20,6 @@ CREATE TABLE "files" (
 	CONSTRAINT "files_tenant_id_sha256_pk" PRIMARY KEY("tenant_id","sha256"),
 	CONSTRAINT "files_format_closed" CHECK ("files"."format" in ('dwg', 'dxf', 'pdf', 'png', 'jpg', 'tiff')),
 	CONSTRAINT "files_scan_verdict_closed" CHECK ("files"."scan_verdict" in ('clean', 'infected', 'skipped')),
-	CONSTRAINT "files_sha256_is_an_address" CHECK ("files"."sha256" ~ '^[0-9a-f]{64}$'),
 	CONSTRAINT "files_byte_length_counted" CHECK ("files"."byte_length" >= 0)
 );
 --> statement-breakpoint
@@ -38,8 +37,7 @@ CREATE TABLE "uploads" (
 	"completed_at" timestamp with time zone,
 	CONSTRAINT "uploads_state_closed" CHECK ("uploads"."state" in ('open', 'stored', 'refused')),
 	CONSTRAINT "uploads_received_within_declared" CHECK ("uploads"."received_bytes" >= 0 and "uploads"."received_bytes" <= "uploads"."declared_size"),
-	CONSTRAINT "uploads_declared_size_counted" CHECK ("uploads"."declared_size" >= 0 and "uploads"."declared_size" <= 524288000),
-	CONSTRAINT "uploads_declared_sha256_is_an_address" CHECK ("uploads"."declared_sha256" ~ '^[0-9a-f]{64}$')
+	CONSTRAINT "uploads_declared_size_counted" CHECK ("uploads"."declared_size" >= 0 and "uploads"."declared_size" <= 524288000)
 );
 --> statement-breakpoint
 ALTER TABLE "drawings" ADD CONSTRAINT "drawings_content" FOREIGN KEY ("tenant_id","sha256") REFERENCES "public"."files"("tenant_id","sha256") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -90,3 +88,16 @@ GRANT SELECT, INSERT ON TABLE "drawings" TO "cubit_app";--> statement-breakpoint
 -- ending move while the bytes arrive, so the app role may change what it holds. It still takes
 -- nothing away — a session that was opened stays on the record with the state it ended in.
 GRANT SELECT, INSERT, UPDATE ON TABLE "uploads" TO "cubit_app";
+--> statement-breakpoint
+-- R-SPINE-021: drawings are evidence, and every revision is retained forever. The retention is worn
+-- as the same owner-proof belt every other ledger wears (L-ACT-03's reading): the app role holds no
+-- privilege that writes a row away, and the trigger refuses the owner too — a guarantee the owner
+-- escapes is not a guarantee.
+CREATE TRIGGER "files_append_only" BEFORE UPDATE OR DELETE ON "files"
+	FOR EACH ROW EXECUTE FUNCTION "cubit_append_only"();--> statement-breakpoint
+CREATE TRIGGER "files_append_only_truncate" BEFORE TRUNCATE ON "files"
+	FOR EACH STATEMENT EXECUTE FUNCTION "cubit_append_only"();--> statement-breakpoint
+CREATE TRIGGER "drawings_append_only" BEFORE UPDATE OR DELETE ON "drawings"
+	FOR EACH ROW EXECUTE FUNCTION "cubit_append_only"();--> statement-breakpoint
+CREATE TRIGGER "drawings_append_only_truncate" BEFORE TRUNCATE ON "drawings"
+	FOR EACH STATEMENT EXECUTE FUNCTION "cubit_append_only"();

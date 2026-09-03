@@ -580,9 +580,6 @@ export const files = pgTable(
     primaryKey({ columns: [table.tenantId, table.sha256] }),
     check("files_format_closed", statement`${table.format} in (${statement.raw(closedList(ACCEPTED_FORMATS))})`),
     check("files_scan_verdict_closed", statement`${table.scanVerdict} in (${statement.raw(closedList(SCAN_VERDICTS))})`),
-    // A content address is the lowercase hex sha256 of the bytes, exactly as the storage seam spells
-    // it: a row whose key is anything else names an object no address can reach.
-    check("files_sha256_is_an_address", statement`${table.sha256} ~ '^[0-9a-f]{64}$'`),
     check("files_byte_length_counted", statement`${table.byteLength} >= 0`),
   ],
 );
@@ -646,7 +643,6 @@ export const uploads = pgTable(
     // client resumes from is a position inside the file it declared.
     check("uploads_received_within_declared", statement`${table.receivedBytes} >= 0 and ${table.receivedBytes} <= ${table.declaredSize}`),
     check("uploads_declared_size_counted", statement`${table.declaredSize} >= 0 and ${table.declaredSize} <= ${statement.raw(String(UPLOAD_MAX_BYTES))}`),
-    check("uploads_declared_sha256_is_an_address", statement`${table.declaredSha256} ~ '^[0-9a-f]{64}$'`),
   ],
 );
 
