@@ -4,13 +4,20 @@
  * Greening a journey by editing what grades the journey is not a fix. J-000's specs, its
  * `.e2e.ts` leg, its baselines and the shared page objects and e2e support every journey stands on
  * are another node's grading surface: byte-frozen at the pre-fix merge. This file reads the branch's
- * own history and working tree and refuses any move onto that ground.
+ * own history and working tree and refuses any MOVE of that ground — a modification, a rename or a
+ * deletion of something the pin tracked.
  *
  * The roster of frozen assets is DERIVED from what the pre-fix merge actually tracked, not listed
  * here — a J-000 asset the Bible's "extended per milestone" adds later is carried by the same rule
- * without an edit. The three tests the interfaces line names are asserted as a floor on top of it:
- * they must still exist and must still be reachable by the runner's `--journey J-000` grep, because
- * a journey the gate cannot collect is green by omission (V-E2E).
+ * without an edit. Derivation cuts the other way too, and that is the whole of the freeze: what the
+ * pin did not track is not frozen ground. A directory listing is not a roster (C-05, B-19), so a
+ * later increment's own new page object or support file — its lawful work, under its own name — is
+ * no trespass here; it can only reach a locked journey through an edit of an asset the pin DID
+ * track, and that edit is what the two readings below convict.
+ *
+ * The three tests the interfaces line names are asserted as a floor on top of it: they must still
+ * exist and must still be reachable by the runner's `--journey J-000` grep, because a journey the
+ * gate cannot collect is green by omission (V-E2E).
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -41,14 +48,32 @@ const NAMED_J000_TESTS = [
 const JOURNEY_ID = "J-000";
 
 /**
- * Ground this increment may not move onto: anything under `tests/` that names J-000 (its specs, its
- * `.e2e.ts` leg, every snapshot and baseline whose path carries the id) and the two shared homes
- * every journey leans on. A defect found in the shared homes is an objection back to the plan.
+ * Which of the paths the PIN TRACKED are frozen ground: anything under `tests/` that names J-000
+ * (its specs, its `.e2e.ts` leg, every snapshot and baseline whose path carries the id) and the two
+ * shared homes every journey leans on. A defect found in the shared homes is an objection back to
+ * the plan.
+ *
+ * A classifier, never a roster: it is only ever asked about paths `filesAt(PRE_FIX, …)` answered
+ * with, so it says which pre-existing assets are frozen and never that a directory is closed.
  */
 function isFrozenGround(path: string): boolean {
   if (path.startsWith("tests/e2e/pages/")) return true;
   if (path.startsWith("tests/e2e/support/")) return true;
   return path.startsWith("tests/") && path.includes("j-000");
+}
+
+/** Every frozen asset as the pre-fix merge tracked it — the roster, derived from the pin itself. */
+function frozenAtPin(): string[] {
+  return filesAt(PRE_FIX, "tests/").filter(isFrozenGround);
+}
+
+/**
+ * What a path holds at the far end of the interval. While the interval is still open at the working
+ * checkout — which is how the gate sees this branch — the content under judgement is the content on
+ * disk, so an uncommitted rewrite of a frozen asset under its own name is read too.
+ */
+function contentAtFixEnd(path: string): string | null {
+  return FIX_END === "HEAD" ? objectIdInTree(path) : objectIdAt(FIX_END, path);
 }
 
 describe("AC-2: J-000 is repaired forward, never by editing what grades J-000", () => {
@@ -63,11 +88,21 @@ describe("AC-2: J-000 is repaired forward, never by editing what grades J-000", 
     ).not.toBeNull();
   });
 
-  it("AC-2: the branch changes no J-000 asset and no shared page object or e2e support file", () => {
-    const trespass = changedSincePreFix().filter(isFrozenGround);
+  it("AC-2: the branch modifies, renames or deletes no J-000 asset and no PRE_FIX-tracked shared page object or e2e support file", () => {
+    // The conviction set is the pin's own roster, not the change list filtered by location: an
+    // ADDITION under a frozen directory is a path the pin never tracked, changes no J-000 asset and
+    // is somebody's lawful work — it is not read here at all.
+    const frozen = frozenAtPin();
+    expect(frozen.length, `no frozen J-000 or shared-journey asset was found at ${PRE_FIX} — the reading below would prove nothing`).toBeGreaterThan(0);
+
+    // Two ways a pinned asset moves under a NAME reading. A modification is named in the change
+    // list. A rename or a deletion is not: a name-only diff collapses a rename onto its destination,
+    // so the source side shows up as the pinned path no longer being there at the far end.
+    const touched = new Set(changedSincePreFix());
+    const trespass = frozen.filter((path) => touched.has(path) || contentAtFixEnd(path) === null);
     expect(
       trespass,
-      `these paths are J-000's grading surface or the shared homes every journey stands on, frozen at ${PRE_FIX} — the repair lives inside inc-010b's merged src footprint instead:\n  ${trespass.join("\n  ")}`,
+      `these paths are J-000's grading surface or the shared homes every journey stood on at ${PRE_FIX}, and this branch has moved them — the repair lives inside inc-010b's merged src footprint instead:\n  ${trespass.join("\n  ")}`,
     ).toEqual([]);
   });
 
@@ -79,15 +114,11 @@ describe("AC-2: J-000 is repaired forward, never by editing what grades J-000", 
     // Both ends of the reading are the interval's own: the pin and `FIX_END`. J-000 is "extended per
     // milestone", so a later milestone may lawfully rewrite these files — what this increment claims
     // is that IT did not, and that claim is settled once the hotfix lands.
-    const frozen = filesAt(PRE_FIX, "tests/").filter(isFrozenGround);
+    const frozen = frozenAtPin();
     expect(frozen.length, `no frozen J-000 or shared-journey asset was found at ${PRE_FIX} — the reading below would prove nothing`).toBeGreaterThan(0);
 
-    // The far end is read exactly as `changedSincePreFix` reads it, so the name scan and the content
-    // scan cover one interval and not two: while the interval is still open at the working checkout,
-    // the content under judgement is the content on disk — an uncommitted rewrite of a frozen asset
-    // under its own name is a trespass the name scan alone cannot see.
-    const contentAtFixEnd = (path: string): string | null => (FIX_END === "HEAD" ? objectIdInTree(path) : objectIdAt(FIX_END, path));
-
+    // `contentAtFixEnd` reads the far end exactly as `changedSincePreFix` reads it, so the name scan
+    // and the content scan cover one interval and not two.
     const moved = frozen.filter((path) => contentAtFixEnd(path) !== objectIdAt(PRE_FIX, path));
     expect(moved, `these are byte-frozen at ${PRE_FIX} and ${FIX_END} holds a different content (or has deleted them):\n  ${moved.join("\n  ")}`).toEqual([]);
   });
