@@ -2,7 +2,7 @@
 // installation scans through, the rosters and ceilings the protocol states, and the archive reader.
 // A caller — a route, a screen's server action, a worker — speaks to the seam through this file and
 // never reaches past it (ARCH-02).
-export { UPLOAD_CHUNK_BYTES, UPLOAD_MAX_BYTES, ACCEPTED_FORMATS, type AcceptedFormat, type ScanVerdict, type UploadState } from "../../../core/uploads";
+export { UPLOAD_CHUNK_BYTES, UPLOAD_MAX_BYTES, ACCEPTED_FORMATS, type AcceptedFormat, type ScanVerdict, type UploadState } from "../../../core/db";
 export { declaredFormat, detectFormat, isArchiveContent, isArchiveName, FORMAT_HEAD_BYTES } from "./formats";
 export type { UploadRefusalCode } from "./refusals";
 export { setUploadScanner, type ScanAnswer, type UploadScanner } from "./scanner";

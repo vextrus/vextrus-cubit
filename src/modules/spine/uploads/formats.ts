@@ -2,8 +2,8 @@
 // caller wrote and a signature is what the file is, so a format is accepted only where the two agree
 // — which is exactly what the registered remedy tells a person (Q-12: uploads validated).
 //
-// The roster itself lives in `src/core/uploads`, where the column's CHECK reads it too (B-17).
-import { ACCEPTED_FORMATS, isAcceptedFormat, type AcceptedFormat } from "../../../core/uploads";
+// The roster itself lives in `src/core/db`, where the column's CHECK reads it too (B-17).
+import { ACCEPTED_FORMATS, isAcceptedFormat, type AcceptedFormat } from "../../../core/db";
 
 /** How much of a file has to be in hand to judge what it is. */
 export const FORMAT_HEAD_BYTES = 1024;

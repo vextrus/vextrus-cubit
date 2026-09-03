@@ -9,7 +9,7 @@
 import { inflateRawSync } from "node:zlib";
 import { REFUSALS } from "../../../core/errors";
 import type { UploadRefusalCode } from "./refusals";
-import { UPLOAD_MAX_BYTES } from "../../../core/uploads";
+import { UPLOAD_MAX_BYTES } from "../../../core/db";
 
 /** The record signatures, in decimal: a packed six-digit hex literal is a colour to the lint (R-UI-001). */
 const CENTRAL_HEADER = 33639248; // PK-1-2, the central directory header

@@ -91,7 +91,16 @@ export async function PATCH(request: Request, context: Context): Promise<Respons
     if (!Number.isSafeInteger(offset) || offset < 0) return json({ error: NOT_AN_OFFSET }, 400);
 
     const bytes = await chunkWithin(request, UPLOAD_CHUNK_BYTES);
-    if (bytes === null) return refusalAnswer(REFUSALS.FILE_TOO_LARGE.code);
+    if (bytes === null) {
+      // A body over the chunk ceiling says nothing about the declared file: telling a 20 MB drawing
+      // that it is larger than 500 MB is a sentence the product does not mean, and its remedy —
+      // split the set — cannot be acted on (R-SPINE-062, ARCH-03). What this caller has to correct
+      // is the chunk, so it is answered under the code whose remedy is exactly that: resume from the
+      // point the server reports, in chunks of the size the session was opened with.
+      const probed = await uploadStatus({ actor: admission.actor, uploadId });
+      if (isRefused(probed)) return refusalAnswer(probed.refusal, probed.receivedBytes);
+      return refusalAnswer(REFUSALS.UPLOAD_NOT_RESUMABLE.code, probed.receivedBytes);
+    }
 
     const advanced = await appendChunk({ actor: admission.actor, uploadId, offset, bytes });
     if (isRefused(advanced)) return refusalAnswer(advanced.refusal, advanced.receivedBytes);

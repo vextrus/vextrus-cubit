@@ -8,7 +8,7 @@
 // The hook is anchored to the process for the reason the fault sink states (ARCH-02): a bundler that
 // compiled this file into two graphs would otherwise leave half the uploads reaching a scanner the
 // host swapped out — silence by packaging accident.
-import type { ScanVerdict } from "../../../core/uploads";
+import type { ScanVerdict } from "../../../core/db";
 
 /** What an installation wires in: bytes and the name they arrived under, judged (R-SPINE-020). */
 export interface UploadScanner {

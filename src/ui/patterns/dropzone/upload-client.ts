@@ -64,6 +64,14 @@ export interface UploadOutcome {
   drawings: UploadedDrawing[];
   skipped: SkippedUpload[];
   refusal?: RefusalEntry;
+  /**
+   * The transfer stored, but on the server's word rather than on the acknowledgement that lists what
+   * it recorded: the last answer never arrived and the probe's shape carries no drawings, so
+   * `drawings` and `skipped` are empty because this client cannot say, not because nothing was
+   * recorded. A consumer that renders a row per drawing reads this before reading an empty list as
+   * "nothing stored" (R-UI-050: a partial is answered, never dressed as a whole).
+   */
+  recovered?: true;
   /** The id the door recorded its outage under, where it gave one — what a person quotes. */
   faultId?: string;
 }
@@ -219,7 +227,14 @@ async function asked(
   }
   if (probed.body.complete === true) {
     report("stored", uploadId, probed.body.receivedBytes ?? offset);
-    return { name, uploadId, state: "stored", drawings: answer.body.drawings ?? [], skipped: answer.body.skipped ?? [] };
+    const recorded = answer.body.drawings;
+    if (recorded === undefined) {
+      // The transfer stored and the door's own answer for it never arrived, so what it recorded is
+      // not knowable from here — the probe's shape carries no drawings. The outcome says so rather
+      // than handing back an empty list that reads as "stored nothing".
+      return { name, uploadId, state: "stored", recovered: true, drawings: [], skipped: [] };
+    }
+    return { name, uploadId, state: "stored", drawings: recorded, skipped: answer.body.skipped ?? [] };
   }
   const outcome = settled(name, uploadId, answer);
   report(outcome.state === "refused" ? "refused" : "failed", uploadId, probed.body.receivedBytes ?? offset);

@@ -14,10 +14,9 @@
 import { createHash } from "node:crypto";
 import { createReadStream, existsSync } from "node:fs";
 import { mkdir, open, readFile, rm, stat, truncate } from "node:fs/promises";
-import { drawings, eq, files, forTenant, holdStateLock, isUuid, projects, runAsSystem, uploads, type TenantDb, type TenantTx } from "../../../core/db";
+import { drawings, eq, files, forTenant, holdStateLock, isUuid, projects, runAsSystem, uploads, UPLOAD_CHUNK_BYTES, UPLOAD_MAX_BYTES, type AcceptedFormat, type ScanVerdict, type TenantDb, type TenantTx, type UploadState } from "../../../core/db";
 import { REFUSALS } from "../../../core/errors";
 import type { UploadRefusalCode } from "./refusals";
-import { UPLOAD_CHUNK_BYTES, UPLOAD_MAX_BYTES, type AcceptedFormat, type ScanVerdict, type UploadState } from "../../../core/uploads";
 import { declaredFormat, detectFormat, FORMAT_HEAD_BYTES, isArchiveContent, isArchiveName } from "./formats";
 import { scanUpload } from "./scanner";
 import { stagingDir, stagingPath, uploadStorage } from "./storage";
@@ -217,10 +216,18 @@ export async function createUpload(request: CreateUploadRequest): Promise<Upload
  * a chunk offered from anywhere else adds nothing and says where to resume from (R-SPINE-020).
  */
 export async function appendChunk(request: AppendChunkRequest): Promise<UploadAdvanced | UploadRefused> {
+  const db = handle(request.actor);
   // One transfer's chunks are taken one at a time: the lock is held on the session's name for the
   // whole read-judge-write, so a retry racing the request it was retrying cannot pass the same
-  // checks twice and record the transfer twice (the shape every check-then-act writer here uses).
-  return handle(request.actor).transaction(async (tx) => {
+  // checks twice and count the transfer twice (the shape every check-then-act writer here uses).
+  //
+  // Its span is that judgement and no more. Settling the last chunk hashes, scans and stores up to
+  // 500 MB, and holding a pooled connection open — idle in a transaction, with an advisory lock —
+  // for the length of a store is how a handful of large uploads exhaust the pool. It is safe to let
+  // go of first: exactly one chunk can bring the count to the declared size under the lock, and
+  // every other chunk that arrives while that one settles is refused by the checks above, because
+  // the row and the staging copy both stand at the declared size until the settling is written.
+  const taken: UploadAdvanced | UploadRefused | { settling: SessionRow } = await db.transaction(async (tx) => {
     await holdStateLock(tx, sessionLockKey(request.uploadId));
     const session = await sessionOf(tx, request.uploadId);
     if (session === null) return NOT_THEIRS;
@@ -237,8 +244,11 @@ export async function appendChunk(request: AppendChunkRequest): Promise<UploadAd
     await tx.update(uploads).set({ receivedBytes: received }).where(eq(uploads.uploadId, session.uploadId));
     if (received < session.declaredSize) return { uploadId: session.uploadId, receivedBytes: received };
 
-    return complete(tx, request.actor, { ...session, receivedBytes: received });
+    return { settling: { ...session, receivedBytes: received } };
   });
+
+  if (!("settling" in taken)) return taken;
+  return complete(db, request.actor, taken.settling);
 }
 
 /** Where an open session stands (test contract: the GET answer). */

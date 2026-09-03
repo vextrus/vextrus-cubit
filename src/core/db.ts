@@ -19,7 +19,6 @@ import { TERMINAL_STATUSES } from "./jobs/statuses";
 import { MODEL_IDS, minimalDecimal } from "./model-ledger.types";
 import { DEFAULT_DENSITY, DENSITIES, type Density } from "./prefs/density";
 import { BUILDING_TYPES, type BuildingType } from "./projects";
-import { ACCEPTED_FORMATS, SCAN_VERDICTS, UPLOAD_MAX_BYTES, UPLOAD_STATES, type AcceptedFormat, type ScanVerdict, type UploadState } from "./uploads";
 import type { EditionParameter, EditionScope, MethodPair } from "./rulesets/editions/content";
 import { CANONICAL_UNITS, DIMENSIONS, type Dimension } from "./units/canon";
 
@@ -556,6 +555,50 @@ export const bears = pgTable(
     check("bears_kind_closed", statement`${table.kind} in (${statement.raw(closedList(KINDS))})`),
   ],
 );
+
+/*
+ * R-SPINE-020's upload rosters live beside the tables whose CHECKs are written from them: the three
+ * columns below close on these lists, and the upload seam types its answers by the same ones
+ * (re-exported from src/modules/spine/uploads/index.ts, which is where a caller reads them). One
+ * home, read by both (ARCH-02, B-17).
+ */
+
+/** R-SPINE-020's roster, in the order the accepts line names them. */
+export const ACCEPTED_FORMATS = ["dwg", "dxf", "pdf", "png", "jpg", "tiff"] as const;
+
+/** One of the six formats a drawing arrives in, as a type. */
+export type AcceptedFormat = (typeof ACCEPTED_FORMATS)[number];
+
+/** Is this one of the six? Asked wherever a format arrives as text — a stored row, a query answer. */
+export function isAcceptedFormat(value: string): value is AcceptedFormat {
+  return (ACCEPTED_FORMATS as readonly string[]).includes(value);
+}
+
+/**
+ * Where an upload session stands: taking bytes, ended with its content stored, or ended refused.
+ * The set is closed because the column's CHECK is written from it — a session in no state at all is
+ * a session nothing can answer for.
+ */
+export const UPLOAD_STATES = ["open", "stored", "refused"] as const;
+
+/** One of the three, as a type. */
+export type UploadState = (typeof UPLOAD_STATES)[number];
+
+/**
+ * What a scanner said about some bytes (R-SPINE-020's hook point). `skipped` is the honest answer of
+ * an installation with no scanner wired: it is recorded on the stored file so nothing unscanned is
+ * ever read back as clean.
+ */
+export const SCAN_VERDICTS = ["clean", "infected", "skipped"] as const;
+
+/** One verdict, as a type. */
+export type ScanVerdict = (typeof SCAN_VERDICTS)[number];
+
+/** R-SPINE-020's ceiling: 500 MB per file, in bytes. */
+export const UPLOAD_MAX_BYTES = 500 * 1024 * 1024;
+
+/** The chunk an upload session takes at a time, in bytes. */
+export const UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
 
 /**
  * R-SPINE-020's stored content, addressed by what it is: one row per distinct content a workspace
