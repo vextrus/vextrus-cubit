@@ -27,7 +27,14 @@ const FRESH_DIGEST = "2222222222222222222222222222222222222222222222222222222222
 
 const SUBJECT = { subjectId: "user-principal", before: ["PRINCIPAL"], after: ["MEASURER", "PRINCIPAL"] };
 
-const consequenceOf = (): unknown => ({ actType: ACT_TYPE, tenantId: "tenant-sample", projectId: "project-sample", subjects: [SUBJECT] });
+// The rendering is the Consequence's own, named and never defaulted by the body (L-ACT-02).
+const consequenceOf = (): unknown => ({
+  actType: ACT_TYPE,
+  tenantId: "tenant-sample",
+  projectId: "project-sample",
+  rendering: "SUBJECTS",
+  subjects: [SUBJECT],
+});
 
 /**
  * A refusal as the consumer's wrapper rejects with it (I-40): the registered entry and the evidence

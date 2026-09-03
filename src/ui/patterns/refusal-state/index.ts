@@ -10,3 +10,4 @@ import "../../primitives/core/reticle.css";
 import "./refusal-state.css";
 
 export { RefusalState } from "./refusal-state";
+export type { RefusalEvidence, RefusalStateProps } from "./refusal-state";

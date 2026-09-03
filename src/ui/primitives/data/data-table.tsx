@@ -23,10 +23,12 @@ import {
   type ColumnFiltersState,
   type ColumnPinningState,
   type Header,
+  type RowData,
   type SortingState,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { lightTokens } from "../../tokens";
 import { cx } from "../core/class-names";
 import { Input } from "../core/input";
 
@@ -38,6 +40,23 @@ export interface DataTableColumnMeta {
   align?: "right";
   filterable?: boolean;
   editable?: boolean;
+}
+
+/**
+ * TanStack parameterises `ColumnMeta` by the row type and the cell-value type of the column it
+ * describes, and a merged declaration has to repeat that parameter list exactly. None of the three
+ * facts above depends on either type, so the two are carried in type position and contribute no
+ * member: a column may set the facts the table reads, and nothing else.
+ */
+type ColumnTypesCarried<TData extends RowData, TValue> = { readonly [K in never]: (row: TData) => TValue };
+
+/**
+ * The table's column meta IS TanStack's `ColumnMeta` (B-17): the library ships an empty interface
+ * for a host to fill, so filling it here makes a column fact the table does not define a compile
+ * error at every call site, and leaves no shape for a caller to cast past.
+ */
+declare module "@tanstack/react-table" {
+  interface ColumnMeta<TData extends RowData, TValue> extends DataTableColumnMeta, ColumnTypesCarried<TData, TValue> {}
 }
 
 export interface DataTableColumnPinning {
@@ -55,16 +74,27 @@ export interface DataTableProps<TRow> {
   className?: string;
 }
 
+/** A density token's pixel length, as a number the virtualiser can measure in. */
+function rowHeightOf(token: "--row-comfortable" | "--row-compact"): number {
+  const px = Number.parseInt(lightTokens[token] ?? "", 10);
+  if (Number.isNaN(px)) throw new Error(`${token} is not a pixel length (R-UI-005)`);
+  return px;
+}
+
 /**
- * R-UI-005's two row heights, in px: the virtualiser measures in numbers and the stylesheet in
- * tokens, and the two must be the same instrument, so the numbers are declared once here.
+ * R-UI-005's two row heights, in px. The stylesheet draws the row from the density tokens and the
+ * virtualiser estimates in numbers; the two are the same instrument, so the numbers are read from
+ * the token table the stylesheet is generated from rather than transcribed beside it (B-17).
  */
-const ROW_HEIGHT_PX: Record<DataTableDensity, number> = { comfortable: 36, compact: 28 };
+export const ROW_HEIGHT_PX: Readonly<Record<DataTableDensity, number>> = Object.freeze({
+  comfortable: rowHeightOf("--row-comfortable"),
+  compact: rowHeightOf("--row-compact"),
+});
+
 const DEFAULT_COLUMN_WIDTH_PX = 150;
 const OVERSCAN_ROWS = 8;
 
-const metaOf = (column: { columnDef: { meta?: unknown } }): DataTableColumnMeta =>
-  (column.columnDef.meta as DataTableColumnMeta | undefined) ?? {};
+const metaOf = (column: { columnDef: { meta?: DataTableColumnMeta } }): DataTableColumnMeta => column.columnDef.meta ?? {};
 
 /**
  * A column header as text, for the accessible names the filter and the editor owe (R-UI-012). A
@@ -97,7 +127,7 @@ export function DataTable<TRow>({
       columns.map((column) => ({
         ...column,
         enableSorting: column.enableSorting === true,
-        enableColumnFilter: ((column.meta as DataTableColumnMeta | undefined) ?? {}).filterable === true,
+        enableColumnFilter: column.meta?.filterable === true,
       })),
     [columns],
   );
@@ -135,9 +165,13 @@ export function DataTable<TRow>({
 
   // The virtualiser caches its measurements and does not watch `estimateSize`, so a density change
   // would otherwise leave every row sitting at the old offset over the old scroll extent: the
-  // density switch R-UI-005 requires has to re-measure the list.
+  // density switch R-UI-005 requires has to re-measure the list. Only that change does — on mount
+  // the estimate the virtualiser was constructed with is already this row height, and re-measuring
+  // it throws the freshly built cache away for the same numbers.
+  const measuredRowHeight = useRef<number | null>(null);
   useEffect(() => {
-    virtualizer.measure();
+    if (measuredRowHeight.current !== null && measuredRowHeight.current !== rowHeight) virtualizer.measure();
+    measuredRowHeight.current = rowHeight;
   }, [virtualizer, rowHeight]);
 
   const headerGroups = table.getHeaderGroups();
@@ -154,7 +188,10 @@ export function DataTable<TRow>({
       role="table"
       aria-rowcount={headerRowCount + rows.length}
     >
-      <div className="cx-table-viewport" data-testid="datatable-viewport" ref={viewportRef}>
+      {/* The scroll box is chrome, not structure: an unroled element between `table` and its
+          `rowgroup`s breaks the ownership chain the roles declare, so it presents nothing of its
+          own (R-UI-012, Q-11). */}
+      <div className="cx-table-viewport" data-testid="datatable-viewport" role="presentation" ref={viewportRef}>
         <div className="cx-table-header" data-testid="datatable-header" role="rowgroup">
           {headerGroups.map((group, groupIndex) => (
             <div key={group.id} className="cx-table-row" role="row" aria-rowindex={groupIndex + 1}>

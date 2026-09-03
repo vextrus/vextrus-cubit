@@ -9,17 +9,18 @@
  */
 import type { ComponentProps } from "react";
 import { Toaster as SonnerToaster } from "sonner";
+import { cx } from "../core/class-names";
 
 export { toast } from "sonner";
 
 export type ToasterProps = ComponentProps<typeof SonnerToaster>;
 
-export function Toaster({ position = "bottom-right", toastOptions, ...rest }: ToasterProps) {
+export function Toaster({ position = "bottom-right", toastOptions, className, ...rest }: ToasterProps) {
   return (
     <SonnerToaster
       {...rest}
       position={position}
-      className="cx-toaster"
+      className={cx("cx-toaster", className)}
       toastOptions={{
         ...toastOptions,
         classNames: {

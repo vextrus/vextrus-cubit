@@ -4,7 +4,9 @@
  * the reticle (R-UI-012); a chip that only reads is a span, and stays out of the tab order.
  * Selection is announced either way, never as colour alone (Q-11): `aria-pressed` on the button
  * that toggles it, `aria-current` on the span that only reports it — a read-only chip has no
- * pressable state to report, but it is still the one selected among its set.
+ * pressable state to report, but it is still the one selected among its set. A consumer that states
+ * `aria-current` itself — "page", "step", the token its set actually means — keeps it: the chip's
+ * boolean is the fallback for the set that says nothing, never an override of the truer word.
  */
 import type { HTMLAttributes, MouseEventHandler, ReactNode } from "react";
 import { cx } from "./class-names";
@@ -22,7 +24,7 @@ export function Chip({ className, onClick, selected, children, ...rest }: ChipPr
         {...rest}
         className={cx("cx-chip", className)}
         data-selected={selected || undefined}
-        aria-current={selected === undefined ? undefined : selected}
+        aria-current={rest["aria-current"] ?? (selected === undefined ? undefined : selected)}
       >
         {children}
       </span>

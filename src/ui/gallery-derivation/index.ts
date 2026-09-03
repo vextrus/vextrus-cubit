@@ -19,7 +19,6 @@ import * as shell from "../shell";
 import { galleryEntries } from "./entries";
 import type { GalleryEntries } from "./types";
 
-export { galleryChrome } from "./chrome";
 export { galleryEntries } from "./entries";
 export type { GalleryEntries, GalleryEntry, GalleryState } from "./types";
 

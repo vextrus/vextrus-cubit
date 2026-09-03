@@ -69,6 +69,18 @@ select.cx-reticle:focus-visible {
   outline-offset: 2px;
 }
 
+/*
+ * The same fallback for the dialog's own box, which takes focus when it is opened: the reticle's
+ * `position: relative` would fight the dialog's `position: fixed` at equal specificity, so the
+ * corner ticks cannot be drawn there either. A visible focus indicator is never optional
+ * (R-UI-012), and the indicator has one home whatever wears it (B-17), so it is spelled here rather
+ * than in the overlay set's own stylesheet.
+ */
+.cx-dialog:focus-visible {
+  outline: 2px solid var(--beam-500);
+  outline-offset: 2px;
+}
+
 @keyframes cx-reticle-draw {
   from {
     opacity: 0;
