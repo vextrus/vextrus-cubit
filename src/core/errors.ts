@@ -54,7 +54,8 @@ export type RefusalCode =
   | "FORMAT_NOT_ACCEPTED"
   | "DIGEST_MISMATCH"
   | "UPLOAD_NOT_RESUMABLE"
-  | "SCAN_REJECTED";
+  | "SCAN_REJECTED"
+  | "SHEET_NOT_INGESTABLE";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -303,6 +304,15 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     code: "SCAN_REJECTED",
     message: "The virus scan rejected this file, so it was not stored.",
     remedy: "Check the file on your own machine, then upload a clean copy.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // SEAM-CAD's answer when the extractor took no geometry from a sheet (L-CAD-04): a sheet nothing
+  // could be read from is an answer the operator acts on, never a fault of the product's.
+  SHEET_NOT_INGESTABLE: Object.freeze({
+    code: "SHEET_NOT_INGESTABLE",
+    message: "The extractor could not read this sheet, so no geometry was taken from it.",
+    remedy: "Export the drawing again as DXF (R2000 or later) and upload the new file.",
     severity: "error",
     surface: "inline",
   }),

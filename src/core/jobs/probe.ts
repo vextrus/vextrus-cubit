@@ -6,6 +6,8 @@ import type { JobPayloads } from "./kinds";
 
 /** What a running job is given: its own temp dir, and the way to say where it has got to. */
 export type JobProgress = {
+  /** Which job this attempt is of, so a handler's own writes can be idempotent on it (SEAM-JOBS). */
+  readonly jobId: string;
   /** Per invocation, made before the attempt starts and taken away after it ends (R-SPINE-031). */
   readonly tempDir: string;
   /** One step, recorded durably before the next one begins. */

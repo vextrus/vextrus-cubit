@@ -14,9 +14,11 @@ import postgres from "postgres";
 import { ELEMENT_TYPES, type ElementType } from "./catalogue/element-types";
 import { KINDS, type Kind } from "./catalogue/kinds";
 import { attributableReason } from "./db/reason";
+import { INGEST_SCHEME } from "./entitygraph/schema";
 import { reportFault } from "./faults/report";
 import { TERMINAL_STATUSES } from "./jobs/statuses";
 import { MODEL_IDS, minimalDecimal } from "./model-ledger.types";
+import type { SourceScheme } from "./model";
 import { DEFAULT_DENSITY, DENSITIES, type Density } from "./prefs/density";
 import { BUILDING_TYPES, type BuildingType } from "./projects";
 import type { EditionParameter, EditionScope, MethodPair } from "./rulesets/editions/content";
@@ -690,6 +692,55 @@ export const uploads = pgTable(
 );
 
 /**
+ * The schemes an extractor is wired to mint today, out of L-CAD-02's closed universe. The column
+ * below closes on this list, so a record can only ever name geometry something really took — a lane
+ * landing later widens the list where its mirror admits the scheme, not here (B-19).
+ */
+const INGESTED_SCHEMES = [INGEST_SCHEME] as const satisfies readonly SourceScheme[];
+
+/**
+ * R-TO-001's ingest record: which extractor, at which version and parameter set, took which
+ * geometry out of which bytes, and what it counted while doing it (L-CAD-02 pins the identity a
+ * source key is scoped to).
+ *
+ * It is evidence, so it is append-only and a re-ingest never replaces one: a declared re-ingest
+ * writes a new row naming the row it supersedes and the reason it was asked for, and a first ingest
+ * names neither. Whether those two go together is judged at the seam, where a refusal can be
+ * answered, rather than by a CHECK that could only abort a job.
+ *
+ * `facts` is `json` and not `jsonb`: the counters are read back in the artifact's own order, and
+ * jsonb re-orders the keys of every object it stores.
+ */
+export const ingests = pgTable(
+  "ingests",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    ingestId: uuid("ingest_id").primaryKey().defaultRandom(),
+    drawingId: uuid("drawing_id")
+      .notNull()
+      .references(() => drawings.drawingId),
+    sha256: text("sha256").notNull(),
+    jobId: text("job_id").notNull(),
+    artifactSha256: text("artifact_sha256").notNull(),
+    extractorScheme: text("extractor_scheme").$type<SourceScheme>().notNull(),
+    extractorTool: text("extractor_tool").notNull(),
+    extractorToolVersion: text("extractor_tool_version").notNull(),
+    extractorParameterSetHash: text("extractor_parameter_set_hash").notNull(),
+    facts: json("facts").$type<Readonly<Record<string, unknown>>>().notNull(),
+    supersedesIngestId: uuid("supersedes_ingest_id"),
+    declaredReason: text("declared_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("ingests_extractor_scheme_closed", statement`${table.extractorScheme} in (${statement.raw(closedList(INGESTED_SCHEMES))})`),
+    // One job writes one record, however many times its attempt runs (SEAM-JOBS' idempotence).
+    uniqueIndex("ingests_job_once").on(table.tenantId, table.jobId),
+    // The read every ingest history makes: one drawing's records, newest first.
+    index("ingests_by_drawing").on(table.tenantId, table.drawingId, table.createdAt),
+  ],
+);
+
+/**
  * Everything the typed surface covers. A table joins the surface by joining this object, and it is
  * exported because the binding to the schema tree is a check rather than a sentence: `db/schema.ts`
  * is the barrel drizzle-kit and the drift lane read, and a test beside this file compares the two
@@ -718,6 +769,7 @@ export const SEAM_SCHEMA = {
   files,
   drawings,
   uploads,
+  ingests,
 };
 
 /**

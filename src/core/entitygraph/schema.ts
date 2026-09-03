@@ -18,8 +18,14 @@ import { z } from "zod";
 /** The version floor both mirrors demand, and the only version this schema admits (L-CAD-05). */
 export const ENTITYGRAPH_VERSION = 2;
 
-/** The closed source-key scheme a DXF ingest mints (L-CAD-02). */
-const SCHEME = "DXF_HANDLE";
+/**
+ * The closed source-key scheme a DXF ingest mints (L-CAD-02). Exported because the store's ingest
+ * record closes its own scheme column on what an extractor can mint, and one list read by both is
+ * the only way the two cannot drift (B-17).
+ */
+export const INGEST_SCHEME = "DXF_HANDLE";
+
+const SCHEME = INGEST_SCHEME;
 
 /**
  * A source key: the scheme, then the file's own handle in uppercase hex (L-CAD-02). The scheme
