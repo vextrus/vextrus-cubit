@@ -11,6 +11,7 @@
 // objects live (ARCH-01, B-17). The read door mints its URLs from the app's one storage instance,
 // which is core's — a second instance would mean a second signing secret, and a URL one minted the
 // other would refuse (Q-12).
+import { createHash } from "node:crypto";
 import { REFUSALS } from "../../../core/errors";
 import { entityGraphSchema, type EntityGraph } from "../../../core/entitygraph/schema";
 import { refusal } from "../../../core/faults/refusal-marker";
@@ -20,7 +21,7 @@ import { appStorage } from "../../../core/storage/app";
 import { drawingInScope, ingestRecordOf, ingestRecords, type IngestRecord } from "../ingest";
 import { renderSheet } from "./raster";
 import type { ThumbnailsRefusalCode } from "./refusals";
-import { hasSheetRasters, sheetRasterRecords, writeSheetRaster, type SheetRasterRecord } from "./records";
+import { sheetRasterRecords, writeSheetRaster, type SheetRasterRecord } from "./records";
 import { RASTER_TIERS, RASTER_TIER_LONG_EDGE, RASTER_URL_LIFETIME_SECONDS, type RasterTier } from "./tiers";
 
 /** The kind this seam's work runs under, bound to SEAM-JOBS' roster rather than re-spelled (B-17). */
@@ -38,6 +39,9 @@ const STEP_RECORD = "record";
  * is bounded here where the bound can be stated, and no sheet name a person types comes near it.
  */
 const LAYOUT_NAME_MAX_BYTES = 512;
+
+/** How much of a digest of the whole name a cut name carries, so two long names never share a key. */
+const LAYOUT_NAME_DIGEST_CHARS = 16;
 
 /** The two spaces a sheet can be — model space, or one of the paper layouts (L-CAD-05). */
 type SheetKind = EntityGraph["layouts"][number]["kind"];
@@ -66,9 +70,15 @@ export function thumbnailsJobKey(tenantId: string, ingestId: string): string {
 function recordedLayoutName(name: string): string {
   const bytes = new TextEncoder().encode(name);
   if (bytes.length <= LAYOUT_NAME_MAX_BYTES) return name;
+  // Two sheets whose names agree over the kept prefix would otherwise land on one (record, sheet,
+  // tier) key, and the second sheet's rows would be swallowed by the belt and its pictures served
+  // under the first sheet's name. What is cut off is replaced by a digest of the whole name, so the
+  // recorded name tells the sheets apart exactly as their own names do.
+  const digest = createHash("sha256").update(name).digest("hex").slice(0, LAYOUT_NAME_DIGEST_CHARS);
   // A cut through the middle of a character decodes to one replacement character; it is dropped, so
-  // the recorded name is a prefix of the sheet's own name and nothing else.
-  return new TextDecoder().decode(bytes.subarray(0, LAYOUT_NAME_MAX_BYTES)).replace(/�+$/u, "");
+  // what stands ahead of the digest is a prefix of the sheet's own name and nothing else.
+  const kept = new TextDecoder().decode(bytes.subarray(0, LAYOUT_NAME_MAX_BYTES - digest.length - 1)).replace(/�+$/u, "");
+  return `${kept}~${digest}`;
 }
 
 /**
@@ -88,8 +98,10 @@ export async function requestThumbnails(request: ThumbnailsRequest): Promise<Thu
 
   // Rasters of a record are a function of the artifact it names, and an artifact never changes: a
   // record whose sheets are already rendered is answered with that, and nothing is spent rendering
-  // the same picture twice.
-  if (await hasSheetRasters({ tenantId: request.tenantId, ingestId: record.ingestId })) return { jobId: null, deduplicated: true };
+  // the same picture twice. "Already rendered" is every sheet at every tier, not merely one row: an
+  // attempt that died between two writes leaves a record short of sheets, and asking again is the
+  // only way the missing ones ever get laid down (the rows already there are kept by the belt).
+  if (await isFullyRendered(request.tenantId, record)) return { jobId: null, deduplicated: true };
 
   const payload: JobPayloads["thumbnails"] = {
     tenantId: request.tenantId,
@@ -99,6 +111,19 @@ export async function requestThumbnails(request: ThumbnailsRequest): Promise<Thu
   };
   const enqueued = await enqueue(THUMBNAILS_KIND, payload, { key: thumbnailsJobKey(request.tenantId, record.ingestId) });
   return { jobId: enqueued.jobId, deduplicated: enqueued.deduplicated };
+}
+
+/**
+ * Whether a record's every sheet stands recorded at every tier — what makes asking again a repeat.
+ *
+ * The sheets are the record's own facts, so the expectation is read off the record rather than
+ * counted: a row set that is one tier short of one sheet is work still owed, not work done.
+ */
+async function isFullyRendered(tenantId: string, record: IngestRecord): Promise<boolean> {
+  if (record.facts.layouts.length === 0) return false;
+  const rows = await sheetRasterRecords({ tenantId, ingestId: record.ingestId });
+  const recorded = new Set(rows.map((row) => `${row.tier} ${row.layoutName}`));
+  return record.facts.layouts.every((layout) => RASTER_TIERS.every((tier) => recorded.has(`${tier} ${recordedLayoutName(layout.name)}`)));
 }
 
 /**

@@ -77,14 +77,3 @@ export async function writeSheetRaster(entry: SheetRasterEntry): Promise<void> {
     })
     .onConflictDoNothing({ target: [sheetRasters.tenantId, sheetRasters.ingestId, sheetRasters.layoutName, sheetRasters.tier] });
 }
-
-/** Whether one record already has a raster of any of its sheets — what makes a second request a repeat. */
-export async function hasSheetRasters(scope: SheetRasterScope): Promise<boolean> {
-  if (!isUuid(scope.ingestId)) return false;
-  const rows = await forTenant({ tenantId: scope.tenantId })
-    .select({ rasterId: sheetRasters.rasterId })
-    .from(sheetRasters)
-    .where(eq(sheetRasters.ingestId, scope.ingestId))
-    .limit(1);
-  return rows.length > 0;
-}

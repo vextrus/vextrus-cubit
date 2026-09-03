@@ -21,9 +21,12 @@ const ROOT_VAR = "STORAGE_ROOT";
 const SECRET_VAR = "CUBIT_STORAGE_SIGNING_SECRET";
 
 /** The route the fault seam records a cleanup failure under (ARCH-03). */
-const ROUTE = "storage: uploads";
+const ROUTE = "storage: app";
 
-const HELD_KEY = Symbol.for("vextrus.cubit.modules.spine.uploads.storage");
+/** Who a cleanup failure is filed against: this instance is every module's, not the upload seam's. */
+const ACTOR = "storage";
+
+const HELD_KEY = Symbol.for("vextrus.cubit.core.storage.app");
 
 const processScope = globalThis as typeof globalThis & { [HELD_KEY]?: { root: string; secret: string; storage: Storage } };
 
@@ -59,7 +62,7 @@ export function appStorage(): Storage {
     // A staging copy the volume will not let go of is a fact only an operator can act on: the put
     // has done what it was asked, and a discarding catch would tell nobody (ARCH-03, B-21).
     onCleanupFailure: (failure) => {
-      reportFault({ requestId: "storage", actor: "uploads", route: ROUTE, cause: failure });
+      reportFault({ requestId: "storage", actor: ACTOR, route: ROUTE, cause: failure });
     },
   });
   processScope[HELD_KEY] = { root, secret, storage };
