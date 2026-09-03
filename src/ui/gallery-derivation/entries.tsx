@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import type { Consequence } from "../../core/acts";
 import type { RefusalEntry, RefusalSeverity, RefusalSurface } from "../../core/errors";
 import { ConsequenceDialog } from "../patterns/consequence-dialog";
+import { Dropzone, type DropzoneItem } from "../patterns/dropzone";
 import { RefusalState } from "../patterns/refusal-state";
 import { SAMPLE_REFUSAL_BY_SEVERITY, sampleRefusal } from "./sample-refusals";
 import {
@@ -112,6 +113,17 @@ const copy = {
     infoEvidence: { href: "/", label: "Open the project" },
   },
   consequence: { trigger: "Assign a role" },
+  dropzone: {
+    queued: "structural/S-101.dxf",
+    uploading: "structural/S-102.dxf",
+    stored: "structural/S-103.dxf",
+    duplicate: "structural/S-104.dxf",
+    refused: "site-notes.txt",
+    waiting: "0 B of 4.2 MB",
+    sending: "1.8 MB of 4.2 MB",
+    sent: "4.2 MB",
+    none: "",
+  },
 } as const;
 
 /** A `ScrollArea` line, as the data Decision spells it: "Sheet 1 of 40" … "Sheet 40 of 40". */
@@ -464,6 +476,26 @@ const refusalStates: readonly GalleryState[] = REFUSAL_SEVERITIES.flatMap((sever
   })),
 );
 
+/* ------------------------------------------------------------------ the upload pattern (I-74) */
+
+/**
+ * The queue as the Decision's partial reads it (R-UI-050, I-74): rows that stored, a row that is
+ * still going, a duplicate that was linked rather than stored again, and a refused member carrying
+ * the registered entry — all standing together, none hidden behind a tally.
+ */
+const dropzoneQueue: DropzoneItem[] = [
+  { name: copy.dropzone.queued, progress: copy.dropzone.waiting, state: "queued" },
+  { name: copy.dropzone.uploading, progress: copy.dropzone.sending, state: "uploading" },
+  { name: copy.dropzone.stored, progress: copy.dropzone.sent, state: "stored" },
+  { name: copy.dropzone.duplicate, progress: copy.dropzone.sent, state: "duplicate" },
+  { name: copy.dropzone.refused, progress: copy.dropzone.none, state: "refused", refusal: sampleRefusal("FORMAT_NOT_ACCEPTED", "inline") },
+];
+
+const dropzoneStates: readonly GalleryState[] = [
+  { name: "empty", render: () => <Dropzone onFiles={noop} items={[]} /> },
+  { name: "queue", render: () => <Dropzone onFiles={noop} items={dropzoneQueue} /> },
+];
+
 /* ------------------------------------------------------------------ shell samples */
 
 /**
@@ -507,6 +539,7 @@ const shellRailStates: readonly GalleryState[] = SHELL_AREAS.map((area) => ({
  */
 export const galleryEntries: GalleryEntries = {
   "patterns/consequence-dialog/ConsequenceDialog": { states: closed(consequenceDialogSample) },
+  "patterns/dropzone/Dropzone": { states: dropzoneStates },
   "patterns/refusal-state/RefusalState": { states: refusalStates },
 
   "primitives/core/Badge": { states: [{ name: "rest", render: () => <Badge>{copy.badge}</Badge> }] },

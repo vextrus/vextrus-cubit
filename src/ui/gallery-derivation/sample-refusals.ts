@@ -14,8 +14,9 @@
  */
 import type { RefusalEntry, RefusalSeverity, RefusalSurface } from "../../core/errors";
 
-/** The registered codes the gallery samples: one per severity, plus the shell frame's denial. */
-export type SampleRefusalCode = "PRECISION_NOT_APPLIED" | "RATE_LIMITED" | "ACT_CHANGES_NOTHING" | "PERMISSION_NOT_HELD";
+/** The registered codes the gallery samples: one per severity, the shell frame's denial, and the
+ * refusal a gathered upload is refused with (R-SPINE-020). */
+export type SampleRefusalCode = "PRECISION_NOT_APPLIED" | "RATE_LIMITED" | "ACT_CHANGES_NOTHING" | "PERMISSION_NOT_HELD" | "FORMAT_NOT_ACCEPTED";
 
 /** What a sample carries of a registered entry: everything except the surface it is rendered on. */
 type SampleRefusal = Pick<RefusalEntry, "code" | "message" | "remedy" | "severity">;
@@ -43,6 +44,12 @@ export const SAMPLE_REFUSALS: Readonly<Record<SampleRefusalCode, SampleRefusal>>
     code: "PERMISSION_NOT_HELD",
     message: "Your roles on this project do not carry the permission this action needs.",
     remedy: "Ask a principal of the project to give you a role that carries it.",
+    severity: "error",
+  }),
+  FORMAT_NOT_ACCEPTED: Object.freeze({
+    code: "FORMAT_NOT_ACCEPTED",
+    message: "This file is not one of the drawing formats the product reads.",
+    remedy: "Upload a DWG, DXF, PDF, PNG, JPG or TIFF — the name and the contents both have to say the same format.",
     severity: "error",
   }),
 });

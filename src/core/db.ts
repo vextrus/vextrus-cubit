@@ -19,6 +19,7 @@ import { TERMINAL_STATUSES } from "./jobs/statuses";
 import { MODEL_IDS, minimalDecimal } from "./model-ledger.types";
 import { DEFAULT_DENSITY, DENSITIES, type Density } from "./prefs/density";
 import { BUILDING_TYPES, type BuildingType } from "./projects";
+import { ACCEPTED_FORMATS, SCAN_VERDICTS, UPLOAD_MAX_BYTES, UPLOAD_STATES, type AcceptedFormat, type ScanVerdict, type UploadState } from "./uploads";
 import type { EditionParameter, EditionScope, MethodPair } from "./rulesets/editions/content";
 import { CANONICAL_UNITS, DIMENSIONS, type Dimension } from "./units/canon";
 
@@ -557,6 +558,99 @@ export const bears = pgTable(
 );
 
 /**
+ * R-SPINE-020's stored content, addressed by what it is: one row per distinct content a workspace
+ * holds, keyed by the tenant and the sha256 of the bytes. A second upload of identical bytes finds
+ * this row and links it rather than storing the content again, which is why the digest is the key
+ * and not a column beside one.
+ *
+ * `scan_verdict` is recorded rather than implied: an installation with no scanner wired answers
+ * `skipped`, and a file nobody scanned must never read back as one somebody passed (Q-12).
+ */
+export const files = pgTable(
+  "files",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    sha256: text("sha256").notNull(),
+    byteLength: integer("byte_length").notNull(),
+    format: text("format").$type<AcceptedFormat>().notNull(),
+    scanVerdict: text("scan_verdict").$type<ScanVerdict>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tenantId, table.sha256] }),
+    check("files_format_closed", statement`${table.format} in (${statement.raw(closedList(ACCEPTED_FORMATS))})`),
+    check("files_scan_verdict_closed", statement`${table.scanVerdict} in (${statement.raw(closedList(SCAN_VERDICTS))})`),
+    // A content address is the lowercase hex sha256 of the bytes, exactly as the storage seam spells
+    // it: a row whose key is anything else names an object no address can reach.
+    check("files_sha256_is_an_address", statement`${table.sha256} ~ '^[0-9a-f]{64}$'`),
+    check("files_byte_length_counted", statement`${table.byteLength} >= 0`),
+  ],
+);
+
+/**
+ * One drawing per presented file (R-SPINE-020): the name it arrived under — a member path out of a
+ * `.zip` or a dropped folder's relative path, verbatim, because which folder a sheet came out of is
+ * drawing information — pointing at the content it is made of.
+ *
+ * Two drawings of one content are two rows against one `files` row: the composite foreign key is
+ * what makes "detected and linked, not re-stored" a property of the schema rather than of a writer
+ * remembering to check.
+ */
+export const drawings = pgTable(
+  "drawings",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    drawingId: uuid("drawing_id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    sha256: text("sha256").notNull(),
+    name: text("name").notNull(),
+    format: text("format").$type<AcceptedFormat>().notNull(),
+    uploadedBy: uuid("uploaded_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: "drawings_content",
+      columns: [table.tenantId, table.sha256],
+      foreignColumns: [files.tenantId, files.sha256],
+    }),
+    check("drawings_format_closed", statement`${table.format} in (${statement.raw(closedList(ACCEPTED_FORMATS))})`),
+    // The read every drawing surface makes: one project's drawings, newest first.
+    index("drawings_by_project").on(table.tenantId, table.projectId, table.createdAt),
+  ],
+);
+
+/**
+ * A transfer in progress (R-SPINE-020's resumable half): what was declared when the session opened,
+ * how many bytes have been acknowledged since, and how it ended. `received_bytes` is the resumption
+ * point a probe answers with — the server's own count of what it holds, never the client's.
+ */
+export const uploads = pgTable(
+  "uploads",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    uploadId: uuid("upload_id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    name: text("name").notNull(),
+    declaredSize: integer("declared_size").notNull(),
+    declaredSha256: text("declared_sha256").notNull(),
+    receivedBytes: integer("received_bytes").notNull().default(0),
+    state: text("state").$type<UploadState>().notNull().default("open"),
+    createdBy: uuid("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    check("uploads_state_closed", statement`${table.state} in (${statement.raw(closedList(UPLOAD_STATES))})`),
+    // A session never takes more than it was opened for, and never fewer than none: the offset a
+    // client resumes from is a position inside the file it declared.
+    check("uploads_received_within_declared", statement`${table.receivedBytes} >= 0 and ${table.receivedBytes} <= ${table.declaredSize}`),
+    check("uploads_declared_size_counted", statement`${table.declaredSize} >= 0 and ${table.declaredSize} <= ${statement.raw(String(UPLOAD_MAX_BYTES))}`),
+    check("uploads_declared_sha256_is_an_address", statement`${table.declaredSha256} ~ '^[0-9a-f]{64}$'`),
+  ],
+);
+
+/**
  * Everything the typed surface covers. A table joins the surface by joining this object, and it is
  * exported because the binding to the schema tree is a check rather than a sentence: `db/schema.ts`
  * is the barrel drizzle-kit and the drift lane read, and a test beside this file compares the two
@@ -582,6 +676,9 @@ export const SEAM_SCHEMA = {
   modelFixtures,
   workItemCatalogue,
   bears,
+  files,
+  drawings,
+  uploads,
 };
 
 /**
