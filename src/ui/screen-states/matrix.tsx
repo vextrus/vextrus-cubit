@@ -252,6 +252,29 @@ export const screenStates: ScreenStatesMatrix = {
     refusal: reasonedRefusal(strings.state_refusal_read_fault, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
   }),
 
+  // The sheet index (s-drawings § 2): its emptiness names its own cause, its partial is a card that
+  // still renders with its preview pending, and it is the first screen with a live queue — so
+  // offline is a state a person is in rather than a fault (I-89), and the denial names MEASURE.
+  "/t/[tenant]/p/[project]/drawings": declare({
+    ...workspaceCells,
+    loading: bones(5),
+    empty: (): ReactNode => (
+      <EmptyTeaching heading={strings.state_empty_drawings_heading} body={strings.state_empty_drawings_body} action={strings.state_empty_drawings_action} />
+    ),
+    refusal: refusal(REFUSAL_ENTRIES.GROUP_NOT_OFFERED, { href: "/", label: strings.state_drawings_evidence_reload }),
+    partial: (): ReactNode => <InlineAnswer text={strings.state_partial_drawings} />,
+    offline: (): ReactNode => <InlineAnswer text={strings.state_offline_drawings} />,
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.state_denied_drawings_permission}
+        holder={strings.state_denied_drawings_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={WORKSPACE_EVIDENCE}
+      />
+    ),
+  }),
+
   // Participants (s-settings-participants § 2): a project holds a principal at every moment, so the
   // list is never empty; the reachable refusal is the withdrawal that would leave it without one.
   "/t/[tenant]/p/[project]/settings/participants": declare({

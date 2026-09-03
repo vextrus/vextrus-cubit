@@ -52,6 +52,17 @@ export const screenStates = {
   // The evidence a refusal on the members surface points at. The screen's own committed spelling
   // lives beside its route, which `src/ui` may never import (ARCH-01), so this is that mirror.
   state_members_evidence_roster: "See the members list",
+
+  // The sheet index's own sentences, mirrored for that same reason: its table lives beside its
+  // route (docs/design/s-drawings.md § 3), and this layer may not import it.
+  state_empty_drawings_heading: "No drawings yet",
+  state_empty_drawings_body: "Add a drawing above; its sheets appear here as soon as it has been read.",
+  state_empty_drawings_action: "Add drawings",
+  state_partial_drawings: "A record that dropped layouts still shows the sheets it carried and says so as a fact, and a sheet whose preview has not been drawn yet shows the same card with the preview pending.",
+  state_offline_drawings: "The connection to the product is gone. An upload already running continues when it returns, and nothing can be confirmed until then.",
+  state_denied_drawings_permission: "Confirming a sheet's discipline needs the MEASURE permission on this project, and your account does not hold it.",
+  state_drawings_evidence_reload: "Reload the sheet index",
+  state_denied_drawings_holder: "This project's principals and measurers hold it; a principal grants it on the participants screen.",
 } as const;
 
 // R-SPINE-060's per-module convention is that a table file's DESIGNATED export is the one named for

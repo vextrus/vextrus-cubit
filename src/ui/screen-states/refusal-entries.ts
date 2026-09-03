@@ -23,6 +23,7 @@ type DeclaredCode = Extract<
   | "WORKSPACE_WOULD_HAVE_NO_OWNER"
   | "MEMBER_HAS_ACTS"
   | "INVITATION_NOT_CLAIMABLE"
+  | "GROUP_NOT_OFFERED"
 >;
 
 /**
@@ -118,6 +119,13 @@ export const REFUSAL_ENTRIES: Readonly<{ [C in DeclaredCode]: RefusalEntry & { c
     code: "INVITATION_NOT_CLAIMABLE",
     message: "This invitation cannot be accepted — it was never issued, has already been accepted, or was withdrawn.",
     remedy: "Ask an owner of that workspace to send a fresh invitation to the address you are signed in with.",
+    severity: "error",
+    surface: "inline",
+  }),
+  GROUP_NOT_OFFERED: Object.freeze({
+    code: "GROUP_NOT_OFFERED",
+    message: "This group is not one the project offers now, so nothing was confirmed.",
+    remedy: "Reload the sheet index and confirm from a group it offers.",
     severity: "error",
     surface: "inline",
   }),
