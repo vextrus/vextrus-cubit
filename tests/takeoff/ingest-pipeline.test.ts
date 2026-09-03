@@ -414,8 +414,13 @@ describe("AC-6 — a sheet nothing can be taken from is refused, loudly and empt
       ).toBe(0);
       expect(stepsOf(events), "the bytes were fetched before anything could be said about them").toContain(STEPS[0]);
 
+      // INT-AC6-DEADLETTER (B-21 via SEAM-JOBS, L-CAD-04): a refusal is told apart from a fault by
+      // the KIND of the row that ends the job — status `refused`, the registered code by name, no
+      // faultId — never by its absence from a list. The dead-letter view is "every job that ended
+      // without succeeding", so a named refusal belongs in it: as an answer, not a fault.
       const dead = await stage.jobs.deadLetters();
-      expect(dead.map((letter) => letter.jobId), "a refusal is never a dead letter — it is what the extractor answered").not.toContain(jobId);
+      expect(dead.map((letter) => letter.jobId), "a refusal dead-letters as an answer, not a fault — it is what the extractor answered").toContain(jobId);
+      expect(ending?.faultId, "and it carries no faultId: an answer is not a fault (B-21)").toBeNull();
 
       expect(await stage.ingest.ingestRecordOf(scope), "a refused sheet leaves no record (a refusal lives in the job log)").toBeNull();
       expect(await stage.ingest.ingestRecords(scope), "and no history of one").toEqual([]);
