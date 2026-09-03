@@ -44,10 +44,17 @@ describe("the decoy is memoised only once it has settled", () => {
     expect(refused, "a crypto seam that refuses is a failure the door reports, not one it hides").not.toBeNull();
     expect(derivation.calls, "the failure came from the decoy's own derivation").toBe(1);
 
-    // Nothing was left behind: the very next call derives again, and this time it settles.
+    // Nothing was left behind: the next callers derive again, and this time it settles. They arrive
+    // together, as a burst of unknown addresses does, and share the one derivation in flight — each
+    // starting a scrypt of its own would multiply the cost of the door that exists to be expensive.
     const spent = derivation.calls;
-    await expect(absorbPassword("whatever-was-typed"), "the door works again once the seam does").resolves.toBeUndefined();
-    expect(derivation.calls - spent, "one derivation for the decoy, one for the comparison it fronts").toBe(2);
+    const burst = await Promise.all([
+      absorbPassword("whatever-was-typed"),
+      absorbPassword("whatever-was-typed"),
+      absorbPassword("whatever-was-typed"),
+    ]);
+    expect(burst, "the door works again once the seam does").toEqual([undefined, undefined, undefined]);
+    expect(derivation.calls - spent, "one decoy between the three of them, and one comparison each").toBe(4);
 
     // And a decoy that settled is kept: a later call pays for the comparison alone.
     const settled = derivation.calls;

@@ -69,4 +69,14 @@ describe("a schedule is the process's, not a module instance's", () => {
 
     expect(first.due(now), "and either handle can arm the one schedule again").toBe(true);
   });
+
+  test("one name cannot be opened on two windows", () => {
+    const name = `probe-${randomUUID()}`;
+    oncePerWindow(name, WINDOW_MS);
+
+    expect(
+      () => oncePerWindow(name, WINDOW_MS * 2),
+      "sharing a stamp while enforcing two periods is two schedules under one name, and it is refused where it is made",
+    ).toThrow(String(WINDOW_MS));
+  });
 });

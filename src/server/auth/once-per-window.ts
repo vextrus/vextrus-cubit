@@ -15,8 +15,9 @@ export interface OncePerWindow {
   reset(): void;
 }
 
-/** What one schedule remembers: when it last said yes. */
+/** What one schedule remembers: the window it runs on, and when it last said yes. */
 interface Stamp {
+  windowMs: number;
   at: number;
 }
 
@@ -27,15 +28,25 @@ interface Stamp {
  * sets of module-level state and therefore two allowances of one window. The stamp is anchored on a
  * `Symbol.for` key instead, which is the process's own registry, so both instances share the one
  * memo and the window means what it says.
+ *
+ * The window is anchored with the stamp, because it is part of the same one schedule: two callers
+ * opening one name over different periods would share a stamp while each enforcing its own idea of
+ * how long it lasts, which is two schedules wearing one name. That is a mistake in the caller, and
+ * the primitive says so at the point it is made rather than letting the name silently mean two things.
  */
 export function oncePerWindow(name: string, windowMs: number): OncePerWindow {
   const key = Symbol.for(`vextrus.cubit.server.auth.once-per-window:${name}`);
   const scope = globalThis as typeof globalThis & Record<symbol, Stamp | undefined>;
-  const stamp: Stamp = (scope[key] ??= { at: Number.NEGATIVE_INFINITY });
+  const stamp: Stamp = (scope[key] ??= { windowMs, at: Number.NEGATIVE_INFINITY });
+  if (stamp.windowMs !== windowMs) {
+    throw new Error(
+      `the schedule "${name}" is already open on a ${stamp.windowMs} ms window and cannot also run on ${windowMs} ms: one name is one schedule (B-17)`,
+    );
+  }
 
   return {
     due(now: number): boolean {
-      if (now - stamp.at < windowMs) return false;
+      if (now - stamp.at < stamp.windowMs) return false;
       stamp.at = now;
       return true;
     },
