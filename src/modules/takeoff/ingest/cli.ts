@@ -60,7 +60,9 @@ function checkoutAbove(from: string): string | null {
  * spawn the CLI against a `cad` that is not there. The working directory is the fallback, and is
  * itself searched upward, because it is where a worker started from source stands.
  */
-const REPO_ROOT = checkoutAbove(dirname(fileURLToPath(import.meta.url))) ?? checkoutAbove(process.cwd()) ?? process.cwd();
+function repoRoot(): string {
+  return checkoutAbove(dirname(fileURLToPath(import.meta.url))) ?? checkoutAbove(process.cwd()) ?? process.cwd();
+}
 
 /** What one invocation amounted to: the geometry and the bytes that carry it, or a refused sheet. */
 export type IngestOutcome = { ok: true; graph: EntityGraph; artifact: Uint8Array } | { ok: false; refusal: SheetNotIngestable; detail: string };
@@ -129,7 +131,7 @@ export async function ingestDrawing(bytes: Uint8Array, format: IngestFormat, opt
 function invoke(argv: readonly string[]): Promise<Run> {
   const [command, ...prefix] = commandPrefix();
   return new Promise((settle, fail) => {
-    const child = spawn(command ?? "", [...prefix, ...argv], { cwd: REPO_ROOT, stdio: ["ignore", "ignore", "pipe"], timeout: CLI_TIMEOUT_MS });
+    const child = spawn(command ?? "", [...prefix, ...argv], { cwd: repoRoot(), stdio: ["ignore", "ignore", "pipe"], timeout: CLI_TIMEOUT_MS });
     let stderr = "";
     child.stderr?.setEncoding("utf8");
     child.stderr?.on("data", (chunk: string) => {

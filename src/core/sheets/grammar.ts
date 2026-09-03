@@ -50,16 +50,25 @@ const TITLE_KEYWORDS: readonly (readonly [Discipline, readonly string[]])[] = [
 /** One text of one sheet, as the grammar reads it. */
 type SheetText = { key: string; text: string; height: number; layer: string };
 
-/** Every text the artifact puts on one layout, in artifact order — the grammar's whole input. */
+/**
+ * Every text the artifact puts on one layout, in artifact order — the grammar's whole input.
+ *
+ * A text is what it says once its escapes are gone and its surrounding whitespace is off: a title
+ * block writes `  FOUNDATION PLAN\n` and means `FOUNDATION PLAN`, and the two must be the same
+ * proposal. An entity left saying nothing at all is not text the grammar read — proposing it as a
+ * title would publish a blank heading at basis `GRAMMAR`, which claims a block was read and shows
+ * nothing — so it is dropped here and cited nowhere.
+ */
 function textsOn(graph: EntityGraph, layoutName: string): SheetText[] {
   return graph.entities
     .filter((entity) => TEXT_TYPES.includes(entity.type) && entity.space === layoutName && entity.text !== undefined)
     .map((entity) => ({
       key: entity.key,
-      text: (entity.text ?? "").replace(ESCAPE, ""),
+      text: (entity.text ?? "").replace(ESCAPE, "").trim(),
       height: entity.height ?? 0,
       layer: entity.layer,
-    }));
+    }))
+    .filter((text) => text.text !== "");
 }
 
 /** The text a title block sets largest — the sheet's own name. Ties go to the artifact's own order. */

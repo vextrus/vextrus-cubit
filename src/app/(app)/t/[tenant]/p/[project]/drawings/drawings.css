@@ -174,11 +174,18 @@
 
 /* ------------------------------------------------------------------ the controls */
 
+/*
+ * The row keeps the Decision's shape (flex, wrap, gap `--space-3`, align-items end) and stands
+ * clear of what is above and below it: a control wears the reticle when it takes focus, and a
+ * paragraph set against the field's own border clips those corner marks and reads as a line
+ * belonging to the search rather than to the groups under it.
+ */
 .cx-drawings-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
   gap: var(--space-3);
+  margin-block: var(--space-4);
 }
 
 .cx-drawings-field {

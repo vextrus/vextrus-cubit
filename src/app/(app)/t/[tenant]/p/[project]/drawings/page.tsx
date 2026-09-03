@@ -6,9 +6,10 @@
 // file only asks and lays out what came back (ARCH-01, B-17).
 import "./drawings.css";
 
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { permissionsHeld } from "../../../../../../../core/acts";
 import { forTenant } from "../../../../../../../core/db";
+import { workspaceOfProject } from "../../../../../../../modules/spine/uploads";
 import { drawingsAwaitingIngestOf, offeredGroupsOf, sheetIndexOf } from "../../../../../../../modules/takeoff/sheets";
 import { sessionOf } from "../../../../../../../server/shell/resolve";
 import { presentedSessionToken } from "../../../../../../../server/shell/session";
@@ -26,6 +27,12 @@ export default async function ProjectDrawings({ params }: { params: Promise<{ te
   // The frame's own layout redirects a sessionless request; reaching here without one at all is a
   // race with a session that ended, and the way back in is the same door.
   if (session === null) redirect("/sign-in");
+
+  // An address naming no project of this workspace is not a screen with nothing on it: rendering
+  // the whole index would tell the reader their roles are short of a permission, which is untrue of
+  // a project that does not exist, and would arm the Dropzone over an address nothing can be
+  // uploaded to. There is no such page, and that is what the frame answers (R-UI-050).
+  if ((await workspaceOfProject(project)) !== tenant) notFound();
 
   const scope = { tenantId: tenant, projectId: project };
   const [cards, groups, awaitingIngest, canConfirm] = await Promise.all([

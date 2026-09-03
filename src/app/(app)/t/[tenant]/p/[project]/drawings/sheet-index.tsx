@@ -41,6 +41,15 @@ const ACT_TYPE = "CONFIRM_DISCIPLINE";
 /** The filter's own extra option: every discipline at once, and the default (Decision § 1). */
 const ALL = "ALL";
 
+/**
+ * Whether a request the screen made amounts to work the timeline follows: a job it can watch, or a
+ * repeat the seam answered was already done. Everything else is a refusal the seam took nothing on
+ * for, and the timeline reports jobs (I-88).
+ */
+function carried(answer: { jobId: string | null; deduplicated: boolean }): boolean {
+  return answer.jobId !== null || answer.deduplicated;
+}
+
 /** The typed grouping key, as the screen carries one between a door and the dialog. */
 type GroupKey = OfferedGroupItem["key"];
 
@@ -156,7 +165,11 @@ export function SheetIndex({
       // A stored drawing is read straight away: the screen asks, and the answered jobs open the
       // timeline. The worker chains the previews itself once a record lands (I-88).
       const asked = await requestSheets({ projectId, drawingIds: stored });
-      setJobs((held) => [...held, ...asked.map((answer) => ({ jobId: answer.jobId, kind: "ingest" as const, drawingId: answer.drawingId }))]);
+      // Only work the seam took on becomes a step: a job to follow, or a request it answered was
+      // already done (`deduplicated`, X-1's "the worker got there first"). A refused request took
+      // nothing on — it answers no job and no repeat — and a step for it would read as a succeeded
+      // one, which is the opposite of what happened (I-88).
+      setJobs((held) => [...held, ...asked.filter(carried).map((answer) => ({ jobId: answer.jobId, kind: "ingest" as const, drawingId: answer.drawingId }))]);
     },
     [projectId, requestSheets],
   );
@@ -167,6 +180,7 @@ export function SheetIndex({
       router.refresh();
       if (job.kind !== "ingest") return;
       const answer = await requestThumbnails({ projectId, drawingId: job.drawingId });
+      if (!carried(answer)) return;
       setJobs((held) => (held.some((step) => step.kind === "thumbnails" && step.drawingId === job.drawingId) ? held : [...held, { jobId: answer.jobId, kind: "thumbnails", drawingId: job.drawingId }]));
     },
     [projectId, requestThumbnails, router],
