@@ -5,6 +5,11 @@
 //
 // STORAGE_ROOT is deliberately left unset: both processes then default to `<cwd>/storage`, which is
 // what makes a raster the worker drew readable by the page that serves it.
+//
+// The shipped worker entry is run directly, with no package-script process interposed: a package
+// manager standing between this harness and the worker does not forward SIGTERM to the child, so the
+// worker would never hear the stop and never say it had drained. `pnpm worker` is that same entry
+// (`tsx src/worker/main.ts`), so nothing about what runs changes — only who receives the signal.
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { e2eDatabaseUrl } from "./scratch-db";
 
@@ -24,12 +29,12 @@ export interface JourneyWorker {
 }
 
 /**
- * Start `pnpm worker` at the checkout root and resolve once it says it is ready. The health port is
- * asked for as `0`, so two journeys running at once never collide on it.
+ * Start the shipped worker entry at the checkout root and resolve once it says it is ready. The
+ * health port is asked for as `0`, so two journeys running at once never collide on it.
  */
 export async function startJourneyWorker(): Promise<JourneyWorker> {
   const said: string[] = [];
-  const child: ChildProcessWithoutNullStreams = spawn("pnpm", ["worker"], {
+  const child: ChildProcessWithoutNullStreams = spawn(process.execPath, ["--import", "tsx", "src/worker/main.ts"], {
     cwd: process.cwd(),
     env: { ...process.env, DATABASE_URL: e2eDatabaseUrl(), WORKER_HEALTH_PORT: "0" },
     stdio: ["ignore", "pipe", "pipe"],
