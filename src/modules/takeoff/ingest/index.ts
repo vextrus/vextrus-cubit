@@ -5,5 +5,5 @@
 export { CAD_COMMAND_VAR, ingestDrawing, type IngestFormat, type IngestOutcome } from "./cli";
 export { factsOf, type IngestCounterFact, type IngestFacts, type IngestLayoutFact } from "./facts";
 export { ingestRecordOf, ingestRecords, type IngestIdentity, type IngestRecord, type IngestScope } from "./records";
-export { INGEST_KIND, ingestJobKey, requestIngest, runIngestJob, type IngestRefused, type IngestRequest, type IngestRequested } from "./pipeline";
+export { INGEST_KIND, drawingInScope, ingestJobKey, requestIngest, runIngestJob, type IngestRefused, type IngestRequest, type IngestRequested } from "./pipeline";
 export type { IngestRefusalCode, SheetNotIngestable } from "./refusals";

@@ -596,6 +596,18 @@ export const SCAN_VERDICTS = ["clean", "infected", "skipped"] as const;
 /** One verdict, as a type. */
 export type ScanVerdict = (typeof SCAN_VERDICTS)[number];
 
+/**
+ * R-SPINE-022's three zoom tiers, smallest first: the sheet index's thumbnail, the viewer's
+ * preview and the full-page raster. The roster lives here because the `sheet_rasters` CHECK is
+ * written from it and the raster seam types its answers by the same list (re-exported from
+ * src/modules/takeoff/thumbnails, which is where a caller reads it) — one home, read by both
+ * (ARCH-02, B-17). The pixels each tier is rendered at belong to the renderer, not to the store.
+ */
+export const RASTER_TIERS = ["thumb", "preview", "full"] as const;
+
+/** One zoom tier, as a type. */
+export type RasterTier = (typeof RASTER_TIERS)[number];
+
 /** R-SPINE-020's ceiling: 500 MB per file, in bytes. */
 export const UPLOAD_MAX_BYTES = 500 * 1024 * 1024;
 
@@ -741,6 +753,44 @@ export const ingests = pgTable(
 );
 
 /**
+ * R-SPINE-022's rendered sheets: one row per (ingest, layout, tier), naming the address SEAM-STORAGE
+ * holds that raster's bytes at and the size they were rendered to.
+ *
+ * A raster is evidence of what a revision looked like, so the table is append-only like the record
+ * it hangs off: a re-render of the same sheet at the same tier finds the row it already wrote rather
+ * than replacing it, which is what `sheet_rasters_once` is for. The dimensions carry no range CHECK
+ * — a canvas of no pixels is a renderer's mistake, and the seam answers for it where a refusal can
+ * be given rather than by aborting a job at the store (ARCH-03).
+ */
+export const sheetRasters = pgTable(
+  "sheet_rasters",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    rasterId: uuid("raster_id").primaryKey().defaultRandom(),
+    ingestId: uuid("ingest_id")
+      .notNull()
+      .references(() => ingests.ingestId),
+    drawingId: uuid("drawing_id")
+      .notNull()
+      .references(() => drawings.drawingId),
+    jobId: text("job_id").notNull(),
+    layoutName: text("layout_name").notNull(),
+    tier: text("tier").$type<RasterTier>().notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    sha256: text("sha256").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("sheet_rasters_tier_closed", statement`${table.tier} in (${statement.raw(closedList(RASTER_TIERS))})`),
+    // One raster per sheet per tier per record, however many attempts render it (SEAM-JOBS).
+    uniqueIndex("sheet_rasters_once").on(table.tenantId, table.ingestId, table.layoutName, table.tier),
+    // The read the sheet index makes: one drawing's rasters.
+    index("sheet_rasters_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
  * Everything the typed surface covers. A table joins the surface by joining this object, and it is
  * exported because the binding to the schema tree is a check rather than a sentence: `db/schema.ts`
  * is the barrel drizzle-kit and the drift lane read, and a test beside this file compares the two
@@ -770,6 +820,7 @@ export const SEAM_SCHEMA = {
   drawings,
   uploads,
   ingests,
+  sheetRasters,
 };
 
 /**

@@ -55,7 +55,8 @@ export type RefusalCode =
   | "DIGEST_MISMATCH"
   | "UPLOAD_NOT_RESUMABLE"
   | "SCAN_REJECTED"
-  | "SHEET_NOT_INGESTABLE";
+  | "SHEET_NOT_INGESTABLE"
+  | "RASTER_NOT_AVAILABLE";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -313,6 +314,15 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     code: "SHEET_NOT_INGESTABLE",
     message: "The extractor could not read this sheet, so no geometry was taken from it.",
     remedy: "Export the drawing again as DXF (R2000 or later) and upload the new file.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // R-SPINE-022's answer when a drawing's sheets have never been rendered: rasters are taken from an
+  // ingest record's artifact, so a drawing nothing was ever extracted from has no sheets to render.
+  RASTER_NOT_AVAILABLE: Object.freeze({
+    code: "RASTER_NOT_AVAILABLE",
+    message: "This drawing has no sheet rasters yet, because it has not been ingested.",
+    remedy: "Ingest the drawing first, then ask for its rasters again.",
     severity: "error",
     surface: "inline",
   }),

@@ -57,8 +57,12 @@ function declaredReason(request: IngestRequest): string | null {
   return reason.trim() === "" ? null : reason;
 }
 
-/** The drawing as this workspace sees it, or null where its scope holds no such drawing. */
-async function drawingInScope(tenantId: string, drawingId: string): Promise<{ sha256: string; format: AcceptedFormat } | null> {
+/**
+ * The drawing as this workspace sees it, or null where its scope holds no such drawing. Published
+ * because "is this drawing this workspace's to act on" has one answer for the whole takeoff seam:
+ * every door that names a drawing asks it here rather than each keeping a query of its own (B-17).
+ */
+export async function drawingInScope(tenantId: string, drawingId: string): Promise<{ sha256: string; format: AcceptedFormat } | null> {
   if (!isUuid(drawingId)) return null;
   const rows = await forTenant({ tenantId })
     .select({ sha256: drawings.sha256, format: drawings.format })
