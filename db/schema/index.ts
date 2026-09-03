@@ -10,3 +10,4 @@ export * from "./catalogue";
 export * from "./model";
 export * from "./drawings";
 export * from "./takeoff-ingest";
+export * from "./takeoff-rasters";
