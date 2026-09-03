@@ -67,9 +67,24 @@ export const ANSWER_MEMO_CAP = 1024;
  * distinct failures outnumber the cap evicts the same oldest failures each time instead of sweeping
  * the memo and making every later reader decide again.
  */
+/** One key's unconsumed answers, with the place its key took when it first appeared. */
+interface MemoEntry {
+  place: number;
+  waiting: ErrorAnswer[];
+}
+
 interface RequestMemo {
-  /** Unconsumed answers per key, in first-appearance order — a Map iterates as it was filled. */
-  byKey: Map<string, ErrorAnswer[]>;
+  /** Unconsumed answers per key, found by key alone — never by a walk over the memo. */
+  byKey: Map<string, MemoEntry>;
+  /** The keys in first-appearance order: place `n` is `order[n]`. */
+  order: string[];
+  /**
+   * How far eviction has already walked `order`. Every place before it was empty when the walk
+   * passed it, so the walk resumes rather than restarting — a request whose failures outnumber the
+   * cap pays for eviction once per place, not once per place per eviction. A key that goes empty and
+   * is asked about again is live at its own place again, and pulls the walk back to it.
+   */
+  evictFrom: number;
   unconsumed: number;
 }
 
@@ -124,14 +139,14 @@ export function answerFor(request: AnswerRequest): ErrorAnswer {
 
   let memo = memos.byRequest.get(anchor);
   if (memo === undefined) {
-    memo = { byKey: new Map<string, ErrorAnswer[]>(), unconsumed: 0 };
+    memo = { byKey: new Map<string, MemoEntry>(), order: [], evictFrom: 0, unconsumed: 0 };
     memos.byRequest.set(anchor, memo);
   }
 
   // The route is written with its own length, so no route-and-identity pair spells another's key.
   const keyed = `${route.length}:${route}:${identityOf(request.error)}`;
-  const waiting = memo.byKey.get(keyed);
-  const remembered = waiting?.shift();
+  const entry = memo.byKey.get(keyed);
+  const remembered = entry?.waiting.shift();
   if (remembered !== undefined) {
     // Consumed: one failure is shown to exactly two readers, and this answer has now served both.
     memo.unconsumed -= 1;
@@ -139,8 +154,15 @@ export function answerFor(request: AnswerRequest): ErrorAnswer {
   }
 
   const answer = decide(request, requestId, route);
-  if (waiting === undefined) memo.byKey.set(keyed, [answer]);
-  else waiting.push(answer);
+  if (entry === undefined) {
+    memo.byKey.set(keyed, { place: memo.order.length, waiting: [answer] });
+    memo.order.push(keyed);
+  } else {
+    entry.waiting.push(answer);
+    // The key kept its place while it stood empty, so it is once again the oldest thing the memo
+    // holds and the eviction walk resumes from it rather than past it.
+    if (entry.place < memo.evictFrom) memo.evictFrom = entry.place;
+  }
   memo.unconsumed += 1;
   if (memo.unconsumed > ANSWER_MEMO_CAP) evictOldest(memo);
   return answer;
@@ -168,13 +190,21 @@ function identityOf(error: unknown): string {
  * request that keeps failing past the cap evicts the same oldest failures rather than sweeping the
  * memo — including, when the memo is full and a long-evicted failure is asked about again, the
  * answer just made for it.
+ *
+ * The walk over places resumes where the last one stopped, so the emptied head of the memo is passed
+ * once and not once per eviction: a request with N failures past the cap pays O(N) for eviction
+ * altogether, never O(N) each time.
  */
 function evictOldest(memo: RequestMemo): void {
-  for (const waiting of memo.byKey.values()) {
-    if (waiting.length === 0) continue;
-    waiting.shift();
-    memo.unconsumed -= 1;
-    return;
+  while (memo.evictFrom < memo.order.length) {
+    const key = memo.order[memo.evictFrom];
+    const entry = key === undefined ? undefined : memo.byKey.get(key);
+    if (entry !== undefined && entry.waiting.length > 0) {
+      entry.waiting.shift();
+      memo.unconsumed -= 1;
+      return;
+    }
+    memo.evictFrom += 1;
   }
 }
 
