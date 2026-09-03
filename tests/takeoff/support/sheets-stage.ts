@@ -394,6 +394,83 @@ export function straysOn(record: IngestRecord, layoutName: string): number {
   return Number(record.facts.layouts.find((row) => row.name === layoutName)?.strays_rejected ?? 0);
 }
 
+/**
+ * The fidelity facts a card OWES, derived from the record itself rather than from the roster the
+ * product publishes.
+ *
+ * R-TO-001 shows the extractor's loss counters on the sheet card as named facts, and this
+ * increment's own scope note says the roster is derived from what the record's facts carry. So the
+ * names owed are the counter fields of the record: a layouts row minus the identity it is a row FOR
+ * (`name`, `kind`), a counters row minus the space it is a row FOR (`space`), and the record-level
+ * losses — a root field reported as a plain list of names, which is what a dropped layout is. The
+ * unit reading (`insunits`) and the two inventories are structure, not loss, and are excluded by
+ * name.
+ *
+ * Judging `FIDELITY_FACTS` against THIS rather than against the cards it feeds is the whole point: a
+ * roster that stopped naming a counter the extractor still reports would otherwise agree with cards
+ * that dropped it too, and a corpus that never trips that counter would never notice. A counter the
+ * extractor starts reporting becomes a fact the index owes with no edit here (B-19).
+ */
+export function factNamesOfRecord(record: IngestRecord): string[] {
+  const names = new Set<string>();
+
+  const layouts = record.facts.layouts as unknown as Record<string, unknown>[];
+  expect(layouts.length, "the record inventoried the layouts it read, so its per-layout counters can be named").toBeGreaterThan(0);
+  for (const row of layouts) for (const key of Object.keys(row)) if (key !== "name" && key !== "kind") names.add(key);
+
+  const counters = record.facts.counters as unknown as Record<string, unknown>[];
+  expect(counters.length, "the record holds a counters row per space it read, so its per-space counters can be named").toBeGreaterThan(0);
+  for (const row of counters) for (const key of Object.keys(row)) if (key !== "space") names.add(key);
+
+  for (const [key, value] of Object.entries(record.facts as unknown as Record<string, unknown>)) {
+    if (key === "layouts" || key === "counters" || key === "insunits") continue;
+    if (Array.isArray(value) && value.every((entry) => typeof entry === "string")) names.add(key);
+  }
+
+  expect(names.size, "the record names counters a fidelity fact reports — with none there is no roster to hold anything to").toBeGreaterThan(0);
+  return byCodePoint([...names]);
+}
+
+/**
+ * What the record itself states about one fact on one sheet: the per-layout counter where a layouts
+ * row carries that name, the per-space counter where a counters row does, else the record-level
+ * field. The counterpart of `factNamesOfRecord` — the value the card's own fact is held to.
+ */
+export function recordFactValue(record: IngestRecord, layoutName: string, name: string): unknown {
+  const layout = (record.facts.layouts as unknown as Record<string, unknown>[]).find((row) => row["name"] === layoutName);
+  if (layout !== undefined && name in layout) return layout[name];
+  const counter = (record.facts.counters as unknown as Record<string, unknown>[]).find((row) => row["space"] === layoutName);
+  if (counter !== undefined && name in counter) return counter[name];
+  return (record.facts as unknown as Record<string, unknown>)[name];
+}
+
+/** The law itself, as the one authority outside the product a closed enum can be judged against. */
+export const BIBLE = join("docs", "specs", "cubit.bible.xml");
+
+/**
+ * The disciplines R-TO-004 names, read out of the Bible clause that names them.
+ *
+ * A chip roster or a proposal enum checked against the product's own `DISCIPLINES` export compares
+ * two values the same build controls; a truncated enum agrees with a correspondingly truncated
+ * screen. The clause is immutable in sessions (CLAUDE.md's Law), and it spells the roster in the
+ * parenthesis after "discipline proposal" — so this is a derivation from the law, not a list typed
+ * here (B-19, the R-UI-001 colour-table precedent).
+ */
+export function disciplinesFromBible(): string[] {
+  const path = join(REPO_ROOT, BIBLE);
+  expect(existsSync(path), `${BIBLE} is the law a closed enum is read from`).toBe(true);
+  const clause = /<requirement id="R-TO-004"[^>]*>([\s\S]*?)<\/requirement>/.exec(readFileSync(path, "utf8"));
+  expect(clause, "R-TO-004 is a clause of the Bible").not.toBeNull();
+  const named = /discipline proposal \(([^)]+)\)/.exec((clause as RegExpExecArray)[1] ?? "");
+  expect(named, "R-TO-004 names the disciplines a sheet's discipline may be proposed at").not.toBeNull();
+  const values = ((named as RegExpExecArray)[1] ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value !== "");
+  expect(values.length, "R-TO-004's discipline roster carries more than one name").toBeGreaterThan(1);
+  return values;
+}
+
 /* ------------------------------------------------------------------ reading the store */
 
 /** Every act row of one project, newest last, as the acceptance's own audit read. */

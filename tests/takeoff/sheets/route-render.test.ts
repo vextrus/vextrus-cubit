@@ -23,6 +23,7 @@ import {
   SHEETS_MODULE,
   byCodePoint,
   closeStage,
+  disciplinesFromBible,
   drawingsPath,
   fetchPage,
   grantRole,
@@ -136,10 +137,21 @@ describe("AC-4: the drawings route renders the index server-side", () => {
       expect(element.getAttribute("data-discipline"), `the card for ${sheet} publishes the discipline it stands at`).toBe(effective);
       expect(element.getAttribute("data-confirmed"), `the card for ${sheet} publishes whether that discipline is confirmed (L-REG-03 fails closed)`).toBe(card.confirmed === null ? "false" : "true");
 
-      for (const testId of ["sheet-card-thumbnail", "sheet-card-title", "sheet-card-number", "sheet-card-format", "sheet-card-scheme", "sheet-card-scale", "sheet-card-views", "sheet-card-discipline"]) {
-        one(element, testId, sheet);
-      }
+      one(element, "sheet-card-thumbnail", sheet);
+
+      // Every cell the contract names carries the card's own value, not merely the test id: an
+      // element tagged and left empty renders nothing a reader can act on (Design Decision §1).
       expect(one(element, "sheet-card-title", sheet).textContent, `the card for ${sheet} shows the proposed title`).toContain(card.proposal.title);
+      expect(one(element, "sheet-card-format", sheet).textContent, `the card for ${sheet} shows the format the drawing is stored as, verbatim (I-25: data renders as data)`).toContain(card.format);
+      expect(one(element, "sheet-card-scheme", sheet).textContent, `the card for ${sheet} shows the extractor scheme the record states, verbatim (R-TO-001)`).toContain(card.scheme);
+      expect(one(element, "sheet-card-scale", sheet).getAttribute("data-scale"), `the card for ${sheet} publishes the scale state the module derived (R-TO-004)`).toBe(card.scaleState);
+      expect(one(element, "sheet-card-views", sheet).getAttribute("data-views"), `the card for ${sheet} publishes the view count it holds — empty while no view has been classified, never a count invented`).toBe(card.viewCount === null ? "" : String(card.viewCount));
+      if (card.proposal.number !== null) {
+        expect(one(element, "sheet-card-number", sheet).textContent, `the card for ${sheet} shows the number the grammar read from its title block`).toContain(card.proposal.number);
+      } else {
+        one(element, "sheet-card-number", sheet);
+      }
+
       const basis = one(element, "sheet-card-discipline", sheet).getAttribute("data-basis");
       expect(basis, `the card for ${sheet} says who judged its discipline (I-83: a proposal basis, not an R-UI-002 basis)`).toBe(card.confirmed === null ? card.proposal.basis : "CONFIRMED");
 
@@ -165,8 +177,13 @@ describe("AC-4: the drawings route renders the index server-side", () => {
     expect(order & 4, "the Dropzone is mounted above the sheets it fills (Design Decision §1)").toBe(4);
 
     expect(all(document_, "sheet-search").length, "the index is searchable (R-TO-004: filter and search)").toBe(1);
+
+    // The roster is read out of R-TO-004 itself, not out of the export the screen reads: comparing
+    // the chips to `DISCIPLINES` alone would let a truncated enum agree with a truncated chip list.
+    const disciplines = disciplinesFromBible();
+    expect(byCodePoint([...stage.core.DISCIPLINES]), "DISCIPLINES is the closed roster R-TO-004 names, whole (L-REG-03: discipline is a closed enum)").toEqual(byCodePoint(disciplines));
     const options = all(document_, "sheet-filter-option");
-    expect(byCodePoint(options.map((option) => option.getAttribute("data-value") ?? "")), "one chip per discipline the enum declares, plus ALL — the filter is over the closed enum, never over what today's sheets happen to be").toEqual(byCodePoint(["ALL", ...stage.core.DISCIPLINES]));
+    expect(byCodePoint(options.map((option) => option.getAttribute("data-value") ?? "")), "one chip per discipline the law names, plus ALL — the filter is over the closed enum, never over what today's sheets happen to be").toEqual(byCodePoint(["ALL", ...disciplines]));
 
     expect(all(document_, "offered-groups").length, "the one OfferedGroups pattern stands on the screen (L-ACT-02: bulk is offered, never assembled)").toBe(1);
     const offered = all(document_, "offered-group");

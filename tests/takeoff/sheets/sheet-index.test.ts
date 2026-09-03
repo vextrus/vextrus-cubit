@@ -19,9 +19,9 @@ import {
   addressOf,
   byCodePoint,
   closeStage,
-  countersFor,
   drawingUnitOf,
   entityKeysOf,
+  factNamesOfRecord,
   factReportsSomething,
   grantRole,
   layoutBearing,
@@ -29,6 +29,7 @@ import {
   openSheetsStage,
   productModule,
   rastersOf,
+  recordFactValue,
   renderRasters,
   reportsSomething,
   sheetNumberOnSheet,
@@ -36,7 +37,6 @@ import {
   stageProject,
   stageSheets,
   storageOf,
-  straysOn,
   type ArtifactGraph,
   type CoreSheetsSeam,
   type IngestRecord,
@@ -141,22 +141,34 @@ describe("AC-1: one card per sheet of the current record", () => {
     }
   }, BUDGET_MS);
 
-  test("AC-1: every card carries every fidelity fact the roster names, agreeing with the record's own counters", async () => {
+  test("AC-1: every card carries every fidelity fact the record's own counters oblige, at the record's own values", async () => {
     const stage = await staged();
-    expect(stage.core.FIDELITY_FACTS.length, "FIDELITY_FACTS names the facts R-TO-001 shows on a card").toBeGreaterThan(0);
+    const owed = factNamesOfRecord(stage.record);
+    const roster = [...stage.core.FIDELITY_FACTS];
+
+    // The roster is judged against the RECORD, never against the cards it feeds: a counter the
+    // extractor reports and FIDELITY_FACTS drops would otherwise hide behind cards that dropped it
+    // too, and a corpus that never trips that counter would never say so (R-TO-001, B-19).
+    for (const name of owed) {
+      expect(roster, `FIDELITY_FACTS names ${name}: the record reports that counter, so a card owes it as a named fact (R-TO-001)`).toContain(name);
+    }
 
     for (const card of stage.cards) {
-      expect(byCodePoint(Object.keys(card.facts)), `the card for ${card.layoutName} carries exactly the roster FIDELITY_FACTS names — a fact suppressed is a fact nobody can miss`).toEqual(byCodePoint([...stage.core.FIDELITY_FACTS]));
-      for (const [name, value] of Object.entries(card.facts)) {
-        expect(["number", "boolean"], `${name} on ${card.layoutName} is reported as a number or a flag`).toContain(typeof value);
-      }
+      expect(byCodePoint(Object.keys(card.facts)), `the card for ${card.layoutName} carries exactly the roster FIDELITY_FACTS names — a fact suppressed is a fact nobody can miss`).toEqual(byCodePoint(roster));
 
-      const counters = countersFor(stage.record, card.layoutName);
-      expect(card.facts["strays_rejected"], `strays_rejected on ${card.layoutName} is the count the record's own layout row states (R-TO-001)`).toBe(straysOn(stage.record, card.layoutName));
-      expect(factReportsSomething(card.facts["explode_truncated"] ?? false), `explode_truncated on ${card.layoutName} agrees with the record's counter for that space`).toBe(reportsSomething(counters.explode_truncated));
-      expect(factReportsSomething(card.facts["explode_losses"] ?? false), `explode_losses on ${card.layoutName} agrees with the record's counter for that space`).toBe(reportsSomething(counters.explode_losses));
-      expect(factReportsSomething(card.facts["flatten_capped"] ?? false), `flatten_capped on ${card.layoutName} agrees with the record's counter for that space`).toBe(reportsSomething(counters.flatten_capped));
-      expect(factReportsSomething(card.facts["dropped_layouts"] ?? false), `dropped_layouts on ${card.layoutName} agrees with the layouts the record says it dropped`).toBe(reportsSomething(stage.record.facts.dropped_layouts));
+      for (const name of owed) {
+        // `in`, never a `?? false` fallback: an absent fact must fail as an absent fact, not read as
+        // a zero that agrees with a corpus which happened to lose nothing there.
+        expect(Object.prototype.hasOwnProperty.call(card.facts, name), `the card for ${card.layoutName} carries the fact ${name} itself`).toBe(true);
+        const value = card.facts[name] as number | boolean;
+        expect(["number", "boolean"], `${name} on ${card.layoutName} is reported as a number or a flag`).toContain(typeof value);
+
+        const stated = recordFactValue(stage.record, card.layoutName, name);
+        if (typeof stated === "number") {
+          expect(value, `${name} on ${card.layoutName} is the count the record's own row states — a count shown as a flag is not the fact R-TO-001 names`).toBe(stated);
+        }
+        expect(factReportsSomething(value), `${name} on ${card.layoutName} agrees with the record about whether there is anything to report`).toBe(reportsSomething(stated));
+      }
     }
   }, BUDGET_MS);
 

@@ -107,6 +107,9 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
         const sheet = drawings.cardForLayout(name);
         await expect(sheet, `the sheet "${name}" fanned out as a card of its own`).toHaveCount(1, { timeout: FAN_OUT_BUDGET_MS });
         await expect(drawings.cell(sheet, S_DRAWINGS.title), `the card for "${name}" shows the title the grammar read from its block`).toContainText(name);
+        // Every title block in this corpus states its own sheet number, so the number cell states a
+        // number — not the prose this screen shows for a sheet that has none (Design Decision §1).
+        await expect(drawings.cell(sheet, S_DRAWINGS.number), `the card for "${name}" shows the number the grammar read from its title block`).toHaveText(/\d/);
         await expect(sheet, `the card for "${name}" awaits confirmation of its proposed discipline`).toHaveAttribute("data-confirmed", "false");
         await expect(drawings.cell(sheet, S_DRAWINGS.discipline), `the card for "${name}" says the title block was read`).toHaveAttribute("data-basis", "GRAMMAR");
         await expect(drawings.cell(sheet, S_DRAWINGS.thumbnail), `the card for "${name}" shows the raster the worker drew`).toHaveAttribute("src", /.+/);
