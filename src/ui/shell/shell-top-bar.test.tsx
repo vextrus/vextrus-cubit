@@ -45,6 +45,15 @@ describe("the breadcrumb inside an area", () => {
     expect(crumbs(container).length).toBe(3);
     expect(within(container).queryByTestId("shell-crumb-page")).toBeNull();
   });
+
+  test.each(["", "   ", "​", "ㅤ"])("a page name with nothing visible in it (%j) names no page", (blank) => {
+    const { container } = render(
+      <ShellTopBar workspace={WORKSPACE} area="books" atAreaHome={false} page={blank} email={null} signOut={() => {}} />,
+    );
+    expect(within(container).queryByTestId("shell-crumb-page")).toBeNull();
+    expect(crumbs(container).length).toBe(3);
+    expect([...container.querySelectorAll("[aria-current]")]).toEqual([]);
+  });
 });
 
 describe("the breadcrumb at an area's own home", () => {

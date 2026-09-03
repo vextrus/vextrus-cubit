@@ -8,16 +8,24 @@ import { STATE_NAMES } from "../screen-states/contract";
 import { SHELL_AREAS } from "./routes";
 import { SHELL_STATES, SHELL_STATE_NAMES, shellStateKey } from "./states";
 
-/** The rule the converter states, restated as arithmetic over a name's separators. */
-function keyForm(name: string): string {
-  const [head = "", ...rest] = name.split("-");
-  return [head, ...rest.map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)].join("");
+/**
+ * The converter read BACKWARDS: a key's every capital is the letter a separator preceded. Restating
+ * the forward expression here would compare the converter with a copy of itself, so a defect in the
+ * split or the capitalisation would sit in both halves and pass; an inverse shares no arithmetic
+ * with it, and only a conversion that loses, moves or mis-cases a character fails to come back.
+ */
+function nameForm(key: string): string {
+  return key.replace(/[A-Z]/g, (capital) => `-${capital.toLowerCase()}`);
 }
 
 describe("the shell's state roster", () => {
-  test("shellStateKey answers the key form of every name the clause holds", () => {
+  test("shellStateKey loses nothing: every key reads back as the name it came from", () => {
     expect(STATE_NAMES.length).toBeGreaterThan(0);
-    for (const name of STATE_NAMES) expect(shellStateKey(name)).toBe(keyForm(name));
+    for (const name of STATE_NAMES) expect(nameForm(shellStateKey(name))).toBe(String(name));
+  });
+
+  test("a key carries the shell's form: no separator survives it", () => {
+    for (const name of STATE_NAMES) expect(shellStateKey(name)).not.toContain("-");
   });
 
   test("only a name carrying a separator changes form", () => {
@@ -26,7 +34,8 @@ describe("the shell's state roster", () => {
   });
 
   test("SHELL_STATE_NAMES is the clause's roster, in the clause's order", () => {
-    expect([...SHELL_STATE_NAMES]).toEqual(STATE_NAMES.map(keyForm));
+    expect([...SHELL_STATE_NAMES]).toEqual(STATE_NAMES.map((name) => shellStateKey(name)));
+    expect(new Set(SHELL_STATE_NAMES).size).toBe(STATE_NAMES.length);
   });
 
   test("every area declares a cell for exactly those names", () => {

@@ -8,7 +8,7 @@ import { useTransition } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/overlay";
 import { strings } from "../strings";
 import { useFailureHandOff } from "./failure-hand-off";
-import { areaLabel, shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
+import { areaLabel, hasVisibleText, shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
 
 export interface ShellTopBarProps {
   workspace: ShellWorkspace;
@@ -73,8 +73,11 @@ export function ShellTopBar({ workspace, area, atAreaHome, page, email, signOut 
           )}
           {/* The page's own crumb, and only inside the area: at the area's own home the area crumb
               already is the page, and a second `aria-current="page"` would make the trail claim two
-              addresses at once (Q-11). A screen that names no page ends the trail at the area. */}
-          {!atAreaHome && page !== undefined ? (
+              addresses at once (Q-11). A screen that names no page ends the trail at the area — and
+              a name with nothing visible in it names no page, judged by the one answer the frame has
+              for that question (I-22, B-17): a crumb carrying the page claim with no glyph in it is
+              the same undiscernible-name failure `workspaceLabel` exists to prevent. */}
+          {!atAreaHome && page !== undefined && hasVisibleText(page) ? (
             <>
               <li className="cx-shell-crumb-separator" aria-hidden="true">
                 ›

@@ -8,6 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
+import { lexFile } from "../../../tests/support/source-lex";
 import * as shells from "./state-shells";
 import { EmptyTeaching, FaultCard } from "./state-shells";
 
@@ -59,14 +60,21 @@ describe("the module's published shapes", () => {
   test("every shape it publishes has a caller: a shape nothing can render is dead code", () => {
     const here = fileURLToPath(import.meta.url);
     const mine = join(dirname(here), "state-shells.tsx");
-    const callers = sourcesUnder(resolve(dirname(here), "..")).filter((file) => file !== mine && file !== here);
+    // The whole layered tree, not this folder alone: a screen's own declaration lives under
+    // `src/app/**/states.ts`, so a roster bounded at `src/ui` would call a shape dead that an app
+    // screen renders — and would miss one that only src/ still reaches (B-19).
+    const callers = sourcesUnder(resolve(dirname(here), "..", "..")).filter((file) => file !== mine && file !== here);
     expect(callers.length).toBeGreaterThan(0);
+
+    // A name is reached where it is CODE. Prose in a docblock and a word inside a string literal
+    // mention a shape; neither renders it, and reading raw bytes would let the module's own
+    // enumerating comment keep a deleted shape alive. The tree's one lexer answers what is code
+    // (B-17, Q-17), and it goes red rather than quiet on a file it cannot decide.
+    const code = callers.map((file) => lexFile(file, readFileSync(file, "utf8")).code);
 
     const published = Object.keys(shells);
     expect(published.length).toBeGreaterThan(0);
-    const uncalled = published.filter(
-      (name) => !callers.some((file) => new RegExp(`\\b${name}\\b`).test(readFileSync(file, "utf8"))),
-    );
+    const uncalled = published.filter((name) => !code.some((text) => new RegExp(`\\b${name}\\b`).test(text)));
     expect(uncalled).toEqual([]);
   });
 });
