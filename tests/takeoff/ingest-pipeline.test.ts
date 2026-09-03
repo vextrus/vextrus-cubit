@@ -233,7 +233,10 @@ describe("AC-4 — the record pins identity and counters as data, never as the a
     async () => {
       const stage = await staged();
 
-      for (const fixture of ["blocks", "layouts"]) {
+      /** Every value of `explode_truncated` the corpus this case walks really carries. */
+      const truncation = new Set<boolean>();
+
+      for (const fixture of ["basic", "blocks", "layouts"]) {
         const { record, events } = await pipeline(stage, fixture);
         const { document } = await storedArtifact(stage, record);
         const identity = document["ingest"] as Record<string, string>;
@@ -245,15 +248,33 @@ describe("AC-4 — the record pins identity and counters as data, never as the a
           parameterSetHash: identity["parameter_set_hash"],
         });
 
-        // `factsOf` is the one derivation of the named facts (ARCH-02): what the record holds is
-        // what that function answers over the artifact the record points at, order included.
-        const parsed = stage.graph.entityGraphSchema.parse(document);
-        expect(record.facts, `${fixture}: the record's facts are factsOf(graph), whole — stored as json so the order survives`).toStrictEqual(stage.ingest.factsOf(parsed));
+        // Every named fact, read off the artifact the record points at rather than off the function
+        // that derived it: what the extractor counted is what the record must hold, in the
+        // artifact's own order. A `factsOf` that answered a constant for a counter — every space
+        // `explode_truncated`, say — disagrees with the document here.
+        const layouts = (document["layouts"] as Record<string, unknown>[]).map((layout) => ({
+          name: layout["name"],
+          kind: layout["kind"],
+          strays_rejected: layout["strays_rejected"],
+        }));
+        const counters = (document["counters"] as Record<string, unknown>[]).map((counter) => ({
+          space: counter["space"],
+          explode_truncated: counter["explode_truncated"],
+          explode_losses: counter["explode_losses"],
+          flatten_capped: counter["flatten_capped"],
+        }));
+        expect(record.facts, `${fixture}: the record holds the artifact's own facts, whole and in its own order (stored as json, so the order survives)`).toStrictEqual({
+          insunits: document["insunits"],
+          dropped_layouts: document["dropped_layouts"],
+          layouts,
+          counters,
+        });
+        for (const counter of counters) truncation.add(counter["explode_truncated"] === true);
 
-        const layoutNames = (document["layouts"] as { name: string }[]).map((layout) => layout.name);
-        expect(record.facts.layouts.map((layout) => layout.name), `${fixture}: the layouts stand in the artifact's own order`).toEqual(layoutNames);
-        const spaces = (document["counters"] as { space: string }[]).map((counter) => counter.space);
-        expect(record.facts.counters.map((counter) => counter.space), `${fixture}: the counters stand in the artifact's own order`).toEqual(spaces);
+        // And they are that one derivation rather than a second spelling of it (ARCH-02): what the
+        // record holds is what `factsOf` answers over the same artifact.
+        const parsed = stage.graph.entityGraphSchema.parse(document);
+        expect(record.facts, `${fixture}: the record's facts are factsOf(graph), whole`).toStrictEqual(stage.ingest.factsOf(parsed));
 
         const extracted = events.find((event) => event.step === "extracted");
         expect(extracted?.detail, `${fixture}: the extracted step tells an operator which extractor took the geometry`).toStrictEqual({
@@ -267,7 +288,8 @@ describe("AC-4 — the record pins identity and counters as data, never as the a
             record.facts.counters.some((counter) => counter.explode_truncated === true),
             "blocks.dxf explodes further than the cap allows, and the record says so (R-TO-001: fidelity counters as named facts)",
           ).toBe(true);
-        } else {
+        }
+        if (fixture === "layouts") {
           expect(record.facts.dropped_layouts.length, "layouts.dxf carries a content-less layout, dropped and counted (L-CAD-05)").toBeGreaterThan(0);
           expect(
             record.facts.layouts.some((layout) => layout.strays_rejected === 1),
@@ -275,6 +297,14 @@ describe("AC-4 — the record pins identity and counters as data, never as the a
           ).toBe(true);
         }
       }
+
+      // A counter is only evidence if it can say either thing. The corpus walked above has to
+      // disagree with itself about truncation, or nothing here could tell a counted fact from a
+      // constant the pipeline hands out for every drawing.
+      expect(
+        [...truncation].sort(),
+        "the drawings this case ingests must include one whose spaces were truncated and one whose were not",
+      ).toStrictEqual([false, true]);
     },
     CASE_BUDGET_MS,
   );

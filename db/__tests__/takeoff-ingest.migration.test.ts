@@ -37,8 +37,20 @@ const MIGRATION = "takeoff-ingest";
 const TABLE = "ingests";
 const DRAWINGS = "drawings";
 
-/** The one thing a `scheme` may be while DXF is the only lane wired through the CLI (L-CAD-02). */
+/** The scheme this increment's lane mints (L-CAD-02) — ezdxf reading a DXF's own handles. */
 const SCHEME = "DXF_HANDLE";
+
+/**
+ * Where the closed universe of schemes and the artifact vocabulary are declared. The table's list is
+ * derived from these rather than transcribed here: L-CAD-02 names three schemes, and which of them
+ * an extractor actually mints is a property of the product on the day this runs.
+ */
+const SOURCES_MODULE = "src/core/model/sources.ts";
+const ENTITYGRAPH_MODULE = "src/core/entitygraph/schema.ts";
+const COMMITTED_ARTIFACT = join(REPO_ROOT, "cad", "tests", "fixtures", "basic.entitygraph.json");
+
+/** A scheme no extractor in any lane could mint — how "the list is closed" is told from "the list is text". */
+const NOT_A_SCHEME = "SCHEME_NOTHING_MINTS";
 
 /** The reason a system-scoped statement of this suite is made under — attributable, like any other. */
 const REASON = "test: grade the ingest record's posture";
@@ -114,10 +126,34 @@ async function indexes(): Promise<Map<string, string>> {
 }
 
 /** One row this suite writes for itself, under a fresh job id, to see whether it holds still. */
-function insertRow(stage: Stage, jobId: string): string {
+function insertRow(stage: Stage, jobId: string, scheme: string = SCHEME): string {
   return `insert into ${ident(TABLE)} (${ident(TENANT_COLUMN)}, drawing_id, sha256, job_id, artifact_sha256, extractor_scheme, extractor_tool, extractor_tool_version, extractor_parameter_set_hash, facts)
             values (${lit(stage.tenantId)}::uuid, ${lit(stage.drawingId)}::uuid, ${lit("b".repeat(64))}, ${lit(jobId)}, ${lit("c".repeat(64))},
-                    ${lit(SCHEME)}, 'ezdxf', '0.0.0', ${lit("d".repeat(64))}, '{"insunits":null}'::json);`;
+                    ${lit(scheme)}, 'ezdxf', '0.0.0', ${lit("d".repeat(64))}, '{"insunits":null}'::json);`;
+}
+
+/**
+ * Which schemes the product has an extractor WIRED for, derived instead of listed: L-CAD-02's closed
+ * universe, narrowed to those the EntityGraph mirror admits as an artifact's own `ingest.scheme`.
+ *
+ * The candidate artifact carries no source keys at all — the entity arrays are emptied — so nothing
+ * but the scheme itself decides whether the mirror admits it, and a lane that lands later with its
+ * own key grammar widens this set on its own. That is the rule AC-1's closed list states: the table
+ * admits exactly what some extractor can mint today, whichever those are (B-19).
+ */
+async function schemeLanes(): Promise<{ universe: string[]; wired: string[] }> {
+  const sources = await productModule<{ SOURCE_SCHEMES: readonly string[] }>(SOURCES_MODULE);
+  const mirror = await productModule<{ entityGraphSchema: { safeParse: (value: unknown) => { success: boolean } } }>(ENTITYGRAPH_MODULE);
+  const universe = [...sources.SOURCE_SCHEMES];
+  expect(universe.length, `${SOURCES_MODULE} names the closed scheme set L-CAD-02 spells (${universe.join(", ") || "none"})`).toBeGreaterThan(0);
+
+  const artifact = JSON.parse(readFileSync(COMMITTED_ARTIFACT, "utf8")) as Record<string, unknown>;
+  const keyless = { ...artifact, entities: [], derived: [], block_attributes: [] };
+  const identity = artifact["ingest"] as Record<string, unknown>;
+  const wired = universe.filter((scheme) => mirror.entityGraphSchema.safeParse({ ...keyless, ingest: { ...identity, scheme } }).success);
+  expect(wired, `${ENTITYGRAPH_MODULE} admits no scheme of ${universe.join(", ")} — a derivation over an empty set would judge nothing`).not.toEqual([]);
+  expect(wired, `the lane this increment wires — ezdxf over a DXF's own handles — is one of them`).toContain(SCHEME);
+  return { universe, wired };
 }
 
 describe("AC-1 — the ingest record is declared once, migrated, and holds still", () => {
@@ -225,9 +261,22 @@ describe("AC-1 — the ingest record is declared once, migrated, and holds still
     ).toBe(1);
     const definition = checks[0]?.[1] ?? "";
     expect(definition, "the CHECK closes `extractor_scheme`").toContain("extractor_scheme");
-    expect(definition, `the scheme list is closed to '${SCHEME}' — L-CAD-02's schemes are minted per extractor, and only ezdxf's lane is wired`).toContain(SCHEME);
-    for (const unwired of ["PDF_OBJECT", "RASTER_TRACE"]) {
-      expect(definition, `${unwired} mints no key through this pipeline yet, so the list does not admit it`).not.toContain(unwired);
+
+    // WHICH schemes the list holds is not written down here. The rule is that the table admits
+    // exactly the schemes an extractor is wired to mint — so a record can only ever name geometry
+    // something really took — and it is judged by writing one row per candidate, because what the
+    // list DOES is what the criterion is. A lane landing later (a PDF or raster extractor and its
+    // mirror) widens both sides of this comparison together.
+    const stage = await staged();
+    const { universe, wired } = await schemeLanes();
+    for (const scheme of [...universe, NOT_A_SCHEME]) {
+      const attempt = psql(stage.bootstrapUrl, withSession({ [GUC_SYSTEM_REASON]: REASON }, insertRow(stage, `scheme-${randomUUID()}`, scheme)));
+      if (wired.includes(scheme)) {
+        expect(attempt.ok, `'${scheme}' is a scheme the product mints, so a record may name it:\n${attempt.stderr.slice(-600)}`).toBe(true);
+        continue;
+      }
+      expect(attempt.ok, `nothing mints '${scheme}' today, so no record may claim it did (the CHECK stands: ${definition})`).toBe(false);
+      expect(attempt.sqlstate, `and it is the closed list that refused '${scheme}', not something else about the row`).toBe("23514");
     }
   });
 
