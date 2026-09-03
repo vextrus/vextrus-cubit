@@ -8,27 +8,25 @@ import { takeoffRouter } from "./routers/takeoff";
 import { answerFor, router, type AnswerRequest } from "./trpc";
 import type { AppContext } from "./context";
 
-/** The closed lane set of the layered tree (ARCH-01) — each namespace is its own file's router. */
-const lanes = {
+/**
+ * The closed lane set of the layered tree (ARCH-01) — each namespace is its own file's router, and
+ * this table is where a seam reads a lane by name (ARCH-02).
+ *
+ * The router factory copies every nested namespace into a record of its own, so `appRouter.spine`
+ * is the factory's copy and not the lane. Writing the lanes back over that copy would be this file
+ * reaching into another module's private state to make a public fact true; the fact has a home
+ * here instead, and what the root MOUNTS is what it dispatches — every procedure it resolves under
+ * `<lane>.<path>` is the lane's own procedure, because the factory carries those objects through.
+ */
+export const lanes = Object.freeze({
   spine: spineRouter,
   takeoff: takeoffRouter,
   bid: bidRouter,
   assure: assureRouter,
   ai: aiRouter,
-};
+});
 
-const composed = router(lanes);
-
-// ARCH-02: a lane has exactly one home. The router factory copies every nested namespace into a
-// fresh plain record, which would leave each lane with a second identity at the root — the same
-// procedures behind a different object. Binding each lane's own router back onto its namespace
-// keeps `appRouter.spine` and `routers/spine.ts` the same value. Dispatch is untouched: procedures
-// are resolved through `_def.procedures`, and a router nested under a namespace is exactly what the
-// factory reads when this root is itself composed.
-Object.assign(composed, lanes);
-Object.assign(composed._def.record, lanes);
-
-export const appRouter = composed;
+export const appRouter = router(lanes);
 
 export type AppRouter = typeof appRouter;
 

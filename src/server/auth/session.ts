@@ -37,6 +37,31 @@ import { consumeToken, endOutstandingTokens, issueToken, TOKEN_KINDS, type AuthT
 export const SESSION_COOKIE = "cubit_session";
 
 /**
+ * The cleared session cookie, as a jar holds one. A browser matches an expiry against the
+ * attributes a cookie was set with, so a sign-out that dropped `Path`, `HttpOnly`, `SameSite` or
+ * `Secure` would leave the original sitting in the jar and the token still live in it — which is
+ * why deleting the cookie by name is not the same act at all (R-SPINE-001).
+ */
+export interface ClearedSessionCookie {
+  name: typeof SESSION_COOKIE;
+  value: "";
+  path: "/";
+  httpOnly: true;
+  sameSite: "lax";
+  secure: boolean;
+  maxAge: 0;
+}
+
+/**
+ * That value, for whichever seam ends a session: the tRPC lane serialises it onto `Set-Cookie` and a
+ * server action hands it to the platform's jar, so both end the same cookie (ARCH-02, B-17). The
+ * `Secure` flag is the deployment's, decided once per request by the context seam.
+ */
+export function clearedSessionCookie(secure: boolean): ClearedSessionCookie {
+  return { name: SESSION_COOKIE, value: "", path: "/", httpOnly: true, sameSite: "lax", secure, maxAge: 0 };
+}
+
+/**
  * How long a session is live for, counted from when it began — the server's own bound, and the one
  * the cookie's Max-Age is derived from rather than the other way round. A Max-Age is a request to a
  * browser: a token copied out of a cookie jar, or replayed from a capture, is presented by something

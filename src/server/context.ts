@@ -42,19 +42,29 @@ const REQUEST_ID_HEADER = "x-request-id";
 const ANONYMOUS = "anonymous";
 
 /**
- * The declared contract is `requestId = x-request-id header ?? crypto.randomUUID()`: a supplied id
- * is the caller's trace, and it is honoured verbatim — whatever its length and whatever characters
- * it carries. An earlier reading rejected long ids and control characters as an operator-log
- * guard; that is a policy the interface does not state, and it broke the caller's trace silently,
- * with no fault and no signal. The sink's framing does not need it either: a FaultRecord is written
- * as JSON, which escapes a control character rather than splitting the line on it.
+ * How much of a supplied id is carried: a UUID (36) and a W3C traceparent (55) both fit inside it
+ * with room to spare, so every id a caller plausibly traces with survives whole.
+ */
+export const REQUEST_ID_MAX_LENGTH = 128;
+
+/**
+ * The caller's trace, as this tier will carry it: `x-request-id` trimmed, bounded, or nothing.
  *
- * The one thing an absent header and a blank one share is that neither is an id, so both mint.
+ * A supplied id is the caller's, so it is honoured rather than replaced — minting over an id the
+ * tier will not carry breaks the caller's correlation silently, with no fault and no signal, which
+ * is the opposite of what B-21 asks a tier to do with something it declines. An id longer than the
+ * bound is therefore TRUNCATED, not refused and not replaced: the prefix a caller matches on is
+ * still the prefix this tier writes on every record. Characters are not judged at all — a
+ * FaultRecord is written as JSON, which escapes a control character rather than splitting the line
+ * on it.
+ *
+ * The one thing an absent header, a blank one and a padded one share is that whitespace is not part
+ * of an id: a header carrying only whitespace states none, so it mints.
  */
 function suppliedRequestId(req: Request): string | null {
-  const supplied = req.headers.get(REQUEST_ID_HEADER);
-  if (supplied === null || supplied.trim() === "") return null;
-  return supplied;
+  const supplied = req.headers.get(REQUEST_ID_HEADER)?.trim();
+  if (supplied === undefined || supplied === "") return null;
+  return supplied.slice(0, REQUEST_ID_MAX_LENGTH);
 }
 
 /**
@@ -90,7 +100,27 @@ const PUBLIC_ORIGIN_VAR = "CUBIT_PUBLIC_ORIGIN";
 /** Loopback names: the only hosts a request can claim that a deployment is not reachable at. */
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
-/** The deployment's own statement of its address, when it made one. */
+/**
+ * The deployment's own statement of its address, when it made one — and the address a mailed link
+ * points back at (`AppContext.origin`), which is that statement and nothing else.
+ *
+ * The request is not consulted for it at all. Every part of a request's own origin is written by
+ * whoever sent it — Next composes a route handler's `Request.url` from the incoming `Host`, and the
+ * scheme of that URL is decided by `x-forwarded-proto` — so a link built on it is a link addressed
+ * where the caller chose. Recognising loopback does not rescue it either: `Host: 127.0.0.1` is a
+ * header like any other, and even a request genuinely from loopback carries a scheme and a port a
+ * caller wrote, so the link a victim is mailed under a stranger's `x-forwarded-proto: https` is one
+ * nobody can follow while the door answers as though it sent it. A mailed link is a live credential
+ * (R-SPINE-001), and there is exactly one party entitled to say where it points.
+ *
+ * A deployment that named no address leaves it empty, and the mailing doors then send nothing at
+ * all: they answer the registered LINK_NOT_SENDABLE before any address is looked up, and record the
+ * configuration outage for the operator (R-SPINE-007) — see `canSendLinks` and `mail` in
+ * src/server/auth/session.ts.
+ *
+ * This is the one place the deployment's environment is read, so the variable's name and the
+ * normalisation of what it holds have one home (ARCH-02, B-17).
+ */
 function configuredOrigin(): string | null {
   const configured = process.env[PUBLIC_ORIGIN_VAR]?.trim();
   if (configured === undefined || configured === "") return null;
@@ -119,23 +149,7 @@ function configuredOrigin(): string | null {
  * claiming to be a request to the machine it is already running on.
  */
 export function deploymentIsSecure(req: Request): boolean {
-  return answeredScheme(arrivedAtHostname(req)) === "https";
-}
-
-/**
- * The hostname this request was reached at, on the same terms `arrivalOrigin` composes the arrival
- * address on: the `Host` it stated, and where it stated none the URL it carries.
- *
- * A request off a network always states a `Host` — HTTP/1.1 requires it and a hop writes its own —
- * so a `Request` without one was composed in this process by the caller holding it, a suite driving
- * the shipped handler, and the address it composed is by construction the address it dialled. Both
- * screens read that same fact the same way: one request has one arrival address, and a suite that
- * composes `http://127.0.0.1/…` is not a deployment behind TLS (ARCH-02, B-17).
- */
-function arrivedAtHostname(req: Request): string | null {
-  const host = req.headers.get("host");
-  if (host !== null) return reachedHostname(host);
-  return URL.parse(req.url)?.hostname ?? null;
+  return arrivalFactsOf(req.headers.get("host"), req.url).secureCookies;
 }
 
 /** The hostname half of a `Host`, which is the only part of an address a request states truthfully. */
@@ -145,19 +159,54 @@ function reachedHostname(host: string | null): string | null {
 }
 
 /**
- * The address a request was reached at, off the `Host` it stated — the arrival address both lanes
- * carry, composed in one place (ARCH-02, B-17).
+ * Everything a seam downstream is told about where this request arrived, composed in one place.
+ */
+interface RequestArrival {
+  /** The address this request was DIALLED at, empty where there is none to state. */
+  requestOrigin: string;
+  /** Whether a cookie set on this answer must carry `Secure`. */
+  secureCookies: boolean;
+  /** The address the deployment states it answers at, empty when it stated none. */
+  configuredOrigin: string;
+}
+
+/**
+ * The one derivation of the arrival address and the `Secure` flag, from the only three things
+ * either is decided on: the `Host` the request stated, the URL the platform composed for a request
+ * that stated none, and the deployment's own statement of where it answers (ARCH-02, B-17).
+ *
+ * Both lanes that ask — the transport, which is handed a whole `Request`, and a server action,
+ * which is handed only the headers the platform kept — come through here, so one request has one
+ * arrival address and one `Secure` answer whichever seam asks. Two derivations side by side could
+ * answer differently for the same deployment, and the seam between them is exactly where a security
+ * rule drifts.
  *
  * `Host` is read and `X-Forwarded-Host` is not, and the asymmetry is the point (R-SPINE-001): a
  * caller writes both, but `Host` is the name they had to reach to be answered at all, while a
  * forwarded host is a name they simply nominate. Reading the nominated one would let a caller hand
- * themselves an address of their own choosing — `localhost:9999`, a page their own machine serves —
- * as the address this request arrived at. A request stating no `Host` arrived nowhere this can
- * name, and says so with the empty string; the caller-composed case is answered by `arrivalOrigin`.
+ * themselves an address of their own choosing — `localhost:9999`, a page their own machine serves.
+ * The composed URL is read only where the request stated no `Host` at all, which no request off a
+ * network is: HTTP/1.1 requires the header and a hop writes its own, so a `Request` without one was
+ * composed in this process by the caller holding it — a suite driving the shipped handler — and the
+ * URL it composed is by construction the address it dialled.
  */
-function arrivedAtFromHost(host: string | null): string {
-  if (host === null || host === "") return "";
-  return URL.parse(`${answeredScheme(reachedHostname(host))}://${host}`)?.origin ?? "";
+function arrivalFactsOf(statedHost: string | null, composedUrl: string | null): RequestArrival {
+  const configured = configuredOrigin();
+  const composed = composedUrl === null ? null : URL.parse(composedUrl);
+  const hostname = statedHost === null ? (composed?.hostname ?? null) : reachedHostname(statedHost);
+  const scheme = answeredScheme(configured, hostname);
+  const arrivedAt = statedHost === null ? (composed?.origin ?? "") : originFrom(scheme, statedHost);
+  return {
+    requestOrigin: dialledOrigin(configured, arrivedAt, statedHost),
+    secureCookies: scheme === "https",
+    configuredOrigin: configured ?? "",
+  };
+}
+
+/** The address a request reached, written out: the scheme the deployment answers in, and its `Host`. */
+function originFrom(scheme: "http" | "https", host: string): string {
+  if (host === "") return "";
+  return URL.parse(`${scheme}://${host}`)?.origin ?? "";
 }
 
 /**
@@ -173,8 +222,7 @@ function arrivedAtFromHost(host: string | null): string {
  * host is read exactly as `deploymentIsSecure` reads it: only to recognise the two names of this
  * machine as plain http, never to grant TLS to anything a caller wrote.
  */
-function answeredScheme(hostname: string | null): "http" | "https" {
-  const configured = configuredOrigin();
+function answeredScheme(configured: string | null, hostname: string | null): "http" | "https" {
   if (configured !== null) return configured.startsWith("https:") ? "https" : "http";
   return hostname !== null && LOOPBACK_HOSTS.has(hostname) ? "http" : "https";
 }
@@ -214,8 +262,7 @@ function answeredScheme(hostname: string | null): "http" | "https" {
  * admits, because nothing a caller writes is read: what remains beside the empty string is the
  * deployment's own statement, the one fact no caller writes (R-SPINE-001).
  */
-function dialledOrigin(arrivedAt: string, statedHost: string | null): string {
-  const configured = configuredOrigin();
+function dialledOrigin(configured: string | null, arrivedAt: string, statedHost: string | null): string {
   if (configured === null || arrivedAt === configured || statedHost === null) return arrivedAt;
   return answersDirectly(configured) ? arrivedAt : "";
 }
@@ -227,64 +274,25 @@ function answersDirectly(configured: string): boolean {
 }
 
 /**
- * The address this request was dialled at, for the lane the platform hands a whole `Request`.
- *
- * The platform composes `Request.url` out of headers the caller wrote — Next builds its host from
- * `X-Forwarded-Host` where one was stamped and its scheme from `X-Forwarded-Proto` — so the URL
- * handed over is not read for either half of the address. Both halves come from where the other
- * lane takes them: the `Host` the request had to state, and the scheme the deployment answers in
- * (`arrivedAtFromHost`). One request therefore has one arrival address, whichever transport carries
- * it (ARCH-02, B-17).
- *
- * A request carrying no `Host` at all was composed in this process by the caller holding it — a
- * suite driving the shipped handler — and the URL it composed is by construction the address it
- * dialled: that one, and only that one, is kept verbatim.
- */
-function arrivalOrigin(req: Request): string {
-  const host = req.headers.get("host");
-  if (host !== null) return dialledOrigin(arrivedAtFromHost(host), host);
-  return dialledOrigin(URL.parse(req.url)?.origin ?? "", null);
-}
-
-/**
- * The address a mailed link points back at: the deployment's own statement of it, and nothing else.
- *
- * The request is not consulted at all. Every part of a request's own origin is written by whoever
- * sent it — Next composes a route handler's `Request.url` from the incoming `Host`, and the scheme
- * of that URL is decided by `x-forwarded-proto` — so a link built on it is a link addressed where
- * the caller chose. Recognising loopback does not rescue it either: `Host: 127.0.0.1` is a header
- * like any other, and even a request genuinely from loopback carries a scheme and a port a caller
- * wrote, so the link a victim is mailed under a stranger's `x-forwarded-proto: https` is one nobody
- * can follow while the door answers as though it sent it. A mailed link is a live credential
- * (R-SPINE-001), and there is exactly one party entitled to say where it points.
- *
- * A deployment that named no address leaves this empty, and the mailing doors then send nothing at
- * all: they answer the registered LINK_NOT_SENDABLE before any address is looked up, and record the
- * configuration outage for the operator (R-SPINE-007) — see `canSendLinks` and `mail` in
- * src/server/auth/session.ts.
- *
- * `deploymentIsSecure` still reads the request, and for the opposite reason: it reads it only to
- * *drop* a guarantee where a `Secure` cookie is one no browser would keep, never to grant one.
- */
-function originOf(): string {
-  return configuredOrigin() ?? "";
-}
-
-/**
- * The three facts R-SPINE-006's origin rule judges, for a seam the platform hands headers instead of
- * a `Request` — a server action, which is handed no request at all. What they MEAN is the tenancy
+ * The facts R-SPINE-006's origin rule judges, for a seam the platform hands headers instead of a
+ * `Request` — a server action, which is handed no request at all. What they MEAN is the tenancy
  * module's guard, exactly as above; what this seam owes it is the facts, and they are derived here
  * because the env var's name, the configured value's normalisation and the arrival address have one
  * home, which the tRPC lane already reads through `createContext` (B-17, ARCH-02).
+ *
+ * `secureCookies` rides with them because it is decided on the same three things by the same
+ * function: a server action that ends a session needs the flag its cookie carries, and a second
+ * derivation of it would be a second answer to the question `deploymentIsSecure` already answers.
  */
 export interface RequestOriginFacts {
   statedOrigin: string | null;
   requestOrigin: string;
   configuredOrigin: string;
+  secureCookies: boolean;
 }
 
 /**
- * Those three facts, off the headers the platform kept about the request.
+ * Those facts, off the headers the platform kept about the request.
  *
  * The arrival address is composed from the `Host` the request named and the scheme the deployment
  * answers in (`answeredScheme`) — never the scheme a caller stated, which is the whole of what
@@ -293,13 +301,7 @@ export interface RequestOriginFacts {
  * address for the same request (ARCH-02, B-17).
  */
 export function originFactsFromHeaders(sent: Headers): RequestOriginFacts {
-  const configured = originOf();
-  const host = sent.get("host");
-  return {
-    statedOrigin: sent.get("origin"),
-    requestOrigin: dialledOrigin(arrivedAtFromHost(host), host),
-    configuredOrigin: configured,
-  };
+  return { statedOrigin: sent.get("origin"), ...arrivalFactsOf(sent.get("host"), null) };
 }
 
 /**
@@ -330,16 +332,17 @@ const UNOBSERVED_CLIENT = "an unobserved caller";
 export async function createContext({ req }: { req: Request }): Promise<AppContext> {
   const token = presentedToken(req);
   const session = token === null ? null : await resolveSession(token);
+  const arrival = arrivalFactsOf(req.headers.get("host"), req.url);
   return {
     requestId: suppliedRequestId(req) ?? randomUUID(),
     actor: session?.userId ?? ANONYMOUS,
-    origin: originOf(),
+    origin: arrival.configuredOrigin,
     statedOrigin: req.headers.get("origin"),
-    requestOrigin: arrivalOrigin(req),
+    requestOrigin: arrival.requestOrigin,
     deviceLabel: deviceLabelFrom(req.headers.get("user-agent")),
     client: UNOBSERVED_CLIENT,
     session,
-    secureCookies: deploymentIsSecure(req),
+    secureCookies: arrival.secureCookies,
     cookies: [],
   };
 }

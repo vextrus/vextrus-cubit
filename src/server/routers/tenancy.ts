@@ -7,7 +7,7 @@
 // The one guarded entry is instantiated exactly once, here, with the shipped machinery injected: the
 // module may not import the server layer (ARCH-01), and the counting has one home — the auth tier's
 // `admitAttempt`, bound to the `tenancyAdmin` door whose allowance `AUTH_RATE_LIMITS` states.
-import { actingWorkspaceOf, guardTenancyMutation, membersOf, tenancyMutationFrom, type TenancyActor } from "../../modules/spine/tenancy";
+import { actingWorkspaceOf, guardTenancyMutation, membersOf, tenancyMutationFrom, verifyStatedOrigin, type TenancyActor, type TenancyMutation } from "../../modules/spine/tenancy";
 import { presentedValue } from "../auth/folded-key";
 import { admitAttempt } from "../auth/rate-limit";
 import { signedOut } from "../auth/refusals";
@@ -25,8 +25,7 @@ const guarded = guardTenancyMutation({ admit: (identity: string) => admitAttempt
 
 /**
  * A door that needs a session states so once: the middleware answers SIGNED_OUT for a missing,
- * unknown or revoked cookie, so no procedure body has to remember to check (ARCH-03, B-21). It is
- * the shape `./spine.ts` and `../auth/router.ts` use, spelled against this file's own procedures.
+ * unknown or revoked cookie, so no procedure body has to remember to check (ARCH-03, B-21).
  */
 const signedInProcedure = publicProcedure.use(({ ctx, next }) => {
   if (ctx.session === null) throw signedOut();
@@ -66,6 +65,12 @@ async function requestFor(ctx: { session: { userId: string }; statedOrigin: stri
   requestOrigin: string;
   configuredOrigin: string;
 }> {
+  // R-SPINE-006: is this request from a page this deployment serves? Asked before the roster is
+  // read, so a request nobody may make learns nothing about who holds what — and asked through the
+  // module's own rule, which the guarded entry then repeats as its own first step. Repeating it
+  // costs nothing (it reads three facts and touches no store) and keeps the rule's one home
+  // (ARCH-02): this transport states WHEN the question is asked, never what the answer is.
+  verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
   return {
     actor: await actorFor(ctx.session.userId),
     identity: ctx.session.userId,
@@ -73,6 +78,26 @@ async function requestFor(ctx: { session: { userId: string }; statedOrigin: stri
     requestOrigin: ctx.requestOrigin,
     configuredOrigin: ctx.origin,
   };
+}
+
+/**
+ * The body of a role assignment, read through the module's own reader and then narrowed to the move
+ * it names. The narrowing is the point: a resolver that dispatches one move is handed that move and
+ * not the union of every move the module declares, so the two mutations cannot drift into each
+ * other's shape (B-17). A body the reader cannot read throws its own plain failure, which is a
+ * fault and not a refusal — nobody was judged and found wanting (ARCH-03).
+ */
+export function assignRoleInput(raw: unknown): Extract<TenancyMutation, { kind: "assignRole" }> {
+  const move = tenancyMutationFrom("assignRole", raw);
+  if (move.kind !== "assignRole") throw new Error(`spine.tenancy: a role assignment was read as ${move.kind}`);
+  return move;
+}
+
+/** The body of a removal, read and narrowed the same way — and carrying no role, whatever was sent. */
+export function removeMemberInput(raw: unknown): Extract<TenancyMutation, { kind: "removeMember" }> {
+  const move = tenancyMutationFrom("removeMember", raw);
+  if (move.kind !== "removeMember") throw new Error(`spine.tenancy: a removal was read as ${move.kind}`);
+  return move;
 }
 
 export const tenancyRouter = router({
@@ -86,14 +111,10 @@ export const tenancyRouter = router({
     }));
   }),
 
-  // Both mutations say the same thing: read the body into the move the module declares, then hand
-  // request and move to the one guarded entry. The reading is the module's (`tenancyMutationFrom`),
-  // so this transport holds no reader of its own and no opinion about the words a role is named by.
-  assignRole: signedInProcedure
-    .input((raw: unknown) => tenancyMutationFrom("assignRole", raw))
-    .mutation(async ({ ctx, input }) => guarded(await requestFor(ctx), input)),
+  // Both mutations say the same thing: read the body into the move it names, then hand request and
+  // move to the one guarded entry. The reading is the module's (`tenancyMutationFrom`), so this
+  // transport holds no reader of its own and no opinion about the words a role is named by.
+  assignRole: signedInProcedure.input(assignRoleInput).mutation(async ({ ctx, input }) => guarded(await requestFor(ctx), input)),
 
-  removeMember: signedInProcedure
-    .input((raw: unknown) => tenancyMutationFrom("removeMember", raw))
-    .mutation(async ({ ctx, input }) => guarded(await requestFor(ctx), input)),
+  removeMember: signedInProcedure.input(removeMemberInput).mutation(async ({ ctx, input }) => guarded(await requestFor(ctx), input)),
 });

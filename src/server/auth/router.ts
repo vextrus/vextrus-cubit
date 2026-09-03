@@ -9,6 +9,7 @@
 import { publicProcedure, router } from "../trpc";
 import { signedOut } from "./refusals";
 import {
+  clearedSessionCookie,
   consumeMagicLink,
   listSessions,
   requestMagicLink,
@@ -51,11 +52,13 @@ function sessionCookie(ctx: { secureCookies: boolean }, sessionToken: string): s
 
 /**
  * The same cookie, ended: a sign-out that left the token in the browser would be a half sign-out.
- * The attributes are the ones it was set with — a browser matches an expiry against them, so a
- * clearing cookie that dropped `Secure` would leave the original sitting in the jar.
+ * The value is the identity seam's own `clearedSessionCookie` — the one home for what an ended
+ * session cookie IS (ARCH-02) — and this is only its wire spelling, the attributes written in the
+ * same words a live cookie is written in.
  */
 function clearedCookie(ctx: { secureCookies: boolean }): string {
-  return `${SESSION_COOKIE}=; ${cookieAttributes(ctx.secureCookies)}; Max-Age=0`;
+  const cleared = clearedSessionCookie(ctx.secureCookies);
+  return `${cleared.name}=${cleared.value}; ${cookieAttributes(cleared.secure)}; Max-Age=${cleared.maxAge}`;
 }
 
 /* ------------------------------------------------------------------ *

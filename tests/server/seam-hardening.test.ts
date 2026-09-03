@@ -311,13 +311,15 @@ describe("the caller's request id is honoured within bounds", () => {
     expect((await createContext({ req: request("café-req-1") })).requestId).toBe("café-req-1");
   });
 
-  test("a long id is still the caller's id and is echoed verbatim (AC-2)", async () => {
-    const { createContext } = await loadContext();
-    // The declared interface is `x-request-id ?? randomUUID()` with no bound on the value. Minting
-    // over a long id would break the caller's trace silently — no fault, no signal — which is the
-    // opposite of what B-21 asks a tier to do with something it will not honour.
+  test("a long id is bounded rather than replaced, so the caller's trace still matches (AC-2)", async () => {
+    const { createContext, REQUEST_ID_MAX_LENGTH } = await loadContext();
+    // The declared interface bounds the value at `REQUEST_ID_MAX_LENGTH` by TRUNCATION. Minting over
+    // a long id would break the caller's trace silently — no fault, no signal — which is the opposite
+    // of what B-21 asks a tier to do with something it will not honour; the kept prefix still matches.
     const long = "x".repeat(100_000);
-    expect((await createContext({ req: request(long) })).requestId).toBe(long);
+    const bound = REQUEST_ID_MAX_LENGTH as number;
+    expect(typeof bound, "the seam states its own bound — REQUEST_ID_MAX_LENGTH").toBe("number");
+    expect((await createContext({ req: request(long) })).requestId).toBe(long.slice(0, bound));
   });
 
   test("a control character in the id neither mints over it nor breaks the sink's framing", async () => {
