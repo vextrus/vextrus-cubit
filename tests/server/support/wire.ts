@@ -11,7 +11,7 @@
  * alias is never resolved for the specifiers *inside* them either — this tree's vitest configs
  * install no path-alias plugin. Keep imports between src/ files relative, as src/core/db.ts does.
  */
-import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -256,30 +256,159 @@ export function enclosingFunctionsOf(source: string, needle: string): string[] {
   return found;
 }
 
-/** A file as `main` holds it — the baseline a B-20 re-baseline is measured against. */
-export function mainVersionOf(relative: string): string {
-  return execFileSync("git", ["show", `main:${relative}`], { cwd: REPO_ROOT, encoding: "utf8", maxBuffer: 1 << 26 });
-}
-
 /** A suite split at each `test(` boundary: its prologue, then one segment per test. */
 export function testBlocksOf(source: string): string[] {
   return source.split(/(?=\n\s*test\()/);
 }
 
 /**
- * B-20: a re-baseline moves exactly the assertions whose law changed and nothing else. This reads
- * both versions of a suite as test blocks and asserts that the only one that differs is the block
- * that names `title` in main's version — the roster's length is unchanged, so no test was added,
- * dropped or reordered either.
+ * One test's own text: the `test(` line through the line that closes that call at the same
+ * indentation. Bounding a block by its own closer rather than by the next test's start is what
+ * keeps a test's identity stable when a LATER test is inserted after it.
+ */
+function testBodyOf(block: string): string | null {
+  const lines = block.split("\n");
+  const open = lines.findIndex((line) => /^\s*test\(/.test(line));
+  if (open < 0) return null;
+  const closer = `${/^\s*/.exec(lines[open] as string)?.[0] ?? ""}});`;
+  for (let at = open + 1; at < lines.length; at += 1) {
+    if (lines[at] === closer) return lines.slice(open, at + 1).join("\n");
+  }
+  return null;
+}
+
+/** The title a test declares — the identity a recorded block is matched by, never its position. */
+function titleOf(body: string): string | null {
+  const match = /^\s*test\(\s*(["'`])((?:[^\\]|\\.)*?)\1/.exec(body);
+  return match === null ? null : (match[2] as string);
+}
+
+/** Every test a suite holds, as title → the test's own text. */
+export function testBodiesOf(source: string): Map<string, string> {
+  const found = new Map<string, string>();
+  for (const block of testBlocksOf(source)) {
+    const body = testBodyOf(block);
+    if (body === null) continue;
+    const title = titleOf(body);
+    if (title === null) continue;
+    found.set(title, body);
+  }
+  return found;
+}
+
+/** A test's recorded identity: content-addressed, so the fixture states it without copying it. */
+export const digestOf = (text: string): string => createHash("sha256").update(text).digest("hex");
+
+/**
+ * A suite this increment re-baselines under B-20, as its text stood BEFORE the fix — an immutable
+ * in-tree fixture, so the audit measures the tree against a recorded state rather than against a
+ * branch ref that moves under it (Q-17: fixture identities are single-sourced; V-VERIFY: the exit
+ * code is a fact about the product, never about a date).
+ */
+export interface RebaselinedSuite {
+  /** The title the pre-fix suite gave the test whose law changed — the audit's handle. */
+  readonly title: string;
+  /** Text that test carries before AND after, so it is found again when its title itself moved. */
+  readonly anchor?: string;
+  /** What the re-baselined assertion must now state — the exported names it derives from (B-19). */
+  readonly states: readonly string[];
+  /** The superseded expectation, which the suite must no longer hold anywhere. */
+  readonly superseded: readonly string[];
+  /** Every test the pre-fix suite held, as `[title, digest of its own text]`. */
+  readonly blocks: readonly (readonly [title: string, digest: string])[];
+}
+
+/**
+ * The recorded pre-fix text of the two suites the spec owns under B-20 (`tests/server/*`), taken
+ * from the increment's base commit c827e7a. Digests, not copies: a test's identity is its title and
+ * the hash of its own body, so this fixture states what stood without re-spelling any assertion.
+ */
+export const REBASELINED_SUITES: Readonly<Record<string, RebaselinedSuite>> = {
+  "tests/server/seam-hardening.test.ts": {
+    title: "a long id is still the caller's id and is echoed verbatim (AC-2)",
+    anchor: '"x".repeat(100_000)',
+    states: ["REQUEST_ID_MAX_LENGTH"],
+    superseded: [").requestId).toBe(long);"],
+    blocks: [
+      ["a refusal marker on a TRPCError that also carries a cause is still a refusal (ARCH-03)", "467b53f445fa02445c38f24842bdecc34f33763c85b49d0f88fe532f965456bb"],
+      ["a marker two hops below a directly-thrown TRPCError is an outage, not a refusal (ARCH-03)", "26776f52b32aa12403b8c5579e7c8338e030363d693c1da47381cedff10f0e92"],
+      ["the same error object thrown by two requests records both, each under its own request id", "e071ce42330c99edd1ce4c53da9a34f379e3705df4d5082e727bb44132291e17"],
+      ["a re-thrown TRPCError constant is a new outage on every request, never a replay of the first", "d32b673016ef7abab36de3c288725fd195b9a308e52e18ebfcd4e7a4e2861e26"],
+      ["two procedures in ONE batch that throw the same error object leave two records, one per route", "54cd5796846d907de791aa8fc912d681987b60c0f022e409a2d299f19c7d37fc"],
+      ["a primitive thrown value handed to the seam twice is still one failure, one record", "2f9138867bc3ea6cd11253fdeeb586522aefb9d6eda086e080119772c8fb9236"],
+      ["a failure only ONE reader ever saw cannot suppress the next outage's record (B-21)", "714e7cf91c445680edcae1eee6576be28064554934da380c77475f4530b74ebc"],
+      ["a large batch's first failure is still one record when the last one is decided (B-21)", "7724f01b9f668164014e8ca3264d2203bebe428ecf76d685cbd79228519356f6"],
+      ["a second instance of the transport shares the one memo — one failure, still one record (ARCH-02)", "af230e3f8131b4cd3f277f389480cf7fee1317f9faf0b7bf91964008b6a854fd"],
+      ["a second instance of the fault seam shares the one sink — a swapped sink is never half-applied (ARCH-02)", "b80b3d589fff11006d1c03cdf461e92eef37e570ba68b593c38851b3417d8bf2"],
+      ["one failing request still leaves exactly one record", "7f0a2150de119996b5991ee92bfcec9a18f597b274d34a7a25f29669ed23f9fc"],
+      ["an ordinary supplied id is echoed verbatim", "9bc377ba846c70147c1b198fb30405408e1a8437e32544a51edc933dd20f8f37"],
+      ["a printable non-ASCII id is still an id and is honoured verbatim (AC-2)", "0afe3a093c961795ee23748dd36a70c1c394fb920eec15264a6318d057470f0d"],
+      ["a long id is still the caller's id and is echoed verbatim (AC-2)", "4a0fc5e742eab9657013994247d5647b65f957294349760f570335a51c6db8b8"],
+      ["a control character in the id neither mints over it nor breaks the sink's framing", "d36ce644c1c343ba580fd3c090ff0e09172c85b72d2c4ae97a1fb651188f6632"],
+    ],
+  },
+  "tests/server/spine-router.test.ts": {
+    title: "AC-2: each lane is defined in its own file under src/server/routers/ and mounted from there",
+    states: ["lanes", "procedures"],
+    superseded: ["appRouter._def?.record?.[lane]"],
+    blocks: [
+      ["AC-2: appRouter composes exactly the five module lanes and no other top-level key", "eab7c66fb8216753369bf46f2f877b9fcbe87ad1f327e68513837a401a0f0344"],
+      ["AC-2: each lane is defined in its own file under src/server/routers/ and mounted from there", "e61bcbb413617bb9cdeca1075845aa499a760494297e3d88f9d00e2453b95f91"],
+      ["AC-2: the composed procedure roster carries spine.health", "83004c133535fd29c1981cd4c2d9f64c39888e6038fcbda13c1b99d6a1c656c2"],
+      ["AC-2: createContext echoes an x-request-id header and mints the anonymous actor", "225a6199ce1d46a43a95afda385fd79e16bf95715f8bd204b9faafbe0171fc53"],
+      ["AC-2: createContext mints a fresh UUID request id when no header is supplied", "80e834b3b896d0e35613dc9e490e9a9b2124f538b096270803cbd90742467162"],
+      ["AC-2: GET /api/trpc/spine.health answers { ok: true, requestId } echoing the supplied x-request-id", "9e796f26f86829542a710a54fcbdfd4279a6bf01dadaff6141c96ca64a7037cb"],
+    ],
+  },
+};
+
+/**
+ * B-20: a re-baseline moves exactly the assertion whose law changed and nothing else. The reading
+ * is a property of the checkout measured against the recorded pre-fix state above:
+ *
+ *  - every OTHER test the pre-fix suite held still stands byte for byte (a subset check — a later
+ *    increment may add tests here; none may quietly rewrite one this increment did not own);
+ *  - while the named test still stands exactly as recorded, the audit is disarmed and green — the
+ *    tree simply has not moved that assertion yet, which is a state, not a defect;
+ *  - once it has moved, the assertion that replaced it states the post-fix law by the name it
+ *    derives from (never a transcribed value), and the superseded expectation is gone from the
+ *    suite altogether.
+ *
+ * No git is consulted: the audit reads only the checkout and this fixture, so it answers the same
+ * before the increment lands, after it merges, and in a shallow clone with no `main` ref.
  */
 export function assertOnlyOneTestRebaselined(relative: string, title: string): void {
-  const before = testBlocksOf(mainVersionOf(relative));
-  const after = testBlocksOf(productSource(relative));
-  const named = before.findIndex((block) => block.includes(title));
-  expect(named, `main's ${relative} holds no test named ${JSON.stringify(title)} — the audit is pointed at the wrong assertion`).toBeGreaterThanOrEqual(0);
-  expect(after.length, `${relative} gained or lost a test: a re-baseline changes one assertion, never the roster (B-20)`).toBe(before.length);
-  const changed = before.flatMap((block, at) => (block === after[at] ? [] : [at]));
-  expect(changed, `${relative}: only the test naming ${JSON.stringify(title)} may change (B-20) — blocks ${changed.join(", ")} differ from main`).toEqual([named]);
+  const recorded = REBASELINED_SUITES[relative];
+  expect(recorded, `no pre-fix baseline is recorded for ${relative} — the B-20 audit has nothing to measure against`).toBeTruthy();
+  const suite = recorded as RebaselinedSuite;
+  expect(suite.title, `the recorded baseline for ${relative} names a different re-baselined test — the audit is pointed at the wrong assertion`).toBe(title);
+
+  const bodies = testBodiesOf(productSource(relative));
+  for (const [held, digest] of suite.blocks) {
+    if (held === title) continue;
+    const standing = bodies.get(held);
+    expect(
+      standing === undefined ? "<the suite no longer holds this test>" : digestOf(standing),
+      `${relative}: ${JSON.stringify(held)} is not the test that stood before — a re-baseline moves only ${JSON.stringify(title)} (B-20)`,
+    ).toBe(digest);
+  }
+
+  const before = suite.blocks.find(([held]) => held === title)?.[1];
+  expect(before, `the recorded baseline for ${relative} holds no digest for ${JSON.stringify(title)}`).toBeTypeOf("string");
+  const named = bodies.get(title);
+  if (named !== undefined && digestOf(named) === before) return;
+
+  const anchor = suite.anchor ?? title;
+  const anchored = [...bodies.values()].filter((body) => body.includes(anchor));
+  expect(anchored.length, `${relative}: exactly one test may carry the re-baselined assertion (${JSON.stringify(anchor)}) — ${anchored.length} do`).toBe(1);
+  const body = anchored[0] ?? "";
+  for (const stated of suite.states) {
+    expect(body.includes(stated), `${relative}: the re-baselined assertion must state its law through ${JSON.stringify(stated)} rather than transcribe a value (B-19)`).toBe(true);
+  }
+  const source = productSource(relative);
+  for (const gone of suite.superseded) {
+    expect(source.includes(gone), `${relative}: the superseded expectation ${JSON.stringify(gone)} still stands — a re-baseline replaces the law it moved (B-20)`).toBe(false);
+  }
 }
 
 export const loadErrors = (): Promise<ErrorsModule> => productModule<ErrorsModule>(ERRORS_MODULE);
