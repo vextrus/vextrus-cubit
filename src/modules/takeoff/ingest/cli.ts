@@ -8,6 +8,7 @@
 // taken from is an answer (the registered SHEET_NOT_INGESTABLE), not a fault (ARCH-03, B-21).
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,13 +42,25 @@ const CLI_TIMEOUT_MS = 1_800_000;
 /** How much of the extractor's own account of a refusal is carried back to the operator. */
 const STDERR_TAIL_CHARS = 4000;
 
+/** What names a directory as the checkout: the `cad/` project `uv run --project cad` resolves. */
+const CAD_MARKER = join("cad", "pyproject.toml");
+
+/** The first directory at or above `from` that holds `cad/pyproject.toml`, or null. */
+function checkoutAbove(from: string): string | null {
+  for (let dir = resolve(from); ; dir = dirname(dir)) {
+    if (existsSync(join(dir, CAD_MARKER))) return dir;
+    if (dirname(dir) === dir) return null;
+  }
+}
+
 /**
- * The checkout `uv run --project cad` resolves `cad` from, read off this file's own place in the
- * tree rather than off the directory the worker happened to be started in: a unit or an entrypoint
- * with a working directory of its own would otherwise spawn the CLI against a `cad` that is not
- * there. Four levels up from `src/modules/takeoff/ingest`.
+ * The checkout `uv run --project cad` resolves `cad` from: the nearest directory above this file
+ * that actually holds the `cad/` project, rather than a count of levels — a file that moves depth,
+ * or a bundled runtime where `import.meta.url` names a chunk under `.next/server/`, would otherwise
+ * spawn the CLI against a `cad` that is not there. The working directory is the fallback, and is
+ * itself searched upward, because it is where a worker started from source stands.
  */
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
+const REPO_ROOT = checkoutAbove(dirname(fileURLToPath(import.meta.url))) ?? checkoutAbove(process.cwd()) ?? process.cwd();
 
 /** What one invocation amounted to: the geometry and the bytes that carry it, or a refused sheet. */
 export type IngestOutcome = { ok: true; graph: EntityGraph; artifact: Uint8Array } | { ok: false; refusal: SheetNotIngestable; detail: string };
