@@ -15,6 +15,7 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { mkdir, open, readFile, rm, stat } from "node:fs/promises";
 import { drawings, eq, files, forTenant, isUuid, projects, runAsSystem, uploads, type TenantDb } from "../../../core/db";
+import { REFUSALS } from "../../../core/errors";
 import type { UploadRefusalCode } from "./refusals";
 import { UPLOAD_CHUNK_BYTES, UPLOAD_MAX_BYTES, type AcceptedFormat, type ScanVerdict, type UploadState } from "../../../core/uploads";
 import { declaredFormat, detectFormat, FORMAT_HEAD_BYTES, isArchiveContent, isArchiveName } from "./formats";
@@ -117,7 +118,7 @@ interface SessionRow {
 }
 
 /** An upload of a workspace the caller's session does not hold is an upload they cannot see at all. */
-const NOT_THEIRS: UploadRefused = { refusal: "WORKSPACE_PERMISSION_NOT_HELD" };
+const NOT_THEIRS: UploadRefused = { refusal: REFUSALS.WORKSPACE_PERMISSION_NOT_HELD.code };
 
 /**
  * The workspace an address belongs to is never taken from the caller: a tenant id on the wire is a
@@ -172,10 +173,10 @@ async function sessionOf(db: TenantDb, uploadId: string): Promise<SessionRow | n
  * still do something about it, rather than after 500 MB have crossed the wire (Q-12, R-UI-033).
  */
 export async function createUpload(request: CreateUploadRequest): Promise<UploadOpened | UploadRefused> {
-  if (request.size > UPLOAD_MAX_BYTES) return { refusal: "FILE_TOO_LARGE" };
+  if (request.size > UPLOAD_MAX_BYTES) return { refusal: REFUSALS.FILE_TOO_LARGE.code };
   // An archive is expanded into its members, so it opens a session under its own name even though it
   // is not itself one of the formats the product reads.
-  if (!isArchiveName(request.name) && declaredFormat(request.name) === null) return { refusal: "FORMAT_NOT_ACCEPTED" };
+  if (!isArchiveName(request.name) && declaredFormat(request.name) === null) return { refusal: REFUSALS.FORMAT_NOT_ACCEPTED.code };
 
   const opened = await handle(request.actor)
     .insert(uploads)
@@ -203,10 +204,10 @@ export async function appendChunk(request: AppendChunkRequest): Promise<UploadAd
   const db = handle(request.actor);
   const session = await sessionOf(db, request.uploadId);
   if (session === null) return NOT_THEIRS;
-  if (session.state !== "open") return { refusal: "UPLOAD_NOT_RESUMABLE", receivedBytes: session.receivedBytes };
-  if (request.offset !== session.receivedBytes) return { refusal: "UPLOAD_NOT_RESUMABLE", receivedBytes: session.receivedBytes };
+  if (session.state !== "open") return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: session.receivedBytes };
+  if (request.offset !== session.receivedBytes) return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: session.receivedBytes };
   if (session.receivedBytes + request.bytes.length > session.declaredSize) {
-    return { refusal: "UPLOAD_NOT_RESUMABLE", receivedBytes: session.receivedBytes };
+    return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: session.receivedBytes };
   }
 
   const received = await stage(request.actor, session, request.bytes);
@@ -289,20 +290,20 @@ async function complete(db: TenantDb, actor: UploadActor, session: SessionRow): 
   const path = stagingPath(actor.tenantId, session.uploadId);
   try {
     const digest = await stagedDigest(path);
-    if (digest !== session.declaredSha256) return await refuse(db, session, "DIGEST_MISMATCH");
+    if (digest !== session.declaredSha256) return await refuse(db, session, REFUSALS.DIGEST_MISMATCH.code);
 
     const head = await stagedHead(path);
     if (isArchiveName(session.name)) {
-      if (!isArchiveContent(head)) return await refuse(db, session, "FORMAT_NOT_ACCEPTED");
+      if (!isArchiveContent(head)) return await refuse(db, session, REFUSALS.FORMAT_NOT_ACCEPTED.code);
       return await completeArchive(db, actor, session, path);
     }
 
     const format = detectFormat(session.name, head);
-    if (format === null) return await refuse(db, session, "FORMAT_NOT_ACCEPTED");
+    if (format === null) return await refuse(db, session, REFUSALS.FORMAT_NOT_ACCEPTED.code);
 
     const bytes = new Uint8Array(await readFile(path));
     const scan = await scanUpload(bytes, session.name);
-    if (scan.verdict === "infected") return await refuse(db, session, "SCAN_REJECTED");
+    if (scan.verdict === "infected") return await refuse(db, session, REFUSALS.SCAN_REJECTED.code);
 
     const drawing = await record(db, actor, session, { name: session.name, bytes, format, digest, verdict: scan.verdict });
     return await settle(db, session, [drawing], []);
@@ -318,19 +319,19 @@ async function complete(db: TenantDb, actor: UploadActor, session: SessionRow): 
  */
 async function completeArchive(db: TenantDb, actor: UploadActor, session: SessionRow, path: string): Promise<UploadAdvanced | UploadRefused> {
   const expansion = expandZip(new Uint8Array(await readFile(path)));
-  if (!expansion.readable) return await refuse(db, session, "FORMAT_NOT_ACCEPTED");
+  if (!expansion.readable) return await refuse(db, session, REFUSALS.FORMAT_NOT_ACCEPTED.code);
 
   const recorded: RecordedDrawing[] = [];
   const skipped: SkippedMember[] = [...expansion.skipped];
   for (const member of expansion.members) {
     const format = detectFormat(member.path, member.bytes.subarray(0, FORMAT_HEAD_BYTES));
     if (format === null) {
-      skipped.push({ name: member.path, reason: "FORMAT_NOT_ACCEPTED" });
+      skipped.push({ name: member.path, reason: REFUSALS.FORMAT_NOT_ACCEPTED.code });
       continue;
     }
     const scan = await scanUpload(member.bytes, member.path);
     if (scan.verdict === "infected") {
-      skipped.push({ name: member.path, reason: "SCAN_REJECTED" });
+      skipped.push({ name: member.path, reason: REFUSALS.SCAN_REJECTED.code });
       continue;
     }
     const digest = createHash("sha256").update(member.bytes).digest("hex");

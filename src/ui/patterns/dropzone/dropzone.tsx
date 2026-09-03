@@ -164,12 +164,12 @@ export function Dropzone({ onFiles, items, accept }: DropzoneProps) {
             <li className="cx-dropzone-item" data-testid="dropzone-item" data-name={item.name} data-state={item.state} key={`${item.name}:${index}`}>
               <p className="cx-dropzone-item-name" dir="ltr">
                 {item.name}
-              </p>
+              </p>{" "}
               {/* I-73: the live region is the state word, which changes at most four times per row —
                   never the progress line, which would announce every chunk. */}
               <span className="cx-dropzone-item-state" aria-live="polite">
                 {STATE_WORDS[item.state]}
-              </span>
+              </span>{" "}
               <span className="cx-dropzone-item-progress" data-testid="dropzone-item-progress">
                 {item.progress}
               </span>

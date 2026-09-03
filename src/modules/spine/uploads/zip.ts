@@ -7,6 +7,7 @@
 // compression method beyond stored and deflate are members this product does not read, and a member
 // it cannot read is skipped with the registered reason, never silently dropped (Q-07, ARCH-03).
 import { inflateRawSync } from "node:zlib";
+import { REFUSALS } from "../../../core/errors";
 import type { UploadRefusalCode } from "./refusals";
 import { UPLOAD_MAX_BYTES } from "../../../core/uploads";
 
@@ -115,21 +116,21 @@ export function expandZip(bytes: Uint8Array): ZipExpansion {
     if (isDirectory) continue;
 
     if ((flags & ENCRYPTED_BIT) === ENCRYPTED_BIT || compressedSize === ZIP64_SENTINEL || uncompressedSize === ZIP64_SENTINEL) {
-      skipped.push({ name: path, reason: "FORMAT_NOT_ACCEPTED" });
+      skipped.push({ name: path, reason: REFUSALS.FORMAT_NOT_ACCEPTED.code });
       continue;
     }
     if (uncompressedSize > UPLOAD_MAX_BYTES) {
-      skipped.push({ name: path, reason: "FILE_TOO_LARGE" });
+      skipped.push({ name: path, reason: REFUSALS.FILE_TOO_LARGE.code });
       continue;
     }
     if (method !== STORED && method !== DEFLATE) {
-      skipped.push({ name: path, reason: "FORMAT_NOT_ACCEPTED" });
+      skipped.push({ name: path, reason: REFUSALS.FORMAT_NOT_ACCEPTED.code });
       continue;
     }
 
     const stored = memberBytes(bytes, localOffset, compressedSize);
     if (stored === null) {
-      skipped.push({ name: path, reason: "FORMAT_NOT_ACCEPTED" });
+      skipped.push({ name: path, reason: REFUSALS.FORMAT_NOT_ACCEPTED.code });
       continue;
     }
     const expanded = method === STORED ? stored : inflated(stored);
@@ -153,6 +154,11 @@ function inflated(stored: Uint8Array): Uint8Array | UploadRefusalCode {
   try {
     return new Uint8Array(inflateRawSync(stored));
   } catch {
-    return "FORMAT_NOT_ACCEPTED";
+    return refused();
   }
+}
+
+/** The registered reason a member this reader cannot take is left behind (R-SPINE-062). */
+function refused(): UploadRefusalCode {
+  return REFUSALS.FORMAT_NOT_ACCEPTED.code;
 }
