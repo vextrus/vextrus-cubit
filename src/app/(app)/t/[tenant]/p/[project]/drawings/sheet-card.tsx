@@ -77,8 +77,8 @@ export function SheetCard({ card, canConfirm, onConfirm, answer }: SheetCardProp
           {drawings.drawings_thumbnail_pending}
         </div>
       ) : (
-        /* eslint-disable-next-line @next/next/no-img-element -- a signed, short-lived raster URL is
-           not an asset the optimiser may fetch, cache or rewrite (Q-12). */
+        /* A signed, short-lived raster URL is not an asset an optimiser may fetch, cache or
+           rewrite: the link stands for fifteen minutes and names one workspace's bytes (Q-12). */
         <img
           className="cx-drawings-thumb"
           data-testid="sheet-card-thumbnail"

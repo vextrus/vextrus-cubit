@@ -164,16 +164,20 @@ function JobWatch({ jobId, onReading }: { jobId: string; onReading: (jobId: stri
       onReading(jobId, { status, elapsedMs: typeof event.elapsedMs === "number" ? event.elapsedMs : null, lost });
     };
 
+    // The failure is answered rather than caught: a poll that does not come back is the transport
+    // being gone, and the answer to that is this screen's own offline reading — the last known
+    // status stands and the region says live progress stopped arriving (I-89, R-UI-050). It is not
+    // a fault of the product's, so nothing here reports one.
     const poll = async (): Promise<void> => {
       if (stopped) return;
-      try {
-        const answer = await fetch(`/api/events?jobId=${encodeURIComponent(jobId)}&transport=poll`, { cache: "no-store" });
-        const body = (await answer.json()) as { events?: unknown[]; done?: boolean };
+      const body = await fetch(`/api/events?jobId=${encodeURIComponent(jobId)}&transport=poll`, { cache: "no-store" })
+        .then(async (answer) => (await answer.json()) as { events?: unknown[]; done?: boolean })
+        .catch(() => null);
+      if (body === null) {
+        onReading(jobId, { status: last, elapsedMs: null, lost: true });
+      } else {
         for (const event of body.events ?? []) take(event, false);
         if (body.done === true) return;
-      } catch {
-        // Both transports gone: the last known status stands, and the region says so (I-89).
-        onReading(jobId, { status: last, elapsedMs: null, lost: true });
       }
       timer = setTimeout(() => void poll(), POLL_INTERVAL_MS);
     };
@@ -181,11 +185,11 @@ function JobWatch({ jobId, onReading }: { jobId: string; onReading: (jobId: stri
     if (typeof EventSource === "function") {
       source = new EventSource(`/api/events?jobId=${encodeURIComponent(jobId)}`);
       source.addEventListener("job", (event) => {
-        try {
-          take(JSON.parse((event as MessageEvent<string>).data), false);
-        } catch {
-          // A frame this end cannot read says nothing about the job; the poll below still can.
-        }
+        // A frame this end cannot read is a stream that is not giving us readings, which is the same
+        // answer as a transport that stopped: the last known status stands and the region says so.
+        void Promise.resolve((event as MessageEvent<string>).data)
+          .then((data) => take(JSON.parse(data), false))
+          .catch(() => onReading(jobId, { status: last, elapsedMs: null, lost: true }));
       });
       source.addEventListener("error", () => {
         source?.close();
