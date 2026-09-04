@@ -19,10 +19,13 @@ export const metadata = { title: auditStrings.audit_heading };
 
 export default async function ProjectAudit({ params }: { params: Promise<{ tenant: string; project: string }> }) {
   const { tenant, project } = await params;
-  // Both reads are tenant-scoped and independent, so they travel together: the roster decides
-  // whether this address exists at all, and the surfaces are what it shows once it does.
-  const [roster, surfaces] = await Promise.all([rosterOf(tenant), getAuditSurfaces({ tenantId: tenant }, project)]);
+  // The roster decides whether this address exists at all, so it is asked first and alone: an
+  // address naming no project of this workspace is answered as absent without the panels of a
+  // project nobody has ever being queried for it.
+  const roster = await rosterOf(tenant);
   if (!roster.some((held) => held.projectId === project)) notFound();
+
+  const surfaces = await getAuditSurfaces({ tenantId: tenant }, project);
 
   return (
     <div className="cx-audit">

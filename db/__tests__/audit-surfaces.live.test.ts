@@ -206,6 +206,47 @@ describe("AC-1/AC-3 — the route renders that answer", () => {
     }
     expect(markup.includes("audit-act-row"), "a project with no acts renders no act row").toBe(false);
   });
+
+  test("AC-1: a segment naming no project of this workspace is answered as an address that does not exist", async () => {
+    const stage = await staged();
+    const page = await productModule<{ default?: (props: { params: Promise<{ tenant: string; project: string }> }) => Promise<unknown> }>(PAGE_MODULE);
+
+    // An id of the shape a project's is, that this database holds no project under — asked of the
+    // migrated schema rather than assumed, so the case is about an absent project and not about a
+    // malformed segment the roster read would have refused anyway.
+    const unheld = scalar(stage.urlMigrate, "select gen_random_uuid()::text;");
+    const holds = isTrue(
+      scalar(
+        stage.urlMigrate,
+        withSession({ [GUC_SYSTEM_REASON]: SEED_REASON }, `select exists (select 1 from ${ident(PROJECTS_TABLE)} where project_id = ${lit(unheld)})::text;`),
+      ),
+    );
+    expect(holds, `this case needs an id no project answers to, and ${unheld} is one the database holds`).toBe(false);
+
+    // The framework's own answer for an address that does not exist, read from the framework rather
+    // than transcribed (B-19): whatever `notFound()` raises is what the page must raise.
+    const { notFound } = await import("next/navigation");
+    const absent = await Promise.resolve()
+      .then(() => notFound())
+      .then(
+        () => undefined,
+        (thrown: unknown) => (thrown as { digest?: unknown }).digest,
+      );
+    expect(typeof absent, "next/navigation's notFound() answers by raising, and its digest is what marks that answer").toBe("string");
+
+    const answered = await (page.default as (props: { params: Promise<{ tenant: string; project: string }> }) => Promise<unknown>)({
+      params: Promise.resolve({ tenant: stage.tenantId, project: unheld }),
+    }).then(
+      () => null,
+      (failure: unknown) => failure,
+    );
+
+    expect(answered, "an address naming no project of the workspace renders nothing — a confident, empty act log would say the project exists").not.toBeNull();
+    expect(
+      (answered as { digest?: unknown }).digest,
+      "the page answers an unknown project with the framework's not-found, against the real roster read: the address is absent, not empty",
+    ).toBe(absent);
+  });
 });
 
 /** React escapes the text it renders; the Decision's copy is compared as it lands in the markup. */

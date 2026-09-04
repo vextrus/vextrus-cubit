@@ -378,11 +378,16 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   /**
    * The address this sheet was opened at, captured before anything can navigate away from it: a
    * flush that settles after the reader has left must be able to tell that it has.
+   *
+   * It is read on the first client render rather than in an effect, so a camera published before the
+   * effects have run is written rather than dropped, and read again whenever the sheet changes, so an
+   * instance the framework keeps across a move to another drawing or layout goes on publishing to
+   * the address it is now showing instead of falling silent for the rest of its life (R-UI-031).
    */
-  const ownPathname = useRef("");
+  const ownPathname = useRef(typeof window === "undefined" ? "" : window.location.pathname);
   useEffect(() => {
     ownPathname.current = window.location.pathname;
-  }, []);
+  }, [drawingId, layoutName]);
 
   /** R-UI-031: the address is the camera, published by the one module that decides that (B-17). */
   const publishAddress = useCallback((at: Camera): void => {
