@@ -46,6 +46,14 @@ const LEDGER_FRAMES = 120;
 /** Two frames of slack: a longer gap than this is a rest, not a frame anybody failed to deliver. */
 const CONTINUOUS_GAP_MS = 100;
 
+/**
+ * How long a gesture is still in flight after its last event. A pan or a zoom arrives as a stream of
+ * events, and the frames between them are the frames PB-3 is about — so the loop keeps drawing for
+ * this long after the last one and then stops. A sheet nobody is touching costs no frames at all
+ * (Decision § 4: the loop is input-driven, never an idle timer).
+ */
+const GESTURE_TAIL_MS = 400;
+
 /** The backing store never exceeds twice the layout size — the cap that holds the budget on HiDPI. */
 const MAX_DEVICE_PIXEL_RATIO = 2;
 
@@ -215,7 +223,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   // A document that does not know what a WebGL context is is not asked for one: the question itself
   // is what a headless DOM reports as unimplemented, and the answer is the same either way (I-82).
   if (typeof WebGLRenderingContext === "undefined") return null;
-  const gl = (canvas.getContext("webgl", { alpha: false, antialias: false, preserveDrawingBuffer: true }) ?? null) as WebGLRenderingContext | null;
+  const gl = (canvas.getContext("webgl", { alpha: false, antialias: false, preserveDrawingBuffer: false }) ?? null) as WebGLRenderingContext | null;
   if (gl === null) return null;
 
   const lineProgram = programOf(gl, LINE_VERTEX_SHADER, LINE_FRAGMENT_SHADER);
@@ -232,6 +240,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   const ledger: number[] = [];
   let scheduled = 0;
   let lastFrameAt = 0;
+  let lastAskedAt = 0;
   let pending: { camera: Camera; drawn: Set<string> } | null = null;
   let listener: (() => void) | null = null;
 
@@ -244,9 +253,25 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     return buffer;
   };
 
+  /**
+   * Where a program's inputs live, asked for once. Every `getAttribLocation` and
+   * `getUniformLocation` is a synchronous round trip to the driver, and a frame that asked for them
+   * again would spend its budget on questions it already knows the answer to (PB-3).
+   */
+  const slots = (program: WebGLProgram) => ({
+    position: gl.getAttribLocation(program, "a_position"),
+    colour: gl.getAttribLocation(program, "a_colour"),
+    texel: gl.getAttribLocation(program, "a_texel"),
+    centre: gl.getUniformLocation(program, "u_centre"),
+    scale: gl.getUniformLocation(program, "u_scale"),
+    viewport: gl.getUniformLocation(program, "u_viewport"),
+    atlas: gl.getUniformLocation(program, "u_atlas"),
+  });
+  const lineSlots = slots(lineProgram);
+  const glyphSlots = slots(glyphProgram);
+
   /** Bind an attribute to the buffer that feeds it. */
-  const attribute = (program: WebGLProgram, name: string, buffer: WebGLBuffer | null, size: number): void => {
-    const at = gl.getAttribLocation(program, name);
+  const attribute = (at: number, buffer: WebGLBuffer | null, size: number): void => {
     if (at < 0 || buffer === null) return;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.enableVertexAttribArray(at);
@@ -258,10 +283,10 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
    * `scale` is stated in — and never the backing store's: the device ratio is the GL viewport's
    * business, and mixing the two would zoom the sheet by the ratio on a HiDPI screen.
    */
-  const camera3 = (program: WebGLProgram, camera: Camera): void => {
-    gl.uniform2f(gl.getUniformLocation(program, "u_centre"), camera.centre[0], camera.centre[1]);
-    gl.uniform1f(gl.getUniformLocation(program, "u_scale"), camera.scale);
-    gl.uniform2f(gl.getUniformLocation(program, "u_viewport"), Math.max(camera.viewport.width, 1), Math.max(camera.viewport.height, 1));
+  const camera3 = (where: ReturnType<typeof slots>, camera: Camera): void => {
+    gl.uniform2f(where.centre, camera.centre[0], camera.centre[1]);
+    gl.uniform1f(where.scale, camera.scale);
+    gl.uniform2f(where.viewport, Math.max(camera.viewport.width, 1), Math.max(camera.viewport.height, 1));
   };
 
   /** The backing store, at the layout size and the capped device ratio. */
@@ -294,16 +319,16 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     const box = viewBox(camera);
 
     gl.useProgram(lineProgram);
-    camera3(lineProgram, camera);
+    camera3(lineSlots, camera);
     if (frame !== null) {
-      attribute(lineProgram, "a_position", frameBuffer, 2);
-      attribute(lineProgram, "a_colour", frameColours, 3);
+      attribute(lineSlots.position, frameBuffer, 2);
+      attribute(lineSlots.colour, frameColours, 3);
       gl.drawArrays(gl.LINES, 0, frame.count);
     }
     for (const [name, batch] of batches) {
       if (!request.drawn.has(name) || batch.chunks.length === 0) continue;
-      attribute(lineProgram, "a_position", batch.lineBuffer, 2);
-      attribute(lineProgram, "a_colour", batch.lineColours, 3);
+      attribute(lineSlots.position, batch.lineBuffer, 2);
+      attribute(lineSlots.colour, batch.lineColours, 3);
       for (const chunk of batch.chunks) {
         // Culling by viewport (R-UI-040): a run of the sheet that cannot be seen is not sent.
         if (chunk.box[0] > box[2] || chunk.box[2] < box[0] || chunk.box[1] > box[3] || chunk.box[3] < box[1]) continue;
@@ -314,27 +339,26 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     // Text, above the geometry, and only what a reader could read at this scale (R-UI-040's LOD).
     if (atlas !== null) {
       gl.useProgram(glyphProgram);
-      camera3(glyphProgram, camera);
+      camera3(glyphSlots, camera);
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, atlas);
-      gl.uniform1i(gl.getUniformLocation(glyphProgram, "u_atlas"), 0);
+      gl.uniform1i(glyphSlots.atlas, 0);
       for (const [name, batch] of batches) {
         if (!request.drawn.has(name) || batch.glyphVertices === 0) continue;
         let at = 0;
         while (at < batch.heights.length && !isTextLegible(batch.heights[at] ?? 0, request.camera.scale)) at += 1;
         const start = batch.starts[at] ?? batch.glyphVertices;
         if (start >= batch.glyphVertices) continue;
-        attribute(glyphProgram, "a_position", batch.glyphBuffer, 2);
-        attribute(glyphProgram, "a_texel", batch.glyphTexels, 2);
-        attribute(glyphProgram, "a_colour", batch.glyphColours, 3);
+        attribute(glyphSlots.position, batch.glyphBuffer, 2);
+        attribute(glyphSlots.texel, batch.glyphTexels, 2);
+        attribute(glyphSlots.colour, batch.glyphColours, 3);
         gl.drawArrays(gl.TRIANGLES, start, batch.glyphVertices - start);
       }
       gl.disable(gl.BLEND);
     }
 
-    gl.flush();
     const now = performance.now();
     // A gap longer than a rest is not a frame anybody dropped: the ledger measures the cadence of a
     // gesture in flight, which is what 60 fps means (PB-3).
@@ -343,8 +367,18 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       if (ledger.length > LEDGER_FRAMES) ledger.shift();
     }
     lastFrameAt = now;
-    pending = null;
     listener?.();
+  };
+
+  /**
+   * One frame, then the next while the gesture lasts. The ledger is read over consecutive frames of
+   * a gesture in flight, so the loop runs at the display's own cadence between events rather than
+   * once per event — and stops itself when the sheet goes still.
+   */
+  const tick = (): void => {
+    scheduled = 0;
+    render();
+    if (pending !== null && performance.now() - lastAskedAt <= GESTURE_TAIL_MS) scheduled = requestAnimationFrame(tick);
   };
 
   const quantile = (sorted: readonly number[], fraction: number): number => {
@@ -467,11 +501,8 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
 
     draw: (camera, state) => {
       pending = { camera, drawn: new Set(state.layerRows().filter((row) => row.drawn).map((row) => row.name)) };
-      if (scheduled !== 0) return;
-      scheduled = requestAnimationFrame(() => {
-        scheduled = 0;
-        render();
-      });
+      lastAskedAt = performance.now();
+      if (scheduled === 0) scheduled = requestAnimationFrame(tick);
     },
 
     setFrameListener: (next) => {

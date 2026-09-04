@@ -16,8 +16,7 @@ import { reportFault } from "../../../../../core/faults/report";
 import { appStorage } from "../../../../../core/storage/app";
 import { renderManifestOf, workspaceOfDrawing } from "../../../../../modules/takeoff/viewer";
 import type { RenderLayer, ViewerHead } from "../../../../../modules/takeoff/viewer";
-import { resolveSession } from "../../../../../server/auth/session";
-import { presentedSessionToken } from "../../../../../server/shell/session";
+import { createContext, type AppContext } from "../../../../../server/context";
 import { holdsWorkspace } from "../../../../../server/shell/workspace";
 
 /** A sheet is served from live state; nothing about this route may be built or cached. */
@@ -75,19 +74,22 @@ function layerAnswer(head: ViewerHead, index: number): Response {
   return json({ index, name: layer.name, rgb: layer.rgb, entityCount: layer.entityCount, records: layer.records }, 200);
 }
 
-export async function GET(request: Request, context: { params: Promise<{ drawing: string; layout: string }> }): Promise<Response> {
+export async function GET(request: Request, route: { params: Promise<{ drawing: string; layout: string }> }): Promise<Response> {
+  // The context is minted from the request itself, which is what every transport and every harness
+  // that drives this door hands it: the presented session is resolved once, by the seam that owns
+  // that question, and the id a fault would be recorded under comes from the same mint (R-SPINE-001).
+  let context: AppContext | null = null;
   try {
-    const { drawing, layout } = await context.params;
+    const { drawing, layout } = await route.params;
     const asked = new URL(request.url).searchParams;
     const part = asked.get("part") ?? "head";
     if (part !== "head" && part !== "layer") return json({ error: NOT_A_PART }, 400);
 
-    const presented = await presentedSessionToken();
-    const session = presented === null ? null : await resolveSession(presented);
-    if (session === null) return refusalAnswer("SIGNED_OUT");
+    context = await createContext({ req: request });
+    if (context.session === null) return refusalAnswer("SIGNED_OUT");
 
     const tenantId = await workspaceOfDrawing(drawing);
-    if (tenantId === null || !(await holdsWorkspace(session.userId, tenantId))) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
+    if (tenantId === null || !(await holdsWorkspace(context.session.userId, tenantId))) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
 
     const head = await renderManifestOf({ tenantId, drawingId: drawing, layoutName: decodeURIComponent(layout) }, { storage: appStorage() });
     if (part === "head") return headAnswer(head);
@@ -96,7 +98,7 @@ export async function GET(request: Request, context: { params: Promise<{ drawing
     if (!Number.isInteger(index) || index < 0) return json({ error: NOT_A_PART }, 400);
     return layerAnswer(head, index);
   } catch (failure) {
-    const { faultId } = reportFault({ requestId: randomUUID(), actor: "viewer", route: ROUTE, cause: failure });
+    const { faultId } = reportFault({ requestId: context?.requestId ?? randomUUID(), actor: context?.actor ?? "viewer", route: ROUTE, cause: failure });
     return json({ faultId }, 500);
   }
 }
