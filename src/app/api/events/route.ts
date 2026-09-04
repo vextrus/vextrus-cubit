@@ -31,6 +31,16 @@ export const dynamic = "force-dynamic";
 
 const encoder = new TextEncoder();
 
+/**
+ * How long a stream request waits for a job to be written about before it answers that the address
+ * names none, and how often it looks. SEAM-JOBS answers what the durable log says, not what the
+ * queue is holding: a job that was enqueued a moment ago has an empty log until a worker takes it,
+ * and an id nothing ever held has an empty log for good. Nothing but a bounded wait tells those two
+ * apart from here, and the wait is only ever paid by the second kind.
+ */
+const FIRST_WRITE_WINDOW_MS = 2_000;
+const FIRST_WRITE_EVERY_MS = 250;
+
 /** Has the job said its last word? Terminality is the seam's judgement, read from the seam. */
 function isOver(events: readonly JobEvent[]): boolean {
   const last = events.at(-1);
@@ -45,6 +55,19 @@ function frame(event: JobEvent): Uint8Array {
 /** A JSON answer, with the status it is answering under. */
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
+}
+
+/**
+ * The log of one job as soon as it says anything, or nothing at all once the window has closed. A
+ * client that has already gone stops being waited for.
+ */
+async function firstWritten(jobId: string, signal: AbortSignal): Promise<readonly JobEvent[]> {
+  const deadline = Date.now() + FIRST_WRITE_WINDOW_MS;
+  for (;;) {
+    const events = await jobEvents(jobId);
+    if (events.length > 0 || signal.aborted || Date.now() >= deadline) return events;
+    await new Promise((settle) => setTimeout(settle, FIRST_WRITE_EVERY_MS));
+  }
 }
 
 /**
@@ -94,13 +117,12 @@ export async function GET(request: Request): Promise<Response> {
   const actor = query.get(TRANSPORT) === POLL ? "poll" : "stream";
 
   // The log is read before either transport answers, because it is what decides whether there is
-  // anything to answer with. SEAM-JOBS publishes a job's first event inside the lock that admits
-  // it, so an id whose log is empty names no job this seam has ever held — not a job that has yet
-  // to start. A stream opened on one would poll the database every 250 ms for a job that will
-  // never speak, for as long as the client is willing to hold the connection.
+  // anything to answer with — and a stream gives a job that has only just been enqueued the window
+  // above to be written about, because for a stream an empty log is not a snapshot to hand back but
+  // a wait with no end.
   let events: readonly JobEvent[];
   try {
-    events = await jobEvents(jobId);
+    events = actor === "poll" ? await jobEvents(jobId) : await firstWritten(jobId, request.signal);
   } catch (failure) {
     // Nothing here is a refusal — the caller asked a lawful question and our side could not
     // answer it, so the fault is recorded and its id is what the caller is given (ARCH-03).
@@ -108,12 +130,15 @@ export async function GET(request: Request): Promise<Response> {
     return json({ faultId }, 500);
   }
 
-  // An address that names nothing is answered as an absence, in the same shape a caller already
-  // reads the log in: `error` is a field of the answer, not copy — no screen renders this route.
-  if (events.length === 0) return json({ events: [], done: false, error: `${JOB_ID} names no job` }, 404);
-
   // `done` is read off the events being answered with, so the pair a caller receives always agrees
-  // with itself even if the job ends between two requests.
+  // with itself even if the job ends between two requests. A poll answers what the log holds and
+  // returns — including nothing, for a job the seam has not written about yet.
   if (actor === "poll") return json({ events, done: isOver(events) }, 200);
+
+  // A stream cannot say "nothing yet" and come back: it stays open, waking every 250 ms to re-read
+  // a log, for as long as a client is willing to hold it. So an address nothing was ever written
+  // about is answered as the absence it is, in the same shape the log is read in, and no stream is
+  // opened over it: `error` is a field of the answer, not copy — no screen renders this route.
+  if (events.length === 0) return json({ events: [], done: false, error: `${JOB_ID} names no job` }, 404);
   return streamAnswer(jobId, request.signal);
 }

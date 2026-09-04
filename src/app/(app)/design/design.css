@@ -143,7 +143,7 @@
  * The virtualised sample's window, shorter than five comfortable rows are tall so the thousand-line
  * register crops at the bottom edge instead of ending, and the pinned sample's box, narrower than
  * the five columns are wide so the leading column has something to hold still against. Both are
- * I-19 constants: a viewport no token measures.
+ * constants I-19 admits: a viewport no token measures.
  */
 .cx-gallery-table {
   height: 240px;
