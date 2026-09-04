@@ -105,6 +105,8 @@ function paletteOf(element: Element): CanvasPalette {
 export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, head: supplied }: ViewerScreenProps) {
   const [head, setHead] = useState<ViewerHead | null>(supplied ?? null);
   const [feedRefusal, setFeedRefusal] = useState<{ refusal: RefusalEntry; evidence: RefusalEvidence } | null>(null);
+  /** A head that could not be read at all — raised into the render so the error boundary takes it. */
+  const [headFailure, setHeadFailure] = useState<Error | null>(null);
   const [loadedLayers, setLoadedLayers] = useState(supplied?.kind === "manifest" ? supplied.manifest.layers.length : 0);
   const [renderer, setRenderer] = useState<"webgl" | "unavailable">("unavailable");
   /** Whether the browser has been asked for a context yet — before that, nothing is claimed (I-82). */
@@ -130,6 +132,11 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
 
   /* --------------------------------------------------------------------- the sheet, layer by layer */
 
+  // The posture the painter and the layer feed read, held on a ref: they run outside React's render
+  // and must never be a reason to fetch the sheet again.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   const flush = useCallback(() => {
     const painter = painterRef.current;
     if (painter === null) return;
@@ -139,8 +146,8 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       uploadedRef.current.add(name);
     }
     const at = cameraRef.current;
-    if (at !== null) painter.draw(at, state);
-  }, [state]);
+    if (at !== null) painter.draw(at, stateRef.current);
+  }, []);
 
   const takeLayer = useCallback(
     async (index: number, signal?: AbortSignal): Promise<boolean> => {
@@ -161,54 +168,56 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     }
 
     const controller = new AbortController();
-    void (async () => {
-      try {
-        const answer = await fetch(`${feed}?part=head`, { signal: controller.signal });
-        if (answer.status === 401) {
-          setFeedRefusal({ refusal: REFUSALS.SIGNED_OUT, evidence: { href: "/sign-in", label: strings.shell_evidence_sign_in } });
-          return;
-        }
-        if (answer.status === 403) {
-          setFeedRefusal({ refusal: REFUSALS.WORKSPACE_PERMISSION_NOT_HELD, evidence: { href: "/", label: strings.shell_denied_evidence } });
-          return;
-        }
-        const body = (await answer.json()) as HeadAnswer;
-        if (body.kind !== "manifest") {
-          setHead(body);
-          return;
-        }
-        setHead({
-          kind: "manifest",
-          cache: body.cache,
-          facts: body.facts,
-          manifest: {
-            version: body.version,
-            layoutName: body.layoutName,
-            extents: body.extents,
-            insunits: body.insunits,
-            digest: body.digest,
-            layers: body.layers.map((layer) => ({ ...layer, records: [] })),
-          },
-        });
-
-        // Layer by layer, in the roster's order: the first one painted is what a heavy sheet shows
-        // first, and a layer that does not arrive leaves its row standing (R-UI-043, I-81).
-        for (const [index, layer] of body.layers.entries()) {
-          if (controller.signal.aborted) return;
-          const took = await takeLayer(index, controller.signal);
-          if (took) setLoadedLayers((held) => held + 1);
-          else state.markLayerFailed(layer.name, true);
-          bump();
-        }
-      } catch {
-        // An aborted fetch is this screen leaving, not a failure to report: the head that never
-        // arrived leaves the loading surface standing, and a fresh mount asks again.
-        if (!controller.signal.aborted) setHead({ kind: "absent", reason: "not-ingested" });
+    const open = async (): Promise<void> => {
+      const answer = await fetch(`${feed}?part=head`, { signal: controller.signal });
+      if (answer.status === 401) {
+        setFeedRefusal({ refusal: REFUSALS.SIGNED_OUT, evidence: { href: "/sign-in", label: strings.shell_evidence_sign_in } });
+        return;
       }
-    })();
+      if (answer.status === 403) {
+        setFeedRefusal({ refusal: REFUSALS.WORKSPACE_PERMISSION_NOT_HELD, evidence: { href: "/", label: strings.shell_denied_evidence } });
+        return;
+      }
+      const body = (await answer.json()) as HeadAnswer;
+      if (body.kind !== "manifest") {
+        setHead(body);
+        return;
+      }
+      setHead({
+        kind: "manifest",
+        cache: body.cache,
+        facts: body.facts,
+        manifest: {
+          version: body.version,
+          layoutName: body.layoutName,
+          extents: body.extents,
+          insunits: body.insunits,
+          digest: body.digest,
+          layers: body.layers.map((layer) => ({ ...layer, records: [] })),
+        },
+      });
+
+      // Layer by layer, in the roster's order: the first one painted is what a heavy sheet shows
+      // first, and a layer that does not arrive leaves its row standing (R-UI-043, I-81).
+      for (const [index, layer] of body.layers.entries()) {
+        if (controller.signal.aborted) return;
+        const took = await takeLayer(index, controller.signal);
+        if (took) setLoadedLayers((held) => held + 1);
+        else stateRef.current.markLayerFailed(layer.name, true);
+        bump();
+      }
+    };
+
+    // A head that cannot be read at all is the error state and nothing else (I-81): it is raised
+    // into the render below, where the root error boundary — the tree's one home for a fault — takes
+    // it. A fetch cut short by this screen leaving is not a failure anybody must be told about.
+    void open().catch((failure: unknown) => {
+      if (controller.signal.aborted) return;
+      setHeadFailure(failure instanceof Error ? failure : new Error(String(failure)));
+    });
 
     return () => controller.abort();
-  }, [feed, supplied, takeLayer, state]);
+  }, [feed, supplied, takeLayer]);
 
   /* ----------------------------------------------------------------------------- the painted sheet */
 
@@ -228,7 +237,9 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       const stats = painter.frameStats();
       status?.setAttribute("data-frame-median-ms", String(stats.medianMs));
       status?.setAttribute("data-frame-p95-ms", String(stats.p95Ms));
-      setFirstPaint(true);
+      // First paint is the first geometry on the paper, never the paper alone: a blank sheet drawn
+      // before any layer arrived would answer PB-2 with a picture of nothing.
+      if (uploadedRef.current.size > 0) setFirstPaint(true);
     });
     flush();
 
@@ -248,9 +259,11 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   // Nothing to paint is painted at once: a refusal, an absence and a browser with no WebGL are all
   // on screen the moment the head answers, and first paint is what a reader can see (PB-2).
   useEffect(() => {
-    if (head !== null && (head.kind !== "manifest" || renderer === "unavailable")) setFirstPaint(true);
-    if (feedRefusal !== null) setFirstPaint(true);
-  }, [head, renderer, feedRefusal]);
+    if (feedRefusal !== null || (head !== null && head.kind !== "manifest")) setFirstPaint(true);
+    // A browser that offers no context, and a sheet whose roster is empty, have both shown
+    // everything they have the moment they are asked — but only once they have been asked (I-82).
+    if (probed && head?.kind === "manifest" && (renderer === "unavailable" || head.manifest.layers.length === 0)) setFirstPaint(true);
+  }, [head, probed, renderer, feedRefusal]);
 
   /* ------------------------------------------------------------------------------------ the camera */
 
@@ -398,6 +411,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   };
 
   const failed = rows.some((row) => row.failed);
+  if (headFailure !== null) throw headFailure;
 
   const workArea = (): ReactNode => {
     if (feedRefusal !== null) return <RefusalState refusal={feedRefusal.refusal} evidence={feedRefusal.evidence} />;

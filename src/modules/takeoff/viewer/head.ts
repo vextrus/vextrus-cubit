@@ -10,6 +10,7 @@
 import { entityGraphSchema } from "../../../core/entitygraph/schema";
 import { REFUSALS } from "../../../core/errors";
 import type { Storage } from "../../../core/storage";
+import type { IngestFacts } from "../ingest/facts";
 import { ingestRecordOf } from "../ingest/records";
 import { buildRenderManifest, graphHoldsLayout, manifestCacheKey } from "./manifest";
 import type { RenderManifest, ViewerHead } from "./types";
@@ -71,8 +72,18 @@ export async function renderManifestOf(scope: ViewerScope, deps: { storage: Stor
   // called, and never rendered as a refusal the reader could act on (ARCH-03).
   if (bytes === null) throw new Error(`the store holds no artifact at ${record.artifactSha256} for ingest ${record.ingestId} (SEAM-STORAGE)`);
 
-  const graph = parsedGraph(bytes);
-  if (graph === null) return { kind: "refusal", refusal: REFUSALS.MANIFEST_NOT_RENDERABLE, facts: record.facts };
+  // Both ways bytes can fail to be an artifact — not JSON at all, and JSON the one mirror refuses —
+  // are the same fact about the reading, so they answer the same registered way (L-CAD-05).
+  let json: unknown;
+  try {
+    json = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+  } catch {
+    return refused(record.facts);
+  }
+  const parsed = entityGraphSchema.safeParse(json);
+  if (!parsed.success) return refused(record.facts);
+
+  const graph = parsed.data;
   if (!graphHoldsLayout(graph, scope.layoutName)) return { kind: "absent", reason: "layout-unknown" };
 
   const manifest = buildRenderManifest(graph, scope.layoutName);
@@ -81,18 +92,10 @@ export async function renderManifestOf(scope: ViewerScope, deps: { storage: Stor
 }
 
 /**
- * The artifact behind an ingest record, read through the one mirror (L-CAD-05), or null where those
- * bytes are not an EntityGraph this tree reads. Both ways of failing to be one — bytes that are not
- * JSON at all, and JSON the mirror refuses — are the same fact about the reading, so they answer the
- * same way rather than one of them escaping as a thrown parse error.
+ * The registered answer for a reading nothing can be drawn from: the code, its message and its
+ * remedy carried whole out of the register, with the facts the reading did record beside them so a
+ * reader learns what was recovered (R-UI-043, R-SPINE-062).
  */
-function parsedGraph(bytes: Uint8Array): ReturnType<typeof entityGraphSchema.parse> | null {
-  let json: unknown;
-  try {
-    json = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
-  } catch {
-    return null;
-  }
-  const parsed = entityGraphSchema.safeParse(json);
-  return parsed.success ? parsed.data : null;
+function refused(facts: IngestFacts): ViewerHead {
+  return { kind: "refusal", refusal: REFUSALS.MANIFEST_NOT_RENDERABLE, facts };
 }

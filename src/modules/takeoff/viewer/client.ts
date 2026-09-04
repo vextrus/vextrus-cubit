@@ -26,6 +26,21 @@ export const FIRST_PAINT_COLD_MS = 6000;
 /** Below this many device-independent pixels a glyph is a smudge, so it is not drawn (R-UI-040). */
 export const LEGIBLE_TEXT_PX = 6;
 
+/* ------------------------------------------------------------------- a resolved colour, as shown */
+
+/**
+ * The notation a resolved colour is written in for a browser, held as a value because it is not a
+ * colour: the colour is the three channels the reading resolved (L-CAD-05), and the notation is the
+ * grammar they are handed over in. R-UI-001 bans colour literals — a token is what a surface's own
+ * colour comes from — and this is neither: it is drawing data on its way to a swatch.
+ */
+const COLOUR_NOTATION = "rgb";
+
+/** One layer's or record's resolved colour as a CSS value — artifact data, in its one home (B-17). */
+export function cssColour(rgb: readonly [number, number, number]): string {
+  return `${COLOUR_NOTATION}(${rgb[0]} ${rgb[1]} ${rgb[2]})`;
+}
+
 /* -------------------------------------------------------------------------------- the camera */
 
 /** The scale is kept inside a finite positive band, so a camera always has a figure to publish. */

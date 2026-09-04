@@ -253,11 +253,15 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     gl.vertexAttribPointer(at, size, gl.FLOAT, false, 0, 0);
   };
 
-  /** The camera, as both programs take it. */
+  /**
+   * The camera, as both programs take it. The viewport is the camera's own — in the layout pixels
+   * `scale` is stated in — and never the backing store's: the device ratio is the GL viewport's
+   * business, and mixing the two would zoom the sheet by the ratio on a HiDPI screen.
+   */
   const camera3 = (program: WebGLProgram, camera: Camera): void => {
     gl.uniform2f(gl.getUniformLocation(program, "u_centre"), camera.centre[0], camera.centre[1]);
     gl.uniform1f(gl.getUniformLocation(program, "u_scale"), camera.scale);
-    gl.uniform2f(gl.getUniformLocation(program, "u_viewport"), canvas.width, canvas.height);
+    gl.uniform2f(gl.getUniformLocation(program, "u_viewport"), Math.max(camera.viewport.width, 1), Math.max(camera.viewport.height, 1));
   };
 
   /** The backing store, at the layout size and the capped device ratio. */
@@ -286,8 +290,8 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.disable(gl.DEPTH_TEST);
 
-    const camera = { ...request.camera, viewport: { width: canvas.width, height: canvas.height } };
-    const box = viewBox(request.camera);
+    const camera = request.camera;
+    const box = viewBox(camera);
 
     gl.useProgram(lineProgram);
     camera3(lineProgram, camera);

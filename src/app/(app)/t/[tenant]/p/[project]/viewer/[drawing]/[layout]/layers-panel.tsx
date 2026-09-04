@@ -9,7 +9,8 @@
  * keeps its row and offers to fetch itself again — a sheet is not withdrawn because part of it is
  * missing (R-UI-050, Decision I-81).
  */
-import type { LayerRow } from "../../../../../../../../../modules/takeoff/viewer/client";
+import { useState } from "react";
+import { cssColour, type LayerRow } from "../../../../../../../../../modules/takeoff/viewer/client";
 import { formatUserFigure } from "../../../../../../../../../core/format";
 import { Button } from "../../../../../../../../../ui/primitives/core";
 import { fill, strings } from "../../../../../../../../../ui/strings";
@@ -22,12 +23,11 @@ export type LayersPanelProps = {
   onRetry: (name: string) => void;
 };
 
-/** A layer's resolved colour, as a style value — artifact data, never a token (Decision § 1). */
-function swatchColour(rgb: readonly [number, number, number]): string {
-  return `rgb(${rgb[0]} ${rgb[1]} ${rgb[2]})`;
-}
-
 export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry }: LayersPanelProps) {
+  // Which row the keyboard is inside. The controls' reveal is the row's posture rather than a focus
+  // style of this screen's own: the focus indicator has exactly one home (B-17, R-UI-012).
+  const [active, setActive] = useState<string | null>(null);
+
   return (
     <section className="cx-viewer-layers" data-testid="viewer-layers" aria-label={strings.viewer_layers_heading}>
       <h2 className="cx-viewer-layers-heading">{strings.viewer_layers_heading}</h2>
@@ -43,6 +43,9 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry }: Lay
             data-locked={String(row.locked)}
             data-isolated={String(row.isolated)}
             data-failed={String(row.failed)}
+            data-active={String(row.name === active)}
+            onFocus={() => setActive(row.name)}
+            onBlur={() => setActive(null)}
           >
             <button
               type="button"
@@ -57,7 +60,7 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry }: Lay
                 className="cx-viewer-layer-swatch"
                 data-testid="viewer-layer-swatch"
                 aria-hidden="true"
-                style={{ background: row.visible ? swatchColour(row.rgb) : "none", borderColor: swatchColour(row.rgb) }}
+                style={{ background: row.visible ? cssColour(row.rgb) : "none", borderColor: cssColour(row.rgb) }}
               />
             </button>
 
