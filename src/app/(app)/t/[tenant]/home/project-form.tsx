@@ -97,6 +97,12 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
   /** The alert's id on the field this judgement is about, and nothing on any other field. */
   const invalidBy = (testId: string): string | null => (offending === testId ? alertId : null);
 
+  // The choice states its own invalidity off the answer it holds, not off which field the ordered
+  // judgement happened to name first: a refused submission that left both the name and the type
+  // unanswered is refused for the name, and the five chips are just as unanswered for that (Q-11).
+  // It is spent the moment a type is pressed, because the group then holds the answer it lacked.
+  const typeUnanswered = judgement !== null && buildingType === "";
+
   return (
     <>
       <h2 className="cx-home-form-heading">
@@ -132,8 +138,8 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
         <fieldset
           className="cx-home-types"
           data-testid="project-building-type"
-          aria-invalid={invalidBy("project-building-type") === null ? undefined : true}
-          aria-describedby={invalidBy("project-building-type") ?? undefined}
+          aria-invalid={typeUnanswered ? true : undefined}
+          aria-describedby={typeUnanswered ? alertId : undefined}
         >
           <legend className="cx-home-field-label">{strings.home_field_building_type}</legend>
           <div className="cx-home-types-choices">
@@ -145,8 +151,8 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
               <Chip
                 key={type}
                 selected={buildingType === type}
-                aria-invalid={invalidBy("project-building-type") === null ? undefined : true}
-                aria-describedby={invalidBy("project-building-type") ?? undefined}
+                aria-invalid={typeUnanswered ? true : undefined}
+                aria-describedby={typeUnanswered ? alertId : undefined}
                 onClick={() => setBuildingType(type)}
               >
                 {strings[BUILDING_TYPE_LABEL[type]]}
