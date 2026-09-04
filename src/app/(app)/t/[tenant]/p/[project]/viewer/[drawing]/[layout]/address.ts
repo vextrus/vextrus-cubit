@@ -53,11 +53,18 @@ function named(pathname: string): string {
   return pathname.split("/").map(readSegment).join("/");
 }
 
+/** What the query grammar spends on structure and a path segment spends on nothing but text. */
+const QUERY_STRUCTURE = /[+&=]/g;
+const AS_ESCAPE: Readonly<Record<string, string>> = { "+": "%2B", "&": "%26", "=": "%3D" };
+
 /**
  * One segment as the text it names. The decode is the query parser's, which answers on a malformed
  * escape where `decodeURIComponent` throws — and a thrown address would be one more silent way for
- * the camera to stop being published. A `+` is a plus in a path, so it is kept as one.
+ * the camera to stop being published. The three characters that grammar reads as structure are
+ * escaped first, because in a path they are none: an unescaped `&` would otherwise end the segment
+ * mid-name and a `+` would be read as a space.
  */
 function readSegment(segment: string): string {
-  return new URLSearchParams(`s=${segment.replaceAll("+", "%2B")}`).get("s") ?? segment;
+  const asQuery = segment.replaceAll(QUERY_STRUCTURE, (char) => AS_ESCAPE[char] ?? char);
+  return new URLSearchParams(`s=${asQuery}`).get("s") ?? segment;
 }
