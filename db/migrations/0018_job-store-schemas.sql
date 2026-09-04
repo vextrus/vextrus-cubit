@@ -13,6 +13,10 @@
 -- whichever of them writes to a given database first.
 CREATE SCHEMA IF NOT EXISTS "cubit_jobs";
 --> statement-breakpoint
+-- And taken back where an earlier form of this migration handed it out: the app role holds no right
+-- to make schemas in the database it serves, on any deployment this lane has ever crossed.
+DO $$ BEGIN EXECUTE format('REVOKE CREATE ON DATABASE %I FROM %I', current_database(), 'cubit_app'); END $$;
+--> statement-breakpoint
 GRANT USAGE, CREATE ON SCHEMA "cubit_jobs" TO "cubit_app";
 --> statement-breakpoint
 -- The log is a queue's working state, not a ledger: a claim is released and an event is read back,
