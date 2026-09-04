@@ -3,10 +3,10 @@
 // of the bytes it names, one build, and every later ask for the same content answered from memory.
 //
 // The three answers stay three (ARCH-03, B-21): a drawing nobody has read yet, or a sheet name the
-// reading does not carry, is an absence a screen teaches from; bytes the one mirror cannot parse are
-// the registered refusal with the facts the reading did record; and bytes the store does not hold at
-// the address the record names is an outage of ours, which is raised as a fault rather than dressed
-// up as an answer about the drawing.
+// reading does not carry, is an absence a screen teaches from; and every way the bytes the record
+// names fail to yield a sheet — the store holding nothing at that address, bytes that are not JSON,
+// JSON the one mirror refuses — is the same registered refusal, carrying the facts the reading did
+// record so the reader still learns what was recovered.
 import { entityGraphSchema } from "../../../core/entitygraph/schema";
 import { REFUSALS } from "../../../core/errors";
 import type { Storage } from "../../../core/storage";
@@ -67,10 +67,11 @@ export async function renderManifestOf(scope: ViewerScope, deps: { storage: Stor
   if (held !== undefined) return { kind: "manifest", manifest: held, cache: "hit", facts: record.facts };
 
   const bytes = await deps.storage.get(scope.tenantId, record.artifactSha256);
-  // The record and the object were written together, so an address the store cannot answer is our
-  // outage and not a fact about the drawing — it is raised, reported at the fault seam by whoever
-  // called, and never rendered as a refusal the reader could act on (ARCH-03).
-  if (bytes === null) throw new Error(`the store holds no artifact at ${record.artifactSha256} for ingest ${record.ingestId} (SEAM-STORAGE)`);
+  // An address the store cannot answer leaves the sheet exactly as unrenderable as bytes the mirror
+  // refuses, and the reader's move is the same one: re-read the drawing. So it is the registered
+  // refusal with the recovered facts beside it, never a raise the reader can do nothing with
+  // (R-UI-043, R-UI-020).
+  if (bytes === null) return refused(record.facts);
 
   // Both ways bytes can fail to be an artifact — not JSON at all, and JSON the one mirror refuses —
   // are the same fact about the reading, so they answer the same registered way (L-CAD-05).

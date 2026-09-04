@@ -178,7 +178,10 @@ Declared in `states.ts` as `VIEWER_STATES` (the route's enumerable home) and mir
   is the partial cell, not this one.
 - **Refusal** — `kind: "refusal"`: the one `RefusalState` (surface `banner`, severity `error`,
   `MANIFEST_NOT_RENDERABLE`) pinned across the top of the work area, in the canvas's place, with the
-  fidelity facts below it (§3) and the evidence link to the project home. No canvas mounts. The
+  fidelity facts below it (§3) and the evidence link to the project home. No canvas mounts. Both
+  ways the reading fails to yield a sheet reach this one cell: bytes the mirror cannot parse, and an
+  artifact address the store no longer answers — the reader's move is the same (re-read the drawing),
+  so neither is dressed as an outage the reader can do nothing with. The
   mid-session refusals the layer feed can answer — `SIGNED_OUT` (401) and
   `WORKSPACE_PERMISSION_NOT_HELD` (403) — render through the same one renderer in the same place,
   evidence `/sign-in` and the workspace home respectively.
