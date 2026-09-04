@@ -81,9 +81,9 @@ test("AC-4(a): the resolver flips the attribute when dark is preferred and leave
 });
 
 test("AC-4(b): neither file narrates the build in its comments", () => {
-  // white-box: AC-4(b) — Q-17 bans process artifacts in src/ comments; a comment has no runtime
-  // observable at all, so its text is the only place the criterion can be judged.
   for (const file of [LAYOUT, RESOLVER]) {
+    // white-box: AC-4(b) — Q-17 bans process artifacts in src/ comments; a comment has no runtime
+    // observable at all, so its text is the only place the criterion can be judged.
     for (const comment of commentsOf(file)) {
       expect(/\binc-[a-z0-9]/i.test(comment), `${file} cites a build id: ${comment}`).toBe(false);
       expect(/\bincrements?\b/i.test(comment), `${file} narrates the build organisation: ${comment}`).toBe(false);

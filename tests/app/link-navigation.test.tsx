@@ -27,6 +27,8 @@ test.each([FOOTER, BOOKS])("AC-5(a): %s hops through the router, never through a
     imports.some((line) => line.specifier === "next/link"),
     `${file} does not import next/link`,
   ).toBe(true);
+  // white-box: AC-5(a) — the rendered document holds an anchor either way, so which tag the screen
+  // opened is not observable through it; the render below asserts what the anchor must still carry.
   expect(/<a[\s/>]/.test(codeOf(file)), `${file} still opens a bare <a> tag`).toBe(false);
 });
 

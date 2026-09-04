@@ -31,12 +31,23 @@ function valueOf(token: string): number {
 
 /** The stylesheet with its comments gone: declarations and selectors, as the browser reads them. */
 function declarations(): string {
+  // white-box: AC-4(c), AC-4(d) — this criterion is about what the stylesheet SAYS about itself and
+  // about which selector carries the width; neither has a runtime observable a screen could be asked.
   return withoutComments(DESIGN_CSS);
 }
 
 /** The `@media` preludes, which are conditions rather than declarations. */
 function mediaConditions(): string[] {
+  // white-box: AC-4(c) — a media condition is evaluated before the cascade and reads no token, so
+  // the px it is spelled with exists only as text.
   return [...declarations().matchAll(/@media([^{]*)\{/g)].map((match) => match[1] ?? "");
+}
+
+/** What the file says about itself, which is the whole of what AC-4(c) grades. */
+function claimsMadeAboutItself(): readonly string[] {
+  // white-box: AC-4(c) — a comment has no runtime observable at all: its text is the only place a
+  // claim the file makes about its own px constants can be judged (Q-17's test honesty, B-19).
+  return commentsOf(DESIGN_CSS);
 }
 
 test("AC-4(c): the px count the comments claim is the px count the stylesheet holds", () => {
@@ -47,7 +58,7 @@ test("AC-4(c): the px count the comments claim is the px count the stylesheet ho
   expect(constants.length, "a stylesheet with no px constant makes no claim worth checking").toBeGreaterThan(0);
 
   const claims: { comment: string; claimed: number }[] = [];
-  for (const comment of commentsOf(DESIGN_CSS)) {
+  for (const comment of claimsMadeAboutItself()) {
     const patterns = [new RegExp(`\\b(${NUMBER})\\b(?:\\s+\\S+){0,3}\\s+constants?\\b`, "gi"), new RegExp(`\\bconstants?\\b(?:\\s+\\S+){0,4}?\\s+(${NUMBER})\\b`, "gi")];
     for (const pattern of patterns) {
       for (const match of comment.matchAll(pattern)) claims.push({ comment, claimed: valueOf(match[1] ?? "") });
@@ -68,7 +79,7 @@ test("AC-4(c): the one media condition's px is stated as the further px it is", 
   expect(further.length, "the condition is spelled in px, because a media query cannot read a token").toBe(1);
 
   const px = further[0] as string;
-  const said = commentsOf(DESIGN_CSS).some((comment) => comment.includes(px) && /media|condition|breakpoint/i.test(comment));
+  const said = claimsMadeAboutItself().some((comment) => comment.includes(px) && /media|condition|breakpoint/i.test(comment));
   expect(said, `no comment accounts for ${px}, the one px outside the constants`).toBe(true);
 });
 
