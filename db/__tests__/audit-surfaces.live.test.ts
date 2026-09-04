@@ -15,15 +15,14 @@
 // Raw SQL is spoken through psql, never a driver import: SEAM-TENANT's ban binds this file like the
 // rest of the tree. Product modules are loaded by absolute path, so a module the Builder has not
 // written yet fails as an assertion naming the file instead of killing collection at transform time.
-import { randomUUID } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, describe, expect, test } from "vitest";
 import { provisionScratchDb } from "./harness";
-import { TENANT_ALPHA } from "./support/fixtures";
-import { isTrue, lit, scalar, seedTenants } from "./support/live-sql";
+import { GUC_SYSTEM_REASON, SEED_REASON, TENANT_ALPHA, TENANT_COLUMN } from "./support/fixtures";
+import { ident, isTrue, lit, scalar, seedTenants, withSession } from "./support/live-sql";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -83,6 +82,17 @@ const staged = (): Promise<Stage> =>
     const tenantId = seedTenants(provisioned.urlMigrate)[TENANT_ALPHA] ?? "";
     expect(tenantId, `the scenario seeded no ${TENANT_ALPHA}`).not.toBe("");
 
+    // S-Audit answers a not-found for an address naming no project of this workspace, so the scene
+    // stages a project the workspace really holds: the panels' posture and the explorer's empty
+    // state are properties of a real project with no acts, not of an id nothing answers to.
+    const projectId = scalar(
+      provisioned.urlMigrate,
+      withSession(
+        { [GUC_SYSTEM_REASON]: SEED_REASON },
+        `insert into projects (${ident(TENANT_COLUMN)}, name) values (${lit(tenantId)}, 'Audit surfaces acceptance') returning project_id::text;`,
+      ),
+    );
+
     // The product opens its pool from this, so it is repointed before the module is imported.
     process.env["DATABASE_URL"] = provisioned.urlApp;
     const module = await productModule<{ getAuditSurfaces?: GetAuditSurfaces; AUDIT_PANEL_TABLES?: Record<string, string> }>(AUDIT_MODULE);
@@ -95,7 +105,7 @@ const staged = (): Promise<Stage> =>
     return {
       urlMigrate: provisioned.urlMigrate,
       tenantId,
-      projectId: randomUUID(),
+      projectId,
       getAuditSurfaces: door as GetAuditSurfaces,
       panelTables: tables as Record<string, string>,
     };
