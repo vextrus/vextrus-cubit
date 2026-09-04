@@ -62,6 +62,12 @@ export type JobPayloads = {
     stepDelayMs?: number;
     failAtStep?: string;
     refuseWith?: RefusalCode;
+    /**
+     * A file whose existence ends every remaining step's wait at once. A test that holds a slot
+     * with a long probe can let it go the moment its proof is made instead of waiting the delays
+     * out — the hold still outlasts whatever it was guarding if nobody ever writes the file.
+     */
+    releaseWhen?: string;
   };
   /**
    * One drawing's ingest (R-TO-001). `declared` is what makes a re-ingest a declared act rather
