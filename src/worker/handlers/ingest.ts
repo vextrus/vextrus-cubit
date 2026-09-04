@@ -4,7 +4,7 @@
 // wiring is made here and nowhere else (ARCH-02, B-17).
 import { registerJobHandler } from "../../core/jobs";
 import { uploadStorage } from "../../modules/spine/uploads";
-import { INGEST_KIND, runIngestJob } from "../../modules/takeoff/ingest";
+import { INGEST_KIND, runIngestJob } from "../../modules/takeoff/ingest/job";
 import { requestThumbnails } from "../../modules/takeoff/thumbnails";
 
 /** The step an ingest records when the previews it chained were refused rather than asked for. */

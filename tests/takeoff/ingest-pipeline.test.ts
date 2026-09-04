@@ -31,6 +31,7 @@ import {
   INGEST_HANDLER_MODULE,
   INGEST_KIND,
   INGEST_MODULE,
+  ingestSeam,
   JOBS_MODULE,
   orderOf,
   productModule,
@@ -95,7 +96,7 @@ function staged(): Promise<Staged> {
     const jobs = await productModule<JobsSeam>(JOBS_MODULE);
     expect(typeof jobs.registerJobHandler, `${JOBS_MODULE} must export registerJobHandler — src/core cannot name a handler that spawns a CLI (ARCH-01)`).toBe("function");
 
-    const ingest = await productModule<IngestSeam>(INGEST_MODULE);
+    const ingest = await ingestSeam();
     const handler = await productModule<{ registerIngestHandler: () => void }>(INGEST_HANDLER_MODULE);
     expect(typeof handler.registerIngestHandler, `${INGEST_HANDLER_MODULE} must export registerIngestHandler — it is the composition root`).toBe("function");
 
