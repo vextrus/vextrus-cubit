@@ -43,8 +43,20 @@ export const SYNTHETIC_TEXT_HEIGHTS: readonly number[] = Object.freeze([0.1, 0.2
 /** The space the generated sheet lives in — one model layout, as L-CAD-05 shapes a layout inventory. */
 export const SYNTHETIC_LAYOUT = "model";
 
-/** Every tenth record is text, so a 100 000-entity sheet carries 10 000 of them to hide and reveal. */
+/**
+ * Every tenth record *of each layer* is text, so a 100 000-entity sheet carries 10 000 of them to
+ * hide and reveal and no layer is left with none. Counted within the layer rather than across the
+ * whole sheet: a stride taken on the global index aliases with the round-robin whenever the layer
+ * count shares a factor with it, and every layer would then be either all text or none.
+ */
 const TEXT_EVERY = 10;
+
+/**
+ * How far the height ladder advances between one text record of a layer and its next. Coprime with
+ * `SYNTHETIC_TEXT_HEIGHTS.length`, so a layer's texts walk the whole ladder — smallest and largest
+ * included — rather than settling on one arm of it.
+ */
+const HEIGHT_STRIDE = 3;
 
 /** The three drawn types the sheet is made of — a path, a longer path, and a piece of text. */
 const TEXT_TYPE = "TEXT";
@@ -88,9 +100,12 @@ export function syntheticKey(index: number): string {
 /**
  * A deterministic EntityGraph v2 of the size asked for.
  *
- * Layers are round-robin so every layer carries the same kind of geometry and the same spread of
- * text heights — a criterion that isolates one layer or hides one gets a comparable sheet whichever
- * layer it picks.
+ * Layers are round-robin, and what a record *is* — text or geometry, at which height, of which
+ * type — is decided by its position within its own layer's turn (`within`), never by its position
+ * in the sheet. That is what makes the promise true rather than merely intended: every layer
+ * carries both kinds of geometry and the same spread of text heights, smallest and largest
+ * included, for every layer count. A criterion that isolates one layer or hides one therefore gets
+ * a comparable sheet whichever layer it picks.
  */
 export function syntheticEntityGraph(options: SyntheticOptions): EntityGraph {
   const count = options.entities;
@@ -107,14 +122,17 @@ export function syntheticEntityGraph(options: SyntheticOptions): EntityGraph {
 
   for (let index = 0; index < count; index += 1) {
     const layerIndex = index % layers;
-    const type = index % TEXT_EVERY === TEXT_EVERY - 1 ? TEXT_TYPE : index % 2 === 0 ? LINE_TYPE : POLYLINE_TYPE;
+    // The record's place in its own layer's run: index = layerIndex + within * layers, so `within`
+    // counts 0, 1, 2, … within every layer alike whatever the layer count is.
+    const within = Math.floor(index / layers);
+    const type = within % TEXT_EVERY === TEXT_EVERY - 1 ? TEXT_TYPE : within % 2 === 0 ? LINE_TYPE : POLYLINE_TYPE;
     const x = round(minX + random() * spanX);
     const y = round(minY + random() * spanY);
     const colour = { rgb: colours[layerIndex] ?? [0, 0, 0], source: "bylayer" as const };
     const base = { key: syntheticKey(index), type, space: SYNTHETIC_LAYOUT, layer: names[layerIndex] ?? "", colour };
 
     if (type === TEXT_TYPE) {
-      const height = SYNTHETIC_TEXT_HEIGHTS[Math.floor(index / TEXT_EVERY) % SYNTHETIC_TEXT_HEIGHTS.length] ?? 1;
+      const height = SYNTHETIC_TEXT_HEIGHTS[(Math.floor(within / TEXT_EVERY) * HEIGHT_STRIDE) % SYNTHETIC_TEXT_HEIGHTS.length] ?? 1;
       // The anchor: text carries a single point so the sheet can place it, and the world height the
       // extractor read (L-CAD-05: "text carries world height").
       entities.push({ ...base, text: `N${index}`, height, points: [[x, y]] });
