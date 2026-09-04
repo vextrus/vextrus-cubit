@@ -14,6 +14,21 @@ import { repoPath } from "./support/source-facts";
 /** The module this sweep adds, and nothing else in the tree's history does: the sweep's sentinel. */
 const SENTINEL = "src/app/theme-resolver.ts";
 
+/**
+ * Does this path name a test? Q-08 is written about the change, not about a directory, so the guard
+ * asks it of the whole tree and reads the subject off the path: a `*.test.*`/`*.spec.*` file, or one
+ * living under a `__tests__/` or `tests/` folder anywhere in it (arbitration on this file, attempt 5).
+ */
+const TEST_SUBJECT = /(\.(test|spec)\.[cm]?[jt]sx?|(^|\/)__tests__\/|(^|\/)tests\/)/;
+
+/**
+ * The pre-existing tests this sweep may rewrite, each one a recorded reason under Q-08. B-20 gives an
+ * increment that changes law the acceptance the old law froze, and the arbitration on this file
+ * granted this sweep ownership of the acceptance it re-baselines; naming the exception here is how the
+ * guard states it rather than passing by never having looked.
+ */
+const REBASELINED: readonly string[] = ["db/__tests__/audit-surfaces.live.test.ts"];
+
 /** The files whose rows the plan excluded — each one a Decision's shipped form (see the spec). */
 const EXCLUDED = [
   "src/app/(auth)/s-auth.css",
@@ -77,7 +92,16 @@ test("AC-6: no visual baseline moved, and no test that existed before the sweep 
   if (!armed) return;
   expect(changed("tests/e2e/baselines"), "a sweep that changes no law re-baselines nothing (B-20)").toEqual([]);
 
-  const rewritten = changed("tests").filter((change) => !change.status.startsWith("A"));
+  const modified = changed(".").filter((change) => !change.status.startsWith("A") && TEST_SUBJECT.test(change.path));
+
+  // An exception that no longer names anything re-opens the hole in silence, so each one has to be a
+  // test this branch really rewrote: a stale roster fails here rather than quietly forgiving the tree.
+  const modifiedPaths = modified.map((change) => change.path);
+  for (const file of REBASELINED) {
+    expect(modifiedPaths, `${file} is recorded as re-baselined under B-20, but this branch does not rewrite it`).toContain(file);
+  }
+
+  const rewritten = modified.filter((change) => !REBASELINED.includes(change.path));
   expect(rewritten, "a test that existed before the sweep may not be modified or deleted to make it pass (Q-08)").toEqual([]);
 });
 
