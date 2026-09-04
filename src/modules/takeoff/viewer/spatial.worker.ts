@@ -38,16 +38,45 @@ let index: SpatialIndex = { root: null, size: 0 };
 /** Every layer posted so far, so a sheet that arrives layer by layer indexes what it has. */
 const layers: RenderLayer[] = [];
 
+/** Whether a layer has arrived since the index was last packed. */
+let stale = false;
+
+/** The quiet a settling sheet is packed after — long enough that a progressive load's layers are
+ * one build between them. */
+const INDEX_SETTLE_MS = 200;
+
+let settle: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * The index over everything posted so far, packed if a layer has arrived since the last packing. A
+ * pack is a sort of every record in the sheet, so packing once per arriving layer would pay for the
+ * whole sheet N times over — and on this thread, which owes a hit an answer inside 16 ms (PB-3).
+ * Arrivals mark the sheet stale instead, and the pack happens once the layers go quiet, or at the
+ * first question asked before they do.
+ */
+const packed = (): SpatialIndex => {
+  if (stale) {
+    index = buildSpatialIndex({ layers });
+    stale = false;
+  }
+  return index;
+};
+
 scope.addEventListener("message", (event) => {
   const request = event.data;
   if (request.kind === "index") {
     layers.push(...request.layers);
-    index = buildSpatialIndex({ layers });
+    stale = true;
+    if (settle !== null) clearTimeout(settle);
+    settle = setTimeout(() => {
+      settle = null;
+      packed();
+    }, INDEX_SETTLE_MS);
     scope.postMessage({ id: request.id, keys: [] });
     return;
   }
   scope.postMessage({
     id: request.id,
-    keys: hitTest(index, request.point, request.tolerance, request.lockedLayers ?? []),
+    keys: hitTest(packed(), request.point, request.tolerance, request.lockedLayers ?? []),
   });
 });

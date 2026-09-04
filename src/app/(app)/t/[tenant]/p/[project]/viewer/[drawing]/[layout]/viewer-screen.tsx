@@ -375,26 +375,53 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     setCamera(asked === null ? fitCamera(head.manifest.extents, viewportPx) : cameraFromViewport(asked, viewportPx));
   }, [head, initialViewport]);
 
+  /**
+   * R-UI-031: the address is the camera. It is replaced rather than pushed, so going back leaves the
+   * sheet instead of unwinding a pan.
+   */
+  const publishAddress = useCallback((at: Camera): void => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("v", serialiseViewport(at));
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+  }, []);
+
   useEffect(() => {
     cameraRef.current = camera;
     if (camera === null) return;
     painterRef.current?.draw(camera, state);
-    // R-UI-031: the address is the camera. It is replaced rather than pushed, so going back leaves
-    // the sheet instead of unwinding a pan.
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("v", serialiseViewport(camera));
-      window.history.replaceState(null, "", `${url.pathname}${url.search}`);
-    }
-  }, [camera, state]);
+    publishAddress(camera);
+  }, [camera, publishAddress, state]);
 
-  /** The settle a gesture's last frame is published on, cancelled if the screen leaves first. */
+  /** The settle a gesture's last frame is published on. */
   const settleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * The gesture's last camera written to the address now rather than when its settle fires. A reader
+   * who copies the address, follows a link or closes the tab inside the settle window would
+   * otherwise carry the viewport the gesture started from — the throttle may delay the write, but it
+   * may not lose it (R-UI-031).
+   */
+  const flushAddress = useCallback((): void => {
+    if (settleRef.current === null) return;
+    clearTimeout(settleRef.current);
+    settleRef.current = null;
+    const at = cameraRef.current;
+    if (at === null) return;
+    publishAddress(at);
+    setCamera(at);
+  }, [publishAddress]);
+
   useEffect(() => {
+    const onLeaving = (): void => flushAddress();
+    document.addEventListener("visibilitychange", onLeaving);
+    window.addEventListener("pagehide", onLeaving);
     return () => {
-      if (settleRef.current !== null) clearTimeout(settleRef.current);
+      document.removeEventListener("visibilitychange", onLeaving);
+      window.removeEventListener("pagehide", onLeaving);
+      flushAddress();
     };
-  }, []);
+  }, [flushAddress]);
 
   /**
    * The camera a reader moved to. A gesture in flight moves it on the ref the painter draws from and
@@ -427,11 +454,14 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     if (stage === null || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
       const box = stage.getBoundingClientRect();
-      setCamera((held) => (held === null ? held : { ...held, viewport: { width: box.width, height: box.height } }));
+      // Off the camera the gesture holds, never the one React last published: a panel resized while
+      // a drag or a wheel is in flight would otherwise write the pre-gesture camera back and throw
+      // the pan away.
+      moveCamera((held) => ({ ...held, viewport: { width: box.width, height: box.height } }), false);
     });
     observer.observe(stage);
     return () => observer.disconnect();
-  }, [head]);
+  }, [head, moveCamera]);
 
   // Decision § 6: the canvas cannot inherit a variable, so the three values are read again whenever
   // the document's theme changes and the same sheet is repainted — no refetch, no camera change.

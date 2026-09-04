@@ -134,6 +134,17 @@ type Chunk = {
   box: [number, number, number, number];
 };
 
+/**
+ * A run of vertices painted one colour: the record's own, or `null` where the reading resolved
+ * colour 7 and the canvas ink decides (I-79). Kept per record so a theme change re-fills the two
+ * colour buffers without tessellating the sheet again — the positions, texels, chunks and heights a
+ * palette does not touch stay exactly as they were uploaded.
+ */
+type ColourRun = {
+  readonly rgb: readonly [number, number, number] | null;
+  readonly vertices: number;
+};
+
 /** One layer on the GPU: its lines, and its text sorted by world height so LOD is a range. */
 type Batch = {
   lineBuffer: WebGLBuffer | null;
@@ -146,6 +157,11 @@ type Batch = {
   heights: number[];
   starts: number[];
   glyphVertices: number;
+  /** The colour of each record's vertices, in the order the two buffers hold them. */
+  lineRuns: ColourRun[];
+  glyphRuns: ColourRun[];
+  /** Whether any run paints in the ink — a layer with none of them survives a theme change as is. */
+  usesInk: boolean;
 };
 
 /** A CSS colour as three floats. Only the two spellings a computed token value takes are read. */
@@ -158,12 +174,33 @@ function channelsOf(colour: string): [number, number, number] {
   return [red ?? 0, green ?? 0, blue ?? 0];
 }
 
-/** The colour a record paints in: its own, unless the reading resolved colour 7 (I-79). */
-function paintColour(record: RenderRecord, ink: [number, number, number]): [number, number, number] {
+/**
+ * The colour a record paints in, as three floats — or `null` where the reading resolved colour 7 and
+ * the canvas ink decides, which is the one thing about a record's colour a theme changes (I-79).
+ */
+function recordColour(record: RenderRecord): readonly [number, number, number] | null {
   const [red, green, blue] = record.rgb;
   const white = red >= NEAR_WHITE && green >= NEAR_WHITE && blue >= NEAR_WHITE;
   const black = red <= NEAR_BLACK && green <= NEAR_BLACK && blue <= NEAR_BLACK;
-  return white || black ? ink : [red / 255, green / 255, blue / 255];
+  return white || black ? null : [red / 255, green / 255, blue / 255];
+}
+
+/** The runs spread out into the vertex colours a buffer takes, with the ink filled in. */
+function colourFloats(runs: readonly ColourRun[], ink: readonly [number, number, number]): Float32Array {
+  let vertices = 0;
+  for (const run of runs) vertices += run.vertices;
+  const filled = new Float32Array(vertices * 3);
+  let at = 0;
+  for (const run of runs) {
+    const [red, green, blue] = run.rgb ?? ink;
+    for (let vertex = 0; vertex < run.vertices; vertex += 1) {
+      filled[at] = red;
+      filled[at + 1] = green;
+      filled[at + 2] = blue;
+      at += 3;
+    }
+  }
+  return filled;
 }
 
 /** A compiled program, or null where the context refused one. */
@@ -255,9 +292,6 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   let palette = tokens;
   let atlas = atlasTexture(gl, palette.mono);
   const batches = new Map<string, Batch>();
-  /** The layers as they arrived, kept so a theme change re-letters the sheet it already holds. The
-   * records are the very ones the screen holds; nothing is copied (Decision § 6). */
-  const sources = new Map<string, RenderLayer>();
   let frame: Chunk | null = null;
   let frameBuffer: WebGLBuffer | null = null;
   let frameColours: WebGLBuffer | null = null;
@@ -272,6 +306,13 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   let lastAskedAt = 0;
   let pending: { camera: Camera; drawn: Set<string> } | null = null;
   let listener: (() => void) | null = null;
+
+  /** A buffer already on the GPU, filled again — the whole of a colour change (Decision § 6). */
+  const refill = (buffer: WebGLBuffer | null, data: Float32Array): void => {
+    if (buffer === null) return;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  };
 
   /** One buffer, filled once. */
   const bufferOf = (data: Float32Array): WebGLBuffer | null => {
@@ -434,7 +475,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   const uploadLayer = (layer: RenderLayer): void => {
     const ink = channelsOf(palette.ink);
     const positions: number[] = [];
-    const colours: number[] = [];
+    const lineRuns: ColourRun[] = [];
     const chunks: Chunk[] = [];
     let chunkStart = 0;
     let chunkBox: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
@@ -449,12 +490,11 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     for (const record of layer.records) {
       const points = record.points;
       if (points === undefined || points.length < 2) continue;
-      const [red, green, blue] = paintColour(record, ink);
+      lineRuns.push({ rgb: recordColour(record), vertices: (points.length - 1) * 2 });
       for (let at = 1; at < points.length; at += 1) {
         const from = points[at - 1] as readonly [number, number];
         const to = points[at] as readonly [number, number];
         positions.push(from[0], from[1], to[0], to[1]);
-        colours.push(red, green, blue, red, green, blue);
         chunkBox = [
           Math.min(chunkBox[0], from[0], to[0]),
           Math.min(chunkBox[1], from[1], to[1]),
@@ -473,7 +513,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       .sort((a, b) => (a.height ?? 0) - (b.height ?? 0));
     const glyphs: number[] = [];
     const texels: number[] = [];
-    const glyphColours: number[] = [];
+    const glyphRuns: ColourRun[] = [];
     const heights: number[] = [];
     const starts: number[] = [];
 
@@ -482,9 +522,10 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       starts.push(glyphs.length / 2);
       const height = record.height ?? 0;
       const [originX, originY] = record.anchor as readonly [number, number];
-      const [red, green, blue] = paintColour(record, ink);
+      const letters = [...(record.text ?? "")];
+      glyphRuns.push({ rgb: recordColour(record), vertices: letters.length * 6 });
       const advance = height * GLYPH_ADVANCE;
-      [...(record.text ?? "")].forEach((character, index) => {
+      letters.forEach((character, index) => {
         const cell = cellOf(character);
         const left = originX + index * advance;
         const right = left + advance;
@@ -505,23 +546,24 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
           cell.left,
           cell.top,
         );
-        for (let corner = 0; corner < 6; corner += 1) glyphColours.push(red, green, blue);
       });
     }
 
     const stale = batches.get(layer.name);
     if (stale !== undefined) releaseBatch(stale);
-    sources.set(layer.name, layer);
     batches.set(layer.name, {
       lineBuffer: bufferOf(new Float32Array(positions)),
-      lineColours: bufferOf(new Float32Array(colours)),
+      lineColours: bufferOf(colourFloats(lineRuns, ink)),
       chunks,
       glyphBuffer: bufferOf(new Float32Array(glyphs)),
       glyphTexels: bufferOf(new Float32Array(texels)),
-      glyphColours: bufferOf(new Float32Array(glyphColours)),
+      glyphColours: bufferOf(colourFloats(glyphRuns, ink)),
       heights,
       starts,
       glyphVertices: glyphs.length / 2,
+      lineRuns,
+      glyphRuns,
+      usesInk: lineRuns.some((run) => run.rgb === null) || glyphRuns.some((run) => run.rgb === null),
     });
   };
 
@@ -552,15 +594,27 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     setExtents: frameExtents,
 
     setPalette: (next) => {
+      const was = palette;
       palette = next;
-      if (atlas !== null) gl.deleteTexture(atlas);
-      atlas = atlasTexture(gl, palette.mono);
+      if (next.mono !== was.mono) {
+        if (atlas !== null) gl.deleteTexture(atlas);
+        atlas = atlasTexture(gl, palette.mono);
+      }
       // The ink a record resolved to is written into its vertices at upload, so a sheet lettered for
       // the abandoned theme would stay lettered for it — near-black lines all but invisible on dark
-      // paper. The layers the painter holds are tessellated again against the new palette, and so is
-      // the extents frame (R-TO-010's light and dark canvas, Decision § 6).
-      for (const layer of [...sources.values()]) uploadLayer(layer);
-      frameExtents(framed);
+      // paper. Only those vertices change: a theme moves no geometry, so the two colour buffers of
+      // every layer that paints in the ink are filled again and the positions, texels, chunks and
+      // heights are left alone — re-tessellating the sheet here would spend hundreds of milliseconds
+      // of the main thread on a `data-theme` flip (R-TO-010's light and dark canvas, Decision § 6).
+      const ink = channelsOf(palette.ink);
+      if (next.ink !== was.ink) {
+        for (const batch of batches.values()) {
+          if (!batch.usesInk) continue;
+          refill(batch.lineColours, colourFloats(batch.lineRuns, ink));
+          refill(batch.glyphColours, colourFloats(batch.glyphRuns, ink));
+        }
+      }
+      if (next.grid !== was.grid) frameExtents(framed);
     },
 
     draw: (camera, state) => {
@@ -593,7 +647,6 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       pending = null;
       for (const batch of batches.values()) releaseBatch(batch);
       batches.clear();
-      sources.clear();
       releaseFrame();
       frame = null;
       framed = null;
