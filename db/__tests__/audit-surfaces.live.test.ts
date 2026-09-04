@@ -15,15 +15,17 @@
 // Raw SQL is spoken through psql, never a driver import: SEAM-TENANT's ban binds this file like the
 // rest of the tree. Product modules are loaded by absolute path, so a module the Builder has not
 // written yet fails as an assertion naming the file instead of killing collection at transform time.
-import { randomUUID } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, describe, expect, test } from "vitest";
 import { provisionScratchDb } from "./harness";
-import { TENANT_ALPHA } from "./support/fixtures";
-import { isTrue, lit, scalar, seedTenants } from "./support/live-sql";
+import { GUC_SYSTEM_REASON, SEED_REASON, TENANT_ALPHA, TENANT_COLUMN } from "./support/fixtures";
+import { ident, isTrue, lit, scalar, seedTenants, withSession } from "./support/live-sql";
+
+/** The table a project's row lives in, named once beside the tenant column it carries. */
+const PROJECTS_TABLE = "projects";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -92,10 +94,23 @@ const staged = (): Promise<Stage> =>
     const tables = module.AUDIT_PANEL_TABLES;
     expect(typeof tables, `${AUDIT_MODULE} must export AUDIT_PANEL_TABLES — the names the panels probe`).toBe("object");
 
+    // A project this workspace actually holds. The address the page is rendered at has to name one:
+    // a segment naming no project of the workspace is an address that does not exist, and the screen
+    // answers it as absent rather than drawing a confident, empty act log over it. Every claim below
+    // is about the panels' posture and the explorer's own empty leg, and a project with a row and no
+    // acts is exactly the scene those claims were always about.
+    const projectId = scalar(
+      provisioned.urlMigrate,
+      withSession(
+        { [GUC_SYSTEM_REASON]: SEED_REASON },
+        `insert into ${ident(PROJECTS_TABLE)} (${ident(TENANT_COLUMN)}, name) values (${lit(tenantId)}, 'Audit surfaces acceptance') returning project_id::text;`,
+      ),
+    );
+
     return {
       urlMigrate: provisioned.urlMigrate,
       tenantId,
-      projectId: randomUUID(),
+      projectId,
       getAuditSurfaces: door as GetAuditSurfaces,
       panelTables: tables as Record<string, string>,
     };
@@ -190,6 +205,47 @@ describe("AC-1/AC-3 — the route renders that answer", () => {
       expect(markup.includes(testId), `the page must render [data-testid="${testId}"] — the explorer's filter controls stay the screen's content, and the empty answer renders in the list's place (I-33)`).toBe(true);
     }
     expect(markup.includes("audit-act-row"), "a project with no acts renders no act row").toBe(false);
+  });
+
+  test("AC-1: a segment naming no project of this workspace is answered as an address that does not exist", async () => {
+    const stage = await staged();
+    const page = await productModule<{ default?: (props: { params: Promise<{ tenant: string; project: string }> }) => Promise<unknown> }>(PAGE_MODULE);
+
+    // An id of the shape a project's is, that this database holds no project under — asked of the
+    // migrated schema rather than assumed, so the case is about an absent project and not about a
+    // malformed segment the roster read would have refused anyway.
+    const unheld = scalar(stage.urlMigrate, "select gen_random_uuid()::text;");
+    const holds = isTrue(
+      scalar(
+        stage.urlMigrate,
+        withSession({ [GUC_SYSTEM_REASON]: SEED_REASON }, `select exists (select 1 from ${ident(PROJECTS_TABLE)} where project_id = ${lit(unheld)})::text;`),
+      ),
+    );
+    expect(holds, `this case needs an id no project answers to, and ${unheld} is one the database holds`).toBe(false);
+
+    // The framework's own answer for an address that does not exist, read from the framework rather
+    // than transcribed (B-19): whatever `notFound()` raises is what the page must raise.
+    const { notFound } = await import("next/navigation");
+    const absent = await Promise.resolve()
+      .then(() => notFound())
+      .then(
+        () => undefined,
+        (thrown: unknown) => (thrown as { digest?: unknown }).digest,
+      );
+    expect(typeof absent, "next/navigation's notFound() answers by raising, and its digest is what marks that answer").toBe("string");
+
+    const answered = await (page.default as (props: { params: Promise<{ tenant: string; project: string }> }) => Promise<unknown>)({
+      params: Promise.resolve({ tenant: stage.tenantId, project: unheld }),
+    }).then(
+      () => null,
+      (failure: unknown) => failure,
+    );
+
+    expect(answered, "an address naming no project of the workspace renders nothing — a confident, empty act log would say the project exists").not.toBeNull();
+    expect(
+      (answered as { digest?: unknown }).digest,
+      "the page answers an unknown project with the framework's not-found, against the real roster read: the address is absent, not empty",
+    ).toBe(absent);
   });
 });
 

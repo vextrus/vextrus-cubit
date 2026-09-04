@@ -5,6 +5,11 @@
 // rule set is in force, the digest fingerprints exactly what it holds, and neither substitutes for
 // the other. A view that reports no pin gets the honest absence notice (R-UI-020, I-28), never an
 // empty edition panel.
+// The section is exported for any screen to compose, so it declares the stylesheet its own markup
+// needs: a rule set panel loaded by a second consumer arrives with the same classes and none of the
+// rules if the route that happens to render it today is what carries them.
+import "./ruleset.css";
+
 import Link from "next/link";
 import { formatUserFigure } from "../../../../../../../../core/format";
 import type { EditionLineageStep, ProjectRulesetView } from "../../../../../../../../core/rulesets/editions";

@@ -48,7 +48,10 @@ export function TokenPanel({ route, token, procedure, outcome }: TokenPanelProps
     });
   }, [outcome, procedure, router, setDoneTitle, token]);
 
-  if (answer !== null) return <AnswerSlot answer={answer} route={route} />;
+  // This screen is reached by a mailed link and reads the token it carries; it cannot issue one. So
+  // a refusal whose way onward is "try again here" has to lead back to the address the person
+  // arrived at, token and all, rather than to a panel with nothing left to spend.
+  if (answer !== null) return <AnswerSlot answer={answer} route={route} search={`?${new URLSearchParams({ token }).toString()}`} />;
   if (done && "notice" in outcome) return <NoticeSlot message={strings[outcome.notice]} />;
   return <Skeleton className="cx-auth-panel-skeleton" />;
 }

@@ -133,7 +133,17 @@ export function SessionList() {
           </li>
         ))}
       </ul>
-      <AnswerSlot answer={attemptAnswer} route={AUTH_ROUTES.sessions} />
+      {/* The slot waits here from the first paint, empty, so a revoke that comes back refused or
+          faulted is an insertion into a region assistive technology is already watching. A region
+          that arrives with its sentence already inside it is met for the first time already full,
+          and whether that is announced at all is left to the implementation (Q-11). The wrapper
+          carries no role of its own — the fault slot is what claims to be an alert, and only when
+          there is one — and it may not be `aria-live="off"`: the algorithm resolves a changed node
+          against the nearest `aria-live` from the node itself upward, so `off` here would file the
+          insertion under a silent region, where a nested alert is at worst read twice. */}
+      <div aria-live="polite">
+        <AnswerSlot answer={attemptAnswer} route={AUTH_ROUTES.sessions} />
+      </div>
       <Button className="cx-auth-signout" data-testid="s-auth-signout" variant="secondary" onClick={signOut}>
         {strings.auth_sessions_sign_out}
       </Button>

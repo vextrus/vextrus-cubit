@@ -26,7 +26,6 @@ import {
   fitCamera,
   panCamera,
   parseViewport,
-  serialiseViewport,
   worldAt,
   zoomCameraAt,
 } from "../../../../../../../../../modules/takeoff/viewer/client";
@@ -37,6 +36,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../../../.
 import { RefusalState, type RefusalEvidence } from "../../../../../../../../../ui/patterns/refusal-state";
 import { shellHref } from "../../../../../../../../../ui/shell";
 import { fill, strings } from "../../../../../../../../../ui/strings";
+import { publishViewport } from "./address";
 import { FidelityFacts } from "./fidelity-facts";
 import { LayersPanel } from "./layers-panel";
 import { StatusLine } from "./status-line";
@@ -376,14 +376,23 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   }, [head, initialViewport]);
 
   /**
-   * R-UI-031: the address is the camera. It is replaced rather than pushed, so going back leaves the
-   * sheet instead of unwinding a pan.
+   * The address this sheet was opened at, captured before anything can navigate away from it: a
+   * flush that settles after the reader has left must be able to tell that it has.
+   *
+   * It is read on the first client render rather than in an effect, so a camera published before the
+   * effects have run is written rather than dropped, and read again whenever the sheet changes, so an
+   * instance the framework keeps across a move to another drawing or layout goes on publishing to
+   * the address it is now showing instead of falling silent for the rest of its life (R-UI-031).
    */
+  const ownPathname = useRef(typeof window === "undefined" ? "" : window.location.pathname);
+  useEffect(() => {
+    ownPathname.current = window.location.pathname;
+  }, [drawingId, layoutName]);
+
+  /** R-UI-031: the address is the camera, published by the one module that decides that (B-17). */
   const publishAddress = useCallback((at: Camera): void => {
     if (typeof window === "undefined") return;
-    const url = new URL(window.location.href);
-    url.searchParams.set("v", serialiseViewport(at));
-    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+    publishViewport(window, ownPathname.current, at);
   }, []);
 
   useEffect(() => {
