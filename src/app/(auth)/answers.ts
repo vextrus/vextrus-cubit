@@ -100,10 +100,19 @@ export interface RefusalEvidence {
  * — after the window, the same door is the resolving place — and a dead link resolves wherever a
  * fresh one is issued, which is the route the person is standing on unless that route only reads
  * tokens it cannot re-issue.
+ *
+ * `search` is the query the screen was reached by, and it is carried only where the way onward is
+ * the screen itself: a mailed link's token lives in the address, and a screen that only READS a
+ * token cannot re-issue one, so a link back to the bare route would land a person on a form with
+ * nothing to submit and no way back to the mail.
  */
-export function evidenceFor(code: RefusalCode, route: AuthRoute): RefusalEvidence {
+export function evidenceFor(code: RefusalCode, route: AuthRoute, search = ""): RefusalEvidence {
   if (code === "RATE_LIMITED") return { href: route, label: strings.auth_evidence_try_again };
   if (code === "CREDENTIALS_NOT_VALID") return { href: AUTH_ROUTES.reset, label: strings.auth_evidence_reset_password };
   if (code === "TOKEN_NOT_VALID" && route !== AUTH_ROUTES.verify) return { href: route, label: strings.auth_evidence_request_new_link };
+  // A code the closed taxonomy does not register (R-SPINE-062) is one this product can name no
+  // resolving place for, so the honest way onward is the screen the person is already standing on,
+  // reached exactly as they reached it.
+  if (!Object.hasOwn(REFUSALS, code)) return { href: `${route}${search}`, label: strings.auth_evidence_try_again };
   return { href: AUTH_ROUTES.signIn, label: strings.auth_evidence_go_to_sign_in };
 }

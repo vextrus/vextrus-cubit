@@ -33,20 +33,23 @@ export function RenameForm({ tenantId, name }: RenameFormProps) {
   // A name the server is merely echoing back to us leaves the key alone: the field already holds
   // that text, and remounting under the person's own cursor would drop focus to the document body,
   // which is precisely what the read-only-in-flight treatment below exists to avoid (Q-11).
-  const [sent, setSent] = useState<string | null>(null);
+  // The question the key asks is whether the field already holds the text that has arrived, and the
+  // field is what can answer it: a name the server is merely echoing back is one this person typed,
+  // so it is read from what they typed rather than recorded on the way out. That keeps the
+  // `<form action>` the dispatch itself — an action attribute wrapped in a closure is a form only a
+  // browser that already has the client bundle can submit.
+  const [typed, setTyped] = useState(name);
   const [seed, setSeed] = useState({ name, key: name });
-  if (seed.name !== name) setSeed({ name, key: name === sent ? seed.key : name });
+  if (seed.name !== name) {
+    setSeed({ name, key: name === typed ? seed.key : name });
+    setTyped(name);
+  }
   const inputId = useId();
   const labelId = useId();
   const hintId = useId();
 
   return (
-    <form
-      action={(data: FormData) => {
-        setSent(String(data.get("name") ?? ""));
-        submit(data);
-      }}
-    >
+    <form action={submit}>
       <section className="cx-shell-section" data-testid="shell-settings-name" aria-labelledby={labelId}>
         <input type="hidden" name="tenantId" value={tenantId} />
         <label className="cx-shell-field-label" id={labelId} htmlFor={inputId}>
@@ -70,7 +73,10 @@ export function RenameForm({ tenantId, name }: RenameFormProps) {
           aria-describedby={hintId}
           readOnly={pending}
           aria-busy={pending}
-          onChange={() => setSpent(answer)}
+          onChange={(event) => {
+            setSpent(answer);
+            setTyped(event.target.value);
+          }}
         />
         {/* In flight the slot is empty (§1): `useActionState` keeps the last answer for the whole
             pending window, and leaving it painted would tell a person that the submission they are

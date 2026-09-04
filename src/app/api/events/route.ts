@@ -48,16 +48,6 @@ function json(body: unknown, status: number): Response {
 }
 
 /**
- * The whole log of one job as a single snapshot, with the seam's answer to "is it over yet".
- * `done` is read off the events being answered with, so the pair a caller receives always agrees
- * with itself even if the job ends between two requests.
- */
-async function pollAnswer(jobId: string): Promise<Response> {
-  const events = await jobEvents(jobId);
-  return json({ events, done: isOver(events) }, 200);
-}
-
-/**
  * The stream: history in seq order, then every further event as the log records it, then the close.
  * The watcher is bound to the request, so a client that goes away stops being waited for.
  */
@@ -101,16 +91,29 @@ export async function GET(request: Request): Promise<Response> {
   const query = new URL(request.url).searchParams;
   const jobId = query.get(JOB_ID)?.trim() ?? "";
   if (jobId === "") return json({ events: [], done: false, error: `${JOB_ID} is required` }, 400);
+  const actor = query.get(TRANSPORT) === POLL ? "poll" : "stream";
 
-  if (query.get(TRANSPORT) === POLL) {
-    try {
-      return await pollAnswer(jobId);
-    } catch (failure) {
-      // Nothing here is a refusal — the caller asked a lawful question and our side could not
-      // answer it, so the fault is recorded and its id is what the caller is given (ARCH-03).
-      const { faultId } = reportFault({ requestId: jobId, actor: "poll", route: ROUTE, cause: failure });
-      return json({ faultId }, 500);
-    }
+  // The log is read before either transport answers, because it is what decides whether there is
+  // anything to answer with. SEAM-JOBS publishes a job's first event inside the lock that admits
+  // it, so an id whose log is empty names no job this seam has ever held — not a job that has yet
+  // to start. A stream opened on one would poll the database every 250 ms for a job that will
+  // never speak, for as long as the client is willing to hold the connection.
+  let events: readonly JobEvent[];
+  try {
+    events = await jobEvents(jobId);
+  } catch (failure) {
+    // Nothing here is a refusal — the caller asked a lawful question and our side could not
+    // answer it, so the fault is recorded and its id is what the caller is given (ARCH-03).
+    const { faultId } = reportFault({ requestId: jobId, actor, route: ROUTE, cause: failure });
+    return json({ faultId }, 500);
   }
+
+  // An address that names nothing is answered as an absence, in the same shape a caller already
+  // reads the log in: `error` is a field of the answer, not copy — no screen renders this route.
+  if (events.length === 0) return json({ events: [], done: false, error: `${JOB_ID} names no job` }, 404);
+
+  // `done` is read off the events being answered with, so the pair a caller receives always agrees
+  // with itself even if the job ends between two requests.
+  if (actor === "poll") return json({ events, done: isOver(events) }, 200);
   return streamAnswer(jobId, request.signal);
 }

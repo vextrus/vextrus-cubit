@@ -119,7 +119,7 @@
   color: var(--graphite-600);
 }
 
-/* I-19's four demo geometry constants — the only px in this file. */
+/* I-19's five demo geometry constants — the only px in this file outside its one media condition. */
 .cx-gallery-bone {
   width: 240px;
 }
@@ -131,7 +131,7 @@
 /*
  * The panel demo is a box no token measures in either axis: content-sizing it collapses the group
  * to its labels, which breaks "Sheet list" mid-word and leaves the handle no target. The height is
- * I-19's constant; the width is a token read, so the file's px constants stay at four.
+ * I-19's constant; the width is a token read, so the file's px constants stay at five.
  */
 .cx-gallery-resizable {
   height: 160px;
@@ -151,5 +151,16 @@
 
 .cx-gallery-table-pinned {
   width: 400px;
+  max-width: 100%;
+}
+
+/*
+ * The dropzone's states are targets rather than boxes, so left to their content each one is as wide
+ * as the sentence it carries and the set reads as five different components. One width for the
+ * entry makes them comparable down the column, and it is the entry's own rule rather than a reach
+ * from a neighbour: `data-entry` is this screen's hook (§ 7), and the width is a token read.
+ */
+.cx-gallery-entry[data-entry$="/Dropzone"] .cx-gallery-state {
+  width: var(--breakpoint-sm);
   max-width: 100%;
 }
