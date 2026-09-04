@@ -27,16 +27,14 @@ pnpm verify · pnpm test:db · pnpm e2e --journey <J> · pnpm checkup
 <!-- builder:lessons:start -->
 ## Standing lessons (engine-maintained)
 ### Locked ground & lawful paths
+- denied 4× on inc-sweep-src-app-1: know the lawful path — Sessions on inc-sweep-src-app-1 were denied 4 times with: > the product's whole test runner would discover .builder-heldout/ inside the tree and recurse (gen-2 an earlier generation's run attempt 8).
+- Whole-tree test runner recurses into heldout fixtures — A session invoked the product's whole-tree test runner and was denied four times in one attempt because that runner would discover .builder-heldout/ inside the tree and recurse into it.
 - A fixture the increment's testContract names under an owned path can still be Verifier-authored and hook-locked — check git log before planning to edit it — A support/fixture module the increment's own test contract names (e.g.
 - Apply a PREFIX of cubit's committed migrations through the product's own lane — scratch copy + trimmed _journal.json + an import-less drizzle config — A migration-state acceptance ("what does a database look like halfway through the chain, and does a later run converge?") is stageable without touching the tree.
 ### Tests & acceptance
 - Editing an unmerged migration file leaves already-migrated local databases (cubit_e2e) stale — drop them or the journey reds — drizzle-kit `migrate` decides what to apply from the journal's `when` timestamp of the last applied entry, not from the file's hash. Rewriting an unmerged migration (e.g.
 - Spawning `pnpm worker` (or the bare `tsx` CLI) from test support leaks an orphaned worker — SIGTERM is not forwarded; spawn `node --import tsx <entry>` instead — Arbitrated 2026-09-04 (that increment, J-010): `tests/e2e/support/worker.ts` spawned `spawn("pnpm", ["worker"])` and its `stop()` waited for `worker: shutdown complete` after `child.kill("SIGTERM")`.
-- A rAF-delta frame ledger reads 33.3 ms under Playwright unless the painter loops through a gesture — A viewer that draws one frame per input event publishes a median frame delta of exactly 33.3 ms in the journey lane (measured 2026-09-04 on J-011, `tests/e2e/viewer-perf.spec.ts`), whatever the paint costs: `page.mouse.wheel(...)` + `waitForTimeout(8)` costs …
 ### Screens & design
+- source-lex's code channel blanks import specifiers and CSS selector strings — read them back off the raw source at the same offsets — `lex(source).code` blanks every string literal, so an import specifier (`from "../../ui/shell"`) and a CSS attribute-selector value (`[data-entry$="/Dropzone"]`) are invisible in the code channel — a scan for either finds nothing and passes by not looking.
 - Next 16 resolves dynamic segments already percent-decoded — a decodeURIComponent(param) in a page or route handler is a second decode — `params` from a Next App Router page, `generateMetadata` and a route handler arrive **decoded**. A `decodeURIComponent(layout)` on top of that decodes twice.
-### Database
-- CREATE SCHEMA IF NOT EXISTS is refused without CREATE on the database even when the schema already exists — pre-creating it in a migration does not remove the … — Postgres 16 checks the database's CREATE privilege *before* the `IF NOT EXISTS` bail-out.
-### Process
-- Once an app route reaches src/modules/takeoff/ingest, next build fails on cad/.venv's python symlink unless turbopack.root is \"/\" — `next build` fails with `Symlink [project]/cad/.venv/bin/python3 is invalid, it points out of the filesystem root` (a `DirAssetReference::resolve_reference` failure named on `src/modules/takeoff/ingest/cli.ts`) on any checkout where the CAD lane has run — i.e.
 <!-- builder:lessons:end -->
