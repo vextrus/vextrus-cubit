@@ -190,15 +190,16 @@ export function SheetIndex({
     [onJobSucceeded],
   );
 
-  /** I-94: case-folded fragments of the title, the number and the layout name; the filter reads the
-      effective discipline — the same value the card publishes. */
+  /** I-94: case-folded fragments of the two lines a card publishes as its name — the proposed title
+      and the sheet number; the filter reads the effective discipline, the same value the card
+      publishes as `data-discipline`. */
   const shown = useMemo(() => {
     const asked = search.trim().toLowerCase();
     return cards.filter((card) => {
       const effective = card.confirmed === null ? card.proposal.discipline : card.confirmed.discipline;
       if (filter !== ALL && effective !== filter) return false;
       if (asked === "") return true;
-      return [card.proposal.title, card.proposal.number ?? "", card.layoutName].some((value) => value.toLowerCase().includes(asked));
+      return [card.proposal.title, card.proposal.number ?? ""].some((value) => value.toLowerCase().includes(asked));
     });
   }, [cards, filter, search]);
 
@@ -347,10 +348,15 @@ export function SheetIndex({
         </p>
 
         {shown.length === 0 ? (
-          <Empty cause={cards.length > 0 ? "no-match" : awaitingIngest > 0 ? "awaiting-ingest" : "no-drawings"} onClear={() => {
-            setSearch("");
-            setFilter(ALL);
-          }} />
+          <Empty
+            cause={cards.length > 0 ? "no-match" : awaitingIngest > 0 ? "awaiting-ingest" : "no-drawings"}
+            search={search.trim()}
+            discipline={filter === ALL ? null : filter}
+            onClear={() => {
+              setSearch("");
+              setFilter(ALL);
+            }}
+          />
         ) : (
           <div className="cx-drawings-grid" data-testid="sheet-index">
             {shown.map((card) => (
@@ -386,17 +392,35 @@ export function SheetIndex({
   );
 }
 
-/** I-91: three causes, one element — and only the one a person can act on carries an action. */
-function Empty({ cause, onClear }: { cause: "no-drawings" | "awaiting-ingest" | "no-match"; onClear: () => void }) {
+/**
+ * I-91: three causes, one element — and only the one a person can act on carries an action.
+ *
+ * A `no-match` emptiness also says what is doing the excluding: the words searched for, the
+ * discipline chipped, or both. An empty index that does not name its own filter reads as "there are
+ * no sheets" when the truth is "none of them answer to this" (R-UI-050's honest empty).
+ */
+function Empty({
+  cause,
+  search,
+  discipline,
+  onClear,
+}: {
+  cause: "no-drawings" | "awaiting-ingest" | "no-match";
+  search: string;
+  discipline: string | null;
+  onClear: () => void;
+}) {
   const words = {
     "no-drawings": { heading: drawings.drawings_empty_no_drawings_heading, body: drawings.drawings_empty_no_drawings_body },
     "awaiting-ingest": { heading: drawings.drawings_empty_awaiting_heading, body: drawings.drawings_empty_awaiting_body },
     "no-match": { heading: drawings.drawings_empty_no_match_heading, body: drawings.drawings_empty_no_match_body },
   }[cause];
+  const named = cause === "no-match" ? namedFilter(search, discipline) : null;
 
   return (
     <div className="cx-drawings-empty" data-testid="sheets-empty" data-cause={cause}>
       <p className="cx-drawings-empty-heading">{words.heading}</p>
+      {named === null ? null : <p className="cx-drawings-empty-filter">{named}</p>}
       <p className="cx-drawings-empty-body">{words.body}</p>
       {cause === "no-match" ? (
         <Button variant="ghost" onClick={onClear}>
@@ -405,4 +429,16 @@ function Empty({ cause, onClear }: { cause: "no-drawings" | "awaiting-ingest" | 
       ) : null}
     </div>
   );
+}
+
+/**
+ * The sentence that names the filter in force, in the words the person set it with: the searched
+ * text verbatim (it is theirs, not the product's) and the chipped discipline as the enum data it is
+ * (I-25). Nothing is filtering when neither stands, and then there is no sentence to write.
+ */
+function namedFilter(search: string, discipline: string | null): string | null {
+  if (search !== "" && discipline !== null) return fill(drawings.drawings_empty_no_match_both, { search, discipline });
+  if (search !== "") return fill(drawings.drawings_empty_no_match_search, { search });
+  if (discipline !== null) return fill(drawings.drawings_empty_no_match_discipline, { discipline });
+  return null;
 }

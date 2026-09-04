@@ -188,6 +188,9 @@
   flex-wrap: wrap;
   align-items: end;
   gap: var(--space-3);
+  /* The row keeps air under it: a focused field draws its reticle outside its own box, and the line
+     that follows the controls must not be what the reticle lands on (R-UI-012: 4 px outside the box). */
+  padding-block-end: var(--space-2);
 }
 
 .cx-drawings-field {
@@ -440,6 +443,15 @@
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
   color: var(--graphite-900);
+}
+
+/* The filter the empty index is empty under, in the same voice as its heading's answer. */
+.cx-drawings-empty-filter {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-700);
 }
 
 .cx-drawings-empty-body {

@@ -2,7 +2,7 @@
 // `/t/{tenantId}/p/{projectId}/drawings` (docs/design/s-drawings.md §7). Locators only — every
 // judgement stays in the journey, so the page object can never quietly decide whether the screen
 // passed.
-import { type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 /** The test ids the screen's closed contract publishes (C-05). */
 export const S_DRAWINGS = {
@@ -50,8 +50,15 @@ export class SDrawingsPage {
     return this.page.locator(`[data-testid="${testId}"]`);
   }
 
+  /**
+   * Open the screen and return only once it stands. Every project route is served behind a Suspense
+   * skeleton that carries none of the contract's ids, so a caller that returned on `goto` alone would
+   * read the shell — the s-audit and s-members precedent is to wait for the screen's own furniture.
+   */
   async open(tenantId: string, projectId: string): Promise<void> {
     await this.page.goto(drawingsRoute(tenantId, projectId));
+    await expect(this.search, "the sheets section stands: its search field is the screen, not the skeleton").toBeVisible();
+    await expect(this.index.or(this.empty), "the index says what it holds, or says why it holds nothing").toBeVisible();
   }
 
   get index(): Locator {
@@ -120,7 +127,9 @@ export class SDrawingsPage {
 
   /** Hand the shipped file input a path — the Dropzone's own door (its Decision §7). */
   async dropFile(path: string): Promise<void> {
-    await this.at(S_DRAWINGS.dropzoneInput).setInputFiles(path);
+    const input = this.at(S_DRAWINGS.dropzoneInput);
+    await input.waitFor({ state: "attached" });
+    await input.setInputFiles(path);
   }
 
   /** Press a group's door and carry its Consequence through the one ConsequenceDialog. */

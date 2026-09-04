@@ -83,9 +83,11 @@ Dropzone; the one OfferedGroups; the one ConsequenceDialog; the one RefusalState
   line is found by its class inside `sheet-card`.
 - **I-94 — search folds case and matches fragments; the filter reads the effective
   discipline.** A title is prose, so a fragment match is right (unlike S-Audit I-32, where a
-  whole identifier was the point): `toLowerCase()`-folded substrings of the proposed title,
-  the sheet number and the layout name; blank or whitespace-only is no filter; no `Intl`, no
-  `localeCompare`. The chips compare the confirmed discipline where a sheet has one and the
+  whole identifier was the point): `toLowerCase()`-folded substrings of the two lines the card
+  publishes as its name — the proposed title and the sheet number — and of nothing a reader
+  cannot see (the layout name is the sheet id's tail, not a heading, and matching it would
+  narrow to cards whose visible words do not hold the text); blank or whitespace-only is no
+  filter; no `Intl`, no `localeCompare`. The chips compare the confirmed discipline where a sheet has one and the
   proposed one otherwise — the same value the card publishes as `data-discipline`.
 
 Recorded IOU — visible navigation (R-UI-031), owner: the node owning the shell's project
@@ -163,7 +165,9 @@ when the record lands and thumbnails appear when the rasters do.
 RefusalState from the registered `PERMISSION_NOT_HELD`, evidence `{ href: the project's
 participants route, label: drawings_evidence_participants }`.
 
-**Controls row** — flex, wrap, gap `var(--space-3)`, align-items end:
+**Controls row** — flex, wrap, gap `var(--space-3)`, align-items end, `padding-block-end
+var(--space-2)` so the reticle a focused field draws 4 px outside its box (R-UI-012) never
+meets the line below the row:
 
 - **Search** — the core Input, `data-testid="sheet-search"`, width 240 px, visible
   `<label for…>` `drawings_search_label` (`var(--text-13)` `var(--weight-body-medium)`
@@ -242,7 +246,12 @@ radius `var(--radius-8)`, padding `var(--space-3)`, column flex, gap `var(--spac
 data-cause="no-drawings|awaiting-ingest|no-match">`: column flex, gap `var(--space-2)`,
 padding-block `var(--space-6)`, border-top `var(--hairline)`; heading line `var(--text-13)`
 `var(--weight-body-medium)` `var(--graphite-900)` over a body line `var(--text-13)`
-`var(--graphite-600)`. Only `no-match` adds an action: a core ghost Button
+`var(--graphite-600)`. `no-match` sets one more line between them (`var(--text-13)`
+`var(--graphite-700)`) naming the filter it is empty under — `drawings_empty_no_match_search`,
+`drawings_empty_no_match_discipline` or `drawings_empty_no_match_both`, the searched text
+verbatim and the chipped discipline as the enum data it is — because an empty index that does
+not name its own filter reads as "this project has no sheets". Only `no-match` adds an action:
+a core ghost Button
 `drawings_empty_clear` clearing search and filter in place and moving focus to the search
 field as it unmounts itself (the S-Audit precedent — a control that deletes its own focus
 target drops a keyboard reader to `<body>`).
@@ -335,8 +344,11 @@ drawings yet** · `drawings_empty_no_drawings_body` **Add a drawing above; its s
 here as soon as it has been read.** · `drawings_empty_awaiting_heading` **No sheets read
 yet** · `drawings_empty_awaiting_body` **This project holds drawings that have not been read
 through. Each one's sheets appear here as it finishes.** · `drawings_empty_no_match_heading`
-**No sheet matches this search** · `drawings_empty_no_match_body` **Every sheet stays in the
-index — clear the search or choose All disciplines to see the rest.** ·
+**No sheet matches this search** · `drawings_empty_no_match_search` **No sheet's title or
+number contains {search}.** · `drawings_empty_no_match_discipline` **No sheet stands as
+{discipline}.** · `drawings_empty_no_match_both` **No sheet stands as {discipline} with a
+title or number containing {search}.** · `drawings_empty_no_match_body` **Every sheet stays
+in the index — clear the search or choose All disciplines to see the rest.** ·
 `drawings_empty_clear` **Clear search and filter** · `drawings_offline` **The connection to
 the product is gone. An upload already running continues when it returns, and nothing can be
 confirmed until then.** · `drawings_offline_notice` **Nothing was previewed: the connection
