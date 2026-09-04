@@ -42,13 +42,13 @@ export function AcceptInvitationRefusal({ refusal }: { refusal: RefusalEntry }) 
 }
 
 /**
- * The refusal standing ALONE, where the page judged the token before it drew anything (I-65). It is
+ * A refusal standing ALONE, where the page was answered before it drew an offer (I-65). It is
  * the same answer slot as above — one renderer, both places — laid in the screen's own column, which
  * is what gives it the page's `<main>`, its measure and the heading that says what page this is.
  * A person arriving from a mail link meets an alert with no page identity otherwise, and a card that
  * runs off both edges of the window.
  */
-export function AcceptInvitationUnclaimable({ refusal }: { refusal: RefusalEntry }) {
+export function AcceptInvitationRefused({ refusal }: { refusal: RefusalEntry }) {
   return (
     <main className="cx-accept">
       <header className="cx-accept-header">

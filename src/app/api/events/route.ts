@@ -78,14 +78,30 @@ const FIRST_EVENT_EVERY_MS = 50;
  * The job's log, and whether anything is recorded under this id at all. An empty log is asked
  * again until it says something or the window above runs out, so the answer distinguishes a job
  * that has not spoken yet from an id no job answers to.
+ *
+ * The wait belongs to the caller: a client that goes away is not waited for, so a disconnection
+ * ends the loop at once rather than leaving a window's worth of store reads running for nobody.
  */
-async function recordedLog(jobId: string): Promise<readonly JobEvent[]> {
+async function recordedLog(jobId: string, signal: AbortSignal): Promise<readonly JobEvent[]> {
   const deadline = Date.now() + FIRST_EVENT_GRACE_MS;
   for (;;) {
     const events = await jobEvents(jobId);
-    if (events.length > 0 || Date.now() >= deadline) return events;
-    await new Promise((settle) => setTimeout(settle, FIRST_EVENT_EVERY_MS));
+    if (events.length > 0 || Date.now() >= deadline || signal.aborted) return events;
+    await waited(FIRST_EVENT_EVERY_MS, signal);
   }
+}
+
+/** A wait that ends when its time is up or the caller has gone, leaving no timer behind either way. */
+function waited(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise<void>((settle) => {
+    const done = (): void => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", done);
+      settle();
+    };
+    const timer = setTimeout(done, ms);
+    signal.addEventListener("abort", done, { once: true });
+  });
 }
 
 /**
@@ -138,7 +154,7 @@ export async function GET(request: Request): Promise<Response> {
     // The log is read before either transport answers, so an id no job answers to is settled here.
     // A stream opened for one would otherwise never end: `watchJob` waits for events that are never
     // coming, polling the store every quarter second for the life of the connection.
-    const events = await recordedLog(jobId);
+    const events = await recordedLog(jobId, request.signal);
     if (events.length === 0) return json({ events: [], done: false, error: NO_SUCH_JOB }, 404);
     return polling ? pollAnswer(events) : streamAnswer(jobId, request.signal);
   } catch (failure) {

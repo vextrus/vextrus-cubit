@@ -29,9 +29,35 @@ export function viewerPathname(at: { tenantId: string; projectId: string; drawin
  * A window standing somewhere other than the sheet this publisher belongs to is left untouched.
  */
 export function publishViewport(win: AddressWindow, ownPathname: string, at: Camera): boolean {
-  if (win.location.pathname !== ownPathname) return false;
+  if (!standingAt(win.location.pathname, ownPathname)) return false;
   const url = new URL(win.location.href);
   url.searchParams.set("v", serialiseViewport(at));
   win.history.replaceState(null, "", `${url.pathname}${url.search}`);
   return true;
+}
+
+/**
+ * Is this window standing at that address? The two are compared as the segments they NAME, never as
+ * the text they happen to be written in: a browser leaves `: @ $ & + , ; =` unescaped in a path
+ * segment where `encodeURIComponent` escapes them, a mailed or typed address may spell its escapes
+ * in lower case, and a deployment may serve the app under a prefix — none of which moves the reader
+ * off this sheet, while a text comparison would answer that it did and stop publishing with no
+ * signal anywhere.
+ */
+function standingAt(pathname: string, ownPathname: string): boolean {
+  return named(pathname).endsWith(named(ownPathname));
+}
+
+/** The segments a pathname names, each read the way a query is read. */
+function named(pathname: string): string {
+  return pathname.split("/").map(readSegment).join("/");
+}
+
+/**
+ * One segment as the text it names. The decode is the query parser's, which answers on a malformed
+ * escape where `decodeURIComponent` throws — and a thrown address would be one more silent way for
+ * the camera to stop being published. A `+` is a plus in a path, so it is kept as one.
+ */
+function readSegment(segment: string): string {
+  return new URLSearchParams(`s=${segment.replaceAll("+", "%2B")}`).get("s") ?? segment;
 }

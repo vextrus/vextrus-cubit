@@ -16,7 +16,7 @@ import { admitAttempt } from "../../../server/auth/rate-limit";
 import { invitationMachinery } from "../../../server/auth/invitation-mail";
 import { presentedSessionToken } from "../../../server/shell/session";
 import { sessionOf } from "../../../server/shell/resolve";
-import { AcceptInvitationForm, AcceptInvitationNoToken, AcceptInvitationUnclaimable } from "./accept-invitation-form";
+import { AcceptInvitationForm, AcceptInvitationNoToken, AcceptInvitationRefused } from "./accept-invitation-form";
 import { acceptInvitationStrings } from "./strings";
 
 export const metadata = { title: acceptInvitationStrings.accept_heading };
@@ -26,6 +26,12 @@ export const metadata = { title: acceptInvitationStrings.accept_heading };
  * and the metered door refusing the read itself. Both are answers, not faults (ARCH-03).
  */
 const ANSWERED_IN_PLACE: readonly RefusalCode[] = ["INVITATION_NOT_CLAIMABLE", "RATE_LIMITED"];
+
+/** Is the mark the seam left one of those two — a membership question, and the answer's own code. */
+function answeredInPlace(code: string | null): code is RefusalCode {
+  const registered: readonly string[] = ANSWERED_IN_PLACE;
+  return code !== null && registered.includes(code);
+}
 
 export default async function AcceptInvitation({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
   const { token } = await searchParams;
@@ -50,13 +56,12 @@ export default async function AcceptInvitation({ searchParams }: { searchParams:
     return <AcceptInvitationForm token={token} offer={{ workspaceName: offer.workspaceName, workspaceRole: offer.workspaceRole }} />;
   } catch (thrown) {
     const code = refusalCodeOf(thrown);
-    const answered = ANSWERED_IN_PLACE.find((registered) => registered === code);
     // Anything the seam did not mark as one of this screen's registered answers is a fault of the
     // machine and travels on unchanged — a swallowed catch is how an outage becomes a shrug.
-    if (answered === undefined) throw thrown;
+    if (!answeredInPlace(code)) throw thrown;
     // Nothing is left to submit over a token no accept can claim — or while the door is closed —
     // and no disarmed control stands in its place: the answer is the refusal, with its code, its
     // message and its remedy, through the one renderer (I-65, ARCH-03).
-    return <AcceptInvitationUnclaimable refusal={refusalOf(answered)} />;
+    return <AcceptInvitationRefused refusal={refusalOf(code)} />;
   }
 }
