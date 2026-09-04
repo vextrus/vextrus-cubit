@@ -128,7 +128,10 @@
   text-align: right;
 }
 
-/* The refusal takes the row's full width, below the three columns (§ 1). */
-.cx-dropzone-item > .cx-refusal {
+/* The refusal takes the row's full width, below the three columns (§ 1). The row places it by the
+   position it holds — name, state, progress, then the answer — rather than by the pattern's own
+   class: the refusal card's rules have one home, and a container that spells its class re-declares
+   a vocabulary it does not own (B-17, ARCH-02). */
+.cx-dropzone-item > :nth-child(4) {
   grid-column: 1 / -1;
 }
