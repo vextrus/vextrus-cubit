@@ -16,6 +16,9 @@ import { auditStrings } from "./strings";
 
 export const metadata = { title: auditStrings.audit_heading };
 
+/** The account the roster read below is made for: none — see `holdsProject`. */
+const NO_ACTOR = "";
+
 /**
  * Whether this address names a project of this workspace. The roster is the module's own answer,
  * never re-derived here (B-19), and it includes archived projects — archiving hides a project, it
@@ -30,9 +33,6 @@ async function holdsProject(tenantId: string, projectId: string): Promise<boolea
   const held = await projectsForHome({ tenantId, userId: NO_ACTOR });
   return held.some((project) => project.projectId === projectId);
 }
-
-/** The account this read is made for: none — see `holdsProject`. */
-const NO_ACTOR = "";
 
 export default async function ProjectAudit({ params }: { params: Promise<{ tenant: string; project: string }> }) {
   const { tenant, project } = await params;

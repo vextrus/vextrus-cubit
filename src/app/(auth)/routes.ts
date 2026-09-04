@@ -18,6 +18,12 @@ export type AuthRoute = (typeof AUTH_ROUTES)[keyof typeof AUTH_ROUTES];
  * was repeated, or not at all; a blank one is no token, because a screen that treats "" as a token
  * asks the server to refuse something the person never presented.
  */
+export function tokenFrom(params: Record<string, string | string[] | undefined>): string | null {
+  const value = params["token"];
+  const first = Array.isArray(value) ? value[0] : value;
+  return typeof first === "string" && first.trim() !== "" ? first : null;
+}
+
 /**
  * The query a token-bearing screen is reached with, spelled once (B-17). A refusal answered on such
  * a screen resolves back onto it, and the screen is only usable while its address still carries the
@@ -25,10 +31,4 @@ export type AuthRoute = (typeof AUTH_ROUTES)[keyof typeof AUTH_ROUTES];
  */
 export function tokenSearch(token: string): string {
   return `?token=${encodeURIComponent(token)}`;
-}
-
-export function tokenFrom(params: Record<string, string | string[] | undefined>): string | null {
-  const value = params["token"];
-  const first = Array.isArray(value) ? value[0] : value;
-  return typeof first === "string" && first.trim() !== "" ? first : null;
 }

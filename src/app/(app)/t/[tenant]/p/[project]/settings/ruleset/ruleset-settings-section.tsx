@@ -5,6 +5,7 @@
 // rule set is in force, the digest fingerprints exactly what it holds, and neither substitutes for
 // the other. A view that reports no pin gets the honest absence notice (R-UI-020, I-28), never an
 // empty edition panel.
+//
 // The sheet travels with the thing it dresses (B-17): loaded from the route instead, the rules ship
 // for every request of that route whether the section renders or not, and the section cannot be
 // mounted anywhere else without losing its appearance.
