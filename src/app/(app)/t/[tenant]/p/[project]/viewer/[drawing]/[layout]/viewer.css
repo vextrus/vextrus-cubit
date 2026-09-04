@@ -1,0 +1,336 @@
+/* S-Viewer's own chrome (docs/design/s-viewer.md § 1, § 5). Colour and motion come from tokens
+   alone, so light and dark are one stylesheet and no `[data-theme]` selector appears here
+   (R-UI-001). The canvas is the screen; everything else is a hairline-seamed edge around it. */
+
+/* I-78: the sheet takes the frame's main area whole, bleeding shell-main's padding away by the
+   same token it is set in, and scrolls by camera rather than by scrollbar. */
+.cx-viewer {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  margin: calc(var(--space-6) * -1);
+  height: calc(100% + var(--space-6) * 2);
+  min-height: 0;
+  overflow: hidden;
+  background: var(--graphite-0);
+}
+
+.cx-viewer-work {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------------------------ the layers panel */
+
+.cx-viewer-layers {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  background: var(--graphite-50);
+  border-inline-end: var(--hairline);
+}
+
+.cx-viewer-layers-heading {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+  border-bottom: var(--hairline);
+}
+
+.cx-viewer-layer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.cx-viewer-layer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--row-comfortable);
+  padding-inline: var(--space-2);
+  border-bottom: var(--hairline);
+}
+
+[data-density="compact"] .cx-viewer-layer-row {
+  height: var(--row-compact);
+}
+
+.cx-viewer-layer-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.cx-viewer-layer-swatch {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-2);
+  border: 1px solid;
+  transition: background var(--motion-state) var(--ease);
+}
+
+.cx-viewer-layer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-layer-row[data-visible="false"] .cx-viewer-layer-name,
+.cx-viewer-layer-row[data-locked="true"] .cx-viewer-layer-name {
+  color: var(--graphite-600);
+}
+
+.cx-viewer-layer-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+  font-variant-numeric: tabular-nums slashed-zero;
+  text-align: end;
+}
+
+.cx-viewer-layer-control {
+  border: none;
+  background: none;
+  padding: 0 var(--space-1);
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--motion-state) var(--ease),
+    background var(--motion-state) var(--ease);
+}
+
+/* The reveal is a row's own posture, never a focus indicator: the indicator has one home, and the
+   row carries `data-active` while the keyboard is inside it (R-UI-012, B-17). */
+.cx-viewer-layer-row:hover .cx-viewer-layer-control,
+.cx-viewer-layer-row[data-active="true"] .cx-viewer-layer-control,
+.cx-viewer-layer-control[aria-pressed="true"] {
+  opacity: 1;
+}
+
+.cx-viewer-layer-control[aria-pressed="true"] {
+  background: var(--beam-100);
+  color: var(--graphite-900);
+  font-weight: var(--weight-heading);
+  border-radius: var(--radius-2);
+}
+
+/* ------------------------------------------------------------------------------------- the stage */
+
+.cx-viewer-stage {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  background: var(--canvas-paper);
+}
+
+.cx-viewer-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+.cx-viewer-canvas:active {
+  cursor: grabbing;
+}
+
+.cx-viewer-controls {
+  position: absolute;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-1);
+  background: var(--graphite-0);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-1);
+  z-index: var(--z-base);
+}
+
+/* ---------------------------------------------------------------------- the states in its place */
+
+.cx-viewer-loading,
+.cx-viewer-bones {
+  display: grid;
+  grid-template-columns: minmax(0, 22%) 1fr;
+  gap: var(--space-3);
+  height: 100%;
+  padding: var(--space-3);
+}
+
+.cx-viewer-bones-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-viewer-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.cx-viewer-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-6);
+  text-align: center;
+}
+
+.cx-viewer-empty-heading {
+  margin: 0;
+  max-width: 420px;
+  font-family: var(--font-ui);
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-empty-body {
+  margin: 0;
+  max-width: 420px;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+.cx-viewer-empty-action {
+  margin-block-start: var(--space-2);
+  text-decoration: none;
+}
+
+/* A refused sheet owns the box the sheet would have had, the way every other refusal state in this
+   product does: the banner and the facts sit together in the middle of the work area rather than
+   pinned to the top of an undesigned slab (R-UI-020, Decision § 2). */
+.cx-viewer-refusal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--space-5);
+}
+
+.cx-viewer-refusal > * {
+  width: 100%;
+  max-width: 640px;
+}
+
+.cx-viewer-facts-block {
+  max-width: 640px;
+}
+
+.cx-viewer-facts-heading {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.cx-viewer-fact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block-end: var(--space-2);
+  border-bottom: var(--hairline);
+}
+
+.cx-viewer-fact-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-viewer-fact-value {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-fact-model {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+}
+
+/* ---------------------------------------------------------------------------------- the readout */
+
+.cx-viewer-readout {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  height: var(--space-8);
+  padding-inline: var(--space-4);
+  border-top: var(--hairline);
+  background: var(--graphite-0);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--graphite-700);
+}
+
+.cx-viewer-readout-sheet {
+  color: var(--graphite-900);
+}
+
+.cx-viewer-readout-cell {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.cx-viewer-readout-label {
+  color: var(--graphite-600);
+}
+
+.cx-viewer-readout-value {
+  color: var(--graphite-700);
+}
+
+.cx-viewer-readout-partial {
+  color: var(--graphite-900);
+}

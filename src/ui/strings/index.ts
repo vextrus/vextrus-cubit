@@ -9,6 +9,7 @@ import { participants } from "./participants";
 import { screenStates } from "./screen-states";
 import { shell } from "./shell";
 import { spine } from "./spine";
+import { viewer } from "./viewer";
 
 export const strings = {
   ...auth,
@@ -19,6 +20,7 @@ export const strings = {
   ...screenStates,
   ...shell,
   ...spine,
+  ...viewer,
 } as const;
 
 export type StringKey = keyof typeof strings;
