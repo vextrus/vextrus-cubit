@@ -27,9 +27,10 @@ import {
   tempDir,
   unique,
   withCadCommand,
-  ingestSeam,
+  INGEST_MODULE,
   UPLOADS_MODULE,
   type IngestRecord,
+  type IngestSeam,
   type JsonValue,
   type ProgressLike,
   type StagedDrawing,
@@ -171,7 +172,7 @@ export async function stagePerson(label: string): Promise<{ person: Person; proj
  * ingest job, so nothing here invents a second way to record one (ARCH-02).
  */
 export async function stageIngested(person: Person, projectId: string, fixture: string): Promise<{ drawing: StagedDrawing; record: IngestRecord }> {
-  const ingest = await ingestSeam();
+  const ingest = await productModule<IngestSeam>(INGEST_MODULE);
   const drawing = await stageDrawing(person, projectId, cadFixture(fixture), { name: unique(`${fixture}.dxf`), format: "dxf" });
   const artifact = new TextDecoder().decode(corpusBytes(`cad/tests/fixtures/${fixture}.entitygraph.json`));
   const stub = stubCli({ artifact, stderr: "", exitCode: 0 });

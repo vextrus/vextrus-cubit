@@ -29,12 +29,6 @@ export const REPO_ROOT: string = process.cwd();
 
 /** The homes the increment's interface list names. */
 export const INGEST_MODULE = "src/modules/takeoff/ingest/index.ts";
-/**
- * The job door (ARCH-01): `runIngestJob`, `ingestDrawing` and the CLI's environment name live behind
- * it so the app's module graph never holds the process boundary — the bundler traced the whole
- * checkout from the CLI client and died on `cad/.venv`. The seam this suite drives is both doors.
- */
-export const INGEST_JOB_MODULE = "src/modules/takeoff/ingest/job.ts";
 export const INGEST_HANDLER_MODULE = "src/worker/handlers/ingest.ts";
 export const JOBS_MODULE = "src/core/jobs/index.ts";
 export const UPLOADS_MODULE = "src/modules/spine/uploads/index.ts";
@@ -60,13 +54,6 @@ export async function productModule<T = Record<string, unknown>>(relative_: stri
   expect(existsSync(absolute), `${relative_} is missing from the checkout — the product does not provide it yet`).toBe(true);
   const specifier: string = absolute;
   return (await import(specifier)) as T;
-}
-
-/** The whole ingest seam: the request door and the job door, as one object (the suite's contract). */
-export async function ingestSeam(): Promise<IngestSeam> {
-  const door = await productModule<Partial<IngestSeam>>(INGEST_MODULE);
-  const job = await productModule<Partial<IngestSeam>>(INGEST_JOB_MODULE);
-  return { ...door, ...job } as IngestSeam;
 }
 
 /* ------------------------------------------------------------------ the shapes the seam answers in */

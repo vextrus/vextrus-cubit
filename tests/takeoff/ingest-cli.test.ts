@@ -25,7 +25,7 @@ import {
   committedArtifact,
   corpusBytes,
   ENTITYGRAPH_MODULE,
-  ingestSeam,
+  INGEST_MODULE,
   productModule,
   REPO_ROOT,
   sha256Of,
@@ -52,7 +52,7 @@ const CORPUS: readonly { label: string; bytes: () => Uint8Array }[] = [
 const NOT_A_DRAWING = new TextEncoder().encode("this is not a DXF; it is a sentence.\n");
 
 async function seam(): Promise<IngestSeam> {
-  return await ingestSeam();
+  return await productModule<IngestSeam>(INGEST_MODULE);
 }
 
 describe("AC-2 — one invocation, judged by its artifact", () => {

@@ -15,7 +15,7 @@ import { closeStage, enrol, openStage, stageProject } from "../spine/uploads/sup
 import {
   cadFixture,
   committedArtifact,
-  ingestSeam,
+  INGEST_MODULE,
   productModule,
   stageDrawing,
   stubCli,
@@ -24,6 +24,7 @@ import {
   UPLOADS_MODULE,
   withCadCommand,
   type IngestRecord,
+  type IngestSeam,
   type ProgressLike,
   type UploadSeam,
 } from "./support/ingest-stage";
@@ -54,7 +55,7 @@ test(
     await openStage();
     const person = await enrol("ingest-undeclared");
     const projectId = stageProject(person.tenantId, "Undeclared second job");
-    const ingest = await ingestSeam();
+    const ingest = await productModule<IngestSeam>(INGEST_MODULE);
     const uploads = await productModule<UploadSeam>(UPLOADS_MODULE);
 
     const drawing = await stageDrawing(person, projectId, cadFixture("basic"), { name: unique("undeclared.dxf"), format: "dxf" });

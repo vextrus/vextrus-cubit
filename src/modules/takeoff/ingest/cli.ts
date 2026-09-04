@@ -14,9 +14,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { entityGraphSchema, type EntityGraph } from "../../../core/entitygraph/schema";
 import { REFUSALS } from "../../../core/errors";
-import type { IngestFormat } from "./request";
 import type { SheetNotIngestable } from "./refusals";
 
+/** The formats this lane hands to the CLI (R-TO-001's DXF and DWG). */
+export type IngestFormat = "dxf" | "dwg";
 
 /** The machine's override of the CLI command prefix, whitespace-split (AS-01). */
 export const CAD_COMMAND_VAR = "CUBIT_CAD_COMMAND";
@@ -46,8 +47,8 @@ const CAD_MARKER = join("cad", "pyproject.toml");
 
 /** The first directory at or above `from` that holds `cad/pyproject.toml`, or null. */
 function checkoutAbove(from: string): string | null {
-  for (let dir = resolve(/* turbopackIgnore: true */ from); ; dir = dirname(dir)) {
-    if (existsSync(join(/* turbopackIgnore: true */ dir, CAD_MARKER))) return dir;
+  for (let dir = resolve(from); ; dir = dirname(dir)) {
+    if (existsSync(join(dir, CAD_MARKER))) return dir;
     if (dirname(dir) === dir) return null;
   }
 }
@@ -59,10 +60,7 @@ function checkoutAbove(from: string): string | null {
  * spawn the CLI against a `cad` that is not there. The working directory is the fallback, and is
  * itself searched upward, because it is where a worker started from source stands.
  */
-// The bundler's tracer is told not to follow these: `import.meta.url`, the checkout walk, the temp
-// dir and the spawn are runtime facts, and a build that traced them once walked the whole checkout
-// and died on `cad/.venv` — uv's interpreter symlink, which points outside the root (AS-01).
-const REPO_ROOT = checkoutAbove(dirname(fileURLToPath(/* turbopackIgnore: true */ import.meta.url))) ?? checkoutAbove(process.cwd()) ?? process.cwd();
+const REPO_ROOT = checkoutAbove(dirname(fileURLToPath(import.meta.url))) ?? checkoutAbove(process.cwd()) ?? process.cwd();
 
 /** What one invocation amounted to: the geometry and the bytes that carry it, or a refused sheet. */
 export type IngestOutcome = { ok: true; graph: EntityGraph; artifact: Uint8Array } | { ok: false; refusal: SheetNotIngestable; detail: string };
@@ -90,8 +88,8 @@ type Run = { stderr: string; ended: string; signal: NodeJS.Signals | null };
  */
 export async function ingestDrawing(bytes: Uint8Array, format: IngestFormat, options: { tempDir: string }): Promise<IngestOutcome> {
   const digest = digestOf(bytes);
-  const input = join(/* turbopackIgnore: true */ options.tempDir, `${digest}.${format}`);
-  const out = join(/* turbopackIgnore: true */ options.tempDir, `${digest}.${ARTIFACT_SUFFIX}`);
+  const input = join(options.tempDir, `${digest}.${format}`);
+  const out = join(options.tempDir, `${digest}.${ARTIFACT_SUFFIX}`);
   await writeFile(input, bytes);
 
   const run = await invoke([SUBCOMMAND, input, OUT_FLAG, out]);
@@ -131,7 +129,7 @@ export async function ingestDrawing(bytes: Uint8Array, format: IngestFormat, opt
 function invoke(argv: readonly string[]): Promise<Run> {
   const [command, ...prefix] = commandPrefix();
   return new Promise((settle, fail) => {
-    const child = spawn(/* turbopackIgnore: true */ command ?? "", [...prefix, ...argv], { cwd: REPO_ROOT, stdio: ["ignore", "ignore", "pipe"], timeout: CLI_TIMEOUT_MS });
+    const child = spawn(command ?? "", [...prefix, ...argv], { cwd: REPO_ROOT, stdio: ["ignore", "ignore", "pipe"], timeout: CLI_TIMEOUT_MS });
     let stderr = "";
     child.stderr?.setEncoding("utf8");
     child.stderr?.on("data", (chunk: string) => {
