@@ -1,0 +1,42 @@
+// R-SPINE-060: S-Viewer's own table. Copy fixed verbatim by docs/design/s-viewer.md § 3 — the panel,
+// the controls, the status readout, the two absences, the capability the browser may not offer, and
+// the labels the fidelity facts are read under. Nothing here says a sentence about a refusal: that
+// copy belongs to the register (R-SPINE-062), and layer names, sheet names and figures are model
+// data that render verbatim beside these words rather than inside them.
+export const viewer = {
+  viewer_layers_heading: "Layers",
+  viewer_layer_visible_label: "Show {layer}",
+  viewer_layer_count_label: "{count} entities on {layer}",
+  viewer_layer_isolate: "Isolate",
+  viewer_layer_lock: "Lock",
+  viewer_layer_retry: "Retry layer",
+  viewer_canvas_label: "Sheet {layout}",
+  viewer_fit: "Fit",
+  viewer_zoom_in: "Zoom in",
+  viewer_zoom_out: "Zoom out",
+  viewer_status_scale: "Scale",
+  viewer_status_scale_value: "{scale} px per drawing unit",
+  viewer_status_layers: "Layers",
+  viewer_status_layers_value: "{loaded} of {total}",
+  viewer_status_entities: "Entities",
+  viewer_status_entities_value: "{drawn} of {total}",
+  viewer_status_partial: "Some layers did not load.",
+  viewer_loading_label: "Opening the sheet.",
+  viewer_empty_unread_heading: "This drawing has not been read yet",
+  viewer_empty_unread_body: "A sheet appears here once the drawing has been read. Reading starts when the drawing is uploaded and finishes on its own.",
+  viewer_empty_sheet_heading: "This drawing holds no sheet by that name",
+  viewer_empty_sheet_body: "The address names a sheet the drawing does not carry. Open the drawing to pick one of the sheets it holds.",
+  viewer_evidence_project: "Go to the project",
+  viewer_no_webgl_heading: "This browser cannot draw the sheet",
+  viewer_no_webgl_body:
+    "Drawing a sheet needs WebGL, which this browser does not offer or has turned off. Turn on hardware acceleration, or open this address in another browser.",
+  viewer_fidelity_heading: "What the reading recorded",
+  viewer_fact_units: "Drawing units",
+  viewer_fact_units_unmapped: "The drawing named no unit the reading recognised.",
+  viewer_fact_layouts: "Sheets read",
+  viewer_fact_layouts_value: "{sheets} read, {strays} entities set aside as strays",
+  viewer_fact_dropped: "Sheets dropped",
+  viewer_fact_dropped_value: "{dropped} held no content",
+  viewer_fact_counters: "Limits reached while reading",
+  viewer_fact_counters_value: "{truncated} sheets stopped early, {capped} curves flattened to the point limit",
+} as const;

@@ -1,0 +1,102 @@
+// GET /api/viewer/{drawing}/{layout} — R-UI-043's progressive feed. The head answers what a screen
+// needs before any geometry arrives (the layer roster with its counts and swatches, the sheet's
+// extents, its digest and the facts its reading recorded), and each layer is asked for by index
+// afterwards, so first paint is the first layer rather than the whole sheet.
+//
+// The manifest is deliberately not carried into the page as a server prop: a 100 000-entity sheet in
+// an RSC payload would be paid for before anything could be drawn (PB-2).
+//
+// Three unhappy answers, told apart (ARCH-03, B-21): no live session is SIGNED_OUT at 401, a person
+// who does not hold the drawing's workspace is WORKSPACE_PERMISSION_NOT_HELD at 403 — existence and
+// membership are one answer, so a stranger learns nothing about somebody else's drawings (Q-12) —
+// and a failure of ours is recorded at the fault seam and answered with its id.
+import { randomUUID } from "node:crypto";
+import { REFUSALS } from "../../../../../core/errors";
+import { reportFault } from "../../../../../core/faults/report";
+import { appStorage } from "../../../../../core/storage/app";
+import { renderManifestOf, workspaceOfDrawing } from "../../../../../modules/takeoff/viewer";
+import type { RenderLayer, ViewerHead } from "../../../../../modules/takeoff/viewer";
+import { resolveSession } from "../../../../../server/auth/session";
+import { presentedSessionToken } from "../../../../../server/shell/session";
+import { holdsWorkspace } from "../../../../../server/shell/workspace";
+
+/** A sheet is served from live state; nothing about this route may be built or cached. */
+export const dynamic = "force-dynamic";
+
+/** The route the fault seam records this handler's failures under (ARCH-03). */
+const ROUTE = "GET /api/viewer/[drawing]/[layout]";
+
+/** The status each refusal this door can answer is given. */
+const STATUS: Readonly<Record<"SIGNED_OUT" | "WORKSPACE_PERMISSION_NOT_HELD", number>> = Object.freeze({
+  SIGNED_OUT: 401,
+  WORKSPACE_PERMISSION_NOT_HELD: 403,
+});
+
+/** What a caller is told when the address asks for a part of a sheet that is not one. */
+const NOT_A_PART = "a sheet is asked for as ?part=head or ?part=layer&index=<n>";
+
+/** A JSON answer, uncached. */
+function json(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
+}
+
+/** A registered refusal, carried whole so the screen renders the register's copy (R-SPINE-062). */
+function refusalAnswer(code: keyof typeof STATUS): Response {
+  return json({ refusal: REFUSALS[code] }, STATUS[code]);
+}
+
+/** The head as the feed answers it: everything but the records, which are asked for one layer at a time. */
+function headAnswer(head: ViewerHead): Response {
+  if (head.kind === "absent") return json(head, 404);
+  if (head.kind === "refusal") return json(head, 200);
+  const { manifest } = head;
+  return json(
+    {
+      kind: head.kind,
+      cache: head.cache,
+      facts: head.facts,
+      layoutName: manifest.layoutName,
+      extents: manifest.extents,
+      insunits: manifest.insunits,
+      digest: manifest.digest,
+      version: manifest.version,
+      layers: manifest.layers.map((layer: RenderLayer) => ({ name: layer.name, rgb: layer.rgb, entityCount: layer.entityCount })),
+    },
+    200,
+  );
+}
+
+/** One layer's geometry, by its place in the roster the head published. */
+function layerAnswer(head: ViewerHead, index: number): Response {
+  if (head.kind === "absent") return json(head, 404);
+  if (head.kind === "refusal") return json(head, 200);
+  const layer = head.manifest.layers[index];
+  if (layer === undefined) return json({ error: `the sheet holds no layer at ${index}` }, 404);
+  return json({ index, name: layer.name, rgb: layer.rgb, entityCount: layer.entityCount, records: layer.records }, 200);
+}
+
+export async function GET(request: Request, context: { params: Promise<{ drawing: string; layout: string }> }): Promise<Response> {
+  try {
+    const { drawing, layout } = await context.params;
+    const asked = new URL(request.url).searchParams;
+    const part = asked.get("part") ?? "head";
+    if (part !== "head" && part !== "layer") return json({ error: NOT_A_PART }, 400);
+
+    const presented = await presentedSessionToken();
+    const session = presented === null ? null : await resolveSession(presented);
+    if (session === null) return refusalAnswer("SIGNED_OUT");
+
+    const tenantId = await workspaceOfDrawing(drawing);
+    if (tenantId === null || !(await holdsWorkspace(session.userId, tenantId))) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
+
+    const head = await renderManifestOf({ tenantId, drawingId: drawing, layoutName: decodeURIComponent(layout) }, { storage: appStorage() });
+    if (part === "head") return headAnswer(head);
+
+    const index = Number(asked.get("index"));
+    if (!Number.isInteger(index) || index < 0) return json({ error: NOT_A_PART }, 400);
+    return layerAnswer(head, index);
+  } catch (failure) {
+    const { faultId } = reportFault({ requestId: randomUUID(), actor: "viewer", route: ROUTE, cause: failure });
+    return json({ faultId }, 500);
+  }
+}
