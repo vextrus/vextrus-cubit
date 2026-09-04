@@ -10,8 +10,9 @@
 // (`db/__tests__/harness.ts`), which speaks psql and applies the committed migrations — SEAM-JOBS'
 // own storage is runtime-managed and is created by `startJobsRuntime`, not by a migration.
 import { spawn, type ChildProcessByStdio } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
@@ -360,7 +361,7 @@ export function policyFor(jobs: JobsModule, kind: string): JobKindPolicy {
  * `slots` is `JOB_KINDS[kind].concurrency`, read from the seam rather than transcribed: a kind whose
  * limit is raised later fills more slots instead of reddening the proof (B-19).
  */
-export type Blockade = { jobIds: string[]; kind: string; slots: number };
+export type Blockade = { jobIds: string[]; kind: string; slots: number; /** the file whose existence lets every hold go (`releaseHolds` writes it) */ release: string };
 
 /** A step delay long enough to read in a log, short enough that a long hold is just many steps. */
 export const HOLD_STEP_MS = 2000;
@@ -378,9 +379,12 @@ export const HOLD_STEP_MS = 2000;
 export async function holdEveryLocalSlot(jobs: JobsModule, kind: string, label: string, stepCount: number): Promise<Blockade> {
   const policy = policyFor(jobs, kind);
   const steps = Array.from({ length: stepCount }, (_unused, index) => `hold-${index}`);
+  // The holds let go the moment this file exists (`releaseHolds`), so a proof that took seconds is
+  // not followed by a wait of `stepCount × HOLD_STEP_MS` for holds nobody needs any more.
+  const release = join(tmpdir(), `cubit-hold-${label}-${process.pid}-${Date.now().toString(36)}`);
   const jobIds: string[] = [];
   for (let slot = 0; slot < policy.concurrency; slot += 1) {
-    const { jobId } = await jobs.enqueue(kind, { steps, stepDelayMs: HOLD_STEP_MS }, { key: uniqueKey(`${label}-hold-${slot}`) });
+    const { jobId } = await jobs.enqueue(kind, { steps, stepDelayMs: HOLD_STEP_MS, releaseWhen: release }, { key: uniqueKey(`${label}-hold-${slot}`) });
     jobIds.push(jobId);
   }
   await waitUntil(
@@ -391,7 +395,7 @@ export async function holdEveryLocalSlot(jobs: JobsModule, kind: string, label: 
     `all ${policy.concurrency} of the calling runtime's \`${kind}\` slots were taken (JOB_KINDS.${kind}.concurrency)`,
     180_000,
   );
-  return { jobIds, kind, slots: policy.concurrency };
+  return { jobIds, kind, slots: policy.concurrency, release };
 }
 
 /**
@@ -412,7 +416,12 @@ export async function slotsHeldAt(jobs: JobsModule, blockade: Blockade, instantM
   return held;
 }
 
-/** Let the holds run out, so nothing of ours is still in flight when the runtime is stopped. */
+/** Let the holds go and wait for them to end, so nothing of ours is still in flight when the runtime is stopped. */
 export async function releaseHolds(jobs: JobsModule, blockade: Blockade, budgetMs: number): Promise<void> {
-  for (const jobId of blockade.jobIds) await waitForTerminal(jobs, jobId, budgetMs);
+  writeFileSync(blockade.release, "released\n");
+  try {
+    for (const jobId of blockade.jobIds) await waitForTerminal(jobs, jobId, budgetMs);
+  } finally {
+    rmSync(blockade.release, { force: true });
+  }
 }
