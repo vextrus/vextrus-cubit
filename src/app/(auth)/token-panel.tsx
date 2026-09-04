@@ -11,7 +11,7 @@ import { Skeleton } from "../../ui/primitives/core";
 import { strings, type StringKey } from "../../ui/strings";
 import { AnswerSlot, NoticeSlot } from "./answer-slot";
 import { settle, type Answer } from "./answers";
-import type { AuthRoute } from "./routes";
+import { tokenSearch, type AuthRoute } from "./routes";
 import { useDoneTitle } from "./title";
 import { mutate, type AuthProcedure } from "./transport";
 
@@ -48,7 +48,9 @@ export function TokenPanel({ route, token, procedure, outcome }: TokenPanelProps
     });
   }, [outcome, procedure, router, setDoneTitle, token]);
 
-  if (answer !== null) return <AnswerSlot answer={answer} route={route} />;
+  // The panel is only ever reached through a mailed link, so its answers resolve back onto the
+  // address the link addressed rather than onto the bare route (R-UI-020).
+  if (answer !== null) return <AnswerSlot answer={answer} route={route} search={tokenSearch(token)} />;
   if (done && "notice" in outcome) return <NoticeSlot message={strings[outcome.notice]} />;
   return <Skeleton className="cx-auth-panel-skeleton" />;
 }

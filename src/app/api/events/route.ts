@@ -52,10 +52,18 @@ function json(body: unknown, status: number): Response {
  * `done` is read off the events being answered with, so the pair a caller receives always agrees
  * with itself even if the job ends between two requests.
  */
-async function pollAnswer(jobId: string): Promise<Response> {
-  const events = await jobEvents(jobId);
+function pollAnswer(events: readonly JobEvent[]): Response {
   return json({ events, done: isOver(events) }, 200);
 }
+
+/**
+ * What the caller is told about an id no job answers to. `enqueue` publishes a job's first event
+ * inside the key lock that creates it, so a log with nothing in it is an unknown job rather than an
+ * early one: there is no later moment at which events would appear. It is the caller's question
+ * that is wrong, so it is answered as one — and the sentence is a field of the JSON envelope, for a
+ * caller, never copy for a person (ARCH-03). The id is not echoed back.
+ */
+const NO_SUCH_JOB = "no job is recorded under that id";
 
 /**
  * The stream: history in seq order, then every further event as the log records it, then the close.
@@ -102,15 +110,18 @@ export async function GET(request: Request): Promise<Response> {
   const jobId = query.get(JOB_ID)?.trim() ?? "";
   if (jobId === "") return json({ events: [], done: false, error: `${JOB_ID} is required` }, 400);
 
-  if (query.get(TRANSPORT) === POLL) {
-    try {
-      return await pollAnswer(jobId);
-    } catch (failure) {
-      // Nothing here is a refusal — the caller asked a lawful question and our side could not
-      // answer it, so the fault is recorded and its id is what the caller is given (ARCH-03).
-      const { faultId } = reportFault({ requestId: jobId, actor: "poll", route: ROUTE, cause: failure });
-      return json({ faultId }, 500);
-    }
+  const polling = query.get(TRANSPORT) === POLL;
+  try {
+    // The log is read before either transport answers, so an id no job answers to is settled here.
+    // A stream opened for one would otherwise never end: `watchJob` waits for events that are never
+    // coming, polling the store every quarter second for the life of the connection.
+    const events = await jobEvents(jobId);
+    if (events.length === 0) return json({ events: [], done: false, error: NO_SUCH_JOB }, 404);
+    return polling ? pollAnswer(events) : streamAnswer(jobId, request.signal);
+  } catch (failure) {
+    // Nothing here is a refusal — the caller asked a lawful question and our side could not
+    // answer it, so the fault is recorded and its id is what the caller is given (ARCH-03).
+    const { faultId } = reportFault({ requestId: jobId, actor: polling ? "poll" : "stream", route: ROUTE, cause: failure });
+    return json({ faultId }, 500);
   }
-  return streamAnswer(jobId, request.signal);
 }

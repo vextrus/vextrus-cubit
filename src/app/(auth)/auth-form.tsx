@@ -52,9 +52,11 @@ export interface AuthFormProps {
   submit: StringKey;
   perform: (values: Readonly<Record<string, string>>) => Promise<unknown>;
   success: AuthSuccess;
+  /** The query this screen was reached with, where it has one — a mailed link's token (R-UI-020). */
+  search?: string;
 }
 
-export function AuthForm({ route, fields, submit, perform, success }: AuthFormProps) {
+export function AuthForm({ route, fields, submit, perform, success, search }: AuthFormProps) {
   const router = useRouter();
   const setDoneTitle = useDoneTitle();
   const [busy, setBusy] = useState(false);
@@ -117,7 +119,7 @@ export function AuthForm({ route, fields, submit, perform, success }: AuthFormPr
           />
         </div>
       ))}
-      <AnswerSlot answer={answer} route={route} />
+      <AnswerSlot answer={answer} route={route} search={search} />
       <Button className="cx-auth-submit" type="submit" data-testid="s-auth-submit" variant="primary" loading={busy}>
         {strings[submit]}
       </Button>

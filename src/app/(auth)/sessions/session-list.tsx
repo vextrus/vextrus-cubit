@@ -133,7 +133,14 @@ export function SessionList() {
           </li>
         ))}
       </ul>
-      <AnswerSlot answer={attemptAnswer} route={AUTH_ROUTES.sessions} />
+      {/* The region waits here from the first paint, empty, so a revoke's answer is an INSERTION
+          into something assistive technology is already watching (Q-11). A live region that arrives
+          with its sentence already inside it is unreliably announced, and a revoke that says
+          nothing is a control a person cannot tell worked. It carries no chrome and no role of its
+          own: what is inserted is what claims to be an alert or a refusal. */}
+      <div aria-live="polite">
+        <AnswerSlot answer={attemptAnswer} route={AUTH_ROUTES.sessions} />
+      </div>
       <Button className="cx-auth-signout" data-testid="s-auth-signout" variant="secondary" onClick={signOut}>
         {strings.auth_sessions_sign_out}
       </Button>

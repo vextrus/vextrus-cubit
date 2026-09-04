@@ -29,6 +29,11 @@ export const membersStrings = {
   members_history_none: "No role movements on this workspace's projects yet.",
 
   members_member_unnamed: "Unnamed member",
+  // The same person, named for a control's ACCESSIBLE name only. Every row carries the same two
+  // controls, so a roster of accounts with no readable address would otherwise be N controls called
+  // "Change role for Unnamed member" — one target, told apart by nothing. The visible label is
+  // unchanged: an account id is not something a reader is asked to read (I-55).
+  members_member_unnamed_identified: "Unnamed member {id}",
 
   members_status_pending: "Carrying the change out…",
   members_status_done: "Done. The roster shows the result.",

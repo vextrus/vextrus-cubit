@@ -11,12 +11,24 @@ import { sampleSeed, type SampleSeedAnswer } from "../../../../server/shell/samp
 import { endSession, presentedSessionToken } from "../../../../server/shell/session";
 import { viewerFor } from "../../../../server/shell/viewer";
 import { holdsWorkspace, renameWorkspace, type RenameAnswer } from "../../../../server/shell/workspace";
-import { hasVisibleText, shellHref } from "../../../../ui/shell";
+// The two pure helpers, from the module that holds them rather than through the shell's UI barrel:
+// a "use server" module is a server-bundle entry, and the barrel re-exports the frame's client
+// components — importing it here drags every one of them, and shell.css, into this entry's graph
+// for two functions that touch neither (B-17, ARCH-02).
+import { hasVisibleText, shellHref } from "../../../../ui/shell/routes";
 import { judgeProject, presentedProject, type ProjectJudgement } from "./home/judgement";
 
-/** The user menu's way out: the session ends, and `/sign-in` is itself the visible way back in. */
+/**
+ * The user menu's way out: the session ends, and `/sign-in` is itself the visible way back in.
+ *
+ * The router keeps already-rendered segments in a client-side cache, so ending the session and
+ * redirecting still leaves the signed-in frame — the workspace name, the member's e-mail, the
+ * switcher — sitting in that cache for a Back press to repaint. The whole layout tree is purged
+ * before the redirect, because `redirect` unwinds this action by throwing (ARCH-03).
+ */
 export async function signOutAction(): Promise<void> {
   await endSession(await presentedSessionToken());
+  revalidatePath("/", "layout");
   redirect("/sign-in");
 }
 

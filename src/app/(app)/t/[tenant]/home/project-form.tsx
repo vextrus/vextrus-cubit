@@ -137,8 +137,18 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
         >
           <legend className="cx-home-field-label">{strings.home_field_building_type}</legend>
           <div className="cx-home-types-choices">
+            {/* The judgement is stated on each chip as well as on the group: a fieldset takes no
+                focus of its own, so a person who arrives at a chip by keyboard — which is the only
+                way they arrive at one — would otherwise meet a control that says nothing about
+                being refused and points at no sentence explaining why (Q-11). */}
             {BUILDING_TYPES.map((type) => (
-              <Chip key={type} selected={buildingType === type} onClick={() => setBuildingType(type)}>
+              <Chip
+                key={type}
+                selected={buildingType === type}
+                aria-invalid={invalidBy("project-building-type") === null ? undefined : true}
+                aria-describedby={invalidBy("project-building-type") ?? undefined}
+                onClick={() => setBuildingType(type)}
+              >
                 {strings[BUILDING_TYPE_LABEL[type]]}
               </Chip>
             ))}

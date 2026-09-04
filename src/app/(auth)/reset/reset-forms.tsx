@@ -4,7 +4,7 @@
 // plainly — a person whose other devices were just signed out is owed that fact, not a surprise.
 import { AuthForm, type AuthField } from "../auth-form";
 import type { FooterLine } from "../footer";
-import { AUTH_ROUTES } from "../routes";
+import { AUTH_ROUTES, tokenSearch } from "../routes";
 import { mutate } from "../transport";
 
 const EMAIL_FIELD: readonly AuthField[] = [{ name: "email", testId: "s-auth-email", label: "auth_email_label", type: "email", autoComplete: "email" }];
@@ -31,6 +31,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
   return (
     <AuthForm
       route={AUTH_ROUTES.reset}
+      // This half of the screen exists only behind a mailed link, so a refusal resolved here leads
+      // back to the address as it is — a bare `/reset` would be the request form, not this one.
+      search={tokenSearch(token)}
       fields={PASSWORD_FIELD}
       submit="auth_reset_submit"
       perform={(values) => mutate("resetPassword", { token, password: values["password"] ?? "" })}

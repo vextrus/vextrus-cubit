@@ -105,6 +105,17 @@
   grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--breakpoint-sm)), 1fr));
 }
 
+/*
+ * The Dropzone's states are the same drop target in four conditions, so they are read as a column of
+ * one shape: a drop target sized by its own content is a different box in each state, and the
+ * comparison the gallery exists for is lost. The width is a token read, never a number (R-UI-001),
+ * and it never outgrows the card it sits in.
+ */
+.cx-gallery-entry[data-entry$="/Dropzone"] .cx-gallery-state {
+  width: var(--breakpoint-sm);
+  max-width: 100%;
+}
+
 /* The dialog sample's footer, as its Decision composes it: secondary then primary, trailing. */
 .cx-gallery-dialog-footer {
   display: flex;
@@ -119,7 +130,7 @@
   color: var(--graphite-600);
 }
 
-/* I-19's four demo geometry constants — the only px in this file. */
+/* I-19's five demo geometry constants — the only px outside I-20's media condition above. */
 .cx-gallery-bone {
   width: 240px;
 }
@@ -131,7 +142,7 @@
 /*
  * The panel demo is a box no token measures in either axis: content-sizing it collapses the group
  * to its labels, which breaks "Sheet list" mid-word and leaves the handle no target. The height is
- * I-19's constant; the width is a token read, so the file's px constants stay at four.
+ * I-19's constant; the width is a token read, so the file's px constants stay at five.
  */
 .cx-gallery-resizable {
   height: 160px;

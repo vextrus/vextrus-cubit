@@ -26,7 +26,6 @@ import {
   fitCamera,
   panCamera,
   parseViewport,
-  serialiseViewport,
   worldAt,
   zoomCameraAt,
 } from "../../../../../../../../../modules/takeoff/viewer/client";
@@ -37,6 +36,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../../../.
 import { RefusalState, type RefusalEvidence } from "../../../../../../../../../ui/patterns/refusal-state";
 import { shellHref } from "../../../../../../../../../ui/shell";
 import { fill, strings } from "../../../../../../../../../ui/strings";
+import { publishViewport, viewerPathname } from "./address";
 import { FidelityFacts } from "./fidelity-facts";
 import { LayersPanel } from "./layers-panel";
 import { StatusLine } from "./status-line";
@@ -375,16 +375,21 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     setCamera(asked === null ? fitCamera(head.manifest.extents, viewportPx) : cameraFromViewport(asked, viewportPx));
   }, [head, initialViewport]);
 
+  /** The address this sheet is drawn at: the one page its camera may be written onto. */
+  const ownPathname = useMemo(() => viewerPathname({ tenantId, projectId, drawingId, layoutName }), [tenantId, projectId, drawingId, layoutName]);
+
   /**
-   * R-UI-031: the address is the camera. It is replaced rather than pushed, so going back leaves the
-   * sheet instead of unwinding a pan.
+   * R-UI-031: the address is the camera, published through its one home (B-17). A settle or a flush
+   * that fires after the reader has left the sheet finds the window somewhere else and writes
+   * nothing.
    */
-  const publishAddress = useCallback((at: Camera): void => {
-    if (typeof window === "undefined") return;
-    const url = new URL(window.location.href);
-    url.searchParams.set("v", serialiseViewport(at));
-    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
-  }, []);
+  const publishAddress = useCallback(
+    (at: Camera): void => {
+      if (typeof window === "undefined") return;
+      publishViewport(window, ownPathname, at);
+    },
+    [ownPathname],
+  );
 
   useEffect(() => {
     cameraRef.current = camera;

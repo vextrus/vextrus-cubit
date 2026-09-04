@@ -9,9 +9,10 @@
 import "./accept-invitation.css";
 
 import { redirect } from "next/navigation";
-import { refusalOf } from "../../../core/errors";
+import { refusalOf, type RefusalCode } from "../../../core/errors";
 import { refusalCodeOf } from "../../../core/faults/refusal-marker";
 import { offeredInvitation } from "../../../modules/spine/tenancy";
+import { admitAttempt } from "../../../server/auth/rate-limit";
 import { invitationMachinery } from "../../../server/auth/invitation-mail";
 import { presentedSessionToken } from "../../../server/shell/session";
 import { sessionOf } from "../../../server/shell/resolve";
@@ -19,6 +20,12 @@ import { AcceptInvitationForm, AcceptInvitationNoToken, AcceptInvitationUnclaima
 import { acceptInvitationStrings } from "./strings";
 
 export const metadata = { title: acceptInvitationStrings.accept_heading };
+
+/**
+ * The two registered answers this screen renders in place of an offer: a token no accept can claim,
+ * and the metered door refusing the read itself. Both are answers, not faults (ARCH-03).
+ */
+const ANSWERED_IN_PLACE: readonly RefusalCode[] = ["INVITATION_NOT_CLAIMABLE", "RATE_LIMITED"];
 
 export default async function AcceptInvitation({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
   const { token } = await searchParams;
@@ -32,13 +39,24 @@ export default async function AcceptInvitation({ searchParams }: { searchParams:
   if (token === undefined || token === "") return <AcceptInvitationNoToken />;
 
   try {
+    // Reading an offer for whatever token an address carries is, unmetered, a token oracle: a
+    // signed-in account can walk the space of tokens as fast as this screen will render. The read is
+    // metered at the same door the accept itself spends (R-SPINE-006's `tenancyAdmin`), keyed on the
+    // server-derived account rather than on anything the request carries, and spent BEFORE the token
+    // is read so a refused walk learns nothing about the token it presented.
+    await admitAttempt("tenancyAdmin", session.userId);
+
     const offer = await offeredInvitation({ userId: session.userId, token }, invitationMachinery);
     return <AcceptInvitationForm token={token} offer={{ workspaceName: offer.workspaceName, workspaceRole: offer.workspaceRole }} />;
   } catch (thrown) {
     const code = refusalCodeOf(thrown);
-    if (code !== refusalOf("INVITATION_NOT_CLAIMABLE").code) throw thrown;
-    // Nothing is left to submit over a token no accept can claim, and no disarmed control stands in
-    // its place: the answer is the refusal, with its code, its message and its remedy (I-65).
-    return <AcceptInvitationUnclaimable refusal={refusalOf("INVITATION_NOT_CLAIMABLE")} />;
+    const answered = ANSWERED_IN_PLACE.find((registered) => registered === code);
+    // Anything the seam did not mark as one of this screen's registered answers is a fault of the
+    // machine and travels on unchanged — a swallowed catch is how an outage becomes a shrug.
+    if (answered === undefined) throw thrown;
+    // Nothing is left to submit over a token no accept can claim — or while the door is closed —
+    // and no disarmed control stands in its place: the answer is the refusal, with its code, its
+    // message and its remedy, through the one renderer (I-65, ARCH-03).
+    return <AcceptInvitationUnclaimable refusal={refusalOf(answered)} />;
   }
 }

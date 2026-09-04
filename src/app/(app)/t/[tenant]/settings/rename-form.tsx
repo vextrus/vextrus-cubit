@@ -41,11 +41,14 @@ export function RenameForm({ tenantId, name }: RenameFormProps) {
   const hintId = useId();
 
   return (
+    // The action is the dispatch itself, by name: React can only serve a no-JS endpoint for a form
+    // whose action IS the action, so a closure declared here would make Save do nothing at all —
+    // and say nothing either — for anyone whose bundle has not loaded (R-UI-050). What this form
+    // last put on the wire is read from the submitted form instead, in the submit event React
+    // raises before it dispatches; with no script running there is nothing to remember.
     <form
-      action={(data: FormData) => {
-        setSent(String(data.get("name") ?? ""));
-        submit(data);
-      }}
+      action={submit}
+      onSubmit={(event) => setSent(String(new FormData(event.currentTarget).get("name") ?? ""))}
     >
       <section className="cx-shell-section" data-testid="shell-settings-name" aria-labelledby={labelId}>
         <input type="hidden" name="tenantId" value={tenantId} />

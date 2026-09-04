@@ -105,6 +105,16 @@ export function MembersSection({
 
   const busy = (row: MembersRow, kind: InFlight["kind"]): boolean => inFlight?.userId === row.userId && inFlight.kind === kind;
 
+  /**
+   * The member as a CONTROL names them. A row whose account has no readable address falls back to
+   * the roster's unnamed line, and every such row would then carry controls called exactly the same
+   * thing — a screen reader moving down the roster meets one target repeated, with nothing to tell
+   * the rows apart. The account's own id distinguishes them, in the spoken name only: the visible
+   * label stays the sentence a reader is meant to read (I-55, Q-11).
+   */
+  const spoken = (row: MembersRow): string =>
+    row.label === membersStrings.members_member_unnamed ? fill(membersStrings.members_member_unnamed_identified, { id: row.userId }) : row.label;
+
   return (
     <div className="cx-members">
       <header className="cx-members-header">
@@ -145,7 +155,7 @@ export function MembersSection({
                     className="cx-input cx-reticle cx-members-select"
                     data-testid="members-role-select"
                     name="role"
-                    aria-label={fill(membersStrings.members_role_label, { member: row.label })}
+                    aria-label={fill(membersStrings.members_role_label, { member: spoken(row) })}
                     value={chosen[row.userId] ?? row.role}
                     onChange={(event) => setChosen((held) => ({ ...held, [row.userId]: event.target.value }))}
                   >
@@ -161,7 +171,7 @@ export function MembersSection({
                     type="submit"
                     variant="secondary"
                     data-testid="members-role-submit"
-                    aria-label={fill(membersStrings.members_role_submit_label, { member: row.label })}
+                    aria-label={fill(membersStrings.members_role_submit_label, { member: spoken(row) })}
                     loading={busy(row, "role")}
                   >
                     {membersStrings.members_role_submit}
@@ -181,7 +191,7 @@ export function MembersSection({
                     type="submit"
                     variant="danger"
                     data-testid="members-remove-submit"
-                    aria-label={fill(membersStrings.members_remove_submit_label, { member: row.label })}
+                    aria-label={fill(membersStrings.members_remove_submit_label, { member: spoken(row) })}
                     loading={busy(row, "removal")}
                   >
                     {membersStrings.members_remove_submit}
