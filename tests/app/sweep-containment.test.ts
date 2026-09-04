@@ -15,7 +15,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { describe, expect, test } from "vitest";
-import { REPO_ROOT } from "./support/sources";
+import { REPO_ROOT } from "../server/support/wire";
 
 /** The rows the spec excludes with a reason: their files are byte-identical to main. */
 const EXCLUDED: readonly string[] = [

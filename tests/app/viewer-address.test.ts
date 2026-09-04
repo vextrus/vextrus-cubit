@@ -12,6 +12,9 @@
  */
 import { describe, expect, test } from "vitest";
 import { productModule } from "../server/support/wire";
+// white-box: AC-1(e) — the last leg of this criterion is B-17's "one home": the `replaceState`
+// token must appear NOWHERE in the viewer screen. An absent call has no runtime observable — a
+// render that simply never reaches the screen's own flush would pass — so the code channel is read.
 import { lexed } from "./support/sources";
 
 const VIEWER_DIR = "src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]";

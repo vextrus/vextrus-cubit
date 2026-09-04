@@ -11,6 +11,9 @@
  * Both criteria are properties of the stylesheet's text; each read is marked below.
  */
 import { describe, expect, test } from "vitest";
+// white-box: AC-4(c)(d) — the criterion is an agreement between a comment and the declarations
+// beside it, and a rule in a stylesheet jsdom never applies (the unit lane stubs the CSS import and
+// computes no layout). Neither half has a runtime observable here.
 import { lexed, sourceOf } from "./support/sources";
 
 const DESIGN_CSS = "src/app/(app)/design/design.css";

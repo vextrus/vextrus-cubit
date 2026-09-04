@@ -17,6 +17,9 @@ import { render, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { REPO_ROOT, productModule } from "../server/support/wire";
+// white-box: AC-5(c) — whether React can serve a no-JS endpoint is decided by WHAT the `action`
+// attribute is handed, and the difference is invisible to a jsdom submit: both shapes dispatch
+// identically once the bundle has loaded, which is the one case the criterion is not about.
 import { lexed } from "./support/sources";
 
 const FORM = "src/app/(app)/t/[tenant]/settings/rename-form.tsx";

@@ -19,6 +19,8 @@ import { createHash } from "node:crypto";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, test } from "vitest";
 import { productModule } from "../server/support/wire";
+// white-box: AC-4(b) — Q-17 bans process narration from `src/` COMMENTS, and a comment has no
+// runtime observable at all: nothing the layout or the resolver does can be made to reveal one.
 import { lexed } from "./support/sources";
 
 const RESOLVER = "src/app/theme-resolver.ts";
