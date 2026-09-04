@@ -27,10 +27,17 @@ import {
   type StorageLike,
 } from "./support/viewer-support";
 
-/** The corpus, in its own order: the first artifact is the cache's subject, the last the damaged one. */
+/**
+ * The corpus, in its own order. AC-2's subject is the first artifact; AC-3's damaged reading must be a
+ * *different* content, because R-UI-043's two halves meet on one content: a manifest already built for
+ * a sha is served from the content-hash memo the clause orders, so a damaged reading of that same sha
+ * would grade honoured caching as a missing refusal. The damaged fixture is therefore chosen by
+ * distinctness rather than by position in the list, and where the corpus cannot supply a second
+ * content the AC-3 test says so by name instead of blaming the product.
+ */
 const CORPUS = committedArtifactNames();
 const CACHED_FIXTURE = CORPUS[0] as string;
-const DAMAGED_FIXTURE = CORPUS[CORPUS.length - 1] as string;
+const DAMAGED_FIXTURE = CORPUS.find((name) => name !== CACHED_FIXTURE);
 
 /** Bytes that are JSON and are not an EntityGraph — what a damaged reading leaves behind. */
 const DAMAGED_BYTES = new TextEncoder().encode(JSON.stringify({ entitygraph_version: 2, this: "is not the artifact the mirror parses" }));
@@ -84,20 +91,30 @@ describe("AC-2: the manifest is built once and served from the content-keyed cac
 
 describe("AC-3: a reading the mirror cannot parse is refused in place, with the facts", () => {
   test("AC-3: renderManifestOf answers the registered refusal and the record's facts, never a fault", async () => {
+    expect(DAMAGED_FIXTURE, "AC-3 needs a fixture whose content the AC-2 cache never built").toBeDefined();
+    const damagedFixture = DAMAGED_FIXTURE as string;
+
     const { renderManifestOf } = await viewerSeam();
     const { refusalOf } = await productModule<ErrorsModule>(ERRORS_MODULE);
     const { person, projectId } = await stagePerson("viewer-damaged");
-    const { drawing, record } = await stageIngested(person, projectId, DAMAGED_FIXTURE);
-    const layoutName = layoutNamesOf(committedGraph(DAMAGED_FIXTURE))[0] as string;
+    const { drawing, record } = await stageIngested(person, projectId, damagedFixture);
+    const layoutName = layoutNamesOf(committedGraph(damagedFixture))[0] as string;
 
     const entry = refusalOf(MANIFEST_NOT_RENDERABLE);
     expect(entry.severity, `${MANIFEST_NOT_RENDERABLE} is registered as an error (R-SPINE-062)`).toBe("error");
     expect(entry.surface, "and rendered on the banner surface").toBe("banner");
 
     // The storage answers bytes the mirror does not parse for the address the record names: this is
-    // what a damaged reading is, seen from the seam that must answer for it.
-    const head = await renderManifestOf({ tenantId: person.tenantId, drawingId: drawing.drawingId, layoutName }, { storage: fixedStorage(DAMAGED_BYTES) });
+    // what a damaged reading is, seen from the seam that must answer for it. The reading is counted, so
+    // the refusal below is graded against bytes the seam really opened for this content — never against
+    // a content-hash memo already holding a manifest, which is the other half of R-UI-043, not this one.
+    const storage = countingStorage(fixedStorage(DAMAGED_BYTES));
+    const head = await renderManifestOf({ tenantId: person.tenantId, drawingId: drawing.drawingId, layoutName }, { storage });
 
+    expect(
+      storage.getsOf(record.artifactSha256),
+      `the seam read the bytes at ${record.artifactSha256} once: this content was never built into the cache, so the refusal that follows is a reading of these bytes (R-UI-043)`,
+    ).toBe(1);
     expect(head.kind, "a damaged reading is a refusal, not a thrown fault (R-UI-043)").toBe("refusal");
     if (head.kind !== "refusal") return;
     expect(head.refusal.code, "and it is the registered code").toBe(MANIFEST_NOT_RENDERABLE);
