@@ -1462,6 +1462,21 @@ const JOBS_SCHEMA_DDL = `create schema if not exists ${JOBS_SCHEMA}`;
 /** The door the migrations publish for installing the queue library's own schema (R-SPINE-031). */
 const PROVISION_QUEUE = "provision_queue_storage";
 
+/** The queue schema version db/migrations/0018 holds pg-boss 10.4.2's construction plans for. */
+const PROVISIONED_QUEUE_VERSION = 24;
+
+/**
+ * The schema version the pg-boss that is actually installed would construct, read back off its own
+ * plans rather than restated beside them (B-19). `migrate: false` on every tier means nothing
+ * corrects a mismatch, so a bump of the library whose plans build another version is named at the one
+ * place that asks the migration's door to install them — never left to surface as SQL that does not
+ * fit the storage the door made.
+ */
+function plannedQueueVersion(): number | null {
+  const stated = /version\s*\(\s*version\s*\)\s*values\s*\(\s*'?(\d+)'?\s*\)/i.exec(PgBoss.getConstructionPlans(BOSS_SCHEMA));
+  return stated === undefined || stated === null ? null : Number(stated[1]);
+}
+
 /**
  * One ending per job is a constraint of the storage, not a courtesy of its callers: two racing
  * writers cannot both land in a unique index (R-SPINE-030, B-17). Built after the tables, on its
@@ -1616,6 +1631,12 @@ export function jobsStore(url: string): JobsStore {
     // what it needs, or, where the storage already stands, does nothing.
     if (managing) {
       try {
+        const planned = plannedQueueVersion();
+        if (planned !== PROVISIONED_QUEUE_VERSION) {
+          throw new Error(
+            `the installed pg-boss constructs queue schema version ${String(planned)}, and the migration's door installs version ${String(PROVISIONED_QUEUE_VERSION)} — no tier migrates the queue (R-SPINE-031), so the two must be moved together`,
+          );
+        }
         await sql`select ${sql(JOBS_SCHEMA)}.${sql(PROVISION_QUEUE)}()`;
       } catch (failure) {
         // Storage that could not be provisioned is this seam's failure to answer for, like a queue

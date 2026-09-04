@@ -37,10 +37,17 @@ export type PreviewAnswer = { previewed: true; consequence: Consequence; consequ
 /** What a commit answered: the act it wrote, or the refusal that stopped it. */
 export type CommitAnswer = { committed: true; actId: string } | { committed: false; refusal: RefusalCode };
 
-/** What one asked-for job amounted to: the job carrying it, or none because there was nothing to do. */
+/**
+ * What one asked-for job amounted to: the job carrying it, or none because there was nothing to do.
+ *
+ * A request the seam refused answers with its registered code rather than an absence: silence about
+ * a drawing that will never be read is exactly what R-UI-020 forbids, so the code travels back to the
+ * screen that asked and is rendered there.
+ */
 export interface RequestedJob {
   jobId: string | null;
   deduplicated: boolean;
+  refusal: RefusalCode | null;
 }
 
 /** The same, said of one drawing of a batch. */
@@ -57,14 +64,19 @@ export interface RequestedSheets extends RequestedJob {
  */
 export async function requestSheetsFor(request: { projectId: string; drawingIds: string[] }): Promise<RequestedSheets[]> {
   const held = await workspaceFor(request.projectId);
-  if (held === null) return request.drawingIds.map((drawingId) => ({ drawingId, jobId: null, deduplicated: false }));
+  if ("refusal" in held) return request.drawingIds.map((drawingId) => ({ drawingId, jobId: null, deduplicated: false, refusal: held.refusal }));
 
   const asked: RequestedSheets[] = [];
   for (const drawingId of request.drawingIds) {
     const answer = await requestIngest({ tenantId: held.tenantId, drawingId, requestedBy: held.userId });
-    // A refused request enqueued nothing, and the queue's own row already says why the drawing was
-    // refused: the timeline reports jobs, so a drawing with no job simply adds no step (I-88).
-    asked.push({ drawingId, jobId: "jobId" in answer ? answer.jobId : null, deduplicated: "deduplicated" in answer ? answer.deduplicated : false });
+    // A refused request enqueued nothing, so it adds no timeline step (I-88) — but it is carried back
+    // under its own code, because a drawing that will never be read may not be answered with silence.
+    asked.push({
+      drawingId,
+      jobId: "jobId" in answer ? answer.jobId : null,
+      deduplicated: "deduplicated" in answer ? answer.deduplicated : false,
+      refusal: "refusal" in answer ? answer.refusal : null,
+    });
   }
   return asked;
 }
@@ -76,9 +88,13 @@ export async function requestSheetsFor(request: { projectId: string; drawingIds:
  */
 export async function requestThumbnailsFor(request: { projectId: string; drawingId: string }): Promise<RequestedJob> {
   const held = await workspaceFor(request.projectId);
-  if (held === null) return { jobId: null, deduplicated: false };
+  if ("refusal" in held) return { jobId: null, deduplicated: false, refusal: held.refusal };
   const answer = await requestThumbnails({ tenantId: held.tenantId, drawingId: request.drawingId, requestedBy: held.userId });
-  return { jobId: "jobId" in answer ? answer.jobId : null, deduplicated: "deduplicated" in answer ? answer.deduplicated : false };
+  return {
+    jobId: "jobId" in answer ? answer.jobId : null,
+    deduplicated: "deduplicated" in answer ? answer.deduplicated : false,
+    refusal: "refusal" in answer ? answer.refusal : null,
+  };
 }
 
 export async function previewConfirmDiscipline(request: ConfirmRequest): Promise<PreviewAnswer> {
@@ -109,14 +125,15 @@ export async function commitConfirmDiscipline(request: ConfirmRequest & { conseq
 }
 
 /**
- * The workspace a project belongs to and the account asking, or null where the session holds neither.
- * It is never taken from the caller: a tenant id on a form field is a value the caller wrote.
+ * The workspace a project belongs to and the account asking, or the registered code that says why
+ * neither stands. It is never taken from the caller: a tenant id on a form field is a value the
+ * caller wrote.
  */
-async function workspaceFor(projectId: string): Promise<{ tenantId: string; userId: string } | null> {
+async function workspaceFor(projectId: string): Promise<{ tenantId: string; userId: string } | { refusal: RefusalCode }> {
   const session = await sessionOf(await presentedSessionToken());
-  if (session === null) return null;
+  if (session === null) return { refusal: REFUSALS.SIGNED_OUT.code };
   const tenantId = await workspaceOfProject(projectId);
-  if (tenantId === null || !(await holdsWorkspace(session.userId, tenantId))) return null;
+  if (tenantId === null || !(await holdsWorkspace(session.userId, tenantId))) return { refusal: REFUSALS.WORKSPACE_PERMISSION_NOT_HELD.code };
   return { tenantId, userId: session.userId };
 }
 

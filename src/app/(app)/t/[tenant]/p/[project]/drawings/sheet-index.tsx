@@ -44,8 +44,8 @@ const ALL = "ALL";
 /**
  * Whether an asked-for job is one the timeline reports (I-88). A job id is a step to follow, and a
  * deduplicated answer is a step already finished — the seam saying the work stands. An answer with
- * neither enqueued nothing and settled nothing: the request was refused, and a refusal is read where
- * the queue row already carries it (R-UI-020), never as a step that claims to have succeeded.
+ * neither enqueued nothing and settled nothing: the request was refused, and its code is rendered in
+ * place beside the queue that raised it (R-UI-020), never as a step that claims to have succeeded.
  */
 function reported(answer: { jobId: string | null; deduplicated: boolean }): boolean {
   return answer.jobId !== null || answer.deduplicated;
@@ -108,6 +108,8 @@ export function SheetIndex({
   const [pressed, setPressed] = useState<Pressed | null>(null);
   const [refusal, setRefusal] = useState<RefusalCode | null>(null);
   const [offlineNotice, setOfflineNotice] = useState(false);
+  /** The code a request to read a stored drawing was refused with, if one was (R-UI-020). */
+  const [askRefusal, setAskRefusal] = useState<RefusalCode | null>(null);
   const [confirming, setConfirming] = useState<GroupKey | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const headingIds = { upload: useId(), sheets: useId() };
@@ -128,7 +130,7 @@ export function SheetIndex({
 
   const evidenceFor = useCallback(
     (code: RefusalCode): Evidence => {
-      if (code === "PERMISSION_NOT_HELD") return { href: participantsRoute(tenantId, projectId), label: drawings.drawings_evidence_participants };
+      if (code === "PERMISSION_NOT_HELD" || code === "WORKSPACE_PERMISSION_NOT_HELD") return { href: participantsRoute(tenantId, projectId), label: drawings.drawings_evidence_participants };
       if (code === "SIGNED_OUT") return { href: "/sign-in", label: strings.shell_evidence_sign_in };
       return { href: drawingsRoute(tenantId, projectId), label: drawings.drawings_evidence_reload };
     },
@@ -167,6 +169,9 @@ export function SheetIndex({
       // timeline. The worker chains the previews itself once a record lands (I-88).
       const asked = await requestSheets({ projectId, drawingIds: stored });
       setJobs((held) => [...held, ...asked.filter(reported).map((answer) => ({ jobId: answer.jobId, kind: "ingest" as const, drawingId: answer.drawingId }))]);
+      // A drawing the seam refused to read gets no step, and would otherwise be silence: the code it
+      // was refused with renders beside the queue that produced the row (R-UI-020).
+      setAskRefusal(asked.find((answer) => answer.refusal !== null)?.refusal ?? null);
     },
     [projectId, requestSheets],
   );
@@ -177,6 +182,7 @@ export function SheetIndex({
       router.refresh();
       if (job.kind !== "ingest") return;
       const answer = await requestThumbnails({ projectId, drawingId: job.drawingId });
+      if (answer.refusal !== null) setAskRefusal(answer.refusal);
       if (!reported(answer)) return;
       setJobs((held) => (held.some((step) => step.kind === "thumbnails" && step.drawingId === job.drawingId) ? held : [...held, { jobId: answer.jobId, kind: "thumbnails", drawingId: job.drawingId }]));
     },
@@ -288,6 +294,12 @@ export function SheetIndex({
             void onFiles(gathered);
           }}
         />
+        {/* A stored drawing the seam refused to read: no job, so no step — and never silence. */}
+        {askRefusal === null ? null : (
+          <div className="cx-drawings-answer">
+            <RefusalState refusal={refusalOf(askRefusal)} evidence={evidenceFor(askRefusal)} />
+          </div>
+        )}
       </section>
 
       <JobTimeline jobs={jobs} onSucceeded={settled} />

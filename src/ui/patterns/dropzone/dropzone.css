@@ -27,11 +27,20 @@
     background-color var(--motion-state) var(--ease);
 }
 
-/* Two channels carry the state — the border turns solid and the fill arrives — never colour alone. */
-.cx-dropzone[data-state="dragging"] .cx-dropzone-zone {
+/* Two channels carry the state — the border turns solid and the fill arrives — never colour alone.
+   The queue continues the zone's outline (see .cx-dropzone-queue below), so it takes the same two
+   channels: half a box in the active state would say half the pattern is the target, which I-76
+   denies. */
+.cx-dropzone[data-state="dragging"] .cx-dropzone-zone,
+.cx-dropzone[data-state="dragging"] .cx-dropzone-queue {
   border-style: solid;
   border-color: var(--beam-500);
   background-color: var(--beam-100);
+}
+
+/* The seam between the two halves stays open: the queue's block-start border is none either way. */
+.cx-dropzone[data-state="dragging"] .cx-dropzone-queue {
+  border-block-start: none;
 }
 
 .cx-dropzone-prompt {
