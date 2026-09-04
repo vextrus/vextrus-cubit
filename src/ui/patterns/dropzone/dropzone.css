@@ -69,8 +69,27 @@
   display: grid;
   grid-template-columns: 1fr auto auto;
   margin: 0;
-  padding: 0;
+  /* Inline only: the rows stand on the zone's own padding so they read as its inside, and no row
+     gains space above or below the hairline that separates it (§ 1). */
+  padding: 0 var(--space-5);
+  border: 1px dashed var(--graphite-300);
+  border-block-start: none;
+  border-end-start-radius: var(--radius-8);
+  border-end-end-radius: var(--radius-8);
   list-style: none;
+}
+
+/* I-76 in paint: the whole pattern is the drop target, so the rows it produced are drawn inside it
+   rather than as a table standing outside the outline they came from. The zone's dashed box
+   continues around a filled queue — one box, one width. A queue with no items renders no element at
+   all, so the zone is a closed box on its own and the empty state is untouched. */
+.cx-dropzone:has(.cx-dropzone-queue) {
+  gap: 0;
+}
+
+.cx-dropzone:has(.cx-dropzone-queue) .cx-dropzone-zone {
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
 }
 
 .cx-dropzone-item {

@@ -1243,10 +1243,10 @@ export async function modelSpendByProject(db: TenantDb): Promise<ModelSpend[]> {
  * belongs to the seam above; this is where those decisions are stored, not where they are made
  * (ARCH-02).
  *
- * Both stores are runtime-managed: pg-boss migrates its own schema when the managing tier starts
- * it, and the log's schema is created by whichever tier writes first, by the role the caller's URL
- * names. Neither is in the schema tree drizzle-kit reads, so neither is a migration and neither can
- * drift from one.
+ * Both stores stand outside the schema tree drizzle-kit reads, so neither can drift from it. The
+ * ground they need — the log's schema and the door that installs the queue library's — is made by
+ * the migrate lane; the log's tables are the seam's own repeatable DDL, written by whichever tier
+ * writes first, and the queue's storage is installed by the managing tier through that door.
  * ---------------------------------------------------------------------------------------------- */
 
 /** The schema the event log lives in; the queue library keeps its own tables beside it. */
@@ -1424,7 +1424,6 @@ export interface JobsStore {
 
 /** The log's tables, as the runtime makes them. Statement by statement, each one repeatable. */
 const JOBS_DDL: readonly string[] = [
-  `create schema if not exists ${JOBS_SCHEMA}`,
   `create table if not exists ${JOBS_SCHEMA}.job_events (
      seq bigserial primary key,
      job_id text not null,
@@ -1449,6 +1448,19 @@ const JOBS_DDL: readonly string[] = [
      primary key (kind, key)
    )`,
 ];
+
+/**
+ * The log's schema, made only where it is absent. `create schema if not exists` is checked against
+ * the right to create in the DATABASE before it looks to see whether the schema is already there, so
+ * a tier that states it unconditionally asks every database it opens for a standing privilege it
+ * needs on almost none of them. The migrate lane makes this schema and hands the app role the right
+ * to make the log's tables inside it; a database no migration has crossed is still provisioned by
+ * the first writer that may (R-SPINE-030).
+ */
+const JOBS_SCHEMA_DDL = `create schema if not exists ${JOBS_SCHEMA}`;
+
+/** The door the migrations publish for installing the queue library's own schema (R-SPINE-031). */
+const PROVISION_QUEUE = "provision_queue_storage";
 
 /**
  * One ending per job is a constraint of the storage, not a courtesy of its callers: two racing
@@ -1536,7 +1548,7 @@ function reachedOnce<T>(reach: () => Promise<T>): ReachedOnce<T> {
  * starts no queue maintenance in the reader's process — a read of storage that does not exist yet is
  * a read that finds nothing, not an outage.
  *
- * `manage` says who MANAGES: only a managing opener migrates the queue library's own schema, runs
+ * `manage` says who MANAGES: only a managing opener installs the queue library's own schema, runs
  * its maintenance and consumes. The log is provisioned by whoever writes to it first (`if not
  * exists` DDL, repeatable), so a tier that only enqueues reaches a database a worker has already
  * provisioned; against one no worker has ever opened, its queue cannot start, and it says so as a
@@ -1563,6 +1575,8 @@ export function jobsStore(url: string): JobsStore {
 
   const createLog = reachedOnce(async () => {
     try {
+      const [schema] = await sql<{ stands: boolean }[]>`select exists (select 1 from pg_namespace where nspname = ${JOBS_SCHEMA}) as stands`;
+      if (schema?.stands !== true) await sql.unsafe(JOBS_SCHEMA_DDL);
       for (const statement of JOBS_DDL) await sql.unsafe(statement);
       try {
         await sql.unsafe(ONE_ENDING_INDEX);
@@ -1595,14 +1609,29 @@ export function jobsStore(url: string): JobsStore {
   });
 
   const queue = reachedOnce(async () => {
+    // Installing the queue library's schema is the managing tier's act (R-SPINE-031) and the
+    // migration role's authority: making a schema is a privilege over the whole database, which the
+    // role this runs as does not hold and is not owed. The managing tier therefore asks the one door
+    // the migrations publish for it — it installs the library's own schema and grants the runtime
+    // what it needs, or, where the storage already stands, does nothing.
+    if (managing) {
+      try {
+        await sql`select ${sql(JOBS_SCHEMA)}.${sql(PROVISION_QUEUE)}()`;
+      } catch (failure) {
+        // Storage that could not be provisioned is this seam's failure to answer for, like a queue
+        // that would not start (ARCH-03, B-21).
+        const { faultId } = reportFault({ requestId: QUEUE_ROUTE, actor: QUEUE_ACTOR, route: QUEUE_ROUTE, cause: failure });
+        throw new Error(`the job queue's storage could not be provisioned — recorded as fault ${faultId}`, { cause: failure });
+      }
+    }
     const boss = new PgBoss({
       connectionString: url,
       schema: BOSS_SCHEMA,
       pollingIntervalSeconds: QUEUE_POLL_SECONDS,
-      // The queue library's migration is the managing tier's alone: a tier that only enqueues runs
-      // against storage a worker provisioned, and one that finds none is told so rather than left
-      // to create it (R-SPINE-031).
-      migrate: managing,
+      // The library migrates nothing on any tier: its schema is installed by the door above, whose
+      // one act is to install exactly this version of it. A tier that finds no storage is told so
+      // rather than left to create it (R-SPINE-031).
+      migrate: false,
       supervise: managing,
       schedule: false,
     });
