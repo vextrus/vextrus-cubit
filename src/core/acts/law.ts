@@ -8,7 +8,7 @@
  * without a rendering a compile error", so a member belongs here once — and only once — it has a
  * rendering in `ACT_MAP` and a permission in `ACT_PERMISSION`.
  */
-export const ACT_TYPES = ["ASSIGN_PARTICIPANT_ROLE"] as const;
+export const ACT_TYPES = ["ASSIGN_PARTICIPANT_ROLE", "CONFIRM_DISCIPLINE"] as const;
 
 /** One act type, drawn from the enum above. */
 export type ActType = (typeof ACT_TYPES)[number];
@@ -45,6 +45,9 @@ export type Role = (typeof ROLES)[number];
  */
 export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.freeze({
   ASSIGN_PARTICIPANT_ROLE: "ADMINISTER_PROJECT",
+  // L-REG-03: an unconfirmed drawing is not walked, so confirming a sheet's discipline is what a
+  // person does before they may measure it — the same permission the measuring itself moves.
+  CONFIRM_DISCIPLINE: "MEASURE",
 });
 
 /**

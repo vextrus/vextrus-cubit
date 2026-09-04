@@ -5,6 +5,7 @@ import { auth } from "./auth";
 import { consequenceDialog } from "./consequence-dialog";
 import { dropzone } from "./dropzone";
 import { home } from "./home";
+import { offeredGroup } from "./offered-group";
 import { participants } from "./participants";
 import { screenStates } from "./screen-states";
 import { shell } from "./shell";
@@ -16,6 +17,7 @@ export const strings = {
   ...consequenceDialog,
   ...dropzone,
   ...home,
+  ...offeredGroup,
   ...participants,
   ...screenStates,
   ...shell,

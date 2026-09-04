@@ -57,7 +57,8 @@ export type RefusalCode =
   | "SCAN_REJECTED"
   | "SHEET_NOT_INGESTABLE"
   | "RASTER_NOT_AVAILABLE"
-  | "MANIFEST_NOT_RENDERABLE";
+  | "MANIFEST_NOT_RENDERABLE"
+  | "GROUP_NOT_OFFERED";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -336,6 +337,16 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     remedy: "Upload the drawing again to have it read afresh.",
     severity: "error",
     surface: "banner",
+  }),
+  // L-ACT-02's answer when a caller names a group the machine is not offering: "bulk is offered,
+  // never assembled", so the membership a commit would move is the machine's own — a key whose
+  // membership resolves empty names nothing this project is waiting to have confirmed.
+  GROUP_NOT_OFFERED: Object.freeze({
+    code: "GROUP_NOT_OFFERED",
+    message: "This group is not one the project offers now, so nothing was confirmed.",
+    remedy: "Reload the sheet index and confirm from a group it offers.",
+    severity: "error",
+    surface: "inline",
   }),
 } satisfies Record<RefusalCode, RefusalEntry>);
 

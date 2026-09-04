@@ -4,8 +4,9 @@
 // change in one transaction or neither (L-ACT-01). Every transport over it is thin: authenticate,
 // mint a ctx, call these two functions under these same guards — a transport-local digest or guard
 // set is a defect, because two doors to one write must be provably the same door (B-17, ARCH-02).
-import { acts, forTenant, holdStateLock } from "../db";
+import { acts, forTenant, holdStateLock, type TenantTx } from "../db";
 import { assignParticipantRole, type AssignParticipantRoleInput } from "./assign-participant-role";
+import { confirmDiscipline, type ConfirmDisciplineInput } from "./confirm-discipline";
 import { consequenceDigest, movesNothing, type Consequence } from "./consequence";
 import { ACT_TYPES, type ActType } from "./law";
 import { requirePermission } from "./participation";
@@ -30,9 +31,10 @@ export { effectiveGrants, holdersOf, permissionsHeld, rolesGranted, type RoleGra
 export { permissionNotHeld, projectWouldHaveNoPrincipal, type ActorKind } from "./refusals";
 export { type ActRendering, type ActorCtx, type WrittenAct } from "./rendering";
 export { directionOf, type AssignDirection, type AssignParticipantRoleInput } from "./assign-participant-role";
+export { GROUP_KINDS, groupNotOffered, type ConfirmDisciplineInput, type GroupKind, type OfferedGroupKey } from "./confirm-discipline";
 
 /** Everything a caller may ask the seam to do: one member per act type the enum declares. */
-export type ActInput = AssignParticipantRoleInput;
+export type ActInput = AssignParticipantRoleInput | ConfirmDisciplineInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -41,7 +43,43 @@ export type ActInput = AssignParticipantRoleInput;
  */
 export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, { type: T }>> }> = Object.freeze({
   ASSIGN_PARTICIPANT_ROLE: assignParticipantRole,
+  CONFIRM_DISCIPLINE: confirmDiscipline,
 });
+
+/**
+ * One act type's pair, bound to the very input it renders. `ACT_MAP[type]` alone is a union of
+ * renderings and `input` a union of inputs, and nothing tells the compiler the two came off the same
+ * member — so the pairing is made here, once, where narrowing the input narrows the rendering with
+ * it. The `default` arm takes `never`: an input added to `ActInput` with no case reaches it as
+ * something else and fails to compile, which is the second half of L-ACT-02's totality.
+ */
+type BoundRendering = {
+  preview(ctx: ActorCtx, tx: TenantTx): Promise<Consequence>;
+  commit(ctx: ActorCtx, act: WrittenAct, tx: TenantTx): Promise<void>;
+};
+
+function bind<TInput>(rendering: ActRendering<TInput>, input: TInput): BoundRendering {
+  return {
+    preview: (ctx, tx) => rendering.preview(ctx, input, tx),
+    commit: (ctx, act, tx) => rendering.commit(ctx, input, act, tx),
+  };
+}
+
+function renderingFor(input: ActInput): BoundRendering {
+  switch (input.type) {
+    case "ASSIGN_PARTICIPANT_ROLE":
+      return bind(ACT_MAP[input.type], input);
+    case "CONFIRM_DISCIPLINE":
+      return bind(ACT_MAP[input.type], input);
+    default:
+      return unrendered(input);
+  }
+}
+
+/** The compile error itself: an input with no case above arrives here as something other than `never`. */
+function unrendered(input: never): never {
+  throw new Error(`${JSON.stringify(input)} names no act this seam renders — L-ACT-02's map is total over the closed enum`);
+}
 
 /** An act the seam has written, as its caller reads it back. */
 export type CommittedAct = {
@@ -57,9 +95,10 @@ export type CommittedAct = {
 export async function preview(ctx: ActorCtx, input: ActInput): Promise<Consequence> {
   const actType = declaredActType(input.type);
   requireHumanActor(ctx, actType);
+  const rendering = renderingFor(input);
   return forTenant(ctx).transaction(async (tx) => {
     await requirePermission(tx, ctx, actType, input.projectId);
-    return ACT_MAP[actType].preview(ctx, input, tx);
+    return rendering.preview(ctx, tx);
   });
 }
 
@@ -71,7 +110,7 @@ export async function preview(ctx: ActorCtx, input: ActInput): Promise<Consequen
 export async function commit(ctx: ActorCtx, input: ActInput, carriedDigest: string): Promise<CommittedAct> {
   const actType = declaredActType(input.type);
   requireHumanActor(ctx, actType);
-  const rendering = ACT_MAP[actType];
+  const rendering = renderingFor(input);
   return forTenant(ctx).transaction(async (tx) => {
     await requirePermission(tx, ctx, actType, input.projectId);
 
@@ -83,7 +122,7 @@ export async function commit(ctx: ActorCtx, input: ActInput, carriedDigest: stri
     // the moment of the write rather than only at the moment of the read (L-ACT-02).
     await holdStateLock(tx, projectState(ctx, input));
 
-    const consequence = await rendering.preview(ctx, input, tx);
+    const consequence = await rendering.preview(ctx, tx);
     const digest = consequenceDigest(consequence);
     if (digest !== carriedDigest) throw consequencesNotCarried(actType, carriedDigest, digest);
     // A carried digest can agree with the current state and still describe nothing happening — a
@@ -106,7 +145,7 @@ export async function commit(ctx: ActorCtx, input: ActInput, carriedDigest: stri
     if (actId === undefined) throw new Error(`the act log accepted no row for ${actType} — an act nobody can point at is not a record (L-ACT-01)`);
 
     const act: WrittenAct = { actId, consequenceDigest: digest };
-    await rendering.commit(ctx, input, act, tx);
+    await rendering.commit(ctx, act, tx);
     return { actId, consequenceDigest: digest, consequence };
   });
 }

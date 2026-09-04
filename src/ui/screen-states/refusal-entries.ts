@@ -24,6 +24,7 @@ type DeclaredCode = Extract<
   | "MEMBER_HAS_ACTS"
   | "INVITATION_NOT_CLAIMABLE"
   | "MANIFEST_NOT_RENDERABLE"
+  | "GROUP_NOT_OFFERED"
 >;
 
 /**
@@ -128,5 +129,12 @@ export const REFUSAL_ENTRIES: Readonly<{ [C in DeclaredCode]: RefusalEntry & { c
     remedy: "Upload the drawing again to have it read afresh.",
     severity: "error",
     surface: "banner",
+  }),
+  GROUP_NOT_OFFERED: Object.freeze({
+    code: "GROUP_NOT_OFFERED",
+    message: "This group is not one the project offers now, so nothing was confirmed.",
+    remedy: "Reload the sheet index and confirm from a group it offers.",
+    severity: "error",
+    surface: "inline",
   }),
 } satisfies Record<DeclaredCode, RefusalEntry>);

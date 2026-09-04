@@ -120,6 +120,27 @@
       "when": 1788462143125,
       "tag": "0016_takeoff-rasters",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788471817277,
+      "tag": "0017_takeoff-sheets",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788471818277,
+      "tag": "0018_job-store-schemas",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788471819277,
+      "tag": "0019_job-store-repair",
+      "breakpoints": true
     }
   ]
 }

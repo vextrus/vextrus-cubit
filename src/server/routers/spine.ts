@@ -14,9 +14,11 @@ import {
   permissionNotHeld,
   preview,
   type ActorCtx,
+  type ActType,
   type AssignDirection,
   type AssignParticipantRoleInput,
   type Consequence,
+  type Permission,
 } from "../../core/acts";
 import { eq, isUuid, projects, runAsSystem } from "../../core/db";
 import { roleHistory } from "../../modules/spine/participants";
@@ -79,8 +81,8 @@ function assignInput(raw: unknown): AssignParticipantRoleInput {
  */
 const OWNING_TENANT_REASON = "R-SPINE-011 participants transport: the workspace a named project belongs to, before any tenant handle is opened";
 
-export async function participantsActorFor(userId: string, projectId: string, actType: typeof ASSIGN_PARTICIPANT_ROLE | null): Promise<ActorCtx> {
-  const refused = (): Error => permissionNotHeld(actType, ADMINISTER_PROJECT);
+export async function projectActorFor(userId: string, projectId: string, actType: ActType | null, permission: Permission): Promise<ActorCtx> {
+  const refused = (): Error => permissionNotHeld(actType, permission);
   if (!isUuid(projectId)) throw refused();
 
   const owning = await runAsSystem(OWNING_TENANT_REASON).select({ tenantId: projects.tenantId }).from(projects).where(eq(projects.projectId, projectId)).limit(1);
@@ -89,6 +91,15 @@ export async function participantsActorFor(userId: string, projectId: string, ac
   if (!(await holdsWorkspace(userId, tenantId))) throw refused();
 
   return { tenantId, userId, actorKind: "human" };
+}
+
+/**
+ * The same resolver, for the act this lane renders. It keeps its own signature because the doors
+ * above call it with the one permission R-SPINE-011's act moves; every other workspace-scoped act
+ * names its own permission through the resolver above (B-17: one resolution, one home).
+ */
+export async function participantsActorFor(userId: string, projectId: string, actType: typeof ASSIGN_PARTICIPANT_ROLE | null): Promise<ActorCtx> {
+  return projectActorFor(userId, projectId, actType, ADMINISTER_PROJECT);
 }
 
 /**
