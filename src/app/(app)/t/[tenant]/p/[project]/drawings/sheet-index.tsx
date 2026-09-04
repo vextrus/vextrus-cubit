@@ -41,6 +41,16 @@ const ACT_TYPE = "CONFIRM_DISCIPLINE";
 /** The filter's own extra option: every discipline at once, and the default (Decision § 1). */
 const ALL = "ALL";
 
+/**
+ * Whether an asked-for job is one the timeline reports (I-88). A job id is a step to follow, and a
+ * deduplicated answer is a step already finished — the seam saying the work stands. An answer with
+ * neither enqueued nothing and settled nothing: the request was refused, and a refusal is read where
+ * the queue row already carries it (R-UI-020), never as a step that claims to have succeeded.
+ */
+function reported(answer: { jobId: string | null; deduplicated: boolean }): boolean {
+  return answer.jobId !== null || answer.deduplicated;
+}
+
 /** The typed grouping key, as the screen carries one between a door and the dialog. */
 type GroupKey = OfferedGroupItem["key"];
 
@@ -156,7 +166,7 @@ export function SheetIndex({
       // A stored drawing is read straight away: the screen asks, and the answered jobs open the
       // timeline. The worker chains the previews itself once a record lands (I-88).
       const asked = await requestSheets({ projectId, drawingIds: stored });
-      setJobs((held) => [...held, ...asked.map((answer) => ({ jobId: answer.jobId, kind: "ingest" as const, drawingId: answer.drawingId }))]);
+      setJobs((held) => [...held, ...asked.filter(reported).map((answer) => ({ jobId: answer.jobId, kind: "ingest" as const, drawingId: answer.drawingId }))]);
     },
     [projectId, requestSheets],
   );
@@ -167,6 +177,7 @@ export function SheetIndex({
       router.refresh();
       if (job.kind !== "ingest") return;
       const answer = await requestThumbnails({ projectId, drawingId: job.drawingId });
+      if (!reported(answer)) return;
       setJobs((held) => (held.some((step) => step.kind === "thumbnails" && step.drawingId === job.drawingId) ? held : [...held, { jobId: answer.jobId, kind: "thumbnails", drawingId: job.drawingId }]));
     },
     [projectId, requestThumbnails, router],
@@ -260,7 +271,7 @@ export function SheetIndex({
         <p className="cx-drawings-caption">{drawings.drawings_caption}</p>
       </header>
 
-      <section aria-labelledby={headingIds.upload}>
+      <section className="cx-drawings-section" aria-labelledby={headingIds.upload}>
         <h2 className="cx-drawings-section-heading" id={headingIds.upload}>
           {drawings.drawings_upload_heading}
         </h2>
@@ -280,7 +291,7 @@ export function SheetIndex({
 
       <JobTimeline jobs={jobs} onSucceeded={settled} />
 
-      <section aria-labelledby={headingIds.sheets}>
+      <section className="cx-drawings-section" aria-labelledby={headingIds.sheets}>
         <h2 className="cx-drawings-section-heading" id={headingIds.sheets}>
           {drawings.drawings_sheets_heading}
         </h2>

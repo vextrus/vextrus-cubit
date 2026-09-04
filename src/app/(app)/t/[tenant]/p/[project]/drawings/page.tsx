@@ -6,9 +6,10 @@
 // file only asks and lays out what came back (ARCH-01, B-17).
 import "./drawings.css";
 
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { permissionsHeld } from "../../../../../../../core/acts";
 import { forTenant } from "../../../../../../../core/db";
+import { projectsForHome } from "../../../../../../../modules/spine/projects";
 import { drawingsAwaitingIngestOf, offeredGroupsOf, sheetIndexOf } from "../../../../../../../modules/takeoff/sheets";
 import { sessionOf } from "../../../../../../../server/shell/resolve";
 import { presentedSessionToken } from "../../../../../../../server/shell/session";
@@ -26,6 +27,12 @@ export default async function ProjectDrawings({ params }: { params: Promise<{ te
   // The frame's own layout redirects a sessionless request; reaching here without one at all is a
   // race with a session that ended, and the way back in is the same door.
   if (session === null) redirect("/sign-in");
+
+  // An address naming no project of this workspace is an absence, not an empty index and not a
+  // permission short of MEASURE (R-UI-050 asks each state to say the true thing): answered before
+  // anything renders, so the Dropzone is never armed over an address nothing can be uploaded to.
+  const workspace = await projectsForHome({ tenantId: tenant, userId: session.userId });
+  if (!workspace.some((held) => held.projectId === project)) notFound();
 
   const scope = { tenantId: tenant, projectId: project };
   const [cards, groups, awaitingIngest, canConfirm] = await Promise.all([

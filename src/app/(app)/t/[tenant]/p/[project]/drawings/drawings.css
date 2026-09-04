@@ -18,6 +18,15 @@
   max-width: var(--breakpoint-lg);
 }
 
+/* A section stacks its own parts on the screen's rhythm, one step tighter than the gap between
+   sections: every line inside it sets `margin: 0`, so without this the heading, its hint, the
+   control row and the offer below it touch (R-UI-003's spacing scale is the only source of both). */
+.cx-drawings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
 .cx-drawings-header {
   display: flex;
   flex-direction: column;
