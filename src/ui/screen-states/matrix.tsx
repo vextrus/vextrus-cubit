@@ -252,6 +252,19 @@ export const screenStates: ScreenStatesMatrix = {
     refusal: reasonedRefusal(strings.state_refusal_read_fault, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
   }),
 
+  // The sheet renderer (s-viewer § 2): the head carries the whole layer roster before any geometry
+  // arrives, so a layer that fails to load is a listed row with its own retry rather than a lost
+  // sheet (I-81), and a reading nothing can be drawn from is refused in place with its facts.
+  "/t/[tenant]/p/[project]/viewer/[drawing]/[layout]": declare({
+    ...workspaceCells,
+    loading: bones(8),
+    empty: (): ReactNode => (
+      <EmptyTeaching heading={strings.viewer_empty_unread_heading} body={strings.viewer_empty_unread_body} action={strings.viewer_evidence_project} />
+    ),
+    refusal: refusal(REFUSAL_ENTRIES.MANIFEST_NOT_RENDERABLE, PROJECTS_EVIDENCE),
+    partial: (): ReactNode => <InlineAnswer text={strings.viewer_status_partial} />,
+  }),
+
   // The sheet index (s-drawings § 2): its emptiness names its own cause, its partial is a card that
   // still renders with its preview pending, and it is the first screen with a live queue — so
   // offline is a state a person is in rather than a fault (I-89), and the denial names MEASURE.

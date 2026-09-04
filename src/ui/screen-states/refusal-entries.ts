@@ -23,6 +23,7 @@ type DeclaredCode = Extract<
   | "WORKSPACE_WOULD_HAVE_NO_OWNER"
   | "MEMBER_HAS_ACTS"
   | "INVITATION_NOT_CLAIMABLE"
+  | "MANIFEST_NOT_RENDERABLE"
   | "GROUP_NOT_OFFERED"
 >;
 
@@ -121,6 +122,13 @@ export const REFUSAL_ENTRIES: Readonly<{ [C in DeclaredCode]: RefusalEntry & { c
     remedy: "Ask an owner of that workspace to send a fresh invitation to the address you are signed in with.",
     severity: "error",
     surface: "inline",
+  }),
+  MANIFEST_NOT_RENDERABLE: Object.freeze({
+    code: "MANIFEST_NOT_RENDERABLE",
+    message: "The reading of this drawing is damaged, so the sheet cannot be drawn.",
+    remedy: "Upload the drawing again to have it read afresh.",
+    severity: "error",
+    surface: "banner",
   }),
   GROUP_NOT_OFFERED: Object.freeze({
     code: "GROUP_NOT_OFFERED",

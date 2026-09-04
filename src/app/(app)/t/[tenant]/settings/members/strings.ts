@@ -29,6 +29,10 @@ export const membersStrings = {
   members_history_none: "No role movements on this workspace's projects yet.",
 
   members_member_unnamed: "Unnamed member",
+  // The same person, told apart. Two accounts with nothing readable stored read alike, and a
+  // control named after one of them names both; this is the accessible name only, so what a reader
+  // SEES is still the sentence above — an id is an identifier, never a name.
+  members_member_unnamed_identified: "Unnamed member {id}",
 
   members_status_pending: "Carrying the change out…",
   members_status_done: "Done. The roster shows the result.",

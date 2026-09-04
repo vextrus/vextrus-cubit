@@ -57,6 +57,7 @@ export type RefusalCode =
   | "SCAN_REJECTED"
   | "SHEET_NOT_INGESTABLE"
   | "RASTER_NOT_AVAILABLE"
+  | "MANIFEST_NOT_RENDERABLE"
   | "GROUP_NOT_OFFERED";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
@@ -326,6 +327,16 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     remedy: "Ingest the drawing first, then ask for its rasters again.",
     severity: "error",
     surface: "inline",
+  }),
+  // R-UI-043's answer when a sheet cannot be drawn: the bytes an ingest record names are not an
+  // EntityGraph the one mirror parses, so there is no geometry to build a manifest from. The reading
+  // is what is damaged, not the drawing, so the remedy is another reading of it.
+  MANIFEST_NOT_RENDERABLE: Object.freeze({
+    code: "MANIFEST_NOT_RENDERABLE",
+    message: "The reading of this drawing is damaged, so the sheet cannot be drawn.",
+    remedy: "Upload the drawing again to have it read afresh.",
+    severity: "error",
+    surface: "banner",
   }),
   // L-ACT-02's answer when a caller names a group the machine is not offering: "bulk is offered,
   // never assembled", so the membership a commit would move is the machine's own — a key whose

@@ -9,11 +9,15 @@ import { strings } from "../../ui/strings";
 import { evidenceFor, type Answer } from "./answers";
 import type { AuthRoute } from "./routes";
 
-/** A registered refusal, in place, with the link to where it is resolved. */
-export function RefusalSlot({ answer, route }: { answer: Extract<Answer, { kind: "refusal" }>; route: AuthRoute }) {
+/**
+ * A registered refusal, in place, with the link to where it is resolved. `search` is the query the
+ * screen was reached by, passed by the screens whose address carries a mailed token: where the way
+ * onward is this screen itself, it has to be this screen as the person actually reached it.
+ */
+export function RefusalSlot({ answer, route, search }: { answer: Extract<Answer, { kind: "refusal" }>; route: AuthRoute; search?: string }) {
   return (
     <div className="cx-auth-answer" data-testid="s-auth-refusal">
-      <RefusalState refusal={answer.refusal} evidence={evidenceFor(answer.refusal.code, route)} />
+      <RefusalState refusal={answer.refusal} evidence={evidenceFor(answer.refusal.code, route, search)} />
     </div>
   );
 }
@@ -53,8 +57,8 @@ export function NoticeSlot({ message }: { message: string }) {
 }
 
 /** Whichever answer this settlement was, or nothing at all while there has been no attempt. */
-export function AnswerSlot({ answer, route }: { answer: Answer | null; route: AuthRoute }) {
+export function AnswerSlot({ answer, route, search }: { answer: Answer | null; route: AuthRoute; search?: string }) {
   if (answer === null) return null;
-  if (answer.kind === "refusal") return <RefusalSlot answer={answer} route={route} />;
+  if (answer.kind === "refusal") return <RefusalSlot answer={answer} route={route} search={search} />;
   return <FaultSlot faultId={answer.faultId} reached={answer.reached} />;
 }

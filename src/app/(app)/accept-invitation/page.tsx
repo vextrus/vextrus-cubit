@@ -13,6 +13,7 @@ import { refusalOf } from "../../../core/errors";
 import { refusalCodeOf } from "../../../core/faults/refusal-marker";
 import { offeredInvitation } from "../../../modules/spine/tenancy";
 import { invitationMachinery } from "../../../server/auth/invitation-mail";
+import { admitAttempt } from "../../../server/auth/rate-limit";
 import { presentedSessionToken } from "../../../server/shell/session";
 import { sessionOf } from "../../../server/shell/resolve";
 import { AcceptInvitationForm, AcceptInvitationNoToken, AcceptInvitationUnclaimable } from "./accept-invitation-form";
@@ -32,10 +33,19 @@ export default async function AcceptInvitation({ searchParams }: { searchParams:
   if (token === undefined || token === "") return <AcceptInvitationNoToken />;
 
   try {
+    // R-SPINE-006's tenant-admin door, spent on the account that presented the session before a
+    // single token is looked at. The token is a secret carried in an address, and an unlimited read
+    // of it is an oracle: a stranger holding one address can walk the token space and be told, one
+    // request at a time, which secrets exist. The door is keyed on the account rather than on
+    // anything the request carries, so it cannot be reset by varying the token.
+    await admitAttempt("tenancyAdmin", session.userId);
     const offer = await offeredInvitation({ userId: session.userId, token }, invitationMachinery);
     return <AcceptInvitationForm token={token} offer={{ workspaceName: offer.workspaceName, workspaceRole: offer.workspaceRole }} />;
   } catch (thrown) {
     const code = refusalCodeOf(thrown);
+    // The refused door is an answer, in the register's own words, with the remedy that resolves it
+    // — a wait — and nothing to submit over a read that never happened (I-65).
+    if (code === refusalOf("RATE_LIMITED").code) return <AcceptInvitationUnclaimable refusal={refusalOf("RATE_LIMITED")} />;
     if (code !== refusalOf("INVITATION_NOT_CLAIMABLE").code) throw thrown;
     // Nothing is left to submit over a token no accept can claim, and no disarmed control stands in
     // its place: the answer is the refusal, with its code, its message and its remedy (I-65).

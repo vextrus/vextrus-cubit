@@ -1,11 +1,16 @@
 // S-Audit (R-SPINE-081): the project's act log explorer, over the model-ledger and job-history
 // panels. The screen is a reader — it asks the module one question and renders the answer.
 //
-// The two address segments are passed on as they arrive: the module answers the same surfaces shape
-// for a segment that names no project, so a mistyped address is an honest absence and never a fault.
+// The module answers the same surfaces shape for a segment that names no project, so a mistyped
+// address is an honest absence and never a fault. An absence is not an empty log, though: a full,
+// confident act log over a project nobody has says "nothing has happened here yet" about an address
+// that does not exist. So the segment is measured against the workspace's own roster first, and an
+// address naming no project of it is answered as the absent address it is (R-UI-020, R-UI-050).
 import "./audit.css";
 
+import { notFound } from "next/navigation";
 import { getAuditSurfaces } from "../../../../../../../modules/spine/audit";
+import { projectsForHome } from "../../../../../../../modules/spine/projects";
 import { ActLogExplorer } from "./act-log-explorer";
 import { AuditPanels } from "./audit-panels";
 import { auditStrings } from "./strings";
@@ -14,6 +19,12 @@ export const metadata = { title: auditStrings.audit_heading };
 
 export default async function ProjectAudit({ params }: { params: Promise<{ tenant: string; project: string }> }) {
   const { tenant, project } = await params;
+  // The roster decides whether this address exists at all, so it is asked first and alone: an
+  // address naming no project of this workspace is answered as absent without the panels of a
+  // project nobody has ever being queried for it.
+  const roster = await rosterOf(tenant);
+  if (!roster.some((held) => held.projectId === project)) notFound();
+
   const surfaces = await getAuditSurfaces({ tenantId: tenant }, project);
 
   return (
@@ -27,4 +38,18 @@ export default async function ProjectAudit({ params }: { params: Promise<{ tenan
       <AuditPanels jobs={surfaces.jobs} modelLedger={surfaces.modelLedger} />
     </div>
   );
+}
+
+/**
+ * The account a read names when it is about an address rather than about a reader. The projects
+ * module's door shape carries the account its writes need; the roster is bounded by the tenant
+ * alone — SEAM-TENANT's `forTenant({ tenantId })` is the whole of its scope — and this screen has
+ * no account to name: the frame above it already admitted the session to this workspace, and the
+ * act log it renders belongs to the workspace and not to one person.
+ */
+const NO_ACCOUNT = "";
+
+/** The workspace's projects, as the roster this address is measured against. */
+async function rosterOf(tenantId: string): Promise<readonly { projectId: string }[]> {
+  return projectsForHome({ tenantId, userId: NO_ACCOUNT });
 }

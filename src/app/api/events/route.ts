@@ -52,9 +52,56 @@ function json(body: unknown, status: number): Response {
  * `done` is read off the events being answered with, so the pair a caller receives always agrees
  * with itself even if the job ends between two requests.
  */
-async function pollAnswer(jobId: string): Promise<Response> {
-  const events = await jobEvents(jobId);
+function pollAnswer(events: readonly JobEvent[]): Response {
   return json({ events, done: isOver(events) }, 200);
+}
+
+/**
+ * What the caller is told about an id no job answers to. It is the caller's question that is wrong,
+ * so it is answered as one — and the sentence is a field of the JSON envelope, for a caller, never
+ * copy for a person (ARCH-03). The id it asked about is not echoed back into the answer.
+ */
+const NO_SUCH_JOB = "no job is recorded under that id";
+
+/**
+ * How long an empty log is given to say its first word before the id is called unknown, and how
+ * often it is asked inside that window. A job's first event is written by the runtime a moment
+ * after `enqueue` returns, so a log read empty at once is an early job as often as an unknown one;
+ * a log still empty at the end of the window is an id nothing will ever answer to, and it is
+ * answered rather than waited on forever. Only an id with nothing recorded under it waits at all,
+ * and it waits no longer than its first event takes to appear.
+ */
+const FIRST_EVENT_GRACE_MS = 3_000;
+const FIRST_EVENT_EVERY_MS = 50;
+
+/**
+ * The job's log, and whether anything is recorded under this id at all. An empty log is asked
+ * again until it says something or the window above runs out, so the answer distinguishes a job
+ * that has not spoken yet from an id no job answers to.
+ *
+ * The wait belongs to the caller: a client that goes away is not waited for, so a disconnection
+ * ends the loop at once rather than leaving a window's worth of store reads running for nobody.
+ */
+async function recordedLog(jobId: string, signal: AbortSignal): Promise<readonly JobEvent[]> {
+  const deadline = Date.now() + FIRST_EVENT_GRACE_MS;
+  for (;;) {
+    const events = await jobEvents(jobId);
+    if (events.length > 0 || Date.now() >= deadline || signal.aborted) return events;
+    await waited(FIRST_EVENT_EVERY_MS, signal);
+  }
+}
+
+/** A wait that ends when its time is up or the caller has gone, leaving no timer behind either way. */
+function waited(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise<void>((settle) => {
+    const done = (): void => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", done);
+      settle();
+    };
+    const timer = setTimeout(done, ms);
+    signal.addEventListener("abort", done, { once: true });
+  });
 }
 
 /**
@@ -101,16 +148,20 @@ export async function GET(request: Request): Promise<Response> {
   const query = new URL(request.url).searchParams;
   const jobId = query.get(JOB_ID)?.trim() ?? "";
   if (jobId === "") return json({ events: [], done: false, error: `${JOB_ID} is required` }, 400);
-
-  if (query.get(TRANSPORT) === POLL) {
-    try {
-      return await pollAnswer(jobId);
-    } catch (failure) {
-      // Nothing here is a refusal — the caller asked a lawful question and our side could not
-      // answer it, so the fault is recorded and its id is what the caller is given (ARCH-03).
-      const { faultId } = reportFault({ requestId: jobId, actor: "poll", route: ROUTE, cause: failure });
-      return json({ faultId }, 500);
-    }
+  const polling = query.get(TRANSPORT) === POLL;
+  try {
+    // The log is read before either transport answers, so an id no job answers to is settled here,
+    // the same way over either transport: the address is unknown or it is not, and which client
+    // asked does not change that. A stream opened over an unknown one would otherwise never end —
+    // `watchJob` waits for events that are never coming, re-reading the store for the life of the
+    // connection — and a poll over one would report an empty log as a job's quiet beginning.
+    const events = await recordedLog(jobId, request.signal);
+    if (events.length === 0) return json({ events: [], done: false, error: NO_SUCH_JOB }, 404);
+    return polling ? pollAnswer(events) : streamAnswer(jobId, request.signal);
+  } catch (failure) {
+    // Nothing here is a refusal — the caller asked a lawful question and our side could not
+    // answer it, so the fault is recorded and its id is what the caller is given (ARCH-03).
+    const { faultId } = reportFault({ requestId: jobId, actor: polling ? "poll" : "stream", route: ROUTE, cause: failure });
+    return json({ faultId }, 500);
   }
-  return streamAnswer(jobId, request.signal);
 }

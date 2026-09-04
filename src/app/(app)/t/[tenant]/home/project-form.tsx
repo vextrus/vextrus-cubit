@@ -97,6 +97,12 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
   /** The alert's id on the field this judgement is about, and nothing on any other field. */
   const invalidBy = (testId: string): string | null => (offending === testId ? alertId : null);
 
+  // The group's own state, read off the answer the group holds rather than off which field the
+  // ordered judgement happened to name first: a submission stopped by a blank name that also chose
+  // no type leaves the type unanswered too, and a group that HAS been answered is not invalid
+  // whatever else the submission was refused for.
+  const typeUnanswered = judgement !== null && buildingType === "";
+
   return (
     <>
       <h2 className="cx-home-form-heading">
@@ -132,13 +138,24 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
         <fieldset
           className="cx-home-types"
           data-testid="project-building-type"
-          aria-invalid={invalidBy("project-building-type") === null ? undefined : true}
-          aria-describedby={invalidBy("project-building-type") ?? undefined}
+          aria-invalid={typeUnanswered ? true : undefined}
+          aria-describedby={typeUnanswered ? alertId : undefined}
         >
           <legend className="cx-home-field-label">{strings.home_field_building_type}</legend>
           <div className="cx-home-types-choices">
+            {/* And the chips say it too. A fieldset takes no focus, so the element a person is sent
+                back to — and the only one they may ever meet, moving control by control — is a
+                chip; a chip that states nothing tells them they are somewhere, not that this is the
+                thing that stopped the save (R-UI-012). Choosing a type answers the group, and the
+                state leaves every chip at once. */}
             {BUILDING_TYPES.map((type) => (
-              <Chip key={type} selected={buildingType === type} onClick={() => setBuildingType(type)}>
+              <Chip
+                key={type}
+                selected={buildingType === type}
+                onClick={() => setBuildingType(type)}
+                aria-invalid={typeUnanswered ? true : undefined}
+                aria-describedby={typeUnanswered ? alertId : undefined}
+              >
                 {strings[BUILDING_TYPE_LABEL[type]]}
               </Chip>
             ))}

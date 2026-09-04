@@ -145,7 +145,7 @@ export function MembersSection({
                     className="cx-input cx-reticle cx-members-select"
                     data-testid="members-role-select"
                     name="role"
-                    aria-label={fill(membersStrings.members_role_label, { member: row.label })}
+                    aria-label={fill(membersStrings.members_role_label, { member: spokenName(row) })}
                     value={chosen[row.userId] ?? row.role}
                     onChange={(event) => setChosen((held) => ({ ...held, [row.userId]: event.target.value }))}
                   >
@@ -161,7 +161,7 @@ export function MembersSection({
                     type="submit"
                     variant="secondary"
                     data-testid="members-role-submit"
-                    aria-label={fill(membersStrings.members_role_submit_label, { member: row.label })}
+                    aria-label={fill(membersStrings.members_role_submit_label, { member: spokenName(row) })}
                     loading={busy(row, "role")}
                   >
                     {membersStrings.members_role_submit}
@@ -181,7 +181,7 @@ export function MembersSection({
                     type="submit"
                     variant="danger"
                     data-testid="members-remove-submit"
-                    aria-label={fill(membersStrings.members_remove_submit_label, { member: row.label })}
+                    aria-label={fill(membersStrings.members_remove_submit_label, { member: spokenName(row) })}
                     loading={busy(row, "removal")}
                   >
                     {membersStrings.members_remove_submit}
@@ -210,6 +210,18 @@ export function MembersSection({
       </section>
     </div>
   );
+}
+
+/**
+ * The name a row's controls are spoken under. A member with no readable address stored is named as
+ * an unnamed member, and two of them are named alike — so a reader moving control by control meets
+ * "Change role for Unnamed member" as many times as the workspace holds such accounts, with nothing
+ * telling the rows apart (R-UI-012). Where the stored label carries no identity, the id does: it is
+ * the accessible name only, and the row still SHOWS the sentence, because an id is an identifier
+ * and not a name.
+ */
+function spokenName(row: MembersRow): string {
+  return row.label === membersStrings.members_member_unnamed ? fill(membersStrings.members_member_unnamed_identified, { id: row.userId }) : row.label;
 }
 
 /** One member's record: every movement the workspace's ledgers hold about them, or the honest none. */

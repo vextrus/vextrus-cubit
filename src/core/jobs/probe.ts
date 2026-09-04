@@ -1,6 +1,7 @@
 // The built-in `probe` kind (R-SPINE-030). It exists so that every path a job can take — steps
 // with timings, a retry to exhaustion, a named refusal, a clean success — can be driven from
 // outside by an operator or by a test, before any real kind exists to drive them with.
+import { existsSync } from "node:fs";
 import { refusal } from "../faults/refusal-marker";
 import type { JobPayloads } from "./kinds";
 
@@ -14,9 +15,22 @@ export type JobProgress = {
   step: (name: string, detail?: Record<string, unknown>) => Promise<void>;
 };
 
-/** Wait, without holding a connection or a slot open for anything else while waiting. */
-function pause(ms: number): Promise<void> {
-  return new Promise((settle) => setTimeout(settle, ms));
+/** How often a waiting step looks for its release file. */
+const RELEASE_POLL_MS = 50;
+
+/**
+ * Wait, without holding a connection or a slot open for anything else while waiting. A step that
+ * names a release file wakes as soon as the file exists, so a hold ends when its holder says so.
+ */
+async function pause(ms: number, releaseWhen: string | undefined): Promise<void> {
+  if (releaseWhen === undefined) {
+    await new Promise((settle) => setTimeout(settle, ms));
+    return;
+  }
+  const until = Date.now() + ms;
+  while (!existsSync(releaseWhen) && Date.now() < until) {
+    await new Promise((settle) => setTimeout(settle, Math.min(RELEASE_POLL_MS, Math.max(0, until - Date.now()))));
+  }
 }
 
 /**
@@ -28,7 +42,7 @@ function pause(ms: number): Promise<void> {
 export async function runProbe(payload: JobPayloads["probe"], progress: JobProgress): Promise<void> {
   const stepDelayMs = payload.stepDelayMs ?? 0;
   for (const step of payload.steps) {
-    if (stepDelayMs > 0) await pause(stepDelayMs);
+    if (stepDelayMs > 0) await pause(stepDelayMs, payload.releaseWhen);
     await progress.step(step);
     if (step === payload.failAtStep) throw new Error(`the probe was told to fail at step "${step}"`);
   }

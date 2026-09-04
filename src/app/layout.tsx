@@ -7,15 +7,10 @@ import "../ui/theme/globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { strings } from "../ui/strings";
+import { THEME_RESOLVER } from "./theme-resolver";
 
 // C-SPINE-PLATFORM: the tab and the page say the product's name from the same table entry.
 export const metadata: Metadata = { title: strings.app_title };
-
-// R-UI-001 — "dark mode flips values, never consumer code": the server renders the light theme and
-// this resolver flips the single root attribute before first paint when the OS prefers dark. It
-// never writes "light", reads no storage and registers no listener, so nothing here is a setting.
-const THEME_RESOLVER =
-  'try{if(window.matchMedia("(prefers-color-scheme: dark)").matches){document.documentElement.setAttribute("data-theme","dark")}}catch(_){}';
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
