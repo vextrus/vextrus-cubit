@@ -4,7 +4,7 @@
 // wiring is made here and nowhere else (ARCH-02, B-17).
 import { registerJobHandler } from "../../core/jobs";
 import { uploadStorage } from "../../modules/spine/uploads";
-import { INGEST_KIND, runIngestJob } from "../../modules/takeoff/ingest";
+import { INGEST_KIND, runIngestJob } from "../../modules/takeoff/ingest/job";
 
 /** Say which function does an `ingest` job's work. Called before the runtime consumes the queue. */
 export function registerIngestHandler(): void {
