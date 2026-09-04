@@ -38,12 +38,15 @@ export default async function ProjectAudit({ params }: { params: Promise<{ tenan
 }
 
 /**
- * The workspace's projects, as the roster this address is measured against. It is a tenant-scoped
- * read — SEAM-TENANT bounds it by `forTenant({ tenantId })` alone — and the frame above this screen
- * has already admitted the session to this workspace, so the question here is about the address and
- * not about the reader. The projects module's door shape carries the account its writes need; this
- * read is asked with none, and reads none.
+ * The account a read names when it is about an address rather than about a reader. The projects
+ * module's door shape carries the account its writes need; the roster is bounded by the tenant
+ * alone — SEAM-TENANT's `forTenant({ tenantId })` is the whole of its scope — and this screen has
+ * no account to name: the frame above it already admitted the session to this workspace, and the
+ * act log it renders belongs to the workspace and not to one person.
  */
+const NO_ACCOUNT = "";
+
+/** The workspace's projects, as the roster this address is measured against. */
 async function rosterOf(tenantId: string): Promise<readonly { projectId: string }[]> {
-  return projectsForHome({ tenantId, userId: "" });
+  return projectsForHome({ tenantId, userId: NO_ACCOUNT });
 }

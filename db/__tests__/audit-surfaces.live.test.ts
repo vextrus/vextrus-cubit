@@ -15,15 +15,17 @@
 // Raw SQL is spoken through psql, never a driver import: SEAM-TENANT's ban binds this file like the
 // rest of the tree. Product modules are loaded by absolute path, so a module the Builder has not
 // written yet fails as an assertion naming the file instead of killing collection at transform time.
-import { randomUUID } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, describe, expect, test } from "vitest";
 import { provisionScratchDb } from "./harness";
-import { TENANT_ALPHA } from "./support/fixtures";
-import { isTrue, lit, scalar, seedTenants } from "./support/live-sql";
+import { GUC_SYSTEM_REASON, SEED_REASON, TENANT_ALPHA, TENANT_COLUMN } from "./support/fixtures";
+import { ident, isTrue, lit, scalar, seedTenants, withSession } from "./support/live-sql";
+
+/** The table a project's row lives in, named once beside the tenant column it carries. */
+const PROJECTS_TABLE = "projects";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -92,10 +94,23 @@ const staged = (): Promise<Stage> =>
     const tables = module.AUDIT_PANEL_TABLES;
     expect(typeof tables, `${AUDIT_MODULE} must export AUDIT_PANEL_TABLES — the names the panels probe`).toBe("object");
 
+    // A project this workspace actually holds. The address the page is rendered at has to name one:
+    // a segment naming no project of the workspace is an address that does not exist, and the screen
+    // answers it as absent rather than drawing a confident, empty act log over it. Every claim below
+    // is about the panels' posture and the explorer's own empty leg, and a project with a row and no
+    // acts is exactly the scene those claims were always about.
+    const projectId = scalar(
+      provisioned.urlMigrate,
+      withSession(
+        { [GUC_SYSTEM_REASON]: SEED_REASON },
+        `insert into ${ident(PROJECTS_TABLE)} (${ident(TENANT_COLUMN)}, name) values (${lit(tenantId)}, 'Audit surfaces acceptance') returning project_id::text;`,
+      ),
+    );
+
     return {
       urlMigrate: provisioned.urlMigrate,
       tenantId,
-      projectId: randomUUID(),
+      projectId,
       getAuditSurfaces: door as GetAuditSurfaces,
       panelTables: tables as Record<string, string>,
     };
