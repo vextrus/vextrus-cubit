@@ -89,13 +89,6 @@ function faultIdIn(failure: unknown): string | null {
   return null;
 }
 
-/**
- * The answer to a detail a screen asked for and did not get. It is resolved by the screen the
- * person is standing on rather than by another door, which is why it is the one code whose evidence
- * depends on the address that screen was reached at (R-UI-020).
- */
-const DETAIL_NOT_GIVEN = "DETAIL_NOT_GIVEN";
-
 /** Where a refusal is resolved: a place, named in the button voice (R-UI-020, Decision § 3). */
 export interface RefusalEvidence {
   href: string;
@@ -113,11 +106,16 @@ export interface RefusalEvidence {
  * usable while the address still carries that link's token: sending the person back to the bare
  * route would hand them a dead door (R-UI-020).
  */
-export function evidenceFor(code: RefusalCode | typeof DETAIL_NOT_GIVEN, route: AuthRoute, search = ""): RefusalEvidence {
+export function evidenceFor(code: RefusalCode, route: AuthRoute, search = ""): RefusalEvidence {
   if (code === "RATE_LIMITED") return { href: route, label: strings.auth_evidence_try_again };
   if (code === "CREDENTIALS_NOT_VALID") return { href: AUTH_ROUTES.reset, label: strings.auth_evidence_reset_password };
   if (code === "TOKEN_NOT_VALID" && route !== AUTH_ROUTES.verify) return { href: route, label: strings.auth_evidence_request_new_link };
-  if (code === DETAIL_NOT_GIVEN) return { href: `${route}${queryOf(search)}`, label: strings.auth_evidence_try_again };
+  // A code the closed taxonomy does not hold (R-SPINE-062) names no door of ours, so there is no
+  // other place to send anybody: the remedy is the screen they are standing on, as they reached it.
+  // A missing detail is the case that arrives here — the field was left empty and filling it in is
+  // the whole remedy — and the screen behind a mailed link is only usable while the address still
+  // carries that link's token, so the query travels with the link.
+  if (!Object.hasOwn(REFUSALS, code)) return { href: `${route}${queryOf(search)}`, label: strings.auth_evidence_try_again };
   return { href: AUTH_ROUTES.signIn, label: strings.auth_evidence_go_to_sign_in };
 }
 

@@ -57,13 +57,36 @@ function pollAnswer(events: readonly JobEvent[]): Response {
 }
 
 /**
- * What the caller is told about an id no job answers to. `enqueue` publishes a job's first event
- * inside the key lock that creates it, so a log with nothing in it is an unknown job rather than an
- * early one: there is no later moment at which events would appear. It is the caller's question
- * that is wrong, so it is answered as one — and the sentence is a field of the JSON envelope, for a
- * caller, never copy for a person (ARCH-03). The id is not echoed back.
+ * What the caller is told about an id no job answers to. It is the caller's question that is wrong,
+ * so it is answered as one — and the sentence is a field of the JSON envelope, for a caller, never
+ * copy for a person (ARCH-03). The id it asked about is not echoed back into the answer.
  */
 const NO_SUCH_JOB = "no job is recorded under that id";
+
+/**
+ * How long an empty log is given to say its first word before the id is called unknown, and how
+ * often it is asked inside that window. A job's first event is written by the runtime a moment
+ * after `enqueue` returns, so a log read empty at once is an early job as often as an unknown one;
+ * a log still empty at the end of the window is an id nothing will ever answer to, and it is
+ * answered rather than waited on forever. Only an id with nothing recorded under it waits at all,
+ * and it waits no longer than its first event takes to appear.
+ */
+const FIRST_EVENT_GRACE_MS = 3_000;
+const FIRST_EVENT_EVERY_MS = 50;
+
+/**
+ * The job's log, and whether anything is recorded under this id at all. An empty log is asked
+ * again until it says something or the window above runs out, so the answer distinguishes a job
+ * that has not spoken yet from an id no job answers to.
+ */
+async function recordedLog(jobId: string): Promise<readonly JobEvent[]> {
+  const deadline = Date.now() + FIRST_EVENT_GRACE_MS;
+  for (;;) {
+    const events = await jobEvents(jobId);
+    if (events.length > 0 || Date.now() >= deadline) return events;
+    await new Promise((settle) => setTimeout(settle, FIRST_EVENT_EVERY_MS));
+  }
+}
 
 /**
  * The stream: history in seq order, then every further event as the log records it, then the close.
@@ -115,7 +138,7 @@ export async function GET(request: Request): Promise<Response> {
     // The log is read before either transport answers, so an id no job answers to is settled here.
     // A stream opened for one would otherwise never end: `watchJob` waits for events that are never
     // coming, polling the store every quarter second for the life of the connection.
-    const events = await jobEvents(jobId);
+    const events = await recordedLog(jobId);
     if (events.length === 0) return json({ events: [], done: false, error: NO_SUCH_JOB }, 404);
     return polling ? pollAnswer(events) : streamAnswer(jobId, request.signal);
   } catch (failure) {
