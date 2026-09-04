@@ -7,5 +7,5 @@
 // them would put a database pool into the browser's module graph (ARCH-01).
 export { workspaceOfDrawing } from "./access";
 export { renderManifestOf, type ViewerScope } from "./head";
-export { buildRenderManifest, graphHoldsLayout, manifestCacheKey, manifestDigest } from "./manifest";
+export { buildRenderManifest, manifestCacheKey, manifestDigest } from "./manifest";
 export type { Camera, RenderLayer, RenderManifest, RenderRecord, ViewerHead, Viewport } from "./types";

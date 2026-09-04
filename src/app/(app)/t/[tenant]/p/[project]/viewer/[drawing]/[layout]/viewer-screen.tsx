@@ -32,7 +32,7 @@ import {
 } from "../../../../../../../../../modules/takeoff/viewer/client";
 import type { Camera, RenderLayer, RenderManifest, ViewerHead } from "../../../../../../../../../modules/takeoff/viewer";
 import { createPainter, type CanvasPalette, type Painter } from "../../../../../../../../../modules/takeoff/viewer/painter";
-import { Button } from "../../../../../../../../../ui/primitives/core";
+import { Button, Skeleton } from "../../../../../../../../../ui/primitives/core";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../../../../../../../../../ui/primitives/data";
 import { RefusalState, type RefusalEvidence } from "../../../../../../../../../ui/patterns/refusal-state";
 import { shellHref } from "../../../../../../../../../ui/shell";
@@ -63,6 +63,9 @@ const WHEEL_ZOOM_RATE = 0.0015;
 
 /** How near the pointer a record counts as under it, in pixels, when the index is asked. */
 const HIT_TOLERANCE_PX = 4;
+
+/** The rows the panel's bones stand for while the roster is in flight (Decision § 2). */
+const LOADING_ROWS = 6;
 
 /** The panel's share of the width, and the band a reader may drag it to (Decision § 1). */
 const PANEL_SIZE = 22;
@@ -419,6 +422,13 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       return (
         <div className="cx-viewer-loading" data-testid="viewer-loading">
           <span className="cx-viewer-hidden">{strings.viewer_loading_label}</span>
+          <div className="cx-viewer-bones-panel">
+            <Skeleton style={{ height: "16px", width: "96px" }} />
+            {Array.from({ length: LOADING_ROWS }, (_, row) => (
+              <Skeleton key={row} style={{ height: "var(--row-comfortable)", width: "100%" }} />
+            ))}
+          </div>
+          <Skeleton style={{ height: "100%", width: "100%" }} />
         </div>
       );
     }
