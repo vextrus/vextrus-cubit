@@ -34,6 +34,7 @@ import {
   unique,
   withCadCommand,
   INGEST_MODULE,
+  INGEST_JOB_MODULE,
   type IngestRecord,
   type IngestSeam,
   type JsonValue,
@@ -41,7 +42,7 @@ import {
 } from "./ingest-stage";
 import { artifactOf, storageOf, THUMBNAILS_MODULE, type ArtifactGraph, type ArtifactLayout, type SheetRasters, type StorageLike, type ThumbnailsSeam } from "./thumbnails-stage";
 
-export { closeStage, enrol, stageProject, artifactOf, storageOf, productModule, tempDir, unique, REPO_ROOT, THUMBNAILS_MODULE, INGEST_MODULE };
+export { closeStage, enrol, stageProject, artifactOf, storageOf, productModule, tempDir, unique, REPO_ROOT, THUMBNAILS_MODULE, INGEST_MODULE, INGEST_JOB_MODULE };
 export type { ArtifactGraph, ArtifactLayout, IngestRecord, JsonValue, Person, SheetRasters, StagedDrawing, StorageLike, ThumbnailsSeam };
 
 /* ------------------------------------------------------------------ the homes the spec names */
@@ -169,6 +170,44 @@ export type JobsLike = {
 /** The composition root the worker calls before it consumes (increment interfaces). */
 export type IngestHandlerModule = { registerIngestHandler: () => void };
 
+/* ------------------------------------------------------------------ SEAM-CAD's two doors */
+
+/**
+ * SEAM-CAD answers at two doors, and this stage names which half each of its calls belongs to.
+ *
+ * The request half is what an app process asks (`requestIngest`, and the records it reads back); the
+ * job half is what a worker process runs (`runIngestJob`, `ingestDrawing`, the CLI's environment
+ * name). Where a barrel puts them is the seam's own business and its schedule may move them, so
+ * nothing here resolves a job-half call through the request door: that would freeze one barrel shape
+ * as a timeless invariant (B-19). Both halves are `Pick`ed from the seam type its own stage declares
+ * and both identities are imported from there — declared once, imported everywhere they are used.
+ */
+export type IngestRequestSeam = Pick<IngestSeam, "requestIngest" | "ingestRecordOf" | "ingestRecords" | "factsOf" | "ingestJobKey" | "INGEST_KIND">;
+export type IngestJobSeam = Pick<IngestSeam, "ingestDrawing" | "runIngestJob" | "CAD_COMMAND_VAR">;
+
+/** One door, with the calls this stage makes through it asserted by name on it before it is used. */
+async function doorOf<T>(home: string | undefined, calls: readonly (keyof T & string)[]): Promise<T> {
+  expect(
+    typeof home,
+    "the home of this door of SEAM-CAD is declared by ./ingest-stage and imported here — a stage restates no product path",
+  ).toBe("string");
+  const door = await productModule<Record<string, unknown>>(home as string);
+  for (const call of calls) {
+    expect(typeof door[call], `${home} publishes \`${call}\` — the door this stage makes that call through`).toBe("function");
+  }
+  return door as T;
+}
+
+/** The request half, at the home the interface list names for it. */
+export async function ingestRequestDoor(): Promise<IngestRequestSeam> {
+  return doorOf<IngestRequestSeam>(INGEST_MODULE, ["ingestRecordOf"]);
+}
+
+/** The job half, at the home the interface list names for it. */
+export async function ingestJobDoor(): Promise<IngestJobSeam> {
+  return doorOf<IngestJobSeam>(INGEST_JOB_MODULE, ["ingestDrawing", "runIngestJob"]);
+}
+
 /* ------------------------------------------------------------------ the stage */
 
 /** The scratch database and the scratch storage root every suite of this increment runs over. */
@@ -231,7 +270,7 @@ let extracted: Promise<string> | undefined;
  */
 export async function rcc6Artifact(): Promise<string> {
   return (extracted ??= (async () => {
-    const ingest = await productModule<IngestSeam>(INGEST_MODULE);
+    const ingest = await ingestJobDoor();
     const bytes = corpusBytes(RCC6_DXF);
     const outcome = await withCadCommand(undefined, async () => ingest.ingestDrawing(bytes, RCC6_FORMAT, { tempDir: tempDir("rcc6") }));
     expect(outcome.ok, `the shipped cad CLI read ${RCC6_DXF}: ${outcome.ok ? "" : `${outcome.refusal} — ${outcome.detail}`}`).toBe(true);
@@ -248,20 +287,21 @@ export async function rcc6Artifact(): Promise<string> {
  * increment is about (the thumbnails increment's `stageIngested` precedent).
  */
 export async function stageSheets(person: Person, projectId: string, label = "rcc6"): Promise<{ drawing: StagedDrawing; record: IngestRecord; graph: ArtifactGraph }> {
-  const ingest = await productModule<IngestSeam>(INGEST_MODULE);
+  const job = await ingestJobDoor();
+  const records = await ingestRequestDoor();
   const artifact = await rcc6Artifact();
   const drawing = await stageDrawing(person, projectId, corpusBytes(RCC6_DXF), { name: unique(`${label}.dxf`), format: RCC6_FORMAT });
   const stub = stubCli({ artifact, stderr: "", exitCode: 0 });
 
   await withCadCommand(stub.command, async () => {
-    await ingest.runIngestJob(
+    await job.runIngestJob(
       { tenantId: person.tenantId, drawingId: drawing.drawingId, requestedBy: person.userId, declared: null },
       { jobId: unique(`ingest-${label}`), tempDir: tempDir("ingest"), step: async () => undefined },
       { storage: await storageOf() },
     );
   });
 
-  const record = await ingest.ingestRecordOf({ tenantId: person.tenantId, drawingId: drawing.drawingId });
+  const record = await records.ingestRecordOf({ tenantId: person.tenantId, drawingId: drawing.drawingId });
   expect(record, `staging ${label}.dxf left no ingest record — a sheet card is a reading of a record`).not.toBeNull();
   const graph = await artifactOf(await storageOf(), person.tenantId, record as IngestRecord);
   return { drawing, record: record as IngestRecord, graph };
