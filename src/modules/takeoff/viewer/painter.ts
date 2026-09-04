@@ -27,7 +27,12 @@ export type Painter = {
   /** Tessellate one arrived layer into the batch it is drawn from thereafter. */
   upload: (layer: RenderLayer) => void;
   /** The world box the sheet is framed by, drawn as a hairline rectangle. */
-  setExtents: (extents: { min: readonly [number, number]; max: readonly [number, number] } | null) => void;
+  setExtents: (
+    extents: {
+      min: readonly [number, number];
+      max: readonly [number, number];
+    } | null,
+  ) => void;
   /** The three canvas colours again, after the document's theme changed (Decision § 6). */
   setPalette: (palette: CanvasPalette) => void;
   /** Ask for a frame at this camera, with these layers drawn. */
@@ -123,7 +128,11 @@ void main() {
 }`;
 
 /** One run of line vertices with the world box it covers — the unit culling works at. */
-type Chunk = { start: number; count: number; box: [number, number, number, number] };
+type Chunk = {
+  start: number;
+  count: number;
+  box: [number, number, number, number];
+};
 
 /** One layer on the GPU: its lines, and its text sorted by world height so LOD is a range. */
 type Batch = {
@@ -142,7 +151,8 @@ type Batch = {
 /** A CSS colour as three floats. Only the two spellings a computed token value takes are read. */
 function channelsOf(colour: string): [number, number, number] {
   const hex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(colour.trim());
-  if (hex !== null) return [Number.parseInt(hex[1] ?? "", 16) / 255, Number.parseInt(hex[2] ?? "", 16) / 255, Number.parseInt(hex[3] ?? "", 16) / 255];
+  if (hex !== null)
+    return [Number.parseInt(hex[1] ?? "", 16) / 255, Number.parseInt(hex[2] ?? "", 16) / 255, Number.parseInt(hex[3] ?? "", 16) / 255];
   const numbers = colour.match(/-?\d+(\.\d+)?/g) ?? [];
   const [red, green, blue] = numbers.slice(0, 3).map((part) => Number(part) / 255);
   return [red ?? 0, green ?? 0, blue ?? 0];
@@ -208,11 +218,19 @@ function atlasTexture(gl: WebGLRenderingContext, face: string): WebGLTexture | n
 }
 
 /** Where one character sits in the atlas, as texture coordinates. */
-function cellOf(character: string): { left: number; top: number; size: [number, number] } {
+function cellOf(character: string): {
+  left: number;
+  top: number;
+  size: [number, number];
+} {
   const code = character.charCodeAt(0);
   const cell = code >= ATLAS_FIRST && code <= ATLAS_LAST ? code - ATLAS_FIRST : 0;
   const rows = Math.ceil((ATLAS_LAST - ATLAS_FIRST + 1) / ATLAS_COLUMNS);
-  return { left: (cell % ATLAS_COLUMNS) / ATLAS_COLUMNS, top: Math.floor(cell / ATLAS_COLUMNS) / rows, size: [1 / ATLAS_COLUMNS, 1 / rows] };
+  return {
+    left: (cell % ATLAS_COLUMNS) / ATLAS_COLUMNS,
+    top: Math.floor(cell / ATLAS_COLUMNS) / rows,
+    size: [1 / ATLAS_COLUMNS, 1 / rows],
+  };
 }
 
 /**
@@ -223,7 +241,11 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   // A document that does not know what a WebGL context is is not asked for one: the question itself
   // is what a headless DOM reports as unimplemented, and the answer is the same either way (I-82).
   if (typeof WebGLRenderingContext === "undefined") return null;
-  const gl = (canvas.getContext("webgl", { alpha: false, antialias: false, preserveDrawingBuffer: false }) ?? null) as WebGLRenderingContext | null;
+  const gl = (canvas.getContext("webgl", {
+    alpha: false,
+    antialias: false,
+    preserveDrawingBuffer: false,
+  }) ?? null) as WebGLRenderingContext | null;
   if (gl === null) return null;
 
   const lineProgram = programOf(gl, LINE_VERTEX_SHADER, LINE_FRAGMENT_SHADER);
@@ -233,9 +255,16 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   let palette = tokens;
   let atlas = atlasTexture(gl, palette.mono);
   const batches = new Map<string, Batch>();
+  /** The layers as they arrived, kept so a theme change re-letters the sheet it already holds. The
+   * records are the very ones the screen holds; nothing is copied (Decision § 6). */
+  const sources = new Map<string, RenderLayer>();
   let frame: Chunk | null = null;
   let frameBuffer: WebGLBuffer | null = null;
   let frameColours: WebGLBuffer | null = null;
+  let framed: {
+    min: readonly [number, number];
+    max: readonly [number, number];
+  } | null = null;
 
   const ledger: number[] = [];
   let scheduled = 0;
@@ -387,120 +416,163 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     return sorted[at] ?? 0;
   };
 
-  return {
-    upload: (layer) => {
-      const ink = channelsOf(palette.ink);
-      const positions: number[] = [];
-      const colours: number[] = [];
-      const chunks: Chunk[] = [];
-      let chunkStart = 0;
-      let chunkBox: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
+  /** Every buffer one batch owns, let go of — a re-upload otherwise leaks five per layer. */
+  const releaseBatch = (batch: Batch): void => {
+    for (const buffer of [batch.lineBuffer, batch.lineColours, batch.glyphBuffer, batch.glyphColours, batch.glyphTexels]) {
+      if (buffer !== null) gl.deleteBuffer(buffer);
+    }
+  };
 
-      const closeChunk = (): void => {
-        const count = positions.length / 2 - chunkStart;
-        if (count > 0) chunks.push({ start: chunkStart, count, box: chunkBox });
-        chunkStart = positions.length / 2;
-        chunkBox = [Infinity, Infinity, -Infinity, -Infinity];
-      };
+  /** The extents' own two buffers, let go of before the next pair takes their place. */
+  const releaseFrame = (): void => {
+    if (frameBuffer !== null) gl.deleteBuffer(frameBuffer);
+    if (frameColours !== null) gl.deleteBuffer(frameColours);
+    frameBuffer = null;
+    frameColours = null;
+  };
 
-      for (const record of layer.records) {
-        const points = record.points;
-        if (points === undefined || points.length < 2) continue;
-        const [red, green, blue] = paintColour(record, ink);
-        for (let at = 1; at < points.length; at += 1) {
-          const from = points[at - 1] as readonly [number, number];
-          const to = points[at] as readonly [number, number];
-          positions.push(from[0], from[1], to[0], to[1]);
-          colours.push(red, green, blue, red, green, blue);
-          chunkBox = [
-            Math.min(chunkBox[0], from[0], to[0]),
-            Math.min(chunkBox[1], from[1], to[1]),
-            Math.max(chunkBox[2], from[0], to[0]),
-            Math.max(chunkBox[3], from[1], to[1]),
-          ];
-        }
-        if (positions.length / 2 - chunkStart >= CHUNK_VERTICES) closeChunk();
+  const uploadLayer = (layer: RenderLayer): void => {
+    const ink = channelsOf(palette.ink);
+    const positions: number[] = [];
+    const colours: number[] = [];
+    const chunks: Chunk[] = [];
+    let chunkStart = 0;
+    let chunkBox: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
+
+    const closeChunk = (): void => {
+      const count = positions.length / 2 - chunkStart;
+      if (count > 0) chunks.push({ start: chunkStart, count, box: chunkBox });
+      chunkStart = positions.length / 2;
+      chunkBox = [Infinity, Infinity, -Infinity, -Infinity];
+    };
+
+    for (const record of layer.records) {
+      const points = record.points;
+      if (points === undefined || points.length < 2) continue;
+      const [red, green, blue] = paintColour(record, ink);
+      for (let at = 1; at < points.length; at += 1) {
+        const from = points[at - 1] as readonly [number, number];
+        const to = points[at] as readonly [number, number];
+        positions.push(from[0], from[1], to[0], to[1]);
+        colours.push(red, green, blue, red, green, blue);
+        chunkBox = [
+          Math.min(chunkBox[0], from[0], to[0]),
+          Math.min(chunkBox[1], from[1], to[1]),
+          Math.max(chunkBox[2], from[0], to[0]),
+          Math.max(chunkBox[3], from[1], to[1]),
+        ];
       }
-      closeChunk();
+      if (positions.length / 2 - chunkStart >= CHUNK_VERTICES) closeChunk();
+    }
+    closeChunk();
 
-      // Text is tessellated in world units at its own height, so a quad is camera-independent and
-      // level-of-detail is a range of one buffer rather than a rebuild (R-UI-040).
-      const texts = layer.records
-        .filter((record) => record.text !== undefined && record.anchor !== undefined && (record.height ?? 0) > 0)
-        .sort((a, b) => (a.height ?? 0) - (b.height ?? 0));
-      const glyphs: number[] = [];
-      const texels: number[] = [];
-      const glyphColours: number[] = [];
-      const heights: number[] = [];
-      const starts: number[] = [];
+    // Text is tessellated in world units at its own height, so a quad is camera-independent and
+    // level-of-detail is a range of one buffer rather than a rebuild (R-UI-040).
+    const texts = layer.records
+      .filter((record) => record.text !== undefined && record.anchor !== undefined && (record.height ?? 0) > 0)
+      .sort((a, b) => (a.height ?? 0) - (b.height ?? 0));
+    const glyphs: number[] = [];
+    const texels: number[] = [];
+    const glyphColours: number[] = [];
+    const heights: number[] = [];
+    const starts: number[] = [];
 
-      for (const record of texts) {
-        heights.push(record.height ?? 0);
-        starts.push(glyphs.length / 2);
-        const height = record.height ?? 0;
-        const [originX, originY] = record.anchor as readonly [number, number];
-        const [red, green, blue] = paintColour(record, ink);
-        const advance = height * GLYPH_ADVANCE;
-        [...(record.text ?? "")].forEach((character, index) => {
-          const cell = cellOf(character);
-          const left = originX + index * advance;
-          const right = left + advance;
-          const top = originY + height;
-          const [cellWidth, cellHeight] = cell.size;
-          glyphs.push(left, originY, right, originY, right, top, left, originY, right, top, left, top);
-          texels.push(
-            cell.left,
-            cell.top + cellHeight,
-            cell.left + cellWidth,
-            cell.top + cellHeight,
-            cell.left + cellWidth,
-            cell.top,
-            cell.left,
-            cell.top + cellHeight,
-            cell.left + cellWidth,
-            cell.top,
-            cell.left,
-            cell.top,
-          );
-          for (let corner = 0; corner < 6; corner += 1) glyphColours.push(red, green, blue);
-        });
-      }
-
-      batches.set(layer.name, {
-        lineBuffer: bufferOf(new Float32Array(positions)),
-        lineColours: bufferOf(new Float32Array(colours)),
-        chunks,
-        glyphBuffer: bufferOf(new Float32Array(glyphs)),
-        glyphTexels: bufferOf(new Float32Array(texels)),
-        glyphColours: bufferOf(new Float32Array(glyphColours)),
-        heights,
-        starts,
-        glyphVertices: glyphs.length / 2,
+    for (const record of texts) {
+      heights.push(record.height ?? 0);
+      starts.push(glyphs.length / 2);
+      const height = record.height ?? 0;
+      const [originX, originY] = record.anchor as readonly [number, number];
+      const [red, green, blue] = paintColour(record, ink);
+      const advance = height * GLYPH_ADVANCE;
+      [...(record.text ?? "")].forEach((character, index) => {
+        const cell = cellOf(character);
+        const left = originX + index * advance;
+        const right = left + advance;
+        const top = originY + height;
+        const [cellWidth, cellHeight] = cell.size;
+        glyphs.push(left, originY, right, originY, right, top, left, originY, right, top, left, top);
+        texels.push(
+          cell.left,
+          cell.top + cellHeight,
+          cell.left + cellWidth,
+          cell.top + cellHeight,
+          cell.left + cellWidth,
+          cell.top,
+          cell.left,
+          cell.top + cellHeight,
+          cell.left + cellWidth,
+          cell.top,
+          cell.left,
+          cell.top,
+        );
+        for (let corner = 0; corner < 6; corner += 1) glyphColours.push(red, green, blue);
       });
-    },
+    }
 
-    setExtents: (extents) => {
-      if (extents === null) {
-        frame = null;
-        return;
-      }
-      const [minX, minY] = extents.min;
-      const [maxX, maxY] = extents.max;
-      const outline = [minX, minY, maxX, minY, maxX, minY, maxX, maxY, maxX, maxY, minX, maxY, minX, maxY, minX, minY];
-      const [red, green, blue] = channelsOf(palette.grid);
-      frameBuffer = bufferOf(new Float32Array(outline));
-      frameColours = bufferOf(new Float32Array(Array.from({ length: 8 }, () => [red, green, blue]).flat()));
-      frame = { start: 0, count: 8, box: [minX, minY, maxX, maxY] };
-    },
+    const stale = batches.get(layer.name);
+    if (stale !== undefined) releaseBatch(stale);
+    sources.set(layer.name, layer);
+    batches.set(layer.name, {
+      lineBuffer: bufferOf(new Float32Array(positions)),
+      lineColours: bufferOf(new Float32Array(colours)),
+      chunks,
+      glyphBuffer: bufferOf(new Float32Array(glyphs)),
+      glyphTexels: bufferOf(new Float32Array(texels)),
+      glyphColours: bufferOf(new Float32Array(glyphColours)),
+      heights,
+      starts,
+      glyphVertices: glyphs.length / 2,
+    });
+  };
+
+  const frameExtents = (
+    extents: {
+      min: readonly [number, number];
+      max: readonly [number, number];
+    } | null,
+  ): void => {
+    framed = extents;
+    releaseFrame();
+    if (extents === null) {
+      frame = null;
+      return;
+    }
+    const [minX, minY] = extents.min;
+    const [maxX, maxY] = extents.max;
+    const outline = [minX, minY, maxX, minY, maxX, minY, maxX, maxY, maxX, maxY, minX, maxY, minX, maxY, minX, minY];
+    const [red, green, blue] = channelsOf(palette.grid);
+    frameBuffer = bufferOf(new Float32Array(outline));
+    frameColours = bufferOf(new Float32Array(Array.from({ length: 8 }, () => [red, green, blue]).flat()));
+    frame = { start: 0, count: 8, box: [minX, minY, maxX, maxY] };
+  };
+
+  return {
+    upload: uploadLayer,
+
+    setExtents: frameExtents,
 
     setPalette: (next) => {
       palette = next;
       if (atlas !== null) gl.deleteTexture(atlas);
       atlas = atlasTexture(gl, palette.mono);
+      // The ink a record resolved to is written into its vertices at upload, so a sheet lettered for
+      // the abandoned theme would stay lettered for it — near-black lines all but invisible on dark
+      // paper. The layers the painter holds are tessellated again against the new palette, and so is
+      // the extents frame (R-TO-010's light and dark canvas, Decision § 6).
+      for (const layer of [...sources.values()]) uploadLayer(layer);
+      frameExtents(framed);
     },
 
     draw: (camera, state) => {
-      pending = { camera, drawn: new Set(state.layerRows().filter((row) => row.drawn).map((row) => row.name)) };
+      pending = {
+        camera,
+        drawn: new Set(
+          state
+            .layerRows()
+            .filter((row) => row.drawn)
+            .map((row) => row.name),
+        ),
+      };
       lastAskedAt = performance.now();
       if (scheduled === 0) scheduled = requestAnimationFrame(tick);
     },
@@ -519,12 +591,12 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       scheduled = 0;
       listener = null;
       pending = null;
-      for (const batch of batches.values()) {
-        for (const buffer of [batch.lineBuffer, batch.lineColours, batch.glyphBuffer, batch.glyphColours, batch.glyphTexels]) {
-          if (buffer !== null) gl.deleteBuffer(buffer);
-        }
-      }
+      for (const batch of batches.values()) releaseBatch(batch);
       batches.clear();
+      sources.clear();
+      releaseFrame();
+      frame = null;
+      framed = null;
       if (atlas !== null) gl.deleteTexture(atlas);
       atlas = null;
     },

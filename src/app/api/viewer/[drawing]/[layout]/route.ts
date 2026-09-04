@@ -36,7 +36,13 @@ const NOT_A_PART = "a sheet is asked for as ?part=head or ?part=layer&index=<n>"
 
 /** A JSON answer, uncached. */
 function json(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  });
 }
 
 /** A registered refusal, carried whole so the screen renders the register's copy (R-SPINE-062). */
@@ -59,7 +65,11 @@ function headAnswer(head: ViewerHead): Response {
       insunits: manifest.insunits,
       digest: manifest.digest,
       version: manifest.version,
-      layers: manifest.layers.map((layer: RenderLayer) => ({ name: layer.name, rgb: layer.rgb, entityCount: layer.entityCount })),
+      layers: manifest.layers.map((layer: RenderLayer) => ({
+        name: layer.name,
+        rgb: layer.rgb,
+        entityCount: layer.entityCount,
+      })),
     },
     200,
   );
@@ -71,7 +81,16 @@ function layerAnswer(head: ViewerHead, index: number): Response {
   if (head.kind === "refusal") return json(head, 200);
   const layer = head.manifest.layers[index];
   if (layer === undefined) return json({ error: `the sheet holds no layer at ${index}` }, 404);
-  return json({ index, name: layer.name, rgb: layer.rgb, entityCount: layer.entityCount, records: layer.records }, 200);
+  return json(
+    {
+      index,
+      name: layer.name,
+      rgb: layer.rgb,
+      entityCount: layer.entityCount,
+      records: layer.records,
+    },
+    200,
+  );
 }
 
 export async function GET(request: Request, route: { params: Promise<{ drawing: string; layout: string }> }): Promise<Response> {
@@ -88,17 +107,32 @@ export async function GET(request: Request, route: { params: Promise<{ drawing: 
     context = await createContext({ req: request });
     if (context.session === null) return refusalAnswer("SIGNED_OUT");
 
-    const tenantId = await workspaceOfDrawing(drawing);
-    if (tenantId === null || !(await holdsWorkspace(context.session.userId, tenantId))) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
+    // The workspace the address is inside, as the screen asking knows it. A caller who holds that
+    // workspace is told the truth about a drawing it does not hold — an absence, which is the empty
+    // cell that teaches — while everybody else is told only that they do not hold the workspace, so
+    // a stranger still learns nothing about somebody else's drawings (Q-12).
+    const asking = asked.get("tenant");
+    const owner = await workspaceOfDrawing(drawing);
+    const tenantId = owner ?? asking;
+    if (tenantId === null || tenantId === undefined || (asking !== null && asking !== tenantId))
+      return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
+    if (!(await holdsWorkspace(context.session.userId, tenantId))) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
 
-    const head = await renderManifestOf({ tenantId, drawingId: drawing, layoutName: decodeURIComponent(layout) }, { storage: appStorage() });
+    // The segment Next resolved is the sheet's name: it arrives decoded, and reading it again would
+    // collide two addresses and fault on a name carrying a bare `%` (R-UI-031).
+    const head = await renderManifestOf({ tenantId, drawingId: drawing, layoutName: layout }, { storage: appStorage() });
     if (part === "head") return headAnswer(head);
 
     const index = Number(asked.get("index"));
     if (!Number.isInteger(index) || index < 0) return json({ error: NOT_A_PART }, 400);
     return layerAnswer(head, index);
   } catch (failure) {
-    const { faultId } = reportFault({ requestId: context?.requestId ?? randomUUID(), actor: context?.actor ?? "viewer", route: ROUTE, cause: failure });
+    const { faultId } = reportFault({
+      requestId: context?.requestId ?? randomUUID(),
+      actor: context?.actor ?? "viewer",
+      route: ROUTE,
+      cause: failure,
+    });
     return json({ faultId }, 500);
   }
 }

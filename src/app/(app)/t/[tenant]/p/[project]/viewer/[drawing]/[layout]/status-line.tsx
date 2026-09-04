@@ -18,6 +18,8 @@ const SCALE_DECIMALS = 3;
 export type StatusLineProps = {
   statusRef: RefObject<HTMLDivElement | null>;
   layoutName: string;
+  /** Whether there is a sheet under this readout at all — a refusal has no camera to report. */
+  sheet: boolean;
   scale: number;
   loadedLayers: number;
   totalLayers: number;
@@ -31,6 +33,7 @@ export type StatusLineProps = {
 export function StatusLine({
   statusRef,
   layoutName,
+  sheet,
   scale,
   loadedLayers,
   totalLayers,
@@ -56,22 +59,38 @@ export function StatusLine({
       data-scale={scale}
     >
       <span className="cx-viewer-readout-sheet">{layoutName}</span>
-      <span className="cx-viewer-readout-cell">
-        <span className="cx-viewer-readout-label">{strings.viewer_status_scale}</span>
-        <span className="cx-viewer-readout-value">{fill(strings.viewer_status_scale_value, { scale: formatUserFigure(scale.toFixed(SCALE_DECIMALS)) })}</span>
-      </span>
-      <span className="cx-viewer-readout-cell">
-        <span className="cx-viewer-readout-label">{strings.viewer_status_layers}</span>
-        <span className="cx-viewer-readout-value">
-          {fill(strings.viewer_status_layers_value, { loaded: formatUserFigure(String(loadedLayers)), total: formatUserFigure(String(totalLayers)) })}
-        </span>
-      </span>
-      <span className="cx-viewer-readout-cell">
-        <span className="cx-viewer-readout-label">{strings.viewer_status_entities}</span>
-        <span className="cx-viewer-readout-value">
-          {fill(strings.viewer_status_entities_value, { drawn: formatUserFigure(String(drawnEntities)), total: formatUserFigure(String(entityCount)) })}
-        </span>
-      </span>
+      {/* A sheet that was refused has no camera and no layers: the readout names the sheet asked for
+          and says nothing else, rather than reporting a scale of zero as if it were measuring one. */}
+      {sheet ? (
+        <>
+          <span className="cx-viewer-readout-cell">
+            <span className="cx-viewer-readout-label">{strings.viewer_status_scale}</span>
+            <span className="cx-viewer-readout-value">
+              {fill(strings.viewer_status_scale_value, {
+                scale: formatUserFigure(scale.toFixed(SCALE_DECIMALS)),
+              })}
+            </span>
+          </span>
+          <span className="cx-viewer-readout-cell">
+            <span className="cx-viewer-readout-label">{strings.viewer_status_layers}</span>
+            <span className="cx-viewer-readout-value">
+              {fill(strings.viewer_status_layers_value, {
+                loaded: formatUserFigure(String(loadedLayers)),
+                total: formatUserFigure(String(totalLayers)),
+              })}
+            </span>
+          </span>
+          <span className="cx-viewer-readout-cell">
+            <span className="cx-viewer-readout-label">{strings.viewer_status_entities}</span>
+            <span className="cx-viewer-readout-value">
+              {fill(strings.viewer_status_entities_value, {
+                drawn: formatUserFigure(String(drawnEntities)),
+                total: formatUserFigure(String(entityCount)),
+              })}
+            </span>
+          </span>
+        </>
+      ) : null}
       {partial ? <span className="cx-viewer-readout-partial">{strings.viewer_status_partial}</span> : null}
     </div>
   );

@@ -8,16 +8,25 @@
 import { fill, strings } from "../../../../../../../../../ui/strings";
 import { ViewerScreen } from "./viewer-screen";
 
+// Next hands a dynamic segment over already decoded, so the segment IS the sheet's name: decoding it
+// a second time would make `/viewer/{d}/%256Dodel` and `/viewer/{d}/model` one address, leave a sheet
+// whose own name carries a percent sequence unaddressable, and throw `URIError` on a name like `50%`
+// (R-UI-031).
 export async function generateMetadata({ params }: { params: Promise<{ layout: string }> }): Promise<{ title: string }> {
   const { layout } = await params;
-  return { title: fill(strings.viewer_canvas_label, { layout: decodeURIComponent(layout) }) };
+  return { title: fill(strings.viewer_canvas_label, { layout }) };
 }
 
 export default async function ViewerSheet({
   params,
   searchParams,
 }: {
-  params: Promise<{ tenant: string; project: string; drawing: string; layout: string }>;
+  params: Promise<{
+    tenant: string;
+    project: string;
+    drawing: string;
+    layout: string;
+  }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { tenant, project, drawing, layout } = await params;
@@ -29,7 +38,7 @@ export default async function ViewerSheet({
       tenantId={tenant}
       projectId={project}
       drawingId={drawing}
-      layoutName={decodeURIComponent(layout)}
+      layoutName={layout}
       initialViewport={typeof viewport === "string" ? viewport : null}
     />
   );

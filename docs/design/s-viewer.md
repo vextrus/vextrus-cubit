@@ -82,7 +82,10 @@ layer (R-UI-043).
 ```
 
 Grid rows `1fr auto`: the work area dominates, the status line is `var(--space-8)` tall. The canvas
-is the screen — everything else is a hairline-seamed edge around it.
+is the screen — everything else is a hairline-seamed edge around it. The screen names itself once,
+as its siblings do: a visually hidden `<h1>` carrying `viewer_canvas_label` opens the document, so
+heading navigation lands on the sheet a reader opened; the panel's **Layers** is the `<h2>` under
+it. Nothing of the sheet is drawn as a heading — a canvas has no text to promote.
 
 **Layers panel** (`cx-viewer-layers`, fill `var(--graphite-50)`, border-inline-end `var(--hairline)`,
 column flex, `min-width: 0`). Header row: `<h2>` `viewer_layers_heading` — `var(--text-13)`
@@ -108,10 +111,14 @@ center`, `gap: var(--space-2)`. Contents in order:
 - **Count** — `<span data-testid="viewer-layer-count">`, `formatUserFigure(String(entityCount))`,
   `var(--font-mono)` `var(--text-12)` `var(--graphite-700)` `tabular-nums slashed-zero`,
   right-aligned (R-UI-005), with `aria-label={fill(viewer_layer_count_label, {count, layer})}` so
-  the bare numeral is never announced naked.
+  the bare numeral is never announced naked. It stands on every row, a failed one included: the
+  partial cell adds the Retry offer beside the count rather than in its place, because how much is
+  missing is the fact a reader needs (R-UI-050).
 - **Isolate** and **Lock** — two `<button type="button" class="cx-reticle" aria-pressed>` at
   `var(--text-12)`, labels `viewer_layer_isolate` / `viewer_layer_lock`, test ids
-  `viewer-layer-isolate` / `viewer-layer-lock`. At rest on an untouched row they sit at
+  `viewer-layer-isolate` / `viewer-layer-lock`, each carrying the layer it acts on as its accessible
+  name — `viewer_layer_isolate_label` / `viewer_layer_lock_label` — because a sheet of N layers
+  otherwise presents 2N buttons announced alike. At rest on an untouched row they sit at
   `opacity: 0`; the row's `:hover` and `:focus-within` and any pressed state bring them to 1 — they
   are always in the DOM and always tab-reachable, so a keyboard reader focusing one always sees it
   (R-UI-012). Pressed paint is the selection idiom: fill `var(--beam-100)`, text
@@ -121,8 +128,10 @@ center`, `gap: var(--space-2)`. Contents in order:
   — `data-locked="true"`, `data-drawn` unchanged.
 
 **Stage** (`cx-viewer-stage`, `position: relative`, fill `var(--canvas-paper)`):
-`<canvas data-testid="viewer-canvas" role="img" tabindex="0" class="cx-reticle"
-aria-label={fill(viewer_canvas_label, {layout})}>` filling the panel. A canvas is a replaced element
+`<canvas data-testid="viewer-canvas" role="application" tabindex="0" class="cx-reticle"
+aria-label={fill(viewer_canvas_label, {layout})} aria-describedby="cx-viewer-keys">` filling the
+panel, with the key set it answers named in a visually hidden `viewer_canvas_keys` beside it: the
+sheet is driven from the keyboard, so it is not announced as a picture that offers nothing. A canvas is a replaced element
 and hosts no `::after`, so focus draws the documented reticle *fallback* (2 px `var(--beam-500)`
 outline at 2 px offset), inset so it is not clipped by the panel edge. Backing store =
 `clientWidth/Height × min(devicePixelRatio, 2)`, resized from a `ResizeObserver`; the cap holds the
@@ -177,16 +186,24 @@ Declared in `states.ts` as `VIEWER_STATES` (the route's enumerable home) and mir
   report-id deferral it records). Reached when the head cannot be read at all (I-81); a lost layer
   is the partial cell, not this one.
 - **Refusal** — `kind: "refusal"`: the one `RefusalState` (surface `banner`, severity `error`,
-  `MANIFEST_NOT_RENDERABLE`) pinned across the top of the work area, in the canvas's place, with the
-  fidelity facts below it (§3) and the evidence link to the project home. No canvas mounts. Both
+  `MANIFEST_NOT_RENDERABLE`) centred in the work area, in the canvas's place, with the fidelity
+  facts below it (§3), both capped at 640 px, and the evidence link to the project home — the
+  refusal owns the box the sheet would have had rather than leaving an undesigned slab under it. The
+  status line under it names the sheet asked for and reports nothing else: with no camera and no
+  layers there is no scale to publish, and a readout of zeroes reads as a measurement. No canvas
+  mounts. Both
   ways the reading fails to yield a sheet reach this one cell: bytes the mirror cannot parse, and an
   artifact address the store no longer answers — the reader's move is the same (re-read the drawing),
   so neither is dressed as an outage the reader can do nothing with. The
   mid-session refusals the layer feed can answer — `SIGNED_OUT` (401) and
   `WORKSPACE_PERMISSION_NOT_HELD` (403) — render through the same one renderer in the same place,
-  evidence `/sign-in` and the workspace home respectively.
+  evidence `/sign-in` and the workspace home (`/t/{tenant}`, the address the label promises)
+  respectively. A drawing this workspace does not hold is *not* one of them: the feed is asked with
+  the workspace the address names, so a member of that workspace opening an unknown drawing is told
+  the absence (404, `kind: "absent"`) and only a caller who does not hold the named workspace is
+  refused — existence and membership stay one answer to everybody else (Q-12).
 - **Partial** — rendered, per I-81: failed rows stay listed with `data-failed="true"`, their count
-  cell replaced by a ghost Button `viewer_layer_retry` that re-requests that one layer, and
+  cell joined by a ghost Button `viewer_layer_retry` that re-requests that one layer, and
   `viewer_status_partial` stands in the status line. The drawn sheet is not withdrawn because part
   of it is missing.
 - **Offline** — no invented banner: the viewer writes nothing, so there is no read-only degradation
@@ -207,8 +224,10 @@ geometry, with no action link — the remedy is a browser setting, and a link wo
 
 `viewer_layers_heading` **Layers** · `viewer_layer_visible_label` **Show {layer}** ·
 `viewer_layer_count_label` **{count} entities on {layer}** · `viewer_layer_isolate` **Isolate** ·
-`viewer_layer_lock` **Lock** · `viewer_layer_retry` **Retry layer** · `viewer_canvas_label` **Sheet
-{layout}** · `viewer_fit` **Fit** · `viewer_zoom_in` **Zoom in** · `viewer_zoom_out` **Zoom out** ·
+`viewer_layer_isolate_label` **Isolate {layer}** · `viewer_layer_lock` **Lock** ·
+`viewer_layer_lock_label` **Lock {layer}** · `viewer_layer_retry` **Retry layer** ·
+`viewer_canvas_label` **Sheet {layout}** · `viewer_canvas_keys` **Drag to pan, scroll to zoom. Plus
+and minus zoom, the arrow keys pan, and F fits the sheet.** · `viewer_fit` **Fit** · `viewer_zoom_in` **Zoom in** · `viewer_zoom_out` **Zoom out** ·
 `viewer_status_scale` **Scale** · `viewer_status_scale_value` **{scale} px per drawing unit** ·
 `viewer_status_layers` **Layers** · `viewer_status_layers_value` **{loaded} of {total}** ·
 `viewer_status_entities` **Entities** · `viewer_status_entities_value` **{drawn} of {total}** ·
@@ -276,7 +295,11 @@ heights). Any other literal is a defect.
 values (R-UI-001). The canvas is the one surface that cannot inherit a variable, so the screen
 re-reads the three `--canvas-*` values whenever the document root's `data-theme` changes (a
 `MutationObserver` on that one attribute) and repaints the same manifest — no refetch, no camera
-change. Paper is `#FCFCFB` light and `#101216` dark by token, so a corner pixel is lighter in light
+change. Repainting means re-lettering: a record that resolved to the theme's own ink has that ink
+written into its vertices at upload, so the painter tessellates the layers it holds again against
+the new palette — and the extents frame with them — rather than repainting only the paper and
+leaving the geometry in the abandoned theme's colours. Paper is `#FCFCFB` light and `#101216` dark
+by token, so a corner pixel is lighter in light
 by construction; ink flips with it, and I-79 keeps colour-7 geometry legible on both. Contrast holds
 on founder facts in both themes: graphite-600/700/900 on graphite-0 and graphite-50 ≥ 4.5:1,
 graphite-900 on beam-100 ≥ 4.5:1, the beam-500 reticle and the hairline seams ≥ 3:1 as UI. No basis
@@ -298,7 +321,9 @@ their primitives. No other id is added.
 Behavioural hooks without new ids: on `viewer-status` — `data-first-paint`, `data-renderer`
 (`webgl` | `unavailable`), `data-loaded-layers`, `data-total-layers`, `data-entity-count`,
 `data-drawn-entities`, `data-scale`, `data-frame-median-ms`, `data-frame-p95-ms` (the painter's rAF
-ledger over the last 120 frames, written each frame); on each row — `data-layer`, `data-visible`,
+ledger over the last 120 frames, written each frame) and `data-hit-ms` / `data-hit-keys` (the last
+answer the index in its worker gave: its round trip against PB-3's 16 ms, and how many keys lay
+under the point — written the same way, so asking costs no render); on each row — `data-layer`, `data-visible`,
 `data-drawn`, `data-locked`, `data-isolated`, `data-failed`; `role="switch"` + `aria-checked` on the
 visibility control and `aria-pressed` on Isolate and Lock; `data-code="MANIFEST_NOT_RENDERABLE"` and
 `data-surface="banner"` on the refusal, with a non-empty evidence `href`; `cx-reticle` on the

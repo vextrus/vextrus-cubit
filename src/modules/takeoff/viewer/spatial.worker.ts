@@ -11,7 +11,15 @@ import type { RenderLayer } from "./types";
 /** What the screen asks: here are the layers, or what is under this point. */
 export type SpatialRequest =
   | { id: number; kind: "index"; layers: RenderLayer[] }
-  | { id: number; kind: "hit"; point: [number, number]; tolerance: number };
+  /** A point, and the layers the reader has locked — locked layers are painted and are out of the
+   * hit-test, so the posture travels with the question rather than being re-indexed (Decision § 1). */
+  | {
+      id: number;
+      kind: "hit";
+      point: [number, number];
+      tolerance: number;
+      lockedLayers?: readonly string[];
+    };
 
 /** What comes back: the request's own id, and the keys it found. */
 export type SpatialAnswer = { id: number; keys: string[] };
@@ -38,5 +46,8 @@ scope.addEventListener("message", (event) => {
     scope.postMessage({ id: request.id, keys: [] });
     return;
   }
-  scope.postMessage({ id: request.id, keys: hitTest(index, request.point, request.tolerance) });
+  scope.postMessage({
+    id: request.id,
+    keys: hitTest(index, request.point, request.tolerance, request.lockedLayers ?? []),
+  });
 });

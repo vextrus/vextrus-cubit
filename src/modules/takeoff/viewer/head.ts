@@ -16,7 +16,11 @@ import { buildRenderManifest, graphHoldsLayout, manifestCacheKey } from "./manif
 import type { RenderManifest, ViewerHead } from "./types";
 
 /** Which sheet of which drawing, in whose workspace. */
-export type ViewerScope = { tenantId: string; drawingId: string; layoutName: string };
+export type ViewerScope = {
+  tenantId: string;
+  drawingId: string;
+  layoutName: string;
+};
 
 /**
  * How many built sheets are held. The cache is a process memo rather than a table: a manifest is
@@ -32,15 +36,49 @@ const CACHE_LIMIT = 4;
  */
 const CACHE_ANCHOR = Symbol.for("cubit.viewer.manifestCache");
 
+/** The anchor of the builds still in flight, so one sheet is read and built once however many ask. */
+const FLIGHT_ANCHOR = Symbol.for("cubit.viewer.manifestFlights");
+
 /** The process's manifest memo, made once. */
 function manifestCache(): Map<string, RenderManifest> {
-  const host = globalThis as typeof globalThis & { [CACHE_ANCHOR]?: Map<string, RenderManifest> };
+  const host = globalThis as typeof globalThis & {
+    [CACHE_ANCHOR]?: Map<string, RenderManifest>;
+  };
   const held = host[CACHE_ANCHOR];
   if (held !== undefined) return held;
   const made = new Map<string, RenderManifest>();
   host[CACHE_ANCHOR] = made;
   return made;
 }
+
+/** The builds this process has started and not finished, on the same anchor and for the same reason. */
+function manifestFlights(): Map<string, Promise<Build>> {
+  const host = globalThis as typeof globalThis & {
+    [FLIGHT_ANCHOR]?: Map<string, Promise<Build>>;
+  };
+  const held = host[FLIGHT_ANCHOR];
+  if (held !== undefined) return held;
+  const made = new Map<string, Promise<Build>>();
+  host[FLIGHT_ANCHOR] = made;
+  return made;
+}
+
+/**
+ * The memo's key. The content hash and the layout name say which sheet — and the workspace says
+ * whose, because the memo answers *instead of* the store: two workspaces that uploaded the same
+ * drawing name one content address, and a hit keyed on the address alone would answer one workspace
+ * out of bytes only the other's store ever held, including where this workspace's store holds
+ * nothing at that address at all (which is AC-7's refusal, not a sheet).
+ */
+function memoKey(tenantId: string, artifactSha256: string, layoutName: string): string {
+  return `${tenantId}/${manifestCacheKey(artifactSha256, layoutName)}`;
+}
+
+/** What building a sheet out of the bytes an address names can come to. */
+type Build =
+  | { kind: "manifest"; manifest: RenderManifest }
+  | { kind: "refusal"; refusal: typeof REFUSALS.MANIFEST_NOT_RENDERABLE }
+  | { kind: "absent"; reason: "layout-unknown" };
 
 /** Hold a built sheet, and let the oldest go once the memo is full. */
 function remember(key: string, manifest: RenderManifest): void {
@@ -59,19 +97,60 @@ function remember(key: string, manifest: RenderManifest): void {
  * route, a job, a test stage — hands it over and the bytes behind one address are read once.
  */
 export async function renderManifestOf(scope: ViewerScope, deps: { storage: Storage }): Promise<ViewerHead> {
-  const record = await ingestRecordOf({ tenantId: scope.tenantId, drawingId: scope.drawingId });
+  const record = await ingestRecordOf({
+    tenantId: scope.tenantId,
+    drawingId: scope.drawingId,
+  });
   if (record === null) return { kind: "absent", reason: "not-ingested" };
 
-  const key = manifestCacheKey(record.artifactSha256, scope.layoutName);
+  const key = memoKey(scope.tenantId, record.artifactSha256, scope.layoutName);
   const held = manifestCache().get(key);
-  if (held !== undefined) return { kind: "manifest", manifest: held, cache: "hit", facts: record.facts };
+  if (held !== undefined)
+    return {
+      kind: "manifest",
+      manifest: held,
+      cache: "hit",
+      facts: record.facts,
+    };
 
-  const bytes = await deps.storage.get(scope.tenantId, record.artifactSha256);
+  // Two readers opening one sheet at once are one read of the bytes and one build: the cache check
+  // and the write are separated by the reading itself, so without this the warm path R-UI-043 asks
+  // for is bought only by whoever arrives second in wall-clock time. The facts are this caller's own
+  // record's either way — only the work is shared.
+  const built = await buildOnce(key, () => build(scope, record.artifactSha256, deps.storage));
+  if (built.kind === "absent") return built;
+  if (built.kind === "refusal") return refused(record.facts);
+  return {
+    kind: "manifest",
+    manifest: built.manifest,
+    cache: "miss",
+    facts: record.facts,
+  };
+}
+
+/** The one build behind a key, shared by everyone who asks for it while it is in flight. */
+function buildOnce(key: string, work: () => Promise<Build>): Promise<Build> {
+  const flights = manifestFlights();
+  const held = flights.get(key);
+  if (held !== undefined) return held;
+  const flight = work().finally(() => flights.delete(key));
+  flights.set(key, flight);
+  return flight;
+}
+
+/** Every way the bytes fail to be a sheet, as the one registered refusal (R-UI-043, L-CAD-05). */
+function refuse(): Build {
+  return { kind: "refusal", refusal: REFUSALS.MANIFEST_NOT_RENDERABLE };
+}
+
+/** The bytes one address names, read once and made into a sheet — or into the reason there is none. */
+async function build(scope: ViewerScope, artifactSha256: string, storage: Storage): Promise<Build> {
+  const bytes = await storage.get(scope.tenantId, artifactSha256);
   // An address the store cannot answer leaves the sheet exactly as unrenderable as bytes the mirror
   // refuses, and the reader's move is the same one: re-read the drawing. So it is the registered
   // refusal with the recovered facts beside it, never a raise the reader can do nothing with
   // (R-UI-043, R-UI-020).
-  if (bytes === null) return refused(record.facts);
+  if (bytes === null) return refuse();
 
   // Both ways bytes can fail to be an artifact — not JSON at all, and JSON the one mirror refuses —
   // are the same fact about the reading, so they answer the same registered way (L-CAD-05).
@@ -79,17 +158,17 @@ export async function renderManifestOf(scope: ViewerScope, deps: { storage: Stor
   try {
     json = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
   } catch {
-    return refused(record.facts);
+    return refuse();
   }
   const parsed = entityGraphSchema.safeParse(json);
-  if (!parsed.success) return refused(record.facts);
+  if (!parsed.success) return refuse();
 
   const graph = parsed.data;
   if (!graphHoldsLayout(graph, scope.layoutName)) return { kind: "absent", reason: "layout-unknown" };
 
   const manifest = buildRenderManifest(graph, scope.layoutName);
-  remember(key, manifest);
-  return { kind: "manifest", manifest, cache: "miss", facts: record.facts };
+  remember(memoKey(scope.tenantId, artifactSha256, scope.layoutName), manifest);
+  return { kind: "manifest", manifest };
 }
 
 /**

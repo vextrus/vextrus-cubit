@@ -53,38 +53,52 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry }: Lay
               aria-checked={row.visible}
               className="cx-viewer-layer-switch cx-reticle"
               data-testid="viewer-layer-visible"
-              aria-label={fill(strings.viewer_layer_visible_label, { layer: row.name })}
+              aria-label={fill(strings.viewer_layer_visible_label, {
+                layer: row.name,
+              })}
               onClick={() => onVisible(row.name, !row.visible)}
             >
               <span
                 className="cx-viewer-layer-swatch"
                 data-testid="viewer-layer-swatch"
                 aria-hidden="true"
-                style={{ background: row.visible ? cssColour(row.rgb) : "none", borderColor: cssColour(row.rgb) }}
+                style={{
+                  background: row.visible ? cssColour(row.rgb) : "none",
+                  borderColor: cssColour(row.rgb),
+                }}
               />
             </button>
 
             <span className="cx-viewer-layer-name">{row.name}</span>
 
+            {/* A layer that did not arrive keeps its count as well as its offer: the partial cell
+                shows what is missing, and hiding the figure would hide the fact (R-UI-050). */}
+            <span
+              className="cx-viewer-layer-count"
+              data-testid="viewer-layer-count"
+              aria-label={fill(strings.viewer_layer_count_label, {
+                count: formatUserFigure(String(row.entityCount)),
+                layer: row.name,
+              })}
+            >
+              {formatUserFigure(String(row.entityCount))}
+            </span>
             {row.failed ? (
               <Button variant="ghost" className="cx-viewer-layer-retry" onClick={() => onRetry(row.name)}>
                 {strings.viewer_layer_retry}
               </Button>
-            ) : (
-              <span
-                className="cx-viewer-layer-count"
-                data-testid="viewer-layer-count"
-                aria-label={fill(strings.viewer_layer_count_label, { count: formatUserFigure(String(row.entityCount)), layer: row.name })}
-              >
-                {formatUserFigure(String(row.entityCount))}
-              </span>
-            )}
+            ) : null}
 
+            {/* Both controls carry the layer they act on: a sheet of N layers otherwise presents 2N
+                buttons named alike, which no screen reader can tell apart (A-11Y). */}
             <button
               type="button"
               aria-pressed={row.isolated}
               className="cx-viewer-layer-control cx-reticle"
               data-testid="viewer-layer-isolate"
+              aria-label={fill(strings.viewer_layer_isolate_label, {
+                layer: row.name,
+              })}
               onClick={() => onIsolate(row.name)}
             >
               {strings.viewer_layer_isolate}
@@ -94,6 +108,9 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry }: Lay
               aria-pressed={row.locked}
               className="cx-viewer-layer-control cx-reticle"
               data-testid="viewer-layer-lock"
+              aria-label={fill(strings.viewer_layer_lock_label, {
+                layer: row.name,
+              })}
               onClick={() => onLock(row.name, !row.locked)}
             >
               {strings.viewer_layer_lock}

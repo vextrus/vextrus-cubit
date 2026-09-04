@@ -66,6 +66,17 @@ function spell(value: number): string {
 }
 
 /**
+ * The scale as a deep link spells it. A site plan in millimetres fits at ~2.5e-5 pixels per drawing
+ * unit, which four decimals round to `0` — a scale this module then refuses to read back, so the
+ * address in the bar would not be the address that reopens the sheet. Below that floor the figure is
+ * spelled to significant digits instead (R-UI-031: what the viewer writes, it must read).
+ */
+function spellScale(scale: number): string {
+  const fixed = spell(scale);
+  return Number(fixed) > 0 ? fixed : String(Number(scale.toPrecision(VIEWPORT_DECIMALS)));
+}
+
+/**
  * The camera a sheet opens at: the whole drawing in view, centred, with a margin. Opening a sheet
  * and fitting it are the same camera — `fitCamera` is the name the Fit control asks for it under —
  * so the two cannot answer differently (B-17).
@@ -123,16 +134,13 @@ export function zoomCameraAt(camera: Camera, factor: number, atPx: { x: number; 
   return {
     ...camera,
     scale,
-    centre: [
-      anchor[0] - (atPx.x - camera.viewport.width / 2) / scale,
-      anchor[1] + (atPx.y - camera.viewport.height / 2) / scale,
-    ],
+    centre: [anchor[0] - (atPx.x - camera.viewport.width / 2) / scale, anchor[1] + (atPx.y - camera.viewport.height / 2) / scale],
   };
 }
 
 /** The camera as the address carries it: the world centre and the pixels per drawing unit (R-UI-031). */
 export function serialiseViewport(camera: Camera): string {
-  return `${spell(camera.centre[0])},${spell(camera.centre[1])},${spell(camera.scale)}`;
+  return `${spell(camera.centre[0])},${spell(camera.centre[1])},${spellScale(camera.scale)}`;
 }
 
 /** A `v` parameter read back, or null where it is not one this viewer wrote. */
@@ -150,7 +158,10 @@ export function cameraFromViewport(viewport: Viewport, viewportPx: { width: numb
   return {
     centre: [viewport.x, viewport.y],
     scale: clampScale(viewport.scale),
-    viewport: { width: Math.max(viewportPx.width, 1), height: Math.max(viewportPx.height, 1) },
+    viewport: {
+      width: Math.max(viewportPx.width, 1),
+      height: Math.max(viewportPx.height, 1),
+    },
   };
 }
 
@@ -184,10 +195,16 @@ type IndexNode = {
 };
 
 /** A built index over one sheet, the shape a worker posts back and a hit-test walks. */
-export type SpatialIndex = { readonly root: IndexNode | null; readonly size: number };
+export type SpatialIndex = {
+  readonly root: IndexNode | null;
+  readonly size: number;
+};
 
 /** A world box as a query is stated in. */
-export type IndexBox = { min: readonly [number, number]; max: readonly [number, number] };
+export type IndexBox = {
+  min: readonly [number, number];
+  max: readonly [number, number];
+};
 
 /** How many entries one leaf holds — a packed R-tree's node size. */
 const NODE_SIZE = 16;
@@ -332,11 +349,18 @@ function distanceTo(record: RenderRecord, point: readonly [number, number]): num
  * candidates and their own geometry decides, so a pointer between two lines picks the line it is
  * nearer rather than whichever box it happens to sit in.
  */
-export function hitTest(index: SpatialIndex, worldPoint: [number, number], tolerance: number): string[] {
+export function hitTest(index: SpatialIndex, worldPoint: [number, number], tolerance: number, lockedLayers: readonly string[] = []): string[] {
   const reach = Math.max(tolerance, 0);
+  // A locked layer is painted and is out of the hit-test (Decision § 1): the index holds the whole
+  // sheet, and the posture the reader set decides which of its layers may answer.
+  const shut = new Set(lockedLayers);
   const candidates = search(index, [worldPoint[0] - reach, worldPoint[1] - reach, worldPoint[0] + reach, worldPoint[1] + reach]);
   return candidates
-    .map((entry) => ({ id: entry.id, gap: distanceTo(entry.record, worldPoint) }))
+    .filter((entry) => !shut.has(entry.layer))
+    .map((entry) => ({
+      id: entry.id,
+      gap: distanceTo(entry.record, worldPoint),
+    }))
     .filter((candidate) => candidate.gap <= reach)
     .sort((a, b) => a.gap - b.gap)
     .map((candidate) => candidate.id);
@@ -393,7 +417,12 @@ export function createViewerState(head: ViewerHead): ViewerState {
     return made;
   };
 
-  const isDrawn = (name: string): boolean => postureOf(name).visible && (isolated === null || isolated === name);
+  // A layer whose geometry never arrived is on no buffer, so it is not drawn however the reader has
+  // set it: counting it would let the readout claim entities nobody can see (R-UI-050, I-81).
+  const isDrawn = (name: string): boolean => {
+    const held = postureOf(name);
+    return held.visible && !held.failed && (isolated === null || isolated === name);
+  };
 
   return {
     layerRows: () =>
