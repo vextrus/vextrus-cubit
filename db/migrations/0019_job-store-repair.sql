@@ -1,20 +1,25 @@
--- hand-written: the job store's own ground (SEAM-JOBS, R-SPINE-030, R-SPINE-031). No tenant tables.
+-- hand-written: 0018_job-store-schemas superseded, never edited (SEAM-JOBS, R-SPINE-031).
 --
--- Two stores stand outside the schema drizzle-kit reads: the durable event log in `cubit_jobs`, and
--- the queue library's own tables in `pgboss`. Both used to be made at runtime by whichever tier got
--- there first, which asked the application role — the role every request runs as — for the right to
--- create schemas in the database. A standing database-wide CREATE is not a privilege this product's
--- tiers are owed, so the migrate lane makes what can be made ahead of time, and what the managing
--- tier alone may make is made through one function that names exactly what it installs.
+-- 0018 is applied by its journal entry, so a database that already ran an earlier form of it — the
+-- e2e lane's, and any deployment that crossed this lane while it was being built — never sees a
+-- rewrite of that file. Two things the earlier forms did are therefore still standing there, and one
+-- thing the managing tier now depends on is still missing:
 --
--- The log's schema is made here; its TABLES stay the seam's own shape (src/core/db.ts's repeatable
--- DDL is the one home of what a job event is — B-17), so the schema is handed to the app role with
--- the right to create them and default privileges that keep the two roles able to read each other's,
--- whichever of them writes to a given database first.
+--   * the app role was granted CREATE on the DATABASE, a standing privilege no tier of this product
+--     is owed;
+--   * `pgboss.delete_queue` was marked SECURITY DEFINER and handed to the app role — a door that
+--     deletes a queue's row and drops its partition with every job in it;
+--   * `cubit_jobs.provision_queue_storage()` was installed without a version guard (and, on a
+--     database that crossed only the very first form, was never installed at all), while
+--     src/core/db.ts asks for it on every managing open and reads the guard's answer.
+--
+-- Everything below is written to stand on a database in any of those states and on a fresh one where
+-- 0018 has just run: schema and grants are repeatable, the installer is replaced in place, and the
+-- queue storage an earlier installer already made is repaired where it stands.
 CREATE SCHEMA IF NOT EXISTS "cubit_jobs";
 --> statement-breakpoint
--- And taken back where an earlier form of this migration handed it out: the app role holds no right
--- to make schemas in the database it serves, on any deployment this lane has ever crossed.
+-- Taken back where an earlier form of 0018 handed it out: the app role holds no right to make schemas
+-- in the database it serves, on any deployment this lane has ever crossed.
 DO $$ BEGIN EXECUTE format('REVOKE CREATE ON DATABASE %I FROM %I', current_database(), 'cubit_app'); END $$;
 --> statement-breakpoint
 GRANT USAGE, CREATE ON SCHEMA "cubit_jobs" TO "cubit_app";
@@ -36,13 +41,24 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA "cubit_jobs" GRANT USAGE ON SEQUENCES TO "cub
 -- `PgBoss.getConstructionPlans("pgboss")` prints it, and grant the app role what the runtime needs.
 --
 -- Making a queue creates that queue's partition of `pgboss.job` and attaches it, which is the parent
--- table's owner's right; so the library's own `create_queue`/`delete_queue` are marked SECURITY
--- DEFINER here too, and the app role is given those two doors and nothing else.
-CREATE FUNCTION "cubit_jobs"."provision_queue_storage"() RETURNS void
+-- table's owner's right; so the library's own `create_queue` is marked SECURITY DEFINER here too, and
+-- the app role is given that one door and nothing else — not `delete_queue`, which drops a queue's
+-- partition and every job in it.
+CREATE OR REPLACE FUNCTION "cubit_jobs"."provision_queue_storage"() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog
 AS $provision$
+DECLARE
+  standing int;
 BEGIN
   IF to_regclass('pgboss.version') IS NOT NULL THEN
+    -- Storage already stands. It is only this door's answer if it stands at the version these plans
+    -- install: `migrate => false` on every tier means the library will never correct a mismatch, so a
+    -- schema at another version driven by this client is silent drift that shows up as an SQL error
+    -- somewhere else. It is named here instead, with the version each side holds.
+    EXECUTE 'SELECT max(version) FROM pgboss.version' INTO standing;
+    IF standing IS DISTINCT FROM 24 THEN
+      RAISE EXCEPTION 'the queue storage in schema pgboss stands at version %, and this installer holds pg-boss 10.4.2''s version 24 — no tier migrates it (R-SPINE-031), so it must be migrated by an operator', standing;
+    END IF;
     RETURN;
   END IF;
 
@@ -215,15 +231,18 @@ BEGIN
   GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA pgboss TO cubit_app;
   ALTER DEFAULT PRIVILEGES IN SCHEMA pgboss GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO cubit_app;
 
-  -- Making and unmaking a queue is a partition of `pgboss.job`, which only that table's owner may
-  -- attach. The two doors run as their definer so the app role never needs to own the schema, and
-  -- they are the only things in it the app role may execute.
+  -- Making a queue is a partition of `pgboss.job`, which only that table's owner may attach. That one
+  -- door runs as its definer so the app role never needs to own the schema, and it is the only thing
+  -- in the schema the app role may execute.
+  --
+  -- Unmaking one is NOT given out. `delete_queue` deletes the queue's row and drops its partition —
+  -- every job it holds — and no tier of this product ever calls it: the runtime makes queues and
+  -- consumes them, and retiring one is an operator's act performed as the owning role. A door that
+  -- destroys a queue's stored jobs is not a standing privilege of the role that serves requests.
   ALTER FUNCTION pgboss.create_queue(text, json) SECURITY DEFINER SET search_path = pg_catalog, pgboss;
-  ALTER FUNCTION pgboss.delete_queue(text) SECURITY DEFINER SET search_path = pg_catalog, pgboss;
   REVOKE ALL ON FUNCTION pgboss.create_queue(text, json) FROM PUBLIC;
   REVOKE ALL ON FUNCTION pgboss.delete_queue(text) FROM PUBLIC;
   GRANT EXECUTE ON FUNCTION pgboss.create_queue(text, json) TO cubit_app;
-  GRANT EXECUTE ON FUNCTION pgboss.delete_queue(text) TO cubit_app;
 END;
 $provision$;
 --> statement-breakpoint
@@ -231,3 +250,14 @@ $provision$;
 REVOKE ALL ON FUNCTION "cubit_jobs"."provision_queue_storage"() FROM PUBLIC;
 --> statement-breakpoint
 GRANT EXECUTE ON FUNCTION "cubit_jobs"."provision_queue_storage"() TO "cubit_app";
+--> statement-breakpoint
+-- And where an earlier installer already made the queue storage, the door it handed out is taken
+-- back where it stands: replacing the installer above only changes what the NEXT database gets.
+DO $$
+BEGIN
+  IF to_regprocedure('pgboss.delete_queue(text)') IS NOT NULL THEN
+    ALTER FUNCTION pgboss.delete_queue(text) SECURITY INVOKER RESET search_path;
+    REVOKE ALL ON FUNCTION pgboss.delete_queue(text) FROM PUBLIC;
+    EXECUTE format('REVOKE ALL ON FUNCTION pgboss.delete_queue(text) FROM %I', 'cubit_app');
+  END IF;
+END $$;

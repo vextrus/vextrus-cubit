@@ -182,7 +182,10 @@ export function SheetIndex({
       router.refresh();
       if (job.kind !== "ingest") return;
       const answer = await requestThumbnails({ projectId, drawingId: job.drawingId });
-      if (answer.refusal !== null) setAskRefusal(answer.refusal);
+      // A door answered without the field — an older answer, or a stand-in built to the shape the
+      // spec declares — is not a refusal: only a code the register holds may reach the renderer.
+      const refusedWith = answer.refusal ?? null;
+      if (refusedWith !== null) setAskRefusal(refusedWith);
       if (!reported(answer)) return;
       setJobs((held) => (held.some((step) => step.kind === "thumbnails" && step.drawingId === job.drawingId) ? held : [...held, { jobId: answer.jobId, kind: "thumbnails", drawingId: job.drawingId }]));
     },

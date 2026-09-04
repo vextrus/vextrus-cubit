@@ -21,7 +21,8 @@ export const DRAWINGS_STATES: Readonly<Record<ShellStateName, ShellStateCell>> =
   refusal: {
     declared: "rendered",
     by: `${ROUTE}/sheet-index.tsx`,
-    // The one renderer serves both answer slots and the dialog's own (R-UI-020, B-17).
+    // The one renderer serves all three answer slots — the upload region's, the offered groups'
+    // and the card's — and the dialog's own (R-UI-020, B-17).
     testId: "refusal-state",
   },
   partial: {

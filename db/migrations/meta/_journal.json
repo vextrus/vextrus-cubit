@@ -134,6 +134,13 @@
       "when": 1788471818277,
       "tag": "0018_job-store-schemas",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788471819277,
+      "tag": "0019_job-store-repair",
+      "breakpoints": true
     }
   ]
 }

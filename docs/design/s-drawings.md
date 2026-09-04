@@ -122,6 +122,14 @@ radius `var(--radius-4)`, padding `var(--space-3)` `var(--space-4)`, `var(--text
 everything inside it. A row reaching `stored` hands its drawing id to `requestSheetsFor`;
 the answered jobs open the timeline.
 
+Directly below the Dropzone, the region's **answer slot** `<div class="cx-drawings-answer">`
+(no test id; the contract is closed), the same slot chrome the offered-groups region uses:
+exactly one RefusalState, carrying the code `requestSheetsFor` or `requestThumbnailsFor`
+answered with. A stored drawing the seam refuses to read enqueues no job, so it takes no
+timeline step, and a row that will never be read may not be answered with silence
+(R-UI-020) — the refusal belongs beside the queue whose row produced it rather than beside
+the confirm doors, which is why this region has a slot of its own.
+
 ### The job timeline (R-UI-024, inline where it was started)
 
 `<section data-testid="job-timeline" data-state="idle|running|done|failed"
@@ -287,10 +295,12 @@ reason); `tests/screen-states/matrix.test.ts` reflects over it.
 - **Error** — a render, read or action fault surfaces the root error boundary
   (`src/app/error.tsx`), whose Decision rules retry and the report id. A failed job is not an
   error state of the screen: it is a `failed` step with its named refusal.
-- **Refusal** — the two answer slots and, once the dialog holds focus, its slot and stale
-  notice. Reachable codes: `GROUP_NOT_OFFERED`, `PERMISSION_NOT_HELD`,
-  `CONSEQUENCES_NOT_CARRIED` (the dialog's stale re-render, never a card),
-  `ACT_CHANGES_NOTHING`, `SIGNED_OUT`, the Dropzone's five row codes, and any registered code
+- **Refusal** — the three answer slots (the upload region's, the offered-groups region's and
+  the card's) and, once the dialog holds focus, its slot and stale notice. Reachable codes:
+  `GROUP_NOT_OFFERED`, `PERMISSION_NOT_HELD`, `CONSEQUENCES_NOT_CARRIED` (the dialog's stale
+  re-render, never a card), `ACT_CHANGES_NOTHING`, `SIGNED_OUT`, the request codes of the
+  upload region's slot — `WORKSPACE_PERMISSION_NOT_HELD`, `SHEET_NOT_INGESTABLE`,
+  `RASTER_NOT_AVAILABLE` — the Dropzone's five row codes, and any registered code
   a job answers. Each renders in place with message, remedy and evidence.
 - **Partial** — rendered, never hidden: a record that dropped layouts still yields cards for
   the layouts it carried and says so through `dropped_layouts` (I-85); a card whose raster
