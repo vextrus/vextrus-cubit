@@ -51,7 +51,9 @@
     ".next-cubit/types/**/*.ts",
     ".next-cubit/dev/types/**/*.ts",
     ".next-invitations/types/**/*.ts",
-    ".next-invitations/dev/types/**/*.ts"
+    ".next-invitations/dev/types/**/*.ts",
+    ".next-members/types/**/*.ts",
+    ".next-members/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
