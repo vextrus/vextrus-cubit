@@ -22,7 +22,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, describe, expect, test } from "vitest";
 import { provisionScratchDb } from "./harness";
 import { GUC_SYSTEM_REASON, SEED_REASON, TENANT_ALPHA, TENANT_COLUMN } from "./support/fixtures";
-import { ident, isTrue, lit, scalar, seedTenants, withSession } from "./support/live-sql";
+import { deriveTenantScopedTables, ensureRowsForTenants, ident, isTrue, lit, qualified, scalar, seedTenants, withSession, type TableRef } from "./support/live-sql";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -40,6 +40,19 @@ const DISARMED_KEY: Readonly<Record<string, string>> = { modelLedger: "audit_led
 /** The hooks the explorer region shows on a project with no acts (Decision §1, I-33). */
 const EXPLORER_TESTIDS = ["audit-filter-type", "audit-filter-actor", "audit-filter-subject", "audit-acts-empty"] as const;
 
+/**
+ * The ONE scene every case below stands in (Q-17: a fixture identity is single-sourced, never a
+ * literal per case) — the workspace, the table its projects live in, and an address that names no
+ * project of it. The project itself is not spelled here: it is seeded through the lane's own helper
+ * and its id read back, because an id is a fact of the database, not of this file.
+ */
+const SCENE = Object.freeze({
+  tenant: TENANT_ALPHA,
+  projectsTable: "projects",
+  /** A well-formed address naming no project — the not-found leg's whole input (row 1jc80fq). */
+  unknownProject: "9b7e4c05-31da-4f68-8a92-6c0d5e17b34f",
+});
+
 type AuditPanel = { armed: false } | { armed: true; rowCount: number };
 type AuditSurfaces = { acts: readonly unknown[]; modelLedger: AuditPanel; jobs: AuditPanel };
 type GetAuditSurfaces = (ctx: { tenantId: string }, projectId: string) => Promise<AuditSurfaces>;
@@ -54,6 +67,39 @@ async function productModule<T>(relative: string): Promise<T> {
 /** Does the migrated database hold this table? The catalogue's own answer, asked as the owner. */
 function tableExists(url: string, table: string): boolean {
   return isTrue(scalar(url, `select (to_regclass(${lit(table)}) is not null)::text;`));
+}
+
+/** What a row of this table is addressed by, read from the catalogue rather than spelled here. */
+function keyColumnOf(url: string, table: TableRef): string {
+  const column = scalar(
+    url,
+    `select a.attname from pg_index i join pg_attribute a on a.attrelid = i.indrelid and a.attnum = any(i.indkey)
+      where i.indrelid = ${lit(qualified(table))}::regclass and i.indisprimary limit 1;`,
+  );
+  expect(column, `${qualified(table)} has no single-column primary key to address a row by`).not.toBe("");
+  return column;
+}
+
+/**
+ * What `notFound()` throws, asked of the framework rather than transcribed: Next signals a not-found
+ * by throwing a marked error, and the marker is Next's to spell (B-19). A page that answers the
+ * not-found and one that renders a screen for an address naming nothing are told apart by this.
+ */
+async function notFoundSignal(): Promise<string> {
+  const { notFound } = (await import("next/navigation")) as { notFound: () => never };
+  try {
+    notFound();
+  } catch (thrown) {
+    return signalOf(thrown);
+  }
+  throw new Error("next/navigation's notFound() returned instead of throwing — the not-found leg cannot be judged");
+}
+
+/** How a thrown control-flow signal identifies itself: its digest when it carries one, else its message. */
+function signalOf(thrown: unknown): string {
+  const bag = typeof thrown === "object" && thrown !== null ? (thrown as { digest?: unknown; message?: unknown }) : {};
+  if (typeof bag.digest === "string" && bag.digest !== "") return bag.digest;
+  return typeof bag.message === "string" ? bag.message : String(thrown);
 }
 
 /* ------------------------------------------------------------------ staging */
@@ -79,19 +125,27 @@ const staged = (): Promise<Stage> =>
   (staging ??= (async () => {
     const provisioned = await provisionScratchDb();
     scratch = provisioned;
-    const tenantId = seedTenants(provisioned.urlMigrate)[TENANT_ALPHA] ?? "";
-    expect(tenantId, `the scenario seeded no ${TENANT_ALPHA}`).not.toBe("");
+    const tenantId = seedTenants(provisioned.urlMigrate)[SCENE.tenant] ?? "";
+    expect(tenantId, `the scenario seeded no ${SCENE.tenant}`).not.toBe("");
 
     // S-Audit answers a not-found for an address naming no project of this workspace, so the scene
     // stages a project the workspace really holds: the panels' posture and the explorer's empty
     // state are properties of a real project with no acts, not of an id nothing answers to.
+    //
+    // The row is put there by the lane's own seeder (ARCH-02/B-17: database test helpers have one
+    // home, and an insert spelled again here would be a second dialect of it). The table it goes
+    // into is derived from the migrated catalogue, and the id is read back rather than dictated.
+    const projects = deriveTenantScopedTables(provisioned.urlMigrate).find((table) => table.table === SCENE.projectsTable);
+    expect(projects, `the migrated database holds no tenant-scoped "${SCENE.projectsTable}" table — S-Audit reads a project of the workspace`).toBeTruthy();
+    ensureRowsForTenants(provisioned.urlMigrate, [projects as TableRef], [tenantId]);
     const projectId = scalar(
       provisioned.urlMigrate,
       withSession(
         { [GUC_SYSTEM_REASON]: SEED_REASON },
-        `insert into projects (${ident(TENANT_COLUMN)}, name) values (${lit(tenantId)}, 'Audit surfaces acceptance') returning project_id::text;`,
+        `select ${ident(keyColumnOf(provisioned.urlMigrate, projects as TableRef))}::text from ${(projects as TableRef).sql} where ${ident(TENANT_COLUMN)} = ${lit(tenantId)} limit 1;`,
       ),
     );
+    expect(projectId, `seeding ${SCENE.projectsTable} for ${SCENE.tenant} left no project for the workspace to hold`).not.toBe("");
 
     // The product opens its pool from this, so it is repointed before the module is imported.
     process.env["DATABASE_URL"] = provisioned.urlApp;
@@ -200,6 +254,26 @@ describe("AC-1/AC-3 — the route renders that answer", () => {
       expect(markup.includes(testId), `the page must render [data-testid="${testId}"] — the explorer's filter controls stay the screen's content, and the empty answer renders in the list's place (I-33)`).toBe(true);
     }
     expect(markup.includes("audit-act-row"), "a project with no acts renders no act row").toBe(false);
+  });
+
+  test("AC-1: an address naming no project of this workspace is answered not-found, never rendered", async () => {
+    const stage = await staged();
+    expect(SCENE.unknownProject, "the not-found leg needs an address the workspace really does not hold").not.toBe(stage.projectId);
+
+    const page = await productModule<{ default?: (props: { params: Promise<{ tenant: string; project: string }> }) => Promise<unknown> }>(PAGE_MODULE);
+    const render = (page.default as (props: { params: Promise<{ tenant: string; project: string }> }) => Promise<unknown>)({
+      params: Promise.resolve({ tenant: stage.tenantId, project: SCENE.unknownProject }),
+    });
+
+    // The module answers the same surfaces shape for a segment that names nothing, so without this
+    // check the screen renders in full — heading, filters, both panels — reporting that a project
+    // which does not exist has no acts. That is a screen telling a falsehood politely (row 1jc80fq).
+    const answered = await render.then(
+      (element) => ({ rendered: true, signal: renderToStaticMarkup(element as never) }),
+      (thrown: unknown) => ({ rendered: false, signal: signalOf(thrown) }),
+    );
+    expect(answered.rendered, `the audit page rendered a screen for a project this workspace does not hold. It rendered: ${answered.signal.slice(0, 400)}`).toBe(false);
+    expect(answered.signal, "and it is refused the way the framework refuses an unrouted address — the not-found, which wears the root layout as a lawful second route").toBe(await notFoundSignal());
   });
 });
 
