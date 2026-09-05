@@ -22,6 +22,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { enumerateTenantScopedTables, provisionScratchDb, type ScratchDb } from "./harness";
+import { acquireDriftLock, releaseDriftLock } from "./support/drift-lock";
 import { BOOTSTRAP_URL, ROLE_APP, TENANT_COLUMN } from "./support/fixtures";
 import { lit, run } from "./support/live-sql";
 
@@ -161,9 +162,20 @@ describe("the drawing-set tables are declared, re-exported and migrated", () => 
   });
 
   it("src/core/db.ts declares each table once, and the schema tree the drift lane reads re-exports it", async () => {
-    const core = await productModule<Record<string, unknown>>(DB_MODULE);
-    const area = await productModule<Record<string, unknown>>(SCHEMA_AREA);
-    const barrel = await productModule<Record<string, unknown>>(SCHEMA_BARREL);
+    // This case imports the seam and the schema barrel — the two files `drift-lane-breaker` mutates
+    // to prove the drift lane fails on an unloadable schema. The database lane runs four files at a
+    // time (V-DB), so without the shared lock this import can transform `db/schema.ts` mid-sabotage
+    // and red a build that never touched it. Hold the lock the breaker holds while it mutates; the
+    // import waits until the tree is restored. (One `it` only: nothing else here reads those files.)
+    let core: Record<string, unknown>, area: Record<string, unknown>, barrel: Record<string, unknown>;
+    acquireDriftLock();
+    try {
+      core = await productModule<Record<string, unknown>>(DB_MODULE);
+      area = await productModule<Record<string, unknown>>(SCHEMA_AREA);
+      barrel = await productModule<Record<string, unknown>>(SCHEMA_BARREL);
+    } finally {
+      releaseDriftLock();
+    }
 
     for (const { declared } of TABLES) {
       const table = core[declared];
