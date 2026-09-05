@@ -16,7 +16,7 @@ import { redirect } from "next/navigation";
 import { WORKSPACE_ROLES } from "../../../../../../core/db";
 import { refusalOf } from "../../../../../../core/errors";
 import { refusalCodeOf } from "../../../../../../core/faults/refusal-marker";
-import { membersOf, memberRoleHistory, pendingInvitations, type TenancyActor } from "../../../../../../modules/spine/tenancy";
+import { membersOf, memberRoleHistories, pendingInvitations, type TenancyActor } from "../../../../../../modules/spine/tenancy";
 import { presentedValue } from "../../../../../../server/auth/folded-key";
 import { presentedSessionToken } from "../../../../../../server/shell/session";
 import { sessionOf } from "../../../../../../server/shell/resolve";
@@ -40,22 +40,23 @@ export default async function WorkspaceMembers({ params }: { params: Promise<{ t
   const actor: TenancyActor = { tenantId: tenant, userId: session.userId };
   try {
     const members = await membersOf(actor);
-    const rows: MembersRow[] = await Promise.all(
-      members.map(async (member) => ({
-        userId: member.userId,
-        label: labelOf(member.emailKey),
-        role: member.workspaceRole,
-        history: (await memberRoleHistory(actor, member.userId)).map((movement) => ({
-          projectId: movement.projectId,
-          direction: movement.entry.direction,
-          role: movement.entry.role,
-          occurredAt: movement.entry.occurredAt.toISOString(),
-          // The label is resolved here, on the server: the fold's read-back is the server's own
-          // (I-58), and a browser holds neither the key's home nor the right to read it.
-          actorLabel: movement.entry.actor === null ? null : labelOf(movement.entry.actor.emailKey),
-        })),
+    // The ledgers are the workspace's and do not depend on which member is being asked about, so the
+    // whole roster's record is one read rather than one per member (B-17).
+    const histories = await memberRoleHistories(actor);
+    const rows: MembersRow[] = members.map((member) => ({
+      userId: member.userId,
+      label: labelOf(member.emailKey),
+      role: member.workspaceRole,
+      history: (histories.get(member.userId) ?? []).map((movement) => ({
+        projectId: movement.projectId,
+        direction: movement.entry.direction,
+        role: movement.entry.role,
+        occurredAt: movement.entry.occurredAt.toISOString(),
+        // The label is resolved here, on the server: the fold's read-back is the server's own
+        // (I-58), and a browser holds neither the key's home nor the right to read it.
+        actorLabel: movement.entry.actor === null ? null : labelOf(movement.entry.actor.emailKey),
       })),
-    );
+    }));
 
     // The offers of membership that still stand, mounted after the roster in I-61's fixed order. The
     // address behind each stored key is resolved here, on the server, for the reason a member's
@@ -104,11 +105,13 @@ function MembersDenied({ tenantId }: { tenantId: string }) {
 /**
  * The person, as a reader recognises them (I-58): `users.email` holds the folded KEY an account is
  * looked up under, never the address, so the label is read back through the fold's one home. A
- * digest-keyed account has no address to show and is named as an unnamed member.
+ * digest-keyed account has no address to show, and the absence travels as an absence: naming it here
+ * would make "this account has no address" indistinguishable from "this account's address is the
+ * words we happen to print for one that has none", and the screen would then have to recover the
+ * fact by comparing rendered copy against the string table (B-17).
  */
-function labelOf(emailKey: string | null): string {
-  const presented = emailKey === null ? null : presentedValue(emailKey);
-  return presented ?? membersStrings.members_member_unnamed;
+function labelOf(emailKey: string | null): string | null {
+  return emailKey === null ? null : presentedValue(emailKey);
 }
 
 /** The invitee, read back the same way and named as the address the panel calls an unnamed one. */

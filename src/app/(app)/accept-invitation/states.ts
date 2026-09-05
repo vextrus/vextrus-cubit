@@ -2,8 +2,17 @@
 // over (B-19). A cell says one of three things and is never silent: the state is rendered here, it
 // is handed to a module outside this screen, or it cannot arise on this screen and says why.
 // "Impossible" is a claim with a reason attached, which is what makes it reviewable.
+import type { RefusalCode } from "../../../core/errors";
 import type { ShellStateCell, ShellStateName } from "../../../ui/shell/states";
 import { strings } from "../../../ui/strings";
+
+/**
+ * The refusals this screen answers in place, as one enumerable set (Q-07, B-19). The page renders
+ * every member of it through the one refusal renderer and rethrows anything else, so "which codes
+ * can this screen show?" has one answer a suite can walk rather than a chain of comparisons that
+ * grows a branch each time a door behind it registers another code.
+ */
+export const UNCLAIMABLE_CODES = ["RATE_LIMITED", "INVITATION_NOT_CLAIMABLE"] as const satisfies readonly RefusalCode[];
 
 /** This screen's own home, spelled once: every cell that names a file of it starts here. */
 const ROUTE = "src/app/(app)/accept-invitation";

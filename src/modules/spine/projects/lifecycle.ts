@@ -56,13 +56,15 @@ async function write(ctx: ProjectsCtx, projectId: string, columns: LifecycleColu
     await tx
       .update(projects)
       .set({ ...columns, updatedAt: new Date() })
-      .where(eq(projects.projectId, projectId));
+      .where(and(eq(projects.projectId, projectId), eq(projects.tenantId, ctx.tenantId)));
   });
 }
 
 /**
- * Participation on the project, read through the tenant's own handle so row-level security has
- * already cut the rows to the actor's workspace. The id is judged before it is compared: a
+ * Participation on the project, read through the tenant's own handle. The workspace is named in the
+ * predicate as well as enforced by row-level security: a guard whose whole scoping rests on a policy
+ * is a guard that admits everything the day the policy is read wrong, and a query that says what it
+ * means is the one that can be reviewed (B-17). The id is judged before it is compared: a
  * `project_id` that is not a uuid makes postgres raise 22P02 — a driver error carrying no refusal
  * marker — so a value naming no project of this workspace is answered as the refusal it is, exactly
  * as `scopedTenantId` refuses a tenant it cannot read (ARCH-03, B-21).
@@ -72,7 +74,7 @@ async function requireLifecycle(tx: TenantTx, ctx: ProjectsCtx, projectId: strin
     const held = await tx
       .select({ userId: participants.userId })
       .from(participants)
-      .where(and(eq(participants.projectId, projectId), eq(participants.userId, ctx.userId)))
+      .where(and(eq(participants.projectId, projectId), eq(participants.userId, ctx.userId), eq(participants.tenantId, ctx.tenantId)))
       .limit(1);
     if (held[0] !== undefined) return;
   }

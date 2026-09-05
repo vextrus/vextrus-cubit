@@ -60,6 +60,9 @@ const STATUS_WORDS: Readonly<Record<StepStatus, string>> = {
 /** How long a poll waits before asking again, in milliseconds. */
 const POLL_INTERVAL_MS = 1000;
 
+/** The status `/api/events` answers an id nothing is recorded under — an address, not a failure. */
+const NO_SUCH_JOB_STATUS = 404;
+
 /** A millisecond count as the whole seconds a person reads (I-92). */
 const MS_PER_SECOND = 1000;
 
@@ -168,16 +171,23 @@ function JobWatch({ jobId, onReading }: { jobId: string; onReading: (jobId: stri
     // being gone, and the answer to that is this screen's own offline reading — the last known
     // status stands and the region says live progress stopped arriving (I-89, R-UI-050). It is not
     // a fault of the product's, so nothing here reports one.
+    //
+    // The answer's status is read as well as its body. A 404 is the route saying nothing is recorded
+    // under this id and never will be, so it takes the same offline reading and the watch stops:
+    // asking again every interval for the life of the screen would be a poll that can only ever be
+    // answered the same way. It is not the job's `failed` either — that word is SEAM-JOBS' terminal
+    // judgement about work, not the transport's about an address.
     const poll = async (): Promise<void> => {
       if (stopped) return;
-      const body = await fetch(`/api/events?jobId=${encodeURIComponent(jobId)}&transport=poll`, { cache: "no-store" })
-        .then(async (answer) => (await answer.json()) as { events?: unknown[]; done?: boolean })
+      const answered = await fetch(`/api/events?jobId=${encodeURIComponent(jobId)}&transport=poll`, { cache: "no-store" })
+        .then(async (answer) => ({ status: answer.status, body: (await answer.json()) as { events?: unknown[]; done?: boolean } }))
         .catch(() => null);
-      if (body === null) {
+      if (answered === null || answered.status === NO_SUCH_JOB_STATUS) {
         onReading(jobId, { status: last, elapsedMs: null, lost: true });
+        if (answered !== null) return;
       } else {
-        for (const event of body.events ?? []) take(event, false);
-        if (body.done === true) return;
+        for (const event of answered.body.events ?? []) take(event, false);
+        if (answered.body.done === true) return;
       }
       timer = setTimeout(() => void poll(), POLL_INTERVAL_MS);
     };

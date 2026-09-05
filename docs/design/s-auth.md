@@ -22,8 +22,11 @@ Skeleton, and the one `RefusalState` renderer — a screen-local refusal block i
   and the geometry is never redrawn — so the light/dark difference cannot travel through
   token values. The one lawful `[data-theme]` rule in `s-auth.css` display-toggles the
   vendored pair `vextrus-mark.svg` / `vextrus-mark-dark.svg`; both `<img>`s render with
-  `alt=""` `aria-hidden="true"` inside a wrapper labelled by the page `<h1>` — the brand is
-  decoration here, the heading is the name.
+  `alt=""` `aria-hidden="true"` inside a wrapper that is itself `aria-hidden="true"` and carries
+  no `role` and no `aria-labelledby` — the brand is decoration here, and the heading alone names
+  the page. (Amended: the wrapper previously took `role="img"` labelled by the `<h1>`, which
+  said the product's name twice to a reader moving by heading — once as an image borrowing the
+  heading's words, once as the heading. `TITLE_ID` stays `s-auth-title` on the `<h1>`.)
 - **I-11 — "workspace" is the user-facing word for tenant.** "Tenant" is model vocabulary
   (schema, URL slugs, the Bible); registry copy rules ban build vocabulary in user copy.
   Sign-up's third field is labelled **Workspace name** and every auth string says
@@ -77,7 +80,16 @@ is unchanged by inc-020.
 The five unauthenticated routes share one frame: a single centred column, width
 `min(380px, calc(100vw - var(--space-8)))`, on the bare `var(--graphite-0)` page ground —
 no card, no border, no shadow (minimal, branded, fast: the page is the card). Block padding
-top `var(--space-12)` doubled (96 px) on ≥ sm, `var(--space-8)` below sm. Vertical order,
+top `var(--space-12)` doubled (96 px) on ≥ sm, `var(--space-8)` below sm — and that padding is
+the **floor**, not the resting place. The page ground is `display: flex`,
+`justify-content: center`, `align-items: safe center`, `min-height: 100vh`,
+`padding: var(--space-8) var(--space-4)`, with the ≥ 640px rule adding
+`padding-block-start: calc(var(--space-12) * 2)`: the column sits in the middle of whatever
+height is spare rather than glued to the top of a tall empty viewport. `safe` is the ruling and
+plain `center` is refused — on a viewport shorter than the column, plain centring overflows both
+ways and the top of the card (the mark, the heading, the first field) goes out of reach above
+the scroll origin, whereas `safe` falls back to the start edge and the floor above stands.
+Vertical order,
 gaps in `var(--space-…)`: mark (48 px, per I-10) · 6 · `<h1>` title `var(--text-20)`
 `var(--weight-heading)` `var(--graphite-900)` · 5 · the body (form or token panel) · 4 ·
 footer links. Fields stack at gap `var(--space-4)`; a field is label over input at gap

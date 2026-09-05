@@ -107,17 +107,27 @@ function waited(ms: number, signal: AbortSignal): Promise<void> {
 /**
  * The stream: history in seq order, then every further event as the log records it, then the close.
  * The watcher is bound to the request, so a client that goes away stops being waited for.
+ *
+ * The history is the log the existence read above already holds, and it is what the subscriber is
+ * given first — there is no second read of the same rows for the same request. What the watcher
+ * chooses to replay is the seam's business (the runtime's replays from the beginning of the log), so
+ * a seq the history already carried is passed over rather than sent twice: a subscriber that read
+ * the same event under two frames would count one thing as two.
  */
-function streamAnswer(jobId: string, signal: AbortSignal): Response {
+function streamAnswer(jobId: string, history: readonly JobEvent[], signal: AbortSignal): Response {
   const watching = new AbortController();
   const stopWatching = (): void => watching.abort();
   signal.addEventListener("abort", stopWatching, { once: true });
+  const lastRecorded = history.at(-1)?.seq ?? -1;
 
   const body = new ReadableStream<Uint8Array>({
     start: (controller) => {
       void (async () => {
         try {
-          for await (const event of watchJob(jobId, watching.signal)) controller.enqueue(frame(event));
+          for (const event of history) controller.enqueue(frame(event));
+          for await (const event of watchJob(jobId, watching.signal)) {
+            if (event.seq > lastRecorded) controller.enqueue(frame(event));
+          }
           controller.close();
         } catch (failure) {
           // The log became unreadable mid-stream: an outage of ours, recorded before the client is
@@ -157,7 +167,7 @@ export async function GET(request: Request): Promise<Response> {
     // connection — and a poll over one would report an empty log as a job's quiet beginning.
     const events = await recordedLog(jobId, request.signal);
     if (events.length === 0) return json({ events: [], done: false, error: NO_SUCH_JOB }, 404);
-    return polling ? pollAnswer(events) : streamAnswer(jobId, request.signal);
+    return polling ? pollAnswer(events) : streamAnswer(jobId, events, request.signal);
   } catch (failure) {
     // Nothing here is a refusal — the caller asked a lawful question and our side could not
     // answer it, so the fault is recorded and its id is what the caller is given (ARCH-03).
