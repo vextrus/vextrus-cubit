@@ -79,6 +79,16 @@ export const SWEEP_BATCH = 100;
 export const DEAD_LETTER_LIMIT = 200;
 
 /**
+ * The most event ROWS one dead-letter view reads, however many endings the log holds per job. The
+ * view's bound is on jobs and the store's is on rows, and on a log whose one-ending index could not
+ * be built the two part company; this is where the view stops asking for the difference back, so a
+ * reading of it costs a bounded query and a bounded amount of this process's memory whatever state
+ * the log is in (R-SPINE-030). Twice the bound and one over: room for a duplicate ending on every
+ * job the view could answer, and the row that says there are more.
+ */
+const DEAD_LETTER_READ_CEILING = DEAD_LETTER_LIMIT * 2 + 1;
+
+/**
  * The longest key a job may be enqueued under, in bytes.
  *
  * A key is the primary key of the claim row that makes idempotence work, and a btree entry has a
@@ -472,19 +482,24 @@ export async function deadLetterView(): Promise<{ letters: DeadLetter[]; truncat
   // holds two endings for one job — the state `createLog` tolerates when job_events_one_ending
   // cannot be built. Each such row spends a slot of the window on a job already counted, so a
   // window that came back full while the jobs in it still fit under the bound has told us nothing
-  // yet: the slots the duplicates took are asked for again, and only a window the store could not
-  // fill, or one holding more jobs than the bound, is an answer (ARCH-02).
+  // yet: the slots the duplicates took are asked for again (ARCH-02).
+  //
+  // Asked for up to the ceiling, and no further. A view an operator reads must stay readable
+  // however long the log grows (R-SPINE-030), and "read until the jobs settle" has no bound on a
+  // log where every job carries many endings. So the widening stops at the ceiling, and a window
+  // the store filled right up to it is itself the disclosure: the view stopped reading, so the
+  // letters are not the whole story and `truncated` says exactly that.
   let asked = DEAD_LETTER_LIMIT + 1;
   let rows = await running.store.deadLetterRows(["failed", "refused"], asked);
   let held = perJob(rows);
-  while (rows.length === asked && held.length <= DEAD_LETTER_LIMIT) {
-    asked += asked - held.length;
+  while (rows.length === asked && held.length <= DEAD_LETTER_LIMIT && asked < DEAD_LETTER_READ_CEILING) {
+    asked = Math.min(asked + (asked - held.length), DEAD_LETTER_READ_CEILING);
     rows = await running.store.deadLetterRows(["failed", "refused"], asked);
     held = perJob(rows);
   }
   // The store answers the NEWEST endings put back in log order, so the ones dropped from an
   // over-full read are the oldest — the operator keeps the endings they have not dealt with yet.
-  return { letters: held.slice(-DEAD_LETTER_LIMIT), truncated: held.length > DEAD_LETTER_LIMIT };
+  return { letters: held.slice(-DEAD_LETTER_LIMIT), truncated: held.length > DEAD_LETTER_LIMIT || rows.length === asked };
 }
 
 /**

@@ -1417,6 +1417,9 @@ const INVALID_SCHEMA_NAME = "3F000";
 /** What Postgres answers when a unique index cannot be built over rows that already collide. */
 const UNIQUE_VIOLATION = "23505";
 
+/** The server's own word that a bounded wait for a lock ran out — what `lock_timeout` answers. */
+const LOCK_NOT_AVAILABLE = "55P03";
+
 /**
  * How the queue's own outages are recorded. A lost connection, a failed maintenance pass or a
  * queue that would not start is a non-refusal server-side failure like any other, so it crosses
@@ -1436,10 +1439,10 @@ const LOG_ROUTE = "jobs/log";
 const LOG_ACTOR = "jobs/log";
 
 /**
- * How a failure of the key lock itself is recorded. A wait that hit its bound, a lock connection
- * that died, a transaction that would not commit: none is a refusal any registered code covers and
- * all are this seam's own failure, so they cross the one fault seam before the caller sees anything
- * (ARCH-03, B-21).
+ * How a failure of one of the seam's own locks is recorded — the key lock, and the lock an ending
+ * is written behind. A wait that hit its bound, a lock connection that died, a transaction that
+ * would not commit: none is a refusal any registered code covers and all are this seam's own
+ * failure, so they cross the one fault seam before the caller sees anything (ARCH-03, B-21).
  */
 const LOCK_ACTOR = "jobs/lock";
 const LOCK_ROUTE = "jobs/lock";
@@ -2139,6 +2142,15 @@ export function jobsStore(url: string): JobsStore {
                ending.fault_id, ending.detail, ending.at, ending.elapsed_ms, pg_notify(${EVENTS_CHANNEL}, ending.job_id) as announced
           from ending`,
         };
+      }).catch((failure: unknown) => {
+        // The bound above is a failure this seam newly makes reachable, so this seam answers for it:
+        // a backend that holds this job's lock past the wait answers 55P03, which is no registered
+        // refusal and is nobody's story to tell but the log's. It crosses the one fault seam and
+        // reaches the caller as a fault id, exactly as the key lock's own bounded wait does — never
+        // as a bare driver error out of the queue handler (ARCH-03, B-21).
+        if ((failure as { code?: unknown }).code !== LOCK_NOT_AVAILABLE) throw failure;
+        const { faultId } = reportFault({ requestId: LOCK_ROUTE, actor: LOCK_ACTOR, route: LOCK_ROUTE, cause: failure });
+        throw new Error(`the ending of job ${draft.jobId} waited ${LOCK_WAIT_MS}ms for the lock on that job's own log rows and did not get it — recorded as fault ${faultId}`, { cause: failure });
       });
       const row = (written as unknown as { rows: RawJobEvent[] }).rows[0];
       return row === undefined ? null : eventRow(row);

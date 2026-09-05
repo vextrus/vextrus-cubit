@@ -249,20 +249,13 @@ async function membersOf(tx: TenantTx, scope: SetScope, setId: string): Promise<
   return rows.map((row) => row.drawingId);
 }
 
-/**
- * Every revision one set has been pinned at, newest first — the order the browser reads them in,
- * and the order its first entry is marked `current` by. It is the store's own order, the same one
- * `currentSetRevisionOf` reads (src/core/sets): the clock, then the sequence that decides a tie in
- * it. Two pins of one set can share a `created_at` — it defaults to the transaction's timestamp —
- * and a tie broken here on the row's random uuid would let this listing call one revision current
- * while the seam called another, which is two homes for one question (B-17, R-SPINE-021).
- */
+/** Every revision one set has been pinned at, newest first — the order the browser reads them in. */
 async function revisionsOf(tx: TenantTx, scope: SetScope, setId: string): Promise<Omit<SetRevision, "current">[]> {
   const rows = await tx
     .select()
     .from(drawingSetRevisions)
     .where(and(eq(drawingSetRevisions.tenantId, scope.tenantId), eq(drawingSetRevisions.setId, setId)))
-    .orderBy(desc(drawingSetRevisions.createdAt), desc(drawingSetRevisions.seq));
+    .orderBy(desc(drawingSetRevisions.createdAt), desc(drawingSetRevisions.setRevisionId));
   return rows.map((row) => recordOf(row));
 }
 
