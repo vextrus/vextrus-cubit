@@ -6,6 +6,7 @@ import { consequenceDialog } from "./consequence-dialog";
 import { design } from "./design";
 import { dropzone } from "./dropzone";
 import { home } from "./home";
+import { jobTimeline } from "./job-timeline";
 import { offeredGroup } from "./offered-group";
 import { participants } from "./participants";
 import { screenStates } from "./screen-states";
@@ -19,6 +20,7 @@ export const strings = {
   ...design,
   ...dropzone,
   ...home,
+  ...jobTimeline,
   ...offeredGroup,
   ...participants,
   ...screenStates,

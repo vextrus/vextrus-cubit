@@ -189,6 +189,13 @@
   border-block-end: var(--hairline);
 }
 
+/* The bar's right-hand cluster: the jobs tray, then the user menu (shell-top-bar Decision § 1). */
+.cx-shell-topbar-end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .cx-shell-crumbs {
   display: flex;
   align-items: center;

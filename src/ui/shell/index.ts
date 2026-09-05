@@ -6,6 +6,7 @@ import "./shell.css";
 
 export { AppShell } from "./app-shell";
 export { DensityToggle } from "./density-toggle";
+export { JobsTray } from "./jobs-tray";
 export { ShellDenied } from "./shell-denied";
 export { ShellEmptyState } from "./shell-empty-state";
 export { ShellInspector } from "./shell-inspector";
