@@ -73,6 +73,10 @@ function resolverComments(resolverText: string, payload: string): string {
  * has not explained it.
  */
 function themeResolutionSection(payload: string): string {
+  // white-box: AC-4(d) — the criterion is that a committed Design Decision RECORDS a rationale. A
+  // markdown document is never executed, rendered or served, so there is no entry point that could
+  // be asked whether §1's theme-resolution section explains the empty `catch`: the prose is the
+  // whole of the deliverable, and its text is the only place it can be judged (C-13).
   const text = readFileSync(DECISION, "utf8");
   const from = text.indexOf("### Theme resolution");
   expect(from >= 0, "docs/design/root-document.md records the theme-resolution mechanism in a section of its own (C-13)").toBe(true);
