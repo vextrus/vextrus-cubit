@@ -18,6 +18,13 @@ primitives (core Button/Input/Skeleton, overlay DropdownMenu, the one RefusalSta
   notifications (M2), project switcher (inc-011) and the viewer's status readout (the viewer's
   screen) among the frame's occupants. The shell ships no dead controls: those regions arrive
   with their owning increments, and nothing here reserves visual space for them.
+  **Amended (inc-112-job-timeline, I-115): the jobs tray's owner has arrived.** The top bar now
+  carries `<JobsTray />` permanently, in the right-hand cluster before the user menu; its chrome,
+  states and copy are `docs/design/shell-top-bar.md`'s and its reading is
+  `docs/design/job-timeline.md`'s. `SHELL_STATES` gains no row for it — the tray is an occupant of
+  the frame rather than a screen — and its R-UI-050 cells are declared in the `jobs-tray` row of
+  `src/ui/patterns/job-timeline/states.ts`. ⌘K, notifications, the project switcher and the viewer's
+  readout remain absent under this Interpretation unchanged.
 - **I-16 — one no-spark asset, both themes, referenced verbatim.** The vendored set holds a
   single `vextrus-mark-nospark.svg` (light-indigo facets) and no dark or quiet-chrome
   sibling; the geometry is never redrawn (R-UI-070), so the rail renders that one file in

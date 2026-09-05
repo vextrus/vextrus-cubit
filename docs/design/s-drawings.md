@@ -132,6 +132,18 @@ the confirm doors, which is why this region has a slot of its own.
 
 ### The job timeline (R-UI-024, inline where it was started)
 
+**Superseded by `docs/design/job-timeline.md` (inc-112-job-timeline, I-107).** The region below is
+now the shared job pattern — `src/ui/patterns/job-timeline` — rendered by this screen rather than
+drawn by it: the ids, data attributes, marker, connector, timings and transports are that Decision's
+§§ 1–2 verbatim, its stylesheet is `job-timeline.css` (`cx-job-timeline-*`), and the step, status,
+idle, seconds and transport-lost copy left `drawings/strings.ts` for
+`src/ui/strings/job-timeline.ts`. What stays this screen's own: the heading
+(`drawings_timeline_heading`), the evidence a step resolves at
+(`{ href: drawingsRoute(…), label: drawings_evidence_upload_again }`), the I-88 chain through
+`useTrackedJobs`' `onSucceeded`, and `awaiting` — set until a `thumbnails` step is among the steps,
+which is how the `done` rule below is kept (job-timeline I-109). The paragraphs that follow record
+the region as this screen shipped it and are read as history, not as a second ruling.
+
 `<section data-testid="job-timeline" data-state="idle|running|done|failed"
 aria-labelledby>`: `<h2>` `drawings_timeline_heading`, then `<ol class="cx-drawings-steps">`
 (list-style none, margin 0, padding 0). `data-state` is derived — `failed` if any step
@@ -318,14 +330,10 @@ reason); `tests/screen-states/matrix.test.ts` reflects over it.
 the extractor read it. A sheet is measured only after its discipline is confirmed.** ·
 `drawings_upload_heading` **Add drawings** · `drawings_upload_hint` **A stored drawing is
 read straight away. The steps below report how far that has got.** ·
-`drawings_timeline_heading` **Reading drawings** · `drawings_timeline_idle` **No drawing is
-being read right now.** · `drawings_step_ingest` **Read the drawing** ·
-`drawings_step_thumbnails` **Draw the sheet previews** · `drawings_step_probe` **Check the
-worker** · `drawings_status_queued` **Queued** · `drawings_status_running` **Running** ·
-`drawings_status_succeeded` **Done** · `drawings_status_failed` **Failed** ·
-`drawings_status_refused` **Refused** · `drawings_timeline_seconds` **{seconds} s** ·
-`drawings_timeline_transport_lost` **Live progress stopped arriving. Reload the page to see
-where these jobs stand.** · `drawings_sheets_heading` **Sheets** · `drawings_sheets_hint`
+`drawings_timeline_heading` **Reading drawings** — the timeline's other copy (the idle line, the
+step and status words, the seconds and the transport-lost sentence) moved to
+`src/ui/strings/job-timeline.ts` with the pattern and is fixed by
+`docs/design/job-timeline.md` § 4 (I-107). · `drawings_sheets_heading` **Sheets** · `drawings_sheets_hint`
 **Sheet numbers, titles and disciplines are read from each title block. Confirm a discipline
 from a group the product offers — there is no select-all.** · `drawings_search_label`
 **Search sheets** · `drawings_filter_legend` **Discipline** · `drawings_filter_all` **All

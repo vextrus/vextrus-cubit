@@ -101,6 +101,30 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
       }
       await checkpoint(page, testInfo, "j-010-timeline-done");
 
+      // B-20: the region is the shared job pattern now, so its picture is the pattern's. The timing
+      // cells are elapsed real time and are masked — they are never the same twice.
+      await expect(drawings.timeline).toHaveScreenshot("job-timeline-done.png", {
+        animations: "disabled",
+        maxDiffPixelRatio: 0.002,
+        mask: [drawings.timelineTimings],
+      });
+
+      /* --- j-010-jobs-tray-open: the same two jobs, in the frame's global tray (R-UI-030) --- */
+      await expect(shell.jobsTray, "the tray counts the jobs this tab started").toHaveAttribute("data-count", "2");
+      await expect(shell.jobsTray, "and reads the state the inline timeline reads, from the one register").toHaveAttribute("data-state", "done");
+      await shell.openJobsTray();
+      await expect(shell.jobsTrayItems, "the panel lists one item per tracked job").toHaveCount(2);
+      for (const kind of ["ingest", "thumbnails"]) {
+        await expect(shell.jobsTrayItem(kind), `the tray holds the ${kind} job this tab started`).toHaveCount(1);
+        await expect(shell.jobsTrayItem(kind), `the ${kind} job stands in the tray as done`).toHaveAttribute("data-status", "succeeded");
+      }
+      await expect(shell.jobsTrayPanel).toHaveScreenshot("job-timeline-tray-open.png", {
+        animations: "disabled",
+        maxDiffPixelRatio: 0.002,
+        mask: [shell.jobsTrayTimings],
+      });
+      await checkpoint(page, testInfo, "j-010-jobs-tray-open");
+
       /* --- j-010-sheets-fanned-out: one card per sheet the corpus declares --- */
       await expect(drawings.index, "the index stands once the record has landed").toBeVisible();
       for (const name of sheetNames) {

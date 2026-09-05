@@ -24,6 +24,7 @@ export const S_DRAWINGS = {
   empty: "sheets-empty",
   timeline: "job-timeline",
   timelineStep: "job-timeline-step",
+  timelineStepTiming: "job-timeline-step-timing",
   groups: "offered-groups",
   group: "offered-group",
   groupCount: "offered-group-count",
@@ -79,6 +80,11 @@ export class SDrawingsPage {
 
   get timelineSteps(): Locator {
     return this.at(S_DRAWINGS.timelineStep);
+  }
+
+  /** The elapsed-time cells, masked in a baseline: they are real time, and never the same twice. */
+  get timelineTimings(): Locator {
+    return this.at(S_DRAWINGS.timelineStepTiming);
   }
 
   get dropzone(): Locator {
