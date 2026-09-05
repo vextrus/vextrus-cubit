@@ -8,8 +8,8 @@
 // verbatim, and tests/takeoff/viewer-inspector/copy-mirror.test.ts fails the build if the two ever
 // differ (B-17's boundary friction, C-13).
 //
-// Recorded as an ownership request in the increment's handoff: the cure is a copy home both layers
-// may read, which no layer of ARCH-01's matrix offers today.
+// The cure — a copy home both layers may read — is recorded with its owner in
+// docs/design/s-viewer-inspector.md § 8, never as a promise left in this tree (B-17, Q-17).
 
 /** The keys of the registry this panel renders. */
 export type InspectorCopyKey =
