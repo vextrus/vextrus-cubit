@@ -669,15 +669,32 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
 
   const selected: SelectedEntity[] = selection.map(entityOf).filter((entity): entity is SelectedEntity => entity !== null);
 
+  /** The layers being painted right now, as one value an effect can be keyed on. */
+  const drawnLayers = rows
+    .filter((row) => row.drawn)
+    .map((row) => row.name)
+    .join("\n");
+
   // What is held and what is under the pointer are painted from their own buffers, so a selection of
   // a whole sheet costs no re-tessellation of a single layer batch (PB-3).
+  //
+  // Only what is drawn is marked: a selected entity whose layer is then hidden, isolated away or
+  // failed stays listed and stays in `s` — the address is the state, and a layer toggle may not
+  // silently rewrite a link someone shared — but it is not painted, because a mark on a layer that
+  // is not there would be paint claiming to sit on geometry nobody can see (Decision § 2's partial).
   useEffect(() => {
     const painter = painterRef.current;
     if (painter === null) return;
-    painter.setSelection(selection.flatMap((key) => factsRef.current.get(key)?.records ?? []));
+    const painted = new Set(drawnLayers === "" ? [] : drawnLayers.split("\n"));
+    painter.setSelection(
+      selection.flatMap((key) => {
+        const held = factsRef.current.get(key);
+        return held === undefined || !painted.has(held.layer) ? [] : held.records;
+      }),
+    );
     const at = cameraRef.current;
     if (at !== null) painter.draw(at, stateRef.current);
-  }, [head, loadedLayers, selection]);
+  }, [drawnLayers, head, loadedLayers, selection]);
 
   useEffect(() => {
     const painter = painterRef.current;
@@ -841,13 +858,15 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       const at = cameraRef.current;
       if (at === null) return Promise.resolve([]);
       askedAtRef.current = performance.now();
-      // A locked layer is painted and is out of the hit-test, so the posture goes with the question
-      // (Decision § 1): the index holds the whole sheet and the reader's own postures narrow it.
-      const locked = stateRef.current
+      // The postures travel with the question (Decision § 1): the index holds the whole sheet, and
+      // a layer the reader locked or is not looking at may not answer for it. A locked layer is
+      // painted and out of the hit-test; a layer that is not drawn is not there to point at, and a
+      // selection a reader cannot see is a copyable list of ghosts (I-87).
+      const shut = stateRef.current
         .layerRows()
-        .filter((row) => row.locked)
+        .filter((row) => row.locked || !row.drawn)
         .map((row) => row.name);
-      return ask({ kind: "hit", point: world, tolerance: HIT_TOLERANCE_PX / at.scale, lockedLayers: locked });
+      return ask({ kind: "hit", point: world, tolerance: HIT_TOLERANCE_PX / at.scale, lockedLayers: shut });
     },
     [ask],
   );
