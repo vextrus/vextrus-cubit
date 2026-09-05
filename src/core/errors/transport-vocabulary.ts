@@ -87,7 +87,7 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // Its home is `../acts/law.ts` (ARCH-02) — this declaration is what tells a name belonging to
     // that closed set apart from a refusal nobody registered.
     vocabulary: "act types (L-ACT-02)",
-    codes: Object.freeze(["ASSIGN_PARTICIPANT_ROLE", "CONFIRM_DISCIPLINE"]),
+    codes: Object.freeze(["ASSIGN_PARTICIPANT_ROLE", "CONFIRM_DISCIPLINE", "PIN_DRAWING_SET"]),
   }),
   Object.freeze({
     // L-ACT-02's grouping-key kinds: "bulk is offered, never assembled … a typed grouping key over a

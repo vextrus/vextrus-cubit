@@ -25,6 +25,9 @@ type DeclaredCode = Extract<
   | "INVITATION_NOT_CLAIMABLE"
   | "MANIFEST_NOT_RENDERABLE"
   | "GROUP_NOT_OFFERED"
+  | "SET_NOT_PINNABLE"
+  | "SET_NAME_NOT_USABLE"
+  | "SET_MEMBER_NOT_IN_PROJECT"
 >;
 
 /**
@@ -134,6 +137,27 @@ export const REFUSAL_ENTRIES: Readonly<{ [C in DeclaredCode]: RefusalEntry & { c
     code: "GROUP_NOT_OFFERED",
     message: "This group is not one the project offers now, so nothing was confirmed.",
     remedy: "Reload the sheet index and confirm from a group it offers.",
+    severity: "error",
+    surface: "inline",
+  }),
+  SET_NOT_PINNABLE: Object.freeze({
+    code: "SET_NOT_PINNABLE",
+    message: "This set names no members of this project, so no revision was pinned.",
+    remedy: "Add at least one drawing to the set, then pin it.",
+    severity: "error",
+    surface: "inline",
+  }),
+  SET_NAME_NOT_USABLE: Object.freeze({
+    code: "SET_NAME_NOT_USABLE",
+    message: "The set name is blank or already names a set of this project, so no set was created.",
+    remedy: "Give the set a name no other set of this project carries.",
+    severity: "error",
+    surface: "inline",
+  }),
+  SET_MEMBER_NOT_IN_PROJECT: Object.freeze({
+    code: "SET_MEMBER_NOT_IN_PROJECT",
+    message: "That drawing is not one of this project's, so the set was not changed.",
+    remedy: "Reload the set and toggle a drawing the project holds.",
     severity: "error",
     surface: "inline",
   }),

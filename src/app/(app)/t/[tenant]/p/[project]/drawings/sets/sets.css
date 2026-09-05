@@ -1,0 +1,314 @@
+/*
+ * S-Drawings-Sets' own stylesheet (R-TO-005, docs/design/s-drawings-sets.md §§ 1, 4, 5, 6). Every
+ * colour, size, weight and duration is a read into the committed Datum token source (R-UI-001,
+ * R-UI-003, R-UI-004): the rules are identical in light and dark, and the themes differ only in
+ * what the tokens are worth. No `[data-theme]` selector appears here.
+ *
+ * The px literals are the closed set the Decision § 5 fixes: the 280 px name field and the 24 px
+ * ordinal column. Any other literal is a defect.
+ *
+ * Focus is not styled here: every button, input and link wears the reticle from its one home
+ * (B-17, R-UI-012). Nothing on either screen animates beyond the inherited idioms, so no
+ * `prefers-reduced-motion` branch appears — every duration is a token zeroed at source.
+ */
+
+.cx-sets,
+.cx-set {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: var(--breakpoint-lg);
+}
+
+.cx-sets-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cx-sets-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-sets-heading {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+}
+
+.cx-sets-caption {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+.cx-sets-section-heading {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+}
+
+.cx-sets-hint,
+.cx-sets-status {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+/* The evidence-link idiom: underlined, so a link never rides colour alone (R-UI-060). */
+.cx-sets-link {
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+  color: var(--beam-600);
+  text-decoration: underline;
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-sets-link:hover {
+  color: var(--beam-500);
+}
+
+.cx-set-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+/* The create form: the field and its door share a baseline, and the row keeps the reticle clear. */
+.cx-sets-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+  padding-block-end: var(--space-2);
+}
+
+.cx-sets-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-sets-field-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+  color: var(--graphite-700);
+}
+
+.cx-sets-name {
+  width: 280px;
+}
+
+.cx-sets-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* One row per set, and one per drawing: the facts to the left, the one door to the right. */
+.cx-sets-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  min-height: var(--row-comfortable);
+  padding-block: var(--space-3);
+}
+
+.cx-sets-row + .cx-sets-row {
+  border-top: var(--hairline);
+}
+
+/* The density preference is read from an ancestor, the dropzone's I-75 mechanism. */
+[data-density="compact"] .cx-sets-row {
+  min-height: var(--row-compact);
+}
+
+.cx-sets-row-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cx-sets-row-name {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+  overflow-wrap: anywhere;
+}
+
+.cx-sets-row-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+.cx-sets-row-digest-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.cx-sets-row-digest-label,
+.cx-sets-row-unpinned {
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+/* I-25, I-26, I-99: a machine identifier renders verbatim, whole, wrapping and select-all. */
+.cx-sets-digest {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-700);
+  font-variant-numeric: tabular-nums slashed-zero;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.cx-sets-open {
+  align-self: center;
+}
+
+.cx-sets-answer,
+.cx-sets-denied {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-sets-denied-line {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-700);
+}
+
+/* A drawing's revisions: the ordinals column-align, and the content address stands beside them. */
+.cx-sets-revision-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-sets-revision {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.cx-sets-ordinal {
+  min-width: 24px;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* Which revision is current is said in words, never by colour alone (R-UI-060). */
+.cx-sets-standing {
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+.cx-sets-revision[data-current="true"] .cx-sets-standing,
+.cx-set-revision[data-current="true"] .cx-sets-standing {
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-set-pin {
+  align-self: start;
+}
+
+.cx-sets-revisions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* One card per pinned revision: what it is, its address, and every member it cited. */
+.cx-set-revision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--graphite-50);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+}
+
+.cx-set-revision-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.cx-set-citations {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-set-citation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.cx-set-citation-name {
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+  overflow-wrap: anywhere;
+}
+
+.cx-set-citation .cx-sets-digest {
+  color: var(--graphite-600);
+}
