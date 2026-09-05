@@ -53,7 +53,9 @@
     ".next-invitations/types/**/*.ts",
     ".next-invitations/dev/types/**/*.ts",
     ".next-members/types/**/*.ts",
-    ".next-members/dev/types/**/*.ts"
+    ".next-members/dev/types/**/*.ts",
+    ".next-sheets-acceptance/types/**/*.ts",
+    ".next-sheets-acceptance/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
