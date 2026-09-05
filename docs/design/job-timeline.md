@@ -63,6 +63,15 @@ primitives — the core Skeleton, the one RefusalState — plus the classes this
   and `refusalOf`, and handed to `JobsProvider`. `JobTimeline` itself reads no context and performs no
   request: every string it shows arrives already resolved, which is what lets the gallery and a bare
   jsdom mount render it.
+- **I-121 — a refusal is read twice, and that is not two answers.** The tray's refused item renders
+  the one RefusalState with the register's own entry and the tracked job's own evidence, exactly as
+  the inline timeline's step does. The two are not a second dialect (B-17): there is one renderer,
+  one entry and one evidence link, read on two surfaces of one register — which is what R-UI-020's
+  "one RefusalState renderer serves every surface including inside dialogs, and always carries the
+  evidence link" asks for. Rejected: leaving the tray to say only *Refused* and sending the reader
+  back to the screen that started the job — the tray is reachable from every screen, and a word
+  without a remedy is exactly the silence the clause names. The `jobs-tray` row of `states.ts` always
+  declared this cell delegated to the one renderer; the panel now honours it.
 - **I-114 — permission-denied is not a cell of this pattern.** The register holds the jobs this browser
   tab started, watched under the session that started them; there is no "someone else's job" to be denied
   and no permission to name. The workspace denial precedes the frame (shell I-17) and the seam's own
@@ -157,7 +166,13 @@ to this matrix (shell I-15 is amended in `docs/design/shell-top-bar.md` §0).
 - **Error** — a failed step: the status word `Failed`, the fault id verbatim, the evidence link (I-110).
   A render fault of the surrounding screen is the root error boundary's, unchanged.
 - **Refusal** — one RefusalState inside the refused step's row, code, message, remedy and evidence
-  (R-UI-020), from the one renderer.
+  (R-UI-020), from the one renderer. **Both surfaces**: the tray's refused item renders the same
+  single RefusalState, over the same registered entry and the same tracked job's evidence, beneath
+  its row (see I-121). A row reading *Refused* with no remedy beside it is the silence R-UI-020
+  forbids, and the clause's "one RefusalState renderer serves every surface" admits no exception for
+  the frame. This supersedes `docs/design/shell-top-bar.md` § 1's sentence "No refusal card, no fault
+  id and no evidence link renders in the panel" as to the refusal card only — the fault id and its
+  evidence link remain the timeline's alone (I-110).
 - **Partial** — rendered, never hidden: succeeded, running and refused steps stand together in one list,
   and a refused step does not remove the ones that finished.
 - **Offline** — the transport-lost line (I-111). The pattern raises no banner of its own: the consumer

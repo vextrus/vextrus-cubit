@@ -7,12 +7,17 @@
  * Provider-gated, not route-gated (I-116): outside a `JobsProvider` the register answers null and the
  * tray renders nothing at all, which is what keeps every bare mount of the bar standing.
  *
- * The panel answers no refusal and shows no fault id: a job that ended badly is answered in place, by
- * the timeline where it was started (R-UI-020). Two answers to one refusal in one frame would be the
- * second dialect B-17 forbids.
+ * A refused job names its cause here too, through the one RefusalState the whole tree renders a
+ * refusal with (R-UI-020: one renderer serves every surface, always carrying the evidence link). A
+ * row that said `Refused` and nothing else would be the silence that clause forbids — the reader
+ * would have a word and no remedy, on the one surface that is reachable from every screen. It is the
+ * same entry and the same evidence the inline timeline renders, from the same register: one refusal
+ * read twice, never two answers (B-17). The fault id stays the timeline's: it is a thread to a
+ * report, not a remedy a person can act on from the frame.
  */
 import { Skeleton } from "../../primitives/core";
 import { Popover, PopoverContent, PopoverTrigger } from "../../primitives/overlay";
+import { RefusalState } from "../../patterns/refusal-state";
 import { kindWord, statusWord, useJobs, type TrackedJobReading } from "../../patterns/job-timeline";
 import { strings } from "../../strings";
 
@@ -82,6 +87,12 @@ function TrayItem({ job }: { job: TrackedJobReading }) {
           <span className="cx-jobs-tray-item-timing">{job.timing ?? ""}</span>
         )}
       </span>
+      {/* Exactly one, and only when the register resolved a registered entry for this job. */}
+      {job.refusal === null ? null : (
+        <div className="cx-jobs-tray-item-cause">
+          <RefusalState refusal={job.refusal} evidence={job.evidence} />
+        </div>
+      )}
     </li>
   );
 }
