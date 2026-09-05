@@ -178,7 +178,8 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const sheetName = layoutNameOf(layoutName);
 
   const [camera, setCamera] = useState<Camera | null>(null);
-  const [, bump] = useReducer((count: number) => count + 1, 0);
+  /** Bumped whenever a layer's posture or arrival changes outside React's own state. */
+  const [revision, bump] = useReducer((count: number) => count + 1, 0);
 
   /** The source keys held, in selection order — the address's `s`, and the inspector's list. */
   const [selection, setSelection] = useState<string[]>([]);
@@ -661,6 +662,16 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
 
   /* ------------------------------------------------------------------- what is held, and revealed */
 
+  /**
+   * What a gesture holds. A gesture is a fresh answer to "what is selected", so the keys a link
+   * named and this sheet does not hold stop being news the moment a reader picks something for
+   * themselves: the partial cell reports on an address, and this is no longer that address.
+   */
+  const hold = useCallback((keys: string[] | ((held: string[]) => string[])): void => {
+    setSelection(keys);
+    setMissing([]);
+  }, []);
+
   /** One selected key as the inspector lists it — the keys this sheet has not met yet are not rows. */
   const entityOf = useCallback((key: string): SelectedEntity | null => {
     const held = factsRef.current.get(key);
@@ -786,7 +797,11 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     // A camera the address states is the camera the reader gets: only a link that named keys and no
     // viewport flies to them, and only then is `data-flyto` ever written (I-85).
     if (found.length > 0 && initialViewport === null) revealInSheet(found);
-  }, [drawingId, head, initialSelection, initialViewport, layoutName, loadedLayers, revealInSheet]);
+    // `revision` is in the deps because the last layer of a roster can *fail* rather than arrive:
+    // `markFailed` writes a ref and bumps, `loadedLayers` never moves again, and without this the
+    // reading below would never run — a deep link naming a key on that layer would be met with
+    // silence instead of the partial cell R-UI-050 owes (AC-4).
+  }, [drawingId, head, initialSelection, initialViewport, layoutName, loadedLayers, revealInSheet, revision]);
 
   /* ----------------------------------------------------------------------------------- the gestures */
 
@@ -938,7 +953,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
 
   /** A key added to, or taken out of, what is held — Shift's own arithmetic. */
   const toggleKey = (key: string): void => {
-    setSelection((held) => (held.includes(key) ? held.filter((each) => each !== key) : [...held, key]));
+    hold((held) => (held.includes(key) ? held.filter((each) => each !== key) : [...held, key]));
   };
 
   const onPointerUp = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
@@ -969,7 +984,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
             max: [Math.max(first[0], last[0]), Math.max(first[1], last[1])],
           },
           layers: openLayers(),
-        }).then((keys) => setSelection(keys.filter((key) => factsRef.current.has(key))));
+        }).then((keys) => hold(keys.filter((key) => factsRef.current.has(key))));
         return;
       }
       if (on !== null) void keysUnder(on.world).then((keys) => (keys[0] === undefined ? undefined : toggleKey(keys[0])));
@@ -986,13 +1001,13 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     void keysUnder(on.world).then(async (keys) => {
       const key = keys[0];
       if (key !== undefined) {
-        setSelection([key]);
+        hold([key]);
         return;
       }
       // Nothing here may be taken — but a locked layer is painted, so the reader may have pressed
       // on geometry they can see and may not select. Letting go of what is held would then punish a
       // press on the sheet's own ink: only bare paper clears (Decision § 1, I-87).
-      if ((await keysUnder(on.world, false)).length === 0) setSelection([]);
+      if ((await keysUnder(on.world, false)).length === 0) hold([]);
     });
   };
 
@@ -1009,7 +1024,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     else if (event.key === "ArrowUp") pan(0, -KEYBOARD_PAN_PX);
     else if (event.key === "ArrowDown") pan(0, KEYBOARD_PAN_PX);
     // Escape with the sheet focused lets go of what is held (Decision § 1).
-    else if (event.key === "Escape") setSelection([]);
+    else if (event.key === "Escape") hold([]);
   };
 
   /* ------------------------------------------------------------------------------- what is on screen */
@@ -1031,6 +1046,9 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const failed = rows.some((row) => row.failed);
   if (headFailure !== null) throw headFailure;
 
+  /** Whether a sheet can be drawn at all here — a browser with no WebGL context cannot (I-82). */
+  const drawable = !(probed && renderer === "unavailable");
+
   /**
    * The source key on the clipboard, exactly as it stands — nothing stripped, nothing trimmed
    * (R-TO-011). A browser that refuses the write refuses this promise, and the row goes on offering
@@ -1040,7 +1058,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
 
   /** A whole layer taken, in the order the index answers it — the keyboard path to a selection. */
   const selectLayer = (name: string): void => {
-    void ask({ kind: "layer", layer: name }).then((keys) => setSelection(keys.filter((key) => factsRef.current.has(key))));
+    void ask({ kind: "layer", layer: name }).then((keys) => hold(keys.filter((key) => factsRef.current.has(key))));
   };
 
   const workArea = (): ReactNode => {
@@ -1095,7 +1113,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     }
 
     return (
-      /* Every panel carries a stable id and order, so a layout stored by the two-panel build no
+      /* Every panel carries a stable id and order, so a layout stored by another build's group no
          longer matches this group and is dropped rather than misapplied (Decision § 1). */
       <ResizablePanelGroup direction="horizontal" autoSaveId="cubit-viewer-split">
         <ResizablePanel id="viewer-layers-panel" order={1} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
@@ -1178,17 +1196,24 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
             </div>
           </div>
         </ResizablePanel>
-        <ResizableHandle />
-        <ResizablePanel id="viewer-inspector-panel" order={3} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
-          <InspectorPanel
-            hover={hovered}
-            selection={selected}
-            missing={missing}
-            onCopy={copyKey}
-            onReveal={revealInSheet}
-            onClear={() => setSelection([])}
-          />
-        </ResizablePanel>
+        {/* A browser that offers no context draws no sheet, and an inspector beside a sheet that
+            was never drawn is a panel that can never fill: the group falls back to two panels, and
+            nothing is placeheld (Decision § 2, s-viewer's own rule). */}
+        {drawable ? (
+          <>
+            <ResizableHandle />
+            <ResizablePanel id="viewer-inspector-panel" order={3} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
+              <InspectorPanel
+                hover={hovered}
+                selection={selected}
+                missing={missing}
+                onCopy={copyKey}
+                onReveal={revealInSheet}
+                onClear={() => hold([])}
+              />
+            </ResizablePanel>
+          </>
+        ) : null}
       </ResizablePanelGroup>
     );
   };
@@ -1208,7 +1233,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         totalLayers={head?.kind === "manifest" ? head.manifest.layers.length : 0}
         drawnEntities={state.drawnEntityCount()}
         entityCount={state.entityCount()}
-        selectionCount={selection.length}
+        selectionCount={selected.length}
         firstPaint={firstPaint}
         renderer={renderer}
         partial={failed}

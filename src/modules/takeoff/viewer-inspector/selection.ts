@@ -33,14 +33,20 @@ export type ParsedSelection = { keys: string[]; malformed: string[] };
 export function parseSelection(value: string | null): ParsedSelection {
   const keys: string[] = [];
   const malformed: string[] = [];
+  // Both sets are what keeps this linear: a whole layer's Select is a hundred thousand keys, and
+  // `includes` inside the loop would be that squared, on the main thread (PB-3).
   const held = new Set<string>();
+  const refused = new Set<string>();
   for (const raw of (value ?? "").split(KEY_SEPARATOR)) {
     const offered = raw.trim();
     // An empty segment names nothing and reports nothing: `s=` and a trailing comma are absences,
     // not values a reader typed.
     if (offered === "") continue;
     if (!SOURCE_KEY.test(offered)) {
-      if (!malformed.includes(offered)) malformed.push(offered);
+      if (!refused.has(offered)) {
+        refused.add(offered);
+        malformed.push(offered);
+      }
       continue;
     }
     if (held.has(offered)) continue;
@@ -55,8 +61,13 @@ export function parseSelection(value: string | null): ParsedSelection {
  * absence of the parameter and never an empty one, so a shared link of nothing is the sheet itself.
  */
 export function serialiseSelection(keys: readonly string[]): string | null {
+  const seen = new Set<string>();
   const held: string[] = [];
-  for (const key of keys) if (!held.includes(key)) held.push(key);
+  for (const key of keys) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    held.push(key);
+  }
   return held.length === 0 ? null : held.join(KEY_SEPARATOR);
 }
 

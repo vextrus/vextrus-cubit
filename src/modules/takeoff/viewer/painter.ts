@@ -87,6 +87,16 @@ const CHUNK_VERTICES = 8192;
 /** The stroke a mark is drawn at, in device-independent pixels (Decision § 5's closed px set). */
 const MARK_STROKE_PX = 2;
 
+/**
+ * Where the same mark is drawn to make that stroke. `gl.lineWidth` is a no-op on ANGLE — its
+ * aliased line-width range is [1, 1] — so a 2 px stroke is drawn as the 1 px run shifted across the
+ * 2 × 2 device pixels it must cover, which is a stroke of the width the Decision fixes rather than
+ * a request the driver ignores.
+ */
+const MARK_SHIFTS: readonly (readonly [number, number])[] = Object.freeze(
+  Array.from({ length: MARK_STROKE_PX * MARK_STROKE_PX }, (_, at) => Object.freeze([at % MARK_STROKE_PX, Math.floor(at / MARK_STROKE_PX)] as [number, number])),
+);
+
 /** A channel is "white" at or above this, and "black" at or below the other — colour 7 (I-79). */
 const NEAR_WHITE = 250;
 const NEAR_BLACK = 5;
@@ -112,18 +122,20 @@ uniform float u_scale;
 uniform vec2 u_viewport;
 uniform vec3 u_tint;
 uniform float u_tinted;
+uniform vec2 u_shift;
 varying vec3 v_colour;
 void main() {
   vec2 offset = (a_position - u_centre) * u_scale;
-  gl_Position = vec4(offset.x / (u_viewport.x * 0.5), offset.y / (u_viewport.y * 0.5), 0.0, 1.0);
+  gl_Position = vec4(offset.x / (u_viewport.x * 0.5) + u_shift.x, offset.y / (u_viewport.y * 0.5) + u_shift.y, 0.0, 1.0);
   v_colour = mix(a_colour, u_tint, u_tinted);
 }`;
 
 const LINE_FRAGMENT_SHADER = `
 precision mediump float;
+uniform float u_alpha;
 varying vec3 v_colour;
 void main() {
-  gl_FragColor = vec4(v_colour, 1.0);
+  gl_FragColor = vec4(v_colour, u_alpha);
 }`;
 
 const GLYPH_VERTEX_SHADER = `
@@ -207,6 +219,17 @@ function channelsOf(colour: string): [number, number, number] {
   const numbers = colour.match(/-?\d+(\.\d+)?/g) ?? [];
   const [red, green, blue] = numbers.slice(0, 3).map((part) => Number(part) / 255);
   return [red ?? 0, green ?? 0, blue ?? 0];
+}
+
+/**
+ * How opaque a resolved token value is: the fourth number a wash's own notation carries, or fully
+ * opaque where it carries none. `--canvas-hover` is the one canvas colour stated as a wash, and
+ * its translucency is part of the colour rather than a detail of it.
+ */
+function alphaOf(colour: string): number {
+  const numbers = colour.match(/-?\d+(\.\d+)?/g) ?? [];
+  const stated = numbers.length > 3 ? Number(numbers[3]) : 1;
+  return Number.isFinite(stated) ? Math.min(Math.max(stated, 0), 1) : 1;
 }
 
 /**
@@ -383,6 +406,8 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     atlas: gl.getUniformLocation(program, "u_atlas"),
     tint: gl.getUniformLocation(program, "u_tint"),
     tinted: gl.getUniformLocation(program, "u_tinted"),
+    shift: gl.getUniformLocation(program, "u_shift"),
+    alpha: gl.getUniformLocation(program, "u_alpha"),
   });
   const lineSlots = slots(lineProgram);
   const glyphSlots = slots(glyphProgram);
@@ -458,30 +483,63 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     if (positions.length === 0) return null;
     const [red, green, blue] = channelsOf(colour);
     const vertices = positions.length / 2;
+    // Filled in place: one allocation for the whole run rather than an array and a spread per
+    // vertex, because a whole layer selected is hundreds of thousands of them (PB-3).
+    const colours = new Float32Array(vertices * 3);
+    for (let at = 0; at < colours.length; at += 3) {
+      colours[at] = red;
+      colours[at + 1] = green;
+      colours[at + 2] = blue;
+    }
     return {
       positions: bufferOf(new Float32Array(positions)),
-      colours: bufferOf(new Float32Array(Array.from({ length: vertices }, () => [red, green, blue]).flat())),
+      colours: bufferOf(colours),
       vertices,
     };
   };
 
-  /** Both marks rebuilt from what they stand for — after a change of either, or of the palette. */
-  const remark = (): void => {
+  /**
+   * One mark rebuilt, never both. A pointer moving over a sheet answers a new hover every few
+   * milliseconds, and re-tessellating what is *held* on each of those answers would put the whole
+   * selection's geometry through this function sixty times a second — the exact cost these separate
+   * buffers exist to avoid (PB-3, Decision § 4).
+   */
+  const remarkSelection = (): void => {
     releaseMark(selectionMark);
-    releaseMark(hoverMark);
     selectionMark = markOf(selected, palette.selection);
+  };
+
+  const remarkHover = (): void => {
+    releaseMark(hoverMark);
     hoverMark = markOf(hovered === null ? [] : [hovered], palette.hover);
   };
 
-  /** One mark drawn above the sheet, tinted by however much of a pulse is still owed. */
-  const drawMark = (mark: Mark | null, tint: readonly [number, number, number], amount: number): void => {
+  /**
+   * One mark drawn above the sheet at the Decision's stroke, tinted by however much of a pulse is
+   * still owed and carried at whatever opacity its own token states — `--canvas-hover` is a wash,
+   * and painting it opaque would put a solid block where the reading meant a tint (R-UI-001: the
+   * token's value is the surface's colour, alpha included).
+   */
+  const drawMark = (mark: Mark | null, colour: string, tint: readonly [number, number, number], amount: number, camera: Camera): void => {
     if (mark === null || mark.vertices === 0) return;
+    const alpha = alphaOf(colour);
     gl.uniform3f(lineSlots.tint, tint[0], tint[1], tint[2]);
     gl.uniform1f(lineSlots.tinted, amount);
+    gl.uniform1f(lineSlots.alpha, alpha);
+    if (alpha < 1) {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    }
     attribute(lineSlots.position, mark.positions, 2);
     attribute(lineSlots.colour, mark.colours, 3);
-    gl.drawArrays(gl.LINES, 0, mark.vertices);
+    for (const [across, down] of MARK_SHIFTS) {
+      gl.uniform2f(lineSlots.shift, (across * 2) / Math.max(camera.viewport.width, 1), (down * 2) / Math.max(camera.viewport.height, 1));
+      gl.drawArrays(gl.LINES, 0, mark.vertices);
+    }
+    gl.uniform2f(lineSlots.shift, 0, 0);
     gl.uniform1f(lineSlots.tinted, 0);
+    gl.uniform1f(lineSlots.alpha, 1);
+    if (alpha < 1) gl.disable(gl.BLEND);
   };
 
   /** How much of the pulse colour the selection still carries, 1 at the strike and 0 once settled. */
@@ -513,6 +571,8 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     // The sheet paints in its own colours: only a mark is ever tinted (Decision § 6).
     gl.uniform3f(lineSlots.tint, 0, 0, 0);
     gl.uniform1f(lineSlots.tinted, 0);
+    gl.uniform2f(lineSlots.shift, 0, 0);
+    gl.uniform1f(lineSlots.alpha, 1);
     if (frame !== null) {
       attribute(lineSlots.position, frameBuffer, 2);
       attribute(lineSlots.colour, frameColours, 3);
@@ -558,10 +618,8 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     if (selectionMark !== null || hoverMark !== null) {
       gl.useProgram(lineProgram);
       camera3(lineSlots, camera);
-      gl.lineWidth(MARK_STROKE_PX);
-      drawMark(hoverMark, [0, 0, 0], 0);
-      drawMark(selectionMark, channelsOf(palette.pulse), pulseAmount(now));
-      gl.lineWidth(1);
+      drawMark(hoverMark, palette.hover, [0, 0, 0], 0, camera);
+      drawMark(selectionMark, palette.selection, channelsOf(palette.pulse), pulseAmount(now), camera);
     }
 
     // A gap longer than a rest is not a frame anybody dropped: the ledger measures the cadence of a
@@ -754,17 +812,18 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       if (next.grid !== was.grid) frameExtents(framed);
       // The marks carry their colour in their own vertices too, and they are small: a theme flip
       // rebuilds them outright rather than leaving a selection painted in the abandoned theme.
-      if (next.selection !== was.selection || next.hover !== was.hover) remark();
+      if (next.selection !== was.selection) remarkSelection();
+      if (next.hover !== was.hover) remarkHover();
     },
 
     setSelection: (records) => {
       selected = records;
-      remark();
+      remarkSelection();
     },
 
     setHover: (record) => {
       hovered = record;
-      remark();
+      remarkHover();
     },
 
     pulse: (durationMs) => {
