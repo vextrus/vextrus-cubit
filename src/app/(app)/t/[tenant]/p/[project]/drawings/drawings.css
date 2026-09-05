@@ -277,6 +277,13 @@
   background-color: var(--graphite-50);
 }
 
+/* The door onto the sheet sits at the foot of the card and takes only the width of its own words:
+   it opens one sheet, not the card (docs/design/s-drawings.md's card anatomy). */
+.cx-drawings-card-open {
+  align-self: start;
+  text-decoration: none;
+}
+
 /* A drawing is shown as it is: the well keeps a white-paper raster legible without inverting it. */
 .cx-drawings-thumb {
   display: flex;

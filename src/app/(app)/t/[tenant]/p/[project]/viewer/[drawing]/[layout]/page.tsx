@@ -5,6 +5,7 @@
 // Nothing of the sheet is read here on purpose: a 100 000-entity manifest carried into the page would
 // be paid for before anything could be drawn, so the client asks the feed for the head and then for
 // each layer (R-UI-043, PB-2).
+import { SELECTION_PARAM } from "../../../../../../../../../modules/takeoff/viewer-inspector/selection";
 import { fill, strings } from "../../../../../../../../../ui/strings";
 import { ViewerScreen } from "./viewer-screen";
 
@@ -32,6 +33,7 @@ export default async function ViewerSheet({
   const { tenant, project, drawing, layout } = await params;
   const asked = await searchParams;
   const viewport = asked["v"];
+  const selection = asked[SELECTION_PARAM];
 
   return (
     <ViewerScreen
@@ -40,6 +42,7 @@ export default async function ViewerSheet({
       drawingId={drawing}
       layoutName={layout}
       initialViewport={typeof viewport === "string" ? viewport : null}
+      initialSelection={typeof selection === "string" ? selection : null}
     />
   );
 }

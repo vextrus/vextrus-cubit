@@ -21,9 +21,11 @@ export type LayersPanelProps = {
   onIsolate: (name: string) => void;
   onLock: (name: string, locked: boolean) => void;
   onRetry: (name: string) => void;
+  /** Take the whole layer — the keyboard path to a selection (Decision § 1). */
+  onSelectLayer: (name: string) => void;
 };
 
-export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry }: LayersPanelProps) {
+export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry, onSelectLayer }: LayersPanelProps) {
   // Which row the keyboard is inside. The controls' reveal is the row's posture rather than a focus
   // style of this screen's own: the focus indicator has exactly one home (B-17, R-UI-012).
   const [active, setActive] = useState<string | null>(null);
@@ -114,6 +116,20 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry }: Lay
               onClick={() => onLock(row.name, !row.locked)}
             >
               {strings.viewer_layer_lock}
+            </button>
+            {/* A layer that is not drawn, or is locked out of the hit-test, has nothing a reader can
+                see to select — and a selection nobody can see is a copyable list of ghosts (I-87). */}
+            <button
+              type="button"
+              className="cx-viewer-layer-control cx-reticle"
+              data-testid="viewer-layer-select"
+              disabled={!row.drawn || row.locked}
+              aria-label={fill(strings.viewer_layer_select_label, {
+                layer: row.name,
+              })}
+              onClick={() => onSelectLayer(row.name)}
+            >
+              {strings.viewer_layer_select}
             </button>
           </li>
         ))}

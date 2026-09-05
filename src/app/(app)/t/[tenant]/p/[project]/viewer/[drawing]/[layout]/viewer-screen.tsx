@@ -26,11 +26,18 @@ import {
   fitCamera,
   panCamera,
   parseViewport,
+  recordBox,
+  recordKey,
   worldAt,
   zoomCameraAt,
+  type IndexBox,
 } from "../../../../../../../../../modules/takeoff/viewer/client";
-import type { Camera, RenderLayer, RenderManifest, ViewerHead } from "../../../../../../../../../modules/takeoff/viewer";
+import type { Camera, RenderLayer, RenderManifest, RenderRecord, ViewerHead } from "../../../../../../../../../modules/takeoff/viewer";
+import type { SpatialAnswer, SpatialAsk, SpatialRequest } from "../../../../../../../../../modules/takeoff/viewer/spatial.worker";
 import { createPainter, type CanvasPalette, type Painter } from "../../../../../../../../../modules/takeoff/viewer/painter";
+import { flyTo, revealCamera, type EaseControls } from "../../../../../../../../../modules/takeoff/viewer-inspector/flyto";
+import { InspectorPanel, type HoverFact, type SelectedEntity } from "../../../../../../../../../modules/takeoff/viewer-inspector/inspector-panel";
+import { parseSelection, unionBox } from "../../../../../../../../../modules/takeoff/viewer-inspector/selection";
 import { Button, Skeleton } from "../../../../../../../../../ui/primitives/core";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../../../../../../../../../ui/primitives/data";
 import { RefusalState, type RefusalEvidence } from "../../../../../../../../../ui/patterns/refusal-state";
@@ -49,6 +56,8 @@ export type ViewerScreenProps = {
   layoutName: string;
   /** The `v` parameter as the address carries it, or null where it carries none. */
   initialViewport: string | null;
+  /** The `s` parameter as the address carries it, or null where it carries none. */
+  initialSelection: string | null;
   head?: ViewerHead;
 };
 
@@ -67,12 +76,20 @@ const HIT_TOLERANCE_PX = 4;
 /** How long after the last gesture event the address is rewritten (Decision § 4's settle). */
 const ADDRESS_SETTLE_MS = 150;
 
-/** The id the index is posted under, and the id a question about a point is asked under. */
-const INDEX_REQUEST = 0;
-const HIT_REQUEST = 1;
+/** How far a pointer may travel and still be a click rather than a pan (Decision § 5's px set). */
+const CLICK_TRAVEL_PX = 3;
+
+/** The fly-to's duration when the token cannot be read at all — the token's own value (§ 4). */
+const FLYTO_FALLBACK_MS = 320;
+
+/** How many numbers a cubic-bezier token carries. */
+const EASE_CONTROLS = 4;
 
 /** The rows the panel's bones stand for while the roster is in flight (Decision § 2). */
 const LOADING_ROWS = 6;
+
+/** The cells the inspector's own bones stand for while the head is in flight (Decision § 2). */
+const LOADING_CELLS = 2;
 
 /** The panel's share of the width, and the band a reader may drag it to (Decision § 1). */
 const PANEL_SIZE = 22;
@@ -105,18 +122,40 @@ type HeadAnswer =
   | { kind: "refusal"; refusal: RefusalEntry; facts: ViewerHeadFacts }
   | { kind: "absent"; reason: "not-ingested" | "layout-unknown" };
 
-/** The three canvas colours and the face text is lettered in, resolved from the tokens (Decision § 5). */
+/** The canvas colours and the face text is lettered in, resolved from the tokens (Decision § 5). */
 function paletteOf(element: Element): CanvasPalette {
   const style = getComputedStyle(element);
+  const token = (name: string): string => style.getPropertyValue(name).trim();
   return {
-    paper: style.getPropertyValue("--canvas-paper").trim(),
-    ink: style.getPropertyValue("--canvas-ink").trim(),
-    grid: style.getPropertyValue("--canvas-grid").trim(),
-    mono: style.getPropertyValue("--font-mono").trim(),
+    paper: token("--canvas-paper"),
+    ink: token("--canvas-ink"),
+    grid: token("--canvas-grid"),
+    mono: token("--font-mono"),
+    selection: token("--canvas-selection"),
+    hover: token("--canvas-hover"),
+    pulse: token("--canvas-pulse"),
   };
 }
 
-export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, head: supplied }: ViewerScreenProps) {
+/**
+ * The duration a fly-to travels over, as the screen's own tokens state it. Reduced motion zeroes
+ * `--motion-flyto` at source, so a reader who asked for less motion is answered with a duration of
+ * zero here and no branch anywhere (Decision § 4).
+ */
+function flytoMotion(element: Element): { durationMs: number; ease: EaseControls | null } {
+  const style = getComputedStyle(element);
+  const spelled = style.getPropertyValue("--motion-flyto").trim();
+  const seconds = spelled.endsWith("ms") ? Number(spelled.slice(0, -2)) / 1000 : spelled.endsWith("s") ? Number(spelled.slice(0, -1)) : Number.NaN;
+  const numbers = (style.getPropertyValue("--ease-flyto").match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+  return {
+    // A token that cannot be read at all is not a reason to teleport: the travel keeps its own
+    // stated length, and a curve that cannot be parsed eases linearly over it (§ 4).
+    durationMs: Number.isFinite(seconds) ? Math.max(seconds * 1000, 0) : FLYTO_FALLBACK_MS,
+    ease: numbers.length === EASE_CONTROLS ? ([numbers[0], numbers[1], numbers[2], numbers[3]] as EaseControls) : null,
+  };
+}
+
+export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, head: supplied }: ViewerScreenProps) {
   const [head, setHead] = useState<ViewerHead | null>(supplied ?? null);
   const [feedRefusal, setFeedRefusal] = useState<{
     refusal: RefusalEntry;
@@ -131,6 +170,15 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const [firstPaint, setFirstPaint] = useState(false);
   const [camera, setCamera] = useState<Camera | null>(null);
   const [, bump] = useReducer((count: number) => count + 1, 0);
+
+  /** The source keys held, in selection order — the address's `s`, and the inspector's list. */
+  const [selection, setSelection] = useState<string[]>([]);
+  /** Keys an address named that this sheet does not hold: a fact, never a refusal (I-88). */
+  const [missing, setMissing] = useState<string[]>([]);
+  const [hovered, setHovered] = useState<HoverFact | null>(null);
+  /** Absent until the first fly-to ever runs, and never written when the address states `v` (I-85). */
+  const [flyto, setFlyto] = useState<"flying" | "settled" | null>(null);
+  const [marqueeOn, setMarqueeOn] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -148,6 +196,24 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
    * what the feed learned is held here rather than inside it — otherwise a failure recorded before
    * the roster rendered would be forgotten by the render that would have shown it (I-81). */
   const failedRef = useRef<Set<string>>(new Set());
+  /**
+   * What each source key of this sheet is, gathered as the layers arrive: the record's type, the
+   * layer holding it and the world box of everything painted under that key. It is what a hover, a
+   * selection row and a reveal read; the index in the worker answers *which* keys, and this answers
+   * what they are (I-86: a key that paints many pieces is one atom, spanning all of them).
+   */
+  const factsRef = useRef<Map<string, { type: string; layer: string; box: IndexBox; records: RenderRecord[] }>>(new Map());
+  /** The keys held, off the render loop: a gesture publishes the address without a stale closure. */
+  const selectionRef = useRef<string[]>([]);
+  /** Whether the address's own selection has been applied — it is read once, not on every arrival. */
+  const addressTakenRef = useRef(false);
+  /** The address that reading was made of, so a new one is read again and the same one is not. */
+  const addressReadRef = useRef<string | null>(null);
+  /** The fly-to in flight, so a second reveal or a leaving screen cancels the first. */
+  const flightRef = useRef(0);
+  /** The next id a question to the index is asked under, and who is waiting for each answer. */
+  const nextAskRef = useRef(0);
+  const waitingRef = useRef<Map<number, (keys: string[]) => void>>(new Map());
 
   const evidence: RefusalEvidence = useMemo(
     () => ({
@@ -174,6 +240,26 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  /**
+   * What one arrived layer's records are, by the key each is selected under. A key that paints more
+   * than one record keeps the first record's type and layer and spans every piece's box, because
+   * that is the one thing a reader selected (I-86).
+   */
+  const learn = useCallback((layer: RenderLayer): void => {
+    for (const record of layer.records) {
+      const key = recordKey(record);
+      const box = recordBox(record);
+      if (key === undefined || box === null) continue;
+      const held = factsRef.current.get(key);
+      if (held === undefined) {
+        factsRef.current.set(key, { type: record.type, layer: layer.name, box, records: [record] });
+        continue;
+      }
+      held.records.push(record);
+      held.box = unionBox([held.box, box]) ?? held.box;
+    }
+  }, []);
+
   const flush = useCallback(() => {
     const painter = painterRef.current;
     if (painter === null) return;
@@ -198,9 +284,35 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     for (const [name, layer] of arrivedRef.current) {
       if (postedRef.current.has(name)) continue;
       postedRef.current.add(name);
-      worker.postMessage({ id: INDEX_REQUEST, kind: "index", layers: [layer] });
+      worker.postMessage({ id: nextAskRef.current++, kind: "index", layers: [layer] });
     }
   }, []);
+
+  /**
+   * One question put to the index, answered from the worker's thread (R-UI-040, PB-3). Each carries
+   * its own id and its own waiter, so a hover asked twice while a rectangle is in flight is never
+   * answered with the other's keys — and a screen that leaves settles every waiter with nothing
+   * rather than leaving a promise nobody will ever keep.
+   */
+  const ask = useCallback((request: SpatialAsk): Promise<string[]> => {
+    const worker = workerRef.current;
+    if (worker === null) return Promise.resolve([]);
+    const id = nextAskRef.current++;
+    return new Promise<string[]>((settle) => {
+      waitingRef.current.set(id, settle);
+      worker.postMessage({ ...request, id } as SpatialRequest);
+    });
+  }, []);
+
+  /** The layers a rectangle or a click may take from: drawn, and not locked out of the hit-test. */
+  const openLayers = useCallback(
+    (): string[] =>
+      stateRef.current
+        .layerRows()
+        .filter((row) => row.drawn && !row.locked)
+        .map((row) => row.name),
+    [],
+  );
 
   /** A layer's geometry did not arrive, or arrived after all: the row says so, and stays (I-81). */
   const markFailed = useCallback((name: string, failed: boolean): void => {
@@ -225,12 +337,14 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
           entityCount: number;
           records: RenderLayer["records"];
         };
-        arrivedRef.current.set(body.name, {
+        const arrived: RenderLayer = {
           name: body.name,
           rgb: body.rgb,
           entityCount: body.entityCount,
           records: body.records,
-        });
+        };
+        arrivedRef.current.set(body.name, arrived);
+        learn(arrived);
         flush();
         indexLayers();
         return true;
@@ -239,12 +353,15 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         return false;
       }
     },
-    [feed, flush, indexLayers],
+    [feed, flush, indexLayers, learn],
   );
 
   useEffect(() => {
     if (supplied !== undefined) {
-      for (const layer of supplied.kind === "manifest" ? supplied.manifest.layers : []) arrivedRef.current.set(layer.name, layer);
+      for (const layer of supplied.kind === "manifest" ? supplied.manifest.layers : []) {
+        arrivedRef.current.set(layer.name, layer);
+        learn(layer);
+      }
       return;
     }
 
@@ -317,7 +434,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     });
 
     return () => controller.abort();
-  }, [feed, markFailed, supplied, takeLayer, tenantId]);
+  }, [feed, learn, markFailed, supplied, takeLayer, tenantId]);
 
   /* ----------------------------------------------------------------------------- the painted sheet */
 
@@ -389,18 +506,28 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     ownPathname.current = window.location.pathname;
   }, [drawingId, layoutName]);
 
-  /** R-UI-031: the address is the camera, published by the one module that decides that (B-17). */
-  const publishAddress = useCallback((at: Camera): void => {
+  /** R-UI-031: the address is the camera and the selection, written by the one module that
+   * decides that (B-17). The selection is read off its ref, so a camera published from a settling
+   * gesture carries whatever is held at that moment rather than what was held when it started. */
+  const publish = useCallback((at: Camera): void => {
     if (typeof window === "undefined") return;
-    publishViewport(window, ownPathname.current, at);
+    publishViewport(window, ownPathname.current, at, selectionRef.current);
   }, []);
 
   useEffect(() => {
     cameraRef.current = camera;
     if (camera === null) return;
     painterRef.current?.draw(camera, state);
-    publishAddress(camera);
-  }, [camera, publishAddress, state]);
+    publish(camera);
+  }, [camera, publish, state]);
+
+  // What is held is part of the address exactly as the camera is, and it is replaced onto it, never
+  // pushed: Back leaves the sheet rather than unwinding a reader's clicks (R-UI-031).
+  useEffect(() => {
+    selectionRef.current = selection;
+    const at = cameraRef.current;
+    if (at !== null) publish(at);
+  }, [publish, selection]);
 
   /** The settle a gesture's last frame is published on. */
   const settleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -417,9 +544,9 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     settleRef.current = null;
     const at = cameraRef.current;
     if (at === null) return;
-    publishAddress(at);
+    publish(at);
     setCamera(at);
-  }, [publishAddress]);
+  }, [publish]);
 
   useEffect(() => {
     const onLeaving = (): void => flushAddress();
@@ -497,11 +624,15 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     // What the index answers is read here, or the question was never asked: the round trip and the
     // number of keys it found are published on the readout the way the frame ledger is, so PB-3's
     // hit-test budget is a figure a journey and an operator can read (Decision § 7).
-    const onAnswer = (event: MessageEvent<{ id: number; keys: string[] }>): void => {
-      if (event.data.id !== HIT_REQUEST) return;
-      const status = statusRef.current;
-      status?.setAttribute("data-hit-ms", String(performance.now() - askedAtRef.current));
-      status?.setAttribute("data-hit-keys", String(event.data.keys.length));
+    const onAnswer = (event: MessageEvent<SpatialAnswer>): void => {
+      const waiting = waitingRef.current.get(event.data.id);
+      waitingRef.current.delete(event.data.id);
+      if (event.data.kind === "hit") {
+        const status = statusRef.current;
+        status?.setAttribute("data-hit-ms", String(performance.now() - askedAtRef.current));
+        status?.setAttribute("data-hit-keys", String(event.data.keys.length));
+      }
+      waiting?.(event.data.keys);
     };
     worker.addEventListener("message", onAnswer);
     workerRef.current = worker;
@@ -512,8 +643,118 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       worker.terminate();
       workerRef.current = null;
       postedRef.current.clear();
+      // A question nobody will answer is settled with nothing rather than left pending: a screen
+      // that left owes its callers an answer, and "no keys" is one (ARCH-03).
+      for (const waiting of waitingRef.current.values()) waiting([]);
+      waitingRef.current.clear();
     };
   }, [head, indexLayers]);
+
+  /* ------------------------------------------------------------------- what is held, and revealed */
+
+  /** One selected key as the inspector lists it — the keys this sheet has not met yet are not rows. */
+  const entityOf = useCallback((key: string): SelectedEntity | null => {
+    const held = factsRef.current.get(key);
+    return held === undefined ? null : { key, type: held.type, layer: held.layer, box: held.box };
+  }, []);
+
+  const selected: SelectedEntity[] = selection.map(entityOf).filter((entity): entity is SelectedEntity => entity !== null);
+
+  // What is held and what is under the pointer are painted from their own buffers, so a selection of
+  // a whole sheet costs no re-tessellation of a single layer batch (PB-3).
+  useEffect(() => {
+    const painter = painterRef.current;
+    if (painter === null) return;
+    painter.setSelection(selection.flatMap((key) => factsRef.current.get(key)?.records ?? []));
+    const at = cameraRef.current;
+    if (at !== null) painter.draw(at, stateRef.current);
+  }, [head, loadedLayers, selection]);
+
+  useEffect(() => {
+    const painter = painterRef.current;
+    if (painter === null) return;
+    painter.setHover(hovered === null ? null : (factsRef.current.get(hovered.key)?.records[0] ?? null));
+    const at = cameraRef.current;
+    if (at !== null) painter.draw(at, stateRef.current);
+  }, [head, hovered]);
+
+  /**
+   * The Trace's target (R-UI-022): the camera eases from where it stands to the frame that holds
+   * everything selected, and the arrival is struck once in the pulse colour. It is one code path —
+   * the Reveal door and a deep link that names keys and no camera both come through here (I-85).
+   */
+  const revealInSheet = useCallback((): void => {
+    const stage = stageRef.current;
+    if (stage === null || head?.kind !== "manifest") return;
+    const boxes = selectionRef.current.map((key) => factsRef.current.get(key)?.box).filter((box): box is IndexBox => box !== undefined);
+    const union = unionBox(boxes);
+    // Nothing selected has no box, so a reveal has nowhere to go and does not pretend to travel.
+    if (union === null) return;
+
+    const rect = stage.getBoundingClientRect();
+    const viewportPx = { width: rect.width, height: rect.height };
+    const to = revealCamera(union, viewportPx);
+    const from = cameraRef.current ?? fitCamera(head.manifest.extents, viewportPx);
+    const { durationMs, ease } = flytoMotion(stage);
+    const flight = flightRef.current + 1;
+    flightRef.current = flight;
+
+    const land = (): void => {
+      if (cameraRef.current === null) setCamera(to);
+      else moveCamera(() => to, false);
+      setFlyto("settled");
+      painterRef.current?.pulse(durationMs);
+    };
+
+    // Reduced motion zeroes the token at source, so this is one frame and no pulse — the same
+    // arrival, without the travel (Decision § 4).
+    if (durationMs <= 0 || typeof requestAnimationFrame === "undefined") {
+      land();
+      return;
+    }
+
+    setFlyto("flying");
+    const began = performance.now();
+    const step = (): void => {
+      if (flightRef.current !== flight) return;
+      const elapsed = performance.now() - began;
+      if (elapsed >= durationMs) {
+        land();
+        return;
+      }
+      moveCamera(() => flyTo(from, to, elapsed, durationMs, ease), true);
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [head, moveCamera]);
+
+  /**
+   * The selection the address named, applied once the layers holding it have arrived. A key of the
+   * right shape that no layer of this sheet carries, and a value that is no key at all, both land in
+   * the partial cell while every key that was found stays selected (I-88, R-UI-050).
+   */
+  useEffect(() => {
+    // A move to another sheet, or a new address for this one, is a new reading of `s` — kept as the
+    // address it was read from rather than reset in an effect of its own, which would run after this
+    // one on mount and undo the reading it had just made.
+    const address = `${drawingId} ${layoutName} ${initialSelection ?? ""}`;
+    if (addressReadRef.current !== address) {
+      addressReadRef.current = address;
+      addressTakenRef.current = false;
+    }
+    if (addressTakenRef.current || head?.kind !== "manifest") return;
+    const asked = parseSelection(initialSelection);
+    const arrived = loadedLayers + failedRef.current.size >= head.manifest.layers.length;
+    const found = asked.keys.filter((key) => factsRef.current.has(key));
+    if (asked.keys.length > 0) setSelection(found);
+    if (asked.keys.length > 0 && found.length < asked.keys.length && !arrived) return;
+
+    addressTakenRef.current = true;
+    setMissing([...asked.malformed, ...asked.keys.filter((key) => !factsRef.current.has(key))]);
+    // A camera the address states is the camera the reader gets: only a link that named keys and no
+    // viewport flies to them, and only then is `data-flyto` ever written (I-85).
+    if (found.length > 0 && initialViewport === null) revealInSheet();
+  }, [drawingId, head, initialSelection, initialViewport, layoutName, loadedLayers, revealInSheet]);
 
   /* ----------------------------------------------------------------------------------- the gestures */
 
@@ -562,19 +803,28 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   }, [head, moveCamera]);
 
   const dragRef = useRef<{ x: number; y: number } | null>(null);
+  /** Where the gesture began, in client pixels, and whether it began a rectangle rather than a pan. */
+  const gestureRef = useRef<{ x: number; y: number; marquee: boolean } | null>(null);
+  /** The rectangle in stage pixels, written straight onto the element: a marquee is not a render. */
+  const marqueeRef = useRef<HTMLDivElement | null>(null);
+  const marqueeBoxRef = useRef({ left: 0, top: 0, width: 0, height: 0 });
+  /** Whether a hover question is already in flight — one at a time, so a moving pointer never queues. */
+  const hoveringRef = useRef(false);
 
-  const onPointerDown = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
-    dragRef.current = { x: event.clientX, y: event.clientY };
-    event.currentTarget.setPointerCapture(event.pointerId);
-    // What lies under the pointer is answered by the index in its worker, off this thread (PB-3).
+  /** Where a client point stands on the canvas, and where that is in the drawing. */
+  const pointOn = (canvas: HTMLCanvasElement, event: { clientX: number; clientY: number }): { px: { x: number; y: number }; world: [number, number] } | null => {
     const at = cameraRef.current;
-    const worker = workerRef.current;
-    if (at !== null && worker !== null) {
-      const box = event.currentTarget.getBoundingClientRect();
-      const point = worldAt(at, {
-        x: event.clientX - box.left,
-        y: event.clientY - box.top,
-      });
+    if (at === null) return null;
+    const box = canvas.getBoundingClientRect();
+    const px = { x: event.clientX - box.left, y: event.clientY - box.top };
+    return { px, world: worldAt(at, px) };
+  };
+
+  /** The keys under a point, nearest first — answered by the index in its worker (PB-3, R-UI-040). */
+  const keysUnder = useCallback(
+    (world: [number, number]): Promise<string[]> => {
+      const at = cameraRef.current;
+      if (at === null) return Promise.resolve([]);
       askedAtRef.current = performance.now();
       // A locked layer is painted and is out of the hit-test, so the posture goes with the question
       // (Decision § 1): the index holds the whole sheet and the reader's own postures narrow it.
@@ -582,31 +832,127 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         .layerRows()
         .filter((row) => row.locked)
         .map((row) => row.name);
-      worker.postMessage({
-        id: HIT_REQUEST,
-        kind: "hit",
-        point,
-        tolerance: HIT_TOLERANCE_PX / at.scale,
-        lockedLayers: locked,
-      });
+      return ask({ kind: "hit", point: world, tolerance: HIT_TOLERANCE_PX / at.scale, lockedLayers: locked });
+    },
+    [ask],
+  );
+
+  /** The marquee's rectangle, in stage pixels, written where the pointer left it. */
+  const drawMarquee = (from: { x: number; y: number }, to: { x: number; y: number }): void => {
+    const box = {
+      left: Math.min(from.x, to.x),
+      top: Math.min(from.y, to.y),
+      width: Math.abs(to.x - from.x),
+      height: Math.abs(to.y - from.y),
+    };
+    marqueeBoxRef.current = box;
+    const element = marqueeRef.current;
+    if (element === null) return;
+    element.style.left = `${box.left}px`;
+    element.style.top = `${box.top}px`;
+    element.style.width = `${box.width}px`;
+    element.style.height = `${box.height}px`;
+  };
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
+    const on = pointOn(event.currentTarget, event);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    gestureRef.current = { x: event.clientX, y: event.clientY, marquee: event.shiftKey };
+    if (event.shiftKey && on !== null) {
+      drawMarquee(on.px, on.px);
+      setMarqueeOn(true);
+      return;
     }
+    dragRef.current = { x: event.clientX, y: event.clientY };
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
+    const gesture = gestureRef.current;
+    if (gesture !== null && gesture.marquee) {
+      const on = pointOn(event.currentTarget, event);
+      const box = event.currentTarget.getBoundingClientRect();
+      if (on !== null) drawMarquee({ x: gesture.x - box.left, y: gesture.y - box.top }, on.px);
+      return;
+    }
+
     const from = dragRef.current;
-    if (from === null) return;
-    const dx = event.clientX - from.x;
-    const dy = event.clientY - from.y;
-    dragRef.current = { x: event.clientX, y: event.clientY };
-    moveCamera((held) => panCamera(held, -dx, -dy), true);
+    if (from !== null) {
+      const dx = event.clientX - from.x;
+      const dy = event.clientY - from.y;
+      dragRef.current = { x: event.clientX, y: event.clientY };
+      moveCamera((held) => panCamera(held, -dx, -dy), true);
+      return;
+    }
+
+    // Nothing is being dragged, so the pointer is reading: what is under it is asked of the index
+    // one question at a time, and a pointer over bare paper reads nothing rather than the last
+    // thing it read (AC-1).
+    if (hoveringRef.current) return;
+    const on = pointOn(event.currentTarget, event);
+    if (on === null) return;
+    hoveringRef.current = true;
+    void keysUnder(on.world)
+      .then((keys) => {
+        const key = keys[0];
+        const held = key === undefined ? undefined : factsRef.current.get(key);
+        setHovered(key === undefined || held === undefined ? null : { key, type: held.type, layer: held.layer });
+      })
+      .finally(() => {
+        hoveringRef.current = false;
+      });
+  };
+
+  /** A key added to, or taken out of, what is held — Shift's own arithmetic. */
+  const toggleKey = (key: string): void => {
+    setSelection((held) => (held.includes(key) ? held.filter((each) => each !== key) : [...held, key]));
   };
 
   const onPointerUp = (event: ReactPointerEvent<HTMLCanvasElement>): void => {
+    const gesture = gestureRef.current;
     const dragging = dragRef.current !== null;
+    gestureRef.current = null;
     dragRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (gesture === null) return;
+
+    const travelled = Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y);
+    const on = pointOn(event.currentTarget, event);
+
+    if (gesture.marquee) {
+      setMarqueeOn(false);
+      // A rectangle that never moved is a Shift+click, and toggles what is under it: a reader who
+      // pressed Shift on one entity meant to add it, not to select an area of no extent (I-87).
+      if (travelled > CLICK_TRAVEL_PX && on !== null) {
+        const at = cameraRef.current;
+        const box = marqueeBoxRef.current;
+        if (at === null) return;
+        const first = worldAt(at, { x: box.left, y: box.top });
+        const last = worldAt(at, { x: box.left + box.width, y: box.top + box.height });
+        void ask({
+          kind: "rect",
+          bbox: {
+            min: [Math.min(first[0], last[0]), Math.min(first[1], last[1])],
+            max: [Math.max(first[0], last[0]), Math.max(first[1], last[1])],
+          },
+          layers: openLayers(),
+        }).then((keys) => setSelection(keys.filter((key) => factsRef.current.has(key))));
+        return;
+      }
+      if (on !== null) void keysUnder(on.world).then((keys) => (keys[0] === undefined ? undefined : toggleKey(keys[0])));
+      return;
+    }
+
     // The gesture is over: where it left the camera is published now rather than on the settle.
-    if (dragging) moveCamera((held) => held, false);
+    if (travelled > CLICK_TRAVEL_PX) {
+      if (dragging) moveCamera((held) => held, false);
+      return;
+    }
+    // A click of no travel selects the topmost hit; a click on bare paper lets go of what was held.
+    if (on === null) return;
+    void keysUnder(on.world).then((keys) => {
+      const key = keys[0];
+      setSelection(key === undefined ? [] : [key]);
+    });
   };
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLCanvasElement>): void => {
@@ -621,6 +967,8 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     else if (event.key === "ArrowRight") pan(KEYBOARD_PAN_PX, 0);
     else if (event.key === "ArrowUp") pan(0, -KEYBOARD_PAN_PX);
     else if (event.key === "ArrowDown") pan(0, KEYBOARD_PAN_PX);
+    // Escape with the sheet focused lets go of what is held (Decision § 1).
+    else if (event.key === "Escape") setSelection([]);
   };
 
   /* ------------------------------------------------------------------------------- what is on screen */
@@ -642,6 +990,18 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const failed = rows.some((row) => row.failed);
   if (headFailure !== null) throw headFailure;
 
+  /**
+   * The source key on the clipboard, exactly as it stands — nothing stripped, nothing trimmed
+   * (R-TO-011). A browser that refuses the write refuses this promise, and the row goes on offering
+   * the copy rather than claiming to have made one.
+   */
+  const copyKey = (key: string): Promise<void> => navigator.clipboard.writeText(key);
+
+  /** A whole layer taken, in the order the index answers it — the keyboard path to a selection. */
+  const selectLayer = (name: string): void => {
+    void ask({ kind: "layer", layer: name }).then((keys) => setSelection(keys.filter((key) => factsRef.current.has(key))));
+  };
+
   const workArea = (): ReactNode => {
     if (feedRefusal !== null) {
       return (
@@ -661,6 +1021,14 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
             ))}
           </div>
           <Skeleton style={{ height: "100%", width: "100%" }} />
+          {/* Bones where the inspector will stand: telling a reader to hover an entity before any
+              exists is a lie about readiness (Decision § 2). */}
+          <div className="cx-viewer-bones-panel">
+            <Skeleton style={{ height: "16px", width: "96px" }} />
+            {Array.from({ length: LOADING_CELLS }, (_, cell) => (
+              <Skeleton key={cell} style={{ height: "12px", width: "140px" }} />
+            ))}
+          </div>
         </div>
       );
     }
@@ -686,8 +1054,10 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     }
 
     return (
+      /* Every panel carries a stable id and order, so a layout stored by the two-panel build no
+         longer matches this group and is dropped rather than misapplied (Decision § 1). */
       <ResizablePanelGroup direction="horizontal" autoSaveId="cubit-viewer-split">
-        <ResizablePanel defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
+        <ResizablePanel id="viewer-layers-panel" order={1} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
           <LayersPanel
             rows={rows}
             onVisible={(name, visible) => {
@@ -703,10 +1073,11 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
               bump();
             }}
             onRetry={retryLayer}
+            onSelectLayer={selectLayer}
           />
         </ResizablePanel>
         <ResizableHandle />
-        <ResizablePanel>
+        <ResizablePanel id="viewer-stage-panel" order={2}>
           <div className="cx-viewer-stage" ref={stageRef}>
             {probed && renderer === "unavailable" ? (
               <div className="cx-viewer-empty">
@@ -733,8 +1104,26 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
+              onPointerLeave={() => setHovered(null)}
               onKeyDown={onKeyDown}
             />
+            {/* The rectangle follows the pointer untweened and is written straight onto the element:
+                sixty renders a second of the panel and the readout is what a marquee must not cost
+                (PB-3). Its geometry is pointer data, not a style — the look is the stylesheet's. */}
+            {marqueeOn ? (
+              <div
+                className="cx-viewer-marquee"
+                data-testid="viewer-marquee"
+                aria-hidden="true"
+                ref={marqueeRef}
+                style={{
+                  left: `${marqueeBoxRef.current.left}px`,
+                  top: `${marqueeBoxRef.current.top}px`,
+                  width: `${marqueeBoxRef.current.width}px`,
+                  height: `${marqueeBoxRef.current.height}px`,
+                }}
+              />
+            ) : null}
             <div className="cx-viewer-controls">
               <Button variant="secondary" data-testid="viewer-fit" onClick={fitSheet}>
                 {strings.viewer_fit}
@@ -748,12 +1137,23 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
             </div>
           </div>
         </ResizablePanel>
+        <ResizableHandle />
+        <ResizablePanel id="viewer-inspector-panel" order={3} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
+          <InspectorPanel
+            hover={hovered}
+            selection={selected}
+            missing={missing}
+            onCopy={copyKey}
+            onReveal={revealInSheet}
+            onClear={() => setSelection([])}
+          />
+        </ResizablePanel>
       </ResizablePanelGroup>
     );
   };
 
   return (
-    <div className="cx-viewer" data-testid="viewer-screen" data-project={projectId}>
+    <div className="cx-viewer" data-testid="viewer-screen" data-project={projectId} data-flyto={flyto ?? undefined}>
       {/* The sheet names itself once, as the house style has every screen do: heading navigation
           lands on the sheet a reader opened rather than nowhere (R-UI-050's siblings, axe). */}
       <h1 className="cx-viewer-hidden">{fill(strings.viewer_canvas_label, { layout: layoutName })}</h1>
@@ -767,6 +1167,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         totalLayers={head?.kind === "manifest" ? head.manifest.layers.length : 0}
         drawnEntities={state.drawnEntityCount()}
         entityCount={state.entityCount()}
+        selectionCount={selection.length}
         firstPaint={firstPaint}
         renderer={renderer}
         partial={failed}

@@ -175,7 +175,7 @@
 .cx-viewer-loading,
 .cx-viewer-bones {
   display: grid;
-  grid-template-columns: minmax(0, 22%) 1fr;
+  grid-template-columns: minmax(0, 22%) 1fr minmax(0, 22%);
   gap: var(--space-3);
   height: 100%;
   padding: var(--space-3);
@@ -296,6 +296,190 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   color: var(--graphite-900);
+}
+
+/* ------------------------------------------------------------------- the marquee, on the stage */
+
+/* The rectangle a Shift+drag draws: untweened, following the pointer, and gone the moment the
+   button comes up (docs/design/s-viewer-inspector.md § 1). Its position and size are written onto
+   the element by the screen — a rectangle is pointer data, not a style. */
+.cx-viewer-marquee {
+  position: absolute;
+  border: 1px solid var(--canvas-selection);
+  background: var(--canvas-hover);
+  pointer-events: none;
+  z-index: var(--z-base);
+}
+
+/* --------------------------------------------------------------------------- the right inspector */
+
+/* It recedes exactly as the layers panel does — same fill, same header geometry, same hairline
+   seam — so the sheet reads as framed rather than flanked by two different panels (§ 1). */
+.cx-viewer-inspector {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  background: var(--graphite-50);
+  border-inline-start: var(--hairline);
+}
+
+.cx-viewer-inspector-heading {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+  border-bottom: var(--hairline);
+}
+
+.cx-viewer-inspector-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.cx-viewer-inspector-hover {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+}
+
+.cx-viewer-inspector-term {
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-viewer-inspector-value {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* Sticky, because a whole layer selected must never scroll the Reveal door out of reach (§ 1). */
+.cx-viewer-inspector-actions {
+  position: sticky;
+  inset-block-start: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block: var(--space-1);
+  background: var(--graphite-50);
+  z-index: var(--z-base);
+}
+
+.cx-viewer-inspector-count {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-viewer-inspector-doors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cx-viewer-inspector-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cx-viewer-inspector-entity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: var(--row-comfortable);
+  padding-block: var(--space-2);
+  border-bottom: var(--hairline);
+}
+
+[data-density="compact"] .cx-viewer-inspector-entity {
+  min-height: var(--row-compact);
+  padding-block: var(--space-1);
+}
+
+.cx-viewer-inspector-facts {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+}
+
+.cx-viewer-inspector-layer {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cx-viewer-inspector-key-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Evidence is never truncated behind an ellipsis a reader cannot open (I-26). */
+.cx-viewer-inspector-key {
+  overflow-wrap: anywhere;
+  user-select: all;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-inspector-copy {
+  margin-inline-start: auto;
+  font-size: var(--text-12);
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-viewer-inspector-missing-key {
+  padding-block: var(--space-1);
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+}
+
+.cx-viewer-inspector-subheading {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-inspector-body-line {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+.cx-viewer-inspector-missing .cx-viewer-inspector-body-line {
+  font-size: var(--text-12);
 }
 
 /* ---------------------------------------------------------------------------------- the readout */

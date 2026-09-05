@@ -7,10 +7,10 @@
 // here (R-UI-001). Entity colour is the artifact's own, with one ruling applied and applied only
 // here — a record resolved to near-white or near-black is CAD colour 7 and paints in the canvas ink,
 // so it is legible on both papers (Decision I-79).
-import { isTextLegible } from "./client";
+import { isTextLegible, recordBox } from "./client";
 import type { Camera, RenderLayer, RenderRecord } from "./types";
 
-/** The three canvas surfaces and the face drawn text is lettered in, as the screen resolved them. */
+/** The canvas surfaces and the face drawn text is lettered in, as the screen resolved them. */
 export type CanvasPalette = {
   /** The sheet itself — `--canvas-paper`. */
   paper: string;
@@ -20,6 +20,12 @@ export type CanvasPalette = {
   grid: string;
   /** The face sheet text is lettered in — `--font-mono`. */
   mono: string;
+  /** What is held — `--canvas-selection`. */
+  selection: string;
+  /** What is under the pointer — `--canvas-hover`. */
+  hover: string;
+  /** The colour a reveal's arrival is struck in before it settles — `--canvas-pulse`. */
+  pulse: string;
 };
 
 /** What the screen drives a sheet through. */
@@ -37,6 +43,19 @@ export type Painter = {
   setPalette: (palette: CanvasPalette) => void;
   /** Ask for a frame at this camera, with these layers drawn. */
   draw: (camera: Camera, state: { layerRows: () => { name: string; drawn: boolean }[] }) => void;
+  /**
+   * What is held, painted above the sheet from a buffer of its own: changing the selection never
+   * touches a layer's batch, so a marquee over a whole sheet costs no re-tessellation (PB-3).
+   */
+  setSelection: (records: readonly RenderRecord[]) => void;
+  /** What is under the pointer, painted the same way and just as cheaply. */
+  setHover: (record: RenderRecord | null) => void;
+  /**
+   * Strike the selection in the pulse colour and cross-fade it back over this many milliseconds —
+   * the arrival of a fly-to. A duration of zero draws no pulse frame at all, which is what reduced
+   * motion leaves behind once the token is zeroed at source (Decision § 4).
+   */
+  pulse: (durationMs: number) => void;
   /** Called once per frame actually painted, so a screen can publish its ledger. */
   setFrameListener: (listener: (() => void) | null) => void;
   /** The frame ledger: the middle and the tail of the last frames, in milliseconds. */
@@ -65,6 +84,9 @@ const MAX_DEVICE_PIXEL_RATIO = 2;
 /** Vertices per culling chunk: enough that the draw call dominates, few enough that culling bites. */
 const CHUNK_VERTICES = 8192;
 
+/** The stroke a mark is drawn at, in device-independent pixels (Decision § 5's closed px set). */
+const MARK_STROKE_PX = 2;
+
 /** A channel is "white" at or above this, and "black" at or below the other — colour 7 (I-79). */
 const NEAR_WHITE = 250;
 const NEAR_BLACK = 5;
@@ -88,11 +110,13 @@ attribute vec3 a_colour;
 uniform vec2 u_centre;
 uniform float u_scale;
 uniform vec2 u_viewport;
+uniform vec3 u_tint;
+uniform float u_tinted;
 varying vec3 v_colour;
 void main() {
   vec2 offset = (a_position - u_centre) * u_scale;
   gl_Position = vec4(offset.x / (u_viewport.x * 0.5), offset.y / (u_viewport.y * 0.5), 0.0, 1.0);
-  v_colour = a_colour;
+  v_colour = mix(a_colour, u_tint, u_tinted);
 }`;
 
 const LINE_FRAGMENT_SHADER = `
@@ -126,6 +150,17 @@ varying vec2 v_texel;
 void main() {
   gl_FragColor = vec4(v_colour, texture2D(u_atlas, v_texel).a);
 }`;
+
+/**
+ * A mark drawn above the sheet — what is held, and what is under the pointer. It carries its own
+ * positions and its own flat colour, so painting it is two draw calls over buffers no layer batch
+ * shares (PB-3).
+ */
+type Mark = {
+  positions: WebGLBuffer | null;
+  colours: WebGLBuffer | null;
+  vertices: number;
+};
 
 /** One run of line vertices with the world box it covers — the unit culling works at. */
 type Chunk = {
@@ -307,6 +342,16 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   let pending: { camera: Camera; drawn: Set<string> } | null = null;
   let listener: (() => void) | null = null;
 
+  /** What is held and what is under the pointer, as records and as the buffers they paint from. */
+  let selected: readonly RenderRecord[] = [];
+  let hovered: RenderRecord | null = null;
+  let selectionMark: Mark | null = null;
+  let hoverMark: Mark | null = null;
+
+  /** The pulse in flight, if one is: when it began and how long it lasts (Decision § 4). */
+  let pulseFrom = 0;
+  let pulseMs = 0;
+
   /** A buffer already on the GPU, filled again — the whole of a colour change (Decision § 6). */
   const refill = (buffer: WebGLBuffer | null, data: Float32Array): void => {
     if (buffer === null) return;
@@ -336,6 +381,8 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     scale: gl.getUniformLocation(program, "u_scale"),
     viewport: gl.getUniformLocation(program, "u_viewport"),
     atlas: gl.getUniformLocation(program, "u_atlas"),
+    tint: gl.getUniformLocation(program, "u_tint"),
+    tinted: gl.getUniformLocation(program, "u_tinted"),
   });
   const lineSlots = slots(lineProgram);
   const glyphSlots = slots(glyphProgram);
@@ -375,6 +422,79 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     return [camera.centre[0] - halfWidth, camera.centre[1] - halfHeight, camera.centre[0] + halfWidth, camera.centre[1] + halfHeight];
   };
 
+  /** A mark's two buffers, let go of before the next pair takes their place. */
+  const releaseMark = (mark: Mark | null): void => {
+    if (mark === null) return;
+    if (mark.positions !== null) gl.deleteBuffer(mark.positions);
+    if (mark.colours !== null) gl.deleteBuffer(mark.colours);
+  };
+
+  /**
+   * The segments of these records, in one flat colour. Text is marked by the box it is set in rather
+   * than by its glyphs: a mark says where a thing is, and a reader reads the thing itself from the
+   * sheet under it.
+   */
+  const markOf = (records: readonly RenderRecord[], colour: string): Mark | null => {
+    const positions: number[] = [];
+    for (const record of records) {
+      const box = recordBox(record);
+      if (record.points !== undefined && record.points.length >= 2) {
+        for (let at = 1; at < record.points.length; at += 1) {
+          const from = record.points[at - 1] as readonly [number, number];
+          const to = record.points[at] as readonly [number, number];
+          positions.push(from[0], from[1], to[0], to[1]);
+        }
+        continue;
+      }
+      if (box === null) continue;
+      const [minX, minY] = box.min;
+      const [maxX, maxY] = box.max;
+      const width = Math.max(maxX - minX, (record.height ?? 0) * GLYPH_ADVANCE * [...(record.text ?? "")].length);
+      const height = Math.max(maxY - minY, record.height ?? 0);
+      const right = minX + width;
+      const top = minY + height;
+      positions.push(minX, minY, right, minY, right, minY, right, top, right, top, minX, top, minX, top, minX, minY);
+    }
+    if (positions.length === 0) return null;
+    const [red, green, blue] = channelsOf(colour);
+    const vertices = positions.length / 2;
+    return {
+      positions: bufferOf(new Float32Array(positions)),
+      colours: bufferOf(new Float32Array(Array.from({ length: vertices }, () => [red, green, blue]).flat())),
+      vertices,
+    };
+  };
+
+  /** Both marks rebuilt from what they stand for — after a change of either, or of the palette. */
+  const remark = (): void => {
+    releaseMark(selectionMark);
+    releaseMark(hoverMark);
+    selectionMark = markOf(selected, palette.selection);
+    hoverMark = markOf(hovered === null ? [] : [hovered], palette.hover);
+  };
+
+  /** One mark drawn above the sheet, tinted by however much of a pulse is still owed. */
+  const drawMark = (mark: Mark | null, tint: readonly [number, number, number], amount: number): void => {
+    if (mark === null || mark.vertices === 0) return;
+    gl.uniform3f(lineSlots.tint, tint[0], tint[1], tint[2]);
+    gl.uniform1f(lineSlots.tinted, amount);
+    attribute(lineSlots.position, mark.positions, 2);
+    attribute(lineSlots.colour, mark.colours, 3);
+    gl.drawArrays(gl.LINES, 0, mark.vertices);
+    gl.uniform1f(lineSlots.tinted, 0);
+  };
+
+  /** How much of the pulse colour the selection still carries, 1 at the strike and 0 once settled. */
+  const pulseAmount = (now: number): number => {
+    if (pulseMs <= 0) return 0;
+    const gone = (now - pulseFrom) / pulseMs;
+    if (gone >= 1) {
+      pulseMs = 0;
+      return 0;
+    }
+    return 1 - Math.max(gone, 0);
+  };
+
   const render = (): void => {
     const request = pending;
     if (request === null) return;
@@ -390,6 +510,9 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
 
     gl.useProgram(lineProgram);
     camera3(lineSlots, camera);
+    // The sheet paints in its own colours: only a mark is ever tinted (Decision § 6).
+    gl.uniform3f(lineSlots.tint, 0, 0, 0);
+    gl.uniform1f(lineSlots.tinted, 0);
     if (frame !== null) {
       attribute(lineSlots.position, frameBuffer, 2);
       attribute(lineSlots.colour, frameColours, 3);
@@ -429,7 +552,18 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       gl.disable(gl.BLEND);
     }
 
+    // What is under the pointer, then what is held, above the sheet and above its text: a selection
+    // is the stronger fact and is never covered by the reading that led to it (Decision § 1).
     const now = performance.now();
+    if (selectionMark !== null || hoverMark !== null) {
+      gl.useProgram(lineProgram);
+      camera3(lineSlots, camera);
+      gl.lineWidth(MARK_STROKE_PX);
+      drawMark(hoverMark, [0, 0, 0], 0);
+      drawMark(selectionMark, channelsOf(palette.pulse), pulseAmount(now));
+      gl.lineWidth(1);
+    }
+
     // A gap longer than a rest is not a frame anybody dropped: the ledger measures the cadence of a
     // gesture in flight, which is what 60 fps means (PB-3).
     if (lastFrameAt > 0 && now - lastFrameAt <= CONTINUOUS_GAP_MS) {
@@ -448,7 +582,10 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   const tick = (): void => {
     scheduled = 0;
     render();
-    if (pending !== null && performance.now() - lastAskedAt <= GESTURE_TAIL_MS) scheduled = requestAnimationFrame(tick);
+    // A pulse owes its own frames and stops when it is spent, so an arrival fades out even on a
+    // sheet nobody is touching (Decision § 4).
+    const busy = performance.now() - lastAskedAt <= GESTURE_TAIL_MS || pulseMs > 0;
+    if (pending !== null && busy) scheduled = requestAnimationFrame(tick);
   };
 
   const quantile = (sorted: readonly number[], fraction: number): number => {
@@ -615,6 +752,28 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
         }
       }
       if (next.grid !== was.grid) frameExtents(framed);
+      // The marks carry their colour in their own vertices too, and they are small: a theme flip
+      // rebuilds them outright rather than leaving a selection painted in the abandoned theme.
+      if (next.selection !== was.selection || next.hover !== was.hover) remark();
+    },
+
+    setSelection: (records) => {
+      selected = records;
+      remark();
+    },
+
+    setHover: (record) => {
+      hovered = record;
+      remark();
+    },
+
+    pulse: (durationMs) => {
+      // At zero no pulse frame is drawn at all: the selection paints straight in its own colour
+      // rather than flashing for one frame (Decision § 4).
+      if (!(durationMs > 0)) return;
+      pulseFrom = performance.now();
+      pulseMs = durationMs;
+      if (scheduled === 0) scheduled = requestAnimationFrame(tick);
     },
 
     draw: (camera, state) => {
@@ -647,6 +806,13 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       pending = null;
       for (const batch of batches.values()) releaseBatch(batch);
       batches.clear();
+      releaseMark(selectionMark);
+      releaseMark(hoverMark);
+      selectionMark = null;
+      hoverMark = null;
+      selected = [];
+      hovered = null;
+      pulseMs = 0;
       releaseFrame();
       frame = null;
       framed = null;
