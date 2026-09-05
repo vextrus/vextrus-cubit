@@ -836,7 +836,7 @@ export const sheetDisciplines = pgTable(
   (table) => [
     check("sheet_disciplines_discipline_closed", statement`${table.discipline} in (${statement.raw(closedList(DISCIPLINES))})`),
     // One confirmation per sheet of one record: a second confirmation of the same sheet is a
-    // competing observation, which L-ACT-01 gives its own path and this increment does not render.
+    // competing observation, and L-ACT-01 gives a competing observation its own path.
     uniqueIndex("sheet_disciplines_once").on(table.tenantId, table.ingestId, table.layoutName),
     // The read the sheet index makes: one project's confirmations.
     index("sheet_disciplines_by_project").on(table.tenantId, table.projectId),
@@ -1727,7 +1727,9 @@ export function jobsStore(url: string): JobsStore {
         // process once an operator has resolved them (R-SPINE-030, ARCH-03).
         //
         // How many, and a bounded sample of which — in one statement, so the count is the log's own
-        // and not the length of the sample. A fault naming every offending job is a fault an
+        // and not the length of the sample. This aggregate reads the whole log, and it is issued
+        // only here, on the collision: an index that built asks nothing. A fault naming every
+        // offending job is a fault an
         // operator cannot read: a log that grew this way at scale would put an unbounded list into
         // the record, and it is the count that says how bad it is (B-21).
         const [duplicated] = await sql<{ total: string; named: string[] | null }[]>`
@@ -2039,6 +2041,8 @@ export function jobsStore(url: string): JobsStore {
     liveClaims: async (endedStatuses, limit, after) => await readingStored(async () => {
       // Keyed on the claim's primary key rather than offset: a claim a batch settled is gone from
       // the table by the next read, and an offset would skip the one that moved into its place.
+      // The sort is that same primary key — `job_claims (kind, key)` — so the sweep walks the
+      // table's own btree in order and no page of it is sorted to answer a bounded page.
       const afterCursor = after === undefined ? sql`` : sql`and (claim.kind, claim.key) > (${after.kind}, ${after.key})`;
       const rows = await sql<{ kind: string; key: string; job_id: string }[]>`
         select claim.kind, claim.key, claim.job_id
