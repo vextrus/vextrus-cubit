@@ -231,12 +231,23 @@ export function makeStorage(options: StorageOptions): Storage {
       // The directory entry, made durable in its own right (R-SPINE-021). It is flushed after the
       // link and after the staging copy is gone, so what the volume is told to hold is the settled
       // listing rather than a listing with a half-finished put still in it.
-      const directory = await open(join(root, prefix), "r");
-      try {
-        await directory.sync();
-      } finally {
-        await directory.close();
-      }
+      //
+      // It is the last step, and it is cleanup's neighbour rather than the operation: the object is
+      // already linked at its settled address and `get` reads it back. A volume that will not open a
+      // directory for read or will not fsync a directory handle at all leaves the entry as durable
+      // as that volume makes entries, and answering the caller a failure for an object the seam
+      // stored would send them to re-put or to raise a fault over nothing. So a refusal here goes to
+      // the operator's hook, exactly as the staging copy's does (ARCH-03, B-21).
+      await (async (): Promise<void> => {
+        const directory = await open(join(root, prefix), "r");
+        try {
+          await directory.sync();
+        } finally {
+          await directory.close();
+        }
+      })().catch((failure: unknown) => {
+        options.onCleanupFailure?.(failure);
+      });
       return { sha256 };
     },
 

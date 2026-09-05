@@ -467,19 +467,38 @@ export async function deadLetterView(): Promise<{ letters: DeadLetter[]; truncat
   // One more than the bound is read, and is the whole of how truncation is known: a view that reads
   // exactly its bound cannot tell a log holding that many from a log holding more, so it either
   // discloses nothing or guesses (R-SPINE-030).
-  const rows = await running.store.deadLetterRows(["failed", "refused"], DEAD_LETTER_LIMIT + 1);
-  // One entry per job, not per row: the view answers "which jobs ran out of answers", and a job that
-  // somehow recorded two endings is still one job an operator has to deal with. The first ending is
-  // the one kept — it is the one that says how the job actually went (R-SPINE-030).
-  const perJob = new Map<string, DeadLetter>();
-  for (const row of rows) {
-    if (perJob.has(row.jobId)) continue;
-    perJob.set(row.jobId, { jobId: row.jobId, kind: row.kind as JobKind, key: row.key, cause: causeOf(row) });
+  //
+  // The store bounds ROWS and the disclosure is about JOBS, and the two part company on a log that
+  // holds two endings for one job — the state `createLog` tolerates when job_events_one_ending
+  // cannot be built. Each such row spends a slot of the window on a job already counted, so a
+  // window that came back full while the jobs in it still fit under the bound has told us nothing
+  // yet: the slots the duplicates took are asked for again, and only a window the store could not
+  // fill, or one holding more jobs than the bound, is an answer (ARCH-02).
+  let asked = DEAD_LETTER_LIMIT + 1;
+  let rows = await running.store.deadLetterRows(["failed", "refused"], asked);
+  let held = perJob(rows);
+  while (rows.length === asked && held.length <= DEAD_LETTER_LIMIT) {
+    asked += asked - held.length;
+    rows = await running.store.deadLetterRows(["failed", "refused"], asked);
+    held = perJob(rows);
   }
-  // The store answers the NEWEST endings put back in log order, so the one dropped from an
-  // over-full read is the oldest — the operator keeps the endings they have not dealt with yet.
-  const held = [...perJob.values()];
+  // The store answers the NEWEST endings put back in log order, so the ones dropped from an
+  // over-full read are the oldest — the operator keeps the endings they have not dealt with yet.
   return { letters: held.slice(-DEAD_LETTER_LIMIT), truncated: held.length > DEAD_LETTER_LIMIT };
+}
+
+/**
+ * One entry per job, not per row: the view answers "which jobs ran out of answers", and a job that
+ * somehow recorded two endings is still one job an operator has to deal with. The first ending is
+ * the one kept — it is the one that says how the job actually went (R-SPINE-030).
+ */
+function perJob(rows: readonly JobEventRow[]): DeadLetter[] {
+  const held = new Map<string, DeadLetter>();
+  for (const row of rows) {
+    if (held.has(row.jobId)) continue;
+    held.set(row.jobId, { jobId: row.jobId, kind: row.kind as JobKind, key: row.key, cause: causeOf(row) });
+  }
+  return [...held.values()];
 }
 
 /**

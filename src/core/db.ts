@@ -2109,6 +2109,10 @@ export function jobsStore(url: string): JobsStore {
       // ending however it ends. It is taken on the LOG's pool, never the lock pool, which is held
       // for the key lock alone and would deadlock a job holding both.
       const written = await sql.begin(async (tx) => {
+        // Bounded, for the reason the key lock is: a wait that cannot end is worse than a failure
+        // that can. A backend wedged on this job's lock would otherwise park this ending for ever,
+        // holding a connection of the log pool — the pool every event write shares.
+        await tx.unsafe(`set local lock_timeout = ${LOCK_WAIT_MS}`);
         const guard = advisoryLockStatement(`${JOBS_SCHEMA}.job_events:${draft.jobId}`);
         await tx.unsafe(guard.text, guard.params);
         // Wrapped, because the driver runs an array a transaction body answers with as queries.
