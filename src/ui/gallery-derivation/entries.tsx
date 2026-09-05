@@ -17,6 +17,7 @@ import type { Consequence } from "../../core/acts";
 import type { RefusalEntry, RefusalSeverity, RefusalSurface } from "../../core/errors";
 import { ConsequenceDialog } from "../patterns/consequence-dialog";
 import { Dropzone, type DropzoneItem } from "../patterns/dropzone";
+import { JobTimeline, JobsProvider, type JobsFormat, type TimelineStep } from "../patterns/job-timeline";
 import { OfferedGroups, type OfferedGroupItem } from "../patterns/offered-group";
 import { RefusalState } from "../patterns/refusal-state";
 import { SAMPLE_REFUSAL_BY_SEVERITY, sampleRefusal } from "./sample-refusals";
@@ -68,14 +69,17 @@ import {
   Toaster,
   toast,
 } from "../primitives/overlay";
-import { AppShell, DensityToggle, SHELL_AREAS, ShellDenied, ShellEmptyState, ShellInspector, ShellRail, ShellTopBar, type ShellWorkspace } from "../shell";
-import { strings } from "../strings";
+import { AppShell, DensityToggle, JobsTray, SHELL_AREAS, ShellDenied, ShellEmptyState, ShellInspector, ShellRail, ShellTopBar, type ShellWorkspace } from "../shell";
+import { fill, strings } from "../strings";
 import type { GalleryEntries, GalleryState } from "./types";
 
 /* ------------------------------------------------------------------ sample copy (Decision I-17) */
 
 /** The seven bases, in the order `BasisChip`'s own Decision lists them. */
 const BASES = ["MEASURED", "TRANSCRIBED", "DERIVED", "IMPORTED", "ENTERED", "INTERPRETED", "DEFAULTED"] as const;
+
+/** A millisecond count as the whole seconds a person reads, for the sample register's own format. */
+const MS_PER_SECOND = 1000;
 
 /** The copy each sample shows, verbatim from the Decision that authored it. */
 const copy = {
@@ -88,6 +92,7 @@ const copy = {
   },
   input: { label: "Project name", placeholder: "e.g. Riverside Tower", value: "Riverside Tower" },
   textarea: { label: "Notes", placeholder: "Anything the estimator should know" },
+  jobTimeline: { heading: "Reading drawings", evidence: "Add the drawing again", first: "4 s", second: "11 s", fault: "fault-9c21" },
   badge: "Draft",
   chip: "Layer S-COL",
   unit: "SQM",
@@ -576,6 +581,66 @@ const shellRailStates: readonly GalleryState[] = SHELL_AREAS.map((area) => ({
   render: () => <ShellRail workspace={SAMPLE_WORKSPACE} area={area} atAreaHome={true} />,
 }));
 
+/* ------------------------------------------------------------------ the job pattern (I-107) */
+
+/**
+ * The sample steps the job pattern's Decision authors (docs/design/job-timeline.md §§ 1, 4): the
+ * timings are strings because the pattern formats nothing (I-113), the refusal is a registered entry
+ * on its own surface, and the fault id is opaque data rendered verbatim (I-110).
+ */
+const jobEvidence = { href: "/", label: copy.jobTimeline.evidence };
+
+function jobStep(over: Partial<TimelineStep> & { id: string; kind: TimelineStep["kind"]; status: TimelineStep["status"] }): TimelineStep {
+  return { jobId: over.id, timing: null, refusal: null, faultId: null, evidence: jobEvidence, ...over };
+}
+
+const jobTimelineStates: readonly GalleryState[] = [
+  { name: "idle", render: () => <JobTimeline heading={copy.jobTimeline.heading} steps={[]} /> },
+  {
+    name: "running",
+    render: () => (
+      <JobTimeline
+        heading={copy.jobTimeline.heading}
+        steps={[jobStep({ id: "sample-ingest", kind: "ingest", status: "succeeded", timing: copy.jobTimeline.first }), jobStep({ id: "sample-thumbnails", kind: "thumbnails", status: "running" })]}
+      />
+    ),
+  },
+  {
+    name: "done",
+    render: () => (
+      <JobTimeline
+        heading={copy.jobTimeline.heading}
+        steps={[
+          jobStep({ id: "sample-ingest", kind: "ingest", status: "succeeded", timing: copy.jobTimeline.first }),
+          jobStep({ id: "sample-thumbnails", kind: "thumbnails", status: "succeeded", timing: copy.jobTimeline.second }),
+        ]}
+      />
+    ),
+  },
+  {
+    name: "failed",
+    render: () => (
+      <JobTimeline
+        heading={copy.jobTimeline.heading}
+        steps={[
+          jobStep({ id: "sample-refused", kind: "ingest", status: "refused", timing: copy.jobTimeline.first, refusal: sampleRefusal("FORMAT_NOT_ACCEPTED", "inline") }),
+          jobStep({ id: "sample-failed", kind: "thumbnails", status: "failed", timing: copy.jobTimeline.second, faultId: copy.jobTimeline.fault }),
+        ]}
+      />
+    ),
+  },
+];
+
+/**
+ * The register a sample surface reads through. It formats seconds from the shared table and looks up
+ * no refusal: the registry lives in core, which this layer holds no value import of (ARCH-01, I-113),
+ * and the sample the gallery shows a refusal with is the entry above.
+ */
+const SAMPLE_JOBS_FORMAT: JobsFormat = {
+  seconds: (elapsedMs) => fill(strings.job_timeline_seconds, { seconds: String(Math.round(elapsedMs / MS_PER_SECOND)) }),
+  refusal: () => null,
+};
+
 /* ------------------------------------------------------------------ the catalogue */
 
 /**
@@ -586,6 +651,21 @@ const shellRailStates: readonly GalleryState[] = SHELL_AREAS.map((area) => ({
 export const galleryEntries: GalleryEntries = {
   "patterns/consequence-dialog/ConsequenceDialog": { states: closed(consequenceDialogSample) },
   "patterns/dropzone/Dropzone": { states: dropzoneStates },
+  "patterns/job-timeline/JobTimeline": { states: jobTimelineStates },
+  // The register renders no DOM of its own, so its evidence is the surface it feeds: a tray standing
+  // inside it, holding what this sample has tracked — nothing.
+  "patterns/job-timeline/JobsProvider": {
+    states: [
+      {
+        name: "empty",
+        render: () => (
+          <JobsProvider format={SAMPLE_JOBS_FORMAT}>
+            <JobsTray />
+          </JobsProvider>
+        ),
+      },
+    ],
+  },
   "patterns/offered-group/OfferedGroups": { states: offeredGroupStates },
   "patterns/refusal-state/RefusalState": { states: refusalStates },
 
@@ -665,6 +745,18 @@ export const galleryEntries: GalleryEntries = {
     states: [
       { name: "comfortable", render: () => <DensityToggle density="comfortable" action={sampleDensityWrite} /> },
       { name: "compact", render: () => <DensityToggle density="compact" action={sampleDensityWrite} /> },
+    ],
+  },
+  "shell/JobsTray": {
+    states: [
+      {
+        name: "empty",
+        render: () => (
+          <JobsProvider format={SAMPLE_JOBS_FORMAT}>
+            <JobsTray />
+          </JobsProvider>
+        ),
+      },
     ],
   },
   "shell/ShellDenied": {

@@ -12,6 +12,7 @@
  */
 import * as patternsConsequenceDialog from "../patterns/consequence-dialog";
 import * as patternsDropzone from "../patterns/dropzone";
+import * as patternsJobTimeline from "../patterns/job-timeline";
 import * as patternsOfferedGroup from "../patterns/offered-group";
 import * as patternsRefusalState from "../patterns/refusal-state";
 import * as primitivesCore from "../primitives/core";
@@ -31,6 +32,7 @@ export type { GalleryEntries, GalleryEntry, GalleryState } from "./types";
 export const galleryBarrels: Record<string, Record<string, unknown>> = {
   "patterns/consequence-dialog": patternsConsequenceDialog,
   "patterns/dropzone": patternsDropzone,
+  "patterns/job-timeline": patternsJobTimeline,
   "patterns/offered-group": patternsOfferedGroup,
   "patterns/refusal-state": patternsRefusalState,
   "primitives/core": primitivesCore,

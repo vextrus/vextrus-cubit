@@ -1,0 +1,168 @@
+/*
+ * The job pattern's own stylesheet (docs/design/job-timeline.md §§ 1, 5, 6). Every colour, size,
+ * weight and duration is a read into the committed Datum token source (R-UI-001, R-UI-003,
+ * R-UI-004): the rules are identical in light and dark, and the themes differ only in what the
+ * tokens are worth. No `[data-theme]` selector appears here.
+ *
+ * The px literals are the closed set the Decision § 6 fixes: the 8 px marker, its 1 px connector and
+ * the 12 × 64 px timing bone. Any other literal is a defect.
+ *
+ * Focus is not styled here: the evidence link wears the reticle from its one home (B-17, R-UI-012).
+ * The state change is the animation (I-92's reading, carried over with the pattern); nothing enters.
+ */
+
+.cx-job-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cx-job-timeline-heading {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+}
+
+.cx-job-timeline-idle,
+.cx-job-timeline-lost {
+  margin: 0;
+  font-family: var(--font-ui);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+.cx-job-timeline-idle {
+  font-size: var(--text-13);
+}
+
+.cx-job-timeline-lost {
+  font-size: var(--text-12);
+}
+
+.cx-job-timeline-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-job-timeline-step {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-comfortable);
+}
+
+[data-density="compact"] .cx-job-timeline-step {
+  min-height: var(--row-compact);
+}
+
+.cx-job-timeline-marker {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-4);
+  background-color: var(--graphite-300);
+  transition: background-color var(--motion-state) var(--ease);
+}
+
+.cx-job-timeline-step[data-status="running"] .cx-job-timeline-marker {
+  background-color: var(--beam-500);
+}
+
+.cx-job-timeline-step[data-status="succeeded"] .cx-job-timeline-marker {
+  background-color: var(--success);
+}
+
+.cx-job-timeline-step[data-status="failed"] .cx-job-timeline-marker,
+.cx-job-timeline-step[data-status="refused"] .cx-job-timeline-marker {
+  background-color: var(--danger);
+}
+
+/* The connector between a step and the one below it, filled once the step above has succeeded. */
+.cx-job-timeline-step + .cx-job-timeline-step {
+  border-top: 1px solid var(--graphite-200);
+  transition: border-color var(--motion-state) var(--ease);
+}
+
+.cx-job-timeline-step[data-status="succeeded"] + .cx-job-timeline-step {
+  border-top-color: var(--success);
+}
+
+.cx-job-timeline-step-name {
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+}
+
+.cx-job-timeline-step-status {
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-job-timeline-step[data-status="running"] .cx-job-timeline-step-status {
+  color: var(--beam-500);
+}
+
+.cx-job-timeline-step[data-status="succeeded"] .cx-job-timeline-step-status {
+  color: var(--success);
+}
+
+.cx-job-timeline-step[data-status="failed"] .cx-job-timeline-step-status,
+.cx-job-timeline-step[data-status="refused"] .cx-job-timeline-step-status {
+  color: var(--danger);
+}
+
+.cx-job-timeline-step-timing {
+  justify-self: end;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-job-timeline-step-bone {
+  justify-self: end;
+  width: 64px;
+  height: 12px;
+}
+
+/* The terminal cause, beneath the row it belongs to and spanning its three columns. */
+.cx-job-timeline-cause {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-block: var(--space-2) var(--space-3);
+}
+
+.cx-job-timeline-fault {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-700);
+  user-select: all;
+}
+
+.cx-job-timeline-evidence {
+  align-self: start;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+  color: var(--beam-600);
+  text-decoration: underline;
+}
+
+.cx-job-timeline-evidence:hover {
+  color: var(--beam-500);
+}

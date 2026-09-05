@@ -17,6 +17,7 @@ import { refusalOf, type RefusalCode } from "../../../../../../../core/errors";
 import { formatUserFigure } from "../../../../../../../core/format";
 import { ConsequenceDialog } from "../../../../../../../ui/patterns/consequence-dialog";
 import { Dropzone, uploadFiles, type DropzoneFile, type DropzoneItem } from "../../../../../../../ui/patterns/dropzone";
+import { JobTimeline, useTrackedJobs, type TrackedJob } from "../../../../../../../ui/patterns/job-timeline";
 import { OfferedGroups, type OfferedGroupItem } from "../../../../../../../ui/patterns/offered-group";
 import { RefusalState } from "../../../../../../../ui/patterns/refusal-state";
 import { Button, Chip, Input } from "../../../../../../../ui/primitives/core";
@@ -30,7 +31,6 @@ import {
   type CommitAnswer,
   type PreviewAnswer,
 } from "./actions";
-import { JobTimeline, type TimelineJob } from "./job-timeline";
 import { drawingsRoute } from "./route-address";
 import { SheetCard, type SheetCardData } from "./sheet-card";
 import { drawings } from "./strings";
@@ -101,7 +101,7 @@ export function SheetIndex({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Discipline | typeof ALL>(ALL);
   const [items, setItems] = useState<DropzoneItem[]>([]);
-  const [jobs, setJobs] = useState<TimelineJob[]>([]);
+  const [jobs, setJobs] = useState<TrackedJob[]>([]);
   const [offline, setOffline] = useState(false);
   const [pending, setPending] = useState(false);
   const [committed, setCommitted] = useState(false);
@@ -137,6 +137,9 @@ export function SheetIndex({
     [tenantId, projectId],
   );
 
+  /** Where a step that ended badly is resolved: this screen, with the drawing offered again. */
+  const timelineEvidence = useMemo(() => ({ href: drawingsRoute(tenantId, projectId), label: drawings.drawings_evidence_upload_again }), [tenantId, projectId]);
+
   /** A refusal, in the shape the one act pattern rejects with and the one renderer composes. */
   const refused = useCallback((code: RefusalCode): unknown => ({ refusal: refusalOf(code), evidence: evidenceFor(code) }), [evidenceFor]);
 
@@ -168,36 +171,44 @@ export function SheetIndex({
       // A stored drawing is read straight away: the screen asks, and the answered jobs open the
       // timeline. The worker chains the previews itself once a record lands (I-88).
       const asked = await requestSheets({ projectId, drawingIds: stored });
-      setJobs((held) => [...held, ...asked.filter(reported).map((answer) => ({ jobId: answer.jobId, kind: "ingest" as const, drawingId: answer.drawingId }))]);
+      setJobs((held) => [...held, ...asked.filter(reported).map((answer) => ({ jobId: answer.jobId, kind: "ingest" as const, subject: answer.drawingId, evidence: timelineEvidence }))]);
       // A drawing the seam refused to read gets no step, and would otherwise be silence: the code it
       // was refused with renders beside the queue that produced the row (R-UI-020).
       setAskRefusal(asked.find((answer) => answer.refusal !== null)?.refusal ?? null);
     },
-    [projectId, requestSheets],
+    [projectId, requestSheets, timelineEvidence],
   );
 
   /** I-88: the second step is asked for, never invented — the browser never holds that job id. */
   const onJobSucceeded = useCallback(
-    async (job: TimelineJob): Promise<void> => {
+    async (job: TrackedJob): Promise<void> => {
       router.refresh();
       if (job.kind !== "ingest") return;
-      const answer = await requestThumbnails({ projectId, drawingId: job.drawingId });
+      const answer = await requestThumbnails({ projectId, drawingId: job.subject });
       // A door answered without the field — an older answer, or a stand-in built to the shape the
       // spec declares — is not a refusal: only a code the register holds may reach the renderer.
       const refusedWith = answer.refusal ?? null;
       if (refusedWith !== null) setAskRefusal(refusedWith);
       if (!reported(answer)) return;
-      setJobs((held) => (held.some((step) => step.kind === "thumbnails" && step.drawingId === job.drawingId) ? held : [...held, { jobId: answer.jobId, kind: "thumbnails", drawingId: job.drawingId }]));
+      setJobs((held) =>
+        held.some((step) => step.kind === "thumbnails" && step.subject === job.subject)
+          ? held
+          : [...held, { jobId: answer.jobId, kind: "thumbnails", subject: job.subject, evidence: timelineEvidence }],
+      );
     },
-    [projectId, requestThumbnails, router],
+    [projectId, requestThumbnails, router, timelineEvidence],
   );
 
   const settled = useCallback(
-    (job: TimelineJob): void => {
+    (job: TrackedJob): void => {
       void onJobSucceeded(job);
     },
     [onJobSucceeded],
   );
+
+  // One register, one watch per job (R-UI-024): the same readings stand in this timeline and in the
+  // frame's jobs tray.
+  const { steps, lost } = useTrackedJobs(jobs, { onSucceeded: settled });
 
   /** I-94: case-folded fragments of the two lines a card publishes as its name — the proposed title
       and the sheet number; the filter reads the effective discipline, the same value the card
@@ -305,7 +316,14 @@ export function SheetIndex({
         )}
       </section>
 
-      <JobTimeline jobs={jobs} onSucceeded={settled} />
+      {/* I-109: the ingest is not the whole chain — until the thumbnails job the worker chains after
+          it has been asked for, this region is still running however well the ingest went. */}
+      <JobTimeline
+        heading={drawings.drawings_timeline_heading}
+        steps={steps}
+        lost={lost}
+        awaiting={jobs.some((job) => job.kind === "ingest") && !jobs.some((job) => job.kind === "thumbnails")}
+      />
 
       <section className="cx-drawings-section" aria-labelledby={headingIds.sheets}>
         <h2 className="cx-drawings-section-heading" id={headingIds.sheets}>

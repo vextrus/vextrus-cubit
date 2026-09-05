@@ -5,10 +5,11 @@
  * tokens are worth. No `[data-theme]` selector appears here.
  *
  * The px literals are the closed set the Decision § 5 fixes: the grid's column minimum, the search
- * field, the marker and its connector, and the thumbnail's ratio. Any other literal is a defect.
+ * field, and the thumbnail's ratio. Any other literal is a defect.
  *
  * Focus is not styled here: every chip, button, input and link wears the reticle from its one home
- * (B-17, R-UI-012). The timeline is the only animated region (I-92); everything else is instant.
+ * (B-17, R-UI-012). The timeline's rules are not here either: the region is the shared job pattern,
+ * painted by `src/ui/patterns/job-timeline/job-timeline.css` (docs/design/job-timeline.md I-107).
  */
 
 .cx-drawings {
@@ -86,99 +87,6 @@
   font-size: var(--text-13);
   line-height: var(--leading-ui);
   color: var(--graphite-900);
-}
-
-/* ------------------------------------------------------------------ the timeline (I-92) */
-
-.cx-drawings-steps {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cx-drawings-step {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: var(--row-comfortable);
-}
-
-[data-density="compact"] .cx-drawings-step {
-  min-height: var(--row-compact);
-}
-
-.cx-drawings-marker {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-4);
-  background-color: var(--graphite-300);
-  transition: background-color var(--motion-state) var(--ease);
-}
-
-.cx-drawings-step[data-status="running"] .cx-drawings-marker {
-  background-color: var(--beam-500);
-}
-
-.cx-drawings-step[data-status="succeeded"] .cx-drawings-marker {
-  background-color: var(--success);
-}
-
-.cx-drawings-step[data-status="failed"] .cx-drawings-marker,
-.cx-drawings-step[data-status="refused"] .cx-drawings-marker {
-  background-color: var(--danger);
-}
-
-/* The connector between a step and the one below it, filled once the step above has succeeded. */
-.cx-drawings-step + .cx-drawings-step {
-  border-top: 1px solid var(--graphite-200);
-  transition: border-color var(--motion-state) var(--ease);
-}
-
-.cx-drawings-step[data-status="succeeded"] + .cx-drawings-step {
-  border-top-color: var(--success);
-}
-
-.cx-drawings-step-name {
-  font-family: var(--font-ui);
-  font-size: var(--text-13);
-  line-height: var(--leading-ui);
-  color: var(--graphite-900);
-}
-
-.cx-drawings-step-status {
-  font-family: var(--font-ui);
-  font-size: var(--text-12);
-  font-weight: var(--weight-body-medium);
-  line-height: var(--leading-ui);
-  color: var(--graphite-600);
-  transition: color var(--motion-state) var(--ease);
-}
-
-.cx-drawings-step[data-status="running"] .cx-drawings-step-status {
-  color: var(--beam-500);
-}
-
-.cx-drawings-step[data-status="succeeded"] .cx-drawings-step-status {
-  color: var(--success);
-}
-
-.cx-drawings-step[data-status="failed"] .cx-drawings-step-status,
-.cx-drawings-step[data-status="refused"] .cx-drawings-step-status {
-  color: var(--danger);
-}
-
-.cx-drawings-step-timing {
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  line-height: var(--leading-ui);
-  color: var(--graphite-600);
-  font-variant-numeric: tabular-nums slashed-zero;
-}
-
-.cx-drawings-step-bone {
-  width: 64px;
-  height: 12px;
 }
 
 /* ------------------------------------------------------------------ the controls */

@@ -8,6 +8,7 @@ import { useTransition } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/overlay";
 import { strings } from "../strings";
 import { useFailureHandOff } from "./failure-hand-off";
+import { JobsTray } from "./jobs-tray";
 import { areaLabel, hasVisibleText, shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
 
 export interface ShellTopBarProps {
@@ -90,31 +91,38 @@ export function ShellTopBar({ workspace, area, atAreaHome, page, email, signOut 
         </ol>
       </nav>
 
-      {/* `modal={false}` for the same reason the rail's switcher carries it: the modal treatment's
-          `aria-hidden` over the rest of the frame leaves focusable links inside it, which axe
-          reports as a serious `aria-hidden-focus` — and Q-11 admits none at a checkpoint. */}
-      <DropdownMenu modal={false}>
-        {/* The visible address is the accessible name: a person reads the account they are in. */}
-        <DropdownMenuTrigger className="cx-shell-user-trigger" data-testid="shell-user">
-          {email ?? strings.shell_user_account}
-        </DropdownMenuTrigger>
-        {/* Portalled where the shipped DropdownMenu portals every menu in the tree, and styled by
-            its own classes rather than by this bar's: an open menu at the document root is an axe
-            `region` finding of moderate impact, which the design lane reports and which is below
-            the serious/critical threshold Q-11 fixes for a checkpoint (§ I-22). */}
-        <DropdownMenuContent align="end">
-          {/* Both items are peers of one menu, so both wear the menu's idiom: an item that happens
-              to be a link may not arrive underlined beside one that is not. */}
-          <DropdownMenuItem asChild data-testid="shell-user-sessions">
-            <a className="cx-shell-menu-item" href="/sessions">
-              {strings.shell_user_sessions}
-            </a>
-          </DropdownMenuItem>
-          <DropdownMenuItem data-testid="shell-user-signout" data-pending={signingOut ? "true" : undefined} onSelect={askToSignOut}>
-            {strings.shell_user_signout}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* The bar's right-hand cluster: the jobs tray R-UI-030 names among the frame's parts, then
+          the user menu. The tray renders nothing outside a JobsProvider, so a bar mounted without
+          the tenant frame above it stands exactly as it always has (shell-top-bar I-115, I-116). */}
+      <div className="cx-shell-topbar-end">
+        <JobsTray />
+
+        {/* `modal={false}` for the same reason the rail's switcher carries it: the modal treatment's
+            `aria-hidden` over the rest of the frame leaves focusable links inside it, which axe
+            reports as a serious `aria-hidden-focus` — and Q-11 admits none at a checkpoint. */}
+        <DropdownMenu modal={false}>
+          {/* The visible address is the accessible name: a person reads the account they are in. */}
+          <DropdownMenuTrigger className="cx-shell-user-trigger" data-testid="shell-user">
+            {email ?? strings.shell_user_account}
+          </DropdownMenuTrigger>
+          {/* Portalled where the shipped DropdownMenu portals every menu in the tree, and styled by
+              its own classes rather than by this bar's: an open menu at the document root is an axe
+              `region` finding of moderate impact, which the design lane reports and which is below
+              the serious/critical threshold Q-11 fixes for a checkpoint (§ I-22). */}
+          <DropdownMenuContent align="end">
+            {/* Both items are peers of one menu, so both wear the menu's idiom: an item that happens
+                to be a link may not arrive underlined beside one that is not. */}
+            <DropdownMenuItem asChild data-testid="shell-user-sessions">
+              <a className="cx-shell-menu-item" href="/sessions">
+                {strings.shell_user_sessions}
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem data-testid="shell-user-signout" data-pending={signingOut ? "true" : undefined} onSelect={askToSignOut}>
+              {strings.shell_user_signout}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   );
 }
