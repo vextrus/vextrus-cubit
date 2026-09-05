@@ -116,7 +116,10 @@ export class SDrawingsPage {
     return this.page.locator(`[data-testid="${S_DRAWINGS.jobsTrayItem}"][data-kind="${kind}"]`);
   }
 
-  /** The items' elapsed-time cells, masked in a baseline: they are real time, never twice the same. */
+  /** The items' elapsed-time cells, masked in a baseline: they are real time, never twice the same.
+      The cell stands in every state — a running item holds its bone inside it — and the journey
+      asserts the mask covers one cell per listed job, so an empty mask fails rather than passing
+      with the clock baked into the picture. */
   get jobsTrayTimings(): Locator {
     return this.jobsTrayItems.locator(".cx-jobs-tray-item-timing");
   }

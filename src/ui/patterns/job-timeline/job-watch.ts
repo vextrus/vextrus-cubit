@@ -59,13 +59,27 @@ export function watchJob(jobId: string, onReading: (reading: JobReading) => void
   let timer: ReturnType<typeof setTimeout> | null = null;
   let last: JobReading = UNANSWERED;
 
+  const close = (): void => {
+    source?.close();
+    source = null;
+  };
+
   const report = (reading: JobReading): void => {
     last = reading;
     onReading(reading);
+    // A job that has said its last word is not listened to any longer: the stream is closed here
+    // rather than waited on, so a server that holds the connection open after the terminal event
+    // cannot leave one live connection per finished job for the life of the tab (I-111).
+    if (isSettled(reading.status)) close();
   };
 
-  /** The transport is gone; whatever was last known stands, and the surface says so in words. */
+  /**
+   * The transport is gone; whatever was last known stands, and the surface says so in words. The
+   * reading is durable: the stream is closed first, so a later frame cannot quietly un-say it while
+   * the reader was never told anything recovered — the same finality the poll leg takes on a 404.
+   */
   const lostNow = (): void => {
+    close();
     report({ ...last, lost: true });
   };
 
@@ -86,11 +100,6 @@ export function watchJob(jobId: string, onReading: (reading: JobReading) => void
   const takeFault = (raw: unknown): void => {
     const event = raw as { faultId?: unknown };
     report({ status: "failed", elapsedMs: last.elapsedMs, refusalCode: null, faultId: typeof event.faultId === "string" ? event.faultId : null, lost: false });
-  };
-
-  const close = (): void => {
-    source?.close();
-    source = null;
   };
 
   /**
@@ -117,7 +126,9 @@ export function watchJob(jobId: string, onReading: (reading: JobReading) => void
     source = new EventSource(eventsHref(jobId, false));
     source.addEventListener("job", (event) => {
       // A frame this end cannot parse is a stream that is not giving us readings, which is the same
-      // answer as a transport that stopped: the last known status stands and the region says so.
+      // answer as a transport that stopped (I-108): the last known status stands, the region says so,
+      // and the stream is let go — a reading that a later frame could silently un-say is not a
+      // reading a person was ever told about.
       try {
         take(JSON.parse((event as MessageEvent<string>).data));
       } catch {

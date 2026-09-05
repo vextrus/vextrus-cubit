@@ -14,6 +14,12 @@ export const jobTimeline = {
   job_status_succeeded: "Done",
   job_status_failed: "Failed",
   job_status_refused: "Refused",
+  // The term beside a fault id, so the row names what the opaque string is rather than showing a
+  // reader a naked identifier (R-UI-050's error state: retry and the report id).
+  job_timeline_fault_term: "Report id",
+  // What a step that ended badly says when no registered entry answers it and no fault was reported.
+  // It states the absence, which is all that is known — never a reason the taxonomy never wrote.
+  job_timeline_cause_unnamed: "This step ended without a recorded reason. Try it again from the link below.",
   jobs_tray_label: "Jobs",
   jobs_tray_heading: "Jobs started in this tab",
   jobs_tray_empty: "No job has run in this tab yet. Add a drawing to a project and its progress appears here.",

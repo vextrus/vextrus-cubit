@@ -15,6 +15,7 @@
  * read twice, never two answers (B-17). The fault id stays the timeline's: it is a thread to a
  * report, not a remedy a person can act on from the frame.
  */
+import { useId } from "react";
 import { Skeleton } from "../../primitives/core";
 import { Popover, PopoverContent, PopoverTrigger } from "../../primitives/overlay";
 import { RefusalState } from "../../patterns/refusal-state";
@@ -22,25 +23,29 @@ import { kindWord, statusWord, useJobs, type TrackedJobReading } from "../../pat
 import { strings } from "../../strings";
 
 export function JobsTray() {
+  const countId = useId();
   const register = useJobs();
   if (register === null) return null;
   const { jobs, state } = register;
 
   return (
     <Popover modal={false}>
-      {/* The accessible name is the label alone; the numeral repeats it for the eye and is hidden
-          from assistive technology, which axe would otherwise grade as a serious
-          `label-content-name-mismatch` (I-117). The words reach a reader when the panel opens. */}
+      {/* The accessible name is the registered label alone: the numeral is not part of it, because a
+          name that is not the visible text is the serious `label-content-name-mismatch` axe grades
+          (I-117). The count is not sighted-only for that — it is the trigger's description, read
+          from the very element the eye reads, so both readers are told the same number from one
+          home (R-UI-012). The words themselves reach a reader when the panel opens. */}
       <PopoverTrigger
         className="cx-jobs-tray-trigger"
         data-testid="shell-jobs-tray"
         aria-haspopup="dialog"
         aria-label={strings.jobs_tray_label}
+        aria-describedby={countId}
         data-count={String(jobs.length)}
         data-state={state}
       >
         <span className="cx-jobs-tray-dot" aria-hidden="true" />
-        <span className="cx-jobs-tray-count" aria-hidden="true">
+        <span className="cx-jobs-tray-count" id={countId} aria-hidden="true">
           {jobs.length}
         </span>
       </PopoverTrigger>
@@ -81,11 +86,12 @@ function TrayItem({ job }: { job: TrackedJobReading }) {
       <span className="cx-jobs-tray-item-kind">{kindWord(job.kind)}</span>
       <span className="cx-jobs-tray-item-line">
         <span className="cx-jobs-tray-item-status">{statusWord(job.status)}</span>
-        {job.status === "running" && job.timing === null ? (
-          <Skeleton className="cx-jobs-tray-item-bone" />
-        ) : (
-          <span className="cx-jobs-tray-item-timing">{job.timing ?? ""}</span>
-        )}
+        {/* The elapsed cell stands in every state, holding the bone while no number exists rather
+            than standing in its place: it is the cell a baseline masks, and a mask that matches
+            nothing bakes real elapsed time into the picture instead of failing. */}
+        <span className="cx-jobs-tray-item-timing">
+          {job.status === "running" && job.timing === null ? <Skeleton className="cx-jobs-tray-item-bone" /> : job.timing}
+        </span>
       </span>
       {/* Exactly one, and only when the register resolved a registered entry for this job. */}
       {job.refusal === null ? null : (

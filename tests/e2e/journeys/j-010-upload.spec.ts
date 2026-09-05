@@ -118,6 +118,9 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
         await expect(drawings.jobsTrayItem(kind), `the tray holds the ${kind} job this tab started`).toHaveCount(1);
         await expect(drawings.jobsTrayItem(kind), `the ${kind} job stands in the tray as done`).toHaveAttribute("data-status", "succeeded");
       }
+      // The mask is proved to cover what it names before the picture is taken: a locator that
+      // matched nothing would bake real elapsed time into the baseline and never say so.
+      await expect(drawings.jobsTrayTimings, "every listed job's elapsed cell is under the mask").toHaveCount(2);
       await expect(drawings.jobsTrayPanel).toHaveScreenshot("job-timeline-tray-open.png", {
         animations: "disabled",
         maxDiffPixelRatio: 0.002,

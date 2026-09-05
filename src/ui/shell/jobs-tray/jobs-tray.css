@@ -143,6 +143,8 @@
 }
 
 .cx-jobs-tray-item-timing {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--font-mono);
   font-size: var(--text-12);
   line-height: var(--leading-ui);

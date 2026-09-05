@@ -87,10 +87,14 @@ function Step({ step }: { step: TimelineStep }) {
 }
 
 /**
- * Why a step ended as it did, and never silence (C-SPINE-JOBS, R-UI-020). A refused step renders the
- * one RefusalState with the registered message, remedy and its own evidence; a failed step names the
- * fault id verbatim and offers the same place to try again. Fabricating a refusal card for a fault
- * would put a sentence in a person's mouth the taxonomy never wrote (I-110).
+ * Why a step ended as it did, and never silence (C-SPINE-JOBS: "a job never fails silently";
+ * R-UI-020: "a refusal is never a toast alone … silence never happens"). A refused step whose code
+ * the register holds renders the one RefusalState with the registered message, remedy and its own
+ * evidence. A step that ended badly with no entry to render — a fault, or a code the taxonomy never
+ * wrote — says what is known instead of standing on the status word alone: the fault id under the
+ * term that says what the string is, or the sentence that no reason was recorded, and in both cases
+ * the evidence link, which is the place to act. Fabricating a refusal card for either would put a
+ * sentence in a person's mouth the taxonomy never wrote (I-110).
  */
 function Cause({ step }: { step: TimelineStep }) {
   if (step.refusal !== null) {
@@ -100,17 +104,23 @@ function Cause({ step }: { step: TimelineStep }) {
       </div>
     );
   }
-  if (step.status === "failed" && step.faultId !== null) {
-    return (
-      <div className="cx-job-timeline-cause">
-        <p className="cx-job-timeline-fault" data-testid="job-timeline-step-fault">
-          {step.faultId}
+  if (step.status !== "failed" && step.status !== "refused") return null;
+  return (
+    <div className="cx-job-timeline-cause">
+      {step.faultId === null ? (
+        <p className="cx-job-timeline-unnamed">{strings.job_timeline_cause_unnamed}</p>
+      ) : (
+        <p className="cx-job-timeline-fault-line">
+          <span className="cx-job-timeline-fault-term">{strings.job_timeline_fault_term}</span>{" "}
+          {/* The id and nothing else: it is echoed exactly as it was handed over (AC-2, I-110). */}
+          <span className="cx-job-timeline-fault" data-testid="job-timeline-step-fault">
+            {step.faultId}
+          </span>
         </p>
-        <a className="cx-job-timeline-evidence cx-reticle" href={step.evidence.href}>
-          {step.evidence.label}
-        </a>
-      </div>
-    );
-  }
-  return null;
+      )}
+      <a className="cx-job-timeline-evidence cx-reticle" href={step.evidence.href}>
+        {step.evidence.label}
+      </a>
+    </div>
+  );
 }

@@ -72,6 +72,16 @@ primitives — the core Skeleton, the one RefusalState — plus the classes this
   back to the screen that started the job — the tray is reachable from every screen, and a word
   without a remedy is exactly the silence the clause names. The `jobs-tray` row of `states.ts` always
   declared this cell delegated to the one renderer; the panel now honours it.
+- **I-122 — a cause with no entry is still a cause, and the timeline is where it is answered.** The
+  register resolves a refusal by lookup, so a `refused` frame carrying a code the registry does not
+  hold — or none — leaves the step with no entry to render. The status word alone is then the whole
+  answer, which is the silence R-UI-020 forbids and C-SPINE-JOBS' "a job never fails silently". The
+  step therefore says what is known: the fault id under its term when one was reported, otherwise
+  `job_timeline_cause_unnamed`, and in both cases the evidence link — the place to act, which the
+  clause asks for in every case. Rejected: inventing a registry entry for an unregistered code
+  (a sentence the taxonomy never wrote, I-110), and carrying the raw code into the row (a taxonomy
+  token is not copy). The tray is unchanged by this: its `error` cell is declared delegated to the
+  timeline in `states.ts`, and an unnamed cause is that cell, not the `refusal` cell it renders.
 - **I-114 — permission-denied is not a cell of this pattern.** The register holds the jobs this browser
   tab started, watched under the session that started them; there is no "someone else's job" to be denied
   and no permission to name. The workspace denial precedes the frame (shell I-17) and the seam's own
@@ -98,7 +108,9 @@ padding 0, column flex, gap 0 (the connector carries the vertical rhythm). Steps
 down the page — the order the operations were started, which is the order they finish.
 
 **Step row** — `<li data-testid="job-timeline-step" data-job={jobId} data-kind data-status>`:
-grid `auto 1fr auto`, column gap `var(--space-3)`, align-items center, min-height
+grid `auto minmax(0, 1fr) auto auto` — a column each for the four cells the row holds (marker, kind,
+status, timing), the slack the kind's, so every kind word reads from the same left edge however the
+words either side of it are sized — column gap `var(--space-3)`, align-items center, row height
 `var(--row-comfortable)`, re-keyed `var(--row-compact)` under an ancestor `[data-density="compact"]`
 (R-UI-005, the dropzone I-75 mechanism). `data-job` is absent when the job id is null (I-112).
 
@@ -116,14 +128,19 @@ grid `auto 1fr auto`, column gap `var(--space-3)`, align-items center, min-heigh
   `justify-self: end`. A `running` step whose timing is null holds a core Skeleton of 12 × 64 px in that
   cell instead and shows no digits — the layout never shifts when the number lands, and the pulse comes
   from the Skeleton's single home (R-UI-004: skeletons, never spinners).
-- **Terminal cause** — spanning all three columns beneath the row, at `var(--space-2)` above and
+- **Terminal cause** — spanning the row's columns beneath it, at `var(--space-2)` above and
   `var(--space-3)` below: a **refused** step renders exactly one RefusalState (`inline` surface — the
   entry's own hint, refusal-state I-8) with the step's `evidence`; a **failed** step renders
-  `<p data-testid="job-timeline-step-fault">` whose only text node is the fault id, `var(--font-mono)`
-  `var(--text-12)` `var(--graphite-700)`, `user-select: all`, followed by the step's evidence as an
-  `<a class="cx-job-timeline-evidence cx-reticle">` in the house evidence idiom (`var(--text-13)`
-  `var(--weight-body-medium)` `var(--beam-600)`, underlined, hover `var(--beam-500)`) (I-110). A step
-  with neither renders neither element.
+  the fault id under the term `strings.job_timeline_fault_term`, so the row never hands a reader a
+  naked identifier: the term is `var(--font-ui)` `var(--text-12)` `var(--graphite-600)` and the id is
+  `<span data-testid="job-timeline-step-fault">` whose only text node is the id itself,
+  `var(--font-mono)` `var(--text-12)` `var(--graphite-700)`, `user-select: all`. Both are followed by
+  the step's evidence as an `<a class="cx-job-timeline-evidence cx-reticle">` in the house evidence
+  idiom (`var(--text-13)` `var(--weight-body-medium)` `var(--beam-600)`, underlined, hover
+  `var(--beam-500)`) (I-110). A step that ended `failed` or `refused` with neither an entry nor a
+  fault id — a code the register does not hold, or none sent — renders
+  `strings.job_timeline_cause_unnamed` in the term's own type, followed by that same evidence link
+  (I-122). A step that ended neither way renders none of these elements.
 
 **Idle** — `<p data-testid="job-timeline-idle">` `strings.job_timeline_idle`, `var(--text-13)`
 `var(--graphite-600)`; no step renders beside it. **Transport lost** — the `role="status"` line
@@ -187,7 +204,9 @@ to this matrix (shell I-15 is amended in `docs/design/shell-top-bar.md` §0).
 jobs stand.** · `job_step_ingest` **Read the drawing** · `job_step_thumbnails` **Draw the sheet
 previews** · `job_step_probe` **Check that drawings can be read** · `job_status_queued` **Queued** ·
 `job_status_running` **Running** · `job_status_succeeded` **Done** · `job_status_failed` **Failed** ·
-`job_status_refused` **Refused** · `jobs_tray_label` **Jobs** · `jobs_tray_heading` **Jobs started in
+`job_status_refused` **Refused** · `job_timeline_fault_term` **Report id** ·
+`job_timeline_cause_unnamed` **This step ended without a recorded reason. Try it again from the link
+below.** · `jobs_tray_label` **Jobs** · `jobs_tray_heading` **Jobs started in
 this tab** · `jobs_tray_empty` **No job has run in this tab yet. Add a drawing to a project and its
 progress appears here.**
 
