@@ -142,6 +142,39 @@ export function qualified(table: TableRef): string {
 }
 
 /**
+ * The given tables plus every table that references them, transitively — the set a single TRUNCATE
+ * has to name for the statement to reach the tables' own belts at all.
+ *
+ * Postgres runs `heap_truncate_check_FKs` BEFORE any BEFORE TRUNCATE trigger fires, so a TRUNCATE
+ * that leaves a referencing table out dies at 0A000 before the belt is reached. Truncating a ledger
+ * beside its referrers is therefore the only statement that puts the belt itself in the way — and
+ * it is the harder question too, since it asks the belt to hold while nothing else stands between
+ * the owner and an emptied ledger. Derived from the catalogue, so a draft table a later increment
+ * hangs off a ledger joins the statement the moment it lands (B-19).
+ */
+export function referencingClosure(url: string, tables: readonly TableRef[]): TableRef[] {
+  const found = new Map(tables.map((table) => [qualified(table), table]));
+  for (let frontier = [...tables]; frontier.length > 0; ) {
+    const named = frontier.map((table) => `(${lit(table.schema)}, ${lit(table.table)})`).join(", ");
+    const referrers = run(
+      url,
+      `select distinct cn.nspname, ch.relname
+         from pg_constraint c
+         join pg_class ch on ch.oid = c.conrelid
+         join pg_namespace cn on cn.oid = ch.relnamespace
+         join pg_class pr on pr.oid = c.confrelid
+         join pg_namespace pn on pn.oid = pr.relnamespace
+        where c.contype = 'f' and (pn.nspname, pr.relname) in (${named})
+        order by 1, 2;`,
+    ).map((row) => ({ schema: row[0] ?? "", table: row[1] ?? "", sql: `${ident(row[0] ?? "")}.${ident(row[1] ?? "")}` }));
+
+    frontier = referrers.filter((table) => !found.has(qualified(table)));
+    for (const table of frontier) found.set(qualified(table), table);
+  }
+  return [...found.values()];
+}
+
+/**
  * The columns a row of this table cannot be built without: NOT NULL, no default, not generated and
  * not an identity — minus tenant_id, which the caller always supplies itself.
  */
