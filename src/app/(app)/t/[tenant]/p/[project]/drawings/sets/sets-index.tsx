@@ -64,7 +64,7 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
     }
     // The new set standing open is the answer — no toast, and nothing here says it twice. The set
     // is server-read at its own address, so the way to it is the address itself.
-    open(setRoute(tenantId, projectId, answered.setId));
+    standAt(setRoute(tenantId, projectId, answered.setId));
   };
 
   return (
@@ -154,7 +154,7 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
 }
 
 /** Stand the browser at an address of this product's own — the one navigation this screen makes. */
-function open(href: string): void {
+function standAt(href: string): void {
   if (typeof window === "undefined") return;
   window.location.assign(href);
 }

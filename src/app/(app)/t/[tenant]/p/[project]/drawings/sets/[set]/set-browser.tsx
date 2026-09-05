@@ -122,6 +122,9 @@ export function SetBrowser({
   };
 
   const cause = emptinessOf(lineages, members, set.revisions);
+  // I-97: exactly one of these stands at a time, and it stands whether or not this reader may pin —
+  // the section around it is what a denial takes away, never the answer to why there is nothing here.
+  const emptiness = cause === null ? null : <Empty cause={cause} tenantId={tenantId} projectId={projectId} />;
 
   return (
     <div className="cx-set" data-testid="set-browser" data-set={set.setId}>
@@ -173,12 +176,12 @@ export function SetBrowser({
         </div>
       </section>
 
-      <section className="cx-sets-section" aria-labelledby={headingIds.pin}>
-        <h2 className="cx-sets-section-heading" id={headingIds.pin}>
-          {sets.sets_pin_heading}
-        </h2>
-        <p className="cx-sets-hint">{sets.sets_pin_hint}</p>
-        {canPin ? (
+      {canPin ? (
+        <section className="cx-sets-section" aria-labelledby={headingIds.pin}>
+          <h2 className="cx-sets-section-heading" id={headingIds.pin}>
+            {sets.sets_pin_heading}
+          </h2>
+          <p className="cx-sets-hint">{sets.sets_pin_hint}</p>
           <Button
             className="cx-set-pin"
             data-testid="set-pin"
@@ -190,15 +193,17 @@ export function SetBrowser({
           >
             {sets.sets_pin_submit}
           </Button>
-        ) : null}
-        <p className="cx-sets-status" role="status" aria-live="polite">
-          {pending ? sets.sets_pin_pending : committed ? sets.sets_pin_committed : ""}
-        </p>
-        <div className="cx-sets-answer">
-          {pinRefusal === null || pending ? null : <RefusalState refusal={refusalOf(pinRefusal)} evidence={evidenceFor(pinRefusal)} />}
-        </div>
-        {cause === null ? null : <Empty cause={cause} tenantId={tenantId} projectId={projectId} />}
-      </section>
+          <p className="cx-sets-status" role="status" aria-live="polite">
+            {pending ? sets.sets_pin_pending : committed ? sets.sets_pin_committed : ""}
+          </p>
+          <div className="cx-sets-answer">
+            {pinRefusal === null || pending ? null : <RefusalState refusal={refusalOf(pinRefusal)} evidence={evidenceFor(pinRefusal)} />}
+          </div>
+          {emptiness}
+        </section>
+      ) : (
+        emptiness
+      )}
 
       <section className="cx-sets-section" aria-labelledby={headingIds.revisions}>
         <h2 className="cx-sets-section-heading" id={headingIds.revisions}>
