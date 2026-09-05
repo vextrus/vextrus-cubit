@@ -47,9 +47,62 @@ export type StagedSheet = {
   projectId: string;
   drawingId: string;
   layoutName: string;
+  /** Every record the sheet draws — its entities, and the derived paint where some was asked for. */
   entityCount: number;
+  /** The atoms a source key names: the sheet's own entities, whatever they paint (L-CAD-03, I-86). */
+  keyCount: number;
   layerNames: string[];
+  /** The synthesised paint the sheet carries, where one was asked for (I-86) — else null. */
+  derived: DerivedPaint | null;
 };
+
+/**
+ * One piece of derived paint: geometry that is not an atom of its own, standing at a spot of the
+ * sheet no original entity is near, and naming the instance key it was painted from. A reading of
+ * an exploded block is exactly this shape (L-CAD-03), and it is what proves a derived record is
+ * read out under its parent's source key rather than under an identity nobody can name.
+ */
+export type DerivedPaint = {
+  /** The parent instance's key — the key the inspector owes for this paint (I-86). */
+  srcKey: string;
+  /** The world point the pointer meets it at: the midpoint of the segment it paints. */
+  at: [number, number];
+  /** How far the nearest original entity's geometry stands from that point, in drawing units. */
+  clearance: number;
+};
+
+/** How long a segment the derived paint is, and how far it must stand from anything else. */
+const DERIVED_SPAN = 10;
+const DERIVED_CLEARANCE = 40;
+
+/**
+ * A spot of the sheet no original vertex stands within `DERIVED_CLEARANCE` of, found by walking a
+ * grid over the sheet's own box and keeping the emptiest candidate. Derived from the staged graph,
+ * so a sheet of another size or seed answers its own empty spot rather than a point typed here.
+ */
+function emptiestSpot(entities: readonly { points?: readonly (readonly [number, number])[] }[], box: { min: [number, number]; max: [number, number] }): {
+  at: [number, number];
+  clearance: number;
+} {
+  const vertices = entities.flatMap((entity) => [...(entity.points ?? [])]);
+  let best: { at: [number, number]; clearance: number } = { at: [0, 0], clearance: -1 };
+  const steps = 24;
+  for (let column = 1; column < steps; column += 1) {
+    for (let row = 1; row < steps; row += 1) {
+      const at: [number, number] = [
+        box.min[0] + ((box.max[0] - box.min[0]) * column) / steps,
+        box.min[1] + ((box.max[1] - box.min[1]) * row) / steps,
+      ];
+      let nearest = Number.POSITIVE_INFINITY;
+      for (const vertex of vertices) {
+        const gap = Math.hypot(vertex[0] - at[0], vertex[1] - at[1]);
+        if (gap < nearest) nearest = gap;
+      }
+      if (nearest > best.clearance) best = { at, clearance: nearest };
+    }
+  }
+  return best;
+}
 
 /** Import a product module by repo-relative path, saying which file is missing when one is. */
 async function productModule<T = Record<string, unknown>>(relative: string): Promise<T> {
@@ -83,15 +136,18 @@ function standInExtractor(artifact: Uint8Array): string {
  * A member of a fresh workspace, a project of theirs, a drawing uploaded through the shipped door,
  * and a recorded reading of that drawing which is the synthetic sheet of the size asked for.
  */
-export async function stageSyntheticSheet(page: Page, options: { entities: number }): Promise<StagedSheet> {
+export async function stageSyntheticSheet(page: Page, options: { entities: number; derivedPaint?: boolean }): Promise<StagedSheet> {
   const auth = new SAuthPage(page);
   const shell = new ShellPage(page);
   const home = new SHomePage(page);
   const uploads = new UploadPage(page);
 
-  const email = `j011-${RUN}@cubit.test`;
-  const password = `viewer-journey-${RUN}`;
-  const project = `Sattva Viewer ${RUN}`;
+  // Per call, not per module: two specs of this journey stage their own sheets, and a worker that
+  // keeps this module between them would otherwise enrol the same address twice.
+  const mark = `${RUN}${randomUUID().slice(0, 6)}`;
+  const email = `j011-${mark}@cubit.test`;
+  const password = `viewer-journey-${mark}`;
+  const project = `Sattva Viewer ${mark}`;
 
   /* --- this journey's own identity, so its sheet never lands in another spec's workspace --- */
   await auth.open(S_AUTH.signUp);
@@ -136,8 +192,28 @@ export async function stageSyntheticSheet(page: Page, options: { entities: numbe
   const drawingId = uploads.onlyDrawing(last).drawingId;
 
   /* --- the reading of it: the shipped job, with the synthetic sheet standing in for the extractor --- */
-  const artifact = syntheticArtifact({ entities: options.entities, layers: 4, seed: 11 });
-  const graph = syntheticEntityGraph({ entities: 1, layers: 4, seed: 11 });
+  const graph = syntheticEntityGraph({ entities: options.derivedPaint === true ? options.entities : 1, layers: 4, seed: 11 });
+  let derived: DerivedPaint | null = null;
+  let artifact = syntheticArtifact({ entities: options.entities, layers: 4, seed: 11 });
+  if (options.derivedPaint === true) {
+    // One piece of synthesised paint, standing where nothing else does and carrying no key of its
+    // own — the shape L-CAD-03 gives an exploded block instance (I-86). The whole graph is re-encoded
+    // rather than patched as text, so the artifact stays exactly what the Zod mirror parses.
+    const layout = graph.layouts[0] as { bbox: { min: [number, number]; max: [number, number] } };
+    const parent = graph.entities[0] as { key: string; layer: string; colour: { rgb: [number, number, number]; source: "bylayer" } };
+    const spot = emptiestSpot(graph.entities, layout.bbox);
+    expect(spot.clearance, "the sheet leaves a spot for derived paint no original entity stands in").toBeGreaterThan(DERIVED_CLEARANCE);
+    const points: [number, number][] = [
+      [spot.at[0] - DERIVED_SPAN / 2, spot.at[1]],
+      [spot.at[0] + DERIVED_SPAN / 2, spot.at[1]],
+    ];
+    const carrying = {
+      ...graph,
+      derived: [{ src: parent.key, type: "LINE", space: graph.layouts[0]?.name ?? SYNTHETIC_LAYOUT, layer: parent.layer, colour: parent.colour, points }],
+    };
+    artifact = new TextEncoder().encode(JSON.stringify(carrying));
+    derived = { srcKey: parent.key, at: [spot.at[0], spot.at[1]], clearance: spot.clearance };
+  }
   const command = standInExtractor(artifact);
   const held = process.env[CAD_COMMAND_VAR];
   process.env[CAD_COMMAND_VAR] = command;
@@ -167,7 +243,10 @@ export async function stageSyntheticSheet(page: Page, options: { entities: numbe
     projectId,
     drawingId,
     layoutName: graph.layouts[0]?.name ?? SYNTHETIC_LAYOUT,
-    entityCount: options.entities,
+    // What the sheet draws: its own entities, and the piece of derived paint where one was asked for.
+    entityCount: options.entities + (derived === null ? 0 : 1),
+    keyCount: options.entities,
     layerNames: syntheticLayerNames(4),
+    derived,
   };
 }

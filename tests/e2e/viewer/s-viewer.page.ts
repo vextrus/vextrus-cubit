@@ -6,6 +6,10 @@
 // page-object directory, and this increment claims none of it.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { inflateSync } from "node:zlib";
+// The projection the sheet is painted through, inherited from inc-110 and not under test here: a
+// journey that needs the screen point of a world point inverts the shipped mapping rather than
+// re-deriving one of its own, so no acceptance carries a second opinion about where a sheet is.
+import { worldAt } from "../../../src/modules/takeoff/viewer/client";
 
 /** The addresses S-Viewer answers at (test contract). */
 export const S_VIEWER = Object.freeze({
@@ -295,6 +299,56 @@ export class SViewerPage {
     return { x: at.x + at.width / 2, y: at.y + at.height / 2 };
   }
 
+  /**
+   * Where a world point stands on screen right now, taken by inverting the shipped projection at the
+   * camera the address states: two probes of `worldAt` give the axes' scale and origin, so neither
+   * the sign of the y axis nor the fit margin is a number this file has an opinion about.
+   */
+  async screenPointOf(world: readonly [number, number]): Promise<{ x: number; y: number }> {
+    const box = await this.canvasBox();
+    const stated = await this.cameraFromAddress();
+    const camera = { centre: [stated.x, stated.y] as [number, number], scale: stated.scale, viewport: { width: box.width, height: box.height } };
+    const origin = worldAt(camera, { x: 0, y: 0 });
+    const unit = worldAt(camera, { x: 1, y: 1 });
+    const perPixelX = unit[0] - origin[0];
+    const perPixelY = unit[1] - origin[1];
+    expect(perPixelX !== 0 && perPixelY !== 0, "the camera maps pixels onto the drawing at a scale of its own").toBe(true);
+    return { x: box.x + (world[0] - origin[0]) / perPixelX, y: box.y + (world[1] - origin[1]) / perPixelY };
+  }
+
+  /**
+   * The pointer put on an entity: the anchor is where the projection says it stands, and a few
+   * pixels around it are tried in turn because a sheet is drawn to a fraction of a pixel and a
+   * diagonal line is thin. Answers where the pointer met something and what the panel read there.
+   */
+  async hoverNear(anchor: { x: number; y: number }, reachPx = 60): Promise<{ at: { x: number; y: number }; key: string }> {
+    // Two sweeps in fine steps rather than a coarse grid: a drawn line is a couple of pixels wide,
+    // and any line crossing this neighbourhood crosses one of these two rows of probes.
+    const step = 4;
+    for (const sweep of [{ dx: 1, dy: 0 }, { dx: 0, dy: 1 }]) {
+      for (let offset = 0; offset <= reachPx; offset += step) {
+        for (const sign of offset === 0 ? [1] : [1, -1]) {
+          const at = { x: anchor.x + sweep.dx * offset * sign, y: anchor.y + sweep.dy * offset * sign };
+          await this.page.mouse.move(at.x, at.y);
+          await this.page.waitForTimeout(40);
+          if ((await this.hover.count()) > 0) {
+            const key = (await this.hover.getAttribute("data-key")) ?? "";
+            if (key !== "") return { at, key };
+          }
+        }
+      }
+    }
+    expect(null, `the pointer met an entity within ${reachPx} px of (${anchor.x}, ${anchor.y}) — the sheet reads out what is under it`).not.toBeNull();
+    throw new Error("no entity under the pointer");
+  }
+
+  /** The centre of one selected row's world box — where that entity stands on the drawing. */
+  async rowCentre(row: Locator): Promise<[number, number]> {
+    const bbox = (await row.getAttribute("data-bbox")) ?? "";
+    const box = SViewerPage.boxOf(bbox);
+    return [(box.minX + box.maxX) / 2, (box.minY + box.maxY) / 2];
+  }
+
   /** A click of no travel at all: down and up in the same place, which is a select and not a pan. */
   async clickAt(at: { x: number; y: number }, modifier?: "Shift"): Promise<void> {
     if (modifier !== undefined) await this.page.keyboard.down(modifier);
@@ -368,8 +422,8 @@ export class SViewerPage {
       `/api/viewer/${drawingId}/${encodeURIComponent(layoutName)}?tenant=${encodeURIComponent(tenantId)}&part=layer&index=${index}`,
     );
     expect(answer.ok(), `the layer feed answers layer ${index} of ${layoutName}`).toBe(true);
-    const body = (await answer.json()) as { records: { key?: string; src?: string; type: string }[] };
-    const found = body.records.find((record) => record.type === type && (record.key ?? record.src ?? "") !== "");
+    const body = (await answer.json()) as { records: { key?: string; src?: string; type: string; points?: unknown[] }[] };
+    const found = body.records.find((record) => record.type === type && (record.key ?? "") !== "" && (record.points?.length ?? 0) === 2);
     expect(found, `layer ${index} of ${layoutName} carries a ${type} to select`).toBeTruthy();
     const record = found as { key?: string; src?: string; type: string };
     return { key: record.key ?? record.src ?? "", type: record.type };
@@ -381,17 +435,26 @@ export class SViewerPage {
    * geometry on (B-19).
    */
   async findRecordOfType(drawingId: string, layoutName: string, tenantId: string, type: string, layers = 32): Promise<{ key: string; type: string }> {
+    const fallback: { key: string; type: string }[] = [];
     for (let index = 0; index < layers; index += 1) {
       const answer = await this.page.request.get(
         `/api/viewer/${drawingId}/${encodeURIComponent(layoutName)}?tenant=${encodeURIComponent(tenantId)}&part=layer&index=${index}`,
       );
       if (!answer.ok()) break;
-      const body = (await answer.json()) as { records: { key?: string; src?: string; type: string }[] };
-      const found = body.records.find((record) => record.type === type && (record.key ?? record.src ?? "") !== "");
-      if (found !== undefined) return { key: found.key ?? found.src ?? "", type: found.type };
+      const body = (await answer.json()) as { records: { key?: string; src?: string; type: string; points?: unknown[] }[] };
+      // An atom of two points: it has a key of its own (never synthesised paint, I-86) and its box
+      // centre is its own midpoint, which is what makes "the sheet flies to it and it is under the
+      // middle of the stage" true of it. A sheet whose geometry is all inside block instances has
+      // none, so any keyed record with geometry stands in.
+      const two = body.records.find((record) => record.type === type && (record.key ?? "") !== "" && (record.points?.length ?? 0) === 2);
+      if (two !== undefined) return { key: two.key ?? "", type: two.type };
+      for (const record of body.records) {
+        const identity = record.key ?? record.src ?? "";
+        if (identity !== "" && record.type === type) fallback.push({ key: identity, type: record.type });
+      }
     }
-    expect(null, `the sheet ${layoutName} carries a ${type} for this journey to select`).not.toBeNull();
-    throw new Error(`no ${type} on ${layoutName}`);
+    expect(fallback[0], `the sheet ${layoutName} carries a ${type} for this journey to select`).toBeTruthy();
+    return fallback[0] as { key: string; type: string };
   }
 
   /** The paper in the canvas's own top-left corner, as luminance — the dark/light proof (§6). */

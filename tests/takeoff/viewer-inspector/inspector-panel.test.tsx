@@ -12,7 +12,7 @@
  */
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 import { syntheticKey } from "../viewer/support/synthetic-graph";
 import {
   INSPECTOR_PANEL_MODULE,
@@ -101,12 +101,20 @@ function rows(): HTMLElement[] {
   return within(panel()).queryAllByTestId("viewer-inspector-entity");
 }
 
-beforeEach(() => {
-  // The panel writes a key to the clipboard through its caller; jsdom carries no clipboard of its
-  // own, so one is put there and read back rather than mocked away.
-  const writeText = vi.fn(async () => undefined);
-  Object.defineProperty(globalThis.navigator, "clipboard", { value: { writeText }, configurable: true, writable: true });
-});
+/**
+ * A clipboard whose writes this file can read back. It is installed AFTER `userEvent.setup()`, which
+ * replaces `navigator.clipboard` with a stub of its own the moment it is called — a spy put there
+ * before that call is gone by the time anything is asserted about it.
+ */
+function watchedClipboard(): string[] {
+  const written: string[] = [];
+  Object.defineProperty(globalThis.navigator, "clipboard", {
+    value: { writeText: async (value: string) => void written.push(value), readText: async () => written.at(-1) ?? "" },
+    configurable: true,
+    writable: true,
+  });
+  return written;
+}
 
 afterEach(() => {
   cleanup();
@@ -176,6 +184,7 @@ describe("AC-3: every listed key is copyable, one at a time", () => {
     await prepare();
     const copied: string[] = [];
     const person = userEvent.setup();
+    const written = watchedClipboard();
     render(<InspectorPanel {...props({ selection: SELECTED, onCopy: async (key: string) => void copied.push(key) })} />);
 
     const first = rows()[0] as HTMLElement;
@@ -187,10 +196,9 @@ describe("AC-3: every listed key is copyable, one at a time", () => {
     await person.click(button);
 
     expect(copied, "the key is handed over exactly as it stands — no scheme stripped, nothing trimmed").toEqual([key]);
-    const written = (globalThis.navigator.clipboard.writeText as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((call) => call[0]);
     expect(
       written.every((value) => value === key),
-      `whatever the panel put on the clipboard, it was that key and nothing else: ${JSON.stringify(written)}`,
+      `whatever the panel put on the clipboard itself, it was that key and nothing else: ${JSON.stringify(written)}`,
     ).toBe(true);
 
     expect(button.getAttribute("data-copied"), "the button says it holds the copied key").toBe("true");

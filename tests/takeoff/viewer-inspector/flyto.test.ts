@@ -57,6 +57,32 @@ describe("AC-3: a reveal frames the selection, inside the camera's own band", ()
     expect(Math.min(visible.width / width, visible.height / height), "the box is padded rather than pressed against the edges").toBeGreaterThan(1);
   });
 
+  test("AC-3: the frame is the selection's own size — the same padding, whatever the box", async () => {
+    const { revealCamera } = await flytoModule();
+
+    // Two boxes of the same shape, one a hundred times the other. Padding is stated as a ratio of the
+    // box's own extent (§5), so the frame each is shown in is the same multiple of itself — which a
+    // camera that always answered one fixed, sheet-wide scale could not be.
+    const small: IndexBox = { min: [100, 100], max: [110, 110] };
+    const large: IndexBox = { min: [100, 100], max: [1100, 1100] };
+    const framed = (box: IndexBox): number => {
+      const camera = revealCamera(box, VIEWPORT);
+      const width = box.max[0] - box.min[0];
+      const height = box.max[1] - box.min[1];
+      return Math.min(VIEWPORT.width / camera.scale / width, VIEWPORT.height / camera.scale / height);
+    };
+
+    const tight = framed(small);
+    const wide = framed(large);
+    expect(tight, `a selection is framed with room around it, not pressed to the edge (${tight})`).toBeGreaterThan(1);
+    expect(tight, `and it is framed ON the selection, not lost in the sheet around it (${tight})`).toBeLessThan(2);
+    expect(wide, `the same holds for a box a hundred times larger (${wide})`).toBeGreaterThan(1);
+    expect(Math.abs(tight - wide) / tight, `the padding is a ratio, so both boxes are framed alike (${tight} vs ${wide})`).toBeLessThan(0.01);
+
+    const ratio = revealCamera(small, VIEWPORT).scale / revealCamera(large, VIEWPORT).scale;
+    expect(Math.abs(ratio - 100) / 100, `and a box a hundred times smaller is seen a hundred times closer (${ratio})`).toBeLessThan(0.01);
+  });
+
   test("AC-3: a box of no extent is still somewhere the camera can stand", async () => {
     const { revealCamera } = await flytoModule();
     const band = await scaleBand();

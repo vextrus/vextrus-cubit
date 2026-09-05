@@ -45,9 +45,6 @@ const SHEET = "FOUNDATION PLAN";
 /** How long the extraction and the rasters may take — one `uv run` and three tiers per sheet. */
 const FAN_OUT_BUDGET_MS = 90_000;
 
-/** The scheme a DXF reading keys its atoms under (L-CAD-03). */
-const SCHEME = "DXF_HANDLE:";
-
 /** The sheet names the declared fixture identity itself carries (B-19: imported, never retyped). */
 function manifestSheetNames(): string[] {
   const manifest = JSON.parse(readFileSync(MANIFEST, "utf8")) as { sheets?: { name?: string }[] };
@@ -147,27 +144,28 @@ test.describe("J-000 — Golden Path: the uploaded drawing's sheet opens, and on
       await expect(viewer.screen, "the address that names a key and no camera flies to it (I-85)").toHaveAttribute("data-flyto", "settled", { timeout: 120_000 });
       expect(await viewer.selectedKeys(), "the key the address named is what is held").toEqual([record.key]);
 
-      const centre = await viewer.canvasCentre();
-      await page.mouse.move(centre.x, centre.y);
-      await expect(viewer.hover, "the flown-to entity is under the middle of the sheet, and reads out there").toBeVisible();
+      // No pointer geometry on this corpus: F-RCC6's sheets are drawn from block instances, whose
+      // extent is the union of every place they paint, so "the middle of the stage" is not where an
+      // instance's own line stands. What the address named is judged where it is published — in the
+      // panel — and the pointer's own reading is J-011's leg, on a sheet built to be pointed at.
 
       const copied = await viewer.copyKey(viewer.entities.first());
       expect(copied, "the row copied is the entity the link named").toBe(record.key);
       expect(await viewer.clipboardText(), "the clipboard holds the source key of the drawing, whole and unstripped (R-TO-011)").toBe(record.key);
       expect(record.key, "which is a source key of this reading's own scheme").toMatch(/^DXF_HANDLE:[0-9A-F]+$/);
       await expect(viewer.entities.first().getByTestId("viewer-inspector-key"), "and the row shows it whole").toHaveText(record.key);
-      await expect(page.getByTestId("viewer-inspector-hover-handle"), "the hover reads the handle of what is under the pointer").toHaveText(
-        ((await viewer.hover.getAttribute("data-key")) ?? "").slice(SCHEME.length),
-      );
 
+      // The address now states the camera the fly-to left as well as the selection, so reloading it
+      // restores both and flies nowhere: a shared link shows the viewport its author framed (I-85).
+      const shared = page.url();
+      const framed = await viewer.viewportParam();
       await page.reload({ waitUntil: "commit" });
-      await expect(viewer.screen, "the address is the whole state: reloading the link restores the sheet, the camera and the selection").toHaveAttribute(
-        "data-flyto",
-        "settled",
-        { timeout: 120_000 },
-      );
+      await expect(viewer.inspector, "the address is the whole state: reloading the link restores the selection").toHaveAttribute("data-count", "1", {
+        timeout: 120_000,
+      });
       expect(await viewer.selectedKeys(), "the same entity is selected again, from the address alone").toEqual([record.key]);
-      await expect(viewer.inspector).toHaveAttribute("data-count", "1");
+      expect(await viewer.viewportParam(), "and the camera the link carried is the camera it opens at").toBe(framed);
+      expect(page.url(), "the address a reader would share is the address they get back").toBe(shared);
 
       // The frame the baseline compares holds the selection alone: the pointer is taken off the
       // sheet first, so a hover cell that depends on where a mouse happened to rest can never be

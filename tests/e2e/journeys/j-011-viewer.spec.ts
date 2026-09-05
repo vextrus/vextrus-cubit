@@ -18,6 +18,7 @@
  */
 import { expect, test } from "@playwright/test";
 import { strings } from "../../../src/ui/strings";
+import { syntheticKey } from "../../takeoff/viewer/support/synthetic-graph";
 import { checkpoint } from "../support/checkpoint";
 import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
 import { stageSyntheticSheet } from "../viewer/viewer-stage";
@@ -36,6 +37,13 @@ const WORLD_TOLERANCE = 1;
 
 /** A key an address may name that no sheet holds — the shape error I-88 answers as a fact. */
 const MALFORMED_KEY = "FOO:1";
+
+/** How the pulse is watched: frames off the canvas, far enough apart to see it start and stop. */
+const PULSE_FRAMES = 8;
+const PULSE_GAP_MS = 120;
+
+/** How far around the point an entity is expected at the pointer is tried, in pixels. */
+const HOVER_REACH_PX = 60;
 
 /** One registered string, read by key: this journey is written before the table carries it. */
 function copy(key: string): string {
@@ -60,7 +68,10 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     test.setTimeout(600_000);
     expect(baseURL, "the journeys are driven against the served product").toBeTruthy();
 
-    const staged = await stageSyntheticSheet(page, { entities: ENTITIES });
+    const staged = await stageSyntheticSheet(page, { entities: ENTITIES, derivedPaint: true });
+    const derived = staged.derived;
+    expect(derived, "the staged sheet carries one piece of derived paint, so I-86 can be judged").not.toBeNull();
+    const paint = derived as NonNullable<typeof derived>;
     const viewer = new SViewerPage(page);
     const address = S_VIEWER.route(staged.tenantId, staged.projectId, staged.drawingId, staged.layoutName);
 
@@ -86,9 +97,13 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
 
     /* --- the two entities this journey works with, read off the served feed --- */
     await viewer.fit.click();
-    const first = await viewer.recordOnLayer(staged.drawingId, staged.layoutName, staged.tenantId, 0, "LINE");
-    const second = await viewer.recordOnLayer(staged.drawingId, staged.layoutName, staged.tenantId, 1, "LINE");
+    // Two atoms that paint nothing but themselves: the instance the staged sheet's derived paint
+    // belongs to is deliberately left out of this pair, because its extent is the union of the two
+    // places it paints and a journey that flew to it would be looking between them.
+    const first = await viewer.recordOnLayer(staged.drawingId, staged.layoutName, staged.tenantId, 1, "LINE");
+    const second = await viewer.recordOnLayer(staged.drawingId, staged.layoutName, staged.tenantId, 2, "LINE");
     expect(first.key, "the two entities this journey selects are different atoms").not.toBe(second.key);
+    expect([first.key, second.key], "and neither of them is the instance the derived paint was painted from").not.toContain(paint.srcKey);
 
     /* --- j-011-deep-link-selection: `s` without `v` selects and flies; `s` with `v` keeps the camera --- */
     await page.goto(S_VIEWER.selecting(staged.tenantId, staged.projectId, staged.drawingId, staged.layoutName, [first.key, second.key]), { waitUntil: "commit" });
@@ -119,14 +134,22 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     /* --- j-011-inspector-hover: the pointer reads an entity, and bare paper reads nothing --- */
     await page.goto(S_VIEWER.selecting(staged.tenantId, staged.projectId, staged.drawingId, staged.layoutName, [first.key]), { waitUntil: "commit" });
     await expect(viewer.screen, "the sheet flies to the one key the address names").toHaveAttribute("data-flyto", "settled", { timeout: 120_000 });
-    await viewer.clear.click();
-    await expect(viewer.inspector, "the selection is let go, and the camera is left where the fly-to put it").toHaveAttribute("data-state", "idle");
+    // The sheet was flown to that one entity, so it is what stands in the middle of the stage (the
+    // test contract's deep-link-to-key procedure); a few pixels around it are tried because a
+    // drawing is painted to a fraction of one. The reading is taken while it is still held, because
+    // a hover renders above a selection and never displaces it (Decision §1).
+    const met = await viewer.hoverNear(await viewer.canvasCentre(), HOVER_REACH_PX);
+    const centre = met.at;
+    expect(met.key, "the sheet was flown to that key, so that is the entity the pointer meets there").toBe(first.key);
 
-    const centre = await viewer.canvasCentre();
+    await viewer.clear.click();
+    await expect(viewer.inspector, "the selection is let go").toHaveAttribute("data-state", "idle");
+    await page.mouse.move(1, 1);
     await page.mouse.move(centre.x, centre.y);
-    await expect(viewer.hover, "the entity under the pointer is read out").toBeVisible();
-    await expect(viewer.inspector, "and reading is what the panel is reporting").toHaveAttribute("data-state", "hover");
+    await expect(viewer.hover, "the entity under the pointer is still read out").toBeVisible();
+    await expect(viewer.inspector, "and with nothing held, reading is what the panel is reporting").toHaveAttribute("data-state", "hover");
     const hovered = (await viewer.hover.getAttribute("data-key")) ?? "";
+    expect(hovered, "letting a selection go does not move the sheet under the pointer").toBe(first.key);
     expect(hovered, `the hover names a source key of this reading: it reads "${hovered}"`).toMatch(/^DXF_HANDLE:[0-9A-F]+$/);
     await expect(page.getByTestId("viewer-inspector-hover-handle"), "the handle cell is the key's own handle, verbatim").toHaveText(hovered.slice(SCHEME.length));
     await expect(page.getByTestId("viewer-inspector-hover-type"), "the type cell says something the reading recorded").not.toBeEmpty();
@@ -138,10 +161,6 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     expect(mono, "the panel resolves the mono face from the token set").not.toBe("");
     expect(await viewer.computed(page.getByTestId("viewer-inspector-hover-handle"), "font-family"), "model values are lettered in the mono face (I-25)").toBe(mono);
     await checkpoint(page, testInfo, "j-011-inspector-hover");
-
-    const corner = await viewer.canvasBox();
-    await page.mouse.move(corner.x + 6, corner.y + 6);
-    await expect(viewer.hover, "the pointer over bare paper reads nothing, rather than the last thing it read").toHaveCount(0);
 
     /* --- j-011-inspector-selected: a click selects, and the address says so --- */
     const historyBefore = await page.evaluate(() => history.length);
@@ -171,6 +190,20 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     await flying;
     await expect(viewer.screen, "and it settles by itself, inside a second").toHaveAttribute("data-flyto", "settled", { timeout: FLYTO_BUDGET_MS });
 
+    // The pulse (§4): once the travel has landed the sheet goes on repainting for a moment and then
+    // stops of its own accord. Frames are sampled off the canvas itself rather than any colour being
+    // named here (R-UI-001) — a reveal that moved the camera and painted nothing gives one still
+    // frame throughout, and a pulse that never ends never gives two alike.
+    const frames: Buffer[] = [];
+    for (let taken = 0; taken < PULSE_FRAMES; taken += 1) {
+      frames.push(await viewer.canvas.screenshot());
+      await page.waitForTimeout(PULSE_GAP_MS);
+    }
+    const changed = frames.some((frame, at) => at > 0 && !frame.equals(frames[at - 1] as Buffer));
+    expect(changed, "the selection is repainted after the fly-to settles — the pulse the Trace owes (R-UI-022)").toBe(true);
+    const lastTwo = frames.slice(-2) as [Buffer, Buffer];
+    expect(lastTwo[0].equals(lastTwo[1]), "and it ends by itself: the sheet is still again, with no further frames").toBe(true);
+
     const revealed = await viewer.cameraFromAddress();
     const target = await viewer.selectionCentre();
     expect(Math.abs(revealed.x - target[0]), `the reveal centred the camera on the selection in x (${revealed.x} vs ${target[0]})`).toBeLessThanOrEqual(WORLD_TOLERANCE);
@@ -190,6 +223,52 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     expect(Math.abs(quiet.y - quietTarget[1]), "and it lands where the travel would have landed, in y").toBeLessThanOrEqual(WORLD_TOLERANCE);
     await page.emulateMedia({ reducedMotion: "no-preference" });
 
+    /* --- AC-1, AC-4: bare paper, Escape and Clear each let the selection go, address and all --- */
+    // Fitted, so the sheet stands inside its own margin and the corner of the stage is paper and
+    // nothing else; what is held is untouched by a camera move.
+    await viewer.fit.click();
+    await page.waitForTimeout(250);
+    await expect(viewer.inspector, "fitting the sheet is not letting go of it").toHaveAttribute("data-count", "1");
+    const corner = await viewer.canvasBox();
+    const bare = { x: corner.x + 6, y: corner.y + 6 };
+    await page.mouse.move(bare.x, bare.y);
+    await expect(viewer.hover, "the pointer over bare paper reads nothing, rather than the last thing it read").toHaveCount(0);
+    const beforeBare = await page.evaluate(() => history.length);
+    await viewer.clickAt(bare);
+    await expect(viewer.inspector, "a click on bare paper lets the selection go (AC-1)").toHaveAttribute("data-state", "idle");
+    await expect(viewer.inspector).toHaveAttribute("data-count", "0");
+    await expect(viewer.inspector, "and the idle cell teaches the gestures again").toContainText(copy("viewer_inspector_idle_body"));
+    expect(await viewer.selectionParam(), "the address carries no selection, because none is held (R-UI-031)").toBeNull();
+    expect(await page.evaluate(() => history.length), "and letting go was replaced onto the address, never pushed").toBe(beforeBare);
+
+    const again = await viewer.hoverNear(await viewer.canvasCentre(), HOVER_REACH_PX);
+    await viewer.clickAt(again.at);
+    await expect(viewer.inspector, "an entity is held again").toHaveAttribute("data-count", "1");
+    const beforeEscape = await page.evaluate(() => history.length);
+    // The pointer comes off the sheet first, so what the panel reports afterwards is what is HELD
+    // and not what is merely under a mouse that never moved.
+    await page.mouse.move(1, 1);
+    await viewer.canvas.focus();
+    await page.keyboard.press("Escape");
+    await expect(viewer.inspector, "Escape with the canvas focused lets it go (AC-1)").toHaveAttribute("data-state", "idle");
+    await expect(viewer.inspector).toHaveAttribute("data-count", "0");
+    expect(await viewer.selectionParam(), "and the address stops carrying it").toBeNull();
+    expect(await page.evaluate(() => history.length), "with no entry pushed for the letting go").toBe(beforeEscape);
+
+    await viewer.clickAt(again.at);
+    await expect(viewer.inspector, "and once more, to press the door this time").toHaveAttribute("data-count", "1");
+    const painted = await viewer.canvas.screenshot();
+    const beforeClear = await page.evaluate(() => history.length);
+    await viewer.clear.click();
+    await expect(viewer.inspector, "Clear selection lets it go").toHaveAttribute("data-count", "0");
+    expect(await viewer.selectionParam(), "and `s` is absent at count 0 — the address is the whole state (AC-4)").toBeNull();
+    expect(await page.evaluate(() => history.length), "unchanged across the clear, exactly as across the select").toBe(beforeClear);
+    await page.waitForTimeout(400);
+    expect(
+      painted.equals(await viewer.canvas.screenshot()),
+      "a held entity was painted on the sheet, so letting it go repaints the sheet without it (AC-3: --canvas-selection)",
+    ).toBe(false);
+
     /* --- j-011-multi-select: a rectangle over the whole fitted sheet takes what is drawn --- */
     await page.goto(address, { waitUntil: "commit" });
     await expect(viewer.status).toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
@@ -208,15 +287,28 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     await viewer.rectangleSelect();
     await expect(viewer.marquee, "the rectangle is gone once the button is up").toHaveCount(0);
     const drawn = await viewer.statusNumber("data-drawn-entities");
+    expect(drawn, "the sheet draws every record the staged reading holds, its derived paint included").toBe(staged.entityCount);
+    const held = staged.keyCount;
     await expect
       .poll(async () => Number((await viewer.inspector.getAttribute("data-count")) ?? "0"), {
         timeout: 60_000,
-        message: "a rectangle over the whole fitted sheet takes every drawn entity of it",
+        message: "a rectangle over the whole fitted sheet takes every atom of it",
       })
-      .toBe(drawn);
-    await expect(viewer.entities, "and every one of them is listed").toHaveCount(drawn);
+      .toBe(held);
+    await expect(viewer.entities, "and every one of them is listed, once").toHaveCount(held);
     await expect(viewer.reveal, "a selection this size is revealable").toBeEnabled();
-    await expect(viewer.status).toHaveAttribute("data-selection", String(drawn));
+    await expect(viewer.status).toHaveAttribute("data-selection", String(held));
+
+    // AC-1 (I-86): the sheet draws more records than it holds atoms, because one of them is paint
+    // synthesised from an instance. What was taken is the sheet's own source keys — the derived
+    // record under the key it was painted from, never under an identity nobody can name.
+    expect(held, "this sheet paints more records than it holds atoms").toBeLessThan(drawn);
+    const taken = await viewer.selectedKeys();
+    expect(new Set(taken).size, "no key is listed twice, however many pieces it paints").toBe(taken.length);
+    expect([...taken].sort(), "and the atoms taken are exactly the source keys the reading minted").toEqual(
+      Array.from({ length: staged.keyCount }, (_, index) => syntheticKey(index)).sort(),
+    );
+    expect(taken, "including the instance whose paint the rectangle also crossed").toContain(paint.srcKey);
     await checkpoint(page, testInfo, "j-011-multi-select");
 
     /* --- j-011-inspector-dark: the same selection on the other paper --- */
@@ -230,7 +322,7 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     const dark = await viewer.cornerLuminance();
     expect(light, `the canvas paper is lighter in light than in dark (${light} vs ${dark})`).toBeGreaterThan(dark);
     expect(await viewer.inspector.getAttribute("data-count"), "the selection survives the theme — a repaint is not a change of what is held").toBe(heldInLight);
-    await expect(viewer.entities, "and the rows still stand").toHaveCount(drawn);
+    await expect(viewer.entities, "and the rows still stand").toHaveCount(held);
 
     // The panel sits on the layers panel's own fill in both themes: the value is read from the
     // document, never spelled here (R-UI-001 — no acceptance names a colour).
