@@ -10,7 +10,6 @@ import { portFor } from "./scripts/lib/ports.mjs";
 import { e2eDatabaseUrl } from "./tests/e2e/support/scratch-db";
 
 const port = portFor("e2e");
-const NEXT = "node_modules/next/dist/bin/next";
 
 /**
  * The address the journeys' server answers at, in one place: it is both what the journeys drive
@@ -58,7 +57,9 @@ export default defineConfig({
   // substitutes, because a caller writes those — so a journeys' server that named no address would
   // answer LINK_NOT_SENDABLE and every mailed-link journey would stop walking a link (R-SPINE-001).
   webServer: {
-    command: `node ${NEXT} build && node ${NEXT} start --hostname 127.0.0.1 --port ${port}`,
+    // scripts/e2e-server.mjs builds only when the built output is older than an input — verify's
+    // build of the same tree is walked as it stands (a 27 s cold build per journey invocation before).
+    command: `node scripts/e2e-server.mjs --next node_modules/next/dist/bin/next build-if-stale start --port ${port}`,
     url: baseURL,
     env: { DATABASE_URL: e2eDatabaseUrl(), CUBIT_PUBLIC_ORIGIN: baseURL },
     // Reuse is opt-in by name, never the default: when the port already answers, Playwright skips
