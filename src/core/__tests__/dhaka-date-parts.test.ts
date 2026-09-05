@@ -12,6 +12,7 @@
  * suite too, so nothing here formats anything.
  */
 import { expect, test } from "vitest";
+import { refusalCodeOf } from "../faults/refusal-marker";
 import { dhakaDateParts, formatDate } from "../format";
 
 /** An instant, spelled as the UTC moment it is, so no host zone can move it. */
@@ -34,6 +35,20 @@ test("the roll carries the month and the year with it", () => {
 test("the zone keeps no daylight saving, so midsummer converts exactly as midwinter does", () => {
   expect(dhakaDateParts(at("2026-07-01T18:00:00Z"))).toEqual({ year: 2026, month: 7, day: 2 });
   expect(dhakaDateParts(at("2026-07-01T17:00:00Z"))).toEqual({ year: 2026, month: 7, day: 1 });
+});
+
+test("an instant the seam cannot read is refused, not degraded into a date-shaped string", () => {
+  // A timestamp nothing could parse reaches this door as an Invalid Date, where the platform's own
+  // answer is a RangeError carrying no refusal marker. The seam answers it instead (ARCH-03, B-21).
+  expect(() => dhakaDateParts(at("not a timestamp")), "the conversion says it cannot be made").toThrow();
+
+  let answered: unknown = null;
+  try {
+    dhakaDateParts(at("not a timestamp"));
+  } catch (thrown) {
+    answered = refusalCodeOf(thrown);
+  }
+  expect(answered, "and says it as this seam's own registered code, not as a platform RangeError nobody marked").toBe("PRECISION_NOT_APPLIED");
 });
 
 test("the parts are what the date seam renders a document day from", () => {
