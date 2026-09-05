@@ -7,7 +7,7 @@
 // a driver import, and this file is their one lawful home; db/schema/*.ts is the tree drizzle-kit
 // reads them back out of.
 import { and, asc, desc, eq, gt, inArray, isNull, lt, sql as statement, type AnyColumn, type SQL } from "drizzle-orm";
-import { PgDialect, check, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { PgDialect, bigserial, check, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import PgBoss from "pg-boss";
 import postgres from "postgres";
@@ -915,10 +915,20 @@ export const drawingSetRevisions = pgTable(
       .notNull()
       .references(() => acts.actId),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * The order the store pinned them in. `created_at` is a clock, and two pins of one set can share
+     * an instant — `defaultNow()` is the transaction's own timestamp, so two pins in one transaction
+     * share it exactly. "Which revision is current" then tie-broke on a random uuid, which is to say
+     * on nothing: the answer could differ between two reads of unmoved state (R-SPINE-021). The
+     * sequence is the store's own monotonic order, and it is what the tie is broken on. The clock
+     * stays the first key so `drawing_set_revisions_by_set` still serves the browser's read.
+     */
+    seq: bigserial("seq", { mode: "number" }).notNull(),
   },
   (table) => [
-    // The read the set browser makes: one set's pinned revisions, in the order they were pinned.
-    index("drawing_set_revisions_by_set").on(table.tenantId, table.setId, table.createdAt),
+    // The read the set browser makes: one set's pinned revisions, in the order they were pinned —
+    // the clock first, then the sequence that decides a tie in it.
+    index("drawing_set_revisions_by_set").on(table.tenantId, table.setId, table.createdAt, table.seq),
   ],
 );
 
@@ -992,6 +1002,16 @@ export async function holdStateLock(tx: TenantTx, key: string): Promise<void> {
  */
 function advisoryXactLock(name: string): SQL {
   return statement`select pg_advisory_xact_lock(hashtextextended(${name}, 0))`;
+}
+
+/**
+ * The store's own clock, as a value a write stamps a column with. A column whose default is `now()`
+ * and whose upsert branch stamps `new Date()` is stamped by two clocks — the database's and this
+ * process's — which agree only as far as the two machines' time does, so the same row can be written
+ * "before" the row it replaced. Every branch of every write stamps from here (B-17, ARCH-02).
+ */
+export function storeNow(): SQL {
+  return statement`now()`;
 }
 
 /** A handle running under an attributable system reason: the same surface, unfiltered by tenant. */

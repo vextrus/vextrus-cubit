@@ -4,7 +4,7 @@
 // under (SEAM-TENANT, R-SPINE-007) — and this barrel is the sole entry point a consumer imports.
 //
 // R-UI-005 gives the seam its first key, density. Later keys join the same one row per account.
-import { eq, isUuid, runAsSystem, userPrefs } from "../db";
+import { eq, isUuid, runAsSystem, storeNow, userPrefs } from "../db";
 import { DEFAULT_DENSITY, DENSITIES, isDensity, type Density } from "./density";
 
 export { DENSITIES, type Density };
@@ -43,5 +43,7 @@ export async function setDensity(userId: string, density: Density): Promise<void
   await db
     .insert(userPrefs)
     .values({ userId, density })
-    .onConflictDoUpdate({ target: userPrefs.userId, set: { density, updatedAt: new Date() } });
+    // Stamped by the database on both branches: the column's own DEFAULT writes `now()` on a first
+    // choice, so a second choice stamped from this process would be a second clock on one column.
+    .onConflictDoUpdate({ target: userPrefs.userId, set: { density, updatedAt: storeNow() } });
 }

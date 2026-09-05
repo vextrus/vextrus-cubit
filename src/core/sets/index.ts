@@ -147,7 +147,11 @@ export async function lineagesOf(tx: TenantTx, scope: SetScope): Promise<Drawing
 
 /**
  * The revision one set stands pinned at right now, or null where it has never been pinned. Newest
- * by the clock it was pinned at, tie-broken by its own id so the answer is one row and not a race.
+ * by the clock it was pinned at, tie-broken by the store's own sequence: two pins can share an
+ * instant — `created_at` defaults to the transaction's timestamp — and a tie broken on a random uuid
+ * would answer "which revision is current" differently between two reads of state nothing moved
+ * (R-SPINE-021, B-17). The sequence is monotonic in the order the store accepted the rows, so the
+ * later pin is the later row.
  */
 export async function currentSetRevisionOf(tx: TenantTx, scope: SetScope, setId: string): Promise<SetRevisionRecord | null> {
   if (!isUuid(setId)) return null;
@@ -155,7 +159,7 @@ export async function currentSetRevisionOf(tx: TenantTx, scope: SetScope, setId:
     .select()
     .from(drawingSetRevisions)
     .where(and(eq(drawingSetRevisions.tenantId, scope.tenantId), eq(drawingSetRevisions.setId, setId)))
-    .orderBy(desc(drawingSetRevisions.createdAt), desc(drawingSetRevisions.setRevisionId))
+    .orderBy(desc(drawingSetRevisions.createdAt), desc(drawingSetRevisions.seq))
     .limit(1);
 
   const newest = rows[0];
