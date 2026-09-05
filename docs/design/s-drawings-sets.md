@@ -31,12 +31,18 @@ values.
   `aria-pressed`, no dialog, no digest, no consequence. The pin is the one act on this screen,
   and it is keyed on the set alone — membership is resolved server-side (L-ACT-02: offered,
   never assembled). No multi-select exists on either screen.
-- **I-97 — one `set-empty` element, in the pin region, with a fixed cause precedence.** Three
+- **I-97 — one `set-empty` element, in the column between the pin section and the pinned
+  revisions, with a fixed cause precedence.** Three
   causes, one element, judged in this order: `no-drawings` (the project holds no drawings, so
   this set can name none), then `no-revisions` (nothing pinned yet), then `no-members` (the set
   has pinned revisions but names no drawing now, so pinning as it stands would refuse). A
   second empty element would make a journey's `set-empty` ambiguous, and a set with no members
-  and no pin has one honest thing to teach — how to get a first pin — not two.
+  and no pin has one honest thing to teach — how to get a first pin — not two. It stands in the
+  column and not inside `<section>` "Pin this set": the empty state carries a heading of its own
+  (ShellEmptyState's), and nesting it under the pin heading makes a screen reader's outline say
+  the pin section is the empty one, when what is empty is the drawings the set may name. It
+  renders whether or not this reader holds `PIN_SET` — a denial takes the pin section away,
+  never the answer to why there is nothing here.
 - **I-98 — a pinned revision is shown as pinned, never reconciled.** The manifest is the
   citation list (L-REG-06): every member it held renders exactly as it was pinned, including a
   drawing the set no longer names and a revision that has since been superseded. Nothing is
@@ -74,8 +80,8 @@ values.
   heading and a hint over blank space teaches nothing and reads as an unfinished page. So the
   drawings list and the pinned-revisions list each carry their own one-line sentence
   (`sets_members_none`, `sets_revisions_none`, the hint idiom, no test id) where the void is,
-  while I-97's single `set-empty` element stays exactly where it was — in the pin region, one
-  per screen, its cause precedence unchanged. A sentence is not an empty state: it adds no
+  while I-97's single `set-empty` element stands once per screen, in the column, its cause
+  precedence unchanged. A sentence is not an empty state: it adds no
   heading, no action and nothing a journey could mistake for `set-empty`.
 - **I-105 — a commit is answered by the re-read, and nothing is said into a region that is
   about to be discarded.** The screen answers a pinned revision by standing at the address
@@ -197,11 +203,13 @@ order: padding-block `var(--space-3)`, border-top `var(--hairline)` after the fi
 Where the project holds no drawings the list stands empty, and directly under it — inside this
 region, so it is read where the void is — `<p class="cx-sets-silence">` `sets_members_none`
 (`var(--text-12)` `var(--graphite-600)`, the hint idiom). It carries no test id and is no
-second empty state: I-97's one `set-empty` element stays the pin region's, and this line is
+second empty state: I-97's one `set-empty` element stands in the column, and this line is
 what R-UI-020 owes a list that would otherwise be silent (I-104).
 
-Below it the region's **answer slot** `<div class="cx-sets-answer">`: exactly one
-RefusalState, the code `toggleMember` answered.
+Below it the region's **answer slot** `<div class="cx-sets-answer cx-shell-live">`: exactly one
+RefusalState, the code `toggleMember` answered. Every answer slot and status line on both
+screens wears the shell's shipped `cx-shell-live`, which takes an empty one out of flow and
+never out of the tree — the rule has one home and is worn, never re-spelled (B-17).
 
 **Pin this set** (`<section aria-labelledby>`) — `<h2>` `sets_pin_heading`, hint
 `sets_pin_hint`, then a core Button `data-testid="set-pin"`, variant `secondary`, label
@@ -210,15 +218,17 @@ R-UI-001's scarcity); while the pre-check is in flight it takes core's loading s
 `<p role="status" aria-live="polite">` reads `sets_pin_pending` — and nothing else, ever: a
 commit re-reads the screen from the server, so a post-commit sentence written into this region
 is discarded with the document before it can be announced, and the answer to a pin is the new
-pinned revision standing at the top of the list (I-105). While the region is empty it is taken
-out of flow rather than out of the box tree (the shell's `.cx-shell-live:empty` idiom), so it
-keeps its role and its place in the accessibility tree and the column keeps its rhythm.
-Below it the pin region's own **answer slot** (I-103), held the same way, then, when it
-applies, `<div data-testid="set-empty" data-cause="no-drawings|no-members|no-revisions">`
-wrapping one `ShellEmptyState` — heading and body per §3's cause table, action slot the
-`set-drawings-link` idiom for `no-drawings` and, for the other two, the `sets_sets_link` idiom
-back to the sets index (there is nothing to press that pins a set with no members). The
-section is absent for a reader without `PIN_SET`; `set-empty` still renders.
+pinned revision standing at the top of the list (I-105). The status line wears `cx-shell-live`,
+so while it is empty it is out of flow and never out of the tree. Below it the pin region's own
+**answer slot** (I-103), worn the same way. The whole section is absent for a reader without
+`PIN_SET`.
+
+Then, in the column and not inside that section, when it applies:
+`<div data-testid="set-empty" data-cause="no-drawings|no-members|no-revisions">` wrapping one
+`ShellEmptyState` — heading and body per §3's cause table, action slot the `set-drawings-link`
+idiom for `no-drawings` and, for the other two, the `sets_sets_link` idiom back to the sets
+index (there is nothing to press that pins a set with no members). It renders whether or not
+this reader holds `PIN_SET`, and its own heading is nobody else's region's (I-97).
 
 Pressing `set-pin` opens the one ConsequenceDialog (`actType: "PIN_DRAWING_SET"`, injected
 `preview`/`commit` closing over the set key), which renders through the shipped `SUBJECTS`

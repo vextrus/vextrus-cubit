@@ -56,8 +56,9 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
     if (pending) return;
     setPending(true);
     setRefusal(null);
-    const answered = await createSet({ tenantId, projectId, name });
-    setPending(false);
+    // The door is released whatever the write answers: a refusal is this screen's answer, and a
+    // fault belongs to the boundary — neither leaves the door standing in its loading state (B-21).
+    const answered = await createSet({ tenantId, projectId, name }).finally(() => setPending(false));
     if (!answered.created) {
       setRefusal(answered.refusal);
       return;
@@ -112,10 +113,10 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
               {sets.sets_create_submit}
             </Button>
           </form>
-          <p className="cx-sets-status" role="status" aria-live="polite">
+          <p className="cx-sets-status cx-shell-live" role="status" aria-live="polite">
             {pending ? sets.sets_create_pending : null}
           </p>
-          <div className="cx-sets-answer">
+          <div className="cx-sets-answer cx-shell-live">
             {refusal === null || pending ? null : <RefusalState refusal={refusalOf(refusal)} evidence={evidenceFor(refusal)} />}
           </div>
         </section>

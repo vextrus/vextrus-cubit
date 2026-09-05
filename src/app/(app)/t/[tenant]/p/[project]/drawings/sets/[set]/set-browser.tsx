@@ -110,8 +110,9 @@ export function SetBrowser({
     if (pending) return;
     setPinRefusal(null);
     setPending(true);
-    const answered = await preview({ tenantId, projectId, setId: set.setId });
-    setPending(false);
+    // The door is released whatever the pre-check answers: a refusal is this screen's answer, and a
+    // fault belongs to the boundary — neither leaves the door standing in its loading state (B-21).
+    const answered = await preview({ tenantId, projectId, setId: set.setId }).finally(() => setPending(false));
     if (!answered.previewed) {
       setPinRefusal(answered.refusal);
       return;
@@ -120,8 +121,7 @@ export function SetBrowser({
   };
 
   const cause = emptinessOf(lineages, members, set.revisions);
-  // I-97: exactly one of these stands at a time, and it stands whether or not this reader may pin —
-  // the section around it is what a denial takes away, never the answer to why there is nothing here.
+  // I-97: exactly one of these stands at a time.
   const emptiness = cause === null ? null : <Empty cause={cause} tenantId={tenantId} projectId={projectId} />;
 
   return (
@@ -172,7 +172,7 @@ export function SetBrowser({
         {/* R-UI-020: an empty list says why it is empty where it stands. The one `set-empty` element
             is the pin region's (I-97), so what this list owes is a sentence and not a second one. */}
         {lineages.length === 0 ? <p className="cx-sets-silence">{sets.sets_members_none}</p> : null}
-        <div className="cx-sets-answer">
+        <div className="cx-sets-answer cx-shell-live">
           {memberRefusal === null ? null : <RefusalState refusal={refusalOf(memberRefusal)} evidence={evidenceFor(memberRefusal)} />}
         </div>
       </section>
@@ -194,17 +194,21 @@ export function SetBrowser({
           >
             {sets.sets_pin_submit}
           </Button>
-          <p className="cx-sets-status" role="status" aria-live="polite">
+          <p className="cx-sets-status cx-shell-live" role="status" aria-live="polite">
             {pending ? sets.sets_pin_pending : null}
           </p>
-          <div className="cx-sets-answer">
+          <div className="cx-sets-answer cx-shell-live">
             {pinRefusal === null || pending ? null : <RefusalState refusal={refusalOf(pinRefusal)} evidence={evidenceFor(pinRefusal)} />}
           </div>
-          {emptiness}
         </section>
-      ) : (
-        emptiness
-      )}
+      ) : null}
+
+      {/* I-97: one `set-empty` on the screen, and it stands in the column rather than inside the pin
+          section — the empty state carries a heading of its own, and a heading about the drawings a
+          set can name is not owned by "Pin this set" (R-UI-050's outline). It stands whether or not
+          this reader may pin: a denial takes the section away, never the answer to why there is
+          nothing here. */}
+      {emptiness}
 
       <section className="cx-sets-section" aria-labelledby={headingIds.revisions}>
         <h2 className="cx-sets-section-heading" id={headingIds.revisions}>
