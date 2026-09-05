@@ -109,15 +109,35 @@ function same(before: readonly string[], after: readonly string[]): boolean {
  * one canonical-JSON home (B-17): the model seam's request hash is taken over it too.
  */
 export function canonical(value: unknown): string {
-  if (value === null || typeof value === "number" || typeof value === "boolean" || typeof value === "string") {
-    return JSON.stringify(value);
+  return spell(value, ROOT_PATH);
+}
+
+/**
+ * What a path names its root: the value the caller handed over. Every caller of this one home — the
+ * consequence digest and the model seam's request hash alike — reads the same path, so a message
+ * about a value nobody can spell names one path rather than one caller's word for it (ARCH-02).
+ */
+const ROOT_PATH = "value";
+
+/**
+ * The canonical spelling of one value, carrying the path it sits at so a value JSON cannot spell is
+ * named where it is. NaN and the infinities are refused rather than written: `JSON.stringify` spells
+ * all three `null`, and a digest over null identifies data nobody wrote (B-17).
+ */
+function spell(held: unknown, path: string): string {
+  if (typeof held === "number") {
+    if (!Number.isFinite(held)) throw new Error(`${path} is ${String(held)}, which is not a finite number — JSON spells it null, and a digest over null keys data nobody wrote (B-17)`);
+    return JSON.stringify(held);
   }
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
-  if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .filter(([, held]) => held !== undefined)
+  if (held === null || typeof held === "boolean" || typeof held === "string") {
+    return JSON.stringify(held);
+  }
+  if (Array.isArray(held)) return `[${held.map((item, index) => spell(item, `${path}[${index}]`)).join(",")}]`;
+  if (typeof held === "object") {
+    const entries = Object.entries(held as Record<string, unknown>)
+      .filter(([, member]) => member !== undefined)
       .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
-    return `{${entries.map(([key, held]) => `${JSON.stringify(key)}:${canonical(held)}`).join(",")}}`;
+    return `{${entries.map(([key, member]) => `${JSON.stringify(key)}:${spell(member, `${path}.${key}`)}`).join(",")}}`;
   }
-  throw new Error(`a consequence holds ${typeof value}, which nothing can digest — a Consequence is data (L-ACT-02)`);
+  throw new Error(`${path} holds ${typeof held}, which nothing can digest — what a digest is taken over is data (L-ACT-02)`);
 }

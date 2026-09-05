@@ -8,9 +8,9 @@
  * resolution error.
  *
  * Nothing here freezes today's roster (B-19). The shape rules are derived by walking whatever the
- * registry holds; only the three codes this increment is required to register, and the two foreign
- * names AC-2 (c) names, are asserted by name. A later increment that adds a code passes this file
- * unchanged — and fails it the moment the new entry breaks a rule.
+ * registry holds; only the three codes AC-1 requires, and the two foreign names AC-2 (c) names, are
+ * asserted by name. A registry that later grows a code passes this file unchanged — and fails it the
+ * moment the new entry breaks a rule.
  */
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -22,7 +22,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const ERRORS_MODULE = "src/core/errors.ts";
 const VOCABULARY_MODULE = "src/core/errors/transport-vocabulary.ts";
 
-/** The closed sets this increment's spec makes tree law (AC-1). */
+/** The closed sets AC-1 makes tree law (R-SPINE-062). */
 const SEVERITIES = ["error", "warning", "info"] as const;
 const SURFACES = ["inline", "banner", "dialog"] as const;
 
@@ -122,11 +122,11 @@ describe("AC-1: the closed registry and its lookup", () => {
     }
   });
 
-  test("AC-1: the registry contains at least the three codes this increment registers", async () => {
+  test("AC-1: the registry contains at least the three codes SEAM-FORMAT and the session seam answer with", async () => {
     const mod = await loadErrors();
     const registered = codesOf(mod);
     for (const code of REQUIRED_CODES) {
-      expect(registered, `${code} is registered by this increment (R-SPINE-062)`).toContain(code);
+      expect(registered, `${code} is registered in the closed taxonomy (R-SPINE-062)`).toContain(code);
     }
   });
 
@@ -181,18 +181,18 @@ describe("AC-2 (c): the transport-vocabulary table tells foreign from orphan", (
 });
 
 /* ------------------------------------------------------------------ *
- * inc-009 (the identity core): the four codes the auth doors answer with.
+ * The identity core: the four codes the auth doors answer with.
  *
- * B-20 — this increment changes taxonomy law, so it owns the acceptance the old law froze. The
+ * B-20 — the taxonomy law these entries changed owns the acceptance the old law froze. The
  * expected copy is not transcribed here: it is read out of the Decision that fixes it
  * (docs/design/s-auth.md § 3), so the registry and the Decision cannot drift apart, and a later
  * Decision that re-baselines a line re-baselines this assertion with it (B-19, B-20).
  * ------------------------------------------------------------------ */
 
-/** The Decision this increment commits, whose § 3 table fixes the new entries verbatim. */
+/** The Decision whose § 3 table fixes these entries verbatim. */
 const S_AUTH_DECISION = "docs/design/s-auth.md";
 
-/** The four codes AC-2 requires this increment to register. */
+/** The four codes AC-2 requires the registry to hold. */
 const AUTH_CODES = ["CREDENTIALS_NOT_VALID", "TOKEN_NOT_VALID", "RATE_LIMITED", "ACCOUNT_ALREADY_EXISTS"] as const;
 
 interface DecidedEntry {
@@ -209,7 +209,7 @@ const cellText = (cell: string): string => cell.trim().replace(/^\*\*/, "").repl
 /** Every refusal the Decision's registry table fixes — derived from the document, never listed. */
 function decidedRefusals(): DecidedEntry[] {
   const path = join(REPO_ROOT, S_AUTH_DECISION);
-  expect(existsSync(path), `${S_AUTH_DECISION} is committed by this increment — it is the Decision these entries are read from (B-20)`).toBe(true);
+  expect(existsSync(path), `${S_AUTH_DECISION} is committed — it is the Decision these entries are read from (B-20)`).toBe(true);
   const decided: DecidedEntry[] = [];
   for (const line of readFileSync(path, "utf8").split("\n")) {
     const trimmed = line.trim();
@@ -223,7 +223,7 @@ function decidedRefusals(): DecidedEntry[] {
   return decided;
 }
 
-describe("AC-2 (inc-009): the four codes the identity core registers", () => {
+describe("AC-2: the four codes the identity core registers", () => {
   test("AC-2: every code the Decision fixes is registered with exactly the decided message, remedy, severity and surface", async () => {
     const mod = await loadErrors();
     const decided = decidedRefusals();

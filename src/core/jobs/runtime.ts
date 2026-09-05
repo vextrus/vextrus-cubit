@@ -457,10 +457,17 @@ export async function jobEvents(jobId: string): Promise<JobEvent[]> {
  * refused or ran out of attempts, with the cause an operator reads. It is a view over the event
  * log rather than a second store — a job's ending is already recorded, and recording it twice is
  * how two answers to the same question start to disagree (ARCH-02).
+ *
+ * It says whether it left anything out. A bounded list that truncates silently answers a question
+ * nobody asked — an operator reading 200 entries cannot tell a queue that is 200 deep from one that
+ * is drowning — so the bound is disclosed beside the letters rather than applied behind them.
  */
-export async function deadLetters(): Promise<DeadLetter[]> {
+export async function deadLetterView(): Promise<{ letters: DeadLetter[]; truncated: boolean }> {
   const running = await runtime();
-  const rows = await running.store.deadLetterRows(["failed", "refused"], DEAD_LETTER_LIMIT);
+  // One more than the bound is read, and is the whole of how truncation is known: a view that reads
+  // exactly its bound cannot tell a log holding that many from a log holding more, so it either
+  // discloses nothing or guesses (R-SPINE-030).
+  const rows = await running.store.deadLetterRows(["failed", "refused"], DEAD_LETTER_LIMIT + 1);
   // One entry per job, not per row: the view answers "which jobs ran out of answers", and a job that
   // somehow recorded two endings is still one job an operator has to deal with. The first ending is
   // the one kept — it is the one that says how the job actually went (R-SPINE-030).
@@ -469,7 +476,19 @@ export async function deadLetters(): Promise<DeadLetter[]> {
     if (perJob.has(row.jobId)) continue;
     perJob.set(row.jobId, { jobId: row.jobId, kind: row.kind as JobKind, key: row.key, cause: causeOf(row) });
   }
-  return [...perJob.values()];
+  // The store answers the NEWEST endings put back in log order, so the one dropped from an
+  // over-full read is the oldest — the operator keeps the endings they have not dealt with yet.
+  const held = [...perJob.values()];
+  return { letters: held.slice(-DEAD_LETTER_LIMIT), truncated: held.length > DEAD_LETTER_LIMIT };
+}
+
+/**
+ * The letters of that same view. It stays an array because the operator surfaces that read it were
+ * built against one, and it is the view's own projection rather than a second read of the log — two
+ * derivations of one question are how two answers to it start to disagree (ARCH-02, B-17).
+ */
+export async function deadLetters(): Promise<DeadLetter[]> {
+  return (await deadLetterView()).letters;
 }
 
 /** The cause the log recorded for an ending, falling back to the ending itself. */

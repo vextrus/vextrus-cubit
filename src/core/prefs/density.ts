@@ -2,12 +2,15 @@
 // so that the store's own column can be declared from it (src/core/db.ts) without the schema
 // reaching back through SEAM-PREFS's entry point; consumers read every name here through the barrel.
 //
-// The union is spelled rather than derived from the array because it is the store's CHECK and the
-// DataTable's `DataTableDensity` at once: a mode is lawful only if all three agree on it.
-export type Density = "comfortable" | "compact";
+// The roster is the one home and the union is read off it (B-17, ARCH-02): the store's CHECK, the
+// seam's column type and the DataTable's `DataTableDensity` all rest on this list, and a union
+// spelled beside it would be a second home kept in step only by an acceptance file noticing a drift.
 
 /** Every mode a preference may hold, in the order a screen offers them — the default reads first. */
-export const DENSITIES: readonly Density[] = ["comfortable", "compact"];
+export const DENSITIES = ["comfortable", "compact"] as const;
+
+/** One of the modes the roster names, as a type — derived from it, never spelled again. */
+export type Density = (typeof DENSITIES)[number];
 
 /** What a person who never chose is shown: R-UI-005's comfortable rows, and the column's DEFAULT. */
 export const DEFAULT_DENSITY: Density = "comfortable";

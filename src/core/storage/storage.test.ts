@@ -151,9 +151,16 @@ describe("SEAM-STORAGE", () => {
 
     const again = await storage.put(tenantId, bytes);
     expect(again.sha256, "a second put of identical bytes is the same address").toBe(stored.sha256);
-    // Exactly one object is not a frozen count: it IS idempotence — a second copy of the same bytes
-    // under the same tenant would be the duplicate content addressing exists to prevent.
-    expect(entriesUnder(join(root, tenantId)), "the tenant prefix holds exactly the one stored object").toEqual([stored.sha256]);
+    // Idempotence as three properties of the prefix, not as a frozen listing: the address is there,
+    // no interrupted put was left behind, and exactly one entry is an address at all — a second copy
+    // of the same bytes under the same tenant is the duplicate content addressing exists to prevent.
+    const entries = entriesUnder(join(root, tenantId));
+    expect(entries, "the tenant prefix holds the address the put settled").toContain(stored.sha256);
+    expect(
+      entries.some((entry) => entry.endsWith(".staging")),
+      "no staging copy is left behind — a put that linked its object cleans up after itself",
+    ).toBe(false);
+    expect(entries.filter((entry) => ADDRESS_SHAPE.test(entry)).length, "exactly one entry under the prefix is an object address, so the second put stored nothing new").toBe(1);
     expect(contentOf(await storage.get(tenantId, stored.sha256)), "the re-put object still reads back as the original bytes").toBe(contentOf(bytes));
   });
 

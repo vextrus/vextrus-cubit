@@ -19,7 +19,13 @@ const ACTOR_NOT_HUMAN: RefusalCode = "ACTOR_NOT_HUMAN";
 
 /**
  * L-ACT-03: "`PERMISSION_NOT_HELD` carries the act type and missing permission". The act type is
- * null on a read path, which has none to name.
+ * null on a read path, which has none to name — and L-ACT-03 says so itself: "a read-path
+ * `PERMISSION_NOT_HELD` names the missing permission (it has no act type to name, and that is
+ * lawful)".
+ *
+ * The null arm is the answer of the project lifecycle guard (archive, restore and the field edits,
+ * which require tenant OWNER/ADMIN or participation) and of the roster guard that reads a project's
+ * role history — both of which judge who may READ or administer, never which act is being performed.
  */
 export function permissionNotHeld(actType: ActType | null, permission: Permission): Error {
   const moved = actType === null ? "this read" : actType;

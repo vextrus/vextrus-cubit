@@ -21,6 +21,12 @@ export const BD_DOCUMENT = Object.freeze({
   locale: "en-IN",
   numberingSystem: "latn",
   currencySymbol: "৳",
+  /**
+   * The zone a document's day is read in (L-FMT-01). `DOCUMENT_DAY` below is built with this
+   * `timeZone`, so `dhakaDateParts` answers the wall-clock day a reader in Dhaka is standing in
+   * rather than the host's — the field is read by this seam's own engine, not convention data left
+   * for a caller to pass around.
+   */
   timeZone: "Asia/Dhaka",
   /** Money's stated per-kind precision: taka carry two paisa digits, exactly (L-FMT-02). */
   moneyFractionDigits: 2,
@@ -69,6 +75,20 @@ const MONEY_SHAPE = new RegExp(`^(-?)${INTEGER_PART}\\.(\\d{${BD_DOCUMENT.moneyF
 
 /** A user-owned figure: a sign, an integer part, and whatever fraction the human wrote (B-07). */
 const USER_FIGURE_SHAPE = new RegExp(`^(-?)${INTEGER_PART}(?:\\.(\\d+))?$`);
+
+/**
+ * Is this text a decimal figure the store will hold exactly as it stands (B-07)? Asked by every door
+ * that takes a figure from a caller — the module seam's draft, the server action, the browser's own
+ * judgement — before the column's CHECK is reached, and asked against the very shape
+ * `formatUserFigure` renders by, so a door can never admit a value this seam then refuses.
+ *
+ * It is here, beside `USER_FIGURE_SHAPE`, because a second spelling of the grammar is the defect
+ * itself (B-17, ARCH-02): a wider copy would pass `00` at the door and refuse it at the seam, which
+ * reaches a person as an unmarked failure for a field the door claimed to have judged.
+ */
+export function isDecimalFigure(value: string): boolean {
+  return USER_FIGURE_SHAPE.test(value);
+}
 
 /**
  * What the pinned document font covers, as data. ARCH-01 keeps `src/core` from reaching into the

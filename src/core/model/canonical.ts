@@ -10,11 +10,13 @@ import type { JsonValue, ModelRequest } from "./types";
 /**
  * A JSON value spelled one way: object keys sorted by code unit at every depth, array order kept,
  * `undefined`-valued keys omitted, and no whitespace anywhere. Scalars are spelled as JSON spells
- * them — which is why a number JSON cannot spell is refused first, by name: JSON writes NaN and the
+ * them — which is why a number JSON cannot spell is refused by name: JSON writes NaN and the
  * infinities as `null`, and a hash over that would identify a request nobody made (B-17).
+ *
+ * The refusal is the spelling's own, not a second guard in front of it: this seam and the act
+ * seam's digest read one implementation, so the two can never disagree about a value (ARCH-02).
  */
 export function canonicalJson(value: JsonValue): string {
-  assertFinite(value, "value");
   return canonical(value);
 }
 
@@ -27,19 +29,4 @@ export function requestHash(request: ModelRequest): string {
     params: { ...(request.params ?? {}) },
   });
   return createHash("sha256").update(spelled).digest("hex");
-}
-
-/** Every number under `value` is finite, or the first one that is not is named by its path. */
-function assertFinite(value: unknown, path: string): void {
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new Error(`${path} is ${String(value)}, which is not a finite number — a model request cannot carry it (L-AI-01)`);
-    return;
-  }
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => assertFinite(item, `${path}[${index}]`));
-    return;
-  }
-  if (typeof value === "object" && value !== null) {
-    for (const [key, item] of Object.entries(value)) assertFinite(item, `${path}.${key}`);
-  }
 }

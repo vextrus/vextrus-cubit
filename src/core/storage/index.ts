@@ -188,7 +188,10 @@ export function makeStorage(options: StorageOptions): Storage {
       const staging = `${file}.staging`;
       // R-SPINE-021 retains every revision forever, and bytes that are only in the page cache are a
       // promise the module cannot keep on its own: the copy is flushed before it is linked into
-      // place, so the address a caller is handed names bytes the volume has been told to hold.
+      // place, and the tenant prefix DIRECTORY is flushed after the link — so both halves of the
+      // address a caller is handed, the bytes and the entry that names them, are durable. Flushing
+      // the file alone leaves the entry in the directory's own cache: a crash then loses the name,
+      // and an object nothing can name is an object R-SPINE-021 did not retain.
       const handle = await open(staging, "w");
       try {
         await handle.writeFile(content);
@@ -224,6 +227,15 @@ export function makeStorage(options: StorageOptions): Storage {
           if (isMissing(failure)) return;
           options.onCleanupFailure?.(failure);
         });
+      }
+      // The directory entry, made durable in its own right (R-SPINE-021). It is flushed after the
+      // link and after the staging copy is gone, so what the volume is told to hold is the settled
+      // listing rather than a listing with a half-finished put still in it.
+      const directory = await open(join(root, prefix), "r");
+      try {
+        await directory.sync();
+      } finally {
+        await directory.close();
       }
       return { sha256 };
     },

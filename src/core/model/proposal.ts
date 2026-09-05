@@ -11,8 +11,13 @@ import type { ModelId } from "../model-ledger.types";
 import { parseSourceKey, stringsOf, type SourceKey, type SourceKeyResolver } from "./sources";
 import type { JsonValue } from "./types";
 
-/** The mark every Proposal carries: a symbol, so no JSON payload can carry one. */
-export const PROPOSAL_KIND: unique symbol = Symbol("cubit.proposal");
+/**
+ * The mark every Proposal carries: a symbol, so no JSON payload can carry one. It is registered on
+ * the process (`Symbol.for`) rather than minted per module instance — a bundled graph or a racing
+ * first import loads this module twice, and two freshly minted symbols would make a Proposal built
+ * under one copy fail the other copy's kind check (B-17: one mark, one home).
+ */
+export const PROPOSAL_KIND: unique symbol = Symbol.for("cubit.proposal");
 
 /** What the seam answers: the caller's decoded reading, the resolved sources it rests on, and the call that made it. */
 export type Proposal<T> = {

@@ -167,7 +167,9 @@ describe("the runtime over a recording store", () => {
     expect(callsTo("appendEnding")[0]?.args[1]).toEqual(expect.arrayContaining(["succeeded", "refused", "failed"]));
 
     await deadLetters();
-    expect(callsTo("deadLetterRows").map((call) => call.args[1])).toEqual([DEAD_LETTER_LIMIT]);
+    // One read of the log, bounded at one past the view's own limit: the extra row is how the view
+    // tells a log holding exactly the bound from one holding more (R-SPINE-030).
+    expect(callsTo("deadLetterRows").map((call) => call.args[1])).toEqual([DEAD_LETTER_LIMIT + 1]);
     expect(DEAD_LETTER_LIMIT).toBe(200);
     expect(SWEEP_BATCH).toBe(100);
   });

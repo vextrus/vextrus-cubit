@@ -51,6 +51,22 @@ export interface EditionLineageStep extends EditionIdentity {
 const FIELD = String.fromCharCode(0x1f);
 const RECORD = String.fromCharCode(0x1e);
 
+/**
+ * The names the canonical form joins on carry no separator of their own. A key holding U+001E or
+ * U+001F would let two different editions write one canonical line — the very accident the choice of
+ * these two characters was meant to make impossible — and a digest two editions share by accident
+ * keys nothing (L-MEA-01). The name is refused whole rather than escaped: escaping would respell
+ * every canonical line and so move every digest already stored, including the one db/migrations/0004
+ * wrote for the seed edition, and an append-only ledger cannot be re-keyed (B-17).
+ */
+function separatorFree(name: string, what: string): void {
+  for (const separator of [FIELD, RECORD]) {
+    if (!name.includes(separator)) continue;
+    const spelled = `U+${separator.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0")}`;
+    throw new Error(`${what}, ${JSON.stringify(name)}, holds ${spelled}, which is the separator the canonical form is joined on — no edition may hold one (L-MEA-01)`);
+  }
+}
+
 /** Code-point order, which is the only order this seam sorts by: no locale reaches a digest. */
 function byCodePoint(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -80,6 +96,11 @@ function canonicalValue(value: unknown): string {
  * hash — otherwise one edition would key two ways and a verbatim fork could miss its parent.
  */
 function canonicalContent(content: EditionContent): string {
+  for (const key of Object.keys(content.parameters)) separatorFree(key, "a parameter key");
+  for (const pair of content.methods) {
+    separatorFree(pair.ruleId, "a method's rule id");
+    separatorFree(pair.version, "a method's version");
+  }
   const parameters = Object.entries(content.parameters)
     .sort(([left], [right]) => byCodePoint(left, right))
     .map(([key, value]) => `${key}${FIELD}${canonicalValue(value)}`);

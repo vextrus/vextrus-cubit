@@ -3,6 +3,7 @@
 // — so the values a measurement reads and the values written here cannot drift apart unnoticed.
 //
 // The version string names India because Bangladesh has no measurement authority for these values.
+import { CANONICAL_UNITS } from "../../units/canon";
 import type { EditionContent, EditionIdentity } from "../editions/content";
 
 /** The identity of the platform edition: the head of every lineage in the product (L-REG-07). */
@@ -16,17 +17,20 @@ export const SEED_EDITION_IDENTITY: EditionIdentity = { scope: "platform", name:
  * Every value is a decimal string: B-07 keeps a figure exact from here to the page, and the unit is
  * carried beside it because a unit is edition data, not something a surface derives from a key.
  *
- * The area units are spelled `m2` and `cm2` rather than with U+00B2: an edition's content is what a
- * document renders, and L-FMT-02 refuses CHARACTER_NOT_COVERED for a character the pinned font
- * lacks — src/core/format's covered ranges hold no superscript two, so a squared sign written here
- * would be a stored value no bill could print.
+ * The area parameters state their unit as `CANONICAL_UNITS.AREA` read from src/core/units/canon —
+ * `m2` IS the canon's AREA spelling (L-FRM-06), and a literal of the same two characters here would
+ * be a second spelling that agrees only until the canon moves (B-17, ARCH-02).
+ *
+ * `cm2` is no unit the canon knows. It stays as it stands because this content is stored data: the
+ * edition ledger is append-only and db/migrations/0004 froze `editionDigest` over exactly these
+ * strings, so respelling one would key an edition nothing in the store carries (L-MEA-01).
  */
 export const SEED_EDITION_CONTENT: EditionContent = {
   parameters: {
-    openingDeductionMinM2: { value: "0.1", unit: "m2" },
+    openingDeductionMinM2: { value: "0.1", unit: CANONICAL_UNITS.AREA },
     memberEndNoDeductMaxCm2: { value: "500", unit: "cm2" },
     embeddedDuctNoDeductMaxCm2: { value: "100", unit: "cm2" },
-    finishOpeningDeductionMinM2: { value: "0.1", unit: "m2" },
+    finishOpeningDeductionMinM2: { value: "0.1", unit: CANONICAL_UNITS.AREA },
     finishMinOutlineArea: { value: "0.2", unit: "sft" },
     finishMaxOutlineArea: { value: "20000", unit: "sft" },
     scaleVerificationTolerance: { value: "0.01", unit: "ratio" },

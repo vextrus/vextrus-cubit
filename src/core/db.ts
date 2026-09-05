@@ -142,9 +142,8 @@ export const acts = pgTable(
 );
 
 /**
- * Role grants, append-only: a role is bundled permissions, and holding one is a fact the log made.
- * `act_id` is nullable because a grant can predate the act log's writ over it — a project's first
- * PRINCIPAL is installed by project creation, which is not an act somebody performed.
+ * Role grants, append-only: a role is bundled permissions, and holding one is a fact the log made
+ * (L-ACT-03). What `act_id` being nullable means is stated on the column itself.
  */
 export const participantRoles = pgTable(
   "participant_roles",
@@ -154,6 +153,17 @@ export const participantRoles = pgTable(
     projectId: uuid("project_id").notNull(),
     userId: uuid("user_id").notNull(),
     role: text("role").notNull(),
+    /**
+     * The act that made this grant, where one did. It is nullable for exactly one lawful grant: the
+     * creation PRINCIPAL L-ACT-03 installs in the project's own transaction ("project creation
+     * inserts its creator as PRINCIPAL in the same transaction"), which is not an act somebody
+     * performed and so has none to name. Every other grant is itself an act and carries its id.
+     *
+     * No CHECK enforces that reading. A constraint of the form "act_id is not null or role is
+     * PRINCIPAL" would refuse the act-less non-PRINCIPAL grants the tree's own staging helpers
+     * lawfully write, so the rule lives where a refusal can be answered — the act seam — and the
+     * column stays as the law describes it (L-ACT-03).
+     */
     actId: uuid("act_id"),
     grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -215,8 +225,11 @@ export const participantRoleWithdrawals = pgTable(
  */
 export const users = pgTable("users", {
   userId: uuid("user_id").primaryKey().defaultRandom(),
-  // The address is the account's name, and the door refuses a second account for it by name
-  // (ACCOUNT_ALREADY_EXISTS): the unique index below is the belt, never the answer.
+  // The account's fold key, not the address a person typed: `foldedKey` (src/server/auth/folded-key.ts)
+  // writes what lands here, and `presentedValue` from that same home untags it back into the address
+  // a person is shown or mailed at. Two addresses that fold together are one account, which is what
+  // makes the unique index below a belt for the door's own answer (ACCOUNT_ALREADY_EXISTS) rather
+  // than the answer itself.
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
@@ -984,8 +997,11 @@ function advisoryXactLock(name: string): SQL {
 /** A handle running under an attributable system reason: the same surface, unfiltered by tenant. */
 export type SystemDb = TenantDb;
 
-/** How many connections one process holds, and how long an idle one is kept (in seconds). */
-const POOL = { max: 10, idleTimeout: 20, connectTimeout: 10 } as const;
+/**
+ * How many connections one process holds, how long an idle one is kept, and how long a close waits
+ * for what is still outstanding before it destroys the connections anyway (all in seconds).
+ */
+const POOL = { max: 10, idleTimeout: 20, connectTimeout: 10, endTimeout: 5 } as const;
 
 /**
  * One pool per database the seam is pointed at, built on first use — so importing the seam neither
@@ -998,11 +1014,17 @@ const pools = new Map<string, postgres.Sql>();
  * End every pool the seam built and forget it, so a process that touched the seam can exit. The
  * registry is emptied as well as ended: a later scoped call builds a fresh pool rather than handing
  * out an ended one, and closing pools that were never built closes nothing.
+ *
+ * Bounded, because "so a process can exit" is the whole point: an unbounded `end()` waits for every
+ * outstanding query, and a query against a server that accepts a socket and never answers has no
+ * outstanding time. Past the bound the connections are destroyed and the outstanding query is
+ * rejected — which is a failure its own caller hears, where a process that never exits is a failure
+ * nobody hears at all (ARCH-03).
  */
 export async function closePools(): Promise<void> {
   const built = [...pools.values()];
   pools.clear();
-  await Promise.all(built.map(async (sql) => await sql.end()));
+  await Promise.all(built.map(async (sql) => await sql.end({ timeout: POOL.endTimeout })));
 }
 
 function connection(): postgres.Sql {
@@ -1041,9 +1063,12 @@ type PendingRows = PromiseLike<unknown> & { readonly values: () => PromiseLike<u
 /**
  * Arm this scope and do the work on one connection. The driver's own transaction is what makes the
  * scope and the query inseparable — a session setting written on a pooled connection the query might
- * not land on would scope nothing — and it costs no round trip of its own: the arming, the statement
- * and the commit are pipelined onto the connection the transaction already holds, where taking a
- * reserved connection out of the pool for every statement made the seam pay for one twice over.
+ * not land on would scope nothing. It is not free: `begin` sends a BEGIN before the arming statement
+ * and a COMMIT after the work, so a scoped read costs two round trips beyond the statement itself.
+ * They are paid because the alternative is unsound — a session setting and a query on two different
+ * pooled connections scope nothing at all — and because the driver pipelines the arming and the
+ * work onto the connection the transaction already holds, where reserving a connection per statement
+ * made the seam pay for one twice over.
  *
  * The work's answer is carried inside a wrapper because the driver executes an array a transaction
  * body returns; a result set is an array, and handing it back bare would run its rows as queries.
@@ -1391,19 +1416,6 @@ const LOG_ROUTE = "jobs/log";
 const LOG_ACTOR = "jobs/log";
 
 /**
- * The driver's own word that a connection is gone: the socket closed under a statement, the
- * connection was destroyed, or the pool it came from was ended. Beside them, the server's own
- * notice that it is terminating this connection (SQLSTATE class 57).
- */
-const CONNECTION_GONE: ReadonlySet<string> = new Set(["CONNECTION_CLOSED", "CONNECTION_DESTROYED", "CONNECTION_ENDED", "57P01", "57P02", "57P03"]);
-
-/** Whether a failure is the driver or the server reporting the connection itself gone. */
-const connectionGone = (failure: unknown): boolean => {
-  const code = (failure as { code?: unknown } | null)?.code;
-  return typeof code === "string" && CONNECTION_GONE.has(code);
-};
-
-/**
  * How a failure of the key lock itself is recorded. A wait that hit its bound, a lock connection
  * that died, a transaction that would not commit: none is a refusal any registered code covers and
  * all are this seam's own failure, so they cross the one fault seam before the caller sees anything
@@ -1415,8 +1427,15 @@ const LOCK_ROUTE = "jobs/lock";
 /** The dialect the lock statement is rendered in for the driver, which takes text and parameters. */
 const LOCK_DIALECT = new PgDialect();
 
-/** What the key lock holds instead of a guarded failure when there was none — `undefined` is a lawful throw. */
-const NOTHING_GUARDED = Symbol("nothing was thrown under the lock");
+/**
+ * `advisoryXactLock` rendered as the text and parameters the driver takes, so the one spelling of an
+ * advisory lock (B-17) serves the seams that hold a raw session as well as those holding a drizzle
+ * handle — the key lock and the ending's own critical section render the same statement.
+ */
+function advisoryLockStatement(name: string): { text: string; params: DriverParams } {
+  const rendered = LOCK_DIALECT.sqlToQuery(advisoryXactLock(name));
+  return { text: rendered.sql, params: rendered.params as DriverParams };
+}
 
 /** One row of the event log, as the storage holds it before the seam gives it its meaning. */
 export type JobEventDraft = {
@@ -1569,6 +1588,9 @@ function plannedQueueVersion(): number | null {
 const ONE_ENDING_INDEX = `create unique index if not exists job_events_one_ending on ${JOBS_SCHEMA}.job_events (job_id)
    where status in (${closedList([...TERMINAL_STATUSES])})`;
 
+/** How many offending job ids a fault about a log that cannot carry the constraint names, at most. */
+const DUPLICATE_ENDINGS_NAMED = 10;
+
 /** The row as the driver hands it back, before it is folded into the shape the seam publishes. */
 type RawJobEvent = {
   seq: string;
@@ -1683,19 +1705,35 @@ export function jobsStore(url: string): JobsStore {
         // make the constraint fit: the jobs that hold two endings are recorded as a fault, the log
         // stays writable under the existence check alone, and the index is built by the next
         // process once an operator has resolved them (R-SPINE-030, ARCH-03).
-        const duplicated = await sql<{ job_id: string }[]>`
-          select job_id
-            from ${sql(JOBS_SCHEMA)}.job_events
-           where status in ${sql([...TERMINAL_STATUSES])}
-           group by job_id
-          having count(*) > 1
-           order by job_id`;
-        const jobs = duplicated.map((row) => row.job_id);
-        const cause = new Error(
-          `the job log holds more than one ending for ${jobs.length} job(s) — ${jobs.join(", ")} — so job_events_one_ending cannot be built until they are resolved (R-SPINE-030)`,
-          { cause: collision },
-        );
-        reportFault({ requestId: LOG_ROUTE, actor: LOG_ACTOR, route: LOG_ROUTE, cause });
+        //
+        // How many, and a bounded sample of which — in one statement, so the count is the log's own
+        // and not the length of the sample. A fault naming every offending job is a fault an
+        // operator cannot read: a log that grew this way at scale would put an unbounded list into
+        // the record, and it is the count that says how bad it is (B-21).
+        const [duplicated] = await sql<{ total: string; named: string[] | null }[]>`
+          with duplicated as (
+            select job_id
+              from ${sql(JOBS_SCHEMA)}.job_events
+             where status in ${sql([...TERMINAL_STATUSES])}
+             group by job_id
+            having count(*) > 1
+          )
+          select (select count(*) from duplicated)::text as total,
+                 (select array_agg(job_id order by job_id) from (select job_id from duplicated order by job_id limit ${DUPLICATE_ENDINGS_NAMED}) as sample) as named`;
+        const total = Number(duplicated?.total ?? "0");
+        const named = duplicated?.named ?? [];
+        // Zero is not this log's story at all: `create unique index if not exists` is not atomic
+        // against another process running the same statement, and the loser is answered 23505 by
+        // the catalogue rather than by any row. The index stands — which is what was wanted — so a
+        // concurrent first provisioning is recorded nowhere (ARCH-03).
+        if (total > 0) {
+          const more = total > named.length ? ` (and ${total - named.length} more)` : "";
+          const cause = new Error(
+            `the job log holds more than one ending for ${total} job(s) — ${named.join(", ")}${more} — so job_events_one_ending cannot be built until they are resolved (R-SPINE-030)`,
+            { cause: collision },
+          );
+          reportFault({ requestId: LOG_ROUTE, actor: LOG_ACTOR, route: LOG_ROUTE, cause });
+        }
       }
     } catch (failure) {
       // A log that could not be provisioned is this seam's failure to answer for, and one every
@@ -1748,6 +1786,13 @@ export function jobsStore(url: string): JobsStore {
     try {
       await boss.start();
     } catch (failure) {
+      // A start that rejected may still have started something. The library arms its manager and,
+      // where it supervises, its maintenance loop BEFORE the step that failed, and neither is torn
+      // down by the rejection: an interval that outlives a failed open goes on maintaining a queue
+      // this process was told it does not have (R-SPINE-031). So the instance is stopped first —
+      // its own rejection swallowed, because a stop that fails on an instance that never opened has
+      // nothing to tell an operator that the start's failure below does not tell better.
+      await boss.stop({ close: true, graceful: false, wait: false }).catch(() => undefined);
       // The library opens its pool before it checks for its schema and closes nothing when the
       // check fails, and a start that failed is one it will not stop: the pool is given back here,
       // or every failed start leaks one.
@@ -1763,12 +1808,6 @@ export function jobsStore(url: string): JobsStore {
     return boss;
   });
 
-  /** The advisory-lock key a (kind, key) pair is serialised on, as the driver takes it. */
-  const lockStatement = (kind: string, key: string): { text: string; params: DriverParams } => {
-    const rendered = LOCK_DIALECT.sqlToQuery(advisoryXactLock(`${kind}:${key}`));
-    return { text: rendered.sql, params: rendered.params as DriverParams };
-  };
-
   /**
    * Run one piece of work with the (kind, key) pair to itself, under a transaction-scoped advisory
    * lock on a connection of the lock pool's own.
@@ -1782,22 +1821,20 @@ export function jobsStore(url: string): JobsStore {
    * predecessor is sitting on (SEAM-JOBS, ARCH-03).
    *
    * Three failures are told apart here, and each is answered once (ARCH-03, B-21). A failure of the
-   * locking — a wait that hit its bound, a pool already ended, a COMMIT that would not land — is the
-   * seam's own: it crosses the fault seam under the caller's request id and reaches the caller as a
-   * fault id. The guarded work's own failure travels exactly as it was raised — whoever wrote it
-   * answered for it already — and is never wrapped. A ROLLBACK that fails on the way out of a failed
-   * work is recorded on the lock's route and masks nothing: the caller still hears the work's
-   * failure, not the ROLLBACK's.
+   * locking — a wait that hit its bound, a pool already ended, a hand-back that would not land — is
+   * the seam's own: it crosses the fault seam under the caller's request id and reaches the caller
+   * as a fault id. The guarded work's own failure travels exactly as it was raised — whoever wrote
+   * it answered for it already — and is never wrapped. A hand-back that fails under a failed work is
+   * recorded on the lock's route and masks nothing: the caller still hears the work's failure.
    *
-   * The ROLLBACK is issued by hand for that reason: the driver's transaction wrapper answers a
-   * failed work with the ROLLBACK's failure when its socket has closed under it, and the race it
-   * runs against the socket rejects the transaction the moment the socket goes. Once the driver has
-   * reported the connection closed, no statement may be issued on it — the driver writes to a socket
-   * it no longer holds. So the ROLLBACK goes out only on a connection the driver still holds, the
-   * transaction body waits for its own exit to be safe, and where the connection is gone — by the
-   * driver's report, or by the ROLLBACK's own answer that the connection died under it — the body
-   * never exits at all: the driver's transaction has already been answered, the lock died with the
-   * connection, and a body left pending holds no connection and no timer.
+   * The hand-back is the driver's own COMMIT and nothing else. Once the lock is taken, the body
+   * never throws: a work that failed is CAUGHT and carried out on a variable, and the body returns.
+   * The transaction then ends the one way it can — the driver commits, or reports that it could not
+   * — and the lock is gone either way, because postgres drops an xact lock when the transaction
+   * ends however it ends. A hand ROLLBACK would add a statement issued on a connection that may
+   * already be gone; parking the body to avoid that would leave a promise, and whatever it closed
+   * over, alive for the life of the process. Neither buys anything the COMMIT does not: the guarded
+   * work's writes went out on the LOG's pool, so there is nothing under this transaction to undo.
    */
   const withKeyLock = async <T>(kind: string, key: string, requestId: string, work: () => Promise<T>): Promise<T> => {
     const lockFailure = (what: string, cause: unknown): Error => {
@@ -1805,105 +1842,45 @@ export function jobsStore(url: string): JobsStore {
       return new Error(`a ${kind} job could not ${what} on key ${key} — recorded as fault ${faultId}`, { cause });
     };
 
-    let bodyStarted = false;
     let lockTaken = false;
-    let answered: { answer: T } | undefined;
-    let guarded: unknown = NOTHING_GUARDED;
-    let rollbackFailure: unknown = NOTHING_GUARDED;
-    let transactionSettled = false;
-    let transactionFailure: unknown = NOTHING_GUARDED;
-    let bodyExited: () => void = () => undefined;
-    const exited = new Promise<void>((settle) => {
-      bodyExited = settle;
-    });
+    /** What the work did, carried out of the transaction: a COMMIT that fails must not lose it. */
+    let ran: { ok: true; answer: T } | { ok: false; guarded: unknown } | undefined;
 
-    /** Whether the driver has answered the transaction — read a macrotask later, so its report of a closed socket has landed first. */
-    const driverAnswered = async (): Promise<boolean> => {
-      await new Promise<void>((settle) => setImmediate(settle));
-      return transactionSettled;
-    };
-
-    /** A body that must never exit: nothing may be issued on the connection it holds (ARCH-03). */
-    const parked = (): Promise<never> => new Promise<never>(() => undefined);
-
-    /** The body is about to exit: safe on a connection the driver still holds, never on one that is gone. */
-    const exiting = async (): Promise<void> => {
-      bodyExited();
-      if ((await driverAnswered()) || connectionGone(rollbackFailure)) await parked();
-    };
-
-    /**
-     * Give a failed work's transaction back by hand, answering what stood in the way — or nothing.
-     * Where the driver has already reported the connection closed, no ROLLBACK can be issued and
-     * the driver's report is what stood in the way; the lock died with the connection either way.
-     */
-    const rollingBack = async (tx: postgres.TransactionSql): Promise<unknown> => {
-      if (await driverAnswered()) return transactionFailure;
-      try {
-        await tx.unsafe("rollback");
-        return NOTHING_GUARDED;
-      } catch (rollback) {
-        return rollback;
-      }
-    };
-
-    const transaction = locks.begin(async (tx) => {
-      bodyStarted = true;
-      try {
+    const handBack = await locks
+      .begin(async (tx) => {
         // A wait that cannot end is worse than a failure that can: bounded, an enqueue behind a
         // holder that will not let go fails and says so, instead of holding a connection until the
         // pool has none left and no key can be enqueued at all.
         await tx.unsafe(`set local lock_timeout = ${LOCK_WAIT_MS}`);
-        const lock = lockStatement(kind, key);
+        const lock = advisoryLockStatement(`${kind}:${key}`);
         await tx.unsafe(lock.text, lock.params);
-      } catch (failure) {
-        await exiting();
-        throw failure;
-      }
-      lockTaken = true;
-      let answer: T;
-      try {
-        answer = await work();
-      } catch (failure) {
-        guarded = failure;
-        rollbackFailure = await rollingBack(tx);
-        await exiting();
-        throw failure;
-      }
-      // Wrapped in one: the driver spreads an array a transaction answers with, and a caller's own
-      // array result is not this seam's to spread. Kept here too: the work's effects landed on the
-      // log's pool whatever becomes of the lock's connection after this point.
-      answered = { answer };
-      await exiting();
-      return answered;
-    });
-    const outcome = await transaction.then(
-      (held) => {
-        transactionSettled = true;
-        return { answer: (held as { answer: T }).answer };
-      },
-      (failure: unknown) => {
-        transactionSettled = true;
-        transactionFailure = failure;
-        return { failure };
-      },
-    );
-    if (bodyStarted) await exited;
+        lockTaken = true;
+        try {
+          ran = { ok: true, answer: await work() };
+        } catch (failure) {
+          ran = { ok: false, guarded: failure };
+        }
+        // Wrapped in one: the driver runs an array a transaction body answers with as queries, and
+        // a caller's own array result is not this seam's to run.
+        return { handedBack: true };
+      })
+      .then(
+        () => undefined,
+        (failure: unknown) => ({ failure }),
+      );
 
-    if (guarded !== NOTHING_GUARDED) {
-      if (rollbackFailure !== NOTHING_GUARDED) reportFault({ requestId, actor: LOCK_ACTOR, route: LOCK_ROUTE, cause: rollbackFailure });
-      throw guarded;
+    // The work was never reached: the lock itself is what failed, and it is the seam's own.
+    if (ran === undefined) {
+      const cause = handBack === undefined ? new Error(`the lock transaction on ${kind}:${key} ended without running its work`) : handBack.failure;
+      throw lockFailure(lockTaken ? "give the lock back" : "take the lock", cause);
     }
-    if (answered !== undefined) {
-      // Work that answered has landed: its writes went out on the log's pool and are committed
-      // whatever the lock's connection did afterwards. A lock that died under it, or a COMMIT that
-      // would not land, is recorded on the lock's route — the key was unguarded for the tail of the
-      // work — but the caller hears the answer, not a fault for effects that are there (ARCH-03).
-      if ("failure" in outcome) reportFault({ requestId, actor: LOCK_ACTOR, route: LOCK_ROUTE, cause: outcome.failure });
-      return answered.answer;
-    }
-    if ("failure" in outcome) throw lockFailure(lockTaken ? "give the lock back" : "take the lock", outcome.failure);
-    return outcome.answer;
+    // A hand-back that did not land is recorded once, whichever way the work went: the key was
+    // unguarded for the tail of the work, and an operator is owed that. It never becomes the
+    // caller's answer — the work's effects landed on the log's pool and are there either way, so
+    // the caller hears what the work did (ARCH-03).
+    if (handBack !== undefined) reportFault({ requestId, actor: LOCK_ACTOR, route: LOCK_ROUTE, cause: handBack.failure });
+    if (ran.ok) return ran.answer;
+    throw ran.guarded;
   };
 
   /** Which queues this store has already made, so the row is made once per process, not per send. */
@@ -2098,28 +2075,44 @@ export function jobsStore(url: string): JobsStore {
       // reader can see the claim gone before the ending, or two endings for one job. A writer that
       // races another past the existence check yields to job_events_one_ending instead: no row,
       // no release, and the caller reads the same null as when the ending was already there.
-      const rows = await sql<RawJobEvent[]>`
+      //
+      // The index cannot always stand, though — a log that already held two endings for one job
+      // when this process first reached it has none (see `createLog`) — and a storage guarantee
+      // that holds only while its index does is not a guarantee (B-17). So the ending goes out in
+      // its own transaction, behind a transaction-scoped advisory lock on the job id: the
+      // existence check and the insert are one critical section per job, the second writer reads
+      // the first writer's ending and answers null, and the lock is dropped by the transaction
+      // ending however it ends. It is taken on the LOG's pool, never the lock pool, which is held
+      // for the key lock alone and would deadlock a job holding both.
+      const written = await sql.begin(async (tx) => {
+        const guard = advisoryLockStatement(`${JOBS_SCHEMA}.job_events:${draft.jobId}`);
+        await tx.unsafe(guard.text, guard.params);
+        // Wrapped, because the driver runs an array a transaction body answers with as queries.
+        return {
+          rows: await tx<RawJobEvent[]>`
         with ending as (
-          insert into ${sql(JOBS_SCHEMA)}.job_events (job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, elapsed_ms)
+          insert into ${tx(JOBS_SCHEMA)}.job_events (job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, elapsed_ms)
           select ${draft.jobId}::text, ${draft.kind}::text, ${draft.key}::text, ${draft.step}::text, ${draft.status}::text, ${draft.attempt}::integer,
-                 ${draft.refusalCode}::text, ${draft.faultId}::text, ${sql.json(jsonDetail(draft.detail))}::jsonb, ${draft.elapsedMs}::integer
+                 ${draft.refusalCode}::text, ${draft.faultId}::text, ${tx.json(jsonDetail(draft.detail))}::jsonb, ${draft.elapsedMs}::integer
            where not exists (
                    select 1
-                     from ${sql(JOBS_SCHEMA)}.job_events as ended
+                     from ${tx(JOBS_SCHEMA)}.job_events as ended
                     where ended.job_id = ${draft.jobId}
-                      and ended.status in ${sql(endedStatuses as string[])}
+                      and ended.status in ${tx(endedStatuses as string[])}
                  )
               on conflict do nothing
           returning seq, job_id, kind, key, step, status, attempt, refusal_code, fault_id, detail, at, elapsed_ms
         ), released as (
-          delete from ${sql(JOBS_SCHEMA)}.job_claims as claim
+          delete from ${tx(JOBS_SCHEMA)}.job_claims as claim
            where claim.kind = ${draft.kind} and claim.key = ${draft.key} and claim.job_id = ${draft.jobId}
              and exists (select 1 from ending)
         )
         select ending.seq, ending.job_id, ending.kind, ending.key, ending.step, ending.status, ending.attempt, ending.refusal_code,
                ending.fault_id, ending.detail, ending.at, ending.elapsed_ms, pg_notify(${EVENTS_CHANNEL}, ending.job_id) as announced
-          from ending`;
-      const row = rows[0];
+          from ending`,
+        };
+      });
+      const row = (written as unknown as { rows: RawJobEvent[] }).rows[0];
       return row === undefined ? null : eventRow(row);
     },
 

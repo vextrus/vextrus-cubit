@@ -131,6 +131,14 @@ export const assignParticipantRole: ActRendering<AssignParticipantRoleInput> = {
     // is then the backstop the law calls it — a belt behind this write, not the thing a first
     // assignment trips over. Nothing is rewritten: a person already attached stays attached, at the
     // moment they first were, which is what an append-only participation means.
+    //
+    // Interpretation (L-ACT-03): a first grant's subject carries `before: []` on the Consequence,
+    // and that empty list IS the Consequence's own description of the participation this insert
+    // attaches — "holds no role on this project" and "is not a participant of it" are one state
+    // under a law that makes assignment the thing which attaches. The alternative reading — that
+    // the attachment is a second state change owing an attachment field of its own — is rejected:
+    // the field would enter the digest input, and a digest nobody has shown an operator is a
+    // consequence nobody confirmed (L-ACT-02, R-UI-021).
     await tx
       .insert(participants)
       .values({ tenantId: ctx.tenantId, projectId: input.projectId, userId: input.subjectUserId })

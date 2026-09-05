@@ -120,7 +120,7 @@ async function answerThroughPort<T>(port: TransportPort, ledger: ModelLedger, ct
   if (!reading.ok) {
     // The model answered, so the tokens it spent stay attributed on the refused row (L-AI-02).
     const callId = await recordedOrNone(ledger, ctx, route, { ...attribution, ...spent, outcome: "refused", refusalCode: reading.code });
-    throw refusal(reading.code, `the model's answer to request ${hash} was not accepted as a proposal against artifact ${reading.artifactDigest}: ${describe(reading.detail)}`, {
+    throw refusal(reading.code, `the model's answer to request ${hash} was not accepted as a proposal against artifact ${reading.artifactDigest}: ${describe(reading.code, reading.detail)}`, {
       ...reading.detail,
       callId,
       requestHash: hash,
@@ -191,14 +191,27 @@ async function recordedOrNone(ledger: ModelLedger, ctx: ModelCallContext, route:
 const FACT_LIMIT = 200;
 
 /**
- * The operator's detail of a failed reading, as `key=value` facts; an empty detail says nothing
- * more. Every value is model-supplied — a rejected source string, a decoder's detail, the list of
- * unresolved keys — so each fact is clipped to a readable length: the whole of it lives on the
- * refusal's detail, and the message never amplifies what a model answered.
+ * What a refusal says when its detail holds no fact at all — one sentence per resolution code, total
+ * over the closed set (L-AI-02, R-SPINE-062). A detail is empty only when the judgement had nothing
+ * model-supplied to state, and the sentence is then the whole of what the operator is told: it
+ * belongs to the code, exported and total, rather than to a branch inside `describe` that could
+ * answer one code's words for another's failure (B-17, ARCH-02).
  */
-function describe(detail: Record<string, JsonValue>): string {
+export const EMPTY_DETAIL_SENTENCES: Readonly<Record<ResolutionCode, string>> = Object.freeze({
+  UNSOURCED: "no source was cited",
+  SOURCE_UNRESOLVED: "no cited source resolved against the artifact",
+  MALFORMED: "the answer was not shaped as a proposal",
+});
+
+/**
+ * The operator's detail of a failed reading, as `key=value` facts; a detail holding none says the
+ * sentence of its own code. Every value is model-supplied — a rejected source string, a decoder's
+ * detail, the list of unresolved keys — so each fact is clipped to a readable length: the whole of it
+ * lives on the refusal's detail, and the message never amplifies what a model answered.
+ */
+function describe(code: ResolutionCode, detail: Record<string, JsonValue>): string {
   const facts = Object.entries(detail).map(([key, value]) => `${key}=${clip(JSON.stringify(value) ?? "null")}`);
-  return facts.length === 0 ? "no source was cited" : facts.join(", ");
+  return facts.length === 0 ? EMPTY_DETAIL_SENTENCES[code] : facts.join(", ");
 }
 
 function clip(text: string): string {
