@@ -88,14 +88,13 @@ const CHUNK_VERTICES = 8192;
 const MARK_STROKE_PX = 2;
 
 /**
- * Where the same mark is drawn to make that stroke. `gl.lineWidth` is a no-op on ANGLE — its
- * aliased line-width range is [1, 1] — so a 2 px stroke is drawn as the 1 px run shifted across the
- * 2 × 2 device pixels it must cover, which is a stroke of the width the Decision fixes rather than
- * a request the driver ignores.
+ * How many one-device-pixel offsets the same mark is drawn at to make that stroke. `gl.lineWidth`
+ * is a no-op on ANGLE — its aliased line-width range is [1, 1] — so the 1 px run is drawn once per
+ * device pixel the stroke covers. The count follows the backing store's ratio to the layout: a
+ * 2 px stroke is four device pixels on a HiDPI canvas, and a step of anything but one device pixel
+ * leaves unpainted rows between the runs.
  */
-const MARK_SHIFTS: readonly (readonly [number, number])[] = Object.freeze(
-  Array.from({ length: MARK_STROKE_PX * MARK_STROKE_PX }, (_, at) => Object.freeze([at % MARK_STROKE_PX, Math.floor(at / MARK_STROKE_PX)] as [number, number])),
-);
+const markSteps = (extentPx: number, layoutPx: number): number => Math.max(1, Math.round(MARK_STROKE_PX * (extentPx / Math.max(layoutPx, 1))));
 
 /** A channel is "white" at or above this, and "black" at or below the other — colour 7 (I-79). */
 const NEAR_WHITE = 250;
@@ -520,7 +519,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
    * and painting it opaque would put a solid block where the reading meant a tint (R-UI-001: the
    * token's value is the surface's colour, alpha included).
    */
-  const drawMark = (mark: Mark | null, colour: string, tint: readonly [number, number, number], amount: number, camera: Camera): void => {
+  const drawMark = (mark: Mark | null, colour: string, tint: readonly [number, number, number], amount: number): void => {
     if (mark === null || mark.vertices === 0) return;
     const alpha = alphaOf(colour);
     gl.uniform3f(lineSlots.tint, tint[0], tint[1], tint[2]);
@@ -532,9 +531,15 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     }
     attribute(lineSlots.position, mark.positions, 2);
     attribute(lineSlots.colour, mark.colours, 3);
-    for (const [across, down] of MARK_SHIFTS) {
-      gl.uniform2f(lineSlots.shift, (across * 2) / Math.max(camera.viewport.width, 1), (down * 2) / Math.max(camera.viewport.height, 1));
-      gl.drawArrays(gl.LINES, 0, mark.vertices);
+    // Clip space spans two units over the backing store, so one device pixel is 2 / canvas.width —
+    // the step the runs are laid down at, whatever ratio `resize` gave the store.
+    const acrossSteps = markSteps(canvas.width, canvas.clientWidth);
+    const downSteps = markSteps(canvas.height, canvas.clientHeight);
+    for (let across = 0; across < acrossSteps; across += 1) {
+      for (let down = 0; down < downSteps; down += 1) {
+        gl.uniform2f(lineSlots.shift, (across * 2) / Math.max(canvas.width, 1), (down * 2) / Math.max(canvas.height, 1));
+        gl.drawArrays(gl.LINES, 0, mark.vertices);
+      }
     }
     gl.uniform2f(lineSlots.shift, 0, 0);
     gl.uniform1f(lineSlots.tinted, 0);
@@ -615,11 +620,14 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     // What is under the pointer, then what is held, above the sheet and above its text: a selection
     // is the stronger fact and is never covered by the reading that led to it (Decision § 1).
     const now = performance.now();
+    // A pulse is spent by the clock, not by what is still held: read it before the marks are, so a
+    // strike whose selection was cleared mid-flight retires here instead of holding the loop open.
+    const struck = pulseAmount(now);
     if (selectionMark !== null || hoverMark !== null) {
       gl.useProgram(lineProgram);
       camera3(lineSlots, camera);
-      drawMark(hoverMark, palette.hover, [0, 0, 0], 0, camera);
-      drawMark(selectionMark, palette.selection, channelsOf(palette.pulse), pulseAmount(now), camera);
+      drawMark(hoverMark, palette.hover, [0, 0, 0], 0);
+      drawMark(selectionMark, palette.selection, channelsOf(palette.pulse), struck);
     }
 
     // A gap longer than a rest is not a frame anybody dropped: the ledger measures the cadence of a
