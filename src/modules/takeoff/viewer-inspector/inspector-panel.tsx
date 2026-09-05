@@ -108,11 +108,11 @@ export function InspectorPanel({ hover, selection, missing, onCopy, onReveal, on
               data-variant="secondary"
               data-testid="viewer-inspector-reveal"
               disabled={selection.length === 0}
-              onClick={onReveal}
+              onClick={() => onReveal()}
             >
               <span className="cx-btn-label">{INSPECTOR_COPY.viewer_inspector_reveal}</span>
             </button>
-            <button type="button" className="cx-btn cx-reticle" data-variant="ghost" data-testid="viewer-inspector-clear" onClick={onClear}>
+            <button type="button" className="cx-btn cx-reticle" data-variant="ghost" data-testid="viewer-inspector-clear" onClick={() => onClear()}>
               <span className="cx-btn-label">{INSPECTOR_COPY.viewer_inspector_clear}</span>
             </button>
           </div>

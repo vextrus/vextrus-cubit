@@ -683,10 +683,13 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
    * everything selected, and the arrival is struck once in the pulse colour. It is one code path —
    * the Reveal door and a deep link that names keys and no camera both come through here (I-85).
    */
-  const revealInSheet = useCallback((): void => {
+  const revealInSheet = useCallback((keys?: readonly string[]): void => {
     const stage = stageRef.current;
     if (stage === null || head?.kind !== "manifest") return;
-    const boxes = selectionRef.current.map((key) => factsRef.current.get(key)?.box).filter((box): box is IndexBox => box !== undefined);
+    // The keys are taken as an argument where the caller has just chosen them: a deep link selects
+    // and reveals in one pass, and the ref holding what is selected is a render behind it.
+    const held = keys ?? selectionRef.current;
+    const boxes = held.map((key) => factsRef.current.get(key)?.box).filter((box): box is IndexBox => box !== undefined);
     const union = unionBox(boxes);
     // Nothing selected has no box, so a reveal has nowhere to go and does not pretend to travel.
     if (union === null) return;
@@ -746,14 +749,17 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     const asked = parseSelection(initialSelection);
     const arrived = loadedLayers + failedRef.current.size >= head.manifest.layers.length;
     const found = asked.keys.filter((key) => factsRef.current.has(key));
-    if (asked.keys.length > 0) setSelection(found);
-    if (asked.keys.length > 0 && found.length < asked.keys.length && !arrived) return;
+    const settled = asked.keys.length === 0 || found.length === asked.keys.length || arrived;
+    // Nothing is written back to the address until the reading is settled: a link copied while the
+    // sheet was still arriving would otherwise carry the keys that had reached the browser so far.
+    if (!settled) return;
 
     addressTakenRef.current = true;
+    if (asked.keys.length > 0) setSelection(found);
     setMissing([...asked.malformed, ...asked.keys.filter((key) => !factsRef.current.has(key))]);
     // A camera the address states is the camera the reader gets: only a link that named keys and no
     // viewport flies to them, and only then is `data-flyto` ever written (I-85).
-    if (found.length > 0 && initialViewport === null) revealInSheet();
+    if (found.length > 0 && initialViewport === null) revealInSheet(found);
   }, [drawingId, head, initialSelection, initialViewport, layoutName, loadedLayers, revealInSheet]);
 
   /* ----------------------------------------------------------------------------------- the gestures */
