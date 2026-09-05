@@ -35,6 +35,19 @@ const PRECISION_NOT_APPLIED: RefusalCode = "PRECISION_NOT_APPLIED";
 const CHARACTER_NOT_COVERED: RefusalCode = "CHARACTER_NOT_COVERED";
 
 /**
+ * The engine that reads an instant's day in the document's zone, built once beside the grouping one.
+ * Only the day's three parts are asked for: month names are pinned in `BD_DOCUMENT` rather than read
+ * from the platform, whose short forms vary by ICU release.
+ */
+const DOCUMENT_DAY = new Intl.DateTimeFormat(BD_DOCUMENT.locale, {
+  timeZone: BD_DOCUMENT.timeZone,
+  numberingSystem: BD_DOCUMENT.numberingSystem,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/**
  * The grouping engine, built once. The integer part is handed over as a `bigint` so a ledger figure
  * beyond the safe integer range groups exactly — B-07 keeps money off floats end to end.
  */
@@ -141,6 +154,20 @@ export function formatDate(parts: { year: number; month: number; day: number }):
   if (!isWholeNumber(month) || month < 1 || month > BD_DOCUMENT.months.length) throw refusal(PRECISION_NOT_APPLIED, "a date's month must be 1-based wall-clock part between 1 and 12 (L-FMT-01)");
   if (!isWholeNumber(day) || day < 1 || day > daysInMonth(year, month)) throw refusal(PRECISION_NOT_APPLIED, "a date's day must be a day that month actually has (L-FMT-01)");
   return `${pad(day, 2)} ${BD_DOCUMENT.months[month - 1]} ${pad(year, 4)}`;
+}
+
+/**
+ * The document zone's wall-clock parts for an instant (L-FMT-01, SEAM-FORMAT). `formatDate` takes
+ * parts because a day is the reader's day, and a process holding a `Date` holds an instant: the
+ * conversion between them is one question with one answer, and it lives here rather than as an
+ * offset spelled beside whichever screen happens to have an instant in its hand (B-17, ARCH-02).
+ *
+ * The zone comes from `BD_DOCUMENT`, which is the one home of the document's conventions, and the
+ * parts are read through this file's own locale machinery — the tree's sole caller of it.
+ */
+export function dhakaDateParts(at: Date): { year: number; month: number; day: number } {
+  const parts = new Map(DOCUMENT_DAY.formatToParts(at).map((part) => [part.type, part.value]));
+  return { year: Number(parts.get("year")), month: Number(parts.get("month")), day: Number(parts.get("day")) };
 }
 
 /**

@@ -35,7 +35,8 @@ export interface MembersHistoryEntry {
 /** One member of the workspace, as the page composed them from the module's answer. */
 export interface MembersRow {
   readonly userId: string;
-  readonly label: string;
+  /** The address a reader recognises them by, or nobody — a digest-keyed account has none (I-58). */
+  readonly label: string | null;
   readonly role: string;
   readonly history: readonly MembersHistoryEntry[];
 }
@@ -124,7 +125,7 @@ export function MembersSection({
           {rows.map((row) => (
             <li className="cx-members-row" data-testid="members-row" data-user={row.userId} key={row.userId}>
               <p className="cx-members-identity">
-                <span className="cx-members-member">{row.label}</span>
+                <span className="cx-members-member">{row.label ?? membersStrings.members_member_unnamed}</span>
                 {/* I-55: the store's own word, verbatim and mono — never title-cased into prose. */}
                 <span className="cx-members-role" data-testid="members-row-role">
                   {row.role}
@@ -219,9 +220,13 @@ export function MembersSection({
  * telling the rows apart (R-UI-012). Where the stored label carries no identity, the id does: it is
  * the accessible name only, and the row still SHOWS the sentence, because an id is an identifier
  * and not a name.
+ *
+ * The absence is read as an absence rather than by comparing the rendered copy against the string
+ * table: copy is the Decision's to change, and a member whose address happened to read "Unnamed
+ * member" would otherwise be renamed by the comparison (B-17, B-19).
  */
 function spokenName(row: MembersRow): string {
-  return row.label === membersStrings.members_member_unnamed ? fill(membersStrings.members_member_unnamed_identified, { id: row.userId }) : row.label;
+  return row.label ?? fill(membersStrings.members_member_unnamed_identified, { id: row.userId });
 }
 
 /** One member's record: every movement the workspace's ledgers hold about them, or the honest none. */

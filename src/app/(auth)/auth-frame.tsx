@@ -5,7 +5,9 @@
 // nothing else, so a signed-in screen asks for the `product` surface and renders no mark. The brand
 // colours are founder-fixed inside the vendored assets rather than token reads, which is why the
 // light and dark marks are two files and the stylesheet's one `[data-theme]` rule chooses between
-// them. Both are decoration — the heading is what names the product, and the wrapper borrows it.
+// them. Both are decoration, and so is the wrapper that holds them: a mark labelled by the page's
+// own heading says the product's name twice to a reader moving by landmark and heading, once as an
+// image and once as the `<h1>` it borrowed the words from. The heading alone names the page (I-10).
 import type { ReactNode } from "react";
 import markDark from "../../ui/brand/vextrus-mark-dark.svg";
 import markLight from "../../ui/brand/vextrus-mark.svg";
@@ -34,7 +36,7 @@ export function AuthFrame({ title, caption, surface = "unauthenticated", footer 
   return (
     <div className="cx-auth-column" data-width={surface === "product" ? "wide" : undefined}>
       {surface === "unauthenticated" ? (
-        <span className="cx-auth-mark" role="img" aria-labelledby={TITLE_ID}>
+        <span className="cx-auth-mark" aria-hidden="true">
           <img className="cx-auth-mark-light" src={markLight.src} alt="" aria-hidden="true" width={MARK_PX} height={MARK_PX} />
           <img className="cx-auth-mark-dark" src={markDark.src} alt="" aria-hidden="true" width={MARK_PX} height={MARK_PX} />
         </span>

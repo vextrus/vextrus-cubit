@@ -9,7 +9,7 @@
  * appears here the moment its entry does, and one without an entry fails a test instead.
  */
 import { galleryBarrels, galleryEntries } from "../../../ui/gallery-derivation";
-import { galleryChrome } from "../../../ui/gallery-derivation/chrome";
+import { strings } from "../../../ui/strings";
 import "./design.css";
 
 /** The barrel an entry key belongs to: the key is `"<barrelId>/<ExportName>"` and names carry no slash. */
@@ -45,8 +45,10 @@ export default function DesignGalleryPage() {
     // of the same document. The chrome stays a `header`, the one landmark this page authors.
     <div className="cx-gallery">
       <header className="cx-gallery-shell" data-testid="gallery-shell">
-        <h1 className="cx-gallery-title">{galleryChrome.heading}</h1>
-        <p className="cx-gallery-caption">{galleryChrome.caption}</p>
+        {/* The screen's own two sentences come from the string table every screen reads, not from
+            the derivation's internal module beside it (R-SPINE-060, B-17). */}
+        <h1 className="cx-gallery-title">{strings.design_gallery_heading}</h1>
+        <p className="cx-gallery-caption">{strings.design_gallery_caption}</p>
       </header>
 
       {barrelIds.map((barrelId) => (

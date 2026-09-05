@@ -9,7 +9,15 @@
 // derived from that same value, and a suite can run it.
 import { createHash } from "node:crypto";
 
-/** The source the document runs, as text — the thing hashed and the thing rendered are one value. */
+/**
+ * The source the document runs, as text — the thing hashed and the thing rendered are one value.
+ *
+ * Its `catch` is empty on purpose, and the reason is the Decision's theme-resolution section: a UA
+ * that publishes no `matchMedia`, or one that throws on it, keeps the light attribute the server
+ * already rendered, which is the product's default and a correct document either way. Nothing more
+ * can be done before first paint — no fault seam exists in the document yet, there is no screen to
+ * tell and no request to record against — so there is nothing for the arm to hold.
+ */
 export const THEME_RESOLVER =
   'try{if(window.matchMedia("(prefers-color-scheme: dark)").matches){document.documentElement.setAttribute("data-theme","dark")}}catch(_){}';
 

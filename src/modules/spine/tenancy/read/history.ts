@@ -24,7 +24,10 @@ export interface MemberRoleHistoryEntry {
 const PROJECT_PERMISSION_NOT_HELD = refusalOf("PERMISSION_NOT_HELD").code;
 
 /**
- * Every role movement the workspace's ledgers hold about one member, project by project.
+ * Every role movement the workspace's ledgers hold, project by project, keyed by the member each
+ * movement is about. The ledgers are the workspace's and do not depend on which member is being
+ * asked about, so the whole roster's record costs one read per project rather than one per member
+ * per project (B-17).
  *
  * The projects enumerated are the WORKSPACE's, read through the tenant handle: which projects a
  * member has a record on is exactly what this read answers, so it cannot be asked of the attachment
@@ -41,14 +44,13 @@ const PROJECT_PERMISSION_NOT_HELD = refusalOf("PERMISSION_NOT_HELD").code;
  * may read four of five projects with a project-scoped code about the fifth instead of the record
  * they may have. Membership of the workspace, checked above, is what admits the read at all.
  */
-export async function memberRoleHistory(actor: TenancyActor, subjectUserId: string): Promise<readonly MemberRoleHistoryEntry[]> {
+export async function memberRoleHistories(actor: TenancyActor): Promise<ReadonlyMap<string, readonly MemberRoleHistoryEntry[]>> {
   await requireMembership(actor);
-  if (!isUuid(subjectUserId)) return [];
 
   const held = await forTenant(actor).select({ projectId: projects.projectId }).from(projects);
   const projectIds = [...new Set(held.map((row) => row.projectId))].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
 
-  const gathered: MemberRoleHistoryEntry[] = [];
+  const gathered = new Map<string, MemberRoleHistoryEntry[]>();
   for (const projectId of projectIds) {
     let history: readonly RoleHistoryEntry[];
     try {
@@ -58,8 +60,23 @@ export async function memberRoleHistory(actor: TenancyActor, subjectUserId: stri
       throw thrown;
     }
     for (const entry of history) {
-      if (entry.subject.userId === subjectUserId) gathered.push({ projectId, entry });
+      const record = gathered.get(entry.subject.userId) ?? [];
+      record.push({ projectId, entry });
+      gathered.set(entry.subject.userId, record);
     }
   }
   return gathered;
+}
+
+/**
+ * One member's record, which is the whole roster's read keyed by the subject it is about. It is the
+ * same answer as before and it is derived from the one gathering rather than re-walking the ledgers,
+ * so the seam cannot come to hold two readings of the same question (B-17).
+ */
+export async function memberRoleHistory(actor: TenancyActor, subjectUserId: string): Promise<readonly MemberRoleHistoryEntry[]> {
+  if (!isUuid(subjectUserId)) {
+    await requireMembership(actor);
+    return [];
+  }
+  return (await memberRoleHistories(actor)).get(subjectUserId) ?? [];
 }

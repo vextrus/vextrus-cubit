@@ -8,8 +8,16 @@
  * and dark marks are two files and the theme chooses which one is displayed.
  */
 
+/*
+ * The column sits in the middle of the page's spare height rather than under the padding floor: on a
+ * tall viewport the floor alone leaves the card at the top with the rest of the ground empty beneath
+ * it. `safe center` is the centring that cannot make it worse — on a viewport shorter than the
+ * column, centring would push the top of it out of reach, and `safe` falls back to the start edge,
+ * so the padding above stays the floor the column never rises above (Decision § 1).
+ */
 .cx-auth-page {
   display: flex;
+  align-items: safe center;
   justify-content: center;
   min-height: 100vh;
   padding: var(--space-8) var(--space-4);

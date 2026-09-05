@@ -12,7 +12,7 @@
  */
 import { useMemo, useRef, useState } from "react";
 
-import { formatDate, formatUserFigure } from "../../../../../../../core/format";
+import { dhakaDateParts, formatDate, formatUserFigure } from "../../../../../../../core/format";
 import type { AuditAct } from "../../../../../../../modules/spine/audit";
 import { Button, Input } from "../../../../../../../ui/primitives/core";
 import { fill } from "../../../../../../../ui/strings";
@@ -33,22 +33,14 @@ function byCodePoint(left: string, right: string): number {
 }
 
 /**
- * Asia/Dhaka stands six hours ahead of UTC and keeps no daylight saving, so the zone's wall clock is
- * the instant plus a fixed offset. Spelled here because the date seam takes wall-clock parts and
- * this is the process that has an instant to convert (L-FMT-01).
- */
-const DHAKA_AHEAD_OF_UTC_MS = 6 * 60 * 60 * 1000;
-
-/**
  * The date seam's date, from the act's Asia/Dhaka wall-clock parts (I-34, SEAM-FORMAT). `getDate()`
  * and its siblings read the host's zone, which on a UTC-clocked server puts an act committed before
  * six in the morning on the previous day — a wrong date on the one surface whose work is exactness.
- * The offset is applied first and the parts are then read in UTC, so the day is the reader's day
- * wherever the process runs.
+ * Both halves of the conversion are the format seam's, so the day is the reader's day wherever the
+ * process runs and this screen holds no offset of its own (B-17, L-FMT-01).
  */
 function occurred(at: Date): string {
-  const dhaka = new Date(at.getTime() + DHAKA_AHEAD_OF_UTC_MS);
-  return formatDate({ year: dhaka.getUTCFullYear(), month: dhaka.getUTCMonth() + 1, day: dhaka.getUTCDate() });
+  return formatDate(dhakaDateParts(at));
 }
 
 export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {

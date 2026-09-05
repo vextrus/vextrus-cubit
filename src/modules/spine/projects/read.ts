@@ -4,7 +4,7 @@
 // The stats are counted, never typed: at M0 the store holds no sheet, campaign, estimate or bid, so
 // each of the four sets is empty by construction and each count is that set's length — an honest
 // zero the later J-000 legs fill, never a hidden region and never a literal on a screen.
-import { asc, desc, eq, forTenant, projects } from "../../../core/db";
+import { and, asc, desc, eq, forTenant, isUuid, projects } from "../../../core/db";
 import type { BuildingType } from "./draft";
 import type { ProjectsCtx } from "./scope";
 
@@ -59,6 +59,25 @@ export async function projectsForHome(ctx: ProjectsCtx): Promise<readonly Projec
 
   const read = rows.map(asProject);
   return [...read.filter((project) => project.status === "active"), ...read.filter((project) => project.status === "archived")];
+}
+
+/**
+ * Does this workspace hold that project? The one home of the question every project-scoped address
+ * asks before it renders anything (B-17, ARCH-02) — a screen that answered it by reading the
+ * workspace's whole roster would pay for every project, with its quick stats, to compare one id.
+ *
+ * The read is bounded to the one row an existence answer can use, and a segment that is not a uuid
+ * names no project of anybody's: it answers false without a query, because postgres would raise
+ * 22P02 — a driver error carrying no refusal marker — rather than an absence (ARCH-03).
+ */
+export async function projectHeld(scope: { tenantId: string }, projectId: string): Promise<boolean> {
+  if (!isUuid(projectId)) return false;
+  const held = await forTenant(scope)
+    .select({ projectId: projects.projectId })
+    .from(projects)
+    .where(and(eq(projects.tenantId, scope.tenantId), eq(projects.projectId, projectId)))
+    .limit(1);
+  return held.length > 0;
 }
 
 function asProject(row: typeof projects.$inferSelect): Project {

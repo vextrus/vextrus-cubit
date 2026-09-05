@@ -9,7 +9,7 @@ import "./drawings.css";
 import { notFound, redirect } from "next/navigation";
 import { permissionsHeld } from "../../../../../../../core/acts";
 import { forTenant } from "../../../../../../../core/db";
-import { projectsForHome } from "../../../../../../../modules/spine/projects";
+import { projectHeld } from "../../../../../../../modules/spine/projects";
 import { drawingsAwaitingIngestOf, offeredGroupsOf, sheetIndexOf } from "../../../../../../../modules/takeoff/sheets";
 import { sessionOf } from "../../../../../../../server/shell/resolve";
 import { presentedSessionToken } from "../../../../../../../server/shell/session";
@@ -31,8 +31,8 @@ export default async function ProjectDrawings({ params }: { params: Promise<{ te
   // An address naming no project of this workspace is an absence, not an empty index and not a
   // permission short of MEASURE (R-UI-050 asks each state to say the true thing): answered before
   // anything renders, so the Dropzone is never armed over an address nothing can be uploaded to.
-  const workspace = await projectsForHome({ tenantId: tenant, userId: session.userId });
-  if (!workspace.some((held) => held.projectId === project)) notFound();
+  // The question has one home in the projects module, and one bounded read is its whole cost (B-17).
+  if (!(await projectHeld({ tenantId: tenant }, project))) notFound();
 
   const scope = { tenantId: tenant, projectId: project };
   const [cards, groups, awaitingIngest, canConfirm] = await Promise.all([

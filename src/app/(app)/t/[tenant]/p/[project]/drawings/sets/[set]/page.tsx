@@ -7,7 +7,7 @@
 import "../sets.css";
 
 import { notFound, redirect } from "next/navigation";
-import { projectsForHome } from "../../../../../../../../../modules/spine/projects";
+import { projectHeld } from "../../../../../../../../../modules/spine/projects";
 import { drawingLineagesOf, holdsPinSet, setOf } from "../../../../../../../../../modules/takeoff/sets";
 import { sessionOf } from "../../../../../../../../../server/shell/resolve";
 import { presentedSessionToken } from "../../../../../../../../../server/shell/session";
@@ -16,17 +16,18 @@ import { SetBrowser } from "./set-browser";
 
 /**
  * The tab and the history entry name the set, the way every shell screen names itself: a person with
- * several sets open tells them apart by the only thing that distinguishes them. The set is read under
- * the same guard the page renders behind — a name is not published to an account that may not read
- * the project — and an address naming no set the reader holds falls back to the screen's own name.
+ * several sets open tells them apart by the only thing that distinguishes them. A name is not
+ * published to a request carrying no session, and an address naming no set the reader holds falls
+ * back to the screen's own name.
+ *
+ * This runs beside the page, on the same request, so it asks for the one thing it needs: `setOf` is
+ * already scoped to the address and already refuses a reader who may not have it, and asking
+ * existence a second time here would be the same question answered twice per render (B-17).
  */
 export async function generateMetadata({ params }: { params: Promise<{ tenant: string; project: string; set: string }> }): Promise<{ title: string }> {
   const { tenant, project, set } = await params;
   const session = await sessionOf(await presentedSessionToken());
   if (session === null) return { title: setsStrings.sets_heading };
-
-  const workspace = await projectsForHome({ tenantId: tenant, userId: session.userId });
-  if (!workspace.some((held) => held.projectId === project)) return { title: setsStrings.sets_heading };
 
   const held = await setOf({ tenantId: tenant, projectId: project }, set);
   return { title: held?.name ?? setsStrings.sets_heading };
@@ -37,8 +38,7 @@ export default async function ProjectDrawingSet({ params }: { params: Promise<{ 
   const session = await sessionOf(await presentedSessionToken());
   if (session === null) redirect("/sign-in");
 
-  const workspace = await projectsForHome({ tenantId: tenant, userId: session.userId });
-  if (!workspace.some((held) => held.projectId === project)) notFound();
+  if (!(await projectHeld({ tenantId: tenant }, project))) notFound();
 
   const scope = { tenantId: tenant, projectId: project };
   const [held, lineages, canPin] = await Promise.all([setOf(scope, set), drawingLineagesOf(scope), holdsPinSet(scope, session.userId)]);

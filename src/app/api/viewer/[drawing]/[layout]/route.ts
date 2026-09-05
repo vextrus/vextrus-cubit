@@ -34,6 +34,30 @@ const STATUS: Readonly<Record<"SIGNED_OUT" | "WORKSPACE_PERMISSION_NOT_HELD", nu
 /** What a caller is told when the address asks for a part of a sheet that is not one. */
 const NOT_A_PART = "a sheet is asked for as ?part=head or ?part=layer&index=<n>";
 
+/**
+ * What a caller is told when the part is one this feed serves but the index beside it is not a
+ * place in a roster. Its own sentence: a client answered with the part's copy is told to ask for
+ * exactly what it did ask for, and learns nothing about which half of the address was wrong.
+ */
+const NOT_AN_INDEX = "?index= is a layer's place in the roster the head published: a whole number from 0 upwards";
+
+/** What the address asks for: the head, or one layer by its place in the roster the head published. */
+type Asked = { readonly part: "head" } | { readonly part: "layer"; readonly index: number };
+
+/**
+ * The address's question, or the sentence saying which half of it this feed cannot read. The index
+ * is judged as text rather than by `Number`, which reads a blank string as zero and would serve the
+ * first layer to an address that named no layer at all.
+ */
+function askedFor(query: URLSearchParams): Asked | { readonly error: string } {
+  const part = query.get("part") ?? "head";
+  if (part === "head") return { part };
+  if (part !== "layer") return { error: NOT_A_PART };
+  const asked = query.get("index") ?? "";
+  if (!/^\d+$/.test(asked)) return { error: NOT_AN_INDEX };
+  return { part, index: Number(asked) };
+}
+
 /** A JSON answer, uncached. */
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -101,8 +125,12 @@ export async function GET(request: Request, route: { params: Promise<{ drawing: 
   try {
     const { drawing, layout } = await route.params;
     const asked = new URL(request.url).searchParams;
-    const part = asked.get("part") ?? "head";
-    if (part !== "head" && part !== "layer") return json({ error: NOT_A_PART }, 400);
+    // `?part=` and `?index=` are two different questions, and both are about the address rather than
+    // about the caller: they are judged together, before anybody is asked who is calling, so a
+    // signed-out client with an unreadable index learns which of the two it got wrong instead of
+    // being told to sign in first (ARCH-03).
+    const wanted = askedFor(asked);
+    if ("error" in wanted) return json({ error: wanted.error }, 400);
 
     context = await createContext({ req: request });
     if (context.session === null) return refusalAnswer("SIGNED_OUT");
@@ -121,11 +149,8 @@ export async function GET(request: Request, route: { params: Promise<{ drawing: 
     // The segment Next resolved is the sheet's name: it arrives decoded, and reading it again would
     // collide two addresses and fault on a name carrying a bare `%` (R-UI-031).
     const head = await renderManifestOf({ tenantId, drawingId: drawing, layoutName: layout }, { storage: appStorage() });
-    if (part === "head") return headAnswer(head);
-
-    const index = Number(asked.get("index"));
-    if (!Number.isInteger(index) || index < 0) return json({ error: NOT_A_PART }, 400);
-    return layerAnswer(head, index);
+    if (wanted.part === "head") return headAnswer(head);
+    return layerAnswer(head, wanted.index);
   } catch (failure) {
     const { faultId } = reportFault({
       requestId: context?.requestId ?? randomUUID(),

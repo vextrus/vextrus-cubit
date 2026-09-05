@@ -17,6 +17,7 @@ import { admitAttempt } from "../../../server/auth/rate-limit";
 import { presentedSessionToken } from "../../../server/shell/session";
 import { sessionOf } from "../../../server/shell/resolve";
 import { AcceptInvitationForm, AcceptInvitationNoToken, AcceptInvitationUnclaimable } from "./accept-invitation-form";
+import { UNCLAIMABLE_CODES } from "./states";
 import { acceptInvitationStrings } from "./strings";
 
 export const metadata = { title: acceptInvitationStrings.accept_heading };
@@ -43,12 +44,12 @@ export default async function AcceptInvitation({ searchParams }: { searchParams:
     return <AcceptInvitationForm token={token} offer={{ workspaceName: offer.workspaceName, workspaceRole: offer.workspaceRole }} />;
   } catch (thrown) {
     const code = refusalCodeOf(thrown);
-    // The refused door is an answer, in the register's own words, with the remedy that resolves it
-    // — a wait — and nothing to submit over a read that never happened (I-65).
-    if (code === refusalOf("RATE_LIMITED").code) return <AcceptInvitationUnclaimable refusal={refusalOf("RATE_LIMITED")} />;
-    if (code !== refusalOf("INVITATION_NOT_CLAIMABLE").code) throw thrown;
-    // Nothing is left to submit over a token no accept can claim, and no disarmed control stands in
-    // its place: the answer is the refusal, with its code, its message and its remedy (I-65).
-    return <AcceptInvitationUnclaimable refusal={refusalOf("INVITATION_NOT_CLAIMABLE")} />;
+    // The refused door is an answer, in the register's own words, with the remedy that resolves it —
+    // a wait, or the fact that nothing is left to claim — and nothing to submit over a read that
+    // never happened (I-65). Every code the screen answers in place is a member of one enumerable
+    // set; anything else is not this screen's answer to give and travels on (ARCH-03, B-21).
+    const unclaimable = UNCLAIMABLE_CODES.find((registered) => refusalOf(registered).code === code);
+    if (unclaimable === undefined) throw thrown;
+    return <AcceptInvitationUnclaimable refusal={refusalOf(unclaimable)} />;
   }
 }

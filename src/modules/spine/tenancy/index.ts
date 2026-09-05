@@ -20,7 +20,7 @@ export { revokeInvitation, type InvitationWithdrawn } from "./invitations";
 export { acceptInvitation, type InvitationClaim, type InvitationClaimed } from "./invitations";
 export { offeredInvitation, type InvitationOffer } from "./invitations";
 export type { InvitationMachinery, InvitationPorts } from "./invitations";
-export { memberRoleHistory, type MemberRoleHistoryEntry } from "./read/history";
+export { memberRoleHistories, memberRoleHistory, type MemberRoleHistoryEntry } from "./read/history";
 export { membersOf, type WorkspaceMember } from "./read/members";
 export { memberHasActs, removeMember, type ActsHeld } from "./removal";
 export { assignWorkspaceRole, type MemberRef, type MemberRemoved, type RoleAssignment, type RoleMoved } from "./roles/assign";

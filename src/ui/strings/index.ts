@@ -3,6 +3,7 @@
 // not a rename at the call site; `StringKey` is the union the compiler refuses a missing key with.
 import { auth } from "./auth";
 import { consequenceDialog } from "./consequence-dialog";
+import { design } from "./design";
 import { dropzone } from "./dropzone";
 import { home } from "./home";
 import { offeredGroup } from "./offered-group";
@@ -15,6 +16,7 @@ import { viewer } from "./viewer";
 export const strings = {
   ...auth,
   ...consequenceDialog,
+  ...design,
   ...dropzone,
   ...home,
   ...offeredGroup,

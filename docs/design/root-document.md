@@ -102,6 +102,15 @@ the client. Before first paint, the OS preference resolves dark:
   (R-UI-001: "dark mode flips values, never consumer code"): no component, including this
   page, branches on the theme. `globals.css`'s existing `color-scheme` rules follow the same
   attribute, so browser chrome (scrollbars, form controls) flips with it.
+- **Why the `catch` is empty.** The only thing inside the `try` that can throw is `matchMedia`:
+  a UA that publishes none raises a TypeError, and an embedded one may throw on the call. The
+  answer to either is the one the document already carries — the server's `light` attribute
+  stands, which is the product's default and a correct document, not a degraded one. Nothing
+  further is possible at that moment: this runs before first paint, so there is no screen to
+  tell, no request to record against, and no fault seam in the document yet (the seam is a
+  server module and this is inline text in `<body>`). An arm that logged, retried or wrote an
+  attribute would be inventing an answer to a question already answered. The arm is therefore
+  empty by rule, and this paragraph is why — not an omission.
 - `suppressHydrationWarning` on `<html>` is the lawful cost: React hydrates against a DOM
   whose `data-theme` the script may have changed, and that one attribute mismatch is by
   design.

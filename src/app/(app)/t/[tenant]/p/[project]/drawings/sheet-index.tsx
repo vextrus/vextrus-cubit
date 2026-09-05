@@ -12,7 +12,7 @@
 // that arrives once the dialog holds focus is the dialog's.
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { DISCIPLINES } from "../../../../../../../core/sheets/law";
+import { DISCIPLINES, type Discipline } from "../../../../../../../core/sheets/law";
 import { refusalOf, type RefusalCode } from "../../../../../../../core/errors";
 import { formatUserFigure } from "../../../../../../../core/format";
 import { ConsequenceDialog } from "../../../../../../../ui/patterns/consequence-dialog";
@@ -99,7 +99,7 @@ export function SheetIndex({
 }: SheetIndexProps) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<string>(ALL);
+  const [filter, setFilter] = useState<Discipline | typeof ALL>(ALL);
   const [items, setItems] = useState<DropzoneItem[]>([]);
   const [jobs, setJobs] = useState<TimelineJob[]>([]);
   const [offline, setOffline] = useState(false);
@@ -414,17 +414,19 @@ export function SheetIndex({
  * discipline chipped, or both. An empty index that does not name its own filter reads as "there are
  * no sheets" when the truth is "none of them answer to this" (R-UI-050's honest empty).
  */
-function Empty({
-  cause,
-  search,
-  discipline,
-  onClear,
-}: {
-  cause: "no-drawings" | "awaiting-ingest" | "no-match";
-  search: string;
-  discipline: string | null;
-  onClear: () => void;
-}) {
+export interface EmptyProps {
+  readonly cause: "no-drawings" | "awaiting-ingest" | "no-match";
+  readonly search: string;
+  /**
+   * The chip in force, as the closed enum the whole sheets lane is written over — never a bare
+   * string. A prop widened to `string` throws the union away at the last hop, and a discipline that
+   * is not one reaches the rendered sentence as data (B-17).
+   */
+  readonly discipline: Discipline | null;
+  readonly onClear: () => void;
+}
+
+function Empty({ cause, search, discipline, onClear }: EmptyProps) {
   const words = {
     "no-drawings": { heading: drawings.drawings_empty_no_drawings_heading, body: drawings.drawings_empty_no_drawings_body },
     "awaiting-ingest": { heading: drawings.drawings_empty_awaiting_heading, body: drawings.drawings_empty_awaiting_body },
@@ -451,7 +453,7 @@ function Empty({
  * text verbatim (it is theirs, not the product's) and the chipped discipline as the enum data it is
  * (I-25). Nothing is filtering when neither stands, and then there is no sentence to write.
  */
-function namedFilter(search: string, discipline: string | null): string | null {
+function namedFilter(search: string, discipline: Discipline | null): string | null {
   if (search !== "" && discipline !== null) return fill(drawings.drawings_empty_no_match_both, { search, discipline });
   if (search !== "") return fill(drawings.drawings_empty_no_match_search, { search });
   if (discipline !== null) return fill(drawings.drawings_empty_no_match_discipline, { discipline });
