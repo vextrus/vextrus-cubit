@@ -121,8 +121,9 @@
   transition: color var(--motion-state) var(--ease);
 }
 
+/* Text clears 4.5:1, the dot the 3:1 UI floor (job-timeline § 6): the word takes the darker beam. */
 .cx-jobs-tray-item[data-status="running"] .cx-jobs-tray-item-status {
-  color: var(--beam-500);
+  color: var(--beam-600);
 }
 
 .cx-jobs-tray-item[data-status="succeeded"] .cx-jobs-tray-item-status {
