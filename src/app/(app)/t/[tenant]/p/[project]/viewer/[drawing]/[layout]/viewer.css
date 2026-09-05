@@ -6,7 +6,11 @@
    same token it is set in, and scrolls by camera rather than by scrollbar. */
 .cx-viewer {
   display: grid;
-  grid-template-rows: 1fr auto;
+  /* `minmax(0, …)`, not a bare `1fr`: a bare one is `minmax(auto, 1fr)`, whose automatic minimum is
+     the work area's min-content height — the panels, their scrollers and the empty cell's padding —
+     so the grid grew past its own box and pushed the readout below the viewport instead of letting
+     the sheet region shrink. The readout is the row R-UI-030 requires a reader to be able to read. */
+  grid-template-rows: minmax(0, 1fr) auto;
   margin: calc(var(--space-6) * -1);
   height: calc(100% + var(--space-6) * 2);
   min-height: 0;
