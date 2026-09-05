@@ -10,6 +10,7 @@
 // the model spent, then the registered refusal. A second path to a model would break L-AI-01, so
 // there is none: both calls settle through `answerThroughPort`.
 import { forTenant } from "../db";
+import { REFUSALS } from "../errors";
 import { reportFault } from "../faults/report";
 import { refusal } from "../faults/refusal-marker";
 import { MODEL_IDS, modelCallCost, type ModelId } from "../model-ledger.types";
@@ -198,9 +199,9 @@ const FACT_LIMIT = 200;
  * answer one code's words for another's failure (B-17, ARCH-02).
  */
 export const EMPTY_DETAIL_SENTENCES: Readonly<Record<ResolutionCode, string>> = Object.freeze({
-  UNSOURCED: "no source was cited",
-  SOURCE_UNRESOLVED: "no cited source resolved against the artifact",
-  MALFORMED: "the answer was not shaped as a proposal",
+  [REFUSALS.UNSOURCED.code]: "no source was cited",
+  [REFUSALS.SOURCE_UNRESOLVED.code]: "no cited source resolved against the artifact",
+  [REFUSALS.MALFORMED.code]: "the answer was not shaped as a proposal",
 });
 
 /**
