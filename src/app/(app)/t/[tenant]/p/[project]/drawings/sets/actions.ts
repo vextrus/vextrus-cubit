@@ -8,7 +8,11 @@
 // that turns a session and a project into a workspace-scoped actor, so a tenant id a caller posted
 // decides nothing (B-17, ARCH-02). A request naming a workspace other than the project's own is
 // answered as the denial it is.
-import { revalidatePath } from "next/cache";
+//
+// Nothing here revalidates a path: both these routes are server-rendered on demand, and the screens
+// answer a write by standing at the address again — a new set at its own, a pinned revision by
+// reading the set afresh — so what a person then sees is a fresh render of the ledger and never a
+// cached one.
 import { commit, consequenceDigest, permissionsHeld, preview, type Consequence, type PinDrawingSetInput } from "../../../../../../../../core/acts";
 import { forTenant } from "../../../../../../../../core/db";
 import { REFUSALS, type RefusalCode } from "../../../../../../../../core/errors";
@@ -17,7 +21,6 @@ import { createSet as createSetInModule, setOf, toggleMember as toggleMemberInMo
 import { projectActorFor } from "../../../../../../../../server/routers/spine";
 import { sessionOf } from "../../../../../../../../server/shell/resolve";
 import { presentedSessionToken } from "../../../../../../../../server/shell/session";
-import { setRoute, setsRoute } from "./route-address";
 
 /** The act these screens render, and the permission L-ACT-03 makes it move. */
 const PIN_DRAWING_SET = "PIN_DRAWING_SET" as const;
@@ -59,9 +62,6 @@ export async function createSet(request: CreateSetRequest): Promise<CreateSetAns
   if ("refusal" in standing) return { created: false, refusal: standing.refusal };
   const answered = await createSetInModule(standing.scope, { userId: standing.userId }, request.name);
   if (!answered.created) return { created: false, refusal: answered.refusal };
-  // The new set standing open is the answer, and the index behind it has grown a row: both are
-  // server-read, so the path they are read at is revalidated before the screen navigates.
-  revalidatePath(setsRoute(standing.scope.tenantId, request.projectId));
   return { created: true, setId: answered.setId };
 }
 
@@ -70,7 +70,6 @@ export async function toggleMember(request: ToggleMemberRequest): Promise<Toggle
   if ("refusal" in standing) return { toggled: false, refusal: standing.refusal };
   const answered = await toggleMemberInModule(standing.scope, request.setId, request.drawingId, { userId: standing.userId });
   if (!answered.toggled) return { toggled: false, refusal: answered.refusal };
-  revalidatePath(setRoute(standing.scope.tenantId, request.projectId, request.setId));
   return { toggled: true, member: answered.member };
 }
 
@@ -99,8 +98,6 @@ export async function commitPin(request: PinRequest & { consequenceDigest: strin
     if (pinned === undefined) {
       throw new Error(`${PIN_DRAWING_SET} committed act ${written.actId} but the set stands at no pinned revision — the act row and its state change land together or neither (L-ACT-01)`);
     }
-    revalidatePath(setRoute(actor.tenantId, request.projectId, request.setId));
-    revalidatePath(setsRoute(actor.tenantId, request.projectId));
     return { committed: true, actId: written.actId, setRevisionId: pinned.setRevisionId, digest: pinned.digest };
   } catch (thrown) {
     return { committed: false, refusal: refused(thrown) };
