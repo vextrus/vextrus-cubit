@@ -7,7 +7,7 @@
 import "./sets.css";
 
 import { notFound, redirect } from "next/navigation";
-import { projectsForHome } from "../../../../../../../../modules/spine/projects";
+import { projectHeld } from "../../../../../../../../modules/spine/projects";
 import { holdsPinSet, setsOf } from "../../../../../../../../modules/takeoff/sets";
 import { sessionOf } from "../../../../../../../../server/shell/resolve";
 import { presentedSessionToken } from "../../../../../../../../server/shell/session";
@@ -24,9 +24,9 @@ export default async function ProjectDrawingSets({ params }: { params: Promise<{
   if (session === null) redirect("/sign-in");
 
   // An address naming no project of this workspace is an absence, not an empty index and not a
-  // permission short of PIN_SET (R-UI-050 asks each state to say the true thing).
-  const workspace = await projectsForHome({ tenantId: tenant, userId: session.userId });
-  if (!workspace.some((held) => held.projectId === project)) notFound();
+  // permission short of PIN_SET (R-UI-050 asks each state to say the true thing). The question has
+  // one home in the projects module, and one bounded read is its whole cost (B-17).
+  if (!(await projectHeld({ tenantId: tenant }, project))) notFound();
 
   // I-101: what a reader may do here is the seam's own reading, asked once and disclosed by the
   // screen — a control that could only refuse is not rendered at all.

@@ -164,10 +164,23 @@ export function formatDate(parts: { year: number; month: number; day: number }):
  *
  * The zone comes from `BD_DOCUMENT`, which is the one home of the document's conventions, and the
  * parts are read through this file's own locale machinery — the tree's sole caller of it.
+ *
+ * An instant this seam cannot convert is refused, never degraded (ARCH-03, B-21, L-FMT-02): an
+ * unparseable timestamp makes `formatToParts` raise a RangeError — a platform error carrying no
+ * refusal marker — and a part the platform did not answer with would otherwise travel on as `NaN`
+ * and be padded into a date-shaped string that names no day.
  */
 export function dhakaDateParts(at: Date): { year: number; month: number; day: number } {
+  if (!(at instanceof Date) || Number.isNaN(at.getTime())) throw refusal(PRECISION_NOT_APPLIED, "wall-clock parts are read from an instant, so there must be an instant to read (L-FMT-01)");
   const parts = new Map(DOCUMENT_DAY.formatToParts(at).map((part) => [part.type, part.value]));
-  return { year: Number(parts.get("year")), month: Number(parts.get("month")), day: Number(parts.get("day")) };
+  return { year: wholePart(parts, "year"), month: wholePart(parts, "month"), day: wholePart(parts, "day") };
+}
+
+/** One part of the instant's day, as the whole number it must be — an absent one is refused. */
+function wholePart(parts: ReadonlyMap<string, string>, type: "year" | "month" | "day"): number {
+  const read = Number(parts.get(type) ?? Number.NaN);
+  if (!isWholeNumber(read)) throw refusal(PRECISION_NOT_APPLIED, `the platform answered no whole ${type} for this instant in ${BD_DOCUMENT.timeZone} (L-FMT-01)`);
+  return read;
 }
 
 /**
