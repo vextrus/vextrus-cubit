@@ -69,6 +69,29 @@ values.
   commit refusal render in the dialog's own slot; `CONSEQUENCES_NOT_CARRIED` is the dialog's
   stale re-render (consequence-dialog I-44), never a card of ours.
 
+- **I-104 — every region of the browser says why it is empty, and only one of them carries the
+  test id.** R-UI-020's "silence never happens" binds each region, not the screen as a whole: a
+  heading and a hint over blank space teaches nothing and reads as an unfinished page. So the
+  drawings list and the pinned-revisions list each carry their own one-line sentence
+  (`sets_members_none`, `sets_revisions_none`, the hint idiom, no test id) where the void is,
+  while I-97's single `set-empty` element stays exactly where it was — in the pin region, one
+  per screen, its cause precedence unchanged. A sentence is not an empty state: it adds no
+  heading, no action and nothing a journey could mistake for `set-empty`.
+- **I-105 — a commit is answered by the re-read, and nothing is said into a region that is
+  about to be discarded.** The screen answers a pinned revision by standing at the address
+  again (R-UI-021's platform navigation), which replaces the document; a status line written in
+  the same tick is torn down before any assistive technology announces it, so copy for it would
+  be authored, keyed, rendered in principle and observable by nobody. The pin region's live
+  region therefore carries the pre-check's `sets_pin_pending` and nothing after a commit — the
+  answer is the new revision at the top of `set-revisions`, which is what the Decision said the
+  answer was from the start.
+- **I-106 — the set browser names the set in its tab.** Every shell screen names itself in the
+  document title; a set's own name is the only thing that tells two open sets apart, so
+  `generateMetadata` reads the set behind the page's own guard (a session, then membership of
+  the project) and titles the tab with the name verbatim, falling back to `sets_heading` where
+  the reader holds no such set. A name is never published to an account that may not read the
+  project.
+
 Recorded IOU — visible navigation (R-UI-031), owner: the node owning the shell's project
 navigation (the S-Drawings and S-Audit precedent, unpaid). Until it lands both routes are
 journey- and URL-reachable, and `route-address.ts` (`setsRoute`, `setRoute`) is their one
@@ -78,7 +101,8 @@ address; `set-drawings-link` keeps the sheet index one click away from both.
 
 Files: `page.tsx` (thin server component: reads the two segments, calls `setsOf`, resolves the
 actor's `PIN_SET` standing, renders `SetsIndex`), `sets-index.tsx`, `[set]/page.tsx` (calls
-`setOf` and `drawingLineagesOf`; a set the project does not hold is Next's 404),
+`setOf` and `drawingLineagesOf`; a set the project does not hold is Next's 404; its
+`generateMetadata` titles the tab with the set's name behind the same guard, I-106),
 `[set]/set-browser.tsx`, `actions.ts`, `route-address.ts`, `strings.ts`, `states.ts` ×2,
 `loading.tsx` ×2, `sets.css`. A segment that is no uuid names nothing and is judged before any
 query (the shell's `scopedTenantId` precedent). Both pages render in `shell-main`, one column
@@ -126,9 +150,12 @@ has no pinned revision (I-99). Second column, `align-self: center`: the `next/li
 
 **Empty** — in the list's place, one `ShellEmptyState` (its own `shell-empty` ids nest inside)
 wrapped in `<div data-testid="sets-empty">`: heading `sets_empty_heading`, body
-`sets_empty_body`, action slot a core ghost Button `sets_empty_action` moving focus to
+`sets_empty_body`, action slot a core **secondary** Button `sets_empty_action` moving focus to
 `set-name-input` (it does not unmount itself, so no focus target is destroyed — the S-Audit
-ruling). For a reader without `PIN_SET` the action slot instead holds the `set-drawings-link`
+ruling). Secondary and not ghost: inside the empty state's centred column a ghost Button
+carries no border and no fill, so the one control the state exists to offer reads as a third
+line of body copy; the border and surface say it is pressable without taking the create door's
+primary weight (R-UI-001's scarcity, R-UI-010). For a reader without `PIN_SET` the action slot instead holds the `set-drawings-link`
 idiom pointing at the sheet index, since naming a set is not theirs to do.
 
 ### The set browser
@@ -167,15 +194,26 @@ order: padding-block `var(--space-3)`, border-top `var(--hairline)` after the fi
   calls `toggleMember` at once (I-96); the row's `data-member`, the label and the pressed state
   move together. Absent for a reader without `PIN_SET` (I-101).
 
-Below the list the region's **answer slot** `<div class="cx-sets-answer">`: exactly one
+Where the project holds no drawings the list stands empty, and directly under it — inside this
+region, so it is read where the void is — `<p class="cx-sets-silence">` `sets_members_none`
+(`var(--text-12)` `var(--graphite-600)`, the hint idiom). It carries no test id and is no
+second empty state: I-97's one `set-empty` element stays the pin region's, and this line is
+what R-UI-020 owes a list that would otherwise be silent (I-104).
+
+Below it the region's **answer slot** `<div class="cx-sets-answer">`: exactly one
 RefusalState, the code `toggleMember` answered.
 
 **Pin this set** (`<section aria-labelledby>`) — `<h2>` `sets_pin_heading`, hint
 `sets_pin_hint`, then a core Button `data-testid="set-pin"`, variant `secondary`, label
 `sets_pin_submit`, `align-self: start` (the act colour lives on the dialog's confirm alone,
 R-UI-001's scarcity); while the pre-check is in flight it takes core's loading state and
-`<p role="status" aria-live="polite">` reads `sets_pin_pending`, and after a commit
-`sets_pin_committed`. Below it the pin region's own **answer slot** (I-103), then, when it
+`<p role="status" aria-live="polite">` reads `sets_pin_pending` — and nothing else, ever: a
+commit re-reads the screen from the server, so a post-commit sentence written into this region
+is discarded with the document before it can be announced, and the answer to a pin is the new
+pinned revision standing at the top of the list (I-105). While the region is empty it is taken
+out of flow rather than out of the box tree (the shell's `.cx-shell-live:empty` idiom), so it
+keeps its role and its place in the accessibility tree and the column keeps its rhythm.
+Below it the pin region's own **answer slot** (I-103), held the same way, then, when it
 applies, `<div data-testid="set-empty" data-cause="no-drawings|no-members|no-revisions">`
 wrapping one `ShellEmptyState` — heading and body per §3's cause table, action slot the
 `set-drawings-link` idiom for `no-drawings` and, for the other two, the `sets_sets_link` idiom
@@ -191,7 +229,9 @@ the primitive, the screen refreshes, and the new pinned revision standing at the
 list is the answer.
 
 **Pinned revisions** (`<section aria-labelledby>`) — `<h2>` `sets_revisions_heading`, hint
-`sets_revisions_hint` (I-98), then `<ol data-testid="set-revisions">` (list-style none, margin
+`sets_revisions_hint` (I-98), then — where the set has never been pinned, in the list's place —
+`<p class="cx-sets-silence">` `sets_revisions_none` (I-104), and otherwise
+`<ol data-testid="set-revisions">` (list-style none, margin
 0, padding 0), one `<li data-testid="set-revision" data-set-revision={setRevisionId}
 data-digest={digest} data-current="true|false">` newest first: padding `var(--space-3)`, fill
 `var(--graphite-50)`, border `var(--hairline)`, radius `var(--radius-8)`, column flex, gap
@@ -262,17 +302,18 @@ the set itself.** · `sets_empty_action` **Name the first set** · `sets_set_cap
 the drawings this set names, then pin it to record the revision each one stands at.** ·
 `sets_members_heading` **Drawings in this set** · `sets_members_hint` **Every drawing this
 project holds is listed, whether or not the set names it. A drawing brings its sheets with
-it.** · `sets_revision_count` **{count} revisions** · `sets_revision_current` **Current** ·
+it.** · `sets_members_none` **This project holds no drawings yet, so there is nothing here for
+this set to name.** · `sets_revision_count` **{count} revisions** · `sets_revision_current` **Current** ·
 `sets_revision_superseded` **Superseded** · `sets_member_add` **Add to set** ·
 `sets_member_remove` **Remove from set** · `sets_member_add_label` **Add {drawing} to this
 set** · `sets_member_remove_label` **Remove {drawing} from this set** · `sets_pin_heading`
 **Pin this set** · `sets_pin_hint` **Pinning records a set revision: every member with the
 revision it stands at now, and a digest of that list. What is already pinned never changes.**
 · `sets_pin_submit` **Preview this pin** · `sets_pin_pending` **Working out what this pin
-would record…** · `sets_pin_committed` **Recorded. This set now stands at a new pinned
-revision.** · `sets_revisions_heading` **Pinned revisions** · `sets_revisions_hint` **Newest
+would record…** · `sets_revisions_heading` **Pinned revisions** · `sets_revisions_hint` **Newest
 first. A pinned revision cites every member it held — including a drawing the set no longer
 names, and the revision a member stood at then — and never changes afterwards.** ·
+`sets_revisions_none` **This set has never been pinned, so it cites nothing yet.** ·
 `sets_revision_digest_label` **Manifest digest** · `sets_empty_no_drawings_heading` **No
 drawings to name yet** · `sets_empty_no_drawings_body` **This project holds no drawings, so
 this set can name none. Add one on the drawings screen; it is listed here as soon as it is

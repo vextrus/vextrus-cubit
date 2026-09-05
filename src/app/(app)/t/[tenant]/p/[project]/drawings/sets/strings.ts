@@ -28,6 +28,7 @@ export const sets = {
   sets_set_caption: "Choose the drawings this set names, then pin it to record the revision each one stands at.",
   sets_members_heading: "Drawings in this set",
   sets_members_hint: "Every drawing this project holds is listed, whether or not the set names it. A drawing brings its sheets with it.",
+  sets_members_none: "This project holds no drawings yet, so there is nothing here for this set to name.",
   sets_revision_count: "{count} revisions",
   sets_revision_current: "Current",
   sets_revision_superseded: "Superseded",
@@ -40,10 +41,10 @@ export const sets = {
     "Pinning records a set revision: every member with the revision it stands at now, and a digest of that list. What is already pinned never changes.",
   sets_pin_submit: "Preview this pin",
   sets_pin_pending: "Working out what this pin would record…",
-  sets_pin_committed: "Recorded. This set now stands at a new pinned revision.",
   sets_revisions_heading: "Pinned revisions",
   sets_revisions_hint:
     "Newest first. A pinned revision cites every member it held — including a drawing the set no longer names, and the revision a member stood at then — and never changes afterwards.",
+  sets_revisions_none: "This set has never been pinned, so it cites nothing yet.",
   sets_revision_digest_label: "Manifest digest",
   sets_empty_no_drawings_heading: "No drawings to name yet",
   sets_empty_no_drawings_body:

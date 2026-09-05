@@ -11,7 +11,26 @@ import { projectsForHome } from "../../../../../../../../../modules/spine/projec
 import { drawingLineagesOf, holdsPinSet, setOf } from "../../../../../../../../../modules/takeoff/sets";
 import { sessionOf } from "../../../../../../../../../server/shell/resolve";
 import { presentedSessionToken } from "../../../../../../../../../server/shell/session";
+import { sets as setsStrings } from "../strings";
 import { SetBrowser } from "./set-browser";
+
+/**
+ * The tab and the history entry name the set, the way every shell screen names itself: a person with
+ * several sets open tells them apart by the only thing that distinguishes them. The set is read under
+ * the same guard the page renders behind — a name is not published to an account that may not read
+ * the project — and an address naming no set the reader holds falls back to the screen's own name.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ tenant: string; project: string; set: string }> }): Promise<{ title: string }> {
+  const { tenant, project, set } = await params;
+  const session = await sessionOf(await presentedSessionToken());
+  if (session === null) return { title: setsStrings.sets_heading };
+
+  const workspace = await projectsForHome({ tenantId: tenant, userId: session.userId });
+  if (!workspace.some((held) => held.projectId === project)) return { title: setsStrings.sets_heading };
+
+  const held = await setOf({ tenantId: tenant, projectId: project }, set);
+  return { title: held?.name ?? setsStrings.sets_heading };
+}
 
 export default async function ProjectDrawingSet({ params }: { params: Promise<{ tenant: string; project: string; set: string }> }) {
   const { tenant, project, set } = await params;

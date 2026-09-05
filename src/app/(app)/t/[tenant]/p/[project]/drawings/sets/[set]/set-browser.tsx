@@ -64,7 +64,6 @@ export function SetBrowser({
   const [memberRefusal, setMemberRefusal] = useState<RefusalCode | null>(null);
   const [pinRefusal, setPinRefusal] = useState<RefusalCode | null>(null);
   const [pending, setPending] = useState(false);
-  const [committed, setCommitted] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const headingIds = { members: useId(), pin: useId(), revisions: useId() };
 
@@ -110,7 +109,6 @@ export function SetBrowser({
   const press = async (): Promise<void> => {
     if (pending) return;
     setPinRefusal(null);
-    setCommitted(false);
     setPending(true);
     const answered = await preview({ tenantId, projectId, setId: set.setId });
     setPending(false);
@@ -171,6 +169,9 @@ export function SetBrowser({
             />
           ))}
         </ul>
+        {/* R-UI-020: an empty list says why it is empty where it stands. The one `set-empty` element
+            is the pin region's (I-97), so what this list owes is a sentence and not a second one. */}
+        {lineages.length === 0 ? <p className="cx-sets-silence">{sets.sets_members_none}</p> : null}
         <div className="cx-sets-answer">
           {memberRefusal === null ? null : <RefusalState refusal={refusalOf(memberRefusal)} evidence={evidenceFor(memberRefusal)} />}
         </div>
@@ -194,7 +195,7 @@ export function SetBrowser({
             {sets.sets_pin_submit}
           </Button>
           <p className="cx-sets-status" role="status" aria-live="polite">
-            {pending ? sets.sets_pin_pending : committed ? sets.sets_pin_committed : ""}
+            {pending ? sets.sets_pin_pending : null}
           </p>
           <div className="cx-sets-answer">
             {pinRefusal === null || pending ? null : <RefusalState refusal={refusalOf(pinRefusal)} evidence={evidenceFor(pinRefusal)} />}
@@ -210,7 +211,9 @@ export function SetBrowser({
           {sets.sets_revisions_heading}
         </h2>
         <p className="cx-sets-hint">{sets.sets_revisions_hint}</p>
-        {set.revisions.length === 0 ? null : (
+        {set.revisions.length === 0 ? (
+          <p className="cx-sets-silence">{sets.sets_revisions_none}</p>
+        ) : (
           <ol className="cx-sets-revisions" data-testid="set-revisions">
             {set.revisions.map((revision) => (
               <PinnedRevision key={revision.setRevisionId} revision={revision} />
@@ -225,7 +228,8 @@ export function SetBrowser({
         onCommitted={() => {
           // The pinned revision is the visible answer, and it is server-read from the ledger the act
           // just appended to — so the screen re-reads rather than inventing the row it would show.
-          setCommitted(true);
+          // Nothing is said in the pin region's live region here: the re-read replaces the document,
+          // so a sentence written into it is gone before it can be announced (§ 1).
           reread();
         }}
         onOpenChange={setDialogOpen}

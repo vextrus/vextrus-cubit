@@ -59,7 +59,8 @@
 }
 
 .cx-sets-hint,
-.cx-sets-status {
+.cx-sets-status,
+.cx-sets-silence {
   margin: 0;
   font-family: var(--font-ui);
   font-size: var(--text-12);
@@ -203,6 +204,19 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* A slot with nothing in it takes no room: the shell's live-region idiom (`.cx-shell-live:empty`),
+   taken out of flow rather than out of the box tree, so the status line keeps its box, its role and
+   its place in the accessibility tree while it waits and neither slot spends one of the column's
+   gaps on emptiness. The moment an answer or a notice is inserted the rule stops matching and the
+   element takes its place in the column. */
+.cx-sets-answer:empty,
+.cx-sets-status:empty {
+  position: absolute;
+  inline-size: 0;
+  block-size: 0;
+  overflow: hidden;
 }
 
 .cx-sets-denied-line {

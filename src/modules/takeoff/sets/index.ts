@@ -60,6 +60,18 @@ const SET_NAME_NOT_USABLE = REFUSALS.SET_NAME_NOT_USABLE.code;
 const SET_MEMBER_NOT_IN_PROJECT = REFUSALS.SET_MEMBER_NOT_IN_PROJECT.code;
 const SET_NOT_PINNABLE = REFUSALS.SET_NOT_PINNABLE.code;
 
+/**
+ * A project key that is no uuid names nothing, and it is judged before this door is reached: the
+ * pages answer such an address with Next's 404 and the server actions with the denial their actor
+ * lookup raises. So a write door reached under one is a defect of the caller, not a person's
+ * mistake — and it is not answered with a registered refusal, whose sentence would describe
+ * something the person did (the name they typed, the set they toggled) that was never the trouble.
+ */
+function addressable(scope: SetScope): void {
+  if (isUuid(scope.projectId)) return;
+  throw new Error("a drawing-set door was asked under a project key that is no address — the address is judged before this module is reached");
+}
+
 /** What naming a set answered: the set, or the registered code that says why none was named. */
 export type CreatedSet = { readonly created: true; readonly setId: string } | { readonly created: false; readonly refusal: typeof SET_NAME_NOT_USABLE };
 
@@ -157,8 +169,9 @@ export async function setOf(scope: SetScope, setId: string): Promise<DrawingSetV
  * read is what turns a collision into an answer rather than a driver error nobody registered.
  */
 export async function createSet(scope: SetScope, actor: { userId: string }, name: string): Promise<CreatedSet> {
+  addressable(scope);
   const named = name.trim();
-  if (named === "" || !isUuid(scope.projectId)) return { created: false, refusal: SET_NAME_NOT_USABLE };
+  if (named === "") return { created: false, refusal: SET_NAME_NOT_USABLE };
 
   return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
     const taken = await tx
@@ -192,7 +205,8 @@ export async function createSet(scope: SetScope, actor: { userId: string }, name
  * cites is fixed by the pin, which is the act.
  */
 export async function toggleMember(scope: SetScope, setId: string, drawingId: string, actor?: { userId: string }): Promise<ToggledMember> {
-  if (!isUuid(scope.projectId) || !isUuid(setId)) return { toggled: false, refusal: SET_NOT_PINNABLE };
+  addressable(scope);
+  if (!isUuid(setId)) return { toggled: false, refusal: SET_NOT_PINNABLE };
   if (!isUuid(drawingId)) return { toggled: false, refusal: SET_MEMBER_NOT_IN_PROJECT };
 
   return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {

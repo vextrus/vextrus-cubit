@@ -113,7 +113,7 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
             </Button>
           </form>
           <p className="cx-sets-status" role="status" aria-live="polite">
-            {pending ? sets.sets_create_pending : ""}
+            {pending ? sets.sets_create_pending : null}
           </p>
           <div className="cx-sets-answer">
             {refusal === null || pending ? null : <RefusalState refusal={refusalOf(refusal)} evidence={evidenceFor(refusal)} />}
@@ -131,7 +131,7 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
           <div data-testid="sets-empty">
             <ShellEmptyState heading={sets.sets_empty_heading} body={sets.sets_empty_body}>
               {canPin ? (
-                <Button variant="ghost" onClick={() => nameRef.current?.focus()}>
+                <Button variant="secondary" onClick={() => nameRef.current?.focus()}>
                   {sets.sets_empty_action}
                 </Button>
               ) : (
