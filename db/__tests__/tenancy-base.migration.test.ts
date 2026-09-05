@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { withDriftLock } from "./support/drift-lock";
 import { GUC_SYSTEM_REASON, GUC_TENANT, HANDWRITTEN_MARKER, ROLE_APP, TENANCY_BASE_MIGRATION, TENANTS_TABLE } from "./support/fixtures";
 
 const ROOT = join(import.meta.dirname, "..", "..");
@@ -65,7 +66,8 @@ describe("SEAM-TENANT: the first schema tree and its tenancy-base migration", ()
     // whose unit lane would run this very file. The lane is armed by db/schema.ts, which the first
     // test in this file requires: with no schema in the tree it would exit 0 having proven nothing.
     const before = migrationFiles().sort();
-    const lane = spawnSync(process.execPath, [join(ROOT, "scripts", "db-drift.mjs"), "--scratch"], { cwd: ROOT, encoding: "utf8", timeout: 300_000 });
+    // Under the lane's lock: drift-lane-breaker mutates the seam this run reads (support/drift-lock.ts).
+    const lane = withDriftLock(() => spawnSync(process.execPath, [join(ROOT, "scripts", "db-drift.mjs"), "--scratch"], { cwd: ROOT, encoding: "utf8", timeout: 300_000 }));
     expect(
       lane.status,
       `the schema-drift lane exited ${lane.status} — regenerating from the committed schema against the committed migration state must write nothing (SEAM-TENANT: the drift lane's self-proof needs generated DDL pure)\n${`${lane.stdout ?? ""}${lane.stderr ?? ""}`.slice(-1600)}`,

@@ -15,7 +15,8 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { acquireDriftLock, releaseDriftLock } from "./support/drift-lock";
 
 const ROOT = join(import.meta.dirname, "..", "..");
 const DRIFT_LANE = join(ROOT, "scripts", "db-drift.mjs");
@@ -37,6 +38,10 @@ function restore(): void {
 
 afterEach(restore);
 process.on("exit", restore);
+// This file mutates the seam the drift lane reads: it holds the lane's lock for its whole run, so
+// tenancy-base.migration's drift run never reads a mutated tree (the files run four at a time).
+beforeAll(acquireDriftLock);
+afterAll(releaseDriftLock);
 
 /** What `pnpm verify`'s schema-drift stage is: the same script, the same flag, the same cwd. */
 function schemaDriftStage(): { status: number | null; output: string } {

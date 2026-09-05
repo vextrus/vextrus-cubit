@@ -11,9 +11,12 @@ export default defineConfig({
     environment: "node",
     include: ["**/*.test.ts"],
     exclude: ["node_modules/**"],
-    // Live Postgres work: provisioning a scratch database and applying the committed migrations is
-    // slower than a unit test, and the suites must not race each other for the same cluster.
-    fileParallelism: false,
+    // Live Postgres work: every file provisions its own scratch database (named by pid and
+    // millisecond), so the files run four at a time; the one shared surface — the seam the
+    // schema-drift lane reads and drift-lane-breaker mutates — is serialised by support/drift-lock.ts.
+    // Measured 2026-09-05: 135 s in series → about 45 s at four workers.
+    fileParallelism: true,
+    maxWorkers: 4,
     testTimeout: 120_000,
     hookTimeout: 240_000,
   },
