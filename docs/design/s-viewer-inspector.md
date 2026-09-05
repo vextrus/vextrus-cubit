@@ -333,6 +333,13 @@ zoom-to-selection as a letter, rotate and the minimap — owner: the toolbar lea
 `src/ui/strings/viewer.ts` and R-UI-032's shortcut sheet. A per-user remembered inspector width
 through the prefs seam — owner: the prefs seam's node (I-84 unpaid). The shared `cx-readout` class
 R-UI-030 names — owner: the `src/ui` node that ships it. Selection over raster tiers — owner: the
-R-SPINE-022 tier leaf. And a debt against `tests/hotfix-j000`: its freeze reads an unmerged J-000
+R-SPINE-022 tier leaf. The inspector's copy is mirrored rather than read from its home: `InspectorPanel` lives in
+`src/modules`, which under ARCH-01 imports core and its own module only, and the registry is
+`src/ui/strings` — so the panel says its sentences from
+`src/modules/takeoff/viewer-inspector/copy.ts`, verbatim, with
+`tests/takeoff/viewer-inspector/copy-mirror.test.ts` failing the build if the two ever differ (the
+`src/ui/screen-states/refusal-entries.ts` precedent). The cure is a copy home both layers may read,
+which ARCH-01's matrix offers nowhere today — owner: the node that owns the import matrix and
+`src/ui/strings`. And a debt against `tests/hotfix-j000`: its freeze reads an unmerged J-000
 extender as a trespass; the cure is bounding `FIX_END` at the hotfix's own landing when main does
 not yet contain HEAD — owner: the node that owns `tests/hotfix-j000`.
