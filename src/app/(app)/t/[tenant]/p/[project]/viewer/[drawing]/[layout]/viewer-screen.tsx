@@ -854,7 +854,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
 
   /** The keys under a point, nearest first — answered by the index in its worker (PB-3, R-UI-040). */
   const keysUnder = useCallback(
-    (world: [number, number]): Promise<string[]> => {
+    (world: [number, number], takeable = true): Promise<string[]> => {
       const at = cameraRef.current;
       if (at === null) return Promise.resolve([]);
       askedAtRef.current = performance.now();
@@ -864,7 +864,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       // selection a reader cannot see is a copyable list of ghosts (I-87).
       const shut = stateRef.current
         .layerRows()
-        .filter((row) => row.locked || !row.drawn)
+        .filter((row) => (takeable && row.locked) || !row.drawn)
         .map((row) => row.name);
       return ask({ kind: "hit", point: world, tolerance: HIT_TOLERANCE_PX / at.scale, lockedLayers: shut });
     },
@@ -983,9 +983,16 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     }
     // A click of no travel selects the topmost hit; a click on bare paper lets go of what was held.
     if (on === null) return;
-    void keysUnder(on.world).then((keys) => {
+    void keysUnder(on.world).then(async (keys) => {
       const key = keys[0];
-      setSelection(key === undefined ? [] : [key]);
+      if (key !== undefined) {
+        setSelection([key]);
+        return;
+      }
+      // Nothing here may be taken — but a locked layer is painted, so the reader may have pressed
+      // on geometry they can see and may not select. Letting go of what is held would then punish a
+      // press on the sheet's own ink: only bare paper clears (Decision § 1, I-87).
+      if ((await keysUnder(on.world, false)).length === 0) setSelection([]);
     });
   };
 
