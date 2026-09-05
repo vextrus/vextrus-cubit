@@ -135,6 +135,13 @@
   color: var(--danger);
 }
 
+/* The named cause of a refused job, beneath its row and spanning it (R-UI-020). The card's own
+   tints, measure and focus ring are the refusal pattern's — nothing here restyles it (B-17). */
+.cx-jobs-tray-item-cause {
+  grid-column: 1 / -1;
+  margin-block-start: var(--space-2);
+}
+
 .cx-jobs-tray-item-timing {
   font-family: var(--font-mono);
   font-size: var(--text-12);
