@@ -23,13 +23,16 @@
  * imported before this process is repointed.
  */
 import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { createServer, type AddressInfo, type Server, type Socket } from "node:net";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { provisionScratchDb, type ScratchDb } from "../../db/__tests__/harness";
-import { codeOf } from "./__tests__/support/read-source";
 import { closePools, forTenant, inCurrentScope, jobsStore, projects, runAsSystem, tenants, type QueueShape, type TenantDb } from "./db";
 import { setFaultSink, type FaultRecord, type FaultSink } from "./faults/report";
 
+const REPO_ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const SEAM_MODULE = "src/core/db.ts";
 const QUEUE_ROUTE = "jobs/queue";
 
@@ -108,15 +111,21 @@ afterAll(() => {
 
 describe("AC-2: the lock's hand-back, the queue's open and the pools", () => {
   test("AC-2(a): the lock transaction holds nothing but the advisory lock — no hand rollback, no parked body", () => {
-    // white-box: AC-2(a) — "issues no hand `rollback` and parks no transaction body" is a property of
-    // the seam's text; a body that never exits has no runtime observable, and the redesign's
-    // behaviour is pinned by the merged jobs-edges.acceptance.test.ts AC-6 (ARCH-02: not re-derived).
-    const code = codeOf(SEAM_MODULE, "AC-2(a) reads the seam's own source for the two constructs the redesign removes");
-    expect(code, `${SEAM_MODULE} still issues a hand ROLLBACK on the lock's connection — the driver's COMMIT is the hand-back (SEAM-JOBS)`).not.toMatch(
-      /unsafe\(\s*["'`]\s*rollback/i,
+    // white-box: AC-2(a) — the criterion is itself a source scan ("finds neither `unsafe(\"rollback\")`
+    // nor `setImmediate`"): a body that never exits has no runtime observable to assert on. The
+    // BEHAVIOUR of the redesigned hand-back is pinned by the merged
+    // src/core/jobs/__tests__/jobs-edges.acceptance.test.ts AC-6, which terminates every other
+    // backend inside the guarded work — re-deriving it here would be ARCH-02's duplication.
+    const absolute = join(REPO_ROOT, SEAM_MODULE);
+    expect(existsSync(absolute), `${SEAM_MODULE} is missing from the checkout — the product does not provide SEAM-JOBS yet`).toBe(true);
+    const source = readFileSync(absolute, "utf8");
+    // Matched as issued STATEMENTS, never as bare words: a comment explaining why neither construct
+    // is here any more must not be graded as the construct itself.
+    expect(source, `${SEAM_MODULE} still issues a hand ROLLBACK on the lock's connection — the driver's COMMIT is the hand-back (SEAM-JOBS)`).not.toMatch(
+      /\.unsafe\(\s*["'`]\s*rollback/i,
     );
-    expect(code, `${SEAM_MODULE} still parks its transaction body across a setImmediate gap — nothing may outlive the lock transaction (ARCH-03)`).not.toContain(
-      "setImmediate",
+    expect(source, `${SEAM_MODULE} still parks its transaction body across a setImmediate gap — nothing may outlive the lock transaction (ARCH-03)`).not.toMatch(
+      /\bsetImmediate\s*\(/,
     );
   });
 

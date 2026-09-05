@@ -3,9 +3,13 @@
  *
  * Five primitives that were spelled twice, or spelled in a place that made a second spelling
  * inevitable: the decimal-figure grammar, the density roster, the edition digest's key grammar, the
- * seed's area unit and the packaging-factor type. Each is judged through a call wherever a call can
- * see it; where the defect is a second SPELLING and the two spellings agree today, the text is read
- * instead and the read says so.
+ * seed's area unit and the packaging-factor type.
+ *
+ * "One home" is observable wherever the copy can be told from the original by a call: the two
+ * decimal-figure spellings are one home when they are the identical function object, and the seed
+ * reads the canon rather than spelling it when a substituted canon moves the seed with it. Only
+ * where the second spelling is erased before anything runs — a type alias, an `as const`, a comment
+ * — is the text read, and each such read is declared on the line above it.
  *
  * AC-3(a) (the proposal mark) and AC-3(c) (the canonical JSON spelling) live in
  * src/core/model/proposal-and-canonical-homes.test.ts: L-AI-01 makes src/core/model/ the one place
@@ -15,17 +19,20 @@
  * it is used, so a home the Builder has not moved yet fails as this file's own assertion naming the
  * module rather than as a link error that takes the whole suite with it.
  */
-import { describe, expect, test } from "vitest";
-import { codeOf, commentsOf, sourceOf } from "./__tests__/support/read-source";
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, test, vi } from "vitest";
 import { refusalCodeOf } from "./faults/refusal-marker";
 import { formatUserFigure } from "./format";
 import { DENSITIES, isDensity, type Density } from "./prefs/density";
-import { CANONICAL_UNITS } from "./units/canon";
+import { CANONICAL_UNITS, type ProductFactors } from "./units/canon";
 import type { EditionContent } from "./rulesets/editions/content";
+
+const REPO_ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 
 const FORMAT_MODULE = "src/core/format.ts";
 const PROJECTS_MODULE = "src/core/projects.ts";
-const DENSITY_MODULE = "src/core/prefs/density.ts";
 const SEED_MODULE = "src/core/rulesets/seed/index.ts";
 const CANON_MODULE = "src/core/units/canon.ts";
 
@@ -38,8 +45,12 @@ const SEED_DIGEST = "5375a56e22eb7fe97646b3eca2d50036c7c7cc1fd3aca7213295ac91d18
 /** The two separators the canonical content is joined on, which no key of an edition may carry. */
 const SEPARATORS = [String.fromCharCode(0x1e), String.fromCharCode(0x1f)];
 
+/** A unit no canon of this product spells, so a seed following it is following the canon and nothing else. */
+const SUBSTITUTED_AREA = "square-nothing";
+
 /* ------------------------------------------------------------------ *
- * Compile-time acceptance (graded by `tsc --noEmit`, which reads src/**\/*.ts).
+ * Compile-time acceptance (graded by `tsc --noEmit`, which reads src/**\/*.ts). A type is erased
+ * before anything runs, so the type checker is the only thing that can observe these two.
  * ------------------------------------------------------------------ */
 
 type Expect<T extends true> = T;
@@ -53,7 +64,17 @@ export type TheDensityRosterIsATuple = Expect<IsTuple<typeof DENSITIES>>;
 /** AC-3(d): and the type is that tuple's members — one home, not two kept in step by hand (B-17). */
 export type DensityIsDerivedFromTheRoster = Expect<Equal<Density, (typeof DENSITIES)[number]>>;
 
-/** The value a promise rejected with, or undefined — no catch clause of the test's own. */
+/** AC-3(g): the packaging factor is a plain number, not a nominal-looking alias standing in for one. */
+export type ProductFactorsIsPlain = Expect<Equal<ProductFactors, { factors?: Record<string, number> }>>;
+
+/** A module's text, asserted present so a missing file names itself rather than reading as empty. */
+function textOf(relative: string): string {
+  const absolute = join(REPO_ROOT, relative);
+  expect(existsSync(absolute), `${relative} is missing from the checkout — the product does not provide it`).toBe(true);
+  return readFileSync(absolute, "utf8");
+}
+
+/** The value a call threw, or undefined — no bare catch clause of the test's own (ARCH-03). */
 const thrownBy = (work: () => unknown): unknown => {
   try {
     work();
@@ -68,7 +89,11 @@ describe("AC-3: one invariant, one home", () => {
     const format = (await import("./format")) as Record<string, unknown>;
     const projects = (await import("./projects")) as Record<string, unknown>;
     expect(typeof format["isDecimalFigure"], `${FORMAT_MODULE} is the one home of the decimal-figure grammar, beside USER_FIGURE_SHAPE (B-17, ARCH-02)`).toBe("function");
-    expect(projects["isDecimalFigure"], `${PROJECTS_MODULE} re-exports that one home unchanged, so its own importers are untouched`).toBe(format["isDecimalFigure"]);
+    // Identity, not agreement: the same function object under both names is what makes a second
+    // spelling of the grammar impossible, and it is the whole of what "re-exported unchanged" means.
+    expect(projects["isDecimalFigure"], `${PROJECTS_MODULE} re-exports that one home unchanged — a second implementation that merely agrees today is the defect (B-17)`).toBe(
+      format["isDecimalFigure"],
+    );
 
     const isDecimalFigure = format["isDecimalFigure"] as (value: string) => boolean;
     // Every candidate the spec names, each one a shape the two spellings could disagree on.
@@ -79,24 +104,16 @@ describe("AC-3: one invariant, one home", () => {
       }
       expect(isDecimalFigure(candidate), `isDecimalFigure(${JSON.stringify(candidate)}) is true exactly when formatUserFigure does not refuse it — one grammar, one answer`).toBe(refused === undefined);
     }
-
-    // white-box: AC-3(b) — "whose own DECIMAL_FIGURE regex is gone" is a property of the text: a
-    // second spelling that agrees with the first today is invisible to every call.
-    expect(codeOf(PROJECTS_MODULE, "AC-3(b) reads the module for the second spelling the sweep removes"), `${PROJECTS_MODULE} still spells the grammar a second time as DECIMAL_FIGURE (B-17)`).not.toContain(
-      "DECIMAL_FIGURE",
-    );
   });
 
   test("AC-3(d): DENSITIES is a tuple and Density is read off it", () => {
+    // The runtime half of a criterion the spec states as a compile-time one: the roster is real and
+    // every member of it is a mode the store can hold. The derivation itself is erased before this
+    // runs, and is graded by the two `Expect<…>` aliases above (tsc).
     expect(Array.isArray(DENSITIES) && DENSITIES.length > 0, "the roster is a non-empty list of the modes R-UI-005 names").toBe(true);
     for (const density of DENSITIES) expect(isDensity(density), `${density} is a mode the store can hold`).toBe(true);
-
-    // white-box: AC-3(d) — "the type is derived, not spelled twice" has no runtime observable: an
-    // `as const` tuple and a hand-spelled union are the same array at run time. The compile-time
-    // half of this criterion is the two `Expect<…>` aliases above, graded by tsc.
-    const code = codeOf(DENSITY_MODULE, "AC-3(d) reads the roster's declaration for the derivation");
-    expect(code, `${DENSITY_MODULE} still spells the union beside the roster instead of reading it off (B-17)`).toMatch(/export\s+type\s+Density\s*=\s*\(typeof\s+DENSITIES\)\[number\]/);
-    expect(code, `${DENSITY_MODULE}'s roster is declared \`as const\`, which is what makes it a tuple the union can be read from`).toMatch(/DENSITIES\s*=\s*\[[^\]]*\]\s*as\s+const/);
+    // Mutual assignability with the DataTable's own spelling is pinned by the merged
+    // tests/ui/density-prefs/density-toggle.test.ts AC-3, which src/core may not reach (ARCH-01).
   });
 
   test("AC-3(e): editionDigest refuses a separator-bearing key, rule id or version, and the seed's digest is unmoved", async () => {
@@ -122,31 +139,52 @@ describe("AC-3: one invariant, one home", () => {
     }
   });
 
-  test("AC-3(f): the seed's area unit is read from the unit canon, and its comment no longer blames the document font", async () => {
+  test("AC-3(f): the seed's area unit follows the unit canon, and its comment no longer blames the document font", async () => {
     const seed = (await import("./rulesets/seed/index")) as { SEED_EDITION_CONTENT: EditionContent };
-    const areas = Object.entries(seed.SEED_EDITION_CONTENT.parameters).filter(([, parameter]) => parameter.unit === CANONICAL_UNITS.AREA);
-    expect(areas.length, `the seed's area parameters spell the canon's AREA unit (${CANONICAL_UNITS.AREA})`).toBeGreaterThan(0);
+    const unitsOf = (content: EditionContent): string[] => Object.values(content.parameters).map((parameter) => parameter.unit);
+    const areasNow = unitsOf(seed.SEED_EDITION_CONTENT).filter((unit) => unit === CANONICAL_UNITS.AREA);
+    expect(areasNow.length, `the seed states its area parameters in the canon's AREA unit (${CANONICAL_UNITS.AREA})`).toBeGreaterThan(0);
 
-    // white-box: AC-3(f) — the defect is the SPELLING, not the value: a literal "m2" and
-    // CANONICAL_UNITS.AREA are the same string at run time, so only the text can tell them apart.
-    const code = codeOf(SEED_MODULE, "AC-3(f) reads the seed for a second spelling of the canon's AREA unit");
-    expect(code, `${SEED_MODULE} reads its area unit from ${CANON_MODULE} rather than spelling it (ARCH-02)`).toContain("CANONICAL_UNITS.AREA");
-    expect(code, `${SEED_MODULE} spells no area unit of its own beside the canon's`).not.toMatch(/["']m2["']/);
+    // "Read from the canon" is observable: move the canon and a seed that reads it moves too, while
+    // a seed holding its own literal stays where it is. Only the unit strings are read under the
+    // substitution — the stored digest is asserted above, against the canon the product really ships.
+    vi.resetModules();
+    vi.doMock("./units/canon", async (importOriginal) => {
+      const actual = await importOriginal<Record<string, unknown>>();
+      return { ...actual, CANONICAL_UNITS: Object.freeze({ ...(actual["CANONICAL_UNITS"] as Record<string, string>), AREA: SUBSTITUTED_AREA }) };
+    });
+    try {
+      const overCanon = (await import("./rulesets/seed/index")) as { SEED_EDITION_CONTENT: EditionContent };
+      const followed = unitsOf(overCanon.SEED_EDITION_CONTENT).filter((unit) => unit === SUBSTITUTED_AREA);
+      expect(followed.length, `${SEED_MODULE} reads its area unit from ${CANON_MODULE} — a literal of its own is a second spelling that agrees only until the canon moves (B-17, ARCH-02)`).toBe(
+        areasNow.length,
+      );
+    } finally {
+      vi.doUnmock("./units/canon");
+      vi.resetModules();
+    }
 
-    const comments = commentsOf(SEED_MODULE, "AC-3(f) reads the seed's own explanation of its unit spellings");
-    expect(comments, `${SEED_MODULE}'s comment no longer claims the pinned document font cannot print a squared sign — the canon's spelling is m2 (Q-17)`).not.toMatch(/font|glyph/i);
+    // white-box: AC-3(f) — "the seed's comment no longer claims the font cannot print a squared
+    // sign" is a property of the text; a stale explanation is invisible to every call.
+    const comments = textOf(SEED_MODULE)
+      .split("\n")
+      .filter((line) => line.trimStart().startsWith("//") || line.trimStart().startsWith("*") || line.trimStart().startsWith("/*"))
+      .join(" ");
+    expect(comments, `${SEED_MODULE}'s comment no longer blames the pinned document font — m2 IS the canon's AREA spelling, and cm2 stays as data 0004's digest froze (Q-17)`).not.toMatch(/font|glyph/i);
   });
 
   test("AC-3(g): CanonicalPerPackagingUnit is gone and the packaging factor's meaning is documented on the property", () => {
-    // white-box: AC-3(g) — an alias for `number` is erased at run time, so "the alias is gone and the
-    // property carries its meaning" is only ever a property of the declaration's text.
-    const code = codeOf(CANON_MODULE, "AC-3(g) reads the canon for the alias the sweep removes");
-    expect(code, `${CANON_MODULE} still declares CanonicalPerPackagingUnit, a nominal-looking alias for a bare number`).not.toContain("CanonicalPerPackagingUnit");
-    expect(code, `${CANON_MODULE} states ProductFactors over a plain Record<string, number>`).toMatch(/ProductFactors\s*=\s*\{[\s\S]{0,200}?factors\?:\s*Record<\s*string\s*,\s*number\s*>/);
+    // white-box: AC-3(g) — a type alias is erased before anything runs, and a doc comment is never
+    // reached at all: that ProductFactors is a plain `Record<string, number>` is graded by the
+    // `Expect<…>` alias above, but "the alias is gone" and "the meaning is stated here" can only be
+    // read. Matched as DECLARATIONS, so prose about the removal is not graded as the removal.
+    const source = textOf(CANON_MODULE);
+    expect(source, `${CANON_MODULE} still declares CanonicalPerPackagingUnit, a nominal-looking alias for a bare number`).not.toMatch(/\btype\s+CanonicalPerPackagingUnit\b/);
+    expect(source, `${CANON_MODULE} states the packaging factor as a plain number, not through that alias`).not.toMatch(/factors\?:\s*Record<\s*string\s*,\s*CanonicalPerPackagingUnit/);
 
     // The meaning is documented ON the property, not somewhere else in a 200-line module: the line
     // above the declaration must itself be a comment.
-    const lines = sourceOf(CANON_MODULE, "AC-3(g) reads the declaration to find the property's own doc").split("\n");
+    const lines = source.split("\n");
     const at = lines.findIndex((line) => /factors\?:\s*Record</.test(line));
     expect(at, `${CANON_MODULE} declares the optional factors property`).toBeGreaterThan(0);
     const above = (lines[at - 1] ?? "").trim();

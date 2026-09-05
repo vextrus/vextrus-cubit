@@ -14,16 +14,24 @@
  * L-AI-01 makes src/core/model/ the one place the seam's interior may be named.
  */
 import { randomBytes, randomUUID } from "node:crypto";
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
-import { sourceOf } from "./__tests__/support/read-source";
 import { makeStorage } from "./storage";
 
+const REPO_ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const JOBS_BARREL = "src/core/jobs/index.ts";
 const STORAGE_MODULE = "src/core/storage/index.ts";
 const STORAGE_ACCEPTANCE = "src/core/storage/storage.test.ts";
+
+/** A file's text, asserted present so a missing one names itself rather than reading as empty. */
+function textOf(relative: string): string {
+  const absolute = join(REPO_ROOT, relative);
+  expect(existsSync(absolute), `${relative} is missing from the checkout — the product does not provide it`).toBe(true);
+  return readFileSync(absolute, "utf8");
+}
 
 /** What AC-5(d) requires of the acceptance it re-shapes: one assertion becomes three (Q-08). */
 const AC1_ASSERTIONS_AT_LEAST = 12;
@@ -160,21 +168,27 @@ describe("AC-5: explicit where it was implicit", () => {
     const tenantId = randomUUID();
     files.opens.length = 0;
 
-    const stored = await storage.put(tenantId, new Uint8Array(randomBytes(64)));
+    const bytes = new Uint8Array(randomBytes(64));
+    const stored = await storage.put(tenantId, bytes);
 
-    // The prefix is derived from what the put laid down, never transcribed from the seam's rule.
-    const prefixes = readdirSync(root);
-    expect(prefixes.length, "the put laid down exactly one tenant prefix").toBe(1);
-    const prefixDir = join(root, prefixes[0] ?? "");
-    expect(readdirSync(prefixDir), "…holding the object at its own address").toContain(stored.sha256);
+    // The object really landed, read back through the seam that stored it — `<root>/<tenantId>/…`
+    // is the address law the merged storage.test.ts AC-1 pins, so the prefix is a settled contract.
+    const readBack = await storage.get(tenantId, stored.sha256);
+    expect(readBack, "the put settled an address the seam can read back — nothing below is about a durability claim over an object that is not there").not.toBeNull();
+    expect(Array.from(readBack ?? []), "…holding the bytes as they were given").toEqual(Array.from(bytes));
+    const prefixDir = join(root, tenantId);
 
     const directoryOpens = files.opens.filter((opened) => opened.path === prefixDir);
     expect(directoryOpens.length, "put opens the tenant prefix DIRECTORY — an object whose directory entry is not durable is a promise the seam cannot keep (R-SPINE-021)").toBe(1);
     expect(directoryOpens[0]?.syncs, "…and tells that handle to sync, once, after the link").toBe(1);
+    expect(
+      files.opens.findIndex((opened) => opened.path === prefixDir),
+      "…after the staging copy, which is what makes the sync a sync of an entry that is already there",
+    ).toBeGreaterThan(0);
 
     // white-box: AC-5(c) — "its comment claims exactly that durability" is a property of the text:
-    // a comment that overclaims is invisible to every call the seam makes.
-    const comments = sourceOf(STORAGE_MODULE, "AC-5(c) reads the seam's own durability claim")
+    // a comment that overclaims what was made durable is invisible to every call the seam makes.
+    const comments = textOf(STORAGE_MODULE)
       .split("\n")
       .filter((line) => line.trimStart().startsWith("//") || line.trimStart().startsWith("*"))
       .join(" ");
@@ -185,9 +199,10 @@ describe("AC-5: explicit where it was implicit", () => {
   });
 
   test("AC-5(d): storage's own AC-1 proves idempotence by property, and its assertion count does not fall", () => {
-    // white-box: AC-5(d) — the criterion is about the SHAPE of an existing acceptance's assertions
-    // (Q-08's structural diff), which no call into the product can observe.
-    const lines = sourceOf(STORAGE_ACCEPTANCE, "AC-5(d) reads the acceptance whose AC-1 the sweep re-shapes").split("\n");
+    // white-box: AC-5(d) — the criterion is about the SHAPE of an existing acceptance file's own
+    // assertions (Q-08's structural diff). A test's text is not the product, and no call into the
+    // product can observe whether its acceptance froze a listing or asserted a property.
+    const lines = textOf(STORAGE_ACCEPTANCE).split("\n");
     const opens = lines.findIndex((line) => line.includes('test("AC-1:'));
     expect(opens, `${STORAGE_ACCEPTANCE} declares an AC-1 case`).toBeGreaterThan(-1);
     const indent = " ".repeat((lines[opens] ?? "").length - (lines[opens] ?? "").trimStart().length);
