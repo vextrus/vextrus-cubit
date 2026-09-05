@@ -44,6 +44,7 @@ import { RefusalState, type RefusalEvidence } from "../../../../../../../../../u
 import { shellHref } from "../../../../../../../../../ui/shell";
 import { fill, strings } from "../../../../../../../../../ui/strings";
 import { publishViewport } from "./address";
+import { layoutNameOf } from "./route-address";
 import { FidelityFacts } from "./fidelity-facts";
 import { LayersPanel } from "./layers-panel";
 import { StatusLine } from "./status-line";
@@ -168,6 +169,14 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   /** Whether the browser has been asked for a context yet — before that, nothing is claimed (I-82). */
   const [probed, setProbed] = useState(false);
   const [firstPaint, setFirstPaint] = useState(false);
+  /**
+   * The sheet this address names. `layoutName` is the path segment the route was opened at, which
+   * Next hands a page exactly as the path spells it — `FOUNDATION%20PLAN` for a sheet whose name
+   * carries a space — so the segment is read once, here, and the sheet's own name is what is shown
+   * to a reader and asked of the feed (B-17, R-UI-031).
+   */
+  const sheetName = layoutNameOf(layoutName);
+
   const [camera, setCamera] = useState<Camera | null>(null);
   const [, bump] = useReducer((count: number) => count + 1, 0);
 
@@ -229,8 +238,8 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   }, [head]);
   const rows = state.layerRows();
   const feed = useCallback(
-    (query: string) => `/api/viewer/${drawingId}/${encodeURIComponent(layoutName)}?tenant=${encodeURIComponent(tenantId)}&${query}`,
-    [drawingId, layoutName, tenantId],
+    (query: string) => `/api/viewer/${drawingId}/${encodeURIComponent(sheetName)}?tenant=${encodeURIComponent(tenantId)}&${query}`,
+    [drawingId, sheetName, tenantId],
   );
 
   /* --------------------------------------------------------------------- the sheet, layer by layer */
@@ -1103,7 +1112,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
               role="application"
               tabIndex={0}
               aria-label={fill(strings.viewer_canvas_label, {
-                layout: layoutName,
+                layout: sheetName,
               })}
               aria-describedby="cx-viewer-keys"
               onPointerDown={onPointerDown}
@@ -1162,11 +1171,11 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     <div className="cx-viewer" data-testid="viewer-screen" data-project={projectId} data-flyto={flyto ?? undefined}>
       {/* The sheet names itself once, as the house style has every screen do: heading navigation
           lands on the sheet a reader opened rather than nowhere (R-UI-050's siblings, axe). */}
-      <h1 className="cx-viewer-hidden">{fill(strings.viewer_canvas_label, { layout: layoutName })}</h1>
+      <h1 className="cx-viewer-hidden">{fill(strings.viewer_canvas_label, { layout: sheetName })}</h1>
       <div className="cx-viewer-work">{workArea()}</div>
       <StatusLine
         statusRef={statusRef}
-        layoutName={layoutName}
+        layoutName={sheetName}
         sheet={camera !== null && head?.kind === "manifest"}
         scale={camera?.scale ?? 0}
         loadedLayers={loadedLayers}

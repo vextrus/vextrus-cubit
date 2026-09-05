@@ -7,6 +7,7 @@
 // each layer (R-UI-043, PB-2).
 import { SELECTION_PARAM } from "../../../../../../../../../modules/takeoff/viewer-inspector/selection";
 import { fill, strings } from "../../../../../../../../../ui/strings";
+import { layoutNameOf } from "./route-address";
 import { ViewerScreen } from "./viewer-screen";
 
 // Next hands a dynamic segment over already decoded, so the segment IS the sheet's name: decoding it
@@ -15,7 +16,7 @@ import { ViewerScreen } from "./viewer-screen";
 // (R-UI-031).
 export async function generateMetadata({ params }: { params: Promise<{ layout: string }> }): Promise<{ title: string }> {
   const { layout } = await params;
-  return { title: fill(strings.viewer_canvas_label, { layout }) };
+  return { title: fill(strings.viewer_canvas_label, { layout: layoutNameOf(layout) }) };
 }
 
 export default async function ViewerSheet({
