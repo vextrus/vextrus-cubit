@@ -13,7 +13,8 @@ pnpm verify · pnpm test:db · pnpm e2e --journey <J> · pnpm checkup
 
 ## Lawful paths (the hooks enforce these — don't rediscover them by denial)
 - Scratch: `mcp__builder__scratch_dir` is the writable directory; `rm -rf` only there and on regenerable output (.next*/, dist/, coverage/, .turbo/, .vite/, *.tsbuildinfo) by relative path.
-- Test runs are SCOPED: an unscoped runner discovers .builder-heldout/ and recurses. Run the exact files your task names (`pnpm vitest run <files>`), never the whole tree; never read or touch .builder-heldout/.
+- Test runs are by name: `pnpm vitest run <files>` for the files your task names, `mcp__builder__check` for the gate's fast lane (tsc, eslint on your changed files, the unit tests your diff can move) in one call; the whole `pnpm verify` once, before the handoff. `.builder-heldout/` is the Verifier's store — never read or touched by any other role.
+- Bash outputs over 6,000 characters arrive compacted: the head, the tail and every verdict line are kept, and the marker names the scratch file holding the whole text — read it rather than re-run the command.
 - Before editing test config, tests/e2e/**, CLAUDE.md or .claude/**: confirm your increment's approved spec owns that path — locked by default, and each attempt costs a denial plus a structural red.
 - Read-only roles (reviewer/skeptic/adversary/planner) verify with the allowlist only: git reads, tsc, `vitest run <file>`, pnpm verify/test/checkup, `psql -c` (read-only SQL), pg_isready, curl localhost — never node -e / python3 -c / heredocs.
 - The cad lane (Python, uv): `uv run --project cad pytest cad`, `ruff check cad`, `dwgread <f.dwg>` (stdout) and `dwg2dxf -m -o <scratch>/x.dxf <f.dwg>` are read-only; plain `dwg2dxf` writes beside its input — denied; `-m` is the form ezdxf reads.
