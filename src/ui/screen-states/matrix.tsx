@@ -288,6 +288,47 @@ export const screenStates: ScreenStatesMatrix = {
     ),
   }),
 
+  // The sets index (s-drawings-sets § 2): a project with no set teaches the one next action, and the
+  // refusal it registers of its own is the name that names no new set. Its denial names PIN_SET.
+  "/t/[tenant]/p/[project]/drawings/sets": declare({
+    ...workspaceCells,
+    loading: bones(8),
+    empty: (): ReactNode => (
+      <EmptyTeaching heading={strings.state_empty_sets_heading} body={strings.state_empty_sets_body} action={strings.state_empty_sets_action} />
+    ),
+    refusal: refusal(REFUSAL_ENTRIES.SET_NAME_NOT_USABLE, { href: "/", label: strings.state_sets_evidence_reload }),
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.state_denied_sets_permission}
+        holder={strings.state_denied_sets_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={WORKSPACE_EVIDENCE}
+      />
+    ),
+  }),
+
+  // The set browser (s-drawings-sets § 2): a set that names nothing this project holds cannot be
+  // pinned, and its partial is the citation list standing exactly as it was pinned (I-98).
+  "/t/[tenant]/p/[project]/drawings/sets/[set]": declare({
+    ...workspaceCells,
+    loading: bones(11),
+    empty: (): ReactNode => (
+      <EmptyTeaching heading={strings.state_empty_set_heading} body={strings.state_empty_set_body} action={strings.state_sets_evidence_reload} />
+    ),
+    refusal: refusal(REFUSAL_ENTRIES.SET_NOT_PINNABLE, { href: "/", label: strings.state_sets_evidence_reload }),
+    partial: (): ReactNode => <InlineAnswer text={strings.state_partial_sets} />,
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.state_denied_sets_permission}
+        holder={strings.state_denied_sets_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={WORKSPACE_EVIDENCE}
+      />
+    ),
+  }),
+
   // Participants (s-settings-participants § 2): a project holds a principal at every moment, so the
   // list is never empty; the reachable refusal is the withdrawal that would leave it without one.
   "/t/[tenant]/p/[project]/settings/participants": declare({

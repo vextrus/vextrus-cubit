@@ -7,6 +7,7 @@
 import { acts, forTenant, holdStateLock, type TenantTx } from "../db";
 import { assignParticipantRole, type AssignParticipantRoleInput } from "./assign-participant-role";
 import { confirmDiscipline, type ConfirmDisciplineInput } from "./confirm-discipline";
+import { pinDrawingSet, type PinDrawingSetInput } from "./pin-drawing-set";
 import { consequenceDigest, movesNothing, type Consequence } from "./consequence";
 import { ACT_TYPES, type ActType } from "./law";
 import { requirePermission } from "./participation";
@@ -32,9 +33,10 @@ export { permissionNotHeld, projectWouldHaveNoPrincipal, type ActorKind } from "
 export { type ActRendering, type ActorCtx, type WrittenAct } from "./rendering";
 export { directionOf, type AssignDirection, type AssignParticipantRoleInput } from "./assign-participant-role";
 export { GROUP_KINDS, groupNotOffered, type ConfirmDisciplineInput, type GroupKind, type OfferedGroupKey } from "./confirm-discipline";
+export { setNotPinnable, type PinDrawingSetInput } from "./pin-drawing-set";
 
 /** Everything a caller may ask the seam to do: one member per act type the enum declares. */
-export type ActInput = AssignParticipantRoleInput | ConfirmDisciplineInput;
+export type ActInput = AssignParticipantRoleInput | ConfirmDisciplineInput | PinDrawingSetInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -44,6 +46,7 @@ export type ActInput = AssignParticipantRoleInput | ConfirmDisciplineInput;
 export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, { type: T }>> }> = Object.freeze({
   ASSIGN_PARTICIPANT_ROLE: assignParticipantRole,
   CONFIRM_DISCIPLINE: confirmDiscipline,
+  PIN_DRAWING_SET: pinDrawingSet,
 });
 
 /**
@@ -70,6 +73,8 @@ function renderingFor(input: ActInput): BoundRendering {
     case "ASSIGN_PARTICIPANT_ROLE":
       return bind(ACT_MAP[input.type], input);
     case "CONFIRM_DISCIPLINE":
+      return bind(ACT_MAP[input.type], input);
+    case "PIN_DRAWING_SET":
       return bind(ACT_MAP[input.type], input);
     default:
       return unrendered(input);

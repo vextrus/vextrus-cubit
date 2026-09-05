@@ -58,7 +58,10 @@ export type RefusalCode =
   | "SHEET_NOT_INGESTABLE"
   | "RASTER_NOT_AVAILABLE"
   | "MANIFEST_NOT_RENDERABLE"
-  | "GROUP_NOT_OFFERED";
+  | "GROUP_NOT_OFFERED"
+  | "SET_NOT_PINNABLE"
+  | "SET_NAME_NOT_USABLE"
+  | "SET_MEMBER_NOT_IN_PROJECT";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -345,6 +348,34 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     code: "GROUP_NOT_OFFERED",
     message: "This group is not one the project offers now, so nothing was confirmed.",
     remedy: "Reload the sheet index and confirm from a group it offers.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-REG-06's manifest is the citation list of a set's members, so a set naming none of this
+  // project's drawings has nothing to be content-addressed: the pin answers by name rather than
+  // recording an empty revision nobody could measure against.
+  SET_NOT_PINNABLE: Object.freeze({
+    code: "SET_NOT_PINNABLE",
+    message: "This set names no members of this project, so no revision was pinned.",
+    remedy: "Add at least one drawing to the set, then pin it.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // R-TO-005: a project tells its sets apart by their names, so a blank name names nothing and a
+  // name the project already carries names no new set.
+  SET_NAME_NOT_USABLE: Object.freeze({
+    code: "SET_NAME_NOT_USABLE",
+    message: "The set name is blank or already names a set of this project, so no set was created.",
+    remedy: "Give the set a name no other set of this project carries.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // A membership is a draft over the project's own drawings (R-TO-005): a drawing the project does
+  // not hold is one this set could never cite, so the toggle changes nothing and says so.
+  SET_MEMBER_NOT_IN_PROJECT: Object.freeze({
+    code: "SET_MEMBER_NOT_IN_PROJECT",
+    message: "That drawing is not one of this project's, so the set was not changed.",
+    remedy: "Reload the set and toggle a drawing the project holds.",
     severity: "error",
     surface: "inline",
   }),

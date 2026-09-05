@@ -24,6 +24,7 @@ import {
   lit,
   psql,
   qualified,
+  referencingClosure,
   run,
   seedTenants,
   withSession,
@@ -70,6 +71,11 @@ const staged = (): Promise<Stage> =>
 /** How many rows this tenant owns, read under system scope — the number a refusal must not change. */
 function rowsOwned(url: string, table: TableRef, tenantId: string): number {
   return count(url, withSession({ [GUC_SYSTEM_REASON]: AUDIT_REASON }, `select count(*) from ${table.sql} where ${ident(TENANT_COLUMN)} = ${lit(tenantId)};`));
+}
+
+/** Every row a table holds, whoever owns it — what a TRUNCATE would take away if a belt let it. */
+function rowsIn(url: string, table: TableRef): number {
+  return count(url, withSession({ [GUC_SYSTEM_REASON]: AUDIT_REASON }, `select count(*) from ${table.sql};`));
 }
 
 describe("L-ACT-03: every append-only ledger's belt holds against the owner", () => {
@@ -149,15 +155,26 @@ describe("L-ACT-03: every append-only ledger's belt holds against the owner", ()
       expect(owned[index], `${qualified(table)} holds no row for ${TENANT_ALPHA} — a TRUNCATE refused on an empty table proves nothing`).toBeGreaterThan(0);
     });
 
-    // All of them in one statement: truncating one alone would be refused for the foreign keys the
-    // others hold on it, before any belt was tested — and a refusal for the wrong reason proves
-    // nothing about immutability.
-    const refused = psql(stage.url, withSession({ [GUC_SYSTEM_REASON]: SEED_REASON }, `truncate table ${stage.ledgers.map((table) => table.sql).join(", ")};`));
+    // Every ledger in one statement, and with them every table that references one — the closure the
+    // catalogue itself reports. Postgres checks the foreign keys of a TRUNCATE before any BEFORE
+    // TRUNCATE trigger fires, so a statement that left a referrer out would die at that check with
+    // the belts never reached, and a refusal for the wrong reason proves nothing about immutability.
+    // Naming them all is also the harder question: with the FK guard satisfied there is nothing
+    // between the owner and an emptied ledger except the belt under test. A draft table a later
+    // increment hangs off a ledger joins this statement by existing (B-19).
+    const named = referencingClosure(stage.url, stage.ledgers);
+    const heldBefore = named.map((table) => rowsIn(stage.url, table));
+    const refused = psql(stage.url, withSession({ [GUC_SYSTEM_REASON]: SEED_REASON }, `truncate table ${named.map((table) => table.sql).join(", ")};`));
     expect(refused.ok, "the append-only ledgers let their owner TRUNCATE them — a ledger that can be emptied wholesale is not append-only (L-ACT-01)").toBe(false);
-    expect(refused.stderr, "the refusal must say what it is refusing").toMatch(SAYS_APPEND_ONLY);
+    expect(refused.stderr, "the refusal must be the belt's own, not the foreign-key check standing in front of it").toMatch(SAYS_APPEND_ONLY);
 
     stage.ledgers.forEach((table, index) => {
       expect(rowsOwned(stage.url, table, stage.tenantId), `${qualified(table)} lost rows over a refused TRUNCATE`).toBe(owned[index]);
+    });
+    // The statement aborts atomically, so nothing it named lost anything — a belt that saved the
+    // ledger while a draft beside it was emptied would not have saved the ledger's citations.
+    named.forEach((table, index) => {
+      expect(rowsIn(stage.url, table), `${qualified(table)} lost rows over a refused TRUNCATE that named it`).toBe(heldBefore[index]);
     });
   }, 300_000);
 });

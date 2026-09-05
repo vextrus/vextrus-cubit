@@ -63,6 +63,19 @@ export const screenStates = {
   state_denied_drawings_permission: "Confirming a sheet's discipline needs the MEASURE permission on this project, and your account does not hold it.",
   state_drawings_evidence_reload: "Reload the sheet index",
   state_denied_drawings_holder: "This project's principals and measurers hold it; a principal grants it on the participants screen.",
+
+  // The sets index and the set browser, mirrored for that same reason: their one table lives beside
+  // the route (docs/design/s-drawings-sets.md § 3), and this layer may not import it.
+  state_empty_sets_heading: "No sets yet",
+  state_empty_sets_body: "A set names the drawings a campaign measures. Name the first one above, then choose its drawings on the set itself.",
+  state_empty_sets_action: "Name the first set",
+  state_empty_set_heading: "Nothing pinned yet",
+  state_empty_set_body: "Add drawings to this set, then pin it. Pinning records the revision each member stands at, and that record never changes.",
+  state_denied_sets_permission: "Creating a set, changing what it names and pinning it need the PIN_SET permission on this project, and your account does not hold it.",
+  state_denied_sets_holder: "This project's principals and leads hold it; a principal grants it on the participants screen.",
+  state_sets_evidence_reload: "Reload this project's sets",
+  state_partial_sets:
+    "A pinned set revision cites every member it held, including a drawing the set no longer names and a revision since superseded; those citations are shown exactly as they were pinned, never recomputed.",
 } as const;
 
 // R-SPINE-060's per-module convention is that a table file's DESIGNATED export is the one named for
