@@ -107,8 +107,10 @@
   transition: color var(--motion-state) var(--ease);
 }
 
+/* The word is text, so it clears R-UI-012's 4.5:1 rather than the marker's 3:1 UI floor: the dot
+   stays `--beam-500` and the word takes the beam the Decision § 6 already fixes for reading. */
 .cx-job-timeline-step[data-status="running"] .cx-job-timeline-step-status {
-  color: var(--beam-500);
+  color: var(--beam-600);
 }
 
 .cx-job-timeline-step[data-status="succeeded"] .cx-job-timeline-step-status {
