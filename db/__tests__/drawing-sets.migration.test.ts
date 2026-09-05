@@ -1,8 +1,13 @@
 /**
  * The three tables a drawing set is held in, as the store holds them (R-TO-005, L-REG-06,
  * SEAM-TENANT, V-DB): their one home in `src/core/db.ts`, their re-export through the schema tree
- * the drift lane generates from, the migration and journal append that land them, and the posture
- * each of them lands under — a set and its pinned revisions are ledgers, its membership is a draft.
+ * the drift lane generates from, and the posture each of them lands under — a set and its pinned
+ * revisions are ledgers, its membership is a draft.
+ *
+ * The migration is judged by what it DOES. The database every case reads is built by the product's
+ * own lane (`scripts/db-migrate.mjs`) over the committed migrations and their journal, so no file
+ * under db/ is read here: a table standing in that database is the migration and its journal entry,
+ * observed, and a second run of the lane converging is that entry recorded.
  *
  * Raw SQL is spoken through psql, never a driver import: SEAM-TENANT's ban binds this file like the
  * rest of the tree.
@@ -12,7 +17,8 @@
  * changes how a belt is installed changes these cases with it, and the privileges are graded as the
  * retention property they encode rather than as a roster somebody typed twice.
  */
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { enumerateTenantScopedTables, provisionScratchDb, type ScratchDb } from "./harness";
@@ -26,8 +32,8 @@ const DB_MODULE = "src/core/db.ts";
 const SCHEMA_BARREL = "db/schema.ts";
 const SCHEMA_AREA = "db/schema/drawing-sets.ts";
 
-/** The migration this increment adds, matched as a glob fragment against db/migrations/*.sql. */
-const MIGRATION = "drawing-sets";
+/** The lane that applies the committed migrations — the only way a table reaches a database. */
+const MIGRATE_SCRIPT = join("scripts", "db-migrate.mjs");
 
 /** The tables the increment's interfaces name, under the exports that declare them. */
 const TABLES: readonly { table: string; declared: string }[] = [
@@ -47,9 +53,6 @@ const DRAFT = "drawing_set_members";
 /** The ledger whose belt every other ledger's is compared against (L-ACT-01's act log). */
 const ACT_LOG = "acts";
 
-const MIGRATIONS = join(REPO_ROOT, "db", "migrations");
-const JOURNAL = join(MIGRATIONS, "meta", "_journal.json");
-
 async function productModule<T = Record<string, unknown>>(relative: string): Promise<T> {
   const absolute = join(REPO_ROOT, relative);
   expect(existsSync(absolute), `${relative} is missing from the checkout — the product does not provide it yet`).toBe(true);
@@ -57,7 +60,7 @@ async function productModule<T = Record<string, unknown>>(relative: string): Pro
   return (await import(specifier)) as T;
 }
 
-type Stage = { bootstrapUrl: string; tenantScoped: string[] };
+type Stage = { bootstrapUrl: string; urlMigrate: string; tenantScoped: string[] };
 
 let scratch: ScratchDb | undefined;
 let staging: Promise<Stage> | undefined;
@@ -70,12 +73,26 @@ const staged = (): Promise<Stage> =>
     const url = new URL(BOOTSTRAP_URL);
     url.pathname = new URL(provisioned.urlMigrate).pathname;
     const bootstrapUrl = url.toString();
-    return { bootstrapUrl, tenantScoped: await enumerateTenantScopedTables(bootstrapUrl) };
+    return { bootstrapUrl, urlMigrate: provisioned.urlMigrate, tenantScoped: await enumerateTenantScopedTables(bootstrapUrl) };
   })());
 
 afterAll(async () => {
   await scratch?.drop();
 });
+
+/** Which of this increment's tables the migrated database really holds, in the order declared. */
+async function presentTables(): Promise<string[]> {
+  const { bootstrapUrl } = await staged();
+  const held = new Set(
+    run(
+      bootstrapUrl,
+      `select c.relname
+         from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        where n.nspname = 'public' and c.relkind in ('r', 'p');`,
+    ).map((row) => row[0] ?? ""),
+  );
+  return TABLES.map((owned) => owned.table).filter((table) => held.has(table));
+}
 
 /** The privileges a role holds on a table, as the catalogue reports them. */
 async function privilegesOf(table: string, role: string): Promise<string[]> {
@@ -121,17 +138,26 @@ async function constraintsOf(table: string, kind: "p" | "u" | "f" | "c"): Promis
 }
 
 describe("the drawing-set tables are declared, re-exported and migrated", () => {
-  it(`exactly one db/migrations/*${MIGRATION}*.sql exists and the journal carries its tag`, () => {
-    const matches = readdirSync(MIGRATIONS)
-      .filter((name) => name.endsWith(".sql"))
-      .filter((name) => name.includes(MIGRATION));
-    expect(matches.length, `exactly one db/migrations/*${MIGRATION}*.sql is owed; found ${matches.length === 0 ? "none" : matches.join(", ")}`).toBe(1);
+  it("the product's own migration lane lands all three tables, and running it again converges", async () => {
+    const { urlMigrate } = await staged();
 
-    const tag = (matches[0] ?? "").replace(/\.sql$/, "");
+    // The database every case below reads was built by `scripts/db-migrate.mjs` over the committed
+    // migrations and their journal — nothing here reaches into either. A migration the journal does
+    // not name is one the lane never applies, so a table standing in this database IS the journal
+    // entry, observed; and a lane run twice that lands the same database is the entry recorded.
+    expect(await presentTables(), "the lane applied the migration that lands the drawing-set tables").toEqual(TABLES.map((owned) => owned.table));
+
+    const again = spawnSync(process.execPath, [join(REPO_ROOT, MIGRATE_SCRIPT)], {
+      cwd: REPO_ROOT,
+      env: { ...process.env, DATABASE_URL: urlMigrate },
+      encoding: "utf8",
+      timeout: 120_000,
+    });
     expect(
-      readFileSync(JOURNAL, "utf8").includes(tag),
-      `db/migrations/meta/_journal.json carries no entry tagged ${tag}; a migration the journal does not name is a migration the lane never applies`,
-    ).toBe(true);
+      again.status,
+      `a second run of the migration lane converges on the same database — an unjournaled or rewritten migration re-runs and collides:\n${`${again.stdout ?? ""}${again.stderr ?? ""}`.slice(-1200)}`,
+    ).toBe(0);
+    expect(await presentTables(), "and the tables it landed are still exactly the ones it landed").toEqual(TABLES.map((owned) => owned.table));
   });
 
   it("src/core/db.ts declares each table once, and the schema tree the drift lane reads re-exports it", async () => {
