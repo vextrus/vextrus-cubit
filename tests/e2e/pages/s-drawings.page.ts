@@ -25,6 +25,10 @@ export const S_DRAWINGS = {
   timeline: "job-timeline",
   timelineStep: "job-timeline-step",
   timelineStepTiming: "job-timeline-step-timing",
+  jobsTray: "shell-jobs-tray",
+  jobsTrayPanel: "shell-jobs-tray-panel",
+  jobsTrayItem: "shell-jobs-tray-item",
+  jobsTrayEmpty: "shell-jobs-tray-empty",
   groups: "offered-groups",
   group: "offered-group",
   groupCount: "offered-group-count",
@@ -85,6 +89,42 @@ export class SDrawingsPage {
   /** The elapsed-time cells, masked in a baseline: they are real time, and never the same twice. */
   get timelineTimings(): Locator {
     return this.at(S_DRAWINGS.timelineStepTiming);
+  }
+
+  /* --- the frame's global jobs tray, over the same jobs this screen started (R-UI-024, R-UI-030).
+     Its handles live here rather than on the shell's page object, which the J-000 hotfix suite
+     byte-freezes: this journey is the only one that drives the tray (shell-top-bar Decision §7). --- */
+
+  get jobsTray(): Locator {
+    return this.at(S_DRAWINGS.jobsTray);
+  }
+
+  get jobsTrayPanel(): Locator {
+    return this.at(S_DRAWINGS.jobsTrayPanel);
+  }
+
+  get jobsTrayItems(): Locator {
+    return this.at(S_DRAWINGS.jobsTrayItem);
+  }
+
+  get jobsTrayEmpty(): Locator {
+    return this.at(S_DRAWINGS.jobsTrayEmpty);
+  }
+
+  /** The tray's item for one job kind, by the attribute the tray publishes it under. */
+  jobsTrayItem(kind: string): Locator {
+    return this.page.locator(`[data-testid="${S_DRAWINGS.jobsTrayItem}"][data-kind="${kind}"]`);
+  }
+
+  /** The items' elapsed-time cells, masked in a baseline: they are real time, never twice the same. */
+  get jobsTrayTimings(): Locator {
+    return this.jobsTrayItems.locator(".cx-jobs-tray-item-timing");
+  }
+
+  /** Open the tray and return only once its panel stands. */
+  async openJobsTray(): Promise<void> {
+    await this.jobsTray.click();
+    await this.jobsTrayPanel.waitFor({ state: "visible" });
   }
 
   get dropzone(): Locator {

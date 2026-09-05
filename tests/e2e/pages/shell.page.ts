@@ -81,40 +81,6 @@ export class ShellPage {
     return this.page.getByTestId("shell-user-signout");
   }
 
-  /* --- the jobs tray, the top bar's R-UI-024 occupant (docs/design/shell-top-bar.md § 7) --- */
-
-  get jobsTray(): Locator {
-    return this.page.getByTestId("shell-jobs-tray");
-  }
-
-  get jobsTrayPanel(): Locator {
-    return this.page.getByTestId("shell-jobs-tray-panel");
-  }
-
-  get jobsTrayItems(): Locator {
-    return this.page.getByTestId("shell-jobs-tray-item");
-  }
-
-  get jobsTrayEmpty(): Locator {
-    return this.page.getByTestId("shell-jobs-tray-empty");
-  }
-
-  /** The item for one job kind, by the attribute the tray publishes it under. */
-  jobsTrayItem(kind: string): Locator {
-    return this.page.locator(`[data-testid="shell-jobs-tray-item"][data-kind="${kind}"]`);
-  }
-
-  /** The items' elapsed-time cells, masked in a baseline: they are real time, never twice the same. */
-  get jobsTrayTimings(): Locator {
-    return this.jobsTrayItems.locator(".cx-jobs-tray-item-timing");
-  }
-
-  /** Open the tray and return only once its panel stands. */
-  async openJobsTray(): Promise<void> {
-    await this.jobsTray.click();
-    await this.jobsTrayPanel.waitFor({ state: "visible" });
-  }
-
   /* --- the onboarding screen (R-UI-033) --- */
 
   get empty(): Locator {
