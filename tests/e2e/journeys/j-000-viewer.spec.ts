@@ -45,6 +45,9 @@ const SHEET = "FOUNDATION PLAN";
 /** How long the extraction and the rasters may take — one `uv run` and three tiers per sheet. */
 const FAN_OUT_BUDGET_MS = 90_000;
 
+/** The scheme a DXF reading keys its atoms under (L-CAD-03). */
+const SCHEME = "DXF_HANDLE:";
+
 /** The sheet names the declared fixture identity itself carries (B-19: imported, never retyped). */
 function manifestSheetNames(): string[] {
   const manifest = JSON.parse(readFileSync(MANIFEST, "utf8")) as { sheets?: { name?: string }[] };
@@ -144,10 +147,22 @@ test.describe("J-000 — Golden Path: the uploaded drawing's sheet opens, and on
       await expect(viewer.screen, "the address that names a key and no camera flies to it (I-85)").toHaveAttribute("data-flyto", "settled", { timeout: 120_000 });
       expect(await viewer.selectedKeys(), "the key the address named is what is held").toEqual([record.key]);
 
-      // No pointer geometry on this corpus: F-RCC6's sheets are drawn from block instances, whose
-      // extent is the union of every place they paint, so "the middle of the stage" is not where an
-      // instance's own line stands. What the address named is judged where it is published — in the
-      // panel — and the pointer's own reading is J-011's leg, on a sheet built to be pointed at.
+      // The pointer's own reading, at a point derived from the row's OWN world box rather than from
+      // the middle of the stage: where the pick is a single two-point segment its box centre IS its
+      // midpoint, and where the corpus offers only exploded paint the atom is a block instance whose
+      // box is the union of every place it paints — hollow in the middle, and touched by its own
+      // geometry on every side. Centre-occupancy is a property of a solid target, never of `?s=KEY`.
+      const readOut = await viewer.hoverForRowKey(viewer.entities.first(), record.key);
+      expect(
+        readOut,
+        record.atom
+          ? `the flown-to entity is a single segment, so the canvas centre is its midpoint, and ${record.key} reads out there`
+          : `the flown-to entity is a block instance, so its own box is where it paints, and ${record.key} reads out on it`,
+      ).not.toBeNull();
+      await expect(viewer.hover, "the pointer stands on it, and the panel is reading").toBeVisible();
+      expect(await viewer.hover.getAttribute("data-key"), "type, layer and handle are read out for the entity the link named (R-TO-011)").toBe(record.key);
+      await expect(page.getByTestId("viewer-inspector-hover-handle"), "the handle cell is that key's own handle, verbatim").toHaveText(record.key.slice(SCHEME.length));
+      await expect(page.getByTestId("viewer-inspector-hover-layer"), "and its layer is named beside it").not.toBeEmpty();
 
       const copied = await viewer.copyKey(viewer.entities.first());
       expect(copied, "the row copied is the entity the link named").toBe(record.key);

@@ -322,6 +322,14 @@ export class SViewerPage {
    * diagonal line is thin. Answers where the pointer met something and what the panel read there.
    */
   async hoverNear(anchor: { x: number; y: number }, reachPx = 60): Promise<{ at: { x: number; y: number }; key: string }> {
+    const met = await this.sweepFor(anchor, reachPx);
+    if (met !== null) return met;
+    expect(null, `the pointer met an entity within ${reachPx} px of (${anchor.x}, ${anchor.y}) — the sheet reads out what is under it`).not.toBeNull();
+    throw new Error("no entity under the pointer");
+  }
+
+  /** The same sweep, answering null where the pointer met nothing rather than failing the journey. */
+  private async sweepFor(anchor: { x: number; y: number }, reachPx: number, wanted?: string): Promise<{ at: { x: number; y: number }; key: string } | null> {
     // Two sweeps in fine steps rather than a coarse grid: a drawn line is a couple of pixels wide,
     // and any line crossing this neighbourhood crosses one of these two rows of probes.
     const step = 4;
@@ -333,13 +341,40 @@ export class SViewerPage {
           await this.page.waitForTimeout(40);
           if ((await this.hover.count()) > 0) {
             const key = (await this.hover.getAttribute("data-key")) ?? "";
-            if (key !== "") return { at, key };
+            if (key !== "" && (wanted === undefined || key === wanted)) return { at, key };
           }
         }
       }
     }
-    expect(null, `the pointer met an entity within ${reachPx} px of (${anchor.x}, ${anchor.y}) — the sheet reads out what is under it`).not.toBeNull();
-    throw new Error("no entity under the pointer");
+    return null;
+  }
+
+  /**
+   * The pointer put on the entity a row names, at points derived from that row's OWN world box: its
+   * centre where the box holds a single segment, and the box's corners and edge midpoints otherwise
+   * — a tight box touches its own geometry on every side, while the middle of a hollow or unioned
+   * one is bare paper. Answers where the panel read that key out, or null where it never did.
+   */
+  async hoverForRowKey(row: Locator, key: string, reachPx = 24): Promise<{ x: number; y: number } | null> {
+    const box = SViewerPage.boxOf((await row.getAttribute("data-bbox")) ?? "");
+    const midX = (box.minX + box.maxX) / 2;
+    const midY = (box.minY + box.maxY) / 2;
+    const world: [number, number][] = [
+      [midX, midY],
+      [box.minX, box.minY],
+      [box.maxX, box.maxY],
+      [box.minX, box.maxY],
+      [box.maxX, box.minY],
+      [midX, box.minY],
+      [midX, box.maxY],
+      [box.minX, midY],
+      [box.maxX, midY],
+    ];
+    for (const at of world) {
+      const met = await this.sweepFor(await this.screenPointOf(at), reachPx, key);
+      if (met !== null) return met.at;
+    }
+    return null;
   }
 
   /** The centre of one selected row's world box — where that entity stands on the drawing. */
@@ -434,8 +469,8 @@ export class SViewerPage {
    * from its first layer until one answers, so a journey never assumes which layer a corpus put its
    * geometry on (B-19).
    */
-  async findRecordOfType(drawingId: string, layoutName: string, tenantId: string, type: string, layers = 32): Promise<{ key: string; type: string }> {
-    const fallback: { key: string; type: string }[] = [];
+  async findRecordOfType(drawingId: string, layoutName: string, tenantId: string, type: string, layers = 32): Promise<{ key: string; type: string; atom: boolean }> {
+    const fallback: { key: string; type: string; atom: boolean }[] = [];
     for (let index = 0; index < layers; index += 1) {
       const answer = await this.page.request.get(
         `/api/viewer/${drawingId}/${encodeURIComponent(layoutName)}?tenant=${encodeURIComponent(tenantId)}&part=layer&index=${index}`,
@@ -447,14 +482,14 @@ export class SViewerPage {
       // middle of the stage" true of it. A sheet whose geometry is all inside block instances has
       // none, so any keyed record with geometry stands in.
       const two = body.records.find((record) => record.type === type && (record.key ?? "") !== "" && (record.points?.length ?? 0) === 2);
-      if (two !== undefined) return { key: two.key ?? "", type: two.type };
+      if (two !== undefined) return { key: two.key ?? "", type: two.type, atom: true };
       for (const record of body.records) {
         const identity = record.key ?? record.src ?? "";
-        if (identity !== "" && record.type === type) fallback.push({ key: identity, type: record.type });
+        if (identity !== "" && record.type === type) fallback.push({ key: identity, type: record.type, atom: false });
       }
     }
     expect(fallback[0], `the sheet ${layoutName} carries a ${type} for this journey to select`).toBeTruthy();
-    return fallback[0] as { key: string; type: string };
+    return fallback[0] as { key: string; type: string; atom: boolean };
   }
 
   /** The paper in the canvas's own top-left corner, as luminance — the dark/light proof (§6). */
