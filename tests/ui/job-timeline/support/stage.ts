@@ -24,6 +24,8 @@ export const SHELL_BARREL = "src/ui/shell/index.ts";
 export const STRINGS_MODULE = "src/ui/strings/index.ts";
 export const KINDS_MODULE = "src/core/jobs/kinds.ts";
 export const ERRORS_MODULE = "src/core/errors.ts";
+/** The overlay primitives, which publish the one toast binding every surface reaches for. */
+export const OVERLAY_BARREL = "src/ui/primitives/overlay/index.ts";
 export const DRAWINGS_DIR = "src/app/(app)/t/[tenant]/p/[project]/drawings";
 export const SHEET_INDEX_MODULE = `${DRAWINGS_DIR}/sheet-index.tsx`;
 export const DRAWINGS_STRINGS_MODULE = `${DRAWINGS_DIR}/strings.ts`;

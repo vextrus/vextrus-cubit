@@ -14,25 +14,31 @@
  * later must render its own word for this file to pass, with no edit here.
  */
 import { createElement, type FunctionComponent } from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
+  PATTERN_BARREL,
   REPO_ROOT,
   ROUTE_LOCAL_TIMELINE,
   SHEET_INDEX_MODULE,
   TESTIDS,
   drawingsStrings,
   errorsModule,
+  expectNoEventSource,
   kindNames,
   pattern,
+  pollsFor,
   productModule,
   stringOf,
   stringsTable,
   testFormat,
+  type Pattern,
+  type PollAnswer,
   type StepStatus,
   type TimelineStepShape,
+  type TrackedJobShape,
 } from "./support/stage";
 
 // The screen under AC-1's last sentence is a client component of a route Next renders on demand;
@@ -73,6 +79,9 @@ const textOf = (node: Element | null): string => (node?.textContent ?? "").trim(
 
 afterEach(() => {
   cleanup();
+  vi.doUnmock(join(REPO_ROOT, PATTERN_BARREL));
+  vi.unstubAllGlobals();
+  vi.resetModules();
 });
 
 test("AC-1: with no steps the region is an idle section that teaches what it is waiting for", async () => {
@@ -175,6 +184,16 @@ test("AC-1: a running step with no timing yet shows a bone, and no digits stand 
   expect(textOf(row)).not.toMatch(/\d/);
 });
 
+/** The props S-Drawings is rendered with here: a project with nothing in it yet, and no offer. */
+const SCREEN_PROPS = {
+  tenantId: "3f1c2e10-8a44-4e2b-9f0a-1c2d3e4f5061",
+  projectId: "9a7b6c5d-4e3f-4a2b-8c1d-0e9f8a7b6c5d",
+  cards: [],
+  groups: [],
+  canConfirm: false,
+  awaitingIngest: 0,
+};
+
 test("AC-1: S-Drawings' timeline IS the pattern — the screen renders the one home", async () => {
   const { JobsProvider } = await pattern();
   const table = await stringsTable();
@@ -182,20 +201,7 @@ test("AC-1: S-Drawings' timeline IS the pattern — the screen renders the one h
   const errors = await errorsModule();
   const { SheetIndex } = await productModule<{ SheetIndex: FunctionComponent<Record<string, unknown>> }>(SHEET_INDEX_MODULE);
 
-  render(
-    createElement(
-      JobsProvider,
-      { format: testFormat(errors) },
-      createElement(SheetIndex, {
-        tenantId: "3f1c2e10-8a44-4e2b-9f0a-1c2d3e4f5061",
-        projectId: "9a7b6c5d-4e3f-4a2b-8c1d-0e9f8a7b6c5d",
-        cards: [],
-        groups: [],
-        canConfirm: false,
-        awaitingIngest: 0,
-      }),
-    ),
-  );
+  render(createElement(JobsProvider, { format: testFormat(errors) }, createElement(SheetIndex, { ...SCREEN_PROPS })));
 
   const region = screen.getByTestId(TESTIDS.timeline);
   expect(region.getAttribute("data-state"), "AC-1: no drawing is being read on a fresh index").toBe("idle");
@@ -203,6 +209,145 @@ test("AC-1: S-Drawings' timeline IS the pattern — the screen renders the one h
   // so reading this one here is what "the same component" means observably.
   expect(textOf(within(region).getByTestId(TESTIDS.idle))).toBe(stringOf(table, "job_timeline_idle"));
   expect(textOf(region), "AC-1: the heading stays the screen's own copy").toContain(stringOf(drawings, "drawings_timeline_heading"));
+});
+
+/* ------------------------------------------------------------------ *
+ * The same sentence of AC-1, driven rather than observed at rest.
+ *
+ * A screen at rest renders an idle region, and markup that shape is
+ * cheap to hand-roll. So the screen is mounted OVER the pattern barrel
+ * itself: one job is pushed into whatever S-Drawings hands
+ * `useTrackedJobs`, and the real hook, the real per-job register and
+ * the real watch carry it over the poll transport into whatever the
+ * screen renders. A step therefore appears on the screen only if the
+ * screen truly reaches for the pattern's hook AND renders the
+ * pattern's component; a copy living beside the barrel sees none of
+ * this and shows nothing (B-17).
+ * ------------------------------------------------------------------ */
+
+/** The job pushed through the screen's own tracking call. */
+const DRIVEN_JOB_ID = "job-driven-1";
+
+/** How long the seam says the driven job took, and therefore what `format.seconds` is handed. */
+const DRIVEN_ELAPSED_MS = 3000;
+
+/** One `/api/events` frame, in the seam's vocabulary — the route's JSON, not the screen's words. */
+function frame(kind: string, seq: number, status: string, elapsedMs: number | null): Record<string, unknown> {
+  return {
+    jobId: DRIVEN_JOB_ID,
+    kind,
+    seq,
+    step: kind,
+    status,
+    refusalCode: null,
+    faultId: null,
+    elapsedMs,
+    at: new Date(seq * DRIVEN_ELAPSED_MS).toISOString(),
+  };
+}
+
+/** A `fetch` that answers this job's poll from the queue and knows nothing about any other address. */
+function pollingFetch(answers: readonly PollAnswer[]): ReturnType<typeof vi.fn> {
+  let at = 0;
+  return vi.fn(async (input: unknown) => {
+    const headers = { "content-type": "application/json" };
+    if (!String(input).includes(`jobId=${encodeURIComponent(DRIVEN_JOB_ID)}`)) return new Response("{}", { status: 404, headers });
+    const answer = answers[Math.min(at, answers.length - 1)] as PollAnswer;
+    at += 1;
+    return new Response(JSON.stringify(answer.body), { status: answer.status, headers });
+  });
+}
+
+/**
+ * Mount S-Drawings with one job pushed into its tracking call. The barrel is substituted by a copy
+ * of itself whose `useTrackedJobs` follows the screen's own jobs PLUS the driven one — everything
+ * else, the hook included, is the shipped module.
+ */
+async function drawingsFollowingOneJob(kind: string, answers: readonly PollAnswer[]): Promise<ReturnType<typeof vi.fn>> {
+  const errors = await errorsModule();
+  const driven: TrackedJobShape = { jobId: DRIVEN_JOB_ID, kind, subject: "drawing-1", evidence: EVIDENCE };
+
+  expectNoEventSource();
+  const fetched = pollingFetch(answers);
+  vi.stubGlobal("fetch", fetched);
+
+  vi.resetModules();
+  const actual = await vi.importActual<Pattern>(join(REPO_ROOT, PATTERN_BARREL));
+
+  // The screen's array is handed on by identity, so the register is asked to track the same list
+  // every render and the substitution changes nothing about how often the hook does its work.
+  let asked: readonly TrackedJobShape[] | null = null;
+  let followed: readonly TrackedJobShape[] = [];
+  const withDriven = (jobs: readonly TrackedJobShape[]): readonly TrackedJobShape[] => {
+    if (jobs !== asked) {
+      asked = jobs;
+      followed = [...jobs, driven];
+    }
+    return followed;
+  };
+
+  vi.doMock(join(REPO_ROOT, PATTERN_BARREL), () => ({
+    ...actual,
+    useTrackedJobs: (jobs: readonly TrackedJobShape[], options?: Parameters<Pattern["useTrackedJobs"]>[1]) =>
+      actual.useTrackedJobs(withDriven(jobs), options),
+  }));
+
+  const { SheetIndex } = await productModule<{ SheetIndex: FunctionComponent<Record<string, unknown>> }>(SHEET_INDEX_MODULE);
+
+  render(
+    createElement(
+      actual.JobsProvider,
+      { format: testFormat(errors) },
+      createElement(SheetIndex, {
+        ...SCREEN_PROPS,
+        // The chained second step is out of this criterion: the door answers that it enqueued
+        // nothing, so the screen appends no job and the region's state is the driven job's alone.
+        requestThumbnails: async () => ({ jobId: null, deduplicated: false, refusal: null }),
+      }),
+    ),
+  );
+
+  return fetched;
+}
+
+test("AC-1: a job the screen is tracking reaches S-Drawings' timeline as a running step", async () => {
+  const table = await stringsTable();
+  const kind = (await kindNames())[0] as string;
+  const fetched = await drawingsFollowingOneJob(kind, [{ status: 200, body: { events: [frame(kind, 1, "started", null)], done: false } }]);
+
+  await waitFor(() => {
+    expect(screen.getByTestId(TESTIDS.timeline).getAttribute("data-state"), "AC-1: work in flight keeps the screen's region running").toBe("running");
+  });
+
+  expect(pollsFor(fetched, DRIVEN_JOB_ID).length, "AC-1: the screen's own watch asked the events route").toBeGreaterThan(0);
+  const row = screen.getByTestId(TESTIDS.step);
+  expect(row.getAttribute("data-job"), "AC-1: the step on the screen is the job the screen tracked").toBe(DRIVEN_JOB_ID);
+  expect(row.getAttribute("data-kind")).toBe(kind);
+  expect(row.getAttribute("data-status")).toBe("running");
+  expect(textOf(within(row).getByTestId(TESTIDS.stepStatus))).toBe(stringOf(table, "job_status_running"));
+  expect(textOf(row), "AC-1: the step names its kind on the screen too").toContain(stringOf(table, `job_step_${kind}`));
+});
+
+test("AC-1: the same job settling reads as done on the screen, timed by the frame's format", async () => {
+  const table = await stringsTable();
+  const errors = await errorsModule();
+  const kind = (await kindNames())[0] as string;
+  await drawingsFollowingOneJob(kind, [
+    { status: 200, body: { events: [frame(kind, 1, "started", null), frame(kind, 2, "succeeded", DRIVEN_ELAPSED_MS)], done: true } },
+  ]);
+
+  await waitFor(() => {
+    expect(screen.getByTestId(TESTIDS.timeline).getAttribute("data-state"), "AC-1: a settled job reads done where the work was started").toBe("done");
+  });
+
+  const row = screen.getByTestId(TESTIDS.step);
+  expect(row.getAttribute("data-kind")).toBe(kind);
+  expect(row.getAttribute("data-status")).toBe("succeeded");
+  expect(textOf(within(row).getByTestId(TESTIDS.stepStatus))).toBe(stringOf(table, "job_status_succeeded"));
+  expect(
+    textOf(within(row).getByTestId(TESTIDS.stepTiming)),
+    "AC-1: the elapsed milliseconds of the latest frame are what the frame's format was handed",
+  ).toBe(testFormat(errors).seconds(DRIVEN_ELAPSED_MS));
 });
 
 // white-box: AC-1 — "job-timeline.tsx no longer exists" is a property of the tree itself: the copy

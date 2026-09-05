@@ -10,8 +10,43 @@
  */
 import { createElement } from "react";
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, expect, test } from "vitest";
-import { TESTIDS, errorsModule, kindNames, pattern, type TimelineStepShape } from "./support/stage";
+import { afterEach, expect, test, vi } from "vitest";
+import { OVERLAY_BARREL, TESTIDS, errorsModule, kindNames, pattern, productModule, type TimelineStepShape } from "./support/stage";
+
+/**
+ * The toast library, made observable. Sonner's `toast()` writes nothing to the document until a
+ * `<Toaster/>` subscribes to its store, so a spurious toast raised from a step is INVISIBLE to the
+ * DOM in a tree that mounts no portal — and the tree under this criterion mounts none. The call is
+ * therefore watched at the library itself, which every route into a toast passes through: the
+ * primitive that themes it re-exports this very binding (`src/ui/primitives/overlay`).
+ */
+const raised = vi.hoisted(() => {
+  const calls: unknown[][] = [];
+  const record = (...args: unknown[]): string => {
+    calls.push(args);
+    return "toast-id";
+  };
+  const toast = Object.assign(record, {
+    success: record,
+    error: record,
+    warning: record,
+    info: record,
+    message: record,
+    loading: record,
+    custom: record,
+    promise: record,
+    dismiss: (): void => undefined,
+  });
+  return { calls, toast };
+});
+
+vi.mock("sonner", async () => ({ ...(await vi.importActual<Record<string, unknown>>("sonner")), toast: raised.toast }));
+
+/** Nothing asked for a toast while this case ran — the assertion R-UI-020's "never a toast" needs. */
+function expectNoToast(why: string): void {
+  expect(raised.calls.length, why).toBe(0);
+  expect(document.body.querySelectorAll(TOAST_NODES).length, `${why} (and none stands in the document)`).toBe(0);
+}
 
 const HEADING = "Reading drawings";
 
@@ -28,6 +63,21 @@ const textOf = (node: Element | null): string => (node?.textContent ?? "").trim(
 
 afterEach(() => {
   cleanup();
+  raised.calls.length = 0;
+});
+
+/**
+ * The control for the three assertions below: an instrument that cannot see a toast would let every
+ * one of them pass over a surface that raises one. The binding the shipped overlay publishes — the
+ * one a screen reaches for — is the binding this file watches, so a call really is recorded.
+ */
+test("AC-2: (control) a toast raised through the shipped overlay is seen by this file", async () => {
+  const overlay = await productModule<{ toast?: unknown }>(OVERLAY_BARREL);
+  expect(typeof overlay.toast, `${OVERLAY_BARREL} publishes no toast binding`).toBe("function");
+
+  (overlay.toast as (message: string) => unknown)("a toast, raised on purpose");
+
+  expect(raised.calls.length, "AC-2: the instrument records what the product's own toast binding is asked to do").toBe(1);
 });
 
 test("AC-2: every registered refusal renders in place, in the one renderer, with its evidence", async () => {
@@ -71,10 +121,7 @@ test("AC-2: every registered refusal renders in place, in the one renderer, with
     expect(within(row).queryByTestId(TESTIDS.stepFault), "AC-2: a refusal is not a fault").toBeNull();
   }
 
-  expect(
-    document.body.querySelectorAll(TOAST_NODES).length,
-    "AC-2: a refusal is never a toast — it renders where the work was started",
-  ).toBe(0);
+  expectNoToast("AC-2: a refusal is never a toast — it renders where the work was started");
 });
 
 test("AC-2: a failed step names the fault id it was handed, verbatim", async () => {
@@ -102,7 +149,7 @@ test("AC-2: a failed step names the fault id it was handed, verbatim", async () 
   const row = screen.getByTestId(TESTIDS.step);
   expect(textOf(within(row).getByTestId(TESTIDS.stepFault)), "AC-2: the report id is the thread to the fault").toContain(FAULT_ID);
   expect(within(row).queryByTestId(TESTIDS.refusal), "AC-2: a fault is not a refusal").toBeNull();
-  expect(document.body.querySelectorAll(TOAST_NODES).length, "AC-2: no toast is raised").toBe(0);
+  expectNoToast("AC-2: a failed step is named in place, and no toast is raised beside it");
 });
 
 test("AC-2: a step with neither a refusal nor a fault says neither thing", async () => {
@@ -121,5 +168,5 @@ test("AC-2: a step with neither a refusal nor a fault says neither thing", async
 
   expect(screen.queryAllByTestId(TESTIDS.refusal), "AC-2: nothing invents a refusal").toEqual([]);
   expect(screen.queryAllByTestId(TESTIDS.stepFault), "AC-2: nothing invents a fault").toEqual([]);
-  expect(document.body.querySelectorAll(TOAST_NODES).length, "AC-2: no toast is raised").toBe(0);
+  expectNoToast("AC-2: a step that ended well raises nothing at all");
 });
