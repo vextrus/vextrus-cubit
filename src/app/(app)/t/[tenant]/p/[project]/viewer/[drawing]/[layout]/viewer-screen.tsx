@@ -35,6 +35,7 @@ import { useSelection } from "../../../../../../../../../modules/takeoff/viewer/
 import { RefusalState } from "../../../../../../../../../ui/patterns/refusal-state";
 import { shellHref } from "../../../../../../../../../ui/shell";
 import { fill, strings } from "../../../../../../../../../ui/strings";
+import { projectHomeRoute } from "../../../home/areas";
 import { publishViewport } from "./address";
 import { FidelityFacts } from "./fidelity-facts";
 import { SheetBones } from "./viewer-bones";
@@ -132,7 +133,10 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const head = sheet.head;
   /** Whether a sheet can be drawn at all here — a browser with no WebGL context cannot (I-82). */
   const drawable = !(paint.probed && paint.renderer === "unavailable");
-  const projectEvidence = { href: shellHref(tenantId, "projects"), label: strings.viewer_evidence_project };
+  // "Go to the project" lands on the project home the label names, spelled by that screen's own
+  // address rather than respelled here (Decision § 2, B-17): the reader already stands inside a
+  // project, so the workspace list is not the address this evidence promises (R-UI-020).
+  const projectEvidence = { href: projectHomeRoute(tenantId, projectId), label: strings.viewer_evidence_project };
   // The evidence a denied reader can act on is their own workspace, not the signed-out home the
   // label does not promise — a refusal's link lands on the address it names (R-UI-020).
   const feedRefusal =
