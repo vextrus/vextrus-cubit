@@ -76,6 +76,16 @@ export const screenStates = {
   state_sets_evidence_reload: "Reload this project's sets",
   state_partial_sets:
     "A pinned set revision cites every member it held, including a drawing the set no longer names and a revision since superseded; those citations are shown exactly as they were pinned, never recomputed.",
+
+  // The project home, mirrored for that same reason: its table lives beside its route
+  // (docs/design/s-project.md § 3), and this layer may not import it.
+  state_empty_project_home_heading: "No acts recorded yet",
+  state_empty_project_home_body:
+    "No acts have been recorded on this project yet. Add drawings above; every act appears here the moment it is committed.",
+  state_project_home_action: "Add drawings",
+  state_project_home_evidence: "Open the project's participants",
+  state_partial_project_home:
+    "The header, the areas, the AI cost and the recent activity all answer even when the participants roster is refused: that refusal renders in the roster's own place, and nothing else is withheld.",
 } as const;
 
 // R-SPINE-060's per-module convention is that a table file's DESIGNATED export is the one named for

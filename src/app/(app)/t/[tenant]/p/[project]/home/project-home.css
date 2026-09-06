@@ -1,0 +1,372 @@
+/* S-Project (docs/design/s-project.md § 1, § 5). Tokens only: every colour, space, radius, ramp and
+   duration is a token, and the closed set of px literals is the page measure, the right column, the
+   fact-cell minimum, the md media-query value and nothing else. No `[data-theme]` selector — both
+   themes arrive through the token values (R-UI-001) — and no `prefers-reduced-motion` branch, since
+   every duration here is a token zeroed at source. Nothing on this screen animates: it is a read. */
+
+.cx-project {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 1080px;
+}
+
+/* One row of the loading leg's bones (§2): the page holds four facts, three actions and two columns
+   abreast, so the bones that stand for them do too. */
+.cx-project-bone-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* --- the header: the project itself, then the four facts about it (I-127) ------------------- */
+
+.cx-project-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cx-project-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.cx-project-name {
+  margin: 0;
+  font-size: var(--text-24);
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+}
+
+.cx-project-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  column-gap: var(--space-5);
+  row-gap: var(--space-3);
+  margin: 0;
+}
+
+.cx-project-fact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-project-fact dt {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-project-fact dd {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+}
+
+/* A fact the project states nothing for says so in words — never a blank cell, never a 0 (I-133). */
+.cx-project-unstated {
+  color: var(--graphite-600);
+}
+
+.cx-project-zones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cx-project-zone {
+  font-family: var(--font-mono);
+}
+
+.cx-project-gfa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* A quantity and its unit stand beside each other, separately (L-FMT-02). */
+.cx-project-figure-line {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--graphite-900);
+}
+
+.cx-project-figure-converted {
+  color: var(--graphite-700);
+}
+
+/* --- the seven areas (I-125/I-126) ---------------------------------------------------------- */
+
+.cx-project-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  /* The reticle sits 4 px outside the element it marks (reticle.css) and a tab's box is exactly
+     `var(--space-8)` tall, so without this the row's hairline runs along the bottom brackets of a
+     focused tab and half the indicator reads as missing. R-UI-012's instrument is never optional,
+     so the row leaves it the clearance it needs. */
+  padding-block-end: var(--space-1);
+  border-bottom: var(--hairline);
+}
+
+.cx-project-tab {
+  display: inline-flex;
+  align-items: center;
+  height: var(--space-8);
+  /* I-125 asks for one row of seven over one hairline baseline. At the checkpoint's own 1440 px the
+     shell gives this column 872 px and the seven — four of them carrying "Not available yet" —
+     measure 916 px at the Decision's `var(--space-3)`, so the row broke after six and stranded
+     Settings under a baseline that spanned both lines. The inline padding is the one measure that
+     buys the width back without touching a ruled ramp, a ruled colour or the words themselves. */
+  padding-inline: var(--space-2);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+  text-decoration: none;
+  transition: color var(--motion-state) var(--ease);
+}
+
+a.cx-project-tab:hover {
+  color: var(--graphite-900);
+}
+
+/* An area with no screen is a non-control: its condition is carried by the words beside it, and the
+   colour is only ever a second reading of them (R-UI-060). */
+.cx-project-tab[data-available="false"] {
+  color: var(--graphite-500);
+  cursor: not-allowed;
+}
+
+.cx-project-tab-condition {
+  padding-inline-start: var(--space-1);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* --- quick actions -------------------------------------------------------------------------- */
+
+.cx-project-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cx-project-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cx-project-action {
+  text-decoration: none;
+}
+
+/* --- the body: the two reading columns ------------------------------------------------------ */
+
+.cx-project-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .cx-project-body {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
+.cx-project-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.cx-project-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  background-color: var(--graphite-50);
+}
+
+.cx-project-region-heading {
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-project-region-hint,
+.cx-project-region-note {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-project-region-note {
+  font-size: var(--text-13);
+}
+
+/* The one link idiom every region ends with: evidence is a place, so it is an anchor (R-UI-022). */
+.cx-project-evidence {
+  align-self: start;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--beam-600);
+  text-decoration: underline;
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-project-evidence:hover {
+  color: var(--beam-500);
+}
+
+/* --- AI cost so far (R-AI-005, I-128) ------------------------------------------------------- */
+
+.cx-project-figures {
+  display: flex;
+  flex-wrap: wrap;
+  /* Two figures of one size, side by side, are read off one line: the tiles are aligned on the
+     figures' own baseline rather than on their tops, so nothing a unit badge does to the height of
+     the line box it sits in can lift one numeral above the other. */
+  align-items: baseline;
+  gap: var(--space-6);
+}
+
+.cx-project-figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-project-figure-value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-24);
+  font-weight: var(--weight-heading);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--graphite-900);
+}
+
+/* I-134: the contract's id rides this wrapper, which adds no box and no line of layout — the badge
+   inside it is the shipped one, drawn once and never re-drawn to carry a second id (B-17). */
+.cx-project-unit {
+  display: contents;
+}
+
+.cx-project-figure-caption {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* A sentence about the calls, so it takes the UI face with tabular figures. */
+.cx-project-count-line {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-variant-numeric: tabular-nums;
+  color: var(--graphite-700);
+}
+
+/* --- the two lists: recent activity and the roster ------------------------------------------ */
+
+.cx-project-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-project-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-height: var(--row-comfortable);
+}
+
+.cx-project-row + .cx-project-row {
+  border-top: var(--hairline);
+}
+
+[data-density="compact"] .cx-project-row {
+  min-height: var(--row-compact);
+}
+
+.cx-project-act-type {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-project-act-actor {
+  overflow: hidden;
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cx-project-activity-when {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--graphite-600);
+}
+
+.cx-project-member {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  justify-content: center;
+}
+
+.cx-project-member-label {
+  overflow: hidden;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cx-project-member-roles {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.cx-project-role {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+}
+
+/* --- the roster's refusal, in the roster's own place (I-129) -------------------------------- */
+
+.cx-project-denied {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-project-denied-line {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}

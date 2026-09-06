@@ -74,6 +74,20 @@
   border-color: var(--graphite-100);
 }
 
+/* I-131: the name became the door to the project's home, and it gains only an underline — the type
+   is I-32's, unchanged, so the card reads exactly as it did (B-20). */
+.cx-home-card-name {
+  text-decoration: underline;
+  text-decoration-color: var(--beam-500);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-home-card-name:hover {
+  color: var(--beam-600);
+}
+
 .cx-home-card[data-archived="true"] .cx-home-card-name {
   color: var(--graphite-700);
   font-weight: var(--weight-body-medium);

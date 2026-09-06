@@ -24,7 +24,12 @@ barrel; JSX carries no string literal beyond test ids and fixed attribute values
   digest line: a native form submits, the answer arrives in place. The same reading covers
   edit, archive and restore ("archive, restore, field edits" are lifecycle, guarded but not
   acts). Copper scarcity is preserved: nothing on this screen wears act colour.
-- **I-32 — the card is not a door.** R-SPINE-013's project home is M1 and out of scope by
+- **I-32 — the card is not a door.** *Amended by S-Project's I-131 (inc-115-project-home):
+  the project home shipped, so the name IS the door — a `next/link`
+  `data-testid="s-home-project-open"` to `/t/{tenantId}/p/{projectId}`, its type unchanged
+  and gaining only a 1 px `var(--beam-500)` underline at `text-underline-offset: 2px` with
+  hover text `var(--beam-600)` and `cx-reticle`. The reading below stands for everything
+  else on the card.* R-SPINE-013's project home is M1 and out of scope by
   name, so no route exists for a card to open: the project name renders as text, never a
   link. The card's interactive elements are exactly the pin link and the lifecycle doors.
   The pin link to `/t/{t}/p/{project}/settings/ruleset` pays the visible-navigation IOU the
@@ -102,7 +107,9 @@ border `var(--hairline)`, radius `var(--radius-8)`, no fill, padding `var(--spac
 column flex, gap `var(--space-2)`:
 
 - **Name row** — the project name, `<p>` `var(--text-14)` `var(--weight-heading)`
-  `var(--graphite-900)`, margin 0, single line, ellipsis (text, not a link — I-32); beside it
+  `var(--graphite-900)`, margin 0, single line, ellipsis — a `next/link`
+  `s-home-project-open` to the project's home, underlined per I-32 as S-Project's I-131
+  amends it; beside it
   the code, when one is stored, in `var(--font-mono)` `var(--text-12)` `var(--graphite-600)`;
   and on an archived card a core Badge `data-testid="s-home-project-archived-badge"` reading
   `home_status_archived` — the scan-level flag, its meaning carried by the word (never

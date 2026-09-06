@@ -108,6 +108,7 @@ const WORKSPACE_EVIDENCE: RefusalEvidence = { href: "/", label: strings.shell_de
 const PROJECTS_EVIDENCE: RefusalEvidence = { href: "/", label: strings.home_evidence_projects };
 const TRY_AGAIN_EVIDENCE: RefusalEvidence = { href: "/", label: strings.auth_evidence_try_again };
 const ROSTER_EVIDENCE: RefusalEvidence = { href: "/", label: strings.state_members_evidence_roster };
+const PARTICIPANTS_EVIDENCE: RefusalEvidence = { href: "/", label: strings.state_project_home_evidence };
 
 /* ------------------------------------------------------------- the signed-in workspace screens */
 
@@ -240,6 +241,32 @@ export const screenStates: ScreenStatesMatrix = {
       <EmptyTeaching heading={strings.shell_books_empty_heading} body={strings.shell_books_empty_body} action={strings.shell_books_empty_action} />
     ),
     refusal: reasonedRefusal(strings.state_refusal_ended_session, REFUSAL_ENTRIES.SIGNED_OUT, SIGN_IN_EVIDENCE),
+  }),
+
+  // The project home (s-project § 2): six regions over four independent doors, so the refused
+  // roster is a partial answer and not a page-wide denial (I-129), and the emptiness a reader meets
+  // is the activity region's, which teaches with the action already standing above it.
+  "/t/[tenant]/p/[project]": declare({
+    ...workspaceCells,
+    loading: bones(11),
+    empty: (): ReactNode => (
+      <EmptyTeaching
+        heading={strings.state_empty_project_home_heading}
+        body={strings.state_empty_project_home_body}
+        action={strings.state_project_home_action}
+      />
+    ),
+    refusal: refusal(REFUSAL_ENTRIES.PERMISSION_NOT_HELD, PARTICIPANTS_EVIDENCE),
+    partial: reason(strings.state_partial_project_home),
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.spine_participants_denied_permission}
+        holder={strings.spine_participants_denied_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={PARTICIPANTS_EVIDENCE}
+      />
+    ),
   }),
 
   // The act log (s-audit § 2): one read answered whole, and a value it cannot read is a fault.
