@@ -13,10 +13,11 @@
 // two graphs would otherwise leave the tier with two storages — and a second signing secret.
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
+import { envValue } from "../env";
 import { reportFault } from "../faults/report";
 import { makeStorage, type Storage } from "./index";
 
-/** The environment names this file reads (AS-01, declared in the transport vocabulary). */
+/** The environment names this file reads, through the one home for them (src/core/env.ts). */
 const ROOT_VAR = "STORAGE_ROOT";
 const SECRET_VAR = "CUBIT_STORAGE_SIGNING_SECRET";
 
@@ -32,8 +33,8 @@ const processScope = globalThis as typeof globalThis & { [HELD_KEY]?: { root: st
 
 /** Where objects and staging copies are laid down: the machine's answer, or the default beside it. */
 export function storageRoot(): string {
-  const stated = process.env[ROOT_VAR]?.trim();
-  return stated === undefined || stated === "" ? join(process.cwd(), "storage") : stated;
+  const stated = envValue(ROOT_VAR);
+  return stated === undefined ? join(process.cwd(), "storage") : stated;
 }
 
 /**
@@ -43,8 +44,8 @@ export function storageRoot(): string {
  * name above, and the links then survive a restart.
  */
 function signingSecret(): string {
-  const stated = process.env[SECRET_VAR]?.trim();
-  return stated === undefined || stated === "" ? randomUUID() : stated;
+  const stated = envValue(SECRET_VAR);
+  return stated === undefined ? randomUUID() : stated;
 }
 
 /**

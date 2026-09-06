@@ -15,6 +15,7 @@ import { ELEMENT_TYPES, type ElementType } from "./catalogue/element-types";
 import { KINDS, type Kind } from "./catalogue/kinds";
 import { attributableReason } from "./db/reason";
 import { INGEST_SCHEME } from "./entitygraph/schema";
+import { envValue } from "./env";
 import { reportFault } from "./faults/report";
 import { TERMINAL_STATUSES } from "./jobs/statuses";
 import { MODEL_IDS, minimalDecimal } from "./model-ledger.types";
@@ -1109,8 +1110,8 @@ function connection(): postgres.Sql {
 }
 
 function databaseUrl(): string {
-  const url = process.env["DATABASE_URL"]?.trim();
-  if (url === undefined || url === "") {
+  const url = envValue("DATABASE_URL");
+  if (url === undefined) {
     throw new Error("DATABASE_URL is not set — the seam has no database to reach (SEAM-TENANT)");
   }
   return url;

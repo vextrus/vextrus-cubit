@@ -3,6 +3,7 @@
 // attributable at all (ARCH-03, B-21) — and, since R-SPINE-001, so that one request resolves the
 // presented `cubit_session` exactly once, whatever it goes on to do with it.
 import { randomUUID } from "node:crypto";
+import { envValue } from "../core/env";
 import { resolveSession, SESSION_COOKIE, deviceLabelFrom, type AuthSession } from "./auth/session";
 
 export interface AppContext {
@@ -122,8 +123,8 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
  * normalisation of what it holds have one home (ARCH-02, B-17).
  */
 function configuredOrigin(): string | null {
-  const configured = process.env[PUBLIC_ORIGIN_VAR]?.trim();
-  if (configured === undefined || configured === "") return null;
+  const configured = envValue(PUBLIC_ORIGIN_VAR);
+  if (configured === undefined) return null;
   return URL.parse(configured)?.origin ?? null;
 }
 
