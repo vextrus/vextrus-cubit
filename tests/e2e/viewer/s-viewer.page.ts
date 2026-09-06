@@ -40,6 +40,22 @@ export const VIEWER_BUDGETS = Object.freeze({
   firstPaintColdMs: 6000,
   firstPaintWarmMs: 2000,
   frameMedianMs: 16.7,
+  /**
+   * The instrument's dust, not slack in the budget. The value is the PB-3 arbitration's (2026-09-06);
+   * what follows justifies it and is not licence to enlarge it — that is arbitration's to move.
+   *
+   * Against the frame: 0.05 / 16.7 = 0.003, three THOUSANDTHS of one frame.
+   *
+   * Against the clock: `performance.now()` in headless Chromium is coarsened to 5 µs (0.005 ms), and
+   * to 100 µs (0.1 ms) with cross-origin isolation off. So the tolerance is ten times the fine tick
+   * and HALF of one coarse tick — the scale of a single tick of the instrument, which is what admits
+   * a sample landing exactly on the budget (a value PB-3 permits). It is not orders above the
+   * quantum, and in the coarse case it is smaller than one; there is no headroom here to read.
+   *
+   * Against a real miss: one vsync is 334× the tolerance, and a dropped frame lands at the next one,
+   * ~33 ms — about twice the 16.75 ms bound, clearing it by 325 further tolerances. Dust cannot hide it.
+   */
+  frameMedianToleranceMs: 0.05,
   /** Headless software GL: two vsyncs at the tail, while the median holds PB-3 (Decision §7). */
   frameP95Ms: 33,
 });

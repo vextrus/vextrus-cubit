@@ -15,6 +15,7 @@ import { createElement } from "react";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { DISCIPLINES } from "../../../../../../../../core/sheets/law";
+import { JobsProvider, type JobsFormat } from "../../../../../../../../ui/patterns/job-timeline";
 import { SheetIndex } from "../sheet-index";
 import { drawings } from "../strings";
 import type { SheetCardData } from "../sheet-card";
@@ -72,16 +73,28 @@ afterEach(() => {
   cleanup();
 });
 
+/**
+ * The screen's timeline is the shared job pattern, which reads its register from the tenant frame
+ * (R-UI-024, docs/design/job-timeline.md I-113): mounted for a test the screen stands inside the same
+ * provider, with the whole-seconds and registry lookups the frame binds standing in as arithmetic.
+ * Nothing in this file tracks a job, so neither is ever asked for.
+ */
+const JOBS_FORMAT: JobsFormat = { seconds: (elapsedMs: number) => String(elapsedMs), refusal: () => null };
+
 test("AC-4: every sheet card carries a visible door to its own sheet in the viewer", () => {
   render(
-    createElement(SheetIndex, {
-      tenantId: TENANT,
-      projectId: PROJECT,
-      cards: CARDS,
-      groups: [],
-      canConfirm: false,
-      awaitingIngest: 0,
-    }),
+    createElement(
+      JobsProvider,
+      { format: JOBS_FORMAT },
+      createElement(SheetIndex, {
+        tenantId: TENANT,
+        projectId: PROJECT,
+        cards: CARDS,
+        groups: [],
+        canConfirm: false,
+        awaitingIngest: 0,
+      }),
+    ),
   );
 
   const rendered = screen.getAllByTestId("sheet-card");
@@ -110,14 +123,18 @@ test("AC-4: every sheet card carries a visible door to its own sheet in the view
 
 test("AC-4: the card's door is announced inside the region its own sheet names", () => {
   render(
-    createElement(SheetIndex, {
-      tenantId: TENANT,
-      projectId: PROJECT,
-      cards: CARDS,
-      groups: [],
-      canConfirm: false,
-      awaitingIngest: 0,
-    }),
+    createElement(
+      JobsProvider,
+      { format: JOBS_FORMAT },
+      createElement(SheetIndex, {
+        tenantId: TENANT,
+        projectId: PROJECT,
+        cards: CARDS,
+        groups: [],
+        canConfirm: false,
+        awaitingIngest: 0,
+      }),
+    ),
   );
 
   // N cards offering N doors with one label is a screen reader hears "Open sheet" N times with no

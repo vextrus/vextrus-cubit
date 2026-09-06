@@ -101,6 +101,37 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
       }
       await checkpoint(page, testInfo, "j-010-timeline-done");
 
+      // B-20: the region is the shared job pattern now, so its picture is the pattern's. The timing
+      // cells are elapsed real time and are masked — they are never the same twice.
+      await expect(drawings.timeline).toHaveScreenshot("job-timeline-done.png", {
+        animations: "disabled",
+        maxDiffPixelRatio: 0.002,
+        mask: [drawings.timelineTimings],
+      });
+
+      /* --- j-010-jobs-tray-open: the same two jobs, in the frame's global tray (R-UI-030) --- */
+      await expect(drawings.jobsTray, "the tray counts the jobs this tab started").toHaveAttribute("data-count", "2");
+      await expect(drawings.jobsTray, "and reads the state the inline timeline reads, from the one register").toHaveAttribute("data-state", "done");
+      await drawings.openJobsTray();
+      await expect(drawings.jobsTrayItems, "the panel lists one item per tracked job").toHaveCount(2);
+      for (const kind of ["ingest", "thumbnails"]) {
+        await expect(drawings.jobsTrayItem(kind), `the tray holds the ${kind} job this tab started`).toHaveCount(1);
+        await expect(drawings.jobsTrayItem(kind), `the ${kind} job stands in the tray as done`).toHaveAttribute("data-status", "succeeded");
+      }
+      // The mask is proved to cover what it names before the picture is taken: a locator that
+      // matched nothing would bake real elapsed time into the baseline and never say so.
+      await expect(drawings.jobsTrayTimings, "every listed job's elapsed cell is under the mask").toHaveCount(2);
+      await expect(drawings.jobsTrayPanel).toHaveScreenshot("job-timeline-tray-open.png", {
+        animations: "disabled",
+        maxDiffPixelRatio: 0.002,
+        mask: [drawings.jobsTrayTimings],
+      });
+      await checkpoint(page, testInfo, "j-010-jobs-tray-open");
+      // Dismissed the way the primitive dismisses it, so the rest of the journey stands on the page
+      // rather than under an open popover.
+      await page.keyboard.press("Escape");
+      await expect(drawings.jobsTrayPanel, "the tray closes on Escape, focus back on its trigger").toHaveCount(0);
+
       /* --- j-010-sheets-fanned-out: one card per sheet the corpus declares --- */
       await expect(drawings.index, "the index stands once the record has landed").toBeVisible();
       for (const name of sheetNames) {

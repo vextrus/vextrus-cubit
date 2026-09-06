@@ -26,6 +26,13 @@ export const S_DRAWINGS = {
   empty: "sheets-empty",
   timeline: "job-timeline",
   timelineStep: "job-timeline-step",
+  timelineStepTiming: "job-timeline-step-timing",
+  jobsTray: "shell-jobs-tray",
+  jobsTrayPanel: "shell-jobs-tray-panel",
+  jobsTrayItem: "shell-jobs-tray-item",
+  /** The item's elapsed cell: it stands in every state, holding the bone while no number exists. */
+  jobsTrayItemTiming: "shell-jobs-tray-item-timing",
+  jobsTrayEmpty: "shell-jobs-tray-empty",
   groups: "offered-groups",
   group: "offered-group",
   groupCount: "offered-group-count",
@@ -81,6 +88,50 @@ export class SDrawingsPage {
 
   get timelineSteps(): Locator {
     return this.at(S_DRAWINGS.timelineStep);
+  }
+
+  /** The elapsed-time cells, masked in a baseline: they are real time, and never the same twice. */
+  get timelineTimings(): Locator {
+    return this.at(S_DRAWINGS.timelineStepTiming);
+  }
+
+  /* --- the frame's global jobs tray, over the same jobs this screen started (R-UI-024, R-UI-030).
+     Its handles live here rather than on the shell's page object, which the J-000 hotfix suite
+     byte-freezes: this journey is the only one that drives the tray (shell-top-bar Decision §7). --- */
+
+  get jobsTray(): Locator {
+    return this.at(S_DRAWINGS.jobsTray);
+  }
+
+  get jobsTrayPanel(): Locator {
+    return this.at(S_DRAWINGS.jobsTrayPanel);
+  }
+
+  get jobsTrayItems(): Locator {
+    return this.at(S_DRAWINGS.jobsTrayItem);
+  }
+
+  get jobsTrayEmpty(): Locator {
+    return this.at(S_DRAWINGS.jobsTrayEmpty);
+  }
+
+  /** The tray's item for one job kind, by the attribute the tray publishes it under. */
+  jobsTrayItem(kind: string): Locator {
+    return this.page.locator(`[data-testid="${S_DRAWINGS.jobsTrayItem}"][data-kind="${kind}"]`);
+  }
+
+  /** The items' elapsed-time cells, masked in a baseline: they are real time, never twice the same.
+      Named by the handle C-05 freezes rather than by an authored class, so a restyle cannot move it
+      out from under the mask; the cell stands in every state — a running item holds its bone inside
+      it — and the journey asserts the mask covers one cell per listed job. */
+  get jobsTrayTimings(): Locator {
+    return this.jobsTrayItems.locator(`[data-testid="${S_DRAWINGS.jobsTrayItemTiming}"]`);
+  }
+
+  /** Open the tray and return only once its panel stands. */
+  async openJobsTray(): Promise<void> {
+    await this.jobsTray.click();
+    await this.jobsTrayPanel.waitFor({ state: "visible" });
   }
 
   get dropzone(): Locator {

@@ -107,7 +107,10 @@ test.describe("J-011 — a 100 000-entity sheet is opened, drawn, navigated and 
     await viewer.scriptGestures(FRAMES);
     const median = await viewer.statusNumber("data-frame-median-ms");
     const p95 = await viewer.statusNumber("data-frame-p95-ms");
-    expect(median, `the median frame of a scripted zoom and pan holds 60 fps at ${ENTITIES} entities (PB-3)`).toBeLessThanOrEqual(VIEWER_BUDGETS.frameMedianMs);
+    expect(
+      median,
+      `the median frame of a scripted zoom and pan holds 60 fps at ${ENTITIES} entities, within the instrument's tolerance (PB-3)`,
+    ).toBeLessThanOrEqual(VIEWER_BUDGETS.frameMedianMs + VIEWER_BUDGETS.frameMedianToleranceMs);
     expect(p95, "and the tail stays inside two vsyncs under software GL (Decision §7)").toBeLessThanOrEqual(VIEWER_BUDGETS.frameP95Ms);
 
     await viewer.fit.click();

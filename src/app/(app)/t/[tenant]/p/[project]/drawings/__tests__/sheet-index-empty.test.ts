@@ -20,6 +20,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { DISCIPLINES } from "../../../../../../../../core/sheets/law";
+import { JobsProvider, type JobsFormat } from "../../../../../../../../ui/patterns/job-timeline";
 import { fill } from "../../../../../../../../ui/strings";
 import { SheetIndex } from "../sheet-index";
 import { drawings } from "../strings";
@@ -78,17 +79,29 @@ afterEach(() => {
   cleanup();
 });
 
+/**
+ * The screen's timeline is the shared job pattern, which reads its register from the tenant frame
+ * (R-UI-024, docs/design/job-timeline.md I-113): mounted for a test the screen stands inside the same
+ * provider, with the whole-seconds and registry lookups the frame binds standing in as arithmetic.
+ * Nothing in this file tracks a job, so neither is ever asked for.
+ */
+const JOBS_FORMAT: JobsFormat = { seconds: (elapsedMs: number) => String(elapsedMs), refusal: () => null };
+
 test("AC-6(b): a no-match emptiness reached by a discipline chip names that discipline", async () => {
   const person = userEvent.setup();
   render(
-    createElement(SheetIndex, {
-      tenantId: "3f1c2e10-8a44-4e2b-9f0a-1c2d3e4f5061",
-      projectId: "9a7b6c5d-4e3f-4a2b-8c1d-0e9f8a7b6c5d",
-      cards: [card],
-      groups: [],
-      canConfirm: false,
-      awaitingIngest: 0,
-    }),
+    createElement(
+      JobsProvider,
+      { format: JOBS_FORMAT },
+      createElement(SheetIndex, {
+        tenantId: "3f1c2e10-8a44-4e2b-9f0a-1c2d3e4f5061",
+        projectId: "9a7b6c5d-4e3f-4a2b-8c1d-0e9f8a7b6c5d",
+        cards: [card],
+        groups: [],
+        canConfirm: false,
+        awaitingIngest: 0,
+      }),
+    ),
   );
 
   const chip = screen.getAllByTestId("sheet-filter-option").find((option) => option.getAttribute("data-value") === FILTERED_TO);
