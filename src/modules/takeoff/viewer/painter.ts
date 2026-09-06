@@ -94,7 +94,33 @@ const MARK_STROKE_PX = 2;
  * 2 px stroke is four device pixels on a HiDPI canvas, and a step of anything but one device pixel
  * leaves unpainted rows between the runs.
  */
-const markSteps = (extentPx: number, layoutPx: number): number => Math.max(1, Math.round(MARK_STROKE_PX * (extentPx / Math.max(layoutPx, 1))));
+export const markSteps = (extentPx: number, layoutPx: number): number => Math.max(1, Math.round(MARK_STROKE_PX * (extentPx / Math.max(layoutPx, 1))));
+
+/**
+ * The offsets one mark is drawn at, and the whole cost of the mark pass: one `drawArrays` over the
+ * mark's vertices each. A stroke is round, not square — its footprint is the disc of the stroke's
+ * own width — so the corners of the `across × down` block are dropped: they are the offsets that lie
+ * outside that disc, and they only thicken a 45° run beyond the 2 px R-UI-012 asks for. Dropping
+ * them costs no coverage: along any direction the kept offsets still project one device pixel apart,
+ * which is the step the runs must not exceed (PB-3 pays for the rest 16 times a second — at ratio 2
+ * this is 12 calls per mark, not 16, and at ratio 1 it is the same 4 the block gave).
+ */
+export const markOffsets = (acrossSteps: number, downSteps: number): readonly (readonly [number, number])[] => {
+  const centreAcross = (acrossSteps - 1) / 2;
+  const centreDown = (downSteps - 1) / 2;
+  const radiusAcross = acrossSteps / 2;
+  const radiusDown = downSteps / 2;
+  const offsets: (readonly [number, number])[] = [];
+  for (let across = 0; across < acrossSteps; across += 1) {
+    for (let down = 0; down < downSteps; down += 1) {
+      const fromAcross = (across - centreAcross) / radiusAcross;
+      const fromDown = (down - centreDown) / radiusDown;
+      if (fromAcross * fromAcross + fromDown * fromDown > 1) continue;
+      offsets.push([across, down]);
+    }
+  }
+  return offsets;
+};
 
 /** A channel is "white" at or above this, and "black" at or below the other — colour 7 (I-79). */
 const NEAR_WHITE = 250;
@@ -446,6 +472,10 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     return [camera.centre[0] - halfWidth, camera.centre[1] - halfHeight, camera.centre[0] + halfWidth, camera.centre[1] + halfHeight];
   };
 
+  /** The offsets the mark pass draws at, and the step counts they were built for. */
+  let shiftSteps: [number, number] = [0, 0];
+  let shifts: readonly (readonly [number, number])[] = [];
+
   /** A mark's two buffers, let go of before the next pair takes their place. */
   const releaseMark = (mark: Mark | null): void => {
     if (mark === null) return;
@@ -535,11 +565,14 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     // the step the runs are laid down at, whatever ratio `resize` gave the store.
     const acrossSteps = markSteps(canvas.width, canvas.clientWidth);
     const downSteps = markSteps(canvas.height, canvas.clientHeight);
-    for (let across = 0; across < acrossSteps; across += 1) {
-      for (let down = 0; down < downSteps; down += 1) {
-        gl.uniform2f(lineSlots.shift, (across * 2) / Math.max(canvas.width, 1), (down * 2) / Math.max(canvas.height, 1));
-        gl.drawArrays(gl.LINES, 0, mark.vertices);
-      }
+    // The offset list only moves when the store's ratio does, so it is built then and not per frame.
+    if (acrossSteps !== shiftSteps[0] || downSteps !== shiftSteps[1]) {
+      shiftSteps = [acrossSteps, downSteps];
+      shifts = markOffsets(acrossSteps, downSteps);
+    }
+    for (const [across, down] of shifts) {
+      gl.uniform2f(lineSlots.shift, (across * 2) / Math.max(canvas.width, 1), (down * 2) / Math.max(canvas.height, 1));
+      gl.drawArrays(gl.LINES, 0, mark.vertices);
     }
     gl.uniform2f(lineSlots.shift, 0, 0);
     gl.uniform1f(lineSlots.tinted, 0);
