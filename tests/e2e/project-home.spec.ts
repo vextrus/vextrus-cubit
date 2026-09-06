@@ -16,6 +16,7 @@
 // Design Decision closes over, and an import into this file would be a second reading of the screen.
 import { expect, test } from "@playwright/test";
 import { SAuthPage, S_AUTH } from "./pages/s-auth.page";
+import { SDrawingsPage } from "./pages/s-drawings.page";
 import { SHomePage } from "./pages/s-home.page";
 import { SProjectPage, PROJECT_AREA_KEYS, PROJECT_QUICK_ACTIONS, S_PROJECT } from "./pages/s-project.page";
 import { ShellPage, SHELL } from "./pages/shell.page";
@@ -51,13 +52,16 @@ const QUICK_ACTION_ROUTES: readonly (readonly [string, (tenantId: string, projec
 test.use({ viewport: { width: 1440, height: 900 } });
 
 test.describe("J-010 — the project home", () => {
-  test("J-010: a project's home answers from its card on S-Home, and its drawings tab opens the sheet index", async ({ page, baseURL }, testInfo) => {
+  test("J-010: a project's home answers from its card on S-Home, and its drawings tab opens the drawings screen", async ({ page, baseURL }, testInfo) => {
     expect(baseURL, "the journeys are driven against the served product").toBeTruthy();
     const origin = baseURL ?? "";
     const auth = new SAuthPage(page);
     const shell = new ShellPage(page);
     const home = new SHomePage(page);
     const project = new SProjectPage(page);
+    // The drawings screen is another increment's ground, so it is read through its own shipped page
+    // object — its locators are declared once, where its Decision closes them (B-19, B-17).
+    const drawings = new SDrawingsPage(page);
 
     /* --- enrolment, idempotent: the lane's database is additive across runs --- */
     await auth.open(S_AUTH.signUp);
@@ -165,7 +169,14 @@ test.describe("J-010 — the project home", () => {
     /* --- s-project/drawings-via-tab: the home is the visible navigation into J-010 (R-UI-031) --- */
     await project.activateTabFromKeyboard("drawings");
     await expect(page, "activating the drawings tab from the keyboard lands on the drawings route").toHaveURL(`${origin}${S_PROJECT.drawings(tenantId, projectId)}`);
-    await expect(project.sheetIndex, "and the sheet index is standing there — the screen J-010's upload begins on").toBeVisible();
+    // What R-UI-031 asks for is arrival: the area's own address, with the area's screen painting
+    // there. So the landing is judged by hooks S-Drawings renders in EVERY state — its heading and
+    // its Add-drawings region — and its body only as the disjunction its own Decision I-91 rules,
+    // never as the grid alone: this journey's project holds no drawing, and a later run's upload
+    // into it must not turn the arrival red either (V-E2E: the lane's database is additive).
+    await expect(page.getByRole("heading", { level: 1 }).first(), "the drawings screen itself renders at that address").toBeVisible();
+    await expect(drawings.dropzone, "with the Add-drawings region J-010's upload begins in").toBeVisible();
+    await expect(drawings.index.or(drawings.empty), "and its index says what it holds, or says why it holds nothing").toBeVisible();
     await checkpoint(page, testInfo, "s-project-drawings-via-tab");
   });
 });
