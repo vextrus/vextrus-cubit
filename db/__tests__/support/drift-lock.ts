@@ -1,6 +1,6 @@
 // The schema-drift lane's lock. Two suites reach the drift lane: tenancy-base.migration runs
 // `scripts/db-drift.mjs --scratch` over the committed seam, and drift-lane-breaker MUTATES the seam
-// (src/core/db.ts, db/schema.ts) to prove the lane cannot exit 0 over drift. Run at once — the
+// (src/core/db/schema.ts, db/schema.ts) to prove the lane cannot exit 0 over drift. Run at once — the
 // database lane's files run four at a time — the breaker's mutation is what the drift run reads,
 // and a pure tree reads as drift. One lock, held by whoever touches the seam or reads it through
 // the lane; every other file in the lane keeps its own scratch database and runs beside them.

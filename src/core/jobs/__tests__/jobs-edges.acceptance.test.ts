@@ -16,10 +16,12 @@
  * and grades tomorrow's. Staged lazily so a staging failure fails cases rather than skipping them.
  */
 import { randomUUID } from "node:crypto";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 import { afterAll, describe, expect, test } from "vitest";
 import { provisionScratchDb, type ScratchDb } from "../../../../db/__tests__/harness";
 import { count, run } from "../../../../db/__tests__/support/live-sql";
-import { codeOf } from "../../__tests__/support/read-source";
+import { REPO_ROOT, codeOf } from "../../__tests__/support/read-source";
 import { jobsStore } from "../../db";
 import { refusalCodeOf } from "../../faults/refusal-marker";
 import { setFaultSink, type FaultRecord, type FaultSink } from "../../faults/report";
@@ -35,7 +37,15 @@ const rejectionOf = (promise: Promise<unknown>): Promise<unknown> =>
     (reason: unknown) => reason,
   );
 
-const SEAM_MODULE = "src/core/db.ts";
+/**
+ * Where the job storage lives, and where the lock it shares with the tenant seam lives. The seam is
+ * a directory of single-purpose modules, so "one spelling" is asked of the module that owns the
+ * spelling: the queue's route of `src/core/db/jobs.ts`, and the advisory-lock hash of the seam's
+ * product modules taken together — the state lock and the key lock reach it from two of them, and
+ * a second spelling anywhere under the directory is the drift this check exists to catch (B-20).
+ */
+const JOBS_MODULE = "src/core/db/jobs.ts";
+const SEAM_DIR = "src/core/db";
 const QUEUE_ROUTE_LITERAL = '"jobs/queue"';
 const LOCK_HASH = "hashtextextended";
 const PROBE = "probe";
@@ -151,12 +161,21 @@ const otherBackends = (url: string): number => count(url, "select count(*) from 
 /** Occurrences of a needle in a haystack. */
 const occurrences = (haystack: string, needle: string): number => haystack.split(needle).length - 1;
 
+/** The seam's product modules, read as one text: the directory's own .ts files, never its __tests__. */
+const seamCode = (): string =>
+  readdirSync(join(REPO_ROOT, SEAM_DIR), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".ts"))
+    .map((entry) => entry.name)
+    .sort()
+    .map((name) => codeOf(`${SEAM_DIR}/${name}`, "the seam's modules are where the advisory lock is spelled"))
+    .join("\n");
+
 describe("AC-3: one spelling each for the queue route and the lock hash", () => {
-  test("AC-3: db.ts spells \"jobs/queue\" once and hashtextextended once, and the key lock still serialises two concurrent enqueues of one key into one job", async () => {
+  test("AC-3: the seam spells \"jobs/queue\" once and hashtextextended once, and the key lock still serialises two concurrent enqueues of one key into one job", async () => {
     const { primary } = await staged();
-    const code = codeOf(SEAM_MODULE, "the jobs storage lives in the db seam");
-    expect(occurrences(code, QUEUE_ROUTE_LITERAL), `${SEAM_MODULE} spells ${QUEUE_ROUTE_LITERAL} exactly once (one const, used as request id and route)`).toBe(1);
-    expect(occurrences(code, LOCK_HASH), `${SEAM_MODULE} spells ${LOCK_HASH} exactly once — the state lock and the key lock share it`).toBe(1);
+    const code = codeOf(JOBS_MODULE, "the jobs storage lives in the db seam");
+    expect(occurrences(code, QUEUE_ROUTE_LITERAL), `${JOBS_MODULE} spells ${QUEUE_ROUTE_LITERAL} exactly once (one const, used as request id and route)`).toBe(1);
+    expect(occurrences(seamCode(), LOCK_HASH), `${SEAM_DIR}/ spells ${LOCK_HASH} exactly once — the state lock and the key lock share it`).toBe(1);
 
     const key = uniqueKey("dedup");
     const payload = { steps: ["one", "two"], stepDelayMs: SLOW_STEP_MS };
