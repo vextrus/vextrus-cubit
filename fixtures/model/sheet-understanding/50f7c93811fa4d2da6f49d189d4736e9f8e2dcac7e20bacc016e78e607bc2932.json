@@ -1,0 +1,15 @@
+{
+  "requestHash": "50f7c93811fa4d2da6f49d189d4736e9f8e2dcac7e20bacc016e78e607bc2932",
+  "modelId": "claude-opus-5",
+  "payload": {
+    "payload": {
+      "number": "C-402",
+      "title": "SITE GRADING PLAN",
+      "discipline": "CIVIL",
+      "captions": ["SECTION A-A", "DETAIL 3 - KERB RETURN"]
+    },
+    "sources": ["DXF_HANDLE:2A0", "DXF_HANDLE:2A2", "DXF_HANDLE:2A5"]
+  },
+  "inputTokens": 1487,
+  "outputTokens": 142
+}

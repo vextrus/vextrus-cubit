@@ -518,6 +518,82 @@ export const modelFixtures = pgTable(
 );
 
 /**
+ * How a person answered a model's reading of a sheet (R-AI-001): they took it, they took it with
+ * edits, or they turned it down. The roster lives here because the CHECK below is built from it and
+ * core cannot import `src/modules` (ARCH-01) — the same reason `WORKSPACE_ROLES` and `UPLOAD_STATES`
+ * live here; the AI module re-exports it, so the column and the door speak one list (B-17).
+ */
+export const DISPOSITIONS = ["accepted", "edited", "rejected"] as const;
+
+/** One disposition, drawn from the closed roster above. */
+export type Disposition = (typeof DISPOSITIONS)[number];
+
+/**
+ * The reading a disposition was made about, as the column carries it (R-AI-001's number, title,
+ * discipline and view captions). It is stated here rather than imported because the shape's own home
+ * is `src/modules/ai/sheet-understanding`, which core may not name (ARCH-01); that module takes its
+ * `SheetReading` from this declaration rather than restating it, so the two cannot drift.
+ */
+export type SheetReadingRecord = {
+  readonly number: string | null;
+  readonly title: string;
+  readonly discipline: Discipline;
+  readonly captions: readonly string[];
+};
+
+/**
+ * R-AI-001's last sentence: "every proposal accepted/edited/rejected is recorded". One append-only
+ * row per disposition, keyed by the ledger's own `call_id`, so what a person did with a reading is
+ * answerable from the call that proposed it (L-AI-01's ledger is the other half).
+ *
+ * It is a record and not an act (L-ACT-01): a disposition changes nothing the machine would derive —
+ * confirming a discipline is CONFIRM_DISCIPLINE, an act of its own, which writes `sheet_disciplines`.
+ * Nothing here does. The reading is stored twice over where it was edited: `proposed` is what the
+ * model said and `resolved` what the person settled on, because an edit that overwrote the proposal
+ * would destroy the evidence the disposition is about.
+ *
+ * `json`, not `jsonb`: a reading is shown back in the order its fields are named, and jsonb re-orders
+ * what it holds. A later disposition of the same call is a newer row, never an edit of this one —
+ * reads take newest-first.
+ */
+export const sheetUnderstandingDispositions = pgTable(
+  "sheet_understanding_dispositions",
+  {
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.tenantId),
+    dispositionId: uuid("disposition_id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    callId: uuid("call_id")
+      .notNull()
+      .references(() => modelCalls.callId),
+    sheetId: text("sheet_id").notNull(),
+    disposition: text("disposition").$type<Disposition>().notNull(),
+    proposed: json("proposed").$type<SheetReadingRecord>().notNull(),
+    resolved: json("resolved").$type<SheetReadingRecord>(),
+    // Who dispositioned it. Provenance for a person reading the store, like `drawing_sets.created_by`
+    // — the evidence a signature would rest on is the act seam's, and no act is performed here.
+    actorUserId: uuid("actor_user_id").notNull(),
+    // `clock_timestamp()`, not `now()`: `now()` is the transaction's start, so two dispositions made
+    // inside one transaction would carry the same instant and "newest-first" would have no answer.
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(statement`clock_timestamp()`),
+  },
+  (table) => [
+    check("sheet_understanding_dispositions_closed", statement`${table.disposition} in (${statement.raw(closedList(DISPOSITIONS))})`),
+    // An edit is the only disposition that settles on a reading of its own; taking a proposal or
+    // turning it down resolves nothing. The store says so too, because this table is reachable by
+    // writers that are not the module's door.
+    check("sheet_understanding_dispositions_resolved_iff_edited", statement`(${table.resolved} is not null) = (${table.disposition} = 'edited')`),
+    // The read R-AI-005's surfaces make: one project's dispositions, newest first.
+    index("sheet_understanding_dispositions_by_project").on(table.tenantId, table.projectId, table.createdAt),
+    // The read a sheet card makes: how this proposal was answered.
+    index("sheet_understanding_dispositions_by_call").on(table.tenantId, table.callId),
+  ],
+);
+
+/**
  * L-MEA-04's work-item catalogue, as the database holds it. The consts in `src/core/catalogue` are
  * the source and this is their landed copy: the migration inserts exactly the emitted rows, and
  * V-VERIFY's catalogue drift stage is what keeps the two the same table. Every text column is
@@ -933,6 +1009,7 @@ export const SEAM_SCHEMA = {
   userPrefs,
   modelCalls,
   modelFixtures,
+  sheetUnderstandingDispositions,
   workItemCatalogue,
   bears,
   files,
