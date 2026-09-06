@@ -34,9 +34,13 @@ const OWED: readonly (readonly [string, string])[] = [
 const ADDRESS_WRITE = "replaceState";
 
 /** Every file under the hooks home, at any depth. */
+// white-box: AC-2 — the last clause is "no file under hooks/ contains the text `replaceState`": a
+// property of what the files say, and a hook that never writes history cannot show it by running.
 function filesUnder(directory: string): string[] {
+  // white-box: AC-2 — the same reading; the directory has to be walked to have files to read.
   return readdirSync(directory).flatMap((entry) => {
     const path = join(directory, entry);
+    // white-box: AC-2 — still that reading: a subdirectory of hooks/ is under hooks/ too.
     return statSync(path).isDirectory() ? filesUnder(path) : [path];
   });
 }
@@ -57,6 +61,9 @@ describe("AC-2: one concern per module, one unit test per module, one home for t
   });
 
   test("AC-2: every hook module the directory holds is judged by a unit test of its own", () => {
+    // white-box: AC-2 — "for every use-*.ts file the directory holds, enumerated at test time"
+    // (B-19) is a reading of which files stand beside which; no run of the product answers it, and
+    // enumerating rather than listing is what keeps a tenth hook owed a test the day it appears.
     const modules = readdirSync(hooksHome()).filter((entry) => /^use-[a-z0-9-]+\.ts$/.test(entry));
     expect(modules.length, `${HOOKS_HOME}/ holds the hook modules the concerns moved into`).toBeGreaterThanOrEqual(OWED.length);
 
@@ -69,7 +76,9 @@ describe("AC-2: one concern per module, one unit test per module, one home for t
   test("AC-2: no hook writes the address — that stays in the screen's own address module", () => {
     // white-box: AC-2 — "the address writer keeps its one home" is a claim about what the files
     // under hooks/ may contain, and a hook that never writes history proves nothing by running.
-    const offenders = filesUnder(hooksHome()).filter((path) => readFileSync(path, "utf8").includes(ADDRESS_WRITE));
+    const files = filesUnder(hooksHome());
+    // white-box: AC-2 — the text of each of those files is the criterion's own subject.
+    const offenders = files.filter((path) => readFileSync(path, "utf8").includes(ADDRESS_WRITE));
     expect(offenders, `${ADDRESS_WRITE} has one home, and it is not under ${HOOKS_HOME}/ (B-17)`).toEqual([]);
   });
 });
