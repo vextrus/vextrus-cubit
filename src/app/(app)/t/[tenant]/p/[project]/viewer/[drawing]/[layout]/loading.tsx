@@ -6,6 +6,9 @@ import { Skeleton } from "../../../../../../../../../ui/primitives/core";
 /** The rows the panel's bones stand for, before the roster says how many there really are. */
 const PANEL_ROWS = 6;
 
+/** The cells the inspector's bones stand for, before anything is under the pointer or held. */
+const INSPECTOR_CELLS = 2;
+
 export default function ViewerSheetLoading() {
   return (
     <div className="cx-viewer cx-viewer-bones">
@@ -16,6 +19,12 @@ export default function ViewerSheetLoading() {
         ))}
       </div>
       <Skeleton style={{ height: "100%", width: "100%" }} />
+      <div className="cx-viewer-bones-panel">
+        <Skeleton style={{ height: "16px", width: "96px" }} />
+        {Array.from({ length: INSPECTOR_CELLS }, (_, cell) => (
+          <Skeleton key={cell} style={{ height: "12px", width: "140px" }} />
+        ))}
+      </div>
     </div>
   );
 }

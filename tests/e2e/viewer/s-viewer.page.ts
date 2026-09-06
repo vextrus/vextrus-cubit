@@ -6,6 +6,10 @@
 // page-object directory, and this increment claims none of it.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { inflateSync } from "node:zlib";
+// The projection the sheet is painted through, inherited from inc-110 and not under test here: a
+// journey that needs the screen point of a world point inverts the shipped mapping rather than
+// re-deriving one of its own, so no acceptance carries a second opinion about where a sheet is.
+import { worldAt } from "../../../src/modules/takeoff/viewer/client";
 
 /** The addresses S-Viewer answers at (test contract). */
 export const S_VIEWER = Object.freeze({
@@ -15,7 +19,21 @@ export const S_VIEWER = Object.freeze({
   /** The same sheet at a stated viewport — the deep link R-UI-031 owes. */
   at: (tenantId: string, projectId: string, drawingId: string, layoutName: string, viewport: string): string =>
     `${S_VIEWER.route(tenantId, projectId, drawingId, layoutName)}?v=${encodeURIComponent(viewport)}`,
+  /**
+   * The same sheet with a selection, and optionally the camera to see it at (inc-111's widened
+   * query): `s` is the source keys comma-joined in selection order, `v` the camera when one is
+   * stated. Written as one home so no journey spells the parameter names twice (C-05).
+   */
+  selecting: (tenantId: string, projectId: string, drawingId: string, layoutName: string, keys: readonly string[], viewport?: string): string => {
+    const query = new URLSearchParams();
+    if (viewport !== undefined) query.set("v", viewport);
+    query.set("s", keys.join(","));
+    return `${S_VIEWER.route(tenantId, projectId, drawingId, layoutName)}?${query.toString()}`;
+  },
 } as const);
+
+/** The world box a selection row publishes, as `minx,miny,maxx,maxy` (Decision §1). */
+export type SelectionBox = { minX: number; minY: number; maxX: number; maxY: number };
 
 /** The budgets the client publishes and PB-2/PB-3 state, as this journey grades against them. */
 export const VIEWER_BUDGETS = Object.freeze({
@@ -186,6 +204,292 @@ export class SViewerPage {
       await this.page.waitForTimeout(8);
     }
     await this.page.mouse.up();
+  }
+
+  /* ------------------------------------------------------------------ the inspector (inc-111) */
+
+  get inspector(): Locator {
+    return this.page.getByTestId("viewer-inspector");
+  }
+
+  get hover(): Locator {
+    return this.page.getByTestId("viewer-inspector-hover");
+  }
+
+  get entities(): Locator {
+    return this.page.getByTestId("viewer-inspector-entity");
+  }
+
+  get missingKeys(): Locator {
+    return this.page.getByTestId("viewer-inspector-missing-key");
+  }
+
+  get reveal(): Locator {
+    return this.page.getByTestId("viewer-inspector-reveal");
+  }
+
+  get clear(): Locator {
+    return this.page.getByTestId("viewer-inspector-clear");
+  }
+
+  get marquee(): Locator {
+    return this.page.getByTestId("viewer-marquee");
+  }
+
+  get statusSelection(): Locator {
+    return this.page.getByTestId("viewer-status-selection");
+  }
+
+  /** One layer row's Select control — the keyboard path to a whole layer's keys. */
+  layerSelect(layerName: string): Locator {
+    return this.row(layerName).getByTestId("viewer-layer-select");
+  }
+
+  /** The selected keys, in the order the panel lists them. */
+  async selectedKeys(): Promise<string[]> {
+    const keys: string[] = [];
+    for (const row of await this.entities.all()) keys.push((await row.getAttribute("data-key")) ?? "");
+    return keys;
+  }
+
+  /** The selection the address carries, or null where it carries none. */
+  async selectionParam(): Promise<string | null> {
+    return new URL(this.page.url()).searchParams.get("s");
+  }
+
+  /** The world box one selected row publishes. */
+  static boxOf(bbox: string): SelectionBox {
+    const numbers = bbox.split(",").map(Number);
+    expect(numbers.length, `a row's data-bbox is minx,miny,maxx,maxy — it reads "${bbox}"`).toBe(4);
+    return { minX: numbers[0] as number, minY: numbers[1] as number, maxX: numbers[2] as number, maxY: numbers[3] as number };
+  }
+
+  /** The centre of the union of every selected row's box — where a reveal must leave the camera. */
+  async selectionCentre(): Promise<[number, number]> {
+    const boxes = await Promise.all((await this.entities.all()).map(async (row) => SViewerPage.boxOf((await row.getAttribute("data-bbox")) ?? "")));
+    expect(boxes.length, "a centre is taken of a selection, so something is selected").toBeGreaterThan(0);
+    const union = boxes.reduce((held, box) => ({
+      minX: Math.min(held.minX, box.minX),
+      minY: Math.min(held.minY, box.minY),
+      maxX: Math.max(held.maxX, box.maxX),
+      maxY: Math.max(held.maxY, box.maxY),
+    }));
+    return [(union.minX + union.maxX) / 2, (union.minY + union.maxY) / 2];
+  }
+
+  /** The camera the address states, as its three numbers. */
+  async cameraFromAddress(): Promise<{ x: number; y: number; scale: number }> {
+    const stated = await this.viewportParam();
+    expect(stated, "the address carries the camera (R-UI-031)").not.toBeNull();
+    const parts = (stated as string).split(",").map(Number);
+    expect(parts.length, `the viewport parameter is x,y,scale — it reads "${stated}"`).toBe(3);
+    return { x: parts[0] as number, y: parts[1] as number, scale: parts[2] as number };
+  }
+
+  /** The canvas's own box on screen, refused where it has not been laid out. */
+  async canvasBox(): Promise<{ x: number; y: number; width: number; height: number }> {
+    const box = await this.canvas.boundingBox();
+    expect(box, "the canvas is laid out before it is driven").not.toBeNull();
+    return box as { x: number; y: number; width: number; height: number };
+  }
+
+  /** The middle of the canvas — where a sheet flown to one entity puts that entity. */
+  async canvasCentre(): Promise<{ x: number; y: number }> {
+    const at = await this.canvasBox();
+    return { x: at.x + at.width / 2, y: at.y + at.height / 2 };
+  }
+
+  /**
+   * Where a world point stands on screen right now, taken by inverting the shipped projection at the
+   * camera the address states: two probes of `worldAt` give the axes' scale and origin, so neither
+   * the sign of the y axis nor the fit margin is a number this file has an opinion about.
+   */
+  async screenPointOf(world: readonly [number, number]): Promise<{ x: number; y: number }> {
+    const box = await this.canvasBox();
+    const stated = await this.cameraFromAddress();
+    const camera = { centre: [stated.x, stated.y] as [number, number], scale: stated.scale, viewport: { width: box.width, height: box.height } };
+    const origin = worldAt(camera, { x: 0, y: 0 });
+    const unit = worldAt(camera, { x: 1, y: 1 });
+    const perPixelX = unit[0] - origin[0];
+    const perPixelY = unit[1] - origin[1];
+    expect(perPixelX !== 0 && perPixelY !== 0, "the camera maps pixels onto the drawing at a scale of its own").toBe(true);
+    return { x: box.x + (world[0] - origin[0]) / perPixelX, y: box.y + (world[1] - origin[1]) / perPixelY };
+  }
+
+  /**
+   * The pointer put on an entity: the anchor is where the projection says it stands, and a few
+   * pixels around it are tried in turn because a sheet is drawn to a fraction of a pixel and a
+   * diagonal line is thin. Answers where the pointer met something and what the panel read there.
+   */
+  async hoverNear(anchor: { x: number; y: number }, reachPx = 60): Promise<{ at: { x: number; y: number }; key: string }> {
+    const met = await this.sweepFor(anchor, reachPx);
+    if (met !== null) return met;
+    expect(null, `the pointer met an entity within ${reachPx} px of (${anchor.x}, ${anchor.y}) — the sheet reads out what is under it`).not.toBeNull();
+    throw new Error("no entity under the pointer");
+  }
+
+  /** The same sweep, answering null where the pointer met nothing rather than failing the journey. */
+  private async sweepFor(anchor: { x: number; y: number }, reachPx: number, wanted?: string): Promise<{ at: { x: number; y: number }; key: string } | null> {
+    // Two sweeps in fine steps rather than a coarse grid: a drawn line is a couple of pixels wide,
+    // and any line crossing this neighbourhood crosses one of these two rows of probes.
+    const step = 4;
+    for (const sweep of [{ dx: 1, dy: 0 }, { dx: 0, dy: 1 }]) {
+      for (let offset = 0; offset <= reachPx; offset += step) {
+        for (const sign of offset === 0 ? [1] : [1, -1]) {
+          const at = { x: anchor.x + sweep.dx * offset * sign, y: anchor.y + sweep.dy * offset * sign };
+          await this.page.mouse.move(at.x, at.y);
+          await this.page.waitForTimeout(40);
+          if ((await this.hover.count()) > 0) {
+            const key = (await this.hover.getAttribute("data-key")) ?? "";
+            if (key !== "" && (wanted === undefined || key === wanted)) return { at, key };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * The pointer put on the entity a row names, at points derived from that row's OWN world box: its
+   * centre where the box holds a single segment, and the box's corners and edge midpoints otherwise
+   * — a tight box touches its own geometry on every side, while the middle of a hollow or unioned
+   * one is bare paper. Answers where the panel read that key out, or null where it never did.
+   */
+  async hoverForRowKey(row: Locator, key: string, reachPx = 24): Promise<{ x: number; y: number } | null> {
+    const box = SViewerPage.boxOf((await row.getAttribute("data-bbox")) ?? "");
+    const midX = (box.minX + box.maxX) / 2;
+    const midY = (box.minY + box.maxY) / 2;
+    const world: [number, number][] = [
+      [midX, midY],
+      [box.minX, box.minY],
+      [box.maxX, box.maxY],
+      [box.minX, box.maxY],
+      [box.maxX, box.minY],
+      [midX, box.minY],
+      [midX, box.maxY],
+      [box.minX, midY],
+      [box.maxX, midY],
+    ];
+    for (const at of world) {
+      const met = await this.sweepFor(await this.screenPointOf(at), reachPx, key);
+      if (met !== null) return met.at;
+    }
+    return null;
+  }
+
+  /** The centre of one selected row's world box — where that entity stands on the drawing. */
+  async rowCentre(row: Locator): Promise<[number, number]> {
+    const bbox = (await row.getAttribute("data-bbox")) ?? "";
+    const box = SViewerPage.boxOf(bbox);
+    return [(box.minX + box.maxX) / 2, (box.minY + box.maxY) / 2];
+  }
+
+  /** A click of no travel at all: down and up in the same place, which is a select and not a pan. */
+  async clickAt(at: { x: number; y: number }, modifier?: "Shift"): Promise<void> {
+    if (modifier !== undefined) await this.page.keyboard.down(modifier);
+    await this.page.mouse.move(at.x, at.y);
+    await this.page.mouse.down();
+    await this.page.mouse.up();
+    if (modifier !== undefined) await this.page.keyboard.up(modifier);
+  }
+
+  /**
+   * The marquee, drawn with Shift held from one inset corner of the canvas to the other — the
+   * rectangle select of R-TO-011, and the gesture the test contract fixes.
+   */
+  async rectangleSelect(inset = 6): Promise<void> {
+    const at = await this.canvasBox();
+    await this.page.keyboard.down("Shift");
+    await this.page.mouse.move(at.x + inset, at.y + inset);
+    await this.page.mouse.down();
+    for (const step of [1, 2, 3]) {
+      await this.page.mouse.move(at.x + inset + ((at.width - 2 * inset) * step) / 3, at.y + inset + ((at.height - 2 * inset) * step) / 3);
+    }
+    await expect(this.marquee, "the rectangle is drawn while the button is down").toBeVisible();
+    await this.page.mouse.up();
+    await this.page.keyboard.up("Shift");
+  }
+
+  /** A plain drag across the sheet: the pan gesture, unchanged by the selection model. */
+  async dragAcross(): Promise<void> {
+    const at = await this.canvasBox();
+    await this.page.mouse.move(at.x + at.width * 0.3, at.y + at.height * 0.3);
+    await this.page.mouse.down();
+    for (const step of [1, 2, 3]) await this.page.mouse.move(at.x + at.width * 0.3 + step * 20, at.y + at.height * 0.3 + step * 12);
+    await this.page.mouse.up();
+  }
+
+  /** Press one row's copy door and answer the key that row names. */
+  async copyKey(row: Locator): Promise<string> {
+    const key = (await row.getAttribute("data-key")) ?? "";
+    await row.getByTestId("viewer-inspector-copy").click();
+    await expect(row.getByTestId("viewer-inspector-copy"), "the row says it has been copied").toHaveAttribute("data-copied", "true");
+    return key;
+  }
+
+  /** What the browser's clipboard holds — the permissions are granted on the context (test contract). */
+  clipboardText(): Promise<string> {
+    return this.page.evaluate(() => navigator.clipboard.readText());
+  }
+
+  /** Flip the document's theme the way the shell does, and wait for the root to say so. */
+  async setTheme(theme: "light" | "dark"): Promise<void> {
+    await this.page.evaluate((asked) => document.documentElement.setAttribute("data-theme", asked), theme);
+    await expect(this.page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", theme);
+  }
+
+  /** A CSS custom property as the page itself resolves it, inside the element that carries it. */
+  async token(name: string, on: Locator): Promise<string> {
+    return on.evaluate((element, property) => getComputedStyle(element).getPropertyValue(property).trim(), name);
+  }
+
+  /** One computed style of an element, read in the page (no colour or font is ever spelled here). */
+  async computed(on: Locator, property: string): Promise<string> {
+    return on.evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property);
+  }
+
+  /**
+   * The first record of one layer of the served feed, of the type asked for — how a journey picks an
+   * entity to deep-link to without projecting world coordinates onto the screen itself.
+   */
+  async recordOnLayer(drawingId: string, layoutName: string, tenantId: string, index: number, type: string): Promise<{ key: string; type: string }> {
+    const answer = await this.page.request.get(
+      `/api/viewer/${drawingId}/${encodeURIComponent(layoutName)}?tenant=${encodeURIComponent(tenantId)}&part=layer&index=${index}`,
+    );
+    expect(answer.ok(), `the layer feed answers layer ${index} of ${layoutName}`).toBe(true);
+    const body = (await answer.json()) as { records: { key?: string; src?: string; type: string; points?: unknown[] }[] };
+    const found = body.records.find((record) => record.type === type && (record.key ?? "") !== "" && (record.points?.length ?? 0) === 2);
+    expect(found, `layer ${index} of ${layoutName} carries a ${type} to select`).toBeTruthy();
+    const record = found as { key?: string; src?: string; type: string };
+    return { key: record.key ?? record.src ?? "", type: record.type };
+  }
+
+  /**
+   * The first record of the sheet of the type asked for, wherever it is: the layer feed is walked
+   * from its first layer until one answers, so a journey never assumes which layer a corpus put its
+   * geometry on (B-19).
+   */
+  async findRecordOfType(drawingId: string, layoutName: string, tenantId: string, type: string, layers = 32): Promise<{ key: string; type: string; atom: boolean }> {
+    const fallback: { key: string; type: string; atom: boolean }[] = [];
+    for (let index = 0; index < layers; index += 1) {
+      const answer = await this.page.request.get(
+        `/api/viewer/${drawingId}/${encodeURIComponent(layoutName)}?tenant=${encodeURIComponent(tenantId)}&part=layer&index=${index}`,
+      );
+      if (!answer.ok()) break;
+      const body = (await answer.json()) as { records: { key?: string; src?: string; type: string; points?: unknown[] }[] };
+      // An atom of two points: it has a key of its own (never synthesised paint, I-86) and its box
+      // centre is its own midpoint, which is what makes "the sheet flies to it and it is under the
+      // middle of the stage" true of it. A sheet whose geometry is all inside block instances has
+      // none, so any keyed record with geometry stands in.
+      const two = body.records.find((record) => record.type === type && (record.key ?? "") !== "" && (record.points?.length ?? 0) === 2);
+      if (two !== undefined) return { key: two.key ?? "", type: two.type, atom: true };
+      for (const record of body.records) {
+        const identity = record.key ?? record.src ?? "";
+        if (identity !== "" && record.type === type) fallback.push({ key: identity, type: record.type, atom: false });
+      }
+    }
+    expect(fallback[0], `the sheet ${layoutName} carries a ${type} for this journey to select`).toBeTruthy();
+    return fallback[0] as { key: string; type: string; atom: boolean };
   }
 
   /** The paper in the canvas's own top-left corner, as luminance — the dark/light proof (§6). */

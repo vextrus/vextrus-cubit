@@ -341,12 +341,14 @@ not a pixel baseline, and the dark/light proof is the canvas corner pixel (§6).
 
 ## 8. Recorded IOUs (owner named, never a comment in `src/`)
 
-Views and grid panels, the right inspector, the toolbar (select/pan/measure/snap/split/overlay) and
-the Trace target — S-Viewer's remaining regions, owner: the later viewer leaves of R-TO-011,
-R-UI-022, R-UI-042. Minimap, rotate in 90° steps, zoom-to-selection and a rotation component in `v`
-— R-TO-010's remaining gestures, owner: the same. Raster sheets as tiled backgrounds under vector
-traces — R-UI-040's raster clause, owner: the R-SPINE-022 tier leaf. Visible navigation into a sheet
-— R-UI-031, owner: the sheet-index leaf (I-77). A per-user remembered split size — R-UI-005, owner:
+Views and grid panels and the toolbar (select/pan/measure/snap/split/overlay) — S-Viewer's remaining
+regions, owner: the later viewer leaves of R-TO-011, R-UI-042. **Struck** (paid by
+inc-111-viewer-inspector, docs/design/s-viewer-inspector.md): the right inspector and its selection
+model, the Trace target (`?s=` + reveal-in-sheet + pulse), and visible navigation into a sheet from
+the sheet card's own door (I-77, R-UI-031). Minimap, rotate in 90° steps, zoom-to-selection and a
+rotation component in `v` — R-TO-010's remaining gestures, owner: the same toolbar leaf. Raster
+sheets as tiled backgrounds under vector traces — R-UI-040's raster clause, owner: the R-SPINE-022
+tier leaf. A per-user remembered split size — R-UI-005, owner:
 the prefs seam's node (I-84). The shared `cx-readout` class R-UI-030 names — owner: the `src/ui`
 node that ships it. Manifest durability across a server restart — owner: a later leaf, if PB-2 cold
 ever demands more than the content-keyed process memo.

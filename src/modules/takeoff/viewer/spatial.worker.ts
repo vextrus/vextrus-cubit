@@ -1,14 +1,15 @@
 // R-UI-040's hit-test, off the main thread: the sheet's spatial index is built here from the layers
-// the screen posts as they arrive, and a point asked about is answered with the keys under it. The
-// index is the same one `./client` builds — this file is where it lives, not a second one (B-17).
+// the screen posts as they arrive, and a point, a rectangle or a layer asked about is answered with
+// the keys it holds. The index is the same one `./client` builds — this file is where it lives, not a
+// second one (B-17).
 //
 // The entry touches no DOM and imports nothing of `src/app`: it is loaded as a module worker, and a
 // worker that reached a screen's module graph would pull a whole page into a background thread
 // (ARCH-01).
-import { buildSpatialIndex, hitTest, type SpatialIndex } from "./client";
+import { buildSpatialIndex, hitTest, layerKeys, queryIndex, type IndexBox, type SpatialIndex } from "./client";
 import type { RenderLayer } from "./types";
 
-/** What the screen asks: here are the layers, or what is under this point. */
+/** What the screen asks: here are the layers, or what is under this point, rectangle or layer. */
 export type SpatialRequest =
   | { id: number; kind: "index"; layers: RenderLayer[] }
   /** A point, and the layers the reader has locked — locked layers are painted and are out of the
@@ -19,10 +20,21 @@ export type SpatialRequest =
       point: [number, number];
       tolerance: number;
       lockedLayers?: readonly string[];
-    };
+    }
+  /** A world rectangle, and the layers that may answer it: a marquee takes what a reader can see,
+   * so the drawn, unlocked roster travels with the question (Decision I-87). */
+  | { id: number; kind: "rect"; bbox: IndexBox; layers: readonly string[] }
+  /** One named layer, whole — the keyboard path to a selection. */
+  | { id: number; kind: "layer"; layer: string };
 
-/** What comes back: the request's own id, and the keys it found. */
-export type SpatialAnswer = { id: number; keys: string[] };
+/** Each arm of the union without its id — a question as a caller states it, before it is numbered. */
+type WithoutId<Request> = Request extends unknown ? Omit<Request, "id"> : never;
+
+/** A question the screen has not yet given an id to. */
+export type SpatialAsk = WithoutId<SpatialRequest>;
+
+/** What comes back: the request's own id, the kind it answers, and the keys it found. */
+export type SpatialAnswer = { id: number; kind: SpatialRequest["kind"]; keys: string[] };
 
 /** The worker's own global, named for what this file uses of it. */
 type WorkerScope = {
@@ -62,6 +74,14 @@ const packed = (): SpatialIndex => {
   return index;
 };
 
+/** The keys one question is answered with — every query the index serves runs on this thread. */
+function answer(request: SpatialRequest): string[] {
+  if (request.kind === "hit") return hitTest(packed(), request.point, request.tolerance, request.lockedLayers ?? []);
+  if (request.kind === "rect") return queryIndex(packed(), request.bbox, request.layers);
+  if (request.kind === "layer") return layerKeys(packed(), request.layer);
+  return [];
+}
+
 scope.addEventListener("message", (event) => {
   const request = event.data;
   if (request.kind === "index") {
@@ -72,11 +92,8 @@ scope.addEventListener("message", (event) => {
       settle = null;
       packed();
     }, INDEX_SETTLE_MS);
-    scope.postMessage({ id: request.id, keys: [] });
+    scope.postMessage({ id: request.id, kind: request.kind, keys: [] });
     return;
   }
-  scope.postMessage({
-    id: request.id,
-    keys: hitTest(packed(), request.point, request.tolerance, request.lockedLayers ?? []),
-  });
+  scope.postMessage({ id: request.id, kind: request.kind, keys: answer(request) });
 });

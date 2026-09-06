@@ -226,6 +226,22 @@ function boxOf(record: RenderRecord): [number, number, number, number] | null {
   return Number.isFinite(minX) ? [minX, minY, maxX, maxY] : null;
 }
 
+/**
+ * The key a record is selected, listed and copied under: its own source key, or the key of the
+ * instance it was painted from. A derived record answers the instance's key, so a block selects as
+ * one atom however many pieces it paints (Decision I-86) — and this is the one place that is decided,
+ * for the index, the inspector and the address alike (B-17).
+ */
+export function recordKey(record: RenderRecord): string | undefined {
+  return record.key ?? record.src;
+}
+
+/** The world box of one record, as a query, a selection row and the index all state it (B-17). */
+export function recordBox(record: RenderRecord): IndexBox | null {
+  const box = boxOf(record);
+  return box === null ? null : { min: [box[0], box[1]], max: [box[2], box[3]] };
+}
+
 /** The box that holds all of these. */
 function unionOf(boxes: readonly { box: readonly [number, number, number, number] }[]): [number, number, number, number] {
   let minX = Number.POSITIVE_INFINITY;
@@ -284,7 +300,7 @@ export function buildSpatialIndex(manifest: Pick<RenderManifest, "layers">): Spa
   for (const layer of manifest.layers) {
     for (const record of layer.records) {
       const box = boxOf(record);
-      const id = record.key ?? record.src;
+      const id = recordKey(record);
       if (box === null || id === undefined) continue;
       entries.push({ id, layer: layer.name, box, record });
     }
@@ -314,9 +330,37 @@ function search(index: SpatialIndex, query: readonly [number, number, number, nu
   return found;
 }
 
-/** The keys of every record whose box meets this world box — what culling and marquees ask. */
-export function queryIndex(index: SpatialIndex, bbox: IndexBox): string[] {
-  return search(index, [bbox.min[0], bbox.min[1], bbox.max[0], bbox.max[1]]).map((entry) => entry.id);
+/**
+ * The keys of every record whose box meets this world box — what culling and marquees ask. Where the
+ * caller names the layers that may answer, the rest of the sheet is silent: a rectangle takes what a
+ * reader can see, so nothing hidden, isolated away or locked is ever selected (Decision I-87). Each
+ * key answers once however many records paint it (I-86).
+ */
+export function queryIndex(index: SpatialIndex, bbox: IndexBox, layers?: readonly string[]): string[] {
+  const open = layers === undefined ? null : new Set(layers);
+  const found = search(index, [bbox.min[0], bbox.min[1], bbox.max[0], bbox.max[1]]);
+  return distinct(found.filter((entry) => open === null || open.has(entry.layer)));
+}
+
+/** Every key on one named layer, in the order the index answers them — what a layer's Select takes. */
+export function layerKeys(index: SpatialIndex, layer: string): string[] {
+  const everywhere: IndexBox = {
+    min: [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY],
+    max: [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY],
+  };
+  return queryIndex(index, everywhere, [layer]);
+}
+
+/** The keys of these entries, each once, in the order they were found. */
+function distinct(entries: readonly IndexEntry[]): string[] {
+  const keys: string[] = [];
+  const held = new Set<string>();
+  for (const entry of entries) {
+    if (held.has(entry.id)) continue;
+    held.add(entry.id);
+    keys.push(entry.id);
+  }
+  return keys;
 }
 
 /** How far a world point is from a segment of the drawing. */

@@ -16,6 +16,8 @@ export const S_DRAWINGS = {
   scale: "sheet-card-scale",
   views: "sheet-card-views",
   discipline: "sheet-card-discipline",
+  /** The door onto the sheet itself, in the viewer (inc-111, R-UI-031: visible navigation). */
+  open: "sheet-card-open",
   fact: "sheet-fact",
   disciplineOption: "sheet-discipline-option",
   confirm: "sheet-confirm",

@@ -25,6 +25,8 @@ export type StatusLineProps = {
   totalLayers: number;
   drawnEntities: number;
   entityCount: number;
+  /** How many source keys are held. Always reported: a counted empty set (R-UI-050). */
+  selectionCount: number;
   firstPaint: boolean;
   renderer: "webgl" | "unavailable";
   partial: boolean;
@@ -39,6 +41,7 @@ export function StatusLine({
   totalLayers,
   drawnEntities,
   entityCount,
+  selectionCount,
   firstPaint,
   renderer,
   partial,
@@ -56,6 +59,7 @@ export function StatusLine({
       data-total-layers={totalLayers}
       data-entity-count={entityCount}
       data-drawn-entities={drawnEntities}
+      data-selection={selectionCount}
       data-scale={scale}
     >
       <span className="cx-viewer-readout-sheet">{layoutName}</span>
@@ -86,6 +90,15 @@ export function StatusLine({
               {fill(strings.viewer_status_entities_value, {
                 drawn: formatUserFigure(String(drawnEntities)),
                 total: formatUserFigure(String(entityCount)),
+              })}
+            </span>
+          </span>
+          {/* The zero form reads "0 selected": a counted empty set, never a hidden cell (§ 1). */}
+          <span className="cx-viewer-readout-cell" data-testid="viewer-status-selection">
+            <span className="cx-viewer-readout-label">{strings.viewer_status_selection}</span>
+            <span className="cx-viewer-readout-value">
+              {fill(strings.viewer_inspector_selected_count, {
+                count: formatUserFigure(String(selectionCount)),
               })}
             </span>
           </span>

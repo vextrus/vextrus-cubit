@@ -13,6 +13,7 @@ import { screenStates } from "./screen-states";
 import { shell } from "./shell";
 import { spine } from "./spine";
 import { viewer } from "./viewer";
+import { viewerInspector } from "./viewer-inspector";
 
 export const strings = {
   ...auth,
@@ -27,6 +28,7 @@ export const strings = {
   ...shell,
   ...spine,
   ...viewer,
+  ...viewerInspector,
 } as const;
 
 export type StringKey = keyof typeof strings;
