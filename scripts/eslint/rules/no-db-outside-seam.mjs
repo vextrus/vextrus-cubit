@@ -1,21 +1,28 @@
 // SEAM-TENANT: forTenant(ctx) / runAsSystem(reason) are the only database handles. Driver and
 // schema imports are banned outside the seam, and the private-API escape — the ORM's internal
 // schema object — is banned everywhere, allowlisted only inside the seam itself.
+import { relative } from "node:path";
 import { propertyName, specifierVisitors } from "../lib/specifiers.mjs";
 
 /**
- * The one lawful home of the database seam (SEAM-TENANT): the barrel `src/core/db.ts` and the
- * product modules beside it under `src/core/db/`. The seam is a directory rather than a file
- * because the tables, the pools, the scoped surface and the job storage are each their own module
- * — but the allowlist is still exact, so `src/core/db-beside.ts` and `src/core/dbx/` are outside it.
+ * The one lawful home of the database seam (SEAM-TENANT), read as a path relative to the checkout
+ * root: the barrel `src/core/db.ts` and the product modules one directory level beneath it. The
+ * seam is a directory rather than a file because the tables, the pools, the scoped surface and the
+ * job storage are each their own module — but the allowlist stays exact, and being rooted is part
+ * of exact. `src/core/db-beside.ts`, `src/core/dbx/pools.ts`, anything nested under
+ * `src/core/db/` (a `__tests__/` directory included) and any deeper tree that merely repeats the
+ * segment are all outside it.
  */
-const SEAM_HOME = /(?:^|\/)src\/core\/db(?:\.ts$|\/)/;
+const SEAM_HOME = /^src\/core\/db(?:\.ts|\/[^/]+\.ts)$/;
 
 /**
- * The seam's own tests are NOT in the allowlist. They reach the store through the seam like every
- * other caller, and a test importing the driver would be the very bypass the ban exists for.
+ * A test is never in the allowlist. A `__tests__/` directory is already outside the one-level home
+ * above; a co-located `<name>.test.ts` is not, and it is this tree's dominant shape for a unit test
+ * beside a `src/core/` module, so it is named here. The seam's own suites reach the store through
+ * the seam like every other caller, and a test importing the driver would be the very bypass the
+ * ban exists for.
  */
-const SEAM_TESTS = /(?:^|\/)src\/core\/db\/(?:.*\/)?__tests__\//;
+const SEAM_TESTS = /\.(?:test|spec)\.[cm]?tsx?$/;
 
 /** Drivers and ORM entry points: a handle may only be made inside the seam. */
 const DRIVERS = /^(?:drizzle-orm|pg|pg-native|pg-pool|postgres|postgres-js|node-postgres|@neondatabase\/|@vercel\/postgres|@electric-sql\/pglite|knex|kysely|typeorm|prisma|@prisma\/)/;
@@ -36,7 +43,7 @@ export default {
     },
   },
   create(context) {
-    const filename = context.filename.replace(/\\/g, "/");
+    const filename = relative(context.cwd, context.filename).replace(/\\/g, "/");
     if (SEAM_HOME.test(filename) && !SEAM_TESTS.test(filename)) return {};
     const sourceCode = context.sourceCode;
     return {

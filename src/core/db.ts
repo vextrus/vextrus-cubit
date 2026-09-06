@@ -6,13 +6,90 @@
 // the scoped surface ./db/seam's, the job storage ./db/jobs' and the system-reason recorder
 // ./db/reason's. `connection()` is the seam's own, so the barrel hands out no pool.
 //
+// Every name is spelled rather than starred. This file is the seam's public roster, and a roster is
+// only readable — by a person, and by a scan that must tell a moved name from a dropped one — if it
+// says what it hands out; a star re-export names nothing at all (ARCH-02).
+//
 // The query operators a caller needs to say which rows it means are the driver's, so they are handed
 // out from the seam rather than imported at a call site: SEAM-TENANT makes this directory the one
 // lawful home of the driver, and a module that reached for them itself would be holding half a
 // handle (ARCH-02).
-export * from "./db/schema";
+export {
+  tenants,
+  projects,
+  participants,
+  acts,
+  participantRoles,
+  participantRoleWithdrawals,
+  users,
+  sessions,
+  authTokens,
+  authAttempts,
+  WORKSPACE_ROLES,
+  type WorkspaceRole,
+  memberships,
+  invitations,
+  rulesetScope,
+  rulesetEditions,
+  tenantRulesetEditions,
+  modelCalls,
+  userPrefs,
+  modelFixtures,
+  DISPOSITIONS,
+  type Disposition,
+  type SheetReadingRecord,
+  sheetUnderstandingDispositions,
+  workItemCatalogue,
+  bears,
+  ACCEPTED_FORMATS,
+  type AcceptedFormat,
+  isAcceptedFormat,
+  UPLOAD_STATES,
+  type UploadState,
+  SCAN_VERDICTS,
+  type ScanVerdict,
+  RASTER_TIERS,
+  type RasterTier,
+  UPLOAD_MAX_BYTES,
+  UPLOAD_CHUNK_BYTES,
+  files,
+  drawings,
+  uploads,
+  ingests,
+  sheetRasters,
+  sheetDisciplines,
+  drawingSets,
+  drawingSetMembers,
+  drawingSetRevisions,
+  SEAM_SCHEMA,
+} from "./db/schema";
 export { closePools } from "./db/pools";
-export * from "./db/seam";
-export * from "./db/jobs";
+export {
+  type Scope,
+  type TenantDb,
+  type TenantTx,
+  type SystemDb,
+  scopedClient,
+  forTenant,
+  runAsSystem,
+  holdStateLock,
+  isUuid,
+  inCurrentScope,
+  isStorableText,
+  storableText,
+  type ModelSpend,
+  modelSpendByProject,
+} from "./db/seam";
+export {
+  type JobEventDraft,
+  type JobEventRow,
+  type QueuedJob,
+  type QueueShape,
+  type LiveClaim,
+  type ClaimCursor,
+  type QueueState,
+  type JobsStore,
+  jobsStore,
+} from "./db/jobs";
 export { recordSystemReasonsWith, type SystemReasonRecord, type SystemReasonRecorder } from "./db/reason";
 export { and, asc, desc, eq, gt, inArray, isNull, lt } from "drizzle-orm";

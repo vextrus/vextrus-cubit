@@ -161,14 +161,27 @@ const otherBackends = (url: string): number => count(url, "select count(*) from 
 /** Occurrences of a needle in a haystack. */
 const occurrences = (haystack: string, needle: string): number => haystack.split(needle).length - 1;
 
-/** The seam's product modules, read as one text: the directory's own .ts files, never its __tests__. */
-const seamCode = (): string =>
-  readdirSync(join(REPO_ROOT, SEAM_DIR), { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".ts"))
-    .map((entry) => entry.name)
-    .sort()
-    .map((name) => codeOf(`${SEAM_DIR}/${name}`, "the seam's modules are where the advisory lock is spelled"))
-    .join("\n");
+/** A test file, in either shape this tree writes one — never a product module of the seam. */
+const TEST_FILE = /\.(?:test|spec)\.[cm]?tsx?$/;
+
+/**
+ * Every product module under the seam, however deep it sits: a module moved into a subdirectory
+ * must stay inside the census, or the one-spelling count passes at zero instead of reporting the
+ * drift it exists to catch.
+ */
+function seamModules(directory: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(REPO_ROOT, directory), { withFileTypes: true })) {
+    if (entry.name === "__tests__") continue;
+    const path = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...seamModules(path));
+    else if (entry.name.endsWith(".ts") && !TEST_FILE.test(entry.name)) found.push(path);
+  }
+  return found.sort();
+}
+
+/** The seam's product modules, read as one text. */
+const seamCode = (): string => seamModules(SEAM_DIR).map((module) => codeOf(module, "the seam's modules are where the advisory lock is spelled")).join("\n");
 
 describe("AC-3: one spelling each for the queue route and the lock hash", () => {
   test("AC-3: the seam spells \"jobs/queue\" once and hashtextextended once, and the key lock still serialises two concurrent enqueues of one key into one job", async () => {
