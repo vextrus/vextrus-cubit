@@ -161,6 +161,28 @@ export function envValue(name: EnvName, source: EnvSource = process.env): string
   return stated;
 }
 
+/** How the platform states the mode it is running in. Read here, spelled nowhere else (ARCH-02). */
+const MODE_VAR = "NODE_ENV";
+
+/** The one mode in which a seam may stand in for something an installation owes it (Q-12). */
+const DEVELOPMENT = "development";
+
+/**
+ * Is this process running as a developer's own machine rather than as an installation?
+ *
+ * `NODE_ENV` is the platform's name, not the product's: it is declared foreign in the transport
+ * vocabulary and is deliberately NOT in the declaration above, because nothing in the product
+ * requires it, no tier fails to start without it and no shape of ours governs what a runtime writes
+ * there. It is still the environment, so the one home for the environment is where it is read.
+ *
+ * Exactly `development` is development. Anything else — `production`, `test`, a value nobody set —
+ * is an installation, so a seam that stands in for a missing secret only in development fails closed
+ * wherever the mode is not stated (Q-12).
+ */
+export function isDevelopment(source: EnvSource = process.env): boolean {
+  return source[MODE_VAR]?.trim() === DEVELOPMENT;
+}
+
 /**
  * Read the whole declaration once, for one tier, and answer what it amounts to.
  *

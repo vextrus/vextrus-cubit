@@ -61,7 +61,8 @@ export type RefusalCode =
   | "GROUP_NOT_OFFERED"
   | "SET_NOT_PINNABLE"
   | "SET_NAME_NOT_USABLE"
-  | "SET_MEMBER_NOT_IN_PROJECT";
+  | "SET_MEMBER_NOT_IN_PROJECT"
+  | "DOWNLOAD_NOT_SIGNABLE";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -376,6 +377,17 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     code: "SET_MEMBER_NOT_IN_PROJECT",
     message: "That drawing is not one of this project's, so the set was not changed.",
     remedy: "Reload the set and toggle a drawing the project holds.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // Q-12's signed download URLs: an installation that has not been given a signing key signs
+  // nothing rather than minting a key of its own — a minted key dies at the next restart, and a box
+  // that mints one is effectively unsigned. Storing and serving evidence is untouched; only the
+  // link is refused.
+  DOWNLOAD_NOT_SIGNABLE: Object.freeze({
+    code: "DOWNLOAD_NOT_SIGNABLE",
+    message: "No download link was created, because this installation has not been given the key its links are signed with.",
+    remedy: "Ask an operator to give this installation its signing key, then ask for the download again.",
     severity: "error",
     surface: "inline",
   }),
