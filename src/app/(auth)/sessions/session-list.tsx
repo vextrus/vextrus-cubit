@@ -7,9 +7,9 @@
 // session it would list — and its loading leg keeps the rows' height so nothing jumps (R-UI-050).
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Badge, Button, Skeleton } from "../../../ui/primitives/core";
-import { formatDate } from "../../../core/format";
-import { fill, strings } from "../../../ui/strings";
+import { Badge, Button, Skeleton } from "@/ui/primitives/core";
+import { formatDate } from "@/core/format";
+import { fill, strings } from "@/ui/strings";
 import { AnswerSlot } from "../answer-slot";
 import { settle, type Answer } from "../answers";
 import { AUTH_ROUTES } from "../routes";

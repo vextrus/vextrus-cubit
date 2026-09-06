@@ -4,7 +4,7 @@
 // the primitive itself.
 import "./accept-invitation.css";
 
-import { Skeleton } from "../../../ui/primitives/core";
+import { Skeleton } from "@/ui/primitives/core";
 
 /** The bones, in the screen's own order: the heading, the caption, the offer, then the control (§2). */
 const BONES = [

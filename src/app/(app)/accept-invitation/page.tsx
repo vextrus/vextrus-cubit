@@ -9,13 +9,13 @@
 import "./accept-invitation.css";
 
 import { redirect } from "next/navigation";
-import { refusalOf } from "../../../core/errors";
-import { refusalCodeOf } from "../../../core/faults/refusal-marker";
-import { offeredInvitation } from "../../../modules/spine/tenancy";
-import { invitationMachinery } from "../../../server/auth/invitation-mail";
-import { admitAttempt } from "../../../server/auth/rate-limit";
-import { presentedSessionToken } from "../../../server/shell/session";
-import { sessionOf } from "../../../server/shell/resolve";
+import { refusalOf } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { offeredInvitation } from "@/modules/spine/tenancy";
+import { invitationMachinery } from "@/server/auth/invitation-mail";
+import { admitAttempt } from "@/server/auth/rate-limit";
+import { presentedSessionToken } from "@/server/shell/session";
+import { sessionOf } from "@/server/shell/resolve";
 import { AcceptInvitationForm, AcceptInvitationNoToken, AcceptInvitationUnclaimable } from "./accept-invitation-form";
 import { UNCLAIMABLE_CODES } from "./states";
 import { acceptInvitationStrings } from "./strings";

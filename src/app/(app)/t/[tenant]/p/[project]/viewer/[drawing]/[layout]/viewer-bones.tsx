@@ -7,7 +7,7 @@
  * Two surfaces show them — the route's own leg before the client mounts, and the client's own while
  * the head is in flight — and they are the same bones, spelled once (B-17).
  */
-import { Skeleton } from "../../../../../../../../../ui/primitives/core";
+import { Skeleton } from "@/ui/primitives/core";
 
 /** The rows the panel's bones stand for, before the roster says how many there really are. */
 const PANEL_ROWS = 6;

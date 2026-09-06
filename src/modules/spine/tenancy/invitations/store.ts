@@ -19,7 +19,7 @@ import {
   users,
   isUuid,
   type WorkspaceRole,
-} from "../../../../core/db";
+} from "@/core/db";
 
 const OFFER_REASON = "R-SPINE-003 tenancy: making, listing or withdrawing a workspace's offers of membership";
 const CLAIM_REASON = "R-SPINE-003 tenancy: spending a mailed invitation, and granting the membership it offered";

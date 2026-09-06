@@ -10,8 +10,8 @@
 // `WORKSPACE_ROLES` is the one home of (B-17). A workspace OWNER or ADMIN answers for the whole
 // workspace, so they read a project's role history without standing on the project; a workspace
 // MEMBER who does not participate is refused, which is what makes the first limb mean anything.
-import { permissionNotHeld } from "../../../core/acts";
-import { and, eq, forTenant, isUuid, memberships, participants, runAsSystem, type WorkspaceRole } from "../../../core/db";
+import { permissionNotHeld } from "@/core/acts";
+import { and, eq, forTenant, isUuid, memberships, participants, runAsSystem, type WorkspaceRole } from "@/core/db";
 import type { ParticipantsCtx } from "./scope";
 
 /**

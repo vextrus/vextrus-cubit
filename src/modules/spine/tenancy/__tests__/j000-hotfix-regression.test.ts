@@ -19,8 +19,8 @@
 // The rule has one home (ARCH-02, B-17) and this reads it there; the tenancy barrel re-exports the
 // same function, so a transport asking the question asks this one.
 import { describe, expect, test } from "vitest";
-import { refusalOf } from "../../../../core/errors";
-import { refusalCodeOf } from "../../../../core/faults/refusal-marker";
+import { refusalOf } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { verifyStatedOrigin } from "../guard/origin";
 
 /** What a served loopback deployment states about itself (V-E2E: it states its own address). */

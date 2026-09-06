@@ -7,9 +7,9 @@
 // names fail to yield a sheet — the store holding nothing at that address, bytes that are not JSON,
 // JSON the one mirror refuses — is the same registered refusal, carrying the facts the reading did
 // record so the reader still learns what was recovered.
-import { entityGraphSchema } from "../../../core/entitygraph/schema";
-import { REFUSALS } from "../../../core/errors";
-import type { Storage } from "../../../core/storage";
+import { entityGraphSchema } from "@/core/entitygraph/schema";
+import { REFUSALS } from "@/core/errors";
+import type { Storage } from "@/core/storage";
 import type { IngestFacts } from "../ingest/facts";
 import { ingestRecordOf } from "../ingest/records";
 import { buildRenderManifest, graphHoldsLayout, manifestCacheKey } from "./manifest";

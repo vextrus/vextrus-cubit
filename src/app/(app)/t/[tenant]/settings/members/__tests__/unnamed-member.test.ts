@@ -14,7 +14,7 @@
 import { createElement } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, test } from "vitest";
-import { fill } from "../../../../../../../ui/strings";
+import { fill } from "@/ui/strings";
 import { MembersSection, type MembersRow } from "../members-section";
 import { membersStrings } from "../strings";
 

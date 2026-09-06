@@ -32,7 +32,7 @@ const STATES_MODULE = "src/app/(app)/t/[tenant]/home/states.ts";
 const R_UI_050_STATES: readonly ShellStateName[] = ["loading", "empty", "error", "refusal", "partial", "offline", "permissionDenied"];
 
 /** How far a hook may be spelled from the module a cell names: the module, and what it imports. */
-const IMPORT_SPECIFIER = /from\s+"(\.[^"]*)"/g;
+const IMPORT_SPECIFIER = /from\s+"((?:\.|@\/)[^"]*)"/g;
 
 /** The extensions a relative specifier may resolve through, in the order Node and Vite try them. */
 const RESOLUTIONS = ["", ".ts", ".tsx", "/index.ts", "/index.tsx"];
@@ -62,7 +62,8 @@ async function row(): Promise<HomeStates> {
 
 /** Where a relative specifier lands in the checkout, or null when nothing of the tree answers it. */
 function resolved(fromModule: string, specifier: string): string | null {
-  const base = normalize(join(dirname(fromModule), specifier));
+  // `@/x` is tsconfig's alias for `src/x`: the same module, spelled from the root of the tree.
+  const base = specifier.startsWith("@/") ? `src/${specifier.slice(2)}` : normalize(join(dirname(fromModule), specifier));
   for (const suffix of RESOLUTIONS) {
     const candidate = `${base}${suffix}`;
     if ((candidate.endsWith(".ts") || candidate.endsWith(".tsx")) && existsSync(join(REPO_ROOT, candidate))) return candidate;

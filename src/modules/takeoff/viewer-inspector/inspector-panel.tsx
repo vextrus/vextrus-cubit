@@ -15,7 +15,7 @@
  * mechanism — the same borrowing the viewer's own empty-state door makes (B-17).
  */
 import { useEffect, useState } from "react";
-import { formatUserFigure } from "../../../core/format";
+import { formatUserFigure } from "@/core/format";
 import type { IndexBox } from "../viewer/client";
 import { INSPECTOR_COPY, fillCopy } from "./copy";
 

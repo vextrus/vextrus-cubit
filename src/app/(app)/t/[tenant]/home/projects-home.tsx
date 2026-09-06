@@ -9,11 +9,11 @@
 import "./home.css";
 
 import { useId, useState } from "react";
-import type { RefusalCode } from "../../../../../core/errors";
-import type { Project } from "../../../../../modules/spine/projects";
-import { Button } from "../../../../../ui/primitives/core";
-import { Sheet, SheetContent } from "../../../../../ui/primitives/overlay";
-import { strings } from "../../../../../ui/strings";
+import type { RefusalCode } from "@/core/errors";
+import type { Project } from "@/modules/spine/projects";
+import { Button } from "@/ui/primitives/core";
+import { Sheet, SheetContent } from "@/ui/primitives/overlay";
+import { strings } from "@/ui/strings";
 import type { LifecycleAnswer } from "../actions";
 import { ProjectsOnboarding } from "../projects-onboarding";
 import { ProjectCard } from "./project-card";

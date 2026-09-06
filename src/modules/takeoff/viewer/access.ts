@@ -2,7 +2,7 @@
 // a sheet is one drawing's — so the workspace that owns the drawing has to be established before any
 // tenant handle can be opened, and the asking person's membership of it is what admits the request
 // (R-SPINE-004, the shape every named-workspace door is guarded with).
-import { drawings, eq, isUuid, runAsSystem } from "../../../core/db";
+import { drawings, eq, isUuid, runAsSystem } from "@/core/db";
 
 /** Why a system handle is opened: to learn which workspace an address belongs to, and nothing else. */
 const OWNING_TENANT_REASON = "R-UI-040 viewer feed: the workspace a named drawing belongs to, before any tenant handle is opened";

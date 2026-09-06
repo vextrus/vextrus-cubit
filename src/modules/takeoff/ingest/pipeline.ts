@@ -7,10 +7,10 @@
 // The store this handler reads bytes from and writes the artifact to arrives as a dependency: a
 // module reaches core and its own module only (ARCH-01), so the composition root that holds the
 // app's Storage is src/worker, and nothing here re-reads where objects live (B-17).
-import { REFUSALS } from "../../../core/errors";
-import { refusal } from "../../../core/faults/refusal-marker";
-import type { JobPayloads, JobProgress } from "../../../core/jobs";
-import type { Storage } from "../../../core/storage";
+import { REFUSALS } from "@/core/errors";
+import { refusal } from "@/core/faults/refusal-marker";
+import type { JobPayloads, JobProgress } from "@/core/jobs";
+import type { Storage } from "@/core/storage";
 import { ingestDrawing } from "./cli";
 import { factsOf } from "./facts";
 import { ingestRecordOf, ingestRecordOfJob, writeIngestRecord } from "./records";

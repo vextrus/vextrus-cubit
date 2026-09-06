@@ -8,14 +8,14 @@
 // I-31: creation is a plain write, never an act. Nothing here wears copper, nothing carries a
 // digest, and no ConsequenceDialog stands between the person and the save.
 import { useActionState, useEffect, useId, useRef, useState } from "react";
-import { refusalOf, type RefusalCode } from "../../../../../core/errors";
-import { formatSquareFeet } from "../../../../../core/format";
-import { BUILDING_TYPES, type BuildingType } from "../../../../../core/projects";
-import type { Project } from "../../../../../modules/spine/projects";
-import { RefusalState } from "../../../../../ui/patterns/refusal-state";
-import { Button, Chip, Input, Textarea, UnitBadge } from "../../../../../ui/primitives/core";
-import { shellHref } from "../../../../../ui/shell";
-import { strings, type StringKey } from "../../../../../ui/strings";
+import { refusalOf, type RefusalCode } from "@/core/errors";
+import { formatSquareFeet } from "@/core/format";
+import { BUILDING_TYPES, type BuildingType } from "@/core/projects";
+import type { Project } from "@/modules/spine/projects";
+import { RefusalState } from "@/ui/patterns/refusal-state";
+import { Button, Chip, Input, Textarea, UnitBadge } from "@/ui/primitives/core";
+import { shellHref } from "@/ui/shell";
+import { strings, type StringKey } from "@/ui/strings";
 import { saveProjectAction, type ProjectFormState } from "../actions";
 import { isPlainDecimal, judgeProject, presentedProject, type ProjectJudgement } from "./judgement";
 

@@ -5,9 +5,9 @@
 // settled marker, carrying the facts the law says they name, and both are registered entries with
 // copy the one renderer shows (ARCH-03, B-21).
 import { describe, expect, test } from "vitest";
-import { permissionNotHeld, projectWouldHaveNoPrincipal } from "../../../core/acts";
-import { REFUSALS } from "../../../core/errors";
-import { refusalCodeOf } from "../../../core/faults/refusal-marker";
+import { permissionNotHeld, projectWouldHaveNoPrincipal } from "@/core/acts";
+import { REFUSALS } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
 
 const ASSIGN_PARTICIPANT_ROLE = "ASSIGN_PARTICIPANT_ROLE";
 const ADMINISTER_PROJECT = "ADMINISTER_PROJECT";

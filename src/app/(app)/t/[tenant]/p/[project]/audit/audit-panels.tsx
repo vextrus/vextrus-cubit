@@ -7,8 +7,8 @@
  * the ledger exists. An armed panel shows how many rows it holds and nothing else — the ledger's
  * columns and job detail belong to the nodes that own those tables (L-AI-01, C-SPINE-JOBS).
  */
-import { formatUserFigure } from "../../../../../../../core/format";
-import type { AuditPanel } from "../../../../../../../modules/spine/audit";
+import { formatUserFigure } from "@/core/format";
+import type { AuditPanel } from "@/modules/spine/audit";
 import { auditStrings } from "./strings";
 
 interface PanelBodyProps {

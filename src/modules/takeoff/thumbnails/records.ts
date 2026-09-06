@@ -4,7 +4,7 @@
 // A row is never rewritten. A second attempt of the same work finds the row it already wrote — the
 // bytes are content-addressed, so re-rendering a sheet lands on the same address anyway — and the
 // history of what a revision looked like stands whatever the queue does with an attempt.
-import { asc, eq, forTenant, isUuid, sheetRasters, type RasterTier } from "../../../core/db";
+import { asc, eq, forTenant, isUuid, sheetRasters, type RasterTier } from "@/core/db";
 
 /** Which record's rasters are being asked about, in whose workspace. */
 export type SheetRasterScope = { tenantId: string; ingestId: string };

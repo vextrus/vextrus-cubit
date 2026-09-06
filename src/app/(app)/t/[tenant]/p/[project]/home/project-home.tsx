@@ -10,14 +10,14 @@
 import "./project-home.css";
 
 import Link from "next/link";
-import { refusalOf, type RefusalCode } from "../../../../../../../core/errors";
-import { dhakaDateParts, formatDate, formatSquareFeet, formatUserFigure } from "../../../../../../../core/format";
-import type { ProjectAiSpend } from "../../../../../../../modules/ai/spend";
-import type { AuditAct } from "../../../../../../../modules/spine/audit";
-import type { Project } from "../../../../../../../modules/spine/projects";
-import { RefusalState } from "../../../../../../../ui/patterns/refusal-state";
-import { Badge, UnitBadge } from "../../../../../../../ui/primitives/core";
-import { fill, strings } from "../../../../../../../ui/strings";
+import { refusalOf, type RefusalCode } from "@/core/errors";
+import { dhakaDateParts, formatDate, formatSquareFeet, formatUserFigure } from "@/core/format";
+import type { ProjectAiSpend } from "@/modules/ai/spend";
+import type { AuditAct } from "@/modules/spine/audit";
+import type { Project } from "@/modules/spine/projects";
+import { RefusalState } from "@/ui/patterns/refusal-state";
+import { Badge, UnitBadge } from "@/ui/primitives/core";
+import { fill, strings } from "@/ui/strings";
 import { participantsRoute } from "../settings/participants/route-address";
 import { PROJECT_AREAS, QUICK_ACTIONS, RECENT_ACTIVITY_LIMIT, auditRoute } from "./areas";
 import { projectHomeStrings as copy } from "./strings";

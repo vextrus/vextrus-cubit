@@ -187,9 +187,11 @@ export function barrelInternalImports(file: string): string[] {
   const offences: string[] = [];
 
   for (const specifier of importSpecifiers(source)) {
-    if (!specifier.startsWith(".")) continue;
+    if (!specifier.startsWith(".") && !specifier.startsWith("@/")) continue;
     if (/\.(css|svg|png|woff2?|json)$/.test(specifier)) continue;
-    const resolved = resolve(fileDir, specifier);
+    // `@/x` is tsconfig's alias for `src/x`: the same module, spelled from the root of the tree, so
+    // a barrel's interior reached through it is the same offence as one reached by climbing.
+    const resolved = specifier.startsWith("@/") ? join(REPO_ROOT, "src", specifier.slice(2)) : resolve(fileDir, specifier);
     for (const barrel of barrels) {
       if (resolved === barrel.dir) continue; // the barrel directory itself
       if (!resolved.startsWith(barrel.dir + sep)) continue;

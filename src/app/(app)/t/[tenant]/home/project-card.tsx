@@ -6,15 +6,15 @@
 // place: neither is destructive, and neither is an act.
 import Link from "next/link";
 import { Fragment, useTransition, type ReactNode } from "react";
-import { refusalOf, type RefusalCode } from "../../../../../core/errors";
-import { formatDate } from "../../../../../core/format";
-import type { BuildingType } from "../../../../../core/projects";
-import type { Project } from "../../../../../modules/spine/projects";
+import { refusalOf, type RefusalCode } from "@/core/errors";
+import { formatDate } from "@/core/format";
+import type { BuildingType } from "@/core/projects";
+import type { Project } from "@/modules/spine/projects";
 import { projectHomeRoute } from "../p/[project]/home/areas";
-import { RefusalState } from "../../../../../ui/patterns/refusal-state";
-import { Badge, Button } from "../../../../../ui/primitives/core";
-import { shellHref, useFailureHandOff } from "../../../../../ui/shell";
-import { fill, strings, type StringKey } from "../../../../../ui/strings";
+import { RefusalState } from "@/ui/patterns/refusal-state";
+import { Badge, Button } from "@/ui/primitives/core";
+import { shellHref, useFailureHandOff } from "@/ui/shell";
+import { fill, strings, type StringKey } from "@/ui/strings";
 import { archiveProjectAction, restoreProjectAction, type LifecycleAnswer } from "../actions";
 
 /** I-33's labels, read here for the meta line: the enum is stored, the prose is shown. */

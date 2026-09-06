@@ -11,8 +11,8 @@
  * never how the ledgers are read: that belongs to the participants module, which is their one home.
  */
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { refusal } from "../../../../../core/faults/refusal-marker";
-import type { RoleHistoryEntry } from "../../../participants";
+import { refusal } from "@/core/faults/refusal-marker";
+import type { RoleHistoryEntry } from "@/modules/spine/participants";
 
 const TENANT = "3f1c2e10-8a44-4e2b-9f0a-1c2d3e4f5061";
 const READER = "aaaaaaaa-1111-4222-8333-444444444444";

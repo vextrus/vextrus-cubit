@@ -5,8 +5,8 @@
 // Nothing of the sheet is read here on purpose: a 100 000-entity manifest carried into the page would
 // be paid for before anything could be drawn, so the client asks the feed for the head and then for
 // each layer (R-UI-043, PB-2).
-import { SELECTION_PARAM } from "../../../../../../../../../modules/takeoff/viewer-inspector/selection";
-import { fill, strings } from "../../../../../../../../../ui/strings";
+import { SELECTION_PARAM } from "@/modules/takeoff/viewer-inspector/selection";
+import { fill, strings } from "@/ui/strings";
 import { layoutNameOf } from "./route-address";
 import { ViewerScreen } from "./viewer-screen";
 

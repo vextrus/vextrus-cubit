@@ -15,7 +15,7 @@
  * file.
  */
 import { describe, expect, it } from "vitest";
-import { REFUSALS } from "../../../../core/errors";
+import { REFUSALS } from "@/core/errors";
 
 /** The four entries AC-3 appends. Each is a literal the increment spec states in public (B-12). */
 const WORKSPACE_PERMISSION_NOT_HELD = "WORKSPACE_PERMISSION_NOT_HELD";

@@ -14,7 +14,7 @@
  * its own formatting (I-78, I-79); nothing here counts, re-formats or writes prose around them.
  */
 import { useId } from "react";
-import type { OfferedGroupKey } from "../../../core/acts";
+import type { OfferedGroupKey } from "@/core/acts";
 import { Button } from "../../primitives/core";
 import { strings } from "../../strings";
 

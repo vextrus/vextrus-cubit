@@ -13,14 +13,14 @@
 // answer a write by standing at the address again — a new set at its own, a pinned revision by
 // reading the set afresh — so what a person then sees is a fresh render of the ledger and never a
 // cached one.
-import { commit, consequenceDigest, permissionsHeld, preview, type Consequence, type PinDrawingSetInput } from "../../../../../../../../core/acts";
-import { forTenant } from "../../../../../../../../core/db";
-import { REFUSALS, type RefusalCode } from "../../../../../../../../core/errors";
-import { refusalCodeOf } from "../../../../../../../../core/faults/refusal-marker";
-import { createSet as createSetInModule, setOf, toggleMember as toggleMemberInModule } from "../../../../../../../../modules/takeoff/sets";
-import { projectActorFor } from "../../../../../../../../server/routers/spine";
-import { sessionOf } from "../../../../../../../../server/shell/resolve";
-import { presentedSessionToken } from "../../../../../../../../server/shell/session";
+import { commit, consequenceDigest, permissionsHeld, preview, type Consequence, type PinDrawingSetInput } from "@/core/acts";
+import { forTenant } from "@/core/db";
+import { REFUSALS, type RefusalCode } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { createSet as createSetInModule, setOf, toggleMember as toggleMemberInModule } from "@/modules/takeoff/sets";
+import { projectActorFor } from "@/server/routers/spine";
+import { sessionOf } from "@/server/shell/resolve";
+import { presentedSessionToken } from "@/server/shell/session";
 
 /** The act these screens render, and the permission L-ACT-03 makes it move. */
 const PIN_DRAWING_SET = "PIN_DRAWING_SET" as const;

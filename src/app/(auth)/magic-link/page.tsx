@@ -4,7 +4,7 @@ import { AuthFrame } from "../auth-frame";
 import type { FooterLine } from "../footer";
 import { AUTH_ROUTES, tokenFrom } from "../routes";
 import { TokenPanel } from "../token-panel";
-import { strings } from "../../../ui/strings";
+import { strings } from "@/ui/strings";
 import { MagicLinkForm } from "./magic-link-form";
 
 // The document names the screen it is, from the table the heading reads (R-SPINE-060).

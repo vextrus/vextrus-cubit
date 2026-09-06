@@ -2,9 +2,9 @@
 // over (B-19). A cell says one of three things and is never silent: the state is rendered here, it
 // is handed to a module outside this screen, or it cannot arise on this screen and says why.
 // "Impossible" is a claim with a reason attached, which is what makes it reviewable.
-import type { RefusalCode } from "../../../core/errors";
-import type { ShellStateCell, ShellStateName } from "../../../ui/shell/states";
-import { strings } from "../../../ui/strings";
+import type { RefusalCode } from "@/core/errors";
+import type { ShellStateCell, ShellStateName } from "@/ui/shell/states";
+import { strings } from "@/ui/strings";
 
 /**
  * The refusals this screen answers in place, as one enumerable set (Q-07, B-19). The page renders

@@ -11,15 +11,15 @@
 // that arrives once the dialog holds focus is the dialog's.
 import { useCallback, useId, useState } from "react";
 import Link from "next/link";
-import { refusalOf, type RefusalCode } from "../../../../../../../../../core/errors";
-import { formatUserFigure } from "../../../../../../../../../core/format";
-import { ConsequenceDialog } from "../../../../../../../../../ui/patterns/consequence-dialog";
-import { RefusalState } from "../../../../../../../../../ui/patterns/refusal-state";
-import { Button } from "../../../../../../../../../ui/primitives/core";
-import { ShellEmptyState } from "../../../../../../../../../ui/shell";
-import { fill, strings } from "../../../../../../../../../ui/strings";
-import type { DrawingLineage, DrawingSetView, SetRevision } from "../../../../../../../../../modules/takeoff/sets";
-import { participantsRoute } from "../../../settings/participants/route-address";
+import { refusalOf, type RefusalCode } from "@/core/errors";
+import { formatUserFigure } from "@/core/format";
+import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
+import { RefusalState } from "@/ui/patterns/refusal-state";
+import { Button } from "@/ui/primitives/core";
+import { ShellEmptyState } from "@/ui/shell";
+import { fill, strings } from "@/ui/strings";
+import type { DrawingLineage, DrawingSetView, SetRevision } from "@/modules/takeoff/sets";
+import { participantsRoute } from "@/app/(app)/t/[tenant]/p/[project]/settings/participants/route-address";
 import { drawingsRoute } from "../../route-address";
 import { commitPin as commitPinAction, previewPin as previewPinAction, toggleMember as toggleMemberAction } from "../actions";
 import { setRoute, setsRoute } from "../route-address";

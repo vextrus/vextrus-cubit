@@ -8,17 +8,17 @@
 // turns a session and a project into a workspace-scoped actor, and the transport reaches the same
 // seam through the same helper (B-17, ARCH-02).
 import { revalidatePath } from "next/cache";
-import { commit, consequenceDigest, preview, type ConfirmDisciplineInput, type Consequence, type OfferedGroupKey } from "../../../../../../../core/acts";
-import { REFUSALS, type RefusalCode } from "../../../../../../../core/errors";
-import { refusalCodeOf } from "../../../../../../../core/faults/refusal-marker";
-import { isDiscipline } from "../../../../../../../core/sheets";
-import { workspaceOfProject } from "../../../../../../../modules/spine/uploads";
-import { requestIngest } from "../../../../../../../modules/takeoff/ingest";
-import { requestThumbnails } from "../../../../../../../modules/takeoff/thumbnails";
-import { projectActorFor } from "../../../../../../../server/routers/spine";
-import { sessionOf } from "../../../../../../../server/shell/resolve";
-import { presentedSessionToken } from "../../../../../../../server/shell/session";
-import { holdsWorkspace } from "../../../../../../../server/shell/workspace";
+import { commit, consequenceDigest, preview, type ConfirmDisciplineInput, type Consequence, type OfferedGroupKey } from "@/core/acts";
+import { REFUSALS, type RefusalCode } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { isDiscipline } from "@/core/sheets";
+import { workspaceOfProject } from "@/modules/spine/uploads";
+import { requestIngest } from "@/modules/takeoff/ingest";
+import { requestThumbnails } from "@/modules/takeoff/thumbnails";
+import { projectActorFor } from "@/server/routers/spine";
+import { sessionOf } from "@/server/shell/resolve";
+import { presentedSessionToken } from "@/server/shell/session";
+import { holdsWorkspace } from "@/server/shell/workspace";
 import { drawingsRoute } from "./route-address";
 
 /** The act this screen renders, and the permission L-ACT-03 makes it move. */

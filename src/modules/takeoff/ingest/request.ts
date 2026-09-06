@@ -13,9 +13,9 @@
 // drawing that has been ingested is answered with the record it already has and runs nothing, and a
 // declared one stands under a key of its own naming the record it supersedes. Drift is what a
 // pipeline that re-ran itself quietly would be.
-import { drawings, eq, forTenant, isUuid, type AcceptedFormat } from "../../../core/db";
-import { REFUSALS } from "../../../core/errors";
-import { enqueue, type JobKind, type JobPayloads } from "../../../core/jobs";
+import { drawings, eq, forTenant, isUuid, type AcceptedFormat } from "@/core/db";
+import { REFUSALS } from "@/core/errors";
+import { enqueue, type JobKind, type JobPayloads } from "@/core/jobs";
 import { ingestRecordOf } from "./records";
 import type { IngestRefusalCode } from "./refusals";
 

@@ -2,7 +2,7 @@
 // a fault). It travels as the settled core marker, and the code is read off the closed register in
 // `core/errors` rather than re-spelled — the same discipline the module's other refusals keep
 // (R-SPINE-062, ARCH-02, Q-07).
-import { refusalOf } from "../../../../core/errors";
+import { refusalOf } from "@/core/errors";
 
 /**
  * R-SPINE-003's ACCEPT flow refusing: the token names no invitation this deployment can spend.

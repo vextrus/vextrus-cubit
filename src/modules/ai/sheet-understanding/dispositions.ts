@@ -9,8 +9,8 @@
 // The caller-defect cases below — a call id nobody made, an edit that settled on nothing — are
 // faults, not refusals (ARCH-03): no person can act differently in response to them, so there is no
 // remedy to show and no registry code to carry.
-import { DISPOSITIONS, and, desc, eq, forTenant, isUuid, modelCalls, sheetUnderstandingDispositions, type Disposition } from "../../../core/db";
-import type { ModelCallContext, ModelLedgerRow } from "../../../core/model";
+import { DISPOSITIONS, and, desc, eq, forTenant, isUuid, modelCalls, sheetUnderstandingDispositions, type Disposition } from "@/core/db";
+import type { ModelCallContext, ModelLedgerRow } from "@/core/model";
 import { readingOf, type SheetReading } from "./law";
 
 /** How the ledger spells a call that answered, in the seam's own vocabulary rather than a second one. */

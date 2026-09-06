@@ -1,7 +1,7 @@
 // R-SPINE-003's roles as a ranking, derived from the one roster rather than restated beside it:
 // `WORKSPACE_ROLES` is declared highest rank first, so a role's position in it IS its rank and a
 // roster the store widens ranks the new role without an edit here (B-17, B-19).
-import { WORKSPACE_ROLES, type WorkspaceRole } from "../../../../core/db";
+import { WORKSPACE_ROLES, type WorkspaceRole } from "@/core/db";
 
 /** Is this string one of the workspace roles the store can hold? */
 export function isWorkspaceRole(value: unknown): value is WorkspaceRole {

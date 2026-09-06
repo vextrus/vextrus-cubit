@@ -16,8 +16,8 @@
  * this component's own (Decision I-40).
  */
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import type { Consequence, ConsequenceRendering, ConsequenceSubject } from "../../../core/acts";
-import type { RefusalCode, RefusalEntry } from "../../../core/errors";
+import type { Consequence, ConsequenceRendering, ConsequenceSubject } from "@/core/acts";
+import type { RefusalCode, RefusalEntry } from "@/core/errors";
 import { Button, Skeleton } from "../../primitives/core";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "../../primitives/overlay";
 import { RefusalState } from "../refusal-state";

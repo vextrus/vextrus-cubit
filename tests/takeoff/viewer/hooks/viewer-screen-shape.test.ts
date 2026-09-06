@@ -78,7 +78,10 @@ describe("AC-1: the screen composes hooks and runs no effect of its own", () => 
     expect(fromHooks.length, `the screen imports its effects from ${HOOKS_HOME}/`).toBeGreaterThan(0);
 
     for (const line of fromHooks) {
-      const module = resolve(screenDirectory, `${line.specifier}.ts`);
+      // `@/x` is tsconfig's alias for `src/x`: the same module, spelled from the root of the tree.
+      const module = line.specifier.startsWith("@/")
+        ? resolve(process.cwd(), "src", `${line.specifier.slice(2)}.ts`)
+        : resolve(screenDirectory, `${line.specifier}.ts`);
       expect(existsSync(module), `${line.specifier} names a module under ${HOOKS_HOME}/`).toBe(true);
       expect(
         module.replace(/\\/g, "/").includes(`/${HOOKS_HOME}/`),

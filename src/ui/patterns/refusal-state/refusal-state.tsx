@@ -18,7 +18,7 @@
  * layer holds no value import of core. The component owns no copy of its own either: every visible
  * string comes from the registry entry or from the caller's evidence.
  */
-import type { RefusalEntry } from "../../../core/errors";
+import type { RefusalEntry } from "@/core/errors";
 
 /** Where the refusal is resolved: a place, named in the button voice — verb first (Decision § 3). */
 export type RefusalEvidence = {

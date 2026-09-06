@@ -10,14 +10,14 @@
 // there (R-SPINE-001: never a value the caller wrote).
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { REFUSALS, type RefusalCode } from "../../../core/errors";
-import { refusalCodeOf } from "../../../core/faults/refusal-marker";
-import { guardTenancyMutation, type TenancyActor, type TenancyRequest } from "../../../modules/spine/tenancy";
-import { invitationMachinery } from "../../../server/auth/invitation-mail";
-import { admitAttempt } from "../../../server/auth/rate-limit";
-import { originFactsFromHeaders } from "../../../server/context";
-import { presentedSessionToken } from "../../../server/shell/session";
-import { sessionOf } from "../../../server/shell/resolve";
+import { REFUSALS, type RefusalCode } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { guardTenancyMutation, type TenancyActor, type TenancyRequest } from "@/modules/spine/tenancy";
+import { invitationMachinery } from "@/server/auth/invitation-mail";
+import { admitAttempt } from "@/server/auth/rate-limit";
+import { originFactsFromHeaders } from "@/server/context";
+import { presentedSessionToken } from "@/server/shell/session";
+import { sessionOf } from "@/server/shell/resolve";
 
 /** The door this move spends, as `AUTH_RATE_LIMITS` names it (R-SPINE-006). */
 const TENANCY_DOOR = "tenancyAdmin" as const;

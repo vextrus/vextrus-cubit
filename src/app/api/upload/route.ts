@@ -3,8 +3,8 @@
 // time. Nothing is stored here; what the client declares — the name, the size and its own sha256 —
 // is what the seam judges the arriving bytes against once they arrive.
 import { randomUUID } from "node:crypto";
-import { reportFault } from "../../../core/faults/report";
-import { createUpload, isRefused } from "../../../modules/spine/uploads";
+import { reportFault } from "@/core/faults/report";
+import { createUpload, isRefused } from "@/modules/spine/uploads";
 import { admitForProject, isRefusedAdmission, isUnreadableBody, json, readJsonBody, refusalAnswer } from "./answers";
 
 /** Every session is opened against live state; nothing about this route may be built or cached. */

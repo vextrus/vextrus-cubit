@@ -7,10 +7,10 @@
 import "./sets.css";
 
 import { notFound, redirect } from "next/navigation";
-import { projectHeld } from "../../../../../../../../modules/spine/projects";
-import { holdsPinSet, setsOf } from "../../../../../../../../modules/takeoff/sets";
-import { sessionOf } from "../../../../../../../../server/shell/resolve";
-import { presentedSessionToken } from "../../../../../../../../server/shell/session";
+import { projectHeld } from "@/modules/spine/projects";
+import { holdsPinSet, setsOf } from "@/modules/takeoff/sets";
+import { sessionOf } from "@/server/shell/resolve";
+import { presentedSessionToken } from "@/server/shell/session";
 import { SetsIndex } from "./sets-index";
 import { sets } from "./strings";
 

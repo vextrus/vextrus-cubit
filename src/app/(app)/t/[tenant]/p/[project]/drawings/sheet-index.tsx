@@ -12,16 +12,16 @@
 // that arrives once the dialog holds focus is the dialog's.
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { DISCIPLINES, type Discipline } from "../../../../../../../core/sheets/law";
-import { refusalOf, type RefusalCode } from "../../../../../../../core/errors";
-import { formatUserFigure } from "../../../../../../../core/format";
-import { ConsequenceDialog } from "../../../../../../../ui/patterns/consequence-dialog";
-import { Dropzone, uploadFiles, type DropzoneFile, type DropzoneItem } from "../../../../../../../ui/patterns/dropzone";
-import { JobTimeline, useTrackedJobs, type TrackedJob } from "../../../../../../../ui/patterns/job-timeline";
-import { OfferedGroups, type OfferedGroupItem } from "../../../../../../../ui/patterns/offered-group";
-import { RefusalState } from "../../../../../../../ui/patterns/refusal-state";
-import { Button, Chip, Input } from "../../../../../../../ui/primitives/core";
-import { fill, strings } from "../../../../../../../ui/strings";
+import { DISCIPLINES, type Discipline } from "@/core/sheets/law";
+import { refusalOf, type RefusalCode } from "@/core/errors";
+import { formatUserFigure } from "@/core/format";
+import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
+import { Dropzone, uploadFiles, type DropzoneFile, type DropzoneItem } from "@/ui/patterns/dropzone";
+import { JobTimeline, useTrackedJobs, type TrackedJob } from "@/ui/patterns/job-timeline";
+import { OfferedGroups, type OfferedGroupItem } from "@/ui/patterns/offered-group";
+import { RefusalState } from "@/ui/patterns/refusal-state";
+import { Button, Chip, Input } from "@/ui/primitives/core";
+import { fill, strings } from "@/ui/strings";
 import { participantsRoute } from "../settings/participants/route-address";
 import {
   commitConfirmDiscipline,

@@ -10,7 +10,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { SHELL_STATE_NAMES } from "../../../../../../../../../ui/shell/states";
+import { SHELL_STATE_NAMES } from "@/ui/shell/states";
 import { PARTICIPANTS_STATES } from "../states";
 
 const REPO_ROOT = process.cwd();

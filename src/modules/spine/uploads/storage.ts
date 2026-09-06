@@ -7,7 +7,7 @@
 // signing secret. This file publishes that one instance under the name the upload seam's callers
 // know it by, and adds the staging area, which is this seam's own (ARCH-02, B-17).
 import { join } from "node:path";
-import { appStorage, storageRoot } from "../../../core/storage/app";
+import { appStorage, storageRoot } from "@/core/storage/app";
 
 /** Staging stands beside the stored objects, under a name no tenant prefix can collide with. */
 const STAGING_DIR = ".uploads";

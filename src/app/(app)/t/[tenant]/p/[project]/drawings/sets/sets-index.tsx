@@ -7,13 +7,13 @@
 // a test renders one component (the SheetIndex precedent).
 import { useCallback, useId, useRef, useState } from "react";
 import Link from "next/link";
-import { refusalOf, type RefusalCode } from "../../../../../../../../core/errors";
-import { formatUserFigure } from "../../../../../../../../core/format";
-import { RefusalState } from "../../../../../../../../ui/patterns/refusal-state";
-import { Button, Input } from "../../../../../../../../ui/primitives/core";
-import { ShellEmptyState } from "../../../../../../../../ui/shell";
-import { fill, strings } from "../../../../../../../../ui/strings";
-import type { DrawingSetSummary } from "../../../../../../../../modules/takeoff/sets";
+import { refusalOf, type RefusalCode } from "@/core/errors";
+import { formatUserFigure } from "@/core/format";
+import { RefusalState } from "@/ui/patterns/refusal-state";
+import { Button, Input } from "@/ui/primitives/core";
+import { ShellEmptyState } from "@/ui/shell";
+import { fill, strings } from "@/ui/strings";
+import type { DrawingSetSummary } from "@/modules/takeoff/sets";
 import { participantsRoute } from "../../settings/participants/route-address";
 import { drawingsRoute } from "../route-address";
 import { createSet as createSetAction } from "./actions";

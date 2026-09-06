@@ -1,8 +1,8 @@
 // The tRPC mount. The handler is thin on purpose (SEAM-ACT): it mints the context, serves the one
 // composed router, and hands every failure to the one fault seam through `trpcOnError` (ARCH-03).
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
-import { createContext } from "../../../../server/context";
-import { appRouter, trpcOnError, trpcResponseMeta } from "../../../../server/root";
+import { createContext } from "@/server/context";
+import { appRouter, trpcOnError, trpcResponseMeta } from "@/server/root";
 
 const ENDPOINT = "/api/trpc";
 

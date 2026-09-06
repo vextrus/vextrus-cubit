@@ -13,15 +13,15 @@
 import "./participants.css";
 
 import { redirect } from "next/navigation";
-import { refusalOf, type RefusalCode } from "../../../../../../../../core/errors";
-import { refusalCodeOf } from "../../../../../../../../core/faults/refusal-marker";
-import { assignableSubjects, projectParticipants, roleHistory, type MemberIdentity } from "../../../../../../../../modules/spine/participants";
-import { presentedValue } from "../../../../../../../../server/auth/folded-key";
-import { presentedSessionToken } from "../../../../../../../../server/shell/session";
-import { sessionOf } from "../../../../../../../../server/shell/resolve";
-import { RefusalState } from "../../../../../../../../ui/patterns/refusal-state";
-import { shellHref } from "../../../../../../../../ui/shell";
-import { strings } from "../../../../../../../../ui/strings";
+import { refusalOf, type RefusalCode } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { assignableSubjects, projectParticipants, roleHistory, type MemberIdentity } from "@/modules/spine/participants";
+import { presentedValue } from "@/server/auth/folded-key";
+import { presentedSessionToken } from "@/server/shell/session";
+import { sessionOf } from "@/server/shell/resolve";
+import { RefusalState } from "@/ui/patterns/refusal-state";
+import { shellHref } from "@/ui/shell";
+import { strings } from "@/ui/strings";
 import { ParticipantsSection, type ParticipantsMember } from "./participants-section";
 
 export const metadata = { title: strings.spine_participants_heading };

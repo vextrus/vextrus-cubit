@@ -10,8 +10,8 @@
 // Archiving moves a marker and deletes nothing: `archived_at` is set to the moment it happened and
 // restore puts it back to the absence archiving found. Every lifecycle write moves `updated_at` too,
 // because that is the project's last activity, which is what S-Home reads.
-import { and, eq, forTenant, isUuid, participants, projects, type TenantTx } from "../../../core/db";
-import { permissionNotHeld } from "../../../core/acts/refusals";
+import { and, eq, forTenant, isUuid, participants, projects, type TenantTx } from "@/core/db";
+import { permissionNotHeld } from "@/core/acts/refusals";
 import { columnsOf, type ProjectChanges, type ProjectColumns } from "./draft";
 import type { ProjectsCtx } from "./scope";
 

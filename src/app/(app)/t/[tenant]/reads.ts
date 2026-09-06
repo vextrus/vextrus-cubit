@@ -8,9 +8,9 @@
 // instead of two. The seam functions themselves are untouched — this file adds memoisation, never a
 // second reading of what the answer means.
 import { cache } from "react";
-import { densityFor } from "../../../../core/prefs";
-import { viewerFor } from "../../../../server/shell/viewer";
-import { namedWorkspaceFor } from "../../../../server/shell/workspace";
+import { densityFor } from "@/core/prefs";
+import { viewerFor } from "@/server/shell/viewer";
+import { namedWorkspaceFor } from "@/server/shell/workspace";
 
 /** Who is asking, from the token they presented. */
 export const viewerRead = cache(viewerFor);

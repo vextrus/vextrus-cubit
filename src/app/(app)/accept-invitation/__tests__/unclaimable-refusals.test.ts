@@ -11,8 +11,8 @@
  * put in it, and the rendering of an entry is the one renderer's business (ARCH-02).
  */
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { REFUSALS, refusalOf } from "../../../../core/errors";
-import { refusal } from "../../../../core/faults/refusal-marker";
+import { REFUSALS, refusalOf } from "@/core/errors";
+import { refusal } from "@/core/faults/refusal-marker";
 import { UNCLAIMABLE_CODES } from "../states";
 
 const seam = vi.hoisted(() => ({

@@ -15,7 +15,7 @@
  * decides what it answers so the route's own composition is what is judged (ARCH-02).
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import type { JobEvent } from "../../../../core/jobs";
+import type { JobEvent } from "@/core/jobs";
 
 /** The grace an empty log is given before an id is called unknown — the window this must beat. */
 const FIRST_EVENT_GRACE_MS = 3_000;

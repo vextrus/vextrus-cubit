@@ -12,7 +12,7 @@
  * wire's shapes are described here as types. The register's own entry travels in the answer, which
  * is what the queue renders — no code is re-spelled and no sentence is written here.
  */
-import type { RefusalEntry } from "../../../core/errors";
+import type { RefusalEntry } from "@/core/errors";
 
 /** The addresses the protocol is spoken at (test contract). */
 const ROUTES = {

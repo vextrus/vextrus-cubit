@@ -11,10 +11,10 @@
 import "./ruleset.css";
 
 import Link from "next/link";
-import { formatUserFigure } from "../../../../../../../../core/format";
-import type { EditionLineageStep, ProjectRulesetView } from "../../../../../../../../core/rulesets/editions";
-import { UnitBadge } from "../../../../../../../../ui/primitives/core";
-import { ShellEmptyState, shellHref } from "../../../../../../../../ui/shell";
+import { formatUserFigure } from "@/core/format";
+import type { EditionLineageStep, ProjectRulesetView } from "@/core/rulesets/editions";
+import { UnitBadge } from "@/ui/primitives/core";
+import { ShellEmptyState, shellHref } from "@/ui/shell";
 import { rulesetParameterLabel, rulesetStrings } from "./strings";
 
 /** The headings the sections and the table are named by, so each region says what it is. */

@@ -11,12 +11,12 @@
 // The section takes what the page composed and the two actions, so a suite mounts the same component
 // a browser renders with the settlement of its choice (the RulesetSettingsSection precedent).
 import { useId, useState } from "react";
-import { refusalOf, type RefusalCode } from "../../../../../../core/errors";
-import { formatDate } from "../../../../../../core/format";
-import { RefusalState } from "../../../../../../ui/patterns/refusal-state";
-import { Button } from "../../../../../../ui/primitives/core";
-import { shellHref } from "../../../../../../ui/shell";
-import { fill, strings } from "../../../../../../ui/strings";
+import { refusalOf, type RefusalCode } from "@/core/errors";
+import { formatDate } from "@/core/format";
+import { RefusalState } from "@/ui/patterns/refusal-state";
+import { Button } from "@/ui/primitives/core";
+import { shellHref } from "@/ui/shell";
+import { fill, strings } from "@/ui/strings";
 import { changeMemberRoleAction, removeMemberAction, type MembersAnswer } from "./actions";
 import { membersRoute } from "./route-address";
 import { membersStrings } from "./strings";

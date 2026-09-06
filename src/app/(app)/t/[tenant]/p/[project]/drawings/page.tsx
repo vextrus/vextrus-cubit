@@ -7,12 +7,12 @@
 import "./drawings.css";
 
 import { notFound, redirect } from "next/navigation";
-import { permissionsHeld } from "../../../../../../../core/acts";
-import { forTenant } from "../../../../../../../core/db";
-import { projectHeld } from "../../../../../../../modules/spine/projects";
-import { drawingsAwaitingIngestOf, offeredGroupsOf, sheetIndexOf } from "../../../../../../../modules/takeoff/sheets";
-import { sessionOf } from "../../../../../../../server/shell/resolve";
-import { presentedSessionToken } from "../../../../../../../server/shell/session";
+import { permissionsHeld } from "@/core/acts";
+import { forTenant } from "@/core/db";
+import { projectHeld } from "@/modules/spine/projects";
+import { drawingsAwaitingIngestOf, offeredGroupsOf, sheetIndexOf } from "@/modules/takeoff/sheets";
+import { sessionOf } from "@/server/shell/resolve";
+import { presentedSessionToken } from "@/server/shell/session";
 import { SheetIndex } from "./sheet-index";
 import { drawings } from "./strings";
 

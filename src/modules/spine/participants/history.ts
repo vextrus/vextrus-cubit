@@ -4,7 +4,7 @@
 // The record reads downward: oldest first, newest last, because an append-only ledger's newest row
 // arriving at the bottom is the visible append. Withdrawn roles stay on it; nothing here is edited
 // away, which is the whole reason the withdrawal is a second row rather than an edit of the first.
-import { acts, asc, eq, forTenant, participantRoleWithdrawals, participantRoles } from "../../../core/db";
+import { acts, asc, eq, forTenant, participantRoleWithdrawals, participantRoles } from "@/core/db";
 import { identitiesOf, identityOf } from "./directory";
 import { requireRoleHistoryAccess } from "./guard";
 import type { MemberIdentity, ParticipantsCtx } from "./scope";

@@ -11,10 +11,10 @@
 // What comes back is a Proposal and stays one (L-AI-02): a reading presented for disposition. This
 // module writes no register row, no confirmed discipline and no act — a person confirming the
 // discipline performs CONFIRM_DISCIPLINE, which is the act seam's, and a screen's composition.
-import { propose, sourceKeyResolver } from "../../../core/model";
-import type { ModelCallContext } from "../../../core/model";
-import { readTitleBlock } from "../../../core/sheets";
-import type { EntityGraph } from "../../../core/entitygraph/schema";
+import { propose, sourceKeyResolver } from "@/core/model";
+import type { ModelCallContext } from "@/core/model";
+import { readTitleBlock } from "@/core/sheets";
+import type { EntityGraph } from "@/core/entitygraph/schema";
 import { readSheetReading, readingOf, type SheetUnderstanding } from "./law";
 import { citableKeysOn, sheetUnderstandingRequest } from "./request";
 
@@ -29,7 +29,7 @@ export {
   type DispositionScope,
   type RecordedDisposition,
 } from "./dispositions";
-export { DISPOSITIONS, type Disposition } from "../../../core/db";
+export { DISPOSITIONS, type Disposition } from "@/core/db";
 
 /** Which sheet is being understood: the artifact, the layout inside it, and the artifact's identity. */
 export type SheetUnderstandingInput = {

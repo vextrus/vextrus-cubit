@@ -14,8 +14,8 @@
 import { createElement } from "react";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import { DISCIPLINES } from "../../../../../../../../core/sheets/law";
-import { JobsProvider, type JobsFormat } from "../../../../../../../../ui/patterns/job-timeline";
+import { DISCIPLINES } from "@/core/sheets/law";
+import { JobsProvider, type JobsFormat } from "@/ui/patterns/job-timeline";
 import { SheetIndex } from "../sheet-index";
 import { drawings } from "../strings";
 import type { SheetCardData } from "../sheet-card";
