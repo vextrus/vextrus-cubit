@@ -13,6 +13,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { entityGraphSchema, type EntityGraph } from "../../../core/entitygraph/schema";
+import { envValue } from "../../../core/env";
 import { REFUSALS } from "../../../core/errors";
 import type { IngestFormat } from "./request";
 import type { SheetNotIngestable } from "./refusals";
@@ -74,8 +75,8 @@ function digestOf(bytes: Uint8Array): string {
 
 /** The command prefix the CLI is spawned under: the machine's, whitespace-split, or the default. */
 function commandPrefix(): string[] {
-  const stated = process.env[CAD_COMMAND_VAR]?.trim();
-  return stated === undefined || stated === "" ? [...DEFAULT_CAD_COMMAND] : stated.split(/\s+/);
+  const stated = envValue(CAD_COMMAND_VAR);
+  return stated === undefined ? [...DEFAULT_CAD_COMMAND] : stated.split(/\s+/);
 }
 
 /** What one run of the CLI said and how it ended — neither of which decides whether it worked. */

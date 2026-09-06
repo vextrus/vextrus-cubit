@@ -16,6 +16,13 @@ const REBASELINED_TEST = "a long id is still the caller's id and is echoed verba
 
 const PUBLIC_ORIGIN_VAR = "CUBIT_PUBLIC_ORIGIN";
 
+/**
+ * How this seam asks the machine what it says: the accessor in the product's one home for the
+ * environment (src/core/env.ts, ARCH-02, B-17). What is law here is that ONE function in the seam
+ * asks — the spelling of the read is not, and it moved when the environment got its one home.
+ */
+const ENV_READ = "envValue(";
+
 /** The header rows the origin rule is decided over, with what the deployment states for each. */
 const ROWS: { headers: Record<string, string>; configured: string | null }[] = [
   { headers: { host: "127.0.0.1:3211" }, configured: "http://127.0.0.1:3211" },
@@ -86,9 +93,9 @@ describe("AC-3: the request id the caller's trace survives as", () => {
     const source = productSource(CONTEXT_MODULE);
     const code = stripComments(source);
 
-    const readers = enclosingFunctionsOf(source, "process.env");
-    expect(readers.length, `${CONTEXT_MODULE} reads process.env nowhere — the deployment's own statement has to come from somewhere`).toBeGreaterThan(0);
-    expect([...new Set(readers)], `${CONTEXT_MODULE} reads process.env in more than one function: ${[...new Set(readers)].join(", ")}`).toHaveLength(1);
+    const readers = enclosingFunctionsOf(source, ENV_READ);
+    expect(readers.length, `${CONTEXT_MODULE} reads its environment nowhere — the deployment's own statement has to come from somewhere`).toBeGreaterThan(0);
+    expect([...new Set(readers)], `${CONTEXT_MODULE} reads its environment in more than one function: ${[...new Set(readers)].join(", ")}`).toHaveLength(1);
     expect(code.split(PUBLIC_ORIGIN_VAR).length - 1, `${PUBLIC_ORIGIN_VAR} is spelled more than once in code — the variable's name has one home`).toBe(1);
 
     for (const narration of ["earlier reading", "An earlier", "this increment"]) {
