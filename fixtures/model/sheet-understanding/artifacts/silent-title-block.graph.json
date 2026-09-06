@@ -1,0 +1,41 @@
+{
+  "entitygraph_version": 2,
+  "ingest": {
+    "scheme": "DXF_HANDLE",
+    "tool": "vextrus-cad",
+    "tool_version": "0.4.0",
+    "parameter_set_hash": "3f1c0a7d9b2e4856a0d13c7f5e9b8240761acd35e2f04b98c6d17a0e4b53f9c2"
+  },
+  "insunits": { "code": 4, "unit": "mm", "unmapped": false },
+  "layouts": [
+    { "name": "Model", "kind": "model", "bbox": { "min": [0, 0], "max": [48000, 32000] }, "strays_rejected": 0 },
+    { "name": "SHEET-01", "kind": "paper", "bbox": { "min": [0, 0], "max": [841, 594] }, "strays_rejected": 2 }
+  ],
+  "dropped_layouts": [],
+  "entities": [
+    { "key": "DXF_HANDLE:2A0", "type": "INSERT", "space": "SHEET-01", "layer": "TITLEBLOCK", "colour": { "rgb": [0, 0, 0], "source": "bylayer" }, "points": [[600, 12]] },
+    { "key": "DXF_HANDLE:2A1", "type": "LWPOLYLINE", "space": "SHEET-01", "layer": "BORDER", "colour": { "rgb": [0, 0, 0], "source": "bylayer" }, "points": [[10, 10], [831, 10], [831, 584], [10, 584]], "closed": true, "area": 470331 },
+    { "key": "DXF_HANDLE:2A2", "type": "INSERT", "space": "SHEET-01", "layer": "ANNO-VIEW", "colour": { "rgb": [0, 0, 0], "source": "bylayer" }, "points": [[80, 320]] },
+    { "key": "DXF_HANDLE:2A3", "type": "TEXT", "space": "SHEET-01", "layer": "ANNO-NOTE", "colour": { "rgb": [0, 0, 0], "source": "bylayer" }, "text": "   ", "height": 2.5 },
+    { "key": "DXF_HANDLE:2A4", "type": "LINE", "space": "SHEET-01", "layer": "BORDER", "colour": { "rgb": [0, 0, 0], "source": "bylayer" }, "points": [[10, 60], [831, 60]] },
+    { "key": "DXF_HANDLE:2A5", "type": "INSERT", "space": "SHEET-01", "layer": "ANNO-VIEW", "colour": { "rgb": [0, 0, 0], "source": "bylayer" }, "points": [[470, 320]] },
+    { "key": "DXF_HANDLE:100", "type": "TEXT", "space": "Model", "layer": "C-GRID", "colour": { "rgb": [0, 0, 0], "source": "bylayer" }, "text": "GRID LINE A", "height": 250 },
+    { "key": "DXF_HANDLE:101", "type": "LWPOLYLINE", "space": "Model", "layer": "C-ROAD", "colour": { "rgb": [0, 0, 0], "source": "bylayer" }, "points": [[0, 0], [48000, 0], [48000, 32000]], "closed": false },
+    { "key": "DXF_HANDLE:102", "type": "LINE", "space": "Model", "layer": "C-GRID", "colour": { "rgb": [0, 0, 0], "source": "bylayer" }, "points": [[0, 16000], [48000, 16000]] }
+  ],
+  "derived": [
+    { "src": "DXF_HANDLE:2A2", "type": "MTEXT", "space": "SHEET-01", "layer": "ANNO-VIEW", "colour": { "rgb": [0, 0, 0], "source": "byblock" }, "text": "SECTION A-A", "height": 5 },
+    { "src": "DXF_HANDLE:2A5", "type": "MTEXT", "space": "SHEET-01", "layer": "ANNO-VIEW", "colour": { "rgb": [0, 0, 0], "source": "byblock" }, "text": "DETAIL 3 - KERB RETURN", "height": 5 }
+  ],
+  "block_attributes": [
+    { "src": "DXF_HANDLE:2A0", "tag": "SHEET_NO", "text": "C-402", "height": 6 },
+    { "src": "DXF_HANDLE:2A0", "tag": "SHEET_TITLE", "text": "SITE GRADING PLAN", "height": 10 },
+    { "src": "DXF_HANDLE:2A0", "tag": "SCALE", "text": "1:100", "height": 3.5 },
+    { "src": "DXF_HANDLE:2A0", "tag": "REV", "text": "B", "height": 3.5 },
+    { "src": "DXF_HANDLE:2A0", "tag": "ISSUE_DATE", "text": "2026-04-12", "height": 3.5 }
+  ],
+  "counters": [
+    { "space": "Model", "explode_truncated": false, "explode_losses": {}, "flatten_capped": {} },
+    { "space": "SHEET-01", "explode_truncated": false, "explode_losses": { "HATCH": 1 }, "flatten_capped": {} }
+  ]
+}
