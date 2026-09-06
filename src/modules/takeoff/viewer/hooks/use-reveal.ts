@@ -42,11 +42,9 @@ export interface RevealOptions {
   cameraRef: { current: Camera | null };
   facts: SheetFacts;
   moveCamera: (move: (held: Camera) => Camera, live: boolean) => void;
-  /**
-   * The rest are collaborators this hook travels *through* rather than facts it reads, so each is
-   * optional and its absence is stillness: what is held, where an arrival lands, and the strike that
-   * marks it (ARCH-01 — a hook owes an answer to whoever composes it, not a set of preconditions).
-   */
+  /* The rest are collaborators this hook travels *through* rather than facts it reads, so each is
+     optional and its absence is stillness: what is held, where an arrival lands, and the strike
+     that marks it (ARCH-01 — a hook owes an answer to whoever composes it, not preconditions). */
   /** What is held, for a reveal asked for with no keys of its own — the Reveal door. */
   heldRef?: { current: readonly string[] };
   jumpTo?: (to: Camera) => void;

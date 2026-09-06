@@ -56,12 +56,11 @@ export interface SelectionOptions {
   facts?: SheetFacts;
   /** The travel the address asks for, told to whoever owns the fly-to (R-UI-022, I-85). */
   reveal?: (keys: readonly string[]) => void;
-  /**
-   * What a sheet holds beside its keys. Every one of these is a collaborator this hook draws
-   * *through* rather than a fact it reads, so each is optional and its absence is silence: what is
-   * held is answered from the keys alone, and a mount with no painter, no camera and no address
-   * still reads `s` and still says what this sheet does not hold.
-   */
+  /* Every one of the rest is a collaborator this hook draws *through* rather than a fact it reads,
+     so each is optional and its absence is silence: what is held is answered from the keys alone,
+     and a mount with no painter, no camera and no address still reads `s` and still says what this
+     sheet does not hold (ARCH-01 — a hook owes an answer to whoever composes it, not a set of
+     preconditions for being composed at all). */
   /** The layers' revision — the last layer of a roster can fail rather than arrive (I-81). */
   revision?: number;
   /** The layers being painted right now, as one value an effect can be keyed on. */
