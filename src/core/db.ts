@@ -1,11 +1,10 @@
-// SEAM-TENANT: the barrel over the seam's modules. `forTenant(ctx)` and `runAsSystem(reason)` are
-// the only database handles the tree has, and this is the one path every importer names for them —
-// so the driver, the tables and the queue moved into src/core/db/ without a single call site moving
-// with them (ARCH-02, B-17).
+// SEAM-TENANT: the seam's barrel. `forTenant(ctx)` and `runAsSystem(reason)` are the only database
+// handles the tree has, and this is the one path every importer names for them — while the driver,
+// the tables and the queue live in the modules beside it, one concern each (ARCH-02, B-17).
 //
-// It re-exports and does nothing else: the tables live in ./db/schema, the connections in
-// ./db/pools, the scoped surface in ./db/seam, the job storage in ./db/jobs, and the system-reason
-// recorder in ./db/reason. `connection()` is the seam's own and is deliberately not handed out here.
+// It re-exports and does nothing else: the tables are ./db/schema's, the connections ./db/pools',
+// the scoped surface ./db/seam's, the job storage ./db/jobs' and the system-reason recorder
+// ./db/reason's. `connection()` is the seam's own, so the barrel hands out no pool.
 //
 // The query operators a caller needs to say which rows it means are the driver's, so they are handed
 // out from the seam rather than imported at a call site: SEAM-TENANT makes this directory the one

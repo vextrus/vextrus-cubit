@@ -24,8 +24,8 @@ const DRIFT_LANE = join(ROOT, "scripts", "db-drift.mjs");
 /**
  * The files this file edits and puts back — read once, so a restore is never a re-read of a
  * mutation. The tables live in `src/core/db/schema.ts`, which is what the schema tree re-exports and
- * the drift lane therefore reads: `src/core/db.ts` is a barrel over that module and declares no
- * column of its own (B-20 — the split owns the acceptance the old layout froze).
+ * the drift lane therefore reads; `src/core/db.ts` is the barrel over that module and declares no
+ * column of its own (B-20).
  */
 const SEAM = join(ROOT, "src", "core", "db", "schema.ts");
 const BARREL = join(ROOT, "db", "schema.ts");
