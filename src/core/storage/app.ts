@@ -48,7 +48,7 @@ const HELD_KEY = Symbol.for("vextrus.cubit.core.storage.app");
  * still one this process can vouch for.
  */
 interface AppStorageScope {
-  instance?: { root: string; stated: string | undefined; storage: Storage };
+  instance?: { root: string; stated: string | undefined; development: boolean; storage: Storage };
   minted?: string;
 }
 
@@ -110,21 +110,27 @@ function withoutSigning(base: Storage): Storage {
 /**
  * The app's one Storage, built from what the machine states.
  *
- * It is rebuilt when the machine names a different root OR a different signing secret — a suite that
- * repoints `STORAGE_ROOT` is pointed at the directory it named, and one that states a secret after a
- * case that stated none signs with the secret it stated, rather than with whatever the first caller
- * happened to find. A stated secret is always the key: only that makes a URL minted before a restart
- * verify after it.
+ * It is rebuilt when the machine names a different root, a different signing secret OR a different
+ * deployment mode — a suite that repoints `STORAGE_ROOT` is pointed at the directory it named, and
+ * one that states a secret after a case that stated none signs with the secret it stated, rather
+ * than with whatever the first caller happened to find. A stated secret is always the key: only that
+ * makes a URL minted before a restart verify after it.
  */
 export function appStorage(): Storage {
   const root = storageRoot();
   const stated = envValue(SECRET_VAR);
+  // The mode is read before the memo is asked, because with no secret stated it is what decides
+  // whether this seam signs at all. A memo keyed without it would hand a box that had become an
+  // installation the seam a development process built — still signing with a minted key, and
+  // warning about it no second time, which is the fails-open state Q-12 closes.
+  const development = isDevelopment();
   const instance = scope.instance;
-  if (instance !== undefined && instance.root === root && instance.stated === stated) return instance.storage;
+  if (instance !== undefined && instance.root === root && instance.stated === stated && instance.development === development) {
+    return instance.storage;
+  }
 
   // An installation that states no key mints none: the seam below never signs, so it is built with
   // no key rather than with a key nobody stated.
-  const development = isDevelopment();
   const signable = stated !== undefined || development;
   const base = makeStorage({
     root,
@@ -136,6 +142,6 @@ export function appStorage(): Storage {
     },
   });
   const storage = signable ? base : withoutSigning(base);
-  scope.instance = { root, stated, storage };
+  scope.instance = { root, stated, development, storage };
   return storage;
 }
