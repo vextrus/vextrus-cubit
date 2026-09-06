@@ -83,31 +83,40 @@ records the gap: a future increment owes `global-error.tsx` the same two stylesh
 `data-theme="light"` server attribute and the same `THEME_RESOLVER` as body's first child — or a
 ruling that an outage screen deliberately stands on UA defaults.
 
-The product's Content-Security-Policy widens that gap, and the widening is the point of this
-paragraph. `script-src` admits no inline script but the pre-paint resolver, by the digest of its own
-source, and Next's own runtime bootstraps, by a nonce the renderer stamps on per request. Every
-route now renders per request and is nonce-stamped; the one document the build still freezes is the
-global-error shell, whose single `self.__next_f` bootstrap carries no nonce, so the browser refuses
-it and nothing on that path hydrates.
+The product's Content-Security-Policy leaves that gap where it is, and the measuring is worth
+recording because the answer is not the one the shape of the policy suggests. `script-src` admits no
+inline script but the pre-paint resolver, by the digest of its own source, and Next's own runtime
+bootstraps, by a nonce the renderer stamps on per request. Every route now renders per request, so
+every route's bootstraps are nonce-stamped — and the outage path is one of them: a throw driven
+inside `RootLayout` on the built product answers 500 with a per-request `<html id="__next_error__">`
+shell whose eight scripts all carry that response's own nonce. `global-error.tsx` is a client
+boundary, so the error state it holds arrives on hydration, and hydration is admitted. The policy
+does not break the outage screen.
 
-That is not benign, on two counts. The frozen document is Next's own built-in screen — its words are
-"This page couldn't load", and `data-testid="error-state"` appears nowhere in it — so the answer the
-checkpoint forbids is what a root-layout throw serves before the product's boundary is reached at
-all. And the product's own `ErrorState` would fare no better there: `src/app/error.tsx` deliberately
-commits the alert region empty and fills it in an effect, so that assistive technology meets a
-CHANGE inside a region it is already watching (Q-11). Without hydration that second commit never
-arrives: the document is `<main data-testid="error-state">` around an empty
-`<section role="alert" aria-labelledby="error-state-title">` — a blank page whose label points at an
-id that never renders, and whose one remedy, the retry button wired to `reset()`, never appears.
-ARCH-03 and B-21 name that outcome in the words at the top of `error.tsx`: an outage renders the
-product's own error state, "never a blank page and never a framework screen".
+One document does stay frozen, and it is not that path. The build exports the global-error shell and
+copies it to `pages/500.html` — the two are byte-identical, and the pages manifest is exactly
+`{"/500": "pages/500.html"}` — the server-error document Next falls back to when a request cannot be
+rendered at all. Its single `self.__next_f` bootstrap carries no nonce, so under this policy that
+copy is refused and the document can never become anything but what it already says statically:
+Next's own built-in screen, whose words are "This page couldn't load" and in which
+`data-testid="error-state"` appears nowhere. Its being a framework screen is the gap recorded above,
+not a consequence of the policy; what the policy adds is that this frozen copy has lost even the
+theoretical possibility of hydrating into the product's error state.
 
-So the gap recorded above now owes more than the two stylesheets and the resolver. The future
-increment that closes it must also bring that document inside the per-request render — the root
-layout's `export const dynamic = "force-dynamic"`, which is what makes every other route's
-bootstraps nonce-able, does not reach a document mounted in place of the root layout — or render the
-outage's copy and remedy on the server, so that the most severe surface in the product reads without
-depending on a script at all.
+What the policy does put on the record is a dependency, and it is the reason the paragraphs above
+are worth their length. `src/app/error.tsx` commits its alert region empty and fills it in an
+effect, so that assistive technology meets a CHANGE inside a region it is already watching (Q-11) —
+which means the outage screen shows nothing until it hydrates. Without that second commit the
+document is `<main data-testid="error-state">` around an empty
+`<section role="alert" aria-labelledby="error-state-title">`: a label pointing at an id that never
+renders, with the one remedy, the retry button wired to `reset()`, never appearing. ARCH-03 and B-21
+name that outcome in the words at the top of `error.tsx` — an outage renders the product's own error
+state, "never a blank page and never a framework screen" — and under this policy the product only
+stays on the right side of it while the outage path renders per request and its bootstraps are
+nonce-stamped. So the future increment that closes the gap above owes, besides the two stylesheets
+and the resolver, either that whatever document it fixes stays inside the per-request render, or
+that the outage's copy and remedy are server-rendered — so that the most severe surface in the
+product reads without depending on a script at all.
 
 **What the policy asks of this document.** The resolver stays inline and stays body's first child;
 it is admitted by `'sha256-…'`, never by loosening `script-src`, so its text is fixed by its digest
