@@ -32,10 +32,14 @@ function sourcesUnder(dir: string): string[] {
   return out;
 }
 
-/** A relative specifier resolved to a repo-relative source file, or null for a package / a non-source import. */
+/**
+ * An internal specifier resolved to a repo-relative source file, or null for a package / a
+ * non-source import. `@/x` is tsconfig's alias for `src/x` — the same module, spelled from the root
+ * of the tree — so an edge wearing it carries the bundler exactly as far as a climbing one does.
+ */
 function resolveImport(from: string, spec: string): string | null {
-  if (!spec.startsWith(".")) return null;
-  const base = resolve(REPO_ROOT, dirname(from), spec);
+  if (!spec.startsWith(".") && !spec.startsWith("@/")) return null;
+  const base = spec.startsWith("@/") ? resolve(REPO_ROOT, "src", spec.slice(2)) : resolve(REPO_ROOT, dirname(from), spec);
   for (const candidate of [base, `${base}.ts`, `${base}.tsx`, join(base, "index.ts"), join(base, "index.tsx")]) {
     if (existsSync(candidate) && statSync(candidate).isFile() && SOURCE.test(candidate)) return relative(REPO_ROOT, candidate);
   }
