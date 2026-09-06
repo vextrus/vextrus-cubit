@@ -50,6 +50,19 @@ export class SHomePage {
     return this.cards.filter({ hasText: name });
   }
 
+  /**
+   * The card's name, as the door it became when the project home shipped (I-131 amends I-32): every
+   * card's name is a link to `/t/{tenantId}/p/{projectId}`, which is R-UI-031 paid for the card.
+   */
+  projectOpen(projectId: string): Locator {
+    return this.card(projectId).getByTestId("s-home-project-open");
+  }
+
+  /** Every card's door, in grid order — for the assertion that no card is left without one. */
+  get projectOpens(): Locator {
+    return this.page.getByTestId("s-home-project-open");
+  }
+
   get recentDocuments(): Locator {
     return this.page.getByTestId("s-home-recent-documents");
   }
