@@ -11,12 +11,27 @@
   max-width: 1080px;
 }
 
+/* One row of the loading leg's bones (§2): the page holds four facts, three actions and two columns
+   abreast, so the bones that stand for them do too. */
+.cx-project-bone-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
 /* --- the header: the project itself, then the four facts about it (I-127) ------------------- */
 
 .cx-project-header {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.cx-project-name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
 }
 
 .cx-project-name {
@@ -100,7 +115,12 @@
   display: inline-flex;
   align-items: center;
   height: var(--space-8);
-  padding-inline: var(--space-3);
+  /* I-125 asks for one row of seven over one hairline baseline. At the checkpoint's own 1440 px the
+     shell gives this column 872 px and the seven — four of them carrying "Not available yet" —
+     measure 916 px at the Decision's `var(--space-3)`, so the row broke after six and stranded
+     Settings under a baseline that spanned both lines. The inline padding is the one measure that
+     buys the width back without touching a ruled ramp, a ruled colour or the words themselves. */
+  padding-inline: var(--space-2);
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   color: var(--graphite-700);
@@ -120,7 +140,7 @@ a.cx-project-tab:hover {
 }
 
 .cx-project-tab-condition {
-  padding-inline-start: var(--space-2);
+  padding-inline-start: var(--space-1);
   font-size: var(--text-12);
   color: var(--graphite-600);
 }

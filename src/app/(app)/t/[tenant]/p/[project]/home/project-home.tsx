@@ -87,9 +87,16 @@ export function ProjectHome({ data }: { data: ProjectHomeData }) {
 function ProjectHeader({ project, zones }: { project: Project; zones: readonly ZoneBadge[] }) {
   return (
     <header className="cx-project-header" data-testid="project-home-header">
-      <h1 className="cx-project-name" data-testid="project-home-name">
-        {project.name}
-      </h1>
+      <div className="cx-project-name-row">
+        <h1 className="cx-project-name" data-testid="project-home-name">
+          {project.name}
+        </h1>
+        {/* A project that has been put away says so where it is named — the scan-level flag S-Home's
+            own card carries for this fact, worn by the same shipped Badge and read by the same key
+            (B-17). Its meaning is the word, never colour (R-UI-060), and an active project wears
+            nothing: a status stated on every project states nothing about any of them (s-home I-35). */}
+        {project.status === "archived" ? <Badge>{strings.home_status_archived}</Badge> : null}
+      </div>
 
       <dl className="cx-project-facts">
         <div className="cx-project-fact">
