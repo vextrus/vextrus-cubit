@@ -1,8 +1,9 @@
 // The flat config: every NEVER the Bible states, bound to the paths it governs (C-06, B-18).
 // The ban homes are exact allowlists, not patterns — src/core/format.ts for Intl (LAW-FMT),
-// src/core/db.ts for the database seam (SEAM-TENANT), src/ui/tokens.ts and its generated
-// tokens.css for colour (R-UI-001) — with one directory allowlist, the model seam src/core/model/
-// (L-AI-01) — and each allowlist lives inside the rule that grants it.
+// src/core/db.ts and the product modules under src/core/db/ for the database seam (SEAM-TENANT,
+// never its __tests__), src/ui/tokens.ts and its generated tokens.css for colour (R-UI-001) — with
+// one further directory allowlist, the model seam src/core/model/ (L-AI-01) — and each allowlist
+// lives inside the rule that grants it.
 // The fixture corpus is not linted from here: its files are deliberate payloads, and they are put
 // through this same config file by the toolchain suite instead (Q-08).
 import js from "@eslint/js";

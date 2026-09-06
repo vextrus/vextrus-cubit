@@ -21,8 +21,13 @@ import { acquireDriftLock, releaseDriftLock } from "./support/drift-lock";
 const ROOT = join(import.meta.dirname, "..", "..");
 const DRIFT_LANE = join(ROOT, "scripts", "db-drift.mjs");
 
-/** The files this file edits and puts back — read once, so a restore is never a re-read of a mutation. */
-const SEAM = join(ROOT, "src", "core", "db.ts");
+/**
+ * The files this file edits and puts back — read once, so a restore is never a re-read of a
+ * mutation. The tables live in `src/core/db/schema.ts`, which is what the schema tree re-exports and
+ * the drift lane therefore reads; `src/core/db.ts` is the barrel over that module and declares no
+ * column of its own (B-20).
+ */
+const SEAM = join(ROOT, "src", "core", "db", "schema.ts");
 const BARREL = join(ROOT, "db", "schema.ts");
 const ORIGINAL = new Map<string, string>([
   [SEAM, readFileSync(SEAM, "utf8")],
@@ -70,7 +75,7 @@ describe("AC-2 (breaker): the schema-drift lane must not report a pure tree when
 
     const seam = ORIGINAL.get(SEAM) ?? "";
     const renamed = seam.replace('text("name")', 'text("title")');
-    expect(renamed, "src/core/db.ts no longer declares tenants.name as text(\"name\") — this probe must be re-aimed at whatever column it declares").not.toBe(seam);
+    expect(renamed, "src/core/db/schema.ts no longer declares tenants.name as text(\"name\") — this probe must be re-aimed at whatever column it declares").not.toBe(seam);
     writeFileSync(SEAM, renamed);
 
     const drifted = schemaDriftStage();
