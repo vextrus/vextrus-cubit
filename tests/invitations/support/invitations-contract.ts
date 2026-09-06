@@ -169,6 +169,7 @@ export function importSpecifiersOf(file: string): string[] {
 
 /** Where a relative specifier lands, repo-relative and extensionless — enough to answer "inside X?". */
 export function resolvedFrom(file: string, specifier: string): string | null {
+  if (specifier.startsWith("@/")) return `src/${specifier.slice(2)}`;
   if (!specifier.startsWith(".")) return null;
   return repoRelative(resolve(dirname(file), specifier));
 }
@@ -299,8 +300,10 @@ export function importsOf(code: string): { clause: string; specifier: string }[]
 
 /** The file a relative specifier really names, with the extensions a resolver would try. */
 export function resolveSpecifierFile(file: string, specifier: string): string | null {
-  if (!specifier.startsWith(".")) return null;
-  const landed = resolve(dirname(isAbsolute(file) ? file : inRepo(file)), specifier);
+  if (!specifier.startsWith(".") && !specifier.startsWith("@/")) return null;
+  const landed = specifier.startsWith("@/")
+    ? inRepo(`src/${specifier.slice(2)}`)
+    : resolve(dirname(isAbsolute(file) ? file : inRepo(file)), specifier);
   const candidates = [landed, `${landed}.ts`, `${landed}.tsx`, `${landed}.mts`, `${landed}/index.ts`, `${landed}/index.tsx`];
   return candidates.find((path) => existsSync(path) && statSync(path).isFile()) ?? null;
 }
