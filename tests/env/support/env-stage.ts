@@ -83,24 +83,53 @@ export function requiredBy(declaration: readonly EnvEntry[], tier: Tier): string
   return declaration.filter((entry) => entry.requiredBy.includes(tier)).map((entry) => entry.name);
 }
 
+/** What a declared name's own rule admits and what it forbids, as values rather than as a schema. */
+export interface SampleRule {
+  /** Values the name's rule admits. The first is what a case that needs the name merely PRESENT states. */
+  accepted: readonly string[];
+  /** Values the name's rule forbids — each one violating that rule and nothing else. */
+  refused: readonly string[];
+}
+
 /**
- * A value each declared name accepts. Every literal here is one the increment states publicly — the
- * URL and port AC-1 spells, and the loopback origin C-07 names — and it exists so a case that
- * removes ONE name can present every other one as present and well formed.
+ * The rule `interfaces` fixes for each declared name, written as values the shape is fed rather than
+ * as a re-spelling of the schema behind it. Every literal is one the increment states publicly — the
+ * URL and the port AC-1 spells, the loopback origin C-07 names, and the "non-empty string" and
+ * "absolute http(s) URL" rules the interface list fixes per name.
+ *
+ * One table, two readers: a case that removes ONE name presents every other one from `accepted[0]`,
+ * and the shape of every declared entry is judged by the whole row — so a name added to the
+ * declaration later is judged by the same loop, and reds here asking for its rule rather than
+ * slipping through unexercised.
  */
-export const SAMPLE_VALUES: Readonly<Record<string, string>> = {
-  DATABASE_URL: "postgres://u@h/db",
-  STORAGE_ROOT: "/tmp/cubit-env-acceptance-storage",
-  CUBIT_PUBLIC_ORIGIN: "http://127.0.0.1:3210",
-  WORKER_HEALTH_PORT: "0",
-  CUBIT_MODEL_FIXTURE_ROOT: "/tmp/cubit-env-acceptance-fixtures",
-  CUBIT_STORAGE_SIGNING_SECRET: "an-acceptance-signing-secret",
-  CUBIT_CAD_COMMAND: "/bin/true",
+export const SAMPLE_VALUES: Readonly<Record<string, SampleRule>> = {
+  // non-empty postgres:// or postgresql:// URL
+  DATABASE_URL: { accepted: ["postgres://u@h/db", "postgresql://u@h/db"], refused: ["", "mysql://u@h/db", "not-a-url"] },
+  // non-empty string
+  STORAGE_ROOT: { accepted: ["/tmp/cubit-env-acceptance-storage"], refused: [""] },
+  // absolute http(s) URL
+  CUBIT_PUBLIC_ORIGIN: { accepted: ["http://127.0.0.1:3210", "https://cubit.example.test/"], refused: ["", "/settings", "ftp://cubit.example.test/x"] },
+  // integer 0..65535, coerced from the string the machine states it as. A blank is absence, which
+  // `validateEnv` answers for — never the shape's own business, so no blank is listed as refused.
+  WORKER_HEALTH_PORT: { accepted: ["0", "3300", "65535"], refused: ["http", "-1", "65536", "3.5"] },
+  // non-empty string
+  CUBIT_MODEL_FIXTURE_ROOT: { accepted: ["/tmp/cubit-env-acceptance-fixtures"], refused: [""] },
+  // non-empty string
+  CUBIT_STORAGE_SIGNING_SECRET: { accepted: ["an-acceptance-signing-secret"], refused: [""] },
+  // non-empty string
+  CUBIT_CAD_COMMAND: { accepted: ["/bin/true"], refused: [""] },
 };
+
+/** The rule for a declared name, or a red naming the name this acceptance holds none for. */
+export function ruleFor(name: string): SampleRule {
+  const rule = SAMPLE_VALUES[name];
+  expect(rule, `${name} is declared but this acceptance holds no accepted and refused values for its rule`).toBeDefined();
+  return rule ?? { accepted: [], refused: [] };
+}
 
 /** A well-formed value for a declared name, or a red naming the name that has none. */
 export function sampleFor(name: string): string {
-  const sample = SAMPLE_VALUES[name];
+  const sample = ruleFor(name).accepted[0];
   expect(sample, `${name} is declared but this acceptance holds no well-formed sample value for it`).toBeDefined();
   return sample ?? "";
 }

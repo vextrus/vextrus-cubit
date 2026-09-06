@@ -9,7 +9,7 @@
  * reddened by it — except for the roster itself, which AC-1 pins to exactly seven.
  */
 import { describe, expect, test } from "vitest";
-import { envModule, requiredBy, type EnvEntry, type Tier } from "./support/env-stage";
+import { envModule, requiredBy, ruleFor, type EnvEntry, type Tier } from "./support/env-stage";
 
 /** The seven names AC-1 names, as a set. The order they are declared in is the product's business. */
 const THE_SEVEN: readonly string[] = ["DATABASE_URL", "STORAGE_ROOT", "CUBIT_PUBLIC_ORIGIN", "WORKER_HEALTH_PORT", "CUBIT_MODEL_FIXTURE_ROOT", "CUBIT_STORAGE_SIGNING_SECRET", "CUBIT_CAD_COMMAND"];
@@ -39,6 +39,20 @@ describe("AC-1 — the declaration", () => {
       expect(Array.isArray(entry.requiredBy), `${entry.name} declares no requiredBy list`).toBe(true);
       for (const tier of entry.requiredBy) expect(TIERS, `${entry.name} is required by a tier that does not exist`).toContain(tier);
       expect(typeof entry.requiredOutsideDev, `${entry.name} declares no requiredOutsideDev flag`).toBe("boolean");
+    }
+  });
+
+  test("AC-1: every declared shape carries that name's own rule — it admits what the rule admits and refuses what the rule forbids", async () => {
+    const { ENV_DECLARATION } = await envModule();
+    for (const entry of ENV_DECLARATION) {
+      const { accepted, refused } = ruleFor(entry.name);
+      expect(accepted.length + refused.length, `${entry.name}'s shape would be judged by no value at all`).toBeGreaterThan(0);
+      for (const value of accepted) {
+        expect(entry.shape.safeParse(value).success, `${entry.name}'s shape refused ${JSON.stringify(value)}, which its declared rule admits`).toBe(true);
+      }
+      for (const value of refused) {
+        expect(entry.shape.safeParse(value).success, `${entry.name}'s shape admitted ${JSON.stringify(value)}, which its declared rule forbids`).toBe(false);
+      }
     }
   });
 });
