@@ -16,7 +16,7 @@ import type { HoverFact } from "../../viewer-inspector/inspector-panel";
 import type { ViewerState } from "../client";
 import type { Camera, RenderLayer, ViewerHead } from "../types";
 import { createSheetFacts, type SheetFacts } from "./facts";
-import { useHandedRef } from "./refs";
+import { useHandedRef } from "./use-handed-ref";
 
 /** A sheet nobody has learned anything about yet — nothing is marked, because nothing is known. */
 const EMPTY_FACTS: SheetFacts = createSheetFacts();

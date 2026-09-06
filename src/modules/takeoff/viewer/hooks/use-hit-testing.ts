@@ -11,7 +11,7 @@ import type { RefObject } from "react";
 import type { ViewerState } from "../client";
 import type { SpatialAnswer, SpatialAsk, SpatialRequest } from "../spatial.worker";
 import type { Camera, RenderLayer, ViewerHead } from "../types";
-import { useHandedRef } from "./refs";
+import { useHandedRef } from "./use-handed-ref";
 
 /** How near the pointer a record counts as under it, in pixels, when the index is asked. */
 const HIT_TOLERANCE_PX = 4;

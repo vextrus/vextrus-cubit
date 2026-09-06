@@ -13,7 +13,7 @@ import type { HoverFact } from "../../viewer-inspector/inspector-panel";
 import type { SpatialAsk } from "../spatial.worker";
 import type { Camera, ViewerHead } from "../types";
 import type { SheetFacts } from "./facts";
-import { useHandedRef } from "./refs";
+import { useHandedRef } from "./use-handed-ref";
 
 /** The wheel's own units into a zoom factor — one notch a small step, a trackpad flick a large one. */
 const WHEEL_ZOOM_RATE = 0.0015;

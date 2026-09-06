@@ -17,7 +17,7 @@ import { parseSelection } from "../../viewer-inspector/selection";
 import type { SelectedEntity } from "../../viewer-inspector/inspector-panel";
 import type { Camera, ViewerHead } from "../types";
 import { createSheetFacts, type SheetFacts } from "./facts";
-import { useHandedRef } from "./refs";
+import { useHandedRef } from "./use-handed-ref";
 
 export type UseSelectionOptions = {
   /** What each key of this sheet is. A key it does not hold is a key this sheet does not have. */

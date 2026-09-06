@@ -79,17 +79,12 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const feed = useCallback((query: string) => `/api/viewer/${drawingId}/${encodeURIComponent(sheetName)}?tenant=${encodeURIComponent(tenantId)}&${query}`, [drawingId, sheetName, tenantId]);
 
   /**
-   * The address this sheet was opened at, captured on the first client render rather than in an
-   * effect, so a camera published before the effects have run is written rather than dropped — and
-   * read again whenever the sheet changes, so an instance the framework keeps across a move to
-   * another drawing goes on publishing to the address it is now showing (R-UI-031).
+   * The address this sheet was opened at, captured as this ref is first made rather than in an
+   * effect, so a camera published before the effects have run is written rather than dropped. Read
+   * again whenever the sheet changes — that reading is an effect, and every effect of this screen is
+   * a hook's, so `useCamera` runs it over this ref (R-UI-031).
    */
-  const ownPathname = useRef("");
-  const shownSheet = useRef<string | null>(null);
-  if (shownSheet.current !== `${drawingId}/${layoutName}` && typeof window !== "undefined") {
-    shownSheet.current = `${drawingId}/${layoutName}`;
-    ownPathname.current = window.location.pathname;
-  }
+  const ownPathname = useRef(typeof window === "undefined" ? "" : window.location.pathname);
 
   /**
    * R-UI-031: the address is the camera and the selection, written by the one module that decides
@@ -122,7 +117,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const draw = useCallback((at: Camera): void => void painterRef.current?.draw(at, layers.stateRef.current), [layers.stateRef]);
   const pulse = useCallback((durationMs: number): void => void painterRef.current?.pulse(durationMs), []);
 
-  const camera = useCamera({ head: sheet.head, initialViewport, stageRef, cameraRef, draw, publish });
+  const camera = useCamera({ head: sheet.head, initialViewport, stageRef, cameraRef, draw, publish, ownPathname, sheetKey: `${drawingId}/${layoutName}` });
   const trace = useReveal({ head: sheet.head, stageRef, facts, cameraRef, moveCamera: camera.moveCamera, jumpTo: camera.jumpTo, pulse });
   const held = useSelection({ facts, head: sheet.head, initialSelection, initialViewport, loadedLayers: sheet.loadedLayers, failedCount: layers.failedCount, revision: layers.revision, reveal: trace.reveal, selectionRef, cameraRef, publish, drawingId, layoutName });
   const index = useHitTesting({ head: sheet.head, layers: arrived, loadedLayers: sheet.loadedLayers, stateRef: layers.stateRef, statusRef, cameraRef });

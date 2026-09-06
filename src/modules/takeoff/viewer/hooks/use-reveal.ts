@@ -13,7 +13,7 @@ import { unionBox } from "../../viewer-inspector/selection";
 import { fitCamera, type IndexBox } from "../client";
 import type { Camera, ViewerHead } from "../types";
 import type { SheetFacts } from "./facts";
-import { useHandedRef } from "./refs";
+import { useHandedRef } from "./use-handed-ref";
 
 /** The fly-to's duration when the token cannot be read at all — the token's own value (§ 4). */
 const FLYTO_FALLBACK_MS = 320;

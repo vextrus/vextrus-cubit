@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { cameraFromViewport, fitCamera, parseViewport, zoomCameraAt } from "../client";
 import type { Camera, ViewerHead } from "../types";
-import { useHandedRef } from "./refs";
+import { useHandedRef } from "./use-handed-ref";
 
 /** How long after the last gesture event the address is rewritten (Decision § 4's settle). */
 export const ADDRESS_SETTLE_MS = 150;
@@ -34,6 +34,10 @@ export type UseCameraOptions = {
   draw: (at: Camera) => void;
   /** Write this camera to the address. What that means is the address module's (B-17). */
   publish: (at: Camera) => void;
+  /** The address the sheet on screen is being shown at — what `publish` writes to (R-UI-031). */
+  ownPathname?: RefObject<string>;
+  /** Which sheet is on screen: a move to another one is a move to another address. */
+  sheetKey?: string;
 };
 
 export type UseCamera = {
@@ -48,10 +52,11 @@ export type UseCamera = {
   zoomBy: (factor: number) => void;
 };
 
-export function useCamera({ head, initialViewport, stageRef, cameraRef, draw, publish }: UseCameraOptions): UseCamera {
+export function useCamera({ head, initialViewport, stageRef, cameraRef, draw, publish, ownPathname, sheetKey }: UseCameraOptions): UseCamera {
   const [camera, setCamera] = useState<Camera | null>(null);
   const stage = useHandedRef(stageRef, null);
   const heldRef = useHandedRef(cameraRef, null);
+  const ownPath = useHandedRef(ownPathname, "");
   /** The settle a gesture's last frame is published on. */
   const settleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -104,6 +109,14 @@ export function useCamera({ head, initialViewport, stageRef, cameraRef, draw, pu
     publish(at);
     setCamera(at);
   }, [heldRef, publish]);
+
+  // The address the sheet on screen is being shown at, read again whenever the sheet changes: an
+  // instance the framework keeps across a move to another drawing or layout must publish to the
+  // address it is now on, never go on stamping the one it opened at (R-UI-031).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    ownPath.current = window.location.pathname;
+  }, [ownPath, sheetKey]);
 
   // An address that names no viewport opens the whole sheet, fitted to the box it is drawn into; one
   // that names a viewport is the camera the reader gets (R-UI-031).

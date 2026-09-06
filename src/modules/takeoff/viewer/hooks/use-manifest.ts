@@ -161,6 +161,10 @@ export function useManifest({ supplied, feed, onLayer, onLayerFailed, onDenied }
 
   const retryLayer = useCallback(
     (index: number, name: string): void => {
+      // A row the posture no longer holds names no place in the roster. Asking the feed for
+      // `index=-1` would spend a request to be told so and then report that answer as a fresh
+      // failure of a layer nobody is showing, which is news about nothing (R-UI-020).
+      if (index < 0) return;
       // The row keeps saying the layer is missing until it is not: clearing it on the ask would
       // report a second failure as a fix, and a sheet that quietly claims to hold what it does not
       // is the silence R-UI-020 forbids.
