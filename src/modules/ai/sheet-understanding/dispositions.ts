@@ -10,8 +10,11 @@
 // faults, not refusals (ARCH-03): no person can act differently in response to them, so there is no
 // remedy to show and no registry code to carry.
 import { DISPOSITIONS, and, desc, eq, forTenant, isUuid, modelCalls, sheetUnderstandingDispositions, type Disposition } from "../../../core/db";
-import type { ModelCallContext } from "../../../core/model";
+import type { ModelCallContext, ModelLedgerRow } from "../../../core/model";
 import { readingOf, type SheetReading } from "./law";
+
+/** How the ledger spells a call that answered, in the seam's own vocabulary rather than a second one. */
+const PROPOSED: ModelLedgerRow["outcome"] = "proposed";
 
 /** Which project's dispositions are being asked for, in whose workspace. */
 export type DispositionScope = { tenantId: string; projectId: string };
@@ -56,11 +59,16 @@ export async function recordDisposition(ctx: ModelCallContext, input: Dispositio
 
   return forTenant({ tenantId: ctx.tenantId }).transaction(async (tx) => {
     const [call] = await tx
-      .select({ callId: modelCalls.callId })
+      .select({ outcome: modelCalls.outcome })
       .from(modelCalls)
       .where(and(eq(modelCalls.tenantId, ctx.tenantId), eq(modelCalls.projectId, ctx.projectId), eq(modelCalls.callId, input.callId)));
     if (call === undefined) {
       throw new Error(`the model-call ledger holds no call ${input.callId} for project ${ctx.projectId} — a disposition answers a proposal that was made (L-AI-01)`);
+    }
+    // R-AI-001 records the disposition of a PROPOSAL. A refused call handed its caller no reading —
+    // a refusal marker carries the call id too — so there is nothing about it to accept or edit.
+    if (call.outcome !== PROPOSED) {
+      throw new Error(`call ${input.callId} was ${call.outcome} and proposed no reading — a disposition answers a proposal (L-AI-02)`);
     }
 
     const [written] = await tx
