@@ -41,8 +41,15 @@ const projectRow = cache(async (tenantId: string, userId: string, projectId: str
  */
 export async function generateMetadata({ params }: { params: Promise<{ tenant: string; project: string }> }) {
   const { tenant, project } = await params;
-  const session = await sessionOf(await presentedSessionToken());
+  const presented = await presentedSessionToken();
+  const session = await sessionOf(presented);
   if (session === null) return {};
+  // The same membership door the body asks, and for the same reason: metadata is resolved
+  // independently of what the layout renders, so a denial surface in the body would not stop a
+  // title from naming a project of a workspace this account does not hold. It also answers no
+  // membership for a segment that is no uuid, which is why nothing below reaches the tenant seam
+  // with one (SEAM-TENANT).
+  if ((await namedWorkspaceRead(presented, tenant)) === null) return {};
   const row = await projectRow(tenant, session.userId, project);
   return row === null ? {} : { title: row.name };
 }

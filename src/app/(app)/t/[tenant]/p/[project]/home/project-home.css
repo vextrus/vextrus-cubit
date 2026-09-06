@@ -108,6 +108,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
+  /* The reticle sits 4 px outside the element it marks (reticle.css) and a tab's box is exactly
+     `var(--space-8)` tall, so without this the row's hairline runs along the bottom brackets of a
+     focused tab and half the indicator reads as missing. R-UI-012's instrument is never optional,
+     so the row leaves it the clearance it needs. */
+  padding-block-end: var(--space-1);
   border-bottom: var(--hairline);
 }
 
@@ -232,6 +237,10 @@ a.cx-project-tab:hover {
 .cx-project-figures {
   display: flex;
   flex-wrap: wrap;
+  /* Two figures of one size, side by side, are read off one line: the tiles are aligned on the
+     figures' own baseline rather than on their tops, so nothing a unit badge does to the height of
+     the line box it sits in can lift one numeral above the other. */
+  align-items: baseline;
   gap: var(--space-6);
 }
 
