@@ -119,8 +119,9 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
  * configuration outage for the operator (R-SPINE-007) — see `canSendLinks` and `mail` in
  * src/server/auth/session.ts.
  *
- * This is the one place the deployment's environment is read, so the variable's name and the
- * normalisation of what it holds have one home (ARCH-02, B-17).
+ * The value itself comes from the product's one home for the environment (src/core/env.ts, ARCH-02,
+ * B-17); this is the one place in the tier that asks for it, so the normalisation of what it holds
+ * — an origin, or nothing — has one home too.
  */
 function configuredOrigin(): string | null {
   const configured = envValue(PUBLIC_ORIGIN_VAR);
