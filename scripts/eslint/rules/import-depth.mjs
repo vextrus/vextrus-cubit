@@ -10,8 +10,23 @@
 import { layerOf, targetOf } from "../lib/layers.mjs";
 import { specifierVisitors } from "../lib/specifiers.mjs";
 
-/** Three or more `../` segments, leading — the shape the alias replaces. */
-const DEEP_CLIMB = /^(?:\.\/)?(?:\.\.\/){3,}/;
+/**
+ * How many `..` segments a specifier opens with — the depth of its climb. A single leading `./`
+ * is read past, and the last segment counts whether or not a path follows it, so `"../../.."` is
+ * the same three-segment climb as `"../../../x"`.
+ * @param {string} specifier
+ * @returns {number}
+ */
+function leadingClimb(specifier) {
+  const segments = specifier.split("/");
+  let at = segments[0] === "." ? 1 : 0;
+  let depth = 0;
+  while (segments[at] === "..") {
+    depth += 1;
+    at += 1;
+  }
+  return depth;
+}
 
 /** @type {import("eslint").Rule.RuleModule} */
 export default {
@@ -26,11 +41,10 @@ export default {
   create(context) {
     if (layerOf(context.filename) === null) return {};
     return specifierVisitors(context, ({ value, node }) => {
-      const climb = DEEP_CLIMB.exec(value);
-      if (climb === null) return;
+      const depth = leadingClimb(value);
+      if (depth < 3) return;
       const to = targetOf(value, context.filename);
       if (to === null) return;
-      const depth = (climb[0].match(/\.\.\//g) ?? []).length;
       context.report({ node, messageId: "depth", data: { specifier: value, depth: String(depth), target: to.path } });
     });
   },
