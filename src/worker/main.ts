@@ -2,7 +2,7 @@
 // codebase, told where its database and its health port are through the environment. Everything it
 // does is in `runtime.ts`; this file is the process around it: the environment it reads, the three
 // contract lines an operator (and a supervisor) reads its life off, and the signal that drains it.
-import { envErrorOf, validateEnv } from "../core/env";
+import { envErrorOf, envUnusableOf, validateEnv } from "../core/env";
 import { reportFault } from "../core/faults/report";
 import { runWorker, type Worker } from "./runtime";
 
@@ -58,12 +58,17 @@ function drainOn(worker: Worker): void {
  * Start the worker, promise to be up, and wait for the signal that ends it.
  *
  * The whole environment declaration is read once, here, before anything is dialled: a worker whose
- * machine did not give it what it needs refuses to start and says which name, rather than coming up
- * and failing on the first job it takes.
+ * machine did not give it what IT requires refuses to start and says which name, rather than coming
+ * up and failing on the first job it takes.
  */
 async function main(): Promise<void> {
   const verdict = validateEnv(TIER);
   if (!verdict.ok) throw envErrorOf(TIER, verdict);
+  // A name this process does not require, stated unusably, belongs in the operator's record but
+  // stops nothing here: whichever seam reads it keeps its own default (ARCH-03).
+  if (verdict.invalid.length > 0) {
+    reportFault({ requestId: process.pid.toString(), actor: "worker", route: WORKER_ROUTE, cause: envUnusableOf(TIER, verdict.invalid) });
+  }
   const worker = await runWorker({ databaseUrl: verdict.env.DATABASE_URL, healthPort: verdict.env.WORKER_HEALTH_PORT });
   drainOn(worker);
   await say(READY);

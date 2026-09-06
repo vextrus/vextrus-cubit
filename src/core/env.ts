@@ -91,17 +91,26 @@ export const ENV_DECLARATION: readonly EnvEntry[] = Object.freeze(DECLARED.map((
  */
 export type EnvValues<T extends Tier = Tier> = { readonly [N in EnvName]?: EnvTypes[N] } & { readonly [N in RequiredFor<T>]: EnvTypes[N] };
 
-/** What `validateEnv` answers. A verdict, never a throw: the caller owns what a failure means. */
-export type EnvVerdict<T extends Tier = Tier> = { ok: true; env: EnvValues<T> } | { ok: false; missing: readonly EnvName[]; invalid: readonly EnvName[] };
+/**
+ * What `validateEnv` answers. A verdict, never a throw: the caller owns what a failure means.
+ *
+ * `ok` says whether THIS tier may start, so a name it does not require is never what stops it. Such
+ * a name is still reported — the `ok` arm carries the same `invalid` list — because a value the
+ * machine got wrong is wrong for whoever reads it later, and the tier that saw it is the one that
+ * can tell the operator (C-05, AS-01).
+ */
+export type EnvVerdict<T extends Tier = Tier> =
+  | { ok: true; env: EnvValues<T>; invalid: readonly EnvName[] }
+  | { ok: false; missing: readonly EnvName[]; invalid: readonly EnvName[] };
 
-/** A failed verdict, as an error whose message names every variable that failed. */
+/** An environment verdict as an error whose message names every variable that failed. */
 export class EnvError extends Error {
   readonly tier: Tier;
   readonly missing: readonly EnvName[];
   readonly invalid: readonly EnvName[];
 
-  constructor(tier: Tier, missing: readonly EnvName[], invalid: readonly EnvName[]) {
-    super(messageFor(tier, missing, invalid));
+  constructor(message: string, tier: Tier, missing: readonly EnvName[], invalid: readonly EnvName[]) {
+    super(message);
     this.name = "EnvError";
     this.tier = tier;
     this.missing = missing;
@@ -110,21 +119,33 @@ export class EnvError extends Error {
 }
 
 /**
- * The one line an operator gets: which tier could not start, which names it was not given, and
- * which names it was given something unusable for. Each clause is present only when it has names,
- * and every name is spelled literally — a message that summarised would leave the operator guessing
- * which variable to go and set (B-21).
+ * The offenders, as one clause an operator can act on: which names were not set and which were
+ * given something unusable. Each clause is present only when it has names, and every name is
+ * spelled literally — a message that summarised would leave the operator guessing which variable to
+ * go and set (B-21).
  */
-function messageFor(tier: Tier, missing: readonly EnvName[], invalid: readonly EnvName[]): string {
+function offendersOf(missing: readonly EnvName[], invalid: readonly EnvName[]): string {
   const clauses: string[] = [];
   if (missing.length > 0) clauses.push(`not set: ${missing.join(", ")}`);
   if (invalid.length > 0) clauses.push(`malformed: ${invalid.join(", ")}`);
-  return `the ${tier} tier cannot start with the environment as it stands — ${clauses.join("; ")} (AS-01)`;
+  return clauses.join("; ");
 }
 
 /** The error a boot root records and refuses with when its tier's environment does not hold up. */
 export function envErrorOf(tier: Tier, verdict: { missing: readonly EnvName[]; invalid: readonly EnvName[] }): EnvError {
-  return new EnvError(tier, verdict.missing, verdict.invalid);
+  const message = `the ${tier} tier cannot start with the environment as it stands — ${offendersOf(verdict.missing, verdict.invalid)} (AS-01)`;
+  return new EnvError(message, tier, verdict.missing, verdict.invalid);
+}
+
+/**
+ * The outage a boot root records for a name it started WITHOUT: the machine stated something the
+ * shape cannot use, this tier does not require the name, so the seam that reads it falls back to
+ * its own default and the tier comes up. An operator still owns the mistake, and a tier that swallowed
+ * it would be the one log line B-21 rules out (ARCH-03).
+ */
+export function envUnusableOf(tier: Tier, invalid: readonly EnvName[]): EnvError {
+  const message = `the ${tier} tier started on its own defaults for names it does not require — ${offendersOf([], invalid)} (AS-01)`;
+  return new EnvError(message, tier, [], invalid);
 }
 
 /**
@@ -145,7 +166,8 @@ export function envValue(name: EnvName, source: EnvSource = process.env): string
  *
  * A name the tier requires and the source does not state is `missing`; a name the source states and
  * the shape rejects is `invalid`, whether or not that tier requires it — a value the machine got
- * wrong is wrong for whoever reads it later. `requiredOutsideDev` is not enforced here: it is
+ * wrong is wrong for whoever reads it later. What makes the verdict not `ok` is narrower than what
+ * it reports: only a name this tier is declared to require. `requiredOutsideDev` is not enforced here: it is
  * declared for the operator and for `pnpm checkup` to read (V-CHECKUP), and enforcing it would need
  * a deployment-mode signal this tier does not have.
  */
@@ -153,11 +175,12 @@ export function validateEnv<T extends Tier>(tier: T, source: EnvSource = process
   const values: Record<string, unknown> = {};
   const missing: EnvName[] = [];
   const invalid: EnvName[] = [];
+  const requiredNames = new Set(ENV_DECLARATION.filter((entry) => entry.requiredBy.includes(tier)).map((entry) => entry.name));
 
   for (const entry of ENV_DECLARATION) {
     const stated = envValue(entry.name, source);
     if (stated === undefined) {
-      if (entry.requiredBy.includes(tier)) missing.push(entry.name);
+      if (requiredNames.has(entry.name)) missing.push(entry.name);
       continue;
     }
     const parsed = entry.shape.safeParse(stated);
@@ -165,9 +188,10 @@ export function validateEnv<T extends Tier>(tier: T, source: EnvSource = process
     else invalid.push(entry.name);
   }
 
-  if (missing.length > 0 || invalid.length > 0) return { ok: false, missing, invalid };
+  const blocking = invalid.filter((name) => requiredNames.has(name));
+  if (missing.length > 0 || blocking.length > 0) return { ok: false, missing, invalid };
   // Each entry parses its own name's value to that name's declared type, which is what `DECLARED`
   // being read with its literal types makes true; the loop above cannot carry that per-name fact in
   // its own types, and this is the whole of the assertion.
-  return { ok: true, env: values as EnvValues<T> };
+  return { ok: true, env: values as EnvValues<T>, invalid };
 }

@@ -8,7 +8,7 @@
 //
 // The tree has no middleware or proxy file, so Next registers only the nodejs runtime; nothing here
 // branches on which runtime it is in.
-import { envErrorOf, validateEnv } from "./core/env";
+import { envErrorOf, envUnusableOf, validateEnv } from "./core/env";
 import { reportFault } from "./core/faults/report";
 
 /** The tier this file boots, as the declaration names it. */
@@ -21,14 +21,20 @@ export const WEB_BOOT_ROUTE = "web/instrumentation";
 const ACTOR = "web";
 
 /**
- * Validate the environment once, and refuse to start if it does not hold up. Nothing is dialled and
- * no connection is opened: this is a read of the machine's own answer, so a boot that is going to
- * fail on configuration fails before it has taken a socket out.
+ * Validate the environment once, and refuse to start if a name this tier requires is missing or
+ * malformed. Nothing is dialled and no connection is opened: this is a read of the machine's own
+ * answer, so a boot that is going to fail on configuration fails before it has taken a socket out.
  */
 export async function register(): Promise<void> {
   const verdict = validateEnv(TIER);
-  if (verdict.ok) return;
-  const failure = envErrorOf(TIER, verdict);
-  reportFault({ requestId: process.pid.toString(), actor: ACTOR, route: WEB_BOOT_ROUTE, cause: failure });
-  throw failure;
+  if (!verdict.ok) {
+    const failure = envErrorOf(TIER, verdict);
+    reportFault({ requestId: process.pid.toString(), actor: ACTOR, route: WEB_BOOT_ROUTE, cause: failure });
+    throw failure;
+  }
+  // A name this tier does not require, stated unusably, is the operator's to correct and nobody
+  // else's: the seam that reads it keeps its own default and the tier comes up (ARCH-03).
+  if (verdict.invalid.length > 0) {
+    reportFault({ requestId: process.pid.toString(), actor: ACTOR, route: WEB_BOOT_ROUTE, cause: envUnusableOf(TIER, verdict.invalid) });
+  }
 }
