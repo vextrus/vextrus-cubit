@@ -83,6 +83,48 @@ records the gap: a future increment owes `global-error.tsx` the same two stylesh
 `data-theme="light"` server attribute and the same `THEME_RESOLVER` as body's first child — or a
 ruling that an outage screen deliberately stands on UA defaults.
 
+The product's Content-Security-Policy leaves that gap where it is, and the measuring is worth
+recording because the answer is not the one the shape of the policy suggests. `script-src` admits no
+inline script but the pre-paint resolver, by the digest of its own source, and Next's own runtime
+bootstraps, by a nonce the renderer stamps on per request. Every route now renders per request, so
+every route's bootstraps are nonce-stamped — and the outage path is one of them: a throw driven
+inside `RootLayout` on the built product answers 500 with a per-request `<html id="__next_error__">`
+shell whose eight scripts all carry that response's own nonce. `global-error.tsx` is a client
+boundary, so the error state it holds arrives on hydration, and hydration is admitted. The policy
+does not break the outage screen.
+
+One document does stay frozen, and it is not that path. The build exports the global-error shell and
+copies it to `pages/500.html` — the two are byte-identical, and the pages manifest is exactly
+`{"/500": "pages/500.html"}` — the server-error document Next falls back to when a request cannot be
+rendered at all. Its single `self.__next_f` bootstrap carries no nonce, so under this policy that
+copy is refused and the document can never become anything but what it already says statically:
+Next's own built-in screen, whose words are "This page couldn't load" and in which
+`data-testid="error-state"` appears nowhere. Its being a framework screen is the gap recorded above,
+not a consequence of the policy; what the policy adds is that this frozen copy has lost even the
+theoretical possibility of hydrating into the product's error state.
+
+What the policy does put on the record is a dependency, and it is the reason the paragraphs above
+are worth their length. `src/app/error.tsx` commits its alert region empty and fills it in an
+effect, so that assistive technology meets a CHANGE inside a region it is already watching (Q-11) —
+which means the outage screen shows nothing until it hydrates. Without that second commit the
+document is `<main data-testid="error-state">` around an empty
+`<section role="alert" aria-labelledby="error-state-title">`: a label pointing at an id that never
+renders, with the one remedy, the retry button wired to `reset()`, never appearing. ARCH-03 and B-21
+name that outcome in the words at the top of `error.tsx` — an outage renders the product's own error
+state, "never a blank page and never a framework screen" — and under this policy the product only
+stays on the right side of it while the outage path renders per request and its bootstraps are
+nonce-stamped. So the future increment that closes the gap above owes, besides the two stylesheets
+and the resolver, either that whatever document it fixes stays inside the per-request render, or
+that the outage's copy and remedy are server-rendered — so that the most severe surface in the
+product reads without depending on a script at all.
+
+**What the policy asks of this document.** The resolver stays inline and stays body's first child;
+it is admitted by `'sha256-…'`, never by loosening `script-src`, so its text is fixed by its digest
+and any edit to it moves the policy in the same commit (the digest has one home,
+`THEME_RESOLVER_SHA256`). The inline `style` attributes this Decision specifies are why `style-src`
+keeps `'unsafe-inline'`. And `RootLayout` remains a **synchronous** default export: the per-request
+render is bought with a segment config, not with a `headers()` read.
+
 ### Theme resolution (the mechanism this file is required to record)
 
 The server renders `data-theme="light"` — light is the product's default, never a guess about
