@@ -26,21 +26,25 @@ const ROSTER = [
 const ACTED_ON = 1;
 
 type LayerRow = { name: string; visible: boolean; drawn: boolean; locked: boolean; isolated: boolean; failed: boolean; entityCount: number };
+type ViewerState = { entityCount: () => number; drawnEntityCount: () => number; layerRows: () => LayerRow[] };
 type LayersHook = {
+  /** The one home for "which layers may not answer a question" — every asker calls it (B-17). */
+  shutLayersOf: (state: unknown, takeable: boolean) => string[];
   useLayers: (options: { head: unknown }) => {
     rows: LayerRow[];
     revision: number;
     failedCount: number;
     drawnLayers: string;
     openLayers: () => string[];
-    shutLayers: (takeable: boolean) => string[];
     markFailed: (name: string, failed: boolean) => void;
     setVisible: (name: string, visible: boolean) => void;
     isolate: (name: string) => void;
     lock: (name: string, locked: boolean) => void;
-    state: { entityCount: () => number; drawnEntityCount: () => number };
+    state: ViewerState;
   };
 };
+
+let shutLayersOf: LayersHook["shutLayersOf"];
 
 /** A head carrying this roster — a fresh object each time, so "a new head" is one. */
 function head(): unknown {
@@ -63,7 +67,8 @@ function head(): unknown {
 const acted = (ROSTER[ACTED_ON] as (typeof ROSTER)[number]).name;
 
 async function mount() {
-  const { useLayers } = await productModule<LayersHook>(USE_LAYERS_MODULE);
+  const { useLayers, ...posture } = await productModule<LayersHook>(USE_LAYERS_MODULE);
+  ({ shutLayersOf } = posture);
   return renderHook(({ given }: { given: unknown }) => useLayers({ head: given }), { initialProps: { given: head() } });
 }
 
@@ -81,7 +86,7 @@ describe("the layers' posture", () => {
     ).toEqual(ROSTER.map((layer) => [layer.name, layer.entityCount]));
     expect(result.current.drawnLayers.split("\n"), "a sheet nobody has touched is drawn whole").toEqual(ROSTER.map((layer) => layer.name));
     expect(result.current.openLayers(), "and every layer of it may be taken from").toEqual(ROSTER.map((layer) => layer.name));
-    expect(result.current.shutLayers(true), "with nothing shut out of a question").toEqual([]);
+    expect(shutLayersOf(result.current.state, true), "with nothing shut out of a question").toEqual([]);
     expect(result.current.state.entityCount(), "the sheet counts what its roster says it holds").toBe(
       ROSTER.reduce((total, layer) => total + layer.entityCount, 0),
     );
@@ -112,8 +117,8 @@ describe("the layers' posture", () => {
     act(() => result.current.lock(acted, true));
     expect(result.current.rows.find((row) => row.name === acted)?.drawn, "a locked layer is still painted").toBe(true);
     expect(result.current.openLayers(), "but a rectangle may not take from it").not.toContain(acted);
-    expect(result.current.shutLayers(true), "and a click is told so").toContain(acted);
-    expect(result.current.shutLayers(false), "while a question that takes nothing may still read it").not.toContain(acted);
+    expect(shutLayersOf(result.current.state, true), "and a click is told so").toContain(acted);
+    expect(shutLayersOf(result.current.state, false), "while a question that takes nothing may still read it").not.toContain(acted);
   });
 
   test("a layer that never arrived stays marked across the posture a new head rebuilds", async () => {

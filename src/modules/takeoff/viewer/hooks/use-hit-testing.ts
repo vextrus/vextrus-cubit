@@ -7,8 +7,10 @@
  * ever keep: a caller is owed an answer, and "no keys" is one (ARCH-03).
  */
 import { useCallback, useEffect, useRef } from "react";
+import type { ViewerState } from "../client";
 import type { SpatialAnswer, SpatialAsk, SpatialRequest } from "../spatial.worker";
 import type { Camera, RenderLayer, ViewerHead } from "../types";
+import { shutLayersOf } from "./use-layers";
 
 /** How near the pointer a record counts as under it, in pixels, when the index is asked. */
 export const HIT_TOLERANCE_PX = 4;
@@ -18,8 +20,8 @@ export interface HitTestingOptions {
   cameraRef: { current: Camera | null };
   /** The readout the round trip and the number of keys are published on (Decision § 7). */
   statusRef: { current: HTMLElement | null };
-  /** The layers that may not answer a question, by whether the asking is a taking (Decision § 1). */
-  shutLayers: (takeable: boolean) => readonly string[];
+  /** The layers' posture: which of them may answer a question travels with it (Decision § 1). */
+  stateRef: { current: ViewerState };
   /**
    * The index's own thread. It is handed in where there is no `Worker` to make one from — a hook
    * under jsdom — and made here otherwise, so the sheet's own worker is the one thing this seam is.
@@ -38,7 +40,7 @@ export interface HitTesting {
   terminate: () => void;
 }
 
-export function useHitTesting({ head, cameraRef, statusRef, shutLayers, spawn }: HitTestingOptions): HitTesting {
+export function useHitTesting({ head, cameraRef, statusRef, stateRef, spawn }: HitTestingOptions): HitTesting {
   const workerRef = useRef<Worker | null>(null);
   /** Every layer that has arrived, and the ones the index has already been told about. */
   const arrivedRef = useRef<Map<string, RenderLayer>>(new Map());
@@ -88,11 +90,11 @@ export function useHitTesting({ head, cameraRef, statusRef, shutLayers, spawn }:
       const at = cameraRef.current;
       if (at === null) return Promise.resolve([]);
       askedAtRef.current = performance.now();
-      // The postures travel with the question: the index holds the whole sheet, and a layer the
-      // reader locked or is not looking at may not answer for it (Decision § 1, I-87).
-      return ask({ kind: "hit", point: world, tolerance: HIT_TOLERANCE_PX / at.scale, lockedLayers: shutLayers(takeable) });
+      // How near counts is a distance on the paper, not on the screen, so the tolerance is the
+      // camera's own (PB-3); which layers may answer is the posture's own (B-17).
+      return ask({ kind: "hit", point: world, tolerance: HIT_TOLERANCE_PX / at.scale, lockedLayers: shutLayersOf(stateRef.current, takeable) });
     },
-    [ask, cameraRef, shutLayers],
+    [ask, cameraRef, stateRef],
   );
 
   const terminate = useCallback((): void => {

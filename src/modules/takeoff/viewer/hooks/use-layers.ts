@@ -11,6 +11,20 @@ import { useCallback, useMemo, useReducer, useRef } from "react";
 import { createViewerState, type LayerRow, type ViewerState } from "../client";
 import type { ViewerHead } from "../types";
 
+/**
+ * The layers that may not answer a question, by whether the asking is a taking. The postures travel
+ * with the question (Decision § 1): the index holds the whole sheet, and a layer the reader locked
+ * or is not looking at may not answer for it. A locked layer is painted and out of the hit-test; a
+ * layer that is not drawn is not there to point at, and a selection a reader cannot see is a
+ * copyable list of ghosts (I-87). One home, for every question that carries it (B-17).
+ */
+export function shutLayersOf(state: ViewerState, takeable: boolean): string[] {
+  return state
+    .layerRows()
+    .filter((row) => (takeable && row.locked) || !row.drawn)
+    .map((row) => row.name);
+}
+
 export interface LayerPostureOptions {
   head: ViewerHead | null;
 }
@@ -31,8 +45,6 @@ export interface LayerPosture {
   drawnLayers: string;
   /** The layers a rectangle or a click may take from: drawn, and not locked out of the hit-test. */
   openLayers: () => string[];
-  /** The layers that may not answer a question: locked where it is takeable, and undrawn always. */
-  shutLayers: (takeable: boolean) => string[];
   /** A layer's geometry did not arrive, or arrived after all: the row says so, and stays (I-81). */
   markFailed: (name: string, failed: boolean) => void;
   setVisible: (name: string, visible: boolean) => void;
@@ -61,19 +73,6 @@ export function useLayers({ head }: LayerPostureOptions): LayerPosture {
       stateRef.current
         .layerRows()
         .filter((row) => row.drawn && !row.locked)
-        .map((row) => row.name),
-    [],
-  );
-
-  const shutLayers = useCallback(
-    (takeable: boolean): string[] =>
-      // The postures travel with the question (Decision § 1): the index holds the whole sheet, and a
-      // layer the reader locked or is not looking at may not answer for it. A locked layer is
-      // painted and out of the hit-test; a layer that is not drawn is not there to point at, and a
-      // selection a reader cannot see is a copyable list of ghosts (I-87).
-      stateRef.current
-        .layerRows()
-        .filter((row) => (takeable && row.locked) || !row.drawn)
         .map((row) => row.name),
     [],
   );
@@ -113,7 +112,6 @@ export function useLayers({ head }: LayerPostureOptions): LayerPosture {
     failedCount: failedRef.current.size,
     drawnLayers,
     openLayers,
-    shutLayers,
     markFailed,
     setVisible,
     isolate,

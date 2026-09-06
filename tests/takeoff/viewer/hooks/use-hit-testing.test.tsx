@@ -34,7 +34,7 @@ type HitTestingHook = {
     head: unknown;
     cameraRef: { current: unknown };
     statusRef: { current: HTMLElement | null };
-    shutLayers: (takeable: boolean) => readonly string[];
+    stateRef: { current: unknown };
     spawn?: () => Worker;
   }) => {
     ask: (request: unknown) => Promise<string[]>;
@@ -88,7 +88,12 @@ let HIT_TOLERANCE_PX: number;
 let index: ReturnType<typeof standUpIndex>;
 let status: HTMLDivElement;
 let spawn: () => Worker;
-let shutLayers: (takeable: boolean) => readonly string[];
+/** The posture the questions are asked under: one layer of the roster is locked, none is hidden. */
+const stateRef = {
+  current: {
+    layerRows: () => ROSTER.map((name) => ({ name, drawn: true, locked: name === LOCKED, visible: true, isolated: false, failed: false })),
+  },
+};
 
 /** The one head the sheet settles on, made once so a re-render is not a second sheet. */
 const SHEET = head();
@@ -96,7 +101,7 @@ const SHEET = head();
 async function mount() {
   const module = await productModule<HitTestingHook>(USE_HIT_TESTING_MODULE);
   HIT_TOLERANCE_PX = module.HIT_TOLERANCE_PX;
-  return renderHook(({ given }: { given: unknown }) => module.useHitTesting({ head: given, cameraRef: { current: CAMERA }, statusRef: { current: status }, shutLayers, spawn }), {
+  return renderHook(({ given }: { given: unknown }) => module.useHitTesting({ head: given, cameraRef: { current: CAMERA }, statusRef: { current: status }, stateRef, spawn }), {
     initialProps: { given: null as unknown },
   });
 }
@@ -116,7 +121,6 @@ beforeEach(() => {
   status = document.createElement("div");
   document.body.append(status);
   spawn = () => index as unknown as Worker;
-  shutLayers = (takeable) => (takeable ? [LOCKED] : []);
 });
 
 afterEach(() => {

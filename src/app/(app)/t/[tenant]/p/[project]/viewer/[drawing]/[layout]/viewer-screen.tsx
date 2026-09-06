@@ -106,7 +106,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   );
 
   const camera = useCamera({ head, initialViewport, stageRef, cameraRef, draw: painter.draw, publish });
-  const hits = useHitTesting({ head, cameraRef, statusRef, shutLayers: layers.shutLayers });
+  const hits = useHitTesting({ head, cameraRef, statusRef, stateRef: layers.stateRef });
   const held = useSelection({
     head, drawingId, layoutName, initialSelection, initialViewport, cameraRef, draw: painter.draw, republish: camera.republish,
     loadedLayers: manifest.loadedLayers, failedCount: layers.failedCount, revision: layers.revision,
