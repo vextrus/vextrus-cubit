@@ -2,31 +2,31 @@
 // and lands back inside the layered tree is a lint error, the tree is rewritten to the `@/` alias
 // that replaces those climbs, and every vitest lane resolves that alias.
 //
-// The rule is judged the way the tree judges its other NEVERs (tests/toolchain/lint-law.test.ts and
-// tests/lint/no-model-outside-seam.test.ts): the product's own `eslint.config.mjs` is loaded and
-// driven — over `lintText` at virtual paths for the payloads, and over `lintFiles` for the real
-// tree — so what is asserted is what `pnpm exec eslint src` would report, not what a hand-built
-// config would.
+// Everything here is observed by driving the product: the tree's own `eslint.config.mjs` is loaded
+// and run — over `lintText` at virtual paths for the committed payloads, over `lintFiles` for the
+// real tree — so what is asserted is what `pnpm exec eslint src` would report, never what a
+// hand-built config would. What the rewritten tree imports is read the same way: through the
+// product's own specifier reader (scripts/eslint/lib/specifiers.mjs), mounted beside the shipped
+// config as a probe rule, so the specifiers judged are exactly the ones a rule sees — not strings
+// found in a file.
 //
 // This file sits in tests/lint/ rather than tests/toolchain/: C-06 locks tests/toolchain/** to the
 // files an increment's spec names, and this increment names none there.
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { isAbsolute, join, posix, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, test } from "vitest";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const requireFromRoot = createRequire(join(REPO_ROOT, "noop.cjs"));
-/** The compiler the tree already pins: a fixture's claims are read from its syntax, never its text. */
-const ts = requireFromRoot("typescript") as typeof import("typescript");
-type SyntaxNode = import("typescript").Node;
 
 const RULE_NAME = "import-depth";
 const RULE_ID = `cubit/${RULE_NAME}`;
 const BOUNDARIES_ID = "cubit/boundaries";
 const CONFIG_FILE = "eslint.config.mjs";
 const PLUGIN_FILE = "scripts/eslint/index.mjs";
+const SPECIFIERS_FILE = "scripts/eslint/lib/specifiers.mjs";
 const CORPUS_ROOT = "tests/lint-fixtures";
 const CORPUS = `${CORPUS_ROOT}/${RULE_NAME}`;
 const MARKER = "RECORDED REASON";
@@ -40,7 +40,9 @@ const FIXTURES = {
 
 /** The layered path a payload is read at unless a test names another one. */
 const PROBE = "src/modules/spine/deep/probe.ts";
-/** The climb the rule refuses: three `../` segments from PROBE land on `src/`, so the target is inside the tree. */
+/** A path outside the layered tree, where the rule is bound but must stay silent. */
+const OUTSIDE = "db/probe.ts";
+/** The climb the rule refuses: three `../` from a `…/deep/` file land on `src/`, inside the tree. */
 const CLIMB = "../../../core/x";
 
 /** The vitest lanes that must resolve the alias the rewrite spells, and whether their root is the repo's. */
@@ -69,6 +71,12 @@ interface ConfigBlock {
   readonly files?: readonly string[];
   readonly rules?: Readonly<Record<string, unknown>>;
 }
+/** What ESLint hands a rule, of which the probe below needs only the file it is visiting. */
+interface ProbeContext {
+  readonly filename: string;
+}
+/** The product's own specifier reader: every shape a module specifier can take, offered once each. */
+type SpecifierVisitors = (context: ProbeContext, report: (specifier: { readonly value: string }) => void) => Record<string, unknown>;
 /** A vite/vitest alias, in either spelling the tool accepts. */
 type AliasEntry = { find: string | RegExp; replacement: string };
 type AliasConfig = Readonly<Record<string, string>> | readonly AliasEntry[] | undefined;
@@ -76,17 +84,25 @@ interface LaneConfig {
   readonly resolve?: { readonly alias?: AliasConfig };
   readonly test?: { readonly alias?: AliasConfig };
 }
+/** A module specifier the src tree hands to a module-loading construct, and the file that spells it. */
+interface Sighting {
+  readonly file: string;
+  readonly value: string;
+}
 
+let ESLintCtor: LinterCtor;
 let linter: Linter;
 let config: readonly ConfigBlock[] = [];
 let cubitRuleNames: readonly string[] = [];
+let specifierVisitors: SpecifierVisitors;
 
 beforeAll(() => {
-  const { ESLint } = requireFromRoot("eslint") as { ESLint: LinterCtor };
+  ESLintCtor = (requireFromRoot("eslint") as { ESLint: LinterCtor }).ESLint;
   config = (requireFromRoot(join(REPO_ROOT, CONFIG_FILE)) as { default: readonly ConfigBlock[] }).default;
-  linter = new ESLint({ cwd: REPO_ROOT, overrideConfigFile: true, overrideConfig: config });
+  linter = new ESLintCtor({ cwd: REPO_ROOT, overrideConfigFile: true, overrideConfig: config });
   const plugin = requireFromRoot(join(REPO_ROOT, PLUGIN_FILE)) as { cubit: { rules: Readonly<Record<string, unknown>> } };
   cubitRuleNames = Object.keys(plugin.cubit.rules);
+  specifierVisitors = (requireFromRoot(join(REPO_ROOT, SPECIFIERS_FILE)) as { specifierVisitors: SpecifierVisitors }).specifierVisitors;
 }, 120_000);
 
 /** @returns everything the product's config reports for this source read at this layered path. */
@@ -105,6 +121,10 @@ function spelled(messages: readonly LintMessage[]): string {
   return messages.map((message) => `${message.ruleId ?? "(parse)"}@${message.line}`).join(", ");
 }
 
+function importing(specifier: string, binding = "x"): string {
+  return `import { ${binding} } from "${specifier}";\nexport const used${binding} = ${binding};\n`;
+}
+
 /**
  * The block of the flat config that governs the layered tree, found by the ARCH-01 rule it already
  * binds rather than by its position — a block that moves is still the same block.
@@ -113,59 +133,45 @@ function sourceBlock(): ConfigBlock | undefined {
   return config.find((block) => block.rules?.[BOUNDARIES_ID] !== undefined);
 }
 
-/** A module specifier at a real specifier site. */
-interface SpecifierSite {
-  readonly text: string;
-  readonly line: number;
-}
-
 /**
- * @returns every specifier a source actually hands to a module-loading construct — static import
- * and re-export sources, `import()`, `require()` and `import x = require()`. Prose that spells the
- * same string is not a specifier and does not appear here: what a fixture claims is read from its
- * syntax, never from its text.
+ * Every module specifier the src tree actually hands to a module-loading construct — import,
+ * re-export, `import()`, `require()` and the rest — collected by mounting a probe rule beside the
+ * shipped config and letting ESLint walk the tree. The reader is the product's own
+ * (scripts/eslint/lib/specifiers.mjs, the one `cubit/import-depth` reads), so a specifier spelled in
+ * a comment or in an unrelated string is not one of these, and a specifier at a site the rule cannot
+ * see is not one either.
  */
-function specifierSites(source: string, fileName: string): readonly SpecifierSite[] {
-  const tree = ts.createSourceFile(fileName, source, ts.ScriptTarget.ESNext, true, fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-  const sites: SpecifierSite[] = [];
-  const record = (node: SyntaxNode | undefined): void => {
-    if (node === undefined || !ts.isStringLiteralLike(node)) return;
-    sites.push({ text: node.text, line: tree.getLineAndCharacterOfPosition(node.getStart(tree)).line + 1 });
+async function specifiersUnderSrc(): Promise<readonly Sighting[]> {
+  const seen: Sighting[] = [];
+  const probe = {
+    meta: { type: "problem", schema: [] as readonly unknown[] },
+    create(context: ProbeContext): Record<string, unknown> {
+      return specifierVisitors(context, (specifier) => {
+        seen.push({ file: context.filename, value: specifier.value });
+      });
+    },
   };
-  const walk = (node: SyntaxNode): void => {
-    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) record(node.moduleSpecifier);
-    else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) record(node.moduleReference.expression);
-    else if (ts.isCallExpression(node)) {
-      const callee = node.expression;
-      if (callee.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(callee) && callee.text === "require")) record(node.arguments[0]);
-    }
-    ts.forEachChild(node, walk);
-  };
-  walk(tree);
-  return sites;
-}
-
-/** @returns true when this specifier is the shape the rule refuses: three or more `../`, landing inside src/. */
-function climbsIntoSrc(specifier: string, fromVirtualPath: string): boolean {
-  if (!/^(\.\.\/){3,}/.test(specifier)) return false;
-  return posix.normalize(posix.join(posix.dirname(fromVirtualPath), specifier)).startsWith("src/");
+  const probing = new ESLintCtor({
+    cwd: REPO_ROOT,
+    overrideConfigFile: true,
+    overrideConfig: [
+      ...config,
+      { files: ["src/**/*.ts", "src/**/*.tsx"], plugins: { probe: { rules: { collect: probe } } }, rules: { "probe/collect": "error" } },
+    ],
+  });
+  await probing.lintFiles([join(REPO_ROOT, "src")]);
+  return seen;
 }
 
 /** @returns a corpus fixture's source — a fixture not yet committed fails as an assertion naming it. */
 function readFixture(path: string): string {
   expect(existsSync(join(REPO_ROOT, path)), `${path} is missing — the rule has no committed proof`).toBe(true);
+  // white-box: AC-1 — the fixture's text is the LINTER'S INPUT, not the assertion: the flat config
+  // ignores tests/lint-fixtures/**, so lintText at the fixture's virtual path is the only surface
+  // that can see the committed corpus (tests/toolchain/lint-law.test.ts reads it exactly this way).
+  // The one property of the text asserted below is Q-08's own — the `// RECORDED REASON` marker on a
+  // reported line, which has no runtime observable at all.
   return readFileSync(join(REPO_ROOT, path), "utf8");
-}
-
-/** @returns every `.ts`/`.tsx` file under a directory of the checkout, absolute, in a stable order. */
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir)
-    .sort()
-    .flatMap((entry) => {
-      const abs = join(dir, entry);
-      if (statSync(abs).isDirectory()) return sourceFiles(abs);
-      return abs.endsWith(".ts") || abs.endsWith(".tsx") ? [abs] : [];
-    });
 }
 
 /** @returns the alias table a lane's config declares, in whichever of the two homes it uses. */
@@ -192,27 +198,29 @@ function applyAlias(entries: readonly AliasEntry[], specifier: string): { rewrit
 
 describe("AC-1: the rule exists, is bound, and fires", () => {
   test("AC-1: a three-`../` climb into src/ reports cubit/import-depth through the shipped config", async () => {
-    const messages = await depthRule(`import { x } from "${CLIMB}";\nexport const used = x;\n`);
+    const source = importing(CLIMB);
+    const messages = await depthRule(source);
     expect(
       messages.length,
-      `importing "${CLIMB}" at ${PROBE} reported ${spelled(await lintAs(`import { x } from "${CLIMB}";\nexport const used = x;\n`, PROBE))} — a climb of three or more \`../\` back into the layered tree is a lint error, and \`${ALIAS}core/x\` is its spelling`,
+      `importing "${CLIMB}" at ${PROBE} reported ${spelled(await lintAs(source, PROBE))} — a climb of three or more \`../\` back into the layered tree is a lint error, and \`${ALIAS}core/x\` is its spelling`,
     ).toBeGreaterThan(0);
   });
 
-  test("AC-1: the corpus's bad fixture carries the climb and is refused on marked lines", async () => {
+  test("AC-1: the corpus's bad fixture is refused, on lines carrying the recorded reason", async () => {
     const source = readFixture(FIXTURES.bad.path);
-    // What the fixture claims is read from its syntax, not its text: a comment spelling `../../../`
-    // is not a path to anything, and a payload that never climbs would prove nothing.
-    const sites = specifierSites(source, FIXTURES.bad.virtualPath);
-    const climbs = sites.filter((site) => climbsIntoSrc(site.text, FIXTURES.bad.virtualPath));
-    expect(
-      climbs.map((site) => site.text),
-      `${FIXTURES.bad.path} hands no module-loading construct a three-\`../\` climb landing inside src/ — it loads ${sites.map((site) => `"${site.text}"`).join(", ") || "nothing at all"}`,
-    ).not.toEqual([]);
-
     const messages = await lintAs(source, FIXTURES.bad.virtualPath);
     const refused = messages.filter((message) => message.ruleId === RULE_ID);
     expect(refused.length, `${FIXTURES.bad.path} reported ${spelled(messages)} — the payload committed to prove ${RULE_ID} fires was not refused`).toBeGreaterThan(0);
+
+    // The payload is a climb the rule resolved, not a coincidence of the file: read at a path
+    // outside the layered tree the very same source is left alone, because the target of a climb
+    // from there is not inside src/.
+    const outside = (await lintAs(source, OUTSIDE)).filter((message) => message.ruleId === RULE_ID);
+    expect(
+      outside.map((message) => message.message),
+      `${FIXTURES.bad.path} is refused even when read at ${OUTSIDE} — its payload is not a climb the rule resolves, so it proves nothing about where a specifier lands`,
+    ).toEqual([]);
+
     // Q-08: a deliberate payload is recorded, never blocking — and the locked lint-law suite reads
     // the same marker off the same lines.
     const lines = source.split("\n");
@@ -224,14 +232,16 @@ describe("AC-1: the rule exists, is bound, and fires", () => {
 
   test("AC-1: the corpus's good fixture reports nothing at all", async () => {
     const source = readFixture(FIXTURES.good.path);
-    const sites = specifierSites(source, FIXTURES.good.virtualPath);
-    expect(sites.length, `${FIXTURES.good.path} loads no module at all — a lawful counterpart that imports nothing proves nothing`).toBeGreaterThan(0);
-    expect(
-      sites.filter((site) => climbsIntoSrc(site.text, FIXTURES.good.virtualPath)).map((site) => site.text),
-      `${FIXTURES.good.path} carries the very climb the rule refuses — it cannot be the lawful counterpart`,
-    ).toEqual([]);
     const messages = await lintAs(source, FIXTURES.good.virtualPath);
     expect(messages.map((message) => `${message.ruleId ?? "(parse)"}@${message.line}`), "a rule fired on the lawful counterpart").toEqual([]);
+
+    // Silence is only worth reading where the rule is live: the same fixture with the refused climb
+    // appended, at the same path, is refused. An empty file could not do that.
+    const refused = await depthRule(`${source}\n${importing(CLIMB, "deepProbe")}`, FIXTURES.good.virtualPath);
+    expect(
+      refused.length,
+      `appending "${CLIMB}" to ${FIXTURES.good.path} changed nothing at ${FIXTURES.good.virtualPath} — the rule is not live there, so the fixture's silence proves nothing`,
+    ).toBeGreaterThan(0);
   });
 
   test("AC-1: the plugin roster claims the corpus slug, which is what keeps lint-law green", () => {
@@ -279,28 +289,24 @@ describe("AC-3: the tree obeys the rule and every lane resolves the alias", () =
   );
 
   test(
-    "AC-3: at least one module specifier under src/ is spelled through the alias",
-    () => {
-      // white-box: AC-3 — the criterion is a property of the delivered source text itself (the
-      // spelling the climbs were rewritten to); no behaviour of the product reports which specifier
-      // shape its own files were authored with. Read from the syntax, so a mention in a comment is
-      // not an import.
-      const files = sourceFiles(join(REPO_ROOT, "src"));
-      expect(files.length, "src/ holds no TypeScript at all").toBeGreaterThan(0);
-      const aliased = files.find((file) =>
-        specifierSites(readFileSync(file, "utf8"), file).some((site) => site.text.startsWith(ALIAS)),
-      );
+    "AC-3: the src tree loads modules through the alias",
+    async () => {
+      const seen = await specifiersUnderSrc();
+      expect(seen.length, "the probe rule was handed no specifier at all under src/ — this test judges nothing").toBeGreaterThan(0);
+      const aliased = seen.filter((sighting) => sighting.value.startsWith(ALIAS));
       expect(
-        aliased,
-        `no file under src/ imports through the \`${ALIAS}\` alias — the climbs the rule refuses are rewritten to it, they are not merely deleted`,
-      ).toBeDefined();
+        aliased.length,
+        `no module-loading construct under src/ is handed a \`${ALIAS}\` specifier — the climbs the rule refuses are rewritten to the alias, they are not merely deleted`,
+      ).toBeGreaterThan(0);
     },
     300_000,
   );
 
   test.each(LANES)("AC-3: $config resolves `@/` to the repo's src", async ({ config: relative, rootIsRepo }) => {
     expect(existsSync(join(REPO_ROOT, relative)), `${relative} is missing`).toBe(true);
-    const loaded = (await import(join(REPO_ROOT, relative))) as { default: LaneConfig | ((env: { command: string; mode: string }) => LaneConfig | Promise<LaneConfig>) };
+    const loaded = (await import(join(REPO_ROOT, relative))) as {
+      default: LaneConfig | ((env: { command: string; mode: string }) => LaneConfig | Promise<LaneConfig>);
+    };
     const lane = typeof loaded.default === "function" ? await loaded.default({ command: "serve", mode: "test" }) : loaded.default;
     const entries = aliasEntries(lane);
     const applied = applyAlias(entries, `${ALIAS}core/errors`);
