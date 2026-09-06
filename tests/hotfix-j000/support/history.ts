@@ -36,7 +36,9 @@ const MAINLINE_REFS = ["main", "origin/main"] as const;
 
 /** One git command, answered as trimmed text; a non-zero exit is the caller's to catch. */
 export function git(...args: readonly string[]): string {
-  return execFileSync("git", args, { cwd: REPO_ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).trim();
+  // stderr is not part of the answer: a revision that does not track a path is a null below, not a
+  // `fatal:` line in the gate's tail.
+  return execFileSync("git", args, { cwd: REPO_ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] }).trim();
 }
 
 /** The same, as the lines it answered with, empties dropped. */
@@ -84,8 +86,14 @@ export const FIX_END: string = ((): string => {
     if (!resolves(ref)) continue;
     try {
       // Nothing on a mainline that does not itself contain HEAD can contain HEAD either, and this
-      // is the gate's own case: one question, not one per commit in the history.
-      if (!contains(ref)) continue;
+      // is the gate's own case: one question, not one per commit in the history. An unmerged
+      // checkout is then either the hotfix's own branch (the answer stays `HEAD`) or a LATER
+      // branch forked after the hotfix landed — whose interval closed at that landing (below).
+      if (!contains(ref)) {
+        const landedBelow = landingOfMarker(ref);
+        if (landedBelow !== undefined) return landedBelow;
+        continue;
+      }
       // Oldest first along the ref's own spine. Each first-parent commit is an ancestor of the next,
       // so "contains HEAD" is false up to the landing and true from it on — monotone, hence found by
       // halving rather than by walking.
@@ -111,6 +119,47 @@ export const FIX_END: string = ((): string => {
   }
   return "HEAD";
 })();
+
+/**
+ * The far end for a LATER branch: the hotfix has already landed below this checkout — its fork
+ * point with `ref` tracks this increment's own marker file — so its interval closed when it landed.
+ * The answer is the landing commit: the oldest first-parent commit of `ref` tracking the marker
+ * (the engine lands every increment as one squash commit, so that commit is the landing itself).
+ * Undefined when the fork point does not track the marker (the hotfix's own branch, before it
+ * landed — the caller's answer stays `HEAD`). Monotone along the spine (the marker is never
+ * deleted), so found by halving.
+ *
+ * Before this reading (2026-09-06) the fall-through to `HEAD` graded every later branch's working
+ * tree against the pre-fix pin: inc-102 and inc-115 each bought an arbitration and a Verifier pass
+ * to loosen the freeze, and inc-120 (a nonce CSP that has to change how the shared checkpoint helper
+ * injects axe) was red three times on this one test and parked GATE_RED_REPEATED. A hotfix's
+ * forward-only claim is a property of its own range, never of the branches that come after it.
+ */
+function landingOfMarker(ref: string): string | undefined {
+  let forkPoint: string;
+  try {
+    forkPoint = git("merge-base", "HEAD", ref);
+  } catch {
+    return undefined;
+  }
+  if (objectIdAt(forkPoint, FIX_MARKER) === null) return undefined;
+  const spine = gitLines("rev-list", "--first-parent", "--reverse", ref);
+  let low = 0;
+  let high = spine.length - 1;
+  let landing: string | undefined;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const candidate = spine[middle];
+    if (candidate === undefined) break;
+    if (objectIdAt(candidate, FIX_MARKER) !== null) {
+      landing = candidate;
+      high = middle - 1;
+    } else {
+      low = middle + 1;
+    }
+  }
+  return landing;
+}
 
 /**
  * The paths `git status` reports, read WITHOUT trimming the answer: porcelain v1 puts two status

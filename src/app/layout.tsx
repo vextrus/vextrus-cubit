@@ -12,6 +12,13 @@ import { THEME_RESOLVER } from "./theme-resolver";
 // C-SPINE-PLATFORM: the tab and the page say the product's name from the same table entry.
 export const metadata: Metadata = { title: strings.app_title };
 
+// Q-12: the Content-Security-Policy this product serves admits Next's inline runtime bootstraps by a
+// nonce minted per request, and Next can only stamp that nonce onto them while it renders. Cached
+// HTML would carry a stale one, so every route renders per request. This is a segment config, which
+// is why `RootLayout` below stays synchronous — reading `headers()` here instead would make the one
+// document the whole app hangs from an async component for no gain.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     // `suppressHydrationWarning` covers the one attribute the resolver lawfully changes under React.

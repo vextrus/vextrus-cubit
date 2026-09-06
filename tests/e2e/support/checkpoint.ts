@@ -18,7 +18,10 @@ interface AxeViolation {
 export async function checkpoint(page: Page, testInfo: TestInfo, name: string): Promise<void> {
   await testInfo.attach(name, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 
-  await page.addScriptTag({ content: axe.source });
+  // The runner arrives over CDP, never as a `<script>` element: `addScriptTag` appends an inline
+  // script and the shipped policy's script-src admits none (Q-12), while `evaluate` is not governed
+  // by CSP — so the page axe judges is the page under the real policy.
+  await page.evaluate(axe.source);
   const violations = (await page.evaluate(async () => {
     const runner = (globalThis as unknown as { axe: { run: (context: Document) => Promise<{ violations: AxeViolation[] }> } }).axe;
     const results = await runner.run(document);
