@@ -83,15 +83,31 @@ records the gap: a future increment owes `global-error.tsx` the same two stylesh
 `data-theme="light"` server attribute and the same `THEME_RESOLVER` as body's first child — or a
 ruling that an outage screen deliberately stands on UA defaults.
 
-The product's Content-Security-Policy sharpens that gap without changing it. `script-src` admits no
-inline script but the pre-paint resolver, by the digest of its own source, and Next's own runtime
-bootstraps, by a nonce the renderer stamps on per request. `global-error.tsx`'s document is
-prerendered, so its `self.__next_f` bootstraps carry no nonce and the browser refuses them: that
-screen renders its server HTML and does not hydrate. It has no interactive element, so it still
-reads and still says what it says — but the gap recorded above now owes one thing more, and the
-future increment that closes it must bring that document inside the per-request render (the root
+The product's Content-Security-Policy widens that gap, and the widening is the point of this
+paragraph. `script-src` admits no inline script but the pre-paint resolver, by the digest of its own
+source, and Next's own runtime bootstraps, by a nonce the renderer stamps on per request. Every
+route now renders per request and is nonce-stamped; the one document the build still freezes is the
+global-error shell, whose single `self.__next_f` bootstrap carries no nonce, so the browser refuses
+it and nothing on that path hydrates.
+
+That is not benign, on two counts. The frozen document is Next's own built-in screen — its words are
+"This page couldn't load", and `data-testid="error-state"` appears nowhere in it — so the answer the
+checkpoint forbids is what a root-layout throw serves before the product's boundary is reached at
+all. And the product's own `ErrorState` would fare no better there: `src/app/error.tsx` deliberately
+commits the alert region empty and fills it in an effect, so that assistive technology meets a
+CHANGE inside a region it is already watching (Q-11). Without hydration that second commit never
+arrives: the document is `<main data-testid="error-state">` around an empty
+`<section role="alert" aria-labelledby="error-state-title">` — a blank page whose label points at an
+id that never renders, and whose one remedy, the retry button wired to `reset()`, never appears.
+ARCH-03 and B-21 name that outcome in the words at the top of `error.tsx`: an outage renders the
+product's own error state, "never a blank page and never a framework screen".
+
+So the gap recorded above now owes more than the two stylesheets and the resolver. The future
+increment that closes it must also bring that document inside the per-request render — the root
 layout's `export const dynamic = "force-dynamic"`, which is what makes every other route's
-bootstraps nonce-able, does not reach a document mounted in place of the root layout).
+bootstraps nonce-able, does not reach a document mounted in place of the root layout — or render the
+outage's copy and remedy on the server, so that the most severe surface in the product reads without
+depending on a script at all.
 
 **What the policy asks of this document.** The resolver stays inline and stays body's first child;
 it is admitted by `'sha256-…'`, never by loosening `script-src`, so its text is fixed by its digest
