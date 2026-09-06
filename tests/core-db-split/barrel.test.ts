@@ -22,6 +22,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+// white-box: AC-2 — "src/core/db.ts holds re-exports and nothing else" is a property of that file's
+// TEXT and of nothing it does: a barrel and a 2,264-line seam answer every call identically, which
+// is why the criterion names this lexer by path. The tree's one lexer reads it (B-17), so the check
+// is on code with comments and literals resolved, never on a regex over prose.
 import { lex } from "../support/source-lex";
 
 /** The checkout this suite runs against. */
@@ -209,8 +213,8 @@ describe("AC-1: the barrel loses nothing", () => {
 });
 
 describe("AC-2: src/core/db.ts is a barrel over src/core/db/", () => {
-  // white-box: AC-2 — "the barrel spells nothing but re-exports" is a property of the file's TEXT;
-  // no call it answers can tell whether a table was defined here or re-exported from schema.ts.
+  // white-box: AC-2 — no call the barrel answers can tell whether a table was defined in it or
+  // re-exported from schema.ts, so the criterion is stated about the file as written.
   const barrelSource = (): string => readFileSync(join(REPO_ROOT, BARREL), "utf8");
 
   test("AC-2: every statement in the barrel is a re-export", () => {

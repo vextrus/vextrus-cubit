@@ -55,6 +55,9 @@ let linter: ESLint;
 function fixtureSource(relative: string): string {
   const abs = join(REPO_ROOT, relative);
   expect(existsSync(abs), `${relative} is missing from the corpus — the widened ban has nothing proving it`).toBe(true);
+  // white-box: AC-3 — a lint fixture is the corpus's PAYLOAD, not product source: these bytes are
+  // the input the shipped config is driven with below, and AC-3's other half says the four inherited
+  // fixtures are byte-unchanged, which nothing a call returns can answer.
   return readFileSync(abs, "utf8");
 }
 
