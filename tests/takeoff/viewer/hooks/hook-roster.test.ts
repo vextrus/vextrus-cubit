@@ -11,7 +11,9 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { codeOf } from "../../../app/support/source-facts";
 import { productModule, repoRoot } from "../support/viewer-support";
+import { MOUNTERS, MOUNT_LIBRARY, calls, hookNameOf, loads, mountersIn } from "./source-shape";
 
 /** The home the concerns moved to, and the home their unit tests moved to beside it. */
 const HOOKS_HOME = "src/modules/takeoff/viewer/hooks";
@@ -32,6 +34,7 @@ const OWED: readonly (readonly [string, string])[] = [
 
 /** The one module that writes the address, and the call that makes it that module (B-17). */
 const ADDRESS_WRITE = "replaceState";
+
 
 /** Every file under the hooks home, at any depth. */
 // white-box: AC-2 — the last clause is "no file under hooks/ contains the text `replaceState`": a
@@ -55,12 +58,13 @@ function hooksHome(): string {
 describe("AC-2: one concern per module, one unit test per module, one home for the address", () => {
   test("AC-2: every hook module the split owes exists and publishes its hook", async () => {
     for (const [module, hook] of OWED) {
+      expect(hookNameOf(module), `${module} publishes ${hook} under the naming every hook module keeps`).toBe(hook);
       const published = await productModule<Record<string, unknown>>(`${HOOKS_HOME}/${module}`);
       expect(typeof published[hook], `${HOOKS_HOME}/${module} exports ${hook}`).toBe("function");
     }
   });
 
-  test("AC-2: every hook module the directory holds is judged by a unit test of its own", () => {
+  test("AC-2: every hook module the directory holds is judged by a unit test of its own", async () => {
     // white-box: AC-2 — "for every use-*.ts file the directory holds, enumerated at test time"
     // (B-19) is a reading of which files stand beside which; no run of the product answers it, and
     // enumerating rather than listing is what keeps a tenth hook owed a test the day it appears.
@@ -68,8 +72,21 @@ describe("AC-2: one concern per module, one unit test per module, one home for t
     expect(modules.length, `${HOOKS_HOME}/ holds the hook modules the concerns moved into`).toBeGreaterThanOrEqual(OWED.length);
 
     for (const module of modules) {
+      const hook = hookNameOf(module);
+      const published = await productModule<Record<string, unknown>>(`${HOOKS_HOME}/${module}`);
+      expect(typeof published[hook], `${HOOKS_HOME}/${module} publishes ${hook}`).toBe("function");
+
       const beside = `${HOOK_TESTS_HOME}/${module.replace(/\.ts$/, ".test.tsx")}`;
       expect(existsSync(join(repoRoot(), beside)), `${HOOKS_HOME}/${module} is judged by ${beside}`).toBe(true);
+
+      // "Judged by" is not "accompanied by": a file that only stands in the right place judges
+      // nothing, so the test beside a hook has to load that module, take the hook it publishes and
+      // put it under a mount — which is what makes a hook that does nothing show it.
+      // white-box: AC-2 — which module a test loads and which name it mounts are properties of that
+      // test's own text; running it says whether it passes, never whether it exercised the hook.
+      expect(loads(beside, `${HOOKS_HOME}/${module}`, repoRoot()), `${beside} loads ${HOOKS_HOME}/${module}, the module it is named after`).toBe(true);
+      expect(calls(codeOf(beside), hook), `${beside} calls ${hook}`).toBe(true);
+      expect(mountersIn(beside), `${beside} mounts ${hook} through ${MOUNT_LIBRARY} (${MOUNTERS.join(" or ")})`).not.toEqual([]);
     }
   });
 

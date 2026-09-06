@@ -17,6 +17,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
 import { codeOf, importsOf, sourceOf } from "../../../app/support/source-facts";
 import { VIEWER_SCREEN_MODULE, productModule } from "../support/viewer-support";
+import { effectCalls } from "./source-shape";
 import type { ViewerScreenProps } from "../../../../src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/viewer-screen";
 
 /** AC-1's cap: the physical lines the screen may still be, newlines counted and comments included. */
@@ -24,6 +25,7 @@ const LINE_CAP = 250;
 
 /** The home every effect the screen used to run now lives in (AC-2's directory). */
 const HOOKS_HOME = "src/modules/takeoff/viewer/hooks";
+
 
 /**
  * The props the route hands the screen. The value is AC-1's "unchanged `ViewerScreenProps`" half:
@@ -51,9 +53,11 @@ describe("AC-1: the screen composes hooks and runs no effect of its own", () => 
     const lines = sourceOf(VIEWER_SCREEN_MODULE).split("\n").length;
     expect(lines, `the screen composes its hooks in fewer than ${LINE_CAP} physical lines`).toBeLessThan(LINE_CAP);
 
+    // The rule is "no call to React's effect", not "no call spelled `useEffect(`": the binding the
+    // file itself gives that effect is derived from its imports, so an alias is judged as what it is.
     // The code mask blanks comments and literals, so a sentence about effects is not a call to one.
-    const effects = /\buseEffect\s*\(/.test(codeOf(VIEWER_SCREEN_MODULE));
-    expect(effects, "every effect lives in a hook module, so the screen itself calls none").toBe(false);
+    const effects = effectCalls(VIEWER_SCREEN_MODULE);
+    expect(effects, "every effect lives in a hook module, so the screen itself calls none").toEqual([]);
 
     const { ViewerScreen } = await productModule<{ ViewerScreen: FunctionComponent<ViewerScreenProps> }>(VIEWER_SCREEN_MODULE);
     expect(typeof ViewerScreen, "viewer-screen.tsx exports ViewerScreen").toBe("function");
