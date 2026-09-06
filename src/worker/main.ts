@@ -2,6 +2,7 @@
 // codebase, told where its database and its health port are through the environment. Everything it
 // does is in `runtime.ts`; this file is the process around it: the environment it reads, the three
 // contract lines an operator (and a supervisor) reads its life off, and the signal that drains it.
+import { envErrorOf, envUnusableOf, validateEnv } from "../core/env";
 import { reportFault } from "../core/faults/report";
 import { runWorker, type Worker } from "./runtime";
 
@@ -24,24 +25,8 @@ function say(line: string): Promise<void> {
   return new Promise((settle) => process.stdout.write(`${line}\n`, () => settle()));
 }
 
-/** A required environment value, or a failure naming the variable that is missing. */
-function required(name: string): string {
-  const value = process.env[name]?.trim();
-  if (value === undefined || value === "") {
-    throw new Error(`${name} is not set — the worker has no ${name === "DATABASE_URL" ? "database" : "health port"} to bind (R-SPINE-031)`);
-  }
-  return value;
-}
-
-/** The health port as a port number, refusing anything that is not one. */
-function healthPort(): number {
-  const raw = required("WORKER_HEALTH_PORT");
-  const port = Number(raw);
-  if (!Number.isInteger(port) || port < 0 || port > 65_535) {
-    throw new Error(`WORKER_HEALTH_PORT is not a port number: ${JSON.stringify(raw)} (R-SPINE-031)`);
-  }
-  return port;
-}
+/** The tier this process boots, as the environment declaration names it (src/core/env.ts). */
+const TIER = "worker";
 
 /**
  * Drain once, however many signals arrive. The graceful shutdown lets the work already taken off
@@ -69,9 +54,22 @@ function drainOn(worker: Worker): void {
   for (const signal of STOP_SIGNALS) process.on(signal, drain);
 }
 
-/** Start the worker, promise to be up, and wait for the signal that ends it. */
+/**
+ * Start the worker, promise to be up, and wait for the signal that ends it.
+ *
+ * The whole environment declaration is read once, here, before anything is dialled: a worker whose
+ * machine did not give it what IT requires refuses to start and says which name, rather than coming
+ * up and failing on the first job it takes.
+ */
 async function main(): Promise<void> {
-  const worker = await runWorker({ databaseUrl: required("DATABASE_URL"), healthPort: healthPort() });
+  const verdict = validateEnv(TIER);
+  if (!verdict.ok) throw envErrorOf(TIER, verdict);
+  // A name this process does not require, stated unusably, belongs in the operator's record but
+  // stops nothing here: whichever seam reads it keeps its own default (ARCH-03).
+  if (verdict.invalid.length > 0) {
+    reportFault({ requestId: process.pid.toString(), actor: "worker", route: WORKER_ROUTE, cause: envUnusableOf(TIER, verdict.invalid) });
+  }
+  const worker = await runWorker({ databaseUrl: verdict.env.DATABASE_URL, healthPort: verdict.env.WORKER_HEALTH_PORT });
   drainOn(worker);
   await say(READY);
 }

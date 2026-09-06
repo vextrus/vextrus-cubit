@@ -56,12 +56,20 @@ export default defineConfig({
   // `CUBIT_PUBLIC_ORIGIN` and on nothing else (src/server/context.ts) — no property of a request
   // substitutes, because a caller writes those — so a journeys' server that named no address would
   // answer LINK_NOT_SENDABLE and every mailed-link journey would stop walking a link (R-SPINE-001).
+  //
+  // It is a deployment in the other sense too: it states the key its signed download URLs are minted
+  // with. An installation that names none signs nothing — `sign` refuses with DOWNLOAD_NOT_SIGNABLE
+  // rather than minting a key that would die at the next restart and leave the box effectively
+  // unsigned (Q-12) — so a journeys' server that named no key would serve no sheet card, because a
+  // card is drawn from a signed raster URL. The value is this stage's own, not a secret: it is
+  // stated here beside the database and the address, and nothing in the repo ships it to an
+  // installation.
   webServer: {
     // scripts/e2e-server.mjs builds only when the built output is older than an input — verify's
     // build of the same tree is walked as it stands (a 27 s cold build per journey invocation before).
     command: `node scripts/e2e-server.mjs --next node_modules/next/dist/bin/next build-if-stale start --port ${port}`,
     url: baseURL,
-    env: { DATABASE_URL: e2eDatabaseUrl(), CUBIT_PUBLIC_ORIGIN: baseURL },
+    env: { DATABASE_URL: e2eDatabaseUrl(), CUBIT_PUBLIC_ORIGIN: baseURL, CUBIT_STORAGE_SIGNING_SECRET: "the-journeys-stage-signing-key" },
     // Reuse is opt-in by name, never the default: when the port already answers, Playwright skips
     // the command entirely, so neither `next build` nor `next start` runs and the journey would
     // walk whatever bundle an earlier session left behind. A run that reuses must say so

@@ -3,6 +3,7 @@
 // attributable at all (ARCH-03, B-21) — and, since R-SPINE-001, so that one request resolves the
 // presented `cubit_session` exactly once, whatever it goes on to do with it.
 import { randomUUID } from "node:crypto";
+import { envValue } from "../core/env";
 import { resolveSession, SESSION_COOKIE, deviceLabelFrom, type AuthSession } from "./auth/session";
 
 export interface AppContext {
@@ -118,12 +119,13 @@ const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
  * configuration outage for the operator (R-SPINE-007) — see `canSendLinks` and `mail` in
  * src/server/auth/session.ts.
  *
- * This is the one place the deployment's environment is read, so the variable's name and the
- * normalisation of what it holds have one home (ARCH-02, B-17).
+ * The value itself comes from the product's one home for the environment (src/core/env.ts, ARCH-02,
+ * B-17); this is the one place in the tier that asks for it, so the normalisation of what it holds
+ * — an origin, or nothing — has one home too.
  */
 function configuredOrigin(): string | null {
-  const configured = process.env[PUBLIC_ORIGIN_VAR]?.trim();
-  if (configured === undefined || configured === "") return null;
+  const configured = envValue(PUBLIC_ORIGIN_VAR);
+  if (configured === undefined) return null;
   return URL.parse(configured)?.origin ?? null;
 }
 

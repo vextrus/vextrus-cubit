@@ -16,6 +16,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { jobsStore, type ClaimCursor, type JobEventDraft, type JobEventRow, type JobsStore, type QueuedJob } from "../db";
+import { envValue } from "../env";
 import { refusalCodeOf } from "../faults/refusal-marker";
 import { reportFault } from "../faults/report";
 import { JOB_KINDS, KIND_NAMES, type JobKind, type JobPayloads } from "./kinds";
@@ -125,8 +126,8 @@ const holder: { current?: Promise<Runtime> } = (processScope[HOLDER_KEY] ??= {})
 
 /** The database the seam reaches when nobody named one. */
 function configuredUrl(): string {
-  const url = process.env["DATABASE_URL"]?.trim();
-  if (url === undefined || url === "") {
+  const url = envValue("DATABASE_URL");
+  if (url === undefined) {
     throw new Error("DATABASE_URL is not set — the jobs seam has no database to reach (SEAM-JOBS)");
   }
   return url;
