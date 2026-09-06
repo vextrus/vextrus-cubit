@@ -7,7 +7,7 @@
  * less motion is answered with a duration of zero and no branch anywhere: the same arrival, without
  * the travel.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { fitCamera, type IndexBox } from "../client";
 import type { Camera, ViewerHead } from "../types";
 import { flyTo, revealCamera, type EaseControls } from "../../viewer-inspector/flyto";
@@ -41,13 +41,16 @@ export interface RevealOptions {
   stageRef: { current: HTMLElement | null };
   cameraRef: { current: Camera | null };
   facts: SheetFacts;
-  /** What is held, for a reveal asked for with no keys of its own — the Reveal door. */
-  heldRef: { current: readonly string[] };
   moveCamera: (move: (held: Camera) => Camera, live: boolean) => void;
-  jumpTo: (to: Camera) => void;
-  pulse: (durationMs: number) => void;
-  /** The keys an address asked to be flown to, or null where it asked for no travel (I-85). */
-  request: readonly string[] | null;
+  /**
+   * The rest are collaborators this hook travels *through* rather than facts it reads, so each is
+   * optional and its absence is stillness: what is held, where an arrival lands, and the strike that
+   * marks it (ARCH-01 — a hook owes an answer to whoever composes it, not a set of preconditions).
+   */
+  /** What is held, for a reveal asked for with no keys of its own — the Reveal door. */
+  heldRef?: { current: readonly string[] };
+  jumpTo?: (to: Camera) => void;
+  pulse?: (durationMs: number) => void;
 }
 
 export interface RevealControl {
@@ -57,12 +60,10 @@ export interface RevealControl {
   flyto: "flying" | "settled" | null;
 }
 
-export function useReveal({ head, stageRef, cameraRef, facts, heldRef, moveCamera, jumpTo, pulse, request }: RevealOptions): RevealControl {
+export function useReveal({ head, stageRef, cameraRef, facts, heldRef, moveCamera, jumpTo, pulse }: RevealOptions): RevealControl {
   const [flyto, setFlyto] = useState<"flying" | "settled" | null>(null);
   /** The fly-to in flight, so a second reveal or a leaving screen cancels the first. */
   const flightRef = useRef(0);
-  /** The address request already flown, so a re-render is not a second journey. */
-  const flownRef = useRef<readonly string[] | null>(null);
 
   const reveal = useCallback(
     (keys?: readonly string[]): void => {
@@ -70,7 +71,7 @@ export function useReveal({ head, stageRef, cameraRef, facts, heldRef, moveCamer
       if (stage === null || head?.kind !== "manifest") return;
       // The keys are taken as an argument where the caller has just chosen them: a deep link selects
       // and reveals in one pass, and the ref holding what is selected is a render behind it.
-      const held = keys ?? heldRef.current;
+      const held = keys ?? heldRef?.current ?? [];
       const boxes = held.map((key) => facts.get(key)?.box).filter((box): box is IndexBox => box !== undefined);
       const union = unionBox(boxes);
       // Nothing selected has no box, so a reveal has nowhere to go and does not pretend to travel.
@@ -85,9 +86,9 @@ export function useReveal({ head, stageRef, cameraRef, facts, heldRef, moveCamer
       flightRef.current = flight;
 
       const land = (): void => {
-        jumpTo(to);
+        jumpTo?.(to);
         setFlyto("settled");
-        pulse(durationMs);
+        pulse?.(durationMs);
       };
 
       // Reduced motion zeroes the token at source, so this is one frame and no pulse — the same
@@ -113,12 +114,6 @@ export function useReveal({ head, stageRef, cameraRef, facts, heldRef, moveCamer
     },
     [cameraRef, facts, head, heldRef, jumpTo, moveCamera, pulse, stageRef],
   );
-
-  useEffect(() => {
-    if (request === null || flownRef.current === request) return;
-    flownRef.current = request;
-    reveal(request);
-  }, [request, reveal]);
 
   return { reveal, flyto };
 }

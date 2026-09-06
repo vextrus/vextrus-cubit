@@ -26,12 +26,17 @@ export type MarqueeBox = { left: number; top: number; width: number; height: num
 
 export interface PointerOptions {
   head: ViewerHead | null;
-  canvasRef: { current: HTMLCanvasElement | null };
   cameraRef: { current: Camera | null };
-  painterRef: { current: Painter | null };
   facts: SheetFacts;
   moveCamera: (move: (held: Camera) => Camera, live: boolean) => void;
-  draw: (camera: Camera) => void;
+  /**
+   * The paper the wheel is bound to and the buffer a hover is marked in: collaborators this hook
+   * reads a sheet *through*, so each is optional and its absence is silence — the gestures still
+   * answer, they simply have nothing to paint on (ARCH-01).
+   */
+  canvasRef?: { current: HTMLCanvasElement | null };
+  painterRef?: { current: Painter | null };
+  draw?: (camera: Camera) => void;
   ask: (request: SpatialAsk) => Promise<string[]>;
   keysUnder: (world: [number, number], takeable?: boolean) => Promise<string[]>;
   /** The layers a rectangle may take from: drawn, and not locked out of the hit-test. */
@@ -224,7 +229,7 @@ export function usePointer({
 
   // The wheel is bound by hand because a passive listener may not stop the page scrolling under it.
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = canvasRef?.current ?? null;
     if (canvas === null) return;
     const onWheel = (event: WheelEvent): void => {
       event.preventDefault();
@@ -244,11 +249,11 @@ export function usePointer({
 
   // What is under the pointer is painted from its own buffer, just as cheaply as what is held (PB-3).
   useEffect(() => {
-    const painter = painterRef.current;
+    const painter = painterRef?.current ?? null;
     if (painter === null) return;
     painter.setHover(hovered === null ? null : (facts.get(hovered.key)?.records[0] ?? null));
     const at = cameraRef.current;
-    if (at !== null) draw(at);
+    if (at !== null) draw?.(at);
   }, [draw, facts, head, hovered]);
 
   return { hovered, marqueeOn, marqueeRef, marqueeBox: marqueeBoxRef.current, onPointerDown, onPointerMove, onPointerUp, onPointerLeave };

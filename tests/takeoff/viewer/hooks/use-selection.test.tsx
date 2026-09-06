@@ -44,12 +44,16 @@ type Options = {
   initialViewport: string | null;
   loadedLayers: number;
   failedCount: number;
-  revision: number;
-  drawnLayers: string;
-  painterRef: { current: unknown };
-  cameraRef: { current: unknown };
-  draw: (camera: unknown) => void;
-  republish: () => void;
+  /** The store the facts are read from, where the caller keeps one of its own. */
+  facts?: { get: (key: string) => unknown; has: (key: string) => boolean };
+  reveal?: (keys: readonly string[]) => void;
+  /** The collaborators a sheet draws *through* — every one of them optional (ARCH-01). */
+  revision?: number;
+  drawnLayers?: string;
+  painterRef?: { current: unknown };
+  cameraRef?: { current: unknown };
+  draw?: (camera: unknown) => void;
+  republish?: () => void;
 };
 type SelectionHook = {
   useSelection: (options: Options) => {
@@ -60,7 +64,6 @@ type SelectionHook = {
     learn: (layer: unknown) => void;
     hold: (keys: string[] | ((held: string[]) => string[])) => void;
     toggleKey: (key: string) => void;
-    reveal: readonly string[] | null;
   };
 };
 
@@ -68,6 +71,7 @@ let useSelection: SelectionHook["useSelection"];
 let recordBox: (record: unknown) => unknown;
 let unionBox: (boxes: readonly unknown[]) => unknown;
 let republish: ReturnType<typeof vi.fn>;
+let reveal: ReturnType<typeof vi.fn>;
 
 /** A head carrying this one layer's roster. */
 const SHEET = {
@@ -100,6 +104,7 @@ function opened(given: Partial<Options> = {}): Options {
     cameraRef: { current: null },
     draw: () => undefined,
     republish,
+    reveal,
     ...given,
   };
 }
@@ -111,6 +116,12 @@ async function mount(given: Partial<Options> = {}) {
   return renderHook((props: Options) => useSelection(props), { initialProps: opened(given) });
 }
 
+/** A roster of two layers, so "the sheet is not whole yet" is a state it can actually be in. */
+const TWO_LAYERS = {
+  ...SHEET,
+  manifest: { ...SHEET.manifest, layers: [...SHEET.manifest.layers, { name: "WALLS", rgb: [44, 55, 66], entityCount: 1, records: [] }] },
+};
+
 /** The box a key's records span, as the tree's own two functions state it (B-17). */
 function spanOf(key: string): unknown {
   return unionBox(LAYER.records.filter((record) => record.key === key).map((record) => recordBox(record)));
@@ -118,6 +129,7 @@ function spanOf(key: string): unknown {
 
 beforeEach(() => {
   republish = vi.fn();
+  reveal = vi.fn();
 });
 
 afterEach(() => {
@@ -158,14 +170,14 @@ describe("what is held on a sheet", () => {
     const { result, rerender } = await mount({ initialSelection: `${HELD_KEY},${NONSENSE},${ABSENT_KEY}` });
 
     expect(result.current.selection, "a link copied while the sheet is still arriving carries nothing yet").toEqual([]);
-    expect(result.current.reveal, "and nothing has been flown to").toBeNull();
+    expect(reveal, "and nothing has been flown to").not.toHaveBeenCalled();
 
     act(() => result.current.learn(LAYER));
     rerender(opened({ initialSelection: `${HELD_KEY},${NONSENSE},${ABSENT_KEY}`, loadedLayers: SHEET.manifest.layers.length }));
 
     expect(result.current.selection, "every key the address named and this sheet holds is held").toEqual([HELD_KEY]);
     expect(result.current.missing, "and what it named and this sheet has not is the partial cell (I-88)").toEqual([NONSENSE, ABSENT_KEY]);
-    expect(result.current.reveal, "a link that names keys and no viewport asks for the travel (I-85)").toEqual([HELD_KEY]);
+    expect(reveal.mock.calls, "a link that names keys and no viewport asks for the travel, once (I-85)").toEqual([[[HELD_KEY]]]);
   });
 
   test("a link that states a viewport is not flown anywhere (I-85)", async () => {
@@ -176,7 +188,47 @@ describe("what is held on a sheet", () => {
     });
 
     act(() => result.current.learn(LAYER));
-    expect(result.current.reveal, "the camera the address states is the camera the reader gets").toBeNull();
+    expect(reveal, "the camera the address states is the camera the reader gets").not.toHaveBeenCalled();
+  });
+
+  test("the hook stands on the sheet's own facts alone: no painter, no camera, no address to write", async () => {
+    // Everything this hook draws *through* — the painter, the camera, the address, the layers'
+    // revision — is a collaborator and not a fact of what is held, so a mount that has none of them
+    // still reads `s` and still says what the sheet does not hold (ARCH-01: the hook owes an answer
+    // to whoever composes it, not a set of preconditions).
+    const { useSelection } = await productModule<SelectionHook>(USE_SELECTION_MODULE);
+    const supplied = {
+      get: (key: string) => (key === HELD_KEY ? { type: "LINE", layer: LAYER.name, box: spanOf(HELD_KEY), records: [] } : undefined),
+      has: (key: string) => key === HELD_KEY,
+    };
+    const travelled = vi.fn();
+    const roster = TWO_LAYERS.manifest.layers.length;
+
+    const view = renderHook(({ failed }: { failed: number }) =>
+      useSelection({
+        head: TWO_LAYERS,
+        drawingId: "33333333-3333-4333-8333-333333333333",
+        layoutName: "SHEET%20ONE",
+        initialSelection: `${HELD_KEY},${ABSENT_KEY}`,
+        initialViewport: null,
+        loadedLayers: roster - 1,
+        failedCount: failed,
+        facts: supplied,
+        reveal: travelled,
+      }), { initialProps: { failed: 0 } });
+
+    expect(view.result.current.selection, "a sheet still arriving is not a reading of the link yet").toEqual([]);
+    expect(travelled, "and nothing has been asked to travel").not.toHaveBeenCalled();
+
+    // The last layer fails rather than arrives: the sheet is as whole as it will get (I-81, I-88).
+    view.rerender({ failed: 1 });
+    expect(view.result.current.selection, "the keys the sheet does hold are held").toEqual([HELD_KEY]);
+    expect(view.result.current.missing, "and the one it does not is the partial cell").toEqual([ABSENT_KEY]);
+    expect(travelled.mock.calls, "the travel is asked for once, with what was found (I-85)").toEqual([[[HELD_KEY]]]);
+
+    act(() => view.result.current.hold([HELD_KEY]));
+    expect(view.result.current.selection, "a gesture over the same key holds it").toEqual([HELD_KEY]);
+    expect(view.result.current.missing, "and ends the news the link brought").toEqual([]);
   });
 
   test("a sheet whose last layer failed is settled too, and a gesture ends the news the link brought", async () => {

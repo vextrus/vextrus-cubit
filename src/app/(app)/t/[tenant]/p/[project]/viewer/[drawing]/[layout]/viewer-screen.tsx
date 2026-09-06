@@ -77,6 +77,10 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const onLayer = useCallback((layer: RenderLayer): void => arrival.current.layer(layer), []);
   const onLayerFailed = useCallback((name: string, failed: boolean): void => arrival.current.failed(name, failed), []);
 
+  /** The travel a deep link asks for, bound below to the fly-to that owns it (R-UI-022, I-85). */
+  const travel = useRef<(keys: readonly string[]) => void>(() => undefined);
+  const reveal = useCallback((keys: readonly string[]): void => travel.current(keys), []);
+
   const feed = useCallback(
     (query: string) => `/api/viewer/${drawingId}/${encodeURIComponent(sheetName)}?tenant=${encodeURIComponent(tenantId)}&${query}`,
     [drawingId, sheetName, tenantId],
@@ -108,16 +112,17 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const camera = useCamera({ head, initialViewport, stageRef, cameraRef, draw: painter.draw, publish });
   const hits = useHitTesting({ head, cameraRef, statusRef, stateRef: layers.stateRef });
   const held = useSelection({
-    head, drawingId, layoutName, initialSelection, initialViewport, cameraRef, draw: painter.draw, republish: camera.republish,
+    head, drawingId, layoutName, initialSelection, initialViewport, reveal, cameraRef, draw: painter.draw, republish: camera.republish,
     loadedLayers: manifest.loadedLayers, failedCount: layers.failedCount, revision: layers.revision,
     drawnLayers: layers.drawnLayers, painterRef: painter.painterRef,
   });
   heldRef.current = held.selection;
 
   const flight = useReveal({
-    head, stageRef, cameraRef, heldRef, facts: held.facts, request: held.reveal,
+    head, stageRef, cameraRef, heldRef, facts: held.facts,
     moveCamera: camera.moveCamera, jumpTo: camera.jumpTo, pulse: painter.pulse,
   });
+  travel.current = flight.reveal;
   const pointer = usePointer({
     head, canvasRef, cameraRef, painterRef: painter.painterRef, facts: held.facts, draw: painter.draw,
     moveCamera: camera.moveCamera, ask: hits.ask, keysUnder: hits.keysUnder,

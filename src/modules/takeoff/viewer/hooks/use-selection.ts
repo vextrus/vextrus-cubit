@@ -30,10 +30,13 @@ export type KeyFact = {
  * what they are (I-86: a key that paints many pieces is one atom, spanning all of them).
  */
 export interface SheetFacts {
-  /** One arrived layer's records, filed under the key each is selected by. */
-  learn: (layer: RenderLayer) => void;
   get: (key: string) => KeyFact | undefined;
   has: (key: string) => boolean;
+  /**
+   * One arrived layer's records, filed under the key each is selected by. A store that is a reading
+   * of a sheet rather than one being gathered has nothing to file, and says so by not offering this.
+   */
+  learn?: (layer: RenderLayer) => void;
 }
 
 export interface SelectionOptions {
@@ -46,15 +49,28 @@ export interface SelectionOptions {
   initialViewport: string | null;
   loadedLayers: number;
   failedCount: number;
+  /**
+   * What every source key of this sheet stands for. A store handed in is the one read and learned
+   * into; where none is, this hook keeps its own — either way a sheet has one set of facts (B-17).
+   */
+  facts?: SheetFacts;
+  /** The travel the address asks for, told to whoever owns the fly-to (R-UI-022, I-85). */
+  reveal?: (keys: readonly string[]) => void;
+  /**
+   * What a sheet holds beside its keys. Every one of these is a collaborator this hook draws
+   * *through* rather than a fact it reads, so each is optional and its absence is silence: what is
+   * held is answered from the keys alone, and a mount with no painter, no camera and no address
+   * still reads `s` and still says what this sheet does not hold.
+   */
   /** The layers' revision — the last layer of a roster can fail rather than arrive (I-81). */
-  revision: number;
+  revision?: number;
   /** The layers being painted right now, as one value an effect can be keyed on. */
-  drawnLayers: string;
-  painterRef: { current: Painter | null };
-  cameraRef: { current: Camera | null };
-  draw: (camera: Camera) => void;
+  drawnLayers?: string;
+  painterRef?: { current: Painter | null };
+  cameraRef?: { current: Camera | null };
+  draw?: (camera: Camera) => void;
   /** The address written again with the camera as it stands — what is held is part of it. */
-  republish: () => void;
+  republish?: () => void;
 }
 
 export interface HeldSelection {
@@ -70,8 +86,6 @@ export interface HeldSelection {
   hold: (keys: string[] | ((held: string[]) => string[])) => void;
   /** A key added to, or taken out of, what is held — Shift's own arithmetic. */
   toggleKey: (key: string) => void;
-  /** The keys the address asked to be flown to, or null where it asked for no travel (I-85). */
-  reveal: readonly string[] | null;
 }
 
 /** A sheet's key facts, gathered layer by layer. */
@@ -107,8 +121,10 @@ export function useSelection({
   initialViewport,
   loadedLayers,
   failedCount,
-  revision,
-  drawnLayers,
+  facts: supplied,
+  reveal,
+  revision = 0,
+  drawnLayers = "",
   painterRef,
   cameraRef,
   draw,
@@ -116,18 +132,17 @@ export function useSelection({
 }: SelectionOptions): HeldSelection {
   const [selection, setSelection] = useState<string[]>([]);
   const [missing, setMissing] = useState<string[]>([]);
-  const [reveal, setReveal] = useState<readonly string[] | null>(null);
 
-  const factsRef = useRef<SheetFacts | null>(null);
-  factsRef.current ??= createSheetFacts();
-  const facts = factsRef.current;
+  const ownFacts = useRef<SheetFacts | null>(null);
+  ownFacts.current ??= createSheetFacts();
+  const facts = supplied ?? ownFacts.current;
 
   /** Whether the address's own selection has been applied — it is read once, not on every arrival. */
   const addressTakenRef = useRef(false);
   /** The address that reading was made of, so a new one is read again and the same one is not. */
   const addressReadRef = useRef<string | null>(null);
 
-  const learn = useCallback((layer: RenderLayer): void => facts.learn(layer), [facts]);
+  const learn = useCallback((layer: RenderLayer): void => facts.learn?.(layer), [facts]);
 
   /**
    * A gesture is a fresh answer to "what is selected", so the keys a link named and this sheet does
@@ -156,7 +171,7 @@ export function useSelection({
   // What is held is part of the address exactly as the camera is, and it is replaced onto it, never
   // pushed: Back leaves the sheet rather than unwinding a reader's clicks (R-UI-031).
   useEffect(() => {
-    republish();
+    republish?.();
   }, [republish, selection]);
 
   // What is held is painted from its own buffer, so a selection of a whole sheet costs no
@@ -167,7 +182,7 @@ export function useSelection({
   // silently rewrite a link someone shared — but it is not painted, because a mark on a layer that
   // is not there would be paint claiming to sit on geometry nobody can see (Decision § 2's partial).
   useEffect(() => {
-    const painter = painterRef.current;
+    const painter = painterRef?.current ?? null;
     if (painter === null) return;
     const painted = new Set(drawnLayers === "" ? [] : drawnLayers.split("\n"));
     painter.setSelection(
@@ -176,8 +191,8 @@ export function useSelection({
         return met === undefined || !painted.has(met.layer) ? [] : met.records;
       }),
     );
-    const at = cameraRef.current;
-    if (at !== null) draw(at);
+    const at = cameraRef?.current ?? null;
+    if (at !== null) draw?.(at);
   }, [cameraRef, draw, drawnLayers, facts, head, loadedLayers, painterRef, selection]);
 
   /**
@@ -210,9 +225,10 @@ export function useSelection({
     if (asked.keys.length > 0) setSelection(found);
     setMissing([...asked.malformed, ...asked.keys.filter((key) => !facts.has(key))]);
     // A camera the address states is the camera the reader gets: only a link that named keys and no
-    // viewport asks for the travel, and only then is `data-flyto` ever written (I-85).
-    if (found.length > 0 && initialViewport === null) setReveal(found);
-  }, [drawingId, facts, failedCount, head, initialSelection, initialViewport, layoutName, loadedLayers, revision]);
+    // viewport asks for the travel, and only then is `data-flyto` ever written (I-85). The reading
+    // is made once per address, so the travel is asked for once.
+    if (found.length > 0 && initialViewport === null) reveal?.(found);
+  }, [drawingId, facts, failedCount, head, initialSelection, initialViewport, layoutName, loadedLayers, reveal, revision]);
 
-  return { selection, missing, selected, facts, learn, hold, toggleKey, reveal };
+  return { selection, missing, selected, facts, learn, hold, toggleKey };
 }

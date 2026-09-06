@@ -40,7 +40,6 @@ type RevealHook = {
     moveCamera: (move: (held: Camera) => Camera, live: boolean) => void;
     jumpTo: (to: Camera) => void;
     pulse: (durationMs: number) => void;
-    request: readonly string[] | null;
   }) => { reveal: (keys?: readonly string[]) => void; flyto: "flying" | "settled" | null };
 };
 
@@ -79,14 +78,11 @@ let pulse: ReturnType<typeof vi.fn>;
 let frames: (() => void)[];
 let now: number;
 
-async function mount(request: readonly string[] | null = null) {
+async function mount() {
   const module = await productModule<RevealHook>(USE_REVEAL_MODULE);
   ({ flytoMotion, useReveal } = module);
   ({ revealCamera, flyTo } = await productModule<{ revealCamera: typeof revealCamera; flyTo: typeof flyTo }>(FLYTO_MODULE));
-  return renderHook(({ asked }: { asked: readonly string[] | null }) =>
-    useReveal({ head: SHEET, stageRef: { current: stage }, cameraRef, facts, heldRef, moveCamera, jumpTo, pulse, request: asked }), {
-    initialProps: { asked: request },
-  });
+  return renderHook(() => useReveal({ head: SHEET, stageRef: { current: stage }, cameraRef, facts, heldRef, moveCamera, jumpTo, pulse }));
 }
 
 /** The next frame the travel asked for, run at this moment on the clock. */
@@ -171,19 +167,22 @@ describe("the reveal", () => {
     expect(result.current.flyto, "the Reveal door reveals what the reader is holding").toBe("flying");
   });
 
-  test("an address that asks for a travel is flown once, however often the screen renders", async () => {
-    // The reading the address is given is made once and held; a render is not a new one.
-    const reading: readonly string[] = [KNOWN];
-    const { result, rerender } = await mount(reading);
+  test("a second reveal cancels the first, so a sheet never travels two ways at once", async () => {
+    const { result } = await mount();
+    const { durationMs } = flytoMotion(stage);
 
-    expect(result.current.flyto, "a deep link that named keys and no viewport flies to them (I-85)").toBe("flying");
-    const asked = frames.length;
+    act(() => result.current.reveal([KNOWN]));
+    // The frame the first travel asked for, taken off the queue and deliberately not run yet.
+    const abandoned = frames.shift() as () => void;
 
-    rerender({ asked: reading });
-    rerender({ asked: reading });
-    expect(frames.length, "the same reading re-rendered is not a second journey").toBe(asked);
+    act(() => result.current.reveal([KNOWN]));
+    const drawn = moveCamera.mock.calls.length;
+    expect(result.current.flyto, "the newer travel is the one under way").toBe("flying");
 
-    rerender({ asked: [KNOWN, KNOWN] });
-    expect(frames.length, "but a fresh reading of the address is a fresh travel").toBeGreaterThan(asked);
+    now = durationMs / 2;
+    act(() => abandoned());
+
+    expect(moveCamera.mock.calls.length, "the travel that was overtaken stops rather than fighting the new one").toBe(drawn);
+    expect(frames, "and only the travel still under way has a frame outstanding").toHaveLength(1);
   });
 });

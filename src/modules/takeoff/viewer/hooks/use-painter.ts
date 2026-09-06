@@ -28,13 +28,14 @@ export function paletteOf(element: Element): CanvasPalette {
 
 export interface PainterOptions {
   head: ViewerHead | null;
-  canvasRef: { current: HTMLCanvasElement | null };
   stageRef: { current: HTMLElement | null };
   statusRef: { current: HTMLElement | null };
   stateRef: { current: ViewerState };
   cameraRef: { current: Camera | null };
+  /** The paper itself. A mount with none is a mount with nothing to ask for a context (I-82). */
+  canvasRef?: { current: HTMLCanvasElement | null };
   /** Whether the feed refused: nothing to paint has shown everything it has (PB-2). */
-  refused: boolean;
+  refused?: boolean;
 }
 
 export interface PaintedSheet {
@@ -52,7 +53,7 @@ export interface PaintedSheet {
   pulse: (durationMs: number) => void;
 }
 
-export function usePainter({ head, canvasRef, stageRef, statusRef, stateRef, cameraRef, refused }: PainterOptions): PaintedSheet {
+export function usePainter({ head, canvasRef, stageRef, statusRef, stateRef, cameraRef, refused = false }: PainterOptions): PaintedSheet {
   const [renderer, setRenderer] = useState<"webgl" | "unavailable">("unavailable");
   const [probed, setProbed] = useState(false);
   const [firstPaint, setFirstPaint] = useState(false);
@@ -95,7 +96,7 @@ export function usePainter({ head, canvasRef, stageRef, statusRef, stateRef, cam
   }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = canvasRef?.current ?? null;
     const stage = stageRef.current;
     if (canvas === null || stage === null) return;
 
