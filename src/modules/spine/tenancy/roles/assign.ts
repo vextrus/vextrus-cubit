@@ -25,7 +25,7 @@
 // the store (`movingWorkspaceRoles`), which holds the workspace's role lock for the whole of it. A
 // guard that reads "is this the last owner?" and writes afterwards is only a guard while nothing may
 // happen in between; ./store.ts says why at length.
-import { isUuid, type WorkspaceRole } from "../../../../core/db";
+import { isUuid, type WorkspaceRole } from "@/core/db";
 import { selfRemovalNotAllowed, workspacePermissionNotHeld, workspaceWouldHaveNoOwner } from "../refusals";
 import type { TenancyActor } from "../scope";
 import { mayAdminister, outranks, OWNING_ROLE, standsAtLeast } from "./rank";

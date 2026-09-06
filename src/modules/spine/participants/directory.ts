@@ -1,7 +1,7 @@
 // Who the people a project's roster names actually are. An account is not tenant-scoped state — a
 // person is one account across every workspace they belong to (R-SPINE-002) — so the read runs under
 // an attributable system reason, exactly as the frame's own viewer read does.
-import { eq, inArray, memberships, runAsSystem, users } from "../../../core/db";
+import { eq, inArray, memberships, runAsSystem, users } from "@/core/db";
 import type { MemberIdentity, ParticipantsCtx } from "./scope";
 
 /** The reason every read of this file records against the statements it issues (SEAM-TENANT). */

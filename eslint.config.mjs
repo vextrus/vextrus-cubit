@@ -53,6 +53,7 @@ export default [
     rules: {
       "cubit/boundaries": "error",
       "cubit/fault-or-refusal": "error",
+      "cubit/import-depth": "error",
       "import-x/no-cycle": "error",
     },
   },

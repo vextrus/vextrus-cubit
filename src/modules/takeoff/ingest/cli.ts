@@ -12,9 +12,9 @@ import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { entityGraphSchema, type EntityGraph } from "../../../core/entitygraph/schema";
-import { envValue } from "../../../core/env";
-import { REFUSALS } from "../../../core/errors";
+import { entityGraphSchema, type EntityGraph } from "@/core/entitygraph/schema";
+import { envValue } from "@/core/env";
+import { REFUSALS } from "@/core/errors";
 import type { IngestFormat } from "./request";
 import type { SheetNotIngestable } from "./refusals";
 

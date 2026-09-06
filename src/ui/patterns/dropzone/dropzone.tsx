@@ -12,7 +12,7 @@
  * formatted through the format seam — this layer value-imports nothing outside itself.
  */
 import { useId, useRef, useState, type DragEvent, type ChangeEvent } from "react";
-import type { RefusalEntry } from "../../../core/errors";
+import type { RefusalEntry } from "@/core/errors";
 import { Button } from "../../primitives/core";
 import { RefusalState } from "../refusal-state";
 import { strings } from "../../strings";

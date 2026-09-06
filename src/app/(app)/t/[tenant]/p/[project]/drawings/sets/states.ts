@@ -1,7 +1,7 @@
 // R-UI-050's matrix for the sets index, in the one enumerable place a suite reflects over (B-19). A
 // cell says one of three things and is never silent: the state is rendered here, it is handed to a
 // module outside this screen, or it cannot arise on this screen and says why.
-import type { ShellStateCell, ShellStateName } from "../../../../../../../../ui/shell/states";
+import type { ShellStateCell, ShellStateName } from "@/ui/shell/states";
 
 /** This screen's own home, spelled once: every cell that names a file of it starts here. */
 const ROUTE = "src/app/(app)/t/[tenant]/p/[project]/drawings/sets";

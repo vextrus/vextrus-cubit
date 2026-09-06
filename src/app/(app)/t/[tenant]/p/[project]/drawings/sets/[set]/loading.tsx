@@ -1,6 +1,6 @@
 // R-UI-050's loading leg for the set browser: bones that keep the page's shape inside the frame,
 // hidden from the accessibility tree by the primitive itself, and never a spinner (R-UI-004).
-import { Skeleton } from "../../../../../../../../../ui/primitives/core";
+import { Skeleton } from "@/ui/primitives/core";
 
 /** The bones, in the page's own order: heading and caption, then the pin door. */
 const BONES = [

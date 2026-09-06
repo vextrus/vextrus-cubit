@@ -6,13 +6,13 @@
 // (src/core/sheets), the pictures are the raster seam's (../thumbnails), and what this file adds is
 // the join between them plus the membership a group is offered with. Nothing here re-derives a
 // proposal or re-counts a counter — a second answer to either would be a second truth (B-17).
-import { projectDrawingsOf, sheetStateOf, sheetsOfRecord, type Discipline, type FidelityFact, type ScaleState, type SheetConfirmation, type SheetFacts, type SheetProposal } from "../../../core/sheets";
-import type { OfferedGroupKey } from "../../../core/acts";
-import { forTenant } from "../../../core/db";
-import { appStorage } from "../../../core/storage/app";
+import { projectDrawingsOf, sheetStateOf, sheetsOfRecord, type Discipline, type FidelityFact, type ScaleState, type SheetConfirmation, type SheetFacts, type SheetProposal } from "@/core/sheets";
+import type { OfferedGroupKey } from "@/core/acts";
+import { forTenant } from "@/core/db";
+import { appStorage } from "@/core/storage/app";
 import { sheetRastersOf } from "../thumbnails";
 
-export type { OfferedGroupKey } from "../../../core/acts";
+export type { OfferedGroupKey } from "@/core/acts";
 
 /** Which project's index is being asked for, in whose workspace. */
 export type SheetIndexScope = { tenantId: string; projectId: string };

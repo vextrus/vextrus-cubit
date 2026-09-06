@@ -4,7 +4,7 @@
 // Nothing here counts anything. A count made on this side would be a second answer to a question
 // `cad/` already answered, and two answers to one question are how a record stops being evidence
 // (L-CAD-01, ARCH-02) — so every field below is carried over in the artifact's own order.
-import type { EntityGraph } from "../../../core/entitygraph/schema";
+import type { EntityGraph } from "@/core/entitygraph/schema";
 
 /** One layout as the record names it: the space, its kind, and the strays kept out of its extents. */
 export type IngestLayoutFact = { name: string; kind: string; strays_rejected: number };

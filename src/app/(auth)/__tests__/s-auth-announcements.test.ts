@@ -19,7 +19,7 @@ import { createElement } from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
-import { strings } from "../../../ui/strings";
+import { strings } from "@/ui/strings";
 
 const seam = vi.hoisted(() => ({
   query: vi.fn(),

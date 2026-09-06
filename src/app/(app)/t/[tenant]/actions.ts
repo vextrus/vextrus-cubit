@@ -4,17 +4,17 @@
 // into a fault and never swallowed (ARCH-03, B-21).
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { RefusalCode } from "../../../../core/errors";
-import { refusalCodeOf } from "../../../../core/faults/refusal-marker";
-import { archiveProject, createProject, restoreProject, updateProject, type ProjectsCtx } from "../../../../modules/spine/projects";
-import { sampleSeed, type SampleSeedAnswer } from "../../../../server/shell/sample-seed";
-import { endSession, presentedSessionToken } from "../../../../server/shell/session";
-import { viewerFor } from "../../../../server/shell/viewer";
-import { holdsWorkspace, renameWorkspace, type RenameAnswer } from "../../../../server/shell/workspace";
+import type { RefusalCode } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { archiveProject, createProject, restoreProject, updateProject, type ProjectsCtx } from "@/modules/spine/projects";
+import { sampleSeed, type SampleSeedAnswer } from "@/server/shell/sample-seed";
+import { endSession, presentedSessionToken } from "@/server/shell/session";
+import { viewerFor } from "@/server/shell/viewer";
+import { holdsWorkspace, renameWorkspace, type RenameAnswer } from "@/server/shell/workspace";
 // The two pure helpers, from the module that holds them (B-17) rather than from the barrel that
 // re-exports them: the barrel also carries the frame's client components and the shell stylesheet,
 // and a "use server" module that imports it drags both into every action bundle.
-import { hasVisibleText, shellHref } from "../../../../ui/shell/routes";
+import { hasVisibleText, shellHref } from "@/ui/shell/routes";
 import { judgeProject, presentedProject, type ProjectJudgement } from "./home/judgement";
 
 /** The user menu's way out: the session ends, and `/sign-in` is itself the visible way back in. */

@@ -3,6 +3,7 @@
 // the flat config at the repo root reads as the law it enforces.
 import boundaries from "./rules/boundaries.mjs";
 import faultOrRefusal from "./rules/fault-or-refusal.mjs";
+import importDepth from "./rules/import-depth.mjs";
 import noColourLiteral from "./rules/no-colour-literal.mjs";
 import noCycle from "./rules/no-cycle.mjs";
 import noDbOutsideSeam from "./rules/no-db-outside-seam.mjs";
@@ -15,6 +16,7 @@ export const cubit = {
   rules: {
     boundaries,
     "fault-or-refusal": faultOrRefusal,
+    "import-depth": importDepth,
     "no-colour-literal": noColourLiteral,
     "no-db-outside-seam": noDbOutsideSeam,
     "no-model-outside-seam": noModelOutsideSeam,

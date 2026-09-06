@@ -4,9 +4,9 @@
 // and an absence is stated as a notice, deliberately not as a refusal: nothing was denied.
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Button } from "../../../../ui/primitives/core";
-import { ShellEmptyState, useFailureHandOff } from "../../../../ui/shell";
-import { strings } from "../../../../ui/strings";
+import { Button } from "@/ui/primitives/core";
+import { ShellEmptyState, useFailureHandOff } from "@/ui/shell";
+import { strings } from "@/ui/strings";
 import { offerSampleAction } from "./actions";
 
 export function ProjectsOnboarding() {

@@ -4,12 +4,12 @@
  * controls, and the inspector beside them. Markup only — every decision it renders was made by the
  * screen's hooks, and it holds no state and runs no effect of its own.
  */
-import { ZOOM_STEP } from "../../../../../../../../../modules/takeoff/viewer/hooks/use-camera";
-import type { UsePointer } from "../../../../../../../../../modules/takeoff/viewer/hooks/use-pointer";
-import { InspectorPanel, type InspectorPanelProps } from "../../../../../../../../../modules/takeoff/viewer-inspector/inspector-panel";
-import { Button } from "../../../../../../../../../ui/primitives/core";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../../../../../../../../../ui/primitives/data";
-import { fill, strings } from "../../../../../../../../../ui/strings";
+import { ZOOM_STEP } from "@/modules/takeoff/viewer/hooks/use-camera";
+import type { UsePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
+import { InspectorPanel, type InspectorPanelProps } from "@/modules/takeoff/viewer-inspector/inspector-panel";
+import { Button } from "@/ui/primitives/core";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/ui/primitives/data";
+import { fill, strings } from "@/ui/strings";
 import { LayersPanel, type LayersPanelProps } from "./layers-panel";
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from "react";
 

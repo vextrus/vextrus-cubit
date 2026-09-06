@@ -2,10 +2,10 @@
 // where it is changed afterwards), and then what this person chose for themselves — the density
 // their tables are drawn at (R-UI-005). Identity first, preference second.
 import { redirect } from "next/navigation";
-import { saveDensity } from "../../../../../server/shell/density";
-import { presentedSessionToken } from "../../../../../server/shell/session";
-import { DensityToggle } from "../../../../../ui/shell";
-import { strings } from "../../../../../ui/strings";
+import { saveDensity } from "@/server/shell/density";
+import { presentedSessionToken } from "@/server/shell/session";
+import { DensityToggle } from "@/ui/shell";
+import { strings } from "@/ui/strings";
 import { densityRead, namedWorkspaceRead, viewerRead } from "../reads";
 import { SettingsMembersLink } from "./members/members-link";
 import { RenameForm } from "./rename-form";

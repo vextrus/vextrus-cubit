@@ -3,9 +3,9 @@
 // module, which is the one home of it (ARCH-02, B-17); this file asks that home the same question
 // once per project the workspace holds and says which project each answer came from, because an
 // entry read out of its project is an entry nobody can place.
-import { forTenant, isUuid, projects } from "../../../../core/db";
-import { refusalOf } from "../../../../core/errors";
-import { refusalCodeOf } from "../../../../core/faults/refusal-marker";
+import { forTenant, isUuid, projects } from "@/core/db";
+import { refusalOf } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { roleHistory, type RoleHistoryEntry } from "../../participants";
 import { requireMembership } from "./members";
 import type { TenancyActor } from "../scope";

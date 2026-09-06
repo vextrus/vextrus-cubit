@@ -9,7 +9,7 @@
 // stray-free as the reading left it (L-CAD-05). A second answer to any of those would be a second
 // reading, and a drawing has one (ARCH-02).
 import { createHash } from "node:crypto";
-import type { EntityGraph } from "../../../core/entitygraph/schema";
+import type { EntityGraph } from "@/core/entitygraph/schema";
 import type { RenderLayer, RenderManifest, RenderRecord } from "./types";
 
 /** The manifest shape's own version — a client reads it before it trusts the rest. */

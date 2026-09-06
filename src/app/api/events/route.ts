@@ -7,8 +7,8 @@
 //
 // Both transports read the durable log through SEAM-JOBS and nothing else: what an event means, and
 // when a job is over, are the seam's answers, not this route's (ARCH-02).
-import { jobEvents, TERMINAL_STATUSES, watchJob, type JobEvent } from "../../../core/jobs";
-import { reportFault } from "../../../core/faults/report";
+import { jobEvents, TERMINAL_STATUSES, watchJob, type JobEvent } from "@/core/jobs";
+import { reportFault } from "@/core/faults/report";
 
 /** The route the fault seam records this handler's failures under (ARCH-03). */
 const ROUTE = "GET /api/events";

@@ -2,8 +2,8 @@
 // honestly that it holds nothing yet (R-UI-050). Its next action is not here — a book is written
 // by projects — so the action is the way to the screen where the work starts.
 import Link from "next/link";
-import { ShellEmptyState, shellHref } from "../../../../../ui/shell";
-import { strings } from "../../../../../ui/strings";
+import { ShellEmptyState, shellHref } from "@/ui/shell";
+import { strings } from "@/ui/strings";
 
 export const metadata = { title: strings.shell_books_heading };
 

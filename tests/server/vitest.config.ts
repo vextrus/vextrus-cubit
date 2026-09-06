@@ -20,6 +20,10 @@ export default defineConfig({
   // runner was launched from — not to the config's own directory. Naming it here is what keeps
   // this config scoped to its suite instead of re-collecting the whole tree's suites.
   root: dirname(fileURLToPath(import.meta.url)),
+  // The product spells its own layers through tsconfig's `@/` alias (ARCH-01). This lane's root is
+  // its own directory, so the alias has to be an absolute path to the repo's src/ — a relative one
+  // would be resolved against tests/server and land outside the tree.
+  resolve: { alias: { "@": fileURLToPath(new URL("../../src", import.meta.url)) } },
   test: {
     environment: "node",
     include: ["**/*.test.ts"],

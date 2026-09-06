@@ -6,10 +6,10 @@
 // that roster closes the title-block grammar's own answer and the sheet card's column reads it, and
 // a third member there would claim the grammar can answer "MODEL", which it cannot. What this module
 // publishes is a different question — who understood the sheet — so it has its own closed roster.
-import { DISCIPLINES, isDiscipline, type Discipline } from "../../../core/sheets";
-import type { ModelId } from "../../../core/model-ledger.types";
-import type { DecodeResult, SourceKey } from "../../../core/model";
-import type { SheetReadingRecord } from "../../../core/db";
+import { DISCIPLINES, isDiscipline, type Discipline } from "@/core/sheets";
+import type { ModelId } from "@/core/model-ledger.types";
+import type { DecodeResult, SourceKey } from "@/core/model";
+import type { SheetReadingRecord } from "@/core/db";
 
 /** Any JSON value — what a transport carried, before it is read as anything. */
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };

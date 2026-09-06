@@ -11,14 +11,14 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { REFUSALS, type RefusalCode } from "../../../../../../../core/errors";
-import { refusalCodeOf } from "../../../../../../../core/faults/refusal-marker";
-import { guardTenancyMutation, type TenancyActor, type TenancyMutation, type TenancyRequest } from "../../../../../../../modules/spine/tenancy";
-import { invitationMachinery } from "../../../../../../../server/auth/invitation-mail";
-import { admitAttempt } from "../../../../../../../server/auth/rate-limit";
-import { originFactsFromHeaders } from "../../../../../../../server/context";
-import { presentedSessionToken } from "../../../../../../../server/shell/session";
-import { sessionOf } from "../../../../../../../server/shell/resolve";
+import { REFUSALS, type RefusalCode } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { guardTenancyMutation, type TenancyActor, type TenancyMutation, type TenancyRequest } from "@/modules/spine/tenancy";
+import { invitationMachinery } from "@/server/auth/invitation-mail";
+import { admitAttempt } from "@/server/auth/rate-limit";
+import { originFactsFromHeaders } from "@/server/context";
+import { presentedSessionToken } from "@/server/shell/session";
+import { sessionOf } from "@/server/shell/resolve";
 import { membersRoute } from "../route-address";
 
 /** The door this screen's mutations spend, as `AUTH_RATE_LIMITS` names it (R-SPINE-006). */

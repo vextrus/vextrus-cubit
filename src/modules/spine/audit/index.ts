@@ -10,7 +10,7 @@
 // question only the catalogue can answer, and it is asked on every call rather than remembered at
 // import time — a process that outlives a migration would otherwise answer for the schema it started
 // on.
-import { acts, desc, eq, forTenant, isUuid, type TenantDb } from "../../../core/db";
+import { acts, desc, eq, forTenant, isUuid, type TenantDb } from "@/core/db";
 
 /**
  * The tables the two panels probe. One home for the names (ARCH-02): whoever ships these surfaces

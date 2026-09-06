@@ -11,7 +11,7 @@
 // the shape a constructor hands it is the seam's published contract, not a mechanism this module
 // would be re-deriving. Reaching into the parent module's private constructor instead would widen
 // a file this increment does not own, so that a submodule could mint markers ad hoc.
-import { refusalOf } from "../../../../core/errors";
+import { refusalOf } from "@/core/errors";
 
 /** What the coupling refused over: whose membership, and the acts of theirs the log holds. */
 export interface ActsHeld {

@@ -5,7 +5,7 @@
 //
 // The shell's own matrix declared this area around `ShellEmptyState`, which is still the empty
 // branch, so that declaration stays true and is left alone; this is the grown screen's own.
-import type { ShellStateCell, ShellStateName } from "../../../../../ui/shell/states";
+import type { ShellStateCell, ShellStateName } from "@/ui/shell/states";
 
 /** This screen's own home, spelled once: every cell that names a file of it starts here. */
 const ROUTE = "src/app/(app)/t/[tenant]";

@@ -5,7 +5,7 @@
 // The ranking itself is `../roles/rank`, which is where the roster's order already lives: an
 // invitation grants a role, so "may this person grant it?" is the same question `assignWorkspaceRole`
 // asks on the granted side, and asking it twice in two ways would be two answers (B-17).
-import type { WorkspaceRole } from "../../../../core/db";
+import type { WorkspaceRole } from "@/core/db";
 import { workspacePermissionNotHeld } from "../refusals";
 import { mayAdminister, outranks } from "../roles/rank";
 import { invitationNotClaimable } from "./refusals";

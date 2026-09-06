@@ -19,9 +19,9 @@ import { createElement } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
-import { DISCIPLINES } from "../../../../../../../../core/sheets/law";
-import { JobsProvider, type JobsFormat } from "../../../../../../../../ui/patterns/job-timeline";
-import { fill } from "../../../../../../../../ui/strings";
+import { DISCIPLINES } from "@/core/sheets/law";
+import { JobsProvider, type JobsFormat } from "@/ui/patterns/job-timeline";
+import { fill } from "@/ui/strings";
 import { SheetIndex } from "../sheet-index";
 import { drawings } from "../strings";
 import type { SheetCardData } from "../sheet-card";
@@ -40,7 +40,7 @@ type Expect<T extends true> = T;
 type Not<T extends boolean> = T extends true ? false : true;
 type Assignable<From, To> = [From] extends [To] ? true : false;
 
-type Discipline = import("../../../../../../../../core/sheets/law").Discipline;
+type Discipline = import("@/core/sheets/law").Discipline;
 type EmptyProps = import("../sheet-index").EmptyProps;
 
 /** The union the caller holds is exactly what the empty state admits. */

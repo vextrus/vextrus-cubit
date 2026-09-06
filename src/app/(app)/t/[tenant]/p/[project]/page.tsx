@@ -11,16 +11,16 @@
 // the header, the areas, the quick actions, the AI cost and the recent activity all answer.
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
-import type { RefusalCode } from "../../../../../../core/errors";
-import { refusalCodeOf } from "../../../../../../core/faults/refusal-marker";
-import { projectAiSpendOf } from "../../../../../../modules/ai/spend";
-import { getAuditSurfaces } from "../../../../../../modules/spine/audit";
-import { projectParticipants } from "../../../../../../modules/spine/participants";
-import { projectHeld, projectsForHome } from "../../../../../../modules/spine/projects";
-import { presentedValue } from "../../../../../../server/auth/folded-key";
-import { sessionOf } from "../../../../../../server/shell/resolve";
-import { presentedSessionToken } from "../../../../../../server/shell/session";
-import { strings } from "../../../../../../ui/strings";
+import type { RefusalCode } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { projectAiSpendOf } from "@/modules/ai/spend";
+import { getAuditSurfaces } from "@/modules/spine/audit";
+import { projectParticipants } from "@/modules/spine/participants";
+import { projectHeld, projectsForHome } from "@/modules/spine/projects";
+import { presentedValue } from "@/server/auth/folded-key";
+import { sessionOf } from "@/server/shell/resolve";
+import { presentedSessionToken } from "@/server/shell/session";
+import { strings } from "@/ui/strings";
 import { namedWorkspaceRead } from "../../reads";
 import { ProjectHome, type ProjectHomeRoster } from "./home/project-home";
 

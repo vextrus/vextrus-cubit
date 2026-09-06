@@ -11,8 +11,8 @@
  * so a severity or a surface a later increment adds is not fought by this file.
  */
 import { describe, expect, it } from "vitest";
-import { refusalCodeOf } from "../../../../../core/faults/refusal-marker";
-import { REFUSALS } from "../../../../../core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { REFUSALS } from "@/core/errors";
 import { memberHasActs } from "../refusals";
 
 /** The code this module refuses with — the one literal, read back off the register below. */

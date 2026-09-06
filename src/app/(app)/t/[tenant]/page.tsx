@@ -3,10 +3,10 @@
 // empty state — the one place that teaches what to do next (R-UI-033) — and one holding projects is
 // shown the grid, the quick stats each carries and the documents they have yet to produce.
 import { redirect } from "next/navigation";
-import { projectsForHome } from "../../../../modules/spine/projects";
-import { presentedSessionToken } from "../../../../server/shell/session";
-import { viewerFor } from "../../../../server/shell/viewer";
-import { strings } from "../../../../ui/strings";
+import { projectsForHome } from "@/modules/spine/projects";
+import { presentedSessionToken } from "@/server/shell/session";
+import { viewerFor } from "@/server/shell/viewer";
+import { strings } from "@/ui/strings";
 import { ProjectsHome } from "./home/projects-home";
 
 export const metadata = { title: strings.shell_projects_heading };

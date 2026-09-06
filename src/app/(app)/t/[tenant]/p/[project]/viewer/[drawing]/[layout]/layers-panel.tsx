@@ -10,10 +10,10 @@
  * missing (R-UI-050, Decision I-81).
  */
 import { useState } from "react";
-import { cssColour, type LayerRow } from "../../../../../../../../../modules/takeoff/viewer/client";
-import { formatUserFigure } from "../../../../../../../../../core/format";
-import { Button } from "../../../../../../../../../ui/primitives/core";
-import { fill, strings } from "../../../../../../../../../ui/strings";
+import { cssColour, type LayerRow } from "@/modules/takeoff/viewer/client";
+import { formatUserFigure } from "@/core/format";
+import { Button } from "@/ui/primitives/core";
+import { fill, strings } from "@/ui/strings";
 
 export type LayersPanelProps = {
   rows: LayerRow[];

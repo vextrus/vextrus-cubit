@@ -11,8 +11,8 @@
 // behaviour these doors have against a real store is graded live, by the acceptance that drives them
 // in a browser.
 import { describe, expect, test, vi } from "vitest";
-import type { WorkspaceRole } from "../../../../core/db";
-import { refusalOf } from "../../../../core/errors";
+import type { WorkspaceRole } from "@/core/db";
+import { refusalOf } from "@/core/errors";
 import { guardTenancyMutation } from "../guard";
 
 /** The role the doubled store says the acting membership holds, set per case. */

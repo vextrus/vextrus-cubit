@@ -9,7 +9,7 @@
 // (ARCH-01). `TenancyHardening` is the shape of that injection: the door and its allowance are the
 // server's to bind, and what this module knows is that an identity must be admitted before a role
 // is judged.
-import type { WorkspaceRole } from "../../../../core/db";
+import type { WorkspaceRole } from "@/core/db";
 import {
   acceptInvitation,
   createInvitation,

@@ -14,8 +14,8 @@
 import { createElement } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, test } from "vitest";
-import { galleryChrome } from "../../../../ui/gallery-derivation/chrome";
-import { strings } from "../../../../ui/strings";
+import { galleryChrome } from "@/ui/gallery-derivation/chrome";
+import { strings } from "@/ui/strings";
 import DesignGalleryPage from "../page";
 
 afterEach(() => {

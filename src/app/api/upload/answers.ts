@@ -6,10 +6,10 @@
 // session is SIGNED_OUT; a request naming a project or an upload of a workspace the session holds no
 // membership in is WORKSPACE_PERMISSION_NOT_HELD; a failure of ours is recorded at the fault seam and
 // answered with its id, never with a refusal that would blame the caller.
-import { REFUSALS } from "../../../core/errors";
-import { workspaceOfProject, workspaceOfUpload, type UploadActor, type UploadRefusalCode } from "../../../modules/spine/uploads";
-import { resolveSession, SESSION_COOKIE } from "../../../server/auth/session";
-import { holdsWorkspace } from "../../../server/shell/workspace";
+import { REFUSALS } from "@/core/errors";
+import { workspaceOfProject, workspaceOfUpload, type UploadActor, type UploadRefusalCode } from "@/modules/spine/uploads";
+import { resolveSession, SESSION_COOKIE } from "@/server/auth/session";
+import { holdsWorkspace } from "@/server/shell/workspace";
 
 /** The status each registered refusal is answered under (test contract). Total, so none is guessed. */
 const STATUS: Readonly<Record<UploadRefusalCode, number>> = Object.freeze({

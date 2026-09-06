@@ -6,9 +6,9 @@
 // Everything the judgements admit is stored as presented: case, spacing and length are the person's
 // (s-auth I-14). A field left blank states nothing, so it is stored as an absence rather than as an
 // empty string.
-import { isBuildingType, isDecimalFigure } from "../../../../../core/projects";
-import type { ProjectFields } from "../../../../../modules/spine/projects";
-import { hasVisibleText } from "../../../../../ui/shell";
+import { isBuildingType, isDecimalFigure } from "@/core/projects";
+import type { ProjectFields } from "@/modules/spine/projects";
+import { hasVisibleText } from "@/ui/shell";
 
 /** What a judgement refused, as the answer slot names its one sentence. */
 export type ProjectJudgement = "name" | "buildingType" | "number";

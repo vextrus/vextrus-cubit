@@ -8,8 +8,8 @@
  * `src/ui/gallery-derivation`; the page holds no roster of its own, so a component added later
  * appears here the moment its entry does, and one without an entry fails a test instead.
  */
-import { galleryBarrels, galleryEntries } from "../../../ui/gallery-derivation";
-import { strings } from "../../../ui/strings";
+import { galleryBarrels, galleryEntries } from "@/ui/gallery-derivation";
+import { strings } from "@/ui/strings";
 import "./design.css";
 
 /** The barrel an entry key belongs to: the key is `"<barrelId>/<ExportName>"` and names carry no slash. */

@@ -7,7 +7,7 @@
 // The module holds no server import. The token mint, its digest, the address fold and the outbox all
 // live one tier up and arrive here as `InvitationPorts` (ARCH-01) — the same way the rate limiter
 // already arrives as `admit`.
-import type { WorkspaceRole } from "../../../../core/db";
+import type { WorkspaceRole } from "@/core/db";
 import { requireMembership } from "../read/members";
 import { roleHeld } from "../roles/store";
 import type { TenancyActor } from "../scope";

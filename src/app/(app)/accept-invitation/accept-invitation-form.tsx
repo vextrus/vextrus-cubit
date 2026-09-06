@@ -9,10 +9,10 @@
 // between. One surface, so an unclaimable token reads the same however it became one (I-57).
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { refusalOf, type RefusalCode, type RefusalEntry } from "../../../core/errors";
-import { RefusalState } from "../../../ui/patterns/refusal-state";
-import { Button } from "../../../ui/primitives/core";
-import { strings } from "../../../ui/strings";
+import { refusalOf, type RefusalCode, type RefusalEntry } from "@/core/errors";
+import { RefusalState } from "@/ui/patterns/refusal-state";
+import { Button } from "@/ui/primitives/core";
+import { strings } from "@/ui/strings";
 import { acceptInvitationAction, type AcceptAnswer } from "./actions";
 import { acceptInvitationStrings } from "./strings";
 

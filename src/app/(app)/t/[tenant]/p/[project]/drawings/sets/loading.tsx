@@ -1,7 +1,7 @@
 // R-UI-050's loading leg for the sets index: bones that keep the page's shape inside the frame,
 // which never skeletons — the workspace it shows is resolved before the first paint. The bones are
 // hidden from the accessibility tree by the primitive itself, and none of them spins (R-UI-004).
-import { Skeleton } from "../../../../../../../../ui/primitives/core";
+import { Skeleton } from "@/ui/primitives/core";
 
 /** The bones, in the page's own order: heading, caption, the create row, then the set rows. */
 const BONES = [

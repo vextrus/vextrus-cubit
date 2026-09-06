@@ -4,7 +4,7 @@
 // The stats are counted, never typed: at M0 the store holds no sheet, campaign, estimate or bid, so
 // each of the four sets is empty by construction and each count is that set's length — an honest
 // zero the later J-000 legs fill, never a hidden region and never a literal on a screen.
-import { and, asc, desc, eq, forTenant, isUuid, projects } from "../../../core/db";
+import { and, asc, desc, eq, forTenant, isUuid, projects } from "@/core/db";
 import type { BuildingType } from "./draft";
 import type { ProjectsCtx } from "./scope";
 

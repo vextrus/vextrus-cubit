@@ -3,8 +3,8 @@
 //
 // A record is never rewritten and never replaced: a declared re-ingest writes a new row naming the
 // one it supersedes, so a drawing's history reads newest first and every earlier answer stands.
-import { desc, eq, forTenant, ingests, isUuid } from "../../../core/db";
-import type { SourceScheme } from "../../../core/model";
+import { desc, eq, forTenant, ingests, isUuid } from "@/core/db";
+import type { SourceScheme } from "@/core/model";
 import type { IngestFacts } from "./facts";
 
 /** Which drawing's ingests are being asked about, in whose workspace. */

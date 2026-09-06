@@ -9,8 +9,8 @@
 // somebody performed" (src/core/db.ts), and L-ACT-03's closed act enum holds no creation act to
 // route through. Routing it through the seam would refuse PERMISSION_NOT_HELD on a project that
 // holds no participant yet, which is the bootstrap this nullable column exists for.
-import { forTenant, participantRoles, participants, projects } from "../../../core/db";
-import type { Role } from "../../../core/acts";
+import { forTenant, participantRoles, participants, projects } from "@/core/db";
+import type { Role } from "@/core/acts";
 import { creationColumnsOf, type ProjectFields } from "./draft";
 import { pinRulesetForProject, type PinnedEdition } from "./ruleset-pin";
 import type { ProjectsCtx } from "./scope";

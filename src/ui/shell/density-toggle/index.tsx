@@ -10,7 +10,7 @@
 import { useId, useRef, useState } from "react";
 import { cx } from "../../primitives/core/class-names";
 import { strings } from "../../strings";
-import type { Density } from "../../../core/prefs";
+import type { Density } from "@/core/prefs";
 
 /**
  * What each mode is called and found by. Total over `Density`, so a mode the seam gains and this

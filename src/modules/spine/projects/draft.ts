@@ -8,8 +8,8 @@
 // R-SPINE-010 closes over five names — the store's CHECK is the belt, and this file is the guard in
 // front of it, so a value from outside the five is a mistake in the caller and never a driver error
 // reaching a person as a fault id (ARCH-03).
-import { storableText } from "../../../core/db";
-import { BUILDING_TYPES, isBuildingType, isDecimalFigure, type BuildingType } from "../../../core/projects";
+import { storableText } from "@/core/db";
+import { BUILDING_TYPES, isBuildingType, isDecimalFigure, type BuildingType } from "@/core/projects";
 
 export { BUILDING_TYPES, isBuildingType, type BuildingType };
 

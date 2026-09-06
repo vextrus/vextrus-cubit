@@ -7,7 +7,7 @@
 //
 // Pure: the same graph and the same tier make the same bytes, so a raster's address is a function of
 // what it is a picture of (R-SPINE-021, content addressing).
-import type { EntityGraph } from "../../../core/entitygraph/schema";
+import type { EntityGraph } from "@/core/entitygraph/schema";
 import { CHANNELS, encodePng } from "./png";
 
 /** One rendered sheet: the encoded image and the canvas it was drawn on. */

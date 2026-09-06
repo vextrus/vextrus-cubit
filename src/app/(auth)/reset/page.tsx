@@ -3,7 +3,7 @@
 import { AuthFrame } from "../auth-frame";
 import type { FooterLine } from "../footer";
 import { AUTH_ROUTES, tokenFrom } from "../routes";
-import { strings } from "../../../ui/strings";
+import { strings } from "@/ui/strings";
 import { ResetPasswordForm, ResetRequestForm } from "./reset-forms";
 
 // The document names the screen it is, from the table the heading reads (R-SPINE-060).

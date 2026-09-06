@@ -6,9 +6,9 @@
 // The offset travels in the `Upload-Offset` header and the bytes are the body: a chunk is raw bytes,
 // never a form field, so nothing between the browser and the seam re-encodes a drawing.
 import { randomUUID } from "node:crypto";
-import { REFUSALS } from "../../../../core/errors";
-import { reportFault } from "../../../../core/faults/report";
-import { appendChunk, isRefused, uploadStatus, UPLOAD_CHUNK_BYTES } from "../../../../modules/spine/uploads";
+import { REFUSALS } from "@/core/errors";
+import { reportFault } from "@/core/faults/report";
+import { appendChunk, isRefused, uploadStatus, UPLOAD_CHUNK_BYTES } from "@/modules/spine/uploads";
 import { admitForUpload, isRefusedAdmission, json, refusalAnswer } from "../answers";
 
 /** A transfer is live state; nothing about this route may be built or cached. */

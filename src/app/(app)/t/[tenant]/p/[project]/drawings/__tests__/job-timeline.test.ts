@@ -19,8 +19,8 @@
 import { createElement, type FunctionComponent } from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { JobTimeline, JobsProvider, useTrackedJobs, type JobsFormat, type TrackedJob } from "../../../../../../../../ui/patterns/job-timeline";
-import { strings } from "../../../../../../../../ui/strings";
+import { JobTimeline, JobsProvider, useTrackedJobs, type JobsFormat, type TrackedJob } from "@/ui/patterns/job-timeline";
+import { strings } from "@/ui/strings";
 import { drawings } from "../strings";
 
 /** Far past any polling interval this pattern could lawfully choose — the criterion's "however far". */

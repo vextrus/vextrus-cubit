@@ -27,4 +27,4 @@ export { assignWorkspaceRole, type MemberRef, type MemberRemoved, type RoleAssig
 export { isWorkspaceRole } from "./roles/rank";
 export { actingWorkspaceOf } from "./roles/store";
 export { type TenancyActor } from "./scope";
-export type { WorkspaceRole } from "../../../core/db";
+export type { WorkspaceRole } from "@/core/db";

@@ -11,8 +11,8 @@
 // Once the log has nothing to say, the removal itself is R-SPINE-006's, unchanged: the two-sided
 // role law in ../roles/assign decides who may remove whom, and it is delegated to rather than
 // re-stated here (B-17).
-import { actsHeldBy } from "../../../../core/acts";
-import { forTenant, isUuid } from "../../../../core/db";
+import { actsHeldBy } from "@/core/acts";
+import { forTenant, isUuid } from "@/core/db";
 import { removeMember as removeMembership, type MemberRef, type MemberRemoved } from "../roles/assign";
 import type { TenancyActor } from "../scope";
 import { memberHasActs } from "./refusals";

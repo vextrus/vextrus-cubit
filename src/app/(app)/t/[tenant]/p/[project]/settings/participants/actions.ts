@@ -7,12 +7,12 @@
 // that turns a session and a project into a scoped actor, and the transport reaches the same seam
 // through the same helper (B-17, ARCH-02).
 import { revalidatePath } from "next/cache";
-import { commit, consequenceDigest, isRole, preview, type AssignParticipantRoleInput, type Consequence } from "../../../../../../../../core/acts";
-import { REFUSALS, type RefusalCode } from "../../../../../../../../core/errors";
-import { refusalCodeOf } from "../../../../../../../../core/faults/refusal-marker";
-import { participantsActorFor } from "../../../../../../../../server/routers/spine";
-import { presentedSessionToken } from "../../../../../../../../server/shell/session";
-import { sessionOf } from "../../../../../../../../server/shell/resolve";
+import { commit, consequenceDigest, isRole, preview, type AssignParticipantRoleInput, type Consequence } from "@/core/acts";
+import { REFUSALS, type RefusalCode } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { participantsActorFor } from "@/server/routers/spine";
+import { presentedSessionToken } from "@/server/shell/session";
+import { sessionOf } from "@/server/shell/resolve";
 import { participantsRoute } from "./route-address";
 
 const ASSIGN_PARTICIPANT_ROLE = "ASSIGN_PARTICIPANT_ROLE" as const;

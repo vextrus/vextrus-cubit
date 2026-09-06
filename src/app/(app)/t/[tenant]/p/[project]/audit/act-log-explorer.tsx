@@ -12,10 +12,10 @@
  */
 import { useMemo, useRef, useState } from "react";
 
-import { dhakaDateParts, formatDate, formatUserFigure } from "../../../../../../../core/format";
-import type { AuditAct } from "../../../../../../../modules/spine/audit";
-import { Button, Input } from "../../../../../../../ui/primitives/core";
-import { fill } from "../../../../../../../ui/strings";
+import { dhakaDateParts, formatDate, formatUserFigure } from "@/core/format";
+import type { AuditAct } from "@/modules/spine/audit";
+import { Button, Input } from "@/ui/primitives/core";
+import { fill } from "@/ui/strings";
 import { auditStrings } from "./strings";
 
 /** The value a select carries when it is filtering nothing — its own first option (I-31). */

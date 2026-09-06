@@ -1,8 +1,8 @@
 // Who holds which role on a project right now. The roster is the effective reading — grants minus
 // withdrawals — because a role that has been taken back is on the record but not in force
 // (R-SPINE-011); the subtraction itself is the act seam's, called here rather than repeated (B-17).
-import { effectiveGrants, ROLES } from "../../../core/acts";
-import { asc, eq, forTenant, participants } from "../../../core/db";
+import { effectiveGrants, ROLES } from "@/core/acts";
+import { asc, eq, forTenant, participants } from "@/core/db";
 import { identitiesOf, identityOf } from "./directory";
 import { requireRoleHistoryAccess } from "./guard";
 import type { ProjectRef } from "./history";

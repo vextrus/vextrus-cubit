@@ -4,8 +4,8 @@
 // The money and the counts are the ledger's, derived by `modelSpendByProject` and not re-derived
 // here (B-17): a second sum over `model_calls` would be a second answer about the same money. What
 // this door adds is the join with R-AI-001's dispositions, which the AI module owns.
-import { forTenant, modelSpendByProject } from "../../../core/db";
-import { minimalDecimal } from "../../../core/model-ledger.types";
+import { forTenant, modelSpendByProject } from "@/core/db";
+import { minimalDecimal } from "@/core/model-ledger.types";
 import { dispositionCountsOf } from "../sheet-understanding";
 
 /** Which project's spend is being asked for, in whose workspace. */

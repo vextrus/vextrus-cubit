@@ -9,8 +9,8 @@
  * gesture cost no re-render (Decision § 7).
  */
 import type { RefObject } from "react";
-import { formatUserFigure } from "../../../../../../../../../core/format";
-import { fill, strings } from "../../../../../../../../../ui/strings";
+import { formatUserFigure } from "@/core/format";
+import { fill, strings } from "@/ui/strings";
 
 /** How many decimals the camera's pixels-per-unit is published at. */
 const SCALE_DECIMALS = 3;

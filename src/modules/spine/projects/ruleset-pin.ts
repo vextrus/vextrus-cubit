@@ -6,9 +6,9 @@
 // The fork is verbatim (L-MEA-01): content is copied, never re-derived, so every step of the chain
 // carries the same digest by construction. Only the identity moves — the scope, which is what tells
 // a workspace's template from the platform edition it came from.
-import { and, eq, holdStateLock, isNull, rulesetEditions, tenantRulesetEditions, type TenantTx } from "../../../core/db";
-import type { EditionParameter, MethodPair } from "../../../core/rulesets/editions";
-import { SEED_EDITION_IDENTITY } from "../../../core/rulesets/seed";
+import { and, eq, holdStateLock, isNull, rulesetEditions, tenantRulesetEditions, type TenantTx } from "@/core/db";
+import type { EditionParameter, MethodPair } from "@/core/rulesets/editions";
+import { SEED_EDITION_IDENTITY } from "@/core/rulesets/seed";
 
 /** What a pin is a fork of: the content, and the row it was copied from. */
 interface ForkSource {

@@ -10,8 +10,8 @@
 import "./audit.css";
 
 import { notFound } from "next/navigation";
-import { getAuditSurfaces } from "../../../../../../../modules/spine/audit";
-import { projectHeld } from "../../../../../../../modules/spine/projects";
+import { getAuditSurfaces } from "@/modules/spine/audit";
+import { projectHeld } from "@/modules/spine/projects";
 import { ActLogExplorer } from "./act-log-explorer";
 import { AuditPanels } from "./audit-panels";
 import { auditStrings } from "./strings";

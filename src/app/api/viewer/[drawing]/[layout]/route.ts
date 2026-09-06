@@ -11,13 +11,13 @@
 // membership are one answer, so a stranger learns nothing about somebody else's drawings (Q-12) —
 // and a failure of ours is recorded at the fault seam and answered with its id.
 import { randomUUID } from "node:crypto";
-import { REFUSALS } from "../../../../../core/errors";
-import { reportFault } from "../../../../../core/faults/report";
-import { appStorage } from "../../../../../core/storage/app";
-import { renderManifestOf, workspaceOfDrawing } from "../../../../../modules/takeoff/viewer";
-import type { RenderLayer, ViewerHead } from "../../../../../modules/takeoff/viewer";
-import { createContext, type AppContext } from "../../../../../server/context";
-import { holdsWorkspace } from "../../../../../server/shell/workspace";
+import { REFUSALS } from "@/core/errors";
+import { reportFault } from "@/core/faults/report";
+import { appStorage } from "@/core/storage/app";
+import { renderManifestOf, workspaceOfDrawing } from "@/modules/takeoff/viewer";
+import type { RenderLayer, ViewerHead } from "@/modules/takeoff/viewer";
+import { createContext, type AppContext } from "@/server/context";
+import { holdsWorkspace } from "@/server/shell/workspace";
 
 /** A sheet is served from live state; nothing about this route may be built or cached. */
 export const dynamic = "force-dynamic";

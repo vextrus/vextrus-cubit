@@ -2,7 +2,7 @@
 // the `sheet_rasters` CHECK is written from it — one list, read by the column and by the renderer
 // alike (ARCH-02, B-17). What this file adds is what a tier means to a renderer: the long edge each
 // one is fitted to, and how long a link to one of them stands.
-import { RASTER_TIERS, type RasterTier } from "../../../core/db";
+import { RASTER_TIERS, type RasterTier } from "@/core/db";
 
 export { RASTER_TIERS, type RasterTier };
 

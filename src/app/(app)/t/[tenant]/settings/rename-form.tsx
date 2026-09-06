@@ -7,10 +7,10 @@
 // blank-name sentence, and a registered refusal rendered by the one renderer with the evidence that
 // resolves it (ARCH-03, B-21). Renaming is a plain write and not an act: no copper to carry.
 import { useActionState, useId, useState } from "react";
-import { refusalOf, type RefusalCode } from "../../../../../core/errors";
-import { RefusalState } from "../../../../../ui/patterns/refusal-state";
-import { Button, Input } from "../../../../../ui/primitives/core";
-import { strings } from "../../../../../ui/strings";
+import { refusalOf, type RefusalCode } from "@/core/errors";
+import { RefusalState } from "@/ui/patterns/refusal-state";
+import { Button, Input } from "@/ui/primitives/core";
+import { strings } from "@/ui/strings";
 import { renameWorkspaceAction, type RenameFormState } from "../actions";
 
 export interface RenameFormProps {

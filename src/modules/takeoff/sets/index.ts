@@ -17,13 +17,13 @@ import {
   forTenant,
   isUuid,
   type TenantTx,
-} from "../../../core/db";
-import { permissionsHeld } from "../../../core/acts";
-import { REFUSALS } from "../../../core/errors";
-import { lineagesOf, recordOf, type DrawingLineage, type ManifestMember } from "../../../core/sets";
+} from "@/core/db";
+import { permissionsHeld } from "@/core/acts";
+import { REFUSALS } from "@/core/errors";
+import { lineagesOf, recordOf, type DrawingLineage, type ManifestMember } from "@/core/sets";
 
-export { canonicalManifest, manifestDigest } from "../../../core/sets";
-export type { DrawingLineage, DrawingRevision, ManifestMember } from "../../../core/sets";
+export { canonicalManifest, manifestDigest } from "@/core/sets";
+export type { DrawingLineage, DrawingRevision, ManifestMember } from "@/core/sets";
 
 /** Which workspace and project a call is scoped to. */
 export type SetScope = { readonly tenantId: string; readonly projectId: string };

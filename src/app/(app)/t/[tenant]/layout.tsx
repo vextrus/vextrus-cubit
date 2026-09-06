@@ -4,11 +4,11 @@
 // permission problem, so it gets the remedy that fixes it (ARCH-03).
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { refusalOf } from "../../../../core/errors";
-import { presentedSessionToken } from "../../../../server/shell/session";
-import { workspacesFor } from "../../../../server/shell/workspace";
-import { ShellDenied, shellHref } from "../../../../ui/shell";
-import { strings } from "../../../../ui/strings";
+import { refusalOf } from "@/core/errors";
+import { presentedSessionToken } from "@/server/shell/session";
+import { workspacesFor } from "@/server/shell/workspace";
+import { ShellDenied, shellHref } from "@/ui/shell";
+import { strings } from "@/ui/strings";
 import { signOutAction } from "./actions";
 import { densityRead, namedWorkspaceRead, viewerRead } from "./reads";
 import { ShellFrame } from "./shell-frame";

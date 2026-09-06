@@ -6,9 +6,9 @@
 // frame settles on a timer, and the sheet is left by a link, a Back or a closed tab; a flush that
 // arrives after the move would stamp `?v=…` onto whatever page the reader is now standing on,
 // which is a viewport parameter on somebody else's address and a Back that returns to it.
-import { SELECTION_PARAM, serialiseSelection } from "../../../../../../../../../modules/takeoff/viewer-inspector/selection";
-import { serialiseViewport } from "../../../../../../../../../modules/takeoff/viewer/client";
-import type { Camera } from "../../../../../../../../../modules/takeoff/viewer";
+import { SELECTION_PARAM, serialiseSelection } from "@/modules/takeoff/viewer-inspector/selection";
+import { serialiseViewport } from "@/modules/takeoff/viewer/client";
+import type { Camera } from "@/modules/takeoff/viewer";
 
 /** The parameter the camera travels in (R-UI-031's viewport half). */
 const VIEWPORT_PARAM = "v";

@@ -6,8 +6,8 @@
  *
  * ARCH-01: `JobKind` arrives as a type only — this layer holds no value import of core.
  */
-import type { JobKind } from "../../../core/jobs/kinds";
-import type { RefusalEntry } from "../../../core/errors";
+import type { JobKind } from "@/core/jobs/kinds";
+import type { RefusalEntry } from "@/core/errors";
 import type { RefusalEvidence } from "../refusal-state";
 import { strings } from "../../strings";
 

@@ -4,7 +4,7 @@
 //
 // The seam answers one of these and no other, which is what lets the transport map every one of them
 // to a status without a fallback nobody chose.
-import type { RefusalCode } from "../../../core/errors";
+import type { RefusalCode } from "@/core/errors";
 
 export type UploadRefusalCode = Extract<
   RefusalCode,

@@ -2,9 +2,9 @@
 // cite. Pure and total over the artifact: the same graph and layout name make the same request, so
 // the request hash a recorded answer is filed under is a fact about the sheet rather than about the
 // run (L-AI-01 replays deterministically from fixtures).
-import type { EntityGraph } from "../../../core/entitygraph/schema";
-import { canonicalJson, type ModelRequest } from "../../../core/model";
-import { DISCIPLINES } from "../../../core/sheets";
+import type { EntityGraph } from "@/core/entitygraph/schema";
+import { canonicalJson, type ModelRequest } from "@/core/model";
+import { DISCIPLINES } from "@/core/sheets";
 import { UNDERSTANDING_MODEL } from "./law";
 
 /**

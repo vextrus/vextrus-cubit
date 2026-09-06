@@ -2,7 +2,7 @@
 import { AuthFrame } from "../auth-frame";
 import type { FooterLine } from "../footer";
 import { AUTH_ROUTES } from "../routes";
-import { strings } from "../../../ui/strings";
+import { strings } from "@/ui/strings";
 import { SignUpForm } from "./sign-up-form";
 
 // The document names the screen it is, so a tab, a history entry and a screen reader all say what

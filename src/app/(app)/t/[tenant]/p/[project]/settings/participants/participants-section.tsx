@@ -12,14 +12,14 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 // The law itself, not the seam's barrel: L-ACT-03's roles are a value that touches no database
 // (src/core/acts/law.ts), and a client component reaching through the barrel would drag the driver
 // into the browser bundle.
-import { ROLES } from "../../../../../../../../core/acts/law";
-import { refusalOf, type RefusalCode } from "../../../../../../../../core/errors";
-import { formatDate } from "../../../../../../../../core/format";
-import { ConsequenceDialog } from "../../../../../../../../ui/patterns/consequence-dialog";
-import { RefusalState } from "../../../../../../../../ui/patterns/refusal-state";
-import { Button, Chip } from "../../../../../../../../ui/primitives/core";
-import { shellHref } from "../../../../../../../../ui/shell";
-import { fill, strings, type StringKey } from "../../../../../../../../ui/strings";
+import { ROLES } from "@/core/acts/law";
+import { refusalOf, type RefusalCode } from "@/core/errors";
+import { formatDate } from "@/core/format";
+import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
+import { RefusalState } from "@/ui/patterns/refusal-state";
+import { Button, Chip } from "@/ui/primitives/core";
+import { shellHref } from "@/ui/shell";
+import { fill, strings, type StringKey } from "@/ui/strings";
 import { commitAssignRole, previewAssignRole, type CommitAnswer, type PreviewAnswer } from "./actions";
 import { participantsRoute } from "./route-address";
 

@@ -2,8 +2,8 @@
 // what a screen is answered with when it asks for one. They live apart from both builders so the
 // browser-safe half can name them without reaching the store, and the server half without reaching a
 // camera (ARCH-01, B-17).
-import type { RefusalEntry } from "../../../core/errors";
-import type { EntityGraph } from "../../../core/entitygraph/schema";
+import type { RefusalEntry } from "@/core/errors";
+import type { EntityGraph } from "@/core/entitygraph/schema";
 import type { IngestFacts } from "../ingest/facts";
 
 /**

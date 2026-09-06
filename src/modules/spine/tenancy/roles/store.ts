@@ -7,7 +7,7 @@
 // migration's policies admit a write under a named system reason and refuse every tenant-scoped one
 // (SEAM-TENANT). The reason travels with the statement and is attributable, never validated and
 // then discarded.
-import { and, asc, eq, holdStateLock, isUuid, memberships, runAsSystem, users, type SystemDb, type TenantTx, type WorkspaceRole } from "../../../../core/db";
+import { and, asc, eq, holdStateLock, isUuid, memberships, runAsSystem, users, type SystemDb, type TenantTx, type WorkspaceRole } from "@/core/db";
 import { workspacePermissionNotHeld } from "../refusals";
 
 /** One membership of a workspace, as this module reads it. */

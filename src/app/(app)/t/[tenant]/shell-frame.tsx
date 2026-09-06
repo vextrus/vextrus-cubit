@@ -4,12 +4,12 @@
 // area — so the pathname is read here, and the frame is handed the area it names.
 import { usePathname } from "next/navigation";
 import { useMemo, type ReactNode } from "react";
-import { REFUSALS, refusalOf, type RefusalCode } from "../../../../core/errors";
-import { formatUserFigure } from "../../../../core/format";
-import type { Density } from "../../../../core/prefs";
-import { JobsProvider, type JobsFormat } from "../../../../ui/patterns/job-timeline";
-import { AppShell, areaOf, isAreaHome, type ShellWorkspace } from "../../../../ui/shell";
-import { fill, strings } from "../../../../ui/strings";
+import { REFUSALS, refusalOf, type RefusalCode } from "@/core/errors";
+import { formatUserFigure } from "@/core/format";
+import type { Density } from "@/core/prefs";
+import { JobsProvider, type JobsFormat } from "@/ui/patterns/job-timeline";
+import { AppShell, areaOf, isAreaHome, type ShellWorkspace } from "@/ui/shell";
+import { fill, strings } from "@/ui/strings";
 
 /** A millisecond count as the whole seconds a person reads (job-timeline I-113, s-drawings I-92). */
 const MS_PER_SECOND = 1000;

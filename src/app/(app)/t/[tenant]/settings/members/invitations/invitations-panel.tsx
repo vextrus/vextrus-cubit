@@ -12,10 +12,10 @@
 // The panel takes what the page composed and the three actions, so a suite mounts the same component
 // a browser renders with the settlement of its choice (the MembersSection precedent).
 import { useId, useRef, useState } from "react";
-import { refusalOf, type RefusalCode } from "../../../../../../../core/errors";
-import { RefusalState } from "../../../../../../../ui/patterns/refusal-state";
-import { Button, Input } from "../../../../../../../ui/primitives/core";
-import { fill } from "../../../../../../../ui/strings";
+import { refusalOf, type RefusalCode } from "@/core/errors";
+import { RefusalState } from "@/ui/patterns/refusal-state";
+import { Button, Input } from "@/ui/primitives/core";
+import { fill } from "@/ui/strings";
 import { inviteMemberAction, resendInvitationAction, revokeInvitationAction, type InvitationsAnswer } from "./actions";
 import { invitationsStrings } from "./strings";
 import { membersRoute } from "../route-address";

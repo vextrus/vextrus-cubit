@@ -13,8 +13,8 @@
  * value-import-free of `src/core` and a bare jsdom mount needs no lookup table.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { JobKind } from "../../../core/jobs/kinds";
-import type { RefusalEntry } from "../../../core/errors";
+import type { JobKind } from "@/core/jobs/kinds";
+import type { RefusalEntry } from "@/core/errors";
 import { UNANSWERED, ALREADY_DONE, watchJob, type JobReading } from "./job-watch";
 import { timelineState, type JobsEvidence, type TimelineState, type TimelineStep } from "./reading";
 

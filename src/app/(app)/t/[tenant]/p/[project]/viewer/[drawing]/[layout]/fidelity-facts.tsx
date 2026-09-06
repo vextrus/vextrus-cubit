@@ -8,9 +8,9 @@
  * Figures render through the figure seam and layout names render verbatim in mono, because both are
  * model data (R-SPINE-010, I-25).
  */
-import { formatUserFigure } from "../../../../../../../../../core/format";
-import type { IngestFacts } from "../../../../../../../../../modules/takeoff/ingest";
-import { fill, strings } from "../../../../../../../../../ui/strings";
+import { formatUserFigure } from "@/core/format";
+import type { IngestFacts } from "@/modules/takeoff/ingest";
+import { fill, strings } from "@/ui/strings";
 
 /** A figure as this screen renders one. */
 const figure = (value: number): string => formatUserFigure(String(value));

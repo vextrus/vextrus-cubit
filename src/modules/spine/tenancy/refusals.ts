@@ -4,7 +4,7 @@
 // closed register in `core/errors` rather than re-spelled here, so a seam and its registry entry
 // cannot come to disagree (R-SPINE-062, ARCH-02, Q-07). The messages below are operator detail:
 // what a person reads is the registered entry, rendered by the one renderer.
-import { refusalOf, type RefusalCode } from "../../../core/errors";
+import { refusalOf, type RefusalCode } from "@/core/errors";
 
 /** An Error marked with a registered code and the facts the operator needs beside it. */
 function refusal<D extends object>(code: RefusalCode, message: string, detail: D): Error & D {

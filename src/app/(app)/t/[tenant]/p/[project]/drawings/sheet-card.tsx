@@ -10,10 +10,10 @@
 // (src/core/sheets/law.ts), and a client component reaching through the barrel would drag the driver
 // into the browser bundle.
 import { useId, useState } from "react";
-import { DISCIPLINES, FIDELITY_FACTS, type Discipline, type FidelityFact } from "../../../../../../../core/sheets/law";
-import { formatUserFigure } from "../../../../../../../core/format";
-import { Badge, Button, Chip } from "../../../../../../../ui/primitives/core";
-import { fill } from "../../../../../../../ui/strings";
+import { DISCIPLINES, FIDELITY_FACTS, type Discipline, type FidelityFact } from "@/core/sheets/law";
+import { formatUserFigure } from "@/core/format";
+import { Badge, Button, Chip } from "@/ui/primitives/core";
+import { fill } from "@/ui/strings";
 import type { ReactNode } from "react";
 import { viewerSheetRoute } from "../viewer/[drawing]/[layout]/route-address";
 import { drawings } from "./strings";

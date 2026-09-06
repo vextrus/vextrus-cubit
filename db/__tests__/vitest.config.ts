@@ -4,9 +4,13 @@
 // `--dir`, and it arms the lane the roster already derives from db/__tests__ (scripts/lib/lanes.mjs).
 //
 // It is wired in by package.json's test:db script: `node scripts/db-test.mjs --config db/__tests__/vitest.config.ts`.
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  // The product spells its own layers through tsconfig's `@/` alias (ARCH-01), so this lane
+  // resolves it too — an absolute path, because the lane runs against `--dir db`.
+  resolve: { alias: { "@": fileURLToPath(new URL("../../src", import.meta.url)) } },
   test: {
     environment: "node",
     include: ["**/*.test.ts"],
