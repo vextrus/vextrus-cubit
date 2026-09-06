@@ -26,7 +26,6 @@ export {
   authTokens,
   authAttempts,
   WORKSPACE_ROLES,
-  type WorkspaceRole,
   memberships,
   invitations,
   rulesetScope,
@@ -36,20 +35,14 @@ export {
   userPrefs,
   modelFixtures,
   DISPOSITIONS,
-  type Disposition,
-  type SheetReadingRecord,
   sheetUnderstandingDispositions,
   workItemCatalogue,
   bears,
   ACCEPTED_FORMATS,
-  type AcceptedFormat,
   isAcceptedFormat,
   UPLOAD_STATES,
-  type UploadState,
   SCAN_VERDICTS,
-  type ScanVerdict,
   RASTER_TIERS,
-  type RasterTier,
   UPLOAD_MAX_BYTES,
   UPLOAD_CHUNK_BYTES,
   files,
@@ -63,12 +56,9 @@ export {
   drawingSetRevisions,
   SEAM_SCHEMA,
 } from "./db/schema";
+export type { WorkspaceRole, Disposition, SheetReadingRecord, AcceptedFormat, UploadState, ScanVerdict, RasterTier } from "./db/schema";
 export { closePools } from "./db/pools";
 export {
-  type Scope,
-  type TenantDb,
-  type TenantTx,
-  type SystemDb,
   scopedClient,
   forTenant,
   runAsSystem,
@@ -77,19 +67,10 @@ export {
   inCurrentScope,
   isStorableText,
   storableText,
-  type ModelSpend,
   modelSpendByProject,
 } from "./db/seam";
-export {
-  type JobEventDraft,
-  type JobEventRow,
-  type QueuedJob,
-  type QueueShape,
-  type LiveClaim,
-  type ClaimCursor,
-  type QueueState,
-  type JobsStore,
-  jobsStore,
-} from "./db/jobs";
+export type { Scope, TenantDb, TenantTx, SystemDb, ModelSpend } from "./db/seam";
+export { jobsStore } from "./db/jobs";
+export type { JobEventDraft, JobEventRow, QueuedJob, QueueShape, LiveClaim, ClaimCursor, QueueState, JobsStore } from "./db/jobs";
 export { recordSystemReasonsWith, type SystemReasonRecord, type SystemReasonRecorder } from "./db/reason";
 export { and, asc, desc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
