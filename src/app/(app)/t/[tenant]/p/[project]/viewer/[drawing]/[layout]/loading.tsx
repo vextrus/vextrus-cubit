@@ -1,30 +1,12 @@
 // R-UI-050's loading leg for S-Viewer: bones in the shape the sheet will take — the panel's heading
-// over six layer rows, and one bone where the sheet itself is drawn. Never a spinner (R-UI-004), and
-// the bones are hidden from the accessibility tree by the primitive itself.
-import { Skeleton } from "../../../../../../../../../ui/primitives/core";
-
-/** The rows the panel's bones stand for, before the roster says how many there really are. */
-const PANEL_ROWS = 6;
-
-/** The cells the inspector's bones stand for, before anything is under the pointer or held. */
-const INSPECTOR_CELLS = 2;
+// over its layer rows, and one bone where the sheet itself is drawn. They are the same bones the
+// client shows while the head is in flight, and they are spelled once (B-17).
+import { SheetBones } from "./viewer-bones";
 
 export default function ViewerSheetLoading() {
   return (
     <div className="cx-viewer cx-viewer-bones">
-      <div className="cx-viewer-bones-panel">
-        <Skeleton style={{ height: "16px", width: "96px" }} />
-        {Array.from({ length: PANEL_ROWS }, (_, row) => (
-          <Skeleton key={row} style={{ height: "var(--row-comfortable)", width: "100%" }} />
-        ))}
-      </div>
-      <Skeleton style={{ height: "100%", width: "100%" }} />
-      <div className="cx-viewer-bones-panel">
-        <Skeleton style={{ height: "16px", width: "96px" }} />
-        {Array.from({ length: INSPECTOR_CELLS }, (_, cell) => (
-          <Skeleton key={cell} style={{ height: "12px", width: "140px" }} />
-        ))}
-      </div>
+      <SheetBones />
     </div>
   );
 }

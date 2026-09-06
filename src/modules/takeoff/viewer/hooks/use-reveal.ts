@@ -1,0 +1,116 @@
+/**
+ * The Trace's target (R-UI-022, Decision § 4): the camera eases from where it stands to the frame
+ * that holds everything named, and the arrival is struck once in the pulse colour.
+ *
+ * It is one code path — the Reveal door and a deep link that names keys and no camera both come
+ * through here (I-85). Reduced motion zeroes `--motion-flyto` at source, so a reader who asked for
+ * less motion is answered with a duration of zero and no branch anywhere.
+ */
+import { useCallback, useRef, useState } from "react";
+import type { RefObject } from "react";
+import { flyTo, revealCamera, type EaseControls } from "../../viewer-inspector/flyto";
+import { unionBox } from "../../viewer-inspector/selection";
+import { fitCamera, type IndexBox } from "../client";
+import type { Camera, ViewerHead } from "../types";
+import type { SheetFacts } from "./facts";
+import { useHandedRef } from "./refs";
+
+/** The fly-to's duration when the token cannot be read at all — the token's own value (§ 4). */
+const FLYTO_FALLBACK_MS = 320;
+
+/** How many numbers a cubic-bezier token carries. */
+const EASE_CONTROLS = 4;
+
+/**
+ * The duration a fly-to travels over, as the screen's own tokens state it. A token that cannot be
+ * read at all is not a reason to teleport: the travel keeps its own stated length, and a curve that
+ * cannot be parsed eases linearly over it (§ 4).
+ */
+function flytoMotion(element: Element): { durationMs: number; ease: EaseControls | null } {
+  const style = getComputedStyle(element);
+  const spelled = style.getPropertyValue("--motion-flyto").trim();
+  const seconds = spelled.endsWith("ms") ? Number(spelled.slice(0, -2)) / 1000 : spelled.endsWith("s") ? Number(spelled.slice(0, -1)) : Number.NaN;
+  const numbers = (style.getPropertyValue("--ease-flyto").match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+  return {
+    durationMs: Number.isFinite(seconds) ? Math.max(seconds * 1000, 0) : FLYTO_FALLBACK_MS,
+    ease: numbers.length === EASE_CONTROLS ? ([numbers[0], numbers[1], numbers[2], numbers[3]] as EaseControls) : null,
+  };
+}
+
+export type UseRevealOptions = {
+  head: ViewerHead | null;
+  /** The box the sheet is drawn into: where the travel is framed, and where the tokens are read. */
+  stageRef?: RefObject<HTMLElement | null>;
+  /** What each key is — the boxes the frame is the union of (I-86). */
+  facts: SheetFacts;
+  cameraRef?: RefObject<Camera | null>;
+  moveCamera?: (move: (held: Camera) => Camera, live: boolean) => void;
+  /** Where the travel lands, whether or not a camera is held yet. */
+  jumpTo?: (at: Camera) => void;
+  /** The arrival, struck once in the pulse colour over this many milliseconds. */
+  pulse?: (durationMs: number) => void;
+};
+
+export type UseReveal = {
+  reveal: (keys: readonly string[]) => void;
+  /** Absent until the first fly-to ever runs, and never written when the address states `v` (I-85). */
+  flyto: "flying" | "settled" | null;
+};
+
+export function useReveal({ head, stageRef, facts, cameraRef, moveCamera, jumpTo, pulse }: UseRevealOptions): UseReveal {
+  const [flyto, setFlyto] = useState<"flying" | "settled" | null>(null);
+  /** The fly-to in flight, so a second reveal or a leaving screen cancels the first. */
+  const flightRef = useRef(0);
+  const stageOf = useHandedRef(stageRef, null);
+  const cameraAt = useHandedRef(cameraRef, null);
+
+  const reveal = useCallback(
+    (keys: readonly string[]): void => {
+      const stage = stageOf.current;
+      if (stage === null || head?.kind !== "manifest") return;
+      const boxes = keys.map((key) => facts.get(key)?.box).filter((box): box is IndexBox => box !== undefined);
+      const union = unionBox(boxes);
+      // Nothing selected has no box, so a reveal has nowhere to go and does not pretend to travel.
+      if (union === null) return;
+
+      const rect = stage.getBoundingClientRect();
+      const viewportPx = { width: rect.width, height: rect.height };
+      const to = revealCamera(union, viewportPx);
+      const from = cameraAt.current ?? fitCamera(head.manifest.extents, viewportPx);
+      const { durationMs, ease } = flytoMotion(stage);
+      const flight = flightRef.current + 1;
+      flightRef.current = flight;
+
+      const land = (): void => {
+        if (cameraAt.current === null) jumpTo?.(to);
+        else moveCamera?.(() => to, false);
+        setFlyto("settled");
+        pulse?.(durationMs);
+      };
+
+      // Reduced motion zeroes the token at source, so this is one frame and no pulse — the same
+      // arrival, without the travel (Decision § 4).
+      if (durationMs <= 0 || typeof requestAnimationFrame === "undefined") {
+        land();
+        return;
+      }
+
+      setFlyto("flying");
+      const began = performance.now();
+      const step = (): void => {
+        if (flightRef.current !== flight) return;
+        const elapsed = performance.now() - began;
+        if (elapsed >= durationMs) {
+          land();
+          return;
+        }
+        moveCamera?.(() => flyTo(from, to, elapsed, durationMs, ease), true);
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    },
+    [cameraAt, facts, head, jumpTo, moveCamera, pulse, stageOf],
+  );
+
+  return { reveal, flyto };
+}
