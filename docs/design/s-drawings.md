@@ -201,9 +201,12 @@ chrome when a door was pressed offline (I-89).
 **The grid** — `<div data-testid="sheet-index">`, `display: grid`,
 `grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr))`, gap
 `var(--space-4)`, `align-items: start`. One `<article data-testid="sheet-card"
-data-sheet={sheetId} data-discipline={effective} data-confirmed="true|false">` per card in
+data-sheet={sheetId} data-discipline={effective} data-confirmed="true|false"
+aria-labelledby={the card's own `sheet-card-title`}>` per card in
 the module's layout-inventory order: fill `var(--graphite-50)`, border `var(--hairline)`,
-radius `var(--radius-8)`, padding `var(--space-3)`, column flex, gap `var(--space-2)`.
+radius `var(--radius-8)`, padding `var(--space-3)`, column flex, gap `var(--space-2)`. The
+card names itself as a region because its last child is a door every card labels alike
+(below): N identical labels are otherwise announced with nothing to tell them apart (A-11Y).
 
 - **Thumbnail** (I-87) — `aspect-ratio: 4 / 3`, fill `var(--graphite-100)`, border
   `var(--hairline)`, radius `var(--radius-4)`, `object-fit: contain`:
@@ -243,6 +246,14 @@ radius `var(--radius-8)`, padding `var(--space-3)`, column flex, gap `var(--spac
   `formatUserFigure` for a number, `drawings_fact_yes` / `_no` for a boolean — in
   `var(--font-mono)` `var(--graphite-900)` `tabular-nums slashed-zero`. Notable facts re-key
   the border to `var(--warn)`.
+- **The door onto the sheet** (added by inc-111-viewer-inspector, paying s-viewer I-77 —
+  R-UI-031: a screen reachable only by a typed address is a failing criterion) — the card's
+  last child, `<a data-testid="sheet-card-open" class="cx-btn cx-reticle"
+  data-variant="secondary">`: the core secondary Button as a link, `align-self: start`, no
+  underline, text `drawings_open_sheet`, `href` =
+  `/t/{tenant}/p/{project}/viewer/{drawingId}/{encodeURIComponent(layoutName)}` from the
+  viewer route's own address module (B-17). A link and not a button: it is navigation, so a
+  browser may follow it, open it in a new tab and copy it.
 - **Confirm block** — only on an unconfirmed card for a reader holding `MEASURE` (I-84,
   I-90): a `<fieldset>` (legend `drawings_confirm_legend`) of five Chips,
   `data-testid="sheet-discipline-option"` with `data-value`, the proposal preselected; then a
@@ -367,7 +378,8 @@ needs the MEASURE permission on this project, and your account does not hold it.
 `drawings_denied_holder` **This project's principals and measurers hold it; a principal
 grants it on the participants screen.** · `drawings_evidence_participants` **Open the
 project's participants** · `drawings_evidence_reload` **Reload the sheet index** ·
-`drawings_evidence_upload_again` **Add the drawing again**.
+`drawings_evidence_upload_again` **Add the drawing again** · `drawings_open_sheet`
+**Open sheet** (added by inc-111-viewer-inspector).
 
 Registry copy this increment fixes (`src/core/errors.ts` append, the refusal-state §3 rules
 binding): **GROUP_NOT_OFFERED** · severity error · surface inline · message **This group is
@@ -423,7 +435,8 @@ Test ids, exactly the contract's, on the elements ruled in §1: `sheet-index` ·
 (`data-sheet`, `data-discipline`, `data-confirmed`) · `sheet-card-thumbnail`
 (`data-pending`) · `sheet-card-title` · `sheet-card-number` · `sheet-card-format` ·
 `sheet-card-scheme` · `sheet-card-scale` (`data-scale`) · `sheet-card-views` ·
-`sheet-card-discipline` (`data-basis`) · `sheet-fact` (`data-fact`, `data-value`,
+`sheet-card-discipline` (`data-basis`) · `sheet-card-open` (inc-111-viewer-inspector) ·
+`sheet-fact` (`data-fact`, `data-value`,
 `data-notable`) · `sheet-discipline-option` (`data-value`) · `sheet-confirm` ·
 `sheet-search` · `sheet-filter-option` (`data-value`) · `sheets-empty` (`data-cause`) ·
 `job-timeline` (`data-state`) · `job-timeline-step` (`data-kind`, `data-status`) — plus the

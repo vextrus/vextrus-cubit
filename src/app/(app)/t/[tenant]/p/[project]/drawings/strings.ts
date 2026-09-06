@@ -72,4 +72,5 @@ export const drawings = {
   drawings_evidence_participants: "Open the project's participants",
   drawings_evidence_reload: "Reload the sheet index",
   drawings_evidence_upload_again: "Add the drawing again",
+  drawings_open_sheet: "Open sheet",
 } as const;

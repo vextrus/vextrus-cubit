@@ -9,12 +9,13 @@
 // The law itself, not the seam's barrel: the rosters are values that touch no database
 // (src/core/sheets/law.ts), and a client component reaching through the barrel would drag the driver
 // into the browser bundle.
-import { useState } from "react";
+import { useId, useState } from "react";
 import { DISCIPLINES, FIDELITY_FACTS, type Discipline, type FidelityFact } from "../../../../../../../core/sheets/law";
 import { formatUserFigure } from "../../../../../../../core/format";
 import { Badge, Button, Chip } from "../../../../../../../ui/primitives/core";
 import { fill } from "../../../../../../../ui/strings";
 import type { ReactNode } from "react";
+import { viewerSheetRoute } from "../viewer/[drawing]/[layout]/route-address";
 import { drawings } from "./strings";
 
 /** One card, as the page hands it down — the module's own answer, carried whole. */
@@ -34,6 +35,9 @@ export interface SheetCardData {
 
 export interface SheetCardProps {
   card: SheetCardData;
+  /** The workspace and project this card's sheet is addressed under (R-UI-031). */
+  tenantId: string;
+  projectId: string;
   /** Whether this reader holds MEASURE — a control that could only refuse is theatre (I-90). */
   canConfirm: boolean;
   onConfirm: (sheetId: string, discipline: Discipline) => void;
@@ -64,13 +68,23 @@ const FACT_WORDS: Readonly<Record<FidelityFact, string>> = {
   dropped_layouts: drawings.drawings_fact_dropped_layouts,
 };
 
-export function SheetCard({ card, canConfirm, onConfirm, answer }: SheetCardProps) {
+export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, answer }: SheetCardProps) {
   const effective = card.confirmed === null ? card.proposal.discipline : card.confirmed.discipline;
   const basis = card.confirmed === null ? card.proposal.basis : "CONFIRMED";
   const [chosen, setChosen] = useState<Discipline>(card.proposal.discipline);
+  const titleId = useId();
 
   return (
-    <article className="cx-drawings-card" data-testid="sheet-card" data-sheet={card.sheetId} data-discipline={effective} data-confirmed={card.confirmed === null ? "false" : "true"}>
+    <article
+      className="cx-drawings-card"
+      data-testid="sheet-card"
+      data-sheet={card.sheetId}
+      data-discipline={effective}
+      data-confirmed={card.confirmed === null ? "false" : "true"}
+      // Every card offers a door with the same words, so each is announced inside the region its
+      // own sheet names — otherwise a screen reader hears "Open sheet" N times alike (A-11Y).
+      aria-labelledby={titleId}
+    >
       {/* I-87: the box is the same either way, so the grid does not reflow as rasters arrive. */}
       {card.thumbnail === null ? (
         <div className="cx-drawings-thumb" data-testid="sheet-card-thumbnail" data-pending="true">
@@ -90,7 +104,7 @@ export function SheetCard({ card, canConfirm, onConfirm, answer }: SheetCardProp
         />
       )}
 
-      <h3 className="cx-drawings-card-title" data-testid="sheet-card-title">
+      <h3 className="cx-drawings-card-title" data-testid="sheet-card-title" id={titleId}>
         {card.proposal.title}
       </h3>
 
@@ -172,6 +186,13 @@ export function SheetCard({ card, canConfirm, onConfirm, answer }: SheetCardProp
       ) : null}
 
       <span className="cx-drawings-answer">{answer}</span>
+
+      {/* R-UI-031: a screen reachable only by a typed address is a failing criterion, so every card
+          carries the door onto its own sheet. A link and not a button — it is navigation a browser
+          can follow, open in a new tab and copy. */}
+      <a className="cx-btn cx-reticle cx-drawings-card-open" data-variant="secondary" data-testid="sheet-card-open" href={viewerSheetRoute(tenantId, projectId, card.drawingId, card.layoutName)}>
+        <span className="cx-btn-label">{drawings.drawings_open_sheet}</span>
+      </a>
     </article>
   );
 }

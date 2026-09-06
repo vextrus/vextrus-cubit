@@ -378,6 +378,8 @@ export function SheetIndex({
               <SheetCard
                 key={card.sheetId}
                 card={card}
+                tenantId={tenantId}
+                projectId={projectId}
                 canConfirm={canConfirm}
                 answer={answerFor({ where: "card", sheetId: card.sheetId })}
                 onConfirm={(sheetId, discipline) => {
