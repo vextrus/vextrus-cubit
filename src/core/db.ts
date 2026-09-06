@@ -39,7 +39,6 @@ export {
   workItemCatalogue,
   bears,
   ACCEPTED_FORMATS,
-  isAcceptedFormat,
   UPLOAD_STATES,
   SCAN_VERDICTS,
   RASTER_TIERS,
@@ -56,10 +55,9 @@ export {
   drawingSetRevisions,
   SEAM_SCHEMA,
 } from "./db/schema";
-export { type WorkspaceRole, type Disposition, type SheetReadingRecord, type AcceptedFormat, type UploadState, type ScanVerdict, type RasterTier } from "./db/schema";
+export { isAcceptedFormat, type WorkspaceRole, type Disposition, type SheetReadingRecord, type AcceptedFormat, type UploadState, type ScanVerdict, type RasterTier } from "./db/schema";
 export { closePools } from "./db/pools";
 export {
-  scopedClient,
   forTenant,
   runAsSystem,
   holdStateLock,
@@ -69,8 +67,7 @@ export {
   storableText,
   modelSpendByProject,
 } from "./db/seam";
-export { type Scope, type TenantDb, type TenantTx, type SystemDb, type ModelSpend } from "./db/seam";
-export { jobsStore } from "./db/jobs";
-export { type JobEventDraft, type JobEventRow, type QueuedJob, type QueueShape, type LiveClaim, type ClaimCursor, type QueueState, type JobsStore } from "./db/jobs";
+export { scopedClient, type Scope, type TenantDb, type TenantTx, type SystemDb, type ModelSpend } from "./db/seam";
+export { jobsStore, type JobEventDraft, type JobEventRow, type QueuedJob, type QueueShape, type LiveClaim, type ClaimCursor, type QueueState, type JobsStore } from "./db/jobs";
 export { recordSystemReasonsWith, type SystemReasonRecord, type SystemReasonRecorder } from "./db/reason";
 export { and, asc, desc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
