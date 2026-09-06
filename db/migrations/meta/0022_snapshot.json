@@ -1,6 +1,6 @@
 {
-  "id": "49c74b87-599a-41c7-88d9-a16d90560452",
-  "prevId": "54669428-305c-44b0-8671-7ac7256bd612",
+  "id": "c258b092-811d-49a7-a512-1ebe10898579",
+  "prevId": "49c74b87-599a-41c7-88d9-a16d90560452",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1276,7 +1276,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "model_calls_call_per_tenant": {
+          "name": "model_calls_call_per_tenant",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "call_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "model_calls_model_id_closed": {
@@ -2495,6 +2504,23 @@
           "primaryKey": false,
           "notNull": true,
           "default": "clock_timestamp()"
+        },
+        "recorded_seq": {
+          "name": "recorded_seq",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "sheet_understanding_dispositions_recorded_seq_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "9223372036854775807",
+            "cache": "1",
+            "cycle": false
+          }
         }
       },
       "indexes": {
@@ -2515,6 +2541,12 @@
             },
             {
               "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recorded_seq",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2561,14 +2593,16 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "sheet_understanding_dispositions_call_id_model_calls_call_id_fk": {
-          "name": "sheet_understanding_dispositions_call_id_model_calls_call_id_fk",
+        "sheet_understanding_dispositions_call_fk": {
+          "name": "sheet_understanding_dispositions_call_fk",
           "tableFrom": "sheet_understanding_dispositions",
           "tableTo": "model_calls",
           "columnsFrom": [
+            "tenant_id",
             "call_id"
           ],
           "columnsTo": [
+            "tenant_id",
             "call_id"
           ],
           "onDelete": "no action",
