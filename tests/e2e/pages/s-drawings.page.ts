@@ -30,6 +30,8 @@ export const S_DRAWINGS = {
   jobsTray: "shell-jobs-tray",
   jobsTrayPanel: "shell-jobs-tray-panel",
   jobsTrayItem: "shell-jobs-tray-item",
+  /** The item's elapsed cell: it stands in every state, holding the bone while no number exists. */
+  jobsTrayItemTiming: "shell-jobs-tray-item-timing",
   jobsTrayEmpty: "shell-jobs-tray-empty",
   groups: "offered-groups",
   group: "offered-group",
@@ -119,11 +121,11 @@ export class SDrawingsPage {
   }
 
   /** The items' elapsed-time cells, masked in a baseline: they are real time, never twice the same.
-      The cell stands in every state — a running item holds its bone inside it — and the journey
-      asserts the mask covers one cell per listed job, so an empty mask fails rather than passing
-      with the clock baked into the picture. */
+      Named by the handle C-05 freezes rather than by an authored class, so a restyle cannot move it
+      out from under the mask; the cell stands in every state — a running item holds its bone inside
+      it — and the journey asserts the mask covers one cell per listed job. */
   get jobsTrayTimings(): Locator {
-    return this.jobsTrayItems.locator(".cx-jobs-tray-item-timing");
+    return this.jobsTrayItems.locator(`[data-testid="${S_DRAWINGS.jobsTrayItemTiming}"]`);
   }
 
   /** Open the tray and return only once its panel stands. */

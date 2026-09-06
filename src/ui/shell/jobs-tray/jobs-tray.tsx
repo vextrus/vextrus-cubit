@@ -89,7 +89,7 @@ function TrayItem({ job }: { job: TrackedJobReading }) {
         {/* The elapsed cell stands in every state, holding the bone while no number exists rather
             than standing in its place: it is the cell a baseline masks, and a mask that matches
             nothing bakes real elapsed time into the picture instead of failing. */}
-        <span className="cx-jobs-tray-item-timing">
+        <span className="cx-jobs-tray-item-timing" data-testid="shell-jobs-tray-item-timing">
           {job.status === "running" && job.timing === null ? <Skeleton className="cx-jobs-tray-item-bone" /> : job.timing}
         </span>
       </span>

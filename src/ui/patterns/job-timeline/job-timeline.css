@@ -62,7 +62,10 @@
 .cx-job-timeline-step {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  /* The elapsed track holds the bone's own 64 px whatever is standing in it, so the status word does
+     not step sideways the moment the number lands (Decision § 1: "the layout never shifts when the
+     number lands"); a longer reading than the bone is wide still grows it. */
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(64px, auto);
   grid-template-rows: minmax(var(--job-timeline-row), max-content);
   align-items: center;
   gap: var(--space-3);

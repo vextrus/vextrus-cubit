@@ -82,6 +82,16 @@ primitives — the core Skeleton, the one RefusalState — plus the classes this
   (a sentence the taxonomy never wrote, I-110), and carrying the raw code into the row (a taxonomy
   token is not copy). The tray is unchanged by this: its `error` cell is declared delegated to the
   timeline in `states.ts`, and an unnamed cause is that cell, not the `refusal` cell it renders.
+- **I-123 — the elapsed cell a picture masks is named by a frozen handle.** The tray item's elapsed
+  cell carries `data-testid="shell-jobs-tray-item-timing"`, extending the roster
+  `docs/design/shell-top-bar.md` § 7 (its closed C-05 contract) lists for the item — that file is
+  outside this increment's ownership, so the addition is recorded here, as I-121 was. The cell stands
+  in every state, holding
+  the bone while no number exists, and J-010's tray picture masks it by that handle: a mask that
+  names an authored class is one restyle away from covering nothing, and a picture whose mask covers
+  nothing bakes the clock into the baseline. Rejected: leaving the mask on
+  `.cx-jobs-tray-item-timing` — the count assertion beside it would red on a rename, but C-05's
+  point is that what a journey reads is product API, not a stylesheet's private name.
 - **I-114 — permission-denied is not a cell of this pattern.** The register holds the jobs this browser
   tab started, watched under the session that started them; there is no "someone else's job" to be denied
   and no permission to name. The workspace denial precedes the frame (shell I-17) and the seam's own
