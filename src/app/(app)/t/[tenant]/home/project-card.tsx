@@ -10,6 +10,7 @@ import { refusalOf, type RefusalCode } from "../../../../../core/errors";
 import { formatDate } from "../../../../../core/format";
 import type { BuildingType } from "../../../../../core/projects";
 import type { Project } from "../../../../../modules/spine/projects";
+import { projectHomeRoute } from "../p/[project]/home/areas";
 import { RefusalState } from "../../../../../ui/patterns/refusal-state";
 import { Badge, Button } from "../../../../../ui/primitives/core";
 import { shellHref, useFailureHandOff } from "../../../../../ui/shell";
@@ -58,7 +59,11 @@ export function ProjectCard({ tenantId, project, onEdit, refusal, onAnswer }: Pr
   return (
     <li className="cx-home-card" data-testid="s-home-project-card" data-project={project.projectId} data-archived={archived ? "true" : "false"}>
       <div className="cx-home-card-name-row">
-        <p className="cx-home-card-name">{project.name}</p>
+        {/* I-131 amends I-32: the project home exists now, so the name is the door to it — the one
+            piece of navigation R-UI-031 asks every card for (S-Project's Decision). */}
+        <Link className="cx-home-card-name cx-reticle" data-testid="s-home-project-open" href={projectHomeRoute(tenantId, project.projectId)}>
+          {project.name}
+        </Link>
         {project.code === null ? null : <span className="cx-home-card-code">{project.code}</span>}
         {/* The scan-level flag, its meaning carried by the word and never by colour alone (Q-11). */}
         {archived ? <Badge data-testid="s-home-project-archived-badge">{strings.home_status_archived}</Badge> : null}
