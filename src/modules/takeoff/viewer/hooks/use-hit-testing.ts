@@ -20,7 +20,8 @@ const HIT_TOLERANCE_PX = 4;
 export type WorkerLike = {
   postMessage: (message: SpatialRequest) => void;
   addEventListener: (kind: "message", listener: (event: { data: SpatialAnswer }) => void) => void;
-  removeEventListener: (kind: "message", listener: (event: { data: SpatialAnswer }) => void) => void;
+  /** A thread that cannot be unsubscribed from is still ended, so this one is not required of it. */
+  removeEventListener?: (kind: "message", listener: (event: { data: SpatialAnswer }) => void) => void;
   terminate: () => void;
 };
 
@@ -112,7 +113,7 @@ export function useHitTesting({ head, layers, loadedLayers = 0, stateRef, status
     indexLayers();
 
     return () => {
-      worker.removeEventListener("message", onAnswer);
+      worker.removeEventListener?.("message", onAnswer);
       worker.terminate();
       workerRef.current = null;
       postedRef.current.clear();
