@@ -75,10 +75,19 @@ export async function understandSheet(ctx: ModelCallContext, input: SheetUnderst
     });
   }
 
+  // Scoped to this sheet's own entities: a reading of this sheet resting on an entity of another one
+  // is evidence for a different sheet, and those keys are the artifact's either way (L-AI-02).
+  const citable = citableKeysOn(input.graph, input.layoutName);
+  if (citable.length === 0) {
+    // No key on this layout can be cited, so no answer could be a proposal: every one of them would
+    // earn UNSOURCED or SOURCE_UNRESOLVED. The call is not made — a model asked a question with no
+    // admissible answer still spends a tenant's money (L-AI-01 attributes what it spends) — and the
+    // caller hears the defect it is, never a refusal a person could act on (ARCH-03).
+    throw new Error(`the artifact carries no entity on layout ${JSON.stringify(input.layoutName)}, so a reading of it could cite nothing — no model is asked (L-AI-02)`);
+  }
+
   const proposal = await port.propose(ctx, sheetUnderstandingRequest(input.graph, input.layoutName), {
-    // Scoped to this sheet's own entities: a reading of this sheet resting on an entity of another
-    // one is evidence for a different sheet, and those keys are the artifact's either way (L-AI-02).
-    artifact: sourceKeyResolver(input.artifactDigest, citableKeysOn(input.graph, input.layoutName)),
+    artifact: sourceKeyResolver(input.artifactDigest, citable),
     decode: readSheetReading,
   });
 

@@ -100,7 +100,9 @@ export async function dispositionsOf(scope: DispositionScope): Promise<RecordedD
     .select()
     .from(sheetUnderstandingDispositions)
     .where(and(eq(sheetUnderstandingDispositions.tenantId, scope.tenantId), eq(sheetUnderstandingDispositions.projectId, scope.projectId)))
-    .orderBy(desc(sheetUnderstandingDispositions.createdAt));
+    // The instant first, then the order the store accepted them in: a clock has a resolution, so two
+    // dispositions recorded inside one of its ticks would otherwise come back in no order at all.
+    .orderBy(desc(sheetUnderstandingDispositions.createdAt), desc(sheetUnderstandingDispositions.recordedSeq));
 
   return rows.map((row) => ({
     dispositionId: row.dispositionId,

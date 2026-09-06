@@ -75,11 +75,18 @@ function evidenceOn(graph: EntityGraph, layoutName: string): SheetEvidence {
   const census: Record<string, number> = {};
   for (const entity of standing) census[entity.type] = (census[entity.type] ?? 0) + 1;
 
+  // A sheet the inventory does not name is no sheet: telling the model one stands here would put a
+  // question to it about a layout the artifact does not carry (L-CAD-05, ARCH-03).
+  const layout = graph.layouts.find((entry) => entry.name === layoutName);
+  if (layout === undefined) throw new Error(`the artifact's layout inventory names no ${JSON.stringify(layoutName)} — there is no sheet here to read (L-CAD-05)`);
+
   return {
-    layout: { name: layoutName, kind: graph.layouts.find((layout) => layout.name === layoutName)?.kind ?? "paper" },
+    layout: { name: layoutName, kind: layout.kind },
     entities: standing.filter(said).map((entity) => ({ key: entity.key, type: entity.type, layer: entity.layer, text: (entity.text ?? "").trim(), height: entity.height ?? 0 })),
-    // Exploded paint is named by the block it came out of, which is the key a citation of it names.
-    derived: graph.derived.filter((record) => record.space === layoutName && said(record)).map((record) => ({ key: record.src, type: record.type, layer: record.layer, text: (record.text ?? "").trim(), height: record.height ?? 0 })),
+    // Exploded paint is named by the block it came out of, which is the key a citation of it names —
+    // so paint whose block is not itself an entity of this sheet is left out: shown, it would be
+    // evidence the resolver cannot admit, and a citation of it a refusal the question itself made.
+    derived: graph.derived.filter((record) => record.space === layoutName && keys.has(record.src) && said(record)).map((record) => ({ key: record.src, type: record.type, layer: record.layer, text: (record.text ?? "").trim(), height: record.height ?? 0 })),
     blockAttributes: graph.block_attributes.filter((attribute) => keys.has(attribute.src) && attribute.text.trim() !== "").map((attribute) => ({ src: attribute.src, tag: attribute.tag, text: attribute.text.trim(), height: attribute.height })),
     census,
   };

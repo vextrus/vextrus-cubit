@@ -9,13 +9,17 @@ CREATE TABLE "sheet_understanding_dispositions" (
 	"resolved" json,
 	"actor_user_id" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+	"recorded_seq" bigint GENERATED ALWAYS AS IDENTITY (sequence name "sheet_understanding_dispositions_recorded_seq_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
 	CONSTRAINT "sheet_understanding_dispositions_closed" CHECK ("sheet_understanding_dispositions"."disposition" in ('accepted', 'edited', 'rejected')),
 	CONSTRAINT "sheet_understanding_dispositions_resolved_iff_edited" CHECK (("sheet_understanding_dispositions"."resolved" is not null) = ("sheet_understanding_dispositions"."disposition" = 'edited'))
 );
 --> statement-breakpoint
+-- Ahead of the composite foreign key below, which references it: the generator emits its ALTERs
+-- table by table, and a reference to a key that does not exist yet cannot be added.
+ALTER TABLE "model_calls" ADD CONSTRAINT "model_calls_call_per_tenant" UNIQUE("tenant_id","call_id");--> statement-breakpoint
 ALTER TABLE "sheet_understanding_dispositions" ADD CONSTRAINT "sheet_understanding_dispositions_tenant_id_tenants_tenant_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("tenant_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sheet_understanding_dispositions" ADD CONSTRAINT "sheet_understanding_dispositions_call_id_model_calls_call_id_fk" FOREIGN KEY ("call_id") REFERENCES "public"."model_calls"("call_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "sheet_understanding_dispositions_by_project" ON "sheet_understanding_dispositions" USING btree ("tenant_id","project_id","created_at");--> statement-breakpoint
+ALTER TABLE "sheet_understanding_dispositions" ADD CONSTRAINT "sheet_understanding_dispositions_call_fk" FOREIGN KEY ("tenant_id","call_id") REFERENCES "public"."model_calls"("tenant_id","call_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "sheet_understanding_dispositions_by_project" ON "sheet_understanding_dispositions" USING btree ("tenant_id","project_id","created_at","recorded_seq");--> statement-breakpoint
 CREATE INDEX "sheet_understanding_dispositions_by_call" ON "sheet_understanding_dispositions" USING btree ("tenant_id","call_id");--> statement-breakpoint
 -- hand-written: RLS, grants (SEAM-TENANT)
 -- Appended by hand in the form the tenancy-base migration set: the drift lane proves the schema and
