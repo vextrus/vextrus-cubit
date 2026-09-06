@@ -271,5 +271,12 @@ describe("AC-2: src/core/db.ts is a barrel over src/core/db/", () => {
     expect(missing, `${module} does not export the names the goal puts there`).toEqual([]);
     const strangers = names.filter((name) => home[name] !== barrel[name]);
     expect(strangers, `the barrel hands out a different value than ${module} exports — one name, one home (B-17)`).toEqual([]);
+
+    // white-box: AC-2 — `export { closePools } from "./seam"` gives pools.ts the same own key and the
+    // same `===` value the real home would, so the two are indistinguishable through any call. What
+    // separates them is whether this module DECLARES the name, which only its own code can say.
+    const code = lex(readFileSync(join(REPO_ROOT, module), "utf8"), "ts").code;
+    const forwarded = names.filter((name) => !new RegExp(`\\b(?:const|let|var|function|class)\\s+${name}\\b`).test(code));
+    expect(forwarded, `${module} forwards a name the goal makes it the home of — a re-export shim is not the single-purpose module`).toEqual([]);
   });
 });
