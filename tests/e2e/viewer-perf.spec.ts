@@ -1,10 +1,13 @@
 /**
- * J-011 — the viewer leg this increment can honestly walk: a staged 100 000-entity sheet opened,
+ * PERF-011 (was J-011) — the viewer leg this increment can honestly walk: a staged 100 000-entity sheet opened,
  * its layers listed and one of them hidden, zoomed and panned inside PB-3's frame budget, fitted,
  * deep-linked at a viewport, and drawn on both papers (R-TO-010, R-UI-040/043, PB-2, PB-3).
  *
- * The gate runs `pnpm e2e --journey J-011`, and Playwright exits 1 on an unmatched grep — so the
- * J-011 tag in the title below is what makes that stage runnable at all. J-000 is untouched.
+ * V-PERF runs it: `pnpm test:perf` is `pnpm e2e --journey PERF-` (Playwright's title grep), so the
+ * PERF-011 tag below is what the perf lane collects — and what keeps it OUT of `--journey J-011`,
+ * the gate's journey lane (v17.1 §2: a performance budget is the perf lane's verdict on the
+ * reference machine, never an e2e gate's under load; the two J-011 reds of 2026-09-06 were this
+ * file's PB-3 median under SwiftShader on a loaded box). J-000 and j-011-viewer.spec.ts are untouched.
  *
  * WebGL in CI: headless Chromium paints through SwiftShader, which the launch options below ask for
  * by name (playwright.config.ts is locked, so the spec states them for itself). Under software GL
@@ -32,8 +35,8 @@ test.use({
   launchOptions: { args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] },
 });
 
-test.describe("J-011 — a 100 000-entity sheet is opened, drawn, navigated and deep-linked", () => {
-  test("J-011: the viewer opens a 100k sheet within budget, lists its layers, holds 60 fps, deep-links its viewport and draws on both papers", async ({
+test.describe("PERF-011 — a 100 000-entity sheet is opened, drawn, navigated and deep-linked", () => {
+  test("PERF-011: the viewer opens a 100k sheet within budget, lists its layers, holds 60 fps, deep-links its viewport and draws on both papers", async ({
     page,
     baseURL,
   }, testInfo) => {

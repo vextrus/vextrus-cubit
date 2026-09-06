@@ -6,7 +6,8 @@
  * R-UI-012, V-E2E).
  *
  * The gate runs `pnpm e2e --journey J-011`, which is Playwright's title grep — so every title here
- * names J-011, and this file runs beside `tests/e2e/viewer-perf.spec.ts` under that one stage.
+ * names J-011. `tests/e2e/viewer-perf.spec.ts` (PB-2/PB-3) is tagged PERF-011 and runs under
+ * `pnpm test:perf` instead (V-PERF, v17.1 §2) — the budgets are the perf lane's verdict.
  *
  * WebGL in CI: headless Chromium paints through SwiftShader, asked for by name below exactly as the
  * perf journey asks (playwright.config.ts is locked). The inspector is the third panel of a drawn

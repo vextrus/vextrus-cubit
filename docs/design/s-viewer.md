@@ -331,7 +331,7 @@ canvas, both panel controls, the zoom buttons and the handle. Swatch colour is g
 the row's inline style, layer counts by the string `formatUserFigure` renders.
 
 Suites: `tests/takeoff/viewer/**` (manifest, camera, index, LOD) and jsdom mounts of `ViewerScreen`
-over a supplied `head`; `tests/e2e/viewer-perf.spec.ts` tagged **J-011** with page object
+over a supplied `head`; `tests/e2e/viewer-perf.spec.ts` tagged **PERF-011** (V-PERF: `pnpm test:perf`, never the J-011 gate lane — v17.1) with page object
 `tests/e2e/viewer/s-viewer.page.ts` (`S_VIEWER.route(tenantId, projectId, drawingId, layoutName)`),
 checkpoints `j-011-sheet-open`, `j-011-layers`, `j-011-zoom-pan-fit`, `j-011-deep-link`,
 `j-011-dark`, each passing axe at serious/critical = 0, never widened. Under headless software GL
