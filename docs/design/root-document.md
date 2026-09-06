@@ -83,6 +83,23 @@ records the gap: a future increment owes `global-error.tsx` the same two stylesh
 `data-theme="light"` server attribute and the same `THEME_RESOLVER` as body's first child — or a
 ruling that an outage screen deliberately stands on UA defaults.
 
+The product's Content-Security-Policy sharpens that gap without changing it. `script-src` admits no
+inline script but the pre-paint resolver, by the digest of its own source, and Next's own runtime
+bootstraps, by a nonce the renderer stamps on per request. `global-error.tsx`'s document is
+prerendered, so its `self.__next_f` bootstraps carry no nonce and the browser refuses them: that
+screen renders its server HTML and does not hydrate. It has no interactive element, so it still
+reads and still says what it says — but the gap recorded above now owes one thing more, and the
+future increment that closes it must bring that document inside the per-request render (the root
+layout's `export const dynamic = "force-dynamic"`, which is what makes every other route's
+bootstraps nonce-able, does not reach a document mounted in place of the root layout).
+
+**What the policy asks of this document.** The resolver stays inline and stays body's first child;
+it is admitted by `'sha256-…'`, never by loosening `script-src`, so its text is fixed by its digest
+and any edit to it moves the policy in the same commit (the digest has one home,
+`THEME_RESOLVER_SHA256`). The inline `style` attributes this Decision specifies are why `style-src`
+keeps `'unsafe-inline'`. And `RootLayout` remains a **synchronous** default export: the per-request
+render is bought with a segment config, not with a `headers()` read.
+
 ### Theme resolution (the mechanism this file is required to record)
 
 The server renders `data-theme="light"` — light is the product's default, never a guess about
