@@ -5,10 +5,14 @@
 import { registerJobHandler } from "../../core/jobs";
 import { uploadStorage } from "../../modules/spine/uploads";
 import { INGEST_KIND, runIngestJob } from "../../modules/takeoff/ingest/job";
+import { requestPartition } from "../../modules/takeoff/partition";
 import { requestThumbnails } from "../../modules/takeoff/thumbnails";
 
 /** The step an ingest records when the previews it chained were refused rather than asked for. */
 const THUMBNAILS_REFUSED_STEP = "thumbnails-refused";
+
+/** The step an ingest records when the partition it chained was refused rather than asked for. */
+const PARTITION_REFUSED_STEP = "partition-refused";
 
 /**
  * Say which function does an `ingest` job's work, and what is asked for once it has recorded.
@@ -28,5 +32,13 @@ export function registerIngestHandler(): void {
     // where a job's life is read. It is never retried here — the codes this door refuses with say the
     // work is not this scope's to do or has nothing to draw from, and neither changes by asking again.
     if ("refusal" in asked) await progress.step(THUMBNAILS_REFUSED_STEP, { refusal: asked.refusal, drawing_id: payload.drawingId });
+
+    // R-TO-030's partition is chained here for the same reason the previews are (X-1): the record
+    // has just been written, so the reading of it is work the machine owes rather than work a person
+    // has to ask for, and a tab closed the moment an ingest finished would otherwise leave a record
+    // nobody ever classified. `requestPartition` is idempotent on the record's own key, so a second
+    // asker finds the work already queued rather than partitioning the same artifact twice.
+    const partitioned = await requestPartition({ tenantId: payload.tenantId, drawingId: payload.drawingId, requestedBy: payload.requestedBy });
+    if ("refusal" in partitioned) await progress.step(PARTITION_REFUSED_STEP, { refusal: partitioned.refusal, drawing_id: payload.drawingId });
   });
 }

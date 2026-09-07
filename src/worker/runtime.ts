@@ -7,6 +7,7 @@ import { createServer, type Server, type ServerResponse } from "node:http";
 import { jobsHealth, startJobsRuntime, stopJobsRuntime } from "../core/jobs";
 import { reportFault } from "../core/faults/report";
 import { registerIngestHandler } from "./handlers/ingest";
+import { registerPartitionHandler } from "./handlers/partition";
 import { registerThumbnailsHandler } from "./handlers/thumbnails";
 
 /** Where the health probe answers, and where nothing else does. */
@@ -45,6 +46,7 @@ export async function runWorker(options: WorkerOptions): Promise<Worker> {
   // its kind is a job that can only fail (SEAM-JOBS).
   registerIngestHandler();
   registerThumbnailsHandler();
+  registerPartitionHandler();
   await startJobsRuntime(options.databaseUrl);
   let health: Server;
   try {

@@ -7,6 +7,7 @@
 import { acts, forTenant, holdStateLock, type TenantTx } from "../db";
 import { assignParticipantRole, type AssignParticipantRoleInput } from "./assign-participant-role";
 import { confirmDiscipline, type ConfirmDisciplineInput } from "./confirm-discipline";
+import { confirmViewType, type ConfirmViewTypeInput } from "./confirm-view-type";
 import { pinDrawingSet, type PinDrawingSetInput } from "./pin-drawing-set";
 import { consequenceDigest, movesNothing, type Consequence } from "./consequence";
 import { ACT_TYPES, type ActType } from "./law";
@@ -33,10 +34,11 @@ export { permissionNotHeld, projectWouldHaveNoPrincipal, type ActorKind } from "
 export { type ActRendering, type ActorCtx, type WrittenAct } from "./rendering";
 export { directionOf, type AssignDirection, type AssignParticipantRoleInput } from "./assign-participant-role";
 export { GROUP_KINDS, groupNotOffered, type ConfirmDisciplineInput, type GroupKind, type OfferedGroupKey } from "./confirm-discipline";
+export { viewGroupNotOffered, type ConfirmViewTypeInput, type ViewGroupKey } from "./confirm-view-type";
 export { setNotPinnable, type PinDrawingSetInput } from "./pin-drawing-set";
 
 /** Everything a caller may ask the seam to do: one member per act type the enum declares. */
-export type ActInput = AssignParticipantRoleInput | ConfirmDisciplineInput | PinDrawingSetInput;
+export type ActInput = AssignParticipantRoleInput | ConfirmDisciplineInput | ConfirmViewTypeInput | PinDrawingSetInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -46,6 +48,7 @@ export type ActInput = AssignParticipantRoleInput | ConfirmDisciplineInput | Pin
 export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, { type: T }>> }> = Object.freeze({
   ASSIGN_PARTICIPANT_ROLE: assignParticipantRole,
   CONFIRM_DISCIPLINE: confirmDiscipline,
+  CONFIRM_VIEW_TYPE: confirmViewType,
   PIN_DRAWING_SET: pinDrawingSet,
 });
 
@@ -73,6 +76,8 @@ function renderingFor(input: ActInput): BoundRendering {
     case "ASSIGN_PARTICIPANT_ROLE":
       return bind(ACT_MAP[input.type], input);
     case "CONFIRM_DISCIPLINE":
+      return bind(ACT_MAP[input.type], input);
+    case "CONFIRM_VIEW_TYPE":
       return bind(ACT_MAP[input.type], input);
     case "PIN_DRAWING_SET":
       return bind(ACT_MAP[input.type], input);
