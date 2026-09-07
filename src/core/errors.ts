@@ -55,6 +55,8 @@ export type RefusalCode =
   | "SHEET_NOT_INGESTABLE"
   | "RASTER_NOT_AVAILABLE"
   | "MANIFEST_NOT_RENDERABLE"
+  | "CAPTION_UNCLASSIFIABLE"
+  | "PARTITION_NOT_AVAILABLE"
   | "GROUP_NOT_OFFERED"
   | "SET_NOT_PINNABLE"
   | "SET_NAME_NOT_USABLE"
@@ -314,6 +316,25 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     remedy: "Upload the drawing again to have it read afresh.",
     severity: "error",
     surface: "banner",
+  }),
+  // L-CAD-06's answer for a view caption the deterministic grammar reads nothing in: the view stands
+  // untyped and says why, because a grammar that guessed would put a class in front of a person as
+  // though it had been read off the drawing.
+  CAPTION_UNCLASSIFIABLE: Object.freeze({
+    code: "CAPTION_UNCLASSIFIABLE",
+    message: "This view's caption says nothing the classification grammar reads, so the view is untyped.",
+    remedy: "Confirm what the view is yourself, or re-caption it in the drawing and ingest it again.",
+    severity: "info",
+    surface: "inline",
+  }),
+  // R-TO-030's answer when a drawing has no partition to rebuild: the partition is a reading of an
+  // ingest record, so a drawing nothing has ever been extracted from has nothing to classify.
+  PARTITION_NOT_AVAILABLE: Object.freeze({
+    code: "PARTITION_NOT_AVAILABLE",
+    message: "This drawing has no stored partition, because it has not been ingested.",
+    remedy: "Ingest the drawing first, then ask for its partition again.",
+    severity: "error",
+    surface: "inline",
   }),
   // L-ACT-02's answer when a caller names a group the machine is not offering: "bulk is offered,
   // never assembled", so the membership a commit would move is the machine's own — a key whose
