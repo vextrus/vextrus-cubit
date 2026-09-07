@@ -17,16 +17,17 @@ import type { JobPayloads, JobProgress } from "@/core/jobs";
 import { sourceKeyResolver, type ModelCallContext } from "@/core/model";
 import type { Storage } from "@/core/storage";
 import { proposeViewType } from "@/core/view-captions";
+import type { ViewRecord } from "@/core/views";
 import { ingestRecords, type IngestRecord } from "@/modules/takeoff/ingest";
-import { drawingProjectOf, rewritePartition, type ViewProposal } from "./store";
+import { drawingProjectOf, rewritePartition, storedViewsOf, type ViewProposal } from "./store";
 import { partitionArtifact, type PartitionedView } from "./views/assign";
 import { VIEW_TYPE, VIEW_TYPES, type ViewType } from "./views/law";
 
 /**
- * The stages a stored partition is rebuilt from, in the order they run (R-TO-030). View
- * classification is the first and, today, the whole of it; the grid backbone (L-CAD-07) and the
- * convention profile (L-CAD-08) append to this list as they land, and each stage's result is stored
- * where the stage's own tables are.
+ * The stages a stored partition is rebuilt from, in the order they run (R-TO-030: "view
+ * classification, grid backbone, convention profile run as a stored partition rebuilt per ingest").
+ * A stage is a member of this list or it does not run at all — the list is the roster, and the map
+ * below is keyed by it, so neither can hold a stage the other does not.
  */
 export const PARTITION_STAGES = ["views"] as const;
 
@@ -105,6 +106,7 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
     record,
     progress,
     captions: deps.captions ?? PRODUCTION_CAPTIONS,
+    held: await storedViewsOf(tenantId, ingestId),
   });
 
   await rewritePartition({ tenantId, projectId, drawingId, ingestId, views: derived.views, assignments: derived.assignments, proposals });
@@ -118,6 +120,8 @@ type ProposalPass = {
   readonly record: IngestRecord;
   readonly progress: JobProgress;
   readonly captions: ViewCaptionSeam;
+  /** The partition that stands for this record now, so a question already answered is not re-asked. */
+  readonly held: readonly ViewRecord[];
 };
 
 /**
@@ -128,9 +132,19 @@ type ProposalPass = {
 async function proposalsFor(views: readonly PartitionedView[], pass: ProposalPass): Promise<Map<string, ViewProposal>> {
   const proposals = new Map<string, ViewProposal>();
   const citable = pass.graph.entities.map((entity) => entity.key);
+  const held = new Map(pass.held.filter((view) => view.proposed !== null).map((view) => [view.viewKey, view.proposed]));
 
   for (const view of views) {
     if (!asksAModel(view)) continue;
+    // A proposal already standing for this very view is carried, not asked for again: the view key
+    // is the class and the caption's own entity, so the question a second run would put to a model
+    // is the question the ledger already holds the answer to — and asking it again would spend a
+    // tenant's money to learn the same thing (L-AI-01, L-REG-04).
+    const standing = held.get(view.viewKey);
+    if (standing !== undefined && standing !== null) {
+      proposals.set(view.viewKey, { viewKey: view.viewKey, type: standing.type, callId: standing.callId });
+      continue;
+    }
     const anchorKey = view.anchorKey ?? "";
     let proposed: ViewProposal | null = null;
     try {

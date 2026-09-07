@@ -949,7 +949,7 @@ export const viewTypeConfirmations = pgTable(
   },
   (table) => [
     // One confirmation per view of one record: a second, disagreeing reading is a competing
-    // observation, which L-ACT-01 gives its own path and this increment does not render.
+    // observation, which L-ACT-01 gives a path of its own rather than a second row here.
     uniqueIndex("view_type_confirmations_once").on(table.tenantId, table.ingestId, table.viewKey),
     // The read the partition makes: what a drawing's views have been confirmed as.
     index("view_type_confirmations_by_drawing").on(table.tenantId, table.drawingId),

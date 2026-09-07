@@ -30,10 +30,9 @@ export type ViewPartition = {
 
 /**
  * How tall a text has to stand, as a share of the tallest text in model space, to be read as a
- * caption rather than as a label inside a view. The share is fixed here rather than resolved from
- * the drawing's own conventions: the per-drawing resolution is L-CAD-08's, and until it lands the
- * rule that separates a title from a bar mark is the one a draughtsman uses — captions are the big
- * text on the sheet.
+ * caption rather than as a label inside a view. The share is fixed rather than resolved from the
+ * drawing's own conventions, which is L-CAD-08's own question: what separates a title from a bar
+ * mark here is the rule a draughtsman draws by — a caption is the big text on the sheet.
  */
 const CAPTION_HEIGHT_SHARE = 0.5;
 
