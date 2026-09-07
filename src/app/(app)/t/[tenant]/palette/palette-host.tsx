@@ -139,22 +139,30 @@ export function PaletteHost({ tenantId, projectId = null, search, navigate, chil
     (target: string): PaletteDestination => {
       if (target === PROJECTS_TARGET) return { href: shellHref(tenantId, PROJECTS_TARGET) };
       const area = PROJECT_AREAS.find((entry) => entry.key === target);
-      if (area === undefined) return { reason: strings.command_palette_reason_area_unbuilt };
+      if (area === undefined) return { reason: strings.command_palette_unavailable };
       if (projectId === null) return { reason: strings.command_palette_reason_no_project };
-      if (area.route === null) return { reason: strings.command_palette_reason_area_unbuilt };
+      // Read off `PROJECT_AREAS.route`, never written beside the row: an area with no screen in this
+      // workspace says so in one sentence, and becomes reachable the day it gains an address (I-126,
+      // I-138). One sentence for every unreachable row, so a reader learns the shape of the answer
+      // once rather than parsing a different apology per row (B-17).
+      if (area.route === null) return { reason: strings.command_palette_unavailable };
       return { href: area.route(tenantId, projectId) };
     },
     [projectId, tenantId],
   );
 
   const groups = useMemo<readonly CommandGroup[]>(() => {
-    const navigateRows = hits.map((hit) => hitRow(hit, tenantId));
+    // Every group is read by the same rule, the answered subjects included: "the list shows what
+    // matches what you typed" is one sentence a person learns once, and one function the whole
+    // surface asks (B-17). The server has already matched on the same names, so this narrows
+    // nothing a reader was owed — it only keeps a stale answer from outliving the words it answered.
+    const navigateRows = hits.map((hit) => hitRow(hit, tenantId)).filter((item) => matchesQuery(item.label, query));
     // The areas group always renders, project or not: a group that vanished with context would
     // teach a person their workspace has fewer parts than it has (I-139).
     const areaRows = PROJECT_AREAS.map((area): CommandItem => {
       const label = projectHomeStrings[area.label];
       const where = resolveGo(area.key);
-      return { key: area.key, kind: "area", label, ...("href" in where ? { href: where.href } : { reason: where.reason }) };
+      return { key: area.key, kind: "area", area: area.key, label, ...("href" in where ? { href: where.href } : { reason: where.reason }) };
     }).filter((item) => matchesQuery(item.label, query));
     const actionRows = PALETTE_ACTIONS.map((action): CommandItem => {
       const label = strings[action.label];
@@ -162,6 +170,7 @@ export function PaletteHost({ tenantId, projectId = null, search, navigate, chil
       return {
         key: action.key,
         kind: "action",
+        action: action.key,
         label,
         ...(act === null ? { reason: strings[action.reason] } : { run: () => act(tenantId, projectId) }),
       };

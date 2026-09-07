@@ -16,7 +16,7 @@ export { ShortcutSheet } from "./shortcut-sheet";
 export type { ShortcutSheetProps } from "./shortcut-sheet";
 export { CommandPaletteProvider, useCommandPalette } from "./provider";
 export type { CommandPaletteProviderProps } from "./provider";
-export { isAvailable, matchesQuery } from "./types";
+export { RECENT_LIMIT, isAvailable, matchesQuery } from "./types";
 export type { CommandGroup, CommandItem, CommandPaletteContextValue, PaletteDestination, PaletteFault, PaletteStatus, RecentItem } from "./types";
 export { COMMAND_PALETTE_STATES } from "./states";
 export type { PaletteStateCell, PaletteStateRow } from "./states";

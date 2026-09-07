@@ -36,6 +36,10 @@ export interface CommandItem {
   readonly reason?: string;
   /** The roster entry a shortcut row documents. */
   readonly shortcut?: string;
+  /** The `PROJECT_AREAS` key an area row is for — the machine hook a chord and a journey find it by. */
+  readonly area?: string;
+  /** The act an action row runs, by its key in `PALETTE_ACTIONS`. */
+  readonly action?: string;
   /** The chord a shortcut row's keycap reads, drawn by `chordOf` after the gesture (I-140). */
   readonly chord?: string;
 }
@@ -63,6 +67,12 @@ export function matchesQuery(label: string, query: string): boolean {
   const asked = query.trim().toLowerCase();
   return asked === "" || label.toLowerCase().includes(asked);
 }
+
+/**
+ * How many selections this browser remembers per workspace (I-141). One home for the cap, so the
+ * store that trims and any surface that counts read the same number (B-17).
+ */
+export const RECENT_LIMIT = 8;
 
 /** A row a person chose, remembered so a blank query can offer it again (I-141). */
 export interface RecentItem {

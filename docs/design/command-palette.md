@@ -46,7 +46,7 @@ Skeleton, Tooltip, the one RefusalState — plus the `cx-palette-*` classes rule
   nothing else changes (the `PROJECT_AREAS` law, I-126).
 - **I-139 — the project-areas group always renders, project or not.** Outside a project every area
   row is unavailable with `command_palette_reason_no_project`; inside one, the four unbuilt areas
-  carry `command_palette_reason_area_unbuilt`. A group that vanishes with context teaches a person
+  carry `command_palette_unavailable` (I-150). A group that vanishes with context teaches a person
   that their workspace has fewer parts than it has.
 - **I-140 — a chord is drawn only after a gesture.** `chordOf` reads the platform, which the server
   cannot know; a keycap rendered in the bar at first paint would either hydrate differently on an
@@ -70,6 +70,22 @@ Skeleton, Tooltip, the one RefusalState — plus the `cx-palette-*` classes rule
   `idle | loading | empty | refused` and names no fault; R-UI-050 still owes retry and a report id.
   The props gain exactly `fault?: { reportId: string; onRetry(): void }`, rendered in the list's
   place and outranking `status`. Renaming or widening `status` would move a name the spec fixed.
+- **I-150 — one sentence for every row a reader cannot reach, and none of them names the query.**
+  An unreachable area row and an unreachable action row both read `command_palette_unavailable`; the
+  per-row sentences §3 first drafted for them said the same thing four ways, and a reader scanning a
+  list learns the shape of "not here yet" once rather than parsing a different apology per row
+  (B-17). `command_palette_reason_no_project` survives because it is a different fact — the row needs
+  a project, not a screen (I-139) — and the two scope sentences survive because they say *where* a
+  key works rather than that it is missing (I-148). For the same reason the empty sentence carries no
+  `{query}` slot: what is on screen is the workspace's own words or a registered sentence verbatim,
+  never one assembled around a person's typing, and the words they typed are still standing in the
+  input directly above it.
+- **I-151 — every group is filtered by one reading, the answered hits included.** `matchesQuery` is
+  the whole surface's single rule, so "the list shows what matches what you typed" is one sentence a
+  person learns once. The server has already matched on the same names, so this narrows nothing a
+  reader was owed; what it does is keep a slower answer from outliving the words it answered, and it
+  is what makes the empty cell reachable at all — a query nothing matches leaves every group with no
+  rows, and a group with no rows does not render (§1, §2).
 - **I-144 — the palette is portalled outside `shell-root`, so its rows keep the comfortable
   height.** `data-density` lives on `shell-root` (density-and-prefs I-35) and every overlay portals
   to `document.body`, so a `[data-density]` re-key here would resolve against nothing. R-UI-005's two
@@ -208,7 +224,8 @@ this workspace** · `command_palette_placeholder` **Search projects, drawings, s
 `command_palette_list_label` **Results** · `command_palette_group_recent` **Recent** ·
 `command_palette_group_navigate` **Go to** · `command_palette_group_areas` **Project areas** ·
 `command_palette_group_actions` **Actions** · `command_palette_group_shortcuts` **Shortcuts** ·
-`command_palette_empty` **Nothing in this workspace matches “{query}”.** ·
+`command_palette_empty` **Nothing in this workspace matches what you typed.** ·
+`command_palette_unavailable` **This is not available in this workspace yet.** ·
 `command_palette_empty_action` **Clear the search** · `command_palette_status_searching`
 **Searching…** · `command_palette_status_none` **No matches** · `command_palette_status_one` **1
 match** · `command_palette_status_many` **{count} matches** · `command_palette_footer_shortcuts`
@@ -216,12 +233,8 @@ match** · `command_palette_status_many` **{count} matches** · `command_palette
 `command_palette_error_report` **Report id {id}** · `command_palette_error_retry` **Try the search
 again** · `command_palette_offline` **You are offline. Recent items, areas and shortcuts still work;
 search needs a connection.** · `command_palette_action_affirm_scale` **Affirm scale…** ·
-`command_palette_action_export_boq` **Export BOQ…** · `command_palette_reason_area_unbuilt` **This
-area has no screen in this workspace yet.** · `command_palette_reason_no_project` **Open a project
-first — areas belong to a project.** · `command_palette_reason_affirm_scale` **Scale is affirmed on a
-sheet in the viewer, which this workspace does not open yet.** · `command_palette_reason_export_boq`
-**A bill of quantities is exported from an estimate, and no estimate screen exists in this workspace
-yet.** · `command_palette_reason_scope_viewer` **This key works in the viewer.** ·
+`command_palette_action_export_boq` **Export BOQ…** · `command_palette_reason_no_project` **Open a project
+first — areas belong to a project.** · `command_palette_reason_scope_viewer` **This key works in the viewer.** ·
 `command_palette_reason_scope_table` **This key works in a table.** ·
 `command_palette_reason_already_open` **This is the palette you are in.**
 

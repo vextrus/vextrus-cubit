@@ -24,13 +24,13 @@ export const PALETTE_ACTIONS: readonly PaletteAction[] = Object.freeze([
   {
     key: "affirm-scale",
     label: "command_palette_action_affirm_scale",
-    reason: "command_palette_reason_affirm_scale",
+    reason: "command_palette_unavailable",
     run: null,
   },
   {
     key: "export-boq",
     label: "command_palette_action_export_boq",
-    reason: "command_palette_reason_export_boq",
+    reason: "command_palette_unavailable",
     run: null,
   },
 ]);

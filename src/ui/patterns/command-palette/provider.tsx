@@ -18,7 +18,7 @@ import { CHORD_TIMEOUT_MS, SHORTCUTS, chordOf, matchStep, type Shortcut } from "
 import { strings } from "../../strings";
 import { CommandPalette } from "./command-palette";
 import { ShortcutSheet } from "./shortcut-sheet";
-import { matchesQuery } from "./types";
+import { RECENT_LIMIT, matchesQuery } from "./types";
 import type { CommandGroup, CommandItem, CommandPaletteContextValue, PaletteChildren, PaletteDestination, PaletteFault, PaletteStatus, RecentItem } from "./types";
 
 /** The roster entry the trigger and the footer state their own key from. */
@@ -30,11 +30,8 @@ const RECENT = "recent";
 const NAVIGATE = "navigate";
 const SHORTCUTS_GROUP = "shortcuts";
 
-/** How many selections this browser remembers per workspace (I-141). */
-const RECENT_LIMIT = 8;
-
 /** Where they are remembered — one key per workspace, so two workspaces never share a history. */
-const RECENTS_KEY = "cubit.palette.recents.";
+const RECENTS_KEY = "cubit:palette:recent:";
 
 /** The elements a key press belongs to rather than to the frame (I-147). */
 const TEXT_FIELDS = new Set(["input", "textarea", "select"]);
@@ -189,9 +186,10 @@ export function CommandPaletteProvider({
         navigate?.(where.href);
         return;
       }
-      // A key whose destination this workspace has no screen for opens the palette on that very row,
-      // with the reason showing: the answer is shown in place, never swallowed (I-138, R-UI-020).
-      openPalette(entry.id);
+      // A key whose destination this workspace has no screen for opens the palette on the row that
+      // destination IS — the area's own row, with its reason showing — rather than doing nothing:
+      // the answer is shown in place and never swallowed (I-138, I-139, R-UI-020).
+      openPalette(entry.target ?? entry.id);
     },
     [navigate, openPalette, openSheet, resolveGo],
   );
@@ -312,7 +310,7 @@ function destinationOf(entry: Shortcut, resolveGo: ((target: string) => PaletteD
   if (entry.scope === "viewer") return { reason: strings.command_palette_reason_scope_viewer };
   if (entry.scope === "table") return { reason: strings.command_palette_reason_scope_table };
   if (entry.action === "go") {
-    if (entry.target === undefined || resolveGo === undefined) return { reason: strings.command_palette_reason_area_unbuilt };
+    if (entry.target === undefined || resolveGo === undefined) return { reason: strings.command_palette_unavailable };
     return resolveGo(entry.target);
   }
   return { reason: strings.command_palette_reason_already_open };
@@ -328,7 +326,7 @@ function shortcutItem(entry: Shortcut, resolveGo: ((target: string) => PaletteDe
     label: strings[entry.label],
     shortcut: entry.id,
     chord: chordOf(entry),
-    ...(reachable ? { run: () => act(entry) } : { reason: "reason" in where ? where.reason : strings.command_palette_reason_area_unbuilt }),
+    ...(reachable ? { run: () => act(entry) } : { reason: "reason" in where ? where.reason : strings.command_palette_unavailable }),
   };
 }
 

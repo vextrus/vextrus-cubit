@@ -212,7 +212,7 @@ export function CommandPalette({
             card
           ) : !rowsStand ? (
             <div className="cx-palette-empty" data-testid="command-palette-empty">
-              <p className="cx-palette-empty-line">{fill(strings.command_palette_empty, { query })}</p>
+              <p className="cx-palette-empty-line">{strings.command_palette_empty}</p>
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -297,6 +297,8 @@ function PaletteGroup({ group, activeId, indexOf, onActivate, onSelect }: Palett
             data-kind={item.kind}
             data-available={available ? "true" : "false"}
             data-shortcut={item.shortcut}
+            data-area={item.area}
+            data-action={item.action}
             role="option"
             aria-selected={activeId === id}
             aria-disabled={available ? undefined : true}
