@@ -6,9 +6,20 @@
  * Nothing here imports a renderer or a driver, so a node-lane suite may load it as safely as a
  * jsdom one.
  */
+import { expect } from "vitest";
 
 /** The four kinds R-SPINE-050 names for navigation, and the only kinds `spine.search` answers. */
 export const SEARCH_KINDS: readonly string[] = Object.freeze(["project", "drawing", "sheet", "set"]);
+
+/**
+ * One answered hit's kind, judged in the one place both lanes judge one (AC-2): a kind outside the
+ * four is a hit the palette cannot route, and no lane re-spells the roster to say so.
+ */
+export function expectSearchKind(kind: unknown, what: string): string {
+  const said = String(kind);
+  expect(SEARCH_KINDS, `${what} names one of the kinds spine.search answers (AC-2): ${said}`).toContain(said);
+  return said;
+}
 
 /** The token every staged subject's name carries, and the query the acceptance types (AC-2). */
 export const SEARCH_TOKEN = "keranig";

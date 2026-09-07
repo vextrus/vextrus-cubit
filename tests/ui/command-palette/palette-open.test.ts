@@ -69,6 +69,33 @@ describe("AC-1: the palette opens on ⌘K and closes to where it came from", () 
     expect(document.activeElement, "the Control chord lands focus in the input just as the Meta one does").toBe(one(TESTID.input));
   });
 
+  test("AC-1: a bare k is not the chord — the modifier is what opens the palette, never the letter alone", async () => {
+    const frame = await mountFrame();
+
+    // Nothing focused: the letter on its own reaches no handler that opens a dialog.
+    (document.activeElement as HTMLElement | null)?.blur();
+    await frame.user.keyboard("k");
+    await settle();
+    expect(maybe(TESTID.palette), "pressing `k` with no Meta and no Control opens nothing (AC-1)").toBeNull();
+
+    // And with the trigger itself focused, which is where a person's hands most plausibly are.
+    one(TESTID.trigger).focus();
+    await frame.user.keyboard("k");
+    await settle();
+    expect(maybe(TESTID.palette), "`k` on the focused trigger is still not the chord (AC-1)").toBeNull();
+
+    // The same stage, with the modifier held, does open it — so the two presses above are a rule
+    // about the modifier and not a stage that could never open anything.
+    await openPalette(frame, META_K);
+
+    // Inside the palette's own text field the letter is text, and opens nothing a second time.
+    const input = one(TESTID.input) as HTMLInputElement;
+    await frame.user.keyboard("k");
+    await settle();
+    expect(all(TESTID.palette).length, "typing `k` in the input opens no second palette (AC-1)").toBe(1);
+    expect(input.value, "and the letter went to the field a person was typing in").toContain("k");
+  });
+
   test("AC-1: activating the trigger opens the same dialog", async () => {
     const frame = await mountFrame();
     const trigger = one(TESTID.trigger);

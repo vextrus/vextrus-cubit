@@ -3,10 +3,11 @@
  * of (R-SPINE-050), driven through the shipped tRPC route handler with a real session, against a
  * scratch database the committed migrations built (V-DB).
  *
- * The subjects are real rows of a real workspace: a project, a drawing over stored content, and a
- * drawing set, each named with the same token so one query reaches all of them. The kinds are read
- * from the one place both lanes state them (`tests/ui/command-palette/support/search-contract.ts`),
- * never listed again here (B-19).
+ * The subjects are real rows of a real workspace: a project, a drawing over stored content, a sheet
+ * of that drawing's ingest record — laid down through the store the sheet index itself reads, so the
+ * hit is the composed answer and not a tolerated enum member — and a drawing set, each named with
+ * the same token so one query reaches all of them. The kinds are read from the one place both lanes
+ * state them (`tests/ui/command-palette/support/search-contract.ts`), never listed again here (B-19).
  *
  * Raw SQL is spoken through the stage's psql seam, never a driver import — SEAM-TENANT's ban binds
  * this file like the rest of the lane.
@@ -18,13 +19,18 @@ import { createHash, randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { ident, lit } from "./support/live-sql";
 import { TENANT_COLUMN } from "./support/fixtures";
-import { closeStage, enrol, openStage, productModule, sql, sqlValue, stageProject, type Person } from "../../tests/spine/uploads/support/upload-stage";
-import { BLANK_QUERIES, SEARCH_KINDS, SEARCH_TOKEN, SEARCH_TOKEN_TYPED, searchName } from "../../tests/ui/command-palette/support/search-contract";
+import { closeStage, enrol, openStage, productModule, root, sql, sqlValue, stageProject, type Person } from "../../tests/spine/uploads/support/upload-stage";
+import { syntheticArtifact } from "../../tests/takeoff/viewer/support/synthetic-graph";
+import { BLANK_QUERIES, SEARCH_TOKEN, SEARCH_TOKEN_TYPED, expectSearchKind, searchName } from "../../tests/ui/command-palette/support/search-contract";
 
 /** The procedure the test contract fixes, and the handler it is reached through. */
 const PROC_SEARCH = "spine.search";
 const ROUTE_MODULE = "src/app/api/trpc/[trpc]/route.ts";
 const ROOT_MODULE = "src/server/root.ts";
+
+/** The store the sheet index reads its artifact through, and the scheme a record may be written in. */
+const STORAGE_SEAM_MODULE = "src/core/storage/index.ts";
+const GRAPH_SCHEMA_MODULE = "src/core/entitygraph/schema.ts";
 
 /** The staged content's shape: a real format and a clean verdict, as the store's CHECKs admit. */
 const FORMAT = "dxf";
@@ -42,8 +48,18 @@ interface Stage {
   projectId: string;
   drawingId: string;
   setId: string;
-  names: { project: string; drawing: string; set: string };
+  names: { project: string; drawing: string; sheet: string; set: string };
 }
+
+/** The store a scratch stage signs with — the same one the upload stage reads its objects back through. */
+const STORE_SECRET = "acceptance";
+
+/** How much of a synthetic sheet the artifact needs to be: enough to parse as one, and no more. */
+const ARTIFACT_ENTITIES = 40;
+
+type StorageSeam = {
+  makeStorage(options: { root: string; signingSecret: string }): { put(tenantId: string, bytes: Uint8Array): Promise<{ sha256: string }> };
+};
 
 let staging: Promise<Stage> | undefined;
 let opened = false;
@@ -59,6 +75,7 @@ const staged = (): Promise<Stage> =>
     const names = {
       project: searchName("project", marker),
       drawing: `${searchName("drawing", marker)}.${FORMAT}`,
+      sheet: searchName("sheet", marker),
       set: searchName("set", marker),
     };
     const projectId = stageProject(person.tenantId, names.project);
@@ -78,6 +95,28 @@ const staged = (): Promise<Stage> =>
       `insert into ${ident("drawing_sets")} (${ident(TENANT_COLUMN)}, project_id, name, created_by)
          values (${lit(person.tenantId)}::uuid, ${lit(projectId)}::uuid, ${lit(names.set)}, ${lit(person.userId)}::uuid)
          returning set_id::text;`,
+    );
+
+    // A sheet is not a row of its own: it is a layout of the ingest record that currently stands for
+    // a drawing, read back through the sheet index's one door. So the record is laid down where that
+    // index reads it — the artifact in the shipped store, and the record naming the layout — and the
+    // sheet hit the query answers is the composed read actually working, not a kind the enum admits.
+    const seam = await productModule<StorageSeam>(STORAGE_SEAM_MODULE);
+    const graph = await productModule<{ INGEST_SCHEME: string }>(GRAPH_SCHEMA_MODULE);
+    const artifact = await seam
+      .makeStorage({ root: root(), signingSecret: STORE_SECRET })
+      .put(person.tenantId, syntheticArtifact({ entities: ARTIFACT_ENTITIES }));
+    const facts = {
+      insunits: { unit: "mm" },
+      dropped_layouts: [],
+      counters: [],
+      layouts: [{ name: names.sheet, kind: "paper", strays_rejected: 0 }],
+    };
+    sql(
+      `insert into ${ident("ingests")}
+         (${ident(TENANT_COLUMN)}, drawing_id, sha256, job_id, artifact_sha256, extractor_scheme, extractor_tool, extractor_tool_version, extractor_parameter_set_hash, facts)
+         values (${lit(person.tenantId)}::uuid, ${lit(drawingId)}::uuid, ${lit(sha256)}, ${lit(`search-${marker}`)}, ${lit(artifact.sha256)},
+                 ${lit(graph.INGEST_SCHEME)}, ${lit("acceptance")}, ${lit("0")}, ${lit(sha256)}, ${lit(JSON.stringify(facts))}::json);`,
     );
 
     return { person, projectId, drawingId, setId, names };
@@ -139,16 +178,18 @@ describe("AC-2: spine.search on the wire", () => {
 
     expect(hits.length, "the staged workspace answers the subjects it holds").toBeGreaterThan(0);
     for (const hit of hits) {
-      expect(SEARCH_KINDS, `every hit names one of the kinds spine.search answers (AC-2): ${JSON.stringify(hit)}`).toContain(String(hit.kind));
+      expectSearchKind(hit.kind, `an answered hit ${JSON.stringify(hit)}`);
       expect(String(hit.label).toLowerCase(), `every hit's label carries the query (AC-2): ${JSON.stringify(hit)}`).toContain(SEARCH_TOKEN.toLowerCase());
     }
 
-    // The three subjects this stage can seed stand for their kinds; each is found by the name it
-    // was stored under, never by a position in the answer.
+    // Every kind the palette routes is a subject this stage staged — the sheet included, so the
+    // composed read through the sheet index is proven rather than merely permitted (AC-2). Each is
+    // found by the name it was stored under, never by a position in the answer.
     const labels = hits.map((hit) => String(hit.label));
     for (const [kind, name] of [
       ["project", stage.names.project],
       ["drawing", stage.names.drawing],
+      ["sheet", stage.names.sheet],
       ["set", stage.names.set],
     ] as const) {
       const found = hits.filter((hit) => String(hit.label) === name);
@@ -162,7 +203,7 @@ describe("AC-2: spine.search on the wire", () => {
     const answer = await callSearch({ tenantId: stage.person.tenantId, query: SEARCH_TOKEN_TYPED }, stage.person.cookie);
     const hits = hitsOf(answer, `${PROC_SEARCH} for the same token in capitals`);
     const labels = hits.map((hit) => String(hit.label));
-    for (const name of [stage.names.project, stage.names.drawing, stage.names.set]) {
+    for (const name of [stage.names.project, stage.names.drawing, stage.names.sheet, stage.names.set]) {
       expect(labels, `a shouted query finds the same subject (AC-2): ${JSON.stringify(labels)}`).toContain(name);
     }
   }, 300_000);
