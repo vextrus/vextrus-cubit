@@ -23,9 +23,11 @@ import {
 import { eq, isUuid, projects, runAsSystem } from "../../core/db";
 import { roleHistory } from "../../modules/spine/participants";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
+import { refusal } from "../../core/faults/refusal-marker";
 import { authRouter } from "../auth/router";
 import { signedOut } from "../auth/refusals";
 import { holdsWorkspace } from "../shell/workspace";
+import { searchWorkspace, type SearchHit } from "../spine/search";
 import { publicProcedure, router } from "../trpc";
 import { tenancyRouter } from "./tenancy";
 
@@ -143,6 +145,22 @@ export const spineRouter = router({
   health: publicProcedure.query(({ ctx }) => ({ ok: true as const, requestId: ctx.requestId })),
 
   auth: authRouter,
+
+  /**
+   * R-SPINE-050's read behind the command palette: what the named workspace holds that matches a
+   * query. The workspace is named on the wire because the palette stands over one address at a time
+   * and the URL is that address's own truth — but a name is not an admission: the session's
+   * membership is what opens it, and a stranger is answered with the registered refusal rather than
+   * with somebody else's rows (R-SPINE-003, ARCH-03).
+   */
+  search: signedInProcedure
+    .input((raw: unknown) => ({ tenantId: text(raw, "tenantId"), query: text(raw, "query") }))
+    .query(async ({ ctx, input }): Promise<{ hits: SearchHit[] }> => {
+      if (!(await holdsWorkspace(ctx.session.userId, input.tenantId))) {
+        throw refusal("WORKSPACE_PERMISSION_NOT_HELD", "the session holds no membership of the workspace it named", { tenantId: input.tenantId });
+      }
+      return searchWorkspace({ tenantId: input.tenantId }, input.query);
+    }),
 
   participants: participantsRouter,
 

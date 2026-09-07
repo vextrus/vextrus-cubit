@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useTransition } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/overlay";
 import { strings } from "../strings";
+import { CommandPaletteTrigger } from "./command-palette-trigger";
 import { useFailureHandOff } from "./failure-hand-off";
 import { JobsTray } from "./jobs-tray";
 import { areaLabel, hasVisibleText, shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
@@ -91,10 +92,12 @@ export function ShellTopBar({ workspace, area, atAreaHome, page, email, signOut 
         </ol>
       </nav>
 
-      {/* The bar's right-hand cluster: the jobs tray R-UI-030 names among the frame's parts, then
-          the user menu. The tray renders nothing outside a JobsProvider, so a bar mounted without
-          the tenant frame above it stands exactly as it always has (shell-top-bar I-115, I-116). */}
+      {/* The bar's right-hand cluster, in this document and tab order: the ⌘K trigger R-SPINE-050
+          gives the frame, the jobs tray R-UI-030 names among its parts, then the user menu. Both
+          occupants are provider-gated and render nothing outside their providers, so a bar mounted
+          without the tenant frame above it stands exactly as it always has (I-116, I-135). */}
       <div className="cx-shell-topbar-end">
+        <CommandPaletteTrigger />
         <JobsTray />
 
         {/* `modal={false}` for the same reason the rail's switcher carries it: the modal treatment's

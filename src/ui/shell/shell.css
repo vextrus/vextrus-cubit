@@ -196,6 +196,32 @@
   gap: var(--space-3);
 }
 
+/* The ⌘K trigger (docs/design/command-palette.md § 1). Height and padding are the Button's; the
+   minimum width keeps the bar's geometry from jumping between screens, and the label takes the bar's
+   own size by naming `.cx-btn` beside the class (shell § 1). */
+.cx-btn.cx-palette-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 160px;
+  justify-content: flex-start;
+}
+
+.cx-palette-trigger-glyph {
+  display: inline-flex;
+  align-items: center;
+  color: var(--graphite-600);
+}
+
+.cx-palette-trigger-label {
+  color: var(--graphite-700);
+  font-size: var(--text-13);
+}
+
+.cx-btn.cx-palette-trigger:hover .cx-palette-trigger-label {
+  color: var(--graphite-900);
+}
+
 .cx-shell-crumbs {
   display: flex;
   align-items: center;
