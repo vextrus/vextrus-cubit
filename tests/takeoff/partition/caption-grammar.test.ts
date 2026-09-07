@@ -40,6 +40,33 @@ const CANONICAL: readonly (readonly [string, string])[] = [
 /** The escapes a DXF caption carries, which say nothing about what the view is (AC-2). */
 const ESCAPES = ["%%U", "%%O", "%%C", "%%D", "%%P"];
 
+/**
+ * Captions this test writes rather than reads: none of them is in the corpus, and none is a case,
+ * whitespace or escape variant of a corpus entry (the test below proves that against the committed
+ * files). Each is read by the SAME rule the corpus entry beside it is read by — a stair's plan and
+ * section before the general ones, the words that name a kind of drawing outright, a member-scoped
+ * plan before a layout plan, a long section before a member's own — so a classifier that had merely
+ * memorised the corpus answers every one of them wrongly, while the stated grammar answers them all.
+ */
+const UNSEEN: readonly (readonly [string, string])[] = [
+  ["PLAN OF STAIR AT BLOCK C", "STAIR_PLAN"],
+  ["STAIR SECTION AT GRID 4", "STAIR_SECTION"],
+  ["BEAM SCHEDULE", "SCHEDULE"],
+  ["STRUCTURAL NOTES", "LEGEND_NOTES"],
+  ["SHEET TITLE", "TITLE"],
+  ["DETAIL AT SLAB EDGE", "DETAIL"],
+  ["LONGITUDINAL SECTION OF COLUMN C2", "LONG_SECTION_STRIP"],
+  ["PLAN OF FOOTING F7", "DETAIL"],
+  ["FIRST FLOOR PLAN", "LAYOUT_PLAN"],
+  ["SECTION B-B", "MEMBER_SECTION"],
+  ["ZQ-4471", UNTYPED],
+];
+
+/** A caption as the grammar is told to read one: escapes gone, whitespace collapsed, case levelled. */
+function normalised(caption: string): string {
+  return ESCAPES.reduce((text, escape) => text.split(escape).join(""), caption.toUpperCase()).replace(/\s+/g, " ").trim();
+}
+
 /** What the grammar owes for one corpus entry. */
 function owed(entry: CaptionEntry): { type: string; reason: string | null } {
   return entry.type === UNTYPED ? { type: UNTYPED, reason: CAPTION_UNCLASSIFIABLE } : { type: entry.type, reason: null };
@@ -104,6 +131,48 @@ describe("AC-2: the grammar classifies the corpus and answers UNTYPED where it i
       }
     }
     expect(changed, "a caption is normalised before it is read: the escapes are stripped, whitespace collapses and case does not decide what a view is").toEqual([]);
+  });
+
+  test("AC-2: a caption the corpus never states is answered by the rule that reads it", async () => {
+    const { grammar: seam, corpus } = await staged();
+
+    // The premise first: an answer to a caption the corpus already holds proves memory, not grammar.
+    const said = new Set(corpus.map((entry) => normalised(entry.caption)));
+    const seen = UNSEEN.filter(([caption]) => said.has(normalised(caption))).map(([caption]) => caption);
+    expect(seen, "these captions are asked BECAUSE the corpus does not state them — one the corpus states is answered by looking it up").toEqual([]);
+
+    // And the coverage the corpus itself defines: every class a caption can say is asked for by a
+    // caption the corpus does not say, so no class is graded by lookup alone (B-19).
+    const classes = new Set(corpus.map((entry) => entry.type));
+    const asked = new Set(UNSEEN.map(([, type]) => type));
+    expect(
+      [...classes].filter((type) => !asked.has(type)),
+      "every class the corpus covers is also asked of a caption the corpus does not hold",
+    ).toEqual([]);
+
+    const wrong: string[] = [];
+    for (const [caption, type] of UNSEEN) {
+      const owedAnswer = { type, reason: type === UNTYPED ? CAPTION_UNCLASSIFIABLE : null };
+      for (const variant of [caption, `  ${caption.toLowerCase()}  `, `%%U${caption}%%O`]) {
+        const got = seam.classifyCaption(variant);
+        if (got.type !== owedAnswer.type || got.reason !== owedAnswer.reason) {
+          wrong.push(`${JSON.stringify(variant)} → ${JSON.stringify(got)}, owed ${JSON.stringify(owedAnswer)}`);
+        }
+      }
+    }
+    expect(
+      wrong,
+      "the grammar reads a caption by its words — a stair's plan and section first, then the words that name a kind of drawing, a member-scoped plan before a layout plan, and a section that names neither is a member's own — so a caption written on a drawing it has never seen is classified rather than shrugged at",
+    ).toEqual([]);
+  });
+
+  test("AC-2: every class the grammar answers with is a member of the vocabulary", async () => {
+    const { grammar: seam, law } = await staged();
+    const answered = UNSEEN.map(([caption]) => seam.classifyCaption(caption).type);
+    expect(
+      answered.filter((type) => !law.VIEW_TYPES.includes(type)),
+      "a classification names a member of the closed vocabulary and nothing else (L-CAD-06)",
+    ).toEqual([]);
   });
 
   test("AC-2: CAPTION_UNCLASSIFIABLE is a registered refusal, and the reason is read from it", async () => {

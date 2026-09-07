@@ -16,8 +16,14 @@
  *
  * Any other file in `src/**` that says one of these words as a string is a second home for the law,
  * and this test is where that is refused.
+ *
+ * The declared corpus proves the ban on the payload the spec names; two sources this test writes
+ * itself, under a throwaway directory no fixture declares, prove that the judgement is about the
+ * text a file holds rather than about the path it arrived by — a scan that only fired on the fixture
+ * it was proved on would ban nothing at all.
  */
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, relative, sep } from "node:path";
 import { describe, expect, test } from "vitest";
 import { VIEW_TYPES } from "../law";
@@ -77,6 +83,18 @@ function scan(files: readonly string[]): Hit[] {
 /** The vocabulary as plain strings — the members are branded, and a scan reads text. */
 const MEMBERS: string[] = [...VIEW_TYPES];
 
+/**
+ * A source this test writes itself, under a throwaway directory: a path no fixture declares and no
+ * committed test names, so what the scan does with it can only be what it does with any file. The
+ * two declared fixtures prove the ban on the corpus the spec names; these prove the scanner is a
+ * scanner — a judgement about the text it is handed rather than about the path it arrived by.
+ */
+function wroteSource(name: string, source: string): { path: string; source: string } {
+  const path = join(mkdtempSync(join(tmpdir(), "view-type-literal-scan-")), name);
+  writeFileSync(path, source, "utf8");
+  return { path, source };
+}
+
 describe("AC-1: a view type is spelled as a string literal in exactly one module", () => {
   test("AC-1: no file under src/** outside the vocabulary's own home spells a member as a string literal", () => {
     const files = sourcesUnder(SOURCE_ROOT).filter((path) => !EXEMPT.includes(named(path)));
@@ -113,6 +131,51 @@ describe("AC-1: a view type is spelled as a string literal in exactly one module
       const line = source.split("\n")[hit.line - 1] ?? "";
       expect(line, `the finding at line ${hit.line} points at a line that really says ${JSON.stringify(hit.literal)}`).toContain(hit.literal);
     }
+  });
+
+  test("AC-1: the scan fires on a file it has never been shown, for every member of the vocabulary", () => {
+    // Every member gets one line and one occurrence, in both quote styles, so the count is exact and
+    // the expectation is the VOCABULARY rather than a list: a member added to the law tomorrow is
+    // demanded of the scan here with no edit (B-19).
+    const { path, source } = wroteSource(
+      "elsewhere-in-the-tree.ts",
+      [
+        "// A source no fixture declares and no test names, written where nothing can recognise it.",
+        ...MEMBERS.map((member, index) => `export const spelled${index} = ${index % 2 === 0 ? `"${member}"` : `'${member}'`};`),
+        "",
+      ].join("\n"),
+    );
+
+    const found = scan([path]);
+    expect(
+      byCodePoint(found.map((hit) => hit.literal)),
+      "every member of the vocabulary spelled as a string literal is reported, in whatever file says it — a ban that only fires on the file it was proved on bans nothing",
+    ).toEqual(byCodePoint(MEMBERS));
+
+    for (const hit of found) {
+      expect(hit.file, "a finding names the file it was found in").toBe(path);
+      const line = source.split("\n")[hit.line - 1] ?? "";
+      expect(line, `the finding at line ${hit.line} points at a line that really says ${JSON.stringify(hit.literal)}`).toContain(hit.literal);
+    }
+  });
+
+  test("AC-1: the scan is silent about a file it has never been shown that only names the members without spelling one", () => {
+    const { path } = wroteSource(
+      "lawful-elsewhere.ts",
+      [
+        `// prose, which is not code (Q-17): ${MEMBERS.join(", ")}`,
+        `/* the same words in a block comment: ${MEMBERS.join(" ")} */`,
+        ...MEMBERS.map((member) => `import "${member}";`),
+        ...MEMBERS.map((member, index) => `import { thing${index} } from "${member}";`),
+        `export const keyed = { ${MEMBERS.map((member) => `${member}: 1`).join(", ")} };`,
+        "",
+      ].join("\n"),
+    );
+
+    expect(
+      scan([path]),
+      "a member named in prose, addressed by a module specifier or written as a bare property key is not a string literal stating the law, wherever the file sits",
+    ).toEqual([]);
   });
 
   test("AC-1: the scan reports nothing in the declared good fixture — prose and module specifiers are not spellings of the law", () => {
