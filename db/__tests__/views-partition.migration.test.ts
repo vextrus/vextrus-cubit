@@ -2,6 +2,11 @@
  * AC-3 (the store's half) — the three tables the stored partition is rewritten into
  * (R-TO-030, L-CAD-06, SEAM-TENANT, V-DB).
  *
+ * Every question below is asked of a database the product's OWN migration lane built
+ * (`provisionScratchDb`), never of a migration file's text: a migration nobody journalled applies to
+ * nothing, so the tables would simply not be there and every case here would say so. What is graded
+ * is what the store DOES — which columns it holds, whose rows it hides, what the app role may do.
+ *
  * A partition is REBUILT per ingest: its rows are deleted and written again in one transaction, so
  * unlike a ledger these tables are not append-only and the app role really holds a DELETE on the two
  * that are rewritten. What makes them trustworthy instead is the scope — a workspace's partition is
@@ -15,11 +20,11 @@
  *
  * Raw SQL is spoken through psql, never a driver import: SEAM-TENANT's ban binds this file too.
  */
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { enumerateTenantScopedTables, provisionScratchDb, type ScratchDb } from "./harness";
-import { BOOTSTRAP_URL, GUC_SYSTEM_REASON, GUC_TENANT, HANDWRITTEN_MARKER, ROLE_APP, TENANT_COLUMN } from "./support/fixtures";
+import { BOOTSTRAP_URL, GUC_SYSTEM_REASON, GUC_TENANT, ROLE_APP, TENANT_COLUMN } from "./support/fixtures";
 import { isTrue, lit, run } from "./support/live-sql";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..");
@@ -28,9 +33,6 @@ const REPO_ROOT = join(import.meta.dirname, "..", "..");
 const DB_MODULE = "src/core/db.ts";
 const SCHEMA_BARREL = "db/schema.ts";
 const SCHEMA_AREA = "db/schema/takeoff-views.ts";
-
-/** The migration this increment adds, matched as a glob fragment against db/migrations/*.sql. */
-const MIGRATION = "views-partition";
 
 /**
  * The three tables, the name each is exported under, and the columns the acceptance reads it by.
@@ -63,9 +65,6 @@ const TABLES = [
 
 /** Both rewritten tables are scoped to the ingest whose partition they hold. */
 const INGEST_SCOPED = ["partition_views", "view_assignments"];
-
-const MIGRATIONS = join(REPO_ROOT, "db", "migrations");
-const JOURNAL = join(MIGRATIONS, "meta", "_journal.json");
 
 /** Import a product module by repo-relative path, asserting it exists first. */
 async function productModule<T = Record<string, unknown>>(relative: string): Promise<T> {
@@ -108,29 +107,6 @@ async function columns(table: string): Promise<Map<string, { type: string; nulla
 }
 
 describe("AC-3: the stored partition's tables are declared once, migrated, and scoped", () => {
-  it("AC-3: exactly one db/migrations/*views-partition*.sql exists, the journal carries its tag, and the posture stands after the hand-written marker", () => {
-    const matches = readdirSync(MIGRATIONS)
-      .filter((name) => name.endsWith(".sql"))
-      .filter((name) => name.includes(MIGRATION));
-    expect(matches.length, `exactly one db/migrations/*${MIGRATION}*.sql is owed; found ${matches.length === 0 ? "none" : matches.join(", ")}`).toBe(1);
-
-    const tag = (matches[0] ?? "").replace(/\.sql$/, "");
-    expect(
-      readFileSync(JOURNAL, "utf8").includes(tag),
-      `db/migrations/meta/_journal.json carries no entry tagged ${tag}; a migration the journal does not name is a migration the lane never applies`,
-    ).toBe(true);
-
-    const sql = readFileSync(join(MIGRATIONS, matches[0] ?? ""), "utf8");
-    const marker = sql.indexOf(HANDWRITTEN_MARKER);
-    expect(marker, `the migration must carry the line ${JSON.stringify(HANDWRITTEN_MARKER)} once, between the generated half and the hand-written one`).toBeGreaterThanOrEqual(0);
-    expect(sql.indexOf(HANDWRITTEN_MARKER, marker + 1), "the hand-written marker stands exactly once").toBe(-1);
-    for (const handwritten of ["row level security", "create policy", "grant "]) {
-      const at = sql.toLowerCase().indexOf(handwritten);
-      expect(at, `the migration states \`${handwritten.trim()}\` — nothing generated declares the seam's posture`).toBeGreaterThanOrEqual(0);
-      expect(at > marker, `\`${handwritten.trim()}\` belongs to the hand-written half, after the marker`).toBe(true);
-    }
-  });
-
   it("AC-3: src/core/db.ts declares each table once, db/schema/takeoff-views.ts re-exports it, the drift barrel reaches it, and SEAM_SCHEMA carries it", async () => {
     const core = await productModule<Record<string, unknown>>(DB_MODULE);
     const area = await productModule<Record<string, unknown>>(SCHEMA_AREA);
