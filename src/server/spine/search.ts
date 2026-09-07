@@ -10,6 +10,7 @@
 // wrote, so the session's membership is what admits the read, and everything after it runs under the
 // tenant handle whose policies scope every row (SEAM-TENANT).
 import { asc, drawingSets, drawings, forTenant, isUuid, projects } from "../../core/db";
+import { REFUSALS } from "../../core/errors";
 import { refusal } from "../../core/faults/refusal-marker";
 import { sheetIndexOf } from "../../modules/takeoff/sheets";
 import { holdsWorkspace } from "../shell/workspace";
@@ -57,8 +58,8 @@ const HITS_PER_KIND = 8;
  */
 const SHEET_PROJECT_SCAN = 8;
 
-/** The reason recorded for the one thing this read refuses, in the register's own code. */
-const NOT_HELD = "WORKSPACE_PERMISSION_NOT_HELD";
+/** The one thing this read refuses, read from the register rather than spelled beside it (Q-07). */
+const NOT_HELD = REFUSALS.WORKSPACE_PERMISSION_NOT_HELD.code;
 
 /**
  * The workspace's subjects a query names (AC-2). An empty or whitespace query asks for nothing and

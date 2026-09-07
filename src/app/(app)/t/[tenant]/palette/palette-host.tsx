@@ -8,6 +8,7 @@
  * Every address is built by the route-address home that owns it (B-17): nothing here spells `/t/…`.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { REFUSALS } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import {
   CommandPalette,
@@ -31,6 +32,12 @@ import { searchWorkspace, type SearchAnswer, type SearchHit } from "./search-tra
 
 /** The `go` target that names the workspace's own home rather than an area of a project. */
 const PROJECTS_TARGET = "projects";
+
+/**
+ * The codes this surface can be refused with, read from the register rather than spelled beside it
+ * (Q-07, I-142): a refused search is one of exactly these two, and anything else is a fault.
+ */
+const REACHABLE_REFUSALS = [REFUSALS.SIGNED_OUT.code, REFUSALS.WORKSPACE_PERMISSION_NOT_HELD.code] as const;
 
 export interface PaletteHostProps {
   tenantId: string;
@@ -92,7 +99,9 @@ function PaletteSurfaces({ tenantId, projectId, search, navigate, openShowing }:
 
   const [hits, setHits] = useState<readonly SearchHit[]>([]);
   const [searching, setSearching] = useState(false);
-  const [refusal, setRefusal] = useState<PaletteRefusalCode | undefined>(undefined);
+  // `refused` rather than `setRefusal`: the catch below ANSWERS with a refusal, and a name that
+  // says so is what makes the answer legible at the site that makes it (ARCH-03, B-21).
+  const [refusal, refused] = useState<PaletteRefusalCode | undefined>(undefined);
   const [reportId, setReportId] = useState<string | undefined>(undefined);
   const [attempt, setAttempt] = useState(0);
 
@@ -109,13 +118,13 @@ function PaletteSurfaces({ tenantId, projectId, search, navigate, openShowing }:
     if (!open || asked === "") {
       setHits([]);
       setSearching(false);
-      setRefusal(undefined);
+      refused(undefined);
       setReportId(undefined);
       return;
     }
     let live = true;
     setSearching(true);
-    setRefusal(undefined);
+    refused(undefined);
     setReportId(undefined);
     void (async () => {
       try {
@@ -131,7 +140,8 @@ function PaletteSurfaces({ tenantId, projectId, search, navigate, openShowing }:
         setSearching(false);
         setHits([]);
         const code = codeOf(thrown);
-        if (code === "SIGNED_OUT" || code === "WORKSPACE_PERMISSION_NOT_HELD") setRefusal(code);
+        const registered = REACHABLE_REFUSALS.find((each) => each === code);
+        if (registered !== undefined) refused(registered);
         else setReportId(faultIdOf(thrown));
       }
     })();
