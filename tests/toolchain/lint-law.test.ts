@@ -42,10 +42,27 @@ const RULE_OF_SLUG: Readonly<Record<string, string>> = {
  * counterpart, its lawful half still has to lint clean, and any message it does report still has to
  * sit on a marked line. Naming the corpus here is a declared exception, never a blanket: a directory
  * that is neither a rule's nor named here still fails the claim check below.
+ *
+ * The value is the repo-relative path of the test that proves the corpus fires, and it is resolved
+ * rather than read: ARCH-01 asks for "a fixture test proving it fires" and Q-07 fixes what naming a
+ * test is worth — "a name in a comment or in a lane nothing runs exercises nothing". So the entry
+ * below is checked to be a file, to name this corpus, and to sit where the armed lane runs it.
+ *
+ * `view-type-literals` is L-CAD-06's ban on spelling a view type outside the module that declares
+ * the vocabulary, proved as a committed scan (inc-200).
  */
 const SCAN_CORPORA: Readonly<Record<string, string>> = {
-  "view-type-literals": "src/modules/takeoff/partition/views/__tests__/view-type-literals.test.ts (L-CAD-06's literal ban, as a scan)",
+  "view-type-literals": "src/modules/takeoff/partition/views/__tests__/view-type-literals.test.ts",
 };
+
+/**
+ * Where the unit lane's committed include collects a suite from: `tests/**` and a `__tests__`
+ * directory under `src/**`. A prover named outside these is a prover no lane executes.
+ */
+const ARMED_LANE = [/^src\/(?:[^/]+\/)*__tests__\/[^/]+\.test\.tsx?$/u, /^tests\/(?:[^/]+\/)*[^/]+\.test\.tsx?$/u];
+
+/** The two trees under `tests/` the same config excludes: payload and journeys, neither a unit lane. */
+const NOT_A_LANE = ["tests/e2e/", "tests/lint-fixtures/"];
 
 /** ARCH-01's matrix, branch by branch — one corpus directory each. */
 const MATRIX_BRANCHES = [
@@ -178,8 +195,31 @@ describe("AC4: every NEVER fires on its committed fixture", () => {
   test("AC4: a declared scan corpus owes a bad fixture and a lawful counterpart, like any other", () => {
     for (const [slug, proves] of Object.entries(SCAN_CORPORA)) {
       const own = fixtures.filter((fixture) => fixture.slug === slug);
-      expect(own.filter((fixture) => fixture.basename.startsWith("bad")).length, `${slug} proves ${proves} on no bad fixture`).toBeGreaterThan(0);
+      expect(own.filter((fixture) => fixture.basename.startsWith("bad")).length, `${slug} (proved by ${proves}) has no bad fixture`).toBeGreaterThan(0);
       expect(own.filter((fixture) => fixture.basename.startsWith("good")).length, `${slug} has no lawful counterpart`).toBeGreaterThan(0);
+    }
+  });
+
+  test("AC4: the test a scan corpus is excused by exists, names the corpus, and sits in an armed lane", () => {
+    for (const [slug, proves] of Object.entries(SCAN_CORPORA)) {
+      const absolute = join(REPO_ROOT, proves);
+      const exists = statSync(absolute, { throwIfNoEntry: false });
+      expect(
+        exists?.isFile() ?? false,
+        `${slug} is excused from the rule questions because ${proves} proves it fires — and that path is not a file in the tree, so the excuse rests on nothing (ARCH-01)`,
+      ).toBe(true);
+
+      // white-box: AC4 (ARCH-01, Q-07) — the excuse IS a claim about another file's text: that the
+      // named prover reaches THIS corpus. Nothing at runtime distinguishes a prover that scans this
+      // payload from one that scans another, so the reference is resolved by reading it. Only the
+      // reference is judged; whether the scan fires is asserted where the criterion places it, in
+      // the prover itself, never re-run from here.
+      const source = readFileSync(absolute, "utf8");
+      const names = source.includes(`tests/lint-fixtures/${slug}/bad`) || (source.includes(slug) && source.includes("bad"));
+      expect(names, `${proves} never names the ${slug} corpus or its bad payload — a prover that does not reach the payload proves nothing about it (Q-08)`).toBe(true);
+
+      const armed = ARMED_LANE.some((shape) => shape.test(proves)) && !NOT_A_LANE.some((tree) => proves.startsWith(tree));
+      expect(armed, `${proves} does not sit where the unit lane's committed include collects a suite — a name in a lane nothing runs exercises nothing (Q-07)`).toBe(true);
     }
   });
 
