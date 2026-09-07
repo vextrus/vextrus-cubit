@@ -23,16 +23,25 @@ const MINUTE = 60_000;
  *
  * `tenancyAdmin` is R-SPINE-006's "tenant-admin actions carry rate limits", counted through
  * `admitAttempt` rather than anywhere nearer the workspace, because this table is the one home of
- * what a door allows and that function the one home of the counting (ARCH-02, B-17). Its allowance is
- * the most generous of the five: a person settling a workspace's roles moves several people in a
- * sitting, while a script walking a workspace's members is stopped well short of walking it.
+ * what a door allows and that function the one home of the counting (ARCH-02, B-17). Its allowance
+ * covers a person settling a workspace's roles, who moves several people in a sitting, while a
+ * script walking a workspace's members is stopped well short of walking it.
+ *
+ * `acceptInvitationRead` is the accept screen's own door, held apart from `tenancyAdmin` because a
+ * render is not a move: showing what a mailed token offers changes nothing about a workspace, and
+ * somebody reopening the link they were sent may not spend the budget R-SPINE-006 gives them for
+ * actually changing it. The read is still limited, because an unlimited one is an oracle over the
+ * token space; thirty a minute is far above anybody opening their own link and far below walking it.
  */
-export const AUTH_RATE_LIMITS: Readonly<Record<"signIn" | "signUp" | "requestMagicLink" | "requestPasswordReset" | "tenancyAdmin", RateLimit>> = Object.freeze({
+export const AUTH_RATE_LIMITS: Readonly<
+  Record<"signIn" | "signUp" | "requestMagicLink" | "requestPasswordReset" | "tenancyAdmin" | "acceptInvitationRead", RateLimit>
+> = Object.freeze({
   signIn: Object.freeze({ attempts: 8, windowMs: MINUTE }),
   signUp: Object.freeze({ attempts: 8, windowMs: MINUTE }),
   requestMagicLink: Object.freeze({ attempts: 4, windowMs: MINUTE }),
   requestPasswordReset: Object.freeze({ attempts: 4, windowMs: MINUTE }),
   tenancyAdmin: Object.freeze({ attempts: 12, windowMs: MINUTE }),
+  acceptInvitationRead: Object.freeze({ attempts: 30, windowMs: MINUTE }),
 });
 
 /** The doors the table limits — the compiler's own list, so a door cannot be limited by a typo. */
