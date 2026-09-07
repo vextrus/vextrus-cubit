@@ -23,6 +23,7 @@ import {
 import { eq, isUuid, projects, runAsSystem } from "../../core/db";
 import { roleHistory } from "../../modules/spine/participants";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
+import { refusalOf } from "../../core/errors";
 import { refusal } from "../../core/faults/refusal-marker";
 import { authRouter } from "../auth/router";
 import { signedOut } from "../auth/refusals";
@@ -157,7 +158,11 @@ export const spineRouter = router({
     .input((raw: unknown) => ({ tenantId: text(raw, "tenantId"), query: text(raw, "query") }))
     .query(async ({ ctx, input }): Promise<{ hits: SearchHit[] }> => {
       if (!(await holdsWorkspace(ctx.session.userId, input.tenantId))) {
-        throw refusal("WORKSPACE_PERMISSION_NOT_HELD", "the session holds no membership of the workspace it named", { tenantId: input.tenantId });
+        // The code is read out of the closed taxonomy rather than spelled beside it, so this door
+        // and the register cannot agree by coincidence (Q-07, R-SPINE-062).
+        throw refusal(refusalOf("WORKSPACE_PERMISSION_NOT_HELD").code, "the session holds no membership of the workspace it named", {
+          tenantId: input.tenantId,
+        });
       }
       return searchWorkspace({ tenantId: input.tenantId }, input.query);
     }),
