@@ -28,10 +28,10 @@ import {
   UNASSIGNED,
   VIEWS_STAGE,
   byCodePoint,
-  claimedJobFor,
   closeStage,
   grammar,
   grantRole,
+  jobHasEnded,
   openSheetsStage,
   partitionDoor,
   partitionViewRows,
@@ -164,21 +164,26 @@ describe("AC-3: a completed ingest enqueues its partition, and asking twice asks
         CHAIN_BUDGET_MS,
       );
 
-      const key = stage.partition.partitionJobKey(stage.person.tenantId, (record as { ingestId: string }).ingestId);
-      const claimed = await until(
-        "the worker chained a partition job for the record it had just written (X-1: nothing in this suite asked for one)",
-        async () => claimedJobFor(PARTITION_KIND, key),
-        (value) => value !== null,
-        CHAIN_BUDGET_MS,
-      );
-      expect(claimed, `a partition job stands claimed under ${key} — the composition root is what asks (ARCH-01, X-1)`).not.toBeNull();
+      // The ingest job is over — and the chain happens inside that job, so whatever it asked for it
+      // has already asked for. Read through the seam's own `jobEvents` rather than the jobs log's
+      // tables: those are made at runtime by the app role (R-SPINE-031), and this suite's role can
+      // neither find them in a database nothing has enqueued in nor read them in one where it did.
+      const jobId = String((asked as { jobId?: unknown }).jobId ?? "");
+      expect(jobId, "requesting an ingest answers the id of the job it enqueued").not.toBe("");
+      await until("the ingest job recorded an ending", () => jobHasEnded(jobId), (ended) => ended, CHAIN_BUDGET_MS);
 
-      // The key is what makes the job idempotent: while that one is queued, asking again is the
-      // same ask (SEAM-JOBS).
+      // Nothing in this suite has asked for a partition, and this is the FIRST ask — so an answer of
+      // `deduplicated: true` can only mean the worker's own chain put a job on this ingest's key and
+      // it is still there (nothing consumes `partition` in this process). That is the enqueue, the
+      // key and the idempotency in one reading, all through the door (SEAM-JOBS, X-1).
+      const key = stage.partition.partitionJobKey(stage.person.tenantId, (record as { ingestId: string }).ingestId);
       const again = await stage.partition.requestPartition({ tenantId: stage.person.tenantId, drawingId: drawing.drawingId, requestedBy: stage.person.userId });
       expect(again, `asking for a partition that is already queued was refused: ${JSON.stringify(again)}`).not.toHaveProperty("refusal");
-      expect((again as { deduplicated?: boolean }).deduplicated, "a second ask for a queued partition is the first ask, not a second job").toBe(true);
-      expect((again as { jobId?: string | null }).jobId, "and it answers with the job that already holds the key").toBe(claimed);
+      expect(
+        (again as { deduplicated?: boolean }).deduplicated,
+        `a partition job already holds ${key}: the composition root is what asked for it, and a second ask is that same ask (ARCH-01, X-1, SEAM-JOBS)`,
+      ).toBe(true);
+      expect((again as { jobId?: string | null }).jobId, "and it answers with the job that already holds the key").toBeTruthy();
     });
   }, BUDGET_MS);
 

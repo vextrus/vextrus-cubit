@@ -21,11 +21,9 @@ import { randomUUID } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import {
   CONFIRM_VIEW_TYPE,
-  PARTITION_KIND,
   PRINCIPAL,
   actorOf,
   actsDoor,
-  claimedJobFor,
   closeStage,
   codeOf,
   grammar,
@@ -236,9 +234,17 @@ async function refusals(): Promise<Record<string, JsonValue>> {
   }
 
   // A drawing nothing ingested, and a drawing of somebody else's workspace.
+  //
+  // "Enqueues nothing" is read through the door that owns the key rather than through the jobs log's
+  // tables: those are made at runtime by the app role on the first write (R-SPINE-031), so in a
+  // database nothing has enqueued in they do not exist, and where they do the suite's role may not
+  // read them. What the door says instead is decisive — a request that HAD put a job on this key
+  // would answer the second ask `deduplicated: true` (that is the seam's own idempotency, and the
+  // lawful arm of exactly this door is read that way in the public AC-3 suite). A second ask that
+  // repeats the refusal is a queue this request never touched.
   const uningested = await stageDrawing(person, projectId, BYTES, { name: unique("uningested.dxf"), format: "dxf" });
-  const keyBefore = claimedJobFor(PARTITION_KIND, `${PARTITION_KIND}:${person.tenantId}:${uningested.drawingId}`);
   const noRecord = await refusedWith(door.requestPartition({ tenantId: person.tenantId, drawingId: uningested.drawingId, requestedBy: person.userId }));
+  const noRecordAgain = await refusedWith(door.requestPartition({ tenantId: person.tenantId, drawingId: uningested.drawingId, requestedBy: person.userId }));
 
   const stranger = await stagePerson("stranger");
   grantRole(stranger.person.tenantId, stranger.projectId, stranger.person.userId, PRINCIPAL);
@@ -254,7 +260,7 @@ async function refusals(): Promise<Record<string, JsonValue>> {
       confirmationsAfterStale,
     },
     unoffered: unoffered as unknown as JsonValue,
-    uningested: { answer: noRecord as unknown as JsonValue, claimBefore: keyBefore, claimAfter: claimedJobFor(PARTITION_KIND, `${PARTITION_KIND}:${person.tenantId}:${uningested.drawingId}`) },
+    uningested: { drawingId: uningested.drawingId, answer: noRecord as unknown as JsonValue, answerAgain: noRecordAgain as unknown as JsonValue },
     outsider: { answer: outsider as unknown as JsonValue },
   };
 }

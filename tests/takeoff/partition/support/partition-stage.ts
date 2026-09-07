@@ -518,19 +518,30 @@ export function modelCallRows(tenantId: string): { callId: string; modelId: stri
 }
 
 /**
- * The job a (kind, key) pair is claimed by, or null where nothing holds that key — SEAM-JOBS' own
- * claim table, which is what makes a job idempotent on its key.
+ * SEAM-JOBS' own read of one job's life, through the door the seam publishes.
+ *
+ * Deliberately not the log's tables: the migrations make the `cubit_jobs` SCHEMA and the grants, but
+ * its TABLES are the seam's own shape and are made at runtime by the first writer that enqueues or
+ * appends (R-SPINE-031). A scratch database nobody has enqueued in has no such table at all, and one
+ * where the app role made it does not grant the suite's role a read on it — so a claim read is a
+ * mechanic that fails for reasons that say nothing about the product. What a job did is asked of
+ * `jobEvents` instead, and whether a key is busy is asked of the door that owns the key.
  */
-export function claimedJobFor(kind: string, key: string): string | null {
-  const held = sqlValue(`select coalesce(max(job_id), '') from cubit_jobs.job_claims where kind = ${lit(kind)} and key = ${lit(key)};`);
-  return held === "" ? null : held;
+export type JobsRead = { jobEvents: (jobId: string) => Promise<{ status: string }[]>; TERMINAL_STATUSES: ReadonlySet<string> };
+
+/** The jobs seam, with the reads this stage makes asserted present. */
+export async function jobsRead(): Promise<JobsRead> {
+  const door = await productModule<Partial<JobsRead>>(JOBS_MODULE);
+  expect(typeof door.jobEvents, `${JOBS_MODULE} publishes jobEvents (SEAM-JOBS)`).toBe("function");
+  expect(door.TERMINAL_STATUSES, `${JOBS_MODULE} publishes TERMINAL_STATUSES`).toBeTruthy();
+  return door as JobsRead;
 }
 
-/** Every step one job's log carries, in the order it carries them. */
-export function jobLog(jobId: string): { step: string; status: string; kind: string; key: string }[] {
-  return sql(
-    `select step, status, kind, key from cubit_jobs.job_events where job_id = ${lit(jobId)} order by seq;`,
-  ).map((row) => ({ step: row[0] ?? "", status: row[1] ?? "", kind: row[2] ?? "", key: row[3] ?? "" }));
+/** Whether a job's log records an ending for it — the seam's own statement that it is over. */
+export async function jobHasEnded(jobId: string): Promise<boolean> {
+  const jobs = await jobsRead();
+  const events = await jobs.jobEvents(jobId);
+  return events.some((event) => jobs.TERMINAL_STATUSES.has(event.status));
 }
 
 /** The key a view row answers under, whichever of the two published spellings the door uses. */
