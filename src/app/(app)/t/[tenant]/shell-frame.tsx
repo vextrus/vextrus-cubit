@@ -3,7 +3,7 @@
 // address is a fact about the browser rather than about the layout that renders once above every
 // area — so the pathname is read here, and the frame is handed the area it names.
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { REFUSALS, refusalOf, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
 import type { Density } from "@/core/prefs";
@@ -30,6 +30,9 @@ export interface ShellFrameProps {
 export function ShellFrame({ workspace, workspaces, email, density, signOut, children }: ShellFrameProps) {
   const pathname = usePathname();
   const router = useRouter();
+  // One identity for the whole life of the frame: the palette's key handler is bound to it, and a
+  // fresh arrow on every render would re-subscribe the document listener on every render.
+  const navigate = useCallback((href: string) => router.push(href), [router]);
   // The two things the job pattern cannot do for itself, bound here exactly once: `src/ui` holds no
   // value import of core (ARCH-01), so whole seconds and the refusal registry are handed down as
   // `JobsFormat` (job-timeline I-113). A code the register does not hold is not a refusal — it is a
@@ -48,7 +51,7 @@ export function ShellFrame({ workspace, workspaces, email, density, signOut, chi
       {/* R-SPINE-050's palette stands over every address inside the workspace, so it is mounted
           once here, above the frame: the top bar's trigger is inside it, and the one global key
           handler is the provider's (command-palette I-135, §1's wiring paragraph). */}
-      <PaletteHost tenantId={workspace.tenantId} projectId={projectOf(pathname)} navigate={(href) => router.push(href)}>
+      <PaletteHost tenantId={workspace.tenantId} projectId={projectOf(pathname)} navigate={navigate}>
         <AppShell
           workspace={workspace}
           workspaces={workspaces}

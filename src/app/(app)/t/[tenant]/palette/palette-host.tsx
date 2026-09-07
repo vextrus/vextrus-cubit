@@ -77,8 +77,8 @@ export function PaletteHost({ tenantId, projectId = null, search = searchWorkspa
 
   return (
     <CommandPaletteProvider tenantId={tenantId} onGo={go}>
-      <PaletteSurfaces tenantId={tenantId} projectId={projectId} search={search} navigate={navigate} openShowing={openShowing} />
       {children}
+      <PaletteSurfaces tenantId={tenantId} projectId={projectId} search={search} navigate={navigate} openShowing={openShowing} />
     </CommandPaletteProvider>
   );
 }

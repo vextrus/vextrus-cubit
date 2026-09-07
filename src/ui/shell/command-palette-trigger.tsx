@@ -25,11 +25,20 @@ const PALETTE_SHORTCUT = SHORTCUTS.find((entry) => entry.action === "open-palett
 
 export function CommandPaletteTrigger() {
   const palette = useCommandPalette();
+  // The hint is this browser's, and only this browser's: `chordOf` reads the platform, which the
+  // server cannot know (I-140). Mounting the Tooltip only after the frame is standing keeps the
+  // server's markup and the client's first render the same button, so the document the server sent
+  // hydrates rather than being torn down and re-rendered around it.
+  const [standing, setStanding] = useState(false);
+  useEffect(() => {
+    setStanding(true);
+  }, []);
+
   if (palette === null) return null;
   const keys = PALETTE_SHORTCUT === undefined ? "" : chordOf(PALETTE_SHORTCUT);
 
-  return (
-    <Tooltip content={fill(strings.command_palette_trigger_tooltip, { keys })}>
+  const trigger = (
+    <>
       {/* The visible word IS the accessible name (WCAG 2.5.3), so no aria-label competes with it.
           The bar's own button size wins by naming `.cx-btn` beside the class (shell §1). */}
       <button
