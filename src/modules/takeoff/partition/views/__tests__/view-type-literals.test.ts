@@ -42,6 +42,11 @@ const EXEMPT = [
 
 /** Every `.ts`/`.tsx` file under a directory, in a stable code-point order. */
 function sourcesUnder(directory: string): string[] {
+  // white-box: AC-1 — the criterion IS a property of the tree's text ("no other file under src/**
+  // spells a member as a string literal"), and a ban has no runtime observable: a product that says
+  // the word in a second module answers every call identically to one that does not. Only the file
+  // LIST is gathered here — it is enumerated rather than pinned, so a module added tomorrow is
+  // governed with no edit (B-19) — and the judgement itself is the shipped scanner's, not this file's.
   return readdirSync(directory)
     .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
     .flatMap((entry) => {
@@ -93,8 +98,10 @@ describe("AC-1: a view type is spelled as a string literal in exactly one module
     const bad = join(CORPUS, "bad.ts");
     expect(existsSync(bad), "tests/lint-fixtures/view-type-literals/bad.ts is the declared payload this scan is proved on").toBe(true);
 
-    // Derived from the fixture rather than transcribed: whatever members the payload quotes are the
-    // members the scan owes, so a fixture that grows a shape grows the expectation with it (B-19).
+    // white-box: AC-1 — the declared payload's own TEXT is what the scan is proved against, and the
+    // expectation is derived from it rather than transcribed: whatever members the fixture quotes
+    // are the members the scan owes, so a fixture that grows a shape grows the expectation with it
+    // (B-19). The fixture is this acceptance's own file under tests/, never product source.
     const source = readFileSync(bad, "utf8");
     const quoted = MEMBERS.filter((member) => new RegExp(`["']${member}["']`).test(source));
     expect(quoted.length, "the declared bad fixture quotes members of the vocabulary — with none there is nothing to fire on").toBeGreaterThan(0);
