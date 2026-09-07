@@ -1,0 +1,16 @@
+[
+  { "caption": "TYPICAL FLOOR PLAN", "type": "LAYOUT_PLAN" },
+  { "caption": "GROUND FLOOR PLAN", "type": "LAYOUT_PLAN" },
+  { "caption": "COLUMN SCHEDULE", "type": "SCHEDULE" },
+  { "caption": "LONGITUDINAL SECTION OF BEAM B1", "type": "LONG_SECTION_STRIP" },
+  { "caption": "SECTION A-A", "type": "MEMBER_SECTION" },
+  { "caption": "TYPICAL DETAIL OF FOOTING", "type": "DETAIL" },
+  { "caption": "FOOTING F1 PLAN", "type": "DETAIL" },
+  { "caption": "STAIR PLAN", "type": "STAIR_PLAN" },
+  { "caption": "SECTION THROUGH STAIR", "type": "STAIR_SECTION" },
+  { "caption": "GENERAL NOTES", "type": "LEGEND_NOTES" },
+  { "caption": "LEGEND", "type": "LEGEND_NOTES" },
+  { "caption": "DRAWING TITLE", "type": "TITLE" },
+  { "caption": "XQZ 77", "type": "UNTYPED" },
+  { "caption": "", "type": "UNTYPED" }
+]
