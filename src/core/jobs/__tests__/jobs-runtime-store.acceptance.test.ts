@@ -59,6 +59,7 @@ vi.mock("../../db", async (importOriginal) => {
     },
     publish: async (_name: string, jobId: string) => jobId,
     queueStateOf: async () => "pending",
+    knowsJob: async () => true,
     withKeyLock: async (...args: unknown[]) => {
       stub.lockCalls.push(args);
       const work = args.at(-1) as () => Promise<unknown>;

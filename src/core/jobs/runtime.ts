@@ -15,7 +15,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { jobsStore, type ClaimCursor, type JobEventDraft, type JobEventRow, type JobsStore, type QueuedJob } from "../db";
+import { isUuid, jobsStore, type ClaimCursor, type JobEventDraft, type JobEventRow, type JobsStore, type QueuedJob } from "../db";
 import { envValue } from "../env";
 import { refusalCodeOf } from "../faults/refusal-marker";
 import { reportFault } from "../faults/report";
@@ -445,6 +445,29 @@ export async function jobsHealth(): Promise<JobsHealth> {
     return { ok: false, queues: [] };
   }
   return { ok: true, queues: [...running.served] };
+}
+
+/**
+ * Does the queue hold a job under this id — the one home of that question (B-17, ARCH-02).
+ *
+ * Pure queue knowledge: the queue's own record on each declared kind, the archive included, and
+ * nothing of the event log. A job is known from the instant `enqueue` answers, before it has said
+ * its first word, and stays known once it has said its last — so a caller holding an id can tell an
+ * address nothing answers to from a job that has simply not spoken yet.
+ *
+ * A value the queue's id column cannot hold names no job it could ever have taken, and asking would
+ * raise a cast error rather than match no row (`isUuid`, ARCH-02) — so it is answered here, without
+ * reaching the server at all.
+ */
+export async function isKnownJob(jobId: string): Promise<boolean> {
+  if (!isUuid(jobId)) return false;
+  const running = await runtime();
+  // One queue per kind, and an id belongs to at most one of them: the first that owns it settles it,
+  // so a known job costs the reads before its own queue and an unknown one the whole roster.
+  for (const kind of KIND_NAMES) {
+    if (await running.store.knowsJob(kind, jobId)) return true;
+  }
+  return false;
 }
 
 /** Everything the log holds about one job, in the order it recorded it. */
