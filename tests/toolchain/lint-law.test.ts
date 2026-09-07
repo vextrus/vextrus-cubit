@@ -29,6 +29,24 @@ const RULE_OF_SLUG: Readonly<Record<string, string>> = {
   "no-cycle": "import-x/no-cycle",
 };
 
+/**
+ * The corpus directories whose payload proves a committed SCAN rather than an ESLint rule, each
+ * named with the test that fires on it.
+ *
+ * A NEVER the Bible states is not always an ESLint rule: L-CAD-06's ban on spelling a view type
+ * outside the module that declares the vocabulary is a committed test (inc-200 — no M2 node is
+ * toolchain-tagged and `scripts/eslint/**` is locked), and its payload still belongs in the one
+ * fixture corpus this tree keeps rather than in a second home beside it (B-17). Such a directory is
+ * excluded from the two questions that only make sense of a rule — which rule id it claims, and
+ * whether ESLint reported that id — and from nothing else: it still owes a bad fixture and a lawful
+ * counterpart, its lawful half still has to lint clean, and any message it does report still has to
+ * sit on a marked line. Naming the corpus here is a declared exception, never a blanket: a directory
+ * that is neither a rule's nor named here still fails the claim check below.
+ */
+const SCAN_CORPORA: Readonly<Record<string, string>> = {
+  "view-type-literals": "src/modules/takeoff/partition/views/__tests__/view-type-literals.test.ts (L-CAD-06's literal ban, as a scan)",
+};
+
 /** ARCH-01's matrix, branch by branch — one corpus directory each. */
 const MATRIX_BRANCHES = [
   "core-to-modules",
@@ -147,10 +165,18 @@ describe("AC4: every NEVER fires on its committed fixture", () => {
     expect(missing, "a rule in the closed set has no committed fixture corpus").toEqual([]);
   });
 
-  test("AC4: every corpus directory names the rule it proves", () => {
+  test("AC4: every corpus directory names the rule it proves, or the scan that does", () => {
     const slugs = readdirSync(CORPUS_ROOT).filter((entry) => statSync(join(CORPUS_ROOT, entry)).isDirectory());
-    const unclaimed = slugs.filter((slug) => ruleOf(slug) === null);
-    expect(unclaimed, "a corpus directory proves no rule — name it after the rule it fires, so the suite can judge it").toEqual([]);
+    const unclaimed = slugs.filter((slug) => ruleOf(slug) === null && SCAN_CORPORA[slug] === undefined);
+    expect(unclaimed, "a corpus directory proves no rule — name it after the rule it fires, or declare the committed scan it proves, so the suite can judge it").toEqual([]);
+  });
+
+  test("AC4: a declared scan corpus owes a bad fixture and a lawful counterpart, like any other", () => {
+    for (const [slug, proves] of Object.entries(SCAN_CORPORA)) {
+      const own = fixtures.filter((fixture) => fixture.slug === slug);
+      expect(own.filter((fixture) => fixture.basename.startsWith("bad")).length, `${slug} proves ${proves} on no bad fixture`).toBeGreaterThan(0);
+      expect(own.filter((fixture) => fixture.basename.startsWith("good")).length, `${slug} has no lawful counterpart`).toBeGreaterThan(0);
+    }
   });
 
   test.each(Object.entries(RULE_OF_SLUG))("AC4: %s has a bad fixture and a good one", (slug, ruleId) => {
@@ -162,6 +188,9 @@ describe("AC4: every NEVER fires on its committed fixture", () => {
   test("AC4: every bad fixture reports its own rule", () => {
     const silent = fixtures
       .filter((fixture) => fixture.basename.startsWith("bad"))
+      // A scan corpus is judged by the committed test that scans it (SCAN_CORPORA), not by ESLint:
+      // asking whether a rule fired on a payload no rule governs would fail every honest fixture.
+      .filter((fixture) => SCAN_CORPORA[fixture.slug] === undefined)
       .filter((fixture) => !(messagesOf.get(fixture.id) ?? []).some((message) => message.ruleId === ruleOf(fixture.slug)))
       .map((fixture) => `${fixture.id} (as ${fixture.virtualPath}) did not report ${ruleOf(fixture.slug) ?? "any rule"} — it reported ${reported(fixture)}`);
     expect(silent, "a NEVER stayed silent on the payload committed to prove it fires").toEqual([]);
