@@ -13,6 +13,7 @@ import type { RefusalCode } from "@/core/errors";
 import { Button, Input, Kbd, Skeleton } from "../../primitives/core";
 import { Dialog, DialogContent } from "../../primitives/overlay";
 import { REFUSAL_ENTRIES } from "../../screen-states/refusal-entries";
+import { SHORTCUTS, chordOf } from "../../shell/shortcuts/roster";
 import { fill, strings } from "../../strings";
 import { RefusalState } from "../refusal-state";
 
@@ -77,6 +78,14 @@ const EVIDENCE: Readonly<Record<PaletteRefusalCode, { href: string; label: strin
 
 /** The loading block's bones — three rows, so the palette does not resize while an answer arrives. */
 const LOADING_ROWS = [0, 1, 2];
+
+/** The roster entry the footer's door to the sheet documents — its words are the roster's (I-147). */
+const SHEET_SHORTCUT = SHORTCUTS.find((entry) => entry.action === "open-sheet");
+
+/** That entry's chord, read at draw time so the platform is the reader's own (I-140). */
+function sheetChordNow(): string {
+  return SHEET_SHORTCUT === undefined ? "" : chordOf(SHEET_SHORTCUT);
+}
 
 /** Everything outside an identifier's alphabet folds to a dash, so an id is always a valid one (§1). */
 const NOT_IN_AN_ID = /[^A-Za-z0-9_-]/g;
@@ -171,7 +180,9 @@ export function CommandPalette({
           className="cx-palette-input"
           role="combobox"
           aria-expanded={true}
-          aria-controls={listId}
+          // Named only while the list stands: a reference to an id nothing carries names nothing,
+          // and a dangling `aria-controls` is a serious finding on a surface Q-11 gates at zero.
+          aria-controls={inPlace ? undefined : listId}
           aria-activedescendant={activeId}
           aria-autocomplete="list"
           autoComplete="off"
@@ -270,6 +281,7 @@ export function CommandPalette({
           {onShortcutSheet === undefined ? null : (
             <Button variant="ghost" className="cx-palette-footer-sheet" onClick={onShortcutSheet}>
               {strings.command_palette_footer_shortcuts}
+              {sheetChordNow() === "" ? null : <Kbd>{sheetChordNow()}</Kbd>}
             </Button>
           )}
         </div>
