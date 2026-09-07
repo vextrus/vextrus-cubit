@@ -45,6 +45,10 @@ export function DialogContent({
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="cx-scrim" />
       <DialogPrimitive.Content
+        // The hook a dialog is found by, defaulted rather than fixed: a consumer whose own Design
+        // Decision closes over an id for its surface (C-05) names it here, and every consumer that
+        // names none keeps this one. It stands before the spread for exactly that reason.
+        data-testid="dialog-content"
         {...rest}
         // The description is the consumer's to name; left unset, the reference would dangle and an
         // accessible name built from a missing id is worse than none (R-UI-012).
@@ -52,7 +56,6 @@ export function DialogContent({
         // A modal says so: Radix traps focus and hides the rest of the page, and the modality has
         // to reach assistive technology too (R-UI-012).
         aria-modal="true"
-        data-testid="dialog-content"
         className={cx("cx-dialog", className)}
       >
         {children}

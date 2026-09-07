@@ -503,3 +503,36 @@
   color: var(--graphite-900);
   font-weight: var(--weight-heading);
 }
+
+/* The bar's ⌘K occupant (docs/design/command-palette.md §1). The Button's own height and padding
+   stand; what is added here is the row, its minimum measure — so the bar's geometry does not jump
+   between screens — and the glyph's paint. `.cx-btn` is named beside the class so the bar's own
+   button size wins (shell §1). */
+.cx-btn.cx-palette-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* The closed px set of docs/design/command-palette.md §5: the trigger's 160 px minimum. */
+  min-inline-size: 160px;
+}
+
+.cx-palette-trigger-glyph {
+  display: inline-flex;
+  align-items: center;
+  color: var(--graphite-600);
+}
+
+.cx-palette-trigger-glyph svg {
+  stroke: var(--graphite-600);
+  /* §5's closed set: the 12 px glyph drawn at a 2 px stroke, the shell's own chevron weight. */
+  stroke-width: 2px;
+}
+
+.cx-palette-trigger-label {
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}
+
+.cx-btn.cx-palette-trigger:hover .cx-palette-trigger-label {
+  color: var(--graphite-900);
+}

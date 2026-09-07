@@ -69,7 +69,21 @@ import {
   Toaster,
   toast,
 } from "../primitives/overlay";
-import { AppShell, DensityToggle, JobsTray, SHELL_AREAS, ShellDenied, ShellEmptyState, ShellInspector, ShellRail, ShellTopBar, type ShellWorkspace } from "../shell";
+import { CommandPalette, CommandPaletteProvider, ShortcutSheet, type CommandGroup } from "../patterns/command-palette";
+import {
+  AppShell,
+  CommandPaletteTrigger,
+  DensityToggle,
+  JobsTray,
+  SHELL_AREAS,
+  ShellDenied,
+  ShellEmptyState,
+  ShellInspector,
+  ShellRail,
+  SHORTCUTS,
+  ShellTopBar,
+  type ShellWorkspace,
+} from "../shell";
 import { fill, strings } from "../strings";
 import type { GalleryEntries, GalleryState } from "./types";
 
@@ -225,6 +239,52 @@ const sheetSample = (): ReactNode => (
       <p>{copy.sheet.body}</p>
     </SheetContent>
   </Sheet>
+);
+
+/**
+ * The palette and the ? sheet, closed with a reachable stand-in for what opens them — the gallery's
+ * own rule for every overlay it catalogues (Decision I-15): a page of open modals hides every other
+ * entry on it from assistive technology, and `/design` is one page.
+ */
+const PALETTE_GROUPS: readonly CommandGroup[] = [
+  {
+    id: "navigate",
+    label: strings.command_palette_group_navigate,
+    items: [{ key: "riverside", kind: "project", label: copy.input.value, available: true }],
+  },
+];
+
+const commandPaletteSample = (): ReactNode => (
+  <>
+    <Button variant="ghost" onClick={noop}>
+      {strings.command_palette_trigger}
+    </Button>
+    <CommandPalette
+      open={false}
+      onOpenChange={noop}
+      query=""
+      onQueryChange={noop}
+      groups={PALETTE_GROUPS}
+      status="idle"
+      onSelect={noop}
+    />
+  </>
+);
+
+const shortcutSheetSample = (): ReactNode => (
+  <>
+    <Button variant="ghost" onClick={noop}>
+      {strings.command_palette_footer_shortcuts}
+    </Button>
+    <ShortcutSheet open={false} onOpenChange={noop} shortcuts={SHORTCUTS} />
+  </>
+);
+
+/** The provider renders no DOM of its own, so its evidence is the occupant it gates: the trigger. */
+const commandPaletteProviderSample = (): ReactNode => (
+  <CommandPaletteProvider>
+    <CommandPaletteTrigger />
+  </CommandPaletteProvider>
 );
 
 const popoverSample = (): ReactNode => (
@@ -649,6 +709,9 @@ const SAMPLE_JOBS_FORMAT: JobsFormat = {
  * computed from the tree rather than sliding past a list nobody read (B-19).
  */
 export const galleryEntries: GalleryEntries = {
+  "patterns/command-palette/CommandPalette": { states: closed(commandPaletteSample) },
+  "patterns/command-palette/CommandPaletteProvider": { states: [{ name: "rest", render: commandPaletteProviderSample }] },
+  "patterns/command-palette/ShortcutSheet": { states: closed(shortcutSheetSample) },
   "patterns/consequence-dialog/ConsequenceDialog": { states: closed(consequenceDialogSample) },
   "patterns/dropzone/Dropzone": { states: dropzoneStates },
   "patterns/job-timeline/JobTimeline": { states: jobTimelineStates },
@@ -741,6 +804,9 @@ export const galleryEntries: GalleryEntries = {
       },
     ],
   },
+  // Provider-gated like the tray (I-116, I-135): outside a provider it renders nothing at all, so
+  // its evidence is the provider standing over it.
+  "shell/CommandPaletteTrigger": { states: [{ name: "rest", render: commandPaletteProviderSample }] },
   "shell/DensityToggle": {
     states: [
       { name: "comfortable", render: () => <DensityToggle density="comfortable" action={sampleDensityWrite} /> },

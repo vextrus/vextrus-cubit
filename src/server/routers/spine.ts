@@ -26,6 +26,7 @@ import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { authRouter } from "../auth/router";
 import { signedOut } from "../auth/refusals";
 import { holdsWorkspace } from "../shell/workspace";
+import { searchWorkspace, type SearchHit } from "../spine/search";
 import { publicProcedure, router } from "../trpc";
 import { tenancyRouter } from "./tenancy";
 
@@ -145,6 +146,17 @@ export const spineRouter = router({
   auth: authRouter,
 
   participants: participantsRouter,
+
+  /**
+   * R-SPINE-050's read: what this workspace holds that a typed query names. The rule about who may
+   * read a workspace and the composition across the sheet index and the core tables both live in
+   * `../spine/search`, so this stays what a transport is — the session, the words, and hand over.
+   */
+  search: signedInProcedure
+    .input((raw: unknown) => ({ tenantId: text(raw, "tenantId"), query: text(raw, "query") }))
+    .query(async ({ ctx, input }): Promise<{ hits: SearchHit[] }> => {
+      return searchWorkspace({ userId: ctx.session.userId, tenantId: input.tenantId, query: input.query });
+    }),
 
   tenancy: tenancyRouter,
 });

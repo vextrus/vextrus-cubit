@@ -47,6 +47,10 @@ export function SheetContent({
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="cx-scrim" />
       <DialogPrimitive.Content
+        // Defaulted rather than fixed, as the Dialog's is: a consumer whose own Design Decision
+        // closes over an id for its surface (C-05) names it here, and one that names none keeps
+        // this.
+        data-testid="sheet-content"
         {...rest}
         // No title part means no title id: both references are the consumer's to make, and a
         // dangling one names nothing (R-UI-012).
@@ -54,7 +58,6 @@ export function SheetContent({
         aria-describedby={describedBy}
         // A modal says so: the panel traps focus and hides the rest of the page (R-UI-012).
         aria-modal="true"
-        data-testid="sheet-content"
         data-side={side}
         className={cx("cx-sheet", className)}
       >

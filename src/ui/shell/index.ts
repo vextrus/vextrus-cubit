@@ -5,6 +5,7 @@ import "../primitives/core/reticle.css";
 import "./shell.css";
 
 export { AppShell } from "./app-shell";
+export { CommandPaletteTrigger } from "./command-palette-trigger";
 export { DensityToggle } from "./density-toggle";
 export { JobsTray } from "./jobs-tray";
 export { ShellDenied } from "./shell-denied";
@@ -14,6 +15,9 @@ export { ShellRail } from "./shell-rail";
 export { ShellTopBar } from "./shell-top-bar";
 export { useFailureHandOff } from "./failure-hand-off";
 export { SHELL_AREAS, areaLabel, areaOf, hasVisibleText, isAreaHome, shellHref, workspaceLabel, workspaceOf } from "./routes";
+// R-UI-032's one roster, reachable the barrel way: the palette's rows, the ? sheet and the frame's
+// key handler all read it, and nothing else in the tree spells a key beside it (B-17).
+export { CHORD_TIMEOUT_MS, SHORTCUTS, SHORTCUT_SCOPES, chordOf, matchStep, shortcutsInScope } from "./shortcuts/roster";
 export { SHELL_STATES, SHELL_STATE_NAMES, shellStateKey } from "./states";
 
 export type { AppShellProps } from "./app-shell";

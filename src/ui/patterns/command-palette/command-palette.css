@@ -1,0 +1,240 @@
+/* The command palette and the ? sheet (docs/design/command-palette.md §1, §5; docs/design/
+   shortcut-sheet.md §1, §5). Chrome comes from the shipped primitives — the overlay Dialog and
+   Sheet, the core Input, Button, Kbd and Skeleton — and these rules add only what those do not
+   know: the column flow, the four-column option grid and the two-column row grid.
+
+   No [data-theme] selector: every light/dark difference arrives through token values (R-UI-001).
+   No px literal beyond §5's closed set. The reticle is drawn from its one home (B-17). */
+
+.cx-palette {
+  display: flex;
+  flex-direction: column;
+}
+
+.cx-palette-input {
+  inline-size: 100%;
+}
+
+/* The house notice chrome, re-keyed to the informational tone (§1). */
+.cx-palette-notice {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border: var(--hairline);
+  border-color: var(--info);
+  border-radius: var(--radius-4);
+  background: var(--info-surface);
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+}
+
+.cx-palette-list {
+  margin-block-start: var(--space-3);
+  border-top: var(--hairline);
+  padding-block-start: var(--space-2);
+  /* §5's closed set: the list is bounded so the Dialog's own overflow never engages (I-136). */
+  max-block-size: 320px;
+  overflow: auto;
+}
+
+.cx-palette-group-label {
+  position: sticky;
+  top: 0;
+  margin: 0;
+  padding-inline: var(--space-3);
+  padding-block: var(--space-2);
+  background: var(--graphite-0);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-600);
+}
+
+.cx-palette-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding-inline: var(--space-3);
+  min-block-size: var(--row-comfortable);
+  border-radius: var(--radius-4);
+  cursor: pointer;
+}
+
+/* The kind word is read as part of the option's name, so it is never hidden (§1). */
+.cx-palette-item-kind {
+  min-inline-size: var(--space-12);
+  font-family: var(--font-mono);
+  /* §5's closed set: the 10 px mono kind word with its 0.12em tracking. */
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--graphite-600);
+}
+
+.cx-palette-item-label {
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cx-palette-item-meta {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* R-UI-030's selection idiom: the fill says which option is active, and the weight shift is the
+   second, non-colour channel — so the active row survives greyscale (I-137). The fill changes with
+   no transition: at ten rows a second a fade paints the row a person has already left (§4). */
+.cx-palette-item[aria-selected="true"] {
+  background: var(--beam-100);
+}
+
+.cx-palette-item[aria-selected="true"] .cx-palette-item-label {
+  color: var(--graphite-900);
+  font-weight: var(--weight-heading);
+}
+
+/* I-138: an unavailable row is an option with its reason in place, never a disabled control. The
+   words carry the meaning; the colour only follows them. */
+.cx-palette-item[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.cx-palette-item[aria-disabled="true"] .cx-palette-item-label {
+  color: var(--graphite-500);
+}
+
+.cx-palette-loading,
+.cx-palette-empty,
+.cx-palette-fault {
+  margin-block-start: var(--space-3);
+  border-top: var(--hairline);
+  padding-block-start: var(--space-2);
+}
+
+.cx-palette-loading-row {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--row-comfortable);
+}
+
+/* §5's closed set: the 12 × 240 px bone, so the palette does not resize while an answer arrives. */
+.cx-palette-bone {
+  block-size: 12px;
+  inline-size: 240px;
+}
+
+.cx-palette-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.cx-palette-empty-line {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+  text-wrap: pretty;
+}
+
+.cx-palette-fault {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: var(--space-2);
+  border: var(--hairline);
+  border-color: var(--danger);
+  border-radius: var(--radius-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--danger-surface);
+}
+
+.cx-palette-fault-line {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+}
+
+.cx-palette-fault-report {
+  margin: 0;
+  font-family: var(--font-mono);
+  /* §5's closed set: the 10 px mono report id a person copies whole. */
+  font-size: 10px;
+  color: var(--graphite-700);
+  user-select: all;
+}
+
+.cx-palette-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-start: var(--space-3);
+  border-top: var(--hairline);
+  padding-block-start: var(--space-2);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-palette-status {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ the ? sheet (shortcut-sheet) */
+
+.cx-shortcut-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.cx-shortcut-sheet-heading {
+  margin: 0;
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-shortcut-sheet-hint {
+  margin: 0;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  text-wrap: pretty;
+}
+
+.cx-shortcut-scope-heading {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-600);
+}
+
+.cx-shortcut-rows {
+  margin: 0;
+}
+
+.cx-shortcut-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-4);
+  min-block-size: var(--row-comfortable);
+  border-top: var(--hairline);
+}
+
+/* The first row of a section opens it, so it carries no seam above it. */
+.cx-shortcut-row:first-child {
+  border-top: none;
+}
+
+.cx-shortcut-row-label {
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+}
+
+.cx-shortcut-row-keys {
+  margin: 0;
+}

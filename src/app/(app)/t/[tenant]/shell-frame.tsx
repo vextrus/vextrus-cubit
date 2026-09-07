@@ -2,7 +2,7 @@
 // The frame, told where it is. R-UI-031 makes the URL the source of truth for selection, and the
 // address is a fact about the browser rather than about the layout that renders once above every
 // area — so the pathname is read here, and the frame is handed the area it names.
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useMemo, type ReactNode } from "react";
 import { REFUSALS, refusalOf, type RefusalCode } from "@/core/errors";
 import { formatUserFigure } from "@/core/format";
@@ -10,6 +10,8 @@ import type { Density } from "@/core/prefs";
 import { JobsProvider, type JobsFormat } from "@/ui/patterns/job-timeline";
 import { AppShell, areaOf, isAreaHome, type ShellWorkspace } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
+import { PaletteHost } from "./palette/palette-host";
+import { projectOf } from "./palette/route-reading";
 
 /** A millisecond count as the whole seconds a person reads (job-timeline I-113, s-drawings I-92). */
 const MS_PER_SECOND = 1000;
@@ -27,6 +29,7 @@ export interface ShellFrameProps {
 
 export function ShellFrame({ workspace, workspaces, email, density, signOut, children }: ShellFrameProps) {
   const pathname = usePathname();
+  const router = useRouter();
   // The two things the job pattern cannot do for itself, bound here exactly once: `src/ui` holds no
   // value import of core (ARCH-01), so whole seconds and the refusal registry are handed down as
   // `JobsFormat` (job-timeline I-113). A code the register does not hold is not a refusal — it is a
@@ -42,17 +45,22 @@ export function ShellFrame({ workspace, workspaces, email, density, signOut, chi
 
   return (
     <JobsProvider format={format}>
-      <AppShell
-        workspace={workspace}
-        workspaces={workspaces}
-        area={areaOf(pathname)}
-        atAreaHome={isAreaHome(pathname, workspace.tenantId)}
-        email={email}
-        density={density}
-        signOut={signOut}
-      >
-        {children}
-      </AppShell>
+      {/* R-SPINE-050's palette stands over every address inside the workspace, so it is mounted
+          once here, above the frame: the top bar's trigger is inside it, and the one global key
+          handler is the provider's (command-palette I-135, §1's wiring paragraph). */}
+      <PaletteHost tenantId={workspace.tenantId} projectId={projectOf(pathname)} navigate={(href) => router.push(href)}>
+        <AppShell
+          workspace={workspace}
+          workspaces={workspaces}
+          area={areaOf(pathname)}
+          atAreaHome={isAreaHome(pathname, workspace.tenantId)}
+          email={email}
+          density={density}
+          signOut={signOut}
+        >
+          {children}
+        </AppShell>
+      </PaletteHost>
     </JobsProvider>
   );
 }
