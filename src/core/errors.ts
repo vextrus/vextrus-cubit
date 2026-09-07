@@ -37,9 +37,6 @@ export type RefusalCode =
   | "RATE_LIMITED"
   | "ACCOUNT_ALREADY_EXISTS"
   | "LINK_NOT_SENDABLE"
-  | "DIMENSION_MISMATCH"
-  | "PRODUCT_FACTOR_MISSING"
-  | "UNIT_UNKNOWN"
   | "WORKSPACE_PERMISSION_NOT_HELD"
   | "SELF_REMOVAL_NOT_ALLOWED"
   | "WORKSPACE_WOULD_HAVE_NO_OWNER"
@@ -168,30 +165,6 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     code: "LINK_NOT_SENDABLE",
     message: "No link was sent, because this installation has not been given the web address its links point back to.",
     remedy: "Ask an operator to set the address this installation answers at, then ask for the link again.",
-    severity: "error",
-    surface: "inline",
-  }),
-  // L-FRM-06's three structural conversion refusals. Each is the answer where a conversion has no
-  // meaning rather than no result: the failure arm at the seam carries one of these codes and no
-  // value, so nothing downstream can read a number that was never derived.
-  DIMENSION_MISMATCH: Object.freeze({
-    code: "DIMENSION_MISMATCH",
-    message: "These two units measure different things, so the quantity was not converted.",
-    remedy: "Give the quantity in a unit that measures the same thing — a weight never becomes a volume.",
-    severity: "error",
-    surface: "inline",
-  }),
-  PRODUCT_FACTOR_MISSING: Object.freeze({
-    code: "PRODUCT_FACTOR_MISSING",
-    message: "The quantity is in a packaging unit, and this product does not state how much one of them holds.",
-    remedy: "Record what one unit of this product's packaging holds, then enter the quantity again.",
-    severity: "error",
-    surface: "inline",
-  }),
-  UNIT_UNKNOWN: Object.freeze({
-    code: "UNIT_UNKNOWN",
-    message: "This unit is not one the measurement canon knows, so the quantity was not converted.",
-    remedy: "Use a unit the canon lists — nothing is converted through a unit nobody defined.",
     severity: "error",
     surface: "inline",
   }),

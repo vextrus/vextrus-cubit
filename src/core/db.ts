@@ -36,8 +36,6 @@ export {
   modelFixtures,
   DISPOSITIONS,
   sheetUnderstandingDispositions,
-  workItemCatalogue,
-  bears,
   ACCEPTED_FORMATS,
   UPLOAD_STATES,
   SCAN_VERDICTS,

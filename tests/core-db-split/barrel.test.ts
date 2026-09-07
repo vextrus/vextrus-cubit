@@ -80,8 +80,6 @@ const VALUES_BEFORE: Readonly<Record<string, string>> = {
   modelFixtures: "object",
   DISPOSITIONS: "object",
   sheetUnderstandingDispositions: "object",
-  workItemCatalogue: "object",
-  bears: "object",
   ACCEPTED_FORMATS: "object",
   isAcceptedFormat: "function",
   UPLOAD_STATES: "object",

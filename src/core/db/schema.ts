@@ -6,8 +6,6 @@
 // the dependency runs one way and no cycle is representable (ARCH-01, ARCH-02).
 import { sql as statement } from "drizzle-orm";
 import { bigint, check, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-import { ELEMENT_TYPES, type ElementType } from "../catalogue/element-types";
-import { KINDS, type Kind } from "../catalogue/kinds";
 import { INGEST_SCHEME } from "../entitygraph/schema";
 import { MODEL_IDS } from "../model-ledger.types";
 import type { SourceScheme } from "../model";
@@ -15,11 +13,7 @@ import { DEFAULT_DENSITY, DENSITIES, type Density } from "../prefs/density";
 import { BUILDING_TYPES, type BuildingType } from "../projects";
 import { DISCIPLINES, type Discipline } from "../sheets/law";
 import type { EditionParameter, EditionScope, MethodPair } from "../rulesets/editions/content";
-import { CANONICAL_UNITS, DIMENSIONS, type Dimension } from "../units/canon";
 import { closedList } from "./sql";
-
-/** The canon's dimension→canonical-unit map as row values, so a CHECK can close the pair (L-FRM-06). */
-const canonicalUnitPairs = (): string => DIMENSIONS.map((dimension) => `('${dimension}', '${CANONICAL_UNITS[dimension]}')`).join(", ");
 
 /** Tenancy's base table: every tenant-scoped table in the tree carries this table's key. */
 export const tenants = pgTable("tenants", {
@@ -588,48 +582,6 @@ export const sheetUnderstandingDispositions = pgTable(
   ],
 );
 
-/**
- * L-MEA-04's work-item catalogue, as the database holds it. The consts in `src/core/catalogue` are
- * the source and this is their landed copy: the migration inserts exactly the emitted rows, and
- * V-VERIFY's catalogue drift stage is what keeps the two the same table. Every text column is
- * closed by a CHECK built from the enum itself, so the store cannot hold a kind or a dimension the
- * code does not know — the same belt `user_prefs.density` wears. The unit is closed *against its
- * dimension* rather than against a bare roster: the pair is what the catalogue asserts, and a row
- * saying VOLUME is measured in m would be junk the typed surface forbids and the store would keep.
- */
-export const workItemCatalogue = pgTable(
-  "work_item_catalogue",
-  {
-    kind: text("kind").$type<Kind>().primaryKey(),
-    description: text("description").notNull(),
-    canonicalUnit: text("canonical_unit").notNull(),
-    dimension: text("dimension").$type<Dimension>().notNull(),
-    roundingPrecision: integer("rounding_precision").notNull(),
-  },
-  (table) => [
-    check("work_item_catalogue_kind_closed", statement`${table.kind} in (${statement.raw(closedList(KINDS))})`),
-    check("work_item_catalogue_dimension_closed", statement`${table.dimension} in (${statement.raw(closedList(DIMENSIONS))})`),
-    check(
-      "work_item_catalogue_unit_matches_dimension",
-      statement`(${table.dimension}, ${table.canonicalUnit}) in (${statement.raw(canonicalUnitPairs())})`,
-    ),
-  ],
-);
-
-/** L-MEA-04's `bears` relation: which kinds a class lawfully bears, one row per admitted pair. */
-export const bears = pgTable(
-  "bears",
-  {
-    elementType: text("element_type").$type<ElementType>().notNull(),
-    kind: text("kind").$type<Kind>().notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.elementType, table.kind] }),
-    check("bears_element_type_closed", statement`${table.elementType} in (${statement.raw(closedList(ELEMENT_TYPES))})`),
-    check("bears_kind_closed", statement`${table.kind} in (${statement.raw(closedList(KINDS))})`),
-  ],
-);
-
 /*
  * R-SPINE-020's upload rosters live beside the tables whose CHECKs are written from them: the three
  * columns below close on these lists, and the upload seam types its answers by the same ones
@@ -1005,8 +957,6 @@ export const SEAM_SCHEMA = {
   modelCalls,
   modelFixtures,
   sheetUnderstandingDispositions,
-  workItemCatalogue,
-  bears,
   files,
   drawings,
   uploads,
