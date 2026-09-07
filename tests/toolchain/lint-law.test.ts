@@ -106,6 +106,7 @@ interface Fixture {
 
 /** @returns every lintable file in the corpus, in a stable order. */
 function collect(dir: string): string[] {
+  // white-box: AC4 — the corpus under tests/lint-fixtures/** IS this criterion's subject: a payload of source text is the only thing a linter can be run on, and walking the corpus is how each payload reaches the product's own flat config below (nothing under src/, scripts/ or db/ is read here).
   return readdirSync(dir)
     .sort()
     .flatMap((entry) => {
@@ -150,6 +151,7 @@ beforeAll(async () => {
   const plugin: unknown = await import(pathToFileURL(join(REPO_ROOT, "scripts/eslint/index.mjs")).href);
   for (const name of Object.keys((plugin as { cubit: { rules: Record<string, unknown> } }).cubit.rules)) cubitRules.add(name);
   for (const fixture of fixtures) {
+    // white-box: AC4 — the fixture's text is the INPUT the product is driven with, not an assertion: it is handed to the shipped flat config through lintText, and every assertion below is on what ESLint reported.
     messagesOf.set(fixture.id, await lintAs(readFileSync(fixture.absolutePath, "utf8"), fixture.virtualPath));
   }
 }, 120_000);
@@ -160,12 +162,14 @@ describe("AC4: every NEVER fires on its committed fixture", () => {
   // increment that lands a rule with its fixtures adds a directory; that is lawful, and a test that
   // went red for it would be freezing a listing the Bible says will grow.
   test("AC4: every rule in the closed set has its corpus directory", () => {
+    // white-box: AC4 — "every NEVER has a committed fixture" is a claim about which payloads the tree carries; a rule with no corpus has nothing to run on, so its absence cannot be observed by running anything.
     const slugs = readdirSync(CORPUS_ROOT).filter((entry) => statSync(join(CORPUS_ROOT, entry)).isDirectory());
     const missing = Object.keys(RULE_OF_SLUG).filter((slug) => !slugs.includes(slug));
     expect(missing, "a rule in the closed set has no committed fixture corpus").toEqual([]);
   });
 
   test("AC4: every corpus directory names the rule it proves, or the scan that does", () => {
+    // white-box: AC4 — the same reading from the other side: an unclaimed corpus directory is a payload no NEVER answers for, and only the listing of the corpus can show it.
     const slugs = readdirSync(CORPUS_ROOT).filter((entry) => statSync(join(CORPUS_ROOT, entry)).isDirectory());
     const unclaimed = slugs.filter((slug) => ruleOf(slug) === null && SCAN_CORPORA[slug] === undefined);
     expect(unclaimed, "a corpus directory proves no rule — name it after the rule it fires, or declare the committed scan it proves, so the suite can judge it").toEqual([]);
@@ -207,6 +211,7 @@ describe("AC4: every NEVER fires on its committed fixture", () => {
   test("AC4: every reported payload line carries a recorded reason (Q-08)", () => {
     const unmarked: string[] = [];
     for (const fixture of fixtures.filter((entry) => entry.basename.startsWith("bad"))) {
+      // white-box: AC4 (Q-08) — the criterion IS a property of the fixture's text: a deliberate payload must sit on a line carrying its recorded reason, and a comment marker has no runtime observable at all.
       const lines = readFileSync(fixture.absolutePath, "utf8").split("\n");
       for (const message of messagesOf.get(fixture.id) ?? []) {
         const line = lines[message.line - 1] ?? "";
@@ -219,6 +224,7 @@ describe("AC4: every NEVER fires on its committed fixture", () => {
 
 describe("AC6: the ARCH-01 matrix is complete branch by branch", () => {
   test("AC6: every direction in the matrix has its own bad fixture", () => {
+    // white-box: AC6 — "the matrix is complete branch by branch" is a claim about which payloads the corpus carries; a direction with no fixture is a direction nothing can be run on.
     const branches = readdirSync(join(CORPUS_ROOT, "boundaries")).filter((entry) =>
       statSync(join(CORPUS_ROOT, "boundaries", entry)).isDirectory(),
     );
@@ -262,6 +268,7 @@ describe("AC6: the ARCH-01 matrix is complete branch by branch", () => {
     // The ban home is an exact path, not a pattern: the same source one filename to the side is
     // refused (ARCH-02 — one home, and only one).
     const beside = virtualPath.replace(/\/([^/.]+)\./, "/$1-beside.");
+    // white-box: AC6 — the home fixture's text is the INPUT the shipped config is driven with a second time, at a path one filename to the side; the assertion is on what ESLint then reported.
     const messages = await lintAs(readFileSync(home!.absolutePath, "utf8"), beside);
     expect(
       messages.some((message) => message.ruleId === rule),
