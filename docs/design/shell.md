@@ -25,6 +25,16 @@ primitives (core Button/Input/Skeleton, overlay DropdownMenu, the one RefusalSta
   the frame rather than a screen — and its R-UI-050 cells are declared in the `jobs-tray` row of
   `src/ui/patterns/job-timeline/states.ts`. ⌘K, notifications, the project switcher and the viewer's
   readout remain absent under this Interpretation unchanged.
+  **Amended (inc-217-command-palette, I-135): ⌘K's owner has arrived.** The top bar's right-hand
+  cluster now holds, in this document and tab order, `<CommandPaletteTrigger />`, then `<JobsTray />`,
+  then the user menu — R-UI-030's own order. Its chrome and copy are
+  `docs/design/command-palette.md`'s §1 and the surface it opens is that Decision's; `SHELL_STATES`
+  gains no row for it — the trigger is an occupant of the frame rather than a screen — and the
+  palette's R-UI-050 cells are declared in the `command-palette` row of
+  `src/ui/patterns/command-palette/states.ts`. Like the tray (I-116), the trigger is provider-gated:
+  it renders `null` outside a `CommandPaletteProvider`, so a bare `ShellTopBar` mount and the shell
+  gallery entry stand exactly as they are. Notifications, the project switcher and the viewer's
+  readout remain absent under this Interpretation unchanged, and nothing reserves space for them.
 - **I-16 — one no-spark asset, both themes, referenced verbatim.** The vendored set holds a
   single `vextrus-mark-nospark.svg` (light-indigo facets) and no dark or quiet-chrome
   sibling; the geometry is never redrawn (R-UI-070), so the rail renders that one file in
