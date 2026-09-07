@@ -40,6 +40,10 @@ vi.mock("../db", async (importOriginal) => {
     },
     publish: async (_name: string, jobId: string) => jobId,
     queueStateOf: async () => "pending",
+    knowsJob: async (...args: unknown[]) => {
+      note("knowsJob", ...args);
+      return true;
+    },
     withKeyLock: async (...args: unknown[]) => {
       note("withKeyLock", ...args.slice(0, 3));
       return await (args.at(-1) as () => Promise<unknown>)();

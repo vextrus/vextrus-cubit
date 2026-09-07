@@ -164,6 +164,14 @@ export interface JobsStore {
   publish(name: string, jobId: string, data: Record<string, unknown>, shape: QueueShape): Promise<string>;
   queueStateOf(name: string, jobId: string): Promise<QueueState>;
   /**
+   * Does the queue hold a job under this id on this kind's queue at all — the record itself, and
+   * the archive it is moved to once the queue is done with it? A different question from
+   * `queueStateOf`, which answers where a job got to and cannot tell a job the queue never held
+   * from one it has finished with: both are "ended". Asked of the queue beside that read, because
+   * the queue's own record is one thing to reach and one place to reach it from (B-17, ARCH-02).
+   */
+  knowsJob(name: string, jobId: string): Promise<boolean>;
+  /**
    * Run `work` with the (kind, key) pair to itself. `requestId` is the caller's own — the job an
    * enqueue minted, the claim a sweep is settling — so a failure of the locking is recorded against
    * the request it failed, never against a name of the lock's own (ARCH-03).
@@ -705,6 +713,13 @@ export function jobsStore(url: string): JobsStore {
       if (job === null) return "ended";
       if (job.state === "active") return "active";
       return job.state === "created" || job.state === "retry" ? "pending" : "ended";
+    },
+
+    knowsJob: async (name, jobId) => {
+      const boss = await queue.reach();
+      // Archive included: a job the queue has finished with is still a job it holds a record of,
+      // and the record is what "known" means here.
+      return (await boss.getJobById(name, jobId, { includeArchive: true })) !== null;
     },
 
     withKeyLock,

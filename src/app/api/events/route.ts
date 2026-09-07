@@ -5,9 +5,11 @@
 // closed by this end once the job has reached its terminal event. `?transport=poll` answers the
 // same log as one JSON snapshot, for a client that cannot hold a stream open.
 //
-// Both transports read the durable log through SEAM-JOBS and nothing else: what an event means, and
-// when a job is over, are the seam's answers, not this route's (ARCH-02).
-import { jobEvents, TERMINAL_STATUSES, watchJob, type JobEvent } from "@/core/jobs";
+// Both transports read the durable log through SEAM-JOBS and nothing else: what an event means,
+// when a job is over, and whether an id is one the queue holds a job under at all are the seam's
+// answers, not this route's (ARCH-02). This route only composes them — the log first, and the
+// queue's own knowledge of the id only where the log has nothing to say.
+import { isKnownJob, jobEvents, TERMINAL_STATUSES, watchJob, type JobEvent } from "@/core/jobs";
 import { reportFault } from "@/core/faults/report";
 
 /** The route the fault seam records this handler's failures under (ARCH-03). */
@@ -64,52 +66,12 @@ function pollAnswer(events: readonly JobEvent[]): Response {
 const NO_SUCH_JOB = "no job is recorded under that id";
 
 /**
- * How long an empty log is given to say its first word before the id is called unknown, and how
- * often it is asked inside that window. A job's first event is written by the runtime a moment
- * after `enqueue` returns, so a log read empty at once is an early job as often as an unknown one;
- * a log still empty at the end of the window is an id nothing will ever answer to, and it is
- * answered rather than waited on forever. Only an id with nothing recorded under it waits at all,
- * and it waits no longer than its first event takes to appear.
- */
-const FIRST_EVENT_GRACE_MS = 3_000;
-const FIRST_EVENT_EVERY_MS = 50;
-
-/**
- * The job's log, and whether anything is recorded under this id at all. An empty log is asked
- * again until it says something or the window above runs out, so the answer distinguishes a job
- * that has not spoken yet from an id no job answers to.
- *
- * The wait belongs to the caller: a client that goes away is not waited for, so a disconnection
- * ends the loop at once rather than leaving a window's worth of store reads running for nobody.
- */
-async function recordedLog(jobId: string, signal: AbortSignal): Promise<readonly JobEvent[]> {
-  const deadline = Date.now() + FIRST_EVENT_GRACE_MS;
-  for (;;) {
-    const events = await jobEvents(jobId);
-    if (events.length > 0 || Date.now() >= deadline || signal.aborted) return events;
-    await waited(FIRST_EVENT_EVERY_MS, signal);
-  }
-}
-
-/** A wait that ends when its time is up or the caller has gone, leaving no timer behind either way. */
-function waited(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise<void>((settle) => {
-    const done = (): void => {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", done);
-      settle();
-    };
-    const timer = setTimeout(done, ms);
-    signal.addEventListener("abort", done, { once: true });
-  });
-}
-
-/**
  * The stream: history in seq order, then every further event as the log records it, then the close.
  * The watcher is bound to the request, so a client that goes away stops being waited for.
  *
- * The history is the log the existence read above already holds, and it is what the subscriber is
- * given first — there is no second read of the same rows for the same request. What the watcher
+ * The history is the log the one read below already holds — empty, for a job the queue knows that
+ * has not spoken yet — and it is what the subscriber is given first: there is no second read of the
+ * same rows for the same request. What the watcher
  * chooses to replay is the seam's business (the runtime's replays from the beginning of the log), so
  * a seq the history already carried is passed over rather than sent twice: a subscriber that read
  * the same event under two frames would count one thing as two.
@@ -160,13 +122,18 @@ export async function GET(request: Request): Promise<Response> {
   if (jobId === "") return json({ events: [], done: false, error: `${JOB_ID} is required` }, 400);
   const polling = query.get(TRANSPORT) === POLL;
   try {
-    // The log is read before either transport answers, so an id no job answers to is settled here,
-    // the same way over either transport: the address is unknown or it is not, and which client
-    // asked does not change that. A stream opened over an unknown one would otherwise never end —
-    // `watchJob` waits for events that are never coming, re-reading the store for the life of the
-    // connection — and a poll over one would report an empty log as a job's quiet beginning.
-    const events = await recordedLog(jobId, request.signal);
-    if (events.length === 0) return json({ events: [], done: false, error: NO_SUCH_JOB }, 404);
+    // The log is read once, and an id no job answers to is settled before either transport answers:
+    // the address is unknown or it is not, and which client asked does not change that. A stream
+    // opened over an unknown one would otherwise never end — `watchJob` waits for events that are
+    // never coming, re-reading the store for the life of the connection — and a poll over one would
+    // report an empty log as a job's quiet beginning.
+    //
+    // A log with anything in it is a job, whatever the queue still remembers, so the door is asked
+    // only where the log is silent: what "known" means then is the queue's own record, and it is
+    // the seam's answer rather than this route's (ARCH-02, B-17). The question needs no clock —
+    // nothing here waits for a first event — so an unknown id is answered the moment it is asked.
+    const events = await jobEvents(jobId);
+    if (events.length === 0 && !(await isKnownJob(jobId))) return json({ events: [], done: false, error: NO_SUCH_JOB }, 404);
     return polling ? pollAnswer(events) : streamAnswer(jobId, events, request.signal);
   } catch (failure) {
     // Nothing here is a refusal — the caller asked a lawful question and our side could not
