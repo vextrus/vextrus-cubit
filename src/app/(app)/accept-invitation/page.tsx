@@ -34,12 +34,14 @@ export default async function AcceptInvitation({ searchParams }: { searchParams:
   if (token === undefined || token === "") return <AcceptInvitationNoToken />;
 
   try {
-    // R-SPINE-006's tenant-admin door, spent on the account that presented the session before a
-    // single token is looked at. The token is a secret carried in an address, and an unlimited read
-    // of it is an oracle: a stranger holding one address can walk the token space and be told, one
-    // request at a time, which secrets exist. The door is keyed on the account rather than on
-    // anything the request carries, so it cannot be reset by varying the token.
-    await admitAttempt("tenancyAdmin", session.userId);
+    // The read door that is this page's own, spent on the account that presented the session before
+    // a single token is looked at. The token is a secret carried in an address, and an unlimited
+    // read of it is an oracle: a stranger holding one address can walk the token space and be told,
+    // one request at a time, which secrets exist. It is not R-SPINE-006's tenant-admin door: that
+    // budget is for moving a workspace, which this render does not do and `./actions` does — a read
+    // spends no write budget. The door is keyed on the account rather than on anything the request
+    // carries, so it cannot be reset by varying the token.
+    await admitAttempt("acceptInvitationRead", session.userId);
     const offer = await offeredInvitation({ userId: session.userId, token }, invitationMachinery);
     return <AcceptInvitationForm token={token} offer={{ workspaceName: offer.workspaceName, workspaceRole: offer.workspaceRole }} />;
   } catch (thrown) {

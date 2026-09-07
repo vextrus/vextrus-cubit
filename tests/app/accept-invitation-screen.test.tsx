@@ -2,12 +2,19 @@
 // The ACCEPT screen's door (src/app/(app)/accept-invitation/page.tsx): a mailed token is read
 // through a limited door, so a stranger holding an address cannot walk the token space, and a
 // refused read answers with the register's own words instead of an offer.
+//
+// Which door, re-baselined (B-20): the render spends the read door that is this page's own, not the
+// write budget R-SPINE-006 gives a workspace's admin — a person reloading a mailed link may not cost
+// an admin one of the moves they get for actually changing the workspace.
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { refusal } from "../../src/core/faults/refusal-marker";
+import { UNCLAIMABLE_CODES } from "../../src/app/(app)/accept-invitation/states";
 
 const seams = vi.hoisted(() => ({
-  admitAttempt: vi.fn(async () => {}),
+  // The door is a parameter of the seam, so a case can answer one door and admit another — which is
+  // the whole of what this screen's re-baselining is about.
+  admitAttempt: vi.fn<(door: string, identity: string) => Promise<void>>(async () => {}),
   offeredInvitation: vi.fn(async () => ({ workspaceName: "Ashuganj Works", workspaceRole: "member" })),
 }));
 
@@ -38,10 +45,15 @@ async function screenFor(token: string): Promise<void> {
   render(await AcceptInvitation({ searchParams: Promise.resolve({ token }) }));
 }
 
-test("AC-1(b): the token read spends the tenancy door on the account before it reads anything", async () => {
+test("AC-2: the token read spends the page's own read door on the account before it reads anything", async () => {
   await screenFor("mailed-token");
 
-  expect(seams.admitAttempt, "the accept read is limited on the account that presented the session").toHaveBeenCalledWith("tenancyAdmin", "user-7");
+  expect(seams.admitAttempt, "the accept read is limited on the account that presented the session, through the read door").toHaveBeenCalledWith(
+    "acceptInvitationRead",
+    "user-7",
+  );
+  expect(seams.admitAttempt, "one render is one attempt at one door").toHaveBeenCalledTimes(1);
+  expect(seams.admitAttempt, "rendering the screen spends no part of the tenant-admin write budget").not.toHaveBeenCalledWith("tenancyAdmin", expect.anything());
   const admitted = seams.admitAttempt.mock.invocationCallOrder[0];
   const read = seams.offeredInvitation.mock.invocationCallOrder[0];
   expect(admitted, "the door is spent at all").toBeDefined();
@@ -49,11 +61,16 @@ test("AC-1(b): the token read spends the tenancy door on the account before it r
   expect(admitted as number).toBeLessThan(read as number);
 });
 
-test("AC-1(b): a refused door answers with RATE_LIMITED and offers nothing to submit", async () => {
-  seams.admitAttempt.mockRejectedValueOnce(refusal("RATE_LIMITED", "Too many attempts."));
+test("AC-3: a refused read door answers with RATE_LIMITED and offers nothing to submit", async () => {
+  // Refused at the read door specifically: what is being judged is that the screen's render is the
+  // attempt this refusal answers, so a page still spending some other door renders an offer here.
+  seams.admitAttempt.mockImplementationOnce(async (door) => {
+    if (door === "acceptInvitationRead") throw refusal("RATE_LIMITED", "Too many attempts.");
+  });
 
   await screenFor("mailed-token");
 
+  expect(UNCLAIMABLE_CODES, "a refused read is one of the codes this screen answers in place (R-UI-020)").toContain("RATE_LIMITED");
   const answer = screen.getByTestId("accept-invitation-refusal");
   const coded = answer.matches('[data-code="RATE_LIMITED"]') ? answer : answer.querySelector('[data-code="RATE_LIMITED"]');
   expect(coded, "the refusal travels machine-readably, as the register's own code").not.toBeNull();
