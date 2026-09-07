@@ -68,51 +68,32 @@ export function contains(rev: string): boolean {
 }
 
 /**
- * The far end of the interval this increment is judged over: the OLDEST mainline commit that
- * contains this branch's HEAD — the commit by which this work had landed, however it landed. Under a
- * merge that is the merge commit; under a fast-forward it is the branch's own last commit sitting on
- * the mainline; either way the whole repair is inside `PRE_FIX..FIX_END` and none of a later
- * milestone's work is. While the branch is unmerged — which is how the gate sees it — no mainline
- * commit contains HEAD and the answer is `HEAD`, so the live branch is graded exactly as strictly as
- * it would be without this reading.
+ * The far end of the interval this increment is judged over: the commit by which this work had
+ * LANDED on the mainline — the oldest first-parent commit of the mainline that tracks this
+ * increment's own marker file (the engine lands every increment as one squash commit, so that
+ * commit is the landing itself, under a merge and under a fast-forward alike). The whole repair is
+ * inside `PRE_FIX..FIX_END` and none of a later milestone's work is. While the hotfix's own branch
+ * is unmerged — which is how the gate sees it — the mainline does not track the marker below the
+ * fork point, and the answer is `HEAD`: the live branch is graded exactly as strictly as it would be
+ * without this reading.
  *
  * Naming an end matters because J-000 is "extended per milestone" (its Bible clause): a later
  * increment lawfully adds J-000 specs and re-baselines them, and a reading anchored at `HEAD` would
  * turn that lawful extension into a red no actor may clear. What this increment claims is a property
  * of `PRE_FIX..FIX_END`, and that is the range these readings ask about.
+ *
+ * The mainline checkout is the same case as a later branch (2026-09-07): `main` itself contains
+ * `HEAD`, and the earlier reading answered `HEAD` for it — so `pnpm verify` on main graded every
+ * later merge against the pin, and went red the moment inc-120's nonce CSP had to change how the
+ * shared checkpoint helper injects axe (`verify on main — red on untouched main`, the run of
+ * 2026-09-06 22:11Z). The landing is the far end wherever the checkout stands.
  */
 export const FIX_END: string = ((): string => {
   for (const ref of MAINLINE_REFS) {
     if (!resolves(ref)) continue;
     try {
-      // Nothing on a mainline that does not itself contain HEAD can contain HEAD either, and this
-      // is the gate's own case: one question, not one per commit in the history. An unmerged
-      // checkout is then either the hotfix's own branch (the answer stays `HEAD`) or a LATER
-      // branch forked after the hotfix landed — whose interval closed at that landing (below).
-      if (!contains(ref)) {
-        const landedBelow = landingOfMarker(ref);
-        if (landedBelow !== undefined) return landedBelow;
-        continue;
-      }
-      // Oldest first along the ref's own spine. Each first-parent commit is an ancestor of the next,
-      // so "contains HEAD" is false up to the landing and true from it on — monotone, hence found by
-      // halving rather than by walking.
-      const spine = gitLines("rev-list", "--first-parent", "--reverse", ref);
-      let low = 0;
-      let high = spine.length - 1;
-      let landing: string | undefined;
-      while (low <= high) {
-        const middle = Math.floor((low + high) / 2);
-        const candidate = spine[middle];
-        if (candidate === undefined) break;
-        if (contains(candidate)) {
-          landing = candidate;
-          high = middle - 1;
-        } else {
-          low = middle + 1;
-        }
-      }
-      if (landing !== undefined) return landing;
+      const landed = landingOfMarker(ref);
+      if (landed !== undefined) return landed;
     } catch {
       // A ref git cannot walk is simply not the mainline this reading is looking for.
     }
@@ -121,8 +102,9 @@ export const FIX_END: string = ((): string => {
 })();
 
 /**
- * The far end for a LATER branch: the hotfix has already landed below this checkout — its fork
- * point with `ref` tracks this increment's own marker file — so its interval closed when it landed.
+ * The far end once the hotfix has landed below this checkout (a later branch, or the mainline
+ * itself) — its fork point with `ref` tracks this increment's own marker file — so its interval
+ * closed when it landed.
  * The answer is the landing commit: the oldest first-parent commit of `ref` tracking the marker
  * (the engine lands every increment as one squash commit, so that commit is the landing itself).
  * Undefined when the fork point does not track the marker (the hotfix's own branch, before it
