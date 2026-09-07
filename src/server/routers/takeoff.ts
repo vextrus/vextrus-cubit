@@ -6,8 +6,9 @@
 // SEAM-ACT. Every rule about who may confirm, what a confirmation would do and which digest binds it
 // lives in `src/core/acts`; a transport-local guard or digest would be a second answer to a question
 // that has one (B-17).
-import { commit, consequenceDigest, preview, type ConfirmDisciplineInput, type Consequence, type OfferedGroupKey } from "../../core/acts";
+import { commit, consequenceDigest, preview, type ConfirmDisciplineInput, type ConfirmViewTypeInput, type Consequence, type OfferedGroupKey, type ViewGroupKey } from "../../core/acts";
 import { isDiscipline, type Discipline } from "../../core/sheets";
+import { viewsOf, type ViewRecord } from "../../modules/takeoff/partition";
 import { offeredGroupsOf, sheetIndexOf, type OfferedGroup, type SheetCard } from "../../modules/takeoff/sheets";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { signedOut } from "../auth/refusals";
@@ -16,6 +17,8 @@ import { projectActorFor } from "./spine";
 
 /** The act this lane renders, and the permission L-ACT-03 makes it move. */
 const CONFIRM_DISCIPLINE = "CONFIRM_DISCIPLINE" as const;
+const CONFIRM_VIEW_TYPE = "CONFIRM_VIEW_TYPE" as const;
+const PROPOSED_VIEW_TYPE = "PROPOSED_VIEW_TYPE" as const;
 const MEASURE = "MEASURE" as const;
 
 /** A door that needs a session states so once (the spine lane's shape, ARCH-03). */
@@ -57,6 +60,23 @@ function confirmInput(raw: unknown): ConfirmDisciplineInput {
   return { type: CONFIRM_DISCIPLINE, projectId: text(named, "projectId"), group: groupKey(named["group"]) };
 }
 
+/** The view group's key as it arrives on the wire, read into the shape the seam declares. */
+function viewGroupKey(raw: unknown): ViewGroupKey {
+  const named = bagOf(raw);
+  const kind = text(named, "kind");
+  if (kind !== PROPOSED_VIEW_TYPE) throw new Error(`takeoff: "${kind}" is not a view-group kind — L-ACT-02's grouping key is over a closed enum`);
+  // The class itself is not judged here: what a view may be confirmed as is L-CAD-06's law, and the
+  // seam resolves membership against what the machine really proposed — a class it proposed for
+  // nothing offers no group, which is the one answer either way (B-17).
+  return { kind, drawingId: text(named, "drawingId"), viewType: text(named, "viewType") };
+}
+
+/** The view act's input as it arrives on the wire, read into the shape the seam declares. */
+function confirmViewTypeInput(raw: unknown): ConfirmViewTypeInput {
+  const named = bagOf(raw);
+  return { type: CONFIRM_VIEW_TYPE, projectId: text(named, "projectId"), group: viewGroupKey(named["group"]) };
+}
+
 export const takeoffRouter = router({
   sheetIndex: signedInProcedure
     .input((raw: unknown) => ({ projectId: text(raw, "projectId") }))
@@ -70,6 +90,30 @@ export const takeoffRouter = router({
     .query(async ({ ctx, input }): Promise<OfferedGroup[]> => {
       const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
       return offeredGroupsOf({ tenantId: actor.tenantId, projectId: input.projectId });
+    }),
+
+  views: signedInProcedure
+    .input((raw: unknown) => ({ projectId: text(raw, "projectId"), drawingId: text(raw, "drawingId") }))
+    .query(async ({ ctx, input }): Promise<ViewRecord[]> => {
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      return viewsOf({ tenantId: actor.tenantId, projectId: input.projectId, drawingId: input.drawingId });
+    }),
+
+  previewConfirmViewType: signedInProcedure
+    .input((raw: unknown) => ({ input: confirmViewTypeInput(bagOf(raw)["input"]) }))
+    .mutation(async ({ ctx, input }): Promise<Consequence> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_VIEW_TYPE, MEASURE);
+      return preview(actor, input.input);
+    }),
+
+  confirmViewType: signedInProcedure
+    .input((raw: unknown) => ({ input: confirmViewTypeInput(bagOf(raw)["input"]), consequenceDigest: text(raw, "consequenceDigest") }))
+    .mutation(async ({ ctx, input }): Promise<{ actId: string; consequenceDigest: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_VIEW_TYPE, MEASURE);
+      const written = await commit(actor, input.input, input.consequenceDigest);
+      return { actId: written.actId, consequenceDigest: written.consequenceDigest };
     }),
 
   previewConfirmDiscipline: signedInProcedure

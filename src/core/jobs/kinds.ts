@@ -46,6 +46,11 @@ export const JOB_KINDS = Object.freeze({
   // sheet of a drawing at every tier and holds each canvas in memory while it does. `expireSeconds`
   // covers a large sheet set at 2048 px with margin, so the queue never re-queues a running attempt.
   thumbnails: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 5, retryBackoff: true, expireSeconds: 900 }),
+  // R-TO-030's stored partition: one ingest record at a time per process, because an attempt reads a
+  // whole artifact into memory and rewrites the record's partition in one transaction. A silent
+  // caption may reach a model, so `expireSeconds` leaves room for a provider's own latency without
+  // the queue ever re-queuing an attempt that is still running.
+  partition: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 5, retryBackoff: true, expireSeconds: 900 }),
 }) satisfies Readonly<Record<string, JobKindPolicy>>;
 
 /** The kind vocabulary: the keys of the policy table and nothing else. */
@@ -85,6 +90,18 @@ export type JobPayloads = {
    * was asked for, so a record superseded meanwhile does not silently redirect the job.
    */
   thumbnails: {
+    tenantId: string;
+    drawingId: string;
+    ingestId: string;
+    requestedBy: string;
+  };
+  /**
+   * One ingest record's stored partition, rebuilt (R-TO-030). The record is named in the payload
+   * rather than looked up when the attempt runs: the partition is a reading of the artifact that
+   * stood when the work was asked for, and the job's key is that record's, so a record superseded
+   * meanwhile leaves this one alone rather than being silently redirected.
+   */
+  partition: {
     tenantId: string;
     drawingId: string;
     ingestId: string;

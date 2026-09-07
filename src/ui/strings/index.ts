@@ -9,6 +9,7 @@ import { home } from "./home";
 import { jobTimeline } from "./job-timeline";
 import { offeredGroup } from "./offered-group";
 import { participants } from "./participants";
+import { partition } from "./partition";
 import { screenStates } from "./screen-states";
 import { shell } from "./shell";
 import { spine } from "./spine";
@@ -24,6 +25,7 @@ export const strings = {
   ...jobTimeline,
   ...offeredGroup,
   ...participants,
+  ...partition,
   ...screenStates,
   ...shell,
   ...spine,

@@ -854,6 +854,109 @@ export const sheetDisciplines = pgTable(
 );
 
 /**
+ * R-TO-030's stored partition, view half: one row per view an ingest's model space was cut into
+ * (L-CAD-06). A partition is REBUILT per ingest rather than appended to — the rows are deleted and
+ * written again in one transaction — so this is a derived table, not a ledger, and the app role holds
+ * a DELETE on it.
+ *
+ * The key is content-derived and mints nothing (L-REG-04): a view is its class and the source key of
+ * the caption that anchors it, so re-deriving the same artifact reproduces the same key multiset. The
+ * primary key is that triple rather than a surrogate for the same reason.
+ *
+ * It references no ledger. The ingest, the drawing and the model call are named by id and pointed at
+ * by nothing: a table rebuilt per ingest may not be a child of an append-only table, or emptying one
+ * would fail on the constraint this table would add (0A000).
+ *
+ * The model's reading, where one was asked for, stands BESIDE the view and never in it (L-AI-02):
+ * `proposed_type` is what a model proposed for a caption the grammar could not read, `proposed_call_id`
+ * the ledger row that proposed it, and `type` stays what the grammar answered until a person confirms
+ * otherwise.
+ */
+export const partitionViews = pgTable(
+  "partition_views",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    viewKey: text("view_key").notNull(),
+    type: text("type").notNull(),
+    /** Why the type is what it is, where the grammar read nothing — a registered refusal code. */
+    reason: text("reason"),
+    /** The caption this view is anchored by, as the drawing states it; empty where none anchors it. */
+    caption: text("caption").notNull(),
+    /** The source key of the caption's own entity, or null for the view no caption anchors. */
+    anchorKey: text("anchor_key"),
+    proposedType: text("proposed_type"),
+    proposedCallId: uuid("proposed_call_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "partition_views_key", columns: [table.tenantId, table.ingestId, table.viewKey] }),
+    // A proposal is a payload and the call that made it, or neither: a proposed class naming no
+    // ledger row would be a reading nobody could audit (L-AI-01).
+    check("partition_views_proposal_whole", statement`(${table.proposedType} is null) = (${table.proposedCallId} is null)`),
+    // The read a screen and the act seam make: one drawing's current partition.
+    index("partition_views_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
+ * R-TO-030's stored partition, membership half: which view each model-space original entity landed
+ * in. L-CAD-06 — "every model-space original entity belongs to exactly one view" — is this table's
+ * primary key, so a partition that assigned an entity twice cannot be written at all.
+ *
+ * Rewritten per ingest with the views above, in the same transaction, and pointing at no ledger for
+ * the same reason.
+ */
+export const viewAssignments = pgTable(
+  "view_assignments",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    entityKey: text("entity_key").notNull(),
+    viewKey: text("view_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "view_assignments_entity", columns: [table.tenantId, table.ingestId, table.entityKey] }),
+    // The read the partition makes of itself: everything one view holds.
+    index("view_assignments_by_view").on(table.tenantId, table.ingestId, table.viewKey),
+  ],
+);
+
+/**
+ * L-CAD-06's human half: what a person confirmed one view to be, and the act that carried it
+ * (L-ACT-01 — the act row and the state change land in one transaction or neither).
+ *
+ * A confirmation is never a before-image and never a rewrite: the grammar's own reading stays in
+ * `partition_views.type` and this row stands beside it. It is a record of something a person did, so
+ * unlike the two tables above it is append-only and the app role holds no DELETE.
+ */
+export const viewTypeConfirmations = pgTable(
+  "view_type_confirmations",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    confirmationId: uuid("confirmation_id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    viewKey: text("view_key").notNull(),
+    type: text("type").notNull(),
+    actId: uuid("act_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One confirmation per view of one record: a second, disagreeing reading is a competing
+    // observation, which L-ACT-01 gives its own path and this increment does not render.
+    uniqueIndex("view_type_confirmations_once").on(table.tenantId, table.ingestId, table.viewKey),
+    // The read the partition makes: what a drawing's views have been confirmed as.
+    index("view_type_confirmations_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
  * R-TO-005's drawing set: a named grouping of a project's drawings, told apart from its siblings by
  * the name a person gave it. The row is a record of a naming that happened and is never rewritten —
  * what the set NAMES lives in `drawing_set_members` beside it, which is a draft.
@@ -963,6 +1066,9 @@ export const SEAM_SCHEMA = {
   ingests,
   sheetRasters,
   sheetDisciplines,
+  partitionViews,
+  viewAssignments,
+  viewTypeConfirmations,
   drawingSets,
   drawingSetMembers,
   drawingSetRevisions,
