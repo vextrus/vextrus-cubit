@@ -19,7 +19,6 @@ import {
   itemsOf,
   maybe,
   mountFrame,
-  one,
   openPalette,
   productModule,
   rosterModule,
@@ -76,7 +75,55 @@ describe("AC-3: the roster, the ? sheet and the palette's shortcut rows", () => 
       expect(roster.SHORTCUT_SCOPES, `\`${entry.id}\` stands in a declared scope`).toContain(entry.scope);
       expect(Array.isArray(entry.keys) && entry.keys.length > 0, `\`${entry.id}\` states the keys that reach it`).toBe(true);
       expect(typeof copy(table, entry.label), `\`${entry.id}\`'s label is a key of the one string table`).toBe("string");
-      expect(said(roster.chordOf(entry)).length, `\`${entry.id}\` reads as a chord a person can say (I-149)`).toBeGreaterThan(0);
+    }
+  });
+
+  test("AC-3: a chord is drawn from the entry's steps — one step per key, the platform's modifier, and no two sequences reading alike", async () => {
+    const roster = await rosterModule();
+    const drawn = new Map<string, string>();
+
+    for (const entry of roster.SHORTCUTS) {
+      const chord = said(roster.chordOf(entry));
+      expect(chord.length, `\`${entry.id}\` reads as a chord a person can say (I-149)`).toBeGreaterThan(0);
+
+      // The chord is a display form of the STEPS: the same keys under another id and another label
+      // read the same, so nothing about the entry's naming can stand in for the keys it documents.
+      const renamed = { ...entry, id: `renamed-${entry.id}`, label: `renamed_${entry.label}` };
+      expect(
+        said(roster.chordOf(renamed)),
+        `\`${entry.id}\`'s chord is drawn from its keys, not from its id or its label (increment interfaces: chordOf is the steps' display form)`,
+      ).toBe(chord);
+
+      // A sequence reads as its steps in order, joined by the word the interfaces fix.
+      const steps = chord.split(" then ");
+      expect(steps.length, `\`${entry.id}\` reads one step per key, joined by " then " (increment interfaces)`).toBe(entry.keys.length);
+
+      for (const [index, key] of entry.keys.entries()) {
+        const step = (steps[index] ?? "").toLowerCase();
+        const modified = key.toLowerCase().startsWith("mod+");
+        const letter = modified ? key.slice(key.indexOf("+") + 1) : key;
+        if (modified) {
+          expect(
+            /⌘|ctrl|control|cmd|command/i.test(step),
+            `\`${entry.id}\`'s \`${key}\` step names this platform's command key (increment interfaces: ⌘/Ctrl by platform) — it read "${steps[index] ?? ""}"`,
+          ).toBe(true);
+        }
+        if (letter.length === 1) {
+          expect(step, `\`${entry.id}\`'s \`${key}\` step reads the key a person presses — it read "${steps[index] ?? ""}"`).toContain(
+            letter.toLowerCase(),
+          );
+        }
+      }
+
+      // Two entries documenting different sequences cannot be documented by the same chord: a
+      // reader who saw one would press the other.
+      const sequence = entry.keys.join(" ");
+      const already = drawn.get(chord);
+      expect(
+        already === undefined || already === sequence,
+        `\`${entry.id}\` (${sequence}) reads as "${chord}", which another entry (${already ?? ""}) already reads as (AC-3)`,
+      ).toBe(true);
+      drawn.set(chord, sequence);
     }
   });
 
