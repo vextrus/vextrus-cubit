@@ -5,6 +5,7 @@
 // mint a ctx, call these two functions under these same guards — a transport-local digest or guard
 // set is a defect, because two doors to one write must be provably the same door (B-17, ARCH-02).
 import { acts, forTenant, holdStateLock, type TenantTx } from "../db";
+import { affirmScale, type AffirmScaleInput } from "./affirm-scale";
 import { assignParticipantRole, type AssignParticipantRoleInput } from "./assign-participant-role";
 import { confirmDiscipline, type ConfirmDisciplineInput } from "./confirm-discipline";
 import { confirmViewType, type ConfirmViewTypeInput } from "./confirm-view-type";
@@ -15,7 +16,7 @@ import { requirePermission } from "./participation";
 import { actChangesNothing, actorNotHuman, consequencesNotCarried } from "./refusals";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
-export { consequenceDigest, type Consequence, type ConsequenceRendering, type ConsequenceSubject } from "./consequence";
+export { consequenceDigest, type Consequence, type ConsequenceEffects, type ConsequenceRendering, type ConsequenceSubject } from "./consequence";
 export {
   ACT_PERMISSION,
   ACT_TYPES,
@@ -36,9 +37,10 @@ export { directionOf, type AssignDirection, type AssignParticipantRoleInput } fr
 export { GROUP_KINDS, groupNotOffered, type ConfirmDisciplineInput, type GroupKind, type OfferedGroupKey } from "./confirm-discipline";
 export { viewGroupNotOffered, type ConfirmViewTypeInput, type ViewGroupKey } from "./confirm-view-type";
 export { setNotPinnable, type PinDrawingSetInput } from "./pin-drawing-set";
+export { affirmScale, type AffirmScaleInput } from "./affirm-scale";
 
 /** Everything a caller may ask the seam to do: one member per act type the enum declares. */
-export type ActInput = AssignParticipantRoleInput | ConfirmDisciplineInput | ConfirmViewTypeInput | PinDrawingSetInput;
+export type ActInput = AssignParticipantRoleInput | ConfirmDisciplineInput | ConfirmViewTypeInput | PinDrawingSetInput | AffirmScaleInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -50,6 +52,7 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
   CONFIRM_DISCIPLINE: confirmDiscipline,
   CONFIRM_VIEW_TYPE: confirmViewType,
   PIN_DRAWING_SET: pinDrawingSet,
+  AFFIRM_SCALE: affirmScale,
 });
 
 /**
@@ -80,6 +83,8 @@ function renderingFor(input: ActInput): BoundRendering {
     case "CONFIRM_VIEW_TYPE":
       return bind(ACT_MAP[input.type], input);
     case "PIN_DRAWING_SET":
+      return bind(ACT_MAP[input.type], input);
+    case "AFFIRM_SCALE":
       return bind(ACT_MAP[input.type], input);
     default:
       return unrendered(input);

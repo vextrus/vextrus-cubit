@@ -112,7 +112,16 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // Its home is `../acts/law.ts` (ARCH-02) — this declaration is what tells a name belonging to
     // that closed set apart from a refusal nobody registered.
     vocabulary: "act types (L-ACT-02)",
-    codes: Object.freeze(["ASSIGN_PARTICIPANT_ROLE", "CONFIRM_DISCIPLINE", "CONFIRM_VIEW_TYPE", "PIN_DRAWING_SET"]),
+    codes: Object.freeze(["ASSIGN_PARTICIPANT_ROLE", "CONFIRM_DISCIPLINE", "CONFIRM_VIEW_TYPE", "PIN_DRAWING_SET", "AFFIRM_SCALE"]),
+  }),
+  Object.freeze({
+    // L-MEA-05's scale ranks, spelled as the law spells its precedence: "QS two-point › grid-spacing
+    // match › overridden dimension ratio › file units header". A rank names what an affirmation stood
+    // on; it is written to the affirmation and read by the engine, and a person is answered with
+    // `SCALE_NO_EVIDENCE` or `SCALE_UNIT_UNMAPPED`, never with one of these. Its home is
+    // `../scale/law.ts` (ARCH-02).
+    vocabulary: "scale ranks (L-MEA-05)",
+    codes: Object.freeze(["QS_TWO_POINT", "GRID_SPACING", "DIMENSION_RATIO", "FILE_UNITS"]),
   }),
   Object.freeze({
     // L-ACT-02's grouping-key kinds: "bulk is offered, never assembled … a typed grouping key over a

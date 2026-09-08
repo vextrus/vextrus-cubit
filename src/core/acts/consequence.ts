@@ -32,6 +32,18 @@ export type ConsequenceSubject = {
  */
 export type ConsequenceRendering = "SUBJECTS";
 
+/**
+ * What an act would do BEYOND its subjects: the derived state that follows from moving them
+ * (R-TO-020: an affirmation "previews consequences (lines that re-derive, signatures that void)").
+ * Typed slots, each a list of the ids that would move, so an empty slot is a stated nothing rather
+ * than an absent field. Both are filled by the code path that owns the state they name — the
+ * quantity lines' and the signatures' — and stand empty until it exists.
+ */
+export type ConsequenceEffects = {
+  readonly linesRederiving: readonly string[];
+  readonly signaturesVoiding: readonly string[];
+};
+
 /** What an act would do, computed by the committing code path from the state it read (L-ACT-02). */
 export type Consequence = {
   readonly actType: ActType;
@@ -44,6 +56,8 @@ export type Consequence = {
    */
   readonly rendering: ConsequenceRendering;
   readonly subjects: readonly ConsequenceSubject[];
+  /** The derived consequences an act previews, where its kind has any (R-TO-020); absent for the rest. */
+  readonly effects?: ConsequenceEffects;
 };
 
 /**
@@ -62,7 +76,10 @@ export function consequenceDigest(consequence: Consequence): string {
  * rendering arm is not presentation in that sense: it says WHAT KIND of thing the subjects are
  * (L-ACT-02's offered groups are not a subject list), so a preview shown as one arm and a commit
  * recomputed as another are not the same consequence, and R-UI-021 makes the digest the thing the
- * operator confirmed.
+ * operator confirmed. The effects are bound for the same reason: what a person confirmed includes
+ * which lines would re-derive and which signatures would void (R-TO-020), and a state in which a
+ * different set would move is a different consequence. An act whose kind carries no effects
+ * digests as it always has — `canonical` writes nothing for an absent field.
  */
 function judged(consequence: Consequence): unknown {
   return {
@@ -71,6 +88,7 @@ function judged(consequence: Consequence): unknown {
     projectId: consequence.projectId,
     rendering: consequence.rendering,
     subjects: consequence.subjects.map((subject) => ({ subjectId: subject.subjectId, before: subject.before, after: subject.after })),
+    effects: consequence.effects,
   };
 }
 
