@@ -45,6 +45,7 @@ export function isSettled(status: StepStatus): boolean {
 const KIND_WORDS: Readonly<Record<JobKind, string>> = {
   ingest: strings.job_step_ingest,
   thumbnails: strings.job_step_thumbnails,
+  partition: strings.job_step_partition,
   probe: strings.job_step_probe,
 };
 
