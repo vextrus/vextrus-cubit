@@ -68,7 +68,9 @@ export type RefusalCode =
   | "SCALE_UNIT_UNMAPPED"
   | "SCALE_OBSERVATION_UNCITED"
   | "SCALE_OBSERVATION_OBLIQUE"
-  | "SCALE_OBSERVATION_UNVERIFIED";
+  | "SCALE_OBSERVATION_UNVERIFIED"
+  | "DIMENSION_MISMATCH"
+  | "PRODUCT_FACTOR_MISSING";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -453,6 +455,24 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     code: "SCALE_OBSERVATION_UNVERIFIED",
     message: "The observed scale along this axis is not verified within tolerance by a second observation or by the drawing's own evidence, so it was not affirmed.",
     remedy: "Add a second observation along the same axis, or check the entered distance against the drawing.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-FRM-06: the two tiers of the unit canon are not interchangeable — a volume is not an area, and
+  // there is no factor between them to take.
+  DIMENSION_MISMATCH: Object.freeze({
+    code: "DIMENSION_MISMATCH",
+    message: "These two units measure different kinds of quantity, so there is no factor between them and no conversion exists.",
+    remedy: "Choose a unit that measures the same thing as the quantity, such as its own dimension's canonical unit.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-FRM-06: a packaging unit holds whatever the product it packages holds, so converting one
+  // without that property would be inventing a factor — "never a silent 1.0".
+  PRODUCT_FACTOR_MISSING: Object.freeze({
+    code: "PRODUCT_FACTOR_MISSING",
+    message: "A bag, drum or coil holds what its product says it holds, and this product states no such property, so the quantity was not converted.",
+    remedy: "State the product's packaged quantity — how much one bag, drum or coil holds — and convert again.",
     severity: "error",
     surface: "inline",
   }),

@@ -197,6 +197,13 @@
       "when": 1788865472131,
       "tag": "0027_calibrations",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1788893519294,
+      "tag": "0028_catalogue",
+      "breakpoints": true
     }
   ]
 }

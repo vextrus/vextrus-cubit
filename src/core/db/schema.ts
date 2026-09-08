@@ -6,6 +6,8 @@
 // the dependency runs one way and no cycle is representable (ARCH-01, ARCH-02).
 import { sql as statement } from "drizzle-orm";
 import { bigint, check, doublePrecision, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { ELEMENT_TYPES, type ElementType } from "../catalogue/classes";
+import { KINDS, type Kind } from "../catalogue/kinds";
 import { INGEST_SCHEME } from "../entitygraph/schema";
 import type { RefusalCode } from "../errors";
 import { VIEW_TYPE_SPELLINGS } from "../errors/transport-vocabulary";
@@ -15,6 +17,7 @@ import { DEFAULT_DENSITY, DENSITIES, type Density } from "../prefs/density";
 import { BUILDING_TYPES, type BuildingType } from "../projects";
 import { DISCIPLINES, type Discipline } from "../sheets/law";
 import { FACTOR_MINIMUM, FACTOR_PATTERN, SCALE_RANKS, type ScaleRank } from "../scale/law";
+import { DIMENSIONS, UNITS, type Dimension, type Unit } from "../units/canon";
 import type { EditionParameter, EditionScope, MethodPair } from "../rulesets/editions/content";
 import type { ConventionProfile, EntityCensus } from "../rulesets/methods/conventions/resolve";
 import { closedList } from "./sql";
@@ -1262,6 +1265,54 @@ export const calibrations = pgTable(
 );
 
 /**
+ * L-MEA-04's work-item catalogue, as the store's copy of it: per kind, what is measured of it, in
+ * which dimension, in that dimension's canonical unit, to how many places a document writes it.
+ *
+ * The catalogue is code-owned: `src/core/catalogue/catalogue.ts` is the original, the tables under
+ * `db/catalogue/` are its emission, and a migration is the only thing that moves these rows — which
+ * is why the runtime role reads this table and holds no privilege that writes it. Every column that
+ * draws on a closed roster is closed over that roster's own spelling here (B-17).
+ */
+export const workItems = pgTable(
+  "work_items",
+  {
+    kind: text("kind").$type<Kind>().primaryKey(),
+    description: text("description").notNull(),
+    canonicalUnit: text("canonical_unit").$type<Unit>().notNull(),
+    dimension: text("dimension").$type<Dimension>().notNull(),
+    documentPrecision: integer("document_precision").notNull(),
+  },
+  (table) => [
+    check("work_items_kind_closed", statement`${table.kind} in (${statement.raw(closedList(KINDS))})`),
+    check("work_items_dimension_closed", statement`${table.dimension} in (${statement.raw(closedList(DIMENSIONS))})`),
+    check("work_items_unit_closed", statement`${table.canonicalUnit} in (${statement.raw(closedList(UNITS))})`),
+    // A precision is a number of places, so it is a count and never a negative one (L-FMT-02).
+    check("work_items_precision_not_negative", statement`${table.documentPrecision} >= 0`),
+  ],
+);
+
+/**
+ * L-MEA-04's `bears` relation: class × kind, what an element class lawfully bears. A class that
+ * bears no kind is absent from this table and DECLARED in the unborne set beside the consts — the
+ * store holds the relation, and the code holds the reason a class is missing from it.
+ */
+export const bears = pgTable(
+  "bears",
+  {
+    class: text("class").$type<ElementType>().notNull(),
+    kind: text("kind")
+      .$type<Kind>()
+      .notNull()
+      .references(() => workItems.kind),
+  },
+  (table) => [
+    // One row per pair: a class bears a kind or it does not, and saying so twice says nothing more.
+    primaryKey({ name: "bears_key", columns: [table.class, table.kind] }),
+    check("bears_class_closed", statement`${table.class} in (${statement.raw(closedList(ELEMENT_TYPES))})`),
+  ],
+);
+
+/**
  * Everything the typed surface covers. A table joins the surface by joining this object, and it is
  * exported because the binding to the schema tree is a check rather than a sentence: `db/schema.ts`
  * is the barrel drizzle-kit and the drift lane read, and a test beside this file compares the two
@@ -1303,4 +1354,6 @@ export const SEAM_SCHEMA = {
   drawingSetRevisions,
   scaleAffirmations,
   calibrations,
+  workItems,
+  bears,
 };
