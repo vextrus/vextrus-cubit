@@ -16,24 +16,21 @@
 //     row; the store holds no privilege that would let it.
 //   · L-REG-03: "disagreement is declared, never resolved silently" — a standing is DERIVED from the
 //     readings at read time, so no column anywhere holds a "current value" to overwrite.
+import { and, asc, eq, forTenant, refusedSightings, registerAttributes, registerObjects, registerObservations, type TenantTx } from "@/core/db";
+import { REFUSALS } from "@/core/errors";
+import { DISCIPLINES, type Discipline } from "@/core/sheets/law";
 import {
   OBSERVATION_BASES,
   SIGHTING_STANDINGS,
-  and,
-  asc,
-  eq,
-  forTenant,
-  refusedSightings,
-  registerAttributes,
-  registerObjects,
-  registerObservations,
+  instanceKey,
+  placementKey,
+  semanticDigest,
+  viewKey,
+  type LevelRef,
   type ObservationBasis,
   type SightingStanding,
-  type TenantTx,
-} from "@/core/db";
-import { REFUSALS } from "@/core/errors";
-import { DISCIPLINES, type Discipline } from "@/core/sheets/law";
-import { instanceKey, placementKey, semanticDigest, viewKey, type LevelRef, type ViewRef } from "@/core/identity";
+  type ViewRef,
+} from "@/core/identity";
 import { CANONICAL_UNIT, convert, exact, isUnit, toCanonical, type Unit } from "@/core/units/canon";
 
 /** Which workspace, project and pinned set revision a call is scoped to (L-REG-03: per revision). */

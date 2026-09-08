@@ -61,8 +61,6 @@ export {
   calibrations,
   workItems,
   bears,
-  SIGHTING_STANDINGS,
-  OBSERVATION_BASES,
   registerObjects,
   refusedSightings,
   registerAttributes,
@@ -81,8 +79,6 @@ export type {
   GridFamily,
   GridAxis,
   GridDeferralReason,
-  SightingStanding,
-  ObservationBasis,
 } from "./db/schema";
 export { closePools } from "./db/pools";
 export {

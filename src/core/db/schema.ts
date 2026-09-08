@@ -10,7 +10,7 @@ import { ELEMENT_TYPES, type ElementType } from "../catalogue/classes";
 import { KINDS, type Kind } from "../catalogue/kinds";
 import { INGEST_SCHEME } from "../entitygraph/schema";
 import { REFUSALS, type RefusalCode } from "../errors";
-import { LEVEL_SLOTS } from "../identity";
+import { LEVEL_SLOTS, OBSERVATION_BASES, SIGHTING_STANDINGS, type ObservationBasis, type SightingStanding } from "../identity";
 import { VIEW_TYPE_SPELLINGS } from "../errors/transport-vocabulary";
 import { MODEL_IDS } from "../model-ledger.types";
 import type { SourceScheme } from "../model";
@@ -1312,26 +1312,6 @@ export const bears = pgTable(
     check("bears_class_closed", statement`${table.class} in (${statement.raw(closedList(ELEMENT_TYPES))})`),
   ],
 );
-
-/**
- * How a sighting's geometry came to be (L-REG-03): MEASURED is a sighting somebody's drawing really
- * carries; DERIVED is one a level expansion stood up. A measured sighting landing where a derived one
- * stands is a promotion rather than a refusal — which is why the two are told apart in the store.
- */
-export const SIGHTING_STANDINGS = ["MEASURED", "DERIVED"] as const;
-
-/** One sighting standing, drawn from the closed roster above. */
-export type SightingStanding = (typeof SIGHTING_STANDINGS)[number];
-
-/**
- * Where a reading came from (R-TO-051): TRANSCRIBED is what a drawing says, read off it; ENTERED is
- * what a person typed. The basis is part of the reading, never a judgement of it — a transcription
- * and an entry compete on declared precedence and on nothing else.
- */
-export const OBSERVATION_BASES = ["TRANSCRIBED", "ENTERED"] as const;
-
-/** One observation basis, drawn from the closed roster above. */
-export type ObservationBasis = (typeof OBSERVATION_BASES)[number];
 
 /**
  * L-REG-01's system of record for physical scope: one row per identity sighted inside one pinned

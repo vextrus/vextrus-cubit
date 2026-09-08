@@ -10,6 +10,8 @@
 // Every name is spelled rather than starred — this barrel is the area's public roster, and a roster
 // that says nothing cannot tell a moved name from a dropped one (ARCH-02).
 export { compareCanonical, sortCanonical } from "./compare-canonical";
+export { OBSERVATION_BASES, SIGHTING_STANDINGS } from "./law";
+export type { ObservationBasis, SightingStanding } from "./law";
 export { LEVEL_SLOTS, UNREGISTERED_PREFIX, barKey, carryLevel, instanceKey, isLevelSlot, levelSegment, placementKey, quantise, viewKey } from "./keys";
 export type { BarRef, CarriedKey, InstanceRef, LevelRef, LevelSlot, PlacementRef, ViewRef } from "./keys";
 export { contentSignature, ordinalKeys } from "./ordinals";
