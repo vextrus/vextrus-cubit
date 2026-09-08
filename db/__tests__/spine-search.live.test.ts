@@ -171,7 +171,12 @@ async function build(): Promise<Stage> {
     expect(typeof signUp, "the shipped sign-up door mints an account, its workspace and the membership joining them").toBe("function");
     const answer = (await (signUp as Procedure)({ email, password: PASSWORD, tenantName: `Workspace ${local}` })) as { sessionToken?: string };
     expect(typeof answer?.sessionToken, `sign-up answers ${email} with a session`).toBe("string");
-    const userId = scalarAsOwner(admin, `select user_id::text from users where email = ${lit(email)};`);
+    // Read back tolerantly, as every other live stage in the tree does: the sign-up door stores a
+    // FOLDED key, not the bare address (inc-009's landed law — sign-in looks the account up under
+    // the same key), so an exact match on the presented address finds nothing. What the fold's
+    // shape is belongs to src/server/auth/**, and this stage asserts nothing about it: it asks for
+    // the one account whose stored key carries the address it just presented.
+    const userId = scalarAsOwner(admin, `select user_id::text from users where email like ${lit(`%${email}%`)} limit 1;`);
     const tenantId = scalarAsOwner(admin, `select tenant_id::text from memberships where user_id = ${lit(userId)}::uuid limit 1;`);
     expect(tenantId, `${email} holds a membership of the workspace sign-up minted`).not.toBe("");
     return { email, token: String(answer?.sessionToken ?? ""), userId, tenantId };
