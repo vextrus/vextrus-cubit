@@ -12,5 +12,6 @@ export * from "./takeoff-ingest";
 export * from "./takeoff-rasters";
 export * from "./takeoff-sheets";
 export * from "./takeoff-views";
+export * from "./takeoff-grids";
 export * from "./drawing-sets";
 export * from "./ai";

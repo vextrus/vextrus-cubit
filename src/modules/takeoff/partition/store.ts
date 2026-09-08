@@ -11,6 +11,8 @@
 import { and, conventionProfiles, drawings, eq, forTenant, isUuid, partitionViews, viewAssignments } from "@/core/db";
 import { CONVENTIONS_METHOD, type ConventionProfile, type EntityCensus } from "@/core/rulesets/methods/conventions/resolve";
 import { viewRecordsOf, type ProposedViewType, type ViewRecord } from "@/core/views";
+import type { DetectedGrid } from "./grid/detect";
+import { rewriteGridRows } from "./grid/store";
 import type { PartitionedView } from "./views/assign";
 
 /** Which drawing's partition is being asked about, in whose workspace and under which project. */
@@ -36,6 +38,8 @@ export type PartitionWrite = {
   readonly proposals: ReadonlyMap<string, ViewProposal>;
   /** What the conventions stage resolved, or null where the stage list ran no such stage. */
   readonly conventions: ResolvedConventions | null;
+  /** What the grid stage detected, or null for the same reason (L-CAD-07). */
+  readonly grid: DetectedGrid | null;
 };
 
 /**
@@ -52,9 +56,10 @@ export async function drawingProjectOf(tenantId: string, drawingId: string): Pro
 
 /**
  * Write one record's partition, replacing whatever stood for it. One transaction: the views, the
- * assignments that name them and the convention profile read beside them land together or none of
- * them does, so no reader ever sees an assignment pointing at a view that is not there, or a profile
- * resolved from views the store no longer holds (L-CAD-06, L-CAD-08).
+ * assignments that name them, the convention profile read beside them and the grid read off both land
+ * together or none of them does, so no reader ever sees an assignment pointing at a view that is not
+ * there, a profile resolved from views the store no longer holds, or a grid axis standing in a view
+ * nobody classified (L-CAD-06, L-CAD-07, L-CAD-08).
  */
 export async function rewritePartition(write: PartitionWrite): Promise<void> {
   const ofRecord = (table: typeof partitionViews | typeof viewAssignments | typeof conventionProfiles) =>
@@ -112,6 +117,10 @@ export async function rewritePartition(write: PartitionWrite): Promise<void> {
         census: write.conventions.census,
       });
     }
+
+    // The grid's own two tables, cleared and written by the stage's store — in THIS transaction, so
+    // the axes land with the views they were read off or neither does (L-CAD-07, L-REG-04).
+    await rewriteGridRows(tx, { tenantId: write.tenantId, projectId: write.projectId, drawingId: write.drawingId, ingestId: write.ingestId, grid: write.grid });
   });
 }
 

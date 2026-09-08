@@ -58,6 +58,7 @@ export type RefusalCode =
   | "CAPTION_UNCLASSIFIABLE"
   | "PARTITION_NOT_AVAILABLE"
   | "CONVENTION_ROLE_UNRESOLVED"
+  | "GRID_NO_BUBBLE_EVIDENCE"
   | "GROUP_NOT_OFFERED"
   | "SET_NOT_PINNABLE"
   | "SET_NAME_NOT_USABLE"
@@ -344,6 +345,16 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     code: "CONVENTION_ROLE_UNRESOLVED",
     message: "No layer of this drawing carries this role plainly enough to resolve it, so the convention profile leaves it unresolved.",
     remedy: "Say which layer carries it yourself, or draw the role on a layer of its own and ingest the drawing again.",
+    severity: "info",
+    surface: "inline",
+  }),
+  // L-CAD-07's answer where a layout plan offered no lawful bubble evidence — no family of round
+  // rings enclosing bare labels with two distinct labels between them: the view georeferences as
+  // deferred rather than as a grid guessed off gridlines and loose letters (L-QTY-04).
+  GRID_NO_BUBBLE_EVIDENCE: Object.freeze({
+    code: "GRID_NO_BUBBLE_EVIDENCE",
+    message: "This layout plan shows no grid bubbles to read a grid from, so its grid is left unresolved rather than guessed.",
+    remedy: "Draw the grid bubbles as circles around their letters and numbers, then ingest the drawing again.",
     severity: "info",
     surface: "inline",
   }),

@@ -52,13 +52,17 @@ export {
   viewAssignments,
   viewTypeConfirmations,
   conventionProfiles,
+  GRID_FAMILIES,
+  GRID_AXES,
+  grids,
+  gridDeferrals,
   drawingSets,
   drawingSetMembers,
   drawingSetRevisions,
   SEAM_SCHEMA,
 } from "./db/schema";
 export { isAcceptedFormat } from "./db/schema";
-export type { WorkspaceRole, Disposition, SheetReadingRecord, AcceptedFormat, UploadState, ScanVerdict, RasterTier } from "./db/schema";
+export type { WorkspaceRole, Disposition, SheetReadingRecord, AcceptedFormat, UploadState, ScanVerdict, RasterTier, GridFamily, GridAxis, GridDeferralReason } from "./db/schema";
 export { closePools } from "./db/pools";
 export {
   forTenant,

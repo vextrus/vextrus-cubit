@@ -7,12 +7,16 @@
 // rebuild reaches the object store and the model seam — neither of which belongs in a screen's module
 // graph (ARCH-01, and the same reason SEAM-CAD keeps its job behind its own file).
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
+import { storedGridOf, type StoredGrid } from "./grid/store";
 import { drawingProjectOf, storedConventionsOf, storedViewsOf, type StoredConventions } from "./store";
 import type { ViewRecord } from "@/core/views";
 
 export { PARTITION_KIND, partitionJobKey, requestPartition, type PartitionRefused, type PartitionRequest, type PartitionRequested } from "./request";
 export type { PartitionRefusalCode, PartitionNotAvailable } from "./refusals";
 export type { PartitionScope, StoredConventions } from "./store";
+export type { StoredGrid } from "./grid/store";
+export type { GridAxisRow, GridDeferralRow } from "./grid/detect";
+export type { GridAxis, GridFamily } from "@/core/db";
 export type { ConventionProfile, ConventionRole, EntityCensus } from "@/core/rulesets/methods/conventions/resolve";
 export type { ConfirmedViewType, ProposedViewType, ViewRecord } from "@/core/views";
 
@@ -49,4 +53,20 @@ export async function conventionProfileOf(scope: ViewsScope): Promise<StoredConv
   if (projectId === null || projectId !== scope.projectId) return null;
   const record = await ingestRecordOf({ tenantId: scope.tenantId, drawingId: scope.drawingId });
   return record === null ? null : storedConventionsOf(scope.tenantId, record.ingestId);
+}
+
+/**
+ * The grid backbone of a drawing's current partition (L-CAD-07) — the axes the viewer's overlay draws
+ * and the minimum spacing placement scales its content-scaled shares by (L-MEA-01), with the layout
+ * plans that georeferenced as deferred standing beside them.
+ *
+ * A drawing this scope does not hold, and one nothing has ingested, answer null the way the profile
+ * does. A drawing whose partition HAS been rebuilt answers a grid either way: a plan nobody bubbled
+ * is a deferral a caller can say something about, never an absence to guess at (R-UI-050).
+ */
+export async function gridOf(scope: ViewsScope): Promise<StoredGrid | null> {
+  const projectId = await drawingProjectOf(scope.tenantId, scope.drawingId);
+  if (projectId === null || projectId !== scope.projectId) return null;
+  const record = await ingestRecordOf({ tenantId: scope.tenantId, drawingId: scope.drawingId });
+  return record === null ? null : storedGridOf(scope.tenantId, record.ingestId);
 }
