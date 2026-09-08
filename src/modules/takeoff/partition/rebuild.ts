@@ -21,6 +21,7 @@ import { proposeViewType } from "@/core/view-captions";
 import type { ViewRecord } from "@/core/views";
 import { ingestRecords, type IngestRecord } from "@/modules/takeoff/ingest";
 import { censusOf } from "./conventions/census";
+import { detectGrid, type DetectedGrid } from "./grid/detect";
 import { drawingProjectOf, rewritePartition, storedViewsOf, type ResolvedConventions, type ViewProposal } from "./store";
 import { partitionArtifact, type PartitionedView } from "./views/assign";
 import { VIEW_TYPE, VIEW_TYPES, type ViewType } from "./views/law";
@@ -31,7 +32,7 @@ import { VIEW_TYPE, VIEW_TYPES, type ViewType } from "./views/law";
  * A stage is a member of this list or it does not run at all — the list is the roster, and the map
  * below is keyed by it, so neither can hold a stage the other does not.
  */
-export const PARTITION_STAGES = ["views", "conventions"] as const;
+export const PARTITION_STAGES = ["views", "conventions", "grid"] as const;
 
 /** One stage of the partition, drawn from the closed list above. */
 export type PartitionStage = (typeof PARTITION_STAGES)[number];
@@ -67,6 +68,7 @@ type StagedPartition = {
   readonly views: readonly PartitionedView[];
   readonly assignments: ReadonlyMap<string, string>;
   readonly conventions: ResolvedConventions | null;
+  readonly grid: DetectedGrid | null;
 };
 
 /** What a stage is given: the record it is rebuilding, and the artifact that record points at. */
@@ -90,6 +92,17 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
     const census = censusOf(context.graph, held.views);
     const conventions = { census, profile: resolveConventions(census) };
     return { derived: { ...held, conventions }, detail: { layers: census.layers.length, deferrals: conventions.profile.deferrals.length } };
+  },
+  // The grid runs after the conventions because its candidates are the entities standing on a layer
+  // that profile gave a role to — filtered before detection, as L-CAD-07 asks (riskNotes (a)).
+  grid: (context, held) => {
+    const grid = detectGrid({
+      graph: context.graph,
+      views: held.views,
+      assignments: held.assignments,
+      profile: held.conventions?.profile ?? null,
+    });
+    return { derived: { ...held, grid }, detail: { views: grid.views, axes: grid.axes.length, deferred: grid.deferrals.length } };
   },
 });
 
@@ -118,7 +131,7 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
   const graph = await artifactOf(tenantId, record, deps.storage);
   await progress.step(STEP_RESOLVE, { ingest_id: ingestId, artifact_sha256: record.artifactSha256 });
 
-  let derived: StagedPartition = { views: [], assignments: new Map(), conventions: null };
+  let derived: StagedPartition = { views: [], assignments: new Map(), conventions: null, grid: null };
   for (const stage of PARTITION_STAGES) {
     const outcome = STAGES[stage]({ record, graph }, derived);
     derived = outcome.derived;
@@ -134,7 +147,17 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
     held: await storedViewsOf(tenantId, ingestId),
   });
 
-  await rewritePartition({ tenantId, projectId, drawingId, ingestId, views: derived.views, assignments: derived.assignments, proposals, conventions: derived.conventions });
+  await rewritePartition({
+    tenantId,
+    projectId,
+    drawingId,
+    ingestId,
+    views: derived.views,
+    assignments: derived.assignments,
+    proposals,
+    conventions: derived.conventions,
+    grid: derived.grid,
+  });
   await progress.step(STEP_STORED, { views: derived.views.length, assigned: derived.assignments.size, proposed: proposals.size });
 }
 

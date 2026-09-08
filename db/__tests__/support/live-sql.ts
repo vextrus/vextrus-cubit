@@ -374,6 +374,18 @@ function closedValues(url: string, table: TableRef, column: string): string[] {
   return values;
 }
 
+/**
+ * The generic values to try for a column, in order: the one every table is seeded with, and — for a
+ * number — a positive one behind it. A CHECK may say a column is a DISTANCE rather than a count
+ * (`> 0`), and such a constraint names no literal for `closedValues` to read, so a probe that only
+ * ever offered zero could not seed that table at all and the table would silently leave V-DB's proof.
+ * Derived from the column's type, never from a list of tables (B-19).
+ */
+function probeValues(column: ColumnRef): string[] {
+  const generic = probeValue(column);
+  return generic === "0" ? [generic, "1"] : [generic];
+}
+
 /** Every combination of the alternatives, oldest column first, capped so a wide table cannot explode. */
 function combinations(closed: Map<string, string[]>): Map<string, string>[] {
   let combos: Map<string, string>[] = [new Map()];
@@ -439,7 +451,7 @@ function ensureRowForTenant(url: string, table: TableRef, tenantId: string): Rec
     // The values a CHECK shuts the column to come first, and the generic probe stays behind them as
     // the last candidate — so a column closed to a set is seeded with a member of it, and a CHECK
     // that means something else is still reached by the value every other table is seeded with.
-    const candidates = [...closedValues(url, table, column.name).map(lit), probeValue(column)];
+    const candidates = [...closedValues(url, table, column.name).map(lit), ...probeValues(column)];
     chosen.set(column.name, candidates[0] ?? probeValue(column));
     if (candidates.length > 1) closed.set(column.name, candidates);
   }
