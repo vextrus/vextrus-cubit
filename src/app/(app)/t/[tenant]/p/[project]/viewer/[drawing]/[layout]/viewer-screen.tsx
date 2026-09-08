@@ -214,19 +214,41 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     [confirming, projectId, refusedAnswer],
   );
 
-  /** A door pressed: offline is judged first (s-drawings I-89), then the one dialog opens over it. */
-  const pressGroup = useCallback((key: ViewGroupKey): void => {
-    setActRefusal(null);
-    setOfflineNotice(false);
-    // Reading a partition writes nothing, so the panel carries no offline banner; "read-only" binds
-    // the one act, and a confirm pressed with no connection opens no dialog at all (Decision § 2).
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      setOfflineNotice(true);
-      return;
-    }
-    setConfirming(key);
-    setDialogOpen(true);
-  }, []);
+  /** Whether a press is already at the door — a second one while it is open asks nothing twice. */
+  const pressing = useRef(false);
+
+  /**
+   * A door pressed: offline is judged first (s-drawings I-89), then the pre-check, then the dialog
+   * on a consequence and only on one (participants I-49, Decision § 1). A refusal of the preview is
+   * this region's answer — it renders in the answer slot beside the offer, and where it is
+   * `PERMISSION_NOT_HELD` the offer itself gives way to the denial (Decision § 2).
+   */
+  const pressGroup = useCallback(
+    async (key: ViewGroupKey): Promise<void> => {
+      if (pressing.current) return;
+      setActRefusal(null);
+      setOfflineNotice(false);
+      // Reading a partition writes nothing, so the panel carries no offline banner; "read-only" binds
+      // the one act, and a confirm pressed with no connection opens no dialog at all (Decision § 2).
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        setOfflineNotice(true);
+        return;
+      }
+      pressing.current = true;
+      try {
+        const answered: PreviewAnswer = await previewConfirmViewType({ projectId, group: key });
+        if (!answered.previewed) {
+          setActRefusal(answered.refusal);
+          return;
+        }
+        setConfirming(key);
+        setDialogOpen(true);
+      } finally {
+        pressing.current = false;
+      }
+    },
+    [projectId],
+  );
 
   // A head that cannot be read at all is the error state and nothing else: it is raised into the
   // render, where the root error boundary — the tree's one home for a fault — takes it (I-81).
@@ -272,7 +294,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
             <p className="cx-viewer-partition-denied">{strings.viewer_partition_denied_holder}</p>
           </>
         ) : (
-          <OfferedGroups groups={offered} onConfirm={pressGroup} />
+          <OfferedGroups groups={offered} onConfirm={(key) => void pressGroup(key)} />
         )
       }
       answer={

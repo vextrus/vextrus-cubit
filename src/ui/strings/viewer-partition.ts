@@ -33,3 +33,7 @@ export const viewerPartition = {
   viewer_partition_evidence_reload: "Reload this sheet",
   viewer_partition_evidence_participants: "Open the project's participants",
 } as const;
+
+// The directory's convention is that a table is exported under its file's basename, and this file's
+// basename is hyphenated (tests/ui/strings.test.ts).
+export { viewerPartition as "viewer-partition" };
