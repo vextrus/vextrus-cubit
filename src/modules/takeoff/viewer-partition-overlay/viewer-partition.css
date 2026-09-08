@@ -1,6 +1,6 @@
 /* S-Viewer's views/grid panel and its overlay canvas (docs/design/s-viewer-partition.md § 1, § 5).
-   Colour and motion come from tokens alone, so light and dark are one stylesheet and no
-   `[data-theme]` selector appears here (R-UI-001). Every duration is a token zeroed at source under
+   Colour and motion come from tokens alone, so light and dark are one stylesheet and no theme
+   attribute is ever selected on here (R-UI-001). Every duration is a token zeroed at source under
    reduced motion, so there is no `prefers-reduced-motion` branch either. */
 
 /* I-110: the left stack is one column of two lists, not a second split. The list above takes the
