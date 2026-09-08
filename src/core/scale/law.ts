@@ -5,7 +5,7 @@
 //
 // This file is the roster half of the law, kept free of every other core module but the one digest
 // home so the seam's table definitions can close their columns over it without a cycle: the store's
-// CHECK on a rank and on a factor's shape are written from `SCALE_RANKS` and `FACTOR_PATTERN` here,
+// CHECK on a rank and on a factor are written from `SCALE_RANKS`, `FACTOR_PATTERN` and `FACTOR_MINIMUM` here,
 // the way `DISCIPLINES` closes `sheet_disciplines` (B-17).
 import { createHash } from "node:crypto";
 import Decimal from "decimal.js";
