@@ -12,11 +12,15 @@
  * the ones that are 1 or an integer power of ten — `CONVERSION_LITERALS` derives them, so a unit the
  * canon gains tomorrow is banned everywhere else with no edit here (B-19).
  *
- * Two files are exempt, by name and for a stated reason, and the canon declares which
- * (`CONVERSION_SCAN_EXEMPT`): `src/core/units/canon.ts`, which IS the one home the factors live in,
- * and `src/core/format.ts`, the document seam, where a figure is rendered rather than converted.
- * Every other file under `src/**` that spells one is a second home for the law, and this is where
- * that is refused.
+ * What is judged is the VALUE a literal states, not its four usual characters: `0.30480` is the
+ * foot's metres as surely as `0.3048` is, so the ban has to see both, and the finding names the canon
+ * member the value equals.
+ *
+ * Three files are exempt, by name and for a stated reason, and the canon declares which
+ * (`CONVERSION_SCAN_EXEMPT`): `src/core/units/canon.ts`, which IS the one home the factors live in;
+ * `src/core/format.ts`, the document seam, where a figure is rendered rather than converted; and the
+ * scanner beside this file, which cannot look for a factor without holding one. Every other file
+ * under `src/**` that spells one is a second home for the law, and this is where that is refused.
  *
  * The declared corpus `tests/lint-fixtures/conversion-literals` proves the ban on the payload the
  * spec names — this is the test that corpus is excused by (ARCH-01, Q-07). Two sources this test
@@ -175,6 +179,37 @@ describe("L-FRM-06: a conversion factor is spelled in exactly one module", () =>
       const line = source.split("\n")[hit.line - 1] ?? "";
       expect(line, `the finding at line ${hit.line} points at a line that really says ${JSON.stringify(hit.literal)}`).toContain(hit.literal);
     }
+  });
+
+  test("a factor spelled by a different route is the same factor — the scan compares values, not characters", () => {
+    // A trailing zero changes nothing about the number and everything about the text, so a ban that
+    // matched characters would forgive it. The rewriting is derived from each needle rather than
+    // written out, so it holds for a factor the canon gains tomorrow too (B-19).
+    const restated = (needle: string): string => (needle.includes(".") ? `${needle}0` : `${needle}.0`);
+    for (const needle of NEEDLES) {
+      expect(restated(needle), `${needle} restated must be a different spelling, or the case proves nothing`).not.toBe(needle);
+    }
+
+    const { path, source } = wroteSource(
+      "restated-elsewhere.ts",
+      [
+        "// The same numbers, typed the other way round — still the canon's factors.",
+        ...NEEDLES.flatMap((needle, index) => [
+          `export const asNumber${index} = ${restated(needle)};`,
+          `export const asString${index} = "${restated(needle)}";`,
+        ]),
+        "",
+      ].join("\n"),
+    );
+
+    for (const needle of NEEDLES) {
+      expect(source.includes(restated(needle)), `the payload really states ${needle} the other way round`).toBe(true);
+    }
+
+    expect(
+      byCodePoint(scan([path]).map((hit) => hit.literal)),
+      "a value equal to a canon factor is that factor however it is typed, and the finding names the canon member it equals",
+    ).toEqual(byCodePoint([...NEEDLES, ...NEEDLES]));
   });
 
   test("the scan is silent about a file it has never been shown that only names the factors without spelling one", () => {

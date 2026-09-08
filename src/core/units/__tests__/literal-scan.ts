@@ -12,24 +12,50 @@
 // is code and only code: a factor named in prose is a comment and a factor written into a template
 // states no law, and neither is reported. A number written as a number and a number quoted as a
 // string both are — those are the two ways a factor really creeps back in.
+//
+// What is compared is the VALUE, never the spelling: every numeric literal the code states and every
+// wholly numeric string it quotes is read as an exact decimal and asked whether it equals one of the
+// canon's factors, through the canon's own arithmetic (B-17, B-07). A second home for the law is a
+// second home whether it is written `0.3048`, `0.30480` or `3048e-4`, and a text match would forgive
+// two of those three. The finding names the canon member the value equals, so every spelling of one
+// factor is reported as that factor.
 import { readFileSync } from "node:fs";
 // white-box: L-FRM-06 — the ban IS a claim about source text ("a conversion literal outside the
 // canon is a lint failure"), so the tree's one lexer is what this scanner is built out of: a
 // spelling that never runs has no runtime observable, and only reading the text can find one.
 import { dialectOf, scanned } from "../../../../tests/support/source-lex";
-import { CONVERSION_LITERALS } from "../canon";
+import { CONVERSION_LITERALS, exact } from "../canon";
 
-/** One finding: which file spells a factor, on which line, and which factor it spells. */
+/** One finding: which file spells a factor, on which line, and which factor of the canon it is. */
 export type ConversionLiteralHit = { readonly file: string; readonly line: number; readonly literal: string };
 
 /** The modes a quoted factor is collected in. A template states no law (riskNotes 4), so it is out. */
 const QUOTED_MODES = new Set(["single", "double"]);
 
-/** A factor spelled as a number, bounded so `10.30481` does not read as the foot's `0.3048`. */
-const NEEDLE_SHAPES: readonly { readonly literal: string; readonly shape: RegExp }[] = CONVERSION_LITERALS.map((literal) => ({
-  literal,
-  shape: new RegExp(`(?<![0-9.])${literal.replace(/\./gu, "\\.")}(?![0-9.])`, "gu"),
-}));
+/** The canon's needles, each carried as the exact decimal it is, so a match is by value (B-07). */
+const NEEDLES = CONVERSION_LITERALS.map((literal) => ({ literal, value: exact(literal) }));
+
+/**
+ * A numeric literal as TypeScript writes one: decimal digits with optional separators, an optional
+ * fraction, an optional exponent and an optional bigint suffix. A radix form (`0x`, `0o`, `0b`) is
+ * left out — its digits are read as `0` and then rejected by the guard below, and no conversion
+ * factor of the canon is an integer anyway.
+ */
+const NUMERIC_TOKEN = /(?<![\w$.])(?:\d[\d_]*(?:\.[\d_]*)?|\.\d[\d_]*)(?:[eE][+-]?\d+)?n?/gu;
+
+/** A quoted run that is a number and nothing else — the shape a factor smuggled as a string wears. */
+const NUMERIC_STRING = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/u;
+
+/**
+ * The canon factor a spelling states, or null when it states none. The comparison is `Decimal.eq`
+ * over the canon's own clone, so a trailing zero, a leading dot and an exponent are the same number
+ * they would be at runtime — the ban is on the factor, not on the four characters it is usually
+ * typed with.
+ */
+function needleOf(spelling: string): string | null {
+  const value = exact(spelling);
+  return NEEDLES.find((needle) => needle.value.eq(value))?.literal ?? null;
+}
 
 /**
  * Every conversion factor spelled as a literal in these files (L-FRM-06). The files are given rather
@@ -41,14 +67,19 @@ export function scanConversionLiterals(files: readonly string[]): readonly Conve
     const source = readFileSync(file, "utf8");
     const { code, quoted } = readingOf(file, source);
 
-    for (const { literal, shape } of NEEDLE_SHAPES) {
-      shape.lastIndex = 0;
-      for (let found = shape.exec(code); found !== null; found = shape.exec(code)) {
-        hits.push({ file, line: lineAt(code, found.index), literal });
-      }
+    NUMERIC_TOKEN.lastIndex = 0;
+    for (let found = NUMERIC_TOKEN.exec(code); found !== null; found = NUMERIC_TOKEN.exec(code)) {
+      // A radix form lexes as its leading `0` followed by an identifier character; so does a number
+      // that is really the head of a name. Neither is a decimal literal, and neither is judged.
+      if (/[\w$]/u.test(code.charAt(found.index + found[0].length))) continue;
+      const literal = needleOf(found[0].replace(/[_n]/gu, ""));
+      if (literal !== null) hits.push({ file, line: lineAt(code, found.index), literal });
     }
     for (const run of quoted) {
-      if (CONVERSION_LITERALS.includes(run.text.trim())) hits.push({ file, line: run.line, literal: run.text.trim() });
+      const spelling = run.text.trim();
+      if (!NUMERIC_STRING.test(spelling)) continue;
+      const literal = needleOf(spelling);
+      if (literal !== null) hits.push({ file, line: run.line, literal });
     }
   }
   return hits.sort((left, right) => left.line - right.line || (left.literal < right.literal ? -1 : left.literal > right.literal ? 1 : 0));

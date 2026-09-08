@@ -161,7 +161,12 @@ export const CONVERSION_LITERALS: readonly string[] = Object.freeze(
 
 /**
  * The files a conversion factor may be spelled in, repo-relative: this one, which declares the
- * canon, and the document seam, which is where a figure is rendered rather than converted. Every
- * other file under `src/**` that spells one is a second home for the law (L-FRM-06).
+ * canon; the document seam, which is where a figure is rendered rather than converted; and the
+ * scanner itself, which cannot look for a factor without holding one. Every other file under
+ * `src/**` that spells one is a second home for the law (L-FRM-06).
  */
-export const CONVERSION_SCAN_EXEMPT: readonly string[] = Object.freeze(["src/core/format.ts", "src/core/units/canon.ts"]);
+export const CONVERSION_SCAN_EXEMPT: readonly string[] = Object.freeze([
+  "src/core/format.ts",
+  "src/core/units/canon.ts",
+  "src/core/units/__tests__/literal-scan.ts",
+]);
