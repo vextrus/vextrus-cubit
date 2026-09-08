@@ -51,10 +51,14 @@ export function scaleObservationOblique(detail: string, facts: { readonly dx: st
   return refusal(SCALE_OBSERVATION_OBLIQUE, detail, facts);
 }
 
-/** L-MEA-05: "a single-observation scale is verified at ±1% or rejected". */
+/**
+ * L-MEA-05: "a single-observation scale is verified at ±1% or rejected" — and an observation whose
+ * own factor the rendering cannot speak is verified by nothing, so it names no tolerance and nothing
+ * it was held against.
+ */
 export function scaleObservationUnverified(
   detail: string,
-  facts: { readonly axis: string; readonly factor: string; readonly tolerance: string; readonly against: readonly string[] },
+  facts: { readonly axis: string; readonly factor: string; readonly tolerance?: string; readonly against?: readonly string[] },
 ): Error {
   return refusal(SCALE_OBSERVATION_UNVERIFIED, detail, facts);
 }

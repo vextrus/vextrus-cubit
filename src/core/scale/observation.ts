@@ -5,7 +5,7 @@
 // rejected. Pure — the store, the artifact and the edition are the caller's to bring.
 import type { GridAxis } from "../db";
 import { parseSourceKey } from "../model";
-import { exact, isFactorString, isScaleUnit, metresPerExact, renderFactor, withinTolerance, type ScaleUnit } from "./law";
+import { FACTOR_MINIMUM, exact, isFactorString, isScaleUnit, metresPerExact, renderFactor, withinTolerance, type ScaleUnit } from "./law";
 import { scaleNoEvidence, scaleObservationOblique, scaleObservationUncited, scaleObservationUnverified } from "./refusals";
 
 /** A world axis a scale is derived along — the seam's own closed pair, never a second spelling (B-17). */
@@ -39,8 +39,15 @@ export type CitedObservation = TwoPointObservation & {
   readonly factor: string;
 };
 
-/** A coordinate on the 0.1 lattice: whole units, or whole units and one tenth. Nothing finer is quantised. */
-const LATTICE_COORDINATE = /^-?[0-9]+(?:\.[0-9])?$/;
+/** The shape a coordinate is written in: a decimal, signed or not, at whatever precision the caller renders. */
+const DECIMAL_COORDINATE = /^-?[0-9]+(?:\.[0-9]+)?$/;
+
+/**
+ * How many steps of the lattice make one drawing unit: L-MEA-05 quantises a cited coordinate to 0.1
+ * unit, which is a fact about the VALUE and not about its rendering — "20", "20.0" and "20.00" are
+ * one point of the lattice, and a fixed-place formatter on the way in changes nothing.
+ */
+const LATTICE_STEPS_PER_UNIT = 10;
 
 /** A distance a person entered: a positive decimal. */
 const ENTERED_VALUE = /^[0-9]+(?:\.[0-9]+)?$/;
@@ -79,6 +86,15 @@ export function citeObservation(raw: unknown): CitedObservation {
   const axis = alongX ? AXIS_X : AXIS_Y;
   const drawn = alongX ? dx : dy;
   const factor = renderFactor(exact(distance.value).mul(metresPerExact(distance.unit)).div(drawn));
+  // The rendering is the only way a factor is spoken, so a distance too small against the span it
+  // was entered across leaves no factor at all — an answer the law names, never the plain Error the
+  // next step (verifyAxis, factorPair) would fault with (ARCH-03, B-21).
+  if (!isFactorString(factor)) {
+    throw scaleObservationUnverified(
+      `${distance.value} ${distance.unit} across ${drawn.toString()} drawing units is less than ${FACTOR_MINIMUM} metres per unit, which is the least scale the rendering can speak`,
+      { axis, factor },
+    );
+  }
 
   return { points, distance, distanceBasis: DISTANCE_BASIS_ENTERED, axis, drawn: drawn.toString(), factor };
 }
@@ -100,7 +116,7 @@ function citedPointOf(raw: unknown): CitedPoint {
 
 /** A coordinate as the lattice states it, or the refusal — a free click lands anywhere, a cited point on the 0.1 grid. */
 function latticeCoordinateOf(raw: unknown, field: ScaleAxis, sourceKey: string): string {
-  if (typeof raw !== "string" || !LATTICE_COORDINATE.test(raw)) {
+  if (typeof raw !== "string" || !DECIMAL_COORDINATE.test(raw) || !exact(raw).mul(LATTICE_STEPS_PER_UNIT).isInteger()) {
     throw scaleObservationUncited(`the ${field} of the point citing ${sourceKey} is not quantised to 0.1 unit`, { sourceKey, field });
   }
   return raw;
