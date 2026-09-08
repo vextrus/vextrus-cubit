@@ -8,7 +8,7 @@
  */
 import { describe, expect, test } from "vitest";
 import { REFUSALS } from "@/core/errors";
-import { CONVENTION_ROLES, resolve, type EntityCensus } from "./resolve";
+import { CONVENTION_ROLES, resolve, type ConventionSeed, type EntityCensus } from "./resolve";
 
 /** A drawing of linework, outlines and notes that carries no dimension at all. */
 const UNDIMENSIONED: EntityCensus = {
@@ -31,5 +31,12 @@ describe("L-CAD-08: a role the census does not resolve is deferred", () => {
       const deferred = profile.deferrals.some((deferral) => deferral.role === role);
       expect(deferred, `\`${role}\` is deferred exactly where no layer carries it`).toBe(profile.roles[role].length === 0);
     }
+  });
+
+  test("a typed caller may hand in a seed, and the deferral stands", () => {
+    // The published signature takes the seed L-CAD-08 lets a caller offer, so a TYPED call is what
+    // proves it is offerable at all — the census's answer is the whole answer either way.
+    const seed: ConventionSeed = { roles: { dimensions: ["DIMS"] } };
+    expect(resolve(UNDIMENSIONED, seed), "a seed naming a layer for the deferred role adds none — it may corroborate and may never act").toEqual(resolve(UNDIMENSIONED));
   });
 });
