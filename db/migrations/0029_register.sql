@@ -48,7 +48,7 @@ CREATE TABLE "register_objects" (
 	CONSTRAINT "register_objects_discipline_closed" CHECK ("register_objects"."discipline" in ('STRUCTURAL', 'ARCHITECTURAL', 'MEP', 'CIVIL', 'OTHER')),
 	CONSTRAINT "register_objects_standing_closed" CHECK ("register_objects"."standing" in ('MEASURED', 'DERIVED')),
 	CONSTRAINT "register_objects_level_slot_closed" CHECK ("register_objects"."level_slot" is null or "register_objects"."level_slot" in ('FOUNDATION', 'UNRESOLVED')),
-	CONSTRAINT "register_objects_level_stated_once" CHECK (num_nonnulls("register_objects"."level_id", "register_objects"."level_slot", "register_objects"."level_label") = 1)
+	CONSTRAINT "register_objects_level_stated_once" CHECK (num_nonnulls("register_objects"."level_id", "register_objects"."level_slot", "register_objects"."level_label") <= 1 and "register_objects"."object_key" = "register_objects"."placement_key" || case when "register_objects"."level_id" is not null then '@' || "register_objects"."level_id"::text when "register_objects"."level_slot" is not null then '@' || "register_objects"."level_slot" when "register_objects"."level_label" is not null then '@unregistered:' || "register_objects"."level_label" else '' end)
 );
 --> statement-breakpoint
 CREATE TABLE "register_observations" (

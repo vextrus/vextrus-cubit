@@ -10,7 +10,7 @@ import { ELEMENT_TYPES, type ElementType } from "../catalogue/classes";
 import { KINDS, type Kind } from "../catalogue/kinds";
 import { INGEST_SCHEME } from "../entitygraph/schema";
 import { REFUSALS, type RefusalCode } from "../errors";
-import { LEVEL_SLOTS, OBSERVATION_BASES, SIGHTING_STANDINGS, type ObservationBasis, type SightingStanding } from "../identity";
+import { LEVEL_MARKER, LEVEL_SLOTS, OBSERVATION_BASES, SIGHTING_STANDINGS, UNREGISTERED_PREFIX, type ObservationBasis, type SightingStanding } from "../identity";
 import { VIEW_TYPE_SPELLINGS } from "../errors/transport-vocabulary";
 import { MODEL_IDS } from "../model-ledger.types";
 import type { SourceScheme } from "../model";
@@ -1360,10 +1360,16 @@ export const registerObjects = pgTable(
     check("register_objects_discipline_closed", statement`${table.discipline} in (${statement.raw(closedList(DISCIPLINES))})`),
     check("register_objects_standing_closed", statement`${table.standing} in (${statement.raw(closedList(SIGHTING_STANDINGS))})`),
     check("register_objects_level_slot_closed", statement`${table.levelSlot} is null or ${table.levelSlot} in (${statement.raw(closedList(LEVEL_SLOTS))})`),
-    // A level is stated exactly once, one way: a surrogate, a lawful-null slot, or a placeholder
-    // label. Never twice, and never not at all — every object key carries a level segment, so a row
-    // stating no level would be a row whose key asserts a level its columns deny (L-REG-04).
-    check("register_objects_level_stated_once", statement`num_nonnulls(${table.levelId}, ${table.levelSlot}, ${table.levelLabel}) = 1`),
+    // A level is stated once, one way — a surrogate, a lawful-null slot or a placeholder label — and
+    // it is stated as the row's own key states it. An instance key is a placement key followed by one
+    // level segment (L-REG-04), so the column that carries the level is the column the key names: a
+    // row whose key asserts a level its columns deny, or whose columns assert one its key does not,
+    // is a row that disagrees with its own identity. Derived from the segment grammar's own markers
+    // rather than re-spelled here (B-17).
+    check(
+      "register_objects_level_stated_once",
+      statement`num_nonnulls(${table.levelId}, ${table.levelSlot}, ${table.levelLabel}) <= 1 and ${table.objectKey} = ${table.placementKey} || case when ${table.levelId} is not null then ${statement.raw(closedList([LEVEL_MARKER]))} || ${table.levelId}::text when ${table.levelSlot} is not null then ${statement.raw(closedList([LEVEL_MARKER]))} || ${table.levelSlot} when ${table.levelLabel} is not null then ${statement.raw(closedList([UNREGISTERED_PREFIX]))} || ${table.levelLabel} else '' end`,
+    ),
     // The reads the register makes: one revision's objects, and one mark family across it.
     index("register_objects_by_revision").on(table.tenantId, table.setRevisionId, table.registeredAt),
     index("register_objects_by_mark").on(table.tenantId, table.setRevisionId, table.mark),

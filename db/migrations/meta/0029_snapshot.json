@@ -1,5 +1,5 @@
 {
-  "id": "8bddda61-88ec-41e0-842b-1fb7b5fa431f",
+  "id": "c66b0d13-f591-4a17-bff1-2e94f91969ab",
   "prevId": "35ee3070-aa79-498f-aac7-c434f5d6f03e",
   "version": "7",
   "dialect": "postgresql",
@@ -3841,7 +3841,7 @@
         },
         "register_objects_level_stated_once": {
           "name": "register_objects_level_stated_once",
-          "value": "num_nonnulls(\"register_objects\".\"level_id\", \"register_objects\".\"level_slot\", \"register_objects\".\"level_label\") = 1"
+          "value": "num_nonnulls(\"register_objects\".\"level_id\", \"register_objects\".\"level_slot\", \"register_objects\".\"level_label\") <= 1 and \"register_objects\".\"object_key\" = \"register_objects\".\"placement_key\" || case when \"register_objects\".\"level_id\" is not null then '@' || \"register_objects\".\"level_id\"::text when \"register_objects\".\"level_slot\" is not null then '@' || \"register_objects\".\"level_slot\" when \"register_objects\".\"level_label\" is not null then '@unregistered:' || \"register_objects\".\"level_label\" else '' end"
         }
       },
       "isRLSEnabled": false

@@ -21,11 +21,15 @@
  */
 const FIELD = "|";
 
-/** What a level segment opens with, in every one of its four forms. */
-const LEVEL = "@";
+/**
+ * What a level segment opens with, in every one of its four forms. Published because the store
+ * spells the same segment in the CHECK that binds a row's level columns to its key — one grammar,
+ * one home (B-17).
+ */
+export const LEVEL_MARKER = "@";
 
 /** The placeholder a level nobody has authored yet stands under (L-REG-04's one-hop carry). */
-export const UNREGISTERED_PREFIX = `${LEVEL}unregistered:`;
+export const UNREGISTERED_PREFIX = `${LEVEL_MARKER}unregistered:`;
 
 /**
  * The lawful-null level slots (L-REG-04). A sighting whose level is not a level — a foundation, or
@@ -112,10 +116,10 @@ export function placementKey(p: PlacementRef): string {
  * label a key may carry is the placeholder's, and it is there precisely to be carried away.
  */
 export function levelSegment(level: LevelRef): string {
-  if ("levelId" in level) return `${LEVEL}${part(level.levelId, "level surrogate id")}`;
+  if ("levelId" in level) return `${LEVEL_MARKER}${part(level.levelId, "level surrogate id")}`;
   if ("slot" in level) {
     if (!isLevelSlot(level.slot)) throw new Error(`"${String(level.slot)}" is no lawful-null level slot — the slots are ${LEVEL_SLOTS.join(" | ")} (L-REG-04)`);
-    return `${LEVEL}${level.slot}`;
+    return `${LEVEL_MARKER}${level.slot}`;
   }
   return `${UNREGISTERED_PREFIX}${part(level.unregistered, "unregistered level label")}`;
 }
