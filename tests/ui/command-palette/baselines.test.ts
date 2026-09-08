@@ -2,7 +2,7 @@
  * AC-6's B-20 half — the trigger joins the top bar, so every committed picture that holds the bar is
  * a picture of a screen that no longer exists, and this increment owns their regeneration.
  *
- * This test states ONE thing: each of the frame pictures the increment names is not the bytes it was
+ * This test states ONE thing: each of the frame pictures the trigger MOVES is not the bytes it was
  * before the trigger arrived. The pins are a NEGATIVE, so a later increment that lawfully
  * re-baselines again still passes; only a branch that shipped the grown bar while leaving its
  * baselines untouched fails. What the new bytes PICTURE is V-E2E's instrument and it stands in the
@@ -23,14 +23,30 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const BASELINES = join(REPO_ROOT, "tests", "e2e", "baselines", "design");
 
 /**
- * Every picture the increment's ownership list names as owed a regeneration, with the bytes it held
- * before the trigger arrived. Pictures the trigger does NOT shift — the viewer's entity capture, the
- * sheet card, the two job-timeline crops, the consequence dialog's card — are deliberately absent:
- * none of them is regenerated, and none of them is judged here (B-20: only what moved).
+ * The pictures the trigger's arrival actually MOVES, with the bytes each held before it arrived.
+ *
+ * AC-6's glob list is the scope of ownership — permission to write — not a promise that every file
+ * inside it differs; B-20's operative trigger is movement (arbitration on this test, TEST_AMENDED).
+ * So two kinds of picture inside the ownership list are deliberately absent here, alongside the
+ * pictures outside it (the viewer's entity capture, the sheet card, the two job-timeline crops, the
+ * consequence dialog's card):
+ *
+ *   - a capture whose journey MASKS the bar it would have grown in. `j-001-auth` and
+ *     `j-002-tenant-admin` both carry `shell-topbar` in their `VOLATILE` list and paint it over via
+ *     `masks(page)` for `invite-pending.png`, `accept.png`, `panel.png` and `remove-refused.png`; a
+ *     new button inside an already-painted box writes no new bytes. `j-001-auth/switched.png` and
+ *     the two `gallery-shell-*.png` captures are the same finding, measured: an
+ *     `--update-snapshots=all` over all seventeen candidates wrote new bytes for the ten pinned
+ *     below and byte-identical content back for those seven.
+ *   - a capture with no bar at all: `/accept-invitation` lives under `(app)`, not under
+ *     `t/[tenant]`, and mounts no ShellFrame — which squares with AC-1 placing the trigger on
+ *     `/t/{tenant}/**` and nowhere else.
+ *
+ * Pinning those would demand the builder either re-bless an unmoved picture — barred by AC-6's own
+ * closing clause — or perturb a masked or absent bar, and B-20 names a red no lawful actor may clear
+ * a defect of the plan, not of the build.
  */
 const BEFORE: Readonly<Record<string, string>> = {
-  "gallery-shell-light.png": "1be9f8412b0175bdf1b29a63717351af49ac1d2908972b1cc09db67013b08e11",
-  "gallery-shell-dark.png": "0f90c1e606fb3f548607f8e8b8f47b27899116b55a960c18b9eb1d3792814041",
   "shell-light.png": "9829cefb5e1429edb26d85df08c35a48268940030473b8dd6c314b2d7f406407",
   "shell-dark.png": "62c5d306df3eba508eb487d6ed39b0554fe2f3fe9a7da5a841f141a450844cb9",
   "shell-tenant-switcher-open.png": "bdcbc3f8076eb9db1be1fdf0d7f119a000a88cca007c104babbabb3b4338c606",
@@ -39,11 +55,6 @@ const BEFORE: Readonly<Record<string, string>> = {
   "s-project/home.png": "a59a5a973a9049d7a1df506ad66b33d9e8281ee3fdfa08b3a4c4ae33f2ebbf09",
   "j-003/project-edited.png": "33450c563e58a2307fba0917668ada47994d7031d45b6edc04ba85b355277f0d",
   "j-003/ruleset-pin-visible.png": "786a9c94dd2b8bece844447a706082b5a1c6430c381d65571355533a341d1702",
-  "j-002-tenant-admin/panel.png": "02a1d60b79fd7d57b67a95a65353474321a9d209a17cab4944d491d42ac127cb",
-  "j-002-tenant-admin/remove-refused.png": "cf4d14a81a97384b45590a9ab2a56cf73ce52d935856cec9cf8d5d3e2f7eae84",
-  "j-001-auth/accept.png": "a3724eb2301c018cc7c09a5a7278c39cf02cebf3ce03c822d9702f143bc398d5",
-  "j-001-auth/invite-pending.png": "e5bcbc0ed1593ba89f48e88c8ca9996e5d8073b4fcf3f48ef749d238a652df1a",
-  "j-001-auth/switched.png": "fbd2f0ab803956c9eaef1a5fcb05297ca93f37162bbab324e92f26cf1d68168a",
   "j-000/workspace-named.png": "992f5d281f2881cc486c4d7b51c2f399b73c3e3b7bebf820b1b6d1aac6ffd7d6",
   "j-000/first-project-on-s-home.png": "75ef28155d49f21baad31a80ede9863f1961ab665a0fd6049c7f850bdaa24248",
 };
