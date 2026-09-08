@@ -60,10 +60,12 @@ import {
   headerBandOf,
   keysAtEveryDepth,
   keysOf,
+  measuredPitchOf,
   memberTypeRows,
   notationDoor,
   reconstructDoor,
   registryDoor,
+  rowsInSnapshot,
   runSchedulePartition,
   scheduleCellRows,
   scheduleDeferralRows,
@@ -91,6 +93,8 @@ interface Staged {
   person: Person;
   projectId: string;
   plain: StagedScheduleIngest;
+  /** The same table drawn again at a row spacing of its own — the second reading a pitch is measured against (AC-1). */
+  tight: StagedScheduleIngest;
   steps: StepRecord[];
   viewKey: string;
 }
@@ -111,7 +115,11 @@ function staged(): Promise<Staged> {
     const plain = await stageScheduleIngest(person, projectId, SCENARIO.PLAIN, 81);
     const steps = await withFixtureRoot(tempFixtureRoot("schedules-empty"), async () => runSchedulePartition(person, plain, SCENARIO.PLAIN));
     const viewKey = await scheduleViewKey(person.tenantId, plain.ingestId);
-    return { person, projectId, plain, steps, viewKey };
+    // The same schedule drawn a second time at another row spacing: two drawings at one pitch could
+    // never tell a measured pitch from a remembered one (AC-1).
+    const tight = await stageScheduleIngest(person, projectId, SCENARIO.TIGHT_PITCH, 82);
+    await withFixtureRoot(tempFixtureRoot("schedules-empty-tight"), async () => runSchedulePartition(person, tight, SCENARIO.TIGHT_PITCH));
+    return { person, projectId, plain, tight, steps, viewKey };
   })());
 }
 
@@ -224,6 +232,34 @@ describe("AC-1: a schedule table is reconstructed without gridlines", () => {
     ).toEqual(Array.from({ length: dataBandsOf(built).length + 1 }, (_unused, index) => index));
   }, BUDGET_MS);
 
+  test("AC-1: the pitch a table carries is the row spacing its own bands were stacked at", async () => {
+    const stage = await staged();
+    const plainPitch = measuredPitchOf(stage.plain.artifact);
+    const tightPitch = measuredPitchOf(stage.tight.artifact);
+
+    // Armed by the artifacts: the two schedules really stand at different row spacings, so a pitch
+    // that was remembered rather than measured can agree with at most one of them (B-19). The stop
+    // is 3.5× THIS table's pitch, so a pitch read off the wrong drawing reads the wrong rows too.
+    expect(tightPitch, `the two staged schedules really stack their bands at different spacings; they measure ${plainPitch} and ${tightPitch}`).not.toBe(plainPitch);
+    expect(Math.min(plainPitch, tightPitch), "and both really state a spacing at all").toBeGreaterThan(0);
+
+    const { reconstructSchedules } = await reconstructDoor();
+    for (const [label, ingest, measured] of [
+      ["plain", stage.plain, plainPitch],
+      ["tight-pitch", stage.tight, tightPitch],
+    ] as const) {
+      const table = reconstructSchedules(await evidenceOf(ingest.artifact)).tables[0];
+      expect(
+        table?.pitch,
+        `the ${label} schedule's pitch is the gap between its own adjacent bands, measured off the drawing — the row spacing is a property of the sheet, and every stop that is a multiple of it is measured in it (L-CAD-08)`,
+      ).toBe(measured);
+      expect(
+        scheduleRows(stage.person.tenantId, ingest.ingestId).map((row) => row.pitch),
+        `and the stored \`schedules\` row of the ${label} schedule carries that same measured pitch`,
+      ).toEqual([measured]);
+    }
+  }, BUDGET_MS);
+
   test("AC-1: the stored schedule row and its cells are the table the stage reconstructed", async () => {
     const stage = await staged();
     const owed = expectedTableOf(stage.plain.artifact);
@@ -284,8 +320,8 @@ describe("AC-3: the schedules stage runs inside the rebuild, writes with the par
       views: tableSnapshot(stage.person.tenantId, stage.plain.ingestId, "partition_views"),
       schedules: tableSnapshot(stage.person.tenantId, stage.plain.ingestId, SCHEDULES),
     };
-    expect(before.views.length, "the first rebuild really wrote views — an empty partition would compare equal to anything").toBeGreaterThan(0);
-    expect(before.schedules.length, "and really wrote a schedule").toBeGreaterThan(0);
+    expect(rowsInSnapshot(before.views), "the first rebuild really wrote views — an empty partition would compare equal to anything").toBeGreaterThan(0);
+    expect(rowsInSnapshot(before.schedules), "and really wrote a schedule").toBeGreaterThan(0);
     await scheduleStoreDoor();
 
     const failed = await withScheduleWriteBroken(async () => {
@@ -419,8 +455,10 @@ describe("AC-5: the tables fold into one row per mark family, with variants and 
     for (const family of stored) {
       expect(
         family.variants.map((variant) => variant.variantKey),
+        // Read in the one order this acceptance reads rows in: which bands a family carries is the
+        // contract, the order the store answers them in is nobody's (C-05).
         `${family.family} carries one variant per floor-band column of the header, keyed by the band it reads (AC-5)`,
-      ).toEqual(bands);
+      ).toEqual([...bands].sort());
       for (const variant of family.variants) {
         expect(
           variant.zones.map((zone) => zone.zone),
@@ -429,19 +467,33 @@ describe("AC-5: the tables fold into one row per mark family, with variants and 
       }
     }
 
+    // Every section and every main-bar group the criterion names, pinned to the reading the criterion
+    // states rather than to whatever the parsers answer: a registry compared only against the
+    // notation's own answer would agree with a parser that read none of these cells (AC-5, AC-6).
+    const sectionOf = (name: string, key: string) => ({
+      text: variantOf(name, key)?.sectionText,
+      width: variantOf(name, key)?.sectionWidth,
+      depth: variantOf(name, key)?.sectionDepth,
+      unit: variantOf(name, key)?.sectionUnit,
+    });
+    const mainOf = (name: string, key: string) => ({ text: zoneOf(name, key, ZONE_MAIN)?.text, bars: zoneOf(name, key, ZONE_MAIN)?.bars });
+    const [gfTo3rd, fourthToRoof] = [bands[0] ?? "", bands[1] ?? ""];
+
+    expect(sectionOf("C1", gfTo3rd), "C1's first band keeps the section verbatim and carries its parsed reading in inches").toEqual({ text: '12"x15"', width: 12, depth: 15, unit: "in" });
+    expect(sectionOf("C2", gfTo3rd), "and C2's, drawn square, reads as the two inch dimensions it states").toEqual({ text: '15"x15"', width: 15, depth: 15, unit: "in" });
+    expect(sectionOf("C2", fourthToRoof), "as does the section it narrows to above the 4th").toEqual({ text: '12"x12"', width: 12, depth: 12, unit: "in" });
     expect(
-      { text: variantOf("C1", bands[0] ?? "")?.sectionText, width: variantOf("C1", bands[0] ?? "")?.sectionWidth, depth: variantOf("C1", bands[0] ?? "")?.sectionDepth, unit: variantOf("C1", bands[0] ?? "")?.sectionUnit },
-      "C1's first band keeps the section verbatim and carries its parsed reading in inches",
-    ).toEqual({ text: '12"x15"', width: 12, depth: 15, unit: "in" });
+      sectionOf("C3", gfTo3rd),
+      "and a section written in feet and inches reads as the same inches a draughtsman would total — the notation is the drawing's, the number is one (AC-6)",
+    ).toEqual({ text: `1'-0"x1'-3"`, width: 12, depth: 15, unit: "in" });
     expect(
-      { text: variantOf("C3", bands[1] ?? "")?.sectionText, width: variantOf("C3", bands[1] ?? "")?.sectionWidth, depth: variantOf("C3", bands[1] ?? "")?.sectionDepth, unit: variantOf("C3", bands[1] ?? "")?.sectionUnit },
-      "and a section the drawing wrote without a unit keeps the numbers and no unit at all — never an inch nobody said",
+      sectionOf("C3", fourthToRoof),
+      "while a section the drawing wrote without a unit keeps the numbers and no unit at all — never an inch nobody said",
     ).toEqual({ text: "12X12", width: 12, depth: 12, unit: null });
 
-    expect({ text: zoneOf("C1", bands[0] ?? "", ZONE_MAIN)?.text, bars: zoneOf("C1", bands[0] ?? "", ZONE_MAIN)?.bars }, "C1's main zone keeps the cell verbatim and reads the group it names").toEqual({
-      text: "8-16Ø",
-      bars: [{ n: 8, diameterMm: 16 }],
-    });
+    expect(mainOf("C1", gfTo3rd), "C1's main zone keeps the cell verbatim and reads the group it names").toEqual({ text: "8-16Ø", bars: [{ n: 8, diameterMm: 16 }] });
+    expect(mainOf("C2", gfTo3rd), "and C2's reads its own count of the same diameter").toEqual({ text: "6-16Ø", bars: [{ n: 6, diameterMm: 16 }] });
+    expect(mainOf("C3", gfTo3rd), "and C3's its own count of another").toEqual({ text: "4-20Ø", bars: [{ n: 4, diameterMm: 20 }] });
     for (const [zone, spacing] of [
       [ZONE_TIES_END, 4],
       [ZONE_TIES_MID, 6],

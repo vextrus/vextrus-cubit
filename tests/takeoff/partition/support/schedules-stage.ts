@@ -123,8 +123,16 @@ export const LAYOUT_PLAN = "LAYOUT_PLAN";
 export const TEXT_HEIGHT = 2.5;
 export const CAPTION_HEIGHT = 8;
 
-/** The pitch every artifact stacks its bands at: the row spacing the 3.5× stop is measured in. */
+/**
+ * The pitch most artifacts stack their bands at: the row spacing the 3.5× stop is measured in. A
+ * pitch is a property of the drawing, never of the product — so one scenario stacks at a DIFFERENT
+ * one (`TIGHT_PITCH`), and what a table owes is measured off the bands that were really drawn
+ * (`measuredPitchOf`), never read back off this constant (B-19).
+ */
 export const PITCH = 10;
+
+/** The row spacing the tight-pitch artifact stacks its bands at — not the pitch of any other. */
+export const TIGHT_PITCH = 8;
 
 /** The layers the artifacts draw on — census data, never a name anything reads a role off. */
 const LAYER_CAPTIONS = "CAPTIONS";
@@ -135,13 +143,15 @@ const LAYER_LINES = "GRID-LINES";
 const TYPE_TEXT = "TEXT";
 const TYPE_LINE = "LINE";
 
-/** The five scenarios the criteria are staged over (test contract: fixture scenarios). */
+/** The scenarios the criteria are staged over (test contract: fixture scenarios). */
 export const SCENARIO = Object.freeze({
   PLAIN: "schedule-plain",
   GAP_INSIDE: "schedule-gap-inside",
   NO_HEADER: "schedule-no-header",
   NOISE_ONLY: "schedule-noise-only",
   LOOKALIKES: "schedule-lookalikes",
+  /** The plain schedule drawn again at a row spacing of its own: same table, different pitch (AC-1). */
+  TIGHT_PITCH: "schedule-tight-pitch",
 } as const);
 
 /** One of the five. */
@@ -333,8 +343,15 @@ type CellDraw = { x: number; texts: readonly TextDraw[] };
 /** One band of the drawing: its y, what it is, and the cells drawn across it. */
 type BandDraw = { y: number; role: BandRole; cells: readonly CellDraw[] };
 
-/** One cell as it was really drawn: the two stacked texts of AC-2 are one cell, joined top text first. */
-export type BuiltCell = { x: number; text: string; keys: string[] };
+/** One text of one cell as it was really drawn: what it says, the y it was inserted at, and its key. */
+export type BuiltAtom = { text: string; y: number; key: string };
+
+/**
+ * One cell as it was really drawn: the two stacked texts of AC-2 are one cell, joined top text first.
+ * `atoms` stands in the order the texts were DRAWN — which is the order their handles were minted in,
+ * and not necessarily the order they are read in.
+ */
+export type BuiltCell = { x: number; text: string; keys: string[]; atoms: BuiltAtom[] };
 
 /** One band as it was really drawn. */
 export type BuiltBand = { y: number; role: BandRole; cells: BuiltCell[] };
@@ -383,8 +400,14 @@ const LOOKALIKE_MAIN_BARS: readonly string[] = ["8-16%%C", "8-16φ", "8-16ø", "
 /** The NOS cell each of those bands carries (AC-8). */
 const LOOKALIKE_NOS: readonly string[] = ["12", "8", "4", "-"];
 
+/** The row spacing one scenario is drawn at. Two schedules at one pitch could not tell a measurement
+ * from a constant, so the plain layout is drawn a second time at a spacing of its own (AC-1). */
+export function pitchOf(scenario: ScheduleScenario): number {
+  return scenario === SCENARIO.TIGHT_PITCH ? TIGHT_PITCH : PITCH;
+}
+
 /** The bands each scenario is drawn from. Every y is a multiple of the pitch below the caption. */
-function bandsOf(scenario: ScheduleScenario): readonly BandDraw[] {
+function bandsOf(scenario: ScheduleScenario, pitch: number): readonly BandDraw[] {
   if (scenario === SCENARIO.NO_HEADER) {
     // A caption that says SCHEDULE over two bands, and no band holding a name or mark cell: there is
     // no header to take columns from, so there is no table to reconstruct at all (AC-7).
@@ -406,13 +429,16 @@ function bandsOf(scenario: ScheduleScenario): readonly BandDraw[] {
   if (scenario === SCENARIO.GAP_INSIDE) {
     // The plain layout with C3 moved three pitches below C2 — a gap INSIDE the 3.5× stop — and the
     // trailing note four pitches below that, outside it. C-1's MAIN BAR cell is drawn as two texts,
-    // one either side of the band's own y (AC-2).
+    // one either side of the band's own y (AC-2) — and drawn BOTTOM TEXT FIRST, so the lower of the
+    // two carries the earlier handle. A reading that joined a cell's texts in the order the entities
+    // stand in the graph would say this cell backwards; only a reading that sorts by the y each text
+    // was inserted at says what the page says.
     const rows = PLAIN_ROWS.slice(0, 3);
     const stacked: CellDraw = {
       x: 690,
       texts: [
-        { text: "4-20Ø", dy: 1 },
         { text: "4-16Ø", dy: -1 },
+        { text: "4-20Ø", dy: 1 },
       ],
     };
     const first = band(-30, "data", PLAIN_COLUMNS, rows[0] ?? []);
@@ -434,11 +460,15 @@ function bandsOf(scenario: ScheduleScenario): readonly BandDraw[] {
     const swapped = row.map((text, column) => (column === 3 ? (LOOKALIKE_MAIN_BARS[index] ?? text) : text));
     return [...swapped, LOOKALIKE_NOS[index] ?? "-"];
   });
+  // Every y is a multiple of THIS artifact's own pitch below the caption: the leading note one pitch
+  // down, the header two, the data bands from three, and the trailing note four pitches below the
+  // last of them — outside the 3.5× stop whatever the pitch is (AC-1).
+  const lastData = -(2 + rows.length) * pitch;
   return [
-    band(-10, "leading", [600], [LEADING_NOTE]),
-    band(-20, "header", columns, headers),
-    ...rows.map((row, index) => band(-30 - index * PITCH, "data", columns, row)),
-    band(-100, "trailing", [600], [TRAILING_NOTE]),
+    band(-pitch, "leading", [600], [LEADING_NOTE]),
+    band(-2 * pitch, "header", columns, headers),
+    ...rows.map((row, index) => band(-(3 + index) * pitch, "data", columns, row)),
+    band(lastData - 4 * pitch, "trailing", [600], [TRAILING_NOTE]),
   ];
 }
 
@@ -458,7 +488,11 @@ export type BuiltScheduleArtifact = {
   planCaptionKey: string;
   /** Every band really drawn, in the order they stand down the page. */
   bands: BuiltBand[];
-  /** The pitch the bands were stacked at. */
+  /**
+   * The spacing this artifact was drawn to. What a table OWES is never read back off it: it is
+   * measured off the bands that really stand on the page (`measuredPitchOf`), so a pitch that was a
+   * constant rather than a measurement disagrees with the drawing (B-19).
+   */
   pitch: number;
 };
 
@@ -485,19 +519,23 @@ export function buildScheduleArtifact(scenario: ScheduleScenario, salt: number):
 
   const captionKey = caption(CAPTION_SCHEDULE, [600, 0]);
 
-  const bands: BuiltBand[] = bandsOf(scenario).map((drawn) => ({
+  const pitch = pitchOf(scenario);
+  const bands: BuiltBand[] = bandsOf(scenario, pitch).map((drawn) => ({
     y: drawn.y,
     role: drawn.role,
     cells: drawn.cells.map((one) => {
-      // A cell is what one column of one band says. Two texts stacked in it are ONE cell, read top
-      // text first — the reading order of the page (AC-2).
-      const stacked = [...one.texts].sort((left, right) => (right.dy ?? 0) - (left.dy ?? 0));
-      const keys = stacked.map((text) => {
+      // Handles are minted in the order the texts were DRAWN — a draughtsman's order, which no rule
+      // ties to the page's. A cell drawn bottom text first hands its LOWER text the earlier handle.
+      const atoms = one.texts.map((text) => {
         const key = next();
-        originals.push({ key, type: TYPE_TEXT, space: MODEL_SPACE, layer: LAYER_TEXT, text: text.text, height: TEXT_HEIGHT, points: [[one.x, drawn.y + (text.dy ?? 0)]] });
-        return key;
+        const y = drawn.y + (text.dy ?? 0);
+        originals.push({ key, type: TYPE_TEXT, space: MODEL_SPACE, layer: LAYER_TEXT, text: text.text, height: TEXT_HEIGHT, points: [[one.x, y]] });
+        return { text: text.text, y, key };
       });
-      return { x: one.x, text: stacked.map((text) => text.text).join("+"), keys };
+      // A cell is what one column of one band says. Two texts stacked in it are ONE cell, read top
+      // text first — the reading order of the page, taken from the y they stand at (AC-2).
+      const read = [...atoms].sort((left, right) => right.y - left.y);
+      return { x: one.x, text: read.map((atom) => atom.text).join("+"), keys: read.map((atom) => atom.key), atoms };
     }),
   }));
 
@@ -520,7 +558,7 @@ export function buildScheduleArtifact(scenario: ScheduleScenario, salt: number):
     counters: [],
   };
 
-  return { scenario, json: JSON.stringify(graph), graph, originals, captionKey, planCaptionKey, bands, pitch: PITCH };
+  return { scenario, json: JSON.stringify(graph), graph, originals, captionKey, planCaptionKey, bands, pitch };
 }
 
 /* ------------------------------------------------------------------ the acceptance's own reading */
@@ -533,6 +571,19 @@ export function headerBandOf(built: BuiltScheduleArtifact): BuiltBand | null {
 /** The bands the artifact drew as data rows, in the order they stand down the page. */
 export function dataBandsOf(built: BuiltScheduleArtifact): BuiltBand[] {
   return built.bands.filter((one) => one.role === "data");
+}
+
+/**
+ * The row spacing an artifact really stands at, measured off the page: the smallest gap between two
+ * adjacent rows of the table (the header and the data bands beneath it). This is a reading of the
+ * y-coordinates that were drawn, never of the constant the generator was asked for — an artifact
+ * stacked at another spacing measures another pitch (AC-1, B-19).
+ */
+export function measuredPitchOf(built: BuiltScheduleArtifact): number {
+  const header = headerBandOf(built);
+  const rows = [...(header === null ? [] : [header]), ...dataBandsOf(built)];
+  const gaps = rows.slice(1).map((row, index) => Math.abs(row.y - (rows[index]?.y ?? row.y)));
+  return gaps.length === 0 ? 0 : Math.min(...gaps);
 }
 
 /** The bands the artifact drew OUTSIDE the table: the leading note and the trailing note (AC-1). */
@@ -572,7 +623,7 @@ export function expectedTableOf(built: BuiltScheduleArtifact): ExpectedTable | n
   return {
     scheduleKey: built.captionKey,
     title: CAPTION_SCHEDULE,
-    pitch: built.pitch,
+    pitch: measuredPitchOf(built),
     columns,
     cells: rows.flatMap((row, rowIndex) =>
       row.cells.map((one) => ({ rowIndex, columnIndex: columns.indexOf(one.x), text: one.text, sourceKeys: [...one.keys] })),
@@ -583,6 +634,19 @@ export function expectedTableOf(built: BuiltScheduleArtifact): ExpectedTable | n
 /** Any list of cells, in one order — the store's order is nobody's contract (C-05). */
 export function byCell<T extends { rowIndex: number; columnIndex: number }>(cells: readonly T[]): T[] {
   return [...cells].sort((left, right) => left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex);
+}
+
+/**
+ * Any list of cells, comparable: in cell order, and each cell's citations as the SET they are. Which
+ * atoms a cell was read from is the contract; the order they are listed in is nobody's (C-05).
+ */
+export function citedSet<T extends CellRow>(cells: readonly T[]): CellRow[] {
+  return byCell(cells).map((cell) => ({
+    rowIndex: cell.rowIndex,
+    columnIndex: cell.columnIndex,
+    text: cell.text,
+    sourceKeys: [...cell.sourceKeys].sort(),
+  }));
 }
 
 /** Any list of rows carrying a key, in code-point order of it. */
@@ -850,13 +914,27 @@ export function memberTypeRows(tenantId: string, ingestId: string): FamilyRow[] 
   );
 }
 
-/** Every row of one of the six tables, as one comparable string — the byte-identity AC-2 asks for. */
+/**
+ * Every row of one of the six tables, as one comparable string: how many rows the ingest holds there,
+ * and a digest of all of them, every column and every byte of it — except the clocks a write leaves
+ * behind (`%_at`), which say when the rewrite ran and nothing about what was read off the drawing.
+ *
+ * A count and a digest rather than the rows themselves because a database is spoken to a line at a
+ * time: a value carrying newlines would come back as many answers and compare only as far as its
+ * first row, and a table holding no rows would come back as no answer at all.
+ */
 export function tableSnapshot(tenantId: string, ingestId: string, table: string): string {
   return sqlValue(
-    `select coalesce(string_agg(line, e'\\n' order by line), '') from (
-       select to_jsonb(x)::text as line from (select * from ${ident(table)} ${ofIngest(tenantId, ingestId)}) x
+    `select count(*) || ':' || md5(coalesce(string_agg(line, e'\\n' order by line), '')) from (
+       select (to_jsonb(x) - array(select name from jsonb_object_keys(to_jsonb(x)) as keys(name) where name like '%\\_at'))::text as line
+         from (select * from ${ident(table)} ${ofIngest(tenantId, ingestId)}) x
      ) y;`,
   );
+}
+
+/** How many rows a snapshot stands for — nothing compares equal to nothing, so a case says this first. */
+export function rowsInSnapshot(snapshot: string): number {
+  return Number(snapshot.split(":")[0] ?? 0);
 }
 
 /** All six tables of one ingest, snapshotted together. */
