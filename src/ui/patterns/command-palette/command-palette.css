@@ -1,0 +1,204 @@
+/* The ⌘K palette and the ? sheet (docs/design/command-palette.md §1, §5, §6). Colour, spacing,
+   measure and motion are token reads only: no [data-theme] selector stands here, and every
+   light/dark difference arrives through the token values themselves (R-UI-001). The Dialog's own
+   measure, padding, shadow and entrance are the primitive's and are not restyled (I-136). */
+
+.cx-palette {
+  display: flex;
+  flex-direction: column;
+}
+
+.cx-palette-input {
+  inline-size: 100%;
+}
+
+/* The house notice, between the input and the list (Decision §1). */
+.cx-palette-notice {
+  margin-block-start: var(--space-3);
+  border: var(--hairline);
+  border-color: var(--info);
+  border-radius: var(--radius-4);
+  background-color: var(--info-surface);
+  padding: var(--space-3) var(--space-4);
+  color: var(--graphite-900);
+  font-size: var(--text-13);
+}
+
+.cx-palette-list {
+  margin-block-start: var(--space-3);
+  border-top: var(--hairline);
+  padding-block-start: var(--space-2);
+  /* The list is bounded here, so the Dialog's own overflow never engages (I-136). */
+  max-block-size: 320px;
+  overflow: auto;
+}
+
+.cx-palette-group-label {
+  position: sticky;
+  top: 0;
+  /* Rows scroll under the header rather than through it. */
+  background-color: var(--graphite-0);
+  padding: var(--space-2) var(--space-3);
+  color: var(--graphite-600);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-palette-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  border-radius: var(--radius-4);
+  padding-inline: var(--space-3);
+  min-block-size: var(--row-comfortable);
+  cursor: pointer;
+}
+
+/* The active option's fill changes with no transition: at ten rows a second a fade paints the row
+   a person has already left (Decision §4). */
+.cx-palette-item[aria-selected="true"] {
+  background-color: var(--beam-100);
+}
+
+.cx-palette-item[aria-selected="true"] .cx-palette-item-label {
+  color: var(--graphite-900);
+  font-weight: var(--weight-heading);
+}
+
+.cx-palette-item[data-available="false"] {
+  cursor: not-allowed;
+}
+
+.cx-palette-item[data-available="false"] .cx-palette-item-label {
+  color: var(--graphite-500);
+}
+
+.cx-palette-item-kind {
+  min-inline-size: var(--space-12);
+  color: var(--graphite-600);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.cx-palette-item-label {
+  overflow: hidden;
+  color: var(--graphite-900);
+  font-size: var(--text-13);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cx-palette-item-meta,
+.cx-palette-item-reason {
+  overflow: hidden;
+  color: var(--graphite-600);
+  font-size: var(--text-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The wait keeps the list's height, so the palette does not resize while an answer arrives. */
+.cx-palette-wait-row {
+  display: flex;
+  align-items: center;
+  padding-inline: var(--space-3);
+  min-block-size: var(--row-comfortable);
+}
+
+.cx-palette-bone {
+  block-size: 12px;
+  inline-size: 240px;
+}
+
+.cx-palette-empty {
+  padding: var(--space-3);
+  color: var(--graphite-900);
+  font-size: var(--text-13);
+}
+
+.cx-palette-empty-line {
+  margin-block-end: var(--space-3);
+  text-wrap: pretty;
+}
+
+.cx-palette-fault {
+  margin-block-start: var(--space-3);
+  border: var(--hairline);
+  border-color: var(--danger);
+  border-radius: var(--radius-4);
+  background-color: var(--danger-surface);
+  padding: var(--space-3) var(--space-4);
+  color: var(--graphite-900);
+  font-size: var(--text-13);
+}
+
+.cx-palette-fault-id {
+  margin-block: var(--space-2);
+  color: var(--graphite-700);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  user-select: all;
+}
+
+.cx-palette-refusal {
+  margin-block-start: var(--space-3);
+}
+
+.cx-palette-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-start: var(--space-3);
+  border-top: var(--hairline);
+  padding-block-start: var(--space-2);
+  color: var(--graphite-600);
+  font-size: var(--text-12);
+}
+
+.cx-palette-footer-shortcuts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ------------------------------------------------------------------ the ? sheet */
+
+.cx-shortcut-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cx-shortcut-sheet-title {
+  color: var(--graphite-900);
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+}
+
+.cx-shortcut-sheet-scope-name {
+  margin-block-end: var(--space-2);
+  color: var(--graphite-600);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-shortcut-sheet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-block-size: var(--row-comfortable);
+}
+
+.cx-shortcut-sheet-name {
+  color: var(--graphite-900);
+  font-size: var(--text-13);
+}
+
+.cx-shortcut-sheet-keys {
+  display: inline-flex;
+  gap: var(--space-2);
+}

@@ -21,11 +21,13 @@ import {
   type Permission,
 } from "../../core/acts";
 import { eq, isUuid, projects, runAsSystem } from "../../core/db";
+import { refusal } from "../../core/faults/refusal-marker";
 import { roleHistory } from "../../modules/spine/participants";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { authRouter } from "../auth/router";
 import { signedOut } from "../auth/refusals";
 import { holdsWorkspace } from "../shell/workspace";
+import { searchWorkspace, type SearchAnswer } from "../spine/search";
 import { publicProcedure, router } from "../trpc";
 import { tenancyRouter } from "./tenancy";
 
@@ -141,6 +143,23 @@ export const participantsRouter = router({
 export const spineRouter = router({
   /** Liveness plus the request id the tier minted, so a caller can prove which request it got. */
   health: publicProcedure.query(({ ctx }) => ({ ok: true as const, requestId: ctx.requestId })),
+
+  /**
+   * R-SPINE-050's search, behind the ⌘K palette. A signed-in door: the middleware answers
+   * SIGNED_OUT, and a session holding no membership of the named workspace is refused
+   * WORKSPACE_PERMISSION_NOT_HELD — both registered answers, never faults (ARCH-03, B-21).
+   *
+   * The workspace is named by the caller and therefore judged before anything is read: membership
+   * is what admits the request, through the one resolution every workspace-scoped door uses (B-17).
+   */
+  search: signedInProcedure
+    .input((raw: unknown) => ({ tenantId: text(raw, "tenantId"), query: text(raw, "query") }))
+    .query(async ({ ctx, input }): Promise<SearchAnswer> => {
+      if (!(await holdsWorkspace(ctx.session.userId, input.tenantId))) {
+        throw refusal("WORKSPACE_PERMISSION_NOT_HELD", "the session holds no membership of the workspace this search names", { tenantId: input.tenantId });
+      }
+      return searchWorkspace({ tenantId: input.tenantId, query: input.query });
+    }),
 
   auth: authRouter,
 
