@@ -53,8 +53,12 @@ export function viewCaptionRequest(caption: string, anchorKey: string): ModelReq
   };
 }
 
-/** What a model proposed one caption's view to be — a class of the caller's vocabulary, and no more. */
-export type ViewTypeProposal = { readonly type: string };
+/**
+ * What a model proposed one caption's view to be — a class of the caller's vocabulary, and no more.
+ * It is the caller's own class type: the set a question names is the set an answer can carry, so a
+ * caller reading this proposal has a member of its vocabulary rather than a string to re-judge.
+ */
+export type ViewTypeProposal<T extends string = string> = { readonly type: T };
 
 /**
  * A model's payload as a classification, or the detail that says why it is not one (L-AI-02: a
@@ -65,7 +69,7 @@ export type ViewTypeProposal = { readonly type: string };
  * classes that stand for "not read" say nothing a proposal could add — so the caller states the set
  * it will accept and an answer outside it is refused rather than stored.
  */
-export function readViewTypeProposal(classifiable: readonly string[]): (payload: JsonValue) => DecodeResult<ViewTypeProposal> {
+export function readViewTypeProposal<T extends string>(classifiable: readonly T[]): (payload: JsonValue) => DecodeResult<ViewTypeProposal<T>> {
   return (payload) => {
     if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
       return { ok: false, detail: `a view classification is an object naming ${PROPOSAL_FIELD}` };
@@ -75,10 +79,14 @@ export function readViewTypeProposal(classifiable: readonly string[]): (payload:
       return { ok: false, detail: `a view classification names exactly ${PROPOSAL_FIELD}, and this one names ${named.join(", ") || "nothing"}` };
     }
     const type = payload[PROPOSAL_FIELD];
-    if (typeof type !== "string" || !classifiable.includes(type)) {
+    // The answer is read back OUT of the caller's set rather than merely tested against it: what
+    // comes back is then one of the classes the question offered, by construction, and the caller
+    // has nothing left to re-judge about an answer this already accepted.
+    const answered = typeof type === "string" ? classifiable.find((candidate) => candidate === type) : undefined;
+    if (answered === undefined) {
       return { ok: false, detail: `${JSON.stringify(type)} is no class a caption can be read as — the classifiable set is ${classifiable.join(", ")}` };
     }
-    return { ok: true, value: Object.freeze({ type }) };
+    return { ok: true, value: Object.freeze({ type: answered }) };
   };
 }
 
@@ -93,11 +101,11 @@ export type ViewCaptionPort = { propose: typeof propose };
 const PRODUCTION: ViewCaptionPort = { propose };
 
 /** One silent caption, with the classes it may be read as and the artifact a citation resolves against. */
-export type ViewCaptionQuestion = {
+export type ViewCaptionQuestion<T extends string = string> = {
   readonly caption: string;
   /** The source key of the caption's own entity: what the answer is asked about, and may cite. */
   readonly anchorKey: string;
-  readonly classifiable: readonly string[];
+  readonly classifiable: readonly T[];
   readonly artifact: SourceKeyResolver;
 };
 
@@ -107,7 +115,7 @@ export type ViewCaptionQuestion = {
  * reaches the caller intact, and the caller decides what a view nobody could read becomes, because
  * abstention is not the model's decision.
  */
-export async function proposeViewType(ctx: ModelCallContext, question: ViewCaptionQuestion, port: ViewCaptionPort = PRODUCTION): Promise<Proposal<ViewTypeProposal>> {
+export async function proposeViewType<T extends string>(ctx: ModelCallContext, question: ViewCaptionQuestion<T>, port: ViewCaptionPort = PRODUCTION): Promise<Proposal<ViewTypeProposal<T>>> {
   return port.propose(ctx, viewCaptionRequest(question.caption, question.anchorKey), {
     artifact: question.artifact,
     decode: readViewTypeProposal(question.classifiable),

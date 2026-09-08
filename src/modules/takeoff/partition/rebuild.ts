@@ -21,7 +21,7 @@ import type { ViewRecord } from "@/core/views";
 import { ingestRecords, type IngestRecord } from "@/modules/takeoff/ingest";
 import { drawingProjectOf, rewritePartition, storedViewsOf, type ViewProposal } from "./store";
 import { partitionArtifact, type PartitionedView } from "./views/assign";
-import { VIEW_TYPE, VIEW_TYPES, isViewType, type ViewType } from "./views/law";
+import { VIEW_TYPE, VIEW_TYPES, type ViewType } from "./views/law";
 
 /**
  * The stages a stored partition is rebuilt from, in the order they run (R-TO-030: "view
@@ -74,7 +74,7 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext) => StagedP
  * read at all". A model proposing UNTYPED would be proposing the answer the grammar already gave,
  * and UNASSIGNED is what a view with no caption is — neither is a reading of a caption (L-CAD-06).
  */
-const CLASSIFIABLE: readonly string[] = VIEW_TYPES.filter((type) => type !== VIEW_TYPE.UNTYPED && type !== VIEW_TYPE.UNASSIGNED);
+const CLASSIFIABLE: readonly ViewType[] = VIEW_TYPES.filter((type) => type !== VIEW_TYPE.UNTYPED && type !== VIEW_TYPE.UNASSIGNED);
 
 /**
  * One record's partition, rebuilt (R-TO-030). Idempotent on the record it names: the rewrite deletes
@@ -154,12 +154,10 @@ async function proposalsFor(views: readonly PartitionedView[], pass: ProposalPas
         classifiable: CLASSIFIABLE,
         artifact: sourceKeyResolver(pass.record.artifactSha256, citable),
       });
-      // The decoder took the answer against the classifiable set; the sole predicate is what makes
-      // it a member of the vocabulary (L-CAD-06), and a class that is not one is a malformed answer
-      // however it arrived — the same reading the seam gives an unusable payload (L-AI-02).
-      const proposedType = proposal.payload.type;
-      if (!isViewType(proposedType)) throw refusal(REFUSALS.MALFORMED.code, `a model answered "${proposedType}", which is no class of the view vocabulary`);
-      proposed = { viewKey: view.viewKey, type: proposedType, callId: proposal.callId };
+      // The question offered the classifiable set and the seam answers out of it, so what comes
+      // back is a member of the vocabulary already: an answer outside it never decodes, and this
+      // path never sees one to re-judge (L-AI-02).
+      proposed = { viewKey: view.viewKey, type: proposal.payload.type, callId: proposal.callId };
     } catch (failure) {
       const code = refusalCodeOf(failure);
       // A model that would not answer is an answer about the model, not about the drawing: anything
