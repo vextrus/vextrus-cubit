@@ -57,6 +57,7 @@ export type RefusalCode =
   | "MANIFEST_NOT_RENDERABLE"
   | "CAPTION_UNCLASSIFIABLE"
   | "PARTITION_NOT_AVAILABLE"
+  | "CONVENTION_ROLE_UNRESOLVED"
   | "GROUP_NOT_OFFERED"
   | "SET_NOT_PINNABLE"
   | "SET_NAME_NOT_USABLE"
@@ -334,6 +335,16 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     message: "This drawing has no stored partition, because it has not been ingested.",
     remedy: "Ingest the drawing first, then ask for its partition again.",
     severity: "error",
+    surface: "inline",
+  }),
+  // L-CAD-08's answer where a drawing's own geometry does not say which layer carries a role: the
+  // profile defers the role rather than defaulting one, because a defaulted convention would be a
+  // reading nobody made (L-QTY-04).
+  CONVENTION_ROLE_UNRESOLVED: Object.freeze({
+    code: "CONVENTION_ROLE_UNRESOLVED",
+    message: "No layer of this drawing carries this role plainly enough to resolve it, so the convention profile leaves it unresolved.",
+    remedy: "Say which layer carries it yourself, or draw the role on a layer of its own and ingest the drawing again.",
+    severity: "info",
     surface: "inline",
   }),
   // L-ACT-02's answer when a caller names a group the machine is not offering: "bulk is offered,

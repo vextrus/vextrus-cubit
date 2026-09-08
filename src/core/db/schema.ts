@@ -14,6 +14,7 @@ import { DEFAULT_DENSITY, DENSITIES, type Density } from "../prefs/density";
 import { BUILDING_TYPES, type BuildingType } from "../projects";
 import { DISCIPLINES, type Discipline } from "../sheets/law";
 import type { EditionParameter, EditionScope, MethodPair } from "../rulesets/editions/content";
+import type { ConventionProfile, EntityCensus } from "../rulesets/methods/conventions/resolve";
 import { closedList } from "./sql";
 
 /** Tenancy's base table: every tenant-scoped table in the tree carries this table's key. */
@@ -972,6 +973,41 @@ export const viewTypeConfirmations = pgTable(
 );
 
 /**
+ * L-CAD-08's convention profile: which layers one drawing carries its linework, outlines, text and
+ * dimensions on, and which caption grammars named its views — the second stage of R-TO-030's stored
+ * partition.
+ *
+ * One row per ingest record, rewritten with the views it was read beside and in the same
+ * transaction: the profile is a derivation of the artifact, so it is re-derived rather than edited
+ * (L-REG-04), and the app role holds a DELETE here for the same reason it holds one on the views.
+ *
+ * The method that resolved it is stored as (rule id, version) — a derivation whose method is not
+ * recorded is one nobody can attribute (L-CAD-08, L-MEA-01). `json`, not `jsonb`: the profile and
+ * the census are read back in the order they were derived in, and jsonb re-orders what it holds.
+ */
+export const conventionProfiles = pgTable(
+  "convention_profiles",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    ruleId: text("rule_id").notNull(),
+    ruleVersion: text("rule_version").notNull(),
+    profile: json("profile").$type<ConventionProfile>().notNull(),
+    census: json("census").$type<EntityCensus>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One profile per ingest, in one workspace: a rebuilt partition replaces the profile of the
+    // record it rebuilt rather than standing a second one beside it.
+    primaryKey({ name: "convention_profiles_key", columns: [table.tenantId, table.ingestId] }),
+    // The read a drawing's own screen makes: the profile that stands for it now.
+    index("convention_profiles_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
  * R-TO-005's drawing set: a named grouping of a project's drawings, told apart from its siblings by
  * the name a person gave it. The row is a record of a naming that happened and is never rewritten —
  * what the set NAMES lives in `drawing_set_members` beside it, which is a draft.
@@ -1084,6 +1120,7 @@ export const SEAM_SCHEMA = {
   partitionViews,
   viewAssignments,
   viewTypeConfirmations,
+  conventionProfiles,
   drawingSets,
   drawingSetMembers,
   drawingSetRevisions,
