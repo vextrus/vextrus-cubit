@@ -54,6 +54,13 @@ export {
   conventionProfiles,
   grids,
   gridDeferrals,
+  schedules,
+  scheduleCells,
+  memberTypes,
+  memberTypeVariants,
+  rebarZones,
+  scheduleDeferrals,
+  SCHEDULE_DEFERRAL_REASONS,
   drawingSets,
   drawingSetMembers,
   drawingSetRevisions,
@@ -79,6 +86,9 @@ export type {
   GridFamily,
   GridAxis,
   GridDeferralReason,
+  SectionUnit,
+  RebarZone,
+  ScheduleDeferralReason,
 } from "./db/schema";
 export { closePools } from "./db/pools";
 export {

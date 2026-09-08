@@ -211,6 +211,13 @@
       "when": 1788903472715,
       "tag": "0029_register",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1788908245332,
+      "tag": "0030_member-types",
+      "breakpoints": true
     }
   ]
 }

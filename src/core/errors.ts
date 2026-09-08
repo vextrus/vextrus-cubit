@@ -59,6 +59,8 @@ export type RefusalCode =
   | "PARTITION_NOT_AVAILABLE"
   | "CONVENTION_ROLE_UNRESOLVED"
   | "GRID_NO_BUBBLE_EVIDENCE"
+  | "SCHEDULE_NONE_RECONSTRUCTED"
+  | "SCHEDULE_VIEW_CONTRIBUTED_NOTHING"
   | "GROUP_NOT_OFFERED"
   | "SET_NOT_PINNABLE"
   | "SET_NAME_NOT_USABLE"
@@ -363,6 +365,25 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     code: "GRID_NO_BUBBLE_EVIDENCE",
     message: "This layout plan shows no grid bubbles to read a grid from, so its grid is left unresolved rather than guessed.",
     remedy: "Draw the grid bubbles as circles around their letters and numbers, then ingest the drawing again.",
+    severity: "info",
+    surface: "inline",
+  }),
+  // L-CAD-08's answer where a schedule-titled view yielded no table at all — no band of it holds a
+  // name or mark cell, so there is no header to take columns from and a table reconstructed without
+  // one would be columns nobody drew (R-TO-031).
+  SCHEDULE_NONE_RECONSTRUCTED: Object.freeze({
+    code: "SCHEDULE_NONE_RECONSTRUCTED",
+    message: "This schedule shows no header row naming its members, so no table was rebuilt from it.",
+    remedy: "Add a heading such as MARK over the column of member names, then ingest the drawing again.",
+    severity: "info",
+    surface: "inline",
+  }),
+  // R-TO-031's other answer: the table rebuilt, and not one of its rows names a member — a schedule
+  // of notes and dashes registers no member type rather than a family invented from noise (L-QTY-04).
+  SCHEDULE_VIEW_CONTRIBUTED_NOTHING: Object.freeze({
+    code: "SCHEDULE_VIEW_CONTRIBUTED_NOTHING",
+    message: "This schedule's rows name no member, so it added no member types.",
+    remedy: "Check that the mark column holds member names such as C1, then ingest the drawing again.",
     severity: "info",
     surface: "inline",
   }),
