@@ -1,0 +1,245 @@
+/* The command palette and the ? sheet (docs/design/command-palette.md § 1, § 5;
+   docs/design/shortcut-sheet.md § 1, § 5). No [data-theme] selector stands here: every light/dark
+   difference arrives through token values (R-UI-001), and the portal keeps the document-root theme.
+   The Dialog's measure, padding, shadow and entrance are the primitive's own, as are the Input's,
+   the Button's, the Kbd's and the Skeleton's paint — nothing here re-draws one (B-17). */
+
+.cx-palette {
+  display: flex;
+  flex-direction: column;
+}
+
+.cx-palette-input {
+  inline-size: 100%;
+}
+
+/* The house notice chrome, keyed to the informational token rather than re-drawn (refusal-state § 1). */
+.cx-palette-notice {
+  margin-block: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border: var(--hairline);
+  border-color: var(--info);
+  border-radius: var(--radius-4);
+  background-color: var(--info-surface);
+  color: var(--graphite-900);
+  font-size: var(--text-13);
+}
+
+.cx-palette-list {
+  margin-block-start: var(--space-3);
+  padding-block-start: var(--space-2);
+  border-top: var(--hairline);
+  /* The list is bounded here so the Dialog's own overflow never engages (I-136). */
+  max-block-size: 320px;
+  overflow: auto;
+}
+
+.cx-palette-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.cx-palette-group-label {
+  position: sticky;
+  top: 0;
+  margin: 0;
+  padding-inline: var(--space-3);
+  padding-block: var(--space-2);
+  background-color: var(--graphite-0);
+  color: var(--graphite-600);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-palette-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding-inline: var(--space-3);
+  /* R-UI-005's two row heights govern rows of data; the palette is portalled outside the frame that
+     carries the density key, so its rows stand at the comfortable measure in both modes (I-144). */
+  min-block-size: var(--row-comfortable);
+  border-radius: var(--radius-4);
+  cursor: pointer;
+}
+
+.cx-palette-item-kind {
+  min-inline-size: var(--space-12);
+  color: var(--graphite-600);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+.cx-palette-item-label {
+  overflow: hidden;
+  color: var(--graphite-900);
+  font-size: var(--text-13);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cx-palette-item-meta {
+  overflow: hidden;
+  color: var(--graphite-600);
+  font-size: var(--text-12);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The active row: the frame's own selection idiom — a fill plus a weight shift, a second channel
+   that survives greyscale, and no transition at all (I-137, § 4). */
+.cx-palette-item[aria-selected="true"] {
+  background-color: var(--beam-100);
+}
+
+.cx-palette-item[aria-selected="true"] .cx-palette-item-label {
+  color: var(--graphite-900);
+  font-weight: var(--weight-heading);
+}
+
+/* Unavailable: the words carry the meaning, and the label holds the 3:1 disabled floor (I-138). */
+.cx-palette-item[data-available="false"] {
+  cursor: not-allowed;
+}
+
+.cx-palette-item[data-available="false"] .cx-palette-item-label {
+  color: var(--graphite-500);
+}
+
+.cx-palette-loading {
+  margin-block-start: var(--space-3);
+  padding-block-start: var(--space-2);
+  border-top: var(--hairline);
+}
+
+.cx-palette-loading-row {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--row-comfortable);
+}
+
+.cx-palette-bone {
+  inline-size: 240px;
+  block-size: 12px;
+}
+
+.cx-palette-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-block-start: var(--space-3);
+  padding-block-start: var(--space-2);
+  border-top: var(--hairline);
+}
+
+.cx-palette-empty-line {
+  margin: 0;
+  color: var(--graphite-900);
+  font-size: var(--text-13);
+  text-wrap: pretty;
+}
+
+.cx-palette-fault {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-block-start: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--hairline);
+  border-color: var(--danger);
+  border-radius: var(--radius-4);
+  background-color: var(--danger-surface);
+}
+
+.cx-palette-fault-line {
+  margin: 0;
+  color: var(--graphite-900);
+  font-size: var(--text-13);
+}
+
+.cx-palette-fault-report {
+  margin: 0;
+  color: var(--graphite-700);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  user-select: all;
+}
+
+.cx-palette-refusal {
+  margin-block-start: var(--space-3);
+}
+
+.cx-palette-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-start: var(--space-3);
+  padding-block-start: var(--space-2);
+  border-top: var(--hairline);
+  color: var(--graphite-600);
+  font-size: var(--text-12);
+}
+
+.cx-palette-status {
+  margin: 0;
+}
+
+/* --- the ? sheet (docs/design/shortcut-sheet.md § 1) --- */
+
+.cx-shortcut-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.cx-shortcut-sheet-heading {
+  margin: 0;
+  color: var(--graphite-900);
+  font-size: var(--text-16);
+  font-weight: var(--weight-heading);
+}
+
+.cx-shortcut-sheet-hint {
+  margin: 0;
+  color: var(--graphite-600);
+  font-size: var(--text-12);
+  text-wrap: pretty;
+}
+
+.cx-shortcut-scope-heading {
+  margin: 0 0 var(--space-2);
+  color: var(--graphite-600);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-shortcut-rows {
+  margin: 0;
+}
+
+.cx-shortcut-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-4);
+  min-block-size: var(--row-comfortable);
+  border-top: var(--hairline);
+}
+
+/* The first row of a section opens it, so it carries no seam above it. */
+.cx-shortcut-row:first-child {
+  border-top: none;
+}
+
+.cx-shortcut-row-label {
+  color: var(--graphite-900);
+  font-size: var(--text-13);
+}
+
+.cx-shortcut-row-keys {
+  margin: 0;
+}

@@ -15,7 +15,9 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import type { Consequence } from "../../core/acts";
 import type { RefusalEntry, RefusalSeverity, RefusalSurface } from "../../core/errors";
+import { CommandPalette, CommandPaletteProvider, ShortcutSheet } from "../patterns/command-palette";
 import { ConsequenceDialog } from "../patterns/consequence-dialog";
+import { CommandPaletteTrigger, SHORTCUTS } from "../shell";
 import { Dropzone, type DropzoneItem } from "../patterns/dropzone";
 import { JobTimeline, JobsProvider, type JobsFormat, type TimelineStep } from "../patterns/job-timeline";
 import { OfferedGroups, type OfferedGroupItem } from "../patterns/offered-group";
@@ -649,6 +651,35 @@ const SAMPLE_JOBS_FORMAT: JobsFormat = {
  * computed from the tree rather than sliding past a list nobody read (B-19).
  */
 export const galleryEntries: GalleryEntries = {
+  // Both palette surfaces are overlays, and an overlay stands closed here: a page of open modals
+  // hides every other entry from assistive technology (Decision I-15), and the scrim of one would
+  // cover the catalogue it is meant to be evidence in. What each looks like open is captured where
+  // it is actually used — the `palette/*.png` checkpoints of J-021.
+  "patterns/command-palette/CommandPalette": {
+    states: [
+      {
+        name: "closed",
+        render: () => <CommandPalette open={false} onOpenChange={noop} query="" onQueryChange={noop} groups={[]} status="idle" onSelect={noop} />,
+      },
+    ],
+  },
+  // The provider renders no DOM of its own, so its evidence is the surface it feeds: the bar's
+  // trigger standing inside it, which outside one renders nothing at all (I-135).
+  "patterns/command-palette/CommandPaletteProvider": {
+    states: [
+      {
+        name: "rest",
+        render: () => (
+          <CommandPaletteProvider>
+            <CommandPaletteTrigger />
+          </CommandPaletteProvider>
+        ),
+      },
+    ],
+  },
+  "patterns/command-palette/ShortcutSheet": {
+    states: [{ name: "closed", render: () => <ShortcutSheet open={false} onOpenChange={noop} shortcuts={SHORTCUTS} /> }],
+  },
   "patterns/consequence-dialog/ConsequenceDialog": { states: closed(consequenceDialogSample) },
   "patterns/dropzone/Dropzone": { states: dropzoneStates },
   "patterns/job-timeline/JobTimeline": { states: jobTimelineStates },
@@ -737,6 +768,18 @@ export const galleryEntries: GalleryEntries = {
           <AppShell workspace={SAMPLE_WORKSPACE} area="projects" atAreaHome={true} email={SAMPLE_EMAIL} signOut={noop}>
             {shellChildSample()}
           </AppShell>
+        ),
+      },
+    ],
+  },
+  "shell/CommandPaletteTrigger": {
+    states: [
+      {
+        name: "rest",
+        render: () => (
+          <CommandPaletteProvider>
+            <CommandPaletteTrigger />
+          </CommandPaletteProvider>
         ),
       },
     ],
