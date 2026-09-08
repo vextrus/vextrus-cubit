@@ -100,10 +100,35 @@ test.describe("J-021 — the command palette", () => {
     await checkpoint(page, testInfo, "j-021-palette-open");
     await expect(palette.dialog).toHaveScreenshot(["palette", "open-light.png"], { animations: "disabled" });
 
+    /* --- the same open palette, in the other theme (AC-4's open-dark.png).
+       The preference is emulated and the page is then RELOADED, because the theme is resolved once
+       before the first frame by the root document's inline script (R-UI-001: it registers no
+       listener) — the sibling journey J-004 takes its two gallery pictures the same way. What the
+       page actually resolved is read off `html[data-theme]` rather than assumed from what was
+       emulated (B-19), and the palette is re-opened into the very state open-light.png was taken
+       in, so the pair differ in theme and in nothing else. --- */
     await page.emulateMedia({ colorScheme: "dark" });
-    await expect(palette.dialog, "the palette stands through the theme change").toBeVisible();
+    await page.reload();
+    await expect(palette.trigger, "the frame paints again after the reload").toBeVisible();
+    await expect(page.locator("html"), "the document states the theme it is painting in (R-UI-001)").toHaveAttribute("data-theme", "dark");
+
+    await palette.openWithChord(PALETTE_KEYS.open);
+    await palette.type(PROJECT);
+    await expect(palette.itemNamed(PROJECT).first(), "the same hit, found by the same typing").toBeVisible();
+    await page.keyboard.press(PALETTE_KEYS.down);
+    await expect(palette.activeOption(), "the same option is active").toBeVisible();
+    await expect(palette.input, "and focus is in the same combobox (I-137)").toBeFocused();
     await expect(palette.dialog).toHaveScreenshot(["palette", "open-dark.png"], { animations: "disabled" });
+
+    /* --- back to light, and back into the palette, for the rest of the walk --- */
     await page.emulateMedia({ colorScheme: "light" });
+    await page.reload();
+    await expect(palette.trigger, "the frame paints again after the reload").toBeVisible();
+    await expect(page.locator("html"), "the walk goes on in the theme it began in (R-UI-001)").toHaveAttribute("data-theme", "light");
+
+    await palette.openWithChord(PALETTE_KEYS.open);
+    await palette.type(PROJECT);
+    await expect(palette.itemNamed(PROJECT).first(), "the project is found again, under light").toBeVisible();
 
     /* --- Enter on the hit lands on the project's own address (AC-2) --- */
     await palette.chooseNamed(PROJECT);
