@@ -16,11 +16,14 @@
  * Nothing here reads product source: every name below is one the increment's interfaces, its test
  * contract or the Bible publishes.
  */
+import { spawnSync } from "node:child_process";
+import { join } from "node:path";
 import { expect } from "vitest";
 import { TENANT_COLUMN } from "../../../../db/__tests__/support/fixtures";
 import { ident, lit } from "../../../../db/__tests__/support/live-sql";
 import {
   CAPTION_HEIGHT,
+  REPO_ROOT,
   INGEST_JOB_MODULE,
   INGEST_MODULE,
   LABEL_HEIGHT,
@@ -53,6 +56,14 @@ export const METHOD_SHARD = "src/core/rulesets/methods/conventions/conventions.m
 /** The census the partition module builds, and the door that reads a stored profile back. */
 export const CENSUS_MODULE = "src/modules/takeoff/partition/conventions/census.ts";
 export const PROFILE_MODULE = PARTITION_MODULE;
+
+/**
+ * The runner that loads one product module in a world where nothing outside `src/core/` exists,
+ * and the module this acceptance uses as its control — the partition's own composition file, which
+ * reaches the ingest module and the object store and therefore cannot load in such a world.
+ */
+export const CORE_ONLY_RUNNER = "tests/takeoff/partition/conventions/load-under-core-only.mts";
+export const IMPURE_CONTROL = "src/modules/takeoff/partition/rebuild.ts";
 
 /** The toolchain surfaces AC-3 drives (test contract). */
 export const METHOD_HASH_SCRIPT = "scripts/method-hashes.mjs";
@@ -179,6 +190,22 @@ export async function viewsResultOf(graph: unknown): Promise<ViewsResult> {
 export async function censusOfArtifact(graph: unknown): Promise<EntityCensus> {
   const { censusOf } = await censusDoor();
   return censusOf(graph, (await viewsResultOf(graph)).views);
+}
+
+/**
+ * Load one product module in a world where every specifier it asks for must resolve inside
+ * `src/core/` — the purity of a pure method, OBSERVED: the module's own import graph, seen through
+ * Node's resolver as it is really loaded (AC-2). A module that reaches out of core cannot load at
+ * all, and says which specifier took it out.
+ */
+export function loadsUnderCoreOnly(relative: string): { ok: boolean; said: string } {
+  const ran = spawnSync(join(REPO_ROOT, "node_modules", ".bin", "tsx"), [join(REPO_ROOT, CORE_ONLY_RUNNER), relative], {
+    cwd: REPO_ROOT,
+    env: { ...process.env },
+    encoding: "utf8",
+    timeout: 300_000,
+  });
+  return { ok: ran.status === 0, said: `${ran.stdout ?? ""}${ran.stderr ?? ""}` };
 }
 
 /* ------------------------------------------------------------------ a hand-authored artifact */

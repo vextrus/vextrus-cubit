@@ -7,12 +7,8 @@
  * spell out — `GRID`, `Tie`, `Blank` and the grammar ids are names in that data, and the resolver
  * is told nothing about what they mean.
  */
-import { readFileSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
 import { describe, expect, test } from "vitest";
-import { scanned } from "../../../support/source-lex";
-import { REPO_ROOT } from "../support/partition-stage";
-import { RESOLVE_MODULE, ROLES, resolveDoor, type ConventionProfile, type EntityCensus } from "../support/conventions-stage";
+import { IMPURE_CONTROL, RESOLVE_MODULE, ROLES, loadsUnderCoreOnly, resolveDoor, type ConventionProfile, type EntityCensus } from "../support/conventions-stage";
 
 /**
  * AC-1's census: five layers, each drawn so that exactly one kind of entity is the plurality, and
@@ -54,29 +50,8 @@ const SEEDS: readonly { what: string; seed: unknown }[] = [
   { what: "re-assigns a layer to another role", seed: { roles: { outlines: ["GRID"] } } },
 ];
 
-/** The imports a pure method over core types may make (AC-2): core through the alias, or a neighbour. */
-const CORE_ALIAS = "@/core/";
-const CORE_DIR = join("src", "core");
-
-/**
- * Every module specifier a file imports from, comments removed so a specifier written in prose is
- * not read as one.
- *
- * white-box: AC-2 — "imports only from `@/core/**` or relative paths inside `src/core/**`" is a
- * property of the file's own text: an import graph is not something a call can be made to observe
- * from outside, and a boundary crossed is a defect whether or not any test happens to run the line.
- */
-function specifiersOf(source: string): string[] {
-  let code = "";
-  for (const { char, mode } of scanned(source, "ts")) {
-    code += mode === "line" || mode === "block" ? (char === "\n" ? "\n" : " ") : char;
-  }
-  const found: string[] = [];
-  for (const match of code.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(["'])([^"']+)\1/g)) {
-    found.push(match[2] ?? "");
-  }
-  return found;
-}
+/** How long loading a module in a closed world may take. */
+const LOAD_BUDGET_MS = 300_000;
 
 describe("AC-1: a profile resolves from the census by geometry statistics", () => {
   test("AC-1: each layer takes the role of the kind that strictly outnumbers the other three, and a grammar that read a caption names views", async () => {
@@ -115,20 +90,18 @@ describe("AC-2: a seed corroborates and never acts", () => {
     });
   }
 
-  test("AC-2: the method is pure over core types — it imports nothing but core", async () => {
+  test("AC-2: the method is pure over core types — it loads in a world where nothing outside core exists", async () => {
     await resolveDoor();
-    const home = join(REPO_ROOT, RESOLVE_MODULE);
-    const core = join(REPO_ROOT, CORE_DIR);
-    const source = readFileSync(home, "utf8");
-    const foreign = specifiersOf(source).filter((specifier) => {
-      if (specifier.startsWith(CORE_ALIAS)) return false;
-      // A relative specifier is admitted only where it lands inside core: a neighbour of the method
-      // is core, and a path that climbs out of it is a module the method may not know (ARCH-01).
-      return !specifier.startsWith(".") || !resolve(dirname(home), specifier).startsWith(`${core}${sep}`);
-    });
+
+    // The control first: in this world a module that really does reach past core cannot load, so a
+    // silent pass below is a pass and not a probe that judges nothing (ARCH-01).
+    const control = loadsUnderCoreOnly(IMPURE_CONTROL);
+    expect(control.ok, `${IMPURE_CONTROL} reaches the ingest module and the object store, so a world closed to everything outside src/core must refuse it:\n${control.said.slice(-800)}`).toBe(false);
+
+    const loaded = loadsUnderCoreOnly(RESOLVE_MODULE);
     expect(
-      foreign,
-      `${RESOLVE_MODULE} is a pure method over core types: it may reach \`${CORE_ALIAS}**\` and its own neighbours in src/core, and nothing else (ARCH-01)`,
-    ).toEqual([]);
-  });
+      loaded.ok,
+      `${RESOLVE_MODULE} is a pure method over core types: loaded in a world where every specifier it asks for must resolve inside src/core, it comes up — a method that reached a module would not:\n${loaded.said.slice(-1200)}`,
+    ).toBe(true);
+  }, LOAD_BUDGET_MS);
 });

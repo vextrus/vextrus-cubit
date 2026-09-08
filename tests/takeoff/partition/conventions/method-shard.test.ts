@@ -8,11 +8,10 @@
  */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { deriveLanes } from "../../../../scripts/lib/lanes.mjs";
-import { REPO_ROOT } from "../support/partition-stage";
+import { REPO_ROOT, productModule } from "../support/partition-stage";
 import {
   METHOD_HASH_GREEN,
   METHOD_HASH_LANE,
@@ -33,16 +32,13 @@ type Declaration = { ruleId: string; version: string; law: string; module: strin
 type Manifest = { methods?: Record<string, Declaration>; digest?: string };
 
 /**
- * The manifest, parsed.
- *
- * white-box: AC-3 — the shard IS the artifact under test. It is a recorded declaration, not a
- * behaviour some call can be made to exhibit: what it says is exactly what the method-hash stage
- * reads, so the criterion is a statement about this file's own content.
+ * The manifest, loaded as the declaration it is — the shard is data the product publishes, and it
+ * is asked for by the same loader every other published surface is asked for by. Nothing here reads
+ * its text: what it SAYS is what the stage below is then made to verify.
  */
-function manifest(): Manifest {
-  const home = join(REPO_ROOT, METHOD_SHARD);
-  expect(existsSync(home), `${METHOD_SHARD} is missing from the checkout — the method is enumerated in a shard beside it (V-VERIFY's method-hash stage)`).toBe(true);
-  return JSON.parse(readFileSync(home, "utf8")) as Manifest;
+async function manifest(): Promise<Manifest> {
+  const loaded = await productModule<{ default?: Manifest } & Manifest>(METHOD_SHARD);
+  return loaded.default ?? loaded;
 }
 
 /** The digest the stage recomputes: every method id and its declaration, in code-point order. */
@@ -66,8 +62,8 @@ describe("AC-3: the method is enumerated, and its digest is recorded", () => {
     });
   });
 
-  test("AC-3: the shard enumerates that one method, and nothing else", () => {
-    const shard = manifest();
+  test("AC-3: the shard enumerates that one method, and nothing else", async () => {
+    const shard = await manifest();
     const methods = shard.methods ?? {};
     expect(Object.keys(methods), `${METHOD_SHARD} enumerates this increment's one method, keyed \`${METHOD_ID}\``).toEqual([METHOD_ID]);
     expect(methods[METHOD_ID], "and records what it is: the pair, the law it implements and the module that is it").toEqual({
@@ -78,8 +74,8 @@ describe("AC-3: the method is enumerated, and its digest is recorded", () => {
     });
   });
 
-  test("AC-3: the recorded digest is the digest of what the shard enumerates", () => {
-    const shard = manifest();
+  test("AC-3: the recorded digest is the digest of what the shard enumerates", async () => {
+    const shard = await manifest();
     expect(shard.digest, `${METHOD_SHARD} records the sha256 of its own methods — a declaration edited without re-recording it is the drift this stage exists to catch`).toBe(
       digestOf(shard.methods ?? {}),
     );
