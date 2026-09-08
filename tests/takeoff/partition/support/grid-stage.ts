@@ -69,6 +69,17 @@ export const AXIS_Y = "y";
 /** What a layout plan with no lawful bubble evidence georeferences as (test contract, L-CAD-07). */
 export const GRID_NO_BUBBLE_EVIDENCE = "GRID_NO_BUBBLE_EVIDENCE";
 
+/**
+ * How far one vertex of a ring may stand from the ring's mean radius, as a SHARE of that radius,
+ * before the ring is no longer "a circle" in L-CAD-07's sense. A circle crosses the seam flattened
+ * into a polygon (L-CAD-02), so its vertices are a rounding apart from exact, and the tolerance the
+ * settled reading fixes for that is relative rather than absolute.
+ *
+ * Declared once here and cited wherever this acceptance judges a ring round — a tolerance transcribed
+ * a second time is a second rule, and the two would drift apart at the next scenario (B-19).
+ */
+export const ROUNDNESS_TOLERANCE = 1e-6;
+
 /** The two captions the artifacts are drawn around, and the classes the grammar reads them as. */
 export const CAPTION_PLAN = "TYPICAL FLOOR PLAN";
 export const CAPTION_SCHEDULE = "COLUMN SCHEDULE";
@@ -400,17 +411,18 @@ function centroidOf(record: Drawn): [number, number] {
 }
 
 /**
- * Is this ring round? Every vertex stands the same distance from the centroid, and there are more
- * of them than a rectangle has — the square ring of `grid-plan` has four corners equidistant from
- * its own centre, so equidistance alone would read a square as a circle.
+ * Is this ring round? Every vertex stands the same distance from the centroid — the same distance to
+ * within `ROUNDNESS_TOLERANCE` of the ring's own mean radius, since a circle arrives flattened — and
+ * there are more of them than a rectangle has: the square ring of `grid-plan` has four corners
+ * equidistant from its own centre, so equidistance alone would read a square as a circle.
  */
 function isRound(record: Drawn): boolean {
   const points = record.points ?? [];
   if (points.length <= 4) return false;
   const centre = centroidOf(record);
   const radii = points.map((point) => Math.hypot((point[0] ?? 0) - centre[0], (point[1] ?? 0) - centre[1]));
-  const first = radii[0] ?? 0;
-  return first > 0 && radii.every((radius) => Math.abs(radius - first) <= 1e-9 * first);
+  const mean = radii.reduce((held, radius) => held + radius, 0) / radii.length;
+  return mean > 0 && radii.every((radius) => Math.abs(radius - mean) <= ROUNDNESS_TOLERANCE * mean);
 }
 
 /**
@@ -465,15 +477,25 @@ export function expectedGridRows(built: BuiltGridArtifact, within: readonly stri
 
   const positionOf = (bubble: Found): number => (axisOf.get(bubble.family) === AXIS_X ? bubble.centre[0] : bubble.centre[1]);
 
-  // The view's minimum grid spacing: the smallest gap between consecutive distinct per-label
-  // positions of any family carrying two or more labels.
+  // The view's minimum grid spacing. A spacing is the distance BETWEEN AXES of one family, and an
+  // axis is named by its label (compared dotless and uppercase) — so a family georeferences a spacing
+  // only where it carries two or more DISTINCT labels, however many bubbles or positions it draws,
+  // and the spacing is the least non-zero distance between the positions of two different labels of
+  // that family (L-CAD-07, L-MEA-01). Two bubbles saying the same label are one axis bubbled at both
+  // ends, which is ordinary drafting: the width of an axis is not a spacing between axes.
   let minSpacing = Number.POSITIVE_INFINITY;
   for (const family of axisOf.keys()) {
-    const positions = [...new Set(found.filter((bubble) => bubble.family === family).map((bubble) => positionOf(bubble)))].sort((left, right) => left - right);
-    if (positions.length < 2) continue;
-    for (let index = 1; index < positions.length; index += 1) minSpacing = Math.min(minSpacing, positions[index]! - positions[index - 1]!);
+    const members = found.filter((bubble) => bubble.family === family);
+    if (new Set(members.map((bubble) => bubble.label)).size < 2) continue;
+    for (const one of members) {
+      for (const other of members) {
+        if (one.label === other.label) continue;
+        const gap = Math.abs(positionOf(one) - positionOf(other));
+        if (gap > 0) minSpacing = Math.min(minSpacing, gap);
+      }
+    }
   }
-  if (!Number.isFinite(minSpacing)) return [];
+  if (!(minSpacing > 0) || !Number.isFinite(minSpacing)) return [];
 
   return found.map((bubble) => ({
     family: bubble.family,
