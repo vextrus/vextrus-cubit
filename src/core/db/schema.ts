@@ -14,7 +14,7 @@ import type { SourceScheme } from "../model";
 import { DEFAULT_DENSITY, DENSITIES, type Density } from "../prefs/density";
 import { BUILDING_TYPES, type BuildingType } from "../projects";
 import { DISCIPLINES, type Discipline } from "../sheets/law";
-import { FACTOR_PATTERN, SCALE_RANKS, type ScaleRank } from "../scale/law";
+import { FACTOR_MINIMUM, FACTOR_PATTERN, SCALE_RANKS, type ScaleRank } from "../scale/law";
 import type { EditionParameter, EditionScope, MethodPair } from "../rulesets/editions/content";
 import type { ConventionProfile, EntityCensus } from "../rulesets/methods/conventions/resolve";
 import { closedList } from "./sql";
@@ -1181,12 +1181,6 @@ export const drawingSetRevisions = pgTable(
 );
 
 /**
- * A calibration's content address: sha-256, lowercase hex — the shape `calibrationKey` mints
- * (L-MEA-05), closed here so the column cannot hold a key nothing computed.
- */
-const CALIBRATION_KEY_PATTERN = "^[0-9a-f]{64}$";
-
-/**
  * L-MEA-05's affirmation act, stored: "Scale is established by affirmation acts, each naming the
  * views it covers (a scale group is the subject set of one act), the rank it stood on and the source
  * keys under it." One row per AFFIRM_SCALE act, carrying the act that wrote it (L-ACT-01: the act row
@@ -1256,10 +1250,11 @@ export const calibrations = pgTable(
   },
   (table) => [
     primaryKey({ name: "calibrations_key", columns: [table.tenantId, table.key] }),
-    check("calibrations_key_shape", statement`${table.key} ~ ${statement.raw(`'${CALIBRATION_KEY_PATTERN}'`)}`),
-    // A factor is spoken in exactly one rendering, and it is a positive quantity of metres.
-    check("calibrations_factor_x_shape", statement`${table.factorX} ~ ${statement.raw(`'${FACTOR_PATTERN}'`)} and ${table.factorX}::numeric > 0`),
-    check("calibrations_factor_y_shape", statement`${table.factorY} ~ ${statement.raw(`'${FACTOR_PATTERN}'`)} and ${table.factorY}::numeric > 0`),
+    // A factor is spoken in exactly one rendering, and it is a positive quantity of metres: at
+    // least the least factor that rendering speaks, stated in the rendering and read as the
+    // number it says (the key needs no CHECK of its own — `calibrationKey` is its one minting home).
+    check("calibrations_factor_x_shape", statement`${table.factorX} ~ ${statement.raw(`'${FACTOR_PATTERN}'`)} and ${table.factorX}::numeric >= ${statement.raw(`'${FACTOR_MINIMUM}'`)}::text::numeric`),
+    check("calibrations_factor_y_shape", statement`${table.factorY} ~ ${statement.raw(`'${FACTOR_PATTERN}'`)} and ${table.factorY}::numeric >= ${statement.raw(`'${FACTOR_MINIMUM}'`)}::text::numeric`),
     // The read the scale door makes: every calibration of one record.
     index("calibrations_by_ingest").on(table.tenantId, table.ingestId),
     index("calibrations_by_drawing").on(table.tenantId, table.drawingId),

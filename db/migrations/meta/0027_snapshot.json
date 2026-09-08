@@ -2865,17 +2865,13 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
-        "calibrations_key_shape": {
-          "name": "calibrations_key_shape",
-          "value": "\"calibrations\".\"key\" ~ '^[0-9a-f]{64}$'"
-        },
         "calibrations_factor_x_shape": {
           "name": "calibrations_factor_x_shape",
-          "value": "\"calibrations\".\"factor_x\" ~ '^[0-9]+\\.[0-9]{12}$' and \"calibrations\".\"factor_x\"::numeric > 0"
+          "value": "\"calibrations\".\"factor_x\" ~ '^[0-9]+\\.[0-9]{12}$' and \"calibrations\".\"factor_x\"::numeric >= '0.000000000001'::text::numeric"
         },
         "calibrations_factor_y_shape": {
           "name": "calibrations_factor_y_shape",
-          "value": "\"calibrations\".\"factor_y\" ~ '^[0-9]+\\.[0-9]{12}$' and \"calibrations\".\"factor_y\"::numeric > 0"
+          "value": "\"calibrations\".\"factor_y\" ~ '^[0-9]+\\.[0-9]{12}$' and \"calibrations\".\"factor_y\"::numeric >= '0.000000000001'::text::numeric"
         }
       },
       "isRLSEnabled": false

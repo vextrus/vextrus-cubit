@@ -10,9 +10,8 @@ CREATE TABLE "calibrations" (
 	"act_id" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "calibrations_key" PRIMARY KEY("tenant_id","key"),
-	CONSTRAINT "calibrations_key_shape" CHECK ("calibrations"."key" ~ '^[0-9a-f]{64}$'),
-	CONSTRAINT "calibrations_factor_x_shape" CHECK ("calibrations"."factor_x" ~ '^[0-9]+\.[0-9]{12}$' and "calibrations"."factor_x"::numeric > 0),
-	CONSTRAINT "calibrations_factor_y_shape" CHECK ("calibrations"."factor_y" ~ '^[0-9]+\.[0-9]{12}$' and "calibrations"."factor_y"::numeric > 0)
+	CONSTRAINT "calibrations_factor_x_shape" CHECK ("calibrations"."factor_x" ~ '^[0-9]+\.[0-9]{12}$' and "calibrations"."factor_x"::numeric >= '0.000000000001'::text::numeric),
+	CONSTRAINT "calibrations_factor_y_shape" CHECK ("calibrations"."factor_y" ~ '^[0-9]+\.[0-9]{12}$' and "calibrations"."factor_y"::numeric >= '0.000000000001'::text::numeric)
 );
 --> statement-breakpoint
 CREATE TABLE "scale_affirmations" (

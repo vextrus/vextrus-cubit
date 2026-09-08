@@ -95,6 +95,13 @@ export const FACTOR_PATTERN = `^[0-9]+\\.[0-9]{${FACTOR_PLACES}}$`;
 const FACTOR_SHAPE = new RegExp(FACTOR_PATTERN);
 
 /**
+ * The least factor the rendering can speak: one unit in the twelfth place. A factor is a positive
+ * quantity of metres, and at 12 places "positive" means "at least this" — the bound the seam and the
+ * store's CHECK both hold a factor to, spelled in the rendering itself (B-17).
+ */
+export const FACTOR_MINIMUM = `0.${"0".repeat(FACTOR_PLACES - 1)}1`;
+
+/**
  * The arithmetic every factor is rendered through: exact decimals at a precision no chain of one
  * multiply and one divide reaches, rounded half to even at the twelfth place as the last step and
  * nowhere earlier. A double would lose the twelfth place a factor is rendered to (B-07).
@@ -119,7 +126,7 @@ export function renderFactor(value: DecimalValue): string {
  * — one rendering, one reading — and "0.001" or a whole "1" is not a factor string at all.
  */
 export function isFactorString(value: string): boolean {
-  return FACTOR_SHAPE.test(value) && exact(value).gt(0);
+  return FACTOR_SHAPE.test(value) && exact(value).gte(FACTOR_MINIMUM);
 }
 
 /** The two factors a view is scaled by, one per axis, never averaged (L-MEA-05). */

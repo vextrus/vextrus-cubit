@@ -4,6 +4,7 @@
 // stands beside it (./store, ./tolerances, ./evidence) and is reached by the act seam and the takeoff
 // door by name, so the law stays a law (ARCH-02, B-17).
 export {
+  FACTOR_MINIMUM,
   FACTOR_PATTERN,
   FACTOR_PLACES,
   QS_TWO_POINT,
