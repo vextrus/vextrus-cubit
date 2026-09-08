@@ -20,10 +20,9 @@ const PANEL_MAX = 40;
 
 export type ViewerStageProps = {
   panel: LayersPanelProps;
-  /** The views/grid section, docked under the layers list in the one left column (I-110). */
-  partition: ReactNode;
-  /** The overlay canvas, laid over the sheet and reached by nothing (I-112). */
-  overlay: ReactNode;
+  /** The views/grid region: its section docks under the layers list in the one left column (I-110)
+      and its canvas lies over the sheet, reached by nothing (I-112). */
+  partition: { panel: ReactNode; canvas: ReactNode };
   pointer: UsePointer;
   inspector: InspectorPanelProps;
   onKeyDown: (event: ReactKeyboardEvent<HTMLCanvasElement>) => void;
@@ -38,7 +37,7 @@ export type ViewerStageProps = {
   onZoom: (factor: number) => void;
 };
 
-export function ViewerStage({ panel, partition, overlay, pointer, inspector, onKeyDown, stageRef, canvasRef, sheetName, drawable, probed, renderer, onFit, onZoom }: ViewerStageProps) {
+export function ViewerStage({ panel, partition, pointer, inspector, onKeyDown, stageRef, canvasRef, sheetName, drawable, probed, renderer, onFit, onZoom }: ViewerStageProps) {
   return (
     /* Every panel carries a stable id and order, so a layout stored by another build's group no
        longer matches this group and is dropped rather than misapplied (Decision § 1). */
@@ -48,7 +47,7 @@ export function ViewerStage({ panel, partition, overlay, pointer, inspector, onK
       <ResizablePanel id="viewer-layers-panel" order={1} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
         <div className="cx-viewer-left-stack">
           <LayersPanel {...panel} />
-          {partition}
+          {partition.panel}
         </div>
       </ResizablePanel>
       <ResizableHandle />
@@ -80,7 +79,7 @@ export function ViewerStage({ panel, partition, overlay, pointer, inspector, onK
             onPointerLeave={pointer.clearHover}
             onKeyDown={onKeyDown}
           />
-          {overlay}
+          {partition.canvas}
           {/* The rectangle follows the pointer untweened and is written straight onto the element:
               sixty renders a second of the panel and the readout is what a marquee must not cost
               (PB-3). Its geometry is pointer data, not a style — the look is the stylesheet's. */}

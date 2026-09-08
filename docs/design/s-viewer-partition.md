@@ -5,7 +5,11 @@ layers panel in the left stack, and a paint-only overlay canvas above the WebGL 
 unchanged (`/t/{tenant}/p/{project}/viewer/{drawing}/{layout}`, `?v=`, `?s=`); the feed gains
 `?part=partition`. Files: `src/modules/takeoff/viewer-partition-overlay/{types.ts,server.ts,scene.ts,
 paint.ts,groups.ts,use-partition-overlay.ts,partition-panel.tsx,copy.ts}`, the route's
-`viewer-stage.tsx` / `viewer-screen.tsx` / `viewer.css` / `loading.tsx` / `partition-actions.ts`, the
+`viewer-stage.tsx` / `viewer-screen.tsx` / `viewer.css` / `loading.tsx` / `partition-actions.ts` /
+`partition-region.tsx` — the last being the region's own composition, which holds everything the
+module may not reach under ARCH-01 (the one OfferedGroups, RefusalState and ConsequenceDialog, the
+string table, and the addresses a refusal's evidence promises) and keeps `viewer-screen.tsx` the
+composition of hooks its own acceptance caps it at — the
 stylesheet `viewer-partition.css` beside the panel, copy home `src/ui/strings/viewer-partition.ts`.
 Increment inc-203-views-grid-overlay. Law: R-TO-014, L-CAD-06/07, L-ACT-02, R-UI-020/021/023/
 001/003/004/005/012/030/040/043/050/060, J-021, B-17, B-19, B-20, C-05, Q-11.

@@ -17,10 +17,9 @@
  */
 import "./viewer.css";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { REFUSALS, refusalOf, type RefusalCode } from "@/core/errors";
-import type { ViewGroupKey } from "@/core/acts";
+import { REFUSALS } from "@/core/errors";
 import type { Camera, RenderLayer, ViewerHead } from "@/modules/takeoff/viewer";
 import type { Painter } from "@/modules/takeoff/viewer/painter";
 import { createSheetFacts, learn } from "@/modules/takeoff/viewer/hooks/facts";
@@ -33,31 +32,17 @@ import { usePainter } from "@/modules/takeoff/viewer/hooks/use-painter";
 import { usePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
 import { useReveal } from "@/modules/takeoff/viewer/hooks/use-reveal";
 import { useSelection } from "@/modules/takeoff/viewer/hooks/use-selection";
-import { offeredViewGroups } from "@/modules/takeoff/viewer-partition-overlay/groups";
-import { PartitionPanel } from "@/modules/takeoff/viewer-partition-overlay/partition-panel";
-import { overlayScene, sceneCounts } from "@/modules/takeoff/viewer-partition-overlay/scene";
-import { usePartitionOverlay, useOverlayPaint } from "@/modules/takeoff/viewer-partition-overlay/use-partition-overlay";
-import type { OverlayToggles } from "@/modules/takeoff/viewer-partition-overlay/types";
-import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
-import { OfferedGroups } from "@/ui/patterns/offered-group";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { shellHref } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
 import { projectHomeRoute } from "@/app/(app)/t/[tenant]/p/[project]/home/areas";
-import { participantsRoute } from "@/app/(app)/t/[tenant]/p/[project]/settings/participants/route-address";
 import { publishViewport } from "./address";
 import { FidelityFacts } from "./fidelity-facts";
-import { commitConfirmViewType, previewConfirmViewType, type CommitAnswer, type PreviewAnswer } from "./partition-actions";
+import { usePartitionRegion } from "./partition-region";
 import { SheetBones } from "./viewer-bones";
-import { layoutNameOf, viewerSheetRoute } from "./route-address";
+import { layoutNameOf } from "./route-address";
 import { StatusLine } from "./status-line";
 import { ViewerStage } from "./viewer-stage";
-
-/** The act the views/grid panel renders — a machine identifier the dialog shows and never translates. */
-const CONFIRM_VIEW_TYPE = "CONFIRM_VIEW_TYPE";
-
-/** Both switches are on at every mount — nothing about them is persisted (Decision § 8's IOU). */
-const BOTH_ON: OverlayToggles = { views: true, grid: true };
 
 /** What the route hands the screen. `head` is supplied only where a mount is judged without a server. */
 export type ViewerScreenProps = {
@@ -77,8 +62,6 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const [denied, setDenied] = useState<number | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  /** The overlay's own canvas: paint over the sheet, out of the pointer's reach (Decision I-112). */
-  const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const statusRef = useRef<HTMLDivElement | null>(null);
   const painterRef = useRef<Painter | null>(null);
@@ -133,26 +116,11 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const layers = useLayers({ head: sheet.head });
   failedSink.current = layers.markFailed;
 
-  /**
-   * The stored partition of this sheet, asked for once the head is a manifest (R-UI-043: the feed
-   * answers it after the manifest cache is warm, so a cold sheet's first paint is never delayed by
-   * a reading of the store). A door that refuses this reader is the screen's ONE refusal, told apart
-   * from a partition that could not be read and from a drawing nobody has partitioned (ARCH-03).
-   */
-  const [toggles, setToggles] = useState<OverlayToggles>(BOTH_ON);
-  const partition = usePartitionOverlay({ feed, enabled: sheet.head?.kind === "manifest", onDenied: setDenied });
-  const overlay = useOverlayPaint({ canvasRef: overlayRef, stageRef, cameraRef, overlay: partition.overlay, toggles });
-
-  // Every sheet frame paints the overlay again, at the very camera the sheet was drawn at: the
-  // outline is data and never tweens, so a toggle, a camera move and a confirmation all land on the
-  // next frame (Decision I-112, § 4).
-  const draw = useCallback(
-    (at: Camera): void => {
-      painterRef.current?.draw(at, layers.stateRef.current);
-      overlay.paintOverlay(at);
-    },
-    [layers.stateRef, overlay],
-  );
+  /** Where the views/grid region files its paint, so every sheet frame paints the overlay again at
+      the camera the sheet was drawn at (I-112, § 4). The region is composed below, off the camera
+      this draw publishes, so the frame reaches it through a ref and not a dependency (PB-3). */
+  const overlayPaint = useRef<((at: Camera) => void) | null>(null);
+  const draw = useCallback((at: Camera): void => { painterRef.current?.draw(at, layers.stateRef.current); overlayPaint.current?.(at); }, [layers.stateRef]);
   const pulse = useCallback((durationMs: number): void => void painterRef.current?.pulse(durationMs), []);
 
   const camera = useCamera({ head: sheet.head, initialViewport, stageRef, cameraRef, draw, publish, ownPathname, sheetKey: `${drawingId}/${layoutName}` });
@@ -163,93 +131,10 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const keyboard = useKeyboard({ moveCamera: camera.moveCamera, zoomBy: camera.zoomBy, fitSheet: camera.fitSheet, hold: held.hold });
   const paint = usePainter({ head: sheet.head, refused: denied !== null, canvasRef, stageRef, statusRef, painterRef, stateRef: layers.stateRef, cameraRef, layers: arrived, facts, loadedLayers: sheet.loadedLayers, drawnLayers: layers.drawnLayers, selection: held.selection, hovered: pointer.hovered });
 
-  /**
-   * What the overlay canvas publishes after a frame. It is read off the scene the panel's data
-   * computed rather than off the paint: a count that waited on a 2D context would be a count no
-   * reader and no journey could rely on (Decision § 1).
-   */
-  const overlayCounts = useMemo(() => {
-    const held = partition.overlay;
-    const at = camera.camera;
-    return held === null || at === null ? null : sceneCounts(overlayScene(held, toggles, at));
-  }, [camera.camera, partition.overlay, toggles]);
-
-  /** L-ACT-02's offer, derived from the views the partition carries — never assembled by a reader. */
-  const offered = useMemo(() => (partition.overlay === null ? [] : offeredViewGroups(partition.overlay.views, drawingId)), [drawingId, partition.overlay]);
-
-  /** The group a dialog is open over, the door's answer, and the notice a press offline leaves. */
-  const [confirming, setConfirming] = useState<ViewGroupKey | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [actRefusal, setActRefusal] = useState<RefusalCode | null>(null);
-  const [offlineNotice, setOfflineNotice] = useState(false);
-
-  /** Where a refusal of the confirm door is resolved — the address the label promises (R-UI-020). */
-  const evidenceFor = useCallback(
-    (code: RefusalCode): { href: string; label: string } => {
-      if (code === "PERMISSION_NOT_HELD" || code === "WORKSPACE_PERMISSION_NOT_HELD")
-        return { href: participantsRoute(tenantId, projectId), label: strings.viewer_partition_evidence_participants };
-      if (code === "SIGNED_OUT") return { href: "/sign-in", label: strings.shell_evidence_sign_in };
-      return { href: viewerSheetRoute(tenantId, projectId, drawingId, sheetName), label: strings.viewer_partition_evidence_reload };
-    },
-    [drawingId, projectId, sheetName, tenantId],
-  );
-
-  /** The rejection shape the one dialog resolves a refusal from (consequence-dialog I-40). */
-  const refusedAnswer = useCallback((code: RefusalCode): unknown => ({ refusal: refusalOf(code), evidence: evidenceFor(code) }), [evidenceFor]);
-
-  const dialogPreview = useCallback(async () => {
-    if (confirming === null) throw new Error("the consequence dialog was opened with no group to preview");
-    const answered: PreviewAnswer = await previewConfirmViewType({ projectId, group: confirming });
-    if (!answered.previewed) throw refusedAnswer(answered.refusal);
-    return { consequence: answered.consequence, consequenceDigest: answered.consequenceDigest };
-  }, [confirming, projectId, refusedAnswer]);
-
-  const dialogCommit = useCallback(
-    async ({ consequenceDigest }: { consequenceDigest: string }) => {
-      if (confirming === null) throw new Error("the consequence dialog committed with no group to carry");
-      const answered: CommitAnswer = await commitConfirmViewType({ projectId, group: confirming, consequenceDigest });
-      if (!answered.committed) throw refusedAnswer(answered.refusal);
-      return { actId: answered.actId };
-    },
-    [confirming, projectId, refusedAnswer],
-  );
-
-  /** Whether a press is already at the door — a second one while it is open asks nothing twice. */
-  const pressing = useRef(false);
-
-  /**
-   * A door pressed: offline is judged first (s-drawings I-89), then the pre-check, then the dialog
-   * on a consequence and only on one (participants I-49, Decision § 1). A refusal of the preview is
-   * this region's answer — it renders in the answer slot beside the offer, and where it is
-   * `PERMISSION_NOT_HELD` the offer itself gives way to the denial (Decision § 2).
-   */
-  const pressGroup = useCallback(
-    async (key: ViewGroupKey): Promise<void> => {
-      if (pressing.current) return;
-      setActRefusal(null);
-      setOfflineNotice(false);
-      // Reading a partition writes nothing, so the panel carries no offline banner; "read-only" binds
-      // the one act, and a confirm pressed with no connection opens no dialog at all (Decision § 2).
-      if (typeof navigator !== "undefined" && navigator.onLine === false) {
-        setOfflineNotice(true);
-        return;
-      }
-      pressing.current = true;
-      try {
-        const answered: PreviewAnswer = await previewConfirmViewType({ projectId, group: key });
-        if (!answered.previewed) {
-          setActRefusal(answered.refusal);
-          return;
-        }
-        setConfirming(key);
-        setDialogOpen(true);
-      } finally {
-        pressing.current = false;
-      }
-    },
-    [projectId],
-  );
-
+  /** The views/grid region — the partition stored for this sheet, the paint it files above, and the one act
+      door behind them — asked for only once the head is a manifest (R-UI-043). A door that refuses this
+      reader lands in the screen's ONE refusal below, never in this region's own words (ARCH-03). */
+  const partition = usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", onDenied: setDenied, camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaint });
   // A head that cannot be read at all is the error state and nothing else: it is raised into the
   // render, where the root error boundary — the tree's one home for a fault — takes it (I-81).
   if (sheet.failure !== null) throw sheet.failure;
@@ -269,61 +154,6 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       : denied === null
         ? null
         : { refusal: REFUSALS.WORKSPACE_PERMISSION_NOT_HELD, evidence: { href: shellHref(tenantId, "projects"), label: strings.shell_denied_evidence } };
-
-  /**
-   * The views/grid panel, docked under the layers list. The offer, the refusal and the dialog are
-   * mounted HERE and handed in as slots: the panel lives in `src/modules`, which may not import
-   * `src/ui` (ARCH-01), and there is exactly one OfferedGroups and one RefusalState (B-17).
-   *
-   * A reader without MEASURE keeps every row, every axis and the whole overlay — knowledge is not
-   * permission (s-drawings I-90) — and loses only the door, with the register's own denial in its
-   * place (Decision § 2).
-   */
-  const partitionRegion = (
-    <PartitionPanel
-      state={partition.phase}
-      overlay={partition.overlay}
-      toggles={toggles}
-      onToggle={(which, on) => setToggles((held) => ({ ...held, [which]: on }))}
-      onRetry={partition.retry}
-      faultId={partition.faultId}
-      groups={
-        actRefusal === "PERMISSION_NOT_HELD" ? (
-          <>
-            <p className="cx-viewer-partition-denied">{strings.viewer_partition_denied_permission}</p>
-            <p className="cx-viewer-partition-denied">{strings.viewer_partition_denied_holder}</p>
-          </>
-        ) : (
-          <OfferedGroups groups={offered} onConfirm={(key) => void pressGroup(key)} />
-        )
-      }
-      answer={
-        offlineNotice ? (
-          <p className="cx-viewer-partition-notice" role="alert">
-            {strings.viewer_partition_offline}
-          </p>
-        ) : actRefusal === null ? null : (
-          <RefusalState refusal={refusalOf(actRefusal)} evidence={evidenceFor(actRefusal)} />
-        )
-      }
-    />
-  );
-
-  /* The overlay canvas mounts only once there is a partition to paint, and publishes what the scene
-     holds so a journey reads what the machine sees rather than counting pixels (Decision § 1). */
-  const overlayCanvas =
-    partition.overlay === null || overlayCounts === null ? null : (
-      <canvas
-        className="cx-viewer-partition-canvas"
-        data-testid="viewer-partition-canvas"
-        aria-hidden="true"
-        ref={overlayRef}
-        data-outlines={String(overlayCounts.outlines)}
-        data-hatched={String(overlayCounts.hatched)}
-        data-axes={String(overlayCounts.axes)}
-        data-bubbles={String(overlayCounts.bubbles)}
-      />
-    );
 
   const workArea = (): ReactNode => {
     if (feedRefusal !== null) {
@@ -364,8 +194,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
 
     return (
       <ViewerStage
-        partition={partitionRegion}
-        overlay={overlayCanvas}
+        partition={partition}
         panel={{
           rows: layers.rows,
           onVisible: layers.setVisible,
@@ -413,20 +242,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         renderer={paint.renderer}
         partial={layers.rows.some((row) => row.failed)}
       />
-      {/* R-UI-021's one act pattern: the typed consequence the server computed, the digest it is
-          bound to, and the confirm that carries it. On a commit the feed is re-read — the emptied
-          group and the rows' new lines are the visible answer, and there is no toast. */}
-      <ConsequenceDialog
-        open={dialogOpen}
-        actType={CONFIRM_VIEW_TYPE}
-        preview={dialogPreview}
-        commit={dialogCommit}
-        onOpenChange={setDialogOpen}
-        onCommitted={() => {
-          setConfirming(null);
-          partition.retry();
-        }}
-      />
+      {partition.dialog}
     </div>
   );
 }
