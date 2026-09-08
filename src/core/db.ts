@@ -59,6 +59,8 @@ export {
   drawingSetRevisions,
   scaleAffirmations,
   calibrations,
+  workItems,
+  bears,
   SEAM_SCHEMA,
 } from "./db/schema";
 export { isAcceptedFormat } from "./db/schema";
