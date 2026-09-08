@@ -175,9 +175,19 @@ describe("AC-2: the catalogue consts are total and consistent", () => {
       expect(ELEMENT_TYPES, `BEARS names the class ${JSON.stringify(row.class)}, which must be a member of ELEMENT_TYPES`).toContain(row.class);
       expect(KINDS, `BEARS names the kind ${JSON.stringify(row.kind)}, which must be a member of KINDS`).toContain(row.kind);
     }
-    expect(rowSet(BEARS.map((row) => ({ class: row.class, kind: row.kind }))), "at M2 a column bears rcc.concrete (F-RCC6)").toContain(
-      normalisedRow({ class: COLUMN, kind: RCC_CONCRETE }),
-    );
+    // The per-kind bearer rule, not a count of the table. F-RCC6 fixes the column as the ONE class
+    // that bears cast concrete, so the classes BEARS pairs with this kind are exactly that one and
+    // every other element class is unborne FOR IT: a second bearer would have the same concrete
+    // measured twice, and no bearer would leave it unmeasured. Asking BEARS only whether it holds
+    // the column row would let a table that made every class bear rcc.concrete pass, and comparing
+    // UNBORNE against BEARS alone is true of any such table by construction.
+    //
+    // Scoped to rcc.concrete's own bearers, never to the whole table, so a later increment that
+    // gives another kind its bearing classes is not reddened here (B-19).
+    expect(
+      byCodePoint(setOf(BEARS.filter((row) => row.kind === RCC_CONCRETE).map((row) => String(row.class)))),
+      `the column is the only class that bears ${RCC_CONCRETE} — every other element class is unborne for it (F-RCC6, L-MEA-04)`,
+    ).toEqual([COLUMN]);
   });
 
   test("AC-2: UNBORNE is exactly the element classes BEARS does not name", async () => {
