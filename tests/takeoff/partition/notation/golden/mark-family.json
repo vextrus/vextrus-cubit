@@ -1,0 +1,20 @@
+{
+  "parser": "isMarkFamily",
+  "why": "AC-6: a mark cell names a member, and a note, a dash, a header or a dimension never does — noise is never a family.",
+  "cases": [
+    { "input": "C1", "expect": true },
+    { "input": "C-1", "expect": true },
+    { "input": "c1.", "expect": true },
+    { "input": "C 1", "expect": true },
+    { "input": "C1A", "expect": true },
+    { "input": "SW1", "expect": true },
+    { "input": "FB-2", "expect": true },
+    { "input": "SEE NOTE 3", "expect": false },
+    { "input": "-", "expect": false },
+    { "input": "NOTE:", "expect": false },
+    { "input": "MARK", "expect": false },
+    { "input": "12\"x15\"", "expect": false },
+    { "input": "8-16Ø", "expect": false },
+    { "input": "", "expect": false }
+  ]
+}

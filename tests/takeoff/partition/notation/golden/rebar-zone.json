@@ -1,0 +1,20 @@
+{
+  "parser": "rebarZoneOfHeader",
+  "why": "AC-6: which of the four rebar zones a column header names, and none for a header that names something else.",
+  "cases": [
+    { "input": "MAIN BAR", "expect": "main" },
+    { "input": "MAIN REINF.", "expect": "main" },
+    { "input": "LONGITUDINAL BAR", "expect": "main" },
+    { "input": "VERTICAL BAR", "expect": "main" },
+    { "input": "TIES", "expect": "ties" },
+    { "input": "STIRRUPS", "expect": "ties" },
+    { "input": "LINKS", "expect": "ties" },
+    { "input": "LATERAL TIES", "expect": "ties" },
+    { "input": "TIES END ZONE", "expect": "ties-end" },
+    { "input": "TIES (END ZONE)", "expect": "ties-end" },
+    { "input": "TIES MID ZONE", "expect": "ties-mid" },
+    { "input": "TIES (MID ZONE)", "expect": "ties-mid" },
+    { "input": "MARK", "expect": null },
+    { "input": "GF TO 3RD", "expect": null }
+  ]
+}
