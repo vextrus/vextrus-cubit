@@ -12,15 +12,15 @@
      the sheet region shrink. The readout is the row R-UI-030 requires a reader to be able to read. */
   grid-template-rows: minmax(0, 1fr) auto;
   margin: calc(var(--space-6) * -1);
-  /* The frame states its own height rather than inheriting one: the shell is `min-height: 100dvh`
-     with auto rows, so every ancestor height above here is INDEFINITE the moment the screen's own
-     content is taller than the viewport — and then `height: 100%` on the sheet canvas falls back to
-     the canvas's intrinsic size, which the painter writes from its own `clientHeight`. That round
-     trip rounds up by a pixel a frame and the sheet grows without bound (I-78: the sheet is sized by
-     the frame, never the frame by the sheet). Stating the height breaks the cycle: it is the shell's
-     content row — the viewport less the topbar — and the negative margin above bleeds main's padding
-     back, so the frame lands exactly where `calc(100% + var(--space-6) * 2)` landed when the chain
-     did resolve. `--space-12` is the topbar's own height token (src/ui/shell/shell.css). */
+  /* The frame states its own height rather than inheriting one. `height: 100%` here rested on a
+     chain that never pins a height: the shell is `min-height: 100dvh` with auto rows, so the frame's
+     percentage falls back to its own content — and its content is the sheet canvas, whose element
+     size the painter writes from its `clientHeight`. The frame then sizes to the canvas and the
+     canvas to the frame, a round trip that gains a pixel a frame and grows without bound while a
+     partitioned sheet stands open (I-78: the sheet is sized by the frame, never the frame by the
+     sheet). Stating the height cuts the loop: the frame is the shell's content row — the viewport
+     less the topbar, `--space-12` being the topbar's own height token (src/ui/shell/shell.css) —
+     and the negative margin above bleeds shell-main's padding back over it. */
   height: calc(100dvh - var(--space-12));
   min-height: 0;
   overflow: hidden;
