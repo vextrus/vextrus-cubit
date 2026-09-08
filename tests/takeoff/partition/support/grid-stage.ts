@@ -201,15 +201,34 @@ const PLAN_BUBBLES: readonly BubbleSpec[] = [
   { text: "2", centre: [-30, -25], radius: RADIUS, vertices: VERTICES, round: true },
 ];
 
+/**
+ * The five lawful bubbles of the SECOND layout plan `grid-plan` draws — the same rule read the other
+ * way round: its letters spread along y and its numerals along x.
+ *
+ * A family georeferences along the world axis ITS OWN BUBBLES spread along (L-CAD-07, per-view), which
+ * is a rule no drawing where the letters always run across the sheet can tell apart from the habit
+ * `letter → x, numeral → y`. This view is drawn transposed so that the two readings disagree, and its
+ * own minimum spacing (30) is not the first plan's (15) so that a spacing taken over the whole drawing
+ * rather than over the view disagrees too.
+ */
+const TRANSPOSED_BUBBLES: readonly BubbleSpec[] = [
+  { text: "f.", centre: [1170, -20], radius: RADIUS, vertices: VERTICES, round: true },
+  { text: "G", centre: [1170, -60], radius: RADIUS, vertices: VERTICES, round: true },
+  { text: "h", centre: [1170, -90], radius: RADIUS, vertices: VERTICES, round: true },
+  { text: "7", centre: [1210, -120], radius: RADIUS, vertices: VERTICES, round: true },
+  { text: "8", centre: [1250, -120], radius: RADIUS, vertices: VERTICES, round: true },
+];
+
 /** The two lawful bubbles the `grid-schedule-bubbles` artifact draws inside its SCHEDULE view. */
 const SCHEDULE_BUBBLES: readonly BubbleSpec[] = [
   { text: "A", centre: [600, -30], radius: RADIUS, vertices: VERTICES, round: true },
   { text: "B", centre: [620, -30], radius: RADIUS, vertices: VERTICES, round: true },
 ];
 
-/** Where each caption stands. Far enough apart that no caption reaches the other's cluster. */
+/** Where each caption stands. Far enough apart that no caption reaches another's cluster. */
 const PLAN_AT: [number, number] = [0, 0];
 const SCHEDULE_AT: [number, number] = [600, 0];
+const TRANSPOSED_AT: [number, number] = [1200, 0];
 
 /** The opaque layer names `grid-plan-renamed` re-draws the same artifact on (AC-5, held out). */
 const OPAQUE: Readonly<Record<string, string>> = Object.freeze({
@@ -230,8 +249,8 @@ export type BuiltGridArtifact = {
   graph: Record<string, JsonValue>;
   /** Every ORIGINAL record, model space and paper alike. */
   originals: readonly Drawn[];
-  /** The key of the caption entity anchoring each view, by the words the caption says. */
-  anchorOf: ReadonlyMap<string, string>;
+  /** The keys of the caption entities anchoring a view, by the words those captions say. */
+  anchorOf: ReadonlyMap<string, readonly string[]>;
   /** The keys of the three things AC-1 names as standing outside the grid; null where undrawn. */
   excluded: { pairedRing: string | null; looseLabel: string | null; squareRing: string | null };
   /** Every model-space layer the artifact draws on, in code-point order. */
@@ -250,7 +269,7 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
   let ordinal = 0;
   const next = (): string => handle(base + (ordinal += 1));
   const originals: Drawn[] = [];
-  const anchorOf = new Map<string, string>();
+  const anchorOf = new Map<string, string[]>();
   const excluded: BuiltGridArtifact["excluded"] = { pairedRing: null, looseLabel: null, squareRing: null };
 
   /** The layer a record is drawn on — opaque where the renamed scenario re-draws the same artifact. */
@@ -258,7 +277,7 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
 
   const caption = (text: string, at: [number, number]): void => {
     const key = next();
-    anchorOf.set(text, key);
+    anchorOf.set(text, [...(anchorOf.get(text) ?? []), key]);
     originals.push({ key, type: TYPE_TEXT, space: MODEL_SPACE, layer: on(LAYER_CAPTIONS), text, height: CAPTION_HEIGHT, points: [[...at]] });
   };
 
@@ -301,6 +320,13 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
     line([595, -5], [640, -5], LAYER_LINES);
     line([595, -15], [640, -15], LAYER_LINES);
     originals.push({ key: next(), type: TYPE_TEXT, space: MODEL_SPACE, layer: on(LAYER_LABELS), text: "300x450", height: LABEL_HEIGHT, points: [[605, -10]] });
+
+    // A SECOND layout plan on the same sheet, drawn transposed: its letters run down the page and its
+    // numerals across it. Every rule is the same rule; only the drawing disagrees with the habit.
+    caption(CAPTION_PLAN, TRANSPOSED_AT);
+    for (const spec of TRANSPOSED_BUBBLES) bubble(spec, LAYER_BUBBLES, LAYER_LABELS);
+    line([1160, -20], [1260, -20], LAYER_LINES);
+    line([1210, -10], [1210, -130], LAYER_LINES);
   }
 
   if (scenario === SCENARIO.NO_BUBBLES) {
@@ -347,7 +373,7 @@ export function buildGridArtifact(scenario: GridScenario, salt: number): BuiltGr
     ingest: { scheme: "DXF_HANDLE", tool: "cubit-acceptance", tool_version: "0.0.0", parameter_set_hash: "0".repeat(64) },
     insunits: { code: 4, unit: "mm", unmapped: false },
     layouts: [
-      { name: MODEL_SPACE, kind: "model", bbox: { min: [-60, -80], max: [700, 20] }, strays_rejected: 0 },
+      { name: MODEL_SPACE, kind: "model", bbox: { min: [-60, -140], max: [1300, 20] }, strays_rejected: 0 },
       { name: PAPER_SPACE, kind: "paper", bbox: { min: [0, 0], max: [297, 210] }, strays_rejected: 0 },
     ] as unknown as JsonValue,
     dropped_layouts: [],

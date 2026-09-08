@@ -106,20 +106,36 @@ async function layoutPlanKeys(stage: Staged, ingest: StagedGridIngest): Promise<
     .map((view) => view.viewKey);
 }
 
-/** The one layout-plan view of an ingest — named as a singular, because that is what the artifact draws. */
+/** The one layout-plan view of an ingest whose caption anchors exactly one — a singular, asserted. */
 async function planViewKey(stage: Staged, ingest: StagedGridIngest): Promise<string> {
   const keys = await layoutPlanKeys(stage, ingest);
   expect(keys.length, `the ${ingest.artifact.scenario} artifact's plan caption anchors exactly one layout-plan view — with none there is no grid to read (L-CAD-06)`).toBe(1);
   return keys[0]!;
 }
 
-/** The rows AC-1 owes the layout plan: derived from the artifact, over the entities that view holds. */
+/**
+ * The rows AC-1 owes the ingest: for EVERY layout-plan view the views stage left, the rows that view's
+ * own entities derive to — each family along the world axis its bubbles spread along IN THAT VIEW, at
+ * that view's own minimum spacing. Derived from the artifact and from the partition the run really
+ * left, never transcribed: a drawing that draws another plan owes another plan's rows (B-19).
+ */
 async function owedRows(stage: Staged, ingest: StagedGridIngest): Promise<GridAxisRow[]> {
-  const viewKey = await planViewKey(stage, ingest);
-  const inView = viewAssignmentRows(stage.person.tenantId, ingest.ingestId)
-    .filter((assignment) => assignment.viewKey === viewKey)
-    .map((assignment) => assignment.entityKey);
-  return expectedGridRows(ingest.artifact, inView).map((row) => ({ viewKey, ...row }));
+  const assignments = viewAssignmentRows(stage.person.tenantId, ingest.ingestId);
+  const owed: GridAxisRow[] = [];
+  for (const viewKey of await layoutPlanKeys(stage, ingest)) {
+    const inView = assignments.filter((assignment) => assignment.viewKey === viewKey).map((assignment) => assignment.entityKey);
+    owed.push(...expectedGridRows(ingest.artifact, inView).map((row) => ({ viewKey, ...row })));
+  }
+  return owed;
+}
+
+/** Every distinct minimum spacing each view's rows carry, view by view, in one order. */
+function spacingsByView(rows: readonly GridAxisRow[]): [string, number[]][] {
+  const held = new Map<string, Set<number>>();
+  for (const row of rows) held.set(row.viewKey, (held.get(row.viewKey) ?? new Set<number>()).add(row.minSpacing));
+  return [...held]
+    .map(([viewKey, spacings]) => [viewKey, [...spacings].sort((left, right) => left - right)] as [string, number[]])
+    .sort((left, right) => (left[0] < right[0] ? -1 : left[0] > right[0] ? 1 : 0));
 }
 
 describe("AC-1: the grid is read off the bubble content signature", () => {
@@ -128,10 +144,25 @@ describe("AC-1: the grid is read off the bubble content signature", () => {
     const owed = await owedRows(stage, stage.plan);
 
     // The case is armed by the artifact rather than by a number written down here: it carries both
-    // families, each with labels enough for a spacing to exist at all (B-19).
+    // families, each with labels enough for a spacing to exist at all (B-19) —
     expect(new Set(owed.map((row) => row.family)), "the staged plan really carries both a letter family and a numeral family").toEqual(new Set([FAMILY_LETTER, FAMILY_NUMERAL]));
-    expect(new Set(owed.filter((row) => row.family === FAMILY_LETTER).map((row) => row.axis)), "the letters georeference along the world axis they spread along").toEqual(new Set([AXIS_X]));
-    expect(new Set(owed.filter((row) => row.family === FAMILY_NUMERAL).map((row) => row.axis)), "and the numerals along theirs").toEqual(new Set([AXIS_Y]));
+    // — and it carries them across MORE THAN ONE layout plan, drawn so that each family runs along a
+    // DIFFERENT world axis in the two. The georeference is per view and per family's own spread: a
+    // reading that took a family's axis from its NAME (letter → x, numeral → y) rather than from where
+    // that family's own bubbles stand in that view cannot answer both plans (L-CAD-07).
+    expect(
+      new Set(owed.map((row) => row.viewKey)).size,
+      "the staged drawing really carries more than one layout plan, for a per-view georeference to be able to differ between them",
+    ).toBeGreaterThan(1);
+    for (const family of [FAMILY_LETTER, FAMILY_NUMERAL]) {
+      expect(
+        new Set(owed.filter((row) => row.family === family).map((row) => row.axis)),
+        `the staged drawing really draws the ${family} family along one world axis in one of its layout plans and along the other in the other — the rows owed carry ${owed
+          .filter((row) => row.family === family)
+          .map((row) => `${row.label}:${row.axis}`)
+          .join(", ")}`,
+      ).toEqual(new Set([AXIS_X, AXIS_Y]));
+    }
 
     expect(
       byBubble(gridRows(stage.person.tenantId, stage.plan.ingestId)),
@@ -152,9 +183,21 @@ describe("AC-1: the grid is read off the bubble content signature", () => {
       "a stored label is the dotless-uppercase reading of the text the drawing carries (L-CAD-07)",
     ).toEqual(rows.map((row) => normalisedLabelOf(String(stage.plan.artifact.originals.find((record) => record.key === row.labelKey)?.text ?? ""))?.label ?? ""));
 
-    const spacings = new Set(rows.map((row) => row.minSpacing));
-    expect(spacings.size, `every row of one view carries that view's own minimum spacing, which placement scales its shares by (L-MEA-01); the rows carry ${[...spacings].join(", ")}`).toBe(1);
-    expect([...spacings][0], "and a spacing is a real distance").toBeGreaterThan(0);
+    const owed = await owedRows(stage, stage.plan);
+    const owedSpacings = spacingsByView(owed);
+    // Armed by the artifact: its layout plans really owe minimum spacings of their OWN, so a spacing
+    // taken over the whole drawing rather than over the view it belongs to is caught here (L-MEA-01).
+    expect(
+      new Set(owedSpacings.map(([, spacings]) => spacings[0])).size,
+      `the staged drawing's layout plans really owe different minimum spacings; they owe ${owedSpacings.map(([viewKey, spacings]) => `${viewKey}=${spacings.join("/")}`).join(", ")}`,
+    ).toBe(owedSpacings.length);
+
+    const stored = spacingsByView(rows);
+    for (const [viewKey, spacings] of stored) {
+      expect(spacings.length, `every row of one view carries that view's own minimum spacing, which placement scales its shares by (L-MEA-01); ${viewKey} carries ${spacings.join(", ")}`).toBe(1);
+      expect(spacings[0], "and a spacing is a real distance").toBeGreaterThan(0);
+    }
+    expect(stored, "and the spacing a view's rows carry is the smallest gap between consecutive distinct positions of THAT view's own families").toEqual(owedSpacings);
   }, BUDGET_MS);
 
   test("AC-1: a ring whose text is not a bare label, a label inside no ring, and a ring that is not round yield nothing", async () => {
@@ -233,6 +276,7 @@ describe("AC-3: the grid stage runs inside the rebuild, after conventions, and i
 
   test("AC-3: the run records a grid step between conventions and stored, saying what it examined and wrote", async () => {
     const stage = await staged();
+    const examined: number[] = [];
     for (const [ingest, steps] of [
       [stage.plan, stage.planSteps],
       [stage.bare, stage.bareSteps],
@@ -249,10 +293,19 @@ describe("AC-3: the grid stage runs inside the rebuild, after conventions, and i
       }
       // What the numbers SAY is what makes the step visible: a detail nobody could read off the
       // run's own result is a constant with a number's shape (R-TO-030).
-      expect(detail["views"], "the step examined the layout-plan views the partition really holds").toBe((await layoutPlanKeys(stage, ingest)).length);
+      const held = (await layoutPlanKeys(stage, ingest)).length;
+      examined.push(held);
+      expect(detail["views"], `the step examined the layout-plan views the partition really holds; ${ingest.artifact.scenario} holds ${held}`).toBe(held);
       expect(detail["axes"], "and wrote the axis rows the store now holds").toBe(gridRows(stage.person.tenantId, ingest.ingestId).length);
       expect(detail["deferred"], "and the deferrals the store now holds").toBe(gridDeferralRows(stage.person.tenantId, ingest.ingestId).length);
     }
+
+    // The two staged runs really hold DIFFERENT numbers of layout plans, so a `views` that is a
+    // constant with a number's shape cannot agree with both of them (R-TO-030).
+    expect(
+      new Set(examined).size,
+      `the staged runs really examine different numbers of layout plans, or the number the step says proves nothing; they held ${examined.join(" and ")}`,
+    ).toBeGreaterThan(1);
   }, BUDGET_MS);
 
   test("AC-3: a second rebuild of the same ingest leaves the same rows, never a second set", async () => {
