@@ -15,11 +15,13 @@ import { entityGraphSchema, type EntityGraph } from "@/core/entitygraph/schema";
 import { refusal, refusalCodeOf } from "@/core/faults/refusal-marker";
 import type { JobPayloads, JobProgress } from "@/core/jobs";
 import { sourceKeyResolver, type ModelCallContext } from "@/core/model";
+import { resolve as resolveConventions } from "@/core/rulesets/methods/conventions/resolve";
 import type { Storage } from "@/core/storage";
 import { proposeViewType } from "@/core/view-captions";
 import type { ViewRecord } from "@/core/views";
 import { ingestRecords, type IngestRecord } from "@/modules/takeoff/ingest";
-import { drawingProjectOf, rewritePartition, storedViewsOf, type ViewProposal } from "./store";
+import { censusOf } from "./conventions/census";
+import { drawingProjectOf, rewritePartition, storedViewsOf, type ResolvedConventions, type ViewProposal } from "./store";
 import { partitionArtifact, type PartitionedView } from "./views/assign";
 import { VIEW_TYPE, VIEW_TYPES, type ViewType } from "./views/law";
 
@@ -29,7 +31,7 @@ import { VIEW_TYPE, VIEW_TYPES, type ViewType } from "./views/law";
  * A stage is a member of this list or it does not run at all — the list is the roster, and the map
  * below is keyed by it, so neither can hold a stage the other does not.
  */
-export const PARTITION_STAGES = ["views"] as const;
+export const PARTITION_STAGES = ["views", "conventions"] as const;
 
 /** One stage of the partition, drawn from the closed list above. */
 export type PartitionStage = (typeof PARTITION_STAGES)[number];
@@ -55,18 +57,40 @@ export type PartitionDeps = { storage: Storage; captions?: ViewCaptionSeam };
 /** The seam every rebuild uses unless its caller names another. */
 const PRODUCTION_CAPTIONS: ViewCaptionSeam = { proposeViewType };
 
-/** What one stage derived: the views of the record, and which view each entity landed in. */
-type StagedPartition = { readonly views: readonly PartitionedView[]; readonly assignments: ReadonlyMap<string, string> };
+/**
+ * What the stages have derived so far: the views of the record, which view each entity landed in,
+ * and the conventions read off both. Each stage is handed what the ones before it derived and hands
+ * on the whole of it, so the list is a pipeline over one growing derivation rather than a set of
+ * unrelated passes.
+ */
+type StagedPartition = {
+  readonly views: readonly PartitionedView[];
+  readonly assignments: ReadonlyMap<string, string>;
+  readonly conventions: ResolvedConventions | null;
+};
 
 /** What a stage is given: the record it is rebuilding, and the artifact that record points at. */
 type StageContext = { readonly record: IngestRecord; readonly graph: EntityGraph };
 
+/** What one stage leaves behind: the derivation it grew, and what it says about its own work. */
+type StageOutcome = { readonly derived: StagedPartition; readonly detail: Record<string, unknown> };
+
 /**
  * The stage list as functions, keyed by the list itself — a stage named in `PARTITION_STAGES` with
- * no implementation here does not compile, which is what keeps the two from drifting apart.
+ * no implementation here does not compile, which is what keeps the two from drifting apart. Each
+ * reports what it read, because R-TO-030 asks for a partition whose every stage's result is visible.
  */
-const STAGES: Readonly<Record<PartitionStage, (context: StageContext) => StagedPartition>> = Object.freeze({
-  views: (context) => partitionArtifact(context.graph),
+const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: StagedPartition) => StageOutcome>> = Object.freeze({
+  views: (context, held) => {
+    const partitioned = partitionArtifact(context.graph);
+    const derived = { ...held, views: partitioned.views, assignments: partitioned.assignments };
+    return { derived, detail: { views: derived.views.length, assigned: derived.assignments.size } };
+  },
+  conventions: (context, held) => {
+    const census = censusOf(context.graph, held.views);
+    const conventions = { census, profile: resolveConventions(census) };
+    return { derived: { ...held, conventions }, detail: { layers: census.layers.length, deferrals: conventions.profile.deferrals.length } };
+  },
 });
 
 /**
@@ -94,10 +118,11 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
   const graph = await artifactOf(tenantId, record, deps.storage);
   await progress.step(STEP_RESOLVE, { ingest_id: ingestId, artifact_sha256: record.artifactSha256 });
 
-  let derived: StagedPartition = { views: [], assignments: new Map() };
+  let derived: StagedPartition = { views: [], assignments: new Map(), conventions: null };
   for (const stage of PARTITION_STAGES) {
-    derived = STAGES[stage]({ record, graph });
-    await progress.step(stage, { views: derived.views.length, assigned: derived.assignments.size });
+    const outcome = STAGES[stage]({ record, graph }, derived);
+    derived = outcome.derived;
+    await progress.step(stage, outcome.detail);
   }
 
   const proposals = await proposalsFor(derived.views, {
@@ -109,7 +134,7 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
     held: await storedViewsOf(tenantId, ingestId),
   });
 
-  await rewritePartition({ tenantId, projectId, drawingId, ingestId, views: derived.views, assignments: derived.assignments, proposals });
+  await rewritePartition({ tenantId, projectId, drawingId, ingestId, views: derived.views, assignments: derived.assignments, proposals, conventions: derived.conventions });
   await progress.step(STEP_STORED, { views: derived.views.length, assigned: derived.assignments.size, proposed: proposals.size });
 }
 

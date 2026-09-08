@@ -1,0 +1,11 @@
+{
+  "methods": {
+    "conventions.resolve@1": {
+      "ruleId": "conventions.resolve",
+      "version": "1",
+      "law": "L-CAD-08",
+      "module": "src/core/rulesets/methods/conventions/resolve.ts"
+    }
+  },
+  "digest": "3c8eb9e76ac9cf2209681d2b6772fb762f428e56032a17c326c6967fd53b88b4"
+}

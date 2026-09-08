@@ -5,8 +5,11 @@
  * AC-1 is the "loses nothing" half. EXPORTS_BEFORE is the export roster `git show main:src/core/db.ts`
  * declares — every `export const|function|type|interface|{…}` name, values and types alike. It is
  * frozen here because that roster IS the barrel's contract: every importer in the tree reads these
- * names from `@/core/db`, so a name the split drops is a broken tree, and a name it adds is public
- * surface no spec asked for (the interfaces section: exactly today's names, none new, none dropped).
+ * names from `@/core/db`, so a name the split drops is a broken tree. The other direction is a
+ * DERIVATION rather than a second transcription (arbitration, settled): a name the barrel adds is
+ * refused unless the schema tree itself publishes that very object, so the tables the Bible
+ * schedules — a stored partition stage is a table (R-TO-030, L-CAD-08) — are admitted by
+ * `SEAM_SCHEMA` as they land, and a name of the barrel's own invention still is not.
  * Values are judged by importing the barrel and reading its namespace; a type cannot be read at
  * runtime at all, so the type half is judged where types live — a compile-time reference through
  * `import("../../src/core/db")` that reds `tsc --noEmit` if a name is gone.
@@ -43,6 +46,9 @@ const REPO_ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 
 /** The barrel itself — the one path every importer in the tree names. */
 const BARREL = "src/core/db.ts";
+
+/** Where the tables live, and where the roster the barrel's additions are derived from is published. */
+const SCHEMA_MODULE = "src/core/db/schema.ts";
 
 /**
  * EXPORTS_BEFORE, value half: every runtime name main's seam exported, with the `typeof` it had
@@ -96,10 +102,9 @@ const VALUES_BEFORE: Readonly<Record<string, string>> = {
   drawingSets: "object",
   drawingSetMembers: "object",
   drawingSetRevisions: "object",
-  // Re-baselined by inc-200 (AC-3): the stored partition's three tables join the barrel's roster.
-  // The roster is the contract in BOTH directions, so a table that lands has to be admitted here or
-  // "the barrel adds no public name" would refuse it — and admitting it is what makes "the barrel
-  // loses nothing" hold the Builder to shipping all three.
+  // The stored partition's three tables (inc-200): listed because "the barrel loses nothing" holds
+  // the tree to still handing them out. A table that lands LATER needs no line here — the other
+  // half derives its admissions from the schema tree.
   partitionViews: "object",
   viewAssignments: "object",
   viewTypeConfirmations: "object",
@@ -226,10 +231,17 @@ describe("AC-1: the barrel loses nothing", () => {
     expect(changed, "a name survived the split as something else — a table re-exported as a type-only shell reads as a drop").toEqual([]);
   });
 
-  test("AC-1: the barrel adds no public name main did not export", async () => {
+  test("AC-1: the barrel adds no public name of its own invention", async () => {
     const barrel = await moduleAt(BARREL);
-    const added = Object.keys(barrel).filter((name) => !Object.hasOwn(VALUES_BEFORE, name));
-    expect(added, "the split published a new name — the barrel is exactly today's roster (interfaces: no new public name)").toEqual([]);
+    const schema = await moduleAt(SCHEMA_MODULE);
+    const published = (schema["SEAM_SCHEMA"] ?? {}) as Record<string, unknown>;
+    expect(Object.keys(published).length, `${SCHEMA_MODULE} publishes SEAM_SCHEMA — the roster this admission is derived from`).toBeGreaterThan(0);
+
+    // Admitted on IDENTITY, never on spelling: a name the barrel hands out is allowed past this
+    // check only where it IS the very object the schema tree publishes under it, so a table the
+    // Bible schedules joins the roster as it lands and a name the barrel minted itself cannot.
+    const added = Object.keys(barrel).filter((name) => !Object.hasOwn(VALUES_BEFORE, name) && !(Object.hasOwn(published, name) && barrel[name] === published[name]));
+    expect(added, "the split published a name that is neither main's nor the schema tree's own — the barrel invents no public surface (ARCH-02, B-17)").toEqual([]);
   });
 
   test("AC-1: the type roster is referenced through the barrel, exactly", () => {

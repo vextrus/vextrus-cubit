@@ -53,6 +53,7 @@ import {
 } from "./support/partition-stage";
 import { stageDrawing, stubCli, withCadCommand } from "../support/ingest-stage";
 import { buildArtifact } from "./support/partition-stage";
+import { CONVENTIONS_STAGE } from "./support/conventions-stage";
 
 /** How long a staged case may take: a runtime started, one ingest consumed, one partition run. */
 const BUDGET_MS = 600_000;
@@ -71,8 +72,8 @@ const CAPTIONS: readonly CaptionSpec[] = [
   { caption: "XQZ 77", at: [400, 0] },
 ];
 
-/** The three steps a partition run records, in order (AC-3). */
-const STEPS = ["resolve", VIEWS_STAGE, "stored"];
+/** The steps a partition run records, in this relative order — a subsequence of its log, never all of it. */
+const STEPS = ["resolve", VIEWS_STAGE, CONVENTIONS_STAGE, "stored"];
 
 interface Staged {
   partition: PartitionSeam;
@@ -133,7 +134,17 @@ describe("AC-3: the kind, the key and the stage list", () => {
     const ingestId = randomUUID();
     expect(stage.partition.partitionJobKey(tenantId, ingestId), "a partition job is idempotent on the ingest it rebuilds").toBe(`${PARTITION_KIND}:${tenantId}:${ingestId}`);
 
-    expect([...rebuild.PARTITION_STAGES], "the first stage of R-TO-030's partition is the view classification, and it is the only one this increment lands").toEqual([VIEWS_STAGE]);
+    // Presence and order, never closure: R-TO-030 schedules a third stage into this same roster
+    // (the grid backbone, L-CAD-07), so what binds is that the view classification leads and the
+    // convention profile follows it — not how long the list has grown by (B-19, C-05).
+    const stages = [...rebuild.PARTITION_STAGES];
+    expect(new Set(stages).size, "the stage list names each stage once — a roster that repeats one would run it twice").toBe(stages.length);
+    expect(stages[0], "the first stage of R-TO-030's partition is the view classification (L-CAD-06)").toBe(VIEWS_STAGE);
+    expect(stages.indexOf(CONVENTIONS_STAGE), "and the convention profile is a stage of that same partition (L-CAD-08)").toBeGreaterThanOrEqual(0);
+    expect(
+      stages.indexOf(CONVENTIONS_STAGE),
+      `and it runs after the view classification — its census is taken over the views that stage derived; the list reads: ${stages.join(" → ")}`,
+    ).toBeGreaterThan(stages.indexOf(VIEWS_STAGE));
   }, BUDGET_MS);
 });
 
@@ -210,14 +221,28 @@ describe("AC-3: every model-space original entity lands in exactly one view", ()
       return { staged: ingested, steps };
     })());
 
-  test("AC-3: the run records resolve, views and stored, in that order", async () => {
+  test("AC-3: the run records resolve, views, conventions and stored, in that order", async () => {
     const { steps } = await partitioned();
+    const rebuild = await rebuildDoor();
     const said = steps.map((entry) => entry.step);
     const at = STEPS.map((step) => said.indexOf(step));
     for (const [index, step] of STEPS.entries()) {
       expect(at[index], `the run never recorded the step \`${step}\` — its log reads: ${said.join(" → ")}`).toBeGreaterThanOrEqual(0);
     }
     expect([...at].sort((left, right) => left - right), `the steps stand in the order the stage list runs them; the log reads: ${said.join(" → ")}`).toEqual(at);
+
+    // A SUBSEQUENCE, never the whole log: a stage this increment does not land records steps of its
+    // own between these four, and a refused caption records one too. What bounds the run is that it
+    // says what it read first and that it wrote what it derived last (R-TO-030, B-19).
+    expect(said[0], `the run says what it read before it derives anything; the log reads: ${said.join(" → ")}`).toBe(STEPS[0]);
+    expect(said[said.length - 1], `and that it wrote what it derived, after every stage; the log reads: ${said.join(" → ")}`).toBe(STEPS[STEPS.length - 1]);
+
+    // Every stage the list names is a stage that really runs: one with no implementation behind it
+    // records no step of its own.
+    expect(
+      [...rebuild.PARTITION_STAGES].filter((stage) => !said.includes(stage)),
+      `a stage the list names recorded no step of its own; the log reads: ${said.join(" → ")}`,
+    ).toEqual([]);
   }, BUDGET_MS);
 
   test("AC-3: every model-space original entity key is assigned exactly once, and to a view of this ingest", async () => {

@@ -51,6 +51,7 @@ export {
   partitionViews,
   viewAssignments,
   viewTypeConfirmations,
+  conventionProfiles,
   drawingSets,
   drawingSetMembers,
   drawingSetRevisions,
