@@ -17,6 +17,7 @@ import { shortcuts } from "./shortcuts";
 import { spine } from "./spine";
 import { viewer } from "./viewer";
 import { viewerInspector } from "./viewer-inspector";
+import { viewerPartition } from "./viewer-partition";
 
 export const strings = {
   ...auth,
@@ -35,6 +36,7 @@ export const strings = {
   ...spine,
   ...viewer,
   ...viewerInspector,
+  ...viewerPartition,
 } as const;
 
 export type StringKey = keyof typeof strings;

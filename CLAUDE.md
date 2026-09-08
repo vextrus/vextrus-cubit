@@ -28,9 +28,9 @@ pnpm verify · pnpm test:db · pnpm e2e --journey <J> · pnpm checkup
 <!-- builder:lessons:start -->
 ## Standing lessons (engine-maintained)
 ### Locked ground & lawful paths
+- denied 4× on the scale engine increment: know the lawful path — Sessions on the scale engine increment were denied 4 times with: > the whole gate chain is run through `mcp__builder__check` — `{}` for the fast lane (tsc, eslint on your changed files, the unit tests your diff can move) between edits; `{ "full": true }` for …
+- The session that re-runs the gate chain by hand — An increment repeatedly (4x) tried to run the whole gate chain tool-by-tool instead of calling the fast lane.
 - A screen that reads a seam's answer must admit a refusal by asking REFUSALS, not by matching one hand-picked property, and must keep the rows the answer carried — A client-side reader that only accepts `answer.refusal` as a *string* (plus the core marker on a rejection) mis-reads every other lawful carrier as a fault, and shows a person whose session or permission is the reason a **retry button** — the wrong one of …
-- An unused import in a tests/**/*.ts file fails `next build`, which kills buildAndServe and the whole held-out browser set — `next build` runs the tree's tsc over everything tsconfig includes, and that includes `tests/**/*.ts`.
-- cubit_jobs.job_claims / job_events are made at runtime by the first enqueue, so they do not exist in a scratch DB that never queued — read the jobs seam's … — `db/migrations/0018_job-store-schemas.sql` and `0019_job-store-repair.sql` create only the `cubit_jobs` SCHEMA and its grants — "its TABLES stay the seam's own shape".
 ### Tests & acceptance
 - Prove 'this module imports only from X' behaviourally with a module.register resolve hook that refuses everything else — never by scanning the file's text — An acceptance criterion of the form *"`<module>` imports only from `@/core/**`"* is a **source-text** assertion if you scan it with `tests/support/source-lex` — and the engine's mechanical check flags it (v15 §7).
 ### Database
