@@ -32,6 +32,7 @@ import {
   type ScaleAxis,
   type ScaleProposal,
   type ScaleRank,
+  type TwoPointObservation,
 } from "../scale";
 import { scaleEvidenceOf } from "../scale/evidence";
 import { affirmationsOfRecord, writeAffirmation, type ViewCalibrationMove } from "../scale/store";
@@ -51,9 +52,9 @@ const PARTITION_NOT_AVAILABLE: RefusalCode = "PARTITION_NOT_AVAILABLE";
 
 /**
  * The act's input: which project and drawing, the rank the affirmation stands on, the views it
- * names (one scale group) and — at rank QS_TWO_POINT — the observations it stands on. Observations
- * arrive as `unknown` because they are a person's input crossing a transport: `citeObservation`
- * reads every field and refuses what the law does not admit.
+ * names (one scale group) and — at rank QS_TWO_POINT — the observations it stands on. Every
+ * observation is still judged by `citeObservation`, which reads each field off it as a person's
+ * input crossing a transport and refuses what the law does not admit.
  */
 export type AffirmScaleInput = {
   readonly type: typeof AFFIRM_SCALE;
@@ -61,7 +62,7 @@ export type AffirmScaleInput = {
   readonly drawingId: string;
   readonly rank: ScaleRank;
   readonly viewKeys: readonly string[];
-  readonly observations?: readonly unknown[];
+  readonly observations?: readonly TwoPointObservation[];
 };
 
 /**

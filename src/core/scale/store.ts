@@ -5,7 +5,7 @@
 //
 // Membership is positive, never residual: a view's scale is the calibration the NEWEST affirmation
 // naming that view took it to, and a view no affirmation names reads back as nothing at all.
-import { and, calibrations, desc, eq, scaleAffirmations, type TenantTx } from "../db";
+import { and, calibrations, desc, eq, inArray, scaleAffirmations, type TenantTx } from "../db";
 import { isScaleRank, type FactorPair, type ScaleRank } from "./law";
 import type { CitedObservation } from "./observation";
 
@@ -62,10 +62,13 @@ export async function affirmationsOfRecord(tx: TenantTx, scope: ScaleStoreScope)
     .orderBy(desc(scaleAffirmations.createdAt), desc(scaleAffirmations.affirmationId));
   if (affirmed.length === 0) return new Map();
 
+  // Calibrations are read by the keys the affirmations name rather than by the record: a key is a
+  // content address, so a re-ingest of the same bytes names the same calibration, filed once.
+  const named = [...new Set(affirmed.flatMap((row) => row.incomingKeys))];
   const filed = await tx
     .select({ key: calibrations.key, factorX: calibrations.factorX, factorY: calibrations.factorY })
     .from(calibrations)
-    .where(and(eq(calibrations.tenantId, scope.tenantId), eq(calibrations.ingestId, scope.ingestId)));
+    .where(and(eq(calibrations.tenantId, scope.tenantId), inArray(calibrations.key, named)));
   const pairs = new Map(filed.map((row) => [row.key, { factorX: row.factorX, factorY: row.factorY }]));
 
   const standing = new Map<string, AffirmedCalibration>();
