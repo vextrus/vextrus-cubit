@@ -8,12 +8,17 @@
 // primed one like "A'" and a multi-letter one like "AA" are readings this rule does not make, and a
 // guessed reading is worse than none (L-QTY-04).
 //
-// The two families are the seam's own closed roster, read out of it rather than spelled again here
-// (B-17): a family the store would refuse cannot be produced.
-import { GRID_FAMILIES, type GridFamily } from "@/core/db";
+// The two families are the seam's own closed roster (`GRID_FAMILIES`, which the store writes its
+// CHECK from). This file NAMES two of its members rather than restating the list: `satisfies` binds
+// each name to the roster's type, so a family this file could produce that the roster does not hold
+// does not compile, and the roster keeps its one home (B-17). It is named rather than imported
+// because the seam's barrel hands out the tables and main's own roster and no vocabulary of its own
+// (SEAM-TENANT, and the db-split arbitration that says so).
+import type { GridFamily } from "@/core/db";
 
-/** The two, by name, out of the roster's own order — the letters first, then the numerals. */
-const [FAMILY_LETTER, FAMILY_NUMERAL] = GRID_FAMILIES;
+/** The two, by name — the letters, and the numerals. */
+const FAMILY_LETTER = "letter" satisfies GridFamily;
+const FAMILY_NUMERAL = "numeral" satisfies GridFamily;
 
 /** A bare letter of the Latin alphabet, normalised. */
 const BARE_LETTER = /^[A-Z]$/;

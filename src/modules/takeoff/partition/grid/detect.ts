@@ -16,7 +16,7 @@
 //
 // Pure over the artifact and the stages before it: no store, no clock, no model. The same artifact
 // detects the same grid forever, which is what makes the stored partition rebuildable (L-REG-04).
-import { GRID_AXES, type GridAxis, type GridDeferralReason, type GridFamily } from "@/core/db";
+import type { GridAxis, GridDeferralReason, GridFamily } from "@/core/db";
 import type { EntityGraph } from "@/core/entitygraph/schema";
 import { REFUSALS } from "@/core/errors";
 import { CONVENTION_ROLES, type ConventionProfile } from "@/core/rulesets/methods/conventions/resolve";
@@ -61,8 +61,9 @@ export type GridEvidence = {
   readonly profile: ConventionProfile | null;
 };
 
-/** The two world axes, by name, out of the seam's own roster rather than spelled again (B-17). */
-const [AXIS_X, AXIS_Y] = GRID_AXES;
+/** The two world axes, named as members of the seam's closed roster — see ./law on why by name. */
+const AXIS_X = "x" satisfies GridAxis;
+const AXIS_Y = "y" satisfies GridAxis;
 
 /**
  * How far two vertices of one ring may disagree about their distance from its centre, as a share of

@@ -52,8 +52,6 @@ export {
   viewAssignments,
   viewTypeConfirmations,
   conventionProfiles,
-  GRID_FAMILIES,
-  GRID_AXES,
   grids,
   gridDeferrals,
   drawingSets,
