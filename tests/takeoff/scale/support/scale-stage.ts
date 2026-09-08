@@ -63,6 +63,9 @@ export const AFFIRM_SCALE_MODULE = "src/core/acts/affirm-scale.ts";
 export const ACTS_MODULE = "src/core/acts/index.ts";
 export const DB_MODULE = "src/core/db.ts";
 
+/** The shipped one reader of the refusal marker — the product's own answer to "was this a refusal?" (ARCH-03). */
+export const REFUSAL_MARKER_MODULE = "src/core/faults/refusal-marker.ts";
+
 /* ------------------------------------------------------------------ the vocabulary the spec spells */
 
 /** The act, the permission it moves and the arm its Consequence renders through (test contract). */
@@ -219,20 +222,18 @@ export async function actsDoor(): Promise<ActsSeam> {
 }
 
 /**
- * The refusal code a failure carries, whether it arrived bare or wrapped by a transport.
+ * The refusal code a failure carries, whether it arrived bare or wrapped by a transport — asked of
+ * the product's own marker rather than re-implemented here.
  *
- * Read off the value the product threw, and off nothing else: a refusal is an answer the product
- * marks on the Error it hands back (ARCH-03), so what a case observes here is that thrown answer —
- * a string code standing on the failure or on its cause. A failure carrying none is a plain fault,
- * which is what `null` says.
+ * A refusal is an answer the product marks on the Error it hands back, and `src/core/faults` is the
+ * one reader of that marker (ARCH-03, ARCH-02): running the thrown value through it is the same
+ * reading a screen or a transport would get, so a failure this answers `null` for is one the product
+ * itself would treat as a plain fault.
  */
-export function codeOf(failure: unknown): string | null {
-  const markedOn = (value: unknown): string | null => {
-    if (typeof value !== "object" || value === null) return null;
-    const held = (value as { refusalCode?: unknown }).refusalCode;
-    return typeof held === "string" ? held : null;
-  };
-  return markedOn(failure) ?? markedOn((failure as { cause?: unknown } | null)?.cause);
+export async function refusalCodeOf(failure: unknown): Promise<string | null> {
+  const marker = await productModule<{ refusalCodeOf: (failure: unknown) => string | null }>(REFUSAL_MARKER_MODULE);
+  expect(typeof marker.refusalCodeOf, `${REFUSAL_MARKER_MODULE} publishes \`refusalCodeOf\``).toBe("function");
+  return marker.refusalCodeOf(failure);
 }
 
 /** What a call did: the value it answered, or the failure it threw. */

@@ -19,10 +19,10 @@ import {
   UNITLESS,
   attempt,
   citedPoint,
-  codeOf,
   metresPerString,
   observation,
   ratio12,
+  refusalCodeOf,
   scaleCore,
   type CitedPointInput,
   type ObservationInput,
@@ -99,8 +99,10 @@ describe("AC-1: four ranks in one precedence, and a calibration named by what it
     const core = await scaleCore();
     const { failure } = await attempt(async () => core.calibrationKey(VIEW_A, "0.001", ONE_MM));
     expect(failure, `"0.001" is not the 12-place rendering a factor is spoken in, so no calibration can be named over it`).toBeInstanceOf(Error);
-    const marked = codeOf(failure);
-    expect(marked, "and it is a plain Error, not a refusal: a refusal is something the product says to a person, and nobody typed this (ARCH-03)").toBeNull();
+    expect(
+      await refusalCodeOf(failure),
+      "and it is a plain Error, not a refusal: a refusal is something the product says to a person, and nobody typed this (ARCH-03)",
+    ).toBeNull();
   });
 });
 
@@ -184,10 +186,10 @@ describe("AC-3: a QS observation is two cited points, on the lattice, at an ente
     for (const { said, raw } of cases) {
       const { failure } = await attempt(async () => core.citeObservation(raw));
       expect(failure, `${said} is not an observation, so citing it fails rather than answering a factor`).toBeTruthy();
-      const marked = codeOf(failure);
-      expect(marked, `${said}: L-MEA-05 asks each point for a source key and a quantised coordinate, and the distance to be the one a person entered`).toBe(
-        SCALE_OBSERVATION_UNCITED,
-      );
+      expect(
+        await refusalCodeOf(failure),
+        `${said}: L-MEA-05 asks each point for a source key and a quantised coordinate, and the distance to be the one a person entered`,
+      ).toBe(SCALE_OBSERVATION_UNCITED);
     }
     expect(ENTERED, "the basis a lawful observation states, spelled once (test contract)").toBe("ENTERED");
   });
@@ -203,8 +205,9 @@ describe("AC-3: a QS observation is two cited points, on the lattice, at an ente
     ] as const) {
       const { failure } = await attempt(async () => core.citeObservation(raw));
       expect(failure, `${said} calibrates neither axis, so it is refused rather than resolved into one`).toBeTruthy();
-      const marked = codeOf(failure);
-      expect(marked, `${said}: X and Y are derived independently, and an oblique pair says nothing about either (L-MEA-05)`).toBe(SCALE_OBSERVATION_OBLIQUE);
+      expect(await refusalCodeOf(failure), `${said}: X and Y are derived independently, and an oblique pair says nothing about either (L-MEA-05)`).toBe(
+        SCALE_OBSERVATION_OBLIQUE,
+      );
     }
   });
 });
