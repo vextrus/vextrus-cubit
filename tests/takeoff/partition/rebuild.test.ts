@@ -53,6 +53,7 @@ import {
 } from "./support/partition-stage";
 import { stageDrawing, stubCli, withCadCommand } from "../support/ingest-stage";
 import { buildArtifact } from "./support/partition-stage";
+import { CONVENTIONS_STAGE } from "./support/conventions-stage";
 
 /** How long a staged case may take: a runtime started, one ingest consumed, one partition run. */
 const BUDGET_MS = 600_000;
@@ -71,8 +72,8 @@ const CAPTIONS: readonly CaptionSpec[] = [
   { caption: "XQZ 77", at: [400, 0] },
 ];
 
-/** The three steps a partition run records, in order (AC-3). */
-const STEPS = ["resolve", VIEWS_STAGE, "stored"];
+/** The steps a partition run records, in order (AC-3, re-baselined by inc-201's second stage). */
+const STEPS = ["resolve", VIEWS_STAGE, CONVENTIONS_STAGE, "stored"];
 
 interface Staged {
   partition: PartitionSeam;
@@ -133,7 +134,10 @@ describe("AC-3: the kind, the key and the stage list", () => {
     const ingestId = randomUUID();
     expect(stage.partition.partitionJobKey(tenantId, ingestId), "a partition job is idempotent on the ingest it rebuilds").toBe(`${PARTITION_KIND}:${tenantId}:${ingestId}`);
 
-    expect([...rebuild.PARTITION_STAGES], "the first stage of R-TO-030's partition is the view classification, and it is the only one this increment lands").toEqual([VIEWS_STAGE]);
+    expect(
+      [...rebuild.PARTITION_STAGES],
+      "the first stage of R-TO-030's partition is the view classification, and the convention profile is the second (L-CAD-06, L-CAD-08)",
+    ).toEqual([VIEWS_STAGE, CONVENTIONS_STAGE]);
   }, BUDGET_MS);
 });
 
@@ -210,7 +214,7 @@ describe("AC-3: every model-space original entity lands in exactly one view", ()
       return { staged: ingested, steps };
     })());
 
-  test("AC-3: the run records resolve, views and stored, in that order", async () => {
+  test("AC-3: the run records resolve, views, conventions and stored, in that order", async () => {
     const { steps } = await partitioned();
     const said = steps.map((entry) => entry.step);
     const at = STEPS.map((step) => said.indexOf(step));
