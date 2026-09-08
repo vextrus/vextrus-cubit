@@ -96,6 +96,13 @@ const VALUES_BEFORE: Readonly<Record<string, string>> = {
   drawingSets: "object",
   drawingSetMembers: "object",
   drawingSetRevisions: "object",
+  // Re-baselined by inc-200 (AC-3): the stored partition's three tables join the barrel's roster.
+  // The roster is the contract in BOTH directions, so a table that lands has to be admitted here or
+  // "the barrel adds no public name" would refuse it — and admitting it is what makes "the barrel
+  // loses nothing" hold the Builder to shipping all three.
+  partitionViews: "object",
+  viewAssignments: "object",
+  viewTypeConfirmations: "object",
   SEAM_SCHEMA: "object",
   holdStateLock: "function",
   closePools: "function",

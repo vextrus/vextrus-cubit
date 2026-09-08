@@ -24,11 +24,16 @@ const CONFIRM_DISCIPLINE = "CONFIRM_DISCIPLINE" as const;
 const GROUP_NOT_OFFERED: RefusalCode = "GROUP_NOT_OFFERED";
 
 /**
- * The facts a group can be keyed on. R-UI-023 names groups by what their members have in common:
- * every unconfirmed sheet of one drawing that the grammar proposed at one discipline, or one named
- * sheet on its own — which is still a typed key with server-resolved membership, never a selection.
+ * The facts a group can be keyed on, for every act the seam renders. R-UI-023 names groups by what
+ * their members have in common: every unconfirmed sheet of one drawing that the grammar proposed at
+ * one discipline, every unconfirmed view of one drawing that a model proposed at one class
+ * (L-CAD-06), or one named sheet on its own — each still a typed key with server-resolved
+ * membership, never a selection.
+ *
+ * The roster is the seam's rather than this act's: L-ACT-02 asks for "a typed grouping key over a
+ * closed enum", so a second act's kind joins this list instead of inventing one (B-17).
  */
-export const GROUP_KINDS = ["PROPOSED_DISCIPLINE", "SHEET"] as const;
+export const GROUP_KINDS = ["PROPOSED_DISCIPLINE", "PROPOSED_VIEW_TYPE", "SHEET"] as const;
 
 /** One group kind, drawn from the closed enum above. */
 export type GroupKind = (typeof GROUP_KINDS)[number];

@@ -14,6 +14,31 @@ export type TransportVocabulary = {
   codes: readonly string[];
 };
 
+/**
+ * L-CAD-06's view-type vocabulary, spelled in the law's own order — the eleven classes a view can
+ * be. Six of them bear an underscore, so Q-07's register would read them as refusal codes nobody
+ * registered; they are declared here, once, for the same reason the act types below are.
+ *
+ * The spellings are declared rather than owned: the LAW is
+ * `src/modules/takeoff/partition/views/law.ts`, which brands these strings, publishes the closed
+ * roster and holds the sole membership predicate. This array is where they are written down,
+ * because core may not import a module (ARCH-01) and the classification question a model is asked
+ * has to name the classes it may answer with. One spelling, one place — never two lists to drift.
+ */
+export const VIEW_TYPE_SPELLINGS = Object.freeze([
+  "LAYOUT_PLAN",
+  "SCHEDULE",
+  "LONG_SECTION_STRIP",
+  "MEMBER_SECTION",
+  "DETAIL",
+  "STAIR_PLAN",
+  "STAIR_SECTION",
+  "LEGEND_NOTES",
+  "TITLE",
+  "UNTYPED",
+  "UNASSIGNED",
+] as const);
+
 export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.freeze([
   Object.freeze({
     // The transport's own error codes (ARCH-03: the tRPC handler maps a fault to one of these after
@@ -87,14 +112,21 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // Its home is `../acts/law.ts` (ARCH-02) — this declaration is what tells a name belonging to
     // that closed set apart from a refusal nobody registered.
     vocabulary: "act types (L-ACT-02)",
-    codes: Object.freeze(["ASSIGN_PARTICIPANT_ROLE", "CONFIRM_DISCIPLINE", "PIN_DRAWING_SET"]),
+    codes: Object.freeze(["ASSIGN_PARTICIPANT_ROLE", "CONFIRM_DISCIPLINE", "CONFIRM_VIEW_TYPE", "PIN_DRAWING_SET"]),
   }),
   Object.freeze({
     // L-ACT-02's grouping-key kinds: "bulk is offered, never assembled … a typed grouping key over a
     // closed enum". A kind names the fact a group is judged on — it rides on the key an offer is made
     // with and is written to no log and answered to nobody. Its home is `../acts/confirm-discipline.ts`.
     vocabulary: "offered-group kinds (L-ACT-02)",
-    codes: Object.freeze(["PROPOSED_DISCIPLINE"]),
+    codes: Object.freeze(["PROPOSED_DISCIPLINE", "PROPOSED_VIEW_TYPE"]),
+  }),
+  Object.freeze({
+    // L-CAD-06's view types, declared above and named here so the register can tell them from codes
+    // nobody registered. A view type is stored in the partition and read by the classification law;
+    // a person is answered with `CAPTION_UNCLASSIFIABLE`, never with one of these.
+    vocabulary: "view types (L-CAD-06)",
+    codes: VIEW_TYPE_SPELLINGS,
   }),
   Object.freeze({
     // L-CAD-02's closed source-key scheme set, spelled by the extractor that mints the keys, by the
