@@ -163,12 +163,26 @@ function levelColumns(level: LevelRef): { levelId: string | null; levelSlot: str
 }
 
 /**
+ * Does this as-written value read as a number at all? A readability question, asked before any
+ * arithmetic: the arithmetic itself is the canon's exact decimals, and a blank reads as nothing
+ * rather than as the zero `Number("")` would answer.
+ */
+function readsAsANumber(value: string): boolean {
+  return value.trim() !== "" && Number.isFinite(Number(value));
+}
+
+/**
  * A reading in its canonical unit, with the derivation that carried it there (L-REG-01). The canon is
  * asked; no factor is spelled here (B-17). A unit the canon does not know at all is a mistake in the
  * caller rather than a refusal anybody typed — text from a person or a wire is asked through the
  * canon's own `isUnit` before it reaches this door (ARCH-03).
  */
 function canonicalise(valueAsWritten: string, unitAsWritten: string): { ok: true; value: string; unit: Unit; factor: string } | { ok: false; refusal: string } {
+  // L-REG-01: "convert of no input is no output, never a zero". A reading with nothing to convert is
+  // not a reading of zero, and it is not stored as one — it stops here, loudly.
+  if (!readsAsANumber(valueAsWritten)) {
+    throw new Error(`"${valueAsWritten}" is no reading, so there is nothing to carry to a canonical unit — a convert of no input is no output, never a zero (L-REG-01)`);
+  }
   if (!isUnit(unitAsWritten)) {
     const canonical = toCanonical(unitAsWritten);
     if (canonical.ok) throw new Error(`"${unitAsWritten}" canonicalised without being a unit of the canon — the canon and its guard disagree (L-FRM-06)`);
