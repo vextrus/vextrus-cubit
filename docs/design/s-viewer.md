@@ -342,7 +342,10 @@ not a pixel baseline, and the dark/light proof is the canvas corner pixel (§6).
 ## 8. Recorded IOUs (owner named, never a comment in `src/`)
 
 Views and grid panels and the toolbar (select/pan/measure/snap/split/overlay) — S-Viewer's remaining
-regions, owner: the later viewer leaves of R-TO-011, R-UI-042. **Struck** (paid by
+regions, owner: the later viewer leaves of R-TO-011, R-UI-042. The views/grid half is **struck**
+(paid by inc-203-views-grid-overlay, docs/design/s-viewer-partition.md): the panel docked under the
+layers list, the paint-only overlay canvas over the sheet, and `CONFIRM_VIEW_TYPE` offered by group
+there; the toolbar half stands. **Struck** (paid by
 inc-111-viewer-inspector, docs/design/s-viewer-inspector.md): the right inspector and its selection
 model, the Trace target (`?s=` + reveal-in-sheet + pulse), and visible navigation into a sheet from
 the sheet card's own door (I-77, R-UI-031). Minimap, rotate in 90° steps, zoom-to-selection and a
