@@ -7,6 +7,7 @@
  * without an entry, no entry without a row — so the day a twentieth shortcut lands the suite moves
  * with it (B-19). The one written-down list is the clause's own: the shortcuts R-UI-032 names.
  */
+import { createElement, type ReactNode } from "react";
 import { afterEach, describe, expect, test } from "vitest";
 import {
   GROUP,
@@ -19,6 +20,7 @@ import {
   itemsOf,
   maybe,
   mountFrame,
+  one,
   openPalette,
   productModule,
   rosterModule,
@@ -59,6 +61,36 @@ const CLAUSE_SHORTCUTS: readonly string[] = [
 
 /** The way a chord reads once whitespace is normalised — `chordOf` joins its steps with spaces. */
 const said = (value: string): string => value.replace(/\s+/g, " ").trim();
+
+/**
+ * A field of the stage's own, mounted inside the frame beside the top bar. The rule AC-3 states is
+ * about the TARGET being editable — "outside a text field" — not about which fields the product
+ * happens to ship today, so the case holds the handler to a control it has never heard of (B-19).
+ */
+const FIELD_LABEL = "a field the reader is typing in";
+
+const editableField = (tag: "input" | "textarea" | "div", extra: Record<string, unknown> = {}): ReactNode =>
+  createElement(tag, { "aria-label": FIELD_LABEL, ...extra } as never);
+
+/** The editable hosts the platform gives typed text to — input, textarea, and a contenteditable box. */
+const EDITABLE_HOSTS: readonly { readonly what: string; readonly node: ReactNode }[] = [
+  { what: "a text input", node: editableField("input", { type: "text" }) },
+  { what: "a textarea", node: editableField("textarea") },
+  { what: "a contenteditable box", node: editableField("div", { contentEditable: true, suppressContentEditableWarning: true, role: "textbox" }) },
+];
+
+/** The stage's field, as it stands on the screen. */
+const stageField = (): HTMLElement => {
+  const found = document.body.querySelector(`[aria-label="${FIELD_LABEL}"]`);
+  expect(found, "the stage's own editable field is on the screen").not.toBeNull();
+  return found as HTMLElement;
+};
+
+/** What a field says, whichever kind of editable host it is. */
+const saidIn = (field: HTMLElement): string => {
+  const valued = field as HTMLElement & { value?: unknown };
+  return typeof valued.value === "string" ? valued.value : (field.textContent ?? "");
+};
 
 describe("AC-3: the roster, the ? sheet and the palette's shortcut rows", () => {
   test("AC-3: the roster names every shortcut R-UI-032 documents, each with a scope, keys and a label the table states", async () => {
@@ -153,6 +185,78 @@ describe("AC-3: the roster, the ? sheet and the palette's shortcut rows", () => 
       expect(row.getAttribute("data-scope"), `\`${entry.id}\`'s row says where the key works (AC-3)`).toBe(entry.scope);
       expect(said(text(all(TESTID.sheetKeys, row)[0] ?? null)), `\`${entry.id}\`'s row reads its chord (AC-3)`).toBe(said(roster.chordOf(entry)));
       expect(text(row), `\`${entry.id}\`'s row reads its label from the one table (AC-3)`).toContain(copy(table, entry.label));
+    }
+  });
+
+  test("AC-3: `?` inside the palette's own input is a character, not the sheet's key", async () => {
+    const frame = await mountFrame();
+    const palette = await openPalette(frame);
+    const input = one(TESTID.input) as HTMLInputElement;
+
+    // Where a person typing a query has their hands: in the palette's own combobox.
+    await frame.user.click(input);
+    expect(document.activeElement, "the case types where the reader types (AC-1)").toBe(input);
+
+    await frame.user.keyboard("?");
+    await settle();
+
+    expect(maybe(TESTID.sheet), "`?` typed into a text field opens no shortcut sheet over it — AC-3's key is `?` OUTSIDE a text field").toBeNull();
+    expect(input.value, "and the character went to the field the reader was typing in (AC-3)").toContain("?");
+    expect(all(TESTID.palette).length, "the palette the reader was in is still the only dialog on the screen").toBe(1);
+    expect(palette.isConnected, "and it is the same one, not re-opened under the sheet").toBe(true);
+
+    // The same stage, with no field holding focus, DOES open the sheet — so the assertion above is a
+    // rule about where focus was and not a stage in which nothing could ever open.
+    await frame.user.keyboard("{Escape}");
+    await settle();
+    expect(maybe(TESTID.palette), "Escape closes the palette (AC-1)").toBeNull();
+    await frame.user.keyboard("?");
+    await settle();
+    expect(maybe(TESTID.sheet), "`?` outside a text field opens the shortcut sheet (AC-3)").not.toBeNull();
+  });
+
+  test("AC-3: a global shortcut that is also a character opens nothing while an editable control holds focus", async () => {
+    const roster = await rosterModule();
+
+    // Every global entry a reader could type into a field — steps that are bare printable keys,
+    // taken from the roster rather than listed here, so a new one is held to the same rule (B-19).
+    const typeable = roster.SHORTCUTS.filter(
+      (entry) => entry.scope === "global" && entry.keys.every((key) => key.length === 1 && key.trim() === key),
+    );
+    expect(
+      typeable.map((entry) => entry.id),
+      "the roster documents `shortcut-sheet` as a bare printable key — AC-3's `?` (increment interfaces)",
+    ).toContain("shortcut-sheet");
+
+    for (const host of EDITABLE_HOSTS) {
+      const frame = await mountFrame({ children: host.node });
+      const field = stageField();
+      field.focus();
+      expect(document.activeElement, `focus stands in ${host.what}`).toBe(field);
+
+      for (const entry of typeable) {
+        const typed = entry.keys.join("");
+        const before = saidIn(field);
+        await frame.user.keyboard(typed);
+        await settle();
+
+        expect(
+          maybe(TESTID.sheet),
+          `\`${typed}\` (\`${entry.id}\`) typed into ${host.what} opens no shortcut sheet — a global key is not armed while an editable control holds focus (AC-3)`,
+        ).toBeNull();
+        expect(maybe(TESTID.palette), `\`${typed}\` typed into ${host.what} opens no palette (AC-3)`).toBeNull();
+        expect(frame.navigated, `\`${typed}\` typed into ${host.what} takes the reader nowhere (AC-3)`).toEqual([]);
+        expect(saidIn(field), `\`${typed}\` landed in ${host.what} as the text the reader meant it to be (AC-3)`).toBe(`${before}${typed}`);
+      }
+
+      // And with that field blurred, the very same keys reach the sheet — the guard is about focus.
+      field.blur();
+      const sheetEntry = roster.SHORTCUTS.find((entry) => entry.id === "shortcut-sheet");
+      await frame.user.keyboard((sheetEntry as { keys: readonly string[] }).keys.join(""));
+      await settle();
+      expect(maybe(TESTID.sheet), `with ${host.what} blurred, the sheet's own key opens it (AC-3)`).not.toBeNull();
+
+      unmountAll();
     }
   });
 
