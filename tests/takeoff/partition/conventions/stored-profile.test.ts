@@ -111,10 +111,16 @@ describe("AC-4: the conventions stage runs after the views stage", () => {
 
   test("AC-4: the conventions step says how much it read and how much it could not resolve", async () => {
     const { steps } = await staged();
+    const row = await storedRow();
     const step = steps.find((entry) => entry.step === CONVENTIONS_STAGE);
     expect(step, `the run recorded a \`${CONVENTIONS_STAGE}\` step`).toBeTruthy();
     expect(typeof step?.detail["layers"], "the step says over how many layers the census was taken — a stage that reports nothing is not a visible stage (R-TO-030)").toBe("number");
     expect(typeof step?.detail["deferrals"], "and how many roles it would not default").toBe("number");
+
+    // What the numbers SAY is what makes the step visible: a detail nobody reads off the run's own
+    // result is a constant with a number's shape (R-TO-030: each stage's result is visible).
+    expect(step?.detail["layers"], "and the count is the census this run really took — one entry per layer it tallied").toBe(row.census.layers.length);
+    expect(step?.detail["deferrals"], "and the deferrals are the ones the profile it stored really carries").toBe(row.profile.deferrals.length);
   }, BUDGET_MS);
 });
 

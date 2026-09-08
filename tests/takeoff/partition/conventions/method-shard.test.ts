@@ -41,14 +41,21 @@ async function manifest(): Promise<Manifest> {
   return loaded.default ?? loaded;
 }
 
+/**
+ * The separator the toolchain's digests are built on: a NUL byte, which no method id, declaration
+ * or JSON text can itself hold (arbitration, this file's AC-3 digest case). Spelled through its
+ * code point because the byte cannot be written into this file as a literal.
+ */
+const SEPARATOR = String.fromCharCode(0);
+
 /** The digest the stage recomputes: every method id and its declaration, in code-point order. */
 function digestOf(methods: Record<string, Declaration>): string {
   const hash = createHash("sha256");
   for (const id of Object.keys(methods).sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))) {
     hash.update(id);
-    hash.update(" ");
+    hash.update(SEPARATOR);
     hash.update(JSON.stringify(methods[id]));
-    hash.update(" ");
+    hash.update(SEPARATOR);
   }
   return hash.digest("hex");
 }

@@ -104,12 +104,22 @@ async function policiesOf(table: string): Promise<string[]> {
   ).map((row) => (row[0] ?? "").replaceAll(`"${table}".`, "").replaceAll(table, ""));
 }
 
-/** The primary key of a table, as the catalogue defines it. */
-async function primaryKeyOf(table: string): Promise<string> {
+/**
+ * The columns of a table's primary key, in key order — the key's own column list read out of the
+ * catalogue rather than matched inside a definition string, so a key with a column too many is a
+ * different key and not a longer sentence that still contains the right words.
+ */
+async function primaryKeyColumnsOf(table: string): Promise<string[]> {
   const { bootstrapUrl } = await staged();
-  return (
-    run(bootstrapUrl, `select pg_get_constraintdef(oid) from pg_constraint where conrelid = ${lit(`public.${table}`)}::regclass and contype = 'p';`).map((row) => row[0] ?? "")[0] ?? ""
-  );
+  return run(
+    bootstrapUrl,
+    `select a.attname
+       from pg_constraint c
+       join unnest(c.conkey) with ordinality as k(attnum, ord) on true
+       join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k.attnum
+      where c.conrelid = ${lit(`public.${table}`)}::regclass and c.contype = 'p'
+      order by k.ord;`,
+  ).map((row) => row[0] ?? "");
 }
 
 describe("AC-4: convention_profiles is migrated, scoped and rewritable", () => {
@@ -123,11 +133,10 @@ describe("AC-4: convention_profiles is migrated, scoped and rewritable", () => {
 
   it("AC-4: one profile stands per ingest, in one workspace", async () => {
     await requireProfiles();
-    const key = await primaryKeyOf(PROFILES);
-    expect(key, `public.${PROFILES} carries a primary key`).not.toBe("");
-    for (const column of KEY) {
-      expect(key, `the key is (${KEY.join(", ")}): a rebuilt partition replaces the profile of the ingest it rebuilt rather than standing a second one beside it (L-REG-04)`).toContain(column);
-    }
+    expect(
+      await primaryKeyColumnsOf(PROFILES),
+      `the key is exactly (${KEY.join(", ")}) and nothing more: a rebuilt partition replaces the profile of the ingest it rebuilt rather than standing a second one beside it, and a wider key would let two profiles of one ingest stand apart on a column the rebuild never keyed by (L-REG-04, R-TO-030)`,
+    ).toEqual([...KEY]);
   });
 
   it("AC-4: the profile is scoped exactly as the views it is rebuilt with", async () => {

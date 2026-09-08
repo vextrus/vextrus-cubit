@@ -11,6 +11,7 @@
 import { register } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { expect } from "vitest";
 
 const [relative] = process.argv.slice(2);
 if (relative === undefined) throw new Error("usage: load-under-core-only.mts <repo-relative module>");
@@ -23,4 +24,8 @@ const entry = join(root, relative);
 register(new URL("./core-only-loader.mjs", import.meta.url), { data: { root, entry } });
 
 const loaded = (await import(pathToFileURL(entry).href)) as Record<string, unknown>;
+expect(
+  Object.keys(loaded).length,
+  `${relative} came up in a world closed to everything outside src/core, but published nothing — a module that hands out no name has not been loaded in any sense a caller could use`,
+).toBeGreaterThan(0);
 process.stdout.write(`loaded ${relative}: ${Object.keys(loaded).sort().join(", ")}\n`);
