@@ -53,6 +53,9 @@ const RULE_OF_SLUG: Readonly<Record<string, string>> = {
  */
 const SCAN_CORPORA: Readonly<Record<string, string>> = {
   "view-type-literals": "src/modules/takeoff/partition/views/__tests__/view-type-literals.test.ts",
+  // `conversion-literals` is L-FRM-06's ban on spelling a conversion factor outside the unit canon,
+  // proved as a committed scan for the same reason (inc-207 — `scripts/eslint/**` is locked at M2).
+  "conversion-literals": "tests/units/conversion-literals.test.ts",
 };
 
 /**
