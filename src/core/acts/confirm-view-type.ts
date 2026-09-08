@@ -16,7 +16,8 @@ import { viewTypeConfirmations, type TenantTx } from "../db";
 import type { RefusalCode } from "../errors";
 import { refusal } from "../faults/refusal-marker";
 import { projectDrawingsOf } from "../sheets";
-import { viewRecordsOf, type ViewRecord } from "../views";
+import type { GroupKind } from "./confirm-discipline";
+import { viewRecordsOf, type ProposedViewType, type ViewRecord } from "../views";
 import type { Consequence } from "./consequence";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
@@ -27,11 +28,19 @@ const CONFIRM_VIEW_TYPE = "CONFIRM_VIEW_TYPE" as const;
 const GROUP_NOT_OFFERED: RefusalCode = "GROUP_NOT_OFFERED";
 
 /**
+ * The kind of fact this act's groups are keyed on, drawn OUT of the seam's closed roster rather than
+ * spelled beside it: L-ACT-02 asks for "a typed grouping key over a closed enum", so a kind this
+ * file invented would be a second vocabulary for the same law, and a kind dropped from the roster is
+ * a compile error here (B-17).
+ */
+type ProposedViewTypeKind = Extract<GroupKind, "PROPOSED_VIEW_TYPE">;
+
+/**
  * The fact a view-type group is keyed on: every unconfirmed view of one drawing that a model
  * proposed at one class. R-UI-023 names groups by what their members have in common, and what these
  * have in common is a proposal nobody has ruled on yet.
  */
-export type ViewGroupKey = { readonly kind: "PROPOSED_VIEW_TYPE"; readonly drawingId: string; readonly viewType: string };
+export type ViewGroupKey = { readonly kind: ProposedViewTypeKind; readonly drawingId: string; readonly viewType: string };
 
 /** The act's input: which project, and which group of it is being confirmed. */
 export type ConfirmViewTypeInput = {
@@ -40,8 +49,12 @@ export type ConfirmViewTypeInput = {
   readonly group: ViewGroupKey;
 };
 
-/** What one member of the group is: the view, and the record it belongs to. */
-type ViewMember = { readonly view: ViewRecord; readonly drawingId: string; readonly ingestId: string };
+/**
+ * What one member of the group is: the view, the class the machine proposed for it — carried as the
+ * store's own value rather than as the key's, so what is written is the state that was judged
+ * (L-ACT-02) — and the record it belongs to.
+ */
+type ViewMember = { readonly view: ViewRecord; readonly proposedType: ProposedViewType["type"]; readonly drawingId: string; readonly ingestId: string };
 
 /** L-ACT-02's refusal for a group the machine is not offering, carrying the key that named none. */
 export function viewGroupNotOffered(group: ViewGroupKey): Error {
@@ -69,9 +82,11 @@ export async function membersOf(ctx: ActorCtx, input: ConfirmViewTypeInput, tx: 
   const record = drawing.record;
   const scope = { tenantId: ctx.tenantId, ingestId: record.ingestId };
   const views = await viewRecordsOf(tx, scope);
-  return views
-    .filter((view) => view.proposed !== null && view.proposed.type === input.group.viewType && view.confirmed === null)
-    .map((view) => ({ view, drawingId: drawing.drawingId, ingestId: record.ingestId }));
+  return views.flatMap((view) =>
+    view.proposed !== null && view.proposed.type === input.group.viewType && view.confirmed === null
+      ? [{ view, proposedType: view.proposed.type, drawingId: drawing.drawingId, ingestId: record.ingestId }]
+      : [],
+  );
 }
 
 export const confirmViewType: ActRendering<ConfirmViewTypeInput> = {
@@ -107,7 +122,7 @@ export const confirmViewType: ActRendering<ConfirmViewTypeInput> = {
         drawingId: member.drawingId,
         ingestId: member.ingestId,
         viewKey: member.view.viewKey,
-        type: input.group.viewType,
+        type: member.proposedType,
         actId: act.actId,
       })),
     );

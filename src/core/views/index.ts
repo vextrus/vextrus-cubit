@@ -13,11 +13,18 @@ import { and, eq, partitionViews, viewTypeConfirmations, type TenantTx } from ".
 /** Which record's partition is being read, in whose workspace. */
 export type ViewRecordScope = { readonly tenantId: string; readonly ingestId: string };
 
+/**
+ * A view class as the store holds one. L-CAD-06's vocabulary is closed and the column is closed
+ * with it, so this reading takes the column's own type rather than restating the eleven: a class
+ * that could not be written cannot be read back either (B-17).
+ */
+type ViewClass = (typeof partitionViews.$inferSelect)["type"];
+
 /** What a model proposed a view to be, and the ledger row that proposed it (L-AI-01, L-AI-02). */
-export type ProposedViewType = { readonly type: string; readonly callId: string };
+export type ProposedViewType = { readonly type: ViewClass; readonly callId: string };
 
 /** What a person confirmed a view to be, and the act that carried it (L-ACT-01). */
-export type ConfirmedViewType = { readonly type: string; readonly actId: string };
+export type ConfirmedViewType = { readonly type: ViewClass; readonly actId: string };
 
 /**
  * One view of a stored partition, whole. `type` is what the grammar read and stays what it read: a
@@ -26,7 +33,7 @@ export type ConfirmedViewType = { readonly type: string; readonly actId: string 
  */
 export type ViewRecord = {
   readonly viewKey: string;
-  readonly type: string;
+  readonly type: ViewClass;
   readonly reason: string | null;
   readonly caption: string;
   readonly anchorKey: string | null;

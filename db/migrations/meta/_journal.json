@@ -169,6 +169,13 @@
       "when": 1788819234267,
       "tag": "0023_views-partition",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788825607976,
+      "tag": "0024_view-type-closed",
+      "breakpoints": true
     }
   ]
 }

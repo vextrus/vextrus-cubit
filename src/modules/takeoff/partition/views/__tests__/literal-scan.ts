@@ -6,6 +6,7 @@
 // is code and only code: a member named in prose is a comment, and a module specifier addresses a
 // file rather than stating a class. Neither is a spelling of the law, and neither is reported.
 import { readFileSync } from "node:fs";
+// white-box: AC-1 — the ban IS a claim about source text ("no other file under src/** spells a member as a string literal"), so the tree's one lexer is what this scanner is built out of: a spelling that never runs has no runtime observable, and only reading the text can find one.
 import { dialectOf, scanned } from "../../../../../../tests/support/source-lex";
 import { VIEW_TYPES } from "../law";
 

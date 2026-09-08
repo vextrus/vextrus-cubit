@@ -7,6 +7,7 @@
 import { sql as statement } from "drizzle-orm";
 import { bigint, check, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { INGEST_SCHEME } from "../entitygraph/schema";
+import { VIEW_TYPE_SPELLINGS } from "../errors/transport-vocabulary";
 import { MODEL_IDS } from "../model-ledger.types";
 import type { SourceScheme } from "../model";
 import { DEFAULT_DENSITY, DENSITIES, type Density } from "../prefs/density";
@@ -872,6 +873,13 @@ export const sheetDisciplines = pgTable(
  * the ledger row that proposed it, and `type` stays what the grammar answered until a person confirms
  * otherwise.
  */
+/**
+ * A view class as a column holds one. L-CAD-06's vocabulary is closed and its law lives in a module
+ * core may not import (ARCH-01), so the store is written from the roster the transport declares —
+ * the same eleven spellings, read from their one home rather than repeated here (B-17).
+ */
+type ViewTypeSpelling = (typeof VIEW_TYPE_SPELLINGS)[number];
+
 export const partitionViews = pgTable(
   "partition_views",
   {
@@ -880,19 +888,23 @@ export const partitionViews = pgTable(
     drawingId: uuid("drawing_id").notNull(),
     ingestId: uuid("ingest_id").notNull(),
     viewKey: text("view_key").notNull(),
-    type: text("type").notNull(),
+    type: text("type").$type<ViewTypeSpelling>().notNull(),
     /** Why the type is what it is, where the grammar read nothing — a registered refusal code. */
     reason: text("reason"),
     /** The caption this view is anchored by, as the drawing states it; empty where none anchors it. */
     caption: text("caption").notNull(),
     /** The source key of the caption's own entity, or null for the view no caption anchors. */
     anchorKey: text("anchor_key"),
-    proposedType: text("proposed_type"),
+    proposedType: text("proposed_type").$type<ViewTypeSpelling>(),
     proposedCallId: uuid("proposed_call_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     primaryKey({ name: "partition_views_key", columns: [table.tenantId, table.ingestId, table.viewKey] }),
+    // The vocabulary is closed, so the store closes it too: a class outside the eleven cannot be
+    // written at all, however it reached the insert (L-CAD-06).
+    check("partition_views_type_closed", statement`${table.type} in (${statement.raw(closedList(VIEW_TYPE_SPELLINGS))})`),
+    check("partition_views_proposed_type_closed", statement`${table.proposedType} in (${statement.raw(closedList(VIEW_TYPE_SPELLINGS))})`),
     // A proposal is a payload and the call that made it, or neither: a proposed class naming no
     // ledger row would be a reading nobody could audit (L-AI-01).
     check("partition_views_proposal_whole", statement`(${table.proposedType} is null) = (${table.proposedCallId} is null)`),
@@ -943,11 +955,14 @@ export const viewTypeConfirmations = pgTable(
     drawingId: uuid("drawing_id").notNull(),
     ingestId: uuid("ingest_id").notNull(),
     viewKey: text("view_key").notNull(),
-    type: text("type").notNull(),
+    type: text("type").$type<ViewTypeSpelling>().notNull(),
     actId: uuid("act_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    // Closed here for the reason it is closed on the view itself: a person confirms a class of the
+    // vocabulary, and nothing else is a class (L-CAD-06).
+    check("view_type_confirmations_type_closed", statement`${table.type} in (${statement.raw(closedList(VIEW_TYPE_SPELLINGS))})`),
     // One confirmation per view of one record: a second, disagreeing reading is a competing
     // observation, which L-ACT-01 gives a path of its own rather than a second row here.
     uniqueIndex("view_type_confirmations_once").on(table.tenantId, table.ingestId, table.viewKey),

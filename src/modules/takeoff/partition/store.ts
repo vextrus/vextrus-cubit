@@ -9,14 +9,14 @@
 // same rows and may not reach into a module (ARCH-01), so a view has one reading and this door asks
 // for it rather than keeping a second one (B-17).
 import { and, drawings, eq, forTenant, isUuid, partitionViews, viewAssignments } from "@/core/db";
-import { viewRecordsOf, type ViewRecord } from "@/core/views";
+import { viewRecordsOf, type ProposedViewType, type ViewRecord } from "@/core/views";
 import type { PartitionedView } from "./views/assign";
 
 /** Which drawing's partition is being asked about, in whose workspace and under which project. */
 export type PartitionScope = { readonly tenantId: string; readonly projectId: string; readonly drawingId: string };
 
 /** What a model proposed for one view, ready to be stored beside it (L-AI-02). */
-export type ViewProposal = { readonly viewKey: string; readonly type: string; readonly callId: string };
+export type ViewProposal = { readonly viewKey: string; readonly type: ProposedViewType["type"]; readonly callId: string };
 
 /** One whole partition, as a rebuild hands it over to be written. */
 export type PartitionWrite = {
