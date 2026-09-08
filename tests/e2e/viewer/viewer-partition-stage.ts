@@ -20,6 +20,7 @@
  * journeys' database and the storage root is left exactly as the served product resolves it BEFORE
  * any product module is imported, and the drawing exists before the reading of it is recorded.
  */
+import { Buffer } from "node:buffer";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -374,7 +375,9 @@ export async function stagePartitionedSheet(page: Page, options: { label?: strin
   expect(projectId, "the card names the project it is for").not.toBe("");
 
   /* --- a drawing, through the shipped upload door, in the browser's own session --- */
-  const bytes = new TextEncoder().encode(`${DRAWING_BYTES}; ${label} ${mark}\n`);
+  // A Buffer, not a bare Uint8Array: Playwright serialises anything else as JSON, and the door would
+  // then judge the digest of a JSON object against the digest declared for these bytes.
+  const bytes = Buffer.from(`${DRAWING_BYTES}; ${label} ${mark}\n`, "utf8");
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const created = await uploads.create({ projectId, name: `partition-${mark}.dxf`, size: bytes.length, sha256 });
   expect(created.status, "POST /api/upload opens a session for a member of the project's workspace").toBe(201);

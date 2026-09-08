@@ -21,7 +21,7 @@ import { expect, test } from "@playwright/test";
 import { REFUSALS } from "../../src/core/errors";
 import { checkpoint } from "./support/checkpoint";
 import { SViewerPartitionPage } from "./pages/s-viewer-partition.page";
-import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "./viewer/s-viewer.page";
+import { S_VIEWER, SViewerPage } from "./viewer/s-viewer.page";
 import { UNTYPED, confirmationsOf, stagePartitionedSheet, storedDeferrals } from "./viewer/viewer-partition-stage";
 
 /** The stored reason a caption no grammar rule reads leaves on its view (L-CAD-06, AC-3). */
@@ -66,7 +66,9 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
 
     /* --- the sheet, opened and drawn --- */
     await page.goto(address, { waitUntil: "commit" });
-    await expect(viewer.status, "the staged sheet paints").toHaveAttribute("data-first-paint", "true", { timeout: VIEWER_BUDGETS.firstPaintColdMs });
+    // The paint's own budget is PB-2's and the perf lane's verdict, never this journey's: what is
+    // waited on here is that the sheet arrives at all, so the overlay has something to be laid over.
+    await expect(viewer.status, "the staged sheet paints").toHaveAttribute("data-first-paint", "true", { timeout: SHEET_BUDGET_MS });
     await expect(viewer.status, "and it is painted by WebGL, which is what the overlay is laid over").toHaveAttribute("data-renderer", "webgl");
     await expect
       .poll(async () => {

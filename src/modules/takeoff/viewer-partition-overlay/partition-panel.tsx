@@ -51,6 +51,32 @@ export type PartitionPanelProps = {
   answer: ReactNode;
 };
 
+/**
+ * A stored measurement as a decimal string the figure seam accepts (R-SPINE-010, L-FMT-02).
+ *
+ * `String(value)` is the shortest text that round-trips a double, but for a magnitude near zero or
+ * very large it is written with an exponent — `1.2e-17` — and an exponent is not a decimal: the seam
+ * refuses it rather than guessing, and a row rendering one would take the whole screen down. A grid
+ * position derived from a ring's own geometry lands there whenever an axis stands at the origin, so
+ * the exponent is written out positionally here. Nothing is rounded, padded or dropped: the value
+ * the store holds is the value the panel shows, spelled the way a decimal is spelled.
+ */
+function decimalOf(value: number): string {
+  const written = String(value);
+  const at = written.indexOf("e");
+  if (at < 0) return written;
+  const exponent = Number(written.slice(at + 1));
+  const sign = written.startsWith("-") ? "-" : "";
+  const digits = written.slice(sign.length, at).replace(".", "");
+  const point = written.slice(sign.length, at).indexOf(".");
+  // Where the decimal point stands once the exponent is spent: left of every digit for a magnitude
+  // below one, right of the last for a whole number too long to write in place.
+  const shift = (point < 0 ? digits.length : point) + exponent;
+  if (shift <= 0) return `${sign}0.${"0".repeat(-shift)}${digits}`;
+  if (shift >= digits.length) return `${sign}${digits}${"0".repeat(shift - digits.length)}`;
+  return `${sign}${digits.slice(0, shift)}.${digits.slice(shift)}`;
+}
+
 /** The register's own sentence for a code the store holds, or nothing where it holds none. */
 function messageOf(code: string | null): string {
   if (code === null || !Object.hasOwn(REFUSALS, code)) return "";
@@ -122,12 +148,12 @@ function AxisRow({ axis }: { axis: PartitionOverlayAxis }) {
       data-label={axis.label}
     >
       <span className="cx-viewer-hidden">
-        {fillCopy("viewer_partition_axis_reading", { label: axis.label, family: axis.family, position: formatUserFigure(String(axis.position)) })}
+        {fillCopy("viewer_partition_axis_reading", { label: axis.label, family: axis.family, position: formatUserFigure(decimalOf(axis.position)) })}
       </span>
       <span className="cx-viewer-partition-line" aria-hidden="true">
         <span className="cx-viewer-partition-axis-label">{axis.label}</span>
         <span className="cx-viewer-partition-note">{axis.family}</span>
-        <span className="cx-viewer-partition-figure">{formatUserFigure(String(axis.position))}</span>
+        <span className="cx-viewer-partition-figure">{formatUserFigure(decimalOf(axis.position))}</span>
       </span>
     </li>
   );
