@@ -379,11 +379,15 @@ function closedValues(url: string, table: TableRef, column: string): string[] {
  * number — a positive one behind it. A CHECK may say a column is a DISTANCE rather than a count
  * (`> 0`), and such a constraint names no literal for `closedValues` to read, so a probe that only
  * ever offered zero could not seed that table at all and the table would silently leave V-DB's proof.
- * Derived from the column's type, never from a list of tables (B-19).
+ * An array is the same story one type along: a CHECK may say the column CITES something
+ * (`cardinality(...) >= 1`), which likewise names no literal, so an inhabited array stands behind the
+ * empty one. Derived from the column's type, never from a list of tables (B-19).
  */
 function probeValues(column: ColumnRef): string[] {
   const generic = probeValue(column);
-  return generic === "0" ? [generic, "1"] : [generic];
+  if (generic === "0") return [generic, "1"];
+  if (column.dataType === "ARRAY") return [generic, `${lit("{verifier-probe}")}::${ident(column.udtName)}`];
+  return [generic];
 }
 
 /** Every combination of the alternatives, oldest column first, capped so a wide table cannot explode. */
