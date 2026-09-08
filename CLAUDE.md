@@ -28,14 +28,13 @@ pnpm verify · pnpm test:db · pnpm e2e --journey <J> · pnpm checkup
 <!-- builder:lessons:start -->
 ## Standing lessons (engine-maintained)
 ### Locked ground & lawful paths
+- denied 4× on the kind catalogue units increment: know the lawful path — Sessions on the kind catalogue units increment were denied 4 times with: > rm -rf is denied (the exceptions: scratch under /tmp or $TMPDIR — mcp__builder__scratch_dir answers with a guaranteed-writable directory in one turn — and this lane's own regenerable …
 - denied 4× on the scale engine increment: know the lawful path — Sessions on the scale engine increment were denied 4 times with: > the whole gate chain is run through `mcp__builder__check` — `{}` for the fast lane (tsc, eslint on your changed files, the unit tests your diff can move) between edits; `{ "full": true }` for …
 - The session that re-runs the gate chain by hand — An increment repeatedly (4x) tried to run the whole gate chain tool-by-tool instead of calling the fast lane.
 - A screen that reads a seam's answer must admit a refusal by asking REFUSALS, not by matching one hand-picked property, and must keep the rows the answer carried — A client-side reader that only accepts `answer.refusal` as a *string* (plus the core marker on a rejection) mis-reads every other lawful carrier as a fault, and shows a person whose session or permission is the reason a **retry button** — the wrong one of …
 ### Tests & acceptance
+- Scan-corpus exemptions need the corpus committed and armed, not just referenced — An increment writing a lint/scan-law test that excuses a NEVER via a named corpus can pass its own unit test while failing the AC that the corpus sits in an armed lane.
 - Prove 'this module imports only from X' behaviourally with a module.register resolve hook that refuses everything else — never by scanning the file's text — An acceptance criterion of the form *"`<module>` imports only from `@/core/**`"* is a **source-text** assertion if you scan it with `tests/support/source-lex` — and the engine's mechanical check flags it (v15 §7).
 ### Database
 - Comparing two tables' RLS policies as text needs polcmd::text — bare `polcmd || ' | '` fails with \"operator is not unique\" — The cleanest way to prove a new table "wears the policies <peer> wears" (B-19: derive, never transcribe) is to read both tables' policies as one comparable string per policy and compare the sorted lists — names ignored, substance compared: ```sql select …
-### Process
-- In jsdom navigator.onLine is always true, so an offline banner that re-reads it inside its own event handler can never be driven from a unit lane — jsdom implements `navigator.onLine` as a constant `true` and does not change it when you `window.dispatchEvent(new Event("offline"))`.
-- A gate build-lane tail ending in report.ts/instrumentation.ts warnings proves nothing — a green build prints the identical four — `next build` (Turbopack, Next 16) ends every run — green or red — with a summary block whose last entries are four warnings: `src/instrumentation.ts:32 (process.pid)`, `src/core/faults/report.ts:28 (process.stderr)` and `:4 (node:crypto)`, each followed by …
 <!-- builder:lessons:end -->
