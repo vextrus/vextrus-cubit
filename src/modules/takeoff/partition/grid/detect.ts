@@ -172,11 +172,19 @@ function bubblesAmong(candidates: readonly Drawn[]): Bubble[] {
 
 /**
  * One view's bubbles, georeferenced: each family along the world axis its own members spread along,
- * each bubble at its position on that axis, and the view's minimum spacing on every row.
+ * each bubble at its position on that axis, and the view's minimum spacing on every row. Per VIEW,
+ * both of them: a drawing may carry a plan whose letters run down the page beside one whose letters
+ * run across it, and each plan is georeferenced by its own bubbles and scaled by its own spacing.
+ *
+ * A spacing is the distance BETWEEN AXES of one family, and an axis is named by its label — so a
+ * family georeferences a spacing only where it carries two or more DISTINCT labels, and the spacing
+ * is the least non-zero distance between the positions of two DIFFERENT labels of that family. Two
+ * bubbles saying the same label are one axis bubbled at both ends, which is ordinary drafting: the
+ * width of an axis is not a spacing between axes (L-CAD-07, L-MEA-01).
  *
  * An empty answer is the deferral: a view whose bubbles do not amount to a grid — no family carrying
  * two distinct labels, or none whose labels stand at two distinct places — has no spacing for
- * placement to scale by, and half a backbone is not one (L-CAD-07, L-MEA-01).
+ * placement to scale by, and half a backbone is not one.
  */
 function georeference(bubbles: readonly Bubble[]): Omit<GridAxisRow, "viewKey">[] {
   const families = [...new Set(bubbles.map((bubble) => bubble.family))];
@@ -186,11 +194,15 @@ function georeference(bubbles: readonly Bubble[]): Omit<GridAxisRow, "viewKey">[
   let minSpacing = Number.POSITIVE_INFINITY;
   for (const family of families) {
     const members = bubbles.filter((bubble) => bubble.family === family);
-    // Two distinct labels are what makes a family a family: one bubble is a mark, not a backbone.
+    // Two distinct labels are what makes a family a backbone: one axis, however often it is bubbled,
+    // is a mark on the drawing and no spacing at all.
     if (new Set(members.map((member) => member.label)).size < 2) continue;
-    const positions = [...new Set(members.map(positionOf))].sort((left, right) => left - right);
-    for (let index = 1; index < positions.length; index += 1) {
-      minSpacing = Math.min(minSpacing, (positions[index] as number) - (positions[index - 1] as number));
+    for (const one of members) {
+      for (const other of members) {
+        if (one.label === other.label) continue;
+        const gap = Math.abs(positionOf(one) - positionOf(other));
+        if (gap > 0) minSpacing = Math.min(minSpacing, gap);
+      }
     }
   }
   if (!(minSpacing > 0) || !Number.isFinite(minSpacing)) return [];
@@ -225,18 +237,20 @@ function spanOf(values: readonly number[]): number {
 
 /**
  * A ring's centre and radius where it is round, or null where it is not. Round is: more vertices than
- * a quadrilateral, every one of them the same distance from the centroid. The vertex count carries
- * its weight — a square's four corners are all equidistant from its own centre, so equidistance alone
- * would read a rectangular tag as a bubble (L-CAD-07 asks for a circle).
+ * a quadrilateral, every one of them standing the ring's own MEAN radius from the centroid, to within
+ * a share of that radius. The vertex count carries its weight — a square's four corners are all
+ * equidistant from its own centre, so equidistance alone would read a rectangular tag as a bubble
+ * (L-CAD-07 asks for a circle); the mean carries the rest, because a circle crosses the seam
+ * flattened into a polygon and no one of its vertices is the true radius (L-CAD-02).
  */
 function roundnessOf(ring: Drawn): { centre: Point; radius: number } | null {
   const points = ring.points ?? [];
   if (points.length < FEWEST_ROUND_VERTICES) return null;
   const centre = centroidOf(ring);
   const radii = points.map((point) => distanceBetween(pointOf(point), centre));
-  const first = radii[0] as number;
-  if (!(first > 0)) return null;
-  return radii.every((radius) => Math.abs(radius - first) <= ROUNDNESS_TOLERANCE * first) ? { centre, radius: first } : null;
+  const mean = radii.reduce((held, radius) => held + radius, 0) / radii.length;
+  if (!(mean > 0)) return null;
+  return radii.every((radius) => Math.abs(radius - mean) <= ROUNDNESS_TOLERANCE * mean) ? { centre, radius: mean } : null;
 }
 
 /** Where an entity stands: the mean of the points it is drawn from — a ring's own vertex centroid. */
