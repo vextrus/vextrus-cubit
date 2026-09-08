@@ -97,15 +97,19 @@ export function CommandPaletteProvider({
   }, [tenantId]);
 
   // The connection is read from the browser rather than inferred from a failed request: a request
-  // that never left names no cause, and a banner is owed before one is even attempted (§ 2).
+  // that never left names no cause, and a banner is owed before one is even attempted (§ 2). The
+  // state is read once and then FOLLOWED by the browser's own two events, each taken at its word —
+  // an `offline` event is the browser saying it has gone offline, and re-querying `navigator.onLine`
+  // to second-guess it is how a banner ends up off while nothing can be reached (R-UI-050).
   useEffect(() => {
-    const read = (): void => setOffline(typeof navigator === "undefined" ? false : navigator.onLine === false);
-    read();
-    window.addEventListener("online", read);
-    window.addEventListener("offline", read);
+    setOffline(typeof navigator !== "undefined" && navigator.onLine === false);
+    const wentOffline = (): void => setOffline(true);
+    const cameOnline = (): void => setOffline(false);
+    window.addEventListener("offline", wentOffline);
+    window.addEventListener("online", cameOnline);
     return () => {
-      window.removeEventListener("online", read);
-      window.removeEventListener("offline", read);
+      window.removeEventListener("offline", wentOffline);
+      window.removeEventListener("online", cameOnline);
     };
   }, []);
 

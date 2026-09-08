@@ -99,10 +99,15 @@ export function PaletteHost({ tenantId, projectId = null, search, navigate, chil
       // A rejected read is folded into the same three-shaped answer the seam already gives, so this
       // screen has ONE reading of "what came back" rather than two that could drift (ARCH-03, B-21):
       // rows, a registered refusal, or a fault with the id the tier recorded it under.
-      const answer = await search({ tenantId, query: typed }).then(
-        (value): unknown => value,
-        (failure: unknown): unknown => failureAnswer(failure),
-      );
+      // The call itself is inside the same one reading: a seam that throws where it should have
+      // rejected is the same failure as one that rejected, and an unhandled rejection would leave a
+      // person looking at a spinner no answer ever replaces (B-21).
+      const answer = await Promise.resolve()
+        .then((): unknown => search({ tenantId, query: typed }))
+        .then(
+          (value): unknown => value,
+          (failure: unknown): unknown => failureAnswer(failure),
+        );
       if (stale()) return;
 
       const refused = refusalIn(answer);
