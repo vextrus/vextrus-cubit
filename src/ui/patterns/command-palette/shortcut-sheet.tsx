@@ -55,7 +55,15 @@ export function ShortcutSheet() {
       {palette.sheetOpen ? <div className="cx-scrim" aria-hidden="true" /> : null}
       <DialogContent asChild aria-label={strings.shortcut_sheet_label}>
         <div data-testid="shortcut-sheet" className="cx-shortcut-sheet">
-          <ShortcutSheetBody />
+          {/* The roster is taller than a short window, so it is bounded here and the Dialog's own
+              overflow never engages (I-136, as the palette's list is bounded). A region that scrolls
+              is reached by the keyboard as well as by the wheel — the sheet holds nothing focusable
+              of its own, so without this a person on a keyboard could not read its last rows (axe
+              `scrollable-region-focusable`, R-UI-012) — and where focus lands, the reticle is drawn
+              from its one home. */}
+          <div className="cx-shortcut-sheet-scroll cx-reticle" tabIndex={0}>
+            <ShortcutSheetBody />
+          </div>
         </div>
       </DialogContent>
     </Dialog>

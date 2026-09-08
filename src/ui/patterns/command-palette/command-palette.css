@@ -172,6 +172,16 @@
   gap: var(--space-3);
 }
 
+.cx-shortcut-sheet-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  /* Bounded here, so the Dialog's own overflow never engages (I-136): the roster scrolls inside the
+     card and the card always stands inside the window, however short it is. */
+  max-block-size: min(720px, calc(100dvh - 200px));
+  overflow: auto;
+}
+
 .cx-shortcut-sheet-title {
   color: var(--graphite-900);
   font-size: var(--text-16);
