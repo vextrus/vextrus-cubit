@@ -8,7 +8,7 @@
  * the chrome are all the screen's to supply. What is here is the feed, the palette, the backing
  * store and the frame.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { Camera } from "@/modules/takeoff/viewer/types";
 import { drawOverlayScene } from "./paint";
@@ -189,5 +189,8 @@ export function useOverlayPaint({ canvasRef, stageRef, cameraRef, overlay, toggl
     return () => observer.disconnect();
   }, [repaint]);
 
-  return { paintOverlay };
+  // The answer is held across renders: the screen wires `paintOverlay` into the callback its camera
+  // draws through, and a new object every render would re-key that callback — and with it the
+  // camera's own fit effect — on every render (PB-3, and the loop that would follow).
+  return useMemo(() => ({ paintOverlay }), [paintOverlay]);
 }
