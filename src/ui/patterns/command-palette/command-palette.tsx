@@ -110,10 +110,13 @@ export function CommandPalette({
   // to name an element that is actually in the document (R-UI-012, Q-11).
   const listStands = fault === undefined && status !== "loading" && rowsStand;
   // A refusal beside rows is the partial state: what was answered stands, and the card sits under it
-  // rather than in its place (I-142, R-UI-050 — shown, not hidden).
+  // rather than in its place (I-142, R-UI-050 — shown, not hidden). The slot states the code it
+  // stands for as well as holding the card that says it, so a reader of the surface's own hook finds
+  // which refusal this is without reaching into the renderer's markup — one value, read from the one
+  // entry the card is drawn from (R-UI-020, B-17).
   const card =
     entry === null ? null : (
-      <div className="cx-palette-refusal" data-testid="command-palette-refusal">
+      <div className="cx-palette-refusal" data-testid="command-palette-refusal" data-code={entry.code}>
         <RefusalState refusal={entry} evidence={EVIDENCE[entry.code] ?? HOME_EVIDENCE} />
       </div>
     );
