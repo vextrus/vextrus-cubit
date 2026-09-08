@@ -38,6 +38,16 @@ const CONFIRM_VIEW_TYPE = "CONFIRM_VIEW_TYPE";
 /** Both switches are on at every mount — nothing about them is persisted (Decision § 8's IOU). */
 const BOTH_ON: OverlayToggles = { views: true, grid: true };
 
+/**
+ * The register's code a sheet feed refuses a reader with: 401 is a session that has ended, and the
+ * other door this feed closes is the workspace permission the account does not hold. One home for
+ * the reading both of this route's feeds make of a refused status (B-17) — the manifest's, in
+ * `viewer-screen.tsx`, and this region's.
+ */
+export function feedRefusalCode(status: number): RefusalCode {
+  return status === 401 ? "SIGNED_OUT" : "WORKSPACE_PERMISSION_NOT_HELD";
+}
+
 export type PartitionRegionOptions = {
   tenantId: string;
   projectId: string;
@@ -48,8 +58,6 @@ export type PartitionRegionOptions = {
   feed: (query: string) => string;
   /** Whether there is a drawn sheet to overlay yet: nothing is asked before the head is a manifest. */
   enabled: boolean;
-  /** A door that would not answer this reader — the screen holds the one refusal it becomes. */
-  onDenied: (status: number) => void;
   /** Where the camera stands, for the counts the overlay publishes after a frame. */
   camera: Camera | null;
   stageRef: RefObject<HTMLDivElement | null>;
@@ -67,18 +75,20 @@ export type PartitionRegion = {
   dialog: ReactNode;
 };
 
-export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled, onDenied, camera, stageRef, cameraRef, paintRef }: PartitionRegionOptions): PartitionRegion {
+export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled, camera, stageRef, cameraRef, paintRef }: PartitionRegionOptions): PartitionRegion {
   /** The overlay's own canvas: paint over the sheet, out of the pointer's reach (Decision I-112). */
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
 
   /**
    * The stored partition of this sheet, asked for once the head is a manifest (R-UI-043: the feed
    * answers it after the manifest cache is warm, so a cold sheet's first paint is never delayed by
-   * a reading of the store). A door that refuses this reader is the screen's ONE refusal, told apart
-   * from a partition that could not be read and from a drawing nobody has partitioned (ARCH-03).
+   * a reading of the store). A door that refuses this reader is the product's ONE RefusalState in
+   * THIS region's body — told apart from a partition that could not be read and from a drawing
+   * nobody has partitioned (ARCH-03) — and the sheet beside it is never taken down for it: what was
+   * refused is the partition, not the drawing (Decision § 2, R-UI-050's partial).
    */
   const [toggles, setToggles] = useState<OverlayToggles>(BOTH_ON);
-  const partition = usePartitionOverlay({ feed, enabled, onDenied });
+  const partition = usePartitionOverlay({ feed, enabled });
   const overlay = useOverlayPaint({ canvasRef: overlayRef, stageRef, cameraRef, overlay: partition.overlay, toggles });
   // The paint is one stable callback (PB-3), so filing it where the sheet's own draw reads it costs
   // nothing and repeats identically — the overlay lands on the frame the sheet was drawn at (I-112).
@@ -198,7 +208,11 @@ export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, 
         )
       }
       answer={
-        offlineNotice ? (
+        partition.refusedStatus !== null ? (
+          // The feed's own refusal, in the panel's body: the code, its remedy and the address that
+          // resolves it, through the product's one renderer (R-UI-020, Decision § 2).
+          <RefusalState refusal={refusalOf(feedRefusalCode(partition.refusedStatus))} evidence={evidenceFor(feedRefusalCode(partition.refusedStatus))} />
+        ) : offlineNotice ? (
           <p className="cx-viewer-partition-notice" role="alert">
             {strings.viewer_partition_offline}
           </p>

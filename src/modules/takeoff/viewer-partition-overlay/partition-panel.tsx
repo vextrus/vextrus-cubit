@@ -35,7 +35,7 @@ const TITLE_ID = "cx-viewer-partition-title";
 const LOADING_BONES = 3;
 
 /** What the panel is showing, as its `data-state` publishes it (R-UI-050). */
-export type PartitionPanelState = "loading" | "ready" | "empty" | "failed";
+export type PartitionPanelState = "loading" | "ready" | "empty" | "failed" | "refused";
 
 export type PartitionPanelProps = {
   state: PartitionPanelState;
@@ -47,7 +47,8 @@ export type PartitionPanelProps = {
   faultId: string | null;
   /** The one shipped `OfferedGroups`, mounted by the screen (ARCH-01) — or nothing to offer. */
   groups: ReactNode;
-  /** The region's answer slot: one RefusalState, or the offline notice, or nothing. */
+  /** The region's answer slot: one RefusalState — the feed's or the act's — or the offline notice,
+      or nothing. In the `refused` state it stands in the body's place; otherwise beside the offer. */
   answer: ReactNode;
 };
 
@@ -77,10 +78,18 @@ function decimalOf(value: number): string {
   return `${sign}${digits.slice(0, shift)}.${digits.slice(shift)}`;
 }
 
-/** The register's own sentence for a code the store holds, or nothing where it holds none. */
-function messageOf(code: string | null): string {
-  if (code === null || !Object.hasOwn(REFUSALS, code)) return "";
-  return REFUSALS[code as RefusalCode].message;
+/**
+ * The register's own sentence for the code a row carries, or nothing at all where it carries none.
+ *
+ * The taxonomy is closed (R-SPINE-062), so a code the register does not hold is a store the product
+ * has outgrown rather than a reader's problem: the row says the token the store holds — the one thing
+ * a reader can quote and a journey can act on — instead of an empty sentence. A row that holds no
+ * code at all renders no paragraph: an empty element is the silence R-UI-020 forbids, not a cure for
+ * it, and the row's own type badge is already the fact it has to give.
+ */
+function messageOf(code: string | null): string | null {
+  if (code === null) return null;
+  return Object.hasOwn(REFUSALS, code) ? REFUSALS[code as RefusalCode].message : code;
 }
 
 /** One switch: a swatch that fills when it is on — the second, non-colour channel (R-UI-060). */
@@ -97,6 +106,7 @@ function OverlaySwitch({ testId, label, on, onFlip }: { testId: string; label: s
 function ViewRow({ view }: { view: PartitionOverlayView }) {
   const untyped = view.type === VIEW_TYPE.UNTYPED;
   const onSheet = view.box !== null;
+  const reason = messageOf(view.reason);
   return (
     <li
       className="cx-viewer-partition-row"
@@ -127,9 +137,9 @@ function ViewRow({ view }: { view: PartitionOverlayView }) {
           <span className="cx-viewer-partition-note">{fillCopy("viewer_partition_proposed", { type: view.proposed.type })}</span>
         ) : null}
       </span>
-      {untyped ? (
+      {untyped && reason !== null ? (
         <p className="cx-viewer-partition-reason" data-testid="viewer-partition-view-reason">
-          {messageOf(view.reason)}
+          {reason}
         </p>
       ) : null}
     </li>
@@ -230,6 +240,12 @@ export function PartitionPanel({ state, overlay, toggles, onToggle, onRetry, fau
           {faultId === null ? null : <p className="cx-viewer-partition-fault">{fillCopy("viewer_partition_report_id", { id: faultId })}</p>}
         </div>
       ) : null}
+
+      {/* A door that would not answer this read is answered HERE, in the body's place: the sheet, the
+          layers list and this panel's own switches go on standing, because what was refused is the
+          partition and not the drawing (Decision § 2, R-UI-050's partial). The screen hands in the one
+          RefusalState with the address that resolves it — this panel never spells a refusal. */}
+      {state === "refused" ? <div className="cx-viewer-partition-body">{answer}</div> : null}
 
       {state === "ready" ? (
         <div className="cx-viewer-partition-body">

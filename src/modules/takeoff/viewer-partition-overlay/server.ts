@@ -34,8 +34,15 @@ async function assignmentsOf(tenantId: string, ingestId: string): Promise<Map<st
     .from(viewAssignments)
     .where(and(eq(viewAssignments.tenantId, tenantId), eq(viewAssignments.ingestId, ingestId)));
 
+  // The bucket is grown in place, never rebuilt: `view_assignments` holds one row per model-space
+  // entity (L-CAD-06), so copying the accumulated array per row would make grouping one layout plan's
+  // members quadratic in them — the cost the sheet's own budget refuses to pay per feed read (PB-3).
   const byView = new Map<string, string[]>();
-  for (const row of rows) byView.set(row.viewKey, [...(byView.get(row.viewKey) ?? []), row.entityKey]);
+  for (const row of rows) {
+    const held = byView.get(row.viewKey);
+    if (held === undefined) byView.set(row.viewKey, [row.entityKey]);
+    else held.push(row.entityKey);
+  }
   return byView;
 }
 
@@ -52,7 +59,9 @@ async function recordsOf(scope: PartitionOverlayScope): Promise<Map<string, Rend
     for (const record of layer.records) {
       const identity = recordKey(record);
       if (identity === undefined) continue;
-      byIdentity.set(identity, [...(byIdentity.get(identity) ?? []), record]);
+      const held = byIdentity.get(identity);
+      if (held === undefined) byIdentity.set(identity, [record]);
+      else held.push(record);
     }
   }
   return byIdentity;

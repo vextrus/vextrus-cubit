@@ -38,7 +38,7 @@ import { fill, strings } from "@/ui/strings";
 import { projectHomeRoute } from "@/app/(app)/t/[tenant]/p/[project]/home/areas";
 import { publishViewport } from "./address";
 import { FidelityFacts } from "./fidelity-facts";
-import { usePartitionRegion } from "./partition-region";
+import { feedRefusalCode, usePartitionRegion } from "./partition-region";
 import { SheetBones } from "./viewer-bones";
 import { layoutNameOf } from "./route-address";
 import { StatusLine } from "./status-line";
@@ -132,9 +132,9 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const paint = usePainter({ head: sheet.head, refused: denied !== null, canvasRef, stageRef, statusRef, painterRef, stateRef: layers.stateRef, cameraRef, layers: arrived, facts, loadedLayers: sheet.loadedLayers, drawnLayers: layers.drawnLayers, selection: held.selection, hovered: pointer.hovered });
 
   /** The views/grid region — the partition stored for this sheet, the paint it files above, and the one act
-      door behind them — asked for only once the head is a manifest (R-UI-043). A door that refuses this
-      reader lands in the screen's ONE refusal below, never in this region's own words (ARCH-03). */
-  const partition = usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", onDenied: setDenied, camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaint });
+      door behind them — asked for only once the head is a manifest (R-UI-043). A door that refuses the
+      PARTITION refuses the region, not the sheet: it renders in that panel's body (R-UI-050's partial). */
+  const partition = usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaint });
   // A head that cannot be read at all is the error state and nothing else: it is raised into the
   // render, where the root error boundary — the tree's one home for a fault — takes it (I-81).
   if (sheet.failure !== null) throw sheet.failure;
@@ -149,11 +149,11 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   // The evidence a denied reader can act on is their own workspace, not the signed-out home the
   // label does not promise — a refusal's link lands on the address it names (R-UI-020).
   const feedRefusal =
-    denied === 401
-      ? { refusal: REFUSALS.SIGNED_OUT, evidence: { href: "/sign-in", label: strings.shell_evidence_sign_in } }
-      : denied === null
-        ? null
-        : { refusal: REFUSALS.WORKSPACE_PERMISSION_NOT_HELD, evidence: { href: shellHref(tenantId, "projects"), label: strings.shell_denied_evidence } };
+    denied === null
+      ? null
+      : denied === 401
+        ? { refusal: REFUSALS[feedRefusalCode(denied)], evidence: { href: "/sign-in", label: strings.shell_evidence_sign_in } }
+        : { refusal: REFUSALS[feedRefusalCode(denied)], evidence: { href: shellHref(tenantId, "projects"), label: strings.shell_denied_evidence } };
 
   const workArea = (): ReactNode => {
     if (feedRefusal !== null) {

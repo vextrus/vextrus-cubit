@@ -23,7 +23,12 @@
   position: sticky;
   inset-block-start: 0;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  /* The two switch chips are sized by their labels and do not shrink, so a `1fr` title column beside
+     them collapses to a few characters at the left stack's own width and the region's title — the
+     one text in here that cannot be abbreviated — wraps a word to a line. The title takes the row
+     whole and the switches take the next (§ 1). */
+  grid-template-columns: auto auto;
+  justify-content: start;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
@@ -33,6 +38,7 @@
 }
 
 .cx-viewer-partition-heading {
+  grid-column: 1 / -1;
   margin: 0;
   font-size: var(--text-13);
   font-weight: var(--weight-heading);

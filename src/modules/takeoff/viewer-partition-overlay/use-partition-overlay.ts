@@ -22,7 +22,7 @@ const DEVICE_PIXEL_CAP = 2;
 const REFUSED: readonly number[] = [401, 403];
 
 /** What the panel is showing, as its own `data-state` publishes it (R-UI-050). */
-export type PartitionOverlayPhase = "loading" | "ready" | "empty" | "failed";
+export type PartitionOverlayPhase = "loading" | "ready" | "empty" | "failed" | "refused";
 
 export type UsePartitionOverlay = {
   phase: PartitionOverlayPhase;
@@ -30,6 +30,12 @@ export type UsePartitionOverlay = {
   overlay: PartitionOverlay | null;
   /** The id a fault answer carried, so a reader can quote it (R-UI-050's error leg). */
   faultId: string | null;
+  /**
+   * The status a door refused THIS read at (401 or 403), for the screen to name the register's code
+   * and its evidence by. It is the region's own answer and not the sheet's: a partition the reader
+   * may not see costs them the overlay, never the drawing they are looking at (R-UI-050's partial).
+   */
+  refusedStatus: number | null;
   /** Ask again, in place. The sheet is never torn down for it. */
   retry: () => void;
 };
@@ -39,24 +45,18 @@ export type UsePartitionOverlayOptions = {
   feed: (query: string) => string;
   /** Whether there is a sheet to overlay yet: a head that is not a manifest is asked nothing. */
   enabled: boolean;
-  /** A door that would not answer this reader, by its status — the screen names the register's code. */
-  onDenied?: (status: number) => void;
 };
 
 /** What the feed answers under `?part=partition` (the route's own shape). */
 type PartitionAnswer = { overlay: PartitionOverlay | null; faultId?: string };
 
-export function usePartitionOverlay({ feed, enabled, onDenied }: UsePartitionOverlayOptions): UsePartitionOverlay {
+export function usePartitionOverlay({ feed, enabled }: UsePartitionOverlayOptions): UsePartitionOverlay {
   const [phase, setPhase] = useState<PartitionOverlayPhase>("loading");
   const [overlay, setOverlay] = useState<PartitionOverlay | null>(null);
   const [faultId, setFaultId] = useState<string | null>(null);
+  const [refusedStatus, setRefusedStatus] = useState<number | null>(null);
   /** Bumped by a retry: the effect below is what asks, so asking again is asking the same way (B-17). */
   const [asked, setAsked] = useState(0);
-
-  // The sink is read off a ref rather than depended on, so a screen that writes its callback inline
-  // does not re-ask the feed on every render.
-  const sink = useRef(onDenied);
-  sink.current = onDenied;
 
   useEffect(() => {
     if (!enabled) return;
@@ -65,12 +65,15 @@ export function usePartitionOverlay({ feed, enabled, onDenied }: UsePartitionOve
     const open = async (): Promise<void> => {
       setPhase("loading");
       setFaultId(null);
+      setRefusedStatus(null);
       const answer = await fetch(feed("part=partition"), { signal: controller.signal });
       if (REFUSED.includes(answer.status)) {
-        // A refusal is the screen's one RefusalState with the evidence it can act on, never a
-        // sentence of this panel's own (R-UI-020, ARCH-03).
-        sink.current?.(answer.status);
-        setPhase("failed");
+        // A refusal renders in this region's own body, through the screen's one RefusalState with the
+        // evidence it can act on — never as a sentence of this panel's (R-UI-020, ARCH-03), and never
+        // as the generic "could not be read" with a Retry, which is the wrong door for a session that
+        // ended or a permission not held. The sheet beside it goes on standing (Decision § 2).
+        setRefusedStatus(answer.status);
+        setPhase("refused");
         return;
       }
       const body = (await answer.json()) as PartitionAnswer | null;
@@ -98,7 +101,7 @@ export function usePartitionOverlay({ feed, enabled, onDenied }: UsePartitionOve
     setAsked((held) => held + 1);
   }, []);
 
-  return { phase, overlay, faultId, retry };
+  return { phase, overlay, faultId, refusedStatus, retry };
 }
 
 export type UseOverlayPaintOptions = {
