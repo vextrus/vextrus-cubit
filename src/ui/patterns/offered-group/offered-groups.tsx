@@ -14,25 +14,38 @@
  * its own formatting (I-78, I-79); nothing here counts, re-formats or writes prose around them.
  */
 import { useId } from "react";
-import type { OfferedGroupKey } from "@/core/acts";
+import type { OfferedGroupKey, ViewGroupKey } from "@/core/acts";
 import { Button } from "../../primitives/core";
 import { strings } from "../../strings";
 
-/** One group as the consumer offers it: the typed key, the sentence naming it, the live count. */
-export interface OfferedGroupItem {
-  readonly key: OfferedGroupKey;
+/**
+ * Every typed grouping key the seam offers a group on. L-ACT-02 makes the KIND a closed enum and the
+ * key's shape the fact judged, so each act's key joins this union rather than being flattened into a
+ * shape of the pattern's own — a kind dropped from the roster is a compile error here (B-17).
+ */
+export type OfferedKey = OfferedGroupKey | ViewGroupKey;
+
+/**
+ * One group as the consumer offers it: the typed key, the sentence naming it, the live count.
+ *
+ * The key type is the consumer's own, so a screen offering one act's groups hands its own key back
+ * through `onConfirm` rather than a union it would have to re-narrow at the last hop — the same
+ * reason S-Drawings keeps its discipline union whole (I-83's class).
+ */
+export interface OfferedGroupItem<K extends OfferedKey = OfferedGroupKey> {
+  readonly key: K;
   /** R-UI-023's named group, as one sentence the consumer composed — rendered verbatim (I-79). */
   readonly label: string;
   /** The membership count, already through SEAM-FORMAT: the pattern never counts (I-78). */
   readonly count: string;
 }
 
-export interface OfferedGroupsProps {
-  groups: OfferedGroupItem[];
-  onConfirm: (key: OfferedGroupKey) => void;
+export interface OfferedGroupsProps<K extends OfferedKey = OfferedGroupKey> {
+  groups: readonly OfferedGroupItem<K>[];
+  onConfirm: (key: K) => void;
 }
 
-export function OfferedGroups({ groups, onConfirm }: OfferedGroupsProps) {
+export function OfferedGroups<K extends OfferedKey>({ groups, onConfirm }: OfferedGroupsProps<K>) {
   const region = useId();
   return (
     // `data-count` reflects the offer's size, so a journey waits on a group's disappearance rather
@@ -52,7 +65,7 @@ export function OfferedGroups({ groups, onConfirm }: OfferedGroupsProps) {
 }
 
 /** One row: the sentence, the count that moves, and the one door there is. */
-function OfferedGroupRow({ group, onConfirm, region, at }: { group: OfferedGroupItem; onConfirm: (key: OfferedGroupKey) => void; region: string; at: number }) {
+function OfferedGroupRow<K extends OfferedKey>({ group, onConfirm, region, at }: { group: OfferedGroupItem<K>; onConfirm: (key: K) => void; region: string; at: number }) {
   const labelId = `${region}-label-${at}`;
   const buttonId = `${region}-confirm-${at}`;
   const key = group.key;
@@ -61,9 +74,10 @@ function OfferedGroupRow({ group, onConfirm, region, at }: { group: OfferedGroup
       className="cx-offered-group"
       data-testid="offered-group"
       data-kind={key.kind}
-      data-discipline={key.discipline}
-      data-drawing={key.kind === "PROPOSED_DISCIPLINE" ? key.drawingId : undefined}
+      data-discipline={key.kind === "PROPOSED_VIEW_TYPE" ? undefined : key.discipline}
+      data-drawing={key.kind === "PROPOSED_DISCIPLINE" || key.kind === "PROPOSED_VIEW_TYPE" ? key.drawingId : undefined}
       data-sheet={key.kind === "SHEET" ? key.sheetId : undefined}
+      data-view-type={key.kind === "PROPOSED_VIEW_TYPE" ? key.viewType : undefined}
     >
       <p className="cx-offered-label" id={labelId}>
         {group.label}

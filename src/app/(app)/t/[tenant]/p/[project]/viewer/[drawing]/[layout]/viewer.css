@@ -12,7 +12,16 @@
      the sheet region shrink. The readout is the row R-UI-030 requires a reader to be able to read. */
   grid-template-rows: minmax(0, 1fr) auto;
   margin: calc(var(--space-6) * -1);
-  height: calc(100% + var(--space-6) * 2);
+  /* The frame states its own height rather than inheriting one. `height: 100%` here rested on a
+     chain that never pins a height: the shell is `min-height: 100dvh` with auto rows, so the frame's
+     percentage falls back to its own content — and its content is the sheet canvas, whose element
+     size the painter writes from its `clientHeight`. The frame then sizes to the canvas and the
+     canvas to the frame, a round trip that gains a pixel a frame and grows without bound while a
+     partitioned sheet stands open (I-78: the sheet is sized by the frame, never the frame by the
+     sheet). Stating the height cuts the loop: the frame is the shell's content row — the viewport
+     less the topbar, `--space-12` being the topbar's own height token (src/ui/shell/shell.css) —
+     and the negative margin above bleeds shell-main's padding back over it. */
+  height: calc(100dvh - var(--space-12));
   min-height: 0;
   overflow: hidden;
   background: var(--graphite-0);
@@ -26,13 +35,27 @@
 
 /* ------------------------------------------------------------------------------ the layers panel */
 
-.cx-viewer-layers {
+/* s-viewer-partition I-110: the left column holds two lists, not a second split. The layers list
+   takes the room it needs and the views/grid section takes what is left, capped by its own
+   stylesheet — each with its own scroller, seamed by a hairline. */
+.cx-viewer-left-stack {
   display: flex;
   flex-direction: column;
   min-width: 0;
   height: 100%;
   background: var(--graphite-50);
   border-inline-end: var(--hairline);
+}
+
+.cx-viewer-layers {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  height: 100%;
+  background: var(--graphite-50);
 }
 
 .cx-viewer-layers-heading {

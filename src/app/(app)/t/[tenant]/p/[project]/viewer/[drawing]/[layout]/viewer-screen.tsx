@@ -38,6 +38,7 @@ import { fill, strings } from "@/ui/strings";
 import { projectHomeRoute } from "@/app/(app)/t/[tenant]/p/[project]/home/areas";
 import { publishViewport } from "./address";
 import { FidelityFacts } from "./fidelity-facts";
+import { feedRefusalCode, usePartitionRegion } from "./partition-region";
 import { SheetBones } from "./viewer-bones";
 import { layoutNameOf } from "./route-address";
 import { StatusLine } from "./status-line";
@@ -115,7 +116,11 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const layers = useLayers({ head: sheet.head });
   failedSink.current = layers.markFailed;
 
-  const draw = useCallback((at: Camera): void => void painterRef.current?.draw(at, layers.stateRef.current), [layers.stateRef]);
+  /** Where the views/grid region files its paint, so every sheet frame paints the overlay again at
+      the camera the sheet was drawn at (I-112, § 4). The region is composed below, off the camera
+      this draw publishes, so the frame reaches it through a ref and not a dependency (PB-3). */
+  const overlayPaint = useRef<((at: Camera) => void) | null>(null);
+  const draw = useCallback((at: Camera): void => { painterRef.current?.draw(at, layers.stateRef.current); overlayPaint.current?.(at); }, [layers.stateRef]);
   const pulse = useCallback((durationMs: number): void => void painterRef.current?.pulse(durationMs), []);
 
   const camera = useCamera({ head: sheet.head, initialViewport, stageRef, cameraRef, draw, publish, ownPathname, sheetKey: `${drawingId}/${layoutName}` });
@@ -126,6 +131,10 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const keyboard = useKeyboard({ moveCamera: camera.moveCamera, zoomBy: camera.zoomBy, fitSheet: camera.fitSheet, hold: held.hold });
   const paint = usePainter({ head: sheet.head, refused: denied !== null, canvasRef, stageRef, statusRef, painterRef, stateRef: layers.stateRef, cameraRef, layers: arrived, facts, loadedLayers: sheet.loadedLayers, drawnLayers: layers.drawnLayers, selection: held.selection, hovered: pointer.hovered });
 
+  /** The views/grid region — the partition stored for this sheet, the paint it files above, and the one act
+      door behind them — asked for only once the head is a manifest (R-UI-043). A door that refuses the
+      PARTITION refuses the region, not the sheet: it renders in that panel's body (R-UI-050's partial). */
+  const partition = usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaint });
   // A head that cannot be read at all is the error state and nothing else: it is raised into the
   // render, where the root error boundary — the tree's one home for a fault — takes it (I-81).
   if (sheet.failure !== null) throw sheet.failure;
@@ -140,11 +149,11 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   // The evidence a denied reader can act on is their own workspace, not the signed-out home the
   // label does not promise — a refusal's link lands on the address it names (R-UI-020).
   const feedRefusal =
-    denied === 401
-      ? { refusal: REFUSALS.SIGNED_OUT, evidence: { href: "/sign-in", label: strings.shell_evidence_sign_in } }
-      : denied === null
-        ? null
-        : { refusal: REFUSALS.WORKSPACE_PERMISSION_NOT_HELD, evidence: { href: shellHref(tenantId, "projects"), label: strings.shell_denied_evidence } };
+    denied === null
+      ? null
+      : denied === 401
+        ? { refusal: REFUSALS[feedRefusalCode(denied)], evidence: { href: "/sign-in", label: strings.shell_evidence_sign_in } }
+        : { refusal: REFUSALS[feedRefusalCode(denied)], evidence: { href: shellHref(tenantId, "projects"), label: strings.shell_denied_evidence } };
 
   const workArea = (): ReactNode => {
     if (feedRefusal !== null) {
@@ -185,6 +194,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
 
     return (
       <ViewerStage
+        partition={partition}
         panel={{
           rows: layers.rows,
           onVisible: layers.setVisible,
@@ -232,6 +242,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         renderer={paint.renderer}
         partial={layers.rows.some((row) => row.failed)}
       />
+      {partition.dialog}
     </div>
   );
 }

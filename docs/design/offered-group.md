@@ -145,8 +145,11 @@ Routes: none; the pattern is mounted at `/design`, which exists, and on
 `/t/{tenantId}/p/{projectId}/drawings`, which its consumer's Decision introduces.
 
 Test ids, exactly these four, on the elements ruled in §1: `offered-groups` (the root
-`<section>`, `data-count`) · `offered-group` (each `<li>`, `data-kind`, `data-discipline`,
-and `data-drawing` or `data-sheet` by kind) · `offered-group-count` (the count `<span>`,
+`<section>`, `data-count`) · `offered-group` (each `<li>`, `data-kind`, and by kind
+`data-discipline`, `data-drawing`, `data-sheet` or `data-view-type` — the last added by
+inc-203-views-grid-overlay for the `PROPOSED_VIEW_TYPE` key S-Viewer's views/grid panel
+offers `CONFIRM_VIEW_TYPE` on, since the key type is the consumer's own and the fact
+judged is what the row must publish) · `offered-group-count` (the count `<span>`,
 whose text is `item.count` character for character) · `offered-group-confirm` (the Button).
 No others are added.
 

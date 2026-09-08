@@ -15,6 +15,7 @@ import { REFUSALS } from "@/core/errors";
 import { reportFault } from "@/core/faults/report";
 import { appStorage } from "@/core/storage/app";
 import { renderManifestOf, workspaceOfDrawing } from "@/modules/takeoff/viewer";
+import { partitionOverlayOfSheet } from "@/modules/takeoff/viewer-partition-overlay/server";
 import type { RenderLayer, ViewerHead } from "@/modules/takeoff/viewer";
 import { createContext, type AppContext } from "@/server/context";
 import { holdsWorkspace } from "@/server/shell/workspace";
@@ -32,7 +33,7 @@ const STATUS: Readonly<Record<"SIGNED_OUT" | "WORKSPACE_PERMISSION_NOT_HELD", nu
 });
 
 /** What a caller is told when the address asks for a part of a sheet that is not one. */
-const NOT_A_PART = "a sheet is asked for as ?part=head or ?part=layer&index=<n>";
+const NOT_A_PART = "a sheet is asked for as ?part=head, ?part=layer&index=<n> or ?part=partition";
 
 /**
  * What a caller is told when the part is one this feed serves but the index beside it is not a
@@ -41,8 +42,13 @@ const NOT_A_PART = "a sheet is asked for as ?part=head or ?part=layer&index=<n>"
  */
 const NOT_AN_INDEX = "?index= is a layer's place in the roster the head published: a whole number from 0 upwards";
 
-/** What the address asks for: the head, or one layer by its place in the roster the head published. */
-type Asked = { readonly part: "head" } | { readonly part: "layer"; readonly index: number };
+/**
+ * What the address asks for: the head, one layer by its place in the roster the head published, or
+ * the stored partition this sheet's overlay is drawn from (R-TO-014). The partition stands BESIDE
+ * the head rather than inside it — a screen asks for it once the head is a manifest, so a sheet's
+ * first paint is never delayed by a reading of the store it does not need yet (R-UI-043).
+ */
+type Asked = { readonly part: "head" } | { readonly part: "layer"; readonly index: number } | { readonly part: "partition" };
 
 /**
  * The address's question, or the sentence saying which half of it this feed cannot read. The index
@@ -51,7 +57,7 @@ type Asked = { readonly part: "head" } | { readonly part: "layer"; readonly inde
  */
 function askedFor(query: URLSearchParams): Asked | { readonly error: string } {
   const part = query.get("part") ?? "head";
-  if (part === "head") return { part };
+  if (part === "head" || part === "partition") return { part };
   if (part !== "layer") return { error: NOT_A_PART };
   const asked = query.get("index") ?? "";
   if (!/^\d+$/.test(asked)) return { error: NOT_AN_INDEX };
@@ -145,6 +151,13 @@ export async function GET(request: Request, route: { params: Promise<{ drawing: 
     if (tenantId === null || tenantId === undefined || (asking !== null && asking !== tenantId))
       return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
     if (!(await holdsWorkspace(context.session.userId, tenantId))) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
+
+    // The stored partition of this sheet, for the overlay drawn over it. A drawing nothing has
+    // partitioned yet answers `null` at 200: an absence is an answer, not a refusal and not a fault,
+    // and the panel teaches rather than alarming (R-UI-050, R-TO-014).
+    if (wanted.part === "partition") {
+      return json({ overlay: await partitionOverlayOfSheet({ tenantId, drawingId: drawing, layoutName: layout }) }, 200);
+    }
 
     // The segment Next resolved is the sheet's name: it arrives decoded, and reading it again would
     // collide two addresses and fault on a name carrying a bare `%` (R-UI-031).

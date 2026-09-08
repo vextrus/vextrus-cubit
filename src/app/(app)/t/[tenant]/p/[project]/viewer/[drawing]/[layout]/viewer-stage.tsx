@@ -11,7 +11,7 @@ import { Button } from "@/ui/primitives/core";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/ui/primitives/data";
 import { fill, strings } from "@/ui/strings";
 import { LayersPanel, type LayersPanelProps } from "./layers-panel";
-import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from "react";
 
 /** The panel's share of the width, and the band a reader may drag it to (Decision § 1). */
 const PANEL_SIZE = 22;
@@ -20,6 +20,9 @@ const PANEL_MAX = 40;
 
 export type ViewerStageProps = {
   panel: LayersPanelProps;
+  /** The views/grid region: its section docks under the layers list in the one left column (I-110)
+      and its canvas lies over the sheet, reached by nothing (I-112). */
+  partition: { panel: ReactNode; canvas: ReactNode };
   pointer: UsePointer;
   inspector: InspectorPanelProps;
   onKeyDown: (event: ReactKeyboardEvent<HTMLCanvasElement>) => void;
@@ -34,13 +37,18 @@ export type ViewerStageProps = {
   onZoom: (factor: number) => void;
 };
 
-export function ViewerStage({ panel, pointer, inspector, onKeyDown, stageRef, canvasRef, sheetName, drawable, probed, renderer, onFit, onZoom }: ViewerStageProps) {
+export function ViewerStage({ panel, partition, pointer, inspector, onKeyDown, stageRef, canvasRef, sheetName, drawable, probed, renderer, onFit, onZoom }: ViewerStageProps) {
   return (
     /* Every panel carries a stable id and order, so a layout stored by another build's group no
        longer matches this group and is dropped rather than misapplied (Decision § 1). */
     <ResizablePanelGroup direction="horizontal" autoSaveId="cubit-viewer-split">
+      {/* I-110: one column of two lists rather than a second split — a nested handle would buy one
+          degree of freedom at the price of a control that can crush either list to nothing. */}
       <ResizablePanel id="viewer-layers-panel" order={1} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
-        <LayersPanel {...panel} />
+        <div className="cx-viewer-left-stack">
+          <LayersPanel {...panel} />
+          {partition.panel}
+        </div>
       </ResizablePanel>
       <ResizableHandle />
       <ResizablePanel id="viewer-stage-panel" order={2}>
@@ -71,6 +79,7 @@ export function ViewerStage({ panel, pointer, inspector, onKeyDown, stageRef, ca
             onPointerLeave={pointer.clearHover}
             onKeyDown={onKeyDown}
           />
+          {partition.canvas}
           {/* The rectangle follows the pointer untweened and is written straight onto the element:
               sixty renders a second of the panel and the readout is what a marquee must not cost
               (PB-3). Its geometry is pointer data, not a style — the look is the stylesheet's. */}

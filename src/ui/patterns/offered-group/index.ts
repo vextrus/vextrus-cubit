@@ -10,4 +10,4 @@ import "../../primitives/core/reticle.css";
 import "./offered-group.css";
 
 export { OfferedGroups } from "./offered-groups";
-export type { OfferedGroupItem, OfferedGroupsProps } from "./offered-groups";
+export type { OfferedGroupItem, OfferedGroupsProps, OfferedKey } from "./offered-groups";
