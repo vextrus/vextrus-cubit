@@ -349,13 +349,25 @@ const CLUSTER_AT: readonly [number, number][] = [
   [1200, 0],
 ];
 
-/** The bubbles a lettered/numbered cluster draws, relative to the cluster's own origin. */
+/**
+ * The bubbles a lettered/numbered cluster draws, relative to the cluster's own origin.
+ *
+ * The gaps between adjacent positions are deliberately UNEQUAL and in no useful order — letters
+ * stand 20 then 30 apart, numerals 15, 20 then 21 — so the pair a span really falls between can only
+ * be found by comparing that span against each gap, and is the first pair neither in the order the
+ * rings were drawn nor in the order their positions run. A cluster whose gaps were all equal, or
+ * whose matching pair were always the first, would let a reader that never compares anything pass
+ * (B-19). The first five entries keep their positions: a suite that cites a bubble by its ordinal
+ * cites the same drawn ring it did before.
+ */
 const CLUSTER_BUBBLES: readonly { text: string; at: [number, number]; family: "letter" | "numeral" }[] = [
   { text: "A", at: [0, -30], family: "letter" },
   { text: "B", at: [20, -30], family: "letter" },
   { text: "C", at: [50, -30], family: "letter" },
   { text: "1", at: [-30, -10], family: "numeral" },
   { text: "2", at: [-30, -25], family: "numeral" },
+  { text: "3", at: [-30, -45], family: "numeral" },
+  { text: "4", at: [-30, -66], family: "numeral" },
 ];
 
 /**
@@ -431,7 +443,7 @@ export function buildScaleArtifact(scenario: ScaleScenario, salt: number): Built
     const bubbles = o.bubbles ? CLUSTER_BUBBLES.map((spec) => bubble(spec, origin)) : [];
     const lineKeys = [
       line([origin[0] - 5, origin[1] - 30], [origin[0] + 55, origin[1] - 30], LAYER_LINES),
-      line([origin[0] - 30, origin[1] - 5], [origin[0] - 30, origin[1] - 30], LAYER_LINES),
+      line([origin[0] - 30, origin[1] - 5], [origin[0] - 30, origin[1] - 69], LAYER_LINES),
     ];
     return { caption, captionKey, bubbles, lineKeys, dimensions: o.dimensions ?? [] };
   };
@@ -441,10 +453,17 @@ export function buildScaleArtifact(scenario: ScaleScenario, salt: number): Built
     // Two dimensions whose paint spans two ADJACENT grid positions — one along each world axis —
     // and a third whose span matches no gap of either family while stating the same ratio as the
     // first, so the ratio rank stands where the grid rank does and only their evidence differs.
-    const alongX = dimension([origin[0] + 0, origin[1] - 45], [origin[0] + 20, origin[1] - 45], 5000);
-    const alongY = dimension([origin[0] - 45, origin[1] - 10], [origin[0] - 45, origin[1] - 25], 3000);
-    const offGrid = dimension([origin[0] + 0, origin[1] - 55], [origin[0] + 8, origin[1] - 55], 2000);
-    clusters.push(cluster("TYPICAL FLOOR PLAN", origin, { bubbles: true, dimensions: [alongX, alongY, offGrid] }));
+    //
+    // Nothing here lines up with the order things were declared or drawn in, and that is the point:
+    // the unmatched dimension is the FIRST one drawn along x, and the pair its axis's match really
+    // falls between is the LAST pair of the letters (B..C, 30 apart), not the first (A..B, 20). Its
+    // own span stands 1 unit from a real gap — ten times GRID_MATCH_TOLERANCE — so a reader that
+    // matched loosely, or by ordinal, or not at all, answers different evidence than a reader that
+    // compares each span against each gap (B-19).
+    const offGrid = dimension([origin[0] + 0, origin[1] - 55], [origin[0] + 21, origin[1] - 55], 5250);
+    const alongX = dimension([origin[0] + 0, origin[1] - 60], [origin[0] + 30, origin[1] - 60], 7500);
+    const alongY = dimension([origin[0] - 45, origin[1] - 25], [origin[0] - 45, origin[1] - 45], 4000);
+    clusters.push(cluster("TYPICAL FLOOR PLAN", origin, { bubbles: true, dimensions: [offGrid, alongX, alongY] }));
     // A note that SAYS a scale. It is a claim, not evidence: no proposal may cite it (AC-4).
     noteKey = text(SCALE_NOTE, [origin[0] + 60, origin[1] - 60], LABEL_HEIGHT, LAYER_NOTES);
   }
@@ -506,6 +525,35 @@ export function matchedBubblesOf(cluster: Cluster, dimension: Dimension): Bubble
     if (Math.abs(Math.abs(positionOf(after) - positionOf(before)) - dimension.span) <= GRID_MATCH_TOLERANCE) return [before, after];
   }
   return null;
+}
+
+/**
+ * How far a dimension's span stands from the NEAREST gap between adjacent positions of the family
+ * that georeferences its axis — the distance riskNotes (4) judges against GRID_MATCH_TOLERANCE.
+ *
+ * A case states with this how near a miss it staged: a span that misses every gap by miles proves
+ * nothing about a reader that matches loosely, and one that misses by less than the tolerance is not
+ * a miss at all.
+ */
+export function nearestGapMissOf(cluster: Cluster, dimension: Dimension): number {
+  const family = dimension.axis === "x" ? "letter" : "numeral";
+  const members = cluster.bubbles.filter((bubble) => bubble.family === family).sort((left, right) => positionOf(left) - positionOf(right));
+  const misses = members.slice(1).map((after, index) => Math.abs(Math.abs(positionOf(after) - positionOf(members[index] as Bubble)) - dimension.span));
+  expect(misses.length, `the family georeferencing ${dimension.axis} draws at least two positions, so there is a gap to compare against at all`).toBeGreaterThan(0);
+  return Math.min(...misses);
+}
+
+/**
+ * The bubbles of the family that georeferences a dimension's own axis which its match does NOT fall
+ * between — everything a grid-spacing match may not cite for it (riskNotes (4)).
+ *
+ * Derived from the same comparison the match itself is derived by, so a fixture that moves a bubble
+ * moves both sides of the judgement at once (B-19).
+ */
+export function unmatchedBubblesOf(cluster: Cluster, dimension: Dimension): Bubble[] {
+  const family = dimension.axis === "x" ? "letter" : "numeral";
+  const matched = new Set((matchedBubblesOf(cluster, dimension) ?? []).map((bubble) => bubble.key));
+  return cluster.bubbles.filter((bubble) => bubble.family === family && !matched.has(bubble.key));
 }
 
 /**

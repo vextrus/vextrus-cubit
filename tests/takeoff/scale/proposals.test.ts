@@ -13,6 +13,7 @@ import {
   CALIBRATIONS,
   DIMENSION_RATIO,
   FILE_UNITS,
+  GRID_MATCH_TOLERANCE,
   GRID_SPACING,
   MM,
   PRINCIPAL,
@@ -27,6 +28,7 @@ import {
   grantRole,
   matchedBubblesOf,
   metresPerString,
+  nearestGapMissOf,
   openSheetsStage,
   proposalsOf,
   rowsHeld,
@@ -36,6 +38,7 @@ import {
   stagePerson,
   stageScaleIngest,
   storageOf,
+  unmatchedBubblesOf,
   viewKeyHolding,
   type Cluster,
   type Dimension,
@@ -150,16 +153,54 @@ describe("AC-4: the machine proposes ranks 2 to 4 from the artifact, the grid an
 
   test("AC-4: each proposal cites the entities it was read off, and no proposal cites a note that merely claims a scale", async () => {
     const stage = await staged();
-    const rows = await proposals();
     const cluster = stage.cluster;
     const alongX = spanningAlong(cluster, "x");
     const alongY = spanningAlong(cluster, "y");
     const matched = [...(matchedBubblesOf(cluster, alongX) ?? []), ...(matchedBubblesOf(cluster, alongY) ?? [])].map((bubble) => bubble.key);
+    const unmatched = [...unmatchedBubblesOf(cluster, alongX), ...unmatchedBubblesOf(cluster, alongY)];
+
+    // What makes this fixture able to tell a real gap comparison from a reader that takes the first
+    // thing it meets: on each axis the pair the match falls between is not the family's first pair,
+    // the dimension a grid vouches for is not the first one drawn along its axis, and the dimension
+    // no grid vouches for misses a real gap by more than the tolerance but not by much (B-19). A
+    // fixture edit that lost any of these would red HERE rather than quietly hollowing the case.
+    expect(unmatched.length, "each family draws a position the match does not fall between, so citing the whole family is visibly not citing the match").toBeGreaterThan(0);
+    for (const axis of ["x", "y"] as const) {
+      const spanned = spanningAlong(cluster, axis);
+      const family = axis === "x" ? "letter" : "numeral";
+      const positions = cluster.bubbles.filter((bubble) => bubble.family === family);
+      const byPosition = [...positions].sort((left, right) => (axis === "x" ? left.centre[0] - right.centre[0] : left.centre[1] - right.centre[1]));
+      const cited = (matchedBubblesOf(cluster, spanned) ?? []).map((bubble) => bubble.key);
+      expect(cited, `along ${axis} the match does not fall between the family's first pair as they were drawn — an ordinal cannot stand in for the comparison`).not.toContain(
+        positions[0]?.key,
+      );
+      expect(cited, `nor between its first pair as their positions run, so neither reading order can stand in for it either`).not.toContain(byPosition[0]?.key);
+    }
+    // And on the axis that carries more than one dimension, the one a grid vouches for is not the one
+    // drawn first: a reader that took the first dimension of an axis answers different evidence here.
+    const contested = (["x", "y"] as const).filter((axis) => cluster.dimensions.filter((dimension) => dimension.axis === axis).length > 1);
+    expect(contested.length, "an axis carries more than one dimension, so which of them a grid vouches for is a question at all").toBeGreaterThan(0);
+    for (const axis of contested) {
+      expect(cluster.dimensions.filter((dimension) => dimension.axis === axis)[0]?.key, `the first dimension drawn along ${axis} is not the one the grid vouches for`).not.toBe(
+        spanningAlong(cluster, axis).key,
+      );
+    }
+    const miss = nearestGapMissOf(cluster, offGrid(cluster));
+    expect(miss, "the unmatched dimension really misses every gap — by more than riskNotes (4) allows").toBeGreaterThan(GRID_MATCH_TOLERANCE);
+    expect(miss, "and it misses by little enough that a reader comparing loosely would have taken it").toBeLessThan(GRID_MATCH_TOLERANCE * 20);
+
+    const rows = await proposals();
 
     const grid = at(rows, GRID_SPACING);
     expect(grid.evidence, "a grid match is vouched for by the two bubbles it fell between on each axis, and by the dimensions that spanned them (riskNotes (4))").toEqual(
       expect.arrayContaining([...matched, alongX.key, alongY.key]),
     );
+    for (const bubble of unmatched) {
+      expect(
+        grid.evidence,
+        `the bubble at ${bubble.label} is not one of the two ${bubble.family} positions a matched span fell between, so a grid match does not rest on it — evidence is what was compared, not the family it was compared within`,
+      ).not.toContain(bubble.key);
+    }
     expect(grid.evidence, "the dimension whose span matches no gap vouched for no grid match, so it is not evidence of one").not.toContain(offGrid(cluster).key);
 
     const ratio = at(rows, DIMENSION_RATIO);
