@@ -12,7 +12,16 @@
      the sheet region shrink. The readout is the row R-UI-030 requires a reader to be able to read. */
   grid-template-rows: minmax(0, 1fr) auto;
   margin: calc(var(--space-6) * -1);
-  height: calc(100% + var(--space-6) * 2);
+  /* The frame states its own height rather than inheriting one: the shell is `min-height: 100dvh`
+     with auto rows, so every ancestor height above here is INDEFINITE the moment the screen's own
+     content is taller than the viewport — and then `height: 100%` on the sheet canvas falls back to
+     the canvas's intrinsic size, which the painter writes from its own `clientHeight`. That round
+     trip rounds up by a pixel a frame and the sheet grows without bound (I-78: the sheet is sized by
+     the frame, never the frame by the sheet). Stating the height breaks the cycle: it is the shell's
+     content row — the viewport less the topbar — and the negative margin above bleeds main's padding
+     back, so the frame lands exactly where `calc(100% + var(--space-6) * 2)` landed when the chain
+     did resolve. `--space-12` is the topbar's own height token (src/ui/shell/shell.css). */
+  height: calc(100dvh - var(--space-12));
   min-height: 0;
   overflow: hidden;
   background: var(--graphite-0);
