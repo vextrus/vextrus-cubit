@@ -38,6 +38,9 @@ importers:
       '@trpc/server':
         specifier: 11.18.0
         version: 11.18.0(typescript@5.9.3)
+      decimal.js:
+        specifier: ^10.6.0
+        version: 10.6.0
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(pg@8.23.0)(postgres@3.4.9)
