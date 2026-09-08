@@ -48,7 +48,7 @@ CREATE TABLE "register_objects" (
 	CONSTRAINT "register_objects_discipline_closed" CHECK ("register_objects"."discipline" in ('STRUCTURAL', 'ARCHITECTURAL', 'MEP', 'CIVIL', 'OTHER')),
 	CONSTRAINT "register_objects_standing_closed" CHECK ("register_objects"."standing" in ('MEASURED', 'DERIVED')),
 	CONSTRAINT "register_objects_level_slot_closed" CHECK ("register_objects"."level_slot" is null or "register_objects"."level_slot" in ('FOUNDATION', 'UNRESOLVED')),
-	CONSTRAINT "register_objects_level_stated_once" CHECK (num_nonnulls("register_objects"."level_id", "register_objects"."level_slot", "register_objects"."level_label") <= 1)
+	CONSTRAINT "register_objects_level_stated_once" CHECK (num_nonnulls("register_objects"."level_id", "register_objects"."level_slot", "register_objects"."level_label") = 1)
 );
 --> statement-breakpoint
 CREATE TABLE "register_observations" (
@@ -132,18 +132,25 @@ CREATE POLICY "register_observations_system_scope" ON "register_observations"
 	WITH CHECK (nullif(current_setting('cubit.system_reason', true), '') IS NOT NULL);--> statement-breakpoint
 -- The register is the system of record for physical scope (L-REG-01): a row of it is evidence of
 -- something somebody measured, refused, declared or read. So the runtime role adds rows and reads
--- them, and holds no privilege that rewrites or takes away one — the same append-only set the act log
--- holds, for the same reason (R-TO-051, L-ACT-01).
-GRANT SELECT, INSERT ON TABLE "register_objects" TO "cubit_app";--> statement-breakpoint
+-- them, and holds no privilege that TAKES one away — the same retention the act log holds, for the
+-- same reason (R-TO-051, L-ACT-01).
+--
+-- A refusal, an attribute slot and an observation are records of something that happened, so none of
+-- them is rewritten either: a correction to one of those is another row. A register OBJECT is not
+-- such a record — it is the standing identity itself, and the law moves one in place twice: a
+-- measured sighting landing where a level expansion stands promotes the row (DERIVED → MEASURED,
+-- L-REG-03) and authoring a level carries its key exactly once (L-REG-04). So the object table is
+-- updatable, and the belt below keeps only what no clause ever undoes: nothing is deleted.
+GRANT SELECT, INSERT, UPDATE ON TABLE "register_objects" TO "cubit_app";--> statement-breakpoint
 GRANT SELECT, INSERT ON TABLE "refused_sightings" TO "cubit_app";--> statement-breakpoint
 GRANT SELECT, INSERT ON TABLE "register_attributes" TO "cubit_app";--> statement-breakpoint
 GRANT SELECT, INSERT ON TABLE "register_observations" TO "cubit_app";--> statement-breakpoint
 -- The same owner-proof belt every other ledger wears: the trigger refuses the owner too, because a
 -- guarantee the owner escapes is not a guarantee. The function is the tree's one spelling of the rule
 -- (0001_act-log.sql's "cubit_append_only") — one rule, one home (B-17).
-CREATE TRIGGER "register_objects_append_only" BEFORE UPDATE OR DELETE ON "register_objects"
+CREATE TRIGGER "register_objects_never_taken_away" BEFORE DELETE ON "register_objects"
 	FOR EACH ROW EXECUTE FUNCTION "cubit_append_only"();--> statement-breakpoint
-CREATE TRIGGER "register_objects_append_only_truncate" BEFORE TRUNCATE ON "register_objects"
+CREATE TRIGGER "register_objects_never_taken_away_truncate" BEFORE TRUNCATE ON "register_objects"
 	FOR EACH STATEMENT EXECUTE FUNCTION "cubit_append_only"();--> statement-breakpoint
 CREATE TRIGGER "refused_sightings_append_only" BEFORE UPDATE OR DELETE ON "refused_sightings"
 	FOR EACH ROW EXECUTE FUNCTION "cubit_append_only"();--> statement-breakpoint

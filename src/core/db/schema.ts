@@ -1360,8 +1360,10 @@ export const registerObjects = pgTable(
     check("register_objects_discipline_closed", statement`${table.discipline} in (${statement.raw(closedList(DISCIPLINES))})`),
     check("register_objects_standing_closed", statement`${table.standing} in (${statement.raw(closedList(SIGHTING_STANDINGS))})`),
     check("register_objects_level_slot_closed", statement`${table.levelSlot} is null or ${table.levelSlot} in (${statement.raw(closedList(LEVEL_SLOTS))})`),
-    // A level is stated one way at a time: a surrogate, a lawful-null slot, or a placeholder label.
-    check("register_objects_level_stated_once", statement`num_nonnulls(${table.levelId}, ${table.levelSlot}, ${table.levelLabel}) <= 1`),
+    // A level is stated exactly once, one way: a surrogate, a lawful-null slot, or a placeholder
+    // label. Never twice, and never not at all — every object key carries a level segment, so a row
+    // stating no level would be a row whose key asserts a level its columns deny (L-REG-04).
+    check("register_objects_level_stated_once", statement`num_nonnulls(${table.levelId}, ${table.levelSlot}, ${table.levelLabel}) = 1`),
     // The reads the register makes: one revision's objects, and one mark family across it.
     index("register_objects_by_revision").on(table.tenantId, table.setRevisionId, table.registeredAt),
     index("register_objects_by_mark").on(table.tenantId, table.setRevisionId, table.mark),

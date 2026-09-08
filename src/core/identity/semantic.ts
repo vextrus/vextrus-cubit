@@ -15,13 +15,30 @@
 import { createHash } from "node:crypto";
 import { compareCanonical, sortCanonical } from "./compare-canonical";
 
-/** A record whose keys are content, as against an array, a null or a boxed value. */
+/**
+ * A record whose keys ARE its content, as against an array, a null or a boxed value. Plainness is
+ * asked of the prototype: a Date, a Map and a Set are objects whose content lives somewhere other
+ * than their enumerable keys, so reading one as a bag of keys reads nothing at all.
+ */
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
-/** The same content with every order it carries normalised — keys and list members alike. */
+/**
+ * The same content with every order it carries normalised — keys and list members alike.
+ *
+ * A content the canon cannot read is refused rather than read as something else: a Date, a Map and a
+ * Set carry what they say somewhere other than their own enumerable keys, so walking one as a bag of
+ * keys spells `{}` for every one of them — and two contents that say different things spelling one
+ * semantic carries a person's disposition of the old one onto the new, which is the one thing
+ * L-REG-04 forbids. What a semantic is taken over is JSON: records, lists and scalars.
+ */
 function normalised(value: unknown): unknown {
+  if (typeof value === "object" && value !== null && !Array.isArray(value) && !isPlainRecord(value)) {
+    throw new Error(`${Object.prototype.toString.call(value)} carries no content the semantic can read — a semantic is taken over records, lists and scalars (L-REG-04)`);
+  }
   if (Array.isArray(value)) {
     return value
       .map((member) => normalised(member))

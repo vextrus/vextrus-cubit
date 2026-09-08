@@ -1,5 +1,5 @@
 {
-  "id": "6d9a8321-f18b-4f07-ae7f-72704e12346c",
+  "id": "8bddda61-88ec-41e0-842b-1fb7b5fa431f",
   "prevId": "35ee3070-aa79-498f-aac7-c434f5d6f03e",
   "version": "7",
   "dialect": "postgresql",
@@ -3841,7 +3841,7 @@
         },
         "register_objects_level_stated_once": {
           "name": "register_objects_level_stated_once",
-          "value": "num_nonnulls(\"register_objects\".\"level_id\", \"register_objects\".\"level_slot\", \"register_objects\".\"level_label\") <= 1"
+          "value": "num_nonnulls(\"register_objects\".\"level_id\", \"register_objects\".\"level_slot\", \"register_objects\".\"level_label\") = 1"
         }
       },
       "isRLSEnabled": false

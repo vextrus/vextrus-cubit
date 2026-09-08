@@ -88,6 +88,10 @@ const LATTICE_PARTS = 10;
 export function quantise(n: number): string {
   if (!Number.isFinite(n)) throw new Error(`a placement at ${String(n)} is no point of the drawing, so it quantises to nothing (L-REG-04)`);
   const tenths = Math.round(Math.abs(n) * LATTICE_PARTS);
+  // Beyond the exactly-representable integers there is no lattice: `n × 10` either overflows to
+  // infinity or lands on a decade whose neighbours a double cannot tell apart, and two coordinates
+  // far apart would then spell one key. A coordinate that big is no point of a drawing either.
+  if (!Number.isSafeInteger(tenths)) throw new Error(`a placement at ${String(n)} is off the 0.1 lattice a key is derived on, so it quantises to nothing (L-REG-04)`);
   const sign = tenths === 0 || n >= 0 ? "" : "-";
   return `${sign}${Math.floor(tenths / LATTICE_PARTS)}.${tenths % LATTICE_PARTS}`;
 }

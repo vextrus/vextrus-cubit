@@ -12,11 +12,11 @@
 //   · L-REG-03: a second measured sighting of one identity inside one drawing-set revision is
 //     refused and kept as unpriceable evidence in a table no bill can join. The guard is the store's
 //     own key, so it holds against two writers as well as against one.
-//   · R-TO-051: a change is an appended observation with declared precedence. Nothing here updates a
-//     row; the store holds no privilege that would let it.
+//   · R-TO-051: a change is an appended observation with declared precedence. Nothing here rewrites
+//     a reading, a refusal or an attribute slot; the store holds no privilege that would let it.
 //   · L-REG-03: "disagreement is declared, never resolved silently" — a standing is DERIVED from the
 //     readings at read time, so no column anywhere holds a "current value" to overwrite.
-import { and, asc, eq, forTenant, refusedSightings, registerAttributes, registerObjects, registerObservations, type TenantTx } from "@/core/db";
+import { and, asc, drawingSetRevisions, eq, forTenant, refusedSightings, registerAttributes, registerObjects, registerObservations, type TenantTx } from "@/core/db";
 import { REFUSALS } from "@/core/errors";
 import { DISCIPLINES, type Discipline } from "@/core/sheets/law";
 import {
@@ -36,9 +36,6 @@ import { CANONICAL_UNIT, convert, exact, isUnit, toCanonical, type Unit } from "
 /** Which workspace, project and pinned set revision a call is scoped to (L-REG-03: per revision). */
 export type RegisterScope = { readonly tenantId: string; readonly projectId: string; readonly setRevisionId: string };
 
-/** One bar of a sighted member (L-REG-04's bar row key: role, diameter, sequence). */
-export type SightedBar = { readonly role: string; readonly diameter: string; readonly sequence: number };
-
 /**
  * One measured sighting, as the door is given one: what it is, where it stands, and what it says
  * about itself. The content is opaque here — the door digests it into the row's semantic and never
@@ -53,7 +50,8 @@ export type Sighting = {
   readonly y: number;
   readonly level: LevelRef;
   readonly standing: string;
-  readonly bars?: readonly SightedBar[];
+  // No bars: a bar row is a later leaf, and a field this door took and dropped would read as a store
+  // that kept them. What a caller's bars are is asked of `barKey` when that leaf lands.
   readonly content: unknown;
 };
 
@@ -166,9 +164,35 @@ function levelColumns(level: LevelRef): { levelId: string | null; levelSlot: str
  * Does this as-written value read as a number at all? A readability question, asked before any
  * arithmetic: the arithmetic itself is the canon's exact decimals, and a blank reads as nothing
  * rather than as the zero `Number("")` would answer.
+ *
+ * The guard and the arithmetic must read ONE grammar. JavaScript's `Number` ignores the space around
+ * a spelling and the canon's decimals do not, so the value is trimmed once, here, and the trimmed
+ * spelling is what both the guard and the canon are given — a reading transcribed with a trailing
+ * newline is an ordinary reading, not a crash inside a decimal library (ARCH-03, L-FRM-06). What the
+ * ledger keeps as written is still what was written.
  */
+function asRead(value: string): string {
+  return value.trim();
+}
+
+/** Does this as-read spelling read as a number the canon's arithmetic can take? */
 function readsAsANumber(value: string): boolean {
-  return value.trim() !== "" && Number.isFinite(Number(value));
+  return value !== "" && Number.isFinite(Number(value));
+}
+
+/** The precedences the store accepts: a whole number from zero up to the ledger column's integer. */
+const PRECEDENCE_CEILING = 2 ** 31 - 1;
+
+/**
+ * A declared precedence, drawn from what the store holds (R-TO-051). A precedence outside it is a
+ * mistake in the caller and says so here, rather than reaching the store as a CHECK violation or an
+ * overflow nobody registered (ARCH-03).
+ */
+function declaredPrecedence(precedence: number): number {
+  if (!Number.isInteger(precedence) || precedence < 0 || precedence > PRECEDENCE_CEILING) {
+    throw new Error(`${String(precedence)} is no declared precedence — a precedence is a whole number from 0 to ${PRECEDENCE_CEILING} (R-TO-051)`);
+  }
+  return precedence;
 }
 
 /**
@@ -178,9 +202,10 @@ function readsAsANumber(value: string): boolean {
  * canon's own `isUnit` before it reaches this door (ARCH-03).
  */
 function canonicalise(valueAsWritten: string, unitAsWritten: string): { ok: true; value: string; unit: Unit; factor: string } | { ok: false; refusal: string } {
+  const value = asRead(valueAsWritten);
   // L-REG-01: "convert of no input is no output, never a zero". A reading with nothing to convert is
   // not a reading of zero, and it is not stored as one — it stops here, loudly.
-  if (!readsAsANumber(valueAsWritten)) {
+  if (!readsAsANumber(value)) {
     throw new Error(`"${valueAsWritten}" is no reading, so there is nothing to carry to a canonical unit — a convert of no input is no output, never a zero (L-REG-01)`);
   }
   if (!isUnit(unitAsWritten)) {
@@ -191,9 +216,34 @@ function canonicalise(valueAsWritten: string, unitAsWritten: string): { ok: true
   const source = toCanonical(unitAsWritten);
   if (!source.ok) return { ok: false, refusal: source.code };
   const unit = CANONICAL_UNIT[source.dimension];
-  const carried = convert(valueAsWritten, unitAsWritten, unit);
+  const carried = convert(value, unitAsWritten, unit);
   if (!carried.ok) return { ok: false, refusal: carried.code };
   return { ok: true, value: carried.value, unit, factor: source.factor };
+}
+
+/**
+ * The scope a call names, proved against the store rather than taken on the caller's word.
+ *
+ * A register object cites the set revision it was sighted in and the project it belongs to (L-REG-02,
+ * L-REG-03), and the store's foreign key to `drawing_set_revisions` is on the revision id alone — so
+ * nothing but this read stops a scope whose three parts do not belong together: another workspace's
+ * revision written under this tenant, or this workspace's other project stamped on scope that is not
+ * its. The read runs inside the tenant transaction, so a revision of another workspace is not there
+ * to be found at all (SEAM-TENANT).
+ */
+async function proveScope(tx: TenantTx, scope: RegisterScope): Promise<void> {
+  const found = await tx
+    .select({ projectId: drawingSetRevisions.projectId })
+    .from(drawingSetRevisions)
+    .where(and(eq(drawingSetRevisions.tenantId, scope.tenantId), eq(drawingSetRevisions.setRevisionId, scope.setRevisionId)))
+    .limit(1);
+  const revision = found[0];
+  if (revision === undefined) {
+    throw new Error(`no pinned set revision ${scope.setRevisionId} stands in this workspace, so a sighting scoped to it is a sighting of nothing (L-REG-03, SEAM-TENANT)`);
+  }
+  if (revision.projectId !== scope.projectId) {
+    throw new Error(`set revision ${scope.setRevisionId} belongs to another project than ${scope.projectId}, and a register object's project is part of what it IS (L-REG-02)`);
+  }
 }
 
 /** The register object one identity stands on inside one revision, or nothing where none does. */
@@ -221,6 +271,7 @@ export async function registerSighting(scope: RegisterScope, sighting: Sighting)
   const standing: SightingStanding = drawnFrom(SIGHTING_STANDINGS, sighting.standing, "sighting standing");
 
   return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
+    await proveScope(tx, scope);
     const written = await tx
       .insert(registerObjects)
       .values({
@@ -291,6 +342,7 @@ export async function refusedSightingsOf(scope: RegisterScope): Promise<RefusedS
  * written beside it, because a conversion that does not carry its derivation is origination (L-REG-01).
  */
 export async function appendObservation(scope: RegisterScope, input: ObservationInput): Promise<AppendedObservation> {
+  const precedence = declaredPrecedence(input.precedence);
   const canonical = canonicalise(input.valueAsWritten, input.unitAsWritten);
   if (!canonical.ok) return { appended: false, refusal: canonical.refusal };
 
@@ -326,7 +378,7 @@ export async function appendObservation(scope: RegisterScope, input: Observation
         factorProvenance: FACTOR_PROVENANCE,
         basis: drawnFrom<ObservationBasis>(OBSERVATION_BASES, input.basis, "observation basis"),
         sourceKey: input.sourceKey,
-        precedence: input.precedence,
+        precedence,
         actId: input.actId,
       })
       .returning({ observationId: registerObservations.observationId });
@@ -375,8 +427,11 @@ export async function attributeStanding(scope: RegisterScope, objectKey: string,
   const competing = readings.filter((reading) => reading.precedence === precedence);
   const overruled = readings.filter((reading) => reading.precedence !== precedence);
 
-  // The latest reading at the standing precedence is the one that stands: a later reading of the same
-  // authority is a correction, and it is a correction by being appended after (L-ACT-01).
+  // Agreement is judged among ALL the readings at the standing precedence: one that disagrees with
+  // the rest suspends the attribute rather than correcting it, because a correction that carried the
+  // day by being appended later would be the silent resolution L-REG-03 forbids — a correction
+  // declares itself by standing at a HIGHER precedence. Where they all agree, the latest of them is
+  // the one whose spelling of the agreed value is reported.
   const stands = competing[competing.length - 1];
   const suspended = stands === undefined || competing.some((reading) => !agree(reading, stands));
   if (suspended) return { standing: SUSPENDED, canonicalValue: null, canonicalUnit: null, precedence, competing, overruled };
