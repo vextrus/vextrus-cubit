@@ -13,7 +13,7 @@
  * retry, and neither is ever a silent empty list.
  */
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
-import type { RefusalCode } from "@/core/errors";
+import { REFUSALS, type RefusalCode } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import {
   CommandPaletteProvider,
@@ -112,7 +112,10 @@ export function PaletteHost({ tenantId, projectId = null, search, navigate, chil
 
       const refused = refusalIn(answer);
       if (refused !== null) {
-        setHits([]);
+        // Whatever rows the answer carried stand, and the card sits with them: a refusal beside
+        // answered rows is the partial state, and hiding what WAS answered is the silence R-UI-050
+        // forbids (shown, not hidden). An answer that carried none leaves the card in the list's place.
+        setHits(hitsIn(answer));
         setRefusal(refused);
         setStatus("refused");
         return;
@@ -233,8 +236,61 @@ function hitRow(hit: PaletteHit, tenantId: string): CommandItem {
  * because a search that broke is not a search that found nothing (ARCH-03, B-21, R-UI-020).
  */
 function failureAnswer(failure: unknown): unknown {
-  const code = refusalCodeOf(failure);
+  const marked = refusalCodeOf(failure);
+  const code = marked !== null && isRegistered(marked) ? (marked as RefusalCode) : registeredCodeIn(failure);
   return code === null ? { fault: { reportId: reportIdOf(failure) } } : { refusal: code };
+}
+
+/**
+ * The slots an answer names a refusal by, and the envelopes a transport wraps one in on the way
+ * here. What makes a word a refusal is the REGISTRY, never the property it arrived under: the same
+ * read refused whether the seam stated the code beside its rows, threw it, or handed it back inside
+ * the shape its transport wraps an error in (R-SPINE-062, ARCH-03).
+ */
+const REFUSAL_CARRIERS: readonly string[] = Object.freeze(["refusal", "refused", "error", "failure", "data", "shape", "cause", "body"]);
+
+/** The two names a code itself is stated under, wherever it is stated. */
+const CODE_KEYS: readonly string[] = Object.freeze(["refusalCode", "code"]);
+
+/** How many envelopes deep a code is still this read's answer rather than a stranger's data. */
+const CARRIER_DEPTH = 4;
+
+/** The names a tier's own record of a fault arrives under — one home for all four (B-17). */
+const REPORT_KEYS: readonly string[] = Object.freeze(["reportId", "faultId", "id", "requestId"]);
+
+/** Whether the closed taxonomy holds this word. A code no entry answers is not a refusal (I-110). */
+function isRegistered(code: string): boolean {
+  return Object.prototype.hasOwnProperty.call(REFUSALS, code);
+}
+
+/**
+ * The registered code a value states, wherever it states it — the value itself, the slot an answer
+ * named it by, or inside an envelope a transport added. One reading for every carrier, so a refused
+ * read is a refusal on this screen whichever door it came through, and a word the registry does not
+ * hold stays what it is: a fault with an id, never a refusal card with invented words (B-21).
+ */
+function registeredCodeIn(value: unknown, depth = 0): RefusalCode | null {
+  if (typeof value === "string") return isRegistered(value) ? (value as RefusalCode) : null;
+  if (typeof value !== "object" || value === null || depth >= CARRIER_DEPTH) return null;
+  const bag = value as Record<string, unknown>;
+  for (const key of CODE_KEYS) {
+    const said = bag[key];
+    if (typeof said === "string" && isRegistered(said)) return said as RefusalCode;
+  }
+  for (const key of REFUSAL_CARRIERS) {
+    const found = registeredCodeIn(bag[key], depth + 1);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+/** The first of `REPORT_KEYS` a bag states as a string — the thread a fault is quoted by. */
+function reportIdIn(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (typeof value !== "object" || value === null) return null;
+  const bag = value as Record<string, unknown>;
+  for (const key of REPORT_KEYS) if (typeof bag[key] === "string") return bag[key] as string;
+  return null;
 }
 
 /** The hits an answer carries, whether it is the array itself or a bag holding one. */
@@ -247,15 +303,13 @@ function hitsIn(answer: unknown): readonly PaletteHit[] {
 /** The registered code an answer refused with, or null when it answered. */
 function refusalIn(answer: unknown): RefusalCode | null {
   if (typeof answer !== "object" || answer === null) return null;
-  const said = (answer as { refusal?: unknown }).refusal;
-  return typeof said === "string" ? (said as RefusalCode) : null;
+  return registeredCodeIn(answer);
 }
 
 /** The report id an answer faulted with, or null when it did not fault. */
 function faultIn(answer: unknown): string | null {
   if (typeof answer !== "object" || answer === null) return null;
-  const said = (answer as { fault?: { reportId?: unknown } }).fault;
-  return typeof said?.reportId === "string" ? said.reportId : null;
+  return reportIdIn((answer as { fault?: unknown }).fault);
 }
 
 /**
@@ -264,9 +318,5 @@ function faultIn(answer: unknown): string | null {
  * carried none is given one here rather than shown to a person with nothing they can quote.
  */
 function reportIdOf(failure: unknown): string {
-  if (typeof failure === "object" && failure !== null) {
-    const said = (failure as { reportId?: unknown; faultId?: unknown; requestId?: unknown });
-    for (const value of [said.reportId, said.faultId, said.requestId]) if (typeof value === "string") return value;
-  }
-  return globalThis.crypto.randomUUID();
+  return (typeof failure === "object" ? reportIdIn(failure) : null) ?? globalThis.crypto.randomUUID();
 }
