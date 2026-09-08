@@ -462,7 +462,7 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
   // there is no factor between them to take.
   DIMENSION_MISMATCH: Object.freeze({
     code: "DIMENSION_MISMATCH",
-    message: "These two units measure different things — one is a volume and the other is not — so no conversion between them exists.",
+    message: "These two units measure different kinds of quantity, so there is no factor between them and no conversion exists.",
     remedy: "Choose a unit that measures the same thing as the quantity, such as its own dimension's canonical unit.",
     severity: "error",
     surface: "inline",

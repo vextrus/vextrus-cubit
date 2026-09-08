@@ -3,16 +3,14 @@
 // committed under `db/catalogue/`, and the same rendering the drift stage's digest is taken over, so
 // the three copies (the consts, the committed tables, the migrated rows) cannot silently disagree.
 //
-// Run it after changing a const, and commit what it writes:
+// The rendering is all that lives here, and it is pure: no file system, no argv, no reach out of
+// `src/**` into the toolchain (ARCH-01, ARCH-02). A layer above may read a table without dragging a
+// build tool into a client-reachable module, and importing this module writes nothing.
 //
-//   pnpm tsx src/core/catalogue/emit.ts
+// Writing what it renders is a maintenance tool rather than product code, so it stands outside the
+// layered tree. Run it after changing a const, and commit what it writes:
 //
-// Importing this module writes nothing: the rendering is pure and only a direct invocation touches
-// the tree, so a reader of the tables — a test, a later lane — never has a side effect for asking.
-import { mkdirSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { digestOf, filesUnder } from "../../../scripts/lib/digest.mjs";
+//   pnpm tsx tests/catalogue/emit-catalogue.ts
 import { BEARS } from "./bears";
 import { WORK_ITEM_CATALOGUE } from "./catalogue";
 import { KINDS } from "./kinds";
@@ -91,29 +89,3 @@ export function emittedTables(): Readonly<Record<CatalogueFile, string>> {
   });
 }
 
-/** The checkout the tables are committed in — three directories up from this module. */
-const REPO_ROOT = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
-
-/**
- * Write the tables and record their digest. The digest is the toolchain's one digest function over
- * every file under `db/catalogue` but the record itself (ARCH-02), which is exactly what
- * `scripts/catalogue-drift.mjs` re-takes at the gate.
- */
-export function writeCatalogue(): readonly string[] {
-  const tables = emittedTables();
-  const written: string[] = [];
-  mkdirSync(resolve(REPO_ROOT, CATALOGUE_DIR), { recursive: true });
-  for (const file of CATALOGUE_FILES) {
-    writeFileSync(resolve(REPO_ROOT, CATALOGUE_DIR, file), tables[file], "utf8");
-    written.push(`${CATALOGUE_DIR}/${file}`);
-  }
-  const sources = filesUnder(REPO_ROOT, resolve(REPO_ROOT, CATALOGUE_DIR), (relative) => relative !== CATALOGUE_DIGEST_FILE);
-  writeFileSync(resolve(REPO_ROOT, CATALOGUE_DIGEST_FILE), `${digestOf(REPO_ROOT, sources)}\n`, "utf8");
-  return [...written, CATALOGUE_DIGEST_FILE];
-}
-
-/** Only a direct invocation writes; an import renders and nothing more. */
-const invokedDirectly = process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (invokedDirectly) {
-  for (const file of writeCatalogue()) process.stdout.write(`catalogue: wrote ${file}\n`);
-}
