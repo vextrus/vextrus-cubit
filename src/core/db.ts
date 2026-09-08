@@ -61,10 +61,29 @@ export {
   calibrations,
   workItems,
   bears,
+  SIGHTING_STANDINGS,
+  OBSERVATION_BASES,
+  registerObjects,
+  refusedSightings,
+  registerAttributes,
+  registerObservations,
   SEAM_SCHEMA,
 } from "./db/schema";
 export { isAcceptedFormat } from "./db/schema";
-export type { WorkspaceRole, Disposition, SheetReadingRecord, AcceptedFormat, UploadState, ScanVerdict, RasterTier, GridFamily, GridAxis, GridDeferralReason } from "./db/schema";
+export type {
+  WorkspaceRole,
+  Disposition,
+  SheetReadingRecord,
+  AcceptedFormat,
+  UploadState,
+  ScanVerdict,
+  RasterTier,
+  GridFamily,
+  GridAxis,
+  GridDeferralReason,
+  SightingStanding,
+  ObservationBasis,
+} from "./db/schema";
 export { closePools } from "./db/pools";
 export {
   forTenant,

@@ -70,7 +70,8 @@ export type RefusalCode =
   | "SCALE_OBSERVATION_OBLIQUE"
   | "SCALE_OBSERVATION_UNVERIFIED"
   | "DIMENSION_MISMATCH"
-  | "PRODUCT_FACTOR_MISSING";
+  | "PRODUCT_FACTOR_MISSING"
+  | "DUPLICATE_IDENTITY";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -474,6 +475,16 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     message: "A bag, drum or coil holds what its product says it holds, and this product states no such property, so the quantity was not converted.",
     remedy: "State the product's packaged quantity — how much one bag, drum or coil holds — and convert again.",
     severity: "error",
+    surface: "inline",
+  }),
+  // L-REG-03's double-count guard: "a second measured sighting of the same physical scope inside one
+  // drawing-set revision is refused at the door (`DUPLICATE_IDENTITY`) and kept as unpriceable
+  // evidence". Nothing is lost by the refusal, so the sentence says where the sighting went.
+  DUPLICATE_IDENTITY: Object.freeze({
+    code: "DUPLICATE_IDENTITY",
+    message: "This physical scope is already registered in this drawing-set revision, so measuring it again would count it twice; the sighting was kept as evidence instead.",
+    remedy: "Open the registered object to compare the two sightings, or measure the scope this drawing shows that is not yet registered.",
+    severity: "warning",
     surface: "inline",
   }),
 } satisfies Record<RefusalCode, RefusalEntry>);

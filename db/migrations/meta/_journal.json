@@ -204,6 +204,13 @@
       "when": 1788893519294,
       "tag": "0028_catalogue",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1788900309567,
+      "tag": "0029_register",
+      "breakpoints": true
     }
   ]
 }
