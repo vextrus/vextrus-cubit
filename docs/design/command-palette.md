@@ -298,3 +298,17 @@ widened: **j-021-palette-open** (`palette/open-light.png`, `palette/open-dark.pn
 **j-021-shortcut-sheet** (`palette/sheet-light.png`). The trigger moves the frame, so
 `gallery-shell-*.png` and every frame picture it shifts are regenerated, each in its own `baseline:`
 commit naming the run, and none regenerated that did not move (B-20).
+
+Which pictures the trigger actually reaches is read off the lane, not assumed: every candidate is
+re-taken from the standing screen with `--update-snapshots=all` (a comparison run re-blesses nothing,
+because the trigger's cell is smaller than the lane's `maxDiffPixelRatio` of 0.002 over 1440×900).
+Ten moved and are committed: the four `shell-*.png`, `j-003/project-edited.png`,
+`j-003/ruleset-pin-visible.png`, `j-000/workspace-named.png`, `j-000/first-project-on-s-home.png`,
+`s-audit/explorer.png`, `s-project/home.png`. Seven cannot move, and B-20's second half forbids
+re-blessing them: `j-001-auth/invite-pending.png`, `j-001-auth/switched.png`,
+`j-002-tenant-admin/panel.png` and `j-002-tenant-admin/remove-refused.png` paint `shell-topbar` over
+with the mask their journeys take, so the bar's occupants are not in the picture at all and the bar's
+box is unchanged; `j-001-auth/accept.png` is `/accept-invitation`, which is not under `t/[tenant]` and
+so wears no frame; and `gallery-shell-*.png` is a capture of the `gallery-shell` header alone — the
+gallery's `h1` and caption — while the entries the palette adds render in the barrel sections beneath
+it. A new gallery entry never moves those two pictures, and the increment does not make it appear to.
