@@ -49,25 +49,33 @@ const GROUP_LABEL: Readonly<Record<PaletteGroupId, StringKey>> = {
 /** The three bones the wait keeps the list's height with (Decision §2). Never a spinner. */
 const WAIT_BONES = ["a", "b", "c"];
 
-/** The refusal codes this surface can be answered with, and where each is resolved (I-142). */
+/** Where a refusal of this surface is resolved, for the codes that resolve somewhere of their own. */
 const EVIDENCE: Readonly<Record<string, { href: string; label: string }>> = {
   SIGNED_OUT: { href: "/sign-in", label: strings.shell_evidence_sign_in },
-  WORKSPACE_PERMISSION_NOT_HELD: { href: "/", label: strings.shell_evidence_home },
 };
+
+/**
+ * Where every other registered refusal is resolved: the workspace a person came from. R-UI-020 makes
+ * the evidence link part of the answer rather than a per-code luxury, so the register decides WHAT is
+ * said and this decides only where the reader is sent when the code names nowhere better (I-142).
+ */
+const EVIDENCE_ELSEWHERE = { href: "/", label: strings.shell_evidence_home };
 
 /**
  * The registered refusal a code names, with the evidence link that resolves it — or null for a word
  * no entry answers. ARCH-01 keeps `src/core`'s register out of this layer, so the entry is read from
- * the ui-side register the screens share (B-17); a code neither side registers is not a refusal, and
- * inventing a card for it would put a sentence in a person's mouth the taxonomy never wrote.
+ * the ui-side register the screens share (B-17); the card is offered to every code that register
+ * holds, never to a hand-picked pair, so a door that grows a second registered answer renders it on
+ * the day it arrives. A code the register does not hold is not a refusal — the caller answers that
+ * as the fault it is, because inventing a card would put a sentence in a person's mouth the taxonomy
+ * never wrote and showing nothing would be the silence R-UI-020 forbids.
  */
 export function paletteRefusalOf(code: string | null | undefined): PaletteRefusal | null {
-  if (typeof code !== "string") return null;
+  if (typeof code !== "string" || code === "") return null;
   const registered: Readonly<Record<string, RefusalEntry>> = REFUSAL_ENTRIES;
   const entry = registered[code];
-  const evidence = EVIDENCE[code];
-  if (entry === undefined || evidence === undefined) return null;
-  return { entry, evidence };
+  if (entry === undefined) return null;
+  return { entry, evidence: EVIDENCE[code] ?? EVIDENCE_ELSEWHERE };
 }
 
 /** The footer's status line: what the list is saying about itself, in one sentence (Decision §3). */

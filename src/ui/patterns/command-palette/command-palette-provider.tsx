@@ -250,8 +250,13 @@ export function CommandPaletteProvider({ tenantId, rows = [], search, navigate, 
   const activeRow = flat.find((row) => optionId(row) === activeKey) ?? flat[0] ?? null;
   const activeId = activeRow === null ? null : optionId(activeRow);
 
-  const refusal = paletteRefusalOf(answer?.refusal);
-  const faultId = thrown ?? answer?.faultId ?? null;
+  const stated = answer?.refusal ?? null;
+  const refusal = paletteRefusalOf(stated);
+  // A code the taxonomy does not register is an answer this product cannot read. It is a fault, and
+  // it is never a silence: dropping it would leave the empty cell telling a person their words
+  // matched nothing, which is a different — and untrue — thing to say (ARCH-03, R-UI-020).
+  const unreadable = refusal === null && typeof stated === "string" && stated !== "";
+  const faultId = thrown ?? answer?.faultId ?? (unreadable ? "" : null);
   const fault = useMemo<PaletteFault | null>(
     () => (typeof faultId === "string" ? { reportId: faultId, onRetry: () => setAttempt((at) => at + 1) } : null),
     [faultId],
