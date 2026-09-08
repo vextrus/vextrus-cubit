@@ -4,6 +4,7 @@
 // readable properties. The codes belong to the closed taxonomy in `../errors` (R-SPINE-062).
 import type { RefusalCode } from "../errors";
 import { refusal } from "../faults/refusal-marker";
+import { isScaleUnit } from "./law";
 
 /** The codes this engine answers with, each read off the closed taxonomy rather than re-spelled (Q-07). */
 export type ScaleRefusalCode = Extract<
@@ -11,14 +12,24 @@ export type ScaleRefusalCode = Extract<
   "SCALE_NO_EVIDENCE" | "SCALE_UNIT_UNMAPPED" | "SCALE_OBSERVATION_UNCITED" | "SCALE_OBSERVATION_OBLIQUE" | "SCALE_OBSERVATION_UNVERIFIED"
 >;
 
-const SCALE_NO_EVIDENCE: ScaleRefusalCode = "SCALE_NO_EVIDENCE";
-const SCALE_UNIT_UNMAPPED: ScaleRefusalCode = "SCALE_UNIT_UNMAPPED";
+const SCALE_NO_EVIDENCE = "SCALE_NO_EVIDENCE" satisfies ScaleRefusalCode;
+const SCALE_UNIT_UNMAPPED = "SCALE_UNIT_UNMAPPED" satisfies ScaleRefusalCode;
 const SCALE_OBSERVATION_UNCITED: ScaleRefusalCode = "SCALE_OBSERVATION_UNCITED";
 const SCALE_OBSERVATION_OBLIQUE: ScaleRefusalCode = "SCALE_OBSERVATION_OBLIQUE";
 const SCALE_OBSERVATION_UNVERIFIED: ScaleRefusalCode = "SCALE_OBSERVATION_UNVERIFIED";
 
 /** The two codes a view with no affirmed calibration answers under (L-MEA-05: declared, never silent). */
 export type ScaleAbsenceCode = Extract<ScaleRefusalCode, "SCALE_NO_EVIDENCE" | "SCALE_UNIT_UNMAPPED">;
+
+/**
+ * Which absence a view with no affirmed scale declares (L-MEA-05: "`SCALE_NO_EVIDENCE`;
+ * `SCALE_UNIT_UNMAPPED` when rank 4 carried an unmapped code"). Decided once, over the header's
+ * unit, for the door that reads a view and the act that is asked for a rank the view cannot carry —
+ * one question, one answer (B-17).
+ */
+export function scaleAbsenceCodeOf(unit: string | null): ScaleAbsenceCode {
+  return isScaleUnit(unit) ? SCALE_NO_EVIDENCE : SCALE_UNIT_UNMAPPED;
+}
 
 /** L-MEA-05: "a view no act names has no scale" — and a rank asked for that the view's evidence does not carry. */
 export function scaleNoEvidence(detail: string, facts: { readonly viewKey?: string; readonly rank?: string; readonly axis?: string }): Error {

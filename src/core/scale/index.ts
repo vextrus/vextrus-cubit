@@ -54,6 +54,7 @@ export {
   type ScaleTolerances,
 } from "./proposals";
 export {
+  scaleAbsenceCodeOf,
   scaleNoEvidence,
   scaleObservationOblique,
   scaleObservationUncited,

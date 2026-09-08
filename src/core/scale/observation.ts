@@ -3,8 +3,8 @@
 // ENTERED". X and Y derive independently and are averaged as nothing, so an observation speaks for
 // exactly one axis, and a single observation on an axis is verified at the edition's tolerance or
 // rejected. Pure — the store, the artifact and the edition are the caller's to bring.
-import type { GridAxis } from "../db/schema";
-import { parseSourceKey } from "../model/sources";
+import type { GridAxis } from "../db";
+import { parseSourceKey } from "../model";
 import { exact, isFactorString, isScaleUnit, metresPerExact, renderFactor, withinTolerance, type ScaleUnit } from "./law";
 import { scaleNoEvidence, scaleObservationOblique, scaleObservationUncited, scaleObservationUnverified } from "./refusals";
 

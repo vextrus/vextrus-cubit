@@ -81,6 +81,9 @@ const STATED_NUMBER = /^[0-9]+(?:\.[0-9]+)?$/;
 const AXIS_X = "x" satisfies ScaleAxis;
 const AXIS_Y = "y" satisfies ScaleAxis;
 
+/** Both world axes, in the order a pair states them. */
+const AXES: readonly ScaleAxis[] = [AXIS_X, AXIS_Y];
+
 /** The rank's spelling, as members of the roster rather than literals beside it. */
 const GRID_SPACING = "GRID_SPACING" satisfies MachineScaleRank;
 const DIMENSION_RATIO = "DIMENSION_RATIO" satisfies MachineScaleRank;
@@ -174,7 +177,7 @@ type AdjacentGap = { readonly axis: ScaleAxis; readonly gap: number; readonly bu
  */
 function adjacentGapsOf(rows: readonly GridReading[]): AdjacentGap[] {
   const gaps: AdjacentGap[] = [];
-  for (const axis of [AXIS_X, AXIS_Y]) {
+  for (const axis of AXES) {
     const positions = new Map<number, string[]>();
     for (const row of rows) {
       if (row.axis !== axis) continue;
@@ -199,6 +202,12 @@ function adjacentGapsOf(rows: readonly GridReading[]): AdjacentGap[] {
  * is the one its non-text paint reaches further along, the span is the raw extent of that paint
  * along it, and the stated number is the one measurement text the dimension carries. A dimension
  * carrying no such text, two of them, or paint of no extent states nothing and is not read.
+ *
+ * Which view a dimension measures in: the partition's own assignment where the original carried
+ * points the partition could place (L-CAD-06 — one reading, B-17). An original carrying none stands
+ * nowhere for the partition, and stands where its paint stands for this engine: a dimension is drawn
+ * against the entities it measures, so its paint's centre lies nearest a placed original of that
+ * view, and the view of the nearest placed original is the one it measures in.
  */
 export function readDimensions(graph: EntityGraph, assignments: ReadonlyMap<string, string>): DimensionReading[] {
   const paintOf = new Map<string, Drawn[]>();
@@ -207,6 +216,7 @@ export function readDimensions(graph: EntityGraph, assignments: ReadonlyMap<stri
     if (held === undefined) paintOf.set(derived.src, [derived]);
     else held.push(derived);
   }
+  const placed = placedOriginals(graph, assignments);
 
   const readings: DimensionReading[] = [];
   for (const entity of graph.entities) {
@@ -217,15 +227,18 @@ export function readDimensions(graph: EntityGraph, assignments: ReadonlyMap<stri
     if (stated.length !== 1) continue;
     const said = stated[0] as string;
 
-    const extent = extentOf(paint.filter((record) => typeof record.text !== "string"));
+    const drawn = paint.filter((record) => typeof record.text !== "string");
+    const extent = extentOf(drawn);
     if (extent === null) continue;
     const axis = extent.x >= extent.y ? AXIS_X : AXIS_Y;
     const span = axis === AXIS_X ? extent.x : extent.y;
     if (!(span > 0) || !exact(said).gt(0)) continue;
 
+    const viewKey = (entity.points ?? []).length > 0 ? (assignments.get(entity.key) ?? null) : nearestViewOf(extent.centre, placed);
+
     readings.push({
       key: entity.key,
-      viewKey: assignments.get(entity.key) ?? null,
+      viewKey,
       axis,
       span,
       stated: said,
@@ -235,8 +248,38 @@ export function readDimensions(graph: EntityGraph, assignments: ReadonlyMap<stri
   return readings;
 }
 
-/** How far some paint reaches along each axis, end to end, or null where it has no points at all. */
-function extentOf(paint: readonly Drawn[]): { x: number; y: number } | null {
+/** One point of the plane, as the artifact carries them. */
+type Point = readonly [number, number];
+
+/** One original the partition placed, and the points it is drawn from. */
+type PlacedOriginal = { readonly viewKey: string; readonly points: readonly Point[] };
+
+/** Every original the partition assigned a view that carries points of its own to stand at. */
+function placedOriginals(graph: EntityGraph, assignments: ReadonlyMap<string, string>): PlacedOriginal[] {
+  return graph.entities.flatMap((entity) => {
+    const viewKey = assignments.get(entity.key);
+    const points = entity.points ?? [];
+    return viewKey === undefined || points.length === 0 ? [] : [{ viewKey, points }];
+  });
+}
+
+/** The view of the placed original standing nearest a point, or null where nothing is placed at all. */
+function nearestViewOf(at: Point, placed: readonly PlacedOriginal[]): string | null {
+  let held: { viewKey: string; distance: number } | null = null;
+  for (const original of placed) {
+    for (const point of original.points) {
+      const distance = Math.hypot(point[0] - at[0], point[1] - at[1]);
+      // Ties go to the lower view key, so one artifact reads the same way every time (L-REG-04).
+      if (held === null || distance < held.distance || (distance === held.distance && original.viewKey < held.viewKey)) {
+        held = { viewKey: original.viewKey, distance };
+      }
+    }
+  }
+  return held?.viewKey ?? null;
+}
+
+/** How far some paint reaches along each axis, end to end, and where its middle is — or null for no points at all. */
+function extentOf(paint: readonly Drawn[]): { x: number; y: number; centre: Point } | null {
   let minX = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
@@ -251,5 +294,5 @@ function extentOf(paint: readonly Drawn[]): { x: number; y: number } | null {
       maxY = Math.max(maxY, point[1]);
     }
   }
-  return any ? { x: maxX - minX, y: maxY - minY } : null;
+  return any ? { x: maxX - minX, y: maxY - minY, centre: [(minX + maxX) / 2, (minY + maxY) / 2] } : null;
 }

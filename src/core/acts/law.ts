@@ -8,7 +8,7 @@
  * without a rendering a compile error", so a member belongs here once — and only once — it has a
  * rendering in `ACT_MAP` and a permission in `ACT_PERMISSION`.
  */
-export const ACT_TYPES = ["ASSIGN_PARTICIPANT_ROLE", "CONFIRM_DISCIPLINE", "CONFIRM_VIEW_TYPE", "PIN_DRAWING_SET"] as const;
+export const ACT_TYPES = ["ASSIGN_PARTICIPANT_ROLE", "CONFIRM_DISCIPLINE", "CONFIRM_VIEW_TYPE", "PIN_DRAWING_SET", "AFFIRM_SCALE"] as const;
 
 /** One act type, drawn from the enum above. */
 export type ActType = (typeof ACT_TYPES)[number];
@@ -54,6 +54,9 @@ export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.free
   CONFIRM_VIEW_TYPE: "MEASURE",
   // L-ACT-03 cuts PIN_SET on exactly this: "PIN_SET (PIN_DRAWING_SET, REPIN_DRAWING_SET)".
   PIN_DRAWING_SET: "PIN_SET",
+  // L-MEA-05: a view no act names measures nothing, so affirming what a drawing measures in is what
+  // a person does before anything is measured off it — it moves the permission the measuring moves.
+  AFFIRM_SCALE: "MEASURE",
 });
 
 /**

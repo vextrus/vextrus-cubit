@@ -14,6 +14,7 @@ import type { SourceScheme } from "../model";
 import { DEFAULT_DENSITY, DENSITIES, type Density } from "../prefs/density";
 import { BUILDING_TYPES, type BuildingType } from "../projects";
 import { DISCIPLINES, type Discipline } from "../sheets/law";
+import { FACTOR_PATTERN, SCALE_RANKS, type ScaleRank } from "../scale/law";
 import type { EditionParameter, EditionScope, MethodPair } from "../rulesets/editions/content";
 import type { ConventionProfile, EntityCensus } from "../rulesets/methods/conventions/resolve";
 import { closedList } from "./sql";
@@ -1180,6 +1181,92 @@ export const drawingSetRevisions = pgTable(
 );
 
 /**
+ * A calibration's content address: sha-256, lowercase hex — the shape `calibrationKey` mints
+ * (L-MEA-05), closed here so the column cannot hold a key nothing computed.
+ */
+const CALIBRATION_KEY_PATTERN = "^[0-9a-f]{64}$";
+
+/**
+ * L-MEA-05's affirmation act, stored: "Scale is established by affirmation acts, each naming the
+ * views it covers (a scale group is the subject set of one act), the rank it stood on and the source
+ * keys under it." One row per AFFIRM_SCALE act, carrying the act that wrote it (L-ACT-01: the act row
+ * and this row land in one transaction or neither).
+ *
+ * `view_keys`, `incoming_keys` and `outgoing_keys` are parallel by position: view i moves from
+ * `outgoing_keys[i]` to `incoming_keys[i]`, where the outgoing key is the calibration the view stood
+ * under before this act or the empty string for none. `observations` holds the QS two-point
+ * observations the act stood on (empty below rank 1) in the order they were judged — `json`, not
+ * `jsonb`, because jsonb re-orders what it holds. `supersedes` names the affirmation this one
+ * re-affirms over, and stands empty until re-affirmation ships.
+ *
+ * Append-only for the reason `view_type_confirmations` is: a scale somebody affirmed is a fact of
+ * the record, superseded by a later act rather than edited (L-ACT-01).
+ */
+export const scaleAffirmations = pgTable(
+  "scale_affirmations",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    affirmationId: uuid("affirmation_id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    rank: text("rank").$type<ScaleRank>().notNull(),
+    viewKeys: text("view_keys").array().notNull(),
+    incomingKeys: text("incoming_keys").array().notNull(),
+    outgoingKeys: text("outgoing_keys").array().notNull(),
+    sourceKeys: text("source_keys").array().notNull(),
+    observations: json("observations").$type<unknown[]>().notNull(),
+    supersedes: uuid("supersedes"),
+    actId: uuid("act_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // The precedence is closed, so the store closes it: a rank outside the four L-MEA-05 names
+    // cannot be written at all, however it reached the insert (B-17: the roster is the law's own).
+    check("scale_affirmations_rank_closed", statement`${table.rank} in (${statement.raw(closedList(SCALE_RANKS))})`),
+    // The read the scale door makes: every affirmation of one record, newest first.
+    index("scale_affirmations_by_ingest").on(table.tenantId, table.ingestId, table.createdAt),
+    index("scale_affirmations_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
+ * L-MEA-05's calibration: one view's factor pair, filed under the content address of what it says —
+ * (view key, factorX, factorY) — so the same reading affirmed twice is the same row, and a
+ * calibration key on a quantity line names exactly one pair forever.
+ *
+ * Both factors are 12-place decimal strings in metres per drawing unit, X and Y stored apart and
+ * averaged by nothing; the CHECKs are written from the law's own pattern (B-17). Append-only: the
+ * act that first filed a calibration is the one it names, and a later act naming the same reading
+ * finds the row already there.
+ */
+export const calibrations = pgTable(
+  "calibrations",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    key: text("key").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    viewKey: text("view_key").notNull(),
+    factorX: text("factor_x").notNull(),
+    factorY: text("factor_y").notNull(),
+    actId: uuid("act_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "calibrations_key", columns: [table.tenantId, table.key] }),
+    check("calibrations_key_shape", statement`${table.key} ~ ${statement.raw(`'${CALIBRATION_KEY_PATTERN}'`)}`),
+    // A factor is spoken in exactly one rendering, and it is a positive quantity of metres.
+    check("calibrations_factor_x_shape", statement`${table.factorX} ~ ${statement.raw(`'${FACTOR_PATTERN}'`)} and ${table.factorX}::numeric > 0`),
+    check("calibrations_factor_y_shape", statement`${table.factorY} ~ ${statement.raw(`'${FACTOR_PATTERN}'`)} and ${table.factorY}::numeric > 0`),
+    // The read the scale door makes: every calibration of one record.
+    index("calibrations_by_ingest").on(table.tenantId, table.ingestId),
+    index("calibrations_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
  * Everything the typed surface covers. A table joins the surface by joining this object, and it is
  * exported because the binding to the schema tree is a check rather than a sentence: `db/schema.ts`
  * is the barrel drizzle-kit and the drift lane read, and a test beside this file compares the two
@@ -1219,4 +1306,6 @@ export const SEAM_SCHEMA = {
   drawingSets,
   drawingSetMembers,
   drawingSetRevisions,
+  scaleAffirmations,
+  calibrations,
 };
