@@ -60,7 +60,6 @@ export {
   memberTypeVariants,
   rebarZones,
   scheduleDeferrals,
-  SCHEDULE_DEFERRAL_REASONS,
   drawingSets,
   drawingSetMembers,
   drawingSetRevisions,

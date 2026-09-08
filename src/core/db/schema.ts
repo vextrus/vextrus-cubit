@@ -9,7 +9,7 @@ import { bigint, check, doublePrecision, foreignKey, index, integer, json, jsonb
 import { ELEMENT_TYPES, type ElementType } from "../catalogue/classes";
 import { KINDS, type Kind } from "../catalogue/kinds";
 import { INGEST_SCHEME } from "../entitygraph/schema";
-import { REFUSALS, type RefusalCode } from "../errors";
+import { REFUSALS, SCHEDULE_DEFERRAL_REASONS, type RefusalCode, type ScheduleDeferralReason } from "../errors";
 import { LEVEL_MARKER, LEVEL_SLOTS, OBSERVATION_BASES, SIGHTING_STANDINGS, UNREGISTERED_PREFIX, type ObservationBasis, type SightingStanding } from "../identity";
 import { VIEW_TYPE_SPELLINGS } from "../errors/transport-vocabulary";
 import { MODEL_IDS } from "../model-ledger.types";
@@ -1122,13 +1122,11 @@ export const REBAR_ZONES = ["main", "ties", "ties-end", "ties-mid"] as const;
 export type RebarZone = (typeof REBAR_ZONES)[number];
 
 /**
- * Why a schedule view defers: a code of the register, narrowed to the two a schedule defers under,
- * so the column cannot hold a reason nobody registered (Q-07, riskNotes (2)).
+ * Why a schedule view defers: the register's own narrowing to the two a schedule defers under, so
+ * the column cannot hold a reason nobody registered (Q-07, riskNotes (2)). The list is the refusal
+ * register's, and this CHECK is written from it — one vocabulary, two readers (B-17).
  */
-export const SCHEDULE_DEFERRAL_REASONS = ["SCHEDULE_NONE_RECONSTRUCTED", "SCHEDULE_VIEW_CONTRIBUTED_NOTHING"] as const satisfies readonly RefusalCode[];
-
-/** One of the two. */
-export type ScheduleDeferralReason = (typeof SCHEDULE_DEFERRAL_REASONS)[number];
+export type { ScheduleDeferralReason };
 
 /** The entities one row of the stored partition was read from — never none (L-CAD-03). */
 const citedKeys = () => text("source_keys").array().notNull();

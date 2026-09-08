@@ -520,3 +520,16 @@ export function refusalOf(code: RefusalCode): RefusalEntry {
   }
   return REFUSALS[code];
 }
+
+/**
+ * Why a schedule view defers: the codes of this register a SCHEDULE view stands under when it yielded
+ * no table, or a table naming no member. One list, read by the store's CHECK and published by the
+ * partition's door alike — a vocabulary written twice drifts (B-17, Q-07).
+ *
+ * It stands with the codes rather than with the table because the seam is not a module's to import
+ * (SEAM-TENANT), and a roster its readers cannot reach is a roster they would copy.
+ */
+export const SCHEDULE_DEFERRAL_REASONS = ["SCHEDULE_NONE_RECONSTRUCTED", "SCHEDULE_VIEW_CONTRIBUTED_NOTHING"] as const satisfies readonly RefusalCode[];
+
+/** One of the two. */
+export type ScheduleDeferralReason = (typeof SCHEDULE_DEFERRAL_REASONS)[number];

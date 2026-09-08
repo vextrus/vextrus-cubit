@@ -22,7 +22,10 @@ export type { MemberFamily, MemberVariant, MemberZone } from "./schedules/regist
 export type { ScheduleCell, ScheduleDeferralRow, ScheduleTable } from "./schedules/reconstruct";
 // The closed list a schedule view defers under, published where its readers already look: it is the
 // store's CHECK and this door's answer read off ONE roster, which is why it is the seam's (Q-07).
-export { SCHEDULE_DEFERRAL_REASONS } from "@/core/db";
+// Read from the refusal register, which is where the list stands: the seam is a module's to read
+// through its barrel alone (SEAM-TENANT), and that barrel hands out tables, never a list of its own
+// (ARCH-02, B-17).
+export { SCHEDULE_DEFERRAL_REASONS } from "@/core/errors";
 export type { GridAxis, GridFamily, RebarZone, ScheduleDeferralReason, SectionUnit } from "@/core/db";
 export type { ConventionProfile, ConventionRole, EntityCensus } from "@/core/rulesets/methods/conventions/resolve";
 export type { ConfirmedViewType, ProposedViewType, ViewRecord } from "@/core/views";
