@@ -26,13 +26,27 @@
 
 /* ------------------------------------------------------------------------------ the layers panel */
 
-.cx-viewer-layers {
+/* s-viewer-partition I-110: the left column holds two lists, not a second split. The layers list
+   takes the room it needs and the views/grid section takes what is left, capped by its own
+   stylesheet — each with its own scroller, seamed by a hairline. */
+.cx-viewer-left-stack {
   display: flex;
   flex-direction: column;
   min-width: 0;
   height: 100%;
   background: var(--graphite-50);
   border-inline-end: var(--hairline);
+}
+
+.cx-viewer-layers {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  height: 100%;
+  background: var(--graphite-50);
 }
 
 .cx-viewer-layers-heading {

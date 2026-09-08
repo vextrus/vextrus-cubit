@@ -1,0 +1,256 @@
+/* S-Viewer's views/grid panel and its overlay canvas (docs/design/s-viewer-partition.md § 1, § 5).
+   Colour and motion come from tokens alone, so light and dark are one stylesheet and no
+   `[data-theme]` selector appears here (R-UI-001). Every duration is a token zeroed at source under
+   reduced motion, so there is no `prefers-reduced-motion` branch either. */
+
+/* I-110: the left stack is one column of two lists, not a second split. The list above takes the
+   room it needs and this section takes what is left, capped, each with its own scroller and seamed
+   by a hairline — so no handle can crush either of them to nothing. */
+.cx-viewer-partition {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  max-block-size: 55%;
+  overflow-y: auto;
+  background: var(--graphite-50);
+  border-block-start: var(--hairline);
+}
+
+/* The header is sticky at the top of the scroller, which keeps the two switches inside the
+   scrollable region: a scrolled region always holds focusable content here (§ 1, axe). */
+.cx-viewer-partition-head {
+  position: sticky;
+  inset-block-start: 0;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--graphite-50);
+  border-block-end: var(--hairline);
+  z-index: var(--z-base);
+}
+
+.cx-viewer-partition-heading {
+  margin: 0;
+  font-size: var(--text-13);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-partition-subheading {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+/* ------------------------------------------------------------------------------ the two switches */
+
+.cx-viewer-partition-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+  background: var(--graphite-0);
+  border: var(--hairline);
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  transition:
+    background var(--motion-state) var(--ease),
+    color var(--motion-state) var(--ease);
+}
+
+.cx-viewer-partition-switch[aria-checked="true"] {
+  color: var(--graphite-900);
+  font-weight: var(--weight-heading);
+  background: var(--beam-100);
+}
+
+/* The swatch is the second, non-colour channel: filled when the switch is on, hollow when it is
+   off, so the state survives greyscale as well as colour (R-UI-060). */
+.cx-viewer-partition-swatch {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--canvas-ink);
+  border-radius: var(--radius-2);
+  transition: background var(--motion-state) var(--ease);
+}
+
+.cx-viewer-partition-swatch[data-filled="true"] {
+  background: var(--canvas-ink);
+}
+
+/* ----------------------------------------------------------------------------------- the body */
+
+.cx-viewer-partition-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cx-viewer-partition-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-viewer-partition-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: var(--row-comfortable);
+  padding: var(--space-2) var(--space-3);
+  border-block-end: var(--hairline);
+}
+
+/* R-UI-005: density is the reader's, and a row re-keys its own height under it. */
+[data-density="compact"] .cx-viewer-partition-row {
+  min-height: var(--row-compact);
+}
+
+.cx-viewer-partition-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* I-25: a model value renders verbatim in mono, never woven into a sentence. */
+.cx-viewer-partition-badge {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+}
+
+/* Panel and sheet say the same thing in the same pattern: the row's badge wears the hatch the
+   overlay strokes over the view itself (I-116). */
+.cx-viewer-partition-badge[data-untyped="true"] {
+  border-color: var(--warn);
+  background:
+    repeating-linear-gradient(45deg, var(--graphite-300) 0 1px, transparent 1px 6px),
+    var(--warn-surface);
+}
+
+/* I-26: an identifier renders whole, and selects whole. */
+.cx-viewer-partition-key {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+  user-select: all;
+}
+
+.cx-viewer-partition-caption {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cx-viewer-partition-figure {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-viewer-partition-axis-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-partition-note {
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-viewer-partition-reason {
+  margin: 0;
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-700);
+}
+
+.cx-viewer-partition-empty,
+.cx-viewer-partition-failed {
+  margin: 0;
+  padding: var(--space-3);
+  font-size: var(--text-13);
+  line-height: var(--leading-ui);
+}
+
+.cx-viewer-partition-empty {
+  color: var(--graphite-600);
+}
+
+.cx-viewer-partition-failed {
+  color: var(--graphite-900);
+}
+
+.cx-viewer-partition-fault {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  user-select: all;
+}
+
+.cx-viewer-partition-body > .cx-btn {
+  align-self: flex-start;
+  margin-inline: var(--space-3);
+}
+
+.cx-viewer-partition-bone {
+  height: 12px;
+  width: min(180px, 100%);
+  margin: var(--space-2) var(--space-3);
+}
+
+.cx-viewer-partition-answer:empty {
+  display: none;
+}
+
+/* The offline notice, in the house notice chrome (§ 2). */
+.cx-viewer-partition-notice {
+  margin: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+  background: var(--warn-surface);
+  border: var(--hairline);
+  border-color: var(--warn);
+  border-radius: var(--radius-4);
+}
+
+.cx-viewer-partition-denied {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-2);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-700);
+}
+
+/* ------------------------------------------------------------------------ the overlay canvas */
+
+/* I-112: paint over the sheet, and nothing else. It is out of the accessibility tree and out of the
+   pointer's reach, so no hit-test, no selection and no camera can be touched from here. */
+.cx-viewer-partition-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: var(--z-base);
+}
