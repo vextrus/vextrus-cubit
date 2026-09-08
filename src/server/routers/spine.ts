@@ -21,6 +21,7 @@ import {
   type Permission,
 } from "../../core/acts";
 import { eq, isUuid, projects, runAsSystem } from "../../core/db";
+import { REFUSALS } from "../../core/errors";
 import { refusal } from "../../core/faults/refusal-marker";
 import { roleHistory } from "../../modules/spine/participants";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
@@ -156,7 +157,9 @@ export const spineRouter = router({
     .input((raw: unknown) => ({ tenantId: text(raw, "tenantId"), query: text(raw, "query") }))
     .query(async ({ ctx, input }): Promise<SearchAnswer> => {
       if (!(await holdsWorkspace(ctx.session.userId, input.tenantId))) {
-        throw refusal("WORKSPACE_PERMISSION_NOT_HELD", "the session holds no membership of the workspace this search names", { tenantId: input.tenantId });
+        // The code is read off the register rather than spelled here, so this door and the taxonomy
+        // agree by reading and never by coincidence (Q-07).
+        throw refusal(REFUSALS.WORKSPACE_PERMISSION_NOT_HELD.code, "the session holds no membership of the workspace this search names", { tenantId: input.tenantId });
       }
       return searchWorkspace({ tenantId: input.tenantId, query: input.query });
     }),

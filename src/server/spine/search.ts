@@ -6,7 +6,7 @@
 //
 // Four kinds answer today. Campaigns, estimates, bids and book items join `SEARCH_KINDS` as their
 // screens land, which is why the roster is stated once and read everywhere (B-19).
-import { drawingSets, drawings, forTenant, ilike, projects } from "../../core/db";
+import { drawingSets, drawings, forTenant, projects } from "../../core/db";
 import { sheetIndexOf } from "../../modules/takeoff/sheets";
 
 /** The closed roster a hit's kind belongs to. It grows by a line here, never by a second list. */
@@ -59,9 +59,16 @@ export interface SearchDeps {
   sheetIndex?: (scope: { tenantId: string; projectId: string }) => Promise<readonly SheetIndexCard[]>;
 }
 
-/** The LIKE metacharacters, escaped so a name a person typed is matched as the letters it is. */
-function contains(query: string): string {
-  return `%${query.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
+/**
+ * Does this stored name carry what was typed? Case-insensitively, over the letters a person really
+ * typed — no metacharacter of theirs is a wildcard of ours.
+ *
+ * The comparison stands here rather than in the statement because the seam's one driver line hands
+ * out the eight query operators and no containment among them (`src/core/db.ts`), and widening that
+ * line belongs to the seam's owner, not to this door (B-17: one invariant, one home).
+ */
+function carries(name: string, lowered: string): boolean {
+  return name.toLowerCase().includes(lowered);
 }
 
 /**
@@ -74,30 +81,25 @@ export async function searchWorkspace(input: SearchRequest, deps: SearchDeps = {
   if (asked === "") return { hits: [] };
 
   const scoped = forTenant({ tenantId: input.tenantId });
-  const like = contains(asked);
+  const lowered = asked.toLowerCase();
 
-  const [named, drawn, sets, everyProject] = await Promise.all([
-    scoped.select({ projectId: projects.projectId, name: projects.name }).from(projects).where(ilike(projects.name, like)).limit(SEARCH_LIMIT),
-    scoped
-      .select({ drawingId: drawings.drawingId, projectId: drawings.projectId, name: drawings.name })
-      .from(drawings)
-      .where(ilike(drawings.name, like))
-      .limit(SEARCH_LIMIT),
-    scoped
-      .select({ setId: drawingSets.setId, projectId: drawingSets.projectId, name: drawingSets.name })
-      .from(drawingSets)
-      .where(ilike(drawingSets.name, like))
-      .limit(SEARCH_LIMIT),
+  const [everyProject, everyDrawing, everySet] = await Promise.all([
     scoped.select({ projectId: projects.projectId, name: projects.name }).from(projects),
+    scoped.select({ drawingId: drawings.drawingId, projectId: drawings.projectId, name: drawings.name }).from(drawings),
+    scoped.select({ setId: drawingSets.setId, projectId: drawingSets.projectId, name: drawingSets.name }).from(drawingSets),
   ]);
 
   /** What a row's second line says: the project it stands in, by the name that project wears. */
   const projectName = new Map(everyProject.map((row) => [row.projectId, row.name]));
 
   const hits: SearchHit[] = [
-    ...named.map((row): SearchHit => ({ kind: "project", label: row.name, projectId: row.projectId })),
-    ...drawn.map((row): SearchHit => ({ kind: "drawing", label: row.name, projectId: row.projectId, drawingId: row.drawingId, meta: projectName.get(row.projectId) ?? null })),
-    ...sets.map((row): SearchHit => ({ kind: "set", label: row.name, projectId: row.projectId, setId: row.setId, meta: projectName.get(row.projectId) ?? null })),
+    ...everyProject.filter((row) => carries(row.name, lowered)).map((row): SearchHit => ({ kind: "project", label: row.name, projectId: row.projectId })),
+    ...everyDrawing
+      .filter((row) => carries(row.name, lowered))
+      .map((row): SearchHit => ({ kind: "drawing", label: row.name, projectId: row.projectId, drawingId: row.drawingId, meta: projectName.get(row.projectId) ?? null })),
+    ...everySet
+      .filter((row) => carries(row.name, lowered))
+      .map((row): SearchHit => ({ kind: "set", label: row.name, projectId: row.projectId, setId: row.setId, meta: projectName.get(row.projectId) ?? null })),
   ];
 
   // The sheet leg is the expensive one — one index reading per project — so it is asked only while

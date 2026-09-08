@@ -3,11 +3,11 @@
 // documents and the keys it binds cannot drift apart: a binding is added by adding a line here, and
 // the three surfaces grow with it.
 //
-// A binding is stated, not implemented, here. What a key DOES belongs to the surface that arms it —
-// the viewer keeps its own hand-written bindings until inc-206 hands this roster down (ARCH-01
-// forbids `src/modules` importing `src/ui`), and table navigation is DataTable's own increment. The
-// roster lists them so the sheet documents the product's whole keyboard, which is what R-UI-032
-// asks for; a row the palette cannot run says so in place rather than lying (I-138).
+// A binding is stated, not implemented, here. What a key DOES belongs to the surface that arms it:
+// the viewer keeps its own bindings until this roster is handed down to it (ARCH-01 forbids
+// `src/modules` importing `src/ui`), and table navigation belongs to the DataTable. The roster lists
+// them so the sheet documents the product's whole keyboard, which is what R-UI-032 asks for; a row
+// the palette cannot run says so in place rather than lying (I-138).
 import type { StringKey } from "../../strings";
 
 /** Where a binding applies: anywhere in the product, inside the viewer, or inside a table. */

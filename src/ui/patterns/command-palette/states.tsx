@@ -5,6 +5,7 @@
 import type { ReactNode } from "react";
 import { Skeleton } from "../../primitives/core";
 import { SCREEN_STATE_TESTID, STATE_NAMES, type ScreenStateName } from "../../screen-states/contract";
+import { REFUSAL_ENTRIES } from "../../screen-states/refusal-entries";
 import { strings } from "../../strings";
 import { PaletteBody, paletteRefusalOf, type PaletteGroup } from "./palette-body";
 import { ShortcutSheetBody } from "./shortcut-sheet";
@@ -48,11 +49,11 @@ const PALETTE_CELLS: Readonly<Record<ScreenStateName, () => ReactNode>> = {
   loading: () => <PaletteBody listId={LIST_ID} status="loading" groups={[]} />,
   empty: () => <PaletteBody listId={LIST_ID} status="empty" groups={[]} query="ashuganj" />,
   error: () => <PaletteBody listId={LIST_ID} status="idle" groups={[]} fault={{ reportId: "f-2f41c0", onRetry: () => undefined }} />,
-  refusal: () => <PaletteBody listId={LIST_ID} status="refused" groups={[]} refusal={paletteRefusalOf("SIGNED_OUT")} />,
+  refusal: () => <PaletteBody listId={LIST_ID} status="refused" groups={[]} refusal={paletteRefusalOf(REFUSAL_ENTRIES.SIGNED_OUT.code)} />,
   // A refusal beside rows: the rows that were answered stand, and the card sits under them (I-142).
-  partial: () => <PaletteBody listId={LIST_ID} status="idle" groups={listed(SAMPLE_ROWS)} refusal={paletteRefusalOf("WORKSPACE_PERMISSION_NOT_HELD")} />,
+  partial: () => <PaletteBody listId={LIST_ID} status="idle" groups={listed(SAMPLE_ROWS)} refusal={paletteRefusalOf(REFUSAL_ENTRIES.WORKSPACE_PERMISSION_NOT_HELD.code)} />,
   offline: () => <PaletteBody listId={LIST_ID} status="idle" groups={listed(SAMPLE_AREAS)} offline />,
-  "permission-denied": () => <PaletteBody listId={LIST_ID} status="refused" groups={[]} refusal={paletteRefusalOf("WORKSPACE_PERMISSION_NOT_HELD")} />,
+  "permission-denied": () => <PaletteBody listId={LIST_ID} status="refused" groups={[]} refusal={paletteRefusalOf(REFUSAL_ENTRIES.WORKSPACE_PERMISSION_NOT_HELD.code)} />,
 };
 
 /**
