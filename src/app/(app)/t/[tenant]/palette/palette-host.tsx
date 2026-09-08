@@ -139,13 +139,16 @@ export function PaletteHost({ tenantId, projectId = null, search, navigate, chil
     (target: string): PaletteDestination => {
       if (target === PROJECTS_TARGET) return { href: shellHref(tenantId, PROJECTS_TARGET) };
       const area = PROJECT_AREAS.find((entry) => entry.key === target);
-      if (area === undefined) return { reason: strings.command_palette_unavailable };
-      if (projectId === null) return { reason: strings.command_palette_reason_no_project };
+      // The words the row is named by travel with the reason: a chord for a place this workspace
+      // cannot open asks the palette for that place by name, and the row it names is what stands
+      // there (§1's wiring, I-138).
+      if (area === undefined) return { reason: strings.command_palette_reason_area_unbuilt, label: target };
+      const label = projectHomeStrings[area.label];
+      if (projectId === null) return { reason: strings.command_palette_reason_no_project, label };
       // Read off `PROJECT_AREAS.route`, never written beside the row: an area with no screen in this
-      // workspace says so in one sentence, and becomes reachable the day it gains an address (I-126,
-      // I-138). One sentence for every unreachable row, so a reader learns the shape of the answer
-      // once rather than parsing a different apology per row (B-17).
-      if (area.route === null) return { reason: strings.command_palette_unavailable };
+      // workspace says so, and becomes reachable the day it gains an address and nothing else (I-126,
+      // I-138). The sentence has one home and two registered names (src/ui/strings/command-palette.ts).
+      if (area.route === null) return { reason: strings.command_palette_reason_area_unbuilt, label };
       return { href: area.route(tenantId, projectId) };
     },
     [projectId, tenantId],

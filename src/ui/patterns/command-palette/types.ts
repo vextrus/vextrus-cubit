@@ -83,8 +83,13 @@ export interface RecentItem {
   readonly meta?: string;
 }
 
-/** Where a `go` chord leads in the context a person pressed it in, or why it leads nowhere. */
-export type PaletteDestination = { readonly href: string } | { readonly reason: string };
+/**
+ * Where a `go` chord leads in the context a person pressed it in, or why it leads nowhere. A
+ * destination that leads nowhere carries the words its row is named by as well as the reason: the
+ * chord opens the palette on that row by asking for it in the query, which is how the row a person
+ * pressed for becomes the one standing in front of them (§1's wiring, I-138).
+ */
+export type PaletteDestination = { readonly href: string } | { readonly reason: string; readonly label: string };
 
 /** What the provider hands the frame around it. */
 export interface CommandPaletteContextValue {

@@ -35,8 +35,6 @@ export interface CommandPaletteProps {
   onSelect: (item: CommandItem) => void;
   /** Whether this browser has a connection; the offline notice and the read-only list (§ 2). */
   offline?: boolean;
-  /** The row a chord asked for, made active as the palette opens (§ 1's wiring). */
-  activeKey?: string;
   /** Where focus belongs once the dialog closes — the trigger it came from (AC-1). */
   onRestoreFocus?: () => void;
   /** The footer's way into the `?` sheet, which closes this surface as it opens that one. */
@@ -77,7 +75,6 @@ export function CommandPalette({
   fault,
   onSelect,
   offline = false,
-  activeKey,
   onRestoreFocus,
   onOpenShortcutSheet,
   shortcutSheetChord,
@@ -103,12 +100,15 @@ export function CommandPalette({
   const held = useRef(options);
   held.current = options;
   useEffect(() => {
-    const asked = activeKey === undefined ? -1 : held.current.findIndex((option) => option.item.key === activeKey);
-    setActive(asked >= 0 ? asked : 0);
-  }, [signature, activeKey]);
+    setActive(0);
+  }, [signature]);
 
   const entry = entryOf(refusal);
   const rowsStand = options.length > 0;
+  // Whether the listbox is what stands in the list's place right now. Loading, the fault card, the
+  // refusal card and the empty block each replace it, and every id reference the combobox makes has
+  // to name an element that is actually in the document (R-UI-012, Q-11).
+  const listStands = fault === undefined && status !== "loading" && rowsStand;
   // A refusal beside rows is the partial state: what was answered stands, and the card sits under it
   // rather than in its place (I-142, R-UI-050 — shown, not hidden).
   const card =
@@ -175,8 +175,11 @@ export function CommandPalette({
             data-testid="command-palette-input"
             role="combobox"
             aria-expanded={true}
-            aria-controls={listId}
-            aria-activedescendant={activeOption?.id}
+            // Named only while the listbox stands: loading, empty, refused and faulted each replace
+            // the list in place, and a reference to an id that is not in the document is a dangling
+            // one — the serious `aria-valid-attr-value` finding Q-11 gates at zero (R-UI-012).
+            aria-controls={listStands ? listId : undefined}
+            aria-activedescendant={listStands ? activeOption?.id : undefined}
             aria-autocomplete="list"
             aria-label={strings.command_palette_input_label}
             autoComplete="off"
@@ -212,7 +215,7 @@ export function CommandPalette({
             card
           ) : !rowsStand ? (
             <div className="cx-palette-empty" data-testid="command-palette-empty">
-              <p className="cx-palette-empty-line">{strings.command_palette_empty}</p>
+              <p className="cx-palette-empty-line">{fill(strings.command_palette_empty, { query })}</p>
               <Button
                 variant="secondary"
                 onClick={() => {

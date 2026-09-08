@@ -78,7 +78,6 @@ export function CommandPaletteProvider({
   const [open, setOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [activeKey, setActiveKey] = useState<string | undefined>(undefined);
   const [recents, setRecents] = useState<readonly RecentItem[]>([]);
   const held = useRef<readonly RecentItem[]>([]);
   const [offline, setOffline] = useState(false);
@@ -110,8 +109,7 @@ export function CommandPaletteProvider({
     };
   }, []);
 
-  const openPalette = useCallback((row?: string): void => {
-    setActiveKey(row);
+  const openPalette = useCallback((): void => {
     setSheetOpen(false);
     restore.current = true;
     setOpen(true);
@@ -120,7 +118,6 @@ export function CommandPaletteProvider({
   const askQuery = useCallback(
     (asked: string): void => {
       setQuery(asked);
-      setActiveKey(undefined);
       onQueryChange?.(asked);
     },
     [onQueryChange],
@@ -186,12 +183,15 @@ export function CommandPaletteProvider({
         navigate?.(where.href);
         return;
       }
-      // A key whose destination this workspace has no screen for opens the palette on the row that
-      // destination IS — the area's own row, with its reason showing — rather than doing nothing:
-      // the answer is shown in place and never swallowed (I-138, I-139, R-UI-020).
-      openPalette(entry.target ?? entry.id);
+      // A key whose destination this workspace has no screen for opens the palette ASKING FOR that
+      // destination: its own words go in as the query, so the areas group holds exactly that row, it
+      // is the first option and therefore the active one, and its reason is already on it. Doing
+      // nothing would be the silence R-UI-020 forbids; a second way of marking a row active would be
+      // a second answer to "what is the keyboard on" (§1's wiring, I-138, I-139, B-17).
+      openPalette();
+      askQuery(where.label);
     },
-    [navigate, openPalette, openSheet, resolveGo],
+    [askQuery, navigate, openPalette, openSheet, resolveGo],
   );
 
   // The one global handler. Held in a ref so the listener is attached once and still reads the
@@ -273,7 +273,6 @@ export function CommandPaletteProvider({
         fault={fault}
         onSelect={choose}
         offline={offline}
-        activeKey={activeKey}
         onRestoreFocus={() => {
           if (restore.current) trigger.current?.focus();
           restore.current = true;
@@ -307,13 +306,14 @@ function inTextField(target: EventTarget | null): boolean {
 
 /** Where a roster entry leads, and why it leads nowhere when it does not (I-138, I-148). */
 function destinationOf(entry: Shortcut, resolveGo: ((target: string) => PaletteDestination) | undefined): PaletteDestination {
-  if (entry.scope === "viewer") return { reason: strings.command_palette_reason_scope_viewer };
-  if (entry.scope === "table") return { reason: strings.command_palette_reason_scope_table };
+  const named = strings[entry.label];
+  if (entry.scope === "viewer") return { reason: strings.command_palette_reason_scope_viewer, label: named };
+  if (entry.scope === "table") return { reason: strings.command_palette_reason_scope_table, label: named };
   if (entry.action === "go") {
-    if (entry.target === undefined || resolveGo === undefined) return { reason: strings.command_palette_unavailable };
+    if (entry.target === undefined || resolveGo === undefined) return { reason: strings.command_palette_reason_area_unbuilt, label: named };
     return resolveGo(entry.target);
   }
-  return { reason: strings.command_palette_reason_already_open };
+  return { reason: strings.command_palette_reason_already_open, label: named };
 }
 
 /** One roster entry as a row of the palette's shortcuts group (AC-3). */
@@ -326,7 +326,7 @@ function shortcutItem(entry: Shortcut, resolveGo: ((target: string) => PaletteDe
     label: strings[entry.label],
     shortcut: entry.id,
     chord: chordOf(entry),
-    ...(reachable ? { run: () => act(entry) } : { reason: "reason" in where ? where.reason : strings.command_palette_unavailable }),
+    ...(reachable ? { run: () => act(entry) } : { reason: "reason" in where ? where.reason : strings.command_palette_reason_area_unbuilt }),
   };
 }
 
