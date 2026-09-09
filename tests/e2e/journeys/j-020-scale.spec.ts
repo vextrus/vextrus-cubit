@@ -20,6 +20,7 @@ import { expect, test } from "@playwright/test";
 import { REFUSALS } from "../../../src/core/errors";
 import { metresPer } from "../../../src/core/scale";
 import { strings } from "../../../src/ui/strings";
+import { SCALE_COPY } from "../../../src/modules/takeoff/scale-ui/copy";
 import { drawings } from "../../../src/app/(app)/t/[tenant]/p/[project]/drawings/strings";
 import { checkpoint } from "../support/checkpoint";
 import { SDrawingsPage } from "../pages/s-drawings.page";
@@ -49,6 +50,18 @@ const PICK_SCALE = 8;
 function copy(key: string): string {
   const held = (strings as unknown as Record<string, string>)[key];
   expect(typeof held, `the string registry carries \`${key}\` (R-SPINE-060)`).toBe("string");
+  return held as string;
+}
+
+/**
+ * One line of the scale panel's own table, the same way. The panel's sentences live once in
+ * `scale-ui/copy.ts` on ground this increment owns, read straight by `scale-region.tsx` — ARCH-01
+ * forbids a module importing `src/ui`, so this table, not the assembled registry, is the source of
+ * every word the panel paints (I-153; moving these keys into `src/ui/strings` is the §8 IOU).
+ */
+function scaleCopy(key: string): string {
+  const held = (SCALE_COPY as unknown as Record<string, string>)[key];
+  expect(typeof held, `the panel's copy table carries \`${key}\` (I-153)`).toBe("string");
   return held as string;
 }
 
@@ -126,7 +139,7 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
       const count = await proposals.count();
       expect(count, `${key} lists what the machine read for it`).toBeGreaterThan(0);
       await expect(proposals.last(), `the weakest rank a mapped header always yields is ${FILE_UNITS} (L-MEA-05)`).toHaveAttribute("data-rank", FILE_UNITS);
-      await expect(proposals.last(), "and it renders that rank's registered word, not its enum spelling alone").toContainText(copy("scale_rank_FILE_UNITS"));
+      await expect(proposals.last(), "and it renders that rank's registered word, not its enum spelling alone").toContainText(scaleCopy("scale_rank_FILE_UNITS"));
       const factorX = await scale.hook(proposals.last(), "data-factor-x");
       await expect(proposals.last(), "with the 12-place factor rendered whole and verbatim (I-159)").toContainText(factorX);
       expect(factorX, "which is a 12-place decimal, unrounded").toMatch(/^[0-9]+\.[0-9]{12}$/);
