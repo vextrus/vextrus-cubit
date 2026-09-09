@@ -40,14 +40,17 @@ type Derived = {
 };
 
 /**
- * The act, judged against the state this transaction read.
+ * The act, judged against the state this transaction read — or nothing, where there is no live level
+ * to read a height on.
  *
  * A basis outside the three a storey height may be READ on records nothing anybody stated, so it is
- * refused by the name a quantity line would report the absence under (L-MEA-07). A level the project
- * does not hold live is a mistake in the caller rather than a refusal anyone could act on: a surface
- * names a level off the live stack (ARCH-03).
+ * refused by the name a quantity line would report the absence under (L-MEA-07). A level this project
+ * does not hold, and a level an act has repudiated, are no subject at all: a height read on a level
+ * that does not stand changes nothing the machine would derive, so the Consequence names no subject
+ * and the seam refuses it by name (L-ACT-01) — the same answer `REPUDIATE_LEVEL` gives for the same
+ * two cases, because one rule about a level that is not there has one reading (B-17).
  */
-async function derive(ctx: ActorCtx, input: AuthorStoreyHeightInput, tx: TenantTx): Promise<Derived> {
+async function derive(ctx: ActorCtx, input: AuthorStoreyHeightInput, tx: TenantTx): Promise<Derived | undefined> {
   if (!isStoreyHeightBasis(input.basis)) {
     throw storeyHeightUnstated(
       `a storey height on the basis ${input.basis} is not a reading anybody made — a reading is ${STOREY_HEIGHT_BASES.join(", ")}`,
@@ -56,7 +59,7 @@ async function derive(ctx: ActorCtx, input: AuthorStoreyHeightInput, tx: TenantT
   }
   const scope: LevelScope = { tenantId: ctx.tenantId, projectId: input.projectId };
   const level = (await liveLevelsOf(tx, scope)).find((held) => held.levelId === input.levelId);
-  if (level === undefined) throw new Error(`no live level ${input.levelId} stands in project ${input.projectId}, so there is no storey height to read (L-MEA-07)`);
+  if (level === undefined) return undefined;
 
   const carried = carryToMetres(input.valueAsWritten, input.unitAsWritten);
   const key = readingKey({ levelId: level.levelId, actorId: ctx.userId, basis: input.basis, sourceKey: input.sourceKey });
@@ -77,19 +80,25 @@ export const authorStoreyHeight: ActRendering<AuthorStoreyHeightInput> = {
       tenantId: ctx.tenantId,
       projectId: input.projectId,
       rendering: "SUBJECTS",
-      subjects: [
-        {
-          subjectId: derived.readingKey,
-          subjectLabel: derived.level.label,
-          before: derived.before,
-          after: [derived.carried.canonicalMetres],
-        },
-      ],
+      subjects:
+        derived === undefined
+          ? []
+          : [
+              {
+                subjectId: derived.readingKey,
+                subjectLabel: derived.level.label,
+                before: derived.before,
+                after: [derived.carried.canonicalMetres],
+              },
+            ],
     };
   },
 
   async commit(ctx: ActorCtx, input: AuthorStoreyHeightInput, act: WrittenAct, tx: TenantTx): Promise<void> {
     const derived = await derive(ctx, input, tx);
+    if (derived === undefined) {
+      throw new Error(`${AUTHOR_STOREY_HEIGHT} reached its write with no live level to read, which the seam refuses before it gets here (L-ACT-01)`);
+    }
     await writeReadings(tx, { tenantId: ctx.tenantId, projectId: input.projectId }, act.actId, [
       {
         levelId: derived.level.levelId,
