@@ -64,7 +64,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const [denied, setDenied] = useState<number | null>(null);
   /** This screen's own root element, once it stands: the scale region's act dialog is portalled into
       it rather than to the document's body, so an act raised inside this screen is shown inside it
-      (consequence-dialog I-163). It is state and not a ref because the dialog must re-render with the
+      (consequence-dialog I-167). It is state and not a ref because the dialog must re-render with the
       element once the first paint has made it. */
   const [screenRoot, setScreenRoot] = useState<HTMLElement | null>(null);
 

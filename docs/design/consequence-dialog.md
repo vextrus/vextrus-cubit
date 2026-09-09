@@ -14,7 +14,9 @@ selector in authored CSS; Interpretations I-1–I-39 remain in force. Chrome com
 shipped primitives — overlay Dialog (Content/Title/Close), core Button and Skeleton, the one
 RefusalState — plus the `cx-consequence-*` classes this file rules. Barrel `index.ts` exports
 `ConsequenceDialog`; props exactly `open`, `actType`, `preview()`, `commit({
-consequenceDigest })`, `onOpenChange`, `onCommitted`. Stylesheet `consequence-dialog.css`.
+consequenceDigest })`, `onOpenChange`, `onCommitted`, and — added by inc-205-scale-ui, optional,
+defaulting to the document's body, so every act that shipped before it passes six and renders the
+DOM it always rendered — `container` (I-167). Stylesheet `consequence-dialog.css`.
 Strings `src/ui/strings/consequence-dialog.ts` (keys `consequence_dialog_…`, registry
 append): pattern chrome only, act-agnostic — every act-specific word arrives in the
 Consequence's own data or as the act-type identifier.
@@ -87,6 +89,18 @@ Consequence's own data or as the act-type identifier.
   `preview` resolves authored data (s-design I-18's class): the derivation module computes
   no digest — its fixed 64-hex sample string is sample data like a sample refusal entry,
   never compared to a real digest anywhere.
+
+- **I-167 — a dialog raised from inside a screen may be portalled into that screen's root.**
+  (Numbering continues the global chain's highest, consequencedialog's I-166.) The Dialog primitive
+  portals to `document.body` so the document root's `[data-theme]` themes it and no ancestor clips
+  it, and that stays the default for every consumer. But a screen that raises an act from one of its
+  own regions — S-Viewer's scale tab is the first — is entitled to say that the act it raised is part
+  of what that screen shows: `container` is handed the screen's root element and the primitive's
+  portal lands there instead. Both promises survive it, because the element is inside the same
+  document root that carries the theme and the content is still fixed-positioned over the scrim.
+  Rejected: a component that reads the nearest region for itself — a dialog guessing where it belongs
+  is a rule nobody can see from the call site; and rejected: dropping the portal for everyone, which
+  would put every act's DOM at the mercy of whatever ancestor a later screen wraps it in.
 
 ## 1. Layout and hierarchy
 

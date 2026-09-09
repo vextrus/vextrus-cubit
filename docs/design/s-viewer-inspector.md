@@ -46,6 +46,31 @@ References to these four are cited as *s-viewer-inspector I-85…I-88*.)
   stay selected, no registry code is invented, and `MANIFEST_NOT_RENDERABLE` remains the route's one
   refusal. A second cell for malformed keys would teach a difference nobody can act on.
 
+**Amended by inc-205-scale-ui** (R-TO-020, B-20 — the increment that widens a screen owns its
+Decision), with the two Interpretations the scale tab owes this region:
+
+- **s-scale I-152, read against this Decision — the right column becomes a two-tab panel, and the
+  aside inside it is untouched.** The Tabs primitive wraps the CONTENTS of
+  `viewer-inspector-panel`, outside the `viewer-inspector`
+  aside: `<div data-testid="viewer-inspector-tabs">` holds the strip
+  (`viewer-inspector-tab-selection`, pressed at mount, then `viewer-inspector-tab-scale`) and two tab
+  contents — this Decision's `InspectorPanel`, rendered byte-identically, and S-Scale's section. The
+  chosen tab is the route's state handed to the primitive as a controlled value with an explicit
+  `onClick` on each trigger: the shipped primitive activates on pointer-down and keyboard alone, and
+  a tab must answer a plain click too. Nothing of the choice is persisted across mounts (an IOU of
+  s-scale § 8). Rejected: a strip inside the aside, which would redraw the inspector this Decision's
+  own baseline pictures; the aside's HEIGHT still shrinks by the strip, which re-baselines
+  `j-000/entity-selected.png` and nothing else.
+- **I-168 — the column stands whether or not a sheet can be drawn.** (Numbering continues the global
+  chain's highest, consequencedialog's I-166 and this increment's I-167.) s-viewer's rule that "an
+  inspector beside a sheet that was never drawn is a panel that can never fill" was a fact about the
+  selection this Decision rules, not about the column: the scale tab beside it is filled by a door
+  and not by the canvas, so a browser with no WebGL context still reads every view's scale, its
+  ranked proposals and the absence a view declares (R-TO-020). The group is therefore three panels
+  always, and the empty selection tab teaches its own emptiness as it already does. Rejected: keeping
+  the two-panel fallback and hiding the scale tab with it, which would make a reading that depends on
+  no drawing unreachable for the readers least able to draw one.
+
 ## 1. Layout and hierarchy
 
 The stage still dominates; the inspector recedes exactly as the layers panel does — same fill, same

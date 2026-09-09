@@ -52,7 +52,7 @@ export interface ConsequenceDialogProps {
   onCommitted: (committed: CommittedAct) => void;
   /**
    * Where the dialog is portalled, for the one consumer that needs it elsewhere than the document's
-   * body (Decision I-163): a screen whose act is raised from a region of itself may ask that the
+   * body (Decision I-167): a screen whose act is raised from a region of itself may ask that the
    * dialog stand inside that screen's own root, so what the screen shows is the whole of what its
    * subtree holds. Unset — which is every act that shipped before this one — it is `document.body`,
    * and their DOM is untouched.
