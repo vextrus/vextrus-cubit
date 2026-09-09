@@ -239,6 +239,13 @@
       "when": 1788947882565,
       "tag": "0033_placements",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1788951000000,
+      "tag": "0034_placements-append-only",
+      "breakpoints": true
     }
   ]
 }

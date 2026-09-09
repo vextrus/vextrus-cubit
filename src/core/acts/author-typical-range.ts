@@ -25,6 +25,7 @@ import type { RefusalCode } from "../errors";
 import { refusal } from "../faults/refusal-marker";
 import { levelSegment, SIGHTING_STANDINGS, type SightingStanding } from "../identity";
 import { liveLevelsOf, type LevelRow, type LevelScope } from "../levels/store";
+import type { Discipline } from "../sheets/law";
 import type { Consequence, ConsequenceSubject } from "./consequence";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
 
@@ -61,7 +62,8 @@ type Placeholder = {
   readonly objectKey: string;
   readonly placementKey: string;
   readonly projectId: string;
-  readonly discipline: string;
+  /** The one authoritative discipline this scope was sighted under, carried across (L-REG-03). */
+  readonly discipline: Discipline;
   readonly elementType: string;
   readonly mark: string;
   readonly viewKey: string;
