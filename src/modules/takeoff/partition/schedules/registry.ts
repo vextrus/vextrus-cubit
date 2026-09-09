@@ -17,7 +17,7 @@
 // Pure over the tables: no store, no clock, no model (L-REG-04).
 import type { RebarZone, SectionUnit } from "@/core/db";
 import { REFUSALS } from "@/core/errors";
-import { isMarkFamily, isMarkHeader, normaliseMark, parseFloorZone, parseRebarGroups, parseSizePair, parseSpacing, rebarZoneOfHeader, type FloorBand, type RebarGroup } from "../notation";
+import { isMarkFamily, isMarkHeader, normaliseMark, normaliseNotation, parseFloorZone, parseRebarGroups, parseSizePair, parseSpacing, rebarZoneOfHeader, type FloorBand, type RebarGroup } from "../notation";
 import type { ScheduleCell, ScheduleDeferralRow, ScheduleTable } from "./reconstruct";
 
 /** The rebar one zone column states for one row: the cell verbatim, and what it reads as. */
@@ -104,8 +104,12 @@ function familiesOf(table: ScheduleTable): MemberFamily[] {
 
   const families: MemberFamily[] = [];
   const minted = new Set<string>();
+  const rows = rowsOf(table);
+  // The unbanded section column is the TABLE's, chosen once over all its rows: a column is what it is
+  // for every row of the schedule, and choosing it per row would key one table's variants two ways.
+  const stated = sectionColumnOf(columns, rows);
 
-  for (const [rowIndex, row] of rowsOf(table)) {
+  for (const [rowIndex, row] of rows) {
     const markCell = row.get(mark.index);
     if (markCell === undefined || !isMarkFamily(markCell.text)) continue;
     const family = normaliseMark(markCell.text);
@@ -121,7 +125,7 @@ function familiesOf(table: ScheduleTable): MemberFamily[] {
       markText: markCell.text,
       rowIndex,
       sourceKeys: [...markCell.sourceKeys],
-      variants: variantsOf(columns, row, zones),
+      variants: variantsOf(columns, row, zones, stated),
     });
   }
 
@@ -195,7 +199,7 @@ function zonesOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCe
  * one set of bars for the mark and a section per band, so every variant of the row carries the same
  * rebar until a drawing says otherwise (R-TO-031).
  */
-function variantsOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>, zones: readonly MemberZone[]): MemberVariant[] {
+function variantsOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>, zones: readonly MemberZone[], stated: Column | null): MemberVariant[] {
   const variants: MemberVariant[] = [];
   const held = new Set<string>();
 
@@ -214,23 +218,37 @@ function variantsOf(columns: readonly Column[], row: ReadonlyMap<number, Schedul
   // row carries ONE variant, under the column that states the section, so the section and the rebar
   // the row states reach the registry rather than being read and dropped (R-TO-031, L-QTY-04).
   if (variants.length > 0) return variants;
-  const stated = sectionColumnOf(columns, row);
-  return stated === null ? [] : [variantOf(stated.column.header, stated.column.header, null, stated.cell, zones)];
+  if (stated === null) return [];
+  const cell = row.get(stated.index);
+  // Whatever stands in that column is the section this row states — `12"x15" (TYP)` and `SEE DETAIL`
+  // alike. A cell the parsers cannot read is kept verbatim with a null section rather than dropped,
+  // because dropping it would drop the row's rebar with it (R-TO-031).
+  return cell === undefined ? [] : [variantOf(columnKeyOf(stated.header), stated.header, null, cell, zones)];
 }
 
 /**
- * The column of an unbanded header that states the row's section: the first that is neither the mark
- * nor a rebar zone and whose cell really reads as a section. Read from the cell rather than from the
- * header's words, because what makes a column the section column is that a section stands in it.
+ * The column of an unbanded header that states the schedule's sections: the first that is neither the
+ * mark nor a rebar zone and whose cell reads as a section ANYWHERE in the table, falling back to the
+ * first unbanded column when none of them ever parses. Chosen from the whole table because a column
+ * is the section column for every row or for none, and one row's `-` says nothing about the column.
  */
-function sectionColumnOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>): { readonly column: Column; readonly cell: ScheduleCell } | null {
-  for (const column of columns) {
-    if (column.role.kind !== "none") continue;
-    const cell = row.get(column.index);
-    if (cell === undefined || parseSizePair(cell.text) === null) continue;
-    return { column, cell };
-  }
-  return null;
+function sectionColumnOf(columns: readonly Column[], rows: readonly [number, Map<number, ScheduleCell>][]): Column | null {
+  const unbanded = columns.filter((column) => column.role.kind === "none");
+  const parses = unbanded.find((column) => rows.some((row) => {
+    const cell = row[1].get(column.index);
+    return cell !== undefined && parseSizePair(cell.text) !== null;
+  }));
+  return parses ?? unbanded[0] ?? null;
+}
+
+/**
+ * The key an unbanded column's variants stand under: the header folded to the shape a band key takes
+ * (`SIZE (mm)` → `SIZE-MM`), because the key is a component of the store's primary key and a header's
+ * case and punctuation must not be able to key one column two ways.
+ */
+function columnKeyOf(header: string): string {
+  const key = normaliseNotation(header).toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return key === "" ? "SECTION" : key;
 }
 
 /**
