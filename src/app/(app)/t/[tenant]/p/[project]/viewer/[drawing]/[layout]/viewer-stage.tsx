@@ -63,8 +63,11 @@ export function ViewerStage({ panel, partition, pointer, snap, inspector, onKeyD
               <p className="cx-viewer-empty-body">{strings.viewer_no_webgl_body}</p>
             </div>
           ) : null}
+          {/* The keys the sheet answers, in one line the canvas points at: the camera's, and after
+              them this region's own — the keyboard way to a measurement a pointer would take by
+              hand (R-UI-060). Each table speaks its own sentence; neither respells the other's. */}
           <p className="cx-viewer-hidden" id="cx-viewer-keys">
-            {strings.viewer_canvas_keys}
+            {`${strings.viewer_canvas_keys} ${strings.viewer_snap_canvas_keys}`}
           </p>
           <canvas
             className="cx-viewer-canvas cx-reticle"

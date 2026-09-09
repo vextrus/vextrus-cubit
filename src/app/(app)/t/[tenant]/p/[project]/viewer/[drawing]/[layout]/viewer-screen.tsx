@@ -133,6 +133,11 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const trace = useReveal({ head: sheet.head, stageRef, facts, cameraRef, moveCamera: camera.moveCamera, jumpTo: camera.jumpTo, pulse });
   const held = useSelection({ facts, head: sheet.head, initialSelection, initialViewport, loadedLayers: sheet.loadedLayers, failedCount: layers.failedCount, revision: layers.revision, reveal: trace.reveal, selectionRef, cameraRef, publish, drawingId, layoutName });
   const index = useHitTesting({ head: sheet.head, layers: arrived, loadedLayers: sheet.loadedLayers, stateRef: layers.stateRef, statusRef, cameraRef });
+  /** The views/grid region — the partition stored for this sheet, the paint it files above, and the one act
+      door behind them — asked for only once the head is a manifest (R-UI-043). A door that refuses the
+      PARTITION refuses the region, not the sheet: it renders in that panel's body (R-UI-050's partial).
+      It stands ahead of the snapping region because it holds the stored grid the pointer snaps to. */
+  const partition = usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaint });
   /** The scale of record over this sheet, and what the pointer meets on it (R-TO-012, R-UI-041). A
       door that refuses THIS read refuses the sheet's own session, so it renders where the layer
       feed's refusal renders — one door, one session (I-150). */
@@ -142,6 +147,9 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     stateRef: layers.stateRef,
     cameraRef,
     camera: camera.camera,
+    // The stored grid, as the views/grid region already holds it — a crossing of it is snapped to
+    // without this screen reading the grid store a second time (I-149, B-17).
+    axes: partition.axes,
     calibration: calibration.calibration,
     calibrationUnread: calibration.unread,
   });
@@ -161,10 +169,6 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   });
   const paint = usePainter({ head: sheet.head, refused: denied !== null, canvasRef, stageRef, statusRef, painterRef, stateRef: layers.stateRef, cameraRef, layers: arrived, facts, loadedLayers: sheet.loadedLayers, drawnLayers: layers.drawnLayers, selection: held.selection, hovered: pointer.hovered });
 
-  /** The views/grid region — the partition stored for this sheet, the paint it files above, and the one act
-      door behind them — asked for only once the head is a manifest (R-UI-043). A door that refuses the
-      PARTITION refuses the region, not the sheet: it renders in that panel's body (R-UI-050's partial). */
-  const partition = usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaint });
   // A head that cannot be read at all is the error state and nothing else: it is raised into the
   // render, where the root error boundary — the tree's one home for a fault — takes it (I-81).
   if (sheet.failure !== null) throw sheet.failure;
