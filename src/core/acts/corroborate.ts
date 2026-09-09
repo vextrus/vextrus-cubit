@@ -58,13 +58,20 @@ type Derived = {
 };
 
 /**
- * How a standing reads on the dialog: the state word, and the value that stands where one does. A
- * SUSPENDED attribute has no value at all — saying one beside the word would be the very claim the
- * suspension denies (L-REG-03) — so the word travels alone.
+ * How a standing reads on the dialog: the state word, the value that stands where one does, and one
+ * line per reading on record. A SUSPENDED attribute has no value at all — saying one beside the word
+ * would be the very claim the suspension denies (L-REG-03) — so the word travels without a value.
+ *
+ * The readings travel because a corroboration is an act even when it does not move the standing word:
+ * corroborating an already-agreed value adds evidence (R-TO-051, "every human change is an act adding
+ * a competing observation"), and the seam's `movesNothing` guard reads `before` against `after` — so
+ * the reading appended has to show as the difference it is, or an act that in fact records something
+ * would be refused as one that changes nothing (L-ACT-01).
  */
 function standingWords(standing: StandingOfAttribute): string[] {
-  if (standing.canonicalValue === null || standing.canonicalUnit === null) return [standing.standing];
-  return [standing.standing, standing.canonicalValue, standing.canonicalUnit];
+  const value = standing.canonicalValue === null || standing.canonicalUnit === null ? [] : [standing.canonicalValue, standing.canonicalUnit];
+  const readings = [...standing.competing, ...standing.overruled].map((reading) => `${reading.basis} ${reading.valueAsWritten} ${reading.unitAsWritten}`);
+  return [standing.standing, ...value, ...readings];
 }
 
 /**
