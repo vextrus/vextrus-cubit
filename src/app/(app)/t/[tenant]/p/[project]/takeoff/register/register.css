@@ -1,0 +1,383 @@
+/*
+ * S-Takeoff's register workspace (R-TO-050, docs/design/s-takeoff.md §§ 1, 4, 5, 6). Every colour,
+ * size, weight and duration is a read into the committed Datum token source (R-UI-001, R-UI-003,
+ * R-UI-004): the rules are identical in light and dark, and the themes differ only in what the
+ * tokens are worth. No `[data-theme]` selector appears here.
+ *
+ * The px literals are the closed set the Decision § 5 fixes: the body's two side columns, the
+ * filter's minimum, and the md media-query value. Any other literal is a defect.
+ *
+ * Nothing here eases in (Decision § 4): filtering, selecting and a row's arrival are instant, and
+ * every transition on this screen is inherited from a single home. Focus is not styled here either —
+ * every select, button and link wears the reticle from its one home (B-17, R-UI-012). The tree, the
+ * table, the refusal, the offer, the dialog and the timeline are painted by their own stylesheets.
+ */
+
+.cx-register {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: none;
+  font-family: var(--font-ui);
+  line-height: var(--leading-ui);
+}
+
+/* --- the header, and the one door that starts work here --- */
+
+.cx-register-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.cx-register-heading {
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-register-caption {
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-register-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.cx-register-campaign {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-register-campaign-label {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-register-campaign-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+  user-select: all;
+}
+
+.cx-register-measure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-register-measure-hint {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* --- the answer slot, the offline banner and the denial (R-UI-020, R-UI-050) --- */
+
+.cx-register-answer:empty {
+  display: none;
+}
+
+.cx-register-offline {
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline);
+  border-color: var(--info);
+  border-radius: var(--radius-4);
+  background: var(--info-surface);
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+}
+
+.cx-register-denied {
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}
+
+/* --- the five filters and the count line (I-172) --- */
+
+.cx-register-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.cx-register-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-register-filter-label {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-700);
+}
+
+.cx-register-select {
+  min-width: 160px;
+}
+
+/* I-25: a chosen model value renders in mono; the all-option is the control's own chrome. */
+.cx-register-select[data-chosen] {
+  font-family: var(--font-mono);
+}
+
+.cx-register-count {
+  margin-left: auto;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- the three regions --- */
+
+.cx-register-body {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 340px;
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+@media (max-width: 960px) {
+  .cx-register-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cx-register-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--graphite-50);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+}
+
+.cx-register-panel-heading {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--hairline);
+  font-size: var(--text-13);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+/* I-171: the screen's id rides a wrapper that adds no box and no line of layout. */
+.cx-register-mount {
+  display: contents;
+}
+
+.cx-register-lines {
+  background: var(--graphite-0);
+}
+
+.cx-register-lines-none {
+  padding: var(--space-4);
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-register-repudiated {
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* --- the inspector --- */
+
+.cx-register-inspector {
+  padding-bottom: var(--space-3);
+}
+
+.cx-register-object-key {
+  padding-inline: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.cx-register-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  padding-inline: var(--space-3);
+}
+
+.cx-register-facts dt {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-register-attributes-heading {
+  padding-inline: var(--space-3);
+  font-size: var(--text-13);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-register-attribute {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-inline: var(--space-3);
+  padding-block: var(--space-2);
+  border-top: var(--hairline);
+}
+
+.cx-register-attribute-name {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-register-readings-label,
+.cx-register-suspended,
+.cx-register-no-readings,
+.cx-register-hint {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-register-reading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+}
+
+.cx-register-corroborate,
+.cx-register-corroborate-form,
+.cx-register-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-register-field span {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-register-idle-body {
+  padding-inline: var(--space-3);
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+/* --- the cells of the lines table --- */
+
+.cx-register-cell-mono,
+.cx-register-formula,
+.cx-register-source {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+}
+
+.cx-register-formula {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.cx-register-source {
+  user-select: all;
+}
+
+.cx-register-bases,
+.cx-register-coverage {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* I-173: a repudiated object's lines stay, and say so. */
+[data-repudiated="true"] .cx-register-cell-mono,
+.cx-register-struck {
+  color: var(--graphite-600);
+}
+
+/* --- the empty and error cells, and the two regions beneath the body --- */
+
+.cx-register-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  background: var(--graphite-50);
+}
+
+.cx-register-empty-heading {
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-register-empty-body,
+.cx-register-refusals-hint,
+.cx-register-level-stack-hint {
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-register-empty-action {
+  text-decoration: none;
+}
+
+.cx-register-report {
+  display: flex;
+  gap: var(--space-2);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-register-report-id {
+  font-family: var(--font-mono);
+  color: var(--graphite-900);
+  user-select: all;
+}
+
+.cx-register-refusals,
+.cx-register-level-stack,
+.cx-register-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-register-refusal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block: var(--space-3);
+  border-top: var(--hairline);
+}
+
+.cx-register-refusal-fact {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.cx-register-refusal-label {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* --- the loading leg's bones keep the same shape (R-UI-004) --- */
+
+.cx-register-loading .cx-register-body > * {
+  min-width: 0;
+}

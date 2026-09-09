@@ -17,6 +17,7 @@ import { screenStates } from "./screen-states";
 import { shell } from "./shell";
 import { shortcuts } from "./shortcuts";
 import { spine } from "./spine";
+import { takeoff } from "./takeoff";
 import { viewer } from "./viewer";
 import { viewerInspector } from "./viewer-inspector";
 import { viewerPartition } from "./viewer-partition";
@@ -39,6 +40,7 @@ export const strings = {
   ...shell,
   ...shortcuts,
   ...spine,
+  ...takeoff,
   ...viewer,
   ...viewerInspector,
   ...viewerPartition,
