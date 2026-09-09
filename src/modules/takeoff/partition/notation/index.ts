@@ -243,8 +243,15 @@ const NAMED_LEVELS: Readonly<Record<string, string>> = Object.freeze({
   MEZZ: "MEZZ",
 });
 
-/** A level named by its ordinal — the floors above the ground are counted, never named. */
-const ORDINAL_LEVEL = /^\d+(?:ST|ND|RD|TH)$/;
+/**
+ * A level named by its ordinal — the floors above the ground are counted, never named. Two spellings
+ * say the same thing and a drawing uses whichever its draughtsman writes: the English ordinal (`1ST`,
+ * `5TH`) and the storey abbreviation the subcontinent's schedules are written in (`1F`, `5F`), which
+ * is the same counting with the storey word closed up rather than spelled (L-MEA-01: the drawing's
+ * own words). Each reads back as itself — a stack labelled `5F` and a schedule saying `5F` name one
+ * level, and neither spelling is rewritten into the other.
+ */
+const ORDINAL_LEVEL = /^\d+(?:ST|ND|RD|TH|F)$/;
 
 /** One end of a band, as the level it names, or null where it names no level at all. */
 function levelOf(text: string): string | null {

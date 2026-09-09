@@ -108,6 +108,10 @@ function familiesOf(table: ScheduleTable): MemberFamily[] {
   // The unbanded section column is the TABLE's, chosen once over all its rows: a column is what it is
   // for every row of the schedule, and choosing it per row would key one table's variants two ways.
   const stated = sectionColumnOf(columns, rows);
+  // The levels column is the TABLE's for the same reason. A schedule states a band in one of two
+  // places and this is the second: over the column (`GF TO 5F` heads the sections carried there) or
+  // in a cell of a LEVELS column, one row per mark, written beside that mark's section (R-TO-031).
+  const banded = levelsColumnOf(columns, rows, stated);
 
   for (const [rowIndex, row] of rows) {
     const markCell = row.get(mark.index);
@@ -125,7 +129,7 @@ function familiesOf(table: ScheduleTable): MemberFamily[] {
       markText: markCell.text,
       rowIndex,
       sourceKeys: [...markCell.sourceKeys],
-      variants: variantsOf(columns, row, zones, stated),
+      variants: variantsOf(columns, row, zones, stated, banded),
     });
   }
 
@@ -199,7 +203,13 @@ function zonesOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCe
  * one set of bars for the mark and a section per band, so every variant of the row carries the same
  * rebar until a drawing says otherwise (R-TO-031).
  */
-function variantsOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>, zones: readonly MemberZone[], stated: Column | null): MemberVariant[] {
+function variantsOf(
+  columns: readonly Column[],
+  row: ReadonlyMap<number, ScheduleCell>,
+  zones: readonly MemberZone[],
+  stated: Column | null,
+  banded: Column | null,
+): MemberVariant[] {
   const variants: MemberVariant[] = [];
   const held = new Set<string>();
 
@@ -210,7 +220,7 @@ function variantsOf(columns: readonly Column[], row: ReadonlyMap<number, Schedul
     const cell = row.get(column.index);
     if (cell === undefined) continue;
     held.add(variantKey);
-    variants.push(variantOf(variantKey, column.header, column.role.band, cell, zones));
+    variants.push(variantOf({ variantKey, bandText: column.header, band: column.role.band, cell, zones, unitHeader: column.header }));
   }
 
   // A schedule that heads its section column by what it measures rather than by a band of floors —
@@ -223,7 +233,45 @@ function variantsOf(columns: readonly Column[], row: ReadonlyMap<number, Schedul
   // Whatever stands in that column is the section this row states — `12"x15" (TYP)` and `SEE DETAIL`
   // alike. A cell the parsers cannot read is kept verbatim with a null section rather than dropped,
   // because dropping it would drop the row's rebar with it (R-TO-031).
-  return cell === undefined ? [] : [variantOf(columnKeyOf(stated.header), stated.header, null, cell, zones)];
+  if (cell === undefined) return [];
+
+  // The band this row's own LEVELS cell states, where it states one. The unit is still the SECTION
+  // column's to state, because that is the column the numbers were written under (L-MEA-01).
+  const bandCell = banded === null ? undefined : row.get(banded.index);
+  const band = bandCell === undefined ? null : parseFloorZone(bandCell.text);
+  if (band === null || bandCell === undefined) {
+    return [variantOf({ variantKey: columnKeyOf(stated.header), bandText: stated.header, band: null, cell, zones, unitHeader: stated.header })];
+  }
+  // Two cells were read to state one variant, so both are cited: the semantic a rebuild compares
+  // carries the evidence a row was read from, and a band read at a cell nobody cited is unsourced
+  // (L-QTY-03, L-REG-04). The section's cell stays first — it is the reading the section is read at.
+  return [
+    {
+      ...variantOf({ variantKey: variantKeyOf(band), bandText: bandCell.text, band, cell, zones, unitHeader: stated.header }),
+      sourceKeys: [...cell.sourceKeys, ...bandCell.sourceKeys],
+    },
+  ];
+}
+
+/**
+ * The column of an unbanded header whose CELLS state each row's band — a `LEVELS` column, the second
+ * place a schedule states a band (R-TO-031, L-FRM-02: "a banded vertical prices each band's own
+ * section × count"). It is neither the mark, a rebar zone nor the section column, and it is chosen
+ * once over the whole table for the reason the section column is: a column is what it is for every
+ * row. The first such column wins, so a table with two of them reads one way every time (L-REG-04).
+ */
+function levelsColumnOf(columns: readonly Column[], rows: readonly [number, Map<number, ScheduleCell>][], stated: Column | null): Column | null {
+  return (
+    columns.find(
+      (column) =>
+        column.role.kind === "none" &&
+        column.index !== stated?.index &&
+        rows.some((row) => {
+          const cell = row[1].get(column.index);
+          return cell !== undefined && parseFloorZone(cell.text) !== null;
+        }),
+    ) ?? null
+  );
 }
 
 /**
@@ -255,7 +303,16 @@ function columnKeyOf(header: string): string {
  * One variant row: the band or the column it is keyed by, the section that column's cell states —
  * verbatim beside what it parses to — and the row's own rebar beneath it (R-TO-031).
  */
-function variantOf(variantKey: string, bandText: string, band: FloorBand | null, cell: ScheduleCell, zones: readonly MemberZone[]): MemberVariant {
+function variantOf(read: {
+  variantKey: string;
+  bandText: string;
+  band: FloorBand | null;
+  cell: ScheduleCell;
+  zones: readonly MemberZone[];
+  /** The header of the column the SECTION cell was written under — where a stated unit is read. */
+  unitHeader: string;
+}): MemberVariant {
+  const { variantKey, bandText, band, cell, zones } = read;
   const section = parseSizePair(cell.text);
   return {
     variantKey,
@@ -267,7 +324,7 @@ function variantOf(variantKey: string, bandText: string, band: FloorBand | null,
     sectionDepth: section === null ? null : section.depth,
     // The cell's own unit where it wrote one, and otherwise the one its column is headed with: a
     // schedule states its unit once, over the column, and writes bare numbers under it (R-TO-031).
-    sectionUnit: section === null ? null : section.unit ?? sectionUnitOfHeader(bandText),
+    sectionUnit: section === null ? null : section.unit ?? sectionUnitOfHeader(read.unitHeader),
     sourceKeys: [...cell.sourceKeys],
     zones: zones.map((zone) => ({ ...zone })),
   };
