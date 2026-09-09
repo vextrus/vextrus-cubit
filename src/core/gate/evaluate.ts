@@ -122,7 +122,12 @@ function toContract(offer: Offer, under: MeasuredUnder): boolean {
     // A line states the quantity basis of what it carries (L-QTY-03), and the basis is a closed
     // roster: a reading spelling one outside it is the rail and the gate disagreeing about what an
     // offer IS, which the gate answers rather than recording verbatim on a line.
-    readingsOf(offer).every((reading) => inRoster(QUANTITY_BASES, reading.basis)) &&
+    // L-QTY-03 has a line always carry the provenance of what it states, per attribute: a reading
+    // names the entity it was read from, and a reading naming nothing is one no reader can go back
+    // to and re-read. The recourse the basis promises — "re-read the drawing text", "re-run the
+    // pinned rule" — is only a promise if the line says WHERE, so an unprovenanced reading is
+    // refused here rather than published as a figure standing on nothing (L-QTY-01, L-QTY-03).
+    readingsOf(offer).every((reading) => inRoster(QUANTITY_BASES, reading.basis) && reading.source.length > 0) &&
     // L-QTY-02: COMPLETE, or PARTIAL_DECLARED with EVERY omitted component enumerated on the row.
     // The two halves are one statement: a row claiming COMPLETE while enumerating an omission, and
     // one claiming partiality while enumerating none, are both PARTIAL_UNDECLARED spelled sideways

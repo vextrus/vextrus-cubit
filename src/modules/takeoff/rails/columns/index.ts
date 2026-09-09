@@ -140,6 +140,11 @@ function heightOf(level: LevelSetup | undefined): Height {
     const code = height === undefined ? STOREY_HEIGHT_ABSENCE.NONE : STOREY_HEIGHT_ABSENCE[height.standing];
     return { ok: false, code: code ?? STOREY_HEIGHT_ABSENCE.NONE as RefusalCode };
   }
+  // The source is the entity the height was read from, as the level states it — a rail names no
+  // provenance the setup did not give it. A reading that cites no drawing entity ("a height somebody
+  // entered cites none") therefore names nothing, and a line always carries the provenance of what it
+  // states (L-QTY-03): the gate refuses such an offer rather than publishing an H a reader cannot go
+  // back to, which is why nothing is invented here to fill the silence (L-MEA-07, L-QTY-03).
   return { ok: true, reading: { value: height.value, unit: height.unit, basis: height.basis, source: height.sourceKey ?? "" } };
 }
 
