@@ -28,6 +28,7 @@ pnpm verify · pnpm test:db · pnpm e2e --journey <J> · pnpm checkup
 <!-- builder:lessons:start -->
 ## Standing lessons (engine-maintained)
 ### Locked ground & lawful paths
+- Read-only roles keep reaching for off-allowlist tooling — Across this increment, adversary and diagnosis sessions were denied three separate times for running commands outside the read-only Bash allowlist: ad hoc python3 tooling and a git checkout, each rejected with the same message — only git read, tsc, vitest …
 - UI-scoped work that reaches into a shared string table breaks the unrelated golden path — An increment scoped to one UI feature edited another module's shared string table and a locked path, drew SCOPE_CREEP findings, and the unrelated golden-path journey test went red on repeated attempts, not just its own feature's journey.
 - UI string keys belong in the touching module's own file — An increment that needs new UI copy sometimes reaches for another module's existing string table and gets denied — twice in this increment alone.
 - Restoring from a ref must name files, not trees — An increment tried to restore prior state from a ref using `.` or a directory/glob, and was denied three times in a row.
@@ -36,5 +37,4 @@ pnpm verify · pnpm test:db · pnpm e2e --journey <J> · pnpm checkup
 - denied 4× on the kind catalogue units increment: know the lawful path — Sessions on the kind catalogue units increment were denied 4 times with: > rm -rf is denied (the exceptions: scratch under /tmp or $TMPDIR — mcp__builder__scratch_dir answers with a guaranteed-writable directory in one turn — and this lane's own regenerable …
 ### Tests & acceptance
 - A failing probe test is fixed by product code, not by thinning the assertions — An increment hit the same denial twice on the same probe file: assertions were stripped out of a test to make it pass instead of fixing the code under test.
-- Scan-corpus exemptions need the corpus committed and armed, not just referenced — An increment writing a lint/scan-law test that excuses a NEVER via a named corpus can pass its own unit test while failing the AC that the corpus sits in an armed lane.
 <!-- builder:lessons:end -->
