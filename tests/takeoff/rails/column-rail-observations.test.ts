@@ -100,6 +100,13 @@ describe("the column rail's closed code roster", () => {
     expect(await reportedBy({ calibrations: {} }, VIEW_KEY)).toBe(VIEW_SCALE_UNAFFIRMED);
   });
 
+  test("a reference the setup spells as nothing is no affirmed calibration either", async () => {
+    // The same silence, written down: offering under it would publish nothing and be refused for
+    // the contract, which names the machine's disagreement rather than the view a reader has to go
+    // and affirm (L-QTY-03's non-empty set, riskNotes (3)).
+    expect(await reportedBy({ calibrations: { [INGEST_ID]: { [VIEW_KEY]: "" } } }, VIEW_KEY)).toBe(VIEW_SCALE_UNAFFIRMED);
+  });
+
   test("a family the member-type registry holds no variant for is reported", async () => {
     expect(await reportedBy({ memberTypes: { [INGEST_ID]: {} } }, PLACEMENT_KEY)).toBe(MEMBER_TYPE_UNKNOWN);
   });

@@ -228,8 +228,11 @@ export const columnConcreteRail: Rail = (input: RailInput) => {
     // A rail cannot mint a calibration reference it does not hold, and a line always carries "a
     // non-empty set of affirmed calibration references" (L-QTY-03): a view nobody has affirmed a
     // scale for is reported against THE VIEW — what a reader has to go and affirm (riskNotes (3)).
+    // A reference the setup spells as nothing is no affirmed reference either: offering under it
+    // would publish nothing and be refused OFFER_NOT_TO_CONTRACT, which names the contract rather
+    // than the silence a reader has to go and fill (L-MEA-08's residue, riskNotes (3)).
     const calibration = setup.calibrations[placement.ingestId]?.[placement.viewKey];
-    if (calibration === undefined) {
+    if (calibration === undefined || calibration.length === 0) {
       observations.push(observe("VIEW_SCALE_UNAFFIRMED", row, placement.viewKey));
       continue;
     }
