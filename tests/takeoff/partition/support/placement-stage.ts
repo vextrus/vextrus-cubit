@@ -55,7 +55,7 @@ import {
   type StepRecord,
 } from "./partition-stage";
 import { stageDrawing, stubCli, withCadCommand } from "../../support/ingest-stage";
-import { joinWorkspace, stagePerson } from "../../support/sheets-stage";
+import { joinWorkspace, stagePerson, stageSheets } from "../../support/sheets-stage";
 import { identitySeam, field, type IdentitySeam, type StoreRow } from "../../register/support/register-stage";
 import { insertion, performAct, previewOf, storeRows, tableStands, type ActorCtx, type ConsequenceLike, type ProposedLevel } from "../../levels/support/levels-stage";
 import { pinning, setsSeam, actsSeam } from "../../sets/support/sets-stage";
@@ -247,6 +247,23 @@ export const LEVEL_MARKS: readonly { text: string; label: string; elevation: num
 export const HEIGHT_UNIT = "M";
 export const STOREY_HEIGHT = "3.05";
 
+/**
+ * A SECOND section, drawn at UNEVEN storey heights — `+0.00`, `+3.05`, `+6.50`, `+9.15`, whose
+ * consecutive differences are 3.05, 3.45 and 2.65.
+ *
+ * A storey height is the DISTANCE to the level above, and a section whose marks stand evenly apart
+ * cannot tell a difference from a constant: every height it owes is the same number, so a proposal
+ * that emitted that number for every level would read as correct. This set exists so each proposed
+ * height, each offered reading and each committed canonical metre is graded against ITS OWN level's
+ * distance, and no single literal can satisfy them all (B-19).
+ */
+export const UNEVEN_LEVEL_MARKS: readonly { text: string; label: string; elevation: number }[] = Object.freeze([
+  Object.freeze({ text: "GF LVL +0.00 M", label: "GF", elevation: 0 }),
+  Object.freeze({ text: "1ST FLOOR LVL +3.05 M", label: "1ST", elevation: 3.05 }),
+  Object.freeze({ text: "2ND FLOOR LVL +6.50 M", label: "2ND", elevation: 6.5 }),
+  Object.freeze({ text: "ROOF LVL +9.15 M", label: "ROOF", elevation: 9.15 }),
+]) as readonly { text: string; label: string; elevation: number }[];
+
 /* ------------------------------------------------------------------ the artifacts' own geometry */
 
 /** The grid spacing every artifact is drawn on: S, the minimum grid spacing of its plan (AC-2). */
@@ -395,6 +412,12 @@ const SCHEDULE_COLUMNS: readonly number[] = [40000, 40800, 41600];
 const SCHEDULE_PITCH = 500;
 
 /**
+ * How a scenario may be drawn differently from its default: the level marks a SECTIONS artifact
+ * carries, so one section can be drawn at even storey heights and another at uneven ones (AC-7).
+ */
+export type PlacementArtifactOptions = { levelMarks?: readonly { text: string; label: string; elevation: number }[] };
+
+/**
  * An EntityGraph v2 drawn to whichever of the six scenarios is asked for. Every ordinal is minted
  * from `salt`, so two artifacts built here are two different drawings.
  *
@@ -402,7 +425,7 @@ const SCHEDULE_PITCH = 500;
  * apart — so the view's minimum grid spacing is S and the placement shares scale by something the
  * drawing itself states.
  */
-export function buildPlacementArtifact(scenario: PlacementScenario, salt: number): BuiltPlacementArtifact {
+export function buildPlacementArtifact(scenario: PlacementScenario, salt: number, options: PlacementArtifactOptions = {}): BuiltPlacementArtifact {
   const base = salt * 0x10000;
   let ordinal = 0;
   const next = (): string => handle(base + (ordinal += 1));
@@ -555,13 +578,17 @@ export function buildPlacementArtifact(scenario: PlacementScenario, salt: number
   }
 
   if (scenario === SCENARIO.SECTIONS) {
-    for (const mark of LEVEL_MARKS) {
+    const drawnMarks = options.levelMarks ?? LEVEL_MARKS;
+    for (const mark of drawnMarks) {
       const markKey = text(mark.text, [0, mark.elevation * 1000], LABEL_HEIGHT, LAYER_MARKS);
       levelMarks.push({ text: mark.text, label: mark.label, elevation: mark.elevation, markKey });
       line([0, mark.elevation * 1000], [6000, mark.elevation * 1000], LAYER_SECTION);
     }
-    line([0, 0], [0, 9150], LAYER_SECTION);
-    line([6000, 0], [6000, 9150], LAYER_SECTION);
+    // The section's two sides run from the lowest mark to the highest — the marks say how tall it is.
+    const top = Math.max(...drawnMarks.map((mark) => mark.elevation)) * 1000;
+    const foot = Math.min(...drawnMarks.map((mark) => mark.elevation)) * 1000;
+    line([0, foot], [0, top], LAYER_SECTION);
+    line([6000, foot], [6000, top], LAYER_SECTION);
   }
 
   if (scenario === SCENARIO.TYPICAL_RANGE) {
@@ -689,11 +716,16 @@ export type StagedPlacementIngest = { drawing: StagedDrawing; drawingId: string;
  * the shipped ingest job is run over a stand-in CLI that hands back the artifact. What lands is a
  * real `ingests` row, written by the product's own pipeline (B-17).
  */
-export async function stagePlacementIngest(stage: PlacementStage, scenario: PlacementScenario, salt: number): Promise<StagedPlacementIngest> {
+export async function stagePlacementIngest(
+  stage: PlacementStage,
+  scenario: PlacementScenario,
+  salt: number,
+  options: PlacementArtifactOptions = {},
+): Promise<StagedPlacementIngest> {
   const job = await productModule<{ runIngestJob: (payload: unknown, progress: ProgressLike, deps: { storage: unknown }) => Promise<void> }>(INGEST_JOB_MODULE);
   const records = await productModule<{ ingestRecordOf: (scope: { tenantId: string; drawingId: string }) => Promise<{ ingestId: string } | null> }>(INGEST_MODULE);
 
-  const artifact = buildPlacementArtifact(scenario, salt);
+  const artifact = buildPlacementArtifact(scenario, salt, options);
   const bytes = new TextEncoder().encode(`0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF\n; ${scenario} ${salt}\n`);
   const drawing = await stageDrawing(stage.person, stage.projectId, bytes, { name: unique(`${scenario}.dxf`), format: "dxf" });
   const stub = stubCli({ artifact: artifact.json, stderr: "", exitCode: 0 });
@@ -711,8 +743,19 @@ export async function stagePlacementIngest(stage: PlacementStage, scenario: Plac
   return { drawing, drawingId: drawing.drawingId, ingestId: (record as { ingestId: string }).ingestId, artifact };
 }
 
+/**
+ * One ingest of the REAL corpus — `fixtures/rcc6`, read by the shipped `cad/` CLI and written by the
+ * shipped ingest job. This is the artifact the partition leg of J-021 runs over, and the one the
+ * increment's interfaces make the three new stages total against: a view with no evidence of a
+ * stage's kind contributes nothing and never throws.
+ */
+export async function stageCorpusIngest(stage: PlacementStage, label = "rcc6"): Promise<{ drawingId: string; ingestId: string }> {
+  const staged = await stageSheets(stage.person, stage.projectId, label);
+  return { drawingId: staged.drawing.drawingId, ingestId: staged.record.ingestId };
+}
+
 /** One run of the shipped partition job over a staged ingest, with the steps it recorded. */
-export async function runPlacementPartition(stage: PlacementStage, staged: StagedPlacementIngest, label = "placement"): Promise<StepRecord[]> {
+export async function runPlacementPartition(stage: PlacementStage, staged: { drawingId: string; ingestId: string }, label = "placement"): Promise<StepRecord[]> {
   const rebuild = await rebuildDoor();
   const sink = stepSink(label);
   await rebuild.runPartitionJob(
