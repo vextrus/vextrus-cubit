@@ -33,8 +33,15 @@ export type ViewPartition = {
  * caption rather than as a label inside a view. The share is fixed rather than resolved from the
  * drawing's own conventions, which is L-CAD-08's own question: what separates a title from a bar
  * mark here is the rule a draughtsman draws by — a caption is the big text on the sheet.
+ *
+ * The share stands near one rather than near a half because a sheet titles its views at ONE size:
+ * the biggest text on the sheet is the title, and a text drawn materially smaller is a label inside
+ * a view however large it looks beside the bar marks. A grid bubble three quarters the height of the
+ * title is an ordinary way to draw a plan, and reading each bubble as the caption of its own view
+ * would cut a plan into as many views as it has gridlines and leave the plan itself with nothing in
+ * it (L-CAD-06: every model-space entity belongs to exactly one view — the right one).
  */
-const CAPTION_HEIGHT_SHARE = 0.5;
+const CAPTION_HEIGHT_SHARE = 0.8;
 
 /**
  * How far a caption reaches, in multiples of its own text height. A caption is drawn at the scale of

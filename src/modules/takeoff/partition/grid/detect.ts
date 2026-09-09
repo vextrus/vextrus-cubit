@@ -69,8 +69,15 @@ const AXIS_Y = "y" satisfies GridAxis;
  * How far two vertices of one ring may disagree about their distance from its centre, as a share of
  * that distance. A circle crosses the seam flattened into a polygon (L-CAD-02), so its vertices are
  * a cosine apart from exact; a ring drawn as a real rectangle is nowhere near this.
+ *
+ * The margin is a part in a thousand because a flattened ring is compared against the centroid of
+ * its own vertices rather than against the centre it was drawn about: the flattening spaces those
+ * vertices to a sagitta tolerance rather than evenly, and the closing vertex is dropped on the way
+ * across (L-CAD-02), so the centroid sits slightly off centre and the radii spread by about a part
+ * in ten thousand on the corpus this reads. A rectangle's vertices disagree by a sixth — two orders
+ * of magnitude clear of this — so the signature still tells a bubble from a box.
  */
-const ROUNDNESS_TOLERANCE = 1e-6;
+const ROUNDNESS_TOLERANCE = 1e-3;
 
 /** How many vertices a ring must carry before equidistance means anything — see `roundnessOf`. */
 const FEWEST_ROUND_VERTICES = 5;
