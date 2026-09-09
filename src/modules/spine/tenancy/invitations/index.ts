@@ -27,6 +27,8 @@ import {
   type InvitationRow,
 } from "./store";
 
+export type { ClaimedInvitation } from "./store";
+
 export type { InvitationMachinery, InvitationPorts } from "./ports";
 
 /**
@@ -71,11 +73,18 @@ export interface InvitationWithdrawn {
   readonly revoked: true;
 }
 
-/** What spending an invitation answers with: the membership it bought. */
+/**
+ * What spending an invitation answers with: the membership it bought.
+ *
+ * `workspaceRole` is the role the account HOLDS afterwards and `membershipGranted` says whether this
+ * claim is what admitted them. An account that already belonged keeps the rank it had — reporting
+ * the offered one would tell somebody they had been promoted while the store says otherwise.
+ */
 export interface InvitationClaimed {
   readonly invitationId: string;
   readonly tenantId: string;
   readonly workspaceRole: WorkspaceRole;
+  readonly membershipGranted: boolean;
   readonly accepted: true;
 }
 
@@ -240,7 +249,13 @@ export async function acceptInvitation(claim: InvitationClaim, ports: Invitation
   // it. The predicate is what decides, so the loser of that race is answered as the spent offer it
   // now is rather than told it joined something it did not.
   if (spent === null) throw invitationNotClaimable({ reason: "the invitation was spent or withdrawn while it was being accepted" });
-  return { invitationId: spent.invitationId, tenantId: spent.tenantId, workspaceRole: spent.workspaceRole, accepted: true };
+  return {
+    invitationId: spent.invitation.invitationId,
+    tenantId: spent.invitation.tenantId,
+    workspaceRole: spent.workspaceRole,
+    membershipGranted: spent.membershipGranted,
+    accepted: true,
+  };
 }
 
 /** The offer a token names, judged against the account presenting it — the whole of the claim law. */

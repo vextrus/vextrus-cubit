@@ -9,7 +9,7 @@
 // same rows and may not reach into a module (ARCH-01), so a view has one reading and this door asks
 // for it rather than keeping a second one (B-17).
 import { and, conventionProfiles, drawings, eq, forTenant, isUuid, partitionViews, viewAssignments } from "@/core/db";
-import { CONVENTIONS_METHOD, type ConventionProfile, type EntityCensus } from "@/core/rulesets/methods/conventions/resolve";
+import { CONVENTIONS_METHOD, isConventionProfile, type ConventionProfile, type EntityCensus } from "@/core/rulesets/methods/conventions/resolve";
 import { viewRecordsOf, type ProposedViewType, type ViewRecord } from "@/core/views";
 import type { DetectedGrid } from "./grid/detect";
 import { rewriteGridRows } from "./grid/store";
@@ -32,7 +32,17 @@ export type ViewProposal = { readonly viewKey: string; readonly type: ProposedVi
 export type ResolvedConventions = { readonly census: EntityCensus; readonly profile: ConventionProfile };
 
 /** One stored profile, with the method that resolved it and the record it stands for. */
-export type StoredConventions = ResolvedConventions & { readonly ingestId: string; readonly ruleId: string; readonly ruleVersion: string };
+/**
+ * One stored reading of a drawing's conventions, with the method that took it. `current` says
+ * whether THIS method at THIS version wrote it: a row an older reading left is a record, not this
+ * method's answer, and handing it to placement as though it were is how a stale derivation travels.
+ */
+export type StoredConventions = ResolvedConventions & {
+  readonly ingestId: string;
+  readonly ruleId: string;
+  readonly ruleVersion: string;
+  readonly current: boolean;
+};
 
 /** One whole partition, as a rebuild hands it over to be written. */
 export type PartitionWrite = {
@@ -182,7 +192,23 @@ export async function storedConventionsOf(tenantId: string, ingestId: string): P
     .where(and(eq(conventionProfiles.tenantId, tenantId), eq(conventionProfiles.ingestId, ingestId)))
     .limit(1);
   const held = rows[0];
-  return held === undefined ? null : { ingestId, ruleId: held.ruleId, ruleVersion: held.ruleVersion, profile: held.profile, census: held.census };
+  if (held === undefined) return null;
+
+  // The stored value is judged by the type's own predicate before anything is handed it. A cast
+  // would carry whatever the column holds into placement and be discovered only when something
+  // dereferenced it, somewhere with no way to say which row was wrong (ARCH-03, B-21).
+  if (!isConventionProfile(held.profile)) {
+    throw new Error(`the convention profile stored for ingest ${ingestId} is not a profile this method answers with`);
+  }
+
+  return {
+    ingestId,
+    ruleId: held.ruleId,
+    ruleVersion: held.ruleVersion,
+    current: held.ruleId === CONVENTIONS_METHOD.ruleId && held.ruleVersion === CONVENTIONS_METHOD.version,
+    profile: held.profile,
+    census: held.census,
+  };
 }
 
 /** Every view of one record, with what was proposed and what has been confirmed (core's own reading). */

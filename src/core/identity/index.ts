@@ -12,8 +12,8 @@
 export { compareCanonical, sortCanonical } from "./compare-canonical";
 export { OBSERVATION_BASES, SIGHTING_STANDINGS } from "./law";
 export type { ObservationBasis, SightingStanding } from "./law";
-export { LEVEL_MARKER, LEVEL_SLOTS, UNREGISTERED_PREFIX, barKey, carryLevel, dotlessUpper, instanceKey, isLevelSlot, levelSegment, placementKey, quantise, viewKey } from "./keys";
-export type { BarRef, CarriedKey, InstanceRef, LevelRef, LevelSlot, PlacementRef, ViewRef } from "./keys";
+export { LEVEL_MARKER, LEVEL_SLOTS, UNREGISTERED_PREFIX, barKey, carryLevel, dotlessUpper, instanceKey, isLevelSlot, levelFormOf, levelSegment, placementKey, quantise, viewKey } from "./keys";
+export type { BarRef, CarriedKey, InstanceRef, LevelForm, LevelRef, LevelSlot, PlacementRef, ViewRef } from "./keys";
 export { contentSignature, ordinalKeys } from "./ordinals";
 export type { FamilyRow } from "./ordinals";
 export { canonicalSemantic, dispositionsCarry, semanticDigest } from "./semantic";

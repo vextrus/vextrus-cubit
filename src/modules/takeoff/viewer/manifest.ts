@@ -42,19 +42,24 @@ function renderRecordOf(record: DrawnRecord): RenderRecord {
  * The swatch a layer is shown by: the colour most of its records resolved to, first appearance
  * winning a tie. A layer's records mostly resolve BYLAYER and answer one colour, but nothing in the
  * artifact promises that — an entity may carry its own true colour — so the swatch is derived from
- * what the layer actually holds rather than asserted, and a layer holding nothing shows black.
+ * what the layer actually holds rather than asserted.
+ *
+ * A layer of the manifest is a layer something is drawn on: the grouping below only mints one when
+ * a record names it. So the reading takes a first record and the rest, and there is no empty case to
+ * stand a colour in for — a black returned for "we had nothing to read" is indistinguishable from a
+ * layer really drawn in black.
  */
-function swatchOf(records: readonly RenderRecord[]): readonly [number, number, number] {
+function swatchOf(first: RenderRecord, ...rest: readonly RenderRecord[]): readonly [number, number, number] {
   const tally = new Map<string, { rgb: readonly [number, number, number]; count: number }>();
-  for (const record of records) {
+  for (const record of [first, ...rest]) {
     const at = record.rgb.join(",");
     const held = tally.get(at);
     if (held === undefined) tally.set(at, { rgb: record.rgb, count: 1 });
     else held.count += 1;
   }
-  let winner: { rgb: readonly [number, number, number]; count: number } | undefined;
-  for (const entry of tally.values()) if (winner === undefined || entry.count > winner.count) winner = entry;
-  return winner?.rgb ?? [0, 0, 0];
+  let winner = { rgb: first.rgb, count: 0 };
+  for (const entry of tally.values()) if (entry.count > winner.count) winner = entry;
+  return winner.rgb;
 }
 
 /**
@@ -111,7 +116,9 @@ export function graphHoldsLayout(graph: EntityGraph, layoutName: string): boolea
  * is carried once, under one layer, and Σ of the counts is the sheet's own record count.
  */
 export function buildRenderManifest(graph: EntityGraph, layoutName: string): RenderManifest {
-  const grouped = new Map<string, RenderRecord[]>();
+  // Typed non-empty: a layer exists because a record named it, and the swatch reading takes that
+  // first record rather than a list it would have to invent a colour for (B-17).
+  const grouped = new Map<string, [RenderRecord, ...RenderRecord[]]>();
   for (const record of [...graph.entities, ...graph.derived] as DrawnRecord[]) {
     if (record.space !== layoutName) continue;
     const held = grouped.get(record.layer);
@@ -121,7 +128,7 @@ export function buildRenderManifest(graph: EntityGraph, layoutName: string): Ren
 
   const layers: RenderLayer[] = [...grouped.entries()].map(([name, records]) => ({
     name,
-    rgb: swatchOf(records),
+    rgb: swatchOf(...records),
     entityCount: records.length,
     records,
   }));

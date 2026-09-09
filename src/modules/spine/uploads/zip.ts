@@ -157,12 +157,20 @@ export function expandZip(bytes: Uint8Array): ZipExpansion {
 }
 
 /**
+ * What makes a path a rooted one on Windows: a drive letter and a colon at its head. It is the one
+ * thing a colon says about a path — everywhere else in a name a colon is just a character a drawing
+ * office writes, as in "S-101: GROUND FLOOR PLAN.dxf", and a reader that refused those would leave
+ * ordinary sheets out of an expansion with nothing but a format refusal to explain it.
+ */
+const DRIVE_DESIGNATOR = /^[A-Za-z]:/;
+
+/**
  * A path this reader will carry as a drawing's name: relative, with no traversal segment, no drive
  * or root, no backslash separator and no control character. The archive supplies the name, so the
  * name is judged like anything else a caller wrote.
  */
 function isMemberPath(path: string): boolean {
-  if (path === "" || path.startsWith("/") || path.includes("\\") || path.includes(":")) return false;
+  if (path === "" || path.startsWith("/") || path.includes("\\") || DRIVE_DESIGNATOR.test(path)) return false;
   for (const character of path) {
     const code = character.codePointAt(0) ?? 0;
     if (code < CONTROL_CEILING || code === DELETE_CODE) return false;

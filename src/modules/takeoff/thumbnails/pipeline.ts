@@ -144,6 +144,7 @@ export async function runThumbnailsJob(payload: JobPayloads["thumbnails"], progr
   if (record === null) throw refusal(REFUSALS.RASTER_NOT_AVAILABLE.code, `drawing ${drawingId} holds no ingest record ${ingestId} in this workspace`);
 
   const graph = await artifactOf(record, tenantId, deps.storage);
+  refuseCollidingNames(graph);
   await progress.step(STEP_RESOLVE);
 
   const rendered = graph.layouts.flatMap((layout) =>
@@ -178,6 +179,27 @@ export async function runThumbnailsJob(payload: JobPayloads["thumbnails"], progr
     });
   }
   await progress.step(STEP_RECORD);
+}
+
+/**
+ * Two sheets that would be recorded under one name are not something to render.
+ *
+ * A raster is keyed by (record, sheet, tier), so two layouts whose RECORDED names agree land on one
+ * key: the belt swallows the second sheet's rows and serves the first sheet's pictures under both
+ * names. `recordedLayoutName` already keeps two LONG names apart by digesting what it cut, but two
+ * layouts a drawing genuinely names the same way collide before it is ever consulted — nothing in
+ * the artifact says which sheet a picture then belongs to. So the judgement is made before anything
+ * is rendered or stored: the name that collided is named, so an operator can find it in the drawing.
+ */
+function refuseCollidingNames(graph: EntityGraph): void {
+  const seen = new Set<string>();
+  for (const layout of graph.layouts) {
+    const recorded = recordedLayoutName(layout.name);
+    if (seen.has(recorded)) {
+      throw new Error(`the drawing records two sheets under the name ${layout.name}, and a raster is keyed by its sheet's name`);
+    }
+    seen.add(recorded);
+  }
 }
 
 /** The artifact a record was written from, read back and validated against the one mirror (L-CAD-05). */

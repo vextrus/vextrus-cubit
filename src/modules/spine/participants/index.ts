@@ -7,6 +7,6 @@
 // module holds no second path to it (B-17, SEAM-ACT).
 export { assignableSubjects } from "./directory";
 export { participatesIn, requireRoleHistoryAccess } from "./guard";
-export { roleHistory, type ProjectRef, type RoleDirection, type RoleHistoryEntry } from "./history";
+export { roleHistory, roleHistoryIfReadable, type ProjectRef, type RoleDirection, type RoleHistoryEntry } from "./history";
 export { projectParticipants, type ProjectParticipant } from "./roster";
 export { type MemberIdentity, type ParticipantsCtx } from "./scope";

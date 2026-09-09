@@ -51,12 +51,19 @@ function kindOf(entity: Drawn): keyof Omit<Tally, "layer"> | null {
  * space: every layer something original stands on is tallied, including one whose records fall into
  * no kind at all — a layer of zero tallies is the drawing saying it carries no role, which is a
  * reading the resolver is entitled to make.
+ *
+ * An artifact with NO model layout has no census: null, not an empty one. A drawing with nowhere to
+ * take a census is not a drawing that was read and found to carry nothing, and an empty census
+ * resolves to a profile whose every role is deferred — a record indistinguishable, to any later
+ * reader, from a real reading of a real drawing (L-QTY-04).
  */
-export function censusOf(graph: EntityGraph, views: readonly CensusView[]): EntityCensus {
+export function censusOf(graph: EntityGraph, views: readonly CensusView[]): EntityCensus | null {
   const modelSpace = graph.layouts.find((layout) => layout.kind === "model")?.name;
+  if (modelSpace === undefined) return null;
+
   const tallies = new Map<string, Tally>();
   for (const entity of graph.entities) {
-    if (modelSpace === undefined || entity.space !== modelSpace) continue;
+    if (entity.space !== modelSpace) continue;
     let held = tallies.get(entity.layer);
     if (held === undefined) {
       held = { layer: entity.layer, paths: 0, rings: 0, texts: 0, dimensions: 0 };

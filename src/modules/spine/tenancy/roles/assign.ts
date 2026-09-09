@@ -109,16 +109,20 @@ export async function assignWorkspaceRole(actor: TenancyActor, request: RoleAssi
  * Take one membership away (R-SPINE-003's "remove member", under R-SPINE-006's guards). The removal
  * is the seam's own write, under a recorded system reason, and it writes no act row for the reason
  * an assignment does not (SEAM-ACT).
+ *
+ * It is stated over a move ALREADY OPEN rather than opening one of its own, because removal carries
+ * a second guard — the act-log coupling in ../removal — and a guard read in one transaction and
+ * acted on in another is a check-then-act window, not a guard. So ../removal opens the move, asks
+ * the log under the same lock, and hands the scope here; the role law itself is unchanged and still
+ * lives only in this file (B-17).
  */
-export async function removeMember(actor: TenancyActor, request: MemberRef): Promise<MemberRemoved> {
-  return movingWorkspaceRoles(actor.tenantId, async (store) => {
-    const { subjectRole, isSelf } = await sidesOf(store, actor, request.subjectUserId);
+export async function removeMemberUnderLock(store: RoleMoveScope, actor: TenancyActor, request: MemberRef): Promise<MemberRemoved> {
+  const { subjectRole, isSelf } = await sidesOf(store, actor, request.subjectUserId);
 
-    if (subjectRole === OWNING_ROLE && (await store.membersHolding(OWNING_ROLE)) === 1) throw workspaceWouldHaveNoOwner();
-    if (isSelf) throw selfRemovalNotAllowed();
+  if (subjectRole === OWNING_ROLE && (await store.membersHolding(OWNING_ROLE)) === 1) throw workspaceWouldHaveNoOwner();
+  if (isSelf) throw selfRemovalNotAllowed();
 
-    const removed = await store.dropMembership(request.subjectUserId);
-    if (!removed) throw workspacePermissionNotHeld({ subjectUserId: request.subjectUserId });
-    return { subjectUserId: request.subjectUserId, removed: true };
-  });
+  const removed = await store.dropMembership(request.subjectUserId);
+  if (!removed) throw workspacePermissionNotHeld({ subjectUserId: request.subjectUserId });
+  return { subjectUserId: request.subjectUserId, removed: true };
 }

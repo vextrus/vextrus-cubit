@@ -5,7 +5,7 @@
 // Nothing here reaches the seam, the pools or the jobs store: those are built over the schema, so
 // the dependency runs one way and no cycle is representable (ARCH-01, ARCH-02).
 import { sql as statement } from "drizzle-orm";
-import { bigint, check, doublePrecision, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { bigint, bigserial, check, doublePrecision, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { CAMPAIGN_STATUSES, type CampaignStatus } from "../campaigns/law";
 import { ELEMENT_TYPES, type ElementType } from "../catalogue/classes";
 import { KINDS, type Kind } from "../catalogue/kinds";
@@ -1837,6 +1837,11 @@ export const registerObservations = pgTable(
     // nullable column says so rather than a fabricated act id (L-ACT-01).
     actId: uuid("act_id").references(() => acts.actId),
     observedAt: timestamp("observed_at", { withTimezone: true }).notNull().defaultNow(),
+    // The append order, handed out by the database itself. `observed_at` says when a reading says it
+    // was observed; it does not order two readings appended inside one clock tick, and the standing
+    // an attribute is derived at depends on which of them came last (R-TO-051). Nothing in the app
+    // chooses this number and nothing reads it as a value.
+    appendSeq: bigserial("append_seq", { mode: "number" }).notNull(),
   },
   (table) => [
     // A reading is about a declared attribute slot of a register object, and about nothing else.
@@ -1850,7 +1855,7 @@ export const registerObservations = pgTable(
     // Precedence is declared, and it is a rank rather than a signed quantity.
     check("register_observations_precedence_not_negative", statement`${table.precedence} >= 0`),
     // The read a standing is derived from: one attribute's readings, in the order they were appended.
-    index("register_observations_by_attribute").on(table.tenantId, table.setRevisionId, table.objectKey, table.attribute, table.observedAt),
+    index("register_observations_by_attribute").on(table.tenantId, table.setRevisionId, table.objectKey, table.attribute, table.appendSeq),
   ],
 );
 

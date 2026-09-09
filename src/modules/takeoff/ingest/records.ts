@@ -64,10 +64,21 @@ function record(row: IngestRow): IngestRecord {
   };
 }
 
-/** Every ingest of one drawing, newest first — the read `ingests_by_drawing` is there for. */
+/**
+ * Every ingest of one drawing, newest first — the read `ingests_by_drawing` is there for.
+ *
+ * The order is TOTAL. `created_at` alone leaves two records written in one transaction — a re-ingest
+ * and the supersession it wrote, a backfill — in whichever order the planner reached them, and
+ * "the current record" is the first row of this list: it would then change between two reads of the
+ * same rows. The record id settles it, descending like the clock it tie-breaks.
+ */
 export async function ingestRecords(scope: IngestScope): Promise<IngestRecord[]> {
   if (!isUuid(scope.drawingId)) return [];
-  const rows = await forTenant({ tenantId: scope.tenantId }).select().from(ingests).where(eq(ingests.drawingId, scope.drawingId)).orderBy(desc(ingests.createdAt));
+  const rows = await forTenant({ tenantId: scope.tenantId })
+    .select()
+    .from(ingests)
+    .where(eq(ingests.drawingId, scope.drawingId))
+    .orderBy(desc(ingests.createdAt), desc(ingests.ingestId));
   return rows.map(record);
 }
 
