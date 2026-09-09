@@ -145,14 +145,16 @@ function tableOf(view: PartitionedView, standing: readonly Placed[]): ScheduleTa
 
   // A schedule reads DOWN from its title, so the table is what stands beneath the caption.
   const bands = bandsOf(standing.filter((text) => text.key !== anchor.key && text.y < anchor.y));
-  const pitch = pitchOf(bands);
-  if (pitch === null) return null;
 
   const header = bands.findIndex((band) => band.texts.some((text) => isMarkHeader(text.text)));
   if (header < 0) return null;
 
+  const pitch = pitchBeneath(bands, header);
+  if (pitch === null) return null;
+
   const rows = rowsFrom(bands, header, pitch);
   const columns = [...new Set((rows[0] as Band).texts.map((text) => text.x))].sort((left, right) => left - right);
+  const reach = columnReachOf(columns);
 
   return {
     viewKey: view.viewKey,
@@ -160,7 +162,7 @@ function tableOf(view: PartitionedView, standing: readonly Placed[]): ScheduleTa
     title: normaliseNotation(view.caption).trim(),
     pitch,
     columns,
-    cells: rows.flatMap((band, rowIndex) => cellsOf(band, columns, rowIndex)),
+    cells: rows.flatMap((band, rowIndex) => cellsOf(band, columns, reach, rowIndex)),
   };
 }
 
@@ -198,15 +200,20 @@ function bandNearest(bands: readonly Band[], text: Placed): Band | null {
 }
 
 /**
- * The pitch the bands stand at: the median gap between one band and the next. The median rather than
- * the mean, because the gaps a schedule really carries are its own row spacing repeated, plus the
- * larger gaps to whatever stands off the table — and a mean would be dragged by exactly those.
+ * The pitch of the table the header stands over: the step from that header to the band beneath it,
+ * which is the spacing the schedule stacks its rows at, declared where the table begins. Read before
+ * the rows are chosen, because the 3.5× stop cannot be applied without it (L-CAD-08).
+ *
+ * A statistic taken over every band of the view instead — the median gap on the page — lets whatever
+ * stands UNDER the table teach the reconstruction a spacing the table never used: general notes
+ * stacked wider than the rows outnumber the rows, the stop then never fires, and notes nobody drew as
+ * rows are stored as rows carrying cited keys (L-QTY-04). A header with nothing beneath it heads no
+ * table at all.
  */
-function pitchOf(bands: readonly Band[]): number | null {
-  const gaps: number[] = [];
-  for (let index = 1; index < bands.length; index += 1) gaps.push((bands[index - 1] as Band).y - (bands[index] as Band).y);
-  if (gaps.length === 0) return null;
-  const pitch = medianOf(gaps);
+function pitchBeneath(bands: readonly Band[], header: number): number | null {
+  const first = bands[header + 1];
+  if (first === undefined) return null;
+  const pitch = (bands[header] as Band).y - first.y;
   return pitch > 0 ? pitch : null;
 }
 
@@ -225,10 +232,14 @@ function rowsFrom(bands: readonly Band[], header: number, pitch: number): Band[]
  * stands nearest, and two texts in one cell are ONE cell: they are joined in the order they are read
  * down the page, and the cell cites both of the texts it was read from (AC-2, L-CAD-03).
  */
-function cellsOf(band: Band, columns: readonly number[], rowIndex: number): ScheduleCell[] {
+function cellsOf(band: Band, columns: readonly number[], reach: number, rowIndex: number): ScheduleCell[] {
   const byColumn = new Map<number, Placed[]>();
   for (const text of band.texts) {
-    const columnIndex = columnNearest(columns, text.x);
+    const columnIndex = columnNearest(columns, text.x, reach);
+    // A revision note out in the margin stands level with a row and in no column of it: folding it
+    // into the nearest one would rewrite that cell — and on the mark column it would cost the row the
+    // member it names (L-CAD-08, L-QTY-04).
+    if (columnIndex === null) continue;
     const held = byColumn.get(columnIndex);
     if (held === undefined) byColumn.set(columnIndex, [text]);
     else held.push(text);
@@ -243,11 +254,28 @@ function cellsOf(band: Band, columns: readonly number[], rowIndex: number): Sche
     }));
 }
 
-/** Which column a text stands in: the nearest one, ties going to the leftmost. */
-function columnNearest(columns: readonly number[], x: number): number {
-  let held = 0;
+/**
+ * How far off a column's own insertion a text may stand and still be a cell of it, as a share of the
+ * closest the table's columns ever stand to each other — a content-scaled share, never a constant in
+ * drawing units (L-MEA-01). Half, because half the closest spacing is where one column stops being
+ * the nearest: a text further out than that stands between the columns or beyond them.
+ */
+const COLUMN_REACH = 0.5;
+
+/** That reach for one table's columns. A table of one column has nothing to stand between: it reaches
+ * across its band, since a text there is nearer no other column of a table that has no other. */
+function columnReachOf(columns: readonly number[]): number {
+  let closest = Number.POSITIVE_INFINITY;
+  for (let index = 1; index < columns.length; index += 1) closest = Math.min(closest, (columns[index] as number) - (columns[index - 1] as number));
+  return closest * COLUMN_REACH;
+}
+
+/** Which column a text stands in: the nearest one within reach, ties going to the leftmost — or none. */
+function columnNearest(columns: readonly number[], x: number, reach: number): number | null {
+  let held: number | null = null;
   for (const [index, column] of columns.entries()) {
-    if (Math.abs(column - x) < Math.abs((columns[held] as number) - x)) held = index;
+    if (Math.abs(column - x) > reach) continue;
+    if (held === null || Math.abs(column - x) < Math.abs((columns[held] as number) - x)) held = index;
   }
   return held;
 }

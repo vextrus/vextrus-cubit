@@ -84,9 +84,13 @@ function plainMarks(text: string): string {
   return normaliseNotation(text).replace(FOOT_LOOKALIKES, "'").replace(INCH_LOOKALIKES, '"');
 }
 
+/** The dots a word is abbreviated with — `G.F.`, `NO.`, `MAIN REINF.` — and never the point inside a
+ * number: a dot between two digits is a decimal, and dropping it would read `4.5"` as `45"` (L-MEA-01). */
+const ABBREVIATION_DOT = /(?<!\d)\.|\.(?!\d)/g;
+
 /** That text, uppercased and with its dots dropped — the form every word of the notation compares in. */
 function spelled(text: string): string {
-  return normaliseNotation(text).toUpperCase().replaceAll(".", "");
+  return normaliseNotation(text).toUpperCase().replace(ABBREVIATION_DOT, "");
 }
 
 /** The words of a text, in order, with the empties dropped. */

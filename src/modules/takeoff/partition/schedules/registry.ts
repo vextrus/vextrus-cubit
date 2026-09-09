@@ -206,22 +206,51 @@ function variantsOf(columns: readonly Column[], row: ReadonlyMap<number, Schedul
     const cell = row.get(column.index);
     if (cell === undefined) continue;
     held.add(variantKey);
-    const section = parseSizePair(cell.text);
-    variants.push({
-      variantKey,
-      bandText: column.header,
-      bandFrom: column.role.band.from,
-      bandTo: column.role.band.to,
-      sectionText: cell.text,
-      sectionWidth: section === null ? null : section.width,
-      sectionDepth: section === null ? null : section.depth,
-      sectionUnit: section === null ? null : section.unit,
-      sourceKeys: [...cell.sourceKeys],
-      zones: zones.map((zone) => ({ ...zone })),
-    });
+    variants.push(variantOf(variantKey, column.header, column.role.band, cell, zones));
   }
 
-  return variants;
+  // A schedule that heads its section column by what it measures rather than by a band of floors —
+  // `SIZE`, the shape a beam schedule is drawn in — states the same facts about the same member. Its
+  // row carries ONE variant, under the column that states the section, so the section and the rebar
+  // the row states reach the registry rather than being read and dropped (R-TO-031, L-QTY-04).
+  if (variants.length > 0) return variants;
+  const stated = sectionColumnOf(columns, row);
+  return stated === null ? [] : [variantOf(stated.column.header, stated.column.header, null, stated.cell, zones)];
+}
+
+/**
+ * The column of an unbanded header that states the row's section: the first that is neither the mark
+ * nor a rebar zone and whose cell really reads as a section. Read from the cell rather than from the
+ * header's words, because what makes a column the section column is that a section stands in it.
+ */
+function sectionColumnOf(columns: readonly Column[], row: ReadonlyMap<number, ScheduleCell>): { readonly column: Column; readonly cell: ScheduleCell } | null {
+  for (const column of columns) {
+    if (column.role.kind !== "none") continue;
+    const cell = row.get(column.index);
+    if (cell === undefined || parseSizePair(cell.text) === null) continue;
+    return { column, cell };
+  }
+  return null;
+}
+
+/**
+ * One variant row: the band or the column it is keyed by, the section that column's cell states —
+ * verbatim beside what it parses to — and the row's own rebar beneath it (R-TO-031).
+ */
+function variantOf(variantKey: string, bandText: string, band: FloorBand | null, cell: ScheduleCell, zones: readonly MemberZone[]): MemberVariant {
+  const section = parseSizePair(cell.text);
+  return {
+    variantKey,
+    bandText,
+    bandFrom: band === null ? null : band.from,
+    bandTo: band === null ? null : band.to,
+    sectionText: cell.text,
+    sectionWidth: section === null ? null : section.width,
+    sectionDepth: section === null ? null : section.depth,
+    sectionUnit: section === null ? null : section.unit,
+    sourceKeys: [...cell.sourceKeys],
+    zones: zones.map((zone) => ({ ...zone })),
+  };
 }
 
 /** The key one variant stands under: the two levels its band runs between (AC-5). */
