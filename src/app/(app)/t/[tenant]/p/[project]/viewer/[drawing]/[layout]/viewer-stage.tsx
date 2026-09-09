@@ -165,10 +165,10 @@ function InspectorTabs({ inspector, scale, snap, views }: { inspector: Inspector
           {SCALE_COPY.viewer_scale_tab_scale}
         </TabsTrigger>
       </TabsList>
-      <TabsContent value={SELECTION_TAB}>
+      <TabsContent className="cx-viewer-inspector-tab" value={SELECTION_TAB}>
         <InspectorPanel {...inspector} />
       </TabsContent>
-      <TabsContent value={SCALE_TAB}>
+      <TabsContent className="cx-viewer-inspector-tab" value={SCALE_TAB}>
         {/* The picks are the snapping region's own, and a successful observation spends them: no
             second pick model exists anywhere in the product (I-158, B-17). */}
         <ScalePanel scale={scale} picks={snap.picks} views={views} onSpent={snap.clearPicks} />

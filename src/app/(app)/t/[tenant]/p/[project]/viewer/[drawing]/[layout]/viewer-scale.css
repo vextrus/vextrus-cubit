@@ -6,6 +6,27 @@
    they are written in the markup where the Skeleton primitive takes them (§ 5). Nothing here tweens:
    a row is data, and fading it in would read as uncertainty about what the machine measured (§ 4). */
 
+/* The tab column fills the inspector panel it stands in (§ 1). Without this the strip and its two
+   panels are content-sized blocks: `height: 100%` under them resolves against nothing, so a panel
+   grows to the height of everything it holds instead of scrolling inside the column, and the
+   `overflow-y` below never engages. */
+.cx-viewer-inspector-tabs {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  block-size: 100%;
+}
+
+/* Each panel of the strip takes what the strip leaves, and takes it flush: the selection aside keeps
+   its own scrolling body and the scale section scrolls under its sticky head, both starting at the
+   strip's own edge rather than inset below it. */
+.cx-viewer-inspector-tabs > .cx-viewer-inspector-tab {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+  padding-block-start: 0;
+}
+
 .cx-viewer-scale {
   display: flex;
   flex-direction: column;
@@ -196,6 +217,10 @@
   border: 0;
   border-block-end: var(--hairline);
   min-width: 0;
+  /* A fieldset's intrinsic minimum inline size is its min-content, which `min-width` alone does not
+     release: without this the tool is wider than the column it stands in and is clipped instead of
+     wrapping (§ 1 rules a column that fits the inspector's width). */
+  min-inline-size: 0;
 }
 
 .cx-viewer-scale-legend {
