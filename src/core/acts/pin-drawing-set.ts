@@ -10,6 +10,7 @@
 //
 // What the commit writes is immutable: a changed membership or a re-revved member yields another
 // revision beside this one, never an edit of it — "mutation is advance, never drift".
+import { openCampaign } from "../campaigns";
 import { and, drawingSetMembers, drawingSetRevisions, drawingSets, eq, isUuid, type TenantTx } from "../db";
 import type { RefusalCode } from "../errors";
 import { refusal } from "../faults/refusal-marker";
@@ -132,13 +133,25 @@ export const pinDrawingSet: ActRendering<PinDrawingSetInput> = {
   async commit(ctx: ActorCtx, input: PinDrawingSetInput, act: WrittenAct, tx: TenantTx): Promise<void> {
     const pinning = await pinningOf(ctx, input, tx);
     const manifest = manifestOf(pinning);
-    await tx.insert(drawingSetRevisions).values({
-      tenantId: ctx.tenantId,
-      setId: input.setId,
-      projectId: input.projectId,
-      digest: manifestDigest(manifest),
-      manifest: manifest.map((member) => ({ drawingId: member.drawingId, revisionId: member.revisionId, sha256: member.sha256, name: member.name })),
-      actId: act.actId,
-    });
+    const written = await tx
+      .insert(drawingSetRevisions)
+      .values({
+        tenantId: ctx.tenantId,
+        setId: input.setId,
+        projectId: input.projectId,
+        digest: manifestDigest(manifest),
+        manifest: manifest.map((member) => ({ drawingId: member.drawingId, revisionId: member.revisionId, sha256: member.sha256, name: member.name })),
+        actId: act.actId,
+      })
+      .returning({ setRevisionId: drawingSetRevisions.setRevisionId });
+    const setRevisionId = written[0]?.setRevisionId;
+    if (setRevisionId === undefined) {
+      throw new Error(`the ledger accepted no revision for the pin of ${input.setId} — a pin nobody can point at is not a citation (L-REG-06)`);
+    }
+
+    // L-REG-07: a pinned revision is measured under a campaign, and the campaign copies what was in
+    // force at the pin. It is opened HERE, on this act's transaction, so the revision and the
+    // campaign land together or neither does — and the campaign cites the act that wrote both.
+    await openCampaign(tx, { tenantId: ctx.tenantId, projectId: input.projectId, setRevisionId, actId: act.actId });
   },
 };
