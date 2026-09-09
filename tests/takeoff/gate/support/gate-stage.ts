@@ -363,8 +363,29 @@ export async function campaignsSeam(): Promise<CampaignsSeam> {
   return door;
 }
 
+/** Whether this process has already asked for the queue's storage. */
+let queueStood = false;
+
+/**
+ * SEAM-JOBS' queue storage, stood up before anything on this stage enqueues.
+ *
+ * Installing the queue library's own schema is the MANAGING tier's act and the migration role's
+ * authority (R-SPINE-031): a tier that only enqueues installs nothing, so a freshly migrated database
+ * that has never had a worker run against it answers a first `enqueue` with "the job queue could not
+ * be started". `pnpm worker` is what stands it up in production; this stage runs no worker, so it asks
+ * the very door the migrations publish for it (db/migrations/0018) rather than starting a CONSUMING
+ * runtime — which would take the job whose still-pending second request AC-8 reads, and make a keyed
+ * enqueue a race. The door does nothing where the storage already stands, so calling it is free.
+ */
+function queueStorageStands(): void {
+  if (queueStood) return;
+  sql(`select "cubit_jobs"."provision_queue_storage"();`);
+  queueStood = true;
+}
+
 /** The measure door. */
 export async function measureSeam(): Promise<MeasureSeam> {
+  queueStorageStands();
   const door = await doorOf<MeasureSeam>(MEASURE_MODULE, ["requestMeasure", "measureJobKey"]);
   expect(typeof door.MEASURE_KIND, `${MEASURE_MODULE} publishes \`MEASURE_KIND\` (test contract)`).toBe("string");
   return door;
@@ -412,6 +433,7 @@ export async function jobsSeam(): Promise<{
   jobEvents: (jobId: string) => Promise<Record<string, unknown>[]>;
   stopJobsRuntime: () => Promise<unknown>;
 }> {
+  queueStorageStands();
   return productModule(JOBS_MODULE);
 }
 

@@ -18,6 +18,12 @@
  * suite reads one — because that is the address the ban is about: the same spellings that are
  * refused from `src/modules/takeoff/bad.ts` are lawful in `src/worker/good.ts`, and the good half
  * proves the judgement is about the ROOT rather than about a run of characters.
+ *
+ * The corpus declares its own answer and this prover holds no copy of the import grammar: a payload's
+ * basename says whether the scan owes findings at it (`bad.*`) or must be silent over it (`good.*`),
+ * and a trailing `GATE-IMPORT` marker says at which lines. A scanner that over-reports an unmarked
+ * line and one that misses a marked one both fail — which is the whole use of a corpus, and what an
+ * expectation recomputed from the scanner's own predicate could never tell.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
@@ -32,6 +38,17 @@ const CORPUS = "tests/lint-fixtures/no-gate-outside-worker";
 const BAD_MODULES = "src/modules/takeoff/bad.ts";
 const BAD_APP = "src/app/bad.ts";
 const GOOD_WORKER = "src/worker/good.ts";
+
+/**
+ * How a corpus payload declares its own status: the basename says whether the payload is one the scan
+ * owes findings at (`bad.*`) or one it must be silent over (`good.*`), and a trailing marker says
+ * which LINES are owed. The expectation is read out of those declarations — never recomputed from the
+ * import grammar, which would only ask the scanner whether it agrees with itself (B-19).
+ */
+const BAD_PAYLOAD = "bad.";
+const GOOD_PAYLOAD = "good.";
+const REPORTED = /\/\/[^\n]*\bGATE-IMPORT:\s*reported\b/u;
+const LAWFUL = /\/\/[^\n]*\bGATE-IMPORT:\s*lawful\b/u;
 
 /** The scanner this test drives, at the home the test contract names for it. */
 const SCANNER = "src/core/gate/__tests__/gate-import-scan.ts";
@@ -92,16 +109,62 @@ function underBannedRoot(roots: readonly string[], address: string): boolean {
   return roots.some((root) => address === root || address.startsWith(`${root}/`));
 }
 
-/**
- * The lines of a payload that really import the gate — a whole-line reading, so prose and a string
- * that merely name the module are not counted and neither is the lawful contract import beside them.
- */
-function gateImportLines(source: string): number[] {
+/** A corpus payload, as the fixture itself declares it. */
+type Payload = {
+  /** Where the bytes live. */
+  readonly path: string;
+  /** The layered address the payload is judged at. */
+  readonly address: string;
+  /** What the basename declares: a payload the scan owes findings at, or one it must be silent over. */
+  readonly status: "bad" | "good";
+  /** The lines the payload declares as owed, in order. */
+  readonly reported: readonly number[];
+  /** The lines the payload declares as lawful reaches — the good half's non-vacuity. */
+  readonly lawful: readonly number[];
+};
+
+/** The basename of a path, whatever separator the platform spells it with. */
+function basenameOf(path: string): string {
+  const posix = path.split(sep).join("/");
+  return posix.slice(posix.lastIndexOf("/") + 1);
+}
+
+/** The lines of a text that carry one of the fixture's markers. */
+function markedLines(source: string, marker: RegExp): number[] {
   return source
     .split("\n")
     .map((line, at) => ({ line, at: at + 1 }))
-    .filter(({ line }) => /^\s*(?:import|export)\b[^\n]*["']([^"']*\bcore\/gate)(?:\/[^"']*)?["']/u.test(line))
+    .filter(({ line }) => marker.test(line))
     .map(({ at }) => at);
+}
+
+/**
+ * The corpus, read as its own declaration.
+ *
+ * A payload whose basename is neither `bad.*` nor `good.*` declares nothing, and is refused here
+ * rather than quietly ignored: whatever the corpus holds tomorrow is governed with no edit (B-19).
+ */
+function payloadsOf(corpusRoot: string): Payload[] {
+  // white-box: AC-2 — a ban on reaching a module has no runtime observable, so the corpus is the
+  // subject and its own text is where its status and its owed lines are declared. Only the fixture's
+  // declarations are read (basename, marker comments); no import grammar lives in this prover, so the
+  // scanner's judgement is compared against the FIXTURE's and never against itself. This is the
+  // increment's declared corpus under tests/lint-fixtures/**, never product source.
+  return sourcesUnder(corpusRoot).map((path) => {
+    const name = basenameOf(path);
+    const status = name.startsWith(BAD_PAYLOAD) ? "bad" : name.startsWith(GOOD_PAYLOAD) ? "good" : "undeclared";
+    expect(status, `${virtualOf(path)} declares its status in its basename — a payload is \`${BAD_PAYLOAD}*\` or \`${GOOD_PAYLOAD}*\` (AC-2)`).not.toBe(
+      "undeclared",
+    );
+    const source = readFileSync(path, "utf8");
+    return {
+      path,
+      address: virtualOf(path),
+      status: status as "bad" | "good",
+      reported: markedLines(source, REPORTED),
+      lawful: markedLines(source, LAWFUL),
+    };
+  });
 }
 
 describe("AC-2: the gate is unreachable from the module and app layers", () => {
@@ -135,35 +198,47 @@ describe("AC-2: the gate is unreachable from the module and app layers", () => {
     const corpusRoot = join(REPO_ROOT, CORPUS);
     expect(existsSync(corpusRoot), `${CORPUS} is the declared payload this scan is proved on`).toBe(true);
     const files = sourcesUnder(corpusRoot);
+    const payloads = payloadsOf(corpusRoot);
+    const bad = payloads.filter((payload) => payload.status === "bad");
+    const good = payloads.filter((payload) => payload.status === "good");
 
-    // white-box: AC-2 — the corpus's own TEXT is the payload the scan is proved against, and the
-    // expectation is derived from it rather than transcribed: whichever payloads really spell an
-    // import of the gate at a banned address are the payloads the scan owes, so a fixture added
-    // tomorrow grows the expectation with it (B-19). This is the increment's declared corpus under
-    // tests/lint-fixtures/**, never product source.
-    const owed = new Map(
-      files
-        .map((path) => ({ path, address: virtualOf(path), lines: gateImportLines(readFileSync(path, "utf8")) }))
-        .filter((payload) => payload.lines.length > 0 && underBannedRoot(GATE_IMPORT_BANNED_ROOTS, payload.address))
-        .map((payload) => [payload.address, payload.lines]),
+    // The corpus names itself, so an emptied or renamed one fails here rather than passing silently.
+    expect(byCodePoint(bad.map((payload) => payload.address)), `${CORPUS} carries a bad payload at each banned root (AC-2)`).toEqual(
+      expect.arrayContaining([BAD_MODULES, BAD_APP]),
     );
-    expect(byCodePoint([...owed.keys()]), `${CORPUS} carries a payload at each banned root, and the scan owes both (AC-2)`).toEqual(byCodePoint([BAD_MODULES, BAD_APP]));
+    expect(byCodePoint(good.map((payload) => payload.address)), `${CORPUS} carries the lawful counterpart the good half is proved on (AC-2)`).toEqual(
+      expect.arrayContaining([GOOD_WORKER]),
+    );
+    for (const payload of bad) {
+      expect(underBannedRoot(GATE_IMPORT_BANNED_ROOTS, payload.address), `${payload.address} is a bad payload, so it stands under a banned root`).toBe(true);
+      expect(payload.reported.length, `${payload.address} declares the lines the scan owes it — a bad payload that marks none owes nothing`).toBeGreaterThan(0);
+    }
+    for (const payload of good) {
+      expect(underBannedRoot(GATE_IMPORT_BANNED_ROOTS, payload.address), `${payload.address} is a lawful payload, so it stands outside every banned root`).toBe(
+        false,
+      );
+      expect(payload.lawful.length, `${payload.address} really reaches the gate — a lawful payload that reaches it nowhere proves nothing by going unreported`).toBeGreaterThan(
+        0,
+      );
+      expect(payload.reported, `${payload.address} is lawful at its root, so it declares no line the scan owes`).toEqual([]);
+    }
 
     const found = [...scanGateImports(files)];
-    expect(byCodePoint([...new Set(found.map((hit) => virtualOf(hit.file)))]), "every bad payload is reported, and nothing that is not one").toEqual(
-      byCodePoint([...owed.keys()]),
-    );
+    expect(
+      byCodePoint([...new Set(found.map((hit) => virtualOf(hit.file)))]),
+      "every bad payload of the corpus is reported, and nothing the corpus declares good",
+    ).toEqual(byCodePoint(bad.map((payload) => payload.address)));
     expect(
       found.map((hit) => virtualOf(hit.file)),
       `${GOOD_WORKER} spells the very same imports at the one lawful root — reporting it would make the ban about the characters rather than the layer`,
     ).not.toContain(GOOD_WORKER);
 
-    for (const [address, lines] of owed) {
-      const reported = found.filter((hit) => virtualOf(hit.file) === address);
+    for (const payload of bad) {
+      const reported = found.filter((hit) => virtualOf(hit.file) === payload.address);
       expect(
         [...new Set(reported.map((hit) => hit.line))].sort((left, right) => left - right),
-        `every line of ${address} that imports the gate is reported — a type-only import is a reach too (riskNotes (2))`,
-      ).toEqual(lines);
+        `${payload.address} is reported at exactly the lines it declares owed — a type-only import is a reach too (riskNotes (2)), and a line the fixture leaves unmarked is not one`,
+      ).toEqual([...payload.reported]);
     }
   });
 

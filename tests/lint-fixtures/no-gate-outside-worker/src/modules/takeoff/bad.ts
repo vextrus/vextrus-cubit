@@ -13,9 +13,20 @@
 // Every spelling that reaches the gate from here is on its own line, each carrying its recorded
 // reason. A relative spelling that would resolve somewhere OTHER than `src/core/gate` is not a reach
 // at the gate and is deliberately not written: the ban is on the module, not on a run of characters.
-import { evaluateOffers } from "@/core/gate"; // RECORDED REASON SEAM-GATE
-import { partitionDeductions } from "@/core/gate/index"; // RECORDED REASON SEAM-GATE
-import type { GateVerdict } from "../../core/gate"; // RECORDED REASON SEAM-GATE
+//
+// The payload declares its own answer, so the prover never has to re-derive it: a line the scan owes
+// a finding at carries the trailing marker below, and a line it must NOT report carries none. The
+// marker is the fixture's word, not the scanner's — which is the whole use of a corpus.
+import { evaluateOffers } from "@/core/gate"; // RECORDED REASON SEAM-GATE — GATE-IMPORT: reported
+import { partitionDeductions } from "@/core/gate/index"; // RECORDED REASON SEAM-GATE — GATE-IMPORT: reported
+import type { GateVerdict } from "../../core/gate"; // RECORDED REASON SEAM-GATE — GATE-IMPORT: reported
+
+// A statement broken across lines reaches the gate exactly as a one-line one does: the ban is about
+// the module reached, never the shape of the statement (AC-2 — "any spelling"). It is owed at the
+// line that spells the module, which is where the marker sits.
+import {
+  renderFormula,
+} from "@/core/gate"; // RECORDED REASON SEAM-GATE — GATE-IMPORT: reported
 
 // The lawful counterpart, side by side with the payload: a module types a rail through the contract.
 import type { Offer } from "@/core/offers/contract";
@@ -26,5 +37,6 @@ export const named = "@/core/gate";
 
 export async function measureAnyway(offers: readonly Offer[]): Promise<GateVerdict> {
   void partitionDeductions;
+  void renderFormula;
   return evaluateOffers({ tenantId: "", projectId: "", campaignId: "" }, { offers, observations: [] });
 }
