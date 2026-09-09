@@ -21,11 +21,14 @@ import {
   type Permission,
 } from "../../core/acts";
 import { eq, isUuid, projects, runAsSystem } from "../../core/db";
+import { REFUSALS } from "../../core/errors";
+import { refusal } from "../../core/faults/refusal-marker";
 import { roleHistory } from "../../modules/spine/participants";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { authRouter } from "../auth/router";
 import { signedOut } from "../auth/refusals";
 import { holdsWorkspace } from "../shell/workspace";
+import { searchWorkspace, type SearchAnswer } from "../spine/search";
 import { publicProcedure, router } from "../trpc";
 import { tenancyRouter } from "./tenancy";
 
@@ -48,16 +51,25 @@ function bagOf(input: unknown): Record<string, unknown> {
   return typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
 }
 
-function text(input: unknown, name: string): string {
+/** The doors of this lane, as an operator reads them in a fault message. */
+const PARTICIPANTS_DOOR = "spine.participants";
+const SEARCH_DOOR = "spine.search";
+
+/**
+ * A required string field of a caller's bag. The door is named by the caller, because the message
+ * an operator reads has to name the door that actually refused the input — a fault worded for
+ * another procedure sends the reader to the wrong place (ARCH-03, B-21).
+ */
+function text(input: unknown, name: string, door: string): string {
   const value = bagOf(input)[name];
-  if (typeof value !== "string") throw new Error(`spine.participants: "${name}" is required and must be a string`);
+  if (typeof value !== "string") throw new Error(`${door}: "${name}" is required and must be a string`);
   return value;
 }
 
 /** The act's input as it arrives on the wire, read into the shape the seam declares. */
 function assignInput(raw: unknown): AssignParticipantRoleInput {
   const named = bagOf(raw);
-  const role = text(named, "role");
+  const role = text(named, "role", PARTICIPANTS_DOOR);
   if (!isRole(role)) throw new Error(`spine.participants: "${role}" is not a role — roles are the closed set a human picks from (L-ACT-03)`);
   const direction = named["direction"];
   if (direction !== undefined && direction !== "GRANT" && direction !== "WITHDRAW") {
@@ -65,8 +77,8 @@ function assignInput(raw: unknown): AssignParticipantRoleInput {
   }
   return {
     type: ASSIGN_PARTICIPANT_ROLE,
-    projectId: text(named, "projectId"),
-    subjectUserId: text(named, "subjectUserId"),
+    projectId: text(named, "projectId", PARTICIPANTS_DOOR),
+    subjectUserId: text(named, "subjectUserId", PARTICIPANTS_DOOR),
     role,
     ...(direction === undefined ? {} : { direction: direction as AssignDirection }),
   };
@@ -110,7 +122,7 @@ export async function participantsActorFor(userId: string, projectId: string, ac
  */
 export const participantsRouter = router({
   roleHistory: signedInProcedure
-    .input((raw: unknown) => ({ projectId: text(raw, "projectId") }))
+    .input((raw: unknown) => ({ projectId: text(raw, "projectId", PARTICIPANTS_DOOR) }))
     .query(async ({ ctx, input }) => {
       const actor = await participantsActorFor(ctx.session.userId, input.projectId, null);
       return roleHistory(actor, { projectId: input.projectId });
@@ -125,7 +137,7 @@ export const participantsRouter = router({
     }),
 
   assignRole: signedInProcedure
-    .input((raw: unknown) => ({ input: assignInput(bagOf(raw)["input"]), consequenceDigest: text(raw, "consequenceDigest") }))
+    .input((raw: unknown) => ({ input: assignInput(bagOf(raw)["input"]), consequenceDigest: text(raw, "consequenceDigest", PARTICIPANTS_DOOR) }))
     .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
       // R-SPINE-006 unqualified: "cookie-authenticated mutations verify origin". This is one, so it
       // is verified — by the rule's one home, never a comparison of this transport's own (B-17).
@@ -141,6 +153,25 @@ export const participantsRouter = router({
 export const spineRouter = router({
   /** Liveness plus the request id the tier minted, so a caller can prove which request it got. */
   health: publicProcedure.query(({ ctx }) => ({ ok: true as const, requestId: ctx.requestId })),
+
+  /**
+   * R-SPINE-050's search, behind the ⌘K palette. A signed-in door: the middleware answers
+   * SIGNED_OUT, and a session holding no membership of the named workspace is refused
+   * WORKSPACE_PERMISSION_NOT_HELD — both registered answers, never faults (ARCH-03, B-21).
+   *
+   * The workspace is named by the caller and therefore judged before anything is read: membership
+   * is what admits the request, through the one resolution every workspace-scoped door uses (B-17).
+   */
+  search: signedInProcedure
+    .input((raw: unknown) => ({ tenantId: text(raw, "tenantId", SEARCH_DOOR), query: text(raw, "query", SEARCH_DOOR) }))
+    .query(async ({ ctx, input }): Promise<SearchAnswer> => {
+      if (!(await holdsWorkspace(ctx.session.userId, input.tenantId))) {
+        // The code is read off the register rather than spelled here, so this door and the taxonomy
+        // agree by reading and never by coincidence (Q-07).
+        throw refusal(REFUSALS.WORKSPACE_PERMISSION_NOT_HELD.code, "the session holds no membership of the workspace this search names", { tenantId: input.tenantId });
+      }
+      return searchWorkspace({ tenantId: input.tenantId, query: input.query });
+    }),
 
   auth: authRouter,
 

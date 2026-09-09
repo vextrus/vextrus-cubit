@@ -23,8 +23,15 @@ primitives (core Button/Input/Skeleton, overlay DropdownMenu, the one RefusalSta
   states and copy are `docs/design/shell-top-bar.md`'s and its reading is
   `docs/design/job-timeline.md`'s. `SHELL_STATES` gains no row for it — the tray is an occupant of
   the frame rather than a screen — and its R-UI-050 cells are declared in the `jobs-tray` row of
-  `src/ui/patterns/job-timeline/states.ts`. ⌘K, notifications, the project switcher and the viewer's
-  readout remain absent under this Interpretation unchanged.
+  `src/ui/patterns/job-timeline/states.ts`.
+  **Amended again (inc-217-command-palette, I-135): ⌘K's owner has arrived.** The right-hand cluster
+  now carries `<CommandPaletteTrigger />` permanently, first — before the tray and the user menu — in
+  document and tab order; its chrome, states and copy are `docs/design/command-palette.md`'s, and like
+  the tray it is provider-gated, rendering `null` outside a `CommandPaletteProvider` so a bare
+  `ShellTopBar` mount stands exactly as it did. `SHELL_STATES` gains no row for it either — the
+  palette is an occupant of the frame and not a route — and its R-UI-050 cells are declared in
+  `COMMAND_PALETTE_STATES` (`src/ui/patterns/command-palette/states.tsx`). Notifications, the project
+  switcher and the viewer's readout remain absent under this Interpretation unchanged.
 - **I-16 — one no-spark asset, both themes, referenced verbatim.** The vendored set holds a
   single `vextrus-mark-nospark.svg` (light-indigo facets) and no dark or quiet-chrome
   sibling; the geometry is never redrawn (R-UI-070), so the rail renders that one file in

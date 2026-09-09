@@ -61,9 +61,11 @@ values.
 `var(--space-12)`, fill `var(--graphite-0)`, border-bottom `var(--hairline)`, padding-inline
 `var(--space-5)`, flex, space-between. Its right-hand child is now a cluster,
 `<div class="cx-shell-topbar-end">` — inline flex, `align-items: center`, gap `var(--space-3)` —
-holding, in this document and tab order: **`<JobsTray />`**, then the user menu exactly as shell §1
-rules it. Breadcrumb, ground and hairline are untouched, and no space is reserved for any other
-occupant (I-115).
+holding, in this document and tab order: **`<CommandPaletteTrigger />`** (arrived with
+inc-217-command-palette; ruled by `docs/design/command-palette.md` §1 under its I-135, and not
+re-decided here), then **`<JobsTray />`**, then the user menu exactly as shell §1 rules it.
+Breadcrumb, ground and hairline are untouched, and no space is reserved for any other occupant
+(I-115, I-135).
 
 **Trigger.** The shipped Popover's trigger rendered `asChild` over the core ghost Button, so the bar
 restyles no primitive (B-17):

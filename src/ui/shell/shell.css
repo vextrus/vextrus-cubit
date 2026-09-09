@@ -196,6 +196,29 @@
   gap: var(--space-3);
 }
 
+/* The ⌘K trigger, the bar's first end occupant (command-palette Decision §1, I-135). Height and
+   padding are the Button's; only the row, its minimum measure and the two words are ruled here, so
+   the bar's geometry does not jump between screens. */
+.cx-palette-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 160px;
+}
+
+.cx-palette-trigger-glyph {
+  color: var(--graphite-600);
+}
+
+.cx-palette-trigger-label {
+  color: var(--graphite-700);
+  font-size: var(--text-13);
+}
+
+.cx-palette-trigger:hover .cx-palette-trigger-label {
+  color: var(--graphite-900);
+}
+
 .cx-shell-crumbs {
   display: flex;
   align-items: center;
