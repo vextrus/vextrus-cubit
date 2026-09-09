@@ -71,6 +71,8 @@ export {
   refusedSightings,
   registerAttributes,
   registerObservations,
+  levels,
+  storeyHeightReadings,
   SEAM_SCHEMA,
 } from "./db/schema";
 export { isAcceptedFormat } from "./db/schema";

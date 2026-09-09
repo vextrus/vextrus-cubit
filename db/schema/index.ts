@@ -18,4 +18,5 @@ export * from "./takeoff-scale";
 export * from "./catalogue";
 export * from "./drawing-sets";
 export * from "./register";
+export * from "./takeoff-levels";
 export * from "./ai";
