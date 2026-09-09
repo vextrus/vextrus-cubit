@@ -6,9 +6,9 @@
 // RE-BASELINED (B-20, AC-1(b)). This file used to demand that the shell state that order ITSELF,
 // which is exactly the second home debt-src-modules-1kuc50w orders removed: the memberships-to-
 // workspaces reading now has one home, `workspacesBySeniority` in the tenancy module, and the shell
-// asks it under its own recorded reason. So the order is judged where it now lives — one statement,
-// in the module that owns memberships — and what is judged of the shell is that it ANSWERS through
-// that reading rather than round it, which is a behaviour and is checked by mock.
+// asks it under its own recorded reason. So the order is judged where it now lives — in the one
+// statement of that module that ANSWERS A WORKSPACE — and what is judged of the shell is that it
+// answers through that reading rather than round it, which is a behaviour and is checked by mock.
 import { existsSync, readFileSync } from "node:fs";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -90,27 +90,67 @@ describe("AC-1(b): and that reading states the total order", () => {
       .replace(/(^|[^:])\/\/.*$/gm, "$1");
   }
 
-  /** The `asc(table.column)` columns of every `.orderBy(...)` a file states. */
-  function ordersOf(code: string): string[][] {
-    return [...code.matchAll(/\.orderBy\(([\s\S]*?)\)\s*(?:;|\.limit)/g)].map((found) =>
-      [...(found[1] ?? "").matchAll(/asc\((\w+)\.(\w+)\)/g)].map((column) => `${column[1] ?? ""}.${column[2] ?? ""}`),
-    );
+  /** One `.orderBy(...)` a file states: the statement carrying it, and the columns it names. */
+  interface StatedOrder {
+    readonly shape: string;
+    readonly columns: readonly string[];
+  }
+
+  /**
+   * Every `.orderBy(...)` a file states, each with the statement it belongs to.
+   *
+   * Anchored on the `.orderBy(` itself, so no order can be missed, and the shape is read back to the
+   * `.select(` that opened the statement — which is what says WHAT the ordered statement answers.
+   * Both directions are harvested: a `desc` tie-break settles a tie as surely as an `asc` one, and a
+   * scan that only knew `asc` would let one past.
+   */
+  function ordersOf(code: string): StatedOrder[] {
+    return [...code.matchAll(/\.orderBy\(([\s\S]*?)\)\s*(?:;|\.limit)/g)].map((found) => {
+      const before = code.slice(0, found.index ?? 0);
+      const opened = before.lastIndexOf(".select(");
+      return {
+        shape: opened === -1 ? "" : before.slice(opened),
+        columns: [...(found[1] ?? "").matchAll(/(?:asc|desc)\((\w+)\.(\w+)\)/g)].map((column) => `${column[1] ?? ""}.${column[2] ?? ""}`),
+      };
+    });
+  }
+
+  /**
+   * The statements that answer a WORKSPACE, told by the clause's own discriminators: the reading is
+   * joined to `tenants` for the name and projects the pair a switcher row is made of (AC-1(b)).
+   *
+   * This filter IS the carve-out (B-17, AC-1(b)). What has one home is the memberships-to-workspaces
+   * derivation, not this file's inventory of statements: a later reading here that lawfully joins
+   * memberships for something else — a switcher count, a paged variant — is none of this rule's
+   * business, and pinning the population would red a passing test on a question it cannot answer.
+   */
+  function answersWorkspace(order: StatedOrder): boolean {
+    return /join\(\s*tenants\b/i.test(order.shape) && /\btenantId\s*:/.test(order.shape) && /\bname\s*:/.test(order.shape);
   }
 
   test("the seniority reading orders by the membership's age, then the tenant uuid", () => {
     const orders = ordersOf(shippedCode(SENIORITY_MODULE));
 
-    expect(orders.length, "one statement answers a workspace, and it is the one this shell asks").toBe(1);
-    expect(orders[0], "age first, then the tenant uuid — two memberships written in one transaction still order").toEqual([
+    const workspaceOrders = orders.filter(answersWorkspace);
+    expect(workspaceOrders.length, "one statement answers a workspace, and it is the one this shell asks").toBe(1);
+    expect(workspaceOrders[0]?.columns, "age first, then the tenant uuid — two memberships written in one transaction still order").toEqual([
       "memberships.createdAt",
       "memberships.tenantId",
     ]);
+
+    // Whatever else this file grows, no reading of memberships here may name the age without the
+    // uuid that settles it: that, and not the count of statements, is the rule the order carries.
+    const openTies = orders.filter((order) => {
+      const age = order.columns.indexOf("memberships.createdAt");
+      return age !== -1 && order.columns[age + 1] !== "memberships.tenantId";
+    });
+    expect(openTies.map((order) => order.columns), "no reading of memberships here leaves the one-transaction tie open").toEqual([]);
   });
 
   test("and the shell spells no order of its own for it", () => {
     const code = shippedCode(new URL("./workspace.ts", import.meta.url));
 
-    const overMemberships = ordersOf(code).filter((order) => order.some((column) => column.startsWith("memberships.")));
+    const overMemberships = ordersOf(code).filter((order) => order.columns.some((column) => column.startsWith("memberships.")));
     expect(overMemberships, `the shell asks ${TENANCY_MODULE} for the order rather than restating it (B-17)`).toEqual([]);
   });
 });
