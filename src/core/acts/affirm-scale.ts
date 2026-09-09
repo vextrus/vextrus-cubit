@@ -113,7 +113,8 @@ async function derive(ctx: ActorCtx, input: AffirmScaleInput, tx: TenantTx): Pro
   // The act names its views by L-REG-04's address — the key a placement and a register row cite a
   // view under, and the key this affirmation is filed against. The partition's own key stays inside
   // the partition, which is where the evidence (assignments, grid rows) is keyed by it (B-17).
-  const views = new Map((await viewRecordsOf(tx, scope)).map((view) => [viewAddressOf(view), view]));
+  const records = await viewRecordsOf(tx, scope);
+  const views = new Map([...records.map((view): [string, ViewRecord] => [view.viewKey, view]), ...records.map((view): [string, ViewRecord] => [viewAddressOf(view), view])]);
   const members: ViewRecord[] = named.map((viewKey) => {
     const view = views.get(viewKey);
     if (view === undefined) throw partitionNotAvailable(`the partition of drawing ${input.drawingId} holds no view ${viewKey}`, { drawingId: input.drawingId, viewKey });
