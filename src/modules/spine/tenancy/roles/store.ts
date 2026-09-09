@@ -7,17 +7,10 @@
 // migration's policies admit a write under a named system reason and refuse every tenant-scoped one
 // (SEAM-TENANT). The reason travels with the statement and is attributable, never validated and
 // then discarded.
+import { uncutTx, type UncutTx } from "@/core/acts/held";
 import { and, eq, holdStateLock, isUuid, memberships, runAsSystem, users, type SystemDb, type TenantTx, type WorkspaceRole } from "@/core/db";
 import { workspacePermissionNotHeld } from "../refusals";
 import { workspacesBySeniority } from "./seniority";
-
-/**
- * The handle a SYSTEM transaction hands its work: drizzle's same typed surface as a `TenantTx`, but
- * armed with a recorded reason instead of a tenant — so its rows are NOT cut by row-level security.
- * Named here because that difference is the whole caution a read taken through it owes: it states
- * the workspace it means, or it sees every workspace's rows (SEAM-TENANT).
- */
-type SystemTx = TenantTx;
 
 /** One membership of a workspace, as this module reads it. */
 export interface WorkspaceMembership {
@@ -112,10 +105,12 @@ export interface RoleMoveScope {
    * `../removal`): this store speaks about memberships and holds no second opinion of anybody
    * else's rows (B-17, ARCH-02).
    *
-   * The handle it hands over is the system's and reads past row-level security, so a read taken
-   * through it states the workspace it means.
+   * The handle it hands over is the system's and reads past row-level security, so it is handed over
+   * SEALED (`UncutTx`): the seam that owns the read is the only one that can open it, and it takes
+   * the workspace as an argument. A read that did not state the workspace it means would see every
+   * workspace's rows, and here it does not compile (SEAM-ACT, SEAM-TENANT).
    */
-  asking<T>(read: (tx: SystemTx) => Promise<T>): Promise<T>;
+  asking<T>(read: (tx: UncutTx) => Promise<T>): Promise<T>;
 }
 
 /**
@@ -171,7 +166,7 @@ export async function movingWorkspaceRoles<T>(tenantId: string, work: (scope: Ro
         return removed[0] !== undefined;
       },
 
-      asking: (read) => read(tx),
+      asking: (read) => read(uncutTx(tx as TenantTx)),
     });
   });
 }
