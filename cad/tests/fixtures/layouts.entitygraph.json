@@ -1289,6 +1289,12 @@
       "height": 8.0,
       "key": "DXF_HANDLE:68",
       "layer": "PLAN",
+      "points": [
+        [
+          20.0,
+          400.0
+        ]
+      ],
       "space": "SHEET A1",
       "text": "SHEET A1 %%C",
       "type": "TEXT"

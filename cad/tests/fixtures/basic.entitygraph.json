@@ -966,6 +966,12 @@
       "height": 2.5,
       "key": "DXF_HANDLE:38",
       "layer": "0",
+      "points": [
+        [
+          5.0,
+          42.0
+        ]
+      ],
       "space": "model",
       "text": "%%C50 BAR %%D45 %%P0.5",
       "type": "TEXT"
@@ -982,6 +988,12 @@
       "height": 1.8,
       "key": "DXF_HANDLE:39",
       "layer": "0",
+      "points": [
+        [
+          5.0,
+          46.0
+        ]
+      ],
       "space": "model",
       "text": "SLAB %%C12 @150 c/c",
       "type": "MTEXT"
