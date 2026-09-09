@@ -7,7 +7,16 @@
  * Two surfaces show them — the route's own leg before the client mounts, and the client's own while
  * the head is in flight — and they are the same bones, spelled once (B-17).
  */
+import type { ReactNode } from "react";
+import { REFUSALS } from "@/core/errors";
+import type { ViewerHead } from "@/modules/takeoff/viewer";
 import { Skeleton } from "@/ui/primitives/core";
+import { RefusalState } from "@/ui/patterns/refusal-state";
+import { shellHref } from "@/ui/shell";
+import { strings } from "@/ui/strings";
+import { projectHomeRoute } from "@/app/(app)/t/[tenant]/p/[project]/home/areas";
+import { FidelityFacts } from "./fidelity-facts";
+import { feedRefusalCode } from "./partition-region";
 
 /** The rows the panel's bones stand for, before the roster says how many there really are. */
 const PANEL_ROWS = 6;
@@ -34,5 +43,58 @@ export function SheetBones() {
         ))}
       </div>
     </>
+  );
+}
+
+/**
+ * What the work area holds when there is no drawn sheet to hold — the three answers that are not a
+ * drawing, kept apart from one another as ARCH-03 asks: a door that refused this reader, a reading
+ * the sheet could not be drawn from, and a drawing nobody has read yet, which is an absence that
+ * teaches rather than an error. The bones above are the fourth: not an answer, but a wait.
+ *
+ * It lives beside the bones rather than in the screen because it is markup, and the screen is
+ * composition (its own shape law): a region's body belongs with its siblings, not in the file whose
+ * whole job is to wire hooks together.
+ */
+export function SheetAbsence({ head, denied, tenantId, projectId }: { head: ViewerHead | null; denied: number | null; tenantId: string; projectId: string }): ReactNode {
+  // "Go to the project" lands on the project home the label names, spelled by that screen's own
+  // address rather than respelled here (Decision § 2, B-17): the reader already stands inside a
+  // project, so the workspace list is not the address this evidence promises (R-UI-020).
+  const projectEvidence = { href: projectHomeRoute(tenantId, projectId), label: strings.viewer_evidence_project };
+  // The evidence a denied reader can act on is their own workspace, not the signed-out home the
+  // label does not promise — a refusal's link lands on the address it names (R-UI-020).
+  if (denied !== null) {
+    const evidence = denied === 401 ? { href: "/sign-in", label: strings.shell_evidence_sign_in } : { href: shellHref(tenantId, "projects"), label: strings.shell_denied_evidence };
+    return (
+      <div className="cx-viewer-refusal">
+        <RefusalState refusal={REFUSALS[feedRefusalCode(denied)]} evidence={evidence} />
+      </div>
+    );
+  }
+  if (head === null) {
+    return (
+      <div className="cx-viewer-loading" data-testid="viewer-loading">
+        <span className="cx-viewer-hidden">{strings.viewer_loading_label}</span>
+        <SheetBones />
+      </div>
+    );
+  }
+  if (head.kind === "refusal") {
+    return (
+      <div className="cx-viewer-refusal">
+        <RefusalState refusal={head.refusal} evidence={projectEvidence} />
+        <FidelityFacts facts={head.facts} />
+      </div>
+    );
+  }
+  const unread = head.kind === "absent" && head.reason === "not-ingested";
+  return (
+    <div className="cx-viewer-empty" data-testid="viewer-empty">
+      <h2 className="cx-viewer-empty-heading">{unread ? strings.viewer_empty_unread_heading : strings.viewer_empty_sheet_heading}</h2>
+      <p className="cx-viewer-empty-body">{unread ? strings.viewer_empty_unread_body : strings.viewer_empty_sheet_body}</p>
+      <a className="cx-btn cx-reticle cx-viewer-empty-action" data-variant="secondary" href={projectEvidence.href}>
+        <span className="cx-btn-label">{projectEvidence.label}</span>
+      </a>
+    </div>
   );
 }

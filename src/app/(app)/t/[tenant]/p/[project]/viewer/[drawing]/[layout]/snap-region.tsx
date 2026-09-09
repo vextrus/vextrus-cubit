@@ -10,11 +10,14 @@
  */
 import "@/modules/takeoff/viewer-snap/viewer-snap.css";
 
+import { useCallback } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { formatUserFigure } from "@/core/format";
 import type { SnapKind } from "@/modules/takeoff/viewer-snap/snap";
-import type { UseSnap } from "@/modules/takeoff/viewer-snap/use-snap";
+import { useSnap, useSnapCalibration } from "@/modules/takeoff/viewer-snap/use-snap";
+import type { UseSnap, UseSnapCalibrationOptions, UseSnapOptions } from "@/modules/takeoff/viewer-snap/use-snap";
 import { Button } from "@/ui/primitives/core";
-import { shortcutById } from "@/ui/shell/shortcuts/roster";
+import { isTextField, matchesStep, shortcutById } from "@/ui/shell/shortcuts/roster";
 import { fill, strings, type StringKey } from "@/ui/strings";
 
 /** The binding R-UI-032 gives this region, read from the one roster and never spelled a second time. */
@@ -31,6 +34,26 @@ const KIND_COPY: Readonly<Record<SnapKind, StringKey>> = Object.freeze({
 });
 
 export type SnapRegionProps = { snap: UseSnap };
+
+/**
+ * The region's whole wiring, in one call — the scale of record behind the metres, what the pointer
+ * meets on the sheet, and the one key R-UI-032 binds here. The screen composes regions, not hooks
+ * (its own shape law), and the views/grid region next door is composed exactly this way, so the two
+ * read alike and neither spells the other's parts into the screen (B-17, ARCH-02).
+ *
+ * The calibration door refuses the SHEET'S OWN session, not this region alone, so a refusal is handed
+ * up to the screen's one refusal home rather than answered here (I-150, ARCH-03).
+ */
+export type SnapRegion = { snap: UseSnap; isSnapKey: (event: ReactKeyboardEvent<HTMLCanvasElement>) => boolean };
+
+export function useSnapRegion({ feed, enabled, supplied, onDenied, ...sheet }: UseSnapCalibrationOptions & Omit<UseSnapOptions, "calibration" | "calibrationUnread">): SnapRegion {
+  const calibration = useSnapCalibration({ feed, enabled, supplied, onDenied });
+  const snap = useSnap({ ...sheet, calibration: calibration.calibration, calibrationUnread: calibration.unread });
+  // The roster's own line, read in the one layer that may read it (ARCH-01): what the product
+  // documents and what the sheet binds are the same line, and "S" is spelled nowhere else (B-17).
+  const isSnapKey = useCallback((event: ReactKeyboardEvent<HTMLCanvasElement>): boolean => !isTextField(event.target) && matchesStep(event, shortcutById(SNAP_SHORTCUT_ID).keys[0] ?? ""), []);
+  return { snap, isSnapKey };
+}
 
 /** One toggle of the toolbar: its swatch, its word, and whether it is pressed (WCAG 4.1.2). */
 function SnapToggle({ testId, label, pressed, onPress, keys }: { testId: string; label: string; pressed: boolean; onPress: () => void; keys?: string }) {

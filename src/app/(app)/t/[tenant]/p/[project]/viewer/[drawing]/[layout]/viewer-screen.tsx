@@ -19,7 +19,6 @@ import "./viewer.css";
 
 import { useCallback, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { REFUSALS } from "@/core/errors";
 import type { Camera, RenderLayer, ViewerHead } from "@/modules/takeoff/viewer";
 import type { Painter } from "@/modules/takeoff/viewer/painter";
 import { createSheetFacts, learn } from "@/modules/takeoff/viewer/hooks/facts";
@@ -32,18 +31,12 @@ import { usePainter } from "@/modules/takeoff/viewer/hooks/use-painter";
 import { usePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
 import { useReveal } from "@/modules/takeoff/viewer/hooks/use-reveal";
 import { useSelection } from "@/modules/takeoff/viewer/hooks/use-selection";
-import { useSnap, useSnapCalibration } from "@/modules/takeoff/viewer-snap/use-snap";
 import type { SnapCalibration } from "@/modules/takeoff/viewer-snap/snap";
-import { RefusalState } from "@/ui/patterns/refusal-state";
-import { shellHref } from "@/ui/shell";
-import { isTextField, matchesStep, shortcutById } from "@/ui/shell/shortcuts/roster";
 import { fill, strings } from "@/ui/strings";
-import { projectHomeRoute } from "@/app/(app)/t/[tenant]/p/[project]/home/areas";
 import { publishViewport } from "./address";
-import { FidelityFacts } from "./fidelity-facts";
-import { SNAP_SHORTCUT_ID } from "./snap-region";
-import { feedRefusalCode, usePartitionRegion } from "./partition-region";
-import { SheetBones } from "./viewer-bones";
+import { useSnapRegion } from "./snap-region";
+import { usePartitionRegion } from "./partition-region";
+import { SheetAbsence } from "./viewer-bones";
 import { layoutNameOf } from "./route-address";
 import { StatusLine } from "./status-line";
 import { ViewerStage } from "./viewer-stage";
@@ -138,21 +131,13 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       PARTITION refuses the region, not the sheet: it renders in that panel's body (R-UI-050's partial).
       It stands ahead of the snapping region because it holds the stored grid the pointer snaps to. */
   const partition = usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaint });
-  /** The scale of record over this sheet, and what the pointer meets on it (R-TO-012, R-UI-041). A
-      door that refuses THIS read refuses the sheet's own session, so it renders where the layer
+  /** The snapping region: what the pointer meets on the sheet, the scale of record behind the metres
+      beside a distance, and the key the roster binds here (R-TO-012, R-UI-041). Its `axes` are the
+      stored grid the views/grid region already holds, so the grid store is never read twice (I-149).
+      A door that refuses THIS read refuses the sheet's own session, so it renders where the layer
       feed's refusal renders — one door, one session (I-150). */
-  const calibration = useSnapCalibration({ feed, enabled: sheet.head?.kind === "manifest", supplied: suppliedCalibration, onDenied: setDenied });
-  const snap = useSnap({
-    layers: arrived,
-    stateRef: layers.stateRef,
-    cameraRef,
-    camera: camera.camera,
-    // The stored grid, as the views/grid region already holds it — a crossing of it is snapped to
-    // without this screen reading the grid store a second time (I-149, B-17).
-    axes: partition.axes,
-    calibration: calibration.calibration,
-    calibrationUnread: calibration.unread,
-  });
+  const snapping = useSnapRegion({ feed, enabled: sheet.head?.kind === "manifest", supplied: suppliedCalibration, onDenied: setDenied, layers: arrived, stateRef: layers.stateRef, cameraRef, camera: camera.camera, axes: partition.axes });
+  const snap = snapping.snap;
 
   const pointer = usePointer({ head: sheet.head, canvasRef, cameraRef, facts, keysUnder: index.keysUnder, ask: index.ask, openLayers: layers.openLayers, hold: held.hold, toggleKey: held.toggleKey, moveCamera: camera.moveCamera, onHoverWorld: snap.onHover, onLeaveWorld: snap.onLeave, onPick: snap.takePick });
   const keyboard = useKeyboard({
@@ -160,9 +145,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     zoomBy: camera.zoomBy,
     fitSheet: camera.fitSheet,
     hold: held.hold,
-    // R-UI-032's one roster, read in the one layer that may read it (ARCH-01): what the product
-    // documents and what the sheet binds are the same line, and "S" is spelled nowhere else (B-17).
-    isSnapKey: (event) => !isTextField(event.target) && matchesStep(event, shortcutById(SNAP_SHORTCUT_ID).keys[0] ?? ""),
+    isSnapKey: snapping.isSnapKey,
     toggleSnapping: snap.toggleSnapping,
     takePick: snap.takePick,
     clearPicks: snap.clearPicks,
@@ -176,54 +159,11 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const head = sheet.head;
   /** Whether a sheet can be drawn at all here — a browser with no WebGL context cannot (I-82). */
   const drawable = !(paint.probed && paint.renderer === "unavailable");
-  // "Go to the project" lands on the project home the label names, spelled by that screen's own
-  // address rather than respelled here (Decision § 2, B-17): the reader already stands inside a
-  // project, so the workspace list is not the address this evidence promises (R-UI-020).
-  const projectEvidence = { href: projectHomeRoute(tenantId, projectId), label: strings.viewer_evidence_project };
-  // The evidence a denied reader can act on is their own workspace, not the signed-out home the
-  // label does not promise — a refusal's link lands on the address it names (R-UI-020).
-  const feedRefusal =
-    denied === null
-      ? null
-      : denied === 401
-        ? { refusal: REFUSALS[feedRefusalCode(denied)], evidence: { href: "/sign-in", label: strings.shell_evidence_sign_in } }
-        : { refusal: REFUSALS[feedRefusalCode(denied)], evidence: { href: shellHref(tenantId, "projects"), label: strings.shell_denied_evidence } };
-
+  // The three answers that are not a drawing — a door's refusal, a reading nothing can be drawn
+  // from, and a sheet nobody has read — are one sibling's body, kept apart there (ARCH-03).
   const workArea = (): ReactNode => {
-    if (feedRefusal !== null) {
-      return (
-        <div className="cx-viewer-refusal">
-          <RefusalState refusal={feedRefusal.refusal} evidence={feedRefusal.evidence} />
-        </div>
-      );
-    }
-    if (head === null) {
-      return (
-        <div className="cx-viewer-loading" data-testid="viewer-loading">
-          <span className="cx-viewer-hidden">{strings.viewer_loading_label}</span>
-          <SheetBones />
-        </div>
-      );
-    }
-    if (head.kind === "refusal") {
-      return (
-        <div className="cx-viewer-refusal">
-          <RefusalState refusal={head.refusal} evidence={projectEvidence} />
-          <FidelityFacts facts={head.facts} />
-        </div>
-      );
-    }
-    if (head.kind === "absent") {
-      const unread = head.reason === "not-ingested";
-      return (
-        <div className="cx-viewer-empty" data-testid="viewer-empty">
-          <h2 className="cx-viewer-empty-heading">{unread ? strings.viewer_empty_unread_heading : strings.viewer_empty_sheet_heading}</h2>
-          <p className="cx-viewer-empty-body">{unread ? strings.viewer_empty_unread_body : strings.viewer_empty_sheet_body}</p>
-          <a className="cx-btn cx-reticle cx-viewer-empty-action" data-variant="secondary" href={projectEvidence.href}>
-            <span className="cx-btn-label">{projectEvidence.label}</span>
-          </a>
-        </div>
-      );
+    if (denied !== null || head === null || head.kind !== "manifest") {
+      return <SheetAbsence head={head} denied={denied} tenantId={tenantId} projectId={projectId} />;
     }
 
     return (
