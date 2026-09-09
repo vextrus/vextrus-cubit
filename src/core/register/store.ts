@@ -6,8 +6,8 @@
 //
 // It composes rather than computes: what a unit converts to is the canon's (`../units/canon`), what a
 // refusal is called is the closed taxonomy's (`../errors`), and this file adds the store around them.
-import { and, asc, eq, registerAttributes, registerObjects, registerObservations, repudiatedObjects, type TenantTx } from "../db";
-import { REFUSALS } from "../errors";
+import { and, asc, campaigns, desc, eq, registerAttributes, registerObjects, registerObservations, repudiatedObjects, type TenantTx } from "../db";
+import { REFUSALS, type RefusalCode } from "../errors";
 import { OBSERVATION_BASES, type ObservationBasis } from "../identity";
 import { CANONICAL_UNIT, convert, exact, isUnit, toCanonical, type Unit } from "../units/canon";
 
@@ -132,7 +132,7 @@ export function declaredPrecedence(precedence: number): number {
  * caller rather than a refusal anybody typed — text from a person or a wire is asked through the
  * canon's own `isUnit` before it reaches this door (ARCH-03).
  */
-function canonicalise(valueAsWritten: string, unitAsWritten: string): { ok: true; value: string; unit: Unit; factor: string } | { ok: false; refusal: string } {
+function canonicalise(valueAsWritten: string, unitAsWritten: string): { ok: true; value: string; unit: Unit; factor: string } | { ok: false; refusal: RefusalCode } {
   const value = asRead(valueAsWritten);
   // L-REG-01: "convert of no input is no output, never a zero". A cell that said "N/A", or said
   // nothing at all, is not a reading of zero and is not stored as one. It is also nobody's mistake:
@@ -150,6 +150,61 @@ function canonicalise(valueAsWritten: string, unitAsWritten: string): { ok: true
   const carried = convert(value, unitAsWritten, unit);
   if (!carried.ok) return { ok: false, refusal: carried.code };
   return { ok: true, value: carried.value, unit, factor: source.factor };
+}
+
+/**
+ * The revision a project's register is read and written under: the pinned revision of the campaign
+ * standing on the project now (L-REG-07 — pinning a drawing set is what opens one).
+ *
+ * A caller that names only a project — an act does, because a person acts on a project — resolves the
+ * revision here rather than each spelling the same read (B-17). A project with no campaign open has
+ * no register, and that is an absence the caller answers for, never a fault.
+ */
+export async function registerScopeIn(tx: TenantTx, tenantId: string, projectId: string): Promise<RegisterScope | null> {
+  const held = await tx
+    .select({ setRevisionId: campaigns.setRevisionId })
+    .from(campaigns)
+    .where(and(eq(campaigns.tenantId, tenantId), eq(campaigns.projectId, projectId)))
+    .orderBy(desc(campaigns.openedAt), desc(campaigns.campaignId))
+    .limit(1);
+  const standing = held[0];
+  return standing === undefined ? null : { tenantId, projectId, setRevisionId: standing.setRevisionId };
+}
+
+/**
+ * One reading as it WOULD stand if it were appended now: canonicalised through the canon, given no id
+ * and written nowhere. It is what lets a preview state the standing its reading would produce without
+ * writing the reading first (L-ACT-02: the Consequence is computed, never guessed), and it is derived
+ * by the same `canonicalise` the append itself uses, so the two cannot disagree (B-17).
+ */
+export function readingAsAppended(scope: RegisterScope, input: ObservationInput): { readonly ok: true; readonly reading: ObservationRow } | { readonly ok: false; readonly refusal: RefusalCode } {
+  const canonical = canonicalise(input.valueAsWritten, input.unitAsWritten);
+  if (!canonical.ok) return { ok: false, refusal: canonical.refusal };
+  return {
+    ok: true,
+    reading: {
+      tenantId: scope.tenantId,
+      // The store mints the id and the append sequence, so a reading nobody has appended carries the
+      // empty spellings of both: what a preview reads off this row is its value, its unit and its
+      // precedence, and never an identity the store has not handed out (L-REG-04).
+      observationId: "",
+      setRevisionId: scope.setRevisionId,
+      objectKey: input.objectKey,
+      attribute: input.attribute,
+      valueAsWritten: input.valueAsWritten,
+      unitAsWritten: input.unitAsWritten,
+      canonicalValue: canonical.value,
+      canonicalUnit: canonical.unit,
+      factor: canonical.factor,
+      factorProvenance: FACTOR_PROVENANCE,
+      basis: drawnFrom<ObservationBasis>(OBSERVATION_BASES, input.basis, "observation basis"),
+      sourceKey: input.sourceKey,
+      precedence: declaredPrecedence(input.precedence),
+      actId: null,
+      observedAt: new Date(0),
+      appendSeq: Number.MAX_SAFE_INTEGER,
+    },
+  };
 }
 
 /** The register object one identity stands on inside one revision, or nothing where none does. */

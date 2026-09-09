@@ -11,8 +11,10 @@ import { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-store
 import { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typical-range";
 import { confirmDiscipline, type ConfirmDisciplineInput } from "./confirm-discipline";
 import { confirmViewType, type ConfirmViewTypeInput } from "./confirm-view-type";
+import { corroborate, type CorroborateInput } from "./corroborate";
 import { insertLevel, type InsertLevelInput } from "./insert-level";
 import { pinDrawingSet, type PinDrawingSetInput } from "./pin-drawing-set";
+import { repudiate, type RepudiateInput } from "./repudiate";
 import { repudiateLevel, type RepudiateLevelInput } from "./repudiate-level";
 import { consequenceDigest, movesNothing, type Consequence } from "./consequence";
 import { ACT_TYPES, type ActType } from "./law";
@@ -42,8 +44,10 @@ export { GROUP_KINDS, groupNotOffered, type ConfirmDisciplineInput, type GroupKi
 export { viewGroupNotOffered, type ConfirmViewTypeInput, type ViewGroupKey } from "./confirm-view-type";
 export { setNotPinnable, type PinDrawingSetInput } from "./pin-drawing-set";
 export { affirmScale, type AffirmScaleInput } from "./affirm-scale";
-export { insertLevel, type InsertLevelInput, type ProposedLevel, type ProposedReading } from "./insert-level";
+export { insertLevel, type InsertLevelInput, type LevelStackGroupKey, type ProposedLevel, type ProposedReading } from "./insert-level";
 export { repudiateLevel, type RepudiateLevelInput } from "./repudiate-level";
+export { corroborate, type CorroborateInput } from "./corroborate";
+export { repudiate, type RepudiateInput } from "./repudiate";
 export { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-storey-height";
 export { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typical-range";
 
@@ -57,7 +61,9 @@ export type ActInput =
   | InsertLevelInput
   | RepudiateLevelInput
   | AuthorStoreyHeightInput
-  | AuthorTypicalRangeInput;
+  | AuthorTypicalRangeInput
+  | CorroborateInput
+  | RepudiateInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -74,6 +80,8 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
   REPUDIATE_LEVEL: repudiateLevel,
   AUTHOR_STOREY_HEIGHT: authorStoreyHeight,
   AUTHOR_TYPICAL_RANGE: authorTypicalRange,
+  CORROBORATE: corroborate,
+  REPUDIATE: repudiate,
 });
 
 /**
@@ -114,6 +122,10 @@ function renderingFor(input: ActInput): BoundRendering {
     case "AUTHOR_STOREY_HEIGHT":
       return bind(ACT_MAP[input.type], input);
     case "AUTHOR_TYPICAL_RANGE":
+      return bind(ACT_MAP[input.type], input);
+    case "CORROBORATE":
+      return bind(ACT_MAP[input.type], input);
+    case "REPUDIATE":
       return bind(ACT_MAP[input.type], input);
     default:
       return unrendered(input);
