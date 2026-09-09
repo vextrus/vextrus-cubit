@@ -109,6 +109,46 @@
   color: var(--graphite-600);
 }
 
+/* I-161: what an act's kind derives, shown only when the seam sent it. Two labelled slots, each
+   naming what it holds whole — never a count standing for a list. */
+.cx-consequence-effects-block {
+  margin-top: var(--space-3);
+}
+
+.cx-consequence-effects-heading {
+  margin: 0;
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-consequence-effects {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-2) 0 0;
+}
+
+.cx-consequence-effects-label {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-consequence-effects-value {
+  min-width: 0;
+  margin: 0;
+}
+
+/* The identifiers verbatim, wrapping and selectable: what a person would go and look at is never
+   truncated behind an affordance (the digest's own rule, I-43). */
+.cx-consequence-effect-list {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
 .cx-consequence-digest {
   display: flex;
   flex-direction: column;

@@ -71,6 +71,7 @@ const card: SheetCardData = {
   proposal: { number: "A-101", title: "Ground floor plan", discipline: STANDS_AS, basis: "title block", cited: [] },
   confirmed: null,
   scaleState: "stated",
+  unplaceableViews: null,
   viewCount: null,
   facts: {},
 };

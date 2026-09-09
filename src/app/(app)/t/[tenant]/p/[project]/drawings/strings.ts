@@ -31,6 +31,7 @@ export const drawings = {
   drawings_scale_unaffirmed: "Scale not affirmed",
   drawings_scale_affirmed: "Scale affirmed",
   drawings_scale_unplaceable: "Scale unplaceable — this layout carries no extent or no drawing units",
+  drawings_scale_unplaceable_count: "{count} of {total} views have no scale of record",
   drawings_views_unclassified: "Views not classified yet",
   drawings_views_count: "{count} views",
   drawings_fact_strays_rejected: "Strays rejected",

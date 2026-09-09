@@ -42,6 +42,7 @@ function card(sheetId: string, drawingId: string, layoutName: string): SheetCard
     proposal: { number: "S-101", title: `Title of ${layoutName}`, discipline: DISCIPLINES[0], basis: "GRAMMAR", cited: [] },
     confirmed: null,
     scaleState: "unaffirmed",
+    unplaceableViews: null,
     viewCount: null,
     facts: {},
   };

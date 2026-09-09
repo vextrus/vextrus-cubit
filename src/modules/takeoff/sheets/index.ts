@@ -8,11 +8,17 @@
 // proposal or re-counts a counter — a second answer to either would be a second truth (B-17).
 import { projectDrawingsOf, sheetStateOf, sheetsOfRecord, type Discipline, type FidelityFact, type ScaleState, type SheetConfirmation, type SheetFacts, type SheetProposal } from "@/core/sheets";
 import type { OfferedGroupKey } from "@/core/acts";
-import { forTenant } from "@/core/db";
+import { forTenant, type TenantTx } from "@/core/db";
+import { judgeAnisotropy } from "@/core/scale";
+import { affirmationsOfRecord } from "@/core/scale/store";
+import { scaleTolerancesOf } from "@/core/scale/tolerances";
 import { appStorage } from "@/core/storage/app";
+import { viewRecordsOf } from "@/core/views";
 import { sheetRastersOf } from "../thumbnails";
+import { scaleStateOf, type ScaleStateView } from "./scale-state";
 
 export type { OfferedGroupKey } from "@/core/acts";
+export { scaleStateOf, type ScaleStateView, type SheetScaleState } from "./scale-state";
 
 /** Which project's index is being asked for, in whose workspace. */
 export type SheetIndexScope = { tenantId: string; projectId: string };
@@ -30,6 +36,11 @@ export type SheetCard = {
   readonly proposal: SheetProposal;
   readonly confirmed: { readonly discipline: Discipline; readonly actId: string } | null;
   readonly scaleState: ScaleState;
+  /**
+   * How many of this sheet's views carry no calibration of record, or an unplaceable one (R-TO-021).
+   * Null where no partition has been read through: the same rule as `viewCount` below.
+   */
+  readonly unplaceableViews: number | null;
   /**
    * How many views this sheet holds. Null until L-CAD-06's classification lands: a count nobody
    * derived is never invented, and "not classified yet" is a different answer from "none".
@@ -65,25 +76,67 @@ export async function sheetIndexOf(scope: SheetIndexScope): Promise<SheetCard[]>
   const confirmed = confirmationsBySheet(confirmations);
   const storage = appStorage();
   const cards: SheetCard[] = [];
+  // R-TO-021's count, per record: the views of the drawing's current partition and the calibrations
+  // in force over them. Read once for the whole index rather than per card, because every sheet of
+  // one record reads the same views.
+  const byRecord = await sheetScaleStatesOf(scope, [...new Set(drawings.flatMap((drawing) => (drawing.record === null ? [] : [drawing.record.ingestId])))]);
 
   for (const drawing of drawings) {
     if (drawing.record === null) continue;
     const sheets = await sheetsOfRecord(scope.tenantId, drawing.record, storage);
     const rasters = await sheetRastersOf({ tenantId: scope.tenantId, drawingId: drawing.drawingId });
+    const views = byRecord.get(drawing.record.ingestId) ?? [];
 
     for (const sheet of sheets) {
       const tiers = rasters.find((rendered) => rendered.layoutName === sheet.layoutName)?.tiers;
       const thumb = tiers?.[THUMB_TIER];
+      // The card's scale line is derived from the calibrations in force, over the reading the sheet
+      // grammar already made — never instead of it (B-17, docs/design/s-scale.md § 1).
+      const derived = scaleStateOf(sheet.scaleState, views);
       cards.push({
         ...cardFacts(sheet),
+        scaleState: derived.state,
         format: drawing.format,
         thumbnail: thumb === undefined ? null : { url: thumb.url, width: thumb.width, height: thumb.height },
         confirmed: confirmed.get(sheet.sheetId) ?? null,
-        viewCount: null,
+        unplaceableViews: derived.unplaceable,
+        // A drawing whose partition nobody has read through holds no view rows, which is exactly
+        // "not classified yet" — a different answer from "none" (R-UI-050).
+        viewCount: views.length === 0 ? null : views.length,
       });
     }
   }
   return cards;
+}
+
+/**
+ * The views of each named ingest record, as a scale state is derived from them: the view rows the
+ * partition holds and the calibration of record over each, judged placeable at the project edition's
+ * anisotropy tolerance.
+ *
+ * It reads the store and no artifact: what a card says about a sheet's scale needs the affirmations
+ * in force, not the machine's proposals — those are the panel's own door (B-17, ARCH-02).
+ */
+export async function sheetScaleStatesOf(scope: SheetIndexScope, ingestIds: readonly string[]): Promise<Map<string, readonly ScaleStateView[]>> {
+  const held = new Map<string, readonly ScaleStateView[]>();
+  if (ingestIds.length === 0) return held;
+  const tolerances = await scaleTolerancesOf({ tenantId: scope.tenantId, projectId: scope.projectId });
+
+  return forTenant({ tenantId: scope.tenantId }).transaction(async (tx: TenantTx) => {
+    for (const ingestId of ingestIds) {
+      const recordScope = { tenantId: scope.tenantId, ingestId };
+      const views = await viewRecordsOf(tx, recordScope);
+      const affirmed = await affirmationsOfRecord(tx, recordScope);
+      held.set(
+        ingestId,
+        views.map((view) => {
+          const standing = affirmed.get(view.viewKey) ?? null;
+          return { viewKey: view.viewKey, affirmed: standing === null ? null : judgeAnisotropy(standing, tolerances.anisotropy) };
+        }),
+      );
+    }
+    return held;
+  });
 }
 
 /**

@@ -189,6 +189,7 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
           ) : (
             <>
               <ConsequenceBody consequence={shown.consequence} />
+              <ConsequenceEffects effects={shown.consequence.effects} />
               <p className="cx-consequence-digest">
                 <span className="cx-consequence-digest-label">{strings.consequence_dialog_digest_label}</span>
                 <span data-testid="consequence-digest-line">{shown.digest}</span>
@@ -254,6 +255,39 @@ function ConsequenceBody({ consequence }: { consequence: Consequence }) {
  */
 function unrendered(arm: never): never {
   throw new Error(`a Consequence rendered as ${JSON.stringify(arm)}, which this dialog has no rendering for (L-ACT-02)`);
+}
+
+/**
+ * I-161: the effect slots mount exactly when the seam sends them. `Consequence.effects` is optional
+ * in core, so a preview that carries no `effects` field — which is every act shipped before the
+ * affirmation — mounts neither slot and no heading, and no earlier acceptance or picture of this
+ * dialog moves (B-20). The presence of the field is the switch, never a prop and never the act type:
+ * what an act's kind derives is the seam's answer, not this component's guess (R-TO-020).
+ */
+function ConsequenceEffects({ effects }: { effects: Consequence["effects"] }) {
+  if (effects === undefined) return null;
+  return (
+    <section className="cx-consequence-effects-block">
+      <h3 className="cx-consequence-effects-heading">{strings.consequence_dialog_effects_heading}</h3>
+      <dl className="cx-consequence-effects">
+        <dt className="cx-consequence-effects-label">{strings.consequence_dialog_effects_lines}</dt>
+        <dd className="cx-consequence-effects-value" data-testid="consequence-effect-lines">
+          <EffectList named={effects.linesRederiving} />
+        </dd>
+        <dt className="cx-consequence-effects-label">{strings.consequence_dialog_effects_signatures}</dt>
+        <dd className="cx-consequence-effects-value" data-testid="consequence-effect-signatures">
+          <EffectList named={effects.signaturesVoiding} />
+        </dd>
+      </dl>
+    </section>
+  );
+}
+
+/** The identifiers an effect names, whole and selectable — or the one word an empty slot is said
+    with, because a slot that stands silent says nothing about what would follow (R-UI-020). */
+function EffectList({ named }: { named: readonly string[] }) {
+  if (named.length === 0) return <span className="cx-consequence-none">{strings.consequence_dialog_none}</span>;
+  return <span className="cx-consequence-effect-list">{named.join(" ")}</span>;
 }
 
 /**

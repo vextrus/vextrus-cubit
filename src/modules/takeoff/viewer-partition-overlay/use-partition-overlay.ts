@@ -112,6 +112,8 @@ export type UseOverlayPaintOptions = {
   cameraRef: RefObject<Camera | null>;
   overlay: PartitionOverlay | null;
   toggles: OverlayToggles;
+  /** Which views no affirmation act names, by the absence each declares — the scale door's own answer (I-160). */
+  scaleAbsence?: ReadonlyMap<string, string>;
 };
 
 export type UseOverlayPaint = {

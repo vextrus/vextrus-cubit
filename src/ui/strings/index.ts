@@ -4,6 +4,7 @@
 import { auth } from "./auth";
 import { commandPalette } from "./command-palette";
 import { consequenceDialog } from "./consequence-dialog";
+import { consequenceEffects } from "./consequence-effects";
 import { design } from "./design";
 import { dropzone } from "./dropzone";
 import { home } from "./home";
@@ -11,6 +12,7 @@ import { jobTimeline } from "./job-timeline";
 import { offeredGroup } from "./offered-group";
 import { participants } from "./participants";
 import { partition } from "./partition";
+import { scale } from "./scale";
 import { screenStates } from "./screen-states";
 import { shell } from "./shell";
 import { shortcuts } from "./shortcuts";
@@ -24,6 +26,7 @@ export const strings = {
   ...auth,
   ...commandPalette,
   ...consequenceDialog,
+  ...consequenceEffects,
   ...design,
   ...dropzone,
   ...home,
@@ -31,6 +34,7 @@ export const strings = {
   ...offeredGroup,
   ...participants,
   ...partition,
+  ...scale,
   ...screenStates,
   ...shell,
   ...shortcuts,
