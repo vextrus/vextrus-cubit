@@ -86,14 +86,32 @@ async function ownEdition(tx: TenantTx, tenantId: string, scope: "tenant" | "pro
   return rows[0];
 }
 
-/** Copy an edition into this workspace under a new scope: same content, same digest, new row. */
+/**
+ * The isolation this transaction runs at, as Postgres names it. Asked only where a concurrent mint
+ * has just been observed, so the answer names the condition in the sentence that reports it rather
+ * than being carried around by every pin.
+ */
+async function isolationOf(tx: TenantTx): Promise<string> {
+  const rows = await tx.execute<{ isolation: string }>(`select current_setting('transaction_isolation') as isolation`);
+  return (rows as unknown as { isolation: string }[])[0]?.isolation ?? "an isolation this transaction did not answer";
+}
+
+/**
+ * Copy an edition into this workspace under a new scope: same content, same digest, new row — or
+ * nothing, where the row this offer would write already stands.
+ *
+ * The offer is made rather than assumed: the store's own uniqueness (one template per workspace, one
+ * pin per project) is what actually settles two concurrent creations, and a transaction that loses
+ * that race must find the winner's row rather than raise a driver error out of an ordinary
+ * simultaneity (ARCH-03).
+ */
 async function fork(
   tx: TenantTx,
   tenantId: string,
   parent: ForkSource,
   scope: "tenant" | "project",
   projectId: string | null,
-): Promise<ForkSource> {
+): Promise<ForkSource | undefined> {
   const written = await tx
     .insert(tenantRulesetEditions)
     .values({
@@ -107,26 +125,54 @@ async function fork(
       parameters: parent.parameters,
       methods: parent.methods,
     })
+    .onConflictDoNothing()
     .returning({ editionId: tenantRulesetEditions.editionId });
   const row = written[0];
-  if (row === undefined) throw new Error(`forking the ${scope} rule-set edition wrote no row (L-REG-07)`);
-  return { ...parent, editionId: row.editionId };
+  return row === undefined ? undefined : { ...parent, editionId: row.editionId };
+}
+
+/**
+ * The row this workspace ends up holding under one scope: the fork this transaction wrote, or — when
+ * a concurrent creation wrote it first — the row that concurrent creation left.
+ *
+ * The second read is the whole point. At READ COMMITTED it sees the winner's committed row and the
+ * loser pins the same edition, which is what makes two simultaneous first creations answer one
+ * template. At a stricter isolation the loser's snapshot predates that commit and no read inside
+ * this transaction can ever see the row, so nothing here can pin: it says exactly that, naming the
+ * isolation it is running at, and the caller retries the transaction (ARCH-03, B-21). It never
+ * spins, and it never dresses the condition as a driver fault.
+ */
+async function forkOrFindStanding(tx: TenantTx, tenantId: string, parent: ForkSource, scope: "tenant" | "project", projectId: string | null): Promise<ForkSource> {
+  const written = await fork(tx, tenantId, parent, scope, projectId);
+  if (written !== undefined) return written;
+
+  const standing = await ownEdition(tx, tenantId, scope, projectId);
+  if (standing !== undefined) return standing;
+
+  const isolation = await isolationOf(tx);
+  throw new Error(
+    `another transaction minted this workspace's ${scope} rule-set edition and this one, running at ${isolation}, cannot see it — the narrowed template lock settles a race at read committed only, so this creation must be retried (L-REG-07)`,
+  );
 }
 
 /**
  * The workspace's template, minted on first use. Only the minting path takes the tenant-wide lock:
  * once the template is there nothing can race, and a lock held for the rest of every
  * project-creation transaction would serialise creations that have nothing to settle between them.
+ *
  * Under the lock the read is taken again, because the transaction waited on is the one that minted
- * it — and behind both stands `tenant_ruleset_editions_template_once`, so a workspace holds one
- * template whatever the isolation level.
+ * it — and that re-read only sees the minted row where each statement takes its own snapshot, which
+ * is READ COMMITTED. Behind it stands `tenant_ruleset_editions_template_once`, which holds a
+ * workspace to one template at every isolation level; what differs is who has to retry, and that is
+ * said out loud rather than assumed away (`forkOrFindStanding`).
  */
 async function workspaceTemplate(tx: TenantTx, tenantId: string): Promise<ForkSource> {
   const held = await ownEdition(tx, tenantId, "tenant", null);
   if (held !== undefined) return held;
 
   await holdStateLock(tx, templateLockKey(tenantId));
-  return (await ownEdition(tx, tenantId, "tenant", null)) ?? (await fork(tx, tenantId, await platformSeed(tx), "tenant", null));
+  const behindTheLock = await ownEdition(tx, tenantId, "tenant", null);
+  return behindTheLock ?? (await forkOrFindStanding(tx, tenantId, await platformSeed(tx), "tenant", null));
 }
 
 /**
@@ -141,6 +187,6 @@ export async function pinRulesetForProject(tx: TenantTx, { tenantId, projectId }
   const existing = await ownEdition(tx, tenantId, "project", projectId);
   if (existing !== undefined) return { editionId: existing.editionId, digest: existing.contentDigest };
 
-  const pin = await fork(tx, tenantId, await workspaceTemplate(tx, tenantId), "project", projectId);
+  const pin = await forkOrFindStanding(tx, tenantId, await workspaceTemplate(tx, tenantId), "project", projectId);
   return { editionId: pin.editionId, digest: pin.contentDigest };
 }

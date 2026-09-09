@@ -68,6 +68,24 @@ const PLAIN_IDENTIFIER = /^[a-z_][a-z0-9_]*$/;
 const PROJECT_COLUMN = "project_id";
 
 /**
+ * The name a panel probe may write into its SQL, answered as the name to write. AUDIT_PANEL_TABLES
+ * is this module's own constant, so a name that cannot be written into a statement is a defect of
+ * that constant and says so out loud: answering DISARMED would dress a rejected name as the truthful
+ * posture of an installation that holds no such table, and would disarm the panel permanently with
+ * nothing anywhere saying why (ARCH-03, B-21).
+ *
+ * It is published because it is the whole of what makes the interpolation below safe, and a guard
+ * only reachable when its own module's constant is wrong is a guard nobody has ever seen answer
+ * (B-17, Q-17).
+ */
+export function panelTableName(table: string): string {
+  if (!PLAIN_IDENTIFIER.test(table)) {
+    throw new Error(`"${table}" is no plain table name, so no panel can probe it — AUDIT_PANEL_TABLES names tables (L-AI-01, C-SPINE-JOBS) and is re-pointed under B-20`);
+  }
+  return table;
+}
+
+/**
  * The project's acts, newest first. The tiebreak on `actId` makes the order total, so two acts
  * recorded in one instant still stand in one order rather than in whichever the planner returned.
  *
@@ -120,16 +138,13 @@ function isYes(answer: unknown): boolean {
  * shape of a statement issued against this one.
  */
 async function panelFor(db: TenantDb, table: string, projectId: string): Promise<AuditPanel> {
-  if (!PLAIN_IDENTIFIER.test(table)) {
-    // AUDIT_PANEL_TABLES is this file's own constant, so a name that cannot be written into SQL is a
-    // defect of that constant and says so out loud. Answering DISARMED here would dress a rejected
-    // name as the truthful posture of an installation that holds no such table (ARCH-03, B-21).
-    throw new Error(`"${table}" is no plain table name, so no panel can probe it — AUDIT_PANEL_TABLES names tables (L-AI-01, C-SPINE-JOBS) and is re-pointed under B-20`);
-  }
+  // The name is asked for as the name to write, so the guard stands on the very spelling that
+  // reaches the statement rather than beside it.
+  const named = panelTableName(table);
 
   const readable = await scalar<unknown>(
     db,
-    `select (to_regclass('${table}') is not null and coalesce(has_table_privilege(to_regclass('${table}'), 'select'), false)) as answer`,
+    `select (to_regclass('${named}') is not null and coalesce(has_table_privilege(to_regclass('${named}'), 'select'), false)) as answer`,
   );
   if (!isYes(readable)) return DISARMED;
 
@@ -139,7 +154,7 @@ async function panelFor(db: TenantDb, table: string, projectId: string): Promise
       `select (count(*) > 0) as answer from information_schema.columns as held` +
         ` join pg_catalog.pg_class as relation on relation.relname = held.table_name` +
         ` join pg_catalog.pg_namespace as within on within.oid = relation.relnamespace and within.nspname = held.table_schema` +
-        ` where relation.oid = to_regclass('${table}') and held.column_name = '${PROJECT_COLUMN}'`,
+        ` where relation.oid = to_regclass('${named}') and held.column_name = '${PROJECT_COLUMN}'`,
     ),
   );
   if (perProject && !isUuid(projectId)) return { armed: true, rowCount: 0 };
@@ -147,7 +162,7 @@ async function panelFor(db: TenantDb, table: string, projectId: string): Promise
   // The unqualified name is resolved by the same `search_path` `to_regclass` was answered against,
   // so the rows counted are the rows of the relation that was armed.
   const where = perProject ? ` where ${PROJECT_COLUMN} = '${projectId}'` : "";
-  const counted = await scalar<unknown>(db, `select count(*)::int as answer from ${table}${where}`);
+  const counted = await scalar<unknown>(db, `select count(*)::int as answer from ${named}${where}`);
   return { armed: true, rowCount: Number(counted ?? 0) };
 }
 
