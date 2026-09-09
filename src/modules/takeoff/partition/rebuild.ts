@@ -119,6 +119,9 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
   },
   conventions: (context, held) => {
     const census = censusOf(context.graph, held.views);
+    // A drawing with no model space has no census to take, so this stage resolved nothing and stores
+    // nothing: a fully-deferred profile written for it would be a reading nobody took (L-QTY-04).
+    if (census === null) return { derived: { ...held, conventions: null }, detail: { layers: 0, deferrals: 0 } };
     const conventions = { census, profile: resolveConventions(census) };
     return { derived: { ...held, conventions }, detail: { layers: census.layers.length, deferrals: conventions.profile.deferrals.length } };
   },

@@ -155,11 +155,17 @@ function candidatesOf(evidence: GridEvidence): Map<string, Drawn[]> {
  * The lawful bubbles among one view's candidates: for each round closed ring, the one text standing
  * inside it, where that text says a bare label. "Exactly one" is the whole of it — a ring enclosing a
  * label and a dimension mark says two things, and a reading that picked one of them would be a guess.
+ *
+ * One LABEL is one bubble. Draughtsmen ring a bubble twice — an inner circle and an outer one about
+ * the same letter — and each ring encloses exactly that text, so read ring by ring the drawing grows
+ * an axis it does not have: a duplicate at the same position, and a backbone claiming twice the grid
+ * lines. Among the rings enclosing one text the SMALLEST is the bubble, which is the one the tightest
+ * reading of "inside this circle" names (L-CAD-07).
  */
 function bubblesAmong(candidates: readonly Drawn[]): Bubble[] {
   const texts = candidates.filter((entity) => typeof entity.text === "string" && (entity.points ?? []).length > 0);
 
-  const bubbles: Bubble[] = [];
+  const tightest = new Map<string, { bubble: Bubble; radius: number }>();
   for (const ring of candidates) {
     if (ring.closed !== true) continue;
     const round = roundnessOf(ring);
@@ -172,9 +178,14 @@ function bubblesAmong(candidates: readonly Drawn[]): Bubble[] {
     const family = gridFamilyOf(said);
     if (family === null) continue;
 
-    bubbles.push({ bubbleKey: ring.key, labelKey: only.key, label: normaliseGridLabel(said), family, centre: round.centre });
+    const held = tightest.get(only.key);
+    if (held !== undefined && held.radius <= round.radius) continue;
+    tightest.set(only.key, {
+      bubble: { bubbleKey: ring.key, labelKey: only.key, label: normaliseGridLabel(said), family, centre: round.centre },
+      radius: round.radius,
+    });
   }
-  return bubbles;
+  return [...tightest.values()].map((held) => held.bubble);
 }
 
 /**
@@ -195,7 +206,13 @@ function bubblesAmong(candidates: readonly Drawn[]): Bubble[] {
  */
 function georeference(bubbles: readonly Bubble[]): Omit<GridAxisRow, "viewKey">[] {
   const families = [...new Set(bubbles.map((bubble) => bubble.family))];
-  const axisOf = new Map<GridFamily, GridAxis>(families.map((family) => [family, axisAlong(bubbles.filter((bubble) => bubble.family === family))]));
+  const spreadOf = new Map<GridFamily, Spread>(
+    families.map((family) => {
+      const members = bubbles.filter((bubble) => bubble.family === family);
+      return [family, { x: spanOf(members.map((member) => member.centre[0])), y: spanOf(members.map((member) => member.centre[1])) }];
+    }),
+  );
+  const axisOf = new Map<GridFamily, GridAxis>(families.map((family) => [family, axisAlong(family, families, spreadOf)]));
   const positionOf = (bubble: Bubble): number => (axisOf.get(bubble.family) === AXIS_X ? bubble.centre[0] : bubble.centre[1]);
 
   let minSpacing = Number.POSITIVE_INFINITY;
@@ -225,16 +242,35 @@ function georeference(bubbles: readonly Bubble[]): Omit<GridAxisRow, "viewKey">[
   }));
 }
 
+/** How far one family's bubbles reach along each world axis. */
+type Spread = { readonly x: number; readonly y: number };
+
 /**
  * The world axis a family georeferences along: the one its own bubbles are spread out along, since a
- * family of bubbles marks a run of parallel grid lines and stands across them. A family too small to
- * have spread at all stands along x, which is where a plan's letters run — and such a family carries
- * no spacing of its own either way.
+ * family of bubbles marks a run of parallel grid lines and stands across them.
+ *
+ * A family whose bubbles all stand at one place — a plan with a single numeral, an edge of the grid
+ * bubbled once — has no spread to read, and reading x anyway is an arbitrary default no drawing
+ * stated. Grid families CROSS each other: the family that stands still runs perpendicular to the
+ * family that spreads, and that is what a lone bubble's axis is read from. Where nothing spreads at
+ * all there is nothing to read, and x is then a stated convention rather than an accident
+ * (L-CAD-07).
  */
-function axisAlong(members: readonly Bubble[]): GridAxis {
-  const spreadX = spanOf(members.map((member) => member.centre[0]));
-  const spreadY = spanOf(members.map((member) => member.centre[1]));
-  return spreadX >= spreadY ? AXIS_X : AXIS_Y;
+function axisAlong(family: GridFamily, families: readonly GridFamily[], spreadOf: ReadonlyMap<GridFamily, Spread>): GridAxis {
+  const own = spreadOf.get(family);
+  if (own !== undefined && spreads(own)) return own.x >= own.y ? AXIS_X : AXIS_Y;
+
+  for (const other of families) {
+    const spread = spreadOf.get(other);
+    if (spread === undefined || !spreads(spread)) continue;
+    return spread.x >= spread.y ? AXIS_Y : AXIS_X;
+  }
+  return AXIS_X;
+}
+
+/** Whether a family reaches anywhere at all — one bubble, or several stacked, reaches nowhere. */
+function spreads(spread: Spread): boolean {
+  return spread.x > 0 || spread.y > 0;
 }
 
 /** How far a set of coordinates reaches, end to end. */

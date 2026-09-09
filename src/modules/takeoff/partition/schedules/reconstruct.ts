@@ -153,7 +153,7 @@ function tableOf(view: PartitionedView, standing: readonly Placed[]): ScheduleTa
   if (pitch === null) return null;
 
   const rows = rowsFrom(bands, header, pitch);
-  const columns = [...new Set((rows[0] as Band).texts.map((text) => text.x))].sort((left, right) => left - right);
+  const columns = columnsOf(rows[0] as Band);
   const reach = columnReachOf(columns);
 
   return {
@@ -215,6 +215,28 @@ function pitchBeneath(bands: readonly Band[], header: number): number | null {
   if (first === undefined) return null;
   const pitch = (bands[header] as Band).y - first.y;
   return pitch > 0 ? pitch : null;
+}
+
+/**
+ * The columns of the table, read off its header band: its texts clustered across the page, each
+ * column standing at the MEDIAN insertion of the texts that made it.
+ *
+ * Bands cluster with a tolerance because a draughtsman's hand moves a cell off its line; columns owe
+ * the same allowance for the same reason. Deduped by EXACT insertion x, a header text nudged four
+ * tenths of a millimetre starts a column of its own, and every cell beneath it is then split between
+ * two columns that are one column. The tolerance is the same one the bands use — the taller of the
+ * two texts' own heights, which is scale-free where a distance in drawing units would not be — and
+ * the median keeps one nudged text from moving the column off where its texts stand (L-QTY-04).
+ */
+function columnsOf(header: Band): number[] {
+  const clusters: Placed[][] = [];
+  for (const text of [...header.texts].sort((left, right) => left.x - right.x)) {
+    const held = clusters[clusters.length - 1];
+    const last = held?.[held.length - 1];
+    if (held !== undefined && last !== undefined && text.x - last.x <= Math.max(last.height, text.height)) held.push(text);
+    else clusters.push([text]);
+  }
+  return clusters.map((cluster) => medianOf(cluster.map((text) => text.x)));
 }
 
 /** The rows of the table: the header, and every band beneath it until the gap says the table ended. */

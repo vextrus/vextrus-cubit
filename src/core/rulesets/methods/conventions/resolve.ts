@@ -61,6 +61,38 @@ export type ConventionProfile = {
   readonly deferrals: readonly ConventionDeferral[];
 };
 
+/**
+ * Whether some value really is a profile this method answered — the type's own judgement, standing
+ * beside the type so a reader that stored one and a reader that reads one back cannot come to hold
+ * two ideas of what a profile is (ARCH-02).
+ *
+ * A stored profile arrives as whatever json the column holds. Cast rather than judged, a row written
+ * by another shape reaches placement and is only discovered when something dereferences it; judged
+ * by a second, local spelling of the shape, the two spellings drift. So it is asked here, of the
+ * one home.
+ */
+export function isConventionProfile(value: unknown): value is ConventionProfile {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as { roles?: unknown; captionGrammars?: unknown; deferrals?: unknown };
+  if (typeof candidate.roles !== "object" || candidate.roles === null) return false;
+  const roles = candidate.roles as Record<string, unknown>;
+  if (!CONVENTION_ROLES.every((role) => isStringList(roles[role]))) return false;
+  if (!isStringList(candidate.captionGrammars)) return false;
+  return (
+    Array.isArray(candidate.deferrals) &&
+    candidate.deferrals.every((deferral) => {
+      if (typeof deferral !== "object" || deferral === null) return false;
+      const stated = deferral as { code?: unknown; role?: unknown };
+      return stated.code === REFUSALS.CONVENTION_ROLE_UNRESOLVED.code && CONVENTION_ROLES.some((role) => role === stated.role);
+    })
+  );
+}
+
+/** A list of layer names, as every role of a profile carries one. */
+function isStringList(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
 /** Which tally of a layer's census decides each role — the geometry statistic the role is read from. */
 const ROLE_TALLY: Readonly<Record<ConventionRole, (layer: LayerCensus) => number>> = Object.freeze({
   linework: (layer) => layer.paths,

@@ -133,8 +133,13 @@ function sideOf(text: string): { readonly value: number; readonly unit: SectionU
 
 /**
  * A section written as a pair, or null where the text is not a pair at all. The unit is the one the
- * drawing stated — either side stating it states it for the section — and a pair written with no
- * unit keeps none: a number nobody gave a unit to is not an inch (L-MEA-01).
+ * drawing stated — one side stating it states it for the section — and a pair written with no unit
+ * keeps none: a number nobody gave a unit to is not an inch (L-MEA-01).
+ *
+ * Two sides stating DIFFERENT units state no one section. Taking the first of them would read
+ * `12" x 300MM` as 12 × 300 of whichever was written first, and a member sized from that is wrong by
+ * a factor of twenty-five. A disagreement is not a size, and nothing here is in a position to decide
+ * which side the draughtsman meant.
  */
 export function parseSizePair(text: string): SizePair | null {
   const parts = normaliseNotation(text).split(SIZE_SEPARATOR);
@@ -142,6 +147,7 @@ export function parseSizePair(text: string): SizePair | null {
   const width = sideOf(parts[0] ?? "");
   const depth = sideOf(parts[1] ?? "");
   if (width === null || depth === null) return null;
+  if (width.unit !== null && depth.unit !== null && width.unit !== depth.unit) return null;
   const unit = width.unit ?? depth.unit;
   return { width: width.value, depth: depth.value, unit };
 }

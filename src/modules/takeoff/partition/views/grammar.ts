@@ -48,7 +48,11 @@ const GRAMMAR: readonly Rule[] = [
   { reads: (said) => said.words.has(VIEW_TYPE.TITLE), type: VIEW_TYPE.TITLE },
   { reads: (said) => said.words.has(VIEW_TYPE.DETAIL), type: VIEW_TYPE.DETAIL },
   { reads: (said) => (said.words.has("LONGITUDINAL") || said.words.has("LONG")) && said.words.has("SECTION"), type: VIEW_TYPE.LONG_SECTION_STRIP },
-  { reads: (said) => said.words.has("PLAN") && MEMBER_WORDS.some((word) => said.words.has(word)), type: VIEW_TYPE.DETAIL },
+  // A member word makes a plan a DETAIL only where the caption does not ALSO say LAYOUT. "FOOTING F1
+  // PLAN" is one footing drawn large, which is what this rule is for; "COLUMN LAYOUT PLAN" is the
+  // sheet every column instance is placed off, and a detail yields no instances — so reading it as
+  // one loses the drawing's columns to a word (L-CAD-06).
+  { reads: (said) => said.words.has("PLAN") && !said.words.has("LAYOUT") && MEMBER_WORDS.some((word) => said.words.has(word)), type: VIEW_TYPE.DETAIL },
   { reads: (said) => said.words.has("PLAN"), type: VIEW_TYPE.LAYOUT_PLAN },
   { reads: (said) => said.words.has("SECTION"), type: VIEW_TYPE.MEMBER_SECTION },
 ];

@@ -23,14 +23,14 @@ const BOB = "cccccccc-1111-4222-8333-444444444444";
 const PROJECTS = ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222", "33333333-3333-4333-8333-333333333333"] as const;
 
 const seam = vi.hoisted(() => ({
-  roleHistory: vi.fn<(ctx: { tenantId: string; userId: string }, ref: { projectId: string }) => Promise<readonly unknown[]>>(),
+  roleHistoryIfReadable: vi.fn<(ctx: { tenantId: string; userId: string }, ref: { projectId: string }) => Promise<readonly unknown[] | null>>(),
   requireMembership: vi.fn(async () => undefined),
   projectRows: [] as { projectId: string }[],
 }));
 
 vi.mock("../../../participants", async (importOriginal) => {
   const original = (await importOriginal()) as Record<string, unknown>;
-  return { ...original, roleHistory: seam.roleHistory };
+  return { ...original, roleHistoryIfReadable: seam.roleHistoryIfReadable };
 });
 vi.mock("../members", async (importOriginal) => {
   const original = (await importOriginal()) as Record<string, unknown>;
@@ -76,7 +76,7 @@ function door(): (actor: { tenantId: string; userId: string }) => Promise<Readon
 beforeEach(() => {
   vi.clearAllMocks();
   seam.projectRows = PROJECTS.map((projectId) => ({ projectId }));
-  seam.roleHistory.mockImplementation(async (_ctx, ref) => (ref.projectId === PROJECTS[0] ? [entry(ALICE, "PRINCIPAL"), entry(BOB, "CONTRIBUTOR")] : [entry(ALICE, "CONTRIBUTOR")]));
+  seam.roleHistoryIfReadable.mockImplementation(async (_ctx, ref) => (ref.projectId === PROJECTS[0] ? [entry(ALICE, "PRINCIPAL"), entry(BOB, "CONTRIBUTOR")] : [entry(ALICE, "CONTRIBUTOR")]));
 });
 
 afterEach(() => {
@@ -88,9 +88,9 @@ test("AC-2(d): the whole roster's record costs one ledger read per project, what
 
   const histories = await memberRoleHistories({ tenantId: TENANT, userId: READER });
 
-  expect(seam.roleHistory.mock.calls.length, "one read per project of the workspace — the record does not depend on which member is asked about").toBe(seam.projectRows.length);
+  expect(seam.roleHistoryIfReadable.mock.calls.length, "one read per project of the workspace — the record does not depend on which member is asked about").toBe(seam.projectRows.length);
   expect(
-    [...seam.roleHistory.mock.calls].map((call) => call[1].projectId).sort(),
+    [...seam.roleHistoryIfReadable.mock.calls].map((call) => call[1].projectId).sort(),
     "every project of the workspace is visited, each exactly once",
   ).toEqual([...PROJECTS].sort());
   // Two members appear in the answer, and the cost did not double with them.
@@ -117,12 +117,14 @@ test("AC-2(d): each key holds exactly that subject's movements, with the project
   expect(bob.length, "Bob moved on one project only").toBe(1);
 });
 
+// RE-BASELINED (B-20). The seam this door reads a project through is now the participants module's
+// readable-or-null one: whether this reader may read this project is a judgement that module makes
+// about its own ledgers, and it ANSWERS it rather than throwing a code any refusal below could also
+// carry. What is judged here is unchanged — a project the reader may not read contributes nothing
+// and the rest of the record still gathers — and it is judged of the answer instead of the throw.
 test("AC-2(d): a project this reader may not read is passed over, not turned into a refusal of the whole read", async () => {
   const memberRoleHistories = door();
-  seam.roleHistory.mockImplementation(async (_ctx, ref) => {
-    if (ref.projectId === PROJECTS[1]) throw refusal("PERMISSION_NOT_HELD", "the reader stands on neither this project nor the workspace's administration");
-    return [entry(ALICE, "PRINCIPAL")];
-  });
+  seam.roleHistoryIfReadable.mockImplementation(async (_ctx, ref) => (ref.projectId === PROJECTS[1] ? null : [entry(ALICE, "PRINCIPAL")]));
 
   const histories = await memberRoleHistories({ tenantId: TENANT, userId: READER });
 
@@ -131,7 +133,7 @@ test("AC-2(d): a project this reader may not read is passed over, not turned int
 
 test("AC-2(d): a failure that is not a permission answer still travels", async () => {
   const memberRoleHistories = door();
-  seam.roleHistory.mockImplementation(async () => {
+  seam.roleHistoryIfReadable.mockImplementation(async () => {
     throw new Error("the ledger could not be read");
   });
 
@@ -156,5 +158,5 @@ test("AC-2(d): membership of the workspace is what admits the read", async () =>
   seam.requireMembership.mockRejectedValueOnce(refusal("WORKSPACE_PERMISSION_NOT_HELD", "a stranger to the workspace is refused rather than answered"));
 
   await expect(memberRoleHistories({ tenantId: TENANT, userId: READER })).rejects.toThrow();
-  expect(seam.roleHistory, "a stranger's read never reaches the ledgers").not.toHaveBeenCalled();
+  expect(seam.roleHistoryIfReadable, "a stranger's read never reaches the ledgers").not.toHaveBeenCalled();
 });

@@ -77,7 +77,13 @@ export function partitionArtifact(graph: EntityGraph): ViewPartition {
     const said = classifyCaption(caption.text ?? "");
     const viewKey = `${said.type}:${caption.key}`;
     views.set(viewKey, { viewKey, type: said.type, reason: said.reason, caption: (caption.text ?? "").trim(), anchorKey: caption.key });
-    placed.push({ viewKey, type: said.type, at: pointsOf(caption)[0] as Point, height: caption.height ?? 0 });
+    // A caption stands where it is DRAWN, judged by the same reading every other entity is judged by
+    // — its centroid. Anchoring it at its first point instead puts the view metres from where the
+    // words actually stand the moment the extractor gives a caption more than one point (a two-line
+    // title, a justified string given both its ends), and geometry nearer that caption than any
+    // other is then handed to a neighbouring view. One rule for where a thing stands (L-CAD-06).
+    const at = centreOf(caption);
+    if (at !== null) placed.push({ viewKey, type: said.type, at, height: caption.height ?? 0 });
   }
   const anchors: Anchor[] = placed.map((caption) => ({ viewKey: caption.viewKey, at: caption.at, reach: reachOf(caption, placed) }));
 
