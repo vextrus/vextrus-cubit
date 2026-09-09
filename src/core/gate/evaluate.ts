@@ -85,13 +85,8 @@ function inRoster(roster: readonly string[], value: string): boolean {
  *
  * A contract violation is one code (riskNotes (4)): the rail and the gate disagree about what an
  * offer IS, which is not a measurement question and tells a reader nothing about the drawing.
- *
- * The provenance is asked of the register itself, not of the offer: a line carries "provenance to a
- * register row as a reference" (L-QTY-03), so an object key no row of this campaign's own revision
- * holds is a key nothing can be traced through — publishing a quantity for it would sever the
- * quantity from the object it claims to measure.
  */
-function toContract(offer: Offer, under: MeasuredUnder, registered: ReadonlySet<string>): boolean {
+function toContract(offer: Offer, under: MeasuredUnder): boolean {
   return (
     offer.ruleId.length > 0 &&
     isElementType(offer.class) &&
@@ -102,7 +97,6 @@ function toContract(offer: Offer, under: MeasuredUnder, registered: ReadonlySet<
     inRoster(COVERAGES, offer.coverage) &&
     offer.register.objectKey.length > 0 &&
     offer.register.setRevisionId === under.setRevisionId &&
-    registered.has(offer.register.objectKey) &&
     isUuid(offer.drawing.drawingId) &&
     offer.drawing.viewKey.length > 0
   );
@@ -149,12 +143,13 @@ function observationKeyOf(observation: RailObservation): string {
  * Judge one offer against the campaign's edition, and answer which arm it lands on.
  *
  * The order is the order a reader would ask the questions in: is this an offer at all, is its rule in
- * force, can the tree compute it, is its geometry corroborated, are its readings carryable, do its
- * deduction candidates stand in channels the method declares. Each answer is final for that offer —
- * nothing is judged twice and nothing falls through.
+ * force, can the tree compute it, is the object one the register holds, is its geometry corroborated,
+ * are its readings carryable, does it stand on a calibration reference, do its deduction candidates
+ * stand in channels the method declares. Each answer is final for that offer — nothing is judged
+ * twice and nothing falls through.
  */
 export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEdition, registered: ReadonlySet<string>): Judgement {
-  if (!toContract(offer, under, registered)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+  if (!toContract(offer, under)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
   const pair = versionInForce(edition, offer.ruleId);
   if (pair === undefined) return refuse(offer, REFUSALS.METHOD_NOT_IN_EDITION.code);
@@ -165,6 +160,12 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
   if (implementation === undefined || implementation.role !== "formula") return refuse(offer, REFUSALS.METHOD_IMPLEMENTATION_MISSING.code);
   const method: FormulaMethod = implementation;
   if (method.kind !== offer.kind) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+
+  // The object the offer is about, asked of the register itself: a line carries "provenance to a
+  // register row as a reference" (L-QTY-03), so a key no row of this campaign's own revision holds is
+  // a key nothing can be traced through — and a quantity for an object nothing registered would be
+  // severed from the object it claims to measure, which is neither a line nor a deferral.
+  if (!registered.has(offer.register.objectKey)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
   // L-QTY-04: "interpreted geometry uncorroborated → declared exclusion + queue item, never a line".
   // The deferral carries a registered code, because the same taxonomy serves machine refusals and
@@ -182,13 +183,6 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
       },
     };
   }
-
-  // L-QTY-03 has a line always carry "a non-empty set of affirmed calibration references", and
-  // L-QTY-04 makes a mandatory publishable attribute that is missing a hard block: an offer standing
-  // on no affirmed reference at all publishes nothing rather than publishing a quantity nobody could
-  // say what the drawing was scaled by.
-  const calibrationKeys = calibrationKeysOf(offer);
-  if (calibrationKeys.length === 0) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
   // Every declared variable, and only the declared variables: a binding the method does not name is
   // the rail and the method disagreeing about the declaration, and dropping it silently would be the
@@ -219,6 +213,13 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
   if (offer.deductions.some((candidate) => !method.deductionChannels.includes(candidate.channel))) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
   const partition = partitionDeductions(offer.deductions, edition.parameters);
   if (!partition.ok) return refuse(offer, partition.code);
+
+  // L-QTY-03 has a line always carry "a non-empty set of affirmed calibration references", and
+  // L-QTY-04 makes a missing mandatory publishable attribute a hard block: an offer standing on no
+  // affirmed reference at all publishes nothing, rather than a quantity nobody can say what the
+  // drawing it was read from was scaled by.
+  const calibrationKeys = calibrationKeysOf(offer);
+  if (calibrationKeys.length === 0) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
   const bound = normalised as NormalisedBindings;
   const deductions: RecordedDeduction[] = [
@@ -322,7 +323,7 @@ function sameClaim(standing: StandingClaim, line: PublishedLine): boolean {
 
 /** The object keys of this batch the register really holds on the campaign's own revision. */
 async function registeredObjects(tx: TenantTx, tenantId: string, setRevisionId: string, offers: readonly Offer[]): Promise<ReadonlySet<string>> {
-  const offered = [...new Set(offers.map((offer) => offer.register.objectKey).filter((key) => key.length > 0))];
+  const offered = offeredKeys(offers);
   if (offered.length === 0) return new Set<string>();
   const held = await tx
     .select({ objectKey: registerObjects.objectKey })
@@ -331,21 +332,28 @@ async function registeredObjects(tx: TenantTx, tenantId: string, setRevisionId: 
   return new Set(held.map((row) => row.objectKey));
 }
 
-/**
- * Publish one line, and answer what the store then holds for its object.
- *
- * A key a queue item already stands under is refused rather than published: an object is a measured
- * line or a declared exclusion and never both (L-QTY-04). A key this very line already stands under
- * is the re-run the natural key exists for, and is reported as published without writing again; a
- * key a DIFFERENT line stands under is the over-measurement across batches, and is answered.
- */
-async function publish(tx: TenantTx, tenantId: string, offer: Offer, line: PublishedLine): Promise<Judgement> {
-  const key = and(eq(queueItems.tenantId, tenantId), eq(queueItems.campaignId, line.campaignId), eq(queueItems.objectKey, line.objectKey), eq(queueItems.kind, line.kind));
-  const deferred = await tx.select({ cause: queueItems.cause }).from(queueItems).where(key).limit(1);
-  if (deferred.length > 0) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+/** The object keys this batch is about, each once — what every read of the stores is bounded by. */
+function offeredKeys(offers: readonly Offer[]): string[] {
+  return [...new Set(offers.map((offer) => offer.register.objectKey).filter((key) => key.length > 0))];
+}
 
-  const standing = await tx
+/** What the campaign's own stores already hold for the objects this batch is about. */
+type Standing = {
+  readonly lines: ReadonlyMap<string, StandingClaim>;
+  readonly deferred: ReadonlyMap<string, string>;
+};
+
+/**
+ * The standing records this batch could collide with, read once for the whole batch: after the
+ * over-measurement block no two offers write under one key, so one reading stays true for the run.
+ */
+async function standingFor(tx: TenantTx, tenantId: string, campaignId: string, offers: readonly Offer[]): Promise<Standing> {
+  const offered = offeredKeys(offers);
+  if (offered.length === 0) return { lines: new Map(), deferred: new Map() };
+  const lines = await tx
     .select({
+      objectKey: quantityLines.objectKey,
+      kind: quantityLines.kind,
       value: quantityLines.value,
       unit: quantityLines.unit,
       formula: quantityLines.formula,
@@ -357,9 +365,29 @@ async function publish(tx: TenantTx, tenantId: string, offer: Offer, line: Publi
       coverage: quantityLines.coverage,
     })
     .from(quantityLines)
-    .where(and(eq(quantityLines.tenantId, tenantId), eq(quantityLines.campaignId, line.campaignId), eq(quantityLines.objectKey, line.objectKey), eq(quantityLines.kind, line.kind)))
-    .limit(1);
-  const held = standing[0];
+    .where(and(eq(quantityLines.tenantId, tenantId), eq(quantityLines.campaignId, campaignId), inArray(quantityLines.objectKey, offered)));
+  const deferred = await tx
+    .select({ objectKey: queueItems.objectKey, kind: queueItems.kind, cause: queueItems.cause })
+    .from(queueItems)
+    .where(and(eq(queueItems.tenantId, tenantId), eq(queueItems.campaignId, campaignId), inArray(queueItems.objectKey, offered)));
+  return {
+    lines: new Map(lines.map((row) => [naturalKeyOf(row.objectKey, row.kind), row])),
+    deferred: new Map(deferred.map((row) => [naturalKeyOf(row.objectKey, row.kind), row.cause])),
+  };
+}
+
+/**
+ * Publish one line, and answer what the store then holds for its object.
+ *
+ * A key a queue item already stands under is refused rather than published: an object is a measured
+ * line or a declared exclusion and never both (L-QTY-04). A key this very line already stands under
+ * is the re-run the natural key exists for, and is reported as published without writing again; a
+ * key a DIFFERENT line stands under is the over-measurement across batches, and is answered.
+ */
+async function publish(tx: TenantTx, tenantId: string, offer: Offer, line: PublishedLine, standing: Standing): Promise<Judgement> {
+  const key = naturalKeyOf(line.objectKey, line.kind);
+  if (standing.deferred.has(key)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+  const held = standing.lines.get(key);
   if (held !== undefined) return sameClaim(held, line) ? { arm: "published", line } : refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
   await tx.insert(quantityLines).values({ ...line, tenantId }).onConflictDoNothing();
@@ -371,21 +399,11 @@ async function publish(tx: TenantTx, tenantId: string, offer: Offer, line: Publi
  * key a line already stands under cannot also be a declared exclusion, and a queue item already
  * standing for the same cause is the same deferral rather than a second one.
  */
-async function defer(tx: TenantTx, tenantId: string, offer: Offer, item: QueuedItem): Promise<Judgement> {
-  const published = await tx
-    .select({ lineId: quantityLines.lineId })
-    .from(quantityLines)
-    .where(and(eq(quantityLines.tenantId, tenantId), eq(quantityLines.campaignId, item.campaignId), eq(quantityLines.objectKey, item.objectKey), eq(quantityLines.kind, item.kind)))
-    .limit(1);
-  if (published.length > 0) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
-
-  const standing = await tx
-    .select({ cause: queueItems.cause })
-    .from(queueItems)
-    .where(and(eq(queueItems.tenantId, tenantId), eq(queueItems.campaignId, item.campaignId), eq(queueItems.objectKey, item.objectKey), eq(queueItems.kind, item.kind)))
-    .limit(1);
-  const held = standing[0];
-  if (held !== undefined) return held.cause === item.cause ? { arm: "queued", item } : refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+async function defer(tx: TenantTx, tenantId: string, offer: Offer, item: QueuedItem, standing: Standing): Promise<Judgement> {
+  const key = naturalKeyOf(item.objectKey, item.kind);
+  if (standing.lines.has(key)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+  const held = standing.deferred.get(key);
+  if (held !== undefined) return held === item.cause ? { arm: "queued", item } : refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
   await tx.insert(queueItems).values({ ...item, tenantId }).onConflictDoNothing();
   return { arm: "queued", item };
@@ -436,10 +454,11 @@ export async function evaluateOffers(scope: GateScope, batch: RailBatch): Promis
     const registered = await registeredObjects(tx, scope.tenantId, under.setRevisionId, batch.offers);
     const judged = withoutOverMeasurement(batch.offers.map((offer) => ({ offer, judgement: judgeOffer(offer, under, edition, registered) })));
 
+    const standing = await standingFor(tx, scope.tenantId, under.campaignId, batch.offers);
     const answers: Judgement[] = [];
     for (const { offer, judgement } of judged) {
-      if (judgement.arm === "published") answers.push(await publish(tx, scope.tenantId, offer, judgement.line));
-      else if (judgement.arm === "queued") answers.push(await defer(tx, scope.tenantId, offer, judgement.item));
+      if (judgement.arm === "published") answers.push(await publish(tx, scope.tenantId, offer, judgement.line, standing));
+      else if (judgement.arm === "queued") answers.push(await defer(tx, scope.tenantId, offer, judgement.item, standing));
       else answers.push(judgement);
     }
     const refusals: GateRefusal[] = answers.flatMap((answer) => (answer.arm === "refused" ? [answer.refusal] : []));
