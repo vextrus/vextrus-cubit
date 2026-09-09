@@ -23,6 +23,7 @@ import {
   SEED_NAME,
   SEED_PARAMETERS,
   SEED_VERSION,
+  SUPERSEDED_SEED_VERSION,
   loadEditionDigest,
   loadPinRulesetForProject,
   loadProjectRulesetView,
@@ -65,6 +66,10 @@ const READ_COMMANDS = ["*", "r"];
 
 function migrationFiles(): string[] {
   if (!existsSync(MIGRATIONS)) return [];
+  // white-box: AC-6 (and AC-2 before it) — the criteria are about the migration LANE's own files:
+  // that a new `*ruleset-edition-methods*.sql` mints the edition beside the immutable row rather
+  // than editing it (B-20, history is append-only). Which files the lane holds is a property of
+  // that text, and no product call can answer it.
   return readdirSync(MIGRATIONS).filter((name) => name.endsWith(".sql"));
 }
 
@@ -72,6 +77,9 @@ function rulesetMigration(): { name: string; text: string } {
   const matches = migrationFiles().filter((name) => name.includes(RULESET_MIGRATION));
   expect(matches.length, `exactly one db/migrations/*${RULESET_MIGRATION}*.sql is owed; found ${matches.length === 0 ? "none" : matches.join(", ")}`).toBe(1);
   const name = matches[0] ?? "";
+  // white-box: AC-2 — the generated half of the migration must stay pure and the hand-written RLS
+  // and grants stand after the marker, which is a property of the migration's own text; the tables
+  // it creates are read from it too, so "every rulesets table" is whatever it landed (B-19).
   return { name, text: readFileSync(join(MIGRATIONS, name), "utf8") };
 }
 
@@ -256,15 +264,29 @@ const staged = (): Promise<Stage> =>
     };
   })());
 
-/** The platform seed edition as the database holds it, found by the name L-MEA-01 gives it. */
-async function seedRow(): Promise<Record<string, unknown>> {
+/**
+ * Every platform edition the migrated store holds under the name L-MEA-01 gives it.
+ *
+ * Re-baselined under B-20 by inc-213: a landed migration is superseded, never edited, so the store
+ * holds the edition 0004 seeded AND the one this increment mints beside it — two rows, one name.
+ */
+async function seedRows(): Promise<Record<string, unknown>[]> {
   const { bootstrapUrl, tables } = await staged();
-  const matches = tables.flatMap((table) => jsonRows(bootstrapUrl, table).filter((row) => row["name"] === SEED_NAME).map((row) => ({ table, row })));
+  // Platform scope only: a workspace's template and a project's pin are FORKS carrying the same
+  // name, and they are the pin's business rather than the seed's (L-REG-07).
+  return tables.flatMap((table) => jsonRows(bootstrapUrl, table).filter((row) => row["name"] === SEED_NAME && row["scope"] === "platform"));
+}
+
+/** The platform seed edition in force — the version `src/core/rulesets/seed` exports today. */
+async function seedRow(): Promise<Record<string, unknown>> {
+  const { tables } = await staged();
+  const rows = await seedRows();
+  const matches = rows.filter((row) => row["version"] === SEED_VERSION);
   expect(
     matches.length,
-    `the migration must seed exactly one edition named ${SEED_NAME}; the freshly migrated store holds ${matches.length} (searched ${tables.join(", ")})`,
+    `the migration lane must seed exactly one edition ${SEED_NAME} @ ${SEED_VERSION}; the freshly migrated store holds ${matches.length} (searched ${tables.join(", ")}, versions ${rows.map((row) => String(row["version"])).join(", ")})`,
   ).toBe(1);
-  return (matches[0] as { row: Record<string, unknown> }).row;
+  return matches[0] as Record<string, unknown>;
 }
 
 /** The field of the seed row that holds its content digest, found by name rather than assumed. */
@@ -307,10 +329,10 @@ describe("AC-2: the rule-set edition store lands append-only, under the seam's p
     for (const parameter of SEED_PARAMETERS) {
       expect(parameterNumber(parameter.key, seedContent.parameters[parameter.key]), `L-MEA-01 fixes ${parameter.key} at ${parameter.value} ${parameter.unit}`).toBe(parameter.value);
     }
-    expect(Array.isArray(seedContent.methods), "the seed's content carries the (rule id, version) pairs of the methods in force — empty at M0, since no method is enumerated in the tree yet").toBe(true);
+    expect(Array.isArray(seedContent.methods), "the seed's content carries the (rule id, version) pairs of the methods in force").toBe(true);
   });
 
-  it("AC-2: the platform seed edition is IS1200_IN @ 2026.08, digested over exactly that content", async () => {
+  it(`AC-2: the platform seed edition is ${SEED_NAME} @ ${SEED_VERSION}, digested over exactly that content`, async () => {
     const { seedContent, digestOf } = await staged();
     const row = await seedRow();
     expect(row["version"], `L-MEA-01 versions the seed rule set ${SEED_VERSION}`).toBe(SEED_VERSION);
@@ -499,5 +521,67 @@ describe("AC-3: pinRulesetForProject forks platform → tenant template → proj
     const view = await loadProjectRulesetView();
     const answer = await view({ tenantId, projectId: randomUUID() });
     expect(answer.pinned, "a project the store knows nothing about gets the no-pin shape — the screen's honest absence, never a fault").toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * AC-6 (inc-213) — the platform edition re-minted beside the immutable one.
+ * ------------------------------------------------------------------ */
+
+/** The migration inc-213 adds, matched as a glob fragment against db/migrations/*.sql. */
+const EDITION_METHODS_MIGRATION = "ruleset-edition-methods";
+
+/** The edition 0004 seeded, which no migration may edit — history is append-only (B-20). */
+const SEEDED_MIGRATION = "0004";
+
+describe("AC-6: the platform edition is re-minted beside the row 0004 seeded", () => {
+  it("AC-6: a new migration mints the edition, and the freshly migrated store holds exactly two rows named IS1200_IN", async () => {
+    const minting = migrationFiles().filter((name) => name.includes(EDITION_METHODS_MIGRATION));
+    expect(
+      minting.length,
+      `exactly one db/migrations/*${EDITION_METHODS_MIGRATION}*.sql is owed — the re-mint is inserted BESIDE the immutable row, never over it (B-20); found ${minting.length === 0 ? "none" : minting.join(", ")}`,
+    ).toBe(1);
+
+    const rows = await seedRows();
+    expect(
+      rows.map((row) => String(row["version"])).sort(),
+      `the migrated store holds ${SEED_NAME} at both versions — the one 0004 seeded and the one this increment mints (L-MEA-01, B-20)`,
+    ).toStrictEqual([SUPERSEDED_SEED_VERSION, SEED_VERSION].sort());
+    for (const row of rows) {
+      expect(row["scope"], "both are platform editions — the head of every lineage (L-REG-07)").toBe("platform");
+    }
+  });
+
+  it("AC-6: the superseded edition still stands exactly as 0004 seeded it", async () => {
+    const rows = await seedRows();
+    const superseded = rows.find((row) => row["version"] === SUPERSEDED_SEED_VERSION);
+    expect(superseded, `the migrated store still holds ${SEED_NAME} @ ${SUPERSEDED_SEED_VERSION}`).toBeTruthy();
+    const held = superseded as Record<string, unknown>;
+
+    // white-box: AC-6 — the criterion is about the IMMUTABILITY of a landed migration's own text, so
+    // what 0004 wrote is read from 0004 itself; a row that had been edited would no longer say it.
+    const seeding = migrationFiles().filter((name) => name.startsWith(SEEDED_MIGRATION));
+    expect(seeding.length, `db/migrations/${SEEDED_MIGRATION}*.sql is the migration that seeded the platform edition`).toBe(1);
+    const text = readFileSync(join(MIGRATIONS, seeding[0] as string), "utf8");
+    expect(
+      text,
+      `${String(seeding[0])} still states the digest the superseded row carries — a landed migration is superseded, never edited (B-20, history is append-only)`,
+    ).toContain(digestField(held));
+    expect(held["methods"], `${SEED_NAME} @ ${SUPERSEDED_SEED_VERSION} cited no method, and citing one now would be an edition changed under the campaigns measured by it`).toStrictEqual([]);
+  });
+
+  it("AC-6: the edition in force carries the exported content's digest and its roster of methods", async () => {
+    const { seedContent, digestOf } = await staged();
+    const row = await seedRow();
+
+    expect(
+      digestField(row),
+      `${SEED_NAME} @ ${SEED_VERSION} is digested over exactly the content src/core/rulesets/seed exports — a stored digest that disagrees means the row and the seed hold different content (L-MEA-01)`,
+    ).toBe(digestOf(seedContent));
+    expect(
+      row["methods"],
+      "and the row's methods are the pairs that content cites — every method the shards enumerate, so a campaign opened under this edition can resolve each one (riskNotes (1))",
+    ).toStrictEqual([...seedContent.methods]);
+    expect((seedContent.methods as readonly unknown[]).length, "the edition in force cites at least the method this increment lands").toBeGreaterThan(0);
   });
 });
