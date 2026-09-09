@@ -37,6 +37,7 @@ const RECENT_ACTIVITY_LIMIT = 5;
 /** The areas that have a screen today, and the address each one leads to (test contract). */
 const LIVE_AREAS: readonly (readonly [string, (tenantId: string, projectId: string) => string])[] = [
   ["drawings", S_PROJECT.drawings],
+  ["takeoff", S_PROJECT.takeoff],
   ["activity", S_PROJECT.audit],
   ["settings", S_PROJECT.ruleset],
 ];

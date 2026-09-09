@@ -8,6 +8,9 @@ import { expect, type Locator, type Page } from "@playwright/test";
 export const S_PROJECT = Object.freeze({
   home: (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}`,
   drawings: (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/drawings`,
+  // The Takeoff area became live in inc-214-register-workspace: its tab is an anchor to the address
+  // the register workspace redirects from (B-20 — this increment owns the acceptance that froze it).
+  takeoff: (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/takeoff`,
   sets: (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/drawings/sets`,
   audit: (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/audit`,
   ruleset: (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/ruleset`,
