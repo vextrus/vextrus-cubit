@@ -22,14 +22,24 @@ const HEX = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i;
 /** Every number a functional form states, each keeping the `%` that changes what it means. */
 const STATED = /-?\d+(?:\.\d+)?%?/g;
 
+/**
+ * One channel, read WITH its notation: a functional form states a channel either as one of 255 steps
+ * or as a share of the whole, and reading `50%` as the bare number 50 is near-black where the
+ * notation said mid grey. The same reading `alphaOf` takes of the fourth part.
+ */
+function channelOf(stated: string | undefined): number {
+  if (stated === undefined) return 0;
+  return stated.endsWith("%") ? (Number(stated.slice(0, -1)) / WHOLE) * CHANNEL_MAX : Number(stated);
+}
+
 /** A resolved token value's three channels, as the notation states them. */
 export function channelsOf(colour: string): Channels {
   const hex = HEX.exec(colour.trim());
   if (hex !== null) {
     return [Number.parseInt(hex[1] ?? "", 16), Number.parseInt(hex[2] ?? "", 16), Number.parseInt(hex[3] ?? "", 16)];
   }
-  const [red, green, blue] = (colour.match(STATED) ?? []).slice(0, 3).map((part) => Number(part.replace("%", "")));
-  return [red ?? 0, green ?? 0, blue ?? 0];
+  const stated = (colour.match(STATED) ?? []).slice(0, 3);
+  return [channelOf(stated[0]), channelOf(stated[1]), channelOf(stated[2])];
 }
 
 /** The same three channels as the unit floats a vertex buffer takes. */

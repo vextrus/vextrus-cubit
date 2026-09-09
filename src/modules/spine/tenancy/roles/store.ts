@@ -11,6 +11,14 @@ import { and, eq, holdStateLock, isUuid, memberships, runAsSystem, users, type S
 import { workspacePermissionNotHeld } from "../refusals";
 import { workspacesBySeniority } from "./seniority";
 
+/**
+ * The handle a SYSTEM transaction hands its work: drizzle's same typed surface as a `TenantTx`, but
+ * armed with a recorded reason instead of a tenant — so its rows are NOT cut by row-level security.
+ * Named here because that difference is the whole caution a read taken through it owes: it states
+ * the workspace it means, or it sees every workspace's rows (SEAM-TENANT).
+ */
+type SystemTx = TenantTx;
+
 /** One membership of a workspace, as this module reads it. */
 export interface WorkspaceMembership {
   readonly userId: string;
@@ -107,7 +115,7 @@ export interface RoleMoveScope {
    * The handle it hands over is the system's and reads past row-level security, so a read taken
    * through it states the workspace it means.
    */
-  asking<T>(read: (tx: TenantTx) => Promise<T>): Promise<T>;
+  asking<T>(read: (tx: SystemTx) => Promise<T>): Promise<T>;
 }
 
 /**
@@ -163,7 +171,7 @@ export async function movingWorkspaceRoles<T>(tenantId: string, work: (scope: Ro
         return removed[0] !== undefined;
       },
 
-      asking: (read) => read(tx as TenantTx),
+      asking: (read) => read(tx),
     });
   });
 }

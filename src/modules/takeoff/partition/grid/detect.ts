@@ -260,12 +260,26 @@ function axisAlong(family: GridFamily, families: readonly GridFamily[], spreadOf
   const own = spreadOf.get(family);
   if (own !== undefined && spreads(own)) return own.x >= own.y ? AXIS_X : AXIS_Y;
 
+  // Which family it crosses is the one that spreads MOST — read from the whole drawing rather than
+  // from whichever family the reader met first, since bubble order is the planner's accident and a
+  // third family, or two that disagree about their direction, would otherwise decide it. A tie of
+  // reach is settled by the family's own name, so the answer is the same on every read.
+  let crossing: Spread | undefined;
+  let crossingName = "";
   for (const other of families) {
     const spread = spreadOf.get(other);
     if (spread === undefined || !spreads(spread)) continue;
-    return spread.x >= spread.y ? AXIS_Y : AXIS_X;
+    if (crossing !== undefined && (reachOf(crossing) > reachOf(spread) || (reachOf(crossing) === reachOf(spread) && crossingName <= other))) continue;
+    crossing = spread;
+    crossingName = other;
   }
-  return AXIS_X;
+  if (crossing === undefined) return AXIS_X;
+  return crossing.x >= crossing.y ? AXIS_Y : AXIS_X;
+}
+
+/** How far a family reaches along the axis it reaches furthest on — how decisively it spreads. */
+function reachOf(spread: Spread): number {
+  return Math.max(spread.x, spread.y);
 }
 
 /** Whether a family reaches anywhere at all — one bubble, or several stacked, reaches nowhere. */
