@@ -342,8 +342,12 @@ export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration
     const first = picks[0];
     if (first === undefined) return { ...NO_PICKS, unread: calibrationUnread };
     const second = picks[1];
-    const to = second?.point ?? live;
-    if (to === null || to === undefined) return { ...NO_PICKS, picks: 1, unread: calibrationUnread };
+    // Where the span this cell states ends: the second pick once one stands, otherwise the point the
+    // pointer is over. With one pick standing and the pointer away from the stage there is no second
+    // point at all, so the span ends where it began and the figure is zero — the pick itself is still
+    // a point of record, and answering "no picks" beside `data-picks="1"` would contradict the cell's
+    // own attribute and tell a reader the mark still on the overlay had been let go of (R-UI-020).
+    const to = second?.point ?? live ?? first.point;
 
     const measuring = second === undefined ? null : viewMeasuring(calibration, first.point, second.point);
     return {

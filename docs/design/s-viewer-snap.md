@@ -165,8 +165,13 @@ are):
   `viewer_status_distance_metres` filled with `formatUserFigure(metresBetween(…))` and at
   `data-si="uncalibrated"` with two picks standing by `viewer_status_distance_uncalibrated` in
   `var(--graphite-600)` — an empty cell would be the silence R-UI-020 forbids. `data-dx`/`data-dy` are
-  hover-minus-pick-1 in drawing units at three decimals with trailing zeros dropped, so an
+  hover-minus-pick-1 in drawing units at **six** decimals with trailing zeros dropped, so an
   ortho-constrained axis reads exactly `0`; `data-view-key` is present only at `data-si="calibrated"`.
+  Six rather than three because these two attributes are the only published reading of the angle
+  lock's direction, and AC-3 asks that direction to be a whole number of 15° steps to within 1e-6: at
+  the reach the acceptance measures at (r ≈ 67 drawing units) three decimals leaves about 1.6e-5 of a
+  step, which would fail a constraint the code applies exactly. Rounding a published figure below the
+  precision of the check that reads it is the defect, not the sixth decimal.
 
 Both cells are `aria-live="off"` inside the readout's polite region: a pointer-driven figure would
 otherwise be announced sixty times a second. The accessible path to the same facts is the explicit
@@ -275,7 +280,8 @@ class): the 10 px toolbar swatch; the glyph's 12 px box, 2 px strokes, the 14 px
 constants rather than CSS and are exported by name so no surface transcribes them: `SNAP_TOLERANCE_PX
 = 8` and `ANGLE_STEP_DEG = 15`; two more are the lattice's and the readouts' precision — `quantise`'s
 own 0.1 drawing unit (consumed from `src/core/identity/keys`, never redefined), 1 decimal for drawing
-units and 3 for metres and for `data-dx`/`data-dy`. Any other literal is a defect. No copper and no
+units, 3 for metres and 6 for `data-dx`/`data-dy` (§ 1's ruling: the offsets carry the angle lock's
+direction, which is read back to within 1e-6). Any other literal is a defect. No copper and no
 basis colour appears: a snap is a read, and a pick here originates no quantity and no register row.
 
 ## 6. Themes
