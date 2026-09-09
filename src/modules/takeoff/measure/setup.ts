@@ -15,6 +15,7 @@ import { drawingSetRevisions, eq, and, forTenant, type TenantTx } from "@/core/d
 import { levelStackOf } from "@/modules/takeoff/levels";
 import type { LevelSetup, MemberVariantSetup, PlacementSetup, RailSetup } from "@/core/offers/contract";
 import { affirmationsOfRecord } from "@/core/scale/store";
+import { viewAddressOf, viewRecordsOf } from "@/core/views";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
 import { memberTypesOf, placementsOf } from "@/modules/takeoff/partition";
 
@@ -116,9 +117,21 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
       memberTypes[registered.ingestId] = families;
     }
 
-    const affirmed = await forTenant({ tenantId: scope.tenantId }).transaction((tx) => affirmationsOfRecord(tx, { tenantId: scope.tenantId, ingestId: record.ingestId }));
+    // A view is held in two key spaces and this is where they are joined. The partition stores a view
+    // under its own key and the scale store files an affirmation against that same key, because the
+    // affirmation is evidence about a stored view; a placement, a register row and every offer name
+    // the view by L-REG-04's address, derived from the same two facts by `viewAddressOf` (B-17). A
+    // rail asks for the calibration of the view its placement cites, so the address is the key this
+    // setup answers under — the translation belongs to whoever spans the two stores, and that is here.
+    const addresses = await forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
+      const scoped = { tenantId: scope.tenantId, ingestId: record.ingestId };
+      const held = new Map((await viewRecordsOf(tx, scoped)).map((view) => [view.viewKey, viewAddressOf(view)]));
+      return { held, affirmed: await affirmationsOfRecord(tx, scoped) };
+    });
     const views: Record<string, string> = calibrations[record.ingestId] ?? {};
-    for (const [viewKey, standing] of affirmed) views[viewKey] = standing.calibrationKey;
+    // A view the partition no longer holds is filed under the only name the affirmation has: dropping
+    // it would lose a standing calibration, and a rail that cannot match it reports the absence.
+    for (const [viewKey, standing] of addresses.affirmed) views[addresses.held.get(viewKey) ?? viewKey] = standing.calibrationKey;
     calibrations[record.ingestId] = views;
   }
 

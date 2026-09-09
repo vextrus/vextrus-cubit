@@ -39,7 +39,7 @@ import { affirmationsOfRecord, writeAffirmation, type ViewCalibrationMove } from
 import { scaleTolerancesOf } from "../scale/tolerances";
 import { projectDrawingsOf } from "../sheets";
 import { appStorage } from "../storage/app";
-import { viewAddressOf, viewRecordsOf, type ViewRecord } from "../views";
+import { viewRecordsOf, type ViewRecord } from "../views";
 import type { Consequence, ConsequenceEffects } from "./consequence";
 import { actChangesNothing } from "./refusals";
 import type { ActRendering, ActorCtx, WrittenAct } from "./rendering";
@@ -110,33 +110,27 @@ async function derive(ctx: ActorCtx, input: AffirmScaleInput, tx: TenantTx): Pro
   const record = drawing.record;
   const scope = { tenantId: ctx.tenantId, ingestId: record.ingestId };
 
-  // The act names its views by L-REG-04's address — the key a placement and a register row cite a
-  // view under, and the key this affirmation is filed against. The partition's own key stays inside
-  // the partition, which is where the evidence (assignments, grid rows) is keyed by it (B-17).
-  const records = await viewRecordsOf(tx, scope);
-  const views = new Map([...records.map((view): [string, ViewRecord] => [view.viewKey, view]), ...records.map((view): [string, ViewRecord] => [viewAddressOf(view), view])]);
+  const views = new Map((await viewRecordsOf(tx, scope)).map((view) => [view.viewKey, view]));
   const members: ViewRecord[] = named.map((viewKey) => {
     const view = views.get(viewKey);
     if (view === undefined) throw partitionNotAvailable(`the partition of drawing ${input.drawingId} holds no view ${viewKey}`, { drawingId: input.drawingId, viewKey });
     return view;
   });
-  const stored = members.map((view) => view.viewKey);
 
   const tolerances = await scaleTolerancesOf({ tenantId: ctx.tenantId, projectId: input.projectId });
-  const evidence = await scaleEvidenceOf(tx, { ...scope, viewKeys: stored }, record, appStorage(), tolerances);
+  const evidence = await scaleEvidenceOf(tx, { ...scope, viewKeys: named }, record, appStorage(), tolerances);
   const proposals = proposalsFor(evidence);
   const standing = await affirmationsOfRecord(tx, scope);
 
-  const judged = judgeRank(input, stored, evidence.unit, evidence.assignments, proposals, tolerances.verification);
+  const judged = judgeRank(input, named, evidence.unit, evidence.assignments, proposals, tolerances.verification);
 
   const moves = members.map((view) => {
     const pair = judged.pairs.get(view.viewKey);
     if (pair === undefined) throw new Error(`no factor pair was derived for ${view.viewKey}, which the act named (L-MEA-05)`);
-    const address = viewAddressOf(view);
     return {
-      viewKey: address,
-      outgoingKey: standing.get(address)?.calibrationKey ?? null,
-      incomingKey: calibrationKey(address, pair.factorX, pair.factorY),
+      viewKey: view.viewKey,
+      outgoingKey: standing.get(view.viewKey)?.calibrationKey ?? null,
+      incomingKey: calibrationKey(view.viewKey, pair.factorX, pair.factorY),
       factorX: pair.factorX,
       factorY: pair.factorY,
     };
@@ -146,7 +140,7 @@ async function derive(ctx: ActorCtx, input: AffirmScaleInput, tx: TenantTx): Pro
     drawingId: drawing.drawingId,
     ingestId: record.ingestId,
     moves,
-    labels: new Map(members.map((view) => [viewAddressOf(view), view.caption])),
+    labels: new Map(members.map((view) => [view.viewKey, view.caption])),
     sourceKeys: judged.sourceKeys,
     observations: judged.observations,
   };
