@@ -16,6 +16,8 @@
  * standing in place of one — this entry admits nothing that is not already admitted.
  */
 export const DEFERRED_CODES: Readonly<Record<string, string>> = Object.freeze({
+  LEVEL_ORDINAL_UNMAPPED:
+    "the floor-multiplier scheme increment (L-REG-07) — the level model registers the code and its constructor because L-MEA-07 names them beside the ordinal, but the scheme whose missing row raises it is a pricing instrument that lands later, and nothing here can look one up to be refused by.",
   SIGNED_OUT:
     "the auth/session increment — it is the one that maps an expired session to this refusal and renders the sign-in remedy (ARCH-03, B-21); it has since landed, and the code is exercised by name, so this entry stands as the register's worked example of the deferral branch rather than as an amnesty anything relies on.",
 });
