@@ -146,6 +146,31 @@ export function parseSizePair(text: string): SizePair | null {
   return { width: width.value, depth: depth.value, unit };
 }
 
+/** How a schedule heads a column with the unit its cells are written in, per member of the roster. */
+const HEADER_UNITS: readonly (readonly [string, SectionUnit])[] = Object.freeze([
+  ["MM", UNIT.mm],
+  ["IN", UNIT.in],
+  ["INCH", UNIT.in],
+  ["INCHES", UNIT.in],
+] as const);
+
+/**
+ * The unit a column header states for the cells beneath it — `SIZE (B X D) MM`, `L X B MM` — or null
+ * where it states none.
+ *
+ * A schedule states its unit ONCE, in the head of the column, and writes bare numbers under it; the
+ * head is where the drawing said it, so reading it is reading the drawing rather than inventing the
+ * unit it withheld (L-MEA-01: a number nobody gave a unit to is not an inch — but this one was given
+ * one). A cell that carries its own unit outranks the head: it is the nearer statement (R-TO-031).
+ */
+export function sectionUnitOfHeader(header: string): SectionUnit | null {
+  for (const word of wordsOf(spelled(header))) {
+    const held = HEADER_UNITS.find((candidate) => candidate[0] === word);
+    if (held !== undefined) return held[1];
+  }
+  return null;
+}
+
 /** What separates the count of a rebar group from the diameter of its bars. Never nothing: a bare
  * `16Ø` states a diameter and no count, and reading a count out of its digits would be a guess. */
 const REBAR_GROUP = /^(\d+)(?:\s*-\s*|\s+(?:NOS?\.?|X)\s+|\s+)(\d+)\s*(?:MM)?\s*(?:Ø|DIA\.?|MM)\s*$/;

@@ -17,7 +17,7 @@
 // Pure over the tables: no store, no clock, no model (L-REG-04).
 import type { RebarZone, SectionUnit } from "@/core/db";
 import { REFUSALS } from "@/core/errors";
-import { isMarkFamily, isMarkHeader, normaliseMark, normaliseNotation, parseFloorZone, parseRebarGroups, parseSizePair, parseSpacing, rebarZoneOfHeader, type FloorBand, type RebarGroup } from "../notation";
+import { isMarkFamily, isMarkHeader, normaliseMark, normaliseNotation, parseFloorZone, parseRebarGroups, parseSizePair, parseSpacing, rebarZoneOfHeader, sectionUnitOfHeader, type FloorBand, type RebarGroup } from "../notation";
 import type { ScheduleCell, ScheduleDeferralRow, ScheduleTable } from "./reconstruct";
 
 /** The rebar one zone column states for one row: the cell verbatim, and what it reads as. */
@@ -265,7 +265,9 @@ function variantOf(variantKey: string, bandText: string, band: FloorBand | null,
     sectionText: cell.text,
     sectionWidth: section === null ? null : section.width,
     sectionDepth: section === null ? null : section.depth,
-    sectionUnit: section === null ? null : section.unit,
+    // The cell's own unit where it wrote one, and otherwise the one its column is headed with: a
+    // schedule states its unit once, over the column, and writes bare numbers under it (R-TO-031).
+    sectionUnit: section === null ? null : section.unit ?? sectionUnitOfHeader(bandText),
     sourceKeys: [...cell.sourceKeys],
     zones: zones.map((zone) => ({ ...zone })),
   };

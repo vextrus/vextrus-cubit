@@ -14,7 +14,7 @@ import { scaleEvidenceOf } from "@/core/scale/evidence";
 import { affirmationsOfRecord, type AffirmedCalibration } from "@/core/scale/store";
 import { scaleTolerancesOf } from "@/core/scale/tolerances";
 import type { Storage } from "@/core/storage";
-import { viewRecordsOf, type ViewRecord } from "@/core/views";
+import { viewAddressOf, viewRecordsOf, type ViewRecord } from "@/core/views";
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
 import { drawingProjectOf } from "@/modules/takeoff/partition/store";
 
@@ -75,9 +75,14 @@ export async function scaleProposalsOf(scope: ScaleScope, deps: ScaleDeps): Prom
     const absence = scaleAbsenceCodeOf(evidence.unit);
 
     return views.map((view) => {
-      const standing = affirmed.get(view.viewKey) ?? null;
+      // A view is named to the world by L-REG-04's address, which is what a placement and a register
+      // row cite it under: an affirmation is filed against that address, so the calibration a rail
+      // reads is the one this door says the view stands under (B-17). The partition's own key stays
+      // inside the partition, where the evidence is keyed by it.
+      const address = viewAddressOf(view);
+      const standing = affirmed.get(address) ?? null;
       return {
-        viewKey: view.viewKey,
+        viewKey: address,
         type: view.type,
         caption: view.caption,
         proposals: proposals.get(view.viewKey) ?? [],
