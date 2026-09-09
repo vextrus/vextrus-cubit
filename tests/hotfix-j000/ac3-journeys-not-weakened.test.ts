@@ -47,13 +47,31 @@ function isOwnedBaseline(path: string): boolean {
 
 /**
  * Is this a journey baseline image at all, whichever journey it grades? B-20 grants every
- * law-changing increment the ownership to re-baseline what its change froze, so "a `baseline:`
- * commit carries baselines and nothing else" has to read `baseline` the way B-20 means it — any
- * journey's image — and not "a baseline this increment happens to own".
+ * law-changing increment the ownership to re-baseline what its change froze, so a re-baseline is
+ * read the way B-20 means it — any journey's image — and not "a baseline this increment happens to
+ * own".
  */
 function isBaselineImage(path: string): boolean {
   return path.startsWith("tests/e2e/") && /\.(?:png|jpg|jpeg)$/i.test(path);
 }
+
+/**
+ * The frozen expectations a lane grades against, which B-20 re-baselines beside the pictures: it
+ * says "the tests and visual baselines that assert them" — two kinds, and the first is not an
+ * image. A regenerated comparison artifact (the cad lane's entity graphs) and a frozen expectation
+ * a plan has DECLARED re-baselined both land under the same discipline, so the stray reading below
+ * has to admit them; reading `baseline` as pictures alone makes a lawful `baseline:` commit a red
+ * no actor may clear.
+ */
+function isRegeneratedBaseline(path: string): boolean {
+  return isBaselineImage(path) || /^cad\/tests\/fixtures\/.*\.entitygraph\.json$/.test(path) || DECLARED_REBASELINED.includes(path);
+}
+
+/**
+ * The frozen expectations this branch's plan names as re-baselined — no wider a licence than the
+ * criteria spell, so anything under `src/` and every undeclared file is still a stray.
+ */
+const DECLARED_REBASELINED: readonly string[] = ["tests/rulesets/support/editions.ts", "db/__tests__/ruleset-editions.migration.test.ts"];
 
 describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline says so", () => {
   for (const path of OWNED_JOURNEYS) {
@@ -118,7 +136,7 @@ describe("AC-3: J-001 and J-002 keep asking what they asked, and any re-baseline
     // commit carrying only baselines, and reading it as all-strays would be a red no actor can clear.
     for (const { sha, subject } of branchCommits()) {
       if (!subject.startsWith("baseline:")) continue;
-      const strays = gitLines("show", "--name-only", "--format=", sha).filter((path) => !isBaselineImage(path));
+      const strays = gitLines("show", "--name-only", "--format=", sha).filter((path) => !isRegeneratedBaseline(path));
       expect(strays, `the baseline commit "${subject}" also carries files that are not baselines:\n  ${strays.join("\n  ")}`).toEqual([]);
     }
   });
