@@ -70,6 +70,22 @@ select.cx-reticle:focus-visible {
 }
 
 /*
+ * The same fallback for a box that scrolls its own content. The ticks are an absolutely positioned
+ * overlay, so on a scroll container they are laid out against the scrolled origin and clipped by the
+ * container's overflow: scroll it and the top pair leaves while the bottom pair strands itself
+ * mid-content, which is neither the four ticks R-UI-012 fixes nor its beam. A scrolling region
+ * therefore wears the beam, spelled here with every other form of the one indicator (B-17).
+ */
+.cx-reticle-scroll:focus-visible::after {
+  content: none;
+}
+
+.cx-reticle-scroll:focus-visible {
+  outline: 2px solid var(--beam-500);
+  outline-offset: 2px;
+}
+
+/*
  * The same fallback for the dialog's own box, which takes focus when it is opened: the reticle's
  * `position: relative` would fight the dialog's `position: fixed` at equal specificity, so the
  * corner ticks cannot be drawn there either. A visible focus indicator is never optional

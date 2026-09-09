@@ -15,9 +15,15 @@ export function RECENT_STORAGE_KEY(tenantId: string): string {
   return `cubit.palette.recents.${tenantId}`;
 }
 
-/** What is stored per row: the words it showed and the address it led to, and nothing else. */
+/**
+ * What is stored per row: the words it showed and the address it led to, and nothing else.
+ *
+ * There is no stored `key`. A recent IS its address — that is what the list deduplicates on — and
+ * the chosen row's own key is not unique across the workspace (an area row is keyed by the area, so
+ * "Drawings" in two projects would key alike, collide in `optionId` and make the second row
+ * unreachable). The key is therefore derived from the address at read.
+ */
 interface StoredRecent {
-  readonly key: string;
   readonly kind: string;
   readonly label: string;
   readonly meta: string | null;
@@ -37,9 +43,9 @@ function storage(): Storage | null {
 function storedRowOf(value: unknown): StoredRecent | null {
   if (typeof value !== "object" || value === null) return null;
   const row = value as Partial<StoredRecent>;
-  if (typeof row.key !== "string" || typeof row.kind !== "string") return null;
+  if (typeof row.kind !== "string") return null;
   if (typeof row.label !== "string" || typeof row.href !== "string" || row.href === "") return null;
-  return { key: row.key, kind: row.kind, label: row.label, meta: typeof row.meta === "string" ? row.meta : null, href: row.href };
+  return { kind: row.kind, label: row.label, meta: typeof row.meta === "string" ? row.meta : null, href: row.href };
 }
 
 /** This workspace's stored rows, newest first, never more than the cap. */
@@ -60,7 +66,9 @@ function storedRecents(tenantId: string): StoredRecent[] {
 /** The rows the recent group renders, newest first (I-141). */
 export function readRecents(tenantId: string): readonly PaletteRow[] {
   return storedRecents(tenantId).map((row) => ({
-    key: row.key,
+    // The address is the identity: unique among recents by the dedupe rule above, so two rows of
+    // the recent group can never share a DOM id however they were reached.
+    key: row.href,
     group: "recent" as const,
     kind: row.kind,
     label: row.label,
@@ -79,7 +87,7 @@ export function rememberRecent(tenantId: string, row: PaletteRow): readonly Pale
   if (href === "") return readRecents(tenantId);
 
   const kept: StoredRecent[] = [
-    { key: row.key, kind: row.kind, label: row.label, meta: row.meta ?? null, href },
+    { kind: row.kind, label: row.label, meta: row.meta ?? null, href },
     ...storedRecents(tenantId).filter((stored) => stored.href !== href),
   ].slice(0, RECENT_LIMIT);
 

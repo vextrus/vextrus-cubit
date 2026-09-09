@@ -78,6 +78,34 @@ export function paletteRefusalOf(code: string | null | undefined): PaletteRefusa
   return { entry, evidence: EVIDENCE[code] ?? EVIDENCE_ELSEWHERE };
 }
 
+/** Which single cell stands where the list would (Decision §2) — the list itself being one of them. */
+export type PaletteCell = "fault" | "refusal" | "loading" | "empty" | "list";
+
+/**
+ * Which cell the body renders, decided once (B-17). The combobox above reads this too: it may only
+ * claim `aria-expanded` and name a listbox in `aria-controls` while the listbox is actually in the
+ * document, and a second reading of the rule here would let the claim and the DOM drift apart.
+ */
+export function paletteCell({
+  status,
+  groups,
+  refusal = null,
+  fault = null,
+}: {
+  status: PaletteStatus;
+  groups: readonly PaletteGroup[];
+  refusal?: PaletteRefusal | null;
+  fault?: PaletteFault | null;
+}): PaletteCell {
+  if (fault !== null) return "fault";
+  // A refusal that arrived beside rows is the partial state — the answered rows stand and the card
+  // sits under them (R-UI-050: shown, not hidden). With no rows it stands in their place (I-142).
+  if (refusal !== null && groups.reduce((total, group) => total + group.rows.length, 0) === 0) return "refusal";
+  if (status === "loading") return "loading";
+  if (status === "empty") return "empty";
+  return "list";
+}
+
 /** The footer's status line: what the list is saying about itself, in one sentence (Decision §3). */
 function statusLine(status: PaletteStatus, rows: number): string {
   if (status === "loading") return strings.command_palette_status_searching;
@@ -101,9 +129,7 @@ export function PaletteBody({
   onShortcuts,
 }: PaletteBodyProps) {
   const rows = groups.reduce((total, group) => total + group.rows.length, 0);
-  // A refusal that arrived beside rows is the partial state — the answered rows stand and the card
-  // sits under them (R-UI-050: shown, not hidden). With no rows it stands in their place (I-142).
-  const refusedInPlace = refusal !== null && rows === 0;
+  const cell = paletteCell({ status, groups, refusal, fault });
 
   return (
     <>
@@ -113,7 +139,7 @@ export function PaletteBody({
         </p>
       ) : null}
 
-      {fault !== null ? (
+      {cell === "fault" && fault !== null ? (
         <div role="alert" className="cx-palette-fault">
           <p className="cx-palette-fault-line">{strings.command_palette_error}</p>
           {fault.reportId === "" ? null : <p className="cx-palette-fault-id">{fill(strings.command_palette_error_report, { id: fault.reportId })}</p>}
@@ -121,11 +147,11 @@ export function PaletteBody({
             {strings.command_palette_error_retry}
           </Button>
         </div>
-      ) : refusedInPlace ? (
+      ) : cell === "refusal" && refusal !== null ? (
         <div data-testid="command-palette-refusal" data-code={refusal.entry.code} className="cx-palette-refusal">
           <RefusalState refusal={refusal.entry} evidence={refusal.evidence} />
         </div>
-      ) : status === "loading" ? (
+      ) : cell === "loading" ? (
         <div data-testid="command-palette-loading" aria-busy="true" className="cx-palette-wait">
           {WAIT_BONES.map((bone) => (
             <div key={bone} className="cx-palette-wait-row">
@@ -133,7 +159,7 @@ export function PaletteBody({
             </div>
           ))}
         </div>
-      ) : status === "empty" ? (
+      ) : cell === "empty" ? (
         <div data-testid="command-palette-empty" className="cx-palette-empty">
           <p className="cx-palette-empty-line">{fill(strings.command_palette_empty, { query })}</p>
           <Button variant="secondary" onClick={onClear}>

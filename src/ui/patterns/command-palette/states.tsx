@@ -4,8 +4,9 @@
 // second drawing of a state is a state that can drift from the one people see.
 import type { ReactNode } from "react";
 import { Skeleton } from "../../primitives/core";
-import { SCREEN_STATE_TESTID, STATE_NAMES, type ScreenStateName } from "../../screen-states/contract";
+import { STATE_NAMES, type ScreenStateName } from "../../screen-states/contract";
 import { REFUSAL_ENTRIES } from "../../screen-states/refusal-entries";
+import { StateReason, StateShell } from "../../screen-states/state-shells";
 import { strings } from "../../strings";
 import { PaletteBody, paletteRefusalOf, type PaletteGroup } from "./palette-body";
 import { ShortcutSheetBody } from "./shortcut-sheet";
@@ -35,15 +36,6 @@ const listed = (rows: readonly PaletteRow[]): readonly PaletteGroup[] => [
 
 const LIST_ID = "cx-palette-declared-list";
 
-/** The declaration's own root: the state's name is the attribute, so the two cannot drift apart. */
-function shell(state: ScreenStateName, body: ReactNode): ReactNode {
-  return (
-    <div className="cx-screen-state" data-testid={SCREEN_STATE_TESTID} data-state={state}>
-      {body}
-    </div>
-  );
-}
-
 /** The palette's seven, each rendering the body the running palette renders (Decision §2). */
 const PALETTE_CELLS: Readonly<Record<ScreenStateName, () => ReactNode>> = {
   loading: () => <PaletteBody listId={LIST_ID} status="loading" groups={[]} />,
@@ -70,12 +62,12 @@ const SHEET_CELLS: Readonly<Record<ScreenStateName, () => ReactNode>> = {
   ),
   empty: () => (
     <>
-      <p role="note">{strings.state_empty_compiled_in}</p>
+      <StateReason reason={strings.state_empty_compiled_in} />
       <ShortcutSheetBody />
     </>
   ),
-  error: () => <p role="note">{strings.state_empty_compiled_in}</p>,
-  refusal: () => <p role="note">{strings.state_empty_compiled_in}</p>,
+  error: () => <StateReason reason={strings.state_empty_compiled_in} />,
+  refusal: () => <StateReason reason={strings.state_empty_compiled_in} />,
   partial: () => <ShortcutSheetBody />,
   offline: () => (
     <>
@@ -85,13 +77,15 @@ const SHEET_CELLS: Readonly<Record<ScreenStateName, () => ReactNode>> = {
       <ShortcutSheetBody />
     </>
   ),
-  "permission-denied": () => <p role="note">{strings.state_empty_compiled_in}</p>,
+  "permission-denied": () => <StateReason reason={strings.state_empty_compiled_in} />,
 };
 
 /** File a set of cells under their own names, each building its node afresh on every mount. */
 function declare(cells: Readonly<Record<ScreenStateName, () => ReactNode>>): Readonly<Record<ScreenStateName, PaletteState>> {
   const declared: Partial<Record<ScreenStateName, PaletteState>> = {};
-  for (const state of STATE_NAMES) declared[state] = { render: () => shell(state, cells[state]()) };
+  // The root every declared state renders under is the shipped one (B-17): the state's name is the
+  // attribute it carries, so the key a cell is filed at and the attribute it shows cannot drift.
+  for (const state of STATE_NAMES) declared[state] = { render: () => <StateShell state={state}>{cells[state]()}</StateShell> };
   return declared as Readonly<Record<ScreenStateName, PaletteState>>;
 }
 

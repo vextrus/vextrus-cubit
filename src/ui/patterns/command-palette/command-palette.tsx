@@ -8,7 +8,7 @@ import { Input } from "../../primitives/core";
 import { Dialog, DialogContent } from "../../primitives/overlay";
 import { strings } from "../../strings";
 import { useCommandPalette } from "./command-palette-provider";
-import { PaletteBody } from "./palette-body";
+import { PaletteBody, paletteCell } from "./palette-body";
 
 export function CommandPalette() {
   const palette = useCommandPalette();
@@ -17,6 +17,12 @@ export function CommandPalette() {
 
   // Outside a provider there is no palette to open, so there is nothing to render (I-135).
   if (palette === null) return null;
+
+  // The popup a combobox claims must be the one in the document (R-UI-012, axe
+  // `aria-valid-attr-value`): while a wait, an empty, a refusal or a fault stands in the list's
+  // place there is no listbox, so the combobox says it is collapsed and names nothing. Which cell
+  // stands is read from the body's own rule, never decided a second time here (B-17).
+  const listed = paletteCell({ status: palette.status, groups: palette.groups, refusal: palette.refusal, fault: palette.fault }) === "list";
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     // The arrows walk the options while DOM focus stays in the combobox (I-137); Escape is the
@@ -67,9 +73,9 @@ export function CommandPalette() {
             data-testid="command-palette-input"
             className="cx-palette-input"
             role="combobox"
-            aria-expanded="true"
-            aria-controls={listId}
-            aria-activedescendant={palette.activeId ?? undefined}
+            aria-expanded={listed ? "true" : "false"}
+            aria-controls={listed ? listId : undefined}
+            aria-activedescendant={listed ? (palette.activeId ?? undefined) : undefined}
             aria-autocomplete="list"
             aria-label={strings.command_palette_input_label}
             autoComplete="off"

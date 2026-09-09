@@ -103,6 +103,9 @@ export function CommandPaletteProvider({ tenantId, rows = [], search, navigate, 
       const active = typeof document === "undefined" ? null : document.activeElement;
       heldFocus.current = active instanceof HTMLElement ? active : null;
     }
+    // Two overlays never stand at once: opening the palette dismisses the sheet, exactly as opening
+    // the sheet dismisses the palette.
+    setSheetOpen(false);
     setOpen(true);
     setQuery("");
     setActiveKey(null);
@@ -262,7 +265,12 @@ export function CommandPaletteProvider({ tenantId, rows = [], search, navigate, 
     [faultId],
   );
 
-  const status: PaletteStatus = pending ? "loading" : refusal !== null && flat.length === 0 ? "refused" : flat.length === 0 && asked !== "" ? "empty" : "idle";
+  // The empty cell is a statement ABOUT the workspace — "nothing here matches what you typed" — so
+  // it is only ever said when the workspace was asked. Offline it was not asked (the effect above
+  // short-circuits), and the offline notice already says why the list is short: claiming a match
+  // failed would be the wrong `why`, which R-UI-020 forbids as surely as saying nothing.
+  const status: PaletteStatus =
+    pending ? "loading" : refusal !== null && flat.length === 0 ? "refused" : flat.length === 0 && asked !== "" && !offline ? "empty" : "idle";
 
   /* ------------------------------------------------------------------------------ choosing */
 
@@ -271,6 +279,9 @@ export function CommandPaletteProvider({ tenantId, rows = [], search, navigate, 
       // I-138: Enter on an unavailable row navigates nothing and closes nothing. The answer was
       // already on the row before the press.
       if (!isAvailable(row)) return;
+      // Nothing this provider opened may stand over the screen the choice lands on: the provider
+      // lives above the router, so an overlay left open would float over the next screen.
+      setSheetOpen(false);
       setRecents(rememberRecent(tenantId, row));
       if (typeof row.run === "function") {
         row.run();
@@ -349,8 +360,11 @@ export function CommandPaletteProvider({ tenantId, rows = [], search, navigate, 
 
       const sheet = shortcutById("shortcut-sheet");
       if (matchesStep(event, sheet.keys[0] as string)) {
+        // The binding that opens the sheet closes it: a key that only ever opens leaves Escape as
+        // the sole way out of a surface the same key put there (R-UI-032).
         event.preventDefault();
-        openSheet();
+        if (sheetOpen) closeSheet();
+        else openSheet();
         return;
       }
 
@@ -359,7 +373,7 @@ export function CommandPaletteProvider({ tenantId, rows = [], search, navigate, 
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [togglePalette, openSheet, goTo]);
+  }, [togglePalette, openSheet, closeSheet, sheetOpen, goTo]);
 
   const value = useMemo<CommandPaletteValue>(
     () => ({

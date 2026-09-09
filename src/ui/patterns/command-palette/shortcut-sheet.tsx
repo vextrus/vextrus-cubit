@@ -60,8 +60,9 @@ export function ShortcutSheet() {
               is reached by the keyboard as well as by the wheel — the sheet holds nothing focusable
               of its own, so without this a person on a keyboard could not read its last rows (axe
               `scrollable-region-focusable`, R-UI-012) — and where focus lands, the reticle is drawn
-              from its one home. */}
-          <div className="cx-shortcut-sheet-scroll cx-reticle" tabIndex={0}>
+              from its one home, in the beam form that home keeps for a box that scrolls (corner
+              ticks on a scroll container strand themselves mid-content when it is scrolled). */}
+          <div className="cx-shortcut-sheet-scroll cx-reticle cx-reticle-scroll" tabIndex={0}>
             <ShortcutSheetBody />
           </div>
         </div>
