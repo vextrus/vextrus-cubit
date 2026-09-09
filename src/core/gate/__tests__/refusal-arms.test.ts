@@ -88,6 +88,8 @@ function offer(changed: Partial<Offer> = {}): Offer {
     bindings: everyBinding(),
     selectors: {},
     deductions: [],
+    // Nothing of the item description is left out, which is what COMPLETE says (L-QTY-02).
+    omitted: [],
     coverage: "COMPLETE",
     ...changed,
   } as Offer;

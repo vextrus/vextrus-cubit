@@ -33,14 +33,20 @@ export type ViewPartition = {
  * caption rather than as a label inside a view. The share is fixed rather than resolved from the
  * drawing's own conventions, which is L-CAD-08's own question: what separates a title from a bar
  * mark here is the rule a draughtsman draws by — a caption is the big text on the sheet.
+ *
+ * The share stands near one rather than near a half because a sheet titles its views at ONE size:
+ * the biggest text on the sheet is the title, and a text drawn materially smaller is a label inside
+ * a view however large it looks beside the bar marks. A grid bubble three quarters the height of the
+ * title is an ordinary way to draw a plan, and reading each bubble as the caption of its own view
+ * would cut a plan into as many views as it has gridlines and leave the plan itself with nothing in
+ * it (L-CAD-06: every model-space entity belongs to exactly one view — the right one).
  */
-const CAPTION_HEIGHT_SHARE = 0.5;
+const CAPTION_HEIGHT_SHARE = 0.8;
 
 /**
- * How far a caption reaches, in multiples of its own text height. A caption is drawn at the scale of
- * the view it titles, so its height is the drawing's own statement of how large that view is — which
- * makes the reach scale-free where a fixed distance in drawing units would not be. Geometry standing
- * outside every caption's reach belongs to no view, and that is what the anchorless view is for.
+ * How far a caption reaches AT LEAST, in multiples of its own text height. A caption is drawn at the
+ * scale of the view it titles, so its height is the drawing's own statement of how large that view
+ * is — which makes the floor scale-free where a fixed distance in drawing units would not be.
  */
 const CAPTION_REACH_IN_HEIGHTS = 30;
 
@@ -66,13 +72,14 @@ export function partitionArtifact(graph: EntityGraph): ViewPartition {
   const captions = captionsAmong(standing);
 
   const views = new Map<string, PartitionedView>();
-  const anchors: Anchor[] = [];
+  const placed: { readonly viewKey: string; readonly type: ViewType; readonly at: Point; readonly height: number }[] = [];
   for (const caption of captions) {
     const said = classifyCaption(caption.text ?? "");
     const viewKey = `${said.type}:${caption.key}`;
     views.set(viewKey, { viewKey, type: said.type, reason: said.reason, caption: (caption.text ?? "").trim(), anchorKey: caption.key });
-    anchors.push({ viewKey, at: pointsOf(caption)[0] as Point, reach: (caption.height ?? 0) * CAPTION_REACH_IN_HEIGHTS });
+    placed.push({ viewKey, type: said.type, at: pointsOf(caption)[0] as Point, height: caption.height ?? 0 });
   }
+  const anchors: Anchor[] = placed.map((caption) => ({ viewKey: caption.viewKey, at: caption.at, reach: reachOf(caption, placed) }));
 
   const assignments = new Map<string, string>();
   let anchorless = false;
@@ -102,6 +109,23 @@ function captionsAmong(standing: readonly Drawn[]): Drawn[] {
   const texts = standing.filter((entity) => (entity.text ?? "").trim() !== "" && (entity.height ?? 0) > 0 && pointsOf(entity).length > 0);
   const tallest = texts.reduce((held, entity) => Math.max(held, entity.height ?? 0), 0);
   return tallest === 0 ? [] : texts.filter((entity) => (entity.height ?? 0) >= tallest * CAPTION_HEIGHT_SHARE);
+}
+
+/**
+ * How far one caption reaches: as far as the nearest OTHER caption on the sheet stands from it, and
+ * never less than its own text height's floor.
+ *
+ * A sheet lays its views out side by side and titles each of them, so the distance between two
+ * titles is the drawing's own statement of how much room a view was given — a plan is drawn several
+ * times its title's height tall, and a fixed multiple of that height cuts the far half of an
+ * ordinary plan off its own view. Geometry farther from every caption than the captions stand from
+ * each other is beyond any view the sheet lays out, and that is what the anchorless view is for
+ * (L-CAD-06: every model-space entity belongs to exactly one view — the right one).
+ */
+function reachOf(caption: { readonly at: Point; readonly height: number }, captions: readonly { readonly at: Point; readonly height: number }[]): number {
+  const floor = caption.height * CAPTION_REACH_IN_HEIGHTS;
+  const neighbours = captions.filter((other) => other !== caption).map((other) => distanceBetween(caption.at, other.at));
+  return neighbours.length === 0 ? floor : Math.max(floor, Math.min(...neighbours));
 }
 
 /**

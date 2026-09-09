@@ -2,6 +2,7 @@
 // stands over the readings that compete for it. Pure — no store, no clock, no I/O — so the act
 // seam's guard, the module door's read and the store's own CHECK are all written from this one
 // roster (ARCH-02, B-17).
+import type { RefusalCode } from "../errors";
 
 /**
  * The bases a storey-height reading may carry. R-UI-002 fixes seven bases for the product; these
@@ -31,6 +32,19 @@ export const STOREY_HEIGHT_STANDINGS = ["AGREED", "SUSPENDED", "NONE"] as const;
 
 /** One standing, drawn from the closed roster above. */
 export type StoreyHeightStandingName = (typeof STOREY_HEIGHT_STANDINGS)[number];
+
+/**
+ * The registered code a standing that carries no height is reported under (L-QTY-02 names both by
+ * name: "a row kept with no quantity — `STOREY_HEIGHT_UNSTATED`, `STOREY_HEIGHT_CONTESTED`"). One
+ * home for the pairing: the standing derived here and the component a quantity line enumerates as
+ * omitted are the same fact said twice, and a rail that spelled its own map would be the second
+ * (B-17). AGREED carries a height, so it is reported under nothing.
+ */
+export const STOREY_HEIGHT_ABSENCE: Readonly<Record<StoreyHeightStandingName, RefusalCode | null>> = Object.freeze({
+  AGREED: null,
+  SUSPENDED: "STOREY_HEIGHT_CONTESTED",
+  NONE: "STOREY_HEIGHT_UNSTATED",
+});
 
 /**
  * An ordinal, as L-MEA-07 admits one: "the ordinal is physical" — a whole number, negative for a

@@ -10,7 +10,7 @@
 // they agree on, or they do not and it is SUSPENDED with no value at all.
 import type { RefusalCode } from "../errors";
 import { exact } from "../units/canon";
-import { STOREY_HEIGHT_STANDINGS, type StoreyHeightStandingName } from "./law";
+import { STOREY_HEIGHT_ABSENCE, STOREY_HEIGHT_STANDINGS, type StoreyHeightStandingName } from "./law";
 
 /** The two facts a standing is derived from — a caller's row is free to carry more (C-05). */
 export type ReadingOfHeight = {
@@ -37,8 +37,8 @@ export type StoreyHeightStanding<R extends ReadingOfHeight = ReadingOfHeight> = 
 const [AGREED, SUSPENDED, NONE]: readonly StoreyHeightStandingName[] = STOREY_HEIGHT_STANDINGS;
 
 /** The codes a level with no height, and a level with a contested one, are reported under. */
-const STOREY_HEIGHT_UNSTATED: RefusalCode = "STOREY_HEIGHT_UNSTATED";
-const STOREY_HEIGHT_CONTESTED: RefusalCode = "STOREY_HEIGHT_CONTESTED";
+const STOREY_HEIGHT_UNSTATED = STOREY_HEIGHT_ABSENCE.NONE as RefusalCode;
+const STOREY_HEIGHT_CONTESTED = STOREY_HEIGHT_ABSENCE.SUSPENDED as RefusalCode;
 
 /** Do two readings say the same height? Judged on canonical metres: "10 ft" and "3.048 m" agree. */
 function agree(left: ReadingOfHeight, right: ReadingOfHeight): boolean {

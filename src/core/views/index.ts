@@ -9,6 +9,7 @@
 // Nothing here writes: a partition is rewritten by the job that derives it, and a confirmation is
 // written by the act seam alone.
 import { and, eq, partitionViews, viewTypeConfirmations, type TenantTx } from "../db";
+import { viewKey } from "../identity";
 
 /** Which record's partition is being read, in whose workspace. */
 export type ViewRecordScope = { readonly tenantId: string; readonly ingestId: string };
@@ -40,6 +41,23 @@ export type ViewRecord = {
   readonly proposed: ProposedViewType | null;
   readonly confirmed: ConfirmedViewType | null;
 };
+
+/** The half of a view record an address is derived from — the two facts the key is content of. */
+export type AddressableView = Pick<ViewRecord, "viewKey" | "type" | "anchorKey">;
+
+/**
+ * L-REG-04's address of a stored view: the key a placement, a register row and an offer name a view
+ * by. The partition's own key for a view is the store's, and the address is derived from the same
+ * two facts by the one function that derives one (`../identity`), so a view has ONE address however
+ * many stores hold a row for it and a scale affirmed on it is the calibration a rail then reads
+ * (B-17, ARCH-02).
+ *
+ * A view no caption anchors has no content-derived address — there is no anchor source key to derive
+ * one from — and is addressed by the only name it has, which is the one the partition gave it.
+ */
+export function viewAddressOf(view: AddressableView): string {
+  return view.anchorKey === null ? view.viewKey : viewKey({ viewClass: view.type, captionAnchorSourceKey: view.anchorKey });
+}
 
 /**
  * Every view of one ingest record, in view-key order — the order is the reading's own, so two reads

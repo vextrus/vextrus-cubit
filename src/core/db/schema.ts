@@ -2059,11 +2059,16 @@ export const quantityLines = pgTable(
     ruleVersion: text("rule_version").notNull(),
     editionDigest: text("edition_digest").notNull(),
     engine: text("engine").$type<Engine>().notNull(),
+    // L-QTY-01's two roll-ups, derived weakest-wins from the per-attribute bases that stand beside
+    // them in `bindings` and `selectors`: a wrong determining attribute is a wrong number, a wrong
+    // selecting attribute is the right number at the wrong rate.
     quantityBasis: text("quantity_basis").$type<QuantityBasis>().notNull(),
+    selectionBasis: text("selection_basis").$type<QuantityBasis>().notNull(),
     coverage: text("coverage").$type<Coverage>().notNull(),
     // The SI value at full precision: `numeric`, because a double cannot hold what the canon carried
-    // and a line is what a bill is priced from (B-07, L-QTY-03).
-    value: numeric("value").notNull(),
+    // and a line is what a bill is priced from (B-07, L-QTY-03). Null — and only — where the row is
+    // PARTIAL_DECLARED: "a row kept with no quantity" carries none, never a zero (L-QTY-02).
+    value: numeric("value"),
     unit: text("unit").$type<Unit>().notNull(),
     formula: text("formula").notNull(),
     // What the drawing said, beside what the canon made of it — `json`, not `jsonb`, because a
@@ -2071,6 +2076,9 @@ export const quantityLines = pgTable(
     bindings: json("bindings").$type<Record<string, unknown>>().notNull(),
     selectors: json("selectors").$type<Record<string, unknown>>().notNull(),
     deductions: json("deductions").$type<readonly unknown[]>().notNull(),
+    // Every omitted component of the item description, by name and by registered code — what makes
+    // a partial row DECLARED, and empty under COMPLETE (L-QTY-02).
+    omitted: json("omitted").$type<readonly unknown[]>().notNull(),
     calibrationKeys: json("calibration_keys").$type<readonly string[]>().notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -2083,8 +2091,13 @@ export const quantityLines = pgTable(
     check("quantity_lines_kind_closed", statement`${table.kind} in (${statement.raw(closedList(KINDS))})`),
     check("quantity_lines_engine_closed", statement`${table.engine} in (${statement.raw(closedList(ENGINES))})`),
     check("quantity_lines_basis_closed", statement`${table.quantityBasis} in (${statement.raw(closedList(QUANTITY_BASES))})`),
+    check("quantity_lines_selection_basis_closed", statement`${table.selectionBasis} in (${statement.raw(closedList(QUANTITY_BASES))})`),
     check("quantity_lines_coverage_closed", statement`${table.coverage} in (${statement.raw(closedList(COVERAGES))})`),
     check("quantity_lines_unit_closed", statement`${table.unit} in (${statement.raw(closedList(UNITS))})`),
+    // L-QTY-02, in the store: a row carries a quantity or declares what it omitted, and never both
+    // ways round. PARTIAL_UNDECLARED is unrepresentable here as well as in the contract's roster —
+    // a COMPLETE row with no figure, and a partial row carrying one, cannot be written at all.
+    check("quantity_lines_partial_declared", statement`(${table.coverage} = 'COMPLETE') = (${table.value} is not null)`),
     // The read a campaign's lines are answered from, in the order they were published.
     index("quantity_lines_by_campaign").on(table.tenantId, table.campaignId, table.publishedAt),
   ],

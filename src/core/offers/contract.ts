@@ -15,11 +15,12 @@ import type { ElementType } from "../catalogue/classes";
 import type { Kind } from "../catalogue/kinds";
 import { registerObjects } from "../db";
 import type { RefusalCode } from "../errors";
+import type { StoreyHeightStandingName } from "../levels/law";
 import type { Coverage, DeductionChannel, Engine, GeometryType, QuantityBasis } from "./law";
 
 // The rosters are the law file's, and published from here because this is the door a rail and the
 // gate both read the contract at (B-17).
-export { COVERAGES, DEDUCTION_CHANNELS, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES } from "./law";
+export { COVERAGES, DEDUCTION_CHANNELS, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES, weakestBasis } from "./law";
 export type { Coverage, DeductionChannel, Engine, GeometryType, QuantityBasis } from "./law";
 
 /**
@@ -66,8 +67,23 @@ export type Offer = {
   /** The item-selecting attributes, carried onto the line beside the machine's derivation (L-QTY-03). */
   readonly selectors: Readonly<Record<string, Measure>>;
   readonly deductions: readonly DeductionCandidate[];
-  /** The one coverage this leaf admits; the others arrive with the algebras that can be partial. */
+  /**
+   * Every component of the item description this offer leaves out, by name and by the registered
+   * code it is left out under. Empty under COMPLETE; under PARTIAL_DECLARED it is what makes the
+   * partiality DECLARED — "PARTIAL_UNDECLARED is unrepresentable" (L-QTY-02).
+   */
+  readonly omitted: readonly OmittedComponent[];
   readonly coverage: Coverage;
+};
+
+/**
+ * One declared variable an offer does not bind, with the registered code that says why. A variable
+ * named here is a variable the method declares and the drawing did not state: the line is kept and
+ * carries no quantity, rather than a quantity computed over something nobody read (L-QTY-02).
+ */
+export type OmittedComponent = {
+  readonly variable: string;
+  readonly code: RefusalCode;
 };
 
 /**
@@ -86,12 +102,86 @@ export type RailObservation = {
 /** One register object, as the store holds it — what a rail is handed to read (L-REG-01). */
 export type RegisterObjectRow = typeof registerObjects.$inferSelect;
 
+/**
+ * Where one register row was sighted, as the setup carries it: the drawing and the view it was read
+ * in, the ingest record those belong to, the schedule family its mark normalises to, the engine that
+ * read it, and the entity a count of it provenances to (L-QTY-03).
+ */
+export type PlacementSetup = {
+  readonly drawingId: string;
+  readonly ingestId: string;
+  readonly viewKey: string;
+  readonly memberFamily: string | null;
+  readonly engine: Engine;
+  readonly sourceEntity: string;
+};
+
+/**
+ * One variant of a member-type family, as the schedules registry recorded it: the band of levels it
+ * heads (null endpoints where the schedule stated none), the section it carries over that band, and
+ * the schedule cells it was read from. Nothing here is converted — a rail binds what was written.
+ */
+export type MemberVariantSetup = {
+  readonly variantKey: string;
+  readonly bandFrom: string | null;
+  readonly bandTo: string | null;
+  readonly sectionText: string;
+  readonly sectionWidth: number | null;
+  readonly sectionDepth: number | null;
+  readonly sectionUnit: string | null;
+  readonly sourceKeys: readonly string[];
+};
+
+/**
+ * How one level's storey height stands (L-MEA-07): the standing, and the reading it stands at where
+ * it stands at one. Every field of the reading is null under SUSPENDED and under NONE — "a height
+ * whose readings disagree has no height", and neither has one nobody read.
+ */
+export type StoreyHeightSetup = {
+  readonly standing: StoreyHeightStandingName;
+  readonly value: string | null;
+  readonly unit: string | null;
+  readonly basis: QuantityBasis | null;
+  readonly sourceKey: string | null;
+};
+
+/** One level of the stack a vertical class expands over (L-FRM-02). */
+export type LevelSetup = {
+  readonly levelId: string;
+  readonly label: string;
+  readonly ordinal: number;
+  readonly height: StoreyHeightSetup;
+};
+
+/**
+ * The read-only setup every rail is handed beside the register's rows — "rails share only setup, the
+ * register and the document stage" (L-MEA-08).
+ *
+ * It is data, wholly: a rail is a pure function, so everything it would otherwise have asked a store
+ * for is read once by the measure job and handed in. Nothing here is derived and nothing is
+ * converted; each map is keyed by the identifier its own reader already holds.
+ */
+export type RailSetup = {
+  /** Every placement of the campaign's drawings, by its placement key. */
+  readonly placements: Readonly<Record<string, PlacementSetup>>;
+  /** Each ingest record's member-type variants, by family. */
+  readonly memberTypes: Readonly<Record<string, Readonly<Record<string, readonly MemberVariantSetup[]>>>>;
+  /** The project's live level stack, in ordinal order. */
+  readonly levels: readonly LevelSetup[];
+  /** The affirmed calibration reference of each (ingest, view) — absent where none is affirmed. */
+  readonly calibrations: Readonly<Record<string, Readonly<Record<string, string>>>>;
+  /** The concrete grade a drawing's general notes stated, where a reader stated one. */
+  readonly grades: Readonly<Record<string, Measure>>;
+};
+
 /** What a rail is asked: which campaign, over which pinned revision, for which kind, and of what. */
 export type RailInput = {
   readonly campaignId: string;
   readonly setRevisionId: string;
   readonly kind: Kind;
   readonly objects: readonly RegisterObjectRow[];
+  /** What the rows are read against — placements, sections, levels, calibrations and grades. */
+  readonly setup: RailSetup;
 };
 
 /** What a rail answers with — offers and observations, and nothing computed (L-MEA-08). */

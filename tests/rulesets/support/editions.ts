@@ -54,9 +54,17 @@ export const TESTID_UNPINNED = "ruleset-unpinned";
 /** Edition identity is (scope, name, version), and the fork chain runs platform → tenant → project. */
 export const LINEAGE_SCOPES: readonly ["platform", "tenant", "project"] = ["platform", "tenant", "project"];
 
-/** The seed edition's identity (L-MEA-01: `IS1200_IN @ 2026.08`). */
+/**
+ * The seed edition's identity. Re-baselined under B-20 by inc-213: the platform edition is re-minted
+ * as `IS1200_IN @ 2026.09` citing every method the shards enumerate, inserted beside the immutable
+ * 2026.08 row rather than over it — so the SEED the product ships, and every fork of it, is the new
+ * one, while the old row stands untouched as the campaigns opened under it measured against.
+ */
 export const SEED_NAME = "IS1200_IN";
-export const SEED_VERSION = "2026.08";
+export const SEED_VERSION = "2026.09";
+
+/** The edition 0004 seeded and this product never edits — kept as the row a migration test reads. */
+export const SUPERSEDED_SEED_VERSION = "2026.08";
 
 /**
  * The seed's parameters, verbatim from L-MEA-01 and the Design Decision §3 table — the closed 17

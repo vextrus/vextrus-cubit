@@ -295,6 +295,12 @@
       "height": 2.0,
       "key": "DXF_HANDLE:72",
       "layer": "BLOCKS",
+      "points": [
+        [
+          0.0,
+          2.0
+        ]
+      ],
       "space": "model",
       "text": "GRID A",
       "type": "TEXT"

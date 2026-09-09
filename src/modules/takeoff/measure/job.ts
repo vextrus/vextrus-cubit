@@ -16,6 +16,7 @@ import type { JobPayloads, JobProgress } from "@/core/jobs";
 import type { Kind } from "@/core/catalogue/kinds";
 import type { GateEvaluate, Offer, Rail, RailObservation } from "@/core/offers/contract";
 import { registerObjectsOf } from "@/modules/takeoff/register";
+import { railSetupOf } from "./setup";
 
 /**
  * The steps one measurement reports, in the order they run: what the rails offered, what the gate
@@ -65,8 +66,11 @@ export async function runMeasureJob(payload: JobPayloads["measure"], progress: J
   if (roster.length > 0) {
     const registerScope = { tenantId: payload.tenantId, projectId: payload.projectId, setRevisionId: campaign.setRevisionId };
     const objects = await registerObjectsOf(registerScope);
+    // Read once for the whole roster: rails share their setup, so two rails over one campaign cannot
+    // disagree about what the drawings said (L-MEA-08).
+    const setup = await railSetupOf(registerScope);
     for (const [kind, rail] of roster) {
-      const batch = rail({ campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, kind, objects });
+      const batch = rail({ campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId, kind, objects, setup });
       offers.push(...batch.offers);
       observations.push(...batch.observations);
     }
