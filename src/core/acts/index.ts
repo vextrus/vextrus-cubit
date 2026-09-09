@@ -7,9 +7,12 @@
 import { acts, forTenant, holdStateLock, type TenantTx } from "../db";
 import { affirmScale, type AffirmScaleInput } from "./affirm-scale";
 import { assignParticipantRole, type AssignParticipantRoleInput } from "./assign-participant-role";
+import { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-storey-height";
 import { confirmDiscipline, type ConfirmDisciplineInput } from "./confirm-discipline";
 import { confirmViewType, type ConfirmViewTypeInput } from "./confirm-view-type";
+import { insertLevel, type InsertLevelInput } from "./insert-level";
 import { pinDrawingSet, type PinDrawingSetInput } from "./pin-drawing-set";
+import { repudiateLevel, type RepudiateLevelInput } from "./repudiate-level";
 import { consequenceDigest, movesNothing, type Consequence } from "./consequence";
 import { ACT_TYPES, type ActType } from "./law";
 import { requirePermission } from "./participation";
@@ -38,9 +41,20 @@ export { GROUP_KINDS, groupNotOffered, type ConfirmDisciplineInput, type GroupKi
 export { viewGroupNotOffered, type ConfirmViewTypeInput, type ViewGroupKey } from "./confirm-view-type";
 export { setNotPinnable, type PinDrawingSetInput } from "./pin-drawing-set";
 export { affirmScale, type AffirmScaleInput } from "./affirm-scale";
+export { insertLevel, type InsertLevelInput, type ProposedLevel, type ProposedReading } from "./insert-level";
+export { repudiateLevel, type RepudiateLevelInput } from "./repudiate-level";
+export { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-storey-height";
 
 /** Everything a caller may ask the seam to do: one member per act type the enum declares. */
-export type ActInput = AssignParticipantRoleInput | ConfirmDisciplineInput | ConfirmViewTypeInput | PinDrawingSetInput | AffirmScaleInput;
+export type ActInput =
+  | AssignParticipantRoleInput
+  | ConfirmDisciplineInput
+  | ConfirmViewTypeInput
+  | PinDrawingSetInput
+  | AffirmScaleInput
+  | InsertLevelInput
+  | RepudiateLevelInput
+  | AuthorStoreyHeightInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -53,6 +67,9 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
   CONFIRM_VIEW_TYPE: confirmViewType,
   PIN_DRAWING_SET: pinDrawingSet,
   AFFIRM_SCALE: affirmScale,
+  INSERT_LEVEL: insertLevel,
+  REPUDIATE_LEVEL: repudiateLevel,
+  AUTHOR_STOREY_HEIGHT: authorStoreyHeight,
 });
 
 /**
@@ -85,6 +102,12 @@ function renderingFor(input: ActInput): BoundRendering {
     case "PIN_DRAWING_SET":
       return bind(ACT_MAP[input.type], input);
     case "AFFIRM_SCALE":
+      return bind(ACT_MAP[input.type], input);
+    case "INSERT_LEVEL":
+      return bind(ACT_MAP[input.type], input);
+    case "REPUDIATE_LEVEL":
+      return bind(ACT_MAP[input.type], input);
+    case "AUTHOR_STOREY_HEIGHT":
       return bind(ACT_MAP[input.type], input);
     default:
       return unrendered(input);

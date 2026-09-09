@@ -3,13 +3,16 @@
 // in, and the content address a calibration is named by. Pure — no store, no clock — because a law
 // that needs a store to answer is not one (ARCH-02, B-17).
 //
-// This file is the roster half of the law, kept free of every other core module but the one digest
-// home so the seam's table definitions can close their columns over it without a cycle: the store's
+// This file is the roster half of the law, kept free of every core module but the one digest home,
+// the canonical form it addresses a calibration by and the measurement canon it reads the foot's
+// metres and its exact arithmetic from, so the seam's table definitions can close their columns over
+// it without a cycle: the store's
 // CHECK on a rank and on a factor are written from `SCALE_RANKS`, `FACTOR_PATTERN` and `FACTOR_MINIMUM` here,
 // the way `DISCIPLINES` closes `sheet_disciplines` (B-17).
 import { createHash } from "node:crypto";
 import Decimal from "decimal.js";
 import { canonical } from "../acts/consequence";
+import { exact, factorOf, type DecimalValue } from "../units/canon";
 
 /**
  * The precedence, strongest first: "QS two-point › grid-spacing match › overridden dimension ratio
@@ -72,14 +75,15 @@ export function isScaleUnit(value: unknown): value is ScaleUnit {
 
 /**
  * Metres per one drawing unit of each mapped spelling, exact (riskNotes (1): the world unit of a
- * factor is METRES). The inch and the foot are their international definitions.
+ * factor is METRES). The inch is its international definition; the foot is a unit of the measurement
+ * canon, so its metres are read from there rather than spelled a second time (L-FRM-06, B-17).
  */
 const METRES_PER_UNIT: Readonly<Record<ScaleUnit, string>> = Object.freeze({
   mm: "0.001",
   cm: "0.01",
   m: "1",
   inch: "0.0254",
-  foot: "0.3048",
+  foot: factorOf("ft"),
 });
 
 /** How many places a factor is rendered to (L-MEA-05: "12-place half-even decimal strings"). */
@@ -105,16 +109,11 @@ export const FACTOR_MINIMUM = `0.${"0".repeat(FACTOR_PLACES - 1)}1`;
  * The arithmetic every factor is rendered through: exact decimals at a precision no chain of one
  * multiply and one divide reaches, rounded half to even at the twelfth place as the last step and
  * nowhere earlier. A double would lose the twelfth place a factor is rendered to (B-07).
+ *
+ * The clone itself is the measurement canon's — one exact arithmetic, one home (B-17) — and the
+ * scale law hands it on to its own callers rather than cloning a second one beside it.
  */
-const Exact = Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN });
-
-/** A value the exact arithmetic accepts: a decimal string or a number a caller already holds. */
-export type DecimalValue = string | number | Decimal;
-
-/** An exact decimal over a value, so callers of the law do their arithmetic in the law's own numbers. */
-export function exact(value: DecimalValue): Decimal {
-  return new Exact(value);
-}
+export { exact, type DecimalValue };
 
 /** One factor, rendered to 12 places half-even. */
 export function renderFactor(value: DecimalValue): string {

@@ -1,0 +1,15 @@
+{
+  "parser": "isMarkHeader",
+  "why": "AC-6: the header band is the first leading band holding a name or mark cell, which is what this reads.",
+  "cases": [
+    { "input": "MARK", "expect": true },
+    { "input": "COLUMN MARK", "expect": true },
+    { "input": "COL. MARK", "expect": true },
+    { "input": "MEMBER", "expect": true },
+    { "input": "COLUMN NO.", "expect": true },
+    { "input": "COLUMN TYPE", "expect": true },
+    { "input": "MAIN BAR", "expect": false },
+    { "input": "GF TO 3RD", "expect": false },
+    { "input": "TIES", "expect": false }
+  ]
+}

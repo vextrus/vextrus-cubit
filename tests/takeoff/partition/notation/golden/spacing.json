@@ -1,0 +1,12 @@
+{
+  "parser": "parseSpacing",
+  "why": "AC-6: a ties cell says which bar at what centres, and a centre with no unit stays unitless.",
+  "cases": [
+    { "input": "10Ø @ 4\" c/c", "expect": { "bar": 10, "spacing": 4, "unit": "in" } },
+    { "input": "10mmØ@4\"C/C", "expect": { "bar": 10, "spacing": 4, "unit": "in" } },
+    { "input": "10%%C @ 4\" C/C", "expect": { "bar": 10, "spacing": 4, "unit": "in" } },
+    { "input": "@ 6\" c/c", "expect": { "bar": null, "spacing": 6, "unit": "in" } },
+    { "input": "10Ø@100 C/C", "expect": { "bar": 10, "spacing": 100, "unit": null } },
+    { "input": "10Ø", "expect": null }
+  ]
+}

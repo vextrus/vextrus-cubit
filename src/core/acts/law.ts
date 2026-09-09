@@ -8,7 +8,16 @@
  * without a rendering a compile error", so a member belongs here once — and only once — it has a
  * rendering in `ACT_MAP` and a permission in `ACT_PERMISSION`.
  */
-export const ACT_TYPES = ["ASSIGN_PARTICIPANT_ROLE", "CONFIRM_DISCIPLINE", "CONFIRM_VIEW_TYPE", "PIN_DRAWING_SET", "AFFIRM_SCALE"] as const;
+export const ACT_TYPES = [
+  "ASSIGN_PARTICIPANT_ROLE",
+  "CONFIRM_DISCIPLINE",
+  "CONFIRM_VIEW_TYPE",
+  "PIN_DRAWING_SET",
+  "AFFIRM_SCALE",
+  "INSERT_LEVEL",
+  "REPUDIATE_LEVEL",
+  "AUTHOR_STOREY_HEIGHT",
+] as const;
 
 /** One act type, drawn from the enum above. */
 export type ActType = (typeof ACT_TYPES)[number];
@@ -57,6 +66,15 @@ export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.free
   // L-MEA-05: a view no act names measures nothing, so affirming what a drawing measures in is what
   // a person does before anything is measured off it — it moves the permission the measuring moves.
   AFFIRM_SCALE: "MEASURE",
+  // L-ACT-03 cuts AUTHOR_LEVEL_STACK on exactly this: "AUTHOR_LEVEL_STACK (INSERT_LEVEL,
+  // REPUDIATE_LEVEL)". Authoring the stack is not measuring — an ordinal is what the register keys
+  // to and what the floor-multiplier scheme prices off (L-MEA-07) — so the LEAD holds it.
+  INSERT_LEVEL: "AUTHOR_LEVEL_STACK",
+  REPUDIATE_LEVEL: "AUTHOR_LEVEL_STACK",
+  // L-ACT-03 cuts AUTHOR_PROJECT_FACT on "AUTHOR_STOREY_HEIGHT and later project facts": a storey
+  // height is a correctable attribute of the project, read rather than authored into identity
+  // (L-REG-02), and the MEASURER who reads a drawing is who states it.
+  AUTHOR_STOREY_HEIGHT: "AUTHOR_PROJECT_FACT",
 });
 
 /**

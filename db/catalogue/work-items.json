@@ -1,0 +1,9 @@
+[
+  {
+    "kind": "rcc.concrete",
+    "description": "Reinforced cement concrete cast in place, measured net of its reinforcement",
+    "dimension": "VOLUME",
+    "canonicalUnit": "m3",
+    "documentPrecision": 3
+  }
+]

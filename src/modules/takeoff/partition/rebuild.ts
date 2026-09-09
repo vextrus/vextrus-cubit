@@ -22,6 +22,9 @@ import type { ViewRecord } from "@/core/views";
 import { ingestRecords, type IngestRecord } from "@/modules/takeoff/ingest";
 import { censusOf } from "./conventions/census";
 import { detectGrid, type DetectedGrid } from "./grid/detect";
+import { reconstructSchedules } from "./schedules/reconstruct";
+import { registerMemberTypes } from "./schedules/registry";
+import type { DetectedSchedules } from "./schedules/store";
 import { drawingProjectOf, rewritePartition, storedViewsOf, type ResolvedConventions, type ViewProposal } from "./store";
 import { partitionArtifact, type PartitionedView } from "./views/assign";
 import { VIEW_TYPE, VIEW_TYPES, type ViewType } from "./views/law";
@@ -32,7 +35,7 @@ import { VIEW_TYPE, VIEW_TYPES, type ViewType } from "./views/law";
  * A stage is a member of this list or it does not run at all — the list is the roster, and the map
  * below is keyed by it, so neither can hold a stage the other does not.
  */
-export const PARTITION_STAGES = ["views", "conventions", "grid"] as const;
+export const PARTITION_STAGES = ["views", "conventions", "grid", "schedules"] as const;
 
 /** One stage of the partition, drawn from the closed list above. */
 export type PartitionStage = (typeof PARTITION_STAGES)[number];
@@ -69,6 +72,7 @@ type StagedPartition = {
   readonly assignments: ReadonlyMap<string, string>;
   readonly conventions: ResolvedConventions | null;
   readonly grid: DetectedGrid | null;
+  readonly schedules: DetectedSchedules | null;
 };
 
 /** What a stage is given: the record it is rebuilding, and the artifact that record points at. */
@@ -104,6 +108,22 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
     });
     return { derived: { ...held, grid }, detail: { views: grid.views, axes: grid.axes.length, deferred: grid.deferrals.length } };
   },
+  // The schedules run after the grid because they are the fourth stage of the same partition: the
+  // tables are reconstructed off the views the first stage cut, and the member types are folded out
+  // of those tables in the same pass, so what the store writes is one derivation (R-TO-031).
+  schedules: (context, held) => {
+    const reconstructed = reconstructSchedules({ graph: context.graph, views: held.views, assignments: held.assignments });
+    const registered = registerMemberTypes(reconstructed.tables);
+    const schedules: DetectedSchedules = {
+      views: reconstructed.views,
+      tables: reconstructed.tables,
+      registry: registered.families,
+      // A view that yielded no table and a table that named no member are both deferrals of this
+      // stage, and they stand in one list because they stand in one table (riskNotes (2)).
+      deferrals: [...reconstructed.deferrals, ...registered.deferrals],
+    };
+    return { derived: { ...held, schedules }, detail: { views: schedules.views, tables: schedules.tables.length, deferred: schedules.deferrals.length } };
+  },
 });
 
 /**
@@ -131,7 +151,7 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
   const graph = await artifactOf(tenantId, record, deps.storage);
   await progress.step(STEP_RESOLVE, { ingest_id: ingestId, artifact_sha256: record.artifactSha256 });
 
-  let derived: StagedPartition = { views: [], assignments: new Map(), conventions: null, grid: null };
+  let derived: StagedPartition = { views: [], assignments: new Map(), conventions: null, grid: null, schedules: null };
   for (const stage of PARTITION_STAGES) {
     const outcome = STAGES[stage]({ record, graph }, derived);
     derived = outcome.derived;
@@ -157,6 +177,7 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
     proposals,
     conventions: derived.conventions,
     grid: derived.grid,
+    schedules: derived.schedules,
   });
   await progress.step(STEP_STORED, { views: derived.views.length, assigned: derived.assignments.size, proposed: proposals.size });
 }

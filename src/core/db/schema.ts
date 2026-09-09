@@ -6,8 +6,12 @@
 // the dependency runs one way and no cycle is representable (ARCH-01, ARCH-02).
 import { sql as statement } from "drizzle-orm";
 import { bigint, check, doublePrecision, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { ELEMENT_TYPES, type ElementType } from "../catalogue/classes";
+import { KINDS, type Kind } from "../catalogue/kinds";
 import { INGEST_SCHEME } from "../entitygraph/schema";
-import type { RefusalCode } from "../errors";
+import { REFUSALS, SCHEDULE_DEFERRAL_REASONS, type RefusalCode, type ScheduleDeferralReason } from "../errors";
+import { LEVEL_MARKER, LEVEL_SLOTS, OBSERVATION_BASES, SIGHTING_STANDINGS, UNREGISTERED_PREFIX, type ObservationBasis, type SightingStanding } from "../identity";
+import { STOREY_HEIGHT_BASES, type StoreyHeightBasis } from "../levels/law";
 import { VIEW_TYPE_SPELLINGS } from "../errors/transport-vocabulary";
 import { MODEL_IDS } from "../model-ledger.types";
 import type { SourceScheme } from "../model";
@@ -15,6 +19,7 @@ import { DEFAULT_DENSITY, DENSITIES, type Density } from "../prefs/density";
 import { BUILDING_TYPES, type BuildingType } from "../projects";
 import { DISCIPLINES, type Discipline } from "../sheets/law";
 import { FACTOR_MINIMUM, FACTOR_PATTERN, SCALE_RANKS, type ScaleRank } from "../scale/law";
+import { DIMENSIONS, UNITS, type Dimension, type Unit } from "../units/canon";
 import type { EditionParameter, EditionScope, MethodPair } from "../rulesets/editions/content";
 import type { ConventionProfile, EntityCensus } from "../rulesets/methods/conventions/resolve";
 import { closedList } from "./sql";
@@ -1102,6 +1107,220 @@ export const gridDeferrals = pgTable(
 );
 
 /**
+ * The units a schedule's own notation is written in (R-TO-031). Not the bill's canon (L-FRM-06): a
+ * drawing states a section in inches or in millimetres, and a pair it stated no unit for keeps none
+ * — a number nobody gave a unit to is not an inch (L-MEA-01).
+ */
+export const SECTION_UNITS = ["in", "mm"] as const;
+
+/** One of the two. */
+export type SectionUnit = (typeof SECTION_UNITS)[number];
+
+/** The four zones a rebar column of a schedule reads as (R-TO-031): the main bars, and the ties. */
+export const REBAR_ZONES = ["main", "ties", "ties-end", "ties-mid"] as const;
+
+/** One of the four. */
+export type RebarZone = (typeof REBAR_ZONES)[number];
+
+/**
+ * Why a schedule view defers: the register's own narrowing to the two a schedule defers under, so
+ * the column cannot hold a reason nobody registered (Q-07, riskNotes (2)). The list is the refusal
+ * register's, and this CHECK is written from it — one vocabulary, two readers (B-17).
+ */
+export type { ScheduleDeferralReason };
+
+/** The entities one row of the stored partition was read from — never none (L-CAD-03). */
+const citedKeys = () => text("source_keys").array().notNull();
+
+/**
+ * L-CAD-08's gridless reconstruction: one row per table a SCHEDULE view yielded — the caption it is
+ * anchored on, what that caption says, and the row spacing its bands stand at — the fourth stage of
+ * R-TO-030's stored partition.
+ *
+ * The schedule KEY is the caption's own source key: a table anchored on nothing could not be traced
+ * back to the drawing, and two tables of one drawing are two captions (L-CAD-03).
+ *
+ * Rewritten per ingest with the views it was read off, in the same transaction, so the app role
+ * holds a DELETE here for the reason it holds one on the views (L-REG-04, R-TO-030).
+ */
+export const schedules = pgTable(
+  "schedules",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    viewKey: text("view_key").notNull(),
+    scheduleKey: text("schedule_key").notNull(),
+    title: text("title").notNull(),
+    pitch: doublePrecision("pitch").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "schedules_key", columns: [table.tenantId, table.ingestId, table.scheduleKey] }),
+    // The pitch is what the 3.5× stop between rows is measured in, so it is a real spacing: a table
+    // whose rows stood no distance apart would be one row (L-CAD-08).
+    check("schedules_pitch_positive", statement`${table.pitch} > 0`),
+    // The read a drawing's own screen makes: the schedules that stand for it now.
+    index("schedules_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
+ * One cell of a reconstructed table: where it stands, what it says verbatim, and the texts it was
+ * read from. Row 0 is the header band the columns were taken from (AC-1).
+ *
+ * The text is the drawing's own — a cell is stored as it was drawn and parsed beside, never instead
+ * of, itself, so a reading nobody agrees with can be re-made from what the drawing says (L-CAD-03).
+ */
+export const scheduleCells = pgTable(
+  "schedule_cells",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    scheduleKey: text("schedule_key").notNull(),
+    rowIndex: integer("row_index").notNull(),
+    columnIndex: integer("column_index").notNull(),
+    text: text("text").notNull(),
+    sourceKeys: citedKeys(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "schedule_cells_key", columns: [table.tenantId, table.ingestId, table.scheduleKey, table.rowIndex, table.columnIndex] }),
+    // A cell that cites no entity is a cell nobody can trace back to the drawing (L-CAD-03).
+    check("schedule_cells_cited", statement`cardinality(${table.sourceKeys}) >= 1`),
+    index("schedule_cells_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
+ * R-TO-031's member-type registry: one row per mark family a schedule names — the normalised mark,
+ * the cell's own spelling of it, and the table row it was read from (riskNotes (3)).
+ *
+ * What a member IS, and never how many stand: the count is placement's answer, read off the layout
+ * plans, and a schedule that carried one would be answering a question it was not asked (R-TO-031).
+ */
+export const memberTypes = pgTable(
+  "member_types",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    scheduleKey: text("schedule_key").notNull(),
+    family: text("family").notNull(),
+    markText: text("mark_text").notNull(),
+    rowIndex: integer("row_index").notNull(),
+    sourceKeys: citedKeys(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "member_types_key", columns: [table.tenantId, table.ingestId, table.scheduleKey, table.family] }),
+    check("member_types_cited", statement`cardinality(${table.sourceKeys}) >= 1`),
+    index("member_types_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
+ * One variant of a mark family: the band of floors a schedule column heads, and the section that
+ * family carries over it (riskNotes (3)). The band's own words are kept beside the two levels they
+ * read as, and the section's own words beside the pair they read as.
+ */
+export const memberTypeVariants = pgTable(
+  "member_type_variants",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    scheduleKey: text("schedule_key").notNull(),
+    family: text("family").notNull(),
+    variantKey: text("variant_key").notNull(),
+    bandText: text("band_text").notNull(),
+    bandFrom: text("band_from"),
+    bandTo: text("band_to"),
+    sectionText: text("section_text").notNull(),
+    sectionWidth: doublePrecision("section_width"),
+    sectionDepth: doublePrecision("section_depth"),
+    sectionUnit: text("section_unit").$type<SectionUnit>(),
+    sourceKeys: citedKeys(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "member_type_variants_key", columns: [table.tenantId, table.ingestId, table.scheduleKey, table.family, table.variantKey] }),
+    // A unit the drawing did not state is no unit at all; a unit it did state is one of the two.
+    check("member_type_variants_section_unit_closed", statement`${table.sectionUnit} is null or ${table.sectionUnit} in (${statement.raw(closedList(SECTION_UNITS))})`),
+    check("member_type_variants_cited", statement`cardinality(${table.sourceKeys}) >= 1`),
+    index("member_type_variants_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
+ * The rebar a schedule states for one variant, one row per zone its columns name: the cell verbatim,
+ * the groups of bars it names, and the centres it states them at.
+ *
+ * `bars` is jsonb because a cell may name several groups — `4-20Ø+4-16Ø` is two — and a column per
+ * group would fix in the store a number the drawing decides (L-QTY-04).
+ */
+export const rebarZones = pgTable(
+  "rebar_zones",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    scheduleKey: text("schedule_key").notNull(),
+    family: text("family").notNull(),
+    variantKey: text("variant_key").notNull(),
+    zone: text("zone").$type<RebarZone>().notNull(),
+    text: text("text").notNull(),
+    bars: jsonb("bars").$type<readonly { readonly n: number; readonly diameterMm: number }[]>(),
+    spacing: doublePrecision("spacing"),
+    spacingUnit: text("spacing_unit").$type<SectionUnit>(),
+    spacingBar: doublePrecision("spacing_bar"),
+    sourceKeys: citedKeys(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "rebar_zones_key", columns: [table.tenantId, table.ingestId, table.scheduleKey, table.family, table.variantKey, table.zone] }),
+    // The roster is closed, so the store closes it: a zone outside the four cannot be written at
+    // all, however it reached the insert.
+    check("rebar_zones_zone_closed", statement`${table.zone} in (${statement.raw(closedList(REBAR_ZONES))})`),
+    check("rebar_zones_spacing_unit_closed", statement`${table.spacingUnit} is null or ${table.spacingUnit} in (${statement.raw(closedList(SECTION_UNITS))})`),
+    check("rebar_zones_cited", statement`cardinality(${table.sourceKeys}) >= 1`),
+    index("rebar_zones_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
+ * The other answer a SCHEDULE view gives: a view whose bands yielded no table, and one whose table
+ * named no member, stand here under a closed reason rather than as a schedule nobody can read
+ * (riskNotes (2)). Its own table, because a view that yielded no table has no schedule row to carry
+ * the reason on — the exact shape of `grid_deferrals`, which the overlay already knows how to read.
+ */
+export const scheduleDeferrals = pgTable(
+  "schedule_deferrals",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    drawingId: uuid("drawing_id").notNull(),
+    ingestId: uuid("ingest_id").notNull(),
+    viewKey: text("view_key").notNull(),
+    reason: text("reason").$type<ScheduleDeferralReason>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "schedule_deferrals_key", columns: [table.tenantId, table.ingestId, table.viewKey] }),
+    // Another stage's reason stored here would render as this stage's, so the CHECK admits the two
+    // this stage defers under and nothing else (Q-07).
+    check("schedule_deferrals_reason_closed", statement`${table.reason} in (${statement.raw(closedList(SCHEDULE_DEFERRAL_REASONS))})`),
+    index("schedule_deferrals_by_drawing").on(table.tenantId, table.drawingId),
+  ],
+);
+
+/**
  * R-TO-005's drawing set: a named grouping of a project's drawings, told apart from its siblings by
  * the name a person gave it. The row is a record of a naming that happened and is never rewritten —
  * what the set NAMES lives in `drawing_set_members` beside it, which is a draft.
@@ -1262,6 +1481,344 @@ export const calibrations = pgTable(
 );
 
 /**
+ * L-MEA-04's work-item catalogue, as the store's copy of it: per kind, what is measured of it, in
+ * which dimension, in that dimension's canonical unit, to how many places a document writes it.
+ *
+ * The catalogue is code-owned: `src/core/catalogue/catalogue.ts` is the original, the tables under
+ * `db/catalogue/` are its emission, and a migration is the only thing that moves these rows — which
+ * is why the runtime role reads this table and holds no privilege that writes it. Every column that
+ * draws on a closed roster is closed over that roster's own spelling here (B-17).
+ */
+export const workItems = pgTable(
+  "work_items",
+  {
+    kind: text("kind").$type<Kind>().primaryKey(),
+    description: text("description").notNull(),
+    canonicalUnit: text("canonical_unit").$type<Unit>().notNull(),
+    dimension: text("dimension").$type<Dimension>().notNull(),
+    documentPrecision: integer("document_precision").notNull(),
+  },
+  (table) => [
+    check("work_items_kind_closed", statement`${table.kind} in (${statement.raw(closedList(KINDS))})`),
+    check("work_items_dimension_closed", statement`${table.dimension} in (${statement.raw(closedList(DIMENSIONS))})`),
+    check("work_items_unit_closed", statement`${table.canonicalUnit} in (${statement.raw(closedList(UNITS))})`),
+    // A precision is a number of places, so it is a count and never a negative one (L-FMT-02).
+    check("work_items_precision_not_negative", statement`${table.documentPrecision} >= 0`),
+  ],
+);
+
+/**
+ * L-MEA-04's `bears` relation: class × kind, what an element class lawfully bears. A class that
+ * bears no kind is absent from this table and DECLARED in the unborne set beside the consts — the
+ * store holds the relation, and the code holds the reason a class is missing from it.
+ */
+export const bears = pgTable(
+  "bears",
+  {
+    class: text("class").$type<ElementType>().notNull(),
+    kind: text("kind")
+      .$type<Kind>()
+      .notNull()
+      .references(() => workItems.kind),
+  },
+  (table) => [
+    // One row per pair: a class bears a kind or it does not, and saying so twice says nothing more.
+    primaryKey({ name: "bears_key", columns: [table.class, table.kind] }),
+    check("bears_class_closed", statement`${table.class} in (${statement.raw(closedList(ELEMENT_TYPES))})`),
+  ],
+);
+
+/**
+ * L-REG-01's system of record for physical scope: one row per identity sighted inside one pinned
+ * drawing-set revision. The key is the content-derived instance row key (L-REG-04) and there is no
+ * minted id beside it — a re-derivation of the same content finds this row rather than making a
+ * second one, which is what makes the double-count guard a property of the store.
+ *
+ * The double count is refused by the PRIMARY KEY (tenant, set revision, object key) and not by a
+ * writer remembering to look: L-REG-03 scopes the guard to one drawing-set revision, so the same
+ * identity sighted in the next revision of the same set is another row of the record.
+ *
+ * The level is a surrogate id and nothing else (L-REG-02: "a level is referenced by surrogate id; its
+ * label, ordinal and height never enter a key"). Where no level is resolved the row stands in a
+ * lawful-null slot, and where a drawing names a level nobody has authored yet it carries that label
+ * as the placeholder the one-hop carry moves (L-REG-04) — at most one of the three at a time.
+ */
+export const registerObjects = pgTable(
+  "register_objects",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    setRevisionId: uuid("set_revision_id")
+      .notNull()
+      .references(() => drawingSetRevisions.setRevisionId),
+    objectKey: text("object_key").notNull(),
+    projectId: uuid("project_id").notNull(),
+    discipline: text("discipline").$type<Discipline>().notNull(),
+    // The element type as the sighting was made of it. Not closed over the catalogue's classes: the
+    // catalogue spells what a class BEARS, and which roster a walker's element type is drawn from is
+    // the discipline-confirmation leaf's to settle (L-REG-03) — the register keeps what was sighted.
+    elementType: text("element_type").notNull(),
+    mark: text("mark").notNull(),
+    viewKey: text("view_key").notNull(),
+    placementKey: text("placement_key").notNull(),
+    levelId: uuid("level_id"),
+    levelSlot: text("level_slot"),
+    levelLabel: text("level_label"),
+    standing: text("standing").$type<SightingStanding>().notNull(),
+    // L-REG-04's semantic: what the row says, order-normalised and digested. It invalidates a
+    // disposition; it never keys a row, which is why `object_key` is the key and this is a column.
+    semantic: text("semantic").notNull(),
+    registeredAt: timestamp("registered_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // The double-count guard itself (L-REG-03): one identity, one row, inside one set revision.
+    primaryKey({ name: "register_objects_key", columns: [table.tenantId, table.setRevisionId, table.objectKey] }),
+    check("register_objects_discipline_closed", statement`${table.discipline} in (${statement.raw(closedList(DISCIPLINES))})`),
+    check("register_objects_standing_closed", statement`${table.standing} in (${statement.raw(closedList(SIGHTING_STANDINGS))})`),
+    check("register_objects_level_slot_closed", statement`${table.levelSlot} is null or ${table.levelSlot} in (${statement.raw(closedList(LEVEL_SLOTS))})`),
+    // A level is stated once, one way — a surrogate, a lawful-null slot or a placeholder label — and
+    // it is stated as the row's own key states it. An instance key is a placement key followed by one
+    // level segment (L-REG-04), so the column that carries the level is the column the key names: a
+    // row whose key asserts a level its columns deny, or whose columns assert one its key does not,
+    // is a row that disagrees with its own identity. Derived from the segment grammar's own markers
+    // rather than re-spelled here (B-17).
+    check(
+      "register_objects_level_stated_once",
+      statement`num_nonnulls(${table.levelId}, ${table.levelSlot}, ${table.levelLabel}) <= 1 and ${table.objectKey} = ${table.placementKey} || case when ${table.levelId} is not null then ${statement.raw(closedList([LEVEL_MARKER]))} || ${table.levelId}::text when ${table.levelSlot} is not null then ${statement.raw(closedList([LEVEL_MARKER]))} || ${table.levelSlot} when ${table.levelLabel} is not null then ${statement.raw(closedList([UNREGISTERED_PREFIX]))} || ${table.levelLabel} else '' end`,
+    ),
+    // The reads the register makes: one revision's objects, and one mark family across it.
+    index("register_objects_by_revision").on(table.tenantId, table.setRevisionId, table.registeredAt),
+    index("register_objects_by_mark").on(table.tenantId, table.setRevisionId, table.mark),
+  ],
+);
+
+/**
+ * L-REG-03's unpriceable evidence: "a second measured sighting of the same physical scope inside one
+ * drawing-set revision is refused at the door (`DUPLICATE_IDENTITY`) and kept as unpriceable evidence
+ * in a separate table with no join from any bill (a status flag on the register table is one
+ * forgotten WHERE from over-measurement)".
+ *
+ * So this table declares no foreign key to `register_objects` and nothing declares one to it. It
+ * names the object key it collided with as text — a name a person reading the evidence can follow —
+ * and the collision cannot be joined back into a quantity by any query the store will plan. The whole
+ * refused sighting is kept: evidence discarded is evidence nobody can weigh.
+ */
+export const refusedSightings = pgTable(
+  "refused_sightings",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    refusedSightingId: uuid("refused_sighting_id").primaryKey().defaultRandom(),
+    // Deliberately no foreign key: neither to the revision nor to the object it collided with. A
+    // refused sighting is evidence standing apart from the record of scope (L-REG-03).
+    setRevisionId: uuid("set_revision_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    objectKey: text("object_key").notNull(),
+    refusal: text("refusal").$type<RefusalCode>().notNull(),
+    discipline: text("discipline").$type<Discipline>().notNull(),
+    // The element type as the sighting was made of it. Not closed over the catalogue's classes: the
+    // catalogue spells what a class BEARS, and which roster a walker's element type is drawn from is
+    // the discipline-confirmation leaf's to settle (L-REG-03) — the register keeps what was sighted.
+    elementType: text("element_type").notNull(),
+    mark: text("mark").notNull(),
+    viewKey: text("view_key").notNull(),
+    placementKey: text("placement_key").notNull(),
+    semantic: text("semantic").notNull(),
+    // What was sighted, whole and as it was seen — `json`, not `jsonb`, because jsonb re-orders what
+    // it holds and this row is a record of what somebody presented.
+    sighting: json("sighting").$type<unknown>().notNull(),
+    refusedAt: timestamp("refused_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check("refused_sightings_refusal_closed", statement`${table.refusal} in (${statement.raw(closedList([REFUSALS.DUPLICATE_IDENTITY.code]))})`),
+    check("refused_sightings_discipline_closed", statement`${table.discipline} in (${statement.raw(closedList(DISCIPLINES))})`),
+    // The read the evidence surface makes: one revision's refusals, newest last.
+    index("refused_sightings_by_revision").on(table.tenantId, table.setRevisionId, table.refusedAt),
+  ],
+);
+
+/**
+ * One correctable attribute slot of one register object, and the authority it stands under (L-REG-03:
+ * "attributes have their own authority — a general-note sheet supplies fy/cover while measuring
+ * nothing"). Insert-once: the slot records that this attribute is spoken about at all.
+ *
+ * What the attribute IS worth is nowhere here. A standing is derived from the observations at read
+ * time (L-REG-03: "disagreement is declared, never resolved silently"), because a stored "current
+ * value" column is exactly the overwrite R-TO-051 forbids.
+ */
+export const registerAttributes = pgTable(
+  "register_attributes",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    setRevisionId: uuid("set_revision_id").notNull(),
+    objectKey: text("object_key").notNull(),
+    attribute: text("attribute").notNull(),
+    authority: text("authority").$type<Discipline>().notNull(),
+    declaredAt: timestamp("declared_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: "register_attributes_key", columns: [table.tenantId, table.setRevisionId, table.objectKey, table.attribute] }),
+    // The slot belongs to a register object of the same revision — an attribute of nothing is not an
+    // attribute. The key is the object's own, so the link is the identity rather than a second id.
+    foreignKey({
+      columns: [table.tenantId, table.setRevisionId, table.objectKey],
+      foreignColumns: [registerObjects.tenantId, registerObjects.setRevisionId, registerObjects.objectKey],
+      name: "register_attributes_object_fk",
+    }),
+    check("register_attributes_authority_closed", statement`${table.authority} in (${statement.raw(closedList(DISCIPLINES))})`),
+  ],
+);
+
+/**
+ * R-TO-051's ledger of readings: "every human change is an act adding a competing observation with
+ * declared precedence; disagreements suspend and show as such; nothing overwrites (L-ACT-01)".
+ *
+ * Every row is a reading somebody or something made, kept whole and forever. A correction is another
+ * row at a higher declared precedence — never an edit of this one — which the append-only trigger and
+ * the app role's privileges make true of the store and not only of the door.
+ *
+ * The derivation travels with the reading (L-REG-01: "a unit conversion is not origination only
+ * because it carries its derivation — source value, source unit as written, canonical unit, factor,
+ * factor provenance"), so a figure on a document can be traced back to what a drawing said without
+ * anyone re-deriving it.
+ *
+ * `observation_id` is minted, and that is not L-REG-04's "zero minted ids": that rule binds derived
+ * ROW KEYS. A reading is an appended ledger record like an act — two identical readings from one
+ * source are two readings — so it is addressed the way `acts` is.
+ */
+export const registerObservations = pgTable(
+  "register_observations",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    observationId: uuid("observation_id").primaryKey().defaultRandom(),
+    setRevisionId: uuid("set_revision_id").notNull(),
+    objectKey: text("object_key").notNull(),
+    attribute: text("attribute").notNull(),
+    valueAsWritten: text("value_as_written").notNull(),
+    unitAsWritten: text("unit_as_written").notNull(),
+    canonicalValue: text("canonical_value").notNull(),
+    canonicalUnit: text("canonical_unit").$type<Unit>().notNull(),
+    factor: text("factor").notNull(),
+    factorProvenance: text("factor_provenance").notNull(),
+    basis: text("basis").$type<ObservationBasis>().notNull(),
+    sourceKey: text("source_key").notNull(),
+    precedence: integer("precedence").notNull(),
+    // Null where no human act authored the reading: a machine transcription is nobody's act, and a
+    // nullable column says so rather than a fabricated act id (L-ACT-01).
+    actId: uuid("act_id").references(() => acts.actId),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // A reading is about a declared attribute slot of a register object, and about nothing else.
+    foreignKey({
+      columns: [table.tenantId, table.setRevisionId, table.objectKey, table.attribute],
+      foreignColumns: [registerAttributes.tenantId, registerAttributes.setRevisionId, registerAttributes.objectKey, registerAttributes.attribute],
+      name: "register_observations_attribute_fk",
+    }),
+    check("register_observations_unit_closed", statement`${table.canonicalUnit} in (${statement.raw(closedList(UNITS))})`),
+    check("register_observations_basis_closed", statement`${table.basis} in (${statement.raw(closedList(OBSERVATION_BASES))})`),
+    // Precedence is declared, and it is a rank rather than a signed quantity.
+    check("register_observations_precedence_not_negative", statement`${table.precedence} >= 0`),
+    // The read a standing is derived from: one attribute's readings, in the order they were appended.
+    index("register_observations_by_attribute").on(table.tenantId, table.setRevisionId, table.objectKey, table.attribute, table.observedAt),
+  ],
+);
+
+/**
+ * L-MEA-07's level: "a project-scoped object with a surrogate id; label, ordinal and height are
+ * non-identifying".
+ *
+ * So the identity is `level_id` and nothing else — the label and the ordinal are ordinary columns a
+ * later act may move, and the height is not here at all: it is READ, and its readings are the table
+ * below (L-REG-02: "storey height, concrete grade, rebar spec are correctable attributes that
+ * participate in diffs, never in identity").
+ *
+ * A level is inserted by an act and repudiated by an act, and by nothing else (L-ACT-01), which is
+ * what the two act columns say. `repudiated_act_id` is the whole of "a level with live rows is never
+ * deleted, only repudiated": the row stays, its ordinal stays, the register objects that stand on it
+ * stay, and the live stack is the levels this column is null for. The app role holds no DELETE here,
+ * so that is the store's guarantee rather than this door's habit.
+ *
+ * No unique constraint over (project, ordinal): inserting mid-stack shifts every live level at or
+ * above the proposed ordinal up by one, and a unique index would refuse the shift halfway through
+ * for a collision that does not exist at the end of it. The act is the one writer and it takes the
+ * project's state lock (SEAM-ACT), so the shift is what keeps the live ordinals distinct.
+ */
+export const levels = pgTable(
+  "levels",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    levelId: uuid("level_id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.projectId),
+    label: text("label").notNull(),
+    // Physical, and signed: a basement stands below ground (L-MEA-07).
+    ordinal: integer("ordinal").notNull(),
+    insertedActId: uuid("inserted_act_id")
+      .notNull()
+      .references(() => acts.actId),
+    // Null while the level is live. Set once, by the act that marks it (L-MEA-07).
+    repudiatedActId: uuid("repudiated_act_id").references(() => acts.actId),
+    insertedAt: timestamp("inserted_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // The read the stack is answered from: one project's levels, in the order they physically stand.
+    index("levels_by_project").on(table.tenantId, table.projectId, table.ordinal),
+  ],
+);
+
+/**
+ * L-MEA-07's storey height, as it is read rather than as it is set: every reading somebody made of
+ * one level's height, kept whole and forever.
+ *
+ * Nothing here is a "current height" — the standing is derived from these rows at read time, because
+ * a stored current value is the overwrite R-TO-051 forbids and a silently-picked winner is the
+ * resolution L-REG-03 forbids. A reading is superseded only by a later reading under the SAME
+ * `reading_key` (level, actor, basis, source key): that is a re-affirmation, and it is the one thing
+ * that clears a contest (L-MEA-07). So no unique constraint stands on the key, and the app role holds
+ * neither UPDATE nor DELETE: a correction is another row.
+ *
+ * The derivation travels with the reading (L-REG-01): the value and unit as written, the canonical
+ * metres, the factor that carried it and where that factor came from. The canonical unit is not a
+ * column — a storey height is a length and the canon's canonical length unit is the metre, so the
+ * column says so by name rather than storing a constant beside every row (L-FRM-06).
+ *
+ * `reading_id` is minted, and that is not L-REG-04's "zero minted ids": that rule binds derived ROW
+ * KEYS. A reading is an appended ledger record like an act, so it is addressed the way `acts` is.
+ */
+export const storeyHeightReadings = pgTable(
+  "storey_height_readings",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    readingId: uuid("reading_id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    levelId: uuid("level_id")
+      .notNull()
+      .references(() => levels.levelId),
+    // What makes two readings the same reading — derived by `readingKey` (L-REG-04), never minted.
+    readingKey: text("reading_key").notNull(),
+    actorId: uuid("actor_id").notNull(),
+    basis: text("basis").$type<StoreyHeightBasis>().notNull(),
+    // Null where the reading cites no drawing entity: a height somebody entered is nobody's source key.
+    sourceKey: text("source_key"),
+    valueAsWritten: text("value_as_written").notNull(),
+    unitAsWritten: text("unit_as_written").notNull(),
+    canonicalMetres: text("canonical_metres").notNull(),
+    factor: text("factor").notNull(),
+    factorProvenance: text("factor_provenance").notNull(),
+    actId: uuid("act_id")
+      .notNull()
+      .references(() => acts.actId),
+    readAt: timestamp("read_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // A defaulted storey height is barred at the store as well as at the act (L-MEA-07).
+    check("storey_height_readings_basis_closed", statement`${table.basis} in (${statement.raw(closedList(STOREY_HEIGHT_BASES))})`),
+    // The read a standing is derived from: one level's readings, in the order they were made.
+    index("storey_height_readings_by_level").on(table.tenantId, table.levelId, table.readAt),
+  ],
+);
+
+/**
  * Everything the typed surface covers. A table joins the surface by joining this object, and it is
  * exported because the binding to the schema tree is a check rather than a sentence: `db/schema.ts`
  * is the barrel drizzle-kit and the drift lane read, and a test beside this file compares the two
@@ -1298,9 +1855,23 @@ export const SEAM_SCHEMA = {
   conventionProfiles,
   grids,
   gridDeferrals,
+  schedules,
+  scheduleCells,
+  memberTypes,
+  memberTypeVariants,
+  rebarZones,
+  scheduleDeferrals,
   drawingSets,
   drawingSetMembers,
   drawingSetRevisions,
   scaleAffirmations,
   calibrations,
+  workItems,
+  bears,
+  registerObjects,
+  refusedSightings,
+  registerAttributes,
+  registerObservations,
+  levels,
+  storeyHeightReadings,
 };

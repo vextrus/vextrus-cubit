@@ -1,0 +1,14 @@
+{
+  "parser": "parseSizePair",
+  "why": "AC-6: a section written as a pair, in inches where the drawing said inches and unitless where it said nothing.",
+  "cases": [
+    { "input": "12\"x15\"", "expect": { "width": 12, "depth": 15, "unit": "in" } },
+    { "input": "12\" X 15\"", "expect": { "width": 12, "depth": 15, "unit": "in" } },
+    { "input": "12\"×15\"", "expect": { "width": 12, "depth": 15, "unit": "in" } },
+    { "input": "1'-0\"x1'-3\"", "expect": { "width": 12, "depth": 15, "unit": "in" } },
+    { "input": "12\"x1'-3\"", "expect": { "width": 12, "depth": 15, "unit": "in" } },
+    { "input": "300x450", "expect": { "width": 300, "depth": 450, "unit": null } },
+    { "input": "12X12", "expect": { "width": 12, "depth": 12, "unit": null } },
+    { "input": "12\"", "expect": null }
+  ]
+}

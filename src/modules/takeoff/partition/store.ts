@@ -13,6 +13,7 @@ import { CONVENTIONS_METHOD, type ConventionProfile, type EntityCensus } from "@
 import { viewRecordsOf, type ProposedViewType, type ViewRecord } from "@/core/views";
 import type { DetectedGrid } from "./grid/detect";
 import { rewriteGridRows } from "./grid/store";
+import { rewriteScheduleRows, type DetectedSchedules } from "./schedules/store";
 import type { PartitionedView } from "./views/assign";
 
 /** Which drawing's partition is being asked about, in whose workspace and under which project. */
@@ -40,6 +41,8 @@ export type PartitionWrite = {
   readonly conventions: ResolvedConventions | null;
   /** What the grid stage detected, or null for the same reason (L-CAD-07). */
   readonly grid: DetectedGrid | null;
+  /** What the schedules stage reconstructed and registered, or null for the same reason (R-TO-031). */
+  readonly schedules: DetectedSchedules | null;
 };
 
 /**
@@ -121,7 +124,25 @@ export async function rewritePartition(write: PartitionWrite): Promise<void> {
     // The grid's own two tables, cleared and written by the stage's store — in THIS transaction, so
     // the axes land with the views they were read off or neither does (L-CAD-07, L-REG-04).
     await rewriteGridRows(tx, { tenantId: write.tenantId, projectId: write.projectId, drawingId: write.drawingId, ingestId: write.ingestId, grid: write.grid });
+
+    // And the schedules' six, for the same reason: a table stands with the view its caption anchors
+    // or neither of them stands (R-TO-030, L-REG-04).
+    await rewriteScheduleRows(tx, { tenantId: write.tenantId, projectId: write.projectId, drawingId: write.drawingId, ingestId: write.ingestId, schedules: write.schedules });
   });
+}
+
+/**
+ * Does a partition stand for this record at all? The doors ask before they answer: a drawing whose
+ * partition has never been rebuilt holds no schedules because nothing has read it yet, which is not
+ * the same answer as a drawing whose schedules were read and found none (R-UI-050).
+ */
+export async function partitionStandsFor(tenantId: string, ingestId: string): Promise<boolean> {
+  const rows = await forTenant({ tenantId })
+    .select({ viewKey: partitionViews.viewKey })
+    .from(partitionViews)
+    .where(and(eq(partitionViews.tenantId, tenantId), eq(partitionViews.ingestId, ingestId)))
+    .limit(1);
+  return rows.length > 0;
 }
 
 /**

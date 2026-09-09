@@ -59,6 +59,8 @@ export type RefusalCode =
   | "PARTITION_NOT_AVAILABLE"
   | "CONVENTION_ROLE_UNRESOLVED"
   | "GRID_NO_BUBBLE_EVIDENCE"
+  | "SCHEDULE_NONE_RECONSTRUCTED"
+  | "SCHEDULE_VIEW_CONTRIBUTED_NOTHING"
   | "GROUP_NOT_OFFERED"
   | "SET_NOT_PINNABLE"
   | "SET_NAME_NOT_USABLE"
@@ -68,7 +70,13 @@ export type RefusalCode =
   | "SCALE_UNIT_UNMAPPED"
   | "SCALE_OBSERVATION_UNCITED"
   | "SCALE_OBSERVATION_OBLIQUE"
-  | "SCALE_OBSERVATION_UNVERIFIED";
+  | "SCALE_OBSERVATION_UNVERIFIED"
+  | "DIMENSION_MISMATCH"
+  | "PRODUCT_FACTOR_MISSING"
+  | "DUPLICATE_IDENTITY"
+  | "LEVEL_ORDINAL_UNMAPPED"
+  | "STOREY_HEIGHT_UNSTATED"
+  | "STOREY_HEIGHT_CONTESTED";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -363,6 +371,25 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     severity: "info",
     surface: "inline",
   }),
+  // L-CAD-08's answer where a schedule-titled view yielded no table at all — no band of it holds a
+  // name or mark cell, so there is no header to take columns from and a table reconstructed without
+  // one would be columns nobody drew (R-TO-031).
+  SCHEDULE_NONE_RECONSTRUCTED: Object.freeze({
+    code: "SCHEDULE_NONE_RECONSTRUCTED",
+    message: "This schedule shows no header row naming its members, so no table was rebuilt from it.",
+    remedy: "Add a heading such as MARK over the column of member names, then ingest the drawing again.",
+    severity: "info",
+    surface: "inline",
+  }),
+  // R-TO-031's other answer: the table rebuilt, and not one of its rows names a member — a schedule
+  // of notes and dashes registers no member type rather than a family invented from noise (L-QTY-04).
+  SCHEDULE_VIEW_CONTRIBUTED_NOTHING: Object.freeze({
+    code: "SCHEDULE_VIEW_CONTRIBUTED_NOTHING",
+    message: "This schedule's rows name no member, so it added no member types.",
+    remedy: "Check that the mark column holds member names such as C1, then ingest the drawing again.",
+    severity: "info",
+    surface: "inline",
+  }),
   // L-ACT-02's answer when a caller names a group the machine is not offering: "bulk is offered,
   // never assembled", so the membership a commit would move is the machine's own — a key whose
   // membership resolves empty names nothing this project is waiting to have confirmed.
@@ -456,6 +483,62 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     severity: "error",
     surface: "inline",
   }),
+  // L-FRM-06: the two tiers of the unit canon are not interchangeable — a volume is not an area, and
+  // there is no factor between them to take.
+  DIMENSION_MISMATCH: Object.freeze({
+    code: "DIMENSION_MISMATCH",
+    message: "These two units measure different kinds of quantity, so there is no factor between them and no conversion exists.",
+    remedy: "Choose a unit that measures the same thing as the quantity, such as its own dimension's canonical unit.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-FRM-06: a packaging unit holds whatever the product it packages holds, so converting one
+  // without that property would be inventing a factor — "never a silent 1.0".
+  PRODUCT_FACTOR_MISSING: Object.freeze({
+    code: "PRODUCT_FACTOR_MISSING",
+    message: "A bag, drum or coil holds what its product says it holds, and this product states no such property, so the quantity was not converted.",
+    remedy: "State the product's packaged quantity — how much one bag, drum or coil holds — and convert again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-REG-03's double-count guard: "a second measured sighting of the same physical scope inside one
+  // drawing-set revision is refused at the door (`DUPLICATE_IDENTITY`) and kept as unpriceable
+  // evidence". Nothing is lost by the refusal, so the sentence says where the sighting went.
+  DUPLICATE_IDENTITY: Object.freeze({
+    code: "DUPLICATE_IDENTITY",
+    message: "This physical scope is already registered in this drawing-set revision, so measuring it again would count it twice; the sighting was kept as evidence instead.",
+    remedy: "Open the registered object to compare the two sightings, or measure the scope this drawing shows that is not yet registered.",
+    severity: "warning",
+    surface: "inline",
+  }),
+  // L-MEA-07: "the floor-multiplier scheme keys to the ordinal — a scheme with no row for an ordinal
+  // throws `LEVEL_ORDINAL_UNMAPPED`". Nothing at that level can be priced until the scheme says what
+  // its ordinal multiplies by, so the sentence points at the scheme rather than at the level.
+  LEVEL_ORDINAL_UNMAPPED: Object.freeze({
+    code: "LEVEL_ORDINAL_UNMAPPED",
+    message: "The floor-multiplier scheme has no row for this level's ordinal, so nothing standing on it can be multiplied.",
+    remedy: "Add a row for this ordinal to the workspace's floor-multiplier scheme, then derive again.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-MEA-07: a storey height nobody stated is unstated, never defaulted. Answered for a level no
+  // reading stands on, and for an act that would record one on a basis nobody read it on.
+  STOREY_HEIGHT_UNSTATED: Object.freeze({
+    code: "STOREY_HEIGHT_UNSTATED",
+    message: "Nobody has stated this level's storey height, and a height the system invented would be priced as though somebody had.",
+    remedy: "Enter the storey height for this level, or transcribe it from the drawing that states it.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-REG-03: "disagreement is declared, never resolved silently". Two people read the level and got
+  // two heights, so it stands at none until one of them re-affirms.
+  STOREY_HEIGHT_CONTESTED: Object.freeze({
+    code: "STOREY_HEIGHT_CONTESTED",
+    message: "This level's storey height has been read two different ways, so it stands at no height until the readings agree.",
+    remedy: "Compare the competing readings and re-affirm the one that is right, which supersedes that reader's earlier figure.",
+    severity: "error",
+    surface: "inline",
+  }),
 } satisfies Record<RefusalCode, RefusalEntry>);
 
 /**
@@ -468,3 +551,16 @@ export function refusalOf(code: RefusalCode): RefusalEntry {
   }
   return REFUSALS[code];
 }
+
+/**
+ * Why a schedule view defers: the codes of this register a SCHEDULE view stands under when it yielded
+ * no table, or a table naming no member. One list, read by the store's CHECK and published by the
+ * partition's door alike — a vocabulary written twice drifts (B-17, Q-07).
+ *
+ * It stands with the codes rather than with the table because the seam is not a module's to import
+ * (SEAM-TENANT), and a roster its readers cannot reach is a roster they would copy.
+ */
+export const SCHEDULE_DEFERRAL_REASONS = ["SCHEDULE_NONE_RECONSTRUCTED", "SCHEDULE_VIEW_CONTRIBUTED_NOTHING"] as const satisfies readonly RefusalCode[];
+
+/** One of the two. */
+export type ScheduleDeferralReason = (typeof SCHEDULE_DEFERRAL_REASONS)[number];
