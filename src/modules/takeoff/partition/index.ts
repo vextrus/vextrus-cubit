@@ -9,11 +9,12 @@
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
 import { storedExpansionDeferralsOf, storedTypicalRangesOf, type StoredExpansionDeferral, type StoredTypicalRange } from "./expansion/store";
 import { storedGridOf, type StoredGrid } from "./grid/store";
+import { statedHeight } from "./levels-proposal/propose";
 import { storedProposedLevelsOf, type StoredProposedLevel } from "./levels-proposal/store";
 import { storedPlacementsOf, type StoredPlacement } from "./placement/store";
 import { storedMemberTypesOf, storedSchedulesOf, type StoredMemberTypes, type StoredSchedules } from "./schedules/store";
 import { drawingProjectOf, partitionStandsFor, storedConventionsOf, storedViewsOf, type StoredConventions } from "./store";
-import type { GroupKind, ProposedLevel } from "@/core/acts";
+import type { GroupKind, ProposedLevel, ProposedReading } from "@/core/acts";
 import { compareCanonical, dotlessUpper } from "@/core/identity";
 import type { ViewRecord } from "@/core/views";
 
@@ -173,18 +174,43 @@ export type ProposedLevelStackOffer = {
  * both views' rows one after another would have a person confirming the machine's own proposal author
  * the building's storeys twice over, and a level is authored and never edited (L-ACT-01).
  *
- * So a storey is named once: by the height it stands at, and by the label that names it — two
- * sections of one building state one GF, however each of them spells it. The ordinals are the stack's
- * own run from the foot up, because an ordinal is physical (L-MEA-07) and the run is what an
- * `INSERT_LEVEL` shifts its stack by.
+ * So a storey is named once: by the LABEL that names it, and by nothing else — two sections of one
+ * building state one GF, however each of them spells it. An elevation is not the identity: a member
+ * section is routinely drawn from its own datum, so a `1ST` standing at +0.00 on one view and the
+ * `GF` standing at +0.00 on another are two storeys that share a number, and dropping either of them
+ * would leave a person confirming a stack the drawing never proposed, with nothing said about it.
+ *
+ * The ordinals are the stack's own run from the foot up, because an ordinal is physical (L-MEA-07)
+ * and the run is what an `INSERT_LEVEL` shifts its stack by.
  */
 function oneStack(rows: readonly StoredProposedLevel[]): StoredProposedLevel[] {
   const stacked: StoredProposedLevel[] = [];
   for (const row of [...rows].sort((left, right) => left.elevation - right.elevation || compareCanonical(left.markKey, right.markKey))) {
-    const named = stacked.some((held) => held.elevation === row.elevation || dotlessUpper(held.label) === dotlessUpper(row.label));
+    const named = stacked.some((held) => dotlessUpper(held.label) === dotlessUpper(row.label));
     if (!named) stacked.push(row);
   }
   return stacked;
+}
+
+/**
+ * The storey height an offered level states: the distance to the level standing above it IN THE
+ * OFFERED STACK, and nothing else (L-REG-01, L-CAD-03).
+ *
+ * The seventh stage reads each section on its own and states each level's height within that view's
+ * own marks. Merging the sections into one stack can put a different level above a kept one — a long
+ * section stating only `GF` and `ROOF` beside a member section stating `1ST` and `2ND` between them —
+ * and the reading the row was stored with would then be the distance to a level that no longer stands
+ * above it. Committed, that is a `TRANSCRIBED` reading of a figure nobody drew, under the basis that
+ * means it was read off the drawing.
+ *
+ * A storey height is a distance between two marks of ONE section: the views are drawn from their own
+ * datums, so the gap between two of them is not a measurement anybody took. Where the level above
+ * came from another view, or where the level's own mark stated no unit, the level states no height —
+ * an empty list is the drawing's silence, never a zero somebody would have to disbelieve (B-07).
+ */
+function storeyHeightOf(level: StoredProposedLevel, above: StoredProposedLevel | undefined): ProposedReading[] {
+  if (above === undefined || above.viewKey !== level.viewKey || level.heightUnit === null) return [];
+  return [{ valueAsWritten: statedHeight(above.elevation - level.elevation), unitAsWritten: level.heightUnit, sourceKey: level.markKey }];
 }
 
 /**
@@ -203,17 +229,13 @@ export async function proposedLevelStackOf(scope: ViewsScope): Promise<ProposedL
   const proposed = await storedProposedLevelsOf(scope.tenantId, ingestId);
   if (proposed.length === 0) return null;
 
+  const stacked = oneStack(proposed);
   return {
     group: { kind: PROPOSED_LEVEL_STACK, drawingId: scope.drawingId, ingestId },
-    levels: oneStack(proposed).map((level, ordinal) => ({
+    levels: stacked.map((level, ordinal) => ({
       label: level.label,
       ordinal,
-      // The top of a section states no storey height, and a level with no reading carries none: an
-      // empty list is the drawing's own silence, never a zero somebody would have to disbelieve.
-      readings:
-        level.heightAsWritten === null || level.heightUnit === null
-          ? []
-          : [{ valueAsWritten: level.heightAsWritten, unitAsWritten: level.heightUnit, sourceKey: level.markKey }],
+      readings: storeyHeightOf(level, stacked[ordinal + 1]),
     })),
   };
 }

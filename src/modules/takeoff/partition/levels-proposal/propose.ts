@@ -82,8 +82,12 @@ function levelMarkOf(text: string): { readonly label: string; readonly elevation
   return { label: band.from, elevation, unit: stated[2] ?? null };
 }
 
-/** A written height, kept to the precision a drawing states one at — never a double's last bits. */
-function statedHeight(value: number): string {
+/**
+ * A written height, kept to the precision a drawing states one at — never a double's last bits.
+ * Published because the door states the same height over the merged stack: a figure spelled two ways
+ * would be two figures (B-17).
+ */
+export function statedHeight(value: number): string {
   return String(Math.round(value * WRITTEN_PARTS) / WRITTEN_PARTS);
 }
 
