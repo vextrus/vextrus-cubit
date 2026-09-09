@@ -47,6 +47,7 @@ const KIND_WORDS: Readonly<Record<JobKind, string>> = {
   thumbnails: strings.job_step_thumbnails,
   partition: strings.job_step_partition,
   probe: strings.job_step_probe,
+  measure: strings.job_step_measure,
 };
 
 /** The word each status reads as (Decision § 4). */

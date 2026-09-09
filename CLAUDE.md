@@ -28,6 +28,7 @@ pnpm verify · pnpm test:db · pnpm e2e --journey <J> · pnpm checkup
 <!-- builder:lessons:start -->
 ## Standing lessons (engine-maintained)
 ### Locked ground & lawful paths
+- UI string keys belong in the touching module's own file — An increment that needs new UI copy sometimes reaches for another module's existing string table and gets denied — twice in this increment alone.
 - Restoring from a ref must name files, not trees — An increment tried to restore prior state from a ref using `.` or a directory/glob, and was denied three times in a row.
 - denied 5× on the schedule reconstruction increment: know the lawful path — Sessions on the schedule reconstruction increment were denied 5 times with: > the whole gate chain is run through `mcp__builder__check` — `{}` for the fast lane (tsc, eslint on your changed files, the unit tests your diff can move) between edits; `{ "full": …
 - denied 4× on the register core increment: know the lawful path — Sessions on the register core increment were denied 4 times with: > the whole gate chain is run through `mcp__builder__check` — `{}` for the fast lane (tsc, eslint on your changed files, the unit tests your diff can move) between edits; `{ "full": true }` for …

@@ -287,6 +287,7 @@ export async function stopJobsRuntime(): Promise<void> {
 export async function enqueue(kind: "ingest", payload: JobPayloads["ingest"], options: { key: string }): Promise<EnqueueResult>;
 export async function enqueue(kind: "thumbnails", payload: JobPayloads["thumbnails"], options: { key: string }): Promise<EnqueueResult>;
 export async function enqueue(kind: "partition", payload: JobPayloads["partition"], options: { key: string }): Promise<EnqueueResult>;
+export async function enqueue(kind: "measure", payload: JobPayloads["measure"], options: { key: string }): Promise<EnqueueResult>;
 export async function enqueue(kind: "probe", payload: JobPayloads["probe"], options: { key: string }): Promise<EnqueueResult>;
 export async function enqueue<K extends JobKind>(kind: K, payload: JobPayloads[K], options: { key: string }): Promise<EnqueueResult> {
   const key = checkedKey(kind, options.key);

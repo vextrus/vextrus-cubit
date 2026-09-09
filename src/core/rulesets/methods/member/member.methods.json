@@ -1,0 +1,11 @@
+{
+  "methods": {
+    "member.volume@1": {
+      "ruleId": "member.volume",
+      "version": "1",
+      "law": "L-MEA-08",
+      "module": "src/core/rulesets/methods/member/volume.ts"
+    }
+  },
+  "digest": "3d83b6de1aa69628dc14a4922d71e4e217df0f344177c8fcfbc7ad6da452fded"
+}

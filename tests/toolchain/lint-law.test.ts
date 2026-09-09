@@ -57,6 +57,11 @@ const SCAN_CORPORA: Readonly<Record<string, string>> = {
   // proved as a committed scan for the same reason (`scripts/eslint/**` is locked at M2). The prover
   // sits beside the scanner it drives, as the view-type one does.
   "conversion-literals": "src/core/units/__tests__/literal-scan.test.ts",
+  // `no-gate-outside-worker` is SEAM-GATE's ban on reaching `src/core/gate` from `src/modules/**` or
+  // `src/app/**` — the gate is the sole writer of quantity lines and rail observations (L-MEA-08),
+  // and a sole writer nothing else can call is the only kind there is. Committed as a scan for the
+  // same reason as the two above, with its prover beside the scanner it drives (inc-209).
+  "no-gate-outside-worker": "src/core/gate/__tests__/gate-import-scan.test.ts",
 };
 
 /**
