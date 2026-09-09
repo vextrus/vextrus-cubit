@@ -227,10 +227,18 @@ the selection (I-145). Taking a pick writes nothing to the address: `v` and `s` 
 `viewer_snap_pick_taken` **Pick {index} at {x}, {y} drawing units.** · `viewer_snap_picks_cleared`
 **Picks cleared.**
 
-One line of `src/ui/strings/viewer.ts` is re-worded, paying the snap half of the `viewer_canvas_keys`
-IOU (B-20): `viewer_canvas_keys` **Drag to pan, scroll to zoom. Plus and minus zoom, the arrow keys
-pan, and F fits the sheet. S turns snapping on and off. Hold Alt and click, or press Enter, to take a
-pick; Escape clears the picks and the selection.**
+One line of `src/ui/strings/viewer.ts` was to be re-worded, paying the snap half of the
+`viewer_canvas_keys` IOU (B-20): `viewer_canvas_keys` **Drag to pan, scroll to zoom. Plus and minus
+zoom, the arrow keys pan, and F fits the sheet. S turns snapping on and off. Hold Alt and click, or
+press Enter, to take a pick; Escape clears the picks and the selection.**
+
+**As built, that re-word is refused.** `src/ui/strings/viewer.ts` is another module's table and the
+lock does not yield to this increment (R-SPINE-060: a region adds its keys in its own file, never in
+its neighbour's). The snap half is therefore carried by this region's own line, appended to the same
+`<p id="cx-viewer-keys">` the canvas is described by — one sentence to a reader, one table to each
+module: `viewer_snap_canvas_keys` **S turns snapping on and off, Enter takes a pick where the pointer
+stands, and Escape lets go of the picks.** The reader hears exactly what §3 promised; the IOU on
+`viewer.ts` stands open for whoever owns that table. Recorded as a plan question in the handoff.
 
 The feed's 400 sentence grows to name the new part — *a sheet is asked for as ?part=head,
 ?part=layer&index=&lt;n&gt;, ?part=partition or ?part=calibration* — which is a caller's answer inside
