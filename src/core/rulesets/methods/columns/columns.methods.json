@@ -1,0 +1,11 @@
+{
+  "methods": {
+    "rcc.column.concrete@1": {
+      "ruleId": "rcc.column.concrete",
+      "version": "1",
+      "law": "L-FRM-02",
+      "module": "src/core/rulesets/methods/columns/concrete.ts"
+    }
+  },
+  "digest": "6e3a77e968bac54960b9874bd34f98a1e92c3b16f3f2d1699405ea14daeec2fc"
+}

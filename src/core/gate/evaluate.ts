@@ -24,7 +24,7 @@ import { editionOf, type PinnedEdition } from "../campaigns";
 import { and, campaigns, eq, forTenant, holdStateLock, inArray, isUuid, quantityLines, queueItems, railObservations, registerObjects, type TenantTx } from "../db";
 import { REFUSALS, type RefusalCode } from "../errors";
 import type { GateRefusal, GateScope, GateVerdict, Measure, Offer, RailBatch, RailObservation } from "../offers/contract";
-import { COVERAGES, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES } from "../offers/law";
+import { COVERAGES, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES, weakestBasis, type QuantityBasis } from "../offers/law";
 import type { MethodPair } from "../rulesets/editions/content";
 import { implementationOf, type FormulaMethod, type NormalisedBindings } from "../rulesets/methods/registry";
 import { CANONICAL_UNIT, exact } from "../units/canon";
@@ -78,6 +78,25 @@ function inRoster(roster: readonly string[], value: string): boolean {
   return roster.includes(value);
 }
 
+/**
+ * L-QTY-01's two roll-ups, derived weakest-wins and never stored as the record of truth: the basis
+ * of every determining attribute together with the geometry's own, and the basis of every selecting
+ * attribute. The per-attribute bases stay on the line beside them (`bindings`, `selectors`), so the
+ * record is still per attribute and these two are readings of it.
+ *
+ * A selecting attribute nobody stated rolls up to DEFAULTED — "config where the drawing was silent;
+ * nobody looked, nobody decided" — rather than inheriting the strength of the numbers beside it
+ * (riskNotes (5)). A wrong selecting attribute is the right number at the wrong rate, and saying it
+ * was MEASURED because the geometry was would hide exactly that.
+ */
+function rollUps(offer: Offer): { readonly quantityBasis: QuantityBasis; readonly selectionBasis: QuantityBasis } {
+  const determining = Object.values(offer.bindings).map((reading) => reading.basis);
+  return {
+    quantityBasis: weakestBasis([offer.geometry.basis, ...determining]),
+    selectionBasis: weakestBasis(Object.values(offer.selectors).map((reading) => reading.basis)),
+  };
+}
+
 /** Every reading this offer carries: what it is bound by, what it is selected by, what it deducts. */
 function readingsOf(offer: Offer): readonly Measure[] {
   return [...Object.values(offer.bindings), ...Object.values(offer.selectors), ...offer.deductions.map((candidate) => candidate.measure)];
@@ -104,6 +123,14 @@ function toContract(offer: Offer, under: MeasuredUnder): boolean {
     // roster: a reading spelling one outside it is the rail and the gate disagreeing about what an
     // offer IS, which the gate answers rather than recording verbatim on a line.
     readingsOf(offer).every((reading) => inRoster(QUANTITY_BASES, reading.basis)) &&
+    // L-QTY-02: COMPLETE, or PARTIAL_DECLARED with EVERY omitted component enumerated on the row.
+    // The two halves are one statement: a row claiming COMPLETE while enumerating an omission, and
+    // one claiming partiality while enumerating none, are both PARTIAL_UNDECLARED spelled sideways
+    // — which the clause makes unrepresentable, so the gate answers rather than storing it.
+    (offer.coverage === "COMPLETE") === (offer.omitted.length === 0) &&
+    // An omission is declared by NAME and by registered code, so a reader learns which component of
+    // the description is missing and why (R-SPINE-062: the taxonomy is closed).
+    offer.omitted.every((component) => component.variable.length > 0 && Object.hasOwn(REFUSALS, component.code)) &&
     offer.register.objectKey.length > 0 &&
     offer.register.setRevisionId === under.setRevisionId &&
     isUuid(offer.drawing.drawingId) &&
@@ -199,9 +226,22 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
   const declared = new Set(method.variables.map((variable) => variable.name));
   if (Object.keys(offer.bindings).some((name) => !declared.has(name))) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
+  // An omission is of a variable this METHOD declares, and of one the offer does not also bind: a
+  // row cannot both carry a component and enumerate it as left out, and a row cannot declare away
+  // something the rule never asked for.
+  const left = new Map(offer.omitted.map((component) => [component.variable, component.code]));
+  if (offer.omitted.some((component) => !declared.has(component.variable) || Object.hasOwn(offer.bindings, component.variable))) {
+    return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+  }
+  if (left.size !== offer.omitted.length) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+
   const normalised: Record<string, { value: string; unit: string }> = {};
   const recorded: Record<string, RecordedBinding> = {};
   for (const variable of method.variables) {
+    // A variable the row declared omitted is carried by nothing, because nobody read it: the row is
+    // kept and states the omission, rather than a quantity over a number the machine invented
+    // (L-QTY-02, L-MEA-07's "never defaulted").
+    if (left.has(variable.name)) continue;
     const reading = offer.bindings[variable.name];
     if (reading === undefined) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
     const carried = normaliseMeasure(reading, variable.dimension);
@@ -251,14 +291,17 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
       ruleVersion: method.version,
       editionDigest: under.editionDigest,
       engine: offer.engine,
-      quantityBasis: offer.geometry.basis,
+      ...rollUps(offer),
       coverage: offer.coverage,
-      value: method.evaluate(bound),
+      // "A row kept with no quantity carries no quantity" — never a zero, never a guess (L-QTY-02).
+      // The unit stands even so: it is what this rule measures in, not a property of the figure.
+      value: offer.omitted.length === 0 ? method.evaluate(bound) : null,
       unit: CANONICAL_UNIT[method.dimension],
-      formula: renderFormula(method, bound),
+      formula: renderFormula(method, bound, offer.omitted),
       bindings: recorded,
       selectors: offer.selectors,
       deductions,
+      omitted: offer.omitted,
       calibrationKeys,
     },
   };
@@ -303,7 +346,7 @@ type Judged = { readonly offer: Offer; readonly judgement: Judgement };
 
 /** What a standing line states, as the columns a re-measurement would have to state identically. */
 type StandingClaim = {
-  readonly value: string;
+  readonly value: string | null;
   readonly unit: string;
   readonly formula: string;
   readonly ruleId: string;
@@ -311,6 +354,7 @@ type StandingClaim = {
   readonly editionDigest: string;
   readonly engine: string;
   readonly quantityBasis: string;
+  readonly selectionBasis: string;
   readonly coverage: string;
   readonly class: string;
   readonly drawingId: string;
@@ -326,8 +370,14 @@ type StandingClaim = {
  * object is seen for what it is rather than disappearing into the natural key (B-07, L-QTY-04).
  */
 function sameClaim(standing: StandingClaim, line: PublishedLine): boolean {
+  const quantity =
+    standing.value === null || line.value === null || line.value === undefined
+      ? // A row kept with no quantity recognises its own re-run only against another with none: a
+        // figure standing where a declared exclusion did is a DIFFERENT statement about the object.
+        standing.value === null && (line.value === null || line.value === undefined)
+      : exact(standing.value).eq(exact(line.value));
   return (
-    exact(standing.value).eq(exact(line.value)) &&
+    quantity &&
     standing.unit === line.unit &&
     standing.formula === line.formula &&
     standing.ruleId === line.ruleId &&
@@ -335,6 +385,7 @@ function sameClaim(standing: StandingClaim, line: PublishedLine): boolean {
     standing.editionDigest === line.editionDigest &&
     standing.engine === line.engine &&
     standing.quantityBasis === line.quantityBasis &&
+    standing.selectionBasis === line.selectionBasis &&
     standing.coverage === line.coverage &&
     // The claim is everything L-QTY-03 has a line always state, not the quantity alone: the (drawing,
     // view) it was read from, the class it was measured under, and the set of references it was
@@ -389,6 +440,7 @@ async function standingFor(tx: TenantTx, tenantId: string, campaignId: string, o
       editionDigest: quantityLines.editionDigest,
       engine: quantityLines.engine,
       quantityBasis: quantityLines.quantityBasis,
+      selectionBasis: quantityLines.selectionBasis,
       coverage: quantityLines.coverage,
       class: quantityLines.class,
       drawingId: quantityLines.drawingId,

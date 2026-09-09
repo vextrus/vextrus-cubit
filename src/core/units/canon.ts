@@ -53,6 +53,11 @@ const FACTORS = Object.freeze({
   m3: { dimension: "VOLUME", factor: "1" },
   cft: { dimension: "VOLUME", factor: "0.028316846592" },
   m: { dimension: "LENGTH", factor: "1" },
+  // A structural schedule states a section in millimetres, and a rail binds it in the unit it was
+  // written in (L-REG-01, L-MEA-08) — so the metre's own decimal prefix carries a factor here, in
+  // the one home, rather than in the reader that met it (B-17). It is an integer power of ten, so
+  // it joins no needle of the literal ban below.
+  mm: { dimension: "LENGTH", factor: "0.001" },
   ft: { dimension: "LENGTH", factor: "0.3048" },
   m2: { dimension: "AREA", factor: "1" },
   sft: { dimension: "AREA", factor: "0.09290304" },

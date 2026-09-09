@@ -12,6 +12,8 @@
 // build time, so the roster of a deployed product is the roster its build carried and never what
 // happens to be on a disk beside it.
 import type { MethodPair } from "../editions/content";
+import columnsShard from "./columns/columns.methods.json";
+import { COLUMN_CONCRETE_FORMULA, COLUMN_CONCRETE_METHOD } from "./columns/concrete";
 import conventionsShard from "./conventions/conventions.methods.json";
 import { CONVENTIONS_METHOD, resolve } from "./conventions/resolve";
 import type { MethodImplementation, ResolverMethod } from "./law";
@@ -32,7 +34,7 @@ type MethodShard = {
 };
 
 /** Every shard of the tree. A method directory joins the roster by being named here (ARCH-02). */
-const SHARDS: readonly MethodShard[] = [conventionsShard, memberShard];
+const SHARDS: readonly MethodShard[] = [columnsShard, conventionsShard, memberShard];
 
 /** How a pair is spelled wherever one is a key: `<ruleId>@<version>` (L-MEA-01). */
 export function methodKey(pair: MethodPair): string {
@@ -53,6 +55,7 @@ const CONVENTIONS_RESOLVE: ResolverMethod = Object.freeze({
  * than guessing, and the gate refuses `METHOD_IMPLEMENTATION_MISSING` when it does.
  */
 const IMPLEMENTATIONS: Readonly<Record<string, MethodImplementation>> = Object.freeze({
+  [methodKey(COLUMN_CONCRETE_METHOD)]: COLUMN_CONCRETE_FORMULA,
   [methodKey(CONVENTIONS_METHOD)]: CONVENTIONS_RESOLVE,
   [methodKey(MEMBER_VOLUME_METHOD)]: MEMBER_VOLUME_FORMULA,
 });
