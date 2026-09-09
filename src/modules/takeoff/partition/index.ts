@@ -7,9 +7,15 @@
 // rebuild reaches the object store and the model seam — neither of which belongs in a screen's module
 // graph (ARCH-01, and the same reason SEAM-CAD keeps its job behind its own file).
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
+import { storedExpansionDeferralsOf, storedTypicalRangesOf, type StoredExpansionDeferral, type StoredTypicalRange } from "./expansion/store";
 import { storedGridOf, type StoredGrid } from "./grid/store";
+import { statedHeight } from "./levels-proposal/propose";
+import { storedProposedLevelsOf, type StoredProposedLevel } from "./levels-proposal/store";
+import { storedPlacementsOf, type StoredPlacement } from "./placement/store";
 import { storedMemberTypesOf, storedSchedulesOf, type StoredMemberTypes, type StoredSchedules } from "./schedules/store";
 import { drawingProjectOf, partitionStandsFor, storedConventionsOf, storedViewsOf, type StoredConventions } from "./store";
+import type { GroupKind, ProposedLevel, ProposedReading } from "@/core/acts";
+import { compareCanonical, dotlessUpper } from "@/core/identity";
 import type { ViewRecord } from "@/core/views";
 
 export { PARTITION_KIND, partitionJobKey, requestPartition, type PartitionRefused, type PartitionRequest, type PartitionRequested } from "./request";
@@ -18,6 +24,13 @@ export type { PartitionScope, StoredConventions } from "./store";
 export type { StoredGrid } from "./grid/store";
 export type { GridAxisRow, GridDeferralRow } from "./grid/detect";
 export type { StoredMemberTypes, StoredSchedule, StoredSchedules } from "./schedules/store";
+export type { StoredPlacement } from "./placement/store";
+export type { StoredExpansionDeferral, StoredTypicalRange } from "./expansion/store";
+export type { PlacementShares } from "./placement/shares";
+// The closed list an expansion defers under, published where its readers already look — the store's
+// CHECK and this door's answer read ONE roster, for the reason the schedule list above does (Q-07).
+export { EXPANSION_DEFERRAL_REASONS } from "@/core/errors";
+export type { ExpansionDeferralReason } from "@/core/db";
 export type { MemberFamily, MemberVariant, MemberZone } from "./schedules/registry";
 export type { ScheduleCell, ScheduleDeferralRow, ScheduleTable } from "./schedules/reconstruct";
 // The closed list a schedule view defers under, published where its readers already look: it is the
@@ -104,6 +117,127 @@ export async function schedulesOf(scope: ViewsScope): Promise<StoredSchedules | 
 export async function memberTypesOf(scope: ViewsScope): Promise<StoredMemberTypes | null> {
   const ingestId = await partitionedIngestOf(scope);
   return ingestId === null ? null : storedMemberTypesOf(scope.tenantId, ingestId);
+}
+
+/**
+ * The members a drawing's current partition places (L-CAD-07) — one row per closed outline a member
+ * mark anchored, in the placement key's own order. This is the door the placements panel and the
+ * column rails read a member's mark, class, grid reference and member family through.
+ *
+ * Absent for the same three reasons `schedulesOf` is, and in the same way (R-UI-050).
+ */
+export async function placementsOf(scope: ViewsScope): Promise<StoredPlacement[] | null> {
+  const ingestId = await partitionedIngestOf(scope);
+  return ingestId === null ? null : storedPlacementsOf(scope.tenantId, ingestId);
+}
+
+/**
+ * The views of a drawing's current partition whose vertical members stand on no level, with the
+ * reason each defers under (L-CAD-07). A view stands here because its caption states no range the
+ * live stack can be read against — which is what `AUTHOR_TYPICAL_RANGE` exists to settle.
+ *
+ * Absent for the same three reasons `schedulesOf` is. An empty list is an answer of its own: a
+ * partition whose every plan expanded lawfully defers nothing (R-UI-050).
+ */
+export async function expansionDeferralsOf(scope: ViewsScope): Promise<StoredExpansionDeferral[] | null> {
+  const ingestId = await partitionedIngestOf(scope);
+  return ingestId === null ? null : storedExpansionDeferralsOf(scope.tenantId, ingestId);
+}
+
+/**
+ * The typical ranges a person has authored in one project (L-ACT-01, L-CAD-07). Project-scoped
+ * rather than drawing-scoped because a range is a statement about a view, and the expansion resolves
+ * every view of the project against the same list.
+ */
+export async function typicalRangesOf(scope: { tenantId: string; projectId: string }): Promise<StoredTypicalRange[]> {
+  return storedTypicalRangesOf(scope.tenantId, scope.projectId);
+}
+
+/**
+ * L-ACT-02's typed grouping key for the offer below: "bulk is offered, never assembled". The stack a
+ * section states is confirmed whole or not at all, so the fact the group is keyed on is the stack —
+ * the kind is the act seam's closed roster's, never a spelling of this module's (B-17, ARCH-02).
+ */
+const PROPOSED_LEVEL_STACK: GroupKind = "PROPOSED_LEVEL_STACK";
+
+/** The stack a drawing's sections state, as ONE `INSERT_LEVEL` a person confirms whole (R-UI-023). */
+export type ProposedLevelStackOffer = {
+  readonly group: { readonly kind: GroupKind; readonly drawingId: string; readonly ingestId: string };
+  readonly levels: readonly ProposedLevel[];
+};
+
+/**
+ * The ONE stack a drawing's sections state, from the storeys they each state (L-MEA-07). A sheet
+ * ordinarily carries two sections — `SECTION A-A` beside `SECTION B-B` — and the seventh stage reads
+ * each into `proposed_levels` on its own, ordinalled from its own foot. What is offered below is the
+ * `levels` of a single `INSERT_LEVEL`, and that act mints one level per entry it is handed: offering
+ * both views' rows one after another would have a person confirming the machine's own proposal author
+ * the building's storeys twice over, and a level is authored and never edited (L-ACT-01).
+ *
+ * So a storey is named once: by the LABEL that names it, and by nothing else — two sections of one
+ * building state one GF, however each of them spells it. An elevation is not the identity: a member
+ * section is routinely drawn from its own datum, so a `1ST` standing at +0.00 on one view and the
+ * `GF` standing at +0.00 on another are two storeys that share a number, and dropping either of them
+ * would leave a person confirming a stack the drawing never proposed, with nothing said about it.
+ *
+ * The ordinals are the stack's own run from the foot up, because an ordinal is physical (L-MEA-07)
+ * and the run is what an `INSERT_LEVEL` shifts its stack by.
+ */
+function oneStack(rows: readonly StoredProposedLevel[]): StoredProposedLevel[] {
+  const stacked: StoredProposedLevel[] = [];
+  for (const row of [...rows].sort((left, right) => left.elevation - right.elevation || compareCanonical(left.markKey, right.markKey))) {
+    const named = stacked.some((held) => dotlessUpper(held.label) === dotlessUpper(row.label));
+    if (!named) stacked.push(row);
+  }
+  return stacked;
+}
+
+/**
+ * The storey height an offered level states: the distance to the level standing above it IN THE
+ * OFFERED STACK, and nothing else (L-REG-01, L-CAD-03).
+ *
+ * The seventh stage reads each section on its own and states each level's height within that view's
+ * own marks. Merging the sections into one stack can put a different level above a kept one — a long
+ * section stating only `GF` and `ROOF` beside a member section stating `1ST` and `2ND` between them —
+ * and the reading the row was stored with would then be the distance to a level that no longer stands
+ * above it. Committed, that is a `TRANSCRIBED` reading of a figure nobody drew, under the basis that
+ * means it was read off the drawing.
+ *
+ * A storey height is a distance between two marks of ONE section: the views are drawn from their own
+ * datums, so the gap between two of them is not a measurement anybody took. Where the level above
+ * came from another view, or where the level's own mark stated no unit, the level states no height —
+ * an empty list is the drawing's silence, never a zero somebody would have to disbelieve (B-07).
+ */
+function storeyHeightOf(level: StoredProposedLevel, above: StoredProposedLevel | undefined): ProposedReading[] {
+  if (above === undefined || above.viewKey !== level.viewKey || level.heightUnit === null) return [];
+  return [{ valueAsWritten: statedHeight(above.elevation - level.elevation), unitAsWritten: level.heightUnit, sourceKey: level.markKey }];
+}
+
+/**
+ * The level stack a drawing's sections propose (L-MEA-07: "the machine proposes a stack, never a
+ * level"), offered as the `levels` of one `INSERT_LEVEL` — labels, the ordinals the section stacks
+ * them in, and the storey height each level states, kept as the drawing wrote it beside the entity it
+ * was read off (L-REG-01, L-CAD-03).
+ *
+ * A drawing this scope does not hold, one nothing has ingested, one whose partition has never been
+ * rebuilt, and one whose sections stated no level at all all answer null. An absence, never an empty
+ * offer: a stack of no levels is not something a person could confirm (R-UI-050).
+ */
+export async function proposedLevelStackOf(scope: ViewsScope): Promise<ProposedLevelStackOffer | null> {
+  const ingestId = await partitionedIngestOf(scope);
+  if (ingestId === null) return null;
+  const proposed = await storedProposedLevelsOf(scope.tenantId, ingestId);
+  if (proposed.length === 0) return null;
+
+  const stacked = oneStack(proposed);
+  return {
+    group: { kind: PROPOSED_LEVEL_STACK, drawingId: scope.drawingId, ingestId },
+    levels: stacked.map((level, ordinal) => ({
+      label: level.label,
+      ordinal,
+      readings: storeyHeightOf(level, stacked[ordinal + 1]),
+    })),
+  };
 }
 
 /** The record a drawing's standing partition was rebuilt from, or null where none stands. */

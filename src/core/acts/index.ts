@@ -8,6 +8,7 @@ import { acts, forTenant, holdStateLock, type TenantTx } from "../db";
 import { affirmScale, type AffirmScaleInput } from "./affirm-scale";
 import { assignParticipantRole, type AssignParticipantRoleInput } from "./assign-participant-role";
 import { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-storey-height";
+import { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typical-range";
 import { confirmDiscipline, type ConfirmDisciplineInput } from "./confirm-discipline";
 import { confirmViewType, type ConfirmViewTypeInput } from "./confirm-view-type";
 import { insertLevel, type InsertLevelInput } from "./insert-level";
@@ -44,6 +45,7 @@ export { affirmScale, type AffirmScaleInput } from "./affirm-scale";
 export { insertLevel, type InsertLevelInput, type ProposedLevel, type ProposedReading } from "./insert-level";
 export { repudiateLevel, type RepudiateLevelInput } from "./repudiate-level";
 export { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-storey-height";
+export { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typical-range";
 
 /** Everything a caller may ask the seam to do: one member per act type the enum declares. */
 export type ActInput =
@@ -54,7 +56,8 @@ export type ActInput =
   | AffirmScaleInput
   | InsertLevelInput
   | RepudiateLevelInput
-  | AuthorStoreyHeightInput;
+  | AuthorStoreyHeightInput
+  | AuthorTypicalRangeInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -70,6 +73,7 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
   INSERT_LEVEL: insertLevel,
   REPUDIATE_LEVEL: repudiateLevel,
   AUTHOR_STOREY_HEIGHT: authorStoreyHeight,
+  AUTHOR_TYPICAL_RANGE: authorTypicalRange,
 });
 
 /**
@@ -108,6 +112,8 @@ function renderingFor(input: ActInput): BoundRendering {
     case "REPUDIATE_LEVEL":
       return bind(ACT_MAP[input.type], input);
     case "AUTHOR_STOREY_HEIGHT":
+      return bind(ACT_MAP[input.type], input);
+    case "AUTHOR_TYPICAL_RANGE":
       return bind(ACT_MAP[input.type], input);
     default:
       return unrendered(input);

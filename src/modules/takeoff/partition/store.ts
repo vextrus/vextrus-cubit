@@ -13,6 +13,12 @@ import { CONVENTIONS_METHOD, type ConventionProfile, type EntityCensus } from "@
 import { viewRecordsOf, type ProposedViewType, type ViewRecord } from "@/core/views";
 import type { DetectedGrid } from "./grid/detect";
 import { rewriteGridRows } from "./grid/store";
+import { rewriteExpansionRows } from "./expansion/store";
+import type { ResolvedExpansion } from "./expansion/resolve";
+import { rewriteProposedLevelRows } from "./levels-proposal/store";
+import type { ProposedLevelStack } from "./levels-proposal/propose";
+import type { DetectedPlacements } from "./placement/detect";
+import { rewritePlacementRows } from "./placement/store";
 import { rewriteScheduleRows, type DetectedSchedules } from "./schedules/store";
 import type { PartitionedView } from "./views/assign";
 
@@ -43,6 +49,12 @@ export type PartitionWrite = {
   readonly grid: DetectedGrid | null;
   /** What the schedules stage reconstructed and registered, or null for the same reason (R-TO-031). */
   readonly schedules: DetectedSchedules | null;
+  /** What the placement stage read off the layout plans, or null for the same reason (L-CAD-07). */
+  readonly placements: DetectedPlacements | null;
+  /** What the expansion stage resolved, or null for the same reason (L-CAD-07). */
+  readonly expansion: ResolvedExpansion | null;
+  /** What the levels-proposal stage read off the sections, or null for the same reason (L-MEA-07). */
+  readonly proposal: ProposedLevelStack | null;
 };
 
 /**
@@ -128,6 +140,14 @@ export async function rewritePartition(write: PartitionWrite): Promise<void> {
     // And the schedules' six, for the same reason: a table stands with the view its caption anchors
     // or neither of them stands (R-TO-030, L-REG-04).
     await rewriteScheduleRows(tx, { tenantId: write.tenantId, projectId: write.projectId, drawingId: write.drawingId, ingestId: write.ingestId, schedules: write.schedules });
+
+    // And the last three stages' tables, for the same reason: a placement stands with the view its
+    // mark was anchored in, a deferral with the placements it was resolved from, and a proposed level
+    // with the section it was read off — or none of them stands (L-CAD-07, L-MEA-07, L-REG-04).
+    const record = { tenantId: write.tenantId, projectId: write.projectId, drawingId: write.drawingId, ingestId: write.ingestId };
+    await rewritePlacementRows(tx, { ...record, placements: write.placements });
+    await rewriteExpansionRows(tx, { ...record, expansion: write.expansion });
+    await rewriteProposedLevelRows(tx, { ...record, proposal: write.proposal });
   });
 }
 

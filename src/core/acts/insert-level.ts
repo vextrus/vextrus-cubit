@@ -11,6 +11,7 @@
 // the subject `proposed:<i>` — its index in the act that proposed it — and a carried object says the
 // label it is carried onto, with the key it lands on observable once the act has landed.
 import type { TenantTx } from "../db";
+import { dotlessUpper } from "../identity";
 import { STOREY_HEIGHT_BASES, carryToMetres, declaredOrdinal, readingKey, type CarriedReading, type StoreyHeightBasis } from "../levels";
 import { carryObjectOntoLevel, insertLevels, liveLevelsOf, moveOrdinal, objectsUnderPlaceholders, writeReadings, type LevelScope, type PlaceholderObject, type ReadingWrite } from "../levels/store";
 import type { Consequence, ConsequenceSubject } from "./consequence";
@@ -132,9 +133,14 @@ async function derive(ctx: ActorCtx, input: InsertLevelInput, tx: TenantTx): Pro
   return { placed, moved, carried };
 }
 
-/** The level each carried object is carried onto: the first proposal standing under its placeholder. */
+/**
+ * The level each carried object is carried onto: the first proposal standing under its placeholder,
+ * matched in the comparison form labels are read in (`dotlessUpper`, L-CAD-07) — the same rule that
+ * found the object, so a placeholder found here is a placeholder that carries.
+ */
 function levelFor(derived: Derived, object: PlaceholderObject): Placed {
-  const found = derived.placed.find((level) => level.label === object.levelLabel);
+  const under = dotlessUpper(object.levelLabel);
+  const found = derived.placed.find((level) => dotlessUpper(level.label) === under);
   if (found === undefined) throw new Error(`${object.objectKey} stands under a placeholder no proposal of this act names, so nothing carries it (L-REG-04)`);
   return found;
 }
@@ -210,7 +216,7 @@ export const insertLevel: ActRendering<InsertLevelInput> = {
       const level = levelFor(derived, object);
       const levelId = minted[level.at];
       if (levelId === undefined) throw new Error(`the store minted no surrogate for the proposed level ${level.label} (L-MEA-07)`);
-      await carryObjectOntoLevel(tx, scope, object, { label: level.label, levelId });
+      await carryObjectOntoLevel(tx, scope, object, levelId);
     }
   },
 };

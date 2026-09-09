@@ -60,6 +60,10 @@ export {
   memberTypeVariants,
   rebarZones,
   scheduleDeferrals,
+  placements,
+  expansionDeferrals,
+  proposedLevels,
+  typicalRanges,
   drawingSets,
   drawingSetMembers,
   drawingSetRevisions,
@@ -94,6 +98,7 @@ export type {
   SectionUnit,
   RebarZone,
   ScheduleDeferralReason,
+  ExpansionDeferralReason,
 } from "./db/schema";
 export { closePools } from "./db/pools";
 export {

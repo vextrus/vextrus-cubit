@@ -8,6 +8,7 @@
 // is ever answered to a user (R-SPINE-062, B-17: the taxonomy in `../errors.ts` is the one home for
 // names the product does own).
 
+import { ACT_TYPES } from "../acts/law";
 import { GEOMETRY_TYPES } from "../offers/law";
 
 /** One foreign vocabulary: who owns the names, and which of them this tree spells. */
@@ -112,9 +113,10 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // L-ACT-02's act-type enum, spelled as the law spells it. An act type names what a human did; it
     // is written to the act log and read by the seam's map, and no user is ever answered with one.
     // Its home is `../acts/law.ts` (ARCH-02) — this declaration is what tells a name belonging to
-    // that closed set apart from a refusal nobody registered.
+    // that closed set apart from a refusal nobody registered, and it is READ from there rather than
+    // copied, so an act type the law gains tomorrow is declared with no edit (B-19, B-17).
     vocabulary: "act types (L-ACT-02)",
-    codes: Object.freeze(["ASSIGN_PARTICIPANT_ROLE", "CONFIRM_DISCIPLINE", "CONFIRM_VIEW_TYPE", "PIN_DRAWING_SET", "AFFIRM_SCALE", "INSERT_LEVEL", "REPUDIATE_LEVEL", "AUTHOR_STOREY_HEIGHT"]),
+    codes: ACT_TYPES,
   }),
   Object.freeze({
     // L-MEA-05's scale ranks, spelled as the law spells its precedence: "QS two-point › grid-spacing
@@ -129,8 +131,10 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // L-ACT-02's grouping-key kinds: "bulk is offered, never assembled … a typed grouping key over a
     // closed enum". A kind names the fact a group is judged on — it rides on the key an offer is made
     // with and is written to no log and answered to nobody. Its home is `../acts/confirm-discipline.ts`.
+    // `PROPOSED_LEVEL_STACK` is the kind the level stack a drawing's sections state is offered under
+    // (L-MEA-07: the machine proposes a stack, never a level), keyed on the stack as a whole.
     vocabulary: "offered-group kinds (L-ACT-02)",
-    codes: Object.freeze(["PROPOSED_DISCIPLINE", "PROPOSED_VIEW_TYPE"]),
+    codes: Object.freeze(["PROPOSED_DISCIPLINE", "PROPOSED_VIEW_TYPE", "PROPOSED_LEVEL_STACK"]),
   }),
   Object.freeze({
     // L-CAD-06's view types, declared above and named here so the register can tell them from codes

@@ -71,6 +71,22 @@ export function isUnit(value: unknown): value is Unit {
 }
 
 /**
+ * The unit a WRITTEN spelling names, or null where the canon knows none (L-FRM-06). A drawing writes
+ * the metre as `M` and the foot as `FT`, and a reading transcribed from one carries the spelling that
+ * was drawn (L-REG-01: source unit AS WRITTEN) — so what a spelling names is read here, once, rather
+ * than each caller folding case of its own accord (B-17).
+ *
+ * Case is the only difference admitted: the canon's own spellings are what a unit IS, and a fold over
+ * them is unambiguous because no two of them differ by case alone.
+ */
+export function unitNamed(spelling: string): Unit | null {
+  const said = spelling.trim();
+  if (isUnit(said)) return said;
+  const folded = said.toLowerCase();
+  return UNITS.find((unit) => unit.toLowerCase() === folded) ?? null;
+}
+
+/**
  * The packaging units L-FRM-06 names: a bag, a drum, a coil hold whatever the product they package
  * says they hold, so none of them has a factor of its own until a product property supplies one
  * (M5, R-BK-010). Until then every one of them refuses.

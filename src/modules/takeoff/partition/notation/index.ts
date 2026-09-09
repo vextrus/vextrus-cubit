@@ -15,6 +15,7 @@
 // member it holds that this file omits does not compile either: the roster keeps its one home in the
 // seam, and this module publishes it for the callers that read a zone off a header (ARCH-01).
 import type { RebarZone, SectionUnit } from "@/core/db";
+import { dotlessUpper } from "@/core/identity";
 
 /** The four zones a rebar column reads as, each named as the member of the seam's roster it is. */
 const ZONE: Readonly<Record<RebarZone, RebarZone>> = Object.freeze({
@@ -258,16 +259,16 @@ export function parseNOf(text: string): CountOf | null {
   return { n: Number(match[1]), rest: match[2] ?? "" };
 }
 
-/** Everything a mark is compared without: case, whitespace, dots and the hyphens between its parts. */
-const MARK_NOISE = /[\s.\-–—_]/g;
-
 /**
- * One member mark as the registry compares one (riskNotes (3)): uppercase, with whitespace, dots and
- * hyphens dropped. `C-1`, `c1.` and `C 1` are one family, and a registry that read them as three
- * would offer placement three columns where the drawing drew one.
+ * One member mark as the registry compares one (riskNotes (3)): the drawing's glyphs folded, then
+ * put to L-CAD-07's dotless-uppercase comparison form. `C-1`, `c1.` and `C 1` are one family, and a
+ * registry that read them as three would offer placement three columns where the drawing drew one.
+ *
+ * The comparison form itself is core's (`dotlessUpper`) rather than this file's: the placeholder a
+ * level retires is matched by the same rule, and a rule spelled twice is two rules (B-17).
  */
 export function normaliseMark(text: string): string {
-  return normaliseNotation(text).toUpperCase().replace(MARK_NOISE, "");
+  return dotlessUpper(normaliseNotation(text));
 }
 
 /** A mark names a member: a letter or two of its class, the number it is, and a variant letter. */
