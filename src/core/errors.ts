@@ -61,6 +61,8 @@ export type RefusalCode =
   | "GRID_NO_BUBBLE_EVIDENCE"
   | "SCHEDULE_NONE_RECONSTRUCTED"
   | "SCHEDULE_VIEW_CONTRIBUTED_NOTHING"
+  | "TYPICAL_RANGE_UNSTATED"
+  | "LEVEL_RANGE_ENDPOINT_UNMAPPED"
   | "GROUP_NOT_OFFERED"
   | "SET_NOT_PINNABLE"
   | "SET_NAME_NOT_USABLE"
@@ -397,6 +399,26 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     severity: "info",
     surface: "inline",
   }),
+  // L-CAD-07's answer where a typical plan states no range at all: "a bare typical caption states no
+  // membership and registers UNRESOLVED rows with no line (`TYPICAL_RANGE_UNSTATED`)". The columns
+  // are read and stand in the unresolved slot; which levels they repeat over is nobody's guess.
+  TYPICAL_RANGE_UNSTATED: Object.freeze({
+    code: "TYPICAL_RANGE_UNSTATED",
+    message: "This typical plan does not say which floors it is typical of, so what stands on it is not spread over any of them.",
+    remedy: "State the range of floors this plan is typical of, which registers the members on every floor of it.",
+    severity: "info",
+    surface: "inline",
+  }),
+  // L-CAD-07's other expansion answer: "a stated range whose endpoint the stack lacks refuses
+  // `LEVEL_RANGE_ENDPOINT_UNMAPPED`". Answered by the expansion where a caption names the endpoint,
+  // and by the authoring act where a person does.
+  LEVEL_RANGE_ENDPOINT_UNMAPPED: Object.freeze({
+    code: "LEVEL_RANGE_ENDPOINT_UNMAPPED",
+    message: "The level stack carries no level at one end of this range, so the range reaches past the building that was authored.",
+    remedy: "Author the level this range runs to, then state the range again.",
+    severity: "error",
+    surface: "inline",
+  }),
   // L-ACT-02's answer when a caller names a group the machine is not offering: "bulk is offered,
   // never assembled", so the membership a commit would move is the machine's own — a key whose
   // membership resolves empty names nothing this project is waiting to have confirmed.
@@ -636,3 +658,16 @@ export const SCHEDULE_DEFERRAL_REASONS = ["SCHEDULE_NONE_RECONSTRUCTED", "SCHEDU
 
 /** One of the two. */
 export type ScheduleDeferralReason = (typeof SCHEDULE_DEFERRAL_REASONS)[number];
+
+/**
+ * Why a view's vertical members expand over no level: the codes of this register the expansion stage
+ * stands a view under (L-CAD-07). One list, read by the store's CHECK and published by the
+ * partition's door alike — a vocabulary written twice drifts (B-17, Q-07).
+ *
+ * It stands with the codes for the reason the schedule list does: the seam is not a module's to
+ * import (SEAM-TENANT), and a roster its readers cannot reach is a roster they would copy.
+ */
+export const EXPANSION_DEFERRAL_REASONS = ["TYPICAL_RANGE_UNSTATED", "LEVEL_RANGE_ENDPOINT_UNMAPPED"] as const satisfies readonly RefusalCode[];
+
+/** One of the two. */
+export type ExpansionDeferralReason = (typeof EXPANSION_DEFERRAL_REASONS)[number];

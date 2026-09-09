@@ -14,6 +14,7 @@ export * from "./takeoff-sheets";
 export * from "./takeoff-views";
 export * from "./takeoff-grids";
 export * from "./takeoff-schedules";
+export * from "./takeoff-placements";
 export * from "./takeoff-scale";
 export * from "./catalogue";
 export * from "./drawing-sets";
