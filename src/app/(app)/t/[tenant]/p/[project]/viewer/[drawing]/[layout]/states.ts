@@ -8,24 +8,30 @@ const ROUTE = "src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]";
 
 export const VIEWER_STATES: Readonly<Record<ShellStateName, ShellStateCell>> = {
   // Two surfaces of bones: the route's own before the client mounts, and the client's own while the
-  // head is in flight — both keep the sheet's shape, and neither spins.
+  // head is in flight — both keep the sheet's shape, and neither spins. The snapping region adds no
+  // third: its toolbar is local state, so it mounts with the stage and is operable at once, while its
+  // two readout cells stand honestly at nothing-in-reach and no-picks (I-148).
   loading: { declared: "rendered", by: `${ROUTE}/loading.tsx`, testId: "viewer-loading" },
   // Two truths in the sheet's place, chosen by cause: a drawing nobody has read yet, and an address
   // naming a sheet the reading does not carry. Each teaches the next action and neither is an error.
+  // Neither mounts a stage, so the snap toolbar, its overlay and its cells do not render either.
   empty: { declared: "rendered", by: `${ROUTE}/viewer-screen.tsx`, testId: "viewer-empty" },
   error: {
     declared: "delegated",
     to: "src/app/error.tsx",
-    why: "the root error boundary is the tree's one error state, and its own Decision rules retry and the report id; only a head that cannot be read at all reaches it, because a layer that fails to arrive is the partial cell (I-81)",
+    why: "the root error boundary is the tree's one error state, and its own Decision rules retry and the report id; only a head that cannot be read at all reaches it, because a layer that fails to arrive is the partial cell (I-81), as is a scale of record that could not be read (I-150) — that costs the reader metres, never the sheet",
   },
   // The registered refusal, in the sheet's place, with the facts the reading did record beside it.
+  // The calibration door refuses the sheet's own session, so its two codes render here too (I-150).
   refusal: { declared: "rendered", by: `${ROUTE}/viewer-screen.tsx`, testId: "refusal-state" },
-  // I-81: a layer whose geometry did not arrive keeps its row, says so, and offers to fetch itself
-  // again; the sheet that did arrive is not withdrawn because part of it is missing.
+  // Two partials, both rendered, neither withdrawing the sheet that did arrive. I-81: a layer whose
+  // geometry did not arrive keeps its row, says so, and offers to fetch itself again. I-150: a scale
+  // of record the feed could not answer leaves the drawing-unit figure standing in
+  // `status-line.tsx`'s distance cell and names the move, because that cell holds no control.
   partial: { declared: "rendered", by: `${ROUTE}/layers-panel.tsx`, testId: "viewer-layer-row" },
   offline: {
     declared: "impossible",
-    why: "the viewer writes nothing, so there is no read-only degradation to announce (shell I-20). Losing the network mid-load is the partial cell, losing it before the head is the error cell, and geometry already in the GPU buffers keeps painting",
+    why: "the viewer writes nothing, so there is no read-only degradation to announce (shell I-20). Losing the network mid-load is the partial cell, losing it before the head is the error cell, and geometry already in the GPU buffers keeps painting; snapping, picking and both readouts are wholly local and survive it untouched",
   },
   permissionDenied: {
     declared: "delegated",
