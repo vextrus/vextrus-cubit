@@ -32,12 +32,16 @@ import { usePainter } from "@/modules/takeoff/viewer/hooks/use-painter";
 import { usePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
 import { useReveal } from "@/modules/takeoff/viewer/hooks/use-reveal";
 import { useSelection } from "@/modules/takeoff/viewer/hooks/use-selection";
+import { useSnap, useSnapCalibration } from "@/modules/takeoff/viewer-snap/use-snap";
+import type { SnapCalibration } from "@/modules/takeoff/viewer-snap/snap";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { shellHref } from "@/ui/shell";
+import { isTextField, matchesStep, shortcutById } from "@/ui/shell/shortcuts/roster";
 import { fill, strings } from "@/ui/strings";
 import { projectHomeRoute } from "@/app/(app)/t/[tenant]/p/[project]/home/areas";
 import { publishViewport } from "./address";
 import { FidelityFacts } from "./fidelity-facts";
+import { SNAP_SHORTCUT_ID } from "./snap-region";
 import { feedRefusalCode, usePartitionRegion } from "./partition-region";
 import { SheetBones } from "./viewer-bones";
 import { layoutNameOf } from "./route-address";
@@ -55,9 +59,11 @@ export type ViewerScreenProps = {
   /** The `s` parameter as the address carries it, or null where it carries none. */
   initialSelection: string | null;
   head?: ViewerHead;
+  /** The scale of record over this sheet. Supplied only where a mount is judged without a server. */
+  calibration?: SnapCalibration | null;
 };
 
-export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, head: supplied }: ViewerScreenProps) {
+export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, head: supplied, calibration: suppliedCalibration }: ViewerScreenProps) {
   /** The status a door refused this reader with, if one did — the code it maps to is decided below. */
   const [denied, setDenied] = useState<number | null>(null);
 
@@ -127,8 +133,32 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const trace = useReveal({ head: sheet.head, stageRef, facts, cameraRef, moveCamera: camera.moveCamera, jumpTo: camera.jumpTo, pulse });
   const held = useSelection({ facts, head: sheet.head, initialSelection, initialViewport, loadedLayers: sheet.loadedLayers, failedCount: layers.failedCount, revision: layers.revision, reveal: trace.reveal, selectionRef, cameraRef, publish, drawingId, layoutName });
   const index = useHitTesting({ head: sheet.head, layers: arrived, loadedLayers: sheet.loadedLayers, stateRef: layers.stateRef, statusRef, cameraRef });
-  const pointer = usePointer({ head: sheet.head, canvasRef, cameraRef, facts, keysUnder: index.keysUnder, ask: index.ask, openLayers: layers.openLayers, hold: held.hold, toggleKey: held.toggleKey, moveCamera: camera.moveCamera });
-  const keyboard = useKeyboard({ moveCamera: camera.moveCamera, zoomBy: camera.zoomBy, fitSheet: camera.fitSheet, hold: held.hold });
+  /** The scale of record over this sheet, and what the pointer meets on it (R-TO-012, R-UI-041). A
+      door that refuses THIS read refuses the sheet's own session, so it renders where the layer
+      feed's refusal renders — one door, one session (I-150). */
+  const calibration = useSnapCalibration({ feed, enabled: sheet.head?.kind === "manifest", supplied: suppliedCalibration, onDenied: setDenied });
+  const snap = useSnap({
+    layers: arrived,
+    stateRef: layers.stateRef,
+    cameraRef,
+    camera: camera.camera,
+    calibration: calibration.calibration,
+    calibrationUnread: calibration.unread,
+  });
+
+  const pointer = usePointer({ head: sheet.head, canvasRef, cameraRef, facts, keysUnder: index.keysUnder, ask: index.ask, openLayers: layers.openLayers, hold: held.hold, toggleKey: held.toggleKey, moveCamera: camera.moveCamera, onHoverWorld: snap.onHover, onLeaveWorld: snap.onLeave, onPick: snap.takePick });
+  const keyboard = useKeyboard({
+    moveCamera: camera.moveCamera,
+    zoomBy: camera.zoomBy,
+    fitSheet: camera.fitSheet,
+    hold: held.hold,
+    // R-UI-032's one roster, read in the one layer that may read it (ARCH-01): what the product
+    // documents and what the sheet binds are the same line, and "S" is spelled nowhere else (B-17).
+    isSnapKey: (event) => !isTextField(event.target) && matchesStep(event, shortcutById(SNAP_SHORTCUT_ID).keys[0] ?? ""),
+    toggleSnapping: snap.toggleSnapping,
+    takePick: snap.takePick,
+    clearPicks: snap.clearPicks,
+  });
   const paint = usePainter({ head: sheet.head, refused: denied !== null, canvasRef, stageRef, statusRef, painterRef, stateRef: layers.stateRef, cameraRef, layers: arrived, facts, loadedLayers: sheet.loadedLayers, drawnLayers: layers.drawnLayers, selection: held.selection, hovered: pointer.hovered });
 
   /** The views/grid region — the partition stored for this sheet, the paint it files above, and the one act
@@ -205,6 +235,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
           onSelectLayer: (name) => void index.ask({ kind: "layer", layer: name }).then((keys) => held.hold(keys.filter((key) => facts.has(key)))),
         }}
         pointer={pointer}
+        snap={snap}
         // The source key goes to the clipboard exactly as it stands — nothing stripped, nothing
         // trimmed (R-TO-011). A browser that refuses the write refuses that promise, and the row
         // goes on offering the copy rather than claiming to have made one.
@@ -241,6 +272,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         firstPaint={paint.firstPaint}
         renderer={paint.renderer}
         partial={layers.rows.some((row) => row.failed)}
+        snap={snap}
       />
       {partition.dialog}
     </div>
