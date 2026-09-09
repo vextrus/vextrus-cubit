@@ -5,8 +5,11 @@
 // a type-only import too — the rail↔gate contract is what an app-layer file may name (riskNotes (2)).
 //
 // This file is linted and scanned as `src/app/bad.ts`. Nothing here is imported by anything.
-import { evaluateOffers } from "@/core/gate"; // RECORDED REASON SEAM-GATE
-import type { GateVerdict } from "../core/gate"; // RECORDED REASON SEAM-GATE
+//
+// As in the module layer's payload, the fixture declares its own answer: the trailing marker names a
+// line the scan owes a finding at, and an unmarked line is one it must not report.
+import { evaluateOffers } from "@/core/gate"; // RECORDED REASON SEAM-GATE — GATE-IMPORT: reported
+import type { GateVerdict } from "../core/gate"; // RECORDED REASON SEAM-GATE — GATE-IMPORT: reported
 
 export type Answered = GateVerdict;
 
