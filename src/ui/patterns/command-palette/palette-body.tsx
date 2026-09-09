@@ -122,7 +122,7 @@ export function PaletteBody({
           </Button>
         </div>
       ) : refusedInPlace ? (
-        <div data-testid="command-palette-refusal" className="cx-palette-refusal">
+        <div data-testid="command-palette-refusal" data-code={refusal.entry.code} className="cx-palette-refusal">
           <RefusalState refusal={refusal.entry} evidence={refusal.evidence} />
         </div>
       ) : status === "loading" ? (
@@ -148,7 +148,7 @@ export function PaletteBody({
             ))}
           </div>
           {refusal === null ? null : (
-            <div data-testid="command-palette-refusal" className="cx-palette-refusal">
+            <div data-testid="command-palette-refusal" data-code={refusal.entry.code} className="cx-palette-refusal">
               <RefusalState refusal={refusal.entry} evidence={refusal.evidence} />
             </div>
           )}
