@@ -1400,6 +1400,11 @@ export const expansionDeferrals = pgTable(
     ingestId: uuid("ingest_id").notNull(),
     viewKey: text("view_key").notNull(),
     reason: text("reason").$type<ExpansionDeferralReason>().notNull(),
+    // The two ends of the range the view STATED, kept as the labels the caption wrote them as, so a
+    // person reading the deferral can see which endpoint the stack does not carry (L-CAD-07). Null
+    // where the caption stated no range at all — there are no endpoints to name (L-REG-01, B-07).
+    fromLabel: text("from_label"),
+    toLabel: text("to_label"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

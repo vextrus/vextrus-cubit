@@ -9,6 +9,7 @@
 // Pure and storeless: the same mark reads the same class forever, which is what lets a stored
 // partition be rebuilt onto identical rows (L-REG-04).
 import type { ElementType } from "@/core/catalogue/classes";
+import { DISCIPLINES, type Discipline } from "@/core/sheets/law";
 import { isMarkFamily, normaliseMark } from "../notation";
 
 /** The five classes a mark names, each written as the member of the catalogue's roster it is. */
@@ -58,6 +59,14 @@ export function classOfMark(mark: string): ElementType | null {
   const prefix = MARK_PREFIX.exec(normalised)?.[1];
   return prefix === undefined ? null : (CLASS_OF_PREFIX[prefix] ?? null);
 }
+
+/**
+ * L-REG-03: "each quantity kind has exactly one authoritative discipline". Every class this map
+ * names is an RCC member — a column, a shear wall, a footing, a pile cap, a pile — and the discipline
+ * that measures one is the structural. Read off the sheet law's closed roster rather than spelled
+ * beside the sighting it is registered under (Q-07, B-17).
+ */
+export const PLACEMENT_DISCIPLINE: Discipline = DISCIPLINES[0];
 
 /** Does a member of this class expand over the levels its view states (L-CAD-07)? */
 export function isVerticalClass(type: ElementType): boolean {

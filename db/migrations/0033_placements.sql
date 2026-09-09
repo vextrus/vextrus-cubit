@@ -5,6 +5,8 @@ CREATE TABLE "expansion_deferrals" (
 	"ingest_id" uuid NOT NULL,
 	"view_key" text NOT NULL,
 	"reason" text NOT NULL,
+	"from_label" text,
+	"to_label" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "expansion_deferrals_key" PRIMARY KEY("tenant_id","ingest_id","view_key"),
 	CONSTRAINT "expansion_deferrals_reason_closed" CHECK ("expansion_deferrals"."reason" in ('TYPICAL_RANGE_UNSTATED', 'LEVEL_RANGE_ENDPOINT_UNMAPPED'))

@@ -1,5 +1,5 @@
 {
-  "id": "2bb846fa-6cbf-403c-8e74-bc1b8d5188ec",
+  "id": "be7ea10f-be10-4cbb-87d4-9d0f9c816d1a",
   "prevId": "0b0ea3d2-b050-41f9-b8d8-db254cca4053",
   "version": "7",
   "dialect": "postgresql",
@@ -3503,6 +3503,18 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "from_label": {
+          "name": "from_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_label": {
+          "name": "to_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

@@ -5,7 +5,7 @@
 // Every number here is the canon's. No factor is spelled in this file: `src/core/units/canon.ts` is
 // the one home of the law, and this asks it (B-17).
 import { refusal } from "../faults/refusal-marker";
-import { CANONICAL_UNIT, convert, isUnit, toCanonical, type Unit } from "../units/canon";
+import { CANONICAL_UNIT, convert, toCanonical, unitNamed, type Unit } from "../units/canon";
 
 /**
  * Where a conversion factor came from, recorded with the reading it carried: a derivation whose
@@ -49,14 +49,17 @@ export function carryToMetres(valueAsWritten: string, unitAsWritten: string): Ca
   if (!readsAsANumber(value)) {
     throw new Error(`"${valueAsWritten}" is no reading of a storey height, so there is nothing to carry to metres — a convert of no input is no output, never a zero (L-REG-01)`);
   }
-  if (!isUnit(unitAsWritten)) {
+  // A drawing writes the metre as `M`; what a written spelling NAMES is the canon's to say, and the
+  // reading keeps the spelling that was drawn beside the unit it named (L-REG-01, L-FRM-06, B-17).
+  const named = unitNamed(unitAsWritten);
+  if (named === null) {
     const canonical = toCanonical(unitAsWritten);
     if (canonical.ok) throw new Error(`"${unitAsWritten}" canonicalised without being a unit of the canon — the canon and its guard disagree (L-FRM-06)`);
     throw refusal(canonical.code, `a storey height written in ${unitAsWritten} carries no factor into metres`, { unitAsWritten });
   }
-  const source = toCanonical(unitAsWritten);
+  const source = toCanonical(named);
   if (!source.ok) throw refusal(source.code, `a storey height written in ${unitAsWritten} carries no factor into metres`, { unitAsWritten });
-  const carried = convert(value, unitAsWritten, CANONICAL_LENGTH);
+  const carried = convert(value, named, CANONICAL_LENGTH);
   if (!carried.ok) throw refusal(carried.code, `a storey height is a length, and ${unitAsWritten} does not measure one`, { unitAsWritten });
   return { valueAsWritten, unitAsWritten, canonicalMetres: carried.value, factor: source.factor, factorProvenance: FACTOR_PROVENANCE };
 }

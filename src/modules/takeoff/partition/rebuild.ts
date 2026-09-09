@@ -21,7 +21,12 @@ import { proposeViewType } from "@/core/view-captions";
 import type { ViewRecord } from "@/core/views";
 import { ingestRecords, type IngestRecord } from "@/modules/takeoff/ingest";
 import { censusOf } from "./conventions/census";
+import { resolveExpansion, type ResolvedExpansion } from "./expansion/resolve";
+import { authoredRangesOf, liveStackOf, registerExpansion, revisionsNaming } from "./expansion/store";
 import { detectGrid, type DetectedGrid } from "./grid/detect";
+import { proposeLevelStack, type ProposedLevelStack } from "./levels-proposal/propose";
+import { detectPlacements, type DetectedPlacements } from "./placement/detect";
+import { placementSharesOf } from "./placement/shares";
 import { reconstructSchedules } from "./schedules/reconstruct";
 import { registerMemberTypes } from "./schedules/registry";
 import type { DetectedSchedules } from "./schedules/store";
@@ -35,7 +40,7 @@ import { VIEW_TYPE, VIEW_TYPES, type ViewType } from "./views/law";
  * A stage is a member of this list or it does not run at all — the list is the roster, and the map
  * below is keyed by it, so neither can hold a stage the other does not.
  */
-export const PARTITION_STAGES = ["views", "conventions", "grid", "schedules"] as const;
+export const PARTITION_STAGES = ["views", "conventions", "grid", "schedules", "placement", "expansion", "levels-proposal"] as const;
 
 /** One stage of the partition, drawn from the closed list above. */
 export type PartitionStage = (typeof PARTITION_STAGES)[number];
@@ -73,10 +78,23 @@ type StagedPartition = {
   readonly conventions: ResolvedConventions | null;
   readonly grid: DetectedGrid | null;
   readonly schedules: DetectedSchedules | null;
+  readonly placements: DetectedPlacements | null;
+  readonly expansion: ResolvedExpansion | null;
+  readonly proposal: ProposedLevelStack | null;
 };
 
-/** What a stage is given: the record it is rebuilding, and the artifact that record points at. */
-type StageContext = { readonly record: IngestRecord; readonly graph: EntityGraph };
+/**
+ * What a stage is given: the record it is rebuilding, the artifact that record points at, and the
+ * scope it stands in. The last three stages read the project — its pinned rule-set edition, its level
+ * stack, the revisions that name this drawing — so the scope is part of what a stage is handed.
+ */
+type StageContext = {
+  readonly record: IngestRecord;
+  readonly graph: EntityGraph;
+  readonly tenantId: string;
+  readonly projectId: string;
+  readonly drawingId: string;
+};
 
 /** What one stage leaves behind: the derivation it grew, and what it says about its own work. */
 type StageOutcome = { readonly derived: StagedPartition; readonly detail: Record<string, unknown> };
@@ -86,7 +104,7 @@ type StageOutcome = { readonly derived: StagedPartition; readonly detail: Record
  * no implementation here does not compile, which is what keeps the two from drifting apart. Each
  * reports what it read, because R-TO-030 asks for a partition whose every stage's result is visible.
  */
-const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: StagedPartition) => StageOutcome>> = Object.freeze({
+const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: StagedPartition) => StageOutcome | Promise<StageOutcome>>> = Object.freeze({
   views: (context, held) => {
     const partitioned = partitionArtifact(context.graph);
     const derived = { ...held, views: partitioned.views, assignments: partitioned.assignments };
@@ -124,6 +142,64 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
     };
     return { derived: { ...held, schedules }, detail: { views: schedules.views, tables: schedules.tables.length, deferred: schedules.deferrals.length } };
   },
+  // The fifth stage: what the layout plans PLACE (L-CAD-07). It runs after the schedules because a
+  // placement's member family is a join onto the registry the fourth stage folded out of them, and
+  // after the grid because every constant that decides a placement is a share of the spacing the grid
+  // stage read. The shares themselves are the project's pinned edition's and nothing else (L-MEA-01).
+  placement: async (context, held) => {
+    const shares = await placementSharesOf({ tenantId: context.tenantId, projectId: context.projectId });
+    const placements = detectPlacements({
+      graph: context.graph,
+      views: held.views,
+      assignments: held.assignments,
+      grid: held.grid,
+      shares,
+      families: held.schedules?.registry ?? [],
+    });
+    return {
+      derived: { ...held, placements },
+      detail: {
+        views: placements.views,
+        placements: placements.placements.length,
+        ungridded: placements.ungridded.length,
+        // What the stage measured UNDER, so a reader can see which edition decided what it read
+        // (L-MEA-01: rules are data, and a surface shows the edition it measured by).
+        shares: { ...shares },
+      },
+    };
+  },
+  // The sixth: which levels each placed member stands on, and the register rows that follows. The
+  // resolution is pure (`./expansion/resolve`); what this stage adds is the state it is resolved over
+  // — the live stack, the ranges a person authored — and the revisions the rows are registered under.
+  expansion: async (context, held) => {
+    const scope = { tenantId: context.tenantId, projectId: context.projectId };
+    const expansion = resolveExpansion({
+      placements: held.placements?.placements ?? [],
+      views: held.views.flatMap((view) => (view.anchorKey === null ? [] : [{ caption: view.caption, view: { viewClass: view.type, captionAnchorSourceKey: view.anchorKey } }])),
+      levels: await liveStackOf(scope.tenantId, scope.projectId),
+      ranges: await authoredRangesOf(scope.tenantId, scope.projectId),
+    });
+
+    // A sighting is scoped to a pinned set revision (L-REG-03). A drawing no pinned revision names is
+    // a drawing nothing has been measured under yet: it is placed and resolved all the same, and the
+    // register stands empty until somebody pins a set that carries it (L-REG-06).
+    const revisions = await revisionsNaming({ ...scope, drawingId: context.drawingId, sha256: context.record.sha256 });
+    let registered = 0;
+    let standing = 0;
+    for (const setRevisionId of revisions) {
+      const pass = await registerExpansion({ ...scope, setRevisionId }, expansion.rows);
+      registered += pass.registered;
+      standing += pass.standing;
+    }
+
+    return { derived: { ...held, expansion }, detail: { revisions: revisions.length, registered, standing, deferred: expansion.deferrals.length } };
+  },
+  // The seventh: the level stack the sections STATE, read into a proposal a person confirms whole.
+  // Nothing here authors a level — "the machine proposes a stack, never a level" (L-ACT-03).
+  "levels-proposal": (context, held) => {
+    const proposal = proposeLevelStack({ graph: context.graph, views: held.views, assignments: held.assignments });
+    return { derived: { ...held, proposal }, detail: { views: proposal.views, proposed: proposal.levels.length } };
+  },
 });
 
 /**
@@ -151,9 +227,9 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
   const graph = await artifactOf(tenantId, record, deps.storage);
   await progress.step(STEP_RESOLVE, { ingest_id: ingestId, artifact_sha256: record.artifactSha256 });
 
-  let derived: StagedPartition = { views: [], assignments: new Map(), conventions: null, grid: null, schedules: null };
+  let derived: StagedPartition = { views: [], assignments: new Map(), conventions: null, grid: null, schedules: null, placements: null, expansion: null, proposal: null };
   for (const stage of PARTITION_STAGES) {
-    const outcome = STAGES[stage]({ record, graph }, derived);
+    const outcome = await STAGES[stage]({ record, graph, tenantId, projectId, drawingId }, derived);
     derived = outcome.derived;
     await progress.step(stage, outcome.detail);
   }
@@ -178,6 +254,9 @@ export async function runPartitionJob(payload: JobPayloads["partition"], progres
     conventions: derived.conventions,
     grid: derived.grid,
     schedules: derived.schedules,
+    placements: derived.placements,
+    expansion: derived.expansion,
+    proposal: derived.proposal,
   });
   await progress.step(STEP_STORED, { views: derived.views.length, assigned: derived.assignments.size, proposed: proposals.size });
 }

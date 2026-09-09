@@ -36,6 +36,8 @@ import { shareValue, type PlacementShares } from "./shares";
 export type PlacementRow = {
   /** L-REG-04's view key — the class and the caption anchor the view was read at. */
   readonly viewKey: string;
+  /** The view itself, as a key is derived from one: the expansion keys instance rows off it (L-REG-04). */
+  readonly view: ViewRef;
   /** L-REG-04's placement key: the view, the mark and the point quantised onto the lattice. */
   readonly placementKey: string;
   readonly mark: string;
@@ -182,6 +184,7 @@ function placementsIn(pass: PlanPass): PlacementRow[] {
     keyed.add(key);
     rows.push({
       viewKey: viewKeyOf(pass.ref),
+      view: pass.ref,
       placementKey: key,
       mark: held.mark.mark,
       markText: held.mark.text,
