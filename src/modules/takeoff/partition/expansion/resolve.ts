@@ -201,9 +201,21 @@ function spanOf(view: ExpandedView, viewKey: string, evidence: ExpansionEvidence
   return spanBetween(evidence.levels, from, to);
 }
 
+/**
+ * Whether a deferred view's members stand in the UNRESOLVED slot or stand nowhere at all. The two
+ * reasons are not one state (L-CAD-07): a caption that states NO range has been read whole — every
+ * member on it was drawn, and what is unknown is only which storey, which is exactly the placeholder
+ * `AUTHOR_TYPICAL_RANGE` retires. A caption that states a range the stack cannot carry has not been
+ * read at all: the levels it names do not exist yet, so there is nothing for a member to stand on and
+ * no placeholder to retire — the remedy is INSERT_LEVEL, after which the rebuild registers all N.
+ */
+function standsUnresolved(reason: ExpansionDeferralReason): boolean {
+  return reason === TYPICAL_RANGE_UNSTATED;
+}
+
 /** The rows one vertical member stands on, over the span its view resolved to. */
 function verticalRows(placement: PlacementRow, span: Span): ExpansionRow[] {
-  if (span.kind === "deferred") return [rowOn(placement, UNRESOLVED, MEASURED)];
+  if (span.kind === "deferred") return standsUnresolved(span.reason) ? [rowOn(placement, UNRESOLVED, MEASURED)] : [];
   if (span.kind === "unregistered") return [rowOn(placement, { unregistered: span.label }, MEASURED)];
   return span.levels.map((level) => rowOn(placement, { levelId: level.levelId }, level.levelId === span.drawn.levelId ? MEASURED : DERIVED));
 }

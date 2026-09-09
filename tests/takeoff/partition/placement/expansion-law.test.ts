@@ -71,9 +71,13 @@ describe("L-CAD-07: the two reasons an expansion defers", () => {
   });
 
   test("a range whose endpoint the stack lacks defers under its own reason, carrying both ends", async () => {
-    const { deferrals } = await resolved("TYPICAL FLOOR PLAN (1ST TO 9TH FLOOR)", [placement("C1", COLUMN, 0)]);
+    const { rows, deferrals } = await resolved("TYPICAL FLOOR PLAN (1ST TO 9TH FLOOR)", [placement("C1", COLUMN, 0)]);
 
     expect(deferrals.map((deferral) => deferral["reason"]), "the stack carries no 9TH, so there is nothing to expand over").toEqual([LEVEL_RANGE_ENDPOINT_UNMAPPED]);
+    // Not the same state as an unstated range: there is no placeholder to retire here, because the
+    // levels the caption names do not exist. The remedy is INSERT_LEVEL, and the rebuild that follows
+    // it registers all N at once (L-CAD-07, L-REG-04).
+    expect(rows, "a member expands over nothing until the stack carries the range's ends").toEqual([]);
     expect([deferrals[0]?.["fromLabel"], deferrals[0]?.["toLabel"]], "and the deferral carries the two ends the caption stated (B-07)").toEqual(["1ST", "9TH"]);
   });
 
