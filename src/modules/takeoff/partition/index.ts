@@ -9,11 +9,12 @@
 import { ingestRecordOf } from "@/modules/takeoff/ingest";
 import { storedExpansionDeferralsOf, storedTypicalRangesOf, type StoredExpansionDeferral, type StoredTypicalRange } from "./expansion/store";
 import { storedGridOf, type StoredGrid } from "./grid/store";
-import { storedProposedLevelsOf } from "./levels-proposal/store";
+import { storedProposedLevelsOf, type StoredProposedLevel } from "./levels-proposal/store";
 import { storedPlacementsOf, type StoredPlacement } from "./placement/store";
 import { storedMemberTypesOf, storedSchedulesOf, type StoredMemberTypes, type StoredSchedules } from "./schedules/store";
 import { drawingProjectOf, partitionStandsFor, storedConventionsOf, storedViewsOf, type StoredConventions } from "./store";
 import type { GroupKind, ProposedLevel } from "@/core/acts";
+import { compareCanonical, dotlessUpper } from "@/core/identity";
 import type { ViewRecord } from "@/core/views";
 
 export { PARTITION_KIND, partitionJobKey, requestPartition, type PartitionRefused, type PartitionRequest, type PartitionRequested } from "./request";
@@ -165,6 +166,28 @@ export type ProposedLevelStackOffer = {
 };
 
 /**
+ * The ONE stack a drawing's sections state, from the storeys they each state (L-MEA-07). A sheet
+ * ordinarily carries two sections — `SECTION A-A` beside `SECTION B-B` — and the seventh stage reads
+ * each into `proposed_levels` on its own, ordinalled from its own foot. What is offered below is the
+ * `levels` of a single `INSERT_LEVEL`, and that act mints one level per entry it is handed: offering
+ * both views' rows one after another would have a person confirming the machine's own proposal author
+ * the building's storeys twice over, and a level is authored and never edited (L-ACT-01).
+ *
+ * So a storey is named once: by the height it stands at, and by the label that names it — two
+ * sections of one building state one GF, however each of them spells it. The ordinals are the stack's
+ * own run from the foot up, because an ordinal is physical (L-MEA-07) and the run is what an
+ * `INSERT_LEVEL` shifts its stack by.
+ */
+function oneStack(rows: readonly StoredProposedLevel[]): StoredProposedLevel[] {
+  const stacked: StoredProposedLevel[] = [];
+  for (const row of [...rows].sort((left, right) => left.elevation - right.elevation || compareCanonical(left.markKey, right.markKey))) {
+    const named = stacked.some((held) => held.elevation === row.elevation || dotlessUpper(held.label) === dotlessUpper(row.label));
+    if (!named) stacked.push(row);
+  }
+  return stacked;
+}
+
+/**
  * The level stack a drawing's sections propose (L-MEA-07: "the machine proposes a stack, never a
  * level"), offered as the `levels` of one `INSERT_LEVEL` — labels, the ordinals the section stacks
  * them in, and the storey height each level states, kept as the drawing wrote it beside the entity it
@@ -182,9 +205,9 @@ export async function proposedLevelStackOf(scope: ViewsScope): Promise<ProposedL
 
   return {
     group: { kind: PROPOSED_LEVEL_STACK, drawingId: scope.drawingId, ingestId },
-    levels: proposed.map((level) => ({
+    levels: oneStack(proposed).map((level, ordinal) => ({
       label: level.label,
-      ordinal: level.ordinal,
+      ordinal,
       // The top of a section states no storey height, and a level with no reading carries none: an
       // empty list is the drawing's own silence, never a zero somebody would have to disbelieve.
       readings:

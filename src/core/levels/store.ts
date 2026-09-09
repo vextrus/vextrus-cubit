@@ -8,7 +8,7 @@
 // (ARCH-01) — what a carry IS stays the identity grammar's (`carryLevel`), and this only moves the
 // three columns that grammar names.
 import { and, asc, eq, inArray, isNull, levels, registerObjects, storeyHeightReadings, type TenantTx } from "../db";
-import { carryLevel } from "../identity";
+import { carryLevel, dotlessUpper } from "../identity";
 import { declaredOrdinal, type StoreyHeightBasis } from "./law";
 
 /** Which project's levels are being read, in whose workspace — a level is project-scoped (L-MEA-07). */
@@ -155,9 +155,21 @@ export async function readingsOfLevel(tx: TenantTx, scope: LevelScope, levelId: 
  * labels — the rows an insert would carry (L-REG-04's one-hop carry). Across every pinned revision
  * of the project, because a level is project-scoped and the placeholder it stands under is the same
  * placeholder in each.
+ *
+ * A label is matched in the comparison form the whole product reads labels in (`dotlessUpper`,
+ * L-CAD-07) and never as the literal a person happened to type: a drawing states the placeholder
+ * `2ND` and a person authors `2nd`, and those are one storey. Comparing them as written left the
+ * placeholder standing while the next rebuild registered the same members onto the surrogate as
+ * well, so nine drawn columns stood in the register eighteen times (L-REG-03).
+ *
+ * Both spellings are asked of the column so the narrowing stays in the index: a placeholder label
+ * enters the register through the level grammar and is already in comparison form, and the row a
+ * looser spelling would have stored is caught by the comparison the answer is filtered by.
  */
 export async function objectsUnderPlaceholders(tx: TenantTx, scope: LevelScope, labels: readonly string[]): Promise<PlaceholderObject[]> {
   if (labels.length === 0) return [];
+  const wanted = new Set(labels.map((label) => dotlessUpper(label)));
+  const spellings = [...new Set([...labels, ...wanted])];
   const held = await tx
     .select({
       setRevisionId: registerObjects.setRevisionId,
@@ -166,9 +178,9 @@ export async function objectsUnderPlaceholders(tx: TenantTx, scope: LevelScope, 
       elementType: registerObjects.elementType,
     })
     .from(registerObjects)
-    .where(and(eq(registerObjects.tenantId, scope.tenantId), eq(registerObjects.projectId, scope.projectId), inArray(registerObjects.levelLabel, [...labels])))
+    .where(and(eq(registerObjects.tenantId, scope.tenantId), eq(registerObjects.projectId, scope.projectId), inArray(registerObjects.levelLabel, spellings)))
     .orderBy(asc(registerObjects.objectKey));
-  return held.flatMap((row) => (row.levelLabel === null ? [] : [{ ...row, levelLabel: row.levelLabel }]));
+  return held.flatMap((row) => (row.levelLabel !== null && wanted.has(dotlessUpper(row.levelLabel)) ? [{ ...row, levelLabel: row.levelLabel }] : []));
 }
 
 /**
@@ -176,14 +188,16 @@ export async function objectsUnderPlaceholders(tx: TenantTx, scope: LevelScope, 
  * `level_id` takes the surrogate and `level_label` is cleared — a label never keys (L-REG-02).
  *
  * What the key BECOMES is `carryLevel`'s (L-REG-04, one home): a key not standing under this label's
- * placeholder is answered unchanged, and this writes nothing for it.
+ * placeholder is answered unchanged, and this writes nothing for it. The placeholder hopped off is
+ * the object's OWN — the label its key was spelled with — rather than the spelling the level was
+ * authored in, which is a comparison and not a key (L-REG-02).
  */
-export async function carryObjectOntoLevel(tx: TenantTx, scope: LevelScope, object: PlaceholderObject, level: { readonly label: string; readonly levelId: string }): Promise<boolean> {
-  const carried = carryLevel(object.objectKey, level);
+export async function carryObjectOntoLevel(tx: TenantTx, scope: LevelScope, object: PlaceholderObject, levelId: string): Promise<boolean> {
+  const carried = carryLevel(object.objectKey, { label: object.levelLabel, levelId });
   if (!carried.carried) return false;
   await tx
     .update(registerObjects)
-    .set({ objectKey: carried.key, levelId: level.levelId, levelLabel: null })
+    .set({ objectKey: carried.key, levelId, levelLabel: null })
     .where(
       and(
         eq(registerObjects.tenantId, scope.tenantId),

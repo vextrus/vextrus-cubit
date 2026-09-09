@@ -46,6 +46,21 @@ export function isLevelSlot(value: unknown): value is LevelSlot {
   return typeof value === "string" && (LEVEL_SLOTS as readonly string[]).includes(value);
 }
 
+/** Everything a mark or a level label is compared without: case, whitespace, dots and hyphens. */
+const LABEL_NOISE = /[\s.\-–—_]/g;
+
+/**
+ * L-CAD-07's comparison form: "label normalisation compares dotless-uppercase". `C-1`, `c1.` and
+ * `C 1` are one mark, and `2nd` and `2ND` are one storey — so the placeholder a level's own label
+ * retires (L-REG-04's one-hop carry) is found by the same rule the drawing's marks are read by.
+ *
+ * It lives here, at the layer every reader can reach, because a comparison spelled twice is two
+ * comparisons: the case a person types their stack in fell between them (B-17).
+ */
+export function dotlessUpper(text: string): string {
+  return text.toUpperCase().replace(LABEL_NOISE, "");
+}
+
 /** A view, as a key is derived from one: its class and the caption anchor it was read at. */
 export type ViewRef = { readonly viewClass: string; readonly captionAnchorSourceKey: string };
 
