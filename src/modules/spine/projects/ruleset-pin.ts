@@ -87,13 +87,16 @@ async function ownEdition(tx: TenantTx, tenantId: string, scope: "tenant" | "pro
 }
 
 /**
- * The isolation this transaction runs at, as Postgres names it. Asked only where a concurrent mint
- * has just been observed, so the answer names the condition in the sentence that reports it rather
- * than being carried around by every pin.
+ * The isolation this transaction runs at, as Postgres names it. Asked on the two paths whose
+ * correctness depends on it — the mint behind the lock, and a mint observed from another
+ * transaction — so the answer names the condition in the sentence that reports it rather than being
+ * carried around by every pin.
  */
 async function isolationOf(tx: TenantTx): Promise<string> {
-  const rows = await tx.execute<{ isolation: string }>(`select current_setting('transaction_isolation') as isolation`);
-  return (rows as unknown as { isolation: string }[])[0]?.isolation ?? "an isolation this transaction did not answer";
+  const rows = await tx.execute<Record<string, string>>(`show transaction_isolation`);
+  const answered = (rows as unknown as Record<string, string>[])[0];
+  const isolation = answered === undefined ? undefined : Object.values(answered)[0];
+  return isolation ?? "an isolation this transaction did not answer";
 }
 
 /**
@@ -160,11 +163,14 @@ async function forkOrFindStanding(tx: TenantTx, tenantId: string, parent: ForkSo
  * once the template is there nothing can race, and a lock held for the rest of every
  * project-creation transaction would serialise creations that have nothing to settle between them.
  *
- * Under the lock the read is taken again, because the transaction waited on is the one that minted
- * it — and that re-read only sees the minted row where each statement takes its own snapshot, which
- * is READ COMMITTED. Behind it stands `tenant_ruleset_editions_template_once`, which holds a
- * workspace to one template at every isolation level; what differs is who has to retry, and that is
- * said out loud rather than assumed away (`forkOrFindStanding`).
+ * The narrowed lock is sound under READ COMMITTED and only there: under the lock the read is taken
+ * again, because the transaction waited on is the one that minted the template, and that re-read
+ * sees the minted row only where each statement takes its own snapshot — which is READ COMMITTED.
+ * `tenant_ruleset_editions_template_once` guarantees uniqueness, never re-readability: at a stricter
+ * isolation it still holds the workspace to one template, but the waiting transaction's snapshot
+ * predates the commit, so no read of its own can ever find what it must not duplicate. That premise
+ * is therefore enforced where the lock is taken rather than claimed here (B-21): a mint at a
+ * stricter isolation says so and is retried, it does not proceed on a lock that cannot carry it.
  */
 async function workspaceTemplate(tx: TenantTx, tenantId: string): Promise<ForkSource> {
   const held = await ownEdition(tx, tenantId, "tenant", null);
@@ -172,7 +178,15 @@ async function workspaceTemplate(tx: TenantTx, tenantId: string): Promise<ForkSo
 
   await holdStateLock(tx, templateLockKey(tenantId));
   const behindTheLock = await ownEdition(tx, tenantId, "tenant", null);
-  return behindTheLock ?? (await forkOrFindStanding(tx, tenantId, await platformSeed(tx), "tenant", null));
+  if (behindTheLock !== undefined) return behindTheLock;
+
+  const isolation = await isolationOf(tx);
+  if (isolation.trim().toLowerCase() !== "read committed") {
+    throw new Error(
+      `this workspace holds no rule-set template and this transaction, running at ${isolation}, would mint one behind the narrowed template lock — that lock is sound under READ COMMITTED only, because tenant_ruleset_editions_template_once guarantees uniqueness and never re-readability, so this creation must be retried at READ COMMITTED (L-REG-07)`,
+    );
+  }
+  return await forkOrFindStanding(tx, tenantId, await platformSeed(tx), "tenant", null);
 }
 
 /**
