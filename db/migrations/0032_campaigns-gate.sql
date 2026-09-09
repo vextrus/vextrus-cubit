@@ -144,3 +144,25 @@ GRANT SELECT, INSERT ON TABLE "campaigns" TO "cubit_app";--> statement-breakpoin
 GRANT SELECT, INSERT ON TABLE "quantity_lines" TO "cubit_app";--> statement-breakpoint
 GRANT SELECT, INSERT ON TABLE "rail_observations" TO "cubit_app";--> statement-breakpoint
 GRANT SELECT, INSERT ON TABLE "queue_items" TO "cubit_app";
+--> statement-breakpoint
+-- L-ACT-03's owner-proof belt: an immutability the owner escapes is not an immutability. The campaign's
+-- snapshot is immutable (L-REG-07) and a line, an observation and a queue item are records of what was
+-- measured, seen and deferred (L-QTY-03, L-QTY-04) — so the refusal is the store's, and it refuses the
+-- owning role too. The function is the tree's one spelling of the rule (0001_act-log.sql's
+-- "cubit_append_only") — one rule, one home (B-17).
+CREATE TRIGGER "campaigns_append_only" BEFORE UPDATE OR DELETE ON "campaigns"
+	FOR EACH ROW EXECUTE FUNCTION "cubit_append_only"();--> statement-breakpoint
+CREATE TRIGGER "campaigns_append_only_truncate" BEFORE TRUNCATE ON "campaigns"
+	FOR EACH STATEMENT EXECUTE FUNCTION "cubit_append_only"();--> statement-breakpoint
+CREATE TRIGGER "quantity_lines_append_only" BEFORE UPDATE OR DELETE ON "quantity_lines"
+	FOR EACH ROW EXECUTE FUNCTION "cubit_append_only"();--> statement-breakpoint
+CREATE TRIGGER "quantity_lines_append_only_truncate" BEFORE TRUNCATE ON "quantity_lines"
+	FOR EACH STATEMENT EXECUTE FUNCTION "cubit_append_only"();--> statement-breakpoint
+CREATE TRIGGER "rail_observations_append_only" BEFORE UPDATE OR DELETE ON "rail_observations"
+	FOR EACH ROW EXECUTE FUNCTION "cubit_append_only"();--> statement-breakpoint
+CREATE TRIGGER "rail_observations_append_only_truncate" BEFORE TRUNCATE ON "rail_observations"
+	FOR EACH STATEMENT EXECUTE FUNCTION "cubit_append_only"();--> statement-breakpoint
+CREATE TRIGGER "queue_items_append_only" BEFORE UPDATE OR DELETE ON "queue_items"
+	FOR EACH ROW EXECUTE FUNCTION "cubit_append_only"();--> statement-breakpoint
+CREATE TRIGGER "queue_items_append_only_truncate" BEFORE TRUNCATE ON "queue_items"
+	FOR EACH STATEMENT EXECUTE FUNCTION "cubit_append_only"();
