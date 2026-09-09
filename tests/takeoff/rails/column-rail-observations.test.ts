@@ -59,15 +59,26 @@ function input(changed: Partial<RailInputDraft> = {}): RailInputShape {
   });
 }
 
-/** The one code a case's batch reports, having offered nothing. */
-async function reportedBy(draft: Partial<RailInputDraft>): Promise<string> {
+/**
+ * The one observation a case's batch reports, having offered nothing — asserted whole, because an
+ * observation is "a rail-local closed code keyed (class × kind) with optional object and source
+ * entity" (L-MEA-08) and a key beside those is a field a reader was never told to read.
+ */
+async function reportedBy(draft: Partial<RailInputDraft>, sourceEntity: string): Promise<string> {
   const rail = await columnRailDoor();
   const batch = rail.columnConcreteRail(input(draft));
   expect(batch.offers, "a row the rail could not read is not offered — an offer it could not stand behind is worse than none (L-MEA-08)").toEqual([]);
   expect(batch.observations.length, "and it is reported exactly once, on the row that earned it").toBe(1);
-  const observation = batch.observations[0] as { class: string; kind: string; code: string; objectKey?: string };
+  const observation = batch.observations[0] as { class: string; kind: string; code: string; objectKey?: string; sourceEntity?: string };
   expect([observation.class, observation.kind], "an observation is keyed by the (class × kind) the rail measures (L-MEA-08)").toStrictEqual([COLUMN_CLASS, RCC_CONCRETE]);
   expect(observation.objectKey, "and it names the register row it is evidence about, so the residue can be traced back (L-QTY-03)").toBe(ROW["objectKey"]);
+  expect(observation, "and the entity it names is the one a reader has to go and look at — with nothing carried beside it (L-MEA-08)").toStrictEqual({
+    class: COLUMN_CLASS,
+    kind: RCC_CONCRETE,
+    code: observation.code,
+    objectKey: ROW["objectKey"],
+    sourceEntity,
+  });
   return observation.code;
 }
 
@@ -86,23 +97,23 @@ describe("the column rail's closed code roster", () => {
     // riskNotes (3): the rail cannot mint a calibration reference it does not hold, and L-QTY-03
     // requires a non-empty set of affirmed references on every measured attribute — so the row goes
     // to the residue as evidence rather than to the refused arm.
-    expect(await reportedBy({ calibrations: {} })).toBe(VIEW_SCALE_UNAFFIRMED);
+    expect(await reportedBy({ calibrations: {} }, VIEW_KEY)).toBe(VIEW_SCALE_UNAFFIRMED);
   });
 
   test("a family the member-type registry holds no variant for is reported", async () => {
-    expect(await reportedBy({ memberTypes: { [INGEST_ID]: {} } })).toBe(MEMBER_TYPE_UNKNOWN);
+    expect(await reportedBy({ memberTypes: { [INGEST_ID]: {} } }, PLACEMENT_KEY)).toBe(MEMBER_TYPE_UNKNOWN);
   });
 
   test("a row whose placement the setup does not hold is reported rather than dropped", async () => {
     // There is no drawing, view or engine to offer such a row under, and silence would lose it.
-    expect(await reportedBy({ placements: {} })).toBe(MEMBER_TYPE_UNKNOWN);
+    expect(await reportedBy({ placements: {} }, PLACEMENT_KEY)).toBe(MEMBER_TYPE_UNKNOWN);
   });
 
   test("a level no section band covers defers, by name", async () => {
     // "A level no band covers defers" (L-FRM-02): a banded schedule row prices the levels its own
     // endpoints name, and the level above them is priced by nothing.
     const banded: VariantSetup = variant({ variantKey: MEMBER_FAMILY, width: 300, depth: 450, sourceKeys: [SECTION_SOURCE], bandFrom: "GF", bandTo: "GF" });
-    expect(await reportedBy({ memberTypes: { [INGEST_ID]: { [MEMBER_FAMILY]: [banded] } } })).toBe(SECTION_BAND_UNCOVERED);
+    expect(await reportedBy({ memberTypes: { [INGEST_ID]: { [MEMBER_FAMILY]: [banded] } } }, PLACEMENT_KEY)).toBe(SECTION_BAND_UNCOVERED);
   });
 
   test("a section read without the unit it was written in is reported, never guessed", async () => {
@@ -110,6 +121,6 @@ describe("the column rail's closed code roster", () => {
     // the canon is the one home of that carrying, and it is given a unit or it is given nothing
     // (L-FRM-06, B-17).
     const unitless: VariantSetup = variant({ variantKey: MEMBER_FAMILY, width: 300, depth: 450, unit: null, sourceKeys: [SECTION_SOURCE] });
-    expect(await reportedBy({ memberTypes: { [INGEST_ID]: { [MEMBER_FAMILY]: [unitless] } } })).toBe(SECTION_UNIT_UNSTATED);
+    expect(await reportedBy({ memberTypes: { [INGEST_ID]: { [MEMBER_FAMILY]: [unitless] } } }, SECTION_SOURCE)).toBe(SECTION_UNIT_UNSTATED);
   });
 });

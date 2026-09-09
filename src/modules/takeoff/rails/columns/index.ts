@@ -68,8 +68,13 @@ const GRADE = "grade";
 /** One column instance is one member: a rail states what it counted, never a total it derived. */
 const ONE = "1";
 
-/** The section a variant states, as two readings — or the reason it states none. */
-type Section = { readonly ok: true; readonly width: Measure; readonly depth: Measure } | { readonly ok: false; readonly code: ColumnRailCode };
+/**
+ * The section a variant states, as two readings — or the reason it states none, beside the schedule
+ * cell that stated it so incompletely (the cell is what a reader goes and reads again).
+ */
+type Section =
+  | { readonly ok: true; readonly width: Measure; readonly depth: Measure }
+  | { readonly ok: false; readonly code: ColumnRailCode; readonly source: string | undefined };
 
 /** The reading of the height a level stands at — or the code the row's H is omitted under. */
 type Height = { readonly ok: true; readonly reading: Measure } | { readonly ok: false; readonly code: RefusalCode };
@@ -116,7 +121,7 @@ function variantCovering(variants: readonly MemberVariantSetup[], level: LevelSe
 function sectionOf(variant: MemberVariantSetup): Section {
   const source = variant.sourceKeys[0];
   if (variant.sectionUnit === null || variant.sectionWidth === null || variant.sectionDepth === null || source === undefined) {
-    return { ok: false, code: "SECTION_UNIT_UNSTATED" };
+    return { ok: false, code: "SECTION_UNIT_UNSTATED", source };
   }
   const read = (value: number): Measure => ({ value: String(value), unit: variant.sectionUnit as string, basis: "TRANSCRIBED", source });
   return { ok: true, width: read(variant.sectionWidth), depth: read(variant.sectionDepth) };
@@ -138,16 +143,18 @@ function heightOf(level: LevelSetup | undefined): Height {
   return { ok: true, reading: { value: height.value, unit: height.unit, basis: height.basis, source: height.sourceKey ?? "" } };
 }
 
-/** One observation about a row this rail did not offer, under its own closed roster (L-MEA-08). */
-function observe(code: ColumnRailCode, row: RegisterObjectRow, detail?: Record<string, unknown>): RailObservation {
-  return {
-    class: COLUMN,
-    kind: RCC_CONCRETE,
-    code,
-    objectKey: row.objectKey,
-    sourceEntity: row.placementKey,
-    ...(detail === undefined ? {} : { detail }),
-  };
+/**
+ * One observation about a row this rail did not offer, under its own closed roster (L-MEA-08).
+ *
+ * L-MEA-08 gives an observation an "optional object and source entity", and each is the one thing
+ * the code is about: the object is the register row nothing was offered for, and the source entity
+ * is what a reader has to go and look at — the view whose scale nobody affirmed, the schedule cell
+ * that stated a section without its unit, the placement whose member type or band the schedules do
+ * not cover. Nothing else is carried: what the row IS (its mark, its level) is the register's to
+ * answer through the object key, and a copy of it here would be a second home for it (B-17).
+ */
+function observe(code: ColumnRailCode, row: RegisterObjectRow, sourceEntity: string): RailObservation {
+  return { class: COLUMN, kind: RCC_CONCRETE, code, objectKey: row.objectKey, sourceEntity };
 }
 
 /** What one row is offered from, once everything it needs has been found. */
@@ -214,33 +221,36 @@ export const columnConcreteRail: Rail = (input: RailInput) => {
       // The setup is read off the same partition the register was expanded from, so a row whose
       // placement it does not hold names a sighting nothing can be traced to: there is no drawing,
       // no view and no engine to offer it under, and the row reaches the residue as evidence.
-      observations.push(observe("MEMBER_TYPE_UNKNOWN", row, { placementKey: row.placementKey }));
+      observations.push(observe("MEMBER_TYPE_UNKNOWN", row, row.placementKey));
       continue;
     }
 
+    // A rail cannot mint a calibration reference it does not hold, and a line always carries "a
+    // non-empty set of affirmed calibration references" (L-QTY-03): a view nobody has affirmed a
+    // scale for is reported against THE VIEW — what a reader has to go and affirm (riskNotes (3)).
     const calibration = setup.calibrations[placement.ingestId]?.[placement.viewKey];
     if (calibration === undefined) {
-      observations.push(observe("VIEW_SCALE_UNAFFIRMED", row, { viewKey: placement.viewKey }));
+      observations.push(observe("VIEW_SCALE_UNAFFIRMED", row, placement.viewKey));
       continue;
     }
 
     const family = placement.memberFamily;
     const variants = family === null ? undefined : setup.memberTypes[placement.ingestId]?.[family];
     if (variants === undefined || variants.length === 0) {
-      observations.push(observe("MEMBER_TYPE_UNKNOWN", row, { mark: row.mark, memberFamily: family }));
+      observations.push(observe("MEMBER_TYPE_UNKNOWN", row, placement.sourceEntity));
       continue;
     }
 
     const level = setup.levels.find((one) => one.levelId === row.levelId);
     const variant = variantCovering(variants, level, setup.levels);
     if (variant === undefined) {
-      observations.push(observe("SECTION_BAND_UNCOVERED", row, { memberFamily: family, level: level?.label ?? null }));
+      observations.push(observe("SECTION_BAND_UNCOVERED", row, placement.sourceEntity));
       continue;
     }
 
     const section = sectionOf(variant);
     if (!section.ok) {
-      observations.push(observe(section.code, row, { memberFamily: family, variantKey: variant.variantKey }));
+      observations.push(observe(section.code, row, section.source ?? placement.sourceEntity));
       continue;
     }
 
