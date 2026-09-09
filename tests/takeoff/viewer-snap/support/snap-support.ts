@@ -237,10 +237,19 @@ export function lineRecord(key: string, from: Point, to: Point): SnapCandidate &
  * cursor stands 0.2 from the feature it names — twenty times inside `CASE_TOLERANCE` and fifty times
  * outside the nearest rival, so no case is decided by a rounding.
  */
+/**
+ * The source key each staged segment carries, declared once here and imported wherever it is
+ * asserted (B-19). The scheme is `DXF_HANDLE` — one of L-CAD-02's closed `SOURCE_SCHEMES`, and the
+ * one a staged CAD plan's own entities carry — because a key is PARSED wherever it is cited:
+ * L-MEA-05's calibration point refuses a key outside that set (`SCALE_OBSERVATION_UNCITED`), so a
+ * fixture key of any other scheme is data no lawful product could accept.
+ */
+export const SNAP_KEYS = Object.freeze({ h: "DXF_HANDLE:H", v: "DXF_HANDLE:V", t: "DXF_HANDLE:T" });
+
 export const SNAP_GEOMETRY = Object.freeze({
-  h: lineRecord("SNAP:H", [0, 0], [100, 0]),
-  v: lineRecord("SNAP:V", [50, -40], [50, 60]),
-  t: lineRecord("SNAP:T", [20, -30], [20, 0]),
+  h: lineRecord(SNAP_KEYS.h, [0, 0], [100, 0]),
+  v: lineRecord(SNAP_KEYS.v, [50, -40], [50, 60]),
+  t: lineRecord(SNAP_KEYS.t, [20, -30], [20, 0]),
 });
 
 /** The three records as the screen and the resolver are handed them. */
@@ -315,13 +324,13 @@ export type SnapCase = {
  * (I-147). The offsets and the separations are stated once, above.
  */
 export const SNAP_CASES: readonly SnapCase[] = Object.freeze([
-  { name: "an endpoint, with the nearest point of the same segment also in reach", cursor: [0, CASE_OFFSET], firstPick: null, kind: "endpoint", point: [0, 0], sourceKeys: ["SNAP:H"] },
-  { name: "an endpoint standing ON another segment, so an intersection is in reach too", cursor: [20, CASE_OFFSET], firstPick: null, kind: "endpoint", point: [20, 0], sourceKeys: ["SNAP:T"] },
-  { name: "an intersection standing on a midpoint, so a midpoint is in reach too", cursor: [50, CASE_OFFSET], firstPick: null, kind: "intersection", point: [50, 0], sourceKeys: ["SNAP:H", "SNAP:V"] },
-  { name: "a midpoint, with the nearest point of the same segment also in reach", cursor: [50, 10 + CASE_OFFSET], firstPick: null, kind: "midpoint", point: [50, 10], sourceKeys: ["SNAP:V"] },
-  { name: "the foot of the perpendicular from the first pick, with nearest also in reach", cursor: [80, CASE_OFFSET], firstPick: [80, 25], kind: "perpendicular", point: [80, 0], sourceKeys: ["SNAP:H"] },
+  { name: "an endpoint, with the nearest point of the same segment also in reach", cursor: [0, CASE_OFFSET], firstPick: null, kind: "endpoint", point: [0, 0], sourceKeys: [SNAP_KEYS.h] },
+  { name: "an endpoint standing ON another segment, so an intersection is in reach too", cursor: [20, CASE_OFFSET], firstPick: null, kind: "endpoint", point: [20, 0], sourceKeys: [SNAP_KEYS.t] },
+  { name: "an intersection standing on a midpoint, so a midpoint is in reach too", cursor: [50, CASE_OFFSET], firstPick: null, kind: "intersection", point: [50, 0], sourceKeys: [SNAP_KEYS.h, SNAP_KEYS.v] },
+  { name: "a midpoint, with the nearest point of the same segment also in reach", cursor: [50, 10 + CASE_OFFSET], firstPick: null, kind: "midpoint", point: [50, 10], sourceKeys: [SNAP_KEYS.v] },
+  { name: "the foot of the perpendicular from the first pick, with nearest also in reach", cursor: [80, CASE_OFFSET], firstPick: [80, 25], kind: "perpendicular", point: [80, 0], sourceKeys: [SNAP_KEYS.h] },
   { name: "a grid intersection of the view whose two bubbles name it", cursor: [90, 50 + CASE_OFFSET], firstPick: null, kind: "grid", point: [90, 50], sourceKeys: ["BUB:PX1", "BUB:PY1"] },
-  { name: "the nearest point of a segment, where the same cursor with no pick standing offers no perpendicular", cursor: [80, CASE_OFFSET], firstPick: null, kind: "nearest", point: [80, 0], sourceKeys: ["SNAP:H"] },
+  { name: "the nearest point of a segment, where the same cursor with no pick standing offers no perpendicular", cursor: [80, CASE_OFFSET], firstPick: null, kind: "nearest", point: [80, 0], sourceKeys: [SNAP_KEYS.h] },
 ]);
 
 /** The input one case asks the resolver with. */

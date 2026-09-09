@@ -20,6 +20,7 @@ import { createElement } from "react";
 import { expect, vi } from "vitest";
 import {
   SNAP_EXTENTS,
+  SNAP_KEYS,
   STAGE_PX,
   VIEW_P,
   VIEW_Q,
@@ -32,7 +33,7 @@ import {
 } from "../../viewer-snap/support/snap-support";
 import { LAYOUT_PLAN, SCHEDULE, type Box, type Overlay, type OverlayView } from "../../viewer-partition-overlay/support/overlay-stage";
 
-export { productModule, repoRoot, SNAP_EXTENTS, STAGE_PX, VIEW_P, VIEW_Q };
+export { productModule, repoRoot, SNAP_EXTENTS, SNAP_KEYS, STAGE_PX, VIEW_P, VIEW_Q };
 export type { Point, SnapMount };
 
 /* ------------------------------------------------------------------ the homes the spec names */
@@ -235,13 +236,14 @@ export const HEADER_UNIT = "mm";
 
 /**
  * The two views of the staged sheet, and where each stands. `VIEW_P` holds the whole of inc-206's
- * geometry — both endpoints of `SNAP:H` — so a two-point observation is taken inside ONE view; `VIEW_Q`
+ * geometry — both endpoints of its horizontal line (`SNAP_KEYS.h`) — so a two-point observation is
+ * taken inside ONE view; `VIEW_Q`
  * stands clear of every drawn record, so a pick never lands in it.
  */
 export const PLAN_BOX: Box = { min: [-5, -45], max: [105, 65] };
 export const OTHER_BOX: Box = { min: [110, -45], max: [135, 65] };
 
-/** The factor the whole of this fixture's evidence agrees on along x: 1.25 m across the 100 units of `SNAP:H`. */
+/** The factor the whole of this fixture's evidence agrees on along x: 1.25 m across that line's 100 units. */
 export const OBSERVED_METRES = "1.25";
 export const OBSERVED_UNIT = "m";
 
@@ -265,8 +267,8 @@ export async function planProposals(): Promise<ProposalLike[]> {
   const header = core.metresPer(HEADER_UNIT);
   expect(typeof header, `the scale law maps the header spelling ${HEADER_UNIT} into metres (L-MEA-05)`).toBe("string");
   return [
-    await proposal(GRID_SPACING, "0.0125", "0.0125", ["SNAP:H", "BUB:PX1"]),
-    await proposal(DIMENSION_RATIO, "0.0126", "0.0125", ["SNAP:H"]),
+    await proposal(GRID_SPACING, "0.0125", "0.0125", [SNAP_KEYS.h, "BUB:PX1"]),
+    await proposal(DIMENSION_RATIO, "0.0126", "0.0125", [SNAP_KEYS.h]),
     await proposal(FILE_UNITS, header as string, header as string, []),
   ];
 }

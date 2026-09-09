@@ -9,7 +9,7 @@
  * own `SnapPick` shape — this tool builds no second pick model (I-158).
  */
 import { describe, expect, test } from "vitest";
-import { OBSERVED_METRES, OBSERVED_UNIT, TOLERANCES, scaleCore, twoPointModule, type PickLike } from "./support/scale-support";
+import { OBSERVED_METRES, OBSERVED_UNIT, SNAP_KEYS, TOLERANCES, scaleCore, twoPointModule, type PickLike } from "./support/scale-support";
 
 /**
  * The viewer seam this module's home sits beside reads a record before it builds, so its module graph
@@ -23,11 +23,16 @@ function citedPick(index: 1 | 2, x: string, y: string, sourceKey: string): PickL
   return { index, point: [Number(x), Number(y)], sourceKeys: [sourceKey], keyPoint: [x, y] };
 }
 
-/** The two picks of the horizontal calibration line: 100 drawing units apart along x, same y. */
-const ALONG_X: readonly PickLike[] = [citedPick(1, "0.0", "0.0", "SNAP:H"), citedPick(2, "100.0", "0.0", "SNAP:H")];
+/**
+ * The two picks of the horizontal calibration line: 100 drawing units apart along x, same y. The key
+ * each one cites is the staged line's own (`SNAP_KEYS`, declared once in the snap fixture and
+ * imported here, B-19) — a key of L-CAD-02's closed scheme set, which is what L-MEA-05 requires of a
+ * calibration point.
+ */
+const ALONG_X: readonly PickLike[] = [citedPick(1, "0.0", "0.0", SNAP_KEYS.h), citedPick(2, "100.0", "0.0", SNAP_KEYS.h)];
 
-/** The same gesture along the other axis: 100 units apart along y, same x. */
-const ALONG_Y: readonly PickLike[] = [citedPick(1, "50.0", "-40.0", "SNAP:V"), citedPick(2, "50.0", "60.0", "SNAP:V")];
+/** The same gesture along the other axis: 100 units apart along y, same x, on the staged vertical. */
+const ALONG_Y: readonly PickLike[] = [citedPick(1, "50.0", "-40.0", SNAP_KEYS.v), citedPick(2, "50.0", "60.0", SNAP_KEYS.v)];
 
 /** The distance a person entered between them, in a unit of the closed lane. */
 const ENTERED = { value: OBSERVED_METRES, unit: OBSERVED_UNIT };

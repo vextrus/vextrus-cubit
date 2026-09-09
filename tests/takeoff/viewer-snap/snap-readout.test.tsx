@@ -47,7 +47,7 @@ import {
  */
 process.env["DATABASE_URL"] ??= "postgresql://cubit_app:cubit_app@127.0.0.1:5544/postgres";
 
-/** The endpoint of `SNAP:H` at the origin — where every case that needs a live snap puts the pointer. */
+/** The endpoint of the staged horizontal line (`SNAP_KEYS.h`) at the origin — where every case that needs a live snap puts the pointer. */
 const ENDPOINT: Point = [0, 0];
 
 /** The other endpoint of the same segment — the second pick, 100 drawing units away. */
