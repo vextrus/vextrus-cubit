@@ -4,7 +4,11 @@ Not a routed screen: the single preview → confirm pattern `ConsequenceDialog` 
 `src/ui/patterns/consequence-dialog` — the one home (B-17) every act flow opens, first
 consumed by S-Settings-Participants (this increment, R-UI-011); every later act imports this
 component and adds none of its own. Law: R-SPINE-011, R-UI-001/003/004/010/011/012/020/021,
-L-ACT-02, B-17, Q-11, Q-17. Every convention of the earlier Decisions binds: `cx-` classes,
+L-ACT-02, B-17, Q-11, Q-17. **Amended by inc-205-scale-ui** (R-TO-020, B-20 — the increment
+that widens the pattern owns its Decision) with the two effect slots an affirmation previews:
+I-161, I-162, the effects block in §1, three keys in §3, two test ids in §7. The amendment is
+additive by construction and re-baselines nothing; this file stays the pattern's one home, so
+no second Decision for `ConsequenceDialog` is written beside it. Every convention of the earlier Decisions binds: `cx-` classes,
 tokens-only colour and motion, `cx-reticle` solely from its single home, no `[data-theme]`
 selector in authored CSS; Interpretations I-1–I-39 remain in force. Chrome comes only from
 shipped primitives — overlay Dialog (Content/Title/Close), core Button and Skeleton, the one
@@ -59,6 +63,23 @@ Consequence's own data or as the act-type identifier.
   subjects with before/after role lists. A later act's Consequence arm adds its rendering
   here (owner: that act's increment) or fails to compile; offered-group rendering
   (L-ACT-02's bulk, R-UI-023) arrives with the first grouped act in M2 the same way.
+- **I-161 — the effect slots mount exactly when the seam sends them, so every earlier act is
+  byte-identical.** (Numbering continues the global chain's highest, s-scale's I-160; the
+  amendment is inc-205-scale-ui's, R-TO-020.) `Consequence.effects` is optional in core: a
+  preview that carries no `effects` field mounts neither slot and no heading, so the six acts
+  that shipped before this one render exactly the DOM they rendered, and
+  `consequence-dialog-open.png` is unchanged and is not re-baselined. Rejected: defaulting the
+  field to two empty lists in the dialog, which would print **Lines that re-derive — none**
+  under acts that re-derive nothing by construction and teach a consequence the act does not
+  have. The slots are part of the SUBJECTS rendering, not a second `ConsequenceRendering` arm:
+  I-45's exhaustive switch is untouched, because effects say more about the same subjects
+  rather than describing a different kind of thing.
+- **I-162 — an empty slot says `none`, in the word the pattern already owns.** A slot the seam
+  sent but did not fill renders `consequence_dialog_none` — the same prose the empty role list
+  uses — because a stated nothing is exactly what R-TO-020 asks a preview to show, and an
+  omitted line would be silence in front of a commit (R-UI-020). Rejected: hiding a filled-in
+  slot's heading when both are empty; a reader who confirms an affirmation is entitled to read
+  that no line re-derives and no signature voids, and to read it in the same place every time.
 - **I-46 — the gallery entry renders closed; its sample digest is authored data.** Per
   s-design I-15 an overlay entry renders closed with its trigger reachable; the open paint's
   evidence is not an IOU here but this increment's own committed baseline
@@ -87,6 +108,12 @@ a pre-focused Enter would commit by accident. Inside `DialogContent`, one wrappe
       <div class="cx-consequence-roles">  Before | After columns
     </li>…
   </ul>
+  [effects]                           — only when the preview carries `effects` (I-161)
+    <h3 class="cx-consequence-effects-heading">…</h3>
+    <dl class="cx-consequence-effects">
+      <dt>…</dt><dd data-testid="consequence-effect-lines">…</dd>
+      <dt>…</dt><dd data-testid="consequence-effect-signatures">…</dd>
+    </dl>
   <p class="cx-consequence-digest">
     <span class="cx-consequence-digest-label">…</span>
     <span data-testid="consequence-digest-line">{consequenceDigest}</span>
@@ -113,6 +140,22 @@ a pre-focused Enter would commit by accident. Inside `DialogContent`, one wrappe
   `var(--graphite-900)` (what will be true dominates). An empty list renders
   `consequence_dialog_none` in `var(--font-ui)` `var(--graphite-600)` — prose standing for
   absence, never a fake role name.
+- **Effect slots** (I-161/I-162) — `var(--space-4)` above the digest line, `border-top:
+  var(--hairline)`, padding-block-start `var(--space-3)`. `<h3>`
+  `consequence_dialog_effects_heading`, `var(--text-12)` `var(--weight-body-medium)`
+  `var(--graphite-900)`; under it a `<dl>` grid (`auto 1fr`, gap `var(--space-1)`
+  `var(--space-3)`) of exactly two rows, in this order: `<dt>`
+  `consequence_dialog_effects_lines` then `<dd data-testid="consequence-effect-lines">`, and
+  `<dt>` `consequence_dialog_effects_signatures` then `<dd
+  data-testid="consequence-effect-signatures">`. Labels `var(--text-12)`
+  `var(--graphite-600)`; values `var(--font-mono)` `var(--text-12)` `var(--graphite-900)`
+  `tabular-nums slashed-zero`, the ids the slot names rendered whole and space-separated,
+  wrapping, `user-select: all` (the digest's I-43 rule: what a person compares is never
+  truncated). An empty list renders `consequence_dialog_none` in `var(--font-ui)`
+  `var(--graphite-600)` — the same prose the empty role list uses, never a zero and never a
+  dash. The label sits outside the testid element, so each `<dd>`'s text is exactly the value
+  the seam sent or that one word. The slots stand with the consequence: they unmount with it
+  while a preview is pending, refused or superseded, and re-render with the fresh one.
 - **Digest line** — `var(--space-3)` above, label `consequence_dialog_digest_label`
   (`var(--text-12)` `var(--graphite-600)`) then the digest per I-42/I-43: 10 px
   `var(--font-mono)` `tabular-nums slashed-zero` `var(--graphite-700)`, whole, wrapping,
@@ -154,7 +197,9 @@ enumerable states — `closed` · `pending` (skeletons, aria-busy) · `consequen
 digest + confirm) · `stale` (notice + pending, then notice + fresh consequence) · `refused`
 (RefusalState in the slot; confirm present for commit refusals, absent for preview refusals,
 I-41/I-44) · `committing` (confirm loading) — are all reachable through props and injected
-functions, so the jsdom acceptance and the gallery can mount them. Empty is impossible: a
+functions, so the jsdom acceptance and the gallery can mount them. `consequence` has two
+paints rather than two states (I-161): with the effect slots when the preview carried
+`effects`, without them when it did not — the presence of the field, never a prop. Empty is impossible: a
 lawful Consequence names what it touches, and an act that changes nothing is the seam's
 `ACT_CHANGES_NOTHING` refusal, rendered like any other.
 
@@ -166,7 +211,10 @@ from the project as it stands. Confirming commits exactly what is shown and noth
 · `consequence_dialog_none` **none** · `consequence_dialog_digest_label` **Consequence
 digest** · `consequence_dialog_stale` **The project changed while you were deciding, so
 nothing was committed. What is shown below was recomputed just now, and confirming carries
-the new digest.** · `consequence_dialog_confirm` **Confirm** · `consequence_dialog_cancel`
+the new digest.** · `consequence_dialog_effects_heading` **What follows from this** ·
+`consequence_dialog_effects_lines` **Lines that re-derive** ·
+`consequence_dialog_effects_signatures` **Signatures that void** ·
+`consequence_dialog_confirm` **Confirm** · `consequence_dialog_cancel`
 **Cancel** · `consequence_dialog_close` **Close**. Voice: calm, concrete, no exclamation
 marks; "act", "consequence" and "digest" are the product's own user-facing law, not build
 vocabulary. Refusal message and remedy are registry-owned and render as registered (I-40).
@@ -174,8 +222,8 @@ vocabulary. Refusal message and remedy are registry-owned and render as register
 ## 4. Motion (R-UI-004)
 
 The primitive's own entrance (scrim fade, content fade + 0.98 → 1 scale over
-`var(--motion-state)` `var(--ease)`); exit instant. Rows, digest, stale notice and refusal
-mount with no entrance — answers arrive instantly, and theatre in front of a consequence
+`var(--motion-state)` `var(--ease)`); exit instant. Rows, effect slots, digest, stale notice
+and refusal mount with no entrance — answers arrive instantly, and theatre in front of a consequence
 reads as persuasion. Skeleton pulse and reticle draw live in their single homes. Every
 duration is a token zeroed at source under reduced motion.
 
@@ -200,9 +248,11 @@ once, on the confirm — the one place the law reserves it.
 
 ## 7. Test hooks (closed contract, C-05)
 
-Routes: none. Test ids, exactly these five, on the elements ruled in §1:
+Routes: none. Test ids, exactly these seven, on the elements ruled in §1:
 `consequence-dialog` (the wrapper, `data-act-type`) · `consequence-subject-row` (each
-`<li>`, `data-subject`) · `consequence-digest-line` (the digest text, exactly, I-43) ·
+`<li>`, `data-subject`) · `consequence-effect-lines` and `consequence-effect-signatures`
+(the two `<dd>`s, each carrying exactly the value or `none`, I-162 — added by
+inc-205-scale-ui) · `consequence-digest-line` (the digest text, exactly, I-43) ·
 `consequence-confirm` (the act Button, `data-digest`) · `consequence-stale-notice`. No
 others are added; the dialog card itself is the primitive's `dialog-content`, and the
 refusal slot is found by RefusalState's own ids inside `consequence-dialog`.
@@ -210,13 +260,20 @@ refusal slot is found by RefusalState's own ids inside `consequence-dialog`.
 Behavioural hooks without new ids: `aria-busy` on the wrapper while pending and on the
 confirm while committing; `data-variant="act"` and the `act-dot` on the confirm;
 `role="alert"` on the stale notice; the absence of `consequence-confirm` whenever no digest
-line is rendered — asserted, not assumed.
+line is rendered — asserted, not assumed — and the absence of **both** effect slots whenever
+the preview carried no `effects` field, asserted the same way (I-161), which is what keeps
+every act that shipped before inc-205 rendering the DOM it already rendered.
 
 Acceptance (AC-5, jsdom, @testing-library): mounts with injected `preview`/`commit` —
 resolved preview → one row per subject with before and after, digest exact, confirm invoking
 `commit` with exactly that digest; pending → no confirm in the DOM; a
 `CONSEQUENCES_NOT_CARRIED` rejection → stale notice plus a re-invoked preview and the fresh
-digest; another rejection → RefusalState with the injected entry. The gallery entry
+digest; another rejection → RefusalState with the injected entry. Added by inc-205-scale-ui: a
+preview carrying `effects: { linesRederiving: [], signaturesVoiding: [] }` → both slots
+present, each reading exactly **none**; a preview carrying ids → each slot's text exactly
+those ids, space-separated, in the order the seam sent them; a preview with no `effects`
+field → neither testid in the DOM, and the sample gallery preview stays that one, so
+`consequence-dialog-open.png` is not re-baselined. The gallery entry
 (`src/ui/gallery-derivation/entries.tsx`) renders `closed` per I-46: a ghost trigger
 labelled **Assign a role**, sample preview resolving one subject — label
 `estimator@cubit.test`, before `PRINCIPAL`, after `PRINCIPAL MEASURER` — with the authored
