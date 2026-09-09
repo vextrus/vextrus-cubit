@@ -62,6 +62,11 @@ export type ViewerScreenProps = {
 export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, head: supplied, calibration: suppliedCalibration, scale: suppliedScale }: ViewerScreenProps) {
   /** The status a door refused this reader with, if one did — the code it maps to is decided below. */
   const [denied, setDenied] = useState<number | null>(null);
+  /** This screen's own root element, once it stands: the scale region's act dialog is portalled into
+      it rather than to the document's body, so an act raised inside this screen is shown inside it
+      (consequence-dialog I-163). It is state and not a ref because the dialog must re-render with the
+      element once the first paint has made it. */
+  const [screenRoot, setScreenRoot] = useState<HTMLElement | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -138,7 +143,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       what that region hatches by: one answer, read once, and no second reading of the scale store
       (I-160, B-17). It is asked at mount rather than when the tab is opened, so a sheet whose views
       no act names is hatched before anyone presses anything. */
-  const scale = useScaleRegion({ tenantId, projectId, drawingId, sheetName, enabled: sheet.head?.kind === "manifest", supplied: suppliedScale });
+  const scale = useScaleRegion({ tenantId, projectId, drawingId, sheetName, enabled: sheet.head?.kind === "manifest", container: screenRoot, supplied: suppliedScale });
   const partition = usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaint, scaleAbsence: scale.absence });
   /** The snapping region: what the pointer meets on the sheet, the scale of record behind the metres
       beside a distance, and the key the roster binds here (R-TO-012, R-UI-041). Its `axes` are the
@@ -166,8 +171,6 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   if (sheet.failure !== null) throw sheet.failure;
 
   const head = sheet.head;
-  /** Whether a sheet can be drawn at all here — a browser with no WebGL context cannot (I-82). */
-  const drawable = !(paint.probed && paint.renderer === "unavailable");
   // The three answers that are not a drawing — a door's refusal, a reading nothing can be drawn
   // from, and a sheet nobody has read — are one sibling's body, kept apart there (ARCH-03).
   const workArea = (): ReactNode => {
@@ -198,7 +201,6 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         stageRef={stageRef}
         canvasRef={canvasRef}
         sheetName={sheetName}
-        drawable={drawable}
         probed={paint.probed}
         renderer={paint.renderer}
         onFit={camera.fitSheet}
@@ -208,7 +210,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   };
 
   return (
-    <div className="cx-viewer" data-testid="viewer-screen" data-project={projectId} data-flyto={trace.flyto ?? undefined}>
+    <div className="cx-viewer" ref={setScreenRoot} data-testid="viewer-screen" data-project={projectId} data-flyto={trace.flyto ?? undefined}>
       {/* The sheet names itself once, as the house style has every screen do: heading navigation
           lands on the sheet a reader opened rather than nowhere (R-UI-050's siblings, axe). */}
       <h1 className="cx-viewer-hidden">{fill(strings.viewer_canvas_label, { layout: sheetName })}</h1>

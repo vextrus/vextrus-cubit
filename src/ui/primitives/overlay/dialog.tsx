@@ -33,16 +33,22 @@ export function DialogTrigger({ className, ...rest }: DialogTriggerProps) {
   );
 }
 
-export type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content>;
+export type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content> & {
+  /** Where the content is portalled, where the document's body is not the right root: a dialog a
+      screen raises may be asked to stand inside that screen's own subtree, so what the screen shows
+      is the whole of what the screen holds. Unset — every consumer but that one — is `document.body`. */
+  container?: HTMLElement | null;
+};
 
 export function DialogContent({
   className,
   children,
+  container,
   "aria-describedby": describedBy,
   ...rest
 }: DialogContentProps) {
   return (
-    <DialogPrimitive.Portal>
+    <DialogPrimitive.Portal container={container ?? undefined}>
       <DialogPrimitive.Overlay className="cx-scrim" />
       <DialogPrimitive.Content
         {...rest}

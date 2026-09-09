@@ -95,6 +95,10 @@ export type ScaleRegionOptions = {
   sheetName: string;
   /** Whether there is a drawn sheet to scale yet: nothing is asked before the head is a manifest. */
   enabled: boolean;
+  /** The screen's own root, which is where this act's dialog stands (consequence-dialog I-163): a
+      scale affirmed from this panel is part of what this screen shows, and the one act pattern is
+      told so rather than a second dialog being written here (B-17). */
+  container?: HTMLElement | null;
   /** The doors, where a mount supplies them instead of the shipped server actions. */
   supplied?: ScaleDoors;
 };
@@ -128,7 +132,7 @@ export type ScaleRegion = {
   dialog: ReactNode;
 };
 
-export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enabled, supplied }: ScaleRegionOptions): ScaleRegion {
+export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enabled, container, supplied }: ScaleRegionOptions): ScaleRegion {
   const [phase, setPhase] = useState<ScalePhase>("loading");
   const [answered, setAnswered] = useState<{ views: readonly ViewScale[]; tolerances: { anisotropy: string; verification: string } } | null>(null);
   const [readRefusal, setReadRefusal] = useState<RefusalCode | null>(null);
@@ -342,6 +346,7 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
   const dialog = (
     <ConsequenceDialog
       open={dialogOpen}
+      container={container}
       actType={AFFIRM_SCALE}
       preview={dialogPreview}
       commit={dialogCommit}

@@ -50,6 +50,14 @@ export interface ConsequenceDialogProps {
   commit: (carried: { consequenceDigest: string }) => Promise<CommittedAct>;
   onOpenChange: (open: boolean) => void;
   onCommitted: (committed: CommittedAct) => void;
+  /**
+   * Where the dialog is portalled, for the one consumer that needs it elsewhere than the document's
+   * body (Decision I-163): a screen whose act is raised from a region of itself may ask that the
+   * dialog stand inside that screen's own root, so what the screen shows is the whole of what its
+   * subtree holds. Unset — which is every act that shipped before this one — it is `document.body`,
+   * and their DOM is untouched.
+   */
+  container?: HTMLElement | null;
 }
 
 /**
@@ -82,7 +90,7 @@ type Body =
   | { readonly phase: "consequence"; readonly consequence: Consequence; readonly digest: string }
   | { readonly phase: "refused"; readonly answer: RefusedAnswer };
 
-export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange, onCommitted }: ConsequenceDialogProps) {
+export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange, onCommitted, container }: ConsequenceDialogProps) {
   const [body, setBody] = useState<Body>({ phase: "pending" });
   const [stale, setStale] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -162,7 +170,7 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent aria-describedby={hintId}>
+      <DialogContent aria-describedby={hintId} container={container}>
         <div className="cx-consequence" data-testid="consequence-dialog" data-act-type={actType} aria-busy={pending || undefined}>
           {/* The enum value verbatim: a machine identifier, and the title is what names the dialog. */}
           <p className="cx-consequence-acttype" aria-hidden="true">

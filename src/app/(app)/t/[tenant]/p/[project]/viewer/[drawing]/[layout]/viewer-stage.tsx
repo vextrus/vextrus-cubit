@@ -39,15 +39,15 @@ export type ViewerStageProps = {
   stageRef: RefObject<HTMLDivElement | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   sheetName: string;
-  /** Whether a sheet can be drawn at all here — a browser with no WebGL context cannot (I-82). */
-  drawable: boolean;
+  /** Whether the context was probed at all yet, and what it answered — a browser with no WebGL
+      context draws no sheet and says so in the stage's place (I-82). */
   probed: boolean;
   renderer: "webgl" | "unavailable";
   onFit: () => void;
   onZoom: (factor: number) => void;
 };
 
-export function ViewerStage({ panel, partition, scale, pointer, snap, inspector, onKeyDown, stageRef, canvasRef, sheetName, drawable, probed, renderer, onFit, onZoom }: ViewerStageProps) {
+export function ViewerStage({ panel, partition, scale, pointer, snap, inspector, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, onFit, onZoom }: ViewerStageProps) {
   return (
     /* Every panel carries a stable id and order, so a layout stored by another build's group no
        longer matches this group and is dropped rather than misapplied (Decision § 1). */
@@ -126,17 +126,15 @@ export function ViewerStage({ panel, partition, scale, pointer, snap, inspector,
           </div>
         </div>
       </ResizablePanel>
-      {/* A browser that offers no context draws no sheet, and an inspector beside a sheet that was
-          never drawn is a panel that can never fill: the group falls back to two panels, and nothing
-          is placeheld (Decision § 2, s-viewer's own rule). */}
-      {drawable ? (
-        <>
-          <ResizableHandle />
-          <ResizablePanel id="viewer-inspector-panel" order={3} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
-            <InspectorTabs inspector={inspector} scale={scale} snap={snap} views={partition.views} />
-          </ResizablePanel>
-        </>
-      ) : null}
+      {/* The right column stands whether or not a sheet can be drawn here (I-152): its scale tab is
+          filled by a door and not by the canvas, so a browser that offers no WebGL context still
+          reads every view's scale, its proposals and the absence a view declares (R-TO-020). Only
+          the selection tab beside it depends on a drawing, and that is the tab's own emptiness to
+          teach — never the whole column's absence. */}
+      <ResizableHandle />
+      <ResizablePanel id="viewer-inspector-panel" order={3} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
+        <InspectorTabs inspector={inspector} scale={scale} snap={snap} views={partition.views} />
+      </ResizablePanel>
     </ResizablePanelGroup>
   );
 }
