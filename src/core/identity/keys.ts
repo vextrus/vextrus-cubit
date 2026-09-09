@@ -126,17 +126,42 @@ export function placementKey(p: PlacementRef): string {
 }
 
 /**
+ * Which of the three lawful forms a level is stated in: on an authored level (`surrogate`), in a
+ * lawful-null slot (`slot`), or under the placeholder for a level nobody has authored yet
+ * (`unregistered`).
+ */
+export type LevelForm = "surrogate" | "slot" | "unregistered";
+
+/**
+ * The one reading of which form a level is stated in, validation included (B-17). A key derived from
+ * a level and the columns a row spells the same level across are two renderings of ONE
+ * discrimination: read apart, a slot no vocabulary holds could be written into the columns while the
+ * key derived from it refused — so both ask here, and an unlawful slot is refused wherever it
+ * arrives (L-REG-04).
+ */
+export function levelFormOf(level: LevelRef): LevelForm {
+  if ("levelId" in level) return "surrogate";
+  if ("slot" in level) {
+    if (!isLevelSlot(level.slot)) throw new Error(`"${String(level.slot)}" is no lawful-null level slot — the slots are ${LEVEL_SLOTS.join(" | ")} (L-REG-04)`);
+    return "slot";
+  }
+  return "unregistered";
+}
+
+/**
  * The level segment of an instance key: a surrogate id, a lawful-null slot, or the placeholder for a
  * level authored later. A level's label, ordinal and height never enter a key (L-REG-02) — the one
  * label a key may carry is the placeholder's, and it is there precisely to be carried away.
  */
 export function levelSegment(level: LevelRef): string {
-  if ("levelId" in level) return `${LEVEL_MARKER}${part(level.levelId, "level surrogate id")}`;
-  if ("slot" in level) {
-    if (!isLevelSlot(level.slot)) throw new Error(`"${String(level.slot)}" is no lawful-null level slot — the slots are ${LEVEL_SLOTS.join(" | ")} (L-REG-04)`);
-    return `${LEVEL_MARKER}${level.slot}`;
+  switch (levelFormOf(level)) {
+    case "surrogate":
+      return `${LEVEL_MARKER}${part((level as { readonly levelId: string }).levelId, "level surrogate id")}`;
+    case "slot":
+      return `${LEVEL_MARKER}${(level as { readonly slot: LevelSlot }).slot}`;
+    case "unregistered":
+      return `${UNREGISTERED_PREFIX}${part((level as { readonly unregistered: string }).unregistered, "unregistered level label")}`;
   }
-  return `${UNREGISTERED_PREFIX}${part(level.unregistered, "unregistered level label")}`;
 }
 
 /** L-REG-04's instance row key: where the member is placed, and which level it stands on. */

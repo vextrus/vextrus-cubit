@@ -23,6 +23,7 @@ import {
   OBSERVATION_BASES,
   SIGHTING_STANDINGS,
   instanceKey,
+  levelFormOf,
   placementKey,
   semanticDigest,
   viewKey,
@@ -55,10 +56,18 @@ export type Sighting = {
   readonly content: unknown;
 };
 
-/** What a sighting at the door answered: the object it stands on, or why it was not registered. */
+/**
+ * What a sighting at the door answered: the object it stands on, or why it was not registered.
+ *
+ * A refusal also says whether the second sighting said anything NEW about the scope
+ * (`semanticUnchanged`): a rebuild that derived the same column again and a genuine second drawing
+ * of it saying something else are both refused as double counts, and only one of them is a
+ * disagreement somebody must look at (L-REG-03). The refusal itself is unchanged either way — the
+ * answer is richer, not different.
+ */
 export type RegisteredSighting =
   | { readonly registered: true; readonly objectKey: string }
-  | { readonly registered: false; readonly refusal: typeof DUPLICATE_IDENTITY; readonly objectKey: string };
+  | { readonly registered: false; readonly refusal: typeof DUPLICATE_IDENTITY; readonly objectKey: string; readonly semanticUnchanged: boolean };
 
 /** One reading of one correctable attribute, as the door is given one (R-TO-051). */
 export type ObservationInput = {
@@ -110,8 +119,9 @@ export type StandingOfAttribute = {
   readonly overruled: readonly ObservationRow[];
 };
 
-/** The code this door answers with, read off the closed taxonomy rather than spelled beside it (Q-07). */
+/** The codes this door answers with, read off the closed taxonomy rather than spelled beside it (Q-07). */
 const DUPLICATE_IDENTITY = REFUSALS.DUPLICATE_IDENTITY.code;
+const READING_NOT_NUMERIC = REFUSALS.READING_NOT_NUMERIC.code;
 
 /**
  * Where a conversion factor came from, recorded with the reading it carried. L-REG-01: a unit
@@ -155,9 +165,17 @@ function identityOf(sighting: Sighting): { objectKey: string; viewKey: string; p
  * which is there to be carried onto a surrogate when somebody authors the level (L-REG-04).
  */
 function levelColumns(level: LevelRef): { levelId: string | null; levelSlot: string | null; levelLabel: string | null } {
-  if ("levelId" in level) return { levelId: level.levelId, levelSlot: null, levelLabel: null };
-  if ("slot" in level) return { levelId: null, levelSlot: level.slot, levelLabel: null };
-  return { levelId: null, levelSlot: null, levelLabel: level.unregistered };
+  // The form is asked of the identity grammar's own reading (`levelFormOf`), which validates the
+  // slot: the columns and the key derived from one level are two renderings of ONE discrimination,
+  // and a slot the key grammar refuses is refused here too, before any row is written (B-17).
+  switch (levelFormOf(level)) {
+    case "surrogate":
+      return { levelId: (level as { readonly levelId: string }).levelId, levelSlot: null, levelLabel: null };
+    case "slot":
+      return { levelId: null, levelSlot: (level as { readonly slot: string }).slot, levelLabel: null };
+    case "unregistered":
+      return { levelId: null, levelSlot: null, levelLabel: (level as { readonly unregistered: string }).unregistered };
+  }
 }
 
 /**
@@ -203,11 +221,11 @@ function declaredPrecedence(precedence: number): number {
  */
 function canonicalise(valueAsWritten: string, unitAsWritten: string): { ok: true; value: string; unit: Unit; factor: string } | { ok: false; refusal: string } {
   const value = asRead(valueAsWritten);
-  // L-REG-01: "convert of no input is no output, never a zero". A reading with nothing to convert is
-  // not a reading of zero, and it is not stored as one — it stops here, loudly.
-  if (!readsAsANumber(value)) {
-    throw new Error(`"${valueAsWritten}" is no reading, so there is nothing to carry to a canonical unit — a convert of no input is no output, never a zero (L-REG-01)`);
-  }
+  // L-REG-01: "convert of no input is no output, never a zero". A cell that said "N/A", or said
+  // nothing at all, is not a reading of zero and is not stored as one. It is also nobody's mistake:
+  // drawings say such things, so the door answers the registered refusal a person can act on rather
+  // than a fault id (ARCH-03).
+  if (!readsAsANumber(value)) return { ok: false, refusal: READING_NOT_NUMERIC };
   if (!isUnit(unitAsWritten)) {
     const canonical = toCanonical(unitAsWritten);
     if (canonical.ok) throw new Error(`"${unitAsWritten}" canonicalised without being a unit of the canon — the canon and its guard disagree (L-FRM-06)`);
@@ -292,6 +310,16 @@ export async function registerSighting(scope: RegisterScope, sighting: Sighting)
       .returning({ objectKey: registerObjects.objectKey });
     if (written[0] !== undefined) return { registered: true, objectKey: identity.objectKey };
 
+    // The identity is already registered. WHAT the standing row says about the scope decides whether
+    // this second sighting is a rebuild that derived the same column again or a drawing saying
+    // something else about it — read inside the same transaction the refusal is written in, so the
+    // recognition is of the row the refusal is about.
+    const alreadyStanding = await objectOf(tx, scope, identity.objectKey);
+    if (alreadyStanding === undefined) {
+      throw new Error(`the register refused ${identity.objectKey} as already standing, yet no register object stands at it — the store's own key and this read disagree (L-REG-03)`);
+    }
+    const semanticUnchanged = alreadyStanding.semantic === semantic;
+
     await tx.insert(refusedSightings).values({
       tenantId: scope.tenantId,
       setRevisionId: scope.setRevisionId,
@@ -306,7 +334,7 @@ export async function registerSighting(scope: RegisterScope, sighting: Sighting)
       semantic,
       sighting,
     });
-    return { registered: false, refusal: DUPLICATE_IDENTITY, objectKey: identity.objectKey };
+    return { registered: false, refusal: DUPLICATE_IDENTITY, objectKey: identity.objectKey, semanticUnchanged };
   });
 }
 
@@ -388,7 +416,15 @@ export async function appendObservation(scope: RegisterScope, input: Observation
   });
 }
 
-/** Every reading of one attribute of one register object, in the order they were appended. */
+/**
+ * Every reading of one attribute of one register object, in the order they were appended.
+ *
+ * The order is the store's own `append_seq` and nothing else: a clock reading is what a reading SAYS
+ * about when it was observed, and two readings appended inside one tick — a rebuild transcribing a
+ * drawing's cells, a person correcting twice — would otherwise read back in whichever order their
+ * random ids happened to sort, so which reading stands would be decided by a random number
+ * (R-TO-051: the standing is derived over the append order).
+ */
 export async function observationsOf(scope: RegisterScope, objectKey: string, attribute: string): Promise<ObservationRow[]> {
   return forTenant({ tenantId: scope.tenantId }).transaction((tx) =>
     tx
@@ -402,7 +438,7 @@ export async function observationsOf(scope: RegisterScope, objectKey: string, at
           eq(registerObservations.attribute, attribute),
         ),
       )
-      .orderBy(asc(registerObservations.observedAt), asc(registerObservations.observationId)),
+      .orderBy(asc(registerObservations.appendSeq)),
   );
 }
 

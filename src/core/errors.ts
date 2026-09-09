@@ -89,7 +89,8 @@ export type RefusalCode =
   | "SECTION_BAND_UNCOVERED"
   | "SECTION_UNIT_UNSTATED"
   | "PIN_STALE"
-  | "CAMPAIGN_NOT_FOUND";
+  | "CAMPAIGN_NOT_FOUND"
+  | "READING_NOT_NUMERIC";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -665,6 +666,16 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     code: "CAMPAIGN_NOT_FOUND",
     message: "This project holds no measurement campaign at that address.",
     remedy: "Open the project's campaigns and choose one, or pin a drawing set to open a campaign.",
+    severity: "error",
+    surface: "inline",
+  }),
+  // L-REG-01: "a convert of no input is no output, never a zero". A cell that said "N/A", or said
+  // nothing at all, carries no reading to a canonical unit — and a zero written down in its place is
+  // a quantity somebody would measure with. The refusal is answered beside the cell that said it.
+  READING_NOT_NUMERIC: Object.freeze({
+    code: "READING_NOT_NUMERIC",
+    message: "This cell does not state a number, so there is no reading to record against the attribute.",
+    remedy: "Type the value the drawing states for this attribute, or leave the attribute unread.",
     severity: "error",
     surface: "inline",
   }),
