@@ -330,9 +330,18 @@ calibration answer); jsdom mounts of `ViewerScreen` over a supplied head for AC-
 themselves. Journey `tests/e2e/journeys/j-020-snapping.spec.ts` (titles carrying **J-020**, page
 object `tests/e2e/viewer/s-viewer-snap.page.ts` beside `s-viewer.page.ts`, staged on the synthetic
 sheet) at checkpoints **j-020-snap-glyph** and **j-020-snap-readout**, axe serious/critical = 0 at
-each, never widened. Two baselines, `tests/e2e/baselines/design/viewer-snap/toolbar-light.png` and
-`toolbar-dark.png`: the `cx-viewer-snap-tools` card alone — DOM, deterministic — never the canvas, the
-glyph or the band, because a live sheet is not a pixel baseline (s-viewer §7).
+each, never widened. **No pixel baseline of this region is shipped, and none is promised here.** The
+two this section first asked for — `tests/e2e/baselines/design/viewer-snap/toolbar-light.png` and
+`toolbar-dark.png`, the `cx-viewer-snap-tools` card alone, DOM and deterministic, never the canvas,
+the glyph or the band, because a live sheet is not a pixel baseline (s-viewer §7) — are **owed, not
+taken**: a picture exists only where a spec asserts it with `toHaveScreenshot`, as the sibling
+region's are by `tests/e2e/viewer-partition.spec.ts`, and `tests/e2e/**` is the Verifier's locked
+ground. This increment's ownership grants the directory the two pictures would land in and no spec to
+take them, and a build session never writes a picture by hand (the gate takes them, from an assertion
+that already stands). So the toolbar's light and dark paint (§6) is ruled here and asserted by nothing
+in this branch; that is recorded as an IOU in §8 with its owner rather than left standing as a promise
+this Decision cannot keep. A journey checkpoint is not the missing assertion: `checkpoint()` attaches
+a screenshot to the report for a reader, and compares it against nothing.
 `src/app/api/viewer/__tests__/viewer-route-index.test.ts` is re-baselined for the widened part list in
 its own commit naming the run (B-20). The partition baselines capture the left column only and the
 toolbar stands in the stage, so `viewer-partition/panel-*.png` do not move and are not re-blessed;
@@ -340,8 +349,14 @@ J-000, J-011 and PERF-011 capture no part of this region and are untouched.
 
 ## 8. Recorded IOUs (owner named, never a comment in `src/`)
 
-Persisting Snap, Ortho and Angle lock across mounts — owner: the prefs seam's node (s-viewer I-84,
-still unpaid); every mount starts snapping on. The measurement tools themselves — M/C/L/A, the gesture
+The two toolbar baselines and the spec that would take them — owner: whoever is granted
+`tests/e2e/viewer-snap.spec.ts`, which is the Verifier or an increment whose ownership names that
+path. Modelled on `tests/e2e/viewer-partition.spec.ts`, it stages the synthetic sheet and asserts the
+`cx-viewer-snap-tools` card in both themes; the gate then takes `viewer-snap/toolbar-light.png` and
+`toolbar-dark.png` under a `baseline:` commit. Until it exists, §6's contrast readings for this
+toolbar stand on this Decision's word and on the tokens themselves, and no picture would notice their
+drifting. Persisting Snap, Ortho and Angle lock across mounts — owner: the prefs seam's node
+(s-viewer I-84, still unpaid); every mount starts snapping on. The measurement tools themselves — M/C/L/A, the gesture
 grammar and the inline measurement card (R-UI-042) — owner: inc-407; the picks here feed the readout
 and nothing else. The rest of the viewer toolbar (V select, H pan, the split and overlay controls) and
 R-UI-032's remaining letters — owner: the toolbar leaf, whose third this Decision pays. Snapping to
