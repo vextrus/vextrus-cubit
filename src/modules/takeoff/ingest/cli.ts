@@ -54,16 +54,37 @@ function checkoutAbove(from: string): string | null {
 }
 
 /**
- * The checkout `uv run --project cad` resolves `cad` from: the nearest directory above this file
- * that actually holds the `cad/` project, rather than a count of levels — a file that moves depth,
- * or a bundled runtime where `import.meta.url` names a chunk under `.next/server/`, would otherwise
- * spawn the CLI against a `cad` that is not there. The working directory is the fallback, and is
- * itself searched upward, because it is where a worker started from source stands.
+ * The checkout `uv run --project cad` resolves `cad` from: the nearest directory at or above one of
+ * the candidates that actually holds the `cad/` project, rather than a count of levels — a file that
+ * moves depth, or a bundled runtime where `import.meta.url` names a chunk under `.next/server/`,
+ * would otherwise spawn the CLI against a `cad` that is not there.
+ *
+ * A candidate list that stands under no such directory names NO checkout, and says so. Falling back
+ * to the working directory would spawn the extractor against a directory holding no project — the
+ * run then fails somewhere inside `uv`, and what lands is an account of the drawing rather than of
+ * the worker's own misconfiguration (ARCH-03). The failure names what was looked for, so the
+ * operator knows which directory it wanted.
  */
+export function checkoutRootAmong(candidates: readonly string[]): string {
+  for (const candidate of candidates) {
+    const found = checkoutAbove(candidate);
+    if (found !== null) return found;
+  }
+  throw new Error(`the cad extractor has no checkout to run in: no ${CAD_MARKER} stands at or above ${candidates.join(", ")}`);
+}
+
 // The bundler's tracer is told not to follow these: `import.meta.url`, the checkout walk, the temp
 // dir and the spawn are runtime facts, and a build that traced them once walked the whole checkout
 // and died on `cad/.venv` — uv's interpreter symlink, which points outside the root (AS-01).
-const REPO_ROOT = checkoutAbove(dirname(fileURLToPath(/* turbopackIgnore: true */ import.meta.url))) ?? checkoutAbove(process.cwd()) ?? process.cwd();
+let resolvedRoot: string | undefined;
+
+/**
+ * The checkout, resolved on first use rather than at import: this module is imported by lanes that
+ * never spawn anything, and a missing checkout is a fault of the RUN it stops, not of the import.
+ */
+function repoRoot(): string {
+  return (resolvedRoot ??= checkoutRootAmong([dirname(fileURLToPath(/* turbopackIgnore: true */ import.meta.url)), process.cwd()]));
+}
 
 /** What one invocation amounted to: the geometry and the bytes that carry it, or a refused sheet. */
 export type IngestOutcome = { ok: true; graph: EntityGraph; artifact: Uint8Array } | { ok: false; refusal: SheetNotIngestable; detail: string };
@@ -89,13 +110,13 @@ type Run = { stderr: string; ended: string; signal: NodeJS.Signals | null };
  * artifact beside them; the CLI runs at the checkout root, which is where `uv run --project cad`
  * resolves the project from.
  */
-export async function ingestDrawing(bytes: Uint8Array, format: IngestFormat, options: { tempDir: string }): Promise<IngestOutcome> {
+export async function ingestDrawing(bytes: Uint8Array, format: IngestFormat, options: { tempDir: string; timeoutMs?: number }): Promise<IngestOutcome> {
   const digest = digestOf(bytes);
   const input = join(/* turbopackIgnore: true */ options.tempDir, `${digest}.${format}`);
   const out = join(/* turbopackIgnore: true */ options.tempDir, `${digest}.${ARTIFACT_SUFFIX}`);
   await writeFile(input, bytes);
 
-  const run = await invoke([SUBCOMMAND, input, OUT_FLAG, out]);
+  const run = await invoke([SUBCOMMAND, input, OUT_FLAG, out], options.timeoutMs ?? CLI_TIMEOUT_MS);
 
   // A run something on this side killed — the timeout above, an OOM reaper, an operator's signal —
   // never finished reading the sheet, so nothing it left says anything about the sheet. That is an
@@ -128,11 +149,24 @@ export async function ingestDrawing(bytes: Uint8Array, format: IngestFormat, opt
   return { ok: true, graph: parsed.data, artifact };
 }
 
-/** Spawn the CLI once, collecting what it said on stderr and how it ended. */
-function invoke(argv: readonly string[]): Promise<Run> {
+/**
+ * Spawn the CLI once, collecting what it said on stderr and how it ended.
+ *
+ * The timeout kills with SIGKILL, which no process can trap or ignore. The polite signal is a
+ * request, and an extractor that has wedged — a LibreDWG pass in an uninterruptible loop, a wrapper
+ * that installs its own handler — outlives the budget it was given; node then stops waiting and the
+ * run lands as though the SHEET could not be read, which blames the drawing for our own wall clock
+ * (ARCH-03). A run this side ended is ended for certain, and says which signal ended it.
+ */
+function invoke(argv: readonly string[], timeoutMs: number): Promise<Run> {
   const [command, ...prefix] = commandPrefix();
   return new Promise((settle, fail) => {
-    const child = spawn(/* turbopackIgnore: true */ command ?? "", [...prefix, ...argv], { cwd: REPO_ROOT, stdio: ["ignore", "ignore", "pipe"], timeout: CLI_TIMEOUT_MS });
+    const child = spawn(/* turbopackIgnore: true */ command ?? "", [...prefix, ...argv], {
+      cwd: repoRoot(),
+      stdio: ["ignore", "ignore", "pipe"],
+      timeout: timeoutMs,
+      killSignal: "SIGKILL",
+    });
     let stderr = "";
     child.stderr?.setEncoding("utf8");
     child.stderr?.on("data", (chunk: string) => {

@@ -8,6 +8,8 @@
 // here — a record resolved to near-white or near-black is CAD colour 7 and paints in the canvas ink,
 // so it is legible on both papers (Decision I-79).
 import { isTextLegible, recordBox } from "./client";
+// The two notation readings have one home, beside each other and reachable from a unit lane (B-17).
+import { alphaOf, unitChannelsOf } from "./colour-notation";
 import type { Camera, RenderLayer, RenderRecord } from "./types";
 
 /** The canvas surfaces and the face drawn text is lettered in, as the screen resolved them. */
@@ -236,26 +238,6 @@ type Batch = {
   usesInk: boolean;
 };
 
-/** A CSS colour as three floats. Only the two spellings a computed token value takes are read. */
-function channelsOf(colour: string): [number, number, number] {
-  const hex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(colour.trim());
-  if (hex !== null)
-    return [Number.parseInt(hex[1] ?? "", 16) / 255, Number.parseInt(hex[2] ?? "", 16) / 255, Number.parseInt(hex[3] ?? "", 16) / 255];
-  const numbers = colour.match(/-?\d+(\.\d+)?/g) ?? [];
-  const [red, green, blue] = numbers.slice(0, 3).map((part) => Number(part) / 255);
-  return [red ?? 0, green ?? 0, blue ?? 0];
-}
-
-/**
- * How opaque a resolved token value is: the fourth number a wash's own notation carries, or fully
- * opaque where it carries none. `--canvas-hover` is the one canvas colour stated as a wash, and
- * its translucency is part of the colour rather than a detail of it.
- */
-function alphaOf(colour: string): number {
-  const numbers = colour.match(/-?\d+(\.\d+)?/g) ?? [];
-  const stated = numbers.length > 3 ? Number(numbers[3]) : 1;
-  return Number.isFinite(stated) ? Math.min(Math.max(stated, 0), 1) : 1;
-}
 
 /**
  * The colour a record paints in, as three floats — or `null` where the reading resolved colour 7 and
@@ -510,7 +492,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       positions.push(minX, minY, right, minY, right, minY, right, top, right, top, minX, top, minX, top, minX, minY);
     }
     if (positions.length === 0) return null;
-    const [red, green, blue] = channelsOf(colour);
+    const [red, green, blue] = unitChannelsOf(colour);
     const vertices = positions.length / 2;
     // Filled in place: one allocation for the whole run rather than an array and a spread per
     // vertex, because a whole layer selected is hundreds of thousands of them (PB-3).
@@ -595,7 +577,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     const request = pending;
     if (request === null) return;
     resize();
-    const paper = channelsOf(palette.paper);
+    const paper = unitChannelsOf(palette.paper);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clearColor(paper[0], paper[1], paper[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -660,7 +642,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       gl.useProgram(lineProgram);
       camera3(lineSlots, camera);
       drawMark(hoverMark, palette.hover, [0, 0, 0], 0);
-      drawMark(selectionMark, palette.selection, channelsOf(palette.pulse), struck);
+      drawMark(selectionMark, palette.selection, unitChannelsOf(palette.pulse), struck);
     }
 
     // A gap longer than a rest is not a frame anybody dropped: the ledger measures the cadence of a
@@ -709,7 +691,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   };
 
   const uploadLayer = (layer: RenderLayer): void => {
-    const ink = channelsOf(palette.ink);
+    const ink = unitChannelsOf(palette.ink);
     const positions: number[] = [];
     const lineRuns: ColourRun[] = [];
     const chunks: Chunk[] = [];
@@ -818,7 +800,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
     const [minX, minY] = extents.min;
     const [maxX, maxY] = extents.max;
     const outline = [minX, minY, maxX, minY, maxX, minY, maxX, maxY, maxX, maxY, minX, maxY, minX, maxY, minX, minY];
-    const [red, green, blue] = channelsOf(palette.grid);
+    const [red, green, blue] = unitChannelsOf(palette.grid);
     frameBuffer = bufferOf(new Float32Array(outline));
     frameColours = bufferOf(new Float32Array(Array.from({ length: 8 }, () => [red, green, blue]).flat()));
     frame = { start: 0, count: 8, box: [minX, minY, maxX, maxY] };
@@ -842,7 +824,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       // every layer that paints in the ink are filled again and the positions, texels, chunks and
       // heights are left alone — re-tessellating the sheet here would spend hundreds of milliseconds
       // of the main thread on a `data-theme` flip (R-TO-010's light and dark canvas, Decision § 6).
-      const ink = channelsOf(palette.ink);
+      const ink = unitChannelsOf(palette.ink);
       if (next.ink !== was.ink) {
         for (const batch of batches.values()) {
           if (!batch.usesInk) continue;
