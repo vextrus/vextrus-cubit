@@ -21,7 +21,12 @@ import type { RefusalEntry } from "../../core/errors";
 import { Button, Skeleton } from "../primitives/core";
 import { RefusalState } from "../patterns/refusal-state";
 import type { RefusalEvidence } from "../patterns/refusal-state/refusal-state";
-import { ShellDenied, ShellEmptyState } from "../shell";
+// The two shell surfaces are reached at their own modules rather than through `../shell`: the shell
+// barrel re-exports `CommandPaletteTrigger`, which reaches the command-palette pattern, which
+// declares its states through `StateShell` below — so the barrel form would close a module cycle.
+// The shapes still have one home each (B-17); only the specifier is deeper.
+import { ShellDenied } from "../shell/shell-denied";
+import { ShellEmptyState } from "../shell/shell-empty-state";
 import { strings } from "../strings";
 import { SCREEN_STATE_TESTID } from "./contract";
 import type { ScreenStateName } from "./contract";

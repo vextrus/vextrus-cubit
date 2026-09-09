@@ -5,6 +5,7 @@ import "../primitives/core/reticle.css";
 import "./shell.css";
 
 export { AppShell } from "./app-shell";
+export { CommandPaletteTrigger } from "./command-palette-trigger";
 export { DensityToggle } from "./density-toggle";
 export { JobsTray } from "./jobs-tray";
 export { ShellDenied } from "./shell-denied";
@@ -14,6 +15,7 @@ export { ShellRail } from "./shell-rail";
 export { ShellTopBar } from "./shell-top-bar";
 export { useFailureHandOff } from "./failure-hand-off";
 export { SHELL_AREAS, areaLabel, areaOf, hasVisibleText, isAreaHome, shellHref, workspaceLabel, workspaceOf } from "./routes";
+export { CHORD_TIMEOUT_MS, SCOPE_LABEL, SHORTCUTS, SHORTCUT_SCOPES, chordOf, isTextField, keyWords, matchesStep, shortcutById } from "./shortcuts/roster";
 export { SHELL_STATES, SHELL_STATE_NAMES, shellStateKey } from "./states";
 
 export type { AppShellProps } from "./app-shell";
@@ -23,4 +25,5 @@ export type { ShellEmptyStateProps } from "./shell-empty-state";
 export type { ShellRailProps } from "./shell-rail";
 export type { ShellTopBarProps } from "./shell-top-bar";
 export type { ShellArea, ShellWorkspace } from "./routes";
+export type { Shortcut, ShortcutKeyEvent, ShortcutScope } from "./shortcuts/roster";
 export type { ShellStateCell, ShellStateMatrix, ShellStateName } from "./states";

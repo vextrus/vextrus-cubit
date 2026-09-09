@@ -15,6 +15,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import type { Consequence } from "../../core/acts";
 import type { RefusalEntry, RefusalSeverity, RefusalSurface } from "../../core/errors";
+import { CommandPalette, CommandPaletteProvider, ShortcutSheet } from "../patterns/command-palette";
 import { ConsequenceDialog } from "../patterns/consequence-dialog";
 import { Dropzone, type DropzoneItem } from "../patterns/dropzone";
 import { JobTimeline, JobsProvider, type JobsFormat, type TimelineStep } from "../patterns/job-timeline";
@@ -69,7 +70,19 @@ import {
   Toaster,
   toast,
 } from "../primitives/overlay";
-import { AppShell, DensityToggle, JobsTray, SHELL_AREAS, ShellDenied, ShellEmptyState, ShellInspector, ShellRail, ShellTopBar, type ShellWorkspace } from "../shell";
+import {
+  AppShell,
+  CommandPaletteTrigger,
+  DensityToggle,
+  JobsTray,
+  SHELL_AREAS,
+  ShellDenied,
+  ShellEmptyState,
+  ShellInspector,
+  ShellRail,
+  ShellTopBar,
+  type ShellWorkspace,
+} from "../shell";
 import { fill, strings } from "../strings";
 import type { GalleryEntries, GalleryState } from "./types";
 
@@ -200,6 +213,21 @@ const composed = (render: () => ReactNode): readonly GalleryState[] => [{ name: 
 
 /** …and the same composition under the family root's own name: closed, its trigger reachable. */
 const closed = (render: () => ReactNode): readonly GalleryState[] => [{ name: "closed", render }];
+
+/**
+ * The palette's family, mounted the way every overlay is catalogued (Decision I-15): closed, with
+ * its trigger reachable. The provider is the sample's own — the trigger and both overlays render
+ * nothing outside one (I-135) — and its seam answers no rows, because a gallery cell is evidence of
+ * the chrome and never of a workspace's data.
+ */
+const samplePaletteSearch = (): Promise<{ rows: never[] }> => Promise.resolve({ rows: [] });
+
+const paletteSample = (overlay: ReactNode): ReactNode => (
+  <CommandPaletteProvider tenantId={SAMPLE_WORKSPACE.tenantId} projectId={null} search={samplePaletteSearch} navigate={noop}>
+    <CommandPaletteTrigger />
+    {overlay}
+  </CommandPaletteProvider>
+);
 
 const dialogSample = (): ReactNode => (
   <Dialog>
@@ -649,6 +677,9 @@ const SAMPLE_JOBS_FORMAT: JobsFormat = {
  * computed from the tree rather than sliding past a list nobody read (B-19).
  */
 export const galleryEntries: GalleryEntries = {
+  "patterns/command-palette/CommandPalette": { states: closed(() => paletteSample(<CommandPalette />)) },
+  "patterns/command-palette/CommandPaletteProvider": { states: composed(() => paletteSample(null)) },
+  "patterns/command-palette/ShortcutSheet": { states: closed(() => paletteSample(<ShortcutSheet />)) },
   "patterns/consequence-dialog/ConsequenceDialog": { states: closed(consequenceDialogSample) },
   "patterns/dropzone/Dropzone": { states: dropzoneStates },
   "patterns/job-timeline/JobTimeline": { states: jobTimelineStates },
@@ -741,6 +772,7 @@ export const galleryEntries: GalleryEntries = {
       },
     ],
   },
+  "shell/CommandPaletteTrigger": { states: [{ name: "rest", render: () => paletteSample(null) }] },
   "shell/DensityToggle": {
     states: [
       { name: "comfortable", render: () => <DensityToggle density="comfortable" action={sampleDensityWrite} /> },

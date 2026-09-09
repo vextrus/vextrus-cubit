@@ -10,6 +10,7 @@
  * a human hand touches, so it is the one thing the product suite beside this file checks against a
  * filesystem scan: `galleryBarrels`' keys must equal the barrel index files on disk.
  */
+import * as patternsCommandPalette from "../patterns/command-palette";
 import * as patternsConsequenceDialog from "../patterns/consequence-dialog";
 import * as patternsDropzone from "../patterns/dropzone";
 import * as patternsJobTimeline from "../patterns/job-timeline";
@@ -30,6 +31,7 @@ export type { GalleryEntries, GalleryEntry, GalleryState } from "./types";
  * is the order the gallery renders its sections in.
  */
 export const galleryBarrels: Record<string, Record<string, unknown>> = {
+  "patterns/command-palette": patternsCommandPalette,
   "patterns/consequence-dialog": patternsConsequenceDialog,
   "patterns/dropzone": patternsDropzone,
   "patterns/job-timeline": patternsJobTimeline,
