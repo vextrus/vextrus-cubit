@@ -18,17 +18,20 @@ import {
   type ScaleUnit,
   type TwoPointObservation,
 } from "@/core/scale";
+import { REFUSALS } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import type { SnapPick } from "@/modules/takeoff/viewer-snap/snap";
 
+// The three codes this file answers by are read off the register rather than spelled beside it: a
+// literal that agrees with the taxonomy by coincidence is exactly what Q-07 refuses (R-SPINE-062).
 /** The refusal a pick standing on nothing the drawing records answers with (L-MEA-05). */
-const SCALE_OBSERVATION_UNCITED = "SCALE_OBSERVATION_UNCITED" satisfies ScaleRefusalCode;
+const SCALE_OBSERVATION_UNCITED = REFUSALS.SCALE_OBSERVATION_UNCITED.code satisfies ScaleRefusalCode;
 
 /** The refusal an observation nothing corroborates carries — a reading, and never a fault (I-155). */
-const SCALE_OBSERVATION_UNVERIFIED = "SCALE_OBSERVATION_UNVERIFIED" satisfies ScaleRefusalCode;
+const SCALE_OBSERVATION_UNVERIFIED = REFUSALS.SCALE_OBSERVATION_UNVERIFIED.code satisfies ScaleRefusalCode;
 
 /** The absence `verifyAxis` answers when an axis carries no observation at all (L-MEA-05). */
-const SCALE_NO_EVIDENCE = "SCALE_NO_EVIDENCE" satisfies ScaleRefusalCode;
+const SCALE_NO_EVIDENCE = REFUSALS.SCALE_NO_EVIDENCE.code satisfies ScaleRefusalCode;
 
 /** The distance a person entered between the two picks, in a unit of the closed lane. */
 export type EnteredDistance = { readonly value: string; readonly unit: ScaleUnit };
