@@ -35,6 +35,12 @@ export type UsePointerOptions = {
   hold: (keys: string[] | ((held: string[]) => string[])) => void;
   toggleKey: (key: string) => void;
   moveCamera?: (move: (held: Camera) => Camera, live: boolean) => void;
+  /** Where the pointer stands in the drawing, for the region that snaps to it (R-TO-012). */
+  onHoverWorld?: (world: [number, number]) => void;
+  /** The pointer left the sheet, so there is nothing under it to snap to. */
+  onLeaveWorld?: () => void;
+  /** A pick taken where the snap stands (I-145: Alt+click, never the plain click that is selection). */
+  onPick?: () => void;
 };
 
 export type UsePointer = {
@@ -49,7 +55,7 @@ export type UsePointer = {
   marqueeBox: MarqueeBox;
 };
 
-export function usePointer({ head, canvasRef, cameraRef, facts, keysUnder, ask, openLayers, hold, toggleKey, moveCamera }: UsePointerOptions): UsePointer {
+export function usePointer({ head, canvasRef, cameraRef, facts, keysUnder, ask, openLayers, hold, toggleKey, moveCamera, onHoverWorld, onLeaveWorld, onPick }: UsePointerOptions): UsePointer {
   const [hovered, setHovered] = useState<HoverFact | null>(null);
   const [marqueeOn, setMarqueeOn] = useState(false);
   const sheet = useHandedRef(canvasRef, null);
@@ -114,6 +120,14 @@ export function usePointer({ head, canvasRef, cameraRef, facts, keysUnder, ask, 
   const onPointerDown = useCallback(
     (event: ReactPointerEvent<HTMLCanvasElement>): void => {
       const on = pointOn(event.currentTarget, event);
+      // A pick is Alt+click and returns at once (I-145): it never enters the select, pan or marquee
+      // path, so plain click, Shift+click and the marquee behave exactly as they did. The point it is
+      // taken at is resolved first, so a pick lands where the pointer stands rather than where it was.
+      if (event.altKey) {
+        if (on !== null) onHoverWorld?.(on.world);
+        onPick?.();
+        return;
+      }
       event.currentTarget.setPointerCapture(event.pointerId);
       gestureRef.current = { x: event.clientX, y: event.clientY, marquee: event.shiftKey };
       if (event.shiftKey && on !== null) {
@@ -123,7 +137,7 @@ export function usePointer({ head, canvasRef, cameraRef, facts, keysUnder, ask, 
       }
       dragRef.current = { x: event.clientX, y: event.clientY };
     },
-    [drawMarquee, pointOn],
+    [drawMarquee, onHoverWorld, onPick, pointOn],
   );
 
   const onPointerMove = useCallback(
@@ -148,9 +162,12 @@ export function usePointer({ head, canvasRef, cameraRef, facts, keysUnder, ask, 
       // Nothing is being dragged, so the pointer is reading: what is under it is asked of the index
       // one question at a time, and a pointer over bare paper reads nothing rather than the last
       // thing it read.
-      if (hoveringRef.current) return;
       const on = pointOn(event.currentTarget, event);
       if (on === null) return;
+      // What the pointer meets on the drawing is resolved here, on the main thread and in the same
+      // frame: the glyph must stand under the hand rather than a round trip behind it (R-TO-012).
+      onHoverWorld?.(on.world);
+      if (hoveringRef.current) return;
       hoveringRef.current = true;
       void keysUnder(on.world)
         .then((keys) => {
@@ -162,7 +179,7 @@ export function usePointer({ head, canvasRef, cameraRef, facts, keysUnder, ask, 
           hoveringRef.current = false;
         });
     },
-    [drawMarquee, factOf, keysUnder, moveCamera, pointOn],
+    [drawMarquee, factOf, keysUnder, moveCamera, onHoverWorld, pointOn],
   );
 
   const onPointerUp = useCallback(
@@ -223,7 +240,10 @@ export function usePointer({ head, canvasRef, cameraRef, facts, keysUnder, ask, 
     [ask, cameraAt, factOf, hold, keysUnder, moveCamera, openLayers, pointOn, toggleKey],
   );
 
-  const clearHover = useCallback((): void => setHovered(null), []);
+  const clearHover = useCallback((): void => {
+    setHovered(null);
+    onLeaveWorld?.();
+  }, [onLeaveWorld]);
 
   return { onPointerDown, onPointerMove, onPointerUp, clearHover, hovered, marqueeOn, marqueeRef, marqueeBox: marqueeBoxRef.current };
 }

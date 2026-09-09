@@ -1,0 +1,215 @@
+/* S-Viewer's snapping region (docs/design/s-viewer-snap.md § 1, § 4, § 5, § 6): the toolbar card on
+   the stage, the marks on the overlay stack, and the band between two picks.
+
+   Every colour and every duration is a token, so the light and dark values arrive through
+   `--canvas-snap` and `--canvas-paper` on their own and no `[data-theme]` selector appears here
+   (R-UI-001). No `prefers-reduced-motion` branch appears either: the durations are zeroed at their
+   source, so at 0 the glyph simply stands where it was asked for (R-UI-004).
+
+   The SHAPE names the kind, never the colour alone (R-UI-060): every kind below is selected by its
+   own `[data-kind]` and drawn from the box and its two pseudo-elements. */
+
+.cx-viewer-snap-tools {
+  position: absolute;
+  inset-block-start: var(--space-3);
+  inset-inline-start: var(--space-3);
+  z-index: var(--z-base);
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-2);
+  padding: var(--space-1);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: var(--graphite-0);
+  box-shadow: var(--shadow-1);
+}
+
+/* The second, non-colour channel a pressed toggle carries: hollow when released, filled when pressed
+   — the same idiom the partition switches already use. */
+.cx-viewer-snap-swatch {
+  display: inline-block;
+  inline-size: 10px;
+  block-size: 10px;
+  margin-inline-end: var(--space-1);
+  border: 1px solid var(--canvas-snap);
+  border-radius: var(--radius-2);
+  vertical-align: middle;
+  transition-property: background-color;
+  transition-duration: var(--motion-state);
+  transition-timing-function: var(--ease);
+}
+
+.cx-viewer-snap-tools .cx-btn[aria-pressed="true"] .cx-viewer-snap-swatch {
+  background: var(--canvas-snap);
+}
+
+.cx-viewer-snap-tools .cx-btn[aria-pressed="true"] {
+  background: var(--beam-100);
+  color: var(--graphite-900);
+  font-weight: var(--weight-heading);
+}
+
+/* The overlay stack: marks over the sheet, reached by nothing — the pointer belongs to the canvas
+   under it (§ 1). */
+.cx-viewer-snap-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--z-base);
+}
+
+.cx-viewer-snap-glyph,
+.cx-viewer-snap-pick {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: 12px;
+  block-size: 12px;
+  margin-block-start: -6px;
+  margin-inline-start: -6px;
+  border: 2px solid var(--canvas-snap);
+  /* The 1 px paper halo, so a mark reads over inked geometry in both themes. A shadow rather than a
+     second border: it follows a clipped shape, which a border does not. */
+  filter: drop-shadow(0 0 1px var(--canvas-paper));
+}
+
+/* The draw-in (§ 4): opacity and scale over the reticle's own token, from a starting style — so the
+   glyph mounts in its final state and is present in the frame it is asked for, whatever the
+   duration. `transform` is not transitioned: a glyph following the hand is untweened. */
+.cx-viewer-snap-glyph {
+  transition-property: opacity, scale;
+  transition-duration: var(--motion-reticle);
+  transition-timing-function: var(--ease);
+}
+
+@starting-style {
+  .cx-viewer-snap-glyph {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+
+.cx-viewer-snap-glyph::before,
+.cx-viewer-snap-glyph::after,
+.cx-viewer-snap-pick::before,
+.cx-viewer-snap-pick::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  background: var(--canvas-snap);
+}
+
+/* endpoint — a square: the box itself, drawn by its own border. */
+
+/* midpoint — a triangle pointing up. */
+.cx-viewer-snap-glyph[data-kind="midpoint"] {
+  border-width: 0;
+  inline-size: 14px;
+  margin-inline-start: -6px;
+  background: var(--canvas-snap);
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+
+/* intersection — an ✕: two bars crossing at the point itself. */
+.cx-viewer-snap-glyph[data-kind="intersection"] {
+  border-width: 0;
+}
+
+.cx-viewer-snap-glyph[data-kind="intersection"]::before {
+  inline-size: 14px;
+  block-size: 2px;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.cx-viewer-snap-glyph[data-kind="intersection"]::after {
+  inline-size: 14px;
+  block-size: 2px;
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+/* perpendicular — a ⊥: a base with a stem rising from its centre. */
+.cx-viewer-snap-glyph[data-kind="perpendicular"] {
+  border-width: 0;
+}
+
+.cx-viewer-snap-glyph[data-kind="perpendicular"]::before {
+  inline-size: 12px;
+  block-size: 2px;
+  transform: translate(-50%, 6px);
+}
+
+.cx-viewer-snap-glyph[data-kind="perpendicular"]::after {
+  inline-size: 2px;
+  block-size: 10px;
+  transform: translate(-50%, -6px);
+}
+
+/* grid — the bubble-and-centre-line idiom the sheet's own overlay draws. */
+.cx-viewer-snap-glyph[data-kind="grid"] {
+  border-radius: 50%;
+}
+
+.cx-viewer-snap-glyph[data-kind="grid"]::before {
+  inline-size: 18px;
+  block-size: 2px;
+  transform: translate(-50%, -50%);
+}
+
+.cx-viewer-snap-glyph[data-kind="grid"]::after {
+  inline-size: 2px;
+  block-size: 18px;
+  transform: translate(-50%, -50%);
+}
+
+/* nearest — an hourglass: two triangles meeting apex to apex. */
+.cx-viewer-snap-glyph[data-kind="nearest"] {
+  border-width: 0;
+  background: var(--canvas-snap);
+  clip-path: polygon(0% 0%, 100% 0%, 0% 100%, 100% 100%);
+}
+
+/* A taken pick is an upright ✛ — a shape no snap kind wears, so a pick is never read as a live snap. */
+.cx-viewer-snap-pick {
+  border-width: 0;
+}
+
+.cx-viewer-snap-pick::before {
+  inline-size: 14px;
+  block-size: 2px;
+  transform: translate(-50%, -50%);
+}
+
+.cx-viewer-snap-pick::after {
+  inline-size: 2px;
+  block-size: 14px;
+  transform: translate(-50%, -50%);
+}
+
+/* The band from the first pick to the live point: untweened, because a mark that eased to a point a
+   reader chose would read as doubt about which point they chose (§ 4). */
+.cx-viewer-snap-band {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  block-size: 1px;
+  border-block-start: 1px dashed var(--canvas-snap);
+  transform-origin: 0 50%;
+}
+
+/* One source key in the readout, rendered whole and selectable as the model datum it is (I-26). */
+.cx-viewer-snap-key {
+  margin-inline-start: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  user-select: all;
+}
+
+.cx-viewer-snap-metres {
+  margin-inline-start: var(--space-2);
+}
+
+.cx-viewer-snap-note {
+  margin-inline-start: var(--space-2);
+  color: var(--graphite-600);
+}

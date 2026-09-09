@@ -6,11 +6,13 @@
  */
 import { ZOOM_STEP } from "@/modules/takeoff/viewer/hooks/use-camera";
 import type { UsePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
+import type { UseSnap } from "@/modules/takeoff/viewer-snap/use-snap";
 import { InspectorPanel, type InspectorPanelProps } from "@/modules/takeoff/viewer-inspector/inspector-panel";
 import { Button } from "@/ui/primitives/core";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/ui/primitives/data";
 import { fill, strings } from "@/ui/strings";
 import { LayersPanel, type LayersPanelProps } from "./layers-panel";
+import { SnapAnnouncer, SnapOverlay, SnapTools } from "./snap-region";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from "react";
 
 /** The panel's share of the width, and the band a reader may drag it to (Decision § 1). */
@@ -24,6 +26,8 @@ export type ViewerStageProps = {
       and its canvas lies over the sheet, reached by nothing (I-112). */
   partition: { panel: ReactNode; canvas: ReactNode };
   pointer: UsePointer;
+  /** The snapping region: its toolbar on the stage and its marks on the overlay stack (I-151). */
+  snap: UseSnap;
   inspector: InspectorPanelProps;
   onKeyDown: (event: ReactKeyboardEvent<HTMLCanvasElement>) => void;
   stageRef: RefObject<HTMLDivElement | null>;
@@ -37,7 +41,7 @@ export type ViewerStageProps = {
   onZoom: (factor: number) => void;
 };
 
-export function ViewerStage({ panel, partition, pointer, inspector, onKeyDown, stageRef, canvasRef, sheetName, drawable, probed, renderer, onFit, onZoom }: ViewerStageProps) {
+export function ViewerStage({ panel, partition, pointer, snap, inspector, onKeyDown, stageRef, canvasRef, sheetName, drawable, probed, renderer, onFit, onZoom }: ViewerStageProps) {
   return (
     /* Every panel carries a stable id and order, so a layout stored by another build's group no
        longer matches this group and is dropped rather than misapplied (Decision § 1). */
@@ -59,8 +63,11 @@ export function ViewerStage({ panel, partition, pointer, inspector, onKeyDown, s
               <p className="cx-viewer-empty-body">{strings.viewer_no_webgl_body}</p>
             </div>
           ) : null}
+          {/* The keys the sheet answers, in one line the canvas points at: the camera's, and after
+              them this region's own — the keyboard way to a measurement a pointer would take by
+              hand (R-UI-060). Each table speaks its own sentence; neither respells the other's. */}
           <p className="cx-viewer-hidden" id="cx-viewer-keys">
-            {strings.viewer_canvas_keys}
+            {`${strings.viewer_canvas_keys} ${strings.viewer_snap_canvas_keys}`}
           </p>
           <canvas
             className="cx-viewer-canvas cx-reticle"
@@ -97,6 +104,9 @@ export function ViewerStage({ panel, partition, pointer, inspector, onKeyDown, s
               }}
             />
           ) : null}
+          <SnapOverlay snap={snap} />
+          <SnapTools snap={snap} />
+          <SnapAnnouncer snap={snap} />
           <div className="cx-viewer-controls">
             <Button variant="secondary" data-testid="viewer-fit" onClick={onFit}>
               {strings.viewer_fit}

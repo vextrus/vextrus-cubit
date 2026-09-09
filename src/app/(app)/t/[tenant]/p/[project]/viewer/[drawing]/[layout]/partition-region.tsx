@@ -19,6 +19,7 @@ import type { ReactNode, RefObject } from "react";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import type { ViewGroupKey } from "@/core/acts";
 import type { Camera } from "@/modules/takeoff/viewer";
+import type { GridAxisRow } from "@/modules/takeoff/partition";
 import { offeredViewGroups } from "@/modules/takeoff/viewer-partition-overlay/groups";
 import { PartitionPanel } from "@/modules/takeoff/viewer-partition-overlay/partition-panel";
 import { overlayScene, sceneCounts } from "@/modules/takeoff/viewer-partition-overlay/scene";
@@ -37,6 +38,10 @@ const CONFIRM_VIEW_TYPE = "CONFIRM_VIEW_TYPE";
 
 /** Both switches are on at every mount — nothing about them is persisted (Decision § 8's IOU). */
 const BOTH_ON: OverlayToggles = { views: true, grid: true };
+
+/** A sheet nobody has partitioned holds no axis — one frozen answer, so a reader of it never
+    recomputes what it pairs on a render that changed nothing (PB-3). */
+const EMPTY_AXES: readonly GridAxisRow[] = Object.freeze([]);
 
 /**
  * The register's code a sheet feed refuses a reader with: 401 is a session that has ended, and the
@@ -69,6 +74,9 @@ export type PartitionRegionOptions = {
 export type PartitionRegion = {
   /** The section that docks under the layers list. */
   panel: ReactNode;
+  /** The stored grid's axis rows, as this region already holds them — read by the snapping region so
+      a crossing of the grid is snapped to without a second reading of the grid store (B-17). */
+  axes: readonly GridAxisRow[];
   /** The overlay canvas, laid over the sheet — null until there is a partition to paint. */
   canvas: ReactNode;
   /** The one act dialog, mounted at the screen's root. */
@@ -256,5 +264,5 @@ export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, 
     />
   );
 
-  return { panel, canvas, dialog };
+  return { panel, canvas, dialog, axes: partition.overlay?.axes ?? EMPTY_AXES };
 }

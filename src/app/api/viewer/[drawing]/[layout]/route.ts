@@ -16,6 +16,7 @@ import { reportFault } from "@/core/faults/report";
 import { appStorage } from "@/core/storage/app";
 import { renderManifestOf, workspaceOfDrawing } from "@/modules/takeoff/viewer";
 import { partitionOverlayOfSheet } from "@/modules/takeoff/viewer-partition-overlay/server";
+import { snapCalibrationsOfSheet } from "@/modules/takeoff/viewer-snap/server";
 import type { RenderLayer, ViewerHead } from "@/modules/takeoff/viewer";
 import { createContext, type AppContext } from "@/server/context";
 import { holdsWorkspace } from "@/server/shell/workspace";
@@ -33,7 +34,7 @@ const STATUS: Readonly<Record<"SIGNED_OUT" | "WORKSPACE_PERMISSION_NOT_HELD", nu
 });
 
 /** What a caller is told when the address asks for a part of a sheet that is not one. */
-const NOT_A_PART = "a sheet is asked for as ?part=head, ?part=layer&index=<n> or ?part=partition";
+const NOT_A_PART = "a sheet is asked for as ?part=head, ?part=layer&index=<n>, ?part=partition or ?part=calibration";
 
 /**
  * What a caller is told when the part is one this feed serves but the index beside it is not a
@@ -48,7 +49,11 @@ const NOT_AN_INDEX = "?index= is a layer's place in the roster the head publishe
  * the head rather than inside it — a screen asks for it once the head is a manifest, so a sheet's
  * first paint is never delayed by a reading of the store it does not need yet (R-UI-043).
  */
-type Asked = { readonly part: "head" } | { readonly part: "layer"; readonly index: number } | { readonly part: "partition" };
+type Asked =
+  | { readonly part: "head" }
+  | { readonly part: "layer"; readonly index: number }
+  | { readonly part: "partition" }
+  | { readonly part: "calibration" };
 
 /**
  * The address's question, or the sentence saying which half of it this feed cannot read. The index
@@ -57,7 +62,7 @@ type Asked = { readonly part: "head" } | { readonly part: "layer"; readonly inde
  */
 function askedFor(query: URLSearchParams): Asked | { readonly error: string } {
   const part = query.get("part") ?? "head";
-  if (part === "head" || part === "partition") return { part };
+  if (part === "head" || part === "partition" || part === "calibration") return { part };
   if (part !== "layer") return { error: NOT_A_PART };
   const asked = query.get("index") ?? "";
   if (!/^\d+$/.test(asked)) return { error: NOT_AN_INDEX };
@@ -157,6 +162,14 @@ export async function GET(request: Request, route: { params: Promise<{ drawing: 
     // and the panel teaches rather than alarming (R-UI-050, R-TO-014).
     if (wanted.part === "partition") {
       return json({ overlay: await partitionOverlayOfSheet({ tenantId, drawingId: drawing, layoutName: layout }) }, 200);
+    }
+
+    // The scale of record over this sheet's views, for the readout that states metres beside the
+    // drawing's own units (R-UI-041, I-150). It stands beside the head for the same reason the
+    // partition does — a sheet's first paint is never delayed by a reading of the store — and a
+    // drawing nothing has partitioned answers `null` at 200 rather than a refusal.
+    if (wanted.part === "calibration") {
+      return json({ calibration: await snapCalibrationsOfSheet({ tenantId, drawingId: drawing, layoutName: layout }) }, 200);
     }
 
     // The segment Next resolved is the sheet's name: it arrives decoded, and reading it again would
