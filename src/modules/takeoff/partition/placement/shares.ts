@@ -31,16 +31,20 @@ const SHARE_PARAMETER: Readonly<Record<keyof PlacementShares, string>> = Object.
 const SHARE_NAMES = Object.keys(SHARE_PARAMETER) as (keyof PlacementShares)[];
 
 /**
- * The shares one project's pin states (L-MEA-01). A project with no pin, and a pinned edition that
- * states none of these, are both inconsistencies of the store rather than answers anybody can act on:
- * L-REG-07 makes an unpinned project unrepresentable and the seed states all four, so a run that
- * found neither would be measuring by numbers nobody authored (ARCH-03).
+ * The shares one project's pin states (L-MEA-01), or null where the project is pinned to no edition.
+ *
+ * A project stating no shares is a project this stage cannot measure BY: it places nothing and says
+ * so, rather than measuring by numbers nobody authored (L-MEA-01) or throwing and taking the stages
+ * after it down with it — R-TO-030's stages are total over any artifact, and a partition that stops
+ * halfway is a drawing nobody can see the views of either (ARCH-03).
+ *
+ * A PINNED edition that states none of these is a different thing and is not answered: the seed
+ * states all four, so an edition missing one is an inconsistency of the store rather than a state of
+ * the project anybody could act on.
  */
-export async function placementSharesOf(scope: { readonly tenantId: string; readonly projectId: string }): Promise<PlacementShares> {
+export async function placementSharesOf(scope: { readonly tenantId: string; readonly projectId: string }): Promise<PlacementShares | null> {
   const view = await projectRulesetView(scope);
-  if (!view.pinned) {
-    throw new Error(`project ${scope.projectId} is pinned to no rule-set edition, so the placement shares are stated by nothing (L-REG-07, L-MEA-01)`);
-  }
+  if (!view.pinned) return null;
   const read = (share: keyof PlacementShares): string => {
     const parameter = SHARE_PARAMETER[share];
     const held = view.parameters[parameter];

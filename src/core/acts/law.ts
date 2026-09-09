@@ -17,6 +17,7 @@ export const ACT_TYPES = [
   "INSERT_LEVEL",
   "REPUDIATE_LEVEL",
   "AUTHOR_STOREY_HEIGHT",
+  "AUTHOR_TYPICAL_RANGE",
 ] as const;
 
 /** One act type, drawn from the enum above. */
@@ -75,6 +76,10 @@ export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.free
   // height is a correctable attribute of the project, read rather than authored into identity
   // (L-REG-02), and the MEASURER who reads a drawing is who states it.
   AUTHOR_STOREY_HEIGHT: "AUTHOR_PROJECT_FACT",
+  // L-ACT-03 cuts MEASURE on exactly this: "MEASURE (… AUTHOR_TYPICAL_RANGE …)". Stating which
+  // floors a typical plan is typical of is a reading of the drawing — it registers the members on
+  // every floor of the range (L-CAD-07) — so it moves the permission the measuring itself moves.
+  AUTHOR_TYPICAL_RANGE: "MEASURE",
 });
 
 /**

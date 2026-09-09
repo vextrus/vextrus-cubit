@@ -100,6 +100,13 @@ type StageContext = {
 type StageOutcome = { readonly derived: StagedPartition; readonly detail: Record<string, unknown> };
 
 /**
+ * What the placement stage derived where it could not measure at all — an examined nothing, which is
+ * not the same value as the `null` a stage that never ran leaves (R-UI-050). The rewrite clears the
+ * record's placements either way, so a project whose pin was withdrawn keeps none of what it placed.
+ */
+const NOTHING_PLACED: DetectedPlacements = Object.freeze({ views: 0, placements: Object.freeze([]), ungridded: Object.freeze([]) });
+
+/**
  * The stage list as functions, keyed by the list itself — a stage named in `PARTITION_STAGES` with
  * no implementation here does not compile, which is what keeps the two from drifting apart. Each
  * reports what it read, because R-TO-030 asks for a partition whose every stage's result is visible.
@@ -148,6 +155,10 @@ const STAGES: Readonly<Record<PartitionStage, (context: StageContext, held: Stag
   // stage read. The shares themselves are the project's pinned edition's and nothing else (L-MEA-01).
   placement: async (context, held) => {
     const shares = await placementSharesOf({ tenantId: context.tenantId, projectId: context.projectId });
+    // A project pinned to no edition states no shares, and a stage with nothing to scale by places
+    // nothing and says so: the detail carries no shares at all, which is the honest reading of a
+    // plan nobody has stated the bands for (L-MEA-01). The stages after it run on regardless.
+    if (shares === null) return { derived: { ...held, placements: NOTHING_PLACED }, detail: { views: 0, placements: 0, ungridded: 0, shares: {} } };
     const placements = detectPlacements({
       graph: context.graph,
       views: held.views,

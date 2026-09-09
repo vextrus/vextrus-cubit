@@ -33,7 +33,7 @@ const GROUP_NOT_OFFERED: RefusalCode = "GROUP_NOT_OFFERED";
  * The roster is the seam's rather than this act's: L-ACT-02 asks for "a typed grouping key over a
  * closed enum", so a second act's kind joins this list instead of inventing one (B-17).
  */
-export const GROUP_KINDS = ["PROPOSED_DISCIPLINE", "PROPOSED_VIEW_TYPE", "SHEET"] as const;
+export const GROUP_KINDS = ["PROPOSED_DISCIPLINE", "PROPOSED_VIEW_TYPE", "SHEET", "PROPOSED_LEVEL_STACK"] as const;
 
 /** One group kind, drawn from the closed enum above. */
 export type GroupKind = (typeof GROUP_KINDS)[number];
