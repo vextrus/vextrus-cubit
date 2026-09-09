@@ -13,7 +13,6 @@ import { measure } from "./measure";
 import { offeredGroup } from "./offered-group";
 import { participants } from "./participants";
 import { partition } from "./partition";
-import { scale } from "./scale";
 import { screenStates } from "./screen-states";
 import { shell } from "./shell";
 import { shortcuts } from "./shortcuts";
@@ -36,7 +35,6 @@ export const strings = {
   ...offeredGroup,
   ...participants,
   ...partition,
-  ...scale,
   ...screenStates,
   ...shell,
   ...shortcuts,
