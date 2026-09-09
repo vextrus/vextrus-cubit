@@ -1,0 +1,13 @@
+{
+  "parser": "normaliseMark",
+  "why": "AC-6: one family is one mark, compared uppercase with whitespace, dots and hyphens dropped (riskNotes (3)).",
+  "cases": [
+    { "input": "C1", "expect": "C1" },
+    { "input": "C-1", "expect": "C1" },
+    { "input": "c1.", "expect": "C1" },
+    { "input": "C 1", "expect": "C1" },
+    { "input": "C1A", "expect": "C1A" },
+    { "input": "SW1", "expect": "SW1" },
+    { "input": "FB-2", "expect": "FB2" }
+  ]
+}

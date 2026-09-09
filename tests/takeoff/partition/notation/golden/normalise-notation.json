@@ -1,0 +1,17 @@
+{
+  "parser": "normaliseNotation",
+  "why": "AC-6: the control codes a DXF text carries and every lookalike of the diameter sign read as one notation.",
+  "cases": [
+    { "input": "8-16%%C", "expect": "8-16Ø" },
+    { "input": "10%%c @ 4\" C/C", "expect": "10Ø @ 4\" C/C" },
+    { "input": "45%%D", "expect": "45°" },
+    { "input": "%%P2\"", "expect": "±2\"" },
+    { "input": "%%UCOLUMN SCHEDULE%%U", "expect": "COLUMN SCHEDULE" },
+    { "input": "8-16φ", "expect": "8-16Ø" },
+    { "input": "8-16Φ", "expect": "8-16Ø" },
+    { "input": "8-16ϕ", "expect": "8-16Ø" },
+    { "input": "8-16ø", "expect": "8-16Ø" },
+    { "input": "8-16⌀", "expect": "8-16Ø" },
+    { "input": "8-16∅", "expect": "8-16Ø" }
+  ]
+}

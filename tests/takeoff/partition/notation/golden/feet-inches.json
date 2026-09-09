@@ -1,0 +1,15 @@
+{
+  "parser": "parseFeetInches",
+  "why": "AC-6: a length written the way a Bangladeshi drawing writes one, answered in total inches.",
+  "cases": [
+    { "input": "12\"", "expect": 12 },
+    { "input": "1'-3\"", "expect": 15 },
+    { "input": "1'3\"", "expect": 15 },
+    { "input": "2'-0\"", "expect": 24 },
+    { "input": "1'-6 1/2\"", "expect": 18.5 },
+    { "input": "4'", "expect": 48 },
+    { "input": "12″", "expect": 12 },
+    { "input": "1′-3″", "expect": 15 },
+    { "input": "12", "expect": null }
+  ]
+}

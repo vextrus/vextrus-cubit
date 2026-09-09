@@ -1,0 +1,18 @@
+{
+  "parser": "parseFloorZone",
+  "why": "AC-6: a column header naming a band of floors, read as the two levels it runs between; a header naming anything else reads as none.",
+  "cases": [
+    { "input": "GF TO 3RD", "expect": { "from": "GF", "to": "3RD" } },
+    { "input": "GF-3RD FLOOR", "expect": { "from": "GF", "to": "3RD" } },
+    { "input": "4TH - ROOF", "expect": { "from": "4TH", "to": "ROOF" } },
+    { "input": "4TH TO ROOF", "expect": { "from": "4TH", "to": "ROOF" } },
+    { "input": "1ST TO 5TH FLOOR", "expect": { "from": "1ST", "to": "5TH" } },
+    { "input": "G.F. TO 2ND FLR.", "expect": { "from": "GF", "to": "2ND" } },
+    { "input": "GROUND FLOOR TO 3RD FLOOR", "expect": { "from": "GF", "to": "3RD" } },
+    { "input": "FDN TO GF", "expect": { "from": "FDN", "to": "GF" } },
+    { "input": "GF", "expect": { "from": "GF", "to": "GF" } },
+    { "input": "ROOF", "expect": { "from": "ROOF", "to": "ROOF" } },
+    { "input": "MAIN BAR", "expect": null },
+    { "input": "12\"x15\"", "expect": null }
+  ]
+}

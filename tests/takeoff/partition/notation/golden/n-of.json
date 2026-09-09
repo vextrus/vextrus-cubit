@@ -1,0 +1,11 @@
+{
+  "parser": "parseNOf",
+  "why": "AC-6: a cell that says a count of something else, split into the count and the rest of it verbatim.",
+  "cases": [
+    { "input": "2 OF 4-16Ø", "expect": { "n": 2, "rest": "4-16Ø" } },
+    { "input": "3 NOS OF 12Ø", "expect": { "n": 3, "rest": "12Ø" } },
+    { "input": "2 NO. OF 16Ø", "expect": { "n": 2, "rest": "16Ø" } },
+    { "input": "2x 4-16Ø", "expect": { "n": 2, "rest": "4-16Ø" } },
+    { "input": "4-16Ø", "expect": null }
+  ]
+}

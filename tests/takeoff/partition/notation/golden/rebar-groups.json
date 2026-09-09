@@ -1,0 +1,15 @@
+{
+  "parser": "parseRebarGroups",
+  "why": "AC-6: a main-bar cell says how many bars of what diameter, and two groups joined by a plus are two groups.",
+  "cases": [
+    { "input": "8-16Ø", "expect": [{ "n": 8, "diameterMm": 16 }] },
+    { "input": "8-16%%C", "expect": [{ "n": 8, "diameterMm": 16 }] },
+    { "input": "8-16φ", "expect": [{ "n": 8, "diameterMm": 16 }] },
+    { "input": "8-16mmØ", "expect": [{ "n": 8, "diameterMm": 16 }] },
+    { "input": "8 NOS 16Ø", "expect": [{ "n": 8, "diameterMm": 16 }] },
+    { "input": "8-16 DIA", "expect": [{ "n": 8, "diameterMm": 16 }] },
+    { "input": "4-20Ø+4-16Ø", "expect": [{ "n": 4, "diameterMm": 20 }, { "n": 4, "diameterMm": 16 }] },
+    { "input": "4-20Ø + 4-16Ø", "expect": [{ "n": 4, "diameterMm": 20 }, { "n": 4, "diameterMm": 16 }] },
+    { "input": "16Ø", "expect": null }
+  ]
+}
