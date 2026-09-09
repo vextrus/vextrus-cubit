@@ -46,17 +46,17 @@ export function catalogueDigest(rows: readonly BearsRow[]): string {
 }
 
 /**
- * What a campaign opened right now would snapshot, read on the caller's transaction.
+ * What a campaign opened right now would snapshot, or nothing at all where this transaction can see
+ * no pin for the project.
  *
- * An unpinned project is unrepresentable (L-REG-07): a project whose pin this transaction cannot see
- * is an inconsistency of the store rather than an answer anybody is owed, so it throws naming what
- * is missing rather than snapshotting a digest of nothing (ARCH-03).
+ * The absent arm is the same answer `projectRulesetView` gives a surface (R-SPINE-012): an address
+ * that names no pin of this workspace is answered, never thrown at — L-REG-07 makes an unpinned
+ * project unrepresentable through the product's own door, so `null` here says the address names no
+ * project this workspace pinned, and the caller decides what to say about it (B-17, ARCH-03).
  */
-export async function campaignDigestsOf(tx: TenantTx, scope: CampaignScope): Promise<CampaignDigests> {
+export async function campaignDigestsIfPinned(tx: TenantTx, scope: CampaignScope): Promise<CampaignDigests | null> {
   const pin = await pinnedEditionOf(tx, scope);
-  if (pin === null) {
-    throw new Error(`the project ${scope.projectId} holds no pinned rule-set edition — an unpinned project is unrepresentable, so a campaign over one snapshots nothing (L-REG-07)`);
-  }
+  if (pin === null) return null;
   const stack = await liveLevelsOf(tx, scope);
   return {
     editionId: pin.editionId,
@@ -64,4 +64,18 @@ export async function campaignDigestsOf(tx: TenantTx, scope: CampaignScope): Pro
     catalogueDigest: catalogueDigest(BEARS),
     levelStackDigest: levelStackDigest(stack.map((level) => ({ levelId: level.levelId, ordinal: level.ordinal }))),
   };
+}
+
+/**
+ * The same three digests, for a caller that already knows the project is pinned — the freshness gate,
+ * which is diffing a campaign that was opened against them. Reaching here without a pin is the store
+ * having lost what a landed campaign was measured under, which is an inconsistency rather than an
+ * answer anybody is owed (ARCH-03).
+ */
+export async function campaignDigestsOf(tx: TenantTx, scope: CampaignScope): Promise<CampaignDigests> {
+  const digests = await campaignDigestsIfPinned(tx, scope);
+  if (digests === null) {
+    throw new Error(`the project ${scope.projectId} holds no pinned rule-set edition — an unpinned project is unrepresentable, so a campaign over one snapshots nothing (L-REG-07)`);
+  }
+  return digests;
 }

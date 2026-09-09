@@ -6,7 +6,7 @@
 // campaign can cite the act that wrote both. One campaign per pinned revision: the store's unique
 // key says so, and a re-pin writes another revision with another campaign beside this one.
 import { campaigns, type TenantTx } from "../db";
-import { campaignDigestsOf } from "./digests";
+import { campaignDigestsIfPinned } from "./digests";
 import type { CampaignStatus } from "./law";
 
 /** What one campaign is opened over: which revision of which project, by which act. */
@@ -24,9 +24,17 @@ const OPENED: CampaignStatus = "OPEN";
  * Open the campaign a pin's revision is measured under, and answer the id the store minted for it.
  * Everything it copies is read on the given transaction, so the snapshot is of the state the pin
  * itself landed in (L-REG-07, L-ACT-02).
+ *
+ * A project this transaction can see no pin for opens NO campaign, and says so with a `null` id
+ * rather than by inventing an edition to snapshot: a campaign records what a measurement was taken
+ * against, and one citing an edition the project was never pinned to would be a record of something
+ * that did not happen (L-REG-07). Through the product's own door that arm is unreachable — creation
+ * forks the pin in the same transaction — so the absence is answered rather than thrown at, exactly
+ * as `projectRulesetView` answers the same address (R-SPINE-012, ARCH-03).
  */
-export async function openCampaign(tx: TenantTx, opening: CampaignOpening): Promise<{ campaignId: string }> {
-  const digests = await campaignDigestsOf(tx, opening);
+export async function openCampaign(tx: TenantTx, opening: CampaignOpening): Promise<{ campaignId: string | null }> {
+  const digests = await campaignDigestsIfPinned(tx, opening);
+  if (digests === null) return { campaignId: null };
   const written = await tx
     .insert(campaigns)
     .values({

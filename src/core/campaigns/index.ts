@@ -8,7 +8,7 @@
 import { and, asc, campaigns, eq, forTenant, isUuid } from "../db";
 import type { CampaignScope } from "./scope";
 
-export { catalogueDigest, campaignDigestsOf } from "./digests";
+export { catalogueDigest, campaignDigestsIfPinned, campaignDigestsOf } from "./digests";
 export type { CampaignDigests } from "./digests";
 export { freshnessOf } from "./freshness";
 export type { CampaignDivergence, CampaignFreshness } from "./freshness";
