@@ -73,6 +73,10 @@ export {
   registerObservations,
   levels,
   storeyHeightReadings,
+  campaigns,
+  quantityLines,
+  railObservations,
+  queueItems,
   SEAM_SCHEMA,
 } from "./db/schema";
 export { isAcceptedFormat } from "./db/schema";

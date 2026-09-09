@@ -8,6 +8,7 @@ import { design } from "./design";
 import { dropzone } from "./dropzone";
 import { home } from "./home";
 import { jobTimeline } from "./job-timeline";
+import { measure } from "./measure";
 import { offeredGroup } from "./offered-group";
 import { participants } from "./participants";
 import { partition } from "./partition";
@@ -28,6 +29,7 @@ export const strings = {
   ...dropzone,
   ...home,
   ...jobTimeline,
+  ...measure,
   ...offeredGroup,
   ...participants,
   ...partition,
