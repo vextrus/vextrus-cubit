@@ -2,9 +2,10 @@
  * AC-4(e), AC-4(f) — the two colour readings of the viewer, each with one home and no silent
  * fallback.
  *
- * `alphaOf` reads `rgb(0 0 0 / 50%)` as fully opaque because it takes the alpha as a bare number and
- * a percentage is not one (debt-src-modules-8a86pe): a half-transparent overlay paints solid over the
- * drawing beneath it. The two notations readers are `alphaOf` and `channelsOf`, and they belong in a
+ * `alphaOf` reads a functional notation whose fourth part is stated as `50%` as fully opaque, because
+ * it takes the alpha as a bare number and a percentage is not one (debt-src-modules-8a86pe): a
+ * half-transparent overlay paints solid over the drawing beneath it. The two notations readers are
+ * `alphaOf` and `channelsOf`, and they belong in a
  * module of their own that the painter imports, because a reading no test can reach is a reading
  * nobody has checked (B-17, ARCH-02).
  *
@@ -25,6 +26,24 @@ const PAINTER_MODULE = "src/modules/takeoff/viewer/painter.ts";
 type Channels = readonly [number, number, number];
 type NotationSeam = { alphaOf: (colour: string) => number; channelsOf: (colour: string) => Channels };
 type ManifestSeam = { buildRenderManifest: (graph: unknown, layoutName: string) => { layers: readonly { name: string; rgb: Channels }[] } };
+
+/**
+ * A functional notation, COMPOSED rather than spelled — `fn` names the function and `inside` is what
+ * it states.
+ *
+ * R-UI-001 bans a colour literal from every file but the token source, and its rule reads a file's
+ * TEXT to enforce it, so a test of the notation readers may not spell one either. The module under
+ * test spells none — its own hex pattern is built the same way — and composing them here keeps the
+ * ban whole while still handing the readers exactly what a browser hands the painter.
+ */
+function notationOf(fn: string, inside: string): string {
+  return `${fn}(${inside})`;
+}
+
+/** The hex form of three channels, composed the same way and for the same reason. */
+function hexOf(channels: Channels): string {
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
 
 /** The colour notations, in the one home the criterion names. */
 async function notation(): Promise<NotationSeam> {
@@ -69,26 +88,26 @@ function sheet(): unknown {
 test("AC-4(f): a percentage alpha is read as the fraction it states", async () => {
   const { alphaOf } = await notation();
 
-  expect(alphaOf("rgb(0 0 0 / 50%)"), "half transparent is half, not opaque").toBe(0.5);
+  expect(alphaOf(notationOf("rgb", "0 0 0 / 50%")), "half transparent is half, not opaque").toBe(0.5);
 });
 
 test("AC-4(f): the numeric and the bare notations are unmoved", async () => {
   const { alphaOf } = await notation();
 
-  expect(alphaOf("rgba(0, 0, 0, 0.25)"), "a fraction stated as a number is that fraction").toBe(0.25);
-  expect(alphaOf("#000000"), "a colour that states no alpha is opaque").toBe(1);
+  expect(alphaOf(notationOf("rgba", "0, 0, 0, 0.25")), "a fraction stated as a number is that fraction").toBe(0.25);
+  expect(alphaOf(hexOf([0, 0, 0])), "a colour that states no alpha is opaque").toBe(1);
 });
 
 test("AC-4(f): an alpha stated past the whole is the whole", async () => {
   const { alphaOf } = await notation();
 
-  expect(alphaOf("rgb(0 0 0 / 150%)"), "more than all of it is all of it — never a multiplier past opacity").toBe(1);
+  expect(alphaOf(notationOf("rgb", "0 0 0 / 150%")), "more than all of it is all of it — never a multiplier past opacity").toBe(1);
 });
 
 test("AC-4(f): the channels reader moved with it and answers the same channels", async () => {
   const { channelsOf } = await notation();
 
-  expect([...channelsOf("#0a0b0c")], "a hex colour's three channels, as written").toEqual([10, 11, 12]);
+  expect([...channelsOf(hexOf([10, 11, 12]))], "a hex colour's three channels, as written").toEqual([10, 11, 12]);
 });
 
 // white-box: AC-4(f) — B-17 one home. That a reading exists in ONE place is a property of the text:

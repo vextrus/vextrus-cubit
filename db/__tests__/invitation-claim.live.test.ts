@@ -14,7 +14,7 @@
  *
  * Driven at the shipped doors against a real store, staged through the shipped sign-up door.
  */
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { afterAll, expect, test } from "vitest";
 import { closeStage, enrol, openStage, productModule, sql, sqlValue, type Person } from "../../tests/spine/uploads/support/upload-stage";
 
@@ -22,6 +22,15 @@ const BUDGET_MS = 600_000;
 
 const INVITATIONS_STORE = "src/modules/spine/tenancy/invitations/store.ts";
 const TENANCY_MODULE = "src/modules/spine/tenancy/index.ts";
+
+/**
+ * Where the real invitation machinery is bound — the mint, the outbox and, above all, the address
+ * fold, which is `src/server/auth/session.ts`'s: "the one home every auth door reads it through, so
+ * the address that made an account is the address that signs into it and the address a link is mailed
+ * about" (B-17, ARCH-02). This stage's accounts are enrolled through that fold, so its offers are
+ * addressed under it too, and nothing here re-derives it.
+ */
+const INVITATION_MACHINERY = "src/server/auth/invitation-mail.ts";
 
 /** Every offer this file makes carries the same digest: the collision the row is about. */
 const ONE_DIGEST = createHash("sha256").update("one digest, two offers").digest("hex");
@@ -39,15 +48,17 @@ type TenancySeam = {
   acceptInvitation: (claim: { userId: string; token: string }, ports: unknown) => Promise<Record<string, unknown>>;
 };
 
-/** The machinery an invitation door is handed: one digest for every token, and nothing mailed. */
-function ports(): Record<string, unknown> {
+/**
+ * The machinery an invitation door is handed: the product's own, with only this stage's knobs
+ * replaced — one digest for every token (the collision AC-1(d) is about), nothing mailed, and a fixed
+ * origin. The mint and the address fold stay the product's, because they are invariants with a home
+ * and not stage machinery (B-17).
+ */
+function ports(stage: Staged): Record<string, unknown> {
   return {
+    ...stage.machinery,
     origin: "https://cubit.example",
-    mintToken: () => randomUUID(),
     digestToken: () => ONE_DIGEST,
-    storedKey: (address: string) => address.trim().toLowerCase(),
-    mailedAddress: (address: string) => address.trim(),
-    addressForKey: (key: string) => key,
     send: async () => undefined,
   };
 }
@@ -55,6 +66,7 @@ function ports(): Record<string, unknown> {
 interface Staged {
   store: StoreSeam;
   tenancy: TenancySeam;
+  machinery: Record<string, unknown>;
   owner: Person;
   invitee: Person;
   roles: readonly string[];
@@ -71,7 +83,10 @@ function staged(): Promise<Staged> {
     const store = await productModule<StoreSeam>(INVITATIONS_STORE);
     const tenancy = await productModule<TenancySeam>(TENANCY_MODULE);
     const db = await productModule<{ WORKSPACE_ROLES: readonly string[] }>("src/core/db.ts");
-    return { store, tenancy, owner, invitee, roles: db.WORKSPACE_ROLES };
+    const bound = await productModule<{ invitationMachinery?: Record<string, unknown> }>(INVITATION_MACHINERY);
+    const machinery = bound.invitationMachinery;
+    expect(typeof machinery, `${INVITATION_MACHINERY} binds \`invitationMachinery\` — the mint, the fold and the outbox an invitation door is handed`).toBe("object");
+    return { store, tenancy, machinery: { ...(machinery as Record<string, unknown>) }, owner, invitee, roles: db.WORKSPACE_ROLES };
   })());
 }
 
@@ -81,7 +96,7 @@ afterAll(async () => {
 
 /** One standing offer of the owner's workspace to the invitee, carrying the one digest. */
 async function offer(stage: Staged): Promise<string> {
-  const made = await stage.tenancy.createInvitation({ tenantId: stage.owner.tenantId, userId: stage.owner.userId }, { email: stage.invitee.email }, ports());
+  const made = await stage.tenancy.createInvitation({ tenantId: stage.owner.tenantId, userId: stage.owner.userId }, { email: stage.invitee.email }, ports(stage));
   expect(typeof made.invitationId, "the shipped door made an offer").toBe("string");
   return made.invitationId;
 }
@@ -155,7 +170,7 @@ test(
     const held = roleHeld(stage.owner.tenantId, stage.invitee.userId);
     await offer(stage);
 
-    const accepted = await stage.tenancy.acceptInvitation({ userId: stage.invitee.userId, token: "any token this stage minted" }, ports());
+    const accepted = await stage.tenancy.acceptInvitation({ userId: stage.invitee.userId, token: "any token this stage minted" }, ports(stage));
 
     expect(accepted["membershipGranted"], "the account already belonged, and the answer says so").toBe(false);
     expect(accepted["workspaceRole"], "the role it holds — the same fact the store answered with").toBe(held);
