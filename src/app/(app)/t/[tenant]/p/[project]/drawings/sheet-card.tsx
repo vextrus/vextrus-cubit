@@ -29,6 +29,12 @@ export interface SheetCardData {
   readonly proposal: { readonly number: string | null; readonly title: string; readonly discipline: Discipline; readonly basis: string; readonly cited: readonly string[] };
   readonly confirmed: { readonly discipline: Discipline; readonly actId: string } | null;
   readonly scaleState: string;
+  /**
+   * How many views of this sheet carry no scale of record, or an unplaceable one (R-TO-021). Null
+   * where no partition has been read through yet: a count nobody derived is never invented, exactly
+   * as `viewCount` answers.
+   */
+  readonly unplaceableViews: number | null;
   readonly viewCount: number | null;
   readonly facts: Readonly<Record<string, number | boolean>>;
 }
@@ -144,8 +150,13 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
         </p>
       )}
 
-      <p className="cx-drawings-line" data-testid="sheet-card-scale" data-scale={card.scaleState}>
-        {SCALE_WORDS[card.scaleState] ?? card.scaleState}
+      <p
+        className="cx-drawings-line"
+        data-testid="sheet-card-scale"
+        data-scale={card.scaleState}
+        data-unplaceable={card.unplaceableViews === null ? "" : String(card.unplaceableViews)}
+      >
+        {scaleLine(card)}
       </p>
       <p className="cx-drawings-line" data-testid="sheet-card-views" data-views={card.viewCount === null ? "" : String(card.viewCount)}>
         {card.viewCount === null ? drawings.drawings_views_unclassified : fill(drawings.drawings_views_count, { count: formatUserFigure(String(card.viewCount)) })}
@@ -195,6 +206,24 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
       </a>
     </article>
   );
+}
+
+/**
+ * The sentence this sheet's scale line reads (R-TO-021: "the sheet card shows the count").
+ *
+ * A sheet held back by views with no scale of record names how many, out of how many it holds; one
+ * whose layout carries no extent or no drawing unit keeps the sheet grammar's own sentence, because
+ * that is a different claim and no count belongs to it. The two states that carry no count read
+ * exactly as they did before this increment (B-20).
+ */
+function scaleLine(card: SheetCardData): string {
+  if (card.scaleState === "unplaceable" && card.unplaceableViews !== null && card.viewCount !== null) {
+    return fill(drawings.drawings_scale_unplaceable_count, {
+      count: formatUserFigure(String(card.unplaceableViews)),
+      total: formatUserFigure(String(card.viewCount)),
+    });
+  }
+  return SCALE_WORDS[card.scaleState] ?? card.scaleState;
 }
 
 /** A fact's own value: a count through SEAM-FORMAT, a flag as the two words the table holds. */

@@ -67,12 +67,24 @@ function segmentOf(camera: Camera, axis: PartitionOverlay["axes"][number], box: 
  * partial answer — while an axis is always drawn, because a georeference is a fact about the
  * drawing rather than about what happens to be under the camera.
  */
-export function overlayScene(overlay: PartitionOverlay, toggles: OverlayToggles, camera: Camera): OverlayScene {
+export function overlayScene(overlay: PartitionOverlay, toggles: OverlayToggles, camera: Camera, scaleAbsence?: ReadonlyMap<string, string>): OverlayScene {
   const outlines: OverlayOutline[] = toggles.views
     ? overlay.views.flatMap((view) => {
         if (view.box === null) return [];
         const hatched = view.type === VIEW_TYPE.UNTYPED;
-        return [{ viewKey: view.viewKey, type: view.type, rect: rectOf(camera, view.box), hatched, reason: hatched ? view.reason : null }];
+        // R-TO-021: a view no affirmation act names measures nothing, and the sheet says so where
+        // the view stands. Read from the scale door's own answer — this module derives no absence of
+        // its own (I-160, B-17) — and kept apart from the untyped hatch it shares a pattern with.
+        return [
+          {
+            viewKey: view.viewKey,
+            type: view.type,
+            rect: rectOf(camera, view.box),
+            hatched,
+            reason: hatched ? view.reason : null,
+            scaleRefusal: scaleAbsence?.get(view.viewKey) ?? null,
+          },
+        ];
       })
     : [];
 
@@ -98,7 +110,14 @@ export function overlayScene(overlay: PartitionOverlay, toggles: OverlayToggles,
 }
 
 /** What one scene amounts to, as the overlay canvas publishes it after a frame (Decision § 1). */
-export type SceneCounts = { readonly outlines: number; readonly hatched: number; readonly axes: number; readonly bubbles: number };
+export type SceneCounts = {
+  readonly outlines: number;
+  readonly hatched: number;
+  /** How many outlines are hatched because no affirmation act names them (R-TO-021, I-160). */
+  readonly scaleHatched: number;
+  readonly axes: number;
+  readonly bubbles: number;
+};
 
 /**
  * The counts the canvas wears. They are read off the scene rather than off the paint: a count that
@@ -108,6 +127,7 @@ export function sceneCounts(scene: OverlayScene): SceneCounts {
   return {
     outlines: scene.outlines.length,
     hatched: scene.outlines.filter((outline) => outline.hatched).length,
+    scaleHatched: scene.outlines.filter((outline) => outline.scaleRefusal !== null).length,
     axes: scene.axes.length,
     bubbles: scene.axes.filter((axis) => axis.bubble !== null).length,
   };

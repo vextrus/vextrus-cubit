@@ -47,6 +47,13 @@ export type OverlayOutline = {
   readonly hatched: boolean;
   /** The stored reason a hatched view carries, verbatim; null on every other outline. */
   readonly reason: string | null;
+  /**
+   * The absence a view no affirmation act names declares — `SCALE_NO_EVIDENCE` or
+   * `SCALE_UNIT_UNMAPPED` — or null where a calibration of record stands over it (R-TO-021,
+   * L-MEA-05). It is hatched for either reason and counted apart from the untyped ones, so
+   * `data-hatched` keeps the meaning J-021 reads it by (I-160).
+   */
+  readonly scaleRefusal: string | null;
 };
 
 /** One axis drawn through its view, in screen pixels, with its bubble where a ring stands. */

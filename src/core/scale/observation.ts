@@ -4,7 +4,10 @@
 // exactly one axis, and a single observation on an axis is verified at the edition's tolerance or
 // rejected. Pure — the store, the artifact and the edition are the caller's to bring.
 import type { GridAxis } from "../db";
-import { parseSourceKey } from "../model";
+// The key grammar comes from its own home rather than the model seam's barrel: that barrel reaches
+// the store, and a two-point observation is judged in the browser as well as on the server, where
+// dragging `pg` in behind one pure guard is a build error rather than an opinion (ARCH-01, B-17).
+import { parseSourceKey } from "../sources";
 import { FACTOR_MINIMUM, exact, isFactorString, isScaleUnit, metresPerExact, renderFactor, withinTolerance, type ScaleUnit } from "./law";
 import { scaleNoEvidence, scaleObservationOblique, scaleObservationUncited, scaleObservationUnverified } from "./refusals";
 

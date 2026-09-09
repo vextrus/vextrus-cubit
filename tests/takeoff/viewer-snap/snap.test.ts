@@ -226,7 +226,7 @@ describe("AC-1: the snapped point is keyed on the register's one lattice", () =>
 
   test("AC-1: a candidate that is no point of the drawing yields no snap, and does not poison its neighbours", async () => {
     const snap = await snapModule();
-    const broken = lineRecord("SNAP:BROKEN", [Number.NaN, 0], [Number.POSITIVE_INFINITY, 5]);
+    const broken = lineRecord("DXF_HANDLE:BROKEN", [Number.NaN, 0], [Number.POSITIVE_INFINITY, 5]);
     const cursor: Point = [0, CASE_OFFSET];
     expect(
       snap.resolveSnap({ cursor, tolerance: CASE_TOLERANCE, candidates: [broken], grid: [], firstPick: null }),
@@ -235,6 +235,6 @@ describe("AC-1: the snapped point is keyed on the register's one lattice", () =>
     expect(
       snap.resolveSnap({ cursor, tolerance: CASE_TOLERANCE, candidates: [broken, SNAP_GEOMETRY.h], grid: [], firstPick: null })?.sourceKeys,
       "and the sound record beside it is still snapped to",
-    ).toEqual(["SNAP:H"]);
+    ).toEqual([SNAP_GEOMETRY.h.key]);
   });
 });

@@ -58,7 +58,9 @@ function hatch(context: CanvasRenderingContext2D, rect: OverlayOutline["rect"], 
 /** One view's outline, and the type spelling it wears at its top-left. */
 function outline(context: CanvasRenderingContext2D, drawn: OverlayOutline, palette: OverlayPalette): void {
   context.save();
-  if (drawn.hatched) {
+  // One hatch, one home (I-160): a view the machine could not type and a view no affirmation act
+  // names are both views that measure nothing, and the sheet says so the same way.
+  if (drawn.hatched || drawn.scaleRefusal !== null) {
     strokeStyle(context, palette.warn, []);
     context.strokeRect(drawn.rect.x, drawn.rect.y, drawn.rect.width, drawn.rect.height);
     hatch(context, drawn.rect, palette);

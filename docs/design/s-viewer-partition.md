@@ -65,6 +65,21 @@ of s-viewer.md §8's first IOU in the commit that lands it (B-20); the toolbar h
   hatch; a grid axis is the drawing office's centre line, `[12, 3, 2, 3]`. In greyscale, and for a
   reader who cannot separate warn from ink, the three still read apart (R-UI-060).
 
+**Amended by inc-205-scale-ui** (R-TO-021, B-20), with the one hatch this overlay now paints for a
+second reason, ruled by s-scale I-160 and recorded here in the overlay's own terms:
+
+- **s-scale I-160, read against this Decision — one hatch, two reasons, and two counts.**
+  R-TO-021 says a view no affirmation act names is hatched and measures nothing, and B-17 says a
+  hatch has one home: `OverlayOutline` gains `scaleRefusal: string | null` (a plain string, not
+  core's `ScaleAbsenceCode` — this module may not value-import `@/core/scale`, which would drag
+  `node:crypto` into the browser bundle for a value only ever published as an attribute; the scale
+  region supplies the codes verbatim), `overlayScene` takes the absence map as its fourth argument,
+  and `paint.ts` lays the same 45° hatch under an outline that is untyped OR scale-refused. The two
+  facts stay countable apart: `SceneCounts.scaleHatched` counts the scale-refused and is published as
+  `data-scale-hatched` on `viewer-partition-canvas`, while `data-hatched` keeps meaning untyped-only,
+  so J-021 reads exactly what it always read. The map is threaded by `viewer-screen.tsx`, which
+  composes the scale region ahead of this one: the store is read once, by the door that owns it.
+
 ## 1. Layout and hierarchy
 
 The stage still dominates. The panel recedes exactly as the layers panel does — same fill

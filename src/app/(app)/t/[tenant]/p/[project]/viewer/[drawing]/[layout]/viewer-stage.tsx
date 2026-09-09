@@ -4,14 +4,17 @@
  * controls, and the inspector beside them. Markup only — every decision it renders was made by the
  * screen's hooks, and it holds no state and runs no effect of its own.
  */
+import { useState } from "react";
 import { ZOOM_STEP } from "@/modules/takeoff/viewer/hooks/use-camera";
 import type { UsePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
 import type { UseSnap } from "@/modules/takeoff/viewer-snap/use-snap";
 import { InspectorPanel, type InspectorPanelProps } from "@/modules/takeoff/viewer-inspector/inspector-panel";
+import { SCALE_COPY } from "@/modules/takeoff/scale-ui/copy";
 import { Button } from "@/ui/primitives/core";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/ui/primitives/data";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup, Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/data";
 import { fill, strings } from "@/ui/strings";
 import { LayersPanel, type LayersPanelProps } from "./layers-panel";
+import { ScalePanel, type ScaleRegion, type ScaleViewBox } from "./scale-region";
 import { SnapAnnouncer, SnapOverlay, SnapTools } from "./snap-region";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from "react";
 
@@ -22,9 +25,12 @@ const PANEL_MAX = 40;
 
 export type ViewerStageProps = {
   panel: LayersPanelProps;
-  /** The views/grid region: its section docks under the layers list in the one left column (I-110)
-      and its canvas lies over the sheet, reached by nothing (I-112). */
-  partition: { panel: ReactNode; canvas: ReactNode };
+  /** The views/grid region: its section docks under the layers list in the one left column (I-110),
+      its canvas lies over the sheet, reached by nothing (I-112), and its view boxes say where each
+      view of the partition stands, which is how an observation names the view it was taken in. */
+  partition: { panel: ReactNode; canvas: ReactNode; views: readonly ScaleViewBox[] };
+  /** The scale region: the second tab of the right inspector (I-152). */
+  scale: ScaleRegion;
   pointer: UsePointer;
   /** The snapping region: its toolbar on the stage and its marks on the overlay stack (I-151). */
   snap: UseSnap;
@@ -33,15 +39,15 @@ export type ViewerStageProps = {
   stageRef: RefObject<HTMLDivElement | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   sheetName: string;
-  /** Whether a sheet can be drawn at all here — a browser with no WebGL context cannot (I-82). */
-  drawable: boolean;
+  /** Whether the context was probed at all yet, and what it answered — a browser with no WebGL
+      context draws no sheet and says so in the stage's place (I-82). */
   probed: boolean;
   renderer: "webgl" | "unavailable";
   onFit: () => void;
   onZoom: (factor: number) => void;
 };
 
-export function ViewerStage({ panel, partition, pointer, snap, inspector, onKeyDown, stageRef, canvasRef, sheetName, drawable, probed, renderer, onFit, onZoom }: ViewerStageProps) {
+export function ViewerStage({ panel, partition, scale, pointer, snap, inspector, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, onFit, onZoom }: ViewerStageProps) {
   return (
     /* Every panel carries a stable id and order, so a layout stored by another build's group no
        longer matches this group and is dropped rather than misapplied (Decision § 1). */
@@ -120,17 +126,53 @@ export function ViewerStage({ panel, partition, pointer, snap, inspector, onKeyD
           </div>
         </div>
       </ResizablePanel>
-      {/* A browser that offers no context draws no sheet, and an inspector beside a sheet that was
-          never drawn is a panel that can never fill: the group falls back to two panels, and nothing
-          is placeheld (Decision § 2, s-viewer's own rule). */}
-      {drawable ? (
-        <>
-          <ResizableHandle />
-          <ResizablePanel id="viewer-inspector-panel" order={3} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
-            <InspectorPanel {...inspector} />
-          </ResizablePanel>
-        </>
-      ) : null}
+      {/* The right column stands whether or not a sheet can be drawn here (I-152): its scale tab is
+          filled by a door and not by the canvas, so a browser that offers no WebGL context still
+          reads every view's scale, its proposals and the absence a view declares (R-TO-020). Only
+          the selection tab beside it depends on a drawing, and that is the tab's own emptiness to
+          teach — never the whole column's absence. */}
+      <ResizableHandle />
+      <ResizablePanel id="viewer-inspector-panel" order={3} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
+        <InspectorTabs inspector={inspector} scale={scale} snap={snap} views={partition.views} />
+      </ResizablePanel>
     </ResizablePanelGroup>
+  );
+}
+
+/** The two tabs of the right inspector, and what each holds (I-152). */
+const SELECTION_TAB = "selection";
+const SCALE_TAB = "scale";
+
+/**
+ * The right inspector as a two-tab panel (I-152): the strip stands OUTSIDE the aside, wrapping the
+ * contents of `viewer-inspector-panel`, so the inspector a journey already pictured is byte-identical
+ * and only the height it stands in may change.
+ *
+ * The chosen tab is held here rather than by the primitive, because a tab is chosen by a click as
+ * much as by the pointer-down and the keyboard the primitive answers on its own: one value, set by
+ * whichever gesture arrived, keeps the strip and the panel saying the same thing (R-UI-012). Nothing
+ * of it is persisted — that is the prefs seam's, and an IOU of this Decision's § 8.
+ */
+function InspectorTabs({ inspector, scale, snap, views }: { inspector: InspectorPanelProps; scale: ScaleRegion; snap: UseSnap; views: readonly ScaleViewBox[] }) {
+  const [tab, setTab] = useState(SELECTION_TAB);
+  return (
+    <Tabs className="cx-viewer-inspector-tabs" value={tab} onValueChange={setTab}>
+      <TabsList data-testid="viewer-inspector-tabs" aria-label={SCALE_COPY.viewer_scale_tabs_label}>
+        <TabsTrigger value={SELECTION_TAB} data-testid="viewer-inspector-tab-selection" onClick={() => setTab(SELECTION_TAB)}>
+          {SCALE_COPY.viewer_scale_tab_selection}
+        </TabsTrigger>
+        <TabsTrigger value={SCALE_TAB} data-testid="viewer-inspector-tab-scale" onClick={() => setTab(SCALE_TAB)}>
+          {SCALE_COPY.viewer_scale_tab_scale}
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent className="cx-viewer-inspector-tab" value={SELECTION_TAB}>
+        <InspectorPanel {...inspector} />
+      </TabsContent>
+      <TabsContent className="cx-viewer-inspector-tab" value={SCALE_TAB}>
+        {/* The picks are the snapping region's own, and a successful observation spends them: no
+            second pick model exists anywhere in the product (I-158, B-17). */}
+        <ScalePanel scale={scale} picks={snap.picks} views={views} onSpent={snap.clearPicks} />
+      </TabsContent>
+    </Tabs>
   );
 }
