@@ -9,7 +9,7 @@
 // names the product does own).
 
 import { ACT_TYPES } from "../acts/law";
-import { GEOMETRY_TYPES } from "../offers/law";
+import { COVERAGES, GEOMETRY_TYPES } from "../offers/law";
 
 /** One foreign vocabulary: who owns the names, and which of them this tree spells. */
 export type TransportVocabulary = {
@@ -200,5 +200,14 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // so a shape the law gains tomorrow is declared with no edit (B-19, ARCH-02).
     vocabulary: "member geometry types (L-FRM-01)",
     codes: GEOMETRY_TYPES,
+  }),
+  Object.freeze({
+    // L-QTY-02's coverage roster. `PARTIAL_DECLARED` bears an underscore, so Q-07's register would
+    // read it as a refusal code nobody registered — but a coverage is what a LINE says about itself,
+    // written to `quantity_lines` and read by the roll-up; a person is answered with the omitted
+    // components enumerated on the row, never with this name. The roster's home is `../offers/law.ts`
+    // and it is read from there rather than copied (B-19, ARCH-02).
+    vocabulary: "coverage states (L-QTY-02)",
+    codes: COVERAGES,
   }),
 ]);

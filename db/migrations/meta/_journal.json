@@ -246,6 +246,20 @@
       "when": 1788951000000,
       "tag": "0034_placements-append-only",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1788958565776,
+      "tag": "0035_quantity-lines-partial-declared",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1788958600000,
+      "tag": "0036_ruleset-edition-methods",
+      "breakpoints": true
     }
   ]
 }
