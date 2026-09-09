@@ -91,7 +91,7 @@ test.describe("J-020 — snapping: the glyph that names what is under the pointe
     const features = SViewerSnapPage.featuresOf(records);
     const endpoint = SViewerSnapPage.isolated(features, { kind: "endpoint", type: LINE, clearance: CLEARANCE });
     const middle = SViewerSnapPage.isolated(features, { kind: "midpoint", type: LINE, clearance: CLEARANCE, ownClearance: OWN_CLEARANCE });
-    const second = SViewerSnapPage.isolated(features, { kind: "endpoint", type: LINE, clearance: CLEARANCE, notKey: endpoint.key });
+    const second = SViewerSnapPage.isolated(features, { kind: "midpoint", type: LINE, clearance: CLEARANCE, ownClearance: OWN_CLEARANCE, notKey: endpoint.key });
     expect(second.key, "the two picks this journey takes stand on two different records").not.toBe(endpoint.key);
     const bare = SViewerSnapPage.emptiest(features);
     expect(bare.clear, "and the patch of bare paper it hovers stands well outside the reach of any snap").toBeGreaterThan(CLEARANCE);
