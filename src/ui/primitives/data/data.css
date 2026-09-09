@@ -69,7 +69,13 @@
 
 /* The indent is a spacing read, not a pixel: each row publishes its depth as --cx-tree-depth and
    the step is the token the Design Decision fixes. */
+/* A branch holds its children, so the item is the container and `cx-tree-row` is the row a person
+   sees; the container adds no box, which leaves the flow exactly the rows in visible order. */
 .cx-tree-item {
+  border-radius: var(--radius-4);
+}
+
+.cx-tree-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -82,11 +88,11 @@
   transition: background-color var(--motion-state) var(--ease);
 }
 
-.cx-tree-item:hover {
+.cx-tree-row:hover {
   background-color: var(--graphite-100);
 }
 
-.cx-tree-item[aria-selected="true"] {
+.cx-tree-item[aria-selected="true"] > .cx-tree-row {
   background-color: var(--beam-100);
   font-weight: var(--weight-heading);
 }

@@ -18,6 +18,8 @@ export const ACT_TYPES = [
   "REPUDIATE_LEVEL",
   "AUTHOR_STOREY_HEIGHT",
   "AUTHOR_TYPICAL_RANGE",
+  "CORROBORATE",
+  "REPUDIATE",
 ] as const;
 
 /** One act type, drawn from the enum above. */
@@ -80,6 +82,11 @@ export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.free
   // floors a typical plan is typical of is a reading of the drawing — it registers the members on
   // every floor of the range (L-CAD-07) — so it moves the permission the measuring itself moves.
   AUTHOR_TYPICAL_RANGE: "MEASURE",
+  // R-TO-051: a reading recorded against a register object, and a judgement that an object is
+  // nothing, are both readings of what was measured off the drawing — so both move the permission
+  // the measuring itself moves.
+  CORROBORATE: "MEASURE",
+  REPUDIATE: "MEASURE",
 });
 
 /**

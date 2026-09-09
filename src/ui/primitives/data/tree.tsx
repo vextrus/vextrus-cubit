@@ -4,6 +4,11 @@
  * `role="treeitem"` rows with `aria-expanded`, `aria-selected` and a roving tabindex — exactly one
  * item is tabbable, and the arrows do the rest (R-UI-012).
  *
+ * The rows are nested as the hierarchy is: a branch's children stand inside it, in the `role="group"`
+ * the tree role owns them through, so what a subtree holds is a fact of the DOM rather than of an
+ * `aria-level` a reader has to reassemble. The row a person sees is `cx-tree-row` inside the item, so
+ * nesting adds no box and no line of layout (R-UI-003).
+ *
  * Selection rides two channels, the beam fill and the heavier weight, so it never depends on colour
  * alone. Expanding is instant; only the chevron turns (R-UI-004).
  */
@@ -15,6 +20,7 @@ import {
   type ComponentPropsWithoutRef,
   type CSSProperties,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import { cx } from "../core/class-names";
 
@@ -104,6 +110,9 @@ export function Tree({
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>, index: number): void => {
     const row = rows[index];
     if (!row) return;
+    // A nested row's event would otherwise reach every ancestor treeitem and move the tree once per
+    // level of depth; the row the keyboard is standing on answers for itself.
+    event.stopPropagation();
     const move = (target: number): void => {
       const next = rows[target];
       if (!next) return;
@@ -150,36 +159,59 @@ export function Tree({
     }
   };
 
+  /**
+   * The items of one level, each holding its own children. The keyboard still moves over the
+   * flattened visible order — `rows` — so an item asks that order where it stands rather than
+   * carrying an index the nesting would have to keep true.
+   */
+  const branch = (items: TreeItem[], depth: number): ReactNode =>
+    items.map((item) => {
+      const children = item.children ?? [];
+      const hasChildren = children.length > 0;
+      const isExpanded = hasChildren && expanded.has(item.id);
+      const index = rows.findIndex((row) => row.item.id === item.id);
+      return (
+        <div
+          key={item.id}
+          role="treeitem"
+          data-testid="tree-item"
+          data-tree-id={item.id}
+          aria-level={depth + 1}
+          aria-expanded={hasChildren ? isExpanded : undefined}
+          aria-selected={item.id === selectedId}
+          tabIndex={item.id === tabbableId ? 0 : -1}
+          className={cx("cx-tree-item", "cx-reticle")}
+          // Depth is the only fact the row knows; the indent it buys is the stylesheet's, spelled
+          // in the spacing tokens the Design Decision names (R-UI-003).
+          style={{ "--cx-tree-depth": depth } as CSSProperties}
+          onFocus={(event) => {
+            event.stopPropagation();
+            setFocusedId(item.id);
+          }}
+          onKeyDown={(event) => onKeyDown(event, index)}
+          onClick={(event) => {
+            // A click inside a branch is a click on the row it landed on, never on its ancestors too.
+            event.stopPropagation();
+            if (hasChildren) toggle(item.id, !isExpanded);
+            select(item.id);
+          }}
+        >
+          <span className="cx-tree-row">
+            <Chevron open={isExpanded} hidden={!hasChildren} />
+            <span className="cx-tree-label">{item.label}</span>
+          </span>
+          {isExpanded ? (
+            <div role="group" className="cx-tree-group">
+              {branch(children, depth + 1)}
+            </div>
+          ) : null}
+        </div>
+      );
+    });
+
   return (
     <div {...rest} ref={rootRef} role="tree" data-testid="tree" className={cx("cx-tree", className)}>
-      {rows.map((row, index) => {
-        const selected = row.item.id === selectedId;
-        return (
-          <div
-            key={row.item.id}
-            role="treeitem"
-            data-testid="tree-item"
-            data-tree-id={row.item.id}
-            aria-level={row.depth + 1}
-            aria-expanded={row.hasChildren ? row.expanded : undefined}
-            aria-selected={selected}
-            tabIndex={row.item.id === tabbableId ? 0 : -1}
-            className={cx("cx-tree-item", "cx-reticle")}
-            // Depth is the only fact the row knows; the indent it buys is the stylesheet's, spelled
-            // in the spacing tokens the Design Decision names (R-UI-003).
-            style={{ "--cx-tree-depth": row.depth } as CSSProperties}
-            onFocus={() => setFocusedId(row.item.id)}
-            onKeyDown={(event) => onKeyDown(event, index)}
-            onClick={() => {
-              if (row.hasChildren) toggle(row.item.id, !row.expanded);
-              select(row.item.id);
-            }}
-          >
-            <Chevron open={row.expanded} hidden={!row.hasChildren} />
-            <span className="cx-tree-label">{row.item.label}</span>
-          </div>
-        );
-      })}
+      {branch(items, 0)}
     </div>
   );
 }

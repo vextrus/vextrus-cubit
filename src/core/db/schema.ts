@@ -1860,6 +1860,39 @@ export const registerObservations = pgTable(
 );
 
 /**
+ * R-TO-051's repudiation: a person judges a register object to be nothing. L-ACT-01 keeps the object
+ * and everything derived from it — a repudiation is a reading of the record, not a deletion of it —
+ * so the judgement is a row of its own, appended by the act that made it.
+ *
+ * No foreign key to `register_objects`, and none from any bill: the same posture L-REG-03 fixes for
+ * refused sightings. A repudiation is evidence about scope, and a status flag on the register table
+ * would be one forgotten WHERE from a quantity that a person has struck.
+ */
+export const repudiatedObjects = pgTable(
+  "repudiated_objects",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    repudiatedObjectId: uuid("repudiated_object_id").primaryKey().defaultRandom(),
+    setRevisionId: uuid("set_revision_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    objectKey: text("object_key").notNull(),
+    // A repudiation is a human act and nothing else, so the act that wrote it is not nullable
+    // (L-ACT-01: the act row and the state change commit together or neither).
+    actId: uuid("act_id")
+      .notNull()
+      .references(() => acts.actId),
+    repudiatedAt: timestamp("repudiated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One judgement per object per revision: repudiating what is already repudiated changes nothing,
+    // and the store says so as well as the seam does.
+    unique("repudiated_objects_one_per_object").on(table.tenantId, table.setRevisionId, table.objectKey),
+    // The read the register makes: one revision's repudiations, in the order they were made.
+    index("repudiated_objects_by_revision").on(table.tenantId, table.setRevisionId, table.repudiatedAt),
+  ],
+);
+
+/**
  * L-MEA-07's level: "a project-scoped object with a surrogate id; label, ordinal and height are
  * non-identifying".
  *
@@ -2231,6 +2264,7 @@ export const SEAM_SCHEMA = {
   refusedSightings,
   registerAttributes,
   registerObservations,
+  repudiatedObjects,
   levels,
   storeyHeightReadings,
   typicalRanges,
