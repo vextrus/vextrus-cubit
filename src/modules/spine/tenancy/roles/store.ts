@@ -7,7 +7,6 @@
 // migration's policies admit a write under a named system reason and refuse every tenant-scoped one
 // (SEAM-TENANT). The reason travels with the statement and is attributable, never validated and
 // then discarded.
-import { actsHeldBy } from "@/core/acts";
 import { and, eq, holdStateLock, isUuid, memberships, runAsSystem, users, type SystemDb, type TenantTx, type WorkspaceRole } from "@/core/db";
 import { workspacePermissionNotHeld } from "../refusals";
 import { workspacesBySeniority } from "./seniority";
@@ -96,15 +95,19 @@ export interface RoleMoveScope {
   /** Take one membership away, and answer whether there was one to take. */
   dropMembership(subjectUserId: string): Promise<boolean>;
   /**
-   * The acts of THIS workspace's log that the person is named in, by id (SEAM-ACT's own read).
+   * Ask another seam's own read on the very transaction this move is written in.
    *
-   * The removal coupling — a membership the log names may not be taken away underneath the record
-   * it made — is a read followed by a write, so it belongs on the same connection and under the same
-   * lock as the write it guards; asked in a transaction of its own it is a window an act can land
-   * in. The workspace is stated explicitly because this handle is the system's and reads past the
-   * policy that would otherwise have cut the log to one tenant.
+   * The removal coupling — a membership the act log names may not be taken away underneath the
+   * record it made — is a read followed by a write, so it belongs on the same connection and under
+   * the same lock as the write it guards; asked in a transaction of its own it is a window an act
+   * can land in. Which read that is stays the asking module's (SEAM-ACT's `actsHeldBy`, named in
+   * `../removal`): this store speaks about memberships and holds no second opinion of anybody
+   * else's rows (B-17, ARCH-02).
+   *
+   * The handle it hands over is the system's and reads past row-level security, so a read taken
+   * through it states the workspace it means.
    */
-  actsHeldBy(subjectUserId: string): Promise<readonly string[]>;
+  asking<T>(read: (tx: TenantTx) => Promise<T>): Promise<T>;
 }
 
 /**
@@ -160,7 +163,7 @@ export async function movingWorkspaceRoles<T>(tenantId: string, work: (scope: Ro
         return removed[0] !== undefined;
       },
 
-      actsHeldBy: (subjectUserId) => actsHeldBy(tx as TenantTx, subjectUserId, { tenantId }),
+      asking: (read) => read(tx as TenantTx),
     });
   });
 }

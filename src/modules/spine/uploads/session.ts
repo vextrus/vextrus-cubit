@@ -14,7 +14,7 @@
 import { createHash } from "node:crypto";
 import { createReadStream, existsSync } from "node:fs";
 import { mkdir, open, readFile, rm, stat, truncate } from "node:fs/promises";
-import { drawings, eq, files, forTenant, holdStateLock, isUuid, projects, runAsSystem, uploads, UPLOAD_CHUNK_BYTES, UPLOAD_MAX_BYTES, type AcceptedFormat, type ScanVerdict, type TenantDb, type TenantTx, type UploadState } from "@/core/db";
+import { and, drawings, eq, files, forTenant, holdStateLock, isUuid, projects, runAsSystem, uploads, UPLOAD_CHUNK_BYTES, UPLOAD_MAX_BYTES, type AcceptedFormat, type ScanVerdict, type TenantDb, type TenantTx, type UploadState } from "@/core/db";
 import { REFUSALS } from "@/core/errors";
 import type { UploadRefusalCode } from "./refusals";
 import { declaredFormat, detectFormat, FORMAT_HEAD_BYTES, isArchiveContent, isArchiveName } from "./formats";
@@ -242,6 +242,14 @@ export async function appendChunk(request: AppendChunkRequest): Promise<UploadAd
     if (session === null) return NOT_THEIRS;
     if (session.state !== "open") return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: session.receivedBytes };
 
+    // A chunk of no bytes advances no transfer. It has to be refused rather than taken as a chunk
+    // that happens to add nothing: offered at the declared size it passes every check below, and the
+    // session is still open until the settling it triggers is written — so a client that sent one
+    // twice would settle the same transfer twice, recording the drawing twice (R-SPINE-020).
+    if (request.bytes.length === 0) {
+      return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: await reconcile(tx, request.actor, session) };
+    }
+
     const acknowledged = await reconcile(tx, request.actor, session);
     if (acknowledged !== session.receivedBytes) return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: acknowledged };
     if (request.offset !== acknowledged) return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: acknowledged };
@@ -451,28 +459,35 @@ async function completeArchive(db: TenantDb, actor: UploadActor, session: Sessio
  * why storing happens outside the transaction the rows are written in — a put of up to 500 MB must
  * not hold a pooled connection open in an open transaction.
  */
-async function place(db: Handle, actor: UploadActor, content: SettledContent): Promise<boolean> {
+async function place(db: Handle, actor: UploadActor, content: SettledContent): Promise<void> {
   const held = await db.select({ sha256: files.sha256 }).from(files).where(eq(files.sha256, content.digest)).limit(1);
-  const duplicate = held[0] !== undefined;
-  const atItsAddress = duplicate && (await uploadStorage().get(actor.tenantId, content.digest)) !== null;
+  const atItsAddress = held[0] !== undefined && (await uploadStorage().get(actor.tenantId, content.digest)) !== null;
   if (!atItsAddress) await uploadStorage().put(actor.tenantId, content.bytes);
-  return duplicate;
 }
 
-/** One content and the drawing made of it: recorded once per workspace, once per presented name. */
-async function record(db: Handle, actor: UploadActor, session: SessionRow, content: SettledContent, duplicate: boolean): Promise<RecordedDrawing> {
-  if (!duplicate) {
-    await db
-      .insert(files)
-      .values({
-        tenantId: actor.tenantId,
-        sha256: content.digest,
-        byteLength: content.bytes.length,
-        format: content.format,
-        scanVerdict: content.verdict,
-      })
-      .onConflictDoNothing();
-  }
+/**
+ * One content and the drawing made of it: recorded once per workspace, once per presented name.
+ *
+ * Whether the workspace already held the content is what the row itself says, inside the settling
+ * transaction: a read taken before it — outside the transaction, or even inside it before the offer
+ * — is a claim about a moment that has passed, and two identical transfers settling at once would
+ * both answer that the content is new (R-SPINE-020). The insert is offered and the store's own key
+ * decides; a content this same settlement already laid down answers duplicate for the same reason,
+ * with no bookkeeping of its own.
+ */
+async function record(db: Handle, actor: UploadActor, session: SessionRow, content: SettledContent): Promise<RecordedDrawing> {
+  const laid = await db
+    .insert(files)
+    .values({
+      tenantId: actor.tenantId,
+      sha256: content.digest,
+      byteLength: content.bytes.length,
+      format: content.format,
+      scanVerdict: content.verdict,
+    })
+    .onConflictDoNothing()
+    .returning({ sha256: files.sha256 });
+  const duplicate = laid[0] === undefined;
 
   const written = await db
     .insert(drawings)
@@ -498,24 +513,29 @@ async function record(db: Handle, actor: UploadActor, session: SessionRow, conte
  * The bytes are already in the store by then — a stored object with no row is inert, where a row
  * without its object would be a drawing that cannot be opened (R-SPINE-021).
  */
-async function settle(db: TenantDb, actor: UploadActor, session: SessionRow, contents: SettledContent[], skipped: SkippedMember[]): Promise<UploadAdvanced> {
+async function settle(db: TenantDb, actor: UploadActor, session: SessionRow, contents: SettledContent[], skipped: SkippedMember[]): Promise<UploadAdvanced | UploadRefused> {
   // One content is one file row however many times the transfer presents it: an archive holding the
   // same bytes under two names lays them down once and links the second, exactly as a second upload
   // of content the workspace already holds is linked (R-SPINE-020).
-  const placed: { content: SettledContent; duplicate: boolean }[] = [];
-  const laid = new Set<string>();
-  for (const content of contents) {
-    const duplicate = laid.has(content.digest) || (await place(db, actor, content));
-    laid.add(content.digest);
-    placed.push({ content, duplicate });
-  }
+  for (const content of contents) await place(db, actor, content);
 
   const recorded = await db.transaction(async (tx) => {
+    // The ending is claimed before anything is recorded, and only from a session that is still open:
+    // a settlement is a transition out of `open`, so the store itself admits exactly one of them and
+    // a second settling of one transfer writes no drawings at all. Nothing is taken away by losing —
+    // the bytes stand at their address and the winner's rows point at them.
+    const claimed = await tx
+      .update(uploads)
+      .set({ state: "stored", completedAt: new Date() })
+      .where(and(eq(uploads.uploadId, session.uploadId), eq(uploads.state, "open")))
+      .returning({ uploadId: uploads.uploadId });
+    if (claimed[0] === undefined) return null;
+
     const written: RecordedDrawing[] = [];
-    for (const { content, duplicate } of placed) written.push(await record(tx, actor, session, content, duplicate));
-    await tx.update(uploads).set({ state: "stored", completedAt: new Date() }).where(eq(uploads.uploadId, session.uploadId));
+    for (const content of contents) written.push(await record(tx, actor, session, content));
     return written;
   });
+  if (recorded === null) return { refusal: REFUSALS.UPLOAD_NOT_RESUMABLE.code, receivedBytes: session.receivedBytes };
   return { uploadId: session.uploadId, receivedBytes: session.receivedBytes, complete: true, drawings: recorded, skipped };
 }
 

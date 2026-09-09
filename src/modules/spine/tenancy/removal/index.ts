@@ -4,13 +4,14 @@
 // SEAM-ACT puts tenant administration outside the act log's writ "under their own guards plus the
 // MEMBER_HAS_ACTS coupling": removal writes no act row, and in exchange it may not take away a
 // membership the log names — a record whose author is no longer anybody is not a record. What the
-// log says is asked of the act seam's own read (`actsHeldBy`), reached through the role move's own
-// scope; this module holds no view of the log beyond that answer and no handle of its own
+// log says is asked of the act seam's own read (`actsHeldBy`), taken on the role move's own
+// transaction; this module holds no view of the log beyond that answer and no handle of its own
 // (SEAM-TENANT).
 //
 // Once the log has nothing to say, the removal itself is R-SPINE-006's, unchanged: the two-sided
 // role law in ../roles/assign decides who may remove whom, and it is delegated to rather than
 // re-stated here (B-17).
+import { actsHeldBy } from "@/core/acts";
 import { removeMemberUnderLock, type MemberRef, type MemberRemoved } from "../roles/assign";
 import { movingWorkspaceRoles } from "../roles/store";
 import type { TenancyActor } from "../scope";
@@ -34,7 +35,7 @@ export { memberHasActs, type ActsHeld } from "./refusals";
  */
 export async function removeMember(actor: TenancyActor, request: MemberRef): Promise<MemberRemoved> {
   return movingWorkspaceRoles(actor.tenantId, async (store) => {
-    const held = await store.actsHeldBy(request.subjectUserId);
+    const held = await store.asking((tx) => actsHeldBy(tx, request.subjectUserId, { tenantId: actor.tenantId }));
     if (held.length > 0) throw memberHasActs({ subjectUserId: request.subjectUserId, actIds: held });
 
     return removeMemberUnderLock(store, actor, request);
