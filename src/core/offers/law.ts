@@ -3,11 +3,27 @@
 // them too — a table that spelled its own copy of "MEASURED · DERIVED · INTERPRETED" would be a
 // second home for a closed roster (B-17, ARCH-02) — and this file reaches nothing but the law.
 
-/** L-QTY-03's quantity basis: how the figure on a line came to be known. */
-export const QUANTITY_BASES = ["MEASURED", "DERIVED", "INTERPRETED"] as const;
+/**
+ * L-QTY-01's basis: how the figure on a line came to be known, in the clause's own order — by
+ * RECOURSE, strongest first. The order is the roster's order and carries meaning: "weakest-wins"
+ * roll-ups read it as a rank, so a basis added anywhere but in its lawful place would silently
+ * re-rank every line the tree publishes.
+ */
+export const QUANTITY_BASES = ["MEASURED", "TRANSCRIBED", "DERIVED", "IMPORTED", "ENTERED", "INTERPRETED", "DEFAULTED"] as const;
 
 /** One basis, drawn from the closed roster above. */
 export type QuantityBasis = (typeof QUANTITY_BASES)[number];
+
+/**
+ * The weakest of a set of bases — L-QTY-01's roll-up: "a line derives two roll-ups weakest-wins".
+ * An empty set answers the honest weakest, DEFAULTED: nobody looked and nobody decided, which is
+ * exactly what the clause says that basis means (riskNotes (5)).
+ */
+export function weakestBasis(bases: readonly QuantityBasis[]): QuantityBasis {
+  let weakest = 0;
+  for (const basis of bases) weakest = Math.max(weakest, QUANTITY_BASES.indexOf(basis));
+  return bases.length === 0 ? "DEFAULTED" : (QUANTITY_BASES[weakest] as QuantityBasis);
+}
 
 /**
  * The deduction channels a candidate can stand in. L-MEA-01 states a threshold per channel; this
@@ -36,11 +52,11 @@ export const ENGINES = ["VECTOR", "RASTER"] as const;
 export type Engine = (typeof ENGINES)[number];
 
 /**
- * How complete a line's coverage is. Only a whole one is representable at this leaf: an algebra that
- * can measure part of a scope is a later one, and a coverage nothing can produce is not a value a
- * store should admit (L-QTY-03).
+ * How complete a line's coverage is (L-QTY-02): COMPLETE, or PARTIAL_DECLARED with every omitted
+ * component enumerated on the row. PARTIAL_UNDECLARED is not here and never will be — the clause
+ * makes it unrepresentable, which in a closed roster means it is simply not a value.
  */
-export const COVERAGES = ["COMPLETE"] as const;
+export const COVERAGES = ["COMPLETE", "PARTIAL_DECLARED"] as const;
 
 /** One coverage, drawn from the closed roster above. */
 export type Coverage = (typeof COVERAGES)[number];

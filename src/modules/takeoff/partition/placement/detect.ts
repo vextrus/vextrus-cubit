@@ -13,6 +13,11 @@
 //     times the MEDIAN longest side of the view's mark-anchored candidates is not a member of this
 //     plan at all (riskNotes (1)): the columns of one plan are alike, and a room outline or a hatch
 //     fragment is not.
+//   · stated section — a candidate whose longest side is outside the same band times the section its
+//     mark's SCHEDULE states (at the scale the drawing's own plans and schedules agree on) is not the
+//     member that mark names: the registry says what a member is (R-TO-031), and a stair opening a
+//     column mark stands nearest to is not a column. Judged of the anchored candidates as the
+//     footprint band is, because the two are separate statements and neither filters the other.
 //   · containment/merge — outlines of one mark whose centres stand within `containmentMerge ×
 //     spacing` of each other are one member drawn twice, and yield one placement.
 //
@@ -65,8 +70,15 @@ export type DetectedPlacements = {
   readonly ungridded: readonly UngriddedView[];
 };
 
-/** One member family the record's schedules named — what a placement's `member_family` joins to. */
-export type FamilyNamed = { readonly family: string };
+/**
+ * One member family the record's schedules named — what a placement's `member_family` joins to, and
+ * what the schedules said that family IS. The variants are optional because a record whose schedules
+ * stated no section still names its families, and a family with no section is judged by nothing.
+ */
+export type FamilyNamed = {
+  readonly family: string;
+  readonly variants?: readonly { readonly sectionWidth: number | null; readonly sectionDepth: number | null }[];
+};
 
 /** What the stage is handed: the artifact, what the stages before it derived, and the pinned shares. */
 export type PlacementEvidence = {
@@ -115,10 +127,12 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
     footprintMax: shareValue(evidence.shares, "footprintMax"),
   };
   const families = new Set(evidence.families.map((named) => named.family));
+  const stated = statedLongestOf(evidence.families);
   const axesByView = axesOf(evidence.grid);
 
   const placements: PlacementRow[] = [];
   const ungridded: UngriddedView[] = [];
+  const plans: { readonly pass: PlanPass; readonly anchored: readonly Anchored[] }[] = [];
   let examined = 0;
 
   for (const view of evidence.views) {
@@ -133,8 +147,18 @@ export function detectPlacements(evidence: PlacementEvidence): DetectedPlacement
       continue;
     }
     const ref: ViewRef = { viewClass: view.type, captionAnchorSourceKey: view.anchorKey };
-    for (const row of placementsIn({ evidence, view, axes, spacing, shares, families, ref })) placements.push(row);
+    const pass: PlanPass = { evidence, view, axes, spacing, shares, families, ref };
+    plans.push({ pass, anchored: anchoredIn(pass) });
   }
+
+  // The scale is the ARTIFACT's, read once over every plan of it: a sheet's plans are drawn to one
+  // scale and the drawing states it by drawing its members to the sizes its schedules give them, so
+  // a plan whose own candidates are mostly not members still has a scale to be judged at (L-MEA-01).
+  const scale = drawnScaleOf(
+    plans.flatMap((plan) => plan.anchored),
+    stated,
+  );
+  for (const plan of plans) for (const row of rowsFrom(plan.pass, plan.anchored, stated, scale)) placements.push(row);
 
   return { views: examined, placements, ungridded };
 }
@@ -155,7 +179,7 @@ type PlanPass = {
  * own citation rather than by a second reading of what a bubble is: a ring the backbone stands on is
  * a georeference, and reading it as a member would place a column at every grid intersection (B-17).
  */
-function placementsIn(pass: PlanPass): PlacementRow[] {
+function anchoredIn(pass: PlanPass): Anchored[] {
   const cited = new Set(pass.axes.flatMap((axis) => [axis.bubbleKey, axis.labelKey]));
   const standing = pass.evidence.graph.entities.filter(
     (entity) => pass.evidence.assignments.get(entity.key) === pass.view.viewKey && !cited.has(entity.key),
@@ -165,13 +189,30 @@ function placementsIn(pass: PlanPass): PlacementRow[] {
   const outlines = standing.flatMap((entity) => outlineOf(entity) ?? []);
 
   const reach = pass.shares.nearAnchor * pass.spacing;
-  const anchored = outlines.flatMap((outline) => {
+  return outlines.flatMap((outline) => {
     const mark = nearestMark(outline, marks, reach);
     return mark === null ? [] : [{ outline, mark }];
   });
+}
 
+/**
+ * The rows one plan's anchored candidates yield. Two statements have to hold of a candidate and they
+ * are read from two different places, so both are tested against the candidates as they were anchored
+ * and neither is a filter over the other's answer: the plan says its own members are alike (the
+ * footprint band), and the schedules say what each mark IS (the stated section). A candidate that
+ * fails either is not the member that mark names.
+ */
+function rowsFrom(pass: PlanPass, anchored: readonly Anchored[], stated: ReadonlyMap<string, number>, scale: number | null): PlacementRow[] {
   const inBand = withinFootprintBand(anchored, pass.shares.footprintMin, pass.shares.footprintMax);
-  const merged = mergedByMark(inBand, pass.shares.containmentMerge * pass.spacing);
+  const said = new Set(
+    anchored
+      .filter((held) => matchesStatedSection(held, stated, scale, pass.shares.footprintMin, pass.shares.footprintMax))
+      .map((held) => held.outline.key),
+  );
+  const merged = mergedByMark(
+    inBand.filter((held) => said.has(held.outline.key)),
+    pass.shares.containmentMerge * pass.spacing,
+  );
 
   const rows: PlacementRow[] = [];
   const keyed = new Set<string>();
@@ -268,6 +309,60 @@ function withinFootprintBand(anchored: readonly Anchored[], min: number, max: nu
     const share = held.outline.longest / median;
     return share >= min && share <= max;
   });
+}
+
+/**
+ * The longest side the record's schedules state for each mark family, in the schedules' own units. A
+ * banded family states a section per band and the member is drawn to one of them, so the largest is
+ * the size its outline is judged against — judging by the smallest would call the member drawn at its
+ * lowest band a stranger (L-FRM-02). A family whose every section went unread states no size at all.
+ */
+function statedLongestOf(families: readonly FamilyNamed[]): Map<string, number> {
+  const stated = new Map<string, number>();
+  for (const named of families) {
+    for (const variant of named.variants ?? []) {
+      const sides = [variant.sectionWidth, variant.sectionDepth].filter((side): side is number => side !== null && side > 0);
+      if (sides.length === 0) continue;
+      stated.set(named.family, Math.max(stated.get(named.family) ?? 0, ...sides));
+    }
+  }
+  return stated;
+}
+
+/**
+ * How many drawing units one unit of the schedules' measures, read off the drawing itself: the median
+ * of every mark-anchored candidate's longest side against the section its own mark's schedule states.
+ * A plan draws its members to the sizes the schedules give them, so the agreement between the two IS
+ * the drawing's statement of what it was drawn at — no distance is spelled here either (L-MEA-01).
+ *
+ * Null where nothing can be compared: a record whose schedules stated no section says nothing about
+ * its own scale, and a scale guessed from no evidence would place members by numbers nobody read.
+ */
+function drawnScaleOf(anchored: readonly Anchored[], stated: ReadonlyMap<string, number>): number | null {
+  const ratios = anchored.flatMap((held) => {
+    const said = stated.get(held.mark.mark);
+    return said === undefined || !(held.outline.longest > 0) ? [] : [held.outline.longest / said];
+  });
+  const median = medianOf(ratios);
+  return median > 0 ? median : null;
+}
+
+/**
+ * Whether a candidate's footprint agrees with the section its mark's schedule states, at the scale
+ * the drawing was drawn to. "Member-type registry from schedules" says what a member IS (R-TO-031),
+ * so an outline a `C4` mark happens to stand nearest to but that is three times the size the schedule
+ * gives C4 is not a C4 — it is whatever else the plan drew there, and placing it would count a stair
+ * opening as a column. Judged by the same shares the footprint band uses, because it is the same
+ * question asked of the schedule instead of of the plan.
+ *
+ * A mark the schedules state no section for is not judged: the drawing said nothing to judge it by,
+ * and a reading that refused what it could not check would place nothing on a scheduleless plan.
+ */
+function matchesStatedSection(held: Anchored, stated: ReadonlyMap<string, number>, scale: number | null, min: number, max: number): boolean {
+  const said = stated.get(held.mark.mark);
+  if (said === undefined || scale === null) return true;
+  const share = held.outline.longest / (said * scale);
+  return share >= min && share <= max;
 }
 
 /** The middle of a set of measurements — the mean of the two middles where there is no single one. */

@@ -187,6 +187,7 @@ export type OfferShape = {
   bindings: Record<string, MeasureShape>;
   selectors: Record<string, MeasureShape>;
   deductions: readonly DeductionCandidateShape[];
+  omitted: readonly { variable: string; code: string }[];
   coverage: string;
 };
 
@@ -659,6 +660,7 @@ export type OfferDraft = {
   viewKey?: string;
   engine?: string;
   coverage?: string;
+  omitted?: readonly { variable: string; code: string }[];
 };
 
 /** One offer to the gate's contract (test contract: `Offer`). */
@@ -678,6 +680,9 @@ export function offer(draft: OfferDraft): OfferShape {
     bindings: draft.bindings ?? {},
     selectors: draft.selectors ?? {},
     deductions: draft.deductions ?? [],
+    // Every omitted component of the item description, enumerated on the row: empty unless a case
+    // says otherwise, because COMPLETE is exactly "nothing was left out" (L-QTY-02).
+    omitted: draft.omitted ?? [],
     coverage: draft.coverage ?? COMPLETE,
   };
 }

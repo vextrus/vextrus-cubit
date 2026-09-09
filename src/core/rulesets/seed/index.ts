@@ -1,17 +1,24 @@
-// L-MEA-01's seed rule set, `IS1200_IN @ 2026.08`, as the tree's one statement of it: the migration
-// seeds exactly this content, and the digest it stores is `editionDigest` over what is written here
-// — so the values a measurement reads and the values written here cannot drift apart unnoticed.
+// L-MEA-01's seed rule set, `IS1200_IN @ 2026.09`, as the tree's one statement of it: the migration
+// that mints it seeds exactly this content, and the digest it stores is `editionDigest` over what is
+// written here — so the values a measurement reads and the values written here cannot drift apart
+// unnoticed.
 //
 // The version string names India because Bangladesh has no measurement authority for these values.
+//
+// An edition is immutable, so a method landing in the tree is a NEW edition rather than an edit to
+// the standing one: 2026.08 stands untouched as the row the campaigns opened under it measured
+// against, and 2026.09 is minted beside it as the head every later pin forks (B-20, L-REG-07).
 import type { EditionContent, EditionIdentity } from "../editions/content";
+import { enumerateMethods } from "../methods/registry";
 
 /** The identity of the platform edition: the head of every lineage in the product (L-REG-07). */
-export const SEED_EDITION_IDENTITY: EditionIdentity = { scope: "platform", name: "IS1200_IN", version: "2026.08" };
+export const SEED_EDITION_IDENTITY: EditionIdentity = { scope: "platform", name: "IS1200_IN", version: "2026.09" };
 
 /**
  * The seed's content: L-MEA-01's seventeen parameter values, and the (rule id, version) pairs of the
- * methods in force. The roster of methods is empty because no method is enumerated in this tree yet
- * — an edition citing a method that does not exist would key content nothing can compute.
+ * methods in force. "In force" is the shards' own roster — `enumerateMethods()` — and never a second
+ * list beside it: a method landed with its manifest is cited with no edit here, and an edition that
+ * omitted one would key a pair the tree computes yet no campaign could cite (B-19, riskNotes (1)).
  *
  * Every value is a decimal string: B-07 keeps a figure exact from here to the page, and the unit is
  * carried beside it because a unit is edition data, not something a surface derives from a key.
@@ -41,5 +48,5 @@ export const SEED_EDITION_CONTENT: EditionContent = {
     placementFootprintMax: { value: "2.5", unit: "ratio" },
     placementHumanSnap: { value: "0.5", unit: "ratio" },
   },
-  methods: [],
+  methods: enumerateMethods(),
 };

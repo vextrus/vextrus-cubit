@@ -192,6 +192,16 @@ class _Extractor:
         text = _text_of(entity, dxftype)
         if text is not None:
             record["text"], record["height"] = text
+            if points is None:
+                # A text has no path for ezdxf to build, so nothing above places it — and a text
+                # nothing places is a text no stage over the artifact can read as standing anywhere.
+                # L-CAD-06 partitions model space by the captions drawn in it, which means a caption
+                # has to say where it stands; so a text-bearing original carries its own insertion
+                # point, the same anchor the space's extents are already taken from below.
+                anchor = _anchor(entity)
+                if anchor is not None:
+                    points = [anchor]
+                    record["points"] = [[anchor[0], anchor[1]]]
 
         box = geometry.bounds(points) if points else None
         if box is None:
