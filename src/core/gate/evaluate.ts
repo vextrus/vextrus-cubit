@@ -144,8 +144,9 @@ function observationKeyOf(observation: RailObservation): string {
  *
  * The order is the order a reader would ask the questions in: is this an offer at all, is its rule in
  * force, can the tree compute it, is the object one the register holds, is its geometry corroborated,
- * are its readings carryable, do its deduction candidates stand in channels the method declares.
- * Each answer is final for that offer — nothing is judged twice and nothing falls through.
+ * are its readings carryable, does it stand on a calibration reference, do its deduction candidates
+ * stand in channels the method declares. Each answer is final for that offer — nothing is judged
+ * twice and nothing falls through.
  */
 export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEdition, registered: ReadonlySet<string>): Judgement {
   if (!toContract(offer, under)) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
@@ -213,12 +214,12 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
   const partition = partitionDeductions(offer.deductions, edition.parameters);
   if (!partition.ok) return refuse(offer, partition.code);
 
-  // L-QTY-03 has a line carry "a non-empty set of affirmed calibration references", and affirming
-  // one is the RAIL's obligation: `calibration` is optional on both the geometry and the reading in
-  // the rail↔gate contract, so an offer carrying only what the contract makes mandatory publishes
-  // and its line states the empty set — the gate records what was affirmed, it does not withhold a
-  // line for an affirmation the contract never asked the rail for.
+  // L-QTY-03 has a line always carry "a non-empty set of affirmed calibration references", and
+  // L-QTY-04 makes a missing mandatory publishable attribute a hard block: an offer standing on no
+  // affirmed reference at all publishes nothing, rather than a quantity nobody can say what the
+  // drawing it was read from was scaled by ("the drawing was silent → never a silent default").
   const calibrationKeys = calibrationKeysOf(offer);
+  if (calibrationKeys.length === 0) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
   const bound = normalised as NormalisedBindings;
   const deductions: RecordedDeduction[] = [

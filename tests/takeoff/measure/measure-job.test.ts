@@ -8,10 +8,10 @@
  * that a second run over the same campaign writes nothing further (SEAM-JOBS: "every job idempotent
  * on its key"), and that the production wiring judges the same batch the same way.
  *
- * The offers the stub makes carry only what the rail↔gate contract makes mandatory: `calibration` is
- * optional on both the geometry and the reading, so affirming a reference is the rail's obligation
- * (inc-213 onward) and never a gate precondition — an offer that affirms none publishes, and its
- * line states the empty set (L-QTY-03).
+ * The offers the stub makes are to the rail↔gate contract, calibration reference included: affirming
+ * one is the RAIL's obligation (L-MEA-08), and a line always carries "a non-empty set of affirmed
+ * calibration references" (L-QTY-03), so a rail that affirms none publishes nothing. The line each
+ * offer leaves behind states exactly what it affirmed.
  *
  * Nothing here re-spells a step, a kind or a class: the steps are read from the job module's own
  * roster, the kind from the method the registry maps, and the (class, kind) pair from the catalogue.
@@ -44,6 +44,9 @@ const OBJECTS = 2;
 /** The unit the stub reads in, and the readings it makes. Any mapped unit serves; nothing turns on it. */
 const READ_IN = "m";
 const READINGS: Readonly<Record<string, string>> = { b: "0.3", d: "0.45", L: "3" };
+
+/** The calibration reference the stub's readings and geometry stand on (L-QTY-03). */
+const CALIBRATION = "CAL:S-101:grid-A";
 
 let staged: Promise<StagedCampaign> | undefined;
 const campaign = (): Promise<StagedCampaign> => (staged ??= stageCampaign("measure", { objects: OBJECTS }));
@@ -92,7 +95,8 @@ const stub = (): Promise<Stub> =>
             kind: input.kind,
             class: bearsRow.class,
             geometryType,
-            bindings: bindingsIn(READ_IN, READINGS),
+            calibration: CALIBRATION,
+            bindings: bindingsIn(READ_IN, READINGS, CALIBRATION),
           }),
         ),
         observations: [] as never[],
@@ -159,8 +163,8 @@ describe("the measure job: one rail, the real gate, one campaign", () => {
     for (const row of lines) {
       expect(
         field(row, "calibrationKeys", "calibration_keys"),
-        "an offer carrying only the contract's mandatory fields publishes, and its line states the references it affirmed — here, none (L-QTY-03)",
-      ).toEqual([]);
+        "and its line states the references the offer affirmed — a non-empty set, per measured attribute (L-QTY-03)",
+      ).toEqual([CALIBRATION]);
     }
   });
 

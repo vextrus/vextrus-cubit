@@ -53,7 +53,14 @@ export type Offer = {
   readonly register: { readonly setRevisionId: string; readonly objectKey: string };
   readonly drawing: { readonly drawingId: string; readonly viewKey: string };
   readonly engine: Engine;
-  readonly geometry: { readonly type: GeometryType; readonly basis: QuantityBasis; readonly calibration?: string };
+  /**
+   * The geometry an offer was read off: the L-FRM-01 type, its own basis, and the calibration
+   * reference it stands on. The reference is owed rather than optional — a line always carries "a
+   * non-empty set of affirmed calibration references" (L-QTY-03) and a missing mandatory publishable
+   * attribute is a hard block (L-QTY-04), so a rail that affirms none has made an offer that cannot
+   * publish. Spelling it here keeps a rail from being type-correct and unpublishable at once.
+   */
+  readonly geometry: { readonly type: GeometryType; readonly basis: QuantityBasis; readonly calibration: string };
   /** The method's declared variables, each as a reading — the gate normalises them (L-MEA-08). */
   readonly bindings: Readonly<Record<string, Measure>>;
   /** The item-selecting attributes, carried onto the line beside the machine's derivation (L-QTY-03). */

@@ -176,15 +176,19 @@ describe("SEAM-GATE: every offer lands on one arm, and a refusal names the regis
     ).toBe(REFUSALS.OFFER_NOT_TO_CONTRACT.code);
   });
 
-  test("an offer carrying only what the contract makes mandatory publishes, and states the references it affirmed", () => {
+  test("a measured offer affirming no calibration reference is OFFER_NOT_TO_CONTRACT", () => {
     const bare = Object.fromEntries(formula().variables.map((variable, at) => [variable.name, { value: String(at + 2), unit: "ft", basis: "MEASURED" as const, source: "S-101:e:41" }]));
-    const judgement = judgeOffer(offer({ bindings: bare, geometry: { type: GEOMETRY_TYPES[0], basis: "MEASURED" } }), UNDER, EDITION, REGISTERED);
+    // The contract spells the geometry's reference as owed, so this offer is off it by construction:
+    // the shape is cast in to prove the gate ANSWERS a rail that affirms nothing, rather than leaving
+    // the arm to a type a rail reading a drawing at runtime can always get past.
+    const affirmingNone = { type: GEOMETRY_TYPES[0], basis: "MEASURED" } as Offer["geometry"];
+    const judgement = judgeOffer(offer({ bindings: bare, geometry: affirmingNone }), UNDER, EDITION, REGISTERED);
     expect(
       judgement.arm,
-      "`calibration` is optional on both the geometry and the reading, so affirming one is the rail's obligation and never a gate precondition (L-QTY-03)",
-    ).toBe("published");
-    if (judgement.arm !== "published") return;
-    expect(judgement.line.calibrationKeys, "and the line states exactly the references the offer affirmed — here, none of them").toEqual([]);
+      "a line always carries a non-empty set of affirmed calibration references, and a missing mandatory publishable attribute is a hard block — nothing publishes (L-QTY-03, L-QTY-04)",
+    ).toBe("refused");
+    if (judgement.arm !== "refused") return;
+    expect(judgement.refusal.code, "and the block names the registered code the rail is off the contract by (riskNotes (4))").toBe(REFUSALS.OFFER_NOT_TO_CONTRACT.code);
   });
 
   test("the gate never answers PIN_STALE — freshness blocks signing, never measuring", () => {
@@ -194,7 +198,7 @@ describe("SEAM-GATE: every offer lands on one arm, and a refusal names the regis
     const arms = [
       answered(offer()),
       answered(offer({ ruleId: "face.area" })),
-      answered(offer({ geometry: { type: GEOMETRY_TYPES[0], basis: "INTERPRETED" } })),
+      answered(offer({ geometry: { type: GEOMETRY_TYPES[0], basis: "INTERPRETED", calibration: CALIBRATION } })),
     ];
     expect(arms, "measuring is never blocked by a pin that has moved (L-REG-07)").not.toContain(REFUSALS.PIN_STALE.code);
     expect(arms, "and a campaign the gate did hold is never answered as one it does not (ARCH-03)").not.toContain(REFUSALS.CAMPAIGN_NOT_FOUND.code);
