@@ -136,16 +136,26 @@ function heightOf(level: LevelSetup | undefined): Height {
   // A row standing on a level the live stack does not hold has no reading of a storey height either:
   // it is the same absence, and L-QTY-02 keeps the row and declares it rather than dropping it.
   const height = level?.height;
-  if (height === undefined || height.standing !== "AGREED" || height.value === null || height.unit === null || height.basis === null) {
+  // A reading that cites no drawing entity is a reading with nowhere to go back to, and a line always
+  // carries the provenance of what it states (L-QTY-03) — so it is no height this rail can bind, and
+  // the row is KEPT with H declared omitted rather than offered under a source nothing answers to
+  // (L-QTY-02). A source the setup spells as nothing is no source either, the same way a calibration
+  // reference it spells as nothing is no affirmed reference (riskNotes (3)).
+  if (
+    height === undefined ||
+    height.standing !== "AGREED" ||
+    height.value === null ||
+    height.unit === null ||
+    height.basis === null ||
+    height.sourceKey === null ||
+    height.sourceKey.length === 0
+  ) {
     const code = height === undefined ? STOREY_HEIGHT_ABSENCE.NONE : STOREY_HEIGHT_ABSENCE[height.standing];
     return { ok: false, code: code ?? STOREY_HEIGHT_ABSENCE.NONE as RefusalCode };
   }
-  // The source is the entity the height was read from, as the level states it — a rail names no
-  // provenance the setup did not give it. A reading that cites no drawing entity ("a height somebody
-  // entered cites none") therefore names nothing, and a line always carries the provenance of what it
-  // states (L-QTY-03): the gate refuses such an offer rather than publishing an H a reader cannot go
-  // back to, which is why nothing is invented here to fill the silence (L-MEA-07, L-QTY-03).
-  return { ok: true, reading: { value: height.value, unit: height.unit, basis: height.basis, source: height.sourceKey ?? "" } };
+  // The source is the entity the height was read from, as the level states it: a rail names no
+  // provenance the setup did not give it, and the guard above means there is one to name (L-QTY-03).
+  return { ok: true, reading: { value: height.value, unit: height.unit, basis: height.basis, source: height.sourceKey } };
 }
 
 /**
