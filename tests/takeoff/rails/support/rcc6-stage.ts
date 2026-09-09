@@ -76,8 +76,23 @@ function asAct(input: Record<string, unknown>): ActInput {
 /** One stored placement, as the partition's door answers one. */
 type StoredPlacement = { viewKey: string; elementType: string; mark: string } & Record<string, unknown>;
 
+/** One partitioned view, as the partition's view door answers one. */
+type StoredView = { viewKey: string } & Record<string, unknown>;
+
 /** One view's scale, as the scale door answers one. */
 type ViewScale = { viewKey: string; proposals: readonly { rank: string }[]; affirmed: { calibrationKey: string } | null };
+
+/**
+ * A placement names the view it was sighted in by the ADDRESS derived from that view's class and its
+ * caption anchor; the partition's own view records — and the scale door with them — name the same
+ * view by the partition's key, which the address is content of. AC-2 asks for a STATE ("every
+ * layout-plan view carrying columns scale-affirmed") and nowhere that the two doors spell a view
+ * with the same string, so this stage joins the two key spaces by the tail they share rather than by
+ * identity. The join itself is the product's to make where it builds `setup.calibrations`.
+ */
+function namesSameView(placementAddress: string, viewKey: string): boolean {
+  return placementAddress === viewKey || placementAddress.endsWith(`:${viewKey}`);
+}
 
 /** What one measured F-RCC6 project left behind. */
 export type Rcc6Stage = {
@@ -158,9 +173,19 @@ export async function stageRcc6(label: string): Promise<Rcc6Stage> {
   const partitionSteps = await runPlacementPartition(stage, corpus, label);
 
   // Every layout-plan view carrying columns, read off the placements the partition stored.
-  const partition = await productModule<{ placementsOf: (s: { tenantId: string; projectId: string; drawingId: string }) => Promise<StoredPlacement[] | null> }>(PARTITION_MODULE);
+  const partition = await productModule<{
+    placementsOf: (s: { tenantId: string; projectId: string; drawingId: string }) => Promise<StoredPlacement[] | null>;
+    viewsOf: (s: { tenantId: string; projectId: string; drawingId: string }) => Promise<StoredView[] | null>;
+  }>(PARTITION_MODULE);
   const placements = (await partition.placementsOf({ ...scope, drawingId: corpus.drawingId })) ?? [];
-  const columnViews = [...new Set(placements.filter((row) => row.elementType === COLUMN_CLASS).map((row) => row.viewKey))].sort();
+  const columnAddresses = [...new Set(placements.filter((row) => row.elementType === COLUMN_CLASS).map((row) => row.viewKey))].sort();
+  // The same views, named as the partition's own records name them — the key space the scale door
+  // answers in and the act below affirms in.
+  const viewRecords = (await partition.viewsOf({ ...scope, drawingId: corpus.drawingId })) ?? [];
+  const columnViews = viewRecords
+    .map((view) => view.viewKey)
+    .filter((viewKey) => columnAddresses.some((address) => namesSameView(address, viewKey)))
+    .sort();
   // Nothing is asserted about what the corpus gave: what the partition read is the product's answer,
   // and the criteria beside this stage are where it is judged (ARCH-03). What it gave is carried out
   // on `partition`, so a case that finds nothing can say what the run reported.
@@ -173,7 +198,7 @@ export async function stageRcc6(label: string): Promise<Rcc6Stage> {
     marksByView.set(row.viewKey, held);
   }
   const authored: Rcc6Stage["authored"] = [];
-  for (const viewKey of columnViews) {
+  for (const viewKey of columnAddresses) {
     const stated = [...(marksByView.get(viewKey) ?? new Set<string>())].flatMap((mark) => fixtureColumnLevels().get(mark) ?? []);
     const covered = labels.filter((one) => stated.includes(one));
     if (covered.length === 0) continue;
