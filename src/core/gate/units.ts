@@ -9,7 +9,7 @@
 import { REFUSALS, type RefusalCode } from "../errors";
 import type { Measure } from "../offers/contract";
 import { isDecimalFigure } from "../projects";
-import { CANONICAL_UNIT, convert, isUnit, type Dimension, type Unit } from "../units/canon";
+import { CANONICAL_UNIT, convert, exact, isUnit, type Dimension, type Unit } from "../units/canon";
 
 /** What a reading normalises to: the canonical value and its unit, or a registered refusal. */
 export type NormalisedMeasure = { readonly ok: true; readonly value: string; readonly unit: Unit } | { readonly ok: false; readonly code: RefusalCode };
@@ -26,6 +26,10 @@ export function normaliseMeasure(measure: Measure, dimension: Dimension): Normal
   // full precision" (L-QTY-03), and a value that is not a finite decimal is a hard block (L-QTY-04).
   // The grammar is the one the tree already stores decimals by, never a second one (B-07, B-17).
   if (!isDecimalFigure(measure.value)) return { ok: false, code: REFUSALS.OFFER_NOT_TO_CONTRACT.code };
+  // A quantity below zero is the one thing L-QTY-04 forecloses outright — "a disclosure lets a reader
+  // add; nothing lets a reader subtract" — so a negative reading is an inadmissible reading and a hard
+  // block, never a figure carried into a line for a reader to subtract by.
+  if (exact(measure.value).lt(0)) return { ok: false, code: REFUSALS.OFFER_NOT_TO_CONTRACT.code };
   if (!isUnit(measure.unit)) return { ok: false, code: REFUSALS.UNIT_UNMAPPED.code };
   const unit = CANONICAL_UNIT[dimension];
   const carried = convert(measure.value, measure.unit, unit);

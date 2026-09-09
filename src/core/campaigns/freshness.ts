@@ -44,7 +44,12 @@ async function campaignRow(tx: TenantTx, scope: CampaignScope, campaignId: strin
  */
 export async function freshnessOf(scope: CampaignScope, campaignId: string): Promise<CampaignFreshness> {
   return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
-    const snapshot = isUuid(campaignId) ? await campaignRow(tx, scope, campaignId) : null;
+    // The WHOLE address is judged before the store, as this core's other doors judge theirs: a
+    // segment that is not a uuid would reach the database as a cast error rather than as a row that
+    // is not there, and a fault carrying no registered code is one a caller cannot tell from a store
+    // that is down (ARCH-02, ARCH-03, B-21).
+    const addressed = isUuid(scope.tenantId) && isUuid(scope.projectId) && isUuid(campaignId);
+    const snapshot = addressed ? await campaignRow(tx, scope, campaignId) : null;
     if (snapshot === null) {
       throw refusal(REFUSALS.CAMPAIGN_NOT_FOUND.code, "freshness was asked for a campaign this project does not hold", { projectId: scope.projectId, campaignId });
     }

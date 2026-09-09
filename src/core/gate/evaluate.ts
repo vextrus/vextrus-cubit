@@ -21,7 +21,7 @@ import { canonical } from "../acts/consequence";
 import { isElementType } from "../catalogue/classes";
 import { isKind } from "../catalogue/kinds";
 import { editionOf, type PinnedEdition } from "../campaigns";
-import { and, campaigns, eq, forTenant, inArray, isUuid, quantityLines, queueItems, railObservations, registerObjects, type TenantTx } from "../db";
+import { and, campaigns, eq, forTenant, holdStateLock, inArray, isUuid, quantityLines, queueItems, railObservations, registerObjects, type TenantTx } from "../db";
 import { REFUSALS, type RefusalCode } from "../errors";
 import type { GateRefusal, GateScope, GateVerdict, Measure, Offer, RailBatch, RailObservation } from "../offers/contract";
 import { COVERAGES, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES } from "../offers/law";
@@ -78,6 +78,11 @@ function inRoster(roster: readonly string[], value: string): boolean {
   return roster.includes(value);
 }
 
+/** Every reading this offer carries: what it is bound by, what it is selected by, what it deducts. */
+function readingsOf(offer: Offer): readonly Measure[] {
+  return [...Object.values(offer.bindings), ...Object.values(offer.selectors), ...offer.deductions.map((candidate) => candidate.measure)];
+}
+
 /**
  * Does this offer stand to the rail↔gate contract at all — is every closed-roster value one of the
  * roster's, does it provenance to a register object of the campaign's own revision, and does it name
@@ -95,6 +100,10 @@ function toContract(offer: Offer, under: MeasuredUnder): boolean {
     inRoster(GEOMETRY_TYPES, offer.geometry.type) &&
     inRoster(QUANTITY_BASES, offer.geometry.basis) &&
     inRoster(COVERAGES, offer.coverage) &&
+    // A line states the quantity basis of what it carries (L-QTY-03), and the basis is a closed
+    // roster: a reading spelling one outside it is the rail and the gate disagreeing about what an
+    // offer IS, which the gate answers rather than recording verbatim on a line.
+    readingsOf(offer).every((reading) => inRoster(QUANTITY_BASES, reading.basis)) &&
     offer.register.objectKey.length > 0 &&
     offer.register.setRevisionId === under.setRevisionId &&
     isUuid(offer.drawing.drawingId) &&
@@ -260,6 +269,11 @@ function naturalKeyOf(objectKey: string, kind: string): string {
   return canonical([objectKey, kind]);
 }
 
+/** The state two runs of one campaign are serialised on: everything that campaign's stores hold. */
+function campaignStateKey(tenantId: string, campaignId: string): string {
+  return `gate/campaign:${tenantId}:${campaignId}`;
+}
+
 /**
  * L-QTY-04: "over-measurement → hard block, never a disclosure".
  *
@@ -298,6 +312,10 @@ type StandingClaim = {
   readonly engine: string;
   readonly quantityBasis: string;
   readonly coverage: string;
+  readonly class: string;
+  readonly drawingId: string;
+  readonly viewKey: string;
+  readonly calibrationKeys: readonly string[];
 };
 
 /**
@@ -317,7 +335,16 @@ function sameClaim(standing: StandingClaim, line: PublishedLine): boolean {
     standing.editionDigest === line.editionDigest &&
     standing.engine === line.engine &&
     standing.quantityBasis === line.quantityBasis &&
-    standing.coverage === line.coverage
+    standing.coverage === line.coverage &&
+    // The claim is everything L-QTY-03 has a line always state, not the quantity alone: the (drawing,
+    // view) it was read from, the class it was measured under, and the set of references it was
+    // affirmed against. A run that affirmed another scale bar has made a different statement about
+    // the object, and answering it with the standing line would count it published for an affirmation
+    // it never stood on.
+    standing.class === line.class &&
+    standing.drawingId === line.drawingId &&
+    standing.viewKey === line.viewKey &&
+    canonical(standing.calibrationKeys) === canonical(line.calibrationKeys)
   );
 }
 
@@ -363,6 +390,10 @@ async function standingFor(tx: TenantTx, tenantId: string, campaignId: string, o
       engine: quantityLines.engine,
       quantityBasis: quantityLines.quantityBasis,
       coverage: quantityLines.coverage,
+      class: quantityLines.class,
+      drawingId: quantityLines.drawingId,
+      viewKey: quantityLines.viewKey,
+      calibrationKeys: quantityLines.calibrationKeys,
     })
     .from(quantityLines)
     .where(and(eq(quantityLines.tenantId, tenantId), eq(quantityLines.campaignId, campaignId), inArray(quantityLines.objectKey, offered)));
@@ -390,7 +421,11 @@ async function publish(tx: TenantTx, tenantId: string, offer: Offer, line: Publi
   const held = standing.lines.get(key);
   if (held !== undefined) return sameClaim(held, line) ? { arm: "published", line } : refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
-  await tx.insert(quantityLines).values({ ...line, tenantId }).onConflictDoNothing();
+  // The insert itself is the last word on whether the line landed: a row the natural key swallowed is
+  // a measurement the store did not take, and counting it published would be exactly the silent
+  // default L-QTY-04 forbids — the run would be told its line stands where another's does.
+  const written = await tx.insert(quantityLines).values({ ...line, tenantId }).onConflictDoNothing().returning({ lineId: quantityLines.lineId });
+  if (written.length === 0) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
   return { arm: "published", line };
 }
 
@@ -440,6 +475,14 @@ export async function evaluateOffers(scope: GateScope, batch: RailBatch): Promis
       const refusals = batch.offers.map((offer) => ({ objectKey: offer.register.objectKey, code: REFUSALS.CAMPAIGN_NOT_FOUND.code }));
       return { published: 0, refused: refusals.length, queued: 0, refusals: Object.freeze(refusals) };
     }
+
+    // Every guard below reads what this campaign's stores already hold and then writes against that
+    // reading, so the reading is held true to the commit by locking the campaign's own state. Two
+    // runs of one campaign are ordinary — the measure key deduplicates an ask only while one still
+    // stands queued — and unserialised they both read an empty store: one object would stand as a
+    // published line AND a declared exclusion, and two readings of one object would both be counted
+    // published while the store keeps one (L-QTY-04, SEAM-GATE).
+    await holdStateLock(tx, campaignStateKey(scope.tenantId, under.campaignId));
 
     // The edition the CAMPAIGN was opened under, never the one the project is pinned to now: a
     // campaign is measured under what it snapshotted, and a pin that has moved makes it stale rather
