@@ -26,5 +26,7 @@ export { memberHasActs, removeMember, type ActsHeld } from "./removal";
 export { assignWorkspaceRole, type MemberRef, type MemberRemoved, type RoleAssignment, type RoleMoved } from "./roles/assign";
 export { isWorkspaceRole } from "./roles/rank";
 export { actingWorkspaceOf } from "./roles/store";
+// The memberships-to-workspaces reading has one home (B-17); the shell's frame asks it by name.
+export { workspacesBySeniority, type SeniorWorkspace } from "./roles/seniority";
 export { type TenancyActor } from "./scope";
 export type { WorkspaceRole } from "@/core/db";

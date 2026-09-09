@@ -7,8 +7,10 @@
 // migration's policies admit a write under a named system reason and refuse every tenant-scoped one
 // (SEAM-TENANT). The reason travels with the statement and is attributable, never validated and
 // then discarded.
-import { and, asc, eq, holdStateLock, isUuid, memberships, runAsSystem, users, type SystemDb, type TenantTx, type WorkspaceRole } from "@/core/db";
+import { actsHeldBy } from "@/core/acts";
+import { and, eq, holdStateLock, isUuid, memberships, runAsSystem, users, type SystemDb, type TenantTx, type WorkspaceRole } from "@/core/db";
 import { workspacePermissionNotHeld } from "../refusals";
+import { workspacesBySeniority } from "./seniority";
 
 /** One membership of a workspace, as this module reads it. */
 export interface WorkspaceMembership {
@@ -33,24 +35,17 @@ const ACTOR_REASON = "R-SPINE-006 tenancy: the workspace a signed-in account adm
  * written in one transaction still answer one workspace and not either of two.
  *
  * That is the same membership the signed-in frame puts a name to, so a roster served here is the
- * roster of the workspace the person is looking at. The statement is this module's own, under this
- * module's recorded reason: `memberships` is the tenancy module's row, and a read of it made for
- * tenant administration may not be recorded as a request to paint the frame (SEAM-TENANT — a reason
- * is attributable or it is not a reason).
+ * roster of the workspace the person is looking at. Which is exactly why the derivation is not
+ * spelled here: the frame asks the same question, and one invariant has one home
+ * (`./seniority.ts`, B-17). What this door adds is its own recorded reason — `memberships` is the
+ * tenancy module's row, and a read of it made for tenant administration may not be recorded as a
+ * request to paint the frame (SEAM-TENANT — a reason is attributable or it is not a reason).
  *
  * An account holding no membership answers "" — a tenant that names no workspace, which the role law
- * refuses as the stranger it is rather than carrying an empty string into a `uuid` column. A user id
- * that is not a uuid names nobody for the same reason (22P02 is a fault, not a refusal).
+ * refuses as the stranger it is rather than carrying an empty string into a `uuid` column.
  */
 export async function actingWorkspaceOf(userId: string): Promise<string> {
-  if (!isUuid(userId)) return "";
-  const held = await runAsSystem(ACTOR_REASON)
-    .select({ tenantId: memberships.tenantId })
-    .from(memberships)
-    .where(eq(memberships.userId, userId))
-    .orderBy(asc(memberships.createdAt), asc(memberships.tenantId))
-    .limit(1);
-  return held[0]?.tenantId ?? "";
+  return (await workspacesBySeniority(ACTOR_REASON, userId))[0]?.tenantId ?? "";
 }
 
 /** Every membership of one workspace, with the account each names. */
@@ -100,6 +95,16 @@ export interface RoleMoveScope {
   writeRole(subjectUserId: string, role: WorkspaceRole): Promise<{ userId: string; workspaceRole: WorkspaceRole }>;
   /** Take one membership away, and answer whether there was one to take. */
   dropMembership(subjectUserId: string): Promise<boolean>;
+  /**
+   * The acts of THIS workspace's log that the person is named in, by id (SEAM-ACT's own read).
+   *
+   * The removal coupling — a membership the log names may not be taken away underneath the record
+   * it made — is a read followed by a write, so it belongs on the same connection and under the same
+   * lock as the write it guards; asked in a transaction of its own it is a window an act can land
+   * in. The workspace is stated explicitly because this handle is the system's and reads past the
+   * policy that would otherwise have cut the log to one tenant.
+   */
+  actsHeldBy(subjectUserId: string): Promise<readonly string[]>;
 }
 
 /**
@@ -154,6 +159,8 @@ export async function movingWorkspaceRoles<T>(tenantId: string, work: (scope: Ro
           .returning({ userId: memberships.userId });
         return removed[0] !== undefined;
       },
+
+      actsHeldBy: (subjectUserId) => actsHeldBy(tx as TenantTx, subjectUserId, { tenantId }),
     });
   });
 }

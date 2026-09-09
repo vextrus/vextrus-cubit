@@ -4,9 +4,7 @@
 // once per project the workspace holds and says which project each answer came from, because an
 // entry read out of its project is an entry nobody can place.
 import { forTenant, isUuid, projects } from "@/core/db";
-import { refusalOf } from "@/core/errors";
-import { refusalCodeOf } from "@/core/faults/refusal-marker";
-import { roleHistory, type RoleHistoryEntry } from "../../participants";
+import { roleHistoryIfReadable, type RoleHistoryEntry } from "../../participants";
 import { requireMembership } from "./members";
 import type { TenancyActor } from "../scope";
 
@@ -15,13 +13,6 @@ export interface MemberRoleHistoryEntry {
   readonly projectId: string;
   readonly entry: RoleHistoryEntry;
 }
-
-/**
- * The participants module's answer when the asking member may not read one project's history. The
- * code is read off the closed register in value position rather than re-spelled here, so this seam
- * and the registry entry cannot come to disagree (Q-07, ARCH-02).
- */
-const PROJECT_PERMISSION_NOT_HELD = refusalOf("PERMISSION_NOT_HELD").code;
 
 /**
  * Every role movement the workspace's ledgers hold, project by project, keyed by the member each
@@ -36,13 +27,20 @@ const PROJECT_PERMISSION_NOT_HELD = refusalOf("PERMISSION_NOT_HELD").code;
  * visited in ascending code-point order of their ids, so the record reads the same way twice; inside
  * a project the order is the participants module's own, which is the record's order.
  *
- * The reading is done as the ASKING member, not as the subject: `roleHistory` refuses a caller who
- * neither stands on the project nor administers the workspace, and that guard is the one that
- * decides — a second judgement here would be a second answer to a question that has one. A project
- * it refuses is a project this reader is not entitled to and therefore contributes nothing; it is
- * passed over rather than turned into a refusal of the whole read, which would answer a member who
- * may read four of five projects with a project-scoped code about the fifth instead of the record
- * they may have. Membership of the workspace, checked above, is what admits the read at all.
+ * The reading is done as the ASKING member, not as the subject: the participants module's access
+ * guard refuses a caller who neither stands on the project nor administers the workspace, and that
+ * guard is the one that decides — a second judgement here would be a second answer to a question
+ * that has one. A project it refuses is a project this reader is not entitled to and therefore
+ * contributes nothing; it is passed over rather than turned into a refusal of the whole read, which
+ * would answer a member who may read four of five projects with a project-scoped code about the
+ * fifth instead of the record they may have. Membership of the workspace, checked above, is what
+ * admits the read at all.
+ *
+ * That judgement is ASKED for — `roleHistoryIfReadable` answers null where its own guard refuses —
+ * rather than reconstructed here from a refusal code caught around the call. A catch of that shape
+ * passes over a project for any PERMISSION_NOT_HELD raised anywhere beneath it, which turns a
+ * genuine refusal into a silently shorter record; there is no catch here, so a refusal this read did
+ * not itself judge travels out of it unchanged (B-17, ARCH-03).
  */
 export async function memberRoleHistories(actor: TenancyActor): Promise<ReadonlyMap<string, readonly MemberRoleHistoryEntry[]>> {
   await requireMembership(actor);
@@ -52,13 +50,8 @@ export async function memberRoleHistories(actor: TenancyActor): Promise<Readonly
 
   const gathered = new Map<string, MemberRoleHistoryEntry[]>();
   for (const projectId of projectIds) {
-    let history: readonly RoleHistoryEntry[];
-    try {
-      history = await roleHistory({ tenantId: actor.tenantId, userId: actor.userId }, { projectId });
-    } catch (thrown) {
-      if (refusalCodeOf(thrown) === PROJECT_PERMISSION_NOT_HELD) continue;
-      throw thrown;
-    }
+    const history: readonly RoleHistoryEntry[] | null = await roleHistoryIfReadable({ tenantId: actor.tenantId, userId: actor.userId }, { projectId });
+    if (history === null) continue;
     for (const entry of history) {
       const record = gathered.get(entry.subject.userId) ?? [];
       record.push({ projectId, entry });

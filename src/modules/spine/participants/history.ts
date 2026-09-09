@@ -5,9 +5,17 @@
 // arriving at the bottom is the visible append. Withdrawn roles stay on it; nothing here is edited
 // away, which is the whole reason the withdrawal is a second row rather than an edit of the first.
 import { acts, asc, eq, forTenant, participantRoleWithdrawals, participantRoles } from "@/core/db";
+import { refusalOf } from "@/core/errors";
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { identitiesOf, identityOf } from "./directory";
 import { requireRoleHistoryAccess } from "./guard";
 import type { MemberIdentity, ParticipantsCtx } from "./scope";
+
+/**
+ * What this module's own access guard refuses with. Read off the closed register in value position
+ * rather than re-spelled, so the seam and the registry entry cannot come to disagree (ARCH-02).
+ */
+const ACCESS_REFUSED = refusalOf("PERMISSION_NOT_HELD").code;
 
 /** Which way a role moved. The same two the act's own input carries (L-ACT-03). */
 export type RoleDirection = "GRANT" | "WITHDRAW";
@@ -47,6 +55,32 @@ type Movement = {
 
 export async function roleHistory(ctx: ParticipantsCtx, ref: ProjectRef): Promise<readonly RoleHistoryEntry[]> {
   await requireRoleHistoryAccess(ctx, ref.projectId);
+  return gatheredHistory(ctx, ref);
+}
+
+/**
+ * The same record, with this module's own access judgement ANSWERED rather than thrown: null exactly
+ * when `requireRoleHistoryAccess` refuses this reader, and the entries otherwise.
+ *
+ * A caller gathering several projects wants to pass over the ones it may not read, and a caller that
+ * reads that judgement off a refusal CODE caught around the whole call reads the same answer from
+ * anywhere below it — a scoped handle that refuses, a guard of some other door — turning a genuine
+ * refusal into silence. Whether this reader may read this project is a judgement this module makes
+ * about its own ledgers, so this module is where it is distinguished from every other refusal
+ * (B-17, ARCH-02). Everything else travels.
+ */
+export async function roleHistoryIfReadable(ctx: ParticipantsCtx, ref: ProjectRef): Promise<readonly RoleHistoryEntry[] | null> {
+  try {
+    await requireRoleHistoryAccess(ctx, ref.projectId);
+  } catch (thrown) {
+    if (refusalCodeOf(thrown) === ACCESS_REFUSED) return null;
+    throw thrown;
+  }
+  return gatheredHistory(ctx, ref);
+}
+
+/** The record itself, once the guard above has admitted the reader. */
+async function gatheredHistory(ctx: ParticipantsCtx, ref: ProjectRef): Promise<readonly RoleHistoryEntry[]> {
   const db = forTenant(ctx);
 
   // The actor is read off the act each row points at — the log is where "who did this" lives

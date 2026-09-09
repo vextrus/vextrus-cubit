@@ -11,10 +11,14 @@
 // handle: the only way a tenant's rows are read or written" (src/core/db.ts) — and the policy, not
 // the membership check five lines above it, is what makes a cross-tenant write impossible.
 import { cache } from "react";
-import { and, asc, eq, forTenant, isUuid, memberships, runAsSystem, storableText, tenants } from "../../core/db";
+import { and, eq, forTenant, isUuid, memberships, runAsSystem, storableText, tenants } from "../../core/db";
 import type { RefusalCode } from "../../core/errors";
+import { workspacesBySeniority } from "../../modules/spine/tenancy";
 import { resolveSession } from "../auth/session";
 import { sessionOf } from "./resolve";
+
+/** Why the shell reads somebody's memberships — recorded beside the statement it travels to. */
+const FRAME_REASON = "R-UI-030 shell frame: the workspaces a signed-in account is a member of, and the names they wear";
 
 /** The workspace a person is in: the uuid the URL names it by, and the name they gave it. */
 export interface Workspace {
@@ -152,22 +156,17 @@ export async function renameWorkspace(request: RenameRequest): Promise<RenameAns
 }
 
 /**
- * The workspace a membership joins this account to, with the name the tenant row carries. The order
- * is total, not merely stated: `created_at` names the earliest membership, and the tenant uuid
- * settles the tie two memberships written in the same transaction would otherwise leave open.
+ * The workspace a membership joins this account to: the first of the seniority reading's answer.
+ * What "earliest" MEANS — which columns the order names — is the tenancy module's, because that
+ * module owns `memberships` and asks the same question itself; a second spelling here is a second
+ * statement that can drift into naming a different workspace for one account (B-17).
  */
 async function earliestWorkspaceOf(userId: string): Promise<Workspace | null> {
   return (await workspacesOf(userId))[0] ?? null;
 }
 
-/** Every membership's workspace, in that same total order — the one statement both readings use. */
+/** Every membership's workspace, in that same order — the one reading, under the shell's reason. */
 async function workspacesOf(userId: string): Promise<readonly Workspace[]> {
-  const db = runAsSystem("R-UI-030 shell frame: the workspaces a signed-in account is a member of, and the names they wear");
-  const rows = await db
-    .select({ tenantId: tenants.tenantId, name: tenants.name })
-    .from(memberships)
-    .innerJoin(tenants, eq(tenants.tenantId, memberships.tenantId))
-    .where(eq(memberships.userId, userId))
-    .orderBy(asc(memberships.createdAt), asc(memberships.tenantId));
-  return rows.map((row) => ({ tenantId: row.tenantId, name: row.name }));
+  const held = await workspacesBySeniority(FRAME_REASON, userId);
+  return held.map((workspace) => ({ tenantId: workspace.tenantId, name: workspace.name }));
 }

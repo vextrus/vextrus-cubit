@@ -145,15 +145,27 @@ export async function reissueToken(tenantId: string, invitationId: string, token
 }
 
 /**
- * The invitation a token names, whatever workspace it belongs to and whatever state it is in.
+ * The one still-claimable invitation a token names, or none.
  *
  * It is deliberately unscoped by tenant: the account presenting the token holds no membership of the
  * inviting workspace yet — that is the whole point of an invitation — so there is no workspace to
- * scope the read by. What decides whether it may be spent is the claim law, not this read.
+ * scope the read by.
+ *
+ * `token_hash` is indexed and NOT unique (see the schema's own note), so "the row carrying this
+ * digest" is a claim about the data rather than a constraint the store keeps. Taking whichever row
+ * the planner reached first would spend an arbitrary one of however many carry it — in whichever
+ * workspace, at whatever rank. A digest that names two live offers names neither: there is no
+ * answering it without choosing for the person, so it answers nothing and the claim law refuses the
+ * presented token as the offer it does not unambiguously name. Rows already spent or withdrawn are
+ * not in the running at all, so a re-mailed collision resolves as soon as one of them is settled.
  */
 export async function invitationByDigest(tokenHash: string): Promise<InvitationRow | null> {
-  const found = await runAsSystem(CLAIM_REASON).select(COLUMNS).from(invitations).where(eq(invitations.tokenHash, tokenHash)).limit(1);
-  return found[0] ?? null;
+  const claimable = await runAsSystem(CLAIM_REASON)
+    .select(COLUMNS)
+    .from(invitations)
+    .where(and(eq(invitations.tokenHash, tokenHash), isNull(invitations.consumedAt), isNull(invitations.revokedAt)))
+    .limit(2);
+  return claimable.length === 1 ? (claimable[0] ?? null) : null;
 }
 
 /** The key `users.email` holds this account under, or null when the account names nobody (I-58). */
@@ -170,6 +182,15 @@ export async function workspaceName(tenantId: string): Promise<string> {
   return found[0]?.name ?? "";
 }
 
+/** What spending an offer actually did: the offer, whether it admitted anybody, and to what rank. */
+export interface ClaimedInvitation {
+  readonly invitation: InvitationRow;
+  /** Whether the membership insert wrote a row — false when the account already belonged. */
+  readonly membershipGranted: boolean;
+  /** The role the account HOLDS in the workspace afterwards, which is not always the one offered. */
+  readonly workspaceRole: WorkspaceRole;
+}
+
 /**
  * Spend the invitation and grant the membership it offered, in one transaction.
  *
@@ -180,21 +201,52 @@ export async function workspaceName(tenantId: string): Promise<string> {
  *
  * `on conflict do nothing` because a membership already held is the same end state this door was
  * asked for. It is not a second grant and it changes no role: an account that already belongs to the
- * workspace keeps the role it already holds.
+ * workspace keeps the role it already holds — so what is ANSWERED is what happened rather than what
+ * was offered. A caller told it now holds the offered rank while the store still holds the rank it
+ * had is being told something untrue about itself, and the accept screen would show it.
+ *
+ * Spending the offer spends the SECRET, so every other offer still standing on the same digest is
+ * withdrawn with it, in the same transaction: the digest is the whole credential a mailed link
+ * carries, and a credential that has been presented and spent may not still open a second door.
+ * That is also what keeps `invitationByDigest` answerable — a digest names one claimable offer or
+ * none, and settling one of a collision settles it.
  */
-export async function claimInvitation(invitationId: string, userId: string): Promise<InvitationRow | null> {
+export async function claimInvitation(invitationId: string, userId: string): Promise<ClaimedInvitation | null> {
   return runAsSystem(CLAIM_REASON).transaction(async (tx) => {
     const claimed = await tx
       .update(invitations)
       .set({ consumedAt: new Date() })
       .where(and(eq(invitations.invitationId, invitationId), isNull(invitations.consumedAt), isNull(invitations.revokedAt)))
-      .returning(COLUMNS);
-    const row = claimed[0];
-    if (row === undefined) return null;
+      .returning({ ...COLUMNS, tokenHash: invitations.tokenHash });
+    const claimedRow = claimed[0];
+    if (claimedRow === undefined) return null;
+    const { tokenHash, ...row } = claimedRow;
+
+    // The claimed row carries `consumed_at` by now, so the same predicate that names "still
+    // claimable" names exactly the OTHER offers standing on the spent digest.
     await tx
+      .update(invitations)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(invitations.tokenHash, tokenHash), isNull(invitations.consumedAt), isNull(invitations.revokedAt)));
+
+    const granted = await tx
       .insert(memberships)
       .values({ tenantId: row.tenantId, userId, workspaceRole: row.workspaceRole })
-      .onConflictDoNothing();
-    return row;
+      .onConflictDoNothing()
+      .returning({ workspaceRole: memberships.workspaceRole });
+
+    const written = granted[0];
+    if (written !== undefined) return { invitation: row, membershipGranted: true, workspaceRole: written.workspaceRole };
+
+    // The insert wrote nothing, so a membership was already there; the role it carries is the role
+    // this account holds, and it is read rather than assumed to be the one the offer named.
+    const standing = await tx
+      .select({ workspaceRole: memberships.workspaceRole })
+      .from(memberships)
+      .where(and(eq(memberships.tenantId, row.tenantId), eq(memberships.userId, userId)))
+      .limit(1);
+    const held = standing[0];
+    if (held === undefined) throw new Error("spine.tenancy: the invitation was claimed but no membership stands for the account that claimed it");
+    return { invitation: row, membershipGranted: false, workspaceRole: held.workspaceRole };
   });
 }
