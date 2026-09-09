@@ -182,7 +182,7 @@ describe("AC-5: AUTHOR_TYPICAL_RANGE", () => {
     expect(said(range, "toLevelId", "to_level_id"), "and the level it runs to").toBe(to.levelId);
     expect(said(range, "actId", "act_id"), "and the act that authored it").toBe(written.actId);
 
-    const acted = actRowsOf(stage.person.tenantId).filter((row) => said(row, "type", "type") === AUTHOR_TYPICAL_RANGE);
+    const acted = actRowsOf(stage.person.tenantId).filter((row) => said(row, "actType", "act_type") === AUTHOR_TYPICAL_RANGE);
     expect(acted.length, "one act of this type stands in the ledger").toBe(1);
   });
 
