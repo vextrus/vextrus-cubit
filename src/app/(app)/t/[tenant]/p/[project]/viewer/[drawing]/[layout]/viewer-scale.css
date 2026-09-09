@@ -1,0 +1,277 @@
+/* S-Scale's own chrome (docs/design/s-scale.md § 1, § 5): the panel docked in the inspector's second
+   tab, its rows, its two-point tool and its footer.
+
+   Tokens only — no colour literal and no `[data-theme]` selector: every light/dark difference arrives
+   through token values (R-UI-001, § 6). The one closed set of px literals is the loading bones', and
+   they are written in the markup where the Skeleton primitive takes them (§ 5). Nothing here tweens:
+   a row is data, and fading it in would read as uncertainty about what the machine measured (§ 4). */
+
+.cx-viewer-scale {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  background: var(--graphite-0);
+}
+
+.cx-viewer-scale-head {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-base);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-block-end: var(--hairline);
+  background: var(--graphite-50);
+}
+
+/* The Inspector header's exact type, so switching tabs shifts nothing (§ 1). */
+.cx-viewer-scale-heading {
+  margin: 0;
+  font-size: var(--text-13);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-scale-tolerance {
+  margin: 0;
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-600);
+}
+
+.cx-viewer-scale-views {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-viewer-scale-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-block-size: var(--row-comfortable);
+  padding: var(--space-2) var(--space-3);
+  border-block-end: var(--hairline);
+}
+
+[data-density="compact"] .cx-viewer-scale-view {
+  min-block-size: var(--row-compact);
+}
+
+.cx-viewer-scale-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cx-viewer-scale-member {
+  flex: none;
+  inline-size: auto;
+}
+
+/* Identifiers stand whole and selectable: a key is evidence, never a truncated affordance (I-26). */
+.cx-viewer-scale-key {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.cx-viewer-scale-caption {
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cx-viewer-scale-affirmed,
+.cx-viewer-scale-absence,
+.cx-viewer-scale-figures {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.cx-viewer-scale-standing,
+.cx-viewer-scale-rank {
+  margin: 0;
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-scale-pair,
+.cx-viewer-scale-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  min-width: 0;
+}
+
+.cx-viewer-scale-label,
+.cx-viewer-scale-field-label {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+/* Twelve places render whole, in mono, wrapping, selectable (I-159). */
+.cx-viewer-scale-figure {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--graphite-900);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.cx-viewer-scale-flag {
+  font-size: var(--text-12);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-scale-absence-message,
+.cx-viewer-scale-empty,
+.cx-viewer-scale-failed-line {
+  margin: 0;
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-scale-absence-remedy,
+.cx-viewer-scale-hint,
+.cx-viewer-scale-picks-none,
+.cx-viewer-scale-check,
+.cx-viewer-scale-members,
+.cx-viewer-scale-report {
+  margin: 0;
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-700);
+}
+
+.cx-viewer-scale-report {
+  font-family: var(--font-mono);
+  user-select: all;
+}
+
+.cx-viewer-scale-proposals,
+.cx-viewer-scale-picks,
+.cx-viewer-scale-observations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-viewer-scale-proposal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: var(--hairline);
+  border-radius: var(--radius-2);
+  min-width: 0;
+}
+
+.cx-viewer-scale-tool {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  border: 0;
+  border-block-end: var(--hairline);
+  min-width: 0;
+}
+
+.cx-viewer-scale-legend {
+  padding: 0;
+  font-size: var(--text-13);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-scale-pick,
+.cx-viewer-scale-observation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.cx-viewer-scale-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.cx-viewer-scale-unit {
+  min-width: 0;
+}
+
+.cx-viewer-scale-answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-inline: var(--space-3);
+}
+
+.cx-viewer-scale-answer:empty {
+  display: none;
+}
+
+/* The house notice chrome, for the one act pressed with no connection (§ 2). */
+.cx-viewer-scale-notice {
+  margin: 0;
+  padding: var(--space-3);
+  border: var(--hairline);
+  border-color: var(--warn);
+  border-radius: var(--radius-4);
+  background: var(--warn-surface);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-scale-denied {
+  margin: 0;
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-scale-footer,
+.cx-viewer-scale-failed,
+.cx-viewer-scale-bones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.cx-viewer-scale-bone-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-block-size: var(--row-comfortable);
+}
+
+[data-density="compact"] .cx-viewer-scale-bone-row {
+  min-block-size: var(--row-compact);
+}

@@ -24,7 +24,7 @@ import { offeredViewGroups } from "@/modules/takeoff/viewer-partition-overlay/gr
 import { PartitionPanel } from "@/modules/takeoff/viewer-partition-overlay/partition-panel";
 import { overlayScene, sceneCounts } from "@/modules/takeoff/viewer-partition-overlay/scene";
 import { usePartitionOverlay, useOverlayPaint } from "@/modules/takeoff/viewer-partition-overlay/use-partition-overlay";
-import type { OverlayToggles } from "@/modules/takeoff/viewer-partition-overlay/types";
+import type { OverlayToggles, PartitionOverlayView } from "@/modules/takeoff/viewer-partition-overlay/types";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { OfferedGroups } from "@/ui/patterns/offered-group";
 import { RefusalState } from "@/ui/patterns/refusal-state";
@@ -42,6 +42,10 @@ const BOTH_ON: OverlayToggles = { views: true, grid: true };
 /** A sheet nobody has partitioned holds no axis — one frozen answer, so a reader of it never
     recomputes what it pairs on a render that changed nothing (PB-3). */
 const EMPTY_AXES: readonly GridAxisRow[] = Object.freeze([]);
+
+/** The same for its views, so a screen composing this region before the partition arrives pairs on
+    one frozen answer rather than a new array every render (PB-3). */
+const EMPTY_VIEWS: readonly PartitionOverlayView[] = Object.freeze([]);
 
 /**
  * The register's code a sheet feed refuses a reader with: 401 is a session that has ended, and the
@@ -69,6 +73,9 @@ export type PartitionRegionOptions = {
   cameraRef: RefObject<Camera | null>;
   /** Where the screen's draw reads this region's paint: a ref, so a frame never waits on a render. */
   paintRef: RefObject<((at: Camera) => void) | null>;
+  /** Which views no affirmation act names, by the absence each declares — the scale region's own
+      answer, threaded through the screen so both regions read ONE reading of it (I-160, B-17). */
+  scaleAbsence?: ReadonlyMap<string, string>;
 };
 
 export type PartitionRegion = {
@@ -79,11 +86,14 @@ export type PartitionRegion = {
   axes: readonly GridAxisRow[];
   /** The overlay canvas, laid over the sheet — null until there is a partition to paint. */
   canvas: ReactNode;
+  /** Where each view of the partition stands, as the overlay already read it — how a two-point
+      observation names the view it was taken inside, without a second reading (B-17). */
+  views: readonly { viewKey: string; box: { min: readonly [number, number]; max: readonly [number, number] } | null }[];
   /** The one act dialog, mounted at the screen's root. */
   dialog: ReactNode;
 };
 
-export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled, camera, stageRef, cameraRef, paintRef }: PartitionRegionOptions): PartitionRegion {
+export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled, camera, stageRef, cameraRef, paintRef, scaleAbsence }: PartitionRegionOptions): PartitionRegion {
   /** The overlay's own canvas: paint over the sheet, out of the pointer's reach (Decision I-112). */
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -97,7 +107,7 @@ export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, 
    */
   const [toggles, setToggles] = useState<OverlayToggles>(BOTH_ON);
   const partition = usePartitionOverlay({ feed, enabled });
-  const overlay = useOverlayPaint({ canvasRef: overlayRef, stageRef, cameraRef, overlay: partition.overlay, toggles });
+  const overlay = useOverlayPaint({ canvasRef: overlayRef, stageRef, cameraRef, overlay: partition.overlay, toggles, scaleAbsence });
   // The paint is one stable callback (PB-3), so filing it where the sheet's own draw reads it costs
   // nothing and repeats identically — the overlay lands on the frame the sheet was drawn at (I-112).
   paintRef.current = overlay.paintOverlay;
@@ -109,8 +119,8 @@ export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, 
    */
   const overlayCounts = useMemo(() => {
     const held = partition.overlay;
-    return held === null || camera === null ? null : sceneCounts(overlayScene(held, toggles, camera));
-  }, [camera, partition.overlay, toggles]);
+    return held === null || camera === null ? null : sceneCounts(overlayScene(held, toggles, camera, scaleAbsence));
+  }, [camera, partition.overlay, scaleAbsence, toggles]);
 
   /** L-ACT-02's offer, derived from the views the partition carries — never assembled by a reader. */
   const offered = useMemo(() => (partition.overlay === null ? [] : offeredViewGroups(partition.overlay.views, drawingId)), [drawingId, partition.overlay]);
@@ -242,6 +252,9 @@ export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, 
         ref={overlayRef}
         data-outlines={String(overlayCounts.outlines)}
         data-hatched={String(overlayCounts.hatched)}
+        // `data-hatched` keeps the meaning J-021 reads it by — untyped views alone — and the views
+        // no affirmation act names are counted beside it, never into it (I-160, R-TO-021).
+        data-scale-hatched={String(overlayCounts.scaleHatched)}
         data-axes={String(overlayCounts.axes)}
         data-bubbles={String(overlayCounts.bubbles)}
       />
@@ -264,5 +277,5 @@ export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, 
     />
   );
 
-  return { panel, canvas, dialog, axes: partition.overlay?.axes ?? EMPTY_AXES };
+  return { panel, canvas, dialog, axes: partition.overlay?.axes ?? EMPTY_AXES, views: partition.overlay?.views ?? EMPTY_VIEWS };
 }

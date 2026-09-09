@@ -34,6 +34,7 @@ import { useSelection } from "@/modules/takeoff/viewer/hooks/use-selection";
 import type { SnapCalibration } from "@/modules/takeoff/viewer-snap/snap";
 import { fill, strings } from "@/ui/strings";
 import { publishViewport } from "./address";
+import { useScaleRegion, type ScaleDoors } from "./scale-region";
 import { useSnapRegion } from "./snap-region";
 import { usePartitionRegion } from "./partition-region";
 import { SheetAbsence } from "./viewer-bones";
@@ -54,9 +55,11 @@ export type ViewerScreenProps = {
   head?: ViewerHead;
   /** The scale of record over this sheet. Supplied only where a mount is judged without a server. */
   calibration?: SnapCalibration | null;
+  /** The scale region's three doors. Supplied only where a mount is judged without a server. */
+  scale?: ScaleDoors;
 };
 
-export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, head: supplied, calibration: suppliedCalibration }: ViewerScreenProps) {
+export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, head: supplied, calibration: suppliedCalibration, scale: suppliedScale }: ViewerScreenProps) {
   /** The status a door refused this reader with, if one did — the code it maps to is decided below. */
   const [denied, setDenied] = useState<number | null>(null);
 
@@ -130,7 +133,13 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       door behind them — asked for only once the head is a manifest (R-UI-043). A door that refuses the
       PARTITION refuses the region, not the sheet: it renders in that panel's body (R-UI-050's partial).
       It stands ahead of the snapping region because it holds the stored grid the pointer snaps to. */
-  const partition = usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaint });
+  /** The scale region — the second tab of the right inspector, and the one door onto every view's
+      scale (R-TO-020). It is composed AHEAD of the views/grid region because the absence it reads is
+      what that region hatches by: one answer, read once, and no second reading of the scale store
+      (I-160, B-17). It is asked at mount rather than when the tab is opened, so a sheet whose views
+      no act names is hatched before anyone presses anything. */
+  const scale = useScaleRegion({ tenantId, projectId, drawingId, sheetName, enabled: sheet.head?.kind === "manifest", supplied: suppliedScale });
+  const partition = usePartitionRegion({ tenantId, projectId, drawingId, sheetName, feed, enabled: sheet.head?.kind === "manifest", camera: camera.camera, stageRef, cameraRef, paintRef: overlayPaint, scaleAbsence: scale.absence });
   /** The snapping region: what the pointer meets on the sheet, the scale of record behind the metres
       beside a distance, and the key the roster binds here (R-TO-012, R-UI-041). Its `axes` are the
       stored grid the views/grid region already holds, so the grid store is never read twice (I-149).
@@ -169,6 +178,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
     return (
       <ViewerStage
         partition={partition}
+        scale={scale}
         panel={{
           rows: layers.rows,
           onVisible: layers.setVisible,
@@ -219,6 +229,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         snap={snap}
       />
       {partition.dialog}
+      {scale.dialog}
     </div>
   );
 }

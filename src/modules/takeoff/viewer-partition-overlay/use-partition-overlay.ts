@@ -143,11 +143,11 @@ function paletteOf(element: Element): OverlayPalette {
   };
 }
 
-export function useOverlayPaint({ canvasRef, stageRef, cameraRef, overlay, toggles }: UseOverlayPaintOptions): UseOverlayPaint {
+export function useOverlayPaint({ canvasRef, stageRef, cameraRef, overlay, toggles, scaleAbsence }: UseOverlayPaintOptions): UseOverlayPaint {
   // What is painted, read off a ref: sixty frames a second must not depend on a fresh closure, and
   // the paint callback the screen wires into its draw is written once (PB-3).
-  const shown = useRef({ overlay, toggles });
-  shown.current = { overlay, toggles };
+  const shown = useRef({ overlay, toggles, scaleAbsence });
+  shown.current = { overlay, toggles, scaleAbsence };
 
   const paintOverlay = useCallback(
     (at: Camera): void => {
@@ -167,7 +167,7 @@ export function useOverlayPaint({ canvasRef, stageRef, cameraRef, overlay, toggl
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
 
       const held = shown.current.overlay;
-      const scene = held === null ? { outlines: [], axes: [] } : overlayScene(held, shown.current.toggles, { ...at, viewport: { width, height } });
+      const scene = held === null ? { outlines: [], axes: [] } : overlayScene(held, shown.current.toggles, { ...at, viewport: { width, height } }, shown.current.scaleAbsence);
       drawOverlayScene(context, scene, paletteOf(stage), { width, height });
     },
     [canvasRef, stageRef],
@@ -179,11 +179,12 @@ export function useOverlayPaint({ canvasRef, stageRef, cameraRef, overlay, toggl
     if (at !== null) paintOverlay(at);
   }, [cameraRef, paintOverlay]);
 
-  // A switch flipped, or a partition that has just arrived, lands on the next frame: the overlay
-  // never tweens, because an outline is data and fading it in would read as uncertainty (§ 4).
+  // A switch flipped, a partition that has just arrived, or a scale affirmed over a view that was
+  // hatched, lands on the next frame: the overlay never tweens, because an outline is data and
+  // fading it in would read as uncertainty (§ 4, I-160).
   useEffect(() => {
     repaint();
-  }, [overlay, repaint, toggles]);
+  }, [overlay, repaint, scaleAbsence, toggles]);
 
   // Decision § 6: the canvas cannot inherit a variable, so the palette is read again whenever the
   // document's theme changes and the same scene is repainted — no refetch, no camera change.
