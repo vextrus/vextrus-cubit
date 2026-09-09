@@ -87,6 +87,11 @@ export type ScaleObservation = {
   readonly observation: TwoPointObservation;
 };
 
+/** One door of the affirm footer: the rank it affirms at, and whether the evidence that rank stands
+    on is there yet. A door whose evidence is missing is shown and natively disabled — never absent
+    (I-169), so the two-point rank is a standing promise of what the tool beside it leads to. */
+export type AffirmDoor = { readonly rank: ScaleRank; readonly ready: boolean };
+
 export type ScaleRegionOptions = {
   tenantId: string;
   projectId: string;
@@ -120,8 +125,8 @@ export type ScaleRegion = {
   observations: readonly ScaleObservation[];
   /** The two picks standing on the sheet turned into one observation, and then spent (I-158). */
   observe: (o: { picks: readonly SnapPick[]; views: readonly ScaleViewBox[]; onSpent: () => void }) => void;
-  /** The ranks every checked member can stand at, in L-MEA-05's precedence (I-157). */
-  offeredRanks: readonly ScaleRank[];
+  /** The doors of the affirm footer, in L-MEA-05's precedence (I-157, I-169). */
+  affirmDoors: readonly AffirmDoor[];
   pressAffirm: (rank: ScaleRank) => void;
   /** The one answer slot's content: a refusal through the one renderer, or the offline notice (I-156). */
   answer: ReactNode;
@@ -252,12 +257,25 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
     [distance, tolerances, unit, views],
   );
 
-  /** L-MEA-05's precedence, narrowed to the ranks EVERY checked member can stand at (I-157). */
-  const offeredRanks = useMemo<readonly ScaleRank[]>(() => {
+  /**
+   * The footer's doors, in L-MEA-05's precedence.
+   *
+   * A MACHINE rank is a door only where every checked member can stand at it: those ranks are what
+   * the door answered about these views, and an act names one rank for all of its views (I-157).
+   * QS_TWO_POINT is not read off the drawing — it is what the tool in this panel makes — so its door
+   * always stands and its evidence gates it through `disabled` (I-169): a rank a person can reach by
+   * working is never hidden from them. Its evidence is a VERIFIED observation on each of x and y,
+   * because a scale of record is a factor pair and one axis is half of one; which observations may
+   * carry which views is the seam's own judgement and is never second-guessed here (L-MEA-05).
+   */
+  const affirmDoors = useMemo<readonly AffirmDoor[]>(() => {
     const chosen = views.filter((view) => members.has(view.viewKey));
-    return SCALE_RANKS.filter((rank) =>
-      chosen.every((view) => (rank === QS_TWO_POINT ? observations.some((row) => row.viewKey === view.viewKey) : view.proposals.some((proposal) => proposal.rank === rank))),
-    );
+    const stands = (axis: string): boolean => observations.some((row) => row.verified && row.axis === axis);
+    const evidenced = stands("x") && stands("y");
+    return SCALE_RANKS.filter((rank) => rank === QS_TWO_POINT || chosen.every((view) => view.proposals.some((proposal) => proposal.rank === rank))).map((rank) => ({
+      rank,
+      ready: chosen.length > 0 && (rank !== QS_TWO_POINT || evidenced),
+    }));
   }, [members, observations, views]);
 
   /** What an affirmation at one rank asks for: the views checked, and — at rank QS_TWO_POINT — the
@@ -284,6 +302,9 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
   const pressAffirm = useCallback(
     (rank: ScaleRank): void => {
       if (pressing.current) return;
+      // A door whose evidence is not there is disabled in the markup and shut here too: what a
+      // control refuses to do is decided once, and never only by the attribute drawn on it (I-169).
+      if (!affirmDoors.some((door) => door.rank === rank && door.ready)) return;
       setActRefusal(null);
       setOfflineNotice(false);
       // Reading, picking and judging are wholly local, so this panel carries no offline banner;
@@ -307,7 +328,7 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
           pressing.current = false;
         });
     },
-    [preview, requestFor],
+    [affirmDoors, preview, requestFor],
   );
 
   /** Where a refusal of one of these doors is resolved — the address the label promises (R-UI-020). */
@@ -396,7 +417,7 @@ export function useScaleRegion({ tenantId, projectId, drawingId, sheetName, enab
     setUnit,
     observations,
     observe,
-    offeredRanks,
+    affirmDoors,
     pressAffirm,
     answer,
     // I-156: one slot holding one thing — in the body's place while there is no reading to show
@@ -502,16 +523,17 @@ export function ScalePanel({ scale, picks, views, onSpent }: ScalePanelProps) {
               <p className="cx-viewer-scale-members">
                 {fillCopy(SCALE_COPY.viewer_scale_members_count, { count: formatUserFigure(String(scale.members.size)), total: formatUserFigure(String(scale.views.length)) })}
               </p>
-              {scale.offeredRanks.map((rank) => (
+              {scale.affirmDoors.map((door) => (
                 <Button
-                  key={rank}
+                  key={door.rank}
                   variant="secondary"
                   data-testid="viewer-scale-affirm"
-                  data-rank={rank}
-                  disabled={scale.members.size === 0}
-                  onClick={() => scale.pressAffirm(rank)}
+                  data-rank={door.rank}
+                  // The door stands; what it wants is what disables it (I-169).
+                  disabled={!door.ready}
+                  onClick={() => scale.pressAffirm(door.rank)}
                 >
-                  {fillCopy(SCALE_COPY.viewer_scale_affirm, { rank: rankWord(rank) })}
+                  {fillCopy(SCALE_COPY.viewer_scale_affirm, { rank: rankWord(door.rank) })}
                 </Button>
               ))}
             </footer>

@@ -51,8 +51,9 @@ one RefusalState, the one ConsequenceDialog — plus the `cx-viewer-scale-*` cla
   ~6–8 affirmations on a project, so the reader curates the subject set: one Checkbox per row.
   Rejected: `OfferedGroups`, which answers a machine's proposed cohort, not a person's judgement. No
   select-all exists anywhere in `viewer-scale` (R-UI-023), and that absence is asserted. The footer
-  offers one **Affirm** button per rank **every** checked member can stand at, in precedence order:
-  an act names one rank for all its views, so a rank one member cannot reach is not a button.
+  offers one **Affirm** button per MACHINE rank **every** checked member can stand at, in precedence
+  order: an act names one rank for all its views, so a machine rank one member cannot reach is not a
+  button. `QS_TWO_POINT` is not a machine rank and is ruled by I-169.
 - **I-158 — the picks are the snap region's, and Observe consumes them.** `use-scale` reads
   inc-206's two picks and hands them to `observationOf`; no second pick model is built. A successful
   Observe clears them (`viewer-status-distance[data-picks="0"]`), so an observation is never taken
@@ -65,6 +66,18 @@ one RefusalState, the one ConsequenceDialog — plus the `cx-viewer-scale-*` cla
   second overlay is drawn (B-17). `data-hatched` keeps its J-021 meaning — untyped only — and the
   new count publishes as `data-scale-hatched`. The absence map is threaded from `useScaleRegion`
   into `usePartitionRegion` through `viewer-screen.tsx`, so the two regions read one answer.
+- **I-169 — the two-point door always stands, disabled until its evidence does.** A machine rank is
+  something the drawing either offers for these views or does not (I-157), but `QS_TWO_POINT` is
+  what the tool in this panel *makes*: its door is therefore always rendered, and what it wants
+  gates it through native `disabled` — a rank a reader can reach by working is never hidden from
+  them, and a promise that a control will appear later teaches nothing while it is absent. Its
+  evidence is one **verified** observation on each of x and y (a scale of record is a factor pair,
+  and one axis is half of one); the request still carries only the observations of the checked
+  members, and which observation may carry which view stays the seam's judgement (L-MEA-05) — this
+  door is coarse on purpose, and the seam refuses precisely. Rejected: gating by presence, which
+  makes the strongest rank of the precedence the only one a reader never sees before earning it.
+  The same guard stands in `pressAffirm`, so what the control refuses to do is decided once and not
+  only by the attribute drawn on it.
 
 ## 1. Layout and hierarchy
 
@@ -144,8 +157,9 @@ data-view-key>`: the axis word, the drawn span, the 12-place factor, and `viewer
 **Answer slot** — `<div data-testid="viewer-scale-answer">` per I-156.
 
 **Affirm footer** — `viewer_scale_members_count` through `formatUserFigure`, then one core secondary
-Button `viewer-scale-affirm[data-rank]` per offered rank (I-157), text `viewer_scale_affirm` filled
-with the rank word, natively `disabled` at zero members. A press judges offline first, then awaits
+Button `viewer-scale-affirm[data-rank]` per standing door (I-157, I-169), text `viewer_scale_affirm`
+filled with the rank word, natively `disabled` at zero members and — at `QS_TWO_POINT` — until one
+verified observation stands on each of x and y. A press judges offline first, then awaits
 `previewAffirmScale`; a refusal renders in the answer slot and no dialog opens on nothing. A
 consequence opens the one ConsequenceDialog (`actType="AFFIRM_SCALE"`, the SUBJECTS rendering plus
 the two effect slots `docs/design/consequence-dialog.md` now rules — one subject row per checked
