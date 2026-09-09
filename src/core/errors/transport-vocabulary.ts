@@ -8,6 +8,8 @@
 // is ever answered to a user (R-SPINE-062, B-17: the taxonomy in `../errors.ts` is the one home for
 // names the product does own).
 
+import { GEOMETRY_TYPES } from "../offers/law";
+
 /** One foreign vocabulary: who owns the names, and which of them this tree spells. */
 export type TransportVocabulary = {
   vocabulary: string;
@@ -185,5 +187,14 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // A driver's code is what the seam reads off a failure, never an answer given to anybody.
     vocabulary: "postgres.js connection error codes",
     codes: Object.freeze(["CONNECTION_CLOSED", "CONNECTION_DESTROYED", "CONNECTION_ENDED"]),
+  }),
+  Object.freeze({
+    // L-FRM-01's typed member geometry, by the law's own union names. Six of the eight bear an
+    // underscore, so Q-07's register would read them as refusal codes nobody registered — they are
+    // declared here for the same reason the view types above are. The spellings are declared, never
+    // owned: the roster's home is `../offers/law.ts`, and it is read from there rather than copied,
+    // so a shape the law gains tomorrow is declared with no edit (B-19, ARCH-02).
+    vocabulary: "member geometry types (L-FRM-01)",
+    codes: GEOMETRY_TYPES,
   }),
 ]);

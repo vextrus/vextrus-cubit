@@ -6,9 +6,9 @@
 // canonical unit of that dimension: a method that converted anything would be a second home for the
 // canon (B-17, L-FRM-06). The arithmetic is the canon's exact decimal, so a figure is exact from the
 // drawing to the page (B-07).
-import { exact } from "../../../units/canon";
+import { exact } from "@/core/units/canon";
 import type { MethodPair } from "../../editions/content";
-import type { FormulaMethod, NormalisedBindings, MethodVariable } from "../registry";
+import type { FormulaMethod, MethodVariable, NormalisedBindings } from "../law";
 
 /** The pair this method is in force under: an edition cites it, and the registry maps it (L-MEA-01). */
 export const MEMBER_VOLUME_METHOD: MethodPair = Object.freeze({ ruleId: "member.volume", version: "1" });

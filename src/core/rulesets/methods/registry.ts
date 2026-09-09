@@ -11,61 +11,19 @@
 // The shards are imported rather than discovered by walking the tree: what is in force is decided at
 // build time, so the roster of a deployed product is the roster its build carried and never what
 // happens to be on a disk beside it.
-import type { Kind } from "../../catalogue/kinds";
-import type { DeductionChannel } from "../../offers/contract";
-import type { Dimension, Unit } from "../../units/canon";
 import type { MethodPair } from "../editions/content";
 import conventionsShard from "./conventions/conventions.methods.json";
 import { CONVENTIONS_METHOD, resolve } from "./conventions/resolve";
+import type { MethodImplementation, ResolverMethod } from "./law";
 import memberShard from "./member/member.methods.json";
 import { MEMBER_VOLUME_FORMULA, MEMBER_VOLUME_METHOD } from "./member/volume";
 
+// The shape a method declares itself in is the law file's, and published from here because this is
+// the door a caller resolving a pair reads it at (B-17).
+export type { FormulaMethod, MethodImplementation, MethodVariable, NormalisedBindings, ResolverMethod } from "./law";
+
 /** How a method manifest is spelled — the suffix the toolchain's own stage finds a shard by. */
 export const METHOD_MANIFEST_SUFFIX = ".methods.json";
-
-/** One variable a formula declares: the name its template spells, and the dimension it stands in. */
-export type MethodVariable = {
-  readonly name: string;
-  readonly dimension: Dimension;
-};
-
-/**
- * The bindings a formula is evaluated over: every declared variable, carried into the canonical unit
- * of its dimension by the gate's one normalisation (L-MEA-08). A method never converts anything.
- */
-export type NormalisedBindings = Readonly<Record<string, { readonly value: string; readonly unit: Unit }>>;
-
-/**
- * A formula method: one template, evaluated and rendered from the same declaration (L-QTY-03: "the
- * human-auditable formula string with named variables, rendered from the same registry template the
- * gate evaluates"). `evaluate` answers an exact decimal string in the canonical unit of `dimension`.
- */
-export type FormulaMethod = {
-  readonly role: "formula";
-  readonly ruleId: string;
-  readonly version: string;
-  readonly kind: Kind;
-  readonly dimension: Dimension;
-  readonly variables: readonly MethodVariable[];
-  readonly deductionChannels: readonly DeductionChannel[];
-  readonly template: string;
-  readonly evaluate: (bindings: NormalisedBindings) => string;
-};
-
-/**
- * A resolver method: versioned code that decides something about a drawing rather than measuring
- * one. It publishes no quantity, so it declares no variables and no template — an offer that cited
- * one would be an offer no line could be rendered from.
- */
-export type ResolverMethod = {
-  readonly role: "resolver";
-  readonly ruleId: string;
-  readonly version: string;
-  readonly resolve: (...input: never[]) => unknown;
-};
-
-/** One implementation the registry maps a pair to. */
-export type MethodImplementation = FormulaMethod | ResolverMethod;
 
 /** One shard, as the manifest records it: the pairs in force, and the digest over those entries. */
 type MethodShard = {
