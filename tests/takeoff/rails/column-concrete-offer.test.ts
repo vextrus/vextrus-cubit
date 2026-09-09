@@ -128,11 +128,26 @@ describe("AC-1: one column instance, one PRISM_RECT offer", () => {
       Object.keys(offered).sort(),
       "the offer's own keys are the contract's own keys — nothing beside them (L-MEA-08: no field where a computed value could land)",
     ).toStrictEqual(Object.keys(OFFER).sort());
-    for (const forbidden of ["version", "ruleVersion", "value", "volume", "total", "quantity"]) {
+    for (const forbidden of ["version", "ruleVersion", "volume", "total", "quantity"]) {
       expect(
         keysWithin(offered),
         `an offer names a rule and never a version, and computes nothing — it carries no \`${forbidden}\` at any depth (L-MEA-08, AC-1)`,
       ).not.toContain(forbidden);
+    }
+
+    // A reading is the one place `value` belongs: L-MEA-08 spells every binding and selector
+    // `{ value, unit, basis, source, calibration? }`, so each carries those four and nothing
+    // beside them — which is where a computed field would otherwise be smuggled in.
+    for (const [name, held] of [...Object.entries(offered.bindings), ...Object.entries(offered.selectors)]) {
+      const keys = Object.keys(held).sort();
+      expect(
+        keys.filter((key) => !["value", "unit", "basis", "source", "calibration"].includes(key)),
+        `the reading bound to \`${name}\` is a raw reading with its unit, basis and source — no key beside them (L-MEA-08, L-QTY-03)`,
+      ).toEqual([]);
+      expect(
+        ["value", "unit", "basis", "source"].filter((key) => !keys.includes(key)),
+        `and it is whole: \`${name}\` states its value, unit, basis and source (L-MEA-08)`,
+      ).toEqual([]);
     }
   });
 
