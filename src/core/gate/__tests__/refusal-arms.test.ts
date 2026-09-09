@@ -176,12 +176,15 @@ describe("SEAM-GATE: every offer lands on one arm, and a refusal names the regis
     ).toBe(REFUSALS.OFFER_NOT_TO_CONTRACT.code);
   });
 
-  test("a measured offer affirming no calibration reference is OFFER_NOT_TO_CONTRACT", () => {
+  test("an offer carrying only what the contract makes mandatory publishes, and states the references it affirmed", () => {
     const bare = Object.fromEntries(formula().variables.map((variable, at) => [variable.name, { value: String(at + 2), unit: "ft", basis: "MEASURED" as const, source: "S-101:e:41" }]));
+    const judgement = judgeOffer(offer({ bindings: bare, geometry: { type: GEOMETRY_TYPES[0], basis: "MEASURED" } }), UNDER, EDITION, REGISTERED);
     expect(
-      answered(offer({ bindings: bare, geometry: { type: GEOMETRY_TYPES[0], basis: "MEASURED" } })),
-      "a line always carries a non-empty set of affirmed calibration references, and a missing mandatory publishable attribute is a hard block (L-QTY-03, L-QTY-04)",
-    ).toBe(REFUSALS.OFFER_NOT_TO_CONTRACT.code);
+      judgement.arm,
+      "`calibration` is optional on both the geometry and the reading, so affirming one is the rail's obligation and never a gate precondition (L-QTY-03)",
+    ).toBe("published");
+    if (judgement.arm !== "published") return;
+    expect(judgement.line.calibrationKeys, "and the line states exactly the references the offer affirmed — here, none of them").toEqual([]);
   });
 
   test("the gate never answers PIN_STALE — freshness blocks signing, never measuring", () => {
