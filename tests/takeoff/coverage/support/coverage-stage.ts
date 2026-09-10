@@ -258,19 +258,26 @@ export async function resolveResidue(input: ResidueInput): Promise<Cell[]> {
  */
 export async function statementOf(name: string, input: ResidueInput): Promise<Cell[]> {
   const yieldRows = await residueExport(name);
-  let answer: unknown;
-  try {
-    answer = yieldRows(input);
-  } catch {
-    answer = yieldRows(await resolveResidue(input));
+  const cells = await resolveResidue(input);
+  const rowsOfAnswer = (answer: unknown): Cell[] | null => {
+    if (Array.isArray(answer)) return answer as Cell[];
+    const rows = (answer as { rows?: unknown } | null)?.rows;
+    return Array.isArray(rows) ? (rows as Cell[]) : null;
+  };
+  // The declared call is `(cells, levels)`; a statement that would rather be handed the whole input
+  // is handed that instead, which is mechanics, not a judgement.
+  for (const call of [(): unknown => yieldRows(cells, input.levels), (): unknown => yieldRows(input)]) {
+    let answer: unknown;
+    try {
+      answer = call();
+    } catch {
+      continue;
+    }
+    const rows = rowsOfAnswer(answer);
+    if (rows !== null) return rows;
   }
-  if (!Array.isArray(answer) && !Array.isArray((answer as { rows?: unknown } | null)?.rows)) {
-    answer = yieldRows(await resolveResidue(input));
-  }
-  if (Array.isArray(answer)) return answer as Cell[];
-  const rows = (answer as { rows?: unknown } | null)?.rows;
-  expect(Array.isArray(rows), `${name} answers the statement's rows`).toBe(true);
-  return rows as Cell[];
+  expect(false, `${name} answers the statement's rows over the resolved cells and the level stack (the increment's interfaces)`).toBe(true);
+  return [];
 }
 
 /* ------------------------------------------------------------------------------- the view */
