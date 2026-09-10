@@ -11,6 +11,8 @@ import { join, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { ESLint, type Linter } from "eslint";
 import { beforeAll, describe, expect, test } from "vitest";
+// white-box: AC-2 — the ban this file judges ("zero `NOT EXISTS` under src/core/residue/channels/**, exactly one in residue.ts") is a claim about source text, so the tree's one lexer is what reads it: judged is code and the literals code states, never prose (B-17 — one lexical machine, not a second grep beside it).
+import { dialectOf, scanned } from "../support/source-lex";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CORPUS_ROOT = join(REPO_ROOT, "tests", "lint-fixtures");
@@ -66,7 +68,9 @@ const SCAN_CORPORA: Readonly<Record<string, string>> = {
   // `notExists` — anywhere but the one residue query: a channel reader answers what it SAW, and a
   // second home for "this is absent" is the defect. Committed as a scan for the same reason as the
   // three above (`scripts/eslint/**` is locked at M2), with its prover beside the query it governs
-  // (inc-216).
+  // (inc-216). Unlike the three above, the SUBSTANCE of this ban is not deferred to that prover:
+  // "zero under channels/**, exactly one in residue.ts, fires on bad, clean on good" is asserted
+  // below, against the tree, so the ban holds whatever the prover beside the query happens to say.
   "residue-not-exists": "src/core/residue/__tests__/not-exists-scan.test.ts",
 };
 
@@ -247,8 +251,9 @@ describe("AC4: every NEVER fires on its committed fixture", () => {
   test("AC4: every bad fixture reports its own rule", () => {
     const silent = fixtures
       .filter((fixture) => fixture.basename.startsWith("bad"))
-      // A scan corpus is judged by the committed test that scans it (SCAN_CORPORA), not by ESLint:
+      // A scan corpus is judged by the scan its ban is committed as (SCAN_CORPORA), not by ESLint:
       // asking whether a rule fired on a payload no rule governs would fail every honest fixture.
+      // For `residue-not-exists` that judgement is made here, in "AC-2: L-QTY-05's one NOT EXISTS".
       .filter((fixture) => SCAN_CORPORA[fixture.slug] === undefined)
       .filter((fixture) => !(messagesOf.get(fixture.id) ?? []).some((message) => message.ruleId === ruleOf(fixture.slug)))
       .map((fixture) => `${fixture.id} (as ${fixture.virtualPath}) did not report ${ruleOf(fixture.slug) ?? "any rule"} — it reported ${reported(fixture)}`);
@@ -329,5 +334,127 @@ describe("AC6: the ARCH-01 matrix is complete branch by branch", () => {
       messages.some((message) => message.ruleId === rule),
       `${rule} allowed ${beside} too — the allowlist is reading a pattern, not the exact path`,
     ).toBe(true);
+  });
+});
+
+/**
+ * L-QTY-05's ban, spelled as AC-2 states it: the SQL phrase case-insensitively and however a wrapped
+ * statement breaks it across whitespace, and drizzle's `notExists` operator — an identifier, and so
+ * matched exactly.
+ */
+const NOT_EXISTS = /not\s+exists|\bnotExists\b/giu;
+
+/**
+ * The lexical modes a spelling counts in: code, and the literals code states — SQL reaches a driver
+ * as a string, so a scan blind to literals would be blind to every straight spelling. Prose states
+ * nothing, which is what the lawful half of the corpus is built to prove.
+ */
+const SPELLED_IN = new Set<string>(["code", "single", "double", "template", "regex"]);
+
+/** The channel module the clause bans the phrase inside, and the one file it allows it in. */
+const RESIDUE_CHANNELS = "src/core/residue/channels";
+const RESIDUE_QUERY = "src/core/residue/residue.ts";
+
+/** The three readers the increment's interfaces declare; a fourth landed later is judged with them. */
+const DECLARED_READERS = ["register.ts", "partition.ts", "layout.ts"];
+
+const NOT_EXISTS_SLUG = "residue-not-exists";
+
+interface Spelling {
+  /** Repo-relative, POSIX-spelled. */
+  readonly file: string;
+  readonly line: number;
+  readonly phrase: string;
+}
+
+/**
+ * Every spelling of the ban one file STATES, read through the tree's one source lexer
+ * (`tests/support/source-lex`, B-17) so what is judged is code and the literals code states.
+ */
+function spellingsOf(absolutePath: string): Spelling[] {
+  // white-box: AC-2 — L-QTY-05's ban IS a property of source text ("`NOT EXISTS` … appears once, in the residue query"): a spelling that is never executed has no runtime observable, so reading the file is the only way the ban can be judged at all. What is read is the channel module, the residue query and this increment's own declared corpus, and nothing else.
+  const source = readFileSync(absolutePath, "utf8");
+  const mask = new Array<string>(source.length).fill(" ");
+  for (const { index, char, mode } of scanned(source, dialectOf(absolutePath))) {
+    mask[index] = char === "\n" ? "\n" : SPELLED_IN.has(mode) ? char : " ";
+  }
+  const judged = mask.join("");
+  const file = absolutePath.slice(REPO_ROOT.length + 1).split(sep).join("/");
+  const found: Spelling[] = [];
+  NOT_EXISTS.lastIndex = 0;
+  for (let match = NOT_EXISTS.exec(judged); match !== null; match = NOT_EXISTS.exec(judged)) {
+    // A phrase may wrap; the line it is found on is where it begins — the line a reader would strike.
+    found.push({ file, line: judged.slice(0, match.index).split("\n").length, phrase: match[0] });
+  }
+  return found;
+}
+
+const spelledAt = (spellings: readonly Spelling[]): string[] => spellings.map((one) => `${one.file}:${one.line} (${one.phrase})`);
+
+/**
+ * AC-2's substance, asserted here rather than deferred to the prover the corpus is excused by: a
+ * committed scan is a NEVER like any other, and the tests above only judge that the excuse names a
+ * real file in an armed lane. What the clause actually says — `NOT EXISTS` is banned inside the
+ * channel module, appears once in the residue query, fires on the declared payload and stays silent
+ * on its lawful counterpart — is checked against the tree itself, so a prover that scanned nothing
+ * would leave every claim below standing on its own.
+ */
+describe("AC-2: L-QTY-05's one NOT EXISTS", () => {
+  test("AC-2: no channel reader spells the phrase — a reader answers what it SAW", () => {
+    // white-box: AC-2 — the ban IS a property of source text ("zero occurrences under
+    // src/core/residue/channels/**"): a spelling that never runs has no runtime observable at all,
+    // so only reading the text can find one. The governed files are DISCOVERED by walking the
+    // channel module rather than transcribed, so a fourth reader landed later is judged by the same
+    // scan with no edit here (B-19).
+    const channelsRoot = join(REPO_ROOT, RESIDUE_CHANNELS);
+    const readers = collect(channelsRoot);
+    const names = readers.map((path) => path.slice(channelsRoot.length + 1).split(sep).join("/"));
+    const missing = DECLARED_READERS.filter((reader) => !names.includes(reader));
+    expect(missing, `${RESIDUE_CHANNELS} is missing a declared reader — a scan over a tree that is not there is silent for the wrong reason`).toEqual([]);
+    expect(
+      spelledAt(readers.flatMap(spellingsOf)),
+      "a channel reader spells an absence — its answer is a Sighting[], and an empty list is the only way it says nothing (L-QTY-05)",
+    ).toEqual([]);
+  });
+
+  test("AC-2: the residue query spells it exactly once — the one home the clause allows", () => {
+    // white-box: AC-2 — the same reading from the other side, and the same reason: the clause allows
+    // the phrase exactly once, and a count of spellings in a file is a property of its text. The one
+    // total pinned here is pinned to the thing that defines it — L-QTY-05's "appears once".
+    const spelled = spellingsOf(join(REPO_ROOT, RESIDUE_QUERY));
+    expect(
+      spelledAt(spelled),
+      `${RESIDUE_QUERY} is the one place L-QTY-05 allows the phrase, and it holds it exactly once — not none, and never twice`,
+    ).toHaveLength(1);
+  });
+
+  test("AC-2: the declared corpus discriminates — every bad payload spells it, every lawful half is silent", () => {
+    // white-box: AC-2 — the corpus under tests/lint-fixtures/** IS the subject: a payload of source
+    // text is the only thing a scan can be run on, and driving it is how the ban's discrimination is
+    // observed (nothing under src/, scripts/ or db/ is read here).
+    const own = fixtures.filter((fixture) => fixture.slug === NOT_EXISTS_SLUG);
+    expect(own.length, `the ${NOT_EXISTS_SLUG} corpus carries no payload at all`).toBeGreaterThan(0);
+
+    const bad = own.filter((fixture) => fixture.basename.startsWith("bad"));
+    const silent = bad.filter((fixture) => spellingsOf(fixture.absolutePath).length === 0).map((fixture) => fixture.id);
+    expect(silent, "a payload committed to prove the ban fires states nothing the ban names — the scan would be silent on it for the wrong reason").toEqual([]);
+
+    // Both shapes AC-2 names, so a corpus that carried only the straight SQL spelling could not stand
+    // in for a ban that also covers drizzle's operator.
+    const phrases = bad.flatMap((fixture) => spellingsOf(fixture.absolutePath)).map((one) => one.phrase);
+    expect(phrases.some((phrase) => /not\s+exists/iu.test(phrase)), "the corpus never writes the SQL phrase the ban is about").toBe(true);
+    expect(phrases, "the corpus never writes drizzle's `notExists`, which asks the same question in TypeScript").toContain("notExists");
+
+    const lawful = own.filter((fixture) => !fixture.basename.startsWith("bad"));
+    expect(lawful.length, `${NOT_EXISTS_SLUG} has no lawful counterpart to be clean on`).toBeGreaterThan(0);
+    // The silence is only worth something if the lawful half really carries the trap: a file that
+    // never mentions the phrase would pass a plain grep too.
+    // white-box: AC-2 — the trap IS a property of the lawful payload's text: "clean on good.ts" is worth nothing unless good.ts writes the very phrase in prose, and a comment has no runtime observable. The file read is this increment's own declared corpus under tests/lint-fixtures/**, never product source.
+    const trapped = lawful.filter((fixture) => readFileSync(fixture.absolutePath, "utf8").toUpperCase().includes("NOT EXISTS"));
+    expect(trapped.length, `${NOT_EXISTS_SLUG}'s lawful half never writes the phrase in prose — then its silence proves nothing about reading code rather than text`).toBeGreaterThan(0);
+    expect(
+      lawful.flatMap((fixture) => spelledAt(spellingsOf(fixture.absolutePath))),
+      "the lawful half of the corpus states the ban in its CODE — a scan that read prose would refuse a file for explaining the ban it obeys (L-QTY-05)",
+    ).toEqual([]);
   });
 });
