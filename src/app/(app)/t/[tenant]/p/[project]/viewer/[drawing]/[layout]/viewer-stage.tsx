@@ -158,19 +158,23 @@ export function ViewerStage({ panel, partition, scale, pointer, snap, inspector,
  * because all three are facts about a drawn sheet, and no canvas is mounted for it either — the
  * empty state's own ruling that no stage stands behind an unread sheet is untouched (s-viewer § 2).
  */
-export function AbsentSheetInspector({ trace }: { trace: InspectorPanelProps["trace"] }) {
+export function AbsentSheetWork({ absence, trace }: { absence: ReactNode; trace: InspectorPanelProps["trace"] }) {
+  if (trace === null) return absence;
   return (
-    <InspectorPanel
-      hover={null}
-      selection={[]}
-      missing={[]}
-      trace={trace}
-      cited={null}
-      onCopy={(key) => navigator.clipboard.writeText(key)}
-      onReveal={NOTHING_TO_REVEAL}
-      onClear={NOTHING_TO_REVEAL}
-      chrome={INSPECTOR_CHROME}
-    />
+    <div className="cx-viewer-absence-work">
+      {absence}
+      <InspectorPanel
+        hover={null}
+        selection={[]}
+        missing={[]}
+        trace={trace}
+        cited={null}
+        onCopy={(key) => navigator.clipboard.writeText(key)}
+        onReveal={NOTHING_TO_REVEAL}
+        onClear={NOTHING_TO_REVEAL}
+        chrome={INSPECTOR_CHROME}
+      />
+    </div>
   );
 }
 
