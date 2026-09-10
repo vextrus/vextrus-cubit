@@ -17,9 +17,11 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
-  /* I-177: the rule stands at rest and thickens under the pointer — an affordance that appeared
-     from nothing would be indistinguishable from the plain mono keys beside it (R-UI-060). Focus is
-     not answered here: the reticle is the focus indicator's single home (B-17). */
+  /* I-177: the rule stands at rest and thickens under the pointer and under focus — an affordance
+     that appeared from nothing would be indistinguishable from the plain mono keys beside it
+     (R-UI-060). The focus INDICATOR is still not authored here: the reticle draws the ring from its
+     single home (B-17). What the rule below adds is the same intensification the pointer gets, so a
+     keyboard reader is given the affordance feedback a pointer reader is given (R-UI-012). */
   text-decoration-line: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
@@ -28,7 +30,8 @@
     text-decoration-thickness var(--motion-state) var(--ease);
 }
 
-.cx-evidence-link:hover {
+.cx-evidence-link:hover,
+.cx-evidence-link:focus-visible {
   text-decoration-thickness: 2px;
 }
 
@@ -63,9 +66,18 @@
   color: var(--basis-defaulted);
 }
 
-/* Inline-block, so the propagated underline does not strike through the glyph. */
+/* Inline-block, so the propagated underline does not strike through the glyph.
+ *
+ * R-UI-002 asks the glyph to carry the basis where colour is gone, and the seven marks do not carry
+ * equal ink at one size: the IMPORTED and DEFAULTED marks are open, low-stem shapes wearing the two
+ * palest tokens — slate and grey — and read fainter than the rule beneath them, while the solid
+ * marks read plainly. One step of size and of weight is spent on the glyph alone, so the weakest
+ * mark stands as clearly as the strongest.
+ * The label is untouched: it is text at 12 px in graphite (I-176). */
 .cx-evidence-link-glyph {
   display: inline-block;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
 }
 
 /* I-176: the key is text, and text clears 4.5:1 only in graphite. */

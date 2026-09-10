@@ -72,6 +72,14 @@ export interface DataTableProps<TRow> {
   columnPinning?: DataTableColumnPinning;
   onCellEdit?: (rowId: string, columnId: string, value: string) => void;
   className?: string;
+  /**
+   * A row the caller needs a reader to be able to reach — putting focus back where Back came from,
+   * say. The table scrolls to it AND draws it whether or not its window has reached it, so a
+   * consumer never reads this component's insides, measures its rows or announces a scroll on its
+   * behalf to find a row it can already name (R-UI-010, B-17). A row id no row answers to is
+   * nothing: the table is untouched.
+   */
+  scrollToRowId?: string;
 }
 
 /** A density token's pixel length, as a number the virtualiser can measure in. */
@@ -115,6 +123,7 @@ export function DataTable<TRow>({
   columnPinning,
   onCellEdit,
   className,
+  scrollToRowId,
 }: DataTableProps<TRow>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -174,6 +183,29 @@ export function DataTable<TRow>({
     measuredRowHeight.current = rowHeight;
   }, [virtualizer, rowHeight]);
 
+  /**
+   * The row a caller asked to be reachable, by position. Everything below is keyed on the position
+   * rather than the id, so a sort or a filter that moves the row moves the answer with it.
+   */
+  const askedIndex = scrollToRowId === undefined ? -1 : rows.findIndex((row) => row.id === scrollToRowId);
+
+  useEffect(() => {
+    if (askedIndex < 0) return;
+    virtualizer.scrollToIndex(askedIndex, { align: "start" });
+  }, [virtualizer, askedIndex]);
+
+  /**
+   * The rows to draw: the virtualiser's window, plus the asked-for row where the window has not
+   * reached it, in list order. The addition is what makes `scrollToRowId` an answer rather than a
+   * request — scrolling a box is asynchronous and, in a document that lays nothing out, may not
+   * redraw the window at all, and a caller owed a row would then be owed it forever.
+   */
+  const drawn = virtualizer.getVirtualItems().map((item) => ({ index: item.index, start: item.start }));
+  const placed =
+    askedIndex < 0 || drawn.some((item) => item.index === askedIndex)
+      ? drawn
+      : [...drawn, { index: askedIndex, start: askedIndex * rowHeight }].sort((left, right) => left.index - right.index);
+
   const headerGroups = table.getHeaderGroups();
   const filterable = table.getAllLeafColumns().some((column) => column.getCanFilter());
   // Every row the user can reach, header rows included: the filter row is one of them, and after a
@@ -221,7 +253,7 @@ export function DataTable<TRow>({
           role="rowgroup"
           style={{ height: `${virtualizer.getTotalSize()}px` }}
         >
-          {virtualizer.getVirtualItems().map((virtualRow) => {
+          {placed.map((virtualRow) => {
             const row = rows[virtualRow.index];
             if (!row) return null;
             return (

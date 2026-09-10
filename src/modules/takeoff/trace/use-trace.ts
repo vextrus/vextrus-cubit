@@ -99,10 +99,22 @@ export type UseCitedByOptions = {
   /** The source keys held on the sheet right now — what the answer is about (X-2's other direction). */
   selection: readonly string[];
   read: CitingDoor;
+  /**
+   * A registered refusal, handed to the screen that owns how this sheet answers one (ARCH-03,
+   * I-187). Both halves of the Trace refuse the same way: a reader refused the citing read is told
+   * the code and the remedy where the layer feed's refusals are said, never by a sentence in a
+   * block that goes on looking readable.
+   */
+  onRefused: (refusal: string) => void;
 };
 
-export function useCitedBy({ tenantId, projectId, drawingId, selection, read }: UseCitedByOptions): CitedBlock | null {
+export function useCitedBy({ tenantId, projectId, drawingId, selection, read, onRefused }: UseCitedByOptions): CitedBlock | null {
   const [cited, setCited] = useState<CitedBlock | null>(null);
+  /** What no registered code stands for: held here, raised in render, where the boundary that owns
+      the report id is. A citing read that faulted is an outage, not a shorter list (ARCH-03, B-21). */
+  const [fault, setFault] = useState<unknown>(null);
+  const refused = useRef(onRefused);
+  refused.current = onRefused;
   // The effect turns on WHICH keys are held, not on the identity of the array a render happened to
   // build, so a re-render that holds the same keys reads nothing again.
   const heldKeys = selection.join(",");
@@ -119,19 +131,25 @@ export function useCitedBy({ tenantId, projectId, drawingId, selection, read }: 
     void read({ projectId, drawingId, sourceKeys: keys })
       .then((answer) => {
         if (!live) return;
-        setCited(
-          answer.read
-            ? { state: "ready", lines: answer.lines.map((line) => ({ ...line, href: originAddress(tenantId, projectId, line.lineId) })) }
-            : { state: "failed", lines: [] },
-        );
+        if (!answer.read) {
+          refused.current(answer.refusal);
+          setCited({ state: "failed", lines: [] });
+          return;
+        }
+        setCited({ state: "ready", lines: answer.lines.map((line) => ({ ...line, href: originAddress(tenantId, projectId, line.lineId) })) });
       })
-      .catch(() => {
-        if (live) setCited({ state: "failed", lines: [] });
+      .catch((cause: unknown) => {
+        if (live) setFault(cause);
       });
     return () => {
       live = false;
     };
   }, [drawingId, heldKeys, projectId, read, tenantId]);
+
+  // Thrown in render, where React's own boundary is: a rejected promise reaches no boundary at all,
+  // and a read that failed for no registered reason would otherwise be shown as a sentence carrying
+  // no code, no remedy and no report id (ARCH-03, B-21).
+  if (fault !== null) throw fault;
 
   return cited;
 }

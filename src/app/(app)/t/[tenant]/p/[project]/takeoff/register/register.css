@@ -418,6 +418,25 @@
   gap: var(--space-2);
 }
 
+/* One rhythm for every section of this screen. The panel heading carries its own inset and rules
+   the full panel width; what stands under it used to start at the section's outer edge instead, so
+   a section holding nothing read as a full-width rule with an orphan sentence hanging off its left
+   — three empty sections, three different shapes, one register. Everything below a heading now
+   stands at the heading's own inset, and a child a section has nothing to put in takes no room at
+   all, so no gap is left between two paragraphs to be read as a missing thing (R-UI-005, R-UI-050's
+   empty: a section at rest states its own emptiness and places nothing). */
+.cx-register-refusals > :not(.cx-register-panel-heading),
+.cx-register-level-stack > :not(.cx-register-panel-heading),
+.cx-register-timeline > :not(.cx-register-panel-heading) {
+  padding-inline: var(--space-3);
+}
+
+.cx-register-refusals > :empty,
+.cx-register-level-stack > :empty,
+.cx-register-timeline > :empty {
+  display: none;
+}
+
 .cx-register-refusal {
   display: flex;
   flex-direction: column;

@@ -615,7 +615,17 @@
   color: var(--graphite-700);
 }
 
+/* The layout the sheet is showing, and the one cell of the readout that carries no label beside it.
+   Where the sheet was refused or was never read, the cells after it do not render and this stands
+   alone on the bar — as a bare mono word at the foot of an empty frame it read as a stray debug
+   string rather than as the thing the address named. The chip's own idiom gives it an edge and a
+   ground of its own, so it is legible as a named object at rest, on a full sheet and on none
+   (R-UI-030, R-UI-060: never a mark whose meaning depends on what happens to be beside it). */
 .cx-viewer-readout-sheet {
+  padding: 0 var(--space-2);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: var(--graphite-50);
   color: var(--graphite-900);
 }
 

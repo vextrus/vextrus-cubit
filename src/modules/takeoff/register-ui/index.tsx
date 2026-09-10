@@ -86,6 +86,8 @@ export interface RegisterChrome {
     data: ViewLine[];
     getRowId: (row: ViewLine, index: number) => string;
     density?: RegisterDensity;
+    /** The row a reader must be able to reach — the table scrolls to it and draws it (I-182). */
+    scrollToRowId?: string;
   }>;
   readonly RefusalState: ComponentType<{ refusal: RefusalEntry; evidence: Evidence }>;
   readonly OfferedGroups: ComponentType<{
@@ -250,33 +252,6 @@ function traceable(line: ViewLine): boolean {
   return line.drawingId !== null && line.layoutName !== null && line.quantityBasis !== DEFAULTED;
 }
 
-/**
- * A drawn row's offset down the list, as the table's virtualiser writes it (`translateY(<n>px)`).
- * Nothing is inferred from layout: this is the number the table itself placed the row at.
- */
-function offsetOfRow(row: HTMLElement): number {
-  const spelled = /translateY\((-?[\d.]+)px\)/.exec(row.style.transform);
-  if (spelled === null) return Number.NaN;
-  return Number.parseFloat(spelled[1] ?? "");
-}
-
-/**
- * The height one row of the table stands at, measured off the window the table has already drawn:
- * two drawn rows' offsets differ by exactly one row. R-UI-005's two densities live in the frame's
- * tokens and in the table's own estimate, and this screen may hold neither a third copy of them
- * (B-17) nor a pixel count of its own (Decision § 5) — so it asks the table what it did rather than
- * re-deriving it, which is also the only reading that survives a document whose stylesheet has not
- * been loaded.
- */
-function drawnRowHeight(viewport: Element): number {
-  const drawn = viewport.querySelectorAll<HTMLElement>('[data-testid="datatable-row"]');
-  const first = drawn[0];
-  const second = drawn[1];
-  if (first === undefined || second === undefined) return 0;
-  const height = offsetOfRow(second) - offsetOfRow(first);
-  return Number.isFinite(height) ? height : 0;
-}
-
 /** Class and level narrow the tree with the table, so one screen shows one answer (I-172). */
 function keepsObject(object: ViewObject, filters: Filters): boolean {
   if (filters.class !== "" && object.class !== filters.class) return false;
@@ -323,8 +298,6 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
   const [originLine, setOriginLine] = useState<string | null>(null);
   /** The anchor that row's cell renders, so the reticle can be put back where the reader left it. */
   const originRef = useRef<HTMLAnchorElement | null>(null);
-  /** The lines table's mount: where the virtualiser's scroll box and the row-height tokens are read. */
-  const linesRef = useRef<HTMLDivElement | null>(null);
   /** The address already restored from — the reticle is taken at most once per address (I-182). */
   const restoredRef = useRef<string | null>(null);
 
@@ -345,25 +318,6 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
     restoredRef.current = originLine;
     node.focus();
   };
-
-  // Where the origin's row has not been rendered by the virtualiser, the scroll box is SET to where
-  // that row stands — never smoothly scrolled, because a register that glides on Back is theatre in
-  // front of a fact (Decision § 4). Reaching the primitive's viewport for this one read is the
-  // recorded intrusion of Decision § 8, and it stops the moment the token cannot be read.
-  useEffect(() => {
-    if (originLine === null || restoredRef.current === originLine || originRef.current !== null) return;
-    const at = lines.findIndex((line) => line.lineId === originLine);
-    if (at < 0) return;
-    const viewport = linesRef.current?.querySelector('[data-testid="datatable-viewport"]');
-    if (!(viewport instanceof HTMLElement)) return;
-    const rowHeight = drawnRowHeight(viewport);
-    if (rowHeight <= 0) return;
-    viewport.scrollTop = at * rowHeight;
-    // A scroll box that is set rather than dragged is moved without a word to anyone: the table
-    // redraws its window when the box says it scrolled, so the box is made to say it. Without this
-    // the row asked for stays undrawn, and an undrawn row can be neither marked nor focused (I-182).
-    viewport.dispatchEvent(new Event("scroll"));
-  }, [lines, originLine]);
 
   /** The origin stamped onto this screen's own entry, before the browser is allowed to leave (I-180). */
   const stampOrigin = (lineId: string): void => {
@@ -779,11 +733,14 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
             </p>
           </section>
 
-          <div className="cx-register-mount cx-register-lines" data-testid="register-lines" ref={linesRef}>
+          <div className="cx-register-mount cx-register-lines" data-testid="register-lines">
             {lines.length === 0 ? (
               <p className="cx-register-lines-none">{REGISTER_COPY.takeoff_register_lines_none}</p>
             ) : (
-              <DataTable columns={columns} data={[...lines]} getRowId={(line) => line.lineId} density={density} />
+              // The origin is named, not hunted for: the table is told which row a reader must be
+              // able to reach and answers with it drawn, so this screen reads nothing of the table's
+              // insides to put the reticle back where Back came from (I-182, B-17).
+              <DataTable columns={columns} data={[...lines]} getRowId={(line) => line.lineId} density={density} scrollToRowId={originLine ?? undefined} />
             )}
           </div>
 

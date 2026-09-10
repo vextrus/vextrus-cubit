@@ -141,7 +141,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   const trace = useReveal({ head: sheet.head, stageRef, facts, cameraRef, moveCamera: camera.moveCamera, jumpTo: camera.jumpTo, pulse });
   // The travel waits for the answer naming the basis it is struck in; an address naming no line waits for nothing (I-85).
   const held = useSelection({ facts, head: sheet.head, initialSelection, initialViewport, loadedLayers: sheet.loadedLayers, failedCount: layers.failedCount, revision: layers.revision, reveal: trace.reveal, ...(initialLine === null ? {} : { revealReady: line.ready, revealBasis: line.basis }), selectionRef, cameraRef, publish, drawingId, layoutName });
-  const cited = useCitedBy({ tenantId, projectId, drawingId, selection: held.selection, read: readLinesCiting });
+  const cited = useCitedBy({ tenantId, projectId, drawingId, selection: held.selection, read: readLinesCiting, onRefused: (refusal) => setDenied(refusal === REFUSALS.SIGNED_OUT.code ? 401 : 403) });
   const index = useHitTesting({ head: sheet.head, layers: arrived, loadedLayers: sheet.loadedLayers, stateRef: layers.stateRef, statusRef, cameraRef });
   /** The views/grid region — the partition stored for this sheet, the paint it files above, and the one act
       door behind them — asked for only once the head is a manifest (R-UI-043). A door that refuses the
