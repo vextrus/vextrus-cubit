@@ -139,6 +139,9 @@ const CORROBORATE = "CORROBORATE" as const;
 const REPUDIATE = "REPUDIATE" as const;
 const INSERT_LEVEL = "INSERT_LEVEL" as const;
 
+/** The corroboration state of an object a person has judged to be nothing (I-173). */
+const REPUDIATED = "REPUDIATED";
+
 /** The job kind a measure run is watched under (SEAM-JOBS' roster). */
 const MEASURE_KIND: JobKind = "measure";
 
@@ -236,14 +239,16 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
   const [draft, setDraft] = useState<{ attribute: string; value: string; unit: string; precedence: string } | null>(null);
 
   const objects = useMemo(() => view.objects.filter((object) => keepsObject(object, filters)), [view.objects, filters]);
-  const lines = useMemo(() => view.lines.filter((line) => keeps(line, filters)), [view.lines, filters]);
+  /* I-173: a line measured off a struck object stays on record and out of the table, so every count,
+     option and row on this screen is taken over what the table may in fact show. */
+  const registered = useMemo(() => view.lines.filter((line) => !line.repudiated), [view.lines]);
+  const lines = useMemo(() => registered.filter((line) => keeps(line, filters)), [registered, filters]);
   const tree = useMemo(() => treeOf(objects), [objects]);
 
   const selected = view.objects.find((object) => object.objectKey === selectedKey) ?? null;
-  const repudiated = optionsOf(
-    view.lines.filter((line) => line.repudiated),
-    (line) => line.objectKey,
-  ).length;
+  const struck = selected !== null && selected.corroboration === REPUDIATED;
+  const repudiated = view.objects.filter((object) => object.corroboration === REPUDIATED).length;
+  const withheld = view.lines.length - registered.length;
 
   /**
    * A rejection at a door, answered in place — never a toast, and never a dialog over nothing. A
@@ -352,12 +357,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
     {
       id: "kind",
       header: REGISTER_COPY.takeoff_register_col_kind,
-      cell: ({ row }) => (
-        <span className="cx-register-cell-mono">
-          {row.original.kind}
-          {row.original.repudiated ? <span className="cx-register-struck"> {REGISTER_COPY.takeoff_register_line_repudiated}</span> : null}
-        </span>
-      ),
+      cell: ({ row }) => <span className="cx-register-cell-mono">{row.original.kind}</span>,
     },
     {
       id: "value",
@@ -448,21 +448,21 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
     class: {
       label: REGISTER_COPY.takeoff_register_filter_class,
       any: REGISTER_COPY.takeoff_register_filter_any_class,
-      options: optionsOf(view.lines, (line) => line.class).concat(optionsOf(view.objects, (object) => object.class)).filter((value, at, all) => all.indexOf(value) === at),
+      options: optionsOf(registered, (line) => line.class).concat(optionsOf(view.objects, (object) => object.class)).filter((value, at, all) => all.indexOf(value) === at),
     },
-    kind: { label: REGISTER_COPY.takeoff_register_filter_kind, any: REGISTER_COPY.takeoff_register_filter_any_kind, options: optionsOf(view.lines, (line) => line.kind) },
+    kind: { label: REGISTER_COPY.takeoff_register_filter_kind, any: REGISTER_COPY.takeoff_register_filter_any_kind, options: optionsOf(registered, (line) => line.kind) },
     level: {
       label: REGISTER_COPY.takeoff_register_filter_level,
       any: REGISTER_COPY.takeoff_register_filter_any_level,
-      options: optionsOf(view.lines, (line) => line.level).concat(optionsOf(view.objects, (object) => object.level)).filter((value, at, all) => all.indexOf(value) === at),
+      options: optionsOf(registered, (line) => line.level).concat(optionsOf(view.objects, (object) => object.level)).filter((value, at, all) => all.indexOf(value) === at),
     },
     basis: {
       label: REGISTER_COPY.takeoff_register_filter_basis,
       any: REGISTER_COPY.takeoff_register_filter_any_basis,
       // The roster's own order, narrowed to what this campaign in fact published (I-172).
-      options: QUANTITY_BASES.filter((basis) => view.lines.some((line) => line.quantityBasis === basis)),
+      options: QUANTITY_BASES.filter((basis) => registered.some((line) => line.quantityBasis === basis)),
     },
-    coverage: { label: REGISTER_COPY.takeoff_register_filter_coverage, any: REGISTER_COPY.takeoff_register_filter_any_coverage, options: optionsOf(view.lines, (line) => line.coverage) },
+    coverage: { label: REGISTER_COPY.takeoff_register_filter_coverage, any: REGISTER_COPY.takeoff_register_filter_any_coverage, options: optionsOf(registered, (line) => line.coverage) },
   };
 
   return (
@@ -539,7 +539,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
           </label>
         ))}
         <p className="cx-register-count" data-testid="register-lines-count" role="status">
-          {fillCopy("takeoff_register_lines_count", { shown: formatUserFigure(String(lines.length)), total: formatUserFigure(String(view.lines.length)) })}
+          {fillCopy("takeoff_register_lines_count", { shown: formatUserFigure(String(lines.length)), total: formatUserFigure(String(registered.length)) })}
         </p>
       </div>
 
@@ -575,7 +575,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
               />
             </div>
             <p className="cx-register-repudiated" data-testid="register-repudiated-count">
-              {fillCopy("takeoff_register_repudiated_count", { count: formatUserFigure(String(repudiated)) })}
+              {fillCopy("takeoff_register_repudiated_count", { count: formatUserFigure(String(repudiated)), lines: formatUserFigure(String(withheld)) })}
             </p>
           </section>
 
@@ -617,7 +617,10 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
                     {selected.sourceKey}
                   </dd>
                 </dl>
-                {permitted && !offline ? (
+                {/* I-173: a struck object states what its repudiation did — and offers no door to
+                    corroborate or to strike again what a person has already judged to be nothing. */}
+                {struck ? <p className="cx-register-repudiated-note">{REGISTER_COPY.takeoff_register_repudiated_note}</p> : null}
+                {permitted && !offline && !struck ? (
                   <button
                     type="button"
                     className="cx-btn cx-reticle"
@@ -664,7 +667,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
                       readings={attribute.overruled}
                       BasisChip={BasisChip}
                     />
-                    {permitted && !offline ? (
+                    {permitted && !offline && !struck ? (
                       <div className="cx-register-corroborate">
                         <button
                           type="button"

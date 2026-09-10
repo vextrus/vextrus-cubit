@@ -41,13 +41,18 @@ DataTable; the one RefusalState, OfferedGroups, ConsequenceDialog and JobTimelin
   so `register-lines-count` reads what the virtualiser was given. Options derive from the rows the
   view holds, plus one all-option each; a filter offering values the campaign cannot produce offers
   only emptiness.
-- **I-173 — a repudiated object leaves the tree and its lines stay.** REPUDIATE says a person judges
-  the object to be nothing, not that the machine never read it (L-ACT-01: nothing is deleted). The
-  object is not a treeitem and is not selectable; every line it published stays in the table
-  carrying `data-repudiated="true"` and the word **Repudiated** in its kind cell, and the tree panel
-  states the count. Rejected: hiding the lines, which would make a register disagree with the
-  quantities already derived from it, and rejected: leaving the object in the tree, which would
-  offer a door to corroborate something a person has just struck.
+- **I-173 — a repudiated object keeps its place in the tree and its lines leave the table.**
+  REPUDIATE says a person judges the object to be nothing, not that the machine never read it
+  (L-ACT-01: nothing is deleted, and the register still answers with the object). The object stays a
+  treeitem and stays selectable; its inspector reads `register-object-corroboration
+  data-standing="REPUDIATED"` and states `takeoff_register_repudiated_note` in place of the two act
+  doors, because a struck object is neither corroborated nor struck a second time. Every line
+  measured off it stays on record — the reading marks it `repudiated` — and is withheld from
+  `register-lines`, so nothing is priced off an object the register itself says is nothing; the tree
+  panel's foot counts both the objects struck and the lines withheld. Rejected: dropping the object
+  from the tree, which reads as the deletion L-ACT-01 forbids and leaves a reader no way to see what
+  was struck. Rejected: keeping its lines in the table, which shows quantities standing on an object
+  a person has judged to be nothing.
 - **I-174 — SUSPENDED is a reading of the attribute, and it is shown as one.** R-TO-051 says
   disagreements suspend and show as such. An attribute whose standing is SUSPENDED renders no value
   at all — a value beside the word would be the very claim the suspension denies — and lists every
@@ -131,9 +136,10 @@ and the inspector are `var(--graphite-50)` panels bordered `var(--hairline)`, ra
   `bindings`, space separated; bases as `quantityBasis/selectionBasis`, each a BasisChip so the
   glyph travels with the word (R-UI-002); coverage as its enum word beside a CoverageChip;
   calibration keys joined by a space, whole; the engine verbatim; the cited source key verbatim,
-  `user-select: all` — **text, not a link**: the Trace is inc-215's. A row of a repudiated object
-  carries `data-repudiated="true"`, text `var(--graphite-600)`, and `takeoff_register_line_repudiated`
-  in its kind cell after the kind (I-173). No `meta.editable` anywhere, and no checkbox column.
+  `user-select: all` — **text, not a link**: the Trace is inc-215's. A line the reading marks
+  `repudiated` is not a row here at all: it is withheld and counted at the tree panel's foot, and
+  `register-lines-count` counts the lines the table may show (I-173). No `meta.editable` anywhere,
+  and no checkbox column.
 - **Inspector** — `<aside data-testid="register-inspector" data-object={objectKey}>`, the tree
   panel's chrome exactly. Header: `<p data-testid="register-object-key">` the key whole, wrapping,
   `user-select: all`, `var(--font-mono)` `var(--text-13)` `var(--graphite-900)` (I-26), preceded by
@@ -144,8 +150,10 @@ and the inspector are `var(--graphite-50)` panels bordered `var(--hairline)`, ra
   verbatim in mono; `takeoff_register_corroboration_label` → `<dd
   data-testid="register-object-corroboration" data-standing>` the state verbatim in mono;
   `takeoff_register_source_label` → `<dd data-testid="register-source-key">` the source key whole,
-  mono, select-all. Then the core secondary Button `takeoff_register_repudiate` (I-175), absent
-  while the object is already repudiated or `permitted` is false.
+  mono, select-all. Then, on a struck object, `<p>` `takeoff_register_repudiated_note`
+  (`var(--text-12)` `var(--graphite-600)`, `var(--graphite-100)` fill, `var(--hairline)`, radius
+  `var(--radius-4)`); otherwise the core secondary Button `takeoff_register_repudiate` (I-175),
+  absent also while `permitted` is false.
   **Attributes** — `<h3>` `takeoff_register_attributes_label`, then one `<section
   data-testid="register-attribute" data-attribute data-standing>` per attribute, `border-top:
   var(--hairline)`, padding-block `var(--space-2)`: the attribute name in `var(--text-13)`
@@ -212,7 +220,8 @@ and the redirect as the reason — a route that renders nothing has no state of 
   `register-refusal` row for a sighting's. Never a toast, never a screen-local block.
 - **Partial** — rendered, never hidden: published lines, queue items and refused sightings stand
   together, and `data-state="partial"` while `register-refusals[data-count]` is above zero and the
-  view otherwise answered. A repudiated object's lines are part of this cell (I-173).
+  view otherwise answered. A struck object stands in the tree with its lines withheld and counted,
+  which is a statement of what a person did rather than a cell of this state (I-173).
 - **Offline** — a banner above the header, `<p data-testid="register-answer">`'s sibling
   `<p role="status">` `takeoff_register_offline`, house notice chrome (`var(--info-surface)` fill,
   `var(--info)` border, radius `var(--radius-4)`); the three act doors and the offered-group confirm
@@ -240,11 +249,14 @@ appear as each rail publishes them.** · `takeoff_register_timeline_heading` **M
 classes** · `_any_kind` **All kinds** · `_any_level` **All levels** · `_any_basis` **All bases** ·
 `_any_coverage` **All coverages** · `takeoff_register_lines_count` **{shown} of {total} lines** ·
 `takeoff_register_tree_label` **Objects by discipline, level and class** ·
-`takeoff_register_repudiated_count` **{count} objects repudiated** · `takeoff_register_col_kind`
+`takeoff_register_repudiated_count` **{count} objects repudiated, {lines} lines withheld** ·
+`takeoff_register_col_kind`
 **Kind** · `_col_value` **Value** · `_col_unit` **Unit** · `_col_formula` **Formula** ·
 `_col_variables` **Variables** · `_col_bases` **Bases** · `_col_coverage` **Coverage** ·
 `_col_calibration` **Calibration** · `_col_engine` **Engine** · `_col_source` **Source** ·
-`takeoff_register_line_repudiated` **Repudiated** · `takeoff_register_lines_none` **No line matches
+`takeoff_register_repudiated_note` **A person judged this object to be nothing. Nothing was deleted:
+every reading and every line measured from it stays on record, and its lines are withheld from the
+table.** · `takeoff_register_lines_none` **No line matches
 these filters. Every line stays registered — clear a filter to see the rest.** ·
 `takeoff_register_object_key_label` **Object key** · `takeoff_register_basis_label` **Basis** ·
 `takeoff_register_role_label` **Role** · `takeoff_register_corroboration_label` **Corroboration** ·
@@ -349,7 +361,8 @@ count line are found by role and name.
 Behavioural hooks without new ids: `aria-current="page"` on the nav's current entry;
 `role="status"` on the count line and the offline banner; `aria-live="polite"` on `register-answer`;
 `role="tree"`/`role="treeitem"` and `role="table"`/`role="row"`/`role="columnheader"` inside the two
-I-171 wrappers; `data-repudiated` on a repudiated object's rows; `data-kind="PROPOSED_LEVEL_STACK"`
+I-171 wrappers; `data-standing="REPUDIATED"` on a struck object's corroboration cell;
+`data-kind="PROPOSED_LEVEL_STACK"`
 and `data-drawing` on each offered group; `cx-reticle` on every focusable element; and the asserted
 absences — no `input[type=checkbox]`, no `[role=checkbox]`, no select-all, no `EvidenceLink` and no
 refusal code in any text node outside a `refusal-state`. Suites: `tests/ui/takeoff-register/**`

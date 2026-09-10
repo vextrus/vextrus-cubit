@@ -300,9 +300,15 @@
   gap: var(--space-1);
 }
 
-/* I-173: a repudiated object's lines stay, and say so. */
-[data-repudiated="true"] .cx-register-cell-mono,
-.cx-register-struck {
+/* I-173: a struck object keeps its place and says what its repudiation did. */
+.cx-register-repudiated-note {
+  margin-inline: var(--space-3);
+  padding: var(--space-2);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: var(--graphite-100);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
   color: var(--graphite-600);
 }
 

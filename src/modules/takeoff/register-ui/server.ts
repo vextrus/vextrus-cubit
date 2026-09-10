@@ -7,7 +7,8 @@
 // file asks each of them once and lays the answers side by side (B-17, ARCH-02).
 //
 // Nothing here judges: a refused sighting and a deferred one are both stated, a repudiated object
-// leaves the tree while every line it published stays (I-173), and no figure is re-derived.
+// stands in the reading as REPUDIATED with every line it published still marked on it (I-173), and
+// no figure is re-derived.
 import { and, asc, drawingSetRevisions, eq, forTenant, quantityLines, queueItems, registerObservations } from "@/core/db";
 import { campaignsOf } from "@/core/campaigns";
 import { levelsOf } from "@/core/levels/store";
@@ -116,27 +117,25 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
     repudiated: struck.has(row.objectKey),
   }));
 
-  /* --- the objects, minus the ones a person has struck: a repudiation leaves the tree (I-173) --- */
-  const objects: ViewObject[] = objectRows
-    .filter((row) => !struck.has(row.objectKey))
-    .map((row) => {
-      const attributes = attributesOf(observations, row.objectKey);
-      const own = lines.filter((line) => line.objectKey === row.objectKey);
-      const queued = deferred.some((item) => item.objectKey === row.objectKey);
-      const basis = weakest(own.map((line) => line.quantityBasis)) ?? (queued ? INTERPRETED : (row.standing as QuantityBasis));
-      return {
-        objectKey: row.objectKey,
-        discipline: row.discipline,
-        level: levelOf(row, levelLabels),
-        class: row.elementType,
-        mark: row.mark,
-        basis,
-        role: row.standing,
-        corroboration: corroborationOf(attributes, false),
-        sourceKey: row.placementKey,
-        attributes,
-      };
-    });
+  /* --- the objects, the struck among them: a repudiation is stated, never a disappearance (I-173) --- */
+  const objects: ViewObject[] = objectRows.map((row) => {
+    const attributes = attributesOf(observations, row.objectKey);
+    const own = lines.filter((line) => line.objectKey === row.objectKey);
+    const queued = deferred.some((item) => item.objectKey === row.objectKey);
+    const basis = weakest(own.map((line) => line.quantityBasis)) ?? (queued ? INTERPRETED : (row.standing as QuantityBasis));
+    return {
+      objectKey: row.objectKey,
+      discipline: row.discipline,
+      level: levelOf(row, levelLabels),
+      class: row.elementType,
+      mark: row.mark,
+      basis,
+      role: row.standing,
+      corroboration: corroborationOf(attributes, struck.has(row.objectKey)),
+      sourceKey: row.placementKey,
+      attributes,
+    };
+  });
 
   /* --- what produced no line: a deferral says its cause, a refusal says its code (R-UI-020) --- */
   const refusals: ViewRefusal[] = [

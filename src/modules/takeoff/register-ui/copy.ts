@@ -44,7 +44,7 @@ export type RegisterCopyKey =
   | "takeoff_register_col_calibration"
   | "takeoff_register_col_engine"
   | "takeoff_register_col_source"
-  | "takeoff_register_line_repudiated"
+  | "takeoff_register_repudiated_note"
   | "takeoff_register_lines_none"
   | "takeoff_register_object_key_label"
   | "takeoff_register_basis_label"
@@ -112,7 +112,7 @@ export const REGISTER_COPY: Readonly<Record<RegisterCopyKey, string>> = Object.f
   takeoff_register_lines_count: "{shown} of {total} lines",
 
   takeoff_register_tree_label: "Objects by discipline, level and class",
-  takeoff_register_repudiated_count: "{count} objects repudiated",
+  takeoff_register_repudiated_count: "{count} objects repudiated, {lines} lines withheld",
 
   takeoff_register_col_kind: "Kind",
   takeoff_register_col_value: "Value",
@@ -124,7 +124,8 @@ export const REGISTER_COPY: Readonly<Record<RegisterCopyKey, string>> = Object.f
   takeoff_register_col_calibration: "Calibration",
   takeoff_register_col_engine: "Engine",
   takeoff_register_col_source: "Source",
-  takeoff_register_line_repudiated: "Repudiated",
+  takeoff_register_repudiated_note:
+    "A person judged this object to be nothing. Nothing was deleted: every reading and every line measured from it stays on record, and its lines are withheld from the table.",
   takeoff_register_lines_none: "No line matches these filters. Every line stays registered — clear a filter to see the rest.",
 
   takeoff_register_object_key_label: "Object key",
