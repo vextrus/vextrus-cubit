@@ -10,7 +10,7 @@
  * the consumer's business. No address is composed here: a route's spelling may not live in `src/ui`.
  *
  * I-176 — the basis colours the glyph and the rule; the key itself reads in graphite, because a
- * source key is text and R-UI-012 puts text at 4.5:1, which `--basis-defaulted` cannot clear in
+ * source key is text and R-UI-012 puts text at 4.5:1, which the palest basis token cannot clear in
  * light. This is BasisChip's own ruling applied unchanged, so the two surfaces of R-UI-002 agree.
  *
  * The glyph comes only from `BASIS_GLYPHS`, R-UI-002's single home, and is `aria-hidden`: it is the

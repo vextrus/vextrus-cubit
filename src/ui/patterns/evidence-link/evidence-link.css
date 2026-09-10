@@ -17,8 +17,9 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
-  /* I-177: the rule stands at rest and thickens on hover and focus — an affordance that appeared
-     from nothing would be indistinguishable from the plain mono keys beside it (R-UI-060). */
+  /* I-177: the rule stands at rest and thickens under the pointer — an affordance that appeared
+     from nothing would be indistinguishable from the plain mono keys beside it (R-UI-060). Focus is
+     not answered here: the reticle is the focus indicator's single home (B-17). */
   text-decoration-line: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
@@ -27,8 +28,7 @@
     text-decoration-thickness var(--motion-state) var(--ease);
 }
 
-.cx-evidence-link:hover,
-.cx-evidence-link:focus-visible {
+.cx-evidence-link:hover {
   text-decoration-thickness: 2px;
 }
 

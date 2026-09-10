@@ -7,9 +7,8 @@ import "./reticle.css";
 import "./core.css";
 
 export { Badge } from "./badge";
-// R-UI-002's glyph table and the roster derived from it, published beside the chip that renders it:
-// every surface that shows a basis reads the pair from this one home, through this one barrel (B-17).
-export { BASIS_GLYPHS, type Basis } from "./basis";
+// R-UI-002's glyph table is not a primitive and is not published here: it stays in `./basis`, its own
+// home, which every surface that shows a basis reads it from directly (B-17).
 export { BasisChip } from "./basis-chip";
 export { Button } from "./button";
 export { Chip } from "./chip";
