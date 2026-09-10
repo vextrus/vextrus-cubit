@@ -509,6 +509,96 @@
   font-size: var(--text-12);
 }
 
+/* ------------------------------------------------------- the Trace and its other direction (X-2) */
+
+/* Both blocks stand inside the selection tab, under a rule that separates them from the list of
+   what is held without boxing them: the Trace is a reading OF the selection, not a second panel. */
+.cx-viewer-trace,
+.cx-viewer-cited {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block: var(--space-3);
+  border-top: var(--hairline);
+}
+
+.cx-viewer-trace-basis {
+  display: flex;
+  margin: 0;
+}
+
+/* The formula is the line's own text, so it is read in the face a formula is written in and is
+   never truncated behind an ellipsis a reader cannot open (I-25, I-26). */
+.cx-viewer-trace-formula {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-viewer-trace-variables {
+  display: flex;
+  flex-direction: column;
+}
+
+.cx-viewer-trace-variable {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 var(--space-2);
+  padding-block: var(--space-1);
+  border-bottom: var(--hairline);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-trace-name {
+  color: var(--graphite-600);
+}
+
+.cx-viewer-trace-reading {
+  justify-self: end;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-viewer-trace-basis-word,
+.cx-viewer-cited-kind {
+  color: var(--graphite-600);
+}
+
+.cx-viewer-trace-variable .cx-viewer-inspector-key {
+  grid-column: 1 / -1;
+  color: var(--graphite-700);
+}
+
+.cx-viewer-trace-origin {
+  align-self: flex-start;
+  margin-block-start: var(--space-2);
+}
+
+.cx-viewer-cited-line {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 var(--space-2);
+  padding-block: var(--space-2);
+  border-bottom: var(--hairline);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-cited-figure {
+  justify-self: end;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-viewer-cited-line .cx-evidence-link {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
 /* ---------------------------------------------------------------------------------- the readout */
 
 .cx-viewer-readout {

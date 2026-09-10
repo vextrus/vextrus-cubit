@@ -25,7 +25,7 @@ export const VIEWER_STATES: Readonly<Record<ShellStateName, ShellStateCell>> = {
   error: {
     declared: "delegated",
     to: "src/app/error.tsx",
-    why: "the root error boundary is the tree's one error state, and its own Decision rules retry and the report id; only a head that cannot be read at all reaches it, because a layer that fails to arrive is the partial cell (I-81), as is a scale of record that could not be read (I-150) — that costs the reader metres, never the sheet. The scale door is the same bargain kept in one more place: a read that faults leaves the panel at `data-state=\"failed\"`, where `viewer-scale-retry` re-reads it in place beside the report id the fault travelled with, and the drawing is not torn down for it (s-scale § 2)",
+    why: "the root error boundary is the tree's one error state, and its own Decision rules retry and the report id; only a head that cannot be read at all reaches it, because a layer that fails to arrive is the partial cell (I-81), as is a scale of record that could not be read (I-150) — that costs the reader metres, never the sheet. The scale door is the same bargain kept in one more place: a read that faults leaves the panel at `data-state=\"failed\"`, where `viewer-scale-retry` re-reads it in place beside the report id the fault travelled with, and the drawing is not torn down for it (s-scale § 2). The Trace's read of a traced line keeps the same bargain in the selection tab: a door that faults leaves `viewer-inspector-trace` at `data-state=\"failed\"`, where `viewer-inspector-trace-retry` reads that one line again and the selection the address applied stands untouched (s-viewer-inspector § 9)",
   },
   // The registered refusal, in the sheet's place, with the facts the reading did record beside it.
   // The calibration door refuses the sheet's own session, so its two codes render here too (I-150).
@@ -40,6 +40,9 @@ export const VIEWER_STATES: Readonly<Record<ShellStateName, ShellStateCell>> = {
   // tolerance keeps its row in `scale-region.tsx` and says it is unverified — the span and the factor
   // are facts — and a view no act names keeps its row, its absence sentence and its checkbox there
   // too: shown, never hidden, and the rows beside it are unaffected.
+  // The Trace is a third of the same kind: a `line` this project does not hold leaves
+  // `viewer-inspector-trace` at `data-state="missing"` with the keys that WERE found still selected
+  // and still listed — a fact about a stale address, never a refusal (I-88's idiom).
   partial: { declared: "rendered", by: `${ROUTE}/layers-panel.tsx`, testId: "viewer-layer-row" },
   // The sheet still writes nothing, and reading, picking and judging an observation are wholly local
   // (shell I-20): geometry already in the GPU buffers keeps painting, and no banner is raised over a

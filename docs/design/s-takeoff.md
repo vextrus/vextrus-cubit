@@ -143,8 +143,9 @@ the height.
   UnitBadge; the formula verbatim, wrapping, mono; variables as `name=value unit` pairs read from
   `bindings`, space separated; bases as `quantityBasis/selectionBasis`, each a BasisChip so the
   glyph travels with the word (R-UI-002); coverage as its enum word beside a CoverageChip;
-  calibration keys joined by a space, whole; the engine verbatim; the cited source key verbatim,
-  `user-select: all` — **text, not a link**: the Trace is inc-215's. A line the reading marks
+  calibration keys joined by a space, whole; the engine verbatim; the cited source key verbatim —
+  **the Trace's own link since inc-215**, ruled by `docs/design/s-takeoff-register.md` (I-179–I-182),
+  which widens this cell and this cell alone and re-decides nothing else here. A line the reading marks
   `repudiated` is not a row here at all: it is withheld and counted at the tree panel's foot, and
   `register-lines-count` counts the lines the table may show (I-173). No `meta.editable` anywhere,
   and no checkbox column.
@@ -396,8 +397,10 @@ since the page object is the Verifier's. Re-baselined under B-20:
 
 ## 8. Recorded IOUs (owner named, never a comment in `src/`)
 
-The Trace column and the EvidenceLink from a line to its entities and back (R-UI-022) — owner:
-inc-215; this node renders the cited source key as text. The Coverage nav entry beside Register —
+The Trace from a line to its entities and back (R-UI-022) is **paid**: inc-215 makes the `source`
+cell an `EvidenceLink` under `docs/design/s-takeoff-register.md`, and the cited key is no longer
+plain text. EvidenceLinks on queue items, refusal rows and the object inspector's readings stay
+unpaid — owner: those surfaces' own leaves. The Coverage nav entry beside Register —
 owner: inc-216, which extends `takeoff-nav`. Bulk corroboration of INTERPRETED sightings as an
 offered group (J-040) — owner: M4. Resizable, remembered panel widths for the three regions
 (R-UI-005) — owner: the prefs seam's node, which holds the same debt for the viewer. Column pin,

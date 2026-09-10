@@ -330,6 +330,24 @@
   user-select: all;
 }
 
+/* A cell that IS the link selects by following rather than by dragging: select-all here would fight
+   the anchor a reader is meant to activate (I-179). */
+.cx-register-trace {
+  display: inline-flex;
+  min-width: 0;
+  user-select: auto;
+}
+
+/* The row a Trace was followed from, as the rail marks what is chosen: a 2 px inset beam bar over a
+   beam-100 fill (R-UI-030, I-182). Never the only channel — `aria-current` announces it and the
+   focus reticle stands on it — and never a basis colour, which is the pattern's own (B-17). */
+.cx-register-source [data-origin="true"] {
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-2);
+  background: var(--beam-100);
+  box-shadow: inset 2px 0 0 0 var(--beam-500);
+}
+
 .cx-register-bases,
 .cx-register-coverage {
   display: inline-flex;

@@ -349,10 +349,18 @@ pixel baseline (s-viewer §7). The two existing J-000 baselines are untouched.
 ## 8. Recorded IOUs (owner named, never a comment in `src/`)
 
 Lasso selection, R-TO-011's third mode — owner: the viewer toolbar leaf (R-UI-032's V/H/M tool
-letters); the marquee here is Shift+drag only and no tool mode ships. The Trace's origins — the
-EvidenceLink on a register line, queue item, certificate cell or BOQ line, and the inspector's
-formula with live variables (R-UI-022) — owner: the M2 register and estimate leaves; only the
-viewer-side target ships here. Per-entity keyboard selection, Ctrl/⌘+C on the focused canvas,
+letters); the marquee here is Shift+drag only and no tool mode ships. The Trace's origins are
+**partly paid** by inc-215 (§ 9): the register line's EvidenceLink and the inspector's formula with
+live variables ship, and the queue item, the certificate cell and the BOQ line stay unpaid — owner:
+those surfaces' own leaves.
+
+**A `layout` column on partition views.** No store ties a partition view to a layout today, so
+`sheetOfView(scope, drawingId)` in `src/modules/takeoff/trace` answers the single `layoutName` a
+confirmation recorded for that drawing in `sheetDisciplines`, and `"Model"` where none or several
+are — which is where a reading with no paper layout was in fact taken. A Trace address is therefore
+only as precise as the ingest's record. The cure is a layout carried on the view itself — owner: the
+node that owns `src/modules/takeoff/partition` and its store; no migration is made here, and nothing
+in `src/` promises one (Q-17). Per-entity keyboard selection, Ctrl/⌘+C on the focused canvas,
 zoom-to-selection as a letter, rotate and the minimap — owner: the toolbar leaf. The canvas key list
 `viewer_canvas_keys` names neither Escape nor the marquee — owner: the same leaf, which owns
 `src/ui/strings/viewer.ts` and R-UI-032's shortcut sheet. A per-user remembered inspector width
@@ -368,3 +376,128 @@ which ARCH-01's matrix offers nowhere today — owner: the node that owns the im
 `src/ui/strings`. And a debt against `tests/hotfix-j000`: its freeze reads an unmerged J-000
 extender as a trespass; the cure is bounding `FIX_END` at the hotfix's own landing when main does
 not yet contain HEAD — owner: the node that owns `tests/hotfix-j000`.
+
+## 9. The Trace block and the Cited-by block (inc-215-trace)
+
+The Trace's target half, amended: the selection tab of the right inspector gains two blocks, and
+nothing else about this Decision moves. Route (unchanged path, widened query)
+`/t/{tenant}/p/{project}/viewer/{drawing}/{layout}?s={KEY,…}&line={lineId}` — `line` names the
+register row the reader came from, and there is still **no `v`**, whose absence is what makes the
+address fly (I-85). Files: `src/modules/takeoff/viewer-inspector/{inspector-panel.tsx,copy.ts}`, the
+route's `{page.tsx,viewer-screen.tsx,trace-actions.ts,viewer.css,states.ts}`, and
+`src/modules/takeoff/viewer/hooks/{use-reveal.ts,use-selection.ts}` with
+`src/modules/takeoff/viewer/painter.ts` behind them. Law: R-UI-022, R-TO-011, X-2, J-021, R-UI-002,
+R-UI-004, R-UI-050, ARCH-01, ARCH-03, B-17, B-19, C-05. The link itself is ruled by
+`docs/design/evidence-link.md` and is never re-implemented here (B-17).
+
+### 9.1 Interpretations (numbering continues s-takeoff-register.md's I-182)
+
+- **I-183 — the two blocks live in the selection tab, not in a tab of their own.** Both are readings
+  *of* what is held: a Trace stands beside the selection it flew to and never instead of it, and the
+  Cited-by block answers the very keys the list above it names. A third tab would put a reader's own
+  selection one click away from what was said about it. Rejected: a Trace tab, which would also make
+  the two-tab strip a three-tab strip on every sheet, traced or not.
+- **I-184 — the panel is handed the chip and the link, and re-implements neither.** `InspectorPanel`
+  is a module and may not import `src/ui` (ARCH-01), so `BasisChip` and `EvidenceLink` arrive as
+  `chrome`, exactly as the register workspace's renderers do (s-takeoff I-170, B-17). The panel
+  composes no address either: `originAddress` is spelled once in `src/modules/takeoff/trace/address.ts`
+  and the screen hands the composed href down.
+- **I-185 — the pulse is told a basis, never a colour.** `reveal(keys, basis)` reads
+  `var(--basis-<basis lowercased>)` off the stage beside the duration it already reads there, and
+  hands the computed value to `Painter.pulse(durationMs, colour)`. One home for token reads, no hex
+  in a hook, and reduced motion keeps zeroing `--motion-flyto` at source with no branch anywhere
+  (R-UI-001, R-UI-004). A travel that names no basis — the Reveal door's own — keeps the canvas's
+  `--canvas-pulse`.
+- **I-186 — the travel waits for the basis, and waits for nothing else.** Where the address names a
+  `line`, the reading of `s` is applied once the door has answered in any of its three ways, so the
+  arrival is struck in the colour the traced number in fact carries rather than in whichever colour
+  had arrived first. Where it names none, the reading is applied exactly as it always was. Rejected:
+  striking twice — the arrival happens once and a second strike would perform it again.
+- **I-187 — a refusal of the read is the sheet's refusal, not the block's.** The Trace block states
+  three things and only three (§ 9.3). An ended session and a workspace this reader does not hold are
+  answered where the layer feed's own refusals are — the one `RefusalState` in the sheet's place,
+  with a remedy (ARCH-03, R-UI-020) — because a reader who cannot read this project cannot read the
+  drawing under it either. Rejected: a fourth cell spelling a code inside the inspector, which would
+  be a second home for a refusal's words.
+
+### 9.2 Anatomy
+
+Both blocks stand at the foot of the selection tab's body, under a hairline, in the order
+Trace → Cited-by. Neither is boxed: each is a reading of the list above it, not a panel beside it.
+
+```
+<section data-testid="viewer-inspector-trace" data-line data-basis data-state>
+  <h3>Trace</h3>  <BasisChip basis={quantityBasis} />
+  <p>Formula</p>  <p data-testid="viewer-inspector-trace-formula">{formula}</p>
+  <p>Variables</p>
+  <ol>
+    <li data-testid="viewer-inspector-trace-variable"
+        data-name data-value data-unit data-basis data-source>
+      {name} · {value} {unit} · {basis} · {source}
+    </li>  … one per binding, in binding order
+  </ol>
+  <a data-testid="viewer-inspector-trace-origin" href={originAddress}>Back to the register line</a>
+</section>
+
+<section data-testid="viewer-inspector-cited" data-state data-count>
+  <h3>Cited by</h3>  <p>{count} lines cite this selection</p>
+  <li data-testid="viewer-inspector-cited-line" data-line data-basis data-kind>
+    {kind} · {value} {unit} · <EvidenceLink href={originAddress} basis label={objectKey} data-line />
+  </li>  … one per answered line, in the door's own order
+</section>
+```
+
+The formula, every reading, every unit, every basis word and every source key is model data rendered
+verbatim in mono and never woven into a sentence (I-25, I-26). The basis chip is the shipped one, and
+it carries the glyph so the basis survives greyscale (R-UI-002). The origin link is a plain anchor:
+following it is a navigation, and Back stays a real history step (evidence-link I-178).
+
+### 9.3 States (R-UI-050) — this section's cells only
+
+`VIEWER_STATES` stays the one enumerable home the suite reflects over; no second matrix is declared.
+The Trace block's own `data-state` says which of three things is so, and the read in flight renders
+**no block at all** — a block that stated a cell before the door answered would state a fact nobody
+had established.
+
+- **ready** — the evidence, as § 9.2 draws it.
+- **missing** — the project holds no line by that id: `trace_missing`, no formula, no variables, and
+  **the selection the address applied still held and still listed**. A stale address is a fact, not a
+  refusal and not an error (I-88's idiom); no registry code is invented for it.
+- **failed** — the read faulted: `trace_failed` and `viewer-inspector-trace-retry`, which reads that
+  one line again in place. The sheet is not torn down for it and the selection is untouched.
+- **refusal / permission-denied** — not this block's (I-187): the sheet's own cells answer them.
+- **offline** — unchanged: reading is local and the address is the state; the origin link is never
+  disabled, because following it is a read.
+- **Cited-by** — `ready` with rows, `ready` with none (`data-count="0"` and `trace_cited_none`,
+  counted rather than hidden), and `failed` (`trace_cited_failed`). The whole block is absent where
+  nothing is held: the panel's own idle state is what teaches a reader with no selection.
+
+### 9.4 Copy, motion, tokens, themes
+
+Copy: `src/ui/strings/trace.ts` is the home — `trace_heading`, `trace_formula_label`,
+`trace_variables_label`, `trace_origin`, `trace_missing`, `trace_failed`, `trace_retry`,
+`trace_cited_heading`, `trace_cited_count`, `trace_cited_none`, `trace_cited_failed` — mirrored into
+`viewer-inspector/copy.ts` as `TRACE_COPY`, a table SEPARATE from `INSPECTOR_COPY` because the two
+mirror two different homes; `tests/takeoff/viewer-inspector/copy-mirror.test.ts` pins both. No build
+vocabulary and no clause id is visible anywhere.
+
+Motion: nothing new eases. The fly-to keeps `var(--motion-flyto)` (320 ms) and the strike keeps its
+length; the blocks appear with the reading, untweened. Tokens: `--space-1/2/3`, `--text-12/13`,
+`--font-mono`, `--graphite-600/700/900`, `--hairline`, and the seven basis colours reached only
+through the shipped chip and link — `viewer.css` spells no basis and no hex, and gains no
+`[data-theme]` selector (R-UI-001).
+
+### 9.5 Test hooks (closed contract, C-05)
+
+Ids: `viewer-inspector-trace`, `-trace-formula`, `-trace-variable`, `-trace-origin`, `-trace-retry`,
+`viewer-inspector-cited`, `-cited-line`, beside the pattern's own `evidence-link` /
+`evidence-link-glyph`. Attributes under test: on the block `data-line`, `data-basis`, `data-state`;
+on a variable row `data-name`, `data-value`, `data-unit`, `data-basis`, `data-source`; on the
+Cited-by block `data-state`, `data-count`; on a cited row `data-line`, `data-basis`, `data-kind`. The
+screen publishes `viewer-screen[data-trace-basis]` while a Trace is held, beside the `data-flyto` it
+already publishes. Doors: `takeoff.lineEvidence` / `takeoff.linesCiting` on the lane's router, and
+`readLineEvidence` / `readLinesCiting` as this route's server actions — one module, two doors, as the
+scale already is. Suites: `tests/takeoff/viewer-inspector/**`, `tests/takeoff/trace/**`,
+`tests/takeoff/viewer/hooks/use-reveal.test.tsx`; journey
+`tests/e2e/journeys/j-021-column-slice.spec.ts` at `j-021-column-slice/traced` and `/cited`, axe
+serious/critical = 0 at each, never widened.
