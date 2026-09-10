@@ -142,16 +142,48 @@
 
 /* --- the three regions --- */
 
+/*
+ * The tree and the inspector share the first row; the lines take the whole of the second.
+ *
+ * The Decision's centre lane was 280px and 340px of panel away from a workspace the frame's two
+ * rails already narrow to about 870px at the 1440 reference width — about 200px for a table of ten
+ * columns, which renders as one column and no affordance (R-TO-050 names all ten, and the
+ * checkpoint's own words are "formula and variables visible"). Full width is what lets the centre
+ * dominate, which is what the Decision asks for.
+ */
 .cx-register-body {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 340px;
+  grid-template-columns: 280px minmax(0, 1fr);
   gap: var(--space-4);
   align-items: stretch;
+}
+
+.cx-register-tree-panel {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.cx-register-inspector {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+/* The mount adds no box (I-171), so the table itself is the grid item that takes the row. */
+.cx-register-lines > * {
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 
 @media (max-width: 960px) {
   .cx-register-body {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cx-register-tree-panel,
+  .cx-register-inspector,
+  .cx-register-lines > * {
+    grid-column: 1;
+    grid-row: auto;
   }
 }
 

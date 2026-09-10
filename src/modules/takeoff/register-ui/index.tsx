@@ -46,6 +46,8 @@ type LineColumn = {
   header: string;
   accessorFn?: (line: ViewLine) => string;
   enableSorting?: boolean;
+  /** The width the column needs to be read at, so ten columns are a table and not one column. */
+  size?: number;
   cell: (context: LineCell) => ReactNode;
   meta?: { align?: "right" };
 };
@@ -247,6 +249,8 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
   const [pending, setPending] = useState<Pending | null>(null);
   const [steps, setSteps] = useState<readonly TimelineStep[]>([]);
   const [draft, setDraft] = useState<{ attribute: string; value: string; unit: string; precedence: string } | null>(null);
+  /** What a door left that no registry entry stands for: held here, raised in render (ARCH-03, B-21). */
+  const [fault, setFault] = useState<unknown>(null);
 
   const objects = useMemo(() => view.objects.filter((object) => keepsObject(object, filters)), [view.objects, filters]);
   /* I-173: a line measured off a struck object stays on record and out of the table, so every count,
@@ -254,6 +258,10 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
   const registered = useMemo(() => view.lines.filter((line) => !line.repudiated), [view.lines]);
   const lines = useMemo(() => registered.filter((line) => keeps(line, filters)), [registered, filters]);
   const tree = useMemo(() => treeOf(objects), [objects]);
+
+  // Thrown in render, where React's own boundary is: a rejected promise reaches no boundary at all,
+  // and a press that raised a fault into one would otherwise return with nothing said (R-UI-020).
+  if (fault !== null) throw fault;
 
   const selected = view.objects.find((object) => object.objectKey === selectedKey) ?? null;
   const struck = selected !== null && selected.corroboration === REPUDIATED;
@@ -267,7 +275,13 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
    */
   const refuse = (code: string | null, thrown: unknown): void => {
     const entry = code === null ? undefined : doors.refusalOf(code);
-    if (entry === undefined) throw thrown;
+    // Every caller of this helper is an event handler the browser invokes as a bare promise, so a
+    // throw here would become a rejection nobody observes: the fault is held and re-raised in render,
+    // which is where React's boundary — and the report id it mints — can see it.
+    if (entry === undefined) {
+      setFault(() => thrown);
+      return;
+    }
     setAnswer({ refusal: entry, evidence });
   };
 
@@ -373,6 +387,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
       header: REGISTER_COPY.takeoff_register_col_kind,
       accessorFn: (line) => line.kind,
       enableSorting: true,
+      size: 120,
       cell: ({ row }) => <span className="cx-register-cell-mono">{row.original.kind}</span>,
     },
     {
@@ -381,6 +396,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
       meta: { align: "right" },
       accessorFn: (line) => line.value ?? "",
       enableSorting: true,
+      size: 96,
       // The SI value at the precision it was published at, never re-rounded (I-25); a row kept with
       // no quantity states none, never a zero (L-QTY-02).
       cell: ({ row }) => <span className="cx-register-cell-mono">{row.original.value ?? ""}</span>,
@@ -390,16 +406,19 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
       header: REGISTER_COPY.takeoff_register_col_unit,
       accessorFn: (line) => line.unit,
       enableSorting: true,
+      size: 64,
       cell: ({ row }) => <span className="cx-register-cell-mono">{row.original.unit}</span>,
     },
     {
       id: "formula",
       header: REGISTER_COPY.takeoff_register_col_formula,
+      size: 150,
       cell: ({ row }) => <span className="cx-register-formula">{row.original.formula}</span>,
     },
     {
       id: "variables",
       header: REGISTER_COPY.takeoff_register_col_variables,
+      size: 150,
       cell: ({ row }) => (
         <span className="cx-register-cell-mono">
           {Object.entries(row.original.variables)
@@ -411,6 +430,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
     {
       id: "bases",
       header: REGISTER_COPY.takeoff_register_col_bases,
+      size: 116,
       // I-25's pair reads as one token, so it renders as one: the chip carries the glyph and the
       // palette of the basis that determines the figure, and the selecting basis follows the slash
       // as the word itself — two chips cannot compose a slash-joined pair (R-UI-002).
@@ -426,6 +446,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
       header: REGISTER_COPY.takeoff_register_col_coverage,
       accessorFn: (line) => line.coverage,
       enableSorting: true,
+      size: 104,
       cell: ({ row }) => (
         <span className="cx-register-coverage">
           <span className="cx-register-cell-mono">{row.original.coverage}</span>
@@ -436,6 +457,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
     {
       id: "calibration",
       header: REGISTER_COPY.takeoff_register_col_calibration,
+      size: 92,
       cell: ({ row }) => <span className="cx-register-cell-mono">{row.original.calibrationKeys.join(" ")}</span>,
     },
     {
@@ -443,6 +465,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
       header: REGISTER_COPY.takeoff_register_col_engine,
       accessorFn: (line) => line.engine,
       enableSorting: true,
+      size: 80,
       cell: ({ row }) => <span className="cx-register-cell-mono">{row.original.engine}</span>,
     },
     {
@@ -450,6 +473,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
       header: REGISTER_COPY.takeoff_register_col_source,
       accessorFn: (line) => line.sourceKey,
       enableSorting: true,
+      size: 120,
       // Text, not a link: the Trace from a line to its entities is inc-215's (Decision § 8).
       cell: ({ row }) => <span className="cx-register-source">{row.original.sourceKey}</span>,
     },

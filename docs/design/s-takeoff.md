@@ -112,11 +112,15 @@ renders in `var(--font-mono)`; the all-option, which is the control's own chrome
 — `takeoff_register_lines_count` filled through `formatUserFigure`, `var(--font-ui)`
 `var(--text-12)` `var(--graphite-600)` `tabular-nums`, mounted from first paint.
 
-**Body** — `<div class="cx-register-body">`, grid `280px minmax(0, 1fr) 340px`,
-`gap: var(--space-4)`, `align-items: stretch`; one column below `min-width: 960px` (the md token's
-value, the one lawful literal in a media query — S-Audit's ruling). The centre dominates: the tree
-and the inspector are `var(--graphite-50)` panels bordered `var(--hairline)`, radius
-`var(--radius-8)`; the lines table sits on `var(--graphite-0)` and takes the height.
+**Body** — `<div class="cx-register-body">`, grid `280px minmax(0, 1fr)`, `gap: var(--space-4)`,
+`align-items: stretch`; one column below `min-width: 960px` (the md token's value, the one lawful
+literal in a media query — S-Audit's ruling). The tree panel takes column 1 of row 1 and the
+inspector column 2; the lines table takes the whole of row 2. The centre dominates by being the
+whole width: at the 1440 reference width the frame's two rails leave the workspace about 870px, and
+a lane between a 280px tree and a 340px inspector is about 200px — one of the table's ten columns,
+which is not a register. The tree and the inspector are `var(--graphite-50)` panels bordered
+`var(--hairline)`, radius `var(--radius-8)`; the lines table sits on `var(--graphite-0)` and takes
+the height.
 
 - **Tree panel** — `<h2>` `takeoff_register_tree_label` (`var(--text-13)`
   `var(--weight-heading)`, padding `var(--space-2)` `var(--space-3)`, `border-bottom:
@@ -129,7 +133,11 @@ and the inspector are `var(--graphite-50)` panels bordered `var(--hairline)`, ra
   always rendered — the zero form is a counted empty set, never a hidden cell (I-173).
 - **Lines** — the I-171 wrapper `data-testid="register-lines"` around the shipped `DataTable`,
   `density` from the frame's `data-density`, `getRowId` the `lineId`, virtualised as it ships (50 000
-  rows cost one screenful). Columns in exactly this order, headers from the copy table: `kind`,
+  rows cost one screenful). Each column carries the width it is read at rather than the primitive's
+  150px default, and the six that hold one scalar — `kind`, `value`, `unit`, `coverage`, `engine`,
+  `source` — carry `enableSorting` with the value they order by: the sort control is also the
+  keyboard way into a virtualised scroll box, which R-UI-012 requires and axe checks. Columns in
+  exactly this order, headers from the copy table: `kind`,
   `value` (`meta.align: "right"`), `unit`, `formula`, `variables`, `bases`, `coverage`,
   `calibration`, `engine`, `source`. Cells: the SI value verbatim; the unit through the shipped
   UnitBadge; the formula verbatim, wrapping, mono; variables as `name=value unit` pairs read from
