@@ -40,7 +40,11 @@ export default defineConfig({
   timeout: 120_000,
   use: {
     baseURL,
-    trace: "retain-on-failure",
+    // Vextrus Builder v21 L9: the engine turns video and a full trace on for the final, green,
+    // pre-merge journey run only (CUBIT_E2E_VIDEO / CUBIT_E2E_TRACE = on) and harvests them into
+    // the increment's evidence; every other run keeps the cheap defaults.
+    video: process.env["CUBIT_E2E_VIDEO"] === "on" ? "on" : "off",
+    trace: process.env["CUBIT_E2E_TRACE"] === "on" ? "on" : "retain-on-failure",
     // V-E2E owes a screenshot at every named checkpoint. `tests/e2e/support/checkpoint.ts` attaches
     // the ones it is called at under their own names; this is the floor beneath it, so a declared
     // checkpoint a journey stands on without calling that helper — j-000-home, the smoke's single

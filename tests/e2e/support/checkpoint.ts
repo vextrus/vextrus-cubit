@@ -28,6 +28,9 @@ export async function checkpoint(page: Page, testInfo: TestInfo, name: string): 
     return results.violations;
   })) as AxeViolation[];
 
+  // The axe result rides beside the screenshot as its own attachment (Vextrus Builder v21 L9): the
+  // evidence pack renders it next to the frame; it was asserted here and kept nowhere before.
+  await testInfo.attach(`${name}.axe`, { body: JSON.stringify({ checkpoint: name, violations }, null, 1), contentType: "application/json" });
   const blocking = violations.filter((violation) => BLOCKING.has(violation.impact ?? ""));
   expect(
     blocking.map((violation) => `${violation.impact} ${violation.id}: ${violation.help} at ${violation.nodes.map((node) => node.target.join(" ")).join(" | ")}`),
