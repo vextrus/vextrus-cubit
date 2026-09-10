@@ -1,8 +1,14 @@
 /**
  * J-000 — the Golden Path reaches the coverage grid (AC-8). A new account uploads F-RCC6, confirms
- * the discipline its sheets fanned out under, affirms the scale of a view, pins a drawing set, asks
- * for a measure run, reads the column concrete lines the rails published, and then reads the grid
- * that says what the campaign did NOT measure and why (X-3, R-TO-052, J-000).
+ * the discipline its sheets fanned out under, affirms the scale of a view, pins a drawing set, runs
+ * the partition against the revision that pin opened, asks for a measure run, reads the column
+ * concrete lines the rails published, and then reads the grid that says what the campaign did NOT
+ * measure and why (X-3, R-TO-052, J-000).
+ *
+ * The partition run is a step of J-000's own enumeration, not a convenience: the expansion registers
+ * into set revisions that already exist, so the run the upload fired — which ran before this
+ * revision came into being — leaves the pinned revision unregistered until a run is asked for after
+ * the pin. It is asked through R-TO-030's published door, the way this lane reaches every other seam.
  *
  * A NEW file rather than an edit of `j-000-golden-path.spec.ts`: the merged `tests/hotfix-j000` suite
  * byte-freezes every J-000 asset the pre-fix merge tracked, and its own words make an addition under
@@ -15,7 +21,8 @@
  * Nothing is transcribed. Which view is affirmed, which drawing is pinned and which cells stand on
  * the grid are all read off the product as this journey walks it (B-19).
  */
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
 import { SCoveragePage } from "../pages/s-coverage.page";
@@ -61,6 +68,24 @@ const S_SETS = {
 
 const at = (page: Page, testId: string): Locator => page.locator(`[data-testid="${testId}"]`);
 const setsRoute = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/drawings/sets`;
+
+/** The checkout these journeys run against (tests/e2e/takeoff/register-stage.ts's own idiom). */
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+
+/** A product module of the checkout, by repo-relative path — the journey lane's way to a seam. */
+async function productModule<T>(relative: string): Promise<T> {
+  const specifier: string = join(REPO_ROOT, relative);
+  return (await import(specifier)) as T;
+}
+
+/**
+ * R-TO-030's one door, as the takeoff partition module publishes it — the step J-000 spells "run
+ * partition". Read off the product rather than re-spelled here, so a door that moves moves this
+ * journey with it (B-19).
+ */
+type PartitionSeam = {
+  requestPartition: (request: { tenantId: string; drawingId: string; requestedBy: string }) => Promise<{ jobId: string | null; ingestId: string | null; deduplicated: boolean } | { refusal: string }>;
+};
 
 /** How long the extraction, the rasters and a measure run may take on a cold server. */
 const FAN_OUT_BUDGET_MS = 90_000;
@@ -159,11 +184,34 @@ test.describe("J-000 — Golden Path: the uploaded drawing is measured, and the 
       await setDialog.locator(`[data-testid="${S_SETS.dialogConfirm}"]`).click();
       await expect(setDialog, "the dialog closes on the act it carried (R-UI-021)").toHaveCount(0, { timeout: FAN_OUT_BUDGET_MS });
 
+      /* --- run partition: J-000's own step, and the one that fills the pinned revision. The
+             expansion registers into set revisions that ALREADY exist, so the run the upload fired
+             — which ran before this revision came into being — leaves the register empty until a
+             run is asked for now. Asked through the door the shipped product publishes for it
+             (R-TO-030), never a table written by hand. --- */
+      const drawingId = (await memberRow.getAttribute("data-drawing")) ?? "";
+      expect(drawingId, "the set's own row names the drawing it holds").not.toBe("");
+      const requestedBy = (await shell.user.getAttribute("data-user-id")) ?? "";
+      expect(requestedBy, "the shell states which account is signed in — the person this run is asked by").not.toBe("");
+
+      const partitionSeam = await productModule<PartitionSeam>("src/modules/takeoff/partition/index.ts");
+      const partition = await partitionSeam.requestPartition({ tenantId, drawingId, requestedBy });
+      expect("refusal" in partition ? partition.refusal : null, "the partition door accepts a run of the pinned drawing").toBeNull();
+      const partitionJob = "jobId" in partition ? partition.jobId : null;
+      expect(partitionJob, "and answers with the job it enqueued, which the shipped worker runs").not.toBeNull();
+
+      await drawings.open(tenantId, projectId);
+      await expect(
+        page.locator(`[data-testid="job-timeline-step"][data-job="${partitionJob ?? ""}"]`),
+        "the partition run stands on the timeline where the work was started (X-1)",
+      ).toBeVisible({ timeout: FAN_OUT_BUDGET_MS });
+      await expect(drawings.timeline, "and finishes there, as the upload's own jobs did").toHaveAttribute("data-state", "done", { timeout: FAN_OUT_BUDGET_MS });
+
       /* --- j-000/column-lines: the measure run, and the lines it published --- */
       await takeoff.open(tenantId, projectId);
       await expect(takeoff.measure, "the register offers the door that measures the pinned campaign").toBeVisible();
       await takeoff.measure.click();
-      await expect(takeoff.lines, "the lines table stands").toBeVisible();
+      await expect(takeoff.lines, "the lines table stands").toBeVisible({ timeout: MEASURE_BUDGET_MS });
       await expect
         .poll(async () => takeoff.lines.getByTestId("evidence-link").count(), { timeout: MEASURE_BUDGET_MS, message: "the rails publish the column concrete lines of the walked-in project" })
         .toBeGreaterThan(0);
