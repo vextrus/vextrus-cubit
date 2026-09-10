@@ -68,6 +68,11 @@ export type StagedLine = {
 export type StagedRegister = {
   tenantId: string;
   projectId: string;
+  /** The sheet the staged columns were read on — where a Trace from one of their lines lands. */
+  drawingId: string;
+  layoutName: string;
+  /** Where this run's lines cite their evidence: synthetic by default, real handles under `cite`. */
+  cited: CitedSources;
   campaignId: string;
   setRevisionId: string;
   objectKeys: string[];
@@ -133,8 +138,42 @@ async function userIdOf(page: Page): Promise<string> {
   return held as string;
 }
 
+/**
+ * Where a staged line's evidence is cited. The defaults are synthetic keys the served sheet does not
+ * hold, which is all `tests/e2e/register.spec.ts` ever needed; J-021 hands in REAL `DXF_HANDLE:` keys
+ * read off the layer feed (j-020's idiom, risk note 1), so a Trace from one of these lines lands on
+ * entities the sheet in fact holds rather than in I-88's "Not on this sheet" cell.
+ */
+export type CitedSources = {
+  /** What the sighting was read at, and what the placement's geometry binding cites. */
+  evidence: string;
+  /** Where the family's section was read. */
+  section: string;
+  /** Where the level's storey height was transcribed. */
+  height: string;
+};
+
+/** The synthetic defaults: keys of the register's own grammar, on no sheet the viewer serves. */
+export const SYNTHETIC_SOURCES: CitedSources = Object.freeze({ evidence: "S-101:e:41", section: "S-101:e:7", height: "S-101:e:3" });
+
+/**
+ * What a caller's `cite` list means, position by position, defaulted where it is short. It arrives
+ * as a callback because the keys are read off the SERVED SHEET, which only exists once the stage
+ * below has built it — the journey asks the layer feed, and hands back what the sheet in fact holds.
+ */
+export type CiteKeys = (sheet: { tenantId: string; drawingId: string; layoutName: string; ingestId: string }) => Promise<readonly string[]>;
+
+function citedFrom(cite: readonly string[] | undefined): CitedSources {
+  if (cite === undefined || cite.length === 0) return SYNTHETIC_SOURCES;
+  return {
+    evidence: cite[0] as string,
+    section: (cite[1] ?? cite[0]) as string,
+    height: (cite[2] ?? cite[0]) as string,
+  };
+}
+
 /** One column sighting, as the register's door is given one (the door's own `Sighting`). */
-function sightingOf(mark: string, at: number, levelId: string): Record<string, unknown> {
+function sightingOf(mark: string, at: number, levelId: string, cited: CitedSources): Record<string, unknown> {
   return {
     discipline: DISCIPLINE,
     elementType: CLASS_COLUMN,
@@ -145,7 +184,7 @@ function sightingOf(mark: string, at: number, levelId: string): Record<string, u
     level: { levelId },
     standing: "MEASURED",
     content: {
-      evidence: ["S-101:e:41"],
+      evidence: [cited.evidence],
       attributes: { concrete_grade: "C30/37" },
       geometry: { outline: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }], span: { length: "300.0", breadth: "300.0" } },
       source: { sheet: "S-101", anchor: "S-101:t:12" },
@@ -153,10 +192,8 @@ function sightingOf(mark: string, at: number, levelId: string): Record<string, u
   };
 }
 
-/** The family the staged columns belong to, the section it carries, and where each was read. */
+/** The family the staged columns belong to, and the calibration the view was scaled by. */
 const MEMBER_FAMILY = "COL-300x450";
-const SECTION_SOURCE = "S-101:e:7";
-const HEIGHT_SOURCE = "S-101:e:3";
 const CALIBRATION_KEY = "S-101:PLAN:scale";
 
 /**
@@ -167,7 +204,7 @@ const CALIBRATION_KEY = "S-101:PLAN:scale";
  * The ids are the ones this run staged — a rail is handed data, so nothing here is invented that the
  * journey does not already hold.
  */
-function setupFor(rows: readonly Record<string, unknown>[], ids: { drawingId: string; ingestId: string; levelId: string }): Record<string, unknown> {
+function setupFor(rows: readonly Record<string, unknown>[], ids: { drawingId: string; ingestId: string; levelId: string }, cited: CitedSources): Record<string, unknown> {
   const placements: Record<string, Record<string, unknown>> = {};
   const views: Record<string, string> = {};
   for (const row of rows) {
@@ -178,7 +215,7 @@ function setupFor(rows: readonly Record<string, unknown>[], ids: { drawingId: st
       viewKey,
       memberFamily: MEMBER_FAMILY,
       engine: "VECTOR",
-      sourceEntity: String(row["placementKey"]),
+      sourceEntity: cited.evidence,
     };
     views[viewKey] = CALIBRATION_KEY;
   }
@@ -187,11 +224,11 @@ function setupFor(rows: readonly Record<string, unknown>[], ids: { drawingId: st
     memberTypes: {
       [ids.ingestId]: {
         [MEMBER_FAMILY]: [
-          { variantKey: MEMBER_FAMILY, bandFrom: null, bandTo: null, sectionText: "300x450", sectionWidth: 300, sectionDepth: 450, sectionUnit: "mm", sourceKeys: [SECTION_SOURCE] },
+          { variantKey: MEMBER_FAMILY, bandFrom: null, bandTo: null, sectionText: "300x450", sectionWidth: 300, sectionDepth: 450, sectionUnit: "mm", sourceKeys: [cited.section] },
         ],
       },
     },
-    levels: [{ levelId: ids.levelId, label: LEVEL_LABEL, ordinal: 0, height: { standing: "AGREED", value: "3", unit: "M", basis: "TRANSCRIBED", sourceKey: HEIGHT_SOURCE } }],
+    levels: [{ levelId: ids.levelId, label: LEVEL_LABEL, ordinal: 0, height: { standing: "AGREED", value: "3", unit: "M", basis: "TRANSCRIBED", sourceKey: cited.height } }],
     calibrations: { [ids.ingestId]: views },
     grades: {},
   };
@@ -212,9 +249,10 @@ function interpretedOffer(offer: OfferShape): OfferShape {
  * measured into published `rcc.concrete` lines, one deferred as a queue item — with one sighting
  * refused as a double count: the shape J-021's register leg reads.
  */
-export async function stageRegister(page: Page, options: { label?: string } = {}): Promise<StagedRegister> {
+export async function stageRegister(page: Page, options: { label?: string; cite?: CiteKeys } = {}): Promise<StagedRegister> {
   const label = options.label ?? "register";
   const sheet = await stagePartitionedSheet(page, { label });
+  const cited = citedFrom(options.cite === undefined ? undefined : [...(await options.cite(sheet))]);
   const userId = await userIdOf(page);
   const actor: ActorCtx = { tenantId: sheet.tenantId, userId, actorKind: "human" };
   const scope = { tenantId: sheet.tenantId, projectId: sheet.projectId };
@@ -250,7 +288,7 @@ export async function stageRegister(page: Page, options: { label?: string } = {}
   /* --- the objects: the three the leg reads, and the fourth whose offer is INTERPRETED --- */
   const register = await productModule<RegisterSeam>("src/modules/takeoff/register/index.ts");
   const registerScope = { tenantId: sheet.tenantId, projectId: sheet.projectId, setRevisionId };
-  const sightings = [...MARKS, INTERPRETED_MARK].map((mark, at) => sightingOf(mark, at, levelId));
+  const sightings = [...MARKS, INTERPRETED_MARK].map((mark, at) => sightingOf(mark, at, levelId, cited));
   for (const sighting of sightings) {
     const answer = await register.registerSighting(registerScope, sighting);
     expect(answer["registered"], `the sighting of ${String(sighting["mark"])} registered: ${JSON.stringify(answer)}`).toBe(true);
@@ -271,7 +309,7 @@ export async function stageRegister(page: Page, options: { label?: string } = {}
     setRevisionId,
     kind: RCC_CONCRETE,
     objects: rows,
-    setup: setupFor(rows, { drawingId: sheet.drawingId, ingestId: sheet.ingestId, levelId }),
+    setup: setupFor(rows, { drawingId: sheet.drawingId, ingestId: sheet.ingestId, levelId }, cited),
   }).offers;
   expect(offered.length, `the rail offers each staged column once: ${offered.length}`).toBe(sightings.length);
 
@@ -313,5 +351,5 @@ export async function stageRegister(page: Page, options: { label?: string } = {}
     `and one sighting stands refused as ${DUPLICATE_IDENTITY}: ${JSON.stringify(view.refusals)}`,
   ).toBe(1);
 
-  return { tenantId: sheet.tenantId, projectId: sheet.projectId, campaignId, setRevisionId, objectKeys, queuedObjectKey, refusedObjectKey, line };
+  return { tenantId: sheet.tenantId, projectId: sheet.projectId, drawingId: sheet.drawingId, layoutName: sheet.layoutName, campaignId, setRevisionId, objectKeys, queuedObjectKey, refusedObjectKey, cited, line };
 }

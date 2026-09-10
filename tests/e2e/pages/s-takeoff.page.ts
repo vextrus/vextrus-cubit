@@ -101,6 +101,36 @@ export class STakeoffPage {
     return this.page.getByTestId("register-level-stack");
   }
 
+  /* --- the Trace's origin: the `source` cell's link and the row it returns to (inc-215) --- */
+
+  /** Every EvidenceLink the lines table renders, in row order. */
+  get evidenceLinks(): Locator {
+    return this.lines.getByTestId("evidence-link");
+  }
+
+  /** The link one line's `source` cell carries. */
+  evidenceLink(lineId: string): Locator {
+    return this.lines.locator(`[data-testid="evidence-link"][data-line="${lineId}"]`);
+  }
+
+  /** The one link marked as the row the reader traced from (Decision I-182). */
+  get originLink(): Locator {
+    return this.lines.locator('[data-testid="evidence-link"][data-origin="true"]');
+  }
+
+  /** Open the register at an address that names an origin row (`originAddress`). */
+  async openAtOrigin(tenantId: string, projectId: string, lineId: string): Promise<void> {
+    await this.page.goto(`${S_TAKEOFF.register(tenantId, projectId)}?line=${encodeURIComponent(lineId)}`);
+    await expect(this.root, "the register workspace renders at the address the Trace stamped").toBeVisible();
+  }
+
+  /** The lineIds the table offers a Trace from, in row order. */
+  async tracedLineIds(): Promise<string[]> {
+    const held: string[] = [];
+    for (const anchor of await this.evidenceLinks.all()) held.push((await anchor.getAttribute("data-line")) ?? "");
+    return held;
+  }
+
   /**
    * The per-run texts a design picture may not freeze (Decision §7, B-19).
    *
