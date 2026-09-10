@@ -27,3 +27,9 @@ cad/.venv/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+
+# The engine's held-out acceptance (the Verifier's answers, mounted only at gate time — Vextrus
+# Builder v21 fault 266). It is never part of the tree: not by `git add -A`, not by a crash
+# quarantine, not by any session. The engine excludes it by pathspec as well; this line is the
+# product's own copy of the same law.
+.builder-heldout/
