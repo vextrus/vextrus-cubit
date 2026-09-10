@@ -27,6 +27,10 @@ import userEvent from "@testing-library/user-event";
 import { createElement, type FunctionComponent } from "react";
 import { expect } from "vitest";
 import { productModule } from "../../../server/support/wire";
+// jsdom performs no layout, so a virtualised table renders nothing at all unless its scroll
+// container is given a measurable box. The stubs are the shipped DataTable's own (inc-005's support,
+// keyed on `datatable-viewport`) — installed here, never written a second time beside them (B-17).
+import { installDomStubs } from "../../primitives-overlay-data/support/render";
 
 // Re-exported so a suite that loads this stage by absolute path — the held-out set does — reaches
 // the same mount, the same cleanup and the same driver without resolving a package of its own.
@@ -34,8 +38,8 @@ export { cleanup, productModule, userEvent, within };
 
 /* ------------------------------------------------------------------ the homes the spec names */
 
-/** The mountable workspace (goal: `src/modules/takeoff/register-ui`). */
-export const REGISTER_UI_MODULE = "src/modules/takeoff/register-ui";
+/** The mountable workspace — the barrel of `src/modules/takeoff/register-ui` (goal, Decision I-170). */
+export const REGISTER_UI_MODULE = "src/modules/takeoff/register-ui/index.tsx";
 
 /** The screen's copy, keyed `takeoff_register_…` (Decision §3, test contract). */
 export const TAKEOFF_STRINGS_MODULE = "src/ui/strings/takeoff.ts";
@@ -48,6 +52,12 @@ export const ERRORS_MODULE = "src/core/errors.ts";
 
 /** The kinds a quantity line may be published under, read off the catalogue rather than transcribed. */
 export const KINDS_MODULE = "src/core/catalogue/kinds.ts";
+
+/** The closed rosters a published line's own columns are drawn from (bases, engines, coverages). */
+export const OFFERS_LAW_MODULE = "src/core/offers/law.ts";
+
+/** The closed roster an object's role — its sighting standing — is drawn from (settled reading 1). */
+export const IDENTITY_LAW_MODULE = "src/core/identity/law.ts";
 
 /** The shipped chrome, by the barrels that publish it (I-170, B-17: never re-implemented here). */
 export const CHROME_BARRELS: readonly string[] = [
@@ -95,10 +105,12 @@ export const CAMPAIGN_NOT_FOUND = "CAMPAIGN_NOT_FOUND";
 
 /** The rosters a line's own columns are drawn from (src/core/offers/law.ts). */
 export const MEASURED = "MEASURED";
+export const DERIVED = "DERIVED";
 export const INTERPRETED = "INTERPRETED";
 export const COMPLETE = "COMPLETE";
 export const PARTIAL_DECLARED = "PARTIAL_DECLARED";
 export const VECTOR = "VECTOR";
+export const RASTER = "RASTER";
 
 /* ------------------------------------------------------------- what the screen is handed, typed */
 
@@ -236,12 +248,14 @@ export function anObject(over: Partial<ViewObject> = {}): ViewObject {
 }
 
 /**
- * What one variable of a line's formula was read as. The as-written reading and the canonical one
- * agree on purpose: what the variables cell states is then the one pair `name=value unit` whichever
- * of the two a renderer reads, so the criterion measures the RENDERING and never a conversion.
+ * What one variable of a line's formula was read as. Where the caller states no canonical pair the
+ * as-written reading and the canonical one agree, so that cell measures the RENDERING and never a
+ * conversion; where it states one — a section written in millimetres and canonicalised into metres,
+ * which is how a structural schedule writes one (L-REG-01) — the two spellings differ, and a cell
+ * that stated the canonical pair would state other words than the `bindings` the Decision names.
  */
-export function aBinding(value: string, unit: string, basis: string = MEASURED): ViewBinding {
-  return { value, unit, basis, source: "S-101:e:41", canonical: { value, unit } };
+export function aBinding(value: string, unit: string, basis: string = MEASURED, canonical: { value: string; unit: string } = { value, unit }): ViewBinding {
+  return { value, unit, basis, source: "S-101:e:41", canonical };
 }
 
 /** One published quantity line of the staged campaign. */
@@ -284,21 +298,123 @@ export function aView(over: Partial<RegisterViewLike> = {}): RegisterViewLike {
 
 /**
  * AC-2's corpus: three STRUCTURAL `column` objects marked C1, C2 and C3 on level `GF`, each with one
- * `rcc.concrete` line of quantityBasis MEASURED, engine VECTOR and coverage COMPLETE.
+ * quantity line — the first of them the criterion's own line (kind `rcc.concrete`, quantityBasis
+ * MEASURED, engine VECTOR, coverage COMPLETE).
+ *
+ * The three lines are NOT one row written three times. Each column a cell renders is spread over the
+ * roster the product declares it from — the caller hands the rosters in, so a roster that grows
+ * spreads this corpus further and nothing here is a list to be extended by hand (B-19) — and the
+ * three columns were read at three different sets of dimensions, the last of them in millimetres.
+ * What a row states is then a fact about the LINE it stands on: a renderer that spelled a constant
+ * into the kind, unit, bases, coverage, calibration, engine or variables cell, or into an object's
+ * basis or role, states the same words for a row that carries other ones and the criterion fails.
+ *
+ * The one column the corpus cannot spread is the kind, and with it the unit: the catalogue names
+ * exactly one kind today, so no lawful view holds two. It is handed in all the same, and the moment
+ * `KINDS` names a second the corpus carries it.
  */
 export const REGISTER_MARKS: readonly string[] = ["C1", "C2", "C3"];
 
-export function registerFixture(): RegisterViewLike {
-  const objects = REGISTER_MARKS.map((mark) => anObject({ mark }));
-  const lines = REGISTER_MARKS.map((mark, at) =>
-    aLine({
+/** One variable of the column rule, as written on the sheet and as canonicalised (L-REG-01). */
+type ReadDimension = readonly [name: string, written: readonly [string, string], canonical: readonly [string, string]];
+
+/**
+ * What each of the three columns was read as. The third was written in millimetres, so the variables
+ * cell of its row cannot read as the first's — and the SI value of every row is the product of its
+ * OWN canonical dimensions rather than a figure typed beside them.
+ */
+const COLUMN_READINGS: readonly (readonly ReadDimension[])[] = [
+  [
+    ["length", ["0.3", "m"], ["0.3", "m"]],
+    ["breadth", ["0.3", "m"], ["0.3", "m"]],
+    ["height", ["3", "m"], ["3", "m"]],
+  ],
+  [
+    ["length", ["0.25", "m"], ["0.25", "m"]],
+    ["breadth", ["0.4", "m"], ["0.4", "m"]],
+    ["height", ["3.2", "m"], ["3.2", "m"]],
+  ],
+  [
+    ["length", ["300", "mm"], ["0.3", "m"]],
+    ["breadth", ["350", "mm"], ["0.35", "m"]],
+    ["height", ["3200", "mm"], ["3.2", "m"]],
+  ],
+];
+
+/** A figure as a line publishes one: the SI value at the precision it was computed to, no padding. */
+function si(value: number): string {
+  return String(Number(value.toFixed(6)));
+}
+
+/** The bindings one column's row carries, and the SI volume they multiply out to. */
+export function dimensionsOf(at: number): { variables: Record<string, ViewBinding>; volume: string } {
+  const read = COLUMN_READINGS[at % COLUMN_READINGS.length] as readonly ReadDimension[];
+  const variables: Record<string, ViewBinding> = {};
+  let volume = 1;
+  for (const [name, written, canonical] of read) {
+    variables[name] = aBinding(written[0], written[1], MEASURED, { value: canonical[0], unit: canonical[1] });
+    volume *= Number(canonical[0]);
+  }
+  return { variables, volume: si(volume) };
+}
+
+/**
+ * The rosters this corpus spreads over. Every one of them is a roster the product itself declares —
+ * the suite hands in what it read off `src/core/offers/law.ts`, `src/core/identity/law.ts` and the
+ * catalogue — and the defaults below are only what a caller that states none stands on.
+ */
+export interface RegisterSpread {
+  kinds?: readonly string[];
+  units?: readonly string[];
+  bases?: readonly string[];
+  coverages?: readonly string[];
+  engines?: readonly string[];
+  roles?: readonly string[];
+}
+
+export function registerFixture(spread: RegisterSpread = {}): RegisterViewLike {
+  const kinds = spread.kinds ?? [];
+  const units = spread.units ?? [];
+  const bases = spread.bases ?? [MEASURED, DERIVED, INTERPRETED];
+  const coverages = spread.coverages ?? [COMPLETE, PARTIAL_DECLARED];
+  const engines = spread.engines ?? [VECTOR, RASTER];
+  const roles = spread.roles ?? [MEASURED, DERIVED];
+  const at = <T,>(roster: readonly T[], index: number): T | undefined => (roster.length === 0 ? undefined : roster[index % roster.length]);
+
+  const lines = REGISTER_MARKS.map((mark, index) => {
+    const { variables, volume } = dimensionsOf(index);
+    const coverage = coverages[index % coverages.length] as string;
+    return aLine({
       lineId: `line-${mark}`,
       objectKey: objectKeyOf(mark),
       sourceKey: sourceKeyOf(mark),
-      value: `0.2${at + 5}`,
+      ...(at(kinds, index) === undefined ? {} : { kind: at(kinds, index) as string }),
+      ...(at(units, index) === undefined ? {} : { unit: at(units, index) as string }),
+      variables,
+      // L-QTY-02, honoured by the corpus: a row whose coverage is not complete carries no quantity —
+      // an empty cell, never a zero and never the word `null`.
+      value: coverage === COMPLETE ? volume : null,
+      quantityBasis: bases[index % bases.length] as string,
+      // The two bases are read from different places, so the corpus states different words in them:
+      // a `bases` cell that stated one field twice would read alike for a line that does not.
+      selectionBasis: bases[(index + 1) % bases.length] as string,
+      coverage,
+      engine: engines[index % engines.length] as string,
       calibrationKeys: ["S-101:PLAN:scale", `S-101:${mark}:probe`],
-    }),
-  );
+    });
+  });
+
+  const objects = REGISTER_MARKS.map((mark, index) => {
+    const line = lines[index] as ViewLine;
+    return anObject({
+      mark,
+      // Settled reading (1): an object's basis is the weakest quantityBasis over ITS lines — one line
+      // here, so the object's basis is that line's, derived rather than declared beside it.
+      basis: line.quantityBasis,
+      role: roles[index % roles.length] as string,
+    });
+  });
+
   return aView({ objects, lines });
 }
 
@@ -456,6 +572,32 @@ export async function refusalCodes(): Promise<string[]> {
   return Object.values(register).flatMap((entry) => (entry === undefined ? [] : [entry.code]));
 }
 
+/** One closed roster of the product, read off the module that declares it (B-19: never transcribed). */
+async function roster(module: string, name: string): Promise<string[]> {
+  const held = await productModule<Record<string, unknown>>(module);
+  expect(Array.isArray(held[name]), `${module} publishes \`${name}\` — the closed roster this column's values are drawn from`).toBe(true);
+  return [...(held[name] as readonly string[])];
+}
+
+/**
+ * The rosters a published line's own columns are drawn from. A corpus spread over these varies every
+ * column the roster varies, and grows with it — so no expectation here is a snapshot of today's
+ * members (B-19).
+ */
+export async function offerRosters(): Promise<{ bases: string[]; engines: string[]; coverages: string[] }> {
+  const [bases, engines, coverages] = await Promise.all([
+    roster(OFFERS_LAW_MODULE, "QUANTITY_BASES"),
+    roster(OFFERS_LAW_MODULE, "ENGINES"),
+    roster(OFFERS_LAW_MODULE, "COVERAGES"),
+  ]);
+  return { bases, engines, coverages };
+}
+
+/** The roster an object's role is drawn from — the sighting standing (settled reading 1). */
+export async function sightingStandings(): Promise<string[]> {
+  return roster(IDENTITY_LAW_MODULE, "SIGHTING_STANDINGS");
+}
+
 /** The kinds a line may be published under, read off the catalogue (B-19: never transcribed). */
 export async function kinds(): Promise<string[]> {
   const module = await productModule<{ KINDS?: readonly string[] }>(KINDS_MODULE);
@@ -522,6 +664,7 @@ export interface MountOptions {
 
 /** Mount the workspace over one view and hand back its own root (`register-workspace`). */
 export async function mountRegister(view: RegisterViewLike, over: MountOptions = {}): Promise<HTMLElement> {
+  installDomStubs();
   const component = await registerWorkspace();
   const bound = await chrome();
   const doors = over.doors ?? (await stagedDoors()).doors;

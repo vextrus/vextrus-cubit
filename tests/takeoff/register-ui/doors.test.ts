@@ -23,8 +23,8 @@ import {
   insertion,
   measureSeam,
   previewed,
+  productModule,
   rowsOf,
-  sql,
   stagePerson,
   stageRegisterCampaign,
   subjectsOf,
@@ -49,10 +49,27 @@ const PROPOSED: readonly { label: string; ordinal: number }[] = [
   { label: "L3", ordinal: 3 },
 ];
 
-/** How many claims stand under one job key — the row a request leaves behind (SEAM-JOBS). */
-function claimsUnder(kind: string, key: string): number {
-  const rows = sql(`select count(*) from cubit_jobs.job_claims where kind = '${kind}' and key = '${key}';`);
-  return Number(rows[0]?.[0] ?? 0);
+/**
+ * The queue, through the seam the measure door itself enqueues through (SEAM-JOBS, `@/core/jobs`).
+ * The claim a key holds is read by asking the queue rather than by reading its tables: the queue owns
+ * its own storage and nothing outside it may read those tables (ARCH-02), so what a job "standing
+ * under a key" means is exactly what the seam answers about that key.
+ */
+interface JobsSeam {
+  enqueue: (kind: string, payload: Record<string, unknown>, options: { key: string }) => Promise<{ jobId: string; deduplicated: boolean }>;
+  isKnownJob: (jobId: string) => Promise<boolean>;
+}
+
+const jobsSeam = (): Promise<JobsSeam> => productModule<JobsSeam>("src/core/jobs/index.ts");
+
+/**
+ * Does a job stand under this key? Asked by enqueuing under the key and reading the answer: a claim
+ * already standing dedupes onto the job that holds it, and one that is not there does not. The probe
+ * is the door's own seam, so nothing here can be true of the probe and false of the door.
+ */
+async function standingUnder(kind: string, key: string, payload: Record<string, unknown>): Promise<{ deduplicated: boolean; jobId: string }> {
+  const jobs = await jobsSeam();
+  return jobs.enqueue(kind, payload, { key });
 }
 
 describe("AC-8 — the offered level stack confirms as one act", () => {
@@ -93,7 +110,11 @@ describe("AC-8 — the Measure door", () => {
     expect(answer["requested"], `the door answers the measure door's own answer: ${JSON.stringify(answer)}`).toBe(true);
     expect(typeof answer["jobId"], "carrying the job that holds the campaign").toBe("string");
     expect(answer["deduplicated"], "the first ask is not a repeat of one already standing").toBe(false);
-    expect(claimsUnder(measure.MEASURE_KIND, key), "and a job stands under the key this campaign's measurement is keyed on").toBeGreaterThan(0);
+    expect(await (await jobsSeam()).isKnownJob(String(answer["jobId"])), "the queue holds the job the door answered").toBe(true);
+
+    const probe = await standingUnder(measure.MEASURE_KIND, key, { tenantId: it.tenantId, projectId: it.projectId, campaignId: it.campaignId, requestedBy: it.person.userId });
+    expect(probe.deduplicated, "and it stands under the key this campaign's measurement is keyed on — asking for that key again reaches it").toBe(true);
+    expect(probe.jobId, "which is the job the door answered, not a second run of the same campaign").toBe(answer["jobId"]);
 
     const again = (await door(caller, "requestMeasure")({ projectId: it.projectId, campaignId: it.campaignId })) as Record<string, unknown>;
     expect(again["jobId"], "asking again while it stands is the same ask (SEAM-JOBS: every job idempotent on its key)").toBe(answer["jobId"]);
@@ -110,7 +131,11 @@ describe("AC-8 — the Measure door", () => {
     const answer = (await door(caller, "requestMeasure")({ projectId: fresh.projectId, campaignId })) as Record<string, unknown>;
     expect(answer["requested"], `a project holding no campaign has nothing to measure under: ${JSON.stringify(answer)}`).toBe(false);
     expect(answer["refusal"], `and the door answers ${CAMPAIGN_NOT_FOUND} by name, in the closed taxonomy`).toBe(CAMPAIGN_NOT_FOUND);
-    expect(claimsUnder(measure.MEASURE_KIND, key), "and enqueues nothing at all").toBe(0);
+    // Nothing stands under the campaign's key: the probe that enqueues under it is the FIRST job to,
+    // so it is deduplicated onto nothing. A door that had queued a run for a campaign the project
+    // does not hold would already be standing there, and the probe would say so.
+    const probe = await standingUnder(measure.MEASURE_KIND, key, { tenantId: fresh.person.tenantId, projectId: fresh.projectId, campaignId, requestedBy: fresh.person.userId });
+    expect(probe.deduplicated, "and enqueues nothing at all").toBe(false);
     expect(rowsOf(ACTS_TABLE, fresh.person.tenantId).length, "and asking to measure writes no act: enqueueing a job is not an act (Decision §1)").toBe(0);
   }, BUDGET_MS);
 });

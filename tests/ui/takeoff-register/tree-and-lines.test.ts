@@ -19,11 +19,14 @@ import {
   all,
   cellsOf,
   copy,
+  kinds,
   lineHeaders,
   lineRows,
   mountRegister,
+  offerRosters,
   one,
   registerFixture,
+  sightingStandings,
   takeoffStrings,
   text,
   treeItem,
@@ -72,6 +75,33 @@ const READY_COPY_KEYS: readonly string[] = [
 let loading: Promise<Record<string, string>> | undefined;
 const strings = (): Promise<Record<string, string>> => (loading ??= takeoffStrings());
 
+/**
+ * The corpus every criterion below is judged over: the three columns of the fixture SPREAD over the
+ * rosters the product itself declares — the bases, engines and coverages of `src/core/offers/law.ts`,
+ * the sighting standings of `src/core/identity/law.ts`, the kinds of the catalogue — read off the
+ * tree at the moment the suite runs rather than transcribed here (B-19). No row is another row's
+ * copy, so what a cell states is a fact about the line it stands on and not a constant the screen
+ * could hold; a roster that grows spreads the corpus further with no edit to this file.
+ */
+let staging: Promise<RegisterViewLike> | undefined;
+const corpus = (): Promise<RegisterViewLike> =>
+  (staging ??= (async (): Promise<RegisterViewLike> => {
+    const [rosters, roles, kindRoster] = await Promise.all([offerRosters(), sightingStandings(), kinds()]);
+    return registerFixture({ bases: rosters.bases, engines: rosters.engines, coverages: rosters.coverages, roles, kinds: kindRoster });
+  })());
+
+/**
+ * How far a corpus of `held` rows can spread over a roster of `roster` members: all of them, up to
+ * whichever of the two is smaller. Asked of each column a row renders, so a fixture that quietly went
+ * uniform — and a criterion that stopped discriminating with it — fails here rather than passing.
+ */
+function spreadsOver(held: readonly string[], roster: readonly string[], column: string): void {
+  for (const value of held) expect(roster, `every ${column} the corpus states is drawn from the roster the product declares it from`).toContain(value);
+  expect(new Set(held).size, `the corpus states as many distinct ${column} values as the roster and the corpus can hold — a cell that spelled a constant would read alike for all of them`).toBe(
+    Math.min(roster.length, held.length),
+  );
+}
+
 /** The cell of one row under a named column — the position the header order gives it. */
 function cellUnder(row: HTMLElement, key: string): string {
   const at = COLUMN_KEYS.indexOf(key);
@@ -90,7 +120,7 @@ function rowOf(root: HTMLElement, line: ViewLine): HTMLElement {
 
 describe("AC-2 — discipline → level → class → object, and the lines beneath", () => {
   test("AC-2: the tree nests discipline → level → class → object, labelled verbatim", async () => {
-    const view: RegisterViewLike = registerFixture();
+    const view: RegisterViewLike = await corpus();
     const root = await mountRegister(view);
 
     const tree = one(root, "register-tree");
@@ -110,24 +140,39 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
   });
 
   test("AC-2: selecting an object fills the inspector with its basis, role, corroboration and source", async () => {
-    const view = registerFixture();
-    const first = view.objects[0] as RegisterViewLike["objects"][number];
+    const view = await corpus();
+    const rosters = await offerRosters();
     const root = await mountRegister(view);
     const user = userEvent.setup();
 
-    await user.click(treeItem(root, first.mark));
+    // Every object of the corpus, not the first alone: the three stand at different bases and
+    // different roles, so an inspector that spelled one object's standing states another's wrongly.
+    spreadsOver(
+      view.objects.map((object) => object.basis),
+      rosters.bases,
+      "object basis",
+    );
+    spreadsOver(
+      view.objects.map((object) => object.role),
+      await sightingStandings(),
+      "object role",
+    );
 
-    const inspector = one(root, "register-inspector");
-    expect(text(one(root, "register-object-key")), "the inspector states the object key whole (I-26)").toBe(first.objectKey);
-    expect(one(root, "register-object-basis").getAttribute("data-basis"), "the object's basis is the weakest basis over its lines").toBe(first.basis);
-    expect(one(root, "register-object-role").getAttribute("data-role"), "the object's role is its sighting standing").toBe(first.role);
-    expect(one(root, "register-object-corroboration").getAttribute("data-standing"), "the object's corroboration state stands beside it").toBe(first.corroboration);
-    expect(text(one(root, "register-source-key")), "the cited source key renders as text — the Trace is inc-215's").toBe(first.sourceKey);
-    expect(inspector.contains(one(root, "register-object-key")), "and all of it stands in the inspector").toBe(true);
+    for (const object of view.objects) {
+      await user.click(treeItem(root, object.mark));
+
+      const inspector = one(root, "register-inspector");
+      expect(text(one(root, "register-object-key")), "the inspector states the object key whole (I-26)").toBe(object.objectKey);
+      expect(one(root, "register-object-basis").getAttribute("data-basis"), `the basis of ${object.mark} is the weakest basis over its lines`).toBe(object.basis);
+      expect(one(root, "register-object-role").getAttribute("data-role"), `the role of ${object.mark} is its sighting standing`).toBe(object.role);
+      expect(one(root, "register-object-corroboration").getAttribute("data-standing"), "the object's corroboration state stands beside it").toBe(object.corroboration);
+      expect(text(one(root, "register-source-key")), "the cited source key renders as text — the Trace is inc-215's").toBe(object.sourceKey);
+      expect(inspector.contains(one(root, "register-object-key")), "and all of it stands in the inspector").toBe(true);
+    }
   });
 
   test("AC-2: the lines table states every column the Decision fixes, in its order", async () => {
-    const view = registerFixture();
+    const view = await corpus();
     const root = await mountRegister(view);
 
     const lines = one(root, "register-lines");
@@ -137,13 +182,50 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
   });
 
   test("AC-2: a line's cells state its SI value, formula, variables, bases, coverage, calibration and engine", async () => {
-    const view = registerFixture();
+    const view = await corpus();
+    const rosters = await offerRosters();
     const root = await mountRegister(view);
+
+    // The corpus each cell below is read against varies in every column it renders, so a cell that
+    // held a constant states the wrong words for at least one row rather than passing on a corpus
+    // that happens to be uniform (B-19).
+    spreadsOver(
+      view.lines.map((line) => line.quantityBasis),
+      rosters.bases,
+      "quantity basis",
+    );
+    spreadsOver(
+      view.lines.map((line) => line.selectionBasis),
+      rosters.bases,
+      "selection basis",
+    );
+    spreadsOver(
+      view.lines.map((line) => line.coverage),
+      rosters.coverages,
+      "coverage",
+    );
+    spreadsOver(
+      view.lines.map((line) => line.engine),
+      rosters.engines,
+      "engine",
+    );
+    spreadsOver(
+      view.lines.map((line) => line.kind),
+      await kinds(),
+      "kind",
+    );
+    expect(
+      new Set(view.lines.map((line) => Object.entries(line.variables).map(([name, binding]) => `${name}=${binding.value} ${binding.unit}`).join(" "))).size,
+      "and each of the three columns was read at its own dimensions, one of them in millimetres — so no two variables cells read alike",
+    ).toBe(view.lines.length);
 
     for (const line of view.lines) {
       const row = rowOf(root, line);
       expect(cellUnder(row, "takeoff_register_col_kind"), `the line's kind stands verbatim`).toContain(line.kind);
-      expect(cellUnder(row, "takeoff_register_col_value"), `the SI value stands verbatim, never re-rounded (I-25)`).toBe(String(line.value));
+      expect(
+        cellUnder(row, "takeoff_register_col_value"),
+        `the SI value stands verbatim, never re-rounded (I-25); a line kept with no quantity states none — never a zero, never the word null (L-QTY-02)`,
+      ).toBe(line.value ?? "");
       expect(cellUnder(row, "takeoff_register_col_unit"), `the unit stands beside it`).toContain(line.unit);
       expect(cellUnder(row, "takeoff_register_col_formula"), `the formula stands verbatim`).toBe(line.formula);
 
@@ -161,7 +243,7 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
   });
 
   test("AC-2: every sentence a ready register states is a line of the screen's own string table", async () => {
-    const view = registerFixture();
+    const view = await corpus();
     const root = await mountRegister(view);
     const said = text(root);
 
