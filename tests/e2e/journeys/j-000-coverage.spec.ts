@@ -151,7 +151,10 @@ test.describe("J-000 — Golden Path: the uploaded drawing is measured, and the 
       await drawings.confirmGroup(DISCIPLINE);
       await expect(drawings.dialog, "the group is confirmed as one act through the one shipped dialog (R-UI-021)").toBeHidden();
 
-      /* --- affirm the scale of a view of the sheet, which is what makes a length measurable --- */
+      /* --- affirm the scale of the sheet's views, which is what makes a length measurable. Every
+             view the panel offers is included in the one affirmation: a rail reads the calibration
+             of the view a placement itself cites, so a sheet with one view affirmed and the
+             columns drawn on another measures nothing (R-TO-021, I-157). --- */
       const sheetCard = drawings.cardForLayout(SHEET);
       await expect(sheetCard, `the sheet "${SHEET}" fanned out as a card of its own`).toHaveCount(1, { timeout: FAN_OUT_BUDGET_MS });
       await drawings.cell(sheetCard, S_DRAWINGS.open).click();
@@ -161,12 +164,13 @@ test.describe("J-000 — Golden Path: the uploaded drawing is measured, and the 
       await scale.open();
       const viewKeys = await scale.viewKeys();
       expect(viewKeys.length, "the sheet's own views stand in the scale panel").toBeGreaterThan(0);
-      const affirming = viewKeys[0] as string;
-      await scale.member(affirming).click();
+      for (const viewKey of viewKeys) await scale.member(viewKey).click();
       await scale.affirm(FILE_UNITS).click();
       await scale.dialog.waitFor({ state: "visible" });
       await scale.confirm.click();
-      await expect(scale.row(affirming), "the view the act named stands affirmed — a view no act names measures nothing (R-TO-021)").toHaveAttribute("data-state", "affirmed");
+      for (const viewKey of viewKeys) {
+        await expect(scale.row(viewKey), "the view the act named stands affirmed — a view no act names measures nothing (R-TO-021)").toHaveAttribute("data-state", "affirmed");
+      }
 
       /* --- pin a drawing set, which is what opens a campaign (L-REG-07) --- */
       await page.goto(setsRoute(tenantId, projectId));
@@ -194,18 +198,42 @@ test.describe("J-000 — Golden Path: the uploaded drawing is measured, and the 
       const requestedBy = (await shell.user.getAttribute("data-user-id")) ?? "";
       expect(requestedBy, "the shell states which account is signed in — the person this run is asked by").not.toBe("");
 
+      /* --- author the level stack the sheets themselves propose, through the register's one bulk
+             door (R-UI-023, INSERT_LEVEL), BEFORE that run: a column's section band is stated over
+             levels, so a project with no stack has no level a band can cover, and the expansion
+             reads the stack that stands when it runs. --- */
+      await takeoff.open(tenantId, projectId);
+      const stackOffer = takeoff.levelStack.getByTestId("offered-group").first();
+      await expect(stackOffer, "the register offers the level stack the pinned drawing proposes").toBeVisible({ timeout: FAN_OUT_BUDGET_MS });
+      await stackOffer.getByTestId("offered-group-confirm").click();
+      const stackDialog = page.getByTestId("consequence-dialog");
+      await stackDialog.waitFor({ state: "visible" });
+      await stackDialog.getByTestId("consequence-confirm").click();
+      await expect(stackDialog, "the stack is authored through the one shipped dialog (R-UI-021)").toHaveCount(0, { timeout: FAN_OUT_BUDGET_MS });
+
       const partitionSeam = await productModule<PartitionSeam>("src/modules/takeoff/partition/index.ts");
+
       const partition = await partitionSeam.requestPartition({ tenantId, drawingId, requestedBy });
       expect("refusal" in partition ? partition.refusal : null, "the partition door accepts a run of the pinned drawing").toBeNull();
       const partitionJob = "jobId" in partition ? partition.jobId : null;
       expect(partitionJob, "and answers with the job it enqueued, which the shipped worker runs").not.toBeNull();
 
+      /* The run is watched on its own shipped transport, never on the drawings timeline: that
+         register holds the jobs THIS TAB started (docs/design/job-timeline.md I-114), and this run
+         was asked for from the test process through the seam, so no tab ever handed it to a
+         register. The poll snapshot I-111 rules is what a caller that cannot hold a stream open
+         reads (R-SPINE-030). The timeline's own claim — a step paints for a job this tab started —
+         stands where the upload leg asserts it. */
+      await expect
+        .poll(
+          async () => {
+            const answered = await fetch(`${origin}/api/events?jobId=${partitionJob ?? ""}&transport=poll`);
+            return ((await answered.json()) as { done: boolean }).done;
+          },
+          { timeout: FAN_OUT_BUDGET_MS, message: "the shipped worker runs the partition the door enqueued (R-SPINE-030)" },
+        )
+        .toBe(true);
       await drawings.open(tenantId, projectId);
-      await expect(
-        page.locator(`[data-testid="job-timeline-step"][data-job="${partitionJob ?? ""}"]`),
-        "the partition run stands on the timeline where the work was started (X-1)",
-      ).toBeVisible({ timeout: FAN_OUT_BUDGET_MS });
-      await expect(drawings.timeline, "and finishes there, as the upload's own jobs did").toHaveAttribute("data-state", "done", { timeout: FAN_OUT_BUDGET_MS });
 
       /* --- j-000/column-lines: the measure run, and the lines it published --- */
       await takeoff.open(tenantId, projectId);
