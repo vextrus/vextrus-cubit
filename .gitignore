@@ -3,6 +3,12 @@ node_modules/
 .next*/
 dist/
 coverage/
+# The rule above is unanchored, so it swallows every source directory named `coverage` too —
+# S-Coverage's module, its route and its suite among them. They are re-included by name: a
+# directory has to be un-excluded before git will descend into it (inc-216).
+!src/modules/takeoff/coverage/
+!src/app/**/takeoff/coverage/
+!tests/takeoff/coverage/
 *.log
 .env*
 !.env.example
