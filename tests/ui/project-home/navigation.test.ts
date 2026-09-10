@@ -18,9 +18,16 @@ import { PROJECT, TENANT, all, copy, homeData, homeStrings, mountHome, one, proj
 /** S-Project's clause order: "Drawings · Takeoff · Assure · Estimate · Bid · Activity · Settings". */
 const CLAUSE_ORDER = ["drawings", "takeoff", "assure", "estimate", "bid", "activity", "settings"] as const;
 
-/** The addresses of the areas that have a screen today (test contract). */
+/**
+ * The addresses of the areas that have a screen today (test contract).
+ *
+ * `takeoff` joined them in inc-214-register-workspace, whose register workspace is the screen the
+ * area answers on: the tab becomes a link by gaining an address in `areas.ts` and nothing else
+ * changes (I-126, B-20 — this increment owns the acceptance the old law froze).
+ */
 const LIVE: Readonly<Record<string, string>> = {
   drawings: `/t/${TENANT}/p/${PROJECT}/drawings`,
+  takeoff: `/t/${TENANT}/p/${PROJECT}/takeoff`,
   activity: `/t/${TENANT}/p/${PROJECT}/audit`,
   settings: `/t/${TENANT}/p/${PROJECT}/settings/ruleset`,
 };

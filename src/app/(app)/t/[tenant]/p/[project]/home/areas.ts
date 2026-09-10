@@ -21,6 +21,15 @@ export function auditRoute(tenantId: string, projectId: string): string {
   return `/t/${tenantId}/p/${projectId}/audit`;
 }
 
+/**
+ * S-Takeoff's address — the door the `takeoff` area becomes live by gaining (I-126). The register
+ * workspace stands one segment below it and spells its own address there; this is what the tab
+ * opens, and the redirect carries a reader on (docs/design/s-takeoff.md § 7).
+ */
+export function takeoffRoute(tenantId: string, projectId: string): string {
+  return `/t/${tenantId}/p/${projectId}/takeoff`;
+}
+
 /** The pinned rule set — the settings surface a project's `settings` area answers on today. */
 export function rulesetRoute(tenantId: string, projectId: string): string {
   return `/t/${tenantId}/p/${projectId}/settings/ruleset`;
@@ -42,7 +51,7 @@ export interface ProjectArea {
  */
 export const PROJECT_AREAS: readonly ProjectArea[] = Object.freeze([
   { key: "drawings", label: "project_home_tab_drawings", route: drawingsRoute },
-  { key: "takeoff", label: "project_home_tab_takeoff", route: null },
+  { key: "takeoff", label: "project_home_tab_takeoff", route: takeoffRoute },
   { key: "assure", label: "project_home_tab_assure", route: null },
   { key: "estimate", label: "project_home_tab_estimate", route: null },
   { key: "bid", label: "project_home_tab_bid", route: null },

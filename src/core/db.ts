@@ -75,6 +75,7 @@ export {
   refusedSightings,
   registerAttributes,
   registerObservations,
+  repudiatedObjects,
   levels,
   storeyHeightReadings,
   campaigns,

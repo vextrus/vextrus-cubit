@@ -22,13 +22,15 @@ export interface ShellFrameProps {
   /** Every workspace the account holds — the switcher's own list (R-SPINE-003). */
   workspaces: readonly ShellWorkspace[];
   email: string | null;
+  /** The account the session stands for, which the top bar states as data (L-ACT-01). */
+  userId: string;
   /** The stored mode the layout read for this account (R-UI-005); the frame publishes it. */
   density: Density;
   signOut: () => Promise<void>;
   children: ReactNode;
 }
 
-export function ShellFrame({ workspace, workspaces, email, density, signOut, children }: ShellFrameProps) {
+export function ShellFrame({ workspace, workspaces, email, userId, density, signOut, children }: ShellFrameProps) {
   const pathname = usePathname();
   const router = useRouter();
   // The two things the job pattern cannot do for itself, bound here exactly once: `src/ui` holds no
@@ -57,6 +59,7 @@ export function ShellFrame({ workspace, workspaces, email, density, signOut, chi
           area={areaOf(pathname)}
           atAreaHome={isAreaHome(pathname, workspace.tenantId)}
           email={email}
+          userId={userId}
           density={density}
           signOut={signOut}
         >

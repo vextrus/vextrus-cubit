@@ -14,7 +14,7 @@
  * its own formatting (I-78, I-79); nothing here counts, re-formats or writes prose around them.
  */
 import { useId } from "react";
-import type { OfferedGroupKey, ViewGroupKey } from "@/core/acts";
+import type { LevelStackGroupKey, OfferedGroupKey, ViewGroupKey } from "@/core/acts";
 import { Button } from "../../primitives/core";
 import { strings } from "../../strings";
 
@@ -23,7 +23,7 @@ import { strings } from "../../strings";
  * key's shape the fact judged, so each act's key joins this union rather than being flattened into a
  * shape of the pattern's own — a kind dropped from the roster is a compile error here (B-17).
  */
-export type OfferedKey = OfferedGroupKey | ViewGroupKey;
+export type OfferedKey = OfferedGroupKey | ViewGroupKey | LevelStackGroupKey;
 
 /**
  * One group as the consumer offers it: the typed key, the sentence naming it, the live count.
@@ -74,10 +74,13 @@ function OfferedGroupRow<K extends OfferedKey>({ group, onConfirm, region, at }:
       className="cx-offered-group"
       data-testid="offered-group"
       data-kind={key.kind}
-      data-discipline={key.kind === "PROPOSED_VIEW_TYPE" ? undefined : key.discipline}
-      data-drawing={key.kind === "PROPOSED_DISCIPLINE" || key.kind === "PROPOSED_VIEW_TYPE" ? key.drawingId : undefined}
-      data-sheet={key.kind === "SHEET" ? key.sheetId : undefined}
-      data-view-type={key.kind === "PROPOSED_VIEW_TYPE" ? key.viewType : undefined}
+      // Each attribute is derived from the key's OWN fields, asked for by presence: a kind joining
+      // the union states the facts it judges on and the rest stay absent, rather than the pattern
+      // learning a shape per act (L-ACT-02, offered-group I-77).
+      data-discipline={"discipline" in key ? key.discipline : undefined}
+      data-drawing={"drawingId" in key ? key.drawingId : undefined}
+      data-sheet={"sheetId" in key ? key.sheetId : undefined}
+      data-view-type={"viewType" in key ? key.viewType : undefined}
     >
       <p className="cx-offered-label" id={labelId}>
         {group.label}

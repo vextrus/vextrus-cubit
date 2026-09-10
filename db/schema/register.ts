@@ -3,4 +3,4 @@
 // definitions live in the seam: the ORM's table builders are a driver import, and src/core/db.ts is
 // their one lawful home (SEAM-TENANT). This file is where the generator and the drift lane read them
 // back.
-export { refusedSightings, registerAttributes, registerObjects, registerObservations } from "../../src/core/db";
+export { refusedSightings, registerAttributes, registerObjects, registerObservations, repudiatedObjects } from "../../src/core/db";

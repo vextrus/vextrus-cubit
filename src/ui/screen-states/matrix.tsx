@@ -142,6 +142,49 @@ const formDoor = (title: string, submit: string, entry: RefusalEntry, evidence: 
   "permission-denied": reason(strings.state_denied_anonymous_door),
 });
 
+/**
+ * S-Takeoff's register workspace, declared once and read twice: the workspace's own address renders
+ * these seven, and the takeoff address above it hands every one of them to this surface (Decision
+ * § 2). Declaring them once is what makes the hand-over a fact rather than a promise — two spellings
+ * of one screen's states could disagree about what the reader is carried to (B-17).
+ */
+const registerCells: Cells = {
+  loading: bones(9),
+  empty: (): ReactNode => (
+    <EmptyTeaching
+      heading={strings.takeoff_register_empty_heading}
+      body={strings.takeoff_register_empty_body}
+      action={strings.takeoff_register_empty_action}
+    />
+  ),
+  error: fault(strings.takeoff_register_error_body),
+  refusal: refusal(REFUSAL_ENTRIES.PERMISSION_NOT_HELD, PARTICIPANTS_EVIDENCE),
+  partial: (): ReactNode => <InlineAnswer text={strings.takeoff_register_refusals_hint} />,
+  offline: (): ReactNode => <InlineAnswer text={strings.takeoff_register_offline} />,
+  "permission-denied": (): ReactNode => (
+    <PermissionDenied
+      heading={strings.state_denied_project_heading}
+      permission={strings.takeoff_register_denied_permission}
+      holder={strings.takeoff_register_denied_holder}
+      refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+      evidence={PARTICIPANTS_EVIDENCE}
+    />
+  ),
+};
+
+/** The same seven, each naming the register as the surface it was handed to (Decision § 2). */
+const delegatedToRegister: Cells = Object.fromEntries(
+  STATE_NAMES.map((state) => [
+    state,
+    (): ReactNode => (
+      <>
+        <StateReason reason={strings.takeoff_delegated_to_register} />
+        {registerCells[state]()}
+      </>
+    ),
+  ]),
+) as Cells;
+
 /* ------------------------------------------------------------------------------ the matrix */
 
 export const screenStates: ScreenStatesMatrix = {
@@ -355,6 +398,17 @@ export const screenStates: ScreenStatesMatrix = {
       />
     ),
   }),
+
+  // The register workspace (s-takeoff § 2): three regions over one read, with published lines,
+  // deferred sightings and refused ones standing together — so its partial cell is what it renders
+  // rather than what it withholds (I-173), offline is a state a person is in because the screen
+  // holds act doors, and the denial names MEASURE, which every one of those doors moves.
+  "/t/[tenant]/p/[project]/takeoff/register": declare(registerCells),
+
+  // The takeoff address itself (s-takeoff § 1): a redirect that renders nothing, so every one of its
+  // seven cells is the register's own, taken from the surface a reader is carried to and named as
+  // handed over — a route that shows nothing has no state of its own to invent (Decision § 2).
+  "/t/[tenant]/p/[project]/takeoff": declare(delegatedToRegister),
 
   // Participants (s-settings-participants § 2): a project holds a principal at every moment, so the
   // list is never empty; the reachable refusal is the withdrawal that would leave it without one.

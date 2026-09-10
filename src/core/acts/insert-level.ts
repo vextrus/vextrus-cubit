@@ -44,6 +44,19 @@ export type ProposedLevel = {
   readonly readings?: readonly ProposedReading[];
 };
 
+/**
+ * L-ACT-02's typed grouping key for the offer this act confirms: "bulk is offered, never assembled …
+ * a typed grouping key over a closed enum". The stack a drawing's sections state is confirmed whole
+ * or not at all, so the fact judged is the stack — keyed on the drawing it was read from and the
+ * reading of that drawing it was read out of. `PROPOSED_LEVEL_STACK` is already a member of
+ * `GROUP_KINDS`; this is the shape that member takes, declared where the act it confirms as lives.
+ */
+export type LevelStackGroupKey = {
+  readonly kind: "PROPOSED_LEVEL_STACK";
+  readonly drawingId: string;
+  readonly ingestId: string;
+};
+
 /** The act's input: one project, and the levels this one act authors into its stack. */
 export type InsertLevelInput = {
   readonly type: typeof INSERT_LEVEL;

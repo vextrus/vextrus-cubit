@@ -6,11 +6,27 @@
 // SEAM-ACT. Every rule about who may confirm, what a confirmation would do and which digest binds it
 // lives in `src/core/acts`; a transport-local guard or digest would be a second answer to a question
 // that has one (B-17).
-import { commit, consequenceDigest, preview, type AffirmScaleInput, type ConfirmDisciplineInput, type ConfirmViewTypeInput, type Consequence, type OfferedGroupKey, type ViewGroupKey } from "../../core/acts";
+import {
+  commit,
+  consequenceDigest,
+  preview,
+  type AffirmScaleInput,
+  type ConfirmDisciplineInput,
+  type ConfirmViewTypeInput,
+  type Consequence,
+  type CorroborateInput,
+  type InsertLevelInput,
+  type OfferedGroupKey,
+  type RepudiateInput,
+  type ViewGroupKey,
+} from "../../core/acts";
 import { isScaleRank, type ScaleRank, type ScaleTolerances, type TwoPointObservation } from "../../core/scale";
 import { isDiscipline, type Discipline } from "../../core/sheets";
 import { appStorage } from "../../core/storage/app";
+import { requestMeasure, type MeasureRefused, type MeasureRequested } from "../../modules/takeoff/measure";
 import { viewsOf, type ViewRecord } from "../../modules/takeoff/partition";
+import { registerViewOf } from "../../modules/takeoff/register-ui/server";
+import type { RegisterView } from "../../modules/takeoff/register-ui/view";
 import { scaleProposalsOf, scaleTolerancesOf, type ViewScale } from "../../modules/takeoff/scale";
 import { offeredGroupsOf, sheetIndexOf, type OfferedGroup, type SheetCard } from "../../modules/takeoff/sheets";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
@@ -22,6 +38,9 @@ import { projectActorFor } from "./spine";
 const CONFIRM_DISCIPLINE = "CONFIRM_DISCIPLINE" as const;
 const CONFIRM_VIEW_TYPE = "CONFIRM_VIEW_TYPE" as const;
 const AFFIRM_SCALE = "AFFIRM_SCALE" as const;
+const CORROBORATE = "CORROBORATE" as const;
+const REPUDIATE = "REPUDIATE" as const;
+const INSERT_LEVEL = "INSERT_LEVEL" as const;
 const PROPOSED_VIEW_TYPE = "PROPOSED_VIEW_TYPE" as const;
 const MEASURE = "MEASURE" as const;
 
@@ -114,7 +133,126 @@ function affirmScaleInput(raw: unknown): AffirmScaleInput {
   };
 }
 
+/** A whole number as it arrives on the wire — a precedence is declared, never inferred (R-TO-051). */
+function figure(input: unknown, name: string): number {
+  const value = bagOf(input)[name];
+  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`takeoff: "${name}" is required and must be a number`);
+  return value;
+}
+
+/** One reading of one attribute of one object, read into the shape the seam declares (AC-5). */
+function corroborateInput(raw: unknown): CorroborateInput {
+  const named = bagOf(raw);
+  return {
+    type: CORROBORATE,
+    projectId: text(named, "projectId"),
+    objectKey: text(named, "objectKey"),
+    attribute: text(named, "attribute"),
+    valueAsWritten: text(named, "valueAsWritten"),
+    unitAsWritten: text(named, "unitAsWritten"),
+    precedence: figure(named, "precedence"),
+    sourceKey: text(named, "sourceKey"),
+  };
+}
+
+/** One judgement that an object is nothing, read into the shape the seam declares (R-TO-051). */
+function repudiateInput(raw: unknown): RepudiateInput {
+  const named = bagOf(raw);
+  return { type: REPUDIATE, projectId: text(named, "projectId"), objectKey: text(named, "objectKey") };
+}
+
+/**
+ * The levels one offered stack proposes, carried across as they were offered. What a level may be is
+ * L-MEA-07's law and the seam's own guard; a second reading of it here would be a second answer to a
+ * question that has one (B-17).
+ */
+function insertLevelInput(raw: unknown): InsertLevelInput {
+  const named = bagOf(raw);
+  const levels = named["levels"];
+  if (!Array.isArray(levels)) throw new Error(`takeoff: "levels" is required and must be an array`);
+  return { type: INSERT_LEVEL, projectId: text(named, "projectId"), levels: levels as InsertLevelInput["levels"] };
+}
+
 export const takeoffRouter = router({
+  /**
+   * S-Takeoff's whole reading, in one answer (R-TO-050). Reading the register needs no permission
+   * beyond membership of the workspace, which the resolver settles; what a reader may DO with it is
+   * each act's own question, asked at its own door (L-ACT-03).
+   */
+  register: signedInProcedure
+    .input((raw: unknown) => ({ projectId: text(raw, "projectId") }))
+    .query(async ({ ctx, input }): Promise<RegisterView> => {
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      return registerViewOf({ tenantId: actor.tenantId, projectId: input.projectId });
+    }),
+
+  previewCorroborate: signedInProcedure
+    .input((raw: unknown) => ({ input: corroborateInput(bagOf(raw)["input"]) }))
+    .mutation(async ({ ctx, input }): Promise<{ consequence: Consequence; consequenceDigest: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CORROBORATE, MEASURE);
+      const consequence = await preview(actor, input.input);
+      return { consequence, consequenceDigest: consequenceDigest(consequence) };
+    }),
+
+  commitCorroborate: signedInProcedure
+    .input((raw: unknown) => ({ input: corroborateInput(bagOf(raw)["input"]), consequenceDigest: text(raw, "consequenceDigest") }))
+    .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CORROBORATE, MEASURE);
+      const written = await commit(actor, input.input, input.consequenceDigest);
+      return { actId: written.actId };
+    }),
+
+  previewRepudiate: signedInProcedure
+    .input((raw: unknown) => ({ input: repudiateInput(bagOf(raw)["input"]) }))
+    .mutation(async ({ ctx, input }): Promise<{ consequence: Consequence; consequenceDigest: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, REPUDIATE, MEASURE);
+      const consequence = await preview(actor, input.input);
+      return { consequence, consequenceDigest: consequenceDigest(consequence) };
+    }),
+
+  commitRepudiate: signedInProcedure
+    .input((raw: unknown) => ({ input: repudiateInput(bagOf(raw)["input"]), consequenceDigest: text(raw, "consequenceDigest") }))
+    .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, REPUDIATE, MEASURE);
+      const written = await commit(actor, input.input, input.consequenceDigest);
+      return { actId: written.actId };
+    }),
+
+  previewInsertLevel: signedInProcedure
+    .input((raw: unknown) => ({ input: insertLevelInput(bagOf(raw)["input"]) }))
+    .mutation(async ({ ctx, input }): Promise<{ consequence: Consequence; consequenceDigest: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, INSERT_LEVEL, MEASURE);
+      const consequence = await preview(actor, input.input);
+      return { consequence, consequenceDigest: consequenceDigest(consequence) };
+    }),
+
+  commitInsertLevel: signedInProcedure
+    .input((raw: unknown) => ({ input: insertLevelInput(bagOf(raw)["input"]), consequenceDigest: text(raw, "consequenceDigest") }))
+    .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, INSERT_LEVEL, MEASURE);
+      const written = await commit(actor, input.input, input.consequenceDigest);
+      return { actId: written.actId };
+    }),
+
+  /**
+   * The Measure door. Enqueueing a job is not an act, so this door writes none and answers inc-209's
+   * measure seam verbatim — a project with no campaign is that seam's own registered refusal, carried
+   * through rather than re-worded here (SEAM-JOBS, B-17).
+   */
+  requestMeasure: signedInProcedure
+    .input((raw: unknown) => ({ projectId: text(raw, "projectId"), campaignId: text(raw, "campaignId") }))
+    .mutation(async ({ ctx, input }): Promise<MeasureRequested | MeasureRefused> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      return requestMeasure({ tenantId: actor.tenantId, projectId: input.projectId }, input.campaignId, ctx.session.userId);
+    }),
+
   sheetIndex: signedInProcedure
     .input((raw: unknown) => ({ projectId: text(raw, "projectId") }))
     .query(async ({ ctx, input }): Promise<SheetCard[]> => {
