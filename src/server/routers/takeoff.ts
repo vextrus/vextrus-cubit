@@ -15,14 +15,20 @@ import {
   type ConfirmViewTypeInput,
   type Consequence,
   type CorroborateInput,
+  type DeclareNotInProjectScopeInput,
+  type HoldOutOfBillInput,
   type InsertLevelInput,
   type OfferedGroupKey,
   type RepudiateInput,
   type ViewGroupKey,
 } from "../../core/acts";
+import { isElementType, type ElementType } from "../../core/catalogue/classes";
+import { isKind, type Kind } from "../../core/catalogue/kinds";
 import { isScaleRank, type ScaleRank, type ScaleTolerances, type TwoPointObservation } from "../../core/scale";
 import { isDiscipline, type Discipline } from "../../core/sheets";
 import { appStorage } from "../../core/storage/app";
+import { certificatePreviewOf, coverageCellOf, coverageViewOf } from "../../modules/takeoff/coverage/server";
+import type { CertificatePreview, CoverageCellView, CoverageView } from "../../modules/takeoff/coverage/view";
 import { requestMeasure, type MeasureRefused, type MeasureRequested } from "../../modules/takeoff/measure";
 import { viewsOf, type ViewRecord } from "../../modules/takeoff/partition";
 import { registerViewOf } from "../../modules/takeoff/register-ui/server";
@@ -42,8 +48,12 @@ const AFFIRM_SCALE = "AFFIRM_SCALE" as const;
 const CORROBORATE = "CORROBORATE" as const;
 const REPUDIATE = "REPUDIATE" as const;
 const INSERT_LEVEL = "INSERT_LEVEL" as const;
+const HOLD_OUT_OF_BILL = "HOLD_OUT_OF_BILL" as const;
+const DECLARE_NOT_IN_PROJECT_SCOPE = "DECLARE_NOT_IN_PROJECT_SCOPE" as const;
 const PROPOSED_VIEW_TYPE = "PROPOSED_VIEW_TYPE" as const;
 const MEASURE = "MEASURE" as const;
+/** The permission both boundary acts move — the same LEAD-held decision on either axis (L-ACT-03). */
+const SET_BILL_BOUNDARY = "SET_BILL_BOUNDARY" as const;
 
 /** A door that needs a session states so once (the spine lane's shape, ARCH-03). */
 const signedInProcedure = publicProcedure.use(({ ctx, next }) => {
@@ -181,6 +191,42 @@ function insertLevelInput(raw: unknown): InsertLevelInput {
   return { type: INSERT_LEVEL, projectId: text(named, "projectId"), levels: levels as InsertLevelInput["levels"] };
 }
 
+/** The class a cell names, judged against the catalogue's closed roster before it reaches the seam. */
+function elementType(raw: Readonly<Record<string, unknown>>): ElementType {
+  const stated = text(raw, "class");
+  if (!isElementType(stated)) throw new Error(`takeoff: "${stated}" is not a class — the catalogue's roster is closed`);
+  return stated;
+}
+
+/** The kind a cell names, judged against the catalogue's closed roster before it reaches the seam. */
+function workItemKind(raw: Readonly<Record<string, unknown>>): Kind {
+  const stated = text(raw, "kind");
+  if (!isKind(stated)) throw new Error(`takeoff: "${stated}" is not a work item — the catalogue's roster is closed`);
+  return stated;
+}
+
+/**
+ * The cell a boundary act stands over, as it arrives on the wire. Both acts name a cell the same way
+ * — L-QTY-05's three coordinates, under one campaign — so it is read once and the act type is what
+ * differs (B-17).
+ */
+function boundaryCell(raw: unknown): { projectId: string; campaignId: string; class: ElementType; kind: Kind; levelId: string } {
+  const named = bagOf(raw);
+  return {
+    projectId: text(named, "projectId"),
+    campaignId: text(named, "campaignId"),
+    class: elementType(named),
+    kind: workItemKind(named),
+    levelId: text(named, "levelId"),
+  };
+}
+
+/** The hold's input, in the shape the seam declares. */
+const holdOutInput = (raw: unknown): HoldOutOfBillInput => ({ type: HOLD_OUT_OF_BILL, ...boundaryCell(raw) });
+
+/** The scope declaration's input, in the shape the seam declares. */
+const declareOutOfScopeInput = (raw: unknown): DeclareNotInProjectScopeInput => ({ type: DECLARE_NOT_IN_PROJECT_SCOPE, ...boundaryCell(raw) });
+
 export const takeoffRouter = router({
   /**
    * S-Takeoff's whole reading, in one answer (R-TO-050). Reading the register needs no permission
@@ -212,6 +258,70 @@ export const takeoffRouter = router({
     .query(async ({ ctx, input }): Promise<LineEvidence[]> => {
       const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
       return linesCiting({ tenantId: actor.tenantId, projectId: input.projectId }, { drawingId: input.drawingId, sourceKeys: input.sourceKeys });
+    }),
+
+  /**
+   * S-Coverage's whole reading (R-TO-052): the residue as a grid, and the two boundary statements
+   * computed off exactly those cells. Reading it needs what reading the register needs — membership,
+   * which the resolver settles — because a coverage grid states what the project already holds.
+   */
+  coverage: signedInProcedure
+    .input((raw: unknown) => ({ projectId: text(raw, "projectId") }))
+    .query(async ({ ctx, input }): Promise<CoverageView> => {
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      return coverageViewOf({ tenantId: actor.tenantId, projectId: input.projectId });
+    }),
+
+  /** One cell of the residue, addressed. An address this residue holds no cell for answers `null`. */
+  coverageCell: signedInProcedure
+    .input((raw: unknown) => ({ projectId: text(raw, "projectId"), cell: text(raw, "cell") }))
+    .query(async ({ ctx, input }): Promise<CoverageCellView | null> => {
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      return coverageCellOf({ tenantId: actor.tenantId, projectId: input.projectId }, input.cell);
+    }),
+
+  /** The certificate's two boundary statements as they will print (L-QTY-07) — enumerations, no counts. */
+  certificatePreview: signedInProcedure
+    .input((raw: unknown) => ({ projectId: text(raw, "projectId") }))
+    .query(async ({ ctx, input }): Promise<CertificatePreview> => {
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      return certificatePreviewOf({ tenantId: actor.tenantId, projectId: input.projectId });
+    }),
+
+  previewHoldOutOfBill: signedInProcedure
+    .input((raw: unknown) => ({ input: holdOutInput(bagOf(raw)["input"]) }))
+    .mutation(async ({ ctx, input }): Promise<{ consequence: Consequence; consequenceDigest: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, HOLD_OUT_OF_BILL, SET_BILL_BOUNDARY);
+      const consequence = await preview(actor, input.input);
+      return { consequence, consequenceDigest: consequenceDigest(consequence) };
+    }),
+
+  commitHoldOutOfBill: signedInProcedure
+    .input((raw: unknown) => ({ input: holdOutInput(bagOf(raw)["input"]), consequenceDigest: text(raw, "consequenceDigest") }))
+    .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, HOLD_OUT_OF_BILL, SET_BILL_BOUNDARY);
+      const written = await commit(actor, input.input, input.consequenceDigest);
+      return { actId: written.actId };
+    }),
+
+  previewDeclareNotInProjectScope: signedInProcedure
+    .input((raw: unknown) => ({ input: declareOutOfScopeInput(bagOf(raw)["input"]) }))
+    .mutation(async ({ ctx, input }): Promise<{ consequence: Consequence; consequenceDigest: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, DECLARE_NOT_IN_PROJECT_SCOPE, SET_BILL_BOUNDARY);
+      const consequence = await preview(actor, input.input);
+      return { consequence, consequenceDigest: consequenceDigest(consequence) };
+    }),
+
+  commitDeclareNotInProjectScope: signedInProcedure
+    .input((raw: unknown) => ({ input: declareOutOfScopeInput(bagOf(raw)["input"]), consequenceDigest: text(raw, "consequenceDigest") }))
+    .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
+      verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, DECLARE_NOT_IN_PROJECT_SCOPE, SET_BILL_BOUNDARY);
+      const written = await commit(actor, input.input, input.consequenceDigest);
+      return { actId: written.actId };
     }),
 
   previewCorroborate: signedInProcedure
