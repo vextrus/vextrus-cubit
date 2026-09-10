@@ -72,6 +72,43 @@ this file rules and the `cx-coverage-*` classes beside it.
   node's file and is not touched: every key here, the nav entry's included, lives in
   `src/modules/takeoff/coverage/copy.ts` and is read by the app layer, which may reach both. Rejected:
   appending to the register's string table.
+- **I-198 — the cause a cell is READ under is the axis a person moved.** A cell may carry a cause on
+  each axis at once (I-189), so a single reading has to be chosen for its accessible name and for the
+  inspector's `data-cause`, message and remedy. `causeRead(cell)` in `grid.tsx` answers the bill
+  cause where the cell is held out of this bill and the measurement cause everywhere else: a person
+  who has just drawn a boundary is told about the boundary they drew, not about the absence it was
+  drawn around. Rejected: naming the measurement cause always, which would make the hold-out act read
+  as though it had done nothing.
+- **I-199 — both boundary acts sit under `SET_BILL_BOUNDARY`.** L-ACT-03 names only
+  `HOLD_OUT_OF_BILL` under that permission, but `DECLARE_NOT_IN_PROJECT_SCOPE` is the same LEAD-held
+  judgement about where this bill's boundary falls, and the graph's notes place it there. Rejected: a
+  new permission — L-ACT-03's enum is closed, and a screen cannot open it.
+- **I-200 — each act declares its own cause on its own axis.** `HOLD_OUT_OF_BILL` writes
+  `NOT_IN_THIS_BILL` on the bill axis (L-QTY-05 names the axis's cause, R-TO-052 names the act) and
+  `DECLARE_NOT_IN_PROJECT_SCOPE` writes `NOT_IN_PROJECT_SCOPE` on the measurement axis. Rejected:
+  one act with a cause argument, which would let a caller put either cause on either axis.
+- **I-201 — a contradiction needs no state.** An act over a cell that later bears quantity still
+  stands as a row: arm order beats it, the cell reads `data-contradicted="true"`, and the statements
+  omit it. The Consequence an actor confirms reads the arm THIS act writes first, so a declaration
+  already in force is the `before` reading and asking again moves nothing (`ACT_CHANGES_NOTHING`);
+  only where none stands does the display's arm order speak, which is how an actor declaring over a
+  measured cell sees the contradiction they are about to author. Rejected: refusing the act at
+  preview when lines exist — the doors are absent for a `QUANTITY_BEARING` cell (I-194), so the
+  contradiction arises only when lines land after the act, and refusing then would erase a judgement
+  a person made in good faith.
+- **I-202 — "attributed through the parent chain" is the sheet's ingest facts.** A cell is
+  `INGESTION_TRUNCATED` when every sighting it rests on lands on a sheet whose ingest facts carry
+  `explode_truncated=true`: sighting → (`drawingId`, `layoutName`) → `ingests.facts`. Rejected:
+  attributing truncation to a class as a whole, which would blame cells no truncated sheet touched.
+- **I-203 — the six causes are registered in `REFUSALS`.** The leaf's "Codes → `src/core/errors.ts`"
+  and L-ACT-01's closed cause shared with machine refusals put them there, and it is the registry
+  that gives every cause a remedy (X-3) for the legend and the inspector to render. Rejected: a
+  second cause table beside the registry, which would be a second answer to what a cause means
+  (B-17).
+- **I-204 — the `NOT EXISTS` ban is a committed scan, not an ESLint rule.** `scripts/eslint/**` is
+  locked at M2, so the ban is proved the way the view-type-literals ban is: a scan test with a
+  declared corpus under `tests/lint-fixtures/residue-not-exists/`, named in `SCAN_CORPORA`. Rejected:
+  a lint rule, which this increment may not author.
 
 ## 1. Layout and hierarchy
 
