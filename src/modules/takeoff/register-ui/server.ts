@@ -11,7 +11,7 @@
 // no figure is re-derived.
 import { and, asc, drawingSetRevisions, eq, forTenant, quantityLines, queueItems, registerObservations } from "@/core/db";
 import { campaignsOf } from "@/core/campaigns";
-import { levelsOf } from "@/core/levels/store";
+import { levelsOf } from "@/modules/takeoff/levels";
 import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
 import { standingOf, type ObservationRow, type RegisterScope } from "@/core/register/store";
 import { proposedLevelStackOf } from "@/modules/takeoff/partition";
@@ -90,7 +90,7 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
     linesOfCampaign(scope.tenantId, campaign.campaignId),
     queuedOfCampaign(scope.tenantId, campaign.campaignId),
     observationsOfRevision(registerScope),
-    levelsOfProject(scope),
+    levelsOf(scope),
     manifestOfRevision(scope.tenantId, campaign.setRevisionId),
   ]);
 
@@ -243,11 +243,6 @@ async function observationsOfRevision(scope: RegisterScope): Promise<Observation
       .where(and(eq(registerObservations.tenantId, scope.tenantId), eq(registerObservations.setRevisionId, scope.setRevisionId)))
       .orderBy(asc(registerObservations.appendSeq)),
   );
-}
-
-/** The project's level stack, so a register row states the level a reader knows it by (L-REG-02). */
-async function levelsOfProject(scope: RegisterViewScope) {
-  return forTenant({ tenantId: scope.tenantId }).transaction((tx) => levelsOf(tx, scope));
 }
 
 /** The drawings the pinned revision names, as the pin recorded them (L-REG-06). */

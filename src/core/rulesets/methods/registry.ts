@@ -10,14 +10,17 @@
 //
 // The shards are imported rather than discovered by walking the tree: what is in force is decided at
 // build time, so the roster of a deployed product is the roster its build carried and never what
-// happens to be on a disk beside it.
+// happens to be on a disk beside it. Each shard states `with { type: "json" }`: an ES module loader
+// admits a JSON module only on that attribute, and the registry is reached by loaders that are not
+// the bundler's — the acts seam, which imports the gate, is loaded directly under Node by the
+// journeys' own staging.
 import type { MethodPair } from "../editions/content";
-import columnsShard from "./columns/columns.methods.json";
+import columnsShard from "./columns/columns.methods.json" with { type: "json" };
 import { COLUMN_CONCRETE_FORMULA, COLUMN_CONCRETE_METHOD } from "./columns/concrete";
-import conventionsShard from "./conventions/conventions.methods.json";
+import conventionsShard from "./conventions/conventions.methods.json" with { type: "json" };
 import { CONVENTIONS_METHOD, resolve } from "./conventions/resolve";
 import type { MethodImplementation, ResolverMethod } from "./law";
-import memberShard from "./member/member.methods.json";
+import memberShard from "./member/member.methods.json" with { type: "json" };
 import { MEMBER_VOLUME_FORMULA, MEMBER_VOLUME_METHOD } from "./member/volume";
 
 // The shape a method declares itself in is the law file's, and published from here because this is

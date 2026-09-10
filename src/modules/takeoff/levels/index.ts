@@ -11,7 +11,7 @@
 // this door asks for them rather than keeping a second (B-17).
 import { forTenant } from "@/core/db";
 import { levelStackDigest, storeyHeightStanding, type StoreyHeightStanding } from "@/core/levels";
-import { levelsOf, liveLevelsOf, readingsOfLevel, readingsOfProject, type LevelRow, type StoreyHeightReadingRow } from "@/core/levels/store";
+import { levelsOf as levelRowsIn, liveLevelsOf, readingsOfLevel, readingsOfProject, type LevelRow, type StoreyHeightReadingRow } from "@/core/levels/store";
 
 export type { StoreyHeightBasis, StoreyHeightStanding, StoreyHeightStandingName } from "@/core/levels";
 export type { LevelRow, StoreyHeightReadingRow } from "@/core/levels/store";
@@ -77,6 +77,17 @@ export async function levelStackOf(scope: LevelScope): Promise<StackLevel[]> {
 }
 
 /**
+ * Every level the project holds, repudiated ones included, in the store's own order — the
+ * scope-taking form of the store's `levelsOf(tx, …)`, for a caller reading outside a transaction of
+ * its own. It answers rows rather than the stack: a reader that wants what physically stands, with
+ * heights and in ordinal order, asks `levelStackOf`. One home, so no caller keeps its own
+ * transaction-opening copy of this read (B-17, ARCH-02).
+ */
+export async function levelsOf(scope: LevelScope): Promise<LevelRow[]> {
+  return forTenant({ tenantId: scope.tenantId }).transaction((tx) => levelRowsIn(tx, scope));
+}
+
+/**
  * The digest of the live stack, as inc-209's campaign open snapshots it: over the members' surrogate
  * ids and the ordinals they stand at, and blind to everything the law calls non-identifying.
  */
@@ -91,7 +102,7 @@ export async function levelStackDigestOf(scope: LevelScope): Promise<string> {
  */
 export async function storeyHeightOf(scope: LevelScope, levelId: string): Promise<LevelHeight> {
   return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
-    const held = (await levelsOf(tx, scope)).some((level) => level.levelId === levelId);
+    const held = (await levelRowsIn(tx, scope)).some((level) => level.levelId === levelId);
     if (!held) throw new Error(`project ${scope.projectId} holds no level ${levelId}, so it has no storey height to stand at (L-MEA-07)`);
     return storeyHeightStanding(await readingsOfLevel(tx, scope, levelId));
   });
