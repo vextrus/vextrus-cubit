@@ -218,32 +218,40 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
       </div>
 
       {view === null ? (
+        // No reading came back, so there is nothing to state: the error cell owns the whole body and
+        // the preview stands down with it — a statement over a read that failed would be a claim
+        // about a boundary nobody read (R-UI-050, B-21).
         <ErrorCell reportId={reportId} Button={Button} retry={doors.retry} />
-      ) : view.campaignId === null || view.cells.length === 0 ? (
-        <EmptyCell view={view} />
       ) : (
         <>
-          <div className="cx-coverage-body">
-            <section className="cx-coverage-grid-region" aria-labelledby={GRID_LABEL_ID}>
-              <h2 className="cx-coverage-grid-heading" id={GRID_LABEL_ID}>
-                {COVERAGE_COPY.takeoff_coverage_grid_label}
-              </h2>
-              {state === "partial" ? <p className="cx-coverage-partial-note">{COVERAGE_COPY.takeoff_coverage_partial_note}</p> : null}
-              <div className="cx-coverage-scroll">
-                <CoverageGrid cells={cells} levels={view.input.levels} density={density} selected={selected} onSelect={select} />
-              </div>
-              <Legend />
-            </section>
-            <Inspector
-              cell={held}
-              permitted={permitted}
-              offline={offline}
-              Button={Button}
-              onHoldOut={() => setDoor(HOLD_OUT_OF_BILL)}
-              onDeclareOutOfScope={() => setDoor(DECLARE_NOT_IN_PROJECT_SCOPE)}
-              rulesetHref={rulesetHref(tenantId, projectId)}
-            />
-          </div>
+          {view.campaignId === null || view.cells.length === 0 ? (
+            <EmptyCell view={view} />
+          ) : (
+            <div className="cx-coverage-body">
+              <section className="cx-coverage-grid-region" aria-labelledby={GRID_LABEL_ID}>
+                <h2 className="cx-coverage-grid-heading" id={GRID_LABEL_ID}>
+                  {COVERAGE_COPY.takeoff_coverage_grid_label}
+                </h2>
+                {state === "partial" ? <p className="cx-coverage-partial-note">{COVERAGE_COPY.takeoff_coverage_partial_note}</p> : null}
+                <div className="cx-coverage-scroll">
+                  <CoverageGrid cells={cells} levels={view.input.levels} density={density} selected={selected} onSelect={select} />
+                </div>
+                <Legend />
+              </section>
+              <Inspector
+                cell={held}
+                permitted={permitted}
+                offline={offline}
+                Button={Button}
+                onHoldOut={() => setDoor(HOLD_OUT_OF_BILL)}
+                onDeclareOutOfScope={() => setDoor(DECLARE_NOT_IN_PROJECT_SCOPE)}
+                rulesetHref={rulesetHref(tenantId, projectId)}
+              />
+            </div>
+          )}
+          {/* I-208: the empty cell stands in the BODY's place; the preview stands beneath it in every
+              state that has a reading, because a boundary nothing stands outside is still a statement
+              a certificate makes (L-QTY-07, Decision §1–§2). */}
           <CertificatePreviewSection measurement={view.measurement} bill={view.bill} />
         </>
       )}

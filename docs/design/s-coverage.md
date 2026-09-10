@@ -134,6 +134,15 @@ this file rules and the `cx-coverage-*` classes beside it.
   axis a person moved — applied to what the certificate prints. Rejected: stating it on both axes
   because L-QTY-05's axes are orthogonal; orthogonality governs how a cell READS, not how many times
   one human decision is printed.
+- **I-208 — an empty statement is still a statement, so the preview stands in the empty state too.**
+  §2's empty cell stands in the BODY's place; the certificate preview stands BENEATH the body, so it
+  is rendered wherever a reading came back at all — a campaign that has sighted nothing, or no
+  campaign pinned, renders both statements under their own headings with
+  `coverage-statement-none`. A boundary nothing stands outside is a boundary a certificate states,
+  and hiding the section would make the preview's presence itself a silent count of the residue
+  (L-QTY-07, R-UI-050). The one state it stands down in is `error`, where no reading came back and a
+  statement would be a claim about a boundary nobody read. Rejected: rendering the preview only over
+  a non-empty grid, which reads the preview as part of the body it is beneath.
 
 ## 1. Layout and hierarchy
 
@@ -246,7 +255,9 @@ Declared in `takeoff/coverage/states.ts` (`COVERAGE_STATES`) and appended to
 - **Empty** — `<div data-testid="coverage-empty">` in the body's place, two truths, each saying why.
   No campaign pinned: `takeoff_coverage_empty_heading` / `_body` and one action, a core secondary
   Button worn as a link to `…/drawings/sets`, `_empty_action`. A campaign that has sighted nothing:
-  `_empty_campaign_heading` / `_body` and one action to the register, `_empty_campaign_action`.
+  `_empty_campaign_heading` / `_body` and one action to the register, `_empty_campaign_action`. The
+  certificate preview stands beneath it either way, both statements empty under their own headings
+  (I-208).
 - **Error** — `takeoff_coverage_error_heading` / `_body`, the report id verbatim in mono under
   `_report_label`, and the core secondary Button `<button data-testid="coverage-retry">`
   `takeoff_coverage_retry`, re-running `takeoff.coverage` in place.
