@@ -19,9 +19,13 @@ import {
   railObservations,
   registerObjects,
   scopeDeclarations,
-  sql,
   type TenantTx,
 } from "../db";
+// The tree's one absence query is written as a fragment, so its builder comes from the driver
+// itself rather than through the seam's barrel — the barrel hands out the eight query operators
+// every caller shares and invents no public surface of its own (ARCH-02, B-17), and the schema's
+// own CHECK constraints take `sql` the same way.
+import { sql } from "drizzle-orm";
 import { campaignsOf } from "../campaigns";
 import { BEARS } from "../catalogue/bears";
 import { WORK_ITEM_CATALOGUE } from "../catalogue/catalogue";
