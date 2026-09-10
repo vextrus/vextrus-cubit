@@ -1,7 +1,7 @@
 /// <reference types="next" />
 /// <reference types="next/image-types/global" />
-import "./.next-invitations/types/routes.d.ts";
-import "./.next-invitations/types/root-params.d.ts";
+import "./.next-cubit/types/routes.d.ts";
+import "./.next-cubit/types/root-params.d.ts";
 
 // NOTE: This file should not be edited
 // see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
