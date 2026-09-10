@@ -223,6 +223,23 @@
   white-space: nowrap;
 }
 
+/* A sheet that could not be drawn, with the Trace's own answer beside it. The absence keeps the
+   whole body it always had and the inspector takes the rail it takes over a drawn sheet, so a reader
+   who followed a Trace to a stale address meets the same two regions in the same two places — no
+   resizer, because there is no sheet to trade width with (AC-4, s-viewer § 1). */
+.cx-viewer-absence-work {
+  display: grid;
+  /* The same share of the width the stage's own `PANEL_SIZE` gives the inspector, so the rail does
+     not move when a sheet does or does not draw. A proportion, not a length: no px literal here. */
+  grid-template-columns: minmax(0, 1fr) 22%;
+  height: 100%;
+  min-height: 0;
+}
+
+.cx-viewer-absence-work > .cx-viewer-inspector {
+  border-inline-start: var(--hairline);
+}
+
 .cx-viewer-empty {
   display: flex;
   flex-direction: column;
@@ -509,6 +526,96 @@
   font-size: var(--text-12);
 }
 
+/* ------------------------------------------------------- the Trace and its other direction (X-2) */
+
+/* Both blocks stand inside the selection tab, under a rule that separates them from the list of
+   what is held without boxing them: the Trace is a reading OF the selection, not a second panel. */
+.cx-viewer-trace,
+.cx-viewer-cited {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block: var(--space-3);
+  border-top: var(--hairline);
+}
+
+.cx-viewer-trace-basis {
+  display: flex;
+  margin: 0;
+}
+
+/* The formula is the line's own text, so it is read in the face a formula is written in and is
+   never truncated behind an ellipsis a reader cannot open (I-25, I-26). */
+.cx-viewer-trace-formula {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-viewer-trace-variables {
+  display: flex;
+  flex-direction: column;
+}
+
+.cx-viewer-trace-variable {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 var(--space-2);
+  padding-block: var(--space-1);
+  border-bottom: var(--hairline);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-trace-name {
+  color: var(--graphite-600);
+}
+
+.cx-viewer-trace-reading {
+  justify-self: end;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-viewer-trace-basis-word,
+.cx-viewer-cited-kind {
+  color: var(--graphite-600);
+}
+
+.cx-viewer-trace-variable .cx-viewer-inspector-key {
+  grid-column: 1 / -1;
+  color: var(--graphite-700);
+}
+
+.cx-viewer-trace-origin {
+  align-self: flex-start;
+  margin-block-start: var(--space-2);
+}
+
+.cx-viewer-cited-line {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 var(--space-2);
+  padding-block: var(--space-2);
+  border-bottom: var(--hairline);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+}
+
+.cx-viewer-cited-figure {
+  justify-self: end;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-viewer-cited-line .cx-evidence-link {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
 /* ---------------------------------------------------------------------------------- the readout */
 
 .cx-viewer-readout {
@@ -525,7 +632,17 @@
   color: var(--graphite-700);
 }
 
+/* The layout the sheet is showing, and the one cell of the readout that carries no label beside it.
+   Where the sheet was refused or was never read, the cells after it do not render and this stands
+   alone on the bar — as a bare mono word at the foot of an empty frame it read as a stray debug
+   string rather than as the thing the address named. The chip's own idiom gives it an edge and a
+   ground of its own, so it is legible as a named object at rest, on a full sheet and on none
+   (R-UI-030, R-UI-060: never a mark whose meaning depends on what happens to be beside it). */
 .cx-viewer-readout-sheet {
+  padding: 0 var(--space-2);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: var(--graphite-50);
   color: var(--graphite-900);
 }
 

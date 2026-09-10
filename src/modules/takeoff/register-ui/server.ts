@@ -16,6 +16,7 @@ import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
 import { standingOf, type ObservationRow, type RegisterScope } from "@/core/register/store";
 import { proposedLevelStackOf } from "@/modules/takeoff/partition";
 import { refusedSightingsOf, registerObjectsOf, repudiatedObjectsOf } from "@/modules/takeoff/register";
+import { citedKeysOf, sheetOfView, variablesOf } from "@/modules/takeoff/trace";
 import type { RegisterView, ViewAttribute, ViewLevelStack, ViewLine, ViewObject, ViewReading, ViewRefusal } from "./view";
 
 /** Which project's register is being read, in which workspace. */
@@ -110,25 +111,40 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
     else held.push(row);
   }
 
+  /* --- the sheet each line's evidence stands on: one resolution per drawing, never one per row
+     (R-TO-050 asks this table to hold 50 000 lines, and a lookup per line would price the page in
+     as many round trips). --- */
+  const layoutByDrawing = new Map<string, string>();
+  for (const drawingId of new Set(published.map((row) => row.drawingId))) {
+    layoutByDrawing.set(drawingId, await sheetOfView(scope, drawingId));
+  }
+
   /* --- the lines, each marked with whether a person has struck the object it was measured off --- */
-  const lines: ViewLine[] = published.map((row) => ({
-    lineId: row.lineId,
-    objectKey: row.objectKey,
-    kind: row.kind,
-    class: row.class,
-    level: levelOf(objectByKey.get(row.objectKey), levelLabels),
-    value: row.value,
-    unit: row.unit,
-    formula: row.formula,
-    variables: bindingsOf(row.bindings),
-    quantityBasis: row.quantityBasis,
-    selectionBasis: row.selectionBasis,
-    coverage: row.coverage,
-    calibrationKeys: [...row.calibrationKeys],
-    engine: row.engine,
-    sourceKey: row.viewKey,
-    repudiated: struck.has(row.objectKey),
-  }));
+  const lines: ViewLine[] = published.map((row) => {
+    const variables = variablesOf(row.bindings);
+    return {
+      lineId: row.lineId,
+      objectKey: row.objectKey,
+      kind: row.kind,
+      class: row.class,
+      level: levelOf(objectByKey.get(row.objectKey), levelLabels),
+      value: row.value,
+      unit: row.unit,
+      formula: row.formula,
+      variables,
+      quantityBasis: row.quantityBasis,
+      selectionBasis: row.selectionBasis,
+      coverage: row.coverage,
+      calibrationKeys: [...row.calibrationKeys],
+      engine: row.engine,
+      sourceKey: row.viewKey,
+      repudiated: struck.has(row.objectKey),
+      // The Trace's own two readings: where the evidence stands, and which entities it cites.
+      drawingId: row.drawingId,
+      layoutName: layoutByDrawing.get(row.drawingId) ?? null,
+      sourceKeys: citedKeysOf({ sourceKey: row.viewKey, variables }),
+    };
+  });
 
   const basisByObject = new Map<string, QuantityBasis[]>();
   for (const line of lines) {
@@ -206,30 +222,6 @@ function attributesOf(readings: readonly ObservationRow[]): ViewAttribute[] {
       overruled: standing.overruled.map(readingOf),
     };
   });
-}
-
-/**
- * The bindings a published line carries, as the screen states them. `bindings` is stored as the rail
- * wrote it, so what is not a reading of a value and a unit is not shown as one.
- */
-function bindingsOf(bindings: Record<string, unknown>): ViewLine["variables"] {
-  const held: Record<string, ViewLine["variables"][string]> = {};
-  for (const [name, raw] of Object.entries(bindings)) {
-    if (typeof raw !== "object" || raw === null) continue;
-    const binding = raw as { value?: unknown; unit?: unknown; basis?: unknown; source?: unknown; canonical?: { value?: unknown; unit?: unknown } };
-    if (typeof binding.value !== "string" || typeof binding.unit !== "string") continue;
-    held[name] = {
-      value: binding.value,
-      unit: binding.unit,
-      basis: typeof binding.basis === "string" ? binding.basis : "",
-      source: typeof binding.source === "string" ? binding.source : "",
-      canonical: {
-        value: typeof binding.canonical?.value === "string" ? binding.canonical.value : binding.value,
-        unit: typeof binding.canonical?.unit === "string" ? binding.canonical.unit : binding.unit,
-      },
-    };
-  }
-  return held;
 }
 
 /** Every line one campaign published, in the order they were published (L-QTY-03). */

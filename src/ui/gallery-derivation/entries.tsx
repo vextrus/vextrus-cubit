@@ -18,6 +18,7 @@ import type { RefusalEntry, RefusalSeverity, RefusalSurface } from "../../core/e
 import { CommandPalette, CommandPaletteProvider, ShortcutSheet } from "../patterns/command-palette";
 import { ConsequenceDialog } from "../patterns/consequence-dialog";
 import { Dropzone, type DropzoneItem } from "../patterns/dropzone";
+import { EvidenceLink } from "../patterns/evidence-link";
 import { JobTimeline, JobsProvider, type JobsFormat, type TimelineStep } from "../patterns/job-timeline";
 import { OfferedGroups, type OfferedGroupItem } from "../patterns/offered-group";
 import { RefusalState } from "../patterns/refusal-state";
@@ -108,6 +109,22 @@ const copy = {
   jobTimeline: { heading: "Reading drawings", evidence: "Add the drawing again", first: "4 s", second: "11 s", fault: "fault-9c21" },
   badge: "Draft",
   chip: "Layer S-COL",
+  // One key per cell rather than one key across the row, so the catalogue shows the pattern taking
+  // real evidence of different kinds and lengths — including the long key that must wrap, which is
+  // the one behaviour `overflow-wrap: anywhere` is authored for (evidence-link §1, I-26). The list
+  // is cycled against the basis roster, so it constrains nothing about which bases exist (B-19).
+  evidenceLink: {
+    href: "/design",
+    keys: [
+      "DXF_HANDLE:1A4",
+      "PDF_TEXT:p3:r18:c4",
+      "DXF_HANDLE:2F09",
+      "IFC_GUID:2b8H0mQ1nB8x9Kk7Lp3Zq7",
+      "XLSX:Takeoff!D42",
+      "DXF_HANDLE:7C1E",
+      "DXF_HANDLE:B3",
+    ],
+  },
   unit: "SQM",
   key: "K",
   tooltip: { content: "Snap to grid — S", trigger: "Snap" },
@@ -199,6 +216,22 @@ const basisStates: readonly GalleryState[] = BASES.map((basis) => ({
   name: basis.toLowerCase(),
   render: () => <BasisChip basis={basis} />,
 }));
+
+/**
+ * The Trace affordance, one cell per basis (evidence-link § 7): the roster is the same `BASES` the
+ * basis chip's own cells are derived from, so the two surfaces of R-UI-002 can never disagree about
+ * which bases exist (B-17, B-19). Each cell carries its own key and its own address — a row of one
+ * key repeated would show the pattern seven times and the pattern's behaviour once — and the keys
+ * cycle, so a basis added to the roster still gets a cell. `/design` is the sample destination that
+ * stays on the current route; the key rides its query, so no two cells stand at the same place.
+ */
+const evidenceLinkStates: readonly GalleryState[] = BASES.map((basis, at) => {
+  const label = copy.evidenceLink.keys[at % copy.evidenceLink.keys.length] as string;
+  return {
+    name: basis,
+    render: () => <EvidenceLink href={`${copy.evidenceLink.href}?s=${encodeURIComponent(label)}`} basis={basis} label={label} />,
+  };
+});
 
 const coverageStates: readonly GalleryState[] = [
   { name: "low", render: () => <CoverageChip value={0.32} /> },
@@ -682,6 +715,7 @@ export const galleryEntries: GalleryEntries = {
   "patterns/command-palette/ShortcutSheet": { states: closed(() => paletteSample(<ShortcutSheet />)) },
   "patterns/consequence-dialog/ConsequenceDialog": { states: closed(consequenceDialogSample) },
   "patterns/dropzone/Dropzone": { states: dropzoneStates },
+  "patterns/evidence-link/EvidenceLink": { states: evidenceLinkStates },
   "patterns/job-timeline/JobTimeline": { states: jobTimelineStates },
   // The register renders no DOM of its own, so its evidence is the surface it feeds: a tray standing
   // inside it, holding what this sample has tracked — nothing.

@@ -12,6 +12,7 @@ import { REFUSALS } from "@/core/errors";
 import type { Storage } from "@/core/storage";
 import type { IngestFacts } from "../ingest/facts";
 import { ingestRecordOf } from "../ingest/records";
+import { drawingProjectOf } from "../partition/store";
 import { buildRenderManifest, graphHoldsLayout, manifestCacheKey } from "./manifest";
 import type { RenderManifest, ViewerHead } from "./types";
 
@@ -101,7 +102,15 @@ export async function renderManifestOf(scope: ViewerScope, deps: { storage: Stor
     tenantId: scope.tenantId,
     drawingId: scope.drawingId,
   });
-  if (record === null) return { kind: "absent", reason: "not-ingested" };
+  if (record === null) {
+    // No ingest record covers two different facts, and R-UI-050 separates them: a drawing this
+    // workspace holds but has not read yet is waiting on a reading that is really coming, and a
+    // drawing id it holds no drawing for is waiting on nothing at all. A Trace address is a
+    // hand-carried URL and reaches the second as easily as the first, so the two are told apart here
+    // rather than left for a screen to guess at.
+    const project = await drawingProjectOf(scope.tenantId, scope.drawingId);
+    return { kind: "absent", reason: project === null ? "drawing-unknown" : "not-ingested" };
+  }
 
   const key = memoKey(scope.tenantId, record.artifactSha256, scope.layoutName);
   const held = manifestCache().get(key);

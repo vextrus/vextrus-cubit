@@ -8,13 +8,23 @@
  * A test may import both sides: `tests/**` is outside the layer matrix.
  */
 import { describe, expect, test } from "vitest";
-import { INSPECTOR_COPY } from "../../../src/modules/takeoff/viewer-inspector/copy";
+import { INSPECTOR_COPY, TRACE_COPY } from "../../../src/modules/takeoff/viewer-inspector/copy";
+import { trace } from "../../../src/ui/strings/trace";
 import { viewerInspector } from "../../../src/ui/strings/viewer-inspector";
 
 describe("the inspector's mirrored copy is the registry's own", () => {
   test("every mirrored sentence is the registry's value, byte for byte", () => {
     const registry = viewerInspector as unknown as Record<string, string>;
     for (const [key, mirrored] of Object.entries(INSPECTOR_COPY)) {
+      expect(registry[key], `the registry carries \`${key}\` — the mirror names no key of its own`).toBe(mirrored);
+    }
+  });
+
+  // The Trace's own words are mirrored from their own registry file, so they are pinned against it
+  // and not against the panel's — one mirror per home, or the pin would pass over a key that moved.
+  test("the Trace block's mirrored sentences are `src/ui/strings/trace.ts`'s, byte for byte", () => {
+    const registry = trace as unknown as Record<string, string>;
+    for (const [key, mirrored] of Object.entries(TRACE_COPY)) {
       expect(registry[key], `the registry carries \`${key}\` — the mirror names no key of its own`).toBe(mirrored);
     }
   });

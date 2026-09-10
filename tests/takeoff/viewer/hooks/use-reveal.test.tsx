@@ -87,3 +87,48 @@ describe("useReveal: one travel, to the frame that holds what was named", () => 
     expect(result.current.flyto, "and says nothing about a travel it did not make").toBeNull();
   });
 });
+
+/**
+ * AC-4 (inc-215-trace) — the Trace strikes the arrival in the basis of the number that was traced.
+ *
+ * The pulse's colour is a token, read from the stage exactly as the travel's duration already is
+ * (B-17: one home for token reads, never a hex in a hook). `reveal` is therefore told WHICH basis,
+ * not which colour: `reveal(keys, basis)`, and the hook spends `var(--basis-<basis lowercased>)`.
+ *
+ * `reveal` is cast at the call site because today's signature takes keys alone — the widening is the
+ * missing feature this reports, and a second argument written bare would be a type error of this
+ * file's own rather than a red of the product's.
+ */
+type Reveals = (keys: readonly string[], basis: string) => void;
+
+/**
+ * What `--basis-measured` is set to for this mount. It is deliberately NOT a colour literal — the
+ * lane forbids one outside `src/ui/tokens.ts` (R-UI-001), and a colour is not what is being judged:
+ * what is judged is that the hook hands `pulse` whatever the token computes to, verbatim.
+ */
+const BASIS_MEASURED = "the-computed-value-of-basis-measured";
+
+describe("AC-4: the pulse is struck in the traced line's basis colour", () => {
+  test("AC-4: pulse(durationMs, colour) takes `--motion-flyto` and `var(--basis-measured)`", async () => {
+    stage.style.setProperty("--motion-flyto", "320ms");
+    stage.style.setProperty("--basis-measured", BASIS_MEASURED);
+    const { result } = mount();
+
+    act(() => (result.current.reveal as Reveals)([HELD_KEY], "MEASURED"));
+    await waitFor(() => expect(result.current.flyto, "the travel settles").toBe("settled"));
+
+    expect(pulse, "the arrival is struck once").toHaveBeenCalledTimes(1);
+    expect(pulse.mock.calls[0], "with the travel's own duration and the basis colour, computed from the stage's tokens (AC-4)").toEqual([320, BASIS_MEASURED]);
+  });
+
+  test("AC-4: reduced motion zeroes the token at source, and the strike carries the same colour", async () => {
+    stage.style.setProperty("--motion-flyto", "0ms");
+    stage.style.setProperty("--basis-measured", BASIS_MEASURED);
+    const { result } = mount();
+
+    act(() => (result.current.reveal as Reveals)([HELD_KEY], "MEASURED"));
+    await waitFor(() => expect(result.current.flyto, "the arrival is instant, not absent").toBe("settled"));
+
+    expect(pulse.mock.calls[0], "zero duration is the token's answer, not a branch in the hook (Decision §4)").toEqual([0, BASIS_MEASURED]);
+  });
+});

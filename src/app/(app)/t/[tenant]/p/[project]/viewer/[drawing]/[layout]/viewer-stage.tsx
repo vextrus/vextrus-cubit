@@ -8,15 +8,23 @@ import { useState } from "react";
 import { ZOOM_STEP } from "@/modules/takeoff/viewer/hooks/use-camera";
 import type { UsePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
 import type { UseSnap } from "@/modules/takeoff/viewer-snap/use-snap";
-import { InspectorPanel, type InspectorPanelProps } from "@/modules/takeoff/viewer-inspector/inspector-panel";
+import { InspectorPanel, type InspectorChrome, type InspectorPanelProps } from "@/modules/takeoff/viewer-inspector/inspector-panel";
 import { SCALE_COPY } from "@/modules/takeoff/scale-ui/copy";
-import { Button } from "@/ui/primitives/core";
+import { EvidenceLink } from "@/ui/patterns/evidence-link";
+import { BasisChip, Button } from "@/ui/primitives/core";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup, Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/data";
 import { fill, strings } from "@/ui/strings";
 import { LayersPanel, type LayersPanelProps } from "./layers-panel";
 import { ScalePanel, type ScaleRegion, type ScaleViewBox } from "./scale-region";
 import { SnapAnnouncer, SnapOverlay, SnapTools } from "./snap-region";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from "react";
+
+/**
+ * The two shipped renderers the inspector panel is handed (I-170). The panel lives in `src/modules`,
+ * which may not import `src/ui` (ARCH-01), and may not re-implement either (B-17) — so this file,
+ * the markup that mounts the panel, binds them once.
+ */
+const INSPECTOR_CHROME: InspectorChrome = { BasisChip, EvidenceLink };
 
 /** The panel's share of the width, and the band a reader may drag it to (Decision § 1). */
 const PANEL_SIZE = 22;
@@ -34,7 +42,7 @@ export type ViewerStageProps = {
   pointer: UsePointer;
   /** The snapping region: its toolbar on the stage and its marks on the overlay stack (I-151). */
   snap: UseSnap;
-  inspector: InspectorPanelProps;
+  inspector: Omit<InspectorPanelProps, "chrome">;
   onKeyDown: (event: ReactKeyboardEvent<HTMLCanvasElement>) => void;
   stageRef: RefObject<HTMLDivElement | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -139,6 +147,40 @@ export function ViewerStage({ panel, partition, scale, pointer, snap, inspector,
   );
 }
 
+/**
+ * The inspector beside a sheet that could not be drawn. A Trace address carries a line as well as a
+ * set of keys, and the reader who followed one is owed what became of that line even where there is
+ * no sheet to fly to — otherwise a stale address answers with a page about the drawing and nothing
+ * at all about what was asked for (AC-4, R-UI-050).
+ *
+ * It is the panel the stage mounts, with the same chrome, so no second inspector exists anywhere
+ * (B-17). What it is handed is only what is true here: no hover, no selection and no Cited-by,
+ * because all three are facts about a drawn sheet, and no canvas is mounted for it either — the
+ * empty state's own ruling that no stage stands behind an unread sheet is untouched (s-viewer § 2).
+ */
+export function AbsentSheetWork({ absence, trace }: { absence: ReactNode; trace: InspectorPanelProps["trace"] }) {
+  if (trace === null) return absence;
+  return (
+    <div className="cx-viewer-absence-work">
+      {absence}
+      <InspectorPanel
+        hover={null}
+        selection={[]}
+        missing={[]}
+        trace={trace}
+        cited={null}
+        onCopy={(key) => navigator.clipboard.writeText(key)}
+        onReveal={NOTHING_TO_REVEAL}
+        onClear={NOTHING_TO_REVEAL}
+        chrome={INSPECTOR_CHROME}
+      />
+    </div>
+  );
+}
+
+/** Nothing is held and no sheet is drawn, so the two controls that act on a selection do nothing. */
+const NOTHING_TO_REVEAL = (): void => {};
+
 /** The two tabs of the right inspector, and what each holds (I-152). */
 const SELECTION_TAB = "selection";
 const SCALE_TAB = "scale";
@@ -153,7 +195,7 @@ const SCALE_TAB = "scale";
  * whichever gesture arrived, keeps the strip and the panel saying the same thing (R-UI-012). Nothing
  * of it is persisted — that is the prefs seam's, and an IOU of this Decision's § 8.
  */
-function InspectorTabs({ inspector, scale, snap, views }: { inspector: InspectorPanelProps; scale: ScaleRegion; snap: UseSnap; views: readonly ScaleViewBox[] }) {
+function InspectorTabs({ inspector, scale, snap, views }: { inspector: Omit<InspectorPanelProps, "chrome">; scale: ScaleRegion; snap: UseSnap; views: readonly ScaleViewBox[] }) {
   const [tab, setTab] = useState(SELECTION_TAB);
   return (
     <Tabs className="cx-viewer-inspector-tabs" value={tab} onValueChange={setTab}>
@@ -166,7 +208,7 @@ function InspectorTabs({ inspector, scale, snap, views }: { inspector: Inspector
         </TabsTrigger>
       </TabsList>
       <TabsContent className="cx-viewer-inspector-tab" value={SELECTION_TAB}>
-        <InspectorPanel {...inspector} />
+        <InspectorPanel {...inspector} chrome={INSPECTOR_CHROME} />
       </TabsContent>
       <TabsContent className="cx-viewer-inspector-tab" value={SCALE_TAB}>
         {/* The picks are the snapping region's own, and a successful observation spends them: no

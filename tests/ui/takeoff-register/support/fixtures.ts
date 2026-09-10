@@ -67,10 +67,13 @@ export const CHROME_BARRELS: readonly string[] = [
   "src/ui/patterns/offered-group/index.ts",
   "src/ui/patterns/consequence-dialog/index.ts",
   "src/ui/patterns/job-timeline/index.ts",
+  // inc-215-trace: the `source` cell's link is the shipped pattern, injected like every other
+  // renderer — the workspace is a module and may not import `src/ui` (I-170, B-17).
+  "src/ui/patterns/evidence-link/index.ts",
 ];
 
-/** The nine renderers the workspace is handed (Decision I-170). */
-export const CHROME_NAMES: readonly string[] = ["Tree", "DataTable", "RefusalState", "OfferedGroups", "ConsequenceDialog", "JobTimeline", "Skeleton", "BasisChip", "CoverageChip"];
+/** The renderers the workspace is handed (Decision I-170; `EvidenceLink` joins them in inc-215). */
+export const CHROME_NAMES: readonly string[] = ["Tree", "DataTable", "RefusalState", "OfferedGroups", "ConsequenceDialog", "JobTimeline", "Skeleton", "BasisChip", "CoverageChip", "EvidenceLink"];
 
 /* --------------------------------------------------------------------- the fixture identities */
 
@@ -85,6 +88,44 @@ export const INGEST = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 /** The addresses this screen links, spelled as the test contract spells them. */
 export const drawingsRoute = (tenantId: string = TENANT, projectId: string = PROJECT): string => `/t/${tenantId}/p/${projectId}/drawings`;
 export const setsRoute = (tenantId: string = TENANT, projectId: string = PROJECT): string => `/t/${tenantId}/p/${projectId}/drawings/sets`;
+
+/**
+ * The sheet the staged lines were read on (inc-215-trace). The layout carries a space on purpose:
+ * the Trace address percent-encodes it, and a layout that needed no encoding would let an address
+ * that never encodes anything pass (Decision s-takeoff-register §1).
+ */
+export const LAYOUT = "S-101 Plan";
+
+/** The query parameter the register's own address carries an origin under (test contract). */
+export const LINE_PARAM = "line";
+
+/**
+ * The two addresses the Trace spells, written here as the test contract states them — independently
+ * of the product's `traceAddress`/`originAddress`, so a wrong spelling in the one home cannot agree
+ * with itself into a pass (B-12: every literal these need is public).
+ */
+export function traceAddressOf(line: { drawingId: string | null; layoutName: string | null; sourceKeys: readonly string[]; lineId: string }, tenantId: string = TENANT, projectId: string = PROJECT): string {
+  const keys = line.sourceKeys.map((key) => encodeURIComponent(key)).join(",");
+  return `/t/${tenantId}/p/${projectId}/viewer/${line.drawingId as string}/${encodeURIComponent(line.layoutName as string)}?s=${keys}&${LINE_PARAM}=${encodeURIComponent(line.lineId)}`;
+}
+
+export function originAddressOf(lineId: string | null, tenantId: string = TENANT, projectId: string = PROJECT): string {
+  const base = `/t/${tenantId}/p/${projectId}/takeoff/register`;
+  return lineId === null ? base : `${base}?${LINE_PARAM}=${encodeURIComponent(lineId)}`;
+}
+
+/**
+ * The keys a line cites: its own `sourceKey` first, then each binding's `source` in binding order,
+ * duplicates collapsed to their first occurrence (AC-2, Decision §1's `citedKeysOf`). Derived here
+ * so the fixture states the rule once and every suite recomputes rather than transcribes it (B-19).
+ */
+export function citedKeys(line: { sourceKey: string; variables: Record<string, { source: string }> }): string[] {
+  const seen: string[] = [];
+  for (const key of [line.sourceKey, ...Object.values(line.variables).map((binding) => binding.source)]) {
+    if (!seen.includes(key)) seen.push(key);
+  }
+  return seen;
+}
 
 /** The discipline, level and class the staged corpus stands on (AC-2). */
 export const DISCIPLINE = "STRUCTURAL";
@@ -178,6 +219,11 @@ export interface ViewLine {
   engine: string;
   sourceKey: string;
   repudiated: boolean;
+  /** The sheet the line's evidence stands on, or null where the reading resolves none (I-181). */
+  drawingId: string | null;
+  layoutName: string | null;
+  /** The keys the line cites — `citedKeys(line)` — which is the selection its Trace address carries. */
+  sourceKeys: string[];
 }
 
 /** One sighting that produced no line: a queue item or a refused sighting (test contract). */
@@ -261,7 +307,7 @@ export function aBinding(value: string, unit: string, basis: string = MEASURED, 
 /** One published quantity line of the staged campaign. */
 export function aLine(over: Partial<ViewLine> = {}): ViewLine {
   const mark = "C1";
-  return {
+  const line: ViewLine = {
     lineId: `line-${mark}`,
     objectKey: objectKeyOf(mark),
     kind: "rcc.concrete",
@@ -278,8 +324,14 @@ export function aLine(over: Partial<ViewLine> = {}): ViewLine {
     engine: VECTOR,
     sourceKey: sourceKeyOf(mark),
     repudiated: false,
+    drawingId: DRAWING,
+    layoutName: LAYOUT,
+    sourceKeys: [],
     ...over,
   };
+  // The cited keys are a reading OF the line, so they are computed after the caller's overrides —
+  // a line given another key or other bindings cites what it in fact carries (B-19).
+  return { ...line, sourceKeys: over.sourceKeys ?? citedKeys(line) };
 }
 
 /** The whole view, with every region answering and any region the caller wants otherwise. */

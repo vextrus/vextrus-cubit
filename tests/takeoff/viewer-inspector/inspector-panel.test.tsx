@@ -81,12 +81,25 @@ function prepare(): Promise<void> {
   return prepared;
 }
 
+/**
+ * The chrome the panel is injected with (I-170): a module may not import `src/ui`, so the shipped
+ * basis chip and evidence link arrive as components from the screen. Neither is drawn by any case
+ * below — each holds `trace: null` and `cited: null` — so the stand-ins only satisfy the shape.
+ */
+const CHROME = {
+  BasisChip: () => null,
+  EvidenceLink: () => null,
+};
+
 /** The props the screen hands the panel, with everything this case does not care about at rest. */
 function props(over: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     hover: null,
     selection: [],
     missing: [],
+    chrome: CHROME,
+    trace: null,
+    cited: null,
     onCopy: async () => undefined,
     onReveal: () => undefined,
     onClear: () => undefined,

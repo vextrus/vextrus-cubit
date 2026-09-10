@@ -179,9 +179,13 @@ Declared in `states.ts` as `VIEWER_STATES` (the route's enumerable home) and mir
 - **Empty** — `<div data-testid="viewer-empty">` in the stage's place, centred column,
   `gap: var(--space-2)`, max-width 420 px: heading `var(--text-16)` `var(--weight-heading)`
   `var(--graphite-900)`, body `var(--text-13)` `var(--graphite-600)`, then one action — a core
-  secondary Button-as-link to the project home, `viewer_evidence_project`. Two truths, by
-  `head.reason`: `not-ingested` → `viewer_empty_unread_heading` / `_body`; `layout-unknown` →
-  `viewer_empty_sheet_heading` / `_body`. No canvas mounts in either.
+  secondary Button-as-link to the project home, `viewer_evidence_project`. Three truths, by
+  `head.reason`, published on the cell as `data-reason`: `not-ingested` →
+  `viewer_empty_unread_heading` / `_body`; `drawing-unknown` → `trace_drawing_unknown_heading` /
+  `_body`; `layout-unknown` → `viewer_empty_sheet_heading` / `_body`. The middle one is the address
+  that names a drawing this project does not hold — a hand-carried Trace URL reaches it as easily as
+  the first — and it is kept apart because "has not been read yet" reports a reading that nothing
+  has started, which R-UI-050 separates from empty as not-found. No canvas mounts in any of them.
 - **Error** — the root error boundary (`src/app/error.tsx`, its own Decision: retry, and the
   report-id deferral it records). Reached when the head cannot be read at all (I-81); a lost layer
   is the partial cell, not this one.

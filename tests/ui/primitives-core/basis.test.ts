@@ -14,6 +14,7 @@ import {
   BASIS_GLYPH_LAW,
   BASIS_MODULE,
   TESTIDS,
+  colourLiteralHits,
   cssRules,
   loadBarrel,
   loadBasisModule,
@@ -23,6 +24,38 @@ import {
   varRefs,
 } from "./support/primitives";
 import { el, mount } from "./support/render";
+
+/**
+ * Every `--basis-…` spelling in a module's text: the name where the suffix is written out, and the
+ * interpolated form (`` `--basis-${…}` ``) where it is computed. A written-out name can bind
+ * something; an interpolation can only ever be a pointer the cascade resolves.
+ */
+const basisTokenSpellings = (text: string): { name: string; interpolated: boolean }[] =>
+  [...text.matchAll(/--basis-(\$\{|[A-Za-z0-9_-]*)/g)].map((m) => ({
+    name: `--basis-${m[1] ?? ""}`,
+    interpolated: (m[1] ?? "") === "${",
+  }));
+
+/**
+ * The offence a module commits against B-17, or undefined where it commits none. A pointer is not a
+ * home: R-UI-001, as src/ui/tokens.ts restates it, confines the VALUES to that one file and
+ * licenses "every other file reads `var(--…)`", so naming a basis token is the licensed read and
+ * only BINDING a basis to a value makes a second home. A module offends where it spells a
+ * `--basis-…` name that no basis in R-UI-002's roster derives, or where it names the namespace and
+ * holds a colour literal beside it. Both halves are probed, never transcribed (B-19): the lawful
+ * names come from BASES, the literal shapes from the shared colourLiteralHits().
+ */
+function bindsBasisToValue(file: string): string | undefined {
+  const lawfulNames = new Set(BASES.map((b) => `--basis-${b.toLowerCase()}`));
+  const text = readRepoFile(file);
+  const spellings = basisTokenSpellings(text);
+  if (spellings.length === 0) return undefined;
+  const unknown = spellings.filter((s) => !s.interpolated && !lawfulNames.has(s.name));
+  if (unknown.length > 0) return `${file}: ${[...new Set(unknown.map((s) => s.name))].join(" ")}`;
+  const literals = colourLiteralHits(text);
+  if (literals.length > 0) return `${file}: ${[...new Set(literals)].join(" ")}`;
+  return undefined;
+}
 
 /** A rule that styles one named basis (variants select on data attributes — Decision §1). */
 const basisOfRule = (selector: string): string | undefined =>
@@ -62,9 +95,18 @@ describe("AC-4: BASIS_GLYPHS is the single home of the R-UI-002 glyph table", ()
 
   test("AC-4: no second basis-colour table exists in src/ (B-17)", () => {
     readRepoFile(BASIS_MODULE); // the single home must exist before "no second home" means anything
+    // The one exempt file is also the proof the probe is not vacuous: src/ui/tokens.ts is the home,
+    // it binds every basis to its two values, and the predicate must be able to see that. If this
+    // ever stops holding, the scan below is passing because it can no longer tell a home from a
+    // pointer, not because src/ has none.
+    expect(
+      bindsBasisToValue("src/ui/tokens.ts"),
+      "the probe must recognise the one lawful home as a binding, or its silence elsewhere means nothing",
+    ).toBeTypeOf("string");
     const offenders: string[] = [];
     for (const file of productSrcFiles().filter((f) => /\.(ts|tsx|mts)$/.test(f) && f !== "src/ui/tokens.ts")) {
-      if (readRepoFile(file).includes("--basis-")) offenders.push(file);
+      const offence = bindsBasisToValue(file);
+      if (offence !== undefined) offenders.push(offence);
     }
     expect(
       offenders,

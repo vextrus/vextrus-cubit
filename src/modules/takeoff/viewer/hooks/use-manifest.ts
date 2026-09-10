@@ -37,7 +37,7 @@ export type HeadAnswer =
       layers: LayerRoster[];
     }
   | { kind: "refusal"; refusal: Extract<ViewerHead, { kind: "refusal" }>["refusal"]; facts: ViewerHeadFacts }
-  | { kind: "absent"; reason: "not-ingested" | "layout-unknown" };
+  | { kind: "absent"; reason: "not-ingested" | "layout-unknown" | "drawing-unknown" };
 
 export type UseManifestOptions = {
   /** A head handed in rather than fetched — a mount judged without a server. */

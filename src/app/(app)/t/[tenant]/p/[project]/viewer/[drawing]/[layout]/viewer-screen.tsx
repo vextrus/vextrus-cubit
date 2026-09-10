@@ -19,6 +19,8 @@ import "./viewer.css";
 
 import { useCallback, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { REFUSALS } from "@/core/errors";
+import { useCitedBy, useLineEvidence } from "@/modules/takeoff/trace/use-trace";
 import type { Camera, RenderLayer, ViewerHead } from "@/modules/takeoff/viewer";
 import type { Painter } from "@/modules/takeoff/viewer/painter";
 import { createSheetFacts, learn } from "@/modules/takeoff/viewer/hooks/facts";
@@ -34,13 +36,14 @@ import { useSelection } from "@/modules/takeoff/viewer/hooks/use-selection";
 import type { SnapCalibration } from "@/modules/takeoff/viewer-snap/snap";
 import { fill, strings } from "@/ui/strings";
 import { publishViewport } from "./address";
+import { readLineEvidence, readLinesCiting } from "./trace-actions";
 import { useScaleRegion, type ScaleDoors } from "./scale-region";
 import { useSnapRegion } from "./snap-region";
 import { usePartitionRegion } from "./partition-region";
 import { SheetAbsence } from "./viewer-bones";
 import { layoutNameOf } from "./route-address";
 import { StatusLine } from "./status-line";
-import { ViewerStage } from "./viewer-stage";
+import { AbsentSheetWork, ViewerStage } from "./viewer-stage";
 
 /** What the route hands the screen. `head` is supplied only where a mount is judged without a server. */
 export type ViewerScreenProps = {
@@ -52,6 +55,9 @@ export type ViewerScreenProps = {
   initialViewport: string | null;
   /** The `s` parameter as the address carries it, or null where it carries none. */
   initialSelection: string | null;
+  /** The `line` parameter: the register row a Trace was followed from (R-UI-022). */
+  initialLine?: string | null;
+
   head?: ViewerHead;
   /** The scale of record over this sheet. Supplied only where a mount is judged without a server. */
   calibration?: SnapCalibration | null;
@@ -59,7 +65,7 @@ export type ViewerScreenProps = {
   scale?: ScaleDoors;
 };
 
-export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, head: supplied, calibration: suppliedCalibration, scale: suppliedScale }: ViewerScreenProps) {
+export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, initialLine = null, head: supplied, calibration: suppliedCalibration, scale: suppliedScale }: ViewerScreenProps) {
   /** The status a door refused this reader with, if one did — the code it maps to is decided below. */
   const [denied, setDenied] = useState<number | null>(null);
   /** This screen's own root element, once it stands: the scale region's act dialog is portalled into
@@ -128,11 +134,14 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       this draw publishes, so the frame reaches it through a ref and not a dependency (PB-3). */
   const overlayPaint = useRef<((at: Camera) => void) | null>(null);
   const draw = useCallback((at: Camera): void => { painterRef.current?.draw(at, layers.stateRef.current); overlayPaint.current?.(at); }, [layers.stateRef]);
-  const pulse = useCallback((durationMs: number): void => void painterRef.current?.pulse(durationMs), []);
-
+  const pulse = useCallback((durationMs: number, colour?: string): void => void painterRef.current?.pulse(durationMs, colour), []);
+  // The Trace, both ways (R-UI-022, X-2). A refusal of either read is answered as a status where the sheet's own feed's are (ARCH-03).
+  const line = useLineEvidence({ tenantId, projectId, lineId: initialLine, read: readLineEvidence, onRefused: (refusal) => setDenied(refusal === REFUSALS.SIGNED_OUT.code ? 401 : 403) });
   const camera = useCamera({ head: sheet.head, initialViewport, stageRef, cameraRef, draw, publish, ownPathname, sheetKey: `${drawingId}/${layoutName}` });
   const trace = useReveal({ head: sheet.head, stageRef, facts, cameraRef, moveCamera: camera.moveCamera, jumpTo: camera.jumpTo, pulse });
-  const held = useSelection({ facts, head: sheet.head, initialSelection, initialViewport, loadedLayers: sheet.loadedLayers, failedCount: layers.failedCount, revision: layers.revision, reveal: trace.reveal, selectionRef, cameraRef, publish, drawingId, layoutName });
+  // The travel waits for the answer naming the basis it is struck in; an address naming no line waits for nothing (I-85).
+  const held = useSelection({ facts, head: sheet.head, initialSelection, initialViewport, loadedLayers: sheet.loadedLayers, failedCount: layers.failedCount, revision: layers.revision, reveal: trace.reveal, ...(initialLine === null ? {} : { revealReady: line.ready, revealBasis: line.basis }), selectionRef, cameraRef, publish, drawingId, layoutName });
+  const cited = useCitedBy({ tenantId, projectId, drawingId, selection: held.selection, read: readLinesCiting, onRefused: (refusal) => setDenied(refusal === REFUSALS.SIGNED_OUT.code ? 401 : 403) });
   const index = useHitTesting({ head: sheet.head, layers: arrived, loadedLayers: sheet.loadedLayers, stateRef: layers.stateRef, statusRef, cameraRef });
   /** The views/grid region — the partition stored for this sheet, the paint it files above, and the one act
       door behind them — asked for only once the head is a manifest (R-UI-043). A door that refuses the
@@ -174,9 +183,8 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   // The three answers that are not a drawing — a door's refusal, a reading nothing can be drawn
   // from, and a sheet nobody has read — are one sibling's body, kept apart there (ARCH-03).
   const workArea = (): ReactNode => {
-    if (denied !== null || head === null || head.kind !== "manifest") {
-      return <SheetAbsence head={head} denied={denied} tenantId={tenantId} projectId={projectId} />;
-    }
+    if (denied !== null || head === null || head.kind !== "manifest")
+      return <AbsentSheetWork trace={initialLine === null ? null : line.block} absence={<SheetAbsence head={head} denied={denied} tenantId={tenantId} projectId={projectId} />} />;
 
     return (
       <ViewerStage
@@ -196,7 +204,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         // The source key goes to the clipboard exactly as it stands — nothing stripped, nothing
         // trimmed (R-TO-011). A browser that refuses the write refuses that promise, and the row
         // goes on offering the copy rather than claiming to have made one.
-        inspector={{ hover: pointer.hovered, selection: held.selected, missing: held.missing, onCopy: (key) => navigator.clipboard.writeText(key), onReveal: () => trace.reveal(held.selection), onClear: () => held.hold([]) }}
+        inspector={{ hover: pointer.hovered, selection: held.selected, missing: held.missing, trace: line.block, cited, onCopy: (key) => navigator.clipboard.writeText(key), onReveal: () => trace.reveal(held.selection), onClear: () => held.hold([]) }}
         onKeyDown={keyboard.onKeyDown}
         stageRef={stageRef}
         canvasRef={canvasRef}
@@ -210,7 +218,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   };
 
   return (
-    <div className="cx-viewer" ref={setScreenRoot} data-testid="viewer-screen" data-project={projectId} data-flyto={trace.flyto ?? undefined}>
+    <div className="cx-viewer" ref={setScreenRoot} data-testid="viewer-screen" data-project={projectId} data-flyto={trace.flyto ?? undefined} data-trace-basis={line.basis}>
       {/* The sheet names itself once, as the house style has every screen do: heading navigation
           lands on the sheet a reader opened rather than nowhere (R-UI-050's siblings, axe). */}
       <h1 className="cx-viewer-hidden">{fill(strings.viewer_canvas_label, { layout: sheetName })}</h1>

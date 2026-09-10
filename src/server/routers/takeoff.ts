@@ -28,6 +28,7 @@ import { viewsOf, type ViewRecord } from "../../modules/takeoff/partition";
 import { registerViewOf } from "../../modules/takeoff/register-ui/server";
 import type { RegisterView } from "../../modules/takeoff/register-ui/view";
 import { scaleProposalsOf, scaleTolerancesOf, type ViewScale } from "../../modules/takeoff/scale";
+import { lineEvidence, linesCiting, type LineEvidence } from "../../modules/takeoff/trace";
 import { offeredGroupsOf, sheetIndexOf, type OfferedGroup, type SheetCard } from "../../modules/takeoff/sheets";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { signedOut } from "../auth/refusals";
@@ -107,6 +108,13 @@ function scaleRank(raw: unknown): ScaleRank {
   return stated;
 }
 
+/** The keys a Trace holds, as the other direction of X-2 is asked about them. */
+function sourceKeys(raw: unknown): string[] {
+  const stated = bagOf(raw)["sourceKeys"];
+  if (!Array.isArray(stated) || stated.some((key) => typeof key !== "string")) throw new Error(`takeoff: "sourceKeys" is required and must be an array of strings`);
+  return stated as string[];
+}
+
 /** The views one affirmation names — a scale group is the subject set of one act (L-MEA-05). */
 function viewKeys(raw: unknown): string[] {
   const stated = bagOf(raw)["viewKeys"];
@@ -184,6 +192,26 @@ export const takeoffRouter = router({
     .query(async ({ ctx, input }): Promise<RegisterView> => {
       const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
       return registerViewOf({ tenantId: actor.tenantId, projectId: input.projectId });
+    }),
+
+  /**
+   * The Trace, from a published quantity to the entities it was read at (R-UI-022, X-2). Reading it
+   * needs what reading the register needs and nothing more; a lineId this project does not hold is a
+   * fact and answers `null` — the module decides that, and this door only carries it (I-88).
+   */
+  lineEvidence: signedInProcedure
+    .input((raw: unknown) => ({ projectId: text(raw, "projectId"), lineId: text(raw, "lineId") }))
+    .query(async ({ ctx, input }): Promise<LineEvidence | null> => {
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      return lineEvidence({ tenantId: actor.tenantId, projectId: input.projectId }, input.lineId);
+    }),
+
+  /** The Trace's other direction: the published lines of that sheet citing the keys a reader holds. */
+  linesCiting: signedInProcedure
+    .input((raw: unknown) => ({ projectId: text(raw, "projectId"), drawingId: text(raw, "drawingId"), sourceKeys: sourceKeys(raw) }))
+    .query(async ({ ctx, input }): Promise<LineEvidence[]> => {
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      return linesCiting({ tenantId: actor.tenantId, projectId: input.projectId }, { drawingId: input.drawingId, sourceKeys: input.sourceKeys });
     }),
 
   previewCorroborate: signedInProcedure

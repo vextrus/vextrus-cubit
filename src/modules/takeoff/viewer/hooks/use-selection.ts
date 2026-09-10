@@ -35,7 +35,18 @@ export type UseSelectionOptions = {
   /** Bumped when a layer's posture or arrival changed outside React's own state. */
   revision?: number;
   /** What the address named and this sheet holds, handed over once the reading settles (I-85). */
-  reveal?: (keys: readonly string[]) => void;
+  reveal?: (keys: readonly string[], basis?: string) => void;
+  /**
+   * The basis the arrival is struck in, where the address named a line to trace (R-UI-022, X-2).
+   * Absent for a link that names keys alone — the canvas's own pulse colour stands for those.
+   */
+  revealBasis?: string;
+  /**
+   * Whether everything the travel needs is known yet. A Trace address names a line whose basis is
+   * read at a door, and a strike made before that answer arrives would be struck in the wrong
+   * colour — so the reading of `s` waits for it, once, and never re-flies afterwards.
+   */
+  revealReady?: boolean;
   /** The keys held, off the render loop: a settling gesture publishes what is held at that moment. */
   selectionRef?: RefObject<string[]>;
   cameraRef?: RefObject<Camera | null>;
@@ -60,7 +71,7 @@ export type UseSelection = {
 
 export function useSelection(options: UseSelectionOptions): UseSelection {
   const { facts, initialSelection, initialViewport, head, loadedLayers, failedCount, totalLayers, revision = 0 } = options;
-  const { reveal, selectionRef, cameraRef, publish, drawingId = "", layoutName = "" } = options;
+  const { reveal, revealBasis, revealReady = true, selectionRef, cameraRef, publish, drawingId = "", layoutName = "" } = options;
 
   const [selection, setSelection] = useState<string[]>([]);
   const [missing, setMissing] = useState<string[]>([]);
@@ -113,14 +124,21 @@ export function useSelection(options: UseSelectionOptions): UseSelection {
     const found = asked.keys.filter((key) => held.has(key));
     const settled = asked.keys.length === 0 || found.length === asked.keys.length || arrived;
     if (!settled) return;
+    // A camera the address states is the camera the reader gets: only a link that named keys and no
+    // viewport flies to them, and only then is `data-flyto` ever written (I-85).
+    const flying = found.length > 0 && initialViewport === null;
+    // A travel that is going to be struck in a basis waits for that basis rather than striking in
+    // the wrong colour; a reading that names no line, or that is not travelling, waits for nothing.
+    if (flying && !revealReady) return;
 
     takenRef.current = true;
     if (asked.keys.length > 0) setSelection(found);
     setMissing([...asked.malformed, ...asked.keys.filter((key) => !held.has(key))]);
-    // A camera the address states is the camera the reader gets: only a link that named keys and no
-    // viewport flies to them, and only then is `data-flyto` ever written (I-85).
-    if (found.length > 0 && initialViewport === null) sink.current.reveal?.(found);
-  }, [drawingId, failedCount, head, held, initialSelection, initialViewport, layoutName, loadedLayers, revision, total]);
+    // A reading that names no line names no basis either: the travel is handed the keys alone and
+    // its arrival is struck in the canvas's own pulse colour, exactly as the Reveal door's is.
+    if (flying && revealBasis === undefined) sink.current.reveal?.(found);
+    else if (flying) sink.current.reveal?.(found, revealBasis);
+  }, [drawingId, failedCount, head, held, initialSelection, initialViewport, layoutName, loadedLayers, revealBasis, revealReady, revision, total]);
 
   // What is held is part of the address exactly as the camera is, and it is replaced onto it, never
   // pushed: Back leaves the sheet rather than unwinding a reader's clicks (R-UI-031).

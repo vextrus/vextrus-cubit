@@ -1,0 +1,87 @@
+/* The Trace affordance (docs/design/evidence-link.md § 1, § 4, § 5, § 6).
+ *
+ * A word in a cell, not a chip beside one: no fill, no border, no radius, no height. Colour is spent
+ * only through the basis tokens, and only where the 3:1 UI floor governs — the glyph and the rule
+ * (I-176). The label rides graphite-900, which clears 4.5:1 on every ground in both themes.
+ *
+ * No theme selector and no hex: every light/dark difference arrives through token values
+ * (R-UI-001). No focus rule either — the reticle's single home draws it (B-17).
+ */
+
+.cx-evidence-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  /* Evidence is never ellipsised behind something a reader cannot open (I-26). */
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  /* I-177: the rule stands at rest and thickens under the pointer — an affordance that appeared
+     from nothing would be indistinguishable from the plain mono keys beside it (R-UI-060). Focus is
+     not answered here: the reticle is the focus indicator's single home (B-17), and no stylesheet in
+     `src/` outside it may name a focus state at all. */
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition:
+    color var(--motion-state) var(--ease),
+    text-decoration-thickness var(--motion-state) var(--ease);
+}
+
+.cx-evidence-link:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* R-UI-002's palette, one rule per basis in the clause's own order — the whole colour surface of
+   this file. The glyph and the underline inherit it; `text-decoration-color` comes from the
+   decorating anchor, so the rule stays basis-coloured under the graphite label. */
+.cx-evidence-link[data-basis="MEASURED"] {
+  color: var(--basis-measured);
+}
+
+.cx-evidence-link[data-basis="TRANSCRIBED"] {
+  color: var(--basis-transcribed);
+}
+
+.cx-evidence-link[data-basis="DERIVED"] {
+  color: var(--basis-derived);
+}
+
+.cx-evidence-link[data-basis="IMPORTED"] {
+  color: var(--basis-imported);
+}
+
+.cx-evidence-link[data-basis="ENTERED"] {
+  color: var(--basis-entered);
+}
+
+.cx-evidence-link[data-basis="INTERPRETED"] {
+  color: var(--basis-interpreted);
+}
+
+.cx-evidence-link[data-basis="DEFAULTED"] {
+  color: var(--basis-defaulted);
+}
+
+/* Inline-block, so the propagated underline does not strike through the glyph.
+ *
+ * R-UI-002 asks the glyph to carry the basis where colour is gone, and the seven marks do not carry
+ * equal ink at one size: the IMPORTED and DEFAULTED marks are open, low-stem shapes wearing the two
+ * palest tokens — slate and grey — and read fainter than the rule beneath them, while the solid
+ * marks read plainly. One step of size and of weight is spent on the glyph alone, so the weakest
+ * mark stands as clearly as the strongest. This is the one size and the one weight this pattern
+ * sets (§ 1, and both tokens are named in § 5's closed set), and the mixed-size line box it makes is
+ * what the box's `align-items: baseline` is for: the mark rises off the key's baseline rather than
+ * centring against a key it would then no longer sit level with.
+ * The label is untouched: it is text at 12 px in graphite (I-176). */
+.cx-evidence-link-glyph {
+  display: inline-block;
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+}
+
+/* I-176: the key is text, and text clears 4.5:1 only in graphite. */
+.cx-evidence-link-label {
+  color: var(--graphite-900);
+}

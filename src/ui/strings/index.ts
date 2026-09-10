@@ -7,6 +7,7 @@ import { consequenceDialog } from "./consequence-dialog";
 import { consequenceEffects } from "./consequence-effects";
 import { design } from "./design";
 import { dropzone } from "./dropzone";
+import { evidenceLink } from "./evidence-link";
 import { home } from "./home";
 import { jobTimeline } from "./job-timeline";
 import { measure } from "./measure";
@@ -18,6 +19,7 @@ import { shell } from "./shell";
 import { shortcuts } from "./shortcuts";
 import { spine } from "./spine";
 import { takeoff } from "./takeoff";
+import { trace } from "./trace";
 import { viewer } from "./viewer";
 import { viewerInspector } from "./viewer-inspector";
 import { viewerPartition } from "./viewer-partition";
@@ -30,6 +32,7 @@ export const strings = {
   ...consequenceEffects,
   ...design,
   ...dropzone,
+  ...evidenceLink,
   ...home,
   ...jobTimeline,
   ...measure,
@@ -41,6 +44,7 @@ export const strings = {
   ...shortcuts,
   ...spine,
   ...takeoff,
+  ...trace,
   ...viewer,
   ...viewerInspector,
   ...viewerPartition,

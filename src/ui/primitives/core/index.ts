@@ -7,6 +7,8 @@ import "./reticle.css";
 import "./core.css";
 
 export { Badge } from "./badge";
+// R-UI-002's glyph table is not a primitive and is not published here: it stays in `./basis`, its own
+// home, which every surface that shows a basis reads it from directly (B-17).
 export { BasisChip } from "./basis-chip";
 export { Button } from "./button";
 export { Chip } from "./chip";
