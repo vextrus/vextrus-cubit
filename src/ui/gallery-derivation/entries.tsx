@@ -24,7 +24,6 @@ import { OfferedGroups, type OfferedGroupItem } from "../patterns/offered-group"
 import { RefusalState } from "../patterns/refusal-state";
 import { SAMPLE_REFUSAL_BY_SEVERITY, sampleRefusal } from "./sample-refusals";
 import {
-  BASIS_GLYPHS,
   Badge,
   BasisChip,
   Button,
@@ -36,7 +35,6 @@ import {
   Textarea,
   Tooltip,
   UnitBadge,
-  type Basis,
 } from "../primitives/core";
 import {
   DataTable,
@@ -205,12 +203,12 @@ const basisStates: readonly GalleryState[] = BASES.map((basis) => ({
 }));
 
 /**
- * The Trace affordance, one cell per basis (evidence-link § 7): the roster is read off R-UI-002's
- * own glyph table rather than listed here, so a basis added to the clause joins the gallery without
- * a line of this file changing (B-19). One key across every cell, so the row compares colour and
- * glyph and nothing else; `/design` is the sample destination that stays on the current route.
+ * The Trace affordance, one cell per basis (evidence-link § 7): the roster is the same `BASES` the
+ * basis chip's own cells are derived from, so the two surfaces of R-UI-002 can never disagree about
+ * which bases exist (B-17, B-19). One key across every cell, so the row compares colour and glyph
+ * and nothing else; `/design` is the sample destination that stays on the current route.
  */
-const evidenceLinkStates: readonly GalleryState[] = (Object.keys(BASIS_GLYPHS) as Basis[]).map((basis) => ({
+const evidenceLinkStates: readonly GalleryState[] = BASES.map((basis) => ({
   name: basis,
   render: () => <EvidenceLink href={copy.evidenceLink.href} basis={basis} label={copy.evidenceLink.label} />,
 }));
