@@ -17,8 +17,10 @@
  */
 import "./viewer.css";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { originAddress, type LineEvidence } from "@/modules/takeoff/trace/address";
+import type { CitedBlock, InspectorChrome, TraceBlock } from "@/modules/takeoff/viewer-inspector/inspector-panel";
 import type { Camera, RenderLayer, ViewerHead } from "@/modules/takeoff/viewer";
 import type { Painter } from "@/modules/takeoff/viewer/painter";
 import { createSheetFacts, learn } from "@/modules/takeoff/viewer/hooks/facts";
@@ -32,8 +34,11 @@ import { usePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
 import { useReveal } from "@/modules/takeoff/viewer/hooks/use-reveal";
 import { useSelection } from "@/modules/takeoff/viewer/hooks/use-selection";
 import type { SnapCalibration } from "@/modules/takeoff/viewer-snap/snap";
+import { EvidenceLink } from "@/ui/patterns/evidence-link";
+import { BasisChip } from "@/ui/primitives/core";
 import { fill, strings } from "@/ui/strings";
 import { publishViewport } from "./address";
+import { readLineEvidence, readLinesCiting } from "./trace-actions";
 import { useScaleRegion, type ScaleDoors } from "./scale-region";
 import { useSnapRegion } from "./snap-region";
 import { usePartitionRegion } from "./partition-region";
@@ -41,6 +46,24 @@ import { SheetAbsence } from "./viewer-bones";
 import { layoutNameOf } from "./route-address";
 import { StatusLine } from "./status-line";
 import { ViewerStage } from "./viewer-stage";
+
+/**
+ * The two shipped renderers the inspector panel is handed (I-170). The panel lives in `src/modules`,
+ * which may not import `src/ui` (ARCH-01), and may not re-implement either (B-17) — so this file,
+ * which may reach both, binds them once.
+ */
+const INSPECTOR_CHROME: InspectorChrome = { BasisChip, EvidenceLink };
+
+/** The status a refusal of a read is answered as, where the sheet's own feed would answer it too. */
+const UNAUTHENTICATED = 401;
+const FORBIDDEN = 403;
+
+/**
+ * How the read of the line a Trace address named stands. `pending` is the read in flight and shows
+ * no block at all — the three cells AC-4 fixes are the answers, and a block that stated one of them
+ * before the door had answered would state a fact nobody had established (R-UI-050).
+ */
+type TraceRead = { state: "pending" | "ready" | "missing" | "failed"; evidence: LineEvidence | null };
 
 /** What the route hands the screen. `head` is supplied only where a mount is judged without a server. */
 export type ViewerScreenProps = {
@@ -52,6 +75,8 @@ export type ViewerScreenProps = {
   initialViewport: string | null;
   /** The `s` parameter as the address carries it, or null where it carries none. */
   initialSelection: string | null;
+  /** The `line` parameter: the register row a Trace was followed from, where one was (R-UI-022). */
+  initialLine?: string | null;
   head?: ViewerHead;
   /** The scale of record over this sheet. Supplied only where a mount is judged without a server. */
   calibration?: SnapCalibration | null;
@@ -59,7 +84,7 @@ export type ViewerScreenProps = {
   scale?: ScaleDoors;
 };
 
-export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, head: supplied, calibration: suppliedCalibration, scale: suppliedScale }: ViewerScreenProps) {
+export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initialViewport, initialSelection, initialLine = null, head: supplied, calibration: suppliedCalibration, scale: suppliedScale }: ViewerScreenProps) {
   /** The status a door refused this reader with, if one did — the code it maps to is decided below. */
   const [denied, setDenied] = useState<number | null>(null);
   /** This screen's own root element, once it stands: the scale region's act dialog is portalled into
@@ -128,11 +153,106 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       this draw publishes, so the frame reaches it through a ref and not a dependency (PB-3). */
   const overlayPaint = useRef<((at: Camera) => void) | null>(null);
   const draw = useCallback((at: Camera): void => { painterRef.current?.draw(at, layers.stateRef.current); overlayPaint.current?.(at); }, [layers.stateRef]);
-  const pulse = useCallback((durationMs: number): void => void painterRef.current?.pulse(durationMs), []);
+  // The arrival of a Trace is struck in the basis of the number that was traced, so the colour the
+  // hook read off the stage's tokens travels through to the painter unchanged (R-UI-002, R-UI-022).
+  const pulse = useCallback((durationMs: number, colour?: string): void => void painterRef.current?.pulse(durationMs, colour), []);
+
+  /* ----------------------------------------------------------- the Trace, both ways (R-UI-022, X-2) */
+
+  /** The line the address named, as this screen's own read of the door leaves it. */
+  const [traceRead, setTraceRead] = useState<TraceRead>({ state: initialLine === null ? "ready" : "pending", evidence: null });
+
+  /**
+   * The read of that line — made at mount and made again by the `failed` cell's own door. A refusal
+   * is not a fault: an ended session and a workspace this reader does not hold are answered where the
+   * layer feed's own refusals are, through the one renderer with a remedy (ARCH-03). Anything else
+   * that stops the read is this region's error cell, which offers to read again (R-UI-050).
+   */
+  const readTrace = useCallback((): void => {
+    if (initialLine === null) return;
+    setTraceRead({ state: "pending", evidence: null });
+    void readLineEvidence({ projectId, lineId: initialLine })
+      .then((answer) => {
+        if (!answer.read) {
+          setDenied(answer.refusal === "SIGNED_OUT" ? UNAUTHENTICATED : FORBIDDEN);
+          setTraceRead({ state: "failed", evidence: null });
+          return;
+        }
+        // A line this project does not hold is a fact about the address, never a refusal (I-88).
+        setTraceRead(answer.evidence === null ? { state: "missing", evidence: null } : { state: "ready", evidence: answer.evidence });
+      })
+      .catch(() => setTraceRead({ state: "failed", evidence: null }));
+  }, [initialLine, projectId]);
+
+  useEffect(() => readTrace(), [readTrace]);
 
   const camera = useCamera({ head: sheet.head, initialViewport, stageRef, cameraRef, draw, publish, ownPathname, sheetKey: `${drawingId}/${layoutName}` });
   const trace = useReveal({ head: sheet.head, stageRef, facts, cameraRef, moveCamera: camera.moveCamera, jumpTo: camera.jumpTo, pulse });
-  const held = useSelection({ facts, head: sheet.head, initialSelection, initialViewport, loadedLayers: sheet.loadedLayers, failedCount: layers.failedCount, revision: layers.revision, reveal: trace.reveal, selectionRef, cameraRef, publish, drawingId, layoutName });
+  const held = useSelection({
+    facts,
+    head: sheet.head,
+    initialSelection,
+    initialViewport,
+    loadedLayers: sheet.loadedLayers,
+    failedCount: layers.failedCount,
+    revision: layers.revision,
+    reveal: trace.reveal,
+    // The travel is struck in the traced line's basis, so it waits for the answer that names one:
+    // an address that names no line waits for nothing and flies as it always did (I-85).
+    ...(initialLine === null ? {} : { revealReady: traceRead.state !== "pending", revealBasis: traceRead.evidence?.quantityBasis }),
+    selectionRef,
+    cameraRef,
+    publish,
+    drawingId,
+    layoutName,
+  });
+
+  /** What the held selection is cited by — read again whenever what is held changes (X-2). */
+  const [cited, setCited] = useState<CitedBlock | null>(null);
+  const heldKeys = held.selection.join(",");
+
+  useEffect(() => {
+    const keys = heldKeys === "" ? [] : heldKeys.split(",");
+    // Nothing held is nothing to be cited by: the block is absent rather than empty, because the
+    // panel's own empty state is what teaches a reader with no selection (R-UI-050).
+    if (keys.length === 0) {
+      setCited(null);
+      return;
+    }
+    let live = true;
+    void readLinesCiting({ projectId, drawingId, sourceKeys: keys })
+      .then((answer) => {
+        if (!live) return;
+        setCited(
+          answer.read
+            ? {
+                state: "ready",
+                lines: answer.lines.map((line) => ({
+                  lineId: line.lineId,
+                  objectKey: line.objectKey,
+                  kind: line.kind,
+                  value: line.value,
+                  unit: line.unit,
+                  quantityBasis: line.quantityBasis,
+                  href: originAddress(tenantId, projectId, line.lineId),
+                })),
+              }
+            : { state: "failed", lines: [] },
+        );
+      })
+      .catch(() => {
+        if (live) setCited({ state: "failed", lines: [] });
+      });
+    return () => {
+      live = false;
+    };
+  }, [drawingId, heldKeys, projectId, tenantId]);
+
+  /** The Trace block the selection tab renders, once the door has answered (AC-4's three cells). */
+  const traceBlock: TraceBlock | null =
+    initialLine === null || traceRead.state === "pending"
+      ? null
+      : { state: traceRead.state, lineId: initialLine, evidence: traceRead.evidence, originHref: originAddress(tenantId, projectId, initialLine), onRetry: readTrace };
   const index = useHitTesting({ head: sheet.head, layers: arrived, loadedLayers: sheet.loadedLayers, stateRef: layers.stateRef, statusRef, cameraRef });
   /** The views/grid region — the partition stored for this sheet, the paint it files above, and the one act
       door behind them — asked for only once the head is a manifest (R-UI-043). A door that refuses the
@@ -196,7 +316,17 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
         // The source key goes to the clipboard exactly as it stands — nothing stripped, nothing
         // trimmed (R-TO-011). A browser that refuses the write refuses that promise, and the row
         // goes on offering the copy rather than claiming to have made one.
-        inspector={{ hover: pointer.hovered, selection: held.selected, missing: held.missing, onCopy: (key) => navigator.clipboard.writeText(key), onReveal: () => trace.reveal(held.selection), onClear: () => held.hold([]) }}
+        inspector={{
+          hover: pointer.hovered,
+          selection: held.selected,
+          missing: held.missing,
+          chrome: INSPECTOR_CHROME,
+          trace: traceBlock,
+          cited,
+          onCopy: (key) => navigator.clipboard.writeText(key),
+          onReveal: () => trace.reveal(held.selection),
+          onClear: () => held.hold([]),
+        }}
         onKeyDown={keyboard.onKeyDown}
         stageRef={stageRef}
         canvasRef={canvasRef}
@@ -210,7 +340,16 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   };
 
   return (
-    <div className="cx-viewer" ref={setScreenRoot} data-testid="viewer-screen" data-project={projectId} data-flyto={trace.flyto ?? undefined}>
+    <div
+      className="cx-viewer"
+      ref={setScreenRoot}
+      data-testid="viewer-screen"
+      data-project={projectId}
+      data-flyto={trace.flyto ?? undefined}
+      // The basis the Trace is held in, published while it is held: it is the colour the arrival was
+      // struck in, and a screen that paints a fact says which one (R-UI-002, AC-4).
+      data-trace-basis={traceRead.evidence?.quantityBasis}
+    >
       {/* The sheet names itself once, as the house style has every screen do: heading navigation
           lands on the sheet a reader opened rather than nowhere (R-UI-050's siblings, axe). */}
       <h1 className="cx-viewer-hidden">{fill(strings.viewer_canvas_label, { layout: sheetName })}</h1>

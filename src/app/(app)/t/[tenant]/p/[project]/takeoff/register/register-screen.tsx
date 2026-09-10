@@ -12,6 +12,7 @@ import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { RegisterWorkspace, type RegisterChrome, type RegisterDensity, type RegisterDoors, type PreviewAnswer } from "@/modules/takeoff/register-ui";
 import type { RegisterView } from "@/modules/takeoff/register-ui/view";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
+import { EvidenceLink } from "@/ui/patterns/evidence-link";
 import { JobTimeline } from "@/ui/patterns/job-timeline";
 import { OfferedGroups } from "@/ui/patterns/offered-group";
 import { RefusalState } from "@/ui/patterns/refusal-state";
@@ -20,7 +21,7 @@ import { DataTable, Tree } from "@/ui/primitives/data";
 import { strings } from "@/ui/strings";
 import { commitCorroborate, commitInsertLevel, commitRepudiate, previewCorroborate, previewInsertLevel, previewRepudiate, readRegister, requestMeasure, type DoorAnswer } from "./actions";
 
-/** The nine shipped renderers, bound once (I-170): what a test mounts is what this route renders. */
+/** The shipped renderers, bound once (I-170): what a test mounts is what this route renders. */
 const CHROME: RegisterChrome = {
   Tree,
   DataTable,
@@ -31,6 +32,7 @@ const CHROME: RegisterChrome = {
   Skeleton,
   BasisChip,
   CoverageChip,
+  EvidenceLink,
 };
 
 /** A door's answer, as the workspace reads one: the value, or the refusal it re-raises in place. */

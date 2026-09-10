@@ -26,6 +26,19 @@ const EASE_CONTROLS = 4;
  * read at all is not a reason to teleport: the travel keeps its own stated length, and a curve that
  * cannot be parsed eases linearly over it (§ 4).
  */
+/**
+ * The colour a basis is painted in, as the screen's own tokens state it — the same read the duration
+ * above is, at the same element, so no hook anywhere holds a hex (R-UI-002, R-UI-001, B-17). A basis
+ * nobody names, or a token this stage does not carry, answers the empty string and the strike keeps
+ * the canvas's own pulse colour.
+ */
+function basisColour(element: Element, basis: string | undefined): string {
+  if (basis === undefined || basis.length === 0) return "";
+  return getComputedStyle(element)
+    .getPropertyValue(`--basis-${basis.toLowerCase()}`)
+    .trim();
+}
+
 function flytoMotion(element: Element): { durationMs: number; ease: EaseControls | null } {
   const style = getComputedStyle(element);
   const spelled = style.getPropertyValue("--motion-flyto").trim();
@@ -47,12 +60,17 @@ export type UseRevealOptions = {
   moveCamera?: (move: (held: Camera) => Camera, live: boolean) => void;
   /** Where the travel lands, whether or not a camera is held yet. */
   jumpTo?: (at: Camera) => void;
-  /** The arrival, struck once in the pulse colour over this many milliseconds. */
-  pulse?: (durationMs: number) => void;
+  /** The arrival, struck once over this many milliseconds — in the basis colour where one is named. */
+  pulse?: (durationMs: number, colour?: string) => void;
 };
 
 export type UseReveal = {
-  reveal: (keys: readonly string[]) => void;
+  /**
+   * Travel to what these keys name and strike the arrival. A Trace names the basis the traced number
+   * was measured on, and the strike carries that basis's colour (R-UI-022, X-2); the Reveal door
+   * names none and the canvas's own pulse colour stands.
+   */
+  reveal: (keys: readonly string[], basis?: string) => void;
   /** Absent until the first fly-to ever runs, and never written when the address states `v` (I-85). */
   flyto: "flying" | "settled" | null;
 };
@@ -65,7 +83,7 @@ export function useReveal({ head, stageRef, facts, cameraRef, moveCamera, jumpTo
   const cameraAt = useHandedRef(cameraRef, null);
 
   const reveal = useCallback(
-    (keys: readonly string[]): void => {
+    (keys: readonly string[], basis?: string): void => {
       const stage = stageOf.current;
       if (stage === null || head?.kind !== "manifest") return;
       const boxes = keys.map((key) => facts.get(key)?.box).filter((box): box is IndexBox => box !== undefined);
@@ -78,6 +96,7 @@ export function useReveal({ head, stageRef, facts, cameraRef, moveCamera, jumpTo
       const to = revealCamera(union, viewportPx);
       const from = cameraAt.current ?? fitCamera(head.manifest.extents, viewportPx);
       const { durationMs, ease } = flytoMotion(stage);
+      const colour = basisColour(stage, basis);
       const flight = flightRef.current + 1;
       flightRef.current = flight;
 
@@ -85,7 +104,7 @@ export function useReveal({ head, stageRef, facts, cameraRef, moveCamera, jumpTo
         if (cameraAt.current === null) jumpTo?.(to);
         else moveCamera?.(() => to, false);
         setFlyto("settled");
-        pulse?.(durationMs);
+        pulse?.(durationMs, colour.length > 0 ? colour : undefined);
       };
 
       // Reduced motion zeroes the token at source, so this is one frame and no pulse — the same

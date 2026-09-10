@@ -56,8 +56,12 @@ export type Painter = {
    * Strike the selection in the pulse colour and cross-fade it back over this many milliseconds —
    * the arrival of a fly-to. A duration of zero draws no pulse frame at all, which is what reduced
    * motion leaves behind once the token is zeroed at source (Decision § 4).
+   *
+   * A Trace states the colour itself: the arrival of a traced number is struck in the basis that
+   * number was measured on, so the reader sees the same palette on the sheet they read in the cell
+   * (R-UI-002, R-UI-022). Struck without one, the arrival keeps the canvas's own pulse colour.
    */
-  pulse: (durationMs: number) => void;
+  pulse: (durationMs: number, colour?: string) => void;
   /** Called once per frame actually painted, so a screen can publish its ledger. */
   setFrameListener: (listener: (() => void) | null) => void;
   /** The frame ledger: the middle and the tail of the last frames, in milliseconds. */
@@ -381,6 +385,8 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
   /** The pulse in flight, if one is: when it began and how long it lasts (Decision § 4). */
   let pulseFrom = 0;
   let pulseMs = 0;
+  /** The colour this strike carries, where the striker named one — a basis colour (R-UI-022). */
+  let pulseColour: string | null = null;
 
   /** A buffer already on the GPU, filled again — the whole of a colour change (Decision § 6). */
   const refill = (buffer: WebGLBuffer | null, data: Float32Array): void => {
@@ -642,7 +648,7 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       gl.useProgram(lineProgram);
       camera3(lineSlots, camera);
       drawMark(hoverMark, palette.hover, [0, 0, 0], 0);
-      drawMark(selectionMark, palette.selection, unitChannelsOf(palette.pulse), struck);
+      drawMark(selectionMark, palette.selection, unitChannelsOf(pulseColour ?? palette.pulse), struck);
     }
 
     // A gap longer than a rest is not a frame anybody dropped: the ledger measures the cadence of a
@@ -849,12 +855,15 @@ export function createPainter(canvas: HTMLCanvasElement, tokens: CanvasPalette):
       remarkHover();
     },
 
-    pulse: (durationMs) => {
+    pulse: (durationMs, colour) => {
       // At zero no pulse frame is drawn at all: the selection paints straight in its own colour
       // rather than flashing for one frame (Decision § 4).
       if (!(durationMs > 0)) return;
       pulseFrom = performance.now();
       pulseMs = durationMs;
+      // A colour that could not be read is no colour: the canvas's own pulse stands rather than a
+      // strike in whatever an empty string tessellates to (R-UI-022).
+      pulseColour = colour !== undefined && colour.length > 0 ? colour : null;
       if (scheduled === 0) scheduled = requestAnimationFrame(tick);
     },
 

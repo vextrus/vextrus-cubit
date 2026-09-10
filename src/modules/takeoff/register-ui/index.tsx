@@ -11,13 +11,14 @@
 // Every act here is a door and nothing more: the screen previews at the door, renders a rejection
 // through the one RefusalState, and opens the one ConsequenceDialog only over a Consequence that was
 // answered. Nothing on this screen commits anything itself (L-ACT-02, I-175).
-import { useMemo, useState, type ComponentType, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties, type MouseEvent, type ReactNode, type Ref } from "react";
 import type { Consequence, CorroborateInput, InsertLevelInput, LevelStackGroupKey, RepudiateInput } from "@/core/acts";
 import type { RefusalEntry } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { formatUserFigure } from "@/core/format";
 import type { JobKind } from "@/core/jobs/kinds";
 import { QUANTITY_BASES, type QuantityBasis } from "@/core/offers/law";
+import { LINE_PARAM, originAddress, traceAddress } from "@/modules/takeoff/trace/address";
 import { REGISTER_COPY, fillCopy } from "./copy";
 import type { RegisterView, ViewAttribute, ViewLine, ViewObject, ViewReading } from "./view";
 
@@ -103,6 +104,23 @@ export interface RegisterChrome {
   readonly Skeleton: ComponentType<{ style?: CSSProperties }>;
   readonly BasisChip: ComponentType<{ basis: QuantityBasis }>;
   readonly CoverageChip: ComponentType<{ value: number }>;
+  /**
+   * The Trace's own affordance (R-UI-022), shipped by `src/ui/patterns/evidence-link` and injected
+   * here like every other renderer. Only the props this screen hands it are declared: the address it
+   * stands at, the basis it wears, the key it shows, and the row facts it carries out to a test and
+   * to a reader — the pattern spreads the rest onto its anchor (evidence-link I-178).
+   */
+  readonly EvidenceLink: ComponentType<{
+    href: string;
+    basis: QuantityBasis;
+    label: string;
+    "data-line": string;
+    "data-origin"?: "true";
+    "aria-current"?: "true";
+    onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
+    onAuxClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
+    ref?: Ref<HTMLAnchorElement>;
+  }>;
 }
 
 /** What a preview answers (L-ACT-02): the typed Consequence, and the digest that binds it. */
@@ -153,6 +171,9 @@ const INSERT_LEVEL = "INSERT_LEVEL" as const;
 
 /** The corroboration state of an object a person has judged to be nothing (I-173). */
 const REPUDIATED = "REPUDIATED";
+
+/** The basis a figure nobody read carries — the one basis no Trace is offered from (I-181). */
+const DEFAULTED: QuantityBasis = "DEFAULTED";
 
 /** The job kind a measure run is watched under (SEAM-JOBS' roster). */
 const MEASURE_KIND: JobKind = "measure";
@@ -219,6 +240,29 @@ function keeps(line: ViewLine, filters: Filters): boolean {
   return true;
 }
 
+/**
+ * Whether a line has somewhere to be traced to (I-181). R-UI-022 offers the Trace to a figure that
+ * "came from a drawing", which is the condition and not a formality: a reading that resolved no
+ * sheet, and a figure nobody read — a DEFAULTED one — would fly to nothing, so neither is offered a
+ * link at all rather than a dead one (evidence-link I-178).
+ */
+function traceable(line: ViewLine): boolean {
+  return line.drawingId !== null && line.layoutName !== null && line.quantityBasis !== DEFAULTED;
+}
+
+/**
+ * The height one row of the table stands at, as the frame's own tokens state it (R-UI-005) — read
+ * off the mount rather than written here, so a density the frame re-tokens is followed and no pixel
+ * count lives in this file (Decision § 5).
+ */
+function rowHeightOf(mount: Element, density: RegisterDensity): number {
+  const spelled = getComputedStyle(mount)
+    .getPropertyValue(density === "compact" ? "--row-compact" : "--row-comfortable")
+    .trim();
+  const height = Number.parseFloat(spelled);
+  return Number.isFinite(height) ? height : 0;
+}
+
 /** Class and level narrow the tree with the table, so one screen shows one answer (I-172). */
 function keepsObject(object: ViewObject, filters: Filters): boolean {
   if (filters.class !== "" && object.class !== filters.class) return false;
@@ -238,7 +282,7 @@ type Pending =
   | { readonly actType: typeof INSERT_LEVEL; readonly input: InsertLevelInput };
 
 export function RegisterWorkspace({ view, density, permitted, offline, chrome, doors }: RegisterWorkspaceProps) {
-  const { Tree, DataTable, RefusalState, OfferedGroups, ConsequenceDialog, JobTimeline, BasisChip, CoverageChip } = chrome;
+  const { Tree, DataTable, RefusalState, OfferedGroups, ConsequenceDialog, JobTimeline, BasisChip, CoverageChip, EvidenceLink } = chrome;
 
   const evidence: Evidence = { href: drawingsHref(view.tenantId, view.projectId), label: REGISTER_COPY.takeoff_register_evidence };
   const deniedEvidence: Evidence = { href: participantsHref(view.tenantId, view.projectId), label: REGISTER_COPY.takeoff_register_evidence };
@@ -258,6 +302,56 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
   const registered = useMemo(() => view.lines.filter((line) => !line.repudiated), [view.lines]);
   const lines = useMemo(() => registered.filter((line) => keeps(line, filters)), [registered, filters]);
   const tree = useMemo(() => treeOf(objects), [objects]);
+
+  /* ------------------------------------------------- the Trace's origin row (I-180, I-182) */
+
+  /** The row a Trace was followed from, as this screen's own address carries it (`?line=`). */
+  const [originLine, setOriginLine] = useState<string | null>(null);
+  /** The anchor that row's cell renders, so the reticle can be put back where the reader left it. */
+  const originRef = useRef<HTMLAnchorElement | null>(null);
+  /** The lines table's mount: where the virtualiser's scroll box and the row-height tokens are read. */
+  const linesRef = useRef<HTMLDivElement | null>(null);
+  /** The address already restored from — the reticle is taken at most once per address (I-182). */
+  const restoredRef = useRef<string | null>(null);
+
+  // The address is the state, and it is read in the browser: a server render knows no `?line=`, and
+  // reading it in an effect is what keeps the first paint the same on both sides (I-182).
+  useEffect(() => {
+    setOriginLine(new URLSearchParams(window.location.search).get(LINE_PARAM));
+  }, []);
+
+  /**
+   * The reticle, taken as the origin's own anchor mounts — whether that is on this paint or on the
+   * one after the viewport below was set. A row the table does not show never mounts one, so nothing
+   * is focused and nothing is said (I-182).
+   */
+  const holdOrigin = (node: HTMLAnchorElement | null): void => {
+    originRef.current = node;
+    if (node === null || originLine === null || restoredRef.current === originLine) return;
+    restoredRef.current = originLine;
+    node.focus();
+  };
+
+  // Where the origin's row has not been rendered by the virtualiser, the scroll box is SET to where
+  // that row stands — never smoothly scrolled, because a register that glides on Back is theatre in
+  // front of a fact (Decision § 4). Reaching the primitive's viewport for this one read is the
+  // recorded intrusion of Decision § 8, and it stops the moment the token cannot be read.
+  useEffect(() => {
+    if (originLine === null || restoredRef.current === originLine || originRef.current !== null) return;
+    const at = lines.findIndex((line) => line.lineId === originLine);
+    if (at < 0) return;
+    const mount = linesRef.current;
+    const viewport = mount?.querySelector('[data-testid="datatable-viewport"]');
+    if (mount === null || !(viewport instanceof HTMLElement)) return;
+    const rowHeight = rowHeightOf(mount, density);
+    if (rowHeight <= 0) return;
+    viewport.scrollTop = at * rowHeight;
+  }, [density, lines, originLine]);
+
+  /** The origin stamped onto this screen's own entry, before the browser is allowed to leave (I-180). */
+  const stampOrigin = (lineId: string): void => {
+    window.history.replaceState(null, "", originAddress(view.tenantId, view.projectId, lineId));
+  };
 
   // Thrown in render, where React's own boundary is: a rejected promise reaches no boundary at all,
   // and a press that raised a fault into one would otherwise return with nothing said (R-UI-020).
@@ -473,9 +567,35 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
       header: REGISTER_COPY.takeoff_register_col_source,
       accessorFn: (line) => line.sourceKey,
       enableSorting: true,
-      size: 120,
-      // Text, not a link: the Trace from a line to its entities is inc-215's (Decision § 8).
-      cell: ({ row }) => <span className="cx-register-source">{row.original.sourceKey}</span>,
+      // Wide enough for a `DXF_HANDLE:` key and its glyph on one line at both densities (§ 1).
+      size: 180,
+      // I-179: a number's evidence is the key it was read at, so the key IS the affordance and the
+      // cell's whole content is the link. I-181: a line that can name no place — no sheet resolved,
+      // or a figure that was defaulted rather than read from a drawing — keeps its key as plain text
+      // and is offered no anchor at all, which is honest rather than hidden (R-UI-050's partial).
+      cell: ({ row }) => {
+        const line = row.original;
+        if (!traceable(line)) return <span className="cx-register-source">{line.sourceKey}</span>;
+        const isOrigin = line.lineId === originLine;
+        return (
+          <span className="cx-register-source cx-register-trace">
+            <EvidenceLink
+              href={traceAddress(view.tenantId, view.projectId, line)}
+              basis={line.quantityBasis}
+              label={line.sourceKey}
+              data-line={line.lineId}
+              data-origin={isOrigin ? "true" : undefined}
+              aria-current={isOrigin ? "true" : undefined}
+              // Never `preventDefault`, never `pushState`: the stamp rides the click and the browser
+              // makes the history step, which is what makes Back a real one (I-180). A modified click
+              // opens another tab and names the same origin, so the auxiliary press stamps too.
+              onClick={() => stampOrigin(line.lineId)}
+              onAuxClick={() => stampOrigin(line.lineId)}
+              ref={isOrigin ? holdOrigin : undefined}
+            />
+          </span>
+        );
+      },
     },
   ];
 
@@ -638,7 +758,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
             </p>
           </section>
 
-          <div className="cx-register-mount cx-register-lines" data-testid="register-lines">
+          <div className="cx-register-mount cx-register-lines" data-testid="register-lines" ref={linesRef}>
             {lines.length === 0 ? (
               <p className="cx-register-lines-none">{REGISTER_COPY.takeoff_register_lines_none}</p>
             ) : (
