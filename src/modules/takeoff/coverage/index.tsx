@@ -10,11 +10,11 @@ import { useCallback, useEffect, useState, type ComponentType, type ReactElement
 import { RESIDUE_CAUSES, cellRef, type ResidueCause, type ResidueCell, type StatementRow } from "@/core/residue";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { COVERAGE_COPY } from "./copy";
-import { CoverageGrid, GRID_LABEL_ID, type CoverageMetrics } from "./grid";
+import { CoverageGrid, GRID_LABEL_ID, type CoverageDensity } from "./grid";
 import { LegendGlyph } from "./glyphs";
 import type { CoverageView } from "./view";
 
-export type { CoverageMetrics } from "./grid";
+export type { CoverageDensity } from "./grid";
 
 /** Where a refusal is resolved — the one evidence shape the refusal pattern rules. */
 type Evidence = { href: string; label: string };
@@ -62,24 +62,28 @@ export interface CoverageDoors {
   readonly commitHoldOutOfBill: (argument: { input: BoundaryCell; consequenceDigest: string }) => Promise<{ actId: string }>;
   readonly previewDeclareNotInProjectScope: (argument: { input: BoundaryCell }) => Promise<CoveragePreviewAnswer>;
   readonly commitDeclareNotInProjectScope: (argument: { input: BoundaryCell; consequenceDigest: string }) => Promise<{ actId: string }>;
-  /** Re-run the read in place — R-UI-050's error cell owns the one door that clears it. */
-  readonly retry: () => void;
+  /**
+   * Re-run the read in place — R-UI-050's error cell owns the one door that clears it. A mount that
+   * hands none has nothing to re-read, and the retry is not rendered rather than pressed into a
+   * silence (R-UI-020).
+   */
+  readonly retry?: () => void;
   readonly refusalOf: (code: string) => RefusalEntry | undefined;
 }
 
 export interface CoverageWorkspaceProps {
   /** The reading, or `null` where it failed — the error cell is a state of this screen (R-UI-050). */
   readonly view: CoverageView | null;
-  readonly metrics: CoverageMetrics;
-  readonly density: "comfortable" | "compact";
+  readonly density: CoverageDensity;
   /** Whether the reader holds SET_BILL_BOUNDARY on this project, read server-side (Decision § 2). */
   readonly permitted: boolean;
   readonly offline: boolean;
-  readonly reportId: string | null;
+  /** The fault the read left behind, where one did — quoted verbatim beside the retry (B-21). */
+  readonly reportId?: string | null;
   /** The code a door answered with, rendered through the one refusal renderer (R-UI-020). */
-  readonly refused: string | null;
+  readonly refused?: string | null;
   /** The cell the address named on mount (I-193); a cell this residue does not hold selects nothing. */
-  readonly initialCell: string | null;
+  readonly initialCell?: string | null;
   readonly chrome: CoverageChrome;
   readonly doors: CoverageDoors;
 }
@@ -121,15 +125,17 @@ function stateOf(props: CoverageWorkspaceProps): string {
   if (!props.permitted) return "denied";
   if (props.offline) return "offline";
   if (props.view === null) return "error";
-  if (props.refused !== null) return "refused";
-  if (props.view.campaign === null || props.view.cells.length === 0) return "empty";
+  if ((props.refused ?? null) !== null) return "refused";
+  if (props.view.campaignId === null || props.view.cells.length === 0) return "empty";
   return props.view.cells.some((cell) => cell.grain === "KIND") ? "partial" : "ready";
 }
 
 export function CoverageWorkspace(props: CoverageWorkspaceProps) {
-  const { view, metrics, density, permitted, offline, reportId, refused, initialCell, chrome, doors } = props;
+  const { view, density, permitted, offline, chrome, doors } = props;
+  const reportId = props.reportId ?? null;
+  const refused = props.refused ?? null;
   const { Button, RefusalState, ConsequenceDialog } = chrome;
-  const [selected, setSelected] = useState<string | null>(initialCell);
+  const [selected, setSelected] = useState<string | null>(props.initialCell ?? null);
   const [door, setDoor] = useState<typeof HOLD_OUT_OF_BILL | typeof DECLARE_NOT_IN_PROJECT_SCOPE | null>(null);
   const [root, setRoot] = useState<HTMLElement | null>(null);
 
@@ -157,7 +163,7 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
   const projectId = view?.projectId ?? "";
 
   return (
-    <div className="cx-coverage" data-testid="coverage-screen" data-state={state} data-density={density} data-campaign={view?.campaign?.campaignId ?? ""} ref={setRoot}>
+    <div className="cx-coverage" data-testid="coverage-screen" data-state={state} data-density={density} data-campaign={view?.campaignId ?? ""} ref={setRoot}>
       {offline ? (
         <p className="cx-coverage-offline" role="status">
           {COVERAGE_COPY.takeoff_coverage_offline}
@@ -169,10 +175,10 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
           <h1 className="cx-coverage-heading">{COVERAGE_COPY.takeoff_coverage_heading}</h1>
           <p className="cx-coverage-caption">{COVERAGE_COPY.takeoff_coverage_caption}</p>
         </div>
-        {view?.campaign === null || view === null ? null : (
+        {view === null || view.setRevisionId === null ? null : (
           <p className="cx-coverage-revision-block">
             <span className="cx-coverage-revision-label">{COVERAGE_COPY.takeoff_coverage_revision_label}</span>
-            <span className="cx-coverage-revision">{view.campaign.setRevisionId}</span>
+            <span className="cx-coverage-revision">{view.setRevisionId}</span>
           </p>
         )}
       </header>
@@ -195,7 +201,7 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
 
       {view === null ? (
         <ErrorCell reportId={reportId} Button={Button} retry={doors.retry} />
-      ) : view.campaign === null || view.cells.length === 0 ? (
+      ) : view.campaignId === null || view.cells.length === 0 ? (
         <EmptyCell view={view} />
       ) : (
         <>
@@ -206,7 +212,7 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
               </h2>
               {state === "partial" ? <p className="cx-coverage-partial-note">{COVERAGE_COPY.takeoff_coverage_partial_note}</p> : null}
               <div className="cx-coverage-scroll">
-                <CoverageGrid cells={cells} levels={view.levels} metrics={metrics} selected={selected} onSelect={select} />
+                <CoverageGrid cells={cells} levels={view.input.levels} density={density} selected={selected} onSelect={select} />
               </div>
               <Legend />
             </section>
@@ -224,7 +230,7 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
         </>
       )}
 
-      {door === null || held === null || view?.campaign == null ? null : (
+      {door === null || held === null || view === null ? null : (
         <ConsequenceDialog
           open
           actType={door}
@@ -241,7 +247,7 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
           }}
           onCommitted={() => {
             setDoor(null);
-            doors.retry();
+            doors.retry?.();
           }}
         />
       )}
@@ -252,9 +258,9 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
 /** The cell one door stands over, in the shape the seam declares. */
 function inputOf(view: CoverageView, cell: ResidueCell): BoundaryCell {
   return {
-    projectId: view.projectId,
-    campaignId: view.campaign?.campaignId ?? "",
-    class: cell.class,
+    projectId: view.projectId ?? "",
+    campaignId: view.campaignId ?? "",
+    class: cell.class ?? "",
     kind: cell.kind,
     levelId: cell.levelId ?? "",
   };
@@ -263,7 +269,7 @@ function inputOf(view: CoverageView, cell: ResidueCell): BoundaryCell {
 /* ------------------------------------------------------------------------------ the parts */
 
 /** R-UI-050's error cell: the read failed, nothing changed, and the report id stands by its door. */
-function ErrorCell({ reportId, Button, retry }: { reportId: string | null; Button: CoverageChrome["Button"]; retry: () => void }) {
+function ErrorCell({ reportId, Button, retry }: { reportId: string | null; Button: CoverageChrome["Button"]; retry?: () => void }) {
   return (
     <div className="cx-coverage-empty" data-testid="coverage-empty">
       <h2 className="cx-coverage-empty-heading">{COVERAGE_COPY.takeoff_coverage_error_heading}</h2>
@@ -272,16 +278,20 @@ function ErrorCell({ reportId, Button, retry }: { reportId: string | null; Butto
         <span className="cx-coverage-report-label">{COVERAGE_COPY.takeoff_coverage_report_label}</span>
         <span className="cx-coverage-report-id">{reportId ?? ""}</span>
       </p>
-      <Button variant="secondary" data-testid="coverage-retry" onClick={retry}>
-        {COVERAGE_COPY.takeoff_coverage_retry}
-      </Button>
+      {retry === undefined ? null : (
+        <Button variant="secondary" data-testid="coverage-retry" onClick={retry}>
+          {COVERAGE_COPY.takeoff_coverage_retry}
+        </Button>
+      )}
     </div>
   );
 }
 
 /** R-UI-050's empty cell: two truths, each saying why, each teaching the one next action. */
 function EmptyCell({ view }: { view: CoverageView }) {
-  const pinned = view.campaign !== null;
+  const pinned = view.campaignId !== null;
+  const tenantId = view.tenantId ?? "";
+  const projectId = view.projectId ?? "";
   return (
     <div className="cx-coverage-empty" data-testid="coverage-empty">
       <h2 className="cx-coverage-empty-heading">
@@ -292,7 +302,7 @@ function EmptyCell({ view }: { view: CoverageView }) {
       <a
         className="cx-btn cx-reticle cx-coverage-empty-action"
         data-variant="secondary"
-        href={pinned ? registerHref(view.tenantId, view.projectId) : setsHref(view.tenantId, view.projectId)}
+        href={pinned ? registerHref(tenantId, projectId) : setsHref(tenantId, projectId)}
       >
         {pinned ? COVERAGE_COPY.takeoff_coverage_empty_campaign_action : COVERAGE_COPY.takeoff_coverage_empty_action}
       </a>
@@ -381,7 +391,7 @@ function Inspector({
         {grain ? null : (
           <>
             <dt>{COVERAGE_COPY.takeoff_coverage_class_label}</dt>
-            <dd className="cx-coverage-value">{cell.class}</dd>
+            <dd className="cx-coverage-value">{cell.class ?? ""}</dd>
             <dt>{COVERAGE_COPY.takeoff_coverage_level_label}</dt>
             <dd className="cx-coverage-value">{cell.levelLabel}</dd>
           </>
@@ -523,13 +533,13 @@ function Statement({
               className="cx-coverage-statement-row"
               data-testid="coverage-statement-row"
               data-kind={row.kind}
-              data-class={row.class}
+              data-class={row.class ?? ""}
               data-level={row.levelId ?? ""}
               data-cause={row.cause}
-              key={`${row.kind}:${row.class}:${row.levelId ?? ""}:${row.cause}`}
+              key={`${row.kind}:${row.class ?? ""}:${row.levelId ?? ""}:${row.cause}`}
             >
               <span className="cx-coverage-value">{row.kind}</span>
-              <span className="cx-coverage-value">{row.class}</span>
+              <span className="cx-coverage-value">{row.class ?? ""}</span>
               <span className="cx-coverage-value">{row.levelLabel}</span>
               <span className="cx-coverage-statement-cause">{REFUSAL_WORDS[row.cause].message}</span>
             </li>

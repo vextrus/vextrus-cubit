@@ -67,12 +67,26 @@ export type Residue = {
   readonly tenantId: string;
   readonly projectId: string;
   readonly campaign: { readonly campaignId: string; readonly setRevisionId: string } | null;
-  /** The levels cells stand on, in the stack's own order (L-MEA-07). */
-  readonly levels: readonly ResidueLevel[];
-  /** The classes this campaign sighted, in `compareCanonical` order (L-REG-05). */
-  readonly classes: readonly string[];
+  /**
+   * Everything the cells were resolved from, kept beside them: the level stack they stand on, the
+   * sightings that bore them and the acts that moved them. The answer carries its own evidence, so a
+   * reader of the residue never asks a second query for what the first already read (B-19).
+   */
+  readonly input: ResidueInput;
   readonly cells: readonly ResidueCell[];
 };
+
+/** A project with no campaign pinned has read nothing — the empty reading, spelled once. */
+const NOTHING_READ: ResidueInput = Object.freeze({
+  bears: [],
+  workItems: [],
+  levels: [],
+  sightings: [],
+  lines: [],
+  declarations: [],
+  truncated: [],
+  observations: [],
+});
 
 /** Which project's residue is read, in whose workspace. */
 export type ResidueScope = { readonly tenantId: string; readonly projectId: string };
@@ -205,7 +219,7 @@ export function resolveResidue(input: ResidueInput): ResidueCell[] {
   cells.sort(
     (left, right) =>
       compareCanonical(left.kind, right.kind) ||
-      compareCanonical(left.class, right.class) ||
+      compareCanonical(left.class ?? "", right.class ?? "") ||
       (levelById.get(left.levelId ?? "")?.ordinal ?? 0) - (levelById.get(right.levelId ?? "")?.ordinal ?? 0) ||
       compareCanonical(left.levelId ?? "", right.levelId ?? ""),
   );
@@ -217,7 +231,7 @@ export function resolveResidue(input: ResidueInput): ResidueCell[] {
 function kindGrain(kind: string, cause: typeof NO_BEARER_SIGHTED | typeof KIND_NOT_YET_SEEDED): ResidueCell {
   return {
     kind,
-    class: "",
+    class: null,
     levelId: null,
     levelLabel: "",
     grain: KIND,
@@ -243,7 +257,7 @@ export async function residueOf(scope: ResidueScope): Promise<Residue> {
   const open = await campaignsOf(scope);
   const campaign = open[open.length - 1];
   if (campaign === undefined) {
-    return { tenantId: scope.tenantId, projectId: scope.projectId, campaign: null, levels: [], classes: [], cells: [] };
+    return { tenantId: scope.tenantId, projectId: scope.projectId, campaign: null, input: NOTHING_READ, cells: [] };
   }
 
   return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
@@ -263,25 +277,23 @@ export async function residueOf(scope: ResidueScope): Promise<Residue> {
     ]);
 
     const levels: ResidueLevel[] = levelRows.map((level) => ({ levelId: level.levelId, ordinal: level.ordinal, label: level.label }));
-    const sightings = [...fromRegister, ...fromPartition, ...fromLayout];
-    const cells = resolveResidue({
+    const read: ResidueInput = {
       bears: BEARS.map((row) => ({ class: row.class, kind: row.kind })),
       workItems: Object.keys(WORK_ITEM_CATALOGUE),
       levels,
-      sightings,
+      sightings: [...fromRegister, ...fromPartition, ...fromLayout],
       lines,
       declarations,
       truncated,
       observations,
-    });
+    };
 
     return {
       tenantId: scope.tenantId,
       projectId: scope.projectId,
       campaign: { campaignId: campaign.campaignId, setRevisionId: campaign.setRevisionId },
-      levels,
-      classes: [...new Set(sightings.map((row) => row.class))].sort(compareCanonical),
-      cells,
+      input: read,
+      cells: resolveResidue(read),
     };
   });
 }

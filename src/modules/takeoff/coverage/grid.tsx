@@ -3,9 +3,9 @@
 //
 // It is drawn rather than tabled because a cell of this grid carries two orthogonal readings at once
 // (I-189) and a focus mark the one CSS home cannot paint (I-190) — a table cell can hold neither
-// without a second dialect of both. Every number of the geometry arrives measured: a module may not
-// reach the token table (ARCH-01), so the cell's side and the break between classes come from the
-// layer that may read them, exactly as the chrome does (I-170).
+// without a second dialect of both. The geometry is stated here, in the units an SVG viewBox is
+// measured in, because a module may not reach the token table (ARCH-01): each number below is the
+// Decision § 1's own, and the two cell sides are the row heights R-UI-005 fixes.
 //
 // Colour is temperature and the mark is the cause (I-188). Nothing here is carried by colour alone:
 // every cell states its whole reading in its accessible name, in words, and again in its mark.
@@ -33,15 +33,18 @@ const HATCH_ID = "cx-coverage-hatch";
 /** The heading the grid is labelled by, spelled once here and once where the heading is rendered. */
 export const GRID_LABEL_ID = "cx-coverage-grid-label";
 
+/** The density a reader set on the frame, which moves the grid itself rather than a padding. */
+export type CoverageDensity = "comfortable" | "compact";
+
 /**
- * The numbers the grid is laid out in. A module may not read the token table (ARCH-01), so R-UI-005's
- * row height — which is this grid's cell SIDE, because density moves the grid itself rather than a
- * padding — and the break between class bands arrive from the layer that may read them.
+ * The cell's side at each density: `--row-comfortable` and `--row-compact`'s own values (R-UI-005,
+ * Decision § 1). Stated as numbers because a viewBox is measured in numbers and a custom property
+ * cannot be one; the CSS beside this file paints nothing that depends on them.
  */
-export type CoverageMetrics = {
-  readonly cellSide: number;
-  readonly classGap: number;
-};
+const CELL_SIDE: Readonly<Record<CoverageDensity, number>> = Object.freeze({ comfortable: 36, compact: 28 });
+
+/** The break between two class bands — `var(--space-2)`'s own value (Decision § 1). */
+const CLASS_GAP = 8;
 
 /** One column of the grid: a class, and one level it was sighted on. */
 type Column = { readonly klass: string; readonly levelId: string | null; readonly label: string; readonly x: number };
@@ -77,7 +80,7 @@ export function cellLabel(cell: ResidueCell): string {
   const named =
     cell.grain === "KIND"
       ? fillCoverageCopy("takeoff_coverage_cell_label_kind_grain", { kind: cell.kind, cause })
-      : fillCoverageCopy("takeoff_coverage_cell_label", { kind: cell.kind, class: cell.class, level: cell.levelLabel, cause });
+      : fillCoverageCopy("takeoff_coverage_cell_label", { kind: cell.kind, class: cell.class ?? "", level: cell.levelLabel, cause });
   const held = cell.bill === "NOT_IN_THIS_BILL" ? ` ${COVERAGE_COPY.takeoff_coverage_cell_label_held}` : "";
   const beaten = cell.contradicted ? ` ${COVERAGE_COPY.takeoff_coverage_cell_label_contradicted}` : "";
   return `${named}${held}${beaten}`;
@@ -88,12 +91,12 @@ export function cellLabel(cell: ResidueCell): string {
  * level it was sighted on, in the stack's own order, and the classes stand in canonical order with a
  * break between them (Decision § 1).
  */
-function columnsOf(cells: readonly ResidueCell[], levels: readonly ResidueLevel[], metrics: CoverageMetrics): { columns: Column[]; bands: Band[]; width: number } {
+function columnsOf(cells: readonly ResidueCell[], levels: readonly ResidueLevel[], side: number): { columns: Column[]; bands: Band[]; width: number } {
   const ordinalOf = new Map(levels.map((level) => [level.levelId, level.ordinal]));
   const labelOf = new Map(levels.map((level) => [level.levelId, level.label]));
   const byClass = new Map<string, (string | null)[]>();
   for (const cell of cells) {
-    if (cell.grain !== "CELL") continue;
+    if (cell.grain !== "CELL" || cell.class === null) continue;
     const held = byClass.get(cell.class);
     if (held === undefined) byClass.set(cell.class, [cell.levelId]);
     else if (!held.includes(cell.levelId)) held.push(cell.levelId);
@@ -106,20 +109,20 @@ function columnsOf(cells: readonly ResidueCell[], levels: readonly ResidueLevel[
     const levelIds = [...(byClass.get(klass) ?? [])].sort(
       (left, right) => (ordinalOf.get(left ?? "") ?? 0) - (ordinalOf.get(right ?? "") ?? 0) || compareCanonical(left ?? "", right ?? ""),
     );
-    bands.push({ klass, x, width: levelIds.length * metrics.cellSide });
+    bands.push({ klass, x, width: levelIds.length * side });
     for (const levelId of levelIds) {
       columns.push({ klass, levelId, label: labelOf.get(levelId ?? "") ?? "", x });
-      x += metrics.cellSide;
+      x += side;
     }
-    x += metrics.classGap;
+    x += CLASS_GAP;
   }
-  return { columns, bands, width: Math.max(x - metrics.classGap, GUTTER) };
+  return { columns, bands, width: Math.max(x - CLASS_GAP, GUTTER) };
 }
 
 export type CoverageGridProps = {
   readonly cells: readonly ResidueCell[];
   readonly levels: readonly ResidueLevel[];
-  readonly metrics: CoverageMetrics;
+  readonly density: CoverageDensity;
   readonly selected: string | null;
   readonly onSelect: (address: string) => void;
 };
@@ -128,9 +131,9 @@ export type CoverageGridProps = {
  * The grid itself. One `<g role="row">` per kind — the kind-grain rows first, because a kind that
  * bears no cell is shown rather than dropped (I-196) — and one `<g role="gridcell">` per cell of it.
  */
-export function CoverageGrid({ cells, levels, metrics, selected, onSelect }: CoverageGridProps) {
-  const { columns, bands, width } = columnsOf(cells, levels, metrics);
-  const side = metrics.cellSide;
+export function CoverageGrid({ cells, levels, density, selected, onSelect }: CoverageGridProps) {
+  const side = CELL_SIDE[density];
+  const { columns, bands, width } = columnsOf(cells, levels, side);
   const bandY = 0;
   const levelY = side;
   const bodyY = side * 2;
@@ -240,7 +243,7 @@ export function CoverageGrid({ cells, levels, metrics, selected, onSelect }: Cov
                     data-testid="coverage-cell"
                     role="gridcell"
                     data-kind={cell.kind}
-                    data-class={cell.class}
+                    data-class={cell.class ?? ""}
                     data-level={cell.levelId ?? ""}
                     data-grain={cell.grain}
                     data-measurement={cell.measurement}

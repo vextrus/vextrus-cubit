@@ -259,7 +259,7 @@ describe("AC-1: the kind grains — a kind with no cell is a row, never a silenc
     const rows = kindRowsOf({ bears: [{ class: "beam", kind: "rcc.concrete" }, { class: "column", kind: "rcc.formwork" }] });
     const held = rows.find((row) => row.kind === "rcc.concrete");
     expect(held?.measurement, "the beam bears it and no channel sighted a beam").toBe("NO_BEARER_SIGHTED");
-    expect([held?.class, held?.levelId], "a kind-grain row spans every class and level, so it names neither").toEqual(["", null]);
+    expect([held?.class, held?.levelId], "a kind-grain row spans every class and level, so it names neither").toEqual([null, null]);
   });
 
   test("KIND_NOT_YET_SEEDED: a work item no class bears at all", () => {
@@ -317,7 +317,7 @@ describe("AC-1: a cell's address has one home (Decision § 7)", () => {
   test("a kind-grain row addresses as {kind}::", () => {
     const row = kindRowsOf()[0] as ResidueCell;
     expect(addressOf(row)).toBe("rcc.reinforcement::");
-    expect(parseCellRef(addressOf(row))).toEqual({ kind: "rcc.reinforcement", class: "", levelId: null });
+    expect(parseCellRef(addressOf(row))).toEqual({ kind: "rcc.reinforcement", class: null, levelId: null });
   });
 
   test("an address that names no cell selects nothing (I-193)", () => {

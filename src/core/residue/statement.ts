@@ -12,7 +12,7 @@ import { IN_BILL, QUANTITY_BEARING, type ResidueCause, type ResidueCell, type St
 function inCertificateOrder(left: StatementRow, right: StatementRow): number {
   return (
     compareCanonical(left.kind, right.kind) ||
-    compareCanonical(left.class, right.class) ||
+    compareCanonical(left.class ?? "", right.class ?? "") ||
     compareCanonical(left.levelLabel, right.levelLabel) ||
     compareCanonical(left.levelId ?? "", right.levelId ?? "")
   );

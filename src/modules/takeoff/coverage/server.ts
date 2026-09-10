@@ -16,9 +16,9 @@ export async function coverageViewOf(scope: CoverageScope): Promise<CoverageView
   return {
     tenantId: residue.tenantId,
     projectId: residue.projectId,
-    campaign: residue.campaign,
-    levels: residue.levels,
-    classes: residue.classes,
+    campaignId: residue.campaign?.campaignId ?? null,
+    setRevisionId: residue.campaign?.setRevisionId ?? null,
+    input: residue.input,
     cells: residue.cells,
     measurement: measurementStatementOf(residue.cells),
     bill: billStatementOf(residue.cells),

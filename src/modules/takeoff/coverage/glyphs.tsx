@@ -11,7 +11,8 @@
 import type { BillCause, MeasurementReading } from "@/core/residue";
 
 /** The marks' shared canvas: the Decision's own numbers (§ 5's closed literal set). */
-const VIEW_BOX = "0 0 16 16";
+const VIEW_BOX_SIDE = 16;
+const VIEW_BOX = `0 0 ${VIEW_BOX_SIDE} ${VIEW_BOX_SIDE}`;
 const CENTRE = 8;
 const RADIUS = 4;
 const STROKE = 1.5;
@@ -72,16 +73,16 @@ export const CAUSE_GLYPHS: Readonly<Record<GlyphReading, Mark>> = Object.freeze(
 });
 
 /**
- * One mark, drawn at a size and placed. The `<svg>` nests inside the grid's own SVG so the mark
- * keeps its own coordinate system whatever the cell's side is (R-UI-005 moves that side by density).
+ * One mark, drawn at a size and placed. The placement and the scale ride on the group the mark is
+ * named by, so the geometry inside it is the mark itself and nothing else: one cause is drawn the
+ * same way wherever it stands, at either density and at either of the two sizes a cell carries
+ * (I-189, R-UI-005).
  */
 export function CauseGlyph({ reading, x, y, size }: { reading: GlyphReading; x: number; y: number; size: number }) {
   const Mark = CAUSE_GLYPHS[reading];
   return (
-    <g data-testid="coverage-cell-glyph" data-cause={reading}>
-      <svg x={x} y={y} width={size} height={size} viewBox={VIEW_BOX} aria-hidden="true" focusable="false">
-        <Mark />
-      </svg>
+    <g data-testid="coverage-cell-glyph" data-cause={reading} transform={`translate(${x} ${y}) scale(${size / VIEW_BOX_SIDE})`} aria-hidden="true" focusable="false">
+      <Mark />
     </g>
   );
 }

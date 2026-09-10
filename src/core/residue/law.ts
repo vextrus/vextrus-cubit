@@ -154,7 +154,8 @@ export type ResidueInput = {
  */
 export type ResidueCell = {
   readonly kind: string;
-  readonly class: string;
+  /** The class the cell stands on, or `null` where the row is kind-grain and spans them all (I-196). */
+  readonly class: string | null;
   readonly levelId: string | null;
   /** The level's own label, as a reader reads it — never the surrogate's id (I-25). */
   readonly levelLabel: string;
@@ -175,7 +176,7 @@ export type ResidueCell = {
 /** One row of a boundary statement: the cell it stands over and the cause it stands under. */
 export type StatementRow = {
   readonly kind: string;
-  readonly class: string;
+  readonly class: string | null;
   readonly levelId: string | null;
   readonly levelLabel: string;
   readonly grain: CellGrain;
@@ -190,18 +191,18 @@ const CELL_SEPARATOR = ":";
  * `data-cell` and the key a grid renders a cell under are all this string. A kind-grain row carries
  * neither class nor level, so it addresses as `{kind}::`.
  */
-export function cellRef(cell: { readonly kind: string; readonly class: string; readonly levelId: string | null }): string {
-  return [cell.kind, cell.class, cell.levelId ?? ""].join(CELL_SEPARATOR);
+export function cellRef(cell: { readonly kind: string; readonly class: string | null; readonly levelId: string | null }): string {
+  return [cell.kind, cell.class ?? "", cell.levelId ?? ""].join(CELL_SEPARATOR);
 }
 
 /**
  * The cell an address names, or null where the address names none. Nothing is invented for a stale
  * address: an unparsable one selects nothing (I-193).
  */
-export function parseCellRef(raw: string): { readonly kind: string; readonly class: string; readonly levelId: string | null } | null {
+export function parseCellRef(raw: string): { readonly kind: string; readonly class: string | null; readonly levelId: string | null } | null {
   const parts = raw.split(CELL_SEPARATOR);
   if (parts.length !== 3) return null;
   const [kind, klass, levelId] = parts as [string, string, string];
   if (kind === "") return null;
-  return { kind, class: klass, levelId: levelId === "" ? null : levelId };
+  return { kind, class: klass === "" ? null : klass, levelId: levelId === "" ? null : levelId };
 }

@@ -30,8 +30,8 @@ const cell = (over: Partial<ResidueCell>): ResidueCell => ({
   ...over,
 });
 
-const addressed = (rows: readonly { kind: string; class: string; levelId: string | null }[]): string[] =>
-  rows.map((row) => `${row.kind}:${row.class}:${row.levelId ?? ""}`);
+const addressed = (rows: readonly { kind: string; class: string | null; levelId: string | null }[]): string[] =>
+  rows.map((row) => `${row.kind}:${row.class ?? ""}:${row.levelId ?? ""}`);
 
 describe("L-QTY-07: the measurement boundary statement", () => {
   test("every unmeasured cell is enumerated, each under its own cause", () => {
@@ -67,7 +67,7 @@ describe("L-QTY-07: the measurement boundary statement", () => {
   });
 
   test("a kind no class bears is enumerated too — KIND_NOT_YET_SEEDED is a row, not a silence", () => {
-    const rows = measurementStatementOf([cell({ kind: "rcc.reinforcement", class: "", levelId: null, levelLabel: "", grain: "KIND", measurement: "KIND_NOT_YET_SEEDED" })]);
+    const rows = measurementStatementOf([cell({ kind: "rcc.reinforcement", class: null, levelId: null, levelLabel: "", grain: "KIND", measurement: "KIND_NOT_YET_SEEDED" })]);
     expect(rows.map((row) => [row.grain, row.cause])).toEqual([["KIND", "KIND_NOT_YET_SEEDED"]]);
   });
 });
