@@ -109,6 +109,31 @@ this file rules and the `cx-coverage-*` classes beside it.
   locked at M2, so the ban is proved the way the view-type-literals ban is: a scan test with a
   declared corpus under `tests/lint-fixtures/residue-not-exists/`, named in `SCAN_CORPORA`. Rejected:
   a lint rule, which this increment may not author.
+- **I-205 — the residue's absence clause is a fragment the seam lends.** The tree's one correlated
+  absence needs a clause the barrel's eight query operators cannot spell, and core may not hold the
+  driver (SEAM-TENANT). `src/core/db/seam.ts` hands out `statement` beside `inCurrentScope`, which is
+  already a fragment the seam builds because it alone may; the residue writes and owns its own
+  clause. Rejected: a ninth name on the barrel's driver line, which mints a shared operator nobody
+  else asked for (ARCH-02, B-17).
+- **I-206 — a statement prints runs, not levels.** L-QTY-07 says the certificate PRINTS
+  enumerations, and a printed boundary reads "columns, GF–L5", not the same sentence five times. A
+  contiguous run of levels bearing one cause under one kind and class is folded into one
+  `coverage-statement-row` whose `data-levels` reads `first–last`, while `resolveResidue` behind it
+  still answers one cell per level — the grid is per level, the statement is per run. A gap breaks
+  the run, because the level between them stands outside that boundary and printing it inside would
+  state something untrue. Contiguity is read off the stack's ordinal, which is also what orders the
+  rows: "L10" follows "L9" in a building and precedes it in an alphabet, and a statement is read by
+  somebody walking up the storeys. Rejected: collapsing in the renderer, which would leave the
+  certificate M7 prints and the preview this screen shows counting rows differently (B-19).
+- **I-207 — a boundary somebody drew is stated once, on the axis they moved.** A cell a person held
+  out of this bill is stated on the bill boundary and is NOT repeated on the measurement one, though
+  its measurement axis does read `NOT_ESTABLISHED`: printing it in both would tell a reader the
+  campaign failed to measure something a person had deliberately taken out, and two lines for one
+  cell under two causes is the shared cause column L-QTY-07 forbids, in the only form the
+  two-statement shape still allows it. This is I-198's rule — the cause a cell is read under is the
+  axis a person moved — applied to what the certificate prints. Rejected: stating it on both axes
+  because L-QTY-05's axes are orthogonal; orthogonality governs how a cell READS, not how many times
+  one human decision is printed.
 
 ## 1. Layout and hierarchy
 
@@ -361,13 +386,16 @@ Test ids, exactly the contract's, on the elements ruled in §1: `takeoff-nav-cov
 `coverage-screen` (`data-state`, `data-campaign`) · `coverage-grid` · `coverage-kind-row`
 (`data-kind`) · `coverage-cell` (`data-kind`, `data-class`, `data-level`, `data-grain`,
 `data-measurement`, `data-bill`, `data-contradicted`) · `coverage-cell-glyph` (`data-cause`) ·
-`coverage-legend` · `coverage-legend-entry` (`data-cause`) · `coverage-inspector` (`data-cell`) ·
-`coverage-inspector-cause` (`data-cause`, `data-act`) · `coverage-inspector-remedy` ·
-`coverage-inspector-sighting` (`data-channel`) · `coverage-inspector-observation` (`data-rail`) ·
+`coverage-legend` · `coverage-legend-entry` (`data-cause`) · `coverage-inspector` (`data-cell`,
+`data-kind`, `data-class`, `data-level`) · `coverage-inspector-cause` (`data-cause`, `data-code`,
+`data-act`) · `coverage-inspector-remedy` · `coverage-inspector-sighting` (`data-channel`,
+`data-source`) · `coverage-inspector-observation` (`data-rail`, `data-reason`) ·
 `coverage-hold-out` · `coverage-declare-out-of-scope` · `coverage-answer` · `coverage-empty` ·
-`coverage-retry` · `coverage-certificate-preview` · `coverage-statement` (`data-statement`) ·
-`coverage-statement-row` (`data-kind`, `data-class`, `data-level`, `data-cause`) ·
-`coverage-statement-none`. `takeoff-nav`, `takeoff-nav-register`, `refusal-state`, `refusal-message`,
+`coverage-retry` · `coverage-certificate-preview` · `coverage-statement` (`data-statement`,
+`data-axis`) · `coverage-statement-row` (`data-kind`, `data-class`, `data-level`, `data-levels`,
+`data-cause`) · `coverage-statement-none` (`data-code`). `data-code` on the cause and `data-cause`
+beside it are the same reading twice, one machine-addressed and one the screen's own vocabulary;
+`data-level` names a printed run's FIRST level and `data-levels` the run itself. `takeoff-nav`, `takeoff-nav-register`, `refusal-state`, `refusal-message`,
 `refusal-remedy`, `refusal-evidence-link`, `consequence-dialog`, `consequence-confirm`,
 `consequence-digest-line`, `skeleton` and `screen-state` are other files' ids, used and never
 redefined. No others are added: the headings, the two doors and the empty-state actions are found by
