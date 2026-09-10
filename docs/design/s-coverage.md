@@ -72,6 +72,77 @@ this file rules and the `cx-coverage-*` classes beside it.
   node's file and is not touched: every key here, the nav entry's included, lives in
   `src/modules/takeoff/coverage/copy.ts` and is read by the app layer, which may reach both. Rejected:
   appending to the register's string table.
+- **I-198 — the cause a cell is READ under is the axis a person moved.** A cell may carry a cause on
+  each axis at once (I-189), so a single reading has to be chosen for its accessible name and for the
+  inspector's `data-cause`, message and remedy. `causeRead(cell)` in `grid.tsx` answers the bill
+  cause where the cell is held out of this bill and the measurement cause everywhere else: a person
+  who has just drawn a boundary is told about the boundary they drew, not about the absence it was
+  drawn around. Rejected: naming the measurement cause always, which would make the hold-out act read
+  as though it had done nothing.
+- **I-199 — both boundary acts sit under `SET_BILL_BOUNDARY`.** L-ACT-03 names only
+  `HOLD_OUT_OF_BILL` under that permission, but `DECLARE_NOT_IN_PROJECT_SCOPE` is the same LEAD-held
+  judgement about where this bill's boundary falls, and the graph's notes place it there. Rejected: a
+  new permission — L-ACT-03's enum is closed, and a screen cannot open it.
+- **I-200 — each act declares its own cause on its own axis.** `HOLD_OUT_OF_BILL` writes
+  `NOT_IN_THIS_BILL` on the bill axis (L-QTY-05 names the axis's cause, R-TO-052 names the act) and
+  `DECLARE_NOT_IN_PROJECT_SCOPE` writes `NOT_IN_PROJECT_SCOPE` on the measurement axis. Rejected:
+  one act with a cause argument, which would let a caller put either cause on either axis.
+- **I-201 — a contradiction needs no state.** An act over a cell that later bears quantity still
+  stands as a row: arm order beats it, the cell reads `data-contradicted="true"`, and the statements
+  omit it. The Consequence an actor confirms reads the arm THIS act writes first, so a declaration
+  already in force is the `before` reading and asking again moves nothing (`ACT_CHANGES_NOTHING`);
+  only where none stands does the display's arm order speak, which is how an actor declaring over a
+  measured cell sees the contradiction they are about to author. Rejected: refusing the act at
+  preview when lines exist — the doors are absent for a `QUANTITY_BEARING` cell (I-194), so the
+  contradiction arises only when lines land after the act, and refusing then would erase a judgement
+  a person made in good faith.
+- **I-202 — "attributed through the parent chain" is the sheet's ingest facts.** A cell is
+  `INGESTION_TRUNCATED` when every sighting it rests on lands on a sheet whose ingest facts carry
+  `explode_truncated=true`: sighting → (`drawingId`, `layoutName`) → `ingests.facts`. Rejected:
+  attributing truncation to a class as a whole, which would blame cells no truncated sheet touched.
+- **I-203 — the six causes are registered in `REFUSALS`.** The leaf's "Codes → `src/core/errors.ts`"
+  and L-ACT-01's closed cause shared with machine refusals put them there, and it is the registry
+  that gives every cause a remedy (X-3) for the legend and the inspector to render. Rejected: a
+  second cause table beside the registry, which would be a second answer to what a cause means
+  (B-17).
+- **I-204 — the `NOT EXISTS` ban is a committed scan, not an ESLint rule.** `scripts/eslint/**` is
+  locked at M2, so the ban is proved the way the view-type-literals ban is: a scan test with a
+  declared corpus under `tests/lint-fixtures/residue-not-exists/`, named in `SCAN_CORPORA`. Rejected:
+  a lint rule, which this increment may not author.
+- **I-205 — the residue's absence clause is a fragment the seam lends.** The tree's one correlated
+  absence needs a clause the barrel's eight query operators cannot spell, and core may not hold the
+  driver (SEAM-TENANT). `src/core/db/seam.ts` hands out `statement` beside `inCurrentScope`, which is
+  already a fragment the seam builds because it alone may; the residue writes and owns its own
+  clause. Rejected: a ninth name on the barrel's driver line, which mints a shared operator nobody
+  else asked for (ARCH-02, B-17).
+- **I-206 — a statement prints runs, not levels.** L-QTY-07 says the certificate PRINTS
+  enumerations, and a printed boundary reads "columns, GF–L5", not the same sentence five times. A
+  contiguous run of levels bearing one cause under one kind and class is folded into one
+  `coverage-statement-row` whose `data-levels` reads `first–last`, while `resolveResidue` behind it
+  still answers one cell per level — the grid is per level, the statement is per run. A gap breaks
+  the run, because the level between them stands outside that boundary and printing it inside would
+  state something untrue. Contiguity is read off the stack's ordinal, which is also what orders the
+  rows: "L10" follows "L9" in a building and precedes it in an alphabet, and a statement is read by
+  somebody walking up the storeys. Rejected: collapsing in the renderer, which would leave the
+  certificate M7 prints and the preview this screen shows counting rows differently (B-19).
+- **I-207 — a boundary somebody drew is stated once, on the axis they moved.** A cell a person held
+  out of this bill is stated on the bill boundary and is NOT repeated on the measurement one, though
+  its measurement axis does read `NOT_ESTABLISHED`: printing it in both would tell a reader the
+  campaign failed to measure something a person had deliberately taken out, and two lines for one
+  cell under two causes is the shared cause column L-QTY-07 forbids, in the only form the
+  two-statement shape still allows it. This is I-198's rule — the cause a cell is read under is the
+  axis a person moved — applied to what the certificate prints. Rejected: stating it on both axes
+  because L-QTY-05's axes are orthogonal; orthogonality governs how a cell READS, not how many times
+  one human decision is printed.
+- **I-208 — an empty statement is still a statement, so the preview stands in the empty state too.**
+  §2's empty cell stands in the BODY's place; the certificate preview stands BENEATH the body, so it
+  is rendered wherever a reading came back at all — a campaign that has sighted nothing, or no
+  campaign pinned, renders both statements under their own headings with
+  `coverage-statement-none`. A boundary nothing stands outside is a boundary a certificate states,
+  and hiding the section would make the preview's presence itself a silent count of the residue
+  (L-QTY-07, R-UI-050). The one state it stands down in is `error`, where no reading came back and a
+  statement would be a claim about a boundary nobody read. Rejected: rendering the preview only over
+  a non-empty grid, which reads the preview as part of the body it is beneath.
 
 ## 1. Layout and hierarchy
 
@@ -184,7 +255,9 @@ Declared in `takeoff/coverage/states.ts` (`COVERAGE_STATES`) and appended to
 - **Empty** — `<div data-testid="coverage-empty">` in the body's place, two truths, each saying why.
   No campaign pinned: `takeoff_coverage_empty_heading` / `_body` and one action, a core secondary
   Button worn as a link to `…/drawings/sets`, `_empty_action`. A campaign that has sighted nothing:
-  `_empty_campaign_heading` / `_body` and one action to the register, `_empty_campaign_action`.
+  `_empty_campaign_heading` / `_body` and one action to the register, `_empty_campaign_action`. The
+  certificate preview stands beneath it either way, both statements empty under their own headings
+  (I-208).
 - **Error** — `takeoff_coverage_error_heading` / `_body`, the report id verbatim in mono under
   `_report_label`, and the core secondary Button `<button data-testid="coverage-retry">`
   `takeoff_coverage_retry`, re-running `takeoff.coverage` in place.
@@ -324,13 +397,16 @@ Test ids, exactly the contract's, on the elements ruled in §1: `takeoff-nav-cov
 `coverage-screen` (`data-state`, `data-campaign`) · `coverage-grid` · `coverage-kind-row`
 (`data-kind`) · `coverage-cell` (`data-kind`, `data-class`, `data-level`, `data-grain`,
 `data-measurement`, `data-bill`, `data-contradicted`) · `coverage-cell-glyph` (`data-cause`) ·
-`coverage-legend` · `coverage-legend-entry` (`data-cause`) · `coverage-inspector` (`data-cell`) ·
-`coverage-inspector-cause` (`data-cause`, `data-act`) · `coverage-inspector-remedy` ·
-`coverage-inspector-sighting` (`data-channel`) · `coverage-inspector-observation` (`data-rail`) ·
+`coverage-legend` · `coverage-legend-entry` (`data-cause`) · `coverage-inspector` (`data-cell`,
+`data-kind`, `data-class`, `data-level`) · `coverage-inspector-cause` (`data-cause`, `data-code`,
+`data-act`) · `coverage-inspector-remedy` · `coverage-inspector-sighting` (`data-channel`,
+`data-source`) · `coverage-inspector-observation` (`data-rail`, `data-reason`) ·
 `coverage-hold-out` · `coverage-declare-out-of-scope` · `coverage-answer` · `coverage-empty` ·
-`coverage-retry` · `coverage-certificate-preview` · `coverage-statement` (`data-statement`) ·
-`coverage-statement-row` (`data-kind`, `data-class`, `data-level`, `data-cause`) ·
-`coverage-statement-none`. `takeoff-nav`, `takeoff-nav-register`, `refusal-state`, `refusal-message`,
+`coverage-retry` · `coverage-certificate-preview` · `coverage-statement` (`data-statement`,
+`data-axis`) · `coverage-statement-row` (`data-kind`, `data-class`, `data-level`, `data-levels`,
+`data-cause`) · `coverage-statement-none` (`data-code`). `data-code` on the cause and `data-cause`
+beside it are the same reading twice, one machine-addressed and one the screen's own vocabulary;
+`data-level` names a printed run's FIRST level and `data-levels` the run itself. `takeoff-nav`, `takeoff-nav-register`, `refusal-state`, `refusal-message`,
 `refusal-remedy`, `refusal-evidence-link`, `consequence-dialog`, `consequence-confirm`,
 `consequence-digest-line`, `skeleton` and `screen-state` are other files' ids, used and never
 redefined. No others are added: the headings, the two doors and the empty-state actions are found by
