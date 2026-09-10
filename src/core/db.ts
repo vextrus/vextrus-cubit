@@ -82,6 +82,7 @@ export {
   quantityLines,
   railObservations,
   queueItems,
+  scopeDeclarations,
   SEAM_SCHEMA,
 } from "./db/schema";
 export { isAcceptedFormat } from "./db/schema";
@@ -117,4 +118,4 @@ export type { Scope, TenantDb, TenantTx, SystemDb, ModelSpend } from "./db/seam"
 export { jobsStore } from "./db/jobs";
 export type { JobEventDraft, JobEventRow, QueuedJob, QueueShape, LiveClaim, ClaimCursor, QueueState, JobsStore } from "./db/jobs";
 export { recordSystemReasonsWith, type SystemReasonRecord, type SystemReasonRecorder } from "./db/reason";
-export { and, asc, desc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
+export { and, asc, desc, eq, gt, inArray, isNull, lt, sql } from "drizzle-orm";
