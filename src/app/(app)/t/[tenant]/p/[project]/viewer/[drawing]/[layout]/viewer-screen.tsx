@@ -43,7 +43,7 @@ import { usePartitionRegion } from "./partition-region";
 import { SheetAbsence } from "./viewer-bones";
 import { layoutNameOf } from "./route-address";
 import { StatusLine } from "./status-line";
-import { ViewerStage } from "./viewer-stage";
+import { AbsentSheetInspector, ViewerStage } from "./viewer-stage";
 
 /** What the route hands the screen. `head` is supplied only where a mount is judged without a server. */
 export type ViewerScreenProps = {
@@ -184,7 +184,19 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   // from, and a sheet nobody has read — are one sibling's body, kept apart there (ARCH-03).
   const workArea = (): ReactNode => {
     if (denied !== null || head === null || head.kind !== "manifest") {
-      return <SheetAbsence head={head} denied={denied} tenantId={tenantId} projectId={projectId} />;
+      const absence = <SheetAbsence head={head} denied={denied} tenantId={tenantId} projectId={projectId} />;
+      // A Trace address names a line as well as a sheet. Where the sheet cannot be drawn the line
+      // still can be read, so the inspector stands beside the absence holding the Trace block —
+      // missing, failed or ready — rather than leaving the reader with a page about the drawing and
+      // nothing about what their address asked for (AC-4). An address naming no line asks nothing,
+      // and nothing is placed for it.
+      if (initialLine === null || line.block === null) return absence;
+      return (
+        <div className="cx-viewer-absence-work">
+          {absence}
+          <AbsentSheetInspector trace={line.block} />
+        </div>
+      );
     }
 
     return (

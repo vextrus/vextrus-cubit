@@ -87,11 +87,21 @@ export function SheetAbsence({ head, denied, tenantId, projectId }: { head: View
       </div>
     );
   }
-  const unread = head.kind === "absent" && head.reason === "not-ingested";
+  /* Three truths in the sheet's place, not two, and each states only what is so: a drawing this
+     project holds and has not read yet, a drawing id it holds no drawing for at all, and a sheet
+     name the reading does not carry. Telling the first two apart is what keeps the screen from
+     promising a reading that nothing has started (R-UI-050's empty against its not-found). */
+  const reason = head.kind === "absent" ? head.reason : "layout-unknown";
+  const empty =
+    reason === "not-ingested"
+      ? { heading: strings.viewer_empty_unread_heading, body: strings.viewer_empty_unread_body }
+      : reason === "drawing-unknown"
+        ? { heading: strings.trace_drawing_unknown_heading, body: strings.trace_drawing_unknown_body }
+        : { heading: strings.viewer_empty_sheet_heading, body: strings.viewer_empty_sheet_body };
   return (
-    <div className="cx-viewer-empty" data-testid="viewer-empty">
-      <h2 className="cx-viewer-empty-heading">{unread ? strings.viewer_empty_unread_heading : strings.viewer_empty_sheet_heading}</h2>
-      <p className="cx-viewer-empty-body">{unread ? strings.viewer_empty_unread_body : strings.viewer_empty_sheet_body}</p>
+    <div className="cx-viewer-empty" data-testid="viewer-empty" data-reason={reason}>
+      <h2 className="cx-viewer-empty-heading">{empty.heading}</h2>
+      <p className="cx-viewer-empty-body">{empty.body}</p>
       <a className="cx-btn cx-reticle cx-viewer-empty-action" data-variant="secondary" href={projectEvidence.href}>
         <span className="cx-btn-label">{projectEvidence.label}</span>
       </a>

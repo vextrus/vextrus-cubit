@@ -147,6 +147,36 @@ export function ViewerStage({ panel, partition, scale, pointer, snap, inspector,
   );
 }
 
+/**
+ * The inspector beside a sheet that could not be drawn. A Trace address carries a line as well as a
+ * set of keys, and the reader who followed one is owed what became of that line even where there is
+ * no sheet to fly to — otherwise a stale address answers with a page about the drawing and nothing
+ * at all about what was asked for (AC-4, R-UI-050).
+ *
+ * It is the panel the stage mounts, with the same chrome, so no second inspector exists anywhere
+ * (B-17). What it is handed is only what is true here: no hover, no selection and no Cited-by,
+ * because all three are facts about a drawn sheet, and no canvas is mounted for it either — the
+ * empty state's own ruling that no stage stands behind an unread sheet is untouched (s-viewer § 2).
+ */
+export function AbsentSheetInspector({ trace }: { trace: InspectorPanelProps["trace"] }) {
+  return (
+    <InspectorPanel
+      hover={null}
+      selection={[]}
+      missing={[]}
+      trace={trace}
+      cited={null}
+      onCopy={(key) => navigator.clipboard.writeText(key)}
+      onReveal={NOTHING_TO_REVEAL}
+      onClear={NOTHING_TO_REVEAL}
+      chrome={INSPECTOR_CHROME}
+    />
+  );
+}
+
+/** Nothing is held and no sheet is drawn, so the two controls that act on a selection do nothing. */
+const NOTHING_TO_REVEAL = (): void => {};
+
 /** The two tabs of the right inspector, and what each holds (I-152). */
 const SELECTION_TAB = "selection";
 const SCALE_TAB = "scale";

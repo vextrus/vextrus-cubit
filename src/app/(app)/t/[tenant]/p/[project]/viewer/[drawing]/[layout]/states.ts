@@ -15,8 +15,11 @@ export const VIEWER_STATES: Readonly<Record<ShellStateName, ShellStateCell>> = {
   // flight the tab holds three row-shaped groups of bones under `data-state="loading"`, and the sheet
   // beside it is untouched (s-scale § 2).
   loading: { declared: "rendered", by: `${ROUTE}/loading.tsx`, testId: "viewer-loading" },
-  // Two truths in the sheet's place, chosen by cause: a drawing nobody has read yet, and an address
-  // naming a sheet the reading does not carry. Each teaches the next action and neither is an error.
+  // Three truths in the sheet's place, chosen by cause: a drawing nobody has read yet, an address
+  // naming a drawing this project does not hold at all, and an address naming a sheet the reading
+  // does not carry. The middle one is the one a hand-carried Trace address reaches, and it is kept
+  // apart from the first because a reading nothing has started may not be reported as pending.
+  // Each teaches the next action and none is an error.
   // Neither mounts a stage, so the snap toolbar, its overlay and its cells do not render either.
   // The scale panel is never blank either: a sheet with no stored partition is the door's registered
   // PARTITION_NOT_AVAILABLE, said in the answer slot in the body's place with the drawings screen as

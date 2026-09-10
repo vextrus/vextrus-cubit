@@ -70,7 +70,10 @@
  * equal ink at one size: the IMPORTED and DEFAULTED marks are open, low-stem shapes wearing the two
  * palest tokens — slate and grey — and read fainter than the rule beneath them, while the solid
  * marks read plainly. One step of size and of weight is spent on the glyph alone, so the weakest
- * mark stands as clearly as the strongest.
+ * mark stands as clearly as the strongest. This is the one size and the one weight this pattern
+ * sets (§ 1, and both tokens are named in § 5's closed set), and the mixed-size line box it makes is
+ * what the box's `align-items: baseline` is for: the mark rises off the key's baseline rather than
+ * centring against a key it would then no longer sit level with.
  * The label is untouched: it is text at 12 px in graphite (I-176). */
 .cx-evidence-link-glyph {
   display: inline-block;

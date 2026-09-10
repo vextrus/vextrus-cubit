@@ -223,6 +223,23 @@
   white-space: nowrap;
 }
 
+/* A sheet that could not be drawn, with the Trace's own answer beside it. The absence keeps the
+   whole body it always had and the inspector takes the rail it takes over a drawn sheet, so a reader
+   who followed a Trace to a stale address meets the same two regions in the same two places — no
+   resizer, because there is no sheet to trade width with (AC-4, s-viewer § 1). */
+.cx-viewer-absence-work {
+  display: grid;
+  /* The same share of the width the stage's own `PANEL_SIZE` gives the inspector, so the rail does
+     not move when a sheet does or does not draw. A proportion, not a length: no px literal here. */
+  grid-template-columns: minmax(0, 1fr) 22%;
+  height: 100%;
+  min-height: 0;
+}
+
+.cx-viewer-absence-work > .cx-viewer-inspector {
+  border-inline-start: var(--hairline);
+}
+
 .cx-viewer-empty {
   display: flex;
   flex-direction: column;

@@ -418,12 +418,20 @@
   gap: var(--space-2);
 }
 
-/* One rhythm for every section of this screen. The panel heading carries its own inset and rules
-   the full panel width; what stands under it used to start at the section's outer edge instead, so
-   a section holding nothing read as a full-width rule with an orphan sentence hanging off its left
-   — three empty sections, three different shapes, one register. Everything below a heading now
-   stands at the heading's own inset, and a child a section has nothing to put in takes no room at
-   all, so no gap is left between two paragraphs to be read as a missing thing (R-UI-005, R-UI-050's
+/* The panel closes under its last child rather than against it. */
+.cx-register-refusals,
+.cx-register-level-stack {
+  padding-block-end: var(--space-3);
+}
+
+/* One rhythm for every section of this screen. Every other region of this workspace — the tree, the
+   inspector, and the empty state that stands in the whole body's place — is a panel: a graphite-50
+   ground inside a hairline, its heading ruled off the top. These two carried the heading and the
+   rule alone, so a section with nothing in it read as a full-width line with an orphan sentence
+   hanging off its left, and the three sections at rest read as three unrelated blocks instead of one
+   register. They take the same panel (in the markup, so the frame has one home — B-17), and what
+   stands under a heading stands at that heading's own inset. A child a section has nothing to put in
+   takes no room at all, so no gap is left to be read as a missing thing (R-UI-005, R-UI-050's
    empty: a section at rest states its own emptiness and places nothing). */
 .cx-register-refusals > :not(.cx-register-panel-heading),
 .cx-register-level-stack > :not(.cx-register-panel-heading),

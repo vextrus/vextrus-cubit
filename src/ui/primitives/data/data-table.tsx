@@ -189,10 +189,20 @@ export function DataTable<TRow>({
    */
   const askedIndex = scrollToRowId === undefined ? -1 : rows.findIndex((row) => row.id === scrollToRowId);
 
+  /** The row already travelled to, so the journey is made once per row asked for and not once per
+      position it happens to be at. Sorting and filtering MOVE a row; they do not re-ask for it, and
+      a table that jumped back every time the reader re-ordered it would be taking the scroll box
+      away from the reader who owns it (R-UI-010). */
+  const travelledTo = useRef<string | null>(null);
   useEffect(() => {
-    if (askedIndex < 0) return;
+    if (scrollToRowId === undefined) {
+      travelledTo.current = null;
+      return;
+    }
+    if (askedIndex < 0 || travelledTo.current === scrollToRowId) return;
+    travelledTo.current = scrollToRowId;
     virtualizer.scrollToIndex(askedIndex, { align: "start" });
-  }, [virtualizer, askedIndex]);
+  }, [virtualizer, askedIndex, scrollToRowId]);
 
   /**
    * The rows to draw: the virtualiser's window, plus the asked-for row where the window has not

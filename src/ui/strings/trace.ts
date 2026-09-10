@@ -16,4 +16,11 @@ export const trace = {
   trace_cited_count: "{count} lines cite this selection",
   trace_cited_none: "No published line cites this selection.",
   trace_cited_failed: "The lines citing this selection could not be read.",
+  /* The other end of a Trace address that no longer names anything. A drawing this project does not
+     hold is not a drawing waiting to be read, and it is not told it is: the address is wrong, and
+     the reader is told where the drawings this project does hold are (R-UI-050 separates empty from
+     not-found; the sibling `trace_missing` says the same about a line). */
+  trace_drawing_unknown_heading: "This project holds no drawing at that address",
+  trace_drawing_unknown_body:
+    "The address names a drawing this project does not hold — it may have been removed, or it may belong to another project. Open the project's drawings to pick one it holds.",
 } as const;

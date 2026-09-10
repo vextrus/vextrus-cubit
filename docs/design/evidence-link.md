@@ -63,7 +63,8 @@ glyph followed by the label, and the accessible name is still the key.
   truncates: `overflow-wrap: anywhere` (I-26 — evidence is never ellipsised behind something a
   reader cannot open).
 - Type: `var(--font-mono)` `var(--text-12)` with `font-variant-numeric: tabular-nums slashed-zero`
-  (R-UI-003 — a source key is a key, not prose). Weight is inherited; the pattern sets none.
+  (R-UI-003 — a source key is a key, not prose). Weight is inherited on the anchor and on the label;
+  the glyph is the one exception and states why below.
 - Colour: `.cx-evidence-link[data-basis="MEASURED"] { color: var(--basis-measured) }` and its six
   siblings, one rule per basis in R-UI-002's order — the whole colour surface of this file. The glyph
   and the underline inherit it (`text-decoration-color` comes from the decorating anchor, so the rule
@@ -73,7 +74,16 @@ glyph followed by the label, and the accessible name is still the key.
   `text-underline-offset: 3px`; `:hover`/`:focus-visible` take 2 px.
 - Glyph: `display: inline-block`, so the propagated underline does not strike through it, and its
   text comes only from `BASIS_GLYPHS[basis]` (◆ ▣ ƒ ⇩ ✎ ▦ ○) — `aria-hidden`, because it is the
-  colour's greyscale twin and not a second announcement.
+  colour's greyscale twin and not a second announcement. It is also the one place this pattern sets
+  a size and a weight of its own: `var(--text-13)` `var(--weight-body-medium)`. R-UI-002 asks the
+  glyph to carry the basis where colour is gone, and the seven marks do not carry equal ink at one
+  size — the IMPORTED and DEFAULTED marks are open, low-stem shapes wearing the palest two tokens
+  (slate and grey) and at 12 px regular they read fainter than the 1 px rule beneath them, which is
+  the greyscale channel failing exactly where it is the only channel left. One step of each is spent
+  on the glyph and on nothing else; the label stays 12 px graphite at the inherited weight. The line
+  box is therefore mixed-size by design, which is what `align-items: baseline` above is for: the
+  glyph and the key sit on one baseline and the 13 px mark rises off it, rather than centring against
+  a key it would then no longer align with.
 - Focus: `cx-reticle` and nothing else; the four corner ticks are drawn by the reticle's one home.
   The pattern authors no focus rule (B-17).
 
@@ -130,7 +140,8 @@ durations are tokens zeroed at source under reduced motion, so `evidence-link.cs
 
 `--basis-measured` · `--basis-transcribed` · `--basis-derived` · `--basis-imported` ·
 `--basis-entered` · `--basis-interpreted` · `--basis-defaulted` · `--graphite-900` · `--space-1` ·
-`--font-mono` · `--text-12` · `--motion-state` / `--ease` (and `--motion-reticle` inherited from the
+`--font-mono` · `--text-12` · `--text-13` and `--weight-body-medium` (the glyph's own step, §1) ·
+`--motion-state` / `--ease` (and `--motion-reticle` inherited from the
 reticle's home). Px literals, closed set (primitives-core I-1's mandated class): the 1 px and 2 px
 underline thicknesses and the 3 px underline offset. Any other literal is a defect. No beam except
 through the reticle, no copper, no graphite surface fill: the link paints on whatever ground its

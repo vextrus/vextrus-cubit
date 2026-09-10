@@ -895,7 +895,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
 
       {/* R-UI-020: a sighting that produced no line says why, in place, with the evidence that
           resolves it — and the count is stated even when it is zero (silence never happens). */}
-      <section className="cx-register-refusals" data-testid="register-refusals" data-count={view.refusals.length}>
+      <section className="cx-register-panel cx-register-refusals" data-testid="register-refusals" data-count={view.refusals.length}>
         <h2 className="cx-register-panel-heading">{REGISTER_COPY.takeoff_register_refusals_heading}</h2>
         <p className="cx-register-refusals-hint">{REGISTER_COPY.takeoff_register_refusals_hint}</p>
         {view.refusals.map((refusal) => {
@@ -936,7 +936,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
       {/* R-UI-023: the one bulk door on this screen. There is no checkbox, no row selection and no
           select-all anywhere under this workspace — the offer is confirmed exactly as it is named. */}
       {permitted ? (
-        <section className="cx-register-level-stack" data-testid="register-level-stack">
+        <section className="cx-register-panel cx-register-level-stack" data-testid="register-level-stack">
           <h2 className="cx-register-panel-heading">{REGISTER_COPY.takeoff_register_level_stack_heading}</h2>
           <p className="cx-register-level-stack-hint">{REGISTER_COPY.takeoff_register_level_stack_hint}</p>
           <OfferedGroups

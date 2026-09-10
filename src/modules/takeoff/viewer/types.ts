@@ -49,7 +49,7 @@ export type RenderManifest = {
 export type ViewerHead =
   | { readonly kind: "manifest"; readonly manifest: RenderManifest; readonly cache: "hit" | "miss"; readonly facts: IngestFacts }
   | { readonly kind: "refusal"; readonly refusal: RefusalEntry; readonly facts: IngestFacts }
-  | { readonly kind: "absent"; readonly reason: "not-ingested" | "layout-unknown" };
+  | { readonly kind: "absent"; readonly reason: "not-ingested" | "layout-unknown" | "drawing-unknown" };
 
 /** The camera a sheet is seen through: where it looks, how close, and the box it is drawn into. */
 export type Camera = {
