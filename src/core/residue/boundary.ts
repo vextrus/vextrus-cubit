@@ -7,6 +7,8 @@
 // (L-ACT-01). Neither withdraws anything: `in_force` is written true and never flipped here, and the
 // screen offers no door that would (Decision § 8).
 import { and, campaigns, eq, levels, quantityLines, registerObjects, scopeDeclarations, type TenantTx } from "../db";
+import type { ElementType } from "../catalogue/classes";
+import type { Kind } from "../catalogue/kinds";
 import type { ScopeDeclarationCause } from "../errors";
 import type { Consequence, ConsequenceSubject } from "../acts/consequence";
 import type { ActRendering, ActorCtx, WrittenAct } from "../acts/rendering";
@@ -15,8 +17,8 @@ import { IN_BILL, QUANTITY_BEARING, cellRef } from "./law";
 
 /** The cell one declaration stands over — L-QTY-05's (class × kind × level). */
 export type DeclarationCell = {
-  readonly class: string;
-  readonly kind: string;
+  readonly class: ElementType;
+  readonly kind: Kind;
   readonly levelId: string;
 };
 
