@@ -4,7 +4,8 @@
  * The journey walks the product as a person does: from the project home's Takeoff tab into the
  * workspace, down the tree to a column, and out through the Measure door. What it asserts is what a
  * reader can see — the nav that says where they are standing, the object's own attributes, the
- * sightings that produced no line rendered in place, and the run the door started shown beneath it.
+ * column concrete lines the slice ends in with their formula and variables visible, the sightings
+ * that produced no line rendered in place beside them, and the run the door started shown beneath it.
  *
  * The two design checkpoints are taken here and nowhere else; the picture itself is the gate's to
  * re-take (v16.2 §1).
@@ -12,7 +13,7 @@
 import { expect, test } from "@playwright/test";
 import { STakeoffPage } from "./pages/s-takeoff.page";
 import { SProjectPage } from "./pages/s-project.page";
-import { CLASS_COLUMN, DISCIPLINE, LEVEL_LABEL, MARKS, stageRegister } from "./takeoff/register-stage";
+import { CLASS_COLUMN, DISCIPLINE, DUPLICATE_IDENTITY, INTERPRETED_UNCORROBORATED, LEVEL_LABEL, MARKS, stageRegister } from "./takeoff/register-stage";
 import { checkpoint } from "./support/checkpoint";
 
 /** The width the frame paints all three regions of the body at (R-UI-030, lg and up). */
@@ -49,15 +50,32 @@ test.describe("J-021 — the register workspace", () => {
     await expect(page.getByTestId("register-object-role")).toBeVisible();
     await expect(takeoff.objectCorroboration, "and the corroboration state a reader judges it by").toBeVisible();
 
-    /* --- what produced no line is shown, not hidden (R-UI-050's partial cell) --- */
-    await expect(takeoff.refusals).toBeVisible();
-    await expect(takeoff.refusalRows.first(), "the refused sighting renders in place, through the one RefusalState").toBeVisible();
-    await expect(takeoff.refusalRows.first().getByTestId("refusal-state")).toBeVisible();
-    await expect(takeoff.refusalRows.first().getByTestId("refusal-evidence-link"), "carrying the link to the evidence that resolves it").toHaveAttribute(
-      "href",
-      `/t/${staged.tenantId}/p/${staged.projectId}/drawings`,
-    );
-    await expect(takeoff.root).toHaveAttribute("data-state", "partial");
+    /* --- the lines: the terminus of the column slice, with the formula and its variables visible --- */
+    const rows = takeoff.lines.locator('[role="row"]:not(:has([role="columnheader"]))');
+    await expect(rows, "the campaign's published lines stand in the table — a register of a measured campaign is not an empty one (J-021)").not.toHaveCount(0);
+    const shown = await rows.count();
+    await expect(takeoff.linesCount, "and the count line says how many of how many stand, over a total that is not none").toContainText(String(shown));
+
+    const stated = rows.filter({ hasText: staged.line.formula });
+    await expect(stated, "the line the gate published states the formula it was measured by, verbatim").not.toHaveCount(0);
+    for (const [name, binding] of Object.entries(staged.line.variables)) {
+      await expect(stated.first(), `and its variables read \`${name}=${binding.value} ${binding.unit}\` from the bindings the line carries (R-TO-050)`).toContainText(
+        `${name}=${binding.value} ${binding.unit}`,
+      );
+    }
+
+    /* --- what produced no line is shown beside them, not hidden (R-UI-050's partial cell) --- */
+    await expect(takeoff.refusals, "both sightings that produced no line are counted, never quietly dropped").toHaveAttribute("data-count", "2");
+    for (const code of [INTERPRETED_UNCORROBORATED, DUPLICATE_IDENTITY]) {
+      const refusal = page.locator(`[data-testid="register-refusal"][data-code="${code}"]`);
+      await expect(refusal, `the sighting the campaign answered ${code} renders in place, by its own code`).toHaveCount(1);
+      await expect(refusal.getByTestId("refusal-state"), "through the one shipped RefusalState, exactly once (B-17)").toHaveCount(1);
+      await expect(refusal.getByTestId("refusal-evidence-link"), "carrying the link to the evidence that resolves it").toHaveAttribute(
+        "href",
+        `/t/${staged.tenantId}/p/${staged.projectId}/drawings`,
+      );
+    }
+    await expect(takeoff.root, "and the workspace says it is partial: rows stand refused BESIDE the rows that published").toHaveAttribute("data-state", "partial");
 
     await checkpoint(page, testInfo, "s-takeoff/register");
     await expect(page).toHaveScreenshot(["s-takeoff", "register.png"], { mask: takeoff.masks(), animations: "disabled" });
