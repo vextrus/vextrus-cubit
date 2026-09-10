@@ -25,7 +25,7 @@
     "seed": "node scripts/seed.mjs",
     "method-hashes": "node scripts/method-hashes.mjs",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "worker": "tsx src/worker/main.ts"
   },

@@ -1,7 +1,10 @@
 // ARCH-03: the one fault seam. Every non-refusal server-side failure crosses this file and is
 // recorded — request id, actor, route, cause — before any user-facing mapping, so the operator
 // sees the outage the user only feels (B-21). Re-deriving this anywhere else is a defect (ARCH-02).
-import { randomUUID } from "node:crypto";
+// The id comes from the Web Crypto API, not `node:crypto`: this file is imported from the Edge
+// instrumentation bundle and from Server Components, and `next build` warned on every gate run
+// since inc-121 that a Node API is used in the Edge Runtime — a warning nobody read because the
+// stage was green (Vextrus Builder v21 3.2). `globalThis.crypto` exists on Node ≥ 19 and on Edge.
 
 /** What the operator reads. One fault, one record, every field always present. */
 export interface FaultRecord {
@@ -25,7 +28,15 @@ export interface FaultInput {
 
 /** The default sink: one JSON line per fault on stderr — the operator's stream, not the user's. */
 const defaultSink: FaultSink = (record) => {
-  process.stderr.write(`${JSON.stringify(record)}\n`);
+  // The operator's stream where there is one (Node); the console's error channel where there is not
+  // (the Edge Runtime has no `process.stderr`) — the record is written either way, never dropped.
+  const line = JSON.stringify(record);
+  // Reached through globalThis, never as the `process.stderr` token: the Edge bundler flags the
+  // token itself at compile time, guard or no guard.
+  const proc = (globalThis as { process?: { stderr?: { write?: (chunk: string) => unknown } } }).process;
+  const write = proc?.stderr?.write;
+  if (typeof write === "function") write.call(proc!.stderr, `${line}\n`);
+  else console.error(line);
 };
 
 /**
@@ -54,7 +65,7 @@ export function setFaultSink(next: FaultSink): FaultSink {
  * instead of the real one (ARCH-03).
  */
 export function reportFault(input: FaultInput): { faultId: string; requestId: string } {
-  const faultId = randomUUID();
+  const faultId = globalThis.crypto.randomUUID();
   const record: FaultRecord = {
     faultId,
     requestId: input.requestId,

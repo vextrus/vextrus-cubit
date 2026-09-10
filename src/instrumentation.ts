@@ -6,8 +6,10 @@
 // first request that happens to need the missing value — and the outage crosses the one fault seam
 // on its way out, so the operator has the record before anybody sees an error page (ARCH-03, B-21).
 //
-// The tree has no middleware or proxy file, so Next registers only the nodejs runtime; nothing here
-// branches on which runtime it is in.
+// Next compiles this file for the Edge Runtime as well as for Node (the proxy file landed in
+// inc-120; before it the comment here said only the nodejs runtime registered, which was already
+// untrue of the build's Edge bundle), so nothing here reaches for a Node-only API: the boot id is
+// the process id where there is a process and a constant where there is not.
 import { envErrorOf, envUnusableOf, validateEnv } from "./core/env";
 import { reportFault } from "./core/faults/report";
 
@@ -20,6 +22,11 @@ export const WEB_BOOT_ROUTE = "web/instrumentation";
 /** Who a boot outage is filed against: the tier itself, since no request exists yet. */
 const ACTOR = "web";
 
+/** The boot's own request id: the process id on Node; a constant on a runtime that has no process. */
+function bootRequestId(): string {
+  return typeof process !== "undefined" && typeof process.pid === "number" ? process.pid.toString() : "boot";
+}
+
 /**
  * Validate the environment once, and refuse to start if a name this tier requires is missing or
  * malformed. Nothing is dialled and no connection is opened: this is a read of the machine's own
@@ -29,12 +36,12 @@ export async function register(): Promise<void> {
   const verdict = validateEnv(TIER);
   if (!verdict.ok) {
     const failure = envErrorOf(TIER, verdict);
-    reportFault({ requestId: process.pid.toString(), actor: ACTOR, route: WEB_BOOT_ROUTE, cause: failure });
+    reportFault({ requestId: bootRequestId(), actor: ACTOR, route: WEB_BOOT_ROUTE, cause: failure });
     throw failure;
   }
   // A name this tier does not require, stated unusably, is the operator's to correct and nobody
   // else's: the seam that reads it keeps its own default and the tier comes up (ARCH-03).
   if (verdict.invalid.length > 0) {
-    reportFault({ requestId: process.pid.toString(), actor: ACTOR, route: WEB_BOOT_ROUTE, cause: envUnusableOf(TIER, verdict.invalid) });
+    reportFault({ requestId: bootRequestId(), actor: ACTOR, route: WEB_BOOT_ROUTE, cause: envUnusableOf(TIER, verdict.invalid) });
   }
 }

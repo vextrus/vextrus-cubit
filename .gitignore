@@ -8,6 +8,12 @@ coverage/
 !.env.example
 
 # Toolchain outputs (C-06)
+# next-env.d.ts is Next's own generated shim ("This file should not be edited"): `next typegen` and
+# `next build` write it, and it points at whichever gitignored dist dir the last build used. It is
+# build output, as create-next-app's scaffold treats it — inc-000-foundation ignored it; the fourth
+# founding's reset dropped the line and inc-002 committed the file, and the engine grew six
+# mechanisms to keep a tracked copy of a generated file from drifting (Vextrus Builder v21 L7).
+next-env.d.ts
 *.tsbuildinfo
 .eslintcache
 test-results/

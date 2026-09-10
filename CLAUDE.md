@@ -23,7 +23,7 @@ pnpm verify · pnpm test:db · pnpm e2e --journey <J> · pnpm checkup
 - Session memory: `~/.claude/projects/-home-riz-vextrus-cubit/memory/<name>.md` (frontmatter name/description/type) by Write or Bash — the one admitted path under `~/.claude/`; harvested after each merge. The rest of `~/.claude/` is locked.
 - A debt sweep's worklist is `mcp__builder__debt_rows` (type, location, title per row): fix each where it lives, test beside it. The engine's CLI (`builder …`) is never reachable from a session.
 - History is append-only: no amend, no rebase; a landed migration is superseded, never edited; a regenerated snapshot/baseline goes in its own commit whose subject starts `baseline:` and names the proof.
-- Toolchain churn (`next build` rewrites tsconfig.json and next-env.d.ts): never hand-edit them; `git checkout main -- tsconfig.json next-env.d.ts` is always allowed (chained too), or leave the dirt — the engine restores them to main's form at the gate and at merge.
+- Toolchain churn (`next build` appends a dist dir to tsconfig.json): never hand-edit it; `git checkout main -- tsconfig.json` is always allowed (chained too), or leave the dirt — the engine restores it to main's form at the gate and at merge. `next-env.d.ts` is untracked build output (`pnpm typecheck` regenerates it); never commit or restore it.
 
 <!-- builder:lessons:start -->
 ## Standing lessons (engine-maintained)
