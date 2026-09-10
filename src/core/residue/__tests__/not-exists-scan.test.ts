@@ -54,6 +54,7 @@ function sourcesUnder(root: string, accept: (path: string) => boolean = () => tr
   if (statSync(resolve(root), { throwIfNoEntry: false })?.isFile() === true) return [resolve(root)];
   const found: string[] = [];
   const walk = (directory: string): void => {
+    // white-box: AC-2 — the criterion is a claim about the tree's TEXT ("zero occurrences under src/core/residue/channels/**, exactly one in residue.ts"), which nothing executing can observe; the governed corpus is discovered by walking rather than transcribed, so a fourth channel reader landed later is judged by the same scan with no edit here (L-QTY-05, B-19).
     for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
       const path = join(directory, entry.name);
       if (entry.isDirectory()) walk(path);

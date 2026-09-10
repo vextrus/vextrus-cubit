@@ -15,6 +15,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+// white-box: AC-1 — two clauses of the criterion are claims about the readers' DECLARATIONS, not about a run: "each reader's declared return type is `Sighting[]`" and "src/core/residue/channels/** exports no `absent` constructor". A type annotation is erased before anything executes and a constructor nobody calls has no behaviour to drive, so both are read through the tree's one source lexer.
 import { dialectOf, scanned } from "../../support/source-lex";
 import { REPO_ROOT } from "../../server/support/wire";
 import {

@@ -18,6 +18,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+// white-box: AC-2 — "`NOT EXISTS` is lint-banned inside the channel module and appears once, in the residue query" is a claim about the SOURCE with no runtime observable: an absence spelled in a reader nothing calls is exactly the second home L-QTY-05 bans. The tree's one source lexer reads it, so what is judged is code and the strings code states, never a comment.
 import { dialectOf, scanned } from "../../support/source-lex";
 import { REPO_ROOT } from "../../server/support/wire";
 import { CHANNELS_DIR, RESIDUE_QUERY_MODULE } from "./support/coverage-stage";

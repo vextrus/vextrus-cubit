@@ -6,13 +6,16 @@
 // by exactly the props this screen hands it, so a module never reaches the ui layer (ARCH-01) and a
 // suite mounts the very components a reader sees. The screen computes no residue of its own — the
 // arms are L-QTY-05's, resolved in core, and what stands here is only how they are read.
-import { useCallback, useEffect, useState, type ComponentType, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactElement } from "react";
 import type { Consequence } from "@/core/acts";
 // The law module, not the residue's roster: the roster carries the query and its channel readers,
 // which reach the database, and this file runs in the browser (ARCH-01, the `@/core/levels/law`
 // precedent). Everything a rendering needs — the closed cause set and the cell's address — is law.
 import { RESIDUE_CAUSES, cellRef, type ResidueCause, type ResidueCell, type StatementRow } from "@/core/residue/law";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
+// The marker's one reader (ARCH-02): whether a rejection carries a registered code is not a
+// judgement this screen makes for itself, and a second reading of it would be a second home (B-17).
+import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { COVERAGE_COPY } from "./copy";
 import { CoverageGrid, GRID_LABEL_ID, causeRead, type CoverageDensity } from "./grid";
 import { LegendGlyph } from "./glyphs";
@@ -135,6 +138,9 @@ const DECLARATION = "DECLARATION";
 /** What an empty statement answers with: a boundary nothing stands outside is still a statement. */
 const NONE = "NONE";
 
+/** The dialog is mounted only over a standing door, so its pair is asked nothing when none stands. */
+const NO_DOOR_STANDS = "no door stands over a cell";
+
 /**
  * The state cell this screen stands in, in the Decision § 2's own order — first holding wins. It is
  * derived rather than passed so no caller can claim a state the screen is not really in (B-19).
@@ -179,6 +185,64 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
   const denial = doors.refusalOf(PERMISSION_NOT_HELD);
   const tenantId = view?.tenantId ?? "";
   const projectId = view?.projectId ?? "";
+
+  /** Where a reader is sent to resolve a door's rejection — the register, where the lines are made. */
+  const evidence: Evidence = { href: registerHref(tenantId, projectId), label: COVERAGE_COPY.takeoff_coverage_empty_campaign_action };
+
+  /** What a door stands over as the screen stands NOW, read by the pair below rather than closed over. */
+  const standing = useRef({ doors, view, held, door, evidence });
+  standing.current = { doors, view, held, door, evidence };
+
+  /**
+   * A rejection at a door, shaped as the one ConsequenceDialog reads one (its I-40): a registered
+   * code is rendered as an ANSWER, in the dialog holding the reader's focus (R-UI-020, R-UI-050,
+   * Decision § 2) — and `CONSEQUENCES_NOT_CARRIED` reaches the dialog's own re-render rather than a
+   * card (I-44). A failure carrying no registered code is a fault and is re-raised untouched, for
+   * the boundary that mints the report id (ARCH-03, B-21).
+   *
+   * The reading is re-read in place first: a person refused because the state moved under them is
+   * owed the state that refused them, not the one they loaded (R-UI-050).
+   */
+  const refuse = useCallback((thrown: unknown): never => {
+    const { doors: at, evidence: sends } = standing.current;
+    const code = refusalCodeOf(thrown);
+    const entry = code === null ? undefined : at.refusalOf(code);
+    if (entry === undefined) throw thrown;
+    at.retry?.();
+    throw Object.assign(new Error(entry.code), { refusal: entry, evidence: sends });
+  }, []);
+
+  /**
+   * The pair the dialog is handed (L-ACT-02), bound ONCE for as long as it stands: the shipped dialog
+   * re-runs its preview whenever these two change identity, so a pair rebuilt on every render would
+   * wipe the very answer the reader is looking at the moment the re-read above lands. What each call
+   * stands over is read off the ref, so the pair is stable and never stale.
+   */
+  const previewAtDoor = useCallback(async (): Promise<CoveragePreviewAnswer> => {
+    const { doors: at, view: over, held: cell, door: which } = standing.current;
+    if (over === null || cell === null || which === null) throw new Error(NO_DOOR_STANDS);
+    try {
+      return await (which === HOLD_OUT_OF_BILL ? at.previewHoldOutOfBill : at.previewDeclareNotInProjectScope)({ input: inputOf(over, cell) });
+    } catch (thrown) {
+      return refuse(thrown);
+    }
+  }, [refuse]);
+
+  const commitAtDoor = useCallback(
+    async (carried: { consequenceDigest: string }): Promise<{ actId: string }> => {
+      const { doors: at, view: over, held: cell, door: which } = standing.current;
+      if (over === null || cell === null || which === null) throw new Error(NO_DOOR_STANDS);
+      try {
+        return await (which === HOLD_OUT_OF_BILL ? at.commitHoldOutOfBill : at.commitDeclareNotInProjectScope)({
+          input: inputOf(over, cell),
+          consequenceDigest: carried.consequenceDigest,
+        });
+      } catch (thrown) {
+        return refuse(thrown);
+      }
+    },
+    [refuse],
+  );
 
   return (
     <div className="cx-coverage" data-testid="coverage-screen" data-state={state} data-density={density} data-campaign={view?.campaignId ?? ""} ref={setRoot}>
@@ -261,13 +325,8 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
           open
           actType={door}
           container={root}
-          preview={() => (door === HOLD_OUT_OF_BILL ? doors.previewHoldOutOfBill : doors.previewDeclareNotInProjectScope)({ input: inputOf(view, held) })}
-          commit={(carried) =>
-            (door === HOLD_OUT_OF_BILL ? doors.commitHoldOutOfBill : doors.commitDeclareNotInProjectScope)({
-              input: inputOf(view, held),
-              consequenceDigest: carried.consequenceDigest,
-            })
-          }
+          preview={previewAtDoor}
+          commit={commitAtDoor}
           onOpenChange={(open) => {
             if (!open) setDoor(null);
           }}
