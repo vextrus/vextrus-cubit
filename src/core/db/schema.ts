@@ -5,14 +5,43 @@
 // Nothing here reaches the seam, the pools or the jobs store: those are built over the schema, so
 // the dependency runs one way and no cycle is representable (ARCH-01, ARCH-02).
 import { sql as statement } from "drizzle-orm";
-import { bigint, bigserial, check, doublePrecision, foreignKey, index, integer, json, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  bigint,
+  bigserial,
+  boolean,
+  check,
+  doublePrecision,
+  foreignKey,
+  index,
+  integer,
+  json,
+  jsonb,
+  numeric,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { CAMPAIGN_STATUSES, type CampaignStatus } from "../campaigns/law";
 import { ELEMENT_TYPES, type ElementType } from "../catalogue/classes";
 import { KINDS, type Kind } from "../catalogue/kinds";
 import { QUEUE_ITEM_CAUSES, type QueueItemCause } from "../gate/law";
 import { COVERAGES, ENGINES, QUANTITY_BASES, type Coverage, type Engine, type QuantityBasis } from "../offers/law";
 import { INGEST_SCHEME } from "../entitygraph/schema";
-import { EXPANSION_DEFERRAL_REASONS, REFUSALS, SCHEDULE_DEFERRAL_REASONS, type ExpansionDeferralReason, type RefusalCode, type ScheduleDeferralReason } from "../errors";
+import {
+  EXPANSION_DEFERRAL_REASONS,
+  REFUSALS,
+  SCHEDULE_DEFERRAL_REASONS,
+  SCOPE_DECLARATION_CAUSES,
+  type ExpansionDeferralReason,
+  type RefusalCode,
+  type ScheduleDeferralReason,
+  type ScopeDeclarationCause,
+} from "../errors";
 import { LEVEL_MARKER, LEVEL_SLOTS, OBSERVATION_BASES, SIGHTING_STANDINGS, UNREGISTERED_PREFIX, type ObservationBasis, type SightingStanding } from "../identity";
 import { STOREY_HEIGHT_BASES, type StoreyHeightBasis } from "../levels/law";
 import { VIEW_TYPE_SPELLINGS } from "../errors/transport-vocabulary";
@@ -2208,6 +2237,46 @@ export const queueItems = pgTable(
 );
 
 /**
+ * R-TO-052's boundary declaration: a person's judgement that one cell of the residue stands outside
+ * the project's scope, or outside this bill. One row per act — a declaration is one act over one
+ * cell, never a bulk assembly (L-ACT-02) — naming the cell it stands over, the cause it stands
+ * under, the act that made it and whether it is in force.
+ *
+ * The residue is a query and not a table (L-QTY-05): this store holds only what a PERSON declared,
+ * and the machine's own causes are resolved on read, never written here.
+ *
+ * No foreign key to the act log, the campaign or the level: the row is written inside the act's own
+ * transaction, so it cannot outrun the act row it names, and what the residue does with a row whose
+ * act no longer resolves is a reading rather than a constraint — the query joins the act and a
+ * declaration nobody can point at states nothing (L-ACT-01, `residueOf`).
+ */
+export const scopeDeclarations = pgTable(
+  "scope_declarations",
+  {
+    tenantId: uuid("tenant_id").notNull(),
+    declarationId: uuid("declaration_id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id").notNull(),
+    campaignId: uuid("campaign_id").notNull(),
+    class: text("class").$type<ElementType>().notNull(),
+    kind: text("kind").$type<Kind>().notNull(),
+    levelId: uuid("level_id").notNull(),
+    cause: text("cause").$type<ScopeDeclarationCause>().notNull(),
+    actId: uuid("act_id").notNull(),
+    inForce: boolean("in_force").notNull().default(true),
+    declaredAt: timestamp("declared_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One campaign holds one declaration of one cause over one cell: a second identical declaration
+    // is an act that changes nothing, refused by name before it reaches here (L-ACT-01).
+    unique("scope_declarations_one_per_cell").on(table.tenantId, table.campaignId, table.class, table.kind, table.levelId, table.cause),
+    check("scope_declarations_cause_closed", statement`${table.cause} in (${statement.raw(closedList(SCOPE_DECLARATION_CAUSES))})`),
+    check("scope_declarations_class_closed", statement`${table.class} in (${statement.raw(closedList(ELEMENT_TYPES))})`),
+    check("scope_declarations_kind_closed", statement`${table.kind} in (${statement.raw(closedList(KINDS))})`),
+    index("scope_declarations_by_campaign").on(table.tenantId, table.campaignId, table.declaredAt),
+  ],
+);
+
+/**
  * Everything the typed surface covers. A table joins the surface by joining this object, and it is
  * exported because the binding to the schema tree is a check rather than a sentence: `db/schema.ts`
  * is the barrel drizzle-kit and the drift lane read, and a test beside this file compares the two
@@ -2272,4 +2341,5 @@ export const SEAM_SCHEMA = {
   quantityLines,
   railObservations,
   queueItems,
+  scopeDeclarations,
 };

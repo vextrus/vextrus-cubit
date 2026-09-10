@@ -82,6 +82,7 @@ export {
   quantityLines,
   railObservations,
   queueItems,
+  scopeDeclarations,
   SEAM_SCHEMA,
 } from "./db/schema";
 export { isAcceptedFormat } from "./db/schema";

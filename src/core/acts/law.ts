@@ -20,6 +20,8 @@ export const ACT_TYPES = [
   "AUTHOR_TYPICAL_RANGE",
   "CORROBORATE",
   "REPUDIATE",
+  "HOLD_OUT_OF_BILL",
+  "DECLARE_NOT_IN_PROJECT_SCOPE",
 ] as const;
 
 /** One act type, drawn from the enum above. */
@@ -87,6 +89,13 @@ export const ACT_PERMISSION: Readonly<Record<ActType, Permission>> = Object.free
   // the measuring itself moves.
   CORROBORATE: "MEASURE",
   REPUDIATE: "MEASURE",
+  // L-ACT-03 cuts SET_BILL_BOUNDARY on exactly this: "SET_BILL_BOUNDARY (HOLD_OUT_OF_BILL)".
+  HOLD_OUT_OF_BILL: "SET_BILL_BOUNDARY",
+  // The clause's enum is closed and names only the hold there, but declaring a kind outside the
+  // project is the same boundary decision over the same cell on L-QTY-05's other axis — what this
+  // project's certificate speaks about — so it moves the permission the hold moves rather than a
+  // fourteenth the law does not cut.
+  DECLARE_NOT_IN_PROJECT_SCOPE: "SET_BILL_BOUNDARY",
 });
 
 /**
