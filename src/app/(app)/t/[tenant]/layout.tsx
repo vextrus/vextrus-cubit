@@ -41,7 +41,7 @@ export default async function WorkspaceLayout({ children, params }: { children: 
   const density = await densityRead(viewer.userId);
 
   return (
-    <ShellFrame workspace={workspace} workspaces={held} email={viewer.email} density={density} signOut={signOutAction}>
+    <ShellFrame workspace={workspace} workspaces={held} email={viewer.email} userId={viewer.userId} density={density} signOut={signOutAction}>
       {children}
     </ShellFrame>
   );

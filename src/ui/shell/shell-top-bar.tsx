@@ -25,11 +25,18 @@ export interface ShellTopBarProps {
   page?: string;
   /** The address the session belongs to, shown as the menu's own name; null when there is none. */
   email: string | null;
+  /**
+   * The account the session belongs to, stated on the menu as data rather than as words: who is
+   * signed in is a fact about the frame, and an actor performing an act is entitled to see the
+   * identity it will be recorded under (L-ACT-01). Optional because a bar mounted without a session
+   * above it states nothing.
+   */
+  userId?: string | null;
   /** Ending the session is the server's to do; the menu only asks for it. */
   signOut: () => void | Promise<void>;
 }
 
-export function ShellTopBar({ workspace, area, atAreaHome, page, email, signOut }: ShellTopBarProps) {
+export function ShellTopBar({ workspace, area, atAreaHome, page, email, userId, signOut }: ShellTopBarProps) {
   const [signingOut, startSignOut] = useTransition();
   // A failed sign-out is a failure, not a silence: a discarded promise would leave the control idle
   // and the screen claiming nothing happened (ARCH-03, B-21). The hand-off holds the rejection and
@@ -106,7 +113,7 @@ export function ShellTopBar({ workspace, area, atAreaHome, page, email, signOut 
             reports as a serious `aria-hidden-focus` — and Q-11 admits none at a checkpoint. */}
         <DropdownMenu modal={false}>
           {/* The visible address is the accessible name: a person reads the account they are in. */}
-          <DropdownMenuTrigger className="cx-shell-user-trigger" data-testid="shell-user">
+          <DropdownMenuTrigger className="cx-shell-user-trigger" data-testid="shell-user" data-user-id={userId ?? undefined}>
             {email ?? strings.shell_user_account}
           </DropdownMenuTrigger>
           {/* Portalled where the shipped DropdownMenu portals every menu in the tree, and styled by
