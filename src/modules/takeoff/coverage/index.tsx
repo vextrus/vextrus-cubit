@@ -8,7 +8,10 @@
 // arms are L-QTY-05's, resolved in core, and what stands here is only how they are read.
 import { useCallback, useEffect, useState, type ComponentType, type ReactElement } from "react";
 import type { Consequence } from "@/core/acts";
-import { RESIDUE_CAUSES, cellRef, type ResidueCause, type ResidueCell, type StatementRow } from "@/core/residue";
+// The law module, not the residue's roster: the roster carries the query and its channel readers,
+// which reach the database, and this file runs in the browser (ARCH-01, the `@/core/levels/law`
+// precedent). Everything a rendering needs — the closed cause set and the cell's address — is law.
+import { RESIDUE_CAUSES, cellRef, type ResidueCause, type ResidueCell, type StatementRow } from "@/core/residue/law";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { COVERAGE_COPY } from "./copy";
 import { CoverageGrid, GRID_LABEL_ID, causeRead, type CoverageDensity } from "./grid";

@@ -96,14 +96,18 @@ async function declarationHeld(tx: TenantTx, ctx: ActorCtx, campaignId: string, 
 }
 
 /**
- * How the axis this act moves reads before it moves: the arm order L-QTY-05 fixes, as far as this
- * act reaches. Published lines stand above everything, then the declaration already in force — and
- * a sheet read only in part is beaten by the very arm this act writes, so it is not a reading this
- * act could move and does not enter the Consequence the actor confirms.
+ * How the axis this act moves reads before it moves. The arm this act itself writes is read first:
+ * a declaration already in force IS the reading, whatever the grid displays over it, because an act
+ * cannot move what it has already written — asked a second time it would leave the cell exactly as
+ * it found it, and the seam refuses it by name (L-ACT-01). Only where no declaration stands does the
+ * grid's own arm order speak: published lines above everything (so the actor confirming a
+ * declaration over a measured cell sees the contradiction they are about to author, risk note 3),
+ * then the idle reading of this axis. A sheet read only in part is beaten by the very arm this act
+ * writes, so it is not a reading this act could move and does not enter the Consequence.
  */
 function readingBefore(hasLines: boolean, standing: boolean, cause: ScopeDeclarationCause, axisIdle: string): string {
-  if (hasLines) return QUANTITY_BEARING;
   if (standing) return cause;
+  if (hasLines) return QUANTITY_BEARING;
   return axisIdle;
 }
 

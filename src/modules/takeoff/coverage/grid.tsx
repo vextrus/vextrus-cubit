@@ -11,7 +11,7 @@
 // every cell states its whole reading in its accessible name, in words, and again in its mark.
 import { useRef } from "react";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
-import { cellRef, type ResidueCell, type ResidueLevel } from "@/core/residue";
+import { cellRef, type ResidueCell, type ResidueLevel } from "@/core/residue/law";
 import { compareCanonical } from "@/core/identity";
 import { fillCoverageCopy, COVERAGE_COPY } from "./copy";
 import { CauseGlyph, type GlyphReading } from "./glyphs";

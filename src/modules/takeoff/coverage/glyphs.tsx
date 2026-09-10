@@ -8,7 +8,7 @@
 //
 // Every mark is drawn geometry on a 16 px viewBox at 1.5 px in `currentColor`, never a font
 // character: a glyph that depends on a typeface is a glyph that disappears when the typeface does.
-import type { BillCause, MeasurementReading } from "@/core/residue";
+import type { BillCause, MeasurementReading } from "@/core/residue/law";
 
 /** The marks' shared canvas: the Decision's own numbers (§ 5's closed literal set). */
 const VIEW_BOX_SIDE = 16;
