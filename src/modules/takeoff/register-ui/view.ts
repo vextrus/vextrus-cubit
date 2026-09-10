@@ -88,6 +88,11 @@ export type ViewLine = {
   readonly sourceKey: string;
   /** Whether a person has struck the object this line was measured from (I-173). */
   readonly repudiated: boolean;
+  /** The sheet the line's evidence stands on, or null where the reading resolves none (I-181). */
+  readonly drawingId: string | null;
+  readonly layoutName: string | null;
+  /** The keys the line cites — `citedKeysOf` — which is the selection its Trace address carries. */
+  readonly sourceKeys: readonly string[];
 };
 
 /** One sighting that produced no line: a queue item's cause or a refused sighting's refusal. */

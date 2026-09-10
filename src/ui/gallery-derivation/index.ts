@@ -13,6 +13,7 @@
 import * as patternsCommandPalette from "../patterns/command-palette";
 import * as patternsConsequenceDialog from "../patterns/consequence-dialog";
 import * as patternsDropzone from "../patterns/dropzone";
+import * as patternsEvidenceLink from "../patterns/evidence-link";
 import * as patternsJobTimeline from "../patterns/job-timeline";
 import * as patternsOfferedGroup from "../patterns/offered-group";
 import * as patternsRefusalState from "../patterns/refusal-state";
@@ -34,6 +35,7 @@ export const galleryBarrels: Record<string, Record<string, unknown>> = {
   "patterns/command-palette": patternsCommandPalette,
   "patterns/consequence-dialog": patternsConsequenceDialog,
   "patterns/dropzone": patternsDropzone,
+  "patterns/evidence-link": patternsEvidenceLink,
   "patterns/job-timeline": patternsJobTimeline,
   "patterns/offered-group": patternsOfferedGroup,
   "patterns/refusal-state": patternsRefusalState,

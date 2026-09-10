@@ -18,11 +18,13 @@ import type { RefusalEntry, RefusalSeverity, RefusalSurface } from "../../core/e
 import { CommandPalette, CommandPaletteProvider, ShortcutSheet } from "../patterns/command-palette";
 import { ConsequenceDialog } from "../patterns/consequence-dialog";
 import { Dropzone, type DropzoneItem } from "../patterns/dropzone";
+import { EvidenceLink } from "../patterns/evidence-link";
 import { JobTimeline, JobsProvider, type JobsFormat, type TimelineStep } from "../patterns/job-timeline";
 import { OfferedGroups, type OfferedGroupItem } from "../patterns/offered-group";
 import { RefusalState } from "../patterns/refusal-state";
 import { SAMPLE_REFUSAL_BY_SEVERITY, sampleRefusal } from "./sample-refusals";
 import {
+  BASIS_GLYPHS,
   Badge,
   BasisChip,
   Button,
@@ -34,6 +36,7 @@ import {
   Textarea,
   Tooltip,
   UnitBadge,
+  type Basis,
 } from "../primitives/core";
 import {
   DataTable,
@@ -108,6 +111,7 @@ const copy = {
   jobTimeline: { heading: "Reading drawings", evidence: "Add the drawing again", first: "4 s", second: "11 s", fault: "fault-9c21" },
   badge: "Draft",
   chip: "Layer S-COL",
+  evidenceLink: { label: "DXF_HANDLE:1A4", href: "/design" },
   unit: "SQM",
   key: "K",
   tooltip: { content: "Snap to grid — S", trigger: "Snap" },
@@ -198,6 +202,17 @@ const chipStates: readonly GalleryState[] = [
 const basisStates: readonly GalleryState[] = BASES.map((basis) => ({
   name: basis.toLowerCase(),
   render: () => <BasisChip basis={basis} />,
+}));
+
+/**
+ * The Trace affordance, one cell per basis (evidence-link § 7): the roster is read off R-UI-002's
+ * own glyph table rather than listed here, so a basis added to the clause joins the gallery without
+ * a line of this file changing (B-19). One key across every cell, so the row compares colour and
+ * glyph and nothing else; `/design` is the sample destination that stays on the current route.
+ */
+const evidenceLinkStates: readonly GalleryState[] = (Object.keys(BASIS_GLYPHS) as Basis[]).map((basis) => ({
+  name: basis,
+  render: () => <EvidenceLink href={copy.evidenceLink.href} basis={basis} label={copy.evidenceLink.label} />,
 }));
 
 const coverageStates: readonly GalleryState[] = [
@@ -682,6 +697,7 @@ export const galleryEntries: GalleryEntries = {
   "patterns/command-palette/ShortcutSheet": { states: closed(() => paletteSample(<ShortcutSheet />)) },
   "patterns/consequence-dialog/ConsequenceDialog": { states: closed(consequenceDialogSample) },
   "patterns/dropzone/Dropzone": { states: dropzoneStates },
+  "patterns/evidence-link/EvidenceLink": { states: evidenceLinkStates },
   "patterns/job-timeline/JobTimeline": { states: jobTimelineStates },
   // The register renders no DOM of its own, so its evidence is the surface it feeds: a tray standing
   // inside it, holding what this sample has tracked — nothing.
