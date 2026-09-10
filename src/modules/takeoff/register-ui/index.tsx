@@ -481,7 +481,11 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
         <div className="cx-register-actions">
           <p className="cx-register-campaign">
             <span className="cx-register-campaign-label">{REGISTER_COPY.takeoff_register_campaign_label}</span>
-            <span className="cx-register-campaign-id">{view.campaign?.setRevisionId ?? ""}</span>
+            {/* A surrogate, rendered verbatim beside the words and never inside a sentence (I-26);
+                it is per-run ink, so a design picture masks it by this id (Decision § 7). */}
+            <span className="cx-register-campaign-id" data-testid="register-campaign">
+              {view.campaign?.setRevisionId ?? ""}
+            </span>
           </p>
           <div className="cx-register-measure">
             <button
@@ -754,7 +758,9 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
             >
               <p className="cx-register-refusal-fact">
                 <span className="cx-register-refusal-label">{REGISTER_COPY.takeoff_register_refusal_object_label}</span>
-                <span className="cx-register-cell-mono">{refusal.objectKey}</span>
+                <span className="cx-register-cell-mono" data-testid="register-refusal-object">
+                  {refusal.objectKey}
+                </span>
               </p>
               {refusal.kind === null ? null : (
                 <p className="cx-register-refusal-fact">

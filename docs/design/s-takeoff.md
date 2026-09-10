@@ -350,7 +350,8 @@ ruled in §1: `takeoff-nav` · `takeoff-nav-register` · `register-workspace` (`
 `register-filter-class` · `-kind` · `-level` · `-basis` · `-coverage` · `register-refusals`
 (`data-count`) · `register-refusal` (`data-code`, `data-object`, `data-kind`) · `register-answer` ·
 `register-empty` · `register-retry` · `register-level-stack` · `register-measure` ·
-`register-timeline`. `project-tab`, `offered-groups`, `offered-group`, `offered-group-count`,
+`register-timeline`, and the two masking ids §7's picture paragraph names (`register-campaign`,
+`register-refusal-object`). `project-tab`, `offered-groups`, `offered-group`, `offered-group-count`,
 `offered-group-confirm`, `refusal-state`, `refusal-message`, `refusal-remedy`,
 `refusal-evidence-link`, `job-timeline`, `job-timeline-step`, `consequence-dialog`, `tree`,
 `tree-item`, `datatable`, `datatable-row`, `datatable-cell`, `basis-chip`, `coverage-chip`,
@@ -375,7 +376,13 @@ build if the module's `copy.ts` and `src/ui/strings/takeoff.ts` ever differ (the
 `tests/e2e/register.spec.ts`, titles carrying J-021, page object
 `tests/e2e/pages/s-takeoff.page.ts`; checkpoints `s-takeoff/register` and `s-takeoff/measure-queued`,
 axe serious/critical = 0 at each, never widened, `masks()` over the shell breadcrumb, `shell-user`,
-`register-timeline` and `register-source-key` — the per-run texts. Re-baselined under B-20:
+`register-timeline` and `register-source-key` — the per-run texts. Two ids exist for that masking
+and for nothing else, because this screen states two more surrogates verbatim and a surrogate is
+per-run ink: `register-campaign` (the pinned revision beside its label) and
+`register-refusal-object` (the object key on a refusal row). The picture is deterministic only once
+`masks()` covers them, the inspector's `register-object-key` and the rail's
+`shell-tenant-switcher` (the staged workspace's own name) — recorded as this increment's Objection,
+since the page object is the Verifier's. Re-baselined under B-20:
 `tests/e2e/baselines/design/s-project/home.png` (the Takeoff tab becomes a link) and
 `j-003/project-edited.png` only if its bytes move.
 
