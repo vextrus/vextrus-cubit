@@ -97,13 +97,27 @@ describe("AC-2: lineEvidence", () => {
   }, BUDGET_MS);
 });
 
+/** The store's own order over a set of lines: `publishedAt`, then `lineId` — never this file's. */
+function inPublishedOrder(lineIds: readonly string[], stored: Map<string, Record<string, unknown>>): string[] {
+  return [...new Set(lineIds)]
+    .map((lineId) => ({ lineId, at: String(field(stored.get(lineId), "publishedAt", "published_at")) }))
+    .sort((a, b) => (a.at === b.at ? (a.lineId < b.lineId ? -1 : a.lineId > b.lineId ? 1 : 0) : a.at < b.at ? -1 : 1))
+    .map((row) => row.lineId);
+}
+
+/** The whole evidence of every published line of the staged campaign, by lineId. */
+async function evidenceOfPublished(lineEvidence: (scope: TraceScope, lineId: string) => Promise<LineEvidence | null>): Promise<Map<string, LineEvidence>> {
+  const evidence = new Map<string, LineEvidence>();
+  for (const line of published) evidence.set(line.lineId, (await lineEvidence(scope, line.lineId)) as LineEvidence);
+  return evidence;
+}
+
 describe("AC-2: linesCiting", () => {
   test("AC-2: every published line of the drawing whose keys intersect the ask, each once, in publishedAt then lineId order", async () => {
     const { lineEvidence, linesCiting } = await traceSeam();
     const stored = storedLines();
 
-    const evidence = new Map<string, LineEvidence>();
-    for (const line of published) evidence.set(line.lineId, (await lineEvidence(scope, line.lineId)) as LineEvidence);
+    const evidence = await evidenceOfPublished(lineEvidence);
 
     const drawingIds = [...new Set([...evidence.values()].map((held) => held.drawingId))];
     expect(drawingIds.length, `the staged campaign's lines stand on one drawing: ${JSON.stringify(drawingIds)}`).toBe(1);
@@ -112,11 +126,10 @@ describe("AC-2: linesCiting", () => {
     const asked = [...new Set([...evidence.values()].flatMap((held) => held.sourceKeys))];
     /* The rule, recomputed: the lines whose own cited keys meet the ask, ordered as the store
        published them and then by their id — never the order this file happens to hold them in. */
-    const expected = published
-      .filter((line) => (evidence.get(line.lineId) as LineEvidence).sourceKeys.some((key) => asked.includes(key)))
-      .map((line) => ({ lineId: line.lineId, at: String(field(stored.get(line.lineId), "publishedAt", "published_at")) }))
-      .sort((a, b) => (a.at === b.at ? (a.lineId < b.lineId ? -1 : a.lineId > b.lineId ? 1 : 0) : a.at < b.at ? -1 : 1))
-      .map((row) => row.lineId);
+    const expected = inPublishedOrder(
+      published.filter((line) => (evidence.get(line.lineId) as LineEvidence).sourceKeys.some((key) => asked.includes(key))).map((line) => line.lineId),
+      stored,
+    );
     expect(expected.length, "the ask names keys that some published line cites").toBeGreaterThan(0);
 
     const answered = await linesCiting(scope, { drawingId, sourceKeys: asked });
@@ -125,6 +138,49 @@ describe("AC-2: linesCiting", () => {
     /* The order is a fact about the lines, not about the ask. */
     const reversed = await linesCiting(scope, { drawingId, sourceKeys: [...asked].reverse() });
     expect(reversed.map((row) => String(row["lineId"])), "asking the same keys in another order answers the same sequence").toEqual(expected);
+  }, BUDGET_MS);
+
+  /*
+   * The predicate has to SEPARATE, or "the lines that cite those entities" (X-2) is just "the lines
+   * of this sheet". The two asks below are built from the corpus's own census of which lines cite
+   * which key: one key exactly one line holds, and one that line shares with its siblings. Neither
+   * key nor line is named here — both are found by probing (B-19), so the test stays true as the
+   * staged campaign grows.
+   */
+  test("AC-2: a key one line alone cites answers that line and withholds the sheet's other lines", async () => {
+    const { lineEvidence, linesCiting } = await traceSeam();
+    const stored = storedLines();
+    const evidence = await evidenceOfPublished(lineEvidence);
+
+    const citedBy = new Map<string, string[]>();
+    for (const [lineId, held] of evidence) for (const key of held.sourceKeys) citedBy.set(key, [...(citedBy.get(key) ?? []), lineId]);
+    const census = [...citedBy].map(([key, lineIds]) => [key, lineIds.length]);
+
+    const sole = [...citedBy].find(([, lineIds]) => lineIds.length === 1);
+    expect(sole, `the staged corpus holds a key exactly one published line cites — the case "withheld" is about: ${JSON.stringify(census)}`).toBeTruthy();
+    const [ownKey, holders] = sole as [string, string[]];
+    const onlyLineId = holders[0] as string;
+    const drawingId = (evidence.get(onlyLineId) as LineEvidence).drawingId as string;
+
+    const siblings = [...evidence.values()].filter((line) => line.drawingId === drawingId && line.lineId !== onlyLineId);
+    expect(siblings.length, `and other published lines of that same sheet, which such an ask must withhold: ${JSON.stringify([...evidence.keys()])}`).toBeGreaterThan(0);
+
+    const answeredOne = await linesCiting(scope, { drawingId, sourceKeys: [ownKey] });
+    expect(answeredOne.map((row) => String(row["lineId"])), "the lines that cite THOSE entities, not every line the sheet published (X-2)").toEqual([onlyLineId]);
+
+    /* Widened by a key that line SHARES, the same ask gathers them all — each once, however many of
+       the asked keys it holds. */
+    const shared = [...citedBy].find(([key, lineIds]) => key !== ownKey && lineIds.includes(onlyLineId) && lineIds.length > 1);
+    expect(shared, `the corpus holds a key that line shares with a sibling — the case "once however many match" is about: ${JSON.stringify(census)}`).toBeTruthy();
+    const [sharedKey, sharers] = shared as [string, string[]];
+
+    const answeredBoth = (await linesCiting(scope, { drawingId, sourceKeys: [ownKey, sharedKey] })).map((row) => String(row["lineId"]));
+    const expected = inPublishedOrder(
+      [onlyLineId, ...sharers].filter((lineId) => (evidence.get(lineId) as LineEvidence).drawingId === drawingId),
+      stored,
+    );
+    expect(answeredBoth, "every line either asked key names, in publishedAt then lineId order").toEqual(expected);
+    expect(answeredBoth.length, `and the line holding BOTH asked keys stands once, not twice: ${JSON.stringify(answeredBoth)}`).toBe(new Set(answeredBoth).size);
   }, BUDGET_MS);
 
   test("AC-2: a line matched by several of the asked keys is answered once", async () => {

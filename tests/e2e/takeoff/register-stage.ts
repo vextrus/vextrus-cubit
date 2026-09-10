@@ -45,6 +45,30 @@ export const MARKS: readonly string[] = ["C1", "C2", "C3"];
  */
 export const INTERPRETED_MARK = "C4";
 
+/** Every mark this stage registers, in the order it registers them. */
+export const STAGED_MARKS: readonly string[] = [...MARKS, INTERPRETED_MARK];
+
+/**
+ * The key ONE PLACEMENT is read at in its own right, defaulted — one per staged mark, DERIVED from
+ * the mark rather than transcribed, declared here once and imported wherever it is asserted (B-19).
+ *
+ * A staged line therefore cites both a key that is its own and keys its siblings share (the view it
+ * was read in, the section of its family, its storey height), which is what lets an ask SEPARATE
+ * them: over a corpus where every line cited the same keys, "the lines whose keys meet the ask" and
+ * "every published line of this drawing" are the same list, and neither the withholding leg nor the
+ * de-duplication leg of `linesCiting` is exercised at all. Over a corpus of per-placement keys
+ * alone, no ask ever answers more than one line and de-duplication is equally unproved. The union
+ * proves both.
+ */
+export function placementSourceOf(mark: string): string {
+  return `S-101:e:${mark}`;
+}
+
+/** That rule as a map, over every mark this stage registers — the fixture surface's own home. */
+export const PLACEMENT_SOURCES: Readonly<Record<string, string>> = Object.freeze(
+  Object.fromEntries(STAGED_MARKS.map((mark) => [mark, placementSourceOf(mark)])),
+);
+
 /**
  * The two codes the register's refusal rows carry — the queue item's cause and the register's own
  * double-count refusal. Both are already registered in the closed taxonomy; the stage below asserts
@@ -73,6 +97,8 @@ export type StagedRegister = {
   layoutName: string;
   /** Where this run's lines cite their evidence: synthetic by default, real handles under `cite`. */
   cited: CitedSources;
+  /** The key each placement is read at in its own right, by mark (`PLACEMENT_SOURCES`). */
+  placementSources: Readonly<Record<string, string>>;
   campaignId: string;
   setRevisionId: string;
   objectKeys: string[];
@@ -126,7 +152,7 @@ type GateSeam = {
 /** The reading the workspace itself renders — used here to READ BACK what the gate wrote (B-19). */
 type RegisterUiSeam = {
   registerViewOf: (scope: { tenantId: string; projectId: string }) => Promise<{
-    lines: { lineId: string; objectKey: string; kind: string; formula: string; variables: Record<string, { value: string; unit: string }> }[];
+    lines: { lineId: string; objectKey: string; kind: string; formula: string; sourceKeys: string[]; variables: Record<string, { value: string; unit: string }> }[];
     refusals: { code: string; objectKey: string; kind: string | null }[];
   }>;
 };
@@ -145,16 +171,23 @@ async function userIdOf(page: Page): Promise<string> {
  * entities the sheet in fact holds rather than in I-88's "Not on this sheet" cell.
  */
 export type CitedSources = {
-  /** What the sighting was read at, and what the placement's geometry binding cites. */
+  /** What the sighting was read at — the entity the register's own content stands on. */
   evidence: string;
-  /** Where the family's section was read. */
+  /** Where the family's section was read: a key EVERY staged line cites, whatever its mark. */
   section: string;
-  /** Where the level's storey height was transcribed. */
+  /** Where the level's storey height was transcribed: the second key they all share. */
   height: string;
 };
 
 /** The synthetic defaults: keys of the register's own grammar, on no sheet the viewer serves. */
 export const SYNTHETIC_SOURCES: CitedSources = Object.freeze({ evidence: "S-101:e:41", section: "S-101:e:7", height: "S-101:e:3" });
+
+/**
+ * How many keys a caller's `cite` list is read for: the three shared ones above, then one per staged
+ * mark — the key that placement alone was read at. Derived from both rosters rather than counted by
+ * hand, so a mark added to the stage asks the sheet for one more entity (B-19).
+ */
+export const CITE_KEYS: number = Object.keys(SYNTHETIC_SOURCES).length + STAGED_MARKS.length;
 
 /**
  * What a caller's `cite` list means, position by position, defaulted where it is short. It arrives
@@ -163,12 +196,21 @@ export const SYNTHETIC_SOURCES: CitedSources = Object.freeze({ evidence: "S-101:
  */
 export type CiteKeys = (sheet: { tenantId: string; drawingId: string; layoutName: string; ingestId: string }) => Promise<readonly string[]>;
 
-function citedFrom(cite: readonly string[] | undefined): CitedSources {
-  if (cite === undefined || cite.length === 0) return SYNTHETIC_SOURCES;
+/** The shared keys and the per-placement ones, as this run cites them. */
+type StagedCitations = { cited: CitedSources; placementSources: Readonly<Record<string, string>> };
+
+function citationsFrom(cite: readonly string[] | undefined): StagedCitations {
+  const keys = cite ?? [];
+  const shared = Object.keys(SYNTHETIC_SOURCES).length;
+  const cited: CitedSources =
+    keys.length === 0
+      ? SYNTHETIC_SOURCES
+      : { evidence: keys[0] as string, section: (keys[1] ?? keys[0]) as string, height: (keys[2] ?? keys[0]) as string };
   return {
-    evidence: cite[0] as string,
-    section: (cite[1] ?? cite[0]) as string,
-    height: (cite[2] ?? cite[0]) as string,
+    cited,
+    placementSources: Object.freeze(
+      Object.fromEntries(STAGED_MARKS.map((mark, at) => [mark, keys[shared + at] ?? (PLACEMENT_SOURCES[mark] as string)])),
+    ),
   };
 }
 
@@ -201,13 +243,24 @@ const CALIBRATION_KEY = "S-101:PLAN:scale";
  * drawing and its ingest, one section for the family they share, the level they stand on with its
  * storey height AGREED, and the affirmed calibration of the view they were sighted in.
  *
+ * Each placement's GEOMETRY is read at a key of its own (`placementSourceOf`), while the section it
+ * takes and the storey height it stands at are read at keys its siblings share — so a published
+ * line's cited keys compose to {its own key, the view, the section, the height} and the staged lines
+ * differ in exactly one coordinate. That is what a `linesCiting` ask needs in order to separate them.
+ *
  * The ids are the ones this run staged — a rail is handed data, so nothing here is invented that the
  * journey does not already hold.
  */
-function setupFor(rows: readonly Record<string, unknown>[], ids: { drawingId: string; ingestId: string; levelId: string }, cited: CitedSources): Record<string, unknown> {
+function setupFor(
+  rows: readonly Record<string, unknown>[],
+  ids: { drawingId: string; ingestId: string; levelId: string },
+  cited: CitedSources,
+  placementSources: Readonly<Record<string, string>>,
+): Record<string, unknown> {
   const placements: Record<string, Record<string, unknown>> = {};
   const views: Record<string, string> = {};
   for (const row of rows) {
+    const mark = String(row["mark"]);
     const viewKey = String(row["viewKey"]);
     placements[String(row["placementKey"])] = {
       drawingId: ids.drawingId,
@@ -215,7 +268,7 @@ function setupFor(rows: readonly Record<string, unknown>[], ids: { drawingId: st
       viewKey,
       memberFamily: MEMBER_FAMILY,
       engine: "VECTOR",
-      sourceEntity: cited.evidence,
+      sourceEntity: placementSources[mark] ?? placementSourceOf(mark),
     };
     views[viewKey] = CALIBRATION_KEY;
   }
@@ -252,7 +305,7 @@ function interpretedOffer(offer: OfferShape): OfferShape {
 export async function stageRegister(page: Page, options: { label?: string; cite?: CiteKeys } = {}): Promise<StagedRegister> {
   const label = options.label ?? "register";
   const sheet = await stagePartitionedSheet(page, { label });
-  const cited = citedFrom(options.cite === undefined ? undefined : [...(await options.cite(sheet))]);
+  const { cited, placementSources } = citationsFrom(options.cite === undefined ? undefined : [...(await options.cite(sheet))]);
   const userId = await userIdOf(page);
   const actor: ActorCtx = { tenantId: sheet.tenantId, userId, actorKind: "human" };
   const scope = { tenantId: sheet.tenantId, projectId: sheet.projectId };
@@ -288,7 +341,7 @@ export async function stageRegister(page: Page, options: { label?: string; cite?
   /* --- the objects: the three the leg reads, and the fourth whose offer is INTERPRETED --- */
   const register = await productModule<RegisterSeam>("src/modules/takeoff/register/index.ts");
   const registerScope = { tenantId: sheet.tenantId, projectId: sheet.projectId, setRevisionId };
-  const sightings = [...MARKS, INTERPRETED_MARK].map((mark, at) => sightingOf(mark, at, levelId, cited));
+  const sightings = STAGED_MARKS.map((mark, at) => sightingOf(mark, at, levelId, cited));
   for (const sighting of sightings) {
     const answer = await register.registerSighting(registerScope, sighting);
     expect(answer["registered"], `the sighting of ${String(sighting["mark"])} registered: ${JSON.stringify(answer)}`).toBe(true);
@@ -309,7 +362,7 @@ export async function stageRegister(page: Page, options: { label?: string; cite?
     setRevisionId,
     kind: RCC_CONCRETE,
     objects: rows,
-    setup: setupFor(rows, { drawingId: sheet.drawingId, ingestId: sheet.ingestId, levelId }, cited),
+    setup: setupFor(rows, { drawingId: sheet.drawingId, ingestId: sheet.ingestId, levelId }, cited, placementSources),
   }).offers;
   expect(offered.length, `the rail offers each staged column once: ${offered.length}`).toBe(sightings.length);
 
@@ -343,6 +396,26 @@ export async function stageRegister(page: Page, options: { label?: string; cite?
     expect(`${binding.value}${binding.unit}`.length, `the variable ${name} was read as a value in a unit: ${JSON.stringify(binding)}`).toBeGreaterThan(0);
   }
 
+  /*
+   * And the staged lines must be SEPARABLE, which is what makes the Trace's other direction an
+   * answer rather than a list of the sheet: each published line cites a key no sibling cites (so an
+   * ask can withhold the others) and a key its siblings share (so an ask can gather them all, each
+   * once). Read off what the reading in fact answered, so a stage that stopped discriminating fails
+   * here rather than standing a checkpoint on a predicate nothing exercised.
+   */
+  expect(published.length, `the staged campaign publishes a line per measured mark, so an ask has lines to tell apart: ${JSON.stringify(published.map((row) => row.objectKey))}`).toBeGreaterThan(1);
+  for (const held of published) {
+    const siblings = published.filter((row) => row.lineId !== held.lineId).flatMap((row) => row.sourceKeys);
+    expect(
+      held.sourceKeys.filter((key) => !siblings.includes(key)),
+      `${held.objectKey} cites a key no other staged line cites: ${JSON.stringify(held.sourceKeys)}`,
+    ).not.toEqual([]);
+    expect(
+      held.sourceKeys.filter((key) => siblings.includes(key)),
+      `and a key its siblings cite too: ${JSON.stringify(held.sourceKeys)}`,
+    ).not.toEqual([]);
+  }
+
   const deferred = view.refusals.filter((refusal) => refusal.code === INTERPRETED_UNCORROBORATED);
   expect(deferred.length, `exactly one sighting stands deferred as ${INTERPRETED_UNCORROBORATED}: ${JSON.stringify(view.refusals)}`).toBe(1);
   expect((deferred[0] as { objectKey: string }).objectKey, `and it is the column ${INTERPRETED_MARK} whose offer was INTERPRETED`).toBe(queuedObjectKey);
@@ -351,5 +424,18 @@ export async function stageRegister(page: Page, options: { label?: string; cite?
     `and one sighting stands refused as ${DUPLICATE_IDENTITY}: ${JSON.stringify(view.refusals)}`,
   ).toBe(1);
 
-  return { tenantId: sheet.tenantId, projectId: sheet.projectId, drawingId: sheet.drawingId, layoutName: sheet.layoutName, campaignId, setRevisionId, objectKeys, queuedObjectKey, refusedObjectKey, cited, line };
+  return {
+    tenantId: sheet.tenantId,
+    projectId: sheet.projectId,
+    drawingId: sheet.drawingId,
+    layoutName: sheet.layoutName,
+    campaignId,
+    setRevisionId,
+    objectKeys,
+    queuedObjectKey,
+    refusedObjectKey,
+    cited,
+    placementSources,
+    line,
+  };
 }
