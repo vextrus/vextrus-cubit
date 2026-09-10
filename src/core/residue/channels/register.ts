@@ -4,7 +4,7 @@
 // file beside it: this reader says what the register SAW, and an empty list is the only way it can
 // say it saw nothing. Whether anything follows from that absence is the residue query's judgement,
 // made once, where the tree's one `NOT EXISTS` lives (L-QTY-05).
-import { and, eq, inArray, placements, registerObjects, type TenantTx } from "../../db";
+import { and, eq, placements, registerObjects, type TenantTx } from "../../db";
 import type { Sighting } from "../law";
 import { drawingIdsOf, layoutOf, type SightingScope } from "./scope";
 
@@ -15,10 +15,15 @@ const REGISTER = "REGISTER" as const;
  * Every class the register holds a row for in this campaign's revision, on the level the row stands
  * on, with the sheet it was sighted on and the placement key it was read at.
  *
- * The drawing is the placement's, joined rather than stored on the register row: a register object
- * is keyed on the placement it was sighted at (L-REG-04), and the placement is where the sheet is
- * recorded. Rows whose placement stands outside the pinned manifest are not sighted by this
- * campaign at all, so the join is what scopes the answer.
+ * The pinned manifest is the SET REVISION: a register object is registered against one revision
+ * (L-REG-03's double-count guard keys on it), so a row of this revision was sighted within this
+ * campaign's manifest by construction, and no second scoping is needed to say so.
+ *
+ * The sheet a row was read on is the partition placement's, taken where the partition holds one —
+ * a sighting made at the register's own door carries a placement key nothing placed, and it is a
+ * sighting all the same (L-QTY-05: the reader says what the register SAW). So the join is LEFT and
+ * attribution is what it adds, never what it filters by; a row the partition places on a sheet
+ * OUTSIDE the manifest is the one case the revision cannot vouch for, and it alone is dropped.
  */
 export async function registerSightings(tx: TenantTx, scope: SightingScope): Promise<Sighting[]> {
   const drawingIds = drawingIdsOf(scope);
@@ -32,22 +37,24 @@ export async function registerSightings(tx: TenantTx, scope: SightingScope): Pro
       sourceKey: registerObjects.placementKey,
     })
     .from(registerObjects)
-    .innerJoin(placements, and(eq(placements.tenantId, registerObjects.tenantId), eq(placements.placementKey, registerObjects.placementKey)))
+    .leftJoin(placements, and(eq(placements.tenantId, registerObjects.tenantId), eq(placements.placementKey, registerObjects.placementKey)))
     .where(
       and(
         eq(registerObjects.tenantId, scope.tenantId),
         eq(registerObjects.setRevisionId, scope.setRevisionId),
         eq(registerObjects.projectId, scope.projectId),
-        inArray(placements.drawingId, drawingIds),
       ),
     );
 
-  return rows.map((row) => ({
-    class: row.class,
-    levelId: row.levelId,
-    channel: REGISTER,
-    drawingId: row.drawingId,
-    layoutName: layoutOf(scope, row.drawingId),
-    sourceKey: row.sourceKey,
-  }));
+  const manifest = new Set(drawingIds);
+  return rows
+    .filter((row) => row.drawingId === null || manifest.has(row.drawingId))
+    .map((row) => ({
+      class: row.class,
+      levelId: row.levelId,
+      channel: REGISTER,
+      drawingId: row.drawingId ?? "",
+      layoutName: row.drawingId === null ? "" : layoutOf(scope, row.drawingId),
+      sourceKey: row.sourceKey,
+    }));
 }

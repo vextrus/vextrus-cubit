@@ -88,8 +88,13 @@ const NOTHING_READ: ResidueInput = Object.freeze({
   observations: [],
 });
 
-/** Which project's residue is read, in whose workspace. */
-export type ResidueScope = { readonly tenantId: string; readonly projectId: string };
+/**
+ * Which project's residue is read, in whose workspace — and, where a caller already stands on one,
+ * which campaign of it. Naming none reads the campaign the project is standing in, which is what a
+ * screen wants; naming one is how a caller that already resolved a campaign asks about that one and
+ * no other (L-REG-07).
+ */
+export type ResidueScope = { readonly tenantId: string; readonly projectId: string; readonly campaignId?: string };
 
 /* ------------------------------------------------------------------ the pure resolution */
 
@@ -141,9 +146,16 @@ function attributedToTruncation(sightings: readonly Sighting[], truncatedDrawing
   return sightings.length > 0 && sightings.every((sighting) => truncatedDrawings.has(sighting.drawingId));
 }
 
-/** The levels one class was sighted on: those its sightings name, or the unlevelled one where none. */
+/**
+ * The levels one class was sighted on: those its sightings name, or the unlevelled one where none.
+ *
+ * A level a sighting names is a level sighted whether or not the project's stack holds a row for it
+ * — the register is what saw it (L-REG-04), and a cell dropped for want of a label would be a cell
+ * the certificate never speaks about. The stack orders the columns and names them; it does not
+ * decide which exist.
+ */
 function levelsSighted(sightings: readonly Sighting[], levels: ReadonlyMap<string, ResidueLevel>): (string | null)[] {
-  const named = [...new Set(sightings.map((sighting) => sighting.levelId).filter((levelId): levelId is string => levelId !== null && levels.has(levelId)))];
+  const named = [...new Set(sightings.map((sighting) => sighting.levelId).filter((levelId): levelId is string => levelId !== null))];
   if (named.length === 0) return [null];
   return named.sort((left, right) => (levels.get(left)?.ordinal ?? 0) - (levels.get(right)?.ordinal ?? 0) || compareCanonical(left, right));
 }
@@ -255,7 +267,8 @@ function kindGrain(kind: string, cause: typeof NO_BEARER_SIGHTED | typeof KIND_N
  */
 export async function residueOf(scope: ResidueScope): Promise<Residue> {
   const open = await campaignsOf(scope);
-  const campaign = open[open.length - 1];
+  const named = scope.campaignId;
+  const campaign = named === undefined ? open[open.length - 1] : open.find((held) => held.campaignId === named);
   if (campaign === undefined) {
     return { tenantId: scope.tenantId, projectId: scope.projectId, campaign: null, input: NOTHING_READ, cells: [] };
   }

@@ -72,11 +72,23 @@ function surfaceOf(measurement: string): string {
 }
 
 /**
+ * The cause a cell is READ under, which is not always the cause it stands at (I-198). The two axes
+ * are orthogonal and a cell may carry a reading on each, so the one a reader is answered with is the
+ * axis a person moved: a cell held out of this bill is read under the bill's own cause, and every
+ * other cell under its measurement cause. J-022 is this rule walked — the hold changes what the
+ * inspector states while the measurement axis goes on saying what it always said (L-QTY-05).
+ */
+export function causeRead(cell: ResidueCell): string {
+  return cell.bill === "NOT_IN_THIS_BILL" ? cell.bill : cell.measurement;
+}
+
+/**
  * The whole reading of one cell, in words (Decision § 3): the kind, the class, the level and the
  * cause — never a code (I-195) — with the bill axis and a contradiction appended where they hold.
  */
 export function cellLabel(cell: ResidueCell): string {
-  const cause = cell.measurement === "QUANTITY_BEARING" ? COVERAGE_COPY.takeoff_coverage_cell_label_measured : (entryOf(cell.measurement)?.message ?? cell.measurement);
+  const read = causeRead(cell);
+  const cause = read === "QUANTITY_BEARING" ? COVERAGE_COPY.takeoff_coverage_cell_label_measured : (entryOf(read)?.message ?? read);
   const named =
     cell.grain === "KIND"
       ? fillCoverageCopy("takeoff_coverage_cell_label_kind_grain", { kind: cell.kind, cause })

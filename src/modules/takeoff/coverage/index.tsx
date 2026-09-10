@@ -7,10 +7,11 @@
 // suite mounts the very components a reader sees. The screen computes no residue of its own — the
 // arms are L-QTY-05's, resolved in core, and what stands here is only how they are read.
 import { useCallback, useEffect, useState, type ComponentType, type ReactElement } from "react";
+import type { Consequence } from "@/core/acts";
 import { RESIDUE_CAUSES, cellRef, type ResidueCause, type ResidueCell, type StatementRow } from "@/core/residue";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { COVERAGE_COPY } from "./copy";
-import { CoverageGrid, GRID_LABEL_ID, type CoverageDensity } from "./grid";
+import { CoverageGrid, GRID_LABEL_ID, causeRead, type CoverageDensity } from "./grid";
 import { LegendGlyph } from "./glyphs";
 import type { CoverageView } from "./view";
 
@@ -20,7 +21,7 @@ export type { CoverageDensity } from "./grid";
 type Evidence = { href: string; label: string };
 
 /** What a preview answers (L-ACT-02): the typed Consequence, and the digest that binds it. */
-export type CoveragePreviewAnswer = { consequence: unknown; consequenceDigest: string };
+export type CoveragePreviewAnswer = { consequence: Consequence; consequenceDigest: string };
 
 /** The cell a boundary act stands over, as the two doors name one. */
 export type BoundaryCell = {
@@ -110,8 +111,12 @@ const NOT_IN_THIS_BILL = "NOT_IN_THIS_BILL";
 const NOT_IN_PROJECT_SCOPE = "NOT_IN_PROJECT_SCOPE";
 const KIND_NOT_YET_SEEDED = "KIND_NOT_YET_SEEDED";
 
-/** The address parameter this screen is widened by (Decision § 7). */
-const CELL_PARAM = "cell";
+/**
+ * The address parameter this screen is widened by (Decision § 7). Exported because the route builder
+ * beside `page.tsx` spells the same address, and a parameter name with two homes is a parameter that
+ * can drift (B-17).
+ */
+export const CELL_PARAM = "cell";
 
 /** Which statement a section prints — two, separately titled and never merged (L-QTY-07). */
 const MEASUREMENT = "MEASUREMENT";
@@ -374,8 +379,11 @@ function Inspector({
     );
   }
 
-  const measured = cell.measurement === QUANTITY_BEARING;
-  const entry = measured ? undefined : REFUSAL_WORDS[cell.measurement as ResidueCause];
+  // I-198: the cell is read under the axis a person moved — the bill's cause where one holds it out
+  // of this bill, and the measurement cause everywhere else. One rule, one home (B-17).
+  const read = causeRead(cell);
+  const measured = read === QUANTITY_BEARING;
+  const entry = measured ? undefined : REFUSAL_WORDS[read as ResidueCause];
   const grain = cell.grain === "KIND";
   const actId = cell.measurementActId ?? cell.billActId;
   // I-194: a door that can answer only a refusal is theatre, so it is absent rather than disabled.
@@ -401,7 +409,7 @@ function Inspector({
       {grain ? <p className="cx-coverage-grain">{COVERAGE_COPY.takeoff_coverage_kind_grain_label}</p> : null}
 
       <h3 className="cx-coverage-inspector-heading">{COVERAGE_COPY.takeoff_coverage_cause_heading}</h3>
-      <p className="cx-coverage-cause" data-testid="coverage-inspector-cause" data-cause={cell.measurement} data-act={actId ?? ""}>
+      <p className="cx-coverage-cause" data-testid="coverage-inspector-cause" data-cause={read} data-act={actId ?? ""}>
         {entry === undefined ? COVERAGE_COPY.takeoff_coverage_cell_label_measured : entry.message}
         {actId === null ? null : (
           <>
@@ -416,7 +424,7 @@ function Inspector({
         the link, and no second label is invented for it (Decision § 3, § 7).
       */}
       <p className="cx-coverage-remedy" data-testid="coverage-inspector-remedy">
-        {cell.measurement === KIND_NOT_YET_SEEDED && entry !== undefined ? (
+        {read === KIND_NOT_YET_SEEDED && entry !== undefined ? (
           <a className="cx-coverage-remedy-link" href={ruleset}>
             {entry.remedy}
           </a>

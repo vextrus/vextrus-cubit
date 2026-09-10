@@ -405,6 +405,35 @@ export const screenStates: ScreenStatesMatrix = {
   // holds act doors, and the denial names MEASURE, which every one of those doors moves.
   "/t/[tenant]/p/[project]/takeoff/register": declare(registerCells),
 
+  // The coverage grid (s-coverage § 2): the residue read as a heat grid. Reading it needs membership
+  // only, so the whole grid renders and the denial names SET_BILL_BOUNDARY — the permission the two
+  // boundary doors move — in place. Its partial state is the kind-grain rows, which stand at the head
+  // of the grid rather than being dropped, and its offline state is a banner over a reading that goes
+  // on being honest about its age.
+  "/t/[tenant]/p/[project]/takeoff/coverage": declare({
+    loading: bones(4),
+    empty: (): ReactNode => (
+      <EmptyTeaching
+        heading={strings.state_empty_coverage_heading}
+        body={strings.state_empty_coverage_body}
+        action={strings.state_empty_coverage_action}
+      />
+    ),
+    error: fault(strings.state_error_coverage_body),
+    refusal: refusal(REFUSAL_ENTRIES.PERMISSION_NOT_HELD, PARTICIPANTS_EVIDENCE),
+    partial: (): ReactNode => <InlineAnswer text={strings.state_partial_coverage} />,
+    offline: (): ReactNode => <InlineAnswer text={strings.state_offline_coverage} />,
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.state_denied_coverage_permission}
+        holder={strings.state_denied_coverage_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={PARTICIPANTS_EVIDENCE}
+      />
+    ),
+  }),
+
   // The takeoff address itself (s-takeoff § 1): a redirect that renders nothing, so every one of its
   // seven cells is the register's own, taken from the surface a reader is carried to and named as
   // handed over — a route that shows nothing has no state of its own to invent (Decision § 2).
