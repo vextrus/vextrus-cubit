@@ -50,14 +50,19 @@ const previewed = (answer: { consequence: unknown; consequenceDigest: string }):
 
 export interface RegisterScreenProps {
   readonly view: RegisterView | null;
+  readonly tenantId: string;
   readonly projectId: string;
   readonly permitted: boolean;
   /** The fault the read left behind, quoted verbatim where the register could not be read (B-21). */
   readonly reportId: string | null;
 }
 
-export function RegisterScreen({ view, projectId, permitted, reportId }: RegisterScreenProps) {
+export function RegisterScreen({ view, tenantId, projectId, permitted, reportId }: RegisterScreenProps) {
   const [held, setHeld] = useState<RegisterView | null>(view);
+  // What a retry answered when it did not answer a reading: the registered refusal it carried, or
+  // the fault it left — neither is dropped, and neither is spoken by this file (R-UI-020, B-21).
+  const [refused, setRefused] = useState<RefusalEntry | null>(null);
+  const [fault, setFault] = useState<unknown>(null);
   const [density, setDensity] = useState<RegisterDensity>("comfortable");
   const [offline, setOffline] = useState(false);
 
@@ -79,11 +84,26 @@ export function RegisterScreen({ view, projectId, permitted, reportId }: Registe
     };
   }, []);
 
+  // A retry that answers a refusal renders it in place through the one RefusalState, and a retry
+  // that faults again is raised to the boundary that mints the next report id: a press that returns
+  // with nothing said is the silence R-UI-020 forbids (ARCH-03, B-21).
   const retry = useCallback((): void => {
-    void readRegister(projectId).then((answer) => {
-      if (answer.ok) setHeld(answer.answer);
-    });
+    void readRegister(projectId)
+      .then((answer) => {
+        if (answer.ok) {
+          setRefused(null);
+          setHeld(answer.answer);
+          return;
+        }
+        const entry = refusalOf(answer.refusal);
+        if (entry === undefined) throw Object.assign(new Error(answer.refusal), { refusalCode: answer.refusal });
+        setRefused(entry);
+      })
+      .catch((thrown: unknown) => setFault(() => thrown));
   }, [projectId]);
+
+  // Thrown in render, where React's own boundary is: a rejected promise reaches no boundary at all.
+  if (fault !== null) throw fault;
 
   const doors: RegisterDoors = {
     previewCorroborate: async ({ input }: { input: CorroborateInput }) => previewed(carried(await previewCorroborate(input))),
@@ -111,6 +131,9 @@ export function RegisterScreen({ view, projectId, permitted, reportId }: Registe
           <Button variant="secondary" data-testid="register-retry" onClick={retry}>
             {strings.takeoff_register_retry}
           </Button>
+          {refused === null ? null : (
+            <RefusalState refusal={refused} evidence={{ href: `/t/${tenantId}/p/${projectId}/drawings`, label: strings.takeoff_register_evidence }} />
+          )}
         </div>
       </div>
     );

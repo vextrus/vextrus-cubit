@@ -97,13 +97,26 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
   const struck = new Set(repudiatedRows.map((row) => row.objectKey));
   const levelLabels = new Map(levelRows.map((level) => [level.levelId, level.label]));
 
+  // Every input is already keyed by object key, so the composition below is keyed too: R-TO-050 asks
+  // this table to hold 50 000 lines, and a scan per line over the objects (or per object over the
+  // lines and the revision's readings) would price one page render in hundreds of millions of
+  // comparisons. One pass each, then lookups.
+  const objectByKey = new Map(objectRows.map((row) => [row.objectKey, row]));
+  const queuedKeys = new Set(deferred.map((item) => item.objectKey));
+  const observationsByObject = new Map<string, ObservationRow[]>();
+  for (const row of observations) {
+    const held = observationsByObject.get(row.objectKey);
+    if (held === undefined) observationsByObject.set(row.objectKey, [row]);
+    else held.push(row);
+  }
+
   /* --- the lines, each marked with whether a person has struck the object it was measured off --- */
   const lines: ViewLine[] = published.map((row) => ({
     lineId: row.lineId,
     objectKey: row.objectKey,
     kind: row.kind,
     class: row.class,
-    level: levelOf(objectRows.find((object) => object.objectKey === row.objectKey), levelLabels),
+    level: levelOf(objectByKey.get(row.objectKey), levelLabels),
     value: row.value,
     unit: row.unit,
     formula: row.formula,
@@ -117,12 +130,17 @@ export async function registerViewOf(scope: RegisterViewScope): Promise<Register
     repudiated: struck.has(row.objectKey),
   }));
 
+  const basisByObject = new Map<string, QuantityBasis[]>();
+  for (const line of lines) {
+    const held = basisByObject.get(line.objectKey);
+    if (held === undefined) basisByObject.set(line.objectKey, [line.quantityBasis]);
+    else held.push(line.quantityBasis);
+  }
+
   /* --- the objects, the struck among them: a repudiation is stated, never a disappearance (I-173) --- */
   const objects: ViewObject[] = objectRows.map((row) => {
-    const attributes = attributesOf(observations, row.objectKey);
-    const own = lines.filter((line) => line.objectKey === row.objectKey);
-    const queued = deferred.some((item) => item.objectKey === row.objectKey);
-    const basis = weakest(own.map((line) => line.quantityBasis)) ?? (queued ? INTERPRETED : (row.standing as QuantityBasis));
+    const attributes = attributesOf(observationsByObject.get(row.objectKey) ?? []);
+    const basis = weakest(basisByObject.get(row.objectKey) ?? []) ?? (queuedKeys.has(row.objectKey) ? INTERPRETED : (row.standing as QuantityBasis));
     return {
       objectKey: row.objectKey,
       discipline: row.discipline,
@@ -166,11 +184,13 @@ function levelOf(row: { levelId: string | null; levelSlot: string | null; levelL
   return row.levelSlot ?? row.levelLabel ?? "";
 }
 
-/** Every attribute of one object, with how it stands derived from the readings the ledger holds. */
-function attributesOf(observations: readonly ObservationRow[], objectKey: string): ViewAttribute[] {
+/**
+ * Every attribute of one object, with how it stands derived from the readings the ledger holds. The
+ * readings handed in are that object's own, already drawn off the revision's list in one pass.
+ */
+function attributesOf(readings: readonly ObservationRow[]): ViewAttribute[] {
   const held = new Map<string, ObservationRow[]>();
-  for (const row of observations) {
-    if (row.objectKey !== objectKey) continue;
+  for (const row of readings) {
     const list = held.get(row.attribute);
     if (list === undefined) held.set(row.attribute, [row]);
     else list.push(row);

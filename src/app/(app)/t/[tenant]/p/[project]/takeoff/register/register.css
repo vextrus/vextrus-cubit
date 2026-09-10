@@ -57,6 +57,8 @@
 .cx-register-campaign-label {
   font-size: var(--text-12);
   color: var(--graphite-600);
+  /* Two words that name one thing: the label breaks after the pair, never inside it. */
+  white-space: nowrap;
 }
 
 .cx-register-campaign-id {
@@ -69,6 +71,9 @@
 .cx-register-measure {
   display: flex;
   flex-direction: column;
+  /* The button is sized by its label, never by the hint under it: a primary action stretched to a
+     sentence's measure reads as a banner and outweighs the heading it sits beside. */
+  align-items: flex-start;
   gap: var(--space-1);
 }
 

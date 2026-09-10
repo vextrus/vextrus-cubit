@@ -54,5 +54,5 @@ export default async function ProjectRegister({ params }: { params: Promise<{ te
     reportId = reportFault({ requestId: crypto.randomUUID(), actor: session.userId, route: "/t/[tenant]/p/[project]/takeoff/register", cause }).faultId;
   }
 
-  return <RegisterScreen view={view} projectId={project} permitted={permitted} reportId={reportId} />;
+  return <RegisterScreen view={view} tenantId={tenant} projectId={project} permitted={permitted} reportId={reportId} />;
 }

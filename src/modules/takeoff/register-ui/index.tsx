@@ -32,10 +32,20 @@ type TreeNode = { id: string; label: string; children?: TreeNode[] };
 /** One cell of the lines table, as the shipped DataTable hands one its row. */
 type LineCell = { readonly row: { readonly original: ViewLine } };
 
-/** One column of the lines table, as the shipped DataTable takes one. */
+/**
+ * One column of the lines table, as the shipped DataTable takes one.
+ *
+ * A column of one scalar carries the value it sorts on and takes the primitive's own sort control
+ * (R-UI-010's `sort`): that control is also the only keyboard way into a virtualised scroll box of
+ * 50 000 rows, and a scrollable region with no keyboard access is an axe-serious failure of R-UI-012.
+ * A column whose cell composes several facts — the formula, the variable bindings, the basis pair,
+ * the calibration keys — carries no single value to order by and stays unsorted.
+ */
 type LineColumn = {
   id: string;
   header: string;
+  accessorFn?: (line: ViewLine) => string;
+  enableSorting?: boolean;
   cell: (context: LineCell) => ReactNode;
   meta?: { align?: "right" };
 };
@@ -332,23 +342,27 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
   /** The Measure door: inc-209's own answer, and the run shown where it was started (R-UI-024). */
   const requestMeasure = async (): Promise<void> => {
     const campaignId = view.campaign?.campaignId;
+    let asked: MeasureAnswer;
     try {
-      const asked = await doors.requestMeasure({ projectId: view.projectId, campaignId: campaignId ?? "" });
-      if (!asked.requested) {
-        const entry = doors.refusalOf(asked.refusal);
-        if (entry === undefined) return;
-        setAnswer({ refusal: entry, evidence });
-        return;
-      }
-      setAnswer(null);
-      setSteps((held) =>
-        held.some((step) => step.jobId === asked.jobId)
-          ? held
-          : [...held, { id: asked.jobId, jobId: asked.jobId, kind: MEASURE_KIND, status: "queued", timing: null, refusal: null, faultId: null, evidence }],
-      );
+      asked = await doors.requestMeasure({ projectId: view.projectId, campaignId: campaignId ?? "" });
     } catch (thrown) {
       refuse(refusalCodeOf(thrown) ?? refusalCodeOf((thrown as { cause?: unknown })?.cause), thrown);
+      return;
     }
+    // A door that refused answered a code; a code the registry does not hold is a fault and is
+    // re-raised as one, exactly as `refuse` re-raises it — the press never returns silent (R-UI-020,
+    // ARCH-03).
+    if (!asked.requested) {
+      refuse(asked.refusal, new Error(asked.refusal));
+      return;
+    }
+    const jobId = asked.jobId;
+    setAnswer(null);
+    setSteps((held) =>
+      held.some((step) => step.jobId === jobId)
+        ? held
+        : [...held, { id: jobId, jobId, kind: MEASURE_KIND, status: "queued", timing: null, refusal: null, faultId: null, evidence }],
+    );
   };
 
   /* ------------------------------------------------------------------ the lines table's columns */
@@ -357,12 +371,16 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
     {
       id: "kind",
       header: REGISTER_COPY.takeoff_register_col_kind,
+      accessorFn: (line) => line.kind,
+      enableSorting: true,
       cell: ({ row }) => <span className="cx-register-cell-mono">{row.original.kind}</span>,
     },
     {
       id: "value",
       header: REGISTER_COPY.takeoff_register_col_value,
       meta: { align: "right" },
+      accessorFn: (line) => line.value ?? "",
+      enableSorting: true,
       // The SI value at the precision it was published at, never re-rounded (I-25); a row kept with
       // no quantity states none, never a zero (L-QTY-02).
       cell: ({ row }) => <span className="cx-register-cell-mono">{row.original.value ?? ""}</span>,
@@ -370,6 +388,8 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
     {
       id: "unit",
       header: REGISTER_COPY.takeoff_register_col_unit,
+      accessorFn: (line) => line.unit,
+      enableSorting: true,
       cell: ({ row }) => <span className="cx-register-cell-mono">{row.original.unit}</span>,
     },
     {
@@ -404,6 +424,8 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
     {
       id: "coverage",
       header: REGISTER_COPY.takeoff_register_col_coverage,
+      accessorFn: (line) => line.coverage,
+      enableSorting: true,
       cell: ({ row }) => (
         <span className="cx-register-coverage">
           <span className="cx-register-cell-mono">{row.original.coverage}</span>
@@ -419,11 +441,15 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
     {
       id: "engine",
       header: REGISTER_COPY.takeoff_register_col_engine,
+      accessorFn: (line) => line.engine,
+      enableSorting: true,
       cell: ({ row }) => <span className="cx-register-cell-mono">{row.original.engine}</span>,
     },
     {
       id: "source",
       header: REGISTER_COPY.takeoff_register_col_source,
+      accessorFn: (line) => line.sourceKey,
+      enableSorting: true,
       // Text, not a link: the Trace from a line to its entities is inc-215's (Decision § 8).
       cell: ({ row }) => <span className="cx-register-source">{row.original.sourceKey}</span>,
     },
@@ -479,14 +505,19 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
           <p className="cx-register-caption">{REGISTER_COPY.takeoff_register_caption}</p>
         </div>
         <div className="cx-register-actions">
-          <p className="cx-register-campaign">
-            <span className="cx-register-campaign-label">{REGISTER_COPY.takeoff_register_campaign_label}</span>
-            {/* A surrogate, rendered verbatim beside the words and never inside a sentence (I-26);
-                it is per-run ink, so a design picture masks it by this id (Decision § 7). */}
-            <span className="cx-register-campaign-id" data-testid="register-campaign">
-              {view.campaign?.setRevisionId ?? ""}
-            </span>
-          </p>
+          {/* The label names a value: with no campaign open there is no pinned revision, and a label
+              standing over nothing reads as a stray fragment rather than as a fact. The pair is
+              rendered whole or not at all — the empty cell below is what says there is no campaign. */}
+          {view.campaign === null ? null : (
+            <p className="cx-register-campaign">
+              <span className="cx-register-campaign-label">{REGISTER_COPY.takeoff_register_campaign_label}</span>
+              {/* A surrogate, rendered verbatim beside the words and never inside a sentence (I-26);
+                  it is per-run ink, so a design picture masks it by this id (Decision § 7). */}
+              <span className="cx-register-campaign-id" data-testid="register-campaign">
+                {view.campaign.setRevisionId}
+              </span>
+            </p>
+          )}
           <div className="cx-register-measure">
             <button
               type="button"
@@ -746,7 +777,13 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
         <h2 className="cx-register-panel-heading">{REGISTER_COPY.takeoff_register_refusals_heading}</h2>
         <p className="cx-register-refusals-hint">{REGISTER_COPY.takeoff_register_refusals_hint}</p>
         {view.refusals.map((refusal) => {
+          // A row with no message, remedy or evidence link is the silence R-UI-020 forbids: a code
+          // the registry does not hold is a fault of the reading, raised to the boundary that mints
+          // the report id rather than rendered as a blank row (ARCH-03, B-21).
           const entry = doors.refusalOf(refusal.code);
+          if (entry === undefined) {
+            throw new Error(`the register read a refusal code no registry entry stands for: ${refusal.code} (R-UI-020)`);
+          }
           return (
             <div
               key={`${refusal.code}-${refusal.objectKey}`}
@@ -768,7 +805,7 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
                   <span className="cx-register-cell-mono">{refusal.kind}</span>
                 </p>
               )}
-              {entry === undefined ? null : <RefusalState refusal={entry} evidence={evidence} />}
+              <RefusalState refusal={entry} evidence={evidence} />
             </div>
           );
         })}
