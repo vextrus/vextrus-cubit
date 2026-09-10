@@ -101,13 +101,35 @@ export class STakeoffPage {
     return this.page.getByTestId("register-level-stack");
   }
 
-  /** The per-run texts a design picture may not freeze (Decision §7). */
+  /**
+   * The per-run texts a design picture may not freeze (Decision §7, B-19).
+   *
+   * Every region below carries text a STAGING RUN mints, not text the design fixes: the workspace and
+   * the person signed in, the pinned revision's id, the job the door answered, the source key, and the
+   * object key — which `src/core/identity/keys.ts` builds as "instance key = placement key + level
+   * surrogate id" and which L-REG-02 forbids making stable ("a level is referenced by surrogate id;
+   * its label, ordinal and height never enter a key"). AC-2 requires the screen to render that key
+   * verbatim, so the picture must not assert its bytes: a baseline that froze them would be a red no
+   * lawful actor could clear (B-20).
+   *
+   * Nothing structural belongs here. What each masked region says is asserted where it is a fact
+   * rather than a picture: the key verbatim by AC-2 in jsdom, the refusal row's `data-code` and
+   * `data-object` by AC-4, the timeline's job id by AC-8. This list may grow only by further per-run
+   * surrogate text; a layout or structural region added to it would itself be a B-19 defect.
+   */
   masks(): Locator[] {
     return [
       this.page.getByTestId("shell-breadcrumb"),
       this.page.getByTestId("shell-user"),
+      // The staged workspace's own label — a name the run minted, beside the person who signed in.
+      this.page.getByTestId("shell-tenant-switcher"),
       this.page.getByTestId("register-timeline"),
       this.page.getByTestId("register-source-key"),
+      // The pinned revision the campaign stands on: a surrogate id, one per staged set revision.
+      this.page.getByTestId("register-campaign"),
+      // The object key in the inspector, and the same key repeated on each refusal row.
+      this.page.getByTestId("register-object-key"),
+      this.page.getByTestId("register-refusal-object"),
     ];
   }
 
