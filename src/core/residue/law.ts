@@ -159,6 +159,13 @@ export type ResidueCell = {
   readonly levelId: string | null;
   /** The level's own label, as a reader reads it — never the surrogate's id (I-25). */
   readonly levelLabel: string;
+  /**
+   * Where the level stands in the project's stack, or `null` where the cell names no level. Carried
+   * on the cell because two readers order by it — the grid's columns and the certificate's
+   * enumeration — and a stack read twice is a stack that can disagree with itself (B-17). It is also
+   * what makes a RUN of levels recognisable: contiguous ordinals are one printed line (L-QTY-07).
+   */
+  readonly levelOrdinal: number | null;
   readonly grain: CellGrain;
   readonly measurement: MeasurementReading;
   readonly bill: BillReading;
@@ -173,12 +180,21 @@ export type ResidueCell = {
   readonly billActId: string | null;
 };
 
-/** One row of a boundary statement: the cell it stands over and the cause it stands under. */
+/**
+ * One row of a boundary statement: the cell or cells it stands over, and the cause they stand under.
+ *
+ * A statement PRINTS (L-QTY-07), so a run of contiguous levels bearing one cause is one line and not
+ * five: `levels` is that line's own reading — a single level's label, or `first–last` — while the
+ * residue behind it still answers per level. `levelId` and `levelLabel` name the run's FIRST level,
+ * which is the one a reader following the row back lands on.
+ */
 export type StatementRow = {
   readonly kind: string;
   readonly class: string | null;
   readonly levelId: string | null;
   readonly levelLabel: string;
+  /** The levels this line states, collapsed: `""`, one label, or `first–last` (L-QTY-07). */
+  readonly levels: string;
   readonly grain: CellGrain;
   readonly cause: ResidueCause;
 };

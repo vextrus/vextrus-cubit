@@ -125,6 +125,16 @@ export const CELL_PARAM = "cell";
 const MEASUREMENT = "MEASUREMENT";
 const BILL = "BILL";
 
+/** The axis each statement states, as its section is addressed by. */
+const MEASUREMENT_AXIS = "measurement";
+const BILL_AXIS = "bill";
+
+/** The channel a person's own declaration is cited under, beside the three the machine sights on. */
+const DECLARATION = "DECLARATION";
+
+/** What an empty statement answers with: a boundary nothing stands outside is still a statement. */
+const NONE = "NONE";
+
 /**
  * The state cell this screen stands in, in the Decision § 2's own order — first holding wins. It is
  * derived rather than passed so no caller can claim a state the screen is not really in (B-19).
@@ -389,13 +399,23 @@ function Inspector({
   const entry = measured ? undefined : REFUSAL_WORDS[read as ResidueCause];
   const grain = cell.grain === "KIND";
   const actId = cell.measurementActId ?? cell.billActId;
+  // Every act standing over this cell, on either axis — a cell can carry one on each (I-189), and a
+  // reader is owed both. Deduplicated, because one act could in principle be cited by both.
+  const declarations = [...new Set([cell.measurementActId, cell.billActId].filter((held): held is string => held !== null))];
   // I-194: a door that can answer only a refusal is theatre, so it is absent rather than disabled.
   const doorsStand = permitted && !grain && !measured;
   const holdStands = doorsStand && cell.bill !== NOT_IN_THIS_BILL;
   const scopeStands = doorsStand && cell.measurement !== NOT_IN_PROJECT_SCOPE;
 
   return (
-    <aside className="cx-coverage-inspector" data-testid="coverage-inspector" data-cell={cellRef(cell)}>
+    <aside
+      className="cx-coverage-inspector"
+      data-testid="coverage-inspector"
+      data-cell={cellRef(cell)}
+      data-kind={cell.kind}
+      data-class={cell.class ?? ""}
+      data-level={cell.levelId ?? ""}
+    >
       <dl className="cx-coverage-facts">
         <dt>{COVERAGE_COPY.takeoff_coverage_kind_label}</dt>
         <dd className="cx-coverage-value">{cell.kind}</dd>
@@ -412,7 +432,7 @@ function Inspector({
       {grain ? <p className="cx-coverage-grain">{COVERAGE_COPY.takeoff_coverage_kind_grain_label}</p> : null}
 
       <h3 className="cx-coverage-inspector-heading">{COVERAGE_COPY.takeoff_coverage_cause_heading}</h3>
-      <p className="cx-coverage-cause" data-testid="coverage-inspector-cause" data-cause={read} data-act={actId ?? ""}>
+      <p className="cx-coverage-cause" data-testid="coverage-inspector-cause" data-cause={read} data-code={read} data-act={actId ?? ""}>
         {entry === undefined ? COVERAGE_COPY.takeoff_coverage_cell_label_measured : entry.message}
         {actId === null ? null : (
           <>
@@ -438,22 +458,42 @@ function Inspector({
       {cell.contradicted ? <p className="cx-coverage-contradicted">{COVERAGE_COPY.takeoff_coverage_contradicted_note}</p> : null}
 
       <h3 className="cx-coverage-inspector-heading">{COVERAGE_COPY.takeoff_coverage_sightings_heading}</h3>
-      {cell.sightings.length === 0 ? (
+      {cell.sightings.length === 0 && declarations.length === 0 ? (
         <p className="cx-coverage-none">{COVERAGE_COPY.takeoff_coverage_sightings_none}</p>
-      ) : (
-        cell.sightings.map((seen) => (
-          <div className="cx-coverage-sighting" data-testid="coverage-inspector-sighting" data-channel={seen.channel} key={`${seen.channel}:${seen.sourceKey}`}>
-            <span className="cx-coverage-label">{COVERAGE_COPY.takeoff_coverage_channel_label}</span>
-            <span className="cx-coverage-value">{seen.channel}</span>
-            <span className="cx-coverage-label">{COVERAGE_COPY.takeoff_coverage_drawing_label}</span>
-            <span className="cx-coverage-value">{seen.drawingId}</span>
-            <span className="cx-coverage-label">{COVERAGE_COPY.takeoff_coverage_view_label}</span>
-            <span className="cx-coverage-value">{seen.layoutName}</span>
-            <span className="cx-coverage-label">{COVERAGE_COPY.takeoff_coverage_source_label}</span>
-            <span className="cx-coverage-source-key">{seen.sourceKey}</span>
-          </div>
-        ))
-      )}
+      ) : null}
+      {cell.sightings.map((seen) => (
+        <div
+          className="cx-coverage-sighting"
+          data-testid="coverage-inspector-sighting"
+          data-channel={seen.channel}
+          data-source={seen.sourceKey}
+          key={`${seen.channel}:${seen.sourceKey}`}
+        >
+          <span className="cx-coverage-label">{COVERAGE_COPY.takeoff_coverage_channel_label}</span>
+          <span className="cx-coverage-value">{seen.channel}</span>
+          <span className="cx-coverage-label">{COVERAGE_COPY.takeoff_coverage_drawing_label}</span>
+          <span className="cx-coverage-value">{seen.drawingId}</span>
+          <span className="cx-coverage-label">{COVERAGE_COPY.takeoff_coverage_view_label}</span>
+          <span className="cx-coverage-value">{seen.layoutName}</span>
+          <span className="cx-coverage-label">{COVERAGE_COPY.takeoff_coverage_source_label}</span>
+          <span className="cx-coverage-source-key">{seen.sourceKey}</span>
+        </div>
+      ))}
+      {/*
+        A declaration a person made is evidence for this cell's reading exactly as a sighting is, so
+        it stands in the same list under its own channel (L-ACT-01): it is what a reader following
+        "why does this cell read as it does" is owed, and it is the only evidence a contradicted cell
+        has left once the published lines have beaten it (I-192, I-201). The act is cited, never the
+        code it declared — a refusal code reaches no text node of this screen (Decision § 7).
+      */}
+      {declarations.map((declared) => (
+        <div className="cx-coverage-sighting" data-testid="coverage-inspector-sighting" data-channel={DECLARATION} data-source={declared} key={`${DECLARATION}:${declared}`}>
+          <span className="cx-coverage-label">{COVERAGE_COPY.takeoff_coverage_channel_label}</span>
+          <span className="cx-coverage-value">{DECLARATION}</span>
+          <span className="cx-coverage-label">{COVERAGE_COPY.takeoff_coverage_declared_label}</span>
+          <span className="cx-coverage-act-id">{declared}</span>
+        </div>
+      ))}
 
       <h3 className="cx-coverage-inspector-heading">{COVERAGE_COPY.takeoff_coverage_observations_heading}</h3>
       <p className="cx-coverage-hint">{COVERAGE_COPY.takeoff_coverage_observations_hint}</p>
@@ -461,7 +501,13 @@ function Inspector({
         <p className="cx-coverage-none">{COVERAGE_COPY.takeoff_coverage_observations_none}</p>
       ) : (
         cell.observations.map((observation) => (
-          <div className="cx-coverage-observation" data-testid="coverage-inspector-observation" data-rail={observation.rail} key={`${observation.rail}:${observation.reason}`}>
+          <div
+            className="cx-coverage-observation"
+            data-testid="coverage-inspector-observation"
+            data-rail={observation.rail}
+            data-reason={observation.reason}
+            key={`${observation.rail}:${observation.reason}`}
+          >
             <span className="cx-coverage-value">{observation.rail}</span>
             <span className="cx-coverage-reason">{observation.reason}</span>
           </div>
@@ -499,6 +545,7 @@ function CertificatePreviewSection({ measurement, bill }: { measurement: readonl
       <p className="cx-coverage-hint">{COVERAGE_COPY.takeoff_coverage_certificate_hint}</p>
       <Statement
         statement={MEASUREMENT}
+        axis={MEASUREMENT_AXIS}
         title={COVERAGE_COPY.takeoff_coverage_statement_measurement_title}
         hint={COVERAGE_COPY.takeoff_coverage_statement_measurement_hint}
         none={COVERAGE_COPY.takeoff_coverage_statement_measurement_none}
@@ -506,6 +553,7 @@ function CertificatePreviewSection({ measurement, bill }: { measurement: readonl
       />
       <Statement
         statement={BILL}
+        axis={BILL_AXIS}
         title={COVERAGE_COPY.takeoff_coverage_statement_bill_title}
         hint={COVERAGE_COPY.takeoff_coverage_statement_bill_hint}
         none={COVERAGE_COPY.takeoff_coverage_statement_bill_none}
@@ -518,23 +566,25 @@ function CertificatePreviewSection({ measurement, bill }: { measurement: readonl
 /** One statement: an enumeration in the certificate's own order, each row under its own cause. */
 function Statement({
   statement,
+  axis,
   title,
   hint,
   none,
   rows,
 }: {
   statement: string;
+  axis: string;
   title: string;
   hint: string;
   none: string;
   rows: readonly StatementRow[];
 }): ReactElement {
   return (
-    <section className="cx-coverage-statement" data-testid="coverage-statement" data-statement={statement}>
+    <section className="cx-coverage-statement" data-testid="coverage-statement" data-statement={statement} data-axis={axis}>
       <h3 className="cx-coverage-statement-title">{title}</h3>
       <p className="cx-coverage-hint">{hint}</p>
       {rows.length === 0 ? (
-        <p className="cx-coverage-none" data-testid="coverage-statement-none">
+        <p className="cx-coverage-none" data-testid="coverage-statement-none" data-code={NONE}>
           {none}
         </p>
       ) : (
@@ -546,12 +596,16 @@ function Statement({
               data-kind={row.kind}
               data-class={row.class ?? ""}
               data-level={row.levelId ?? ""}
+              // The levels this ONE line states: a run of contiguous levels bearing one cause prints
+              // as `first–last`, which is what a certificate reads like (L-QTY-07). `data-level`
+              // beside it still names the run's first level, the one a reader lands on.
+              data-levels={row.levels}
               data-cause={row.cause}
               key={`${row.kind}:${row.class ?? ""}:${row.levelId ?? ""}:${row.cause}`}
             >
               <span className="cx-coverage-value">{row.kind}</span>
               <span className="cx-coverage-value">{row.class ?? ""}</span>
-              <span className="cx-coverage-value">{row.levelLabel}</span>
+              <span className="cx-coverage-value">{row.levels}</span>
               <span className="cx-coverage-statement-cause">{REFUSAL_WORDS[row.cause].message}</span>
             </li>
           ))}
