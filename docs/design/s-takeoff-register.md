@@ -45,7 +45,11 @@ route-address.ts,actions.ts,register.css}`. Law: R-UI-022, R-TO-011, X-2, J-021,
 - **I-182 — the origin is restored where the reader can see it, and an unknown `line` is a fact.**
   On mount with `?line=`, the workspace marks that row's link `data-origin="true"`
   `aria-current="true"` and focuses it once per address, scrolling the table's viewport to it when
-  the virtualiser has not yet rendered it. A `line` this register does not show — a stale address, a
+  the virtualiser has not yet rendered it. Being the origin is a two-valued fact about every drawn
+  link, not a badge only the winner wears: every other link carries `data-origin="false"`, so a
+  reader — and a test — can tell "not this row" from "this screen has no origin at all" without
+  knowing which rows the table happens to have drawn. `aria-current` is the other kind of statement
+  and stays on the one current row alone. A `line` this register does not show — a stale address, a
   foreign line, a withheld one — focuses nothing, marks nothing and says nothing: no refusal code is
   invented and no filter is silently cleared (s-viewer-inspector I-88's idiom, and I-172's rule that
   the reader's filters are the reader's). Rejected: re-sorting or unfiltering to surface the origin,
@@ -66,7 +70,7 @@ never ellipsised (I-26). The cell renders:
 <span class="cx-register-source cx-register-trace">
   <EvidenceLink href={traceAddress(tenantId, projectId, line)} basis={line.quantityBasis}
                 label={line.sourceKey} data-line={line.lineId}
-                data-origin={isOrigin ? "true" : undefined}
+                data-origin={isOrigin ? "true" : "false"}
                 aria-current={isOrigin ? "true" : undefined} onClick={stampOrigin} ref={originRef} />
 </span>
 ```
@@ -98,13 +102,20 @@ consumer that repainted its rows would be the B-17 defect; the cell the reader l
 the reader returns to.
 
 **Restoring focus.** One effect, at most one attempt per address: if the anchor carrying
-`data-origin` has mounted, focus it and let the browser bring it into view; if it has not, set the
-table viewport's `scrollTop` to `index × rowHeight` — `index` the row's position in the rows the
-workspace itself handed the table (I-172 filters before the table is given `data`), `rowHeight` the
-computed value of `--row-comfortable` / `--row-compact` read off the mount as s-viewer reads its
-canvas tokens — and focus on the following frame. Where the viewport or the token cannot be read, or
-the row is not there at all, nothing is focused and nothing is scrolled (I-182). Reaching the
-primitive's `datatable-viewport` for that one read is a deliberate, recorded intrusion (§8).
+`data-origin="true"` has mounted, focus it and let the browser bring it into view; if it has not,
+set the table viewport's `scrollTop` to `index × rowHeight` — `index` the row's position in the rows
+the workspace itself handed the table (I-172 filters before the table is given `data`), `rowHeight`
+the distance between two rows the table has **already drawn**, read off the `translateY` offsets it
+placed them at — then tell the box it scrolled, because a scroll box that is set rather than dragged
+notifies nobody and a virtualiser that has not heard still holds the old window. The row is focused
+by its own ref as it mounts. The height is measured from the table's work rather than from
+`--row-comfortable` / `--row-compact`, because those tokens are the frame's and the virtualiser's
+two homes for R-UI-005's densities and this screen may hold no third (B-17) — and because a fact the
+product placed in the DOM is readable wherever the screen runs, while a computed token is only
+readable where a stylesheet has been loaded. Where the viewport cannot be read, fewer than two rows
+are drawn, or the row is not there at all, nothing is focused and nothing is scrolled (I-182).
+Reaching the primitive's `datatable-viewport` and its `datatable-row`s for these reads is a
+deliberate, recorded intrusion (§8).
 
 ## 2. States (R-UI-050) — this Decision's cells only
 
@@ -223,9 +234,10 @@ serious/critical = 0 at each, never widened; `masks()` keeps s-takeoff.md §7's 
 s-takeoff.md §8's Trace IOU is **paid** by this Decision and is struck in the same commit that lands
 it. New and carried: EvidenceLinks on queue items, certificate cells, BOQ lines and the register
 inspector's readings — owner: those surfaces' own leaves (R-UI-022 names four; this is one).
-`scrollToRow` on the shipped DataTable, so a consumer need not read `datatable-viewport` to restore
-a row — owner: the node that owns `src/ui/primitives/data`; until it ships, §1's read stands and is
-the only place this workspace touches a primitive's insides. An origin that survives a reload beyond
+`scrollToRow` on the shipped DataTable, so a consumer need not read `datatable-viewport`, measure
+its `datatable-row`s or announce a scroll it made itself in order to restore a row — owner: the node
+that owns `src/ui/primitives/data`; until it ships, §1's reads stand and are the only place this
+workspace touches a primitive's insides. An origin that survives a reload beyond
 the `?line=` address, and pushState history for the register — deliberately absent: the address is
 the state. A `layout` column on partition views, so a line names its sheet without `sheetOfView`
 falling back to the ingest's single recorded layout — owner: recorded in s-viewer-inspector.md §8,

@@ -115,7 +115,7 @@ export interface RegisterChrome {
     basis: QuantityBasis;
     label: string;
     "data-line": string;
-    "data-origin"?: "true";
+    "data-origin"?: "true" | "false";
     "aria-current"?: "true";
     onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
     onAuxClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
@@ -251,15 +251,29 @@ function traceable(line: ViewLine): boolean {
 }
 
 /**
- * The height one row of the table stands at, as the frame's own tokens state it (R-UI-005) — read
- * off the mount rather than written here, so a density the frame re-tokens is followed and no pixel
- * count lives in this file (Decision § 5).
+ * A drawn row's offset down the list, as the table's virtualiser writes it (`translateY(<n>px)`).
+ * Nothing is inferred from layout: this is the number the table itself placed the row at.
  */
-function rowHeightOf(mount: Element, density: RegisterDensity): number {
-  const spelled = getComputedStyle(mount)
-    .getPropertyValue(density === "compact" ? "--row-compact" : "--row-comfortable")
-    .trim();
-  const height = Number.parseFloat(spelled);
+function offsetOfRow(row: HTMLElement): number {
+  const spelled = /translateY\((-?[\d.]+)px\)/.exec(row.style.transform);
+  if (spelled === null) return Number.NaN;
+  return Number.parseFloat(spelled[1] ?? "");
+}
+
+/**
+ * The height one row of the table stands at, measured off the window the table has already drawn:
+ * two drawn rows' offsets differ by exactly one row. R-UI-005's two densities live in the frame's
+ * tokens and in the table's own estimate, and this screen may hold neither a third copy of them
+ * (B-17) nor a pixel count of its own (Decision § 5) — so it asks the table what it did rather than
+ * re-deriving it, which is also the only reading that survives a document whose stylesheet has not
+ * been loaded.
+ */
+function drawnRowHeight(viewport: Element): number {
+  const drawn = viewport.querySelectorAll<HTMLElement>('[data-testid="datatable-row"]');
+  const first = drawn[0];
+  const second = drawn[1];
+  if (first === undefined || second === undefined) return 0;
+  const height = offsetOfRow(second) - offsetOfRow(first);
   return Number.isFinite(height) ? height : 0;
 }
 
@@ -340,13 +354,16 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
     if (originLine === null || restoredRef.current === originLine || originRef.current !== null) return;
     const at = lines.findIndex((line) => line.lineId === originLine);
     if (at < 0) return;
-    const mount = linesRef.current;
-    const viewport = mount?.querySelector('[data-testid="datatable-viewport"]');
-    if (mount === null || !(viewport instanceof HTMLElement)) return;
-    const rowHeight = rowHeightOf(mount, density);
+    const viewport = linesRef.current?.querySelector('[data-testid="datatable-viewport"]');
+    if (!(viewport instanceof HTMLElement)) return;
+    const rowHeight = drawnRowHeight(viewport);
     if (rowHeight <= 0) return;
     viewport.scrollTop = at * rowHeight;
-  }, [density, lines, originLine]);
+    // A scroll box that is set rather than dragged is moved without a word to anyone: the table
+    // redraws its window when the box says it scrolled, so the box is made to say it. Without this
+    // the row asked for stays undrawn, and an undrawn row can be neither marked nor focused (I-182).
+    viewport.dispatchEvent(new Event("scroll"));
+  }, [lines, originLine]);
 
   /** The origin stamped onto this screen's own entry, before the browser is allowed to leave (I-180). */
   const stampOrigin = (lineId: string): void => {
@@ -584,7 +601,11 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
               basis={line.quantityBasis}
               label={line.sourceKey}
               data-line={line.lineId}
-              data-origin={isOrigin ? "true" : undefined}
+              // Whether a row is the one returned to is a two-valued fact about every row, not a
+              // badge only the winner wears: each link says which it is, so "no origin at all" and
+              // "not this one" are answerable from the row itself (I-182). `aria-current` is the
+              // other kind — it names the one current item and is absent everywhere else (R-UI-012).
+              data-origin={isOrigin ? "true" : "false"}
               aria-current={isOrigin ? "true" : undefined}
               // Never `preventDefault`, never `pushState`: the stamp rides the click and the browser
               // makes the history step, which is what makes Back a real one (I-180). A modified click
