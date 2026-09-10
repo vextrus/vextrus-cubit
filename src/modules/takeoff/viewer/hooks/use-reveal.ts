@@ -27,6 +27,13 @@ const EASE_CONTROLS = 4;
  * cannot be parsed eases linearly over it (§ 4).
  */
 /**
+ * The namespace R-UI-001 emits the basis palette under. Only the property's NAME is composed here:
+ * the value stays where the token source alone holds it, so this module maps a basis to a token to
+ * ask the document for, never to a colour of its own (B-17, R-UI-002).
+ */
+const BASIS_TOKEN_NS = "basis";
+
+/**
  * The colour a basis is painted in, as the screen's own tokens state it — the same read the duration
  * above is, at the same element, so no hook anywhere holds a hex (R-UI-002, R-UI-001, B-17). A basis
  * nobody names, or a token this stage does not carry, answers the empty string and the strike keeps
@@ -35,7 +42,7 @@ const EASE_CONTROLS = 4;
 function basisColour(element: Element, basis: string | undefined): string {
   if (basis === undefined || basis.length === 0) return "";
   return getComputedStyle(element)
-    .getPropertyValue(`--basis-${basis.toLowerCase()}`)
+    .getPropertyValue(`--${BASIS_TOKEN_NS}-${basis.toLowerCase()}`)
     .trim();
 }
 
