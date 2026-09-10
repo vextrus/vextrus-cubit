@@ -121,9 +121,18 @@ export class SViewerTracePage {
     return held;
   }
 
-  /** The per-run texts a picture of this region must not diff on (s-viewer.md §7's class). */
+  /**
+   * The per-run texts a picture of this region must not diff on (s-viewer.md §7's class).
+   *
+   * A cited line's link is labelled with that line's object key (s-viewer-inspector I-184's
+   * anatomy), and an object key ends in the id of the drawing the campaign staged — a fresh uuid
+   * every run. The lines are listed in `publishedAt` then `lineId` order and `lineId` is a uuid
+   * too, so the order those equal-timestamped rows fall into is per-run as well. Both are the same
+   * class of volatility: the picture grades the block's shape, its count line and each row's kind,
+   * value and unit, and reads nothing into which uuid this run happened to mint.
+   */
   masks(): Locator[] {
-    return [this.page.getByTestId("shell-user"), this.page.getByTestId("shell-tenant-switcher")];
+    return [this.page.getByTestId("shell-user"), this.page.getByTestId("shell-tenant-switcher"), this.citedLines.getByTestId("evidence-link")];
   }
 
   at(): Page {
