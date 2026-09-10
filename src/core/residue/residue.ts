@@ -21,11 +21,10 @@ import {
   scopeDeclarations,
   type TenantTx,
 } from "../db";
-// The tree's one absence query is written as a fragment, so its builder comes from the driver
-// itself rather than through the seam's barrel — the barrel hands out the eight query operators
-// every caller shares and invents no public surface of its own (ARCH-02, B-17), and the schema's
-// own CHECK constraints take `sql` the same way.
-import { sql } from "drizzle-orm";
+// The tree's one absence clause is a fragment, and its tag comes from the seam, which is the only
+// lawful hold on the driver (SEAM-TENANT). Not from the barrel: that line is the eight query
+// operators every caller shares, and it invents no public surface of its own (ARCH-02, B-17).
+import { statement } from "../db/seam";
 import { campaignsOf } from "../campaigns";
 import { BEARS } from "../catalogue/bears";
 import { WORK_ITEM_CATALOGUE } from "../catalogue/catalogue";
@@ -429,7 +428,7 @@ async function observationsOf(tx: TenantTx, tenantId: string, campaignId: string
       and(
         eq(railObservations.tenantId, tenantId),
         eq(railObservations.campaignId, campaignId),
-        sql`not exists (select 1 from ${quantityLines} where ${quantityLines.tenantId} = ${railObservations.tenantId} and ${quantityLines.campaignId} = ${railObservations.campaignId} and ${quantityLines.objectKey} = ${railObservations.objectKey})`,
+        statement`not exists (select 1 from ${quantityLines} where ${quantityLines.tenantId} = ${railObservations.tenantId} and ${quantityLines.campaignId} = ${railObservations.campaignId} and ${quantityLines.objectKey} = ${railObservations.objectKey})`,
       ),
     );
 
