@@ -9,14 +9,18 @@
 // Published lines take precedence over it: a cell that later bears quantity reads IN_BILL and is
 // marked contradicted, the row standing where it stood (I-192). A second identical hold moves
 // nothing and the seam refuses it by name (L-ACT-01).
+import { REFUSALS } from "../errors";
 import { BILL_IDLE, boundaryRendering, type BoundaryInput } from "../residue/boundary";
 import type { ActRendering } from "./rendering";
 
 /** The act this file renders, spelled once. */
 const HOLD_OUT_OF_BILL = "HOLD_OUT_OF_BILL" as const;
 
-/** The cause the bill axis stands under when a person has held a cell out (L-QTY-05). */
-const NOT_IN_THIS_BILL = "NOT_IN_THIS_BILL" as const;
+/**
+ * The cause the bill axis stands under when a person has held a cell out (L-QTY-05), read off the
+ * register rather than spelled again — the remedy a reader is shown is the registry's (Q-07).
+ */
+const NOT_IN_THIS_BILL = REFUSALS.NOT_IN_THIS_BILL.code;
 
 /** The act's input: one campaign's cell, named by the three coordinates the residue keys on. */
 export type HoldOutOfBillInput = BoundaryInput<typeof HOLD_OUT_OF_BILL>;

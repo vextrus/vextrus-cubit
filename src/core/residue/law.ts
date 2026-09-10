@@ -2,6 +2,11 @@
 // causes a cell may stand under. Nothing here touches a database — the residue is a query and not a
 // table, so its vocabulary is a value the query, the screen and (later) the certificate all read
 // from one home (ARCH-02, B-17).
+//
+// The causes below are not spelled here on their own authority: each is a code of the register in
+// `../errors.ts`, and the `satisfies` below is what makes that a compile-time reading rather than an
+// agreement by coincidence (Q-07, R-SPINE-062).
+import type { RefusalCode } from "../errors";
 
 /**
  * The three channels sighting is a union of EXISTS over (L-QTY-05): register rows of the class, the
@@ -32,13 +37,19 @@ export type Sighting = {
  * Why a cell stands unmeasured, on the measurement axis. The order is the order the arms resolve in
  * and the order a legend enumerates them in — the fall-through last (L-QTY-05, R-TO-052).
  */
-export const MEASUREMENT_CAUSES = ["NOT_ESTABLISHED", "INGESTION_TRUNCATED", "NOT_IN_PROJECT_SCOPE", "NO_BEARER_SIGHTED", "KIND_NOT_YET_SEEDED"] as const;
+export const MEASUREMENT_CAUSES = [
+  "NOT_ESTABLISHED",
+  "INGESTION_TRUNCATED",
+  "NOT_IN_PROJECT_SCOPE",
+  "NO_BEARER_SIGHTED",
+  "KIND_NOT_YET_SEEDED",
+] as const satisfies readonly RefusalCode[];
 
 /** One measurement-axis cause, drawn from the closed roster above. */
 export type MeasurementCause = (typeof MEASUREMENT_CAUSES)[number];
 
 /** Why a cell stands outside this bill. One axis, one cause: a person held the kind out (R-TO-052). */
-export const BILL_CAUSES = ["NOT_IN_THIS_BILL"] as const;
+export const BILL_CAUSES = ["NOT_IN_THIS_BILL"] as const satisfies readonly RefusalCode[];
 
 /** One bill-axis cause, drawn from the closed roster above. */
 export type BillCause = (typeof BILL_CAUSES)[number];
@@ -54,6 +65,14 @@ export type MeasurementReading = typeof QUANTITY_BEARING | MeasurementCause;
 
 /** The bill axis' whole reading. */
 export type BillReading = typeof IN_BILL | BillCause;
+
+/**
+ * The two readings an axis stands at when nothing is wrong. They are refusal-SHAPED and are not
+ * refusals — a cell that bears quantity is answered with a figure, never with one of these names —
+ * so they are declared as this tree's own vocabulary in `../errors/transport-vocabulary.ts`, which
+ * reads this roster rather than copying it (Q-07).
+ */
+export const AXIS_IDLE_READINGS = [QUANTITY_BEARING, IN_BILL] as const;
 
 /** Every cause a cell of this grid may stand under, on either axis — the legend's closed set. */
 export const RESIDUE_CAUSES = [...MEASUREMENT_CAUSES, ...BILL_CAUSES] as const;
