@@ -44,7 +44,13 @@ const seam = vi.hoisted(() => ({
   jobEvents: vi.fn<(jobId: string) => Promise<JobEvent[]>>(async () => []),
   watchJob: vi.fn<(jobId: string, signal?: AbortSignal) => AsyncGenerator<JobEvent>>(),
   isKnownJob: vi.fn<(jobId: string) => Promise<boolean>>(async () => false),
+  jobScope: vi.fn<(jobId: string) => Promise<{ tenantId: string | null; projectId: string | null; drawingId: string | null } | null>>(async () => null),
 }));
+
+/** What the guard answered. The door asks it about the job's OWN workspace, never the caller's. */
+const guard = vi.hoisted(() => ({ authorize: vi.fn(async () => ({ authorized: true, actor: {}, tenantId: "t", userId: "user-1" })) }));
+
+vi.mock("@/server/authorize", () => ({ authorize: guard.authorize }));
 
 /**
  * The door identifies its caller since src/server/authorize.ts (R-SPINE-001): it reads the session
@@ -62,7 +68,7 @@ const SIGNED_IN = { headers: { cookie: `${SESSION_COOKIE}=a-live-token` } } as c
 vi.mock("../../../../core/jobs", async (importOriginal) => {
   // The terminal statuses are the seam's own judgement and are kept, not restated (B-17).
   const original = (await importOriginal()) as Record<string, unknown>;
-  return { ...original, jobEvents: seam.jobEvents, watchJob: seam.watchJob, isKnownJob: seam.isKnownJob };
+  return { ...original, jobEvents: seam.jobEvents, watchJob: seam.watchJob, isKnownJob: seam.isKnownJob, jobScope: seam.jobScope };
 });
 
 const { GET } = await import("../route");
@@ -135,7 +141,15 @@ beforeEach(() => {
   seam.jobEvents.mockImplementation(async () => []);
   seam.watchJob.mockImplementation(watcherOver([]));
   seam.isKnownJob.mockImplementation(async () => false);
+  seam.jobScope.mockImplementation(async () => ({ ...UNOWNED }));
+  guard.authorize.mockImplementation(async () => ({ authorized: true, actor: {}, tenantId: "t", userId: "user-1" }));
 });
+
+/** A job of somebody's workspace, as the queue's own payload names it. */
+const OWNED = { tenantId: "tenant-a", projectId: "project-a", drawingId: null } as const;
+
+/** A job that names no workspace — the spine's probe, which holds nothing of anyone's. */
+const UNOWNED = { tenantId: null, projectId: null, drawingId: null } as const;
 
 afterEach(() => {
   vi.useRealTimers();
@@ -145,6 +159,8 @@ describe("AC-2: an id no job answers to is settled at once, over either transpor
   test("AC-2: an id the queue does not know is 404 JSON on both transports, and no clock is needed to say so", async () => {
     seam.jobEvents.mockImplementation(async () => []);
     seam.isKnownJob.mockImplementation(async () => false);
+    // No queue holds a job under this id, so the seam names no workspace for it either.
+    seam.jobScope.mockImplementation(async () => null);
     vi.useFakeTimers();
 
     const answers: { status: number; body: unknown }[] = [];
@@ -173,6 +189,7 @@ describe("AC-3: a job the queue knows is live on both transports before it has s
   test("AC-3: a known job with nothing recorded polls an empty, unfinished snapshot", async () => {
     seam.jobEvents.mockImplementation(async () => []);
     seam.isKnownJob.mockImplementation(async () => true);
+    seam.jobScope.mockImplementation(async () => ({ ...UNOWNED }));
 
     const response = await GET(new Request(address("job-just-enqueued", "poll"), SIGNED_IN));
 
@@ -185,6 +202,7 @@ describe("AC-3: a job the queue knows is live on both transports before it has s
     const spoken = [event(1, "started"), event(2, "succeeded")];
     seam.jobEvents.mockImplementation(async () => []);
     seam.isKnownJob.mockImplementation(async () => true);
+    seam.jobScope.mockImplementation(async () => ({ ...UNOWNED }));
     seam.watchJob.mockImplementation(watcherOver(spoken));
 
     const response = await GET(new Request(address("job-just-enqueued"), SIGNED_IN));
@@ -233,5 +251,69 @@ describe("AC-1(b): the stream carries every recorded seq exactly once", () => {
     expect([...seqs].sort((left, right) => left - right), "every recorded seq reaches the subscriber").toEqual([1, 2, 3]);
     expect(new Set(seqs).size, `each seq is emitted exactly once (got ${seqs.join(", ")})`).toBe(seqs.length);
     expect(seam.isKnownJob, "a log with something in it has already answered the question, so the queue is never asked").not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The door's own question, which it used to ask of nobody (src/server/authorize.ts's third
+ * half-guard). The log carries a workspace's drawing ids and its operators' progress, and until now
+ * any signed-in caller who could name a job id read it — a live session of one workspace received
+ * another's events under a 200, and an id nobody held answered 404 while somebody ELSE's answered
+ * 200, which is an existence oracle over every job in the deployment.
+ *
+ * The cure is one answer to both questions. The job's workspace is the queue's own — it is in the
+ * payload every enqueuer writes — and the caller is authorized against THAT, never against a tenant
+ * from the wire. A job that is not the caller's and an id no job answers to are then the same
+ * answer, byte for byte, so nothing can be learned by asking.
+ */
+describe("AC-5: the events door answers about the caller's own workspace, and nothing else", () => {
+  const OTHERS = "11111111-1111-4111-8111-111111111111";
+  const NOBODYS = "22222222-2222-4222-8222-222222222222";
+
+  test("a job of another workspace and an id nothing answers to are the SAME answer", async () => {
+    const answers: { status: number; body: unknown; type: string }[] = [];
+    for (const [jobId, scope] of [
+      [OTHERS, { ...OWNED }],
+      [NOBODYS, null],
+    ] as const) {
+      seam.jobEvents.mockImplementation(async () => [event(1, "succeeded")]);
+      seam.jobScope.mockImplementation(async () => scope);
+      guard.authorize.mockImplementation(async () => ({ authorized: false, refusal: "PERMISSION_NOT_HELD" }) as never);
+      const response = await GET(new Request(address(jobId, "poll"), SIGNED_IN));
+      answers.push({ status: response.status, body: await response.json(), type: response.headers.get("content-type") ?? "" });
+    }
+    expect(answers[0], "a job that is not yours and an id that is nobody's answer identically — the uniformity law").toEqual(answers[1]);
+    expect(answers[0]?.status, "and the answer says nothing about what exists").toBe(404);
+    expect(answers[0]?.body, "no event of another workspace's job reaches the caller").toEqual({ events: [], done: false, error: NO_SUCH_JOB });
+  });
+
+  test("a refused caller is never streamed, so no watcher is opened over another workspace's job", async () => {
+    seam.jobEvents.mockImplementation(async () => [event(1, "started")]);
+    seam.jobScope.mockImplementation(async () => ({ ...OWNED }));
+    guard.authorize.mockImplementation(async () => ({ authorized: false, refusal: "PERMISSION_NOT_HELD" }) as never);
+    const response = await GET(new Request(address(OTHERS), SIGNED_IN));
+    expect(response.status, "the stream transport answers the same refusal as the poll transport").toBe(404);
+    expect(response.headers.get("content-type") ?? "", "and it is JSON, not a stream held open").toContain("application/json");
+    expect(seam.watchJob, "nothing is watched on behalf of a caller who may not read the job").not.toHaveBeenCalled();
+  });
+
+  test("the guard is asked about the JOB's workspace, never about a tenant the caller wrote", async () => {
+    seam.jobEvents.mockImplementation(async () => []);
+    seam.jobScope.mockImplementation(async () => ({ tenantId: "tenant-a", projectId: "project-a", drawingId: "drawing-a" }));
+    await GET(new Request(`${address(OTHERS, "poll")}&tenant=tenant-b`, SIGNED_IN));
+    expect(guard.authorize, "the workspace, the project and the drawing the job itself names").toHaveBeenCalledWith({
+      userId: "user-1",
+      tenantId: "tenant-a",
+      projectId: "project-a",
+      drawingId: "drawing-a",
+    });
+  });
+
+  test("a job that names no workspace holds nothing of anyone's and is not authorized against one", async () => {
+    seam.jobEvents.mockImplementation(async () => [event(1, "succeeded")]);
+    seam.jobScope.mockImplementation(async () => ({ ...UNOWNED }));
+    const response = await GET(new Request(address(NOBODYS, "poll"), SIGNED_IN));
+    expect(response.status, "the spine's own probe belongs to no workspace, so there is none to hold").toBe(200);
+    expect(guard.authorize, "and no workspace question is asked").not.toHaveBeenCalled();
   });
 });

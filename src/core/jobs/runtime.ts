@@ -472,6 +472,39 @@ export async function isKnownJob(jobId: string): Promise<boolean> {
   return false;
 }
 
+/**
+ * Whose job this is: the workspace the payload names, and the project or drawing it names beside it.
+ * `null` where no queue holds a job under the id at all.
+ *
+ * This is the other half of `isKnownJob`, and it is here for the same reason that one is (B-17,
+ * ARCH-02): "which workspace does this job belong to" has one answer, and it is the queue's, not a
+ * route's. Every enqueuer writes the workspace into the payload — it is how the job reaches the
+ * right tenant handle when it runs — so the binding already exists and nothing new records it; what
+ * was missing was a way to ASK it, and a door with no way to ask answered everybody.
+ *
+ * A `tenantId` of null is a job that names no workspace. The spine's `probe` is the only such kind:
+ * it carries steps and delays and holds nothing of anyone's, so there is no membership to test.
+ */
+export type JobScope = { tenantId: string | null; projectId: string | null; drawingId: string | null };
+
+export async function jobScope(jobId: string): Promise<JobScope | null> {
+  if (!isUuid(jobId)) return null;
+  const running = await runtime();
+  for (const kind of KIND_NAMES) {
+    const data = await running.store.jobDataOf(kind, jobId);
+    if (data === null || typeof data !== "object") continue;
+    const payload = (data as { payload?: unknown }).payload;
+    const named = typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
+    return { tenantId: textOf(named["tenantId"]), projectId: textOf(named["projectId"]), drawingId: textOf(named["drawingId"]) };
+  }
+  return null;
+}
+
+/** One field of a payload, where it is a string the caller can be authorized against. */
+function textOf(value: unknown): string | null {
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
 /** Everything the log holds about one job, in the order it recorded it. */
 export async function jobEvents(jobId: string): Promise<JobEvent[]> {
   const running = await runtime();

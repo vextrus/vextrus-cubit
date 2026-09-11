@@ -172,6 +172,12 @@ export interface JobsStore {
    */
   knowsJob(name: string, jobId: string): Promise<boolean>;
   /**
+   * What the queue was sent for this job — the envelope, whole — or null where this queue holds no
+   * job under that id. The archive is included for the same reason `knowsJob` includes it: a job the
+   * queue has finished with is still a job whose payload says whose it was.
+   */
+  jobDataOf(name: string, jobId: string): Promise<unknown>;
+  /**
    * Run `work` with the (kind, key) pair to itself. `requestId` is the caller's own — the job an
    * enqueue minted, the claim a sweep is settling — so a failure of the locking is recorded against
    * the request it failed, never against a name of the lock's own (ARCH-03).
@@ -713,6 +719,11 @@ export function jobsStore(url: string): JobsStore {
       if (job === null) return "ended";
       if (job.state === "active") return "active";
       return job.state === "created" || job.state === "retry" ? "pending" : "ended";
+    },
+
+    jobDataOf: async (name, jobId) => {
+      const boss = await queue.reach();
+      return (await boss.getJobById<unknown>(name, jobId, { includeArchive: true }))?.data ?? null;
     },
 
     knowsJob: async (name, jobId) => {

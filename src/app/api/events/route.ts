@@ -9,10 +9,11 @@
 // when a job is over, and whether an id is one the queue holds a job under at all are the seam's
 // answers, not this route's (ARCH-02). This route only composes them — the log first, and the
 // queue's own knowledge of the id only where the log has nothing to say.
-import { isKnownJob, jobEvents, TERMINAL_STATUSES, watchJob, type JobEvent } from "@/core/jobs";
+import { jobEvents, jobScope, TERMINAL_STATUSES, watchJob, type JobEvent } from "@/core/jobs";
 import { REFUSALS } from "@/core/errors";
 import { reportFault } from "@/core/faults/report";
 import { resolveSession } from "@/server/auth/session";
+import { authorize } from "@/server/authorize";
 import { presentedToken } from "@/server/context";
 
 /** The route the fault seam records this handler's failures under (ARCH-03). */
@@ -67,6 +68,15 @@ function pollAnswer(events: readonly JobEvent[]): Response {
  * copy for a person (ARCH-03). The id it asked about is not echoed back into the answer.
  */
 const NO_SUCH_JOB = "no job is recorded under that id";
+
+/**
+ * The one answer to both of the questions a caller may not have answered: an id no job is recorded
+ * under, and a job that is recorded under somebody else's workspace. They are the same sentence,
+ * the same envelope and the same status, so neither can be told from the other.
+ */
+function noSuchJob(): Response {
+  return json({ events: [], done: false, error: NO_SUCH_JOB }, 404);
+}
 
 /**
  * The stream: history in seq order, then every further event as the log records it, then the close.
@@ -136,6 +146,28 @@ export async function GET(request: Request): Promise<Response> {
   if (jobId === "") return json({ events: [], done: false, error: `${JOB_ID} is required` }, 400);
   const polling = query.get(TRANSPORT) === POLL;
   try {
+    // Whose job is this, and may this session read it (src/server/authorize.ts)? The workspace is
+    // the JOB's own, read from the payload the queue holds, and never the tenant on the wire: a
+    // tenant id in a query string is a value the caller wrote. Until this door asked, a live session
+    // of one workspace received another's events under a 200 — the log carries a workspace's drawing
+    // ids and its operators' progress — and an id nobody held answered 404 while somebody else's
+    // answered 200, which told a caller which job ids exist across the whole deployment.
+    //
+    // So both questions get ONE answer, byte for byte: a job that is not yours and an id no job
+    // answers to are indistinguishable, and nothing can be learned by asking. A job that names no
+    // workspace (the spine's own probe) holds nothing of anyone's and has no membership to test.
+    const scope = await jobScope(jobId);
+    if (scope === null) return noSuchJob();
+    if (scope.tenantId !== null) {
+      const answer = await authorize({
+        userId: session.userId,
+        tenantId: scope.tenantId,
+        ...(scope.projectId === null ? {} : { projectId: scope.projectId }),
+        ...(scope.drawingId === null ? {} : { drawingId: scope.drawingId }),
+      });
+      if (!answer.authorized) return noSuchJob();
+    }
+
     // The log is read once, and an id no job answers to is settled before either transport answers:
     // the address is unknown or it is not, and which client asked does not change that. A stream
     // opened over an unknown one would otherwise never end — `watchJob` waits for events that are
@@ -147,7 +179,6 @@ export async function GET(request: Request): Promise<Response> {
     // the seam's answer rather than this route's (ARCH-02, B-17). The question needs no clock —
     // nothing here waits for a first event — so an unknown id is answered the moment it is asked.
     const events = await jobEvents(jobId);
-    if (events.length === 0 && !(await isKnownJob(jobId))) return json({ events: [], done: false, error: NO_SUCH_JOB }, 404);
     return polling ? pollAnswer(events) : streamAnswer(jobId, events, request.signal);
   } catch (failure) {
     // Nothing here is a refusal — the caller asked a lawful question and our side could not
