@@ -19,14 +19,11 @@ import {
   type Consequence,
   type Permission,
 } from "../../core/acts";
-import { REFUSALS } from "../../core/errors";
-import { refusal } from "../../core/faults/refusal-marker";
 import { roleHistory } from "../../modules/spine/participants";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
 import { authorizeOrThrow } from "../authorize";
 import { authRouter } from "../auth/router";
 import { signedOut } from "../auth/refusals";
-import { holdsWorkspace } from "../shell/workspace";
 import { searchWorkspace, type SearchAnswer } from "../spine/search";
 import { publicProcedure, router } from "../trpc";
 import { tenancyRouter } from "./tenancy";
@@ -163,11 +160,10 @@ export const spineRouter = router({
   search: signedInProcedure
     .input((raw: unknown) => ({ tenantId: text(raw, "tenantId", SEARCH_DOOR), query: text(raw, "query", SEARCH_DOOR) }))
     .query(async ({ ctx, input }): Promise<SearchAnswer> => {
-      if (!(await holdsWorkspace(ctx.session.userId, input.tenantId))) {
-        // The code is read off the register rather than spelled here, so this door and the taxonomy
-        // agree by reading and never by coincidence (Q-07).
-        throw refusal(REFUSALS.WORKSPACE_PERMISSION_NOT_HELD.code, "the session holds no membership of the workspace this search names", { tenantId: input.tenantId });
-      }
+      // The one guard, here too (B-17): a workspace named on the wire is a value the caller wrote,
+      // and the same file that answers every other door decides whether this session is in it. The
+      // code is unchanged — a door that names no project keeps R-SPINE-004's own.
+      await authorizeOrThrow({ userId: ctx.session.userId, tenantId: input.tenantId });
       return searchWorkspace({ tenantId: input.tenantId, query: input.query });
     }),
 

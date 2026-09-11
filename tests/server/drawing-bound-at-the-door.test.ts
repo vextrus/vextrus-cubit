@@ -63,7 +63,7 @@ describe("the takeoff doors that carry a drawingId state it", () => {
     });
     await caller["views"]?.({ projectId: "project-1", drawingId: "drawing-9" }).catch(() => undefined);
     expect(
-      guard.authorizeOrThrow.mock.calls.map((call) => (call[0] as { drawingId?: string }).drawingId),
+      guard.authorizeOrThrow.mock.calls.map((call) => ((call as unknown[])[0] as { drawingId?: string }).drawingId),
       "`takeoff.views` names a sheet, so the guard is asked about that sheet",
     ).toContain("drawing-9");
   });
