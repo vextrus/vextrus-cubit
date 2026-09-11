@@ -11,7 +11,7 @@
 // every cell states its whole reading in its accessible name, in words, and again in its mark.
 import { useRef } from "react";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
-import { cellRef, type ResidueCell, type ResidueLevel } from "@/core/residue/law";
+import { cellRef, type CellGrain, type ResidueCell, type ResidueLevel } from "@/core/residue/law";
 import { compareCanonical } from "@/core/identity";
 import { fillCoverageCopy, COVERAGE_COPY } from "./copy";
 import { CauseGlyph, type GlyphReading } from "./glyphs";
@@ -62,12 +62,18 @@ const SURFACES: Readonly<Record<RefusalEntry["severity"], string>> = Object.free
 /** What a cell that bears published quantity is painted in — not a cause, so not in the map above. */
 const MEASURED_SURFACE = "var(--success-surface)";
 
-const entryOf = (code: string): RefusalEntry | undefined => (REFUSALS as Readonly<Record<string, RefusalEntry | undefined>>)[code];
+/**
+ * The registry read by a code that may not be one of its own — the two idle axis readings are
+ * refusal-SHAPED and are not refusals (L-QTY-05), so the lookup answers `undefined` for them rather
+ * than throwing the way the register's own total reader does. One home for that reading (B-17): the
+ * grid, the legend and the inspector all take a cause's words through this function.
+ */
+export const causeWords = (code: string): RefusalEntry | undefined => (REFUSALS as Readonly<Record<string, RefusalEntry | undefined>>)[code];
 
 /** The tint one measurement reading paints its cell in. */
 function surfaceOf(measurement: string): string {
   if (measurement === "QUANTITY_BEARING") return MEASURED_SURFACE;
-  const held = entryOf(measurement);
+  const held = causeWords(measurement);
   return held === undefined ? MEASURED_SURFACE : SURFACES[held.severity];
 }
 
@@ -88,7 +94,7 @@ export function causeRead(cell: ResidueCell): string {
  */
 export function cellLabel(cell: ResidueCell): string {
   const read = causeRead(cell);
-  const cause = read === "QUANTITY_BEARING" ? COVERAGE_COPY.takeoff_coverage_cell_label_measured : (entryOf(read)?.message ?? read);
+  const cause = read === "QUANTITY_BEARING" ? COVERAGE_COPY.takeoff_coverage_cell_label_measured : (causeWords(read)?.message ?? read);
   const named =
     cell.grain === "KIND"
       ? fillCoverageCopy("takeoff_coverage_cell_label_kind_grain", { kind: cell.kind, cause })
@@ -131,6 +137,25 @@ function columnsOf(cells: readonly ResidueCell[], levels: readonly ResidueLevel[
   return { columns, bands, width: Math.max(x - CLASS_GAP, GUTTER) };
 }
 
+/** One row of the grid: a kind, at one grain, and every cell it bears at that grain. */
+type Row = { readonly key: string; readonly kind: string; readonly cells: readonly ResidueCell[] };
+
+/**
+ * The grid's rows, in reading order (I-196, Decision § 1): the KIND-grain rows first — a kind that
+ * bears no cell is shown at the head of the grid rather than dropped from it — then the borne kinds,
+ * each group in canonical order. The grain is part of a row's identity, so a kind that stands at both
+ * grains gets a row at each rather than one row quietly holding two different claims.
+ */
+function rowsOf(cells: readonly ResidueCell[]): Row[] {
+  const group = (grain: CellGrain): Row[] => {
+    const borne = cells.filter((cell) => (grain === "KIND" ? cell.grain === "KIND" : cell.grain !== "KIND"));
+    return [...new Set(borne.map((cell) => cell.kind))]
+      .sort(compareCanonical)
+      .map((kind) => ({ key: `${grain}:${kind}`, kind, cells: borne.filter((cell) => cell.kind === kind) }));
+  };
+  return [...group("KIND"), ...group("CELL")];
+}
+
 export type CoverageGridProps = {
   readonly cells: readonly ResidueCell[];
   readonly levels: readonly ResidueLevel[];
@@ -150,10 +175,8 @@ export function CoverageGrid({ cells, levels, density, selected, onSelect }: Cov
   const levelY = side;
   const bodyY = side * 2;
 
-  const kinds: string[] = [];
-  for (const cell of cells) if (!kinds.includes(cell.kind)) kinds.push(cell.kind);
-  const rowY = new Map(kinds.map((kind, index) => [kind, bodyY + index * side]));
-  const height = bodyY + kinds.length * side;
+  const rows = rowsOf(cells);
+  const height = bodyY + rows.length * side;
 
   // One tab stop, on the selected cell or on the first the grid holds (Decision § 1, R-UI-032).
   const tabStop = cells.find((cell) => cellRef(cell) === selected) ?? cells[0];
@@ -163,15 +186,14 @@ export function CoverageGrid({ cells, levels, density, selected, onSelect }: Cov
   // focused directly rather than found by a query the grid would have to spell a second selector for.
   const focusable = useRef(new Map<string, SVGGElement>());
 
-  const move = (event: React.KeyboardEvent<SVGGElement>, cell: ResidueCell): void => {
+  const move = (event: React.KeyboardEvent<SVGGElement>, cell: ResidueCell, at: number): void => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       onSelect(cellRef(cell));
       return;
     }
-    const row = cells.filter((held) => held.kind === cell.kind);
+    const row = rows[at]?.cells ?? [];
     const here = row.indexOf(cell);
-    const rowIndex = kinds.indexOf(cell.kind);
     const step = (next: ResidueCell | undefined): void => {
       if (next === undefined) return;
       event.preventDefault();
@@ -182,9 +204,8 @@ export function CoverageGrid({ cells, levels, density, selected, onSelect }: Cov
     else if (event.key === "Home") step(row[0]);
     else if (event.key === "End") step(row[row.length - 1]);
     else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      const nextKind = kinds[rowIndex + (event.key === "ArrowDown" ? 1 : -1)];
-      if (nextKind === undefined) return;
-      const target = cells.filter((held) => held.kind === nextKind);
+      const target = rows[at + (event.key === "ArrowDown" ? 1 : -1)]?.cells;
+      if (target === undefined) return;
       step(target[Math.min(here, target.length - 1)]);
     }
   };
@@ -229,17 +250,17 @@ export function CoverageGrid({ cells, levels, density, selected, onSelect }: Cov
         ))}
       </g>
 
-      {kinds.map((kind) => {
-        const y = rowY.get(kind) ?? bodyY;
+      {rows.map((row, at) => {
+        const y = bodyY + at * side;
         return (
-          <g key={kind} data-testid="coverage-kind-row" role="row" data-kind={kind}>
+          <g key={row.key} data-testid="coverage-kind-row" role="row" data-kind={row.kind}>
             <text className="cx-coverage-kind" x={0} y={y + side / HALF} dominantBaseline="middle">
-              {kind}
+              {row.kind}
             </text>
-            {cells
-              .filter((cell) => cell.kind === kind)
+            {row.cells
               .map((cell) => {
                 const address = cellRef(cell);
+                const read = causeRead(cell);
                 const column = columns.find((held) => held.klass === cell.class && held.levelId === cell.levelId);
                 const x = cell.grain === "KIND" ? GUTTER : (column?.x ?? GUTTER);
                 const span = cell.grain === "KIND" ? Math.max(width - GUTTER, side) : side;
@@ -261,11 +282,13 @@ export function CoverageGrid({ cells, levels, density, selected, onSelect }: Cov
                     data-measurement={cell.measurement}
                     data-bill={cell.bill}
                     data-contradicted={cell.contradicted ? "true" : "false"}
+                    // I-198: the axes are orthogonal, but a reader is answered under ONE of them.
+                    data-code={read}
                     tabIndex={address === tabStopRef ? 0 : -1}
                     aria-selected={active}
                     aria-label={cellLabel(cell)}
                     onClick={() => onSelect(address)}
-                    onKeyDown={(event) => move(event, cell)}
+                    onKeyDown={(event) => move(event, cell, at)}
                   >
                     <rect x={x} y={y} width={span} height={side} fill={surfaceOf(cell.measurement)} stroke="var(--graphite-200)" strokeWidth={SEAM} />
                     {cell.bill === "NOT_IN_THIS_BILL" ? <rect x={x} y={y} width={span} height={side} fill={`url(#${HATCH_ID})`} /> : null}
@@ -273,9 +296,21 @@ export function CoverageGrid({ cells, levels, density, selected, onSelect }: Cov
                       <rect x={x} y={y} width={span} height={side} fill="none" stroke="var(--danger)" strokeWidth={CONTRADICTION_STROKE} />
                     ) : null}
                     {active ? <rect x={x} y={y} width={span} height={side} fill="none" stroke="var(--beam-500)" strokeWidth={SELECTION_STROKE} /> : null}
-                    <CauseGlyph reading={cell.measurement as GlyphReading} x={x + span / HALF - glyph / HALF} y={y + side / HALF - glyph / HALF} size={glyph} />
+                    <CauseGlyph
+                      reading={cell.measurement as GlyphReading}
+                      read={read === cell.measurement}
+                      x={x + span / HALF - glyph / HALF}
+                      y={y + side / HALF - glyph / HALF}
+                      size={glyph}
+                    />
                     {cell.bill === "NOT_IN_THIS_BILL" ? (
-                      <CauseGlyph reading="NOT_IN_THIS_BILL" x={x + span - BILL_GLYPH - HATCH_PITCH} y={y + side - BILL_GLYPH - HATCH_PITCH} size={BILL_GLYPH} />
+                      <CauseGlyph
+                        reading="NOT_IN_THIS_BILL"
+                        read={read === cell.bill}
+                        x={x + span - BILL_GLYPH - HATCH_PITCH}
+                        y={y + side - BILL_GLYPH - HATCH_PITCH}
+                        size={BILL_GLYPH}
+                      />
                     ) : null}
                     {active ? <CoverageReticle x={x} y={y} side={side} /> : null}
                   </g>

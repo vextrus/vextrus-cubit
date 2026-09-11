@@ -78,10 +78,14 @@ export const CAUSE_GLYPHS: Readonly<Record<GlyphReading, Mark>> = Object.freeze(
  * same way wherever it stands, at either density and at either of the two sizes a cell carries
  * (I-189, R-UI-005).
  */
-export function CauseGlyph({ reading, x, y, size }: { reading: GlyphReading; x: number; y: number; size: number }) {
+export function CauseGlyph({ reading, x, y, size, read = false }: { reading: GlyphReading; x: number; y: number; size: number; read?: boolean }) {
   const Mark = CAUSE_GLYPHS[reading];
+  // I-189 draws a cell's two axes as two marks, and I-198 names exactly ONE of them as the reading a
+  // person is answered with. So the mark of the read axis is the cell's mark and carries the hook and
+  // the code; the other axis is drawn beside it, unnamed — a cell states one cause, not two.
+  const named = read ? { "data-testid": "coverage-cell-glyph", "data-code": reading } : {};
   return (
-    <g data-testid="coverage-cell-glyph" data-cause={reading} transform={`translate(${x} ${y}) scale(${size / VIEW_BOX_SIDE})`} aria-hidden="true" focusable="false">
+    <g {...named} transform={`translate(${x} ${y}) scale(${size / VIEW_BOX_SIDE})`} aria-hidden="true" focusable="false">
       <Mark />
     </g>
   );
@@ -91,7 +95,16 @@ export function CauseGlyph({ reading, x, y, size }: { reading: GlyphReading; x: 
 export function LegendGlyph({ reading, size }: { reading: GlyphReading; size: number }) {
   const Mark = CAUSE_GLYPHS[reading];
   return (
-    <svg className="cx-coverage-legend-mark" width={size} height={size} viewBox={VIEW_BOX} aria-hidden="true" focusable="false">
+    <svg
+      className="cx-coverage-legend-mark"
+      data-testid="coverage-cell-glyph"
+      data-code={reading}
+      width={size}
+      height={size}
+      viewBox={VIEW_BOX}
+      aria-hidden="true"
+      focusable="false"
+    >
       <Mark />
     </svg>
   );

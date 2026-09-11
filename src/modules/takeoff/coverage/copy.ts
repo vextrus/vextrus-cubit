@@ -20,8 +20,7 @@ export const COVERAGE_COPY = Object.freeze({
   takeoff_coverage_grid_label: "Kinds by class and level",
   takeoff_coverage_measured_note: "A filled mark is a cell with published quantity.",
   takeoff_coverage_legend_heading: "What each mark means",
-  takeoff_coverage_partial_note:
-    "Some work items bear no cell in this grid. They stand at the head of it, each with the reason it bears none.",
+  takeoff_coverage_partial_note: "Some work items bear no cell in this grid. They stand at the head of it, each with the reason it bears none.",
   takeoff_coverage_kind_label: "Kind",
   takeoff_coverage_class_label: "Class",
   takeoff_coverage_level_label: "Level",
@@ -66,6 +65,7 @@ export const COVERAGE_COPY = Object.freeze({
   takeoff_coverage_empty_campaign_body:
     "No class has been sighted in the pinned revision, so the grid bears no cell. Run a measure run from the register, and the cells appear as the rails publish.",
   takeoff_coverage_empty_campaign_action: "Open the register",
+  takeoff_coverage_loading: "Reading what this campaign measured, and what it did not.",
   takeoff_coverage_error_heading: "Coverage could not be read",
   takeoff_coverage_error_body: "Nothing was changed. Try again, and quote the report id if it keeps happening.",
   takeoff_coverage_report_label: "Report id",

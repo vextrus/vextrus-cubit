@@ -11,14 +11,14 @@ import type { Consequence } from "@/core/acts";
 // The law module, not the residue's roster: the roster carries the query and its channel readers,
 // which reach the database, and this file runs in the browser (ARCH-01, the `@/core/levels/law`
 // precedent). Everything a rendering needs — the closed cause set and the cell's address — is law.
-import { RESIDUE_CAUSES, cellRef, type ResidueCause, type ResidueCell, type StatementRow } from "@/core/residue/law";
-import { REFUSALS, type RefusalEntry } from "@/core/errors";
+import { RESIDUE_CAUSES, cellRef, type ResidueCell, type StatementRow } from "@/core/residue/law";
+import type { RefusalEntry } from "@/core/errors";
 // The marker's one reader (ARCH-02): whether a rejection carries a registered code is not a
 // judgement this screen makes for itself, and a second reading of it would be a second home (B-17).
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { COVERAGE_COPY } from "./copy";
-import { CoverageGrid, GRID_LABEL_ID, causeRead, type CoverageDensity } from "./grid";
-import { LegendGlyph } from "./glyphs";
+import { CoverageGrid, GRID_LABEL_ID, causeRead, causeWords, type CoverageDensity } from "./grid";
+import { LegendGlyph, type GlyphReading } from "./glyphs";
 import type { CoverageView } from "./view";
 
 export type { CoverageDensity } from "./grid";
@@ -81,18 +81,30 @@ export interface CoverageDoors {
 export interface CoverageWorkspaceProps {
   /** The reading, or `null` where it failed — the error cell is a state of this screen (R-UI-050). */
   readonly view: CoverageView | null;
-  readonly density: CoverageDensity;
+  readonly density?: CoverageDensity;
   /** Whether the reader holds SET_BILL_BOUNDARY on this project, read server-side (Decision § 2). */
-  readonly permitted: boolean;
-  readonly offline: boolean;
+  readonly permitted?: boolean;
+  readonly offline?: boolean;
   /** The fault the read left behind, where one did — quoted verbatim beside the retry (B-21). */
   readonly reportId?: string | null;
   /** The code a door answered with, rendered through the one refusal renderer (R-UI-020). */
   readonly refused?: string | null;
   /** The cell the address named on mount (I-193); a cell this residue does not hold selects nothing. */
-  readonly initialCell?: string | null;
-  readonly chrome: CoverageChrome;
-  readonly doors: CoverageDoors;
+  readonly cell?: string | null;
+  /**
+   * The state cell the CALLER has already settled, where it knows one this screen cannot derive —
+   * `loading` is the route's own, because a screen holding a reading is by definition past it. It is
+   * the one place R-UI-050's matrix and this screen meet, so it is spelled in the matrix' own names
+   * (B-19); absent, the state is derived from the reading below and no caller can claim one.
+   */
+  readonly state?: string | null;
+  /**
+   * The shipped chrome, injected (I-170). Each renderer is optional because a module may not reach
+   * the ui layer (ARCH-01) and the patterns have exactly one home each (B-17): where one is not
+   * handed over, this screen draws nothing in its place rather than growing a second spelling of it.
+   */
+  readonly chrome?: Partial<CoverageChrome>;
+  readonly doors?: Partial<CoverageDoors>;
 }
 
 /* --------------------------------------------------------------------------- the addresses */
@@ -128,10 +140,6 @@ export const CELL_PARAM = "cell";
 const MEASUREMENT = "MEASUREMENT";
 const BILL = "BILL";
 
-/** The axis each statement states, as its section is addressed by. */
-const MEASUREMENT_AXIS = "measurement";
-const BILL_AXIS = "bill";
-
 /** The channel a person's own declaration is cited under, beside the three the machine sights on. */
 const DECLARATION = "DECLARATION";
 
@@ -142,28 +150,37 @@ const NONE = "NONE";
 const NO_DOOR_STANDS = "no door stands over a cell";
 
 /**
- * The state cell this screen stands in, in the Decision § 2's own order — first holding wins. It is
- * derived rather than passed so no caller can claim a state the screen is not really in (B-19).
+ * The state cell this screen stands in, in the Decision § 2's own order — first holding wins, and
+ * every reading is one of R-UI-050's own matrix names so the declaration and the screen cannot spell
+ * the same state two ways (B-19). `loading` is not derivable here and is the caller's to state.
  */
 function stateOf(props: CoverageWorkspaceProps): string {
-  if (!props.permitted) return "denied";
-  if (props.offline) return "offline";
+  if (props.permitted === false) return "denied";
+  if (props.offline === true) return "offline";
   if (props.view === null) return "error";
-  if ((props.refused ?? null) !== null) return "refused";
+  if ((props.refused ?? null) !== null) return "refusal";
   if (props.view.campaignId === null || props.view.cells.length === 0) return "empty";
   return props.view.cells.some((cell) => cell.grain === "KIND") ? "partial" : "ready";
 }
 
 export function CoverageWorkspace(props: CoverageWorkspaceProps) {
-  const { view, density, permitted, offline, chrome, doors } = props;
+  const { view } = props;
+  const density = props.density ?? "comfortable";
+  const permitted = props.permitted ?? true;
+  const offline = props.offline ?? false;
+  const chrome = props.chrome ?? {};
+  const doors: Partial<CoverageDoors> = props.doors ?? {};
   const reportId = props.reportId ?? null;
-  const refused = props.refused ?? null;
-  const { Button, RefusalState, ConsequenceDialog } = chrome;
-  const [selected, setSelected] = useState<string | null>(props.initialCell ?? null);
+  const { Button = FallbackButton, RefusalState, ConsequenceDialog } = chrome;
+  const state = props.state ?? stateOf(props);
+  // A state the caller stated is a state the screen renders: the matrix declares this screen's
+  // refusal as the denial of SET_BILL_BOUNDARY, so that is the code the refusal cell states when no
+  // door has answered with one of its own (R-UI-020 — a refusal is never silent).
+  const refused = props.refused ?? (state === "refusal" ? PERMISSION_NOT_HELD : null);
+  const [selected, setSelected] = useState<string | null>(props.cell ?? null);
   const [door, setDoor] = useState<typeof HOLD_OUT_OF_BILL | typeof DECLARE_NOT_IN_PROJECT_SCOPE | null>(null);
   const [root, setRoot] = useState<HTMLElement | null>(null);
 
-  const state = stateOf(props);
   const cells = view?.cells ?? [];
   const held = cells.find((cell) => cellRef(cell) === selected) ?? null;
 
@@ -181,8 +198,11 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
     window.history.replaceState(window.history.state, "", here.toString());
   }, [selected]);
 
-  const refusal = refused === null ? undefined : doors.refusalOf(refused);
-  const denial = doors.refusalOf(PERMISSION_NOT_HELD);
+  // The registry is core, so a caller that hands no lookup gets the registry itself rather than a
+  // screen with no words for a code (ARCH-02, B-17).
+  const refusalOf = doors.refusalOf ?? causeWords;
+  const refusal = refused === null ? undefined : refusalOf(refused);
+  const denial = refusalOf(PERMISSION_NOT_HELD);
   const tenantId = view?.tenantId ?? "";
   const projectId = view?.projectId ?? "";
 
@@ -190,8 +210,8 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
   const evidence: Evidence = { href: registerHref(tenantId, projectId), label: COVERAGE_COPY.takeoff_coverage_empty_campaign_action };
 
   /** What a door stands over as the screen stands NOW, read by the pair below rather than closed over. */
-  const standing = useRef({ doors, view, held, door, evidence });
-  standing.current = { doors, view, held, door, evidence };
+  const standing = useRef({ doors, refusalOf, view, held, door, evidence });
+  standing.current = { doors, refusalOf, view, held, door, evidence };
 
   /**
    * A rejection at a door, shaped as the one ConsequenceDialog reads one (its I-40): a registered
@@ -204,9 +224,9 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
    * owed the state that refused them, not the one they loaded (R-UI-050).
    */
   const refuse = useCallback((thrown: unknown): never => {
-    const { doors: at, evidence: sends } = standing.current;
+    const { doors: at, refusalOf: words, evidence: sends } = standing.current;
     const code = refusalCodeOf(thrown);
-    const entry = code === null ? undefined : at.refusalOf(code);
+    const entry = code === null ? undefined : words(code);
     if (entry === undefined) throw thrown;
     at.retry?.();
     throw Object.assign(new Error(entry.code), { refusal: entry, evidence: sends });
@@ -220,9 +240,10 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
    */
   const previewAtDoor = useCallback(async (): Promise<CoveragePreviewAnswer> => {
     const { doors: at, view: over, held: cell, door: which } = standing.current;
-    if (over === null || cell === null || which === null) throw new Error(NO_DOOR_STANDS);
+    const open = which === HOLD_OUT_OF_BILL ? at.previewHoldOutOfBill : at.previewDeclareNotInProjectScope;
+    if (over === null || cell === null || which === null || open === undefined) throw new Error(NO_DOOR_STANDS);
     try {
-      return await (which === HOLD_OUT_OF_BILL ? at.previewHoldOutOfBill : at.previewDeclareNotInProjectScope)({ input: inputOf(over, cell) });
+      return await open({ input: inputOf(over, cell) });
     } catch (thrown) {
       return refuse(thrown);
     }
@@ -231,12 +252,10 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
   const commitAtDoor = useCallback(
     async (carried: { consequenceDigest: string }): Promise<{ actId: string }> => {
       const { doors: at, view: over, held: cell, door: which } = standing.current;
-      if (over === null || cell === null || which === null) throw new Error(NO_DOOR_STANDS);
+      const settle = which === HOLD_OUT_OF_BILL ? at.commitHoldOutOfBill : at.commitDeclareNotInProjectScope;
+      if (over === null || cell === null || which === null || settle === undefined) throw new Error(NO_DOOR_STANDS);
       try {
-        return await (which === HOLD_OUT_OF_BILL ? at.commitHoldOutOfBill : at.commitDeclareNotInProjectScope)({
-          input: inputOf(over, cell),
-          consequenceDigest: carried.consequenceDigest,
-        });
+        return await settle({ input: inputOf(over, cell), consequenceDigest: carried.consequenceDigest });
       } catch (thrown) {
         return refuse(thrown);
       }
@@ -267,28 +286,34 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
 
       {/* R-UI-020: one renderer, one slot. A door's rejection is answered here and nowhere else. */}
       <div className="cx-coverage-answer" data-testid="coverage-answer" aria-live="polite">
-        {permitted ? null : (
+        {state === "denied" ? (
           <>
             <p className="cx-coverage-denied">{COVERAGE_COPY.takeoff_coverage_denied_permission}</p>
             <p className="cx-coverage-denied-holder">{COVERAGE_COPY.takeoff_coverage_denied_holder}</p>
-            {denial === undefined ? null : (
+            {denial === undefined || RefusalState === undefined ? null : (
               <RefusalState refusal={denial} evidence={{ href: participantsHref(tenantId, projectId), label: COVERAGE_COPY.takeoff_coverage_denied_holder }} />
             )}
           </>
-        )}
-        {refusal === undefined ? null : (
+        ) : null}
+        {refusal === undefined || RefusalState === undefined ? null : (
           <RefusalState refusal={refusal} evidence={{ href: registerHref(tenantId, projectId), label: COVERAGE_COPY.takeoff_coverage_empty_campaign_action }} />
         )}
       </div>
 
-      {view === null ? (
+      {state === "loading" ? (
+        // R-UI-050's loading cell: the shape of what is coming, not a spinner over nothing. The
+        // route is the only reader that knows this state, so it is the only one that can state it.
+        <div className="cx-coverage-loading" aria-busy="true" aria-live="polite">
+          <p className="cx-coverage-hint">{COVERAGE_COPY.takeoff_coverage_loading}</p>
+        </div>
+      ) : view === null || state === "error" ? (
         // No reading came back, so there is nothing to state: the error cell owns the whole body and
         // the preview stands down with it — a statement over a read that failed would be a claim
         // about a boundary nobody read (R-UI-050, B-21).
         <ErrorCell reportId={reportId} Button={Button} retry={doors.retry} />
       ) : (
         <>
-          {view.campaignId === null || view.cells.length === 0 ? (
+          {state === "empty" ? (
             <EmptyCell view={view} />
           ) : (
             <div className="cx-coverage-body">
@@ -320,7 +345,7 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
         </>
       )}
 
-      {door === null || held === null || view === null ? null : (
+      {door === null || held === null || view === null || ConsequenceDialog === undefined ? null : (
         <ConsequenceDialog
           open
           actType={door}
@@ -404,12 +429,8 @@ function Legend() {
   return (
     <div className="cx-coverage-legend" data-testid="coverage-legend">
       <h3 className="cx-coverage-legend-heading">{COVERAGE_COPY.takeoff_coverage_legend_heading}</h3>
-      <p className="cx-coverage-measured">
-        <LegendGlyph reading={QUANTITY_BEARING} size={LEGEND_MARK} />
-        {COVERAGE_COPY.takeoff_coverage_measured_note}
-      </p>
-      {RESIDUE_CAUSES.map((cause) => (
-        <LegendEntry key={cause} cause={cause} />
+      {LEGEND_READINGS.map((reading) => (
+        <LegendEntry key={reading} reading={reading} />
       ))}
     </div>
   );
@@ -418,12 +439,22 @@ function Legend() {
 /** The legend's mark size — the glyph viewBox's own 16 (Decision § 5). */
 const LEGEND_MARK = 16;
 
-function LegendEntry({ cause }: { cause: ResidueCause }): ReactElement {
+/**
+ * The legend's whole vocabulary, in the law's own order: the one measured reading a cell can bear,
+ * then every cause of either axis (L-QTY-05's `RESIDUE_CAUSES`). Derived, never transcribed — a cause
+ * the law admits later is an entry here without an edit (B-19).
+ */
+const LEGEND_READINGS: readonly GlyphReading[] = [QUANTITY_BEARING, ...RESIDUE_CAUSES];
+
+function LegendEntry({ reading }: { reading: GlyphReading }): ReactElement {
+  // The measured reading is refusal-SHAPED and is no refusal (L-QTY-05), so the register holds no
+  // words for it and the screen's own sentence names it. Every cause's words are the register's.
+  const entry = causeWords(reading);
   return (
-    <div className="cx-coverage-legend-entry" data-testid="coverage-legend-entry" data-cause={cause}>
-      <LegendGlyph reading={cause} size={LEGEND_MARK} />
-      <span className="cx-coverage-legend-name">{REFUSAL_WORDS[cause].message}</span>
-      <span className="cx-coverage-legend-remedy">{REFUSAL_WORDS[cause].remedy}</span>
+    <div className="cx-coverage-legend-entry" data-testid="coverage-legend-entry" data-code={reading}>
+      <LegendGlyph reading={reading} size={LEGEND_MARK} />
+      <span className="cx-coverage-legend-name">{entry?.message ?? COVERAGE_COPY.takeoff_coverage_measured_note}</span>
+      {entry === undefined ? null : <span className="cx-coverage-legend-remedy">{entry.remedy}</span>}
     </div>
   );
 }
@@ -463,7 +494,7 @@ function Inspector({
   // of this bill, and the measurement cause everywhere else. One rule, one home (B-17).
   const read = causeRead(cell);
   const measured = read === QUANTITY_BEARING;
-  const entry = measured ? undefined : REFUSAL_WORDS[read as ResidueCause];
+  const entry = measured ? undefined : causeWords(read);
   const grain = cell.grain === "KIND";
   const actId = cell.measurementActId ?? cell.billActId;
   // Every act standing over this cell, on either axis — a cell can carry one on each (I-189), and a
@@ -611,16 +642,14 @@ function CertificatePreviewSection({ measurement, bill }: { measurement: readonl
       <h2 className="cx-coverage-certificate-heading">{COVERAGE_COPY.takeoff_coverage_certificate_heading}</h2>
       <p className="cx-coverage-hint">{COVERAGE_COPY.takeoff_coverage_certificate_hint}</p>
       <Statement
-        statement={MEASUREMENT}
-        axis={MEASUREMENT_AXIS}
+        axis={MEASUREMENT}
         title={COVERAGE_COPY.takeoff_coverage_statement_measurement_title}
         hint={COVERAGE_COPY.takeoff_coverage_statement_measurement_hint}
         none={COVERAGE_COPY.takeoff_coverage_statement_measurement_none}
         rows={measurement}
       />
       <Statement
-        statement={BILL}
-        axis={BILL_AXIS}
+        axis={BILL}
         title={COVERAGE_COPY.takeoff_coverage_statement_bill_title}
         hint={COVERAGE_COPY.takeoff_coverage_statement_bill_hint}
         none={COVERAGE_COPY.takeoff_coverage_statement_bill_none}
@@ -632,14 +661,12 @@ function CertificatePreviewSection({ measurement, bill }: { measurement: readonl
 
 /** One statement: an enumeration in the certificate's own order, each row under its own cause. */
 function Statement({
-  statement,
   axis,
   title,
   hint,
   none,
   rows,
 }: {
-  statement: string;
   axis: string;
   title: string;
   hint: string;
@@ -647,7 +674,7 @@ function Statement({
   rows: readonly StatementRow[];
 }): ReactElement {
   return (
-    <section className="cx-coverage-statement" data-testid="coverage-statement" data-statement={statement} data-axis={axis}>
+    <section className="cx-coverage-statement" data-testid="coverage-statement" data-axis={axis}>
       <h3 className="cx-coverage-statement-title">{title}</h3>
       <p className="cx-coverage-hint">{hint}</p>
       {rows.length === 0 ? (
@@ -667,13 +694,13 @@ function Statement({
               // as `first–last`, which is what a certificate reads like (L-QTY-07). `data-level`
               // beside it still names the run's first level, the one a reader lands on.
               data-levels={row.levels}
-              data-cause={row.cause}
+              data-code={row.cause}
               key={`${row.kind}:${row.class ?? ""}:${row.levelId ?? ""}:${row.cause}`}
             >
               <span className="cx-coverage-value">{row.kind}</span>
               <span className="cx-coverage-value">{row.class ?? ""}</span>
               <span className="cx-coverage-value">{row.levels}</span>
-              <span className="cx-coverage-statement-cause">{REFUSAL_WORDS[row.cause].message}</span>
+              <span className="cx-coverage-statement-cause">{causeWords(row.cause)?.message ?? ""}</span>
             </li>
           ))}
         </ul>
@@ -682,7 +709,28 @@ function Statement({
   );
 }
 
-/** The words every cause is shown in are the registry's, read once here (R-SPINE-062, I-191). */
-const REFUSAL_WORDS: Readonly<Record<ResidueCause, RefusalEntry>> = Object.freeze(
-  Object.fromEntries(RESIDUE_CAUSES.map((cause) => [cause, REFUSALS[cause]])) as Record<ResidueCause, RefusalEntry>,
-);
+/**
+ * The core Button's own markup, worn where no chrome was injected (ARCH-01): a module may not reach
+ * `src/ui`, so a mount that hands none gets the house classes and a real `<button>` rather than a
+ * second Button component to drift from the shipped one (the EmptyCell's `cx-btn cx-reticle` anchor
+ * is the same idiom). Every surface a reader actually meets is handed the shipped Button (I-170).
+ */
+function FallbackButton({
+  variant = "primary",
+  disabled,
+  onClick,
+  children,
+  ...hooks
+}: {
+  variant?: "primary" | "secondary";
+  disabled?: boolean;
+  onClick?: () => void;
+  children?: React.ReactNode;
+  "data-testid"?: string;
+}) {
+  return (
+    <button className="cx-btn cx-reticle" type="button" data-variant={variant} disabled={disabled} onClick={onClick} {...hooks}>
+      {children}
+    </button>
+  );
+}

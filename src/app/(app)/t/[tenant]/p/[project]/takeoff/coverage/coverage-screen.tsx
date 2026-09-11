@@ -129,7 +129,7 @@ export function CoverageScreen({ view, projectId, permitted, reportId, initialCe
       offline={offline}
       reportId={reportId}
       refused={refused}
-      initialCell={initialCell}
+      cell={initialCell}
       chrome={CHROME}
       doors={doors}
     />
