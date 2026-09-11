@@ -6,6 +6,7 @@ import type { RefusalGroup } from "./law";
 
 /** Every code this area registers. The barrel folds this union into `RefusalCode` (B-19). */
 export type TakeoffSchedulesRefusalCode =
+  | "NOTATION_UNREAD"
   | "SCHEDULE_NONE_RECONSTRUCTED"
   | "SCHEDULE_VIEW_CONTRIBUTED_NOTHING";
 
@@ -14,6 +15,17 @@ export const TAKEOFF_SCHEDULES_REFUSALS: RefusalGroup<TakeoffSchedulesRefusalCod
   // L-CAD-08's answer where a schedule-titled view yielded no table at all — no band of it holds a
   // name or mark cell, so there is no header to take columns from and a table reconstructed without
   // one would be columns nobody drew (R-TO-031).
+
+  // R-TO-031's answer when a cell is written in a notation no form of the grammar reads: the token
+  // is named, because a person shown the glyphs can add the form and a person shown `null` cannot
+  // (ARCH-03, L-QTY-04 — a cell read as nothing is a member that never reaches a bill).
+  NOTATION_UNREAD: Object.freeze({
+    code: "NOTATION_UNREAD",
+    message: "This cell is written in a notation the drawing's grammar does not read, so nothing was taken from it.",
+    remedy: "Read the cell on the sheet and state what it says, or add its form to the notation grammar.",
+    severity: "info",
+    surface: "inline",
+  }),
   SCHEDULE_NONE_RECONSTRUCTED: Object.freeze({
     code: "SCHEDULE_NONE_RECONSTRUCTED",
     message: "This schedule shows no header row naming its members, so no table was rebuilt from it.",
