@@ -86,7 +86,7 @@ const reading = serverCall(
   async (request, session): Promise<ReadAnswer> => {
     // Reading a scale writes nothing, so no act is named: what it needs is the workspace-scoped
     // actor the sheet index is read under (L-ACT-03's read side).
-    const actor = await projectActorFor(session.userId, request.projectId, null, MEASURE);
+    const actor = await projectActorFor(session.userId, request.projectId, null, MEASURE, request.drawingId);
     const scope = { tenantId: actor.tenantId, projectId: request.projectId, drawingId: request.drawingId };
     const views = await scaleProposalsOf(scope, { storage: appStorage() });
     const tolerances = await scaleTolerancesOf({ tenantId: actor.tenantId, projectId: request.projectId });
@@ -98,7 +98,7 @@ const reading = serverCall(
 const previewing = serverCall(
   AFFIRMED,
   async (request, session): Promise<PreviewAnswer> => {
-    const actor = await projectActorFor(session.userId, request.projectId, AFFIRM_SCALE, MEASURE);
+    const actor = await projectActorFor(session.userId, request.projectId, AFFIRM_SCALE, MEASURE, request.drawingId);
     const consequence = await preview(actor, actInput(request));
     return { previewed: true, consequence, consequenceDigest: consequenceDigest(consequence) };
   },
@@ -108,7 +108,7 @@ const previewing = serverCall(
 const committing = serverCall(
   COMMITTED,
   async (request, session): Promise<CommitAnswer> => {
-    const actor = await projectActorFor(session.userId, request.projectId, AFFIRM_SCALE, MEASURE);
+    const actor = await projectActorFor(session.userId, request.projectId, AFFIRM_SCALE, MEASURE, request.drawingId);
     // The committed act IS the answer, and the panel shows it by re-reading the door: the row's new
     // state is read from the ledger the act just appended to. The sheet is never revalidated for it
     // — the drawing on screen did not change (R-UI-021).

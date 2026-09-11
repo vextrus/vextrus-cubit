@@ -90,12 +90,17 @@ function assignInput(raw: unknown): AssignParticipantRoleInput {
  * that decides which tenant handle may read it, so no tenant handle can be the one to answer it —
  * and the session's membership is what admits the request (the `holdsWorkspace` shape).
  */
-export async function projectActorFor(userId: string, projectId: string, actType: ActType | null, permission: Permission): Promise<ActorCtx> {
+export async function projectActorFor(userId: string, projectId: string, actType: ActType | null, permission: Permission, drawingId?: string): Promise<ActorCtx> {
   // The resolution is the guard's (src/server/authorize.ts) and no longer this file's. It used to
   // stop at `holdsWorkspace`, which made the `permission` argument decoration: it worded the refusal
   // and was never tested, so every member of a workspace passed every project door in it. The
   // argument is now the question rather than the wording of its answer.
-  return authorizeOrThrow({ userId, projectId, permission, actType });
+  // A door that NAMES a drawing states it here, and the guard binds the drawing to the project
+  // rather than merely to the workspace. The row policy is a tenant boundary: every project of one
+  // workspace reads under the same scope, so a drawing id posted from one project's screen reached
+  // a sibling project's sheet and the policy standing behind the read handed it over. The argument
+  // is optional because plenty of doors name no drawing — not because the binding is (R-SPINE-004).
+  return authorizeOrThrow({ userId, projectId, permission, actType, ...(drawingId === undefined ? {} : { drawingId }) });
 }
 
 /**

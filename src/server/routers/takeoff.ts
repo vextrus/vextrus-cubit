@@ -236,7 +236,7 @@ export const takeoffRouter = router({
   linesCiting: signedInProcedure
     .input(parsed(citing))
     .query(async ({ ctx, input }): Promise<LineEvidence[]> => {
-      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE, input.drawingId);
       return linesCiting({ tenantId: actor.tenantId, projectId: input.projectId }, { drawingId: input.drawingId, sourceKeys: input.sourceKeys });
     }),
 
@@ -388,14 +388,14 @@ export const takeoffRouter = router({
   views: signedInProcedure
     .input(parsed(sheet))
     .query(async ({ ctx, input }): Promise<ViewRecord[]> => {
-      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE, input.drawingId);
       return viewsOf({ tenantId: actor.tenantId, projectId: input.projectId, drawingId: input.drawingId });
     }),
 
   scaleProposals: signedInProcedure
     .input(parsed(sheet))
     .query(async ({ ctx, input }): Promise<{ views: ViewScale[]; tolerances: ScaleTolerances }> => {
-      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE, input.drawingId);
       const scope = { tenantId: actor.tenantId, projectId: input.projectId, drawingId: input.drawingId };
       const views = await scaleProposalsOf(scope, { storage: appStorage() });
       return { views, tolerances: await scaleTolerancesOf({ tenantId: actor.tenantId, projectId: input.projectId }) };
@@ -405,7 +405,7 @@ export const takeoffRouter = router({
     .input(parsed(previewing(affirmScaleInput)))
     .mutation(async ({ ctx, input }): Promise<{ consequence: Consequence; consequenceDigest: string }> => {
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, AFFIRM_SCALE, MEASURE);
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, AFFIRM_SCALE, MEASURE, input.input.drawingId);
       const consequence = await preview(actor, input.input);
       return { consequence, consequenceDigest: consequenceDigest(consequence) };
     }),
@@ -414,7 +414,7 @@ export const takeoffRouter = router({
     .input(parsed(committing(affirmScaleInput)))
     .mutation(async ({ ctx, input }): Promise<{ actId: string; consequenceDigest: string }> => {
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, AFFIRM_SCALE, MEASURE);
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, AFFIRM_SCALE, MEASURE, input.input.drawingId);
       const written = await commit(actor, input.input, input.consequenceDigest);
       return { actId: written.actId, consequenceDigest: written.consequenceDigest };
     }),
@@ -423,7 +423,7 @@ export const takeoffRouter = router({
     .input(parsed(previewing(confirmViewTypeInput)))
     .mutation(async ({ ctx, input }): Promise<Consequence> => {
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_VIEW_TYPE, MEASURE);
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_VIEW_TYPE, MEASURE, input.input.group.drawingId);
       return preview(actor, input.input);
     }),
 
@@ -431,7 +431,7 @@ export const takeoffRouter = router({
     .input(parsed(committing(confirmViewTypeInput)))
     .mutation(async ({ ctx, input }): Promise<{ actId: string; consequenceDigest: string }> => {
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_VIEW_TYPE, MEASURE);
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_VIEW_TYPE, MEASURE, input.input.group.drawingId);
       const written = await commit(actor, input.input, input.consequenceDigest);
       return { actId: written.actId, consequenceDigest: written.consequenceDigest };
     }),
@@ -442,7 +442,7 @@ export const takeoffRouter = router({
       // R-SPINE-006 unqualified: "cookie-authenticated mutations verify origin" — by the rule's one
       // home, never a comparison of this transport's own (B-17).
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_DISCIPLINE, MEASURE);
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_DISCIPLINE, MEASURE, "drawingId" in input.input.group ? input.input.group.drawingId : undefined);
       const consequence = await preview(actor, input.input);
       return { consequence, consequenceDigest: consequenceDigest(consequence) };
     }),
@@ -451,7 +451,7 @@ export const takeoffRouter = router({
     .input(parsed(committing(confirmInput)))
     .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_DISCIPLINE, MEASURE);
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_DISCIPLINE, MEASURE, "drawingId" in input.input.group ? input.input.group.drawingId : undefined);
       const written = await commit(actor, input.input, input.consequenceDigest);
       return { actId: written.actId };
     }),

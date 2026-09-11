@@ -57,7 +57,7 @@ const COMMITTED = z.object({ projectId: z.string(), group: GROUP, consequenceDig
 const previewing = serverCall(
   CONFIRMED,
   async (request, session): Promise<PreviewAnswer> => {
-    const actor = await projectActorFor(session.userId, request.projectId, CONFIRM_VIEW_TYPE, MEASURE);
+    const actor = await projectActorFor(session.userId, request.projectId, CONFIRM_VIEW_TYPE, MEASURE, request.group.drawingId);
     const consequence = await preview(actor, actInput(request));
     return { previewed: true, consequence, consequenceDigest: consequenceDigest(consequence) };
   },
@@ -67,7 +67,7 @@ const previewing = serverCall(
 const committing = serverCall(
   COMMITTED,
   async (request, session): Promise<CommitAnswer> => {
-    const actor = await projectActorFor(session.userId, request.projectId, CONFIRM_VIEW_TYPE, MEASURE);
+    const actor = await projectActorFor(session.userId, request.projectId, CONFIRM_VIEW_TYPE, MEASURE, request.group.drawingId);
     // The committed act IS the answer, and the panel shows it by re-reading the feed: the emptied
     // group and the rows' new lines are both read from the ledger the act just appended to. The
     // sheet is never revalidated for it — the drawing on screen did not change (R-UI-021).
