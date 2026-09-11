@@ -5,7 +5,8 @@
 // film. Both are pure functions here, so both are asserted here. The JSON shape itself is pinned in
 // the last case, because the engine's B2 reads that file verbatim: a key renamed "nicely" is an
 // engine that reads nothing.
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
+import { markChapter } from "../e2e/support/checkpoint";
 import { chaptersOf, criteriaIn, marksOf, CHAPTER_ANNOTATION, type Showreel } from "../e2e/support/showreel-reporter";
 
 describe("criteriaIn: the ids a journey title names", () => {
@@ -85,5 +86,70 @@ describe("chaptersOf: instants become offsets into the film", () => {
     expect(typeof reel.chapters[0]?.startMs).toBe("number");
     expect(typeof reel.chapters[0]?.endMs).toBe("number");
     expect(Array.isArray(reel.chapters[0]?.criteria)).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ the mark, at the checkpoint */
+
+/** A page as `markChapter` uses one: it reads `screencast.showChapter` and nothing else. */
+function fakePage(withScreencast: boolean): { page: unknown; calls: { title: string; description: string }[] } {
+  const calls: { title: string; description: string }[] = [];
+  const screencast = {
+    showChapter: async (title: string, options?: { description?: string }): Promise<void> => {
+      calls.push({ title, description: options?.description ?? "" });
+    },
+  };
+  return { page: withScreencast ? { screencast } : {}, calls };
+}
+
+/** A TestInfo as `markChapter` uses one: it pushes onto `annotations`. */
+function fakeTestInfo(): { annotations: { type: string; description?: string }[] } {
+  return { annotations: [] };
+}
+
+describe("the chapter mark is taken only when the run asked for a film", () => {
+  const flag = "CUBIT_SHOWREEL";
+  const before = process.env[flag];
+
+  afterEach(() => {
+    if (before === undefined) delete process.env[flag];
+    else process.env[flag] = before;
+  });
+
+  test("under CUBIT_SHOWREEL=1 the checkpoint paints a chapter card and files the mark the reporter reads", async () => {
+    process.env[flag] = "1";
+    const { page, calls } = fakePage(true);
+    const testInfo = fakeTestInfo();
+
+    await markChapter(page as never, testInfo as never, "j-001-invite-pending", "J-001 — checkpoint j-001-invite-pending");
+
+    expect(calls, "the card is painted over the video, titled with the checkpoint").toEqual([
+      { title: "j-001-invite-pending", description: "J-001 — checkpoint j-001-invite-pending" },
+    ]);
+    const marks = marksOf(testInfo.annotations);
+    expect(marks.length, "the mark is filed as an annotation, because a reporter cannot see a call").toBe(1);
+    expect(marks[0]?.checkpoint).toBe("j-001-invite-pending");
+    expect(marks[0]?.atMs, "the instant is epoch ms, which the reporter turns into an offset").toBeGreaterThan(0);
+  });
+
+  test("without the flag nothing is painted and nothing is filed — an unfilmed run is untouched", async () => {
+    delete process.env[flag];
+    const { page, calls } = fakePage(true);
+    const testInfo = fakeTestInfo();
+
+    await markChapter(page as never, testInfo as never, "j-001-invite-pending", "…");
+
+    expect(calls, "a card painted over a run nobody is filming is a lie in every artefact it lands in").toEqual([]);
+    expect(testInfo.annotations, "and no mark is filed either").toEqual([]);
+  });
+
+  test("a Playwright without the screencast API costs the journey nothing but the mark is still filed", async () => {
+    process.env[flag] = "1";
+    const { page, calls } = fakePage(false);
+    const testInfo = fakeTestInfo();
+
+    await expect(markChapter(page as never, testInfo as never, "j-004-gallery-dark", "…")).resolves.toBeUndefined();
+    expect(calls).toEqual([]);
+    expect(marksOf(testInfo.annotations).length, "the reel's table of contents does not depend on the overlay").toBe(1);
   });
 });

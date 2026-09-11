@@ -155,6 +155,32 @@ describe("R-UI-012: the contrast floor holds on the token source, in both themes
     }
   });
 
+  test("every state colour a label can sit on clears the text floor in both themes, with the ink that sits on it", () => {
+    // Derived from the emitted table, never from a hand-kept roster: a state colour added tomorrow
+    // is judged the day it lands. A filled state is a GROUND a word sits on — the refusal\'s code,
+    // the success line, the act — so the floor is the text floor, and the ink it clears with is
+    // named in the failure so the stylesheet can be told which one to pair it with.
+    const inks = ["--ink", "--ink-inverse", "--ink-strong"] as const;
+    const failures: string[] = [];
+    for (const [theme, table] of THEMES) {
+      const grounds = Object.keys(table).filter((key) => /^--state-[a-z]+$/.test(key) || key === "--accent-fill" || key === "--act");
+      expect(grounds.length, `${theme}: the table emits state colours at all`).toBeGreaterThan(0);
+      for (const ground of grounds) {
+        const measured = inks
+          .filter((ink) => table[ink] !== undefined)
+          .map((ink) => ({ ink, value: ratio(table, ground, ink) }))
+          .sort((first, second) => second.value - first.value);
+        const best = measured[0];
+        if (best === undefined || best.value + 1e-9 < FLOOR.text) {
+          failures.push(
+            `${theme}: ${ground} carries no ink that clears ${FLOOR.text}:1 — ${measured.map((one) => `${one.ink} ${one.value.toFixed(2)}`).join(", ")}`,
+          );
+        }
+      }
+    }
+    expect(failures, failures.join("\n")).toEqual([]);
+  });
+
   test("the two beams are not one token: the fill a label sits on clears 4.5 where the mark alone does not", () => {
     // This is the finding the alias was introduced for, kept as an assertion rather than a comment:
     // in dark, the mark clears the UI floor and fails the text floor, and the fill clears both.

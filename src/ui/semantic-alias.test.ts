@@ -63,12 +63,31 @@ describe("the semantic alias layer", () => {
       ["--line", "--graphite-200"], ["--line-strong", "--graphite-300"], ["--line-heavy", "--graphite-400"],
       ["--line-accent", "--beam-500"], ["--accent", "--beam-500"], ["--accent-hover", "--beam-600"],
       ["--accent-active", "--beam-700"], ["--accent-subtle", "--beam-100"], ["--accent-muted", "--beam-300"],
-      ["--ink-link", "--beam-600"],
+      ["--ink-link", "--beam-600"], ["--line-quiet", "--graphite-100"],
     ];
+    // The aliases that flip their index BY DESIGN, each with the reason — an ink on an inverted
+    // ground has to invert with it. Everything else is invariant, and is asserted in BOTH tables
+    // below: a dark value that moves is a dark baseline that moved, and the dark baselines are
+    // committed too (B-20).
+    const flipped: Readonly<Record<string, string>> = {
+      "--ink-inverse": "the ink ON --surface-inverse: the inverted ground flips between themes, so its ink must",
+    };
+
     for (const [alias, primitive] of pairs) {
       expect(resolveValue(lightTokens, alias), `${alias} must paint what ${primitive} painted (light is baselined)`).toBe(
         lightTokens[primitive],
       );
+      if (alias in flipped) {
+        expect(
+          resolveValue(darkTokens, alias),
+          `${alias} is on the flipped roster (${flipped[alias] ?? ""}) — if it no longer flips, take it off the roster`,
+        ).not.toBe(darkTokens[primitive]);
+        continue;
+      }
+      expect(
+        resolveValue(darkTokens, alias),
+        `${alias} must paint in DARK what ${primitive} painted in dark — the call sites that were rewritten to it spelled ${primitive} in both themes, and the dark baselines are committed (B-20)`,
+      ).toBe(darkTokens[primitive]);
     }
   });
 

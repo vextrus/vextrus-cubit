@@ -249,7 +249,13 @@ const semanticAlias: Group = {
     invariant("--surface-panel", "var(--graphite-50)"),
     ["--surface-raised", "var(--graphite-0)", "var(--graphite-100)"],
     ["--surface-overlay", "var(--graphite-0)", "var(--graphite-100)"],
-    ["--surface-sunken", "var(--graphite-100)", "var(--graphite-50)"],
+    // Sunken is INVARIANT, and the dark index is the reason. Every one of the 17 committed call
+    // sites that reads it spelled `--graphite-100` before the alias layer, in both themes; a dark
+    // index of graphite-50 repainted all 17 under a baseline nobody re-took and a Design Decision
+    // nobody amended (B-20: a value moves in the commit that says so). The design reading that
+    // wanted a sunken well DARKER than its panel is not refused, it is unmade: it belongs to the
+    // increment that re-takes the dark baselines it moves.
+    invariant("--surface-sunken", "var(--graphite-100)"),
     invariant("--surface-hover", "var(--graphite-100)"),
     invariant("--surface-active", "var(--graphite-200)"),
     invariant("--surface-selected", "var(--beam-100)"),
@@ -271,6 +277,10 @@ const semanticAlias: Group = {
     invariant("--ink-act", "var(--act-600)"),
     invariant("--ink-code", "var(--graphite-800)"),
     // lines
+    // The hairline an archived card recedes to: graphite-100 in both themes, which is what
+    // `.cx-home-card[data-archived="true"]` drew before the alias layer sent it to `--line`
+    // (graphite-200) — a darker line in BOTH themes, so the light baseline moved too.
+    invariant("--line-quiet", "var(--graphite-100)"),
     invariant("--line", "var(--graphite-200)"),
     invariant("--line-strong", "var(--graphite-300)"),
     invariant("--line-heavy", "var(--graphite-400)"),

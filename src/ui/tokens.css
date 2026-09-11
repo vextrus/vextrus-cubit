@@ -144,6 +144,7 @@
   --ink-link: var(--beam-600);
   --ink-act: var(--act-600);
   --ink-code: var(--graphite-800);
+  --line-quiet: var(--graphite-100);
   --line: var(--graphite-200);
   --line-strong: var(--graphite-300);
   --line-heavy: var(--graphite-400);
@@ -304,7 +305,7 @@
   --surface-panel: var(--graphite-50);
   --surface-raised: var(--graphite-100);
   --surface-overlay: var(--graphite-100);
-  --surface-sunken: var(--graphite-50);
+  --surface-sunken: var(--graphite-100);
   --surface-hover: var(--graphite-100);
   --surface-active: var(--graphite-200);
   --surface-selected: var(--beam-100);
@@ -318,6 +319,7 @@
   --ink-link: var(--beam-600);
   --ink-act: var(--act-600);
   --ink-code: var(--graphite-800);
+  --line-quiet: var(--graphite-100);
   --line: var(--graphite-200);
   --line-strong: var(--graphite-300);
   --line-heavy: var(--graphite-400);

@@ -118,8 +118,11 @@ function recordSeed(name: string, moderate: number): void {
  * paints a titled overlay over the video for ~2 s, which is a lie in every run that is not being
  * filmed. Guarded on the API EXISTING as well as on the flag, so a Playwright without `screencast`
  * costs a journey nothing.
+ *
+ * Exported for its own unit test: the guard is the whole behaviour, and a journey run is no place
+ * to learn that a run which asked for no film painted a card over it anyway.
  */
-async function markChapter(page: Page, testInfo: TestInfo, name: string, description: string): Promise<void> {
+export async function markChapter(page: Page, testInfo: TestInfo, name: string, description: string): Promise<void> {
   if (process.env["CUBIT_SHOWREEL"] !== "1") return;
   // The reporter cannot see a call; it can see an annotation. The chapter is recorded in epoch ms
   // and turned into an offset into the video by the reporter, which is the only place that knows
