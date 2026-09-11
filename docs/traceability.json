@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T06:49:33.532Z",
+  "generatedAt": "2026-09-11T09:56:28.208Z",
   "bibleSha256": "271f64e7850091244e2b72996ce237d2ad569260164155cab76f7dfb8106dce0",
   "note": "status 'green' means a merged increment cited the id (see basis); clause-level verification is the checkpoint evidence sweep's",
   "requirements": {
@@ -710,9 +710,16 @@
       ]
     },
     "R-TO-052": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": "must",
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-216-coverage-grid",
+          "kind": "increment",
+          "ref": "inc-216-coverage-grid"
+        }
+      ]
     },
     "R-TO-053": {
       "status": "none",
@@ -1368,6 +1375,11 @@
           "incrementId": "inc-111-viewer-inspector",
           "kind": "increment",
           "ref": "inc-111-viewer-inspector"
+        },
+        {
+          "incrementId": "inc-216-coverage-grid",
+          "kind": "increment",
+          "ref": "inc-216-coverage-grid"
         }
       ]
     },
@@ -1590,9 +1602,16 @@
       ]
     },
     "J-022": {
-      "status": "none",
+      "status": "green",
+      "basis": "cited-by-merged-increment",
       "priority": null,
-      "evidence": []
+      "evidence": [
+        {
+          "incrementId": "inc-216-coverage-grid",
+          "kind": "increment",
+          "ref": "inc-216-coverage-grid"
+        }
+      ]
     },
     "J-030": {
       "status": "none",
