@@ -23,11 +23,13 @@ const DRIFT_LANE = join(ROOT, "scripts", "db-drift.mjs");
 
 /**
  * The files this file edits and puts back — read once, so a restore is never a re-read of a
- * mutation. The tables live in `src/core/db/schema.ts`, which is what the schema tree re-exports and
- * the drift lane therefore reads; `src/core/db.ts` is the barrel over that module and declares no
- * column of its own (B-20).
+ * mutation. The column this probe renames is `tenants.name`, and since AM-11 cut the schema hub per
+ * area (9f0155f) the table that declares it lives in `src/core/db/schema-tenants.ts`;
+ * `src/core/db/schema.ts` is now the barrel that spreads the areas' `*_TABLES` and declares no
+ * column of its own, exactly as `src/core/db.ts` declares none over it (B-20). The probe follows
+ * the column, because what it has to mutate is a DECLARATION the drift lane will compare.
  */
-const SEAM = join(ROOT, "src", "core", "db", "schema.ts");
+const SEAM = join(ROOT, "src", "core", "db", "schema-tenants.ts");
 const BARREL = join(ROOT, "db", "schema.ts");
 const ORIGINAL = new Map<string, string>([
   [SEAM, readFileSync(SEAM, "utf8")],
@@ -75,7 +77,7 @@ describe("AC-2 (breaker): the schema-drift lane must not report a pure tree when
 
     const seam = ORIGINAL.get(SEAM) ?? "";
     const renamed = seam.replace('text("name")', 'text("title")');
-    expect(renamed, "src/core/db/schema.ts no longer declares tenants.name as text(\"name\") — this probe must be re-aimed at whatever column it declares").not.toBe(seam);
+    expect(renamed, "src/core/db/schema-tenants.ts no longer declares tenants.name as text(\"name\") — this probe must be re-aimed at whatever column it declares").not.toBe(seam);
     writeFileSync(SEAM, renamed);
 
     const drifted = schemaDriftStage();
