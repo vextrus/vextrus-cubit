@@ -1,19 +1,29 @@
-// The database lane's config (V-DB). `pnpm test:db` runs `vitest run --dir db`, and vitest resolves
-// its include globs against `--dir` — so the root config's `tests/**` patterns can never collect a
-// suite that lives under `db/`. This config is the one that can: its globs are relative to the same
-// `--dir`, and it arms the lane the roster already derives from db/__tests__ (scripts/lib/lanes.mjs).
+// The database lane's config (V-DB): every suite in the tree that needs a live cluster, and nothing
+// else. Its include is derived from the tree's own import graph — whatever reaches
+// db/__tests__/harness.ts, whether it lives under `db/` or beside the module it judges — so the unit
+// lane and this one partition the suites between them with no list to keep and no file in both
+// (ARCH-02, B-19). It arms the lane the roster already derives from db/__tests__ (scripts/lib/lanes.mjs).
 //
 // It is wired in by package.json's test:db script: `node scripts/db-test.mjs --config db/__tests__/vitest.config.ts`.
+// The runner passes no `--dir`: these globs are the checkout root's, because half of them are.
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+import { laneSplit } from "../../scripts/lib/pg-suites.mjs";
+
+const ROOT = fileURLToPath(new URL("../../", import.meta.url));
+const { database } = laneSplit(ROOT);
 
 export default defineConfig({
   // The product spells its own layers through tsconfig's `@/` alias (ARCH-01), so this lane
   // resolves it too — an absolute path, because the lane runs against `--dir db`.
+  root: ROOT,
   resolve: { alias: { "@": fileURLToPath(new URL("../../src", import.meta.url)) } },
+  // A suite that renders a component is collected here too when it opens a database; tsconfig keeps
+  // `jsx: preserve` because Next compiles the app, so this lane is told the runtime like the other.
+  oxc: { jsx: { runtime: "automatic" } },
   test: {
     environment: "node",
-    include: ["**/*.test.ts"],
+    include: database,
     exclude: ["node_modules/**"],
     // Live Postgres work: every file provisions its own scratch database (named by pid, millisecond
     // and a counter) by COPYING the run's one migrated template (db/__tests__/harness.ts), so the

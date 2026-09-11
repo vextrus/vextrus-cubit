@@ -24,6 +24,7 @@ import * as ts from "typescript";
 import { REFUSALS } from "../../src/core/errors";
 import { TRANSPORT_VOCABULARY } from "../../src/core/errors/transport-vocabulary";
 import unitLaneConfig from "../../vitest.config";
+import dbLaneConfig from "../../db/__tests__/vitest.config";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -119,12 +120,20 @@ const globs = (patterns: string | readonly string[] | undefined): RegExp[] =>
   (typeof patterns === "string" ? [patterns] : (patterns ?? [])).map(globToRegExp);
 
 /**
- * "Executed" answered by the lane, not by a list: a file is exercised only if the unit lane's own
- * `include` collects it and its `exclude` does not drop it (Q-07 — a name in a lane nothing runs
- * exercises nothing). Read off `vitest.config.ts` itself, so a glob changed there changes this.
+ * "Executed" answered by the lanes, not by a list: a file is exercised if ANY armed suite lane's own
+ * `include` collects it and that same lane's `exclude` does not drop it (Q-07 — a name in a lane
+ * nothing runs exercises nothing). Read off the lane configs themselves, so a glob changed there
+ * changes this.
+ *
+ * There are two such lanes since v22 Wave A: the unit lane, which opens no database, and the
+ * database lane, which collects every suite that reaches db/__tests__/harness.ts wherever it lives.
+ * A suite that moved from one to the other is still executed, so asking only the first would make
+ * this scan report codes as unexercised that a green gate had just exercised.
  */
-const LANE_INCLUDE = globs(unitLaneConfig.test?.include);
-const LANE_EXCLUDE = globs(unitLaneConfig.test?.exclude);
+const SUITE_LANES = [unitLaneConfig, dbLaneConfig].map((lane) => ({
+  include: globs(lane.test?.include),
+  exclude: globs(lane.test?.exclude),
+}));
 
 /** Does an armed lane collect this file — and is it a corpus the exercise question is asked of? */
 export function isExecutedTest(file: string): boolean {
@@ -132,7 +141,7 @@ export function isExecutedTest(file: string): boolean {
   if (where.startsWith("..")) return false;
   const posix = where.split(sep).join("/");
   if (NOT_AN_EXERCISE.some((directory) => posix === directory || posix.startsWith(`${directory}/`))) return false;
-  return LANE_INCLUDE.some((glob) => glob.test(posix)) && !LANE_EXCLUDE.some((glob) => glob.test(posix));
+  return SUITE_LANES.some((lane) => lane.include.some((glob) => glob.test(posix)) && !lane.exclude.some((glob) => glob.test(posix)));
 }
 
 const isSourceName = (name: string): boolean => SOURCE_EXTENSIONS.some((extension) => name.endsWith(extension)) && !name.endsWith(".d.ts");

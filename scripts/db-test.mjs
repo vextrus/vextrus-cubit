@@ -14,7 +14,9 @@ const stage = deriveStage(ROOT, "test:db");
 
 let failed = 0;
 if (announce(stage)) {
-  failed = run(["node", "node_modules/vitest/vitest.mjs", "run", "--dir", "db", ...process.argv.slice(2)], { cwd: ROOT });
+  // No `--dir`: the lane's suites are derived (scripts/lib/pg-suites.mjs) and half of them live
+  // beside the module they judge rather than under db/, so the config's globs are the root's.
+  failed = run(["node", "node_modules/vitest/vitest.mjs", "run", ...process.argv.slice(2)], { cwd: ROOT });
   if (failed !== 0) process.stdout.write(`FAIL test:db exit=${failed}\n`);
 }
 
