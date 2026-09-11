@@ -96,7 +96,8 @@ export type RefusalCode =
   | "NOT_IN_PROJECT_SCOPE"
   | "NO_BEARER_SIGHTED"
   | "KIND_NOT_YET_SEEDED"
-  | "NOT_IN_THIS_BILL";
+  | "NOT_IN_THIS_BILL"
+  | "CELL_NOT_IN_RESIDUE";
 
 /** One registered refusal, whole: what it is, what happened, what resolves it, how it renders. */
 export type RefusalEntry = {
@@ -731,6 +732,18 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
     message: "A person held this kind out of this bill on this class and level.",
     remedy: "Measure this kind to bring it back into the bill: published lines take precedence, and the hold is then shown as contradicted.",
     severity: "info",
+    surface: "inline",
+  }),
+  // R-TO-052: a boundary act declares something about a CELL OF THE RESIDUE, and the residue is a
+  // query — an address whose class no channel sighted, or whose level the project's stack does not
+  // hold, names no cell at all. Writing a declaration over it would put a row in the store that no
+  // reading ever shows anyone, so the act is refused by name and the remedy sends the person back to
+  // the grid, where every address that exists is on screen (L-QTY-05, L-ACT-01).
+  CELL_NOT_IN_RESIDUE: Object.freeze({
+    code: "CELL_NOT_IN_RESIDUE",
+    message: "This campaign's residue holds no cell at that address, so there is nothing to declare about it.",
+    remedy: "Open the coverage grid and choose a cell it shows: a class this campaign sighted, on a level of the project's stack.",
+    severity: "error",
     surface: "inline",
   }),
 } satisfies Record<RefusalCode, RefusalEntry>);

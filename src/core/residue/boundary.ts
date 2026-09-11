@@ -6,14 +6,16 @@
 // Both write exactly one `scope_declarations` row, in the transaction the act row is written in
 // (L-ACT-01). Neither withdraws anything: `in_force` is written true and never flipped here, and the
 // screen offers no door that would (Decision § 8).
-import { and, campaigns, eq, levels, quantityLines, registerObjects, scopeDeclarations, type TenantTx } from "../db";
+import { and, campaigns, eq, scopeDeclarations, type TenantTx } from "../db";
 import type { ElementType } from "../catalogue/classes";
 import type { Kind } from "../catalogue/kinds";
-import type { ScopeDeclarationCause } from "../errors";
+import { REFUSALS, type ScopeDeclarationCause } from "../errors";
+import { refusal } from "../faults/refusal-marker";
 import type { Consequence, ConsequenceSubject } from "../acts/consequence";
 import type { ActRendering, ActorCtx, WrittenAct } from "../acts/rendering";
 import type { ActType } from "../acts/law";
-import { IN_BILL, QUANTITY_BEARING, cellRef } from "./law";
+import { residueCellsIn } from "./residue";
+import { IN_BILL, QUANTITY_BEARING, cellRef, type ResidueCell } from "./law";
 
 /** The cell one declaration stands over — L-QTY-05's (class × kind × level). */
 export type DeclarationCell = {
@@ -39,60 +41,29 @@ async function campaignHeld(tx: TenantTx, ctx: ActorCtx, projectId: string, camp
   return held[0] ?? null;
 }
 
-/** The level's own label, as a reader recognises the cell by it (I-25). */
-async function levelLabelOf(tx: TenantTx, ctx: ActorCtx, projectId: string, levelId: string): Promise<string> {
-  const held = await tx
-    .select({ label: levels.label })
-    .from(levels)
-    .where(and(eq(levels.tenantId, ctx.tenantId), eq(levels.projectId, projectId), eq(levels.levelId, levelId)))
-    .limit(1);
-  return held[0]?.label ?? "";
-}
+/** The cause a declaration on the MEASUREMENT axis stands under; the other axis is the bill's. */
+const NOT_IN_PROJECT_SCOPE = "NOT_IN_PROJECT_SCOPE" as const satisfies ScopeDeclarationCause;
 
-/** Whether this campaign published a line in this cell — the arm that stands above every other. */
-async function bearsQuantity(tx: TenantTx, ctx: ActorCtx, campaignId: string, setRevisionId: string, cell: DeclarationCell): Promise<boolean> {
-  const held = await tx
-    .select({ lineId: quantityLines.lineId })
-    .from(quantityLines)
-    .innerJoin(
-      registerObjects,
-      and(
-        eq(registerObjects.tenantId, quantityLines.tenantId),
-        eq(registerObjects.setRevisionId, setRevisionId),
-        eq(registerObjects.objectKey, quantityLines.objectKey),
-        eq(registerObjects.levelId, cell.levelId),
-      ),
-    )
-    .where(
-      and(
-        eq(quantityLines.tenantId, ctx.tenantId),
-        eq(quantityLines.campaignId, campaignId),
-        eq(quantityLines.class, cell.class),
-        eq(quantityLines.kind, cell.kind),
-      ),
-    )
-    .limit(1);
-  return held.length > 0;
-}
-
-/** The declaration already standing over this cell under this cause, or nothing. */
-async function declarationHeld(tx: TenantTx, ctx: ActorCtx, campaignId: string, cell: DeclarationCell, cause: ScopeDeclarationCause): Promise<{ actId: string } | null> {
-  const held = await tx
-    .select({ actId: scopeDeclarations.actId })
-    .from(scopeDeclarations)
-    .where(
-      and(
-        eq(scopeDeclarations.tenantId, ctx.tenantId),
-        eq(scopeDeclarations.campaignId, campaignId),
-        eq(scopeDeclarations.class, cell.class),
-        eq(scopeDeclarations.kind, cell.kind),
-        eq(scopeDeclarations.levelId, cell.levelId),
-        eq(scopeDeclarations.cause, cause),
-        eq(scopeDeclarations.inForce, true),
-      ),
-    )
-    .limit(1);
-  return held[0] ?? null;
+/**
+ * The cell the act stands over, as the residue itself holds it — or the refusal that there is none.
+ *
+ * Whether an address names a cell is the residue's own question (L-QTY-05): a class no channel
+ * sighted and a level the project's stack does not hold are both addresses the query answers nothing
+ * at, and a declaration written over one would be a row no reading ever shows anybody. So the cells
+ * are read through the same arms the grid is painted from rather than re-derived here (B-17), inside
+ * the transaction the act is being rendered in.
+ */
+async function cellOf<TType extends ActType>(tx: TenantTx, ctx: ActorCtx, input: BoundaryInput<TType>, setRevisionId: string, address: string): Promise<ResidueCell> {
+  const cells = await residueCellsIn(tx, { tenantId: ctx.tenantId, projectId: input.projectId }, { campaignId: input.campaignId, setRevisionId });
+  const held = cells.find((cell) => cellRef(cell) === address);
+  if (held === undefined) {
+    throw refusal(REFUSALS.CELL_NOT_IN_RESIDUE.code, "a boundary was declared over an address this campaign's residue holds no cell at", {
+      projectId: input.projectId,
+      campaignId: input.campaignId,
+      cell: address,
+    });
+  }
+  return held;
 }
 
 /**
@@ -105,9 +76,10 @@ async function declarationHeld(tx: TenantTx, ctx: ActorCtx, campaignId: string, 
  * then the idle reading of this axis. A sheet read only in part is beaten by the very arm this act
  * writes, so it is not a reading this act could move and does not enter the Consequence.
  */
-function readingBefore(hasLines: boolean, standing: boolean, cause: ScopeDeclarationCause, axisIdle: string): string {
+function readingBefore(cell: ResidueCell, cause: ScopeDeclarationCause, axisIdle: string): string {
+  const standing = (cause === NOT_IN_PROJECT_SCOPE ? cell.measurementActId : cell.billActId) !== null;
   if (standing) return cause;
-  if (hasLines) return QUANTITY_BEARING;
+  if (cell.measurement === QUANTITY_BEARING) return QUANTITY_BEARING;
   return axisIdle;
 }
 
@@ -120,22 +92,23 @@ function readingBefore(hasLines: boolean, standing: boolean, cause: ScopeDeclara
 export function boundaryRendering<TType extends ActType>(actType: TType, cause: ScopeDeclarationCause, axisIdle: string): ActRendering<BoundaryInput<TType>> {
   async function subjectsOf(ctx: ActorCtx, input: BoundaryInput<TType>, tx: TenantTx): Promise<ConsequenceSubject[]> {
     const campaign = await campaignHeld(tx, ctx, input.projectId, input.campaignId);
-    // A campaign this project does not hold is no subject at all — there is nothing to name — so the
-    // act moves nothing and the seam refuses it by name (L-ACT-01).
-    if (campaign === null) return [];
+    // A campaign this project does not hold names no residue to declare anything about, so the act
+    // is answered rather than attempted — an address is a fact about the address (L-REG-07, B-21).
+    if (campaign === null) {
+      throw refusal(REFUSALS.CAMPAIGN_NOT_FOUND.code, "a boundary was declared under a campaign this project does not hold", {
+        projectId: input.projectId,
+        campaignId: input.campaignId,
+      });
+    }
 
-    const cell: DeclarationCell = { class: input.class, kind: input.kind, levelId: input.levelId };
-    const [hasLines, standing, label] = await Promise.all([
-      bearsQuantity(tx, ctx, input.campaignId, campaign.setRevisionId, cell),
-      declarationHeld(tx, ctx, input.campaignId, cell, cause),
-      levelLabelOf(tx, ctx, input.projectId, input.levelId),
-    ]);
+    const address = cellRef({ kind: input.kind, class: input.class, levelId: input.levelId });
+    const cell = await cellOf(tx, ctx, input, campaign.setRevisionId, address);
 
     return [
       {
-        subjectId: cellRef({ kind: input.kind, class: input.class, levelId: input.levelId }),
-        subjectLabel: [input.kind, input.class, label].filter((part) => part !== "").join(" · "),
-        before: [readingBefore(hasLines, standing !== null, cause, axisIdle)],
+        subjectId: address,
+        subjectLabel: [input.kind, input.class, cell.levelLabel].filter((part) => part !== "").join(" · "),
+        before: [readingBefore(cell, cause, axisIdle)],
         after: [cause],
       },
     ];

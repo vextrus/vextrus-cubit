@@ -279,33 +279,7 @@ export async function residueOf(scope: ResidueScope): Promise<Residue> {
   }
 
   return forTenant({ tenantId: scope.tenantId }).transaction(async (tx) => {
-    const sheets = await manifestOf(tx, scope.tenantId, campaign.setRevisionId);
-    const sighting: SightingScope = { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId, sheets };
-
-    // The union of EXISTS L-QTY-05 states: three readers, each saying what it saw, laid side by side.
-    const [fromRegister, fromPartition, fromLayout, levelRows, lines, declarations, truncated, observations] = await Promise.all([
-      registerSightings(tx, sighting),
-      partitionSightings(tx, sighting),
-      layoutSightings(tx, sighting),
-      levelsOf(tx, { tenantId: scope.tenantId, projectId: scope.projectId }),
-      publishedLinesOf(tx, scope.tenantId, campaign.campaignId, campaign.setRevisionId),
-      declarationsOf(tx, scope.tenantId, campaign.campaignId),
-      truncatedSheetsOf(tx, scope.tenantId, sheets),
-      observationsOf(tx, scope.tenantId, campaign.campaignId, campaign.setRevisionId),
-    ]);
-
-    const levels: ResidueLevel[] = levelRows.map((level) => ({ levelId: level.levelId, ordinal: level.ordinal, label: level.label }));
-    const read: ResidueInput = {
-      bears: BEARS.map((row) => ({ class: row.class, kind: row.kind })),
-      workItems: Object.keys(WORK_ITEM_CATALOGUE),
-      levels,
-      sightings: [...fromRegister, ...fromPartition, ...fromLayout],
-      lines,
-      declarations,
-      truncated,
-      observations,
-    };
-
+    const read = await readingIn(tx, scope, campaign);
     return {
       tenantId: scope.tenantId,
       projectId: scope.projectId,
@@ -314,6 +288,56 @@ export async function residueOf(scope: ResidueScope): Promise<Residue> {
       cells: resolveResidue(read),
     };
   });
+}
+
+/**
+ * The residue of one campaign, read inside a transaction a caller already stands in — the same
+ * reading `residueOf` returns, asked without opening a second one.
+ *
+ * A boundary act needs it: it declares something about a CELL, and whether an address names one is
+ * the residue's own question, answered by the arms above rather than by a second rule about which
+ * addresses exist (B-17, ARCH-02).
+ */
+export async function residueCellsIn(
+  tx: TenantTx,
+  scope: { readonly tenantId: string; readonly projectId: string },
+  campaign: { readonly campaignId: string; readonly setRevisionId: string },
+): Promise<ResidueCell[]> {
+  return resolveResidue(await readingIn(tx, scope, campaign));
+}
+
+/** Everything one campaign's cells are resolved from, composed through the three channels. */
+async function readingIn(
+  tx: TenantTx,
+  scope: { readonly tenantId: string; readonly projectId: string },
+  campaign: { readonly campaignId: string; readonly setRevisionId: string },
+): Promise<ResidueInput> {
+  const sheets = await manifestOf(tx, scope.tenantId, campaign.setRevisionId);
+  const sighting: SightingScope = { tenantId: scope.tenantId, projectId: scope.projectId, setRevisionId: campaign.setRevisionId, sheets };
+
+  // The union of EXISTS L-QTY-05 states: three readers, each saying what it saw, laid side by side.
+  const [fromRegister, fromPartition, fromLayout, levelRows, lines, declarations, truncated, observations] = await Promise.all([
+    registerSightings(tx, sighting),
+    partitionSightings(tx, sighting),
+    layoutSightings(tx, sighting),
+    levelsOf(tx, { tenantId: scope.tenantId, projectId: scope.projectId }),
+    publishedLinesOf(tx, scope.tenantId, campaign.campaignId, campaign.setRevisionId),
+    declarationsOf(tx, scope.tenantId, campaign.campaignId),
+    truncatedSheetsOf(tx, scope.tenantId, sheets),
+    observationsOf(tx, scope.tenantId, campaign.campaignId, campaign.setRevisionId),
+  ]);
+
+  const levels: ResidueLevel[] = levelRows.map((level) => ({ levelId: level.levelId, ordinal: level.ordinal, label: level.label }));
+  return {
+    bears: BEARS.map((row) => ({ class: row.class, kind: row.kind })),
+    workItems: Object.keys(WORK_ITEM_CATALOGUE),
+    levels,
+    sightings: [...fromRegister, ...fromPartition, ...fromLayout],
+    lines,
+    declarations,
+    truncated,
+    observations,
+  };
 }
 
 /** The drawings the pinned revision names, as the pin recorded them (L-REG-06). */
