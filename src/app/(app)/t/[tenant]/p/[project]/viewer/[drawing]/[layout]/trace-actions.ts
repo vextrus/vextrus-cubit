@@ -7,17 +7,18 @@
 // these actions while the lane's own `takeoff.lineEvidence` / `takeoff.linesCiting` procedures answer
 // the same module — one reading, two doors, exactly as the scale already is (risk note 4).
 //
-// The actor is derived here and never taken from the caller: `projectActorFor` is the one place that
-// turns a session and a project into a workspace-scoped actor (B-17, ARCH-02). A registered refusal
-// is carried back to the screen that asked, never turned into a fault and never swallowed
-// (ARCH-03, B-21). A line this project does not hold is neither: the module answers `null` and this
-// door carries that null, which is the Trace's `missing` cell (I-88's idiom).
-import { REFUSALS, type RefusalCode } from "@/core/errors";
-import { refusalCodeOf } from "@/core/faults/refusal-marker";
+// Both doors are opened through the one server-call seam (`@/server/call`): it reads what the screen
+// stated against the schemas below and resolves the presented session ONCE for the action. The actor
+// is derived here and never taken from the caller: `projectActorFor` is the one place that turns a
+// session and a project into a workspace-scoped actor (B-17, ARCH-02). A registered refusal is
+// carried back to the screen that asked, never turned into a fault and never swallowed (ARCH-03,
+// B-21). A line this project does not hold is neither: the module answers `null` and this door
+// carries that null, which is the Trace's `missing` cell (I-88's idiom).
+import { z } from "zod";
+import type { RefusalCode } from "@/core/errors";
 import { lineEvidence, linesCiting, type LineEvidence } from "@/modules/takeoff/trace";
+import { serverCall } from "@/server/call";
 import { projectActorFor } from "@/server/routers/spine";
-import { sessionOf } from "@/server/shell/resolve";
-import { presentedSessionToken } from "@/server/shell/session";
 
 /** The permission reading a project's measurements stands on (L-ACT-03's read side). */
 const MEASURE = "MEASURE" as const;
@@ -41,38 +42,34 @@ export type EvidenceAnswer = { read: true; evidence: LineEvidence | null } | { r
 /** What the other direction answered: the citing lines — possibly none — or the refusal. */
 export type CitingAnswer = { read: true; lines: LineEvidence[] } | { read: false; refusal: RefusalCode };
 
-export async function readLineEvidence(request: LineEvidenceRequest): Promise<EvidenceAnswer> {
-  const session = await sessionOf(await presentedSessionToken());
-  if (session === null) return { read: false, refusal: REFUSALS.SIGNED_OUT.code };
-  try {
+/** What the screen may state at these two doors: an address inside one project, and nothing wider. */
+const EVIDENCE: z.ZodType<LineEvidenceRequest> = z.object({ projectId: z.string(), lineId: z.string() });
+
+const CITING: z.ZodType<LinesCitingRequest> = z.object({ projectId: z.string(), drawingId: z.string(), sourceKeys: z.array(z.string()) });
+
+const evidence = serverCall(
+  EVIDENCE,
+  async (request, session): Promise<EvidenceAnswer> => {
     const actor = await projectActorFor(session.userId, request.projectId, null, MEASURE);
     return { read: true, evidence: await lineEvidence({ tenantId: actor.tenantId, projectId: request.projectId }, request.lineId) };
-  } catch (thrown) {
-    return { read: false, refusal: refused(thrown) };
-  }
-}
+  },
+  (refusal): EvidenceAnswer => ({ read: false, refusal }),
+);
 
-export async function readLinesCiting(request: LinesCitingRequest): Promise<CitingAnswer> {
-  const session = await sessionOf(await presentedSessionToken());
-  if (session === null) return { read: false, refusal: REFUSALS.SIGNED_OUT.code };
-  try {
+const citing = serverCall(
+  CITING,
+  async (request, session): Promise<CitingAnswer> => {
     const actor = await projectActorFor(session.userId, request.projectId, null, MEASURE);
     const lines = await linesCiting({ tenantId: actor.tenantId, projectId: request.projectId }, { drawingId: request.drawingId, sourceKeys: request.sourceKeys });
     return { read: true, lines };
-  } catch (thrown) {
-    return { read: false, refusal: refused(thrown) };
-  }
+  },
+  (refusal): CitingAnswer => ({ read: false, refusal }),
+);
+
+export async function readLineEvidence(request: LineEvidenceRequest): Promise<EvidenceAnswer> {
+  return evidence(request);
 }
 
-/**
- * The registered code a failure travels with, or the failure itself. A refusal is an answer and is
- * carried back; anything else is a fault, and re-throwing it is what puts it on the error boundary
- * with a recorded fault id rather than on this screen as a sentence nobody registered (ARCH-03).
- */
-function refused(thrown: unknown): RefusalCode {
-  const code = refusalCodeOf(thrown);
-  // A marker carrying a code the register does not hold is not a refusal the product can answer
-  // with, so it travels as what it is (R-SPINE-062, B-06).
-  if (code === null || !Object.hasOwn(REFUSALS, code)) throw thrown;
-  return code as RefusalCode;
+export async function readLinesCiting(request: LinesCitingRequest): Promise<CitingAnswer> {
+  return citing(request);
 }

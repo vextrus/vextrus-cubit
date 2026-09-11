@@ -2,20 +2,30 @@
 // What the workspace screens ask the server to do. Each one names its seam and answers with what
 // the seam answered: a registered refusal is carried back to the screen that asked, never turned
 // into a fault and never swallowed (ARCH-03, B-21).
+//
+// Every door that takes anything from a browser is opened through the one server-call seam
+// (`@/server/call`): it reads what was submitted against the schemas below, resolves the presented
+// session ONCE for the action, and carries a registered refusal back in each screen's own answer
+// shape. A submission that is not the shape a door is asked in is answered MALFORMED — a form post
+// missing the workspace it is about states nothing this tier can act on, and guessing at it is how a
+// write lands in the wrong place. The two doors that state nothing at all — signing out and taking
+// the sample offer — are handed nothing to read, so they stand as they are.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import type { RefusalCode } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { archiveProject, createProject, restoreProject, updateProject, type ProjectsCtx } from "@/modules/spine/projects";
+import type { AuthSession } from "@/server/auth/session";
+import { serverCall } from "@/server/call";
 import { sampleSeed, type SampleSeedAnswer } from "@/server/shell/sample-seed";
 import { endSession, presentedSessionToken } from "@/server/shell/session";
-import { viewerFor } from "@/server/shell/viewer";
 import { holdsWorkspace, renameWorkspace, type RenameAnswer } from "@/server/shell/workspace";
 // The two pure helpers, from the module that holds them (B-17) rather than from the barrel that
 // re-exports them: the barrel also carries the frame's client components and the shell stylesheet,
 // and a "use server" module that imports it drags both into every action bundle.
 import { hasVisibleText, shellHref } from "@/ui/shell/routes";
-import { judgeProject, presentedProject, type ProjectJudgement } from "./home/judgement";
+import { judgeProject, presentedProject, type PresentedProject, type ProjectJudgement } from "./home/judgement";
 
 /** The user menu's way out: the session ends, and `/sign-in` is itself the visible way back in. */
 export async function signOutAction(): Promise<void> {
@@ -53,20 +63,37 @@ export type RenameFormState = RenameAnswer | BlankNameAnswer | null;
  * workspace the form was rendered for. The workspace name is on every screen of the frame, so a
  * saved name is re-read there too — the layout is the one place it is rendered from.
  */
-export async function renameWorkspaceAction(_shown: RenameFormState, form: FormData): Promise<RenameFormState> {
-  const tenantId = String(form.get("tenantId") ?? "");
-  const name = String(form.get("name") ?? "");
-  // "An entered name is a name with something visible in it" (I-22) is judged in its one home, so
-  // a name of zero-width characters is refused here exactly as a name of spaces is.
-  if (!hasVisibleText(name)) return { renamed: false, blankName: true };
+/** What the rename form states: which workspace it was rendered for, and the name as presented. */
+const RENAMED = z.object({ tenantId: z.string(), name: z.string() });
 
-  const answer = await renameWorkspace({
-    sessionToken: await presentedSessionToken(),
-    tenantId,
-    name,
-  });
-  if (answer.renamed) revalidatePath(shellHref(tenantId, "projects"), "layout");
-  return answer;
+const renaming = serverCall(
+  RENAMED,
+  async (stated): Promise<RenameFormState> => {
+    // The rename seam is handed the presented token rather than the resolved session: `renameWorkspace`
+    // owns both the membership question and the resolution behind it (R-SPINE-001), and re-cutting
+    // that seam to take an account id would be this file deciding who may rename a workspace — which
+    // is the one thing a transport never decides (B-17, ARCH-02).
+    const answer = await renameWorkspace({ sessionToken: await presentedSessionToken(), tenantId: stated.tenantId, name: stated.name });
+    if (answer.renamed) revalidatePath(shellHref(stated.tenantId, "projects"), "layout");
+    return answer;
+  },
+  (refusal): RenameFormState => ({ renamed: false, refusal }),
+);
+
+/**
+ * R-UI-033's rename, driven by the form itself: the name as the person presented it, and the
+ * workspace the form was rendered for. The workspace name is on every screen of the frame, so a
+ * saved name is re-read there too — the layout is the one place it is rendered from.
+ *
+ * "An entered name is a name with something visible in it" (I-22) is judged HERE, before the server
+ * call is made at all: a name with nothing in it enters nothing, the stored name is untouched by
+ * construction because no seam is asked — not even the one that resolves the session — and the
+ * closed refusal taxonomy (R-SPINE-062) gains nothing for a value the door itself can judge. Only a
+ * submission that got past that judgement is read, sessioned and carried (ARCH-03).
+ */
+export async function renameWorkspaceAction(_shown: RenameFormState, form: FormData): Promise<RenameFormState> {
+  if (!hasVisibleText(String(form.get("name") ?? ""))) return { renamed: false, blankName: true };
+  return renaming(Object.fromEntries(form));
 }
 
 /** What the project form is showing: nothing yet, or the answer the last submission produced. */
@@ -80,67 +107,111 @@ export type ProjectFormState =
 export type LifecycleAnswer = { done: true } | { done: false; refusal: RefusalCode };
 
 /**
+ * What a submission states at the three project doors: the workspace it was made in, the project it
+ * is about (none, for a creation), and — for the form — the fields as the person presented them. The
+ * fields' presentability is not judged here: I-34 puts that in one home (`./home/judgement`), which
+ * the browser and this door both read, and a second reading would be a second answer.
+ */
+const PRESENTED: z.ZodType<PresentedProject> = z.object({
+  name: z.string(),
+  code: z.string(),
+  client: z.string(),
+  siteAddress: z.string(),
+  district: z.string(),
+  buildingType: z.string(),
+  storeys: z.string(),
+  gfaM2: z.string(),
+  notes: z.string(),
+});
+
+const SAVED = z.object({ tenantId: z.string(), projectId: z.string(), presented: PRESENTED });
+const LIFECYCLE = z.object({ tenantId: z.string(), projectId: z.string() });
+
+const saving = serverCall(
+  SAVED,
+  async (stated, session): Promise<ProjectFormState> => {
+    const actor = await actorIn(stated.tenantId, session);
+    if (typeof actor === "string") return { saved: false, refusal: actor };
+
+    const judged = judgeProject(stated.presented);
+    if (!judged.presentable) return { saved: false, judgement: judged.refused };
+
+    return attempted<ProjectFormState>(
+      stated.tenantId,
+      async () => {
+        if (stated.projectId === "") {
+          const created = await createProject(actor, judged.fields);
+          return { saved: true, projectId: created.projectId };
+        }
+        await updateProject(actor, { projectId: stated.projectId, ...judged.fields });
+        return { saved: true, projectId: stated.projectId };
+      },
+      (refusal) => ({ saved: false, refusal }),
+    );
+  },
+  (refusal): ProjectFormState => ({ saved: false, refusal }),
+);
+
+const archiving = serverCall(
+  LIFECYCLE,
+  async (stated, session): Promise<LifecycleAnswer> => {
+    const actor = await actorIn(stated.tenantId, session);
+    if (typeof actor === "string") return { done: false, refusal: actor };
+    return attempted<LifecycleAnswer>(
+      stated.tenantId,
+      async () => {
+        await archiveProject(actor, { projectId: stated.projectId });
+        return { done: true };
+      },
+      (refusal) => ({ done: false, refusal }),
+    );
+  },
+  (refusal): LifecycleAnswer => ({ done: false, refusal }),
+);
+
+const restoring = serverCall(
+  LIFECYCLE,
+  async (stated, session): Promise<LifecycleAnswer> => {
+    const actor = await actorIn(stated.tenantId, session);
+    if (typeof actor === "string") return { done: false, refusal: actor };
+    return attempted<LifecycleAnswer>(
+      stated.tenantId,
+      async () => {
+        await restoreProject(actor, { projectId: stated.projectId });
+        return { done: true };
+      },
+      (refusal) => ({ done: false, refusal }),
+    );
+  },
+  (refusal): LifecycleAnswer => ({ done: false, refusal }),
+);
+
+/**
  * R-SPINE-010's create and edit, through the one form that serves both: a submission carrying a
  * project id edits that project, and one carrying none creates a project. The fields are judged
  * before the seam is called (I-34) — the browser judged them too, and a submission that reached
  * here without them is answered with the same sentence rather than with a driver fault.
  */
 export async function saveProjectAction(_shown: ProjectFormState, form: FormData): Promise<ProjectFormState> {
-  const tenantId = String(form.get("tenantId") ?? "");
-  const projectId = String(form.get("projectId") ?? "");
-  const actor = await actorIn(tenantId);
-  if (typeof actor === "string") return { saved: false, refusal: actor };
-
-  const judged = judgeProject(presentedProject(form));
-  if (!judged.presentable) return { saved: false, judgement: judged.refused };
-
-  return attempted<ProjectFormState>(
-    tenantId,
-    async () => {
-      if (projectId === "") {
-        const created = await createProject(actor, judged.fields);
-        return { saved: true, projectId: created.projectId };
-      }
-      await updateProject(actor, { projectId, ...judged.fields });
-      return { saved: true, projectId };
-    },
-    (refusal) => ({ saved: false, refusal }),
-  );
+  return saving({ tenantId: form.get("tenantId"), projectId: String(form.get("projectId") ?? ""), presented: presentedProject(form) });
 }
 
 /** AC-4's archive: the marker moves and nothing is deleted (L-ACT-03's lifecycle guard). */
 export async function archiveProjectAction(tenantId: string, projectId: string): Promise<LifecycleAnswer> {
-  const actor = await actorIn(tenantId);
-  if (typeof actor === "string") return { done: false, refusal: actor };
-  return attempted<LifecycleAnswer>(
-    tenantId,
-    async () => {
-      await archiveProject(actor, { projectId });
-      return { done: true };
-    },
-    (refusal) => ({ done: false, refusal }),
-  );
+  return archiving({ tenantId, projectId });
 }
 
 /** …and its undo: archiving is reversible, so restore puts the marker back where it found it. */
 export async function restoreProjectAction(tenantId: string, projectId: string): Promise<LifecycleAnswer> {
-  const actor = await actorIn(tenantId);
-  if (typeof actor === "string") return { done: false, refusal: actor };
-  return attempted<LifecycleAnswer>(
-    tenantId,
-    async () => {
-      await restoreProject(actor, { projectId });
-      return { done: true };
-    },
-    (refusal) => ({ done: false, refusal }),
-  );
+  return restoring({ tenantId, projectId });
 }
 
 /**
- * Who is asking, and of which workspace — or the registered refusal that answers instead. A cookie
- * that no longer stands for a live session is SIGNED_OUT, whose remedy is signing in again; an
- * address naming a workspace this session does not hold is PERMISSION_NOT_HELD, which is the same
- * answer the layout gives for the same reason (ARCH-03, B-21).
+ * Of which workspace — or the registered refusal that answers instead. The session is the one the
+ * server-call seam resolved for this action, and a request that presented none was answered
+ * SIGNED_OUT there, whose remedy is signing in again; an address naming a workspace this session
+ * does not hold is PERMISSION_NOT_HELD, which is the same answer the layout gives for the same
+ * reason (ARCH-03, B-21).
  *
  * "Does this account hold THAT workspace" is a membership question, and it is asked as one. The
  * frame's `workspaceFor` answers a different question — the earliest membership, the one workspace
@@ -148,12 +219,9 @@ export async function restoreProjectAction(tenantId: string, projectId: string):
  * second workspace to a person who genuinely holds it. The seam's own row security is what makes the
  * membership check safe to state this widely: the scope carries the tenant either way.
  */
-async function actorIn(tenantId: string): Promise<ProjectsCtx | RefusalCode> {
-  const presented = await presentedSessionToken();
-  const viewer = await viewerFor(presented);
-  if (viewer === null) return "SIGNED_OUT";
-  if (!(await holdsWorkspace(viewer.userId, tenantId))) return "PERMISSION_NOT_HELD";
-  return { tenantId, userId: viewer.userId, actorKind: "human" };
+async function actorIn(tenantId: string, session: AuthSession): Promise<ProjectsCtx | RefusalCode> {
+  if (!(await holdsWorkspace(session.userId, tenantId))) return "PERMISSION_NOT_HELD";
+  return { tenantId, userId: session.userId, actorKind: "human" };
 }
 
 /**

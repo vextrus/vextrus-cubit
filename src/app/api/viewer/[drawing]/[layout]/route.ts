@@ -10,15 +10,14 @@
 // who does not hold the drawing's workspace is WORKSPACE_PERMISSION_NOT_HELD at 403 — existence and
 // membership are one answer, so a stranger learns nothing about somebody else's drawings (Q-12) —
 // and a failure of ours is recorded at the fault seam and answered with its id.
-import { randomUUID } from "node:crypto";
+import { z } from "zod";
 import { REFUSALS } from "@/core/errors";
-import { reportFault } from "@/core/faults/report";
 import { appStorage } from "@/core/storage/app";
 import { renderManifestOf, workspaceOfDrawing } from "@/modules/takeoff/viewer";
 import { partitionOverlayOfSheet } from "@/modules/takeoff/viewer-partition-overlay/server";
 import { snapCalibrationsOfSheet } from "@/modules/takeoff/viewer-snap/server";
 import type { RenderLayer, ViewerHead } from "@/modules/takeoff/viewer";
-import { createContext, type AppContext } from "@/server/context";
+import { json, routeHandler } from "@/server/call";
 import { holdsWorkspace } from "@/server/shell/workspace";
 
 /** A sheet is served from live state; nothing about this route may be built or cached. */
@@ -44,41 +43,40 @@ const NOT_A_PART = "a sheet is asked for as ?part=head, ?part=layer&index=<n>, ?
 const NOT_AN_INDEX = "?index= is a layer's place in the roster the head published: a whole number from 0 upwards";
 
 /**
- * What the address asks for: the head, one layer by its place in the roster the head published, or
- * the stored partition this sheet's overlay is drawn from (R-TO-014). The partition stands BESIDE
- * the head rather than inside it — a screen asks for it once the head is a manifest, so a sheet's
- * first paint is never delayed by a reading of the store it does not need yet (R-UI-043).
+ * What the address asks for, read once by the one reading this tier has (`@/server/call`): the head,
+ * one layer by its place in the roster the head published, the stored partition this sheet's overlay
+ * is drawn from (R-TO-014), or the scale of record over its views. The partition and the calibration
+ * stand BESIDE the head rather than inside it — a screen asks for them once the head is a manifest,
+ * so a sheet's first paint is never delayed by a reading of the store it does not need yet
+ * (R-UI-043).
+ *
+ * `?part=` and `?index=` stay two different questions, and each carries its own sentence: a client
+ * answered with the part's copy for an unreadable index would be told to ask for exactly what it did
+ * ask for. The index is judged as text rather than by `Number`, which reads a blank string as zero
+ * and would serve the first layer to an address that named no layer at all.
  */
-type Asked =
-  | { readonly part: "head" }
-  | { readonly part: "layer"; readonly index: number }
-  | { readonly part: "partition" }
-  | { readonly part: "calibration" };
-
-/**
- * The address's question, or the sentence saying which half of it this feed cannot read. The index
- * is judged as text rather than by `Number`, which reads a blank string as zero and would serve the
- * first layer to an address that named no layer at all.
- */
-function askedFor(query: URLSearchParams): Asked | { readonly error: string } {
-  const part = query.get("part") ?? "head";
-  if (part === "head" || part === "partition" || part === "calibration") return { part };
-  if (part !== "layer") return { error: NOT_A_PART };
-  const asked = query.get("index") ?? "";
-  if (!/^\d+$/.test(asked)) return { error: NOT_AN_INDEX };
-  return { part, index: Number(asked) };
-}
-
-/** A JSON answer, uncached. */
-function json(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-    },
-  });
-}
+const ASKED = z.object({
+  address: z
+    .object({
+      drawing: z.string(),
+      layout: z.string(),
+      tenant: z.string().optional(),
+      // A stated part is one of the four this feed serves; an address that names none asks for the
+      // head, which is what a screen wants first.
+      part: z
+        .string()
+        .optional()
+        .transform((stated) => stated ?? "head")
+        .pipe(z.enum(["head", "layer", "partition", "calibration"], { error: NOT_A_PART })),
+      index: z.string().optional(),
+    })
+    .superRefine((stated, ctx) => {
+      if (stated.part !== "layer") return;
+      if (/^\d+$/.test(stated.index ?? "")) return;
+      ctx.addIssue({ code: "custom", message: NOT_AN_INDEX, path: ["index"] });
+    })
+    .transform((stated) => ({ ...stated, index: stated.index === undefined ? null : Number(stated.index) })),
+});
 
 /** A registered refusal, carried whole so the screen renders the register's copy (R-SPINE-062). */
 function refusalAnswer(code: keyof typeof STATUS): Response {
@@ -128,62 +126,46 @@ function layerAnswer(head: ViewerHead, index: number): Response {
   );
 }
 
-export async function GET(request: Request, route: { params: Promise<{ drawing: string; layout: string }> }): Promise<Response> {
-  // The context is minted from the request itself, which is what every transport and every harness
-  // that drives this door hands it: the presented session is resolved once, by the seam that owns
-  // that question, and the id a fault would be recorded under comes from the same mint (R-SPINE-001).
-  let context: AppContext | null = null;
-  try {
-    const { drawing, layout } = await route.params;
-    const asked = new URL(request.url).searchParams;
-    // `?part=` and `?index=` are two different questions, and both are about the address rather than
-    // about the caller: they are judged together, before anybody is asked who is calling, so a
-    // signed-out client with an unreadable index learns which of the two it got wrong instead of
-    // being told to sign in first (ARCH-03).
-    const wanted = askedFor(asked);
-    if ("error" in wanted) return json({ error: wanted.error }, 400);
+/**
+ * The door itself. What the caller stated is read before it is called, by the one reading this tier
+ * has, so `?part=` and `?index=` — both questions about the address rather than about the caller —
+ * are still answered before anybody is asked who is calling: a signed-out client with an unreadable
+ * index learns which of the two it got wrong instead of being told to sign in first (ARCH-03). The
+ * context is minted by the same seam, so the presented session is resolved exactly once whatever
+ * this door goes on to do with it (R-SPINE-001).
+ */
+export const GET = routeHandler({ route: ROUTE, actor: "viewer", schema: ASKED, sentence: NOT_A_PART }, async ({ input, context }) => {
+  const { drawing, layout, part, index, tenant } = input.address;
+  if (context.session === null) return refusalAnswer("SIGNED_OUT");
 
-    context = await createContext({ req: request });
-    if (context.session === null) return refusalAnswer("SIGNED_OUT");
+  // The workspace the address is inside, as the screen asking knows it. A caller who holds that
+  // workspace is told the truth about a drawing it does not hold — an absence, which is the empty
+  // cell that teaches — while everybody else is told only that they do not hold the workspace, so
+  // a stranger still learns nothing about somebody else's drawings (Q-12).
+  const owner = await workspaceOfDrawing(drawing);
+  const tenantId = owner ?? tenant;
+  if (tenantId === null || tenantId === undefined || (tenant !== undefined && tenant !== tenantId))
+    return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
+  if (!(await holdsWorkspace(context.session.userId, tenantId))) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
 
-    // The workspace the address is inside, as the screen asking knows it. A caller who holds that
-    // workspace is told the truth about a drawing it does not hold — an absence, which is the empty
-    // cell that teaches — while everybody else is told only that they do not hold the workspace, so
-    // a stranger still learns nothing about somebody else's drawings (Q-12).
-    const asking = asked.get("tenant");
-    const owner = await workspaceOfDrawing(drawing);
-    const tenantId = owner ?? asking;
-    if (tenantId === null || tenantId === undefined || (asking !== null && asking !== tenantId))
-      return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
-    if (!(await holdsWorkspace(context.session.userId, tenantId))) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
-
-    // The stored partition of this sheet, for the overlay drawn over it. A drawing nothing has
-    // partitioned yet answers `null` at 200: an absence is an answer, not a refusal and not a fault,
-    // and the panel teaches rather than alarming (R-UI-050, R-TO-014).
-    if (wanted.part === "partition") {
-      return json({ overlay: await partitionOverlayOfSheet({ tenantId, drawingId: drawing, layoutName: layout }) }, 200);
-    }
-
-    // The scale of record over this sheet's views, for the readout that states metres beside the
-    // drawing's own units (R-UI-041, I-150). It stands beside the head for the same reason the
-    // partition does — a sheet's first paint is never delayed by a reading of the store — and a
-    // drawing nothing has partitioned answers `null` at 200 rather than a refusal.
-    if (wanted.part === "calibration") {
-      return json({ calibration: await snapCalibrationsOfSheet({ tenantId, drawingId: drawing, layoutName: layout }) }, 200);
-    }
-
-    // The segment Next resolved is the sheet's name: it arrives decoded, and reading it again would
-    // collide two addresses and fault on a name carrying a bare `%` (R-UI-031).
-    const head = await renderManifestOf({ tenantId, drawingId: drawing, layoutName: layout }, { storage: appStorage() });
-    if (wanted.part === "head") return headAnswer(head);
-    return layerAnswer(head, wanted.index);
-  } catch (failure) {
-    const { faultId } = reportFault({
-      requestId: context?.requestId ?? randomUUID(),
-      actor: context?.actor ?? "viewer",
-      route: ROUTE,
-      cause: failure,
-    });
-    return json({ faultId }, 500);
+  // The stored partition of this sheet, for the overlay drawn over it. A drawing nothing has
+  // partitioned yet answers `null` at 200: an absence is an answer, not a refusal and not a fault,
+  // and the panel teaches rather than alarming (R-UI-050, R-TO-014).
+  if (part === "partition") {
+    return json({ overlay: await partitionOverlayOfSheet({ tenantId, drawingId: drawing, layoutName: layout }) }, 200);
   }
-}
+
+  // The scale of record over this sheet's views, for the readout that states metres beside the
+  // drawing's own units (R-UI-041, I-150). It stands beside the head for the same reason the
+  // partition does — a sheet's first paint is never delayed by a reading of the store — and a
+  // drawing nothing has partitioned answers `null` at 200 rather than a refusal.
+  if (part === "calibration") {
+    return json({ calibration: await snapCalibrationsOfSheet({ tenantId, drawingId: drawing, layoutName: layout }) }, 200);
+  }
+
+  // The segment Next resolved is the sheet's name: it arrives decoded, and reading it again would
+  // collide two addresses and fault on a name carrying a bare `%` (R-UI-031).
+  const head = await renderManifestOf({ tenantId, drawingId: drawing, layoutName: layout }, { storage: appStorage() });
+  if (part === "head") return headAnswer(head);
+  return layerAnswer(head, index ?? 0);
+});

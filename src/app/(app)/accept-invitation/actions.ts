@@ -8,16 +8,20 @@
 // The workspace being joined is not stated by the submission and could not be: the account spending
 // the offer holds no membership of it yet. The token names it, and the invitation home reads it from
 // there (R-SPINE-001: never a value the caller wrote).
+//
+// The door is opened through the one server-call seam (`@/server/call`): it reads what the screen
+// stated against the schema below, resolves the presented session ONCE, and carries a registered
+// refusal back as this screen's own answer — a submission carrying no token is answered MALFORMED
+// rather than spending an allowance on a move nobody could make.
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { REFUSALS, type RefusalCode } from "@/core/errors";
-import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { z } from "zod";
+import type { RefusalCode } from "@/core/errors";
 import { guardTenancyMutation, type TenancyActor, type TenancyRequest } from "@/modules/spine/tenancy";
 import { invitationMachinery } from "@/server/auth/invitation-mail";
 import { admitAttempt } from "@/server/auth/rate-limit";
+import { serverCall } from "@/server/call";
 import { originFactsFromHeaders } from "@/server/context";
-import { presentedSessionToken } from "@/server/shell/session";
-import { sessionOf } from "@/server/shell/resolve";
 
 /** The door this move spends, as `AUTH_RATE_LIMITS` names it (R-SPINE-006). */
 const TENANCY_DOOR = "tenancyAdmin" as const;
@@ -40,33 +44,29 @@ export interface AcceptInvitationRequest {
   token: string;
 }
 
-export async function acceptInvitationAction(request: AcceptInvitationRequest): Promise<AcceptAnswer> {
-  const session = await sessionOf(await presentedSessionToken());
-  // A session that ended mid-action is not a refusal this screen can resolve in place: the way back
-  // in is the door, which is where the layout above sends a sessionless request too (I-57).
-  if (session === null) redirect("/sign-in");
+/** What the accept screen may state: the token the mailed link carried, and nothing else. */
+const ACCEPTED: z.ZodType<AcceptInvitationRequest> = z.object({ token: z.string() });
 
-  // The workspace half of the actor is meaningless for this move and is stated as the account's own
-  // — the invitation home reads the joined workspace out of the token, never out of this field.
-  const actor: TenancyActor = { tenantId: "", userId: session.userId };
-  try {
+const accepting = serverCall(
+  ACCEPTED,
+  async (request, session): Promise<AcceptAnswer> => {
+    // The workspace half of the actor is meaningless for this move and is stated as the account's own
+    // — the invitation home reads the joined workspace out of the token, never out of this field.
+    const actor: TenancyActor = { tenantId: "", userId: session.userId };
     const answered = await guarded({ actor, identity: session.userId, ...originFactsFromHeaders(await headers()) } satisfies TenancyRequest, {
       kind: "acceptInvitation",
       token: request.token,
     });
     return { accepted: true, tenantId: "tenantId" in answered ? answered.tenantId : "" };
-  } catch (thrown) {
-    return { accepted: false, refusal: refused(thrown) };
-  }
-}
+  },
+  (refusal): AcceptAnswer => {
+    // A session that ended mid-action is not a refusal this screen can resolve in place: the way back
+    // in is the door, which is where the layout above sends a sessionless request too (I-57).
+    if (refusal === "SIGNED_OUT") redirect("/sign-in");
+    return { accepted: false, refusal };
+  },
+);
 
-/**
- * The registered code a failure travels with, or the failure itself. A refusal is an answer and is
- * carried back to the screen that asked; anything else is a fault, and re-throwing it is what puts
- * it on the error boundary with a recorded id rather than on this screen as an improvised sentence.
- */
-function refused(thrown: unknown): RefusalCode {
-  const code = refusalCodeOf(thrown);
-  if (code === null || !Object.hasOwn(REFUSALS, code)) throw thrown;
-  return code as RefusalCode;
+export async function acceptInvitationAction(request: AcceptInvitationRequest): Promise<AcceptAnswer> {
+  return accepting(request);
 }

@@ -5,20 +5,22 @@
 // order R-SPINE-006 states, and a guard of this seam's own would be a second opinion about a
 // question that has one (B-17, ARCH-02).
 //
-// A registered refusal is carried back to the panel that asked, which renders it in place; anything
-// else is a fault and travels on to the boundary with its recorded id, never onto the screen as a
-// sentence nobody registered (ARCH-03, B-21).
+// All three moves are opened through the one server-call seam (`@/server/call`): it reads what the
+// panel submitted against the schemas below and resolves the presented session ONCE for the action.
+// A registered refusal is carried back to the panel that asked, which renders it in place; a
+// submission that is not the shape a move is asked in is answered MALFORMED; anything else is a
+// fault and travels on to the boundary with its recorded id, never onto the screen as a sentence
+// nobody registered (ARCH-03, B-21).
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { REFUSALS, type RefusalCode } from "@/core/errors";
-import { refusalCodeOf } from "@/core/faults/refusal-marker";
+import { z } from "zod";
+import type { RefusalCode } from "@/core/errors";
 import { guardTenancyMutation, type TenancyActor, type TenancyMutation, type TenancyRequest } from "@/modules/spine/tenancy";
 import { invitationMachinery } from "@/server/auth/invitation-mail";
 import { admitAttempt } from "@/server/auth/rate-limit";
+import { serverCall } from "@/server/call";
 import { originFactsFromHeaders } from "@/server/context";
-import { presentedSessionToken } from "@/server/shell/session";
-import { sessionOf } from "@/server/shell/resolve";
 import { membersRoute } from "../route-address";
 
 /** The door this screen's mutations spend, as `AUTH_RATE_LIMITS` names it (R-SPINE-006). */
@@ -54,35 +56,59 @@ export interface InvitationRequest {
   invitationId: string;
 }
 
+/** What the panel may state at these three doors: the workspace, and the offer the move is about. */
+const INVITE: z.ZodType<InviteRequest> = z.object({ tenantId: z.string(), email: z.string() });
+const OFFER: z.ZodType<InvitationRequest> = z.object({ tenantId: z.string(), invitationId: z.string() });
+
+/**
+ * What a refusal is to this panel. A session that ended mid-action is not a refusal it can resolve
+ * in place: the way back in is the door, which is where the layout above sends a sessionless request
+ * too (I-57). Every other registered refusal is rendered on the panel that asked.
+ */
+function refusedAs(refusal: RefusalCode): InvitationsAnswer {
+  if (refusal === "SIGNED_OUT") redirect("/sign-in");
+  return { moved: false, refusal };
+}
+
+const inviting = serverCall(
+  INVITE,
+  async (request, session): Promise<InvitationsAnswer> => move(request.tenantId, session.userId, { kind: "createInvitation", email: request.email }),
+  refusedAs,
+);
+
+const resending = serverCall(
+  OFFER,
+  async (request, session): Promise<InvitationsAnswer> => move(request.tenantId, session.userId, { kind: "resendInvitation", invitationId: request.invitationId }),
+  refusedAs,
+);
+
+const revoking = serverCall(
+  OFFER,
+  async (request, session): Promise<InvitationsAnswer> => move(request.tenantId, session.userId, { kind: "revokeInvitation", invitationId: request.invitationId }),
+  refusedAs,
+);
+
 export async function inviteMemberAction(request: InviteRequest): Promise<InvitationsAnswer> {
-  return move(request.tenantId, { kind: "createInvitation", email: request.email });
+  return inviting(request);
 }
 
 export async function resendInvitationAction(request: InvitationRequest): Promise<InvitationsAnswer> {
-  return move(request.tenantId, { kind: "resendInvitation", invitationId: request.invitationId });
+  return resending(request);
 }
 
 export async function revokeInvitationAction(request: InvitationRequest): Promise<InvitationsAnswer> {
-  return move(request.tenantId, { kind: "revokeInvitation", invitationId: request.invitationId });
+  return revoking(request);
 }
 
 /**
  * One move, from the session to the guarded entry and back. The committed move is answered by
  * re-reading: the pending list is what changed, and it is server-rendered from the store the guard
- * just wrote to.
+ * just wrote to. A refusal the guard raises needs no catch here — the seam that opened the door
+ * carries it back in this panel's answer shape (ARCH-03).
  */
-async function move(tenantId: string, mutation: TenancyMutation): Promise<InvitationsAnswer> {
-  const session = await sessionOf(await presentedSessionToken());
-  // A session that ended mid-action is not a refusal this screen can resolve in place: the way back
-  // in is the door, which is where the layout above sends a sessionless request too (I-57).
-  if (session === null) redirect("/sign-in");
-
-  const actor: TenancyActor = { tenantId, userId: session.userId };
-  try {
-    await guarded(await requestFor(actor, session.userId), mutation);
-  } catch (thrown) {
-    return { moved: false, refusal: refused(thrown) };
-  }
+async function move(tenantId: string, userId: string, mutation: TenancyMutation): Promise<InvitationsAnswer> {
+  const actor: TenancyActor = { tenantId, userId };
+  await guarded(await requestFor(actor, userId), mutation);
   revalidatePath(membersRoute(tenantId));
   return { moved: true };
 }
@@ -95,15 +121,4 @@ async function move(tenantId: string, mutation: TenancyMutation): Promise<Invita
  */
 async function requestFor(actor: TenancyActor, identity: string): Promise<TenancyRequest> {
   return { actor, identity, ...originFactsFromHeaders(await headers()) };
-}
-
-/**
- * The registered code a failure travels with, or the failure itself. A refusal is an answer and is
- * carried back to the panel that asked; anything else is a fault, and re-throwing it is what puts it
- * on the error boundary with a recorded id rather than on this screen as an improvised sentence.
- */
-function refused(thrown: unknown): RefusalCode {
-  const code = refusalCodeOf(thrown);
-  if (code === null || !Object.hasOwn(REFUSALS, code)) throw thrown;
-  return code as RefusalCode;
 }

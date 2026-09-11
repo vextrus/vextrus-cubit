@@ -135,8 +135,16 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
 /**
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
+ *
+ * Re-baselined once since the split, for ONE entry: MALFORMED. Its registered copy was the model
+ * transport's ("The model's answer is not in the shape a proposal takes"), because L-AI-01's door
+ * was the first to need the code. Since src/server/call.ts it is the code EVERY door answers an
+ * unreadable statement with, so a person who posted a bad form field was being told something about
+ * a proposal they never asked for. The copy now says what was refused and why in the terms of the
+ * statement, as docs/design/refusal-state.md § 3 requires. Nothing else moved: the code set is
+ * unchanged, and this digest's previous value was dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628.
  */
-const ENTRIES_DIGEST_BEFORE = "dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628";
+const ENTRIES_DIGEST_BEFORE = "19c125e541c2765a66d29db00c206cc49a1a2bbad8afc9da1035f2117a2cf946";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

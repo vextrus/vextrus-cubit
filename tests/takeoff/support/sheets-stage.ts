@@ -238,9 +238,14 @@ export function grantRole(tenantId: string, projectId: string, userId: string, r
     `insert into ${ident("participants")} (${ident(TENANT_COLUMN)}, project_id, user_id)
        values (${lit(tenantId)}::uuid, ${lit(projectId)}::uuid, ${lit(userId)}::uuid) on conflict do nothing;`,
   );
+  // `on conflict do nothing`: since `stagePerson` grants the project's own PRINCIPAL, a suite that
+  // states the same role again is saying what is already true rather than granting a second one —
+  // and `participant_roles_role_once` is right to refuse a duplicate row. Holding a role twice is
+  // not a thing the ledger can mean, so a staging helper asking for it twice is a no-op, not an
+  // error. A DIFFERENT role still lands, which is what every caller of this helper is actually for.
   sql(
     `insert into ${ident("participant_roles")} (${ident(TENANT_COLUMN)}, project_id, user_id, role)
-       values (${lit(tenantId)}::uuid, ${lit(projectId)}::uuid, ${lit(userId)}::uuid, ${lit(role)});`,
+       values (${lit(tenantId)}::uuid, ${lit(projectId)}::uuid, ${lit(userId)}::uuid, ${lit(role)}) on conflict do nothing;`,
   );
 }
 

@@ -1,28 +1,21 @@
 "use server";
 // What the coverage grid asks the server to do: the takeoff lane's own doors, reached from the
-// browser (the register workspace's own idiom beside this file).
+// browser.
 //
-// Nothing is decided here. Each action mounts the takeoff router with the session this request
-// presents and calls the door by name, so the guard, the digest and the seam are the ONE set the wire
-// already answers through — a second guard beside them would be a second answer to who may act
-// (B-17, ARCH-02).
-//
-// A registered refusal is carried back as its code rather than thrown across the boundary, because a
-// rejection crossing a server-action boundary keeps neither its marker nor its cause: the screen
-// re-raises it as the refusal it is and renders the registry's own words (ARCH-03, B-21).
-import { randomUUID } from "node:crypto";
+// Nothing is read or decided here. The lane is mounted through the one home both this workspace and
+// the register's share (`../lane`), and each door's own `.input(parsed(...))` is where what a reader
+// pointed at BECOMES a class, a kind and a cell — one narrowing, at the lane's door, against the
+// closed rosters the catalogue holds. A reading of its own beside that one would be a second answer
+// to what is lawful (B-17, ARCH-03), so a statement this grid cannot make lawfully comes back as the
+// registered MALFORMED the lane refused it with, never as a thrown Error.
 import type { DeclareNotInProjectScopeInput, HoldOutOfBillInput } from "@/core/acts";
-import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import type { CoverageView } from "@/modules/takeoff/coverage/view";
-import { takeoffRouter } from "@/server/routers/takeoff";
-import { sessionOf } from "@/server/shell/resolve";
-import { presentedSessionToken } from "@/server/shell/session";
+import { asked, lane, type DoorAnswer, type Previewed } from "../lane";
 
-/** What a door answered: what the lane answered, or the registered code that stopped it. */
-export type DoorAnswer<T> = { readonly ok: true; readonly answer: T } | { readonly ok: false; readonly refusal: string };
+export type { DoorAnswer, Previewed } from "../lane";
 
-/** What a preview answers (L-ACT-02). */
-export type Previewed = { consequence: unknown; consequenceDigest: string };
+/** What this workspace calls itself where a context names the client that mounted the lane. */
+const CLIENT = "a coverage grid";
 
 /**
  * The cell a boundary door is asked about, as a reader's browser states it: the act type and the
@@ -40,44 +33,8 @@ export type BoundaryAsk = {
   readonly levelId: string;
 };
 
-/** The address this deployment states it answers at (R-SPINE-001), as the context carries it. */
-const configuredOrigin = (): string => process.env["CUBIT_PUBLIC_ORIGIN"] ?? "";
-
-/**
- * The takeoff lane, called as the person this request presents a session for. The stated origin is
- * null: a server action is not a cross-site form post, and R-SPINE-006's rule is about a request that
- * STATES an origin — its one home decides that, not this file.
- */
-async function lane() {
-  const session = await sessionOf(await presentedSessionToken());
-  const origin = configuredOrigin();
-  return takeoffRouter.createCaller({
-    requestId: randomUUID(),
-    actor: session === null ? "anonymous" : session.userId,
-    origin,
-    statedOrigin: null,
-    requestOrigin: origin,
-    deviceLabel: "browser",
-    client: "a coverage grid",
-    session,
-    secureCookies: false,
-    cookies: [],
-  });
-}
-
-/** Call one door and carry back what it answered, refusal included (ARCH-03). */
-async function asked<T>(call: () => Promise<T>): Promise<DoorAnswer<T>> {
-  try {
-    return { ok: true, answer: await call() };
-  } catch (thrown) {
-    const code = refusalCodeOf(thrown) ?? refusalCodeOf((thrown as { cause?: unknown } | null)?.cause);
-    if (code === null) throw thrown;
-    return { ok: false, refusal: code };
-  }
-}
-
 export async function readCoverage(projectId: string): Promise<DoorAnswer<CoverageView>> {
-  const caller = await lane();
+  const caller = await lane(CLIENT);
   return asked(() => caller.coverage({ projectId }));
 }
 
@@ -90,24 +47,21 @@ export async function readCoverage(projectId: string): Promise<DoorAnswer<Covera
 const declared = <T extends HoldOutOfBillInput | DeclareNotInProjectScopeInput>(ask: BoundaryAsk): T => ask as unknown as T;
 
 export async function previewHoldOutOfBill(input: BoundaryAsk): Promise<DoorAnswer<Previewed>> {
-  const caller = await lane();
+  const caller = await lane(CLIENT);
   return asked(() => caller.previewHoldOutOfBill({ input: declared<HoldOutOfBillInput>(input) }));
 }
 
 export async function commitHoldOutOfBill(input: BoundaryAsk, consequenceDigest: string): Promise<DoorAnswer<{ actId: string }>> {
-  const caller = await lane();
+  const caller = await lane(CLIENT);
   return asked(() => caller.commitHoldOutOfBill({ input: declared<HoldOutOfBillInput>(input), consequenceDigest }));
 }
 
 export async function previewDeclareNotInProjectScope(input: BoundaryAsk): Promise<DoorAnswer<Previewed>> {
-  const caller = await lane();
+  const caller = await lane(CLIENT);
   return asked(() => caller.previewDeclareNotInProjectScope({ input: declared<DeclareNotInProjectScopeInput>(input) }));
 }
 
-export async function commitDeclareNotInProjectScope(
-  input: BoundaryAsk,
-  consequenceDigest: string,
-): Promise<DoorAnswer<{ actId: string }>> {
-  const caller = await lane();
+export async function commitDeclareNotInProjectScope(input: BoundaryAsk, consequenceDigest: string): Promise<DoorAnswer<{ actId: string }>> {
+  const caller = await lane(CLIENT);
   return asked(() => caller.commitDeclareNotInProjectScope({ input: declared<DeclareNotInProjectScopeInput>(input), consequenceDigest }));
 }
