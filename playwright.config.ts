@@ -28,7 +28,10 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   workers: 1,
-  reporter: [["list"]],
+  // `list` for a human, and one `JOURNEY <id> green|red` line per journey the caller asked for, so a
+  // run that put several journeys through this one invocation can still be read journey by journey
+  // (tests/e2e/support/journey-reporter.ts). It prints nothing when nobody named a journey.
+  reporter: [["list"], ["./tests/e2e/support/journey-reporter.ts"]],
   globalSetup: "./tests/e2e/support/global-setup.ts",
   // V-E2E: the visual comparisons stand against baselines committed for Linux, in one directory
   // rather than beside each spec — a journey names its baseline and the lane says where it lives.
