@@ -88,6 +88,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "MEMBER_TYPE_UNKNOWN",
   "METHOD_IMPLEMENTATION_MISSING",
   "METHOD_NOT_IN_EDITION",
+  "NOTATION_UNREAD",
   "NOT_ESTABLISHED",
   "NOT_IN_PROJECT_SCOPE",
   "NOT_IN_THIS_BILL",
@@ -137,7 +138,14 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
  *
- * Re-baselined once since the split, for ONE ADDED entry and nothing else: `REQUEST_MALFORMED`
+ * Re-baselined a second time for ONE ADDED entry and nothing else: `NOTATION_UNREAD`
+ * (./takeoff-schedules.ts), the code R-TO-031's notation grammar answers a cell no form of it reads
+ * with — naming the token, because a person shown the glyphs can add the form and a person shown
+ * `null` cannot. The roster grew by that one key — 75 codes to 76 — and not one existing entry's
+ * code, message, remedy, severity or surface moved with it; the previous digest was
+ * 63fd5a229882783d7cf3cae49a3feaef136fa14ae194e4673dae6bab2e31f32f.
+ *
+ * Re-baselined once before that, for ONE ADDED entry and nothing else: `REQUEST_MALFORMED`
  * (./server.ts), the code `src/server/call.ts` answers a statement no door could read with. The
  * roster above grew by that one key — 74 codes to 75 — and not one existing entry's code, message,
  * remedy, severity or surface moved with it.
@@ -150,7 +158,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "63fd5a229882783d7cf3cae49a3feaef136fa14ae194e4673dae6bab2e31f32f";
+const ENTRIES_DIGEST_BEFORE = "34384c64873975d63d66571200e81882ed48188e035a4865482c2d5a69d4bf86";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

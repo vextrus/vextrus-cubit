@@ -143,7 +143,7 @@ const ORDINAL = /^(\d+)(?:ST|ND|RD|TH|F)$/;
 
 /** The strengths a note states, and the factor each unit carries to megapascals. */
 const STRESS_UNITS: Readonly<Record<string, number>> = Object.freeze({
-  PSI: 0.006894757, KSI: 6.894757, MPA: 1, "N/MM2": 1, "N/MM": 1, KG_CM2: 0.0980665, KSC: 0.0980665,
+  PSI: 0.006894757, KSI: 6.894757, MPA: 1, "N/MM2": 1, "N/MM": 1, "KG/CM2": 0.0980665, KSC: 0.0980665,
 });
 
 const MM_PER_INCH = 25.4;

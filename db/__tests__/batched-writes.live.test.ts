@@ -22,6 +22,7 @@ import { lit, run, scalar } from "./support/live-sql";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..");
 const SEAM_MODULE = "src/core/db.ts";
+const BATCH_MODULE = "src/core/db/batch.ts";
 
 /** How many rows the proof writes. Big enough that one commit per row would be unmistakable. */
 const ROWS = 40;
@@ -72,7 +73,7 @@ beforeAll(async () => {
   process.env["DATABASE_URL"] = databaseUrl;
   const abs = join(REPO_ROOT, SEAM_MODULE);
   expect(existsSync(abs) && statSync(abs).isFile(), `${SEAM_MODULE} is missing from the checkout`).toBe(true);
-  seam = (await import(abs)) as Seam;
+  seam = { ...((await import(abs)) as Seam), ...((await import(join(REPO_ROOT, BATCH_MODULE))) as Seam) };
 }, 120_000);
 
 afterAll(async () => {
