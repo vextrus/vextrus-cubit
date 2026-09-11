@@ -86,6 +86,45 @@ def q(v: Decimal) -> str:
     return format(v.quantize(Q3, rounding=ROUND_HALF_EVEN), "f")
 
 
+# Formula strings that name every term a row carries (adversary 6): rows that fold two shapes into
+# one (class, kind) say so instead of reusing a neighbour's string.
+FORMULAS: dict[tuple[str, str], str] = {
+    (
+        "SHEAR_WALL",
+        "RCC_CONCRETE",
+    ): "sum(length · t · floor-to-floor)  [the door face carries no wall; no deduction]",
+    (
+        "BEAM",
+        "RCC_CONCRETE",
+    ): "sum(b · (D − slab t) · clear between support faces)  [taper: mean D]",
+    ("TIE_BEAM", "RCC_CONCRETE"): "sum(b · D · clear between cap faces)",
+    (
+        "LINTEL",
+        "RCC_CONCRETE",
+    ): "sum(b · D · (opening + 2 · 300) · count) + sunshade (projection · 75 · length · count)",
+    (
+        "LINTEL",
+        "FORMWORK",
+    ): "sum((2D + b) · length · count) + sunshade (soffit + edge · 75)",
+    (
+        "SLAB",
+        "RCC_CONCRETE",
+    ): "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area] + sunken drop walls (perimeter · 125 · (300 − t))",
+    (
+        "SLAB",
+        "FORMWORK",
+    ): "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
+    (
+        "STAIR",
+        "FORMWORK",
+    ): "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
+    (
+        "COLUMN",
+        "FORMWORK",
+    ): "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)  [circular: π·d]",
+}
+
+
 class Golden:
     def __init__(self, world: dict[str, Any]) -> None:
         self.w = world
@@ -606,7 +645,7 @@ class Golden:
                 {
                     "quantity": q(self.tot[key] / div),
                     "unit": unit,
-                    "formula": self.formula[cls, kind],
+                    "formula": FORMULAS.get((cls, kind), self.formula[cls, kind]),
                     "members": sorted(self.members.get(key, ())),
                 }
             )
@@ -623,7 +662,11 @@ class Golden:
             per_mark[r["mark"]] = per_mark.get(r["mark"], D(0)) + D(r["kg"])
         for dia in sorted(per_dia):
             # cutting stock: best-fit-decreasing over capacity buckets (identical pieces grouped), 12 m stock
-            groups: dict[Decimal, int] = {}
+            # first-fit-decreasing (L-FRM-05) over the ROUNDED cutting lengths (the length a site cuts;
+            # multiples of 25 mm, so exact integers): pieces longest first, each into the first open 12 m
+            # bar with room, else a new bar; identical pieces placed one after another fill the first
+            # fitting bar before moving on, exactly as piece-by-piece FFD would
+            groups: dict[int, int] = {}
             for r in rows:
                 if r["dia_mm"] != dia:
                     continue
@@ -633,42 +676,33 @@ class Golden:
                     D(r["lap_mm"]),
                 )
                 n = int(D(r["bars"]))
-                if pcs == 1:
-                    groups[raw] = groups.get(raw, 0) + n
-                else:
-                    per_piece = (raw + (pcs - 1) * lap) / pcs
-                    groups[per_piece] = groups.get(per_piece, 0) + n * pcs
-            bins: dict[Decimal, int] = {}
+                per_piece = raw if pcs == 1 else (raw + (pcs - 1) * lap) / pcs
+                length = int(round25(per_piece))
+                groups[length] = groups.get(length, 0) + n * pcs
+            stock_mm = int(M.STOCK)
+            bins: list[int] = []
             for length in sorted(groups, reverse=True):
                 qty = groups[length]
-                for cap in sorted(bins, reverse=True):
+                for i in range(len(bins)):
                     if qty == 0:
                         break
-                    if cap >= length and bins[cap] > 0:
-                        take = min(qty, bins[cap])
-                        bins[cap] -= take
-                        bins[cap - length] = bins.get(cap - length, 0) + take
+                    cap = bins[i]
+                    if cap >= length:
+                        take = min(qty, cap // length)
+                        bins[i] = cap - take * length
                         qty -= take
-                if qty:
-                    per_bar = int(
-                        (M.STOCK / length).to_integral_value(rounding="ROUND_FLOOR")
-                    )
-                    full, rest = divmod(qty, per_bar)
-                    if full:
-                        bins[M.STOCK - per_bar * length] = (
-                            bins.get(M.STOCK - per_bar * length, 0) + full
-                        )
-                    if rest:
-                        bins[M.STOCK - rest * length] = (
-                            bins.get(M.STOCK - rest * length, 0) + 1
-                        )
-            n_bins = sum(bins.values())
-            offcut = sum((cap * n for cap, n in bins.items()), D(0))
+                per_bar = stock_mm // length
+                while qty > 0:
+                    take = min(qty, per_bar)
+                    bins.append(stock_mm - take * length)
+                    qty -= take
+            n_bins = len(bins)
+            offcut = D(sum(bins))
             stock[dia] = {
                 "stock_bars_12m": n_bins,
                 "pieces": sum(groups.values()),
                 "offcut_m": q(offcut / MM),
-                "method": "best-fit-decreasing over capacity buckets, identical pieces grouped",
+                "method": "first-fit-decreasing over rounded cutting lengths, 12 m stock, longest first (L-FRM-05)",
             }
         return {
             "fixture": "F-RCC6-BNBC",
