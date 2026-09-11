@@ -358,10 +358,50 @@ export async function scanRefusals(root: string): Promise<RefusalScan> {
 }
 
 /**
- * Which refusal-shaped names the executed test corpus actually names, and where. A name counts when
- * a test spells it — as a literal, or as the identifier or property a test reads it by — and never
- * when a comment mentions it (Q-07). A registered code counts whatever its shape: the clause
- * conditions exercise on the lane and on being a name, never on an underscore count.
+ * The matchers a test states its expectation THROUGH. A name inside one of these argument lists is
+ * a name the run would fail over if the product stopped answering it; a name anywhere else in a test
+ * file is a name the file merely contains.
+ */
+const MATCHERS =
+  /^(?:toBe|toEqual|toStrictEqual|toMatchObject|toContain|toContainEqual|toContainEqualIgnoringWhitespace|toHaveProperty|toMatch|toThrow|toThrowError|toSatisfy|toHaveBeenCalledWith|toHaveBeenLastCalledWith|toHaveBeenNthCalledWith|toHaveBeenCalledExactlyOnceWith|toHaveText|toHaveValue|toHaveAttribute|toHaveClass|toHaveCount)$/;
+
+/**
+ * The subject of an assertion: `expect(x)`, `expect.soft(x)`, `assert(x)` — and the suites' own
+ * assertion helpers, which are this tree's dominant idiom (`expectRegistered(answer, CODE, 413)`).
+ * A helper whose whole purpose is to state an expectation is an assertion call; the run fails on
+ * its argument exactly as it fails on a matcher's.
+ */
+const ASSERTS = /^(?:expect|assert)/;
+
+function isExpectCall(node: ts.CallExpression): boolean {
+  const callee = node.expression;
+  if (ts.isIdentifier(callee)) return ASSERTS.test(callee.text);
+  if (ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression)) return ASSERTS.test(callee.expression.text);
+  return false;
+}
+
+/** The claim of an assertion: the `.toBe(...)` end of the chain, whatever `.not`/`.resolves` precede it. */
+function isMatcherCall(node: ts.CallExpression): boolean {
+  const callee = node.expression;
+  return ts.isPropertyAccessExpression(callee) && MATCHERS.test(callee.name.text);
+}
+
+/**
+ * Which refusal-shaped names the executed test corpus actually ASSERTS, and where (Q-07).
+ *
+ * "Exercised" used to mean "spelled anywhere in a collected test": an identifier, a property key, a
+ * literal — a name in an unread fixture, in a roster the test enumerates without asserting over, or
+ * in a `const` nobody reads counted exactly as much as a matcher's argument. That made the register's
+ * admission vacuous, because a code can be spelled by the very table it is registered in and by the
+ * test that imports that table for some other purpose, and neither spelling would break if the
+ * product stopped answering the code entirely.
+ *
+ * A name counts now when it stands inside an ASSERTION: an argument of `expect(...)`/`assert(...)`,
+ * or an argument of the matcher that closes the chain. Both halves are needed — `expect(answer.refusal)
+ * .toBe(PERMISSION_NOT_HELD)` states the code on the right and `expect(PERMISSION_NOT_HELD in seen)
+ * .toBe(true)` states it on the left — and a name in the assertion's MESSAGE counts too, because the
+ * message is an argument of the same call and a code named there is a code the reader is being told
+ * about. A comment still spells nothing: names are read off the syntax tree, never off the text.
  */
 export async function exercisedNames(roots: readonly string[]): Promise<Map<string, string[]>> {
   const spoken = new Map<string, string[]>();
@@ -376,9 +416,34 @@ export async function exercisedNames(roots: readonly string[]): Promise<Map<stri
     for (const file of sourceFilesUnder(root, isExecutedTest)) {
       const source = parse(file);
       const where = displayPath(file);
+      // Everything the file's assertions name, codes and plain identifiers alike. The identifiers
+      // matter because a test that binds a code to a local (`const CODE = "MEMBER_HAS_ACTS"`) and
+      // asserts through that local is asserting the code — the binding is the spelling and the
+      // assertion is the claim, and neither half alone is an exercise.
+      const named = new Set<string>();
       eachNode(source, (node) => {
-        const name = ts.isIdentifier(node) || ts.isStringLiteralLike(node) ? node.text : null;
-        if (name !== null && (REFUSAL_SHAPE.test(name) || registered.has(name))) record(name, where);
+        if (!ts.isCallExpression(node) || !(isExpectCall(node) || isMatcherCall(node))) return;
+        // The whole argument subtree, so a code inside an object literal, an array, a template or a
+        // property key of an expected shape is as asserted as a bare literal is.
+        for (const argument of node.arguments) {
+          const inside = (child: ts.Node): void => {
+            if (ts.isIdentifier(child) || ts.isStringLiteralLike(child)) named.add(child.text);
+            child.forEachChild(inside);
+          };
+          inside(argument);
+        }
+      });
+      for (const name of named) if (REFUSAL_SHAPE.test(name) || registered.has(name)) record(name, where);
+      // One hop of aliasing, and one only: the literal a name the assertions use was declared from.
+      // A chain of renames is not followed — a code three bindings away from the claim is not a code
+      // the claim is about.
+      eachNode(source, (node) => {
+        if (!ts.isVariableDeclaration(node) && !ts.isPropertyAssignment(node) && !ts.isImportSpecifier(node)) return;
+        const bound = ts.isImportSpecifier(node) ? node.name : node.name;
+        if (!ts.isIdentifier(bound) || !named.has(bound.text)) return;
+        const from = ts.isImportSpecifier(node) ? (node.propertyName ?? node.name) : ((node as ts.VariableDeclaration | ts.PropertyAssignment).initializer ?? null);
+        const text = from !== null && (ts.isIdentifier(from) || ts.isStringLiteralLike(from)) ? from.text : null;
+        if (text !== null && (REFUSAL_SHAPE.test(text) || registered.has(text))) record(text, where);
       });
     }
   }
