@@ -1,7 +1,8 @@
 # F-RCC6-BNBC — decisions of the Fixture Engineer (Wave A: model, golden, validators, traps)
 
-Numbers below are from `fixtures/rcc6-bnbc/takeoff.golden.json` at this commit (concrete 1,185.9 m³ of
-which piles 372.8; formwork 5,680 m²; rebar 165.6 t; 89 piles / 1,899 m; 376 rows; 36/36 M3 cells).
+Numbers in the AM-02 section were measured at 50a13d4 (concrete 1,185.9 m³ of which piles 372.8; formwork
+5,680 m²; rebar 165.6 t). After the adversary round (§ "Adversary round" below) the golden stands at
+concrete 1,186.9 m³, formwork 5,686.0 m², rebar 166.6 t; 89 piles / 1,899 m; 379 rows; 36/36 M3 cells.
 
 ## AM-02 — one owner per junction (the measurement-convention law)
 
@@ -36,7 +37,10 @@ The M2 column rows do not move (columns keep floor-to-floor).
 **Amendment text for the Bible (G1 pastes; replaces the junction sentence of L-MEA-01 and amends
 L-FRM-02/03):**
 
-> **L-MEA-09 One owner per junction.** Each junction volume and each contact face has exactly one owning
+> **L-MEA-09 One owner per junction** (supersedes the junction sentences of **L-MEA-01** — "beam length is
+> the drawn long-section span with the junction in the beam; slab–beam junction deductions defer with a
+> reason" — and the "beams (long-section spans, junction in beam)" clause of **R-TO-032**; G1 amends both
+> to cite this law). Each junction volume and each contact face has exactly one owning
 > member, in the precedence pile > pile cap > column / shear wall > beam > slab. Vertical members measure
 > floor-to-floor through joints (band-aware). Beams measure clear between support faces and below the slab
 > soffit: `b × (D − t_slab) × clear`, the thicker adjoining slab governing t. Slabs run through: outline to
@@ -144,3 +148,34 @@ bar mark, dia, shape, legs, count, role, lap), `regions` (panels per level with 
 `selfcheck.schedule_marks()` (which sheet lists which mark) and `traps.json` (sheet + placeholder handle
 to fill). The sheets print authored values; the only disagreements allowed are the registered traps
 (T-DIM-OVERRIDE 4,267.2 → "14'-2"", T-RISER-ROUNDED, T-BBS-TOTAL 165,637.323 → 168,453.157, T-NOT-COVER).
+
+## Adversary round (fix-forward on v22/f1) — rulings the golden had taken silently
+
+**(3a) Shape 51 — which formula is law.** L-FRM-05 writes the closed link explicitly as
+`51 = 2(A+B+C) − 2.5r − 5d` and, in the same clause, the generic `Σlegs − bends·(0.5r + d)`. A closed
+link has two hook extensions, not four, so the explicit clause double-counts the hooks: on this fixture it
+would add +18.7 % to 672 link marks (+3,065 kg). **Ruling: the generic form is law; the explicit `51`
+text is a transcription slip.** Both golden paths use `2(A+B) + 2C − 2.5r − 5d` (C = the 135° hook
+extension); `golden.SHAPE_FORMULA["51"]` prints the ruled form. *Amendment text for L-FRM-05 (G1):*
+
+> `51 = 2(A + B) + 2C − 2.5r − 5d` (closed link, A × B to the outer bend line, C the hook extension); every
+> shape's cutting length is the generic `Σlegs − bends·(0.5r + d)`, and an explicit code formula that
+> disagrees with the generic form is void.
+
+**(3b) Cutting stock — first-fit-decreasing.** L-FRM-05 says "cutting stock as 1-D bin packing by
+diameter, first-fit-decreasing"; the first golden used best-fit over capacity buckets. **Ruling: FFD, as
+written**, over the *rounded* cutting length (the length a site cuts; the raw length is the billed
+surface). `bbs.golden.json` re-emitted: 8 mm 400 bars · 10 mm 9,450 · 12 mm 1,238 · 16 mm 1,200 ·
+20 mm 1,737 · 25 mm 140 (offcuts per diameter beside). *Amendment text:* "… first-fit-decreasing over the
+rounded cutting length; the stock count and offcut are informational and never billed."
+
+**(3c) Junction — the clauses AM-02 replaces.** Named in the L-MEA-09 text above: **L-MEA-01**
+(cubit.bible.xml:214, "junction in the beam … slab–beam junction deductions defer") and **R-TO-032**
+(:462, "beams (long-section spans, junction in beam)"). Both must cite L-MEA-09 after G1 pastes it.
+
+**What the independent path (adversary 2) found in the model, now fixed:** face-flush bands moved the
+column centre *inward* (inner face flush, not outer) — 505d0dc; beam clear spans were taken from half a
+column width instead of the real face — 3238fb1; floor landings and the SRR/MRR slabs took no
+column/wall or beam-soffit deductions and had no bars — e8604d1; SB-R5/SB-R6 sat on the core's own wall
+legs and one carried a *negative* clear span — a04db54 (selfcheck now refuses any beam clear ≤ 0 or
+cutting length ≤ 0); the septic baffle ran across the wrong dimension — e8604d1.
