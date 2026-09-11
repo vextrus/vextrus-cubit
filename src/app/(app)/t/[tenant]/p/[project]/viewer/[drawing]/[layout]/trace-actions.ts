@@ -59,7 +59,7 @@ const evidence = serverCall(
 const citing = serverCall(
   CITING,
   async (request, session): Promise<CitingAnswer> => {
-    const actor = await projectActorFor(session.userId, request.projectId, null, MEASURE, request.drawingId);
+    const actor = await projectActorFor(session.userId, request.projectId, null, MEASURE);
     const lines = await linesCiting({ tenantId: actor.tenantId, projectId: request.projectId }, { drawingId: request.drawingId, sourceKeys: request.sourceKeys });
     return { read: true, lines };
   },

@@ -18,14 +18,12 @@ beforeEach(() => {
   guard.authorize.mockImplementation(async () => ({ authorized: true, actor: {}, tenantId: "tenant-1", userId: "user-1" }));
 });
 
-describe("POST /api/upload asks the one guard, and names the permission it moves", () => {
+describe("POST /api/upload asks the one guard", () => {
   test("the project and the named permission reach the guard", async () => {
     await admitForProject("user-1", "project-1");
-    expect(guard.authorize, "a drawing is what a measurement is taken from, so the door moves MEASURE").toHaveBeenCalledWith({
+    expect(guard.authorize, "the workspace is the project's own, looked up as the system, never a tenant from the wire").toHaveBeenCalledWith({
       userId: "user-1",
       projectId: "project-1",
-      permission: "MEASURE",
-      actType: null,
     });
   });
 

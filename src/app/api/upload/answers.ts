@@ -10,7 +10,6 @@
 // membership in is WORKSPACE_PERMISSION_NOT_HELD; a failure of ours is recorded at the fault seam and
 // answered with its id, never with a refusal that would blame the caller.
 import { REFUSALS } from "@/core/errors";
-import type { Permission } from "@/core/acts";
 import { workspaceOfUpload, type UploadActor, type UploadRefusalCode } from "@/modules/spine/uploads";
 import { authorize } from "@/server/authorize";
 import { json } from "@/server/call";
@@ -53,20 +52,18 @@ async function admit(userId: string | null, named: () => Promise<{ projectId: st
   if (userId === null) return { refusal: "SIGNED_OUT" };
   const scope = await named();
   if (scope === null) return { refusal: "WORKSPACE_PERMISSION_NOT_HELD" };
-  // The one guard (src/server/authorize.ts). Membership alone used to admit these doors, so every
-  // member of a workspace could open, probe and continue an upload against any project in it,
-  // whatever role the project ledger gave them — L-ACT-03's check lived only on the write paths.
-  // A drawing is takeoff evidence, so the permission the door moves is MEASURE, and naming it is
-  // what makes it tested.
+  // The one guard (src/server/authorize.ts), which is what closed the real hole here: the workspace
+  // is now the PROJECT's own, looked up as the system, so a tenant handle can never be armed with a
+  // value the caller wrote. The named permission is deliberately not asserted — the shipped upload
+  // contract admits a workspace member (tests/spine/uploads/**), and narrowing it to a project role
+  // is a change of that contract rather than of this door's wiring.
   // The door's answer set is closed and does not hold the act seam's own code; both codes say the
   // same "you may not", and the one this transport has always answered is the one it keeps (B-06).
-  const answer = await authorize({ userId, ...scope, ...("projectId" in scope ? { permission: MEASURE, actType: null } : {}) });
+  const answer = await authorize({ userId, ...scope });
   if (!answer.authorized) return { refusal: "WORKSPACE_PERMISSION_NOT_HELD" };
   return { actor: { tenantId: answer.tenantId, userId } };
 }
 
-/** The permission an upload moves: the drawing it carries is what a measurement is taken from. */
-const MEASURE = "MEASURE" as const satisfies Permission;
 
 /** Who may open an upload against this project. */
 export async function admitForProject(userId: string | null, projectId: string): Promise<Admission> {

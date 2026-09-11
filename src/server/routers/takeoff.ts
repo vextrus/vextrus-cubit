@@ -236,7 +236,9 @@ export const takeoffRouter = router({
   linesCiting: signedInProcedure
     .input(parsed(citing))
     .query(async ({ ctx, input }): Promise<LineEvidence[]> => {
-      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE, input.drawingId);
+      const actor = await projectActorFor(ctx.session.userId, input.projectId, null, MEASURE);
+      // The Trace answers about a drawing this project may have published nothing on, and says so by
+      // name; binding the id here would answer that lawful question with "you may not" instead.
       return linesCiting({ tenantId: actor.tenantId, projectId: input.projectId }, { drawingId: input.drawingId, sourceKeys: input.sourceKeys });
     }),
 
@@ -442,7 +444,7 @@ export const takeoffRouter = router({
       // R-SPINE-006 unqualified: "cookie-authenticated mutations verify origin" — by the rule's one
       // home, never a comparison of this transport's own (B-17).
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_DISCIPLINE, MEASURE, "drawingId" in input.input.group ? input.input.group.drawingId : undefined);
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_DISCIPLINE, MEASURE);
       const consequence = await preview(actor, input.input);
       return { consequence, consequenceDigest: consequenceDigest(consequence) };
     }),
@@ -451,7 +453,7 @@ export const takeoffRouter = router({
     .input(parsed(committing(confirmInput)))
     .mutation(async ({ ctx, input }): Promise<{ actId: string }> => {
       verifyStatedOrigin({ statedOrigin: ctx.statedOrigin, requestOrigin: ctx.requestOrigin, configuredOrigin: ctx.origin });
-      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_DISCIPLINE, MEASURE, "drawingId" in input.input.group ? input.input.group.drawingId : undefined);
+      const actor = await projectActorFor(ctx.session.userId, input.input.projectId, CONFIRM_DISCIPLINE, MEASURE);
       const written = await commit(actor, input.input, input.consequenceDigest);
       return { actId: written.actId };
     }),

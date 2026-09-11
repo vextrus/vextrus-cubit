@@ -103,7 +103,7 @@ export async function previewConfirmDiscipline(request: ConfirmRequest): Promise
   const session = await sessionOf(await presentedSessionToken());
   if (session === null) return { previewed: false, refusal: "SIGNED_OUT" };
   try {
-    const actor = await projectActorFor(session.userId, request.projectId, CONFIRM_DISCIPLINE, MEASURE, "drawingId" in request.group ? request.group.drawingId : undefined);
+    const actor = await projectActorFor(session.userId, request.projectId, CONFIRM_DISCIPLINE, MEASURE);
     const consequence = await preview(actor, actInput(request));
     return { previewed: true, consequence, consequenceDigest: consequenceDigest(consequence) };
   } catch (thrown) {
@@ -115,7 +115,7 @@ export async function commitConfirmDiscipline(request: ConfirmRequest & { conseq
   const session = await sessionOf(await presentedSessionToken());
   if (session === null) return { committed: false, refusal: "SIGNED_OUT" };
   try {
-    const actor = await projectActorFor(session.userId, request.projectId, CONFIRM_DISCIPLINE, MEASURE, "drawingId" in request.group ? request.group.drawingId : undefined);
+    const actor = await projectActorFor(session.userId, request.projectId, CONFIRM_DISCIPLINE, MEASURE);
     const written = await commit(actor, actInput(request), request.consequenceDigest);
     // The committed act IS the answer, and the screen shows it by re-reading: the confirmed cards and
     // the emptied group are both server-rendered from the ledger the act just appended to.
