@@ -65,28 +65,20 @@ describe("the semantic alias layer", () => {
       ["--accent-active", "--beam-700"], ["--accent-subtle", "--beam-100"], ["--accent-muted", "--beam-300"],
       ["--ink-link", "--beam-600"], ["--line-quiet", "--graphite-100"],
     ];
-    // The aliases that flip their index BY DESIGN, each with the reason — an ink on an inverted
-    // ground has to invert with it. Everything else is invariant, and is asserted in BOTH tables
-    // below: a dark value that moves is a dark baseline that moved, and the dark baselines are
-    // committed too (B-20).
-    const flipped: Readonly<Record<string, string>> = {
-      "--ink-inverse": "the ink ON --surface-inverse: the inverted ground flips between themes, so its ink must",
-    };
-
+    // EVERY pair holds in BOTH tables, and that is not luck: what flips between the themes is the
+    // graphite RAMP itself (`--graphite-0` is the page in light and the pit in dark), so an alias
+    // that named the right step of the ramp in light names the right step in dark under the same
+    // name — `--ink-inverse` is `--graphite-0` in both. The aliases that really do change index
+    // (`--surface-raised`, `--surface-overlay`) are NOT on this list, because no call site was
+    // rewritten to them from a fixed primitive. So a dark value that moves here is a dark baseline
+    // that moved, and the dark baselines are committed too (B-20).
     for (const [alias, primitive] of pairs) {
       expect(resolveValue(lightTokens, alias), `${alias} must paint what ${primitive} painted (light is baselined)`).toBe(
         lightTokens[primitive],
       );
-      if (alias in flipped) {
-        expect(
-          resolveValue(darkTokens, alias),
-          `${alias} is on the flipped roster (${flipped[alias] ?? ""}) — if it no longer flips, take it off the roster`,
-        ).not.toBe(darkTokens[primitive]);
-        continue;
-      }
       expect(
         resolveValue(darkTokens, alias),
-        `${alias} must paint in DARK what ${primitive} painted in dark — the call sites that were rewritten to it spelled ${primitive} in both themes, and the dark baselines are committed (B-20)`,
+        `${alias} must paint in DARK what ${primitive} painted in dark — the call sites rewritten to it spelled ${primitive} in both themes, and the dark baselines are committed (B-20)`,
       ).toBe(darkTokens[primitive]);
     }
   });
