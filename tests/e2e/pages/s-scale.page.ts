@@ -70,6 +70,23 @@ export class SScalePage {
     return this.page.getByTestId(S_SCALE.unit);
   }
 
+  /**
+   * Choose an option from one of the frame's Select controls. The shipped Select is a listbox on a
+   * `role="combobox"` button (B-17), not a native `<select>`, so `selectOption` speaks to nothing: a
+   * journey opens the control and presses the option the way a reader does. Named by the option's
+   * own name, with its text as the fallback for a label that carries more than the value.
+   */
+  async select(testId: string, option: string): Promise<void> {
+    const trigger = this.page.getByTestId(testId);
+    await trigger.click();
+    await expect(trigger, `the ${testId} control states that its listbox is open`).toHaveAttribute("aria-expanded", "true");
+    const listbox = this.page.getByRole("listbox");
+    const named = listbox.getByRole("option", { name: option, exact: true });
+    const chosen = (await named.count()) > 0 ? named : listbox.getByRole("option").filter({ hasText: option }).first();
+    await chosen.click();
+    await expect(trigger, `the ${testId} control closes its listbox on the option it was given`).toHaveAttribute("aria-expanded", "false");
+  }
+
   get observe(): Locator {
     return this.page.getByTestId(S_SCALE.observe);
   }

@@ -24,7 +24,7 @@ import { SCALE_COPY } from "../../../src/modules/takeoff/scale-ui/copy";
 import { drawings } from "../../../src/app/(app)/t/[tenant]/p/[project]/drawings/strings";
 import { checkpoint } from "../support/checkpoint";
 import { SDrawingsPage } from "../pages/s-drawings.page";
-import { SScalePage } from "../pages/s-scale.page";
+import { S_SCALE, SScalePage } from "../pages/s-scale.page";
 import { SViewerPartitionPage } from "../pages/s-viewer-partition.page";
 import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
 import { SViewerSnapPage } from "../viewer/s-viewer-snap.page";
@@ -201,7 +201,7 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     const headerFactor = metresPer(HEADER_UNIT) as string;
     const entered = ((Number(headerFactor) * span) / Number(metresPer(HEADER_UNIT) as string)).toFixed(3);
     await scale.distance.fill(entered);
-    await scale.unit.selectOption(HEADER_UNIT);
+    await scale.select(S_SCALE.unit, HEADER_UNIT);
     await scale.observe.click();
 
     await expect(scale.observations, "pressing Observe appends exactly one observation").toHaveCount(1);
