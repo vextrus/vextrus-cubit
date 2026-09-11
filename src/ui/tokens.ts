@@ -260,7 +260,13 @@ const semanticAlias: Group = {
     invariant("--ink-secondary", "var(--graphite-700)"),
     invariant("--ink-muted", "var(--graphite-600)"),
     invariant("--ink-disabled", "var(--graphite-500)"),
-    ["--ink-inverse", "var(--graphite-0)", "var(--graphite-1000)"],
+    // §4.1 asks this one to flip its index — graphite-0 on light, graphite-1000 on dark. It cannot.
+    // The dark beam is a mid-tone (#6E63C8): near-white ink on it measures about 3.9:1, and axe
+    // called it on both primary buttons of the shell. graphite-0 is "the app's ground" in BOTH
+    // themes, which is what inverse ink means — the ground used as ink — and on the dark beam it is
+    // near-black and passes. The direction's own contrast floor (§1, "both themes, mechanical")
+    // outranks the index in its table, so the token is invariant and this is why.
+    invariant("--ink-inverse", "var(--graphite-0)"),
     invariant("--ink-link", "var(--beam-600)"),
     invariant("--ink-act", "var(--act-600)"),
     invariant("--ink-code", "var(--graphite-800)"),

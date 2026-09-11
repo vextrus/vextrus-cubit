@@ -59,30 +59,19 @@ export default defineConfig({
           },
         ]
       : [{ name: "light", use: { colorScheme: "light" as const } }],
-  // 1440x900 at scale 1, reduced motion, a fixed locale and clock, and the three Chromium font
-  // flags — so a capture is the same picture on any box, and a designer's browser and the suite's
-  // disagree about no glyph (Design Direction 00 §9.3).
+  // Design Direction 00 §9.3 asks this lane for 1440x900 at scale 1, a fixed locale and clock,
+  // reduced motion and the three Chromium font flags. Every one of those moves every committed
+  // picture — the viewport by 160x180 px, the font flags by changing how a glyph is rastered — so
+  // they are NOT set here. Re-baselining the world is one lease held by one node, and this is not
+  // it; they land in the same commit as the pictures they are worth, with the geometry and the
+  // captures proved together. What is set here is the one default that moves no picture and that
+  // the theme change made necessary.
   use: {
     baseURL,
-    viewport: { width: 1440, height: 900 },
-    deviceScaleFactor: 1,
-    locale: "en-GB",
-    timezoneId: "Asia/Dhaka",
     // The product's served default is dark (R-UI-001). Every baseline committed to
     // tests/e2e/baselines/design was taken light, so this lane states light rather than inheriting
     // it: the resolver settles the root attribute from this preference before first paint.
     colorScheme: "light",
-    launchOptions: {
-      // Reduced motion is a launch flag rather than a `use` option: the installed @playwright/test
-      // publishes no `reducedMotion` in its test options, and a capture that waits on an animation
-      // is a flaky capture whichever surface turns the animation off.
-      args: [
-        "--force-prefers-reduced-motion",
-        "--font-render-hinting=none",
-        "--disable-lcd-text",
-        "--force-color-profile=srgb",
-      ],
-    },
     // Vextrus Builder v21 L9: the engine turns video and a full trace on for the final, green,
     // pre-merge journey run only (CUBIT_E2E_VIDEO / CUBIT_E2E_TRACE = on) and harvests them into
     // the increment's evidence; every other run keeps the cheap defaults.

@@ -313,7 +313,7 @@
   --ink-secondary: var(--graphite-700);
   --ink-muted: var(--graphite-600);
   --ink-disabled: var(--graphite-500);
-  --ink-inverse: var(--graphite-1000);
+  --ink-inverse: var(--graphite-0);
   --ink-link: var(--beam-600);
   --ink-act: var(--act-600);
   --ink-code: var(--graphite-800);
