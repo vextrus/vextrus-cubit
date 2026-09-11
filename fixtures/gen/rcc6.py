@@ -1180,15 +1180,20 @@ def sides_of(run: Run, level: str, thickness_mm: float) -> tuple[float, float]:
     return (sides[0], sides[1])
 
 
-def beam_measurements(level: str, thickness_mm: float) -> dict[str, dict[str, Any]]:
-    """Per beam mark at `level`: its measured clear length in metres and its two slab faces."""
-    out: dict[str, dict[str, Any]] = {}
+def beam_measurements(level: str, thickness_mm: float) -> dict[str, dict[tuple[float, float], float]]:
+    """Per beam mark at `level`: clear millimetres, grouped by the pair of slabs it sits between.
+
+    The pair is sorted, so the two mirrored edge beams of one mark (slab inboard, nothing
+    outboard) fall into the same group — `(0, 150)` — instead of cancelling each other out.
+    """
+    out: dict[str, dict[tuple[float, float], float]] = {}
     for run in beam_runs(level):
         clear = sum(b - a for a, b in segments(run, level))
-        left, right = sides_of(run, level, thickness_mm)
-        seen = out.setdefault(run.mark, {"clear_mm": 0.0, "slab_t_mm": [0.0, 0.0]})
-        seen["clear_mm"] += clear
-        seen["slab_t_mm"] = [max(seen["slab_t_mm"][0], left), max(seen["slab_t_mm"][1], right)]
+        if clear <= 0:
+            continue
+        faces = tuple(sorted(sides_of(run, level, thickness_mm)))
+        groups = out.setdefault(run.mark, {})
+        groups[faces] = groups.get(faces, 0.0) + clear
     return out
 
 
@@ -1214,14 +1219,20 @@ def attach_measurements() -> None:
         measured[level] = beam_measurements(level, float(slab["thickness_mm"]))
     for beam in INPUTS["beams"]:
         clear: dict[str, str] = {}
-        faces: dict[str, list[str]] = {}
+        faces: dict[str, list[dict[str, Any]]] = {}
         for level in beam["levels"]:
-            seen = measured.get(level, {}).get(beam["mark"])
-            if seen is None:
+            groups = measured.get(level, {}).get(beam["mark"])
+            if not groups:
                 continue
-            clear[level] = format(metres(seen["clear_mm"]), "f")
-            faces[level] = [format(metres(t) * MM, "f") for t in seen["slab_t_mm"]]
-        beam["measured"] = {"convention": MEASURE_CONVENTION, "clear_m": clear, "slab_t_mm": faces}
+            clear[level] = format(metres(sum(groups.values())), "f")
+            faces[level] = [
+                {
+                    "slab_t_mm": [format(dec(t), "f") for t in pair],
+                    "clear_m": format(metres(length), "f"),
+                }
+                for pair, length in sorted(groups.items())
+            ]
+        beam["measured"] = {"convention": MEASURE_CONVENTION, "clear_m": clear, "faces": faces}
     cols = by_mark("columns")
     columns_mm2 = sum(
         cols[column_mark(i, j)]["b_mm"] * cols[column_mark(i, j)]["d_mm"] for i, j, _, _ in grid_points()
@@ -1231,9 +1242,9 @@ def attach_measurements() -> None:
     for level, slab in slabs.items():
         holes = openings_at(level)
         soffit = sum(
-            beams[mark]["b_mm"] * seen["clear_mm"] for mark, seen in measured[level].items()
+            beams[mark]["b_mm"] * sum(groups.values()) for mark, groups in measured[level].items()
         )
-        trimmed = sum(seen["clear_mm"] for mark, seen in measured[level].items() if mark == "B5")
+        trimmed = sum(sum(groups.values()) for mark, groups in measured[level].items() if mark == "B5")
         slab["measured"] = {
             "convention": MEASURE_CONVENTION,
             "plate_m2": format(square_metres(pw * ph), "f"),
@@ -1273,23 +1284,24 @@ def golden_rows() -> list[dict[str, str]]:
             )
     for beam in INPUTS["beams"]:
         b, d = dec(beam["b_mm"]) / MM, dec(beam["d_mm"]) / MM
-        for level, clear_m in beam["measured"]["clear_m"].items():
-            clear = dec(clear_m)
-            left, right = (dec(t) / MM for t in beam["measured"]["slab_t_mm"][level])
-            add(
-                "BEAM",
-                "RCC_CONCRETE",
-                level,
-                b * (d - max(left, right)) * clear,
-                "sum(b * (D - t_slab) * clear)  [AM-02 L-MEA-09]",
-            )
-            add(
-                "BEAM",
-                "FORMWORK",
-                level,
-                ((d - left) + (d - right) + b) * clear,
-                "sum(((D - t_left) + (D - t_right) + b) * clear)  [AM-02 L-MEA-09]",
-            )
+        for level, groups in beam["measured"]["faces"].items():
+            for group in groups:
+                clear = dec(group["clear_m"])
+                left, right = (dec(t) / MM for t in group["slab_t_mm"])
+                add(
+                    "BEAM",
+                    "RCC_CONCRETE",
+                    level,
+                    b * (d - max(left, right)) * clear,
+                    "sum(b * (D - t_slab) * clear)  [AM-02 L-MEA-09]",
+                )
+                add(
+                    "BEAM",
+                    "FORMWORK",
+                    level,
+                    ((d - left) + (d - right) + b) * clear,
+                    "sum(((D - t_left) + (D - t_right) + b) * clear)  [AM-02 L-MEA-09]",
+                )
     for slab in INPUTS["slab"]:
         measured = slab["measured"]
         thickness = dec(slab["thickness_mm"]) / MM

@@ -166,209 +166,193 @@
       "class": "BEAM",
       "kind": "RCC_CONCRETE",
       "level": "1F",
-      "quantity": "35.652",
+      "quantity": "20.795",
       "unit": "m3",
-      "formula": "sum(count * b * d * span)"
+      "formula": "sum(b * (D - t_slab) * clear)  [AM-02 L-MEA-09]"
     },
     {
       "class": "BEAM",
       "kind": "RCC_CONCRETE",
       "level": "2F",
-      "quantity": "35.652",
+      "quantity": "20.795",
       "unit": "m3",
-      "formula": "sum(count * b * d * span)"
+      "formula": "sum(b * (D - t_slab) * clear)  [AM-02 L-MEA-09]"
     },
     {
       "class": "BEAM",
       "kind": "RCC_CONCRETE",
       "level": "3F",
-      "quantity": "35.652",
+      "quantity": "20.795",
       "unit": "m3",
-      "formula": "sum(count * b * d * span)"
+      "formula": "sum(b * (D - t_slab) * clear)  [AM-02 L-MEA-09]"
     },
     {
       "class": "BEAM",
       "kind": "RCC_CONCRETE",
       "level": "4F",
-      "quantity": "35.652",
+      "quantity": "20.795",
       "unit": "m3",
-      "formula": "sum(count * b * d * span)"
+      "formula": "sum(b * (D - t_slab) * clear)  [AM-02 L-MEA-09]"
     },
     {
       "class": "BEAM",
       "kind": "RCC_CONCRETE",
       "level": "5F",
-      "quantity": "35.652",
+      "quantity": "20.795",
       "unit": "m3",
-      "formula": "sum(count * b * d * span)"
+      "formula": "sum(b * (D - t_slab) * clear)  [AM-02 L-MEA-09]"
     },
     {
       "class": "BEAM",
       "kind": "RCC_CONCRETE",
       "level": "ROOF",
-      "quantity": "30.812",
+      "quantity": "19.205",
       "unit": "m3",
-      "formula": "sum(count * b * d * span)"
+      "formula": "sum(b * (D - t_slab) * clear)  [AM-02 L-MEA-09]"
     },
     {
       "class": "BEAM",
       "kind": "FORMWORK",
       "level": "1F",
-      "quantity": "357.250",
+      "quantity": "241.598",
       "unit": "m2",
-      "formula": "sum(count * (2 * d + b) * span)"
+      "formula": "sum(((D - t_left) + (D - t_right) + b) * clear)  [AM-02 L-MEA-09]"
     },
     {
       "class": "BEAM",
       "kind": "FORMWORK",
       "level": "2F",
-      "quantity": "357.250",
+      "quantity": "241.598",
       "unit": "m2",
-      "formula": "sum(count * (2 * d + b) * span)"
+      "formula": "sum(((D - t_left) + (D - t_right) + b) * clear)  [AM-02 L-MEA-09]"
     },
     {
       "class": "BEAM",
       "kind": "FORMWORK",
       "level": "3F",
-      "quantity": "357.250",
+      "quantity": "241.598",
       "unit": "m2",
-      "formula": "sum(count * (2 * d + b) * span)"
+      "formula": "sum(((D - t_left) + (D - t_right) + b) * clear)  [AM-02 L-MEA-09]"
     },
     {
       "class": "BEAM",
       "kind": "FORMWORK",
       "level": "4F",
-      "quantity": "357.250",
+      "quantity": "241.598",
       "unit": "m2",
-      "formula": "sum(count * (2 * d + b) * span)"
+      "formula": "sum(((D - t_left) + (D - t_right) + b) * clear)  [AM-02 L-MEA-09]"
     },
     {
       "class": "BEAM",
       "kind": "FORMWORK",
       "level": "5F",
-      "quantity": "357.250",
+      "quantity": "241.598",
       "unit": "m2",
-      "formula": "sum(count * (2 * d + b) * span)"
+      "formula": "sum(((D - t_left) + (D - t_right) + b) * clear)  [AM-02 L-MEA-09]"
     },
     {
       "class": "BEAM",
       "kind": "FORMWORK",
       "level": "ROOF",
-      "quantity": "310.250",
+      "quantity": "222.960",
       "unit": "m2",
-      "formula": "sum(count * (2 * d + b) * span)"
-    },
-    {
-      "class": "SLAB",
-      "kind": "RCC_CONCRETE",
-      "level": "GF",
-      "quantity": "54.344",
-      "unit": "m3",
-      "formula": "(area - openings) * thickness"
+      "formula": "sum(((D - t_left) + (D - t_right) + b) * clear)  [AM-02 L-MEA-09]"
     },
     {
       "class": "SLAB",
       "kind": "RCC_CONCRETE",
       "level": "1F",
-      "quantity": "65.212",
+      "quantity": "65.979",
       "unit": "m3",
-      "formula": "(area - openings) * thickness"
+      "formula": "(plate - columns - openings) * thickness  [AM-02 L-MEA-09]"
     },
     {
       "class": "SLAB",
       "kind": "RCC_CONCRETE",
       "level": "2F",
-      "quantity": "65.212",
+      "quantity": "65.979",
       "unit": "m3",
-      "formula": "(area - openings) * thickness"
+      "formula": "(plate - columns - openings) * thickness  [AM-02 L-MEA-09]"
     },
     {
       "class": "SLAB",
       "kind": "RCC_CONCRETE",
       "level": "3F",
-      "quantity": "65.212",
+      "quantity": "65.979",
       "unit": "m3",
-      "formula": "(area - openings) * thickness"
+      "formula": "(plate - columns - openings) * thickness  [AM-02 L-MEA-09]"
     },
     {
       "class": "SLAB",
       "kind": "RCC_CONCRETE",
       "level": "4F",
-      "quantity": "65.212",
+      "quantity": "65.979",
       "unit": "m3",
-      "formula": "(area - openings) * thickness"
+      "formula": "(plate - columns - openings) * thickness  [AM-02 L-MEA-09]"
     },
     {
       "class": "SLAB",
       "kind": "RCC_CONCRETE",
       "level": "5F",
-      "quantity": "65.212",
+      "quantity": "65.979",
       "unit": "m3",
-      "formula": "(area - openings) * thickness"
+      "formula": "(plate - columns - openings) * thickness  [AM-02 L-MEA-09]"
     },
     {
       "class": "SLAB",
       "kind": "RCC_CONCRETE",
       "level": "ROOF",
-      "quantity": "66.900",
+      "quantity": "67.666",
       "unit": "m3",
-      "formula": "(area - openings) * thickness"
-    },
-    {
-      "class": "SLAB",
-      "kind": "FORMWORK",
-      "level": "GF",
-      "quantity": "434.750",
-      "unit": "m2",
-      "formula": "area - openings"
+      "formula": "(plate - columns - openings) * thickness  [AM-02 L-MEA-09]"
     },
     {
       "class": "SLAB",
       "kind": "FORMWORK",
       "level": "1F",
-      "quantity": "434.750",
+      "quantity": "379.508",
       "unit": "m2",
-      "formula": "area - openings"
+      "formula": "(plate - columns - openings - beam soffits) + free_edge * thickness  [AM-02 L-MEA-09]"
     },
     {
       "class": "SLAB",
       "kind": "FORMWORK",
       "level": "2F",
-      "quantity": "434.750",
+      "quantity": "379.508",
       "unit": "m2",
-      "formula": "area - openings"
+      "formula": "(plate - columns - openings - beam soffits) + free_edge * thickness  [AM-02 L-MEA-09]"
     },
     {
       "class": "SLAB",
       "kind": "FORMWORK",
       "level": "3F",
-      "quantity": "434.750",
+      "quantity": "379.508",
       "unit": "m2",
-      "formula": "area - openings"
+      "formula": "(plate - columns - openings - beam soffits) + free_edge * thickness  [AM-02 L-MEA-09]"
     },
     {
       "class": "SLAB",
       "kind": "FORMWORK",
       "level": "4F",
-      "quantity": "434.750",
+      "quantity": "379.508",
       "unit": "m2",
-      "formula": "area - openings"
+      "formula": "(plate - columns - openings - beam soffits) + free_edge * thickness  [AM-02 L-MEA-09]"
     },
     {
       "class": "SLAB",
       "kind": "FORMWORK",
       "level": "5F",
-      "quantity": "434.750",
+      "quantity": "379.508",
       "unit": "m2",
-      "formula": "area - openings"
+      "formula": "(plate - columns - openings - beam soffits) + free_edge * thickness  [AM-02 L-MEA-09]"
     },
     {
       "class": "SLAB",
       "kind": "FORMWORK",
       "level": "ROOF",
-      "quantity": "446.000",
+      "quantity": "394.658",
       "unit": "m2",
-      "formula": "area - openings"
+      "formula": "(plate - columns - openings - beam soffits) + free_edge * thickness  [AM-02 L-MEA-09]"
     }
   ]
 }

@@ -140,7 +140,74 @@
         "4F",
         "5F",
         "ROOF"
-      ]
+      ],
+      "measured": {
+        "convention": "AM-02 L-MEA-09: one owner per junction",
+        "clear_m": {
+          "1F": "42.000",
+          "2F": "42.000",
+          "3F": "42.000",
+          "4F": "42.000",
+          "5F": "42.000",
+          "ROOF": "42.000"
+        },
+        "faces": {
+          "1F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "42.000"
+            }
+          ],
+          "2F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "42.000"
+            }
+          ],
+          "3F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "42.000"
+            }
+          ],
+          "4F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "42.000"
+            }
+          ],
+          "5F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "42.000"
+            }
+          ],
+          "ROOF": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "42.000"
+            }
+          ]
+        }
+      }
     },
     {
       "mark": "B2",
@@ -155,7 +222,74 @@
         "4F",
         "5F",
         "ROOF"
-      ]
+      ],
+      "measured": {
+        "convention": "AM-02 L-MEA-09: one owner per junction",
+        "clear_m": {
+          "1F": "80.500",
+          "2F": "80.500",
+          "3F": "80.500",
+          "4F": "80.500",
+          "5F": "80.500",
+          "ROOF": "83.000"
+        },
+        "faces": {
+          "1F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "80.500"
+            }
+          ],
+          "2F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "80.500"
+            }
+          ],
+          "3F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "80.500"
+            }
+          ],
+          "4F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "80.500"
+            }
+          ],
+          "5F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "80.500"
+            }
+          ],
+          "ROOF": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "83.000"
+            }
+          ]
+        }
+      }
     },
     {
       "mark": "B3",
@@ -170,7 +304,74 @@
         "4F",
         "5F",
         "ROOF"
-      ]
+      ],
+      "measured": {
+        "convention": "AM-02 L-MEA-09: one owner per junction",
+        "clear_m": {
+          "1F": "35.800",
+          "2F": "35.800",
+          "3F": "35.800",
+          "4F": "35.800",
+          "5F": "35.800",
+          "ROOF": "35.800"
+        },
+        "faces": {
+          "1F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "35.800"
+            }
+          ],
+          "2F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "35.800"
+            }
+          ],
+          "3F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "35.800"
+            }
+          ],
+          "4F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "35.800"
+            }
+          ],
+          "5F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "35.800"
+            }
+          ],
+          "ROOF": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "35.800"
+            }
+          ]
+        }
+      }
     },
     {
       "mark": "B4",
@@ -185,7 +386,74 @@
         "4F",
         "5F",
         "ROOF"
-      ]
+      ],
+      "measured": {
+        "convention": "AM-02 L-MEA-09: one owner per junction",
+        "clear_m": {
+          "1F": "67.800",
+          "2F": "67.800",
+          "3F": "67.800",
+          "4F": "67.800",
+          "5F": "67.800",
+          "ROOF": "69.800"
+        },
+        "faces": {
+          "1F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "67.800"
+            }
+          ],
+          "2F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "67.800"
+            }
+          ],
+          "3F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "67.800"
+            }
+          ],
+          "4F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "67.800"
+            }
+          ],
+          "5F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "67.800"
+            }
+          ],
+          "ROOF": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "69.800"
+            }
+          ]
+        }
+      }
     },
     {
       "mark": "B5",
@@ -199,7 +467,64 @@
         "3F",
         "4F",
         "5F"
-      ]
+      ],
+      "measured": {
+        "convention": "AM-02 L-MEA-09: one owner per junction",
+        "clear_m": {
+          "1F": "9.000",
+          "2F": "9.000",
+          "3F": "9.000",
+          "4F": "9.000",
+          "5F": "9.000"
+        },
+        "faces": {
+          "1F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "9.000"
+            }
+          ],
+          "2F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "9.000"
+            }
+          ],
+          "3F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "9.000"
+            }
+          ],
+          "4F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "9.000"
+            }
+          ],
+          "5F": [
+            {
+              "slab_t_mm": [
+                "0.0",
+                "150.0"
+              ],
+              "clear_m": "9.000"
+            }
+          ]
+        }
+      }
     },
     {
       "mark": "B6",
@@ -213,51 +538,138 @@
         "3F",
         "4F",
         "5F"
-      ]
+      ],
+      "measured": {
+        "convention": "AM-02 L-MEA-09: one owner per junction",
+        "clear_m": {
+          "1F": "15.375",
+          "2F": "15.375",
+          "3F": "15.375",
+          "4F": "15.375",
+          "5F": "15.375"
+        },
+        "faces": {
+          "1F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "15.375"
+            }
+          ],
+          "2F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "15.375"
+            }
+          ],
+          "3F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "15.375"
+            }
+          ],
+          "4F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "15.375"
+            }
+          ],
+          "5F": [
+            {
+              "slab_t_mm": [
+                "150.0",
+                "150.0"
+              ],
+              "clear_m": "15.375"
+            }
+          ]
+        }
+      }
     }
   ],
   "slab": [
     {
-      "level": "GF",
-      "area_m2": 450.0,
-      "openings_m2": 15.25,
-      "thickness_mm": 125
-    },
-    {
       "level": "1F",
-      "area_m2": 450.0,
-      "openings_m2": 15.25,
-      "thickness_mm": 150
+      "thickness_mm": 150,
+      "measured": {
+        "convention": "AM-02 L-MEA-09: one owner per junction",
+        "plate_m2": "460.687500",
+        "columns_m2": "5.580000",
+        "openings_m2": "15.250000",
+        "beam_soffit_m2": "62.300000",
+        "free_edge_m": "13.000"
+      }
     },
     {
       "level": "2F",
-      "area_m2": 450.0,
-      "openings_m2": 15.25,
-      "thickness_mm": 150
+      "thickness_mm": 150,
+      "measured": {
+        "convention": "AM-02 L-MEA-09: one owner per junction",
+        "plate_m2": "460.687500",
+        "columns_m2": "5.580000",
+        "openings_m2": "15.250000",
+        "beam_soffit_m2": "62.300000",
+        "free_edge_m": "13.000"
+      }
     },
     {
       "level": "3F",
-      "area_m2": 450.0,
-      "openings_m2": 15.25,
-      "thickness_mm": 150
+      "thickness_mm": 150,
+      "measured": {
+        "convention": "AM-02 L-MEA-09: one owner per junction",
+        "plate_m2": "460.687500",
+        "columns_m2": "5.580000",
+        "openings_m2": "15.250000",
+        "beam_soffit_m2": "62.300000",
+        "free_edge_m": "13.000"
+      }
     },
     {
       "level": "4F",
-      "area_m2": 450.0,
-      "openings_m2": 15.25,
-      "thickness_mm": 150
+      "thickness_mm": 150,
+      "measured": {
+        "convention": "AM-02 L-MEA-09: one owner per junction",
+        "plate_m2": "460.687500",
+        "columns_m2": "5.580000",
+        "openings_m2": "15.250000",
+        "beam_soffit_m2": "62.300000",
+        "free_edge_m": "13.000"
+      }
     },
     {
       "level": "5F",
-      "area_m2": 450.0,
-      "openings_m2": 15.25,
-      "thickness_mm": 150
+      "thickness_mm": 150,
+      "measured": {
+        "convention": "AM-02 L-MEA-09: one owner per junction",
+        "plate_m2": "460.687500",
+        "columns_m2": "5.580000",
+        "openings_m2": "15.250000",
+        "beam_soffit_m2": "62.300000",
+        "free_edge_m": "13.000"
+      }
     },
     {
       "level": "ROOF",
-      "area_m2": 450.0,
-      "openings_m2": 4.0,
-      "thickness_mm": 150
+      "thickness_mm": 150,
+      "measured": {
+        "convention": "AM-02 L-MEA-09: one owner per junction",
+        "plate_m2": "460.687500",
+        "columns_m2": "5.580000",
+        "openings_m2": "4.000000",
+        "beam_soffit_m2": "57.650000",
+        "free_edge_m": "8.000"
+      }
     }
   ],
   "footings": [
@@ -321,5 +733,25 @@
       "span_m": 4.0,
       "count": 30
     }
-  ]
+  ],
+  "openings": {
+    "stair": [
+      9500,
+      8500,
+      2500,
+      4500
+    ],
+    "lift": [
+      12500,
+      8500,
+      2000,
+      2000
+    ],
+    "roof": [
+      9500,
+      8500,
+      2000,
+      2000
+    ]
+  }
 }

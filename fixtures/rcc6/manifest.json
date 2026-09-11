@@ -2,7 +2,7 @@
   "fixture": "F-RCC6",
   "generator": {
     "path": "fixtures/gen/rcc6.py",
-    "sha256": "23e52e26b435fbb3bd005e3f72e19df486d35c6d3c96e5ffc65009519fcab530"
+    "sha256": "857a8735c5eb1e5c1bff3e412f40103224c096bd88b3d1f91934240e723138b3"
   },
   "sheets": [
     {

@@ -9,7 +9,7 @@
   },
   "generator": {
     "path": "fixtures/gen/rcc6.py",
-    "sha256": "23e52e26b435fbb3bd005e3f72e19df486d35c6d3c96e5ffc65009519fcab530"
+    "sha256": "857a8735c5eb1e5c1bff3e412f40103224c096bd88b3d1f91934240e723138b3"
   },
   "files": [
     {
@@ -75,12 +75,12 @@
     {
       "path": "fixtures/rcc6/takeoff.golden.json",
       "format": "GOLDEN",
-      "sha256": "3074f41cecf3b2f96c0a43778b822cfe57443ad634e2516159f78f8f8ba2ccf0"
+      "sha256": "b70ac3e20d4b1af3f136e430c79b413da30e807a4d96744ceb238fa0c72767a9"
     },
     {
       "path": "fixtures/rcc6/inputs.json",
       "format": "INPUTS",
-      "sha256": "535de07f2fa952dd5df47e63987e22a034e48ea73493c699e3b7e256298452b1"
+      "sha256": "c7f7aa316583e04cde22fd86e5bbca48dd5862430a465d337a13052efa4a43b7"
     },
     {
       "path": "fixtures/rcc6/sanity.json",
@@ -90,7 +90,7 @@
     {
       "path": "fixtures/rcc6/manifest.json",
       "format": "MANIFEST",
-      "sha256": "37ea6b5e1e69a0471e3a09ebf5525685869deec5bb0b637a5e73769a41365032"
+      "sha256": "80b888a52ad08a73128b5ad0cd433e933d62875d54e682bfb79ec506b5984fd6"
     }
   ]
 }

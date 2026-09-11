@@ -1,5 +1,10 @@
 """AC-7 — the hand takeoff golden recomputes from the authored inputs alone (L-FRM-02/03, L-QTY-06).
 
+F-RCC6 v1.1: BEAM and SLAB are billed under AM-02 (L-MEA-09) — one owner per junction — from the
+measured geometry `inputs.json` carries beside each member. COLUMN, FOOTING, PILE_CAP and TIE_BEAM
+are unchanged, and the column rows are frozen by AM-01 (proved, not asserted, in
+tests/golden/rcc6-column-rows-frozen.test.ts).
+
 Every RCC_CONCRETE and FORMWORK row's quantity is re-derived here from `inputs.json` by the
 contract's formulas, in exact decimal arithmetic so a half-way case rounds half-even on the true
 value rather than on a binary float's neighbour, and compared as the three-decimal string the
@@ -89,16 +94,36 @@ def expected_quantities(inputs: dict[str, Any]) -> dict[Key, Decimal]:
         for level in column["levels"]:
             add("COLUMN", CONCRETE, level, count * b * d * heights[level])
             add("COLUMN", FORMWORK, level, count * 2 * (b + d) * heights[level])
+    # F-RCC6 v1.1 bills beams and slabs under AM-02 (L-MEA-09, one owner per junction), not at the
+    # schedule span and the nominal plate of v1.0: a beam is clear between its support faces and
+    # below the slab soffit, so it owns b x (D - t) x clear and the contact faces
+    # (D - t_left) + (D - t_right) + b; the slab runs through, out to the edge beams' outer faces,
+    # less the column plan areas and the openings. `inputs.json` states the measured geometry as
+    # exact decimals under each member's "measured"; the formulas here are this path's own.
     for beam in inputs["beams"]:
-        b, d, span = beam["b_mm"] / MM, beam["d_mm"] / MM, Decimal(beam["span_m"])
-        count = Decimal(beam["count"])
-        for level in beam["levels"]:
-            add("BEAM", CONCRETE, level, count * b * d * span)
-            add("BEAM", FORMWORK, level, count * (2 * d + b) * span)
+        b, d = beam["b_mm"] / MM, beam["d_mm"] / MM
+        for level, groups in beam["measured"]["faces"].items():
+            for group in groups:
+                clear = Decimal(group["clear_m"])
+                left, right = (Decimal(face) / MM for face in group["slab_t_mm"])
+                add("BEAM", CONCRETE, level, b * (d - max(left, right)) * clear)
+                add("BEAM", FORMWORK, level, ((d - left) + (d - right) + b) * clear)
     for slab in inputs["slab"]:
-        net = Decimal(slab["area_m2"]) - Decimal(slab["openings_m2"])
-        add("SLAB", CONCRETE, slab["level"], net * (slab["thickness_mm"] / MM))
-        add("SLAB", FORMWORK, slab["level"], net)
+        measured = slab["measured"]
+        thickness = slab["thickness_mm"] / MM
+        plate = (
+            Decimal(measured["plate_m2"])
+            - Decimal(measured["columns_m2"])
+            - Decimal(measured["openings_m2"])
+        )
+        add("SLAB", CONCRETE, slab["level"], plate * thickness)
+        add(
+            "SLAB",
+            FORMWORK,
+            slab["level"],
+            (plate - Decimal(measured["beam_soffit_m2"]))
+            + Decimal(measured["free_edge_m"]) * thickness,
+        )
     for cls, key in (("FOOTING", "footings"), ("PILE_CAP", "pile_caps")):
         for item in inputs[key]:
             length, b, depth = item["l_mm"] / MM, item["b_mm"] / MM, item["depth_mm"] / MM

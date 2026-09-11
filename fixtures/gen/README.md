@@ -53,3 +53,25 @@ and the DWG read through `convert_dwg` must each account for every drawn entity.
 The lint fixture corpus at `tests/lint-fixtures/**` is *not* generated: every payload there is
 written by hand and read by the toolchain suite, because a rule is proven against the exact shape a
 person would write (Q-01).
+
+## F-RCC6 v1.1 — conventions of the repair (AM-01, AM-02)
+
+v1.1 is a golden-side repair: `rcc6.py`'s drawing is byte-for-byte what v1.0 drew (DXF, DWG, both
+PDFs and every PNG are unchanged), and only the authored inputs' measured geometry, the takeoff
+golden and the manifest move.
+
+- **The junction law.** BEAM and SLAB rows are measured under AM-02 (L-MEA-09): every junction
+  volume and contact face has one owner. Beams are clear between support faces and below the slab
+  soffit; the slab runs through, out to the edge beams' outer faces, less the column plan areas and
+  the openings.
+- **The FDN → GF column neck is left out.** No column is measured between the footing top at
+  -1.500 and the GF floor: the column rows start at GF and run floor-to-floor from there. The neck
+  is real concrete the golden does not bill — an under figure, declared here as a convention of
+  v1.1 rather than repaired, because billing it would move the M2 column rows that AM-01 freezes.
+- **Column formwork keeps `2(b + d) x storey`.** AM-02 would take `perimeter x (storey - t_slab)`
+  less the beam-end contacts; v1.1 does not, for the same reason — it would move the frozen column
+  rows. This is the one place v1.1 knowingly publishes an over figure, and `fixtures/rcc6/
+  manifest.json`'s `repairs` list names it as deferred with that side recorded.
+- **The beam schedule still prints B5 at 4.5 m.** The plan draws B5 as the four opening trimmers
+  (2 x 2.500 m + 2 x 2.000 m); the golden bills what is drawn. Re-authoring the schedule is a
+  drawing-side item, deferred, and the golden's figure is under while it waits.

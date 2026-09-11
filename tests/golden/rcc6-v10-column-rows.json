@@ -1,0 +1,119 @@
+{
+  "note": "The v1.0 F-RCC6 golden's COLUMN rows, verbatim. AM-01 freezes the M2 column proof across the v1.1 repair and says it must be proved, not asserted: rcc6-column-rows-frozen.test.ts diffs these against the committed golden row by row.",
+  "fixture": "F-RCC6",
+  "version": "1.0",
+  "rows": [
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "GF",
+      "quantity": "16.740",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "1F",
+      "quantity": "16.740",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "2F",
+      "quantity": "16.740",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "3F",
+      "quantity": "16.740",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "4F",
+      "quantity": "16.740",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "5F",
+      "quantity": "16.740",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "RCC_CONCRETE",
+      "level": "ROOF",
+      "quantity": "2.304",
+      "unit": "m3",
+      "formula": "sum(count * b * d * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "GF",
+      "quantity": "171.600",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "1F",
+      "quantity": "171.600",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "2F",
+      "quantity": "171.600",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "3F",
+      "quantity": "171.600",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "4F",
+      "quantity": "171.600",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "5F",
+      "quantity": "171.600",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    },
+    {
+      "class": "COLUMN",
+      "kind": "FORMWORK",
+      "level": "ROOF",
+      "quantity": "19.200",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (b + d) * storey_height)"
+    }
+  ]
+}
