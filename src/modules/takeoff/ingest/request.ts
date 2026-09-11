@@ -13,7 +13,7 @@
 // drawing that has been ingested is answered with the record it already has and runs nothing, and a
 // declared one stands under a key of its own naming the record it supersedes. Drift is what a
 // pipeline that re-ran itself quietly would be.
-import { drawings, eq, forTenant, isUuid, type AcceptedFormat } from "@/core/db";
+import { and, drawings, eq, forTenant, isUuid, type AcceptedFormat } from "@/core/db";
 import { REFUSALS } from "@/core/errors";
 import { enqueue, type JobKind, type JobPayloads } from "@/core/jobs";
 import { ingestRecordOf } from "./records";
@@ -29,7 +29,7 @@ export type IngestFormat = "dxf" | "dwg";
 const INGESTABLE_FORMATS = ["dxf", "dwg"] as const satisfies readonly IngestFormat[];
 
 /** Somebody asking for a drawing's geometry to be taken; `declared` is what makes a re-ingest lawful. */
-export type IngestRequest = { tenantId: string; drawingId: string; requestedBy: string; declared?: { reason: string } };
+export type IngestRequest = { tenantId: string; drawingId: string; requestedBy: string; projectId?: string; declared?: { reason: string } };
 
 /** What the door answers when it accepted the request: the job it enqueued, or the record that stands. */
 export type IngestRequested = { jobId: string | null; ingestId: string | null; deduplicated: boolean };
@@ -59,12 +59,17 @@ function declaredReason(request: IngestRequest): string | null {
  * because "is this drawing this workspace's to act on" has one answer for the whole takeoff seam:
  * every door that names a drawing asks it here rather than each keeping a query of its own (B-17).
  */
-export async function drawingInScope(tenantId: string, drawingId: string): Promise<{ sha256: string; format: AcceptedFormat } | null> {
+export async function drawingInScope(tenantId: string, drawingId: string, projectId?: string): Promise<{ sha256: string; format: AcceptedFormat } | null> {
   if (!isUuid(drawingId)) return null;
+  // The tenant is the policy's to enforce and it does; the PROJECT is the question the policy cannot
+  // answer, because every project of one workspace reads under the same scope. A door that names
+  // both therefore states both, or one project's screen can name another project's drawing and the
+  // row security standing behind the read will hand it over (src/server/authorize.ts).
+  if (projectId !== undefined && !isUuid(projectId)) return null;
   const rows = await forTenant({ tenantId })
     .select({ sha256: drawings.sha256, format: drawings.format })
     .from(drawings)
-    .where(eq(drawings.drawingId, drawingId))
+    .where(projectId === undefined ? eq(drawings.drawingId, drawingId) : and(eq(drawings.drawingId, drawingId), eq(drawings.projectId, projectId)))
     .limit(1);
   return rows[0] ?? null;
 }
@@ -78,7 +83,7 @@ export async function drawingInScope(tenantId: string, drawingId: string): Promi
  * enqueued to be refused later, so nothing is spent on a sheet nobody could have read.
  */
 export async function requestIngest(request: IngestRequest): Promise<IngestRequested | IngestRefused> {
-  const drawing = await drawingInScope(request.tenantId, request.drawingId);
+  const drawing = await drawingInScope(request.tenantId, request.drawingId, request.projectId);
   if (drawing === null) return { refusal: REFUSALS.WORKSPACE_PERMISSION_NOT_HELD.code };
   if (!isIngestable(drawing.format)) return { refusal: REFUSALS.SHEET_NOT_INGESTABLE.code };
 

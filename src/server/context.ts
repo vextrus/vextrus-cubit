@@ -73,8 +73,13 @@ function suppliedRequestId(req: Request): string | null {
  * an adapter's jar, because the seam is handed a plain `Request` by every transport that serves it
  * — and by every harness that drives it directly. A header carrying no `cubit_session` resolves to null
  * without touching the database: a request that presents nothing is not a lookup.
+ *
+ * Published because a route handler asks the same question and is handed the same plain `Request`:
+ * `next/headers`' jar is a server-COMPONENT adapter that throws outside a request scope, so a route
+ * reaching for it answers a harness driving it directly with a fault instead of a session
+ * (src/app/api/events/route.ts). One reader of the cookie, at the seam that already owns it (B-17).
  */
-function presentedToken(req: Request): string | null {
+export function presentedToken(req: Request): string | null {
   const jar = req.headers.get("cookie");
   if (jar === null) return null;
   for (const pair of jar.split(";")) {

@@ -10,7 +10,10 @@
 // answers, not this route's (ARCH-02). This route only composes them — the log first, and the
 // queue's own knowledge of the id only where the log has nothing to say.
 import { isKnownJob, jobEvents, TERMINAL_STATUSES, watchJob, type JobEvent } from "@/core/jobs";
+import { REFUSALS } from "@/core/errors";
 import { reportFault } from "@/core/faults/report";
+import { resolveSession } from "@/server/auth/session";
+import { presentedToken } from "@/server/context";
 
 /** The route the fault seam records this handler's failures under (ARCH-03). */
 const ROUTE = "GET /api/events";
@@ -117,6 +120,17 @@ function streamAnswer(jobId: string, history: readonly JobEvent[], signal: Abort
 
 /** The event log of one job, streamed by default and polled on request (R-SPINE-030). */
 export async function GET(request: Request): Promise<Response> {
+  // R-SPINE-001: a door answers nobody it has not identified. This one used to answer everybody —
+  // it read the durable job log, which carries a tenant's drawing ids and its operators' progress,
+  // for any caller who could guess a job id. A missing or dead cookie is SIGNED_OUT under 401,
+  // which is a registered answer and not a fault (ARCH-03, B-21).
+  // The cookie is read off the request this handler was handed, never through `next/headers`: that
+  // jar is a server-component adapter and throws outside a request scope, so a route that reached
+  // for it would answer a harness driving it directly with a fault instead of a session.
+  const presented = presentedToken(request);
+  const session = presented === null ? null : await resolveSession(presented);
+  if (session === null) return json({ events: [], done: false, refusal: REFUSALS.SIGNED_OUT.code }, 401);
+
   const query = new URL(request.url).searchParams;
   const jobId = query.get(JOB_ID)?.trim() ?? "";
   if (jobId === "") return json({ events: [], done: false, error: `${JOB_ID} is required` }, 400);

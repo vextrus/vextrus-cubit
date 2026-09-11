@@ -25,6 +25,7 @@
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { JobEvent } from "@/core/jobs";
+import { SESSION_COOKIE } from "@/server/auth/session";
 
 /**
  * How long a real clock is given for an answer that must not need a fake one. Generous by a wide
@@ -44,6 +45,19 @@ const seam = vi.hoisted(() => ({
   watchJob: vi.fn<(jobId: string, signal?: AbortSignal) => AsyncGenerator<JobEvent>>(),
   isKnownJob: vi.fn<(jobId: string) => Promise<boolean>>(async () => false),
 }));
+
+/**
+ * The door identifies its caller since src/server/authorize.ts (R-SPINE-001): it reads the session
+ * off the cookie the request carries. The log this suite is about is the same log either way, so the
+ * caller is signed in here and the refusing limb states itself below.
+ */
+vi.mock("@/server/auth/session", async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
+  resolveSession: async () => ({ sessionId: "session-1", userId: "user-1", tenantId: "tenant-1" }),
+}));
+
+/** What a signed-in caller presents. The cookie's name is the identity seam's, not this file's. */
+const SIGNED_IN = { headers: { cookie: `${SESSION_COOKIE}=a-live-token` } } as const;
 
 vi.mock("../../../../core/jobs", async (importOriginal) => {
   // The terminal statuses are the seam's own judgement and are kept, not restated (B-17).
@@ -136,7 +150,7 @@ describe("AC-2: an id no job answers to is settled at once, over either transpor
     const answers: { status: number; body: unknown }[] = [];
     for (const transport of [undefined, "poll"] as const) {
       const what = `an id no job answers to, asked ${transport === undefined ? "over the stream transport" : "over the poll transport"}`;
-      const response = await answered(GET(new Request(address("job-nobody-answers-to", transport))), what);
+      const response = await answered(GET(new Request(address("job-nobody-answers-to", transport), SIGNED_IN)), what);
 
       expect(response.status, `${what}: the caller's question is the thing that is wrong`).toBe(404);
       expect(response.headers.get("content-type") ?? "", `${what}: the answer is JSON, not a stream`).toContain("application/json");
@@ -160,7 +174,7 @@ describe("AC-3: a job the queue knows is live on both transports before it has s
     seam.jobEvents.mockImplementation(async () => []);
     seam.isKnownJob.mockImplementation(async () => true);
 
-    const response = await GET(new Request(address("job-just-enqueued", "poll")));
+    const response = await GET(new Request(address("job-just-enqueued", "poll"), SIGNED_IN));
 
     expect(response.status, "a job the queue knows is not a wrong question, so it is answered 200").toBe(200);
     expect(response.headers.get("content-type") ?? "", "the poll transport answers JSON").toContain("application/json");
@@ -173,7 +187,7 @@ describe("AC-3: a job the queue knows is live on both transports before it has s
     seam.isKnownJob.mockImplementation(async () => true);
     seam.watchJob.mockImplementation(watcherOver(spoken));
 
-    const response = await GET(new Request(address("job-just-enqueued")));
+    const response = await GET(new Request(address("job-just-enqueued"), SIGNED_IN));
 
     expect(response.status, "a job the queue knows is streamed rather than refused").toBe(200);
     expect(response.headers.get("content-type") ?? "", "the default transport is an event stream").toMatch(/^text\/event-stream/);
@@ -198,7 +212,7 @@ describe("AC-1(b): the stream carries every recorded seq exactly once", () => {
     // history, so what the subscriber receives cannot depend on the watcher repeating it.
     seam.watchJob.mockImplementation(watcherOver([event(3, "succeeded")]));
 
-    const frames = await framesOf(await GET(new Request(address("job-1"))));
+    const frames = await framesOf(await GET(new Request(address("job-1"), SIGNED_IN)));
 
     expect(
       frames.map((frame) => frame.seq),
@@ -214,7 +228,7 @@ describe("AC-1(b): the stream carries every recorded seq exactly once", () => {
     // The runtime's own watcher replays from the beginning of the log.
     seam.watchJob.mockImplementation(watcherOver([event(1, "started"), event(2, "progress"), event(3, "succeeded")]));
 
-    const seqs = (await framesOf(await GET(new Request(address("job-1"))))).map((frame) => frame.seq);
+    const seqs = (await framesOf(await GET(new Request(address("job-1"), SIGNED_IN)))).map((frame) => frame.seq);
 
     expect([...seqs].sort((left, right) => left - right), "every recorded seq reaches the subscriber").toEqual([1, 2, 3]);
     expect(new Set(seqs).size, `each seq is emitted exactly once (got ${seqs.join(", ")})`).toBe(seqs.length);

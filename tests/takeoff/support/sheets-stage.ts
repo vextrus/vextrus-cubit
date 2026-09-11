@@ -219,7 +219,13 @@ export async function openSheetsStage(): Promise<{ urlMigrate: string; urlApp: s
 /** A person with a project of their own, made through the shipped sign-up door and the store. */
 export async function stagePerson(label: string): Promise<{ person: Person; projectId: string }> {
   const person = await enrol(label);
-  return { person, projectId: stageProject(person.tenantId, `Sheets ${label}`) };
+  const projectId = stageProject(person.tenantId, `Sheets ${label}`);
+  // The person who has a project of their own holds it: L-ACT-03 makes "a project holds at least one
+  // PRINCIPAL at every moment" load-bearing law, and since src/server/authorize.ts the doors ASK it
+  // — a workspace membership alone no longer passes a project door, which is the whole point of the
+  // guard. Staging the grant is how a staged actor is made lawful, never by loosening one.
+  grantRole(person.tenantId, projectId, person.userId, "PRINCIPAL");
+  return { person, projectId };
 }
 
 /**

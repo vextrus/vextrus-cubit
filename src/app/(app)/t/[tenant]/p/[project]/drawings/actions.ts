@@ -68,7 +68,9 @@ export async function requestSheetsFor(request: { projectId: string; drawingIds:
 
   const asked: RequestedSheets[] = [];
   for (const drawingId of request.drawingIds) {
-    const answer = await requestIngest({ tenantId: held.tenantId, drawingId, requestedBy: held.userId });
+    // The project travels with the request: a drawing id posted from this screen is a value a
+    // caller wrote, and the tenant scope alone would admit a sibling project's drawing (R-SPINE-004).
+    const answer = await requestIngest({ tenantId: held.tenantId, projectId: request.projectId, drawingId, requestedBy: held.userId });
     // A refused request enqueued nothing, so it adds no timeline step (I-88) — but it is carried back
     // under its own code, because a drawing that will never be read may not be answered with silence.
     asked.push({

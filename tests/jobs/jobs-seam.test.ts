@@ -26,7 +26,7 @@
  * The suite stages once, lazily and memoised, and every test awaits that staging as its first line:
  * a `beforeAll` that throws leaves every test skipped, and a skipped test judges no criterion.
  */
-import { afterAll, describe, expect, test } from "vitest";
+import { afterAll, describe, expect, test, vi } from "vitest";
 import {
   atMs,
   EVENTS_ROUTE_MODULE,
@@ -119,6 +119,21 @@ function expectSeqOrder(events: readonly JobEvent[], what: string): void {
     expect(seqs[i]! > seqs[i - 1]!, `${what} is not in seq order: ${seqs.join(", ")}`).toBe(true);
   }
 }
+
+/**
+ * The events door identifies its caller (R-SPINE-001, src/server/authorize.ts). This suite is about
+ * the LOG — the same events over a stream and over a poll — so it signs its caller in rather than
+ * staging an account the queue has no use for; who may read a job's log is proved live in
+ * db/__tests__/authz/authorize.live.test.ts.
+ */
+vi.mock("@/server/auth/session", async (importOriginal) => ({
+  ...((await importOriginal()) as Record<string, unknown>),
+  resolveSession: async () => ({ sessionId: "jobs-seam-session", userId: "jobs-seam-user", tenantId: "jobs-seam-tenant" }),
+}));
+
+/** The cookie a signed-in caller presents; its name is the identity seam's, never this file's. */
+const SESSION_COOKIE = "cubit_session";
+const SESSION_TOKEN = "a-live-token";
 
 describe("SEAM-JOBS: the typed, idempotent queue and its event log", () => {
   test("AC-1: enqueue answers a jobId, a duplicate key while queued-or-active answers the same job once", async () => {
@@ -241,8 +256,15 @@ describe("SEAM-JOBS: the typed, idempotent queue and its event log", () => {
     const route = await productModule<EventsRoute>(EVENTS_ROUTE_MODULE);
     expect(typeof route.GET, `${EVENTS_ROUTE_MODULE} must export a GET handler`).toBe("function");
 
+    // The door identifies its caller (R-SPINE-001, src/server/authorize.ts), so the ask presents the
+    // session this stage signed in with. AC-4 is about the log being the same over both transports;
+    // who may read it is the authorize suite's question (db/__tests__/authz/authorize.live.test.ts).
     const ask = async (jobId: string, transport?: "poll"): Promise<Response> =>
-      await route.GET(new Request(`http://127.0.0.1/api/events?jobId=${encodeURIComponent(jobId)}${transport === undefined ? "" : `&transport=${transport}`}`));
+      await route.GET(
+        new Request(`http://127.0.0.1/api/events?jobId=${encodeURIComponent(jobId)}${transport === undefined ? "" : `&transport=${transport}`}`, {
+          headers: { cookie: `${SESSION_COOKIE}=${SESSION_TOKEN}` },
+        }),
+      );
 
     // A job no SSE client ever attaches to — the polling fallback must stand on its own.
     const polled = await jobs.enqueue(PROBE, { steps: ["survey", "settle", "sign"], stepDelayMs: 400 }, { key: uniqueKey("ac4-poll") });

@@ -11,7 +11,6 @@ import {
   commit,
   consequenceDigest,
   isRole,
-  permissionNotHeld,
   preview,
   type ActorCtx,
   type ActType,
@@ -20,11 +19,11 @@ import {
   type Consequence,
   type Permission,
 } from "../../core/acts";
-import { eq, isUuid, projects, runAsSystem } from "../../core/db";
 import { REFUSALS } from "../../core/errors";
 import { refusal } from "../../core/faults/refusal-marker";
 import { roleHistory } from "../../modules/spine/participants";
 import { verifyStatedOrigin } from "../../modules/spine/tenancy";
+import { authorizeOrThrow } from "../authorize";
 import { authRouter } from "../auth/router";
 import { signedOut } from "../auth/refusals";
 import { holdsWorkspace } from "../shell/workspace";
@@ -91,18 +90,12 @@ function assignInput(raw: unknown): AssignParticipantRoleInput {
  * that decides which tenant handle may read it, so no tenant handle can be the one to answer it —
  * and the session's membership is what admits the request (the `holdsWorkspace` shape).
  */
-const OWNING_TENANT_REASON = "R-SPINE-011 participants transport: the workspace a named project belongs to, before any tenant handle is opened";
-
 export async function projectActorFor(userId: string, projectId: string, actType: ActType | null, permission: Permission): Promise<ActorCtx> {
-  const refused = (): Error => permissionNotHeld(actType, permission);
-  if (!isUuid(projectId)) throw refused();
-
-  const owning = await runAsSystem(OWNING_TENANT_REASON).select({ tenantId: projects.tenantId }).from(projects).where(eq(projects.projectId, projectId)).limit(1);
-  const tenantId = owning[0]?.tenantId;
-  if (tenantId === undefined) throw refused();
-  if (!(await holdsWorkspace(userId, tenantId))) throw refused();
-
-  return { tenantId, userId, actorKind: "human" };
+  // The resolution is the guard's (src/server/authorize.ts) and no longer this file's. It used to
+  // stop at `holdsWorkspace`, which made the `permission` argument decoration: it worded the refusal
+  // and was never tested, so every member of a workspace passed every project door in it. The
+  // argument is now the question rather than the wording of its answer.
+  return authorizeOrThrow({ userId, projectId, permission, actType });
 }
 
 /**
