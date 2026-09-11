@@ -18,8 +18,17 @@ export const SHELL = Object.freeze({
 export const SHELL_AREAS = ["projects", "books", "settings"] as const;
 export type ShellArea = (typeof SHELL_AREAS)[number];
 
-/** The regions R-UI-030 composes the frame from — each one owed *inside* shell-root. */
-const FRAME_REGIONS = [TESTIDS.shell.rail, TESTIDS.shell.topbar, TESTIDS.shell.main, TESTIDS.shell.inspector] as const;
+/**
+ * The regions R-UI-030 composes the frame from — each one owed *inside* shell-root.
+ *
+ * The INSPECTOR is not among them, and that is the clause read, not the clause dropped: R-UI-030
+ * calls the right inspector "context-sensitive", and Design Direction 00 §1 fixes what that means —
+ * one shell-owned right slot that "is absent — width 0, not a placeholder sentence — when nothing is
+ * selected". A frame with no selection owes no inspector, so demanding one here demanded the
+ * placeholder the Direction refuses. Where a selection exists the slot is asserted by the screen
+ * that mounts it (`useInspector`), which is the only place that knows what is in it.
+ */
+const FRAME_REGIONS = [TESTIDS.shell.rail, TESTIDS.shell.topbar, TESTIDS.shell.main] as const;
 
 export class ShellPage {
   constructor(private readonly page: Page) {}

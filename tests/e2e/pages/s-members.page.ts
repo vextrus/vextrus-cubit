@@ -45,7 +45,11 @@ export class SMembersPage {
 
   /** Move one member's role through the form the screen ships, and wait for the answer to settle. */
   async chooseRole(userId: string, role: string): Promise<void> {
-    await this.memberRow(userId).getByTestId(TESTIDS.members.roleForm).getByTestId(TESTIDS.members.roleSelect).selectOption(role);
+    // The shipped Select, not the platform's own control (Design Direction 00 §3.6: "Role change is
+    // an inline Select in the row"): the trigger opens a real listbox, and the option carries in
+    // `data-value` the very value the form posts — so the journey chooses the role, not a label.
+    await this.memberRow(userId).getByTestId(TESTIDS.members.roleForm).getByTestId(TESTIDS.members.roleSelect).click();
+    await this.page.locator(`[role="option"][data-value="${role}"]`).click();
     await this.memberRow(userId).getByTestId(TESTIDS.members.roleSubmit).click();
   }
 
