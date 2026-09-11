@@ -113,7 +113,7 @@ def test_the_generators_two_paths_still_agree(golden_corpus) -> None:
         pytest.skip(f"{golden_corpus.root.name} has no selfcheck of its own")
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
-    from fixtures.gen.rcc6_bnbc import selfcheck  # noqa: PLC0415
+    from fixtures.gen.rcc6_bnbc import selfcheck
 
     report = selfcheck.run()
     assert report["cells"] == "36/36", f"the selfcheck fills {report['cells']} of the M3 cells"
