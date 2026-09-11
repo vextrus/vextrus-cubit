@@ -5,11 +5,17 @@
 // migrations only GRANT and declare policies by name (SEAM-TENANT). Nothing here imports a driver:
 // that ban binds every file outside src/core/db.ts, this one included.
 import { spawnSync } from "node:child_process";
-import { join } from "node:path";
-import { BOOTSTRAP_URL, ROLE_APP, ROLE_MIGRATE, SCRATCH_DB_PREFIX, TENANT_COLUMN } from "./support/fixtures";
+import { createHash } from "node:crypto";
+import { readFileSync, readdirSync } from "node:fs";
+import { join, relative } from "node:path";
+import { BOOTSTRAP_URL, ROLE_APP, ROLE_MIGRATE, SCRATCH_DB_PREFIX, TEMPLATE_DB_PREFIX, TENANT_COLUMN } from "./support/fixtures";
 import { ident, isTrue, lit, psql, run } from "./support/live-sql";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..");
+const MIGRATIONS_DIR = join(REPO_ROOT, "db", "migrations");
+
+/** Two provisions inside one millisecond of one process are still two databases. */
+let counter = 0;
 
 /** A scratch database, addressed as each of the two live roles, and the way to take it away again. */
 export type ScratchDb = { urlMigrate: string; urlApp: string; drop(): Promise<void> };
@@ -91,31 +97,141 @@ function assertCanLogIn(role: string, database: string): void {
 }
 
 /**
- * A private, migrated database for one run of the suite. The two roles are real: migrations are
- * applied as the owner, and everything the suite proves about tenancy it proves as the app role.
+ * A digest of every byte of every migration input, path included — the name of the template built
+ * from them. Editing, adding or renaming a migration moves this digest, so the next run builds a new
+ * template rather than cloning a schema the tree no longer says is current (B-19): a template keyed
+ * by anything weaker (a count, a head filename, an mtime) would serve a stale schema silently, which
+ * is the one failure a cached database can have.
+ */
+export function migrationsDigest(dir: string = MIGRATIONS_DIR): string {
+  const files: string[] = [];
+  const walk = (at: string): void => {
+    for (const entry of readdirSync(at, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      const full = join(at, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else files.push(full);
+    }
+  };
+  walk(dir);
+  const hash = createHash("sha256");
+  for (const file of files.sort()) {
+    hash.update(relative(dir, file).replace(/\\/g, "/"));
+    hash.update("\u0000");
+    hash.update(readFileSync(file));
+    hash.update("\u0000");
+  }
+  return hash.digest("hex").slice(0, 16);
+}
+
+/** The template database the committed migrations build to, named by what they are. */
+export function templateDatabaseName(dir: string = MIGRATIONS_DIR): string {
+  return `${TEMPLATE_DB_PREFIX}${migrationsDigest(dir)}`;
+}
+
+/** Has this template finished being built? `datistemplate` is set last, and only by the builder. */
+function templateIsReady(name: string): boolean {
+  return isTrue(run(BOOTSTRAP_URL, `select datistemplate from pg_database where datname = ${lit(name)};`)[0]?.[0] ?? "");
+}
+
+/** Apply the committed migrations to a database, through the tree's own migration lane (ARCH-02). */
+function migrateInto(database: string): void {
+  const migrated = spawnSync(process.execPath, [join(REPO_ROOT, "scripts", "db-migrate.mjs")], {
+    cwd: REPO_ROOT,
+    env: { ...process.env, DATABASE_URL: urlAs(ROLE_MIGRATE, database) },
+    encoding: "utf8",
+    timeout: 300_000,
+  });
+  if (migrated.status !== 0) {
+    throw new Error(`the committed migrations did not apply to ${database}:\n${`${migrated.stdout ?? ""}${migrated.stderr ?? ""}`.slice(-1600)}`);
+  }
+}
+
+/**
+ * Take away templates built from migrations this tree no longer carries. Never forced: a template
+ * another suite is cloning from right now refuses the drop, and being left behind for the next run
+ * to collect is the correct outcome — a forced drop would kill that suite's own provision.
+ */
+function dropStaleTemplates(keep: string): void {
+  const stale = run(BOOTSTRAP_URL, `select datname from pg_database where datname like ${lit(`${TEMPLATE_DB_PREFIX}%`)} and datname <> ${lit(keep)};`).map((row) => row[0] ?? "");
+  for (const name of stale) psql(BOOTSTRAP_URL, `drop database if exists ${ident(name)};`);
+}
+
+/** How long a suite waits for the run that won the race to finish building the template. */
+const TEMPLATE_BUILD_TIMEOUT_MS = 300_000;
+
+/** This process builds or waits for the template once, however many files ask it for one. */
+let template: Promise<string> | undefined;
+
+/**
+ * The migrated template every scratch database of this run is copied from — built ONCE per cluster
+ * per migration digest, by whichever process wins the race, and cloned by all the rest (51 files
+ * each running 41 migrations was the database lane's whole cost).
+ *
+ * `CREATE DATABASE` is the mutex: exactly one process can create a given name, and the loser gets
+ * 42P04 and waits. Readiness is `datistemplate`, set only after the migrations applied — so a
+ * template that exists but is half-built is never cloned, and a builder that dies leaves a database
+ * that says plainly it is not ready instead of a schema that lies about being complete.
+ */
+async function ensureTemplate(): Promise<string> {
+  template ??= buildTemplate();
+  return template;
+}
+
+async function buildTemplate(): Promise<string> {
+  const name = templateDatabaseName();
+  if (templateIsReady(name)) return name;
+
+  const created = psql(BOOTSTRAP_URL, `create database ${ident(name)} owner ${ident(ROLE_MIGRATE)};`);
+  if (created.ok) {
+    try {
+      migrateInto(name);
+    } catch (error) {
+      // A half-built template must not outlive the attempt: it would never become ready, and every
+      // later run would wait the full timeout on it.
+      psql(BOOTSTRAP_URL, `drop database if exists ${ident(name)} with (force);`);
+      throw error;
+    }
+    run(BOOTSTRAP_URL, `update pg_database set datistemplate = true where datname = ${lit(name)};`);
+    dropStaleTemplates(name);
+    return name;
+  }
+  // 42P04: another process created it first and is migrating it now.
+  if (created.sqlstate !== "42P04") throw new Error(`the template database ${name} could not be created:\n${created.stderr.slice(-1200)}`);
+
+  const deadline = Date.now() + TEMPLATE_BUILD_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await new Promise((resume) => setTimeout(resume, 250));
+    if (templateIsReady(name)) return name;
+  }
+  throw new Error(`the template database ${name} exists but never became ready — a run that was building it died. Drop it and try again:\n  psql "${BOOTSTRAP_URL}" -c 'drop database ${name} with (force)'`);
+}
+
+/**
+ * A private, migrated database for one run of the suite, copied from the template rather than
+ * migrated again. The two roles are real: the template's migrations were applied as the owner, its
+ * grants and policies are copied with it, and everything the suite proves about tenancy it proves as
+ * the app role.
  */
 export async function provisionScratchDb(): Promise<ScratchDb> {
-  const database = `${SCRATCH_DB_PREFIX}${process.pid.toString(36)}_${Date.now().toString(36)}`;
+  const database = `${SCRATCH_DB_PREFIX}${process.pid.toString(36)}_${Date.now().toString(36)}_${(counter += 1).toString(36)}`;
   const roles = [ROLE_MIGRATE, ROLE_APP];
   const borrowed = roles.filter((role) => !alreadyMember(role));
   run(BOOTSTRAP_URL, roles.map(createRoleIfAbsent).join("\n"));
-  run(BOOTSTRAP_URL, `drop database if exists ${ident(database)} with (force);\ncreate database ${ident(database)} owner ${ident(ROLE_MIGRATE)};`);
+  const source = await ensureTemplate();
+
+  run(BOOTSTRAP_URL, `drop database if exists ${ident(database)} with (force);`);
+  // 55006: the template is momentarily held by another process's own clone. Copying is short, so
+  // this yields and asks again rather than failing a file for a collision it can wait out.
+  for (let attempt = 0; ; attempt += 1) {
+    const cloned = psql(BOOTSTRAP_URL, `create database ${ident(database)} template ${ident(source)} owner ${ident(ROLE_MIGRATE)};`);
+    if (cloned.ok) break;
+    if (cloned.sqlstate !== "55006" || attempt >= 40) throw new Error(`${database} could not be copied from the template ${source}:\n${cloned.stderr.slice(-1200)}`);
+    await new Promise((resume) => setTimeout(resume, 250));
+  }
   for (const role of roles) assertCanLogIn(role, database);
 
-  const urlMigrate = urlAs(ROLE_MIGRATE, database);
-  const migrated = spawnSync(process.execPath, [join(REPO_ROOT, "scripts", "db-migrate.mjs")], {
-    cwd: REPO_ROOT,
-    env: { ...process.env, DATABASE_URL: urlMigrate },
-    encoding: "utf8",
-    timeout: 120_000,
-  });
-  if (migrated.status !== 0) {
-    run(BOOTSTRAP_URL, `drop database if exists ${ident(database)} with (force);`);
-    throw new Error(`the committed migrations did not apply to ${database}:\n${`${migrated.stdout ?? ""}${migrated.stderr ?? ""}`.slice(-1600)}`);
-  }
-
   return {
-    urlMigrate,
+    urlMigrate: urlAs(ROLE_MIGRATE, database),
     urlApp: urlAs(ROLE_APP, database),
     drop: async () => {
       run(BOOTSTRAP_URL, `drop database if exists ${ident(database)} with (force);`);

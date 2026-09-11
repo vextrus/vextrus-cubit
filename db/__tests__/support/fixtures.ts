@@ -33,6 +33,13 @@ export const TENANCY_BASE_MIGRATION = "tenancy-base";
 export const SCRATCH_DB_PREFIX = "cubit_dbtest_";
 
 /**
+ * The migrated template scratch databases are copied from, named by a digest of the migrations that
+ * built it (db/__tests__/harness.ts). A distinct prefix, so a template is never mistaken for a
+ * scratch database by a sweep that collects one or the other.
+ */
+export const TEMPLATE_DB_PREFIX = "cubit_dbtpl_";
+
+/**
  * The bootstrap connection: CI provides DATABASE_URL, and the local cluster this repo is checked
  * against listens on 127.0.0.1:5544. Resolved once so every lane reaches the same server.
  */
