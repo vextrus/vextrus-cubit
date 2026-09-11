@@ -125,13 +125,12 @@ INPUTS: dict[str, Any] = {
         },
     ],
     "slab": [
-        {"level": "GF", "area_m2": 450.0, "openings_m2": 15.25, "thickness_mm": 125},
-        {"level": "1F", "area_m2": 450.0, "openings_m2": 15.25, "thickness_mm": 150},
-        {"level": "2F", "area_m2": 450.0, "openings_m2": 15.25, "thickness_mm": 150},
-        {"level": "3F", "area_m2": 450.0, "openings_m2": 15.25, "thickness_mm": 150},
-        {"level": "4F", "area_m2": 450.0, "openings_m2": 15.25, "thickness_mm": 150},
-        {"level": "5F", "area_m2": 450.0, "openings_m2": 15.25, "thickness_mm": 150},
-        {"level": "ROOF", "area_m2": 450.0, "openings_m2": 4.0, "thickness_mm": 150},
+        {"level": "1F", "thickness_mm": 150},
+        {"level": "2F", "thickness_mm": 150},
+        {"level": "3F", "thickness_mm": 150},
+        {"level": "4F", "thickness_mm": 150},
+        {"level": "5F", "thickness_mm": 150},
+        {"level": "ROOF", "thickness_mm": 150},
     ],
     "footings": [
         {"mark": "F1", "l_mm": 1500, "b_mm": 1500, "depth_mm": 450, "count": 4},
@@ -160,6 +159,14 @@ PILES_UNDER = {"PC1": 4, "PC2": 3}
 STAIR_OPENING = (9500, 8500, 2500, 4500)
 LIFT_OPENING = (12500, 8500, 2000, 2000)
 ROOF_OPENING = (9500, 8500, 2000, 2000)
+
+#: The same three holes as authored inputs, so `inputs.json` carries what the golden measures
+#: around (v1.1: the golden is recomputed from the drawn geometry under AM-02).
+INPUTS["openings"] = {
+    "stair": list(STAIR_OPENING),
+    "lift": list(LIFT_OPENING),
+    "roof": list(ROOF_OPENING),
+}
 
 SHEET_NAMES = (
     "FOUNDATION PLAN",
@@ -379,9 +386,7 @@ def typical_floor_plan() -> Scene:
     scene.rect(xs[0] - 150, ys[0] - 150, xs[-1] - xs[0] + 300, ys[-1] - ys[0] + 300, "S-SLAB")
     columns = by_mark("columns")
     for i, j, x, y in grid_points():
-        mark = COLUMN_AT[
-            {"long_edge": "edge", "short_edge": "edge"}.get(position_class(i, j), position_class(i, j))
-        ]
+        mark = column_mark(i, j)
         column = columns[mark]
         scene.rect(x - column["b_mm"] / 2, y - column["d_mm"] / 2, column["b_mm"], column["d_mm"], "S-COLS")
         scene.text(mark, (x + column["b_mm"] / 2 + 150, y + column["d_mm"] / 2 + 100), 300)
@@ -1054,6 +1059,191 @@ def spelled(amount: Decimal) -> str:
     return format(amount.quantize(QUANTUM, rounding=ROUND_HALF_EVEN), "f")
 
 
+# ---------------------------------------------------------------------------------------------
+# F-RCC6 v1.1 — the measured geometry, under AM-02 (L-MEA-09, one owner per junction).
+#
+# The golden no longer bills a beam at its schedule span or a slab at a nominal 450 m²: it bills
+# what the plan draws, measured once. Beams are clear between support faces and below the slab
+# soffit; a beam the plan runs across a stair or lift well is stopped at the trimmers (the drawn
+# crossing is a drawing-side fault of v1.0, deferred to a redraw — dropping the crossing segment
+# publishes an under figure, which AM-02 allows and L-QTY-04 does not block). Slabs run through:
+# the outline out to the edge beams' outer faces, less column plan areas, less the openings.
+# ---------------------------------------------------------------------------------------------
+
+MEASURE_CONVENTION = "AM-02 L-MEA-09: one owner per junction"
+QUANTUM6 = Decimal("0.000001")
+
+
+@dataclass(frozen=True)
+class Run:
+    """One drawn beam, clear between its support faces: `at` is the axis it sits on, in mm."""
+
+    mark: str
+    axis: str
+    at: float
+    a: float
+    b: float
+
+
+def column_mark(i: int, j: int) -> str:
+    """The column mark the plan draws at grid intersection (i, j)."""
+    cls = position_class(i, j)
+    return COLUMN_AT[{"long_edge": "edge", "short_edge": "edge"}.get(cls, cls)]
+
+
+def openings_at(level: str) -> list[tuple[float, float, float, float]]:
+    holes = INPUTS["openings"]
+    return [tuple(holes[name]) for name in (("roof",) if level == "ROOF" else ("stair", "lift"))]
+
+
+def plate_at() -> tuple[float, float, float, float]:
+    """The slab plate as (x, y, w, h) in mm: the outline out to the edge beams' outer faces."""
+    xs, ys = INPUTS["grid"]["x_mm"], INPUTS["grid"]["y_mm"]
+    beams = by_mark("beams")
+    ex, ey = beams["B3"]["b_mm"] / 2, beams["B1"]["b_mm"] / 2
+    return (xs[0] - ex, ys[0] - ey, xs[-1] - xs[0] + 2 * ex, ys[-1] - ys[0] + 2 * ey)
+
+
+def beam_runs(level: str) -> list[Run]:
+    """Every beam the plan draws at `level`, clear between the faces of what supports it."""
+    xs, ys = INPUTS["grid"]["x_mm"], INPUTS["grid"]["y_mm"]
+    cols, beams = by_mark("columns"), by_mark("beams")
+    runs: list[Run] = []
+    for j, y in enumerate(ys):
+        mark = "B1" if j in (0, len(ys) - 1) else "B2"
+        for i in range(len(xs) - 1):
+            a = xs[i] + cols[column_mark(i, j)]["b_mm"] / 2
+            b = xs[i + 1] - cols[column_mark(i + 1, j)]["b_mm"] / 2
+            runs.append(Run(mark, "x", y, a, b))
+    for i, x in enumerate(xs):
+        mark = "B3" if i in (0, len(xs) - 1) else "B4"
+        for j in range(len(ys) - 1):
+            a = ys[j] + cols[column_mark(i, j)]["d_mm"] / 2
+            b = ys[j + 1] - cols[column_mark(i, j + 1)]["d_mm"] / 2
+            runs.append(Run(mark, "y", x, a, b))
+    if level == "ROOF":
+        return runs
+    for name in ("stair", "lift"):
+        ox, oy, ow, oh = INPUTS["openings"][name]
+        # B5 is the opening's trimmer: v1.1 bills it at the length the plan draws it, not at the
+        # 4.5 m the beam schedule prints (the schedule's span is the drawing-side deferral).
+        runs.append(Run("B5", "x", oy, ox, ox + ow))
+        runs.append(Run("B5", "x", oy + oh, ox, ox + ow))
+    half = beams["B2"]["b_mm"] / 2
+    for i in range(len(xs) - 1):
+        runs.append(Run("B6", "y", (xs[i] + xs[i + 1]) / 2, ys[2] + half, ys[3] - half))
+    return runs
+
+
+def segments(run: Run, level: str) -> list[tuple[float, float]]:
+    """The run, less every stretch of it that lies inside a slab opening it crosses."""
+    spans = [(run.a, run.b)]
+    for ox, oy, ow, oh in openings_at(level):
+        across = oy < run.at < oy + oh if run.axis == "x" else ox < run.at < ox + ow
+        if not across:
+            continue
+        lo, hi = (ox, ox + ow) if run.axis == "x" else (oy, oy + oh)
+        kept: list[tuple[float, float]] = []
+        for a, b in spans:
+            if b <= lo or a >= hi:
+                kept.append((a, b))
+                continue
+            if a < lo:
+                kept.append((a, lo))
+            if b > hi:
+                kept.append((hi, b))
+        spans = kept
+    return spans
+
+
+def slab_beside(x: float, y: float, level: str, thickness_mm: float) -> float:
+    """The slab thickness at a point beside a beam: nothing off the plate or inside an opening."""
+    px, py, pw, ph = plate_at()
+    if not (px < x < px + pw and py < y < py + ph):
+        return 0.0
+    for ox, oy, ow, oh in openings_at(level):
+        if ox < x < ox + ow and oy < y < oy + oh:
+            return 0.0
+    return thickness_mm
+
+
+def sides_of(run: Run, level: str, thickness_mm: float) -> tuple[float, float]:
+    """The slab thickness adjoining each side of a run, the thicker adjoining slab governing."""
+    beams = by_mark("beams")
+    off = beams[run.mark]["b_mm"] / 2 + 10
+    sides = [0.0, 0.0]
+    for a, b in segments(run, level):
+        mid = (a + b) / 2
+        for k, sign in enumerate((-1, 1)):
+            point = (mid, run.at + sign * off) if run.axis == "x" else (run.at + sign * off, mid)
+            sides[k] = max(sides[k], slab_beside(point[0], point[1], level, thickness_mm))
+    return (sides[0], sides[1])
+
+
+def beam_measurements(level: str, thickness_mm: float) -> dict[str, dict[str, Any]]:
+    """Per beam mark at `level`: its measured clear length in metres and its two slab faces."""
+    out: dict[str, dict[str, Any]] = {}
+    for run in beam_runs(level):
+        clear = sum(b - a for a, b in segments(run, level))
+        left, right = sides_of(run, level, thickness_mm)
+        seen = out.setdefault(run.mark, {"clear_mm": 0.0, "slab_t_mm": [0.0, 0.0]})
+        seen["clear_mm"] += clear
+        seen["slab_t_mm"] = [max(seen["slab_t_mm"][0], left), max(seen["slab_t_mm"][1], right)]
+    return out
+
+
+def metres(mm: float) -> Decimal:
+    return (dec(mm) / MM).quantize(QUANTUM, rounding=ROUND_HALF_EVEN)
+
+
+def square_metres(mm2: float) -> Decimal:
+    return (dec(mm2) / (MM * MM)).quantize(QUANTUM6, rounding=ROUND_HALF_EVEN)
+
+
+def attach_measurements() -> None:
+    """Write the measured geometry into the authored inputs, so `inputs.json` carries it.
+
+    The generator derives it from the same grid, columns and openings the plan is drawn from, so
+    the golden cannot drift from the drawing; `inputs.json` then states it as exact decimals, so
+    the independent recomputation (cad/tests/sanity/test_rcc6_golden.py) bills the same rows from
+    the inputs alone without ever reading the drawing (L-QTY-06).
+    """
+    slabs = {slab["level"]: slab for slab in INPUTS["slab"]}
+    measured: dict[str, dict[str, dict[str, Any]]] = {}
+    for level, slab in slabs.items():
+        measured[level] = beam_measurements(level, float(slab["thickness_mm"]))
+    for beam in INPUTS["beams"]:
+        clear: dict[str, str] = {}
+        faces: dict[str, list[str]] = {}
+        for level in beam["levels"]:
+            seen = measured.get(level, {}).get(beam["mark"])
+            if seen is None:
+                continue
+            clear[level] = format(metres(seen["clear_mm"]), "f")
+            faces[level] = [format(metres(t) * MM, "f") for t in seen["slab_t_mm"]]
+        beam["measured"] = {"convention": MEASURE_CONVENTION, "clear_m": clear, "slab_t_mm": faces}
+    cols = by_mark("columns")
+    columns_mm2 = sum(
+        cols[column_mark(i, j)]["b_mm"] * cols[column_mark(i, j)]["d_mm"] for i, j, _, _ in grid_points()
+    )
+    _, _, pw, ph = plate_at()
+    beams = by_mark("beams")
+    for level, slab in slabs.items():
+        holes = openings_at(level)
+        soffit = sum(
+            beams[mark]["b_mm"] * seen["clear_mm"] for mark, seen in measured[level].items()
+        )
+        trimmed = sum(seen["clear_mm"] for mark, seen in measured[level].items() if mark == "B5")
+        slab["measured"] = {
+            "convention": MEASURE_CONVENTION,
+            "plate_m2": format(square_metres(pw * ph), "f"),
+            "columns_m2": format(square_metres(columns_mm2), "f"),
+            "openings_m2": format(square_metres(sum(w * h for _, _, w, h in holes)), "f"),
+            "beam_soffit_m2": format(square_metres(soffit), "f"),
+            "free_edge_m": format(metres(sum(2 * (w + h) for _, _, w, h in holes) - trimmed), "f"),
+        }
+
+
 def golden_rows() -> list[dict[str, str]]:
     heights = {level["name"]: dec(level["storey_height_m"]) for level in INPUTS["levels"]}
     order = [level["name"] for level in INPUTS["levels"]]
@@ -1082,25 +1272,42 @@ def golden_rows() -> list[dict[str, str]]:
                 "sum(count * 2 * (b + d) * storey_height)",
             )
     for beam in INPUTS["beams"]:
-        b, d, span, count = (
-            dec(beam["b_mm"]) / MM,
-            dec(beam["d_mm"]) / MM,
-            dec(beam["span_m"]),
-            dec(beam["count"]),
-        )
-        for level in beam["levels"]:
-            add("BEAM", "RCC_CONCRETE", level, count * b * d * span, "sum(count * b * d * span)")
-            add("BEAM", "FORMWORK", level, count * (2 * d + b) * span, "sum(count * (2 * d + b) * span)")
+        b, d = dec(beam["b_mm"]) / MM, dec(beam["d_mm"]) / MM
+        for level, clear_m in beam["measured"]["clear_m"].items():
+            clear = dec(clear_m)
+            left, right = (dec(t) / MM for t in beam["measured"]["slab_t_mm"][level])
+            add(
+                "BEAM",
+                "RCC_CONCRETE",
+                level,
+                b * (d - max(left, right)) * clear,
+                "sum(b * (D - t_slab) * clear)  [AM-02 L-MEA-09]",
+            )
+            add(
+                "BEAM",
+                "FORMWORK",
+                level,
+                ((d - left) + (d - right) + b) * clear,
+                "sum(((D - t_left) + (D - t_right) + b) * clear)  [AM-02 L-MEA-09]",
+            )
     for slab in INPUTS["slab"]:
-        net = dec(slab["area_m2"]) - dec(slab["openings_m2"])
+        measured = slab["measured"]
+        thickness = dec(slab["thickness_mm"]) / MM
+        plate = dec(measured["plate_m2"]) - dec(measured["columns_m2"]) - dec(measured["openings_m2"])
         add(
             "SLAB",
             "RCC_CONCRETE",
             slab["level"],
-            net * (dec(slab["thickness_mm"]) / MM),
-            "(area - openings) * thickness",
+            plate * thickness,
+            "(plate - columns - openings) * thickness  [AM-02 L-MEA-09]",
         )
-        add("SLAB", "FORMWORK", slab["level"], net, "area - openings")
+        add(
+            "SLAB",
+            "FORMWORK",
+            slab["level"],
+            (plate - dec(measured["beam_soffit_m2"])) + dec(measured["free_edge_m"]) * thickness,
+            "(plate - columns - openings - beam soffits) + free_edge * thickness  [AM-02 L-MEA-09]",
+        )
     for cls, family in (("FOOTING", "footings"), ("PILE_CAP", "pile_caps")):
         for item in INPUTS[family]:
             length, b, depth, count = (
@@ -1224,6 +1431,9 @@ def main(argv: list[str]) -> int:
         print(f"rcc6.py: {error}", file=sys.stderr)
         return 1
     return 0
+
+
+attach_measurements()
 
 
 if __name__ == "__main__":
