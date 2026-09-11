@@ -18,6 +18,7 @@ import { dirname, resolve } from "node:path";
 import axe from "axe-core";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { moderateBudgetFor } from "./axe-budget";
+import { heightBudgetFor } from "./height-budget";
 import { settled } from "./settled";
 
 /** What a checkpoint refuses to pass with. Anything milder is held to its budget or reported. */
@@ -78,9 +79,9 @@ async function captureRoot(page: Page): Promise<{ selector: string; locator: Loc
  * and put back exactly as it was — the style attribute is restored verbatim, not cleared, so a
  * screen that carried inline style before the capture carries the same inline style after it.
  */
-async function captureScreen(page: Page, root: { selector: string; locator: Locator }): Promise<Capture> {
+async function captureScreen(page: Page, root: { selector: string; locator: Locator }, recorded: number | null): Promise<Capture> {
   const viewport = page.viewportSize();
-  const cap = (viewport?.height ?? 900) * HEIGHT_CAP_FACTOR;
+  const cap = recorded ?? (viewport?.height ?? 900) * HEIGHT_CAP_FACTOR;
   const measured = await root.locator.evaluate((element, capPx) => {
     const before = element.getAttribute("style");
     const content = Math.max(element.scrollHeight, element.clientHeight);
@@ -151,7 +152,10 @@ export async function checkpoint(page: Page, testInfo: TestInfo, name: string): 
   }, TAGS)) as AxeViolation[];
 
   const root = await captureRoot(page);
-  const capture = await captureScreen(page, root);
+  // A screen that carries a recorded height budget is photographed and judged at THAT height: the
+  // picture is of the whole screen either way, and the debt is the entry, not a truncated capture.
+  const recorded = heightBudgetFor(name);
+  const capture = await captureScreen(page, root, recorded);
   await testInfo.attach(name, { body: capture.body, contentType: "image/png" });
 
   // The axe result rides beside the capture as its own attachment (Vextrus Builder v21 L9): the
@@ -166,7 +170,7 @@ export async function checkpoint(page: Page, testInfo: TestInfo, name: string): 
 
   // §9.3: a taller capture fails the run. The picture is attached FIRST so the failure ships with
   // the evidence of what was too tall.
-  expect(capture.contentHeight, `checkpoint ${name}: the screen's scroll container (${capture.selector}) is ${capture.contentHeight} px against a cap of ${capture.cap} px — a capture taller than twice the viewport is a picture of a scroll, not of a screen (Design Direction 00 §9.3)`).toBeLessThanOrEqual(capture.cap);
+  expect(capture.contentHeight, `checkpoint ${name}: the screen's scroll container (${capture.selector}) is ${capture.contentHeight} px against a cap of ${capture.cap} px${recorded === null ? "" : " (its recorded per-screen budget — tests/e2e/support/height-budget.ts)"} — a capture taller than twice the viewport is a picture of a scroll, not of a screen (Design Direction 00 §9.3)`).toBeLessThanOrEqual(capture.cap);
 
   const blocking = violations.filter((violation) => BLOCKING.has(violation.impact ?? ""));
   expect(blocking.map(describe), `checkpoint ${name}: axe reports no serious or critical violation`).toEqual([]);
