@@ -1,0 +1,12 @@
+{
+  "fixture": "F-RCC6-BNBC",
+  "facts": {
+    "egl_mm": "-152.4",
+    "working_allowance_mm": "457.2",
+    "depth_extra_mm": "152.4",
+    "blinding_projection_mm": "76.2",
+    "blinding_thickness_mm": "76.2",
+    "sog_blinding_thickness_mm": "75"
+  },
+  "source": "S-01 general notes + S-04 pile layout (EGL, cut-off); the working allowance, depth extra and blinding are the IS1200_IN seed values the notes restate"
+}
