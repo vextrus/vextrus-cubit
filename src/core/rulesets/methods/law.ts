@@ -9,6 +9,7 @@
 import type { Kind } from "../../catalogue/kinds";
 import type { DeductionChannel } from "../../offers/law";
 import type { Dimension, Unit } from "../../units/canon";
+import type { Statement } from "./expr";
 
 /** One variable a formula declares: the name its template spells, and the dimension it stands in. */
 export type MethodVariable = {
@@ -35,6 +36,12 @@ export type FormulaMethod = {
   readonly dimension: Dimension;
   readonly variables: readonly MethodVariable[];
   readonly deductionChannels: readonly DeductionChannel[];
+  /**
+   * The ONE tree the template is printed from and the figure is evaluated from (L-QTY-03). A method
+   * states its algebra here and never a string: `template` and `evaluate` below are both derived
+   * from it by `formulaFrom`, so a printed formula cannot drift from what the gate computed.
+   */
+  readonly tree: Statement;
   readonly template: string;
   readonly evaluate: (bindings: NormalisedBindings) => string;
 };
