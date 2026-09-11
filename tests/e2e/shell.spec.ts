@@ -179,6 +179,16 @@ test.describe("J-004 — the signed-in application shell", () => {
     await expect(shell.sampleOutcome, "the seam's answer is rendered, and an absence is a notice rather than a fault").toHaveText(strings.shell_sample_unavailable);
     await checkpoint(page, testInfo, "j004-shell-onboarding");
 
+    /* --- the hover-hold widens the rail and moves none of its controls: a press that begins on a
+       control and ends where that control no longer is produces no click at all (R-UI-080) --- */
+    const closedBox = await shell.nav("books").boundingBox();
+    await shell.rail.hover();
+    await expect(shell.rail, "a pointer held on the rail opens it (Direction §1's hover-hold)").toHaveAttribute("data-collapsed", "false");
+    const openBox = await shell.nav("books").boundingBox();
+    expect(openBox?.y, "the opened rail leaves every control at the height it stood at").toBe(closedBox?.y);
+    expect(openBox?.x, "…and at the edge it stood at, so a press that began on one lands on it").toBe(closedBox?.x);
+    expect((openBox?.width ?? 0) > (closedBox?.width ?? 0), "what the expansion changes is the width").toBe(true);
+
     /* --- the rail navigates, and selection follows the URL --- */
     await shell.nav("books").click();
     await expect(page).toHaveURL(`${origin}${SHELL.books(tenantId)}`);

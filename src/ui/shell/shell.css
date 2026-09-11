@@ -67,23 +67,22 @@
 
 /* The mark and the pin stack: at 48 px a row holding both is narrower than the pair, and the pin —
    the only control that holds the rail open — would be pushed out of the box (R-UI-070's 26 px mark
-   is the taller of the two). Expanded, they sit at either end of one row. */
+   is the taller of the two).
+   THEY STACK IN BOTH STATES, in a box that is always the narrow rail's 48 px wide, because the
+   expansion is a HOVER gesture: it fires 300 ms after the pointer arrives, which is INSIDE the
+   gesture that presses a control, not before it. This block used to re-flow to a 40 px row when the
+   rail opened — which lifted the switcher and all three nav rows ~50 px up the screen and carried
+   the pin from the bottom of the block to its right edge, under whatever pointer was resting on
+   them. A press that begins on a control and ends where that control no longer is produces no click
+   at all: the rail's own controls stopped answering (J-001, J-003, J-004). What expanding does now
+   is widen the rail and unclip the labels; no hit target moves. */
 .cx-shell-rail-top {
   display: flex;
+  width: var(--rail-w);
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
   padding-block: var(--space-3);
-}
-
-.cx-shell-rail[data-collapsed="false"] .cx-shell-rail-top {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  height: var(--topbar-h);
-  padding-block: 0;
-  padding-inline: var(--space-3);
 }
 
 .cx-shell-rail-mark {
