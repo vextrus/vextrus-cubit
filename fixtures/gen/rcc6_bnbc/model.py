@@ -347,8 +347,9 @@ def column_rect(stack: dict[str, Any], storey: str) -> dict[str, Decimal]:
     else:
         sx, sy, sx0, sy0 = d, b, d0, b0
     ox, oy = stack["outer"]
-    cx = stack["x"] - ox * (sx0 - sx) / 2
-    cy = stack["y"] - oy * (sy0 - sy) / 2
+    # the outer face stays where band 1 put it, so the centre moves toward the outer side by half the step
+    cx = stack["x"] + ox * (sx0 - sx) / 2
+    cy = stack["y"] + oy * (sy0 - sy) / 2
     return {"cx": cx, "cy": cy, "sx": sx, "sy": sy, "b": b, "d": d}
 
 

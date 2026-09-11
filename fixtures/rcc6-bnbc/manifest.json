@@ -4,13 +4,13 @@
   "generator": {
     "path": "fixtures/gen/rcc6_bnbc/",
     "modules": {
-      "model.py": "cddd4ec0445e4620253d96d15e6cc9a71f4c2f9f0e7031d0657c600d027f43e5",
+      "model.py": "be3750b6c2b78bae872732682009d5b4aa4aed4db598151678ba1ceb5a3c2d99",
       "golden.py": "9e85f2441fb1c26e54520e8768bc99e6ef62d0b5bd725c8d07822c66a4397f80",
       "golden_check.py": "9c4f8faaa3c51c6aa15ff7d316d7bb8ab898fb372deb279cc9938f74dc98f712",
       "selfcheck.py": "5d06171350e60d4850980e198b40a3e0597d12a41a60a9a15002afe066178f95",
       "__main__.py": "5d6f46488df6fd2878db401077eba938e49e6ded6e91ff04c40c1880c69ebf10",
       "cells.json": "b18725c0e00e900ffcf6c585eeafaf225db31aa65e7226e77bd1bf7e7bebc24f",
-      "traps.json": "ba888c008f491081610bdc7d20dc7859b140d65530d99b87876422b3f4152fe3"
+      "traps.json": "6a7718d97464e3abcaf7950d041e16734db66c3906a21ef4cfb22af7eb276c08"
     }
   },
   "conventions": {
@@ -37,12 +37,12 @@
     "curved_balcony": "the R 1524 corner is authored analytically (rect − r² + πr²/4) in both golden paths; the outline polygon keeps the corner point"
   },
   "outputs": {
-    "takeoff.golden.json": "1fc7cf626871b462b77506fda5183adbb6721cefdcea90fc4eef0009201ca177",
-    "bbs.golden.json": "e9151828888108e709b96c1a5388044afa59bff0b6882b09d39a39e98d6efa50",
+    "takeoff.golden.json": "94bc2eafccf874e11bfab1f51e054132c3164b1c6a0da6d65f31cc87b8c7c93f",
+    "bbs.golden.json": "d1985ada284f6f5dc6f1939c7ccf276d905b923df33ffd95b52c033af473731b",
     "cells.json": "5dc5a9d50f9b2c0a98be32919f6f6eade58a75c18dcacde3f648633c5b64f0c9",
-    "traps.json": "ba888c008f491081610bdc7d20dc7859b140d65530d99b87876422b3f4152fe3",
+    "traps.json": "6a7718d97464e3abcaf7950d041e16734db66c3906a21ef4cfb22af7eb276c08",
     "site.json": "f2b1fe46b7391f40afd0fae34bcaf35779f73eb06f072a60907e0828f2a31e99",
-    "model.json": "ecdc26267d89cdac5e2d7b2d40dd48488930e8ea74842c061a3e7d754090433e"
+    "model.json": "66c877d14d96684d79cff20a9c0880055b6f2b0c516d3819fc56a6e6c8fec8ab"
   },
   "selfcheck": {
     "two_path_agreement": "376 rows identical (member-by-member vs mark × placements)",

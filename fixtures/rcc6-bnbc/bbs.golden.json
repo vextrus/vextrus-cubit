@@ -66034,19 +66034,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6222.000"
+        "A": "6272.000"
       },
-      "cutting_raw_mm": "6222.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6222.000",
+      "cutting_raw_mm": "6272.000",
+      "cutting_rounded_mm": "6275",
+      "cutting_is_additive_mm": "6272.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "46.030",
-      "kg_net": "46.030",
+      "kg": "46.400",
+      "kg_net": "46.400",
       "kg_lap": "0.000"
     },
     {
@@ -66059,19 +66059,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2111.000"
+        "A": "2136.000"
       },
-      "cutting_raw_mm": "2111.000",
-      "cutting_rounded_mm": "2125",
-      "cutting_is_additive_mm": "2111.000",
+      "cutting_raw_mm": "2136.000",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2136.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "10.411",
-      "kg_net": "10.411",
+      "kg": "10.535",
+      "kg_net": "10.535",
       "kg_lap": "0.000"
     },
     {
@@ -66084,19 +66084,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6352.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6352.000",
+      "cutting_rounded_mm": "6375",
+      "cutting_is_additive_mm": "6352.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.853",
-      "kg_net": "29.853",
+      "kg": "30.089",
+      "kg_net": "30.089",
       "kg_lap": "0.000"
     },
     {
@@ -66579,19 +66579,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6222.000"
+        "A": "6272.000"
       },
-      "cutting_raw_mm": "6222.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6222.000",
+      "cutting_raw_mm": "6272.000",
+      "cutting_rounded_mm": "6275",
+      "cutting_is_additive_mm": "6272.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "46.030",
-      "kg_net": "46.030",
+      "kg": "46.400",
+      "kg_net": "46.400",
       "kg_lap": "0.000"
     },
     {
@@ -66604,19 +66604,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2111.000"
+        "A": "2136.000"
       },
-      "cutting_raw_mm": "2111.000",
-      "cutting_rounded_mm": "2125",
-      "cutting_is_additive_mm": "2111.000",
+      "cutting_raw_mm": "2136.000",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2136.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "10.411",
-      "kg_net": "10.411",
+      "kg": "10.535",
+      "kg_net": "10.535",
       "kg_lap": "0.000"
     },
     {
@@ -66629,19 +66629,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6352.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6352.000",
+      "cutting_rounded_mm": "6375",
+      "cutting_is_additive_mm": "6352.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.853",
-      "kg_net": "29.853",
+      "kg": "30.089",
+      "kg_net": "30.089",
       "kg_lap": "0.000"
     },
     {
@@ -66709,19 +66709,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5722.000"
+        "A": "5822.000"
       },
-      "cutting_raw_mm": "5722.000",
-      "cutting_rounded_mm": "5725",
-      "cutting_is_additive_mm": "5722.000",
+      "cutting_raw_mm": "5822.000",
+      "cutting_rounded_mm": "5825",
+      "cutting_is_additive_mm": "5822.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.105",
-      "kg_net": "27.105",
+      "kg": "27.579",
+      "kg_net": "27.579",
       "kg_lap": "0.000"
     },
     {
@@ -66734,19 +66734,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2061.000"
+        "A": "2111.000"
       },
-      "cutting_raw_mm": "2061.000",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2061.000",
+      "cutting_raw_mm": "2111.000",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2111.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.509",
-      "kg_net": "6.509",
+      "kg": "6.667",
+      "kg_net": "6.667",
       "kg_lap": "0.000"
     },
     {
@@ -66759,19 +66759,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6202.000"
+        "A": "6302.000"
       },
-      "cutting_raw_mm": "6202.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6202.000",
+      "cutting_raw_mm": "6302.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6302.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.586",
-      "kg_net": "19.586",
+      "kg": "19.902",
+      "kg_net": "19.902",
       "kg_lap": "0.000"
     },
     {
@@ -66847,11 +66847,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -67254,19 +67254,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5722.000"
+        "A": "5822.000"
       },
-      "cutting_raw_mm": "5722.000",
-      "cutting_rounded_mm": "5725",
-      "cutting_is_additive_mm": "5722.000",
+      "cutting_raw_mm": "5822.000",
+      "cutting_rounded_mm": "5825",
+      "cutting_is_additive_mm": "5822.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.105",
-      "kg_net": "27.105",
+      "kg": "27.579",
+      "kg_net": "27.579",
       "kg_lap": "0.000"
     },
     {
@@ -67279,19 +67279,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2061.000"
+        "A": "2111.000"
       },
-      "cutting_raw_mm": "2061.000",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2061.000",
+      "cutting_raw_mm": "2111.000",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2111.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.509",
-      "kg_net": "6.509",
+      "kg": "6.667",
+      "kg_net": "6.667",
       "kg_lap": "0.000"
     },
     {
@@ -67304,19 +67304,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6202.000"
+        "A": "6302.000"
       },
-      "cutting_raw_mm": "6202.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6202.000",
+      "cutting_raw_mm": "6302.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6302.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.586",
-      "kg_net": "19.586",
+      "kg": "19.902",
+      "kg_net": "19.902",
       "kg_lap": "0.000"
     },
     {
@@ -67367,11 +67367,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -67384,19 +67384,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5722.000"
+        "A": "5822.000"
       },
-      "cutting_raw_mm": "5722.000",
-      "cutting_rounded_mm": "5725",
-      "cutting_is_additive_mm": "5722.000",
+      "cutting_raw_mm": "5822.000",
+      "cutting_rounded_mm": "5825",
+      "cutting_is_additive_mm": "5822.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.105",
-      "kg_net": "27.105",
+      "kg": "27.579",
+      "kg_net": "27.579",
       "kg_lap": "0.000"
     },
     {
@@ -67409,19 +67409,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2061.000"
+        "A": "2111.000"
       },
-      "cutting_raw_mm": "2061.000",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2061.000",
+      "cutting_raw_mm": "2111.000",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2111.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.509",
-      "kg_net": "6.509",
+      "kg": "6.667",
+      "kg_net": "6.667",
       "kg_lap": "0.000"
     },
     {
@@ -67434,19 +67434,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6202.000"
+        "A": "6302.000"
       },
-      "cutting_raw_mm": "6202.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6202.000",
+      "cutting_raw_mm": "6302.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6302.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.586",
-      "kg_net": "19.586",
+      "kg": "19.902",
+      "kg_net": "19.902",
       "kg_lap": "0.000"
     },
     {
@@ -67522,11 +67522,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -67929,19 +67929,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5722.000"
+        "A": "5822.000"
       },
-      "cutting_raw_mm": "5722.000",
-      "cutting_rounded_mm": "5725",
-      "cutting_is_additive_mm": "5722.000",
+      "cutting_raw_mm": "5822.000",
+      "cutting_rounded_mm": "5825",
+      "cutting_is_additive_mm": "5822.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.105",
-      "kg_net": "27.105",
+      "kg": "27.579",
+      "kg_net": "27.579",
       "kg_lap": "0.000"
     },
     {
@@ -67954,19 +67954,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2061.000"
+        "A": "2111.000"
       },
-      "cutting_raw_mm": "2061.000",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2061.000",
+      "cutting_raw_mm": "2111.000",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2111.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.509",
-      "kg_net": "6.509",
+      "kg": "6.667",
+      "kg_net": "6.667",
       "kg_lap": "0.000"
     },
     {
@@ -67979,19 +67979,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6202.000"
+        "A": "6302.000"
       },
-      "cutting_raw_mm": "6202.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6202.000",
+      "cutting_raw_mm": "6302.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6302.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.586",
-      "kg_net": "19.586",
+      "kg": "19.902",
+      "kg_net": "19.902",
       "kg_lap": "0.000"
     },
     {
@@ -68042,11 +68042,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -68059,19 +68059,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5722.000"
+        "A": "5822.000"
       },
-      "cutting_raw_mm": "5722.000",
-      "cutting_rounded_mm": "5725",
-      "cutting_is_additive_mm": "5722.000",
+      "cutting_raw_mm": "5822.000",
+      "cutting_rounded_mm": "5825",
+      "cutting_is_additive_mm": "5822.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.105",
-      "kg_net": "27.105",
+      "kg": "27.579",
+      "kg_net": "27.579",
       "kg_lap": "0.000"
     },
     {
@@ -68084,19 +68084,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2061.000"
+        "A": "2111.000"
       },
-      "cutting_raw_mm": "2061.000",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2061.000",
+      "cutting_raw_mm": "2111.000",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2111.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.509",
-      "kg_net": "6.509",
+      "kg": "6.667",
+      "kg_net": "6.667",
       "kg_lap": "0.000"
     },
     {
@@ -68109,19 +68109,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6202.000"
+        "A": "6302.000"
       },
-      "cutting_raw_mm": "6202.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6202.000",
+      "cutting_raw_mm": "6302.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6302.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.586",
-      "kg_net": "19.586",
+      "kg": "19.902",
+      "kg_net": "19.902",
       "kg_lap": "0.000"
     },
     {
@@ -68197,11 +68197,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -68474,19 +68474,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5722.000"
+        "A": "5822.000"
       },
-      "cutting_raw_mm": "5722.000",
-      "cutting_rounded_mm": "5725",
-      "cutting_is_additive_mm": "5722.000",
+      "cutting_raw_mm": "5822.000",
+      "cutting_rounded_mm": "5825",
+      "cutting_is_additive_mm": "5822.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.105",
-      "kg_net": "27.105",
+      "kg": "27.579",
+      "kg_net": "27.579",
       "kg_lap": "0.000"
     },
     {
@@ -68499,19 +68499,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2061.000"
+        "A": "2111.000"
       },
-      "cutting_raw_mm": "2061.000",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2061.000",
+      "cutting_raw_mm": "2111.000",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2111.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.509",
-      "kg_net": "6.509",
+      "kg": "6.667",
+      "kg_net": "6.667",
       "kg_lap": "0.000"
     },
     {
@@ -68524,19 +68524,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6202.000"
+        "A": "6302.000"
       },
-      "cutting_raw_mm": "6202.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6202.000",
+      "cutting_raw_mm": "6302.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6302.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.586",
-      "kg_net": "19.586",
+      "kg": "19.902",
+      "kg_net": "19.902",
       "kg_lap": "0.000"
     },
     {
@@ -68587,11 +68587,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -69149,19 +69149,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6222.000"
+        "A": "6272.000"
       },
-      "cutting_raw_mm": "6222.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6222.000",
+      "cutting_raw_mm": "6272.000",
+      "cutting_rounded_mm": "6275",
+      "cutting_is_additive_mm": "6272.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "46.030",
-      "kg_net": "46.030",
+      "kg": "46.400",
+      "kg_net": "46.400",
       "kg_lap": "0.000"
     },
     {
@@ -69174,19 +69174,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2111.000"
+        "A": "2136.000"
       },
-      "cutting_raw_mm": "2111.000",
-      "cutting_rounded_mm": "2125",
-      "cutting_is_additive_mm": "2111.000",
+      "cutting_raw_mm": "2136.000",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2136.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "10.411",
-      "kg_net": "10.411",
+      "kg": "10.535",
+      "kg_net": "10.535",
       "kg_lap": "0.000"
     },
     {
@@ -69199,19 +69199,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6352.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6352.000",
+      "cutting_rounded_mm": "6375",
+      "cutting_is_additive_mm": "6352.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.853",
-      "kg_net": "29.853",
+      "kg": "30.089",
+      "kg_net": "30.089",
       "kg_lap": "0.000"
     },
     {
@@ -69279,19 +69279,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6526.800"
+        "A": "6576.800"
       },
-      "cutting_raw_mm": "6526.800",
-      "cutting_rounded_mm": "6550",
-      "cutting_is_additive_mm": "6526.800",
+      "cutting_raw_mm": "6576.800",
+      "cutting_rounded_mm": "6600",
+      "cutting_is_additive_mm": "6576.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "48.285",
-      "kg_net": "48.285",
+      "kg": "48.655",
+      "kg_net": "48.655",
       "kg_lap": "0.000"
     },
     {
@@ -69304,19 +69304,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2263.400"
+        "A": "2288.400"
       },
-      "cutting_raw_mm": "2263.400",
-      "cutting_rounded_mm": "2275",
-      "cutting_is_additive_mm": "2263.400",
+      "cutting_raw_mm": "2288.400",
+      "cutting_rounded_mm": "2300",
+      "cutting_is_additive_mm": "2288.400",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "11.163",
-      "kg_net": "11.163",
+      "kg": "11.286",
+      "kg_net": "11.286",
       "kg_lap": "0.000"
     },
     {
@@ -69329,19 +69329,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6606.800"
+        "A": "6656.800"
       },
-      "cutting_raw_mm": "6606.800",
-      "cutting_rounded_mm": "6625",
-      "cutting_is_additive_mm": "6606.800",
+      "cutting_raw_mm": "6656.800",
+      "cutting_rounded_mm": "6675",
+      "cutting_is_additive_mm": "6656.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "31.296",
-      "kg_net": "31.296",
+      "kg": "31.533",
+      "kg_net": "31.533",
       "kg_lap": "0.000"
     },
     {
@@ -69824,19 +69824,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5926.800"
+        "A": "6026.800"
       },
-      "cutting_raw_mm": "5926.800",
-      "cutting_rounded_mm": "5950",
-      "cutting_is_additive_mm": "5926.800",
+      "cutting_raw_mm": "6026.800",
+      "cutting_rounded_mm": "6050",
+      "cutting_is_additive_mm": "6026.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.075",
-      "kg_net": "28.075",
+      "kg": "28.549",
+      "kg_net": "28.549",
       "kg_lap": "0.000"
     },
     {
@@ -69849,19 +69849,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2163.400"
+        "A": "2213.400"
       },
-      "cutting_raw_mm": "2163.400",
-      "cutting_rounded_mm": "2175",
-      "cutting_is_additive_mm": "2163.400",
+      "cutting_raw_mm": "2213.400",
+      "cutting_rounded_mm": "2225",
+      "cutting_is_additive_mm": "2213.400",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.832",
-      "kg_net": "6.832",
+      "kg": "6.990",
+      "kg_net": "6.990",
       "kg_lap": "0.000"
     },
     {
@@ -69874,19 +69874,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6406.800"
+        "A": "6506.800"
       },
-      "cutting_raw_mm": "6406.800",
-      "cutting_rounded_mm": "6425",
-      "cutting_is_additive_mm": "6406.800",
+      "cutting_raw_mm": "6506.800",
+      "cutting_rounded_mm": "6525",
+      "cutting_is_additive_mm": "6506.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.233",
-      "kg_net": "20.233",
+      "kg": "20.548",
+      "kg_net": "20.548",
       "kg_lap": "0.000"
     },
     {
@@ -70239,19 +70239,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5622.000"
+        "A": "5722.000"
       },
-      "cutting_raw_mm": "5622.000",
-      "cutting_rounded_mm": "5625",
-      "cutting_is_additive_mm": "5622.000",
+      "cutting_raw_mm": "5722.000",
+      "cutting_rounded_mm": "5725",
+      "cutting_is_additive_mm": "5722.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "26.631",
-      "kg_net": "26.631",
+      "kg": "27.105",
+      "kg_net": "27.105",
       "kg_lap": "0.000"
     },
     {
@@ -70264,19 +70264,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2011.000"
+        "A": "2061.000"
       },
-      "cutting_raw_mm": "2011.000",
-      "cutting_rounded_mm": "2025",
-      "cutting_is_additive_mm": "2011.000",
+      "cutting_raw_mm": "2061.000",
+      "cutting_rounded_mm": "2075",
+      "cutting_is_additive_mm": "2061.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.351",
-      "kg_net": "6.351",
+      "kg": "6.509",
+      "kg_net": "6.509",
       "kg_lap": "0.000"
     },
     {
@@ -70289,19 +70289,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6102.000"
+        "A": "6202.000"
       },
-      "cutting_raw_mm": "6102.000",
-      "cutting_rounded_mm": "6125",
-      "cutting_is_additive_mm": "6102.000",
+      "cutting_raw_mm": "6202.000",
+      "cutting_rounded_mm": "6225",
+      "cutting_is_additive_mm": "6202.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.270",
-      "kg_net": "19.270",
+      "kg": "19.586",
+      "kg_net": "19.586",
       "kg_lap": "0.000"
     },
     {
@@ -70369,19 +70369,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5926.800"
+        "A": "6026.800"
       },
-      "cutting_raw_mm": "5926.800",
-      "cutting_rounded_mm": "5950",
-      "cutting_is_additive_mm": "5926.800",
+      "cutting_raw_mm": "6026.800",
+      "cutting_rounded_mm": "6050",
+      "cutting_is_additive_mm": "6026.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.075",
-      "kg_net": "28.075",
+      "kg": "28.549",
+      "kg_net": "28.549",
       "kg_lap": "0.000"
     },
     {
@@ -70394,19 +70394,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2163.400"
+        "A": "2213.400"
       },
-      "cutting_raw_mm": "2163.400",
-      "cutting_rounded_mm": "2175",
-      "cutting_is_additive_mm": "2163.400",
+      "cutting_raw_mm": "2213.400",
+      "cutting_rounded_mm": "2225",
+      "cutting_is_additive_mm": "2213.400",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.832",
-      "kg_net": "6.832",
+      "kg": "6.990",
+      "kg_net": "6.990",
       "kg_lap": "0.000"
     },
     {
@@ -70419,19 +70419,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6406.800"
+        "A": "6506.800"
       },
-      "cutting_raw_mm": "6406.800",
-      "cutting_rounded_mm": "6425",
-      "cutting_is_additive_mm": "6406.800",
+      "cutting_raw_mm": "6506.800",
+      "cutting_rounded_mm": "6525",
+      "cutting_is_additive_mm": "6506.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.233",
-      "kg_net": "20.233",
+      "kg": "20.548",
+      "kg_net": "20.548",
       "kg_lap": "0.000"
     },
     {
@@ -70654,19 +70654,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5772.000"
+        "A": "5872.000"
       },
-      "cutting_raw_mm": "5772.000",
-      "cutting_rounded_mm": "5775",
-      "cutting_is_additive_mm": "5772.000",
+      "cutting_raw_mm": "5872.000",
+      "cutting_rounded_mm": "5875",
+      "cutting_is_additive_mm": "5872.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.342",
-      "kg_net": "27.342",
+      "kg": "27.816",
+      "kg_net": "27.816",
       "kg_lap": "0.000"
     },
     {
@@ -70679,19 +70679,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2086.000"
+        "A": "2136.000"
       },
-      "cutting_raw_mm": "2086.000",
-      "cutting_rounded_mm": "2100",
-      "cutting_is_additive_mm": "2086.000",
+      "cutting_raw_mm": "2136.000",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2136.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.588",
-      "kg_net": "6.588",
+      "kg": "6.745",
+      "kg_net": "6.745",
       "kg_lap": "0.000"
     },
     {
@@ -70704,19 +70704,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6252.000"
+        "A": "6352.000"
       },
-      "cutting_raw_mm": "6252.000",
-      "cutting_rounded_mm": "6275",
-      "cutting_is_additive_mm": "6252.000",
+      "cutting_raw_mm": "6352.000",
+      "cutting_rounded_mm": "6375",
+      "cutting_is_additive_mm": "6352.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.744",
-      "kg_net": "19.744",
+      "kg": "20.060",
+      "kg_net": "20.060",
       "kg_lap": "0.000"
     },
     {
@@ -70784,19 +70784,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5951.800"
+        "A": "6051.800"
       },
-      "cutting_raw_mm": "5951.800",
-      "cutting_rounded_mm": "5975",
-      "cutting_is_additive_mm": "5951.800",
+      "cutting_raw_mm": "6051.800",
+      "cutting_rounded_mm": "6075",
+      "cutting_is_additive_mm": "6051.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.194",
-      "kg_net": "28.194",
+      "kg": "28.667",
+      "kg_net": "28.667",
       "kg_lap": "0.000"
     },
     {
@@ -70809,19 +70809,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2175.900"
+        "A": "2225.900"
       },
-      "cutting_raw_mm": "2175.900",
-      "cutting_rounded_mm": "2200",
-      "cutting_is_additive_mm": "2175.900",
+      "cutting_raw_mm": "2225.900",
+      "cutting_rounded_mm": "2250",
+      "cutting_is_additive_mm": "2225.900",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.871",
-      "kg_net": "6.871",
+      "kg": "7.029",
+      "kg_net": "7.029",
       "kg_lap": "0.000"
     },
     {
@@ -70834,19 +70834,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6431.800"
+        "A": "6531.800"
       },
-      "cutting_raw_mm": "6431.800",
-      "cutting_rounded_mm": "6450",
-      "cutting_is_additive_mm": "6431.800",
+      "cutting_raw_mm": "6531.800",
+      "cutting_rounded_mm": "6550",
+      "cutting_is_additive_mm": "6531.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.312",
-      "kg_net": "20.312",
+      "kg": "20.627",
+      "kg_net": "20.627",
       "kg_lap": "0.000"
     },
     {
@@ -70922,11 +70922,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 37,
+      "bars_per_unit": 38,
       "parent_count": "1",
-      "bars": "37",
-      "kg": "29.630",
-      "kg_net": "29.630",
+      "bars": "38",
+      "kg": "30.430",
+      "kg_net": "30.430",
       "kg_lap": "0.000"
     },
     {
@@ -71069,19 +71069,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5772.000"
+        "A": "5872.000"
       },
-      "cutting_raw_mm": "5772.000",
-      "cutting_rounded_mm": "5775",
-      "cutting_is_additive_mm": "5772.000",
+      "cutting_raw_mm": "5872.000",
+      "cutting_rounded_mm": "5875",
+      "cutting_is_additive_mm": "5872.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.342",
-      "kg_net": "27.342",
+      "kg": "27.816",
+      "kg_net": "27.816",
       "kg_lap": "0.000"
     },
     {
@@ -71094,19 +71094,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2086.000"
+        "A": "2136.000"
       },
-      "cutting_raw_mm": "2086.000",
-      "cutting_rounded_mm": "2100",
-      "cutting_is_additive_mm": "2086.000",
+      "cutting_raw_mm": "2136.000",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2136.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.588",
-      "kg_net": "6.588",
+      "kg": "6.745",
+      "kg_net": "6.745",
       "kg_lap": "0.000"
     },
     {
@@ -71119,19 +71119,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6252.000"
+        "A": "6352.000"
       },
-      "cutting_raw_mm": "6252.000",
-      "cutting_rounded_mm": "6275",
-      "cutting_is_additive_mm": "6252.000",
+      "cutting_raw_mm": "6352.000",
+      "cutting_rounded_mm": "6375",
+      "cutting_is_additive_mm": "6352.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.744",
-      "kg_net": "19.744",
+      "kg": "20.060",
+      "kg_net": "20.060",
       "kg_lap": "0.000"
     },
     {
@@ -71199,19 +71199,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5926.800"
+        "A": "6026.800"
       },
-      "cutting_raw_mm": "5926.800",
-      "cutting_rounded_mm": "5950",
-      "cutting_is_additive_mm": "5926.800",
+      "cutting_raw_mm": "6026.800",
+      "cutting_rounded_mm": "6050",
+      "cutting_is_additive_mm": "6026.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.075",
-      "kg_net": "28.075",
+      "kg": "28.549",
+      "kg_net": "28.549",
       "kg_lap": "0.000"
     },
     {
@@ -71224,19 +71224,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2163.400"
+        "A": "2213.400"
       },
-      "cutting_raw_mm": "2163.400",
-      "cutting_rounded_mm": "2175",
-      "cutting_is_additive_mm": "2163.400",
+      "cutting_raw_mm": "2213.400",
+      "cutting_rounded_mm": "2225",
+      "cutting_is_additive_mm": "2213.400",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.832",
-      "kg_net": "6.832",
+      "kg": "6.990",
+      "kg_net": "6.990",
       "kg_lap": "0.000"
     },
     {
@@ -71249,19 +71249,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6406.800"
+        "A": "6506.800"
       },
-      "cutting_raw_mm": "6406.800",
-      "cutting_rounded_mm": "6425",
-      "cutting_is_additive_mm": "6406.800",
+      "cutting_raw_mm": "6506.800",
+      "cutting_rounded_mm": "6525",
+      "cutting_is_additive_mm": "6506.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.233",
-      "kg_net": "20.233",
+      "kg": "20.548",
+      "kg_net": "20.548",
       "kg_lap": "0.000"
     },
     {
@@ -71614,19 +71614,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5622.000"
+        "A": "5722.000"
       },
-      "cutting_raw_mm": "5622.000",
-      "cutting_rounded_mm": "5625",
-      "cutting_is_additive_mm": "5622.000",
+      "cutting_raw_mm": "5722.000",
+      "cutting_rounded_mm": "5725",
+      "cutting_is_additive_mm": "5722.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "26.631",
-      "kg_net": "26.631",
+      "kg": "27.105",
+      "kg_net": "27.105",
       "kg_lap": "0.000"
     },
     {
@@ -71639,19 +71639,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2011.000"
+        "A": "2061.000"
       },
-      "cutting_raw_mm": "2011.000",
-      "cutting_rounded_mm": "2025",
-      "cutting_is_additive_mm": "2011.000",
+      "cutting_raw_mm": "2061.000",
+      "cutting_rounded_mm": "2075",
+      "cutting_is_additive_mm": "2061.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.351",
-      "kg_net": "6.351",
+      "kg": "6.509",
+      "kg_net": "6.509",
       "kg_lap": "0.000"
     },
     {
@@ -71664,19 +71664,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6102.000"
+        "A": "6202.000"
       },
-      "cutting_raw_mm": "6102.000",
-      "cutting_rounded_mm": "6125",
-      "cutting_is_additive_mm": "6102.000",
+      "cutting_raw_mm": "6202.000",
+      "cutting_rounded_mm": "6225",
+      "cutting_is_additive_mm": "6202.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.270",
-      "kg_net": "19.270",
+      "kg": "19.586",
+      "kg_net": "19.586",
       "kg_lap": "0.000"
     },
     {
@@ -71744,19 +71744,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6526.800"
+        "A": "6576.800"
       },
-      "cutting_raw_mm": "6526.800",
-      "cutting_rounded_mm": "6550",
-      "cutting_is_additive_mm": "6526.800",
+      "cutting_raw_mm": "6576.800",
+      "cutting_rounded_mm": "6600",
+      "cutting_is_additive_mm": "6576.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "48.285",
-      "kg_net": "48.285",
+      "kg": "48.655",
+      "kg_net": "48.655",
       "kg_lap": "0.000"
     },
     {
@@ -71769,19 +71769,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2263.400"
+        "A": "2288.400"
       },
-      "cutting_raw_mm": "2263.400",
-      "cutting_rounded_mm": "2275",
-      "cutting_is_additive_mm": "2263.400",
+      "cutting_raw_mm": "2288.400",
+      "cutting_rounded_mm": "2300",
+      "cutting_is_additive_mm": "2288.400",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "11.163",
-      "kg_net": "11.163",
+      "kg": "11.286",
+      "kg_net": "11.286",
       "kg_lap": "0.000"
     },
     {
@@ -71794,19 +71794,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6606.800"
+        "A": "6656.800"
       },
-      "cutting_raw_mm": "6606.800",
-      "cutting_rounded_mm": "6625",
-      "cutting_is_additive_mm": "6606.800",
+      "cutting_raw_mm": "6656.800",
+      "cutting_rounded_mm": "6675",
+      "cutting_is_additive_mm": "6656.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "31.296",
-      "kg_net": "31.296",
+      "kg": "31.533",
+      "kg_net": "31.533",
       "kg_lap": "0.000"
     },
     {
@@ -72159,19 +72159,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6222.000"
+        "A": "6272.000"
       },
-      "cutting_raw_mm": "6222.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6222.000",
+      "cutting_raw_mm": "6272.000",
+      "cutting_rounded_mm": "6275",
+      "cutting_is_additive_mm": "6272.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "46.030",
-      "kg_net": "46.030",
+      "kg": "46.400",
+      "kg_net": "46.400",
       "kg_lap": "0.000"
     },
     {
@@ -72184,19 +72184,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2111.000"
+        "A": "2136.000"
       },
-      "cutting_raw_mm": "2111.000",
-      "cutting_rounded_mm": "2125",
-      "cutting_is_additive_mm": "2111.000",
+      "cutting_raw_mm": "2136.000",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2136.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "10.411",
-      "kg_net": "10.411",
+      "kg": "10.535",
+      "kg_net": "10.535",
       "kg_lap": "0.000"
     },
     {
@@ -72209,19 +72209,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6352.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6352.000",
+      "cutting_rounded_mm": "6375",
+      "cutting_is_additive_mm": "6352.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.853",
-      "kg_net": "29.853",
+      "kg": "30.089",
+      "kg_net": "30.089",
       "kg_lap": "0.000"
     },
     {
@@ -72499,19 +72499,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2799.000"
+        "A": "2699.000"
       },
-      "cutting_raw_mm": "2799.000",
-      "cutting_rounded_mm": "2800",
-      "cutting_is_additive_mm": "2799.000",
+      "cutting_raw_mm": "2699.000",
+      "cutting_rounded_mm": "2700",
+      "cutting_is_additive_mm": "2699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "8.839",
-      "kg_net": "8.839",
+      "kg": "8.523",
+      "kg_net": "8.523",
       "kg_lap": "0.000"
     },
     {
@@ -72524,19 +72524,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "3799.000"
+        "A": "3699.000"
       },
-      "cutting_raw_mm": "3799.000",
-      "cutting_rounded_mm": "3800",
-      "cutting_is_additive_mm": "3799.000",
+      "cutting_raw_mm": "3699.000",
+      "cutting_rounded_mm": "3700",
+      "cutting_is_additive_mm": "3699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.105",
-      "kg_net": "28.105",
+      "kg": "27.365",
+      "kg_net": "27.365",
       "kg_lap": "0.000"
     },
     {
@@ -72562,11 +72562,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 11,
+      "bars_per_unit": 10,
       "parent_count": "1",
-      "bars": "11",
-      "kg": "7.792",
-      "kg_net": "7.792",
+      "bars": "10",
+      "kg": "7.084",
+      "kg_net": "7.084",
       "kg_lap": "0.000"
     },
     {
@@ -72579,19 +72579,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2799.000"
+        "A": "2699.000"
       },
-      "cutting_raw_mm": "2799.000",
-      "cutting_rounded_mm": "2800",
-      "cutting_is_additive_mm": "2799.000",
+      "cutting_raw_mm": "2699.000",
+      "cutting_rounded_mm": "2700",
+      "cutting_is_additive_mm": "2699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "8.839",
-      "kg_net": "8.839",
+      "kg": "8.523",
+      "kg_net": "8.523",
       "kg_lap": "0.000"
     },
     {
@@ -72604,19 +72604,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "3799.000"
+        "A": "3699.000"
       },
-      "cutting_raw_mm": "3799.000",
-      "cutting_rounded_mm": "3800",
-      "cutting_is_additive_mm": "3799.000",
+      "cutting_raw_mm": "3699.000",
+      "cutting_rounded_mm": "3700",
+      "cutting_is_additive_mm": "3699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.105",
-      "kg_net": "28.105",
+      "kg": "27.365",
+      "kg_net": "27.365",
       "kg_lap": "0.000"
     },
     {
@@ -72642,11 +72642,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 11,
+      "bars_per_unit": 10,
       "parent_count": "1",
-      "bars": "11",
-      "kg": "7.792",
-      "kg_net": "7.792",
+      "bars": "10",
+      "kg": "7.084",
+      "kg_net": "7.084",
       "kg_lap": "0.000"
     },
     {
@@ -72659,19 +72659,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2799.000"
+        "A": "2699.000"
       },
-      "cutting_raw_mm": "2799.000",
-      "cutting_rounded_mm": "2800",
-      "cutting_is_additive_mm": "2799.000",
+      "cutting_raw_mm": "2699.000",
+      "cutting_rounded_mm": "2700",
+      "cutting_is_additive_mm": "2699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "8.839",
-      "kg_net": "8.839",
+      "kg": "8.523",
+      "kg_net": "8.523",
       "kg_lap": "0.000"
     },
     {
@@ -72684,19 +72684,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "3799.000"
+        "A": "3699.000"
       },
-      "cutting_raw_mm": "3799.000",
-      "cutting_rounded_mm": "3800",
-      "cutting_is_additive_mm": "3799.000",
+      "cutting_raw_mm": "3699.000",
+      "cutting_rounded_mm": "3700",
+      "cutting_is_additive_mm": "3699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.105",
-      "kg_net": "28.105",
+      "kg": "27.365",
+      "kg_net": "27.365",
       "kg_lap": "0.000"
     },
     {
@@ -72722,11 +72722,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 11,
+      "bars_per_unit": 10,
       "parent_count": "1",
-      "bars": "11",
-      "kg": "7.792",
-      "kg_net": "7.792",
+      "bars": "10",
+      "kg": "7.084",
+      "kg_net": "7.084",
       "kg_lap": "0.000"
     },
     {
@@ -72739,19 +72739,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2799.000"
+        "A": "2699.000"
       },
-      "cutting_raw_mm": "2799.000",
-      "cutting_rounded_mm": "2800",
-      "cutting_is_additive_mm": "2799.000",
+      "cutting_raw_mm": "2699.000",
+      "cutting_rounded_mm": "2700",
+      "cutting_is_additive_mm": "2699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "8.839",
-      "kg_net": "8.839",
+      "kg": "8.523",
+      "kg_net": "8.523",
       "kg_lap": "0.000"
     },
     {
@@ -72764,19 +72764,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "3799.000"
+        "A": "3699.000"
       },
-      "cutting_raw_mm": "3799.000",
-      "cutting_rounded_mm": "3800",
-      "cutting_is_additive_mm": "3799.000",
+      "cutting_raw_mm": "3699.000",
+      "cutting_rounded_mm": "3700",
+      "cutting_is_additive_mm": "3699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.105",
-      "kg_net": "28.105",
+      "kg": "27.365",
+      "kg_net": "27.365",
       "kg_lap": "0.000"
     },
     {
@@ -72802,11 +72802,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 11,
+      "bars_per_unit": 10,
       "parent_count": "1",
-      "bars": "11",
-      "kg": "7.792",
-      "kg_net": "7.792",
+      "bars": "10",
+      "kg": "7.084",
+      "kg_net": "7.084",
       "kg_lap": "0.000"
     },
     {
@@ -73059,19 +73059,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6570.544"
+        "A": "6520.544"
       },
-      "cutting_raw_mm": "6570.544",
-      "cutting_rounded_mm": "6575",
-      "cutting_is_additive_mm": "6570.544",
+      "cutting_raw_mm": "6520.544",
+      "cutting_rounded_mm": "6525",
+      "cutting_is_additive_mm": "6520.544",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "31.125",
-      "kg_net": "31.125",
+      "kg": "30.888",
+      "kg_net": "30.888",
       "kg_lap": "0.000"
     },
     {
@@ -73084,19 +73084,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "7050.544"
+        "A": "7000.544"
       },
-      "cutting_raw_mm": "7050.544",
-      "cutting_rounded_mm": "7075",
-      "cutting_is_additive_mm": "7050.544",
+      "cutting_raw_mm": "7000.544",
+      "cutting_rounded_mm": "7025",
+      "cutting_is_additive_mm": "7000.544",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "33.398",
-      "kg_net": "33.398",
+      "kg": "33.162",
+      "kg_net": "33.162",
       "kg_lap": "0.000"
     },
     {
@@ -76461,19 +76461,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6222.000"
+        "A": "6272.000"
       },
-      "cutting_raw_mm": "6222.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6222.000",
+      "cutting_raw_mm": "6272.000",
+      "cutting_rounded_mm": "6275",
+      "cutting_is_additive_mm": "6272.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "46.030",
-      "kg_net": "46.030",
+      "kg": "46.400",
+      "kg_net": "46.400",
       "kg_lap": "0.000"
     },
     {
@@ -76486,19 +76486,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2111.000"
+        "A": "2136.000"
       },
-      "cutting_raw_mm": "2111.000",
-      "cutting_rounded_mm": "2125",
-      "cutting_is_additive_mm": "2111.000",
+      "cutting_raw_mm": "2136.000",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2136.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "10.411",
-      "kg_net": "10.411",
+      "kg": "10.535",
+      "kg_net": "10.535",
       "kg_lap": "0.000"
     },
     {
@@ -76511,19 +76511,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6352.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6352.000",
+      "cutting_rounded_mm": "6375",
+      "cutting_is_additive_mm": "6352.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.853",
-      "kg_net": "29.853",
+      "kg": "30.089",
+      "kg_net": "30.089",
       "kg_lap": "0.000"
     },
     {
@@ -77006,19 +77006,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6222.000"
+        "A": "6272.000"
       },
-      "cutting_raw_mm": "6222.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6222.000",
+      "cutting_raw_mm": "6272.000",
+      "cutting_rounded_mm": "6275",
+      "cutting_is_additive_mm": "6272.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "46.030",
-      "kg_net": "46.030",
+      "kg": "46.400",
+      "kg_net": "46.400",
       "kg_lap": "0.000"
     },
     {
@@ -77031,19 +77031,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2111.000"
+        "A": "2136.000"
       },
-      "cutting_raw_mm": "2111.000",
-      "cutting_rounded_mm": "2125",
-      "cutting_is_additive_mm": "2111.000",
+      "cutting_raw_mm": "2136.000",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2136.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "10.411",
-      "kg_net": "10.411",
+      "kg": "10.535",
+      "kg_net": "10.535",
       "kg_lap": "0.000"
     },
     {
@@ -77056,19 +77056,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6352.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6352.000",
+      "cutting_rounded_mm": "6375",
+      "cutting_is_additive_mm": "6352.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.853",
-      "kg_net": "29.853",
+      "kg": "30.089",
+      "kg_net": "30.089",
       "kg_lap": "0.000"
     },
     {
@@ -77136,19 +77136,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5722.000"
+        "A": "5822.000"
       },
-      "cutting_raw_mm": "5722.000",
-      "cutting_rounded_mm": "5725",
-      "cutting_is_additive_mm": "5722.000",
+      "cutting_raw_mm": "5822.000",
+      "cutting_rounded_mm": "5825",
+      "cutting_is_additive_mm": "5822.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.105",
-      "kg_net": "27.105",
+      "kg": "27.579",
+      "kg_net": "27.579",
       "kg_lap": "0.000"
     },
     {
@@ -77161,19 +77161,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2061.000"
+        "A": "2111.000"
       },
-      "cutting_raw_mm": "2061.000",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2061.000",
+      "cutting_raw_mm": "2111.000",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2111.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.509",
-      "kg_net": "6.509",
+      "kg": "6.667",
+      "kg_net": "6.667",
       "kg_lap": "0.000"
     },
     {
@@ -77186,19 +77186,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6202.000"
+        "A": "6302.000"
       },
-      "cutting_raw_mm": "6202.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6202.000",
+      "cutting_raw_mm": "6302.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6302.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.586",
-      "kg_net": "19.586",
+      "kg": "19.902",
+      "kg_net": "19.902",
       "kg_lap": "0.000"
     },
     {
@@ -77274,11 +77274,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -77681,19 +77681,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5722.000"
+        "A": "5822.000"
       },
-      "cutting_raw_mm": "5722.000",
-      "cutting_rounded_mm": "5725",
-      "cutting_is_additive_mm": "5722.000",
+      "cutting_raw_mm": "5822.000",
+      "cutting_rounded_mm": "5825",
+      "cutting_is_additive_mm": "5822.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.105",
-      "kg_net": "27.105",
+      "kg": "27.579",
+      "kg_net": "27.579",
       "kg_lap": "0.000"
     },
     {
@@ -77706,19 +77706,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2061.000"
+        "A": "2111.000"
       },
-      "cutting_raw_mm": "2061.000",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2061.000",
+      "cutting_raw_mm": "2111.000",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2111.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.509",
-      "kg_net": "6.509",
+      "kg": "6.667",
+      "kg_net": "6.667",
       "kg_lap": "0.000"
     },
     {
@@ -77731,19 +77731,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6202.000"
+        "A": "6302.000"
       },
-      "cutting_raw_mm": "6202.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6202.000",
+      "cutting_raw_mm": "6302.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6302.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.586",
-      "kg_net": "19.586",
+      "kg": "19.902",
+      "kg_net": "19.902",
       "kg_lap": "0.000"
     },
     {
@@ -77794,11 +77794,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -77811,19 +77811,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5722.000"
+        "A": "5822.000"
       },
-      "cutting_raw_mm": "5722.000",
-      "cutting_rounded_mm": "5725",
-      "cutting_is_additive_mm": "5722.000",
+      "cutting_raw_mm": "5822.000",
+      "cutting_rounded_mm": "5825",
+      "cutting_is_additive_mm": "5822.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.105",
-      "kg_net": "27.105",
+      "kg": "27.579",
+      "kg_net": "27.579",
       "kg_lap": "0.000"
     },
     {
@@ -77836,19 +77836,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2061.000"
+        "A": "2111.000"
       },
-      "cutting_raw_mm": "2061.000",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2061.000",
+      "cutting_raw_mm": "2111.000",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2111.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.509",
-      "kg_net": "6.509",
+      "kg": "6.667",
+      "kg_net": "6.667",
       "kg_lap": "0.000"
     },
     {
@@ -77861,19 +77861,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6202.000"
+        "A": "6302.000"
       },
-      "cutting_raw_mm": "6202.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6202.000",
+      "cutting_raw_mm": "6302.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6302.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.586",
-      "kg_net": "19.586",
+      "kg": "19.902",
+      "kg_net": "19.902",
       "kg_lap": "0.000"
     },
     {
@@ -77949,11 +77949,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -78356,19 +78356,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5722.000"
+        "A": "5822.000"
       },
-      "cutting_raw_mm": "5722.000",
-      "cutting_rounded_mm": "5725",
-      "cutting_is_additive_mm": "5722.000",
+      "cutting_raw_mm": "5822.000",
+      "cutting_rounded_mm": "5825",
+      "cutting_is_additive_mm": "5822.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.105",
-      "kg_net": "27.105",
+      "kg": "27.579",
+      "kg_net": "27.579",
       "kg_lap": "0.000"
     },
     {
@@ -78381,19 +78381,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2061.000"
+        "A": "2111.000"
       },
-      "cutting_raw_mm": "2061.000",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2061.000",
+      "cutting_raw_mm": "2111.000",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2111.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.509",
-      "kg_net": "6.509",
+      "kg": "6.667",
+      "kg_net": "6.667",
       "kg_lap": "0.000"
     },
     {
@@ -78406,19 +78406,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6202.000"
+        "A": "6302.000"
       },
-      "cutting_raw_mm": "6202.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6202.000",
+      "cutting_raw_mm": "6302.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6302.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.586",
-      "kg_net": "19.586",
+      "kg": "19.902",
+      "kg_net": "19.902",
       "kg_lap": "0.000"
     },
     {
@@ -78469,11 +78469,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -78486,19 +78486,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5722.000"
+        "A": "5822.000"
       },
-      "cutting_raw_mm": "5722.000",
-      "cutting_rounded_mm": "5725",
-      "cutting_is_additive_mm": "5722.000",
+      "cutting_raw_mm": "5822.000",
+      "cutting_rounded_mm": "5825",
+      "cutting_is_additive_mm": "5822.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.105",
-      "kg_net": "27.105",
+      "kg": "27.579",
+      "kg_net": "27.579",
       "kg_lap": "0.000"
     },
     {
@@ -78511,19 +78511,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2061.000"
+        "A": "2111.000"
       },
-      "cutting_raw_mm": "2061.000",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2061.000",
+      "cutting_raw_mm": "2111.000",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2111.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.509",
-      "kg_net": "6.509",
+      "kg": "6.667",
+      "kg_net": "6.667",
       "kg_lap": "0.000"
     },
     {
@@ -78536,19 +78536,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6202.000"
+        "A": "6302.000"
       },
-      "cutting_raw_mm": "6202.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6202.000",
+      "cutting_raw_mm": "6302.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6302.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.586",
-      "kg_net": "19.586",
+      "kg": "19.902",
+      "kg_net": "19.902",
       "kg_lap": "0.000"
     },
     {
@@ -78624,11 +78624,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -78901,19 +78901,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5722.000"
+        "A": "5822.000"
       },
-      "cutting_raw_mm": "5722.000",
-      "cutting_rounded_mm": "5725",
-      "cutting_is_additive_mm": "5722.000",
+      "cutting_raw_mm": "5822.000",
+      "cutting_rounded_mm": "5825",
+      "cutting_is_additive_mm": "5822.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.105",
-      "kg_net": "27.105",
+      "kg": "27.579",
+      "kg_net": "27.579",
       "kg_lap": "0.000"
     },
     {
@@ -78926,19 +78926,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2061.000"
+        "A": "2111.000"
       },
-      "cutting_raw_mm": "2061.000",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2061.000",
+      "cutting_raw_mm": "2111.000",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2111.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.509",
-      "kg_net": "6.509",
+      "kg": "6.667",
+      "kg_net": "6.667",
       "kg_lap": "0.000"
     },
     {
@@ -78951,19 +78951,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6202.000"
+        "A": "6302.000"
       },
-      "cutting_raw_mm": "6202.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6202.000",
+      "cutting_raw_mm": "6302.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6302.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.586",
-      "kg_net": "19.586",
+      "kg": "19.902",
+      "kg_net": "19.902",
       "kg_lap": "0.000"
     },
     {
@@ -79014,11 +79014,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -79576,19 +79576,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6222.000"
+        "A": "6272.000"
       },
-      "cutting_raw_mm": "6222.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6222.000",
+      "cutting_raw_mm": "6272.000",
+      "cutting_rounded_mm": "6275",
+      "cutting_is_additive_mm": "6272.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "46.030",
-      "kg_net": "46.030",
+      "kg": "46.400",
+      "kg_net": "46.400",
       "kg_lap": "0.000"
     },
     {
@@ -79601,19 +79601,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2111.000"
+        "A": "2136.000"
       },
-      "cutting_raw_mm": "2111.000",
-      "cutting_rounded_mm": "2125",
-      "cutting_is_additive_mm": "2111.000",
+      "cutting_raw_mm": "2136.000",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2136.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "10.411",
-      "kg_net": "10.411",
+      "kg": "10.535",
+      "kg_net": "10.535",
       "kg_lap": "0.000"
     },
     {
@@ -79626,19 +79626,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6352.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6352.000",
+      "cutting_rounded_mm": "6375",
+      "cutting_is_additive_mm": "6352.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.853",
-      "kg_net": "29.853",
+      "kg": "30.089",
+      "kg_net": "30.089",
       "kg_lap": "0.000"
     },
     {
@@ -79706,19 +79706,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6526.800"
+        "A": "6576.800"
       },
-      "cutting_raw_mm": "6526.800",
-      "cutting_rounded_mm": "6550",
-      "cutting_is_additive_mm": "6526.800",
+      "cutting_raw_mm": "6576.800",
+      "cutting_rounded_mm": "6600",
+      "cutting_is_additive_mm": "6576.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "48.285",
-      "kg_net": "48.285",
+      "kg": "48.655",
+      "kg_net": "48.655",
       "kg_lap": "0.000"
     },
     {
@@ -79731,19 +79731,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2263.400"
+        "A": "2288.400"
       },
-      "cutting_raw_mm": "2263.400",
-      "cutting_rounded_mm": "2275",
-      "cutting_is_additive_mm": "2263.400",
+      "cutting_raw_mm": "2288.400",
+      "cutting_rounded_mm": "2300",
+      "cutting_is_additive_mm": "2288.400",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "11.163",
-      "kg_net": "11.163",
+      "kg": "11.286",
+      "kg_net": "11.286",
       "kg_lap": "0.000"
     },
     {
@@ -79756,19 +79756,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6606.800"
+        "A": "6656.800"
       },
-      "cutting_raw_mm": "6606.800",
-      "cutting_rounded_mm": "6625",
-      "cutting_is_additive_mm": "6606.800",
+      "cutting_raw_mm": "6656.800",
+      "cutting_rounded_mm": "6675",
+      "cutting_is_additive_mm": "6656.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "31.296",
-      "kg_net": "31.296",
+      "kg": "31.533",
+      "kg_net": "31.533",
       "kg_lap": "0.000"
     },
     {
@@ -80251,19 +80251,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5926.800"
+        "A": "6026.800"
       },
-      "cutting_raw_mm": "5926.800",
-      "cutting_rounded_mm": "5950",
-      "cutting_is_additive_mm": "5926.800",
+      "cutting_raw_mm": "6026.800",
+      "cutting_rounded_mm": "6050",
+      "cutting_is_additive_mm": "6026.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.075",
-      "kg_net": "28.075",
+      "kg": "28.549",
+      "kg_net": "28.549",
       "kg_lap": "0.000"
     },
     {
@@ -80276,19 +80276,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2163.400"
+        "A": "2213.400"
       },
-      "cutting_raw_mm": "2163.400",
-      "cutting_rounded_mm": "2175",
-      "cutting_is_additive_mm": "2163.400",
+      "cutting_raw_mm": "2213.400",
+      "cutting_rounded_mm": "2225",
+      "cutting_is_additive_mm": "2213.400",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.832",
-      "kg_net": "6.832",
+      "kg": "6.990",
+      "kg_net": "6.990",
       "kg_lap": "0.000"
     },
     {
@@ -80301,19 +80301,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6406.800"
+        "A": "6506.800"
       },
-      "cutting_raw_mm": "6406.800",
-      "cutting_rounded_mm": "6425",
-      "cutting_is_additive_mm": "6406.800",
+      "cutting_raw_mm": "6506.800",
+      "cutting_rounded_mm": "6525",
+      "cutting_is_additive_mm": "6506.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.233",
-      "kg_net": "20.233",
+      "kg": "20.548",
+      "kg_net": "20.548",
       "kg_lap": "0.000"
     },
     {
@@ -80666,19 +80666,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5622.000"
+        "A": "5722.000"
       },
-      "cutting_raw_mm": "5622.000",
-      "cutting_rounded_mm": "5625",
-      "cutting_is_additive_mm": "5622.000",
+      "cutting_raw_mm": "5722.000",
+      "cutting_rounded_mm": "5725",
+      "cutting_is_additive_mm": "5722.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "26.631",
-      "kg_net": "26.631",
+      "kg": "27.105",
+      "kg_net": "27.105",
       "kg_lap": "0.000"
     },
     {
@@ -80691,19 +80691,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2011.000"
+        "A": "2061.000"
       },
-      "cutting_raw_mm": "2011.000",
-      "cutting_rounded_mm": "2025",
-      "cutting_is_additive_mm": "2011.000",
+      "cutting_raw_mm": "2061.000",
+      "cutting_rounded_mm": "2075",
+      "cutting_is_additive_mm": "2061.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.351",
-      "kg_net": "6.351",
+      "kg": "6.509",
+      "kg_net": "6.509",
       "kg_lap": "0.000"
     },
     {
@@ -80716,19 +80716,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6102.000"
+        "A": "6202.000"
       },
-      "cutting_raw_mm": "6102.000",
-      "cutting_rounded_mm": "6125",
-      "cutting_is_additive_mm": "6102.000",
+      "cutting_raw_mm": "6202.000",
+      "cutting_rounded_mm": "6225",
+      "cutting_is_additive_mm": "6202.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.270",
-      "kg_net": "19.270",
+      "kg": "19.586",
+      "kg_net": "19.586",
       "kg_lap": "0.000"
     },
     {
@@ -80796,19 +80796,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5926.800"
+        "A": "6026.800"
       },
-      "cutting_raw_mm": "5926.800",
-      "cutting_rounded_mm": "5950",
-      "cutting_is_additive_mm": "5926.800",
+      "cutting_raw_mm": "6026.800",
+      "cutting_rounded_mm": "6050",
+      "cutting_is_additive_mm": "6026.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.075",
-      "kg_net": "28.075",
+      "kg": "28.549",
+      "kg_net": "28.549",
       "kg_lap": "0.000"
     },
     {
@@ -80821,19 +80821,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2163.400"
+        "A": "2213.400"
       },
-      "cutting_raw_mm": "2163.400",
-      "cutting_rounded_mm": "2175",
-      "cutting_is_additive_mm": "2163.400",
+      "cutting_raw_mm": "2213.400",
+      "cutting_rounded_mm": "2225",
+      "cutting_is_additive_mm": "2213.400",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.832",
-      "kg_net": "6.832",
+      "kg": "6.990",
+      "kg_net": "6.990",
       "kg_lap": "0.000"
     },
     {
@@ -80846,19 +80846,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6406.800"
+        "A": "6506.800"
       },
-      "cutting_raw_mm": "6406.800",
-      "cutting_rounded_mm": "6425",
-      "cutting_is_additive_mm": "6406.800",
+      "cutting_raw_mm": "6506.800",
+      "cutting_rounded_mm": "6525",
+      "cutting_is_additive_mm": "6506.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.233",
-      "kg_net": "20.233",
+      "kg": "20.548",
+      "kg_net": "20.548",
       "kg_lap": "0.000"
     },
     {
@@ -81081,19 +81081,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5772.000"
+        "A": "5872.000"
       },
-      "cutting_raw_mm": "5772.000",
-      "cutting_rounded_mm": "5775",
-      "cutting_is_additive_mm": "5772.000",
+      "cutting_raw_mm": "5872.000",
+      "cutting_rounded_mm": "5875",
+      "cutting_is_additive_mm": "5872.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.342",
-      "kg_net": "27.342",
+      "kg": "27.816",
+      "kg_net": "27.816",
       "kg_lap": "0.000"
     },
     {
@@ -81106,19 +81106,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2086.000"
+        "A": "2136.000"
       },
-      "cutting_raw_mm": "2086.000",
-      "cutting_rounded_mm": "2100",
-      "cutting_is_additive_mm": "2086.000",
+      "cutting_raw_mm": "2136.000",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2136.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.588",
-      "kg_net": "6.588",
+      "kg": "6.745",
+      "kg_net": "6.745",
       "kg_lap": "0.000"
     },
     {
@@ -81131,19 +81131,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6252.000"
+        "A": "6352.000"
       },
-      "cutting_raw_mm": "6252.000",
-      "cutting_rounded_mm": "6275",
-      "cutting_is_additive_mm": "6252.000",
+      "cutting_raw_mm": "6352.000",
+      "cutting_rounded_mm": "6375",
+      "cutting_is_additive_mm": "6352.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.744",
-      "kg_net": "19.744",
+      "kg": "20.060",
+      "kg_net": "20.060",
       "kg_lap": "0.000"
     },
     {
@@ -81211,19 +81211,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5951.800"
+        "A": "6051.800"
       },
-      "cutting_raw_mm": "5951.800",
-      "cutting_rounded_mm": "5975",
-      "cutting_is_additive_mm": "5951.800",
+      "cutting_raw_mm": "6051.800",
+      "cutting_rounded_mm": "6075",
+      "cutting_is_additive_mm": "6051.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.194",
-      "kg_net": "28.194",
+      "kg": "28.667",
+      "kg_net": "28.667",
       "kg_lap": "0.000"
     },
     {
@@ -81236,19 +81236,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2175.900"
+        "A": "2225.900"
       },
-      "cutting_raw_mm": "2175.900",
-      "cutting_rounded_mm": "2200",
-      "cutting_is_additive_mm": "2175.900",
+      "cutting_raw_mm": "2225.900",
+      "cutting_rounded_mm": "2250",
+      "cutting_is_additive_mm": "2225.900",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.871",
-      "kg_net": "6.871",
+      "kg": "7.029",
+      "kg_net": "7.029",
       "kg_lap": "0.000"
     },
     {
@@ -81261,19 +81261,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6431.800"
+        "A": "6531.800"
       },
-      "cutting_raw_mm": "6431.800",
-      "cutting_rounded_mm": "6450",
-      "cutting_is_additive_mm": "6431.800",
+      "cutting_raw_mm": "6531.800",
+      "cutting_rounded_mm": "6550",
+      "cutting_is_additive_mm": "6531.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.312",
-      "kg_net": "20.312",
+      "kg": "20.627",
+      "kg_net": "20.627",
       "kg_lap": "0.000"
     },
     {
@@ -81349,11 +81349,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 37,
+      "bars_per_unit": 38,
       "parent_count": "1",
-      "bars": "37",
-      "kg": "29.630",
-      "kg_net": "29.630",
+      "bars": "38",
+      "kg": "30.430",
+      "kg_net": "30.430",
       "kg_lap": "0.000"
     },
     {
@@ -81496,19 +81496,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5772.000"
+        "A": "5872.000"
       },
-      "cutting_raw_mm": "5772.000",
-      "cutting_rounded_mm": "5775",
-      "cutting_is_additive_mm": "5772.000",
+      "cutting_raw_mm": "5872.000",
+      "cutting_rounded_mm": "5875",
+      "cutting_is_additive_mm": "5872.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.342",
-      "kg_net": "27.342",
+      "kg": "27.816",
+      "kg_net": "27.816",
       "kg_lap": "0.000"
     },
     {
@@ -81521,19 +81521,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2086.000"
+        "A": "2136.000"
       },
-      "cutting_raw_mm": "2086.000",
-      "cutting_rounded_mm": "2100",
-      "cutting_is_additive_mm": "2086.000",
+      "cutting_raw_mm": "2136.000",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2136.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.588",
-      "kg_net": "6.588",
+      "kg": "6.745",
+      "kg_net": "6.745",
       "kg_lap": "0.000"
     },
     {
@@ -81546,19 +81546,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6252.000"
+        "A": "6352.000"
       },
-      "cutting_raw_mm": "6252.000",
-      "cutting_rounded_mm": "6275",
-      "cutting_is_additive_mm": "6252.000",
+      "cutting_raw_mm": "6352.000",
+      "cutting_rounded_mm": "6375",
+      "cutting_is_additive_mm": "6352.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.744",
-      "kg_net": "19.744",
+      "kg": "20.060",
+      "kg_net": "20.060",
       "kg_lap": "0.000"
     },
     {
@@ -81626,19 +81626,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5926.800"
+        "A": "6026.800"
       },
-      "cutting_raw_mm": "5926.800",
-      "cutting_rounded_mm": "5950",
-      "cutting_is_additive_mm": "5926.800",
+      "cutting_raw_mm": "6026.800",
+      "cutting_rounded_mm": "6050",
+      "cutting_is_additive_mm": "6026.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.075",
-      "kg_net": "28.075",
+      "kg": "28.549",
+      "kg_net": "28.549",
       "kg_lap": "0.000"
     },
     {
@@ -81651,19 +81651,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2163.400"
+        "A": "2213.400"
       },
-      "cutting_raw_mm": "2163.400",
-      "cutting_rounded_mm": "2175",
-      "cutting_is_additive_mm": "2163.400",
+      "cutting_raw_mm": "2213.400",
+      "cutting_rounded_mm": "2225",
+      "cutting_is_additive_mm": "2213.400",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.832",
-      "kg_net": "6.832",
+      "kg": "6.990",
+      "kg_net": "6.990",
       "kg_lap": "0.000"
     },
     {
@@ -81676,19 +81676,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6406.800"
+        "A": "6506.800"
       },
-      "cutting_raw_mm": "6406.800",
-      "cutting_rounded_mm": "6425",
-      "cutting_is_additive_mm": "6406.800",
+      "cutting_raw_mm": "6506.800",
+      "cutting_rounded_mm": "6525",
+      "cutting_is_additive_mm": "6506.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.233",
-      "kg_net": "20.233",
+      "kg": "20.548",
+      "kg_net": "20.548",
       "kg_lap": "0.000"
     },
     {
@@ -82041,19 +82041,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5622.000"
+        "A": "5722.000"
       },
-      "cutting_raw_mm": "5622.000",
-      "cutting_rounded_mm": "5625",
-      "cutting_is_additive_mm": "5622.000",
+      "cutting_raw_mm": "5722.000",
+      "cutting_rounded_mm": "5725",
+      "cutting_is_additive_mm": "5722.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "26.631",
-      "kg_net": "26.631",
+      "kg": "27.105",
+      "kg_net": "27.105",
       "kg_lap": "0.000"
     },
     {
@@ -82066,19 +82066,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2011.000"
+        "A": "2061.000"
       },
-      "cutting_raw_mm": "2011.000",
-      "cutting_rounded_mm": "2025",
-      "cutting_is_additive_mm": "2011.000",
+      "cutting_raw_mm": "2061.000",
+      "cutting_rounded_mm": "2075",
+      "cutting_is_additive_mm": "2061.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.351",
-      "kg_net": "6.351",
+      "kg": "6.509",
+      "kg_net": "6.509",
       "kg_lap": "0.000"
     },
     {
@@ -82091,19 +82091,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6102.000"
+        "A": "6202.000"
       },
-      "cutting_raw_mm": "6102.000",
-      "cutting_rounded_mm": "6125",
-      "cutting_is_additive_mm": "6102.000",
+      "cutting_raw_mm": "6202.000",
+      "cutting_rounded_mm": "6225",
+      "cutting_is_additive_mm": "6202.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.270",
-      "kg_net": "19.270",
+      "kg": "19.586",
+      "kg_net": "19.586",
       "kg_lap": "0.000"
     },
     {
@@ -82171,19 +82171,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6526.800"
+        "A": "6576.800"
       },
-      "cutting_raw_mm": "6526.800",
-      "cutting_rounded_mm": "6550",
-      "cutting_is_additive_mm": "6526.800",
+      "cutting_raw_mm": "6576.800",
+      "cutting_rounded_mm": "6600",
+      "cutting_is_additive_mm": "6576.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "48.285",
-      "kg_net": "48.285",
+      "kg": "48.655",
+      "kg_net": "48.655",
       "kg_lap": "0.000"
     },
     {
@@ -82196,19 +82196,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2263.400"
+        "A": "2288.400"
       },
-      "cutting_raw_mm": "2263.400",
-      "cutting_rounded_mm": "2275",
-      "cutting_is_additive_mm": "2263.400",
+      "cutting_raw_mm": "2288.400",
+      "cutting_rounded_mm": "2300",
+      "cutting_is_additive_mm": "2288.400",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "11.163",
-      "kg_net": "11.163",
+      "kg": "11.286",
+      "kg_net": "11.286",
       "kg_lap": "0.000"
     },
     {
@@ -82221,19 +82221,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6606.800"
+        "A": "6656.800"
       },
-      "cutting_raw_mm": "6606.800",
-      "cutting_rounded_mm": "6625",
-      "cutting_is_additive_mm": "6606.800",
+      "cutting_raw_mm": "6656.800",
+      "cutting_rounded_mm": "6675",
+      "cutting_is_additive_mm": "6656.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "31.296",
-      "kg_net": "31.296",
+      "kg": "31.533",
+      "kg_net": "31.533",
       "kg_lap": "0.000"
     },
     {
@@ -82586,19 +82586,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6222.000"
+        "A": "6272.000"
       },
-      "cutting_raw_mm": "6222.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6222.000",
+      "cutting_raw_mm": "6272.000",
+      "cutting_rounded_mm": "6275",
+      "cutting_is_additive_mm": "6272.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "46.030",
-      "kg_net": "46.030",
+      "kg": "46.400",
+      "kg_net": "46.400",
       "kg_lap": "0.000"
     },
     {
@@ -82611,19 +82611,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2111.000"
+        "A": "2136.000"
       },
-      "cutting_raw_mm": "2111.000",
-      "cutting_rounded_mm": "2125",
-      "cutting_is_additive_mm": "2111.000",
+      "cutting_raw_mm": "2136.000",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2136.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "10.411",
-      "kg_net": "10.411",
+      "kg": "10.535",
+      "kg_net": "10.535",
       "kg_lap": "0.000"
     },
     {
@@ -82636,19 +82636,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6352.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6352.000",
+      "cutting_rounded_mm": "6375",
+      "cutting_is_additive_mm": "6352.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.853",
-      "kg_net": "29.853",
+      "kg": "30.089",
+      "kg_net": "30.089",
       "kg_lap": "0.000"
     },
     {
@@ -82926,19 +82926,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2799.000"
+        "A": "2699.000"
       },
-      "cutting_raw_mm": "2799.000",
-      "cutting_rounded_mm": "2800",
-      "cutting_is_additive_mm": "2799.000",
+      "cutting_raw_mm": "2699.000",
+      "cutting_rounded_mm": "2700",
+      "cutting_is_additive_mm": "2699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "8.839",
-      "kg_net": "8.839",
+      "kg": "8.523",
+      "kg_net": "8.523",
       "kg_lap": "0.000"
     },
     {
@@ -82951,19 +82951,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "3799.000"
+        "A": "3699.000"
       },
-      "cutting_raw_mm": "3799.000",
-      "cutting_rounded_mm": "3800",
-      "cutting_is_additive_mm": "3799.000",
+      "cutting_raw_mm": "3699.000",
+      "cutting_rounded_mm": "3700",
+      "cutting_is_additive_mm": "3699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.105",
-      "kg_net": "28.105",
+      "kg": "27.365",
+      "kg_net": "27.365",
       "kg_lap": "0.000"
     },
     {
@@ -82989,11 +82989,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 11,
+      "bars_per_unit": 10,
       "parent_count": "1",
-      "bars": "11",
-      "kg": "7.792",
-      "kg_net": "7.792",
+      "bars": "10",
+      "kg": "7.084",
+      "kg_net": "7.084",
       "kg_lap": "0.000"
     },
     {
@@ -83006,19 +83006,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2799.000"
+        "A": "2699.000"
       },
-      "cutting_raw_mm": "2799.000",
-      "cutting_rounded_mm": "2800",
-      "cutting_is_additive_mm": "2799.000",
+      "cutting_raw_mm": "2699.000",
+      "cutting_rounded_mm": "2700",
+      "cutting_is_additive_mm": "2699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "8.839",
-      "kg_net": "8.839",
+      "kg": "8.523",
+      "kg_net": "8.523",
       "kg_lap": "0.000"
     },
     {
@@ -83031,19 +83031,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "3799.000"
+        "A": "3699.000"
       },
-      "cutting_raw_mm": "3799.000",
-      "cutting_rounded_mm": "3800",
-      "cutting_is_additive_mm": "3799.000",
+      "cutting_raw_mm": "3699.000",
+      "cutting_rounded_mm": "3700",
+      "cutting_is_additive_mm": "3699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.105",
-      "kg_net": "28.105",
+      "kg": "27.365",
+      "kg_net": "27.365",
       "kg_lap": "0.000"
     },
     {
@@ -83069,11 +83069,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 11,
+      "bars_per_unit": 10,
       "parent_count": "1",
-      "bars": "11",
-      "kg": "7.792",
-      "kg_net": "7.792",
+      "bars": "10",
+      "kg": "7.084",
+      "kg_net": "7.084",
       "kg_lap": "0.000"
     },
     {
@@ -83086,19 +83086,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2799.000"
+        "A": "2699.000"
       },
-      "cutting_raw_mm": "2799.000",
-      "cutting_rounded_mm": "2800",
-      "cutting_is_additive_mm": "2799.000",
+      "cutting_raw_mm": "2699.000",
+      "cutting_rounded_mm": "2700",
+      "cutting_is_additive_mm": "2699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "8.839",
-      "kg_net": "8.839",
+      "kg": "8.523",
+      "kg_net": "8.523",
       "kg_lap": "0.000"
     },
     {
@@ -83111,19 +83111,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "3799.000"
+        "A": "3699.000"
       },
-      "cutting_raw_mm": "3799.000",
-      "cutting_rounded_mm": "3800",
-      "cutting_is_additive_mm": "3799.000",
+      "cutting_raw_mm": "3699.000",
+      "cutting_rounded_mm": "3700",
+      "cutting_is_additive_mm": "3699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.105",
-      "kg_net": "28.105",
+      "kg": "27.365",
+      "kg_net": "27.365",
       "kg_lap": "0.000"
     },
     {
@@ -83149,11 +83149,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 11,
+      "bars_per_unit": 10,
       "parent_count": "1",
-      "bars": "11",
-      "kg": "7.792",
-      "kg_net": "7.792",
+      "bars": "10",
+      "kg": "7.084",
+      "kg_net": "7.084",
       "kg_lap": "0.000"
     },
     {
@@ -83166,19 +83166,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2799.000"
+        "A": "2699.000"
       },
-      "cutting_raw_mm": "2799.000",
-      "cutting_rounded_mm": "2800",
-      "cutting_is_additive_mm": "2799.000",
+      "cutting_raw_mm": "2699.000",
+      "cutting_rounded_mm": "2700",
+      "cutting_is_additive_mm": "2699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "8.839",
-      "kg_net": "8.839",
+      "kg": "8.523",
+      "kg_net": "8.523",
       "kg_lap": "0.000"
     },
     {
@@ -83191,19 +83191,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "3799.000"
+        "A": "3699.000"
       },
-      "cutting_raw_mm": "3799.000",
-      "cutting_rounded_mm": "3800",
-      "cutting_is_additive_mm": "3799.000",
+      "cutting_raw_mm": "3699.000",
+      "cutting_rounded_mm": "3700",
+      "cutting_is_additive_mm": "3699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.105",
-      "kg_net": "28.105",
+      "kg": "27.365",
+      "kg_net": "27.365",
       "kg_lap": "0.000"
     },
     {
@@ -83229,11 +83229,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 11,
+      "bars_per_unit": 10,
       "parent_count": "1",
-      "bars": "11",
-      "kg": "7.792",
-      "kg_net": "7.792",
+      "bars": "10",
+      "kg": "7.084",
+      "kg_net": "7.084",
       "kg_lap": "0.000"
     },
     {
@@ -83486,19 +83486,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6570.544"
+        "A": "6520.544"
       },
-      "cutting_raw_mm": "6570.544",
-      "cutting_rounded_mm": "6575",
-      "cutting_is_additive_mm": "6570.544",
+      "cutting_raw_mm": "6520.544",
+      "cutting_rounded_mm": "6525",
+      "cutting_is_additive_mm": "6520.544",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "31.125",
-      "kg_net": "31.125",
+      "kg": "30.888",
+      "kg_net": "30.888",
       "kg_lap": "0.000"
     },
     {
@@ -83511,19 +83511,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "7050.544"
+        "A": "7000.544"
       },
-      "cutting_raw_mm": "7050.544",
-      "cutting_rounded_mm": "7075",
-      "cutting_is_additive_mm": "7050.544",
+      "cutting_raw_mm": "7000.544",
+      "cutting_rounded_mm": "7025",
+      "cutting_is_additive_mm": "7000.544",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "33.398",
-      "kg_net": "33.398",
+      "kg": "33.162",
+      "kg_net": "33.162",
       "kg_lap": "0.000"
     },
     {
@@ -86888,19 +86888,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6222.000"
+        "A": "6322.000"
       },
-      "cutting_raw_mm": "6222.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6222.000",
+      "cutting_raw_mm": "6322.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6322.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "46.030",
-      "kg_net": "46.030",
+      "kg": "46.770",
+      "kg_net": "46.770",
       "kg_lap": "0.000"
     },
     {
@@ -86913,19 +86913,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2111.000"
+        "A": "2161.000"
       },
-      "cutting_raw_mm": "2111.000",
-      "cutting_rounded_mm": "2125",
-      "cutting_is_additive_mm": "2111.000",
+      "cutting_raw_mm": "2161.000",
+      "cutting_rounded_mm": "2175",
+      "cutting_is_additive_mm": "2161.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "10.411",
-      "kg_net": "10.411",
+      "kg": "10.658",
+      "kg_net": "10.658",
       "kg_lap": "0.000"
     },
     {
@@ -86938,19 +86938,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6402.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6402.000",
+      "cutting_rounded_mm": "6425",
+      "cutting_is_additive_mm": "6402.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.853",
-      "kg_net": "29.853",
+      "kg": "30.326",
+      "kg_net": "30.326",
       "kg_lap": "0.000"
     },
     {
@@ -87026,11 +87026,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 38,
+      "bars_per_unit": 39,
       "parent_count": "1",
-      "bars": "38",
-      "kg": "39.794",
-      "kg_net": "39.794",
+      "bars": "39",
+      "kg": "40.841",
+      "kg_net": "40.841",
       "kg_lap": "0.000"
     },
     {
@@ -87433,19 +87433,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6222.000"
+        "A": "6322.000"
       },
-      "cutting_raw_mm": "6222.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6222.000",
+      "cutting_raw_mm": "6322.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6322.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "46.030",
-      "kg_net": "46.030",
+      "kg": "46.770",
+      "kg_net": "46.770",
       "kg_lap": "0.000"
     },
     {
@@ -87458,19 +87458,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2111.000"
+        "A": "2161.000"
       },
-      "cutting_raw_mm": "2111.000",
-      "cutting_rounded_mm": "2125",
-      "cutting_is_additive_mm": "2111.000",
+      "cutting_raw_mm": "2161.000",
+      "cutting_rounded_mm": "2175",
+      "cutting_is_additive_mm": "2161.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "10.411",
-      "kg_net": "10.411",
+      "kg": "10.658",
+      "kg_net": "10.658",
       "kg_lap": "0.000"
     },
     {
@@ -87483,19 +87483,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6402.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6402.000",
+      "cutting_rounded_mm": "6425",
+      "cutting_is_additive_mm": "6402.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.853",
-      "kg_net": "29.853",
+      "kg": "30.326",
+      "kg_net": "30.326",
       "kg_lap": "0.000"
     },
     {
@@ -87546,11 +87546,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 38,
+      "bars_per_unit": 39,
       "parent_count": "1",
-      "bars": "38",
-      "kg": "39.794",
-      "kg_net": "39.794",
+      "bars": "39",
+      "kg": "40.841",
+      "kg_net": "40.841",
       "kg_lap": "0.000"
     },
     {
@@ -87563,19 +87563,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5747.000"
+        "A": "5897.000"
       },
-      "cutting_raw_mm": "5747.000",
-      "cutting_rounded_mm": "5750",
-      "cutting_is_additive_mm": "5747.000",
+      "cutting_raw_mm": "5897.000",
+      "cutting_rounded_mm": "5900",
+      "cutting_is_additive_mm": "5897.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.224",
-      "kg_net": "27.224",
+      "kg": "27.934",
+      "kg_net": "27.934",
       "kg_lap": "0.000"
     },
     {
@@ -87588,19 +87588,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2073.500"
+        "A": "2148.500"
       },
-      "cutting_raw_mm": "2073.500",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2073.500",
+      "cutting_raw_mm": "2148.500",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2148.500",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.548",
-      "kg_net": "6.548",
+      "kg": "6.785",
+      "kg_net": "6.785",
       "kg_lap": "0.000"
     },
     {
@@ -87613,19 +87613,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6227.000"
+        "A": "6377.000"
       },
-      "cutting_raw_mm": "6227.000",
-      "cutting_rounded_mm": "6250",
-      "cutting_is_additive_mm": "6227.000",
+      "cutting_raw_mm": "6377.000",
+      "cutting_rounded_mm": "6400",
+      "cutting_is_additive_mm": "6377.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.665",
-      "kg_net": "19.665",
+      "kg": "20.139",
+      "kg_net": "20.139",
       "kg_lap": "0.000"
     },
     {
@@ -87701,11 +87701,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -88108,19 +88108,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5747.000"
+        "A": "5897.000"
       },
-      "cutting_raw_mm": "5747.000",
-      "cutting_rounded_mm": "5750",
-      "cutting_is_additive_mm": "5747.000",
+      "cutting_raw_mm": "5897.000",
+      "cutting_rounded_mm": "5900",
+      "cutting_is_additive_mm": "5897.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.224",
-      "kg_net": "27.224",
+      "kg": "27.934",
+      "kg_net": "27.934",
       "kg_lap": "0.000"
     },
     {
@@ -88133,19 +88133,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2073.500"
+        "A": "2148.500"
       },
-      "cutting_raw_mm": "2073.500",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2073.500",
+      "cutting_raw_mm": "2148.500",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2148.500",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.548",
-      "kg_net": "6.548",
+      "kg": "6.785",
+      "kg_net": "6.785",
       "kg_lap": "0.000"
     },
     {
@@ -88158,19 +88158,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6227.000"
+        "A": "6377.000"
       },
-      "cutting_raw_mm": "6227.000",
-      "cutting_rounded_mm": "6250",
-      "cutting_is_additive_mm": "6227.000",
+      "cutting_raw_mm": "6377.000",
+      "cutting_rounded_mm": "6400",
+      "cutting_is_additive_mm": "6377.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.665",
-      "kg_net": "19.665",
+      "kg": "20.139",
+      "kg_net": "20.139",
       "kg_lap": "0.000"
     },
     {
@@ -88221,11 +88221,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -88238,19 +88238,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5747.000"
+        "A": "5897.000"
       },
-      "cutting_raw_mm": "5747.000",
-      "cutting_rounded_mm": "5750",
-      "cutting_is_additive_mm": "5747.000",
+      "cutting_raw_mm": "5897.000",
+      "cutting_rounded_mm": "5900",
+      "cutting_is_additive_mm": "5897.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.224",
-      "kg_net": "27.224",
+      "kg": "27.934",
+      "kg_net": "27.934",
       "kg_lap": "0.000"
     },
     {
@@ -88263,19 +88263,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2073.500"
+        "A": "2148.500"
       },
-      "cutting_raw_mm": "2073.500",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2073.500",
+      "cutting_raw_mm": "2148.500",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2148.500",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.548",
-      "kg_net": "6.548",
+      "kg": "6.785",
+      "kg_net": "6.785",
       "kg_lap": "0.000"
     },
     {
@@ -88288,19 +88288,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6227.000"
+        "A": "6377.000"
       },
-      "cutting_raw_mm": "6227.000",
-      "cutting_rounded_mm": "6250",
-      "cutting_is_additive_mm": "6227.000",
+      "cutting_raw_mm": "6377.000",
+      "cutting_rounded_mm": "6400",
+      "cutting_is_additive_mm": "6377.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.665",
-      "kg_net": "19.665",
+      "kg": "20.139",
+      "kg_net": "20.139",
       "kg_lap": "0.000"
     },
     {
@@ -88376,11 +88376,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -88783,19 +88783,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5747.000"
+        "A": "5897.000"
       },
-      "cutting_raw_mm": "5747.000",
-      "cutting_rounded_mm": "5750",
-      "cutting_is_additive_mm": "5747.000",
+      "cutting_raw_mm": "5897.000",
+      "cutting_rounded_mm": "5900",
+      "cutting_is_additive_mm": "5897.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.224",
-      "kg_net": "27.224",
+      "kg": "27.934",
+      "kg_net": "27.934",
       "kg_lap": "0.000"
     },
     {
@@ -88808,19 +88808,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2073.500"
+        "A": "2148.500"
       },
-      "cutting_raw_mm": "2073.500",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2073.500",
+      "cutting_raw_mm": "2148.500",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2148.500",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.548",
-      "kg_net": "6.548",
+      "kg": "6.785",
+      "kg_net": "6.785",
       "kg_lap": "0.000"
     },
     {
@@ -88833,19 +88833,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6227.000"
+        "A": "6377.000"
       },
-      "cutting_raw_mm": "6227.000",
-      "cutting_rounded_mm": "6250",
-      "cutting_is_additive_mm": "6227.000",
+      "cutting_raw_mm": "6377.000",
+      "cutting_rounded_mm": "6400",
+      "cutting_is_additive_mm": "6377.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.665",
-      "kg_net": "19.665",
+      "kg": "20.139",
+      "kg_net": "20.139",
       "kg_lap": "0.000"
     },
     {
@@ -88896,11 +88896,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -88913,19 +88913,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5747.000"
+        "A": "5897.000"
       },
-      "cutting_raw_mm": "5747.000",
-      "cutting_rounded_mm": "5750",
-      "cutting_is_additive_mm": "5747.000",
+      "cutting_raw_mm": "5897.000",
+      "cutting_rounded_mm": "5900",
+      "cutting_is_additive_mm": "5897.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.224",
-      "kg_net": "27.224",
+      "kg": "27.934",
+      "kg_net": "27.934",
       "kg_lap": "0.000"
     },
     {
@@ -88938,19 +88938,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2073.500"
+        "A": "2148.500"
       },
-      "cutting_raw_mm": "2073.500",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2073.500",
+      "cutting_raw_mm": "2148.500",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2148.500",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.548",
-      "kg_net": "6.548",
+      "kg": "6.785",
+      "kg_net": "6.785",
       "kg_lap": "0.000"
     },
     {
@@ -88963,19 +88963,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6227.000"
+        "A": "6377.000"
       },
-      "cutting_raw_mm": "6227.000",
-      "cutting_rounded_mm": "6250",
-      "cutting_is_additive_mm": "6227.000",
+      "cutting_raw_mm": "6377.000",
+      "cutting_rounded_mm": "6400",
+      "cutting_is_additive_mm": "6377.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.665",
-      "kg_net": "19.665",
+      "kg": "20.139",
+      "kg_net": "20.139",
       "kg_lap": "0.000"
     },
     {
@@ -89051,11 +89051,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -89328,19 +89328,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5747.000"
+        "A": "5897.000"
       },
-      "cutting_raw_mm": "5747.000",
-      "cutting_rounded_mm": "5750",
-      "cutting_is_additive_mm": "5747.000",
+      "cutting_raw_mm": "5897.000",
+      "cutting_rounded_mm": "5900",
+      "cutting_is_additive_mm": "5897.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.224",
-      "kg_net": "27.224",
+      "kg": "27.934",
+      "kg_net": "27.934",
       "kg_lap": "0.000"
     },
     {
@@ -89353,19 +89353,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2073.500"
+        "A": "2148.500"
       },
-      "cutting_raw_mm": "2073.500",
-      "cutting_rounded_mm": "2075",
-      "cutting_is_additive_mm": "2073.500",
+      "cutting_raw_mm": "2148.500",
+      "cutting_rounded_mm": "2150",
+      "cutting_is_additive_mm": "2148.500",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.548",
-      "kg_net": "6.548",
+      "kg": "6.785",
+      "kg_net": "6.785",
       "kg_lap": "0.000"
     },
     {
@@ -89378,19 +89378,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6227.000"
+        "A": "6377.000"
       },
-      "cutting_raw_mm": "6227.000",
-      "cutting_rounded_mm": "6250",
-      "cutting_is_additive_mm": "6227.000",
+      "cutting_raw_mm": "6377.000",
+      "cutting_rounded_mm": "6400",
+      "cutting_is_additive_mm": "6377.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.665",
-      "kg_net": "19.665",
+      "kg": "20.139",
+      "kg_net": "20.139",
       "kg_lap": "0.000"
     },
     {
@@ -89441,11 +89441,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -90003,19 +90003,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6222.000"
+        "A": "6322.000"
       },
-      "cutting_raw_mm": "6222.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6222.000",
+      "cutting_raw_mm": "6322.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6322.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "46.030",
-      "kg_net": "46.030",
+      "kg": "46.770",
+      "kg_net": "46.770",
       "kg_lap": "0.000"
     },
     {
@@ -90028,19 +90028,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2111.000"
+        "A": "2161.000"
       },
-      "cutting_raw_mm": "2111.000",
-      "cutting_rounded_mm": "2125",
-      "cutting_is_additive_mm": "2111.000",
+      "cutting_raw_mm": "2161.000",
+      "cutting_rounded_mm": "2175",
+      "cutting_is_additive_mm": "2161.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "10.411",
-      "kg_net": "10.411",
+      "kg": "10.658",
+      "kg_net": "10.658",
       "kg_lap": "0.000"
     },
     {
@@ -90053,19 +90053,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6402.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6402.000",
+      "cutting_rounded_mm": "6425",
+      "cutting_is_additive_mm": "6402.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.853",
-      "kg_net": "29.853",
+      "kg": "30.326",
+      "kg_net": "30.326",
       "kg_lap": "0.000"
     },
     {
@@ -90116,11 +90116,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 38,
+      "bars_per_unit": 39,
       "parent_count": "1",
-      "bars": "38",
-      "kg": "39.794",
-      "kg_net": "39.794",
+      "bars": "39",
+      "kg": "40.841",
+      "kg_net": "40.841",
       "kg_lap": "0.000"
     },
     {
@@ -90133,19 +90133,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6526.800"
+        "A": "6626.800"
       },
-      "cutting_raw_mm": "6526.800",
-      "cutting_rounded_mm": "6550",
-      "cutting_is_additive_mm": "6526.800",
+      "cutting_raw_mm": "6626.800",
+      "cutting_rounded_mm": "6650",
+      "cutting_is_additive_mm": "6626.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "48.285",
-      "kg_net": "48.285",
+      "kg": "49.025",
+      "kg_net": "49.025",
       "kg_lap": "0.000"
     },
     {
@@ -90158,19 +90158,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2263.400"
+        "A": "2313.400"
       },
-      "cutting_raw_mm": "2263.400",
-      "cutting_rounded_mm": "2275",
-      "cutting_is_additive_mm": "2263.400",
+      "cutting_raw_mm": "2313.400",
+      "cutting_rounded_mm": "2325",
+      "cutting_is_additive_mm": "2313.400",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "11.163",
-      "kg_net": "11.163",
+      "kg": "11.410",
+      "kg_net": "11.410",
       "kg_lap": "0.000"
     },
     {
@@ -90183,19 +90183,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6606.800"
+        "A": "6706.800"
       },
-      "cutting_raw_mm": "6606.800",
-      "cutting_rounded_mm": "6625",
-      "cutting_is_additive_mm": "6606.800",
+      "cutting_raw_mm": "6706.800",
+      "cutting_rounded_mm": "6725",
+      "cutting_is_additive_mm": "6706.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "31.296",
-      "kg_net": "31.296",
+      "kg": "31.770",
+      "kg_net": "31.770",
       "kg_lap": "0.000"
     },
     {
@@ -90271,11 +90271,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 40,
+      "bars_per_unit": 41,
       "parent_count": "1",
-      "bars": "40",
-      "kg": "41.888",
-      "kg_net": "41.888",
+      "bars": "41",
+      "kg": "42.935",
+      "kg_net": "42.935",
       "kg_lap": "0.000"
     },
     {
@@ -90678,19 +90678,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5951.800"
+        "A": "6151.800"
       },
-      "cutting_raw_mm": "5951.800",
-      "cutting_rounded_mm": "5975",
-      "cutting_is_additive_mm": "5951.800",
+      "cutting_raw_mm": "6151.800",
+      "cutting_rounded_mm": "6175",
+      "cutting_is_additive_mm": "6151.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.194",
-      "kg_net": "28.194",
+      "kg": "29.141",
+      "kg_net": "29.141",
       "kg_lap": "0.000"
     },
     {
@@ -90703,19 +90703,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2175.900"
+        "A": "2275.900"
       },
-      "cutting_raw_mm": "2175.900",
-      "cutting_rounded_mm": "2200",
-      "cutting_is_additive_mm": "2175.900",
+      "cutting_raw_mm": "2275.900",
+      "cutting_rounded_mm": "2300",
+      "cutting_is_additive_mm": "2275.900",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.871",
-      "kg_net": "6.871",
+      "kg": "7.187",
+      "kg_net": "7.187",
       "kg_lap": "0.000"
     },
     {
@@ -90728,19 +90728,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6431.800"
+        "A": "6631.800"
       },
-      "cutting_raw_mm": "6431.800",
-      "cutting_rounded_mm": "6450",
-      "cutting_is_additive_mm": "6431.800",
+      "cutting_raw_mm": "6631.800",
+      "cutting_rounded_mm": "6650",
+      "cutting_is_additive_mm": "6631.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.312",
-      "kg_net": "20.312",
+      "kg": "20.943",
+      "kg_net": "20.943",
       "kg_lap": "0.000"
     },
     {
@@ -90816,11 +90816,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 37,
+      "bars_per_unit": 38,
       "parent_count": "1",
-      "bars": "37",
-      "kg": "29.630",
-      "kg_net": "29.630",
+      "bars": "38",
+      "kg": "30.430",
+      "kg_net": "30.430",
       "kg_lap": "0.000"
     },
     {
@@ -91093,19 +91093,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5647.000"
+        "A": "5847.000"
       },
-      "cutting_raw_mm": "5647.000",
-      "cutting_rounded_mm": "5650",
-      "cutting_is_additive_mm": "5647.000",
+      "cutting_raw_mm": "5847.000",
+      "cutting_rounded_mm": "5850",
+      "cutting_is_additive_mm": "5847.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "26.750",
-      "kg_net": "26.750",
+      "kg": "27.697",
+      "kg_net": "27.697",
       "kg_lap": "0.000"
     },
     {
@@ -91118,19 +91118,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2023.500"
+        "A": "2123.500"
       },
-      "cutting_raw_mm": "2023.500",
-      "cutting_rounded_mm": "2025",
-      "cutting_is_additive_mm": "2023.500",
+      "cutting_raw_mm": "2123.500",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2123.500",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.390",
-      "kg_net": "6.390",
+      "kg": "6.706",
+      "kg_net": "6.706",
       "kg_lap": "0.000"
     },
     {
@@ -91143,19 +91143,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6127.000"
+        "A": "6327.000"
       },
-      "cutting_raw_mm": "6127.000",
-      "cutting_rounded_mm": "6150",
-      "cutting_is_additive_mm": "6127.000",
+      "cutting_raw_mm": "6327.000",
+      "cutting_rounded_mm": "6350",
+      "cutting_is_additive_mm": "6327.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.349",
-      "kg_net": "19.349",
+      "kg": "19.981",
+      "kg_net": "19.981",
       "kg_lap": "0.000"
     },
     {
@@ -91206,11 +91206,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -91223,19 +91223,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5951.800"
+        "A": "6151.800"
       },
-      "cutting_raw_mm": "5951.800",
-      "cutting_rounded_mm": "5975",
-      "cutting_is_additive_mm": "5951.800",
+      "cutting_raw_mm": "6151.800",
+      "cutting_rounded_mm": "6175",
+      "cutting_is_additive_mm": "6151.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.194",
-      "kg_net": "28.194",
+      "kg": "29.141",
+      "kg_net": "29.141",
       "kg_lap": "0.000"
     },
     {
@@ -91248,19 +91248,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2175.900"
+        "A": "2275.900"
       },
-      "cutting_raw_mm": "2175.900",
-      "cutting_rounded_mm": "2200",
-      "cutting_is_additive_mm": "2175.900",
+      "cutting_raw_mm": "2275.900",
+      "cutting_rounded_mm": "2300",
+      "cutting_is_additive_mm": "2275.900",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.871",
-      "kg_net": "6.871",
+      "kg": "7.187",
+      "kg_net": "7.187",
       "kg_lap": "0.000"
     },
     {
@@ -91273,19 +91273,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6431.800"
+        "A": "6631.800"
       },
-      "cutting_raw_mm": "6431.800",
-      "cutting_rounded_mm": "6450",
-      "cutting_is_additive_mm": "6431.800",
+      "cutting_raw_mm": "6631.800",
+      "cutting_rounded_mm": "6650",
+      "cutting_is_additive_mm": "6631.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.312",
-      "kg_net": "20.312",
+      "kg": "20.943",
+      "kg_net": "20.943",
       "kg_lap": "0.000"
     },
     {
@@ -91361,11 +91361,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 37,
+      "bars_per_unit": 38,
       "parent_count": "1",
-      "bars": "37",
-      "kg": "29.630",
-      "kg_net": "29.630",
+      "bars": "38",
+      "kg": "30.430",
+      "kg_net": "30.430",
       "kg_lap": "0.000"
     },
     {
@@ -91508,19 +91508,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5772.000"
+        "A": "5972.000"
       },
-      "cutting_raw_mm": "5772.000",
-      "cutting_rounded_mm": "5775",
-      "cutting_is_additive_mm": "5772.000",
+      "cutting_raw_mm": "5972.000",
+      "cutting_rounded_mm": "5975",
+      "cutting_is_additive_mm": "5972.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.342",
-      "kg_net": "27.342",
+      "kg": "28.289",
+      "kg_net": "28.289",
       "kg_lap": "0.000"
     },
     {
@@ -91533,19 +91533,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2086.000"
+        "A": "2186.000"
       },
-      "cutting_raw_mm": "2086.000",
-      "cutting_rounded_mm": "2100",
-      "cutting_is_additive_mm": "2086.000",
+      "cutting_raw_mm": "2186.000",
+      "cutting_rounded_mm": "2200",
+      "cutting_is_additive_mm": "2186.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.588",
-      "kg_net": "6.588",
+      "kg": "6.903",
+      "kg_net": "6.903",
       "kg_lap": "0.000"
     },
     {
@@ -91558,19 +91558,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6252.000"
+        "A": "6452.000"
       },
-      "cutting_raw_mm": "6252.000",
-      "cutting_rounded_mm": "6275",
-      "cutting_is_additive_mm": "6252.000",
+      "cutting_raw_mm": "6452.000",
+      "cutting_rounded_mm": "6475",
+      "cutting_is_additive_mm": "6452.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.744",
-      "kg_net": "19.744",
+      "kg": "20.375",
+      "kg_net": "20.375",
       "kg_lap": "0.000"
     },
     {
@@ -91621,11 +91621,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 36,
+      "bars_per_unit": 37,
       "parent_count": "1",
-      "bars": "36",
-      "kg": "28.829",
-      "kg_net": "28.829",
+      "bars": "37",
+      "kg": "29.630",
+      "kg_net": "29.630",
       "kg_lap": "0.000"
     },
     {
@@ -91638,19 +91638,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5951.800"
+        "A": "6151.800"
       },
-      "cutting_raw_mm": "5951.800",
-      "cutting_rounded_mm": "5975",
-      "cutting_is_additive_mm": "5951.800",
+      "cutting_raw_mm": "6151.800",
+      "cutting_rounded_mm": "6175",
+      "cutting_is_additive_mm": "6151.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.194",
-      "kg_net": "28.194",
+      "kg": "29.141",
+      "kg_net": "29.141",
       "kg_lap": "0.000"
     },
     {
@@ -91663,19 +91663,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2175.900"
+        "A": "2275.900"
       },
-      "cutting_raw_mm": "2175.900",
-      "cutting_rounded_mm": "2200",
-      "cutting_is_additive_mm": "2175.900",
+      "cutting_raw_mm": "2275.900",
+      "cutting_rounded_mm": "2300",
+      "cutting_is_additive_mm": "2275.900",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.871",
-      "kg_net": "6.871",
+      "kg": "7.187",
+      "kg_net": "7.187",
       "kg_lap": "0.000"
     },
     {
@@ -91688,19 +91688,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6431.800"
+        "A": "6631.800"
       },
-      "cutting_raw_mm": "6431.800",
-      "cutting_rounded_mm": "6450",
-      "cutting_is_additive_mm": "6431.800",
+      "cutting_raw_mm": "6631.800",
+      "cutting_rounded_mm": "6650",
+      "cutting_is_additive_mm": "6631.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.312",
-      "kg_net": "20.312",
+      "kg": "20.943",
+      "kg_net": "20.943",
       "kg_lap": "0.000"
     },
     {
@@ -91776,11 +91776,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 37,
+      "bars_per_unit": 38,
       "parent_count": "1",
-      "bars": "37",
-      "kg": "29.630",
-      "kg_net": "29.630",
+      "bars": "38",
+      "kg": "30.430",
+      "kg_net": "30.430",
       "kg_lap": "0.000"
     },
     {
@@ -91923,19 +91923,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5772.000"
+        "A": "5972.000"
       },
-      "cutting_raw_mm": "5772.000",
-      "cutting_rounded_mm": "5775",
-      "cutting_is_additive_mm": "5772.000",
+      "cutting_raw_mm": "5972.000",
+      "cutting_rounded_mm": "5975",
+      "cutting_is_additive_mm": "5972.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.342",
-      "kg_net": "27.342",
+      "kg": "28.289",
+      "kg_net": "28.289",
       "kg_lap": "0.000"
     },
     {
@@ -91948,19 +91948,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2086.000"
+        "A": "2186.000"
       },
-      "cutting_raw_mm": "2086.000",
-      "cutting_rounded_mm": "2100",
-      "cutting_is_additive_mm": "2086.000",
+      "cutting_raw_mm": "2186.000",
+      "cutting_rounded_mm": "2200",
+      "cutting_is_additive_mm": "2186.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.588",
-      "kg_net": "6.588",
+      "kg": "6.903",
+      "kg_net": "6.903",
       "kg_lap": "0.000"
     },
     {
@@ -91973,19 +91973,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6252.000"
+        "A": "6452.000"
       },
-      "cutting_raw_mm": "6252.000",
-      "cutting_rounded_mm": "6275",
-      "cutting_is_additive_mm": "6252.000",
+      "cutting_raw_mm": "6452.000",
+      "cutting_rounded_mm": "6475",
+      "cutting_is_additive_mm": "6452.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.744",
-      "kg_net": "19.744",
+      "kg": "20.375",
+      "kg_net": "20.375",
       "kg_lap": "0.000"
     },
     {
@@ -92036,11 +92036,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 36,
+      "bars_per_unit": 37,
       "parent_count": "1",
-      "bars": "36",
-      "kg": "28.829",
-      "kg_net": "28.829",
+      "bars": "37",
+      "kg": "29.630",
+      "kg_net": "29.630",
       "kg_lap": "0.000"
     },
     {
@@ -92053,19 +92053,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5951.800"
+        "A": "6151.800"
       },
-      "cutting_raw_mm": "5951.800",
-      "cutting_rounded_mm": "5975",
-      "cutting_is_additive_mm": "5951.800",
+      "cutting_raw_mm": "6151.800",
+      "cutting_rounded_mm": "6175",
+      "cutting_is_additive_mm": "6151.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.194",
-      "kg_net": "28.194",
+      "kg": "29.141",
+      "kg_net": "29.141",
       "kg_lap": "0.000"
     },
     {
@@ -92078,19 +92078,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2175.900"
+        "A": "2275.900"
       },
-      "cutting_raw_mm": "2175.900",
-      "cutting_rounded_mm": "2200",
-      "cutting_is_additive_mm": "2175.900",
+      "cutting_raw_mm": "2275.900",
+      "cutting_rounded_mm": "2300",
+      "cutting_is_additive_mm": "2275.900",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.871",
-      "kg_net": "6.871",
+      "kg": "7.187",
+      "kg_net": "7.187",
       "kg_lap": "0.000"
     },
     {
@@ -92103,19 +92103,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6431.800"
+        "A": "6631.800"
       },
-      "cutting_raw_mm": "6431.800",
-      "cutting_rounded_mm": "6450",
-      "cutting_is_additive_mm": "6431.800",
+      "cutting_raw_mm": "6631.800",
+      "cutting_rounded_mm": "6650",
+      "cutting_is_additive_mm": "6631.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.312",
-      "kg_net": "20.312",
+      "kg": "20.943",
+      "kg_net": "20.943",
       "kg_lap": "0.000"
     },
     {
@@ -92191,11 +92191,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 37,
+      "bars_per_unit": 38,
       "parent_count": "1",
-      "bars": "37",
-      "kg": "29.630",
-      "kg_net": "29.630",
+      "bars": "38",
+      "kg": "30.430",
+      "kg_net": "30.430",
       "kg_lap": "0.000"
     },
     {
@@ -92468,19 +92468,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5647.000"
+        "A": "5847.000"
       },
-      "cutting_raw_mm": "5647.000",
-      "cutting_rounded_mm": "5650",
-      "cutting_is_additive_mm": "5647.000",
+      "cutting_raw_mm": "5847.000",
+      "cutting_rounded_mm": "5850",
+      "cutting_is_additive_mm": "5847.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "26.750",
-      "kg_net": "26.750",
+      "kg": "27.697",
+      "kg_net": "27.697",
       "kg_lap": "0.000"
     },
     {
@@ -92493,19 +92493,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2023.500"
+        "A": "2123.500"
       },
-      "cutting_raw_mm": "2023.500",
-      "cutting_rounded_mm": "2025",
-      "cutting_is_additive_mm": "2023.500",
+      "cutting_raw_mm": "2123.500",
+      "cutting_rounded_mm": "2125",
+      "cutting_is_additive_mm": "2123.500",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "6.390",
-      "kg_net": "6.390",
+      "kg": "6.706",
+      "kg_net": "6.706",
       "kg_lap": "0.000"
     },
     {
@@ -92518,19 +92518,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6127.000"
+        "A": "6327.000"
       },
-      "cutting_raw_mm": "6127.000",
-      "cutting_rounded_mm": "6150",
-      "cutting_is_additive_mm": "6127.000",
+      "cutting_raw_mm": "6327.000",
+      "cutting_rounded_mm": "6350",
+      "cutting_is_additive_mm": "6327.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.349",
-      "kg_net": "19.349",
+      "kg": "19.981",
+      "kg_net": "19.981",
       "kg_lap": "0.000"
     },
     {
@@ -92581,11 +92581,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "28.028",
-      "kg_net": "28.028",
+      "bars": "36",
+      "kg": "28.829",
+      "kg_net": "28.829",
       "kg_lap": "0.000"
     },
     {
@@ -92598,19 +92598,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6526.800"
+        "A": "6626.800"
       },
-      "cutting_raw_mm": "6526.800",
-      "cutting_rounded_mm": "6550",
-      "cutting_is_additive_mm": "6526.800",
+      "cutting_raw_mm": "6626.800",
+      "cutting_rounded_mm": "6650",
+      "cutting_is_additive_mm": "6626.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "48.285",
-      "kg_net": "48.285",
+      "kg": "49.025",
+      "kg_net": "49.025",
       "kg_lap": "0.000"
     },
     {
@@ -92623,19 +92623,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2263.400"
+        "A": "2313.400"
       },
-      "cutting_raw_mm": "2263.400",
-      "cutting_rounded_mm": "2275",
-      "cutting_is_additive_mm": "2263.400",
+      "cutting_raw_mm": "2313.400",
+      "cutting_rounded_mm": "2325",
+      "cutting_is_additive_mm": "2313.400",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "11.163",
-      "kg_net": "11.163",
+      "kg": "11.410",
+      "kg_net": "11.410",
       "kg_lap": "0.000"
     },
     {
@@ -92648,19 +92648,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6606.800"
+        "A": "6706.800"
       },
-      "cutting_raw_mm": "6606.800",
-      "cutting_rounded_mm": "6625",
-      "cutting_is_additive_mm": "6606.800",
+      "cutting_raw_mm": "6706.800",
+      "cutting_rounded_mm": "6725",
+      "cutting_is_additive_mm": "6706.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "31.296",
-      "kg_net": "31.296",
+      "kg": "31.770",
+      "kg_net": "31.770",
       "kg_lap": "0.000"
     },
     {
@@ -92736,11 +92736,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 40,
+      "bars_per_unit": 41,
       "parent_count": "1",
-      "bars": "40",
-      "kg": "41.888",
-      "kg_net": "41.888",
+      "bars": "41",
+      "kg": "42.935",
+      "kg_net": "42.935",
       "kg_lap": "0.000"
     },
     {
@@ -93013,19 +93013,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "6222.000"
+        "A": "6322.000"
       },
-      "cutting_raw_mm": "6222.000",
-      "cutting_rounded_mm": "6225",
-      "cutting_is_additive_mm": "6222.000",
+      "cutting_raw_mm": "6322.000",
+      "cutting_rounded_mm": "6325",
+      "cutting_is_additive_mm": "6322.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "46.030",
-      "kg_net": "46.030",
+      "kg": "46.770",
+      "kg_net": "46.770",
       "kg_lap": "0.000"
     },
     {
@@ -93038,19 +93038,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "2111.000"
+        "A": "2161.000"
       },
-      "cutting_raw_mm": "2111.000",
-      "cutting_rounded_mm": "2125",
-      "cutting_is_additive_mm": "2111.000",
+      "cutting_raw_mm": "2161.000",
+      "cutting_rounded_mm": "2175",
+      "cutting_is_additive_mm": "2161.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "10.411",
-      "kg_net": "10.411",
+      "kg": "10.658",
+      "kg_net": "10.658",
       "kg_lap": "0.000"
     },
     {
@@ -93063,19 +93063,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6402.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6402.000",
+      "cutting_rounded_mm": "6425",
+      "cutting_is_additive_mm": "6402.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.853",
-      "kg_net": "29.853",
+      "kg": "30.326",
+      "kg_net": "30.326",
       "kg_lap": "0.000"
     },
     {
@@ -93126,11 +93126,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 38,
+      "bars_per_unit": 39,
       "parent_count": "1",
-      "bars": "38",
-      "kg": "39.794",
-      "kg_net": "39.794",
+      "bars": "39",
+      "kg": "40.841",
+      "kg_net": "40.841",
       "kg_lap": "0.000"
     },
     {
@@ -93353,19 +93353,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2899.000"
+        "A": "2699.000"
       },
-      "cutting_raw_mm": "2899.000",
-      "cutting_rounded_mm": "2900",
-      "cutting_is_additive_mm": "2899.000",
+      "cutting_raw_mm": "2699.000",
+      "cutting_rounded_mm": "2700",
+      "cutting_is_additive_mm": "2699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "9.155",
-      "kg_net": "9.155",
+      "kg": "8.523",
+      "kg_net": "8.523",
       "kg_lap": "0.000"
     },
     {
@@ -93378,19 +93378,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "3899.000"
+        "A": "3699.000"
       },
-      "cutting_raw_mm": "3899.000",
-      "cutting_rounded_mm": "3900",
-      "cutting_is_additive_mm": "3899.000",
+      "cutting_raw_mm": "3699.000",
+      "cutting_rounded_mm": "3700",
+      "cutting_is_additive_mm": "3699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.845",
-      "kg_net": "28.845",
+      "kg": "27.365",
+      "kg_net": "27.365",
       "kg_lap": "0.000"
     },
     {
@@ -93416,11 +93416,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 12,
+      "bars_per_unit": 10,
       "parent_count": "1",
-      "bars": "12",
-      "kg": "8.501",
-      "kg_net": "8.501",
+      "bars": "10",
+      "kg": "7.084",
+      "kg_net": "7.084",
       "kg_lap": "0.000"
     },
     {
@@ -93433,19 +93433,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2899.000"
+        "A": "2699.000"
       },
-      "cutting_raw_mm": "2899.000",
-      "cutting_rounded_mm": "2900",
-      "cutting_is_additive_mm": "2899.000",
+      "cutting_raw_mm": "2699.000",
+      "cutting_rounded_mm": "2700",
+      "cutting_is_additive_mm": "2699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "9.155",
-      "kg_net": "9.155",
+      "kg": "8.523",
+      "kg_net": "8.523",
       "kg_lap": "0.000"
     },
     {
@@ -93458,19 +93458,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "3899.000"
+        "A": "3699.000"
       },
-      "cutting_raw_mm": "3899.000",
-      "cutting_rounded_mm": "3900",
-      "cutting_is_additive_mm": "3899.000",
+      "cutting_raw_mm": "3699.000",
+      "cutting_rounded_mm": "3700",
+      "cutting_is_additive_mm": "3699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.845",
-      "kg_net": "28.845",
+      "kg": "27.365",
+      "kg_net": "27.365",
       "kg_lap": "0.000"
     },
     {
@@ -93496,11 +93496,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 12,
+      "bars_per_unit": 10,
       "parent_count": "1",
-      "bars": "12",
-      "kg": "8.501",
-      "kg_net": "8.501",
+      "bars": "10",
+      "kg": "7.084",
+      "kg_net": "7.084",
       "kg_lap": "0.000"
     },
     {
@@ -93513,19 +93513,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2899.000"
+        "A": "2699.000"
       },
-      "cutting_raw_mm": "2899.000",
-      "cutting_rounded_mm": "2900",
-      "cutting_is_additive_mm": "2899.000",
+      "cutting_raw_mm": "2699.000",
+      "cutting_rounded_mm": "2700",
+      "cutting_is_additive_mm": "2699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "9.155",
-      "kg_net": "9.155",
+      "kg": "8.523",
+      "kg_net": "8.523",
       "kg_lap": "0.000"
     },
     {
@@ -93538,19 +93538,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "3899.000"
+        "A": "3699.000"
       },
-      "cutting_raw_mm": "3899.000",
-      "cutting_rounded_mm": "3900",
-      "cutting_is_additive_mm": "3899.000",
+      "cutting_raw_mm": "3699.000",
+      "cutting_rounded_mm": "3700",
+      "cutting_is_additive_mm": "3699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.845",
-      "kg_net": "28.845",
+      "kg": "27.365",
+      "kg_net": "27.365",
       "kg_lap": "0.000"
     },
     {
@@ -93576,11 +93576,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 12,
+      "bars_per_unit": 10,
       "parent_count": "1",
-      "bars": "12",
-      "kg": "8.501",
-      "kg_net": "8.501",
+      "bars": "10",
+      "kg": "7.084",
+      "kg_net": "7.084",
       "kg_lap": "0.000"
     },
     {
@@ -93593,19 +93593,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "2899.000"
+        "A": "2699.000"
       },
-      "cutting_raw_mm": "2899.000",
-      "cutting_rounded_mm": "2900",
-      "cutting_is_additive_mm": "2899.000",
+      "cutting_raw_mm": "2699.000",
+      "cutting_rounded_mm": "2700",
+      "cutting_is_additive_mm": "2699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "9.155",
-      "kg_net": "9.155",
+      "kg": "8.523",
+      "kg_net": "8.523",
       "kg_lap": "0.000"
     },
     {
@@ -93618,19 +93618,19 @@
       "dia_mm": 20,
       "shape": "00",
       "dims_mm": {
-        "A": "3899.000"
+        "A": "3699.000"
       },
-      "cutting_raw_mm": "3899.000",
-      "cutting_rounded_mm": "3900",
-      "cutting_is_additive_mm": "3899.000",
+      "cutting_raw_mm": "3699.000",
+      "cutting_rounded_mm": "3700",
+      "cutting_is_additive_mm": "3699.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.845",
-      "kg_net": "28.845",
+      "kg": "27.365",
+      "kg_net": "27.365",
       "kg_lap": "0.000"
     },
     {
@@ -93656,11 +93656,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 12,
+      "bars_per_unit": 10,
       "parent_count": "1",
-      "bars": "12",
-      "kg": "8.501",
-      "kg_net": "8.501",
+      "bars": "10",
+      "kg": "7.084",
+      "kg_net": "7.084",
       "kg_lap": "0.000"
     },
     {
@@ -93913,19 +93913,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6620.544"
+        "A": "6520.544"
       },
-      "cutting_raw_mm": "6620.544",
-      "cutting_rounded_mm": "6625",
-      "cutting_is_additive_mm": "6620.544",
+      "cutting_raw_mm": "6520.544",
+      "cutting_rounded_mm": "6525",
+      "cutting_is_additive_mm": "6520.544",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "31.362",
-      "kg_net": "31.362",
+      "kg": "30.888",
+      "kg_net": "30.888",
       "kg_lap": "0.000"
     },
     {
@@ -93938,19 +93938,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "7100.544"
+        "A": "7000.544"
       },
-      "cutting_raw_mm": "7100.544",
-      "cutting_rounded_mm": "7125",
-      "cutting_is_additive_mm": "7100.544",
+      "cutting_raw_mm": "7000.544",
+      "cutting_rounded_mm": "7025",
+      "cutting_is_additive_mm": "7000.544",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "33.635",
-      "kg_net": "33.635",
+      "kg": "33.162",
+      "kg_net": "33.162",
       "kg_lap": "0.000"
     },
     {
@@ -96873,19 +96873,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5822.000"
+        "A": "5922.000"
       },
-      "cutting_raw_mm": "5822.000",
-      "cutting_rounded_mm": "5825",
-      "cutting_is_additive_mm": "5822.000",
+      "cutting_raw_mm": "5922.000",
+      "cutting_rounded_mm": "5925",
+      "cutting_is_additive_mm": "5922.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.579",
-      "kg_net": "27.579",
+      "kg": "28.053",
+      "kg_net": "28.053",
       "kg_lap": "0.000"
     },
     {
@@ -96898,19 +96898,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6402.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6402.000",
+      "cutting_rounded_mm": "6425",
+      "cutting_is_additive_mm": "6402.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.902",
-      "kg_net": "19.902",
+      "kg": "20.218",
+      "kg_net": "20.218",
       "kg_lap": "0.000"
     },
     {
@@ -96986,11 +96986,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "25.872",
-      "kg_net": "25.872",
+      "bars": "36",
+      "kg": "26.611",
+      "kg_net": "26.611",
       "kg_lap": "0.000"
     },
     {
@@ -97318,19 +97318,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5822.000"
+        "A": "5922.000"
       },
-      "cutting_raw_mm": "5822.000",
-      "cutting_rounded_mm": "5825",
-      "cutting_is_additive_mm": "5822.000",
+      "cutting_raw_mm": "5922.000",
+      "cutting_rounded_mm": "5925",
+      "cutting_is_additive_mm": "5922.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.579",
-      "kg_net": "27.579",
+      "kg": "28.053",
+      "kg_net": "28.053",
       "kg_lap": "0.000"
     },
     {
@@ -97343,19 +97343,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6402.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6402.000",
+      "cutting_rounded_mm": "6425",
+      "cutting_is_additive_mm": "6402.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.902",
-      "kg_net": "19.902",
+      "kg": "20.218",
+      "kg_net": "20.218",
       "kg_lap": "0.000"
     },
     {
@@ -97406,11 +97406,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "25.872",
-      "kg_net": "25.872",
+      "bars": "36",
+      "kg": "26.611",
+      "kg_net": "26.611",
       "kg_lap": "0.000"
     },
     {
@@ -97423,19 +97423,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5747.000"
+        "A": "5897.000"
       },
-      "cutting_raw_mm": "5747.000",
-      "cutting_rounded_mm": "5750",
-      "cutting_is_additive_mm": "5747.000",
+      "cutting_raw_mm": "5897.000",
+      "cutting_rounded_mm": "5900",
+      "cutting_is_additive_mm": "5897.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.224",
-      "kg_net": "27.224",
+      "kg": "27.934",
+      "kg_net": "27.934",
       "kg_lap": "0.000"
     },
     {
@@ -97448,19 +97448,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6227.000"
+        "A": "6377.000"
       },
-      "cutting_raw_mm": "6227.000",
-      "cutting_rounded_mm": "6250",
-      "cutting_is_additive_mm": "6227.000",
+      "cutting_raw_mm": "6377.000",
+      "cutting_rounded_mm": "6400",
+      "cutting_is_additive_mm": "6377.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.665",
-      "kg_net": "19.665",
+      "kg": "20.139",
+      "kg_net": "20.139",
       "kg_lap": "0.000"
     },
     {
@@ -97536,11 +97536,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "25.872",
-      "kg_net": "25.872",
+      "bars": "36",
+      "kg": "26.611",
+      "kg_net": "26.611",
       "kg_lap": "0.000"
     },
     {
@@ -97868,19 +97868,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5747.000"
+        "A": "5897.000"
       },
-      "cutting_raw_mm": "5747.000",
-      "cutting_rounded_mm": "5750",
-      "cutting_is_additive_mm": "5747.000",
+      "cutting_raw_mm": "5897.000",
+      "cutting_rounded_mm": "5900",
+      "cutting_is_additive_mm": "5897.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.224",
-      "kg_net": "27.224",
+      "kg": "27.934",
+      "kg_net": "27.934",
       "kg_lap": "0.000"
     },
     {
@@ -97893,19 +97893,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6227.000"
+        "A": "6377.000"
       },
-      "cutting_raw_mm": "6227.000",
-      "cutting_rounded_mm": "6250",
-      "cutting_is_additive_mm": "6227.000",
+      "cutting_raw_mm": "6377.000",
+      "cutting_rounded_mm": "6400",
+      "cutting_is_additive_mm": "6377.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.665",
-      "kg_net": "19.665",
+      "kg": "20.139",
+      "kg_net": "20.139",
       "kg_lap": "0.000"
     },
     {
@@ -97956,11 +97956,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "25.872",
-      "kg_net": "25.872",
+      "bars": "36",
+      "kg": "26.611",
+      "kg_net": "26.611",
       "kg_lap": "0.000"
     },
     {
@@ -97973,19 +97973,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5747.000"
+        "A": "5897.000"
       },
-      "cutting_raw_mm": "5747.000",
-      "cutting_rounded_mm": "5750",
-      "cutting_is_additive_mm": "5747.000",
+      "cutting_raw_mm": "5897.000",
+      "cutting_rounded_mm": "5900",
+      "cutting_is_additive_mm": "5897.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.224",
-      "kg_net": "27.224",
+      "kg": "27.934",
+      "kg_net": "27.934",
       "kg_lap": "0.000"
     },
     {
@@ -97998,19 +97998,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6227.000"
+        "A": "6377.000"
       },
-      "cutting_raw_mm": "6227.000",
-      "cutting_rounded_mm": "6250",
-      "cutting_is_additive_mm": "6227.000",
+      "cutting_raw_mm": "6377.000",
+      "cutting_rounded_mm": "6400",
+      "cutting_is_additive_mm": "6377.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.665",
-      "kg_net": "19.665",
+      "kg": "20.139",
+      "kg_net": "20.139",
       "kg_lap": "0.000"
     },
     {
@@ -98086,11 +98086,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "25.872",
-      "kg_net": "25.872",
+      "bars": "36",
+      "kg": "26.611",
+      "kg_net": "26.611",
       "kg_lap": "0.000"
     },
     {
@@ -98418,19 +98418,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5747.000"
+        "A": "5897.000"
       },
-      "cutting_raw_mm": "5747.000",
-      "cutting_rounded_mm": "5750",
-      "cutting_is_additive_mm": "5747.000",
+      "cutting_raw_mm": "5897.000",
+      "cutting_rounded_mm": "5900",
+      "cutting_is_additive_mm": "5897.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.224",
-      "kg_net": "27.224",
+      "kg": "27.934",
+      "kg_net": "27.934",
       "kg_lap": "0.000"
     },
     {
@@ -98443,19 +98443,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6227.000"
+        "A": "6377.000"
       },
-      "cutting_raw_mm": "6227.000",
-      "cutting_rounded_mm": "6250",
-      "cutting_is_additive_mm": "6227.000",
+      "cutting_raw_mm": "6377.000",
+      "cutting_rounded_mm": "6400",
+      "cutting_is_additive_mm": "6377.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.665",
-      "kg_net": "19.665",
+      "kg": "20.139",
+      "kg_net": "20.139",
       "kg_lap": "0.000"
     },
     {
@@ -98506,11 +98506,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "25.872",
-      "kg_net": "25.872",
+      "bars": "36",
+      "kg": "26.611",
+      "kg_net": "26.611",
       "kg_lap": "0.000"
     },
     {
@@ -98523,19 +98523,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5747.000"
+        "A": "5897.000"
       },
-      "cutting_raw_mm": "5747.000",
-      "cutting_rounded_mm": "5750",
-      "cutting_is_additive_mm": "5747.000",
+      "cutting_raw_mm": "5897.000",
+      "cutting_rounded_mm": "5900",
+      "cutting_is_additive_mm": "5897.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.224",
-      "kg_net": "27.224",
+      "kg": "27.934",
+      "kg_net": "27.934",
       "kg_lap": "0.000"
     },
     {
@@ -98548,19 +98548,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6227.000"
+        "A": "6377.000"
       },
-      "cutting_raw_mm": "6227.000",
-      "cutting_rounded_mm": "6250",
-      "cutting_is_additive_mm": "6227.000",
+      "cutting_raw_mm": "6377.000",
+      "cutting_rounded_mm": "6400",
+      "cutting_is_additive_mm": "6377.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.665",
-      "kg_net": "19.665",
+      "kg": "20.139",
+      "kg_net": "20.139",
       "kg_lap": "0.000"
     },
     {
@@ -98636,11 +98636,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "25.872",
-      "kg_net": "25.872",
+      "bars": "36",
+      "kg": "26.611",
+      "kg_net": "26.611",
       "kg_lap": "0.000"
     },
     {
@@ -98863,19 +98863,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5747.000"
+        "A": "5897.000"
       },
-      "cutting_raw_mm": "5747.000",
-      "cutting_rounded_mm": "5750",
-      "cutting_is_additive_mm": "5747.000",
+      "cutting_raw_mm": "5897.000",
+      "cutting_rounded_mm": "5900",
+      "cutting_is_additive_mm": "5897.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.224",
-      "kg_net": "27.224",
+      "kg": "27.934",
+      "kg_net": "27.934",
       "kg_lap": "0.000"
     },
     {
@@ -98888,19 +98888,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6227.000"
+        "A": "6377.000"
       },
-      "cutting_raw_mm": "6227.000",
-      "cutting_rounded_mm": "6250",
-      "cutting_is_additive_mm": "6227.000",
+      "cutting_raw_mm": "6377.000",
+      "cutting_rounded_mm": "6400",
+      "cutting_is_additive_mm": "6377.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.665",
-      "kg_net": "19.665",
+      "kg": "20.139",
+      "kg_net": "20.139",
       "kg_lap": "0.000"
     },
     {
@@ -98951,11 +98951,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "25.872",
-      "kg_net": "25.872",
+      "bars": "36",
+      "kg": "26.611",
+      "kg_net": "26.611",
       "kg_lap": "0.000"
     },
     {
@@ -99413,19 +99413,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5822.000"
+        "A": "5922.000"
       },
-      "cutting_raw_mm": "5822.000",
-      "cutting_rounded_mm": "5825",
-      "cutting_is_additive_mm": "5822.000",
+      "cutting_raw_mm": "5922.000",
+      "cutting_rounded_mm": "5925",
+      "cutting_is_additive_mm": "5922.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.579",
-      "kg_net": "27.579",
+      "kg": "28.053",
+      "kg_net": "28.053",
       "kg_lap": "0.000"
     },
     {
@@ -99438,19 +99438,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6402.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6402.000",
+      "cutting_rounded_mm": "6425",
+      "cutting_is_additive_mm": "6402.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.902",
-      "kg_net": "19.902",
+      "kg": "20.218",
+      "kg_net": "20.218",
       "kg_lap": "0.000"
     },
     {
@@ -99501,11 +99501,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "25.872",
-      "kg_net": "25.872",
+      "bars": "36",
+      "kg": "26.611",
+      "kg_net": "26.611",
       "kg_lap": "0.000"
     },
     {
@@ -99518,19 +99518,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6126.800"
+        "A": "6226.800"
       },
-      "cutting_raw_mm": "6126.800",
-      "cutting_rounded_mm": "6150",
-      "cutting_is_additive_mm": "6126.800",
+      "cutting_raw_mm": "6226.800",
+      "cutting_rounded_mm": "6250",
+      "cutting_is_additive_mm": "6226.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.023",
-      "kg_net": "29.023",
+      "kg": "29.496",
+      "kg_net": "29.496",
       "kg_lap": "0.000"
     },
     {
@@ -99543,19 +99543,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6606.800"
+        "A": "6706.800"
       },
-      "cutting_raw_mm": "6606.800",
-      "cutting_rounded_mm": "6625",
-      "cutting_is_additive_mm": "6606.800",
+      "cutting_raw_mm": "6706.800",
+      "cutting_rounded_mm": "6725",
+      "cutting_is_additive_mm": "6706.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.864",
-      "kg_net": "20.864",
+      "kg": "21.180",
+      "kg_net": "21.180",
       "kg_lap": "0.000"
     },
     {
@@ -99631,11 +99631,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 37,
+      "bars_per_unit": 38,
       "parent_count": "1",
-      "bars": "37",
-      "kg": "27.350",
-      "kg_net": "27.350",
+      "bars": "38",
+      "kg": "28.090",
+      "kg_net": "28.090",
       "kg_lap": "0.000"
     },
     {
@@ -99963,19 +99963,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5951.800"
+        "A": "6151.800"
       },
-      "cutting_raw_mm": "5951.800",
-      "cutting_rounded_mm": "5975",
-      "cutting_is_additive_mm": "5951.800",
+      "cutting_raw_mm": "6151.800",
+      "cutting_rounded_mm": "6175",
+      "cutting_is_additive_mm": "6151.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.194",
-      "kg_net": "28.194",
+      "kg": "29.141",
+      "kg_net": "29.141",
       "kg_lap": "0.000"
     },
     {
@@ -99988,19 +99988,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6431.800"
+        "A": "6631.800"
       },
-      "cutting_raw_mm": "6431.800",
-      "cutting_rounded_mm": "6450",
-      "cutting_is_additive_mm": "6431.800",
+      "cutting_raw_mm": "6631.800",
+      "cutting_rounded_mm": "6650",
+      "cutting_is_additive_mm": "6631.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.312",
-      "kg_net": "20.312",
+      "kg": "20.943",
+      "kg_net": "20.943",
       "kg_lap": "0.000"
     },
     {
@@ -100076,11 +100076,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 36,
+      "bars_per_unit": 38,
       "parent_count": "1",
-      "bars": "36",
-      "kg": "26.611",
-      "kg_net": "26.611",
+      "bars": "38",
+      "kg": "28.090",
+      "kg_net": "28.090",
       "kg_lap": "0.000"
     },
     {
@@ -100303,19 +100303,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5647.000"
+        "A": "5847.000"
       },
-      "cutting_raw_mm": "5647.000",
-      "cutting_rounded_mm": "5650",
-      "cutting_is_additive_mm": "5647.000",
+      "cutting_raw_mm": "5847.000",
+      "cutting_rounded_mm": "5850",
+      "cutting_is_additive_mm": "5847.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "26.750",
-      "kg_net": "26.750",
+      "kg": "27.697",
+      "kg_net": "27.697",
       "kg_lap": "0.000"
     },
     {
@@ -100328,19 +100328,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6127.000"
+        "A": "6327.000"
       },
-      "cutting_raw_mm": "6127.000",
-      "cutting_rounded_mm": "6150",
-      "cutting_is_additive_mm": "6127.000",
+      "cutting_raw_mm": "6327.000",
+      "cutting_rounded_mm": "6350",
+      "cutting_is_additive_mm": "6327.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.349",
-      "kg_net": "19.349",
+      "kg": "19.981",
+      "kg_net": "19.981",
       "kg_lap": "0.000"
     },
     {
@@ -100391,11 +100391,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 34,
+      "bars_per_unit": 35,
       "parent_count": "1",
-      "bars": "34",
-      "kg": "25.133",
-      "kg_net": "25.133",
+      "bars": "35",
+      "kg": "25.872",
+      "kg_net": "25.872",
       "kg_lap": "0.000"
     },
     {
@@ -100408,19 +100408,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5951.800"
+        "A": "6151.800"
       },
-      "cutting_raw_mm": "5951.800",
-      "cutting_rounded_mm": "5975",
-      "cutting_is_additive_mm": "5951.800",
+      "cutting_raw_mm": "6151.800",
+      "cutting_rounded_mm": "6175",
+      "cutting_is_additive_mm": "6151.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.194",
-      "kg_net": "28.194",
+      "kg": "29.141",
+      "kg_net": "29.141",
       "kg_lap": "0.000"
     },
     {
@@ -100433,19 +100433,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6431.800"
+        "A": "6631.800"
       },
-      "cutting_raw_mm": "6431.800",
-      "cutting_rounded_mm": "6450",
-      "cutting_is_additive_mm": "6431.800",
+      "cutting_raw_mm": "6631.800",
+      "cutting_rounded_mm": "6650",
+      "cutting_is_additive_mm": "6631.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.312",
-      "kg_net": "20.312",
+      "kg": "20.943",
+      "kg_net": "20.943",
       "kg_lap": "0.000"
     },
     {
@@ -100521,11 +100521,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 36,
+      "bars_per_unit": 38,
       "parent_count": "1",
-      "bars": "36",
-      "kg": "26.611",
-      "kg_net": "26.611",
+      "bars": "38",
+      "kg": "28.090",
+      "kg_net": "28.090",
       "kg_lap": "0.000"
     },
     {
@@ -100643,19 +100643,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5772.000"
+        "A": "5972.000"
       },
-      "cutting_raw_mm": "5772.000",
-      "cutting_rounded_mm": "5775",
-      "cutting_is_additive_mm": "5772.000",
+      "cutting_raw_mm": "5972.000",
+      "cutting_rounded_mm": "5975",
+      "cutting_is_additive_mm": "5972.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.342",
-      "kg_net": "27.342",
+      "kg": "28.289",
+      "kg_net": "28.289",
       "kg_lap": "0.000"
     },
     {
@@ -100668,19 +100668,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6252.000"
+        "A": "6452.000"
       },
-      "cutting_raw_mm": "6252.000",
-      "cutting_rounded_mm": "6275",
-      "cutting_is_additive_mm": "6252.000",
+      "cutting_raw_mm": "6452.000",
+      "cutting_rounded_mm": "6475",
+      "cutting_is_additive_mm": "6452.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.744",
-      "kg_net": "19.744",
+      "kg": "20.375",
+      "kg_net": "20.375",
       "kg_lap": "0.000"
     },
     {
@@ -100731,11 +100731,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "25.872",
-      "kg_net": "25.872",
+      "bars": "36",
+      "kg": "26.611",
+      "kg_net": "26.611",
       "kg_lap": "0.000"
     },
     {
@@ -100748,19 +100748,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5951.800"
+        "A": "6151.800"
       },
-      "cutting_raw_mm": "5951.800",
-      "cutting_rounded_mm": "5975",
-      "cutting_is_additive_mm": "5951.800",
+      "cutting_raw_mm": "6151.800",
+      "cutting_rounded_mm": "6175",
+      "cutting_is_additive_mm": "6151.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.194",
-      "kg_net": "28.194",
+      "kg": "29.141",
+      "kg_net": "29.141",
       "kg_lap": "0.000"
     },
     {
@@ -100773,19 +100773,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6431.800"
+        "A": "6631.800"
       },
-      "cutting_raw_mm": "6431.800",
-      "cutting_rounded_mm": "6450",
-      "cutting_is_additive_mm": "6431.800",
+      "cutting_raw_mm": "6631.800",
+      "cutting_rounded_mm": "6650",
+      "cutting_is_additive_mm": "6631.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.312",
-      "kg_net": "20.312",
+      "kg": "20.943",
+      "kg_net": "20.943",
       "kg_lap": "0.000"
     },
     {
@@ -100861,11 +100861,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 36,
+      "bars_per_unit": 38,
       "parent_count": "1",
-      "bars": "36",
-      "kg": "26.611",
-      "kg_net": "26.611",
+      "bars": "38",
+      "kg": "28.090",
+      "kg_net": "28.090",
       "kg_lap": "0.000"
     },
     {
@@ -100983,19 +100983,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5772.000"
+        "A": "5972.000"
       },
-      "cutting_raw_mm": "5772.000",
-      "cutting_rounded_mm": "5775",
-      "cutting_is_additive_mm": "5772.000",
+      "cutting_raw_mm": "5972.000",
+      "cutting_rounded_mm": "5975",
+      "cutting_is_additive_mm": "5972.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.342",
-      "kg_net": "27.342",
+      "kg": "28.289",
+      "kg_net": "28.289",
       "kg_lap": "0.000"
     },
     {
@@ -101008,19 +101008,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6252.000"
+        "A": "6452.000"
       },
-      "cutting_raw_mm": "6252.000",
-      "cutting_rounded_mm": "6275",
-      "cutting_is_additive_mm": "6252.000",
+      "cutting_raw_mm": "6452.000",
+      "cutting_rounded_mm": "6475",
+      "cutting_is_additive_mm": "6452.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.744",
-      "kg_net": "19.744",
+      "kg": "20.375",
+      "kg_net": "20.375",
       "kg_lap": "0.000"
     },
     {
@@ -101071,11 +101071,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "25.872",
-      "kg_net": "25.872",
+      "bars": "36",
+      "kg": "26.611",
+      "kg_net": "26.611",
       "kg_lap": "0.000"
     },
     {
@@ -101088,19 +101088,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5951.800"
+        "A": "6151.800"
       },
-      "cutting_raw_mm": "5951.800",
-      "cutting_rounded_mm": "5975",
-      "cutting_is_additive_mm": "5951.800",
+      "cutting_raw_mm": "6151.800",
+      "cutting_rounded_mm": "6175",
+      "cutting_is_additive_mm": "6151.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "28.194",
-      "kg_net": "28.194",
+      "kg": "29.141",
+      "kg_net": "29.141",
       "kg_lap": "0.000"
     },
     {
@@ -101113,19 +101113,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6431.800"
+        "A": "6631.800"
       },
-      "cutting_raw_mm": "6431.800",
-      "cutting_rounded_mm": "6450",
-      "cutting_is_additive_mm": "6431.800",
+      "cutting_raw_mm": "6631.800",
+      "cutting_rounded_mm": "6650",
+      "cutting_is_additive_mm": "6631.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.312",
-      "kg_net": "20.312",
+      "kg": "20.943",
+      "kg_net": "20.943",
       "kg_lap": "0.000"
     },
     {
@@ -101201,11 +101201,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 36,
+      "bars_per_unit": 38,
       "parent_count": "1",
-      "bars": "36",
-      "kg": "26.611",
-      "kg_net": "26.611",
+      "bars": "38",
+      "kg": "28.090",
+      "kg_net": "28.090",
       "kg_lap": "0.000"
     },
     {
@@ -101428,19 +101428,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5647.000"
+        "A": "5847.000"
       },
-      "cutting_raw_mm": "5647.000",
-      "cutting_rounded_mm": "5650",
-      "cutting_is_additive_mm": "5647.000",
+      "cutting_raw_mm": "5847.000",
+      "cutting_rounded_mm": "5850",
+      "cutting_is_additive_mm": "5847.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "26.750",
-      "kg_net": "26.750",
+      "kg": "27.697",
+      "kg_net": "27.697",
       "kg_lap": "0.000"
     },
     {
@@ -101453,19 +101453,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6127.000"
+        "A": "6327.000"
       },
-      "cutting_raw_mm": "6127.000",
-      "cutting_rounded_mm": "6150",
-      "cutting_is_additive_mm": "6127.000",
+      "cutting_raw_mm": "6327.000",
+      "cutting_rounded_mm": "6350",
+      "cutting_is_additive_mm": "6327.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.349",
-      "kg_net": "19.349",
+      "kg": "19.981",
+      "kg_net": "19.981",
       "kg_lap": "0.000"
     },
     {
@@ -101516,11 +101516,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 34,
+      "bars_per_unit": 35,
       "parent_count": "1",
-      "bars": "34",
-      "kg": "25.133",
-      "kg_net": "25.133",
+      "bars": "35",
+      "kg": "25.872",
+      "kg_net": "25.872",
       "kg_lap": "0.000"
     },
     {
@@ -101533,19 +101533,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6126.800"
+        "A": "6226.800"
       },
-      "cutting_raw_mm": "6126.800",
-      "cutting_rounded_mm": "6150",
-      "cutting_is_additive_mm": "6126.800",
+      "cutting_raw_mm": "6226.800",
+      "cutting_rounded_mm": "6250",
+      "cutting_is_additive_mm": "6226.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "29.023",
-      "kg_net": "29.023",
+      "kg": "29.496",
+      "kg_net": "29.496",
       "kg_lap": "0.000"
     },
     {
@@ -101558,19 +101558,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6606.800"
+        "A": "6706.800"
       },
-      "cutting_raw_mm": "6606.800",
-      "cutting_rounded_mm": "6625",
-      "cutting_is_additive_mm": "6606.800",
+      "cutting_raw_mm": "6706.800",
+      "cutting_rounded_mm": "6725",
+      "cutting_is_additive_mm": "6706.800",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "20.864",
-      "kg_net": "20.864",
+      "kg": "21.180",
+      "kg_net": "21.180",
       "kg_lap": "0.000"
     },
     {
@@ -101646,11 +101646,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 37,
+      "bars_per_unit": 38,
       "parent_count": "1",
-      "bars": "37",
-      "kg": "27.350",
-      "kg_net": "27.350",
+      "bars": "38",
+      "kg": "28.090",
+      "kg_net": "28.090",
       "kg_lap": "0.000"
     },
     {
@@ -101873,19 +101873,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "5822.000"
+        "A": "5922.000"
       },
-      "cutting_raw_mm": "5822.000",
-      "cutting_rounded_mm": "5825",
-      "cutting_is_additive_mm": "5822.000",
+      "cutting_raw_mm": "5922.000",
+      "cutting_rounded_mm": "5925",
+      "cutting_is_additive_mm": "5922.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 3,
       "parent_count": "1",
       "bars": "3",
-      "kg": "27.579",
-      "kg_net": "27.579",
+      "kg": "28.053",
+      "kg_net": "28.053",
       "kg_lap": "0.000"
     },
     {
@@ -101898,19 +101898,19 @@
       "dia_mm": 16,
       "shape": "00",
       "dims_mm": {
-        "A": "6302.000"
+        "A": "6402.000"
       },
-      "cutting_raw_mm": "6302.000",
-      "cutting_rounded_mm": "6325",
-      "cutting_is_additive_mm": "6302.000",
+      "cutting_raw_mm": "6402.000",
+      "cutting_rounded_mm": "6425",
+      "cutting_is_additive_mm": "6402.000",
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
       "bars_per_unit": 2,
       "parent_count": "1",
       "bars": "2",
-      "kg": "19.902",
-      "kg_net": "19.902",
+      "kg": "20.218",
+      "kg_net": "20.218",
       "kg_lap": "0.000"
     },
     {
@@ -101961,11 +101961,11 @@
       "pieces_per_bar": 1,
       "lap_mm": "0",
       "laps_per_bar": 0,
-      "bars_per_unit": 35,
+      "bars_per_unit": 36,
       "parent_count": "1",
-      "bars": "35",
-      "kg": "25.872",
-      "kg_net": "25.872",
+      "bars": "36",
+      "kg": "26.611",
+      "kg_net": "26.611",
       "kg_lap": "0.000"
     },
     {
@@ -107206,9 +107206,9 @@
   ],
   "per_diameter_kg": {
     "8": "1812.700",
-    "10": "68757.853",
+    "10": "68792.965",
     "12": "12836.069",
-    "16": "22997.281",
+    "16": "23070.704",
     "20": "51263.126",
     "25": "8016.147"
   },
@@ -107263,49 +107263,49 @@
     "1CB4": "42.972",
     "1EB1": "284.460",
     "1EB2": "85.938",
-    "B1": "843.885",
-    "B10": "475.543",
-    "B11": "548.203",
+    "B1": "847.852",
+    "B10": "481.263",
+    "B11": "553.923",
     "B12": "451.714",
     "B13": "346.385",
     "B14": "466.749",
-    "B15": "475.543",
-    "B16": "548.203",
+    "B15": "481.263",
+    "B16": "553.923",
     "B17": "464.244",
     "B18": "466.749",
-    "B19": "475.543",
+    "B19": "481.263",
     "B2": "687.805",
     "B20": "475.380",
     "B21": "687.805",
     "B22": "513.715",
     "B23": "710.350",
-    "B24": "734.900",
-    "B25": "880.365",
+    "B24": "738.867",
+    "B25": "884.333",
     "B26": "647.560",
     "B27": "441.930",
     "B28": "400.215",
-    "B29": "566.342",
+    "B29": "570.930",
     "B3": "513.715",
     "B30": "408.470",
     "B31": "293.238",
-    "B32": "468.729",
-    "B33": "566.342",
+    "B32": "473.321",
+    "B33": "570.930",
     "B34": "446.568",
-    "B35": "480.079",
-    "B36": "569.840",
+    "B35": "484.667",
+    "B36": "576.026",
     "B37": "450.060",
-    "B38": "480.079",
-    "B39": "566.342",
+    "B38": "484.667",
+    "B39": "570.930",
     "B4": "710.350",
     "B40": "408.470",
     "B41": "293.238",
-    "B42": "468.729",
-    "B43": "880.365",
+    "B42": "473.321",
+    "B43": "884.333",
     "B44": "647.560",
     "B45": "475.755",
-    "B46": "734.900",
-    "B5": "734.900",
-    "B6": "548.203",
+    "B46": "738.867",
+    "B5": "738.867",
+    "B6": "553.923",
     "B7": "445.609",
     "B8": "337.585",
     "B9": "464.855",
@@ -107316,12 +107316,12 @@
     "C5": "566.958",
     "C6": "638.783",
     "C7": "175.742",
-    "CB1": "221.917",
-    "CB2": "221.917",
-    "CB3": "221.917",
-    "CB4": "221.917",
+    "CB1": "214.860",
+    "CB2": "214.860",
+    "CB3": "214.860",
+    "CB4": "214.860",
     "CS1": "1553.448",
-    "EB1": "1424.193",
+    "EB1": "1422.300",
     "EB2": "437.816",
     "F1": "33.033",
     "FL1": "74.896",
@@ -107370,49 +107370,49 @@
     "R8": "191.375",
     "R9": "292.462",
     "RAMP": "98.890",
-    "RB1": "91.576",
-    "RB10": "81.679",
-    "RB11": "90.984",
+    "RB1": "93.105",
+    "RB10": "83.602",
+    "RB11": "92.907",
     "RB12": "78.179",
     "RB13": "59.347",
     "RB14": "80.104",
-    "RB15": "81.679",
-    "RB16": "90.984",
+    "RB15": "83.602",
+    "RB16": "92.907",
     "RB17": "79.783",
     "RB18": "80.104",
-    "RB19": "81.679",
+    "RB19": "83.602",
     "RB2": "77.982",
     "RB20": "51.677",
     "RB21": "77.982",
     "RB22": "57.819",
     "RB23": "79.907",
-    "RB24": "82.271",
-    "RB25": "95.781",
+    "RB24": "83.800",
+    "RB25": "97.310",
     "RB26": "73.454",
     "RB27": "51.046",
     "RB28": "45.260",
-    "RB29": "93.661",
+    "RB29": "96.718",
     "RB3": "57.819",
     "RB30": "71.531",
     "RB31": "52.010",
-    "RB32": "80.150",
-    "RB33": "93.661",
+    "RB32": "82.468",
+    "RB33": "96.718",
     "RB34": "76.292",
-    "RB35": "81.876",
-    "RB36": "93.661",
+    "RB35": "84.193",
+    "RB36": "96.718",
     "RB37": "76.292",
-    "RB38": "81.876",
-    "RB39": "93.661",
+    "RB38": "84.193",
+    "RB39": "96.718",
     "RB4": "79.907",
     "RB40": "71.531",
     "RB41": "52.010",
-    "RB42": "80.150",
-    "RB43": "95.781",
+    "RB42": "82.468",
+    "RB43": "97.310",
     "RB44": "73.454",
     "RB45": "53.934",
-    "RB46": "82.271",
-    "RB5": "82.271",
-    "RB6": "90.984",
+    "RB46": "83.800",
+    "RB5": "83.800",
+    "RB6": "92.907",
     "RB7": "76.848",
     "RB8": "57.621",
     "RB9": "78.970",
@@ -107452,9 +107452,9 @@
       "method": "best-fit-decreasing over capacity buckets, identical pieces grouped"
     },
     "10": {
-      "stock_bars_12m": 9413,
-      "pieces": 46746,
-      "offcut_m": "1336.109",
+      "stock_bars_12m": 9417,
+      "pieces": 46788,
+      "offcut_m": "1327.109",
       "method": "best-fit-decreasing over capacity buckets, identical pieces grouped"
     },
     "12": {
@@ -107466,13 +107466,13 @@
     "16": {
       "stock_bars_12m": 1201,
       "pieces": 3614,
-      "offcut_m": "269.941",
+      "offcut_m": "223.441",
       "method": "best-fit-decreasing over capacity buckets, identical pieces grouped"
     },
     "20": {
-      "stock_bars_12m": 1747,
+      "stock_bars_12m": 1748,
       "pieces": 3776,
-      "offcut_m": "1020.033",
+      "offcut_m": "1032.033",
       "method": "best-fit-decreasing over capacity buckets, identical pieces grouped"
     },
     "25": {
@@ -107482,5 +107482,5 @@
       "method": "best-fit-decreasing over capacity buckets, identical pieces grouped"
     }
   },
-  "grand_total_kg": "165683.176"
+  "grand_total_kg": "165791.712"
 }
