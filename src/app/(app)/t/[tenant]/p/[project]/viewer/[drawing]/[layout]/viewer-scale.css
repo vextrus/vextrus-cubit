@@ -33,7 +33,7 @@
   min-width: 0;
   height: 100%;
   overflow-y: auto;
-  background: var(--graphite-0);
+  background: var(--surface-app);
 }
 
 .cx-viewer-scale-head {
@@ -45,7 +45,7 @@
   gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
   border-block-end: var(--hairline);
-  background: var(--graphite-50);
+  background: var(--surface-panel);
 }
 
 /* The Inspector header's exact type, so switching tabs shifts nothing (§ 1). */
@@ -53,14 +53,14 @@
   margin: 0;
   font-size: var(--text-13);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-scale-tolerance {
   margin: 0;
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-viewer-scale-views {
@@ -98,7 +98,7 @@
 .cx-viewer-scale-key {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-900);
+  color: var(--ink);
   overflow-wrap: anywhere;
   user-select: all;
 }
@@ -108,7 +108,7 @@
   overflow: hidden;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -127,7 +127,7 @@
   margin: 0;
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-scale-pair,
@@ -142,7 +142,7 @@
 .cx-viewer-scale-label,
 .cx-viewer-scale-field-label {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* Twelve places render whole, in mono, wrapping, selectable (I-159). */
@@ -150,7 +150,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--graphite-900);
+  color: var(--ink);
   overflow-wrap: anywhere;
   user-select: all;
 }
@@ -158,7 +158,7 @@
 .cx-viewer-scale-flag {
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-scale-absence-message,
@@ -167,7 +167,7 @@
   margin: 0;
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-scale-absence-remedy,
@@ -179,7 +179,7 @@
   margin: 0;
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-viewer-scale-report {
@@ -227,7 +227,7 @@
   padding: 0;
   font-size: var(--text-13);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-scale-pick,
@@ -271,14 +271,14 @@
   background: var(--warn-surface);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-scale-denied {
   margin: 0;
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-scale-footer,

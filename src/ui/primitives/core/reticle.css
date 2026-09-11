@@ -27,14 +27,14 @@
   border-radius: var(--radius-4);
   pointer-events: none;
   background-image:
-    linear-gradient(var(--beam-500), var(--beam-500)),
-    linear-gradient(var(--beam-500), var(--beam-500)),
-    linear-gradient(var(--beam-500), var(--beam-500)),
-    linear-gradient(var(--beam-500), var(--beam-500)),
-    linear-gradient(var(--beam-500), var(--beam-500)),
-    linear-gradient(var(--beam-500), var(--beam-500)),
-    linear-gradient(var(--beam-500), var(--beam-500)),
-    linear-gradient(var(--beam-500), var(--beam-500));
+    linear-gradient(var(--line-accent), var(--line-accent)),
+    linear-gradient(var(--line-accent), var(--line-accent)),
+    linear-gradient(var(--line-accent), var(--line-accent)),
+    linear-gradient(var(--line-accent), var(--line-accent)),
+    linear-gradient(var(--line-accent), var(--line-accent)),
+    linear-gradient(var(--line-accent), var(--line-accent)),
+    linear-gradient(var(--line-accent), var(--line-accent)),
+    linear-gradient(var(--line-accent), var(--line-accent));
   background-repeat: no-repeat;
   background-size:
     8px 2px,
@@ -65,7 +65,7 @@
 input.cx-reticle:focus-visible,
 textarea.cx-reticle:focus-visible,
 select.cx-reticle:focus-visible {
-  outline: 2px solid var(--beam-500);
+  outline: 2px solid var(--line-accent);
   outline-offset: 2px;
 }
 
@@ -81,7 +81,7 @@ select.cx-reticle:focus-visible {
 }
 
 .cx-reticle-scroll:focus-visible {
-  outline: 2px solid var(--beam-500);
+  outline: 2px solid var(--line-accent);
   outline-offset: 2px;
 }
 
@@ -93,7 +93,7 @@ select.cx-reticle:focus-visible {
  * than in the overlay set's own stylesheet.
  */
 .cx-dialog:focus-visible {
-  outline: 2px solid var(--beam-500);
+  outline: 2px solid var(--line-accent);
   outline-offset: 2px;
 }
 

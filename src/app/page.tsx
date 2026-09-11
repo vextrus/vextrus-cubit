@@ -45,7 +45,7 @@ export default async function HomePage() {
       <h1 data-testid="root-home-heading" style={{ fontSize: "var(--text-32)", margin: 0 }}>
         {strings.app_title}
       </h1>
-      <p data-testid="root-home-tagline" style={{ fontSize: "var(--text-16)", color: "var(--graphite-700)", margin: 0 }}>
+      <p data-testid="root-home-tagline" style={{ fontSize: "var(--text-16)", color: "var(--ink-secondary)", margin: 0 }}>
         {strings.home_tagline}
       </p>
       <div style={{ display: "flex", gap: "var(--space-4)", marginTop: "var(--space-3)" }}>
@@ -58,7 +58,7 @@ export default async function HomePage() {
             style={{
               fontSize: "var(--text-14)",
               fontWeight: "var(--weight-body-medium)",
-              color: "var(--beam-600)",
+              color: "var(--ink-link)",
               textDecoration: "underline",
             }}
           >

@@ -24,7 +24,7 @@
   height: calc(100dvh - var(--space-12));
   min-height: 0;
   overflow: hidden;
-  background: var(--graphite-0);
+  background: var(--surface-app);
 }
 
 .cx-viewer-work {
@@ -43,7 +43,7 @@
   flex-direction: column;
   min-width: 0;
   height: 100%;
-  background: var(--graphite-50);
+  background: var(--surface-panel);
   border-inline-end: var(--hairline);
 }
 
@@ -55,7 +55,7 @@
   min-height: 0;
   overflow-y: auto;
   height: 100%;
-  background: var(--graphite-50);
+  background: var(--surface-panel);
 }
 
 .cx-viewer-layers-heading {
@@ -65,7 +65,7 @@
   font-size: var(--text-13);
   font-weight: var(--weight-heading);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
   border-bottom: var(--hairline);
 }
 
@@ -117,18 +117,18 @@
   text-overflow: ellipsis;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-layer-row[data-visible="false"] .cx-viewer-layer-name,
 .cx-viewer-layer-row[data-locked="true"] .cx-viewer-layer-name {
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-viewer-layer-count {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   font-variant-numeric: tabular-nums slashed-zero;
   text-align: end;
 }
@@ -139,7 +139,7 @@
   padding: 0 var(--space-1);
   font-family: var(--font-ui);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   cursor: pointer;
   opacity: 0;
   transition:
@@ -156,8 +156,8 @@
 }
 
 .cx-viewer-layer-control[aria-pressed="true"] {
-  background: var(--beam-100);
-  color: var(--graphite-900);
+  background: var(--accent-subtle);
+  color: var(--ink);
   font-weight: var(--weight-heading);
   border-radius: var(--radius-2);
 }
@@ -190,7 +190,7 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-1);
-  background: var(--graphite-0);
+  background: var(--surface-app);
   border: var(--hairline);
   border-radius: var(--radius-4);
   box-shadow: var(--shadow-1);
@@ -257,7 +257,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-16);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-empty-body {
@@ -266,7 +266,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-viewer-empty-action {
@@ -302,7 +302,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-facts {
@@ -323,7 +323,7 @@
 .cx-viewer-fact-label {
   font-family: var(--font-ui);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-viewer-fact-value {
@@ -333,13 +333,13 @@
   gap: var(--space-2);
   font-family: var(--font-ui);
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-fact-model {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* ------------------------------------------------------------------- the marquee, on the stage */
@@ -364,7 +364,7 @@
   flex-direction: column;
   min-width: 0;
   height: 100%;
-  background: var(--graphite-50);
+  background: var(--surface-panel);
   border-inline-start: var(--hairline);
 }
 
@@ -375,7 +375,7 @@
   font-size: var(--text-13);
   font-weight: var(--weight-heading);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
   border-bottom: var(--hairline);
 }
 
@@ -398,7 +398,7 @@
 .cx-viewer-inspector-term {
   font-family: var(--font-ui);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-viewer-inspector-value {
@@ -409,7 +409,7 @@
   text-overflow: ellipsis;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-900);
+  color: var(--ink);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
@@ -421,7 +421,7 @@
   flex-direction: column;
   gap: var(--space-2);
   padding-block: var(--space-1);
-  background: var(--graphite-50);
+  background: var(--surface-panel);
   z-index: var(--z-base);
 }
 
@@ -429,7 +429,7 @@
   margin: 0;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
@@ -466,7 +466,7 @@
   min-width: 0;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-viewer-inspector-layer {
@@ -488,7 +488,7 @@
   user-select: all;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-inspector-copy {
@@ -502,7 +502,7 @@
   overflow-wrap: anywhere;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-viewer-inspector-subheading {
@@ -511,7 +511,7 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-inspector-body-line {
@@ -519,7 +519,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-viewer-inspector-missing .cx-viewer-inspector-body-line {
@@ -551,7 +551,7 @@
   overflow-wrap: anywhere;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-900);
+  color: var(--ink);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
@@ -568,11 +568,11 @@
   border-bottom: var(--hairline);
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-trace-name {
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-viewer-trace-reading {
@@ -582,12 +582,12 @@
 
 .cx-viewer-trace-basis-word,
 .cx-viewer-cited-kind {
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-viewer-trace-variable .cx-viewer-inspector-key {
   grid-column: 1 / -1;
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-viewer-trace-origin {
@@ -603,7 +603,7 @@
   border-bottom: var(--hairline);
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-cited-figure {
@@ -625,11 +625,11 @@
   height: var(--space-8);
   padding-inline: var(--space-4);
   border-top: var(--hairline);
-  background: var(--graphite-0);
+  background: var(--surface-app);
   font-family: var(--font-mono);
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* The layout the sheet is showing, and the one cell of the readout that carries no label beside it.
@@ -642,8 +642,8 @@
   padding: 0 var(--space-2);
   border: var(--hairline);
   border-radius: var(--radius-4);
-  background: var(--graphite-50);
-  color: var(--graphite-900);
+  background: var(--surface-panel);
+  color: var(--ink);
 }
 
 .cx-viewer-readout-cell {
@@ -652,13 +652,13 @@
 }
 
 .cx-viewer-readout-label {
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-viewer-readout-value {
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-viewer-readout-partial {
-  color: var(--graphite-900);
+  color: var(--ink);
 }

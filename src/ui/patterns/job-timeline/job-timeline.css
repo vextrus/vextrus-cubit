@@ -23,7 +23,7 @@
   font-size: var(--text-16);
   font-weight: var(--weight-heading);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-job-timeline-idle,
@@ -31,7 +31,7 @@
   margin: 0;
   font-family: var(--font-ui);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-job-timeline-idle {
@@ -76,12 +76,12 @@
   width: 8px;
   height: 8px;
   border-radius: var(--radius-4);
-  background-color: var(--graphite-300);
+  background-color: var(--line-strong);
   transition: background-color var(--motion-state) var(--ease);
 }
 
 .cx-job-timeline-step[data-status="running"] .cx-job-timeline-marker {
-  background-color: var(--beam-500);
+  background-color: var(--accent);
 }
 
 .cx-job-timeline-step[data-status="succeeded"] .cx-job-timeline-marker {
@@ -105,7 +105,7 @@
   top: calc(var(--job-timeline-row) / 2 + 8px / 2);
   bottom: calc(8px / 2 - var(--job-timeline-row) / 2);
   width: 1px;
-  background-color: var(--graphite-200);
+  background-color: var(--surface-active);
   transition: background-color var(--motion-state) var(--ease);
 }
 
@@ -117,7 +117,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-job-timeline-step-status {
@@ -125,14 +125,14 @@
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   transition: color var(--motion-state) var(--ease);
 }
 
 /* The word is text, so it clears R-UI-012's 4.5:1 rather than the marker's 3:1 UI floor: the dot
    stays `--beam-500` and the word takes the beam the Decision § 6 already fixes for reading. */
 .cx-job-timeline-step[data-status="running"] .cx-job-timeline-step-status {
-  color: var(--beam-600);
+  color: var(--ink-link);
 }
 
 .cx-job-timeline-step[data-status="succeeded"] .cx-job-timeline-step-status {
@@ -149,7 +149,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
@@ -176,16 +176,16 @@
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-job-timeline-fault-term {
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-job-timeline-fault {
   font-family: var(--font-mono);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   user-select: all;
 }
 
@@ -195,10 +195,10 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--beam-600);
+  color: var(--ink-link);
   text-decoration: underline;
 }
 
 .cx-job-timeline-evidence:hover {
-  color: var(--beam-500);
+  color: var(--accent);
 }

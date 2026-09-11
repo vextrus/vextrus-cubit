@@ -39,7 +39,7 @@
   font-size: var(--text-24);
   font-weight: var(--weight-heading);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-project-facts {
@@ -58,18 +58,18 @@
 
 .cx-project-fact dt {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-project-fact dd {
   margin: 0;
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* A fact the project states nothing for says so in words — never a blank cell, never a 0 (I-133). */
 .cx-project-unstated {
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-project-zones {
@@ -95,11 +95,11 @@
   gap: var(--space-2);
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-project-figure-converted {
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* --- the seven areas (I-125/I-126) ---------------------------------------------------------- */
@@ -128,26 +128,26 @@
   padding-inline: var(--space-2);
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   text-decoration: none;
   transition: color var(--motion-state) var(--ease);
 }
 
 a.cx-project-tab:hover {
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* An area with no screen is a non-control: its condition is carried by the words beside it, and the
    colour is only ever a second reading of them (R-UI-060). */
 .cx-project-tab[data-available="false"] {
-  color: var(--graphite-500);
+  color: var(--ink-disabled);
   cursor: not-allowed;
 }
 
 .cx-project-tab-condition {
   padding-inline-start: var(--space-1);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* --- quick actions -------------------------------------------------------------------------- */
@@ -197,21 +197,21 @@ a.cx-project-tab:hover {
   padding: var(--space-4);
   border: var(--hairline);
   border-radius: var(--radius-8);
-  background-color: var(--graphite-50);
+  background-color: var(--surface-panel);
 }
 
 .cx-project-region-heading {
   margin: 0;
   font-size: var(--text-16);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-project-region-hint,
 .cx-project-region-note {
   margin: 0;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-project-region-note {
@@ -223,13 +223,13 @@ a.cx-project-tab:hover {
   align-self: start;
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--beam-600);
+  color: var(--ink-link);
   text-decoration: underline;
   transition: color var(--motion-state) var(--ease);
 }
 
 .cx-project-evidence:hover {
-  color: var(--beam-500);
+  color: var(--accent);
 }
 
 /* --- AI cost so far (R-AI-005, I-128) ------------------------------------------------------- */
@@ -259,7 +259,7 @@ a.cx-project-tab:hover {
   font-size: var(--text-24);
   font-weight: var(--weight-heading);
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* I-134: the contract's id rides this wrapper, which adds no box and no line of layout — the badge
@@ -271,7 +271,7 @@ a.cx-project-tab:hover {
 .cx-project-figure-caption {
   margin: 0;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* A sentence about the calls, so it takes the UI face with tabular figures. */
@@ -280,7 +280,7 @@ a.cx-project-tab:hover {
   font-family: var(--font-ui);
   font-size: var(--text-13);
   font-variant-numeric: tabular-nums;
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* --- the two lists: recent activity and the roster ------------------------------------------ */
@@ -310,13 +310,13 @@ a.cx-project-tab:hover {
   font-family: var(--font-mono);
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-project-act-actor {
   overflow: hidden;
   font-size: var(--text-13);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -326,7 +326,7 @@ a.cx-project-tab:hover {
   font-family: var(--font-mono);
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-project-member {
@@ -340,7 +340,7 @@ a.cx-project-tab:hover {
   overflow: hidden;
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -354,7 +354,7 @@ a.cx-project-tab:hover {
 .cx-project-role {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* --- the roster's refusal, in the roster's own place (I-129) -------------------------------- */
@@ -368,5 +368,5 @@ a.cx-project-tab:hover {
 .cx-project-denied-line {
   margin: 0;
   font-size: var(--text-13);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }

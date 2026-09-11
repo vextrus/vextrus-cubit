@@ -40,7 +40,7 @@
   font-size: var(--text-20);
   font-weight: var(--weight-heading);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-drawings-caption {
@@ -48,7 +48,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-drawings-section-heading {
@@ -57,7 +57,7 @@
   font-size: var(--text-16);
   font-weight: var(--weight-heading);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-drawings-hint {
@@ -65,7 +65,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* The house notice chrome: a state a person is in, not a refusal of anything (I-89). */
@@ -78,7 +78,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-drawings-notice {
@@ -86,7 +86,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* ------------------------------------------------------------------ the controls */
@@ -115,7 +115,7 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   padding: 0;
 }
 
@@ -136,7 +136,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -145,7 +145,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-drawings-answer {
@@ -163,7 +163,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* ------------------------------------------------------------------ the grid and its cards */
@@ -182,7 +182,7 @@
   padding: var(--space-3);
   border: var(--hairline);
   border-radius: var(--radius-8);
-  background-color: var(--graphite-50);
+  background-color: var(--surface-panel);
 }
 
 /* The door onto the sheet sits at the foot of the card and takes only the width of its own words:
@@ -203,10 +203,10 @@
   object-fit: contain;
   border: var(--hairline);
   border-radius: var(--radius-4);
-  background-color: var(--graphite-100);
+  background-color: var(--surface-sunken);
   font-family: var(--font-ui);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-drawings-card-title {
@@ -215,7 +215,7 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
 
@@ -224,7 +224,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
@@ -233,7 +233,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-drawings-badges {
@@ -256,14 +256,14 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-drawings-basis {
   font-family: var(--font-ui);
   font-size: var(--text-12);
   font-weight: var(--weight-body);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* I-93: evidence is shown whole, wrapping, select-all — never truncated behind a count. */
@@ -274,7 +274,7 @@
   margin: 0;
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   overflow-wrap: anywhere;
   user-select: all;
 }
@@ -289,7 +289,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-drawings-facts {
@@ -306,7 +306,7 @@
   padding-inline: var(--space-2);
   border: var(--hairline);
   border-radius: var(--radius-4);
-  background-color: var(--graphite-0);
+  background-color: var(--surface-app);
 }
 
 .cx-drawings-fact[data-notable="true"] {
@@ -317,14 +317,14 @@
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-drawings-fact-value {
   font-family: var(--font-mono);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
@@ -357,7 +357,7 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* The filter the empty index is empty under, in the same voice as its heading's answer. */
@@ -366,7 +366,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-drawings-empty-body {
@@ -374,5 +374,5 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }

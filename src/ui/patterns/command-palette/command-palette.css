@@ -20,7 +20,7 @@
   border-radius: var(--radius-4);
   background-color: var(--info-surface);
   padding: var(--space-3) var(--space-4);
-  color: var(--graphite-900);
+  color: var(--ink);
   font-size: var(--text-13);
 }
 
@@ -37,9 +37,9 @@
   position: sticky;
   top: 0;
   /* Rows scroll under the header rather than through it. */
-  background-color: var(--graphite-0);
+  background-color: var(--surface-app);
   padding: var(--space-2) var(--space-3);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
 }
@@ -58,11 +58,11 @@
 /* The active option's fill changes with no transition: at ten rows a second a fade paints the row
    a person has already left (Decision §4). */
 .cx-palette-item[aria-selected="true"] {
-  background-color: var(--beam-100);
+  background-color: var(--accent-subtle);
 }
 
 .cx-palette-item[aria-selected="true"] .cx-palette-item-label {
-  color: var(--graphite-900);
+  color: var(--ink);
   font-weight: var(--weight-heading);
 }
 
@@ -71,12 +71,12 @@
 }
 
 .cx-palette-item[data-available="false"] .cx-palette-item-label {
-  color: var(--graphite-500);
+  color: var(--ink-disabled);
 }
 
 .cx-palette-item-kind {
   min-inline-size: var(--space-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.12em;
@@ -84,7 +84,7 @@
 
 .cx-palette-item-label {
   overflow: hidden;
-  color: var(--graphite-900);
+  color: var(--ink);
   font-size: var(--text-13);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -93,7 +93,7 @@
 .cx-palette-item-meta,
 .cx-palette-item-reason {
   overflow: hidden;
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   font-size: var(--text-12);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -114,7 +114,7 @@
 
 .cx-palette-empty {
   padding: var(--space-3);
-  color: var(--graphite-900);
+  color: var(--ink);
   font-size: var(--text-13);
 }
 
@@ -130,13 +130,13 @@
   border-radius: var(--radius-4);
   background-color: var(--danger-surface);
   padding: var(--space-3) var(--space-4);
-  color: var(--graphite-900);
+  color: var(--ink);
   font-size: var(--text-13);
 }
 
 .cx-palette-fault-id {
   margin-block: var(--space-2);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.12em;
@@ -154,7 +154,7 @@
   margin-block-start: var(--space-3);
   border-top: var(--hairline);
   padding-block-start: var(--space-2);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   font-size: var(--text-12);
 }
 
@@ -183,14 +183,14 @@
 }
 
 .cx-shortcut-sheet-title {
-  color: var(--graphite-900);
+  color: var(--ink);
   font-size: var(--text-16);
   font-weight: var(--weight-heading);
 }
 
 .cx-shortcut-sheet-scope-name {
   margin-block-end: var(--space-2);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
 }
@@ -204,7 +204,7 @@
 }
 
 .cx-shortcut-sheet-name {
-  color: var(--graphite-900);
+  color: var(--ink);
   font-size: var(--text-13);
 }
 

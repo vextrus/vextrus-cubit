@@ -18,13 +18,13 @@
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.12em;
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-consequence-hint {
   margin: var(--space-2) 0 0;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-consequence-stale {
@@ -35,7 +35,7 @@
   border-radius: var(--radius-4);
   background: var(--info-surface);
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-consequence-bones {
@@ -64,7 +64,7 @@
   overflow: hidden;
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -85,7 +85,7 @@
 
 .cx-consequence-column-label {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* The role enum values verbatim, wrapping rather than clipping: a role a person cannot read is a
@@ -93,20 +93,20 @@
 .cx-consequence-role-list {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   overflow-wrap: anywhere;
 }
 
 /* What will be true dominates (Decision § 1). */
 .cx-consequence-role-list[data-column="after"] {
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* Prose standing for absence, in the UI face — never a fake role name in the mono face. */
 .cx-consequence-none {
   font-family: var(--font-ui);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* I-161: what an act's kind derives, shown only when the seam sent it. Two labelled slots, each
@@ -119,7 +119,7 @@
   margin: 0;
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-consequence-effects {
@@ -131,7 +131,7 @@
 
 .cx-consequence-effects-label {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-consequence-effects-value {
@@ -144,7 +144,7 @@
 .cx-consequence-effect-list {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-900);
+  color: var(--ink);
   overflow-wrap: anywhere;
   user-select: all;
 }
@@ -158,7 +158,7 @@
 
 .cx-consequence-digest-label {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* I-43: the digest renders whole, wrapping, select-all — it exists to be compared. */
@@ -166,7 +166,7 @@
   font-family: var(--font-mono);
   font-size: 10px;
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   overflow-wrap: anywhere;
   user-select: all;
 }

@@ -49,7 +49,7 @@
   overflow: hidden;
   font-size: var(--text-14);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -57,13 +57,13 @@
 .cx-home-card-code {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-home-meta {
   margin: 0;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* An archived project is still shown, never hidden — but it may not have the presence of a live one,
@@ -71,25 +71,25 @@
    soften, and nothing moves, so restoring it costs no reflow. The word is still what carries the
    meaning (the Badge and this, never colour alone — Q-11). */
 .cx-home-card[data-archived="true"] {
-  border-color: var(--graphite-100);
+  border-color: var(--line);
 }
 
 /* I-131: the name became the door to the project's home, and it gains only an underline — the type
    is I-32's, unchanged, so the card reads exactly as it did (B-20). */
 .cx-home-card-name {
   text-decoration: underline;
-  text-decoration-color: var(--beam-500);
+  text-decoration-color: var(--accent);
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
   transition: color var(--motion-state) var(--ease);
 }
 
 .cx-home-card-name:hover {
-  color: var(--beam-600);
+  color: var(--ink-link);
 }
 
 .cx-home-card[data-archived="true"] .cx-home-card-name {
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   font-weight: var(--weight-body-medium);
 }
 
@@ -116,13 +116,13 @@
   align-self: flex-start;
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--beam-600);
+  color: var(--ink-link);
   text-decoration: underline;
   transition: color var(--motion-state) var(--ease);
 }
 
 .cx-home-pin:hover {
-  color: var(--beam-500);
+  color: var(--accent);
 }
 
 .cx-home-stats {
@@ -134,13 +134,13 @@
 .cx-home-stat-count {
   font-family: var(--font-mono);
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
 .cx-home-stat-label {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-home-doors {
@@ -161,13 +161,13 @@
   margin: 0;
   font-size: var(--text-16);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-home-documents-empty {
   margin: 0;
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* --- the project form, one component serving create and edit ---------------------------------- */
@@ -176,7 +176,7 @@
   margin: 0 0 var(--space-4);
   font-size: var(--text-16);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-home-form {
@@ -194,13 +194,13 @@
 .cx-home-field-label {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-home-field-hint {
   margin: 0;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* The building-type group: a fieldset carries the grouping, and its legend carries the label. */
@@ -225,7 +225,7 @@
   gap: var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
@@ -255,7 +255,7 @@
   flex-direction: column;
   gap: var(--space-4);
   border-block-start: var(--hairline);
-  background: var(--graphite-0);
+  background: var(--surface-app);
   padding-block: var(--space-4);
 }
 

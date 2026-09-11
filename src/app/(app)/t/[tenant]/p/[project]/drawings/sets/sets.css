@@ -38,7 +38,7 @@
   font-size: var(--text-20);
   font-weight: var(--weight-heading);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-sets-caption {
@@ -46,7 +46,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-sets-section-heading {
@@ -55,7 +55,7 @@
   font-size: var(--text-16);
   font-weight: var(--weight-heading);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-sets-hint,
@@ -65,7 +65,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* The evidence-link idiom: underlined, so a link never rides colour alone (R-UI-060). */
@@ -74,13 +74,13 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--beam-600);
+  color: var(--ink-link);
   text-decoration: underline;
   transition: color var(--motion-state) var(--ease);
 }
 
 .cx-sets-link:hover {
-  color: var(--beam-500);
+  color: var(--accent);
 }
 
 .cx-set-links {
@@ -110,7 +110,7 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-sets-name {
@@ -154,7 +154,7 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
 
@@ -166,7 +166,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-sets-row-digest-line {
@@ -181,7 +181,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* I-25, I-26, I-99: a machine identifier renders verbatim, whole, wrapping and select-all. */
@@ -189,7 +189,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   font-variant-numeric: tabular-nums slashed-zero;
   overflow-wrap: anywhere;
   user-select: all;
@@ -215,7 +215,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* A drawing's revisions: the ordinals column-align, and the content address stands beside them. */
@@ -240,7 +240,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
@@ -249,13 +249,13 @@
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-sets-revision[data-current="true"] .cx-sets-standing,
 .cx-set-revision[data-current="true"] .cx-sets-standing {
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-set-pin {
@@ -277,7 +277,7 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3);
-  background: var(--graphite-50);
+  background: var(--surface-panel);
   border: var(--hairline);
   border-radius: var(--radius-8);
 }
@@ -310,10 +310,10 @@
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
 
 .cx-set-citation .cx-sets-digest {
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }

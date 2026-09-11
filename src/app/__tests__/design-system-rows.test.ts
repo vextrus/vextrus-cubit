@@ -101,7 +101,7 @@ test("AC-4(c): the quick-stat count is never set smaller than the label beside i
 test("AC-4(c): the quick-stat count is never the faintest text on the card", () => {
   const count = declarationsFor(HOME_CSS, ".cx-home-stat-count");
 
-  expect(count.get("color"), "the count carries the strongest graphite the card uses for text, so a row of zeros is not the palest thing on it").toBe("var(--graphite-900)");
+  expect(count.get("color"), "the count carries the card\u2019s primary ink, so a row of zeros is not the palest thing on it").toBe("var(--ink)");
 });
 
 test("AC-4(d): the Decision states why the resolver's catch is empty", async () => {

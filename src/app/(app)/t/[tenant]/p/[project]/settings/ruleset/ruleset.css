@@ -19,7 +19,7 @@
 .cx-ruleset-caption {
   margin: 0;
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-ruleset-section {
@@ -32,13 +32,13 @@
   margin: 0;
   font-size: var(--text-16);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-ruleset-hint {
   margin: 0;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* --- the pinned edition: identity and digest, side by side and never one for the other --------- */
@@ -57,7 +57,7 @@
 .cx-ruleset-fact-label {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-ruleset-identity {
@@ -70,14 +70,14 @@
 .cx-ruleset-scope {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-ruleset-edition {
   font-family: var(--font-mono);
   font-size: var(--text-16);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
@@ -87,7 +87,7 @@
   margin: 0;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   font-variant-numeric: tabular-nums slashed-zero;
   overflow-wrap: anywhere;
   user-select: all;
@@ -119,19 +119,19 @@
   min-width: 88px;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-ruleset-lineage-edition {
   font-family: var(--font-mono);
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-ruleset-lineage-digest {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   overflow-wrap: anywhere;
   user-select: all;
 }
@@ -148,7 +148,7 @@
   border-bottom: var(--hairline);
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   text-align: left;
 }
 
@@ -165,7 +165,7 @@
   padding-inline: var(--space-3);
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
   text-align: left;
 }
 
@@ -173,14 +173,14 @@
   padding-inline: var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-ruleset-value {
   padding-inline: var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
   font-variant-numeric: tabular-nums slashed-zero;
   text-align: right;
 }

@@ -27,10 +27,10 @@
   height: var(--space-8);
   padding-inline: var(--space-3);
   border-width: 0;
-  border-bottom: 2px solid var(--graphite-0);
+  border-bottom: 2px solid var(--surface-app);
   margin-bottom: -1px;
   background: none;
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   font-family: inherit;
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
@@ -41,22 +41,22 @@
 }
 
 .cx-tabs-trigger:hover {
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-tabs-trigger[data-state="active"] {
-  border-bottom-color: var(--beam-500);
-  color: var(--graphite-900);
+  border-bottom-color: var(--line-accent);
+  color: var(--ink);
 }
 
 .cx-tabs-trigger[data-disabled] {
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   cursor: not-allowed;
 }
 
 .cx-tabs-content {
   padding-top: var(--space-4);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* ------------------------------------------------------------------ Tree */
@@ -82,24 +82,24 @@
   height: var(--space-7);
   padding-left: calc(var(--space-2) + var(--cx-tree-depth, 0) * var(--space-4));
   border-radius: var(--radius-4);
-  color: var(--graphite-900);
+  color: var(--ink);
   cursor: pointer;
   user-select: none;
   transition: background-color var(--motion-state) var(--ease);
 }
 
 .cx-tree-row:hover {
-  background-color: var(--graphite-100);
+  background-color: var(--surface-sunken);
 }
 
 .cx-tree-item[aria-selected="true"] > .cx-tree-row {
-  background-color: var(--beam-100);
+  background-color: var(--accent-subtle);
   font-weight: var(--weight-heading);
 }
 
 .cx-tree-chevron {
   flex: none;
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   transition: transform var(--motion-state) var(--ease);
 }
 
@@ -153,12 +153,12 @@
 .cx-scrollarea-thumb {
   flex: 1;
   border-radius: var(--radius-4);
-  background-color: var(--graphite-300);
+  background-color: var(--line-strong);
   transition: background-color var(--motion-state) var(--ease);
 }
 
 .cx-scrollarea-thumb:hover {
-  background-color: var(--graphite-400);
+  background-color: var(--line-heavy);
 }
 
 /* ------------------------------------------------------------------ Resizable panels */
@@ -185,21 +185,21 @@
 .cx-resizable-line {
   width: 1px;
   height: 100%;
-  background-color: var(--graphite-200);
+  background-color: var(--surface-active);
   transition:
     background-color var(--motion-state) var(--ease),
     width var(--motion-state) var(--ease);
 }
 
 .cx-resizable-handle:hover .cx-resizable-line {
-  background-color: var(--graphite-400);
+  background-color: var(--line-heavy);
 }
 
 /* A drag in progress, not a keystroke: react-resizable-panels sets this attribute to "keyboard"
    while the handle merely holds focus, and the focus reticle is what says so (R-UI-012). */
 .cx-resizable-handle[data-resize-handle-active="pointer"] .cx-resizable-line {
   width: 2px;
-  background-color: var(--beam-500);
+  background-color: var(--accent);
 }
 
 /* ------------------------------------------------------------------ DataTable (R-UI-005) */
@@ -211,7 +211,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-table-viewport {
@@ -225,7 +225,7 @@
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
-  background-color: var(--graphite-0);
+  background-color: var(--surface-app);
   border-bottom: 1px solid var(--hairline);
 }
 
@@ -258,7 +258,7 @@
 }
 
 .cx-table-body .cx-table-row:hover {
-  background-color: var(--graphite-50);
+  background-color: var(--surface-panel);
 }
 
 .cx-table-cell {
@@ -277,7 +277,7 @@
 }
 
 .cx-table-headercell {
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
 }
@@ -292,7 +292,7 @@
 .cx-table-cell[data-pinned] {
   position: sticky;
   z-index: var(--z-sticky);
-  background-color: var(--graphite-0);
+  background-color: var(--surface-app);
 }
 
 .cx-table-cell[data-pinned="left"] {
@@ -317,7 +317,7 @@
 }
 
 .cx-table-sort[data-direction] {
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-table-sort-label {
@@ -328,7 +328,7 @@
 }
 
 .cx-table-sort-mark {
-  color: var(--beam-600);
+  color: var(--ink-link);
 }
 
 .cx-table-filters {

@@ -29,7 +29,7 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-refusal-remedy {
@@ -38,7 +38,7 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* The action stands slightly apart, and sizes to its text rather than to the card (Decision § 1). */
@@ -49,14 +49,14 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--beam-600);
+  color: var(--ink-link);
   /* Interactive text on a tinted surface never rides colour alone (R-UI-060). */
   text-decoration: underline;
   transition: color var(--motion-state) var(--ease);
 }
 
 .cx-refusal-link:hover {
-  color: var(--beam-500);
+  color: var(--accent);
 }
 
 /* ------------------------------------------------------------- Severity (R-UI-001's pairs) */

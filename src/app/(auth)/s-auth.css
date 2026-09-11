@@ -21,7 +21,7 @@
   justify-content: center;
   min-height: 100vh;
   padding: var(--space-8) var(--space-4);
-  background-color: var(--graphite-0);
+  background-color: var(--surface-app);
 }
 
 @media (min-width: 640px) {
@@ -73,13 +73,13 @@
   margin: 0 0 var(--space-5);
   font-size: var(--text-20);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-auth-caption {
   margin: calc(var(--space-5) * -1 + var(--space-2)) 0 var(--space-5);
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-auth-body {
@@ -102,19 +102,19 @@
   margin: 0;
   font-size: var(--text-13);
   font-weight: var(--weight-body);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-auth-link {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--beam-600);
+  color: var(--ink-link);
   text-decoration: underline;
   transition: color var(--motion-state) var(--ease);
 }
 
 .cx-auth-link:hover {
-  color: var(--beam-500);
+  color: var(--accent);
 }
 
 /* A field: label over input, with the optional hint under the label (R-UI-033). */
@@ -127,13 +127,13 @@
 .cx-auth-field label {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-auth-hint {
   margin: 0;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-auth-field .cx-input {
@@ -154,22 +154,22 @@
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--graphite-300);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius-4);
-  background-color: var(--graphite-50);
+  background-color: var(--surface-panel);
 }
 
 .cx-auth-fault-title {
   margin: 0;
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-auth-fault-body {
   margin: 0;
   font-size: var(--text-13);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-auth-fault-id {
@@ -179,7 +179,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-auth-notice {
@@ -188,7 +188,7 @@
   border-radius: var(--radius-4);
   background-color: var(--info-surface);
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* The token panels' loading leg: layout kept, no spinner (R-UI-050). */
@@ -234,7 +234,7 @@
   overflow: hidden;
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -249,7 +249,7 @@
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* The control slot: as tall as the Button, so a badge row is exactly as tall as a revoke row. */

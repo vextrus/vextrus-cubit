@@ -76,8 +76,8 @@ body {
    The base size sits on `body`, not on the root element: R-UI-003's 14 px governs UI text, and
    pinning `html` would rebase every rem and override the reader's own browser text size. */
 html {
-  background-color: var(--graphite-0);
-  color: var(--graphite-900);
+  background-color: var(--surface-app);
+  color: var(--ink);
   -webkit-text-size-adjust: 100%;
 }
 
@@ -115,7 +115,7 @@ h6 {
 }
 
 ::selection {
-  background-color: var(--beam-100);
+  background-color: var(--accent-subtle);
 }
 
 hr {

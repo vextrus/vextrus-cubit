@@ -24,26 +24,26 @@
   margin: 0;
   font-size: var(--text-20);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-participants-caption {
   margin: 0;
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-participants-section-heading {
   margin: 0;
   font-size: var(--text-16);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-participants-hint {
   margin: var(--space-2) 0 0;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* Current roles: nothing here is interactive, so no hover fill renders. */
@@ -75,7 +75,7 @@
   overflow: hidden;
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -94,7 +94,7 @@
 
 .cx-participants-role {
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-participants-enum {
@@ -120,7 +120,7 @@
   padding: 0;
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-participants-choices {
@@ -174,19 +174,19 @@
 .cx-participants-direction {
   min-width: var(--participants-direction-column);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-participants-history-role {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-participants-history-subject {
   overflow: hidden;
   font-size: var(--text-13);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -202,7 +202,7 @@
   padding-inline-start: calc(var(--participants-direction-column) + var(--space-3));
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-participants-denied {
@@ -214,7 +214,7 @@
 .cx-participants-denied-line {
   margin: 0;
   font-size: var(--text-13);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* The two round-trip states the form has beyond its answer: in flight, and written (R-UI-050). */
@@ -222,5 +222,5 @@
   min-height: var(--text-13);
   margin: 0;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }

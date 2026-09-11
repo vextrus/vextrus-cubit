@@ -33,12 +33,12 @@
 .cx-register-heading {
   font-size: var(--text-20);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-register-caption {
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-register-actions {
@@ -56,7 +56,7 @@
 
 .cx-register-campaign-label {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   /* Two words that name one thing: the label breaks after the pair, never inside it. */
   white-space: nowrap;
 }
@@ -64,7 +64,7 @@
 .cx-register-campaign-id {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   user-select: all;
 }
 
@@ -79,7 +79,7 @@
 
 .cx-register-measure-hint {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* --- the answer slot, the offline banner and the denial (R-UI-020, R-UI-050) --- */
@@ -95,12 +95,12 @@
   border-radius: var(--radius-4);
   background: var(--info-surface);
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-register-denied {
   font-size: var(--text-13);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* --- the five filters and the count line (I-172) --- */
@@ -121,7 +121,7 @@
 .cx-register-filter-label {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-register-select {
@@ -136,7 +136,7 @@
 .cx-register-count {
   margin-left: auto;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -191,7 +191,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  background: var(--graphite-50);
+  background: var(--surface-panel);
   border: var(--hairline);
   border-radius: var(--radius-8);
 }
@@ -201,7 +201,7 @@
   border-bottom: var(--hairline);
   font-size: var(--text-13);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* I-171: the screen's id rides a wrapper that adds no box and no line of layout. */
@@ -210,20 +210,20 @@
 }
 
 .cx-register-lines {
-  background: var(--graphite-0);
+  background: var(--surface-app);
 }
 
 .cx-register-lines-none {
   padding: var(--space-4);
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-register-repudiated {
   padding: var(--space-2) var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* --- the inspector --- */
@@ -236,7 +236,7 @@
   padding-inline: var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
   overflow-wrap: anywhere;
   user-select: all;
 }
@@ -250,14 +250,14 @@
 
 .cx-register-facts dt {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-register-attributes-heading {
   padding-inline: var(--space-3);
   font-size: var(--text-13);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-register-attribute {
@@ -272,7 +272,7 @@
 .cx-register-attribute-name {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-register-readings-label,
@@ -280,7 +280,7 @@
 .cx-register-no-readings,
 .cx-register-hint {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-register-reading {
@@ -289,7 +289,7 @@
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-register-corroborate,
@@ -302,13 +302,13 @@
 
 .cx-register-field span {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-register-idle-body {
   padding-inline: var(--space-3);
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* --- the cells of the lines table --- */
@@ -318,7 +318,7 @@
 .cx-register-source {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-register-formula {
@@ -344,8 +344,8 @@
 .cx-register-source [data-origin="true"] {
   padding-inline: var(--space-1);
   border-radius: var(--radius-2);
-  background: var(--beam-100);
-  box-shadow: inset 2px 0 0 0 var(--beam-500);
+  background: var(--accent-subtle);
+  box-shadow: inset 2px 0 0 0 var(--line-accent);
 }
 
 .cx-register-bases,
@@ -361,10 +361,10 @@
   padding: var(--space-2);
   border: var(--hairline);
   border-radius: var(--radius-4);
-  background: var(--graphite-100);
+  background: var(--surface-sunken);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* --- the empty and error cells, and the two regions beneath the body --- */
@@ -377,20 +377,20 @@
   padding: var(--space-4);
   border: var(--hairline);
   border-radius: var(--radius-8);
-  background: var(--graphite-50);
+  background: var(--surface-panel);
 }
 
 .cx-register-empty-heading {
   font-size: var(--text-20);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-register-empty-body,
 .cx-register-refusals-hint,
 .cx-register-level-stack-hint {
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-register-empty-action {
@@ -401,12 +401,12 @@
   display: flex;
   gap: var(--space-2);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-register-report-id {
   font-family: var(--font-mono);
-  color: var(--graphite-900);
+  color: var(--ink);
   user-select: all;
 }
 
@@ -461,7 +461,7 @@
 
 .cx-register-refusal-label {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* --- the loading leg's bones keep the same shape (R-UI-004) --- */

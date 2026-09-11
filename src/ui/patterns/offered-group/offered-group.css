@@ -47,7 +47,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* The membership is the number a person checks before confirming, so it reads as a numeral. */
@@ -56,7 +56,7 @@
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
   text-align: right;
   font-variant-numeric: tabular-nums slashed-zero;
 }
@@ -67,5 +67,5 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }

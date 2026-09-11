@@ -19,10 +19,10 @@
   gap: var(--space-2);
   height: var(--space-8);
   padding-inline: var(--space-3);
-  border: 1px solid var(--graphite-300);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius-4);
-  background-color: var(--graphite-0);
-  color: var(--graphite-900);
+  background-color: var(--surface-app);
+  color: var(--ink);
   font-family: var(--font-ui);
   font-size: var(--text-14);
   font-weight: var(--weight-body-medium);
@@ -42,24 +42,24 @@
 }
 
 .cx-btn[data-variant="primary"] {
-  background-color: var(--beam-700);
-  border-color: var(--beam-700);
-  color: var(--graphite-0);
+  background-color: var(--accent-active);
+  border-color: var(--accent-active);
+  color: var(--ink-inverse);
 }
 
 .cx-btn[data-variant="primary"]:hover:not(:disabled) {
-  background-color: var(--beam-600);
-  border-color: var(--beam-600);
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .cx-btn[data-variant="secondary"] {
-  background-color: var(--graphite-0);
-  border-color: var(--graphite-300);
-  color: var(--graphite-900);
+  background-color: var(--surface-app);
+  border-color: var(--line-strong);
+  color: var(--ink);
 }
 
 .cx-btn[data-variant="secondary"]:hover:not(:disabled) {
-  background-color: var(--graphite-100);
+  background-color: var(--surface-sunken);
 }
 
 /* Ghost carries no border, so it carries the border's pixel as padding instead: one geometry
@@ -68,12 +68,12 @@
   background: none;
   border-width: 0;
   padding-inline: calc(var(--space-3) + 1px);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-btn[data-variant="ghost"]:hover:not(:disabled) {
-  background-color: var(--graphite-100);
-  color: var(--graphite-900);
+  background-color: var(--surface-sunken);
+  color: var(--ink);
 }
 
 /* Danger is quiet at rest and fills to commit — both legs clear the text contrast floor. */
@@ -85,7 +85,7 @@
 
 .cx-btn[data-variant="danger"]:hover:not(:disabled) {
   background-color: var(--danger);
-  color: var(--graphite-0);
+  color: var(--ink-inverse);
 }
 
 /* The act variant — the confirm of every consequential action. Copper stays scarce: these three
@@ -125,9 +125,9 @@
    text quiets to graphite-600, not further: R-UI-012's 4.5:1 text floor carries no disabled
    carve-out, and a control a reader cannot read is not a state, it is a hole. */
 .cx-btn:disabled {
-  background-color: var(--graphite-100);
-  border-color: var(--graphite-200);
-  color: var(--graphite-600);
+  background-color: var(--surface-sunken);
+  border-color: var(--line);
+  color: var(--ink-muted);
   cursor: not-allowed;
 }
 
@@ -135,10 +135,10 @@
 
 .cx-input,
 .cx-textarea {
-  border: 1px solid var(--graphite-300);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius-4);
-  background-color: var(--graphite-0);
-  color: var(--graphite-900);
+  background-color: var(--surface-app);
+  color: var(--ink);
   font-family: var(--font-ui);
   font-size: var(--text-14);
   font-weight: var(--weight-body);
@@ -160,12 +160,12 @@
    4.5:1 floor like every other glyph the field paints. */
 .cx-input::placeholder,
 .cx-textarea::placeholder {
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-input:hover:not(:disabled),
 .cx-textarea:hover:not(:disabled) {
-  border-color: var(--graphite-400);
+  border-color: var(--line-heavy);
 }
 
 .cx-input[aria-invalid="true"],
@@ -175,9 +175,9 @@
 
 .cx-input:disabled,
 .cx-textarea:disabled {
-  background-color: var(--graphite-100);
-  border-color: var(--graphite-200);
-  color: var(--graphite-600);
+  background-color: var(--surface-sunken);
+  border-color: var(--line);
+  color: var(--ink-muted);
   cursor: not-allowed;
 }
 
@@ -189,8 +189,8 @@
   height: var(--space-5);
   padding-inline: var(--space-2);
   border-radius: var(--radius-4);
-  background-color: var(--graphite-100);
-  color: var(--graphite-700);
+  background-color: var(--surface-sunken);
+  color: var(--ink-secondary);
   font-family: var(--font-ui);
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
@@ -203,10 +203,10 @@
   gap: var(--space-1);
   height: var(--space-6);
   padding-inline: var(--space-3);
-  border: 1px solid var(--graphite-200);
+  border: 1px solid var(--line);
   border-radius: var(--radius-12);
-  background-color: var(--graphite-50);
-  color: var(--graphite-700);
+  background-color: var(--surface-panel);
+  color: var(--ink-secondary);
   font-family: var(--font-ui);
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
@@ -222,16 +222,16 @@ button.cx-chip {
 }
 
 button.cx-chip:hover:not(:disabled) {
-  background-color: var(--graphite-100);
-  color: var(--graphite-900);
+  background-color: var(--surface-sunken);
+  color: var(--ink);
 }
 
 /* Selection carries a weight shift as well as the beam pair: colour is never the only channel
    a state travels on (R-UI-002, Q-11). */
 .cx-chip[data-selected="true"] {
-  background-color: var(--beam-100);
-  border-color: var(--beam-500);
-  color: var(--graphite-900);
+  background-color: var(--accent-subtle);
+  border-color: var(--line-accent);
+  color: var(--ink);
   font-weight: var(--weight-heading);
 }
 
@@ -248,7 +248,7 @@ button.cx-chip:hover:not(:disabled) {
   border: 1px solid var(--cx-basis);
   border-radius: var(--radius-4);
   background: none;
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   font-family: var(--font-mono);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
@@ -322,7 +322,7 @@ button.cx-chip:hover:not(:disabled) {
 
 .cx-unit-badge {
   padding-inline: var(--space-1);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* ------------------------------------------------------------------ Kbd */
@@ -334,11 +334,11 @@ button.cx-chip:hover:not(:disabled) {
   min-width: var(--space-5);
   height: var(--space-5);
   padding-inline: var(--space-1);
-  border: 1px solid var(--graphite-300);
+  border: 1px solid var(--line-strong);
   border-bottom-width: 2px;
   border-radius: var(--radius-4);
-  background-color: var(--graphite-50);
-  color: var(--graphite-700);
+  background-color: var(--surface-panel);
+  color: var(--ink-secondary);
   font-family: var(--font-mono);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
@@ -350,25 +350,25 @@ button.cx-chip:hover:not(:disabled) {
   display: block;
   height: var(--space-4);
   border-radius: var(--radius-4);
-  background-color: var(--graphite-100);
+  background-color: var(--surface-sunken);
   animation: cx-skeleton-pulse 1600ms ease-in-out infinite;
 }
 
 @keyframes cx-skeleton-pulse {
   0%,
   100% {
-    background-color: var(--graphite-100);
+    background-color: var(--surface-sunken);
   }
 
   50% {
-    background-color: var(--graphite-200);
+    background-color: var(--surface-active);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .cx-skeleton {
     animation: none;
-    background-color: var(--graphite-100);
+    background-color: var(--surface-sunken);
   }
 }
 
@@ -379,8 +379,8 @@ button.cx-chip:hover:not(:disabled) {
   max-width: 280px;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-4);
-  background-color: var(--graphite-900);
-  color: var(--graphite-0);
+  background-color: var(--surface-inverse);
+  color: var(--ink-inverse);
   font-family: var(--font-ui);
   font-size: var(--text-12);
   line-height: var(--leading-ui);

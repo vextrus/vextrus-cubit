@@ -18,7 +18,7 @@
   gap: var(--space-2);
   min-height: 160px;
   padding: var(--space-6) var(--space-5);
-  border: 1px dashed var(--graphite-300);
+  border: 1px dashed var(--line-strong);
   border-radius: var(--radius-8);
   background: none;
   transition:
@@ -34,8 +34,8 @@
 .cx-dropzone[data-state="dragging"] .cx-dropzone-zone,
 .cx-dropzone[data-state="dragging"] .cx-dropzone-queue {
   border-style: solid;
-  border-color: var(--beam-500);
-  background-color: var(--beam-100);
+  border-color: var(--line-accent);
+  background-color: var(--accent-subtle);
 }
 
 /* The seam between the two halves stays open: the queue's block-start border is none either way. */
@@ -47,7 +47,7 @@
   margin: 0;
   font-size: var(--text-14);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-dropzone-doors {
@@ -58,7 +58,7 @@
 .cx-dropzone-accepts {
   margin: 0;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* I-71: the pickers are hidden and unreachable — their Buttons carry the names and open them. */
@@ -81,7 +81,7 @@
   /* Inline only: the rows stand on the zone's own padding so they read as its inside, and no row
      gains space above or below the hairline that separates it (§ 1). */
   padding: 0 var(--space-5);
-  border: 1px dashed var(--graphite-300);
+  border: 1px dashed var(--line-strong);
   border-block-start: none;
   border-end-start-radius: var(--radius-8);
   border-end-end-radius: var(--radius-8);
@@ -124,7 +124,7 @@
   margin: 0;
   overflow: hidden;
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -132,7 +132,7 @@
 .cx-dropzone-item-state {
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-dropzone-item[data-state="stored"] .cx-dropzone-item-state {
@@ -140,7 +140,7 @@
 }
 
 .cx-dropzone-item[data-state="duplicate"] .cx-dropzone-item-state {
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-dropzone-item[data-state="refused"] .cx-dropzone-item-state {
@@ -152,7 +152,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   text-align: right;
 }
 

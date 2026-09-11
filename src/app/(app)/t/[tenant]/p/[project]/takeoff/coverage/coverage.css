@@ -8,7 +8,7 @@
  * 340, the cell seam's 1, the strokes' 1.5 and 2, and the md media-query value 960. Any other literal
  * is a defect. The glyph geometry is the grid component's own, stated in a viewBox's units.
  *
- * `--hairline` is a whole border shorthand (`1px solid var(--graphite-200)`), so a surface wears it as
+ * `--hairline` is a whole border shorthand (`1px solid var(--line)`), so a surface wears it as
  * `border: var(--hairline)` and a notice recolours it with `border-color` afterwards — the lane's own
  * idiom (register.css). Spelling a colour inside the shorthand makes the declaration invalid and the
  * surface loses its frame entirely (R-UI-001, B-17).
@@ -36,7 +36,7 @@
   border-radius: var(--radius-4);
   background: var(--info-surface);
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* --- the header, and the revision this reading was taken against --- */
@@ -56,12 +56,12 @@
 .cx-coverage-heading {
   font-size: var(--text-20);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-coverage-caption {
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-coverage-revision-block {
@@ -73,14 +73,14 @@
 
 .cx-coverage-revision-label {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   white-space: nowrap;
 }
 
 .cx-coverage-revision {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   user-select: all;
 }
 
@@ -99,12 +99,12 @@
 .cx-coverage-denied {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-coverage-denied-holder {
   font-size: var(--text-13);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* --- the body: the grid, and the inspector beside it --- */
@@ -132,12 +132,12 @@
 .cx-coverage-grid-heading {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-coverage-partial-note {
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* The box scrolls, never the page: a project wider than the viewport keeps its heading in place. */
@@ -153,25 +153,25 @@
 .cx-coverage-class {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  fill: var(--graphite-700);
+  fill: var(--ink-secondary);
 }
 
 .cx-coverage-level {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  fill: var(--graphite-600);
+  fill: var(--ink-muted);
 }
 
 .cx-coverage-kind {
   font-family: var(--font-mono);
   font-size: var(--text-13);
-  fill: var(--graphite-900);
+  fill: var(--ink);
 }
 
 /* Hover states the cell under the pointer; selection and focus are the component's own marks. */
 .cx-coverage-grid [data-testid="coverage-cell"] {
   cursor: pointer;
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-coverage-grid [data-testid="coverage-cell"] > rect:first-of-type {
@@ -179,7 +179,7 @@
 }
 
 .cx-coverage-grid [data-testid="coverage-cell"]:hover > rect:first-of-type {
-  stroke: var(--beam-500);
+  stroke: var(--accent);
   stroke-width: 1.5;
 }
 
@@ -192,13 +192,13 @@
   padding: var(--space-3);
   border: var(--hairline);
   border-radius: var(--radius-8);
-  background: var(--graphite-0);
+  background: var(--surface-app);
 }
 
 .cx-coverage-legend-heading {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-coverage-measured,
@@ -208,16 +208,16 @@
   gap: var(--space-1) var(--space-2);
   align-items: baseline;
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-coverage-legend-name {
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-coverage-legend-remedy {
   grid-column: 2;
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* --- the inspector: the register panel's chrome, exactly (Decision § 1) --- */
@@ -229,20 +229,20 @@
   padding: var(--space-3);
   border: var(--hairline);
   border-radius: var(--radius-8);
-  background: var(--graphite-50);
+  background: var(--surface-panel);
 }
 
 .cx-coverage-inspector-heading {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-coverage-inspector-body,
 .cx-coverage-hint,
 .cx-coverage-none {
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-coverage-facts {
@@ -250,45 +250,45 @@
   grid-template-columns: auto minmax(0, 1fr);
   gap: var(--space-1) var(--space-2);
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-coverage-value {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-coverage-grain {
   font-size: var(--text-13);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-coverage-cause,
 .cx-coverage-remedy {
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-coverage-remedy {
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-coverage-remedy-link {
-  color: var(--beam-500);
+  color: var(--accent);
   transition: color var(--motion-state) var(--ease);
 }
 
 .cx-coverage-declared-label {
   display: block;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-coverage-act-id {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   user-select: all;
 }
 
@@ -305,26 +305,26 @@
   padding: var(--space-2);
   border: var(--hairline);
   border-radius: var(--radius-4);
-  background: var(--graphite-0);
+  background: var(--surface-app);
   font-size: var(--text-12);
 }
 
 .cx-coverage-label {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-coverage-source-key {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   overflow-wrap: anywhere;
   user-select: all;
 }
 
 .cx-coverage-reason {
   font-size: var(--text-13);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-coverage-doors {
@@ -344,18 +344,18 @@
   padding: var(--space-4);
   border: var(--hairline);
   border-radius: var(--radius-8);
-  background: var(--graphite-0);
+  background: var(--surface-app);
 }
 
 .cx-coverage-empty-heading {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-coverage-empty-body {
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-coverage-report {
@@ -366,13 +366,13 @@
 
 .cx-coverage-report-label {
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-coverage-report-id {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   user-select: all;
 }
 
@@ -385,17 +385,17 @@
   padding: var(--space-4);
   border: var(--hairline);
   border-radius: var(--radius-8);
-  background: var(--graphite-0);
+  background: var(--surface-app);
   font-family: var(--font-doc);
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
   max-width: 72ch;
 }
 
 .cx-coverage-certificate-heading {
   font-size: var(--text-20);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-coverage-statement {
@@ -407,7 +407,7 @@
 .cx-coverage-statement-title {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-coverage-statement-rows {
@@ -424,7 +424,7 @@
 }
 
 .cx-coverage-statement-cause {
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* --- the bones, which keep this layout while the route resolves (R-UI-004) --- */

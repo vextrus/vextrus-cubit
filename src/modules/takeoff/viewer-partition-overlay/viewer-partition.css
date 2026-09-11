@@ -13,7 +13,7 @@
   min-height: 0;
   max-block-size: 55%;
   overflow-y: auto;
-  background: var(--graphite-50);
+  background: var(--surface-panel);
   border-block-start: var(--hairline);
 }
 
@@ -32,7 +32,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  background: var(--graphite-50);
+  background: var(--surface-panel);
   border-block-end: var(--hairline);
   z-index: var(--z-base);
 }
@@ -42,7 +42,7 @@
   margin: 0;
   font-size: var(--text-13);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-partition-subheading {
@@ -50,7 +50,7 @@
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* ------------------------------------------------------------------------------ the two switches */
@@ -61,8 +61,8 @@
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
   font-size: var(--text-12);
-  color: var(--graphite-700);
-  background: var(--graphite-0);
+  color: var(--ink-secondary);
+  background: var(--surface-app);
   border: var(--hairline);
   border-radius: var(--radius-2);
   cursor: pointer;
@@ -72,9 +72,9 @@
 }
 
 .cx-viewer-partition-switch[aria-checked="true"] {
-  color: var(--graphite-900);
+  color: var(--ink);
   font-weight: var(--weight-heading);
-  background: var(--beam-100);
+  background: var(--accent-subtle);
 }
 
 /* The swatch is the second, non-colour channel: filled when the switch is on, hollow when it is
@@ -130,7 +130,7 @@
 .cx-viewer-partition-badge {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* Panel and sheet say the same thing in the same pattern: the row's badge wears the hatch the
@@ -138,7 +138,7 @@
 .cx-viewer-partition-badge[data-untyped="true"] {
   border-color: var(--warn);
   background:
-    repeating-linear-gradient(45deg, var(--graphite-300) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(45deg, var(--line-strong) 0 1px, transparent 1px 6px),
     var(--warn-surface);
 }
 
@@ -147,7 +147,7 @@
   overflow-wrap: anywhere;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   user-select: all;
 }
 
@@ -155,7 +155,7 @@
   overflow: hidden;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -163,27 +163,27 @@
 .cx-viewer-partition-figure {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
 .cx-viewer-partition-axis-label {
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-partition-note {
   font-family: var(--font-ui);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-viewer-partition-reason {
   margin: 0;
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-viewer-partition-empty,
@@ -195,11 +195,11 @@
 }
 
 .cx-viewer-partition-empty {
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-viewer-partition-failed {
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-viewer-partition-fault {
@@ -207,7 +207,7 @@
   padding: 0 var(--space-3) var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   user-select: all;
 }
 
@@ -232,7 +232,7 @@
   padding: var(--space-3);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
   background: var(--warn-surface);
   border: var(--hairline);
   border-color: var(--warn);
@@ -244,7 +244,7 @@
   padding: 0 var(--space-3) var(--space-2);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* ------------------------------------------------------------------------ the overlay canvas */

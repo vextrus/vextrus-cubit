@@ -21,13 +21,13 @@
   margin: 0;
   font-size: var(--text-20);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-audit-caption {
   margin: 0;
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-audit-section {
@@ -39,7 +39,7 @@
   margin: 0;
   font-size: var(--text-16);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* --- the filter row ------------------------------------------------------------------------- */
@@ -61,7 +61,7 @@
 .cx-audit-filter-label {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* The platform's own closed choice, wearing the primitive's own chrome (I-31): the select takes
@@ -98,7 +98,7 @@
   align-self: center;
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums;
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* --- the log -------------------------------------------------------------------------------- */
@@ -129,12 +129,12 @@
   font-family: var(--font-mono);
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-audit-act-actor {
   font-size: var(--text-13);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-audit-act-when {
@@ -142,7 +142,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-audit-act-line {
@@ -154,7 +154,7 @@
 .cx-audit-act-label {
   min-width: 96px;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* A digest and a subject are identifiers: they are shown whole, wrap rather than truncate, and
@@ -165,7 +165,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-audit-act-evidence {
@@ -189,13 +189,13 @@
   margin: 0;
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-audit-empty-body {
   margin: 0;
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-audit-empty-clear {
@@ -223,13 +223,13 @@
   padding: var(--space-4);
   border: var(--hairline);
   border-radius: var(--radius-8);
-  background-color: var(--graphite-50);
+  background-color: var(--surface-panel);
 }
 
 .cx-audit-panel-body {
   margin: 0;
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-audit-panel-count {
@@ -238,11 +238,11 @@
   font-size: var(--text-24);
   font-weight: var(--weight-heading);
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-audit-panel-caption {
   margin: 0;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }

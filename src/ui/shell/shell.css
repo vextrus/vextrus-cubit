@@ -9,7 +9,7 @@
   display: grid;
   grid-template-columns: auto 1fr;
   min-height: 100dvh;
-  background: var(--graphite-0);
+  background: var(--surface-app);
 }
 
 /* --- the rail ------------------------------------------------------------------------ */
@@ -18,7 +18,7 @@
   display: flex;
   flex-direction: column;
   width: 240px;
-  background: var(--graphite-50);
+  background: var(--surface-panel);
   border-inline-end: var(--hairline);
   overflow: hidden;
   transition: width var(--motion-panel) var(--ease);
@@ -63,13 +63,13 @@
   border: 0;
   border-radius: var(--radius-4);
   background: transparent;
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   cursor: pointer;
   transition: background var(--motion-state) var(--ease);
 }
 
 .cx-shell-rail-toggle:hover {
-  background: var(--graphite-100);
+  background: var(--surface-sunken);
 }
 
 .cx-shell-rail-chevron {
@@ -93,14 +93,14 @@
   background: transparent;
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
   text-align: start;
   cursor: pointer;
   transition: background var(--motion-state) var(--ease);
 }
 
 .cx-shell-switcher:hover {
-  background: var(--graphite-100);
+  background: var(--surface-sunken);
 }
 
 /* Both menu triggers are the shipped core Button (`.cx-btn`, B-17), which carries the button type
@@ -138,7 +138,7 @@
   border-radius: 0;
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   text-decoration: none;
   white-space: nowrap;
   transition:
@@ -147,8 +147,8 @@
 }
 
 .cx-shell-nav-row:hover {
-  background: var(--graphite-100);
-  color: var(--graphite-900);
+  background: var(--surface-sunken);
+  color: var(--ink);
 }
 
 /* R-UI-030's selection, verbatim: a 3 px inset beam bar and the beam-100 row fill. The weight is
@@ -156,8 +156,8 @@
    paints: the row is selected both at the area's own home ("page") and on a screen inside the
    area ("true"), and the two differ in what they claim, not in how they look. */
 .cx-shell-nav-row[aria-current] {
-  background: var(--beam-100);
-  color: var(--graphite-900);
+  background: var(--accent-subtle);
+  color: var(--ink);
   font-weight: var(--weight-heading);
 }
 
@@ -167,7 +167,7 @@
   inset-block: 0;
   inset-inline-start: 0;
   width: 3px;
-  background: var(--beam-500);
+  background: var(--accent);
 }
 
 /* --- the top bar --------------------------------------------------------------------- */
@@ -185,7 +185,7 @@
   gap: var(--space-4);
   height: var(--space-12);
   padding-inline: var(--space-5);
-  background: var(--graphite-0);
+  background: var(--surface-app);
   border-block-end: var(--hairline);
 }
 
@@ -207,16 +207,16 @@
 }
 
 .cx-palette-trigger-glyph {
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-palette-trigger-label {
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   font-size: var(--text-13);
 }
 
 .cx-palette-trigger:hover .cx-palette-trigger-label {
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-shell-crumbs {
@@ -230,21 +230,21 @@
 }
 
 .cx-shell-crumb-link {
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   text-decoration: none;
   transition: color var(--motion-state) var(--ease);
 }
 
 .cx-shell-crumb-link:hover {
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-shell-crumb-separator {
-  color: var(--graphite-500);
+  color: var(--ink-disabled);
 }
 
 .cx-shell-crumb-current {
-  color: var(--graphite-900);
+  color: var(--ink);
   font-weight: var(--weight-body-medium);
 }
 
@@ -254,7 +254,7 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   font-size: var(--text-13);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* --- main and inspector --------------------------------------------------------------- */
@@ -280,7 +280,7 @@
   padding: var(--space-5);
   border-inline-start: var(--hairline);
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 @media (min-width: 1280px) {
@@ -299,7 +299,7 @@
   margin: 0;
   font-size: var(--text-20);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-shell-empty {
@@ -317,13 +317,13 @@
   margin: 0;
   font-size: var(--text-16);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-shell-empty-body {
   margin: 0;
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-shell-empty-action {
@@ -357,7 +357,7 @@
   border-radius: var(--radius-4);
   padding: var(--space-3) var(--space-4);
   font-size: var(--text-13);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* The alert a rejected save wears. Not the notice's chrome: a refusal and a completed save may not
@@ -371,7 +371,7 @@
   padding: var(--space-3) var(--space-4);
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* An item of a menu that happens to be a link wears the menu's own idiom, never the link idiom:
@@ -383,13 +383,13 @@
 .cx-shell-link {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--beam-600);
+  color: var(--ink-link);
   text-decoration: underline;
   transition: color var(--motion-state) var(--ease);
 }
 
 .cx-shell-link:hover {
-  color: var(--beam-500);
+  color: var(--accent);
 }
 
 .cx-shell-section {
@@ -403,7 +403,7 @@
 .cx-shell-field-label {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* The hint under a field's label. The measure is the Decision's and the copy is the string table's,
@@ -414,7 +414,7 @@
 .cx-shell-field-hint {
   margin: 0;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   text-wrap: pretty;
 }
 
@@ -451,13 +451,13 @@
   margin: 0;
   font-size: var(--text-20);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-shell-denied-line {
   margin: 0;
   font-size: var(--text-13);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 /* R-UI-005's density control (docs/design/density-and-prefs.md §1). The section takes the name
@@ -473,13 +473,13 @@
 .cx-density-label {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
 }
 
 .cx-density-hint {
   margin: 0;
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   text-wrap: pretty;
 }
 
@@ -491,8 +491,8 @@
   margin-block-start: var(--space-2);
   padding: var(--space-1);
   gap: var(--space-1);
-  background: var(--graphite-0);
-  border: 1px solid var(--graphite-300);
+  background: var(--surface-app);
+  border: 1px solid var(--line-strong);
   border-radius: var(--radius-4);
 }
 
@@ -507,7 +507,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   cursor: pointer;
   transition:
     background var(--motion-state) var(--ease),
@@ -515,14 +515,14 @@
 }
 
 .cx-density-option:hover {
-  background: var(--graphite-100);
-  color: var(--graphite-900);
+  background: var(--surface-sunken);
+  color: var(--ink);
 }
 
 /* R-UI-030's selection idiom: the fill says which mode is held, and the weight shift is the second,
    non-colour channel — so the checked segment survives greyscale. */
 .cx-density-option[aria-checked="true"] {
-  background: var(--beam-100);
-  color: var(--graphite-900);
+  background: var(--accent-subtle);
+  color: var(--ink);
   font-weight: var(--weight-heading);
 }

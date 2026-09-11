@@ -33,7 +33,7 @@ export function CoverageReticle({ x, y, side }: { x: number; y: number; side: nu
   return (
     <g className="cx-coverage-reticle" aria-hidden="true">
       {corners.map((path) => (
-        <path key={path} d={path} fill="none" stroke="var(--beam-500)" strokeWidth={BEAM} strokeLinecap="square" />
+        <path key={path} d={path} fill="none" stroke="var(--line-accent)" strokeWidth={BEAM} strokeLinecap="square" />
       ))}
     </g>
   );

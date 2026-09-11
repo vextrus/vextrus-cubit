@@ -51,7 +51,7 @@ function Chevron({ direction }: { direction: "left" | "down" }) {
       height="12"
       viewBox="0 0 12 12"
       fill="none"
-      stroke="var(--graphite-600)"
+      stroke="var(--ink-muted)"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"

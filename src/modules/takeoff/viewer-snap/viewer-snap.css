@@ -20,7 +20,7 @@
   padding: var(--space-1);
   border: var(--hairline);
   border-radius: var(--radius-4);
-  background: var(--graphite-0);
+  background: var(--surface-app);
   box-shadow: var(--shadow-1);
 }
 
@@ -44,8 +44,8 @@
 }
 
 .cx-viewer-snap-tools .cx-btn[aria-pressed="true"] {
-  background: var(--beam-100);
-  color: var(--graphite-900);
+  background: var(--accent-subtle);
+  color: var(--ink);
   font-weight: var(--weight-heading);
 }
 
@@ -211,5 +211,5 @@
 
 .cx-viewer-snap-note {
   margin-inline-start: var(--space-2);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }

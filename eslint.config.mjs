@@ -66,6 +66,7 @@ export default [
     plugins: { cubit },
     rules: {
       "cubit/no-colour-literal": "error",
+      "cubit/no-primitive-token": "error",
       "cubit/no-db-outside-seam": "error",
       "cubit/no-model-outside-seam": "error",
       "cubit/no-raw-intl": "error",
@@ -77,6 +78,6 @@ export default [
     files: ["**/*.css"],
     languageOptions: { parser: cssParser },
     plugins: { cubit },
-    rules: { "cubit/no-colour-literal": "error" },
+    rules: { "cubit/no-colour-literal": "error", "cubit/no-primitive-token": "error" },
   },
 ];

@@ -18,13 +18,13 @@
   width: 8px;
   height: 8px;
   border-radius: var(--radius-4);
-  background-color: var(--graphite-300);
+  background-color: var(--line-strong);
   transition: background-color var(--motion-state) var(--ease);
 }
 
 .cx-jobs-tray-trigger[data-state="running"] .cx-jobs-tray-dot,
 .cx-jobs-tray-item[data-status="running"] .cx-jobs-tray-dot {
-  background-color: var(--beam-500);
+  background-color: var(--accent);
 }
 
 .cx-jobs-tray-trigger[data-state="done"] .cx-jobs-tray-dot,
@@ -42,7 +42,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-700);
+  color: var(--ink-secondary);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
@@ -59,7 +59,7 @@
   font-size: var(--text-13);
   font-weight: var(--weight-heading);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-jobs-tray-empty {
@@ -67,7 +67,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   text-wrap: pretty;
 }
 
@@ -103,7 +103,7 @@
   font-family: var(--font-ui);
   font-size: var(--text-13);
   line-height: var(--leading-ui);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-jobs-tray-item-line {
@@ -117,13 +117,13 @@
   font-size: var(--text-12);
   font-weight: var(--weight-body-medium);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   transition: color var(--motion-state) var(--ease);
 }
 
 /* Text clears 4.5:1, the dot the 3:1 UI floor (job-timeline § 6): the word takes the darker beam. */
 .cx-jobs-tray-item[data-status="running"] .cx-jobs-tray-item-status {
-  color: var(--beam-600);
+  color: var(--ink-link);
 }
 
 .cx-jobs-tray-item[data-status="succeeded"] .cx-jobs-tray-item-status {
@@ -148,7 +148,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   line-height: var(--leading-ui);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
   font-variant-numeric: tabular-nums slashed-zero;
 }
 

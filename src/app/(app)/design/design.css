@@ -17,7 +17,7 @@
   max-width: var(--breakpoint-lg);
   margin-inline: auto;
   padding: var(--space-4);
-  background-color: var(--graphite-0);
+  background-color: var(--surface-app);
 }
 
 /* I-20's one condition: 640px is `--breakpoint-sm`'s registered value, spelled here only because a
@@ -41,13 +41,13 @@
   margin: 0;
   font-size: var(--text-24);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-gallery-caption {
   margin: 0;
   font-size: var(--text-13);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 .cx-gallery-barrel {
@@ -61,7 +61,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-16);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 /* An entry is a hairline card with no fill: the page ground shows through it in both themes. */
@@ -79,7 +79,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-14);
   font-weight: var(--weight-heading);
-  color: var(--graphite-900);
+  color: var(--ink);
 }
 
 .cx-gallery-states {
@@ -116,7 +116,7 @@
   margin: 0;
   font-family: var(--font-mono);
   font-size: var(--text-12);
-  color: var(--graphite-600);
+  color: var(--ink-muted);
 }
 
 /* I-19's five demo geometry constants — the only px in this file outside its one media condition. */

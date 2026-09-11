@@ -223,7 +223,7 @@ export function CoverageGrid({ cells, levels, density, selected, onSelect }: Cov
       <defs>
         {/* I-189: the bill axis is a hatch over the whole cell, so the axes never displace each other. */}
         <pattern id={HATCH_ID} width={HATCH_PITCH} height={HATCH_PITCH} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <line x1={0} y1={0} x2={0} y2={HATCH_PITCH} stroke="var(--graphite-500)" strokeWidth={SEAM} />
+          <line x1={0} y1={0} x2={0} y2={HATCH_PITCH} stroke="var(--ink-disabled)" strokeWidth={SEAM} />
         </pattern>
       </defs>
 
@@ -290,12 +290,12 @@ export function CoverageGrid({ cells, levels, density, selected, onSelect }: Cov
                     onClick={() => onSelect(address)}
                     onKeyDown={(event) => move(event, cell, at)}
                   >
-                    <rect x={x} y={y} width={span} height={side} fill={surfaceOf(cell.measurement)} stroke="var(--graphite-200)" strokeWidth={SEAM} />
+                    <rect x={x} y={y} width={span} height={side} fill={surfaceOf(cell.measurement)} stroke="var(--line)" strokeWidth={SEAM} />
                     {cell.bill === "NOT_IN_THIS_BILL" ? <rect x={x} y={y} width={span} height={side} fill={`url(#${HATCH_ID})`} /> : null}
                     {cell.contradicted ? (
                       <rect x={x} y={y} width={span} height={side} fill="none" stroke="var(--danger)" strokeWidth={CONTRADICTION_STROKE} />
                     ) : null}
-                    {active ? <rect x={x} y={y} width={span} height={side} fill="none" stroke="var(--beam-500)" strokeWidth={SELECTION_STROKE} /> : null}
+                    {active ? <rect x={x} y={y} width={span} height={side} fill="none" stroke="var(--line-accent)" strokeWidth={SELECTION_STROKE} /> : null}
                     <CauseGlyph
                       reading={cell.measurement as GlyphReading}
                       read={read === cell.measurement}
