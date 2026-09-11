@@ -20,8 +20,14 @@
      partitioned sheet stands open (I-78: the sheet is sized by the frame, never the frame by the
      sheet). Stating the height cuts the loop: the frame is the shell's content row — the viewport
      less the topbar, `--space-12` being the topbar's own height token (src/ui/shell/shell.css) —
-     and the negative margin above bleeds shell-main's padding back over it. */
-  height: calc(100dvh - var(--space-12));
+     and the negative margin above bleeds shell-main's padding back over it.
+
+     The frame IS the shell's content row, so it is stated as that row's own measure rather than as
+     arithmetic over the viewport: v22's chrome is a 40 px top bar, a 32 px tool row and a 24 px
+     readout (Direction §1), and `100dvh` less one token stopped being the height of anything the
+     moment the second and third bands arrived. `100%` of `shell-main` cuts the same loop — the
+     height is stated, not measured from the canvas — and cannot drift when a band is revalued. */
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   background: var(--surface-app);

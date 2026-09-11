@@ -280,6 +280,7 @@
 
 .cx-shell-topbar {
   display: flex;
+  grid-row: 1;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
@@ -300,13 +301,22 @@
 
 .cx-shell-toolbar-slot {
   display: flex;
+  grid-row: 2;
   min-width: 0;
   overflow: hidden;
 }
 
-.cx-shell-body[data-toolbar="false"] .cx-shell-toolbar-slot {
-  display: none;
-}
+/* No `display: none` here, ever. A `display: none` child is removed from the grid's BOX TREE, not
+   merely from sight: the body's four children become three grid items and auto-placement slides
+   every region up one track — main into the zeroed toolbar row (floored at its own padding), the
+   readout into the 1fr row it paints the top 24 px of, and the last track left empty. That is one
+   declaration turning every screen in the product into a 48 px letterbox. The track is already 0
+   on a screen with no tools (`[data-toolbar="false"]` above) and the slot clips its overflow, so
+   an empty slot draws nothing while still holding its place in the grid. */
+
+/* Each region names the track it belongs to (the `grid-row` in each rule below), so the frame can
+   never be re-ordered by a child that stops generating a box, nor by a fifth one that someday
+   appears. Auto-placement is a convenience the frame is too load-bearing to rely on. */
 
 .cx-shell-toolbar {
   display: flex;
@@ -345,6 +355,7 @@
 
 .cx-shell-main {
   min-width: 0;
+  grid-row: 3;
   min-height: 0;
   padding: var(--space-6);
   overflow: auto;
@@ -357,6 +368,7 @@
 
 .cx-shell-status {
   display: flex;
+  grid-row: 4;
   align-items: center;
   gap: var(--space-3);
   height: var(--status-h);
