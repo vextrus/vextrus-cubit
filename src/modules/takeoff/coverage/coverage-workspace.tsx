@@ -165,13 +165,17 @@ function stateOf(props: CoverageWorkspaceProps): string {
 export function CoverageWorkspace(props: CoverageWorkspaceProps) {
   const { view } = props;
   const density = props.density ?? "comfortable";
-  const permitted = props.permitted ?? true;
   const offline = props.offline ?? false;
   const chrome = props.chrome ?? {};
   const doors: Partial<CoverageDoors> = props.doors ?? {};
   const reportId = props.reportId ?? null;
   const { Button = FallbackButton, RefusalState, ConsequenceDialog } = chrome;
   const state = props.state ?? stateOf(props);
+  // I-194: the denial is the STATE, not merely the prop it usually derives from. A caller that states
+  // `denied` outright — R-UI-050's matrix walked one cell at a time — is stating that this reader does
+  // not hold SET_BILL_BOUNDARY, and a screen reading `data-state="denied"` keeps no door open on any
+  // other evidence: both are absent, never disabled, and the denial is said once in `coverage-answer`.
+  const permitted = (props.permitted ?? true) && state !== "denied";
   // A state the caller stated is a state the screen renders: the matrix declares this screen's
   // refusal as the denial of SET_BILL_BOUNDARY, so that is the code the refusal cell states when no
   // door has answered with one of its own (R-UI-020 — a refusal is never silent).
