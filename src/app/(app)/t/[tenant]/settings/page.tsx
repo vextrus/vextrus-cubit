@@ -4,7 +4,7 @@
 import { redirect } from "next/navigation";
 import { saveDensity } from "@/server/shell/density";
 import { presentedSessionToken } from "@/server/shell/session";
-import { DensityToggle } from "@/ui/shell";
+import { DensityToggle, ThemeToggle } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import { densityRead, namedWorkspaceRead, viewerRead } from "../reads";
 import { SettingsMembersLink } from "./members/members-link";
@@ -36,6 +36,7 @@ export default async function WorkspaceSettings({ params }: { params: Promise<{ 
       <RenameForm tenantId={workspace.tenantId} name={workspace.name} />
       <SettingsMembersLink tenantId={workspace.tenantId} />
       <DensityToggle density={density} action={saveDensity} />
+      <ThemeToggle />
     </>
   );
 }

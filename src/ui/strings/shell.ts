@@ -63,6 +63,15 @@ export const shell = {
   shell_density_comfortable: "Comfortable",
   shell_density_compact: "Compact",
 
+  // The theme control, beside density because it is the same kind of thing: a preference about how
+  // this person's product is drawn. The hint says where it holds and what "System" defers to; it
+  // never says "cookie", which is storage talking rather than the product.
+  shell_theme_label: "Theme",
+  shell_theme_hint: "Sets the ground the product is drawn on. Held in this browser; System follows your device.",
+  shell_theme_system: "System",
+  shell_theme_dark: "Dark",
+  shell_theme_light: "Light",
+
   shell_denied_heading: "You do not have access to this workspace",
   shell_denied_permission: "Seeing it needs membership of the workspace this address names, which your account does not hold.",
   shell_denied_holder: "Its existing members hold that membership.",

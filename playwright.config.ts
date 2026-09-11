@@ -41,8 +41,46 @@ export default defineConfig({
     toHaveScreenshot: { maxDiffPixelRatio: 0.002 },
   },
   timeout: 120_000,
+  // The lanes. The light one is the product's baselined ground and is always present; the dark one
+  // is registered by name (CUBIT_E2E_DARK=1) rather than always, because a second project doubles
+  // every journey in the wall — and until the node that owns those captures has taken them, it
+  // compares against nothing.
+  projects:
+    process.env["CUBIT_E2E_DARK"] === "1"
+      ? [
+          { name: "light", use: { colorScheme: "light" as const } },
+          {
+            name: "dark",
+            use: { colorScheme: "dark" as const },
+            snapshotPathTemplate: "tests/e2e/baselines/design-dark/{arg}{ext}",
+            ignoreSnapshots: true,
+          },
+        ]
+      : [{ name: "light", use: { colorScheme: "light" as const } }],
+  // 1440x900 at scale 1, reduced motion, a fixed locale and clock, and the three Chromium font
+  // flags — so a capture is the same picture on any box, and a designer's browser and the suite's
+  // disagree about no glyph (Design Direction 00 §9.3).
   use: {
     baseURL,
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+    locale: "en-GB",
+    timezoneId: "Asia/Dhaka",
+    // The product's served default is dark (R-UI-001). Every baseline committed to
+    // tests/e2e/baselines/design was taken light, so this lane states light rather than inheriting
+    // it: the resolver settles the root attribute from this preference before first paint.
+    colorScheme: "light",
+    launchOptions: {
+      // Reduced motion is a launch flag rather than a `use` option: the installed @playwright/test
+      // publishes no `reducedMotion` in its test options, and a capture that waits on an animation
+      // is a flaky capture whichever surface turns the animation off.
+      args: [
+        "--force-prefers-reduced-motion",
+        "--font-render-hinting=none",
+        "--disable-lcd-text",
+        "--force-color-profile=srgb",
+      ],
+    },
     // Vextrus Builder v21 L9: the engine turns video and a full trace on for the final, green,
     // pre-merge journey run only (CUBIT_E2E_VIDEO / CUBIT_E2E_TRACE = on) and harvests them into
     // the increment's evidence; every other run keeps the cheap defaults.
@@ -76,7 +114,14 @@ export default defineConfig({
     // build of the same tree is walked as it stands (a 27 s cold build per journey invocation before).
     command: `node scripts/e2e-server.mjs --next node_modules/next/dist/bin/next build-if-stale start --port ${port}`,
     url: baseURL,
-    env: { DATABASE_URL: e2eDatabaseUrl(), CUBIT_PUBLIC_ORIGIN: baseURL, CUBIT_STORAGE_SIGNING_SECRET: "the-journeys-stage-signing-key" },
+    // The journeys' stage arms the evidence instrument by name: `?__theme=` and `?__state=` are
+    // capabilities an installation grants, never ones a URL can take (src/app/theme-resolver.ts).
+    env: {
+      DATABASE_URL: e2eDatabaseUrl(),
+      CUBIT_PUBLIC_ORIGIN: baseURL,
+      CUBIT_STORAGE_SIGNING_SECRET: "the-journeys-stage-signing-key",
+      CUBIT_UI_INSTRUMENT: "1",
+    },
     // Reuse is opt-in by name, never the default: when the port already answers, Playwright skips
     // the command entirely, so neither `next build` nor `next start` runs and the journey would
     // walk whatever bundle an earlier session left behind. A run that reuses must say so

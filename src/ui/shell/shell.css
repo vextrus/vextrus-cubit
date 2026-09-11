@@ -462,7 +462,8 @@
 
 /* R-UI-005's density control (docs/design/density-and-prefs.md §1). The section takes the name
    section's measure so the two settings blocks read as one column. */
-.cx-density {
+.cx-density,
+.cx-pref {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -470,13 +471,15 @@
   margin-block-start: var(--space-6);
 }
 
-.cx-density-label {
+.cx-density-label,
+.cx-pref-label {
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   color: var(--ink-secondary);
 }
 
-.cx-density-hint {
+.cx-density-hint,
+.cx-pref-hint {
   margin: 0;
   font-size: var(--text-12);
   color: var(--ink-muted);
@@ -485,7 +488,8 @@
 
 /* The padding is load-bearing: an option's focus reticle draws 4 px outside its box (R-UI-012), and
    inside this inset it lands within the group's border instead of clipping against it. */
-.cx-density-group {
+.cx-density-group,
+.cx-pref-options {
   display: inline-flex;
   align-self: start;
   margin-block-start: var(--space-2);
@@ -496,7 +500,8 @@
   border-radius: var(--radius-4);
 }
 
-.cx-density-option {
+.cx-density-option,
+.cx-pref-option {
   /* The tree's button ramp: every button-like control stands var(--space-8) tall (.cx-btn), and an
      interactive target is not shrunk below it for sitting inside a group (R-UI-012). */
   height: var(--space-8);
@@ -514,14 +519,16 @@
     color var(--motion-state) var(--ease);
 }
 
-.cx-density-option:hover {
+.cx-density-option:hover,
+.cx-pref-option:hover {
   background: var(--surface-sunken);
   color: var(--ink);
 }
 
 /* R-UI-030's selection idiom: the fill says which mode is held, and the weight shift is the second,
    non-colour channel — so the checked segment survives greyscale. */
-.cx-density-option[aria-checked="true"] {
+.cx-density-option[aria-checked="true"],
+.cx-pref-option[aria-checked="true"] {
   background: var(--accent-subtle);
   color: var(--ink);
   font-weight: var(--weight-heading);

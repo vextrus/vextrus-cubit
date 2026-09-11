@@ -7,6 +7,7 @@ import "./shell.css";
 export { AppShell } from "./app-shell";
 export { CommandPaletteTrigger } from "./command-palette-trigger";
 export { DensityToggle } from "./density-toggle";
+export { ThemeToggle, resolveChoice, storedTheme } from "./theme-toggle";
 export { JobsTray } from "./jobs-tray";
 export { ShellDenied } from "./shell-denied";
 export { ShellEmptyState } from "./shell-empty-state";
@@ -20,6 +21,7 @@ export { SHELL_STATES, SHELL_STATE_NAMES, shellStateKey } from "./states";
 
 export type { AppShellProps } from "./app-shell";
 export type { DensityToggleProps } from "./density-toggle";
+export type { ThemeChoice, ThemeToggleProps } from "./theme-toggle";
 export type { ShellDeniedProps } from "./shell-denied";
 export type { ShellEmptyStateProps } from "./shell-empty-state";
 export type { ShellRailProps } from "./shell-rail";
