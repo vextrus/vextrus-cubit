@@ -31,7 +31,7 @@ def quantise(value: float) -> float:
     return 0.0 if rounded == 0.0 else rounded
 
 
-def flatten(entity: Any) -> tuple[list[Point], bool] | None:
+def flatten(entity: Any, tolerance: float = FLATTEN_TOLERANCE) -> tuple[list[Point], bool] | None:
     """An entity's geometry as points, coarsened to the pinned cap.
 
     Returns the points and whether the cap coarsened them, or None when the entity carries no
@@ -56,11 +56,11 @@ def flatten(entity: Any) -> tuple[list[Point], bool] | None:
     except TypeError:
         return None
 
-    total = sum(1 for _ in path.flattening(FLATTEN_TOLERANCE))
+    total = sum(1 for _ in path.flattening(tolerance))
     if total == 0:
         return None
     if total <= FLATTEN_POINT_CAP:
-        return [(quantise(v.x), quantise(v.y)) for v in path.flattening(FLATTEN_TOLERANCE)], False
+        return [(quantise(v.x), quantise(v.y)) for v in path.flattening(tolerance)], False
 
     # `total - 1` over `cap - 1` steps lands on 0 and on the last vertex, and every index between
     # them once: the sample is the cap's worth, spread over the whole curve.
@@ -69,7 +69,7 @@ def flatten(entity: Any) -> tuple[list[Point], bool] | None:
     }
     points = [
         (quantise(vertex.x), quantise(vertex.y))
-        for index, vertex in enumerate(path.flattening(FLATTEN_TOLERANCE))
+        for index, vertex in enumerate(path.flattening(tolerance))
         if index in kept
     ]
     return points, True

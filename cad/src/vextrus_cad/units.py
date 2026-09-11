@@ -16,3 +16,13 @@ def report(code: int) -> dict[str, object]:
     """The artifact's `insunits` record for a header code."""
     unit = INSUNITS.get(code)
     return {"code": code, "unit": unit, "unmapped": unit is None}
+
+
+#: How many millimetres one drawing unit is, per `$INSUNITS` code (L-CAD-02, L-MEA-01). A code the
+#: table does not hold — `unitless` among them — states no length, and nothing here invents one.
+MM_PER_UNIT: Final[dict[int, float]] = {1: 25.4, 2: 304.8, 4: 1.0, 5: 10.0, 6: 1000.0}
+
+
+def mm_per_unit(code: int) -> float | None:
+    """The millimetres one drawing unit measures, or None where the header states no unit."""
+    return MM_PER_UNIT.get(code)

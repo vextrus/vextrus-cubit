@@ -9,15 +9,18 @@ over the artifact this writes.
 
 from __future__ import annotations
 
+import io
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
 import ezdxf
+import ezdxf.recover
 
-from . import colours, geometry, units
+from . import colours, geometry, report, units
 from .parameters import DERIVED_ENTITY_BUDGET, EXPLODE_DEPTH_CAP, parameter_set_hash
+from .resync import resync_tag_stream
 
 #: The version floor this extractor writes and both mirrors demand (L-CAD-05).
 ENTITYGRAPH_VERSION: Final = 2
@@ -49,7 +52,19 @@ _FULL_TURN_EPSILON: Final = 1e-9
 
 
 class IngestError(Exception):
-    """A drawing this extractor refuses: loud failure, nothing written (L-CAD-04)."""
+    """A drawing this extractor refuses: loud failure, nothing written (L-CAD-04).
+
+    Every refusal carries a code from the closed table in `report.py` and says it first, because the
+    operator two processes away reads a string: `DXF_UNREADABLE` tells them their export is the
+    problem, `SOURCE_NOT_READABLE` tells them it is ours, and a bare traceback tells them neither.
+    """
+
+    def __init__(self, code: str, message: str) -> None:
+        if code not in report.REFUSAL_CODES:
+            raise ValueError(f"{code} is not a refusal this extractor knows")
+        super().__init__(f"{code}: {message}")
+        self.code = code
+        self.message = message
 
 
 @dataclass
@@ -143,9 +158,13 @@ def _anchor(entity: Any) -> tuple[float, float] | None:
 class _Extractor:
     """One invocation's state: stateless between runs, budgeted within one (L-CAD-03, L-CAD-04)."""
 
-    def __init__(self, doc: Any) -> None:
+    def __init__(self, doc: Any, notes: report.Report | None = None) -> None:
+        notes = report.Report() if notes is None else notes
         self._doc = doc
         self._layers = colours.LayerColours.of(doc)
+        #: How finely a curve of THIS drawing is described, in this drawing's units — derived from
+        #: `$INSUNITS` so the accuracy is the same length on every file (L-MEA-01).
+        self._tolerance = report.flatten_tolerance(int(doc.header.get("$INSUNITS", 0)), notes)
         #: How much of the pinned derived-entity budget this invocation has spent walking (L-CAD-03).
         self._expanded = 0
 
@@ -167,7 +186,7 @@ class _Extractor:
         }
 
         closed = _closed_flag(entity, dxftype)
-        flattened = geometry.flatten(entity)
+        flattened = geometry.flatten(entity, self._tolerance)
         points: list[geometry.Point] | None = None
         if flattened is not None:
             points, capped = flattened
@@ -295,9 +314,12 @@ def _bbox_record(box: tuple[float, float, float, float] | None) -> dict[str, lis
     return {"max": [box[2], box[3]], "min": [box[0], box[1]]}
 
 
-def ingest_document(doc: Any) -> dict[str, Any]:
-    """The whole artifact for an already-opened drawing."""
-    extractor = _Extractor(doc)
+def ingest_document(doc: Any, notes: report.Report | None = None) -> dict[str, Any]:
+    """The whole artifact for an already-opened drawing, with what it carries but does not draw
+    written into `notes` (L-CAD-04: never a silent loss)."""
+    notes = report.Report() if notes is None else notes
+    report.survey(doc, notes)
+    extractor = _Extractor(doc, notes)
 
     spaces: list[_Space] = []
     dropped: list[str] = []
@@ -344,16 +366,91 @@ def ingest_document(doc: Any) -> dict[str, Any]:
     }
 
 
-def ingest_dxf(source: Path) -> dict[str, Any]:
-    """Read a DXF file and return its EntityGraph v2 artifact, or refuse the drawing by name."""
+def _open_recovered(stream: io.BytesIO, notes: report.Report) -> Any:
+    """One recover-mode open, with what the audit repaired on the way in recorded as a note.
+
+    `ezdxf.recover` is the open this extractor uses rather than `readfile`, because the drawings this
+    product is given are converter output: a file AutoCAD wrote, a file LibreDWG wrote from a file
+    AutoCAD wrote, a file a consultant's 2009 seat wrote. `readfile` refuses all of them over one
+    flaw; recover mode repairs what it can and hands back an auditor saying what it did — and a
+    repair nobody is told about is a silent edit of somebody's drawing, so the count travels
+    (L-CAD-09).
+    """
+    doc, auditor = ezdxf.recover.read(stream)
+    if auditor.fixes or auditor.errors:
+        notes.add(
+            report.AUDIT_REPAIRED,
+            f"{len(auditor.fixes)} repaired, {len(auditor.errors)} left unrepaired",
+            len(auditor.fixes) + len(auditor.errors),
+        )
+    return doc
+
+
+def read_document(source: Path, notes: report.Report) -> Any:
+    """Open a drawing, repairing its tag stream at most once, or refuse it by name (L-CAD-04).
+
+    The order is: recover mode, and if the tag stream itself is mis-paired, ONE resync and recover
+    mode again. Once, not until it works — a resync that has to run twice is not repairing a stray
+    line, it is guessing at a file, and a guessed drawing is worse than a refused one because
+    everything downstream reads the artifact and nothing else (L-CAD-01).
+
+    A drawing that still will not open leaves as `DXF_UNREADABLE` carrying the line that broke the
+    rhythm, never as a bare exception: a traceback names this file where the operator needs the line
+    of their own export to take back to whoever produced it.
+    """
     try:
-        doc = ezdxf.readfile(str(source))
+        data = source.read_bytes()
     except OSError as error:
-        raise IngestError(str(error)) from error
-    except ezdxf.DXFError as error:
-        raise IngestError(f"unparseable DXF: {error}") from error
+        raise IngestError(report.SOURCE_NOT_READABLE, str(error)) from error
+
+    repeated = report.duplicate_handles(data)
+    if repeated:
+        raise IngestError(
+            report.HANDLES_NOT_UNIQUE,
+            f"{len(repeated)} handle(s) are stated more than once, first {repeated[0]}",
+        )
+
     try:
-        return ingest_document(doc)
+        return _open_recovered(io.BytesIO(data), notes)
+    except ezdxf.DXFStructureError as structure_error:
+        first = structure_error
+    except ezdxf.DXFError as error:
+        # Recover mode failed for a reason no re-pairing of lines can address.
+        raise IngestError(report.DXF_UNREADABLE, str(error)) from error
+
+    repair = resync_tag_stream(data)
+    where = f'line {repair.line}: "{repair.text}"' if repair.line else "no mis-paired line was found"
+    if repair.repaired is None or repair.dropped == 0:
+        raise IngestError(report.DXF_UNREADABLE, f"{first} ({where})") from first
+
+    try:
+        doc = _open_recovered(io.BytesIO(repair.repaired), notes)
+    except ezdxf.DXFError as error:
+        raise IngestError(
+            report.DXF_UNREADABLE,
+            f"{error} after a tag-stream resync dropped {repair.dropped} lines ({where})",
+        ) from error
+
+    notes.add(
+        report.RESYNCED_TAG_STREAM,
+        f"{repair.dropped} lines dropped, first at {where}",
+        repair.dropped,
+    )
+    return doc
+
+
+def ingest_dxf(source: Path, notes: report.Report | None = None) -> dict[str, Any]:
+    """Read a DXF file and return its EntityGraph v2 artifact, or refuse the drawing by name.
+
+    `notes` is the caller's report: what the open repaired and what the drawing carries that no
+    geometry in the artifact stands for is written into it. A caller that passes none is asking only
+    for the artifact, and the notes are collected and dropped — never suppressed, because the
+    refusals travel as exceptions whatever the caller asked for.
+    """
+    notes = report.Report() if notes is None else notes
+    doc = read_document(source, notes)
+    try:
+        return ingest_document(doc, notes)
     except (ezdxf.DXFError, ValueError) as error:
         # A drawing ezdxf opens but cannot be read through refuses the sheet by name rather than
         # writing half an artifact (L-CAD-04). ValueError is the extractor's own half of that: a
@@ -361,4 +458,4 @@ def ingest_dxf(source: Path) -> dict[str, Any]:
         # header field spelling $INSUNITS as something other than a number. Each is a drawing this
         # extractor cannot read through, and none of them may leave as a traceback, because a
         # traceback names geometry.py where the contract requires the drawing's own name.
-        raise IngestError(f"unextractable DXF: {error}") from error
+        raise IngestError(report.DXF_UNEXTRACTABLE, f"unextractable DXF: {error}") from error
