@@ -186,6 +186,11 @@ const motion: Group = {
     invariant("--motion-reticle", "120ms"),
     invariant("--ease", "cubic-bezier(0.2,0,0,1)"),
     invariant("--ease-flyto", "cubic-bezier(0.45,0.05,0.25,1)"),
+    // The two aliases of §4.5. They sit in this group rather than in `semantic-alias` because
+    // R-UI-001 fixes emission order by prefix and a `--motion-*` key may not follow a `--shadow-*`
+    // one; reduced motion zeroes them for free, through the durations they name.
+    invariant("--motion-hover", "var(--motion-state)"),
+    invariant("--motion-drawer", "var(--motion-panel)"),
   ],
 };
 
@@ -226,6 +231,74 @@ const shadow: Group = {
   ],
 };
 
+/**
+ * The semantic alias layer (Design Direction 00 §4.1): the names every component consumes.
+ *
+ * Nothing in R-UI-001 is renamed or revalued — each alias is a `var()` onto a primitive, emitted
+ * into both theme blocks so an alias may flip its *index* between themes (`--ink-inverse` is
+ * graphite-0 on light and graphite-1000 on dark) while consumer code never branches on the theme.
+ * After this group exists a `--graphite-*` or `--beam-*` reference outside this file and its
+ * generated stylesheet is a lint failure (cubit/no-primitive-token); the canvas, basis, element and
+ * act palettes are exempt, because those names already say what they mean.
+ */
+const semanticAlias: Group = {
+  label: "semantic-alias",
+  tokens: [
+    // surfaces
+    invariant("--surface-app", "var(--graphite-0)"),
+    invariant("--surface-panel", "var(--graphite-50)"),
+    ["--surface-raised", "var(--graphite-0)", "var(--graphite-100)"],
+    ["--surface-overlay", "var(--graphite-0)", "var(--graphite-100)"],
+    ["--surface-sunken", "var(--graphite-100)", "var(--graphite-50)"],
+    invariant("--surface-hover", "var(--graphite-100)"),
+    invariant("--surface-active", "var(--graphite-200)"),
+    invariant("--surface-selected", "var(--beam-100)"),
+    invariant("--surface-canvas", "var(--canvas-paper)"),
+    invariant("--surface-inverse", "var(--graphite-900)"),
+    // ink
+    invariant("--ink", "var(--graphite-900)"),
+    invariant("--ink-secondary", "var(--graphite-700)"),
+    invariant("--ink-muted", "var(--graphite-600)"),
+    invariant("--ink-disabled", "var(--graphite-500)"),
+    ["--ink-inverse", "var(--graphite-0)", "var(--graphite-1000)"],
+    invariant("--ink-link", "var(--beam-600)"),
+    invariant("--ink-act", "var(--act-600)"),
+    invariant("--ink-code", "var(--graphite-800)"),
+    // lines
+    invariant("--line", "var(--graphite-200)"),
+    invariant("--line-strong", "var(--graphite-300)"),
+    invariant("--line-heavy", "var(--graphite-400)"),
+    invariant("--line-accent", "var(--beam-500)"),
+    invariant("--line-focus", "var(--beam-500)"),
+    invariant("--line-act", "var(--act-500)"),
+    // accent
+    invariant("--accent", "var(--beam-500)"),
+    invariant("--accent-hover", "var(--beam-600)"),
+    invariant("--accent-active", "var(--beam-700)"),
+    invariant("--accent-subtle", "var(--beam-100)"),
+    invariant("--accent-muted", "var(--beam-300)"),
+    invariant("--act", "var(--act-500)"),
+    // state
+    invariant("--state-success", "var(--success)"),
+    invariant("--state-success-surface", "var(--success-surface)"),
+    invariant("--state-warn", "var(--warn)"),
+    invariant("--state-warn-surface", "var(--warn-surface)"),
+    invariant("--state-danger", "var(--danger)"),
+    invariant("--state-danger-surface", "var(--danger-surface)"),
+    invariant("--state-info", "var(--info)"),
+    invariant("--state-info-surface", "var(--info-surface)"),
+    // the coverage ramp: one hue, lightness steps, so share-published reads without colour (§4.3)
+    invariant("--cov-0", "var(--graphite-200)"),
+    invariant("--cov-1", "var(--beam-100)"),
+    invariant("--cov-2", "var(--beam-300)"),
+    invariant("--cov-3", "var(--beam-500)"),
+    invariant("--cov-4", "var(--beam-600)"),
+    // glass is a z-overlay privilege; it never appears in a docked region (§1)
+    ["--glass-alpha", "0.92", "0.88"],
+    invariant("--glass-blur", "12px"),
+  ],
+};
+
 /** R-UI-001's emission order, verbatim. Every consumer of the vocabulary reads it from here. */
 const GROUPS: readonly Group[] = [
   graphite,
@@ -247,6 +320,7 @@ const GROUPS: readonly Group[] = [
   breakpoint,
   row,
   shadow,
+  semanticAlias,
 ];
 
 /** The durations reduced motion zeroes at the source (R-UI-004). */

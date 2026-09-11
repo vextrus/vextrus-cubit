@@ -105,6 +105,8 @@
   --motion-reticle: 120ms;
   --ease: cubic-bezier(0.2,0,0,1);
   --ease-flyto: cubic-bezier(0.45,0.05,0.25,1);
+  --motion-hover: var(--motion-state);
+  --motion-drawer: var(--motion-panel);
   /* z */
   --z-base: 0;
   --z-sticky: 100;
@@ -123,6 +125,52 @@
   --shadow-2: 0 2px 8px -2px rgba(16,20,26,0.10);
   --shadow-3: 0 8px 24px -4px rgba(16,20,26,0.14);
   --shadow-4: 0 16px 48px -8px rgba(16,20,26,0.20);
+  /* semantic-alias */
+  --surface-app: var(--graphite-0);
+  --surface-panel: var(--graphite-50);
+  --surface-raised: var(--graphite-0);
+  --surface-overlay: var(--graphite-0);
+  --surface-sunken: var(--graphite-100);
+  --surface-hover: var(--graphite-100);
+  --surface-active: var(--graphite-200);
+  --surface-selected: var(--beam-100);
+  --surface-canvas: var(--canvas-paper);
+  --surface-inverse: var(--graphite-900);
+  --ink: var(--graphite-900);
+  --ink-secondary: var(--graphite-700);
+  --ink-muted: var(--graphite-600);
+  --ink-disabled: var(--graphite-500);
+  --ink-inverse: var(--graphite-0);
+  --ink-link: var(--beam-600);
+  --ink-act: var(--act-600);
+  --ink-code: var(--graphite-800);
+  --line: var(--graphite-200);
+  --line-strong: var(--graphite-300);
+  --line-heavy: var(--graphite-400);
+  --line-accent: var(--beam-500);
+  --line-focus: var(--beam-500);
+  --line-act: var(--act-500);
+  --accent: var(--beam-500);
+  --accent-hover: var(--beam-600);
+  --accent-active: var(--beam-700);
+  --accent-subtle: var(--beam-100);
+  --accent-muted: var(--beam-300);
+  --act: var(--act-500);
+  --state-success: var(--success);
+  --state-success-surface: var(--success-surface);
+  --state-warn: var(--warn);
+  --state-warn-surface: var(--warn-surface);
+  --state-danger: var(--danger);
+  --state-danger-surface: var(--danger-surface);
+  --state-info: var(--info);
+  --state-info-surface: var(--info-surface);
+  --cov-0: var(--graphite-200);
+  --cov-1: var(--beam-100);
+  --cov-2: var(--beam-300);
+  --cov-3: var(--beam-500);
+  --cov-4: var(--beam-600);
+  --glass-alpha: 0.92;
+  --glass-blur: 12px;
 }
 
 [data-theme="dark"] {
@@ -230,6 +278,8 @@
   --motion-reticle: 120ms;
   --ease: cubic-bezier(0.2,0,0,1);
   --ease-flyto: cubic-bezier(0.45,0.05,0.25,1);
+  --motion-hover: var(--motion-state);
+  --motion-drawer: var(--motion-panel);
   /* z */
   --z-base: 0;
   --z-sticky: 100;
@@ -248,6 +298,52 @@
   --shadow-2: 0 2px 8px -2px rgba(0,0,0,0.50);
   --shadow-3: 0 8px 24px -4px rgba(0,0,0,0.55);
   --shadow-4: 0 16px 48px -8px rgba(0,0,0,0.60);
+  /* semantic-alias */
+  --surface-app: var(--graphite-0);
+  --surface-panel: var(--graphite-50);
+  --surface-raised: var(--graphite-100);
+  --surface-overlay: var(--graphite-100);
+  --surface-sunken: var(--graphite-50);
+  --surface-hover: var(--graphite-100);
+  --surface-active: var(--graphite-200);
+  --surface-selected: var(--beam-100);
+  --surface-canvas: var(--canvas-paper);
+  --surface-inverse: var(--graphite-900);
+  --ink: var(--graphite-900);
+  --ink-secondary: var(--graphite-700);
+  --ink-muted: var(--graphite-600);
+  --ink-disabled: var(--graphite-500);
+  --ink-inverse: var(--graphite-1000);
+  --ink-link: var(--beam-600);
+  --ink-act: var(--act-600);
+  --ink-code: var(--graphite-800);
+  --line: var(--graphite-200);
+  --line-strong: var(--graphite-300);
+  --line-heavy: var(--graphite-400);
+  --line-accent: var(--beam-500);
+  --line-focus: var(--beam-500);
+  --line-act: var(--act-500);
+  --accent: var(--beam-500);
+  --accent-hover: var(--beam-600);
+  --accent-active: var(--beam-700);
+  --accent-subtle: var(--beam-100);
+  --accent-muted: var(--beam-300);
+  --act: var(--act-500);
+  --state-success: var(--success);
+  --state-success-surface: var(--success-surface);
+  --state-warn: var(--warn);
+  --state-warn-surface: var(--warn-surface);
+  --state-danger: var(--danger);
+  --state-danger-surface: var(--danger-surface);
+  --state-info: var(--info);
+  --state-info-surface: var(--info-surface);
+  --cov-0: var(--graphite-200);
+  --cov-1: var(--beam-100);
+  --cov-2: var(--beam-300);
+  --cov-3: var(--beam-500);
+  --cov-4: var(--beam-600);
+  --glass-alpha: 0.88;
+  --glass-blur: 12px;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -123,3 +123,108 @@ hr {
   border-top: var(--hairline);
   margin: 0;
 }
+
+/* ------------------------------------------------------------------ density
+ * The density and layout tokens (Design Direction 00 §4.2). They carry no colour, so they are
+ * handwritten here rather than emitted from `tokens.ts`, whose generated stylesheet is closed at
+ * three constructs by R-UI-001's AC-1. Compact is the default and sits on `:root`; the one
+ * `[data-density]` attribute the shell already carries switches the whole set, so the eight
+ * per-screen row-height overrides have nothing left to say. Every value is a multiple of 4, and
+ * 28/36 are R-UI-001's two row heights, unchanged.
+ */
+:root,
+[data-density="compact"] {
+  --row-h: var(--row-compact);
+  --control-h: 28px;
+  --control-h-lg: 32px;
+  --cell-px: var(--space-2);
+  --cell-py: 0px;
+  --text-body: var(--text-13);
+  --text-caption: var(--text-12);
+  --gap-section: var(--space-4);
+  --stat-h: 64px;
+}
+
+[data-density="comfortable"] {
+  --row-h: var(--row-comfortable);
+  --control-h: 32px;
+  --control-h-lg: 36px;
+  --cell-px: var(--space-3);
+  --cell-py: var(--space-1);
+  --text-body: var(--text-14);
+  --text-caption: var(--text-12);
+  --gap-section: var(--space-6);
+  --stat-h: 72px;
+}
+
+/* The chrome geometry: one row of numbers the shell and every template read, never restate. */
+:root {
+  --rail-w: 48px;
+  --rail-w-expanded: 220px;
+  --topbar-h: 40px;
+  --toolbar-h: 32px;
+  --status-h: 24px;
+  --inspector-w: 320px;
+  --inspector-w-min: 280px;
+  --inspector-w-max: 480px;
+  --drawer-w: 200px;
+  --drawer-w-min: 160px;
+  --drawer-w-max: 320px;
+  --icon-sm: 14px;
+  --icon-md: 16px;
+  --icon-lg: 20px;
+  --icon-stroke: 1.5;
+}
+
+/* ------------------------------------------------------------------ hatches
+ * The coverage patterns (§4.3). Meaning never rides on colour alone: each mark carries a glyph, a
+ * pattern and a colour. They are gradients rather than inline SVG on purpose — B-24 admits no URL
+ * of any scheme in this stylesheet, and a gradient paints in `currentColor`, spells no literal, and
+ * prints in the certificate's greyscale (R-UI-060).
+ */
+:root {
+  --pattern-solid: none;
+  --pattern-none: none;
+  --pattern-dots: radial-gradient(circle at 1px 1px, currentColor 1px, transparent 1px);
+  --pattern-hatch: repeating-linear-gradient(45deg, currentColor 0 1px, transparent 1px 6px);
+  --pattern-cross: repeating-linear-gradient(45deg, currentColor 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(135deg, currentColor 0 1px, transparent 1px 6px);
+  --pattern-pitch: 6px 6px;
+}
+
+/* -------------------------------------------------------------- 12–13 px type
+ * Spline Sans is not changed and cannot be (R-UI-003, B-24) — this is a rendering rule. Its word
+ * space is ≈ 0.22 em, which a 1× headless Chromium rounds to 2–3 px at 12–13 px and prints
+ * "Gotoprojects". Widening the word space by 0.08 em at those sizes buys back the gap without
+ * touching a metric, a family or a weight (§4.4).
+ */
+:root {
+  font-optical-sizing: auto;
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
+}
+
+.cx-text-12,
+.cx-text-13,
+[data-density="compact"] .cx-body {
+  word-spacing: 0.08em;
+  letter-spacing: 0.004em;
+}
+
+.cx-text-14 {
+  word-spacing: 0.04em;
+}
+
+/* Dark ground only: greyscale antialiasing keeps light text on graphite from blooming. Light keeps
+   the platform's subpixel rendering, which is what a designer's browser shows there. */
+[data-theme="dark"] {
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Mono is for numbers, codes, keys, formulas and coordinates — and the rule above must not reach
+   it: a widened word space would break the column alignment tabular figures exist for (§1). */
+.cx-mono {
+  word-spacing: 0;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
