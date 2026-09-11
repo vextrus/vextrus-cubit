@@ -7,7 +7,8 @@
 // names fail to yield a sheet — the store holding nothing at that address, bytes that are not JSON,
 // JSON the one mirror refuses — is the same registered refusal, carrying the facts the reading did
 // record so the reader still learns what was recovered.
-import { entityGraphSchema } from "@/core/entitygraph/schema";
+import { artifactAt } from "@/core/entitygraph/artifact";
+import type { EntityGraph } from "@/core/entitygraph/schema";
 import { REFUSALS } from "@/core/errors";
 import type { Storage } from "@/core/storage";
 import type { IngestFacts } from "../ingest/facts";
@@ -154,25 +155,20 @@ function refuse(): Build {
 
 /** The bytes one address names, read once and made into a sheet — or into the reason there is none. */
 async function build(scope: ViewerScope, artifactSha256: string, storage: Storage): Promise<Build> {
-  const bytes = await storage.get(scope.tenantId, artifactSha256);
   // An address the store cannot answer leaves the sheet exactly as unrenderable as bytes the mirror
-  // refuses, and the reader's move is the same one: re-read the drawing. So it is the registered
+  // refuses, and the reader's move is the same one: re-read the drawing. So both are the registered
   // refusal with the recovered facts beside it, never a raise the reader can do nothing with
   // (R-UI-043, R-UI-020).
-  if (bytes === null) return refuse();
-
   // Both ways bytes can fail to be an artifact — not JSON at all, and JSON the one mirror refuses —
-  // are the same fact about the reading, so they answer the same registered way (L-CAD-05).
-  let json: unknown;
+  // are the same fact about the reading, so they answer the same registered way (L-CAD-05). The
+  // reading itself is the tree's one artifact read: validated once per content hash, and answered
+  // from the hash for every later reader of the same drawing.
+  let graph: EntityGraph;
   try {
-    json = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+    graph = await artifactAt(scope.tenantId, artifactSha256, storage, `the viewer's sheet ${scope.layoutName}`);
   } catch {
     return refuse();
   }
-  const parsed = entityGraphSchema.safeParse(json);
-  if (!parsed.success) return refuse();
-
-  const graph = parsed.data;
   if (!graphHoldsLayout(graph, scope.layoutName)) return { kind: "absent", reason: "layout-unknown" };
 
   const manifest = buildRenderManifest(graph, scope.layoutName);

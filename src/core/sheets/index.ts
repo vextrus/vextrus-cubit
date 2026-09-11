@@ -6,7 +6,8 @@
 // rendering that reached into `src/modules` could not (ARCH-01). The module above composes these
 // answers with the raster seam's pictures and the group labels a screen writes sentences from.
 import { and, desc, drawings, eq, forTenant, inArray, ingests, isUuid, sheetDisciplines, type TenantTx } from "../db";
-import { entityGraphSchema, type EntityGraph } from "../entitygraph/schema";
+import { artifactAt } from "@/core/entitygraph/artifact";
+import type { EntityGraph } from "../entitygraph/schema";
 import type { Storage } from "../storage";
 import { readTitleBlock } from "./grammar";
 import { DISCIPLINES, FIDELITY_FACTS, sheetIdOf, type Discipline, type FidelityFact, type ScaleState, type SheetProposal } from "./law";
@@ -247,13 +248,12 @@ function sheetKind(kind: unknown, layoutName: string): "model" | "paper" {
   return kind;
 }
 
-/** The artifact a record was written from, read back and validated against the one mirror (L-CAD-05). */
+/**
+ * The artifact a record was written from, validated against the one mirror — ONCE per content
+ * hash, wherever in the tree it is asked for (L-CAD-05). The hash is the store's own address for
+ * exactly these bytes, so a second reader of the same drawing is answered without a second
+ * validation and never with another drawing's geometry.
+ */
 async function artifactOf(tenantId: string, record: SheetSourceRecord, storage: Storage): Promise<EntityGraph> {
-  const bytes = await storage.get(tenantId, record.artifactSha256);
-  // An artifact a record points at that the store does not hold is an outage of ours, not the
-  // drawing's fault: the record and the object were written together (ARCH-03).
-  if (bytes === null) throw new Error(`the store holds no artifact at ${record.artifactSha256} for ingest ${record.ingestId} (SEAM-STORAGE)`);
-  const parsed = entityGraphSchema.safeParse(JSON.parse(new TextDecoder().decode(bytes)));
-  if (!parsed.success) throw new Error(`the artifact at ${record.artifactSha256} is not an EntityGraph this tree reads: ${parsed.error.message}`);
-  return parsed.data;
+  return await artifactAt(tenantId, record.artifactSha256, storage, `ingest ${record.ingestId}`);
 }

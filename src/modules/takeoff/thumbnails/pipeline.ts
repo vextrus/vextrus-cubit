@@ -13,7 +13,8 @@
 // other would refuse (Q-12).
 import { createHash } from "node:crypto";
 import { REFUSALS } from "@/core/errors";
-import { entityGraphSchema, type EntityGraph } from "@/core/entitygraph/schema";
+import { artifactAt } from "@/core/entitygraph/artifact";
+import { type EntityGraph } from "@/core/entitygraph/schema";
 import { refusal } from "@/core/faults/refusal-marker";
 import { enqueue, type JobKind, type JobPayloads, type JobProgress } from "@/core/jobs";
 import type { Storage } from "@/core/storage";
@@ -202,15 +203,13 @@ function refuseCollidingNames(graph: EntityGraph): void {
   }
 }
 
-/** The artifact a record was written from, read back and validated against the one mirror (L-CAD-05). */
+/**
+ * The artifact a record was written from, validated against the one mirror — ONCE per content hash,
+ * wherever in the tree it is asked for (L-CAD-05). The hash is the store's own address for exactly
+ * these bytes, so a second reader of the same drawing is answered without a second validation.
+ */
 async function artifactOf(record: IngestRecord, tenantId: string, storage: Storage): Promise<EntityGraph> {
-  const bytes = await storage.get(tenantId, record.artifactSha256);
-  // An artifact a record points at that the store does not hold is an outage of ours, not the
-  // drawing's fault: the record and the object were written together (ARCH-03).
-  if (bytes === null) throw new Error(`the store holds no artifact at ${record.artifactSha256} for ingest ${record.ingestId} (SEAM-STORAGE)`);
-  const parsed = entityGraphSchema.safeParse(JSON.parse(new TextDecoder().decode(bytes)));
-  if (!parsed.success) throw new Error(`the artifact at ${record.artifactSha256} is not an EntityGraph this tree reads: ${parsed.error.message}`);
-  return parsed.data;
+  return await artifactAt(tenantId, record.artifactSha256, storage, `ingest ${record.ingestId}`);
 }
 
 /**
