@@ -112,6 +112,27 @@ def run(world: dict[str, Any] | None = None) -> dict[str, Any]:
                     assert m["storey"] in stacks[sid]["storeys"], (m["id"], sid)
                 if kind == "BEAM":
                     assert sid in by_id, (m["id"], sid)
+            for end, (kind, sid) in enumerate(m["supports"]):
+                pos, u = m["p0" if end == 0 else "p1"], m["end_dirs"][end]
+                if kind != "COLUMN" or stacks[sid].get("rot_deg") or (u[0] and u[1]):
+                    continue  # the 45° column and the diagonal porch beams are checked in golden_check
+                r = M.column_rect(stacks[sid], m["storey"])
+                if u[0]:  # the face the span leaves from, along ±x
+                    face = (
+                        (r["cx"] + r["sx"] / 2) if u[0] > 0 else (r["cx"] - r["sx"] / 2)
+                    )
+                    want = (face - pos[0]) * u[0]
+                else:
+                    face = (
+                        (r["cy"] + r["sy"] / 2) if u[1] > 0 else (r["cy"] - r["sy"] / 2)
+                    )
+                    want = (face - pos[1]) * u[1]
+                assert m["extents"][end] == want, (
+                    m["id"],
+                    end,
+                    m["extents"][end],
+                    want,
+                )
             if m["axis"] in "xy":
                 lo, hi = sorted([m["p0"], m["p1"]])
                 rect = (

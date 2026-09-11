@@ -352,6 +352,21 @@ def column_rect(stack: dict[str, Any], storey: str) -> dict[str, Decimal]:
     return {"cx": cx, "cy": cy, "sx": sx, "sy": sy, "b": b, "d": d}
 
 
+def column_poly(stack: dict[str, Any], storey: str) -> list[tuple[Decimal, Decimal]]:
+    """Plan polygon of a column at a storey (the 45° column rotated about its centre)."""
+    r = column_rect(stack, storey)
+    hx, hy = r["sx"] / 2, r["sy"] / 2
+    corners = [(-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy)]
+    if stack.get("rot_deg"):
+        hx, hy = r["d"] / 2, r["b"] / 2  # local depth axis along the chamfer (1, 1)/√2
+        s2 = D(1) / sqrt(D(2))
+        corners = [
+            ((x - y) * s2, (x + y) * s2)
+            for x, y in [(-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy)]
+        ]
+    return [(r["cx"] + x, r["cy"] + y) for x, y in corners]
+
+
 # Beam sections (b × overall D, main bars, stirrups): "typical" grid beams are 250×450 (10"×18"),
 # long-line perimeter beams 300×600 (12"×24"), transfer girder TG1 400×900.
 BEAM_TYPES: dict[str, dict[str, Any]] = {
@@ -1274,30 +1289,43 @@ class Build:
 
     # -- beams --------------------------------------------------------------------------------
     def support_extent(
-        self, kind: str, sid: str, storey: str, axis: str, pos: tuple[Decimal, Decimal]
-    ) -> tuple[Decimal, Decimal]:
-        """Half-widths (before, after) of a support measured along the beam axis, and the width across."""
+        self,
+        kind: str,
+        sid: str,
+        storey: str,
+        pos: tuple[Decimal, Decimal],
+        u: tuple[Decimal, Decimal],
+    ) -> Decimal:
+        """Distance from the beam's authored end point (on the grid line) to the support's real face
+        toward the span: the largest projection of the support's plan polygon onto the unit direction
+        `u` (pointing into the span). Face-flush bands shift a column's centre off the grid, so the
+        face is never assumed at half a width (adversary finding 1)."""
         if kind == "COLUMN":
-            s = next(s for s in self.stacks if s["id"] == sid)
-            r = column_rect(s, storey)
-            if s.get("rot_deg"):
-                return (r["d"] / 2, r["b"])
-            return (
-                (r["sx"] if axis == "x" else r["sy"]) / 2,
-                (r["sy"] if axis == "x" else r["sx"]),
+            stack = next(s for s in self.stacks if s["id"] == sid)
+            if COLUMN_MARKS[stack["mark"]].get(
+                "circular"
+            ):  # concentric circle: the radius, any direction
+                return column_rect(stack, storey)["sx"] / 2
+            poly = column_poly(stack, storey)
+        elif kind == "WALL":
+            w = self.by_id[f"SW1-{sid}@{storey}"]
+            poly = [
+                (w["x0"], w["y0"]),
+                (w["x1"], w["y0"]),
+                (w["x1"], w["y1"]),
+                (w["x0"], w["y1"]),
+            ]
+        elif kind == "CAP":
+            poly = (
+                self.by_id[f"PC-{sid}"]["poly"]
+                if f"PC-{sid}" in self.by_id
+                else self.by_id["F1"]["poly"]
             )
-        if kind == "WALL":
-            t = CORE["t_low"] if storey in ("FDN", "GF", "1F", "2F") else CORE["t_high"]
-            return (t / 2, t)
-        if kind == "CAP":
-            x0, y0, x1, y1 = self.cap_rects[sid]
-            return (
-                ((x1 - x0) if axis == "x" else (y1 - y0)) / 2,
-                (y1 - y0) if axis == "x" else (x1 - x0),
-            )
-        if kind == "BEAM":  # a beam-to-beam joint: clear to the crossing beam's face
-            return (D(BEAM_TYPES[self.by_id[sid]["type"]]["b"]) / 2, D(0))
-        return (D(0), D(0))  # FREE (cantilever tip), JOINT corner
+        elif kind == "BEAM":  # a beam-to-beam joint: clear to the crossing beam's face
+            return D(BEAM_TYPES[self.by_id[sid]["type"]]["b"]) / 2
+        else:
+            return D(0)  # FREE (cantilever tip), JOINT corner
+        return max((vx - pos[0]) * u[0] + (vy - pos[1]) * u[1] for vx, vy in poly)
 
     def resolve(self, kind: str, sid: str, level: str) -> tuple[str, str]:
         if kind == "BEAM" and sid not in self.by_id:
@@ -1336,8 +1364,13 @@ class Build:
         if extra and "arc_len" in extra:
             length = extra["arc_len"]
         s0, s1 = (tuple(self.resolve(k, sid, level)) for k, sid in (s0, s1))
-        e0, _w0 = self.support_extent(s0[0], s0[1], storey, axis, p0)
-        e1, _w1 = self.support_extent(s1[0], s1[1], storey, axis, p1)
+        chord = sqrt((p1[0] - p0[0]) ** 2 + (p1[1] - p0[1]) ** 2)
+        u0 = ((p1[0] - p0[0]) / chord, (p1[1] - p0[1]) / chord)
+        u1 = (-u0[0], -u0[1])
+        if extra and "end_dirs" in extra:  # curved: the tangents at the supports
+            u0, u1 = extra["end_dirs"]
+        e0 = self.support_extent(s0[0], s0[1], storey, p0, u0)
+        e1 = self.support_extent(s1[0], s1[1], storey, p1, u1)
         clear = length - e0 - e1
         m = self.add(
             id=bid,
@@ -1362,8 +1395,10 @@ class Build:
             t_l=t_sides[0],
             t_r=t_sides[1],
             supports=[s0, s1],
+            extents=[e0, e1],
+            end_dirs=[u0, u1],
             grade=GRADE["default"],
-            **(extra or {}),
+            **{k: v for k, v in (extra or {}).items() if k != "end_dirs"},
         )
         # contact faces this beam removes from its supports' formwork (member-end threshold 500 cm²)
         for (kind, sid), depth_end in (
@@ -2475,7 +2510,11 @@ class Build:
                 ("BEAM", f"{prefix}CB4@{level}"),
                 ("COLUMN", "A6"),
                 (D(150), D(0)),
-                {"arc_len": (X["6"] - BALCONY["r"] - X["5"]) + arc, "curved": True},
+                {
+                    "arc_len": (X["6"] - BALCONY["r"] - X["5"]) + arc,
+                    "curved": True,
+                    "end_dirs": ((ONE, ZERO), (ZERO, -ONE)),
+                },
             )
             if level == "1F":
                 s = next(s for s in self.stacks if s.get("porch"))

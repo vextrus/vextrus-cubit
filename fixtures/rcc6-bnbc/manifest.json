@@ -4,13 +4,13 @@
   "generator": {
     "path": "fixtures/gen/rcc6_bnbc/",
     "modules": {
-      "model.py": "0fcc5a852126909b9249c31d78b301739fd1c74b3526b24e6b7355c2f7dffdb6",
+      "model.py": "cddd4ec0445e4620253d96d15e6cc9a71f4c2f9f0e7031d0657c600d027f43e5",
       "golden.py": "9e85f2441fb1c26e54520e8768bc99e6ef62d0b5bd725c8d07822c66a4397f80",
       "golden_check.py": "9c4f8faaa3c51c6aa15ff7d316d7bb8ab898fb372deb279cc9938f74dc98f712",
-      "selfcheck.py": "cedd159b2b31cf197cf6ea4ca60f9160de85e18297c320d63c77146d6790ac34",
-      "__main__.py": "46d034ec59a3233e8bdb14c9b805ef81684152b803e90b3dcb9128db64ec3b28",
+      "selfcheck.py": "5d06171350e60d4850980e198b40a3e0597d12a41a60a9a15002afe066178f95",
+      "__main__.py": "5d6f46488df6fd2878db401077eba938e49e6ded6e91ff04c40c1880c69ebf10",
       "cells.json": "b18725c0e00e900ffcf6c585eeafaf225db31aa65e7226e77bd1bf7e7bebc24f",
-      "traps.json": "2e80e89a17af7f1422977d4bb835d537c22e19cf029fde5c850c6cdb13d4df3c"
+      "traps.json": "ba888c008f491081610bdc7d20dc7859b140d65530d99b87876422b3f4152fe3"
     }
   },
   "conventions": {
@@ -37,12 +37,12 @@
     "curved_balcony": "the R 1524 corner is authored analytically (rect − r² + πr²/4) in both golden paths; the outline polygon keeps the corner point"
   },
   "outputs": {
-    "takeoff.golden.json": "521202bb6da5e1c137c0c670aa0c3f697ec592636e7c851fef7ad3a46c89c342",
-    "bbs.golden.json": "3a36c710b5ecf65755323d4054495f2590ecfbca563eb7715b4034f9876608cb",
+    "takeoff.golden.json": "1fc7cf626871b462b77506fda5183adbb6721cefdcea90fc4eef0009201ca177",
+    "bbs.golden.json": "e9151828888108e709b96c1a5388044afa59bff0b6882b09d39a39e98d6efa50",
     "cells.json": "5dc5a9d50f9b2c0a98be32919f6f6eade58a75c18dcacde3f648633c5b64f0c9",
-    "traps.json": "2e80e89a17af7f1422977d4bb835d537c22e19cf029fde5c850c6cdb13d4df3c",
+    "traps.json": "ba888c008f491081610bdc7d20dc7859b140d65530d99b87876422b3f4152fe3",
     "site.json": "f2b1fe46b7391f40afd0fae34bcaf35779f73eb06f072a60907e0828f2a31e99",
-    "model.json": "a87c11683c15dce6db59e4974bc98d01c2eea2e9787402d27683c38c19a4abd8"
+    "model.json": "ecdc26267d89cdac5e2d7b2d40dd48488930e8ea74842c061a3e7d754090433e"
   },
   "selfcheck": {
     "two_path_agreement": "376 rows identical (member-by-member vs mark × placements)",

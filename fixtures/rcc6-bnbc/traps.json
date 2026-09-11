@@ -371,8 +371,8 @@
       "family": "document",
       "sample": "printed BBS grand total 1.7 % above the row sum",
       "expected": "row sums win; the printed total is an observation BBS_TOTAL_MISMATCH",
-      "true": "165637.323",
-      "printed": "168453.157"
+      "true": "165683.176",
+      "printed": "168499.790"
     },
     {
       "id": "T-FRAMES-MODELSPACE",

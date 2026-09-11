@@ -47,10 +47,27 @@ def dump(path: Path, data: Any) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def reseed_bbs_trap(bbs: dict[str, Any]) -> None:
+    """T-BBS-TOTAL is registered as true row sum vs a printed total 1.7 % high; keep it current."""
+    path = HERE / "traps.json"
+    traps = json.loads(path.read_text(encoding="utf-8"))
+    true = Decimal(bbs["grand_total_kg"])
+    for t in traps["traps"]:
+        if t["id"] == "T-BBS-TOTAL":
+            t["true"], t["printed"] = (
+                str(true),
+                str((true * Decimal("1.017")).quantize(Decimal("0.001"))),
+            )
+    path.write_text(
+        json.dumps(traps, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+
+
 def main(out: Path) -> dict[str, Any]:
     world = M.build()
-    report = selfcheck.run(world)
     rows, bbs = golden.compute(world)
+    reseed_bbs_trap(bbs)
+    report = selfcheck.run(world)
     out.mkdir(parents=True, exist_ok=True)
     traps = json.loads((HERE / "traps.json").read_text())
     cells = json.loads((HERE / "cells.json").read_text())

@@ -1080,7 +1080,7 @@
       "kind": "RCC_CONCRETE",
       "level": "FDN",
       "grade": "C3500PSI",
-      "quantity": "13.672",
+      "quantity": "14.619",
       "unit": "m3",
       "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
       "members": [
@@ -1138,7 +1138,7 @@
       "kind": "FORMWORK",
       "level": "FDN",
       "component": "SIDES",
-      "quantity": "100.073",
+      "quantity": "107.929",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -1196,7 +1196,7 @@
       "kind": "FORMWORK",
       "level": "FDN",
       "component": "SOFFIT",
-      "quantity": "26.337",
+      "quantity": "28.637",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -1256,7 +1256,7 @@
       "grade": "500W",
       "diameter_mm": 10,
       "component": "NET",
-      "quantity": "610.179",
+      "quantity": "666.019",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -1316,7 +1316,7 @@
       "grade": "500W",
       "diameter_mm": 16,
       "component": "NET",
-      "quantity": "1040.566",
+      "quantity": "1138.092",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -1358,7 +1358,7 @@
       "grade": "500W",
       "diameter_mm": 20,
       "component": "NET",
-      "quantity": "1213.936",
+      "quantity": "1195.400",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -4124,7 +4124,7 @@
       "kind": "RCC_CONCRETE",
       "level": "1F",
       "grade": "C3500PSI",
-      "quantity": "20.336",
+      "quantity": "20.355",
       "unit": "m3",
       "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
       "members": [
@@ -4193,7 +4193,7 @@
       "kind": "RCC_CONCRETE",
       "level": "2F",
       "grade": "C3500PSI",
-      "quantity": "18.114",
+      "quantity": "18.133",
       "unit": "m3",
       "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
       "members": [
@@ -4261,7 +4261,7 @@
       "kind": "RCC_CONCRETE",
       "level": "3F",
       "grade": "C3500PSI",
-      "quantity": "18.114",
+      "quantity": "18.133",
       "unit": "m3",
       "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
       "members": [
@@ -4329,7 +4329,7 @@
       "kind": "RCC_CONCRETE",
       "level": "4F",
       "grade": "C3500PSI",
-      "quantity": "18.314",
+      "quantity": "18.263",
       "unit": "m3",
       "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
       "members": [
@@ -4397,7 +4397,7 @@
       "kind": "RCC_CONCRETE",
       "level": "5F",
       "grade": "C3500PSI",
-      "quantity": "18.314",
+      "quantity": "18.263",
       "unit": "m3",
       "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
       "members": [
@@ -4465,7 +4465,7 @@
       "kind": "RCC_CONCRETE",
       "level": "6F",
       "grade": "C3500PSI",
-      "quantity": "18.451",
+      "quantity": "18.347",
       "unit": "m3",
       "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
       "members": [
@@ -4533,7 +4533,7 @@
       "kind": "RCC_CONCRETE",
       "level": "ROOF",
       "grade": "C3500PSI",
-      "quantity": "11.799",
+      "quantity": "11.706",
       "unit": "m3",
       "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
       "members": [
@@ -4592,7 +4592,7 @@
       "kind": "RCC_CONCRETE",
       "level": "SRR",
       "grade": "C3500PSI",
-      "quantity": "1.043",
+      "quantity": "0.774",
       "unit": "m3",
       "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
       "members": [
@@ -4633,7 +4633,7 @@
       "kind": "FORMWORK",
       "level": "1F",
       "component": "SIDES",
-      "quantity": "149.144",
+      "quantity": "149.300",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -4702,7 +4702,7 @@
       "kind": "FORMWORK",
       "level": "1F",
       "component": "SOFFIT",
-      "quantity": "53.278",
+      "quantity": "53.340",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -4771,7 +4771,7 @@
       "kind": "FORMWORK",
       "level": "2F",
       "component": "SIDES",
-      "quantity": "137.870",
+      "quantity": "138.026",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -4839,7 +4839,7 @@
       "kind": "FORMWORK",
       "level": "2F",
       "component": "SOFFIT",
-      "quantity": "50.798",
+      "quantity": "50.861",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -4907,7 +4907,7 @@
       "kind": "FORMWORK",
       "level": "3F",
       "component": "SIDES",
-      "quantity": "137.870",
+      "quantity": "138.026",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -4975,7 +4975,7 @@
       "kind": "FORMWORK",
       "level": "3F",
       "component": "SOFFIT",
-      "quantity": "50.798",
+      "quantity": "50.861",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -5043,7 +5043,7 @@
       "kind": "FORMWORK",
       "level": "4F",
       "component": "SIDES",
-      "quantity": "139.480",
+      "quantity": "139.110",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -5111,7 +5111,7 @@
       "kind": "FORMWORK",
       "level": "4F",
       "component": "SOFFIT",
-      "quantity": "51.424",
+      "quantity": "51.311",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -5179,7 +5179,7 @@
       "kind": "FORMWORK",
       "level": "5F",
       "component": "SIDES",
-      "quantity": "139.480",
+      "quantity": "139.110",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -5247,7 +5247,7 @@
       "kind": "FORMWORK",
       "level": "5F",
       "component": "SOFFIT",
-      "quantity": "51.424",
+      "quantity": "51.311",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -5315,7 +5315,7 @@
       "kind": "FORMWORK",
       "level": "6F",
       "component": "SIDES",
-      "quantity": "140.566",
+      "quantity": "139.797",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -5383,7 +5383,7 @@
       "kind": "FORMWORK",
       "level": "6F",
       "component": "SOFFIT",
-      "quantity": "51.851",
+      "quantity": "51.611",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -5451,7 +5451,7 @@
       "kind": "FORMWORK",
       "level": "ROOF",
       "component": "SIDES",
-      "quantity": "95.401",
+      "quantity": "94.658",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -5510,7 +5510,7 @@
       "kind": "FORMWORK",
       "level": "ROOF",
       "component": "SOFFIT",
-      "quantity": "43.132",
+      "quantity": "42.795",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -5569,7 +5569,7 @@
       "kind": "FORMWORK",
       "level": "SRR",
       "component": "SIDES",
-      "quantity": "10.706",
+      "quantity": "7.840",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -5586,7 +5586,7 @@
       "kind": "FORMWORK",
       "level": "SRR",
       "component": "SOFFIT",
-      "quantity": "4.356",
+      "quantity": "3.161",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
@@ -5605,7 +5605,7 @@
       "grade": "500W",
       "diameter_mm": 10,
       "component": "NET",
-      "quantity": "1454.068",
+      "quantity": "1455.670",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -5689,7 +5689,7 @@
       "grade": "500W",
       "diameter_mm": 16,
       "component": "NET",
-      "quantity": "2103.677",
+      "quantity": "2106.046",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -5834,7 +5834,7 @@
       "grade": "500W",
       "diameter_mm": 10,
       "component": "NET",
-      "quantity": "1452.343",
+      "quantity": "1453.945",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -5904,7 +5904,7 @@
       "grade": "500W",
       "diameter_mm": 16,
       "component": "NET",
-      "quantity": "2190.810",
+      "quantity": "2193.179",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -6037,7 +6037,7 @@
       "grade": "500W",
       "diameter_mm": 10,
       "component": "NET",
-      "quantity": "1452.343",
+      "quantity": "1453.945",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -6107,7 +6107,7 @@
       "grade": "500W",
       "diameter_mm": 16,
       "component": "NET",
-      "quantity": "2190.810",
+      "quantity": "2193.179",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -6240,7 +6240,7 @@
       "grade": "500W",
       "diameter_mm": 10,
       "component": "NET",
-      "quantity": "1472.794",
+      "quantity": "1469.591",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -6310,7 +6310,7 @@
       "grade": "500W",
       "diameter_mm": 16,
       "component": "NET",
-      "quantity": "2212.285",
+      "quantity": "2207.706",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -6443,7 +6443,7 @@
       "grade": "500W",
       "diameter_mm": 10,
       "component": "NET",
-      "quantity": "1472.794",
+      "quantity": "1469.591",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -6513,7 +6513,7 @@
       "grade": "500W",
       "diameter_mm": 16,
       "component": "NET",
-      "quantity": "2212.285",
+      "quantity": "2207.706",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -6646,7 +6646,7 @@
       "grade": "500W",
       "diameter_mm": 10,
       "component": "NET",
-      "quantity": "1475.998",
+      "quantity": "1472.425",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -6716,7 +6716,7 @@
       "grade": "500W",
       "diameter_mm": 16,
       "component": "NET",
-      "quantity": "2226.180",
+      "quantity": "2216.548",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -6849,7 +6849,7 @@
       "grade": "500W",
       "diameter_mm": 10,
       "component": "NET",
-      "quantity": "1113.358",
+      "quantity": "1104.488",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -6911,7 +6911,7 @@
       "grade": "500W",
       "diameter_mm": 16,
       "component": "NET",
-      "quantity": "2550.544",
+      "quantity": "2539.886",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -6973,7 +6973,7 @@
       "grade": "500W",
       "diameter_mm": 10,
       "component": "NET",
-      "quantity": "108.385",
+      "quantity": "93.509",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
@@ -6981,8 +6981,7 @@
         "SB-R2@SRR",
         "SB-R3@SRR",
         "SB-R4@SRR",
-        "SB-R5@SRR",
-        "SB-R6@SRR"
+        "SB-R5@SRR"
       ]
     },
     {
@@ -6992,7 +6991,7 @@
       "grade": "500W",
       "diameter_mm": 16,
       "component": "NET",
-      "quantity": "222.438",
+      "quantity": "184.726",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
