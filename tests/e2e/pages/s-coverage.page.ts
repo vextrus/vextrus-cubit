@@ -39,6 +39,10 @@ export class SCoveragePage {
   get root(): Locator {
     return this.page.getByTestId("coverage-screen");
   }
+  /** The screen root, under the name the journey reads it by. */
+  get screen(): Locator {
+    return this.root;
+  }
 
   /* --- the lane's own navigation (Decision §1) --- */
   get navCoverage(): Locator {
@@ -84,8 +88,14 @@ export class SCoveragePage {
   get cause(): Locator {
     return this.inspector.getByTestId("coverage-inspector-cause");
   }
+  get inspectorCause(): Locator {
+    return this.cause;
+  }
   get remedy(): Locator {
     return this.inspector.getByTestId("coverage-inspector-remedy");
+  }
+  get inspectorRemedy(): Locator {
+    return this.remedy;
   }
   get sightings(): Locator {
     return this.inspector.getByTestId("coverage-inspector-sighting");
@@ -116,9 +126,9 @@ export class SCoveragePage {
   get statements(): Locator {
     return this.preview.getByTestId("coverage-statement");
   }
-  /** One statement block, by the axis it states — `measurement` or `bill`. */
+  /** One statement block, by the axis it states — `MEASUREMENT` or `BILL` (the test contract). */
   statement(axis: string): Locator {
-    return this.preview.locator(`[data-testid="coverage-statement"][data-axis="${axis}"], [data-testid="coverage-statement"][data-statement="${axis.toUpperCase()}"]`);
+    return this.preview.locator(`[data-testid="coverage-statement"][data-axis="${axis}"]`);
   }
   statementRows(axis: string): Locator {
     return this.statement(axis).getByTestId("coverage-statement-row");

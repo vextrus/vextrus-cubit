@@ -123,10 +123,9 @@ const PERMISSION_NOT_HELD = "PERMISSION_NOT_HELD";
 const HOLD_OUT_OF_BILL = "HOLD_OUT_OF_BILL" as const;
 const DECLARE_NOT_IN_PROJECT_SCOPE = "DECLARE_NOT_IN_PROJECT_SCOPE" as const;
 
-/** The two readings an axis stands at when nothing is wrong. */
+/** The reading the measurement axis stands at when nothing is wrong. */
 const QUANTITY_BEARING = "QUANTITY_BEARING";
-const NOT_IN_THIS_BILL = "NOT_IN_THIS_BILL";
-const NOT_IN_PROJECT_SCOPE = "NOT_IN_PROJECT_SCOPE";
+/** The one cause whose remedy names a place this product holds — the ruleset (I-191). */
 const KIND_NOT_YET_SEEDED = "KIND_NOT_YET_SEEDED";
 
 /**
@@ -500,10 +499,18 @@ function Inspector({
   // Every act standing over this cell, on either axis — a cell can carry one on each (I-189), and a
   // reader is owed both. Deduplicated, because one act could in principle be cited by both.
   const declarations = [...new Set([cell.measurementActId, cell.billActId].filter((held): held is string => held !== null))];
-  // I-194: a door that can answer only a refusal is theatre, so it is absent rather than disabled.
+  // I-194: a door that can answer only a refusal is theatre, so a cell no boundary can be declared
+  // over at all — a kind-grain row, which names no class and no level, or a cell already bearing
+  // published quantity — carries neither door.
+  //
+  // A cell already standing under a declaration keeps BOTH doors, though: nothing withdraws a
+  // declaration (L-ACT-01 — in_force moves only by a later act), so the boundary a person moved is
+  // still a boundary they may move on the other axis, and the door that would change nothing answers
+  // ACT_CHANGES_NOTHING with its remedy through the one dialog rather than vanishing (R-UI-020,
+  // ARCH-03). J-022 walks exactly this: after the hold is carried, both doors still stand.
   const doorsStand = permitted && !grain && !measured;
-  const holdStands = doorsStand && cell.bill !== NOT_IN_THIS_BILL;
-  const scopeStands = doorsStand && cell.measurement !== NOT_IN_PROJECT_SCOPE;
+  const holdStands = doorsStand;
+  const scopeStands = doorsStand;
 
   return (
     <aside
