@@ -53,6 +53,10 @@ export const COVERAGE_COPY = Object.freeze({
   takeoff_coverage_statement_bill_title: "Statement of the bill boundary",
   takeoff_coverage_statement_bill_hint: "Every kind, class and level a person held out of this bill.",
   takeoff_coverage_statement_bill_none: "Nothing has been held out of this bill.",
+  // A statement empty because there is no campaign to state one over says THAT, and never that a
+  // campaign nobody pinned measured everything: the boundary is unstated, not settled (X-3, L-QTY-07).
+  takeoff_coverage_statement_measurement_none_unpinned: "No campaign is open, so there is no measurement boundary to state yet.",
+  takeoff_coverage_statement_bill_none_unpinned: "No campaign is open, so there is no bill to hold anything out of yet.",
   takeoff_coverage_cell_label: "{kind} on {class}, {level}: {cause}",
   takeoff_coverage_cell_label_kind_grain: "{kind}, every class and level: {cause}",
   takeoff_coverage_cell_label_measured: "Quantity is published for this cell.",

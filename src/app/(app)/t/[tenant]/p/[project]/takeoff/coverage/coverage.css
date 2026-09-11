@@ -8,6 +8,11 @@
  * 340, the cell seam's 1, the strokes' 1.5 and 2, and the md media-query value 960. Any other literal
  * is a defect. The glyph geometry is the grid component's own, stated in a viewBox's units.
  *
+ * `--hairline` is a whole border shorthand (`1px solid var(--graphite-200)`), so a surface wears it as
+ * `border: var(--hairline)` and a notice recolours it with `border-color` afterwards — the lane's own
+ * idiom (register.css). Spelling a colour inside the shorthand makes the declaration invalid and the
+ * surface loses its frame entirely (R-UI-001, B-17).
+ *
  * Nothing here eases in (Decision § 4): the grid paints at once and the inspector swaps instantly.
  * Focus is not styled here either — every button and link wears the reticle from its one home
  * (B-17, R-UI-012), and the grid's own drawn reticle is the component's (I-190). The refusal, the
@@ -26,7 +31,8 @@
 
 .cx-coverage-offline {
   padding: var(--space-2) var(--space-3);
-  border: var(--hairline) solid var(--info);
+  border: var(--hairline);
+  border-color: var(--info);
   border-radius: var(--radius-4);
   background: var(--info-surface);
   font-size: var(--text-13);
@@ -184,7 +190,7 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3);
-  border: var(--hairline) solid var(--graphite-200);
+  border: var(--hairline);
   border-radius: var(--radius-8);
   background: var(--graphite-0);
 }
@@ -221,7 +227,7 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3);
-  border: var(--hairline) solid var(--graphite-200);
+  border: var(--hairline);
   border-radius: var(--radius-8);
   background: var(--graphite-50);
 }
@@ -297,7 +303,7 @@
   grid-template-columns: auto minmax(0, 1fr);
   gap: var(--space-1) var(--space-2);
   padding: var(--space-2);
-  border: var(--hairline) solid var(--graphite-200);
+  border: var(--hairline);
   border-radius: var(--radius-4);
   background: var(--graphite-0);
   font-size: var(--text-12);
@@ -336,7 +342,7 @@
   gap: var(--space-2);
   align-items: flex-start;
   padding: var(--space-4);
-  border: var(--hairline) solid var(--graphite-200);
+  border: var(--hairline);
   border-radius: var(--radius-8);
   background: var(--graphite-0);
 }
@@ -377,7 +383,7 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
-  border: var(--hairline) solid var(--graphite-200);
+  border: var(--hairline);
   border-radius: var(--radius-8);
   background: var(--graphite-0);
   font-family: var(--font-doc);

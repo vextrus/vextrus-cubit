@@ -158,8 +158,20 @@ function stateOf(props: CoverageWorkspaceProps): string {
   if (props.offline === true) return "offline";
   if (props.view === null) return "error";
   if ((props.refused ?? null) !== null) return "refusal";
-  if (props.view.campaignId === null || props.view.cells.length === 0) return "empty";
+  if (nothingToShow(props.view)) return "empty";
   return props.view.cells.some((cell) => cell.grain === "KIND") ? "partial" : "ready";
+}
+
+/**
+ * Whether this reading has anything to show: no campaign pinned, or a campaign whose residue holds
+ * no cell. It is a fact about the READING, not about the state cell — a reader denied the boundary
+ * doors is still owed the reason the screen is empty, and a denial states a permission they do not
+ * need in order to be told that nothing has been pinned yet (R-UI-050, R-UI-020: an empty list says
+ * why it is empty). So the body asks this question and the state precedence asks it too, from one
+ * home (B-17), exactly as the error cell already stands whatever the precedence said.
+ */
+function nothingToShow(view: CoverageView): boolean {
+  return view.campaignId === null || view.cells.length === 0;
 }
 
 export function CoverageWorkspace(props: CoverageWorkspaceProps) {
@@ -316,7 +328,7 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
         <ErrorCell reportId={reportId} Button={Button} retry={doors.retry} />
       ) : (
         <>
-          {state === "empty" ? (
+          {nothingToShow(view) ? (
             <EmptyCell view={view} />
           ) : (
             <div className="cx-coverage-body">
@@ -344,7 +356,7 @@ export function CoverageWorkspace(props: CoverageWorkspaceProps) {
           {/* I-208: the empty cell stands in the BODY's place; the preview stands beneath it in every
               state that has a reading, because a boundary nothing stands outside is still a statement
               a certificate makes (L-QTY-07, Decision §1–§2). */}
-          <CertificatePreviewSection measurement={view.measurement} bill={view.bill} />
+          <CertificatePreviewSection measurement={view.measurement} bill={view.bill} pinned={view.campaignId !== null} />
         </>
       )}
 
@@ -512,7 +524,15 @@ function Inspector({
   // still a boundary they may move on the other axis, and the door that would change nothing answers
   // ACT_CHANGES_NOTHING with its remedy through the one dialog rather than vanishing (R-UI-020,
   // ARCH-03). J-022 walks exactly this: after the hold is carried, both doors still stand.
-  const doorsStand = permitted && !grain && !measured;
+  //
+  // A CELL-grain cell may still name no level: the two channels that sight a placement on a sheet
+  // answer `levelId: null` by construction, so a campaign whose partition has run and whose register
+  // has not yet placed that class on a storey bears a cell with no level. The store a declaration
+  // stands in addresses its cell by level (`scope_declarations.level_id`), so that cell is a cell no
+  // boundary can be declared over either — its door would carry a reader through a confirmed
+  // consequence into a write that cannot land (I-194, R-UI-020).
+  const addressable = cell.class !== null && cell.levelId !== null;
+  const doorsStand = permitted && !grain && !measured && addressable;
   const holdStands = doorsStand;
   const scopeStands = doorsStand;
 
@@ -647,7 +667,13 @@ function Inspector({
  * first and in full, then bill, never merged and never a shared cause column. No count appears
  * anywhere in this section — a count is not a boundary.
  */
-function CertificatePreviewSection({ measurement, bill }: { measurement: readonly StatementRow[]; bill: readonly StatementRow[] }) {
+function CertificatePreviewSection({ measurement, bill, pinned }: { measurement: readonly StatementRow[]; bill: readonly StatementRow[]; pinned: boolean }) {
+  // An empty statement is still a statement, but WHICH emptiness it states depends on whether there
+  // is a campaign at all: over a project with nothing pinned, "this campaign measured everything"
+  // would assert a campaign the screen has just said does not exist (X-3 — the residue read in five
+  // seconds says one thing, not two that contradict each other).
+  const measurementNone = pinned ? COVERAGE_COPY.takeoff_coverage_statement_measurement_none : COVERAGE_COPY.takeoff_coverage_statement_measurement_none_unpinned;
+  const billNone = pinned ? COVERAGE_COPY.takeoff_coverage_statement_bill_none : COVERAGE_COPY.takeoff_coverage_statement_bill_none_unpinned;
   return (
     <section className="cx-coverage-certificate" data-testid="coverage-certificate-preview">
       <h2 className="cx-coverage-certificate-heading">{COVERAGE_COPY.takeoff_coverage_certificate_heading}</h2>
@@ -656,14 +682,14 @@ function CertificatePreviewSection({ measurement, bill }: { measurement: readonl
         axis={MEASUREMENT}
         title={COVERAGE_COPY.takeoff_coverage_statement_measurement_title}
         hint={COVERAGE_COPY.takeoff_coverage_statement_measurement_hint}
-        none={COVERAGE_COPY.takeoff_coverage_statement_measurement_none}
+        none={measurementNone}
         rows={measurement}
       />
       <Statement
         axis={BILL}
         title={COVERAGE_COPY.takeoff_coverage_statement_bill_title}
         hint={COVERAGE_COPY.takeoff_coverage_statement_bill_hint}
-        none={COVERAGE_COPY.takeoff_coverage_statement_bill_none}
+        none={billNone}
         rows={bill}
       />
     </section>
