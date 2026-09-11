@@ -16,6 +16,17 @@ import { propertyName, specifierVisitors } from "../lib/specifiers.mjs";
 const SEAM_HOME = /^src\/core\/db(?:\.ts|\/[^/]+\.ts)$/;
 
 /**
+ * The half of that home that declares TABLES rather than holds handles (AM-11 cut the schema into
+ * one module per area). A table declaration has no business opening a connection: the pools are
+ * `pools.ts`'s, the handles `seam.ts`'s, the queue storage `jobs.ts`'s — and a `schema-<area>.ts`
+ * that imported `postgres` would be a second door into the database standing inside the seam's own
+ * directory, where the ban that exists to stop exactly that had stopped looking. Widening the
+ * allowlist to a directory was right for the modules; it was never meant to hand 31 table files the
+ * driver as well. So these files keep the ORM they declare their tables with and lose the rest.
+ */
+const SEAM_TABLES = /^src\/core\/db\/schema(?:-[a-z0-9-]+)?\.ts$/;
+
+/**
  * A test is never in the allowlist. A `__tests__/` directory is already outside the one-level home
  * above; a co-located `<name>.test.ts` is not, and it is this tree's dominant shape for a unit test
  * beside a `src/core/` module, so it is named here. The seam's own suites reach the store through
@@ -24,8 +35,11 @@ const SEAM_HOME = /^src\/core\/db(?:\.ts|\/[^/]+\.ts)$/;
  */
 const SEAM_TESTS = /\.(?:test|spec)\.[cm]?tsx?$/;
 
+/** What opens a connection. Nothing outside the seam may hold one, and no table file may either. */
+const CONNECTIONS = /^(?:pg|pg-native|pg-pool|postgres|postgres-js|node-postgres|@neondatabase\/|@vercel\/postgres|@electric-sql\/pglite|knex|kysely|typeorm|prisma|@prisma\/)/;
+
 /** Drivers and ORM entry points: a handle may only be made inside the seam. */
-const DRIVERS = /^(?:drizzle-orm|pg|pg-native|pg-pool|postgres|postgres-js|node-postgres|@neondatabase\/|@vercel\/postgres|@electric-sql\/pglite|knex|kysely|typeorm|prisma|@prisma\/)/;
+const DRIVERS = new RegExp(`^(?:drizzle-orm)|${CONNECTIONS.source.slice(1)}`);
 
 /** The schema module: importing tables directly walks around the seam's typed surface. */
 const SCHEMA = /(?:^|\/)db\/schema(?:\/|$)|(?:^|\/)schema\.sql$/;
@@ -44,15 +58,20 @@ export default {
   },
   create(context) {
     const filename = relative(context.cwd, context.filename).replace(/\\/g, "/");
-    if (SEAM_HOME.test(filename) && !SEAM_TESTS.test(filename)) return {};
+    const inSeam = SEAM_HOME.test(filename) && !SEAM_TESTS.test(filename);
+    // A table file is inside the seam and still bound: it may name the ORM it declares tables with,
+    // and it may not open a connection. Everything else in the seam keeps the whole allowlist.
+    const declaresTables = inSeam && SEAM_TABLES.test(filename);
+    if (inSeam && !declaresTables) return {};
+    const banned = declaresTables ? CONNECTIONS : DRIVERS;
     const sourceCode = context.sourceCode;
     return {
       ...specifierVisitors(context, ({ value, node }) => {
-        if (DRIVERS.test(value)) context.report({ node, messageId: "driver", data: { specifier: value } });
-        else if (SCHEMA.test(value)) context.report({ node, messageId: "schema", data: { specifier: value } });
+        if (banned.test(value)) context.report({ node, messageId: "driver", data: { specifier: value } });
+        else if (!declaresTables && SCHEMA.test(value)) context.report({ node, messageId: "schema", data: { specifier: value } });
       }),
       MemberExpression: (node) => {
-        if (propertyName(node, sourceCode) === "_") context.report({ node, messageId: "internal" });
+        if (!declaresTables && propertyName(node, sourceCode) === "_") context.report({ node, messageId: "internal" });
       },
     };
   },
