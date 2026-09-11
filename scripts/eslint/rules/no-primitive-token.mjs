@@ -16,6 +16,9 @@ const ALLOWED = [
   // The token source's own acceptance: it quotes R-UI-001's values to hold the source to them, and
   // a law's test that may not spell the law has stopped testing it.
   "src/ui/tokens.test.ts",
+  // The rule itself: a ban that may not name what it bans cannot say what it is for, and its
+  // message is the one place a reader meets the shape being refused.
+  "scripts/eslint/rules/no-primitive-token.mjs",
 ];
 
 /** The two primitive scales: a position on a ramp, with no meaning of its own. */

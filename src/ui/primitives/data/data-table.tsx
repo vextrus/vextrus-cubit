@@ -442,7 +442,13 @@ function BodyCell<TRow>({ cell, rowId, onCellEdit }: BodyCellProps<TRow>) {
           data-testid="datatable-cell-editor"
           className="cx-table-editor"
           aria-label={headerText(column)}
-          autoFocus
+          // Not an autofocus: this editor exists only because the person just asked to edit this
+          // cell, so the caret belongs in it. `autoFocus` would say the same thing in a word that
+          // also means "steal the focus when the page loads", which is the thing that hurts
+          // (jsx-a11y/no-autofocus); a ref on a node that mounts on a gesture does not.
+          ref={(node) => {
+            node?.focus();
+          }}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onEditorKeyDown}
