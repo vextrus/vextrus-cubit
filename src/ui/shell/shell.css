@@ -110,7 +110,7 @@
 }
 
 /* Pinned, the pin says so in a second channel beside the chevron's direction (R-UI-060). */
-.cx-shell-rail-toggle[aria-pressed="true"] {
+.cx-shell-rail-toggle[aria-expanded="true"] {
   background: var(--accent-subtle);
   color: var(--ink);
 }
@@ -119,7 +119,7 @@
   transition: transform var(--motion-state) var(--ease);
 }
 
-.cx-shell-rail-toggle[aria-pressed="false"] .cx-shell-rail-chevron {
+.cx-shell-rail-toggle[aria-expanded="false"] .cx-shell-rail-chevron {
   transform: rotate(180deg);
 }
 
