@@ -55,7 +55,7 @@ def schedule_marks() -> dict[str, list[str]]:
         "S-17": [f"B{i}" for i in range(1, 60)]
         + ["CB1", "CB2", "CB3", "CB4", "EB1", "EB2", "LB1"],
         "S-18": [f"RB{i}" for i in range(1, 60)]
-        + ["REB2", "SB-R1", "SB-R2", "SB-R3", "SB-R4", "SB-R5", "SB-R6"],
+        + ["REB2", "SB-R1", "SB-R2", "SB-R3", "SB-R4"],
         "S-19": ["CS1", "SS1", "PS1", "FL"],
         "S-20": [f"S{i}" for i in range(1, 11)],
         "S-08": ["SOG", "RAMP"],
@@ -106,6 +106,10 @@ def run(world: dict[str, Any] | None = None) -> dict[str, Any]:
     stacks = {s["id"]: s for s in M._stacks()}
     for m in w["members"]:
         if m["class"] in ("BEAM", "TIE_BEAM"):
+            assert m["clear"] > 0, (
+                m["id"],
+                m["clear"],
+            )  # a beam on its own support is a modelling fault
             for kind, sid in m["supports"]:
                 assert kind in LEGAL_SUPPORT, (m["id"], kind)
                 if kind == "COLUMN":

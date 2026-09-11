@@ -104115,136 +104115,6 @@
       "kg_lap": "0.000"
     },
     {
-      "member": "SB-R5@SRR",
-      "class": "BEAM",
-      "level": "SRR",
-      "mark": "SB-R5",
-      "bar_mark": "SB-R5-b",
-      "role": "MAIN",
-      "dia_mm": 16,
-      "shape": "00",
-      "dims_mm": {
-        "A": "4143.200"
-      },
-      "cutting_raw_mm": "4143.200",
-      "cutting_rounded_mm": "4150",
-      "cutting_is_additive_mm": "4143.200",
-      "pieces_per_bar": 1,
-      "lap_mm": "0",
-      "laps_per_bar": 0,
-      "bars_per_unit": 3,
-      "parent_count": "1",
-      "bars": "3",
-      "kg": "19.626",
-      "kg_net": "19.626",
-      "kg_lap": "0.000"
-    },
-    {
-      "member": "SB-R5@SRR",
-      "class": "BEAM",
-      "level": "SRR",
-      "mark": "SB-R5",
-      "bar_mark": "SB-R5-t",
-      "role": "MAIN",
-      "dia_mm": 16,
-      "shape": "00",
-      "dims_mm": {
-        "A": "4623.200"
-      },
-      "cutting_raw_mm": "4623.200",
-      "cutting_rounded_mm": "4625",
-      "cutting_is_additive_mm": "4623.200",
-      "pieces_per_bar": 1,
-      "lap_mm": "0",
-      "laps_per_bar": 0,
-      "bars_per_unit": 2,
-      "parent_count": "1",
-      "bars": "2",
-      "kg": "14.600",
-      "kg_net": "14.600",
-      "kg_lap": "0.000"
-    },
-    {
-      "member": "SB-R5@SRR",
-      "class": "BEAM",
-      "level": "SRR",
-      "mark": "SB-R5",
-      "bar_mark": "SB-R5-s",
-      "role": "STIRRUP",
-      "dia_mm": 10,
-      "shape": "51",
-      "dims_mm": {
-        "A": "200.000",
-        "B": "325.000",
-        "C": "200.000",
-        "D": "325.000",
-        "E": "100.000",
-        "F": "100.000"
-      },
-      "cutting_raw_mm": "1150.000",
-      "cutting_rounded_mm": "1150",
-      "cutting_is_additive_mm": "1130.000",
-      "pieces_per_bar": 1,
-      "lap_mm": "0",
-      "laps_per_bar": 0,
-      "bars_per_unit": 23,
-      "parent_count": "1",
-      "bars": "23",
-      "kg": "16.293",
-      "kg_net": "16.293",
-      "kg_lap": "0.000"
-    },
-    {
-      "member": "SB-R6@SRR",
-      "class": "BEAM",
-      "level": "SRR",
-      "mark": "SB-R6",
-      "bar_mark": "SB-R6-b",
-      "role": "MAIN",
-      "dia_mm": 16,
-      "shape": "00",
-      "dims_mm": {
-        "A": "-938.400"
-      },
-      "cutting_raw_mm": "-938.400",
-      "cutting_rounded_mm": "-925",
-      "cutting_is_additive_mm": "-938.400",
-      "pieces_per_bar": 1,
-      "lap_mm": "0",
-      "laps_per_bar": 0,
-      "bars_per_unit": 3,
-      "parent_count": "1",
-      "bars": "3",
-      "kg": "-4.445",
-      "kg_net": "-4.445",
-      "kg_lap": "0.000"
-    },
-    {
-      "member": "SB-R6@SRR",
-      "class": "BEAM",
-      "level": "SRR",
-      "mark": "SB-R6",
-      "bar_mark": "SB-R6-t",
-      "role": "MAIN",
-      "dia_mm": 16,
-      "shape": "00",
-      "dims_mm": {
-        "A": "-458.400"
-      },
-      "cutting_raw_mm": "-458.400",
-      "cutting_rounded_mm": "-450",
-      "cutting_is_additive_mm": "-458.400",
-      "pieces_per_bar": 1,
-      "lap_mm": "0",
-      "laps_per_bar": 0,
-      "bars_per_unit": 2,
-      "parent_count": "1",
-      "bars": "2",
-      "kg": "-1.448",
-      "kg_net": "-1.448",
-      "kg_lap": "0.000"
-    },
-    {
       "member": "OHWT-B",
       "class": "SLAB",
       "level": "OHWT",
@@ -108646,9 +108516,9 @@
   ],
   "per_diameter_kg": {
     "8": "1812.700",
-    "10": "69012.108",
+    "10": "68995.814",
     "12": "13495.949",
-    "16": "23070.704",
+    "16": "23042.371",
     "20": "51263.126",
     "25": "8016.147"
   },
@@ -108873,8 +108743,6 @@
     "SB-R2": "69.241",
     "SB-R3": "44.607",
     "SB-R4": "50.519",
-    "SB-R5": "50.519",
-    "SB-R6": "-5.893",
     "SOG": "2115.256",
     "SRR": "204.325",
     "SS1": "1540.152",
@@ -108889,41 +108757,41 @@
   },
   "cutting_stock": {
     "8": {
-      "stock_bars_12m": 398,
+      "stock_bars_12m": 400,
       "pieces": 3161,
-      "offcut_m": "186.885",
-      "method": "best-fit-decreasing over capacity buckets, identical pieces grouped"
+      "offcut_m": "155.525",
+      "method": "first-fit-decreasing over rounded cutting lengths, 12 m stock, longest first (L-FRM-05)"
     },
     "10": {
-      "stock_bars_12m": 9447,
-      "pieces": 46938,
-      "offcut_m": "1331.358",
-      "method": "best-fit-decreasing over capacity buckets, identical pieces grouped"
+      "stock_bars_12m": 9450,
+      "pieces": 46915,
+      "offcut_m": "947.700",
+      "method": "first-fit-decreasing over rounded cutting lengths, 12 m stock, longest first (L-FRM-05)"
     },
     "12": {
-      "stock_bars_12m": 1233,
+      "stock_bars_12m": 1238,
       "pieces": 5445,
-      "offcut_m": "148.659",
-      "method": "best-fit-decreasing over capacity buckets, identical pieces grouped"
+      "offcut_m": "142.700",
+      "method": "first-fit-decreasing over rounded cutting lengths, 12 m stock, longest first (L-FRM-05)"
     },
     "16": {
-      "stock_bars_12m": 1201,
-      "pieces": 3614,
-      "offcut_m": "223.441",
-      "method": "best-fit-decreasing over capacity buckets, identical pieces grouped"
+      "stock_bars_12m": 1200,
+      "pieces": 3604,
+      "offcut_m": "199.600",
+      "method": "first-fit-decreasing over rounded cutting lengths, 12 m stock, longest first (L-FRM-05)"
     },
     "20": {
-      "stock_bars_12m": 1748,
+      "stock_bars_12m": 1737,
       "pieces": 3776,
-      "offcut_m": "1032.033",
-      "method": "best-fit-decreasing over capacity buckets, identical pieces grouped"
+      "offcut_m": "859.300",
+      "method": "first-fit-decreasing over rounded cutting lengths, 12 m stock, longest first (L-FRM-05)"
     },
     "25": {
       "stock_bars_12m": 140,
       "pieces": 490,
-      "offcut_m": "195.045",
-      "method": "best-fit-decreasing over capacity buckets, identical pieces grouped"
+      "offcut_m": "191.200",
+      "method": "first-fit-decreasing over rounded cutting lengths, 12 m stock, longest first (L-FRM-05)"
     }
   },
-  "grand_total_kg": "166670.734"
+  "grand_total_kg": "166626.107"
 }

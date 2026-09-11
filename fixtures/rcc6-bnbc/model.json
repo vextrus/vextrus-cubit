@@ -8241,7 +8241,6 @@
       "beam_ends": [
         "62500",
         "62500",
-        "56250",
         "56250"
       ],
       "t_top": "0",
@@ -8262,9 +8261,6 @@
       "length": "2538.4",
       "h": "2743.2",
       "beam_ends": [
-        "56250",
-        "56250",
-        "56250",
         "56250"
       ],
       "t_top": "0",
@@ -40316,7 +40312,7 @@
       "slope": "1",
       "area": "7710868.88",
       "col_deduct": "1270160.00",
-      "beam_soffit": "1981200.00",
+      "beam_soffit": "685800.00",
       "free_edge": "0",
       "sunken": false,
       "curved_cut": "0",
@@ -40519,106 +40515,6 @@
         [
           "-1",
           "0"
-        ]
-      ],
-      "grade": "C3500PSI"
-    },
-    {
-      "id": "SB-R5@SRR",
-      "class": "BEAM",
-      "mark": "SB-R5",
-      "type": "S",
-      "level": "SRR",
-      "storey": "ROOF",
-      "geom": "PRISM_RECT",
-      "p0": [
-        "8839.2",
-        "11277.6"
-      ],
-      "p1": [
-        "11582.4",
-        "11277.6"
-      ],
-      "axis": "x",
-      "length": "2743.2",
-      "clear": "2543.2",
-      "b": "250",
-      "depth": "375",
-      "depth2": "375",
-      "t_l": "150",
-      "t_r": "0",
-      "supports": [
-        [
-          "WALL",
-          "3"
-        ],
-        [
-          "WALL",
-          "4"
-        ]
-      ],
-      "extents": [
-        "100.0",
-        "100.0"
-      ],
-      "end_dirs": [
-        [
-          "1",
-          "0"
-        ],
-        [
-          "-1",
-          "0"
-        ]
-      ],
-      "grade": "C3500PSI"
-    },
-    {
-      "id": "SB-R6@SRR",
-      "class": "BEAM",
-      "mark": "SB-R6",
-      "type": "S",
-      "level": "SRR",
-      "storey": "ROOF",
-      "geom": "PRISM_RECT",
-      "p0": [
-        "11582.4",
-        "8839.2"
-      ],
-      "p1": [
-        "11582.4",
-        "11277.6"
-      ],
-      "axis": "y",
-      "length": "2438.4",
-      "clear": "-2538.4",
-      "b": "250",
-      "depth": "375",
-      "depth2": "375",
-      "t_l": "150",
-      "t_r": "0",
-      "supports": [
-        [
-          "WALL",
-          "4"
-        ],
-        [
-          "WALL",
-          "4"
-        ]
-      ],
-      "extents": [
-        "2538.4",
-        "2438.4"
-      ],
-      "end_dirs": [
-        [
-          "0",
-          "1"
-        ],
-        [
-          "0",
-          "-1"
         ]
       ],
       "grade": "C3500PSI"
@@ -110225,91 +110121,6 @@
       "n": 23,
       "role": "STIRRUP",
       "lap_mm": "500",
-      "lap_count": 0
-    },
-    {
-      "member": "SB-R5@SRR",
-      "class": "BEAM",
-      "level": "SRR",
-      "mark": "SB-R5",
-      "bar_mark": "SB-R5-b",
-      "dia": 16,
-      "shape": "00",
-      "legs": [
-        "4143.2"
-      ],
-      "n": 3,
-      "role": "MAIN",
-      "lap_mm": "800",
-      "lap_count": 0
-    },
-    {
-      "member": "SB-R5@SRR",
-      "class": "BEAM",
-      "level": "SRR",
-      "mark": "SB-R5",
-      "bar_mark": "SB-R5-t",
-      "dia": 16,
-      "shape": "00",
-      "legs": [
-        "4623.2"
-      ],
-      "n": 2,
-      "role": "MAIN",
-      "lap_mm": "800",
-      "lap_count": 0
-    },
-    {
-      "member": "SB-R5@SRR",
-      "class": "BEAM",
-      "level": "SRR",
-      "mark": "SB-R5",
-      "bar_mark": "SB-R5-s",
-      "dia": 10,
-      "shape": "51",
-      "legs": [
-        "200",
-        "325",
-        "200",
-        "325",
-        "100",
-        "100"
-      ],
-      "n": 23,
-      "role": "STIRRUP",
-      "lap_mm": "500",
-      "lap_count": 0
-    },
-    {
-      "member": "SB-R6@SRR",
-      "class": "BEAM",
-      "level": "SRR",
-      "mark": "SB-R6",
-      "bar_mark": "SB-R6-b",
-      "dia": 16,
-      "shape": "00",
-      "legs": [
-        "-938.4"
-      ],
-      "n": 3,
-      "role": "MAIN",
-      "lap_mm": "800",
-      "lap_count": 0
-    },
-    {
-      "member": "SB-R6@SRR",
-      "class": "BEAM",
-      "level": "SRR",
-      "mark": "SB-R6",
-      "bar_mark": "SB-R6-t",
-      "dia": 16,
-      "shape": "00",
-      "legs": [
-        "-458.4"
-      ],
-      "n": 2,
-      "role": "MAIN",
-      "lap_mm": "800",
       "lap_count": 0
     },
     {

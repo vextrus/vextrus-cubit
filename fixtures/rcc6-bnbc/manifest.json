@@ -4,13 +4,13 @@
   "generator": {
     "path": "fixtures/gen/rcc6_bnbc/",
     "modules": {
-      "model.py": "5915465f346d3c4fe022b4890a1d5e6b152cd714965c21ee372242a71cced5cc",
-      "golden.py": "9e85f2441fb1c26e54520e8768bc99e6ef62d0b5bd725c8d07822c66a4397f80",
+      "model.py": "79486d7316e88657f9e3b33f2008aa586f63ba18dc270046cee82245b8bb729f",
+      "golden.py": "035a0db4763adcaa98bfb7b474e73cddda9cff61cefde49f73142b932bf996cb",
       "golden_check.py": "afffd6105189e00e3a651a9d3ec5cb481ce7176858a01da790b837c947273afd",
-      "selfcheck.py": "3967f8bda9831ff42eed3af09b22500905572f35d3466bcf697dc020227118ae",
-      "__main__.py": "5d6f46488df6fd2878db401077eba938e49e6ded6e91ff04c40c1880c69ebf10",
+      "selfcheck.py": "809b8a25a79586ab32d47097da3e664e5f7a23d61a3045bd6df39cf856493376",
+      "__main__.py": "3115b9f066a5a2d298a410a2c6be5c31955e159889c8ae9a0d72ee6d01309e83",
       "cells.json": "b18725c0e00e900ffcf6c585eeafaf225db31aa65e7226e77bd1bf7e7bebc24f",
-      "traps.json": "313fb38a31cab22348f52dc1b02e54f9d1629eaaa2a1817ff9f113fbec369529"
+      "traps.json": "8a3bd8b62b17427945a36452c9dfe2fd594ab854ffbe6f7851196acc81400786"
     }
   },
   "conventions": {
@@ -37,12 +37,12 @@
     "curved_balcony": "the R 1524 corner is authored analytically (rect − r² + πr²/4) in both golden paths; the outline polygon keeps the corner point"
   },
   "outputs": {
-    "takeoff.golden.json": "ce20198bd72b09ed3bba895ca0e5740dc08c3aac3abbcd989f9da56ef1773bf0",
-    "bbs.golden.json": "0cdfb5cb0b5b402aafd0ca0bd1e2b14b47b8621de6a3c81d13c934d82e61c8ce",
+    "takeoff.golden.json": "0b49ede60d16c4d82e67e9f0ccf44ebbe4bb219862ce51ffc4df30ab9097fd1e",
+    "bbs.golden.json": "987228e646adffd6827afbaf08ad625119d58f27439d11bcff8d8d942ac55de6",
     "cells.json": "5dc5a9d50f9b2c0a98be32919f6f6eade58a75c18dcacde3f648633c5b64f0c9",
-    "traps.json": "313fb38a31cab22348f52dc1b02e54f9d1629eaaa2a1817ff9f113fbec369529",
+    "traps.json": "8a3bd8b62b17427945a36452c9dfe2fd594ab854ffbe6f7851196acc81400786",
     "site.json": "f2b1fe46b7391f40afd0fae34bcaf35779f73eb06f072a60907e0828f2a31e99",
-    "model.json": "35eeb83d4df50640434e7450b961aaf5f38bcd9bad3abecfaf2afb277bd63cfd"
+    "model.json": "c028e4b3fa68a11065ec7a9dc6b67860d6f82234d76d3b9ee6f50a0986693ce8"
   },
   "selfcheck": {
     "two_path_agreement": "379 rows identical (member-by-member vs mark × placements)",
@@ -57,6 +57,14 @@
       "BLINDING": 4,
       "BRICKWORK": 12
     }
+  },
+  "regenerable": {
+    "model.json": "a plain-data dump of model.build() for readers without Python; `python -m fixtures.gen.rcc6_bnbc` rewrites it byte for byte (not a source)"
+  },
+  "size_budget": {
+    "total_mb": 6,
+    "file_mb": 3,
+    "test": "cad/tests/fixtures/test_rcc6_bnbc_size.py"
   },
   "wave": "A (N0/N1): model + golden + validators + traps; sheets/DXF/DWG/PDF/raster are Wave B"
 }

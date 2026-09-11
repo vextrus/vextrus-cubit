@@ -1082,7 +1082,7 @@
       "grade": "C3500PSI",
       "quantity": "14.619",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · D · clear between cap faces)",
       "members": [
         "GB1-10@FDN",
         "GB1-11@FDN",
@@ -1698,7 +1698,7 @@
       "component": "SIDES",
       "quantity": "28.355",
       "unit": "m2",
-      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)",
+      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)  [circular: π·d]",
       "members": [
         "COL:A1@FDN",
         "COL:A2@FDN",
@@ -1735,7 +1735,7 @@
       "component": "SIDES",
       "quantity": "140.327",
       "unit": "m2",
-      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)",
+      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)  [circular: π·d]",
       "members": [
         "COL:A1@GF",
         "COL:A2@GF",
@@ -1772,7 +1772,7 @@
       "component": "SIDES",
       "quantity": "126.801",
       "unit": "m2",
-      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)",
+      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)  [circular: π·d]",
       "members": [
         "COL:A1@1F",
         "COL:A2@1F",
@@ -1809,7 +1809,7 @@
       "component": "SIDES",
       "quantity": "126.801",
       "unit": "m2",
-      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)",
+      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)  [circular: π·d]",
       "members": [
         "COL:A1@2F",
         "COL:A2@2F",
@@ -1846,7 +1846,7 @@
       "component": "SIDES",
       "quantity": "110.202",
       "unit": "m2",
-      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)",
+      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)  [circular: π·d]",
       "members": [
         "COL:A1@3F",
         "COL:A2@3F",
@@ -1883,7 +1883,7 @@
       "component": "SIDES",
       "quantity": "110.202",
       "unit": "m2",
-      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)",
+      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)  [circular: π·d]",
       "members": [
         "COL:A1@4F",
         "COL:A2@4F",
@@ -1920,7 +1920,7 @@
       "component": "SIDES",
       "quantity": "97.683",
       "unit": "m2",
-      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)",
+      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)  [circular: π·d]",
       "members": [
         "COL:A1@5F",
         "COL:A2@5F",
@@ -1957,7 +1957,7 @@
       "component": "SIDES",
       "quantity": "101.369",
       "unit": "m2",
-      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)",
+      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)  [circular: π·d]",
       "members": [
         "COL:A1@6F",
         "COL:A2@6F",
@@ -1994,7 +1994,7 @@
       "component": "SIDES",
       "quantity": "6.819",
       "unit": "m2",
-      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)",
+      "formula": "sum(2(b+d) · (floor-to-floor − slab t) − beam-end contacts > 500 cm²)  [circular: π·d]",
       "members": [
         "COL:C2@ROOF",
         "COL:D2@ROOF"
@@ -3366,7 +3366,7 @@
       "grade": "C3500PSI",
       "quantity": "1.161",
       "unit": "m3",
-      "formula": "sum(length · t · floor-to-floor − openings)",
+      "formula": "sum(length · t · floor-to-floor)  [the door face carries no wall; no deduction]",
       "members": [
         "SW1-3@FDN",
         "SW1-4@FDN",
@@ -3380,7 +3380,7 @@
       "grade": "C3500PSI",
       "quantity": "2.369",
       "unit": "m3",
-      "formula": "sum(length · t · floor-to-floor − openings)",
+      "formula": "sum(length · t · floor-to-floor)  [the door face carries no wall; no deduction]",
       "members": [
         "PIT-3",
         "PIT-4",
@@ -3395,7 +3395,7 @@
       "grade": "C3500PSI",
       "quantity": "6.387",
       "unit": "m3",
-      "formula": "sum(length · t · floor-to-floor − openings)",
+      "formula": "sum(length · t · floor-to-floor)  [the door face carries no wall; no deduction]",
       "members": [
         "SW1-3@GF",
         "SW1-4@GF",
@@ -3409,7 +3409,7 @@
       "grade": "C3500PSI",
       "quantity": "5.806",
       "unit": "m3",
-      "formula": "sum(length · t · floor-to-floor − openings)",
+      "formula": "sum(length · t · floor-to-floor)  [the door face carries no wall; no deduction]",
       "members": [
         "SW1-3@1F",
         "SW1-4@1F",
@@ -3423,7 +3423,7 @@
       "grade": "C3500PSI",
       "quantity": "5.806",
       "unit": "m3",
-      "formula": "sum(length · t · floor-to-floor − openings)",
+      "formula": "sum(length · t · floor-to-floor)  [the door face carries no wall; no deduction]",
       "members": [
         "SW1-3@2F",
         "SW1-4@2F",
@@ -3437,7 +3437,7 @@
       "grade": "C3500PSI",
       "quantity": "4.645",
       "unit": "m3",
-      "formula": "sum(length · t · floor-to-floor − openings)",
+      "formula": "sum(length · t · floor-to-floor)  [the door face carries no wall; no deduction]",
       "members": [
         "SW1-3@3F",
         "SW1-4@3F",
@@ -3451,7 +3451,7 @@
       "grade": "C3500PSI",
       "quantity": "4.645",
       "unit": "m3",
-      "formula": "sum(length · t · floor-to-floor − openings)",
+      "formula": "sum(length · t · floor-to-floor)  [the door face carries no wall; no deduction]",
       "members": [
         "SW1-3@4F",
         "SW1-4@4F",
@@ -3465,7 +3465,7 @@
       "grade": "C3500PSI",
       "quantity": "4.645",
       "unit": "m3",
-      "formula": "sum(length · t · floor-to-floor − openings)",
+      "formula": "sum(length · t · floor-to-floor)  [the door face carries no wall; no deduction]",
       "members": [
         "SW1-3@5F",
         "SW1-4@5F",
@@ -3479,7 +3479,7 @@
       "grade": "C3500PSI",
       "quantity": "4.645",
       "unit": "m3",
-      "formula": "sum(length · t · floor-to-floor − openings)",
+      "formula": "sum(length · t · floor-to-floor)  [the door face carries no wall; no deduction]",
       "members": [
         "SW1-3@6F",
         "SW1-4@6F",
@@ -3493,7 +3493,7 @@
       "grade": "C3500PSI",
       "quantity": "4.181",
       "unit": "m3",
-      "formula": "sum(length · t · floor-to-floor − openings)",
+      "formula": "sum(length · t · floor-to-floor)  [the door face carries no wall; no deduction]",
       "members": [
         "SW1-3@ROOF",
         "SW1-4@ROOF",
@@ -3632,7 +3632,7 @@
       "kind": "FORMWORK",
       "level": "ROOF",
       "component": "SIDES",
-      "quantity": "41.344",
+      "quantity": "41.569",
       "unit": "m2",
       "formula": "sum(2 · length · h − beam-end contacts)",
       "members": [
@@ -4114,7 +4114,7 @@
       "grade": "C3500PSI",
       "quantity": "0.123",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · (D − slab t) · clear between support faces)  [taper: mean D]",
       "members": [
         "LB1@GF"
       ]
@@ -4126,7 +4126,7 @@
       "grade": "C3500PSI",
       "quantity": "20.355",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · (D − slab t) · clear between support faces)  [taper: mean D]",
       "members": [
         "1B10@1F",
         "1B11@1F",
@@ -4195,7 +4195,7 @@
       "grade": "C3500PSI",
       "quantity": "18.133",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · (D − slab t) · clear between support faces)  [taper: mean D]",
       "members": [
         "B10@2F",
         "B11@2F",
@@ -4263,7 +4263,7 @@
       "grade": "C3500PSI",
       "quantity": "18.133",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · (D − slab t) · clear between support faces)  [taper: mean D]",
       "members": [
         "B10@3F",
         "B11@3F",
@@ -4331,7 +4331,7 @@
       "grade": "C3500PSI",
       "quantity": "18.395",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · (D − slab t) · clear between support faces)  [taper: mean D]",
       "members": [
         "B10@4F",
         "B11@4F",
@@ -4399,7 +4399,7 @@
       "grade": "C3500PSI",
       "quantity": "18.395",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · (D − slab t) · clear between support faces)  [taper: mean D]",
       "members": [
         "B10@5F",
         "B11@5F",
@@ -4467,7 +4467,7 @@
       "grade": "C3500PSI",
       "quantity": "18.586",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · (D − slab t) · clear between support faces)  [taper: mean D]",
       "members": [
         "B10@6F",
         "B11@6F",
@@ -4535,7 +4535,7 @@
       "grade": "C3500PSI",
       "quantity": "11.919",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · (D − slab t) · clear between support faces)  [taper: mean D]",
       "members": [
         "RB10@ROOF",
         "RB11@ROOF",
@@ -4594,14 +4594,12 @@
       "grade": "C3500PSI",
       "quantity": "0.774",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · (D − slab t) · clear between support faces)  [taper: mean D]",
       "members": [
         "SB-R1@SRR",
         "SB-R2@SRR",
         "SB-R3@SRR",
-        "SB-R4@SRR",
-        "SB-R5@SRR",
-        "SB-R6@SRR"
+        "SB-R4@SRR"
       ]
     },
     {
@@ -5569,16 +5567,14 @@
       "kind": "FORMWORK",
       "level": "SRR",
       "component": "SIDES",
-      "quantity": "7.840",
+      "quantity": "7.837",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
         "SB-R1@SRR",
         "SB-R2@SRR",
         "SB-R3@SRR",
-        "SB-R4@SRR",
-        "SB-R5@SRR",
-        "SB-R6@SRR"
+        "SB-R4@SRR"
       ]
     },
     {
@@ -5586,16 +5582,14 @@
       "kind": "FORMWORK",
       "level": "SRR",
       "component": "SOFFIT",
-      "quantity": "3.161",
+      "quantity": "3.160",
       "unit": "m2",
       "formula": "sum(b · clear)",
       "members": [
         "SB-R1@SRR",
         "SB-R2@SRR",
         "SB-R3@SRR",
-        "SB-R4@SRR",
-        "SB-R5@SRR",
-        "SB-R6@SRR"
+        "SB-R4@SRR"
       ]
     },
     {
@@ -6973,15 +6967,14 @@
       "grade": "500W",
       "diameter_mm": 10,
       "component": "NET",
-      "quantity": "93.509",
+      "quantity": "77.216",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
         "SB-R1@SRR",
         "SB-R2@SRR",
         "SB-R3@SRR",
-        "SB-R4@SRR",
-        "SB-R5@SRR"
+        "SB-R4@SRR"
       ]
     },
     {
@@ -6991,16 +6984,14 @@
       "grade": "500W",
       "diameter_mm": 16,
       "component": "NET",
-      "quantity": "184.726",
+      "quantity": "156.392",
       "unit": "kg",
       "formula": "sum(BS 8666 cutting length · bars · table kg/m)  [net of laps]",
       "members": [
         "SB-R1@SRR",
         "SB-R2@SRR",
         "SB-R3@SRR",
-        "SB-R4@SRR",
-        "SB-R5@SRR",
-        "SB-R6@SRR"
+        "SB-R4@SRR"
       ]
     },
     {
@@ -7010,7 +7001,7 @@
       "grade": "C3500PSI",
       "quantity": "10.505",
       "unit": "m3",
-      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area]",
+      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area] + sunken drop walls (perimeter · 125 · (300 − t))",
       "members": [
         "ST-B",
         "ST-T",
@@ -7025,7 +7016,7 @@
       "grade": "C3500PSI",
       "quantity": "2.414",
       "unit": "m3",
-      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area]",
+      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area] + sunken drop walls (perimeter · 125 · (300 − t))",
       "members": [
         "PIT-SLAB"
       ]
@@ -7037,7 +7028,7 @@
       "grade": "C3500PSI",
       "quantity": "39.358",
       "unit": "m3",
-      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area]",
+      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area] + sunken drop walls (perimeter · 125 · (300 − t))",
       "members": [
         "RAMP@GF",
         "SOG@GF"
@@ -7050,7 +7041,7 @@
       "grade": "C3500PSI",
       "quantity": "43.175",
       "unit": "m3",
-      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area]",
+      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area] + sunken drop walls (perimeter · 125 · (300 − t))",
       "members": [
         "CS1@1F",
         "FL@1F",
@@ -7086,7 +7077,7 @@
       "grade": "C3500PSI",
       "quantity": "42.751",
       "unit": "m3",
-      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area]",
+      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area] + sunken drop walls (perimeter · 125 · (300 − t))",
       "members": [
         "CS1@2F",
         "FL@2F",
@@ -7121,7 +7112,7 @@
       "grade": "C3500PSI",
       "quantity": "42.751",
       "unit": "m3",
-      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area]",
+      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area] + sunken drop walls (perimeter · 125 · (300 − t))",
       "members": [
         "CS1@3F",
         "FL@3F",
@@ -7156,7 +7147,7 @@
       "grade": "C3500PSI",
       "quantity": "42.905",
       "unit": "m3",
-      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area]",
+      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area] + sunken drop walls (perimeter · 125 · (300 − t))",
       "members": [
         "CS1@4F",
         "FL@4F",
@@ -7191,7 +7182,7 @@
       "grade": "C3500PSI",
       "quantity": "42.905",
       "unit": "m3",
-      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area]",
+      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area] + sunken drop walls (perimeter · 125 · (300 − t))",
       "members": [
         "CS1@5F",
         "FL@5F",
@@ -7226,7 +7217,7 @@
       "grade": "C3500PSI",
       "quantity": "42.994",
       "unit": "m3",
-      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area]",
+      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area] + sunken drop walls (perimeter · 125 · (300 − t))",
       "members": [
         "CS1@6F",
         "FL@6F",
@@ -7261,7 +7252,7 @@
       "grade": "C3500PSI",
       "quantity": "38.952",
       "unit": "m3",
-      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area]",
+      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area] + sunken drop walls (perimeter · 125 · (300 − t))",
       "members": [
         "FL@ROOF",
         "R1#00@ROOF",
@@ -7291,7 +7282,7 @@
       "grade": "C3500PSI",
       "quantity": "2.389",
       "unit": "m3",
-      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area]",
+      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area] + sunken drop walls (perimeter · 125 · (300 − t))",
       "members": [
         "MRR@SRR",
         "SRR@SRR"
@@ -7304,7 +7295,7 @@
       "grade": "C3500PSI",
       "quantity": "3.215",
       "unit": "m3",
-      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area]",
+      "formula": "sum((area − openings > 0.1 m² − column/wall plan) · t)  [taper: mean t; ramp: sloped area] + sunken drop walls (perimeter · 125 · (300 − t))",
       "members": [
         "OHWT-B",
         "OHWT-T"
@@ -7317,7 +7308,7 @@
       "component": "EDGE",
       "quantity": "5.662",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "ST-T",
         "UGWR-T"
@@ -7330,7 +7321,7 @@
       "component": "SOFFIT",
       "quantity": "28.035",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "ST-T",
         "UGWR-T"
@@ -7343,7 +7334,7 @@
       "component": "SOFFIT",
       "quantity": "8.047",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "PIT-SLAB"
       ]
@@ -7355,7 +7346,7 @@
       "component": "EDGE",
       "quantity": "0.600",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "SOG@GF"
       ]
@@ -7367,7 +7358,7 @@
       "component": "EDGE",
       "quantity": "3.330",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "CS1@1F",
         "PS1@1F",
@@ -7382,7 +7373,7 @@
       "component": "SIDES",
       "quantity": "11.094",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "SS1-1@1F",
         "SS1-2@1F",
@@ -7397,7 +7388,7 @@
       "component": "SOFFIT",
       "quantity": "277.198",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "CS1@1F",
         "FL@1F",
@@ -7433,7 +7424,7 @@
       "component": "EDGE",
       "quantity": "2.674",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "CS1@2F",
         "S3#33@2F",
@@ -7447,7 +7438,7 @@
       "component": "SIDES",
       "quantity": "11.094",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "SS1-1@2F",
         "SS1-2@2F",
@@ -7462,7 +7453,7 @@
       "component": "SOFFIT",
       "quantity": "276.481",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "CS1@2F",
         "FL@2F",
@@ -7497,7 +7488,7 @@
       "component": "EDGE",
       "quantity": "2.674",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "CS1@3F",
         "S3#33@3F",
@@ -7511,7 +7502,7 @@
       "component": "SIDES",
       "quantity": "11.094",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "SS1-1@3F",
         "SS1-2@3F",
@@ -7526,7 +7517,7 @@
       "component": "SOFFIT",
       "quantity": "276.481",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "CS1@3F",
         "FL@3F",
@@ -7561,7 +7552,7 @@
       "component": "EDGE",
       "quantity": "2.674",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "CS1@4F",
         "S3#33@4F",
@@ -7575,7 +7566,7 @@
       "component": "SIDES",
       "quantity": "11.094",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "SS1-1@4F",
         "SS1-2@4F",
@@ -7590,7 +7581,7 @@
       "component": "SOFFIT",
       "quantity": "277.681",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "CS1@4F",
         "FL@4F",
@@ -7625,7 +7616,7 @@
       "component": "EDGE",
       "quantity": "2.674",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "CS1@5F",
         "S3#33@5F",
@@ -7639,7 +7630,7 @@
       "component": "SIDES",
       "quantity": "11.094",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "SS1-1@5F",
         "SS1-2@5F",
@@ -7654,7 +7645,7 @@
       "component": "SOFFIT",
       "quantity": "277.681",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "CS1@5F",
         "FL@5F",
@@ -7689,7 +7680,7 @@
       "component": "EDGE",
       "quantity": "2.674",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "CS1@6F",
         "S3#33@6F",
@@ -7703,7 +7694,7 @@
       "component": "SIDES",
       "quantity": "11.094",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "SS1-1@6F",
         "SS1-2@6F",
@@ -7718,7 +7709,7 @@
       "component": "SOFFIT",
       "quantity": "278.381",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "CS1@6F",
         "FL@6F",
@@ -7753,7 +7744,7 @@
       "component": "SOFFIT",
       "quantity": "265.615",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "FL@ROOF",
         "R1#00@ROOF",
@@ -7781,9 +7772,9 @@
       "kind": "FORMWORK",
       "level": "SRR",
       "component": "SOFFIT",
-      "quantity": "13.099",
+      "quantity": "14.394",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "MRR@SRR",
         "SRR@SRR"
@@ -7796,7 +7787,7 @@
       "component": "EDGE",
       "quantity": "1.579",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "OHWT-T"
       ]
@@ -7808,7 +7799,7 @@
       "component": "SOFFIT",
       "quantity": "21.314",
       "unit": "m2",
-      "formula": "sum(free edges · t + opening reveals · t)",
+      "formula": "SOFFIT sum(net area − beam soffits); EDGE sum(free edges · t + opening reveals · t); SIDES sum(sunken drop faces, both sides)",
       "members": [
         "OHWT-B",
         "OHWT-T"
@@ -8619,7 +8610,7 @@
       "component": "RISERS",
       "quantity": "3.577",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@GF",
         "FL2@GF"
@@ -8632,7 +8623,7 @@
       "component": "SIDES",
       "quantity": "1.684",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@GF",
         "FL2@GF"
@@ -8645,7 +8636,7 @@
       "component": "SOFFIT",
       "quantity": "8.959",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@GF",
         "FL2@GF",
@@ -8659,7 +8650,7 @@
       "component": "RISERS",
       "quantity": "3.252",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@1F",
         "FL2@1F"
@@ -8672,7 +8663,7 @@
       "component": "SIDES",
       "quantity": "1.509",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@1F",
         "FL2@1F"
@@ -8685,7 +8676,7 @@
       "component": "SOFFIT",
       "quantity": "8.338",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@1F",
         "FL2@1F",
@@ -8699,7 +8690,7 @@
       "component": "RISERS",
       "quantity": "3.252",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@2F",
         "FL2@2F"
@@ -8712,7 +8703,7 @@
       "component": "SIDES",
       "quantity": "1.509",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@2F",
         "FL2@2F"
@@ -8725,7 +8716,7 @@
       "component": "SOFFIT",
       "quantity": "8.338",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@2F",
         "FL2@2F",
@@ -8739,7 +8730,7 @@
       "component": "RISERS",
       "quantity": "3.252",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@3F",
         "FL2@3F"
@@ -8752,7 +8743,7 @@
       "component": "SIDES",
       "quantity": "1.509",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@3F",
         "FL2@3F"
@@ -8765,7 +8756,7 @@
       "component": "SOFFIT",
       "quantity": "8.338",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@3F",
         "FL2@3F",
@@ -8779,7 +8770,7 @@
       "component": "RISERS",
       "quantity": "3.252",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@4F",
         "FL2@4F"
@@ -8792,7 +8783,7 @@
       "component": "SIDES",
       "quantity": "1.509",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@4F",
         "FL2@4F"
@@ -8805,7 +8796,7 @@
       "component": "SOFFIT",
       "quantity": "8.338",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@4F",
         "FL2@4F",
@@ -8819,7 +8810,7 @@
       "component": "RISERS",
       "quantity": "3.252",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@5F",
         "FL2@5F"
@@ -8832,7 +8823,7 @@
       "component": "SIDES",
       "quantity": "1.509",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@5F",
         "FL2@5F"
@@ -8845,7 +8836,7 @@
       "component": "SOFFIT",
       "quantity": "8.338",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@5F",
         "FL2@5F",
@@ -8859,7 +8850,7 @@
       "component": "RISERS",
       "quantity": "3.252",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@6F",
         "FL2@6F"
@@ -8872,7 +8863,7 @@
       "component": "SIDES",
       "quantity": "1.509",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@6F",
         "FL2@6F"
@@ -8885,7 +8876,7 @@
       "component": "SOFFIT",
       "quantity": "8.338",
       "unit": "m2",
-      "formula": "sum(flight soffit + landing soffit)",
+      "formula": "SOFFIT sum(flight sloped · width + landing area); RISERS sum(risers · rise · width); SIDES sum(2 · sloped · waist)",
       "members": [
         "FL1@6F",
         "FL2@6F",
@@ -9207,7 +9198,7 @@
       "grade": "C3500PSI",
       "quantity": "2.517",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · D · (opening + 2 · 300) · count) + sunshade (projection · 75 · length · count)",
       "members": [
         "L1@1F",
         "L2@1F",
@@ -9221,7 +9212,7 @@
       "grade": "C3500PSI",
       "quantity": "2.517",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · D · (opening + 2 · 300) · count) + sunshade (projection · 75 · length · count)",
       "members": [
         "L1@2F",
         "L2@2F",
@@ -9235,7 +9226,7 @@
       "grade": "C3500PSI",
       "quantity": "2.517",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · D · (opening + 2 · 300) · count) + sunshade (projection · 75 · length · count)",
       "members": [
         "L1@3F",
         "L2@3F",
@@ -9249,7 +9240,7 @@
       "grade": "C3500PSI",
       "quantity": "2.517",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · D · (opening + 2 · 300) · count) + sunshade (projection · 75 · length · count)",
       "members": [
         "L1@4F",
         "L2@4F",
@@ -9263,7 +9254,7 @@
       "grade": "C3500PSI",
       "quantity": "2.517",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · D · (opening + 2 · 300) · count) + sunshade (projection · 75 · length · count)",
       "members": [
         "L1@5F",
         "L2@5F",
@@ -9277,7 +9268,7 @@
       "grade": "C3500PSI",
       "quantity": "2.517",
       "unit": "m3",
-      "formula": "sum(b · (D − slab t) · clear span)  [taper: mean D]",
+      "formula": "sum(b · D · (opening + 2 · 300) · count) + sunshade (projection · 75 · length · count)",
       "members": [
         "L1@6F",
         "L2@6F",
@@ -9291,7 +9282,7 @@
       "component": "SIDES",
       "quantity": "15.600",
       "unit": "m2",
-      "formula": "sum(sunshade soffit + edge)",
+      "formula": "sum((2D + b) · length · count) + sunshade (soffit + edge · 75)",
       "members": [
         "L1@1F",
         "L2@1F",
@@ -9305,7 +9296,7 @@
       "component": "SOFFIT",
       "quantity": "19.795",
       "unit": "m2",
-      "formula": "sum(sunshade soffit + edge)",
+      "formula": "sum((2D + b) · length · count) + sunshade (soffit + edge · 75)",
       "members": [
         "L1@1F",
         "L2@1F",
@@ -9319,7 +9310,7 @@
       "component": "SIDES",
       "quantity": "15.600",
       "unit": "m2",
-      "formula": "sum(sunshade soffit + edge)",
+      "formula": "sum((2D + b) · length · count) + sunshade (soffit + edge · 75)",
       "members": [
         "L1@2F",
         "L2@2F",
@@ -9333,7 +9324,7 @@
       "component": "SOFFIT",
       "quantity": "19.795",
       "unit": "m2",
-      "formula": "sum(sunshade soffit + edge)",
+      "formula": "sum((2D + b) · length · count) + sunshade (soffit + edge · 75)",
       "members": [
         "L1@2F",
         "L2@2F",
@@ -9347,7 +9338,7 @@
       "component": "SIDES",
       "quantity": "15.600",
       "unit": "m2",
-      "formula": "sum(sunshade soffit + edge)",
+      "formula": "sum((2D + b) · length · count) + sunshade (soffit + edge · 75)",
       "members": [
         "L1@3F",
         "L2@3F",
@@ -9361,7 +9352,7 @@
       "component": "SOFFIT",
       "quantity": "19.795",
       "unit": "m2",
-      "formula": "sum(sunshade soffit + edge)",
+      "formula": "sum((2D + b) · length · count) + sunshade (soffit + edge · 75)",
       "members": [
         "L1@3F",
         "L2@3F",
@@ -9375,7 +9366,7 @@
       "component": "SIDES",
       "quantity": "15.600",
       "unit": "m2",
-      "formula": "sum(sunshade soffit + edge)",
+      "formula": "sum((2D + b) · length · count) + sunshade (soffit + edge · 75)",
       "members": [
         "L1@4F",
         "L2@4F",
@@ -9389,7 +9380,7 @@
       "component": "SOFFIT",
       "quantity": "19.795",
       "unit": "m2",
-      "formula": "sum(sunshade soffit + edge)",
+      "formula": "sum((2D + b) · length · count) + sunshade (soffit + edge · 75)",
       "members": [
         "L1@4F",
         "L2@4F",
@@ -9403,7 +9394,7 @@
       "component": "SIDES",
       "quantity": "15.600",
       "unit": "m2",
-      "formula": "sum(sunshade soffit + edge)",
+      "formula": "sum((2D + b) · length · count) + sunshade (soffit + edge · 75)",
       "members": [
         "L1@5F",
         "L2@5F",
@@ -9417,7 +9408,7 @@
       "component": "SOFFIT",
       "quantity": "19.795",
       "unit": "m2",
-      "formula": "sum(sunshade soffit + edge)",
+      "formula": "sum((2D + b) · length · count) + sunshade (soffit + edge · 75)",
       "members": [
         "L1@5F",
         "L2@5F",
@@ -9431,7 +9422,7 @@
       "component": "SIDES",
       "quantity": "15.600",
       "unit": "m2",
-      "formula": "sum(sunshade soffit + edge)",
+      "formula": "sum((2D + b) · length · count) + sunshade (soffit + edge · 75)",
       "members": [
         "L1@6F",
         "L2@6F",
@@ -9445,7 +9436,7 @@
       "component": "SOFFIT",
       "quantity": "19.795",
       "unit": "m2",
-      "formula": "sum(sunshade soffit + edge)",
+      "formula": "sum((2D + b) · length · count) + sunshade (soffit + edge · 75)",
       "members": [
         "L1@6F",
         "L2@6F",

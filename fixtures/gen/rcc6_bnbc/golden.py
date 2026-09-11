@@ -678,6 +678,7 @@ class Golden:
                 n = int(D(r["bars"]))
                 per_piece = raw if pcs == 1 else (raw + (pcs - 1) * lap) / pcs
                 length = int(round25(per_piece))
+                assert 0 < length <= int(M.STOCK), (r["member"], r["bar_mark"], length)
                 groups[length] = groups.get(length, 0) + n * pcs
             stock_mm = int(M.STOCK)
             bins: list[int] = []

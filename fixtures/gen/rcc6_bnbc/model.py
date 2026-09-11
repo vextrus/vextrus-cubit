@@ -2259,28 +2259,6 @@ class Build:
             ("WALL", "4"),
             (t, D(150)),
         )
-        self.beam(
-            "SB-R5@SRR",
-            "SB-R5",
-            "S",
-            "SRR",
-            (X["3"], Y["D"]),
-            (X["4"], Y["D"]),
-            ("WALL", "3"),
-            ("WALL", "4"),
-            (D(150), t),
-        )
-        self.beam(
-            "SB-R6@SRR",
-            "SB-R6",
-            "S",
-            "SRR",
-            (X["4"], Y["C"]),
-            (X["4"], Y["D"]),
-            ("WALL", "4"),
-            ("WALL", "4"),
-            (D(150), t),
-        )
         # OHWT on the stair room: base 200 sits on the SRR slab (its own slab), walls 150, cover 100
         o = OHWT
         self.tank(
