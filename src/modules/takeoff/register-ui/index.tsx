@@ -331,10 +331,23 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
    * is focused and nothing is said (I-182).
    */
   const holdOrigin = (node: HTMLAnchorElement | null): void => {
+    const leaving = originRef.current;
     originRef.current = node;
-    if (node === null || originLine === null || restoredRef.current === originLine) return;
+    if (node === null) {
+      // The anchor is going away — the table re-paints its rows as it scrolls the named one into
+      // view, so the element the reticle was put on is not the element the row ends up with. A
+      // reticle that stood on the row it left behind must travel WITH the row: the restoration is
+      // owed again, or the reader is standing on the document body answering no key (I-182).
+      if (leaving !== null && leaving.ownerDocument.activeElement === leaving) restoredRef.current = null;
+      return;
+    }
+    if (originLine === null || restoredRef.current === originLine) return;
     restoredRef.current = originLine;
     node.focus();
+    // `focus()` on an element the browser will not take (still being laid out under the viewport it
+    // is scrolling to) is refused silently. Nothing is claimed that did not happen: the address is
+    // still owed its reticle, and the next paint of this row takes it.
+    if (node.ownerDocument.activeElement !== node) restoredRef.current = null;
   };
 
   /** The origin stamped onto this screen's own entry, before the browser is allowed to leave (I-180). */
