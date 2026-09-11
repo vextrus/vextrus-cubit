@@ -17,9 +17,12 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+// One home for the distDir's name and for the lock a serving process holds it with (ARCH-02): the
+// journey lane's sweep reads the same two, and before it did it deleted this bundle mid-run.
+import { DEFAULT_DIST_DIR, holdDistDir } from "./lib/dist.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
-const DIST = process.env["NEXT_DIST_DIR"] ?? ".next-cubit";
+const DIST = DEFAULT_DIST_DIR;
 const args = process.argv.slice(2);
 const valueOf = (/** @type {string} */ flag, /** @type {string} */ fallback) => { const at = args.indexOf(flag); return at === -1 ? fallback : (args[at + 1] ?? fallback); };
 const NEXT = join(ROOT, valueOf("--next", "node_modules/next/dist/bin/next"));
@@ -72,6 +75,9 @@ if (!verdict.current) {
   const b = spawnSync(process.execPath, [NEXT, "build"], { cwd: ROOT, stdio: "inherit", env: process.env });
   if (b.status !== 0) process.exit(b.status ?? 1);
 }
+// Held for as long as this process serves, so `pnpm e2e:clean` cannot take the bundle out from
+// under it; given back on exit, so a killed run locks nothing forever.
+const release = holdDistDir(join(ROOT, DIST), Number(port));
 const server = spawn(process.execPath, [NEXT, "start", "--hostname", "127.0.0.1", "--port", String(port)], { cwd: ROOT, stdio: "inherit", env: process.env });
-for (const sig of /** @type {const} */ (["SIGINT", "SIGTERM"])) process.on(sig, () => server.kill(sig));
-server.on("exit", (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
+for (const sig of /** @type {const} */ (["SIGINT", "SIGTERM"])) process.on(sig, () => { release(); server.kill(sig); });
+server.on("exit", (code, signal) => { release(); process.exit(code ?? (signal ? 1 : 0)); });
