@@ -4,7 +4,7 @@
 // Roles are cluster-level, so they are created here idempotently before the database exists; the
 // migrations only GRANT and declare policies by name (SEAM-TENANT). Nothing here imports a driver:
 // that ban binds every file outside src/core/db.ts, this one included.
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -133,27 +133,109 @@ function templateIsReady(name: string): boolean {
   return isTrue(run(BOOTSTRAP_URL, `select datistemplate from pg_database where datname = ${lit(name)};`)[0]?.[0] ?? "");
 }
 
-/** Apply the committed migrations to a database, through the tree's own migration lane (ARCH-02). */
-function migrateInto(database: string): void {
-  const migrated = spawnSync(process.execPath, [join(REPO_ROOT, "scripts", "db-migrate.mjs")], {
-    cwd: REPO_ROOT,
-    env: { ...process.env, DATABASE_URL: urlAs(ROLE_MIGRATE, database) },
-    encoding: "utf8",
-    timeout: 300_000,
+/**
+ * Apply the committed migrations to a database, through the tree's own migration lane (ARCH-02).
+ *
+ * Awaited rather than `spawnSync`d, so the builder's event loop keeps turning while the migrations
+ * run: that is what lets the heartbeat timer fire, and a builder whose heartbeat stopped for the
+ * length of its own build would be reclaimed by its own waiters.
+ */
+async function migrateInto(database: string): Promise<void> {
+  const migrated = await new Promise<{ status: number | null; output: string }>((settle) => {
+    const child = spawn(process.execPath, [join(REPO_ROOT, "scripts", "db-migrate.mjs")], {
+      cwd: REPO_ROOT,
+      env: { ...process.env, DATABASE_URL: urlAs(ROLE_MIGRATE, database) },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let output = "";
+    child.stdout.on("data", (chunk) => { output += String(chunk); });
+    child.stderr.on("data", (chunk) => { output += String(chunk); });
+    const killer = setTimeout(() => child.kill("SIGKILL"), 300_000);
+    child.on("error", (error) => { clearTimeout(killer); settle({ status: 1, output: `${output}\n${String(error)}` }); });
+    child.on("close", (code) => { clearTimeout(killer); settle({ status: code, output }); });
   });
   if (migrated.status !== 0) {
-    throw new Error(`the committed migrations did not apply to ${database}:\n${`${migrated.stdout ?? ""}${migrated.stderr ?? ""}`.slice(-1600)}`);
+    throw new Error(`the committed migrations did not apply to ${database}:\n${migrated.output.slice(-1600)}`);
   }
 }
 
 /**
- * Take away templates built from migrations this tree no longer carries. Never forced: a template
- * another suite is cloning from right now refuses the drop, and being left behind for the next run
- * to collect is the correct outcome — a forced drop would kill that suite's own provision.
+ * Take away templates built from migrations this tree no longer carries, and say what went.
+ *
+ * A ready template carries `datistemplate = true`, and Postgres refuses `drop database` on such a
+ * database outright — so the flag comes off first and goes back on when the drop is refused for any
+ * other reason. The old spelling issued the bare drop and discarded its result, which means no
+ * template this harness ever marked ready could be taken away at all: a sweep that never once
+ * succeeded looked exactly like a sweep that worked, and every digest the tree had ever carried was
+ * still standing on the cluster.
+ *
+ * Still never forced: a template another suite is cloning from right now holds it (55006), and being
+ * left behind for the next run to collect is the correct outcome — a forced drop would kill that
+ * suite's own provision.
+ *
+ * `prefix` is the namespace swept, and it is the template prefix in every production call; a suite
+ * that judges the sweep names its own namespace instead, so proving this never puts the template the
+ * rest of the lane is cloning from at risk.
  */
-function dropStaleTemplates(keep: string): void {
-  const stale = run(BOOTSTRAP_URL, `select datname from pg_database where datname like ${lit(`${TEMPLATE_DB_PREFIX}%`)} and datname <> ${lit(keep)};`).map((row) => row[0] ?? "");
-  for (const name of stale) psql(BOOTSTRAP_URL, `drop database if exists ${ident(name)};`);
+export function dropStaleTemplates(keep: string, prefix: string = TEMPLATE_DB_PREFIX): string[] {
+  // `_` is a wildcard in LIKE and the prefix is full of them: escaped, so the sweep collects the
+  // namespace it names and not every database whose name merely rhymes with it.
+  const pattern = lit(`${prefix.replace(/[%_\\]/g, "\\$&")}%`);
+  const stale = run(BOOTSTRAP_URL, `select datname from pg_database where datname like ${pattern} escape '\\' and datname <> ${lit(keep)};`).map((row) => row[0] ?? "");
+  const dropped: string[] = [];
+  for (const name of stale) {
+    psql(BOOTSTRAP_URL, `alter database ${ident(name)} is_template false;`);
+    const gone = psql(BOOTSTRAP_URL, `drop database if exists ${ident(name)};`);
+    if (gone.ok) {
+      dropped.push(name);
+      process.stdout.write(`db-template dropped ${name}\n`);
+      continue;
+    }
+    // It is still somebody's source. Put the flag back, so a run cloning from it still reads it as
+    // ready, and leave it for the next sweep.
+    psql(BOOTSTRAP_URL, `alter database ${ident(name)} is_template true;`);
+    process.stdout.write(`db-template kept ${name} — ${gone.sqlstate ?? "refused"} (a run is cloning from it)\n`);
+  }
+  return dropped;
+}
+
+/**
+ * How long a builder's silence means it died. A builder stamps the database it is building with the
+ * server's own clock every few seconds; a waiter that finds a non-template database whose stamp is
+ * older than this — or that never carried one — is looking at the leavings of a run that was killed
+ * mid-build, and rebuilds rather than waiting the full build timeout on a database that can never
+ * become ready. Overridable so the case is provable in a test rather than in a minute.
+ */
+function staleAfterMs(): number {
+  const named = Number(process.env["CUBIT_TEMPLATE_STALE_MS"]);
+  return Number.isFinite(named) && named > 0 ? named : 60_000;
+}
+
+/** How often the builder says it is still alive while the migrations run. */
+const HEARTBEAT_EVERY_MS = 5_000;
+
+/**
+ * Say, on the database itself, that this run is still building it. `COMMENT ON DATABASE` only takes
+ * the database the session is connected to, so the stamp is written from inside the template as its
+ * owner — and it is the SERVER's clock, so a waiter on another machine compares like with like. It
+ * needs no cleanup: the comment is dropped with the database it sits on.
+ */
+function heartbeat(name: string): void {
+  psql(urlAs(ROLE_MIGRATE, name), `do $$ begin execute format('comment on database %I is %L', current_database(), clock_timestamp()::text); end $$;`);
+}
+
+/** Milliseconds since the builder last said it was alive — or that it never said, or that it is gone. */
+function heartbeatAgeMs(name: string): number | "absent" | "gone" {
+  const answer = run(
+    BOOTSTRAP_URL,
+    `select case when shobj_description(oid, 'pg_database') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2} '
+                 then (extract(epoch from (clock_timestamp() - shobj_description(oid, 'pg_database')::timestamptz)) * 1000)::bigint::text
+                 else 'absent' end
+       from pg_database where datname = ${lit(name)};`,
+  )[0]?.[0];
+  if (answer === undefined) return "gone";
+  if (answer === "absent") return "absent";
+  return Number(answer);
 }
 
 /** How long a suite waits for the run that won the race to finish building the template. */
@@ -178,30 +260,78 @@ async function ensureTemplate(): Promise<string> {
 }
 
 async function buildTemplate(): Promise<string> {
-  const name = templateDatabaseName();
-  if (templateIsReady(name)) return name;
+  return ensureTemplateNamed(templateDatabaseName(), { sweepStale: true });
+}
 
-  const created = psql(BOOTSTRAP_URL, `create database ${ident(name)} owner ${ident(ROLE_MIGRATE)};`);
-  if (created.ok) {
-    try {
-      migrateInto(name);
-    } catch (error) {
-      // A half-built template must not outlive the attempt: it would never become ready, and every
-      // later run would wait the full timeout on it.
-      psql(BOOTSTRAP_URL, `drop database if exists ${ident(name)} with (force);`);
-      throw error;
+/**
+ * Build the named template, or join whoever is already building it — and reclaim it when nobody is.
+ *
+ * `CREATE DATABASE` is the mutex: exactly one process can create a given name, and the loser gets
+ * 42P04 and waits. Readiness is `datistemplate`, set only after the migrations applied. What was
+ * missing is the third case: a builder SIGKILLed between the create and that flag leaves a database
+ * of the wanted name that can never become ready, and every later run waited the full
+ * TEMPLATE_BUILD_TIMEOUT_MS on it and then failed. So a builder stamps a heartbeat while it works,
+ * and a waiter that finds no live builder behind the database takes it away and builds it itself.
+ *
+ * Three rounds, not a loop: two runs reclaiming the same corpse race, and the loser of that race
+ * finds a fresh builder on its next round. A name that cannot be settled in three is a fault to
+ * report, not one to keep grinding at.
+ */
+export async function ensureTemplateNamed(name: string, options: { sweepStale?: boolean } = {}): Promise<string> {
+  for (let round = 0; round < 3; round += 1) {
+    if (templateIsReady(name)) return name;
+
+    const created = psql(BOOTSTRAP_URL, `create database ${ident(name)} owner ${ident(ROLE_MIGRATE)};`);
+    if (created.ok) {
+      heartbeat(name);
+      const beating = setInterval(() => heartbeat(name), HEARTBEAT_EVERY_MS);
+      try {
+        await migrateInto(name);
+      } catch (error) {
+        // A half-built template must not outlive the attempt: it would never become ready, and every
+        // later run would wait on it.
+        psql(BOOTSTRAP_URL, `drop database if exists ${ident(name)} with (force);`);
+        throw error;
+      } finally {
+        clearInterval(beating);
+      }
+      run(BOOTSTRAP_URL, `update pg_database set datistemplate = true where datname = ${lit(name)};`);
+      if (options.sweepStale === true) dropStaleTemplates(name);
+      return name;
     }
-    run(BOOTSTRAP_URL, `update pg_database set datistemplate = true where datname = ${lit(name)};`);
-    dropStaleTemplates(name);
-    return name;
-  }
-  // 42P04: another process created it first and is migrating it now.
-  if (created.sqlstate !== "42P04") throw new Error(`the template database ${name} could not be created:\n${created.stderr.slice(-1200)}`);
+    if (created.sqlstate !== "42P04") throw new Error(`the template database ${name} could not be created:\n${created.stderr.slice(-1200)}`);
 
+    if (await waitForTemplate(name)) return name;
+
+    process.stdout.write(`db-template reclaiming ${name} — it is not a template and no builder has spoken for ${staleAfterMs()} ms\n`);
+    const reclaimed = psql(BOOTSTRAP_URL, `drop database if exists ${ident(name)} with (force);`);
+    if (!reclaimed.ok) throw new Error(`the half-built template ${name} could not be taken away (SQLSTATE ${reclaimed.sqlstate ?? "none"}):\n${reclaimed.stderr.slice(-1200)}`);
+  }
+  throw new Error(`the template database ${name} could be neither built nor reclaimed in three rounds — something else on this cluster is creating and destroying it.`);
+}
+
+/**
+ * Wait for the run that won the race. `true` when the template came ready; `false` when the database
+ * is standing there with no live builder behind it, which is the caller's cue to rebuild it.
+ */
+async function waitForTemplate(name: string): Promise<boolean> {
   const deadline = Date.now() + TEMPLATE_BUILD_TIMEOUT_MS;
+  let missingSince: number | undefined;
   while (Date.now() < deadline) {
     await new Promise((resume) => setTimeout(resume, 250));
-    if (templateIsReady(name)) return name;
+    if (templateIsReady(name)) return true;
+    const age = heartbeatAgeMs(name);
+    // Somebody else already reclaimed it: the next round's CREATE decides who rebuilds.
+    if (age === "gone") return false;
+    // No stamp at all is either a builder in the instant between its create and its first heartbeat,
+    // or a database left by a run too old to stamp. Waiting it out tells the two apart.
+    if (age === "absent") {
+      missingSince ??= Date.now();
+      if (Date.now() - missingSince > staleAfterMs()) return false;
+      continue;
+    }
+    missingSince = undefined;
+    if (age > staleAfterMs()) return false;
   }
   throw new Error(`the template database ${name} exists but never became ready — a run that was building it died. Drop it and try again:\n  psql "${BOOTSTRAP_URL}" -c 'drop database ${name} with (force)'`);
 }
