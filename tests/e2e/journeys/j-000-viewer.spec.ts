@@ -96,6 +96,16 @@ test.describe("J-000 — Golden Path: the uploaded drawing's sheet opens, and on
       await shell.open(S_HOME.settings(tenantId));
       await shell.renameInput.fill(WORKSPACE);
       await shell.renameSubmit.click();
+      // The barrier is the server's own answer, not the box the name was typed into: the field is
+      // uncontrolled and already holds what this person typed, so `toHaveValue` passes on its first
+      // poll whether or not the door has saved anything. Without it the journey navigated away in the
+      // same breath as the submit — the server finished writing an answer nobody was listening to
+      // ("The destination stream closed early") and the next screen was rendered from the name that
+      // was stored when it was asked, which on a loaded box is the name from before the rename. The
+      // saved notice is painted only once `renameWorkspace` has returned, so it is the point after
+      // which a fresh read of any screen must carry the new name (shell.spec.ts and j-003 wait here
+      // for the same reason).
+      await expect(shell.settingsName.getByRole("status"), "a saved name says so").toBeVisible();
       await expect(shell.renameInput, "the saved name is what the settings screen reads back").toHaveValue(WORKSPACE);
 
       /* --- the first project --- */
