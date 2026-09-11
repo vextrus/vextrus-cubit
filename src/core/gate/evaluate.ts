@@ -21,7 +21,7 @@ import { canonical } from "../acts/consequence";
 import { isElementType } from "../catalogue/classes";
 import { isKind } from "../catalogue/kinds";
 import { editionOf, type PinnedEdition } from "../campaigns";
-import { and, campaigns, eq, forTenant, holdStateLock, inArray, isUuid, quantityLines, queueItems, railObservations, registerObjects, type TenantTx } from "../db";
+import { and, campaigns, eq, forTenant, holdStateLock, writeInBatches, inArray, isUuid, quantityLines, queueItems, railObservations, registerObjects, type TenantTx } from "../db";
 import { REFUSALS, type RefusalCode } from "../errors";
 import type { GateRefusal, GateScope, GateVerdict, Measure, Offer, RailBatch, RailObservation } from "../offers/contract";
 import { COVERAGES, ENGINES, GEOMETRY_TYPES, QUANTITY_BASES, weakestBasis, type QuantityBasis } from "../offers/law";
@@ -563,27 +563,26 @@ export async function evaluateOffers(scope: GateScope, batch: RailBatch): Promis
     }
     const refusals: GateRefusal[] = answers.flatMap((answer) => (answer.arm === "refused" ? [answer.refusal] : []));
 
-    for (const observation of batch.observations) {
-      // An observation the closed rosters do not admit is not written: the stores close their class
-      // and kind against the catalogue, and an unjudged report would fail the transaction its own
-      // batch's sound offers publish in (ARCH-03).
-      if (!observationToContract(observation)) continue;
-      await tx
-        .insert(railObservations)
-        .values({
-          tenantId: scope.tenantId,
-          campaignId: under.campaignId,
-          projectId: under.projectId,
-          class: observation.class,
-          kind: observation.kind,
-          code: observation.code,
-          objectKey: observation.objectKey ?? null,
-          sourceEntity: observation.sourceEntity ?? null,
-          observationKey: observationKeyOf(observation),
-          detail: observation.detail ?? null,
-        })
-        .onConflictDoNothing();
-    }
+    // The batch's observations go in TOGETHER. An observation the closed rosters do not admit is not
+    // written at all: the stores close their class and kind against the catalogue, and an unjudged
+    // report would fail the transaction its own batch's sound offers publish in (ARCH-03).
+    //
+    // One statement per chunk, never one per row (SEAM-DB): the unit of work is the batch the rail
+    // handed over — a drawing on a rail — and a drawing with two thousand observations used to pay
+    // for two thousand round trips inside this transaction.
+    const observed = batch.observations.filter(observationToContract).map((observation) => ({
+      tenantId: scope.tenantId,
+      campaignId: under.campaignId,
+      projectId: under.projectId,
+      class: observation.class,
+      kind: observation.kind,
+      code: observation.code,
+      objectKey: observation.objectKey ?? null,
+      sourceEntity: observation.sourceEntity ?? null,
+      observationKey: observationKeyOf(observation),
+      detail: observation.detail ?? null,
+    }));
+    await writeInBatches(observed, (chunk) => tx.insert(railObservations).values([...chunk]).onConflictDoNothing());
 
     // The verdict counts what the store HOLDS for this batch, not what was written on this call: a
     // second run of the same batch finds its own lines and reports them published, because reporting

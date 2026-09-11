@@ -113,6 +113,7 @@ export {
   storableText,
   modelSpendByProject,
 } from "./db/seam";
+export { inChunks, writeInBatches, ROWS_PER_STATEMENT } from "./db/batch";
 export { scopedClient } from "./db/seam";
 export type { Scope, TenantDb, TenantTx, SystemDb, ModelSpend } from "./db/seam";
 export { jobsStore } from "./db/jobs";
