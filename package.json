@@ -19,6 +19,7 @@
     "checkup": "node scripts/checkup.mjs",
     "test:db": "sh -c 'case \" $* \" in *--config*|*\" -c \"*) exec node scripts/db-test.mjs \"$@\";; *) exec node scripts/db-test.mjs --config db/__tests__/vitest.config.ts \"$@\";; esac' sh",
     "e2e": "node scripts/e2e.mjs",
+    "e2e:clean": "node scripts/e2e-clean.mjs",
     "test:perf": "node scripts/e2e.mjs --journey PERF-",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:drift": "node scripts/db-drift.mjs",

@@ -26,6 +26,10 @@ test-results/
 playwright-report/
 blob-report/
 .vitest-reports/
+# Each acceptance stage builds the product into a dist directory of its own (next.config.ts: two
+# builds may not share one, because `next build` locks it). They are `.next*` like the product's own
+# build, so the rule at the top of this file already covers them; `pnpm e2e:clean` is what takes them
+# away — they were 580 MB on the box that measured v22 Wave A.
 .scratch/
 
 # The storage root V-CHECKUP probes once src/app exists. The directory is committed empty; what
