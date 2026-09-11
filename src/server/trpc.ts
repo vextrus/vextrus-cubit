@@ -6,6 +6,7 @@ import { TRPCError, initTRPC } from "@trpc/server";
 import { REFUSALS, type RefusalCode } from "../core/errors";
 import { reportFault } from "../core/faults/report";
 import { refusalCodeOf } from "../core/faults/refusal-marker";
+import { refusalStatus } from "./call";
 import type { AppContext } from "./context";
 
 /** A failure the operator must see: the id to quote, and the request it belongs to. */
@@ -271,14 +272,9 @@ function underlyingCause(error: unknown): unknown {
  * taxonomy is closed and this is a translation of it, not a second copy (B-17). It is keyed by
  * `RefusalCode`, so a code renamed or retired in the register is a compile error here.
  */
-const REFUSAL_STATUS_FLOOR = 400;
-
-const REFUSAL_STATUS: Readonly<Partial<Record<RefusalCode, number>>> = Object.freeze({
-  SIGNED_OUT: 401,
-  PERMISSION_NOT_HELD: 403,
-  ACCOUNT_ALREADY_EXISTS: 409,
-  RATE_LIMITED: 429,
-});
+// The table itself lives at the transports' seam (`src/server/call.ts`), because the route doors
+// answer refusals too and two copies of a translation of one closed taxonomy is the drift B-17
+// exists to prevent. This lane reads it; it does not keep one.
 
 /**
  * What the transport puts on the response for this answer — read by tRPC's own status resolver.
@@ -295,7 +291,7 @@ const REFUSAL_STATUS: Readonly<Partial<Record<RefusalCode, number>>> = Object.fr
 function httpStatusOf(answer: ErrorAnswer, decidedByTrpc: number): number {
   if (answer.kind === "fault") return decidedByTrpc;
   if (!Object.hasOwn(REFUSALS, answer.refusalCode)) return decidedByTrpc;
-  return REFUSAL_STATUS[answer.refusalCode as RefusalCode] ?? REFUSAL_STATUS_FLOOR;
+  return refusalStatus(answer.refusalCode as RefusalCode);
 }
 
 /** What tRPC states about a failure beside its own message: kept, minus the stack (ARCH-03). */

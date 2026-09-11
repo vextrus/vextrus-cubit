@@ -48,6 +48,45 @@ const REQUEST_MALFORMED_STATUS = 400;
 const FAULT_STATUS = 500;
 
 /**
+ * The status a refusal travels with — the one table for the whole tier, which the tRPC lane reads
+ * from here rather than keeping a second of (B-17, ARCH-02).
+ *
+ * A refusal is the answer a well-formed request earned, so it can never be a 5xx: on 500 a
+ * registered refusal is indistinguishable from the server having failed, and every reader that is
+ * not our own screen — a proxy, an uptime monitor, an operator reading access logs — records a live
+ * door as an outage. 400 is the floor they share: understood, and not carried out. The codes HTTP
+ * itself has a name for are given that name, so those readers agree with the taxonomy rather than
+ * merely not contradicting it; a code with no HTTP name keeps the floor, which is why this table is
+ * partial by design — the taxonomy is closed and this is a translation of it, not a second copy.
+ */
+const REFUSAL_STATUS_FLOOR = 400;
+
+const REFUSAL_STATUS: Readonly<Partial<Record<RefusalCode, number>>> = Object.freeze({
+  SIGNED_OUT: 401,
+  PERMISSION_NOT_HELD: 403,
+  // The same "you may not", said about a workspace instead of a project (R-SPINE-004): the upload
+  // doors and the viewer feed have always answered it 403, and one code may carry one meaning.
+  WORKSPACE_PERMISSION_NOT_HELD: 403,
+  ACCOUNT_ALREADY_EXISTS: 409,
+  RATE_LIMITED: 429,
+});
+
+/** The status one registered code is answered under. A code the register does not hold has none. */
+export function refusalStatus(code: RefusalCode): number {
+  return REFUSAL_STATUS[code] ?? REFUSAL_STATUS_FLOOR;
+}
+
+/**
+ * The registered code a thrown value carries, or null — the whole test a refusal has to pass before
+ * it may be answered as one. `refusalCodeOf` reads the marker; the register decides whether the code
+ * it read is a refusal this product can answer with (R-SPINE-062, B-06).
+ */
+function registeredRefusalOf(failure: unknown): RefusalCode | null {
+  const code = refusalCodeOf(failure);
+  return code !== null && Object.hasOwn(REFUSALS, code) ? (code as RefusalCode) : null;
+}
+
+/**
  * What a caller is told when the schema itself put no sentence to the failure. A door with prose of
  * its own states it (`sentence`), and a schema that names the field it could not read states that —
  * this is the floor under both, never a description of what the door wanted.
@@ -143,10 +182,22 @@ export function serverCall<S extends z.ZodType, A>(
     try {
       return await door(read.data, session);
     } catch (thrown) {
-      return refusedAs(refused(thrown));
+      const code = registeredRefusalOf(thrown);
+      // Anything the register does not hold is an outage of ours, and it is RECORDED before it
+      // travels on: re-throwing is what puts it on the error boundary, but a failure that reached a
+      // person with no record behind it is the one thing ARCH-03 says may never happen. The action
+      // carries no `Request`, so the record names the session that asked and the door's own shape.
+      if (code === null) {
+        reportFault({ requestId: globalThis.crypto.randomUUID(), actor: session.userId, route: ACTION_ROUTE, cause: thrown });
+        throw thrown;
+      }
+      return refusedAs(code);
     }
   };
 }
+
+/** What the fault seam records a server action's outage under; an action has no route of its own. */
+const ACTION_ROUTE = "server action";
 
 /**
  * A route handler, with the same one reading and the same one session.
@@ -183,7 +234,13 @@ export function routeHandler<S extends z.ZodType>(
       // not JSON never became a statement at all and is raised wearing the registered marker, so it
       // is answered as the caller error it is; anything else happened on our side and is recorded at
       // the fault seam before the caller is given the id of the record, and nothing else.
-      if (refusalCodeOf(failure) === REQUEST_MALFORMED) return malformedAnswer(door.sentence ?? UNREADABLE);
+      // A refusal is an answer whichever door raised it. Before this, only the seam's OWN code was
+      // recognised here, so a module guard's registered "you may not" — the takeoff pipeline throws
+      // two — became a recorded outage and a 500. The register decides, not the seam's memory of
+      // which codes it raises itself.
+      const refused = registeredRefusalOf(failure);
+      if (refused === REQUEST_MALFORMED) return malformedAnswer(door.sentence ?? UNREADABLE);
+      if (refused !== null) return json({ refusal: REFUSALS[refused] }, refusalStatus(refused));
       const { faultId } = reportFault({
         requestId: context?.requestId ?? globalThis.crypto.randomUUID(),
         actor: context?.actor ?? door.actor,
