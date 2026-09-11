@@ -1,8 +1,10 @@
 // The database lane's config (V-DB): every suite in the tree that needs a live cluster, and nothing
-// else. Its include is derived from the tree's own import graph — whatever reaches
-// db/__tests__/harness.ts, whether it lives under `db/` or beside the module it judges — so the unit
-// lane and this one partition the suites between them with no list to keep and no file in both
-// (ARCH-02, B-19). It arms the lane the roster already derives from db/__tests__ (scripts/lib/lanes.mjs).
+// else. Its include is derived from the tree's own import graph — whatever reaches the live-database
+// seeds, whether it lives under `db/` or beside the module it judges — PLUS every suite under
+// db/__tests__ unconditionally, because a suite its author put in this lane's own directory is this
+// lane's however few imports it has. So the unit lane and this one partition the suites between them
+// with no list to keep, no file in both and none in neither (ARCH-02, B-19); the partition is proved
+// against the two runners' own collections in tests/toolchain/test-lane-split.test.ts. It arms the lane the roster already derives from db/__tests__ (scripts/lib/lanes.mjs).
 //
 // It is wired in by package.json's test:db script: `node scripts/db-test.mjs --config db/__tests__/vitest.config.ts`.
 // The runner passes no `--dir`: these globs are the checkout root's, because half of them are.

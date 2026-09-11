@@ -23,9 +23,12 @@ export default defineConfig({
     // puts the generated stylesheet's drift test next to `src/ui/tokens.ts`. Both shapes collect.
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx", "src/**/*.test.ts", "src/**/*.test.tsx"],
     // The unit lane is PURE: it opens no database, so it passes with DATABASE_URL unset and a
-    // cluster that is not running (v22 Wave A). Every suite that reaches db/__tests__/harness.ts,
-    // however many modules away, is collected by the database lane instead — derived, so a suite
-    // that grows such an import moves lanes by itself rather than failing for want of a cluster.
+    // cluster that is not running (v22 Wave A). Every suite that reaches the live-database seeds —
+    // db/__tests__/harness.ts or support/live-sql.ts, however many modules away, and through a
+    // helper-wrapped `productModule("...")` as readily as through a bare import — is collected by
+    // the database lane instead, along with everything living under db/__tests__. Derived, so a
+    // suite that grows such an import moves lanes by itself rather than failing for want of a
+    // cluster; the partition itself is proved in tests/toolchain/test-lane-split.test.ts.
     exclude: ["node_modules/**", "tests/e2e/**", "tests/lint-fixtures/**", ...database],
     testTimeout: 60_000,
     hookTimeout: 60_000,

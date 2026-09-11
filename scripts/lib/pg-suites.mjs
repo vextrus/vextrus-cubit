@@ -12,9 +12,20 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
-/** The roots a suite can live under, and the module whose reach defines the database lane. */
+/** The roots a suite can live under. */
 const SUITE_ROOTS = ["src", "tests", "db"];
-const HARNESS = join("db", "__tests__", "harness.ts");
+
+/**
+ * The modules whose reach defines the database lane: the scratch-database harness, and the module
+ * every live statement in this tree is spoken through — `db/__tests__/support/live-sql.ts` spawns
+ * psql, so a suite that imports it opens a database whether or not it ever asks the harness for one
+ * (tests/hotfix-j000/ac4-fresh-ground-migration.test.ts makes its own database through it, and was
+ * collected by the unit lane for want of this second seed).
+ */
+const SEEDS = [join("db", "__tests__", "harness.ts"), join("db", "__tests__", "support", "live-sql.ts")];
+
+/** Everything under here is the database lane's, whatever its imports say. */
+const DB_SUITE_DIR = "db/__tests__/";
 
 /** A suite, in either of the two spellings this tree writes one in. */
 const SUITE = /\.test\.tsx?$/;
@@ -28,7 +39,9 @@ const SUITE = /\.test\.tsx?$/;
 function localImports(root, file) {
   const text = readFileSync(file, "utf8");
   const found = [];
-  for (const match of text.matchAll(/(?:from\s+|import\s*\(\s*|require\s*\(\s*)["']([^"']+)["']/g)) {
+  // `from "x"`, `import("x")`, `require("x")` — and the bare side-effect `import "x"`, which the
+  // first spelling of this walk did not see at all.
+  for (const match of text.matchAll(/(?:from\s+|import\s+|import\s*\(\s*|require\s*\(\s*)["']([^"']+)["']/g)) {
     const specifier = match[1] ?? "";
     // `@/` is the tree's own alias for src (ARCH-01); everything else that is not relative is a package.
     const base = specifier.startsWith(".") ? resolve(dirname(file), specifier) : specifier.startsWith("@/") ? join(root, "src", specifier.slice(2)) : null;
@@ -39,6 +52,17 @@ function localImports(root, file) {
         break;
       }
     }
+  }
+  // A module this tree imports through a HELPER rather than a bare `import()`:
+  // `productModule("db/__tests__/harness.ts")` joins its argument to the repo root and imports it
+  // (tests/jobs/support/jobs-acceptance.ts). A helper-wrapped import is still an import, and a
+  // specifier this walk cannot see is a suite in the wrong lane — jobs-seam.test.ts provisioned a
+  // scratch database from the unit lane for precisely this reason. Only the call's own argument is
+  // read, never every path-shaped string in the file: a suite that merely NAMES another suite (a
+  // scan law reading the tree, say) imports nothing and belongs where it already is.
+  for (const match of text.matchAll(/productModule\s*(?:<[^>()]*>)?\s*\(\s*["']([^"']+)["']/g)) {
+    const named = join(root, match[1] ?? "");
+    if (existsSync(named) && statSync(named).isFile()) found.push(named);
   }
   return found;
 }
@@ -76,7 +100,7 @@ export function pgBoundSuites(root) {
     }
   }
 
-  const bound = new Set([join(root, HARNESS)]);
+  const bound = new Set(SEEDS.map((seed) => join(root, seed)));
   for (let frontier = [...bound]; frontier.length > 0; ) {
     /** @type {string[]} */
     const next = [];
@@ -97,11 +121,39 @@ export function pgBoundSuites(root) {
 }
 
 /**
- * The same partition, split the way the two vitest configs need it.
+ * Every suite living under `db/__tests__`, whatever it imports.
+ * @param {string} root the checkout root
+ * @returns {string[]}
+ */
+function dbTreeSuites(root) {
+  /** @type {string[]} */
+  const found = [];
+  /** @param {string} dir */
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (SUITE.test(entry.name)) found.push(relative(root, full).replace(/\\/g, "/"));
+    }
+  };
+  const dir = join(root, "db", "__tests__");
+  if (existsSync(dir)) walk(dir);
+  return found;
+}
+
+/**
+ * The partition, split the way the two vitest configs need it.
+ *
+ * The database lane is the derived set PLUS everything under `db/__tests__` unconditionally. The
+ * derivation alone left a hole: four suites there reach no harness — they read the migration files,
+ * or take the drift lock — so the derived lane did not want them, and the unit lane excludes exactly
+ * the derived lane. They were collected by NEITHER runner, and said nothing about it. A suite that
+ * sits in the database lane's own directory is that lane's, by where its author put it.
  * @param {string} root the checkout root
  * @returns {{database: string[], databaseOutsideDb: string[]}}
  */
 export function laneSplit(root) {
-  const database = pgBoundSuites(root);
-  return { database, databaseOutsideDb: database.filter((file) => !file.startsWith("db/")) };
+  const database = [...new Set([...pgBoundSuites(root), ...dbTreeSuites(root)])].sort();
+  return { database, databaseOutsideDb: database.filter((file) => !file.startsWith(DB_SUITE_DIR)) };
 }
