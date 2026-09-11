@@ -45,14 +45,10 @@
 .cx-job-timeline-steps {
   /* The step row's height, named once: the connector measures the next dot's centre from it, so the
      two densities re-key one value rather than two rules (R-UI-005). */
-  --job-timeline-row: var(--row-comfortable);
+  --job-timeline-row: var(--row-h);
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-[data-density="compact"] .cx-job-timeline-steps {
-  --job-timeline-row: var(--row-compact);
 }
 
 /* Four cells stand in the row — marker, kind, status, timing — so each has a column of its own and

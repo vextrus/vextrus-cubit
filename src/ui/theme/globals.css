@@ -127,24 +127,13 @@ hr {
 /* ------------------------------------------------------------------ density
  * The density and layout tokens (Design Direction 00 §4.2). They carry no colour, so they are
  * handwritten here rather than emitted from `tokens.ts`, whose generated stylesheet is closed at
- * three constructs by R-UI-001's AC-1. Compact is the default and sits on `:root`; the one
+ * three constructs by R-UI-001's AC-1. Comfortable is the product's default (app-shell.tsx) and sits on `:root`, so a surface
+ * outside the shell — the auth doors — keeps the height it always drew; the one
  * `[data-density]` attribute the shell already carries switches the whole set, so the eight
  * per-screen row-height overrides have nothing left to say. Every value is a multiple of 4, and
  * 28/36 are R-UI-001's two row heights, unchanged.
  */
 :root,
-[data-density="compact"] {
-  --row-h: var(--row-compact);
-  --control-h: 28px;
-  --control-h-lg: 32px;
-  --cell-px: var(--space-2);
-  --cell-py: 0px;
-  --text-body: var(--text-13);
-  --text-caption: var(--text-12);
-  --gap-section: var(--space-4);
-  --stat-h: 64px;
-}
-
 [data-density="comfortable"] {
   --row-h: var(--row-comfortable);
   --control-h: 32px;
@@ -155,6 +144,18 @@ hr {
   --text-caption: var(--text-12);
   --gap-section: var(--space-6);
   --stat-h: 72px;
+}
+
+[data-density="compact"] {
+  --row-h: var(--row-compact);
+  --control-h: 28px;
+  --control-h-lg: 32px;
+  --cell-px: var(--space-2);
+  --cell-py: 0px;
+  --text-body: var(--text-13);
+  --text-caption: var(--text-12);
+  --gap-section: var(--space-4);
+  --stat-h: 64px;
 }
 
 /* The chrome geometry: one row of numbers the shell and every template read, never restate. */

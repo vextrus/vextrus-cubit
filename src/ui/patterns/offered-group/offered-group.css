@@ -28,18 +28,13 @@
   grid-template-columns: 1fr auto auto;
   align-items: center;
   column-gap: var(--space-3);
-  min-height: var(--row-comfortable);
+  min-height: var(--row-h);
   padding-block: var(--space-2);
 }
 
 /* A seam between rows, never above the first: the list's own edge is the consumer's to draw. */
 .cx-offered-group + .cx-offered-group {
   border-top: var(--hairline);
-}
-
-/* The shell publishes its density, and a row reads it as the contract it is (the dropzone I-75). */
-[data-density="compact"] .cx-offered-group {
-  min-height: var(--row-compact);
 }
 
 .cx-offered-label {

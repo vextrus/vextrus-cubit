@@ -107,13 +107,8 @@
   grid-template-columns: subgrid;
   align-items: center;
   gap: var(--space-3);
-  min-height: var(--row-comfortable);
+  min-height: var(--row-h);
   padding-block: var(--space-2);
-}
-
-/* I-75: density arrives from the frame's published attribute, never from a prop. */
-[data-density="compact"] .cx-dropzone-item {
-  min-height: var(--row-compact);
 }
 
 .cx-dropzone-item + .cx-dropzone-item {

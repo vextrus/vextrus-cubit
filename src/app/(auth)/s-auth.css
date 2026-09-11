@@ -218,7 +218,7 @@
   gap: var(--space-4);
   align-items: center;
   justify-content: space-between;
-  min-height: var(--row-comfortable);
+  min-height: var(--row-h);
   padding-block: var(--space-2);
   border-block-end: var(--hairline);
 }
@@ -261,7 +261,7 @@
 }
 
 .cx-auth-session-skeleton {
-  height: var(--row-comfortable);
+  height: var(--row-h);
 }
 
 .cx-auth-signout {

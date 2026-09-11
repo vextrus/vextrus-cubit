@@ -81,13 +81,9 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: var(--row-comfortable);
+  height: var(--row-h);
   padding-inline: var(--space-2);
   border-bottom: var(--hairline);
-}
-
-[data-density="compact"] .cx-viewer-layer-row {
-  height: var(--row-compact);
 }
 
 .cx-viewer-layer-switch {
@@ -449,13 +445,12 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  min-height: var(--row-comfortable);
+  min-height: var(--row-h);
   padding-block: var(--space-2);
   border-bottom: var(--hairline);
 }
 
 [data-density="compact"] .cx-viewer-inspector-entity {
-  min-height: var(--row-compact);
   padding-block: var(--space-1);
 }
 

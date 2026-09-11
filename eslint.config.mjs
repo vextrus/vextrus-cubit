@@ -134,6 +134,19 @@ export default [
     },
   },
   {
+    // ARIA's window splitter (APG) is a `separator` that is FOCUSABLE and carries
+    // aria-valuenow/min/max: a widget the arrow keys move, not structure. eslint-plugin-jsx-a11y
+    // reads `separator` off aria-query's roster, where it is structure whatever its tabindex — so
+    // the keyboard support the pattern REQUIRES is exactly what makes
+    // `no-noninteractive-element-interactions` fire. The finding is against the published pattern,
+    // not against this file. A directive that turns a rule off cannot be written in this tree
+    // (noInlineConfig, Q-08), so the exemption is stated here, bound to the one splitter that ships,
+    // and it is softened rather than turned off: the day that element stops being a splitter the
+    // finding is still printed.
+    files: ["src/ui/shell/inspector.tsx"],
+    rules: { "jsx-a11y/no-noninteractive-element-interactions": "warn" },
+  },
+  {
     // The screens and the modules are judged by the same two rule sets, and their findings are
     // WARNINGS until the nodes that own those files clear them. Non-fatal is the deliberate half of
     // this change: binding 95 previously-unjudged files at "error" would have turned the gate red

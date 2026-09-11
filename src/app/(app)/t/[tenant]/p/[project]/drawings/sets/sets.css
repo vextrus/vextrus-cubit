@@ -128,17 +128,12 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-3);
-  min-height: var(--row-comfortable);
+  min-height: var(--row-h);
   padding-block: var(--space-3);
 }
 
 .cx-sets-row + .cx-sets-row {
   border-top: var(--hairline);
-}
-
-/* The density preference is read from an ancestor, the dropzone's I-75 mechanism. */
-[data-density="compact"] .cx-sets-row {
-  min-height: var(--row-compact);
 }
 
 .cx-sets-row-facts {

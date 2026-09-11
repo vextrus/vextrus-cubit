@@ -139,7 +139,7 @@
 /* --- the parameter table: the shipped DataTable, so only the cell inks live here ---------------
  * The row height, the cell padding and the sticky header are the grid's, read from the density
  * tokens at the root (Design Direction 00 §5); the classes below say what each cell IS, and the
- * `height: var(--row-comfortable)` this block used to carry — one of the per-screen overrides §4.2
+ * `height: var(--row-h)` this block used to carry — one of the per-screen overrides §4.2
  * deletes — is gone with the `<tr>` it dressed.
  */
 

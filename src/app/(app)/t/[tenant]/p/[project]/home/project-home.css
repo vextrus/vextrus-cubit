@@ -295,15 +295,11 @@ a.cx-project-tab:hover {
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
-  min-height: var(--row-comfortable);
+  min-height: var(--row-h);
 }
 
 .cx-project-row + .cx-project-row {
   border-top: var(--hairline);
-}
-
-[data-density="compact"] .cx-project-row {
-  min-height: var(--row-compact);
 }
 
 .cx-project-act-type {

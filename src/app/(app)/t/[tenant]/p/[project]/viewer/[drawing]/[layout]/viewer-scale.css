@@ -73,13 +73,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  min-block-size: var(--row-comfortable);
+  min-block-size: var(--row-h);
   padding: var(--space-2) var(--space-3);
   border-block-end: var(--hairline);
-}
-
-[data-density="compact"] .cx-viewer-scale-view {
-  min-block-size: var(--row-compact);
 }
 
 .cx-viewer-scale-line {
@@ -294,9 +290,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  min-block-size: var(--row-comfortable);
+  min-block-size: var(--row-h);
 }
 
-[data-density="compact"] .cx-viewer-scale-bone-row {
-  min-block-size: var(--row-compact);
-}
