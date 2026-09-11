@@ -725,7 +725,10 @@ button.cx-chip:hover:not(:disabled) {
   width: var(--control-h);
   height: var(--control-h);
   padding: 0;
-  border: 1px solid transparent;
+  /* No border in any state — hover paints the surface and the mode wears an inset beam — so the box
+     is declared without one rather than with a transparent one (R-UI-001: a primitive paints only
+     token reads). */
+  border: none;
   border-radius: var(--radius-4);
   background: none;
   color: var(--ink-secondary);

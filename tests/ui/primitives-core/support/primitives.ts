@@ -143,9 +143,59 @@ export const COPY = {
   kbd: "K",
   tooltip: "Snap to grid \u2014 S",
   tooltipTrigger: "Snap",
+  checkbox: "Include provisional sums",
+  switchLabel: "Show superseded revisions",
+  selectLabel: "Basis",
+  comboboxLabel: "Layer",
+  numberLabel: "Course height",
+  iconGlyph: "\u25C6",
+  iconLabel: "Snap to grid",
+  idValue: "tk_01HQ8Z3M4N5P6Q7R8S9T0V1W2X",
+  idShort: "tk_01HQ8Z",
+  statValue: "1,240.5",
+  statLabel: "Measured area",
+  emptyHeading: "No takeoff yet",
+  emptyBody: "Measure a region to start the register.",
+  errorHeading: "The register could not be read",
+  errorBody: "The read was refused; try again.",
+  money: "12500.00",
+  quantity: "1240.5",
 } as const;
 
 export const COVERAGE_SAMPLE = 0.82;
+
+/** A fixed instant, so a figure primitive's sample never depends on the wall clock. */
+export const SAMPLE_NOW = new Date("2026-03-14T09:30:00.000Z");
+
+/**
+ * The three readings SEAM-FORMAT answers at the app's edge, sampled deterministically: the
+ * composition must not depend on the machine's locale, and a primitive that reads none of them is
+ * unchanged by having one.
+ */
+export const SAMPLE_FORMAT = {
+  figure: (value: string): string => value,
+  money: (amount: string): string => amount,
+  date: (): string => "14 Mar 2026",
+};
+
+/**
+ * A trail the shell really draws: a workspace step that links back, an area step that carries the
+ * overflow menu, and the page crumb that IS the page (`current`) — so the composition exercises the
+ * link, the menu trigger and the aria-current claim rather than three identical spans.
+ */
+export const CRUMB_TRAIL = [
+  { id: "workspace", label: "Riverside Tower", href: "/t/riverside" },
+  {
+    id: "area",
+    label: "Takeoff",
+    href: "/t/riverside/p/tower/takeoff",
+    menu: [
+      { id: "drawings", label: "Drawings", href: "/t/riverside/p/tower/drawings" },
+      { id: "sets", label: "Sets", href: "/t/riverside/p/tower/sets" },
+    ],
+  },
+  { id: "page", label: "Register", current: true },
+] as const;
 
 /* ------------------------------------------------------------------ product loading */
 

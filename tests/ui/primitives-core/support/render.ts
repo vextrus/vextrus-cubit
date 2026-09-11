@@ -8,7 +8,7 @@
 import * as React from "react";
 import { render } from "@testing-library/react";
 import { expect } from "vitest";
-import { BARREL, BASES, COPY, COVERAGE_SAMPLE } from "./primitives";
+import { BARREL, BASES, COPY, COVERAGE_SAMPLE, CRUMB_TRAIL, SAMPLE_FORMAT, SAMPLE_NOW } from "./primitives";
 
 type AnyComponent = React.ComponentType<Record<string, unknown>>;
 
@@ -23,6 +23,12 @@ export function el(
   expect(typeof component, `${BARREL} does not export a component named \`${name}\``).toBe("function");
   return React.createElement(component as AnyComponent, props, ...children);
 }
+
+/** One enumerated choice the listbox primitives are sampled on. */
+const OPTIONS = [
+  { value: "measured", label: "Measured" },
+  { value: "derived", label: "Derived" },
+] as const;
 
 /** A no-op handler: `Chip` is interactive only when a consumer passes `onClick` (Decision §3). */
 export const noop = (): void => undefined;
@@ -50,6 +56,44 @@ export function sampleElement(mod: Record<string, unknown>, name: string): React
       return el(mod, "Kbd", {}, COPY.kbd);
     case "Skeleton":
       return el(mod, "Skeleton", {});
+    case "Breadcrumb":
+      return el(mod, "Breadcrumb", { crumbs: CRUMB_TRAIL.map((crumb) => ({ ...crumb })) });
+    case "Checkbox":
+      return el(mod, "Checkbox", { checked: true, onChange: noop, label: COPY.checkbox });
+    case "Switch":
+      return el(mod, "Switch", { checked: false, onChange: noop, label: COPY.switchLabel });
+    case "Select":
+      return el(mod, "Select", { options: OPTIONS, value: OPTIONS[0].value, onChange: noop, "aria-label": COPY.selectLabel });
+    case "Combobox":
+      return el(mod, "Combobox", { options: OPTIONS, value: OPTIONS[0].value, onChange: noop, label: COPY.comboboxLabel });
+    case "NumberInput":
+      return el(mod, "NumberInput", { value: "12", onChange: noop, step: 1, "aria-label": COPY.numberLabel });
+    case "IconButton":
+      return el(mod, "IconButton", { icon: COPY.iconGlyph, label: COPY.iconLabel, kbd: COPY.kbd });
+    case "IdChip":
+      return el(mod, "IdChip", { value: COPY.idValue, short: COPY.idShort });
+    case "EnumLabel":
+      return el(mod, "EnumLabel", { value: BASES[0] });
+    case "Separator":
+      return el(mod, "Separator", {});
+    case "Stat":
+      return el(mod, "Stat", { value: COPY.statValue, label: COPY.statLabel });
+    case "EmptyState":
+      return el(mod, "EmptyState", { heading: COPY.emptyHeading, body: COPY.emptyBody });
+    case "ErrorState":
+      return el(mod, "ErrorState", { heading: COPY.errorHeading, body: COPY.errorBody, reportId: COPY.idValue, onRetry: noop });
+    case "DateText":
+      return el(mod, "DateText", { at: SAMPLE_NOW, format: SAMPLE_FORMAT });
+    case "RelativeTime":
+      return el(mod, "RelativeTime", { at: SAMPLE_NOW, now: SAMPLE_NOW, format: SAMPLE_FORMAT });
+    case "MoneyText":
+      return el(mod, "MoneyText", { amount: COPY.money, format: SAMPLE_FORMAT });
+    case "QuantityText":
+      return el(mod, "QuantityText", { value: COPY.quantity, unit: COPY.unit, format: SAMPLE_FORMAT });
+    case "ClockProvider":
+      return el(mod, "ClockProvider", { now: SAMPLE_NOW }, el(mod, "RelativeTime", { at: SAMPLE_NOW, format: SAMPLE_FORMAT }));
+    case "FigureProvider":
+      return el(mod, "FigureProvider", { format: SAMPLE_FORMAT }, el(mod, "MoneyText", { amount: COPY.money }));
     case "Tooltip":
       return el(mod, "Tooltip", { content: COPY.tooltip }, el(mod, "Button", { variant: "ghost" }, COPY.tooltipTrigger));
     default:
