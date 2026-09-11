@@ -10,6 +10,7 @@
 
 import { ACT_TYPES } from "../acts/law";
 import { COVERAGES, GEOMETRY_TYPES } from "../offers/law";
+import { AXIS_IDLE_READINGS } from "../residue/law";
 
 /** One foreign vocabulary: who owns the names, and which of them this tree spells. */
 export type TransportVocabulary = {
@@ -200,6 +201,16 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // so a shape the law gains tomorrow is declared with no edit (B-19, ARCH-02).
     vocabulary: "member geometry types (L-FRM-01)",
     codes: GEOMETRY_TYPES,
+  }),
+  Object.freeze({
+    // L-QTY-05's two idle axis readings: what a cell of the residue says when nothing is wrong on
+    // that axis. Both bear an underscore, so Q-07's register would read them as refusal codes nobody
+    // registered — but they are the ABSENCE of a cause: a cell that bears quantity is answered with
+    // its published lines, and a cell in the bill is answered with nothing at all. The five causes
+    // beside them ARE registered refusals, each with its remedy. The roster's home is
+    // `../residue/law.ts` and it is read from there rather than copied (B-19, ARCH-02).
+    vocabulary: "residue axis idle readings (L-QTY-05)",
+    codes: AXIS_IDLE_READINGS,
   }),
   Object.freeze({
     // L-QTY-02's coverage roster. `PARTIAL_DECLARED` bears an underscore, so Q-07's register would

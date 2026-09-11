@@ -1,0 +1,434 @@
+/*
+ * S-Coverage, the heat grid (R-TO-052, docs/design/s-coverage.md §§ 1, 4, 5, 6). Every colour, size,
+ * weight and duration is a read into the committed Datum token source (R-UI-001, R-UI-003,
+ * R-UI-004): the rules are identical in light and dark, and the themes differ only in what the
+ * tokens are worth. No `[data-theme]` selector appears here.
+ *
+ * The px literals are the closed set the Decision § 5 fixes: the kind gutter's 200, the inspector's
+ * 340, the cell seam's 1, the strokes' 1.5 and 2, and the md media-query value 960. Any other literal
+ * is a defect. The glyph geometry is the grid component's own, stated in a viewBox's units.
+ *
+ * `--hairline` is a whole border shorthand (`1px solid var(--graphite-200)`), so a surface wears it as
+ * `border: var(--hairline)` and a notice recolours it with `border-color` afterwards — the lane's own
+ * idiom (register.css). Spelling a colour inside the shorthand makes the declaration invalid and the
+ * surface loses its frame entirely (R-UI-001, B-17).
+ *
+ * Nothing here eases in (Decision § 4): the grid paints at once and the inspector swaps instantly.
+ * Focus is not styled here either — every button and link wears the reticle from its one home
+ * (B-17, R-UI-012), and the grid's own drawn reticle is the component's (I-190). The refusal, the
+ * dialog and the skeleton are painted by their own stylesheets.
+ */
+
+.cx-coverage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  font-family: var(--font-ui);
+  line-height: var(--leading-ui);
+}
+
+/* --- the offline banner, house notice chrome (Decision § 2) --- */
+
+.cx-coverage-offline {
+  padding: var(--space-2) var(--space-3);
+  border: var(--hairline);
+  border-color: var(--info);
+  border-radius: var(--radius-4);
+  background: var(--info-surface);
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+}
+
+/* --- the header, and the revision this reading was taken against --- */
+
+.cx-coverage-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.cx-coverage-title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-coverage-heading {
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-coverage-caption {
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-coverage-revision-block {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-coverage-revision-label {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+  white-space: nowrap;
+}
+
+.cx-coverage-revision {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+  user-select: all;
+}
+
+/* --- the answer slot: one renderer, one place, nothing around it (R-UI-020) --- */
+
+.cx-coverage-answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-coverage-answer:empty {
+  display: none;
+}
+
+.cx-coverage-denied {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-coverage-denied-holder {
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}
+
+/* --- the body: the grid, and the inspector beside it --- */
+
+.cx-coverage-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .cx-coverage-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cx-coverage-grid-region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cx-coverage-grid-heading {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-coverage-partial-note {
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+/* The box scrolls, never the page: a project wider than the viewport keeps its heading in place. */
+.cx-coverage-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.cx-coverage-grid {
+  display: block;
+}
+
+.cx-coverage-class {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  fill: var(--graphite-700);
+}
+
+.cx-coverage-level {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  fill: var(--graphite-600);
+}
+
+.cx-coverage-kind {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  fill: var(--graphite-900);
+}
+
+/* Hover states the cell under the pointer; selection and focus are the component's own marks. */
+.cx-coverage-grid [data-testid="coverage-cell"] {
+  cursor: pointer;
+  color: var(--graphite-900);
+}
+
+.cx-coverage-grid [data-testid="coverage-cell"] > rect:first-of-type {
+  transition: stroke var(--motion-state) var(--ease);
+}
+
+.cx-coverage-grid [data-testid="coverage-cell"]:hover > rect:first-of-type {
+  stroke: var(--beam-500);
+  stroke-width: 1.5;
+}
+
+/* --- the legend: every mark, in words (R-UI-060) --- */
+
+.cx-coverage-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  background: var(--graphite-0);
+}
+
+.cx-coverage-legend-heading {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-coverage-measured,
+.cx-coverage-legend-entry {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-2);
+  align-items: baseline;
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+}
+
+.cx-coverage-legend-name {
+  color: var(--graphite-900);
+}
+
+.cx-coverage-legend-remedy {
+  grid-column: 2;
+  color: var(--graphite-700);
+}
+
+/* --- the inspector: the register panel's chrome, exactly (Decision § 1) --- */
+
+.cx-coverage-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  background: var(--graphite-50);
+}
+
+.cx-coverage-inspector-heading {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-coverage-inspector-body,
+.cx-coverage-hint,
+.cx-coverage-none {
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-coverage-facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-2);
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-coverage-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-900);
+}
+
+.cx-coverage-grain {
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}
+
+.cx-coverage-cause,
+.cx-coverage-remedy {
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+}
+
+.cx-coverage-remedy {
+  color: var(--graphite-700);
+}
+
+.cx-coverage-remedy-link {
+  color: var(--beam-500);
+  transition: color var(--motion-state) var(--ease);
+}
+
+.cx-coverage-declared-label {
+  display: block;
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-coverage-act-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+  user-select: all;
+}
+
+.cx-coverage-contradicted {
+  font-size: var(--text-13);
+  color: var(--danger);
+}
+
+.cx-coverage-sighting,
+.cx-coverage-observation {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: var(--graphite-0);
+  font-size: var(--text-12);
+}
+
+.cx-coverage-label {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-coverage-source-key {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.cx-coverage-reason {
+  font-size: var(--text-13);
+  color: var(--graphite-700);
+}
+
+.cx-coverage-doors {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+/* --- the empty and error cells, which stand in the body's place --- */
+
+.cx-coverage-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-4);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  background: var(--graphite-0);
+}
+
+.cx-coverage-empty-heading {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-coverage-empty-body {
+  font-size: var(--text-13);
+  color: var(--graphite-600);
+}
+
+.cx-coverage-report {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.cx-coverage-report-label {
+  font-size: var(--text-12);
+  color: var(--graphite-600);
+}
+
+.cx-coverage-report-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--graphite-700);
+  user-select: all;
+}
+
+/* --- the certificate preview: document text, previewed as document text --- */
+
+.cx-coverage-certificate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  background: var(--graphite-0);
+  font-family: var(--font-doc);
+  font-size: var(--text-13);
+  color: var(--graphite-900);
+  max-width: 72ch;
+}
+
+.cx-coverage-certificate-heading {
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--graphite-900);
+}
+
+.cx-coverage-statement {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cx-coverage-statement-title {
+  font-size: var(--text-13);
+  font-weight: var(--weight-body-medium);
+  color: var(--graphite-900);
+}
+
+.cx-coverage-statement-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cx-coverage-statement-row {
+  display: grid;
+  grid-template-columns: auto auto auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.cx-coverage-statement-cause {
+  color: var(--graphite-700);
+}
+
+/* --- the bones, which keep this layout while the route resolves (R-UI-004) --- */
+
+.cx-coverage-loading .cx-coverage-body {
+  align-items: stretch;
+}
