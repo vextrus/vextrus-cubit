@@ -10,6 +10,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { ReactNode } from "react";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
 import * as icons from "./index";
@@ -20,10 +21,12 @@ import { createIcon, type IconProps } from "./icon-base";
 const REPO_ROOT = process.cwd();
 const HERE = join(REPO_ROOT, "src/ui/icons");
 
-type IconComponent = (props: IconProps) => unknown;
+type IconComponent = (props: IconProps) => ReactNode;
 
 /** Every glyph the barrel publishes, by export name. */
-const GLYPHS: readonly (readonly [string, IconComponent])[] = Object.entries(icons)
+const GLYPHS: readonly (readonly [string, IconComponent])[] = (
+  Object.entries(icons) as readonly (readonly [string, unknown])[]
+)
   .filter((entry): entry is [string, IconComponent] => entry[0].startsWith("Icon") && typeof entry[1] === "function")
   .sort((a, b) => (a[0] < b[0] ? -1 : 1));
 

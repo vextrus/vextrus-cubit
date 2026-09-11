@@ -27,13 +27,15 @@ const SLEEP = "waitForTimeout";
  * `expect.poll(fn, { timeout })` retries `fn`, and nothing else it is handed.
  * @param {import("eslint").Rule.Node[]} ancestors outermost first, as ESLint hands them over
  * @param {import("eslint").Rule.Node} node
+ * @param {readonly import("estree").Node[]} ancestors
+ * @param {import("estree").Node} node
  * @returns {boolean}
  */
 function insidePoll(ancestors, node) {
   const chain = [...ancestors, node];
   for (let at = 0; at < chain.length - 1; at += 1) {
     const parent = chain[at];
-    if (parent.type !== "CallExpression") continue;
+    if (parent === undefined || parent.type !== "CallExpression") continue;
     const callee = parent.callee;
     if (callee.type !== "MemberExpression" || callee.computed) continue;
     if (callee.property.type !== "Identifier" || callee.property.name !== "poll") continue;
