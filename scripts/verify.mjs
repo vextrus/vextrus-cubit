@@ -5,8 +5,19 @@
 // arms itself the moment that input exists (C-06, B-23). The exit code is the whole contract, so
 // the chain is an exported function driven by an injected runner — a guarantee nothing can execute
 // is a guarantee nothing can prove (B-22).
+//
+// CUBIT_VERIFY_SLOTS — how many gates share this machine. The engine sets it to the number of
+// product suites it is running at once (concurrency 2 means `CUBIT_VERIFY_SLOTS=2`); one gate is
+// assumed when nobody says. Every cap this chain sets is derived from it in scripts/lib/box.mjs: the
+// unit lane's `--maxWorkers`, the width of a wave, and — in the database lane's own config — that
+// lane's workers. A gate uses at most `cores / SLOTS - 2` workers in total, so two gates on the
+// 24-core box no longer ask it for 36.
+//
+// CUBIT_LANE_TIMEOUT_MS — how long any one lane may run before it is killed and what it had already
+// said is flushed (scripts/lib/report.mjs); 15 minutes by default.
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { UNIT_LANE_KNEE, VERIFY_WAVE_SIBLINGS, laneWorkers, waveParallelism } from "./lib/box.mjs";
 import { deriveLanes } from "./lib/lanes.mjs";
 import { announce, run, runAsync, wallTime } from "./lib/report.mjs";
 
@@ -22,9 +33,10 @@ export const LANE_COMMANDS = Object.freeze({
   types: [["node", "node_modules/typescript/bin/tsc", "--noEmit"]],
   lint: [["node", "node_modules/eslint/bin/eslint.js", "."]],
   // Capped deliberately: the unit lane would take the whole box by default, and it no longer has
-  // the box to itself — six other lanes gate beside it (runChainInWaves) on a 24-core machine that
-  // runs at most two product suites at once.
-  unit: [["node", "node_modules/vitest/vitest.mjs", "run", "--maxWorkers=6"]],
+  // the box to itself — six other lanes gate beside it (runChainInWaves), and the engine may be
+  // running a second gate on the same machine. The number is derived from the box and from
+  // CUBIT_VERIFY_SLOTS rather than written down (scripts/lib/box.mjs).
+  unit: [["node", "node_modules/vitest/vitest.mjs", "run", `--maxWorkers=${laneWorkers(UNIT_LANE_KNEE, { siblings: VERIFY_WAVE_SIBLINGS })}`]],
   "schema-drift": [["node", "scripts/db-drift.mjs", "--scratch"]],
   "method-hash": [["node", "scripts/method-hashes.mjs", "--in-chain"]],
   "catalogue-drift": [["node", "scripts/catalogue-drift.mjs", "--in-chain"]],
@@ -120,15 +132,13 @@ export async function runChainInWaves(lanes, io = {}) {
   let code = 0;
   for (const wave of planWaves(lanes)) {
     const armed = wave.filter((lane) => report(lane));
-    const verdicts = await Promise.all(
-      armed.map(async (lane) => {
-        for (const argv of /** @type {string[][]} */ (LANE_COMMANDS[lane.id])) {
-          const answer = await exec(argv, LANE_ENV[lane.id], lane.id);
-          if (answer !== 0) return { lane, code: answer };
-        }
-        return { lane, code: 0 };
-      }),
-    );
+    const verdicts = await atMostAtOnce(armed, waveParallelism(armed.length), async (lane) => {
+      for (const argv of /** @type {string[][]} */ (LANE_COMMANDS[lane.id])) {
+        const answer = await exec(argv, LANE_ENV[lane.id], lane.id);
+        if (answer !== 0) return { lane, code: answer };
+      }
+      return { lane, code: 0 };
+    });
     for (const verdict of verdicts) {
       if (verdict.code === 0) continue;
       write(`FAIL ${verdict.lane.id} exit=${verdict.code}\n`);
@@ -137,6 +147,30 @@ export async function runChainInWaves(lanes, io = {}) {
     if (code !== 0) break;
   }
   return code;
+}
+
+/**
+ * Run `work` over `items` with at most `width` of them in flight, answering in the items' own order.
+ * A wave is still a wave — it is just not allowed to be wider than the box it is running on
+ * (scripts/lib/box.mjs); on a machine with cores to spare this is `Promise.all` by another name.
+ * @template T, R
+ * @param {ReadonlyArray<T>} items
+ * @param {number} width
+ * @param {(item: T) => Promise<R>} work
+ * @returns {Promise<R[]>}
+ */
+async function atMostAtOnce(items, width, work) {
+  /** @type {R[]} */
+  const answers = new Array(items.length);
+  let next = 0;
+  const hand = async () => {
+    for (let index = next; index < items.length; index = next) {
+      next += 1;
+      answers[index] = await work(/** @type {T} */ (items[index]));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(width, items.length)) }, hand));
+  return answers;
 }
 
 /** Is this file the process's entry point, rather than a module a suite is reading? */
