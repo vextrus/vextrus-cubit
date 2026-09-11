@@ -1,5 +1,5 @@
 """F-RCC6-BNBC golden, path 1: member by member from the authored model (L-QTY-06: never from the
-drawing). Imports the model only — never derive/emit code (cad/tests/fixtures/test_rcc6_bnbc_lint.py).
+drawing). Imports the model only — never derive/emit code (cad/tests/rcc6_bnbc/test_rcc6_bnbc_lint.py).
 
 Rows: {class, kind, level, quantity, unit, formula} as F-RCC6's readers expect, plus optional
 `grade`, `diameter_mm`, `component`, `members`. Kinds: RCC_CONCRETE m3 · FORMWORK m2 (SIDES / SOFFIT /

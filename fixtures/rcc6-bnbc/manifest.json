@@ -5,10 +5,10 @@
     "path": "fixtures/gen/rcc6_bnbc/",
     "modules": {
       "model.py": "769507bb9c22cbb318d525ada5e04e94a6226f06e2331d7018707b59c34ff408",
-      "golden.py": "035a0db4763adcaa98bfb7b474e73cddda9cff61cefde49f73142b932bf996cb",
-      "golden_check.py": "afffd6105189e00e3a651a9d3ec5cb481ce7176858a01da790b837c947273afd",
+      "golden.py": "82095fbd173d4468789bb0aa6926e3852ad76481d5505e30b731eb5949782a92",
+      "golden_check.py": "49ac0b1b96bd7becbab4abdb70f85a1b58a8fc342e4b92cdc4696fbcad237c4b",
       "selfcheck.py": "f334224746afb5fba47d026660021cd532cbedd4d5c104919657214d4673bdf7",
-      "__main__.py": "3115b9f066a5a2d298a410a2c6be5c31955e159889c8ae9a0d72ee6d01309e83",
+      "__main__.py": "c2b041e0682864a9d1e8b2ab1510995f2d1b6ab1668f2ff7015e207341229236",
       "cells.json": "caf5af457d4659ea15a7fbdcea92e9fa08848f103439a06af800336b30c80e28",
       "traps.json": "8a3bd8b62b17427945a36452c9dfe2fd594ab854ffbe6f7851196acc81400786"
     }
@@ -64,7 +64,7 @@
   "size_budget": {
     "total_mb": 6,
     "file_mb": 3,
-    "test": "cad/tests/fixtures/test_rcc6_bnbc_size.py"
+    "test": "cad/tests/rcc6_bnbc/test_rcc6_bnbc_size.py"
   },
   "wave": "A (N0/N1): model + golden + validators + traps; sheets/DXF/DWG/PDF/raster are Wave B"
 }

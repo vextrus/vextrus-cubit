@@ -4,7 +4,7 @@ This path reads only the raw authored inputs — the grid, levels and catalogues
 member, the authored fields (mark, level, axis end points, supports, polygons, thicknesses, section
 marks, bar legs). It never reads a derived field (`clear`, `area`, `col_deduct`, `beam_soffit`,
 `beam_ends`, `h`, `t_top`, `perim`, `extents`, column rectangles, stair slopes …): those are poisoned
-in cad/tests/fixtures/test_rcc6_bnbc_lint.py and the key strings are forbidden in this file. Spans,
+in cad/tests/rcc6_bnbc/test_rcc6_bnbc_lint.py and the key strings are forbidden in this file. Spans,
 areas, deductions and contact faces are recomputed here with this module's own geometry code, folded
 into signatures with placement counts, and evaluated once per signature. Bars are authored data, but
 every beam main bar's A is re-derived from this path's own clear span and must match the authored leg.

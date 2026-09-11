@@ -124,7 +124,7 @@ def main(out: Path) -> dict[str, Any]:
             "size_budget": {
                 "total_mb": 6,
                 "file_mb": 3,
-                "test": "cad/tests/fixtures/test_rcc6_bnbc_size.py",
+                "test": "cad/tests/rcc6_bnbc/test_rcc6_bnbc_size.py",
             },
             "wave": "A (N0/N1): model + golden + validators + traps; sheets/DXF/DWG/PDF/raster are Wave B",
         },
