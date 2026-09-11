@@ -11,7 +11,7 @@
 //
 // The door is opened through the one server-call seam (`@/server/call`): it reads what the screen
 // stated against the schema below, resolves the presented session ONCE, and carries a registered
-// refusal back as this screen's own answer — a submission carrying no token is answered MALFORMED
+// refusal back as this screen's own answer — a submission carrying no token is answered REQUEST_MALFORMED
 // rather than spending an allowance on a move nobody could make.
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";

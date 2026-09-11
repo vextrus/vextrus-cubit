@@ -34,6 +34,7 @@ import { MASONRY_REFUSALS, type MasonryRefusalCode } from "./errors/masonry";
 import { REBAR_REFUSALS, type RebarRefusalCode } from "./errors/rebar";
 import { REGISTER_REFUSALS, type RegisterRefusalCode } from "./errors/register";
 import { RESIDUE_REFUSALS, type ResidueRefusalCode } from "./errors/residue";
+import { SERVER_REFUSALS, type ServerRefusalCode } from "./errors/server";
 import { SLABS_REFUSALS, type SlabsRefusalCode } from "./errors/slabs";
 import { TAKEOFF_GRIDS_REFUSALS, type TakeoffGridsRefusalCode } from "./errors/takeoff-grids";
 import { TAKEOFF_INGEST_REFUSALS, type TakeoffIngestRefusalCode } from "./errors/takeoff-ingest";
@@ -75,6 +76,7 @@ export type RefusalCode =
   | TakeoffScaleRefusalCode
   | UnitsRefusalCode
   | RegisterRefusalCode
+  | ServerRefusalCode
   | TakeoffLevelsRefusalCode
   | GateRefusalCode
   | FrameRefusalCode
@@ -121,6 +123,7 @@ export const REFUSALS: Readonly<{ [C in RefusalCode]: RefusalEntry & { code: C }
   ...TAKEOFF_SCALE_REFUSALS,
   ...UNITS_REFUSALS,
   ...REGISTER_REFUSALS,
+  ...SERVER_REFUSALS,
   ...TAKEOFF_LEVELS_REFUSALS,
   ...GATE_REFUSALS,
   ...FRAME_REFUSALS,

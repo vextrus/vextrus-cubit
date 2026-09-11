@@ -6,7 +6,7 @@
 // Every door that takes anything from a browser is opened through the one server-call seam
 // (`@/server/call`): it reads what was submitted against the schemas below, resolves the presented
 // session ONCE for the action, and carries a registered refusal back in each screen's own answer
-// shape. A submission that is not the shape a door is asked in is answered MALFORMED — a form post
+// shape. A submission that is not the shape a door is asked in is answered REQUEST_MALFORMED — a form post
 // missing the workspace it is about states nothing this tier can act on, and guessing at it is how a
 // write lands in the wrong place. The two doors that state nothing at all — signing out and taking
 // the sample offer — are handed nothing to read, so they stand as they are.

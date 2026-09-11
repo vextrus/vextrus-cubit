@@ -7,7 +7,7 @@
 // Every door is opened through the one server-call seam (`@/server/call`): it reads what the screen
 // stated against the schemas below, resolves the presented session ONCE for the action, and carries
 // a registered refusal back in this screen's own answer shape — a submission that is not the shape a
-// door is asked in is answered MALFORMED rather than thrown across the action boundary.
+// door is asked in is answered REQUEST_MALFORMED rather than thrown across the action boundary.
 //
 // The workspace is derived here and never taken from the form: `projectActorFor` is the one place
 // that turns a session and a project into a workspace-scoped actor, so a tenant id a caller posted

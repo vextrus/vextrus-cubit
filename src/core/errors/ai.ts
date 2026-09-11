@@ -38,15 +38,13 @@ export const AI_REFUSALS: RefusalGroup<AiRefusalCode> = Object.freeze({
     severity: "error",
     surface: "inline",
   }),
-  // Registered here because L-AI-01's transport was the first door to need it, but the meaning is
-  // every door's since src/server/call.ts: "what arrived is not in the shape this door reads". The
-  // copy is therefore about the STATEMENT rather than about a model's answer — a person who posted a
-  // bad form field must not be told something about a proposal they never asked for (R-SPINE-062,
-  // docs/design/refusal-state.md § 3).
+  // This code is the MODEL transport's and stays it: one code, one meaning (R-SPINE-062). L-AI-01
+  // fixes its copy at the shape a PROPOSAL takes, so it is never the answer to a caller whose form
+  // field was unreadable — the transports answer `REQUEST_MALFORMED` (./server.ts) for that.
   MALFORMED: Object.freeze({
     code: "MALFORMED",
-    message: "What arrived is not in the shape this door reads, so it was not acted on.",
-    remedy: "Send the request again in the shape the door states — a statement that cannot be read is never guessed at.",
+    message: "The model's answer is not in the shape a proposal takes, so it was not accepted.",
+    remedy: "Request the answer again — an answer that cannot be read as a proposal is never guessed at.",
     severity: "error",
     surface: "inline",
   }),

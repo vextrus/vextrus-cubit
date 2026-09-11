@@ -2,7 +2,7 @@
  * The one server-call seam's promise, graded at both transports (ARCH-03, B-21).
  *
  * A statement this tier cannot read is the caller's mistake and not an outage of ours, so it is
- * answered with a REGISTERED refusal — the closed taxonomy's MALFORMED, as `src/core/errors` holds
+ * answered with a REGISTERED refusal — the closed taxonomy's REQUEST_MALFORMED, as `src/core/errors` holds
  * it — and never as a thrown Error, a 500, or a fault record. The two claims are graded together
  * here because they are one claim: the fault sink is watched across the whole file, and a door that
  * writes a record for a caller error fails this suite even when its status looks right.
@@ -48,10 +48,10 @@ async function expectRefusedAsMalformed(response: Response, where: string): Prom
   expect(status, `${where}: a statement this door cannot read is the caller's mistake, answered at 400 — never as an outage of ours`).toBe(400);
   const refusal = body["refusal"] as { code?: unknown; message?: unknown; remedy?: unknown } | undefined;
   expect(refusal?.code, `${where}: the answer names the registered refusal, so a client renders the register's own copy (R-SPINE-062)`).toBe(
-    REFUSALS.MALFORMED.code,
+    REFUSALS.REQUEST_MALFORMED.code,
   );
-  expect(refusal?.message, `${where}: the registered message travels with the code, whole`).toBe(REFUSALS.MALFORMED.message);
-  expect(refusal?.remedy, `${where}: and so does its remedy`).toBe(REFUSALS.MALFORMED.remedy);
+  expect(refusal?.message, `${where}: the registered message travels with the code, whole`).toBe(REFUSALS.REQUEST_MALFORMED.message);
+  expect(refusal?.remedy, `${where}: and so does its remedy`).toBe(REFUSALS.REQUEST_MALFORMED.remedy);
   expect(body["faultId"], `${where}: a caller error is not a fault, so no record's id is handed back`).toBeUndefined();
 }
 
@@ -123,22 +123,22 @@ describe('a "use server" action answers an unreadable input with its own typed r
     const previewed = await previewConfirmViewType({ projectId: 7, group: { kind: "SHEET" } } as never);
     expect(previewed, "a preview answers its screen's own shape, refusal included — it never throws across the boundary").toEqual({
       previewed: false,
-      refusal: REFUSALS.MALFORMED.code,
+      refusal: REFUSALS.REQUEST_MALFORMED.code,
     });
 
     const committed = await commitConfirmViewType({} as never);
-    expect(committed, "and so does its commit").toEqual({ committed: false, refusal: REFUSALS.MALFORMED.code });
+    expect(committed, "and so does its commit").toEqual({ committed: false, refusal: REFUSALS.REQUEST_MALFORMED.code });
   });
 
   test("the Trace's reads answer the same way, in the shape their own screen reads", async () => {
     const { readLineEvidence, readLinesCiting } = await import("@/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/trace-actions");
     expect(await readLineEvidence({ projectId: "a" } as never), "a read with no line named is not a read this door can make").toEqual({
       read: false,
-      refusal: REFUSALS.MALFORMED.code,
+      refusal: REFUSALS.REQUEST_MALFORMED.code,
     });
     expect(await readLinesCiting({ projectId: "a", drawingId: "b", sourceKeys: "all of them" } as never), "nor is one whose keys are not keys").toEqual({
       read: false,
-      refusal: REFUSALS.MALFORMED.code,
+      refusal: REFUSALS.REQUEST_MALFORMED.code,
     });
   });
 
@@ -147,7 +147,7 @@ describe('a "use server" action answers an unreadable input with its own typed r
     const answer = await previewAssignRole({ projectId: "a", subjectUserId: "b", role: "EMPEROR", direction: "GRANT" } as never);
     expect(answer, "a role nobody registered bundles nothing, so the door never carries it to the seam").toEqual({
       previewed: false,
-      refusal: REFUSALS.MALFORMED.code,
+      refusal: REFUSALS.REQUEST_MALFORMED.code,
     });
   });
 

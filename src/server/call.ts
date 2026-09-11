@@ -7,8 +7,10 @@
 // answer to it is a refusal from the closed taxonomy — understood, and not carried out (B-21).
 //
 // So there is one reading, here, spelled in one schema language (zod), and one answer for the
-// failure of it: MALFORMED, as `core/errors` registers it. Three doors are opened onto that one
-// reading, one per transport:
+// failure of it: REQUEST_MALFORMED, as `core/errors` registers it. That code is the TRANSPORTS' own
+// and no other door's — `MALFORMED` is the model transport's, whose copy L-AI-01 fixes at the shape
+// a proposal takes, and one code may carry one meaning (R-SPINE-062). Three doors are opened onto
+// that one reading, one per transport:
 //
 //   `serverCall`   — a "use server" action: the statement is parsed, the session is resolved ONCE
 //                    and handed over, and a registered refusal is carried back in the answer shape
@@ -37,10 +39,10 @@ import { presentedSessionToken } from "./shell/session";
  * The one answer a statement this tier cannot read earns. It is a refusal and not a fault: nothing
  * of ours failed, and nothing about the product is learned from being told so (ARCH-03, B-21).
  */
-const MALFORMED = "MALFORMED" as const satisfies RefusalCode;
+const REQUEST_MALFORMED = "REQUEST_MALFORMED" as const satisfies RefusalCode;
 
 /** The status an unreadable statement is answered under — understood, and not carried out. */
-const MALFORMED_STATUS = 400;
+const REQUEST_MALFORMED_STATUS = 400;
 
 /** The status a failure of ours is answered under, with the id it was recorded as and nothing else. */
 const FAULT_STATUS = 500;
@@ -97,7 +99,7 @@ type Address = { params: Promise<Record<string, string>> };
 
 /**
  * Parse a statement, or raise the registered refusal for one that cannot be read. This is the
- * reading behind all three doors, and the only place MALFORMED is made.
+ * reading behind all three doors, and the only place REQUEST_MALFORMED is made.
  *
  * The marker is the settled one (`core/faults/refusal-marker`), so every reader the tier already
  * has — the tRPC error formatter, an action's own `refused`, the route wrapper below — recognises
@@ -108,7 +110,7 @@ export function parsed<S extends z.ZodType>(schema: S): (stated: unknown) => z.o
   return (stated: unknown): z.output<S> => {
     const read = schema.safeParse(stated);
     if (read.success) return read.data;
-    throw refusal(MALFORMED, sentenceOf(read.error, UNREADABLE));
+    throw refusal(REQUEST_MALFORMED, sentenceOf(read.error, UNREADABLE));
   };
 }
 
@@ -135,7 +137,7 @@ export function serverCall<S extends z.ZodType, A>(
 ): (stated: unknown) => Promise<A> {
   return async (stated: unknown): Promise<A> => {
     const read = schema.safeParse(stated);
-    if (!read.success) return refusedAs(MALFORMED);
+    if (!read.success) return refusedAs(REQUEST_MALFORMED);
     const session = await presentedSession();
     if (session === null) return refusedAs("SIGNED_OUT");
     try {
@@ -181,7 +183,7 @@ export function routeHandler<S extends z.ZodType>(
       // not JSON never became a statement at all and is raised wearing the registered marker, so it
       // is answered as the caller error it is; anything else happened on our side and is recorded at
       // the fault seam before the caller is given the id of the record, and nothing else.
-      if (refusalCodeOf(failure) === MALFORMED) return malformedAnswer(door.sentence ?? UNREADABLE);
+      if (refusalCodeOf(failure) === REQUEST_MALFORMED) return malformedAnswer(door.sentence ?? UNREADABLE);
       const { faultId } = reportFault({
         requestId: context?.requestId ?? globalThis.crypto.randomUUID(),
         actor: context?.actor ?? door.actor,
@@ -264,7 +266,7 @@ function configuredOrigin(): string {
  * because a registered message is about the product and this is about one request.
  */
 function malformedAnswer(sentence: string): Response {
-  return json({ refusal: REFUSALS[MALFORMED], error: sentence }, MALFORMED_STATUS);
+  return json({ refusal: REFUSALS[REQUEST_MALFORMED], error: sentence }, REQUEST_MALFORMED_STATUS);
 }
 
 /**
@@ -291,7 +293,7 @@ async function jsonBody(request: Request): Promise<unknown> {
   try {
     return JSON.parse(text) as unknown;
   } catch (failure) {
-    throw refusal(MALFORMED, "the request body is not JSON", { cause: failure });
+    throw refusal(REQUEST_MALFORMED, "the request body is not JSON", { cause: failure });
   }
 }
 

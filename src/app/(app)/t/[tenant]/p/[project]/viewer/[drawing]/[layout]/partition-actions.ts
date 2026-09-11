@@ -11,7 +11,7 @@
 // Both doors are opened through the one server-call seam (`@/server/call`): it reads what the browser
 // stated against the schema below, resolves the presented session ONCE, and carries a registered
 // refusal back in this screen's own answer shape — a submission that is not the shape an act is
-// asked for in is answered MALFORMED rather than thrown across the action boundary, where neither
+// asked for in is answered REQUEST_MALFORMED rather than thrown across the action boundary, where neither
 // its marker nor its cause would survive (ARCH-03, B-21).
 //
 // The actor is derived here and never taken from the form: `projectActorFor` is the one place that

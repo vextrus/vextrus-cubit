@@ -7,7 +7,7 @@
 // pointed at BECOMES a class, a kind and a cell — one narrowing, at the lane's door, against the
 // closed rosters the catalogue holds. A reading of its own beside that one would be a second answer
 // to what is lawful (B-17, ARCH-03), so a statement this grid cannot make lawfully comes back as the
-// registered MALFORMED the lane refused it with, never as a thrown Error.
+// registered REQUEST_MALFORMED the lane refused it with, never as a thrown Error.
 import type { DeclareNotInProjectScopeInput, HoldOutOfBillInput } from "@/core/acts";
 import type { CoverageView } from "@/modules/takeoff/coverage/view";
 import { asked, lane, type DoorAnswer, type Previewed } from "../lane";

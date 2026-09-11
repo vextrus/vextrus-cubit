@@ -5,7 +5,7 @@
 // coverage grid share (`../lane`), and each door's own `.input(parsed(...))` is the one reading of
 // what a reader stated — a reading of its own beside that one would be a second answer to what is
 // lawful (B-17, ARCH-03), so a statement this workspace cannot make lawfully comes back as the
-// registered MALFORMED the lane refused it with, never as a thrown Error.
+// registered REQUEST_MALFORMED the lane refused it with, never as a thrown Error.
 import type { CorroborateInput, InsertLevelInput, RepudiateInput } from "@/core/acts";
 import type { MeasureRefused, MeasureRequested } from "@/modules/takeoff/measure";
 import type { RegisterView } from "@/modules/takeoff/register-ui/view";

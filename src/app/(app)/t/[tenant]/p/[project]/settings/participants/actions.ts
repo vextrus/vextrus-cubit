@@ -35,7 +35,7 @@ export type CommitAnswer = { committed: true; actId: string } | { committed: fal
 /**
  * What the screen may state at these two doors. The role arrives from a chip group a caller can post
  * anything through, and a role the closed enum does not hold bundles nothing — so a statement naming
- * one is refused here as MALFORMED rather than carried to the seam as a string nobody can act on.
+ * one is refused here as REQUEST_MALFORMED rather than carried to the seam as a string nobody can act on.
  * What a role MEANS stays the act seam's law (L-ACT-03): this is the transport declining to read a
  * statement, not a second opinion about what is lawful (B-17).
  */

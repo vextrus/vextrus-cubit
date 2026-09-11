@@ -103,6 +103,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "RASTER_NOT_AVAILABLE",
   "RATE_LIMITED",
   "READING_NOT_NUMERIC",
+  "REQUEST_MALFORMED",
   "SCALE_NO_EVIDENCE",
   "SCALE_OBSERVATION_OBLIQUE",
   "SCALE_OBSERVATION_UNCITED",
@@ -136,15 +137,20 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
  *
- * Re-baselined once since the split, for ONE entry: MALFORMED. Its registered copy was the model
- * transport's ("The model's answer is not in the shape a proposal takes"), because L-AI-01's door
- * was the first to need the code. Since src/server/call.ts it is the code EVERY door answers an
- * unreadable statement with, so a person who posted a bad form field was being told something about
- * a proposal they never asked for. The copy now says what was refused and why in the terms of the
- * statement, as docs/design/refusal-state.md § 3 requires. Nothing else moved: the code set is
- * unchanged, and this digest's previous value was dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628.
+ * Re-baselined once since the split, for ONE ADDED entry and nothing else: `REQUEST_MALFORMED`
+ * (./server.ts), the code `src/server/call.ts` answers a statement no door could read with. The
+ * roster above grew by that one key — 74 codes to 75 — and not one existing entry's code, message,
+ * remedy, severity or surface moved with it.
+ *
+ * `MALFORMED` in particular did not. It was briefly generalised to cover the transports' doors as
+ * well as the model's, which is precisely what R-SPINE-062's one-code-one-meaning rule forbids: a
+ * message vague enough for both tells neither caller what happened. It keeps L-AI-01's fixed copy
+ * byte for byte — it is the MODEL transport's code and says what a proposal is not — and the
+ * transports register their own beside it. So the digest's previous value is the split's own,
+ * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
+ * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "19c125e541c2765a66d29db00c206cc49a1a2bbad8afc9da1035f2117a2cf946";
+const ENTRIES_DIGEST_BEFORE = "63fd5a229882783d7cf3cae49a3feaef136fa14ae194e4673dae6bab2e31f32f";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {

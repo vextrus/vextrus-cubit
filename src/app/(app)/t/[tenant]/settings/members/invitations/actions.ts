@@ -8,7 +8,7 @@
 // All three moves are opened through the one server-call seam (`@/server/call`): it reads what the
 // panel submitted against the schemas below and resolves the presented session ONCE for the action.
 // A registered refusal is carried back to the panel that asked, which renders it in place; a
-// submission that is not the shape a move is asked in is answered MALFORMED; anything else is a
+// submission that is not the shape a move is asked in is answered REQUEST_MALFORMED; anything else is a
 // fault and travels on to the boundary with its recorded id, never onto the screen as a sentence
 // nobody registered (ARCH-03, B-21).
 import { revalidatePath } from "next/cache";

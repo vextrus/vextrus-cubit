@@ -10,7 +10,7 @@
 // All three doors are opened through the one server-call seam (`@/server/call`): it reads what the
 // browser stated against the schemas below, resolves the presented session ONCE for the action, and
 // carries a registered refusal back in this region's own answer shape — a submission that is not the
-// shape a door is asked in is answered MALFORMED rather than thrown (ARCH-03, B-21).
+// shape a door is asked in is answered REQUEST_MALFORMED rather than thrown (ARCH-03, B-21).
 //
 // The actor is derived here and never taken from the form: `projectActorFor` is the one place that
 // turns a session and a project into a workspace-scoped actor (B-17, ARCH-02). A registered refusal

@@ -20,7 +20,7 @@ const WORKSPACE_LAYOUT = "/t/[tenant]";
  * The mode a caller may state, read by the one reading this tier has (`@/server/call`). This door
  * answers nothing — a toggle sets a preference and the frame re-renders — so a mode outside the
  * roster cannot be carried back as an answer the way a screen's own refusal is; it is RAISED as the
- * registered MALFORMED instead of as a plain Error, which is what keeps a caller's mistake off the
+ * registered REQUEST_MALFORMED instead of as a plain Error, which is what keeps a caller's mistake off the
  * fault seam and out of the operator's record of our outages (ARCH-03, B-21).
  */
 const mode = parsed(z.enum(DENSITIES as readonly [Density, ...Density[]], { error: "that is no mode R-UI-005 names" }));

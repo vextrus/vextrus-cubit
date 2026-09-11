@@ -22,7 +22,7 @@ const NOT_THE_SHAPE = "an upload is opened with a projectId, a name, a size and 
 /**
  * The body this door takes, read by the one reading this tier has (`@/server/call`). A request that
  * is not this shape is not a refusal of anything the product could have done — it is a caller error,
- * answered as the registered MALFORMED at 400, and no session is opened for it.
+ * answered as the registered REQUEST_MALFORMED at 400, and no session is opened for it.
  *
  * The size is a safe integer because a file's length is counted in whole bytes and JSON's number is
  * not: a declared size past `Number.MAX_SAFE_INTEGER` is a number the seam could not compare the

@@ -66,7 +66,7 @@ const signedInProcedure = publicProcedure.use(({ ctx, next }) => {
 /**
  * What a caller may state at this lane's doors, read once by the one reading this tier has
  * (`@/server/call`). Every door below hands `parsed(...)` its schema, so a statement this lane
- * cannot read is refused as the registered MALFORMED — an answer the wire carries at 400 and the
+ * cannot read is refused as the registered REQUEST_MALFORMED — an answer the wire carries at 400 and the
  * fault seam never records — instead of reaching the error formatter as a plain failure and being
  * written down as an outage of ours (ARCH-03, B-21).
  *
