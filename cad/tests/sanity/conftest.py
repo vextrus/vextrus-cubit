@@ -128,3 +128,15 @@ class Corpus:
 @pytest.fixture(scope="session")
 def corpus() -> Corpus:
     return Corpus(REPO_ROOT / CORPUS_REL)
+
+
+#: Every fixture that publishes a golden takeoff (AM-01: two fixtures, never a replacement).
+#: F-RCC6 is the frozen J-000 corpus with its drawings; F-RCC6-BNBC is the M3/M4 yardstick, which
+#: has no DXF yet — its sanity is the golden's own self-consistency, so the checks that read a
+#: drawing stay on `corpus` and the golden checks run over both through `golden_corpus`.
+GOLDEN_CORPORA = ("rcc6", "rcc6-bnbc")
+
+
+@pytest.fixture(scope="session", params=GOLDEN_CORPORA, ids=GOLDEN_CORPORA)
+def golden_corpus(request: pytest.FixtureRequest) -> Corpus:
+    return Corpus(REPO_ROOT / "fixtures" / str(request.param))
