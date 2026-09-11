@@ -138,9 +138,14 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
         <span className="cx-drawings-basis">{BASIS_WORDS[basis]}</span>
       </p>
 
-      {/* I-93: evidence is shown whole, wrapping and selectable — never truncated behind a count. */}
+      {/* I-93: evidence is shown whole, wrapping and selectable — never truncated behind a count.
+          A box that scrolls is reachable from the keyboard, or its content is reachable by nothing
+          but a pointer (axe `scrollable-region-focusable`, serious — and Q-11 admits no serious
+          finding at a checkpoint). The list took its own scroll when the card stopped spending the
+          page's, so it takes the tab stop and the reticle that go with one; the label it already
+          carries is the name the stop answers to. */}
       {card.proposal.cited.length === 0 ? null : (
-        <p className="cx-drawings-cited">
+        <p className="cx-drawings-cited cx-reticle" tabIndex={0} role="group" aria-label={drawings.drawings_cited_label}>
           <span className="cx-drawings-cited-label">{drawings.drawings_cited_label}</span>
           {card.proposal.cited.map((key) => (
             <span className="cx-drawings-enum" key={key}>
