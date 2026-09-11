@@ -45,3 +45,6 @@ __pycache__/
 # quarantine, not by any session. The engine excludes it by pathspec as well; this line is the
 # product's own copy of the same law.
 .builder-heldout/
+
+# Vextrus Builder (v22 fault 300): the checkpoint review reads its demo pack from the reviewed tree; the engine never stages it
+.builder-demo/
