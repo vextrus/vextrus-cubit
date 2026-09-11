@@ -55,9 +55,20 @@ function write(choice: ThemeChoice): void {
   }
 }
 
+/**
+ * The device's own answer, where the device publishes one. A UA with no `matchMedia` — and the
+ * gallery's renderer is one — has no preference to read, so "System" means the ground the document
+ * was served on, which is the same reasoning the pre-paint resolver's empty catch stands on.
+ */
+function prefersDark(): boolean | null {
+  if (typeof window.matchMedia !== "function") return null;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
 function paint(choice: ThemeChoice): void {
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  document.documentElement.setAttribute("data-theme", resolveChoice(choice, prefersDark));
+  const device = prefersDark();
+  if (choice === "system" && device === null) return;
+  document.documentElement.setAttribute("data-theme", resolveChoice(choice, device === true));
 }
 
 export interface ThemeToggleProps {
@@ -73,7 +84,7 @@ export function ThemeToggle({ initial = "system" }: ThemeToggleProps) {
   // Two surfaces can change this answer under us: another tab (the mirror fires `storage`), and the
   // device itself while "System" is chosen. Both are the same event to this control — repaint.
   useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const media = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-color-scheme: dark)") : null;
     const onStorage = (event: StorageEvent): void => {
       if (event.key !== null && event.key !== MIRROR) return;
       const next = storedTheme(document.cookie);
@@ -82,10 +93,10 @@ export function ThemeToggle({ initial = "system" }: ThemeToggleProps) {
     };
     const onMedia = (): void => paint(storedTheme(document.cookie));
     window.addEventListener("storage", onStorage);
-    media.addEventListener("change", onMedia);
+    media?.addEventListener("change", onMedia);
     return () => {
       window.removeEventListener("storage", onStorage);
-      media.removeEventListener("change", onMedia);
+      media?.removeEventListener("change", onMedia);
     };
   }, []);
 

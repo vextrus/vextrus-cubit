@@ -52,7 +52,9 @@ export default defineConfig({
           {
             name: "dark",
             use: { colorScheme: "dark" as const },
-            snapshotPathTemplate: "tests/e2e/baselines/design-dark/{arg}{ext}",
+            // It compares against nothing today, so it needs no baseline directory: where the dark
+            // pictures live is the decision of the node that stops ignoring them, and until then
+            // one key above is the whole answer to "where does a baseline live".
             ignoreSnapshots: true,
           },
         ]

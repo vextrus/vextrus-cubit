@@ -75,6 +75,7 @@ import {
   AppShell,
   CommandPaletteTrigger,
   DensityToggle,
+  ThemeToggle,
   JobsTray,
   SHELL_AREAS,
   ShellDenied,
@@ -811,6 +812,13 @@ export const galleryEntries: GalleryEntries = {
     states: [
       { name: "comfortable", render: () => <DensityToggle density="comfortable" action={sampleDensityWrite} /> },
       { name: "compact", render: () => <DensityToggle density="compact" action={sampleDensityWrite} /> },
+    ],
+  },
+  "shell/ThemeToggle": {
+    states: [
+      { name: "system", render: () => <ThemeToggle initial="system" /> },
+      { name: "dark", render: () => <ThemeToggle initial="dark" /> },
+      { name: "light", render: () => <ThemeToggle initial="light" /> },
     ],
   },
   "shell/JobsTray": {

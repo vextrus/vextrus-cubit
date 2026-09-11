@@ -89,6 +89,10 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
     // `CUBIT_CAD_COMMAND` is how the machine names the command `src/modules/takeoff/ingest` spawns
     // the extractor with (L-CAD-04): the default is `cad/`'s own project, and a deployment that
     // installs the CLI elsewhere says so rather than having the path written into the tree.
+    // `CUBIT_UI_INSTRUMENT` arms the evidence flags `?__theme=` and `?__state=`, read in
+    // `src/app/theme-resolver.ts`. They let the Surveyor photograph a theme and a state it could
+    // not otherwise reach, which makes them a capability — and a capability is the machine's to
+    // grant by name, never a URL's to take from a box that never opted in.
     codes: Object.freeze([
       "DATABASE_URL",
       "STORAGE_ROOT",
@@ -99,6 +103,7 @@ export const TRANSPORT_VOCABULARY: ReadonlyArray<TransportVocabulary> = Object.f
       "ANTHROPIC_API_KEY",
       "CUBIT_STORAGE_SIGNING_SECRET",
       "CUBIT_CAD_COMMAND",
+      "CUBIT_UI_INSTRUMENT",
     ]),
   }),
   Object.freeze({

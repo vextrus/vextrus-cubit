@@ -120,7 +120,7 @@ describe("AC-2: the Datum theme resolves on the document", () => {
     const root = await rootElement();
     expect(root.type, "the root layout owns the document element").toBe("html");
     expect(root.props["lang"], "R-UI-001's ground is served to a document that declares its language").toBe("en");
-    expect(root.props["data-theme"], "the server renders the light theme; the client only ever resolves dark over it").toBe("light");
+    expect(root.props["data-theme"], "the Bible's ground is dark, so dark is what the server renders (R-UI-001)").toBe("dark");
   });
 
   test("AC-2: the document carries a pre-paint resolver that answers the OS preference both ways", async () => {
@@ -130,7 +130,9 @@ describe("AC-2: the Datum theme resolves on the document", () => {
 
     const serverRendered = String(root.props["data-theme"]);
     expect(resolveTheme(scripts, serverRendered, true), "under a dark OS preference the resolver must set data-theme to dark before first paint").toBe("dark");
-    expect(resolveTheme(scripts, serverRendered, false), "under a light OS preference the server-rendered attribute stands untouched").toBe(serverRendered);
+    // Both directions, not one: the stage drives a theme with emulateMedia, and a resolver that only
+    // ever wrote "dark" left half of that instrument doing nothing against a dark-default document.
+    expect(resolveTheme(scripts, serverRendered, false), "under a light OS preference the resolver must set data-theme to light before first paint").toBe("light");
   });
 
   test("AC-2: the root layout exports metadata whose title is the string table's app_title", async () => {
