@@ -12,6 +12,8 @@ import { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typic
 import { confirmDiscipline, type ConfirmDisciplineInput } from "./confirm-discipline";
 import { confirmViewType, type ConfirmViewTypeInput } from "./confirm-view-type";
 import { corroborate, type CorroborateInput } from "./corroborate";
+import { declareNotInProjectScope, type DeclareNotInProjectScopeInput } from "./declare-not-in-project-scope";
+import { holdOutOfBill, type HoldOutOfBillInput } from "./hold-out-of-bill";
 import { insertLevel, type InsertLevelInput } from "./insert-level";
 import { pinDrawingSet, type PinDrawingSetInput } from "./pin-drawing-set";
 import { repudiate, type RepudiateInput } from "./repudiate";
@@ -50,6 +52,8 @@ export { corroborate, type CorroborateInput } from "./corroborate";
 export { repudiate, type RepudiateInput } from "./repudiate";
 export { authorStoreyHeight, type AuthorStoreyHeightInput } from "./author-storey-height";
 export { authorTypicalRange, type AuthorTypicalRangeInput } from "./author-typical-range";
+export { holdOutOfBill, type HoldOutOfBillInput } from "./hold-out-of-bill";
+export { declareNotInProjectScope, type DeclareNotInProjectScopeInput } from "./declare-not-in-project-scope";
 
 /** Everything a caller may ask the seam to do: one member per act type the enum declares. */
 export type ActInput =
@@ -63,7 +67,9 @@ export type ActInput =
   | AuthorStoreyHeightInput
   | AuthorTypicalRangeInput
   | CorroborateInput
-  | RepudiateInput;
+  | RepudiateInput
+  | HoldOutOfBillInput
+  | DeclareNotInProjectScopeInput;
 
 /**
  * L-ACT-02: "The pairs form a total map over the act-type enum (a type without a rendering is a
@@ -82,6 +88,8 @@ export const ACT_MAP: Readonly<{ [T in ActType]: ActRendering<Extract<ActInput, 
   AUTHOR_TYPICAL_RANGE: authorTypicalRange,
   CORROBORATE: corroborate,
   REPUDIATE: repudiate,
+  HOLD_OUT_OF_BILL: holdOutOfBill,
+  DECLARE_NOT_IN_PROJECT_SCOPE: declareNotInProjectScope,
 });
 
 /**
@@ -126,6 +134,10 @@ function renderingFor(input: ActInput): BoundRendering {
     case "CORROBORATE":
       return bind(ACT_MAP[input.type], input);
     case "REPUDIATE":
+      return bind(ACT_MAP[input.type], input);
+    case "HOLD_OUT_OF_BILL":
+      return bind(ACT_MAP[input.type], input);
+    case "DECLARE_NOT_IN_PROJECT_SCOPE":
       return bind(ACT_MAP[input.type], input);
     default:
       return unrendered(input);

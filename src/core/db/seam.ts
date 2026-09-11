@@ -199,6 +199,17 @@ export function inCurrentScope(column: AnyColumn): SQL {
   return statement`${column} = coalesce(nullif(current_setting(${TENANT_GUC}, true), '')::uuid, ${column})`;
 }
 
+/**
+ * The fragment tag, handed out from the seam for the same reason `inCurrentScope` is: only the seam
+ * may hold the driver (SEAM-TENANT), and a read that needs a clause the eight query operators cannot
+ * spell — a correlated absence, say — would otherwise reach for the driver itself. It is handed out
+ * from here rather than from the barrel because the barrel's operator line is the closed set every
+ * caller shares, and this is not an operator: it is the seam lending its own hold on the driver to
+ * one clause a caller writes and owns. Columns and values interpolated into it are parameterised by
+ * the driver exactly as they are everywhere else in this file.
+ */
+export { statement };
+
 /** The one code point no `text` column can carry, written as an escape so this file stays readable. */
 const UNSTORABLE_BYTE = "\u0000";
 

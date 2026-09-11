@@ -21,4 +21,5 @@ export * from "./drawing-sets";
 export * from "./register";
 export * from "./takeoff-levels";
 export * from "./quantity-lines";
+export * from "./takeoff-scope";
 export * from "./ai";
