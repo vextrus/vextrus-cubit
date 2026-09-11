@@ -6,124 +6,73 @@
 // The policy table is exported rather than hidden because it is the answer to "how often does this
 // kind retry": a caller, an operator's screen and a test all read the number from here instead of
 // each keeping a copy of it (ARCH-02).
-import type { RefusalCode } from "../errors";
+//
+// "Here" is this DIRECTORY, not this file (AM-11). Each area declares its own kinds and its own
+// payload types in `./kinds/<area>.ts`, and this file is the roster: it ENUMERATES those groups and
+// merges them, so `JOB_KINDS`, `JobKind` and `JobPayloads` are still one closed vocabulary and every
+// importer still reads it from `@/core/jobs/kinds`. An area adds a kind by editing its own file and
+// nothing else — two areas written at once never touch one table (B-19).
+
+import { BOQ_JOB_KINDS, type BoqJobPayloads } from "./kinds/boq";
+import { DOCS_JOB_KINDS, type DocsJobPayloads } from "./kinds/docs";
+import { FOUNDATIONS_JOB_KINDS, type FoundationsJobPayloads } from "./kinds/foundations";
+import { FRAME_JOB_KINDS, type FrameJobPayloads } from "./kinds/frame";
+import { GATE_JOB_KINDS, type GateJobPayloads } from "./kinds/gate";
+import { MASONRY_JOB_KINDS, type MasonryJobPayloads } from "./kinds/masonry";
+import { REBAR_JOB_KINDS, type RebarJobPayloads } from "./kinds/rebar";
+import { SLABS_JOB_KINDS, type SlabsJobPayloads } from "./kinds/slabs";
+import { SPINE_JOB_KINDS, type SpineJobPayloads } from "./kinds/spine";
+import { TAKEOFF_INGEST_JOB_KINDS, type TakeoffIngestJobPayloads } from "./kinds/takeoff-ingest";
+import { TAKEOFF_PARTITION_JOB_KINDS, type TakeoffPartitionJobPayloads } from "./kinds/takeoff-partition";
+import { TAKEOFF_RASTERS_JOB_KINDS, type TakeoffRastersJobPayloads } from "./kinds/takeoff-rasters";
+
+// The shape a policy is declared in lives beside the areas that declare theirs against it, and is
+// published from here because this is the door every reader opens (B-17).
+export type { JobKindPolicy } from "./kinds/law";
 
 /**
- * One kind's queue policy: how many at once, how many attempts, how long between them, and how long
- * one attempt may take before the queue decides the process running it is gone.
- *
- * `concurrency` is per process, and deliberately so: it is how many of this kind's jobs one runtime
- * takes at a time, so N workers serve N × concurrency of them. The limit a kind needs across a fleet
- * is the product, and it is read here as this number times the number of workers run.
- *
- * `expireSeconds` is not a timeout the handler is told about: when an attempt outlives it the queue
- * re-queues that attempt while the original is still running, which is two attempts of one key at
- * once — exactly what SEAM-JOBS forbids. A kind therefore states a number its longest attempt fits
- * inside rather than inheriting the library's, and the log refuses a second ending regardless.
- */
-export type JobKindPolicy = {
-  concurrency: number;
-  retryLimit: number;
-  retryDelaySeconds: number;
-  retryBackoff: boolean;
-  expireSeconds: number;
-};
-
-/**
- * Every kind the seam runs, with its policy.
- *
- * `probe` is the built-in kind: it does nothing a product needs, and it can be told to take steps,
- * to dawdle, to fail and to refuse — so every path R-SPINE-030 names can be driven end to end by an
- * operator or by a test without a real kind having to be invented first.
+ * Every kind the seam runs, with its policy — the areas' groups, merged. The order is the order the
+ * areas are enumerated in below, and `KIND_NAMES` is read off it rather than written down again.
  */
 export const JOB_KINDS = Object.freeze({
-  probe: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 1, retryBackoff: true, expireSeconds: 900 }),
-  // SEAM-CAD's orchestration (R-TO-001): one drawing at a time per process, because an attempt
-  // spawns the extractor in a temp dir of its own. `expireSeconds` covers two 900 s LibreDWG passes
-  // with margin, so the queue never re-queues an attempt of a key that is still running (L-CAD-04).
-  ingest: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 5, retryBackoff: true, expireSeconds: 2100 }),
-  // R-SPINE-022's sheet rasters: one record at a time per process, because an attempt renders every
-  // sheet of a drawing at every tier and holds each canvas in memory while it does. `expireSeconds`
-  // covers a large sheet set at 2048 px with margin, so the queue never re-queues a running attempt.
-  thumbnails: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 5, retryBackoff: true, expireSeconds: 900 }),
-  // R-TO-030's stored partition: one ingest record at a time per process, because an attempt reads a
-  // whole artifact into memory and rewrites the record's partition in one transaction. A silent
-  // caption may reach a model, so `expireSeconds` leaves room for a provider's own latency without
-  // the queue ever re-queuing an attempt that is still running.
-  partition: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 5, retryBackoff: true, expireSeconds: 900 }),
-  // SEAM-GATE's measurement (L-MEA-08): one campaign at a time per process, because an attempt runs
-  // every rail of the roster over a whole pinned revision and hands the gate one batch to write in a
-  // single transaction. `expireSeconds` leaves room for a large revision so the queue never re-queues
-  // an attempt that is still running — two attempts of one campaign at once would be two writers.
-  measure: Object.freeze({ concurrency: 1, retryLimit: 2, retryDelaySeconds: 5, retryBackoff: true, expireSeconds: 1800 }),
-}) satisfies Readonly<Record<string, JobKindPolicy>>;
+  ...SPINE_JOB_KINDS,
+  ...TAKEOFF_INGEST_JOB_KINDS,
+  ...TAKEOFF_RASTERS_JOB_KINDS,
+  ...TAKEOFF_PARTITION_JOB_KINDS,
+  ...GATE_JOB_KINDS,
+  ...FOUNDATIONS_JOB_KINDS,
+  ...FRAME_JOB_KINDS,
+  ...SLABS_JOB_KINDS,
+  ...MASONRY_JOB_KINDS,
+  ...REBAR_JOB_KINDS,
+  ...DOCS_JOB_KINDS,
+  ...BOQ_JOB_KINDS,
+});
 
 /** The kind vocabulary: the keys of the policy table and nothing else. */
 export type JobKind = keyof typeof JOB_KINDS;
 
+/** Every payload type the areas declare, merged — the other half of the one roster. */
+type DeclaredPayloads = SpineJobPayloads &
+  TakeoffIngestJobPayloads &
+  TakeoffRastersJobPayloads &
+  TakeoffPartitionJobPayloads &
+  GateJobPayloads &
+  FoundationsJobPayloads &
+  FrameJobPayloads &
+  SlabsJobPayloads &
+  MasonryJobPayloads &
+  RebarJobPayloads &
+  DocsJobPayloads &
+  BoqJobPayloads;
+
 /**
- * What each kind is enqueued with (SEAM-JOBS: "typed payloads"). `refuseWith` is a key of the
- * closed refusal registry rather than a free string, so a probe cannot be asked to answer with a
- * refusal the taxonomy does not hold (R-SPINE-062, B-06).
+ * What each kind is enqueued with (SEAM-JOBS: "typed payloads"), read off the areas' own declarations
+ * and keyed by the kind vocabulary itself. That indexing is the coupling the seam's first paragraph
+ * states: a kind whose area declared a policy and no payload has nothing to answer `DeclaredPayloads`
+ * with, and tsc says so here rather than at some enqueuer far away.
  */
-export type JobPayloads = {
-  probe: {
-    steps: string[];
-    stepDelayMs?: number;
-    failAtStep?: string;
-    refuseWith?: RefusalCode;
-    /**
-     * A file whose existence ends every remaining step's wait at once. A test that holds a slot
-     * with a long probe can let it go the moment its proof is made instead of waiting the delays
-     * out — the hold still outlasts whatever it was guarding if nobody ever writes the file.
-     */
-    releaseWhen?: string;
-  };
-  /**
-   * One drawing's ingest (R-TO-001). `declared` is what makes a re-ingest a declared act rather
-   * than drift (L-CAD-02): the reason a person gave, and the record the new one supersedes.
-   */
-  ingest: {
-    tenantId: string;
-    drawingId: string;
-    requestedBy: string;
-    declared: { reason: string; supersedes: string } | null;
-  };
-  /**
-   * One ingest record's sheets, rendered (R-SPINE-022). The record is named in the payload rather
-   * than looked up when the attempt runs: the rasters are of the artifact that stood when the work
-   * was asked for, so a record superseded meanwhile does not silently redirect the job.
-   */
-  thumbnails: {
-    tenantId: string;
-    drawingId: string;
-    ingestId: string;
-    requestedBy: string;
-  };
-  /**
-   * One ingest record's stored partition, rebuilt (R-TO-030). The record is named in the payload
-   * rather than looked up when the attempt runs: the partition is a reading of the artifact that
-   * stood when the work was asked for, and the job's key is that record's, so a record superseded
-   * meanwhile leaves this one alone rather than being silently redirected.
-   */
-  partition: {
-    tenantId: string;
-    drawingId: string;
-    ingestId: string;
-    requestedBy: string;
-  };
-  /**
-   * One campaign, measured (L-MEA-08, L-REG-07). The campaign is named in the payload and the
-   * project beside it: a campaign is measured under what it snapshotted at the pin, so the work is
-   * about that campaign and never about whatever the project is pinned to when the attempt runs.
-   */
-  measure: {
-    tenantId: string;
-    projectId: string;
-    campaignId: string;
-    requestedBy: string;
-  };
-};
+export type JobPayloads = { [K in JobKind]: DeclaredPayloads[K] };
 
 /** The kinds as a list, in the order the table declares them. */
 export const KIND_NAMES: readonly JobKind[] = Object.freeze(Object.keys(JOB_KINDS) as JobKind[]);

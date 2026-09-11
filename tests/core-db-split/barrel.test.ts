@@ -202,7 +202,10 @@ const RE_EXPORT = new RegExp(String.raw`^export (?:\*|(?:type )?\{ *(?:${SPECIFI
 
 /** Where the goal says each moved name now lives, and what the barrel must still hand out for it. */
 const HOMES = [
-  { module: "src/core/db/schema.ts", names: ["tenants", "SEAM_SCHEMA"] },
+  // `tenants` is declared by its own area file since AM-11 (src/core/db/schema-tenants.ts) and
+  // reaches the barrel through schema.ts's enumeration; `SEAM_SCHEMA` is still declared there,
+  // because the enumeration itself is what schema.ts is now for.
+  { module: "src/core/db/schema.ts", names: ["SEAM_SCHEMA"] },
   { module: "src/core/db/pools.ts", names: ["closePools"] },
   { module: "src/core/db/seam.ts", names: ["forTenant", "runAsSystem", "scopedClient"] },
   { module: "src/core/db/jobs.ts", names: ["jobsStore"] },

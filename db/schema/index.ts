@@ -23,3 +23,12 @@ export * from "./takeoff-levels";
 export * from "./quantity-lines";
 export * from "./takeoff-scope";
 export * from "./ai";
+// The M3 areas, already named so a rail that lands a table has a file to re-export it from and the
+// drift lane sees it the moment it does (AM-11, B-19).
+export * from "./foundations";
+export * from "./frame";
+export * from "./slabs";
+export * from "./masonry";
+export * from "./rebar";
+export * from "./docs";
+export * from "./boq";

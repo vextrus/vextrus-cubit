@@ -28,8 +28,23 @@ import dbLaneConfig from "../../db/__tests__/vitest.config";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
-/** The one home of the taxonomy: the file a spelling of a registered code has to be reading. */
+/**
+ * The one home of the taxonomy — a HOME rather than a file since AM-11 cut the registries per area:
+ * `src/core/errors.ts` is the barrel that folds the areas' code unions and spreads their groups, and
+ * `src/core/errors/**` is where the entries themselves are written. Q-07's question is unchanged
+ * ("does this file read the register, or is it merely in agreement with it"), but a file of the
+ * register cannot be asked to import the register: an area file spelling its own codes as the keys
+ * of its own group would have to import the barrel that imports IT, which is the cycle
+ * `import-x/no-cycle` forbids and `noInlineConfig` leaves no way to excuse.
+ */
 const REGISTER = join(REPO_ROOT, "src", "core", "errors.ts");
+const REGISTER_AREAS = join(REPO_ROOT, "src", "core", "errors") + sep;
+
+/** Is this file part of the register itself — the barrel, or one of the areas it folds together? */
+function isRegister(file: string): boolean {
+  const at = resolve(file);
+  return at === REGISTER || at.startsWith(REGISTER_AREAS);
+}
 
 /**
  * The scan's refusal shape — its own heuristic for the orphan domain, not a Bible word. Q-07 defines
@@ -305,10 +320,10 @@ function specifierBases(file: string, specifier: string): string[] {
 
 /** Does this file read the register — is it wired to the taxonomy, or only in agreement with it? */
 function importsRegister(file: string, source: ts.SourceFile): boolean {
-  if (resolve(file) === REGISTER) return true;
+  if (isRegister(file)) return true;
   return specifiers(source).some((specifier) =>
     specifierBases(file, specifier).some((base) =>
-      [base, `${base}.ts`, `${base}.tsx`, `${base}.mts`, join(base, "index.ts")].some((candidate) => candidate === REGISTER),
+      [base, `${base}.ts`, `${base}.tsx`, `${base}.mts`, join(base, "index.ts")].some((candidate) => candidate === REGISTER || isRegister(candidate)),
     ),
   );
 }

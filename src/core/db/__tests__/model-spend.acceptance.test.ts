@@ -37,7 +37,7 @@ const rejectionOf = (promise: Promise<unknown>): Promise<unknown> =>
   );
 
 /** Where the drizzle tables live: the seam's schema module, which db/schema/*.ts re-exports (B-20). */
-const SEAM_MODULE = "src/core/db/schema.ts";
+const SEAM_MODULE = "src/core/db/schema-model.ts";
 const MIGRATION = "db/migrations/0013_core-model-jobs-debt-sweep.sql";
 const JOURNAL = "db/migrations/meta/_journal.json";
 const MIGRATION_TAG = "0013_core-model-jobs-debt-sweep";
