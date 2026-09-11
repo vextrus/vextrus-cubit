@@ -1,3 +1,10 @@
+"use client";
+// The section renders the shipped DataTable, which is a client component, and hands it the column
+// definitions and the row hooks it is specified with — `cell`, `getRowId`, `rowDataOf` are all
+// functions. A function cannot cross the server/client boundary, so a server component holding this
+// markup answers the whole settings screen with the fault card (R-UI-020's "something went wrong")
+// instead of the pin. The screen reads nothing but the view it is handed, so it is a client module
+// and the route above it stays the server component that does the reading.
 // R-SPINE-012's settings surface: the edition a project is pinned to, its content digest, the chain
 // it was forked along, and the parameter table every measurement on the project reads.
 //
