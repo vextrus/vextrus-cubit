@@ -398,6 +398,7 @@ export const TESTIDS = {
   shell: {
     breadcrumb: "shell-breadcrumb",
     commandPalette: "shell-command-palette",
+    crumbPage: "shell-crumb-page",
     deniedHolder: "shell-denied-holder",
     deniedPermission: "shell-denied-permission",
     empty: "shell-empty",

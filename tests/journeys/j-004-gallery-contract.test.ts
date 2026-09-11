@@ -17,6 +17,8 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { TESTIDS as ID_REGISTRY } from "../../src/ui/testids";
+import { resolveTestIdRefs } from "../support/source-lex";
 import { stripComments } from "../ui/s-design/support/gallery-contract";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -61,7 +63,8 @@ function readIfPresent(file: string): string | null {
 function readCode(file: string): string {
   const source = readIfPresent(file);
   expect(source, `${file} is missing — the increment owes it`).not.toBeNull();
-  return stripComments(source ?? "");
+  // A page object reaches an id through the registry (AM-09 §1); the contract reads the id it drives.
+  return resolveTestIdRefs(stripComments(source ?? ""), ID_REGISTRY);
 }
 
 /** Every `test(...)` / `test.describe(...)` title, as the file spells it. */
@@ -98,7 +101,7 @@ function occurrences(code: string, key: string): number {
  */
 function journeySource(): string {
   const pageObject = readIfPresent(PAGE_OBJECT);
-  return `${readCode(SPEC)}\n${pageObject === null ? "" : stripComments(pageObject)}`;
+  return `${readCode(SPEC)}\n${pageObject === null ? "" : resolveTestIdRefs(stripComments(pageObject), ID_REGISTRY)}`;
 }
 
 /** The text between a bracket opened just before `start` and its match, strings honoured. */

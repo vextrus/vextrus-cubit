@@ -18,6 +18,8 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { expect } from "vitest";
 import { stripComments } from "../../ui/s-design/support/gallery-contract";
+import { TESTIDS as ID_REGISTRY } from "../../../src/ui/testids";
+import { resolveTestIdRefs } from "../../support/source-lex";
 
 /** The checkout these suites drive — the lane runs at the root of it. */
 export const REPO_ROOT: string = process.cwd();
@@ -184,9 +186,12 @@ export function resolvedFrom(file: string, specifier: string): string | null {
  * Builder lays the code out (B-19).
  */
 
-/** A file's source with its comments removed, by absolute or repo-relative path. */
+/**
+ * A file's source with its comments removed and its registry test-id references resolved to the ids
+ * they are (AM-09 §1), by absolute or repo-relative path.
+ */
 export function codeOf(file: string): string {
-  return stripComments(readFileSync(isAbsolute(file) ? file : inRepo(file), "utf8"));
+  return resolveTestIdRefs(stripComments(readFileSync(isAbsolute(file) ? file : inRepo(file), "utf8")), ID_REGISTRY);
 }
 
 /** Where a name is CALLED in code, by index — a mention that is not an invocation is not a hit. */

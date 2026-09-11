@@ -336,6 +336,7 @@ const GOLDEN: readonly string[] = [
   "sheets-empty",
   "shell-breadcrumb",
   "shell-command-palette",
+  "shell-crumb-page",
   "shell-denied-holder",
   "shell-denied-permission",
   "shell-empty",

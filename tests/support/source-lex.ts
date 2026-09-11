@@ -417,3 +417,23 @@ export function lexFile(file: string, source: string): Lexed {
   }
   return lexed;
 }
+
+/**
+ * A test id is SPELLED once, in `src/ui/testids.ts`, and every page object and component reaches it
+ * through the registry (AM-09 §1) — so a contract that reads a spec's TEXT for the id it drives sees
+ * `TESTIDS.invitations.row` where the id itself used to stand, and would call a journey that grades
+ * the row a journey that grades nothing. This resolves the indirection to the value it is: the
+ * registry stays the single spelling of an id, and a source-text contract still reads the id the
+ * code drives. A reference the registry does not answer is left exactly as written, so a typo is
+ * still invisible to the contract and still red in `src/ui/testids.test.ts`.
+ */
+export function resolveTestIdRefs(code: string, registry: Readonly<Record<string, unknown>>): string {
+  return code.replace(/\bTESTIDS((?:\.[A-Za-z_$][\w$]*)+)/g, (whole: string, tail: string) => {
+    let node: unknown = registry;
+    for (const key of tail.slice(1).split(".")) {
+      if (node === null || typeof node !== "object") return whole;
+      node = (node as Record<string, unknown>)[key];
+    }
+    return typeof node === "string" ? JSON.stringify(node) : whole;
+  });
+}

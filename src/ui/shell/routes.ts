@@ -3,6 +3,7 @@
 // breadcrumb and the routes themselves all read it from here rather than each spelling `/t/…`.
 import type { BreadcrumbCrumb } from "../primitives/core";
 import { strings } from "../strings";
+import { TESTIDS } from "../testids";
 
 /** The workspace the frame is showing: the uuid its address names it by, and the name it wears. */
 export interface ShellWorkspace {
@@ -196,7 +197,7 @@ export function shellCrumbs({ workspace, project, projects, area, atAreaHome, pa
     ...(atAreaHome ? { current: true } : {}),
     ...(named ? { href: shellHref(workspace.tenantId, area) } : {}),
   });
-  if (named) trail.push({ id: "page", testId: "shell-crumb-page", current: true, label: page });
+  if (named) trail.push({ id: "page", testId: TESTIDS.shell.crumbPage, current: true, label: page });
 
   return trail;
 }
