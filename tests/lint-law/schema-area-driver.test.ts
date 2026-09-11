@@ -78,6 +78,12 @@ describe("the tenant seam's allowlist is narrow where the tables are", () => {
     expect(refused.map((m) => m.messageId), "the control: these bytes are refused everywhere the ban looks").toEqual(["driver"]);
   });
 
+  test("a relative import whose path merely contains \"pg\" is not a driver (scripts/lib/pg-suites.mjs)", async () => {
+    const source = `import { pgSuites } from "../../scripts/lib/pg-suites.mjs";\nexport const n = pgSuites.length;\n`;
+    expect(refusalsOf(await lintAs(source, "tests/toolchain/lane-probe.test.ts"))).toEqual([]);
+    expect(refusalsOf(await lintAs(source, "src/modules/anywhere/probe.ts"))).toEqual([]);
+  });
+
   test("no area file ships one today", async () => {
     const { globSync } = await import("node:fs");
     const areas = globSync("src/core/db/schema*.ts", { cwd: REPO_ROOT }).filter((p) => !p.endsWith(".test.ts"));

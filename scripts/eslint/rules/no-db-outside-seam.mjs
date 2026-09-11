@@ -39,7 +39,9 @@ const SEAM_TESTS = /\.(?:test|spec)\.[cm]?tsx?$/;
 const CONNECTIONS = /^(?:pg|pg-native|pg-pool|postgres|postgres-js|node-postgres|@neondatabase\/|@vercel\/postgres|@electric-sql\/pglite|knex|kysely|typeorm|prisma|@prisma\/)/;
 
 /** Drivers and ORM entry points: a handle may only be made inside the seam. */
-const DRIVERS = new RegExp(`^(?:drizzle-orm)|${CONNECTIONS.source.slice(1)}`);
+// One anchored group: the alternation must not leave `pg|…` unanchored, or any RELATIVE path that
+// merely contains "pg" (scripts/lib/pg-suites.mjs) reads as a driver (v22 integrator, P1 rebase red).
+const DRIVERS = new RegExp(`^(?:drizzle-orm|${CONNECTIONS.source.slice(4)}`);
 
 /** The schema module: importing tables directly walks around the seam's typed surface. */
 const SCHEMA = /(?:^|\/)db\/schema(?:\/|$)|(?:^|\/)schema\.sql$/;
