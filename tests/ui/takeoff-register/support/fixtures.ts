@@ -73,7 +73,7 @@ export const CHROME_BARRELS: readonly string[] = [
 ];
 
 /** The renderers the workspace is handed (Decision I-170; `EvidenceLink` joins them in inc-215). */
-export const CHROME_NAMES: readonly string[] = ["Tree", "DataTable", "RefusalState", "OfferedGroups", "ConsequenceDialog", "JobTimeline", "Skeleton", "BasisChip", "CoverageChip", "EvidenceLink"];
+export const CHROME_NAMES: readonly string[] = ["Tree", "DataTable", "RefusalState", "OfferedGroups", "ConsequenceDialog", "JobTimeline", "Skeleton", "BasisChip", "CoverageChip", "Combobox", "EvidenceLink"];
 
 /* --------------------------------------------------------------------- the fixture identities */
 
@@ -770,7 +770,9 @@ export function lineHeaders(root: HTMLElement): string[] {
 
 /** The cells of one row, in order. */
 export function cellsOf(row: HTMLElement): string[] {
-  return ([...row.querySelectorAll('[role="cell"]')] as HTMLElement[]).map((cell) => text(cell));
+  // The grid's cells, in document order: the key column NAMES its row, so it is a `rowheader` —
+  // the aria grid's own `th[scope=row]` — and every other cell is a `gridcell` (§5 rule 3, 6).
+  return ([...row.querySelectorAll('[role="gridcell"], [role="rowheader"]')] as HTMLElement[]).map((cell) => text(cell));
 }
 
 /** The treeitems of the tree, by their labels — the tree's own role, one wrapper deeper (I-171). */

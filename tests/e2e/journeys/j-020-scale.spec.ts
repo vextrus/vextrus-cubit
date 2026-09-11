@@ -29,6 +29,7 @@ import { SViewerPartitionPage } from "../pages/s-viewer-partition.page";
 import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
 import { SViewerSnapPage } from "../viewer/s-viewer-snap.page";
 import { HEADER_UNIT, stageScaleSheet } from "../viewer/viewer-scale-stage";
+import { everyRow, steadyCount, steadyText } from "../support/retrying-read";
 
 /** The rank a header-unit proposal stands at, and the act this panel commits (L-MEA-05, L-ACT-01). */
 const FILE_UNITS = "FILE_UNITS";
@@ -136,7 +137,7 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     // units as its weakest proposal, and that is the rank the last proposal of each row stands at.
     for (const key of keys) {
       const proposals = scale.row(key).getByTestId("viewer-scale-proposal");
-      const count = await proposals.count();
+      const count = await steadyCount(proposals, `${key}'s scale proposals`);
       expect(count, `${key} lists what the machine read for it`).toBeGreaterThan(0);
       await expect(proposals.last(), `the weakest rank a mapped header always yields is ${FILE_UNITS} (L-MEA-05)`).toHaveAttribute("data-rank", FILE_UNITS);
       await expect(proposals.last(), "and it renders that rank's registered word, not its enum spelling alone").toContainText(scaleCopy("scale_rank_FILE_UNITS"));
@@ -185,7 +186,7 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     await expect(snap.statusDistance, "two picks stand on the sheet, taken on drawn entities (I-158)").toHaveAttribute("data-picks", "2");
 
     const taken = await Promise.all(
-      (await snap.picks.all()).map(async (mark) => [Number(await scale.hook(mark, "data-key-x")), Number(await scale.hook(mark, "data-key-y"))] as [number, number]),
+      (await everyRow(snap.picks, "the calibration marks on the overlay")).map(async (mark) => [Number(await scale.hook(mark, "data-key-x")), Number(await scale.hook(mark, "data-key-y"))] as [number, number]),
     );
     expect(taken.length, "both marks stand on the overlay").toBe(2);
     const first = taken[0] as [number, number];
@@ -232,7 +233,7 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     await expect(scale.effectSignatures, "and the signatures that would void").toBeVisible();
     await expect(scale.effectSignatures).toContainText(copy("consequence_dialog_none"));
 
-    const digest = ((await scale.digestLine.textContent()) ?? "").trim();
+    const digest = await steadyText(scale.digestLine, "the Consequence digest line");
     expect(digest.length, "the dialog shows the digest of what it computed").toBeGreaterThan(0);
     await expect(scale.confirm, "and confirm is the act button, carrying that digest (R-UI-021)").toHaveAttribute("data-digest", digest);
     await checkpoint(page, testInfo, "j-020-scale/affirm-open");

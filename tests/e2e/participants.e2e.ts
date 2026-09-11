@@ -45,6 +45,7 @@ import { ShellPage, SHELL, SHELL_AREAS } from "./pages/shell.page";
 import { SHomePage } from "./pages/s-home.page";
 import { checkpoint } from "./support/checkpoint";
 import { newestMail } from "./support/outbox";
+import { everyRow, steadyCount, steadyText } from "./support/retrying-read";
 
 /** This spec's own identity, so its project never lands in another spec's workspace. */
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -111,7 +112,7 @@ async function choose(chosen: Locator, what: string): Promise<void> {
 /** Every history row's direction and role, as the rows themselves carry them. */
 async function historyRows(page: Page): Promise<{ direction: string | null; role: string | null }[]> {
   const rows = page.getByTestId(ID.historyRow);
-  const total = await rows.count();
+  const total = await steadyCount(rows, "the role-history rows");
   const read: { direction: string | null; role: string | null }[] = [];
   for (let index = 0; index < total; index += 1) {
     const row = rows.nth(index);
@@ -202,7 +203,7 @@ test.describe("J-003 — participants: the roles a project holds, moved by act",
       "back to the projects area's home, which is the workspace root",
     ).toBe(SHELL.workspace(tenantId));
 
-    const areaLabel = ((await crumbs.nth(1).innerText()) ?? "").trim();
+    const areaLabel = await steadyText(crumbs.nth(1), "the area crumb");
     expect(areaLabel, "the area crumb names the area").not.toBe("");
     await expect(shell.nav("projects"), "with the rail's own word for it — one home for the area's name (B-17)").toContainText(areaLabel);
     await expect(crumb, "the crumb does not name the project: a deeper crumb is a shell-contract change, not this screen's (arbitration)").not.toContainText(PROJECT);
@@ -210,8 +211,9 @@ test.describe("J-003 — participants: the roles a project holds, moved by act",
     const list = page.getByTestId(ID.list);
     await expect(list, "the screen renders the project's current roles").toBeVisible();
     const rows = page.getByTestId(ID.row);
-    expect(await rows.count(), "a project holds at least one participant at every moment (R-SPINE-011)").toBeGreaterThan(0);
-    for (let index = 0; index < (await rows.count()); index += 1) {
+    const roleRows = await everyRow(rows, "the project's participant rows");
+    expect(roleRows.length, "a project holds at least one participant at every moment (R-SPINE-011)").toBeGreaterThan(0);
+    for (let index = 0; index < roleRows.length; index += 1) {
       expect(((await rows.nth(index).getAttribute("data-user")) ?? "").trim(), "each row names the member it is for (Decision § 7)").not.toBe("");
     }
     await expect(list, "the creator holds PRINCIPAL, and the list shows the roles that are in effect").toContainText(PRINCIPAL);
@@ -244,8 +246,8 @@ test.describe("J-003 — participants: the roles a project holds, moved by act",
     await expect(dialog, "the dialog names the act it is confirming").toHaveAttribute("data-act-type", ACT_TYPE);
     const digestLine = page.getByTestId(ID.digestLine);
     await expect(digestLine, "the digest line is visible BEFORE the confirm — a commit never stands without one").toBeVisible();
-    expect(((await digestLine.innerText()) ?? "").trim(), "and it carries the digest the server computed, not an empty line").not.toBe("");
-    expect(await page.getByTestId(ID.subjectRow).count(), "the dialog renders the subjects the Consequence names").toBeGreaterThan(0);
+    expect(await steadyText(digestLine, "the Consequence digest line"), "and it carries the digest the server computed, not an empty line").not.toBe("");
+    await expect(page.getByTestId(ID.subjectRow), "the dialog renders the subjects the Consequence names").not.toHaveCount(0);
     await expect(page.getByTestId(ID.subjectRow).first(), `the consequence is the one the form asked for: ${MEASURER}`).toContainText(MEASURER);
 
     await checkpoint(page, testInfo, "j-003-consequence-dialog-open");

@@ -21,6 +21,7 @@ import { ShellPage, SHELL } from "../pages/shell.page";
 import { checkpoint } from "../support/checkpoint";
 import { newestMail } from "../support/outbox";
 import { startJourneyWorker } from "../support/worker";
+import { steadyCount, steadyText } from "../support/retrying-read";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j010sheets-${RUN}@cubit.test`;
@@ -94,7 +95,7 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
       /* --- j-010-timeline-done: both jobs, animated where the work was started --- */
       await expect(drawings.timeline, "the timeline reports the jobs the upload asked for (X-1)").toHaveAttribute("data-state", "done", { timeout: FAN_OUT_BUDGET_MS });
       const steps = drawings.timelineSteps;
-      const stepCount = await steps.count();
+      const stepCount = await steadyCount(steps, "the job timeline's steps");
       expect(stepCount, "the timeline holds a step per job: the ingest, and the thumbnails the worker chained after it").toBeGreaterThanOrEqual(2);
       for (let at = 0; at < stepCount; at += 1) {
         await expect(steps.nth(at), `every step of a finished timeline has succeeded (step ${at})`).toHaveAttribute("data-status", "succeeded");
@@ -144,7 +145,7 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
         await expect(sheet, `the card for "${name}" awaits confirmation of its proposed discipline`).toHaveAttribute("data-confirmed", "false");
         await expect(drawings.cell(sheet, S_DRAWINGS.discipline), `the card for "${name}" says the title block was read`).toHaveAttribute("data-basis", "GRAMMAR");
         await expect(drawings.cell(sheet, S_DRAWINGS.thumbnail), `the card for "${name}" shows the raster the worker drew`).toHaveAttribute("src", /.+/);
-        expect(await drawings.cell(sheet, S_DRAWINGS.fact).count(), `the card for "${name}" states its fidelity facts as calm badges (R-TO-001)`).toBeGreaterThan(0);
+        await expect(drawings.cell(sheet, S_DRAWINGS.fact), `the card for "${name}" states its fidelity facts as calm badges (R-TO-001)`).not.toHaveCount(0);
       }
       const structural = drawings.groupFor(STRUCTURAL);
       await expect(structural, "the machine offers the structural sheets as one named group (R-UI-023)").toHaveCount(1);
@@ -161,8 +162,8 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
       });
 
       /* --- j-010-discipline-confirmed: the act, carried through the one ConsequenceDialog --- */
-      const memberSheets = await structural.locator(`[data-testid="${S_DRAWINGS.groupCount}"]`).textContent();
-      expect(memberSheets ?? "", "the group counts what it would confirm before anybody presses it").not.toBe("");
+      const memberSheets = await steadyText(structural.locator(`[data-testid="${S_DRAWINGS.groupCount}"]`), "the discipline group's member count");
+      expect(memberSheets, "the group counts what it would confirm before anybody presses it").not.toBe("");
       await drawings.confirmGroup(STRUCTURAL);
 
       await expect(drawings.dialog, "the dialog closes on the act it carried (R-UI-021)").toHaveCount(0, { timeout: FAN_OUT_BUDGET_MS });

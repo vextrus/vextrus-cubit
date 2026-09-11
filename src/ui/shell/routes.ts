@@ -1,6 +1,7 @@
 // The frame's areas and the addresses they live at (R-UI-031): the URL is the source of truth, so
 // the mapping between an address and the entry that is selected has one home — the rail, the
 // breadcrumb and the routes themselves all read it from here rather than each spelling `/t/…`.
+import type { BreadcrumbCrumb } from "../primitives/core";
 import { strings } from "../strings";
 
 /** The workspace the frame is showing: the uuid its address names it by, and the name it wears. */
@@ -108,4 +109,89 @@ export function isAreaHome(pathname: string | null, tenantId: string): boolean {
   // is answered false rather than thrown at — a transient mismatch may not tear the layout down.
   if (pathname === null || workspaceOf(pathname) !== tenantId) return false;
   return pathname.replace(/\/+$/, "") === shellHref(tenantId, areaOf(pathname));
+}
+
+/* --------------------------------------------------------------- the crumbs (R-UI-084) */
+
+/** A project as the breadcrumb names it: the segment its address carries, and the name it wears. */
+export interface ShellProject {
+  projectId: string;
+  name: string;
+}
+
+/** The address of a project's own home inside a workspace — the crumb's destination. */
+export function projectHref(tenantId: string, projectId: string): string {
+  return `/t/${tenantId}/p/${projectId}`;
+}
+
+/**
+ * The name a project is shown by, judged by the one perceptual standard the frame has (I-22): a
+ * stored name with nothing visible in it would paint a crumb link with no glyph, which is the Q-11
+ * failure `workspaceLabel` exists to prevent. Nothing is invented for a name that says something.
+ */
+export function projectLabel(project: ShellProject): string {
+  return hasVisibleText(project.name) ? project.name : strings.shell_project_unnamed;
+}
+
+/** What a screen declares about where it is, and everything the trail is derived from. */
+export interface ShellCrumbsInput {
+  workspace: ShellWorkspace;
+  /** The project the address is inside, when it is inside one — the second crumb. */
+  project?: ShellProject | null;
+  /** The sibling projects the ▾ menu offers (Direction §1); absent means no menu, never an empty one. */
+  projects?: readonly ShellProject[];
+  area: ShellArea;
+  /** Whether the address is the area's own home; deeper, the area crumb is a step, not the page. */
+  atAreaHome: boolean;
+  /** The screen inside the area, named as its own crumb — the caller's words, never a key here. */
+  page?: string;
+}
+
+/**
+ * R-UI-084, in the one home the clause names: "the breadcrumb always names workspace, project, area
+ * and page, and every screen declares its crumbs in routes.ts". Every crumb is a real location
+ * (Direction §1) — a crumb with no `href` is the page itself and nothing else, so the trail never
+ * carries a step that leads nowhere (I-15).
+ *
+ * The trail's shape is `workspace › project ▾ › area › page`, with the project crumb present only
+ * where the address is inside a project and carrying the sibling menu when the caller offers one.
+ * The last crumb of the trail is the page, and it is the only one without an address: a crumb that
+ * claims to be where the reader is may not also be a link to somewhere else (Q-11).
+ */
+export function shellCrumbs({ workspace, project, projects, area, atAreaHome, page }: ShellCrumbsInput): BreadcrumbCrumb[] {
+  const trail: BreadcrumbCrumb[] = [
+    { id: "workspace", label: workspaceLabel(workspace), href: shellHref(workspace.tenantId, "projects") },
+  ];
+
+  if (project !== undefined && project !== null) {
+    const offered = (projects ?? []).filter((held) => held.projectId !== project.projectId);
+    trail.push({
+      id: "project",
+      label: projectLabel(project),
+      href: projectHref(workspace.tenantId, project.projectId),
+      // A menu with nothing in it is a chevron that answers nothing: omitted rather than shown dead.
+      ...(offered.length === 0
+        ? {}
+        : {
+            menu: offered.map((held) => ({
+              id: held.projectId,
+              label: projectLabel(held),
+              href: projectHref(workspace.tenantId, held.projectId),
+            })),
+          }),
+    });
+  }
+
+  // The page crumb exists only where the screen names one AND the address is inside the area: at the
+  // area's own home the area crumb IS the page, and a name with nothing visible in it names no page
+  // (I-22) — the same reading the trail has always taken.
+  const named = !atAreaHome && page !== undefined && hasVisibleText(page);
+  trail.push({
+    id: "area",
+    label: areaLabel(area),
+    ...(named ? { href: shellHref(workspace.tenantId, area) } : {}),
+  });
+  if (named) trail.push({ id: "page", label: page });
+
+  return trail;
 }

@@ -14,7 +14,7 @@ import { useId, useState } from "react";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { formatDate } from "@/core/format";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { Button } from "@/ui/primitives/core";
+import { Button, Select } from "@/ui/primitives/core";
 import { shellHref } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
 import { changeMemberRoleAction, removeMemberAction, type MembersAnswer } from "./actions";
@@ -142,20 +142,19 @@ export function MembersSection({
                   }}
                 >
                   <input type="hidden" name="subjectUserId" value={row.userId} />
-                  <select
-                    className="cx-input cx-reticle cx-members-select"
+                  {/* The shipped Select: Design Direction 00 §1 refuses the platform's own control
+                      on this screen (§3.6 — "Role change is an inline Select in the row (28 px)").
+                      The role words stay the store's own, verbatim (I-55), and the value still
+                      rides the form under the name it always did. */}
+                  <Select
+                    className="cx-members-select"
                     data-testid="members-role-select"
                     name="role"
                     aria-label={fill(membersStrings.members_role_label, { member: spokenName(row) })}
+                    options={offered(row).map((role) => ({ value: role, label: role }))}
                     value={chosen[row.userId] ?? row.role}
-                    onChange={(event) => setChosen((held) => ({ ...held, [row.userId]: event.target.value }))}
-                  >
-                    {offered(row).map((role) => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(role) => setChosen((held) => ({ ...held, [row.userId]: role }))}
+                  />
                   {/* The spoken name names the member: a screen reader moving down the roster meets
                       one control per member, not N controls called the same thing. */}
                   <Button

@@ -5,13 +5,14 @@
 // It holds no opinion about the sheet beside it: the camera, the address and the status line are
 // `tests/e2e/viewer/s-viewer.page.ts`'s, and a journey that reads both opens both.
 import { expect, type Locator, type Page } from "@playwright/test";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** S-Viewer's views/grid panel and the overlay canvas over the sheet. */
 export class SViewerPartitionPage {
   constructor(private readonly page: Page) {}
 
   get panel(): Locator {
-    return this.page.getByTestId("viewer-partition");
+    return this.page.getByTestId(TESTIDS.viewer.partition);
   }
 
   get heading(): Locator {
@@ -19,70 +20,70 @@ export class SViewerPartitionPage {
   }
 
   get viewsToggle(): Locator {
-    return this.page.getByTestId("viewer-partition-views-toggle");
+    return this.page.getByTestId(TESTIDS.viewer.partitionViewsToggle);
   }
 
   get gridToggle(): Locator {
-    return this.page.getByTestId("viewer-partition-grid-toggle");
+    return this.page.getByTestId(TESTIDS.viewer.partitionGridToggle);
   }
 
   get viewRows(): Locator {
-    return this.page.getByTestId("viewer-partition-view");
+    return this.page.getByTestId(TESTIDS.viewer.partitionView);
   }
 
   get axisRows(): Locator {
-    return this.page.getByTestId("viewer-partition-axis");
+    return this.page.getByTestId(TESTIDS.viewer.partitionAxis);
   }
 
   get deferralRows(): Locator {
-    return this.page.getByTestId("viewer-partition-grid-deferral");
+    return this.page.getByTestId(TESTIDS.viewer.partitionGridDeferral);
   }
 
   get overlayCanvas(): Locator {
-    return this.page.getByTestId("viewer-partition-canvas");
+    return this.page.getByTestId(TESTIDS.viewer.partitionCanvas);
   }
 
   get groups(): Locator {
-    return this.page.getByTestId("viewer-partition-groups");
+    return this.page.getByTestId(TESTIDS.viewer.partitionGroups);
   }
 
   get offeredGroups(): Locator {
-    return this.page.getByTestId("offered-groups");
+    return this.page.getByTestId(TESTIDS.offered.groups);
   }
 
   get retry(): Locator {
-    return this.page.getByTestId("viewer-partition-retry");
+    return this.page.getByTestId(TESTIDS.viewer.partitionRetry);
   }
 
   get dialog(): Locator {
-    return this.page.getByTestId("consequence-dialog");
+    return this.page.getByTestId(TESTIDS.consequence.dialog);
   }
 
   get subjectRows(): Locator {
-    return this.page.getByTestId("consequence-subject-row");
+    return this.page.getByTestId(TESTIDS.consequence.subjectRow);
   }
 
   get digestLine(): Locator {
-    return this.page.getByTestId("consequence-digest-line");
+    return this.page.getByTestId(TESTIDS.consequence.digestLine);
   }
 
   get confirm(): Locator {
-    return this.page.getByTestId("consequence-confirm");
+    return this.page.getByTestId(TESTIDS.consequence.confirm);
   }
 
   /** One stored view's row, by the view key it names. */
   viewRow(viewKey: string): Locator {
-    return this.page.locator(`[data-testid="viewer-partition-view"][data-view-key="${viewKey}"]`);
+    return this.page.locator(`${testIdSelector(TESTIDS.viewer.partitionView)}[data-view-key="${viewKey}"]`);
   }
 
   /** One offered group, by the class it proposes. */
   group(viewType: string): Locator {
-    return this.page.locator(`[data-testid="offered-group"][data-view-type="${viewType}"]`);
+    return this.page.locator(`${testIdSelector(TESTIDS.offered.group)}[data-view-type="${viewType}"]`);
   }
 
   /** The door of one offered group — the one that opens the dialog, never the act itself (I-81). */
   groupConfirm(viewType: string): Locator {
-    return this.group(viewType).getByTestId("offered-group-confirm");
+    return this.group(viewType).getByTestId(TESTIDS.offered.groupConfirm);
   }
 
   /** A `data-` hook off the overlay canvas, as a number — what the machine says it drew. */

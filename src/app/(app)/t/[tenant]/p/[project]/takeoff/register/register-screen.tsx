@@ -9,14 +9,14 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Consequence, CorroborateInput, InsertLevelInput, RepudiateInput } from "@/core/acts";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
-import { RegisterWorkspace, type RegisterChrome, type RegisterDensity, type RegisterDoors, type PreviewAnswer } from "@/modules/takeoff/register-ui";
+import { RegisterWorkspace, type RegisterChrome, type RegisterDoors, type PreviewAnswer } from "@/modules/takeoff/register-ui";
 import type { RegisterView } from "@/modules/takeoff/register-ui/view";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { EvidenceLink } from "@/ui/patterns/evidence-link";
 import { JobTimeline } from "@/ui/patterns/job-timeline";
 import { OfferedGroups } from "@/ui/patterns/offered-group";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { BasisChip, Button, CoverageChip, Skeleton } from "@/ui/primitives/core";
+import { BasisChip, Button, Combobox, CoverageChip, Skeleton } from "@/ui/primitives/core";
 import { DataTable, Tree } from "@/ui/primitives/data";
 import { strings } from "@/ui/strings";
 import { commitCorroborate, commitInsertLevel, commitRepudiate, previewCorroborate, previewInsertLevel, previewRepudiate, readRegister, requestMeasure, type DoorAnswer } from "./actions";
@@ -32,6 +32,7 @@ const CHROME: RegisterChrome = {
   Skeleton,
   BasisChip,
   CoverageChip,
+  Combobox,
   EvidenceLink,
 };
 
@@ -65,15 +66,11 @@ export function RegisterScreen({ view, tenantId, projectId, permitted, reportId 
   // the fault it left — neither is dropped, and neither is spoken by this file (R-UI-020, B-21).
   const [refused, setRefused] = useState<RefusalEntry | null>(null);
   const [fault, setFault] = useState<unknown>(null);
-  const [density, setDensity] = useState<RegisterDensity>("comfortable");
   const [offline, setOffline] = useState(false);
 
-  // The frame states the reader's row height and whether the product is reachable; both are facts of
-  // the browser, so they are read after mount and never guessed on the server (R-UI-005, I-89).
-  useEffect(() => {
-    const stated = document.querySelector("[data-density]")?.getAttribute("data-density");
-    if (stated === "compact" || stated === "comfortable") setDensity(stated);
-  }, []);
+  // The reader's row height is NOT read here any more. Density switches its tokens at the root and
+  // the grid reads `--row-h` like every other component, so the per-screen override this screen
+  // used to carry is deleted (Design Direction 00 §4.2, §5 rule 1).
 
   useEffect(() => {
     const settle = (): void => setOffline(!navigator.onLine);
@@ -141,5 +138,5 @@ export function RegisterScreen({ view, tenantId, projectId, permitted, reportId 
     );
   }
 
-  return <RegisterWorkspace view={held} density={density} permitted={permitted} offline={offline} chrome={CHROME} doors={doors} />;
+  return <RegisterWorkspace view={held} permitted={permitted} offline={offline} chrome={CHROME} doors={doors} />;
 }

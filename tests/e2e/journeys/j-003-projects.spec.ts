@@ -15,6 +15,7 @@ import { SHomePage, S_HOME } from "../pages/s-home.page";
 import { SParticipantsPage } from "../pages/s-participants.page";
 import { checkpoint } from "../support/checkpoint";
 import { newestMail } from "../support/outbox";
+import { appears, steadyText } from "../support/retrying-read";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j003-${RUN}@cubit.test`;
@@ -115,8 +116,8 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     const digest = page.getByTestId(RULESET_DIGEST);
     await expect(identity, "the project's pinned edition names itself").toBeVisible();
     await expect(digest, "…and carries the digest that edition was forked with").toBeVisible();
-    expect((await identity.innerText()).trim().length, "the edition identity is not an empty line").toBeGreaterThan(0);
-    expect((await digest.innerText()).trim().length, "the digest is not an empty line").toBeGreaterThan(0);
+    await expect(identity, "the edition identity is not an empty line").not.toBeEmpty();
+    await expect(digest, "the digest is not an empty line").not.toBeEmpty();
 
     await checkpoint(page, testInfo, "j-003/ruleset-pin-visible");
 
@@ -202,7 +203,8 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     await auth.open(S_AUTH.signUp);
     await auth.signUpWith(BASELINE_EMAIL, BASELINE_PASSWORD, BASELINE_WORKSPACE);
     await expect(auth.notice.or(auth.refusal), "the sign-up door answers — a notice or a registered refusal, never nothing").toBeVisible();
-    if ((await auth.notice.count()) > 0) {
+    // Idempotent enrolment: which of the door's two lawful answers came back is a fact, not a defect.
+    if (await appears(auth.notice)) {
       const verifyMail = await newestMail(BASELINE_EMAIL, "verify-email");
       await auth.openWithToken(S_AUTH.verify, verifyMail.token);
       await auth.expectNotice();
@@ -224,7 +226,7 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     // A run of the shell journey killed between its two renames leaves this workspace wearing
     // another name, and the frame paints that name: normalise BEFORE the first comparison, never
     // after, because a remedy that runs after the screenshots cannot save them.
-    if (!((await shell.breadcrumb.textContent()) ?? "").includes(BASELINE_WORKSPACE)) {
+    if (!(await steadyText(shell.breadcrumb, "the shell breadcrumb")).includes(BASELINE_WORKSPACE)) {
       await shell.open(SHELL.settings(tenantId));
       await shell.renameInput.fill(BASELINE_WORKSPACE);
       await shell.renameSubmit.click();

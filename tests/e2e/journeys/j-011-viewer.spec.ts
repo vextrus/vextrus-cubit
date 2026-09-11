@@ -23,6 +23,8 @@ import { syntheticKey } from "../../takeoff/viewer/support/synthetic-graph";
 import { checkpoint } from "../support/checkpoint";
 import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
 import { stageSyntheticSheet } from "../viewer/viewer-stage";
+import { settled } from "../support/settled";
+import { steadyText } from "../support/retrying-read";
 
 /** A sheet with room for a rectangle to cross and layers to pick from, and small enough to list. */
 const ENTITIES = 600;
@@ -42,6 +44,8 @@ const MALFORMED_KEY = "FOO:1";
 /** How the pulse is watched: frames off the canvas, far enough apart to see it start and stop. */
 const PULSE_FRAMES = 8;
 const PULSE_GAP_MS = 120;
+/** How many samples the pulse is given to end in before stillness is a failure, not a wait. */
+const PULSE_SAMPLES = 40;
 
 /** How far around the point an entity is expected at the pointer is tried, in pixels. */
 const HOVER_REACH_PX = 60;
@@ -154,8 +158,8 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     expect(hovered, `the hover names a source key of this reading: it reads "${hovered}"`).toMatch(/^DXF_HANDLE:[0-9A-F]+$/);
     await expect(page.getByTestId("viewer-inspector-hover-handle"), "the handle cell is the key's own handle, verbatim").toHaveText(hovered.slice(SCHEME.length));
     await expect(page.getByTestId("viewer-inspector-hover-type"), "the type cell says something the reading recorded").not.toBeEmpty();
-    const layerRead = await page.getByTestId("viewer-inspector-hover-layer").textContent();
-    expect(staged.layerNames, `the layer cell names a layer of this sheet: it reads "${layerRead}"`).toContain((layerRead ?? "").trim());
+    const layerRead = await steadyText(page.getByTestId("viewer-inspector-hover-layer"), "the hover readout's layer cell");
+    expect(staged.layerNames, `the layer cell names a layer of this sheet: it reads "${layerRead}"`).toContain(layerRead);
 
     // Mono, as the Decision fixes it — read as the page resolves the token, never as a font typed here.
     const mono = await viewer.token("--font-mono", viewer.inspector);
@@ -195,11 +199,21 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     // stops of its own accord. Frames are sampled off the canvas itself rather than any colour being
     // named here (R-UI-001) — a reveal that moved the camera and painted nothing gives one still
     // frame throughout, and a pulse that never ends never gives two alike.
+    // Sampled by a RETRYING wait rather than by a sleep loop (AM-09 §4): the poll's own interval is
+    // the sampling gap, and the condition it waits for is the thing the assertion is about — the
+    // pulse ENDING. A fixed loop asserted that the pulse had ended within PULSE_FRAMES × the gap and
+    // failed as a flake when it had not; this waits for stillness and fails with a named cause.
     const frames: Buffer[] = [];
-    for (let taken = 0; taken < PULSE_FRAMES; taken += 1) {
-      frames.push(await viewer.canvas.screenshot());
-      await page.waitForTimeout(PULSE_GAP_MS);
-    }
+    await expect
+      .poll(
+        async () => {
+          frames.push(await viewer.canvas.screenshot());
+          const tail = frames.slice(-2);
+          return frames.length >= PULSE_FRAMES && tail.length === 2 && (tail[0] as Buffer).equals(tail[1] as Buffer);
+        },
+        { intervals: Array.from({ length: PULSE_SAMPLES }, () => PULSE_GAP_MS), timeout: PULSE_SAMPLES * PULSE_GAP_MS, message: "the pulse never ended: the sheet is still repainting itself long after the fly-to settled" },
+      )
+      .toBe(true);
     const changed = frames.some((frame, at) => at > 0 && !frame.equals(frames[at - 1] as Buffer));
     expect(changed, "the selection is repainted after the fly-to settles — the pulse the Trace owes (R-UI-022)").toBe(true);
     const lastTwo = frames.slice(-2) as [Buffer, Buffer];
@@ -228,7 +242,7 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     // Fitted, so the sheet stands inside its own margin and the corner of the stage is paper and
     // nothing else; what is held is untouched by a camera move.
     await viewer.fit.click();
-    await page.waitForTimeout(250);
+    await settled(page);
     await expect(viewer.inspector, "fitting the sheet is not letting go of it").toHaveAttribute("data-count", "1");
     const corner = await viewer.canvasBox();
     const bare = { x: corner.x + 6, y: corner.y + 6 };
@@ -264,11 +278,13 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     await expect(viewer.inspector, "Clear selection lets it go").toHaveAttribute("data-count", "0");
     expect(await viewer.selectionParam(), "and `s` is absent at count 0 — the address is the whole state (AC-4)").toBeNull();
     expect(await page.evaluate(() => history.length), "unchanged across the clear, exactly as across the select").toBe(beforeClear);
-    await page.waitForTimeout(400);
-    expect(
-      painted.equals(await viewer.canvas.screenshot()),
-      "a held entity was painted on the sheet, so letting it go repaints the sheet without it (AC-3: --canvas-selection)",
-    ).toBe(false);
+    // The repaint is waited FOR, not slept through: the sheet is re-read until it differs from the
+    // frame that carried the selection, and a sheet that never repaints fails with that sentence.
+    await expect
+      .poll(async () => painted.equals(await viewer.canvas.screenshot()), {
+        message: "a held entity was painted on the sheet, so letting it go repaints the sheet without it (AC-3: --canvas-selection)",
+      })
+      .toBe(false);
 
     /* --- j-011-multi-select: a rectangle over the whole fitted sheet takes what is drawn --- */
     await page.goto(address, { waitUntil: "commit" });

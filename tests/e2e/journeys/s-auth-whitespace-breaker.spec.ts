@@ -22,12 +22,10 @@
 import { expect, test } from "@playwright/test";
 
 import { S_AUTH, SAuthPage } from "../pages/s-auth.page";
+import { settled } from "../support/settled";
 
 /** The tRPC lane the S-Auth forms speak through (src/app/(auth)/transport.ts). */
 const LANE = "/api/trpc/spine.auth.";
-
-/** Long enough for a call that was sent to come back and paint. */
-const SETTLE_MS = 4_000;
 
 /** A space is what the person left in the box; the browser's requiredness counts it as filled in. */
 const WHITESPACE_PASSWORD = " ";
@@ -65,7 +63,12 @@ test.describe("J-001 S-AUTH-BREAKER — a whitespace credential is not a server 
     await expect(screen.password).toBeVisible();
 
     await screen.signInWith(freshEmail("sign-in"), WHITESPACE_PASSWORD);
-    await page.waitForTimeout(SETTLE_MS);
+    // The old cure was a sleep: give the page a fixed 2-4 s to do the wrong thing, then look. A sleep
+    // proves nothing either way — too short and the breaker passes by arriving early, too long and
+    // every green run pays for it. settled() waits for the screen to STOP arriving, and the two
+    // assertions under it are retrying ones, so the claim "nothing was sent and no fault card
+    // rendered" is made about a screen that has finished (AM-09 §4).
+    await settled(page);
 
     await expect(screen.fault, faultCardReport("/sign-in", calls)).toHaveCount(0);
   });
@@ -78,7 +81,12 @@ test.describe("J-001 S-AUTH-BREAKER — a whitespace credential is not a server 
     await expect(screen.workspace).toBeVisible();
 
     await screen.signUpWith(freshEmail("sign-up"), WHITESPACE_PASSWORD, "Breaker Workspace");
-    await page.waitForTimeout(SETTLE_MS);
+    // The old cure was a sleep: give the page a fixed 2-4 s to do the wrong thing, then look. A sleep
+    // proves nothing either way — too short and the breaker passes by arriving early, too long and
+    // every green run pays for it. settled() waits for the screen to STOP arriving, and the two
+    // assertions under it are retrying ones, so the claim "nothing was sent and no fault card
+    // rendered" is made about a screen that has finished (AM-09 §4).
+    await settled(page);
 
     await expect(screen.fault, faultCardReport("/sign-up", calls)).toHaveCount(0);
   });

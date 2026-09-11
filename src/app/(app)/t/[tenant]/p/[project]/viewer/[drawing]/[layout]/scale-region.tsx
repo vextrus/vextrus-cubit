@@ -31,7 +31,7 @@ import { judgeObservation, observationOf } from "@/modules/takeoff/scale-ui/two-
 import type { SnapPick } from "@/modules/takeoff/viewer-snap/snap";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { Badge, Button, Input, Skeleton } from "@/ui/primitives/core";
+import { Badge, Button, NumberInput, Select, Skeleton } from "@/ui/primitives/core";
 import { strings } from "@/ui/strings";
 import { drawingsRoute } from "@/app/(app)/t/[tenant]/p/[project]/drawings/route-address";
 import { participantsRoute } from "@/app/(app)/t/[tenant]/p/[project]/settings/participants/route-address";
@@ -691,25 +691,23 @@ function TwoPointTool({ scale, picks, views, onSpent }: ScalePanelProps) {
         <label className="cx-viewer-scale-field-label" htmlFor={distanceId}>
           {SCALE_COPY.viewer_scale_distance_label}
         </label>
-        {/* R-UI-010's NumberInput is unbuilt, so the field is the core Input asking for a decimal
-            keypad and the unit a native select in the house field classes (Decision § 8's IOU). */}
-        <Input id={distanceId} data-testid="viewer-scale-distance" inputMode="decimal" value={scale.distance} onChange={(event) => scale.setDistance(event.target.value)} />
+        {/* Decision § 8's IOU is paid: the distance is R-UI-010's NumberInput — mono, tabular,
+            right-aligned, no spinner chrome — and the unit is the shipped Select, which Design
+            Direction 00 §1 requires in place of the platform's own control. The distance is carried
+            as a STRING throughout, so a figure a person entered never passes through a float
+            (B-07), and the unit is still one of `SCALE_UNITS` and nothing else. */}
+        <NumberInput id={distanceId} data-testid="viewer-scale-distance" value={scale.distance} onChange={(entered) => scale.setDistance(entered)} />
         <label className="cx-viewer-scale-field-label" htmlFor={unitId}>
           {SCALE_COPY.viewer_scale_unit_label}
         </label>
-        <select
-          className="cx-input cx-reticle cx-viewer-scale-unit"
+        <Select
+          className="cx-viewer-scale-unit"
           id={unitId}
           data-testid="viewer-scale-unit"
+          options={SCALE_UNITS.map((spelling) => ({ value: spelling, label: spelling }))}
           value={scale.unit}
-          onChange={(event) => scale.setUnit(event.target.value as ScaleUnit)}
-        >
-          {SCALE_UNITS.map((spelling) => (
-            <option key={spelling} value={spelling}>
-              {spelling}
-            </option>
-          ))}
-        </select>
+          onChange={(chosen) => scale.setUnit(chosen as ScaleUnit)}
+        />
       </div>
 
       <Button variant="secondary" data-testid="viewer-scale-observe" disabled={picks.length < 2} onClick={() => scale.observe({ picks, views, onSpent })}>

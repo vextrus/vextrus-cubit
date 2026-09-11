@@ -2,6 +2,7 @@
 // closes over (docs/design/s-home.md § 7) — a journey that reached for a class or a copy string
 // would be reading the styling, not the screen.
 import { expect, type Locator, type Page } from "@playwright/test";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** The addresses the test contract names, spelled once so a journey never writes a path twice. */
 export const S_HOME = Object.freeze({
@@ -11,7 +12,7 @@ export const S_HOME = Object.freeze({
 } as const);
 
 /** The four quick stats the S-Home clause lists, by the id each one carries. */
-export const QUICK_STATS = ["s-home-stat-sheets", "s-home-stat-campaigns", "s-home-stat-estimates", "s-home-stat-bids"] as const;
+export const QUICK_STATS = [TESTIDS.sHome.statSheets, TESTIDS.sHome.statCampaigns, TESTIDS.sHome.statEstimates, TESTIDS.sHome.statBids] as const;
 
 /** What a draft carries into the form — the fields R-SPINE-010 names, by their contract test ids. */
 export interface ProjectDraftInput {
@@ -33,16 +34,16 @@ export class SHomePage {
   /* --- the grid and its cards --- */
 
   get grid(): Locator {
-    return this.page.getByTestId("s-home-grid");
+    return this.page.getByTestId(TESTIDS.sHome.grid);
   }
 
   get cards(): Locator {
-    return this.page.getByTestId("s-home-project-card");
+    return this.page.getByTestId(TESTIDS.sHome.projectCard);
   }
 
   /** One card, addressed by the project it is for — the card carries the id as a data attribute. */
   card(projectId: string): Locator {
-    return this.cards.filter({ has: this.page.locator(`[data-project="${projectId}"]`) }).or(this.page.locator(`[data-testid="s-home-project-card"][data-project="${projectId}"]`));
+    return this.cards.filter({ has: this.page.locator(`[data-project="${projectId}"]`) }).or(this.page.locator(`${testIdSelector(TESTIDS.sHome.projectCard)}[data-project="${projectId}"]`));
   }
 
   /** The one card whose name row reads this text — how a person finds a project they just made. */
@@ -55,26 +56,26 @@ export class SHomePage {
    * card's name is a link to `/t/{tenantId}/p/{projectId}`, which is R-UI-031 paid for the card.
    */
   projectOpen(projectId: string): Locator {
-    return this.card(projectId).getByTestId("s-home-project-open");
+    return this.card(projectId).getByTestId(TESTIDS.sHome.projectOpen);
   }
 
   /** Every card's door, in grid order — for the assertion that no card is left without one. */
   get projectOpens(): Locator {
-    return this.page.getByTestId("s-home-project-open");
+    return this.page.getByTestId(TESTIDS.sHome.projectOpen);
   }
 
   get recentDocuments(): Locator {
-    return this.page.getByTestId("s-home-recent-documents");
+    return this.page.getByTestId(TESTIDS.sHome.recentDocuments);
   }
 
   get createProject(): Locator {
-    return this.page.getByTestId("s-home-create-project");
+    return this.page.getByTestId(TESTIDS.sHome.createProject);
   }
 
   /* --- the form, one component serving create and edit --- */
 
   get form(): Locator {
-    return this.page.getByTestId("project-form");
+    return this.page.getByTestId(TESTIDS.project.form);
   }
 
   field(id: string): Locator {
@@ -83,15 +84,15 @@ export class SHomePage {
 
   /** The building types on offer, found by the behavioural hook § 7 names rather than by a tag. */
   get buildingTypes(): Locator {
-    return this.page.getByTestId("project-building-type").locator("[aria-pressed]");
+    return this.page.getByTestId(TESTIDS.project.buildingType).locator("[aria-pressed]");
   }
 
   get submit(): Locator {
-    return this.page.getByTestId("project-form-submit");
+    return this.page.getByTestId(TESTIDS.project.formSubmit);
   }
 
   get formRefusal(): Locator {
-    return this.page.getByTestId("project-form-refusal");
+    return this.page.getByTestId(TESTIDS.project.formRefusal);
   }
 
   async open(route: string): Promise<void> {
@@ -101,14 +102,14 @@ export class SHomePage {
   /** Fill the form as it stands, leaving untouched every field the draft does not name. */
   async fill(draft: ProjectDraftInput): Promise<void> {
     const entries: [string, string | undefined][] = [
-      ["project-name", draft.name],
-      ["project-code", draft.code],
-      ["project-client", draft.client],
-      ["project-site-address", draft.siteAddress],
-      ["project-district", draft.district],
-      ["project-storeys", draft.storeys],
-      ["project-gfa-m2", draft.gfaM2],
-      ["project-notes", draft.notes],
+      [TESTIDS.project.name, draft.name],
+      [TESTIDS.project.code, draft.code],
+      [TESTIDS.project.client, draft.client],
+      [TESTIDS.project.siteAddress, draft.siteAddress],
+      [TESTIDS.project.district, draft.district],
+      [TESTIDS.project.storeys, draft.storeys],
+      [TESTIDS.project.gfaM2, draft.gfaM2],
+      [TESTIDS.project.notes, draft.notes],
     ];
     for (const [id, value] of entries) {
       if (value === undefined) continue;
@@ -130,7 +131,7 @@ export class SHomePage {
 
   /** The regions a baseline may not compare: the last-activity dates and the per-run address. */
   masks(): Locator[] {
-    return [this.page.getByTestId("s-home-project-last-activity"), this.page.getByTestId("shell-user")];
+    return [this.page.getByTestId(TESTIDS.sHome.projectLastActivity), this.page.getByTestId(TESTIDS.shell.user)];
   }
 
   /** The page this screen is driven on, for the assertions that are about the browser itself. */

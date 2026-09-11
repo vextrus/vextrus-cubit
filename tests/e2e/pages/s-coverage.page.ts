@@ -6,6 +6,7 @@
  * this file (test contract).
  */
 import { expect, type Locator, type Page } from "@playwright/test";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** The address this screen answers at, and the parameter one cell widens it by (Decision §7). */
 export const S_COVERAGE = Object.freeze({
@@ -37,7 +38,7 @@ export class SCoveragePage {
   }
 
   get root(): Locator {
-    return this.page.getByTestId("coverage-screen");
+    return this.page.getByTestId(TESTIDS.coverage.screen);
   }
   /** The screen root, under the name the journey reads it by. */
   get screen(): Locator {
@@ -46,103 +47,103 @@ export class SCoveragePage {
 
   /* --- the lane's own navigation (Decision §1) --- */
   get navCoverage(): Locator {
-    return this.page.getByTestId("takeoff-nav-coverage");
+    return this.page.getByTestId(TESTIDS.takeoff.navCoverage);
   }
   get navRegister(): Locator {
-    return this.page.getByTestId("takeoff-nav-register");
+    return this.page.getByTestId(TESTIDS.takeoff.navRegister);
   }
 
   /* --- the grid --- */
   get grid(): Locator {
-    return this.page.getByTestId("coverage-grid");
+    return this.page.getByTestId(TESTIDS.coverage.grid);
   }
   get cells(): Locator {
-    return this.grid.getByTestId("coverage-cell");
+    return this.grid.getByTestId(TESTIDS.coverage.cell);
   }
   get kindRows(): Locator {
-    return this.grid.getByTestId("coverage-kind-row");
+    return this.grid.getByTestId(TESTIDS.coverage.kindRow);
   }
   /** Every cell whose measurement axis reads a given code. */
   measuring(reading: string): Locator {
-    return this.grid.locator(`[data-testid="coverage-cell"][data-measurement="${reading}"]`);
+    return this.grid.locator(`${testIdSelector(TESTIDS.coverage.cell)}[data-measurement="${reading}"]`);
   }
   /** Every cell whose bill axis reads a given code. */
   billing(reading: string): Locator {
-    return this.grid.locator(`[data-testid="coverage-cell"][data-bill="${reading}"]`);
+    return this.grid.locator(`${testIdSelector(TESTIDS.coverage.cell)}[data-bill="${reading}"]`);
   }
   /** One cell, by the three coordinates it carries. */
   cell(kind: string, klass: string, levelId: string): Locator {
-    return this.grid.locator(`[data-testid="coverage-cell"][data-kind="${kind}"][data-class="${klass}"][data-level="${levelId}"]`);
+    return this.grid.locator(`${testIdSelector(TESTIDS.coverage.cell)}[data-kind="${kind}"][data-class="${klass}"][data-level="${levelId}"]`);
   }
   get legend(): Locator {
-    return this.page.getByTestId("coverage-legend");
+    return this.page.getByTestId(TESTIDS.coverage.legend);
   }
   legendEntry(cause: string): Locator {
-    return this.legend.locator(`[data-testid="coverage-legend-entry"][data-cause="${cause}"]`);
+    return this.legend.locator(`${testIdSelector(TESTIDS.coverage.legendEntry)}[data-cause="${cause}"]`);
   }
 
   /* --- the inspector, and the two doors it carries --- */
   get inspector(): Locator {
-    return this.page.getByTestId("coverage-inspector");
+    return this.page.getByTestId(TESTIDS.coverage.inspector);
   }
   get cause(): Locator {
-    return this.inspector.getByTestId("coverage-inspector-cause");
+    return this.inspector.getByTestId(TESTIDS.coverage.inspectorCause);
   }
   get inspectorCause(): Locator {
     return this.cause;
   }
   get remedy(): Locator {
-    return this.inspector.getByTestId("coverage-inspector-remedy");
+    return this.inspector.getByTestId(TESTIDS.coverage.inspectorRemedy);
   }
   get inspectorRemedy(): Locator {
     return this.remedy;
   }
   get sightings(): Locator {
-    return this.inspector.getByTestId("coverage-inspector-sighting");
+    return this.inspector.getByTestId(TESTIDS.coverage.inspectorSighting);
   }
   get observations(): Locator {
-    return this.inspector.getByTestId("coverage-inspector-observation");
+    return this.inspector.getByTestId(TESTIDS.coverage.inspectorObservation);
   }
   get holdOut(): Locator {
-    return this.inspector.getByTestId("coverage-hold-out");
+    return this.inspector.getByTestId(TESTIDS.coverage.holdOut);
   }
   get declareOutOfScope(): Locator {
-    return this.inspector.getByTestId("coverage-declare-out-of-scope");
+    return this.inspector.getByTestId(TESTIDS.coverage.declareOutOfScope);
   }
   get answer(): Locator {
-    return this.page.getByTestId("coverage-answer");
+    return this.page.getByTestId(TESTIDS.coverage.answer);
   }
   get empty(): Locator {
-    return this.page.getByTestId("coverage-empty");
+    return this.page.getByTestId(TESTIDS.coverage.empty);
   }
   get retry(): Locator {
-    return this.page.getByTestId("coverage-retry");
+    return this.page.getByTestId(TESTIDS.coverage.retry);
   }
 
   /* --- the certificate preview --- */
   get preview(): Locator {
-    return this.page.getByTestId("coverage-certificate-preview");
+    return this.page.getByTestId(TESTIDS.coverage.certificatePreview);
   }
   get statements(): Locator {
-    return this.preview.getByTestId("coverage-statement");
+    return this.preview.getByTestId(TESTIDS.coverage.statement);
   }
   /** One statement block, by the axis it states — `MEASUREMENT` or `BILL` (the test contract). */
   statement(axis: string): Locator {
-    return this.preview.locator(`[data-testid="coverage-statement"][data-axis="${axis}"]`);
+    return this.preview.locator(`${testIdSelector(TESTIDS.coverage.statement)}[data-axis="${axis}"]`);
   }
   statementRows(axis: string): Locator {
-    return this.statement(axis).getByTestId("coverage-statement-row");
+    return this.statement(axis).getByTestId(TESTIDS.coverage.statementRow);
   }
   statementNone(axis: string): Locator {
-    return this.statement(axis).getByTestId("coverage-statement-none");
+    return this.statement(axis).getByTestId(TESTIDS.coverage.statementNone);
   }
 
   /* --- the shipped ConsequenceDialog the two doors open (Decision I-167) --- */
   get dialog(): Locator {
-    return this.page.getByTestId("consequence-dialog");
+    return this.page.getByTestId(TESTIDS.consequence.dialog);
   }
   get dialogConfirm(): Locator {
-    return this.dialog.getByTestId("consequence-confirm");
+    return this.dialog.getByTestId(TESTIDS.consequence.confirm);
   }
 
   /** Select one cell and wait for the inspector to answer for it. */
@@ -176,9 +177,9 @@ export class SCoveragePage {
    */
   masks(): Locator[] {
     return [
-      this.page.getByTestId("shell-breadcrumb"),
-      this.page.getByTestId("shell-user"),
-      this.page.getByTestId("shell-tenant-switcher"),
+      this.page.getByTestId(TESTIDS.shell.breadcrumb),
+      this.page.getByTestId(TESTIDS.shell.user),
+      this.page.getByTestId(TESTIDS.shell.tenantSwitcher),
       this.page.locator(".cx-coverage-revision"),
       this.page.locator(".cx-coverage-act-id"),
       this.page.locator(".cx-coverage-source-key"),

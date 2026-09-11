@@ -11,6 +11,7 @@ import noModelOutsideSeam from "./rules/no-model-outside-seam.mjs";
 import noPrimitiveToken from "./rules/no-primitive-token.mjs";
 import noRawIntl from "./rules/no-raw-intl.mjs";
 import noSuppressions from "./rules/no-suppressions.mjs";
+import noUnretriedRead from "./rules/no-unretried-read.mjs";
 
 export const cubit = {
   meta: { name: "cubit", version: "0.0.0" },
@@ -24,6 +25,7 @@ export const cubit = {
     "no-primitive-token": noPrimitiveToken,
     "no-raw-intl": noRawIntl,
     "no-suppressions": noSuppressions,
+    "no-unretried-read": noUnretriedRead,
   },
 };
 

@@ -2,6 +2,7 @@
 // Decision closes over (§ 7) — a journey that reached for a class or a copy string would be reading
 // the styling, not the screen.
 import { expect, type Locator, type Page } from "@playwright/test";
+import { TESTIDS } from "../../../src/ui/testids";
 
 /**
  * The cookie a session travels in, as the increment's interfaces state it. A journey may not import
@@ -33,47 +34,47 @@ export class SAuthPage {
   }
 
   get email(): Locator {
-    return this.page.getByTestId("s-auth-email");
+    return this.page.getByTestId(TESTIDS.sAuth.email);
   }
 
   get password(): Locator {
-    return this.page.getByTestId("s-auth-password");
+    return this.page.getByTestId(TESTIDS.sAuth.password);
   }
 
   get workspace(): Locator {
-    return this.page.getByTestId("s-auth-tenant-name");
+    return this.page.getByTestId(TESTIDS.sAuth.tenantName);
   }
 
   get submit(): Locator {
-    return this.page.getByTestId("s-auth-submit");
+    return this.page.getByTestId(TESTIDS.sAuth.submit);
   }
 
   get refusal(): Locator {
-    return this.page.getByTestId("s-auth-refusal");
+    return this.page.getByTestId(TESTIDS.sAuth.refusal);
   }
 
   get fault(): Locator {
-    return this.page.getByTestId("s-auth-fault");
+    return this.page.getByTestId(TESTIDS.sAuth.fault);
   }
 
   get notice(): Locator {
-    return this.page.getByTestId("s-auth-notice");
+    return this.page.getByTestId(TESTIDS.sAuth.notice);
   }
 
   get sessionRows(): Locator {
-    return this.page.getByTestId("s-auth-session-row");
+    return this.page.getByTestId(TESTIDS.sAuth.sessionRow);
   }
 
   get currentSession(): Locator {
-    return this.page.getByTestId("s-auth-session-current");
+    return this.page.getByTestId(TESTIDS.sAuth.sessionCurrent);
   }
 
   get revokeButtons(): Locator {
-    return this.page.getByTestId("s-auth-session-revoke");
+    return this.page.getByTestId(TESTIDS.sAuth.sessionRevoke);
   }
 
   get signOut(): Locator {
-    return this.page.getByTestId("s-auth-signout");
+    return this.page.getByTestId(TESTIDS.sAuth.signout);
   }
 
   async open(route: string): Promise<void> {
@@ -107,7 +108,7 @@ export class SAuthPage {
 
   /** The registered refusal the screen answered with, read from the nested RefusalState. */
   async refusedWith(code: string): Promise<void> {
-    await expect(this.refusal.getByTestId("refusal-state")).toHaveAttribute("data-code", code);
+    await expect(this.refusal.getByTestId(TESTIDS.refusal.state)).toHaveAttribute("data-code", code);
     await expect(this.fault).toHaveCount(0);
   }
 

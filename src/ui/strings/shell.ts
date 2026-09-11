@@ -15,6 +15,11 @@ export const shell = {
   // the same in both states — and a speech-input user has a verb to say, which a bare noun denied.
   shell_rail_collapse_label: "Toggle sidebar",
   shell_rail_nav_label: "Main navigation",
+  // The rail stands at 48 px showing icons only (Direction §1); the labels the icons stand for are
+  // in tooltips, and this control holds the rail open so they stay read rather than hovered for. One
+  // name in both states — `aria-pressed` carries whether it is held, so a speech-input user says the
+  // same words either way (WCAG 2.5.3).
+  shell_rail_pin_label: "Pin sidebar open",
   shell_tenant_switcher_label: "Switch workspace",
   shell_nav_projects: "Projects",
   shell_nav_books: "Books",
@@ -27,6 +32,28 @@ export const shell = {
   shell_user_signout: "Sign out",
 
   shell_inspector_label: "Details",
+  // The handle between the main field and the inspector. A separator a pointer can drag is a control
+  // a keyboard must reach too (R-UI-012), so it is named as what it does, not as what it looks like.
+  shell_inspector_resize_label: "Resize the details panel",
+
+  // The 24 px readout (Direction §3.1): one line of mono cells, each named for a reader, because a
+  // number with no name is a number nobody can check. The values are the screen's; these are the
+  // names the cells wear.
+  shell_status_label: "Status readout",
+  shell_status_sheet: "Sheet",
+  shell_status_scale: "Scale",
+  shell_status_coords: "Coordinates",
+  shell_status_snap: "Snap",
+  shell_status_selection: "Selection",
+  shell_status_layers: "Layers",
+  shell_status_jobs: "Jobs",
+  // What a cell says when the screen has no value for it — an em dash, never a blank cell that reads
+  // as a broken line (Direction §3.1: "cells show —").
+  shell_status_absent: "—",
+
+  // The 32 px toolbar (Direction §1): one row of 28 px icon buttons in groups. The row is a toolbar
+  // for a reader too, so it carries a name of its own.
+  shell_toolbar_label: "Tools",
   shell_inspector_empty: "Details of what you select appear here.",
 
   shell_projects_heading: "Projects",
@@ -55,6 +82,8 @@ export const shell = {
   // What a workspace is called on screen when its stored name has nothing visible in it. Without
   // it the breadcrumb link would carry no discernible name at all (Q-11).
   shell_workspace_unnamed: "Unnamed workspace",
+  // The same reading for a project: a crumb with no glyph in it names nothing (I-22, Q-11).
+  shell_project_unnamed: "Unnamed project",
 
   // R-UI-005's control. The hint says what the setting does and where it holds, not how it is
   // stored; the option labels are the plain mode names, never the seam's raw values.

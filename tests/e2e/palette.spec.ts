@@ -16,6 +16,7 @@ import { SHomePage } from "./pages/s-home.page";
 import { ShellPage, SHELL } from "./pages/shell.page";
 import { checkpoint } from "./support/checkpoint";
 import { newestMail } from "./support/outbox";
+import { steadyCount } from "./support/retrying-read";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j021-${RUN}@cubit.test`;
@@ -108,7 +109,7 @@ test.describe("J-021 — the command palette, from the chord to the sheet", () =
     await palette.openSheet();
     const rows = palette.sheetRows;
     await expect(rows.first(), "the sheet lists the roster").toBeVisible();
-    const listed = await rows.count();
+    const listed = await steadyCount(rows, "the shortcut sheet's rows");
     expect(listed, "every binding R-UI-032 names is documented — the roster is longer than the two global chords").toBeGreaterThan(2);
     const bound = await rows.evaluateAll((nodes: Element[]) => nodes.map((node) => node.getAttribute("data-shortcut") ?? ""));
     expect(bound.filter((id) => id === "").length, "every row names the roster entry it documents").toBe(0);

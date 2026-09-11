@@ -62,7 +62,7 @@ describe("AC-3: the source cell is the link", () => {
       expect(/[?&]v=/.test(href), `${line.lineId}: no \`v\` parameter — its absence is what makes the viewer fly (I-85)`).toBe(false);
       expect(href.includes(`${LINE_PARAM}=${encodeURIComponent(line.lineId)}`), `${line.lineId}: the address names the origin line`).toBe(true);
 
-      const cell = anchor.closest('[role="cell"]');
+      const cell = anchor.closest('[role="gridcell"], [role="rowheader"]');
       expect(cell, `${line.lineId}: the link stands in a cell of the lines table`).not.toBeNull();
       expect(text(cell), `${line.lineId}: the cell's whole content is the link — no icon, no second control beside it (I-179)`).toBe(text(anchor));
     }

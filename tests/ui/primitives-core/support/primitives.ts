@@ -32,25 +32,58 @@ export const BARREL = `${CORE_DIR}/index.ts`;
 export const BASIS_MODULE = `${CORE_DIR}/basis.ts`;
 export const RETICLE_CSS = `${CORE_DIR}/reticle.css`;
 export const TOKENS_CSS = "src/ui/tokens.css";
+/**
+ * The second half of the committed token source. R-UI-001's generated stylesheet is closed at three
+ * constructs, so Design Direction 00 §4.2's density and layout tokens — `--control-h`, `--row-h`,
+ * `--cell-px`, the icon sizes, the chrome geometry — are handwritten in the theme's own sheet
+ * instead. They are committed tokens like any other, and a primitive reading one is reading the
+ * source, not inventing a name.
+ */
+export const GLOBALS_CSS = "src/ui/theme/globals.css";
 
 /** The reticle's single class name (interfaces line). */
 export const RETICLE_CLASS = "cx-reticle";
 
 /**
- * The barrel's declared surface for THIS increment (interfaces: "exports exactly"). A later
- * increment that adds a primitive to this barrel changes the declared interface and re-baselines
- * this list with it (B-20) — which is why the roster is asserted here, in the public set the
- * Builder can read, and never inside a hidden one.
+ * The barrel's declared surface (interfaces: "exports exactly"). A later increment that adds a
+ * primitive to this barrel changes the declared interface and re-baselines this list with it
+ * (B-20) — which is why the roster is asserted here, in the public set the Builder can read, and
+ * never inside a hidden one.
+ *
+ * v22 U1 (Design Direction 00 §9.1 item 4) adds the controls every template needs: Select,
+ * Combobox, NumberInput, Checkbox, Switch, IconButton, Breadcrumb, Separator, EmptyState,
+ * ErrorState, IdChip, EnumLabel, Stat, QuantityText, MoneyText, DateText, RelativeTime, and the two
+ * providers the last three are made deterministic by — the app's clock and the document's figure
+ * conventions, which `src/ui` may not import from `src/core` itself (ARCH-01).
  */
 export const CORE_EXPORTS = [
   "Badge",
   "BasisChip",
+  "Breadcrumb",
   "Button",
+  "Checkbox",
   "Chip",
+  "ClockProvider",
+  "Combobox",
   "CoverageChip",
+  "DateText",
+  "EmptyState",
+  "EnumLabel",
+  "ErrorState",
+  "FigureProvider",
+  "IconButton",
+  "IdChip",
   "Input",
   "Kbd",
+  "MoneyText",
+  "NumberInput",
+  "QuantityText",
+  "RelativeTime",
+  "Select",
+  "Separator",
   "Skeleton",
+  "Stat",
+  "Switch",
   "Textarea",
   "Tooltip",
   "UnitBadge",
@@ -343,9 +376,12 @@ export function declaredCustomProperties(text: string): string[] {
   return [...text.matchAll(/(^|[;{\s])(--[A-Za-z0-9_-]+)\s*:/g)].map((m) => m[2] ?? "");
 }
 
-/** The committed token roster, derived from the generated stylesheet rather than declared here. */
+/** The committed token roster, derived from the two token sheets rather than declared here. */
 export function tokenNames(): Set<string> {
-  return new Set(declaredCustomProperties(readRepoFile(TOKENS_CSS)));
+  return new Set([
+    ...declaredCustomProperties(readRepoFile(TOKENS_CSS)),
+    ...declaredCustomProperties(readRepoFile(GLOBALS_CSS)),
+  ]);
 }
 
 /**

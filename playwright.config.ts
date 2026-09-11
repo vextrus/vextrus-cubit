@@ -7,6 +7,7 @@
 import { defineConfig } from "@playwright/test";
 // The port set has one home (ARCH-02); this config reads it rather than restating a number.
 import { portFor } from "./scripts/lib/ports.mjs";
+import { journeyUse } from "./tests/e2e/support/capture-geometry";
 import { e2eDatabaseUrl } from "./tests/e2e/support/scratch-db";
 
 const port = portFor("e2e");
@@ -18,6 +19,12 @@ const port = portFor("e2e");
  */
 const baseURL = `http://127.0.0.1:${port}`;
 
+/** Is the whole of §9.3 in force for this run? U2 flips this one switch (Design Direction 00 §9.3). */
+const picture = process.env["CUBIT_E2E_PICTURE"] === "1";
+
+/** Is this run being filmed? A showreel needs a film and a trace, so asking for one turns both on. */
+const showreel = process.env["CUBIT_SHOWREEL"] === "1";
+
 export default defineConfig({
   testDir: "tests/e2e",
   // The journeys are named for what they walk, not for the runner's default glob — and the lane
@@ -28,10 +35,13 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   workers: 1,
-  // `list` for a human, and one `JOURNEY <id> green|red` line per journey the caller asked for, so a
-  // run that put several journeys through this one invocation can still be read journey by journey
-  // (tests/e2e/support/journey-reporter.ts). It prints nothing when nobody named a journey.
-  reporter: [["list"], ["./tests/e2e/support/journey-reporter.ts"]],
+  // `list` for a human, one `JOURNEY <id> green|red` line per journey the caller asked for, and —
+  // only when the run is being filmed — the showreel's table of contents. The reel reporter is
+  // registered by name rather than always, because a reporter that writes a file every run writes a
+  // file of nothing on nearly every run (tests/e2e/support/showreel-reporter.ts).
+  reporter: showreel
+    ? [["list"] as const, ["./tests/e2e/support/journey-reporter.ts"] as const, ["./tests/e2e/support/showreel-reporter.ts"] as const]
+    : [["list"] as const, ["./tests/e2e/support/journey-reporter.ts"] as const],
   globalSetup: "./tests/e2e/support/global-setup.ts",
   // V-E2E: the visual comparisons stand against baselines committed for Linux, in one directory
   // rather than beside each spec — a journey names its baseline and the lane says where it lives.
@@ -59,31 +69,18 @@ export default defineConfig({
           },
         ]
       : [{ name: "light", use: { colorScheme: "light" as const } }],
-  // Design Direction 00 §9.3 asks this lane for 1440x900 at scale 1, a fixed locale and clock,
-  // reduced motion and the three Chromium font flags. Every one of those moves every committed
-  // picture — the viewport by 160x180 px, the font flags by changing how a glyph is rastered — so
-  // they are NOT set here. Re-baselining the world is one lease held by one node, and this is not
-  // it; they land in the same commit as the pictures they are worth, with the geometry and the
-  // captures proved together. What is set here is the one default that moves no picture and that
-  // the theme change made necessary.
-  use: {
+  // The lane's `use` block has one home, and it is not this file: `tests/e2e/support/capture-geometry.ts`
+  // builds it from the switches below, and a unit test asserts both of its branches — §9.3's capture
+  // geometry is armed by name (CUBIT_E2E_PICTURE=1) and with the switch off the block is what it
+  // always was, key for key. Re-baselining the world is one lease held by one node (U2), and wiring
+  // the geometry is not the same act as flipping it.
+  use: journeyUse({
     baseURL,
-    // The product's served default is dark (R-UI-001). Every baseline committed to
-    // tests/e2e/baselines/design was taken light, so this lane states light rather than inheriting
-    // it: the resolver settles the root attribute from this preference before first paint.
-    colorScheme: "light",
-    // Vextrus Builder v21 L9: the engine turns video and a full trace on for the final, green,
-    // pre-merge journey run only (CUBIT_E2E_VIDEO / CUBIT_E2E_TRACE = on) and harvests them into
-    // the increment's evidence; every other run keeps the cheap defaults.
-    video: process.env["CUBIT_E2E_VIDEO"] === "on" ? "on" : "off",
-    trace: process.env["CUBIT_E2E_TRACE"] === "on" ? "on" : "retain-on-failure",
-    // V-E2E owes a screenshot at every named checkpoint. `tests/e2e/support/checkpoint.ts` attaches
-    // the ones it is called at under their own names; this is the floor beneath it, so a declared
-    // checkpoint a journey stands on without calling that helper — j-000-home, the smoke's single
-    // checkpoint at `/` — is still evidenced by an image of the page rather than by an assertion
-    // alone. A run therefore carries one screenshot per journey test at minimum, always.
-    screenshot: "on",
-  },
+    showreel,
+    picture,
+    video: process.env["CUBIT_E2E_VIDEO"] === "on",
+    trace: process.env["CUBIT_E2E_TRACE"] === "on",
+  }),
   // V-E2E: the journeys drive the built product, never a dev server — what CI ships is what they
   // walk. One home for the port (ARCH-02): `portFor("e2e")` above, and one home for the database
   // the built server opens: the journeys' own scratch, named here and made in the global setup.

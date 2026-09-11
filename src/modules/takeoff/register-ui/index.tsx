@@ -24,9 +24,6 @@ import type { RegisterView, ViewAttribute, ViewLine, ViewObject, ViewReading } f
 
 /* ------------------------------------------------------------------ what the screen is handed */
 
-/** The two row heights R-UI-005 fixes, as the frame states the reader's choice. */
-export type RegisterDensity = "comfortable" | "compact";
-
 /** One node of the tree, as the shipped Tree takes one. */
 type TreeNode = { id: string; label: string; children?: TreeNode[] };
 
@@ -82,10 +79,11 @@ export interface RegisterChrome {
     "aria-label"?: string;
   }>;
   readonly DataTable: ComponentType<{
+    /** The identity the reader's column furniture is remembered under (Direction 00 §5 rule 3). */
+    tableId: string;
     columns: LineColumn[];
     data: ViewLine[];
     getRowId: (row: ViewLine, index: number) => string;
-    density?: RegisterDensity;
     /** The row a reader must be able to reach — the table scrolls to it and draws it (I-182). */
     scrollToRowId?: string;
   }>;
@@ -106,6 +104,21 @@ export interface RegisterChrome {
   readonly Skeleton: ComponentType<{ style?: CSSProperties }>;
   readonly BasisChip: ComponentType<{ basis: QuantityBasis }>;
   readonly CoverageChip: ComponentType<{ value: number }>;
+  /**
+   * The filter control of Design Direction 00 §3.2 — `Label · Value ▾`, one 28 px chip per filter.
+   * Injected like every other renderer: this workspace is a module and may not import `src/ui`
+   * (I-170, B-17, ARCH-01).
+   */
+  readonly Combobox: ComponentType<{
+    options: readonly { value: string; label: string }[];
+    value: string;
+    onChange: (value: string) => void;
+    label: string;
+    placeholder?: string;
+    variant?: "field" | "chip";
+    className?: string;
+    "data-testid"?: string;
+  }>;
   /**
    * The Trace's own affordance (R-UI-022), shipped by `src/ui/patterns/evidence-link` and injected
    * here like every other renderer. Only the props this screen hands it are declared: the address it
@@ -147,7 +160,6 @@ export interface RegisterDoors {
 
 export interface RegisterWorkspaceProps {
   readonly view: RegisterView;
-  readonly density: RegisterDensity;
   /** Whether the reader holds MEASURE on this project, read server-side (Decision § 2). */
   readonly permitted: boolean;
   readonly offline: boolean;
@@ -195,6 +207,12 @@ function codeOf(thrown: unknown): string | null {
 
 /** How a coverage reads as a share of the item priced: only a COMPLETE line carries a quantity. */
 const COMPLETE = "COMPLETE";
+
+/**
+ * The identity the lines table's column furniture is remembered under — one name, one drawer
+ * (`cubit.datatable.v1:takeoff-register-lines`, Design Direction 00 §5 rule 3).
+ */
+const REGISTER_TABLE_ID = "takeoff-register-lines";
 
 /** The tree, nested as the hierarchy is: discipline → level → class → object (R-TO-050). */
 function treeOf(objects: readonly ViewObject[]): { items: TreeNode[]; expanded: string[] } {
@@ -270,8 +288,8 @@ type Pending =
   | { readonly actType: typeof REPUDIATE; readonly input: RepudiateInput }
   | { readonly actType: typeof INSERT_LEVEL; readonly input: InsertLevelInput };
 
-export function RegisterWorkspace({ view, density, permitted, offline, chrome, doors }: RegisterWorkspaceProps) {
-  const { Tree, DataTable, RefusalState, OfferedGroups, ConsequenceDialog, JobTimeline, BasisChip, CoverageChip, EvidenceLink } = chrome;
+export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: RegisterWorkspaceProps) {
+  const { Tree, DataTable, RefusalState, OfferedGroups, ConsequenceDialog, JobTimeline, BasisChip, CoverageChip, Combobox, EvidenceLink } = chrome;
 
   const evidence: Evidence = { href: drawingsHref(view.tenantId, view.projectId), label: REGISTER_COPY.takeoff_register_evidence };
   const deniedEvidence: Evidence = { href: participantsHref(view.tenantId, view.projectId), label: REGISTER_COPY.takeoff_register_evidence };
@@ -673,24 +691,21 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
       </section>
 
       <div className="cx-register-filters">
+        {/* One chip per filter, each reading `Label · Value ▾` (Design Direction 00 §3.2): the
+            label rides inside the control rather than standing beside it as a row, which is what
+            keeps the bar one line — and the platform's own popup, which §1 refuses, is gone. */}
         {(Object.keys(filterOptions) as (keyof Filters)[]).map((name) => (
-          <label key={name} className="cx-register-filter">
-            <span className="cx-register-filter-label">{filterOptions[name].label}</span>
-            <select
-              className="cx-input cx-reticle cx-register-select"
-              data-testid={`register-filter-${name}`}
-              data-chosen={filters[name] === "" ? undefined : "true"}
-              value={filters[name]}
-              onChange={(event) => setFilters((held) => ({ ...held, [name]: event.target.value }))}
-            >
-              <option value="">{filterOptions[name].any}</option>
-              {filterOptions[name].options.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Combobox
+            key={name}
+            className="cx-register-filter"
+            data-testid={`register-filter-${name}`}
+            variant="chip"
+            label={filterOptions[name].label}
+            placeholder={filterOptions[name].any}
+            options={[{ value: "", label: filterOptions[name].any }, ...filterOptions[name].options.map((option) => ({ value: option, label: option }))]}
+            value={filters[name]}
+            onChange={(chosen) => setFilters((held) => ({ ...held, [name]: chosen }))}
+          />
         ))}
         <p className="cx-register-count" data-testid="register-lines-count" role="status">
           {fillCopy("takeoff_register_lines_count", { shown: formatUserFigure(String(lines.length)), total: formatUserFigure(String(registered.length)) })}
@@ -740,7 +755,15 @@ export function RegisterWorkspace({ view, density, permitted, offline, chrome, d
               // The origin is named, not hunted for: the table is told which row a reader must be
               // able to reach and answers with it drawn, so this screen reads nothing of the table's
               // insides to put the reticle back where Back came from (I-182, B-17).
-              <DataTable columns={columns} data={[...lines]} getRowId={(line) => line.lineId} density={density} scrollToRowId={originLine ?? undefined} />
+              // The row height is the ROOT's density token, not this screen's: the per-screen
+              // override R-UI-005 used to be read off the frame here is deleted (§4.2, §5 rule 1).
+              <DataTable
+                tableId={REGISTER_TABLE_ID}
+                columns={columns}
+                data={[...lines]}
+                getRowId={(line) => line.lineId}
+                scrollToRowId={originLine ?? undefined}
+              />
             )}
           </div>
 

@@ -14,11 +14,11 @@ import { useMemo, useRef, useState } from "react";
 
 import { dhakaDateParts, formatDate, formatUserFigure } from "@/core/format";
 import type { AuditAct } from "@/modules/spine/audit";
-import { Button, Input } from "@/ui/primitives/core";
+import { Button, Input, Select, type SelectOption } from "@/ui/primitives/core";
 import { fill } from "@/ui/strings";
 import { auditStrings } from "./strings";
 
-/** The value a select carries when it is filtering nothing — its own first option (I-31). */
+/** The value a filter carries when it is filtering nothing — its own first option (I-31). */
 const ANY = "";
 
 /** One actor, as the actor filter offers them: the id it filters by, under the name it shows. */
@@ -48,7 +48,7 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
   // filtered-empty block, which the clearing unmounts, and focus dropped to <body> puts a keyboard
   // reader back at the top of the document (R-UI-012). The first filter is the field the cleared
   // list is now answering, so it is where the work continues.
-  const firstFilter = useRef<HTMLSelectElement>(null);
+  const firstFilter = useRef<HTMLButtonElement>(null);
   const [actType, setActType] = useState<string>(ANY);
   const [actorId, setActorId] = useState<string>(ANY);
   const [subject, setSubject] = useState<string>("");
@@ -61,6 +61,17 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
     for (const given of acts) if (!named.has(given.actorId)) named.set(given.actorId, given.actorLabel);
     return [...named].map(([id, label]) => ({ actorId: id, actorLabel: label })).sort((left, right) => byCodePoint(left.actorLabel, right.actorLabel));
   }, [acts]);
+
+  // What each filter offers, in the shape the Select takes: the all-option first (I-31), then the
+  // values themselves — an act type is shown verbatim because it IS the model's word (I-25).
+  const typeOptions = useMemo<SelectOption[]>(
+    () => [{ value: ANY, label: auditStrings.audit_filter_any_type }, ...actTypes.map((type) => ({ value: type, label: type }))],
+    [actTypes],
+  );
+  const actorOptions = useMemo<SelectOption[]>(
+    () => [{ value: ANY, label: auditStrings.audit_filter_any_actor }, ...actors.map((actor) => ({ value: actor.actorId, label: actor.actorLabel }))],
+    [actors],
+  );
 
   // A subject is an identifier, so it is compared whole; a blank entry is no filter (I-32).
   const cited = subject.trim();
@@ -86,44 +97,35 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
           <label className="cx-audit-filter-label" htmlFor="audit-filter-type-field">
             {auditStrings.audit_filter_type_label}
           </label>
-          <select
-            // Mono is I-25's treatment of a model value, and only a chosen act type is one: the
-            // all-option is this control's own chrome and reads in the face the row's other
-            // control reads in.
-            className={`cx-input cx-reticle cx-audit-select${actType === ANY ? "" : " cx-audit-select-mono"}`}
+          {/* The shipped Select (Design Direction 00 §1 refuses the native control — the
+              platform's popup cannot be drawn at this instrument's weight). The closed choice I-31
+              rules is unchanged: the all-option first, then exactly the act types the rows hold.
+              Mono is I-25's treatment of a model value, and only a chosen act type is one: the
+              all-option is this control's own chrome and reads in the face the row's other control
+              reads in. */}
+          <Select
+            className={actType === ANY ? "cx-audit-select" : "cx-audit-select cx-audit-select-mono"}
             data-testid="audit-filter-type"
             id="audit-filter-type-field"
-            onChange={(event) => setActType(event.target.value)}
+            onChange={setActType}
+            options={typeOptions}
             ref={firstFilter}
             value={actType}
-          >
-            <option value={ANY}>{auditStrings.audit_filter_any_type}</option>
-            {actTypes.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div className="cx-audit-filter">
           <label className="cx-audit-filter-label" htmlFor="audit-filter-actor-field">
             {auditStrings.audit_filter_actor_label}
           </label>
-          <select
-            className="cx-input cx-reticle cx-audit-select"
+          <Select
+            className="cx-audit-select"
             data-testid="audit-filter-actor"
             id="audit-filter-actor-field"
-            onChange={(event) => setActorId(event.target.value)}
+            onChange={setActorId}
+            options={actorOptions}
             value={actorId}
-          >
-            <option value={ANY}>{auditStrings.audit_filter_any_actor}</option>
-            {actors.map((actor) => (
-              <option key={actor.actorId} value={actor.actorId}>
-                {actor.actorLabel}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div className="cx-audit-filter">

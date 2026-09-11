@@ -18,6 +18,7 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
 import { SDesignPage, S_DESIGN_ROUTE } from "../pages/s-design.page";
 import { newestMail } from "../support/outbox";
+import { appears } from "../support/retrying-read";
 
 /** axe runs from the copy already in the checkout; the journey adds no package (Q-11). */
 const AXE_SOURCE = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
@@ -77,7 +78,8 @@ async function signIn(page: Page): Promise<void> {
   await auth.open(S_AUTH.signUp);
   await auth.signUpWith(EMAIL, PASSWORD, WORKSPACE);
   await expect(auth.notice.or(auth.refusal), "the sign-up door answers — a notice or a registered refusal, never nothing").toBeVisible();
-  if ((await auth.notice.count()) > 0) {
+  // Idempotent enrolment: which of the door's two lawful answers came back is a fact, not a defect.
+  if (await appears(auth.notice)) {
     const verifyMail = await newestMail(EMAIL, "verify-email");
     await auth.openWithToken(S_AUTH.verify, verifyMail.token);
     await auth.expectNotice();

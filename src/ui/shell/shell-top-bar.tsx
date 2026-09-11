@@ -1,19 +1,27 @@
 "use client";
-// R-UI-030's top bar: where you are (the breadcrumb, reading the URL's own truth) and who you are
-// (the user menu, holding the two doors a signed-in person always owes — the device list and the
-// way out). The bar carries only occupants that lead somewhere: a control with no destination is
-// absent rather than shown dead (I-15).
-import Link from "next/link";
+// The 40 px top bar (Direction §1, §3.1; was `var(--space-12)` = 48): where you are — the FULL
+// breadcrumb `workspace › project ▾ › area › page`, every crumb a real location (R-UI-084) — and
+// the end cluster: ⌘K, the jobs tray, and who you are (the user menu, holding the two doors a
+// signed-in person always owes: the device list and the way out).
+//
+// The trail's shape is derived in `routes.ts`, the one home R-UI-084 names for it, and painted by
+// the shipped `Breadcrumb` primitive (B-17). This bar owns neither: it says where it is and hands
+// the answer over. A control with no destination is absent rather than shown dead (I-15).
 import { useTransition } from "react";
+import { Breadcrumb } from "../primitives/core";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/overlay";
 import { strings } from "../strings";
 import { CommandPaletteTrigger } from "./command-palette-trigger";
 import { useFailureHandOff } from "./failure-hand-off";
 import { JobsTray } from "./jobs-tray";
-import { areaLabel, hasVisibleText, shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
+import { shellCrumbs, type ShellArea, type ShellProject, type ShellWorkspace } from "./routes";
 
 export interface ShellTopBarProps {
   workspace: ShellWorkspace;
+  /** The project the address is inside, when it is inside one — the trail's second crumb. */
+  project?: ShellProject | null;
+  /** The sibling projects the project crumb's ▾ menu offers; none means no menu, never an empty one. */
+  projects?: readonly ShellProject[];
   area: ShellArea;
   /** Whether the address is the area's own home; deeper, the area crumb is a step, not the page. */
   atAreaHome: boolean;
@@ -36,7 +44,7 @@ export interface ShellTopBarProps {
   signOut: () => void | Promise<void>;
 }
 
-export function ShellTopBar({ workspace, area, atAreaHome, page, email, userId, signOut }: ShellTopBarProps) {
+export function ShellTopBar({ workspace, project, projects, area, atAreaHome, page, email, userId, signOut }: ShellTopBarProps) {
   const [signingOut, startSignOut] = useTransition();
   // A failed sign-out is a failure, not a silence: a discarded promise would leave the control idle
   // and the screen claiming nothing happened (ARCH-03, B-21). The hand-off holds the rejection and
@@ -54,50 +62,11 @@ export function ShellTopBar({ workspace, area, atAreaHome, page, email, userId, 
 
   return (
     <header className="cx-shell-topbar" data-testid="shell-topbar">
-      <nav data-testid="shell-breadcrumb" aria-label={strings.shell_breadcrumb_label}>
-        <ol className="cx-shell-crumbs">
-          <li>
-            {/* A frame-internal move, so it travels through the router: the crumb lands inside the
-                same layout, which is what keeps the rail's own state (its collapse) across it. */}
-            <Link className="cx-shell-crumb-link cx-reticle" href={shellHref(workspace.tenantId, "projects")}>
-              {workspaceLabel(workspace)}
-            </Link>
-          </li>
-          <li className="cx-shell-crumb-separator" aria-hidden="true">
-            ›
-          </li>
-          {/* The area crumb is the current page only at the area's own home. On a screen deeper
-              inside the area it is a step on the way — a link the reader can take back — and
-              saying `aria-current="page"` there would name an address they are not at. */}
-          {atAreaHome ? (
-            <li className="cx-shell-crumb-current" aria-current="page">
-              {areaLabel(area)}
-            </li>
-          ) : (
-            <li>
-              <Link className="cx-shell-crumb-link cx-reticle" href={shellHref(workspace.tenantId, area)}>
-                {areaLabel(area)}
-              </Link>
-            </li>
-          )}
-          {/* The page's own crumb, and only inside the area: at the area's own home the area crumb
-              already is the page, and a second `aria-current="page"` would make the trail claim two
-              addresses at once (Q-11). A screen that names no page ends the trail at the area — and
-              a name with nothing visible in it names no page, judged by the one answer the frame has
-              for that question (I-22, B-17): a crumb carrying the page claim with no glyph in it is
-              the same undiscernible-name failure `workspaceLabel` exists to prevent. */}
-          {!atAreaHome && page !== undefined && hasVisibleText(page) ? (
-            <>
-              <li className="cx-shell-crumb-separator" aria-hidden="true">
-                ›
-              </li>
-              <li className="cx-shell-crumb-current" aria-current="page" data-testid="shell-crumb-page">
-                {page}
-              </li>
-            </>
-          ) : null}
-        </ol>
-      </nav>
+      {/* The id the frame has always published for the trail, kept byte-identical; the `<nav>`, its
+          label and the crumbs' own markup are the primitive's, which is where they belong (B-17). */}
+      <div className="cx-shell-breadcrumb" data-testid="shell-breadcrumb">
+        <Breadcrumb crumbs={shellCrumbs({ workspace, project, projects, area, atAreaHome, page })} className="cx-shell-crumbs" />
+      </div>
 
       {/* The bar's right-hand cluster, in R-UI-030's own order: the ⌘K trigger, the jobs tray, then
           the user menu. Both the trigger and the tray render nothing outside their provider, so a

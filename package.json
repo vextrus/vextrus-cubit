@@ -26,7 +26,7 @@
     "db:drift": "node scripts/db-drift.mjs",
     "seed": "node scripts/seed.mjs",
     "method-hashes": "node scripts/method-hashes.mjs",
-    "lint": "eslint .",
+    "lint": "eslint . && eslint src/ui --max-warnings 0 --ignore-pattern src/ui/patterns/** --ignore-pattern src/ui/primitives/core/** --ignore-pattern src/ui/primitives/data/** --ignore-pattern src/ui/shell/**",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "worker": "tsx src/worker/main.ts"

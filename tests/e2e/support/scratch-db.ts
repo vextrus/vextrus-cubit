@@ -36,6 +36,16 @@ export function e2eDatabaseUrl(): string {
   return urlAs(ROLE_APP);
 }
 
+/**
+ * The same database addressed as the OWNER, for the one writer that is not the product: the picture
+ * tenant's fixture rows (tests/e2e/support/picture-tenant.ts). A fixture is installed by the lane
+ * before the first journey runs, never by a journey — AM-09 §2 is about what a LEG may do, and a leg
+ * still clicks what a customer clicks. `urlAs` is private, so this is the one named door to it.
+ */
+export function migrateUrlForPictureTenant(): string {
+  return urlAs(ROLE_MIGRATE);
+}
+
 /** The journeys' database, made if the cluster has not got it, and migrated to the committed head. */
 export function provisionE2eDatabase(): string {
   const known = psql(BOOTSTRAP_URL, `select 1 from pg_database where datname = ${lit(E2E_DATABASE)};`);

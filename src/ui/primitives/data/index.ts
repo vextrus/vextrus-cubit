@@ -19,8 +19,14 @@ export type { TreeItem, TreeProps } from "./tree";
 export type { ScrollAreaProps } from "./scroll-area";
 export type { ResizableHandleProps, ResizablePanelGroupProps, ResizablePanelProps } from "./resizable";
 export type {
+  DataTableCellCommit,
   DataTableColumnMeta,
   DataTableColumnPinning,
   DataTableDensity,
+  DataTableGroup,
+  DataTableGroupKey,
   DataTableProps,
+  DataTableRowState,
+  DataTableSubtotal,
 } from "./data-table";
+export type { DataTableColumnState, DataTableSortEntry, DataTableStorage } from "./table-state";

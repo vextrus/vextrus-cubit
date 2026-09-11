@@ -1,0 +1,93 @@
+VEXTRUS CUBIT — the vendored icon set: licence and provenance
+=============================================================
+
+What is in this directory
+-------------------------
+`glyphs.tsx` holds 34 SVG React components. They are HAND-WRITTEN source in this repository. No
+icon package is installed, imported, fetched or bundled to produce them: `lucide-react` is NOT a
+dependency of this tree (AM-08 PART 1 records it as not installed) and adding one is refused by
+B-24 — the product carries its assets as source, and fetches nothing at build or at run time.
+
+Why Lucide is named at all
+--------------------------
+Design Direction 00 §1 ("Iconography") binds the product to "one vendored stroke set (Lucide,
+1.5 px, 16/20)". What is adopted from Lucide is its DRAWING SYSTEM — a 24-unit box, a uniform
+1.5 px `currentColor` stroke, round caps and joins, no fill, and the shape vocabulary a reader of
+CAD software already recognises. The geometry below was traced by hand against that system: each
+path was restated from the shape's description, at the coordinates chosen here, and none of the
+upstream path data was copied out of a package or a file. Where a glyph is a plain geometric
+primitive (a plus, a cross, a chevron, a circle, a 3 × 3 grid) there is no authorship to carry in
+either direction — the shape is the shape.
+
+Lucide's licence, recorded in full because the system is adopted from it
+-----------------------------------------------------------------------
+Lucide is ISC-licensed, and its own notice preserves the Feather copyright it forked from:
+
+  ISC License
+
+  Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather
+  (MIT). All other copyright (c) for Lucide are held by Lucide Contributors 2022.
+
+  Permission to use, copy, modify, and/or distribute this software for any purpose with or
+  without fee is hereby granted, provided that the above copyright notice and this permission
+  notice appear in all copies.
+
+  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+  SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+  AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+  NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+  PERFORMANCE OF THIS SOFTWARE.
+
+Provenance, glyph by glyph
+--------------------------
+"after <name>" means: the upstream glyph of that name was the described shape, and the path here
+was drawn to that description at this file's own coordinates. The column after it says what the
+product uses the glyph for (Design Direction 00 §3's template tables).
+
+  IconSelect          after `mouse-pointer`        toolbar: the select tool (V)
+  IconPan             after `hand`                 toolbar: the pan tool (H)
+  IconLinear          after `ruler`                toolbar: linear measure (L)
+  IconArea            after `square-dashed`        toolbar: area measure (A)
+  IconCount           after `hash`                 toolbar: count measure (C)
+  IconSnap            after `magnet`               toolbar: the snap mode (S)
+  IconOrtho           own geometry (a right angle) toolbar: the ortho constraint
+  IconAngle           own geometry (rays + arc)    toolbar: the angle readout
+  IconViews           after `eye`                  toolbar: the views group
+  IconGrid            after `grid-3x3`             toolbar: the grid / partition overlay
+  IconFit             after `maximize`             toolbar: fit to sheet (F)
+  IconZoomIn          after `zoom-in`              toolbar: zoom in
+  IconZoomOut         after `zoom-out`             toolbar: zoom out
+  IconLayers          after `layers`               drawer: the layers group
+  IconInspector       after `panel-right`          toolbar: the inspector pin (V≡)
+  IconSearch          after `search`               filter bars, ⌘K
+  IconCopy            after `copy`                 IdChip's copy button (R-UI-082)
+  IconChevronDown     geometric primitive          Select / Combobox disclosure
+  IconChevronUp       geometric primitive          the open disclosure
+  IconChevronLeft     geometric primitive          paging back
+  IconChevronRight    geometric primitive          the breadcrumb separator
+  IconCheck           after `check`                Checkbox's mark, the chosen option
+  IconX               after `x`                    dismissal, clearing a filter
+  IconAlert           after `triangle-alert`        ErrorState's glyph
+  IconInfo            after `info`                 a fact a reader may want
+  IconUpload          after `upload`               the Add / drop affordance
+  IconPlus            geometric primitive          the create affordance
+  IconMoreHorizontal  after `ellipsis`             the row menu ⋯
+  IconExternalLink    after `external-link`        a place that opens away from here
+  IconSun             after `sun`                  the light theme control
+  IconMoon            after `moon`                 the dark theme control
+  IconUser            after `user`                 the user menu
+  IconBell            after `bell`                 notifications
+  IconRefresh         after `refresh-cw`           retry, and the jobs indicator
+  IconInbox           after `inbox`                EmptyState's glyph
+  IconTaka            own geometry (U+09F3 ৳)      MoneyText's currency sign — see below
+
+The taka sign
+-------------
+`IconTaka` is not an adopted icon: it is the Bengali taka sign U+09F3 traced as geometry, at this
+set's stroke and box, because the vendored Bengali font subset that Design Direction 00 §5 asks for
+could not be produced offline (no fontTools/pyftsubset and no Noto Sans Bengali on the machine, and
+`pnpm exec` has no network). It is a stand-in with a deliberate exit: when a real Noto Sans Bengali
+subset is vendored under `src/ui/fonts/` with its SIL OFL 1.1 text beside it, `MoneyText` stops
+reading this component and this component is deleted. The Interpretation is recorded in
+`src/ui/primitives/core/money-text.tsx`.

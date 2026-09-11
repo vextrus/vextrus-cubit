@@ -75,6 +75,18 @@ const SUBJECT_BONES = [
 const DIGEST_BONE = { height: "12px", width: "240px" };
 const CONFIRM_BONE = { height: "32px", width: "96px" };
 
+/**
+ * What "the first control" means, in one place: the first thing in the dialog a person can act on,
+ * in the order the document holds them. Direction 00 §1 rules initial focus onto it — the primitive
+ * focuses the content box itself when nothing claims focus, and a reticle drawn around the whole
+ * body says "this card is the thing you are on" when what is true is "the first control is".
+ *
+ * The confirm is deliberately NOT autofocused and cannot be reached by this: it stands after the
+ * cancel in the footer, and an act button under a pre-focused Enter would commit by accident
+ * (Decision § 1). While the preview is in flight it does not exist at all.
+ */
+const FIRST_CONTROL = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 /** Is this rejection a refusal the product registered, or a failure the error boundary owns? */
 function refusedAnswerOf(thrown: unknown): RefusedAnswer | null {
   if (typeof thrown !== "object" || thrown === null) return null;
@@ -170,7 +182,20 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent aria-describedby={hintId} container={container}>
+      <DialogContent
+        aria-describedby={hintId}
+        container={container}
+        // Focus the first control, not the container (Direction 00 §1; the Decision's drift note).
+        // `currentTarget` is the content box the primitive would otherwise have focused, so nothing
+        // outside the dialog is ever reached — and where the card somehow holds no control at all,
+        // the default stands rather than leaving focus on the document.
+        onOpenAutoFocus={(event) => {
+          const first = (event.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>(FIRST_CONTROL);
+          if (first === null || first === undefined) return;
+          event.preventDefault();
+          first.focus();
+        }}
+      >
         <div className="cx-consequence" data-testid="consequence-dialog" data-act-type={actType} aria-busy={pending || undefined}>
           {/* The enum value verbatim: a machine identifier, and the title is what names the dialog. */}
           <p className="cx-consequence-acttype" aria-hidden="true">

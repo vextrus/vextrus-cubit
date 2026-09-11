@@ -136,55 +136,38 @@
   user-select: all;
 }
 
-/* --- the parameter table: seventeen closed rows, nothing interactive -------------------------- */
+/* --- the parameter table: the shipped DataTable, so only the cell inks live here ---------------
+ * The row height, the cell padding and the sticky header are the grid's, read from the density
+ * tokens at the root (Design Direction 00 §5); the classes below say what each cell IS, and the
+ * `height: var(--row-comfortable)` this block used to carry — one of the per-screen overrides §4.2
+ * deletes — is gone with the `<tr>` it dressed.
+ */
 
 .cx-ruleset-table {
   width: 100%;
-  border-collapse: collapse;
-}
-
-.cx-ruleset-col {
-  padding-inline: var(--space-3);
-  border-bottom: var(--hairline);
-  font-size: var(--text-12);
-  font-weight: var(--weight-body-medium);
-  color: var(--ink-muted);
-  text-align: left;
-}
-
-.cx-ruleset-col-value {
-  text-align: right;
-}
-
-.cx-ruleset-row {
-  height: var(--row-comfortable);
-  border-bottom: var(--hairline);
+  border-top: 1px solid var(--hairline);
 }
 
 .cx-ruleset-param {
-  padding-inline: var(--space-3);
-  font-size: var(--text-13);
+  overflow: hidden;
+  font-size: var(--text-body);
   font-weight: var(--weight-body-medium);
   color: var(--ink);
-  text-align: left;
+  text-overflow: ellipsis;
 }
 
 .cx-ruleset-key {
-  padding-inline: var(--space-3);
+  overflow: hidden;
   font-family: var(--font-mono);
-  font-size: var(--text-12);
+  font-size: var(--text-caption);
   color: var(--ink-muted);
+  text-overflow: ellipsis;
 }
 
 .cx-ruleset-value {
-  padding-inline: var(--space-3);
   font-family: var(--font-mono);
-  font-size: var(--text-13);
+  font-size: var(--text-body);
   color: var(--ink);
   font-variant-numeric: tabular-nums slashed-zero;
-  text-align: right;
 }
 
-.cx-ruleset-unit {
-  padding-inline: var(--space-3);
-}

@@ -176,7 +176,7 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
     const root = await mountRegister(view);
 
     const lines = one(root, "register-lines");
-    expect(lines.querySelector('[role="table"]'), "`register-lines` names the shipped DataTable's own root, one element deeper (I-171)").not.toBeNull();
+    expect(lines.querySelector('[role="grid"]'), "`register-lines` names the shipped DataTable's own root, one element deeper (I-171); v2 is an aria GRID, because its cells take a cursor (§5 rule 6)").not.toBeNull();
     expect(lineHeaders(root), "the columns are the Decision's, in its order, named by the screen's own table").toEqual(await Promise.all(COLUMN_KEYS.map(async (key) => copy(await strings(), key))));
     expect(lineRows(root).length, "one row per line the view answers").toBe(view.lines.length);
   });

@@ -21,12 +21,10 @@
 // Playwright's --grep) collects this file: a guarantee no gate invocation runs is green-by-omission,
 // which J-001's own words forbid.
 import { expect, test } from "@playwright/test";
+import { settled } from "../support/settled";
 
 /** The tRPC lane the S-Auth forms speak through (src/app/(auth)/transport.ts). */
 const LANE = "/api/trpc/spine.auth.";
-
-/** Long enough for a call that was sent to come back and paint; nothing here waits on a happy path. */
-const SETTLE_MS = 2_000;
 
 /** Every auth call this page made — a blank form must make none of them. */
 function watchCalls(page: import("@playwright/test").Page): string[] {
@@ -44,7 +42,12 @@ test.describe("J-001 S-AUTH-BREAKER — a blank submit is not a server fault", (
     await expect(page.getByTestId("s-auth-tenant-name")).toBeVisible();
 
     await page.getByTestId("s-auth-submit").click();
-    await page.waitForTimeout(SETTLE_MS);
+    // The old cure was a sleep: give the page a fixed 2-4 s to do the wrong thing, then look. A sleep
+    // proves nothing either way — too short and the breaker passes by arriving early, too long and
+    // every green run pays for it. settled() waits for the screen to STOP arriving, and the two
+    // assertions under it are retrying ones, so the claim "nothing was sent and no fault card
+    // rendered" is made about a screen that has finished (AM-09 §4).
+    await settled(page);
 
     expect(calls, "a sign-up submit with every field blank must not be sent — the browser's own requiredness stops it").toEqual([]);
     await expect(page.getByTestId("s-auth-fault"), "a blank field is not a failure of the machine, so the fault card must not render (R-SPINE-007)").toHaveCount(0);
@@ -56,7 +59,12 @@ test.describe("J-001 S-AUTH-BREAKER — a blank submit is not a server fault", (
     await expect(page.getByTestId("s-auth-password")).toBeVisible();
 
     await page.getByTestId("s-auth-submit").click();
-    await page.waitForTimeout(SETTLE_MS);
+    // The old cure was a sleep: give the page a fixed 2-4 s to do the wrong thing, then look. A sleep
+    // proves nothing either way — too short and the breaker passes by arriving early, too long and
+    // every green run pays for it. settled() waits for the screen to STOP arriving, and the two
+    // assertions under it are retrying ones, so the claim "nothing was sent and no fault card
+    // rendered" is made about a screen that has finished (AM-09 §4).
+    await settled(page);
 
     expect(calls, "a sign-in submit with both fields blank must not be sent — the browser's own requiredness stops it").toEqual([]);
     await expect(page.getByTestId("s-auth-fault"), "a blank field is not a failure of the machine, so the fault card must not render (R-SPINE-007)").toHaveCount(0);

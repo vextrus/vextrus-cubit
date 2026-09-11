@@ -5,6 +5,8 @@
  * nothing here knows a class name or a DOM shape. The Builder may edit this file (test contract).
  */
 import { expect, type Locator, type Page } from "@playwright/test";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { everyRow } from "../support/retrying-read";
 
 /** The Trace address, spelled once (C-05): the cited keys, the origin line, and no `v`. */
 export const S_VIEWER_TRACE = Object.freeze({
@@ -20,57 +22,57 @@ export class SViewerTracePage {
   constructor(private readonly page: Page) {}
 
   get screen(): Locator {
-    return this.page.getByTestId("viewer-screen");
+    return this.page.getByTestId(TESTIDS.viewer.screen);
   }
 
   get inspector(): Locator {
-    return this.page.getByTestId("viewer-inspector");
+    return this.page.getByTestId(TESTIDS.viewer.inspector);
   }
 
   get selection(): Locator {
-    return this.page.getByTestId("viewer-inspector-selection");
+    return this.page.getByTestId(TESTIDS.viewer.inspectorSelection);
   }
 
   get entities(): Locator {
-    return this.page.getByTestId("viewer-inspector-entity");
+    return this.page.getByTestId(TESTIDS.viewer.inspectorEntity);
   }
 
   /* --- the Trace block (AC-4) --- */
 
   get trace(): Locator {
-    return this.page.getByTestId("viewer-inspector-trace");
+    return this.page.getByTestId(TESTIDS.viewer.inspectorTrace);
   }
 
   get formula(): Locator {
-    return this.page.getByTestId("viewer-inspector-trace-formula");
+    return this.page.getByTestId(TESTIDS.viewer.inspectorTraceFormula);
   }
 
   get variables(): Locator {
-    return this.page.getByTestId("viewer-inspector-trace-variable");
+    return this.page.getByTestId(TESTIDS.viewer.inspectorTraceVariable);
   }
 
   get origin(): Locator {
-    return this.page.getByTestId("viewer-inspector-trace-origin");
+    return this.page.getByTestId(TESTIDS.viewer.inspectorTraceOrigin);
   }
 
   get retry(): Locator {
-    return this.page.getByTestId("viewer-inspector-trace-retry");
+    return this.page.getByTestId(TESTIDS.viewer.inspectorTraceRetry);
   }
 
   /* --- the Cited-by block (AC-6) --- */
 
   get cited(): Locator {
-    return this.page.getByTestId("viewer-inspector-cited");
+    return this.page.getByTestId(TESTIDS.viewer.inspectorCited);
   }
 
   get citedLines(): Locator {
-    return this.page.getByTestId("viewer-inspector-cited-line");
+    return this.page.getByTestId(TESTIDS.viewer.inspectorCitedLine);
   }
 
   /** The keys the panel holds, in the order it lists them. */
   async selectedKeys(): Promise<string[]> {
     const keys: string[] = [];
-    for (const row of await this.entities.all()) keys.push((await row.getAttribute("data-key")) ?? "");
+    for (const row of await everyRow(this.entities, "the inspector's selected entity rows")) keys.push((await row.getAttribute("data-key")) ?? "");
     return keys;
   }
 
@@ -97,7 +99,7 @@ export class SViewerTracePage {
 
   /** One variable row's whole reading, by the name it was bound under. */
   async variable(name: string): Promise<{ value: string; unit: string; basis: string; source: string }> {
-    const row = this.page.locator(`[data-testid="viewer-inspector-trace-variable"][data-name="${name}"]`);
+    const row = this.page.locator(`${testIdSelector(TESTIDS.viewer.inspectorTraceVariable)}[data-name="${name}"]`);
     await expect(row, `the Trace block states the variable ${name}`).toBeVisible();
     return {
       value: (await row.getAttribute("data-value")) ?? "",
@@ -110,14 +112,14 @@ export class SViewerTracePage {
   /** The names the Trace block states, in binding order. */
   async variableNames(): Promise<string[]> {
     const names: string[] = [];
-    for (const row of await this.variables.all()) names.push((await row.getAttribute("data-name")) ?? "");
+    for (const row of await everyRow(this.variables, "the Trace's variable rows")) names.push((await row.getAttribute("data-name")) ?? "");
     return names;
   }
 
   /** The lines the Cited-by block lists, in the order it lists them. */
   async citedLineIds(): Promise<string[]> {
     const held: string[] = [];
-    for (const row of await this.citedLines.all()) held.push((await row.getAttribute("data-line")) ?? "");
+    for (const row of await everyRow(this.citedLines, "the inspector's cited-line rows")) held.push((await row.getAttribute("data-line")) ?? "");
     return held;
   }
 
@@ -132,7 +134,7 @@ export class SViewerTracePage {
    * value and unit, and reads nothing into which uuid this run happened to mint.
    */
   masks(): Locator[] {
-    return [this.page.getByTestId("shell-user"), this.page.getByTestId("shell-tenant-switcher"), this.citedLines.getByTestId("evidence-link")];
+    return [this.page.getByTestId(TESTIDS.shell.user), this.page.getByTestId(TESTIDS.shell.tenantSwitcher), this.citedLines.getByTestId(TESTIDS.evidence.link)];
   }
 
   at(): Page {

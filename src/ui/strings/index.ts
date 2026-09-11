@@ -4,7 +4,6 @@
 import { auth } from "./auth";
 import { commandPalette } from "./command-palette";
 import { consequenceDialog } from "./consequence-dialog";
-import { consequenceEffects } from "./consequence-effects";
 import { coverage } from "./coverage";
 import { design } from "./design";
 import { dropzone } from "./dropzone";
@@ -15,6 +14,7 @@ import { measure } from "./measure";
 import { offeredGroup } from "./offered-group";
 import { participants } from "./participants";
 import { partition } from "./partition";
+import { primitives } from "./primitives";
 import { screenStates } from "./screen-states";
 import { shell } from "./shell";
 import { shortcuts } from "./shortcuts";
@@ -30,7 +30,6 @@ export const strings = {
   ...auth,
   ...commandPalette,
   ...consequenceDialog,
-  ...consequenceEffects,
   ...coverage,
   ...design,
   ...dropzone,
@@ -41,6 +40,7 @@ export const strings = {
   ...offeredGroup,
   ...participants,
   ...partition,
+  ...primitives,
   ...screenStates,
   ...shell,
   ...shortcuts,

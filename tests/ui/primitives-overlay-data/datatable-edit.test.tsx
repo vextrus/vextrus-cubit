@@ -8,6 +8,11 @@
  * (Q-11). Every expected value is derived from the fixture the test passes in: the row id is the
  * fixture's own `getRowId`, the column id and header are the fixture column's, and the prefilled
  * value is the cell's own rendered text.
+ *
+ * v2 (Design Direction 00 §5 rule 6): the focusable unit of the grid is the CELL — a roving
+ * tabindex over `role="gridcell"`, with the reticle drawn on it — so the gesture is Tab to the
+ * cell and Enter, and the focus an edit returns is the cell's. The cell is no longer a button
+ * inside a cell; there is nothing between the reader and the unit the grid names.
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { act, fireEvent, waitFor } from "@testing-library/react";
@@ -44,7 +49,7 @@ const table = (
   onCellEdit: (rowId: string, columnId: string, value: string) => void,
   columns: ColumnFixture[] = tableColumns(),
 ): React.ReactElement =>
-  dt(b, "DataTable", { columns, data: TABLE_ROWS, getRowId, onCellEdit });
+  dt(b, "DataTable", { tableId: "edit-contract", columns, data: TABLE_ROWS, getRowId, onCellEdit, storage: null });
 
 const firstRow = (): HTMLElement => {
   const rows = allTestId(document.body, TESTIDS.datatableRow);
@@ -52,15 +57,16 @@ const firstRow = (): HTMLElement => {
   return rows[0] as HTMLElement;
 };
 
-/** The editable cell of the first row, found through the column's own alignment/edit affordance. */
-const editableCellButton = (): HTMLButtonElement => {
-  const cells = allTestId(firstRow(), TESTIDS.datatableCell);
-  const button = cells.map((cell) => cell.querySelector("button")).find((node) => node !== null);
+/** The editable cell of the first row, found through the permission the column itself publishes. */
+const editableCell = (): HTMLElement => {
+  const cell = allTestId(firstRow(), TESTIDS.datatableCell).find(
+    (node) => node.getAttribute("data-editable") === "true",
+  );
   expect(
-    button,
-    "Design Decision §3: an editable cell renders its value inside a full-cell button",
+    cell,
+    "§5 rule 7: the cell of a column the act law permits publishes that permission on itself",
   ).toBeTruthy();
-  return button as HTMLButtonElement;
+  return cell as HTMLElement;
 };
 
 const editor = (): HTMLInputElement =>
@@ -73,15 +79,15 @@ const editor = (): HTMLInputElement =>
 const noEditor = (): boolean => allTestId(document.body, TESTIDS.datatableCellEditor).length === 0;
 
 /** Tab to the editable cell and open its editor with Enter — the keyboard gesture Q-11 requires. */
-async function openEditor(user: KeyboardUser): Promise<{ button: HTMLButtonElement; value: string }> {
-  const button = editableCellButton();
-  const value = textOf(button);
-  await tabUntil(user, (active) => active === button, "the editable cell's button");
+async function openEditor(user: KeyboardUser): Promise<{ cell: HTMLElement; value: string }> {
+  const cell = editableCell();
+  const value = textOf(cell);
+  await tabUntil(user, (active) => active === cell, "the editable cell");
   await user.keyboard("{Enter}");
   await waitFor(() => {
     expect(noEditor(), "the editor opens on Enter").toBe(false);
   });
-  return { button, value };
+  return { cell, value };
 }
 
 describe("the DataTable's inline edit cell", () => {
@@ -120,11 +126,11 @@ describe("the DataTable's inline edit cell", () => {
     ).toEqual([[getRowId(TABLE_ROWS[0]), column.id, next]]);
     expect(
       document.activeElement,
-      "Design Decision §3: focus returns to the cell button — a keyboard journey never ends on the body",
-    ).toBe(editableCellButton());
+      "Design Decision §3: focus returns to the cell — a keyboard journey never ends on the body",
+    ).toBe(editableCell());
   });
 
-  test("Escape cancels: no onCellEdit, and focus returns to the cell button", async () => {
+  test("Escape cancels: no onCellEdit, and focus returns to the cell", async () => {
     const b = await loadBarrels();
     const user = await keyboardUser("the inline edit cell");
     const onCellEdit = vi.fn();
@@ -140,9 +146,7 @@ describe("the DataTable's inline edit cell", () => {
       expect(noEditor(), "Design Decision §3: Escape closes the editor").toBe(true);
     });
     expect(onCellEdit.mock.calls, "Design Decision §3: Escape cancels — it commits nothing").toEqual([]);
-    expect(document.activeElement, "Design Decision §3: focus returns to the cell button").toBe(
-      editableCellButton(),
-    );
+    expect(document.activeElement, "Design Decision §3: focus returns to the cell").toBe(editableCell());
   });
 
   test("leaving the editor commits once through blur", async () => {

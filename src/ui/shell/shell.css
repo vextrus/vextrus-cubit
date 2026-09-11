@@ -1,52 +1,89 @@
-/* The signed-in frame (R-UI-030) and the screens it holds. Every value is a token (R-UI-001); the
-   px literals are the closed set the shell's Design Decision fixes — rail 240/48, inspector 280,
-   the 3 px selection bar, the chevron's 12 px box, the user trigger's 280 px ellipsis, the column
-   measures, and the sm and lg breakpoints a media query cannot read a var() for. A coloured edge
-   takes its width and style from var(--hairline) and re-keys only its colour. No [data-theme]
-   selector is authored anywhere: light and dark differ only in what the token values resolve to. */
+/* The signed-in frame (R-UI-030) at the Direction's geometry (00-direction.md §1, §3.1) and the
+   screens it holds. Every value is a token (R-UI-001, R-UI-086): the chrome's four numbers are the
+   root layout tokens — `--rail-w` 48, `--topbar-h` 40, `--toolbar-h` 32, `--status-h` 24, and
+   `--inspector-w` 320 — and everything inside them reads the density tokens (`--control-h`,
+   `--row-h`, `--text-body`, `--cell-px`) rather than a height of its own. No `[data-density]`
+   selector is authored here: density switches at the root and nowhere else (R-UI-086).
+
+   The px literals are the closed set the Decisions fix: the 3 px selection bar, the chevron's 12 px
+   box, the 1 px hairline widths a coloured edge re-keys, the 4 px resize seam, the status cells'
+   fixed minimum measures, the user trigger's 280 px ellipsis, the column measures, and the sm and
+   lg breakpoints a media query cannot read a `var()` for. No [data-theme] selector is authored
+   anywhere: light and dark differ only in what the token values resolve to. No URL of any scheme
+   appears in this file (B-24). */
+
+/* --- the frame's grid ------------------------------------------------------------------
+   THE WORK-SURFACE LAW, ARITHMETIC (R-UI-080, Direction §3.1). Three columns — rail, body,
+   inspector — and the body's four rows. At 1440×900 with nothing selected the screen's field is
+   1440 − 48 (rail) − 0 (no inspector) wide by 900 − 40 − 32 − 24 tall; a viewer screen spends 200 of
+   its width on the layers drawer and still leaves 1192 × 804 = 74 % of the viewport for the canvas.
+   The inspector track is ZERO until something is selected: the slot renders no element at all, and
+   `grid-template-columns` says so, so the field is never narrowed by a region holding nothing. */
 
 .cx-shell {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr) 0;
   min-height: 100dvh;
   background: var(--surface-app);
 }
 
-/* --- the rail ------------------------------------------------------------------------ */
+/* The rail at its expanded measure takes the wider track; the body absorbs the difference. */
+.cx-shell:has(.cx-shell-rail[data-collapsed="false"]) {
+  grid-template-columns: var(--rail-w-expanded) minmax(0, 1fr) 0;
+}
+
+/* With a selection the slot mounts and the third track takes the remembered width, which the slot
+   itself carries as an inline measure inside `--inspector-w-min`…`--inspector-w-max`. */
+.cx-shell:has(.cx-shell-inspector) {
+  grid-template-columns: var(--rail-w) minmax(0, 1fr) auto;
+}
+
+.cx-shell:has(.cx-shell-rail[data-collapsed="false"]):has(.cx-shell-inspector) {
+  grid-template-columns: var(--rail-w-expanded) minmax(0, 1fr) auto;
+}
+
+/* --- the rail ------------------------------------------------------------------------
+   48 px, icons only, expanding to 220 on hover-hold or pin (Direction §1). The rail is positioned
+   over the frame when it expands rather than pushing it: a hover that reflowed the whole screen
+   would move the work surface under the pointer that opened it. Pinned, the grid's own track is the
+   expanded one (above), so a pinned rail takes its width honestly and nothing overlaps. */
 
 .cx-shell-rail {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  width: 240px;
+  width: var(--rail-w);
+  height: 100%;
   background: var(--surface-panel);
   border-inline-end: var(--hairline);
   overflow: hidden;
   transition: width var(--motion-panel) var(--ease);
 }
 
-.cx-shell-rail[data-collapsed="true"] {
-  width: 48px;
+.cx-shell-rail[data-collapsed="false"] {
+  width: var(--rail-w-expanded);
 }
 
+/* The mark and the pin stack: at 48 px a row holding both is narrower than the pair, and the pin —
+   the only control that holds the rail open — would be pushed out of the box (R-UI-070's 26 px mark
+   is the taller of the two). Expanded, they sit at either end of one row. */
 .cx-shell-rail-top {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block: var(--space-3);
+}
+
+.cx-shell-rail[data-collapsed="false"] .cx-shell-rail-top {
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  height: var(--space-12);
+  height: var(--topbar-h);
+  padding-block: 0;
   padding-inline: var(--space-3);
-}
-
-/* Collapsed, the rail keeps mark AND toggle (§1). At 240 px they sit at either end of one row; at
-   48 px that row is narrower than the pair, and the toggle would be pushed out of the box — the
-   only control that expands the rail again, painted nowhere. Stacked, both stay inside 48 px. */
-.cx-shell-rail[data-collapsed="true"] .cx-shell-rail-top {
-  flex-direction: column;
-  justify-content: center;
-  gap: var(--space-2);
-  height: auto;
-  padding-block: var(--space-3);
-  padding-inline: 0;
 }
 
 .cx-shell-rail-mark {
@@ -57,8 +94,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-8);
-  height: var(--space-8);
+  width: var(--control-h);
+  height: var(--control-h);
   padding: 0;
   border: 0;
   border-radius: var(--radius-4);
@@ -69,29 +106,40 @@
 }
 
 .cx-shell-rail-toggle:hover {
-  background: var(--surface-sunken);
+  background: var(--surface-hover);
+}
+
+/* Pinned, the pin says so in a second channel beside the chevron's direction (R-UI-060). */
+.cx-shell-rail-toggle[aria-pressed="true"] {
+  background: var(--accent-subtle);
+  color: var(--ink);
 }
 
 .cx-shell-rail-chevron {
   transition: transform var(--motion-state) var(--ease);
 }
 
-.cx-shell-rail-toggle[aria-expanded="false"] .cx-shell-rail-chevron {
+.cx-shell-rail-toggle[aria-pressed="false"] .cx-shell-rail-chevron {
   transform: rotate(180deg);
+}
+
+.cx-shell-rail-body {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .cx-shell-switcher {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-2);
   width: 100%;
-  height: var(--space-9);
-  padding-inline: var(--space-3);
+  height: var(--control-h-lg);
+  padding-inline: var(--space-2);
   border: 0;
   border-radius: 0;
   background: transparent;
-  font-size: var(--text-13);
+  font-size: var(--text-body);
   font-weight: var(--weight-body-medium);
   color: var(--ink);
   text-align: start;
@@ -100,26 +148,58 @@
 }
 
 .cx-shell-switcher:hover {
-  background: var(--surface-sunken);
+  background: var(--surface-hover);
 }
 
 /* Both menu triggers are the shipped core Button (`.cx-btn`, B-17), which carries the button type
-   ramp — `var(--text-14)` at `--weight-body-medium`. §1 rules all of the frame's chrome at
-   `var(--text-13)`, and a single class only wins that where the shell's sheet happens to be served
-   after the core's: a chunk order nothing here decides. Named with `.cx-btn`, the frame's own size
-   wins in either order, so the workspace identity and the account identity read at the size the
-   Decision gives them rather than at the button's. The family is the button's own `var(--font-ui)`
-   in both cases — the whole of the type system, not two of the ramp's three axes. */
+   ramp. §1 rules all of the frame's chrome at the density's body size, and a single class only wins
+   that where the shell's sheet happens to be served after the core's: a chunk order nothing here
+   decides. Named with `.cx-btn`, the frame's own size wins in either order. */
 .cx-btn.cx-shell-switcher,
 .cx-btn.cx-shell-user-trigger {
-  font-size: var(--text-13);
+  font-size: var(--text-body);
   font-weight: var(--weight-body-medium);
 }
 
+/* The workspace's initial: what identifies the workspace at 48 px, where its name cannot stand. */
+.cx-shell-switcher-initial {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  border-radius: var(--radius-2);
+  background: var(--accent-subtle);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-heading);
+  color: var(--ink);
+  text-transform: uppercase;
+}
+
 .cx-shell-switcher-name {
+  flex: 1;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* At 48 px the name and the chevron are out of sight and out of the box, and the initial is the
+   whole trigger; the accessible name is unchanged, because the text is still in the tree. */
+.cx-shell-rail[data-collapsed="true"] .cx-shell-switcher-name,
+.cx-shell-rail[data-collapsed="true"] .cx-shell-rail-chevron,
+.cx-shell-rail[data-collapsed="true"] .cx-shell-nav-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.cx-shell-rail[data-collapsed="true"] .cx-shell-switcher {
+  justify-content: center;
+  padding-inline: 0;
 }
 
 .cx-shell-nav {
@@ -133,10 +213,11 @@
   position: relative;
   display: flex;
   align-items: center;
-  height: var(--space-9);
-  padding-inline: var(--space-3);
+  gap: var(--space-3);
+  height: var(--row-h);
+  padding-inline: var(--space-2);
   border-radius: 0;
-  font-size: var(--text-13);
+  font-size: var(--text-body);
   font-weight: var(--weight-body-medium);
   color: var(--ink-secondary);
   text-decoration: none;
@@ -146,15 +227,26 @@
     color var(--motion-state) var(--ease);
 }
 
+.cx-shell-rail[data-collapsed="true"] .cx-shell-nav-row {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.cx-shell-nav-icon {
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
 .cx-shell-nav-row:hover {
-  background: var(--surface-sunken);
+  background: var(--surface-hover);
   color: var(--ink);
 }
 
-/* R-UI-030's selection, verbatim: a 3 px inset beam bar and the beam-100 row fill. The weight is
-   the second, non-colour channel that says the same thing (R-UI-060). Any `aria-current` value
-   paints: the row is selected both at the area's own home ("page") and on a screen inside the
-   area ("true"), and the two differ in what they claim, not in how they look. */
+/* R-UI-030's selection, verbatim and unchanged: a 3 px inset beam bar and the beam-100 row fill.
+   The weight is the second, non-colour channel that says the same thing (R-UI-060). Any
+   `aria-current` value paints: the row is selected both at the area's own home ("page") and on a
+   screen inside the area ("true"), and the two differ in what they claim, not in how they look. */
 .cx-shell-nav-row[aria-current] {
   background: var(--accent-subtle);
   color: var(--ink);
@@ -172,10 +264,18 @@
 
 /* --- the top bar --------------------------------------------------------------------- */
 
+/* The body's four rows, and the other half of the work-surface arithmetic: the screen's field is
+   the viewport's height less the top bar, the tool row and the readout (Direction §3.1). A screen
+   with no tools zeroes the second track rather than standing an empty 32 px strip above itself. */
 .cx-shell-body {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: var(--topbar-h) var(--toolbar-h) minmax(0, 1fr) var(--status-h);
   min-width: 0;
+  height: 100dvh;
+}
+
+.cx-shell-body[data-toolbar="false"] {
+  grid-template-rows: var(--topbar-h) 0 minmax(0, 1fr) var(--status-h);
 }
 
 .cx-shell-topbar {
@@ -183,114 +283,200 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  height: var(--space-12);
-  padding-inline: var(--space-5);
+  height: var(--topbar-h);
+  padding-inline: var(--space-4);
   background: var(--surface-app);
   border-block-end: var(--hairline);
 }
 
-/* The bar's right-hand cluster: the jobs tray, then the user menu (shell-top-bar Decision § 1). */
-.cx-shell-topbar-end {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-/* The ⌘K trigger, the bar's first end occupant (command-palette Decision §1, I-135). Height and
-   padding are the Button's; only the row, its minimum measure and the two words are ruled here, so
-   the bar's geometry does not jump between screens. */
-.cx-palette-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-inline-size: 160px;
-}
-
-.cx-palette-trigger-glyph {
-  color: var(--ink-muted);
-}
-
-.cx-palette-trigger-label {
-  color: var(--ink-secondary);
-  font-size: var(--text-13);
-}
-
-.cx-palette-trigger:hover .cx-palette-trigger-label {
-  color: var(--ink);
-}
-
-.cx-shell-crumbs {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--text-13);
-}
-
-.cx-shell-crumb-link {
-  color: var(--ink-secondary);
-  text-decoration: none;
-  transition: color var(--motion-state) var(--ease);
-}
-
-.cx-shell-crumb-link:hover {
-  color: var(--ink);
-}
-
-.cx-shell-crumb-separator {
-  color: var(--ink-disabled);
-}
-
-.cx-shell-crumb-current {
-  color: var(--ink);
-  font-weight: var(--weight-body-medium);
-}
-
-.cx-shell-user-trigger {
-  max-width: 280px;
+/* The trail's own box, carrying the frame's id; the `<nav>`, the list and the crumbs are the
+   Breadcrumb primitive's (B-17) and are styled by it. */
+.cx-shell-breadcrumb {
+  min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: var(--text-13);
-  color: var(--ink-secondary);
 }
 
-/* --- main and inspector --------------------------------------------------------------- */
+/* --- the 32 px tool row (Direction §1) ------------------------------------------------- */
 
-.cx-shell-content {
+.cx-shell-toolbar-slot {
   display: flex;
-  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
+
+.cx-shell-body[data-toolbar="false"] .cx-shell-toolbar-slot {
+  display: none;
+}
+
+.cx-shell-toolbar {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--toolbar-h);
+  padding-inline: var(--space-2);
+  background: var(--surface-app);
+  border-block-end: var(--hairline);
+  overflow: hidden;
+}
+
+/* A group is separated from the one before it by a hairline seam, never by a spacer element: a line
+   that is not a control has no business in a toolbar's tab order. */
+.cx-shell-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
+}
+
+.cx-shell-toolbar-group + .cx-shell-toolbar-group {
+  border-inline-start: var(--hairline);
+}
+
+/* The tool button is the shipped IconButton (`.cx-icon-btn`, B-17) and is never re-drawn here. What
+   the row does rule is its size: §1 fixes the tool row at 32 px in BOTH densities, so its buttons
+   are the row less one step of the 4-pt grid — 28 — whatever the density does to `--control-h`.
+   Anything else would put a 32 px control in a 32 px bar with no room for the bar. */
+.cx-shell-toolbar .cx-icon-btn {
+  width: calc(var(--toolbar-h) - var(--space-1));
+  height: calc(var(--toolbar-h) - var(--space-1));
+}
+
+/* --- main, the readout and the inspector ----------------------------------------------- */
 
 .cx-shell-main {
-  flex: 1;
   min-width: 0;
+  min-height: 0;
   padding: var(--space-6);
   overflow: auto;
 }
 
-/* The inspector is the lg-and-up region; below it, main takes the width so the shell still reads
-   at 200 % zoom (R-UI-060). A media query cannot consume a var(), so the breakpoint's value is the
-   one lawful literal here. */
-.cx-shell-inspector {
-  display: none;
-  width: 280px;
-  padding: var(--space-5);
-  border-inline-start: var(--hairline);
-  font-size: var(--text-13);
+/* --- the 24 px readout (Direction §1, §3.1) ---------------------------------------------
+   One line of mono cells with fixed minimum measures, hidden overflow and an ellipsis. It never
+   wraps: `nowrap` on the line and on every cell, and no cell may grow tall enough to push the
+   others — a readout that becomes two rows has stopped being a readout. */
+
+.cx-shell-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--status-h);
+  padding-inline: var(--space-4);
+  background: var(--surface-panel);
+  border-block-start: var(--hairline);
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.cx-shell-status-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The fixed minimum measures §3.1 asks for, per cell: the line's columns stay where they are as the
+   numbers under them change, which is the whole reason a readout is tabular. */
+.cx-shell-status-cell[data-cell="sheet"] {
+  min-width: 120px;
+}
+
+.cx-shell-status-cell[data-cell="scale"] {
+  min-width: 80px;
+}
+
+.cx-shell-status-cell[data-cell="coords"] {
+  min-width: 220px;
+}
+
+.cx-shell-status-cell[data-cell="snap"] {
+  min-width: 96px;
+}
+
+.cx-shell-status-cell[data-cell="selection"] {
+  min-width: 96px;
+}
+
+.cx-shell-status-cell[data-cell="layers"] {
+  min-width: 80px;
+}
+
+.cx-shell-status-jobs {
+  min-width: 64px;
+  margin-inline-start: auto;
+}
+
+.cx-shell-status-cell-label {
+  flex: none;
   color: var(--ink-muted);
 }
 
-@media (min-width: 1280px) {
-  .cx-shell-inspector {
-    display: block;
-  }
+.cx-shell-status-cell-value {
+  overflow: hidden;
+  color: var(--ink-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.cx-shell-inspector-line {
-  margin: 0;
+.cx-shell-status-dot {
+  display: inline-block;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-2);
+  background: var(--ink-disabled);
+}
+
+.cx-shell-status-dot[data-state="running"] {
+  background: var(--accent);
+}
+
+.cx-shell-status-dot[data-state="done"] {
+  background: var(--state-success);
+}
+
+.cx-shell-status-dot[data-state="failed"] {
+  background: var(--state-danger);
+}
+
+/* --- the one inspector slot (R-UI-080) --------------------------------------------------
+   It exists only with a selection: with nothing selected no element is rendered at all, so there is
+   no width to collapse and no sentence standing in for one. The measure is the person's, remembered
+   in this browser, and it is carried as an inline size inside the Direction's bounds. */
+
+.cx-shell-inspector {
+  display: flex;
+  min-width: var(--inspector-w-min);
+  max-width: var(--inspector-w-max);
+  height: 100dvh;
+  background: var(--surface-panel);
+  border-inline-start: var(--hairline);
+  font-size: var(--text-body);
+  color: var(--ink-secondary);
+}
+
+/* The seam, 4 px wide and grabbable, drawn as the panel's own edge rather than as a bar: a handle
+   that reads as furniture is one more thing on a screen whose whole subject is the drawing. */
+.cx-shell-inspector-handle {
+  flex: none;
+  width: 4px;
+  margin-inline-start: -2px;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.cx-shell-inspector-handle:hover {
+  background: var(--line-strong);
+}
+
+.cx-shell-inspector-body {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-4);
+  overflow: auto;
 }
 
 /* --- the screens ---------------------------------------------------------------------- */

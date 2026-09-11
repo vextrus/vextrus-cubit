@@ -95,19 +95,19 @@ describe("AC-4: DataTable structure, density and alignment", () => {
     expect(rows().length, "AC-4: one datatable-row per visible row of the data prop").toBe(TABLE_ROWS.length);
   });
 
-  test("AC-4: density defaults to comfortable and reflects the prop as data-density", async () => {
+  test("AC-4: density is the ROOT's; a table states one only where it scopes a region", async () => {
     const b = await loadBarrels();
     mount(table(b));
     expect(
       rootOf().getAttribute("data-density"),
-      'AC-4: density defaults to "comfortable", reflected as data-density on the root (R-UI-005)',
-    ).toBe("comfortable");
+      "Design Direction 00 §4.2/§5 rule 1: density switches its tokens at the ROOT. A table that stated its own would be the per-screen override that law deletes — so with no density asked for, it states none and inherits",
+    ).toBeNull();
 
     unmountAll();
     mount(table(b, { density: "compact" }));
     expect(
       rootOf().getAttribute("data-density"),
-      'AC-4: density="compact" is reflected as data-density on the root (R-UI-005)',
+      "a density REGION (the gallery shows both at once) is reflected as data-density, and the same root rules revalue --row-h inside it (R-UI-005)",
     ).toBe("compact");
   });
 

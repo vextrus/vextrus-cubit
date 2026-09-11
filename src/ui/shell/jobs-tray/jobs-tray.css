@@ -83,12 +83,10 @@
   align-items: center;
   column-gap: var(--space-3);
   row-gap: var(--space-1);
-  min-height: var(--row-comfortable);
+  /* The root's density token, never a twin rule of its own: density switches at the root and
+     nowhere else (R-UI-086, Direction §4.2). */
+  min-height: var(--row-h);
   padding-block: var(--space-2);
-}
-
-[data-density="compact"] .cx-jobs-tray-item {
-  min-height: var(--row-compact);
 }
 
 .cx-jobs-tray-item + .cx-jobs-tray-item {

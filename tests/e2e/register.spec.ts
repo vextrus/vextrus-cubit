@@ -15,6 +15,7 @@ import { STakeoffPage } from "./pages/s-takeoff.page";
 import { SProjectPage } from "./pages/s-project.page";
 import { CLASS_COLUMN, DISCIPLINE, DUPLICATE_IDENTITY, INTERPRETED_UNCORROBORATED, LEVEL_LABEL, MARKS, stageRegister } from "./takeoff/register-stage";
 import { checkpoint } from "./support/checkpoint";
+import { steadyCount } from "./support/retrying-read";
 
 /** The width the frame paints all three regions of the body at (R-UI-030, lg and up). */
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -53,7 +54,7 @@ test.describe("J-021 — the register workspace", () => {
     /* --- the lines: the terminus of the column slice, with the formula and its variables visible --- */
     const rows = takeoff.lines.locator('[role="row"]:not(:has([role="columnheader"]))');
     await expect(rows, "the campaign's published lines stand in the table — a register of a measured campaign is not an empty one (J-021)").not.toHaveCount(0);
-    const shown = await rows.count();
+    const shown = await steadyCount(rows, "the register's published lines");
     await expect(takeoff.linesCount, "and the count line says how many of how many stand, over a total that is not none").toContainText(String(shown));
 
     const stated = rows.filter({ hasText: staged.line.formula });

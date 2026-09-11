@@ -24,6 +24,7 @@ import { checkpoint } from "../support/checkpoint";
 import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
 import { SViewerSnapPage } from "../viewer/s-viewer-snap.page";
 import { stageSyntheticSheet } from "../viewer/viewer-stage";
+import { everyRow } from "../support/retrying-read";
 
 /** A sheet with room for a point to stand well clear of its neighbours, and small enough to list. */
 const ENTITIES = 250;
@@ -172,7 +173,7 @@ test.describe("J-020 — snapping: the glyph that names what is under the pointe
     // lattice — so the keyed point is half a lattice step from the anchor at most, and the distance
     // the readout states is the distance between the two anchors (L-REG-04).
     const taken = await Promise.all(
-      (await snap.picks.all()).map(async (mark) => ({
+      (await everyRow(snap.picks, "the snap marks on the overlay")).map(async (mark) => ({
         index: await snap.hook(mark, "data-index"),
         keyed: [await snap.hook(mark, "data-key-x"), await snap.hook(mark, "data-key-y")],
       })),

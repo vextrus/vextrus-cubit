@@ -204,12 +204,31 @@
 
 /* ------------------------------------------------------------------ DataTable (R-UI-005) */
 
+/*
+ * DataTable v2 (Design Direction 00 §5). Every height and every padding here is a read of the
+ * DENSITY TOKENS the root switches — `--row-h`, `--cell-px`, `--cell-py`, `--text-body`,
+ * `--control-h`. This file authors no density selector and names neither of R-UI-001's two row
+ * heights directly: comfortable 36 falls out of the root revaluing `--row-h`, and a second home
+ * for that switch is exactly what left the density tokens dead letters on main.
+ *
+ * Padding never sets a row's height: every cell is `border-box` at `height: 100%`, so `--cell-py`
+ * centres the text inside the row the token already fixed (§5 rule 1).
+ */
+
+.cx-table-frame {
+  display: flex;
+  position: relative;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .cx-table {
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-height: 0;
   font-family: var(--font-ui);
-  font-size: var(--text-13);
+  font-size: var(--text-body);
   line-height: var(--leading-ui);
   color: var(--ink);
 }
@@ -221,25 +240,35 @@
   overflow: auto;
 }
 
+/* §5 rule 1 and rule 3: the header is sticky, and it outranks a frozen column's own sticky cells
+   so the corner cell reads as header over column rather than column over header. */
 .cx-table-header {
   position: sticky;
   top: 0;
-  z-index: var(--z-sticky);
+  z-index: calc(var(--z-sticky) + 1);
   background-color: var(--surface-app);
   border-bottom: 1px solid var(--hairline);
 }
 
+/* §5 rule 1: the footer is sticky only when there are totals to keep — there is no element here
+   at all otherwise. */
+.cx-table-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: calc(var(--z-sticky) + 1);
+  background-color: var(--surface-app);
+  border-top: 1px solid var(--hairline);
+}
+
 .cx-table-row {
   display: flex;
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
+  height: var(--row-h);
   border-bottom: 1px solid var(--hairline);
 }
 
-.cx-table-header .cx-table-row {
-  position: relative;
+.cx-table-header .cx-table-row,
+.cx-table-footer .cx-table-row {
   border-bottom-width: 0;
 }
 
@@ -247,42 +276,52 @@
   position: relative;
 }
 
-/* R-UI-005's two row heights. The filter row is exempt: it holds the core Input, whose control
-   height stands at either density (Decision I-5), so a compact table would clip it. */
-.cx-table[data-density="comfortable"] .cx-table-row:not(.cx-table-filters) {
-  height: var(--row-comfortable);
-}
-
-.cx-table[data-density="compact"] .cx-table-row:not(.cx-table-filters) {
-  height: var(--row-compact);
+/* A windowed list positions each row itself; a short one stands in flow. The rowgroup wrapper is
+   what carries the offset, because a refused row brings its refusal with it (§5 rule 8). */
+.cx-table-body .cx-table-rowgroup[style] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
 }
 
 .cx-table-body .cx-table-row:hover {
-  background-color: var(--surface-panel);
+  background-color: var(--surface-hover);
 }
 
 .cx-table-cell {
   display: flex;
+  position: relative;
   align-items: center;
   flex: none;
+  gap: var(--space-1);
   min-width: 0;
-  padding-inline: var(--space-3);
+  height: 100%;
+  padding-inline: var(--cell-px);
+  padding-block: var(--cell-py);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* §5 rule 2: no wrapping cell, anywhere. The text is its own box so the truncation the Tooltip
+   answers to is measurable — `scrollWidth > clientWidth` on this element and on nothing else. */
+.cx-table-cell-text {
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.cx-table[data-density="compact"] .cx-table-cell {
-  padding-inline: var(--space-2);
-}
-
 .cx-table-headercell {
   color: var(--ink-muted);
-  font-size: var(--text-12);
+  font-size: var(--text-caption);
   font-weight: var(--weight-body-medium);
 }
 
-.cx-table-cell[data-align="right"] {
+/* §5 rule 5: numbers are mono, right-aligned, tabular and slashed — the grouping itself is the
+   consumer's formatter (L-FMT-01), because a primitive may not reach the document seam. */
+.cx-table-cell[data-align="right"],
+.cx-table-number {
   justify-content: flex-end;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums slashed-zero;
@@ -303,10 +342,106 @@
   border-left: 1px solid var(--hairline);
 }
 
+/* The corner cell: a pinned HEADER cell is above both the header band and the frozen column. */
+.cx-table-header .cx-table-cell[data-pinned],
+.cx-table-footer .cx-table-cell[data-pinned] {
+  z-index: calc(var(--z-sticky) + 2);
+}
+
+/* §5 rule 8's four row states. Every one of them is a surface or an ink alias, never a new
+   colour, and a refused row is SHOWN — the mark and the note say so. */
+.cx-table-row[data-selected="true"] {
+  background-color: var(--surface-selected);
+}
+
+.cx-table-row[data-refused="true"] {
+  background-color: var(--state-warn-surface);
+}
+
+.cx-table-refused-mark {
+  flex: none;
+  color: var(--state-warn);
+}
+
+.cx-table-refusal {
+  padding: var(--cell-py) var(--cell-px);
+  border-bottom: 1px solid var(--hairline);
+  background-color: var(--surface-sunken);
+}
+
+.cx-table-cell[data-stale="true"],
+.cx-table-row[data-stale="true"] .cx-table-cell {
+  color: var(--ink-muted);
+}
+
+/* A bone keeps the row's height: the skeleton row is the same box with nothing read in it. */
+.cx-table-bone {
+  width: 100%;
+  height: var(--text-body);
+}
+
+/* §5 rule 4: the group row, on the sunken surface at 500 weight, with its subtotals per unit. */
+.cx-table-group {
+  background-color: var(--surface-sunken);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-table-groupcell {
+  justify-content: space-between;
+  flex: 1;
+  width: 100%;
+}
+
+.cx-table-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0;
+  border-width: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cx-table-group-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cx-table-group-count,
+.cx-table-group-subtotals {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-table-group-subtotal {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.cx-table-unit {
+  color: var(--ink-muted);
+}
+
+/* §5 rule 7: an edited cell wears the ENTERED basis glyph, in the basis's own ink. */
+.cx-table-basis {
+  flex: none;
+  color: var(--basis-entered);
+}
+
 .cx-table-sort {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  min-width: 0;
   padding: 0;
   border-width: 0;
   background: none;
@@ -331,34 +466,103 @@
   color: var(--ink-link);
 }
 
+/* The column edge and the chooser's ⋯ — instrument geometry, in the 4 px the grid is drawn on. */
+.cx-table-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  padding: 0;
+  border-width: 0;
+  background: none;
+  cursor: col-resize;
+}
+
+.cx-table-resize:hover {
+  background-color: var(--line-accent);
+}
+
+.cx-table-tools {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: calc(var(--z-sticky) + 3);
+  width: var(--row-h);
+  height: var(--row-h);
+  padding: 0;
+  border-width: 0;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.cx-table-tools:hover {
+  color: var(--ink);
+}
+
+.cx-table-chooser {
+  display: flex;
+  position: absolute;
+  top: var(--row-h);
+  right: 0;
+  z-index: var(--z-overlay);
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 200px;
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-4);
+  background-color: var(--surface-overlay);
+  box-shadow: var(--shadow-3);
+}
+
+.cx-table-chooser-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  height: var(--control-h);
+}
+
+.cx-table-chooser-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cx-table-chooser-pin {
+  flex: none;
+  padding: 0;
+  border-width: 0;
+  background: none;
+  color: var(--ink-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.cx-table-chooser-pin[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+/* The filter row holds the shipped core Input, whose control height stands at either density
+   (Decision I-5), so it is the one row that is as tall as its control rather than as the grid. */
 .cx-table-filters {
   height: auto;
   padding-block: var(--space-1);
 }
 
-/* The filter cell gives the Input its own height rather than the row's clipped one (I-5). */
 .cx-table-filtercell {
+  height: auto;
   overflow: visible;
-}
-
-.cx-table-cell-button {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border-width: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: inherit;
-  cursor: text;
-}
-
-.cx-table-cell[data-align="right"] .cx-table-cell-button {
-  justify-content: flex-end;
 }
 
 .cx-table-editor {
   width: 100%;
+  height: var(--control-h);
 }

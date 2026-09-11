@@ -22,6 +22,7 @@ import { SProjectPage, PROJECT_AREA_KEYS, PROJECT_QUICK_ACTIONS, S_PROJECT } fro
 import { ShellPage, SHELL } from "./pages/shell.page";
 import { checkpoint } from "./support/checkpoint";
 import { newestMail } from "./support/outbox";
+import { appears, everyRow, steadyCount, steadyText } from "./support/retrying-read";
 
 const EMAIL = "j010-project-home@cubit.test";
 const PASSWORD = "project-home-journey-password";
@@ -68,7 +69,8 @@ test.describe("J-010 — the project home", () => {
     await auth.open(S_AUTH.signUp);
     await auth.signUpWith(EMAIL, PASSWORD, WORKSPACE);
     await expect(auth.notice.or(auth.refusal), "the sign-up door answers — a notice or a registered refusal, never nothing").toBeVisible();
-    if ((await auth.notice.count()) > 0) {
+    // Idempotent enrolment: which of the door's two lawful answers came back is a fact, not a defect.
+    if (await appears(auth.notice)) {
       const verifyMail = await newestMail(EMAIL, "verify-email");
       await auth.openWithToken(S_AUTH.verify, verifyMail.token);
       await auth.expectNotice();
@@ -87,7 +89,7 @@ test.describe("J-010 — the project home", () => {
 
     /* --- the project this home is about: created on the first run, reused on every one after --- */
     const card = home.cardNamed(PROJECT);
-    if ((await card.count()) === 0) {
+    if (!(await appears(card))) {
       await home.createWith({ name: PROJECT, code: "KD-001", client: CLIENT, district: DISTRICT, buildingType: 0, storeys: "8", gfaM2: GFA_M2 });
     }
     await expect(card, "the project this journey opens stands on S-Home").toBeVisible();
@@ -95,7 +97,7 @@ test.describe("J-010 — the project home", () => {
     expect(projectId.length, "the card names the project it is for").toBe(36);
 
     /* --- AC-1: every card's name is the door to that project's home (R-UI-031, I-131) --- */
-    const cards = await home.cards.all();
+    const cards = await everyRow(home.cards, "the S-Home grid's cards");
     expect(cards.length, "the grid holds at least the project this journey made").toBeGreaterThan(0);
     for (const entry of cards) {
       const id = (await entry.getAttribute("data-project")) ?? "";
@@ -114,7 +116,7 @@ test.describe("J-010 — the project home", () => {
     await expect(project.client).toHaveText(CLIENT);
     await expect(project.district).toHaveText(DISTRICT);
     // No book is pinned to a project on this tree, so the derived zone roster is empty and says so.
-    const zoneCount = await project.zoneBadges.count();
+    const zoneCount = await steadyCount(project.zoneBadges, "the project's derived zone badges");
     await expect(project.zones, "the zone cell counts exactly the badges it holds").toHaveAttribute("data-count", String(zoneCount));
     await expect(project.gfa, "the target GFA is stated as a figure").toHaveText(/\d/);
     await expect(project.header.getByTestId("unit-badge"), "beside the two units of the one quantity it states, m² before sft").toHaveText(["m²", "sft"]);
@@ -148,12 +150,12 @@ test.describe("J-010 — the project home", () => {
     await expect(project.aiCalls, "how many calls were made").toHaveText(/\d/);
     await expect(project.aiOutcomes, "and what came of them").toBeVisible();
     // The none line explains zeros and nothing else: it stands exactly when no call has been made.
-    const calls = ((await project.aiCalls.textContent()) ?? "").replace(/\D/g, "");
+    const calls = (await steadyText(project.aiCalls, "the model-call readout")).replace(/\D/g, "");
     await expect(project.aiNone, `no model has been called on this project (calls read "${calls}")`).toHaveCount(calls === "0" ? 1 : 0);
     await expect(project.aiLedger, "the ledger itself is one link away").toHaveAttribute("href", S_PROJECT.audit(tenantId, projectId));
 
     /* --- recent activity: the newest five, or the reason there are none --- */
-    const rows = await project.activityRows.count();
+    const rows = await steadyCount(project.activityRows, "the recent-activity rows");
     expect(rows, "the region shows at most the five newest acts").toBeLessThanOrEqual(RECENT_ACTIVITY_LIMIT);
     await expect(project.activityEmpty, rows === 0 ? "with no act recorded the region says why" : "with acts listed there is no empty line").toHaveCount(rows === 0 ? 1 : 0);
     await expect(project.activityAll, "and the whole log is one link away").toHaveAttribute("href", S_PROJECT.audit(tenantId, projectId));

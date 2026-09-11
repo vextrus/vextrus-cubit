@@ -114,18 +114,41 @@ function control(testId: string): HTMLElement {
   return screen.getByTestId(testId);
 }
 
-function selectFor(testId: string): HTMLSelectElement {
+/**
+ * The closed choice of act type/actor (Decision I-31), as the screen renders it since U1: the
+ * shipped `Select` primitive rather than the platform's own control, which Design Direction 00 §1
+ * refuses because its popup cannot be drawn at this instrument's weight. What I-31 rules is
+ * unchanged and is what this reads: one control per filter, an all-option first, and exactly the
+ * values the given rows hold.
+ */
+function choiceFor(testId: string): HTMLElement {
   const element = control(testId);
-  expect(element.tagName.toLowerCase(), `[data-testid=${testId}] is the screen's closed choice of act type/actor (Decision I-31)`).toBe("select");
-  return element as HTMLSelectElement;
+  expect(element.getAttribute("role"), `[data-testid=${testId}] is the screen's closed choice of act type/actor (Decision I-31)`).toBe("combobox");
+  expect(element.getAttribute("aria-haspopup"), `[data-testid=${testId}] opens a listbox of exactly the choices it offers`).toBe("listbox");
+  return element;
+}
+
+/** The options a filter offers, in the order it offers them. */
+async function optionsOf(user: ReturnType<typeof userEvent.setup>, testId: string): Promise<HTMLElement[]> {
+  const element = choiceFor(testId);
+  if (element.getAttribute("aria-expanded") !== "true") await user.click(element);
+  return within(screen.getByTestId(`${testId}-listbox`)).getAllByRole("option");
+}
+
+/** Choose the option carrying this value, through the control a person actually operates. */
+async function choose(user: ReturnType<typeof userEvent.setup>, testId: string, value: string): Promise<void> {
+  const options = await optionsOf(user, testId);
+  const wanted = options.find((option) => option.getAttribute("data-value") === value);
+  expect(wanted, `[data-testid=${testId}] offers the choice ${value} (Decision I-31)`).toBeTruthy();
+  await user.click(wanted as HTMLElement);
 }
 
 /** Put a filter back to the choice that filters nothing — its own first option, whatever it is. */
 async function clearChoice(user: ReturnType<typeof userEvent.setup>, testId: string): Promise<void> {
-  const select = selectFor(testId);
-  const first = select.options[0];
+  const options = await optionsOf(user, testId);
+  const first = options[0];
   expect(first, `[data-testid=${testId}] must offer an all-option first, so a filter can be cleared (Decision I-31)`).toBeTruthy();
-  await user.selectOptions(select, first as HTMLOptionElement);
+  await user.click(first as HTMLElement);
 }
 
 async function mount(acts: readonly AuditAct[]): Promise<ReturnType<typeof userEvent.setup>> {
@@ -224,7 +247,7 @@ describe("AC-1 — the act log lists the project's acts, each showing what it di
     const whole = fill(copy["audit_count"] ?? "", { shown: formatUserFigure(String(ACTS.length)), total: formatUserFigure(String(ACTS.length)) });
     expect((status.textContent ?? "").replace(/\s+/g, " ").trim(), "the count line states the shown and total figures through the string seam and SEAM-FORMAT (Decision §1)").toBe(whole);
 
-    await user.selectOptions(selectFor(TESTID.filterType), TYPE_CONFIRM);
+    await choose(user, TESTID.filterType, TYPE_CONFIRM);
     const remaining = ACTS.filter((candidate) => candidate.actType === TYPE_CONFIRM).length;
     const filtered = fill(copy["audit_count"] ?? "", { shown: formatUserFigure(String(remaining)), total: formatUserFigure(String(ACTS.length)) });
     expect((screen.getByRole("status").textContent ?? "").replace(/\s+/g, " ").trim(), "a filter change is announced by the same live region").toBe(filtered);
@@ -238,7 +261,7 @@ describe("AC-2 — filtering is real behaviour over the given rows", () => {
     const user = await mount(ACTS);
     expect(shown(), "with no filter chosen, every given act is listed").toEqual(expected(() => true));
 
-    await user.selectOptions(selectFor(TESTID.filterType), TYPE_CONFIRM);
+    await choose(user, TESTID.filterType, TYPE_CONFIRM);
     expect(shown(), `choosing ${TYPE_CONFIRM} leaves exactly the acts of that type`).toEqual(expected((candidate) => candidate.actType === TYPE_CONFIRM));
     for (const row of rows()) expect(row.getAttribute(ATTR_ACT_TYPE), "no row of another type survives the filter").toBe(TYPE_CONFIRM);
 
@@ -249,7 +272,7 @@ describe("AC-2 — filtering is real behaviour over the given rows", () => {
   test("AC-2: choosing an actor leaves only the rows whose data-actor-id matches, and clearing restores the rest", async () => {
     const user = await mount(ACTS);
 
-    await user.selectOptions(selectFor(TESTID.filterActor), ACTOR_TWO);
+    await choose(user, TESTID.filterActor, ACTOR_TWO);
     expect(shown(), "choosing an actor leaves exactly that actor's acts").toEqual(expected((candidate) => candidate.actorId === ACTOR_TWO));
     for (const row of rows()) expect(row.getAttribute(ATTR_ACTOR_ID), "no other actor's row survives the filter").toBe(ACTOR_TWO);
 
@@ -285,8 +308,8 @@ describe("AC-2 — filtering is real behaviour over the given rows", () => {
   test("AC-2: the three filters compose — the rows left are the ones satisfying all of them", async () => {
     const user = await mount(ACTS);
 
-    await user.selectOptions(selectFor(TESTID.filterType), TYPE_CONFIRM);
-    await user.selectOptions(selectFor(TESTID.filterActor), ACTOR_TWO);
+    await choose(user, TESTID.filterType, TYPE_CONFIRM);
+    await choose(user, TESTID.filterActor, ACTOR_TWO);
     await user.type(control(TESTID.filterSubject), SUBJECT_D);
 
     expect(shown(), "the conjunction of act type, actor and subject — not any one of them, and not their union").toEqual(
@@ -298,8 +321,8 @@ describe("AC-2 — filtering is real behaviour over the given rows", () => {
     const copy = decisionCopy();
     const user = await mount(ACTS);
 
-    await user.selectOptions(selectFor(TESTID.filterType), TYPE_ASSIGN);
-    await user.selectOptions(selectFor(TESTID.filterActor), ACTOR_ONE);
+    await choose(user, TESTID.filterType, TYPE_ASSIGN);
+    await choose(user, TESTID.filterActor, ACTOR_ONE);
     await user.type(control(TESTID.filterSubject), SUBJECT_D);
 
     expect(

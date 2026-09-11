@@ -13,6 +13,19 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 import { cssParser, cubit, importX } from "./scripts/eslint/index.mjs";
 
+/**
+ * The two component rule sets, downgraded to warnings. Used for the screens and the modules, whose
+ * findings belong to the nodes that own those files: they are PRINTED from today, and they are not
+ * fatal until those nodes clear them. Derived from the recommended sets plus the two rules this
+ * config turns on by name, so a rule added upstream is softened here without an edit.
+ */
+const SOFTENED = Object.fromEntries(
+  [...Object.keys(reactHooks.configs.recommended.rules), ...Object.keys(jsxA11y.flatConfigs.recommended.rules), "jsx-a11y/anchor-is-valid", "jsx-a11y/label-has-associated-control"].map((rule) => [
+    rule,
+    "warn",
+  ]),
+);
+
 /** Everything the layered tree is made of. */
 const SOURCE = ["src/**/*.ts", "src/**/*.tsx", "db/**/*.ts"];
 
@@ -79,11 +92,23 @@ export default [
     // better: the rules of hooks (a conditional hook is a correctness fault, not a style one) and
     // the a11y ground R-UI-050 stands on. axe catches the second only once a screen renders and a
     // journey walks it; this catches it in the file that made it.
-    // Bound to the foundation the whole product is built from. The screens and the modules carry
-    // 31 further findings of the same two shapes; they belong to the nodes that own those files and
-    // are listed in this increment's handoff rather than fixed from here, where a blind repair of a
-    // viewer ref would be a change to a screen nobody in this node is testing.
-    files: ["src/ui/**/*.tsx"],
+    // Bound to EVERY component the product ships, not only the foundation's. The narrower binding
+    // (`src/ui/**/*.tsx`) left 95 component files under src/app and src/modules judged by nothing:
+    // a conditional hook in a screen is the same correctness fault it is in a primitive, and the
+    // a11y ground R-UI-050 stands on does not stop at the layer boundary. What the narrower binding
+    // was really buying was a quiet gate, and it bought it by not looking.
+    //
+    // The findings outside src/ui are real and they belong to the nodes that own those files, so
+    // they are bound as WARNINGS there (the override below) and listed in this increment's handoff.
+    // Inside src/ui they are fatal: `pnpm lint` runs a second, zero-warning pass over the foundation
+    // (`eslint src/ui --max-warnings 0`). That second pass names four directories it skips —
+    // src/ui/patterns, src/ui/primitives/core, src/ui/primitives/data and src/ui/shell — because on
+    // 2026-09-12 they are being rebuilt by three other nodes and carry 14 findings of these two
+    // shapes between them. The skip is a HANDOFF, not a grade: each finding is listed by file and
+    // line in this increment's handoff, and the four `--ignore-pattern` flags come out of the lint
+    // script in the same commit that clears the last of them. Nothing is softened inside src/ui —
+    // the first pass still prints every one of them.
+    files: ["src/**/*.tsx"],
     plugins: { "react-hooks": reactHooks, "jsx-a11y": jsxA11y },
     languageOptions: { parserOptions: { ecmaFeatures: { jsx: true } } },
     rules: {
@@ -101,7 +126,32 @@ export default [
       // density control uses, not an effect — a real repair, owed, and not one to make blind in the
       // same commit that moves every colour in the product.
       "react-hooks/set-state-in-effect": "warn",
+      // Two further a11y laws the ecosystem states better than we could, and that R-UI-050 owes:
+      // an anchor that goes nowhere is a button wearing a link's clothes (and is unreachable by
+      // keyboard), and a label with no control is a label a screen reader reads into the void.
+      "jsx-a11y/anchor-is-valid": "error",
+      "jsx-a11y/label-has-associated-control": "error",
     },
+  },
+  {
+    // The screens and the modules are judged by the same two rule sets, and their findings are
+    // WARNINGS until the nodes that own those files clear them. Non-fatal is the deliberate half of
+    // this change: binding 95 previously-unjudged files at "error" would have turned the gate red
+    // for work nobody in this increment may touch, and a gate that is red for somebody else's
+    // reason is a gate people learn to read past. The worklist is in the handoff, by file and line.
+    files: ["src/app/**/*.tsx", "src/modules/**/*.tsx"],
+    // Derived from the two configs' own rule sets, never listed: a hand-kept copy of somebody
+    // else's roster is wrong the first time they add a rule, and wrong silently (B-19).
+    rules: SOFTENED,
+  },
+  {
+    // AM-09 §4 binds the journeys: a page object and a journey read the product through RETRYING
+    // waits only, and `waitForTimeout` is unlawful in the lane. The rule is bound HERE and nowhere
+    // else — a one-shot `.count()` in a node suite is a synchronous read of a value that is already
+    // final, and there is no page under it that could still be arriving.
+    files: ["tests/e2e/**/*.ts"],
+    plugins: { cubit },
+    rules: { "cubit/no-unretried-read": "error" },
   },
   {
     // R-UI-001's colour ban reaches the stylesheets too — a colour hidden in CSS is still a colour

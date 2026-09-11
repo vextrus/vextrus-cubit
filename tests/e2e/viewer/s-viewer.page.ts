@@ -10,8 +10,12 @@ import { inflateSync } from "node:zlib";
 // journey that needs the screen point of a world point inverts the shipped mapping rather than
 // re-deriving one of its own, so no acceptance carries a second opinion about where a sheet is.
 import { worldAt } from "../../../src/modules/takeoff/viewer/client";
+import { appears, everyRow, nextFrame } from "../support/retrying-read";
 
 /** The addresses S-Viewer answers at (test contract). */
+/** How long one probe of a hover sweep waits for the readout before the sweep moves on. */
+const HOVER_REACH_MS = 60;
+
 export const S_VIEWER = Object.freeze({
   /** The sheet itself: the tree's own convention, `/t/{tenant}/p/{project}/viewer/{drawing}/{layout}`. */
   route: (tenantId: string, projectId: string, drawingId: string, layoutName: string): string =>
@@ -207,17 +211,21 @@ export class SViewerPage {
     const cy = at.y + at.height / 2;
     const half = Math.floor(frames / 2);
 
+    // The gesture is paced by the FRAME, not by the clock. The 8 ms sleep that stood here was a
+    // guess at how long the viewer takes to draw one frame; `nextFrame` waits for the frame itself,
+    // which is what the guess was standing in for — and PB-3's budget is about frames, so pacing by
+    // them is also the more honest measurement (AM-09 §4).
     await this.page.mouse.move(cx, cy);
     for (let step = 0; step < half; step += 1) {
       await this.page.mouse.wheel(0, step % 2 === 0 ? -50 : 50);
-      await this.page.waitForTimeout(8);
+      await nextFrame(this.page);
     }
 
     await this.page.mouse.move(cx, cy);
     await this.page.mouse.down();
     for (let step = 0; step < half; step += 1) {
       await this.page.mouse.move(cx + ((step * 7) % 120) - 60, cy + ((step * 5) % 80) - 40);
-      await this.page.waitForTimeout(8);
+      await nextFrame(this.page);
     }
     await this.page.mouse.up();
   }
@@ -264,7 +272,7 @@ export class SViewerPage {
   /** The selected keys, in the order the panel lists them. */
   async selectedKeys(): Promise<string[]> {
     const keys: string[] = [];
-    for (const row of await this.entities.all()) keys.push((await row.getAttribute("data-key")) ?? "");
+    for (const row of await everyRow(this.entities, "the inspector's selected entity rows")) keys.push((await row.getAttribute("data-key")) ?? "");
     return keys;
   }
 
@@ -282,7 +290,7 @@ export class SViewerPage {
 
   /** The centre of the union of every selected row's box — where a reveal must leave the camera. */
   async selectionCentre(): Promise<[number, number]> {
-    const boxes = await Promise.all((await this.entities.all()).map(async (row) => SViewerPage.boxOf((await row.getAttribute("data-bbox")) ?? "")));
+    const boxes = await Promise.all((await everyRow(this.entities, "the inspector's selected entity rows")).map(async (row) => SViewerPage.boxOf((await row.getAttribute("data-bbox")) ?? "")));
     expect(boxes.length, "a centre is taken of a selection, so something is selected").toBeGreaterThan(0);
     const union = boxes.reduce((held, box) => ({
       minX: Math.min(held.minX, box.minX),
@@ -354,8 +362,10 @@ export class SViewerPage {
         for (const sign of offset === 0 ? [1] : [1, -1]) {
           const at = { x: anchor.x + sweep.dx * offset * sign, y: anchor.y + sweep.dy * offset * sign };
           await this.page.mouse.move(at.x, at.y);
-          await this.page.waitForTimeout(40);
-          if ((await this.hover.count()) > 0) {
+          // One retrying read instead of a sleep and a one-shot count: `appears` waits for the hover
+          // readout to arrive under this probe and answers whether it did. A probe that met nothing
+          // is the sweep's own answer, not a defect — the next probe is tried (AM-09 §4).
+          if (await appears(this.hover, HOVER_REACH_MS)) {
             const key = (await this.hover.getAttribute("data-key")) ?? "";
             if (key !== "" && (wanted === undefined || key === wanted)) return { at, key };
           }

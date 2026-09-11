@@ -155,6 +155,7 @@
   --accent-active: var(--beam-700);
   --accent-subtle: var(--beam-100);
   --accent-muted: var(--beam-300);
+  --accent-fill: var(--beam-500);
   --act: var(--act-500);
   --state-success: var(--success);
   --state-success-surface: var(--success-surface);
@@ -328,6 +329,7 @@
   --accent-active: var(--beam-700);
   --accent-subtle: var(--beam-100);
   --accent-muted: var(--beam-300);
+  --accent-fill: var(--beam-600);
   --act: var(--act-500);
   --state-success: var(--success);
   --state-success-surface: var(--success-surface);

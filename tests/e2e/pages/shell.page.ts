@@ -2,6 +2,7 @@
 // Design Decision closes over (docs/design/shell.md § 7) — a journey that reached for a class or a
 // copy string would be reading the styling, not the screen.
 import { expect, type Locator, type Page } from "@playwright/test";
+import { TESTIDS } from "../../../src/ui/testids";
 
 /** The addresses R-UI-031 pins, spelled once so a journey never writes a path twice. */
 export const SHELL = Object.freeze({
@@ -18,7 +19,7 @@ export const SHELL_AREAS = ["projects", "books", "settings"] as const;
 export type ShellArea = (typeof SHELL_AREAS)[number];
 
 /** The regions R-UI-030 composes the frame from — each one owed *inside* shell-root. */
-const FRAME_REGIONS = ["shell-rail", "shell-topbar", "shell-main", "shell-inspector"] as const;
+const FRAME_REGIONS = [TESTIDS.shell.rail, TESTIDS.shell.topbar, TESTIDS.shell.main, TESTIDS.shell.inspector] as const;
 
 export class ShellPage {
   constructor(private readonly page: Page) {}
@@ -26,114 +27,114 @@ export class ShellPage {
   /* --- the nameplate's door into the workspace (R-UI-031) --- */
 
   get workspaceDoor(): Locator {
-    return this.page.getByTestId("root-home-workspace-door");
+    return this.page.getByTestId(TESTIDS.root.homeWorkspaceDoor);
   }
 
   /* --- the frame (R-UI-030) --- */
 
   get root(): Locator {
-    return this.page.getByTestId("shell-root");
+    return this.page.getByTestId(TESTIDS.shell.root);
   }
 
   get rail(): Locator {
-    return this.page.getByTestId("shell-rail");
+    return this.page.getByTestId(TESTIDS.shell.rail);
   }
 
   get railMark(): Locator {
-    return this.page.getByTestId("shell-rail-mark");
+    return this.page.getByTestId(TESTIDS.shell.railMark);
   }
 
   get railCollapse(): Locator {
-    return this.page.getByTestId("shell-rail-collapse");
+    return this.page.getByTestId(TESTIDS.shell.railCollapse);
   }
 
   get tenantSwitcher(): Locator {
-    return this.page.getByTestId("shell-tenant-switcher");
+    return this.page.getByTestId(TESTIDS.shell.tenantSwitcher);
   }
 
   get topBar(): Locator {
-    return this.page.getByTestId("shell-topbar");
+    return this.page.getByTestId(TESTIDS.shell.topbar);
   }
 
   get breadcrumb(): Locator {
-    return this.page.getByTestId("shell-breadcrumb");
+    return this.page.getByTestId(TESTIDS.shell.breadcrumb);
   }
 
   get main(): Locator {
-    return this.page.getByTestId("shell-main");
+    return this.page.getByTestId(TESTIDS.shell.main);
   }
 
   get inspector(): Locator {
-    return this.page.getByTestId("shell-inspector");
+    return this.page.getByTestId(TESTIDS.shell.inspector);
   }
 
   /* --- the user menu, holding the two doors a signed-in person always owes --- */
 
   get user(): Locator {
-    return this.page.getByTestId("shell-user");
+    return this.page.getByTestId(TESTIDS.shell.user);
   }
 
   get userSessions(): Locator {
-    return this.page.getByTestId("shell-user-sessions");
+    return this.page.getByTestId(TESTIDS.shell.userSessions);
   }
 
   get userSignOut(): Locator {
-    return this.page.getByTestId("shell-user-signout");
+    return this.page.getByTestId(TESTIDS.shell.userSignout);
   }
 
   /* --- the onboarding screen (R-UI-033) --- */
 
   get empty(): Locator {
-    return this.page.getByTestId("shell-empty");
+    return this.page.getByTestId(TESTIDS.shell.empty);
   }
 
   get emptyAction(): Locator {
-    return this.page.getByTestId("shell-empty-action");
+    return this.page.getByTestId(TESTIDS.shell.emptyAction);
   }
 
   get sampleOffer(): Locator {
-    return this.page.getByTestId("shell-sample-offer");
+    return this.page.getByTestId(TESTIDS.shell.sampleOffer);
   }
 
   get sampleOutcome(): Locator {
-    return this.page.getByTestId("shell-sample-outcome");
+    return this.page.getByTestId(TESTIDS.shell.sampleOutcome);
   }
 
   /* --- the settings screen's rename (R-UI-033) --- */
 
   get settingsName(): Locator {
-    return this.page.getByTestId("shell-settings-name");
+    return this.page.getByTestId(TESTIDS.shell.settingsName);
   }
 
   get renameInput(): Locator {
-    return this.page.getByTestId("shell-rename-input");
+    return this.page.getByTestId(TESTIDS.shell.renameInput);
   }
 
   get renameSubmit(): Locator {
-    return this.page.getByTestId("shell-rename-submit");
+    return this.page.getByTestId(TESTIDS.shell.renameSubmit);
   }
 
   get renameRefusal(): Locator {
-    return this.page.getByTestId("shell-rename-refusal");
+    return this.page.getByTestId(TESTIDS.shell.renameRefusal);
   }
 
   /* --- the frameless denial surface (R-UI-050's permission-denied state) --- */
 
   get denied(): Locator {
-    return this.page.getByTestId("shell-permission-denied");
+    return this.page.getByTestId(TESTIDS.shell.permissionDenied);
   }
 
   get deniedPermission(): Locator {
-    return this.page.getByTestId("shell-denied-permission");
+    return this.page.getByTestId(TESTIDS.shell.deniedPermission);
   }
 
   get deniedHolder(): Locator {
-    return this.page.getByTestId("shell-denied-holder");
+    return this.page.getByTestId(TESTIDS.shell.deniedHolder);
   }
 
   /** The registered refusal a screen is answering with, read from the one renderer. */
   get refusalState(): Locator {
-    return this.page.getByTestId("refusal-state");
+    return this.page.getByTestId(TESTIDS.refusal.state);
   }
 
   /** The rail entry for an area, by the id the Design Decision gives it. */

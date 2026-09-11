@@ -3,6 +3,8 @@
 // closes over (docs/design/s-settings.md § 7) — a journey that reached for a class or a copy string
 // would be reading the styling, not the screen.
 import { expect, type Locator, type Page } from "@playwright/test";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { appears, steadyText } from "../support/retrying-read";
 
 /** The addresses this screen is reached at, spelled once so a journey never writes a path twice. */
 export const S_MEMBERS = Object.freeze({
@@ -18,43 +20,43 @@ export class SMembersPage {
   /* --- the settings landing's door into this screen (I-60) --- */
 
   get link(): Locator {
-    return this.page.getByTestId("settings-members-link");
+    return this.page.getByTestId(TESTIDS.settings.membersLink);
   }
 
   /* --- the roster (§ 1) --- */
 
   get section(): Locator {
-    return this.page.getByTestId("members-section");
+    return this.page.getByTestId(TESTIDS.members.section);
   }
 
   get memberRows(): Locator {
-    return this.page.getByTestId("members-row");
+    return this.page.getByTestId(TESTIDS.members.row);
   }
 
   /** One member's row, by the account id the row carries. */
   memberRow(userId: string): Locator {
-    return this.page.locator(`[data-testid="members-row"][data-user="${userId}"]`);
+    return this.page.locator(`${testIdSelector(TESTIDS.members.row)}[data-user="${userId}"]`);
   }
 
   /** The role the roster shows for one member — the store's own word, rendered verbatim (I-55). */
   async roleOf(userId: string): Promise<string> {
-    return (await this.memberRow(userId).getByTestId("members-row-role").innerText()).trim();
+    return await steadyText(this.memberRow(userId).getByTestId(TESTIDS.members.rowRole), `the role cell of member ${userId}`);
   }
 
   /** Move one member's role through the form the screen ships, and wait for the answer to settle. */
   async chooseRole(userId: string, role: string): Promise<void> {
-    await this.memberRow(userId).getByTestId("members-role-form").getByTestId("members-role-select").selectOption(role);
-    await this.memberRow(userId).getByTestId("members-role-submit").click();
+    await this.memberRow(userId).getByTestId(TESTIDS.members.roleForm).getByTestId(TESTIDS.members.roleSelect).selectOption(role);
+    await this.memberRow(userId).getByTestId(TESTIDS.members.roleSubmit).click();
   }
 
   /** Ask for one membership to be taken away. */
   async submitRemoval(userId: string): Promise<void> {
-    await this.memberRow(userId).getByTestId("members-remove-form").getByTestId("members-remove-submit").click();
+    await this.memberRow(userId).getByTestId(TESTIDS.members.removeForm).getByTestId(TESTIDS.members.removeSubmit).click();
   }
 
   /** The answer slot the refused row speaks in (I-57). */
   refusal(userId: string): Locator {
-    return this.memberRow(userId).getByTestId("members-refusal");
+    return this.memberRow(userId).getByTestId(TESTIDS.members.refusal);
   }
 
   /** The registered code that slot is wearing, machine-readably — waited for, never assumed. */
@@ -67,35 +69,35 @@ export class SMembersPage {
   /* --- the invitations panel (§ 1, I-61's two slots) --- */
 
   get inviteForm(): Locator {
-    return this.page.getByTestId("members-invite-form");
+    return this.page.getByTestId(TESTIDS.members.inviteForm);
   }
 
   get pendingList(): Locator {
-    return this.page.getByTestId("members-pending-invitations");
+    return this.page.getByTestId(TESTIDS.members.pendingInvitations);
   }
 
   get pendingRows(): Locator {
-    return this.page.getByTestId("invitations-row");
+    return this.page.getByTestId(TESTIDS.invitations.row);
   }
 
   get noPending(): Locator {
-    return this.page.getByTestId("invitations-none");
+    return this.page.getByTestId(TESTIDS.invitations.none);
   }
 
   get panelRefusal(): Locator {
-    return this.page.getByTestId("invitations-refusal");
+    return this.page.getByTestId(TESTIDS.invitations.refusal);
   }
 
   /** Offer somebody a membership by email, and wait for the pending row it becomes. */
   async invite(email: string): Promise<void> {
-    await this.inviteForm.getByTestId("invitations-email").fill(email);
-    await this.inviteForm.getByTestId("invitations-submit").click();
+    await this.inviteForm.getByTestId(TESTIDS.invitations.email).fill(email);
+    await this.inviteForm.getByTestId(TESTIDS.invitations.submit).click();
     await expect(this.noPending, "the honest empty line steps aside once an invitation stands").toHaveCount(0);
   }
 
   /** Withdraw the first standing offer. */
   async revokeFirst(): Promise<void> {
-    await this.pendingRows.first().getByTestId("invitations-revoke").click();
+    await this.pendingRows.first().getByTestId(TESTIDS.invitations.revoke).click();
   }
 
   /** Open this screen at a workspace, and wait for the roster to be painted. */
@@ -132,8 +134,10 @@ export async function switchTo(page: Page, workspaceName: string): Promise<void>
  */
 async function openSwitcher(page: Page): Promise<Locator> {
   const menu = page.locator('[role="menu"]:visible');
-  if ((await menu.count()) === 0) {
-    const trigger = page.getByTestId("shell-tenant-switcher");
+  // The switcher may already be open from an earlier leg; which it is is a fact about the screen,
+  // and `appears` re-reads until it can say which.
+  if (!(await appears(menu, 500))) {
+    const trigger = page.getByTestId(TESTIDS.shell.tenantSwitcher);
     await trigger.waitFor({ state: "visible", timeout: 30_000 });
     await trigger.click();
   }

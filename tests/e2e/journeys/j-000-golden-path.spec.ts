@@ -12,6 +12,7 @@ import { ShellPage, SHELL } from "../pages/shell.page";
 import { QUICK_STATS, SHomePage, S_HOME } from "../pages/s-home.page";
 import { checkpoint } from "../support/checkpoint";
 import { newestMail } from "../support/outbox";
+import { steadyText } from "../support/retrying-read";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j000-${RUN}@cubit.test`;
@@ -104,7 +105,7 @@ test.describe("J-000 — Golden Path: sign up, name the workspace, create the fi
     );
     await expect(card.getByTestId("s-home-quick-stats"), "the quick stats stand on the card").toBeVisible();
     for (const stat of QUICK_STATS) {
-      const text = await card.getByTestId(stat).innerText();
+      const text = await steadyText(card.getByTestId(stat), `the ${stat} readout`);
       expect(Number(text.replace(/[^0-9]/g, "")), `${stat} is an honest zero at M0 — a counted empty set, never a hidden region: it reads "${text}"`).toBe(0);
     }
     await expect(home.recentDocuments, "the recent-documents region stands, and says why it is empty").toBeVisible();

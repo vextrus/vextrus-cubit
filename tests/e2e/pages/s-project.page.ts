@@ -3,6 +3,8 @@
 // would be reading the styling, not the screen. The two masked handles are the exception the
 // Decision itself names: they are the per-run texts a committed picture may not compare.
 import { expect, type Locator, type Page } from "@playwright/test";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { appears } from "../support/retrying-read";
 
 /** The addresses the test contract names, spelled once so a journey never writes a path twice. */
 export const S_PROJECT = Object.freeze({
@@ -35,134 +37,134 @@ export class SProjectPage {
   }
 
   get root(): Locator {
-    return this.page.getByTestId("project-home");
+    return this.page.getByTestId(TESTIDS.project.home);
   }
 
   /* --- the header (I-127) --- */
 
   get header(): Locator {
-    return this.page.getByTestId("project-home-header");
+    return this.page.getByTestId(TESTIDS.project.homeHeader);
   }
 
   get name(): Locator {
-    return this.page.getByTestId("project-home-name");
+    return this.page.getByTestId(TESTIDS.project.homeName);
   }
 
   get client(): Locator {
-    return this.page.getByTestId("project-home-client");
+    return this.page.getByTestId(TESTIDS.project.homeClient);
   }
 
   get district(): Locator {
-    return this.page.getByTestId("project-home-district");
+    return this.page.getByTestId(TESTIDS.project.homeDistrict);
   }
 
   get zones(): Locator {
-    return this.page.getByTestId("project-home-zones");
+    return this.page.getByTestId(TESTIDS.project.homeZones);
   }
 
   get zoneBadges(): Locator {
-    return this.page.getByTestId("project-home-zone-badge");
+    return this.page.getByTestId(TESTIDS.project.homeZoneBadge);
   }
 
   get gfa(): Locator {
-    return this.page.getByTestId("project-home-gfa");
+    return this.page.getByTestId(TESTIDS.project.homeGfa);
   }
 
   get gfaSft(): Locator {
-    return this.page.getByTestId("project-home-gfa-sft");
+    return this.page.getByTestId(TESTIDS.project.homeGfaSft);
   }
 
   /* --- the areas and the quick actions (I-125/I-126) --- */
 
   get tabs(): Locator {
-    return this.page.getByTestId("project-tabs");
+    return this.page.getByTestId(TESTIDS.project.tabs);
   }
 
   get allTabs(): Locator {
-    return this.page.getByTestId("project-tab");
+    return this.page.getByTestId(TESTIDS.project.tab);
   }
 
   tab(area: string): Locator {
-    return this.page.locator(`[data-testid="project-tab"][data-area="${area}"]`);
+    return this.page.locator(`${testIdSelector(TESTIDS.project.tab)}[data-area="${area}"]`);
   }
 
   get quickActions(): Locator {
-    return this.page.getByTestId("project-quick-action");
+    return this.page.getByTestId(TESTIDS.project.quickAction);
   }
 
   quickAction(action: string): Locator {
-    return this.page.locator(`[data-testid="project-quick-action"][data-action="${action}"]`);
+    return this.page.locator(`${testIdSelector(TESTIDS.project.quickAction)}[data-action="${action}"]`);
   }
 
   /* --- AI cost so far (R-AI-005) --- */
 
   get aiSpend(): Locator {
-    return this.page.getByTestId("project-home-ai-spend");
+    return this.page.getByTestId(TESTIDS.project.homeAiSpend);
   }
 
   get aiCost(): Locator {
-    return this.page.getByTestId("project-home-ai-cost");
+    return this.page.getByTestId(TESTIDS.project.homeAiCost);
   }
 
   get aiCostUnit(): Locator {
-    return this.page.getByTestId("project-home-ai-cost-unit");
+    return this.page.getByTestId(TESTIDS.project.homeAiCostUnit);
   }
 
   get aiCalls(): Locator {
-    return this.page.getByTestId("project-home-ai-calls");
+    return this.page.getByTestId(TESTIDS.project.homeAiCalls);
   }
 
   get aiOutcomes(): Locator {
-    return this.page.getByTestId("project-home-ai-outcomes");
+    return this.page.getByTestId(TESTIDS.project.homeAiOutcomes);
   }
 
   get aiNone(): Locator {
-    return this.page.getByTestId("project-home-ai-none");
+    return this.page.getByTestId(TESTIDS.project.homeAiNone);
   }
 
   get aiLedger(): Locator {
-    return this.page.getByTestId("project-home-ai-ledger");
+    return this.page.getByTestId(TESTIDS.project.homeAiLedger);
   }
 
   /* --- recent activity (I-132) --- */
 
   get activity(): Locator {
-    return this.page.getByTestId("project-home-activity");
+    return this.page.getByTestId(TESTIDS.project.homeActivity);
   }
 
   get activityRows(): Locator {
-    return this.page.getByTestId("project-home-activity-row");
+    return this.page.getByTestId(TESTIDS.project.homeActivityRow);
   }
 
   get activityEmpty(): Locator {
-    return this.page.getByTestId("project-home-activity-empty");
+    return this.page.getByTestId(TESTIDS.project.homeActivityEmpty);
   }
 
   get activityAll(): Locator {
-    return this.page.getByTestId("project-home-activity-all");
+    return this.page.getByTestId(TESTIDS.project.homeActivityAll);
   }
 
   /* --- participants (I-129) --- */
 
   get participants(): Locator {
-    return this.page.getByTestId("project-home-participants");
+    return this.page.getByTestId(TESTIDS.project.homeParticipants);
   }
 
   get participantRows(): Locator {
-    return this.page.getByTestId("project-home-participant");
+    return this.page.getByTestId(TESTIDS.project.homeParticipant);
   }
 
   get participantRoles(): Locator {
-    return this.page.getByTestId("project-home-participant-role");
+    return this.page.getByTestId(TESTIDS.project.homeParticipantRole);
   }
 
   get refusal(): Locator {
-    return this.participants.getByTestId("refusal-state");
+    return this.participants.getByTestId(TESTIDS.refusal.state);
   }
 
   /** The drawings screen's own index — the door this home is the visible navigation into. */
   get sheetIndex(): Locator {
-    return this.page.getByTestId("sheet-index");
+    return this.page.getByTestId(TESTIDS.sheet.index);
   }
 
   /**
@@ -170,9 +172,11 @@ export class SProjectPage {
    * person cannot reach by Tab is a door only a mouse holds. The walk is bounded, never timed.
    */
   async activateTabFromKeyboard(area: string): Promise<void> {
-    const focused = this.page.locator(`[data-testid="project-tab"][data-area="${area}"]:focus`);
+    const focused = this.page.locator(`${testIdSelector(TESTIDS.project.tab)}[data-area="${area}"]:focus`);
     await expect(this.tab(area), `the \`${area}\` tab stands on the screen before anyone tabs to it`).toBeVisible();
-    for (let travel = 0; travel < TAB_TRAVEL_LIMIT && (await focused.count()) === 0; travel += 1) {
+    // A retrying read per press (`locator.waitFor`), not a one-shot count: focus arrives with the
+    // browser's own event loop, and the tab that has just been pressed may not have landed yet.
+    for (let travel = 0; travel < TAB_TRAVEL_LIMIT && !(await appears(focused, 250)); travel += 1) {
       await this.page.keyboard.press("Tab");
     }
     await expect(focused, `the \`${area}\` tab is reachable from the keyboard`).toHaveCount(1);
@@ -186,8 +190,8 @@ export class SProjectPage {
    */
   masks(): Locator[] {
     return [
-      this.page.getByTestId("shell-breadcrumb"),
-      this.page.getByTestId("shell-user"),
+      this.page.getByTestId(TESTIDS.shell.breadcrumb),
+      this.page.getByTestId(TESTIDS.shell.user),
       this.page.locator(".cx-project-activity-when"),
       this.page.locator(".cx-project-member-label"),
     ];

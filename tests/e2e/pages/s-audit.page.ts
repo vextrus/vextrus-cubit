@@ -2,6 +2,7 @@
 // closes over (docs/design/s-audit.md § 7) — a journey that reached for a class or a copy string
 // would be reading the styling, not the screen.
 import { expect, type Locator, type Page } from "@playwright/test";
+import { TESTIDS } from "../../../src/ui/testids";
 
 /** The address the test contract names, spelled once so a journey never writes a path twice. */
 export const S_AUDIT = Object.freeze({
@@ -19,37 +20,37 @@ export class SAuditPage {
   /* --- the explorer --- */
 
   get acts(): Locator {
-    return this.page.getByTestId("audit-acts");
+    return this.page.getByTestId(TESTIDS.audit.acts);
   }
 
   get rows(): Locator {
-    return this.page.getByTestId("audit-act-row");
+    return this.page.getByTestId(TESTIDS.audit.actRow);
   }
 
   get empty(): Locator {
-    return this.page.getByTestId("audit-acts-empty");
+    return this.page.getByTestId(TESTIDS.audit.actsEmpty);
   }
 
   get filterType(): Locator {
-    return this.page.getByTestId("audit-filter-type");
+    return this.page.getByTestId(TESTIDS.audit.filterType);
   }
 
   get filterActor(): Locator {
-    return this.page.getByTestId("audit-filter-actor");
+    return this.page.getByTestId(TESTIDS.audit.filterActor);
   }
 
   get filterSubject(): Locator {
-    return this.page.getByTestId("audit-filter-subject");
+    return this.page.getByTestId(TESTIDS.audit.filterSubject);
   }
 
   /* --- the two panels, each wearing the posture its live probe answered --- */
 
   get modelLedger(): Locator {
-    return this.page.getByTestId("audit-panel-model-ledger");
+    return this.page.getByTestId(TESTIDS.audit.panelModelLedger);
   }
 
   get jobs(): Locator {
-    return this.page.getByTestId("audit-panel-jobs");
+    return this.page.getByTestId(TESTIDS.audit.panelJobs);
   }
 
   /**
@@ -58,6 +59,6 @@ export class SAuditPage {
    * the occurred-at column, which is the one value of a row that moves with the calendar.
    */
   masks(): Locator[] {
-    return [this.page.getByTestId("shell-breadcrumb"), this.page.getByTestId("shell-user"), this.page.locator(".cx-audit-act-when")];
+    return [this.page.getByTestId(TESTIDS.shell.breadcrumb), this.page.getByTestId(TESTIDS.shell.user), this.page.locator(".cx-audit-act-when")];
   }
 }

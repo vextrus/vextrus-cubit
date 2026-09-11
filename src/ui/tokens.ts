@@ -283,6 +283,15 @@ const semanticAlias: Group = {
     invariant("--accent-active", "var(--beam-700)"),
     invariant("--accent-subtle", "var(--beam-100)"),
     invariant("--accent-muted", "var(--beam-300)"),
+    // The beam fill a control paints INK on, as against the beam mark a control merely draws with.
+    // They have to be two names, because in dark they cannot be one value: beam-500 under
+    // `--ink-inverse` measures 3.94:1, below R-UI-012's 4.5 floor for normal text, and no ink
+    // rescues it — the darkest possible ink on that fill reaches 4.27. beam-600 measures 6.04 with
+    // the ink already in use. Nothing in R-UI-001 is renamed or revalued: `--accent` still paints
+    // every bar, dot and handle it painted (those carry no text and clear the 3:1 UI floor at
+    // 3.94), and a filled control that carries a LABEL reads this alias instead. The light theme
+    // keeps beam-500, which measures 6.04 there, so no light baseline moves.
+    ["--accent-fill", "var(--beam-500)", "var(--beam-600)"],
     invariant("--act", "var(--act-500)"),
     // state
     invariant("--state-success", "var(--success)"),

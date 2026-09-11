@@ -29,6 +29,7 @@ import {
   affirmedView,
   cell,
   cells,
+  choose,
   copy,
   doorsOver,
   fillIn,
@@ -165,7 +166,7 @@ describe("AC-2: two picks, an entered distance and a unit are one observation ro
     const points = taken.map((mark) => keyPointOf(mark));
 
     await fillIn(cell(mount, TESTID.distance), OBSERVED_METRES);
-    await fillIn(cell(mount, TESTID.unit), OBSERVED_UNIT);
+    await choose(mount, TESTID.unit, OBSERVED_UNIT);
     await press(cell(mount, TESTID.observe));
 
     const rows = await waitFor(() => {

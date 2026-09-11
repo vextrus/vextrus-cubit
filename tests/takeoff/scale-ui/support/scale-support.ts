@@ -571,6 +571,20 @@ export async function fillIn(field: HTMLElement, value: string): Promise<void> {
   });
 }
 
+/**
+ * A choice taken from one of the screen's Select controls, as a person takes it: the trigger is
+ * pressed and the option is pressed. Since U1 the unit is the shipped `Select` rather than the
+ * platform's own control (Design Direction 00 §1), so there is no `change` event to fire at it —
+ * there is a listbox to open and an option to press, which is what this does.
+ */
+export async function choose(mount: ScaleMount, testid: string, value: string): Promise<void> {
+  const trigger = cell(mount, testid);
+  if (trigger.getAttribute("aria-expanded") !== "true") await press(trigger);
+  const option = mount.screen.querySelector<HTMLElement>(`[data-testid="${testid}-listbox"] [data-value="${value}"]`);
+  expect(option, `\`${testid}\` offers the choice ${value}`).not.toBeNull();
+  await press(option as HTMLElement);
+}
+
 /** The pointer moved onto a world point of the mounted sheet. */
 export async function hoverWorld(mount: ScaleMount, world: Point): Promise<void> {
   const at = mount.pxOf(world);

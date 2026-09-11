@@ -17,7 +17,10 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  height: var(--space-8);
+  /* §4.2: one control height for Button, Input, Select, Combobox and chips, switched once at the
+     root — 28 in compact, 32 in comfortable. A control that spelled 32 here would stand a pixel
+     taller than the Select beside it in every filter bar. */
+  height: var(--control-h);
   padding-inline: var(--space-3);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-4);
@@ -147,7 +150,7 @@
 }
 
 .cx-input {
-  height: var(--space-8);
+  height: var(--control-h);
   padding-inline: var(--space-3);
 }
 
@@ -201,7 +204,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: var(--space-6);
+  height: var(--control-h);
   padding-inline: var(--space-3);
   border: 1px solid var(--line);
   border-radius: var(--radius-12);
@@ -399,4 +402,665 @@ button.cx-chip:hover:not(:disabled) {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ================================================================== v22 U1 · the CAD controls
+ * Design Direction 00 §1 ("Controls 28 px in compact … no native select element"), §4.2 (density
+ * and layout tokens, switched once at the root — no `[data-density]` selector is authored here),
+ * §5 (numbers: mono, tabular, right-aligned, lakh/crore).
+ *
+ * Every height below is `--control-h`, every icon `--icon-*`, every cell pad `--cell-px`: the
+ * density switch is a root attribute the shell already carries, and a component that spelled 28px
+ * would not follow it.
+ */
+
+/* ------------------------------------------------------------------ Select · Combobox */
+
+.cx-select,
+.cx-combobox {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.cx-select-trigger,
+.cx-combobox-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: var(--control-h);
+  padding-inline: var(--cell-px);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-4);
+  background-color: var(--surface-app);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  font-weight: var(--weight-body);
+  line-height: var(--leading-ui);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-hover) var(--ease),
+    border-color var(--motion-hover) var(--ease);
+}
+
+.cx-select-trigger:hover:not(:disabled),
+.cx-combobox-trigger:hover:not(:disabled) {
+  border-color: var(--line-heavy);
+}
+
+.cx-select-trigger:disabled,
+.cx-combobox-trigger:disabled {
+  background-color: var(--surface-sunken);
+  border-color: var(--line);
+  color: var(--ink-muted);
+  cursor: not-allowed;
+}
+
+/* The value takes the room and gives it back: a control that grows with its content moves the bar
+   it stands in, so the words ellipsise instead (§5 item 2's rule, applied to a control). */
+.cx-select-value,
+.cx-combobox-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: start;
+}
+
+.cx-select-trigger[data-placeholder="true"] .cx-select-value {
+  color: var(--ink-muted);
+}
+
+.cx-select-caret,
+.cx-combobox-caret {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+/* The list: an overlay, so it may use the overlay surface and the overlay layer — and only there
+   (§1, "glass is a z-overlay privilege"). */
+.cx-listbox {
+  position: absolute;
+  inset-inline-start: 0;
+  top: calc(var(--control-h) + var(--space-1));
+  z-index: var(--z-overlay);
+  min-width: 100%;
+  max-height: calc(var(--row-h) * 9);
+  margin: 0;
+  padding: var(--space-1);
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-4);
+  background-color: var(--surface-overlay);
+  box-shadow: var(--shadow-2);
+}
+
+.cx-listbox-option {
+  display: flex;
+  align-items: center;
+  height: var(--row-h);
+  padding-inline: var(--cell-px);
+  border-radius: var(--radius-4);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--leading-ui);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* The cursor inside the list is not DOM focus — it travels as `aria-activedescendant` — so it is
+   drawn here rather than by the reticle, which belongs to the control that actually holds focus. */
+.cx-listbox-option[data-active="true"] {
+  background-color: var(--surface-hover);
+}
+
+.cx-listbox-option[aria-selected="true"] {
+  background-color: var(--surface-selected);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-listbox-option[aria-disabled="true"] {
+  color: var(--ink-disabled);
+  cursor: not-allowed;
+}
+
+/* The filter chip of §3.2: `Class · All ▾`, the whole filter in one 28 px control. */
+.cx-combobox[data-variant="chip"] .cx-combobox-chip {
+  height: var(--control-h);
+  max-width: 100%;
+}
+
+.cx-combobox-label {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.cx-combobox-separator {
+  flex: none;
+  color: var(--ink-disabled);
+}
+
+.cx-combobox-chip[data-chosen="true"] .cx-combobox-value {
+  color: var(--ink);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-combobox-popover {
+  position: absolute;
+  inset-inline-start: 0;
+  top: calc(var(--control-h) + var(--space-1));
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 100%;
+  padding: var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-4);
+  background-color: var(--surface-overlay);
+  box-shadow: var(--shadow-2);
+}
+
+.cx-combobox-popover .cx-listbox {
+  position: static;
+  min-width: 0;
+  border: none;
+  box-shadow: none;
+  background: none;
+  padding: 0;
+}
+
+.cx-combobox-filter {
+  height: var(--control-h);
+  min-width: calc(var(--drawer-w-min) - var(--space-8));
+}
+
+.cx-combobox-none {
+  padding: var(--space-1) var(--cell-px);
+  margin: 0;
+  color: var(--ink-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-caption);
+  line-height: var(--leading-ui);
+}
+
+/* ------------------------------------------------------------------ NumberInput (§5 item 5) */
+
+.cx-number-input {
+  height: var(--control-h);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  text-align: end;
+}
+
+/* No spinner chrome: the arrows are the keyboard's, and a 28 px control has no room for buttons
+   the platform draws at its own size. */
+.cx-number-input::-webkit-outer-spin-button,
+.cx-number-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ Checkbox · Switch */
+
+.cx-checkbox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h);
+}
+
+/* Invisible IN PLACE, never removed: the input is still the control, still in the tab order, and
+   still what the reticle is drawn around (R-UI-012). */
+.cx-checkbox-input {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 0;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  margin: 0;
+  transform: translateY(-50%);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cx-checkbox-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-4);
+  background-color: var(--surface-app);
+  color: var(--ink-inverse);
+  transition:
+    background-color var(--motion-hover) var(--ease),
+    border-color var(--motion-hover) var(--ease);
+}
+
+.cx-checkbox[data-checked="true"] .cx-checkbox-box {
+  background-color: var(--accent-fill);
+  border-color: var(--accent-fill);
+}
+
+.cx-checkbox-input:disabled ~ .cx-checkbox-box {
+  background-color: var(--surface-sunken);
+  border-color: var(--line);
+}
+
+.cx-checkbox-label,
+.cx-switch-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--leading-ui);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.cx-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h);
+}
+
+.cx-switch-track {
+  position: relative;
+  flex: none;
+  width: calc(var(--icon-lg) * 2);
+  height: var(--icon-lg);
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-12);
+  background-color: var(--surface-sunken);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-hover) var(--ease),
+    border-color var(--motion-hover) var(--ease);
+}
+
+.cx-switch[data-checked="true"] .cx-switch-track {
+  background-color: var(--accent-fill);
+  border-color: var(--accent-fill);
+}
+
+.cx-switch-thumb {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 2px;
+  width: calc(var(--icon-lg) - 6px);
+  height: calc(var(--icon-lg) - 6px);
+  border-radius: var(--radius-8);
+  background-color: var(--surface-app);
+  transform: translateY(-50%);
+  transition: inset-inline-start var(--motion-state) var(--ease);
+}
+
+.cx-switch[data-checked="true"] .cx-switch-thumb {
+  inset-inline-start: calc(100% - var(--icon-lg) + 4px);
+  background-color: var(--ink-inverse);
+}
+
+.cx-switch-track:disabled {
+  cursor: not-allowed;
+  background-color: var(--surface-sunken);
+  border-color: var(--line);
+}
+
+/* ------------------------------------------------------------------ IconButton (§1, §3.1) */
+
+.cx-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-4);
+  background: none;
+  color: var(--ink-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-hover) var(--ease),
+    color var(--motion-hover) var(--ease);
+}
+
+.cx-icon-btn:hover:not(:disabled) {
+  background-color: var(--surface-hover);
+  color: var(--ink);
+}
+
+.cx-icon-btn:disabled {
+  color: var(--ink-disabled);
+  cursor: not-allowed;
+}
+
+/* A tool with a mode wears a 2 px beam underline, never a filled pill (§1). */
+.cx-icon-btn[data-pressed="true"] {
+  color: var(--ink-link);
+  box-shadow: inset 0 -2px 0 0 var(--line-accent);
+}
+
+.cx-icon-btn-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ------------------------------------------------------------------ Separator */
+
+.cx-separator {
+  flex: none;
+  background-color: var(--line);
+}
+
+.cx-separator[data-orientation="horizontal"] {
+  width: 100%;
+  height: 1px;
+}
+
+.cx-separator[data-orientation="vertical"] {
+  width: 1px;
+  height: var(--icon-lg);
+  margin-inline: var(--space-1);
+}
+
+/* ------------------------------------------------------------------ Breadcrumb (R-UI-084) */
+
+.cx-breadcrumb {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cx-breadcrumb-list {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.cx-breadcrumb-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.cx-breadcrumb-separator {
+  flex: none;
+  color: var(--ink-disabled);
+}
+
+.cx-breadcrumb-label {
+  display: inline-block;
+  max-width: calc(var(--drawer-w) - var(--space-8));
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  font-family: var(--font-ui);
+  font-size: var(--text-caption);
+  line-height: var(--leading-ui);
+  color: var(--ink-secondary);
+  text-decoration: none;
+}
+
+.cx-breadcrumb-link:hover {
+  color: var(--ink-link);
+  text-decoration: underline;
+}
+
+.cx-breadcrumb-label[aria-current="page"] {
+  color: var(--ink);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-breadcrumb-disclosure {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-4);
+  background: none;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.cx-breadcrumb-disclosure:hover {
+  background-color: var(--surface-hover);
+  color: var(--ink);
+}
+
+.cx-breadcrumb-menu {
+  position: absolute;
+  inset-inline-start: 0;
+  top: calc(100% + var(--space-1));
+  z-index: var(--z-overlay);
+  min-width: var(--drawer-w-min);
+  margin: 0;
+  padding: var(--space-1);
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-4);
+  background-color: var(--surface-overlay);
+  box-shadow: var(--shadow-2);
+}
+
+.cx-breadcrumb-menu-link {
+  display: flex;
+  align-items: center;
+  height: var(--row-h);
+  padding-inline: var(--cell-px);
+  border-radius: var(--radius-4);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--leading-ui);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cx-breadcrumb-menu-link:hover {
+  background-color: var(--surface-hover);
+}
+
+/* ------------------------------------------------------------------ EmptyState · ErrorState */
+
+.cx-empty-state,
+.cx-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--gap-section);
+  text-align: center;
+}
+
+.cx-empty-state-glyph {
+  display: inline-flex;
+  color: var(--ink-disabled);
+}
+
+.cx-error-state-glyph {
+  display: inline-flex;
+  color: var(--state-danger);
+}
+
+.cx-empty-state-heading,
+.cx-error-state-heading {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-14);
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-ui);
+  color: var(--ink);
+}
+
+.cx-empty-state-body,
+.cx-error-state-body {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-caption);
+  line-height: var(--leading-ui);
+  color: var(--ink-muted);
+}
+
+.cx-empty-state-action,
+.cx-error-state-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cx-error-state-report {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.cx-error-state-report-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-caption);
+  line-height: var(--leading-ui);
+  color: var(--ink-muted);
+}
+
+/* ------------------------------------------------------------------ IdChip (R-UI-082) */
+
+.cx-id-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.cx-id-chip-value {
+  display: inline-flex;
+  align-items: center;
+  height: var(--space-5);
+  padding-inline: var(--space-1);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: none;
+  color: var(--ink-code);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* The copy button is an IconButton at the chip's own height, not the toolbar's. */
+.cx-id-chip-copy {
+  width: var(--space-5);
+  height: var(--space-5);
+}
+
+.cx-id-chip[data-copied="true"] .cx-id-chip-copy {
+  color: var(--state-success);
+}
+
+/* ------------------------------------------------------------------ EnumLabel */
+
+.cx-enum-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--leading-ui);
+  color: var(--ink);
+}
+
+/* The raw value is in the DOM and out of sight: it appears where a surface opens its technical
+   disclosure, and nowhere else (§3.2's inspector "Technical" block). */
+.cx-enum-raw {
+  display: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--ink-muted);
+}
+
+[data-technical-disclosure="open"] .cx-enum-raw {
+  display: inline;
+  margin-inline-start: var(--space-1);
+}
+
+/* ------------------------------------------------------------------ Stat · numbers (§5) */
+
+.cx-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+  height: var(--stat-h);
+  padding-inline: var(--cell-px);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background-color: var(--surface-raised);
+}
+
+.cx-stat-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-20);
+  font-weight: var(--weight-body-medium);
+  line-height: var(--leading-ui);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums slashed-zero;
+  white-space: nowrap;
+}
+
+.cx-stat-label {
+  font-family: var(--font-ui);
+  font-size: var(--text-12);
+  line-height: var(--leading-ui);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.cx-quantity,
+.cx-money {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-body);
+  line-height: var(--leading-ui);
+  color: var(--ink-code);
+  font-variant-numeric: tabular-nums slashed-zero;
+  white-space: nowrap;
+}
+
+.cx-quantity-figure,
+.cx-money-figure {
+  text-align: end;
+}
+
+/* The traced ৳ sits on the figure's own baseline weight, not the icon set's default ink. */
+.cx-money-currency {
+  flex: none;
+  color: var(--ink-secondary);
+}
+
+.cx-date,
+.cx-relative-time {
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--leading-ui);
+  color: var(--ink-secondary);
+  white-space: nowrap;
 }

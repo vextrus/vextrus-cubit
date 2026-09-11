@@ -183,7 +183,10 @@ describe("AC-4: a pinned view renders identity, digest, lineage and the paramete
       if (unit !== undefined) {
         expect(rendered, `the row for ${key} shows the unit the edition carries, "${unit}" (Decision I-27: the screen invents no unit)`).toContain(unit);
       }
-      expect(row.querySelector('th[scope="row"]'), `the row for ${key} names the parameter in a row header (Decision §1)`).toBeTruthy();
+      // The parameter table is the shipped DataTable now (Design Direction 00 §5), so the row is
+      // named by the aria grid's own row header — `role="rowheader"` on the frozen key column,
+      // which is what `th[scope="row"]` was in the raw markup this screen used to write.
+      expect(row.querySelector('[role="rowheader"]'), `the row for ${key} names the parameter in a row header (Decision §1)`).toBeTruthy();
     }
 
     expect(all(container, TESTID_UNPINNED).length, "a pinned view shows no absence notice").toBe(0);

@@ -6,25 +6,27 @@
 // `tests/e2e/viewer/s-viewer.page.ts`'s, the picks are `s-viewer-snap.page.ts`'s and the overlay is
 // `s-viewer-partition.page.ts`'s. A journey that reads several opens several.
 import { expect, type Locator, type Page } from "@playwright/test";
+import { TESTIDS } from "../../../src/ui/testids";
+import { everyRow } from "../support/retrying-read";
 
 /** The test ids this region publishes (Decision §7, C-05). */
 export const S_SCALE = Object.freeze({
-  tabs: "viewer-inspector-tabs",
-  tabSelection: "viewer-inspector-tab-selection",
-  tabScale: "viewer-inspector-tab-scale",
-  inspector: "viewer-inspector",
-  panel: "viewer-scale",
-  view: "viewer-scale-view",
-  proposal: "viewer-scale-proposal",
-  member: "viewer-scale-member",
-  affirm: "viewer-scale-affirm",
-  distance: "viewer-scale-distance",
-  unit: "viewer-scale-unit",
-  observe: "viewer-scale-observe",
-  observation: "viewer-scale-observation",
-  checkVerification: "viewer-scale-check-verification",
-  answer: "viewer-scale-answer",
-  retry: "viewer-scale-retry",
+  tabs: TESTIDS.viewer.inspectorTabs,
+  tabSelection: TESTIDS.viewer.inspectorTabSelection,
+  tabScale: TESTIDS.viewer.inspectorTabScale,
+  inspector: TESTIDS.viewer.inspector,
+  panel: TESTIDS.viewer.scale,
+  view: TESTIDS.viewer.scaleView,
+  proposal: TESTIDS.viewer.scaleProposal,
+  member: TESTIDS.viewer.scaleMember,
+  affirm: TESTIDS.viewer.scaleAffirm,
+  distance: TESTIDS.viewer.scaleDistance,
+  unit: TESTIDS.viewer.scaleUnit,
+  observe: TESTIDS.viewer.scaleObserve,
+  observation: TESTIDS.viewer.scaleObservation,
+  checkVerification: TESTIDS.viewer.scaleCheckVerification,
+  answer: TESTIDS.viewer.scaleAnswer,
+  retry: TESTIDS.viewer.scaleRetry,
 });
 
 /** One drawn record of the sheet, as the layer feed serves one. */
@@ -85,27 +87,27 @@ export class SScalePage {
   }
 
   get dialog(): Locator {
-    return this.page.getByTestId("consequence-dialog");
+    return this.page.getByTestId(TESTIDS.consequence.dialog);
   }
 
   get subjectRows(): Locator {
-    return this.page.getByTestId("consequence-subject-row");
+    return this.page.getByTestId(TESTIDS.consequence.subjectRow);
   }
 
   get digestLine(): Locator {
-    return this.page.getByTestId("consequence-digest-line");
+    return this.page.getByTestId(TESTIDS.consequence.digestLine);
   }
 
   get confirm(): Locator {
-    return this.page.getByTestId("consequence-confirm");
+    return this.page.getByTestId(TESTIDS.consequence.confirm);
   }
 
   get effectLines(): Locator {
-    return this.page.getByTestId("consequence-effect-lines");
+    return this.page.getByTestId(TESTIDS.consequence.effectLines);
   }
 
   get effectSignatures(): Locator {
-    return this.page.getByTestId("consequence-effect-signatures");
+    return this.page.getByTestId(TESTIDS.consequence.effectSignatures);
   }
 
   /** One view's row, by the key it names. */
@@ -141,13 +143,13 @@ export class SScalePage {
 
   /** Every view key the panel answered for, in the order the rows stand in. */
   async viewKeys(): Promise<string[]> {
-    return Promise.all((await this.rows.all()).map((row) => this.hook(row, "data-view-key")));
+    return Promise.all((await everyRow(this.rows, "the scale panel's view rows")).map((row) => this.hook(row, "data-view-key")));
   }
 
   /** The rows standing at a declared absence — a view no act names (L-MEA-05). */
   async absentRows(): Promise<string[]> {
     const keys: string[] = [];
-    for (const row of await this.rows.all()) {
+    for (const row of await everyRow(this.rows, "the scale panel's view rows")) {
       const state = await this.hook(row, "data-state");
       if (state !== "affirmed") keys.push(await this.hook(row, "data-view-key"));
     }

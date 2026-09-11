@@ -23,6 +23,8 @@ import { checkpoint } from "./support/checkpoint";
 import { SViewerPartitionPage } from "./pages/s-viewer-partition.page";
 import { S_VIEWER, SViewerPage } from "./viewer/s-viewer.page";
 import { UNTYPED, confirmationsOf, stagePartitionedSheet, storedDeferrals } from "./viewer/viewer-partition-stage";
+import { TESTIDS, testIdSelector } from "../../src/ui/testids";
+import { everyRow, steadyCount, steadyText } from "./support/retrying-read";
 
 /** The stored reason a caption no grammar rule reads leaves on its view (L-CAD-06, AC-3). */
 const CAPTION_UNCLASSIFIABLE = "CAPTION_UNCLASSIFIABLE";
@@ -127,12 +129,12 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
 
     await expect(partition.overlayCanvas, "the overlay is out of the screen reader's way (I-112)").toHaveAttribute("aria-hidden", "true");
     expect(await partition.computed(partition.overlayCanvas, "pointer-events"), "and out of the pointer's reach — it paints, it never picks").toBe("none");
-    const onSheet = await page.locator('[data-testid="viewer-partition-view"][data-on-sheet="true"]').count();
+    const onSheet = await steadyCount(page.locator(`${testIdSelector(TESTIDS.viewer.partitionView)}[data-on-sheet="true"]`), "the views standing on this sheet");
     expect(await partition.count("data-outlines"), "one outline per view standing on this sheet").toBe(onSheet);
     expect(await partition.count("data-axes"), "one axis drawn per stored axis").toBe(staged.axes.length);
     // A hatch is a fill of an OUTLINE, so what is counted is the untyped views that stand on this
     // sheet — a view whose members are elsewhere paints nothing to hatch (Decision §2's partial).
-    const hatchable = await page.locator('[data-testid="viewer-partition-view"][data-untyped="true"][data-on-sheet="true"]').count();
+    const hatchable = await steadyCount(page.locator(`${testIdSelector(TESTIDS.viewer.partitionView)}[data-untyped="true"][data-on-sheet="true"]`), "the untyped views standing on this sheet");
     expect(await partition.count("data-hatched"), "and the untyped views standing on this sheet are the hatched ones").toBe(hatchable);
     const bubbles = await partition.count("data-bubbles");
     expect(bubbles, "the bubbles drawn are the axes whose ring the store carries").toBeGreaterThan(0);
@@ -205,10 +207,10 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
     await expect(partition.dialog, "over the act it is for").toHaveAttribute("data-act-type", CONFIRM_VIEW_TYPE);
     await expect(partition.subjectRows, "with one row per member of the group the machine named").toHaveCount(members.length);
     const subjects: string[] = [];
-    for (const row of await partition.subjectRows.all()) subjects.push((await row.getAttribute("data-subject")) ?? "");
+    for (const row of await everyRow(partition.subjectRows, "the Consequence subject rows")) subjects.push((await row.getAttribute("data-subject")) ?? "");
     expect(subjects.sort(), "and those rows are exactly that group's members — nobody widened them").toEqual(members);
     await expect(partition.digestLine, "the digest the server computed is shown, because the confirm carries it").not.toBeEmpty();
-    const digest = ((await partition.digestLine.textContent()) ?? "").trim();
+    const digest = await steadyText(partition.digestLine, "the Consequence digest line");
     expect(digest, "and it is a digest, not an empty line").not.toBe("");
     await expect(partition.confirm, "the act variant carries that very digest (L-ACT-02)").toHaveAttribute("data-digest", digest);
     await checkpoint(page, testInfo, "j-021/partition-confirm-open");

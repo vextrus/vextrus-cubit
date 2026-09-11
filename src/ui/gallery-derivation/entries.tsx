@@ -26,16 +26,39 @@ import { SAMPLE_REFUSAL_BY_SEVERITY, sampleRefusal } from "./sample-refusals";
 import {
   Badge,
   BasisChip,
+  Breadcrumb,
   Button,
+  Checkbox,
   Chip,
+  ClockProvider,
+  Combobox,
   CoverageChip,
+  DateText,
+  EmptyState,
+  EnumLabel,
+  ErrorState,
+  FigureProvider,
+  IconButton,
+  IdChip,
   Input,
   Kbd,
+  MoneyText,
+  NumberInput,
+  QuantityText,
+  RelativeTime,
+  Select,
+  Separator,
   Skeleton,
+  Stat,
+  Switch,
   Textarea,
   Tooltip,
   UnitBadge,
+  type BreadcrumbCrumb,
+  type FigureFormat,
+  type SelectOption,
 } from "../primitives/core";
+import { IconFit, IconLayers, IconOrtho, IconZoomIn } from "../icons";
 import {
   DataTable,
   ResizableHandle,
@@ -80,9 +103,11 @@ import {
   SHELL_AREAS,
   ShellDenied,
   ShellEmptyState,
-  ShellInspector,
   ShellRail,
+  ShellToolbar,
+  ShellToolbarGroup,
   ShellTopBar,
+  StatusBar,
   type ShellWorkspace,
 } from "../shell";
 import { fill, strings } from "../strings";
@@ -172,6 +197,185 @@ const copy = {
     one: "1 sheet",
   },
 } as const;
+
+/* ------------------------------------------------------------------ the U1 controls (§9.1 item 4)
+ *
+ * The sample copy for the controls Design Direction 00 §9.1 item 4 adds. Each is shown in its
+ * RICHEST state — the state that carries the most of what the component decides — because a gallery
+ * of empty controls proves only that they mount (R-UI-011).
+ */
+
+/** The register's own filter roster (§3.2's filter bar), and the units a scale observation takes. */
+const u1 = {
+  discipline: {
+    label: "Class",
+    options: [
+      { value: "", label: "All" },
+      { value: "STRUCTURAL", label: "Structural" },
+      { value: "ARCHITECTURAL", label: "Architectural" },
+      { value: "MEP", label: "MEP" },
+      { value: "CIVIL", label: "Civil", disabled: true },
+    ] as SelectOption[],
+    chosen: "STRUCTURAL",
+  },
+  unit: { label: "Unit", options: [{ value: "m", label: "m" }, { value: "mm", label: "mm" }, { value: "ft", label: "ft" }] as SelectOption[] },
+  distance: "12.340",
+  quantity: { value: "1620.505", unit: "m³" },
+  money: "10000000.00",
+  stat: { label: "Estimated" },
+  id: "a3f9c2b1d0e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0",
+  fault: "fault-9c21b0d4e6",
+  enum: "ASSIGN_PARTICIPANT_ROLE",
+  refused: "Show refused lines",
+  snap: "Snap",
+  tools: { fit: "Fit to sheet", zoom: "Zoom in", ortho: "Ortho", layers: "Layers" },
+  // The readout's cells with something in them (Direction §3.1): a sheet name, a scale, coordinates
+  // in drawing units, the snap mode, what is selected and how many layers are drawn.
+  status: { sheet: "S-101", scale: "1:100", coords: "x 12 340.0  y 2 250.0 dwg", snap: "end", selection: "1 sel", layers: "4/4" },
+  keys: { fit: "F", zoom: "+" },
+  empty: { heading: "No objects registered", action: "Measure this campaign" },
+  error: { heading: "The register could not be read", body: "The last read did not finish." },
+  crumbs: [
+    { id: "workspace", label: "Trace Survey", href: "/design" },
+    {
+      id: "project",
+      label: "Riverside Tower",
+      href: "/design",
+      menu: [
+        { id: "sattva", label: "Sattva Tower", href: "/design" },
+        { id: "foundry", label: "Foundry", href: "/design" },
+      ],
+    },
+    { id: "area", label: "Takeoff", href: "/design" },
+    { id: "page", label: "Register" },
+  ] as BreadcrumbCrumb[],
+} as const;
+
+/**
+ * The frozen pair the time primitives are shown against (§9.1 item 7): a gallery that read the wall
+ * clock would photograph differently every capture, which is the exact fault those two are built to
+ * avoid — so the sample states its own present.
+ */
+const U1_AT = new Date("2026-09-10T04:05:00.000Z");
+const U1_NOW = new Date("2026-09-10T06:05:00.000Z");
+
+/**
+ * The document's figure conventions, as this layer may hold them: readings, not a formatter. The
+ * seam itself lives in `src/core/format.ts` and this layer holds no value import of it (ARCH-01) —
+ * the same reason `SAMPLE_JOBS_FORMAT` above answers with sample copy rather than calling core. The
+ * strings are what SEAM-FORMAT answers for exactly these samples, quoted.
+ */
+const SAMPLE_FIGURES: FigureFormat = {
+  figure: (value) => (value === u1.quantity.value ? "1,620.505" : value),
+  money: (amount) => (amount === u1.money ? "1,00,00,000.00" : amount),
+  date: () => "10 Sep 2026",
+};
+
+/** Every figure sample stands inside the conventions, exactly as a screen stands inside the frame. */
+const figured = (node: ReactNode): ReactNode => <FigureProvider format={SAMPLE_FIGURES}>{node}</FigureProvider>;
+
+const selectStates: readonly GalleryState[] = [
+  { name: "chosen", render: () => <Select options={u1.discipline.options} value={u1.discipline.chosen} onChange={noop} aria-label={u1.discipline.label} /> },
+  { name: "placeholder", render: () => <Select options={u1.discipline.options} value="" onChange={noop} aria-label={u1.discipline.label} placeholder={u1.discipline.options[0]?.label} /> },
+  { name: "disabled", render: () => <Select options={u1.discipline.options} value={u1.discipline.chosen} onChange={noop} aria-label={u1.discipline.label} disabled /> },
+];
+
+const comboboxStates: readonly GalleryState[] = [
+  { name: "chip", render: () => <Combobox variant="chip" options={u1.discipline.options} value={u1.discipline.chosen} onChange={noop} label={u1.discipline.label} /> },
+  { name: "chip-all", render: () => <Combobox variant="chip" options={u1.discipline.options} value="" onChange={noop} label={u1.discipline.label} /> },
+  { name: "field", render: () => <Combobox options={u1.discipline.options} value={u1.discipline.chosen} onChange={noop} label={u1.discipline.label} /> },
+];
+
+const numberInputStates: readonly GalleryState[] = [
+  { name: "rest", render: () => <NumberInput value={u1.distance} onChange={noop} step={0.001} min={0} aria-label={u1.quantity.unit} /> },
+  { name: "empty", render: () => <NumberInput value="" onChange={noop} aria-label={u1.quantity.unit} /> },
+  { name: "disabled", render: () => <NumberInput value={u1.distance} onChange={noop} aria-label={u1.quantity.unit} disabled /> },
+];
+
+const checkboxStates: readonly GalleryState[] = [
+  { name: "checked", render: () => <Checkbox checked onChange={noop} label={u1.refused} /> },
+  { name: "unchecked", render: () => <Checkbox checked={false} onChange={noop} label={u1.refused} /> },
+  { name: "disabled", render: () => <Checkbox checked onChange={noop} label={u1.refused} disabled /> },
+];
+
+const switchStates: readonly GalleryState[] = [
+  { name: "on", render: () => <Switch checked onChange={noop} label={u1.snap} /> },
+  { name: "off", render: () => <Switch checked={false} onChange={noop} label={u1.snap} /> },
+  { name: "disabled", render: () => <Switch checked={false} onChange={noop} label={u1.snap} disabled /> },
+];
+
+const iconButtonStates: readonly GalleryState[] = [
+  { name: "rest", render: () => <IconButton icon={<IconFit />} label={u1.tools.fit} kbd={u1.keys.fit} /> },
+  { name: "pressed", render: () => <IconButton icon={<IconOrtho />} label={u1.tools.ortho} pressed /> },
+  { name: "group", render: () => (
+    <>
+      <IconButton icon={<IconZoomIn />} label={u1.tools.zoom} kbd={u1.keys.zoom} />
+      <Separator orientation="vertical" />
+      <IconButton icon={<IconLayers />} label={u1.tools.layers} />
+    </>
+  ) },
+  { name: "disabled", render: () => <IconButton icon={<IconFit />} label={u1.tools.fit} disabled /> },
+];
+
+const separatorStates: readonly GalleryState[] = [
+  { name: "horizontal", render: () => <Separator /> },
+  { name: "vertical", render: () => <Separator orientation="vertical" /> },
+];
+
+const emptyStateStates: readonly GalleryState[] = [
+  { name: "offered", render: () => (
+    <EmptyState heading={u1.empty.heading}>
+      <Button variant="secondary">{u1.empty.action}</Button>
+    </EmptyState>
+  ) },
+  { name: "silent", render: () => <EmptyState heading={u1.empty.heading} /> },
+];
+
+const errorStateStates: readonly GalleryState[] = [
+  { name: "reported", render: () => <ErrorState heading={u1.error.heading} body={u1.error.body} reportId={u1.fault} onRetry={noop} /> },
+  { name: "bare", render: () => <ErrorState heading={u1.error.heading} /> },
+];
+
+const idChipStates: readonly GalleryState[] = [
+  { name: "rest", render: () => <IdChip value={u1.id} /> },
+];
+
+const enumLabelStates: readonly GalleryState[] = [
+  { name: "rest", render: () => <EnumLabel value={u1.enum} /> },
+  { name: "technical", render: () => (
+    <span data-technical-disclosure="open">
+      <EnumLabel value={u1.enum} />
+    </span>
+  ) },
+];
+
+const statStates: readonly GalleryState[] = [
+  { name: "money", render: () => figured(<Stat value={<MoneyText amount={u1.money} />} label={u1.stat.label} />) },
+  { name: "quantity", render: () => figured(<Stat value={<QuantityText value={u1.quantity.value} unit={u1.quantity.unit} />} label={u1.discipline.label} />) },
+];
+
+const breadcrumbStates: readonly GalleryState[] = [
+  { name: "trail", render: () => <Breadcrumb crumbs={u1.crumbs} /> },
+];
+
+const relativeTimeStates: readonly GalleryState[] = [
+  { name: "recent", render: () => figured(<RelativeTime at={U1_AT} now={U1_NOW} />) },
+  { name: "dated", render: () => figured(<RelativeTime at={U1_AT} />) },
+];
+
+/** A register renders no DOM of its own, so the clock's evidence is what reads it (Decision I-16). */
+const clockStates: readonly GalleryState[] = [
+  { name: "composed", render: () => figured(
+    <ClockProvider now={U1_NOW}>
+      <RelativeTime at={U1_AT} />
+    </ClockProvider>,
+  ) },
+];
+
+/** The conventions render no DOM of their own, so their evidence is a figure standing inside them. */
+const figureProviderStates: readonly GalleryState[] = [
+  { name: "composed", render: () => figured(<QuantityText value={u1.quantity.value} unit={u1.quantity.unit} />) },
+];
 
 /** A `ScrollArea` line, as the data Decision spells it: "Sheet 1 of 40" … "Sheet 40 of 40". */
 const SCROLL_LINES = 40;
@@ -462,8 +666,11 @@ const generatedRows = (): SampleRow[] =>
 const rowId = (row: SampleRow): string => row.id;
 
 const tableStates: readonly GalleryState[] = [
-  { name: "comfortable", render: () => <DataTable columns={TABLE_COLUMNS} data={[...TABLE_ROWS]} getRowId={rowId} density="comfortable" /> },
-  { name: "compact", render: () => <DataTable columns={TABLE_COLUMNS} data={[...TABLE_ROWS]} getRowId={rowId} density="compact" /> },
+  // The gallery is the one place two densities stand side by side, which is what the `density`
+  // prop is FOR: it scopes a density REGION, so the root's rules revalue `--row-h` inside it. A
+  // screen never states its own density — it inherits the root's (Design Direction 00 §5 rule 1).
+  { name: "comfortable", render: () => <DataTable tableId="gallery-datatable-comfortable" columns={TABLE_COLUMNS} data={[...TABLE_ROWS]} getRowId={rowId} density="comfortable" /> },
+  { name: "compact", render: () => <DataTable tableId="gallery-datatable-compact" columns={TABLE_COLUMNS} data={[...TABLE_ROWS]} getRowId={rowId} density="compact" /> },
   {
     // Pinning only shows itself where the columns outrun their box, so this sample's box is
     // narrower than the register is wide (Decision I-19): Item holds the leading edge while the
@@ -472,6 +679,7 @@ const tableStates: readonly GalleryState[] = [
     name: "pinned",
     render: () => (
       <DataTable
+        tableId="gallery-datatable-pinned"
         columns={TABLE_COLUMNS}
         data={[...TABLE_ROWS]}
         getRowId={rowId}
@@ -485,7 +693,7 @@ const tableStates: readonly GalleryState[] = [
     // runs past the bottom edge mid-row and scrolls, which is what virtualisation looks like from
     // outside. A window taller than its data would paint exactly the comfortable state again.
     name: "virtualised",
-    render: () => <DataTable columns={TABLE_COLUMNS} data={generatedRows()} getRowId={rowId} className="cx-gallery-table" />,
+    render: () => <DataTable tableId="gallery-datatable-virtualised" columns={TABLE_COLUMNS} data={generatedRows()} getRowId={rowId} className="cx-gallery-table" />,
   },
 ];
 
@@ -643,6 +851,42 @@ const shellRailStates: readonly GalleryState[] = SHELL_AREAS.map((area) => ({
   render: () => <ShellRail workspace={SAMPLE_WORKSPACE} area={area} atAreaHome={true} />,
 }));
 
+/**
+ * The 32 px tool row and the 24 px readout (Direction §1). The tools are the shipped icons, sampled
+ * as two groups so the hairline seam between them is what the gallery pictures; the readout is
+ * sampled twice, because "every cell shows the em dash" is a state of its own (§3.1) and a line of
+ * values is the other.
+ */
+const shellToolSample = (): ReactNode => (
+  <>
+    <IconButton icon={<IconFit />} label={u1.tools.fit} kbd={u1.keys.fit} />
+    <IconButton icon={<IconOrtho />} label={u1.tools.ortho} pressed />
+  </>
+);
+
+const shellToolbarStates: readonly GalleryState[] = [
+  {
+    name: "grouped",
+    render: () => (
+      <ShellToolbar label={strings.shell_toolbar_label}>
+        <ShellToolbarGroup>{shellToolSample()}</ShellToolbarGroup>
+        <ShellToolbarGroup>
+          <IconButton icon={<IconZoomIn />} label={u1.tools.zoom} kbd={u1.keys.zoom} />
+          <IconButton icon={<IconLayers />} label={u1.tools.layers} />
+        </ShellToolbarGroup>
+      </ShellToolbar>
+    ),
+  },
+];
+
+const shellStatusStates: readonly GalleryState[] = [
+  { name: "absent", render: () => <StatusBar /> },
+  {
+    name: "measured",
+    render: () => <StatusBar cells={u1.status} jobs="running" />,
+  },
+];
+
 /* ------------------------------------------------------------------ the job pattern (I-107) */
 
 /**
@@ -737,12 +981,31 @@ export const galleryEntries: GalleryEntries = {
 
   "primitives/core/Badge": { states: [{ name: "rest", render: () => <Badge>{copy.badge}</Badge> }] },
   "primitives/core/BasisChip": { states: basisStates },
+  "primitives/core/Breadcrumb": { states: breadcrumbStates },
   "primitives/core/Button": { states: buttonStates },
+  "primitives/core/Checkbox": { states: checkboxStates },
   "primitives/core/Chip": { states: chipStates },
+  "primitives/core/ClockProvider": { states: clockStates },
+  "primitives/core/Combobox": { states: comboboxStates },
   "primitives/core/CoverageChip": { states: coverageStates },
+  "primitives/core/DateText": { states: [{ name: "rest", render: () => figured(<DateText at={U1_AT} />) }] },
+  "primitives/core/EmptyState": { states: emptyStateStates },
+  "primitives/core/EnumLabel": { states: enumLabelStates },
+  "primitives/core/ErrorState": { states: errorStateStates },
+  "primitives/core/FigureProvider": { states: figureProviderStates },
+  "primitives/core/IconButton": { states: iconButtonStates },
+  "primitives/core/IdChip": { states: idChipStates },
   "primitives/core/Input": { states: inputStates },
   "primitives/core/Kbd": { states: [{ name: "rest", render: () => <Kbd>{copy.key}</Kbd> }] },
+  "primitives/core/MoneyText": { states: [{ name: "rest", render: () => figured(<MoneyText amount={u1.money} />) }] },
+  "primitives/core/NumberInput": { states: numberInputStates },
+  "primitives/core/QuantityText": { states: [{ name: "rest", render: () => figured(<QuantityText value={u1.quantity.value} unit={u1.quantity.unit} />) }] },
+  "primitives/core/RelativeTime": { states: relativeTimeStates },
+  "primitives/core/Select": { states: selectStates },
+  "primitives/core/Separator": { states: separatorStates },
   "primitives/core/Skeleton": { states: [{ name: "rest", render: () => <Skeleton className="cx-gallery-bone" /> }] },
+  "primitives/core/Stat": { states: statStates },
+  "primitives/core/Switch": { states: switchStates },
   "primitives/core/Textarea": { states: textareaStates },
   "primitives/core/Tooltip": {
     states: [
@@ -857,8 +1120,10 @@ export const galleryEntries: GalleryEntries = {
       },
     ],
   },
-  "shell/ShellInspector": { states: [{ name: "empty", render: () => <ShellInspector /> }] },
   "shell/ShellRail": { states: shellRailStates },
+  "shell/ShellToolbar": { states: shellToolbarStates },
+  "shell/ShellToolbarGroup": { states: [{ name: "rest", render: () => <ShellToolbarGroup label={strings.shell_toolbar_label}>{shellToolSample()}</ShellToolbarGroup> }] },
+  "shell/StatusBar": { states: shellStatusStates },
   "shell/ShellTopBar": {
     states: [
       {

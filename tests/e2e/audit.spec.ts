@@ -19,6 +19,7 @@ import { SHomePage } from "./pages/s-home.page";
 import { ShellPage, SHELL } from "./pages/shell.page";
 import { checkpoint } from "./support/checkpoint";
 import { newestMail } from "./support/outbox";
+import { appears } from "./support/retrying-read";
 
 const EMAIL = "j003-audit@cubit.test";
 const PASSWORD = "audit-journey-password";
@@ -65,7 +66,10 @@ test.describe("J-003 — the project's audit surfaces", () => {
     await auth.open(S_AUTH.signUp);
     await auth.signUpWith(EMAIL, PASSWORD, WORKSPACE);
     await expect(auth.notice.or(auth.refusal), "the sign-up door answers — a notice or a registered refusal, never nothing").toBeVisible();
-    if ((await auth.notice.count()) > 0) {
+    // Idempotent enrolment: the door answered one of its two lawful answers (asserted above with a
+    // retrying matcher); which one it was is a fact about this cluster, not a defect, and `appears`
+    // re-reads until it can say which.
+    if (await appears(auth.notice)) {
       const verifyMail = await newestMail(EMAIL, "verify-email");
       await auth.openWithToken(S_AUTH.verify, verifyMail.token);
       await auth.expectNotice();
@@ -84,7 +88,7 @@ test.describe("J-003 — the project's audit surfaces", () => {
 
     /* --- the project this screen is about: created on the first run, reused on every one after --- */
     const card = home.cardNamed(PROJECT);
-    if ((await card.count()) === 0) {
+    if (!(await appears(card))) {
       await home.createWith({ name: PROJECT, code: "AT-001", client: "Ashuganj Holdings", district: "Brahmanbaria", buildingType: 0, storeys: "6" });
     }
     await expect(card, "the project this journey reads the audit of stands on S-Home").toBeVisible();

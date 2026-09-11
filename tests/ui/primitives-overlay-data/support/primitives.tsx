@@ -541,6 +541,7 @@ export const ROSTER: readonly RosterCase[] = [
     covers: ["DataTable"],
     element: (b) =>
       dt(b, "DataTable", {
+        tableId: "roster-datatable",
         columns: tableColumns(),
         data: TABLE_ROWS,
         getRowId,

@@ -6,6 +6,8 @@
 // The two masks are the exception the Decision itself names: the digest and the subject label are
 // per-run values, and the baseline of the open dialog is a picture of chrome, not of one run's data.
 import { expect, type Locator, type Page } from "@playwright/test";
+import { TESTIDS } from "../../../src/ui/testids";
+import { steadyCount } from "../support/retrying-read";
 
 /** The address the test contract names, spelled once so a journey never writes a path twice. */
 export const S_PARTICIPANTS = Object.freeze({
@@ -26,27 +28,27 @@ export class SParticipantsPage {
   /* --- the three sections --- */
 
   get list(): Locator {
-    return this.page.getByTestId("participants-list");
+    return this.page.getByTestId(TESTIDS.participants.list);
   }
 
   get rows(): Locator {
-    return this.page.getByTestId("participants-row");
+    return this.page.getByTestId(TESTIDS.participants.row);
   }
 
   get history(): Locator {
-    return this.page.getByTestId("participants-history");
+    return this.page.getByTestId(TESTIDS.participants.history);
   }
 
   get historyRows(): Locator {
-    return this.page.getByTestId("participants-history-row");
+    return this.page.getByTestId(TESTIDS.participants.historyRow);
   }
 
   get form(): Locator {
-    return this.page.getByTestId("participants-assign-form");
+    return this.page.getByTestId(TESTIDS.participants.assignForm);
   }
 
   get refusal(): Locator {
-    return this.page.getByTestId("participants-refusal");
+    return this.page.getByTestId(TESTIDS.participants.refusal);
   }
 
   /* --- the assign form's three single-selection groups (I-48) --- */
@@ -79,24 +81,24 @@ export class SParticipantsPage {
   /* --- the one act pattern this screen opens (R-UI-021) --- */
 
   get dialog(): Locator {
-    return this.page.getByTestId("consequence-dialog");
+    return this.page.getByTestId(TESTIDS.consequence.dialog);
   }
 
   /** The primitive's own card, which is the crop the committed baseline holds. */
   get dialogCard(): Locator {
-    return this.page.getByTestId("dialog-content");
+    return this.page.getByTestId(TESTIDS.dialog.content);
   }
 
   get subjectRows(): Locator {
-    return this.page.getByTestId("consequence-subject-row");
+    return this.page.getByTestId(TESTIDS.consequence.subjectRow);
   }
 
   get digestLine(): Locator {
-    return this.page.getByTestId("consequence-digest-line");
+    return this.page.getByTestId(TESTIDS.consequence.digestLine);
   }
 
   get confirm(): Locator {
-    return this.page.getByTestId("consequence-confirm");
+    return this.page.getByTestId(TESTIDS.consequence.confirm);
   }
 
   /** The two per-run texts the open dialog's baseline masks (consequence-dialog Decision § 7). */
@@ -106,7 +108,7 @@ export class SParticipantsPage {
 
   /** Every history row's direction and role, as the rows themselves carry them. */
   async historyOf(): Promise<{ direction: string | null; role: string | null }[]> {
-    const total = await this.historyRows.count();
+    const total = await steadyCount(this.historyRows, "the role-history rows");
     const read: { direction: string | null; role: string | null }[] = [];
     for (let index = 0; index < total; index += 1) {
       const row = this.historyRows.nth(index);

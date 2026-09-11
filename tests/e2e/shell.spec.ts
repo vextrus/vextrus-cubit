@@ -15,6 +15,7 @@ import { SAuthPage, S_AUTH } from "./pages/s-auth.page";
 import { ShellPage, SHELL, SHELL_AREAS } from "./pages/shell.page";
 import { checkpoint } from "./support/checkpoint";
 import { newestMail } from "./support/outbox";
+import { appears, steadyText } from "./support/retrying-read";
 
 /**
  * The journey's identity is fixed, not per-run: the workspace name and the address both appear in
@@ -59,7 +60,8 @@ test.describe("J-004 — the signed-in application shell", () => {
     await auth.open(S_AUTH.signUp);
     await auth.signUpWith(EMAIL, PASSWORD, WORKSPACE);
     await expect(auth.notice.or(auth.refusal), "the sign-up door answers — a notice or a registered refusal, never nothing").toBeVisible();
-    if ((await auth.notice.count()) > 0) {
+    // Idempotent enrolment: which of the door's two lawful answers came back is a fact, not a defect.
+    if (await appears(auth.notice)) {
       const verifyMail = await newestMail(EMAIL, "verify-email");
       await auth.openWithToken(S_AUTH.verify, verifyMail.token);
       await auth.expectNotice();
@@ -106,7 +108,7 @@ test.describe("J-004 — the signed-in application shell", () => {
     // posture the enrolment above takes with ACCOUNT_ALREADY_EXISTS, before the first observation
     // that depends on the name and therefore before both pixel baselines: a fixed identity at every
     // checkpoint cannot be restored by a remedy that runs after the checkpoints.
-    if (!((await shell.breadcrumb.textContent()) ?? "").includes(WORKSPACE)) {
+    if (!(await steadyText(shell.breadcrumb, "the shell breadcrumb")).includes(WORKSPACE)) {
       await shell.open(SHELL.settings(tenantId));
       await renameWorkspaceTo(WORKSPACE);
       await shell.open(SHELL.workspace(tenantId));

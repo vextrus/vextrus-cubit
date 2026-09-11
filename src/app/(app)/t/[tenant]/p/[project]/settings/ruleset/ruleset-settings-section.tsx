@@ -10,12 +10,61 @@
 // rules if the route that happens to render it today is what carries them.
 import "./ruleset.css";
 
+import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { formatUserFigure } from "@/core/format";
-import type { EditionLineageStep, ProjectRulesetView } from "@/core/rulesets/editions";
+import type { EditionLineageStep, EditionParameter, ProjectRulesetView } from "@/core/rulesets/editions";
 import { UnitBadge } from "@/ui/primitives/core";
+import { DataTable } from "@/ui/primitives/data";
 import { ShellEmptyState, shellHref } from "@/ui/shell";
 import { rulesetParameterLabel, rulesetStrings } from "./strings";
+
+/**
+ * The parameter table is the shipped DataTable (Design Direction 00 §5): 28 px rows from the root's
+ * `--row-h`, the parameter frozen as the key column, mono tabular figures right-aligned and the
+ * unit as its own narrow column. The ids its rows published as raw `<tr>`s are kept byte-identical
+ * — `ruleset-parameter-table` on the region, `ruleset-parameter-row` and `data-param` on each row —
+ * so every test and journey that named one is untouched by the change of instrument.
+ */
+const PARAMETER_TABLE_ID = "ruleset-parameters";
+
+/** One parameter as the grid takes a row: the key it is addressed by, and what the edition holds. */
+interface ParameterRow extends EditionParameter {
+  readonly key: string;
+}
+
+const parameterRows = (parameters: Readonly<Record<string, EditionParameter>>): ParameterRow[] =>
+  Object.entries(parameters).map(([key, parameter]) => ({ key, ...parameter }));
+
+const PARAMETER_COLUMNS: ColumnDef<ParameterRow, unknown>[] = [
+  {
+    id: "parameter",
+    header: rulesetStrings.ruleset_col_parameter,
+    size: 220,
+    cell: ({ row }) => <span className="cx-ruleset-param">{rulesetParameterLabel(row.original.key)}</span>,
+  },
+  {
+    id: "key",
+    header: rulesetStrings.ruleset_col_key,
+    size: 240,
+    cell: ({ row }) => <span className="cx-ruleset-key">{row.original.key}</span>,
+  },
+  {
+    id: "value",
+    header: rulesetStrings.ruleset_col_value,
+    size: 140,
+    meta: { align: "right" },
+    // Grouping is the seam's and precision is the edition's: the figure goes through the one
+    // formatter and this screen rounds nothing (I-27, L-FMT-02).
+    cell: ({ row }) => <span className="cx-ruleset-value">{formatUserFigure(row.original.value)}</span>,
+  },
+  {
+    id: "unit",
+    header: rulesetStrings.ruleset_col_unit,
+    size: 96,
+    cell: ({ row }) => <UnitBadge unit={row.original.unit} />,
+  },
+];
 
 /** The headings the sections and the table are named by, so each region says what it is. */
 const EDITION_HEADING_ID = "ruleset-edition-heading";
@@ -113,40 +162,17 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
         <h2 className="cx-ruleset-section-heading" id={PARAMETERS_HEADING_ID}>
           {rulesetStrings.ruleset_parameters_heading}
         </h2>
-        <table className="cx-ruleset-table" data-testid="ruleset-parameter-table" aria-labelledby={PARAMETERS_HEADING_ID}>
-          <thead>
-            <tr>
-              <th className="cx-ruleset-col" scope="col">
-                {rulesetStrings.ruleset_col_parameter}
-              </th>
-              <th className="cx-ruleset-col" scope="col">
-                {rulesetStrings.ruleset_col_key}
-              </th>
-              <th className="cx-ruleset-col cx-ruleset-col-value" scope="col">
-                {rulesetStrings.ruleset_col_value}
-              </th>
-              <th className="cx-ruleset-col" scope="col">
-                {rulesetStrings.ruleset_col_unit}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(view.parameters).map(([key, parameter]) => (
-              <tr className="cx-ruleset-row" data-testid="ruleset-parameter-row" data-param={key} key={key}>
-                <th className="cx-ruleset-param" scope="row">
-                  {rulesetParameterLabel(key)}
-                </th>
-                <td className="cx-ruleset-key">{key}</td>
-                {/* Grouping is the seam's and precision is the edition's: the figure goes through
-                    the one formatter and this screen rounds nothing (I-27, L-FMT-02). */}
-                <td className="cx-ruleset-value">{formatUserFigure(parameter.value)}</td>
-                <td className="cx-ruleset-unit">
-                  <UnitBadge unit={parameter.unit} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="cx-ruleset-table" data-testid="ruleset-parameter-table">
+          <DataTable
+            tableId={PARAMETER_TABLE_ID}
+            aria-labelledby={PARAMETERS_HEADING_ID}
+            columns={PARAMETER_COLUMNS}
+            data={parameterRows(view.parameters)}
+            getRowId={(row) => row.key}
+            rowTestId="ruleset-parameter-row"
+            rowDataOf={(row) => ({ "data-param": row.key })}
+          />
+        </div>
       </section>
     </div>
   );
