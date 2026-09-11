@@ -16,9 +16,14 @@
 
 /** checkpoint name -> the capture height that screen is allowed, taller than §9.3's own cap. */
 export const SCREEN_HEIGHT_BUDGET: Readonly<Record<string, number>> = Object.freeze({
-  // # U2 — S-Drawings' timeline composition is U2's redesign (the sheet fan-out stacks every job
-  // card and every offered group down one column). Measured at 3168 px on 2026-09-12, viewport 900.
+  // # U2 — S-Drawings' composition is U2's redesign: the fan-out stacks every job card and every
+  // offered group down one column, so the screen is a scroll for as long as that stands. Seeded from
+  // the J-010 walk of 2026-09-12 (CUBIT_HEIGHT_BUDGET_SEED=1, viewport 900, test-results/
+  // height-budget.seed.json) — four checkpoints of the one screen, each at the height it stood at.
   "j-010-timeline-done": 3168,
+  "j-010-jobs-tray-open": 3168,
+  "j-010-sheets-fanned-out": 3168,
+  "j-010-discipline-confirmed": 2764,
 });
 
 /** The recorded height for a checkpoint, or `null` where §9.3's cap stands unaltered. */

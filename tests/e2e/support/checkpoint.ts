@@ -105,6 +105,23 @@ async function captureScreen(page: Page, root: { selector: string; locator: Loca
 const seed = new Map<string, number>();
 
 /** Write the seed file after each checkpoint, so a run killed part-way still leaves what it read. */
+/**
+ * The height half of the same recipe (tests/e2e/support/height-budget.ts): with
+ * `CUBIT_HEIGHT_BUDGET_SEED=1` every checkpoint writes the height it was photographed at and the cap
+ * stops failing the run, so ONE run reads every screen on a walk rather than one per attempt. The
+ * numbers are pasted into the budget file in a commit that names the run they came from; nothing is
+ * enforced from this file.
+ */
+const heightSeed = new Map<string, number>();
+
+function recordHeightSeed(name: string, height: number): void {
+  if (process.env["CUBIT_HEIGHT_BUDGET_SEED"] !== "1") return;
+  heightSeed.set(name, height);
+  const path = resolve(process.cwd(), "test-results", "height-budget.seed.json");
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(Object.fromEntries([...heightSeed].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))), null, 1)}\n`, "utf8");
+}
+
 function recordSeed(name: string, moderate: number): void {
   if (process.env["CUBIT_AXE_BUDGET_SEED"] !== "1") return;
   seed.set(name, moderate);
@@ -167,10 +184,13 @@ export async function checkpoint(page: Page, testInfo: TestInfo, name: string): 
     contentType: "application/json",
   });
   recordSeed(name, moderate.length);
+  recordHeightSeed(name, capture.contentHeight);
 
   // §9.3: a taller capture fails the run. The picture is attached FIRST so the failure ships with
   // the evidence of what was too tall.
-  expect(capture.contentHeight, `checkpoint ${name}: the screen's scroll container (${capture.selector}) is ${capture.contentHeight} px against a cap of ${capture.cap} px${recorded === null ? "" : " (its recorded per-screen budget — tests/e2e/support/height-budget.ts)"} — a capture taller than twice the viewport is a picture of a scroll, not of a screen (Design Direction 00 §9.3)`).toBeLessThanOrEqual(capture.cap);
+  if (process.env["CUBIT_HEIGHT_BUDGET_SEED"] !== "1") {
+    expect(capture.contentHeight, `checkpoint ${name}: the screen's scroll container (${capture.selector}) is ${capture.contentHeight} px against a cap of ${capture.cap} px${recorded === null ? "" : " (its recorded per-screen budget — tests/e2e/support/height-budget.ts)"} — a capture taller than twice the viewport is a picture of a scroll, not of a screen (Design Direction 00 §9.3)`).toBeLessThanOrEqual(capture.cap);
+  }
 
   const blocking = violations.filter((violation) => BLOCKING.has(violation.impact ?? ""));
   expect(blocking.map(describe), `checkpoint ${name}: axe reports no serious or critical violation`).toEqual([]);
