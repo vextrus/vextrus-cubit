@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_GOLDEN_FIXTURE, GOLDEN_FIXTURE, goldenDocument, goldenFixturePath, goldenRows } from "../takeoff/rails/support/column-rail-stage";
+import { DEFAULT_GOLDEN_FIXTURE, GOLDEN_FIXTURE, goldenDocument, goldenFixturePath, goldenRows } from "./support/golden-fixture";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const BNBC = "rcc6-bnbc";
