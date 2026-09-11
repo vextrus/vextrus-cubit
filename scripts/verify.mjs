@@ -8,7 +8,7 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deriveLanes } from "./lib/lanes.mjs";
-import { announce, run, wallTime } from "./lib/report.mjs";
+import { announce, run, runAsync, wallTime } from "./lib/report.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 
@@ -21,7 +21,10 @@ export const LANE_COMMANDS = Object.freeze({
   typegen: [["node", "node_modules/next/dist/bin/next", "typegen"]],
   types: [["node", "node_modules/typescript/bin/tsc", "--noEmit"]],
   lint: [["node", "node_modules/eslint/bin/eslint.js", "."]],
-  unit: [["node", "node_modules/vitest/vitest.mjs", "run"]],
+  // Capped deliberately: the unit lane would take the whole box by default, and it no longer has
+  // the box to itself — six other lanes gate beside it (runChainInWaves) on a 24-core machine that
+  // runs at most two product suites at once.
+  unit: [["node", "node_modules/vitest/vitest.mjs", "run", "--maxWorkers=6"]],
   "schema-drift": [["node", "scripts/db-drift.mjs", "--scratch"]],
   "method-hash": [["node", "scripts/method-hashes.mjs", "--in-chain"]],
   "catalogue-drift": [["node", "scripts/catalogue-drift.mjs", "--in-chain"]],
@@ -33,8 +36,30 @@ export const LANE_COMMANDS = Object.freeze({
 });
 
 /**
+ * What a lane is given beyond the environment it inherits. The build lane alone: the chain's `types`
+ * lane has already type-checked this tree, and `next build` doing it again is the same minutes
+ * twice (next.config.ts holds the flag's one reading).
+ * @type {Readonly<Record<string, Record<string, string>>>}
+ */
+export const LANE_ENV = Object.freeze({ build: { CUBIT_BUILD_SKIP_TYPECHECK: "1" } });
+
+/**
  * @typedef {{id: string, status: "armed" | "stub", probe: string}} Lane
  */
+
+/**
+ * The chain in waves: what must be sequential, and what only looked it. `typegen` writes the types
+ * the `types` lane reads, so it stands alone in front; `build` stands alone at the back because it
+ * is the one lane worth not running when something already came back red. Everything between is
+ * independent — tsc, eslint, the unit lane, cad, and the three drift lanes read the tree and answer
+ * about it, and none of them reads another's output — so they gate together.
+ * @param {ReadonlyArray<Lane>} lanes
+ * @returns {Lane[][]}
+ */
+export function planWaves(lanes) {
+  const waves = [lanes.filter((lane) => lane.id === "typegen"), lanes.filter((lane) => lane.id !== "typegen" && lane.id !== "build"), lanes.filter((lane) => lane.id === "build")];
+  return waves.filter((wave) => wave.length > 0);
+}
 
 /**
  * Run a roster fail-fast, in the order it is given. Every lane is announced exactly once — `RUN` or
@@ -69,6 +94,51 @@ export function runChain(lanes, io = {}) {
   return 0;
 }
 
+/**
+ * Run a roster in waves, concurrently within each wave. Every lane is announced exactly once, in
+ * roster order, before anything of its wave is executed (ARCH-02, B-22).
+ *
+ * A wave is run WHOLE: the engine wants every lane's verdict, not just the first red one, so a lane
+ * that fails does not silence its siblings — each failure prints its own `FAIL <id> exit=<code>`.
+ * Fail-fast survives where it means something: a wave that came back red ends the chain, so no
+ * later wave is announced or run, and the code is the first failure's in roster order.
+ * @param {ReadonlyArray<Lane>} lanes
+ * @param {{exec?: (argv: string[], env?: Record<string, string>, label?: string) => number | Promise<number>, report?: (lane: Lane) => boolean, write?: (line: string) => void}} [io]
+ * @returns {Promise<number>} the exit code, which is the whole contract
+ */
+export async function runChainInWaves(lanes, io = {}) {
+  const exec = io.exec ?? ((argv, env, label) => runAsync(argv, { cwd: ROOT, env: { ...process.env, ...env }, label }));
+  const report = io.report ?? announce;
+  const write = io.write ?? ((line) => process.stdout.write(line));
+
+  const unrunnable = lanes.filter((lane) => LANE_COMMANDS[lane.id] === undefined).map((lane) => lane.id);
+  if (unrunnable.length > 0) {
+    write(`verify has no command for ${unrunnable.join(", ")}\n`);
+    return 1;
+  }
+
+  let code = 0;
+  for (const wave of planWaves(lanes)) {
+    const armed = wave.filter((lane) => report(lane));
+    const verdicts = await Promise.all(
+      armed.map(async (lane) => {
+        for (const argv of /** @type {string[][]} */ (LANE_COMMANDS[lane.id])) {
+          const answer = await exec(argv, LANE_ENV[lane.id], lane.id);
+          if (answer !== 0) return { lane, code: answer };
+        }
+        return { lane, code: 0 };
+      }),
+    );
+    for (const verdict of verdicts) {
+      if (verdict.code === 0) continue;
+      write(`FAIL ${verdict.lane.id} exit=${verdict.code}\n`);
+      if (code === 0) code = verdict.code;
+    }
+    if (code !== 0) break;
+  }
+  return code;
+}
+
 /** Is this file the process's entry point, rather than a module a suite is reading? */
 function isEntryPoint() {
   const entry = process.argv[1];
@@ -77,7 +147,7 @@ function isEntryPoint() {
 
 if (isEntryPoint()) {
   const startedAt = performance.now();
-  const code = runChain(deriveLanes(ROOT));
+  const code = await runChainInWaves(deriveLanes(ROOT));
   process.stdout.write(`verify wall-time ${wallTime(startedAt)}\n`);
   process.exit(code);
 }

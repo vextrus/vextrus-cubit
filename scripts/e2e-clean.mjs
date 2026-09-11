@@ -22,7 +22,11 @@ const REPORT_DIRS = ["test-results", "playwright-report", "blob-report", ".vites
 /** Every build directory of the tree: the product's own and each stage's, matched as they are named. */
 const DIST = /^\.next(?:-.*)?$/;
 
-/** Bytes under a path, or 0 if it is not there. */
+/**
+ * Bytes under a path, or 0 if it is not there.
+ * @param {string} path
+ * @returns {number}
+ */
 function bytes(path) {
   const stat = statSync(path, { throwIfNoEntry: false });
   if (stat === undefined) return 0;
@@ -32,7 +36,7 @@ function bytes(path) {
   return total;
 }
 
-const human = (size) => (size < 1024 * 1024 ? `${Math.round(size / 1024)}K` : `${(size / (1024 * 1024)).toFixed(0)}M`);
+const human = (/** @type {number} */ size) => (size < 1024 * 1024 ? `${Math.round(size / 1024)}K` : `${(size / (1024 * 1024)).toFixed(0)}M`);
 
 const targets = [...REPORT_DIRS, ...readdirSync(ROOT, { withFileTypes: true }).filter((entry) => entry.isDirectory() && DIST.test(entry.name)).map((entry) => entry.name)];
 

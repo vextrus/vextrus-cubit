@@ -10,7 +10,7 @@
 // once per asked-for journey, whatever the reporters above it printed. A journey no test matched is
 // RED, never green: a grep that selected nothing has proved nothing, and silence must not read as a
 // pass (V-E2E — a journey the gate does not run is green by omission).
-import type { FullResult, Reporter, TestCase, TestResult } from "@playwright/test/reporter";
+import type { Reporter, TestCase, TestResult } from "@playwright/test/reporter";
 
 /** The journeys this invocation was asked for, in the order the caller named them. */
 const ASKED_FOR: string[] = (process.env["CUBIT_E2E_JOURNEYS"] ?? "")
@@ -33,7 +33,7 @@ export default class JourneyReporter implements Reporter {
     }
   }
 
-  onEnd(_result: FullResult): void {
+  onEnd(): void {
     for (const journey of ASKED_FOR) {
       process.stdout.write(`JOURNEY ${journey} ${this.verdicts.get(journey) === true ? "green" : "red"}\n`);
     }

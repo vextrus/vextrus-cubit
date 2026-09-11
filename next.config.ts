@@ -36,6 +36,13 @@ async function headers() {
 const nextConfig = {
   distDir: process.env["NEXT_DIST_DIR"] ?? ".next-cubit",
   headers,
+  // `next build` type-checks the whole tree, and so does the chain's own `types` lane — the same
+  // work twice, serially, in the one command the gate waits on. The chain says so by name
+  // (CUBIT_BUILD_SKIP_TYPECHECK=1, set only by scripts/verify.mjs, and only for a run whose `types`
+  // lane has already returned a verdict on this very tree). A plain `next build` — a human's, a test
+  // stage's, a deployment's — never sees that flag and type-checks exactly as it always has, so the
+  // product can never ship a build nothing judged.
+  typescript: { ignoreBuildErrors: process.env["CUBIT_BUILD_SKIP_TYPECHECK"] === "1" },
 };
 
 export default nextConfig;
