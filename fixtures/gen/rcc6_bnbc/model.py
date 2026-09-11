@@ -1821,13 +1821,17 @@ class Build:
                     (bm["p0"][1] + bm["p1"][1]) / 2,
                 )
                 host = next(
-                    p
-                    for p in panels
-                    if not p["sunken"]
-                    and self.bbox(p["poly"])[0] <= mx <= self.bbox(p["poly"])[2]
-                    and self.bbox(p["poly"])[1] <= my <= self.bbox(p["poly"])[3]
+                    (
+                        p
+                        for p in panels
+                        if not p["sunken"]
+                        and self.bbox(p["poly"])[0] <= mx <= self.bbox(p["poly"])[2]
+                        and self.bbox(p["poly"])[1] <= my <= self.bbox(p["poly"])[3]
+                    ),
+                    None,
                 )
-                host["beam_soffit"] += bm["b"] * bm["length"]
+                if host is not None:
+                    host["beam_soffit"] += bm["b"] * bm["length"]
 
     def slab_bars(self, p: dict[str, Any]) -> None:
         c = COVER["SLAB"]
@@ -2141,7 +2145,7 @@ class Build:
         )
         self.mesh(t, f"{tid}-Tb", SLAB_BARS[int(top)], ox, oy, COVER["TANK"])
         legs = [("N", ox), ("S", ox), ("E", oy - 2 * wall), ("W", oy - 2 * wall)] + [
-            (f"BF{k + 1}", ly) for k in range(baffles)
+            (f"BF{k + 1}", lx) for k in range(baffles)
         ]
         for name, length in legs:
             tw = baffle_t if name.startswith("BF") else wall
@@ -2396,6 +2400,7 @@ class Build:
                 level=level,
                 geom="AREA_THICK",
                 length=D(60000),
+                partition_length=D(60000),
                 h=h,
                 t=D(125),
                 openings=D(2100) * D(900) * 12,
@@ -2418,6 +2423,7 @@ class Build:
                     t_l=D(0),
                     t_r=D(0),
                     count=n,
+                    opening_w=w,
                     supports=[("WALL", "BW"), ("WALL", "BW")],
                     sunshade=bt.get("sunshade"),
                     grade=GRADE["default"],
@@ -2551,8 +2557,13 @@ class Build:
         ]
         sog = self.panel("SOG@GF", "SOG", "GF", poly, D(125))
         sog["holes"] += [
-            {"kind": "LIFT_PIT", "area": shoelace(core), "deducted": True},
-            {"kind": "RAMP", "area": shoelace(ramp), "deducted": True},
+            {
+                "kind": "LIFT_PIT",
+                "area": shoelace(core),
+                "poly": core,
+                "deducted": True,
+            },
+            {"kind": "RAMP", "area": shoelace(ramp), "poly": ramp, "deducted": True},
         ]
         sog["on_ground"] = True
         run, rise = RAMP["y1"] - RAMP["y0"], RAMP["rise"]
@@ -2621,6 +2632,20 @@ class Build:
         gb("GB5", (X["4"], Y["A"]), (s["x"], s["y"]), "A4", "C7X")
         gb("GB5", (X["5"], Y["A"]), (s["x"], s["y"]), "A5", "C7X")
 
+    def finalize_late_panels(self) -> None:
+        """Floor landings and the SRR/MRR slabs are authored after the framed floors: they take their
+        column/wall plan deductions, beam-soffit deductions and bars here (found by golden_check's
+        independent derivation — adversary finding 2)."""
+        for p in [
+            m
+            for m in self.members
+            if m["class"] == "SLAB" and m.get("region") in ("stair", "srr")
+        ]:
+            self.deduct_columns(p["level"], [p])
+            self.deduct_beam_soffits(p["level"], [p])
+            self.slab_bars(p)
+            self.regions.setdefault(p["level"], []).append(p)
+
     def run(self) -> dict[str, Any]:
         self.foundations()
         self.columns()
@@ -2630,6 +2655,7 @@ class Build:
         self.stairs()
         self.roof_furniture()
         self.lintels_and_walls()
+        self.finalize_late_panels()
         # column formwork: the slab over each column's top (max thickness of panels around it)
         for m in self.members:
             if m["class"] == "COLUMN" and m["level"] != "FDN":

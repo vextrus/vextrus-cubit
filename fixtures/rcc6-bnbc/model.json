@@ -8425,11 +8425,47 @@
         {
           "kind": "LIFT_PIT",
           "area": "8046918.88",
+          "poly": [
+            [
+              "8714.2",
+              "8714.2"
+            ],
+            [
+              "11707.4",
+              "8714.2"
+            ],
+            [
+              "11707.4",
+              "11402.6"
+            ],
+            [
+              "8714.2",
+              "11402.6"
+            ]
+          ],
           "deducted": true
         },
         {
           "kind": "RAMP",
           "area": "15607710.72",
+          "poly": [
+            [
+              "11582.4",
+              "0"
+            ],
+            [
+              "15849.6",
+              "0"
+            ],
+            [
+              "15849.6",
+              "3657.6"
+            ],
+            [
+              "11582.4",
+              "3657.6"
+            ]
+          ],
           "deducted": true
         }
       ],
@@ -39264,8 +39300,8 @@
       "t2": "150",
       "slope": "1",
       "area": "2555443.20",
-      "col_deduct": "0",
-      "beam_soffit": "0",
+      "col_deduct": "304800.00",
+      "beam_soffit": "262000.00",
       "free_edge": "0",
       "sunken": false,
       "curved_cut": "0",
@@ -39432,8 +39468,8 @@
       "t2": "150",
       "slope": "1",
       "area": "2555443.20",
-      "col_deduct": "0",
-      "beam_soffit": "0",
+      "col_deduct": "304800.00",
+      "beam_soffit": "262000.00",
       "free_edge": "0",
       "sunken": false,
       "curved_cut": "0",
@@ -39600,8 +39636,8 @@
       "t2": "150",
       "slope": "1",
       "area": "2555443.20",
-      "col_deduct": "0",
-      "beam_soffit": "0",
+      "col_deduct": "304800.00",
+      "beam_soffit": "262000.00",
       "free_edge": "0",
       "sunken": false,
       "curved_cut": "0",
@@ -39768,8 +39804,8 @@
       "t2": "150",
       "slope": "1",
       "area": "2555443.20",
-      "col_deduct": "0",
-      "beam_soffit": "0",
+      "col_deduct": "243840.00",
+      "beam_soffit": "262000.00",
       "free_edge": "0",
       "sunken": false,
       "curved_cut": "0",
@@ -39936,8 +39972,8 @@
       "t2": "150",
       "slope": "1",
       "area": "2555443.20",
-      "col_deduct": "0",
-      "beam_soffit": "0",
+      "col_deduct": "243840.00",
+      "beam_soffit": "262000.00",
       "free_edge": "0",
       "sunken": false,
       "curved_cut": "0",
@@ -40104,8 +40140,8 @@
       "t2": "150",
       "slope": "1",
       "area": "2555443.20",
-      "col_deduct": "0",
-      "beam_soffit": "0",
+      "col_deduct": "243840.00",
+      "beam_soffit": "262000.00",
       "free_edge": "0",
       "sunken": false,
       "curved_cut": "0",
@@ -40154,8 +40190,8 @@
       "t2": "150",
       "slope": "1",
       "area": "2555443.20",
-      "col_deduct": "0",
-      "beam_soffit": "0",
+      "col_deduct": "243840.00",
+      "beam_soffit": "262000.00",
       "free_edge": "0",
       "sunken": false,
       "curved_cut": "0",
@@ -40242,8 +40278,8 @@
       "t2": "125",
       "slope": "1",
       "area": "11807990.48",
-      "col_deduct": "0",
-      "beam_soffit": "0",
+      "col_deduct": "425715.00",
+      "beam_soffit": "2743200.00",
       "free_edge": "0",
       "sunken": false,
       "curved_cut": "0",
@@ -40279,8 +40315,8 @@
       "t2": "150",
       "slope": "1",
       "area": "7710868.88",
-      "col_deduct": "0",
-      "beam_soffit": "0",
+      "col_deduct": "1270160.00",
+      "beam_soffit": "1981200.00",
       "free_edge": "0",
       "sunken": false,
       "curved_cut": "0",
@@ -41014,7 +41050,7 @@
       "mark": "ST-W",
       "level": "FDN",
       "geom": "PRISM_RECT",
-      "length": "3173",
+      "length": "3658",
       "t": "125",
       "h": "1829",
       "faces": 2,
@@ -41057,6 +41093,7 @@
       "level": "1F",
       "geom": "AREA_THICK",
       "length": "60000",
+      "partition_length": "60000",
       "h": "2902.8",
       "t": "125",
       "openings": "22680000",
@@ -41077,6 +41114,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 10,
+      "opening_w": "1000",
       "supports": [
         [
           "WALL",
@@ -41105,6 +41143,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 8,
+      "opening_w": "1200",
       "supports": [
         [
           "WALL",
@@ -41133,6 +41172,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 6,
+      "opening_w": "1500",
       "supports": [
         [
           "WALL",
@@ -41168,6 +41208,7 @@
       "level": "2F",
       "geom": "AREA_THICK",
       "length": "60000",
+      "partition_length": "60000",
       "h": "2598.0",
       "t": "125",
       "openings": "22680000",
@@ -41188,6 +41229,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 10,
+      "opening_w": "1000",
       "supports": [
         [
           "WALL",
@@ -41216,6 +41258,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 8,
+      "opening_w": "1200",
       "supports": [
         [
           "WALL",
@@ -41244,6 +41287,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 6,
+      "opening_w": "1500",
       "supports": [
         [
           "WALL",
@@ -41279,6 +41323,7 @@
       "level": "3F",
       "geom": "AREA_THICK",
       "length": "60000",
+      "partition_length": "60000",
       "h": "2598.0",
       "t": "125",
       "openings": "22680000",
@@ -41299,6 +41344,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 10,
+      "opening_w": "1000",
       "supports": [
         [
           "WALL",
@@ -41327,6 +41373,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 8,
+      "opening_w": "1200",
       "supports": [
         [
           "WALL",
@@ -41355,6 +41402,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 6,
+      "opening_w": "1500",
       "supports": [
         [
           "WALL",
@@ -41390,6 +41438,7 @@
       "level": "4F",
       "geom": "AREA_THICK",
       "length": "60000",
+      "partition_length": "60000",
       "h": "2598.0",
       "t": "125",
       "openings": "22680000",
@@ -41410,6 +41459,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 10,
+      "opening_w": "1000",
       "supports": [
         [
           "WALL",
@@ -41438,6 +41488,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 8,
+      "opening_w": "1200",
       "supports": [
         [
           "WALL",
@@ -41466,6 +41517,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 6,
+      "opening_w": "1500",
       "supports": [
         [
           "WALL",
@@ -41501,6 +41553,7 @@
       "level": "5F",
       "geom": "AREA_THICK",
       "length": "60000",
+      "partition_length": "60000",
       "h": "2598.0",
       "t": "125",
       "openings": "22680000",
@@ -41521,6 +41574,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 10,
+      "opening_w": "1000",
       "supports": [
         [
           "WALL",
@@ -41549,6 +41603,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 8,
+      "opening_w": "1200",
       "supports": [
         [
           "WALL",
@@ -41577,6 +41632,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 6,
+      "opening_w": "1500",
       "supports": [
         [
           "WALL",
@@ -41612,6 +41668,7 @@
       "level": "6F",
       "geom": "AREA_THICK",
       "length": "60000",
+      "partition_length": "60000",
       "h": "2598.0",
       "t": "125",
       "openings": "22680000",
@@ -41632,6 +41689,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 10,
+      "opening_w": "1000",
       "supports": [
         [
           "WALL",
@@ -41660,6 +41718,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 8,
+      "opening_w": "1200",
       "supports": [
         [
           "WALL",
@@ -41688,6 +41747,7 @@
       "t_l": "0",
       "t_r": "0",
       "count": 6,
+      "opening_w": "1500",
       "supports": [
         [
           "WALL",
@@ -110996,7 +111056,7 @@
         "1969",
         "120"
       ],
-      "n": 42,
+      "n": 48,
       "role": "MAIN",
       "lap_mm": "500",
       "lap_count": 0
@@ -111010,7 +111070,7 @@
       "dia": 10,
       "shape": "11",
       "legs": [
-        "3113",
+        "3598",
         "120"
       ],
       "n": 24,
@@ -112201,6 +112261,960 @@
       "n": 4,
       "role": "DISTRIBUTION",
       "lap_mm": "400",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@1F",
+      "class": "SLAB",
+      "level": "1F",
+      "mark": "FL",
+      "bar_mark": "FL-bx",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "1008.0",
+        "144"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@1F",
+      "class": "SLAB",
+      "level": "1F",
+      "mark": "FL",
+      "bar_mark": "FL-cx",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "1008.0",
+        "46.20",
+        "46.20"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@1F",
+      "class": "SLAB",
+      "level": "1F",
+      "mark": "FL",
+      "bar_mark": "FL-tx",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "524.0",
+        "144"
+      ],
+      "n": 32,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@1F",
+      "class": "SLAB",
+      "level": "1F",
+      "mark": "FL",
+      "bar_mark": "FL-by",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "2398.4",
+        "144"
+      ],
+      "n": 4,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@1F",
+      "class": "SLAB",
+      "level": "1F",
+      "mark": "FL",
+      "bar_mark": "FL-cy",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "2398.4",
+        "46.20",
+        "46.20"
+      ],
+      "n": 3,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@1F",
+      "class": "SLAB",
+      "level": "1F",
+      "mark": "FL",
+      "bar_mark": "FL-ty",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "1219.2",
+        "144"
+      ],
+      "n": 14,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@2F",
+      "class": "SLAB",
+      "level": "2F",
+      "mark": "FL",
+      "bar_mark": "FL-bx",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "1008.0",
+        "144"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@2F",
+      "class": "SLAB",
+      "level": "2F",
+      "mark": "FL",
+      "bar_mark": "FL-cx",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "1008.0",
+        "46.20",
+        "46.20"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@2F",
+      "class": "SLAB",
+      "level": "2F",
+      "mark": "FL",
+      "bar_mark": "FL-tx",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "524.0",
+        "144"
+      ],
+      "n": 32,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@2F",
+      "class": "SLAB",
+      "level": "2F",
+      "mark": "FL",
+      "bar_mark": "FL-by",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "2398.4",
+        "144"
+      ],
+      "n": 4,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@2F",
+      "class": "SLAB",
+      "level": "2F",
+      "mark": "FL",
+      "bar_mark": "FL-cy",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "2398.4",
+        "46.20",
+        "46.20"
+      ],
+      "n": 3,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@2F",
+      "class": "SLAB",
+      "level": "2F",
+      "mark": "FL",
+      "bar_mark": "FL-ty",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "1219.2",
+        "144"
+      ],
+      "n": 14,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@3F",
+      "class": "SLAB",
+      "level": "3F",
+      "mark": "FL",
+      "bar_mark": "FL-bx",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "1008.0",
+        "144"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@3F",
+      "class": "SLAB",
+      "level": "3F",
+      "mark": "FL",
+      "bar_mark": "FL-cx",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "1008.0",
+        "46.20",
+        "46.20"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@3F",
+      "class": "SLAB",
+      "level": "3F",
+      "mark": "FL",
+      "bar_mark": "FL-tx",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "524.0",
+        "144"
+      ],
+      "n": 32,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@3F",
+      "class": "SLAB",
+      "level": "3F",
+      "mark": "FL",
+      "bar_mark": "FL-by",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "2398.4",
+        "144"
+      ],
+      "n": 4,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@3F",
+      "class": "SLAB",
+      "level": "3F",
+      "mark": "FL",
+      "bar_mark": "FL-cy",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "2398.4",
+        "46.20",
+        "46.20"
+      ],
+      "n": 3,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@3F",
+      "class": "SLAB",
+      "level": "3F",
+      "mark": "FL",
+      "bar_mark": "FL-ty",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "1219.2",
+        "144"
+      ],
+      "n": 14,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@4F",
+      "class": "SLAB",
+      "level": "4F",
+      "mark": "FL",
+      "bar_mark": "FL-bx",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "1008.0",
+        "144"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@4F",
+      "class": "SLAB",
+      "level": "4F",
+      "mark": "FL",
+      "bar_mark": "FL-cx",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "1008.0",
+        "46.20",
+        "46.20"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@4F",
+      "class": "SLAB",
+      "level": "4F",
+      "mark": "FL",
+      "bar_mark": "FL-tx",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "524.0",
+        "144"
+      ],
+      "n": 32,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@4F",
+      "class": "SLAB",
+      "level": "4F",
+      "mark": "FL",
+      "bar_mark": "FL-by",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "2398.4",
+        "144"
+      ],
+      "n": 4,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@4F",
+      "class": "SLAB",
+      "level": "4F",
+      "mark": "FL",
+      "bar_mark": "FL-cy",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "2398.4",
+        "46.20",
+        "46.20"
+      ],
+      "n": 3,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@4F",
+      "class": "SLAB",
+      "level": "4F",
+      "mark": "FL",
+      "bar_mark": "FL-ty",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "1219.2",
+        "144"
+      ],
+      "n": 14,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@5F",
+      "class": "SLAB",
+      "level": "5F",
+      "mark": "FL",
+      "bar_mark": "FL-bx",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "1008.0",
+        "144"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@5F",
+      "class": "SLAB",
+      "level": "5F",
+      "mark": "FL",
+      "bar_mark": "FL-cx",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "1008.0",
+        "46.20",
+        "46.20"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@5F",
+      "class": "SLAB",
+      "level": "5F",
+      "mark": "FL",
+      "bar_mark": "FL-tx",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "524.0",
+        "144"
+      ],
+      "n": 32,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@5F",
+      "class": "SLAB",
+      "level": "5F",
+      "mark": "FL",
+      "bar_mark": "FL-by",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "2398.4",
+        "144"
+      ],
+      "n": 4,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@5F",
+      "class": "SLAB",
+      "level": "5F",
+      "mark": "FL",
+      "bar_mark": "FL-cy",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "2398.4",
+        "46.20",
+        "46.20"
+      ],
+      "n": 3,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@5F",
+      "class": "SLAB",
+      "level": "5F",
+      "mark": "FL",
+      "bar_mark": "FL-ty",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "1219.2",
+        "144"
+      ],
+      "n": 14,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@6F",
+      "class": "SLAB",
+      "level": "6F",
+      "mark": "FL",
+      "bar_mark": "FL-bx",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "1008.0",
+        "144"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@6F",
+      "class": "SLAB",
+      "level": "6F",
+      "mark": "FL",
+      "bar_mark": "FL-cx",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "1008.0",
+        "46.20",
+        "46.20"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@6F",
+      "class": "SLAB",
+      "level": "6F",
+      "mark": "FL",
+      "bar_mark": "FL-tx",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "524.0",
+        "144"
+      ],
+      "n": 32,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@6F",
+      "class": "SLAB",
+      "level": "6F",
+      "mark": "FL",
+      "bar_mark": "FL-by",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "2398.4",
+        "144"
+      ],
+      "n": 4,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@6F",
+      "class": "SLAB",
+      "level": "6F",
+      "mark": "FL",
+      "bar_mark": "FL-cy",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "2398.4",
+        "46.20",
+        "46.20"
+      ],
+      "n": 3,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@6F",
+      "class": "SLAB",
+      "level": "6F",
+      "mark": "FL",
+      "bar_mark": "FL-ty",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "1219.2",
+        "144"
+      ],
+      "n": 14,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@ROOF",
+      "class": "SLAB",
+      "level": "ROOF",
+      "mark": "FL",
+      "bar_mark": "FL-bx",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "1008.0",
+        "144"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@ROOF",
+      "class": "SLAB",
+      "level": "ROOF",
+      "mark": "FL",
+      "bar_mark": "FL-cx",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "1008.0",
+        "46.20",
+        "46.20"
+      ],
+      "n": 8,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@ROOF",
+      "class": "SLAB",
+      "level": "ROOF",
+      "mark": "FL",
+      "bar_mark": "FL-tx",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "524.0",
+        "144"
+      ],
+      "n": 32,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@ROOF",
+      "class": "SLAB",
+      "level": "ROOF",
+      "mark": "FL",
+      "bar_mark": "FL-by",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "2398.4",
+        "144"
+      ],
+      "n": 4,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@ROOF",
+      "class": "SLAB",
+      "level": "ROOF",
+      "mark": "FL",
+      "bar_mark": "FL-cy",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "2398.4",
+        "46.20",
+        "46.20"
+      ],
+      "n": 3,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "FL@ROOF",
+      "class": "SLAB",
+      "level": "ROOF",
+      "mark": "FL",
+      "bar_mark": "FL-ty",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "1219.2",
+        "144"
+      ],
+      "n": 14,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "SRR@SRR",
+      "class": "SLAB",
+      "level": "SRR",
+      "mark": "SRR",
+      "bar_mark": "SRR-bx",
+      "dia": 10,
+      "shape": "21",
+      "legs": [
+        "120",
+        "4352.2",
+        "120"
+      ],
+      "n": 9,
+      "role": "MAIN",
+      "lap_mm": "500",
+      "lap_count": 0
+    },
+    {
+      "member": "SRR@SRR",
+      "class": "SLAB",
+      "level": "SRR",
+      "mark": "SRR",
+      "bar_mark": "SRR-cx",
+      "dia": 10,
+      "shape": "CRK",
+      "legs": [
+        "4352.2",
+        "35.70",
+        "35.70"
+      ],
+      "n": 9,
+      "role": "MAIN",
+      "lap_mm": "500",
+      "lap_count": 0
+    },
+    {
+      "member": "SRR@SRR",
+      "class": "SLAB",
+      "level": "SRR",
+      "mark": "SRR",
+      "bar_mark": "SRR-tx",
+      "dia": 10,
+      "shape": "11",
+      "legs": [
+        "2196.10",
+        "120"
+      ],
+      "n": 36,
+      "role": "EXTRA_TOP",
+      "lap_mm": "500",
+      "lap_count": 0
+    },
+    {
+      "member": "SRR@SRR",
+      "class": "SLAB",
+      "level": "SRR",
+      "mark": "SRR",
+      "bar_mark": "SRR-by",
+      "dia": 10,
+      "shape": "21",
+      "legs": [
+        "120",
+        "2648.4",
+        "120"
+      ],
+      "n": 15,
+      "role": "MAIN",
+      "lap_mm": "500",
+      "lap_count": 0
+    },
+    {
+      "member": "SRR@SRR",
+      "class": "SLAB",
+      "level": "SRR",
+      "mark": "SRR",
+      "bar_mark": "SRR-cy",
+      "dia": 10,
+      "shape": "CRK",
+      "legs": [
+        "2648.4",
+        "35.70",
+        "35.70"
+      ],
+      "n": 15,
+      "role": "MAIN",
+      "lap_mm": "500",
+      "lap_count": 0
+    },
+    {
+      "member": "SRR@SRR",
+      "class": "SLAB",
+      "level": "SRR",
+      "mark": "SRR",
+      "bar_mark": "SRR-ty",
+      "dia": 10,
+      "shape": "11",
+      "legs": [
+        "1344.2",
+        "120"
+      ],
+      "n": 60,
+      "role": "EXTRA_TOP",
+      "lap_mm": "500",
+      "lap_count": 0
+    },
+    {
+      "member": "MRR@SRR",
+      "class": "SLAB",
+      "level": "SRR",
+      "mark": "MRR",
+      "bar_mark": "MRR-bx",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "2828.2",
+        "144"
+      ],
+      "n": 9,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "MRR@SRR",
+      "class": "SLAB",
+      "level": "SRR",
+      "mark": "MRR",
+      "bar_mark": "MRR-cx",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "2828.2",
+        "46.20",
+        "46.20"
+      ],
+      "n": 9,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "MRR@SRR",
+      "class": "SLAB",
+      "level": "SRR",
+      "mark": "MRR",
+      "bar_mark": "MRR-tx",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "1434.10",
+        "144"
+      ],
+      "n": 36,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "MRR@SRR",
+      "class": "SLAB",
+      "level": "SRR",
+      "mark": "MRR",
+      "bar_mark": "MRR-by",
+      "dia": 12,
+      "shape": "21",
+      "legs": [
+        "144",
+        "2648.4",
+        "144"
+      ],
+      "n": 10,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "MRR@SRR",
+      "class": "SLAB",
+      "level": "SRR",
+      "mark": "MRR",
+      "bar_mark": "MRR-cy",
+      "dia": 12,
+      "shape": "CRK",
+      "legs": [
+        "2648.4",
+        "46.20",
+        "46.20"
+      ],
+      "n": 9,
+      "role": "MAIN",
+      "lap_mm": "600",
+      "lap_count": 0
+    },
+    {
+      "member": "MRR@SRR",
+      "class": "SLAB",
+      "level": "SRR",
+      "mark": "MRR",
+      "bar_mark": "MRR-ty",
+      "dia": 12,
+      "shape": "11",
+      "legs": [
+        "1344.2",
+        "144"
+      ],
+      "n": 38,
+      "role": "EXTRA_TOP",
+      "lap_mm": "600",
       "lap_count": 0
     }
   ],

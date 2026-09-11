@@ -157,7 +157,7 @@ def run(world: dict[str, Any] | None = None) -> dict[str, Any]:
             (
                 p["area"] + p["curved_cut"]
                 for p in w["regions"][level]
-                if not p["sunken"] and p["mark"] != "PS1"
+                if not p["sunken"] and p["mark"] != "PS1" and not p.get("region")
             ),
             D(0),
         )

@@ -67,3 +67,73 @@ def test_importing_the_golden_loads_no_emitter_module() -> None:
         if any(f in m.lower() for f in ("ezdxf", "reportlab", "pil", "pypdfium", "numpy", "emit"))
     }
     assert not bad, bad
+
+
+DERIVED_KEYS = (
+    "clear",
+    "area",
+    "col_deduct",
+    "beam_soffit",
+    "beam_ends",
+    "h",
+    "t_top",
+    "perim",
+    "extents",
+    "end_dirs",
+    "sloped",
+    "run",
+    "rise_total",
+    "cx",
+    "cy",
+    "sx",
+    "sy",
+    "slope",
+    "curved_cut",
+    "free_edge",
+    "arc_len",
+)
+DERIVED_BY_CLASS = {
+    "COLUMN": ("b", "d"),
+    "BEAM": ("length",),
+    "TIE_BEAM": ("length",),
+    "LINTEL": ("length",),
+    "SHEAR_WALL": ("length",),
+    "BRICK_WALL": ("length",),
+    "WALL": ("length",),
+}
+
+
+def test_golden_check_never_names_a_derived_field() -> None:
+    import re
+
+    src = (PKG / "golden_check.py").read_text(encoding="utf-8")
+    for key in DERIVED_KEYS:  # member-dict reads: m[...], w[...], bm[...], p[...], q[...], host[...], fl[...]
+        pattern = r"\b(m|w|bm|p|q|host|fl)(\[\"KEY\"\]|\.get\(\"KEY\")".replace("KEY", key)
+        assert not re.search(pattern, src), key
+
+
+def test_golden_check_derives_its_own_geometry_from_raw_inputs_only() -> None:
+    """Every derived field is replaced by a poison object; path 2 must still reproduce path 1."""
+    sys.path.insert(0, str(ROOT))
+    from fixtures.gen.rcc6_bnbc import golden, golden_check, model
+
+    world = model.build()
+    rows, _ = golden.compute(world)
+    poison = object()
+    for m in world["members"]:
+        for key in DERIVED_KEYS + DERIVED_BY_CLASS.get(m["class"], ()):
+            if key in m:
+                m[key] = poison
+    path2 = golden_check.compute(world)
+    path1 = {
+        (
+            r["class"],
+            r["kind"],
+            r["level"],
+            r.get("grade", ""),
+            r.get("diameter_mm", 0),
+            r.get("component", ""),
+        ): r["quantity"]
+        for r in rows
+    }
+    assert path2 == path1

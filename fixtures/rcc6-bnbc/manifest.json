@@ -4,13 +4,13 @@
   "generator": {
     "path": "fixtures/gen/rcc6_bnbc/",
     "modules": {
-      "model.py": "be3750b6c2b78bae872732682009d5b4aa4aed4db598151678ba1ceb5a3c2d99",
+      "model.py": "5915465f346d3c4fe022b4890a1d5e6b152cd714965c21ee372242a71cced5cc",
       "golden.py": "9e85f2441fb1c26e54520e8768bc99e6ef62d0b5bd725c8d07822c66a4397f80",
-      "golden_check.py": "9c4f8faaa3c51c6aa15ff7d316d7bb8ab898fb372deb279cc9938f74dc98f712",
-      "selfcheck.py": "5d06171350e60d4850980e198b40a3e0597d12a41a60a9a15002afe066178f95",
+      "golden_check.py": "afffd6105189e00e3a651a9d3ec5cb481ce7176858a01da790b837c947273afd",
+      "selfcheck.py": "3967f8bda9831ff42eed3af09b22500905572f35d3466bcf697dc020227118ae",
       "__main__.py": "5d6f46488df6fd2878db401077eba938e49e6ded6e91ff04c40c1880c69ebf10",
       "cells.json": "b18725c0e00e900ffcf6c585eeafaf225db31aa65e7226e77bd1bf7e7bebc24f",
-      "traps.json": "6a7718d97464e3abcaf7950d041e16734db66c3906a21ef4cfb22af7eb276c08"
+      "traps.json": "313fb38a31cab22348f52dc1b02e54f9d1629eaaa2a1817ff9f113fbec369529"
     }
   },
   "conventions": {
@@ -37,20 +37,20 @@
     "curved_balcony": "the R 1524 corner is authored analytically (rect − r² + πr²/4) in both golden paths; the outline polygon keeps the corner point"
   },
   "outputs": {
-    "takeoff.golden.json": "94bc2eafccf874e11bfab1f51e054132c3164b1c6a0da6d65f31cc87b8c7c93f",
-    "bbs.golden.json": "d1985ada284f6f5dc6f1939c7ccf276d905b923df33ffd95b52c033af473731b",
+    "takeoff.golden.json": "ce20198bd72b09ed3bba895ca0e5740dc08c3aac3abbcd989f9da56ef1773bf0",
+    "bbs.golden.json": "0cdfb5cb0b5b402aafd0ca0bd1e2b14b47b8621de6a3c81d13c934d82e61c8ce",
     "cells.json": "5dc5a9d50f9b2c0a98be32919f6f6eade58a75c18dcacde3f648633c5b64f0c9",
-    "traps.json": "6a7718d97464e3abcaf7950d041e16734db66c3906a21ef4cfb22af7eb276c08",
+    "traps.json": "313fb38a31cab22348f52dc1b02e54f9d1629eaaa2a1817ff9f113fbec369529",
     "site.json": "f2b1fe46b7391f40afd0fae34bcaf35779f73eb06f072a60907e0828f2a31e99",
-    "model.json": "66c877d14d96684d79cff20a9c0880055b6f2b0c516d3819fc56a6e6c8fec8ab"
+    "model.json": "35eeb83d4df50640434e7450b961aaf5f38bcd9bad3abecfaf2afb277bd63cfd"
   },
   "selfcheck": {
-    "two_path_agreement": "376 rows identical (member-by-member vs mark × placements)",
+    "two_path_agreement": "379 rows identical (member-by-member vs mark × placements)",
     "cells": "36/36",
     "rows_per_kind": {
       "RCC_CONCRETE": 60,
       "FORMWORK": 103,
-      "REBAR": 192,
+      "REBAR": 195,
       "PILE_LENGTH": 1,
       "PILE_COUNT": 1,
       "EXCAVATION": 3,
