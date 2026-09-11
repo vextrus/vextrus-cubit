@@ -27,8 +27,6 @@ const SLEEP = "waitForTimeout";
  * `expect.poll(fn, { timeout })` retries `fn`, and nothing else it is handed.
  * @param {import("eslint").Rule.Node[]} ancestors outermost first, as ESLint hands them over
  * @param {import("eslint").Rule.Node} node
- * @param {readonly import("estree").Node[]} ancestors
- * @param {import("estree").Node} node
  * @returns {boolean}
  */
 function insidePoll(ancestors, node) {
@@ -71,7 +69,10 @@ export default {
         }
         if (!ONE_SHOT.has(name)) return;
         if (node.arguments.length > 0) return;
-        if (insidePoll(context.sourceCode.getAncestors(node), node)) return;
+        const ancestors = /** @type {import("eslint").Rule.Node[]} */ (
+          /** @type {unknown} */ (context.sourceCode.getAncestors(node))
+        );
+        if (insidePoll(ancestors, node)) return;
         context.report({ node: callee.property, messageId: "oneShot", data: { name } });
       },
     };
