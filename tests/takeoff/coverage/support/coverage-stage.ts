@@ -239,14 +239,21 @@ export async function refusalRegister(): Promise<Readonly<Record<string, Refusal
   return errors.REFUSALS;
 }
 
-/** The refusal code a failure carries, whether it arrived bare or wrapped by a transport. */
-export async function codeOf(failure: unknown): Promise<string | null> {
+/**
+ * The refusal code a failure carries, whether it arrived bare or wrapped by a transport — read out
+ * of the thrown value by the product's own marker, never out of anybody's source. The name says so:
+ * `codeOf` elsewhere in the suite reads a FILE, and this one reads a rejection.
+ */
+export async function refusalCodeCarriedBy(failure: unknown): Promise<string | null> {
   const { refusalCodeOf } = await productModule<{ refusalCodeOf: (e: unknown) => string | null }>(REFUSAL_MARKER_MODULE);
   const direct = refusalCodeOf(failure);
   if (direct !== null) return direct;
   const cause = (failure as { cause?: unknown } | null)?.cause;
   return cause === undefined ? null : refusalCodeOf(cause);
 }
+
+/** The name the held-out lane loads this stage's rejection reader under; one home, two spellings. */
+export const codeOf = refusalCodeCarriedBy;
 
 /** What a call answered, or the failure it threw — a rejection is evidence, not an abort. */
 export async function rejection(pending: Promise<unknown>): Promise<unknown> {

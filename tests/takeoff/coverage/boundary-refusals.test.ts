@@ -21,7 +21,7 @@ import {
   actsSeam,
   boundary,
   closeCoverageStage,
-  codeOf,
+  refusalCodeCarriedBy,
   refusalRegister,
   rejection,
   residueSeam,
@@ -84,7 +84,7 @@ describe("AC-3: the addresses a boundary act refuses rather than writes", () => 
     for (const type of [HOLD_OUT_OF_BILL, DECLARE_NOT_IN_PROJECT_SCOPE]) {
       const thrown = await rejection(acts.preview(it.actor, inputOver(it, cell, type, { campaignId: UNHELD_CAMPAIGN })));
       expect(
-        await codeOf(thrown),
+        await refusalCodeCarriedBy(thrown),
         `${type} under a campaign this project does not hold names no residue to declare anything about, so it is answered by name and never attempted: ${String(thrown)}`,
       ).toBe(CAMPAIGN_NOT_FOUND);
     }
@@ -101,7 +101,7 @@ describe("AC-3: the addresses a boundary act refuses rather than writes", () => 
     for (const type of [HOLD_OUT_OF_BILL, DECLARE_NOT_IN_PROJECT_SCOPE]) {
       const thrown = await rejection(acts.preview(it.actor, inputOver(it, cell, type, { levelId: UNHELD_LEVEL })));
       expect(
-        await codeOf(thrown),
+        await refusalCodeCarriedBy(thrown),
         `${type} over a level this campaign sighted nothing on is a declaration no reading would ever show anybody, so the residue's own query answers it: ${String(thrown)}`,
       ).toBe(CELL_NOT_IN_RESIDUE);
     }
@@ -124,7 +124,7 @@ describe("AC-3: the addresses a boundary act refuses rather than writes", () => 
     const again = await acts.preview(it.actor, input);
     const thrown = await rejection(acts.commit(it.actor, input, acts.consequenceDigest(again)));
     expect(
-      await codeOf(thrown),
+      await refusalCodeCarriedBy(thrown),
       `holding a cell out of this bill a second time leaves it exactly as it was found, so it is answered by name — the reader sees the code in place, not a driver error from the store's one-per-cell belt: ${String(thrown)}`,
     ).toBe(ACT_CHANGES_NOTHING);
   }, BUDGET_MS);
