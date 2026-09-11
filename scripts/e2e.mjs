@@ -49,15 +49,27 @@ export function readJourneys(args) {
 }
 
 /**
- * The one `--grep` that selects exactly the named journeys. One journey greps for its own name, byte
- * for byte, as this runner always has; several are a union, and nothing else is admitted by it.
+ * The one `--grep` that selects exactly the named journeys — each as a WHOLE TOKEN.
+ *
+ * Playwright's `--grep` is a JS regex, and the bare id was one: `J-001` also selected `J-0010`, so a
+ * run asked for one journey paid for another's wall time and the reporter then attributed that
+ * other's red to the journey that was asked for. An id therefore stands on a boundary at both ends
+ * — nothing alphanumeric or hyphenated in front of it, no digit or lower-case letter behind it — so
+ * `J-001` is J-001 and neither `J-0010` nor `J-001a`, each of which is its own journey and is asked
+ * for by its own name. A name ending on a separator (`--journey PERF-`) is a prefix ask and keeps
+ * its open end. Several journeys are a union of such tokens.
  * @param {readonly string[]} journeys
  * @returns {string|null}
  */
 export function grepFor(journeys) {
   if (journeys.length === 0) return null;
-  if (journeys.length === 1) return journeys[0] ?? null;
-  return `(?:${journeys.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`;
+  const names = journeys.map((name) => {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // A name the caller ended on a separator is a PREFIX ask — `pnpm test:perf` is
+    // `--journey PERF-`, which means every performance journey — and a prefix has no end to stand on.
+    return /[0-9A-Za-z]$/.test(name) ? `${escaped}(?![0-9A-Za-z])` : escaped;
+  });
+  return `(?:^|[^A-Za-z0-9-])(?:${names.join("|")})`;
 }
 
 /** Is this file the process's entry point, rather than a module a suite is reading? */
