@@ -28,7 +28,13 @@ const VENDORED_MARK = "src/ui/brand/vextrus-mark-nospark.svg";
 const BRAND_DIR = "src/ui/brand";
 
 /** The frame's parts, as the increment's interfaces name them. */
-const SHELL_EXPORTS = ["AppShell", "ShellRail", "ShellTopBar", "ShellInspector", "ShellEmptyState"] as const;
+// `ShellInspector` is gone on purpose (Design Direction 00 §1, §9.1 item 3): the frame used to ship
+// an always-empty 280 px aside, and an aside that renders a placeholder sentence when nothing is
+// selected is the opposite of the one-inspector law. The region is now a SLOT the shell owns and a
+// screen mounts into through `useInspector` — absent, width 0, when there is no selection. An
+// exported component would be an invitation to mount a second one, so the barrel exports the hook.
+const SHELL_EXPORTS = ["AppShell", "ShellRail", "ShellTopBar", "ShellEmptyState"] as const;
+const SHELL_HOOKS = ["useInspector", "useInspectorSlot"] as const;
 
 /** R-UI-070: the rail carries the quiet mark at 26 px — the beam spark is omitted below 32 px. */
 const RAIL_MARK_PX = 26;
@@ -72,6 +78,10 @@ describe("AC-1: the shell's declared parts exist", () => {
     for (const name of SHELL_EXPORTS) {
       expect(typeof shell[name], `${SHELL_BARREL} must export ${name} (increment interfaces)`).toBe("function");
     }
+    for (const name of SHELL_HOOKS) {
+      expect(typeof shell[name], `${SHELL_BARREL} must export ${name} — the one inspector region is reached through the hook, never mounted as a second right column`).toBe("function");
+    }
+    expect(shell["ShellInspector"], `${SHELL_BARREL} must NOT export ShellInspector: the always-empty aside is deleted (Design Direction 00 §9.1 item 3)`).toBeUndefined();
   });
 
   test("AC-1: src/ui/brand-usage exports QuietMark and BRAND_USAGE", async () => {

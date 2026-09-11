@@ -189,9 +189,14 @@ export function shellCrumbs({ workspace, project, projects, area, atAreaHome, pa
   trail.push({
     id: "area",
     label: areaLabel(area),
+    // At the area's own home the area crumb IS the page. Inside the area it is a step on the way —
+    // a link the reader can take back — and the page crumb beneath it makes the claim instead.
+    // Where neither holds (inside an area that names no page) the trail simply ends at a step and
+    // NOTHING claims to be the page: `aria-current` is a claim, not a position (Q-11).
+    ...(atAreaHome ? { current: true } : {}),
     ...(named ? { href: shellHref(workspace.tenantId, area) } : {}),
   });
-  if (named) trail.push({ id: "page", label: page });
+  if (named) trail.push({ id: "page", testId: "shell-crumb-page", current: true, label: page });
 
   return trail;
 }

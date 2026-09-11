@@ -15,13 +15,17 @@
  * one home of the address→label mapping (B-17). This primitive decides nothing about what a place
  * is called; it decides how a trail is drawn.
  */
-import { useEffect, useRef, useState, type JSX } from "react";
+import { Fragment, useEffect, useRef, useState, type JSX } from "react";
 import { cx } from "./class-names";
 import { IconChevronDown, IconChevronRight } from "../../icons";
 import { strings } from "../../strings";
 
 /** One place in the trail: what it is called, where it is, and what else sits at its level. */
 export interface BreadcrumbCrumb {
+  /** True on the crumb that IS the page. Not "the last crumb": a trail may end at a step. */
+  current?: boolean;
+  /** The test id the shipped shell published on this crumb's `<li>` before the primitive existed. */
+  testId?: string;
   id: string;
   label: string;
   href?: string;
@@ -42,7 +46,6 @@ export function Breadcrumb(props: { crumbs: BreadcrumbCrumb[]; className?: strin
     return () => document.removeEventListener("pointerdown", away);
   }, [open]);
 
-  const last = crumbs.length - 1;
 
   /** Escape closes the open menu. It rides the CONTROLS — a `<nav>` is not a thing one types at. */
   const escapes = (event: { key: string }): void => {
@@ -53,20 +56,25 @@ export function Breadcrumb(props: { crumbs: BreadcrumbCrumb[]; className?: strin
     <nav ref={root} className={cx("cx-breadcrumb", className)} aria-label={strings.primitive_breadcrumb_label} data-testid="breadcrumb">
       <ol className="cx-breadcrumb-list">
         {crumbs.map((crumb, at) => (
-          <li className="cx-breadcrumb-item" key={crumb.id} data-testid="breadcrumb-crumb" data-crumb={crumb.id}>
-            {at === 0 ? null : (
-              <IconChevronRight size="sm" className="cx-breadcrumb-separator" />
-            )}
+          <Fragment key={crumb.id}>
+          {at === 0 ? null : (
+            // The separator is its OWN item, as the shell has drawn it since the frame shipped: a
+            // chevron inside the crumb would make the trail read as one element to a screen reader
+            // and would change the `li` count the frame's tests have always counted.
+            <li className="cx-breadcrumb-separator cx-shell-crumb-separator" aria-hidden="true">
+              <IconChevronRight size="sm" />
+            </li>
+          )}
+          <li
+            className={crumb.current === true ? "cx-breadcrumb-item cx-shell-crumb-current" : "cx-breadcrumb-item"}
+            data-crumb={crumb.id}
+            data-testid={crumb.testId ?? "breadcrumb-crumb"}
+            aria-current={crumb.current === true ? "page" : undefined}
+          >
             {crumb.href === undefined ? (
-              <span className="cx-breadcrumb-label" aria-current={at === last ? "page" : undefined}>
-                {crumb.label}
-              </span>
+              <span className="cx-breadcrumb-label">{crumb.label}</span>
             ) : (
-              <a
-                className="cx-breadcrumb-label cx-breadcrumb-link cx-reticle"
-                href={crumb.href}
-                aria-current={at === last ? "page" : undefined}
-              >
+              <a className="cx-breadcrumb-label cx-breadcrumb-link cx-reticle" href={crumb.href}>
                 {crumb.label}
               </a>
             )}
@@ -98,6 +106,7 @@ export function Breadcrumb(props: { crumbs: BreadcrumbCrumb[]; className?: strin
               </>
             )}
           </li>
+          </Fragment>
         ))}
       </ol>
     </nav>
