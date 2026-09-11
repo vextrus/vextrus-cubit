@@ -806,6 +806,8 @@ class Build:
         n: int,
         role: str,
         lap_count: int = 0,
+        zones: list[dict[str, Any]] | None = None,
+        per_set: int = 1,
         lap_mult: int = LAP_T,
     ) -> None:
         if n <= 0:
@@ -824,6 +826,8 @@ class Build:
                 "role": role,
                 "lap_mm": D(dia) * lap_mult,
                 "lap_count": lap_count,
+                "zones": zones,
+                "per_set": per_set,
             }
         )
 
@@ -843,12 +847,25 @@ class Build:
         a, bb, hook = b - 2 * cover, depth - 2 * cover, max(D(HOOK_135 * dia), D(75))
         end_zone = 2 * depth
         if clear <= 2 * end_zone + D(200):
-            n = count_at(clear - D(100), D(s_end))
+            zones = [
+                {"zone": "ALL", "length_mm": clear - D(100), "spacing_mm": D(s_end)}
+            ]
         else:
-            n = 2 * count_at(end_zone, D(s_end)) + count_at(
-                clear - 2 * end_zone - D(100), D(s_mid)
-            )
-        self.bar(m, bmark, dia, "51", [a, bb, a, bb, hook, hook], n, "STIRRUP")
+            zones = [
+                {"zone": "END", "length_mm": end_zone, "spacing_mm": D(s_end)},
+                {"zone": "END", "length_mm": end_zone, "spacing_mm": D(s_end)},
+                {
+                    "zone": "MID",
+                    "length_mm": clear - 2 * end_zone - D(100),
+                    "spacing_mm": D(s_mid),
+                },
+            ]
+        for z in zones:
+            z["count"] = count_at(z["length_mm"], z["spacing_mm"])
+        n = sum(z["count"] for z in zones)
+        self.bar(
+            m, bmark, dia, "51", [a, bb, a, bb, hook, hook], n, "STIRRUP", zones=zones
+        )
         if legs == 4:
             self.bar(
                 m,
@@ -858,6 +875,7 @@ class Build:
                 [a / 2, bb, a / 2, bb, hook, hook],
                 n,
                 "STIRRUP",
+                zones=zones,
             )
 
     # -- foundations --------------------------------------------------------------------------
@@ -1015,8 +1033,42 @@ class Build:
             sqrt((PI * dc) ** 2 + D(p1) ** 2),
             sqrt((PI * dc) ** 2 + D(p2) ** 2),
         )
-        self.bar(p, "P-sp1", sd, "SP", [turns1 * per1], 1, "SPIRAL")
-        self.bar(p, "P-sp2", sd, "SP", [turns2 * per2], 1, "SPIRAL")
+        self.bar(
+            p,
+            "P-sp1",
+            sd,
+            "SP",
+            [turns1 * per1],
+            1,
+            "SPIRAL",
+            zones=[
+                {
+                    "zone": "TOP",
+                    "length_mm": z1,
+                    "spacing_mm": D(p1),
+                    "count": turns1,
+                    "per_turn_mm": per1,
+                }
+            ],
+        )
+        self.bar(
+            p,
+            "P-sp2",
+            sd,
+            "SP",
+            [turns2 * per2],
+            1,
+            "SPIRAL",
+            zones=[
+                {
+                    "zone": "REST",
+                    "length_mm": PILE["length"] - z1,
+                    "spacing_mm": D(p2),
+                    "count": turns2,
+                    "per_turn_mm": per2,
+                }
+            ],
+        )
 
     # -- columns and the core ---------------------------------------------------------------
     def columns(self) -> None:
@@ -1070,22 +1122,41 @@ class Build:
                 td, s_end, s_mid = spec["ties"]
                 clear = h - D(450)
                 lo = max(r["sx"], r["sy"], clear / 6, D(450))
-                n_ties = (
-                    2 * count_at(lo, D(s_end))
-                    + count_at(max(clear - 2 * lo, D(0)), D(s_mid))
-                    + count_at(D(450), D(s_end))
-                )
+                tie_zones = [
+                    {"zone": "END", "length_mm": lo, "spacing_mm": D(s_end)},
+                    {"zone": "END", "length_mm": lo, "spacing_mm": D(s_end)},
+                    {
+                        "zone": "MID",
+                        "length_mm": max(clear - 2 * lo, D(0)),
+                        "spacing_mm": D(s_mid),
+                    },
+                    {"zone": "JOINT", "length_mm": D(450), "spacing_mm": D(s_end)},
+                ]
+                for z in tie_zones:
+                    z["count"] = count_at(z["length_mm"], z["spacing_mm"])
+                n_ties = sum(z["count"] for z in tie_zones)
                 hook = max(D(HOOK_135 * td), D(75))
                 if spec.get("circular"):
                     dc = r["b"] - 2 * c
+                    per_turn = sqrt((PI * dc) ** 2 + D(s_mid) ** 2)
+                    turns = count_at(h, D(s_mid))
                     self.bar(
                         m,
                         f"{s['mark']}-sp",
                         td,
                         "SP",
-                        [count_at(h, D(s_mid)) * sqrt((PI * dc) ** 2 + D(s_mid) ** 2)],
+                        [turns * per_turn],
                         1,
                         "SPIRAL",
+                        zones=[
+                            {
+                                "zone": "ALL",
+                                "length_mm": h,
+                                "spacing_mm": D(s_mid),
+                                "count": turns,
+                                "per_turn_mm": per_turn,
+                            }
+                        ],
                     )
                 else:
                     self.bar(
@@ -1103,6 +1174,7 @@ class Build:
                         ],
                         n_ties,
                         "TIE",
+                        zones=tie_zones,
                     )
                     if spec.get("cross_ties"):
                         self.bar(
@@ -1113,6 +1185,8 @@ class Build:
                             [r["d"] - 2 * c, hook, hook],
                             n_ties * spec["cross_ties"],
                             "TIE",
+                            zones=tie_zones,
+                            per_set=spec["cross_ties"],
                         )
         # SW1: C-shaped core, legs on grids 3, 4 (C–D) and D (3–4); door face on C with coupling beam
         for storey in STOREYS:

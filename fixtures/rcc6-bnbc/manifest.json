@@ -4,10 +4,10 @@
   "generator": {
     "path": "fixtures/gen/rcc6_bnbc/",
     "modules": {
-      "model.py": "79486d7316e88657f9e3b33f2008aa586f63ba18dc270046cee82245b8bb729f",
+      "model.py": "769507bb9c22cbb318d525ada5e04e94a6226f06e2331d7018707b59c34ff408",
       "golden.py": "035a0db4763adcaa98bfb7b474e73cddda9cff61cefde49f73142b932bf996cb",
       "golden_check.py": "afffd6105189e00e3a651a9d3ec5cb481ce7176858a01da790b837c947273afd",
-      "selfcheck.py": "9946dbfc9b440ed0dd39d80ba1522f4a53b4b053e91b0c20702b98169174aa9b",
+      "selfcheck.py": "f334224746afb5fba47d026660021cd532cbedd4d5c104919657214d4673bdf7",
       "__main__.py": "3115b9f066a5a2d298a410a2c6be5c31955e159889c8ae9a0d72ee6d01309e83",
       "cells.json": "caf5af457d4659ea15a7fbdcea92e9fa08848f103439a06af800336b30c80e28",
       "traps.json": "8a3bd8b62b17427945a36452c9dfe2fd594ab854ffbe6f7851196acc81400786"
@@ -42,7 +42,7 @@
     "cells.json": "caf5af457d4659ea15a7fbdcea92e9fa08848f103439a06af800336b30c80e28",
     "traps.json": "8a3bd8b62b17427945a36452c9dfe2fd594ab854ffbe6f7851196acc81400786",
     "site.json": "f2b1fe46b7391f40afd0fae34bcaf35779f73eb06f072a60907e0828f2a31e99",
-    "model.json": "c028e4b3fa68a11065ec7a9dc6b67860d6f82234d76d3b9ee6f50a0986693ce8"
+    "model.json": "98c7701a2d31a74fd0bd02cae352b1cac093ae7d5276a9d40ef42d755ee5ce78"
   },
   "selfcheck": {
     "two_path_agreement": "379 rows identical (member-by-member vs mark × placements)",

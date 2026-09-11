@@ -211,6 +211,25 @@ def run(world: dict[str, Any] | None = None) -> dict[str, Any]:
             n2, d2 = bt["bot_x"]
             need = (n + n2) * max(d, d2) + (n + n2 - 1) * 25
             assert need <= m["b"] - 2 * M.COVER["BEAM"] - 2 * bt["st"][0], m["id"]
+    # L-FRM-05 counting rule on every stirrup / tie / spiral: zones carry the governing length and spacing
+    for b in w["bars"]:
+        if b["role"] in ("STIRRUP", "TIE", "SPIRAL"):
+            assert b["zones"], (b["member"], b["bar_mark"])
+            for z in b["zones"]:
+                assert z["count"] == M.count_at(z["length_mm"], z["spacing_mm"]), (
+                    b["member"],
+                    b["bar_mark"],
+                    z,
+                )
+            if b["shape"] == "SP":
+                assert b["legs"][0] == sum(
+                    (z["count"] * z["per_turn_mm"] for z in b["zones"]), D(0)
+                ), b["bar_mark"]
+            else:
+                assert sum(z["count"] for z in b["zones"]) * b["per_set"] == b["n"], (
+                    b["member"],
+                    b["bar_mark"],
+                )
     for t, (dia, s) in M.SLAB_BARS.items():
         assert s <= min(3 * t, 450) and dia >= 8
 
