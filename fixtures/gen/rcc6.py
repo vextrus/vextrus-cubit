@@ -39,7 +39,85 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 FIXTURE = "F-RCC6"
+FIXTURE_VERSION = "1.1"
 GENERATOR_REL = "fixtures/gen/rcc6.py"
+
+#: What v1.1 repaired and what it deliberately left for a later version, each with the side the
+#: published figure falls on. AM-02 lets a deferral stand only where the figure is then UNDER; the
+#: one OVER-side entry is declared, not hidden, because repairing it would move the COLUMN rows
+#: AM-01 freezes for M2.
+REPAIRS = [
+    {
+        "id": "R-1-b5-spans",
+        "law": "AM-01, AM-02",
+        "state": "REPAIRED",
+        "side": "UNDER",
+        "what": "B5 is billed at the four trimmer lengths the plan draws (2 x 2.500 m + 2 x 2.000 m "
+        "= 9.000 m clear), not at the 4 x 4.5 m the beam schedule prints.",
+        "deferred": "The beam schedule sheet still prints B5 SPAN 4.5 m. Re-authoring it moves the "
+        "DXF/PDF/PNG bytes, so it waits for a redraw; until then the golden is under.",
+    },
+    {
+        "id": "R-2-beams-at-openings",
+        "law": "AM-01, AM-02",
+        "state": "REPAIRED",
+        "side": "UNDER",
+        "what": "The B2 on grid 4, the B4 on grid D and the B6 at the stair well stop at the "
+        "opening trimmers: the stretch of each that lies inside a stair or lift well is not "
+        "measured (4.100 -> 1.600 m, 3.400 -> 1.400 m, 3.750 -> 0.375 m clear).",
+        "deferred": "The typical floor plan still draws those three beams across the wells. "
+        "Trimming them is a drawing-side change; dropping the crossing stretch from the golden "
+        "publishes an under figure, which AM-02 admits.",
+    },
+    {
+        "id": "R-3-gf-slab",
+        "law": "AM-01",
+        "state": "REPAIRED",
+        "side": "UNDER",
+        "what": "The SLAB GF row is dropped. No GF slab plan is drawn, and AM-01 forbids a row "
+        "with no drawn bearer; dropping is the under-side half of 'either draw it or drop it'.",
+        "deferred": "A GF slab-on-grade plan (and its row, with no soffit formwork) waits for a "
+        "redraw.",
+    },
+    {
+        "id": "R-4-column-neck",
+        "law": "AM-01",
+        "state": "DEFERRED",
+        "side": "UNDER",
+        "what": "The FDN -> GF column neck is left out: the column rows start at GF. Declared as a "
+        "convention of v1.1 in fixtures/gen/README.md, because billing it would move the M2 "
+        "column rows AM-01 freezes.",
+    },
+    {
+        "id": "R-5-junction",
+        "law": "AM-02 (L-MEA-09)",
+        "state": "REPAIRED",
+        "side": "EXACT",
+        "what": "BEAM and SLAB rows are recomputed under the one-owner law: beams clear between "
+        "support faces and below the slab soffit, slabs running through out to the edge beams' "
+        "outer faces less column plan areas and openings, formwork as the owned contact area.",
+    },
+    {
+        "id": "R-6-slab-outline-sliver",
+        "law": "AM-02",
+        "state": "DEFERRED",
+        "side": "UNDER",
+        "what": "The plan draws the slab outline 150 mm beyond the grid; AM-02 measures it to the "
+        "edge beams' outer face, 125 mm beyond. The 25 mm sliver all round is unowned by design, "
+        "and the published plate (460.6875 m2) is under the drawn one (462.84 m2).",
+    },
+    {
+        "id": "R-7-column-formwork-junction",
+        "law": "AM-02 vs AM-01",
+        "state": "DEFERRED",
+        "side": "OVER",
+        "what": "Column formwork keeps 2(b + d) x storey. AM-02 would take perimeter x (storey - "
+        "t_slab) less the beam-end contacts above memberEndNoDeductMaxCm2, which is about 8.6 m2 "
+        "per level less. It is not applied here because it moves the COLUMN rows AM-01 freezes "
+        "for the M2 proof, and this is the one figure v1.1 knowingly leaves over. It is the first "
+        "item of v1.2, landed with the M2 proof's own re-pin.",
+    },
+]
 
 # ---------------------------------------------------------------------------------------------
 # The authored inputs: the one source every other artifact derives from.
@@ -1381,6 +1459,8 @@ def build(scratch: Path) -> list[tuple[str, bytes]]:
 
     manifest = {
         "fixture": FIXTURE,
+        "version": FIXTURE_VERSION,
+        "repairs": REPAIRS,
         "generator": {
             "path": GENERATOR_REL,
             "sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
