@@ -466,12 +466,20 @@
   color: var(--ink-link);
 }
 
-/* The column edge and the chooser's ⋯ — instrument geometry, in the 4 px the grid is drawn on. */
+/* The column edge and the chooser's ⋯ — instrument geometry, in the 4 px the grid is drawn on.
+
+   The LINE is 4 px; the TARGET is not. WCAG 2.2 SC 2.5.8 gives every pointer target 24 px, and axe
+   reports a 4 px one as a serious `target-size` violation — which no checkpoint admits (Q-11). So
+   the control is 24 px of transparent hit area hugging the column edge, and the 4 px the eye reads
+   is drawn by the pseudo-element: the grid still measures 4 px at the seam, and a hand still has
+   somewhere to land. Inside the cell, never outside it — `.cx-table-cell` clips its overflow, so a
+   handle that reached into its neighbour would simply be cut off. */
 .cx-table-resize {
   position: absolute;
   top: 0;
   right: 0;
-  width: 4px;
+  width: 24px;
+  min-height: 24px;
   height: 100%;
   padding: 0;
   border-width: 0;
@@ -479,7 +487,16 @@
   cursor: col-resize;
 }
 
-.cx-table-resize:hover {
+.cx-table-resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+}
+
+.cx-table-resize:hover::after {
   background-color: var(--line-accent);
 }
 
