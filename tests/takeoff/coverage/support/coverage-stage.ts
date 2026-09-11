@@ -427,12 +427,18 @@ type RegisterUiStage = {
   registerSeam: () => Promise<{ registerSighting: (scope: { tenantId: string; projectId: string; setRevisionId: string }, sighting: Record<string, unknown>) => Promise<Record<string, unknown>> }>;
   actorOf: (person: { userId: string; tenantId: string; email: string }) => { tenantId: string; userId: string; actorKind: string };
   stagePerson: (label: string) => Promise<{ person: { userId: string; tenantId: string; email: string }; projectId: string }>;
+};
+
+/** Where a person is put on a workspace and given a role — the roster and the role ledger the act
+ * seam really reads (L-ACT-03), never a loosened guard. */
+type SheetsStage = {
   grantRole: (tenantId: string, projectId: string, userId: string, role: string) => void;
-  joinWorkspace: (tenantId: string, userId: string) => void;
+  joinWorkspace: (tenantId: string, userId: string, role?: string) => void;
 };
 
 const railsStage = (): Promise<RailsStage> => import("../../rails/support/column-rail-stage") as unknown as Promise<RailsStage>;
 const registerUiStage = (): Promise<RegisterUiStage> => import("../../register-ui/support/register-ui-stage") as unknown as Promise<RegisterUiStage>;
+const sheetsStage = (): Promise<SheetsStage> => import("../../support/sheets-stage") as unknown as Promise<SheetsStage>;
 
 /**
  * A campaign whose pinned revision has one column sighted on the project's ground floor — the
@@ -484,9 +490,10 @@ export async function stageCoverageCampaign(label: string = "coverage"): Promise
 /** A second person on the staged project, holding one role and nothing else. */
 export async function stageActorHolding(staged: StagedCoverage, role: string, label: string = "other"): Promise<{ tenantId: string; userId: string; actorKind: string }> {
   const registerUi = await registerUiStage();
+  const sheets = await sheetsStage();
   const { person } = await registerUi.stagePerson(`${label}-${staged.projectId.slice(0, 8)}`);
-  registerUi.joinWorkspace(staged.tenantId, person.userId);
-  registerUi.grantRole(staged.tenantId, staged.projectId, person.userId, role);
+  sheets.joinWorkspace(staged.tenantId, person.userId);
+  sheets.grantRole(staged.tenantId, staged.projectId, person.userId, role);
   return registerUi.actorOf({ ...person, tenantId: staged.tenantId });
 }
 
