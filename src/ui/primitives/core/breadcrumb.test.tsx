@@ -32,7 +32,7 @@ function crumbs(): BreadcrumbCrumb[] {
       ],
     },
     { id: "area", label: areaLabel("settings"), href: shellHref(WORKSPACE.tenantId, "settings") },
-    { id: "page", label: PAGE },
+    { id: "page", label: PAGE, current: true },
   ];
 }
 
