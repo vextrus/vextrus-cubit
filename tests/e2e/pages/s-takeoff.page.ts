@@ -126,6 +126,16 @@ export class STakeoffPage {
 
   /** The lineIds the table offers a Trace from, in row order. */
   async tracedLineIds(): Promise<string[]> {
+    // The lines body is virtualised: the row elements exist only after hydration has measured the
+    // viewport, so the first paint carries this table with ZERO rows in it. `.all()` does not
+    // retry — it reads whatever is mounted at the instant it is called — and on 2026-09-11 it read
+    // that empty first paint and turned J-021 red on main (the DOM was right a moment later; the
+    // page snapshot taken at the failure already showed all three Trace links). Every other read of
+    // these anchors in the journeys retries (`toBeVisible`, `toHaveCount`); this one now does too.
+    // The count the screen states is server-rendered and settles first, and R-UI-022 says every line
+    // the table SHOWS offers a Trace — so that count is exactly how many anchors to wait for.
+    const stated = Number((/(\d[\d,.\s]*)/.exec((await this.linesCount.textContent()) ?? "")?.[1] ?? "0").replace(/\D/g, ""));
+    if (stated > 0) await expect(this.evidenceLinks, "the lines table offers a Trace from every line it shows (R-UI-022), once its virtualised body has painted them").toHaveCount(stated);
     const held: string[] = [];
     for (const anchor of await this.evidenceLinks.all()) held.push((await anchor.getAttribute("data-line")) ?? "");
     return held;

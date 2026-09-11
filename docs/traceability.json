@@ -1,0 +1,1663 @@
+{
+  "generatedAt": "2026-09-11T06:49:33.532Z",
+  "bibleSha256": "271f64e7850091244e2b72996ce237d2ad569260164155cab76f7dfb8106dce0",
+  "note": "status 'green' means a merged increment cited the id (see basis); clause-level verification is the checkpoint evidence sweep's",
+  "requirements": {
+    "R-SPINE-001": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-009-auth-core",
+          "kind": "increment",
+          "ref": "inc-009-auth-core"
+        },
+        {
+          "incrementId": "inc-020-auth-hardening",
+          "kind": "increment",
+          "ref": "inc-020-auth-hardening"
+        },
+        {
+          "incrementId": "inc-192-server-auth-debt-sweep",
+          "kind": "increment",
+          "ref": "inc-192-server-auth-debt-sweep"
+        }
+      ]
+    },
+    "R-SPINE-002": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-009-auth-core",
+          "kind": "increment",
+          "ref": "inc-009-auth-core"
+        },
+        {
+          "incrementId": "inc-010a1a-tenancy-roles-ground-r2",
+          "kind": "increment",
+          "ref": "inc-010a1a-tenancy-roles-ground-r2"
+        },
+        {
+          "incrementId": "inc-010b-invitations-accept",
+          "kind": "increment",
+          "ref": "inc-010b-invitations-accept"
+        }
+      ]
+    },
+    "R-SPINE-003": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-010a1a-tenancy-roles-ground-r2",
+          "kind": "increment",
+          "ref": "inc-010a1a-tenancy-roles-ground-r2"
+        },
+        {
+          "incrementId": "inc-010a1b-removal-member-has-acts",
+          "kind": "increment",
+          "ref": "inc-010a1b-removal-member-has-acts"
+        },
+        {
+          "incrementId": "inc-010a2-members-screen",
+          "kind": "increment",
+          "ref": "inc-010a2-members-screen"
+        },
+        {
+          "incrementId": "inc-010b-invitations-accept",
+          "kind": "increment",
+          "ref": "inc-010b-invitations-accept"
+        }
+      ]
+    },
+    "R-SPINE-004": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-001-db-seam",
+          "kind": "increment",
+          "ref": "inc-001-db-seam"
+        },
+        {
+          "incrementId": "inc-190-core-debt-sweep",
+          "kind": "increment",
+          "ref": "inc-190-core-debt-sweep"
+        },
+        {
+          "incrementId": "inc-193-core-model-jobs-debt-sweep",
+          "kind": "increment",
+          "ref": "inc-193-core-model-jobs-debt-sweep"
+        }
+      ]
+    },
+    "R-SPINE-005": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-SPINE-006": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-010a1a-tenancy-roles-ground-r2",
+          "kind": "increment",
+          "ref": "inc-010a1a-tenancy-roles-ground-r2"
+        },
+        {
+          "incrementId": "inc-010a2-members-screen",
+          "kind": "increment",
+          "ref": "inc-010a2-members-screen"
+        },
+        {
+          "incrementId": "inc-010b-invitations-accept",
+          "kind": "increment",
+          "ref": "inc-010b-invitations-accept"
+        },
+        {
+          "incrementId": "inc-192-server-auth-debt-sweep",
+          "kind": "increment",
+          "ref": "inc-192-server-auth-debt-sweep"
+        },
+        {
+          "incrementId": "inc-120-security-headers",
+          "kind": "increment",
+          "ref": "inc-120-security-headers"
+        },
+        {
+          "incrementId": "inc-127-accept-invitation-read-door",
+          "kind": "increment",
+          "ref": "inc-127-accept-invitation-read-door"
+        }
+      ]
+    },
+    "R-SPINE-007": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-002-server-fault-spine",
+          "kind": "increment",
+          "ref": "inc-002-server-fault-spine"
+        },
+        {
+          "incrementId": "inc-009-auth-core",
+          "kind": "increment",
+          "ref": "inc-009-auth-core"
+        },
+        {
+          "incrementId": "inc-020-auth-hardening",
+          "kind": "increment",
+          "ref": "inc-020-auth-hardening"
+        },
+        {
+          "incrementId": "inc-191-server-spine-debt-sweep",
+          "kind": "increment",
+          "ref": "inc-191-server-spine-debt-sweep"
+        }
+      ]
+    },
+    "R-SPINE-010": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-011-projects",
+          "kind": "increment",
+          "ref": "inc-011-projects"
+        }
+      ]
+    },
+    "R-SPINE-011": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-012-participants",
+          "kind": "increment",
+          "ref": "inc-012-participants"
+        }
+      ]
+    },
+    "R-SPINE-012": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-015-ruleset-editions",
+          "kind": "increment",
+          "ref": "inc-015-ruleset-editions"
+        }
+      ]
+    },
+    "R-SPINE-013": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-115-project-home",
+          "kind": "increment",
+          "ref": "inc-115-project-home"
+        }
+      ]
+    },
+    "R-SPINE-014": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-SPINE-020": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-102-upload",
+          "kind": "increment",
+          "ref": "inc-102-upload"
+        }
+      ]
+    },
+    "R-SPINE-021": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-100-storage-seam",
+          "kind": "increment",
+          "ref": "inc-100-storage-seam"
+        },
+        {
+          "incrementId": "inc-190-core-debt-sweep",
+          "kind": "increment",
+          "ref": "inc-190-core-debt-sweep"
+        },
+        {
+          "incrementId": "inc-122-storage-secret-fails-closed",
+          "kind": "increment",
+          "ref": "inc-122-storage-secret-fails-closed"
+        }
+      ]
+    },
+    "R-SPINE-022": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-107-thumbnails",
+          "kind": "increment",
+          "ref": "inc-107-thumbnails"
+        }
+      ]
+    },
+    "R-SPINE-030": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-101-jobs-seam",
+          "kind": "increment",
+          "ref": "inc-101-jobs-seam"
+        },
+        {
+          "incrementId": "inc-126-jobs-known-address",
+          "kind": "increment",
+          "ref": "inc-126-jobs-known-address"
+        }
+      ]
+    },
+    "R-SPINE-031": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-101-jobs-seam",
+          "kind": "increment",
+          "ref": "inc-101-jobs-seam"
+        }
+      ]
+    },
+    "R-SPINE-040": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-SPINE-041": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-SPINE-050": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-217-command-palette",
+          "kind": "increment",
+          "ref": "inc-217-command-palette"
+        }
+      ]
+    },
+    "R-SPINE-051": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-SPINE-052": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-SPINE-060": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-006-strings-and-format",
+          "kind": "increment",
+          "ref": "inc-006-strings-and-format"
+        },
+        {
+          "incrementId": "inc-190-core-debt-sweep",
+          "kind": "increment",
+          "ref": "inc-190-core-debt-sweep"
+        }
+      ]
+    },
+    "R-SPINE-061": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-006-strings-and-format",
+          "kind": "increment",
+          "ref": "inc-006-strings-and-format"
+        }
+      ]
+    },
+    "R-SPINE-062": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-007-refusal-taxonomy",
+          "kind": "increment",
+          "ref": "inc-007-refusal-taxonomy"
+        },
+        {
+          "incrementId": "inc-020-auth-hardening",
+          "kind": "increment",
+          "ref": "inc-020-auth-hardening"
+        },
+        {
+          "incrementId": "inc-010a1b-removal-member-has-acts",
+          "kind": "increment",
+          "ref": "inc-010a1b-removal-member-has-acts"
+        },
+        {
+          "incrementId": "inc-113b-callmodel-fixture-replay",
+          "kind": "increment",
+          "ref": "inc-113b-callmodel-fixture-replay"
+        },
+        {
+          "incrementId": "inc-113c-proposal-refusal-contract",
+          "kind": "increment",
+          "ref": "inc-113c-proposal-refusal-contract"
+        }
+      ]
+    },
+    "R-SPINE-070": {
+      "status": "none",
+      "priority": "could",
+      "evidence": []
+    },
+    "R-SPINE-080": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-SPINE-081": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-016-audit-surfaces",
+          "kind": "increment",
+          "ref": "inc-016-audit-surfaces"
+        }
+      ]
+    },
+    "R-TO-001": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-103-cad-core-dxf",
+          "kind": "increment",
+          "ref": "inc-103-cad-core-dxf"
+        },
+        {
+          "incrementId": "inc-104-cad-dwg",
+          "kind": "increment",
+          "ref": "inc-104-cad-dwg"
+        },
+        {
+          "incrementId": "inc-106-ingest-pipeline",
+          "kind": "increment",
+          "ref": "inc-106-ingest-pipeline"
+        }
+      ]
+    },
+    "R-TO-002": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-003": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-004": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-108-sheet-index",
+          "kind": "increment",
+          "ref": "inc-108-sheet-index"
+        }
+      ]
+    },
+    "R-TO-005": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-109-sets-revisions",
+          "kind": "increment",
+          "ref": "inc-109-sets-revisions"
+        }
+      ]
+    },
+    "R-TO-006": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-TO-010": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-110-viewer-core",
+          "kind": "increment",
+          "ref": "inc-110-viewer-core"
+        },
+        {
+          "incrementId": "inc-123-viewer-screen-hooks",
+          "kind": "increment",
+          "ref": "inc-123-viewer-screen-hooks"
+        }
+      ]
+    },
+    "R-TO-011": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-111-viewer-inspector",
+          "kind": "increment",
+          "ref": "inc-111-viewer-inspector"
+        },
+        {
+          "incrementId": "inc-215-trace",
+          "kind": "increment",
+          "ref": "inc-215-trace"
+        }
+      ]
+    },
+    "R-TO-012": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-206-snapping",
+          "kind": "increment",
+          "ref": "inc-206-snapping"
+        }
+      ]
+    },
+    "R-TO-013": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-014": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-203-views-grid-overlay",
+          "kind": "increment",
+          "ref": "inc-203-views-grid-overlay"
+        }
+      ]
+    },
+    "R-TO-015": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-016": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-TO-017": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-020": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-204-scale-engine",
+          "kind": "increment",
+          "ref": "inc-204-scale-engine"
+        },
+        {
+          "incrementId": "inc-205-scale-ui",
+          "kind": "increment",
+          "ref": "inc-205-scale-ui"
+        }
+      ]
+    },
+    "R-TO-021": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-205-scale-ui",
+          "kind": "increment",
+          "ref": "inc-205-scale-ui"
+        }
+      ]
+    },
+    "R-TO-030": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-200-view-classification",
+          "kind": "increment",
+          "ref": "inc-200-view-classification"
+        },
+        {
+          "incrementId": "inc-201-convention-profile",
+          "kind": "increment",
+          "ref": "inc-201-convention-profile"
+        },
+        {
+          "incrementId": "inc-202-grid-detection",
+          "kind": "increment",
+          "ref": "inc-202-grid-detection"
+        }
+      ]
+    },
+    "R-TO-031": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-210-schedule-reconstruction",
+          "kind": "increment",
+          "ref": "inc-210-schedule-reconstruction"
+        },
+        {
+          "incrementId": "inc-211-levels-model",
+          "kind": "increment",
+          "ref": "inc-211-levels-model"
+        },
+        {
+          "incrementId": "inc-212-placement-expansion",
+          "kind": "increment",
+          "ref": "inc-212-placement-expansion"
+        },
+        {
+          "incrementId": "inc-213-rail-column-concrete",
+          "kind": "increment",
+          "ref": "inc-213-rail-column-concrete"
+        }
+      ]
+    },
+    "R-TO-032": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-033": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-034": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-035": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-036": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-TO-037": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-TO-038": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-TO-040": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-041": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-042": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-043": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-044": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-TO-050": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-214-register-workspace",
+          "kind": "increment",
+          "ref": "inc-214-register-workspace"
+        }
+      ]
+    },
+    "R-TO-051": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-214-register-workspace",
+          "kind": "increment",
+          "ref": "inc-214-register-workspace"
+        }
+      ]
+    },
+    "R-TO-052": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-053": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-054": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-055": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-TO-060": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-061": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-TO-062": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-TO-070": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-AS-001": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-AS-002": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-AS-003": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-AS-004": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-AS-005": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-AS-006": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-AS-007": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BK-001": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BK-002": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BK-003": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BK-004": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BK-005": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BK-010": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BK-011": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BK-012": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BK-020": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BK-021": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-BK-030": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BK-031": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-ES-001": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-ES-002": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-ES-003": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-ES-004": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-ES-005": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-ES-006": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-ES-007": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-ES-008": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-ES-009": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-BD-001": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BD-002": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BD-003": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BD-004": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BD-005": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BD-006": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-BD-007": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-BD-008": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-AI-001": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-193-core-model-jobs-debt-sweep",
+          "kind": "increment",
+          "ref": "inc-193-core-model-jobs-debt-sweep"
+        },
+        {
+          "incrementId": "inc-114-sheet-understanding",
+          "kind": "increment",
+          "ref": "inc-114-sheet-understanding"
+        }
+      ]
+    },
+    "R-AI-002": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-AI-003": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-AI-004": {
+      "status": "none",
+      "priority": "should",
+      "evidence": []
+    },
+    "R-AI-005": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-113a-model-call-ledger",
+          "kind": "increment",
+          "ref": "inc-113a-model-call-ledger"
+        },
+        {
+          "incrementId": "inc-113b-callmodel-fixture-replay",
+          "kind": "increment",
+          "ref": "inc-113b-callmodel-fixture-replay"
+        },
+        {
+          "incrementId": "inc-114-sheet-understanding",
+          "kind": "increment",
+          "ref": "inc-114-sheet-understanding"
+        }
+      ]
+    },
+    "R-UI-001": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-003-datum-tokens",
+          "kind": "increment",
+          "ref": "inc-003-datum-tokens"
+        },
+        {
+          "incrementId": "inc-019-root-document",
+          "kind": "increment",
+          "ref": "inc-019-root-document"
+        }
+      ]
+    },
+    "R-UI-002": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-003-datum-tokens",
+          "kind": "increment",
+          "ref": "inc-003-datum-tokens"
+        },
+        {
+          "incrementId": "inc-004-primitives-core",
+          "kind": "increment",
+          "ref": "inc-004-primitives-core"
+        }
+      ]
+    },
+    "R-UI-003": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-003-datum-tokens",
+          "kind": "increment",
+          "ref": "inc-003-datum-tokens"
+        }
+      ]
+    },
+    "R-UI-004": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-003-datum-tokens",
+          "kind": "increment",
+          "ref": "inc-003-datum-tokens"
+        }
+      ]
+    },
+    "R-UI-005": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-014-density-prefs",
+          "kind": "increment",
+          "ref": "inc-014-density-prefs"
+        },
+        {
+          "incrementId": "inc-292-ui-shell-debt-sweep",
+          "kind": "increment",
+          "ref": "inc-292-ui-shell-debt-sweep"
+        }
+      ]
+    },
+    "R-UI-010": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-004-primitives-core",
+          "kind": "increment",
+          "ref": "inc-004-primitives-core"
+        },
+        {
+          "incrementId": "inc-005-primitives-overlay-data",
+          "kind": "increment",
+          "ref": "inc-005-primitives-overlay-data"
+        },
+        {
+          "incrementId": "inc-291-ui-primitives-debt-sweep",
+          "kind": "increment",
+          "ref": "inc-291-ui-primitives-debt-sweep"
+        }
+      ]
+    },
+    "R-UI-011": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-017-design-gallery",
+          "kind": "increment",
+          "ref": "inc-017-design-gallery"
+        }
+      ]
+    },
+    "R-UI-012": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-004-primitives-core",
+          "kind": "increment",
+          "ref": "inc-004-primitives-core"
+        },
+        {
+          "incrementId": "inc-005-primitives-overlay-data",
+          "kind": "increment",
+          "ref": "inc-005-primitives-overlay-data"
+        },
+        {
+          "incrementId": "inc-019-root-document",
+          "kind": "increment",
+          "ref": "inc-019-root-document"
+        },
+        {
+          "incrementId": "inc-291-ui-primitives-debt-sweep",
+          "kind": "increment",
+          "ref": "inc-291-ui-primitives-debt-sweep"
+        }
+      ]
+    },
+    "R-UI-020": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-007-refusal-taxonomy",
+          "kind": "increment",
+          "ref": "inc-007-refusal-taxonomy"
+        },
+        {
+          "incrementId": "inc-010a2-members-screen",
+          "kind": "increment",
+          "ref": "inc-010a2-members-screen"
+        }
+      ]
+    },
+    "R-UI-021": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-012-participants",
+          "kind": "increment",
+          "ref": "inc-012-participants"
+        }
+      ]
+    },
+    "R-UI-022": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-215-trace",
+          "kind": "increment",
+          "ref": "inc-215-trace"
+        }
+      ]
+    },
+    "R-UI-023": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-108-sheet-index",
+          "kind": "increment",
+          "ref": "inc-108-sheet-index"
+        },
+        {
+          "incrementId": "inc-214-register-workspace",
+          "kind": "increment",
+          "ref": "inc-214-register-workspace"
+        }
+      ]
+    },
+    "R-UI-024": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-112-job-timeline",
+          "kind": "increment",
+          "ref": "inc-112-job-timeline"
+        }
+      ]
+    },
+    "R-UI-030": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-013-shell",
+          "kind": "increment",
+          "ref": "inc-013-shell"
+        }
+      ]
+    },
+    "R-UI-031": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-013-shell",
+          "kind": "increment",
+          "ref": "inc-013-shell"
+        },
+        {
+          "incrementId": "inc-010a2-members-screen",
+          "kind": "increment",
+          "ref": "inc-010a2-members-screen"
+        },
+        {
+          "incrementId": "inc-111-viewer-inspector",
+          "kind": "increment",
+          "ref": "inc-111-viewer-inspector"
+        }
+      ]
+    },
+    "R-UI-032": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-217-command-palette",
+          "kind": "increment",
+          "ref": "inc-217-command-palette"
+        }
+      ]
+    },
+    "R-UI-033": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-013-shell",
+          "kind": "increment",
+          "ref": "inc-013-shell"
+        },
+        {
+          "incrementId": "inc-105-fixture-rcc6",
+          "kind": "increment",
+          "ref": "inc-105-fixture-rcc6"
+        }
+      ]
+    },
+    "R-UI-070": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-013-shell",
+          "kind": "increment",
+          "ref": "inc-013-shell"
+        }
+      ]
+    },
+    "R-UI-040": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-110-viewer-core",
+          "kind": "increment",
+          "ref": "inc-110-viewer-core"
+        },
+        {
+          "incrementId": "inc-123-viewer-screen-hooks",
+          "kind": "increment",
+          "ref": "inc-123-viewer-screen-hooks"
+        }
+      ]
+    },
+    "R-UI-041": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-206-snapping",
+          "kind": "increment",
+          "ref": "inc-206-snapping"
+        }
+      ]
+    },
+    "R-UI-042": {
+      "status": "none",
+      "priority": "must",
+      "evidence": []
+    },
+    "R-UI-043": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-110-viewer-core",
+          "kind": "increment",
+          "ref": "inc-110-viewer-core"
+        }
+      ]
+    },
+    "R-UI-050": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-018-states-matrix",
+          "kind": "increment",
+          "ref": "inc-018-states-matrix"
+        },
+        {
+          "incrementId": "inc-010a2-members-screen",
+          "kind": "increment",
+          "ref": "inc-010a2-members-screen"
+        },
+        {
+          "incrementId": "inc-292-ui-shell-debt-sweep",
+          "kind": "increment",
+          "ref": "inc-292-ui-shell-debt-sweep"
+        }
+      ]
+    },
+    "R-UI-060": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": "must",
+      "evidence": [
+        {
+          "incrementId": "inc-018-states-matrix",
+          "kind": "increment",
+          "ref": "inc-018-states-matrix"
+        }
+      ]
+    },
+    "J-000": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": null,
+      "evidence": [
+        {
+          "incrementId": "inc-019-root-document",
+          "kind": "increment",
+          "ref": "inc-019-root-document"
+        },
+        {
+          "incrementId": "inc-011-projects",
+          "kind": "increment",
+          "ref": "inc-011-projects"
+        },
+        {
+          "incrementId": "inc-010b-invitations-accept-hotfix",
+          "kind": "increment",
+          "ref": "inc-010b-invitations-accept-hotfix"
+        },
+        {
+          "incrementId": "inc-111-viewer-inspector",
+          "kind": "increment",
+          "ref": "inc-111-viewer-inspector"
+        }
+      ]
+    },
+    "J-001": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": null,
+      "evidence": [
+        {
+          "incrementId": "inc-009-auth-core",
+          "kind": "increment",
+          "ref": "inc-009-auth-core"
+        },
+        {
+          "incrementId": "inc-010b-invitations-accept",
+          "kind": "increment",
+          "ref": "inc-010b-invitations-accept"
+        }
+      ]
+    },
+    "J-002": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": null,
+      "evidence": [
+        {
+          "incrementId": "inc-010b-invitations-accept",
+          "kind": "increment",
+          "ref": "inc-010b-invitations-accept"
+        }
+      ]
+    },
+    "J-003": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": null,
+      "evidence": [
+        {
+          "incrementId": "inc-011-projects",
+          "kind": "increment",
+          "ref": "inc-011-projects"
+        },
+        {
+          "incrementId": "inc-012-participants",
+          "kind": "increment",
+          "ref": "inc-012-participants"
+        },
+        {
+          "incrementId": "inc-016-audit-surfaces",
+          "kind": "increment",
+          "ref": "inc-016-audit-surfaces"
+        }
+      ]
+    },
+    "J-004": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": null,
+      "evidence": [
+        {
+          "incrementId": "inc-004-primitives-core",
+          "kind": "increment",
+          "ref": "inc-004-primitives-core"
+        },
+        {
+          "incrementId": "inc-005-primitives-overlay-data",
+          "kind": "increment",
+          "ref": "inc-005-primitives-overlay-data"
+        },
+        {
+          "incrementId": "inc-013-shell",
+          "kind": "increment",
+          "ref": "inc-013-shell"
+        },
+        {
+          "incrementId": "inc-017-design-gallery",
+          "kind": "increment",
+          "ref": "inc-017-design-gallery"
+        }
+      ]
+    },
+    "J-010": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": null,
+      "evidence": [
+        {
+          "incrementId": "inc-102-upload",
+          "kind": "increment",
+          "ref": "inc-102-upload"
+        },
+        {
+          "incrementId": "inc-106-ingest-pipeline",
+          "kind": "increment",
+          "ref": "inc-106-ingest-pipeline"
+        },
+        {
+          "incrementId": "inc-107-thumbnails",
+          "kind": "increment",
+          "ref": "inc-107-thumbnails"
+        },
+        {
+          "incrementId": "inc-108-sheet-index",
+          "kind": "increment",
+          "ref": "inc-108-sheet-index"
+        },
+        {
+          "incrementId": "inc-112-job-timeline",
+          "kind": "increment",
+          "ref": "inc-112-job-timeline"
+        },
+        {
+          "incrementId": "inc-114-sheet-understanding",
+          "kind": "increment",
+          "ref": "inc-114-sheet-understanding"
+        },
+        {
+          "incrementId": "inc-115-project-home",
+          "kind": "increment",
+          "ref": "inc-115-project-home"
+        }
+      ]
+    },
+    "J-011": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": null,
+      "evidence": [
+        {
+          "incrementId": "inc-111-viewer-inspector",
+          "kind": "increment",
+          "ref": "inc-111-viewer-inspector"
+        }
+      ]
+    },
+    "J-012": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": null,
+      "evidence": [
+        {
+          "incrementId": "inc-109-sets-revisions",
+          "kind": "increment",
+          "ref": "inc-109-sets-revisions"
+        }
+      ]
+    },
+    "J-020": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": null,
+      "evidence": [
+        {
+          "incrementId": "inc-204-scale-engine",
+          "kind": "increment",
+          "ref": "inc-204-scale-engine"
+        },
+        {
+          "incrementId": "inc-206-snapping",
+          "kind": "increment",
+          "ref": "inc-206-snapping"
+        },
+        {
+          "incrementId": "inc-205-scale-ui",
+          "kind": "increment",
+          "ref": "inc-205-scale-ui"
+        }
+      ]
+    },
+    "J-021": {
+      "status": "green",
+      "basis": "cited-by-merged-increment",
+      "priority": null,
+      "evidence": [
+        {
+          "incrementId": "inc-200-view-classification",
+          "kind": "increment",
+          "ref": "inc-200-view-classification"
+        },
+        {
+          "incrementId": "inc-202-grid-detection",
+          "kind": "increment",
+          "ref": "inc-202-grid-detection"
+        },
+        {
+          "incrementId": "inc-203-views-grid-overlay",
+          "kind": "increment",
+          "ref": "inc-203-views-grid-overlay"
+        },
+        {
+          "incrementId": "inc-210-schedule-reconstruction",
+          "kind": "increment",
+          "ref": "inc-210-schedule-reconstruction"
+        },
+        {
+          "incrementId": "inc-217-command-palette",
+          "kind": "increment",
+          "ref": "inc-217-command-palette"
+        },
+        {
+          "incrementId": "inc-212-placement-expansion",
+          "kind": "increment",
+          "ref": "inc-212-placement-expansion"
+        },
+        {
+          "incrementId": "inc-213-rail-column-concrete",
+          "kind": "increment",
+          "ref": "inc-213-rail-column-concrete"
+        },
+        {
+          "incrementId": "inc-214-register-workspace",
+          "kind": "increment",
+          "ref": "inc-214-register-workspace"
+        },
+        {
+          "incrementId": "inc-215-trace",
+          "kind": "increment",
+          "ref": "inc-215-trace"
+        }
+      ]
+    },
+    "J-022": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    },
+    "J-030": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    },
+    "J-031": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    },
+    "J-032": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    },
+    "J-040": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    },
+    "J-041": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    },
+    "J-042": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    },
+    "J-043": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    },
+    "J-050": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    },
+    "J-060": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    },
+    "J-070": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    },
+    "J-080": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    },
+    "J-090": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    },
+    "J-100": {
+      "status": "none",
+      "priority": null,
+      "evidence": []
+    }
+  }
+}
