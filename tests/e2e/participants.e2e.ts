@@ -196,14 +196,17 @@ test.describe("J-003 — participants: the roles a project holds, moved by act",
     const crumbs = crumb.locator("ol > li:not([aria-hidden='true'])");
     await expect(crumbs, "the crumb is the shell's two entries — the workspace and the area — with no third naming the project or the screen").toHaveCount(2);
 
-    const areaCrumb = crumbs.nth(1).locator("a");
-    await expect(areaCrumb, "and the second of them links back, because a reader this deep in the area is not at its home").toHaveCount(1);
+    // Addressed by its identity, not by its index: the trail's length is the address's business
+    // (R-UI-084 grew a project crumb on screens that are inside a project), and a test that counts
+    // to the second `li` grades whatever happens to stand there.
+    const areaCrumb = shell.crumbLink("area");
+    await expect(areaCrumb, "the area crumb links back, because a reader this deep in the area is not at its home").toHaveCount(1);
     expect(
       new URL((await areaCrumb.getAttribute("href")) ?? "", origin).pathname.replace(/\/+$/, ""),
       "back to the projects area's home, which is the workspace root",
     ).toBe(SHELL.workspace(tenantId));
 
-    const areaLabel = await steadyText(crumbs.nth(1), "the area crumb");
+    const areaLabel = await steadyText(shell.crumb("area"), "the area crumb");
     expect(areaLabel, "the area crumb names the area").not.toBe("");
     await expect(shell.nav("projects"), "with the rail's own word for it — one home for the area's name (B-17)").toContainText(areaLabel);
     await expect(crumb, "the crumb does not name the project: a deeper crumb is a shell-contract change, not this screen's (arbitration)").not.toContainText(PROJECT);

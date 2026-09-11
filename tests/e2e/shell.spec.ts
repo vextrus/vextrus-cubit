@@ -116,7 +116,12 @@ test.describe("J-004 — the signed-in application shell", () => {
     }
 
     await expect(shell.railMark, "the rail carries the quiet mark (R-UI-070)").toBeVisible();
-    await expect(shell.railCollapse).toHaveAttribute("aria-expanded", "true");
+    // The rail stands at 48 px until a person pins it (Direction 00 §1: "Rail 48 px, icons only,
+    // labels in tooltips (expand to 220 on hover-hold or pin; remembered)"), so the disclosure the
+    // pin publishes is CLOSED on arrival. What v22 changed is the default, not the semantics: the
+    // control still says what it opens, in `aria-expanded`, and never in `aria-pressed`.
+    await expect(shell.railCollapse, "the rail arrives at 48 px, so its disclosure is closed").toHaveAttribute("aria-expanded", "false");
+    await expect(shell.railCollapse, "and it is a disclosure, not a toggle button — one widget, one state").not.toHaveAttribute("aria-pressed", /.*/);
     await expect(shell.tenantSwitcher, "the switcher wears the name entered at sign-up (R-UI-033)").toContainText(WORKSPACE);
     await expect(shell.breadcrumb, "and so does the breadcrumb").toContainText(WORKSPACE);
     expect(await shell.selectedArea(), "the workspace home selects Projects, because the URL says so").toEqual(["projects"]);
@@ -257,14 +262,18 @@ test.describe("J-004 — the signed-in application shell", () => {
     for (let step = 0; step < 12 && (await shell.railCollapse.evaluate((node) => node !== document.activeElement)); step += 1) {
       await page.keyboard.press("Tab");
     }
-    await expect(shell.railCollapse, "Tab travel reaches the collapse control").toBeFocused();
+    await expect(shell.railCollapse, "Tab travel reaches the pin control").toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(shell.railCollapse, "and the control states what it did, rather than only painting it").toHaveAttribute("aria-expanded", "false");
-    await expect(shell.nav("projects"), "a collapsed rail carries no half-legible row").toHaveCount(0);
+    await expect(shell.railCollapse, "and the control states what it did, rather than only painting it").toHaveAttribute("aria-expanded", "true");
+    await expect(shell.nav("projects"), "a pinned rail reads its labels out in full").toBeVisible();
 
     await page.keyboard.press("Enter");
-    await expect(shell.railCollapse).toHaveAttribute("aria-expanded", "true");
-    await expect(shell.nav("projects")).toBeVisible();
+    await expect(shell.railCollapse).toHaveAttribute("aria-expanded", "false");
+    // The narrow rail keeps its navigation: Direction 00 §1 gives the 48 px rail icons and tooltips,
+    // and the former rail's answer — emptying itself — left the product with no navigation at all.
+    // The row is still there and still answers to its own name; what the 48 px width removes is the
+    // legible LABEL, not the destination.
+    await expect(shell.nav("projects"), "a 48 px rail is still navigation — the row stands, as an icon").toBeVisible();
 
     /* --- j004-shell-tenant-switcher-open: an OPEN overlay is a state this journey walks, so it is
        a state axe judges (settled Q-11/V-E2E: a checkpoint must stand in every walked state where a

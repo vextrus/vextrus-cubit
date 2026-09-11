@@ -182,15 +182,21 @@ export function ShellRail({ workspace, workspaces, area, atAreaHome }: ShellRail
         <span className="cx-shell-rail-mark" data-testid="shell-rail-mark" aria-hidden="true">
           <QuietMark />
         </span>
-        {/* The pin. One name in both states — `aria-pressed` is what carries whether it is held, so
-            a speech-input user says the same words either way (WCAG 2.5.3). The id is the one the
-            frame has always published for this control. */}
+        {/* The pin. One name in both states, so a speech-input user says the same words either way
+            (WCAG 2.5.3). It names `aria-controls`, so it is a DISCLOSURE and the state it publishes
+            is `aria-expanded` — never `aria-pressed`: ARIA gives one widget one state, and a
+            control that points at a region it opens is read as a disclosure whatever else it wears
+            (the frame has published `aria-expanded` on this id since the rail shipped).
+            What the attribute reports is the PIN, which is the person's own answer and the only
+            expansion that outlives the pointer: the hover-hold and the focus peek expand the body
+            for as long as they last, and a control cannot report `false` about a region it is at
+            that moment holding open with its own focus. So: pinned ⇒ expanded. */}
         <button
           type="button"
           className="cx-shell-rail-toggle cx-reticle"
           data-testid="shell-rail-collapse"
           aria-label={strings.shell_rail_pin_label}
-          aria-pressed={pinned}
+          aria-expanded={pinned}
           aria-controls={bodyId}
           onClick={() => pin(!pinned)}
         >

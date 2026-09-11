@@ -190,12 +190,14 @@ export function shellCrumbs({ workspace, project, projects, area, atAreaHome, pa
   trail.push({
     id: "area",
     label: areaLabel(area),
-    // At the area's own home the area crumb IS the page. Inside the area it is a step on the way —
-    // a link the reader can take back — and the page crumb beneath it makes the claim instead.
-    // Where neither holds (inside an area that names no page) the trail simply ends at a step and
-    // NOTHING claims to be the page: `aria-current` is a claim, not a position (Q-11).
-    ...(atAreaHome ? { current: true } : {}),
-    ...(named ? { href: shellHref(workspace.tenantId, area) } : {}),
+    // At the area's own home the area crumb IS the page. ANYWHERE else it is a step on the way —
+    // a link the reader can take back — whether or not the screen also names a page crumb beneath
+    // it. A trail that ends at a step still ends at a step a reader can walk: "every crumb is a
+    // real location" (Direction §1, R-UI-084) admits exactly one exception, the crumb that claims
+    // to be the page, and a crumb with neither a claim nor an address was the one dead step left.
+    // Where nothing claims the page the trail simply carries no `aria-current`: that attribute is
+    // a claim, not a position (Q-11).
+    ...(atAreaHome ? { current: true } : { href: shellHref(workspace.tenantId, area) }),
   });
   if (named) trail.push({ id: "page", testId: TESTIDS.shell.crumbPage, current: true, label: page });
 

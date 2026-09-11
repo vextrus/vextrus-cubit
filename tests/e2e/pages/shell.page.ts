@@ -69,6 +69,21 @@ export class ShellPage {
     return this.page.getByTestId(TESTIDS.shell.breadcrumb);
   }
 
+  /**
+   * One crumb of the trail, addressed by WHAT IT IS rather than by where it sits: the trail grows
+   * and shrinks with the address (a project crumb appears inside a project, a page crumb inside an
+   * area), so an index names a different place on every screen. `data-crumb` is the crumb's own
+   * identity, published by the primitive that draws it.
+   */
+  crumb(id: "workspace" | "project" | "area" | "page"): Locator {
+    return this.breadcrumb.locator(`li[data-crumb="${id}"]`);
+  }
+
+  /** The link that crumb IS — the one a reader can take back. A page crumb has none, by law. */
+  crumbLink(id: "workspace" | "project" | "area" | "page"): Locator {
+    return this.crumb(id).locator("a.cx-breadcrumb-link");
+  }
+
   get main(): Locator {
     return this.page.getByTestId(TESTIDS.shell.main);
   }
