@@ -10,7 +10,7 @@ import { deriveLanes } from "../../scripts/lib/lanes.mjs";
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 
 /** V-VERIFY names the chain's order; the roster yields it. */
-const VERIFY_ORDER = ["typegen", "types", "lint", "unit", "schema-drift", "method-hash", "catalogue-drift", "cad", "build"];
+const VERIFY_ORDER = ["typegen", "types", "lint", "unit", "schema-drift", "method-hash", "catalogue-drift", "golden", "cad", "build"];
 
 interface Lane {
   id: string;

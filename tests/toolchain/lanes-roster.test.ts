@@ -10,7 +10,7 @@ const REPO_ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const LANES_MODULE = "scripts/lib/lanes.mjs";
 
 /** The closed lane-id set (increment spec, test contract). */
-const CLOSED_LANE_IDS = ["typegen", "types", "lint", "unit", "schema-drift", "method-hash", "catalogue-drift", "cad", "build"];
+const CLOSED_LANE_IDS = ["typegen", "types", "lint", "unit", "schema-drift", "method-hash", "catalogue-drift", "golden", "cad", "build"];
 /** Armed by the toolchain's own inputs, which this increment plants and no later one removes. */
 const ARMED_TODAY = ["lint", "types", "unit"];
 
@@ -29,6 +29,7 @@ const WITNESSES: Readonly<Record<string, readonly string[]>> = Object.freeze({
   "schema-drift": ["db/schema.ts"],
   "method-hash": ["src/x.methods.json", "src/modules/billing/hours.methods.json"],
   "catalogue-drift": ["db/catalogue/bears.json"],
+  golden: ["fixtures/rcc6/manifest.json"],
   cad: ["cad/pyproject.toml"],
   build: ["src/app/page.tsx"],
 });

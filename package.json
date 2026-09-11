@@ -16,6 +16,7 @@
   },
   "scripts": {
     "verify": "node scripts/verify.mjs",
+  "test:golden": "node node_modules/vitest/vitest.mjs run --config tests/golden/vitest.config.ts && uv run --project cad pytest -q cad/tests/sanity/test_rcc6_golden.py cad/tests/sanity/test_golden_corpora.py cad/tests/rcc6_bnbc",
     "checkup": "node scripts/checkup.mjs",
     "test:db": "sh -c 'case \" $* \" in *--config*|*\" -c \"*) exec node scripts/db-test.mjs \"$@\";; *) exec node scripts/db-test.mjs --config db/__tests__/vitest.config.ts \"$@\";; esac' sh",
     "e2e": "node scripts/e2e.mjs",

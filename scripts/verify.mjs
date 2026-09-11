@@ -23,6 +23,13 @@ import { announce, run, runAsync, wallTime } from "./lib/report.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 
+/** The cad suites that are the golden's other half: the recompute paths, over both fixtures. */
+export const GOLDEN_PYTEST = Object.freeze([
+  "cad/tests/sanity/test_rcc6_golden.py",
+  "cad/tests/sanity/test_golden_corpora.py",
+  "cad/tests/rcc6_bnbc",
+]);
+
 /**
  * What each lane runs when it is armed. Keyed by the lane ids deriveLanes yields; the roster still
  * decides which of these ever run.
@@ -40,6 +47,14 @@ export const LANE_COMMANDS = Object.freeze({
   "schema-drift": [["node", "scripts/db-drift.mjs", "--scratch"]],
   "method-hash": [["node", "scripts/method-hashes.mjs", "--in-chain"]],
   "catalogue-drift": [["node", "scripts/catalogue-drift.mjs", "--in-chain"]],
+  // The fixture evidence lane (V-GOLDEN). Both halves of it: the goldens read as committed bytes
+  // (tests/golden/vitest.config.ts) and the cad suites that recompute them from the authored
+  // inputs. It is the same pair `pnpm test:golden` runs, so the engine's gate and this chain say
+  // the same thing about a node tagged `golden`.
+  golden: [
+    ["node", "node_modules/vitest/vitest.mjs", "run", "--config", "tests/golden/vitest.config.ts"],
+    ["uv", "run", "--project", "cad", "pytest", "-q", ...GOLDEN_PYTEST],
+  ],
   cad: [
     ["ruff", "check", "cad"],
     ["pytest", "cad"],

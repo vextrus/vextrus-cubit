@@ -5,7 +5,7 @@
 import { describe, expect, test } from "vitest";
 import { LANE_COMMANDS, LANE_ENV, planWaves, runChainInWaves } from "../../scripts/verify.mjs";
 
-const VERIFY_ORDER = ["typegen", "types", "lint", "unit", "schema-drift", "method-hash", "catalogue-drift", "cad", "build"];
+const VERIFY_ORDER = ["typegen", "types", "lint", "unit", "schema-drift", "method-hash", "catalogue-drift", "golden", "cad", "build"];
 
 interface Lane {
   id: string;

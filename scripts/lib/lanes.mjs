@@ -29,6 +29,7 @@ export const INPUT_ROOTS = Object.freeze({
   methodManifests: METHOD_MANIFEST_GLOB,
   catalogue: "db/catalogue",
   cad: "cad",
+  fixtures: "fixtures/*/manifest.json",
   e2eTests: "tests/e2e",
   nodePin: ".nvmrc",
   packageManifest: "package.json",
@@ -47,6 +48,7 @@ const LANE_SPECS = Object.freeze([
   { id: "schema-drift", input: "dbSchema", title: "drizzle-kit generate into scratch" },
   { id: "method-hash", input: "methodManifests", title: "method-hash manifest" },
   { id: "catalogue-drift", input: "catalogue", title: "catalogue/bears table drift" },
+  { id: "golden", input: "fixtures", title: "golden fixtures (vitest + cad)" },
   { id: "cad", input: "cad", title: "ruff check + pytest" },
   { id: "build", input: "app", title: "next build (cold, own distDir)" },
 ]);
