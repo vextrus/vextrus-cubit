@@ -20,11 +20,11 @@
 
   <preamble>
     <purpose>
-      This document is the destination. It states, for the four core modules and their spine, every feature, every artifact, the stack, the frontend and its design system, the domain law that binds every number, how "done" is proven, and in what order it is built. A session that reads only this file can build the product.
+      This document is the destination. It states, for the six modules and their spine, every feature, every artifact, the stack, the frontend and its design system, the domain law that binds every number, how "done" is proven, and in what order it is built. A session that reads only this file can build the product.
     </purpose>
     <how-to-read>
       <rule>Every normative statement carries an id. Ids are permanent; a superseded requirement keeps its id and gains status="superseded" with a pointer.</rule>
-      <rule>Id families: R-&lt;MODULE&gt;-nnn requirements · L-&lt;AREA&gt;-nn domain law · J-nnn end-to-end journeys · S-&lt;name&gt; screens · A-&lt;name&gt; artifacts · M0…M10 checkpoints · B-nn binding rules · ARCH-nn architecture law · Q-nn quality bar checks · D-nn open decisions · C-nn build-contract rules.</rule>
+      <rule>Id families: R-&lt;MODULE&gt;-nnn requirements · L-&lt;AREA&gt;-nn domain law · J-nnn end-to-end journeys · S-&lt;name&gt; screens · A-&lt;name&gt; artifacts · M0…M10 checkpoints · B-nn binding rules · ARCH-nn architecture law · Q-nn quality bar checks · D-nn open decisions · C-nn build-contract rules (two digits) · C-&lt;MODULE&gt;-&lt;NAME&gt; module capabilities (a different family that shares a letter; no id is duplicated and none is renamed) · F-&lt;NAME&gt; fixtures · V-&lt;LANE&gt; verification lanes · X-n experience moments · PB-n performance budgets · DIFF-n differentiators · AS-nn stated assumptions · AM-nn amendments · I-nnn builder interpretations, recorded in the harness ledger and never in this file (AM-13).</rule>
       <rule>priority: must (the product is not this product without it) · should (expected of a serious product; built in the checkpoint window named) · could (built if budget allows; never blocks a checkpoint).</rule>
       <rule>phase names the checkpoint in &lt;delivery&gt; by which the requirement is first built to production quality. Checkpoints are evidence gates over one whole-product Increment Graph, never planning boundaries: the Builder's Architect compiles this entire file into one graph at the start of the product's life, and each checkpoint closes when the ids it names carry green evidence. A checkpoint's &lt;includes&gt; lists exactly the ids first proven there (extensions are named in its &lt;goal&gt;). A requirement is not "done" until its evidence exists (see &lt;verification&gt; §evidence).</rule>
       <rule>Where a domain law and a requirement collide, the law wins and the requirement is amended by the founder, never silently narrowed by a builder.</rule>
@@ -280,7 +280,7 @@
     <stack>
       <component name="Node.js" version="24 LTS (pinned in .nvmrc)" role="runtime"/>
       <component name="pnpm" version="10.x, exact via corepack" role="package manager; save-exact"/>
-      <component name="TypeScript" version="6.x strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes" role="the whole app"/>
+      <component name="TypeScript" version="5.9.3 exact, strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes" role="the whole app"/>
       <component name="Next.js" version="16.x App Router, Turbopack" role="UI + route handlers; server components for reads, client components for the workspace"/>
       <component name="React" version="19.x" role="UI"/>
       <component name="tRPC" version="11.x + @tanstack/react-query 5.x" role="the internal API; Zod on every input; zero codegen; per-module routers composed into one appRouter"/>
@@ -288,23 +288,23 @@
       <component name="Drizzle ORM + drizzle-kit" version="0.4x" role="schema in TS, SQL migrations, one migration lane, drift check"/>
       <component name="PostgreSQL" version="16 native on 5544 (dev), managed in prod" role="the database; RLS declared in schema; numeric for every quantity and taka"/>
       <component name="pg-boss" version="10.x" role="job queue on Postgres (ingest, vectorise, render, digitise, export); no Redis"/>
-      <component name="better-auth" version="1.x with organization plugin" role="auth: email+password, magic link, org=tenant, invitations, sessions; own DB role"/>
-      <component name="decimal.js" version="10.x" role="all arithmetic at the seam; floats banned by lint"/>
-      <component name="Tailwind CSS" version="4.x" role="styling with design tokens as CSS variables (the Datum tokens)"/>
+      <component name="Auth (hand-rolled, src/server/auth/*)" version="in-tree, no dependency — better-auth is NOT installed (AM-08)" role="auth: email+password, sessions, org=tenant, invitations; over Drizzle/Postgres; own DB role"/>
+      <component name="decimal.js" version="10.6.0 exact (save-exact; the tree's ^10.6.0 is a standing violation — AM-08)" role="all arithmetic at the seam; floats banned by lint"/>
+      <component name="CSS variables + hand-written `cx-` class stylesheets" version="no framework — Tailwind is NOT installed (AM-08)" role="styling; the Datum tokens are emitted from src/ui/tokens.ts into the committed src/ui/tokens.css"/>
       <component name="Radix UI primitives (via shadcn/ui generator, vendored into src/ui)" version="current" role="accessible primitives; every component restyled to Datum"/>
-      <component name="motion (framer-motion)" version="12.x" role="purposeful motion; reduced-motion respected"/>
-      <component name="Lucide" version="current" role="icons; custom glyphs for basis and element classes as inline SVG"/>
+      <component name="motion (framer-motion)" version="12.x — NOT installed at M2 (AM-08)" role="purposeful motion; reduced-motion respected"/>
+      <component name="Lucide" version="current — NOT installed at M2 (AM-08)" role="icons; custom glyphs for basis and element classes as inline SVG"/>
       <component name="TanStack Table + Virtual" version="8.x / 3.x" role="every large table (register, BOQ, book) virtualised"/>
-      <component name="cmdk" version="1.x" role="command palette"/>
-      <component name="Zustand" version="5.x" role="viewer and workspace client state (selection, tool, viewport)"/>
-      <component name="PixiJS" version="8.x (WebGL2, canvas fallback)" role="the drawing viewer renderer; render manifests → batched geometry; text as world-height glyphs"/>
-      <component name="Recharts" version="3.x" role="dashboards and charts (bracket band, cost/sft, coverage grid via custom SVG)"/>
+      <component name="cmdk" version="1.x — NOT installed at M2 (AM-08)" role="command palette"/>
+      <component name="Zustand" version="5.x — NOT installed at M2 (AM-08)" role="viewer and workspace client state (selection, tool, viewport)"/>
+      <component name="Viewer renderer (hand-rolled WebGL2, src/modules/takeoff/viewer/painter.ts)" version="in-tree, no dependency — PixiJS is NOT installed (AM-08)" role="the drawing viewer renderer; render manifests → batched geometry; text as world-height glyphs"/>
+      <component name="Recharts" version="3.x — NOT installed at M2 (AM-08)" role="dashboards and charts (bracket band, cost/sft, coverage grid via custom SVG)"/>
       <component name="Playwright" version="1.6x" role="end-to-end journeys, visual baselines, axe checks; drives the same app the customer gets"/>
       <component name="Vitest" version="4.x" role="unit, contract, seam, golden-vector, refusal-register tests"/>
       <component name="ESLint (flat)" version="10.x + typescript-eslint" role="boundary rules and every NEVER, each with a fixture test"/>
       <component name="Python" version="3.13 via uv" role="cad/ CLI only: ezdxf, pypdfium2, LibreDWG subprocess, the vectoriser (OpenCV, numpy pinned)"/>
       <component name="LibreDWG" version="0.13.x --enable-release, subprocess" role="DWG → DXF, audited two-pass"/>
-      <component name="Typst" version="0.15.x pinned by version + sha256, subprocess" role="every issued PDF: bill + certificate, BBS, rate analysis, bid book, marked-up drawings (SVG embedded)"/>
+      <component name="Typst" version="0.13.1 pinned by version + sha256 61f743dccaaf7d763072ae046ad71f2303752e78d499d319043248f894602f45, subprocess (AM-08: the version this machine has; B-24/C-07 — no session can fetch 0.15.x)" role="every issued PDF: bill + certificate, BBS, rate analysis, bid book, marked-up drawings (SVG embedded)"/>
       <component name="Fonts" version="Spline Sans (UI), Spline Sans Mono (numbers, codes), Noto Sans (documents) — OFL, vendored at src/ui/fonts, hashed" role="typography"/>
       <component name="Docker" version="single multi-stage image (node:24-slim + uv + typst + libredwg; no browser)" role="production only; dev is native"/>
       <rejected>Workspaces/monorepo tooling; NestJS/CQRS/DDD; GraphQL and any generated client; Prisma; Redis; a Python web service; Electron/native desktop; a separate design-system package; a component library used unstyled; any AGPL PDF library; ODA File Converter; Docker in dev.</rejected>
@@ -561,7 +561,7 @@
     <design-system name="Datum" tagline="the total station — a reference everything is measured from">
       <intent>A precision optical instrument for people who read drawings all day: graphite surfaces seamed by 1px hairlines, calm and dense where data lives, generous where decisions are made, exactly two colours with meaning. Dark-first (long hours on drawings), light mode complete on a cool instrument grey-white ground — never pure white. It must feel like the best of Linear, Figma and a well-made surveying instrument, never like a dashboard template. Five laws: (1) graphite is the ground — hairlines join surfaces, shadows only for overlays; (2) indigo is the beam — if it is indigo you can act on it; (3) copper commits — the act colour fires only when a human commits, never a hover, never a chart, at most one act colour per screen; (4) focus is a reticle — no glow, no filled ring; (5) status is a readout — mono, tabular, nothing bounces, no spinner on a data table.</intent>
       <tokens>
-        <requirement id="R-UI-001" priority="must" phase="M0">Tokens are CSS variables emitted from one TS source (`src/ui/tokens.ts`) consumed by Tailwind; `src/ui/tokens.css` is generated output committed beside it with a char-for-char drift test; no colour literal exists outside the source (lint rule with fixture test). Colour: the graphite scale 0–1000 for surfaces and text (roles theme-stable — 0 is always the app background, 200 the hairline seam, 500 disabled ≥3:1, 600 captions ≥4.5:1, 700 secondary, 900 primary; dark mode flips values, never consumer code); one accent "beam" (the brand indigo) for everything interactive; an "act" copper reserved for act commitment (affirm / sign / issue / confirm-with-consequence) and nothing else; semantic success/warn/danger/info with surface tints; the basis palette (R-UI-002); the element-class palette; the canvas palette. Spacing on the 4-pt grid; radii 2/4/8/12; four shadows with hairline borders preferred; the type scale (R-UI-003); motion durations/easings with reduced-motion zeroing every duration at the source; four z-layers; breakpoints; the two density row heights. Both themes on `:root` and `[data-theme]` with identical key sets. The exact values are founder-final law (light/dark):<![CDATA[
+        <requirement id="R-UI-001" priority="must" phase="M0">Tokens are CSS variables emitted from one TS source (`src/ui/tokens.ts`) consumed as CSS variables by the `cx-` class stylesheets (AM-08); `src/ui/tokens.css` is generated output committed beside it with a char-for-char drift test; no colour literal exists outside the source (lint rule with fixture test). Colour: the graphite scale 0–1000 for surfaces and text (roles theme-stable — 0 is always the app background, 200 the hairline seam, 500 disabled ≥3:1, 600 captions ≥4.5:1, 700 secondary, 900 primary; dark mode flips values, never consumer code); one accent "beam" (the brand indigo) for everything interactive; an "act" copper reserved for act commitment (affirm / sign / issue / confirm-with-consequence) and nothing else; semantic success/warn/danger/info with surface tints; the basis palette (R-UI-002); the element-class palette; the canvas palette. Spacing on the 4-pt grid; radii 2/4/8/12; four shadows with hairline borders preferred; the type scale (R-UI-003); motion durations/easings with reduced-motion zeroing every duration at the source; four z-layers; breakpoints; the two density row heights. Both themes on `:root` and `[data-theme]` with identical key sets. The exact values are founder-final law (light/dark):<![CDATA[
 graphite   0 #F4F5F4/#0C0E11 · 50 #EFF0EF/#101318 · 100 #E9EBEA/#12151A · 200 #DDE0E0/#22262E · 300 #C9CDD1/#333A46 · 400 #B0B6BC/#414957 · 500 #7F868D/#66707F · 600 #5F6772/#7E8899 · 700 #4A515B/#9AA3B2 · 800 #363C45/#C3C9D2 · 900 #262B33/#E7EAEE · 950 #191D24/#F1F4F7 · 1000 #101318/#FBFCFD
 beam       100 #E8E6F7/#1A1830 · 300 #B7B1E8/#3B3478 · 500 #5A4FB0/#6E63C8 · 600 #473E92/#8B84E8 · 700 #38316F/#A7A1F0
 act        surface #FBEFE4/#1D1610 · 500 #A85B28/#C97F4A · 600 #9A5326/#E29A68   (500 = fills, borders, the 7px dot; 600 = text on act-surface)
@@ -845,7 +845,7 @@ contrast facts to keep true: beam-600 dark on graphite-0 dark ≥ 4.5:1; graphit
   </delivery>
 
   <scope-fence>
-    <in>The five modules and the spine as specified; English UI; Bangladesh books and rules; the synthetic fixture corpus; single-region deployment; the SAMPLE project.</in>
+    <in>The six modules and the spine as specified; English UI; Bangladesh books and rules; the synthetic fixture corpus; single-region deployment; the SAMPLE project.</in>
     <out until="a named customer forces it">Bangla UI (readiness only); scheduling, procurement, site progress, RA/IPC billing, accounting, HR, CRM, WhatsApp capture, notification hub, workflow engine, plugin systems, public API, mobile apps, IFC/BIM/3D, MEP fitting counts, realtime multiplayer editing, payments/billing, SSO/SAML, on-prem installer, offline mode, marketplace of assemblies, model fine-tuning; and, in this repository, any script that runs Claude.</out>
   </scope-fence>
 
