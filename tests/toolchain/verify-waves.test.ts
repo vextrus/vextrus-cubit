@@ -44,7 +44,7 @@ describe("verify gates its independent lanes at once, and answers for every one 
   test("typegen stands alone in front, build alone at the back, and everything else gates together", () => {
     expect(planWaves(fullyArmed()).map((wave) => wave.map((lane) => lane.id))).toEqual([
       ["typegen"],
-      ["types", "lint", "unit", "schema-drift", "method-hash", "catalogue-drift", "cad"],
+      ["types", "lint", "unit", "schema-drift", "method-hash", "catalogue-drift", "golden", "cad"],
       ["build"],
     ]);
   });
@@ -54,7 +54,17 @@ describe("verify gates its independent lanes at once, and answers for every one 
     expect(code).toBe(0);
     expect(trace.announced).toEqual(VERIFY_ORDER);
     expect(trace.lines.filter((line) => line.startsWith("FAIL"))).toEqual([]);
-    expect(trace.ran).toEqual(VERIFY_ORDER.flatMap((id) => LANE_COMMANDS[id] ?? []));
+    // WHAT ran is the roster's commands and nothing else; the ORDER they were handed to exec in is
+    // not a contract of a wave that runs concurrently — two lanes carrying more than one command
+    // each (golden and cad) interleave by design. The order that IS promised, roster order, is the
+    // announcement above, and each lane's own commands still run in its own order (below).
+    const asText = (argv: string[]): string => argv.join(" ");
+    expect([...trace.ran].map(asText).sort()).toEqual(VERIFY_ORDER.flatMap((id) => LANE_COMMANDS[id] ?? []).map(asText).sort());
+    for (const id of VERIFY_ORDER) {
+      const commands = (LANE_COMMANDS[id] ?? []).map(asText);
+      const positions = commands.map((command) => trace.ran.map(asText).indexOf(command));
+      expect([...positions].sort((first, second) => first - second), `${id} ran its own commands out of order`).toEqual(positions);
+    }
   });
 
   test("a red lane does not silence its siblings — every verdict of the wave is reported", async () => {
