@@ -25,6 +25,7 @@
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { JobEvent } from "@/core/jobs";
+import { setFaultSink, type FaultRecord } from "@/core/faults/report";
 import { SESSION_COOKIE } from "@/server/auth/session";
 
 /**
@@ -315,5 +316,91 @@ describe("AC-5: the events door answers about the caller's own workspace, and no
     const response = await GET(new Request(address(NOBODYS, "poll"), SIGNED_IN));
     expect(response.status, "the spine's own probe belongs to no workspace, so there is none to hold").toBe(200);
     expect(guard.authorize, "and no workspace question is asked").not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The subscriber's own ending. `src/ui/patterns/job-timeline/job-watch.ts` closes the EventSource on
+ * the terminal frame (I-111), and a person closing a tab does the same thing less politely: the
+ * consumer cancels the response stream while this route is still inside its watch. That is the
+ * COMMON ending of a stream, not an exceptional one, and the route owes it silence — no fault filed
+ * against an outage that never happened, and nothing thrown out of the reader that has no catch
+ * above it.
+ */
+describe("a subscriber that goes away is an ending, not an outage", () => {
+  /** Every fault the seam recorded while a case ran, whoever the sink was before it. */
+  function recorder(): { faults: FaultRecord[]; restore: () => void } {
+    const faults: FaultRecord[] = [];
+    const previous = setFaultSink((record) => void faults.push(record));
+    return { faults, restore: () => void setFaultSink(previous) };
+  }
+
+  /** A watcher that has yielded its first event and is waiting for the next one when it is stopped. */
+  function watcherStoppedByAbort(first: JobEvent): (jobId: string, signal?: AbortSignal) => AsyncGenerator<JobEvent> {
+    return async function* watcher(_jobId: string, signal?: AbortSignal) {
+      yield first;
+      await new Promise<void>((settle) => {
+        if (signal === undefined || signal.aborted) {
+          settle();
+          return;
+        }
+        signal.addEventListener("abort", () => settle(), { once: true });
+      });
+    };
+  }
+
+  /** Let every microtask and the timer queue settle, so a rejection has somewhere to surface. */
+  async function settle(): Promise<void> {
+    for (let turn = 0; turn < 5; turn += 1) await new Promise((wake) => realSetTimeout(wake, 0));
+  }
+
+  test("a client that cancels the stream mid-watch files no fault and throws nothing", async () => {
+    const { faults, restore } = recorder();
+    const rejections: unknown[] = [];
+    const onRejection = (reason: unknown): void => void rejections.push(reason);
+    process.on("unhandledRejection", onRejection);
+    try {
+      seam.jobEvents.mockImplementation(async () => []);
+      seam.jobScope.mockImplementation(async () => ({ ...UNOWNED }));
+      seam.watchJob.mockImplementation(watcherStoppedByAbort(event(1, "started")));
+
+      const response = await GET(new Request(address("job-1"), SIGNED_IN));
+      const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+      const first = await reader.read();
+      expect(first.done, "the subscriber reads the frame the watcher yielded").toBe(false);
+
+      // The subscriber has what it came for and lets the stream go — the EventSource's own close,
+      // and the tab's. The watch is stopped by that, and the route's loop ends the moment it is.
+      await reader.cancel();
+      await settle();
+
+      expect(faults, `a routine disconnect is not an outage, and none may be filed: ${JSON.stringify(faults)}`).toEqual([]);
+      expect(rejections, `nothing may be thrown at the reader that let go: ${String(rejections[0])}`).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onRejection);
+      restore();
+    }
+  });
+
+  test("a log that fails while somebody is still listening is still the fault it always was", async () => {
+    const { faults, restore } = recorder();
+    try {
+      seam.jobEvents.mockImplementation(async () => []);
+      seam.jobScope.mockImplementation(async () => ({ ...UNOWNED }));
+      seam.watchJob.mockImplementation(async function* failing() {
+        yield event(1, "started");
+        throw new Error("the log became unreadable");
+      });
+
+      const response = await GET(new Request(address("job-1"), SIGNED_IN));
+      const body = await new Response(response.body).text();
+
+      expect(faults.length, "the outage is recorded for the operator (ARCH-03)").toBe(1);
+      expect(faults[0]?.route, "under the route that met it").toBe("GET /api/events");
+      expect(body, "and the subscriber is told, with the id the record is filed under").toContain("event: fault");
+      expect(body, "which is the record's own id").toContain(faults[0]?.faultId ?? "no fault was filed");
+    } finally {
+      restore();
+    }
   });
 });

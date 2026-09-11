@@ -95,32 +95,58 @@ function streamAnswer(jobId: string, history: readonly JobEvent[], signal: Abort
   signal.addEventListener("abort", stopWatching, { once: true });
   const lastRecorded = history.at(-1)?.seq ?? -1;
 
+  /**
+   * Whether this end is finished with the stream — set by our own close AND by the consumer's
+   * cancel, because a cancelled stream is one nothing may be written to or closed again: both
+   * `close()` and `enqueue()` throw `TypeError: Invalid state: Controller is already closed`.
+   *
+   * The state is held here rather than read back off `desiredSize`, which does not answer the
+   * question: WHATWG Streams gives null only for an ERRORED stream and 0 for a closed or cancelled
+   * one. Read as "null once cancelled", a routine disconnect — every finished job, because the
+   * subscriber closes the EventSource on the terminal frame (I-111) — filed a fault against an
+   * outage that never happened and then threw the second TypeError inside the handler for the
+   * first, with only a `finally` above it: one unhandled rejection per closed tab.
+   */
+  let closed = false;
+
   const body = new ReadableStream<Uint8Array>({
     start: (controller) => {
+      /** Close this end once, and never a stream the consumer has already let go of. */
+      const closeOnce = (): void => {
+        if (closed) return;
+        closed = true;
+        controller.close();
+      };
       void (async () => {
         try {
-          for (const event of history) controller.enqueue(frame(event));
+          for (const event of history) {
+            if (closed) return;
+            controller.enqueue(frame(event));
+          }
           for await (const event of watchJob(jobId, watching.signal)) {
+            if (closed) return;
             if (event.seq > lastRecorded) controller.enqueue(frame(event));
           }
-          controller.close();
+          closeOnce();
         } catch (failure) {
+          // A client that has gone is nobody to tell, and its going is not an outage of ours: the
+          // watcher ends the way an aborted watcher ends and nothing is left to write to. Only a
+          // failure met while somebody was still listening is a fault (ARCH-03, B-21).
+          if (closed || signal.aborted) return;
           // The log became unreadable mid-stream: an outage of ours, recorded before the client is
           // told anything, and the client is told — a job never fails silently (ARCH-03, B-21).
           const { faultId } = reportFault({ requestId: jobId, actor: "stream", route: ROUTE, cause: failure });
-          // `desiredSize` is null once a stream has been cancelled, closed or errored: a client that
-          // has already gone is nobody to tell, and the fault is recorded either way.
-          if (controller.desiredSize !== null) {
-            controller.enqueue(encoder.encode(`event: fault\ndata: ${JSON.stringify({ faultId })}\n\n`));
-            controller.close();
-          }
+          controller.enqueue(encoder.encode(`event: fault\ndata: ${JSON.stringify({ faultId })}\n\n`));
+          closeOnce();
         } finally {
           signal.removeEventListener("abort", stopWatching);
           watching.abort();
         }
       })();
     },
+    // The consumer has let the stream go: the watcher stops, and this end writes nothing more.
     cancel: () => {
+      closed = true;
       watching.abort();
     },
   });
