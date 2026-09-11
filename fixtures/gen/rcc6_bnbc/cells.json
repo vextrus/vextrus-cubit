@@ -1,22 +1,227 @@
 {
   "fixture": "F-RCC6-BNBC",
-  "note": "The 36 M3 gate cells (class × kind) that R-TO-032's rails must fill and R-TO-035 judges at ±3 %/+0 % (H-bible-m3 §3, E-fixture §3.6). 11 structural classes × {RCC_CONCRETE, FORMWORK, REBAR} less PILE×FORMWORK (bored, none), plus PILE_LENGTH, PILE_COUNT, and EXCAVATION/BLINDING under PILE_CAP. Rows the golden carries beyond the matrix (FOOTING/WALL/SLAB earthwork, BRICKWORK) are informational until AM-06/AM-07 phase them.",
+  "note": "The 36 M3 gate cells (class × kind) that R-TO-032's rails must fill and R-TO-035 judges at ±3 %/+0 % (H-bible-m3 §3, E-fixture §3.6). 11 structural classes × {RCC_CONCRETE, FORMWORK, REBAR} less PILE×FORMWORK (bored, none), plus PILE_LENGTH, PILE_COUNT, and EXCAVATION/BLINDING under PILE_CAP. Rows the golden carries beyond the matrix (FOOTING/WALL/SLAB earthwork, BRICKWORK) are informational until AM-06/AM-07 phase them. Each entry is {cell: {class, kind}, expected_residue?}: the `cell` dict is the row selector (cell ⊆ row), the residue note sits beside it (adversary 4).",
   "cells": [
-    {"class": "PILE", "kind": "RCC_CONCRETE"}, {"class": "PILE", "kind": "REBAR"}, {"class": "PILE", "kind": "PILE_LENGTH"}, {"class": "PILE", "kind": "PILE_COUNT"},
-    {"class": "PILE_CAP", "kind": "RCC_CONCRETE"}, {"class": "PILE_CAP", "kind": "FORMWORK"}, {"class": "PILE_CAP", "kind": "REBAR"},
-    {"class": "PILE_CAP", "kind": "EXCAVATION", "expected_residue": "PC2 (14 triangular caps) may defer POLYGON_PIT under L-FRM-04; the golden measures them by bounding box — a deferral is under, lawful"},
-    {"class": "PILE_CAP", "kind": "BLINDING", "expected_residue": "PC2 as above"},
-    {"class": "FOOTING", "kind": "RCC_CONCRETE"}, {"class": "FOOTING", "kind": "FORMWORK"}, {"class": "FOOTING", "kind": "REBAR"},
-    {"class": "TIE_BEAM", "kind": "RCC_CONCRETE"}, {"class": "TIE_BEAM", "kind": "FORMWORK"}, {"class": "TIE_BEAM", "kind": "REBAR"},
-    {"class": "COLUMN", "kind": "RCC_CONCRETE"}, {"class": "COLUMN", "kind": "FORMWORK"}, {"class": "COLUMN", "kind": "REBAR"},
-    {"class": "SHEAR_WALL", "kind": "RCC_CONCRETE"}, {"class": "SHEAR_WALL", "kind": "FORMWORK"}, {"class": "SHEAR_WALL", "kind": "REBAR"},
-    {"class": "BEAM", "kind": "RCC_CONCRETE"}, {"class": "BEAM", "kind": "FORMWORK"}, {"class": "BEAM", "kind": "REBAR"},
-    {"class": "SLAB", "kind": "RCC_CONCRETE"}, {"class": "SLAB", "kind": "FORMWORK"}, {"class": "SLAB", "kind": "REBAR"},
-    {"class": "STAIR", "kind": "RCC_CONCRETE", "expected_residue": "AM-06 'complex stair' — dog-leg with half landing is straight flights + rectangular landings, so it must NOT defer"},
-    {"class": "STAIR", "kind": "FORMWORK"}, {"class": "STAIR", "kind": "REBAR"},
-    {"class": "LINTEL", "kind": "RCC_CONCRETE", "expected_residue": "lintels come from the S-25 schedule by arch mark (AM-06); a rail reading only plans defers LINTEL_SOURCE_UNSTATED"},
-    {"class": "LINTEL", "kind": "FORMWORK"}, {"class": "LINTEL", "kind": "REBAR"},
-    {"class": "WALL", "kind": "RCC_CONCRETE", "expected_residue": "tank/parapet walls need the catalogue home E-fixture §3.1 asks for; until then WALL_CLASS_UNCATALOGUED defers (under)"},
-    {"class": "WALL", "kind": "FORMWORK"}, {"class": "WALL", "kind": "REBAR"}
+    {
+      "cell": {
+        "class": "PILE",
+        "kind": "RCC_CONCRETE"
+      }
+    },
+    {
+      "cell": {
+        "class": "PILE",
+        "kind": "REBAR"
+      }
+    },
+    {
+      "cell": {
+        "class": "PILE",
+        "kind": "PILE_LENGTH"
+      }
+    },
+    {
+      "cell": {
+        "class": "PILE",
+        "kind": "PILE_COUNT"
+      }
+    },
+    {
+      "cell": {
+        "class": "PILE_CAP",
+        "kind": "RCC_CONCRETE"
+      }
+    },
+    {
+      "cell": {
+        "class": "PILE_CAP",
+        "kind": "FORMWORK"
+      }
+    },
+    {
+      "cell": {
+        "class": "PILE_CAP",
+        "kind": "REBAR"
+      }
+    },
+    {
+      "cell": {
+        "class": "PILE_CAP",
+        "kind": "EXCAVATION"
+      },
+      "expected_residue": "PC2 (14 triangular caps) may defer POLYGON_PIT under L-FRM-04; the golden measures them by bounding box — a deferral is under, lawful"
+    },
+    {
+      "cell": {
+        "class": "PILE_CAP",
+        "kind": "BLINDING"
+      },
+      "expected_residue": "PC2 as above"
+    },
+    {
+      "cell": {
+        "class": "FOOTING",
+        "kind": "RCC_CONCRETE"
+      }
+    },
+    {
+      "cell": {
+        "class": "FOOTING",
+        "kind": "FORMWORK"
+      }
+    },
+    {
+      "cell": {
+        "class": "FOOTING",
+        "kind": "REBAR"
+      }
+    },
+    {
+      "cell": {
+        "class": "TIE_BEAM",
+        "kind": "RCC_CONCRETE"
+      }
+    },
+    {
+      "cell": {
+        "class": "TIE_BEAM",
+        "kind": "FORMWORK"
+      }
+    },
+    {
+      "cell": {
+        "class": "TIE_BEAM",
+        "kind": "REBAR"
+      }
+    },
+    {
+      "cell": {
+        "class": "COLUMN",
+        "kind": "RCC_CONCRETE"
+      }
+    },
+    {
+      "cell": {
+        "class": "COLUMN",
+        "kind": "FORMWORK"
+      }
+    },
+    {
+      "cell": {
+        "class": "COLUMN",
+        "kind": "REBAR"
+      }
+    },
+    {
+      "cell": {
+        "class": "SHEAR_WALL",
+        "kind": "RCC_CONCRETE"
+      }
+    },
+    {
+      "cell": {
+        "class": "SHEAR_WALL",
+        "kind": "FORMWORK"
+      }
+    },
+    {
+      "cell": {
+        "class": "SHEAR_WALL",
+        "kind": "REBAR"
+      }
+    },
+    {
+      "cell": {
+        "class": "BEAM",
+        "kind": "RCC_CONCRETE"
+      }
+    },
+    {
+      "cell": {
+        "class": "BEAM",
+        "kind": "FORMWORK"
+      }
+    },
+    {
+      "cell": {
+        "class": "BEAM",
+        "kind": "REBAR"
+      }
+    },
+    {
+      "cell": {
+        "class": "SLAB",
+        "kind": "RCC_CONCRETE"
+      }
+    },
+    {
+      "cell": {
+        "class": "SLAB",
+        "kind": "FORMWORK"
+      }
+    },
+    {
+      "cell": {
+        "class": "SLAB",
+        "kind": "REBAR"
+      }
+    },
+    {
+      "cell": {
+        "class": "STAIR",
+        "kind": "RCC_CONCRETE"
+      },
+      "expected_residue": "AM-06 'complex stair' — dog-leg with half landing is straight flights + rectangular landings, so it must NOT defer"
+    },
+    {
+      "cell": {
+        "class": "STAIR",
+        "kind": "FORMWORK"
+      }
+    },
+    {
+      "cell": {
+        "class": "STAIR",
+        "kind": "REBAR"
+      }
+    },
+    {
+      "cell": {
+        "class": "LINTEL",
+        "kind": "RCC_CONCRETE"
+      },
+      "expected_residue": "lintels come from the S-25 schedule by arch mark (AM-06); a rail reading only plans defers LINTEL_SOURCE_UNSTATED"
+    },
+    {
+      "cell": {
+        "class": "LINTEL",
+        "kind": "FORMWORK"
+      }
+    },
+    {
+      "cell": {
+        "class": "LINTEL",
+        "kind": "REBAR"
+      }
+    },
+    {
+      "cell": {
+        "class": "WALL",
+        "kind": "RCC_CONCRETE"
+      },
+      "expected_residue": "tank/parapet walls need the catalogue home E-fixture §3.1 asks for; until then WALL_CLASS_UNCATALOGUED defers (under)"
+    },
+    {
+      "cell": {
+        "class": "WALL",
+        "kind": "FORMWORK"
+      }
+    },
+    {
+      "cell": {
+        "class": "WALL",
+        "kind": "REBAR"
+      }
+    }
   ]
 }

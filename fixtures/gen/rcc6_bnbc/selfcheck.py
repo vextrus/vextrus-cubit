@@ -249,14 +249,13 @@ def run(world: dict[str, Any] | None = None) -> dict[str, Any]:
     # 7. the 36 M3 cells all have at least one golden row
     cells = json.loads((HERE / "cells.json").read_text())["cells"]
     assert len(cells) == 36
-    covered = {
-        (c["class"], c["kind"])
-        for c in cells
-        if any(r["class"] == c["class"] and r["kind"] == c["kind"] for r in rows)
-    }
-    assert len(covered) == 36, sorted(
-        {(c["class"], c["kind"]) for c in cells} - covered
-    )
+    uncovered = []
+    for c in cells:
+        sel = c["cell"]
+        hits = [r for r in rows if sel.items() <= r.items() and D(r["quantity"]) != 0]
+        if not hits:
+            uncovered.append(sel)
+    assert not uncovered, uncovered
     report["cells"] = "36/36"
 
     # 8. determinism: a second build reproduces the bytes
