@@ -1,0 +1,62 @@
+{
+  "fixture": "F-RCC6-BNBC",
+  "schema": 2,
+  "generator": {
+    "path": "fixtures/gen/rcc6_bnbc/",
+    "modules": {
+      "model.py": "0fcc5a852126909b9249c31d78b301739fd1c74b3526b24e6b7355c2f7dffdb6",
+      "golden.py": "9e85f2441fb1c26e54520e8768bc99e6ef62d0b5bd725c8d07822c66a4397f80",
+      "golden_check.py": "9c4f8faaa3c51c6aa15ff7d316d7bb8ab898fb372deb279cc9938f74dc98f712",
+      "selfcheck.py": "cedd159b2b31cf197cf6ea4ca60f9160de85e18297c320d63c77146d6790ac34",
+      "__main__.py": "46d034ec59a3233e8bdb14c9b805ef81684152b803e90b3dcb9128db64ec3b28",
+      "cells.json": "b18725c0e00e900ffcf6c585eeafaf225db31aa65e7226e77bd1bf7e7bebc24f",
+      "traps.json": "2e80e89a17af7f1422977d4bb835d537c22e19cf029fde5c850c6cdb13d4df3c"
+    }
+  },
+  "conventions": {
+    "junction_ownership": [
+      "pile > pile cap > column/shear wall (full floor-to-floor, through joints) > beam (clear between support faces, depth below the slab soffit) > slab (runs through; outline − column/wall plan areas − openings > 0.1 m²)",
+      "grade beams clear between cap faces; stair flights sloped length × width × waist + step triangles; landings AREA_THICK",
+      "formwork: column 2(b+d) × (floor-to-floor − slab t) − beam-end contacts > 500 cm²; beam sides (D − t each side) + soffit b, × clear; slab soffit net of beam soffits and columns, free edges × t as EDGE; caps/GB/footing sides only; piles none; stair soffit + risers + strings",
+      "a junction deduction may defer only where the published figure is then under, never over (AM-02)"
+    ],
+    "opening_threshold_m2": "0.1",
+    "member_end_no_deduct_cm2": "500",
+    "unit_weights": "L-FRM-05 table (8→0.395, 10→0.616, 12→0.888, 16→1.579, 20→2.466, 25→3.854 kg/m); d²/162 is a check only",
+    "cutting_length": "BS 8666 per L-FRM-05 (bend radius 2d ≤16 mm else 3.5d; generic Σlegs − bends·(0.5r + d)); IS-additive printed beside, never billed",
+    "rounded_cutting_length_mm": 25,
+    "stock_mm": "12000",
+    "stock_split": "n = ⌈(L − lap)/(stock − lap)⌉, billable L + (n − 1)·lap; laps are the LAP component",
+    "laps": "tension 50d / compression 40d (S-02 general note overrides the BNBC table, J-032); columns and walls one lap per storey",
+    "hooks": "90° = 12d; stirrup/tie 135° = 10d, min 75 mm (S-03)",
+    "counting": "⌊(distance + 0.5 mm)/spacing⌋ + 1",
+    "wastage": "none in net quantities; 3 % and binding wire 8 kg/t belong to resource summaries only (AM-03a)",
+    "rebar_unit": "kg = cutting length (raw, unrounded) × table kg/m",
+    "sunken_slab": "drop 300: slab 125 + drop walls 125 × 175 on the cut-out perimeter; formwork soffit + both drop faces",
+    "ramp": "sloped area × thickness (plan × √(run² + rise²)/run)",
+    "curved_balcony": "the R 1524 corner is authored analytically (rect − r² + πr²/4) in both golden paths; the outline polygon keeps the corner point"
+  },
+  "outputs": {
+    "takeoff.golden.json": "521202bb6da5e1c137c0c670aa0c3f697ec592636e7c851fef7ad3a46c89c342",
+    "bbs.golden.json": "3a36c710b5ecf65755323d4054495f2590ecfbca563eb7715b4034f9876608cb",
+    "cells.json": "5dc5a9d50f9b2c0a98be32919f6f6eade58a75c18dcacde3f648633c5b64f0c9",
+    "traps.json": "2e80e89a17af7f1422977d4bb835d537c22e19cf029fde5c850c6cdb13d4df3c",
+    "site.json": "f2b1fe46b7391f40afd0fae34bcaf35779f73eb06f072a60907e0828f2a31e99",
+    "model.json": "a87c11683c15dce6db59e4974bc98d01c2eea2e9787402d27683c38c19a4abd8"
+  },
+  "selfcheck": {
+    "two_path_agreement": "376 rows identical (member-by-member vs mark × placements)",
+    "cells": "36/36",
+    "rows_per_kind": {
+      "RCC_CONCRETE": 60,
+      "FORMWORK": 103,
+      "REBAR": 192,
+      "PILE_LENGTH": 1,
+      "PILE_COUNT": 1,
+      "EXCAVATION": 3,
+      "BLINDING": 4,
+      "BRICKWORK": 12
+    }
+  },
+  "wave": "A (N0/N1): model + golden + validators + traps; sheets/DXF/DWG/PDF/raster are Wave B"
+}
