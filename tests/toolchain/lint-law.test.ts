@@ -62,6 +62,11 @@ const SCAN_CORPORA: Readonly<Record<string, string>> = {
   // and a sole writer nothing else can call is the only kind there is. Committed as a scan for the
   // same reason as the two above, with its prover beside the scanner it drives (inc-209).
   "no-gate-outside-worker": "src/core/gate/__tests__/gate-import-scan.test.ts",
+  // `residue-not-exists` is L-QTY-05's ban on spelling the absence clause anywhere but the one
+  // residue query — the channels answer with what they SAW (`Sighting[]`, empty when nothing was
+  // seen), so a `NOT EXISTS` inside a channel is a second home for the law. Committed as a scan for
+  // the same reason as the three above, with its prover beside the scanner it drives (inc-216).
+  "residue-not-exists": "src/core/residue/__tests__/not-exists-scan.test.ts",
 };
 
 /**
