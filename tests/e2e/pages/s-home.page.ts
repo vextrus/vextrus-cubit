@@ -12,7 +12,19 @@ export const S_HOME = Object.freeze({
 } as const);
 
 /** The four quick stats the S-Home clause lists, by the id each one carries. */
-export const QUICK_STATS = [TESTIDS.sHome.statSheets, TESTIDS.sHome.statCampaigns, TESTIDS.sHome.statEstimates, TESTIDS.sHome.statBids] as const;
+/**
+ * The COUNTED tiles of the title block (Design Direction 00 §3.3). They are the workspace's totals
+ * now, not a card's own counts, and there are two of them that count things: sheets and campaigns.
+ *
+ * `statBids` left the roster because §3.3's four tiles are projects · sheets · campaigns · estimated
+ * value, and nothing renders a bid tile. `statEstimates` left it because it is NOT a count: with no
+ * estimate recorded it states an em dash rather than `৳ 0.00`, so a loop asserting "an honest zero"
+ * would have to special-case it — and a roster you have to special-case is two rosters.
+ */
+export const QUICK_STATS = [TESTIDS.sHome.statSheets, TESTIDS.sHome.statCampaigns] as const;
+
+/** The value tile, whose empty answer is an absence and not a zero (§8's "Home / Project" fix 3). */
+export const ESTIMATED_VALUE_STAT = TESTIDS.sHome.statEstimates;
 
 /** What a draft carries into the form — the fields R-SPINE-010 names, by their contract test ids. */
 export interface ProjectDraftInput {

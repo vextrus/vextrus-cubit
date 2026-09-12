@@ -10,7 +10,7 @@
 import { expect, test } from "@playwright/test";
 import { SAuthPage, S_AUTH } from "../../pages/s-auth.page";
 import { ShellPage, SHELL } from "../../pages/shell.page";
-import { QUICK_STATS, SHomePage, S_HOME } from "../../pages/s-home.page";
+import { ESTIMATED_VALUE_STAT, QUICK_STATS, SHomePage, S_HOME } from "../../pages/s-home.page";
 import { checkpoint } from "../../support/checkpoint";
 import { newestMail } from "../../support/outbox";
 import { steadyText } from "../../support/retrying-read";
@@ -96,20 +96,43 @@ test.describe("J-000 — Golden Path: sign up, name the workspace, create the fi
     const card = home.cardNamed(PROJECT);
     await expect(card, "the new project is the visible answer: its card stands in the grid").toBeVisible();
     await expect(home.grid).toBeVisible();
+    // The row names the project it is for, which is how its own `⋯` is addressed (s-home.md § 7).
+    const projectId = (await card.getAttribute("data-project")) ?? "";
+    expect(projectId, "the row names the project it is for").not.toBe("");
 
-    /* --- AC-3: what a card carries --- */
+    /* --- AC-3: what a row carries, and where the workspace's own totals stand ---
+     *
+     * ALIGNED TO §3.3 by v22 U2 (2026-09-12). AC-3's sentence is unchanged: a reader who has just
+     * made their first project sees it listed, sees its state, and sees the totals as honest zeros.
+     * What changed is WHERE two of those stand, because §3.3's Dashboard template is "four stat
+     * tiles above a table, not cards with prose":
+     *   · the four quick stats were repeated on EVERY card; a dashboard states a workspace's totals
+     *     ONCE, in the title block, so they are asserted at the page and not inside the row;
+     *   · the rule-set pin, Edit, Archive and Restore moved behind the row's `⋯` (s-home.md I-140) —
+     *     a row in a 28 px table carries one trigger, not three buttons and a link;
+     *   · the recent-documents region is GONE. It was a heading over a sentence saying nothing had
+     *     been issued, which is exactly the copy §6 takes off the screen, and R-UI-080's rule is
+     *     that a region with nothing in it is absent rather than a placeholder.
+     */
     await expect(card.getByTestId("s-home-project-status"), "each entry carries its status").toBeVisible();
     await expect(card.getByTestId("s-home-project-last-activity"), "each entry carries its last activity").toBeVisible();
-    await expect(card.getByTestId("s-home-project-ruleset"), "L-REG-07 made visible: the pin is a link from the card").toHaveAttribute(
+
+    const rowMenu = await home.openRowMenu(projectId);
+    await expect(rowMenu.getByTestId("s-home-project-ruleset"), "L-REG-07 made visible: the pin is a door in the row's own menu").toHaveAttribute(
       "href",
       new RegExp(`^/t/${tenantId}/p/[0-9a-f-]{36}/settings/ruleset$`),
     );
-    await expect(card.getByTestId("s-home-quick-stats"), "the quick stats stand on the card").toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await expect(home.quickStats, "the workspace's totals stand once, in the title block (§3.3)").toBeVisible();
     for (const stat of QUICK_STATS) {
-      const text = await steadyText(card.getByTestId(stat), `the ${stat} readout`);
+      const text = await steadyText(home.quickStats.getByTestId(stat), `the ${stat} readout`);
       expect(Number(text.replace(/[^0-9]/g, "")), `${stat} is an honest zero at M0 — a counted empty set, never a hidden region: it reads "${text}"`).toBe(0);
     }
-    await expect(home.recentDocuments, "the recent-documents region stands, and says why it is empty").toBeVisible();
+    // The value tile is NOT a count, and at M0 it is not a zero either: no project holds an estimate,
+    // so it states an absence rather than a confident `৳ 0.00` (§8's "Home / Project" fix 3).
+    const estimated = await steadyText(home.quickStats.getByTestId(ESTIMATED_VALUE_STAT), "the estimated-value readout");
+    expect(estimated, `with nothing estimated the value tile states an absence, never a figure nobody measured: it reads "${estimated}"`).not.toMatch(/\d/);
 
     /* --- AC-5: the whole segment, measured --- */
     const elapsed = Date.now() - startedAt;
