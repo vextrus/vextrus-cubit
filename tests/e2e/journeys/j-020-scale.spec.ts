@@ -86,7 +86,6 @@ test.use({
 
 test.describe("J-020 — scale: proposals, a two-point calibration, the affirmation act, and the unplaceable views that remain", () => {
   test("J-020: a reader reads every view's scale, calibrates one, affirms it, and the sheet card counts the rest", async ({ page, baseURL }, testInfo) => {
-    test.setTimeout(900_000);
     expect(baseURL, "the journeys are driven against the served product").toBeTruthy();
 
     const staged = await stageScaleSheet(page);
@@ -108,6 +107,12 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     await viewer.fit.click();
 
     /* --- the strip: two tabs, outside the aside, selection pressed at mount (I-152) --- */
+    // ACT FIRST: Direction §3.1 leaves the shell's one right slot absent — width 0 — until something
+    // is selected, and this leg is about the panel a reader OPENS with nothing selected, which is
+    // the very case `V≡` exists for (I-152: the scale tab is a door onto every view's scale, not a
+    // fact about a selection). The pin is the one lawful way to hold it open at rest, and it is
+    // pressed here rather than the panel being waited for in a state the screen is right not to be in.
+    await viewer.pinInspector();
     await expect(scale.tabs, "the right inspector is a two-tab panel now").toBeVisible();
     await expect(scale.selectionTab, "and it opens on Selection at every mount").toHaveAttribute("aria-selected", "true");
     expect(
@@ -184,6 +189,10 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
         return total > 0 && (await viewer.statusNumber("data-loaded-layers")) === total;
       }, { timeout: 120_000, message: "every layer arrives again before the picks are taken" })
       .toBe(true);
+    // A fresh navigation is a fresh mount, and the pin starts released at every one (§3.1: the slot
+    // is absent until something is selected). So it is pressed again before the panel is asked for —
+    // the same act a reader repeats, not a state the screen is expected to have remembered.
+    await viewer.pinInspector();
     await scale.open();
 
     await snap.pickAt(await viewer.screenPointOf(segment.from));

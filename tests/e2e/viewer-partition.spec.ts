@@ -46,7 +46,6 @@ test.use({
 
 test.describe("J-021 — views and grid on the sheet: what the machine saw, and confirming what it proposed", () => {
   test("J-021: a reader reads the partition on the sheet, toggles the paint from the keyboard, and confirms a proposed class", async ({ page, baseURL }, testInfo) => {
-    test.setTimeout(900_000);
     expect(baseURL, "the journeys are driven against the served product").toBeTruthy();
 
     const staged = await stagePartitionedSheet(page);

@@ -141,7 +141,12 @@ test.describe("J-020 — snapping: the glyph that names what is under the pointe
     /* --- the S the roster binds, on the focused canvas (R-UI-032, B-17) --- */
     await viewer.canvas.focus();
     await page.keyboard.press("s");
-    expect(await snap.isPressed(snap.toggle), "the roster's own key flips the toolbar's Snap").toBe(false);
+    // A RETRYING read, because this one is taken the instant after an act: `isPressed` is one
+    // question asked once, and it asked it before React had painted the answer — the error context
+    // of the failing run shows the toggle already released in the same snapshot the read called
+    // pressed. The clause is identical and no weaker; it is simply asked until the screen answers
+    // (AM-09 §4: poll the condition the assertion is about, never the clock).
+    await expect(snap.toggle, "the roster's own key flips the toolbar's Snap").toHaveAttribute("aria-pressed", "false");
     await expect(snap.statusSnap, "and the readout follows it").toHaveAttribute("data-enabled", "false");
     await expect(snap.statusSnap, "off is its own answer, told apart from nothing being in reach").toHaveAttribute("data-kind", "off");
     await snap.hoverAt(await viewer.screenPointOf(endpoint.at));
