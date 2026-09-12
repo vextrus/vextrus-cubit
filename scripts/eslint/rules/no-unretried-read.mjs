@@ -91,6 +91,7 @@ const RETRYING_WRAPPERS = new Set([
   "readWhen",
   "heldAttribute",
   "afterSettled",
+  "afterPopulated",
   "appears",
   "rendered",
   "steadyCount",
