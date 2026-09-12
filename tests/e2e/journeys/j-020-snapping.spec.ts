@@ -162,7 +162,9 @@ test.describe("J-020 — snapping: the glyph that names what is under the pointe
 
     await viewer.canvas.focus();
     await page.keyboard.press("s");
-    expect(await snap.isPressed(snap.toggle), "the same key turns snapping back on").toBe(true);
+    // The same retrying read, for the same reason as the press above: the answer is asked for in the
+    // frame the key was struck, and React paints it in the next one.
+    await expect(snap.toggle, "the same key turns snapping back on").toHaveAttribute("aria-pressed", "true");
 
     /* --- j-020-snap-readout: two picks, and the distance between them in drawing units --- */
     await snap.pickAt(await viewer.screenPointOf(endpoint.at));
@@ -196,8 +198,10 @@ test.describe("J-020 — snapping: the glyph that names what is under the pointe
     await expect(snap.statusDistance, "and the cell says why rather than falling silent (R-UI-020)").toContainText(copy("viewer_status_distance_uncalibrated"));
 
     await snap.ortho.click();
-    expect(await snap.isPressed(snap.ortho), "ortho is pressed").toBe(true);
-    expect(await snap.isPressed(snap.angle), "and angle lock is released — two constraints on one segment would be one with a hidden winner (I-148)").toBe(false);
+    // Both readings are taken the instant after the click that causes them, so both are asked until
+    // the screen answers rather than once, before it has painted (AM-09 §4).
+    await expect(snap.ortho, "ortho is pressed").toHaveAttribute("aria-pressed", "true");
+    await expect(snap.angle, "and angle lock is released — two constraints on one segment would be one with a hidden winner (I-148)").toHaveAttribute("aria-pressed", "false");
     await checkpoint(page, testInfo, "j-020-snap-readout");
 
     /* --- Escape lets go of the picks, and then of the selection, in that order (I-145) --- */

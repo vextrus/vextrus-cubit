@@ -12,7 +12,7 @@
  * pointer moves, and React state is set only when what the readout SAYS changes — the kind, the keys,
  * and, while a pick stands, the live point the figure is measured to.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { RefObject } from "react";
 import { buildSpatialIndex, hitTest, recordKey, type SpatialIndex, type ViewerState } from "@/modules/takeoff/viewer/client";
 import type { Camera, RenderLayer, RenderRecord } from "@/modules/takeoff/viewer";
@@ -132,6 +132,40 @@ function readsReducedMotion(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(REDUCED_MOTION).matches;
 }
 
+/**
+ * THE MACHINE'S OWN ANSWER, READ WHERE IT IS USED (R-UI-004).
+ *
+ * This was a `useState("full")` that an effect corrected at mount, and under an emulated
+ * `prefers-reduced-motion: reduce` the glyph went on publishing `data-motion="full"` for the whole
+ * life of the page. The effect DID run and it DID read `reduce` — proved in the browser, both facts
+ * on one element in one render: a render-time read of the same media query said `reduced` while the
+ * state beside it still said `full`. The correction was made in a place where it could be lost, and
+ * it was lost.
+ *
+ * So the reading is no longer a copy of the machine's answer kept in state and patched after the
+ * fact — it IS the machine's answer, asked during the render that uses it, with a subscription so a
+ * machine that changes its mind re-renders. `useSyncExternalStore` is React's one name for exactly
+ * that, and it gives the server render its own honest snapshot (`full` — a server has no machine to
+ * ask), so a server rendering and a browser one still agree at hydration.
+ */
+const MOTION_QUERY = {
+  subscribe: (onChange: () => void): (() => void) => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => {};
+    const query = window.matchMedia(REDUCED_MOTION);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  },
+  /** What the browser answers right now. */
+  here: (): SnapMotion => (readsReducedMotion() ? "reduced" : "full"),
+  /** What a server answers: there is no machine to ask, so it claims nothing and says `full`. */
+  there: (): SnapMotion => "full",
+} as const;
+
+/** The one reading of R-UI-004 this region makes, and the only place it is made. */
+export function useReducedMotion(): SnapMotion {
+  return useSyncExternalStore(MOTION_QUERY.subscribe, MOTION_QUERY.here, MOTION_QUERY.there);
+}
+
 /** The sheet as the snap narrows it: the index over what has arrived, and every record by its key. */
 type Sheet = { readonly index: SpatialIndex; readonly records: Map<string, RenderRecord[]>; readonly signature: string };
 
@@ -174,7 +208,6 @@ export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration
   const [enabled, setEnabled] = useState(true);
   const [ortho, setOrtho] = useState(false);
   const [angle, setAngle] = useState(false);
-  const [motion, setMotion] = useState<SnapMotion>("full");
   const [snap, setSnap] = useState<SnapResult | null>(null);
   const [live, setLive] = useState<SnapPoint | null>(null);
   const [picks, setPicks] = useState<readonly SnapPick[]>([]);
@@ -193,16 +226,8 @@ export function useSnap({ layers, stateRef, cameraRef, camera, axes, calibration
   gridRef.current = grid;
 
   // R-UI-004: the duration token is zeroed at source, and the glyph publishes the same reading so a
-  // journey can grade it. Read at mount rather than at first render, so a server rendering and a
-  // browser one agree, and again whenever the machine's own answer changes.
-  useEffect(() => {
-    const read = (): void => setMotion(readsReducedMotion() ? "reduced" : "full");
-    read();
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    const query = window.matchMedia(REDUCED_MOTION);
-    query.addEventListener("change", read);
-    return () => query.removeEventListener("change", read);
-  }, []);
+  // journey can grade it — read from the machine in the render that publishes it (see MOTION_QUERY).
+  const motion = useReducedMotion();
 
   /** The glyph put where the drawing was met, written straight onto the element (§ 1, PB-3). */
   const writeGlyph = useCallback(

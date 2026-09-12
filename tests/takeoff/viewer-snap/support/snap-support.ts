@@ -431,6 +431,11 @@ function stubMatchMedia(reduced: boolean): void {
   });
 }
 
+/** The same media stub, for a test that mounts something smaller than the whole screen. */
+export function stubReducedMotion(reduced: boolean): void {
+  stubMatchMedia(reduced);
+}
+
 /** The pointer-capture calls a gesture makes, which jsdom does not implement. */
 function stubPointerCapture(): void {
   const proto = Element.prototype as unknown as Record<string, unknown>;

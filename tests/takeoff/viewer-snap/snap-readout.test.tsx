@@ -10,6 +10,7 @@
  * source, and nothing here freezes a snapshot — every expected figure is derived from the geometry
  * under test through the product's own `distanceBetween`, `metresBetween` and `quantise` (B-19).
  */
+import { render } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
 import {
   KIND_COPY_KEY,
@@ -26,8 +27,11 @@ import {
   hook,
   hoverWorld,
   keysModule,
+  USE_SNAP_MODULE,
   mountSnapScreen,
   plainClickWorld,
+  productModule,
+  stubReducedMotion,
   press,
   pressButton,
   pressed,
@@ -180,6 +184,30 @@ describe("AC-2: the glyph and the snap cell say what is under the pointer, by sh
     const mount = await mountSnapScreen({ reduced: true });
     await hoverWorld(mount, ENDPOINT);
     expect(hook(theGlyph(mount), "data-motion"), "the duration token is zeroed at source, and the glyph publishes the same reading for a journey to grade (R-UI-004)").toBe("reduced");
+  });
+
+  /**
+   * The same clause, asked of the FIRST render rather than of the settled screen. The reading used
+   * to be a `useState("full")` an effect corrected at mount; in a browser under an emulated
+   * `reduce` the correction was scheduled, ran, read `reduce` — and the screen went on publishing
+   * `full` for the life of the page, which is what J-020's last leg caught. A reading taken during
+   * the render that uses it cannot be lost that way, and this is the test that tells the two apart:
+   * a corrected copy answers `full` first and `reduced` after, the machine's own answer answers
+   * `reduced` from the first frame.
+   */
+  test("AC-2: the machine's answer is read IN the render, so no first frame says `full` under reduce", async () => {
+    const { useReducedMotion } = await productModule<{ useReducedMotion: () => string }>(USE_SNAP_MODULE);
+    expect(typeof useReducedMotion, `${USE_SNAP_MODULE} publishes \`useReducedMotion\` — one reading of R-UI-004, in one place`).toBe("function");
+
+    stubReducedMotion(true);
+    const seen: string[] = [];
+    const Probe = () => {
+      seen.push(useReducedMotion());
+      return null;
+    };
+    render(<Probe />);
+    expect(seen[0], "the first render already publishes what the machine answers, with nothing to correct after it").toBe("reduced");
+    expect(seen.every((one) => one === "reduced"), "and no render in the life of the mount says otherwise").toBe(true);
   });
 });
 
