@@ -28,7 +28,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { expect, type Cookie, type Page } from "@playwright/test";
+import { expect, test, type Cookie, type Page } from "@playwright/test";
 import { SAuthPage, S_AUTH } from "../../pages/s-auth.page";
 import { SDrawingsPage } from "../../pages/s-drawings.page";
 import { SHomePage, S_HOME } from "../../pages/s-home.page";
@@ -63,9 +63,29 @@ export interface GoldenRun {
  * leg that would be twenty minutes of golden path per run, five times over in a regression sweep.
  * So the run is written to a file the next leg reads: the workspace, the project and the SESSION.
  * It is not staged state — every row behind it was made by a click, and a leg that finds the file
- * stale simply walks the prologue again.
+ * stale simply walks the prologue again — and it is written down PER LANE, for the reason below.
  */
-const STATE_FILE = join(process.cwd(), "test-results", "j-000-golden-run.json");
+const STATE_DIR = join(process.cwd(), "test-results");
+
+/**
+ * ONE RUN PER LANE, AND WHY IT IS NOT ONE RUN.
+ *
+ * The lane walks every journey TWICE — once dark, once light (playwright.config.ts) — and the two
+ * walks are two independent walks of the same journey, not two readings of one. A leg of this
+ * journey is an ACT: m1 confirms the discipline standing on the offer, m2 affirms the scale the
+ * panel proposed, and an act done once is done. Share one golden run between the lanes and the
+ * second lane arrives at a project where the offer it is written to confirm has already been
+ * confirmed — which is exactly what it did: with this file keyed on nothing but its own name, dark
+ * established the run, confirmed the disciplines and wrote itself down; light restored it and stood
+ * 120 s in front of a screen that had no offer left to make (and m2's dialog, asked to affirm a
+ * scale already of record, stayed open on the answer). Both were red in the light lane alone, in a
+ * run of ONE spec file — so it was never a leg order and never the picture tenant.
+ *
+ * The lane's name is therefore part of the run's name. Two workers of the SAME lane still share
+ * their lane's run, which is what this file is for; two lanes never share one, which is what makes
+ * the legs independent of the order the projects happen to run in.
+ */
+const stateFile = (): string => join(STATE_DIR, `j-000-golden-run.${test.info().project.name}.json`);
 
 let established: Promise<GoldenRun> | null = null;
 let worker: JourneyWorker | null = null;
@@ -103,8 +123,9 @@ async function adopt(page: Page, run: GoldenRun): Promise<void> {
  * run whose account, project or reading is gone simply answers "no" and the prologue runs again.
  */
 async function restore(page: Page): Promise<GoldenRun | null> {
-  if (!existsSync(STATE_FILE)) return null;
-  const saved = JSON.parse(readFileSync(STATE_FILE, "utf8")) as GoldenRun;
+  const file = stateFile();
+  if (!existsSync(file)) return null;
+  const saved = JSON.parse(readFileSync(file, "utf8")) as GoldenRun;
   await page.context().addCookies(saved.cookies);
   const drawings = new SDrawingsPage(page);
   await drawings.open(saved.tenantId, saved.projectId).catch(() => undefined);
@@ -118,8 +139,9 @@ async function restore(page: Page): Promise<GoldenRun | null> {
 
 /** Write the run down for the next leg file. */
 function remember(run: GoldenRun): void {
-  mkdirSync(dirname(STATE_FILE), { recursive: true });
-  writeFileSync(STATE_FILE, JSON.stringify(run), "utf8");
+  const file = stateFile();
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, JSON.stringify(run), "utf8");
 }
 
 /** Sign up, make the project, upload F-RCC6, pin a set over it, then let the queue run. */
