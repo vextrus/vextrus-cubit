@@ -322,10 +322,13 @@ function RemoveMenu({ member, busy, onRemove }: { member: MembersRow; busy: bool
         <DropdownMenuContent align="end">
           <DropdownMenuItem
             variant="danger"
-            onSelect={(event) => {
+            onSelect={() => {
               // The item asks the row's own form to submit, so the path a person takes and the path
-              // a suite takes are one path (B-17). The menu closes itself.
-              event.preventDefault();
+              // a suite takes are one path (B-17). The submit is synchronous, so the menu is let go
+              // of: `event.preventDefault()` here is Radix's way of holding a menu OPEN, and a menu
+              // held open over the answer it just produced is a real surface left covering a real
+              // control — axe reads it as `target-size`, and a person reads it as a menu that will
+              // not go away.
               form.current?.requestSubmit();
             }}
           >

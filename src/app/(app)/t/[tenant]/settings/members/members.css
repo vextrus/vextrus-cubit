@@ -173,15 +173,32 @@
   color: var(--ink-code);
 }
 
+/* The form stands between the control well and its one control, so it passes the well on rather
+   than ending it: the cell gives it the whole box (`.cx-table-cell[data-control] > *`) and it gives
+   the whole box to the trigger. A form that centred a 32 px button in a 48 px cell left a 16 px
+   strip of gridcell that a hand can hit and that is too small to be hit — the serious `target-size`
+   axe reported at `aria-colindex="5"`, and the same fault 82df51d answered on S-Home (R-UI-012,
+   SC 2.5.8). */
 .cx-members-menu-form {
   display: flex;
-  align-items: center;
+  align-items: stretch;
 }
 
-/* The shipped ghost Button worn as a square icon trigger, the S-Home row-menu idiom: its height is
-   `--control-h` like every other control on the screen, and its name is a word, never the glyph. */
-.cx-members-menu {
-  width: var(--control-h);
+/* The shipped ghost Button worn as a square icon trigger, the S-Home row-menu idiom: it fills the
+   well the cell handed it, so the cell's rect lies INSIDE the control's and the two are one target;
+   its name is a word, never the glyph. */
+.cx-members-menu-form > .cx-members-menu {
+  /* PHYSICAL, deliberately. `.cx-btn` sets `height: var(--control-h)`; a `block-size` here is a
+     DIFFERENT cascade entry that wins its own cascade and then loses the computed height to the
+     physical declaration that comes later in the bundle — the button stayed 32 px in a 36 px cell
+     and left the 4 px strip axe measured. One property, one cascade, one winner. */
+  width: 100%;
+  /* `--row-h`, not 100% and not `--control-h`. The cell's own height is a percentage of the row, so
+     a percentage here resolves against an indefinite box and falls back to auto; `--control-h` (32)
+     in a 36 px row is exactly the 4 px strip of gridcell axe measured. The row's height is the one
+     token the cell's height comes from, so the control that IS the cell is as tall as the row. */
+  height: var(--row-h);
+  min-width: var(--control-h);
   padding-inline: 0;
   color: var(--ink-muted);
 }

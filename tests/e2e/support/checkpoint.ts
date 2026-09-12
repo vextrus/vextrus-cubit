@@ -68,11 +68,41 @@ interface AxeViolation {
  * elements it blamed in `relatedNodes`. Naming them here is the difference between "something covers
  * this cell" and a selector to go and fix.
  */
-function relatedOf(node: AxeViolation["nodes"][number]): string {
+function relatedOf(node: AxeViolation["nodes"][number], measure: (selector: string) => string = () => ""): string {
   const checks = [...(node.any ?? []), ...(node.all ?? []), ...(node.none ?? [])];
   const related = checks.flatMap((check) => (check.relatedNodes ?? []).map((relatedNode) => relatedNode.target.join(" ")));
   const unique = [...new Set(related)];
-  return unique.length === 0 ? "" : ` — obscured/crowded by: ${unique.join(", ")}`;
+  return unique.length === 0 ? "" : ` — obscured/crowded by: ${unique.map((selector) => `${selector}${measure(selector)}`).join(", ")}`;
+}
+
+/** Every selector a blocking violation names — the targets and the elements blamed for them. */
+function selectorsOf(violations: readonly AxeViolation[]): string[] {
+  const targets = violations.flatMap((violation) =>
+    violation.nodes.flatMap((node) => [
+      node.target.join(" "),
+      ...[...(node.any ?? []), ...(node.all ?? []), ...(node.none ?? [])].flatMap((check) => (check.relatedNodes ?? []).map((related) => related.target.join(" "))),
+    ]),
+  );
+  return [...new Set(targets)];
+}
+
+/** `selector -> "48×36 at (1092, 401)"`, read in ONE page evaluation for every selector at once. */
+async function rectsOf(page: Page, violations: readonly AxeViolation[]): Promise<Record<string, string>> {
+  return page.evaluate((selectors) => {
+    const out: Record<string, string> = {};
+    for (const selector of selectors) {
+      let element: Element | null = null;
+      try {
+        element = document.querySelector(selector);
+      } catch {
+        element = null;
+      }
+      if (element === null) continue;
+      const box = element.getBoundingClientRect();
+      out[selector] = `[${Math.round(box.width)}×${Math.round(box.height)} at ${Math.round(box.x)},${Math.round(box.y)}]`;
+    }
+    return out;
+  }, selectorsOf(violations));
 }
 
 /** What the capture measured, so a failure can say which screen was how tall. */
@@ -91,8 +121,12 @@ interface Capture {
  * common. Without it, every reader of this message has had to open the trace to learn which — and
  * one of them guessed instead.
  */
-function describe(violation: AxeViolation): string {
-  const nodes = violation.nodes.map((node) => `${node.target.join(" ")}${node.failureSummary === undefined ? "" : ` — ${node.failureSummary.replace(/\s+/g, " ").trim()}`}${relatedOf(node)}`);
+function describe(violation: AxeViolation, rects: Readonly<Record<string, string>> = {}): string {
+  const measure = (selector: string): string => (rects[selector] === undefined ? "" : ` ${rects[selector]}`);
+  const nodes = violation.nodes.map(
+    (node) =>
+      `${node.target.join(" ")}${measure(node.target.join(" "))}${node.failureSummary === undefined ? "" : ` — ${node.failureSummary.replace(/\s+/g, " ").trim()}`}${relatedOf(node, measure)}`,
+  );
   return `${violation.impact} ${violation.id}: ${violation.help} at ${nodes.join(" | ")}`;
 }
 
@@ -225,9 +259,15 @@ export async function checkpoint(page: Page, testInfo: TestInfo, name: string): 
   }
 
   const blocking = violations.filter((violation) => BLOCKING.has(violation.impact ?? ""));
-  expect(blocking.map(describe), `checkpoint ${name}: axe reports no serious or critical violation`).toEqual([]);
+  // THE RECTS, WITH THE SELECTORS. "partially obscured (smallest space is 48px by 4px)" says a
+  // sliver is left and nothing about WHOSE box is the wrong size, so every reader has had to guess
+  // between "the target is too tall" and "the control is too short" — and guessing cost this
+  // session four runs. axe names the elements (`relatedOf`); the page can measure them, once, in
+  // the same read, so the next reader is told which box to change and by how much.
+  const measured = blocking.length === 0 ? {} : await rectsOf(page, blocking);
+  expect(blocking.map((violation) => describe(violation, measured)), `checkpoint ${name}: axe reports no serious or critical violation`).toEqual([]);
 
   if (budget !== null) {
-    expect(moderate.length, `checkpoint ${name}: ${moderate.length} moderate violation(s) against a budget of ${budget} — ${moderate.map(describe).join(" | ")}`).toBeLessThanOrEqual(budget);
+    expect(moderate.length, `checkpoint ${name}: ${moderate.length} moderate violation(s) against a budget of ${budget} — ${moderate.map((violation) => describe(violation)).join(" | ")}`).toBeLessThanOrEqual(budget);
   }
 }
