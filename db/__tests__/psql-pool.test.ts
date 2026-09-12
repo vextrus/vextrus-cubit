@@ -335,6 +335,21 @@ describe("one process serves the whole file", () => {
     });
   });
 
+  it("keeps the token that delimits its output off every command line", () => {
+    armed(() => {
+      expect(pooledPsql(url(), "select 'a live pool';").ok).toBe(true);
+      const listed = spawnSync("ps", ["-eo", "args"], { encoding: "utf8" });
+      expect(listed.status).toBe(0);
+      const wrappers = (listed.stdout ?? "").split("\n").filter((line) => line.includes("ON_ERROR_STOP=1") && line.includes("CUBIT_PSQL_POOL_TOKEN"));
+      expect(wrappers.length, "the pool's wrapper is not on the process list at all").toBeGreaterThan(0);
+      // The wrapper NAMES the variable; what it must never carry is a 32-hex token beside it, which
+      // anything on this box could read and print as a marker of its own.
+      for (const line of wrappers) {
+        expect(/\b[0-9a-f]{32}\b/.test(line), `a pooled psql is carrying its marker token on its command line:\n${line}`).toBe(false);
+      }
+    });
+  });
+
   it("runs every script through a fresh process when the pool is disarmed", () => {
     closePsqlPool();
     process.env["CUBIT_PSQL_POOL"] = "0";

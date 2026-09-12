@@ -84,8 +84,14 @@ export const PSQL_APP_NAME = "cubit-psql-pool";
 /** How many connection strings this process keeps a live psql for. A file speaks to two or three. */
 const MAX_SESSIONS = 4;
 
-/** The wrapper: psql reads the script stream from the fifo, and its exit status is printed after it. */
-const WRAPPER = 'psql "$1" -X -q -A -t -F "$2" -v ON_ERROR_STOP=1 -f - < "$4"; printf "\\n%s-EXIT-%d\\n" "$3" "$?"';
+/**
+ * The wrapper: psql reads the script stream from the fifo, and its exit status is printed after it.
+ *
+ * The token comes through the ENVIRONMENT, never argv. A command line is world-readable
+ * (`ps -eo args`), and the token is what says where one script's output ends — anything that can
+ * read it can print a marker of its own and truncate a script's answer to a green one.
+ */
+const WRAPPER = 'psql "$1" -X -q -A -t -F "$2" -v ON_ERROR_STOP=1 -f - < "$3"; printf "\\n%s-EXIT-%d\\n" "$CUBIT_PSQL_POOL_TOKEN" "$?"';
 
 /** A stream being read a piece at a time, by offset, out of the file the wrapper writes it to. */
 type Reader = { fd: number; offset: number; seen: Buffer };
@@ -242,9 +248,9 @@ function open(url: string): Session {
   const outWrite = openSync(outPath, "w");
   const errWrite = openSync(errPath, "w");
   const token = randomBytes(16).toString("hex");
-  const child = spawn("bash", ["-c", WRAPPER, PSQL_APP_NAME, url, SEP, token, fifo], {
+  const child = spawn("bash", ["-c", WRAPPER, PSQL_APP_NAME, url, SEP, fifo], {
     stdio: ["ignore", outWrite, errWrite],
-    env: { ...process.env, PGAPPNAME: PSQL_APP_NAME },
+    env: { ...process.env, PGAPPNAME: PSQL_APP_NAME, CUBIT_PSQL_POOL_TOKEN: token },
   });
   closeSync(outWrite);
   closeSync(errWrite);
