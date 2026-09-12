@@ -311,7 +311,7 @@ def mint(
                 lost = n - census.get(space, {}).get(dxftype, 0)
                 if lost:
                     losses.setdefault(space, {})[dxftype] = lost
-        named = _named_losses(canaries, excluded)
+        named = _named_losses(canaries, excluded, sheets, blocks, dxf_name)
         _prove_census(name, drawn[dxf_name], census, losses)
         out[name] = dwg.read_bytes()
         out["spec"][name] = {
@@ -351,12 +351,25 @@ def _prove_census(name: str, drawn: dict[str, dict[str, int]], census: dict[str,
     assert not bad, f"{name}: {bad[:12]}"
 
 
-def _named_losses(canaries: dict[str, dict[str, Any]], excluded: set[str]) -> list[dict[str, Any]]:
-    """What each excluded feature costs, in the shape validate/tally.py reads."""
-    out = []
-    for feature in sorted(excluded):
-        result = canaries[feature]
-        for dxftype, count in sorted(result["lost"].items()) or [("", 0)]:
-            out.append({"feature": feature, "type": dxftype, "count": count,
-                        "reason": result["reason"]})
-    return out
+#: The DXF type ezdxf gives an authored primitive back under, where the two names differ.
+DXF_TYPE = {"MLEADER": "MULTILEADER"}
+
+
+def _named_losses(canaries: dict[str, dict[str, Any]], excluded: set[str], sheets: list[Sheet],
+                  blocks: list[Block], dxf_name: str) -> list[dict[str, Any]]:
+    """What each excluded feature actually cost THIS drawing, counted over the items left out, in
+    the shape validate/tally.py reads. The counts add up to the measured losses, type for type."""
+    nested, xrefs = _nested_and_xrefs(blocks)
+    counted: Counter[tuple[str, str]] = Counter()
+    for sheet in sheets:
+        for scene in [sheet.paper, *[v.scene for v in sheet.views]]:
+            for item in scene.items:
+                feature = feature_of(item, nested, xrefs)
+                if feature in excluded:
+                    counted[(feature, DXF_TYPE.get(item["kind"], item["kind"]))] += 1
+    del dxf_name
+    return [
+        {"feature": feature, "type": dxftype, "count": count,
+         "reason": canaries[feature]["reason"]}
+        for (feature, dxftype), count in sorted(counted.items())
+    ]
