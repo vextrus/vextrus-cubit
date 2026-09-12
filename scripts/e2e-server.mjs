@@ -20,6 +20,9 @@ import { fileURLToPath } from "node:url";
 // One home for the distDir's name and for the lock a serving process holds it with (ARCH-02): the
 // journey lane's sweep reads the same two, and before it did it deleted this bundle mid-run.
 import { DEFAULT_DIST_DIR, holdDistDir } from "./lib/dist.mjs";
+// When the build read its inputs — its START, never its end (scripts/lib/build-stamp.mjs). Stamping
+// the end let every edit made DURING a build be older than the marker, so it was never rebuilt.
+import { buildReadInputsAtMs, inputIsStale, writeBuildStamp } from "./lib/build-stamp.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const DIST = DEFAULT_DIST_DIR;
@@ -62,9 +65,11 @@ function inputDeleted() {
 function buildIsCurrent() {
   const marker = join(ROOT, DIST, "BUILD_ID");
   if (!existsSync(marker)) return { current: false, why: `no ${DIST}/BUILD_ID` };
-  const builtMs = statSync(marker).mtimeMs;
+  // The build's START, not its end: an edit made while the build ran is stale against it.
+  const builtMs = buildReadInputsAtMs(join(ROOT, DIST));
+  if (builtMs === null) return { current: false, why: `no ${DIST}/BUILD_ID` };
   const newest = newestInputMs();
-  if (newest > builtMs) return { current: false, why: `an input is newer than the build by ${Math.round((newest - builtMs) / 1000)}s` };
+  if (inputIsStale(newest, builtMs)) return { current: false, why: `an input is newer than the build's start by ${Math.round((newest - builtMs) / 1000)}s` };
   if (inputDeleted()) return { current: false, why: "a tracked input was deleted since the last commit" };
   return { current: true, why: `${DIST} built ${Math.round((Date.now() - builtMs) / 1000)}s ago and every input is older` };
 }
@@ -72,8 +77,12 @@ function buildIsCurrent() {
 const verdict = policy === "build" ? { current: false, why: "build requested" } : buildIsCurrent();
 process.stdout.write(`e2e-server: ${verdict.current ? "reusing the build" : "building"} — ${verdict.why}\n`);
 if (!verdict.current) {
+  // Taken BEFORE the build reads anything, and written only once the build has succeeded: an edit
+  // made while `next build` ran is at-or-after this instant, so the next run rebuilds it.
+  const startedMs = Date.now();
   const b = spawnSync(process.execPath, [NEXT, "build"], { cwd: ROOT, stdio: "inherit", env: process.env });
   if (b.status !== 0) process.exit(b.status ?? 1);
+  writeBuildStamp(join(ROOT, DIST), startedMs);
 }
 // Held for as long as this process serves, so `pnpm e2e:clean` cannot take the bundle out from
 // under it; given back on exit, so a killed run locks nothing forever.
