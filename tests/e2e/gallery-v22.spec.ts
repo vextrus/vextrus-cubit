@@ -12,7 +12,11 @@
  * — which is exactly the drift the picture tenant exists to end (B-17). `scripts/capture-gallery.mjs`
  * runs this file and does nothing else.
  *
- * It is skipped unless `CUBIT_GALLERY=1`, so a journey run collects it and spends nothing on it.
+ * IT IS NOT `test.skip`-ed when the run did not ask for it — Q-08 and C-06 forbid that, and rightly:
+ * "an intentionally-not-run assertion surfaces as a recorded skip with an unforgeable trigger, never
+ * as .skip or .only". A skipped assertion is one somebody has to remember is skipped. So the test is
+ * simply NOT REGISTERED unless `CUBIT_GALLERY=1`: a journey run collects a file that declares no
+ * test, which is an honest nothing, and there is no green skip line for anyone to read past.
  */
 import { expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
@@ -43,43 +47,46 @@ const SCREENS: readonly { readonly name: string; readonly path: string }[] = [
 /** The two grounds. Dark is the product's default, so it is the gallery's first pair (§1). */
 const THEMES = ["dark", "light"] as const;
 
-test.describe("the v22 gallery", () => {
-  test.skip(process.env["CUBIT_GALLERY"] !== "1", "the gallery is taken by scripts/capture-gallery.mjs, not by every journey run");
+/** Did this run ask for the gallery? Only then does the test below exist at all (Q-08, C-06). */
+const TAKING = process.env["CUBIT_GALLERY"] === "1";
 
-  test("every M0–M2 screen, in both themes, at the §9.3 geometry", async ({ page }) => {
-    test.setTimeout(600_000);
-    await mkdir(GALLERY, { recursive: true });
+if (TAKING) {
+  test.describe("the v22 gallery", () => {
+    test("every M0–M2 screen, in both themes, at the §9.3 geometry", async ({ page }) => {
+      test.setTimeout(600_000);
+      await mkdir(GALLERY, { recursive: true });
 
-    // Signed in as the picture tenant's own account: a still of the signed-out frame is a still of
-    // the auth card, which is its own screen below and not the frame every other screen wears.
-    await page.goto("/sign-in");
-    await page.getByTestId(TESTIDS.sAuth.email).fill(PICTURE_TENANT.email);
-    await page.getByTestId(TESTIDS.sAuth.password).fill(PICTURE_TENANT.password);
-    await page.getByTestId(TESTIDS.sAuth.submit).click();
-    await page.waitForURL((url) => !url.pathname.startsWith("/sign-in"));
+      // Signed in as the picture tenant's own account: a still of the signed-out frame is a still of
+      // the auth card, which is its own screen below and not the frame every other screen wears.
+      await page.goto("/sign-in");
+      await page.getByTestId(TESTIDS.sAuth.email).fill(PICTURE_TENANT.email);
+      await page.getByTestId(TESTIDS.sAuth.password).fill(PICTURE_TENANT.password);
+      await page.getByTestId(TESTIDS.sAuth.submit).click();
+      await page.waitForURL((url) => !url.pathname.startsWith("/sign-in"));
 
-    for (const theme of THEMES) {
-      for (const screen of SCREENS) {
-        // The theme is set as the instrument's own capability, not by a URL anybody can take
-        // (src/app/theme-resolver.ts), and it is set BEFORE the navigation so the first paint is
-        // already on the right ground — the Surveyor's own fix, §9.1 point 2.
-        await page.goto(`${screen.path}?__theme=${theme}`);
-        await settled(page);
-        await expect(page.getByTestId(TESTIDS.shell.root)).toHaveAttribute("data-theme", theme);
+      for (const theme of THEMES) {
+        for (const screen of SCREENS) {
+          // The theme is set as the instrument's own capability, not by a URL anybody can take
+          // (src/app/theme-resolver.ts), and it is set BEFORE the navigation so the first paint is
+          // already on the right ground — the Surveyor's own fix, §9.1 point 2.
+          await page.goto(`${screen.path}?__theme=${theme}`);
+          await settled(page);
+          await expect(page.getByTestId(TESTIDS.shell.root)).toHaveAttribute("data-theme", theme);
 
-        const height = await page.evaluate(() => document.documentElement.scrollHeight);
-        expect(height, `${screen.name}.${theme}: §9.3 caps a still at twice the viewport; a taller one is a picture of a scroll, not of a screen`).toBeLessThanOrEqual(HEIGHT_CAP);
+          const height = await page.evaluate(() => document.documentElement.scrollHeight);
+          expect(height, `${screen.name}.${theme}: §9.3 caps a still at twice the viewport; a taller one is a picture of a scroll, not of a screen`).toBeLessThanOrEqual(HEIGHT_CAP);
 
-        await page.screenshot({ path: join(GALLERY, `${screen.name}-${theme}.png`), fullPage: true });
+          await page.screenshot({ path: join(GALLERY, `${screen.name}-${theme}.png`), fullPage: true });
+        }
       }
-    }
 
-    // The auth card is the ninth pair and the only one taken signed out (§3.7).
-    await page.getByTestId(TESTIDS.sAuth.signout).click().catch(() => undefined);
-    for (const theme of THEMES) {
-      await page.goto(`/sign-in?__theme=${theme}`);
-      await settled(page);
-      await page.screenshot({ path: join(GALLERY, `auth-${theme}.png`), fullPage: true });
-    }
+      // The auth card is the ninth pair and the only one taken signed out (§3.7).
+      await page.getByTestId(TESTIDS.sAuth.signout).click().catch(() => undefined);
+      for (const theme of THEMES) {
+        await page.goto(`/sign-in?__theme=${theme}`);
+        await settled(page);
+        await page.screenshot({ path: join(GALLERY, `auth-${theme}.png`), fullPage: true });
+      }
+    });
   });
-});
+}
