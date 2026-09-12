@@ -20,6 +20,7 @@
 import { expect, test } from "@playwright/test";
 import { REFUSALS } from "../../src/core/errors";
 import { checkpoint } from "./support/checkpoint";
+import { laneTheme } from "./support/lane-theme";
 import { SViewerPartitionPage } from "./pages/s-viewer-partition.page";
 import { S_VIEWER, SViewerPage } from "./viewer/s-viewer.page";
 import { UNTYPED, confirmationsOf, stagePartitionedSheet, storedDeferrals } from "./viewer/viewer-partition-stage";
@@ -140,6 +141,11 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
     expect(bubbles, "and never more axes than there are").toBeLessThanOrEqual(staged.axes.length);
 
     await checkpoint(page, testInfo, "j-021/partition-open");
+    // The LIGHT ground, asked for by name before the capture that states it: until 2026-09-12 this
+    // pair was taken on the lane's ground and then set back to a SPELLED "light", so in the dark
+    // project `panel-light.png` held the DARK panel and every later capture was light too.
+    // …and the page is given back to the LANE, not to a literal (`support/lane-theme.ts`).
+    await partition.setTheme(laneTheme(testInfo));
     await expect(partition.panel, "panel-light.png pictures the region a reader reads the partition in").toHaveScreenshot(["viewer-partition", "panel-light.png"], {
       mask: [partition.offeredGroups.getByTestId("offered-group-count")],
       animations: "disabled",

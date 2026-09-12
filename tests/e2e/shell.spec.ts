@@ -14,6 +14,7 @@ import { strings } from "../../src/ui/strings";
 import { SAuthPage, S_AUTH } from "./pages/s-auth.page";
 import { ShellPage, SHELL, SHELL_AREAS } from "./pages/shell.page";
 import { checkpoint } from "./support/checkpoint";
+import { emulateTheme, restoreLaneTheme } from "./support/lane-theme";
 import { newestMail } from "./support/outbox";
 import { appears, steadyText } from "./support/retrying-read";
 
@@ -147,6 +148,15 @@ test.describe("J-004 — the signed-in application shell", () => {
       expect((await shell.insetStrips(area, "3px")).filter((strip) => beam.includes(strip.colour)), `${area} is not selected, so it carries no beam bar`).toStrictEqual([]);
     }
 
+    /* --- j004-shell-light: the LIGHT ground, asked for by name. Until 2026-09-12 this capture was
+       taken on whatever ground the lane walked on, so in the dark project `shell-light.png` was a
+       picture of the DARK shell — byte-identical to `shell-dark.png` beside it (mean luma 15.8
+       both), which made the two-theme comparison below vacuous in that lane. A file whose name
+       states a theme is taken on that theme in every lane. --- */
+    await emulateTheme(page, "light");
+    await shell.expectFrame();
+    await expect(page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", "light");
+
     await expect(shell.root).toHaveScreenshot("shell-light.png");
     await checkpoint(page, testInfo, "j004-shell-light");
 
@@ -157,16 +167,16 @@ test.describe("J-004 — the signed-in application shell", () => {
        clause asks the shell to track prefers-color-scheme mid-session. Nothing here asserts a
        live flip: an expectation of re-resolution without a reload is not part of this node's
        acceptance. --- */
-    await page.emulateMedia({ colorScheme: "dark" });
-    await page.reload();
+    await emulateTheme(page, "dark");
     await shell.expectFrame();
     await expect(page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", "dark");
 
     await expect(shell.root).toHaveScreenshot("shell-dark.png");
     await checkpoint(page, testInfo, "j004-shell-dark");
 
-    await page.emulateMedia({ colorScheme: "light" });
-    await page.reload();
+    // The page goes back to the LANE's ground, not to a spelled one: every capture below is named
+    // without a theme, so it belongs to the project walking it (`support/lane-theme.ts`).
+    await restoreLaneTheme(page, testInfo);
     await shell.expectFrame();
 
     /* --- j004-shell-onboarding: the empty Projects home teaches the next action (R-UI-033) --- */

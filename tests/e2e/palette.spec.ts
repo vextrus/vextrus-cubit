@@ -6,7 +6,7 @@
 //
 // Two checkpoints, each attaching its capture and judging the page with axe at serious/critical = 0
 // (docs/design/command-palette.md § 7): **j-021-palette-open** (palette/open-light.png,
-// palette/open-dark.png) and **j-021-shortcut-sheet** (palette/sheet-light.png). The account address
+// palette/open-dark.png) and **j-021-shortcut-sheet** (palette/sheet.png, on the lane's ground). The account address
 // in the top bar is minted per run, so it is the one region masked — everything the checkpoints
 // exist for (the dialog, its groups, the active row, the sheet's rows and keycaps) stays compared.
 import { expect, test } from "@playwright/test";
@@ -15,6 +15,7 @@ import { SAuthPage, S_AUTH } from "./pages/s-auth.page";
 import { SHomePage } from "./pages/s-home.page";
 import { ShellPage, SHELL } from "./pages/shell.page";
 import { checkpoint } from "./support/checkpoint";
+import { emulateTheme, restoreLaneTheme } from "./support/lane-theme";
 import { newestMail } from "./support/outbox";
 import { steadyCount } from "./support/retrying-read";
 
@@ -72,6 +73,15 @@ test.describe("J-021 — the command palette, from the chord to the sheet", () =
     await expect(palette.activeRow, "…which is the project's own row").toContainText(PROJECT);
 
     const masks = [shell.user];
+    // The LIGHT ground, asked for by name: a file called `open-light.png` is a picture of the light
+    // palette in BOTH lanes, and until 2026-09-12 this one was taken on the lane's ground instead
+    // (mean luma 14.6 in `design-dark/` — the dark palette under a light name).
+    await emulateTheme(page, "light");
+    await shell.expectFrame();
+    await expect(page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", "light");
+    await palette.openWithChord();
+    await palette.search(PROJECT);
+    await expect(palette.activeRow).toHaveCount(1);
     await checkpoint(page, testInfo, "j-021-palette-open");
     await expect(page, "palette/open-light.png pictures the palette that now stands").toHaveScreenshot(["palette", "open-light.png"], {
       mask: masks,
@@ -80,8 +90,7 @@ test.describe("J-021 — the command palette, from the chord to the sheet", () =
     });
 
     /* --- the same picture in the other theme, resolved at load (Decision §6) --- */
-    await page.emulateMedia({ colorScheme: "dark" });
-    await page.reload();
+    await emulateTheme(page, "dark");
     await shell.expectFrame();
     await expect(page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", "dark");
     await palette.openWithChord();
@@ -93,8 +102,8 @@ test.describe("J-021 — the command palette, from the chord to the sheet", () =
       maxDiffPixelRatio: 0.002,
     });
 
-    await page.emulateMedia({ colorScheme: "light" });
-    await page.reload();
+    // Back to the lane's own ground: what follows is named without a theme, so it is the lane's.
+    await restoreLaneTheme(page, testInfo);
     await shell.expectFrame();
 
     /* --- Enter takes the active row's address (AC-3) --- */
@@ -117,7 +126,7 @@ test.describe("J-021 — the command palette, from the chord to the sheet", () =
     await expect(palette.sheetKeys("palette").locator("kbd").first(), "…each row drawing its own keycaps").toBeVisible();
 
     await checkpoint(page, testInfo, "j-021-shortcut-sheet");
-    await expect(page, "palette/sheet-light.png pictures the sheet that now stands").toHaveScreenshot(["palette", "sheet-light.png"], {
+    await expect(page, "palette/sheet.png pictures the sheet that now stands, on the lane's own ground").toHaveScreenshot(["palette", "sheet.png"], {
       mask: masks,
       animations: "disabled",
       maxDiffPixelRatio: 0.002,

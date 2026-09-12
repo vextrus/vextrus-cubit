@@ -23,6 +23,7 @@ import { strings } from "../../../src/ui/strings";
 import { SCALE_COPY } from "../../../src/modules/takeoff/scale-ui/copy";
 import { drawings } from "../../../src/app/(app)/t/[tenant]/p/[project]/drawings/strings";
 import { checkpoint } from "../support/checkpoint";
+import { laneTheme } from "../support/lane-theme";
 import { SDrawingsPage } from "../pages/s-drawings.page";
 import { S_SCALE, SScalePage } from "../pages/s-scale.page";
 import { SViewerPartitionPage } from "../pages/s-viewer-partition.page";
@@ -163,6 +164,11 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     );
 
     await checkpoint(page, testInfo, "j-020-scale/panel-open");
+    // The LIGHT ground, asked for by name before the capture that states it: until 2026-09-12 this
+    // pair was taken on the lane's ground and then set back to a SPELLED "light", so in the dark
+    // project `panel-light.png` held the DARK panel and every later capture was light too.
+    // …and the page is given back to the LANE, not to a literal (`support/lane-theme.ts`).
+    await scale.setTheme(laneTheme(testInfo));
     await expect(scale.panel, "panel-light.png pictures the region a reader reads a sheet's scale in").toHaveScreenshot(["j-020-scale", "panel-light.png"], {
       animations: "disabled",
       maxDiffPixelRatio: 0.002,
