@@ -24,6 +24,10 @@ export const SCREEN_HEIGHT_BUDGET: Readonly<Record<string, number>> = Object.fre
   "j-010-jobs-tray-open": 3168,
   "j-010-sheets-fanned-out": 3168,
   "j-010-discipline-confirmed": 2764,
+  // # U2 — the same screen, reached by the golden path's own M1 leg (AM-09 §2). The composition and
+  // the owner are j-010's; this entry is the same debt seen from J-000 and it goes away with it.
+  // Recorded at the height the screen stood at on the walk of 2026-09-12: 2674 px, under j-010's.
+  "j-000/disciplines-confirmed": 2674,
 });
 
 /** The recorded height for a checkpoint, or `null` where §9.3's cap stands unaltered. */
