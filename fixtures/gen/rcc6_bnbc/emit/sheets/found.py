@@ -226,7 +226,19 @@ def s08(ctx: Ctx) -> _Sheet:
         seen.add(gb["mark"])
         beam_mark(view, gb)
     sog = next(m for m in ctx.by_class["SLAB"] if m["mark"] == "SOG")
-    view.poly([(f(x), f(y)) for x, y in sog["poly"]], "S-SLAB")
+    # the slab on grade is a heavy 2D POLYLINE (one entity, its vertices not content), and its
+    # blinding is an "exploded" rectangle of four LINEs — the same shape drawn three ways
+    view.polyline([(f(x), f(y)) for x, y in sog["poly"]], "S-SLAB")
+    x0s = [f(x) for x, _ in sog["poly"]]
+    y0s = [f(y) for _, y in sog["poly"]]
+    view.rect_lines(min(x0s) - 75.0, min(y0s) - 75.0,
+                    max(x0s) - min(x0s) + 150.0, max(y0s) - min(y0s) + 150.0, "S-FDN")
+    view.text("75 THK BLINDING UNDER (EXPLODED OUTLINE)", (min(x0s), min(y0s) - 500.0), 200.0,
+              "S-TEXT2")
+    # the setting-out origin, a POINT on Defpoints
+    view.point((f(M.X["1"]), f(M.Y["A"])), "Defpoints")
+    view.text("SETTING OUT POINT  GRID 1 / GRID A", (f(M.X["1"]) + 300.0, f(M.Y["A"]) - 900.0),
+              200.0, "S-TEXT2")
     view.text("SOG", (f(M.X["3"]), f(M.Y["B"]) - 1200.0), 300.0, "S-TEXT", family="mark")
     view.text(f"SLAB ON GRADE {int(f(sog['t']))} THK", (f(M.X["3"]), f(M.Y["B"]) - 1800.0), 240.0,
               "S-TEXT", family="plain", fact=fact(sog, "t"))

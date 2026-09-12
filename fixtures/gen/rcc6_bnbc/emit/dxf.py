@@ -364,9 +364,12 @@ def write_paper(
     _finish(doc)
     path = scratch / name
     doc.saveas(path)
-    global LAST_HANDLES, LAST_TRAP_HANDLES
-    LAST_HANDLES = placer.handles
-    LAST_TRAP_HANDLES = placer.traps
+    if skip is None:
+        # A reduced write (the DWG source) is not the drawing the traps and the corpus are taken
+        # from, so it never replaces the handle record of the real one.
+        global LAST_HANDLES, LAST_TRAP_HANDLES
+        LAST_HANDLES = placer.handles
+        LAST_TRAP_HANDLES = placer.traps
     return path, placer.counts()
 
 
@@ -444,9 +447,10 @@ def write_model_frames(
     _finish(doc)
     path = scratch / name
     doc.saveas(path)
-    global MODEL_HANDLES, MODEL_TRAP_HANDLES
-    MODEL_HANDLES = placer.handles
-    MODEL_TRAP_HANDLES = placer.traps
+    if skip is None:
+        global MODEL_HANDLES, MODEL_TRAP_HANDLES
+        MODEL_HANDLES = placer.handles
+        MODEL_TRAP_HANDLES = placer.traps
     return path, placer.counts()
 
 

@@ -217,6 +217,10 @@ def s25(ctx: Ctx) -> _Sheet:
              family="level", fact=authored(M.ELEV["1F"]))
     sec.text(f"+{f(M.ELEV['1F']) / 1000:.3f}", (xs[0] - 2000.0, f(M.ELEV["1F"]) - 500.0), 240.0,
              "S-TEXT", family="level", fact=authored(M.ELEV["1F"]))
+    # the cut arrows, filled SOLIDs, and the ground hatch below the E.G.L
+    for x, sign in ((xs[0] - 1200.0, 1.0), (xs[-1] + 1200.0, -1.0)):
+        sec.solid([(x, egl), (x + sign * 900.0, egl + 400.0), (x + sign * 900.0, egl - 400.0)],
+                  "S-ARROW")
     sec.text("SECTION A-A", (xs[0], f(M.ELEV["PCTOP"]) - 1800.0), 400.0, "S-TEXT")
     p.view("BUILDING SECTION A-A", sec, 100, (p.x0 + 300.0, p.y0 + 40.0), (400.0, 420.0), "ftin")
     p.scale_bar((p.x0 + 20.0, p.y0 + 30.0), "m")
