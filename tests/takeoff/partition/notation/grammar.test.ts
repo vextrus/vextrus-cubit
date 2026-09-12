@@ -36,7 +36,7 @@ describe("every row of the table reads as the table says it reads", () => {
 describe("the table is the parser's whole contract", () => {
   test("every kind the roster names owns a row", () => {
     const kinds = new Set(GRAMMAR.map((row) => row.kind));
-    for (const kind of ["bar_group", "bar_diameter", "spacing", "mark", "level_range", "grade_fc", "grade_fy", "cover", "dimension_ft_in", "reference"]) {
+    for (const kind of ["bar_group", "bar_diameter", "spacing", "mark", "level_range", "grade_fc", "grade_fy", "cover", "dimension_ft_in", "reference", "span_fraction", "compound"]) {
       expect(kinds.has(kind as GrammarRow["kind"]), `the table states at least one ${kind}`).toBe(true);
     }
   });

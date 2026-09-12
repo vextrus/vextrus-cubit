@@ -26,7 +26,8 @@ export type NotationKind =
   | "cover"
   | "dimension_ft_in"
   | "span_fraction"
-  | "reference";
+  | "reference"
+  | "compound";
 
 /** The form a reading was read by — the id of the row of FORMS that matched (the coverage contract). */
 export type FormId =
@@ -41,7 +42,8 @@ export type FormId =
   | "F-COVER"
   | "F-FTIN"
   | "F-SPANFRAC"
-  | "F-REF";
+  | "F-REF"
+  | "F-COMPOUND";
 
 /** The refusal a text nobody can read answers with. Registered in core's closed taxonomy. */
 export const NOTATION_UNREAD = "NOTATION_UNREAD" as const satisfies RefusalCode;
@@ -118,7 +120,9 @@ const CENTRES_WORDS: readonly string[] = Object.freeze(["C/C", "C\\C", "CC", "O/
 const BAR_ROLES: Readonly<Record<string, string>> = Object.freeze({
   ST: "straight", STR: "straight", STRAIGHT: "straight", TH: "straight",
   EXT: "extra", EXTRA: "extra", ADDL: "extra", ADD: "extra",
-  STIRRUP: "stirrup", STIRRUPS: "stirrup", LINK: "stirrup", TIE: "stirrup",
+  STIRRUP: "stirrup", STIRRUPS: "stirrup", LINK: "stirrup", TIE: "stirrup", TIES: "stirrup",
+  CURTAILED: "curtailed", CURTAIL: "curtailed", "FULL LENGTH": "full-length", "THRU": "full-length",
+  CRANKED: "cranked", "ALT CRANKED": "cranked", BENT: "cranked",
   SPIRAL: "spiral", HELIX: "spiral",
 });
 
@@ -563,6 +567,32 @@ function readSpanFraction(said: string): SpanFraction | null {
   return { of: String(match[2]), numerator: factor, denominator };
 }
 
+/** One cell that states more than one call: `2-12Ø T&B + 8Ø @ 150` is a top-and-bottom group AND a
+ * distribution, and the form that read it as one spacing kept the LAST bar group and dropped the
+ * first without a word. A dropped group is a dropped quantity nobody can see is missing (L-QTY-04),
+ * so either every part is read, or the whole cell is refused and names the token it stopped on. */
+export type Compound = { readonly parts: readonly { readonly kind: NotationKind; readonly form: FormId; readonly parsed: unknown }[] };
+
+const COMPOUND_ID: FormId = "F-COMPOUND";
+
+/** What the simple forms read out of one part — the table itself, minus the form that is composing it. */
+function readSimply(said: string): { readonly kind: NotationKind; readonly form: FormId; readonly parsed: unknown } | null {
+  for (const form of FORMS) {
+    if (form.id === COMPOUND_ID) continue;
+    const read = form.read(said);
+    if (read !== null) return { kind: read.kind ?? form.kind, form: read.form ?? form.id, parsed: read.parsed };
+  }
+  return null;
+}
+
+function readCompound(said: string): Compound | null {
+  const parts = said.split("+").map((one) => one.trim()).filter((one) => one !== "");
+  if (parts.length < 2) return null;
+  const readings = parts.map((one) => readSimply(one));
+  if (readings.some((one) => one === null)) return null;
+  return { parts: readings as { kind: NotationKind; form: FormId; parsed: unknown }[] };
+}
+
 /**
  * The readers, in the order a cell is put to them. Order is a rule, not an accident: a spacing is
  * tried before the bar it names (`Ø16@150 C/C` is a spacing, not a bar), a group before the bare
@@ -574,6 +604,7 @@ const FORMS: readonly {
   readonly kind: NotationKind;
   readonly read: (said: string) => { readonly parsed: unknown; readonly kind?: NotationKind; readonly form?: FormId } | null;
 }[] = Object.freeze([
+  { id: "F-COMPOUND", kind: "compound", read: (said) => { const one = readCompound(said); return one === null ? null : { parsed: one }; } },
   { id: "F-SPACING", kind: "spacing", read: (said) => { const one = readSpacing(said); return one === null ? null : { parsed: one }; } },
   { id: "F-FC", kind: "grade_fc", read: (said) => readGrade(said) },
   { id: "F-COVER", kind: "cover", read: (said) => { const one = readCover(said); return one === null ? null : { parsed: one }; } },
@@ -647,6 +678,21 @@ export const GRAMMAR: readonly GrammarRow[] = Object.freeze([
   { input: "8-20%%C", kind: "bar_group", parsed: { n: 8, diameterMm: 20, designation: "20Ø", role: null, face: null }, source: "T-NOT-PCTC (%%C decodes to Ø)" },
   { input: "3 NOS 12mmØ", kind: "bar_group", parsed: { n: 3, diameterMm: 12, designation: "12MMØ", role: null, face: null }, source: "schedule habit: NOS separator, mm before the sign" },
   { input: "2x25Ø", kind: "bar_group", parsed: { n: 2, diameterMm: 25, designation: "25Ø", role: null, face: null }, source: "schedule habit: x separator" },
+  { input: "3-20%%C CURTAILED", kind: "bar_group", parsed: { n: 3, diameterMm: 20, designation: "20Ø", role: "curtailed", face: null }, source: "the long-section call for a bar that stops short of the support" },
+  { input: "4-20%%C FULL LENGTH", kind: "bar_group", parsed: { n: 4, diameterMm: 20, designation: "20Ø", role: "full-length", face: null }, source: "the same section's through bars" },
+  // — compound cells: more than one call in one cell ——————————————————————————————————————
+  { input: "2-12%%C T&B + 8%%C @ 150", kind: "compound", parsed: { parts: [
+    { kind: "bar_group", form: "F-BAR-GROUP", parsed: { n: 2, diameterMm: 12, designation: "12Ø", role: null, face: "top-and-bottom" } },
+    { kind: "spacing", form: "F-SPACING", parsed: { bar: { diameterMm: 8, designation: "8Ø" }, spacingMm: 150, zones: null, legs: null } },
+  ] }, source: "a slab cell stating the edge group and the distribution together" },
+  { input: "3T16 + 2Y16", kind: "compound", parsed: { parts: [
+    { kind: "bar_group", form: "F-BAR-GROUP", parsed: { n: 3, diameterMm: 16, designation: "T16", role: null, face: null } },
+    { kind: "bar_group", form: "F-BAR-GROUP", parsed: { n: 2, diameterMm: 16, designation: "Y16", role: null, face: null } },
+  ] }, source: "T-NOT-TY: the two draughtsmen's designators in one cell" },
+  { input: "2-20%%C st. + 1-20%%C ext.", kind: "compound", parsed: { parts: [
+    { kind: "bar_group", form: "F-BAR-GROUP", parsed: { n: 2, diameterMm: 20, designation: "20Ø", role: "straight", face: null } },
+    { kind: "bar_group", form: "F-BAR-GROUP", parsed: { n: 1, diameterMm: 20, designation: "20Ø", role: "extra", face: null } },
+  ] }, source: "T-NOT-ST-EXT: the straight-through call and the extra bar at the section" },
   // — bar diameters ——————————————————————————————————————————————————————————————————
   { input: "#5", kind: "bar_diameter", parsed: { diameterMm: 15.9, designation: "#5" }, source: "T-NOT-HASH (ASTM A615 designation)" },
   { input: "#3", kind: "bar_diameter", parsed: { diameterMm: 9.5, designation: "#3" }, source: "ASTM A615 — the smallest stirrup size" },

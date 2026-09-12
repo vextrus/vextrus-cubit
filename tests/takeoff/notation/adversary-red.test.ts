@@ -122,3 +122,24 @@ describe("a curtailment stated as a part of the span (106 corpus strings)", () =
     expect(reading("L")).toContain("UNREAD");
   });
 });
+
+describe("N6 — a compound cell keeps every call it states, or refuses the cell", () => {
+  test("2-12Ø T&B + 8Ø @ 150 reads BOTH groups", () => {
+    const read = readNotation("2-12%%C T&B + 8%%C @ 150");
+    expect(read.ok).toBe(true);
+    const parts = read.ok ? (read.parsed as { parts: { kind: string; parsed: { diameterMm?: number; bar?: { diameterMm: number } } }[] }).parts : [];
+    expect(parts.map((part) => part.kind)).toStrictEqual(["bar_group", "spacing"]);
+    expect(JSON.stringify(parts), "F-SPACING kept bars[last] and dropped `2-12Ø T&B` in silence").toContain("12");
+  });
+
+  test.each(["3T16 + 2Y16", "4-20%%C + 3-20%%C", "2-20%%C st. + 1-20%%C ext."])("%s states two groups and reads two", (said) => {
+    const read = readNotation(said);
+    expect(read.ok).toBe(true);
+    expect(read.ok && (read.parsed as { parts: unknown[] }).parts).toHaveLength(2);
+  });
+
+  test("a cell one of whose parts no form reads is REFUSED whole — never read as the part that happened to fit", () => {
+    const read = readNotation("2(A+B) + 2C - 2.5r - 5d");
+    expect(read.ok, "a shape-code formula is not two bar groups").toBe(false);
+  });
+})
