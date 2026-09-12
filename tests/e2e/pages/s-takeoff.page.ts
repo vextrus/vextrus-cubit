@@ -78,8 +78,15 @@ export class STakeoffPage {
     return this.page.getByTestId(TESTIDS.register.lines);
   }
 
+  /**
+   * The count line, read INSIDE the one screen the frame holds. Page-wide, this id resolved twice:
+   * React streams the register route into a hidden parcel beside the hydrated screen for about a
+   * tenth of a second, so for that tenth of a second the page carries two of every id the screen
+   * owns and a page-wide read is `strict mode violation`. `screenInFrame()` is the one home for a
+   * screen's ids (R-UI-030): a read of the register is a read of the register the frame is showing.
+   */
   get linesCount(): Locator {
-    return this.page.getByTestId(TESTIDS.register.linesCount);
+    return this.root.getByTestId(TESTIDS.register.linesCount);
   }
 
   /**
