@@ -212,7 +212,24 @@ describe("each script gets a session that looks freshly connected", () => {
 });
 
 describe("one process serves the whole file", () => {
+  /**
+   * These cases are about the pool itself, so they arm it whatever the run was started with — a run
+   * with CUBIT_PSQL_POOL=0 (the control that times the lane the old way) would otherwise fail them
+   * for doing exactly what it was told.
+   */
+  function armed<T>(run: () => T): T {
+    const was = process.env["CUBIT_PSQL_POOL"];
+    delete process.env["CUBIT_PSQL_POOL"];
+    try {
+      return run();
+    } finally {
+      if (was !== undefined) process.env["CUBIT_PSQL_POOL"] = was;
+      closePsqlPool();
+    }
+  }
+
   it("runs 500 scripts in sequence through one psql, leaking neither descriptors nor processes", () => {
+    armed(() => {
     // A fixed point to measure from: the sessions this file already opened, and the descriptors this
     // worker already holds.
     pooledPsql(url(), "select 1;");
@@ -230,19 +247,22 @@ describe("one process serves the whole file", () => {
     expect(after.sessions, "500 scripts started more than the one live psql this connection string keeps").toBe(before.sessions);
     expect(after.scripts - before.scripts, "500 scripts were not all served by the pool").toBeGreaterThanOrEqual(500);
     expect(countDescriptors() - descriptorsBefore, "the pool leaked file descriptors across 500 scripts").toBeLessThanOrEqual(2);
-    expect(countChildren() - childrenBefore, "the pool left psql processes behind").toBeLessThanOrEqual(0);
+      expect(countChildren() - childrenBefore, "the pool left psql processes behind").toBeLessThanOrEqual(0);
+    });
   });
 
   it("keeps a live psql per connection string, and closes it when asked", () => {
-    pooledPsql(url(), "select 1;");
-    pooledPsql(BOOTSTRAP_URL, "select 1;");
-    expect(psqlPoolStats().sessions).toBeGreaterThanOrEqual(2);
-    closePsqlPool(BOOTSTRAP_URL);
-    expect(psqlPoolStats().sessions).toBeGreaterThanOrEqual(1);
-    closePsqlPool();
-    expect(psqlPoolStats().sessions, "closePsqlPool() left a session open").toBe(0);
-    // And the pool opens again on the next script, as a lane that drops databases between files needs.
-    expect(pooledPsql(url(), "select 'reopened';").rows).toEqual([["reopened"]]);
+    armed(() => {
+      pooledPsql(url(), "select 1;");
+      pooledPsql(BOOTSTRAP_URL, "select 1;");
+      expect(psqlPoolStats().sessions).toBeGreaterThanOrEqual(2);
+      closePsqlPool(BOOTSTRAP_URL);
+      expect(psqlPoolStats().sessions).toBeGreaterThanOrEqual(1);
+      closePsqlPool();
+      expect(psqlPoolStats().sessions, "closePsqlPool() left a session open").toBe(0);
+      // And the pool opens again on the next script, as a lane that drops databases between files needs.
+      expect(pooledPsql(url(), "select 'reopened';").rows).toEqual([["reopened"]]);
+    });
   });
 
   it("runs every script through a fresh process when the pool is disarmed", () => {
