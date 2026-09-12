@@ -71,6 +71,37 @@ export const SCREEN_HEIGHT_BUDGET: Readonly<Record<string, number>> = Object.fre
    * the same rule: nothing has measured them.
    */
   "j-010-jobs-tray-open": 2989,
+
+  /**
+   * The fourth reading of the same screen: S-Drawings the moment the drawing has fanned out into
+   * its sheets, measured at 2 989 px by `cubit-u2f`'s walk of 2026-09-12 — the same number in the
+   * light lane and in the dark one — and by nothing else. Written on the rule its three sisters
+   * are written on: a walk measured it, so it is a MEASUREMENT and not a guess, and the debt goes
+   * on the books rather than into a red nobody owns.
+   *
+   * It is `j-010-timeline-done`'s and `j-010-jobs-tray-open`'s height to the pixel, and for the
+   * same reason: all three are the one list, at its full length, with a different overlay over it.
+   * The list is the debt; the overlays add nothing to it. OWED BY: the node that finishes
+   * S-Drawings under Design Direction 00 §9.3 — 1 189 px, the same screen as the other three.
+   *
+   * One sister remains absent on the same rule — `j-010-sheets-uploaded`, which no walk has
+   * reached, because the checkpoint before it was red until this entry.
+   */
+  "j-010-sheets-fanned-out": 2989,
+
+  /**
+   * The fifth and last reading of the same screen the walk reaches: S-Drawings with the offered
+   * discipline confirmed, measured at 2 585 px by `cubit-u2g`'s light-lane J-010 of 2026-09-12 —
+   * the first walk ever to get past the checkpoint above it — and by nothing else.
+   *
+   * It stands 404 px shorter than its three sisters because the confirmation empties the offered
+   * group that was standing over the list, and 168 px taller than `j-000/disciplines-confirmed`,
+   * which is the same act read on J-000's own smaller upload. OWED BY: the node that finishes
+   * S-Drawings under Design Direction 00 §9.3 — 785 px on this reading.
+   *
+   * `j-010-sheets-uploaded` needs no entry: the walk reached it and it stands under §9.3's own cap.
+   */
+  "j-010-discipline-confirmed": 2585,
 });
 
 /** The recorded height for a checkpoint, or `null` where §9.3's cap stands unaltered. */

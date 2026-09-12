@@ -11,7 +11,6 @@
  * re-take (v16.2 §1).
  */
 import { expect, test } from "@playwright/test";
-import { TESTIDS } from "../../src/ui/testids";
 import { STakeoffPage } from "./pages/s-takeoff.page";
 import { SProjectPage } from "./pages/s-project.page";
 import { CLASS_COLUMN, DISCIPLINE, DUPLICATE_IDENTITY, INTERPRETED_UNCORROBORATED, LEVEL_LABEL, MARKS, stageRegister } from "./takeoff/register-stage";
