@@ -39,14 +39,21 @@ test.describe.serial("J-000 — Golden Path: a scale of record for the sheet", (
     await expect(scale.panel, "the scale panel is past its loading state").not.toHaveAttribute("data-state", "loading", { timeout: 120_000 });
     await expect(scale.rows, "every view of the sheet is listed, with its proposals or its declared absence").not.toHaveCount(0, { timeout: 120_000 });
 
-    /* --- the weakest proposal the panel itself published, affirmed through the act door --- */
+    /* --- the proposal the panel itself published, affirmed through the act door --- */
     const proposal = scale.proposals.first();
     await expect(proposal, "the panel proposes a scale for at least one view — the file's own units, at worst").toBeVisible({ timeout: 120_000 });
     const rank = (await proposal.getAttribute("data-rank")) ?? "";
     expect(rank, "a proposal states the rank it stands at (L-MEA-05)").not.toBe("");
     await proposal.click();
 
-    await scale.affirm(rank).click();
+    // A proposal is affirmed FOR A VIEW, so the view is named first: the affirm door stays disabled
+    // until the panel knows which member the scale would be of record for (L-MEA-05).
+    await page.getByTestId("viewer-scale-member").first().click();
+    const door = page.locator('[data-testid="viewer-scale-affirm"]:not([disabled])').first();
+    await expect(door, `the panel opens its affirm door once a view and a proposal stand together (the proposal is rank ${rank})`).toBeVisible({
+      timeout: 120_000,
+    });
+    await door.click();
     await expect(scale.dialog, "affirming a scale is an act, and an act is previewed in the one ConsequenceDialog").toBeVisible();
     await expect(scale.dialog, "and the dialog names the act it is about to commit").toHaveAttribute("data-act-type", "AFFIRM_SCALE");
     await expect(scale.subjectRows, "the preview names what it would change").not.toHaveCount(0);
