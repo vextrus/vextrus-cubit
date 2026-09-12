@@ -1,0 +1,55 @@
+{
+  "note": "The v1.0 F-RCC6 golden's FOOTING, PILE_CAP and TIE_BEAM rows, verbatim. v1.1 moves BEAM and SLAB and nothing else; rcc6-column-rows-frozen.test.ts names these three classes when it says 'no other class changed', so it diffs them here row by row rather than over a map that held only COLUMN keys and could not fail for them.",
+  "fixture": "F-RCC6",
+  "version": "1.0",
+  "rows": [
+    {
+      "class": "FOOTING",
+      "kind": "RCC_CONCRETE",
+      "level": "FDN",
+      "quantity": "61.236",
+      "unit": "m3",
+      "formula": "sum(count * l * b * depth)"
+    },
+    {
+      "class": "FOOTING",
+      "kind": "FORMWORK",
+      "level": "FDN",
+      "quantity": "126.240",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (l + b) * depth)"
+    },
+    {
+      "class": "PILE_CAP",
+      "kind": "RCC_CONCRETE",
+      "level": "FDN",
+      "quantity": "23.328",
+      "unit": "m3",
+      "formula": "sum(count * l * b * depth)"
+    },
+    {
+      "class": "PILE_CAP",
+      "kind": "FORMWORK",
+      "level": "FDN",
+      "quantity": "36.720",
+      "unit": "m2",
+      "formula": "sum(count * 2 * (l + b) * depth)"
+    },
+    {
+      "class": "TIE_BEAM",
+      "kind": "RCC_CONCRETE",
+      "level": "FDN",
+      "quantity": "25.500",
+      "unit": "m3",
+      "formula": "sum(count * b * d * span)"
+    },
+    {
+      "class": "TIE_BEAM",
+      "kind": "FORMWORK",
+      "level": "FDN",
+      "quantity": "267.750",
+      "unit": "m2",
+      "formula": "sum(count * (2 * d + b) * span)"
+    }
+  ]
+}
