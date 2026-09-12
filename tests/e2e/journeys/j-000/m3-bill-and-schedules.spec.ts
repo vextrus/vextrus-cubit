@@ -1,7 +1,8 @@
 /**
- * J-000 SEGMENTS: generate BOQ PDF (draft)
+ * J-000 SEGMENTS: generate BOQ PDF (draft); transcribe levels and schedules; run the structural campaign on F-RCC6-BNBC; review the register; emit the unpriced BOQ and the BBS as DRAFT UNSIGNED; open the XLSX
  *
- * M3's leg of the golden path, DECLARED before the milestone lands (AM-09 §3): "an M3 leg (levels
+ * M3's leg of the golden path, DECLARED before the milestone lands (AM-09 §3, and AM-17 which finally
+ * wrote those segments into the path's text as a rider on J-000): "an M3 leg (levels
  * and schedules transcribed, the structural campaign run on the M3 fixture, the register reviewed,
  * the unpriced BOQ and the BBS emitted as DRAFT - UNSIGNED, the XLSX opened)".
  *

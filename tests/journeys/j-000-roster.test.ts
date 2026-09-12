@@ -30,6 +30,8 @@ const LEGS_DIR = join(REPO_ROOT, "tests", "e2e", "journeys", "j-000");
 /** The journey's id, and the milestone marker the Bible writes ahead of a not-yet-shipped segment. */
 const JOURNEY_ID = "J-000";
 const MILESTONE_MARKER = /^\[M(\d+)\]\s*/;
+/** The rider that carries J-000's M3 and M4 segments, because a clause is never edited (L34, AM-15). */
+const RIDER_ID = "AM-17";
 
 /** The milestones whose legs must RUN today, in the order the directory names them. */
 const SHIPPED = ["m0", "m1", "m2"] as const;
@@ -41,6 +43,19 @@ function journeyText(): string {
   const bible = readFileSync(BIBLE, "utf8");
   const found = new RegExp(`<journey id="${JOURNEY_ID}"[^>]*>([\\s\\S]*?)</journey>`).exec(bible);
   expect(found, `the Bible declares <journey id="${JOURNEY_ID}">, which is what this roster is derived from`).not.toBeNull();
+  return (found as RegExpExecArray)[1] ?? "";
+}
+
+/**
+ * AM-17's rider text. AM-09 §3 announced that the golden path's text would gain an M3 and an M4
+ * leg; L34 forbids editing J-000's clause to put them there, so the segments arrive as an amendment
+ * rider instead — "the current law for what it names from the moment it lands". The roster reads the
+ * rider exactly as it reads the journey: a segment is a segment wherever the Bible writes it.
+ */
+function riderText(): string {
+  const bible = readFileSync(BIBLE, "utf8");
+  const found = new RegExp(`<amendment[^>]*id="${RIDER_ID}"[^>]*>([\\s\\S]*?)</amendment>`).exec(bible);
+  expect(found, `the Bible carries <amendment id="${RIDER_ID}">, the rider that gives ${JOURNEY_ID} its M3 and M4 segments`).not.toBeNull();
   return (found as RegExpExecArray)[1] ?? "";
 }
 
@@ -58,9 +73,23 @@ interface Segment {
  * milestones grew it. The trailing sentence about extension is not a segment and is cut.
  */
 export function segmentsOf(text: string): Segment[] {
-  const path = text.split(".")[0] ?? "";
+  return arrowPath(text.split(".")[0] ?? "");
+}
+
+/**
+ * The rider's segments. AM-17 writes them on the one line under its `J-000 SEGMENTS ADDED` marker,
+ * in the path's order and in the path's grammar, so nothing here re-spells what the Bible says.
+ */
+export function riderSegments(text: string): Segment[] {
+  const line = /J-000 SEGMENTS ADDED[^\n]*\n([^\n]*)/.exec(text);
+  expect(line, `${RIDER_ID} writes the segments it adds on the line under its "J-000 SEGMENTS ADDED" marker`).not.toBeNull();
+  return arrowPath((line as RegExpExecArray)[1] ?? "");
+}
+
+/** One arrow-separated path of segments, as both the journey's text and the rider's line write it. */
+function arrowPath(path: string): Segment[] {
   return path
-    .split("→")
+    .split(/→|->/)
     .map((part) => part.trim())
     .filter((part) => part !== "")
     .map((part) => {
@@ -69,9 +98,14 @@ export function segmentsOf(text: string): Segment[] {
     });
 }
 
+/** Every segment the Bible names, journey text and rider together, in the path's order. */
+function allSegments(): Segment[] {
+  return [...segmentsOf(journeyText()), ...riderSegments(riderText())];
+}
+
 /** The segments that must be claimed by a leg today: everything the Bible has not deferred past M4. */
 function requiredSegments(): string[] {
-  return segmentsOf(journeyText())
+  return allSegments()
     .filter((segment) => segment.milestone === null || segment.milestone <= 4)
     .map((segment) => segment.name);
 }
@@ -143,6 +177,36 @@ describe("AM-09 §2: the golden path is a directory, and its legs are derived fr
 
     const invented = [...claimed.keys()].filter((segment) => !required.includes(segment));
     expect(invented, `these leg files claim segments the Bible's J-000 text does not name:\n  ${invented.join("\n  ")}`).toEqual([]);
+  });
+
+  it("a milestone's marked segments are claimed by that milestone's legs — dropping a leg's SEGMENTS line is RED here (AM-17)", () => {
+    // WHY THIS CASE EXISTS. Until AM-17 the Bible marked no segment for M3 or M4, so the previous
+    // assertion — "every segment is claimed" — could not notice that m4-sheet-and-manual-measure.spec.ts
+    // carried no `J-000 SEGMENTS:` line at all. It passed by having nothing to claim. A leg that
+    // drops its line must be red, and it must be red with the milestone's name on it, so this reads
+    // the claim map per milestone rather than over the whole roster.
+    const claimedBy = new Map<string, string>();
+    for (const leg of legs()) for (const segment of leg.segments) claimedBy.set(segment, leg.milestone);
+
+    const marked = allSegments().filter((segment) => segment.milestone !== null && segment.milestone <= 4);
+    expect(marked.length, "AM-17 marks J-000's M3 and M4 segments, which is what binds a leg to its own milestone").toBeGreaterThan(0);
+
+    const misfiled = marked
+      .map((segment) => ({ segment, owner: `m${segment.milestone}`, claimant: claimedBy.get(segment.name) }))
+      .filter((row) => row.claimant !== row.owner)
+      .map((row) => `${row.owner} owes "${row.segment.name}" — claimed by ${row.claimant === undefined ? "NO leg file (its leg dropped its J-000 SEGMENTS line, or never wrote one)" : `an ${row.claimant} leg`}`);
+    expect(
+      misfiled,
+      `the Bible marks these segments for a milestone whose leg does not claim them (AM-17):\n  ${misfiled.join("\n  ")}`,
+    ).toEqual([]);
+  });
+
+  it("every milestone the Bible marks has a leg that claims something — an empty claim set is the vacuum AM-17 closes", () => {
+    const marked = allSegments().filter((segment) => segment.milestone !== null && segment.milestone <= 4);
+    const owed = [...new Set(marked.map((segment) => `m${segment.milestone}`))].sort();
+    const claiming = new Set(legs().filter((leg) => leg.segments.length > 0).map((leg) => leg.milestone));
+    const silent = owed.filter((milestone) => !claiming.has(milestone));
+    expect(silent, `these milestones are owed segments by the Bible and no leg file of theirs claims one:\n  ${silent.join("\n  ")}`).toEqual([]);
   });
 
   it("a shipped milestone's leg RUNS, and an announced one is a declared stub citing its clause", () => {
