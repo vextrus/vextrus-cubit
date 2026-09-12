@@ -54,6 +54,23 @@ export const SCREEN_HEIGHT_BUDGET: Readonly<Record<string, number>> = Object.fre
    * `j-010-sheets-uploaded`) stay absent on the same rule: nothing has measured them.
    */
   "j-000/disciplines-confirmed": 2417,
+
+  /**
+   * The third reading of the same screen: S-Drawings with the jobs tray open, measured at 2 989 px
+   * by `cubit-u2f`'s re-baseline walk of 2026-09-12 (both lanes, the same number in each) and by
+   * nothing else. Written on the rule the two entries above are written on — a walk measured it, so
+   * it is a measurement and not a guess, and the debt goes on the books rather than into a red
+   * nobody owns.
+   *
+   * It is `j-010-timeline-done`'s own height to the pixel, which is what one expects: the tray and
+   * the timeline are the same overlay over the same list, and neither adds to the scroll the list
+   * already owes. OWED BY: the node that finishes S-Drawings under Design Direction 00 §9.3 —
+   * 1 189 px, the same screen as the other two.
+   *
+   * The two remaining sisters (`j-010-sheets-fanned-out`, `j-010-sheets-uploaded`) stay absent on
+   * the same rule: nothing has measured them.
+   */
+  "j-010-jobs-tray-open": 2989,
 });
 
 /** The recorded height for a checkpoint, or `null` where §9.3's cap stands unaltered. */

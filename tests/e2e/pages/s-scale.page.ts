@@ -50,6 +50,11 @@ export class SScalePage {
     return this.page.getByTestId(S_SCALE.tabScale);
   }
 
+  /** `V≡` in the tool row — the pin that holds the inspector open at rest (§3.1, I-152). */
+  get inspectorPin(): Locator {
+    return this.page.getByTestId(TESTIDS.viewer.inspectorPin);
+  }
+
   get panel(): Locator {
     return this.page.getByTestId(S_SCALE.panel);
   }
@@ -143,6 +148,15 @@ export class SScalePage {
 
   /** The panel opened at its tab, once the door has answered. */
   async open(): Promise<void> {
+    // §3.1 makes the shell's right slot ABSENT — width 0, never a placeholder — until something is
+    // selected, and the scale tab lives in that slot. The scale of record is a door onto every
+    // view's scale and is NOT a fact about a selection (I-152, R-TO-020), so the lawful way to it
+    // is the pin a person presses for it. Without this the click waited for a tab that the screen
+    // is right not to be showing, and the wait was the spec's whole timeout.
+    // Idempotent: a page load starts with the pin released, and a leg that returns here presses
+    // nothing it has already pressed.
+    if ((await this.inspectorPin.getAttribute("aria-pressed")) !== "true") await this.inspectorPin.click();
+    await expect(this.inspectorPin, "the inspector pin is held down, so the panel stands at rest (§3.1)").toHaveAttribute("aria-pressed", "true");
     await this.scaleTab.click();
     await expect(this.panel, "the scale tab shows the scale panel").toBeVisible();
     await expect

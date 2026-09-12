@@ -971,7 +971,10 @@ function HeaderCell<TRow>({ header, colIndex }: HeaderCellProps<TRow>) {
       ) : (
         label
       )}
-      {column.getCanResize() ? (
+      {/* A CONTROL WELL is not resized: its width is the one control's, it carries no text to widen
+          for, and a 24 px handle laid over a cell that IS a control is a second target on top of the
+          first — which is the `target-size` violation the well exists to close (SC 2.5.8). */}
+      {column.getCanResize() && !metaOf(column).control ? (
         <button
           type="button"
           className="cx-table-resize cx-reticle"

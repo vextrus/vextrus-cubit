@@ -317,6 +317,10 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
       .toBe(true);
     await viewer.fit.click();
 
+    // A fresh load again, and this leg reads the inspector holding NOTHING — so the panel is held
+    // open by the pin first, exactly as the three legs above it do (§3.1, I-152). No assertion here
+    // is loosened by it.
+    await viewer.pinInspector();
     await viewer.dragAcross();
     await expect(viewer.inspector, "a plain drag is a pan, and selects nothing").toHaveAttribute("data-count", "0");
     await viewer.fit.click();

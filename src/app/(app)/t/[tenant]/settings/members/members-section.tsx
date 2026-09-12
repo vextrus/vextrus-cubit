@@ -227,6 +227,9 @@ export function MembersSection({
         id: "menu",
         header: "",
         size: 48,
+        // One control, no text: the cell is its well and the control fills it, so the row's menu and
+        // the gridcell the grid puts the cursor on are ONE target (R-UI-012, SC 2.5.8).
+        meta: { control: true },
         cell: ({ row }) => {
           const member = row.original;
           return (
