@@ -77,7 +77,7 @@ only then moved into place (E-fixture §3.10).
 | `raster/r1/*.png` | clean renders at 300 dpi, greyscale |
 | `raster/r2/*.jpg`, `rcc6-bnbc.r2.pdf` | the scan at 200 dpi — skew, uneven lamp, blur, speckle, an APPROVED stamp, a signature, a fold crease, punch holes — and the whole set bound as one DCT raster PDF at 120 dpi |
 | `raster/r3/*.jpg` | the photocopy at 120 dpi: binarised, strokes dilated then eroded, title-block edge cropped |
-| `raster/r4/*.jpg` | the phone photograph at 150 dpi: keystoned, vignetted, warm-cast, soft |
+| `raster/r4/*.jpg` | the phone photograph at 150 dpi: a real keystone (the page lands as a trapezoid, top edge narrower, plus a small lean), vignetted, warm-cast, soft |
 | `images/*.png` | the rasters the drawing itself carries (the consultant's logo, a scanned marginal note) |
 | `notation.corpus.json` | every drawn string with its parser family, sheet, handle and authored fact |
 | `sanity.json` | the placing-time tally per (space, DXF type) for both DXFs, the DWG census and its named losses, and what each PDF and raster variant loses |

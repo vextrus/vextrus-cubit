@@ -229,18 +229,25 @@ def _signature(image: Image.Image, rng: np.random.Generator, dpi: int) -> Image.
 
 
 def _keystone(image: Image.Image, rng: np.random.Generator) -> Image.Image:
-    """The perspective a phone held over a desk puts on a sheet."""
+    """The perspective a phone held over a desk puts on a sheet: the page lands on the photo as a
+    trapezoid whose top edge is narrower than its bottom (the far edge is further away), with a
+    small tilt. The full page stays in frame, so the keystone is measurable row by row."""
     w, h = image.size
-    jitter = [rng.uniform(0.012, 0.045) for _ in range(4)]
-    source = [
-        (w * jitter[0], h * jitter[1] * 0.5),
-        (w * (1 - jitter[1]), h * jitter[2] * 0.3),
-        (w * (1 - jitter[2] * 0.4), h * (1 - jitter[3] * 0.5)),
-        (w * jitter[3] * 0.6, h * (1 - jitter[0] * 0.4)),
+    top_inset = rng.uniform(0.07, 0.11)  # each top corner, as a share of the width
+    bottom_inset = rng.uniform(0.005, 0.02)
+    tilt = rng.uniform(-0.015, 0.015)  # a little in-plane lean on top of the keystone
+    top_y, bottom_y = rng.uniform(0.02, 0.04), rng.uniform(0.96, 0.985)
+    # where each page corner lands on the output (tl, tr, br, bl)
+    target = [
+        (w * (top_inset + tilt), h * top_y),
+        (w * (1 - top_inset + tilt), h * (top_y + 0.01)),
+        (w * (1 - bottom_inset - tilt), h * bottom_y),
+        (w * (bottom_inset - tilt), h * (bottom_y - 0.008)),
     ]
-    target = [(0.0, 0.0), (float(w), 0.0), (float(w), float(h)), (0.0, float(h))]
+    source = [(0.0, 0.0), (float(w), 0.0), (float(w), float(h)), (0.0, float(h))]
+    # PIL's PERSPECTIVE maps an output pixel to the input it samples: solve output → input
     matrix = []
-    for (sx, sy), (tx, ty) in zip(source, target, strict=True):
+    for (tx, ty), (sx, sy) in zip(target, source, strict=True):
         matrix.append([tx, ty, 1.0, 0.0, 0.0, 0.0, -sx * tx, -sx * ty])
         matrix.append([0.0, 0.0, 0.0, tx, ty, 1.0, -sy * tx, -sy * ty])
     coefficients = np.linalg.solve(np.array(matrix, dtype=np.float64), np.array(source).reshape(8))
