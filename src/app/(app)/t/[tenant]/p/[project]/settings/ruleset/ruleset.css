@@ -1,72 +1,40 @@
-/* The project rule-set settings screen (R-SPINE-012). Colour, motion and rhythm come from tokens
-   alone — no literal but the closed set of px measures the Decision rules: the 800 px page measure,
-   the 160 px label column and the 88 px scope column. No [data-theme] selector: every light/dark
-   difference arrives through the token values themselves (R-UI-001). */
+/* The project rule-set settings surface (docs/design/s-settings-ruleset.md §1, §5; Design Direction
+   00 §3.6): the pinned edition as one line, the chain as a 3-row grid, the parameters as the grid
+   this screen has always been judged by. Colour, spacing, type and motion are tokens only — no
+   literal value and no [data-theme] selector, so both themes are the same rules read against
+   different token values (R-UI-001).
+
+   The px literals are a closed set: none. The digest's measure is stated in `ch`, because what it
+   fixes is a count of CHARACTERS of a fingerprint — the chip shows as many as tell two of them
+   apart, which is what the shipped IdChip shows too. */
 
 .cx-ruleset {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  max-width: 800px;
+  gap: var(--gap-section);
+  min-width: 0;
 }
 
-.cx-ruleset-header {
+/* --- the pinned edition, on one line (§3.6) --- */
+
+.cx-ruleset-pin {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--space-2);
-}
-
-.cx-ruleset-caption {
   margin: 0;
+  min-height: var(--row-h);
   font-size: var(--text-13);
-  color: var(--ink-muted);
-}
-
-.cx-ruleset-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.cx-ruleset-section-heading {
-  margin: 0;
-  font-size: var(--text-16);
-  font-weight: var(--weight-heading);
   color: var(--ink);
-}
-
-.cx-ruleset-hint {
-  margin: 0;
-  font-size: var(--text-12);
-  color: var(--ink-muted);
-}
-
-/* --- the pinned edition: identity and digest, side by side and never one for the other --------- */
-
-.cx-ruleset-facts {
-  margin: 0;
-}
-
-.cx-ruleset-fact {
-  display: grid;
-  grid-template-columns: 160px minmax(0, 1fr);
-  column-gap: var(--space-4);
-  padding-block: var(--space-2);
-}
-
-.cx-ruleset-fact-label {
-  font-size: var(--text-13);
-  font-weight: var(--weight-body-medium);
-  color: var(--ink-secondary);
 }
 
 .cx-ruleset-identity {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
-  margin: 0;
+  min-width: 0;
 }
 
+/* A scope is the model's own word, so it reads as data: mono, muted, never title-cased into prose. */
 .cx-ruleset-scope {
   font-family: var(--font-mono);
   font-size: var(--text-12);
@@ -75,99 +43,57 @@
 
 .cx-ruleset-edition {
   font-family: var(--font-mono);
-  font-size: var(--text-16);
-  font-weight: var(--weight-body-medium);
-  color: var(--ink);
-  font-variant-numeric: tabular-nums slashed-zero;
-}
-
-/* A digest exists to be compared, so it renders whole: it wraps rather than truncates, and one
-   click selects the whole value to copy (I-26). */
-.cx-ruleset-digest {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  color: var(--ink-secondary);
-  font-variant-numeric: tabular-nums slashed-zero;
-  overflow-wrap: anywhere;
-  user-select: all;
-}
-
-/* --- the lineage: the chain the pin was forked along, head first ------------------------------ */
-
-.cx-ruleset-lineage {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cx-ruleset-lineage-step {
-  padding-block: var(--space-2);
-}
-
-.cx-ruleset-lineage-step + .cx-ruleset-lineage-step {
-  border-top: var(--hairline);
-}
-
-.cx-ruleset-lineage-identity {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-}
-
-.cx-ruleset-lineage-scope {
-  min-width: 88px;
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  color: var(--ink-muted);
-}
-
-.cx-ruleset-lineage-edition {
-  font-family: var(--font-mono);
   font-size: var(--text-13);
-  color: var(--ink);
+  font-weight: var(--weight-body-medium);
+  color: var(--ink-code);
+  white-space: nowrap;
 }
 
-.cx-ruleset-lineage-digest {
-  font-family: var(--font-mono);
+.cx-ruleset-pin .cx-settings-about {
+  margin-inline-start: auto;
+}
+
+.cx-ruleset-digest-label {
   font-size: var(--text-12);
   color: var(--ink-muted);
-  overflow-wrap: anywhere;
+}
+
+/* The fingerprint: whole in the document and as many characters as tell two of them apart on the
+   screen. It selects as ONE thing, so the value a reader copies is the value the digest IS — a
+   truncated digest compares nothing (I-26, L-MEA-01). */
+.cx-ruleset-digest {
+  display: inline-block;
+  max-width: 8ch;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--ink-code);
   user-select: all;
 }
 
-/* --- the parameter table: the shipped DataTable, so only the cell inks live here ---------------
- * The row height, the cell padding and the sticky header are the grid's, read from the density
- * tokens at the root (Design Direction 00 §5); the classes below say what each cell IS, and the
- * `height: var(--row-h)` this block used to carry — one of the per-screen overrides §4.2
- * deletes — is gone with the `<tr>` it dressed.
- */
+/* --- the two grids --- */
 
 .cx-ruleset-table {
-  width: 100%;
-  border-top: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .cx-ruleset-param {
   overflow: hidden;
-  font-size: var(--text-body);
-  font-weight: var(--weight-body-medium);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--text-13);
   color: var(--ink);
-  text-overflow: ellipsis;
 }
 
-.cx-ruleset-key {
-  overflow: hidden;
-  font-family: var(--font-mono);
-  font-size: var(--text-caption);
-  color: var(--ink-muted);
-  text-overflow: ellipsis;
-}
-
+/* §5 rule 5: a figure is mono, tabular and right-aligned; the cell's own alignment is the grid's. */
 .cx-ruleset-value {
   font-family: var(--font-mono);
-  font-size: var(--text-body);
-  color: var(--ink);
   font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--ink-code);
 }
-

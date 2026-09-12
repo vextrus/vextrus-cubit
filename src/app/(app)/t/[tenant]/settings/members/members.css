@@ -1,72 +1,80 @@
-/* The members surface (docs/design/s-settings.md §1, §5): one column of variable-height blocks with
-   hairline seams. Colour, spacing, type and motion are tokens only — no literal value and no
-   [data-theme] selector, so both themes are the same rules read against different token values. */
+/* The members surface on the v22 settings template (Design Direction 00 §3.6, §5; s-settings §1):
+   a 40 px header over a 28 px grid. Colour, spacing, type and motion are tokens only — no literal
+   value and no [data-theme] selector, so both themes are the same rules read against different
+   token values (R-UI-001).
 
-.cx-members {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  max-width: 800px;
-}
-
-.cx-members-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.cx-members-heading {
-  margin: 0;
-  font-size: var(--text-20);
-  font-weight: var(--weight-heading);
-  color: var(--ink);
-}
-
-.cx-members-caption {
-  margin: 0;
-  font-size: var(--text-13);
-  color: var(--ink-muted);
-}
+   The px literals are a closed set: the search field's 240 measure and the refusal's 420. Any
+   other literal is a defect. */
 
 .cx-members-roster {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  min-width: 0;
+  flex: 1 0 auto;
 }
 
-.cx-members-section-heading {
-  margin: 0;
-  font-size: var(--text-16);
-  font-weight: var(--weight-heading);
-  color: var(--ink);
+.cx-members-search {
+  flex: 0 1 240px;
+  min-width: 0;
 }
 
-.cx-members-hint {
-  margin: 0;
-  font-size: var(--text-12);
-  color: var(--ink-muted);
-}
+/* --- the roster grid ---------------------------------------------------------------------
+   Two rules reach into the shipped grid's own chrome, and each is here for one reason the grid
+   cannot know about:
 
-.cx-members-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border-top: var(--hairline);
-}
+   (1) THE ROW'S CONTROL OPENS. The role cell holds the shipped Select, whose listbox is rendered
+       inline under its trigger (it is 28 px under a 28 px control, by that primitive's own
+       Decision) — and a cell that clips its overflow clips the list the row exists to offer. The
+       cell's inner `.cx-table-cell-text` keeps its own ellipsis, so nothing about §5 rule 2 is
+       given up by letting the CELL show what stands outside it.
 
-.cx-members-row {
+   (2) THE REFUSED ROW GROWS. §5 rule 8's partial row is "the row shown with a ⚠ and a compact
+       RefusalState beneath it, never hidden", and I-57 puts that answer in the row that asked —
+       so the refused row keeps its 28 px line and grows by exactly the answer, while every other
+       cell of it stays on the line. */
+
+.cx-members-table {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding-block: var(--space-3);
-  border-bottom: var(--hairline);
 }
+
+.cx-members-table .cx-table-cell {
+  overflow: visible;
+}
+
+.cx-members-table .cx-table-viewport {
+  overflow: visible;
+}
+
+.cx-members-table .cx-table-row[data-refused="true"] {
+  height: auto;
+  align-items: flex-start;
+}
+
+.cx-members-table .cx-table-row[data-refused="true"] .cx-table-cell {
+  height: var(--row-h);
+}
+
+.cx-members-table .cx-table-row[data-refused="true"] .cx-table-cell:first-child {
+  height: auto;
+  align-items: flex-start;
+}
+
+.cx-members-table .cx-table-row[data-refused="true"] .cx-table-cell:first-child .cx-table-cell-text {
+  overflow: visible;
+  white-space: normal;
+}
+
+/* --- the member cell, and the answer that stands under it --- */
 
 .cx-members-identity {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  margin: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding-block: var(--cell-py);
 }
 
 .cx-members-member {
@@ -78,129 +86,127 @@
   color: var(--ink);
 }
 
-/* I-55: a role is the store's own word, so it wears the mono face wherever it appears. */
-.cx-members-role {
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  color: var(--ink-secondary);
+.cx-members-answer {
+  display: block;
+  max-width: 420px;
+  padding-block-end: var(--space-2);
 }
 
-.cx-members-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
+/* --- the role cell: one Select, the confirm it earns, and the store's own word behind them --- */
 
 .cx-members-form {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-}
-
-/* The audit I-31 idiom: the Input's own surface worn whole, with the mono face a role is read in. */
-.cx-members-select {
-  min-width: 140px;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums slashed-zero;
-}
-
-.cx-members-answer {
-  width: 100%;
-}
-
-.cx-members-history-block {
-  display: flex;
-  flex-direction: column;
   gap: var(--space-1);
-  /* Line two of a movement is indented past the direction ruler and its gap, stated once here. */
-  --cx-members-history-indent: calc(88px + var(--space-3));
+  min-width: 0;
 }
 
-.cx-members-history-label {
+.cx-members-select {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* I-55's word, in the technical channel §6 puts a machine identifier in: the DOM holds `OWNER`
+   and the screen says "Owner". The rule mirrors the EnumLabel primitive's own raw channel. */
+.cx-members-role-raw {
+  display: none;
+  font-family: var(--font-mono);
   font-size: var(--text-12);
-  font-weight: var(--weight-body-medium);
   color: var(--ink-muted);
 }
 
-.cx-members-history-none {
-  margin: 0;
-  font-size: var(--text-12);
-  color: var(--ink-muted);
+[data-technical-disclosure="open"] .cx-members-role-raw {
+  display: inline;
 }
+
+/* --- the record cell: one line of movements, the grid's tooltip gives it back whole --- */
 
 .cx-members-history {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
+  min-width: 0;
 }
 
 .cx-members-history-row {
-  padding-block: var(--space-1);
-}
-
-.cx-members-history-what {
-  display: flex;
+  display: inline-flex;
   align-items: baseline;
-  gap: var(--space-3);
-  margin: 0;
+  gap: var(--space-1);
+  white-space: nowrap;
 }
 
-/* Q-11: the direction carries its meaning in the word, never in colour. */
+.cx-members-history-row + .cx-members-history-row {
+  padding-inline-start: var(--space-2);
+  border-inline-start: var(--hairline);
+}
+
 .cx-members-direction {
-  min-width: 88px;
-  font-family: var(--font-mono);
   font-size: var(--text-12);
   color: var(--ink-muted);
 }
 
 .cx-members-history-role {
-  font-family: var(--font-mono);
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   color: var(--ink);
 }
 
-/* I-26: an identifier renders whole, and is selectable as one thing. */
-.cx-members-history-project {
-  font-family: var(--font-mono);
+.cx-members-history-by {
   font-size: var(--text-12);
   color: var(--ink-muted);
-  user-select: all;
 }
 
-.cx-members-history-by {
+.cx-members-history-none {
+  font-size: var(--text-12);
+  color: var(--ink-muted);
+}
+
+/* --- the count, and the row's one menu --- */
+
+.cx-members-projects {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--ink-code);
+}
+
+.cx-members-menu-form {
+  display: flex;
+  align-items: center;
+}
+
+/* The shipped ghost Button worn as a square icon trigger, the S-Home row-menu idiom: its height is
+   `--control-h` like every other control on the screen, and its name is a word, never the glyph. */
+.cx-members-menu {
+  width: var(--control-h);
+  padding-inline: 0;
+  color: var(--ink-muted);
+}
+
+/* --- the roster's foot: the search's honest none, the live line, and the section's (i) --- */
+
+.cx-members-roster-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+}
+
+.cx-members-none {
   margin: 0;
-  padding-left: var(--cx-members-history-indent);
   font-size: var(--text-12);
   color: var(--ink-muted);
 }
 
 .cx-members-status {
   margin: 0;
-  min-height: var(--text-13);
   font-size: var(--text-12);
   color: var(--ink-muted);
 }
 
-/* I-60: the landing's door to this surface, in the settings-landing measure and idiom. */
-.cx-members-link {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  max-width: 380px;
-  margin-top: var(--space-6);
-}
-
-.cx-members-link-action {
-  align-self: start;
-  font-size: var(--text-13);
-  font-weight: var(--weight-body-medium);
-  color: var(--ink-link);
-  text-decoration: underline;
-  transition: color var(--motion-state) var(--ease);
-}
-
-.cx-members-link-action:hover {
-  color: var(--accent);
+.cx-members-roster-foot .cx-settings-about {
+  margin-inline-start: auto;
 }

@@ -1,5 +1,48 @@
 # Design Decision — S-Settings (the workspace members surface)
 
+```
+┌R─┬────────┬──────────────────────────────────────────────────────────────────────┐
+│  │ ws › Settings › Members                                       ⌘K ⟳ ✉ ◉        │
+│  ├────────┼──────────────────────────────────────────────────────────────────────┤
+│  │General │ Members  (i)                                    ⌕ Search the roster   │  header 40
+│  │Members◂│ ┌──────────────────┬──────────┬──────────────────┬────────┬────┐      │
+│  │Books   │ │ Member           │ Role     │ Role history     │Projects│ ⋯  │      │  28 px rows
+│  │Rule set│ │ j002-owner@…     │ Owner  ▾ │ Granted Principal│      1 │ ⋯  │      │  first row y≈104
+│  │Taxonomy│ │ j002-member@…    │ Admin  ▾ │ No role movement…│      0 │ ⋯  │      │
+│  │Tax     │ │ ⚠ j002-member@…  │ Member ▾ │ Granted Measurer │      1 │ ⋯  │      │  partial row
+│  │        │ │   ┌────────────────────────────────────────┐   │        │    │      │
+│  │        │ │   │ This member holds recorded acts …      │   │        │    │      │  RefusalState
+│  │        │ │   │ Remove them once those campaigns close…│   │        │    │      │  in the row
+│  │        │ │   │ Go to Projects →                       │   │        │    │      │
+│  │        │ │   └────────────────────────────────────────┘   │        │    │      │
+│  │        │ └──────────────────┴──────────┴──────────────────┴────────┴────┘      │
+│  │        │ No member of this workspace matches that.   Done. …            (i)     │  foot 28
+│  │        │ Invitations  2   (i)            [invitee@…            ] ● Send invit.  │  section 28
+│  │        │ ┌──────────────────┬──────────┬───────────────────────────┐            │
+│  │        │ │ Email address    │ Role     │ Resend · Withdraw         │            │  28 px rows
+│  │        │ │ j002-invitee@…   │ Member   │ Resend   Withdraw         │            │
+│  │        │ └──────────────────┴──────────┴───────────────────────────┘            │
+└──┴────────┴──────────────────────────────────────────────────────────────────────┘
+       160                                   the content pane
+```
+
+| Region | Purpose | Size | Empty | Error | Loading |
+|---|---|---|---|---|---|
+| section nav | the workspace's settings areas; Members is `settings-members-link` and carries `aria-current` | 160 × 100 % (`--drawer-w-min`), rows `--control-h` | — (an area with no screen is shown disabled with its reason in a tooltip) | — | — |
+| header | the title, the `(i)` that holds the caption, the search | 100 % × 40 | — | — | — |
+| roster (primary) | who belongs, the role each holds, the record, the count of projects, the row menu | flex × `--row-h` rows | impossible — seeing the roster needs membership, so it always holds the reader | the root boundary (`src/app/error.tsx`) | `loading.tsx` bones at the row height |
+| row refusal | `RefusalState` in the refused row's own member cell (§5 rule 8's partial row: ⚠ on the row, the answer beneath it) | row × auto | — | — | — |
+| row menu | the `⋯`, holding the screen's single danger item | `--control-h` square | — | — | — |
+| roster foot | the search's honest none, the live status line, the roster's `(i)` | 100 % × `--control-h` | "No member of this workspace matches that." | — | — |
+| invitations head | what the second table holds, how many stand, and the screen's ONE primary | 100 % × `--control-h` | — | — | — |
+| invitations (second table) | the offers that still stand, with Resend and Withdraw in the row | flex × `--row-h` rows | "No invitation is waiting to be accepted." one line | `invitations-refusal` | — |
+
+Above the fold: the first roster row stands at y ≈ 104 at 1440×900 and at 1280×800 — the frame's
+40 px top bar, `shell-main`'s 24 px padding and this screen's 40 px header, and nothing else.
+
+Built on Design Direction 00 §3.6's Settings template, whose geometry outranks this file where
+the two disagree (§3's precedence); what the rebuild changed is recorded as I-198–I-203 below.
+
 Routes: `/t/{tenant}/settings` (existing, shell inc-013/inc-014) gains one members link;
 `/t/{tenant}/settings/members` is new, under `src/app/(app)/t/[tenant]/settings/members/**`
 (the tree spelling `/t/[tenant]/settings/members`), inside the shell frame and behind the
@@ -67,159 +110,180 @@ test ids and fixed attribute values.
   `REFUSAL_ENTRIES` entry has its consumer. Existing matrix rows and entries do not move
   (append-only, per the increment's grant).
 
+- **I-198 — the settings TEMPLATE is one component, and this screen is drawn in it.**
+  Design Direction 00 §3.6 rules settings a two-pane template: a 160 px section nav and a
+  content pane whose primary is a table. The frame lives once, in
+  `src/app/(app)/t/[tenant]/settings/settings-pane.tsx` (`SettingsPane`, `SettingsHeader`,
+  `SettingsAbout`, `workspaceSettingsNav`, `projectSettingsNav`) with `settings.css` beside
+  it, and the workspace's and the project's settings screens are all rendered inside it —
+  a second spelling of the nav or of the 40 px header would be the copy B-17 forbids.
+- **I-199 — the nav row IS the door to this screen (discharging I-60).** The landing's
+  `SettingsMembersLink` section is deleted: `settings-members-link` is the nav's Members
+  row, which stands on every settings screen, carries `aria-current` on this one, and is
+  what a person activates from the landing (R-UI-031 — no screen is reached only by a
+  typed URL). A second link to the same place on the same page would be two elements
+  answering to one id.
+- **I-200 — the roster is the shipped DataTable, and the answer stays in the row.** §5 makes
+  the DataTable the one grid; §5 rule 8 makes a refused row the PARTIAL pattern — the row
+  shown with a ⚠ and a compact `RefusalState` beneath it, never hidden. I-57's "in the row
+  that asked" is kept literally: the answer renders inside the refused row's own member
+  cell, so the refusal and the row are one element for a reader and for a suite. Two rules
+  in `members.css` are what make that true and they are the only two that reach into the
+  grid's chrome: the refused row grows to `height: auto` while its other cells keep the
+  28 px line, and a cell's `overflow` is `visible` so the inline `Select`'s listbox is not
+  clipped by the row it belongs to (the cell's own `.cx-table-cell-text` keeps §5 rule 2's
+  ellipsis, so no truncation law is given up).
+- **I-201 — one role control per row, and the store's word in the technical channel.** The
+  role is an inline `Select` at `--control-h` whose options read "Owner", "Admin", "Member"
+  through the primitive's own humanising rule (§6: people see labels, never machine
+  identifiers). The store's own word is published, unchanged, on
+  `<span data-testid="members-row-role" data-technical>` — the channel §6 and the rubric's
+  C6 both name — so `OWNER` is still what a suite, an operator and an export read. The
+  confirm stands only when a different role has been stated, or while a refusal is the
+  row's last answer, because a retry is never disarmed (R-SPINE-006).
+- **I-202 — one danger style, in the row's `⋯` menu.** Removal is irreversible, so it is not
+  a red button sitting in a list somebody is scrolling: the row's last cell is a `⋯` ghost
+  trigger (`members-remove-submit`, named for the move it carries) over a menu whose single
+  item is the danger one. The item asks the row's own `members-remove-form` to submit, so
+  the path a person takes and the path a suite takes are one path (B-17). The invitations
+  table's Withdraw is NOT danger-styled: an offer nobody has accepted can be made again.
+- **I-203 — the helper prose is behind the `(i)`, and the record is a column.** §6 allows at
+  most one helper line per screen and this screen has none: the caption lives in the
+  header's `(i)` popover, the I-59 scope sentence in the roster foot's. The record keeps
+  its own column — one `members-role-history` list per row, one `members-history-entry` per
+  movement, its project id on `data-project` and never as body text — so what the module
+  answered is on the screen, one line per row, given back whole by the grid's own
+  truncation tooltip (§5 rule 2).
+
 ## 1. Layout and hierarchy
 
 Files in the route directory: `page.tsx` (thin server component: authenticates, mints the
-`TenancyActor`, calls `membersOf` then `memberRoleHistory` per member from
-`src/modules/spine/tenancy`, resolves labels per I-58, renders the section), `actions.ts`
-(`changeMemberRoleAction`, `removeMemberAction` — thin: authenticate, mint ctx, build the
-`TenancyRequest` with the stated origin, call the barrel under `guardTenancyMutation`,
-revalidate this route; a marked refusal is caught and answered as its code, anything else
-rethrows to the fault seam), `members-section.tsx` (`MembersSection`, client component,
-props exactly the page's composed rows plus the two actions, jsdom-mountable — the
-RulesetSettingsSection precedent), `members-link.tsx` (I-60), `loading.tsx`, `states.ts`
-(§2), `strings.ts`, `members.css`.
+`TenancyActor`, calls `membersOf` then `memberRoleHistories` once for the whole roster from
+`src/modules/spine/tenancy`, resolves labels per I-58, renders the section and the panel
+inside `SettingsPane`), `actions.ts` (`changeMemberRoleAction`, `removeMemberAction` —
+thin: authenticate, mint ctx, build the `TenancyRequest` with the stated origin, call the
+barrel under `guardTenancyMutation`, revalidate this route; a marked refusal is caught and
+answered as its code, anything else rethrows to the fault seam), `members-section.tsx`
+(`MembersSection`, client component, props exactly the page's composed rows plus the two
+actions, jsdom-mountable — the RulesetSettingsSection precedent), `loading.tsx`, `states.ts`
+(§2), `strings.ts`, `members.css`. The template it is drawn in is I-198's, one directory up.
 
-**The landing link** (`/t/{tenant}/settings`, I-60): `<section class="cx-members-link">`,
-max-width 380 px, column flex, gap `var(--space-1)`, margin-top `var(--space-6)`: label
-`members_link_label` (`var(--text-13)` `var(--weight-body-medium)` `var(--graphite-700)`),
-hint `members_link_hint` (`var(--text-12)` `var(--graphite-600)`, margin 0), then
-`<a data-testid="settings-members-link" class="cx-reticle">` — next/link, href
-`/t/{tenant}/settings/members`, label `members_link_action`, the evidence-link idiom:
-`var(--text-13)` `var(--weight-body-medium)` `var(--beam-600)`, underlined at rest, hover
-`var(--beam-500)`, `align-self: start`.
+**The template** (I-198). `SettingsPane` is a CSS grid of `var(--drawer-w-min)` and the rest:
+the nav is a `<nav aria-label>` of `<li>` rows, each row `--control-h` tall, 13 px, radius 4,
+hover `--surface-hover`; the row for the area a reader is standing in carries
+`aria-current="page"`, `--surface-selected` and R-UI-030's 3 px inset beam bar. An area with
+a screen is a `next/link` (Members is `settings-members-link`, I-199; Books is the shell's own
+`books` area); an area with none — Rule set, Taxonomy, Tax — is a `<span aria-disabled>` in a
+`Tooltip` saying `settings_nav_unbuilt`, so it is neither hidden nor broken (§3.3's "disabled
+with a tooltip instead of inline text"). The content pane is a column, gap `--gap-section`.
 
-**The members page** renders in `shell-main`, one column `cx-members`: max-width 800 px
-(the settings-screen measure), column flex, gap `var(--space-6)`. Rail and breadcrumb are
-the shell's: `areaOf` answers `settings`, the Settings rail row carries `aria-current`, and
-browser back returns to the landing (R-UI-031). Header block (gap `var(--space-2)`): `<h1>`
-`members_heading` — `var(--text-20)` `var(--weight-heading)` `var(--graphite-900)`, margin
-0 — over `members_caption` in `var(--text-13)` `var(--graphite-600)`.
+**The header** (40 px, one per screen): `<h1>` `members_heading` at `var(--text-20)`
+`var(--weight-heading)`, then the `(i)` — a ghost `PopoverTrigger` one `--control-h` square
+holding `members_caption` — then, pushed to the trailing edge, the search: the shipped
+`Input` at `--control-h`, 240 px, named and hinted by `members_search_label`. The search
+filters the rows this screen was handed by address and by role, in the browser: it is a
+reading of a roster already on the page, never a second read (B-17).
 
 ### Roster (`<section aria-labelledby data-testid="members-section">`)
 
-`<h2>` `members_roster_heading` (`var(--text-16)` `var(--weight-heading)`
-`var(--graphite-900)`, margin 0), hint `members_roster_hint` (`var(--text-12)`
-`var(--graphite-600)`, carries the I-59 scope sentence), then
-`<ul data-testid="members-list">` — list-style none, margin 0, padding 0, border-top
-`var(--hairline)`. One `<li data-testid="members-row" data-user={userId}>` per member, in
-exactly `membersOf`'s order (the store's own, userId ascending — never re-sorted, never
-localeCompare), padding-block `var(--space-3)`, border-bottom `var(--hairline)`, column
-flex gap `var(--space-2)` — variable-height blocks with hairline seams (the audit I-36
-class; no DataTable: no sort, no columns, no virtualisation to use):
+The section is named by `members_roster_heading` and holds one `DataTable` in a
+`<div data-testid="members-list">` — table id `members-roster`, rows at `--row-h`, the first
+column frozen, column furniture remembered per reader (§5 rule 3). One row per member, in
+exactly `membersOf`'s order (the store's own, never re-sorted, never localeCompare), carrying
+`data-testid="members-row"` and `data-user`, five columns:
 
-- **Identity line** — flex, baseline, gap `var(--space-3)`: the member's label (I-58) in
-  `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`, single line,
-  ellipsis; then `<span data-testid="members-row-role">` — the role verbatim per I-55,
-  `var(--font-mono)` `var(--text-12)` `var(--graphite-700)`. Left-packed; the trailing
-  space falls at the end of the row (participants §1's reading ruling).
-- **Controls line** — flex, wrap, gap `var(--space-3)`, align-items center:
-  `<form data-testid="members-role-form">` — inline flex gap `var(--space-2)`: a hidden
-  input carrying `subjectUserId`; `<select data-testid="members-role-select"
-  class="cx-input cx-reticle cx-members-select">` (the audit I-31 idiom: `.cx-input` worn
-  whole, `.cx-members-select` adds min-width 140 px and `var(--font-mono)`
-  `tabular-nums slashed-zero` — a role is always chosen, so the mono face always applies;
-  focus is the reticle fallback), `aria-label` `members_role_label` filled with the row's
-  member, options the three roles per I-55, the member's current role preselected; then a
-  core secondary Button `data-testid="members-role-submit"`, visible label
-  `members_role_submit` and `aria-label` `members_role_submit_label` filled with the row's
-  member. Beside it, `<form data-testid="members-remove-form">` — the hidden `subjectUserId`
-  and a core danger Button `data-testid="members-remove-submit"`, visible label
-  `members_remove_submit` and `aria-label` `members_remove_submit_label` filled with the
-  row's member. Every control on a row names the member it acts on: the roster repeats the
-  same two controls, and a name that does not say whom it acts on is the same name N times
-  to anyone reading the page through the accessibility tree — a removal is irreversible, so
-  the button that carries one says whose membership it takes away. The visible words are the
-  first words of the spoken name, so what is read and what is said never disagree. While an
-  action is in flight its Button takes core's loading state and the section's status line
-  speaks; controls stay enabled after any refusal — a retry is never disarmed.
-- **Answer slot** (I-57) — `<div data-testid="members-refusal">`, mounted only while a
-  refusal stands, full row width: one RefusalState, entry verbatim from the register,
-  surface as the entry hints (banner for `WORKSPACE_PERMISSION_NOT_HELD`, inline for the
-  other three). Evidence: `MEMBER_HAS_ACTS` → `{ href: /t/{tenant}, label:
-  home_evidence_projects }` (the open campaigns live in Projects); the other three →
-  `{ href: this route, label: members_evidence_roster }` (the roster above names the
-  owners, and the role form above is where an owner is made — the s-design
-  warning-cell current-route precedent).
-- **Role history** — a label `<span id>` `members_history_label` (`var(--text-12)`
-  `var(--weight-body-medium)` `var(--graphite-600)`), then
-  `<ol data-testid="members-role-history" aria-labelledby={that id}>` — list-style none,
-  margin 0, padding 0. Each `<li data-testid="members-history-entry"
-  data-project={projectId} data-direction={direction} data-role={role}>`, padding-block
-  `var(--space-1)`, two lines (the participants §1 anatomy): line one — flex, baseline, gap
-  `var(--space-3)`: the direction verbatim (`var(--font-mono)` `var(--text-12)`
-  `var(--graphite-600)`, min-width 88 px), the role verbatim (`var(--font-mono)`
-  `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`), the `projectId`
-  whole (`var(--font-mono)` `var(--text-12)` `var(--graphite-600)`, `user-select: all`).
-  Line two, indented past the 88 px ruler plus its gap (stated once as the row's custom
-  property): `members_history_by` filled with the actor's label (I-58;
-  `members_member_unnamed` when null) and the date through `src/core/format`'s `formatDate`
-  (DD MMM YYYY, mono `tabular-nums slashed-zero`), `var(--text-12)` `var(--graphite-600)`.
-  Direction carries its meaning in the word, never in colour (Q-11). No movements: one line
-  `members_history_none`, `var(--text-12)` `var(--graphite-600)`, in the `<ol>`'s place.
+- **Member** (280, the frozen key column, so it is the row's `rowheader`) — the label (I-58),
+  13 px `--weight-body-medium`, one line, ellipsis, the grid's tooltip on truncation. When a
+  refusal stands for this row the answer slot is mounted here, under the label: one
+  `<span data-testid="members-refusal" data-user>` holding one `RefusalState`, entry verbatim
+  from the register with its `data-code`, max 420 px (I-200). The row itself carries
+  `data-refused` and the grid draws the ⚠ on this cell.
+- **Role** (200) — `<form data-testid="members-role-form">`: the hidden `subjectUserId`, the
+  shipped `Select` (`members-role-select`) at `--control-h` with `aria-label`
+  `members_role_label` filled with the row's member and the three roles as options in
+  `WORKSPACE_ROLES`' order, read as words (I-201); the store's own word on
+  `<span data-testid="members-row-role" data-technical>`; and the secondary confirm
+  (`members-role-submit`, label `members_role_submit`, `aria-label`
+  `members_role_submit_label` filled with the row's member) exactly when I-201 says it stands.
+- **Role history** (260) — `<ol data-testid="members-role-history">`, always rendered, one
+  `<li data-testid="members-history-entry" data-project data-direction data-role>` per
+  movement in the module's own order: the direction and the role as words, then
+  `members_history_by` filled with the actor's label (I-58; `members_member_unnamed` when
+  null) and the day through `src/core/format`'s `formatDate`. Entries are separated by a
+  hairline, the line never wraps, and a member with no movements reads
+  `members_history_none` beside an empty list (I-203).
+- **Projects** (96, right-aligned, mono tabular) — how many distinct projects the reader's own
+  record names for that member: a figure derived from the record already on the row, not a
+  second read.
+- **`⋯`** (48) — `<form data-testid="members-remove-form">` holding the hidden
+  `subjectUserId` and the menu I-202 rules: the ghost trigger `members-remove-submit`,
+  `aria-label` `members_remove_submit_label` filled with the row's member, over a
+  `DropdownMenuContent` whose single `danger` item reads `members_remove_submit`.
 
-Last in the section, a **status line** `<p role="status" aria-live="polite">` (no testid;
-found by role): `var(--text-12)` `var(--graphite-600)`, margin 0, min-height
-`var(--text-13)`; `members_status_pending` while an action is in flight,
-`members_status_done` after a commit re-renders the roster (the changed row is the visible
-answer, no toast), empty otherwise. It never speaks while a refusal stands.
+Every control on a row names the member it acts on: the roster repeats the same controls, and
+a name that does not say whom it acts on is the same name N times to anyone reading the page
+through the accessibility tree — a removal is irreversible, so the control that carries one
+says whose membership it takes away. The visible words are the first words of the spoken name.
+While a move is in flight its control takes core's loading state and the foot's status line
+speaks; controls stay enabled after any refusal — a retry is never disarmed.
+
+**The roster foot** (`--control-h`): the search's honest none (`members_search_none`, only
+while the filter matches nothing), the status line — `<p role="status" aria-live="polite">`,
+`members_status_pending` while a move is in flight, `members_status_done` after a commit
+re-renders the roster, empty otherwise, and never speaking while a refusal stands — and, at
+the trailing edge, the roster's own `(i)` holding I-59's scope sentence `members_roster_hint`.
 
 ### Invitations (I-61, authored — the panel's own layout and copy)
 
-After the roster, in this order: `<form data-testid="members-invite-form">` (invite by
-email) and `<section data-testid="members-pending-invitations">` (the pending list with
-resend and revoke). Both live inside one `<div class="cx-invitations">` — column flex, gap
-`var(--space-3)` — which stands as the second block of the page column
-(`cx-members-page`: column flex, gap `var(--space-6)`, max-width 800 px, the settings-screen
-measure the roster already uses).
+After the roster, in this order (I-61's own): the invite form, then the pending list. Both
+live inside one `<div class="cx-invitations">` — column flex, gap `var(--space-2)` — which
+stands as the second block of the content pane.
 
-Header block (gap `var(--space-1)`): `<h2 class="cx-invitations-heading">`
-`invitations_heading` — `var(--text-16)` `var(--weight-heading)` `var(--graphite-900)`,
-margin 0 — over `invitations_hint` in `var(--text-12)` `var(--graphite-600)`. The panel's
-`<h2>` sits beside the roster's, one level under the screen's `<h1>`.
+**The section line** (`--control-h`, the roster's own idiom): `<h2>` `invitations_heading` at
+`var(--text-14)` `var(--weight-heading)`, then the count of standing offers as a mono figure
+beside the words it counts (a number is data and is never woven into a sentence), then the
+`(i)` holding `invitations_hint` and `invitations_email_hint` — the two sentences this panel
+used to print as a header block and a field hint (§6). At the trailing edge of the same line,
+the invite form.
 
 **Invite form** — `<form data-testid="members-invite-form" aria-labelledby={the heading}>`,
-column flex gap `var(--space-1)`: a `<label>` `invitations_email_label` (`var(--text-13)`
-`var(--weight-body-medium)` `var(--graphite-700)`) bound to the field by id; a hint
-`invitations_email_hint` (`var(--text-12)` `var(--graphite-600)`, margin 0) which the field
-names through `aria-describedby`; then a row (flex, wrap, align-items center, gap
-`var(--space-2)`, margin-top `var(--space-1)`): the core Input
-`data-testid="invitations-email"` (`type="email"`, `.cx-input .cx-reticle` worn whole,
-`flex: 1 1 320px`, min-width 240 px) and a core primary Button
-`data-testid="invitations-submit"` labelled `invitations_submit`. No control in this panel
-ever takes core's loading state: that state swallows the button's own activation, and a
-press swallowed here is an attempt the server's allowance never counts — the answer to a
-burst is the door's `RATE_LIMITED` in the answer slot, which the door can only give if every
-press reaches it (R-SPINE-006). Presses are queued in the order they were made and sent one
-at a time; while any move is in flight the panel's status line speaks. The field clears when
-an invitation landed and nothing else is queued behind it — never under an address already
-typed for the next press. Controls stay enabled during a move and after any refusal — a
-retry is never disarmed.
+flex, gap `var(--space-2)`: the core Input `data-testid="invitations-email"` (`type="email"`,
+`--control-h`, 240 px, named AND hinted by `invitations_email_label`, which is the same
+wording the pending table heads its first column with — one home for the words, B-17) and the
+screen's ONE primary, a core primary Button `data-testid="invitations-submit"` labelled
+`invitations_submit`. It is the only primary on this screen and the only copper on it; the
+roster's controls are secondary and ghost, and the single danger style is I-202's menu item.
+No control in this panel ever takes core's loading state: that state swallows the button's own
+activation, and a press swallowed here is an attempt the server's allowance never counts — the
+answer to a burst is the door's `RATE_LIMITED` in the answer slot, which the door can only give
+if every press reaches it (R-SPINE-006). Presses are queued in the order they were made and
+sent one at a time; while any move is in flight the panel's status line speaks. The field
+clears when an invitation landed and nothing else is queued behind it — never under an address
+already typed for the next press. Controls stay enabled during a move and after any refusal —
+a retry is never disarmed.
 
 **Pending list** — `<section data-testid="members-pending-invitations" aria-labelledby>`,
-column flex gap `var(--space-2)`: `<h3 class="cx-invitations-pending-heading">`
-`invitations_pending_heading` (`var(--text-13)` `var(--weight-body-medium)`
-`var(--graphite-700)`, margin 0), then `<ul class="cx-invitations-list">` — list-style none,
-margin 0, padding 0, border-top `var(--hairline)` only when it holds a row. One
-`<li data-testid="invitations-row" data-invitation={invitationId}>` per standing offer, in
-the module's own order (newest first, settled by the invitation id — never re-sorted, never
-localeCompare: the offer just made is the one the reader is looking for), flex wrap, align-items center, justify-content space-between, gap
-`var(--space-3)`, padding-block `var(--space-3)`, border-bottom `var(--hairline)`:
+holding one `DataTable` (table id `members-invitations`, named `invitations_pending_heading`)
+while an offer stands. One row per standing offer, in the module's own order (newest first,
+settled by the invitation id — never re-sorted, never localeCompare: the offer just made is
+the one the reader is looking for), carrying `data-testid="invitations-row"` and
+`data-invitation`, three columns:
 
-- **Identity line** — flex, baseline, gap `var(--space-3)`, margin 0: the invitee's address
-  read back through the fold's one home (I-58; `invitations_invitee_unnamed` when the key
-  carries none) in `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`,
-  single line, ellipsis; then the offered role verbatim per I-55, `var(--font-mono)`
-  `var(--text-12)` `var(--graphite-700)`.
-- **Controls** — flex, wrap, gap `var(--space-2)`: a core secondary Button
-  `data-testid="invitations-resend"`, visible label `invitations_resend` and `aria-label`
-  `invitations_resend_label` filled with the row's invitee; beside it a core danger Button
-  `data-testid="invitations-revoke"`, visible label `invitations_revoke` and `aria-label`
-  `invitations_revoke_label` filled with the row's invitee. Every control on a row names the
-  invitation it acts on, for the reason the roster's do: a list read aloud is N distinct
-  controls, not N identical ones. The visible words are the first words of the spoken name.
+- **Email address** (320, the frozen key column) — the invitee's address read back through the
+  fold's one home (I-58; `invitations_invitee_unnamed` when the key carries none), 13 px
+  `--weight-body-medium`, one line, ellipsis.
+- **Role** (140) — the offered role through `EnumLabel`: a person reads "Member", and the
+  store's own word travels in the primitive's technical channel (§6, and the reason I-55's
+  "verbatim mono" is now a statement about the CHANNEL rather than about the glyphs).
+- **Resend · Withdraw** (200) — two ghost Buttons in the row, `data-testid="invitations-resend"`
+  and `data-testid="invitations-revoke"`, visible labels `invitations_resend` and
+  `invitations_revoke`, `aria-label`s `invitations_resend_label` and `invitations_revoke_label`
+  filled with the row's invitee. Every control on a row names the invitation it acts on, for
+  the reason the roster's do: a list read aloud is N distinct controls, not N identical ones.
+  Withdraw is NOT the danger style (I-202): an offer nobody has accepted can be made again, and
+  one screen carries one danger treatment.
 - **No pending offer** — `<p data-testid="invitations-none">` `invitations_none`,
-  `var(--text-12)` `var(--graphite-600)`, standing where the rows would be. Never silence
+  `var(--text-12)` `var(--ink-muted)`, standing where the table would be. Never silence
   (R-UI-020); it steps aside the moment a row stands.
 
 **Answer slot** (I-57) — `<div data-testid="invitations-refusal">`, mounted only while a
@@ -240,20 +304,19 @@ through the register lookup in this slot and do not join the exhibited matrix fo
 precedent, and the reason `MEMBERS_STATES` and the matrix's members row do not move).
 
 Last in the panel, a **status line** `<p role="status" aria-live="polite">` (no testid;
-found by role): `var(--text-12)` `var(--graphite-600)`, margin 0, min-height
-`var(--text-13)`; `invitations_status_pending` while any queued move is in flight,
-`invitations_status_done` after a commit re-renders the list and no refusal stands, empty
-otherwise. The done line never speaks over a refusal: the answer slot is the answer.
+found by role): `var(--text-12)` `var(--ink-muted)`, margin 0, min-height `var(--text-13)`;
+`invitations_status_pending` while any queued move is in flight, `invitations_status_done`
+after a commit re-renders the list and no refusal stands, empty otherwise. The done line never
+speaks over a refusal: the answer slot is the answer.
 
-Route files added under `members/invitations/`: `strings.ts` (§3), `actions.ts`
+Route files under `members/invitations/`: `strings.ts` (§3), `actions.ts`
 (`inviteMemberAction`, `resendInvitationAction`, `revokeInvitationAction` — thin:
 authenticate, mint the actor, build the `TenancyRequest` with the stated origin, dispatch
 `{ kind: "createInvitation" | "resendInvitation" | "revokeInvitation" }` through
 `guardTenancyMutation` bound once with the shipped limiter and the shipped invitation
 machinery, revalidate this route), `invitations-panel.tsx` (`InvitationsPanel`, client
 component, props exactly the page's composed rows plus the three actions, jsdom-mountable)
-and `invitations.css`. `page.tsx` changes only to read `pendingInvitations`, resolve each
-invitee's label, and mount the panel after the roster.
+and `invitations.css`.
 
 ## 2. States (R-UI-050), ruled cell by cell
 
@@ -263,24 +326,28 @@ seven cells in the shell matrix's cell shape (the PARTICIPANTS_STATES shape); an
 spread over `workspaceCells` with the overrides below (I-62). The suite reflects over both
 (B-19); existing rows do not move.
 
-- **Loading** — `loading.tsx`, frame intact: core Skeletons keeping the layout, gap
-  `var(--space-3)` — 24 × 240 px (heading), 16 × 360 px (caption), four
-  48 × min(720 px, 100 %) (member blocks). Matrix: `bones(6)`.
+- **Loading** — `loading.tsx`, frame intact: core Skeletons keeping the layout the grid will
+  take, gap `var(--space-2)` — one 24 × 240 px bone for the header, then six bones at the
+  row height (28 × min(880 px, 100 %)), which is what a table of 28 px rows looks like before
+  it arrives. Matrix: `bones(6)`.
 - **Empty** — impossible, by law: seeing the roster needs membership (`membersOf` refuses a
   stranger rather than answering an empty list), so the list always holds at least the
   reader. Matrix: `reason(strings.state_empty_members_reader)`.
 - **Error** — a render, read or action fault surfaces the root error boundary
   (`src/app/error.tsx`, unowned here); its Decision rules retry and records the report-id
   deferral. Matrix: `workspaceCells`.
-- **Refusal** — the I-57 answer slot; reachable codes are exactly the register's four —
+- **Refusal** — the I-57 answer slot, in the refused row's own member cell, as §5 rule 8's
+  partial row (I-200): the row stands with its ⚠ and the answer reads beneath it, and no row
+  is ever hidden by a refusal. Reachable codes are exactly the register's four —
   `MEMBER_HAS_ACTS`, `WORKSPACE_WOULD_HAVE_NO_OWNER`, `SELF_REMOVAL_NOT_ALLOWED`,
   `WORKSPACE_PERMISSION_NOT_HELD` — each rendered with code (`data-code`), message, remedy
   and evidence; silence never happens. Matrix: the four stacked in that judging order, with
   §1's evidence pairs; `REFUSAL_ENTRIES` gains the four entries byte-identical to the
   register's own.
 - **Partial** — the history reads answer only the projects the reader may read, and the
-  roster hint says so on every render (I-59); every row the module answered renders whole
-  and none is hidden. Matrix: `reason(strings.state_partial_members_scope)`.
+  roster's `(i)` says so on every render (I-59, I-203); every row the module answered renders
+  whole and none is hidden. The row-level partial — a refused row shown with its ⚠ and its
+  answer — is the refusal cell above, which is where §5 rule 8 puts it. Matrix: `reason(strings.state_partial_members_scope)`.
 - **Offline** — a fault of reachability (shell I-20): server-rendered page, failed
   navigation or action surfaces the error path; no invented banner. Matrix:
   `workspaceCells`.
@@ -295,15 +362,17 @@ spread over `workspaceCells` with the overrides below (I-62). The suite reflects
 
 Route table (`strings.ts`, export `membersStrings`, keys `members_…`):
 `members_heading` **Members** · `members_caption` **Who belongs to this workspace, the role
-each member holds, and every role movement on its projects.** · `members_link_label`
-**Members** · `members_link_hint` **Who belongs to this workspace and what each member may
-do.** · `members_link_action` **Manage members** · `members_roster_heading` **Roster** ·
+each member holds, and every role movement on its projects.** (the caption is what the
+header's `(i)` holds, never a subtitle — §6) · `members_roster_heading` **Roster** ·
 `members_roster_hint` **Every member, in the store's own order. Each role history lists
 movements on the projects you may read.** · `members_role_label` **Role for {member}** ·
 `members_role_submit` **Change role** · `members_role_submit_label` **Change role for
 {member}** · `members_remove_submit` **Remove** · `members_remove_submit_label` **Remove
 {member}** (the three `{member}` slots are data — the row's own label per I-58) ·
-`members_history_label` **Role history** · `members_history_by` **by {actor} on {date}**
+`members_col_member` **Member** · `members_col_role` **Role** · `members_col_projects`
+**Projects** · `members_search_label` **Search the roster** · `members_search_none` **No
+member of this workspace matches that.** · `members_history_label` **Role history** ·
+`members_history_by` **by {actor} on {date}**
 (both slots are data) · `members_history_none` **No role movements on this workspace's
 projects yet.** · `members_member_unnamed` **Unnamed member** · `members_status_pending`
 **Carrying the change out…** · `members_status_done` **Done. The roster shows the result.**
@@ -313,7 +382,8 @@ Invitations panel table (`invitations/strings.ts`, export `invitationsStrings`, 
 `invitations_…`): `invitations_heading` **Invitations** · `invitations_hint` **Offers of
 membership this workspace has made that nobody has accepted yet. An invitation is one live
 link at a time: resending replaces the last one, and withdrawing ends it.** ·
-`invitations_email_label` **Email address** · `invitations_email_hint` **The address the
+`invitations_email_label` **Email address** (the field's name and the pending table's first
+column, one home for the words) · `invitations_col_role` **Role** · `invitations_email_hint` **The address the
 invitation is mailed to. It becomes a membership when the person signs in and accepts it.**
 · `invitations_submit` **Send invitation** · `invitations_pending_heading` **Pending** ·
 `invitations_resend` **Resend** · `invitations_resend_label` **Resend the invitation to
@@ -349,55 +419,65 @@ woven into sentences (I-55).
 
 ## 4. Motion (R-UI-004)
 
-None beyond the inherited idioms: Button and link colour over `var(--motion-state)`
-`var(--ease)`, the select's border mirroring the Input's hover, the reticle draw and the
-Skeleton pulse in their single homes. Rows, refusals, history and the status line mount
-with no entrance — answers arrive instantly. Every duration is a token zeroed at source
-under reduced motion; no bounce anywhere.
+None beyond the inherited idioms: Button, nav row and link colour over `var(--motion-state)`
+`var(--ease)`, the Select's listbox, the row menu and the `(i)` popover in the shipped
+primitives' own motion, the reticle draw and the Skeleton pulse in their single homes. Rows,
+refusals, history and the status line mount with no entrance — answers arrive instantly. Every
+duration is a token zeroed at source under reduced motion; no bounce anywhere.
 
 ## 5. Tokens
 
-`--graphite-600/700/900` · `--beam-500/600` (the landing link; the refusal card's own
-tokens are RefusalState's) · `--hairline` · `--space-1/2/3/6` · `--text-12/13/16/20` ·
-`--font-mono` · `--weight-body-medium/--weight-heading` · `--motion-state/--ease`. Px
-literals, closed set (core I-1's class): the 800 px page measure, the 380 px landing
-section, the 140 px select min-width, the 88 px direction column, and the skeleton bones
-24/16/48 × 240/360/720. Any other literal is a defect.
+Semantic aliases only (§4's rule 3 — no `--graphite-*`/`--beam-*` reference outside the token
+source): `--ink` / `--ink-secondary` / `--ink-muted` / `--ink-disabled` / `--ink-code` ·
+`--surface-hover` / `--surface-selected` · `--line` through `--hairline` · `--line-accent`
+(the nav's current row) · `--state-danger(-surface)` (inside the shipped danger menu item) ·
+the density and layout tokens the template is drawn at — `--row-h`, `--control-h`,
+`--drawer-w-min`, `--gap-section`, `--cell-py` · `--space-1/2/4` · `--text-12/13/14/20` ·
+`--font-mono` · `--weight-body-medium` / `--weight-heading` · `--radius-4` ·
+`--motion-state` / `--ease`. Px literals, closed set: the header's 40, the search and the
+address field's 240 measure, the row refusal's 420, and R-UI-030's 3 px selection bar. Any
+other literal is a defect, and `tests/ui/craft/mechanical.test.ts` scores this file for it.
 
 ## 6. Themes
 
-`members.css` contains no `[data-theme]` selector; every light/dark difference arrives
-through token values (R-UI-001). Contrast holds on founder facts in both themes:
-graphite-600/700/900 on graphite-0 ≥ 4.5:1, beam-600 on graphite-0 ≥ 4.5:1, the danger
-pair inside the shipped danger Button and RefusalState per their own Decisions. No basis
-colour and no copper appears anywhere on this surface (I-56).
+`members.css`, `invitations.css` and the template's `settings.css` contain no `[data-theme]`
+selector; every light/dark difference arrives through token values (R-UI-001), and dark is the
+default the screen is first seen in. Contrast holds on founder facts in both themes: the ink
+aliases on the app surface ≥ 4.5:1, `--ink-link` on it ≥ 4.5:1, the current nav row's ink on
+`--surface-selected` ≥ 4.5:1, the danger pair inside the shipped menu item and RefusalState per
+their own Decisions. The one copper on this surface is the invite primary (I-56 keeps role moves
+plain: they write no act row, so nothing else wears an act colour).
 
 ## 7. Test hooks (closed contract, C-05)
 
-Routes: `/t/{tenant}/settings` (gains the link only) and `/t/{tenant}/settings/members`
-(new; tree key `/t/[tenant]/settings/members`). Test ids, exactly the contract's, on the
-elements ruled in §1: `settings-members-link` · `members-section` · `members-list` ·
+Routes: `/t/{tenant}/settings` (the template's General area, which carries the nav row) and
+`/t/{tenant}/settings/members` (tree key `/t/[tenant]/settings/members`). Test ids, exactly the
+contract's — the same closed roster, on the elements §1 now rules: `settings-members-link` (the
+nav's Members row, I-199) · `members-section` · `members-list` (the roster grid's own container) ·
 `members-row` (`data-user`) · `members-row-role` · `members-role-history` ·
 `members-history-entry` (`data-project`, `data-direction`, `data-role`) ·
 `members-role-form` · `members-role-select` · `members-role-submit` ·
-`members-remove-form` · `members-remove-submit` · `members-refusal` — plus I-61's two outer
-slots, now rendered: `members-invite-form` · `members-pending-invitations`. No others are
+`members-remove-form` · `members-remove-submit` (the row's `⋯` trigger, I-202) ·
+`members-refusal` (in the refused row's own member cell, I-200) — plus I-61's two slots:
+`members-invite-form` · `members-pending-invitations`. No others are
 added at this level; the ids INSIDE those two slots are the invitations panel's own closed
 set, ruled in §1 above and listed there rather than here, so this roster stays exactly the
 one the members page object holds. Server actions: `changeMemberRoleAction`,
 `removeMemberAction`, and the panel's `inviteMemberAction`, `resendInvitationAction`,
 `revokeInvitationAction`. Behavioural hooks without new ids:
-`role="status"` on the status line, `aria-label` on the select from the strings table,
-RefusalState's own ids and `data-code` inside `members-refusal`, `cx-reticle` on link,
-select and Buttons, the `<h1>`/`<h2>` hierarchy, the link's resolved href.
+`role="status"` on the status line, `aria-label` on the Select and on the `⋯` from the strings
+table, `data-user` on the answer slot so a refusal is addressable by the member it answers,
+`data-technical` on the role's stored word, `data-refused` on the refused row, `aria-current`
+on the nav's current row, RefusalState's own ids and `data-code` inside `members-refusal`,
+`cx-reticle` on every focusable, the `<h1>`/`<h2>` hierarchy, and the nav row's resolved href.
 
 Page objects: `tests/members/support/members-page.ts` and `members-stage.ts`. Journey
 checkpoints (axe serious/critical = 0 at each, never widened): **members-by-navigation** —
 from the settings landing, activating the visible `settings-members-link` (never a typed
 URL) lands on the roster with roles and histories rendered; browser back returns to the
-landing (R-UI-031). **refusal-in-place** — an ADMIN submits an OWNER's remove form and the
-registered `WORKSPACE_PERMISSION_NOT_HELD` message and remedy render inside
-`members-refusal` through the one RefusalState; the roster is unchanged. jsdom acceptance
+landing (R-UI-031). **refusal-in-place** — an ADMIN opens an OWNER's row menu and takes its one danger item; the
+registered `WORKSPACE_PERMISSION_NOT_HELD` message and remedy render inside `members-refusal`
+in that row, under the member it answers, and the roster is unchanged. jsdom acceptance
 mounts `MembersSection` with injected rows and actions and walks `MEMBERS_STATES`; the
 live proof drives the shipped route doors against a provisioned scratch database, no
 mocked module.

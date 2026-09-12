@@ -14,11 +14,14 @@ export const rulesetStrings = {
   ruleset_digest_label: "Content digest",
 
   ruleset_lineage_heading: "Lineage",
+  // The chain's own columns: a step names the scope it was forked at, the edition it is, and the
+  // digest that step carries (§3.6's three-column lineage).
+  ruleset_lineage_col_scope: "Scope",
+  ruleset_lineage_col_edition: "Edition",
   ruleset_lineage_hint: "The chain this pin was forked along, platform first. A verbatim fork carries its parent's digest unchanged.",
 
   ruleset_parameters_heading: "Parameters",
   ruleset_col_parameter: "Parameter",
-  ruleset_col_key: "Key",
   ruleset_col_value: "Value",
   ruleset_col_unit: "Unit",
 

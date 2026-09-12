@@ -1,0 +1,184 @@
+/* The settings template (Design Direction 00 §3.6): a 160 px section nav and a content pane whose
+   primary is a table. Every value is a token read — the nav's measure is `--drawer-w-min`, which
+   §4.2 fixes at 160 for exactly this nav, its rows are `--control-h`, and the header is the 40 px
+   band the top bar is. No literal colour, no [data-theme] selector: both themes are these rules
+   read against different token values (R-UI-001).
+
+   The px literals are a closed set: the header's 40, the `(i)` popover's 280 measure, and the
+   3 px selection bar R-UI-030 fixes for a current row. Any other literal is a defect. */
+
+/* The pane fills `shell-main`: the nav's seam runs the whole height of the field, and the content
+   column is what the screen's own primary stretches inside. A settings screen whose table sat in
+   the top eighth of the field would be a work surface nobody could see (C1). */
+.cx-settings {
+  display: grid;
+  grid-template-columns: var(--drawer-w-min) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: stretch;
+  min-height: 100%;
+}
+
+/* --- the section nav (160 px, a vertical list of 28 px rows) --- */
+
+.cx-settings-nav {
+  position: sticky;
+  top: 0;
+  padding-inline-end: var(--space-2);
+  border-inline-end: var(--hairline);
+}
+
+.cx-settings-nav-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cx-settings-nav-row {
+  display: flex;
+}
+
+/* One row: a place, or a promise. Both are drawn at the same height so the list reads as a list
+   and not as a live column with a grey one beside it. */
+.cx-settings-nav-item {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  height: var(--control-h);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-4);
+  font-size: var(--text-13);
+  color: var(--ink-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color var(--motion-state) var(--ease);
+}
+
+.cx-settings-nav-item:hover {
+  background-color: var(--surface-hover);
+}
+
+/* R-UI-030's selection: the beam bar and the beam fill, never a colour alone. */
+.cx-settings-nav-item[aria-current="page"] {
+  background-color: var(--surface-selected);
+  box-shadow: inset 3px 0 0 0 var(--line-accent);
+  color: var(--ink);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-settings-nav-item[data-unbuilt="true"] {
+  color: var(--ink-disabled);
+  cursor: default;
+}
+
+.cx-settings-nav-item[data-unbuilt="true"]:hover {
+  background-color: transparent;
+}
+
+/* --- the content pane --- */
+
+.cx-settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-section);
+  min-width: 0;
+  min-height: 0;
+}
+
+/* A region that IS the screen's work surface takes the height the pane has left: the grid inside it
+   fills from the top and keeps its sticky header, so a screen with three rows looks like the same
+   instrument as a screen with three hundred (§5 rule 1, C1).
+
+   It GROWS and never shrinks (`1 0 auto`): a roster longer than the field scrolls the field it is
+   in rather than being clipped inside a box of its own, which is what lets the row's inline Select
+   open downward out of its cell without a scroll container swallowing the list (members I-200). */
+.cx-settings-surface {
+  flex: 1 0 auto;
+}
+
+.cx-settings-surface > .cx-table-frame {
+  flex: 1 0 auto;
+}
+
+/* --- the 40 px header: title, the (i), then the screen's own controls --- */
+
+.cx-settings-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 40px;
+}
+
+.cx-settings-title {
+  margin: 0;
+  font-size: var(--text-20);
+  font-weight: var(--weight-heading);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.cx-settings-header-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+
+/* The (i) is a square ghost button: the shipped chrome, worn at the control height with no label
+   beside the glyph. */
+.cx-settings-about {
+  width: var(--control-h);
+  padding-inline: 0;
+  color: var(--ink-muted);
+}
+
+.cx-settings-about-body {
+  max-width: 280px;
+}
+
+.cx-settings-about-line {
+  margin: 0;
+  font-size: var(--text-13);
+  color: var(--ink-secondary);
+}
+
+/* --- a section inside the pane: a 28 px line of heading and its one control --- */
+
+.cx-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cx-settings-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-h);
+}
+
+.cx-settings-section-heading {
+  margin: 0;
+  font-size: var(--text-14);
+  font-weight: var(--weight-heading);
+  color: var(--ink);
+}
+
+/* A count is data: it reads in the mono face beside the words it counts, never inside them. */
+.cx-settings-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--ink-muted);
+}
+
+.cx-settings-section-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}

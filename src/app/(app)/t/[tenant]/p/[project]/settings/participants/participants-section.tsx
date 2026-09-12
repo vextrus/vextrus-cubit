@@ -9,6 +9,7 @@
 // before the dialog opens is this screen's answer, in its own slot; a refusal that arrives once the
 // dialog holds focus is the dialog's, in its own.
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
 // The law itself, not the seam's barrel: L-ACT-03's roles are a value that touches no database
 // (src/core/acts/law.ts), and a client component reaching through the barrel would drag the driver
 // into the browser bundle.
@@ -17,10 +18,13 @@ import { refusalOf, type RefusalCode } from "@/core/errors";
 import { formatDate } from "@/core/format";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { Button, Chip } from "@/ui/primitives/core";
+import { Button, Chip, EnumLabel } from "@/ui/primitives/core";
+import { DataTable } from "@/ui/primitives/data";
 import { shellHref } from "@/ui/shell";
 import { fill, strings, type StringKey } from "@/ui/strings";
+import { SettingsAbout, SettingsHeader } from "@/app/(app)/t/[tenant]/settings/settings-pane";
 import { commitAssignRole, previewAssignRole, type CommitAnswer, type PreviewAnswer } from "./actions";
+import { participantsScreenStrings } from "./strings";
 import { participantsRoute } from "./route-address";
 import { TESTIDS } from "@/ui/testids";
 
@@ -72,6 +76,76 @@ interface Evidence {
   readonly href: string;
   readonly label: string;
 }
+
+/**
+ * The two grids, by the identity each reader's column furniture is remembered under (§5 rule 3).
+ * The ids the two lists published as `<ul>`/`<ol>` rows are kept byte-identical — `participants-row`
+ * with `data-user`, `participants-history-row` with `data-direction` and `data-role` — so every
+ * journey that named one is untouched by the change of instrument.
+ */
+const ROSTER_TABLE_ID = "participants-roster";
+const HISTORY_TABLE_ID = "participants-history";
+
+/** Who holds which role, in force now (I-52): the member, then every role they hold. */
+const ROSTER_COLUMNS: ColumnDef<ParticipantsRosterRow, unknown>[] = [
+  {
+    id: "member",
+    header: strings.spine_participants_field_member,
+    size: 320,
+    cell: ({ row }) => <span className="cx-participants-member">{row.original.label}</span>,
+  },
+  {
+    id: "roles",
+    header: strings.spine_participants_field_role,
+    size: 360,
+    // §6: a person reads "Principal"; the act's own word travels in the technical channel the
+    // primitive publishes, which is where an operator, an export and a suite read it from.
+    cell: ({ row }) => (
+      <span className="cx-participants-roles">
+        {row.original.roles.map((held) => (
+          <EnumLabel className="cx-participants-role" key={held} value={held} />
+        ))}
+      </span>
+    ),
+  },
+];
+
+/** The record: what moved, whose it was, and when — oldest first, in the module's own order. */
+const HISTORY_COLUMNS: ColumnDef<ParticipantsHistoryRow, unknown>[] = [
+  {
+    id: "direction",
+    header: strings.spine_participants_field_direction,
+    size: 140,
+    cell: ({ row }) => <EnumLabel className="cx-participants-direction" value={row.original.direction} />,
+  },
+  {
+    id: "role",
+    header: strings.spine_participants_field_role,
+    size: 180,
+    cell: ({ row }) => <EnumLabel className="cx-participants-history-role" value={row.original.role} />,
+  },
+  {
+    id: "subject",
+    header: strings.spine_participants_field_member,
+    size: 280,
+    cell: ({ row }) => <span className="cx-participants-history-subject">{row.original.subject.label}</span>,
+  },
+  {
+    id: "recorded",
+    header: participantsScreenStrings.participants_col_recorded,
+    size: 240,
+    // A grant a project's creation installed was performed by nobody — L-ACT-03 makes the creating
+    // PRINCIPAL a bootstrap rather than an act — so the cell says when it happened and stops. "By an
+    // unnamed member" would name a performer that does not exist, which is worse than saying less.
+    cell: ({ row }) => (
+      <span className="cx-participants-history-by">
+        {row.original.actor === null
+          ? dayOf(row.original.occurredAt)
+          : fill(strings.spine_participants_history_by, { actor: row.original.actor.label, date: dayOf(row.original.occurredAt) })}
+      </span>
+    ),
+  },
+];
 
 export function ParticipantsSection({ tenantId, projectId, roster, history, subjects, preview = previewAssignRole, commit = commitAssignRole }: ParticipantsSectionProps) {
   const [subjectUserId, setSubjectUserId] = useState("");
@@ -184,36 +258,37 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
 
   return (
     <div className="cx-participants">
-      <header className="cx-participants-header">
-        <h1 className="cx-participants-heading">{strings.spine_participants_heading}</h1>
-        <p className="cx-participants-caption">{strings.spine_participants_caption}</p>
-      </header>
+      <SettingsHeader title={strings.spine_participants_heading} about={strings.spine_participants_caption} />
 
-      <section aria-labelledby={headingIds.current}>
-        <h2 className="cx-participants-section-heading" id={headingIds.current}>
-          {strings.spine_participants_current_heading}
-        </h2>
-        <ul className="cx-participants-list" data-testid={TESTIDS.participants.list}>
-          {roster.map((row) => (
-            <li className="cx-participants-row" data-testid={TESTIDS.participants.row} data-user={row.userId} key={row.userId}>
-              <span className="cx-participants-member">{row.label}</span>
-              <span className="cx-participants-roles">
-                {row.roles.map((held) => (
-                  <span className="cx-participants-role" key={held}>
-                    {held}
-                  </span>
-                ))}
-              </span>
-            </li>
-          ))}
-        </ul>
+      <section className="cx-settings-section" aria-labelledby={headingIds.current}>
+        <div className="cx-settings-section-head">
+          <h2 className="cx-settings-section-heading" id={headingIds.current}>
+            {strings.spine_participants_current_heading}
+          </h2>
+          <span className="cx-settings-count">{roster.length}</span>
+        </div>
+        {/* §3.6: the screen's primary region is a 28 px grid, and the roles in force are it. */}
+        <div className="cx-participants-table" data-testid="participants-list">
+          <DataTable
+            tableId={ROSTER_TABLE_ID}
+            aria-labelledby={headingIds.current}
+            columns={ROSTER_COLUMNS}
+            data={[...roster]}
+            getRowId={(row) => row.userId}
+            rowTestId="participants-row"
+            rowDataOf={(row) => ({ "data-user": row.userId })}
+          />
+        </div>
       </section>
 
-      <section aria-labelledby={headingIds.assign}>
-        <h2 className="cx-participants-section-heading" id={headingIds.assign}>
-          {strings.spine_participants_assign_heading}
-        </h2>
-        <p className="cx-participants-hint">{strings.spine_participants_assign_hint}</p>
+      <section className="cx-settings-section" aria-labelledby={headingIds.assign}>
+        <div className="cx-settings-section-head">
+          <h2 className="cx-settings-section-heading" id={headingIds.assign}>
+            {strings.spine_participants_assign_heading}
+          </h2>
+          {/* §6: what a preview does is one press away, not a sentence standing under a heading. */}
+          <SettingsAbout body={strings.spine_participants_assign_hint} label={strings.spine_participants_assign_heading} />
+        </div>
         <form
           className="cx-participants-form"
           data-testid={TESTIDS.participants.assignForm}
@@ -273,37 +348,25 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
         </form>
       </section>
 
-      <section aria-labelledby={headingIds.history}>
-        <h2 className="cx-participants-section-heading" id={headingIds.history}>
-          {strings.spine_participants_history_heading}
-        </h2>
-        <p className="cx-participants-hint">{strings.spine_participants_history_hint}</p>
-        <ol className="cx-participants-history" data-testid={TESTIDS.participants.history}>
-          {history.map((entry, index) => (
-            <li
-              className="cx-participants-history-row"
-              data-testid={TESTIDS.participants.historyRow}
-              data-direction={entry.direction}
-              data-role={entry.role}
-              key={`${entry.occurredAt}-${entry.direction}-${entry.role}-${entry.subject.userId}-${index}`}
-            >
-              <p className="cx-participants-history-what">
-                <span className="cx-participants-direction">{entry.direction}</span>
-                <span className="cx-participants-history-role">{entry.role}</span>
-                <span className="cx-participants-history-subject">{entry.subject.label}</span>
-              </p>
-              {/* A grant a project's creation installed was performed by nobody — L-ACT-03 makes
-                  the creating PRINCIPAL a bootstrap rather than an act — so the line says when it
-                  happened and stops. "By an unnamed member" would name a performer that does not
-                  exist, which is worse than saying less (B-21). */}
-              <p className="cx-participants-history-by">
-                {entry.actor === null
-                  ? dayOf(entry.occurredAt)
-                  : fill(strings.spine_participants_history_by, { actor: entry.actor.label, date: dayOf(entry.occurredAt) })}
-              </p>
-            </li>
-          ))}
-        </ol>
+      <section className="cx-settings-section" aria-labelledby={headingIds.history}>
+        <div className="cx-settings-section-head">
+          <h2 className="cx-settings-section-heading" id={headingIds.history}>
+            {strings.spine_participants_history_heading}
+          </h2>
+          <span className="cx-settings-count">{history.length}</span>
+          <SettingsAbout body={strings.spine_participants_history_hint} label={strings.spine_participants_history_heading} />
+        </div>
+        <div className="cx-participants-table" data-testid="participants-history">
+          <DataTable
+            tableId={HISTORY_TABLE_ID}
+            aria-labelledby={headingIds.history}
+            columns={HISTORY_COLUMNS}
+            data={[...history]}
+            getRowId={(entry, index) => `${entry.occurredAt}-${entry.direction}-${entry.role}-${entry.subject.userId}-${index}`}
+            rowTestId="participants-history-row"
+            rowDataOf={(entry) => ({ "data-direction": entry.direction, "data-role": entry.role })}
+          />
+        </div>
       </section>
 
       <ConsequenceDialog

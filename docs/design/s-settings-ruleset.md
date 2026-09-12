@@ -1,5 +1,42 @@
 # Design Decision — S-Settings-Ruleset (the project rule-set settings screen)
 
+```
+┌R─┬─────────────┬──────────────────────────────────────────────────────────────┐
+│  │ ws › Projects › Rule set                                  ⌘K ⟳ ✉ ◉         │
+│  ├─────────────┼──────────────────────────────────────────────────────────────┤
+│  │Participants │ Rule set  (i)                                                │  header 40
+│  │Rule set   ◂ │ Pinned edition  (i)                                          │  section 28
+│  │Taxonomy     │ project  IS1200_IN @ 2026.08   Content digest  a3f9c2d…      │  ONE line
+│  │Tax          │ Lineage  (i)                                                 │  section 28
+│  │             │ ┌──────────┬────────────────────────┬──────────────┐         │
+│  │             │ │ Scope    │ Edition                │ Content diges│         │  28 px rows
+│  │             │ │ platform │ IS1200_IN @ 2026.08    │ a3f9c2d…     │         │
+│  │             │ │ tenant   │ IS1200_IN @ 2026.08    │ a3f9c2d…     │         │
+│  │             │ │ project  │ IS1200_IN @ 2026.08    │ a3f9c2d…     │         │
+│  │             │ └──────────┴────────────────────────┴──────────────┘         │
+│  │             │ Parameters                                                   │  section 28
+│  │             │ ┌────────────────────────────┬──────────┬────────┐           │
+│  │             │ │ Parameter                  │    Value │ Unit   │           │  28 px rows
+│  │             │ │ Opening deduction minimum  │      0.1 │ m2     │           │
+│  │             │ │ Member end no-deduct max…  │      500 │ cm2    │           │
+│  │             │ └────────────────────────────┴──────────┴────────┘           │
+└──┴─────────────┴──────────────────────────────────────────────────────────────┘
+       160                              the content pane
+```
+
+| Region | Purpose | Size | Empty | Error | Loading |
+|---|---|---|---|---|---|
+| section nav | the project's settings areas; Rule set carries `aria-current` | 160 × 100 % (`--drawer-w-min`), rows `--control-h` | — (an area with no screen is shown disabled with its reason in a tooltip) | — | — |
+| header | the title and the `(i)` that holds the caption | 100 % × 40 | — | — | — |
+| pinned edition | ONE line: the scope, the edition L-MEA-01 spells, and the content digest as a chip | 100 % × `--row-h` | the whole screen is the unpinned notice instead (I-28) | the root boundary (`src/app/error.tsx`) | `loading.tsx` bone at the row height |
+| lineage | the chain the pin was forked along, platform → tenant → project, as a 3-row grid | 100 % × 3 × `--row-h` | never — a pinned edition always has a chain, and its own step is in it | the root boundary | three bones at the row height |
+| parameters (primary) | every value a measurement on this project reads | flex × `--row-h` rows | never — an edition with no parameter is not an edition | the root boundary | bones at the row height |
+| unpinned (the empty state) | `ShellEmptyState`: why there is nothing, and the one way onward | centred in the pane | this IS the empty leg | — | — |
+
+Built on Design Direction 00 §3.6's Settings template, whose geometry outranks this file where the
+two disagree (§3's precedence); what the rebuild changed is recorded as I-204–I-208 below.
+
+
 Route: `/t/{tenantId}/p/{projectId}/settings/ruleset` under
 `src/app/(app)/t/[tenant]/p/[project]/settings/ruleset/**`, inside the shell frame and behind
 the membership guard in `t/[tenant]/layout.tsx`. Increment inc-015-ruleset-editions. Law:
@@ -65,88 +102,118 @@ M3, inc-304).
   to be this page — naming the project and this screen in the trail is inc-011's, the same
   IOU §1 records.
 
+- **I-204 — the screen is drawn in the settings TEMPLATE.** Design Direction 00 §3.6 rules
+  settings a two-pane template, and its one home is
+  `src/app/(app)/t/[tenant]/settings/settings-pane.tsx` (members' I-198). `page.tsx` renders
+  `SettingsPane` with the PROJECT's areas — Participants, Rule set, and the two the product
+  has promised and not built — and the section itself stays free of the frame, so the
+  component a suite mounts is still the component a browser renders.
+- **I-205 — I-29 is superseded: the parameter table IS the shipped DataTable.** §5 of the
+  Direction makes the DataTable the one grid of the product and names this screen among its
+  consumers; the rule-set table was migrated to it with its ids kept byte-identical. What
+  I-29 was protecting — no machinery a screen does not use — is answered by the grid's own
+  opt-ins: sorting, filtering and editing are off, and what the screen gains is the 28 px
+  row, the frozen key column, the truncation contract and the remembered column furniture
+  every other table in the product now has.
+- **I-206 — a digest is whole in the document and a chip on the screen.** I-26 is kept where
+  it matters — the element publishes the FULL 64 characters, `user-select: all`, so what a
+  reader copies and what a suite reads is the digest itself — and §6's "no machine
+  identifier as body text" is kept too: the element is `data-technical`, the channel the
+  rubric's C6 exempts, and it is drawn at the chip measure (`8ch`, the shipped IdChip's own
+  short form) with the rest clipped. The shipped `IdChip` itself is NOT used here, and the
+  reason is recorded rather than hidden: this screen's acceptance reads
+  `ruleset-edition-digest`'s text as EXACTLY the digest and the J-003 journey requires that
+  element to be visible, and `IdChip` renders the short form as its text — so adopting it
+  would require amending an acceptance this node does not own. **Owed:** either an `IdChip`
+  variant that publishes the whole value as its text, or the acceptance amended to read
+  `data-value`; until then the chip is this screen's own three CSS rules.
+- **I-207 — the lineage is a 3-row grid, and the key column is gone.** The chain reads as
+  scope · edition · digest across one 28 px row per step (§3.6), which is what makes a
+  verbatim fork visible as three identical digests. The parameter table drops its `Key`
+  column with it: `openingDeductionMinM2` is a machine identifier, §6 forbids one as body
+  text, and the key a row is addressed by is already on the row as `data-param` — where the
+  acceptance, the export and an operator read it from.
+- **I-208 — the four helper sentences are behind `(i)` popovers.** §6 allows at most one
+  helper line per screen and this screen has none: `ruleset_caption` is the header's
+  disclosure, `ruleset_edition_hint` and `ruleset_lineage_hint` their own sections'. The
+  sentences are not deleted — they are law, and they are one press away from the heading
+  they explain.
+
 ## 1. Layout and hierarchy
 
-Files in the route directory: `page.tsx` (thin server component: reads the two segments,
-calls `projectRulesetView({ tenantId, projectId })`, renders the section), `loading.tsx`,
-`ruleset-settings-section.tsx` (exports `RulesetSettingsSection({ view })`, mountable under
-jsdom), `strings.ts` (I-24), `states.ts` (§2), `ruleset.css`. The page passes the raw URL
-segments; the view answers the no-pin shape for anything that names no pin — a non-uuid
-segment included, never a driver fault (the shell's `scopedTenantId` precedent).
+Files in the route directory: `page.tsx` (thin server component: reads the two segments, calls
+`projectRulesetView({ tenantId, projectId })`, renders the section inside `SettingsPane` with
+the project's own areas — I-204), `loading.tsx`, `ruleset-settings-section.tsx` (exports
+`RulesetSettingsSection({ view })`, a client module because the grid it renders is one, and
+mountable under jsdom), `strings.ts` (I-24), `states.ts` (§2), `ruleset.css`. The page passes
+the raw URL segments; the view answers the no-pin shape for anything that names no pin — a
+non-uuid segment included, never a driver fault (the shell's `scopedTenantId` precedent).
 
-The page renders in `shell-main`, one column `cx-ruleset`: `max-width: 800px`, column flex,
-`gap: var(--space-6)` between sections. Rail and breadcrumb are the shell's, and this screen
-does not restyle them: `areaOf` (`src/ui/shell/routes.ts`, R-UI-031's one home for the
-address→area mapping) reads any address under a workspace that names neither `books` nor
-`settings` as being in Projects, so on this route the Projects rail row is selected and
-carries `aria-current="true"` — the area it is in, not the page it is — while the Projects
-crumb is a link back rather than the current page (see I-30). Recorded IOU: visible
-navigation to this screen (project switcher, project crumbs, a settings link inside the
-project) is owed by inc-011, which ships the project surfaces and adopts the `p/[project]`
-base — until then the route is test- and URL-reachable, and that debt is inc-011's, not this
-screen's (R-UI-031, the /sessions precedent).
+The screen renders in the template's content pane, one column `cx-ruleset`, gap
+`var(--gap-section)`. Rail and breadcrumb are the shell's and this screen does not restyle
+them: `areaOf` reads any address under a workspace that names neither `books` nor `settings`
+as being in Projects, so the Projects rail row is selected and carries `aria-current="true"` —
+the area it is in, not the page it is (I-30) — while the section nav beside the content is what
+says which settings area a reader is standing in (I-204). The nav is also the visible
+navigation between this screen and Participants, which is the debt I-30's IOU recorded.
 
-Header block (`gap: var(--space-2)`): `<h1>` `ruleset_heading` — `var(--text-20)`
-`var(--weight-heading)` `var(--graphite-900)`, margin 0 — over the caption `ruleset_caption`
-in `var(--text-13)` `var(--graphite-600)`.
+**The header** (40 px): `<h1>` `ruleset_heading` at `var(--text-20)` `var(--weight-heading)`,
+then the `(i)` holding `ruleset_caption` (I-208). No subtitle, and no second line anywhere on
+the screen.
 
 ### Pinned edition (`<section aria-labelledby>`)
 
-`<h2>` `ruleset_edition_heading` (`var(--text-16)` `var(--weight-heading)`
-`var(--graphite-900)`, margin 0), hint `ruleset_edition_hint` (`var(--text-12)`
-`var(--graphite-600)`), then a `<dl>` of two rows (each row grid
-`160px minmax(0, 1fr)`, column gap `var(--space-4)`, row padding-block `var(--space-2)`):
+This section gives up its own heading, and §8 is why: "the table starts at y ≈ 88" cannot be
+true of a screen that spends a heading line on naming what the line under the title already is.
+The screen is called "Rule set" and the first thing under it IS the pin, so the section is named
+for a screen reader (`aria-label` `ruleset_edition_heading`) and shows ONE line
+(`<p class="cx-ruleset-pin">`, `--row-h` tall, flex, gap `var(--space-2)`), with the `(i)`
+holding `ruleset_edition_hint` at its trailing edge:
 
-- `<dt>` `ruleset_identity_label` — `var(--text-13)` `var(--weight-body-medium)`
-  `var(--graphite-700)`. `<dd data-testid="ruleset-edition-identity">`, margin 0, inline
-  flex gap `var(--space-2)`, baseline-aligned: the scope in
-  `<span data-scope={scope}>` — `var(--font-mono)` `var(--text-12)` `var(--graphite-600)` —
-  then the name, a ` @ ` joiner, and the version as one mono run, `var(--text-16)`
-  `var(--weight-body-medium)` `var(--graphite-900)` `tabular-nums slashed-zero`
-  (`IS1200_IN @ 2026.08`, per L-MEA-01's own spelling). All three identity fields are
-  visible text (AC-4).
-- `<dt>` `ruleset_digest_label`, same style. `<dd data-testid="ruleset-edition-digest">`:
-  the full digest, `var(--font-mono)` `var(--text-12)` `var(--graphite-700)`
-  `tabular-nums slashed-zero`, wrapped and selectable per I-26.
+- `<span data-testid="ruleset-edition-identity">` — the scope in `<span data-scope={scope}>`
+  (`var(--font-mono)` `var(--text-12)` `var(--ink-muted)`), then the name, a ` @ ` joiner and
+  the version as one mono run (`IS1200_IN @ 2026.08`, L-MEA-01's own spelling),
+  `var(--text-13)` `var(--weight-body-medium)` `var(--ink-code)`. All three identity fields are
+  visible text (AC-4), and the digest is NOT inside this element: identity and digest are two
+  fields and neither substitutes for the other (L-MEA-01).
+- `ruleset_digest_label` as a muted 12 px word, then
+  `<span data-testid="ruleset-edition-digest" data-technical>` — the digest, whole in the
+  document and drawn at the chip measure per I-206.
 
 ### Lineage (`<section aria-labelledby>`)
 
-`<h2>` `ruleset_lineage_heading`, hint `ruleset_lineage_hint`, then
-`<ol data-testid="ruleset-lineage">` — list-style none, margin 0, padding 0 — of exactly the
-steps the view answers, platform → tenant → project. Each
-`<li data-testid="ruleset-lineage-step" data-scope={scope}>`: padding-block `var(--space-2)`,
-border-top `var(--hairline)` on every item after the first, two lines:
+A section line with `<h2>` `ruleset_lineage_heading` and the `(i)` holding
+`ruleset_lineage_hint`, then one `DataTable` (table id `ruleset-lineage`) inside
+`<div data-testid="ruleset-lineage">`: exactly the steps the view answers, platform → tenant →
+project, one 28 px row each carrying `data-testid="ruleset-lineage-step"` and `data-scope`,
+three columns —
 
-- Line one, flex gap `var(--space-3)`, baseline: the scope
-  (`var(--font-mono)` `var(--text-12)` `var(--graphite-600)`, min-width 88 px so the three
-  scopes column-align) then that step's `name @ version` (`var(--font-mono)`
-  `var(--text-13)` `var(--graphite-900)`) — the step shows its own (scope, name, version),
-  per the contract.
-- Line two: that step's digest, `var(--font-mono)` `var(--text-12)` `var(--graphite-600)`,
-  whole and wrapping per I-26. At M0 all three read identically — that sameness is the
-  verbatim-fork fact this section exists to show, and the day an authored re-pin diverges
-  a step (M3), the difference is visible here without a redesign.
+- **Scope** (120, the frozen key column) — the step's own scope, mono, muted: model data,
+  rendered verbatim (I-25).
+- **Edition** (280) — that step's `name @ version`, mono.
+- **Content digest** (160, headed by `ruleset_digest_label`) — that step's digest, as I-206
+  draws one. At M0 all three read identically — that sameness is the verbatim-fork fact this
+  section exists to show, and the day an authored re-pin diverges a step (M3) the difference is
+  visible here without a redesign.
 
 ### Parameters (`<section aria-labelledby>`)
 
-`<h2>` `ruleset_parameters_heading`, then `<table data-testid="ruleset-parameter-table"
-aria-labelledby={the h2 id}>` — width 100 %, `border-collapse: collapse`. Header row: `<th
-scope="col">` cells `ruleset_col_parameter` / `ruleset_col_key` / `ruleset_col_value` /
-`ruleset_col_unit`, `var(--text-12)` `var(--weight-body-medium)` `var(--graphite-600)`,
-text-align left (Value right), padding-inline `var(--space-3)`, border-bottom
-`var(--hairline)`. Body: one `<tr data-testid="ruleset-parameter-row" data-param={key}>` per
-parameter, in exactly the view's order (the seed renders the closed 17 in the §3 order),
-height `var(--row-comfortable)`, border-bottom `var(--hairline)`, no hover fill (nothing here
-is interactive):
+A section line with `<h2>` `ruleset_parameters_heading`, then one `DataTable` (table id
+`ruleset-parameters`) inside `<div data-testid="ruleset-parameter-table">`: one 28 px row per
+parameter in exactly the view's order, each carrying `data-testid="ruleset-parameter-row"` and
+`data-param={key}`, three columns (I-207) —
 
-- **Parameter** — `<th scope="row">`, the human label from §3's table (keyed
-  `ruleset_param_{key}`; an unknown key falls back to the key itself — the screen never
-  hides a parameter it has no label for), `var(--text-13)` `var(--weight-body-medium)`
-  `var(--graphite-900)`, text-align left.
-- **Key** — the key verbatim, `var(--font-mono)` `var(--text-12)` `var(--graphite-600)`.
-- **Value** — `formatUserFigure(value)`, right-aligned, `var(--font-mono)` `var(--text-13)`
-  `var(--graphite-900)` `tabular-nums slashed-zero`.
-- **Unit** — the shipped UnitBadge over the view's unit string (I-27).
+- **Parameter** (320, the frozen key column, so the grid names the row by it — `rowheader`,
+  which is what `<th scope="row">` was in the raw markup this screen used to write) — the human
+  label from §3's table (keyed `ruleset_param_{key}`; an unknown key falls back to the key
+  itself, because the screen never hides a parameter it has no wording for).
+- **Value** (160, right-aligned) — `formatUserFigure(value)`, mono, `tabular-nums
+  slashed-zero`: grouping is the seam's and precision is the edition's (I-27, L-FMT-02).
+- **Unit** (96) — the shipped UnitBadge over the view's unit string (I-27).
+
+Nothing on this screen is interactive beyond the two disclosures, the grid's own column
+furniture and the one link the empty state carries: the screen is read-only, and authoring is
+M3's (inc-304).
 
 ### Unpinned (the empty state)
 
@@ -166,9 +233,11 @@ Declared in the enumerable home `states.ts` (route directory), export
 (rendered / delegated / impossible, each naming its module, hook or reason);
 `tests/rulesets/state-matrix.test.ts` walks it.
 
-- **Loading** — `loading.tsx`, frame intact: core Skeletons keeping the page's layout, gap
-  `var(--space-3)` — 24 × 240 px (heading), 16 × 360 px (identity), 16 × min(640 px, 100 %)
-  (digest), then five 24 × min(800 px, 100 %) bones standing for lineage and table.
+- **Loading** — `loading.tsx`, frame intact: core Skeletons keeping the layout the grids will
+  take, gap `var(--space-2)` — 24 × 240 px for the header's title, then seven bones at the row
+  height (28 × min(560–640 px, 100 %)) standing for the pinned line, the three lineage rows and
+  the parameter grid. A bone that kept a height the answer does not keep is a layout that moves
+  under the reader (§5 rule 8).
 - **Empty** — the unpinned surface (§1, I-28): what it teaches is that a project carries its
   rule set from creation, and its one action leads to Projects.
 - **Error** — a render or read fault surfaces the root error boundary
@@ -197,8 +266,9 @@ fingerprints its exact content. Two editions with one digest hold identical valu
 `ruleset_identity_label` **Identity** · `ruleset_digest_label` **Content digest** ·
 `ruleset_lineage_heading` **Lineage** · `ruleset_lineage_hint` **The chain this pin was
 forked along, platform first. A verbatim fork carries its parent's digest unchanged.** ·
+`ruleset_lineage_col_scope` **Scope** · `ruleset_lineage_col_edition` **Edition** ·
 `ruleset_parameters_heading` **Parameters** · `ruleset_col_parameter` **Parameter** ·
-`ruleset_col_key` **Key** · `ruleset_col_value` **Value** · `ruleset_col_unit` **Unit** ·
+`ruleset_col_value` **Value** · `ruleset_col_unit` **Unit** ·
 `ruleset_unpinned_heading` **No rule set to show** · `ruleset_unpinned_body` **This address
 does not name a project in this workspace. A project pins its rule set when it is created,
 so a project that exists always has one.** · `ruleset_unpinned_action` **Go to Projects**.
@@ -241,34 +311,40 @@ instantly. Every duration is a token zeroed at source under reduced motion.
 
 ## 5. Tokens
 
-`--graphite-600/700/900` · `--beam-500/600` · `--hairline` · `--space-2/3/4/6` ·
-`--text-12/13/16/20` · `--font-mono` · `--weight-body-medium/--weight-heading` ·
-`--row-comfortable` · `--motion-state/--ease`. Px literals, closed set (core I-1's class):
-the 800 px page measure, the 160 px `<dt>` and 88 px scope columns, and the skeleton bones
-24/16 × 240/360/640/800. Any other literal is a defect.
+Semantic aliases only (§4's rule 3 — no `--graphite-*`/`--beam-*` reference outside the token
+source): `--ink` / `--ink-muted` / `--ink-code` · `--line` through `--hairline` · the density
+and layout tokens the screen is drawn at — `--row-h`, `--control-h`, `--gap-section`,
+`--drawer-w-min` · `--space-1/2` · `--text-12/13/14/20` · `--font-mono` ·
+`--weight-body-medium` / `--weight-heading` · `--motion-state` / `--ease`. Px literals: NONE.
+The digest's measure is `8ch` because what it fixes is a count of CHARACTERS of a fingerprint
+(I-206), and every other measure on this screen is a token or a grid column's own width.
+`tests/ui/craft/mechanical.test.ts` scores this file for both.
 
 ## 6. Themes
 
-`ruleset.css` contains no `[data-theme]` selector; every light/dark difference arrives
-through token values (R-UI-001). Nothing on this screen differs between themes beyond the
-token flips: graphite text roles on the graphite-0 main field, hairline seams, the beam link.
-Contrast holds on founder facts: graphite-600 and 700 on graphite-0 ≥ 4.5:1, graphite-900
-likewise, beam-600 on graphite-0 ≥ 4.5:1, in both themes. No basis colour, no semantic tint
-and no copper appears anywhere on this screen.
+`ruleset.css` and the template's `settings.css` contain no `[data-theme]` selector; every
+light/dark difference arrives through token values (R-UI-001), and dark is the default the
+screen is first seen in. Nothing here differs between the themes beyond the token flips: the
+ink aliases on the app surface, hairline seams, the beam of the current nav row and of the
+empty state's link. Contrast holds on founder facts: every ink alias used here on the app
+surface ≥ 4.5:1, `--ink-link` ≥ 4.5:1, in both themes. No basis colour, no semantic tint and
+no copper appears anywhere on this screen — it carries no act.
 
 ## 7. Test hooks (closed contract, C-05)
 
-Route introduced: `/t/{tenantId}/p/{projectId}/settings/ruleset`. Test ids, exactly the
-seven of the contract, on the elements ruled in §1: `ruleset-edition-identity` ·
-`ruleset-edition-digest` · `ruleset-lineage` (the `<ol>`) · `ruleset-lineage-step` (each
-`<li>`, three for a pinned view) · `ruleset-parameter-table` (the `<table>`) ·
-`ruleset-parameter-row` (each `<tr>`, `data-param={key}`) · `ruleset-unpinned` (the wrapper;
-ShellEmptyState's own ids nest inside). No others are added.
+Route: `/t/{tenantId}/p/{projectId}/settings/ruleset`. Test ids, exactly the seven of the
+contract — the same closed roster, on the elements §1 now rules: `ruleset-edition-identity` ·
+`ruleset-edition-digest` (the chip, whole in the document per I-206) · `ruleset-lineage` (the
+grid's container) · `ruleset-lineage-step` (each grid row, three for a pinned view) ·
+`ruleset-parameter-table` (the grid's container) · `ruleset-parameter-row` (each grid row,
+`data-param={key}`) · `ruleset-unpinned` (the wrapper; ShellEmptyState's own ids nest inside).
+No others are added; the grid's own ids are the DataTable's, ruled by its Decision.
 
 Behavioural hooks without new ids: `data-scope` on the identity's scope span and on each
-lineage step, asserting the platform → tenant → project order; `<th scope="row">` on each
-parameter's label cell; the `<h1>`/`<h2>` hierarchy per §1; the unpinned action's `href`
-`/t/{tenantId}`.
+lineage row, asserting the platform → tenant → project order; `role="rowheader"` on each
+parameter's label cell (what `<th scope="row">` was before the grid); `data-technical` on both
+digest elements; `aria-current` on the nav's current row; the `<h1>`/`<h2>` hierarchy per §1;
+the unpinned action's `href` `/t/{tenantId}`.
 
 Acceptance (AC-4) mounts `RulesetSettingsSection` under jsdom with @testing-library/react
 over two fixtures in `tests/rulesets/**`: a pinned view built from the exported seed content

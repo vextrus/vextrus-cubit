@@ -22,6 +22,7 @@ import { sessionOf } from "@/server/shell/resolve";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { shellHref } from "@/ui/shell";
 import { strings } from "@/ui/strings";
+import { SettingsHeader, SettingsPane, projectSettingsNav } from "@/app/(app)/t/[tenant]/settings/settings-pane";
 import { ParticipantsSection, type ParticipantsMember } from "./participants-section";
 import { TESTIDS } from "@/ui/testids";
 
@@ -43,42 +44,48 @@ export default async function ProjectParticipantsSettings({ params }: { params: 
     ]);
 
     return (
-      <ParticipantsSection
-        tenantId={tenant}
-        projectId={project}
-        roster={roster.map((row) => ({ ...named(row.member), roles: row.roles }))}
-        history={history.map((entry) => ({
-          direction: entry.direction,
-          role: entry.role,
-          subject: named(entry.subject),
-          actor: entry.actor === null ? null : named(entry.actor),
-          occurredAt: entry.occurredAt.toISOString(),
-        }))}
-        subjects={subjects.map(named)}
-      />
+      <SettingsPane items={projectSettingsNav(tenant, project)} active="participants">
+        <ParticipantsSection
+          tenantId={tenant}
+          projectId={project}
+          roster={roster.map((row) => ({ ...named(row.member), roles: row.roles }))}
+          history={history.map((entry) => ({
+            direction: entry.direction,
+            role: entry.role,
+            subject: named(entry.subject),
+            actor: entry.actor === null ? null : named(entry.actor),
+            occurredAt: entry.occurredAt.toISOString(),
+          }))}
+          subjects={subjects.map(named)}
+        />
+      </SettingsPane>
     );
   } catch (thrown) {
     const code = refusalCodeOf(thrown);
     if (code !== "PERMISSION_NOT_HELD") throw thrown;
-    return <ParticipantsDenied tenantId={tenant} />;
+    return <ParticipantsDenied tenantId={tenant} projectId={project} />;
   }
 }
 
-/** I-50's branch: the frame and the header stand, and one banner refusal says why nothing else does. */
-function ParticipantsDenied({ tenantId }: { tenantId: string }) {
+/**
+ * I-50's branch: the frame and the header stand, and one refusal says why nothing else does. The two
+ * sentences that name the permission and who holds it are what the `(i)` on the header carries —
+ * §6 keeps a screen to one helper line, and a refused screen's one line is the refusal's own remedy.
+ */
+function ParticipantsDenied({ tenantId, projectId }: { tenantId: string; projectId: string }) {
   const code: RefusalCode = "PERMISSION_NOT_HELD";
   return (
-    <div className="cx-participants">
-      <header className="cx-participants-header">
-        <h1 className="cx-participants-heading">{strings.spine_participants_heading}</h1>
-        <p className="cx-participants-caption">{strings.spine_participants_caption}</p>
-      </header>
-      <div className="cx-participants-denied" data-testid={TESTIDS.participants.refusal}>
-        <p className="cx-participants-denied-line">{strings.spine_participants_denied_permission}</p>
-        <p className="cx-participants-denied-line">{strings.spine_participants_denied_holder}</p>
-        <RefusalState refusal={refusalOf(code)} evidence={{ href: shellHref(tenantId, "projects"), label: strings.home_evidence_projects }} />
+    <SettingsPane items={projectSettingsNav(tenantId, projectId)} active="participants">
+      <div className="cx-participants">
+        <SettingsHeader
+          title={strings.spine_participants_heading}
+          about={[strings.spine_participants_denied_permission, strings.spine_participants_denied_holder]}
+        />
+        <div className="cx-participants-denied" data-testid="participants-refusal">
+          <RefusalState refusal={refusalOf(code)} evidence={{ href: shellHref(tenantId, "projects"), label: strings.home_evidence_projects }} />
+        </div>
       </div>
-    </div>
+    </SettingsPane>
   );
 }
 

@@ -5,8 +5,12 @@
 // markup answers the whole settings screen with the fault card (R-UI-020's "something went wrong")
 // instead of the pin. The screen reads nothing but the view it is handed, so it is a client module
 // and the route above it stays the server component that does the reading.
-// R-SPINE-012's settings surface: the edition a project is pinned to, its content digest, the chain
-// it was forked along, and the parameter table every measurement on the project reads.
+//
+// R-SPINE-012's settings surface on the v22 settings template (Design Direction 00 §3.6): the pinned
+// edition as ONE line, the chain it was forked along as a 3-row 28 px table, and the parameter table
+// every measurement on the project reads — 28 px rows, the parameter frozen, the figures mono and
+// right-aligned. The four helper sentences this screen used to print are behind the `(i)` on the
+// headings they explain (§6: at most one helper line per screen, and this screen has none).
 //
 // L-MEA-01 keeps identity and digest apart, and this screen shows both — the identity names WHICH
 // rule set is in force, the digest fingerprints exactly what it holds, and neither substitutes for
@@ -24,17 +28,19 @@ import type { EditionLineageStep, EditionParameter, ProjectRulesetView } from "@
 import { UnitBadge } from "@/ui/primitives/core";
 import { DataTable } from "@/ui/primitives/data";
 import { ShellEmptyState, shellHref } from "@/ui/shell";
+import { SettingsAbout, SettingsHeader } from "@/app/(app)/t/[tenant]/settings/settings-pane";
 import { rulesetParameterLabel, rulesetStrings } from "./strings";
 import { TESTIDS } from "@/ui/testids";
 
 /**
- * The parameter table is the shipped DataTable (Design Direction 00 §5): 28 px rows from the root's
- * `--row-h`, the parameter frozen as the key column, mono tabular figures right-aligned and the
- * unit as its own narrow column. The ids its rows published as raw `<tr>`s are kept byte-identical
- * — `ruleset-parameter-table` on the region, `ruleset-parameter-row` and `data-param` on each row —
- * so every test and journey that named one is untouched by the change of instrument.
+ * The two grids, by the identity each reader's column furniture is remembered under (§5 rule 3).
+ * The ids the rows published as raw `<tr>`s are kept byte-identical — `ruleset-parameter-table` on
+ * the region, `ruleset-parameter-row` and `data-param` on each row, `ruleset-lineage` on the chain
+ * and `ruleset-lineage-step` with `data-scope` on each of its rows — so every test and journey that
+ * named one is untouched by the change of instrument.
  */
 const PARAMETER_TABLE_ID = "ruleset-parameters";
+const LINEAGE_TABLE_ID = "ruleset-lineage";
 
 /** One parameter as the grid takes a row: the key it is addressed by, and what the edition holds. */
 interface ParameterRow extends EditionParameter {
@@ -48,19 +54,16 @@ const PARAMETER_COLUMNS: ColumnDef<ParameterRow, unknown>[] = [
   {
     id: "parameter",
     header: rulesetStrings.ruleset_col_parameter,
-    size: 220,
+    size: 320,
+    // §6: a person reads the parameter's name. The key it is addressed by is the row's own
+    // `data-param`, which is where a suite, an export and an operator read it from — never body
+    // text in a column of its own (C6).
     cell: ({ row }) => <span className="cx-ruleset-param">{rulesetParameterLabel(row.original.key)}</span>,
-  },
-  {
-    id: "key",
-    header: rulesetStrings.ruleset_col_key,
-    size: 240,
-    cell: ({ row }) => <span className="cx-ruleset-key">{row.original.key}</span>,
   },
   {
     id: "value",
     header: rulesetStrings.ruleset_col_value,
-    size: 140,
+    size: 160,
     meta: { align: "right" },
     // Grouping is the seam's and precision is the edition's: the figure goes through the one
     // formatter and this screen rounds nothing (I-27, L-FMT-02).
@@ -74,8 +77,31 @@ const PARAMETER_COLUMNS: ColumnDef<ParameterRow, unknown>[] = [
   },
 ];
 
-/** The headings the sections and the table are named by, so each region says what it is. */
-const EDITION_HEADING_ID = "ruleset-edition-heading";
+/** The chain as the grid takes a row: the step itself, keyed by the scope it was forked at. */
+const LINEAGE_COLUMNS: ColumnDef<EditionLineageStep, unknown>[] = [
+  {
+    id: "scope",
+    header: rulesetStrings.ruleset_lineage_col_scope,
+    size: 120,
+    cell: ({ row }) => <span className="cx-ruleset-scope">{row.original.scope}</span>,
+  },
+  {
+    id: "edition",
+    header: rulesetStrings.ruleset_lineage_col_edition,
+    size: 280,
+    cell: ({ row }) => <span className="cx-ruleset-edition">{editionLabel(row.original)}</span>,
+  },
+  {
+    id: "digest",
+    header: rulesetStrings.ruleset_digest_label,
+    size: 160,
+    // Whole in the DOM and short on the screen: while the chain is a verbatim fork every step reads
+    // the same, and that sameness is what this section exists to show (L-MEA-01, I-26).
+    cell: ({ row }) => <Digest value={row.original.digest} />,
+  },
+];
+
+/** The headings the sections and the tables are named by, so each region says what it is. */
 const LINEAGE_HEADING_ID = "ruleset-lineage-heading";
 const PARAMETERS_HEADING_ID = "ruleset-parameters-heading";
 
@@ -84,28 +110,17 @@ function editionLabel(step: { name: string; version: string }): string {
   return `${step.name}${rulesetStrings.ruleset_identity_joiner}${step.version}`;
 }
 
-/** The heading and the sentence that says what this screen holds; the same above either answer. */
-function RulesetHeader() {
+/**
+ * A content digest, as a person meets one: the chip measure on screen, the whole 64 characters in
+ * the document, selectable as one thing (I-26). The element is the technical channel §6 names —
+ * which is what makes a fingerprint lawful on a screen at all — and it is what L-MEA-01 asks the
+ * surface to show, so it is never abbreviated in the DATA it publishes.
+ */
+function Digest({ value, testId }: { value: string; testId?: string }) {
   return (
-    <div className="cx-ruleset-header">
-      <h1 className="cx-shell-heading">{rulesetStrings.ruleset_heading}</h1>
-      <p className="cx-ruleset-caption">{rulesetStrings.ruleset_caption}</p>
-    </div>
-  );
-}
-
-/** One step of the fork chain: its own (scope, name, version), and the digest that step carries. */
-function LineageStep({ step }: { step: EditionLineageStep }) {
-  return (
-    <li className="cx-ruleset-lineage-step" data-testid={TESTIDS.ruleset.lineageStep} data-scope={step.scope}>
-      <div className="cx-ruleset-lineage-identity">
-        <span className="cx-ruleset-lineage-scope">{step.scope}</span>
-        <span className="cx-ruleset-lineage-edition">{editionLabel(step)}</span>
-      </div>
-      {/* Whole, like every digest here: while the chain is a verbatim fork every step reads the
-          same, and that sameness is what this section exists to show (L-MEA-01, I-26). */}
-      <div className="cx-ruleset-lineage-digest">{step.digest}</div>
-    </li>
+    <span className="cx-ruleset-digest" data-testid={testId} data-technical="">
+      {value}
+    </span>
   );
 }
 
@@ -113,8 +128,8 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
   if (!view.pinned) {
     return (
       <div className="cx-ruleset">
-        <RulesetHeader />
-        <div data-testid={TESTIDS.ruleset.unpinned}>
+        <SettingsHeader title={rulesetStrings.ruleset_heading} about={rulesetStrings.ruleset_caption} />
+        <div data-testid="ruleset-unpinned">
           <ShellEmptyState heading={rulesetStrings.ruleset_unpinned_heading} body={rulesetStrings.ruleset_unpinned_body}>
             {/* A move inside the frame, so it travels through the router like every other one. */}
             <Link className="cx-shell-link cx-reticle" href={shellHref(view.tenantId, "projects")}>
@@ -128,49 +143,53 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
 
   return (
     <div className="cx-ruleset">
-      <RulesetHeader />
+      <SettingsHeader title={rulesetStrings.ruleset_heading} about={rulesetStrings.ruleset_caption} />
 
-      <section className="cx-ruleset-section" aria-labelledby={EDITION_HEADING_ID}>
-        <h2 className="cx-ruleset-section-heading" id={EDITION_HEADING_ID}>
-          {rulesetStrings.ruleset_edition_heading}
-        </h2>
-        <p className="cx-ruleset-hint">{rulesetStrings.ruleset_edition_hint}</p>
-        <dl className="cx-ruleset-facts">
-          <div className="cx-ruleset-fact">
-            <dt className="cx-ruleset-fact-label">{rulesetStrings.ruleset_identity_label}</dt>
-            <dd className="cx-ruleset-identity" data-testid={TESTIDS.ruleset.editionIdentity}>
-              <span className="cx-ruleset-scope" data-scope={view.identity.scope}>
-                {view.identity.scope}
-              </span>
-              <span className="cx-ruleset-edition">{editionLabel(view.identity)}</span>
-            </dd>
-          </div>
-          <div className="cx-ruleset-fact">
-            <dt className="cx-ruleset-fact-label">{rulesetStrings.ruleset_digest_label}</dt>
-            <dd className="cx-ruleset-digest" data-testid={TESTIDS.ruleset.editionDigest}>
-              {view.digest}
-            </dd>
-          </div>
-        </dl>
+      {/* ONE line (§3.6), standing at the datum right under the title — §8's "the table starts at
+          y ≈ 88" is what this section gives up its own heading for: the screen is named "Rule set"
+          and the line under it is the pin. The identity and the digest are two fields on it and
+          neither stands for the other (L-MEA-01). */}
+      <section className="cx-settings-section" aria-label={rulesetStrings.ruleset_edition_heading}>
+        <p className="cx-ruleset-pin">
+          <span className="cx-ruleset-identity" data-testid="ruleset-edition-identity">
+            <span className="cx-ruleset-scope" data-scope={view.identity.scope}>
+              {view.identity.scope}
+            </span>
+            <span className="cx-ruleset-edition">{editionLabel(view.identity)}</span>
+          </span>
+          <span className="cx-ruleset-digest-label">{rulesetStrings.ruleset_digest_label}</span>
+          <Digest value={view.digest} testId="ruleset-edition-digest" />
+          <SettingsAbout body={rulesetStrings.ruleset_edition_hint} label={rulesetStrings.ruleset_edition_heading} />
+        </p>
       </section>
 
-      <section className="cx-ruleset-section" aria-labelledby={LINEAGE_HEADING_ID}>
-        <h2 className="cx-ruleset-section-heading" id={LINEAGE_HEADING_ID}>
-          {rulesetStrings.ruleset_lineage_heading}
-        </h2>
-        <p className="cx-ruleset-hint">{rulesetStrings.ruleset_lineage_hint}</p>
-        <ol className="cx-ruleset-lineage" data-testid={TESTIDS.ruleset.lineage}>
-          {view.lineage.map((step) => (
-            <LineageStep key={`${step.scope}-${step.name}-${step.version}`} step={step} />
-          ))}
-        </ol>
+      <section className="cx-settings-section" aria-labelledby={LINEAGE_HEADING_ID}>
+        <div className="cx-settings-section-head">
+          <h2 className="cx-settings-section-heading" id={LINEAGE_HEADING_ID}>
+            {rulesetStrings.ruleset_lineage_heading}
+          </h2>
+          <SettingsAbout body={rulesetStrings.ruleset_lineage_hint} label={rulesetStrings.ruleset_lineage_heading} />
+        </div>
+        <div className="cx-ruleset-table" data-testid="ruleset-lineage">
+          <DataTable
+            tableId={LINEAGE_TABLE_ID}
+            aria-labelledby={LINEAGE_HEADING_ID}
+            columns={LINEAGE_COLUMNS}
+            data={[...view.lineage]}
+            getRowId={(step) => `${step.scope}-${step.name}-${step.version}`}
+            rowTestId="ruleset-lineage-step"
+            rowDataOf={(step) => ({ "data-scope": step.scope })}
+          />
+        </div>
       </section>
 
-      <section className="cx-ruleset-section" aria-labelledby={PARAMETERS_HEADING_ID}>
-        <h2 className="cx-ruleset-section-heading" id={PARAMETERS_HEADING_ID}>
-          {rulesetStrings.ruleset_parameters_heading}
-        </h2>
-        <div className="cx-ruleset-table" data-testid={TESTIDS.ruleset.parameterTable}>
+      <section className="cx-settings-section cx-settings-surface" aria-labelledby={PARAMETERS_HEADING_ID}>
+        <div className="cx-settings-section-head">
+          <h2 className="cx-settings-section-heading" id={PARAMETERS_HEADING_ID}>
+            {rulesetStrings.ruleset_parameters_heading}
+          </h2>
+        </div>
+        <div className="cx-ruleset-table cx-settings-surface" data-testid="ruleset-parameter-table">
           <DataTable
             tableId={PARAMETER_TABLE_ID}
             aria-labelledby={PARAMETERS_HEADING_ID}

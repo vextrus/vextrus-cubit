@@ -14,6 +14,9 @@ export const invitationsStrings = {
   invitations_submit: "Send invitation",
 
   invitations_pending_heading: "Pending",
+  // The pending table's columns. A column heading is copy, so it is a key like every other sentence
+  // here; the address column is headed by the same words the field is named by (B-17).
+  invitations_col_role: "Role",
 
   // Every pending row carries the same two controls, so each one's accessible name names the
   // invitation it acts on: a list read aloud is N distinct controls, not N identical ones. The

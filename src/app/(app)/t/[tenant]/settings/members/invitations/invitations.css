@@ -1,110 +1,35 @@
-/* The invitations panel (docs/design/s-settings.md §1 "Invitations", §5): the invite form, then the
-   offers that still stand — the same variable-height blocks with hairline seams the roster above it
-   is built from. Colour, spacing, type and motion are tokens only — no literal value and no
-   [data-theme] selector, so both themes are the same rules read against different token values. */
+/* The invitations panel (docs/design/s-settings.md §1 "Invitations", §5): the section's own line —
+   what the table holds, how many stand, and the one primary that adds a row to it — over the 28 px
+   table of offers. Colour, spacing, type and motion are tokens only — no literal value and no
+   [data-theme] selector, so both themes are the same rules read against different token values.
 
-/* The screen's column: the roster and the panel beneath it, in the settings-screen measure. */
-.cx-members-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  max-width: 800px;
-}
+   The px literal set: the address field's 240 measure. Any other literal is a defect. */
 
 .cx-invitations {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  min-width: 0;
 }
 
-.cx-invitations-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.cx-invitations-heading {
-  margin: 0;
-  font-size: var(--text-16);
-  font-weight: var(--weight-heading);
-  color: var(--ink);
-}
-
-.cx-invitations-hint {
-  margin: 0;
-  font-size: var(--text-12);
-  color: var(--ink-muted);
-}
-
+/* The invite form IS the section line's trailing control group (I-61's order: the form first, the
+   pending list after it), so it carries no label block of its own — the field is named by the
+   words the column is headed with, and what an invitation does is one press away in the (i). */
 .cx-invitations-form {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.cx-invitations-label {
-  font-size: var(--text-13);
-  font-weight: var(--weight-body-medium);
-  color: var(--ink-secondary);
-}
-
-.cx-invitations-field-hint {
-  margin: 0;
-  font-size: var(--text-12);
-  color: var(--ink-muted);
-}
-
-.cx-invitations-field {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-1);
 }
 
 .cx-invitations-email {
-  flex: 1 1 320px;
-  min-width: 240px;
+  flex: 0 1 240px;
+  min-width: 0;
 }
 
 .cx-invitations-pending {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-}
-
-.cx-invitations-pending-heading {
-  margin: 0;
-  font-size: var(--text-13);
-  font-weight: var(--weight-body-medium);
-  color: var(--ink-secondary);
-}
-
-.cx-invitations-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.cx-invitations-list:not(:empty) {
-  border-top: var(--hairline);
-}
-
-.cx-invitations-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding-block: var(--space-3);
-  border-bottom: var(--hairline);
-}
-
-.cx-invitations-identity {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  margin: 0;
+  min-width: 0;
 }
 
 .cx-invitations-invitee {
@@ -116,23 +41,27 @@
   color: var(--ink);
 }
 
-.cx-invitations-role {
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  color: var(--ink-secondary);
+.cx-invitations-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
-.cx-invitations-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
+/* A row's own acts are ghosts: the one primary on this screen is the invite, and the one danger
+   style is the roster's removal (§3.6, C11). */
+.cx-invitations-act {
+  font-size: var(--text-12);
 }
 
 .cx-invitations-none {
   margin: 0;
+  padding-block: var(--space-2);
   font-size: var(--text-12);
   color: var(--ink-muted);
+}
+
+.cx-invitations-answer {
+  max-width: 420px;
 }
 
 .cx-invitations-status {

@@ -1,5 +1,43 @@
 # Design Decision — S-Settings-Participants (the project participants screen)
 
+```
+┌R─┬─────────────┬──────────────────────────────────────────────────────────────┐
+│  │ ws › Projects › Participants                              ⌘K ⟳ ✉ ◉         │
+│  ├─────────────┼──────────────────────────────────────────────────────────────┤
+│  │Participants◂│ Participants  (i)                                            │  header 40
+│  │Rule set     │ Current roles  2                                             │  section 28
+│  │Taxonomy     │ ┌────────────────────────┬──────────────────────────┐        │
+│  │Tax          │ │ Member                 │ Role                     │        │  28 px rows
+│  │             │ │ j003p-…@cubit.test     │ Principal  Measurer      │        │
+│  │             │ └────────────────────────┴──────────────────────────┘        │
+│  │             │ Assign a role  (i)                                           │  section 28
+│  │             │ Member    [ j003p-… ] [ other@… ]                            │  chips, 28 px
+│  │             │ Role      [ PRINCIPAL ] [ MEASURER ] [ REVIEWER ]            │
+│  │             │ Direction [ GRANT ] [ WITHDRAW ]                             │
+│  │             │ ‹answer slot: the judged line, or one RefusalState›          │
+│  │             │ ● Preview this change                                        │  one primary
+│  │             │ Role history  3  (i)                                         │  section 28
+│  │             │ ┌──────────┬────────────┬──────────────┬──────────────────┐  │
+│  │             │ │ Direction│ Role       │ Member       │ Recorded         │  │  28 px rows
+│  │             │ │ Grant    │ Principal  │ j003p-…      │ on 12 Sep 2026   │  │
+│  │             │ └──────────┴────────────┴──────────────┴──────────────────┘  │
+└──┴─────────────┴──────────────────────────────────────────────────────────────┘
+       160                              the content pane
+```
+
+| Region | Purpose | Size | Empty | Error | Loading |
+|---|---|---|---|---|---|
+| section nav | the project's settings areas; Participants carries `aria-current` | 160 × 100 % (`--drawer-w-min`), rows `--control-h` | — (an area with no screen is shown disabled with its reason in a tooltip) | — | — |
+| header | the title and the `(i)` that holds the caption | 100 % × 40 | — | — | — |
+| current roles (primary) | who holds which role, in force now | flex × `--row-h` rows | impossible — a project holds at least one PRINCIPAL at every moment | the root boundary (`src/app/error.tsx`) | `loading.tsx` bones at the row height |
+| assign form | the one act: three single-selection chip groups, the answer slot, the one primary | 100 % × auto, controls `--control-h` | — | the judged line, then `RefusalState` in the slot; once the dialog holds focus, the dialog's own slot | the submit's loading state |
+| role history | every grant and withdrawal, oldest first, with who recorded it and when | flex × `--row-h` rows | impossible — the creating grant is always on the record | the root boundary | bones at the row height |
+| permission-denied | the header, and one `RefusalState` saying why nothing else stands | 100 % × auto | — | — | — |
+
+Built on Design Direction 00 §3.6's Settings template, whose geometry outranks this file where the
+two disagree (§3's precedence); what the rebuild changed is recorded as I-209–I-212 below.
+
+
 Route: `/t/{tenantId}/p/{projectId}/settings/participants` under
 `src/app/(app)/t/[tenant]/p/[project]/settings/participants/**`, inside the shell frame and
 behind the membership guard in `t/[tenant]/layout.tsx`. Increment inc-012-participants. Law:
@@ -68,47 +106,76 @@ no string literal beyond test ids and fixed attribute values.
   later participants increment (the increment spec's own words); no local guard pretends
   otherwise, and the form resets after a commit (below) so the surface does not invite it.
 
+- **I-209 — the screen is drawn in the settings TEMPLATE.** Design Direction 00 §3.6 rules
+  settings a two-pane template, and its one home is
+  `src/app/(app)/t/[tenant]/settings/settings-pane.tsx` (members' I-198). `page.tsx` renders
+  `SettingsPane` with the project's own areas — this screen and Rule set are the two that are
+  built — so the nav is also the visible navigation between them that ruleset I-30's IOU
+  recorded, and the section itself stays free of the frame.
+- **I-210 — the two lists are the shipped DataTable.** §5 makes it the one grid: the roles in
+  force and the record are 28 px grids with frozen key columns, the truncation contract and the
+  remembered column furniture, and their rows keep the ids and the `data-` attributes the `<ul>`
+  and `<ol>` published — `participants-row` with `data-user`, `participants-history-row` with
+  `data-direction` and `data-role` — so the journey that drives this screen is untouched by the
+  change of instrument. The record's second line becomes its fourth column, **Recorded**, which
+  is the one heading this rebuild had to author (§3).
+- **I-211 — I-47 is a statement about the CHANNEL, not about the glyphs.** A role and a
+  direction still render in full in the DOM, but through `EnumLabel`: a person reads "Principal"
+  and "Grant", and `PRINCIPAL` and `GRANT` travel in the primitive's technical channel, which is
+  where the act's own taxonomy, the journeys and the exports read them from (§6, and the rubric's
+  C6). The one place the enum's own glyphs stay on screen is the assign form's chips: there a
+  person is choosing FROM the closed taxonomy, and I-47's reason — that the word chosen and the
+  word recorded must be the same word — still holds.
+- **I-212 — the three helper sentences are behind `(i)` popovers, the denied screen's two
+  included.** §6 allows at most one helper line per screen and this screen has none: the caption,
+  the assign hint and the history hint are the disclosures on the headings they explain, and on
+  the permission-denied branch the two sentences that name the permission and who holds it are
+  the header's, leaving the `RefusalState` to be the one answer on the screen.
+
 ## 1. Layout and hierarchy
 
-Files in the route directory: `page.tsx` (thin server component: reads the two segments,
-calls `roleHistory` and `assignableSubjects` from `src/modules/spine/participants`,
-branches per I-50, renders the section), `participants-section.tsx` (client component
-`ParticipantsSection`, mountable under jsdom with injected data and perform — the s-auth
-`SignInForm` precedent), `actions.ts` (`previewAssignRole`, `commitAssignRole` server
-actions reaching the one act seam, B-17), `loading.tsx`, `states.ts` (§2), `participants.css`.
+Files in the route directory: `page.tsx` (thin server component: reads the two segments, calls
+`projectParticipants`, `roleHistory` and `assignableSubjects` from
+`src/modules/spine/participants`, branches per I-50, renders the section inside `SettingsPane`
+— I-209), `participants-section.tsx` (client component `ParticipantsSection`, mountable under
+jsdom with injected data and settlements — the s-auth `SignInForm` precedent), `actions.ts`
+(`previewAssignRole`, `commitAssignRole` server actions reaching the one act seam, B-17),
+`loading.tsx`, `states.ts` (§2), `strings.ts` (§3's one authored heading), `participants.css`.
 
-The page renders in `shell-main`, one column `cx-participants`: max-width 800 px, column
-flex, gap `var(--space-6)` (the settings-screen measure, ruleset §1). Rail and breadcrumb
-are the shell's: `areaOf` answers `projects`, the Projects rail row carries
-`aria-current="true"` and the Projects crumb links back (ruleset I-30, unchanged).
+The screen renders in the template's content pane, one column `cx-participants`, gap
+`var(--gap-section)`. Rail and breadcrumb are the shell's: `areaOf` answers `projects`, the
+Projects rail row carries `aria-current="true"` and the Projects crumb links back (ruleset
+I-30, unchanged); which SETTINGS area a reader is standing in is what the section nav says.
 
-Header block (`gap: var(--space-2)`): `<h1>` `spine_participants_heading` —
-`var(--text-20)` `var(--weight-heading)` `var(--graphite-900)`, margin 0 — over
-`spine_participants_caption` in `var(--text-13)` `var(--graphite-600)`.
+**The header** (40 px): `<h1>` `spine_participants_heading` at `var(--text-20)`
+`var(--weight-heading)`, then the `(i)` holding `spine_participants_caption` (I-212). No
+subtitle, and no standing sentence anywhere on the screen.
 
 ### Current roles (`<section aria-labelledby>`)
 
-`<h2>` `spine_participants_current_heading` (`var(--text-16)` `var(--weight-heading)`
-`var(--graphite-900)`, margin 0), then `<ul data-testid="participants-list">` — list-style
-none, margin 0, padding 0. One `<li data-testid="participants-row" data-user={userId}>` per
-participant: min-height `var(--row-comfortable)`, border-top `var(--hairline)` after the
-first, align-items center, grid `minmax(0, max-content) auto`, column gap `var(--space-4)`:
-the member's label (I-51) `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`,
-single line, ellipsis; then the effective roles (I-52), each verbatim in `var(--font-mono)`
-`var(--text-12)` `var(--graphite-700)`, joined with `var(--space-2)` gaps, in the role
-enum's declared order. The two halves pack left, beside each other — the name column takes
-the width it needs and no more, the trailing space falls at the end of the row — so a role
-is read next to the member holding it rather than across the 800 px measure from them; the
-history below reads left-packed for the same reason. Nothing here is interactive and no
-hover fill renders.
+A section line (`--control-h`): `<h2>` `spine_participants_current_heading` at
+`var(--text-14)` `var(--weight-heading)`, then the count of participants as a mono figure
+beside the words it counts. Then one `DataTable` (table id `participants-roster`) inside
+`<div data-testid="participants-list">`: one 28 px row per participant, in the module's own
+order, carrying `data-testid="participants-row"` and `data-user`, two columns —
+
+- **Member** (320, the frozen key column) — the member's label (I-51), 13 px
+  `--weight-body-medium`, one line, ellipsis, the grid's tooltip on truncation.
+- **Role** (360) — every role in force for them (I-52) through `EnumLabel`, in the role enum's
+  declared order, gap `var(--space-2)`: a person reads "Principal", and `PRINCIPAL` travels in
+  the technical channel (I-211).
+
+Nothing in this grid is interactive: a role moves by act, and the act is the form below.
 
 ### Assign a role (`<section aria-labelledby>`)
 
-`<h2>` `spine_participants_assign_heading`, hint `spine_participants_assign_hint`
-(`var(--text-12)` `var(--graphite-600)`), then
-`<form data-testid="participants-assign-form">`, fieldsets stacked at gap `var(--space-4)`,
-each legend `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-700)` over a
-wrapping chip row at gap `var(--space-2)` (I-48):
+A section line: `<h2>` `spine_participants_assign_heading` with the `(i)` holding
+`spine_participants_assign_hint` beside it (I-212). Then
+`<form data-testid="participants-assign-form">`, fieldsets stacked at gap `var(--space-2)`,
+each one a `--control-h` line of `minmax(0, 160px) 1fr` — the legend in `var(--text-13)`
+`var(--ink-muted)` in the first column, a wrapping chip row at gap `var(--space-1)` in the
+second, so the three fields read as three lines of a compact form rather than three stacked
+blocks (I-48):
 
 - `participants-assign-subject` (fieldset, legend `spine_participants_field_member`) — one
   Chip per entry of `assignableSubjects` (the tenant's members), content the member's label.
@@ -155,43 +222,43 @@ its defaults (I-54). The submit stays enabled after any refusal: a retry is neve
 
 ### Role history (`<section aria-labelledby>`)
 
-`<h2>` `spine_participants_history_heading`, hint `spine_participants_history_hint`, then
-`<ol data-testid="participants-history">` — list-style none, margin 0, padding 0 — in the
-seam's order, oldest first, newest last (I-52). Each `<li
-data-testid="participants-history-row" data-direction={direction} data-role={role}>`:
-padding-block `var(--space-2)`, border-top `var(--hairline)` after the first, two lines:
+A section line: `<h2>` `spine_participants_history_heading`, the count of movements as a mono
+figure, and the `(i)` holding `spine_participants_history_hint`. Then one `DataTable` (table id
+`participants-history`) inside `<div data-testid="participants-history">`: the seam's order,
+oldest first, newest last (I-52), one 28 px row per movement carrying
+`data-testid="participants-history-row"`, `data-direction` and `data-role`, four columns —
 
-- Line one, flex, baseline, gap `var(--space-3)`: the direction verbatim
-  (`var(--font-mono)` `var(--text-12)` `var(--graphite-600)`, min-width 88 px so the column
-  aligns — the ruleset scope-column precedent) · the role verbatim (`var(--font-mono)`
-  `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`) · the subject's label
-  (`var(--text-13)` `var(--graphite-700)`, ellipsis).
-- Line two, indented to line one's second column — padding-inline-start of the 88 px
-  direction ruler plus the `var(--space-3)` gap, both stated once as the row's own custom
-  property — so the entry reads as one block hanging off its direction rather than a second
-  line breaking back out to the record's left edge:
-  `spine_participants_history_by` with the acting user's label and the date
-  through `src/core/format`'s date seam (DD MMM YYYY, the s-home I-37 class; the date
-  renders `var(--font-mono)` `tabular-nums slashed-zero`), `var(--text-12)`
-  `var(--graphite-600)`. Direction carries its meaning in the word, never in colour (Q-11):
-  no semantic tint distinguishes a withdrawal.
+- **Direction** (140) — `GRANT` or `WITHDRAW` through `EnumLabel` (I-211). The direction carries
+  its meaning in the word, never in colour (Q-11): no semantic tint distinguishes a withdrawal.
+- **Role** (180) — the role through `EnumLabel`, `--weight-body-medium`.
+- **Member** (280) — the subject's label, one line, ellipsis.
+- **Recorded** (240, headed `participants_col_recorded`) — `spine_participants_history_by` with
+  the acting member's label and the day through `src/core/format`'s date seam (DD MMM YYYY, the
+  s-home I-37 class), `tabular-nums slashed-zero`. A grant a project's creation installed was
+  performed by nobody — L-ACT-03 makes the creating PRINCIPAL a bootstrap rather than an act — so
+  the cell says when it happened and stops; "by an unnamed member" would name a performer that
+  does not exist, which is worse than saying less (B-21).
 
 ### Permission-denied branch (I-50)
 
-Header block unchanged, then `<div data-testid="participants-refusal">` wrapping: `<p>`
-`spine_participants_denied_permission` and `<p>` `spine_participants_denied_holder` (both
-`var(--text-13)` `var(--graphite-700)`, margin 0, gap `var(--space-2)`), then one
-RefusalState — the registered `PERMISSION_NOT_HELD`, banner surface, evidence
-`{ href: /t/{t}, label: home_evidence_projects }`. List, form and history do not render.
+The template and the header stand unchanged, with the header's `(i)` carrying
+`spine_participants_denied_permission` and `spine_participants_denied_holder` — the two
+sentences that name the permission and who holds it (I-212) — and then
+`<div data-testid="participants-refusal">` wrapping one RefusalState: the registered
+`PERMISSION_NOT_HELD`, banner surface, evidence `{ href: /t/{t}, label:
+home_evidence_projects }`. It is the one answer on the screen; list, form and history do not
+render, because a rail of controls that would all refuse is theatre.
 
 ## 2. States (R-UI-050), ruled cell by cell
 
 Declared in `states.ts` (route directory), export `PARTICIPANTS_STATES`, one row, seven
 cells in the shell matrix's cell shape; the increment's jsdom acceptance walks it.
 
-- **Loading** — `loading.tsx`, frame intact: core Skeletons keeping the layout, gap
-  `var(--space-3)` — 24 × 240 px (heading), two 16 × 360 px (list rows), four
-  16 × min(640 px, 100 %) (form and history).
+- **Loading** — `loading.tsx`, frame intact: core Skeletons keeping the layout the grids will
+  take, gap `var(--space-2)` — 24 × 240 px for the header's title, then six bones at the row
+  height (28 × min(700–880 px, 100 %)) standing for the roster's rows and the record's. A bone
+  that kept a height the answer does not keep is a layout that moves under the reader
+  (§5 rule 8).
 - **Empty** — impossible, by law: a project holds at least one effective PRINCIPAL at every
   moment (R-SPINE-011), so the list always has a row, the history always holds the creating
   grant, and the member picker always holds the session's own account.
@@ -233,6 +300,15 @@ the workspace's owners and admins can see it.** · `spine_participants_evidence_
 **Grant another member PRINCIPAL first**. Shell and home keys are reused by key, never
 respelled.
 
+The one heading this rebuild authored, in the route directory C-13 puts a screen's own copy in
+(`strings.ts`, export `participantsScreenStrings`): `participants_col_recorded` **Recorded** —
+the record's fourth column (I-210). It lives there rather than in the shared table because
+`src/ui/strings/participants.ts` is another node's file this pass; the table also mirrors the
+sentence the R-UI-050 matrix says for this screen's empty cell, byte-identical to
+`state_empty_project_principal`, under the members Decision's own mirror discipline (re-wording
+one without the other is the drift C-13 forbids). **Owed by the increment that may touch the
+string registry:** both keys folded into `src/ui/strings/participants.ts`.
+
 Registry copy this increment fixes (`src/core/errors.ts` append, the refusal-state §3
 rules binding): **PROJECT_WOULD_HAVE_NO_PRINCIPAL** · severity error · surface inline ·
 message **This withdrawal would leave the project with no principal, so it was not carried
@@ -251,36 +327,42 @@ reduced motion; no bounce anywhere.
 
 ## 5. Tokens
 
-`--graphite-600/700/900` · `--danger/--danger-surface` · `--hairline` ·
-`--space-2/3/4/6` · `--radius-4` · `--text-12/13/16/20` · `--font-mono` ·
-`--weight-body-medium/--weight-heading` · `--row-comfortable` ·
-`--motion-state/--ease`. Px literals, closed set (core I-1's class): the 800 px page
-measure, the 88 px direction column, and the skeleton bones 24/16 × 240/360/640. Any other
-literal is a defect.
+Semantic aliases only (§4's rule 3 — no `--graphite-*`/`--beam-*` reference outside the token
+source): `--ink` / `--ink-secondary` / `--ink-muted` · `--state-danger(-surface)` (the judged
+line's own chrome) · `--line` through `--hairline` · the density and layout tokens the screen is
+drawn at — `--row-h`, `--control-h`, `--gap-section`, `--drawer-w-min` (the assign form's label
+column, which is the nav's measure and therefore the same column of the page) · `--space-1/2/3`
+· `--radius-4` · `--text-12/13` · `--font-mono` · `--weight-body-medium` · `--motion-state` /
+`--ease`. Px literals: NONE — every measure on this screen is a token or a grid column's own
+width. `tests/ui/craft/mechanical.test.ts` scores this file for both.
 
 ## 6. Themes
 
-`participants.css` contains no `[data-theme]` selector; every light/dark difference
-arrives through token values (R-UI-001). Contrast holds on founder facts in both themes:
-graphite-600/700/900 on graphite-0 ≥ 4.5:1, the danger pair per the refusal-state ruling.
-No basis colour appears; copper appears only inside the ConsequenceDialog's confirm, where
-its own Decision puts it — nothing on the page itself wears act colour.
+`participants.css` and the template's `settings.css` contain no `[data-theme]` selector; every
+light/dark difference arrives through token values (R-UI-001), and dark is the default the
+screen is first seen in. Contrast holds on founder facts in both themes: every ink alias used
+here on the app surface ≥ 4.5:1, the danger pair per the refusal-state ruling, the current nav
+row's ink on `--surface-selected` ≥ 4.5:1. No basis colour appears; copper appears only inside
+the ConsequenceDialog's confirm, where its own Decision puts it — the screen's own one primary
+is the preview door, which opens the dialog rather than committing anything.
 
 ## 7. Test hooks (closed contract, C-05)
 
 Route introduced: `/t/{tenantId}/p/{projectId}/settings/participants`. Test ids, exactly
-the contract's, on the elements ruled in §1: `participants-list` · `participants-row`
-(`data-user`) · `participants-history` · `participants-history-row`
+the contract's — the same closed roster, on the elements §1 now rules: `participants-list`
+(the roster grid's container) · `participants-row` (each grid row, `data-user`) ·
+`participants-history` (the record grid's container) · `participants-history-row`
 (`data-direction`, `data-role`, both verbatim enum values) · `participants-assign-form` ·
 `participants-assign-subject` · `participants-assign-role` ·
 `participants-assign-direction` (the three fieldsets) · `participants-refusal` (the answer
 slot, and the same id wrapping the I-50 denied branch — one id, the screen's one in-place
 answer surface) — plus the ConsequenceDialog's five, ruled in its own Decision. No others
-are added. Behavioural hooks without new ids: `aria-pressed` on the Chips (exactly one per
-group), `aria-invalid`/`aria-describedby` on a judged fieldset, `role="alert"` on the local
-line, `role="status"`/`aria-live="polite"` on the form's status line, `aria-busy` on the
-loading submit, RefusalState's own ids and `data-code` inside
-`participants-refusal`.
+are added; the grids' own ids are the DataTable's, ruled by its Decision. Behavioural hooks
+without new ids: `aria-pressed` on the Chips (exactly one per group),
+`aria-invalid`/`aria-describedby` on a judged fieldset, `role="alert"` on the local line,
+`role="status"`/`aria-live="polite"` on the form's status line, `aria-busy` on the loading
+submit, `data-technical` on every enum's stored word, `aria-current` on the nav's current row,
+RefusalState's own ids and `data-code` inside `participants-refusal`.
 
 Journey: `tests/e2e/journeys/j-003-projects.spec.ts` extended (page object
 `tests/e2e/pages/s-participants.page.ts`), navigating to the route directly (I-53).

@@ -8,11 +8,15 @@ export const membersStrings = {
   members_heading: "Members",
   members_caption: "Who belongs to this workspace, the role each member holds, and every role movement on its projects.",
 
-  members_link_label: "Members",
-  members_link_hint: "Who belongs to this workspace and what each member may do.",
-  members_link_action: "Manage members",
-
   members_roster_heading: "Roster",
+  // The roster's columns. A column heading is copy, so it is a key like every other sentence here;
+  // the record's column is headed by the same words its own label carries (B-17).
+  members_col_member: "Member",
+  members_col_role: "Role",
+  members_col_projects: "Projects",
+
+  members_search_label: "Search the roster",
+  members_search_none: "No member of this workspace matches that.",
   members_roster_hint: "Every member, in the store's own order. Each role history lists movements on the projects you may read.",
 
   // Every row carries the same two controls, so each one's accessible name names the member it acts

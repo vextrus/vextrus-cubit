@@ -3,15 +3,19 @@
 // from the accessibility tree by the primitive itself.
 import { Skeleton } from "@/ui/primitives/core";
 
-/** The bones, in the page's own order: heading, the two roster rows, then the form and the record. */
+/**
+ * The bones, in the page's own order (§2): the 40 px header's title, then the roster's rows and the
+ * record's, at the row height the two grids draw them at — a skeleton that kept a different height
+ * from the thing it stands in for is a layout that moves under the reader (§5 rule 8).
+ */
 const BONES = [
   { height: "24px", width: "240px" },
-  { height: "16px", width: "360px" },
-  { height: "16px", width: "360px" },
-  { height: "16px", width: "min(640px, 100%)" },
-  { height: "16px", width: "min(640px, 100%)" },
-  { height: "16px", width: "min(640px, 100%)" },
-  { height: "16px", width: "min(640px, 100%)" },
+  { height: "28px", width: "min(700px, 100%)" },
+  { height: "28px", width: "min(700px, 100%)" },
+  { height: "28px", width: "min(700px, 100%)" },
+  { height: "28px", width: "min(880px, 100%)" },
+  { height: "28px", width: "min(880px, 100%)" },
+  { height: "28px", width: "min(880px, 100%)" },
 ];
 
 export default function ProjectParticipantsLoading() {

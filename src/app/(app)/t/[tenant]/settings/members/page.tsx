@@ -23,6 +23,7 @@ import { sessionOf } from "@/server/shell/resolve";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { shellHref } from "@/ui/shell";
 import { strings } from "@/ui/strings";
+import { SettingsHeader, SettingsPane, workspaceSettingsNav } from "../settings-pane";
 import { InvitationsPanel, type InvitationsRow } from "./invitations/invitations-panel";
 import { invitationsStrings } from "./invitations/strings";
 import { MembersSection, type MembersRow } from "./members-section";
@@ -70,10 +71,10 @@ export default async function WorkspaceMembers({ params }: { params: Promise<{ t
     }));
 
     return (
-      <div className="cx-members-page">
+      <SettingsPane items={workspaceSettingsNav(tenant)} active="members">
         <MembersSection tenantId={tenant} rows={rows} roles={WORKSPACE_ROLES} />
         <InvitationsPanel tenantId={tenant} rows={invitations} />
-      </div>
+      </SettingsPane>
     );
   } catch (thrown) {
     const code = refusalCodeOf(thrown);
@@ -88,18 +89,15 @@ export default async function WorkspaceMembers({ params }: { params: Promise<{ t
  */
 function MembersDenied({ tenantId }: { tenantId: string }) {
   return (
-    <div className="cx-members">
-      <header className="cx-members-header">
-        <h1 className="cx-members-heading">{membersStrings.members_heading}</h1>
-        <p className="cx-members-caption">{membersStrings.members_caption}</p>
-      </header>
-      <div className="cx-members-answer" data-testid={TESTIDS.members.refusal}>
+    <SettingsPane items={workspaceSettingsNav(tenantId)} active="members">
+      <SettingsHeader title={membersStrings.members_heading} about={membersStrings.members_caption} />
+      <div className="cx-members-answer" data-testid="members-refusal">
         <RefusalState
           refusal={refusalOf("WORKSPACE_PERMISSION_NOT_HELD")}
           evidence={{ href: shellHref(tenantId, "projects"), label: strings.home_evidence_projects }}
         />
       </div>
-    </div>
+    </SettingsPane>
   );
 }
 

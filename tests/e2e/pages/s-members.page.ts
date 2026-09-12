@@ -53,9 +53,20 @@ export class SMembersPage {
     await this.memberRow(userId).getByTestId(TESTIDS.members.roleSubmit).click();
   }
 
-  /** Ask for one membership to be taken away. */
+  /**
+   * Ask for one membership to be taken away — the two gestures the rebuilt row asks for
+   * (docs/design/s-settings.md I-202): the row's `⋯` opens the menu, and the menu's single danger
+   * item is the removal. One danger style on the screen, and it is never a press away from a stray
+   * click on a roster, so the walk is a press on the trigger and a press on the item.
+   *
+   * The item carries no id of its own — the Decision's §7 contract is closed at fifteen — so it is
+   * found by the role a menu item has, inside the menu the trigger just opened. There is exactly one.
+   */
   async submitRemoval(userId: string): Promise<void> {
     await this.memberRow(userId).getByTestId(TESTIDS.members.removeForm).getByTestId(TESTIDS.members.removeSubmit).click();
+    const item = this.page.getByRole("menuitem").first();
+    await expect(item, "the row menu stands open on its one danger item").toBeVisible({ timeout: 30_000 });
+    await item.click();
   }
 
   /** The answer slot the refused row speaks in (I-57). */

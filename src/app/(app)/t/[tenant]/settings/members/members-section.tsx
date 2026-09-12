@@ -1,22 +1,36 @@
 "use client";
-// The workspace's members (R-SPINE-003): who belongs to it, the role each one holds, the record of
-// how their project roles moved, and the two forms that change a membership. The section holds no
-// rule of its own — who may move whom, whether an origin is served here and what a failure is called
-// are all the server's, behind `guardTenancyMutation` (I-56, B-17, R-SPINE-006).
+// The workspace's members (R-SPINE-003) on the v22 settings template (Design Direction 00 §3.6):
+// a 40 px header — title, the `(i)` that holds what the caption used to print, the search — over a
+// 28 px DataTable whose first row stands at the top of the pane. The section holds no rule of its
+// own: who may move whom, whether an origin is served here and what a failure is called are all the
+// server's, behind `guardTenancyMutation` (I-56, B-17, R-SPINE-006).
 //
-// Both forms render on every row for every member whatever role the reader holds: R-SPINE-006 forbids
-// UI hiding, so the answer to a move a role does not carry is the server's refusal, rendered in place
-// by the one renderer in the row that asked (I-57, R-UI-020).
+// Every control renders on every row for every member whatever role the reader holds: R-SPINE-006
+// forbids UI hiding, so the answer to a move a role does not carry is the server's refusal,
+// rendered in the row that asked (I-57, R-UI-020) — §5 rule 8's partial row, shown with a ⚠ and the
+// refusal beneath it, never hidden.
 //
-// The section takes what the page composed and the two actions, so a suite mounts the same component
-// a browser renders with the settlement of its choice (the RulesetSettingsSection precedent).
-import { useId, useState } from "react";
+// The one danger style on this screen lives in the row's `⋯` menu as its single item (I-202): a removal is
+// irreversible, so it is never a red button sitting in a roster somebody is scrolling.
+//
+// The section takes what the page composed and the two actions, so a suite mounts the same
+// component a browser renders with the settlement of its choice (the RulesetSettingsSection
+// precedent).
+import { useId, useMemo, useRef, useState } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { refusalOf, type RefusalCode } from "@/core/errors";
 import { formatDate } from "@/core/format";
+import { IconMoreHorizontal } from "@/ui/icons";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { Button, Select } from "@/ui/primitives/core";
+import { Button, Input, Select } from "@/ui/primitives/core";
+// The humanising rule, from the primitive that owns it (B-17): a screen that title-cased a role
+// itself would be a second opinion about how `OWNER` is said out loud.
+import { humaniseEnum } from "@/ui/primitives/core/enum-label";
+import { DataTable } from "@/ui/primitives/data";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/ui/primitives/overlay";
 import { shellHref } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
+import { SettingsAbout, SettingsHeader } from "../settings-pane";
 import { changeMemberRoleAction, removeMemberAction, type MembersAnswer } from "./actions";
 import { membersRoute } from "./route-address";
 import { membersStrings } from "./strings";
@@ -56,7 +70,7 @@ export interface MembersSectionProps {
   remove?: typeof removeMemberAction;
 }
 
-/** Which submission is in flight, so the button that made it is the one that reads as busy. */
+/** Which submission is in flight, so the control that made it is the one that reads as busy. */
 interface InFlight {
   readonly userId: string;
   readonly kind: "role" | "removal";
@@ -68,6 +82,9 @@ interface Refused {
   readonly code: RefusalCode;
 }
 
+/** The grid's identity, under which this reader's column furniture is remembered (§5 rule 3). */
+const ROSTER_TABLE_ID = "members-roster";
+
 export function MembersSection({
   tenantId,
   rows,
@@ -78,10 +95,11 @@ export function MembersSection({
   const [chosen, setChosen] = useState<Readonly<Record<string, string>>>({});
   const [inFlight, setInFlight] = useState<InFlight | null>(null);
   const [refused, setRefused] = useState<Refused | null>(null);
+  const [query, setQuery] = useState("");
   // Whether the last submission landed. The changed row is the visible answer, so the line says only
   // that the answer is on the page — a re-read the revalidation performed (§1).
   const [settled, setSettled] = useState(false);
-  const headingIds = { members: useId(), roster: useId() };
+  const searchId = useId();
 
   /**
    * The choices one row offers. The roster the server stated is the whole of them; the role the row
@@ -107,109 +125,212 @@ export function MembersSection({
 
   const busy = (row: MembersRow, kind: InFlight["kind"]): boolean => inFlight?.userId === row.userId && inFlight.kind === kind;
 
-  return (
-    <div className="cx-members">
-      <header className="cx-members-header">
-        <h1 className="cx-members-heading">{membersStrings.members_heading}</h1>
-        <p className="cx-members-caption">{membersStrings.members_caption}</p>
-      </header>
+  /** What the search stands for: a roster is read by the address and by the role, and by nothing else. */
+  const matching = useMemo<readonly MembersRow[]>(() => {
+    const asked = query.trim().toLowerCase();
+    if (asked === "") return rows;
+    return rows.filter((row) => `${row.label ?? membersStrings.members_member_unnamed} ${row.role} ${humaniseEnum(row.role)}`.toLowerCase().includes(asked));
+  }, [rows, query]);
 
-      <section className="cx-members-roster" aria-labelledby={headingIds.roster} data-testid={TESTIDS.members.section}>
-        <h2 className="cx-members-section-heading" id={headingIds.roster}>
-          {membersStrings.members_roster_heading}
-        </h2>
-        {/* I-59: the scope of the histories is standing copy, said on every render rather than
-            discovered by a reader who wonders what is missing. */}
-        <p className="cx-members-hint">{membersStrings.members_roster_hint}</p>
-
-        <ul className="cx-members-list" data-testid={TESTIDS.members.list}>
-          {rows.map((row) => (
-            <li className="cx-members-row" data-testid={TESTIDS.members.row} data-user={row.userId} key={row.userId}>
-              <p className="cx-members-identity">
-                <span className="cx-members-member">{row.label ?? membersStrings.members_member_unnamed}</span>
-                {/* I-55: the store's own word, verbatim and mono — never title-cased into prose. */}
-                <span className="cx-members-role" data-testid={TESTIDS.members.rowRole}>
-                  {row.role}
-                </span>
-              </p>
-
-              <div className="cx-members-controls">
-                <form
-                  className="cx-members-form"
-                  data-testid={TESTIDS.members.roleForm}
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void submit(row, "role", () => changeRole({ tenantId, subjectUserId: row.userId, role: chosen[row.userId] ?? row.role }));
-                  }}
-                >
-                  <input type="hidden" name="subjectUserId" value={row.userId} />
-                  {/* The shipped Select: Design Direction 00 §1 refuses the platform's own control
-                      on this screen (§3.6 — "Role change is an inline Select in the row (28 px)").
-                      The role words stay the store's own, verbatim (I-55), and the value still
-                      rides the form under the name it always did. */}
-                  <Select
-                    className="cx-members-select"
-                    data-testid={TESTIDS.members.roleSelect}
-                    name="role"
-                    aria-label={fill(membersStrings.members_role_label, { member: spokenName(row) })}
-                    options={offered(row).map((role) => ({ value: role, label: role }))}
-                    value={chosen[row.userId] ?? row.role}
-                    onChange={(role) => setChosen((held) => ({ ...held, [row.userId]: role }))}
-                  />
-                  {/* The spoken name names the member: a screen reader moving down the roster meets
-                      one control per member, not N controls called the same thing. */}
-                  <Button
-                    type="submit"
-                    variant="secondary"
-                    data-testid={TESTIDS.members.roleSubmit}
-                    aria-label={fill(membersStrings.members_role_submit_label, { member: spokenName(row) })}
-                    loading={busy(row, "role")}
-                  >
-                    {membersStrings.members_role_submit}
-                  </Button>
-                </form>
-
-                <form
-                  className="cx-members-form"
-                  data-testid={TESTIDS.members.removeForm}
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void submit(row, "removal", () => remove({ tenantId, subjectUserId: row.userId }));
-                  }}
-                >
-                  <input type="hidden" name="subjectUserId" value={row.userId} />
-                  <Button
-                    type="submit"
-                    variant="danger"
-                    data-testid={TESTIDS.members.removeSubmit}
-                    aria-label={fill(membersStrings.members_remove_submit_label, { member: spokenName(row) })}
-                    loading={busy(row, "removal")}
-                  >
-                    {membersStrings.members_remove_submit}
-                  </Button>
-                </form>
-              </div>
-
-              {/* I-57: one answer slot, in the row that asked, mounted only while a refusal stands. */}
-              {refused !== null && refused.userId === row.userId && inFlight === null ? (
-                <div className="cx-members-answer" data-testid={TESTIDS.members.refusal}>
+  const columns = useMemo<ColumnDef<MembersRow, unknown>[]>(
+    () => [
+      {
+        id: "member",
+        header: membersStrings.members_col_member,
+        size: 280,
+        cell: ({ row }) => {
+          const member = row.original;
+          const answered = refused !== null && refused.userId === member.userId && inFlight === null;
+          return (
+            <span className="cx-members-identity">
+              <span className="cx-members-member">{member.label ?? membersStrings.members_member_unnamed}</span>
+              {/* I-57: one answer slot, in the row that asked — §5 rule 8's partial row, so the row
+                  stands with its ⚠ and the refusal reads beneath it. */}
+              {answered ? (
+                <span className="cx-members-answer" data-testid="members-refusal" data-user={member.userId}>
                   <RefusalState refusal={refusalOf(refused.code)} evidence={evidenceFor(tenantId, refused.code)} />
-                </div>
+                </span>
               ) : null}
+            </span>
+          );
+        },
+      },
+      {
+        id: "role",
+        header: membersStrings.members_col_role,
+        size: 200,
+        cell: ({ row }) => {
+          const member = row.original;
+          const standing = chosen[member.userId] ?? member.role;
+          // The confirm stands when the row has something to confirm — a role other than the one in
+          // force — and it stands again while a refusal is the row's last answer, because a retry is
+          // never disarmed (R-SPINE-006).
+          const confirmable = standing !== member.role || (refused !== null && refused.userId === member.userId && inFlight === null);
+          return (
+            <form
+              className="cx-members-form"
+              data-testid="members-role-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submit(member, "role", () => changeRole({ tenantId, subjectUserId: member.userId, role: standing }));
+              }}
+            >
+              <input type="hidden" name="subjectUserId" value={member.userId} />
+              {/* The shipped Select in the row (§3.6): the words are the ones a person reads, and
+                  the value the form carries is the store's own. */}
+              <Select
+                className="cx-members-select"
+                data-testid="members-role-select"
+                name="role"
+                aria-label={fill(membersStrings.members_role_label, { member: spokenName(member) })}
+                options={offered(member).map((role) => ({ value: role, label: humaniseEnum(role) }))}
+                value={standing}
+                onChange={(role) => setChosen((held) => ({ ...held, [member.userId]: role }))}
+              />
+              {/* The store's own word, in the technical channel: what a screen SAYS is "Owner", and
+                  what it HOLDS is `OWNER` (§6, I-55). */}
+              <span className="cx-members-role-raw" data-testid="members-row-role" data-technical="">
+                {member.role}
+              </span>
+              {/* A row at rest is ONE control: a move is never carried out by a stray click on a
+                  list, and a roster of N members is not a roster of 2N buttons. */}
+              {confirmable ? (
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  className="cx-members-role-submit"
+                  data-testid="members-role-submit"
+                  aria-label={fill(membersStrings.members_role_submit_label, { member: spokenName(member) })}
+                  loading={busy(member, "role")}
+                >
+                  {membersStrings.members_role_submit}
+                </Button>
+              ) : null}
+            </form>
+          );
+        },
+      },
+      {
+        id: "history",
+        header: membersStrings.members_history_label,
+        size: 260,
+        cell: ({ row }) => <MemberHistory history={row.original.history} />,
+      },
+      {
+        id: "projects",
+        header: membersStrings.members_col_projects,
+        size: 96,
+        meta: { align: "right" },
+        cell: ({ row }) => <span className="cx-members-projects">{projectCount(row.original.history)}</span>,
+      },
+      {
+        id: "menu",
+        header: "",
+        size: 48,
+        cell: ({ row }) => {
+          const member = row.original;
+          return (
+            <RemoveMenu
+              member={member}
+              busy={busy(member, "removal")}
+              onRemove={() => void submit(member, "removal", () => remove({ tenantId, subjectUserId: member.userId }))}
+            />
+          );
+        },
+      },
+    ],
+    // The cells close over the roster's own state, so the definitions are rebuilt when it moves and
+    // at no other time. The two settlements and the submit they are called through are stable for
+    // the life of the mount; what changes a cell is the state below it.
+    [chosen, refused, inFlight, roles, tenantId, changeRole, remove],
+  );
 
-              <MemberHistory history={row.history} />
-            </li>
-          ))}
-        </ul>
+  return (
+    <>
+      <SettingsHeader title={membersStrings.members_heading} about={membersStrings.members_caption}>
+        <Input
+          className="cx-members-search"
+          id={searchId}
+          value={query}
+          aria-label={membersStrings.members_search_label}
+          placeholder={membersStrings.members_search_label}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </SettingsHeader>
 
-        {/* The two things a round trip has to say beyond the roster itself. It stays silent while a
-            refusal stands: the refusal is the answer, and a second sentence beside it would compete
-            with the one that tells a person what to do (§1). */}
-        <p className="cx-members-status" role="status" aria-live="polite" id={headingIds.members}>
-          {inFlight !== null ? membersStrings.members_status_pending : settled && refused === null ? membersStrings.members_status_done : ""}
-        </p>
+      <section className="cx-members-roster" data-testid="members-section" aria-label={membersStrings.members_roster_heading}>
+        <div className="cx-members-table cx-settings-surface" data-testid="members-list">
+          <DataTable
+            tableId={ROSTER_TABLE_ID}
+            aria-label={membersStrings.members_roster_heading}
+            columns={columns}
+            data={[...matching]}
+            getRowId={(row) => row.userId}
+            rowTestId="members-row"
+            rowDataOf={(row) => ({ "data-user": row.userId })}
+            rowStateOf={(row) => (refused !== null && refused.userId === row.userId && inFlight === null ? { refused: true } : undefined)}
+          />
+        </div>
+
+        {/* I-59's scope, where §6 puts a section's explanation: one press away, never a standing
+            sentence under a heading. */}
+        <div className="cx-members-roster-foot">
+          {matching.length === 0 ? <p className="cx-members-none">{membersStrings.members_search_none}</p> : null}
+          {/* The two things a round trip has to say beyond the roster itself. It stays silent while
+              a refusal stands: the refusal is the answer, and a second sentence beside it would
+              compete with the one that tells a person what to do (§1). */}
+          <p className="cx-members-status" role="status" aria-live="polite">
+            {inFlight !== null ? membersStrings.members_status_pending : settled && refused === null ? membersStrings.members_status_done : ""}
+          </p>
+          <SettingsAbout body={membersStrings.members_roster_hint} label={membersStrings.members_roster_heading} />
+        </div>
       </section>
-    </div>
+    </>
+  );
+}
+
+/**
+ * The row's one menu, and the one danger item in it (§3.6). The trigger is the control a removal is
+ * asked for through, so it carries the removal's own name and its own id; the form beneath it is
+ * what the item submits, so the move a person makes and the move a suite makes are one path.
+ */
+function RemoveMenu({ member, busy, onRemove }: { member: MembersRow; busy: boolean; onRemove: () => void }) {
+  const form = useRef<HTMLFormElement>(null);
+  return (
+    <form
+      className="cx-members-menu-form"
+      data-testid="members-remove-form"
+      ref={form}
+      onSubmit={(event) => {
+        event.preventDefault();
+        onRemove();
+      }}
+    >
+      <input type="hidden" name="subjectUserId" value={member.userId} />
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="cx-members-menu"
+          data-testid="members-remove-submit"
+          aria-label={fill(membersStrings.members_remove_submit_label, { member: spokenName(member) })}
+          aria-busy={busy || undefined}
+        >
+          <IconMoreHorizontal size="md" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            variant="danger"
+            onSelect={(event) => {
+              // The item asks the row's own form to submit, so the path a person takes and the path
+              // a suite takes are one path (B-17). The menu closes itself.
+              event.preventDefault();
+              form.current?.requestSubmit();
+            }}
+          >
+            {membersStrings.members_remove_submit}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </form>
   );
 }
 
@@ -220,26 +341,33 @@ export function MembersSection({
  * telling the rows apart (R-UI-012). Where the stored label carries no identity, the id does: it is
  * the accessible name only, and the row still SHOWS the sentence, because an id is an identifier
  * and not a name.
- *
- * The absence is read as an absence rather than by comparing the rendered copy against the string
- * table: copy is the Decision's to change, and a member whose address happened to read "Unnamed
- * member" would otherwise be renamed by the comparison (B-17, B-19).
  */
 function spokenName(row: MembersRow): string {
   return row.label ?? fill(membersStrings.members_member_unnamed_identified, { id: row.userId });
 }
 
-/** One member's record: every movement the workspace's ledgers hold about them, or the honest none. */
+/** How many of this workspace's projects the reader's own record names for this member (I-59). */
+function projectCount(history: readonly MembersHistoryEntry[]): number {
+  return new Set(history.map((entry) => entry.projectId)).size;
+}
+
+/**
+ * One member's record, in the cell the roster keeps for it: every movement the workspace's ledgers
+ * hold about them, on one line, in the module's own order. The line never wraps — the grid's own
+ * truncation gives it back whole in a tooltip (§5 rule 2) — and a member with no movements reads
+ * the honest none rather than an empty cell.
+ *
+ * The project id is the row's `data-project`, never a text node: an identifier is not body copy
+ * (§6), and the record that names it is one press away in the workspace's own audit.
+ */
 function MemberHistory({ history }: { history: readonly MembersHistoryEntry[] }) {
-  const labelId = useId();
   return (
-    <div className="cx-members-history-block">
-      <span className="cx-members-history-label" id={labelId}>
-        {membersStrings.members_history_label}
-      </span>
+    <>
       {/* The record is one list per member whether or not it holds a movement — a member with none
-          has an empty record, not an absent one, and the honest line stands in the list's place. */}
-      <ol className="cx-members-history" data-testid={TESTIDS.members.roleHistory} aria-labelledby={labelId}>
+          has an empty record, not an absent one, and the honest line stands in the list's place. It
+          carries no name of its own: the column header names it once for the whole grid, and a name
+          repeated on every row is N identical names to a reader travelling the roster. */}
+      <ol className="cx-members-history" data-testid="members-role-history">
         {history.map((entry, index) => (
           <li
             className="cx-members-history-row"
@@ -249,24 +377,26 @@ function MemberHistory({ history }: { history: readonly MembersHistoryEntry[] })
             data-role={entry.role}
             key={`${entry.occurredAt}-${entry.projectId}-${entry.direction}-${entry.role}-${index}`}
           >
-            <p className="cx-members-history-what">
-              <span className="cx-members-direction">{entry.direction}</span>
-              <span className="cx-members-history-role">{entry.role}</span>
-              {/* I-26: the id renders whole, so a person can quote the project it happened on. */}
-              <span className="cx-members-history-project">{entry.projectId}</span>
-            </p>
-            <p className="cx-members-history-by">
+            <span className="cx-members-direction">{humaniseEnum(entry.direction)}</span>
+            <span className="cx-members-history-role">{humaniseEnum(entry.role)}</span>
+            <span className="cx-members-history-by">
               {fill(membersStrings.members_history_by, {
                 actor: entry.actorLabel ?? membersStrings.members_member_unnamed,
                 date: dayOf(entry.occurredAt),
               })}
-            </p>
+            </span>
           </li>
         ))}
       </ol>
-      {history.length === 0 ? <p className="cx-members-history-none">{membersStrings.members_history_none}</p> : null}
-    </div>
+      {history.length === 0 ? <span className="cx-members-history-none">{membersStrings.members_history_none}</span> : null}
+    </>
   );
+}
+
+/** The day a movement happened, in the document's own form (L-FMT-01, the participants precedent). */
+function dayOf(occurredAt: string): string {
+  const at = new Date(occurredAt);
+  return formatDate({ year: at.getFullYear(), month: at.getMonth() + 1, day: at.getDate() });
 }
 
 /**
@@ -279,10 +409,4 @@ function evidenceFor(tenantId: string, code: RefusalCode): { href: string; label
   return code === refusalOf("MEMBER_HAS_ACTS").code
     ? { href: shellHref(tenantId, "projects"), label: strings.home_evidence_projects }
     : { href: membersRoute(tenantId), label: membersStrings.members_evidence_roster };
-}
-
-/** The day a movement happened, in the document's own form (L-FMT-01, the participants precedent). */
-function dayOf(occurredAt: string): string {
-  const at = new Date(occurredAt);
-  return formatDate({ year: at.getFullYear(), month: at.getMonth() + 1, day: at.getDate() });
 }

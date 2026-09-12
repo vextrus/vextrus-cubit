@@ -3,16 +3,20 @@
 // from the accessibility tree by the primitive itself.
 import { Skeleton } from "@/ui/primitives/core";
 
-/** The bones, in the page's own order: heading, identity, digest, then lineage and table. */
+/**
+ * The bones, in the page's own order (§2): the 40 px header's title, the pinned line, then the
+ * lineage's three rows and the parameter grid's — all at the row height the tables will draw them
+ * at, so nothing moves under the reader when the answer lands (§5 rule 8).
+ */
 const BONES = [
   { height: "24px", width: "240px" },
-  { height: "16px", width: "360px" },
-  { height: "16px", width: "min(640px, 100%)" },
-  { height: "24px", width: "min(800px, 100%)" },
-  { height: "24px", width: "min(800px, 100%)" },
-  { height: "24px", width: "min(800px, 100%)" },
-  { height: "24px", width: "min(800px, 100%)" },
-  { height: "24px", width: "min(800px, 100%)" },
+  { height: "28px", width: "min(560px, 100%)" },
+  { height: "28px", width: "min(640px, 100%)" },
+  { height: "28px", width: "min(640px, 100%)" },
+  { height: "28px", width: "min(640px, 100%)" },
+  { height: "28px", width: "min(640px, 100%)" },
+  { height: "28px", width: "min(640px, 100%)" },
+  { height: "28px", width: "min(640px, 100%)" },
 ];
 
 export default function ProjectRulesetLoading() {

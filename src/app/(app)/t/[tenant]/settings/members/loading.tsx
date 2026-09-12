@@ -3,14 +3,20 @@
 // from the accessibility tree by the primitive itself.
 import { Skeleton } from "@/ui/primitives/core";
 
-/** The bones, in the page's own order: the heading, the caption, then the four member blocks (§2). */
+/**
+ * The bones, in the page's own order (§2): the 40 px header's title, then the grid — a header row
+ * and five member rows at the row height the table will draw them at. A skeleton that kept a
+ * different height from the thing it stands in for is a layout that moves under the reader
+ * (§5 rule 8: "loading (skeleton rows keep heights)").
+ */
 const BONES = [
   { height: "24px", width: "240px" },
-  { height: "16px", width: "360px" },
-  { height: "48px", width: "min(720px, 100%)" },
-  { height: "48px", width: "min(720px, 100%)" },
-  { height: "48px", width: "min(720px, 100%)" },
-  { height: "48px", width: "min(720px, 100%)" },
+  { height: "28px", width: "min(880px, 100%)" },
+  { height: "28px", width: "min(880px, 100%)" },
+  { height: "28px", width: "min(880px, 100%)" },
+  { height: "28px", width: "min(880px, 100%)" },
+  { height: "28px", width: "min(880px, 100%)" },
+  { height: "28px", width: "min(880px, 100%)" },
 ];
 
 export default function WorkspaceMembersLoading() {

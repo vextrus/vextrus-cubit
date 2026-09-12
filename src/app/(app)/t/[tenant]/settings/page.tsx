@@ -1,14 +1,20 @@
-// Settings: what this workspace is called (R-UI-033 — the name is entered at sign-up, and this is
-// where it is changed afterwards), and then what this person chose for themselves — the density
-// their tables are drawn at (R-UI-005). Identity first, preference second.
+// Settings — General (Design Direction 00 §3.6): the first area of the settings template. What this
+// workspace is called (R-UI-033 — the name is entered at sign-up, and this is where it is changed
+// afterwards), and then what this person chose for themselves — the density their tables are drawn
+// at and the theme they are drawn in (R-UI-005). Identity first, preference second.
+//
+// The door into the workspace's other settings areas is the section nav this screen is drawn in:
+// `settings-members-link` is the nav's Members row (I-199, discharging I-60), so every shipped screen
+// is still reachable by visible navigation and the landing carries no second link to it (R-UI-031).
 import { redirect } from "next/navigation";
 import { saveDensity } from "@/server/shell/density";
 import { presentedSessionToken } from "@/server/shell/session";
 import { DensityToggle, ThemeToggle } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import { densityRead, namedWorkspaceRead, viewerRead } from "../reads";
-import { SettingsMembersLink } from "./members/members-link";
 import { RenameForm } from "./rename-form";
+import { SettingsHeader, SettingsPane, workspaceSettingsNav } from "./settings-pane";
+import { settingsStrings } from "./strings";
 
 export const metadata = { title: strings.shell_settings_heading };
 
@@ -31,12 +37,13 @@ export default async function WorkspaceSettings({ params }: { params: Promise<{ 
   const density = await densityRead(viewer.userId);
 
   return (
-    <>
-      <h1 className="cx-shell-heading">{strings.shell_settings_heading}</h1>
+    <SettingsPane items={workspaceSettingsNav(tenant)} active="general">
+      <SettingsHeader title={strings.shell_settings_heading} about={settingsStrings.settings_general_about} />
       <RenameForm tenantId={workspace.tenantId} name={workspace.name} />
-      <SettingsMembersLink tenantId={workspace.tenantId} />
-      <DensityToggle density={density} action={saveDensity} />
-      <ThemeToggle />
-    </>
+      <section className="cx-settings-section" aria-label={settingsStrings.settings_density_heading}>
+        <DensityToggle density={density} action={saveDensity} />
+        <ThemeToggle />
+      </section>
+    </SettingsPane>
   );
 }
