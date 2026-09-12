@@ -10,6 +10,7 @@ import type { Density } from "../../core/prefs";
 import { InspectorProvider, ShellInspectorSlot } from "./inspector";
 import { ScreenStateProvider, useScreenState } from "./screen-state";
 import { ShellRail } from "./shell-rail";
+import { ShellSlotsProvider, useShellSlots } from "./slots";
 import { ShellTopBar } from "./shell-top-bar";
 import { StatusBar, type StatusBarProps } from "./status-bar";
 import type { ShellArea, ShellProject, ShellWorkspace } from "./routes";
@@ -63,6 +64,37 @@ function ShellMain({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * The three tracks under the top bar, read from inside the providers so that a screen's mounted
+ * tool row and readout reach them (`slots.tsx`). The toolbar track is zero high with nothing in it —
+ * a region holding nothing is absent, not a placeholder (R-UI-080), and the height it would have
+ * taken belongs to the work surface (Direction §1).
+ */
+function ShellTracks({ toolbar, status, children }: { toolbar: ReactNode | undefined; status: StatusBarProps | undefined; children: ReactNode }) {
+  const mounted = useShellSlots();
+  const tools = mounted.toolbar ?? toolbar ?? null;
+  return (
+    <>
+      <div className="cx-shell-toolbar-slot" data-testid="shell-toolbar-slot">
+        {tools}
+      </div>
+      <ShellMain>{children}</ShellMain>
+      {mounted.status ?? <StatusBar {...status} />}
+    </>
+  );
+}
+
+/** The body, whose four rows are the grid's; the toolbar track collapses when nothing mounted one. */
+function ShellBody({ toolbar, children }: { toolbar: ReactNode | undefined; children: ReactNode }) {
+  const mounted = useShellSlots();
+  const hasTools = (mounted.toolbar ?? toolbar ?? null) !== null;
+  return (
+    <div className="cx-shell-body" data-toolbar={hasTools ? "true" : "false"}>
+      {children}
+    </div>
+  );
+}
+
 export function AppShell({
   workspace,
   workspaces,
@@ -85,9 +117,10 @@ export function AppShell({
     // the root tokens and nothing per-screen (R-UI-086).
     <ScreenStateProvider>
       <InspectorProvider>
-        <div className="cx-shell" data-testid={TESTIDS.shell.root} data-density={density}>
+        <ShellSlotsProvider>
+        <div className="cx-shell" data-testid="shell-root" data-density={density}>
           <ShellRail workspace={workspace} workspaces={workspaces} area={area} atAreaHome={atAreaHome} />
-          <div className="cx-shell-body" data-toolbar={toolbar === undefined ? "false" : "true"}>
+          <ShellBody toolbar={toolbar}>
             <ShellTopBar
               workspace={workspace}
               project={project}
@@ -102,14 +135,15 @@ export function AppShell({
             {/* The track is always the same four rows, so `shell-main` never slides up into the
                 toolbar's place on a screen that has no tools; with none, the track is zero high and
                 this box holds nothing (`[data-toolbar="false"]`). */}
-            <div className="cx-shell-toolbar-slot">{toolbar}</div>
-            <ShellMain>{children}</ShellMain>
-            <StatusBar {...status} />
-          </div>
+            <ShellTracks toolbar={toolbar} status={status}>
+              {children}
+            </ShellTracks>
+          </ShellBody>
           {/* The one right slot. It renders nothing at all with nothing selected, so the grid's
               inspector track is zero and the main field takes the width (R-UI-080). */}
           <ShellInspectorSlot />
         </div>
+        </ShellSlotsProvider>
       </InspectorProvider>
     </ScreenStateProvider>
   );

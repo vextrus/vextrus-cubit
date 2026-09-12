@@ -20,6 +20,9 @@ export { useInspector, useInspectorSlot, inspectorWidthWithin, storedInspectorWi
 // declares its state through the hook rather than by mounting a second publication of it.
 export { SCREEN_ROOT_DEFAULT, SCREEN_ROOT_STATES, useDeclareScreenState, useScreenState } from "./screen-state";
 export { STATUS_CELLS, StatusBar } from "./status-bar";
+// The other two slots the frame publishes, mounted exactly as the inspector is (`slots.tsx`): the
+// provider stays unexported for the same reason, so a second tool row cannot be mounted anywhere.
+export { useShellStatus, useShellToolbar } from "./slots";
 export { ShellToolbar, ShellToolbarGroup } from "./shell-toolbar";
 export { HOVER_HOLD_MS, ShellRail } from "./shell-rail";
 export { ShellTopBar } from "./shell-top-bar";

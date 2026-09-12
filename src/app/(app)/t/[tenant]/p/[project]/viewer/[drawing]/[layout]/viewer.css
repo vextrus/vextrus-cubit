@@ -10,7 +10,7 @@
      the work area's min-content height — the panels, their scrollers and the empty cell's padding —
      so the grid grew past its own box and pushed the readout below the viewport instead of letting
      the sheet region shrink. The readout is the row R-UI-030 requires a reader to be able to read. */
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
   margin: calc(var(--space-6) * -1);
   /* The frame states its own height rather than inheriting one. `height: 100%` here rested on a
      chain that never pins a height: the shell is `min-height: 100dvh` with auto rows, so the frame's
@@ -184,20 +184,6 @@
   cursor: grabbing;
 }
 
-.cx-viewer-controls {
-  position: absolute;
-  inset-block-start: var(--space-3);
-  inset-inline-end: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-1);
-  background: var(--surface-app);
-  border: var(--hairline);
-  border-radius: var(--radius-4);
-  box-shadow: var(--shadow-1);
-  z-index: var(--z-base);
-}
 
 /* ---------------------------------------------------------------------- the states in its place */
 
@@ -620,17 +606,23 @@
 /* ---------------------------------------------------------------------------------- the readout */
 
 .cx-viewer-readout {
+  /* THE 24 px READOUT, IN THE FRAME'S OWN TRACK (Direction §1, §3.1). It is mounted into the shell's
+     status row through `useShellStatus`, so its height is `--status-h` and not a measure of its own
+     content: "one line of mono cells with fixed min-widths, `overflow: hidden`, ellipsis; it never
+     wraps". A readout that wrapped would take a second 24 px out of the canvas, which is the share
+     C1 is scored on — so the line clips and the cells ellipsise instead. */
   display: flex;
   align-items: center;
-  gap: var(--space-5);
-  height: var(--space-8);
+  gap: var(--space-3);
+  height: var(--status-h);
+  min-height: var(--status-h);
   padding-inline: var(--space-4);
-  border-top: var(--hairline);
-  background: var(--surface-app);
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--ink-secondary);
+  background: var(--surface-panel);
+  border-block-start: var(--hairline);
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 /* The layout the sheet is showing, and the one cell of the readout that carries no label beside it.
@@ -649,7 +641,15 @@
 
 .cx-viewer-readout-cell {
   display: inline-flex;
-  gap: var(--space-2);
+  align-items: baseline;
+  gap: var(--space-1);
+  /* The fixed minimum is what keeps the numbers still: a cell that sizes to its value moves every
+     other cell each time a coordinate gains a digit, and a readout whose cells move under the eye
+     is not an instrument (§3.1). */
+  min-width: 96px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .cx-viewer-readout-label {

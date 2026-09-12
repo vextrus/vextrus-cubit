@@ -1,5 +1,53 @@
 # Design Decision — S-Viewer (the whole viewer, one home)
 
+## The v22 frame (Direction §3.1) — rebuilt by U2, 2026-09-12
+
+```
+┌R─┬────────────────────────────────────────────────────────────────┬─ I ─────┐
+│▲ │ ws › Riverside Tower ▾ › Drawings › A-101 Foundation Plan ⌘K ⟳ ✉ ◉│(only on │
+│  ├──────────────────────────────────────────────────────────────────┤ select) │
+│▦ │ ⌖ ✋ │ ⟂ ⌒ ◻ │ ◈ Snap Ortho Angle │ ⛶ + − │        L≡ V≡ │ Selection│
+│▤ ├───┬───────────────────────────────────────────────────────────┤ · Scale  │
+│⚙ │ L │                                                           │ LWPOLY…  │
+│  │ a │                                                           │ S-TITLE  │
+│  │ y │                  CANVAS  (≥ 70 % of viewport)             │ #678  ⎘  │
+│  │ e │                  fitted on open; dark paper               │ ──────── │
+│  │ r │                                                           │ Cited by │
+│  │ s │                                                           │ 3 lines  │
+│  │200│                                                           │ Trace    │
+│  ├───┴───────────────────────────────────────────────────────────┤ formula  │
+│  │ A-101 │ 1:100 ✓ │ Layers 4/4 │ Entities 270/270 │ 1 selected │ ◆ end │ ● │
+└──┴────────────────────────────────────────────────────────────────┴─────────┘
+```
+
+| Region | Purpose | Size | Empty | Error | Loading |
+|---|---|---|---|---|---|
+| rail | app areas | `--rail-w` 48 × 100 % | — | — | — |
+| topbar | location, ⌘K, jobs, notifications, user | 100 % × `--topbar-h` 40 | crumb shows the sheet name | — | crumb skeleton 120 px |
+| toolbar (`viewer-toolbar.tsx`, mounted through `useShellToolbar`) | Select V · Pan H ǀ Linear L · Area A · Count C (disabled, "Measurement tools arrive with S-Measure") ǀ Snap S · Ortho · Angle ǀ Fit F · + · − ǀ right-aligned L≡ V≡ | 100 % × `--toolbar-h` 32; 28 px IconButtons | absent (no sheet, no tools) | — | — |
+| layers drawer | layers, then views/grid — one column of collapsible groups; hidden by `L≡` | 200 (min 160, max 320), remembered | "No layers drawn yet" one line | inline RefusalState | 6 skeleton rows |
+| canvas (primary) | the sheet, fitted on open, `--canvas-paper` | flex; ≥ 70 % of viewport | `SheetAbsence` — a sheet nobody has read is an absence that teaches | RefusalState with fidelity facts (R-UI-043) | progressive by layer |
+| inspector (the shell's ONE slot, `useInspector`) | Selection · Scale tabs; entity header (type · layer · `#handle` IdChip); Cited-by; Trace formula | `--inspector-w` 320 (280–480) | **absent — width 0**; `V≡` pins it open so the Scale door is reachable at rest | RefusalState in the tab | tab skeleton |
+| status (`status-line.tsx`, mounted through `useShellStatus`) | mono readout, fixed-min-width cells, never wraps | 100 % × `--status-h` 24 | cells show `—` | — | — |
+
+**What U2 changed, against §8's three fixes for this screen (before: 2.7).**
+1. **Canvas share.** The inspector was a third `ResizablePanel` *inside the work area* — a second
+   right column, which R-UI-080 forbids, and the width the canvas law needs. It is now the frame's
+   one slot, absent at width 0 until something is selected or `V≡` pins it.
+2. **The readout and the tool row are the frame's, not the screen's.** `StatusLine` mounts into the
+   24 px track and `ViewerToolbar` into the 32 px track (`src/ui/shell/slots.tsx`). The three
+   secondary text buttons that floated over the sheet in `cx-viewer-controls` are gone: they are
+   `Fit`/`+`/`−` in the camera group, 28 px icon buttons with tooltip and Kbd, costing the work
+   surface nothing because the track's 32 px were already the grid's.
+3. **The tools a reader expects are all in one row**, in §3.1's groups, and the ones M4 arms stand
+   disabled with the reason in the tooltip rather than missing.
+
+The arithmetic is proved, not photographed: `tests/ui/shell/work-surface-share.test.ts` computes the
+canvas share from `.cx-shell`'s own `grid-template-columns` and `.cx-shell-body`'s own
+`grid-template-rows`, resolved through the root tokens those templates name.
+
+---
+
 **v22 d0 documentation move (2026-09-11).** The viewer's five Design Decisions are collected here
 verbatim, in build order, so the whole screen can be read in one place (F-uiux §3.7: "nobody can see
 the whole viewer's layout in one place — which is exactly why its regions don't fit together"). No

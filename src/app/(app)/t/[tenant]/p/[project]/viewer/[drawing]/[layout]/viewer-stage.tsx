@@ -5,18 +5,17 @@
  * screen's hooks, and it holds no state and runs no effect of its own.
  */
 import { useState } from "react";
-import { ZOOM_STEP } from "@/modules/takeoff/viewer/hooks/use-camera";
 import type { UsePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
 import type { UseSnap } from "@/modules/takeoff/viewer-snap/use-snap";
 import { InspectorPanel, type InspectorChrome, type InspectorPanelProps } from "@/modules/takeoff/viewer-inspector/inspector-panel";
 import { SCALE_COPY } from "@/modules/takeoff/scale-ui/copy";
 import { EvidenceLink } from "@/ui/patterns/evidence-link";
-import { BasisChip, Button } from "@/ui/primitives/core";
+import { BasisChip } from "@/ui/primitives/core";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup, Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/primitives/data";
 import { fill, strings } from "@/ui/strings";
 import { LayersPanel, type LayersPanelProps } from "./layers-panel";
 import { ScalePanel, type ScaleRegion, type ScaleViewBox } from "./scale-region";
-import { SnapAnnouncer, SnapOverlay, SnapTools } from "./snap-region";
+import { SnapAnnouncer, SnapOverlay } from "./snap-region";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from "react";
 import { TESTIDS } from "@/ui/testids";
 
@@ -38,13 +37,12 @@ export type ViewerStageProps = {
       its canvas lies over the sheet, reached by nothing (I-112), and its view boxes say where each
       view of the partition stands, which is how an observation names the view it was taken in. */
   partition: { panel: ReactNode; canvas: ReactNode; views: readonly ScaleViewBox[] };
-  /** The scale region: the second tab of the right inspector (I-152). */
-  scale: ScaleRegion;
   pointer: UsePointer;
   /** The snapping region: its toolbar on the stage and its marks on the overlay stack (I-151). */
   snap: UseSnap;
-  inspector: Omit<InspectorPanelProps, "chrome">;
   onKeyDown: (event: ReactKeyboardEvent<HTMLCanvasElement>) => void;
+  /** Whether the layers drawer stands — the `L≡` toggle in the frame's tool row (§3.1). */
+  layersOpen: boolean;
   stageRef: RefObject<HTMLDivElement | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   sheetName: string;
@@ -52,24 +50,26 @@ export type ViewerStageProps = {
       context draws no sheet and says so in the stage's place (I-82). */
   probed: boolean;
   renderer: "webgl" | "unavailable";
-  onFit: () => void;
-  onZoom: (factor: number) => void;
 };
 
-export function ViewerStage({ panel, partition, scale, pointer, snap, inspector, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, onFit, onZoom }: ViewerStageProps) {
+export function ViewerStage({ panel, partition, pointer, snap, onKeyDown, stageRef, canvasRef, sheetName, probed, renderer, layersOpen }: ViewerStageProps) {
   return (
     /* Every panel carries a stable id and order, so a layout stored by another build's group no
        longer matches this group and is dropped rather than misapplied (Decision § 1). */
     <ResizablePanelGroup direction="horizontal" autoSaveId="cubit-viewer-split">
       {/* I-110: one column of two lists rather than a second split — a nested handle would buy one
           degree of freedom at the price of a control that can crush either list to nothing. */}
-      <ResizablePanel id="viewer-layers-panel" order={1} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
-        <div className="cx-viewer-left-stack">
-          <LayersPanel {...panel} />
-          {partition.panel}
-        </div>
-      </ResizablePanel>
-      <ResizableHandle />
+      {layersOpen ? (
+        <>
+          <ResizablePanel id="viewer-layers-panel" order={1} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
+            <div className="cx-viewer-left-stack">
+              <LayersPanel {...panel} />
+              {partition.panel}
+            </div>
+          </ResizablePanel>
+          <ResizableHandle />
+        </>
+      ) : null}
       <ResizablePanel id="viewer-stage-panel" order={2}>
         <div className="cx-viewer-stage" ref={stageRef}>
           {probed && renderer === "unavailable" ? (
@@ -120,30 +120,16 @@ export function ViewerStage({ panel, partition, scale, pointer, snap, inspector,
             />
           ) : null}
           <SnapOverlay snap={snap} />
-          <SnapTools snap={snap} />
+          {/* The snapping toggles and the camera's three controls are NOT here any more: they are
+              the frame's tool row (`viewer-toolbar.tsx`, §3.1). A control box floating over the
+              sheet is work surface a reader cannot work on — §8's first fix for this screen. */}
           <SnapAnnouncer snap={snap} />
-          <div className="cx-viewer-controls">
-            <Button variant="secondary" data-testid={TESTIDS.viewer.fit} onClick={onFit}>
-              {strings.viewer_fit}
-            </Button>
-            <Button variant="secondary" data-testid={TESTIDS.viewer.zoomIn} onClick={() => onZoom(ZOOM_STEP)}>
-              {strings.viewer_zoom_in}
-            </Button>
-            <Button variant="secondary" data-testid={TESTIDS.viewer.zoomOut} onClick={() => onZoom(1 / ZOOM_STEP)}>
-              {strings.viewer_zoom_out}
-            </Button>
-          </div>
         </div>
       </ResizablePanel>
-      {/* The right column stands whether or not a sheet can be drawn here (I-152): its scale tab is
-          filled by a door and not by the canvas, so a browser that offers no WebGL context still
-          reads every view's scale, its proposals and the absence a view declares (R-TO-020). Only
-          the selection tab beside it depends on a drawing, and that is the tab's own emptiness to
-          teach — never the whole column's absence. */}
-      <ResizableHandle />
-      <ResizablePanel id="viewer-inspector-panel" order={3} defaultSize={PANEL_SIZE} minSize={PANEL_MIN} maxSize={PANEL_MAX}>
-        <InspectorTabs inspector={inspector} scale={scale} snap={snap} views={partition.views} />
-      </ResizablePanel>
+      {/* The right column is GONE from the split. It was a third resizable panel inside the work
+          area, which is the second right column R-UI-080 forbids and the width the canvas law needs:
+          the inspector is now the frame's ONE slot, mounted through `useInspector` by the screen and
+          absent — width 0 — when nothing is selected and nothing is pinned (§3.1, I-152 amended). */}
     </ResizablePanelGroup>
   );
 }
@@ -196,7 +182,7 @@ const SCALE_TAB = "scale";
  * whichever gesture arrived, keeps the strip and the panel saying the same thing (R-UI-012). Nothing
  * of it is persisted — that is the prefs seam's, and an IOU of this Decision's § 8.
  */
-function InspectorTabs({ inspector, scale, snap, views }: { inspector: Omit<InspectorPanelProps, "chrome">; scale: ScaleRegion; snap: UseSnap; views: readonly ScaleViewBox[] }) {
+export function InspectorTabs({ inspector, scale, snap, views }: { inspector: Omit<InspectorPanelProps, "chrome">; scale: ScaleRegion; snap: UseSnap; views: readonly ScaleViewBox[] }) {
   const [tab, setTab] = useState(SELECTION_TAB);
   return (
     <Tabs className="cx-viewer-inspector-tabs" value={tab} onValueChange={setTab}>
