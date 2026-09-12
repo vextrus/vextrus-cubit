@@ -74,3 +74,23 @@ describe("the lifecycle question is participation, and every shipped role answer
     expect(seam.participatesIn, "membership comes first: the grants are tenant-scoped rows").not.toHaveBeenCalled();
   });
 });
+
+describe("a READ door may not name MEASURE — the role table says why", () => {
+  test("four of the six shipped roles hold no MEASURE, so naming it at a read door refuses them", () => {
+    const without = ROLES.filter((role) => !permissionsOf([role]).has("MEASURE"));
+    expect([...without].sort(), "each of these participates in projects and is served by screens built over the feed").toEqual([
+      "BID_MANAGER",
+      "ESTIMATOR",
+      "LEAD",
+      "REVIEWER",
+    ]);
+  });
+
+  test("and each of them passes the question a read door does ask", async () => {
+    for (const role of ROLES.filter((candidate) => !permissionsOf([candidate]).has("MEASURE"))) {
+      seam.permissionsHeld.mockImplementation(async () => new Set(ROLE_PERMISSIONS[role]));
+      const answer = await authorize({ userId: `${role}-1`, tenantId: TENANT, projectId: PROJECT, drawingId: "0f9b1b7c-2f3a-4c2e-9d1a-2b3c4d5e6f70", participation: true });
+      expect(answer.authorized, `${role} is on the project and may see what it holds`).toBe(true);
+    }
+  });
+});

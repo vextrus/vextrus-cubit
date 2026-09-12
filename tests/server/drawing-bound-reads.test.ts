@@ -19,8 +19,9 @@ const DRAWING = "drawing-1";
 
 const spine = vi.hoisted(() => ({
   projectActorFor: vi.fn(async () => ({ tenantId: "tenant-1", userId: "user-1", actorKind: "human" })),
+  projectReaderFor: vi.fn(async () => ({ tenantId: "tenant-1", userId: "user-1", actorKind: "human" })),
 }));
-vi.mock("../../src/server/routers/spine", () => ({ projectActorFor: spine.projectActorFor }));
+vi.mock("../../src/server/routers/spine", () => ({ projectActorFor: spine.projectActorFor, projectReaderFor: spine.projectReaderFor }));
 
 const seams = vi.hoisted(() => ({
   linesCiting: vi.fn(async () => []),
@@ -48,13 +49,15 @@ const drawings = await import("../../src/app/(app)/t/[tenant]/p/[project]/drawin
 beforeEach(() => {
   vi.clearAllMocks();
   spine.projectActorFor.mockImplementation(async () => ({ tenantId: "tenant-1", userId: "user-1", actorKind: "human" }));
+  spine.projectReaderFor.mockImplementation(async () => ({ tenantId: "tenant-1", userId: "user-1", actorKind: "human" }));
   seams.session.mockImplementation(async () => ({ sessionId: "s", userId: "user-1" }));
 });
 
 describe("a door that names a drawing states it at the guard", () => {
   test("the Trace's citing read binds the sheet it is about to the project", async () => {
     await trace.readLinesCiting({ projectId: PROJECT, drawingId: DRAWING, sourceKeys: ["key-1"] });
-    expect(spine.projectActorFor, "the drawing is the fifth argument the guard binds by").toHaveBeenCalledWith("user-1", PROJECT, null, "MEASURE", DRAWING);
+    expect(spine.projectReaderFor, "a READ asks participation and binds the drawing it names").toHaveBeenCalledWith("user-1", PROJECT, DRAWING);
+    expect(spine.projectActorFor, "and names no permission: a REVIEWER reads these very lines").not.toHaveBeenCalled();
   });
 
   test("a preview of a proposed discipline binds the drawing the group key names", async () => {

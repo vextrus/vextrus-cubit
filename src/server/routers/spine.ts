@@ -101,6 +101,18 @@ export async function projectActorFor(userId: string, projectId: string, actType
 }
 
 /**
+ * The same resolution for a READ of what a project holds. L-ACT-03's permission enum is cut on what
+ * an act MOVES, so no permission in it means "may see this" — and naming MEASURE for a read locked
+ * out four of the six shipped roles (REVIEWER, LEAD, ESTIMATOR, BID_MANAGER hold none of it) from
+ * screens built for them. The clause's other question is the right one: is this person ON the
+ * project? A door that WRITES keeps naming the permission its act moves (B-17: one resolution per
+ * question, not one per door).
+ */
+export async function projectReaderFor(userId: string, projectId: string, drawingId?: string): Promise<ActorCtx> {
+  return authorizeOrThrow({ userId, projectId, participation: true, ...(drawingId === undefined ? {} : { drawingId }) });
+}
+
+/**
  * The same resolver, for the act this lane renders. It keeps its own signature because the doors
  * above call it with the one permission R-SPINE-011's act moves; every other workspace-scoped act
  * names its own permission through the resolver above (B-17: one resolution, one home).

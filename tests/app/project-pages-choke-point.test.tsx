@@ -95,3 +95,30 @@ describe("each project page reaches the choke point itself, and reads under what
     expect(seams.permissionsHeld.mock.calls[0]?.slice(1)).toEqual([PROJECT, USER]);
   });
 });
+
+describe("S-Viewer asks the choke point too, so a refusal has a surface", () => {
+  test("the page asks the same question the feed behind it asks", async () => {
+    const { default: page } = await import("../../src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/page");
+    await page({
+      params: Promise.resolve({ tenant: SEGMENT, project: PROJECT, drawing: "drawing-1", layout: "Sheet 1" }),
+      searchParams: Promise.resolve({}),
+    });
+    expect(guard.authorizePage, "a canvas whose every fetch 403s is a blank viewer, not a 'you may not'").toHaveBeenCalledWith({
+      tenant: SEGMENT,
+      project: PROJECT,
+      participation: true,
+    });
+  });
+
+  test("a stranger meets the guard's own answer, and no screen is built for them", async () => {
+    guard.authorizePage.mockImplementation(async () => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+    const { default: page } = await import("../../src/app/(app)/t/[tenant]/p/[project]/viewer/[drawing]/[layout]/page");
+    const rendered = await page({
+      params: Promise.resolve({ tenant: SEGMENT, project: PROJECT, drawing: "drawing-1", layout: "Sheet 1" }),
+      searchParams: Promise.resolve({}),
+    }).catch(() => null);
+    expect(rendered, "nothing renders for a caller the guard did not admit").toBeNull();
+  });
+});

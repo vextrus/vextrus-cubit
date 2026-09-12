@@ -14,8 +14,9 @@
 //
 // The admission is `authorize()`'s and no longer this file's (B-17, ARCH-02). It used to stop at
 // `holdsWorkspace`, which is the half-question: every member of a workspace was served every sheet
-// of every project in it, whatever they held on the project the sheet belongs to. The door names
-// the drawing's own project and the permission this feed stands on, and the guard answers.
+// of every project in it, whatever they stood in relation to the project the sheet belongs to. The
+// door names the drawing's own project and asks whether this person is ON it — a READ is what a
+// participant does, and no permission in L-ACT-03's enum is cut on seeing a sheet.
 import { z } from "zod";
 import { REFUSALS } from "@/core/errors";
 import { appStorage } from "@/core/storage/app";
@@ -28,12 +29,6 @@ import { json, routeHandler } from "@/server/call";
 
 /** A sheet is served from live state; nothing about this route may be built or cached. */
 export const dynamic = "force-dynamic";
-
-/**
- * The permission reading a project's measurements stands on (L-ACT-03's read side) — the same one
- * the Trace's two read doors name, because this feed is what those readings are taken off.
- */
-const MEASURE = "MEASURE" as const;
 
 /** The route the fault seam records this handler's failures under (ARCH-03). */
 const ROUTE = "GET /api/viewer/[drawing]/[layout]";
@@ -165,8 +160,12 @@ export const GET = routeHandler({ route: ROUTE, actor: "viewer", schema: ASKED, 
     tenantId,
     projectId: address.projectId,
     drawingId: drawing,
-    permission: MEASURE,
-    actType: null,
+    // Participation, not MEASURE. READING a sheet is what every participant does — the REVIEWER
+    // reviews the measurements taken off it, the LEAD pins sets and sets the bill boundary off these
+    // very sheets — and MEASURE is the right to CHANGE measurements, which four of the six shipped
+    // roles do not hold (REVIEWER, LEAD, ESTIMATOR, BID_MANAGER). A feed that named it served a
+    // stranger and a colleague the same 403 (L-ACT-03's role table; the adversary's F1/F2).
+    participation: true,
   });
   if (!answer.authorized) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
 

@@ -5,7 +5,9 @@
  * workspace was served every sheet of every project in it, whatever they held on the project the
  * sheet belongs to — the half-guard `authorize()` was written to replace. The door now names the
  * drawing's OWN project (read as the system, never taken from the wire), the drawing itself, and
- * the permission a reading of a project's measurements stands on.
+ * whether the caller is ON that project. NOT a permission: L-ACT-03 cuts its enum on what an act
+ * MOVES, and four of the six shipped roles hold no MEASURE — a feed that named it served a REVIEWER
+ * and a stranger the same 403 (the adversary's F1/F2).
  *
  * The door's answer set is unchanged: 401 SIGNED_OUT, 403 WORKSPACE_PERMISSION_NOT_HELD. A caller
  * still cannot tell "not yours" from "not there" (Q-12), and no new code is registered.
@@ -59,15 +61,14 @@ beforeEach(() => {
 });
 
 describe("GET /api/viewer/{drawing}/{layout} asks the one guard", () => {
-  test("the drawing's own project, the drawing and the named permission reach the guard", async () => {
+  test("the drawing's own project, the drawing and the READ's own question reach the guard", async () => {
     await ask();
     expect(guard.authorize, "the project is the drawing's own, read as the system — never a segment the caller wrote").toHaveBeenCalledWith({
       userId: "user-1",
       tenantId: TENANT,
       projectId: PROJECT,
       drawingId: DRAWING,
-      permission: "MEASURE",
-      actType: null,
+      participation: true,
     });
   });
 
@@ -83,6 +84,19 @@ describe("GET /api/viewer/{drawing}/{layout} asks the one guard", () => {
     const response = await ask(`part=head&tenant=${PROJECT}`);
     expect(response.status).toBe(403);
     expect(guard.authorize, "a workspace the caller wrote is judged before anybody is asked about it").not.toHaveBeenCalled();
+  });
+
+  test("a REVIEWER of the drawing's own project is served the head and every layer", async () => {
+    // The guard answers for the caller it was asked about; what this door must not do is ask a
+    // question a REVIEWER cannot pass. The head and a layer are both asked for, because the feed
+    // authorizes once per request and a screen makes many.
+    for (const query of ["part=head", "part=layer&index=0", "part=layer&index=7"]) {
+      const response = await ask(query);
+      expect(response.status, `a REVIEWER reviews the measurements taken off this sheet (${query})`).not.toBe(403);
+    }
+    for (const call of guard.authorize.mock.calls) {
+      expect(call[0], "no permission is named at a read door").not.toHaveProperty("permission");
+    }
   });
 
   test("no session is no admission, before any workspace question is asked", async () => {

@@ -18,10 +18,11 @@ import { z } from "zod";
 import type { RefusalCode } from "@/core/errors";
 import { lineEvidence, linesCiting, type LineEvidence } from "@/modules/takeoff/trace";
 import { serverCall } from "@/server/call";
-import { projectActorFor } from "@/server/routers/spine";
+import { projectReaderFor } from "@/server/routers/spine";
 
-/** The permission reading a project's measurements stands on (L-ACT-03's read side). */
-const MEASURE = "MEASURE" as const;
+// Both doors here READ. L-ACT-03 cuts its permissions on what an act moves and none of them is cut
+// on seeing a project's measurements, so what a reader must be is a participant — `projectReaderFor`
+// asks that one question (a REVIEWER reviewing these very lines holds no MEASURE).
 
 /** Which line is being traced, in which project. */
 export interface LineEvidenceRequest {
@@ -50,7 +51,7 @@ const CITING: z.ZodType<LinesCitingRequest> = z.object({ projectId: z.string(), 
 const evidence = serverCall(
   EVIDENCE,
   async (request, session): Promise<EvidenceAnswer> => {
-    const actor = await projectActorFor(session.userId, request.projectId, null, MEASURE);
+    const actor = await projectReaderFor(session.userId, request.projectId);
     return { read: true, evidence: await lineEvidence({ tenantId: actor.tenantId, projectId: request.projectId }, request.lineId) };
   },
   (refusal): EvidenceAnswer => ({ read: false, refusal }),
@@ -63,7 +64,7 @@ const citing = serverCall(
     // the guard rather than merely scoped to the workspace: the row policy is a tenant boundary, and
     // every project of one workspace reads under it, so a drawing id from one project's screen
     // reached a sibling project's sheet and the policy handed it over (R-SPINE-004).
-    const actor = await projectActorFor(session.userId, request.projectId, null, MEASURE, request.drawingId);
+    const actor = await projectReaderFor(session.userId, request.projectId, request.drawingId);
     const lines = await linesCiting({ tenantId: actor.tenantId, projectId: request.projectId }, { drawingId: request.drawingId, sourceKeys: request.sourceKeys });
     return { read: true, lines };
   },
