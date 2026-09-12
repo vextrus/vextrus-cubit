@@ -12,13 +12,12 @@ import { commit, consequenceDigest, preview, type ConfirmDisciplineInput, type C
 import { REFUSALS, type RefusalCode } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { isDiscipline } from "@/core/sheets";
-import { workspaceOfProject } from "@/modules/spine/uploads";
 import { requestIngest } from "@/modules/takeoff/ingest";
 import { requestThumbnails } from "@/modules/takeoff/thumbnails";
+import { authorize } from "@/server/authorize";
 import { projectActorFor } from "@/server/routers/spine";
 import { sessionOf } from "@/server/shell/resolve";
 import { presentedSessionToken } from "@/server/shell/session";
-import { holdsWorkspace } from "@/server/shell/workspace";
 import { drawingsRoute } from "./route-address";
 
 /** The act this screen renders, and the permission L-ACT-03 makes it move. */
@@ -89,7 +88,7 @@ export async function requestSheetsFor(request: { projectId: string; drawingIds:
  * `deduplicated: true`, and the screen asks only to learn the job id its timeline follows (I-88).
  */
 export async function requestThumbnailsFor(request: { projectId: string; drawingId: string }): Promise<RequestedJob> {
-  const held = await workspaceFor(request.projectId);
+  const held = await workspaceFor(request.projectId, request.drawingId);
   if ("refusal" in held) return { jobId: null, deduplicated: false, refusal: held.refusal };
   const answer = await requestThumbnails({ tenantId: held.tenantId, drawingId: request.drawingId, requestedBy: held.userId });
   return {
@@ -130,13 +129,29 @@ export async function commitConfirmDiscipline(request: ConfirmRequest & { conseq
  * The workspace a project belongs to and the account asking, or the registered code that says why
  * neither stands. It is never taken from the caller: a tenant id on a form field is a value the
  * caller wrote.
+ *
+ * The question is the guard's and no longer this file's (B-17, ARCH-02). It used to stop at
+ * `holdsWorkspace`, which is the half-question: any member of the workspace could set a sibling
+ * project's drawings to be read and drawn, whatever they held on that project. Reading a drawing is
+ * what a person does before they may measure it (L-REG-03's reason for CONFIRM_DISCIPLINE moving
+ * MEASURE), so MEASURE is what these two machine requests name — the same permission the two act
+ * doors below already name through `projectActorFor`.
  */
-async function workspaceFor(projectId: string): Promise<{ tenantId: string; userId: string } | { refusal: RefusalCode }> {
+async function workspaceFor(projectId: string, drawingId?: string): Promise<{ tenantId: string; userId: string } | { refusal: RefusalCode }> {
   const session = await sessionOf(await presentedSessionToken());
   if (session === null) return { refusal: REFUSALS.SIGNED_OUT.code };
-  const tenantId = await workspaceOfProject(projectId);
-  if (tenantId === null || !(await holdsWorkspace(session.userId, tenantId))) return { refusal: REFUSALS.WORKSPACE_PERMISSION_NOT_HELD.code };
-  return { tenantId, userId: session.userId };
+  const answer = await authorize({
+    userId: session.userId,
+    projectId,
+    permission: MEASURE,
+    actType: null,
+    // A drawing a door NAMES is bound to the project that named it, never merely to the workspace:
+    // the row policy is a tenant boundary and cannot tell one project's sheet from its sibling's
+    // (R-SPINE-004).
+    ...(drawingId === undefined ? {} : { drawingId }),
+  });
+  if (!answer.authorized) return { refusal: answer.refusal };
+  return { tenantId: answer.tenantId, userId: answer.userId };
 }
 
 /**
