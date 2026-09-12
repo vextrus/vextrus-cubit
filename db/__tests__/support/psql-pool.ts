@@ -388,12 +388,139 @@ function noteFallback(result: SqlResult, why: string): SqlResult {
   return { ...result, stderr: `${result.stderr}\n[psql-pool] ${why}; this script was run in a fresh psql process instead.\n` };
 }
 
+
+/** What the pool needs to know about a script before it dares put it on a shared process. */
+type Reading = { meta: string | null; open: string | null; copyFromStdin: boolean };
+
+/** Does a COPY in this script read its data from the same stream the script arrived on? */
+const COPY_FROM_STDIN = /\bcopy\b[^;]*\bfrom\s+stdin/i;
+
+/** The tag a dollar-quoted body opens with. */
+const DOLLAR_TAG = /^\$([A-Za-z_\u0080-\uffff][A-Za-z0-9_\u0080-\uffff]*)?\$/;
+
+/**
+ * Read the script the way psql's own lexer will: strings, quoted identifiers, line and block
+ * comments and dollar-quoted bodies stepped over, so what is left is the SQL itself.
+ *
+ * Two findings send a script to a fresh process instead of the pool, and one is a fault of this
+ * module—s own making:
+ *
+ *  — A META-COMMAND. `rollback; discard all;` resets the SERVER session and NOTHING of psql—s own:
+ *    `\\connect` moves the process to another database and every later script runs there;
+ *    `\\o` sends every later script—s rows to a file, so `count()` reads nothing and calls it green;
+ *    `\\pset`, `\\f`, `\\a`, `\\t`, `\\timing` re-cut the output this module parses by column;
+ *    `\\set` and `\\gset` leave variables the next script can read where a fresh psql refuses;
+ *    `\\!` hands the script a shell inside the pool—s own process tree.
+ *    All of them were green and wrong (v22 R3 adversary A1a—A1f). The pool—s preamble is now the only
+ *    backslash text a pooled process is ever fed.
+ *  — A COPY THAT READS STDIN. The fifo carries the scripts; a `copy ... from stdin` with no `\\.`
+ *    eats the pool—s own markers as data and commits them as rows (adversary B3).
+ *  — A CONSTRUCT LEFT OPEN at the end of the script — an unclosed `/*`, quote or dollar-body —
+ *    swallows the marker and the script cannot be told it has finished; a fresh process meets EOF
+ *    and refuses at once (adversary B1/B2).
+ *
+ * The meta-command reading is deliberately conservative: a backslash that opens a LINE is read as a
+ * meta-command, which is what psql does, and a line inside a string or a body is stepped over first.
+ * A script this misreads costs one fresh process (25 ms) and gets the same answer either way — the
+ * error this cannot afford is the other one.
+ */
+export function readScript(script: string): Reading {
+  let index = 0;
+  let atLineStart = true;
+  let plain = "";
+  while (index < script.length) {
+    const here = script[index] ?? "";
+    const next = script[index + 1] ?? "";
+    if (here === "\n") {
+      plain += "\n";
+      atLineStart = true;
+      index += 1;
+      continue;
+    }
+    if (atLineStart && (here === " " || here === "\t" || here === "\r")) {
+      plain += here;
+      index += 1;
+      continue;
+    }
+    if (atLineStart && here === "\\") {
+      const ends = script.indexOf("\n", index);
+      const line = script.slice(index, ends < 0 ? script.length : ends).trim();
+      return { meta: line.split(/\s/)[0] ?? "\\", open: null, copyFromStdin: false };
+    }
+    atLineStart = false;
+    if (here === "-" && next === "-") {
+      const ends = script.indexOf("\n", index);
+      index = ends < 0 ? script.length : ends;
+      continue;
+    }
+    if (here === "/" && next === "*") {
+      let depth = 1;
+      index += 2;
+      while (index < script.length && depth > 0) {
+        if (script[index] === "/" && script[index + 1] === "*") {
+          depth += 1;
+          index += 2;
+        } else if (script[index] === "*" && script[index + 1] === "/") {
+          depth -= 1;
+          index += 2;
+        } else index += 1;
+      }
+      if (depth > 0) return { meta: null, open: "a block comment", copyFromStdin: false };
+      plain += " ";
+      continue;
+    }
+    if (here === "'" || here === '"') {
+      // A string written E'...' takes backslash escapes; every other quoted run only doubles.
+      const before = script[index - 1] ?? "";
+      const beforeThat = script[index - 2] ?? "";
+      const escapes = here === "'" && (before === "e" || before === "E") && !/[A-Za-z0-9_]/.test(beforeThat);
+      index += 1;
+      for (;;) {
+        if (index >= script.length) return { meta: null, open: here === "'" ? "a quoted string" : "a quoted identifier", copyFromStdin: false };
+        const at = script[index];
+        if (escapes && at === "\\") {
+          index += 2;
+          continue;
+        }
+        if (at === here) {
+          if (script[index + 1] === here) {
+            index += 2;
+            continue;
+          }
+          index += 1;
+          break;
+        }
+        index += 1;
+      }
+      plain += " ";
+      continue;
+    }
+    if (here === "$") {
+      const tag = DOLLAR_TAG.exec(script.slice(index))?.[0];
+      if (tag !== undefined) {
+        const closes = script.indexOf(tag, index + tag.length);
+        if (closes < 0) return { meta: null, open: "a dollar-quoted body", copyFromStdin: false };
+        index = closes + tag.length;
+        plain += " ";
+        continue;
+      }
+    }
+    plain += here;
+    index += 1;
+  }
+  return { meta: null, open: null, copyFromStdin: COPY_FROM_STDIN.test(plain) };
+}
+
 /**
  * Run one script through the process this connection string already has — starting one if it has
  * none — and answer exactly what a fresh psql would have answered.
  */
 export function pooledPsql(url: string, script: string): SqlResult {
   if (!pooling()) return spawnPsql(url, script);
+  // A script the pool cannot keep to itself gets the process the whole lane used to get: a fresh
+  // psql, fed on stdin, ended by EOF. The answer is the same one; only the 25 ms is different.
+  const reading = readScript(script);
+  if (reading.meta !== null || reading.copyFromStdin || reading.open !== null) return spawnPsql(url, script);
   bindExit();
 
   let session = sessions.get(url);

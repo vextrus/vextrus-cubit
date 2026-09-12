@@ -65,6 +65,38 @@ describe("the pooled psql answers what a fresh process answered", () => {
     expect(pooledPsql(url(), "select 'still here';").rows).toEqual([["still here"]]);
   });
 
+  it("gives a script carrying a meta-command the fresh process it used to get", () => {
+    // `rollback; discard all;` resets the server session and nothing of psql's own, so a script that
+    // speaks to the CLIENT is never put on a shared process (v22 R3 adversary A1a-A1f).
+    pooledPsql(url(), "select 1;");
+    const before = psqlPoolStats();
+    const answered = pooledPsql(url(), ["\\set answer 42", "select :answer;"].join("\n"));
+    expect(answered.rows).toEqual([["42"]]);
+    expect(psqlPoolStats().scripts, "a script carrying a meta-command was put on the pooled process").toBe(before.scripts);
+    // And the variable it set is nowhere: the next pooled script is a psql that never saw it, which
+    // is what a fresh process per script always gave.
+    const after = pooledPsql(url(), "select :answer;");
+    const spawned = spawnPsql(url(), "select :answer;");
+    expect({ ok: after.ok, rows: after.rows }, "a psql variable set by one script answered for the next").toEqual({ ok: spawned.ok, rows: spawned.rows });
+    expect(after.ok, "an unset psql variable is a refusal in a fresh process").toBe(false);
+  });
+
+  it("gives a COPY that reads stdin the fresh process too, so the markers are never its data", () => {
+    pooledPsql(url(), "drop table if exists copied; create table copied (x text);");
+    const copied = pooledPsql(url(), "copy copied from stdin;\nalpha\nbeta\n\\.");
+    expect(copied.ok, copied.stderr).toBe(true);
+    expect(pooledPsql(url(), "select x from copied order by x;").rows, "the pool's own scaffolding was committed as data").toEqual([["alpha"], ["beta"]]);
+  });
+
+  it("refuses a construct left open as fast as a fresh process does", () => {
+    for (const script of ["select 1 /* never closed", "select 'never closed", "do $$ begin perform 1;"]) {
+      const at = Date.now();
+      const answered = pooledPsql(url(), script);
+      expect(answered.ok, `a fresh psql refuses this at once:\n${script}`).toBe(false);
+      expect(Date.now() - at, `the pool waited on a script that can never end:\n${script}`).toBeLessThan(30_000);
+    }
+  }, 200_000);
+
   it("carries psql's own meta-commands, backslashes and dollar-quoted bodies", () => {
     const script = [
       "\\set answer 42",
