@@ -16,6 +16,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { SNAPSHOT_PATH_TEMPLATE, baselinePath } from "../../e2e/support/capture-geometry";
 import { REPO_ROOT, sourceOf } from "./support/decision";
 
 const AUDIT_SPEC = "tests/e2e/audit.spec.ts";
@@ -24,14 +25,15 @@ const CHECKPOINT_HELPER = "tests/e2e/support/checkpoint.ts";
 const PLAYWRIGHT_CONFIG = "playwright.config.ts";
 const TAGS_BREAKER = "tests/journeys/e2e-journey-tags-breaker.test.ts";
 const BIBLE = "docs/specs/cubit.bible.xml";
-const BASELINE = "tests/e2e/baselines/design/s-audit/explorer.png";
+/** The checkpoint the Increment Spec names, as path segments so `{arg}` carries the directory. */
+const CHECKPOINT_SEGMENTS = ["s-audit", "explorer.png"] as const;
+
+/** Where that picture lives — asked of the lane's one declaration, never respelled here (Q-06). */
+const BASELINE = baselinePath("light", ...CHECKPOINT_SEGMENTS);
 
 /** The journey this increment opens S-Audit on, and the one whose collection must not change. */
 const OWN_JOURNEY = "J-003";
 const UNCHANGED_JOURNEY = "J-000";
-
-/** The checkpoint the Increment Spec names, as path segments so `{arg}` carries the directory. */
-const CHECKPOINT_SEGMENTS = ["s-audit", "explorer.png"] as const;
 
 /** A `test(...)` or `test.describe(...)` title, as a spec file spells it. */
 const TITLE = /\btest(?:\.describe)?(?:\.\w+)*\s*\(\s*(["'`])((?:\\.|(?!\1).)*)\1/g;
@@ -102,9 +104,13 @@ describe("AC-4 — the checkpoint stands: axe and a committed Linux baseline", (
   });
 
   test("AC-4: the baseline sits where snapshotPathTemplate resolves it", () => {
-    const template = /snapshotPathTemplate\s*:\s*["']([^"']+)["']/.exec(sourceOf(PLAYWRIGHT_CONFIG))?.[1] ?? "";
-    expect(template, `${PLAYWRIGHT_CONFIG} must declare snapshotPathTemplate — it is where a journey's baseline lives`).not.toBe("");
-    const resolved = template.replace("{arg}", CHECKPOINT_SEGMENTS.join("/").replace(/\.png$/, "")).replace("{ext}", ".png");
+    // The config binds the key to the lane's one declaration (`tests/e2e/support/capture-geometry.ts`),
+    // so the template is read from there — and resolved HERE, by hand, rather than through
+    // `baselinePath()`, because a second reading of the template is the whole point of this test.
+    expect(sourceOf(PLAYWRIGHT_CONFIG), `${PLAYWRIGHT_CONFIG} must state snapshotPathTemplate — it is where a journey's baseline lives`).toContain("snapshotPathTemplate");
+    const resolved = SNAPSHOT_PATH_TEMPLATE.replace("{projectName}", "light")
+      .replace("{arg}", CHECKPOINT_SEGMENTS.join("/").replace(/\.png$/, ""))
+      .replace("{ext}", ".png");
     expect(resolved, `the committed baseline must be the file the template resolves the checkpoint to`).toBe(BASELINE);
   });
 });

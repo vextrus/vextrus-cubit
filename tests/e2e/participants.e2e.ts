@@ -25,7 +25,7 @@
  * and nothing here asks the crumb to name the project or the screen.
  *
  * SCOPE OF THE VISUAL SUB-CLAUSE (AC-6, B-20). AC-6 also asks that the open dialog match the
- * committed baseline `tests/e2e/baselines/design/consequence-dialog-open.png`. The pixel comparison
+ * committed baseline `consequence-dialog-open.png` (in the lane's own directory). The pixel comparison
  * belongs where the Design Decision § 7 puts it — the increment's own
  * `tests/e2e/journeys/j-003-projects.spec.ts`, at the crop (`dialog-content`), masks and tolerance
  * that Decision fixes. This spec does not restate that comparison: two specs comparing two
@@ -43,6 +43,7 @@ import { REFUSALS } from "../../src/core/errors";
 import { SAuthPage, S_AUTH } from "./pages/s-auth.page";
 import { ShellPage, SHELL, SHELL_AREAS } from "./pages/shell.page";
 import { SHomePage } from "./pages/s-home.page";
+import { baselinePath, laneProject } from "./support/capture-geometry";
 import { checkpoint } from "./support/checkpoint";
 import { newestMail } from "./support/outbox";
 import { everyRow, steadyCount, steadyText } from "./support/retrying-read";
@@ -84,8 +85,13 @@ const LAST_PRINCIPAL = "PROJECT_WOULD_HAVE_NO_PRINCIPAL";
 /** The submit's label, verbatim from the Design Decision § 3 (`spine_participants_assign_submit`). */
 const SUBMIT_LABEL = "Preview this change";
 
-/** The baseline AC-6 names, and the eight bytes every PNG opens with. */
-const BASELINE = join("tests", "e2e", "baselines", "design", "consequence-dialog-open.png");
+/**
+ * The baseline AC-6 names, and the eight bytes every PNG opens with. WHERE it lives is
+ * `snapshotPathTemplate`'s one fact and this spec does not respell it (Q-06): `baselinePath()`
+ * answers for the lane this run walks, so the proof moved with the directory when the v22 U2 lease
+ * moved it and will move with the next one (B-19).
+ */
+const BASELINE_NAME = "consequence-dialog-open.png";
 const PNG_MAGIC = "89504e470d0a1a0a";
 
 const route = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/settings/participants`;
@@ -257,11 +263,12 @@ test.describe("J-003 — participants: the roles a project holds, moved by act",
 
     // The visual half, scoped to what a second spec may own (see the header): the baseline AC-6
     // names was committed by this increment, and is a real capture.
-    const baselineAt = join(process.cwd(), BASELINE);
-    expect(existsSync(baselineAt), `${BASELINE} is committed — the open dialog's baseline AC-6 names (B-20; generate it with \`pnpm e2e --journey J-003 --update-snapshots=missing\`)`).toBe(true);
+    const baseline = baselinePath(laneProject(testInfo.project.name), BASELINE_NAME);
+    const baselineAt = join(process.cwd(), baseline);
+    expect(existsSync(baselineAt), `${baseline} is committed — the open dialog's baseline AC-6 names (B-20; generate it with \`pnpm e2e --journey J-003 --update-snapshots=missing\`)`).toBe(true);
     const bytes = readFileSync(baselineAt);
-    expect(bytes.subarray(0, 8).toString("hex"), `${BASELINE} is a PNG`).toBe(PNG_MAGIC);
-    expect(bytes.byteLength, `${BASELINE} holds a capture, not an empty file`).toBeGreaterThan(1024);
+    expect(bytes.subarray(0, 8).toString("hex"), `${baseline} is a PNG`).toBe(PNG_MAGIC);
+    expect(bytes.byteLength, `${baseline} holds a capture, not an empty file`).toBeGreaterThan(1024);
 
     await page.getByTestId(ID.confirm).click();
     await expect(dialog, "a committed act closes the dialog (Decision I-49)").toHaveCount(0);

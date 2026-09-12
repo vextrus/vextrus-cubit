@@ -17,6 +17,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { SNAPSHOT_PATH_TEMPLATE, baselinePath } from "../../tests/e2e/support/capture-geometry";
 import { TESTIDS as ID_REGISTRY } from "../../src/ui/testids";
 import { resolveTestIdRefs } from "../support/source-lex";
 import { stripComments } from "../ui/s-design/support/gallery-contract";
@@ -34,8 +35,15 @@ const CONFIG = "playwright.config.ts";
 // property this suite actually holds (Q-06). The light lane's pictures move from `design/` to
 // `design-light/`; every one of them was deleted and re-taken under the lease, so nothing in the
 // tree is a picture of the world before it.
-const BASELINES = ["tests/e2e/baselines/design-light/gallery-shell-light.png", "tests/e2e/baselines/design-light/gallery-shell-dark.png"];
+//
+// AMENDED AGAIN by cubit-u2c: the template itself moved to `tests/e2e/support/capture-geometry.ts`,
+// which is now the ONE place the fact is declared — the config binds the key to it and every B-20
+// proof in the tree asks `baselinePath()` for a picture instead of respelling the directory. So this
+// suite holds the same property from the other side: the constant says what §9.3's lease settled,
+// and the config states the key exactly once and states it by NAME rather than by a second literal.
 const SNAPSHOT_TEMPLATE = "tests/e2e/baselines/design-{projectName}/{arg}{ext}";
+const TEMPLATE_HOME = "tests/e2e/support/capture-geometry.ts";
+const BASELINES = [baselinePath("light", "gallery-shell-light.png"), baselinePath("light", "gallery-shell-dark.png")];
 
 /**
  * The tag the gate's other invocation greps for. Which FILES carry it is J-000's own surface to
@@ -518,7 +526,15 @@ describe("AC-4 — the shell captures are routed, committed, and actually differ
   test("AC-4: playwright.config.ts gains snapshotPathTemplate and nothing else doubles", () => {
     const configCode = readCode(CONFIG);
     expect(occurrences(configCode, "snapshotPathTemplate"), "exactly one snapshotPathTemplate key").toBe(1);
-    expect(stringProperty(configCode, "snapshotPathTemplate"), "the template routes captures under tests/e2e/baselines, platform-suffix-free").toBe(SNAPSHOT_TEMPLATE);
+    expect(SNAPSHOT_PATH_TEMPLATE, `the template routes captures under tests/e2e/baselines, platform-suffix-free, and is declared in ${TEMPLATE_HOME}`).toBe(SNAPSHOT_TEMPLATE);
+    expect(
+      stringProperty(configCode, "snapshotPathTemplate"),
+      `the config states no template literal of its own: a second spelling of where a baseline lives is the drift this contract exists to catch (Q-06), so the key is bound to ${TEMPLATE_HOME}'s constant by name`,
+    ).toBeNull();
+    expect(
+      /\bsnapshotPathTemplate\s*:\s*SNAPSHOT_PATH_TEMPLATE\b/.test(configCode),
+      `the config binds snapshotPathTemplate to the constant exported by ${TEMPLATE_HOME}`,
+    ).toBe(true);
     expect(
       occurrences(configCode, "webServer"),
       "exactly one webServer key — a merge has left this config with two before, and the later one silently wins",

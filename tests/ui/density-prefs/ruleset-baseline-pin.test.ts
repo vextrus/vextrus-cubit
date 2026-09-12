@@ -1,5 +1,5 @@
 /**
- * The re-baseline proof for tests/e2e/baselines/design/j-003/ruleset-pin-visible.png (B-20).
+ * The re-baseline proof for the j-003/ruleset-pin-visible.png design baseline (B-20).
  *
  * The arbitration on tests/e2e/journeys/j-003-projects.spec.ts:122 amended that checkpoint to carry
  * V-E2E's per-journey masks, and a mask paints over the capture only — the committed baseline had to
@@ -21,10 +21,13 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "vitest";
+import { baselinePath } from "../../e2e/support/capture-geometry";
 
 /** The image as it stood at 5acee6a, the commit this branch was cut from. */
 const BEFORE_SHA256 = "fc67f01abb56170aa64fc032786c030cc3e46554aa5bf8e9af7c74aa00502dee";
-const BASELINE = join("tests", "e2e", "baselines", "design", "j-003", "ruleset-pin-visible.png");
+// WHERE that picture lives is `snapshotPathTemplate`'s one fact (Q-06): asked for, never respelled,
+// so this proof followed the directory when the v22 U2 lease gave each lane its own.
+const BASELINE = baselinePath("light", "j-003", "ruleset-pin-visible.png");
 
 test("J-003's ruleset-pin baseline was regenerated for the masked checkpoint — its bytes changed (B-20)", () => {
   const bytes = readFileSync(join(process.cwd(), BASELINE));

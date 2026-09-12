@@ -19,12 +19,16 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { SNAPSHOT_PATH_TEMPLATE, baselineDir } from "../../e2e/support/capture-geometry";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 
 const SHELL_SPEC = "tests/e2e/shell.spec.ts";
 const PLAYWRIGHT_CONFIG = "playwright.config.ts";
-const BASELINE_DIR = "tests/e2e/baselines/design";
+// WHERE the committed pictures live is `snapshotPathTemplate`'s one fact (Q-06) and this suite asks
+// for it rather than spelling it: the v22 U2 lease moved `design/` to one directory per lane and
+// every spelling of the old name went on naming a directory that no longer existed.
+const BASELINE_DIR = baselineDir("light");
 const CHECKPOINT_HELPER = "tests/e2e/support/checkpoint.ts";
 const E2E_DIR = "tests/e2e";
 
@@ -164,8 +168,12 @@ describe("AC-5: the shell journey is collected by the gate line that runs it", (
 describe("AC-5: the shell's visual baselines are committed and compared as V-E2E requires", () => {
   test("AC-5: playwright.config.ts routes screenshots to tests/e2e/baselines", () => {
     const config = code(PLAYWRIGHT_CONFIG);
-    const template = /snapshotPathTemplate\s*:\s*(["'`])((?:\\.|(?!\1).)*)\1/.exec(config)?.[2] ?? "";
-    expect(template.length, "playwright.config.ts must add a snapshotPathTemplate — it is what makes toHaveScreenshot resolve under tests/e2e/baselines/ (interfaces)").toBeGreaterThan(0);
+    // The template is DECLARED in tests/e2e/support/capture-geometry.ts and the config binds the key
+    // to it by name — one home for where a baseline lives (Q-06). Both halves are asserted: the
+    // config states the key, and the declaration routes it where V-E2E's interfaces say.
+    const template = SNAPSHOT_PATH_TEMPLATE;
+    expect(/\bsnapshotPathTemplate\s*:/.test(config), "playwright.config.ts must set a snapshotPathTemplate — it is what makes toHaveScreenshot resolve under tests/e2e/baselines/ (interfaces)").toBe(true);
+    expect(template.length, "the lane declares a snapshotPathTemplate").toBeGreaterThan(0);
     expect(template.includes("baselines"), `the template must route baselines under tests/e2e/baselines/ — it reads ${JSON.stringify(template)}`).toBe(true);
   });
 

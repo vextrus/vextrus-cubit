@@ -18,9 +18,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { baselineDir } from "../../e2e/support/capture-geometry";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const BASELINES = join(REPO_ROOT, "tests", "e2e", "baselines", "design");
+/** Where the committed pictures live — the lane's one declaration, never respelled here (Q-06). */
+const BASELINE_DIR = baselineDir("light");
+const BASELINES = join(REPO_ROOT, BASELINE_DIR);
 
 /**
  * The pictures the trigger's arrival actually MOVES, with the bytes each held before it arrived.
@@ -64,19 +67,19 @@ const OWED_BY_J021 = ["palette/open-light.png", "palette/open-dark.png", "palett
 
 describe("AC-6 — every frame picture the trigger shifts is regenerated (B-20)", () => {
   for (const [name, wasSha256] of Object.entries(BEFORE)) {
-    test(`AC-6: tests/e2e/baselines/design/${name} was regenerated for the trigger's arrival`, () => {
+    test(`AC-6: ${BASELINE_DIR}/${name} was regenerated for the trigger's arrival`, () => {
       const file = join(BASELINES, name);
       expect(existsSync(file), `${name} is one of the committed design baselines`).toBe(true);
       expect(
         createHash("sha256").update(readFileSync(file)).digest("hex"),
-        `tests/e2e/baselines/design/${name} is byte-for-byte what it was before this increment. The CommandPaletteTrigger joins the top bar (I-135), so this picture shows a bar that no longer exists and must be regenerated in its own \`baseline:\` commit naming the run (B-20) — \`--update-snapshots=missing\` alone cannot re-bless a changed baseline. Whether the new bytes picture the standing screen is judged by the journeys that compare against them.`,
+        `${BASELINE_DIR}/${name} is byte-for-byte what it was before this increment. The CommandPaletteTrigger joins the top bar (I-135), so this picture shows a bar that no longer exists and must be regenerated in its own \`baseline:\` commit naming the run (B-20) — \`--update-snapshots=missing\` alone cannot re-bless a changed baseline. Whether the new bytes picture the standing screen is judged by the journeys that compare against them.`,
       ).not.toBe(wasSha256);
     });
   }
 
   test("AC-6: J-021's own baselines are committed beside the journey that takes them", () => {
     for (const name of OWED_BY_J021) {
-      expect(existsSync(join(BASELINES, name)), `tests/e2e/baselines/design/${name} is the picture the j-021 checkpoint compares against (Decision §7)`).toBe(true);
+      expect(existsSync(join(BASELINES, name)), `${BASELINE_DIR}/${name} is the picture the j-021 checkpoint compares against (Decision §7)`).toBe(true);
     }
   });
 });

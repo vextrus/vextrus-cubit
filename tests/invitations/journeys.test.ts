@@ -12,7 +12,7 @@
  * run mint it instead of comparing against it.
  *
  * A checkpoint NAME is the name its baseline lands under — a file name under
- * `tests/e2e/baselines/design/<journey>/`. It is NOT a route: "invite-pending", "accept",
+ * the lane's own baseline directory, under `<journey>/`. It is NOT a route: "invite-pending", "accept",
  * "switched", "panel" and "remove-refused" name shots, and no assertion in this file (or in the
  * journeys it grades) navigates to or asserts a path spelled from one. What each checkpoint must
  * have graded by the time its shutter falls is a state of one of the FOUR routes this increment
@@ -31,6 +31,7 @@
  */
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { describe, expect, test } from "vitest";
+import { baselinePath } from "../e2e/support/capture-geometry";
 import {
   TESTIDS,
   balancedSpanAt,
@@ -315,13 +316,15 @@ function gradedBy(segment: Segment, token: string, inSpec = false): Grading[] {
   return [];
 }
 
-/** Where a shot lands, as the shipped config states it — read, never assumed. */
-function baselinePath(directory: string, checkpoint: string): string {
-  const config = readFileSync(inRepo("playwright.config.ts"), "utf8");
-  const template = /snapshotPathTemplate:\s*["']([^"']+)["']/.exec(config)?.[1];
-  expect(template, "the shipped playwright config states where a baseline lands").toBeDefined();
-  return (template ?? "").replace("{arg}", `${directory}/${checkpoint}`).replace("{ext}", ".png");
-}
+/**
+ * Where a shot lands, as the lane declares it — asked for, never assumed and never respelled (Q-06).
+ * The declaration used to be a string literal in `playwright.config.ts` and this function read it
+ * out with a regex; it now lives in `tests/e2e/support/capture-geometry.ts`, the config binds the
+ * key to it by name, and `baselinePath()` is that one declaration resolved. The `{projectName}` the
+ * v22 U2 lease added is why reading it by regex could no longer work: a template that carries three
+ * placeholders and a reader that substitutes two answers a path no picture has ever been written to.
+ */
+const shotAt = (directory: string, checkpoint: string): string => baselinePath("light", directory, checkpoint);
 
 describe("AC-4: the journeys are collected, checkpointed and baselined", () => {
   for (const journey of JOURNEYS) {
@@ -415,7 +418,7 @@ describe("AC-4: the journeys are collected, checkpointed and baselined", () => {
 
     test(`AC-4: ${journey.id}'s baselines are committed where the shipped template puts them`, () => {
       for (const { name: checkpoint } of journey.checkpoints) {
-        const path = baselinePath(journey.shots, checkpoint);
+        const path = shotAt(journey.shots, checkpoint);
         const absolute = inRepo(path);
         expect(existsSync(absolute), `${path} is committed — this node mints both journeys' baselines (B-20), and an absent one is minted by the next run instead of compared against`).toBe(true);
         expect(statSync(absolute).size, `${path} is a real screenshot, not an empty placeholder`).toBeGreaterThan(1000);

@@ -13,6 +13,7 @@ import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
 import { ShellPage, SHELL } from "../pages/shell.page";
 import { SHomePage, S_HOME } from "../pages/s-home.page";
 import { SParticipantsPage } from "../pages/s-participants.page";
+import { baselinePath, laneProject } from "../support/capture-geometry";
 import { checkpoint } from "../support/checkpoint";
 import { newestMail } from "../support/outbox";
 import { appears, steadyText } from "../support/retrying-read";
@@ -163,12 +164,16 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
       "shell-tenant-switcher-open.png": "ce0b99ee98c8cad7a93cf3b3ceb7b72efc90617dd4d00c1cdc5391a3fb4f558c",
       "shell-user-menu-open.png": "65dc9837a80bb015a44b9ca0b10e0477ae9c972337bd437d12146051152edfc9",
     };
-    const baselines = join(process.cwd(), "tests", "e2e", "baselines", "design");
+    // WHERE the picture lives is `snapshotPathTemplate`'s fact and this spec does not restate it
+    // (Q-06): `baselinePath()` answers for the lane this run is walking, so the proof follows the
+    // directory when it moves — as it did under the v22 U2 lease, which broke every spelling of it.
+    const lane = laneProject(test.info().project.name);
     for (const [name, wasSha256] of Object.entries(before)) {
-      const now = createHash("sha256").update(readFileSync(join(baselines, name))).digest("hex");
+      const baseline = baselinePath(lane, name);
+      const now = createHash("sha256").update(readFileSync(join(process.cwd(), baseline))).digest("hex");
       expect(
         now,
-        `tests/e2e/baselines/design/${name} is byte-for-byte what it was before this increment. AC-3 adds the create door to the screen it pictures, so the baseline must be regenerated (B-20) with the journey lane scoped to the shell spec — \`--update-snapshots=missing\` alone cannot re-bless a changed baseline. Whether the new bytes picture the standing screen is judged by the comparison test below, not here.`,
+        `${baseline} is byte-for-byte what it was before this increment. AC-3 adds the create door to the screen it pictures, so the baseline must be regenerated (B-20) with the journey lane scoped to the shell spec — \`--update-snapshots=missing\` alone cannot re-bless a changed baseline. Whether the new bytes picture the standing screen is judged by the comparison test below, not here.`,
       ).not.toBe(wasSha256);
     }
   });
@@ -280,7 +285,8 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
 
   /**
    * AC-6's visual sub-clause, where the consequence-dialog Decision § 7 puts it: the open dialog is
-   * compared against the committed baseline `tests/e2e/baselines/design/consequence-dialog-open.png`
+   * compared against the committed baseline `consequence-dialog-open.png` (`baselinePath()` says
+   * which directory that is — the lane's, not a name this file spells)
    * — the primitive's own card as the crop, the two per-run texts masked, animations disabled, at
    * V-E2E's tolerance. The behavioural walk of the same flow is `tests/e2e/participants.e2e.ts`; two
    * specs comparing two crops on two identities against one file would be a flake, so the pixels are

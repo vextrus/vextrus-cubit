@@ -109,3 +109,55 @@ export function journeyUse(switches: LaneSwitches): PlaywrightTestConfig["use"] 
     ...captureGeometry(switches.picture),
   };
 }
+
+/* ------------------------------------------------------------ WHERE A BASELINE LIVES (Q-06) */
+
+/**
+ * THE ONE DECLARATION OF WHERE A COMMITTED PICTURE LIVES.
+ *
+ * `playwright.config.ts` hands this to Playwright as `snapshotPathTemplate`, and everything else
+ * that needs a baseline's path — the B-20 re-baseline proofs in the unit lane, the two journeys
+ * that read a PNG off disk to show it was regenerated — asks `baselinePath()` for it rather than
+ * spelling the directory again. A B-20 proof that NAMES a directory is a second home for the fact
+ * this string already states, and two homes for one fact part (Q-06): the lease moved `design/` to
+ * `design-light/` and `design-dark/` and eight such spellings went on reading a path that no longer
+ * existed. They read this now, so the next move of the directory moves them with it (B-19).
+ *
+ * `{projectName}` is the lane's project — `dark` (the product's ground, and the lane's default) or
+ * `light`; `{arg}` is the name the checkpoint gave its capture, `{ext}` its extension.
+ */
+export const SNAPSHOT_PATH_TEMPLATE = "tests/e2e/baselines/design-{projectName}/{arg}{ext}";
+
+/** The lane's two projects, named once: a caller asks for a baseline of one of these and no other. */
+export type LaneProject = "dark" | "light";
+
+/**
+ * The lane a Playwright project name stands for. A journey that reads its own committed picture off
+ * disk (the B-20 proofs) asks for the picture of the lane IT is walking, never of the other one:
+ * `baselinePath(laneProject(test.info().project.name), …)`.
+ */
+export const laneProject = (projectName: string): LaneProject => (projectName === "dark" ? "dark" : "light");
+
+/**
+ * The directory one lane's pictures live in, derived from the template rather than restated —
+ * everything the template says before `{arg}`, with the trailing separator dropped.
+ */
+export function baselineDir(project: LaneProject): string {
+  const head = SNAPSHOT_PATH_TEMPLATE.slice(0, SNAPSHOT_PATH_TEMPLATE.indexOf("{arg}"));
+  return head.replace("{projectName}", project).replace(/\/$/, "");
+}
+
+/**
+ * The repo-relative path of ONE committed baseline: the lane it belongs to, and the name the
+ * checkpoint gave it — either whole (`"s-audit/explorer.png"`) or as the arg segments Playwright
+ * itself takes (`"j-000", "workspace-named.png"`), which is how a journey spells it.
+ */
+export function baselinePath(project: LaneProject, ...arg: readonly string[]): string {
+  const name = arg.join("/");
+  const dot = name.lastIndexOf("/") < name.lastIndexOf(".") ? name.lastIndexOf(".") : -1;
+  // A checkpoint named without one gets the lane's only picture format, exactly as Playwright's own
+  // `{ext}` does — so "invite-pending" and "invite-pending.png" name the same committed file.
+  const stem = dot === -1 ? name : name.slice(0, dot);
+  const ext = dot === -1 ? ".png" : name.slice(dot);
+  return SNAPSHOT_PATH_TEMPLATE.replace("{projectName}", project).replace("{arg}", stem).replace("{ext}", ext);
+}

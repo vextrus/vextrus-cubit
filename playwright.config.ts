@@ -7,7 +7,7 @@
 import { defineConfig } from "@playwright/test";
 // The port set has one home (ARCH-02); this config reads it rather than restating a number.
 import { portFor } from "./scripts/lib/ports.mjs";
-import { journeyUse, pictureLane } from "./tests/e2e/support/capture-geometry";
+import { SNAPSHOT_PATH_TEMPLATE, journeyUse, pictureLane } from "./tests/e2e/support/capture-geometry";
 import { e2eDatabaseUrl } from "./tests/e2e/support/scratch-db";
 
 const port = portFor("e2e");
@@ -67,7 +67,7 @@ export default defineConfig({
   // and `design-dark/` — so a checkpoint's two pictures differ only by their folder, and where a
   // baseline lives is still declared in exactly one place. A per-project override would be two homes
   // for one fact, which is the drift that contract exists to catch.
-  snapshotPathTemplate: "tests/e2e/baselines/design-{projectName}/{arg}{ext}",
+  snapshotPathTemplate: SNAPSHOT_PATH_TEMPLATE,
   expect: {
     // V-E2E fixes the tolerance for every visual comparison in the lane.
     toHaveScreenshot: { maxDiffPixelRatio: 0.002 },
