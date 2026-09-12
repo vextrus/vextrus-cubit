@@ -28,6 +28,7 @@ export const drawings = {
   drawings_basis_none: "No title-block text to read",
   drawings_basis_confirmed: "Confirmed",
   drawings_cited_label: "Cited entities",
+  drawings_cited_more: "+{count} more",
   drawings_scale_unaffirmed: "Scale not affirmed",
   drawings_scale_affirmed: "Scale affirmed",
   drawings_scale_unplaceable: "Scale unplaceable — this layout carries no extent or no drawing units",

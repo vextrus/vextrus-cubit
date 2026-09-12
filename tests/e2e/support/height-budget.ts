@@ -16,22 +16,20 @@
 
 /** checkpoint name -> the capture height that screen is allowed, taller than §9.3's own cap. */
 export const SCREEN_HEIGHT_BUDGET: Readonly<Record<string, number>> = Object.freeze({
-  // # U2 — S-Drawings' composition is U2's redesign: the fan-out stacks every job card and every
-  // offered group down one column, so the screen is a scroll for as long as that stands. Seeded from
-  // the J-010 walk of 2026-09-12 (CUBIT_HEIGHT_BUDGET_SEED=1, viewport 900, test-results/
-  // height-budget.seed.json) — four checkpoints of the one screen, each at the height it stood at.
-  "j-010-timeline-done": 3168,
-  "j-010-jobs-tray-open": 3168,
-  "j-010-sheets-fanned-out": 3168,
-  // The same screen one checkpoint earlier. It was left out of the seed and so reds whenever the
-  // fan-out has finished painting by the time the capture is taken — a race, which is a defect with
-  // a cause (B-19), not a flake to retry. Recorded at the height j-010's own fan-out stands at.
-  "j-010-sheets-uploaded": 3168,
-  "j-010-discipline-confirmed": 2764,
-  // # U2 — the same screen, reached by the golden path's own M1 leg (AM-09 §2). The composition and
-  // the owner are j-010's; this entry is the same debt seen from J-000 and it goes away with it.
-  // Recorded at the height the screen stood at on the walk of 2026-09-12: 2674 px, under j-010's.
-  "j-000/disciplines-confirmed": 2674,
+  // EMPTY, and that is the point: "a budget is a CEILING TO LOWER, never a target: the redesign that
+  // brings a screen under §9.3's own cap takes its entry away in the same commit."
+  //
+  // SIX entries stood here and all six were ONE SCREEN — S-Drawings, seen from two journeys:
+  // j-010-timeline-done, j-010-jobs-tray-open, j-010-sheets-fanned-out and j-010-sheets-uploaded at
+  // 3 168 px, j-010-discipline-confirmed at 2 764, and j-000/disciplines-confirmed at 2 674, which
+  // main's own note called "the same debt seen from J-000 … it goes away with it". This is where it
+  // goes away.
+  //
+  // The screen was a column that grew with its data: five helper sentences, a job strip that kept
+  // every step of the session, an offered strip that stacked every group there was, and a sheet card
+  // whose height was the length of its cited list. v22 U2's rebuild caps all four (Design Direction
+  // 00 §3.4, §8's "Drawings (1.8)"), so the screen keeps §9.3's own cap — twice the viewport — like
+  // every other screen in the product.
 });
 
 /** The recorded height for a checkpoint, or `null` where §9.3's cap stands unaltered. */

@@ -53,6 +53,11 @@ function reported(answer: { jobId: string | null; deduplicated: boolean }): bool
 }
 
 /** The typed grouping key, as the screen carries one between a door and the dialog. */
+/** §3.4's own two numbers: the offered strip shows three groups then "+N", and the job strip shows
+    the last few steps of the run rather than every step of the session. */
+const OFFERED_SHOWN = 3;
+const STEPS_SHOWN = 4;
+
 type GroupKey = OfferedGroupItem["key"];
 
 /** One group the module offered, before this screen writes its sentence (I-86). */
@@ -290,14 +295,12 @@ export function SheetIndex({
     <div className="cx-drawings">
       <header className="cx-drawings-header">
         <h1 className="cx-drawings-heading">{drawings.drawings_heading}</h1>
-        <p className="cx-drawings-caption">{drawings.drawings_caption}</p>
       </header>
 
       <section className="cx-drawings-section" aria-labelledby={headingIds.upload}>
         <h2 className="cx-drawings-section-heading" id={headingIds.upload}>
           {drawings.drawings_upload_heading}
         </h2>
-        <p className="cx-drawings-hint">{drawings.drawings_upload_hint}</p>
         {offline ? (
           <div className="cx-drawings-offline" role="status">
             {drawings.drawings_offline}
@@ -319,18 +322,23 @@ export function SheetIndex({
 
       {/* I-109: the ingest is not the whole chain — until the thumbnails job the worker chains after
           it has been asked for, this region is still running however well the ingest went. */}
+      {/* §3.4: "the job timeline appears inline above the grid ONLY while a job runs, then collapses
+          to the jobs tray". With no job there is no strip — a region with nothing in it is absent,
+          not a placeholder (R-UI-080) — and while one runs it shows the last few steps, not a column
+          of every step the session ever took. */}
+      {steps.length === 0 && !lost ? null : (
       <JobTimeline
         heading={drawings.drawings_timeline_heading}
-        steps={steps}
+        steps={steps.slice(-STEPS_SHOWN)}
         lost={lost}
         awaiting={jobs.some((job) => job.kind === "ingest") && !jobs.some((job) => job.kind === "thumbnails")}
       />
+      )}
 
       <section className="cx-drawings-section" aria-labelledby={headingIds.sheets}>
         <h2 className="cx-drawings-section-heading" id={headingIds.sheets}>
           {drawings.drawings_sheets_heading}
         </h2>
-        <p className="cx-drawings-hint">{drawings.drawings_sheets_hint}</p>
 
         {/* I-90: the index and the groups stand whole for a reader without MEASURE — knowledge is
             not permission — and one banner names the permission and who holds it. */}
@@ -369,13 +377,20 @@ export function SheetIndex({
           </p>
         </div>
 
-        <p className="cx-drawings-hint">{drawings.drawings_groups_hint}</p>
+        {/* §3.4: "36 px per group, max 3 then +N". The fan-out that stacked every group down one
+            column is the reason this screen was 3 168 px tall and needed a height budget of its own
+            (tests/e2e/support/height-budget.ts) — a strip is a strip at any number of groups. */}
         <OfferedGroups
-          groups={offered}
+          groups={offered.slice(0, OFFERED_SHOWN)}
           onConfirm={(key) => {
             void press(key, { where: "groups" });
           }}
         />
+        {offered.length > OFFERED_SHOWN ? (
+          <p className="cx-drawings-count" data-testid="sheet-offered-more">
+            {fill(drawings.drawings_group_count, { count: formatUserFigure(String(offered.length - OFFERED_SHOWN)) })}
+          </p>
+        ) : null}
         <div className="cx-drawings-answer">{answerFor({ where: "groups" })}</div>
         <p className="cx-drawings-status" role="status" aria-live="polite">
           {pending ? drawings.drawings_confirm_pending : committed ? drawings.drawings_confirm_committed : ""}

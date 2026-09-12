@@ -20,6 +20,10 @@ import { drawings } from "./strings";
 import { TESTIDS } from "@/ui/testids";
 
 /** One card, as the page hands it down — the module's own answer, carried whole. */
+/** §8's cap for this screen: "cited entities capped at 5 + '+N more' — the 280×5404 baseline ends".
+    A card whose height is the length of a list is a card that has no height of its own. */
+const CITED_SHOWN = 5;
+
 export interface SheetCardData {
   readonly sheetId: string;
   readonly drawingId: string;
@@ -148,11 +152,16 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
       {card.proposal.cited.length === 0 ? null : (
         <p className="cx-drawings-cited cx-reticle" tabIndex={0} role="group" aria-label={drawings.drawings_cited_label}>
           <span className="cx-drawings-cited-label">{drawings.drawings_cited_label}</span>
-          {card.proposal.cited.map((key) => (
+          {card.proposal.cited.slice(0, CITED_SHOWN).map((key) => (
             <span className="cx-drawings-enum" key={key}>
               {key}
             </span>
           ))}
+          {card.proposal.cited.length > CITED_SHOWN ? (
+            <span className="cx-drawings-enum" data-testid="sheet-card-cited-more">
+              {fill(drawings.drawings_cited_more, { count: formatUserFigure(String(card.proposal.cited.length - CITED_SHOWN)) })}
+            </span>
+          ) : null}
         </p>
       )}
 

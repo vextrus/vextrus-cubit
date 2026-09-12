@@ -1,5 +1,50 @@
 # Design Decision — S-Drawings (the project's sheet index)
 
+## The v22 frame (Direction §3.4) — rebuilt by U2, 2026-09-12
+
+```
+┌R─┬──────────────────────────────────────────────────────────────────────┐
+│  │ ws › Riverside Tower ▾ › Drawings                          ⌘K ⟳ ✉ ◉ │
+│  ├──────────────────────────────────────────────────────────────────────┤
+│  │ Drawings   All · Structural 8 · Architectural 3 · MEP 1  ⌕   ↑ Add   │  40 px
+│  ├──────────────────────────────────────────────────────────────────────┤
+│  │ ▸ Reading A-101…  ▸ Thumbnails  (only while a job runs, last 4 steps)│  job strip
+│  ├──────────────────────────────────────────────────────────────────────┤
+│  │ ┌ A-101 ──────┐ ┌ A-102 ──────┐ ┌ S-201 ──────┐ ┌ S-202 ──────┐      │
+│  │ │  thumbnail  │ │  thumbnail  │ │  thumbnail  │ │  thumbnail  │      │  cards
+│  │ │ Foundation  │ │ Typical fl. │ │ Roof plan   │ │ Elevation   │      │
+│  │ │ STR · r2 · 1:100 ✓ · ◆ 270 · cited ×5 +12 more                     │
+│  │ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘      │
+│  ├──────────────────────────────────────────────────────────────────────┤
+│  │ Offered: "2 sheets read as CIVIL from the title block"  Preview ▸    │  ≤ 3 then +N
+└──┴──────────────────────────────────────────────────────────────────────┘
+```
+
+| Region | Purpose | Size | Empty | Error | Loading |
+|---|---|---|---|---|---|
+| header | title, discipline chips with counts, search, Add | 100 % × 40 | chips disabled | — | — |
+| job strip (`JobTimeline`) | the run, last `STEPS_SHOWN` = 4 steps | 100 % × 40, **only while a job runs** | absent | RefusalState inline | — |
+| sheet grid (primary) | `SheetCard`: thumbnail + title + badges (discipline `EnumLabel`, revision, scale state, entity count) + cited keys capped at `CITED_SHOWN` = 5 then "+N more" | flex, wrap | Dropzone empty state: "Drop DWG, DXF, PDF, PNG, JPG or TIFF" + Choose files | ErrorState | 8 skeleton cards |
+| offered strip | discipline confirmation groups (R-UI-023) | 36 per group, `OFFERED_SHOWN` = 3 then "+N" | absent | — | — |
+
+**What U2 changed, against §8's three fixes for this screen (before: 1.8), and why the height budget
+is gone.** `tests/e2e/support/height-budget.ts` recorded four checkpoints of this screen at
+3 168 / 3 168 / 3 168 / 2 764 px — three to four times §9.3's cap of twice the viewport. It was a
+ceiling to lower, never a target, and the redesign that brings a screen under the cap takes its entry
+away in the same commit. The height was never one fault; it was four, each of the same shape —
+**a region whose height is the length of its data**:
+1. **Five helper sentences** (`drawings_caption`, `drawings_upload_hint`, `drawings_sheets_hint`,
+   `drawings_groups_hint`) — §6 allows one per screen, at most. Now zero: the words they carried are
+   the empty state's and the popover's.
+2. **The job strip kept every step of the session.** It now renders only while a job runs, and shows
+   the run's last four steps.
+3. **The offered strip stacked every group there was.** §3.4 fixes it at three then "+N".
+4. **A card's height was the length of its cited list** — the 280 × 5404 baseline. Capped at five
+   then "+N more"; U1e's re-take of `j-010-sheet-card.png` already stands at 308 × 819, and the one
+   re-baseline takes it again in both themes.
+
+---
+
 Route: `/t/{tenantId}/p/{projectId}/drawings` under
 `src/app/(app)/t/[tenant]/p/[project]/drawings/**`, inside the shell frame and behind the
 membership guard in `t/[tenant]/layout.tsx`. Increment inc-108-sheet-index. Law: R-TO-004,
