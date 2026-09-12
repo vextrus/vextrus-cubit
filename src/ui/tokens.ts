@@ -26,6 +26,16 @@ const graphite: Group = {
     ["--graphite-0", "#F4F5F4", "#0C0E11"],
     ["--graphite-50", "#EFF0EF", "#101318"],
     ["--graphite-100", "#E9EBEA", "#12151A"],
+    // The step the ramp lacked. R-UI-001 fixes thirteen graphite steps and none of them is REVALUED
+    // here; this one is ADDED, because the surface layer ran out of room. §4.1 names five distinct
+    // grounds — app, panel, raised, overlay, sunken — and §4.1 also states the caption floor
+    // ("--ink-muted … ≥ 4.5:1"). --ink-muted is graphite-600, so a surface that carries a caption may
+    // not be darker than L* ≈ .776 in light or lighter than L* ≈ .0152 in dark. Inside those bounds
+    // the committed ramp offers exactly THREE steps per theme (0, 50, 100) for five meanings, which
+    // is why four of the five collapsed onto one value and the adversary found a menu whose hover
+    // had no effect. 150 sits between 100 and 200 — the widest gap at the surface end of both ramps
+    // — and carries a caption at 4.60:1 light / 4.67:1 dark.
+    ["--graphite-150", "#E4E7E6", "#1A1E25"],
     ["--graphite-200", "#DDE0E0", "#22262E"],
     ["--graphite-300", "#C9CDD1", "#333A46"],
     ["--graphite-400", "#B0B6BC", "#414957"],
@@ -247,17 +257,29 @@ const semanticAlias: Group = {
     // surfaces
     invariant("--surface-app", "var(--graphite-0)"),
     invariant("--surface-panel", "var(--graphite-50)"),
-    ["--surface-raised", "var(--graphite-0)", "var(--graphite-100)"],
-    ["--surface-overlay", "var(--graphite-0)", "var(--graphite-100)"],
-    // Sunken is INVARIANT, and the dark index is the reason. Every one of the 17 committed call
-    // sites that reads it spelled `--graphite-100` before the alias layer, in both themes; a dark
-    // index of graphite-50 repainted all 17 under a baseline nobody re-took and a Design Decision
-    // nobody amended (B-20: a value moves in the commit that says so). The design reading that
-    // wanted a sunken well DARKER than its panel is not refused, it is unmade: it belongs to the
-    // increment that re-takes the dark baselines it moves.
-    invariant("--surface-sunken", "var(--graphite-100)"),
-    invariant("--surface-hover", "var(--graphite-100)"),
-    invariant("--surface-active", "var(--graphite-200)"),
+    // The depth model of §4.1, as VALUES rather than as a table nobody measured. Before this commit
+    // raised, overlay, sunken and hover were ONE colour in dark (graphite-100) and raised, overlay
+    // and app were one colour in light (graphite-0): a menu's hovered item measured 1.00:1 against
+    // the menu it sat in, and a dialog's edge 1.00:1 against the page behind it. Each alias now
+    // names a step no other depth alias names, one step further from the app ground than the thing
+    // it sits above. In LIGHT the app ground is already the lightest step the ramp has, so every
+    // other surface is a darkening of it and the elevation is carried by `--shadow-*` and
+    // `--line-raised`; in DARK the ground is the darkest step and elevation reads as lightness.
+    ["--surface-raised", "var(--graphite-50)", "var(--graphite-100)"],
+    ["--surface-overlay", "var(--graphite-100)", "var(--graphite-150)"],
+    // Sunken WAS invariant, and the note that stood here said the dark index belonged to "the
+    // increment that re-takes the dark baselines it moves". This is that increment (B-20): a well is
+    // now darker than the panel it is cut into in BOTH themes, which in dark means the app ground
+    // itself — the ramp has nothing below it, and a well showing the ground through a panel is the
+    // depth model rather than a collision. Light is untouched, so no light baseline moves for it.
+    ["--surface-sunken", "var(--graphite-150)", "var(--graphite-0)"],
+    // Hover and active had to move with them. Hover was graphite-100 in both themes — the same value
+    // the overlay painted — so every menu, combobox popover, dropdown and breadcrumb menu in the
+    // product gave 1.00:1 of feedback in dark and 1.06:1 in light. It now measures 1.34:1 against the
+    // overlay in light and 1.60:1 in dark, and active is one step beyond it, because a pressed row
+    // that is LIGHTER than the hovered row it was pressed from says the wrong thing.
+    invariant("--surface-hover", "var(--graphite-300)"),
+    invariant("--surface-active", "var(--graphite-400)"),
     invariant("--surface-selected", "var(--beam-100)"),
     invariant("--surface-canvas", "var(--canvas-paper)"),
     invariant("--surface-inverse", "var(--graphite-900)"),
@@ -284,6 +306,12 @@ const semanticAlias: Group = {
     invariant("--line", "var(--graphite-200)"),
     invariant("--line-strong", "var(--graphite-300)"),
     invariant("--line-heavy", "var(--graphite-400)"),
+    // The boundary of a surface that FLOATS: a card, a menu, a popover, a dialog. `--line` is the
+    // seam between two docked surfaces and measures 1.22:1 against the app ground in light — enough
+    // to read as a join, not enough to read as an EDGE (SC 1.4.11 asks 3:1 of anything that tells a
+    // reader where a component begins). graphite-500 is the ramp's first step that clears it from
+    // the app ground in both themes: 3.37:1 light, 3.86:1 dark.
+    invariant("--line-raised", "var(--graphite-500)"),
     invariant("--line-accent", "var(--beam-500)"),
     invariant("--line-focus", "var(--beam-500)"),
     invariant("--line-act", "var(--act-500)"),

@@ -64,6 +64,17 @@ const PAIRINGS: readonly Pairing[] = [
   ...(["--surface-app", "--surface-panel", "--surface-sunken", "--surface-raised", "--surface-overlay"] as const).map(
     (ground): Pairing => ({ ground, ink: "--ink-muted", kind: "text", promise: "a caption on a product surface" }),
   ),
+  // `--surface-hover` and `--surface-active` are deliberately NOT on the caption list, and the
+  // reason is arithmetic rather than taste. A hover has to be a STEP — this increment set the bar at
+  // 1.3:1 against the surface underneath, because below it a hovered menu item is a guess — and
+  // `--ink-muted` is graphite-600, which needs a ground no darker than L* ≈ .776 in light and no
+  // lighter than L* ≈ .0152 in dark to clear 4.5. No value satisfies both at once: a caption that
+  // stays readable through a visible hover would need the hover to be invisible. So a hovered or
+  // pressed row carries `--ink` and `--ink-secondary` (both asserted above and below), and a cell
+  // that must stay muted is not put inside a hover target.
+  ...(["--surface-hover", "--surface-active"] as const).map(
+    (ground): Pairing => ({ ground, ink: "--ink-secondary", kind: "ui", promise: "a secondary cell inside a hovered or pressed row" }),
+  ),
   ...(["--surface-app", "--surface-sunken"] as const).map(
     (ground): Pairing => ({ ground, ink: "--ink-code", kind: "text", promise: "a mono value in a table" }),
   ),
@@ -88,6 +99,12 @@ const PAIRINGS: readonly Pairing[] = [
   ),
   ...(["--surface-app", "--surface-panel"] as const).map(
     (ground): Pairing => ({ ground, ink: "--accent", kind: "ui", promise: "a beam mark that carries no text — a bar, a dot, a handle" }),
+  ),
+  // SC 1.4.11: the edge of a surface that FLOATS above the app ground — a card, a menu, a popover, a
+  // dialog. Their fills are at most one ramp step from the ground (the ramp has no more room at the
+  // surface end), so the edge is what tells a reader where the component begins.
+  ...(["--surface-app", "--surface-raised", "--surface-overlay"] as const).map(
+    (ground): Pairing => ({ ground, ink: "--line-raised", kind: "ui", promise: "the boundary of a floating surface (SC 1.4.11)" }),
   ),
   { ground: "--surface-app", ink: "--line-act", kind: "ui", promise: "the act border and the 7 px copper dot" },
   { ground: "--surface-app", ink: "--act", kind: "ui", promise: "the act mark on the app ground" },

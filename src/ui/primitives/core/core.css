@@ -497,7 +497,7 @@ button.cx-chip:hover:not(:disabled) {
   padding: var(--space-1);
   overflow-y: auto;
   list-style: none;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-raised);
   border-radius: var(--radius-4);
   background-color: var(--surface-overlay);
   box-shadow: var(--shadow-2);
@@ -564,7 +564,7 @@ button.cx-chip:hover:not(:disabled) {
   gap: var(--space-1);
   min-width: 100%;
   padding: var(--space-1);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-raised);
   border-radius: var(--radius-4);
   background-color: var(--surface-overlay);
   box-shadow: var(--shadow-2);
@@ -877,7 +877,7 @@ button.cx-chip:hover:not(:disabled) {
   margin: 0;
   padding: var(--space-1);
   list-style: none;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-raised);
   border-radius: var(--radius-4);
   background-color: var(--surface-overlay);
   box-shadow: var(--shadow-2);
@@ -1028,7 +1028,7 @@ button.cx-chip:hover:not(:disabled) {
   gap: var(--space-1);
   height: var(--stat-h);
   padding-inline: var(--cell-px);
-  border: var(--hairline);
+  border: 1px solid var(--line-raised);
   border-radius: var(--radius-4);
   background-color: var(--surface-raised);
 }

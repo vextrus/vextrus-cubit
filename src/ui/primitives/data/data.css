@@ -552,7 +552,7 @@
   gap: var(--space-1);
   min-width: 200px;
   padding: var(--space-2);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-raised);
   border-radius: var(--radius-4);
   background-color: var(--surface-overlay);
   box-shadow: var(--shadow-3);

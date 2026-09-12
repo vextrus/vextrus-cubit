@@ -5,6 +5,7 @@
   --graphite-0: #F4F5F4;
   --graphite-50: #EFF0EF;
   --graphite-100: #E9EBEA;
+  --graphite-150: #E4E7E6;
   --graphite-200: #DDE0E0;
   --graphite-300: #C9CDD1;
   --graphite-400: #B0B6BC;
@@ -128,11 +129,11 @@
   /* semantic-alias */
   --surface-app: var(--graphite-0);
   --surface-panel: var(--graphite-50);
-  --surface-raised: var(--graphite-0);
-  --surface-overlay: var(--graphite-0);
-  --surface-sunken: var(--graphite-100);
-  --surface-hover: var(--graphite-100);
-  --surface-active: var(--graphite-200);
+  --surface-raised: var(--graphite-50);
+  --surface-overlay: var(--graphite-100);
+  --surface-sunken: var(--graphite-150);
+  --surface-hover: var(--graphite-300);
+  --surface-active: var(--graphite-400);
   --surface-selected: var(--beam-100);
   --surface-canvas: var(--canvas-paper);
   --surface-inverse: var(--graphite-900);
@@ -148,6 +149,7 @@
   --line: var(--graphite-200);
   --line-strong: var(--graphite-300);
   --line-heavy: var(--graphite-400);
+  --line-raised: var(--graphite-500);
   --line-accent: var(--beam-500);
   --line-focus: var(--beam-500);
   --line-act: var(--act-500);
@@ -180,6 +182,7 @@
   --graphite-0: #0C0E11;
   --graphite-50: #101318;
   --graphite-100: #12151A;
+  --graphite-150: #1A1E25;
   --graphite-200: #22262E;
   --graphite-300: #333A46;
   --graphite-400: #414957;
@@ -304,10 +307,10 @@
   --surface-app: var(--graphite-0);
   --surface-panel: var(--graphite-50);
   --surface-raised: var(--graphite-100);
-  --surface-overlay: var(--graphite-100);
-  --surface-sunken: var(--graphite-100);
-  --surface-hover: var(--graphite-100);
-  --surface-active: var(--graphite-200);
+  --surface-overlay: var(--graphite-150);
+  --surface-sunken: var(--graphite-0);
+  --surface-hover: var(--graphite-300);
+  --surface-active: var(--graphite-400);
   --surface-selected: var(--beam-100);
   --surface-canvas: var(--canvas-paper);
   --surface-inverse: var(--graphite-900);
@@ -323,6 +326,7 @@
   --line: var(--graphite-200);
   --line-strong: var(--graphite-300);
   --line-heavy: var(--graphite-400);
+  --line-raised: var(--graphite-500);
   --line-accent: var(--beam-500);
   --line-focus: var(--beam-500);
   --line-act: var(--act-500);

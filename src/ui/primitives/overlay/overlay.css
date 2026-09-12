@@ -33,9 +33,9 @@
   max-height: calc(100dvh - var(--space-12));
   overflow: auto;
   padding: var(--space-5);
-  border: var(--hairline);
+  border: 1px solid var(--line-raised);
   border-radius: var(--radius-8);
-  background-color: var(--surface-app);
+  background-color: var(--surface-overlay);
   box-shadow: var(--shadow-3);
   color: var(--ink);
   font-family: var(--font-ui);
@@ -89,7 +89,7 @@
   width: min(420px, calc(100vw - var(--space-10)));
   overflow: auto;
   padding: var(--space-5);
-  background-color: var(--surface-app);
+  background-color: var(--surface-overlay);
   box-shadow: var(--shadow-4);
   color: var(--ink);
   font-family: var(--font-ui);
@@ -99,13 +99,13 @@
 
 .cx-sheet[data-side="right"] {
   right: 0;
-  border-left: var(--hairline);
+  border-left: 1px solid var(--line-raised);
   animation: cx-sheet-enter-right var(--motion-panel) var(--ease) both;
 }
 
 .cx-sheet[data-side="left"] {
   left: 0;
-  border-right: var(--hairline);
+  border-right: 1px solid var(--line-raised);
   animation: cx-sheet-enter-left var(--motion-panel) var(--ease) both;
 }
 
@@ -115,9 +115,9 @@
   z-index: var(--z-overlay);
   max-width: 280px;
   padding: var(--space-4);
-  border: var(--hairline);
+  border: 1px solid var(--line-raised);
   border-radius: var(--radius-8);
-  background-color: var(--surface-app);
+  background-color: var(--surface-overlay);
   box-shadow: var(--shadow-2);
   color: var(--ink);
   font-family: var(--font-ui);
@@ -132,9 +132,9 @@
   z-index: var(--z-overlay);
   min-width: 180px;
   padding: var(--space-1);
-  border: var(--hairline);
+  border: 1px solid var(--line-raised);
   border-radius: var(--radius-8);
-  background-color: var(--surface-app);
+  background-color: var(--surface-overlay);
   box-shadow: var(--shadow-2);
   font-family: var(--font-ui);
   font-size: var(--text-13);
@@ -191,9 +191,9 @@
 
 .cx-toast {
   padding: var(--space-3) var(--space-4);
-  border: var(--hairline);
+  border: 1px solid var(--line-raised);
   border-radius: var(--radius-8);
-  background-color: var(--surface-app);
+  background-color: var(--surface-overlay);
   box-shadow: var(--shadow-3);
   font-family: var(--font-ui);
 }
