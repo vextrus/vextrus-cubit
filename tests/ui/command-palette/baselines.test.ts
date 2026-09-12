@@ -63,7 +63,7 @@ const BEFORE: Readonly<Record<string, string>> = {
 };
 
 /** The two captures the new journey owes, which do not exist before it runs (Decision §7). */
-const OWED_BY_J021 = ["palette/open-light.png", "palette/open-dark.png", "palette/sheet-light.png"];
+const OWED_BY_J021 = ["palette/open-light.png", "palette/open-dark.png", "palette/sheet.png"];
 
 describe("AC-6 — every frame picture the trigger shifts is regenerated (B-20)", () => {
   for (const [name, wasSha256] of Object.entries(BEFORE)) {
