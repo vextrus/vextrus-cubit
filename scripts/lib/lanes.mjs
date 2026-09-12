@@ -31,6 +31,7 @@ export const INPUT_ROOTS = Object.freeze({
   cad: "cad",
   fixtures: "fixtures/*/manifest.json",
   e2eTests: "tests/e2e",
+  docsTests: "tests/docs",
   nodePin: ".nvmrc",
   packageManifest: "package.json",
 });
@@ -60,6 +61,11 @@ const LANE_SPECS = Object.freeze([
  */
 const STAGE_SPECS = Object.freeze([
   { id: "e2e", input: "e2eTests", title: "playwright journeys" },
+  // V-DOCS (AM-18): the lane's command is `pnpm test:docs`, and both the script and this input
+  // root land with the document seam at M3. Until then the roster prints a skip naming the absent
+  // root, which is what C-06's progressive arming asks for — never a lane that renders nothing and
+  // exits 0.
+  { id: "test:docs", input: "docsTests", title: "document renders (V-DOCS)" },
   { id: "test:db", input: "dbTests", title: "database suite" },
   { id: "db:migrate", input: "dbMigrations", title: "drizzle migrations" },
   { id: "db:drift", input: "dbSchema", title: "schema drift against the database" },
