@@ -72,7 +72,11 @@ if (TAKING) {
           // already on the right ground — the Surveyor's own fix, §9.1 point 2.
           await page.goto(`${screen.path}?__theme=${theme}`);
           await settled(page);
-          await expect(page.getByTestId(TESTIDS.shell.root)).toHaveAttribute("data-theme", theme);
+          // The theme is the DOCUMENT's, not the shell's: `src/app/theme-resolver.ts` writes
+          // `data-theme` on `<html>` pre-paint, and the shell root carries density alone. This line
+          // read the shell root until 2026-09-12 and could never have passed — the spec had never
+          // got past the sign-in it could not make, so nothing had ever run it.
+          await expect(page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", theme);
 
           const height = await page.evaluate(() => document.documentElement.scrollHeight);
           expect(height, `${screen.name}.${theme}: §9.3 caps a still at twice the viewport; a taller one is a picture of a scroll, not of a screen`).toBeLessThanOrEqual(HEIGHT_CAP);
@@ -82,7 +86,13 @@ if (TAKING) {
       }
 
       // The auth card is the ninth pair and the only one taken signed out (§3.7).
-      await page.getByTestId(TESTIDS.sAuth.signout).click().catch(() => undefined);
+      // The session is ENDED, not merely clicked at. `signout` lives inside the user menu, so the
+      // bare click above waited the whole test budget for a control that was never on the screen and
+      // the two auth stills were never taken at all. The click is still attempted — signing out the
+      // way a person does is the truer act — but it is bounded, and the cookie jar is what makes the
+      // next navigation a signed-out one whether the control was reachable or not.
+      await page.getByTestId(TESTIDS.sAuth.signout).click({ timeout: 2_000 }).catch(() => undefined);
+      await page.context().clearCookies();
       for (const theme of THEMES) {
         await page.goto(`/sign-in?__theme=${theme}`);
         await settled(page);
