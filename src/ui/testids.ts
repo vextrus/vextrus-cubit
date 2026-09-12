@@ -375,6 +375,7 @@ export const TESTIDS = {
   },
   sheet: {
     card: "sheet-card",
+    cardCitedMore: "sheet-card-cited-more",
     cardDiscipline: "sheet-card-discipline",
     cardFormat: "sheet-card-format",
     cardNumber: "sheet-card-number",
@@ -390,6 +391,7 @@ export const TESTIDS = {
     fact: "sheet-fact",
     filterOption: "sheet-filter-option",
     index: "sheet-index",
+    offeredMore: "sheet-offered-more",
     search: "sheet-search",
   },
   sheets: {
