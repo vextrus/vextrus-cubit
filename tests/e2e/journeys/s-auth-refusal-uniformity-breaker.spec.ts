@@ -6,8 +6,9 @@
 // MUST be able to paint differently (R-UI-060's "severity paints; it does not mean" is that rule's
 // design-system form), and the standing Decisions prescribe per-surface silhouette and per-screen
 // measure: the RefusalState Decision's Surfaces section rules `banner` region-width with no inline
-// borders and no corners, and docs/design/s-auth.md § 1 and § 3 rule a 380 px auth column against
-// the 560 px column /sessions renders its banner across. Demanding those deltas away is a change of
+// borders and no corners, and docs/design/s-auth.md § 1 and § 3 rule a 360 px auth column against
+// the 560 px column /sessions' card stands in — a banner takes the width of the REGION it replaces
+// (on /sessions, the list), and on every S-Auth screen that region is inside the one card. Demanding those deltas away is a change of
 // design law, which B-20 makes the Decision's business, not a CSS patch — so this file never asserts
 // cross-surface sameness of anything the law varies.
 //
@@ -89,8 +90,12 @@ type Probe = {
    *
    * §1's table places the card screens' refusal "in the answer slot, INSIDE the card", so the
    * measure those screens give it is the card's content box — the column less the card's inline
-   * padding and its hairline on each side. `/sessions` renders the banner "in place of the list,
-   * full region width", so there is nothing between it and the column. Read this way the clause is
+   * padding and its hairline on each side. `null` is for a screen that renders its answer straight
+   * into the column with no object between the two; §1's frame gives EVERY S-Auth route one card
+   * (`AuthFrame` wraps all six screens' children in `.cx-auth-card`), so no route is that screen
+   * today and the branch stands for the distinction the Decision draws, not for a live probe.
+   * /sessions' banner is "in place of the list, full region width" — the width of the region it
+   * REPLACES, which is the card's content box at the wide column. Read this way the clause is
    * the Decision's, not the DOM's: change the card's padding and this expectation moves with it,
    * change the refusal's box and it does not.
    */
@@ -120,7 +125,14 @@ const PROBES: readonly Probe[] = Object.freeze([
     what: "no session at all, on /sessions",
     route: S_AUTH.sessions,
     columnPx: COLUMN_PX.sessions,
-    cardPaddingToken: null,
+    // "Full region width" is the width of the region the banner REPLACES, and that region is the
+    // list — which §2 renders inside the card, under the caption, like every other S-Auth body
+    // (§1: "the card is the screen's one object"; `AuthFrame` builds all six the same way). So
+    // /sessions is a card screen at the WIDE measure, not a screen whose banner spans the column:
+    // what the Decision varies for it is the column (560, not 360) and the banner surface's own
+    // chrome (radius 0, no inline borders, --space-5 inline padding), never where the answer is
+    // rendered. 560 − 2 × (20 + 1) = 518, which is what the screen paints.
+    cardPaddingToken: "--space-5",
     reach: async () => {
       /* arriving is the whole act: the browser holds no session cookie */
     },
