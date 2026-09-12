@@ -25,6 +25,7 @@ export type NotationKind =
   | "grade_fy"
   | "cover"
   | "dimension_ft_in"
+  | "span_fraction"
   | "reference";
 
 /** The form a reading was read by — the id of the row of FORMS that matched (the coverage contract). */
@@ -39,6 +40,7 @@ export type FormId =
   | "F-FY"
   | "F-COVER"
   | "F-FTIN"
+  | "F-SPANFRAC"
   | "F-REF";
 
 /** The refusal a text nobody can read answers with. Registered in core's closed taxonomy. */
@@ -509,14 +511,56 @@ function readCover(said: string): Cover | null {
   return mm === null ? null : { mm, scope: scope === null || scope === "" ? null : scope };
 }
 
-const LABELLED = /^(?:[A-Z][A-Z\s]{0,11}?)\s*[=:]\s*(.+)$/;
+/** How a level mark is written on a plan: a label, and the figure — with `=` where the draughtsman
+ * wrote one, and without it four times out of five (`EL +11'-0"`, `E.G.L (-1'-6")`). Requiring the
+ * `=` refused every level mark the fixture actually carries, each of them an authored millimetre. */
+const LABELLED = /^([A-Z][A-Z ]{0,11}?)\s*(?:[=:]\s*|\s+)\(?\s*([+-±]?[^()]+?)\s*\)?$/;
+
+/** A level written the metric way, in metres: `+3.353`, `±0.000`. The sign is what makes it a level
+ * and not a count — a bare `300` is a number no cell has said the unit of, and reading one would
+ * mint a dimension out of every schedule cell on the set. */
+const METRE_LEVEL = /^([+\-±])\s*(\d+\.\d+)$/;
+const MM_PER_METRE = 1000;
 
 /** A dimension in feet and inches: the millimetres, and the sign a level mark was written with. */
 export type Dimension = { readonly mm: number; readonly sign: string };
 
 function readDimension(said: string): Dimension | null {
+  const metric = METRE_LEVEL.exec(said.trim());
+  if (metric !== null) {
+    const sign = String(metric[1]);
+    return { mm: settled(Number(metric[2]) * MM_PER_METRE * (sign === "-" ? -1 : 1)), sign };
+  }
+  const direct = feetInchesMm(said);
+  if (direct !== null) return direct;
   const labelled = LABELLED.exec(said);
-  return feetInchesMm(labelled === null ? said : String(labelled[1]));
+  if (labelled === null) return null;
+  const value = String(labelled[2]);
+  const metricValue = METRE_LEVEL.exec(value.trim());
+  if (metricValue !== null) {
+    const sign = String(metricValue[1]);
+    return { mm: settled(Number(metricValue[2]) * MM_PER_METRE * (sign === "-" ? -1 : 1)), sign };
+  }
+  return feetInchesMm(value);
+}
+
+/** The span a curtailment is stated as a fraction of, as a set writes it: `L/4` of the clear span,
+ * `Ln/3` of the clear, `0.25L`. 106 strings of the corpus — the commonest single form on the set —
+ * and every one of them was refused, because the grammar had no question for "a part of the span". */
+const SPAN_FRACTION = /^(\d+(?:\.\d+)?)?\s*(LN|LC|L)\s*(?:\/\s*(\d+))?$/;
+
+/** A length stated as a part of the span: which span, and the fraction of it — exactly, as a ratio,
+ * because a third of a span is not 0.333 of one. */
+export type SpanFraction = { readonly of: string; readonly numerator: number; readonly denominator: number };
+
+function readSpanFraction(said: string): SpanFraction | null {
+  const match = SPAN_FRACTION.exec(said.replace(/\s+/g, ""));
+  if (match === null) return null;
+  const factor = match[1] === undefined ? 1 : Number(match[1]);
+  const denominator = match[3] === undefined ? 1 : Number(match[3]);
+  if (denominator === 0) return null;
+  if (match[1] === undefined && match[3] === undefined) return null; // a bare `L` states no part
+  return { of: String(match[2]), numerator: factor, denominator };
 }
 
 /**
@@ -546,6 +590,7 @@ const FORMS: readonly {
     const one = barOf(match);
     return one === null ? null : { parsed: one };
   } },
+  { id: "F-SPANFRAC", kind: "span_fraction", read: (said) => { const one = readSpanFraction(said); return one === null ? null : { parsed: one }; } },
   { id: "F-REF", kind: "reference", read: (said) => { const one = readReference(said); return one === null ? null : { parsed: one }; } },
   { id: "F-LEVEL-RANGE", kind: "level_range", read: (said) => readLevels(said) },
   { id: "F-MARK", kind: "mark", read: (said) => { const one = readMark(said); return one === null ? null : { parsed: one }; } },
@@ -637,6 +682,14 @@ export const GRAMMAR: readonly GrammarRow[] = Object.freeze([
   { input: "MRR", kind: "mark", parsed: { family: "MRR", number: null, level: null, variant: null, part: null }, source: "the machine room roof — a mark the set writes as a word" },
   { input: "FL", kind: "mark", parsed: { family: "FL", number: null, level: null, variant: null, part: null }, source: "the flat slab panel a slab plan labels by word" },
   { input: "T16", kind: "bar_diameter", parsed: { diameterMm: 16, designation: "T16" }, source: "T-NOT-TY: British T is a BAR here because T is not a mark class on this set's roster — evidence, not table order" },
+  { input: "EL +11'-0\"", kind: "dimension_ft_in", parsed: { mm: 3352.8, sign: "+" }, source: "E-fixture §3.5 (`EL +11'-0\"`): the level mark four sets in five write without an `=`" },
+  { input: "E.G.L (-1'-6\")", kind: "dimension_ft_in", parsed: { mm: -457.2, sign: "-" }, source: "existing ground level, the figure in brackets" },
+  { input: "+3.353", kind: "dimension_ft_in", parsed: { mm: 3353, sign: "+" }, source: "E-fixture §3.5 (`+3.353`): the metric level, in metres" },
+  { input: "%%P0.000", kind: "dimension_ft_in", parsed: { mm: 0, sign: "±" }, source: "E-fixture §3.5 (`±0.000`): the datum the set counts from" },
+  // — the span a curtailment is a part of ————————————————————————————————————————————————
+  { input: "L/4", kind: "span_fraction", parsed: { of: "L", numerator: 1, denominator: 4 }, source: "E-fixture §3.5 (`L/3`, `Ln/4`, `0.25L`): the commonest string on the set" },
+  { input: "Ln/3", kind: "span_fraction", parsed: { of: "LN", numerator: 1, denominator: 3 }, source: "E-fixture §3.5: the CLEAR span's third" },
+  { input: "0.25L", kind: "span_fraction", parsed: { of: "L", numerator: 0.25, denominator: 1 }, source: "E-fixture §3.5: the same curtailment as a decimal" },
   // — references: what a sheet points AT, so that nothing reads it as a member —————————————
   { input: "S-03", kind: "reference", parsed: { refers: "sheet", sheet: "S-03", label: "S-03" }, source: "the sheet number in the title block — on every sheet of every set" },
   { input: "3/S-03", kind: "reference", parsed: { refers: "detail", sheet: "S-03", label: "3/S-03" }, source: "E-fixture §3.5 (`SEE DETAIL 3/S-03`): a detail bubble and the sheet it calls" },

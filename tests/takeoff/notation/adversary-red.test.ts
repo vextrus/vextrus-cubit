@@ -90,3 +90,35 @@ describe("N3 — a cover note names what it covers (all four notes on the fixtur
     expect(readNotation("CLEAR COVER = 40 MM").ok && (readNotation("CLEAR COVER = 40 MM") as { parsed: { scope: unknown } }).parsed.scope).toBe(null);
   });
 });
+
+describe("N4 — a level mark carries its millimetre whether or not it was written with an `=`", () => {
+  test.each([
+    [`EL +11'-0"`, 3352.8],
+    [`E.G.L (-1'-6")`, -457.2],
+    ["+3.353", 3353],
+  ])("%s is a dimension", (said, mm) => {
+    const read = readNotation(String(said));
+    expect(read.ok, `"${said}" is one of the four level marks of the fixture the LABELLED form's "=" refused`).toBe(true);
+    expect(read.ok && read.kind).toBe("dimension_ft_in");
+    expect(read.ok && (read.parsed as { mm: number }).mm).toBe(mm);
+  });
+
+  test("a bare integer is still no dimension — a cell that states no unit states no length", () => {
+    expect(reading("300")).toContain("UNREAD");
+  });
+});
+
+describe("a curtailment stated as a part of the span (106 corpus strings)", () => {
+  test.each([
+    ["L/4", { of: "L", numerator: 1, denominator: 4 }],
+    ["Ln/3", { of: "LN", numerator: 1, denominator: 3 }],
+    ["0.25L", { of: "L", numerator: 0.25, denominator: 1 }],
+  ])("%s is a span fraction, exactly", (said, parsed) => {
+    const read = readNotation(String(said));
+    expect(read.ok && read.parsed).toStrictEqual(parsed);
+  });
+
+  test("a bare L states no part of anything", () => {
+    expect(reading("L")).toContain("UNREAD");
+  });
+});
