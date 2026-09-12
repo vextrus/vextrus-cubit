@@ -203,6 +203,82 @@ describe("R-UI-012: the contrast floor holds on the token source, in both themes
     expect(failures, failures.join("\n")).toEqual([]);
   });
 
+  /**
+   * The basis and element palettes are SEMANTIC — they name a meaning, not a ramp position — and so
+   * they are exempt from `cubit/no-primitive-token` and were exempt from this file too: not one of
+   * the fifteen appeared in a pairing. They are marks a reader reads, and R-UI-012 grades a mark at
+   * 3:1. Derived from the emitted table rather than from a roster, so a colour added tomorrow is
+   * judged the day it lands.
+   */
+  const palette = (table: Record<string, string>, prefix: string): string[] =>
+    Object.keys(table).filter((key) => key.startsWith(prefix));
+
+  /**
+   * The marks that do NOT clear 3:1 on their own ground, each with the reason it is lawful anyway.
+   * Asserted from both sides: an unnamed thin mark fails, and a name that no longer fires is dead
+   * wood and fails too (B-19). Nothing in R-UI-001 may be revalued, so a mark that cannot be fixed
+   * is named with what carries its meaning INSTEAD of the colour.
+   */
+  const THIN_BY_DESIGN = {
+    ...Object.fromEntries(
+      (["--surface-app", "--surface-panel", "--surface-raised"] as const).map((ground) => [
+        `light --element-opening on ${ground}`,
+        "the element palette paints GEOMETRY on the sheet — a filled region with a 1.5 px stroke, a hatch and a class glyph in the layer list — so §4.3's law that meaning never rides on colour alone is what makes a 2.76–2.89:1 teal lawful where a bare mark would not be. R-UI-001 forbids revaluing #21A0A8, and the palette has no consumer in `src/` today: the day one appears it draws a stroked shape, not a dot.",
+      ]),
+    ),
+  } as Readonly<Record<string, string>>;
+
+  test("R-UI-012: every basis and element mark clears the 3:1 graphics floor, or is named with what carries it instead", () => {
+    const failures: string[] = [];
+    const used = new Set<string>();
+    for (const [theme, table] of THEMES) {
+      for (const prefix of ["--basis-", "--element-"]) {
+        const marks = palette(table, prefix);
+        expect(marks.length, `${theme}: the table emits the ${prefix} palette at all`).toBeGreaterThan(5);
+        for (const mark of marks) {
+          for (const ground of ["--surface-app", "--surface-panel", "--surface-raised", "--surface-canvas"] as const) {
+            const measured = ratio(table, ground, mark);
+            const named = `${theme} ${mark} on ${ground}`;
+            if (measured + 1e-9 >= FLOOR.ui) continue;
+            if (THIN_BY_DESIGN[named] !== undefined) used.add(named);
+            else failures.push(`${named} measures ${measured.toFixed(2)}:1, below the ${FLOOR.ui}:1 graphics floor`);
+          }
+        }
+      }
+    }
+    expect(failures, failures.join("\n")).toEqual([]);
+    expect(Object.keys(THIN_BY_DESIGN).filter((name) => !used.has(name)), "a name that no longer fires is a licence nobody needs (B-19)").toEqual([]);
+  });
+
+  test("R-UI-012: a basis colour is a MARK, never a label — `--basis-defaulted` is 4.42:1 and cannot be one", () => {
+    // The one basis colour that does not clear the TEXT floor on the light app ground, and the
+    // reason the chip's own stylesheet must keep spelling `--ink-secondary` for its label. This is
+    // not a preference: R-UI-001 forbids revaluing #6B7280, and no surface the chip sits on rescues
+    // it — `--surface-raised` measures 4.66:1 and `--surface-app` 4.42:1, so a chip that moved
+    // between the two would pass on one screen and fail on the next.
+    const onApp = ratio(lightTokens, "--surface-app", "--basis-defaulted");
+    expect(onApp, "the finding this guard exists for, kept as a number").toBeLessThan(FLOOR.text);
+    expect(onApp, "…and it does clear the graphics floor, which is what a glyph and a border need").toBeGreaterThanOrEqual(FLOOR.ui);
+    const core = readFileSync(resolve(REPO_ROOT, "src/ui/primitives/core/core.css"), "utf8");
+    const chip = /\.cx-basis-chip \{([\s\S]*?)\}/.exec(core);
+    expect(chip?.[1], "the BasisChip's own rule is readable").toBeTruthy();
+    const colour = /(?:^|\n)\s*color:\s*([^;]+);/.exec(chip?.[1] ?? "");
+    expect(
+      colour?.[1]?.trim(),
+      "the chip's LABEL reads a graphite ink; the basis colour stays on the glyph and the border, where 4.42:1 is a lawful mark and not unlawful text",
+    ).toBe("var(--ink-secondary)");
+  });
+
+  test("R-UI-012: `--line-focus` is the token the reticle actually paints", () => {
+    // The pairing above promises "the focus reticle's stroke" of a token no stylesheet read: the
+    // reticle painted `--line-accent`, and the two happen to be the same beam today, so the promise
+    // was latent rather than live and would have stopped being true the moment either moved. Focus
+    // and selection are two meanings (§4.1 lists them as two rows), so the reticle spells its own.
+    const reticle = readFileSync(resolve(REPO_ROOT, "src/ui/primitives/core/reticle.css"), "utf8");
+    expect(reticle.includes("var(--line-focus)"), "the reticle paints --line-focus").toBe(true);
+    expect(reticle.includes("var(--line-accent)"), "…and no longer borrows the selection outline's token").toBe(false);
+  });
+
   test("SC 1.4.1 + §4.3: the coverage ramp is five STEPS — monotonic, and no two alike in greyscale", () => {
     // Read from the generated stylesheet rather than from the TS table, because the stylesheet is
     // what a browser and a greyscale printer are handed. (tokens.test.ts holds the two byte-for-byte
