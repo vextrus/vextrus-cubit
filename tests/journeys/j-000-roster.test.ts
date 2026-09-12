@@ -148,6 +148,18 @@ describe("AM-09 §2: the golden path is a directory, and its legs are derived fr
   it("a shipped milestone's leg RUNS, and an announced one is a declared stub citing its clause", () => {
     for (const leg of legs()) {
       if ((SHIPPED as readonly string[]).includes(leg.milestone)) {
+        // A shipped milestone's leg RUNS — unless the product owes it a door. AM-09 §2 ends "a leg
+        // that cannot be reached through the UI is a missing screen, not a licence to stage", so the
+        // one lawful stub at a shipped milestone is one that NAMES the missing screen. Deleting that
+        // line is what the increment landing the door does, and this assertion is what then demands
+        // the walk. A stub with no named door is the old failure — a leg quietly not walked.
+        const owed = /MISSING DOOR:([^\n]*)/.exec(leg.source);
+        if (owed !== null) {
+          expect((owed[1] ?? "").trim().length, `${leg.file} declares a MISSING DOOR, so it must say WHICH door the product owes`).toBeGreaterThan(40);
+          expect(/test\.fixme\s*\(/.test(leg.source), `${leg.file} names a missing door, so its walk stands as a test.fixme until the door lands`).toBe(true);
+          expect(runsATest(leg.source), `${leg.file} cannot be walked yet, so nothing in it may run and report green`).toBe(false);
+          continue;
+        }
         expect(runsATest(leg.source), `${leg.file} is a shipped milestone's leg, so it must hold a test that runs — not only a stub`).toBe(true);
         continue;
       }

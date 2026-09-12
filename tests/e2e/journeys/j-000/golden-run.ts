@@ -10,12 +10,16 @@
  * then start the shipped worker so the queued ingest — and the partition it chains — run against a
  * set revision that already names the drawing.
  *
- * THE ORDER IS THE WHOLE TRICK, and it is a product fact, not a convenience. The register's objects
- * are made by the partition job's expansion stage for set revisions that name the drawing, and
- * NOTHING in the UI re-partitions an already-ingested sheet. A journey that pins after the partition
- * has run therefore meets an empty register for ever. The lane's worker is not product state — it is
- * the shipped consumer of the shipped queue — so holding it back until the pin is placed is the one
- * lawful way to put a customer's two acts in the order the product needs, with no stage at all.
+ * WHAT THIS PROLOGUE CANNOT REACH, AND WHY THAT IS A FINDING RATHER THAN A LICENCE. The register's
+ * objects are made by the partition job's EXPANSION stage, and only for set revisions that already
+ * name the drawing — while the reading a sheet gets is asked for ONCE, by the screen session that
+ * took the upload. A customer therefore has no order of clicks that pins a set ahead of the
+ * partition: holding the shipped worker back to make room for the pin loses the reading request
+ * altogether (proved twice, 240 s of an empty sheet index). Nothing in the UI re-partitions an
+ * ingested sheet either. So the two legs that need register objects — the column lines and the
+ * coverage grid — stand as declared stubs naming the door the product owes, which is exactly what
+ * AM-09 §2 prescribes: "A leg that cannot be reached through the UI is a missing screen, not a
+ * licence to stage." The set is still pinned here, by clicks, because the pin itself is a customer act.
  *
  * ONE PROLOGUE PER PROCESS. Establishing it costs an upload and a real `cad/` extraction, so it is
  * memoised: the first leg that asks pays, every later leg in the same worker restores the session's
@@ -152,24 +156,28 @@ async function establish(page: Page): Promise<GoldenRun> {
   const projectId = (await card.getAttribute("data-project")) ?? "";
   expect(projectId, "the card names the project it is for").not.toBe("");
 
-  /* --- F-RCC6, dropped on S-Drawings. No worker runs yet, so ingest QUEUES (see the header) --- */
+  /* --- the shipped worker first: the reading S-Drawings asks for on upload is asked for ONCE, by
+     the screen session that took the file. Holding the worker back to get the set pinned ahead of
+     the partition lost that request altogether — 240 s of an empty sheet index, twice. So the
+     consumer is up before the file is dropped, exactly as J-010 and m1-upload-and-open have it. --- */
+  await goldenWorker();
+
+  /* --- F-RCC6, dropped on S-Drawings --- */
   await drawings.open(tenantId, projectId);
   await drawings.dropFile(FIXTURE);
   await expect(drawings.dropzoneItems.first(), "the dropped drawing is stored by the upload seam").toHaveAttribute("data-state", "stored", {
     timeout: READING_BUDGET_MS,
   });
 
-  /* --- the set, created and PINNED through its own screen, before anything has read the file --- */
-  await pinASetOverTheDrawing(page, tenantId, projectId);
-
-  /* --- now the shipped worker drains the queue: ingest, and the partition ingest chains --- */
-  await goldenWorker();
   await drawings.open(tenantId, projectId);
   // NOT the job timeline: X-1 scopes that reading to the screen session that STARTED the jobs, and
   // this leg came back to the screen after pinning the set, so it reads "idle" for ever and says
   // nothing about the queue. The honest evidence that the reading finished is the reading itself —
   // the sheet the golden path stands on, fanned out as a card of its own.
   await expect(drawings.cardForLayout(SHEET), `the sheet "${SHEET}" fanned out as a card of its own`).toHaveCount(1, { timeout: READING_BUDGET_MS });
+
+  /* --- the set, created and PINNED through its own screen: a real act, and the campaign it opens --- */
+  await pinASetOverTheDrawing(page, tenantId, projectId);
 
   const run: GoldenRun = { tenantId, projectId, email, cookies: await page.context().cookies() };
   remember(run);
