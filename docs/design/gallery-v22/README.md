@@ -138,3 +138,35 @@ two-lane wall is (1), (2) and (4) above — U2's own screens — plus the eight 
 in (3). **The lease remains UNSPENT.** Nothing in `tests/e2e/baselines/` was re-taken or committed by
 this session; the stray PNGs the diagnostic walk wrote were removed (`git clean -fd`) so that no
 picture in the tree predates the lease when it is finally spent.
+
+---
+
+## SESSION 5, 2026-09-12 — `cubit-u2f`: the named defect J-011's pulse leg waits on
+
+**DEFECT (unowned): with motion in force, a Reveal's arrival paints no frame that can be seen
+between `data-flyto="settled"` and stillness.**
+
+J-011's last clause (R-UI-022, Decision §4) is that a revealed selection is struck in the pulse
+colour, goes on repainting for one `--motion-flyto`, and stops of its own accord. Two things stood
+between the leg and that clause, and only the first is settled.
+
+1. **Settled.** The lane's ground is `reducedMotion: reduce` (§9.3), which zeroes `--motion-flyto`
+   at source — and viewer.md §4 says a zeroed token draws NO pulse frame at all. Under the lane's
+   own ground the leg asked the product for the one thing the product is right to refuse. The spec
+   now asks for motion BY NAME (`reducedMotion: "no-preference"` in J-011's own `test.use`, and
+   nowhere else): a journey that needs motion says so in its own file rather than the gallery's
+   ground being bent for it.
+
+2. **Not settled, and named here.** With motion in force the pulse still cannot be seen. It was
+   sampled at 20 ms resolution (the settle is read by a 20 ms poll, not by `expect`'s 100/250/500 ms
+   ladder) in a 200 px square centred on what the reveal flew to, and every frame the sampler held
+   was byte-identical: the canvas is still from the moment `data-flyto` reads `settled`. The product
+   path reads correctly on inspection — `useReveal.land()` calls `painter.pulse(durationMs, colour)`;
+   `pulse()` sets `pulseFrom`/`pulseMs` and re-arms the frame loop; `tick()` keeps asking for frames
+   while `pulseMs > 0`; `pulseAmount()` tints the selection mark. So either those frames are never
+   painted, or they are painted and not composited into what a screenshot of this WebGL canvas
+   returns. Telling those two apart is a renderer question, not a journey one.
+
+The leg is therefore a NAMED `test.fixme` at the foot of `tests/e2e/journeys/j-011-viewer.spec.ts`,
+carrying the clause verbatim and the two findings above. It is not a silent deletion and the clause
+is not withdrawn: the next owner restores the sampling loop into J-011's walk and deletes the stub.
