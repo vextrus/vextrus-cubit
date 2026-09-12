@@ -17,10 +17,11 @@ import type { RefusalCode } from "@/core/errors";
 import { refusalCodeOf } from "@/core/faults/refusal-marker";
 import { archiveProject, createProject, restoreProject, updateProject, type ProjectsCtx } from "@/modules/spine/projects";
 import type { AuthSession } from "@/server/auth/session";
+import { authorize } from "@/server/authorize";
 import { serverCall } from "@/server/call";
 import { sampleSeed, type SampleSeedAnswer } from "@/server/shell/sample-seed";
 import { endSession, presentedSessionToken } from "@/server/shell/session";
-import { holdsWorkspace, renameWorkspace, type RenameAnswer } from "@/server/shell/workspace";
+import { renameWorkspace, type RenameAnswer } from "@/server/shell/workspace";
 // The two pure helpers, from the module that holds them (B-17) rather than from the barrel that
 // re-exports them: the barrel also carries the frame's client components and the shell stylesheet,
 // and a "use server" module that imports it drags both into every action bundle.
@@ -96,6 +97,9 @@ export async function renameWorkspaceAction(_shown: RenameFormState, form: FormD
   return renaming(Object.fromEntries(form));
 }
 
+/** What L-ACT-03 makes project lifecycle move: the PRINCIPAL-only bundle the seam refuses by name. */
+const LIFECYCLE_PERMISSION = "ADMINISTER_PROJECT" as const;
+
 /** What the project form is showing: nothing yet, or the answer the last submission produced. */
 export type ProjectFormState =
   | { saved: true; projectId: string }
@@ -130,14 +134,15 @@ const LIFECYCLE = z.object({ tenantId: z.string(), projectId: z.string() });
 const saving = serverCall(
   SAVED,
   async (stated, session): Promise<ProjectFormState> => {
-    const actor = await actorIn(stated.tenantId, session);
+    // A creation names no project, and an edit names the one it edits: the same door, two questions.
+    const actor = await actorIn(stated.tenantId, session, stated.projectId === "" ? undefined : stated.projectId);
     if (typeof actor === "string") return { saved: false, refusal: actor };
 
     const judged = judgeProject(stated.presented);
     if (!judged.presentable) return { saved: false, judgement: judged.refused };
 
     return attempted<ProjectFormState>(
-      stated.tenantId,
+      actor.tenantId,
       async () => {
         if (stated.projectId === "") {
           const created = await createProject(actor, judged.fields);
@@ -155,10 +160,10 @@ const saving = serverCall(
 const archiving = serverCall(
   LIFECYCLE,
   async (stated, session): Promise<LifecycleAnswer> => {
-    const actor = await actorIn(stated.tenantId, session);
+    const actor = await actorIn(stated.tenantId, session, stated.projectId);
     if (typeof actor === "string") return { done: false, refusal: actor };
     return attempted<LifecycleAnswer>(
-      stated.tenantId,
+      actor.tenantId,
       async () => {
         await archiveProject(actor, { projectId: stated.projectId });
         return { done: true };
@@ -172,10 +177,10 @@ const archiving = serverCall(
 const restoring = serverCall(
   LIFECYCLE,
   async (stated, session): Promise<LifecycleAnswer> => {
-    const actor = await actorIn(stated.tenantId, session);
+    const actor = await actorIn(stated.tenantId, session, stated.projectId);
     if (typeof actor === "string") return { done: false, refusal: actor };
     return attempted<LifecycleAnswer>(
-      stated.tenantId,
+      actor.tenantId,
       async () => {
         await restoreProject(actor, { projectId: stated.projectId });
         return { done: true };
@@ -209,19 +214,30 @@ export async function restoreProjectAction(tenantId: string, projectId: string):
 /**
  * Of which workspace — or the registered refusal that answers instead. The session is the one the
  * server-call seam resolved for this action, and a request that presented none was answered
- * SIGNED_OUT there, whose remedy is signing in again; an address naming a workspace this session
- * does not hold is PERMISSION_NOT_HELD, which is the same answer the layout gives for the same
- * reason (ARCH-03, B-21).
+ * SIGNED_OUT there, whose remedy is signing in again; an address this session may not act at is
+ * PERMISSION_NOT_HELD, which is the same answer the layout gives for the same reason (ARCH-03).
  *
- * "Does this account hold THAT workspace" is a membership question, and it is asked as one. The
- * frame's `workspaceFor` answers a different question — the earliest membership, the one workspace
- * the shipped switcher shows — and guarding a write with it would refuse every project door in a
- * second workspace to a person who genuinely holds it. The seam's own row security is what makes the
- * membership check safe to state this widely: the scope carries the tenant either way.
+ * The question is the guard's and no longer this file's (B-17, ARCH-02). It used to stop at
+ * `holdsWorkspace`, which is the half-question: ANY member of the workspace could archive, restore
+ * or rewrite the fields of ANY project in it, whatever they held on that project. L-ACT-03 names
+ * what lifecycle moves — ADMINISTER_PROJECT, the PRINCIPAL-only bundle — and the seam behind these
+ * three doors refuses by that very name, so the door now asks for it before the seam is called.
+ *
+ * The workspace still travels: a presented tenant that disagrees with the project's real owner is
+ * refused by the guard rather than believed, and the scope handed on carries the guard's answer.
  */
-async function actorIn(tenantId: string, session: AuthSession): Promise<ProjectsCtx | RefusalCode> {
-  if (!(await holdsWorkspace(session.userId, tenantId))) return "PERMISSION_NOT_HELD";
-  return { tenantId, userId: session.userId, actorKind: "human" };
+async function actorIn(tenantId: string, session: AuthSession, projectId?: string): Promise<ProjectsCtx | RefusalCode> {
+  const answer = await authorize({
+    userId: session.userId,
+    tenantId,
+    // A door that names an existing project names the permission that project's lifecycle moves, and
+    // the guard tests it against the grants the ledger holds. A creation names neither: there is no
+    // project yet to hold a grant on, so membership is what admits it — which is all this door ever
+    // asked, and all it may ask until the project exists.
+    ...(projectId === undefined ? {} : { projectId, permission: LIFECYCLE_PERMISSION, actType: null }),
+  });
+  if (!answer.authorized) return "PERMISSION_NOT_HELD";
+  return { tenantId: answer.tenantId, userId: answer.userId, actorKind: "human" };
 }
 
 /**
