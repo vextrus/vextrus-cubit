@@ -1,0 +1,57 @@
+/**
+ * The strings a Dhaka set writes that the grammar could not read — one case per finding of the P3
+ * adversary pass over the fixture's own corpus (3,102 drawn strings of F-RCC6-BNBC). Each was RED
+ * before the row that reads it was added to the GRAMMAR table, and each names what the product loses
+ * while it stays RED: a member that never reaches a bill (L-QTY-04), or a phantom one that does.
+ *
+ * Nothing here opens a store, a clock or a model: the grammar is total over strings.
+ */
+import { describe, expect, test } from "vitest";
+import { readNotation } from "@/modules/takeoff/partition/notation/grammar";
+
+const reading = (said: string): string => {
+  const read = readNotation(said);
+  return read.ok ? `${read.kind}:${JSON.stringify(read.parsed)}` : `UNREAD(${read.token})`;
+};
+
+describe("N1 — the storey-keyed mark roster (135 of the corpus's 714 mark strings)", () => {
+  test.each(["1B12", "2B7", "1CB3", "1EB2", "SB-R4"])("%s is a member mark, not an unread cell", (said) => {
+    const read = readNotation(said);
+    expect(read.ok, `"${said}" is the whole first-floor beam roster — unread, it is a member that never reaches a bill`).toBe(true);
+    expect(read.ok && read.kind).toBe("mark");
+  });
+
+  test("the storey digit is read as the level the mark names, not as part of the class", () => {
+    const read = readNotation("1B12");
+    expect(read.ok && read.parsed).toStrictEqual({ family: "B", number: 12, level: "1", variant: null, part: null });
+  });
+
+  test.each(["MRR", "FL", "SOG", "RAMP"])("%s is the mark this set writes as a word", (said) => {
+    expect(reading(said)).toContain("mark");
+  });
+});
+
+describe("N5 — a sheet number and a detail bubble are never members", () => {
+  test.each(["S-00", "S-03", "S-26", "A1", "A2", "3/S-03"])("%s reads as a reference", (said) => {
+    const read = readNotation(said);
+    expect(read.ok && read.kind, `"${said}" minted a phantom member on every sheet of the set while F-MARK read it`).toBe("reference");
+  });
+
+  test("the slab mark and the sheet number are told apart by the set's own spelling", () => {
+    expect(reading("S3")).toContain("mark");
+    expect(reading("S-03")).toContain("reference");
+  });
+});
+
+describe("N7 — an ambiguous designator is settled by evidence, not by the order of the table", () => {
+  test("T16 is a 16 mm bar because T is not a member class on this set's roster", () => {
+    const read = readNotation("T16");
+    expect(read.ok && read.kind).toBe("bar_diameter");
+    expect(read.ok && read.parsed).toStrictEqual({ diameterMm: 16, designation: "T16" });
+  });
+
+  test("a mark class and a bar designator are disjoint — were they not, the reading would turn on table order", () => {
+    const read = readNotation("TG1");
+    expect(read.ok && read.kind, "TG is a mark class and TG1 is a transfer girder, not a 1 mm bar").toBe("mark");
+  });
+});

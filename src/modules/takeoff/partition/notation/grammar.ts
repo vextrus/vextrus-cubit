@@ -24,7 +24,8 @@ export type NotationKind =
   | "grade_fc"
   | "grade_fy"
   | "cover"
-  | "dimension_ft_in";
+  | "dimension_ft_in"
+  | "reference";
 
 /** The form a reading was read by — the id of the row of FORMS that matched (the coverage contract). */
 export type FormId =
@@ -37,7 +38,8 @@ export type FormId =
   | "F-FC"
   | "F-FY"
   | "F-COVER"
-  | "F-FTIN";
+  | "F-FTIN"
+  | "F-REF";
 
 /** The refusal a text nobody can read answers with. Registered in core's closed taxonomy. */
 export const NOTATION_UNREAD = "NOTATION_UNREAD" as const satisfies RefusalCode;
@@ -123,6 +125,42 @@ const BAR_FACES: Readonly<Record<string, string>> = Object.freeze({
   "T&B": "top-and-bottom", TB: "top-and-bottom", "B/W": "both-ways", BW: "both-ways",
   EW: "each-way", "E/W": "each-way", TOP: "top", BOT: "bottom", BTM: "bottom", B: "bottom", T: "top",
 });
+
+/**
+ * The member-mark classes this set's plans write, as a closed roster (ARCH-01). A mark is read from
+ * the roster and never from a shape: `[A-Z]{1,3}\d+` is also the shape of a sheet number (`S-03`), a
+ * detail bubble (`A1`) and a paper size, and every one of those minted a phantom member while the
+ * shape was the rule. A class a set writes and this roster does not hold is REFUSED by name — a
+ * refusal a person can act on — rather than guessed at (L-CAD-08, ARCH-03).
+ */
+const MARK_FAMILIES: readonly string[] = Object.freeze([
+  "B", "RB", "CB", "EB", "LB", "PB", "REB", "SB-R", "GB", "TG", // beams: floor, roof, cantilever, edge, lintel, plinth, stair
+  "C", "CS", "SW", // columns, column strips, shear walls
+  "S", "FL", "ML", "LS", "SS", "PS", "PP", // slabs: panel, flat, mat, landing, sunshade, pile slab
+  "F", "PC", "P", "R", // footings, pile caps, piles, risers
+  "BW", "LPS", // brick walls by thickness, lift pit slab
+  "OHWT", "UGWR", "ST", // overhead tank, underground reservoir, stair — parted marks
+  "MRR", "SRR", "SOG", "PIT", "RAMP", // the one-of-a-kind members a set names by word
+  "FB", // the dotted abbreviation F.B a census habit writes
+]);
+
+/** The marks a set writes as a word, with no number: there is one of each on the building. */
+const MARK_WORDS: readonly string[] = Object.freeze(["FL", "MRR", "SRR", "SOG", "PIT", "RAMP", "LPS", "P"]);
+
+/** The classes whose members are named by the PART of the structure rather than by a number, and the
+ * parts each is drawn in: a water tank's base, top and wall are three members of one mark. */
+const PARTED_MARKS: readonly string[] = Object.freeze(["OHWT", "UGWR", "ST"]);
+const MARK_PARTS: Readonly<Record<string, string>> = Object.freeze({ B: "base", T: "top", W: "wall" });
+
+/**
+ * What a drawing points AT rather than measures: the sheets of the set and the bubbles that call a
+ * detail. `S-03` is a sheet and `S3` is a slab — the separator and the two digits are the set's own
+ * distinction, and the title block is on every sheet, so reading one as a member mints a phantom
+ * member on all 27 of them (L-QTY-04 in reverse: the quantity that was never drawn).
+ */
+const SHEET_SERIES: readonly string[] = Object.freeze(["S", "A", "C", "E", "P", "M"]);
+/** The letters a detail bubble is serialised by on a Dhaka set — a drawing-list label, never a member. */
+const BUBBLE_SERIES: readonly string[] = Object.freeze(["A", "D"]);
 
 /** The levels a set names by word, and the spelling each reads as. */
 const NAMED_LEVELS: Readonly<Record<string, string>> = Object.freeze({
@@ -285,15 +323,59 @@ function readSpacing(said: string): Spacing | null {
   return { bar: bars[bars.length - 1] ?? null, spacingMm: centres, legs: legs === null ? null : Number(legs[1]) };
 }
 
-const MARK = /^([A-Z]{1,3})\s*-?\s*(\d+)([A-Z])?$/;
+/** The three shapes a mark is written in, each over the roster — never over a bare letter-and-digit
+ * shape. A: the numbered member (`C-1`, `1B12`, `GB 2`, `B-2A`), with the storey digit a floor-keyed
+ * set writes in front of the class. B: the parted member (`OHWT-B`). C: the one the set names by word
+ * (`SOG`). */
+const MARK_NUMBERED = new RegExp(`^(\\d)?(${alternation(MARK_FAMILIES)})-?(\\d+)([A-Z])?$`);
+const MARK_PARTED = new RegExp(`^(${alternation(PARTED_MARKS)})-(${alternation(Object.keys(MARK_PARTS))})$`);
+const MARK_WORD = new RegExp(`^(${alternation(MARK_WORDS)})$`);
 
-/** A member mark: the class, the number it is, and the variant letter where it carries one. */
-export type Mark = { readonly family: string; readonly number: number; readonly variant: string | null };
+/**
+ * A member mark: the class, the number it is where it carries one, the storey the mark itself names
+ * (`1B12` is the FIRST FLOOR's beam 12 — the digit is the level, not part of the class), the variant
+ * letter, and the part of a member drawn in parts.
+ */
+export type Mark = {
+  readonly family: string;
+  readonly number: number | null;
+  readonly level: string | null;
+  readonly variant: string | null;
+  readonly part: string | null;
+};
 
 function readMark(said: string): Mark | null {
-  const match = MARK.exec(said.replace(/\s+/g, ""));
-  if (match === null) return null;
-  return { family: String(match[1]), number: Number(match[2]), variant: match[3] ?? null };
+  const plain = said.replace(/\s+/g, "");
+  const numbered = MARK_NUMBERED.exec(plain);
+  if (numbered !== null) {
+    return { family: String(numbered[2]), number: Number(numbered[3]), level: numbered[1] ?? null, variant: numbered[4] ?? null, part: null };
+  }
+  const parted = MARK_PARTED.exec(plain);
+  if (parted !== null) {
+    return { family: String(parted[1]), number: null, level: null, variant: null, part: MARK_PARTS[String(parted[2])] ?? null };
+  }
+  const word = MARK_WORD.exec(plain);
+  if (word !== null) return { family: String(word[1]), number: null, level: null, variant: null, part: null };
+  return null;
+}
+
+const SHEET_NUMBER = new RegExp(`^(${alternation(SHEET_SERIES)})-(\\d{2})$`);
+const DETAIL_BUBBLE = new RegExp(`^(\\d+)\\s*/\\s*((?:${alternation(SHEET_SERIES)})-\\d{2})$`);
+const SERIES_BUBBLE = new RegExp(`^(${alternation(BUBBLE_SERIES)})(\\d{1,2})$`);
+
+/** What a drawing points at: the sheet it names, the detail it calls, or the bubble it labels.
+ * A reference measures NOTHING — it is read so that nothing else reads it as a member. */
+export type Reference = { readonly refers: "sheet" | "detail" | "bubble"; readonly sheet: string | null; readonly label: string };
+
+function readReference(said: string): Reference | null {
+  const plain = said.replace(/\s+/g, "");
+  const sheet = SHEET_NUMBER.exec(plain);
+  if (sheet !== null) return { refers: "sheet", sheet: plain, label: plain };
+  const detail = DETAIL_BUBBLE.exec(plain);
+  if (detail !== null) return { refers: "detail", sheet: String(detail[2]), label: plain };
+  const bubble = SERIES_BUBBLE.exec(plain);
+  if (bubble !== null && !MARK_FAMILIES.includes(String(bubble[1]))) return { refers: "bubble", sheet: null, label: plain };
+  return null;
 }
 
 /** One end of a band, as the level it names. */
@@ -420,7 +502,18 @@ const FORMS: readonly {
   { id: "F-COVER", kind: "cover", read: (said) => { const one = readCover(said); return one === null ? null : { parsed: one }; } },
   { id: "F-FTIN", kind: "dimension_ft_in", read: (said) => { const one = readDimension(said); return one === null ? null : { parsed: one }; } },
   { id: "F-BAR-GROUP", kind: "bar_group", read: (said) => { const one = readBarGroup(said); return one === null ? null : { parsed: one }; } },
-  { id: "F-BAR-DIA", kind: "bar_diameter", read: (said) => { const match = DIA_WHOLE.exec(said); if (match === null) return null; const one = barOf(match); return one === null ? null : { parsed: one }; } },
+  { id: "F-BAR-DIA", kind: "bar_diameter", read: (said) => {
+    const match = DIA_WHOLE.exec(said);
+    if (match === null) return null;
+    // `T16` is a 16 mm deformed bar on a set whose notes map the British designator (the corpus's own
+    // "T AND Y BOTH MEAN A DEFORMED BAR"), and it is a MEMBER mark on a set whose roster holds T. The
+    // EVIDENCE decides — the roster — and never this table's order: where a designator is also a mark
+    // class, this form declines and the mark is read instead (the two rosters are proved disjoint).
+    if (match[4] !== undefined && MARK_FAMILIES.includes(String(match[4]))) return null;
+    const one = barOf(match);
+    return one === null ? null : { parsed: one };
+  } },
+  { id: "F-REF", kind: "reference", read: (said) => { const one = readReference(said); return one === null ? null : { parsed: one }; } },
   { id: "F-LEVEL-RANGE", kind: "level_range", read: (said) => readLevels(said) },
   { id: "F-MARK", kind: "mark", read: (said) => { const one = readMark(said); return one === null ? null : { parsed: one }; } },
 ]);
@@ -492,10 +585,26 @@ export const GRAMMAR: readonly GrammarRow[] = Object.freeze([
   { input: "10mm âˆ… @ 150 C/C", kind: "spacing", parsed: { bar: { diameterMm: 10, designation: "10MMØ" }, spacingMm: 150, legs: null }, source: "T-NOT-MOJIBAKE with upper-case centres" },
   { input: "Ø12 @ 200 o.c.", kind: "spacing", parsed: { bar: { diameterMm: 12, designation: "Ø12" }, spacingMm: 200, legs: null }, source: "American habit: on centre" },
   // — marks ———————————————————————————————————————————————————————————————————————————
-  { input: "C-1", kind: "mark", parsed: { family: "C", number: 1, variant: null }, source: "column mark" },
-  { input: "GB-1", kind: "mark", parsed: { family: "GB", number: 1, variant: null }, source: "grade beam mark" },
-  { input: "F.B-1", kind: "mark", parsed: { family: "FB", number: 1, variant: null }, source: "census habit: the dotted abbreviation F.B" },
-  { input: "B-2A", kind: "mark", parsed: { family: "B", number: 2, variant: "A" }, source: "beam mark with a variant letter" },
+  { input: "C-1", kind: "mark", parsed: { family: "C", number: 1, level: null, variant: null, part: null }, source: "column mark" },
+  { input: "GB-1", kind: "mark", parsed: { family: "GB", number: 1, level: null, variant: null, part: null }, source: "grade beam mark" },
+  { input: "F.B-1", kind: "mark", parsed: { family: "FB", number: 1, level: null, variant: null, part: null }, source: "census habit: the dotted abbreviation F.B" },
+  { input: "B-2A", kind: "mark", parsed: { family: "B", number: 2, level: null, variant: "A" , part: null }, source: "beam mark with a variant letter" },
+  { input: "1B12", kind: "mark", parsed: { family: "B", number: 12, level: "1", variant: null, part: null }, source: "E-fixture §3.5 (`1B3`): the storey-keyed beam roster of a floor-by-floor set" },
+  { input: "2B7", kind: "mark", parsed: { family: "B", number: 7, level: "2", variant: null, part: null }, source: "E-fixture §3.5: the same roster on the second floor" },
+  { input: "1CB3", kind: "mark", parsed: { family: "CB", number: 3, level: "1", variant: null, part: null }, source: "storey-keyed cantilever beam" },
+  { input: "1EB2", kind: "mark", parsed: { family: "EB", number: 2, level: "1", variant: null, part: null }, source: "storey-keyed edge beam" },
+  { input: "SB-R4", kind: "mark", parsed: { family: "SB-R", number: 4, level: null, variant: null, part: null }, source: "stair beam, riser flight — a class whose own spelling carries a hyphen" },
+  { input: "TG1", kind: "mark", parsed: { family: "TG", number: 1, level: null, variant: null, part: null }, source: "E-fixture §3.5 (`TG1`): the transfer girder a floating column sits on" },
+  { input: "GB 2", kind: "mark", parsed: { family: "GB", number: 2, level: null, variant: null, part: null }, source: "E-fixture §3.5 (`GB 2`): the space a second draughtsman leaves" },
+  { input: "PC-3", kind: "mark", parsed: { family: "PC", number: 3, level: null, variant: null, part: null }, source: "E-fixture §3.5 (`PC-3`): pile cap" },
+  { input: "OHWT-B", kind: "mark", parsed: { family: "OHWT", number: null, level: null, variant: null, part: "base" }, source: "a member drawn in parts: the overhead tank's base" },
+  { input: "MRR", kind: "mark", parsed: { family: "MRR", number: null, level: null, variant: null, part: null }, source: "the machine room roof — a mark the set writes as a word" },
+  { input: "FL", kind: "mark", parsed: { family: "FL", number: null, level: null, variant: null, part: null }, source: "the flat slab panel a slab plan labels by word" },
+  { input: "T16", kind: "bar_diameter", parsed: { diameterMm: 16, designation: "T16" }, source: "T-NOT-TY: British T is a BAR here because T is not a mark class on this set's roster — evidence, not table order" },
+  // — references: what a sheet points AT, so that nothing reads it as a member —————————————
+  { input: "S-03", kind: "reference", parsed: { refers: "sheet", sheet: "S-03", label: "S-03" }, source: "the sheet number in the title block — on every sheet of every set" },
+  { input: "3/S-03", kind: "reference", parsed: { refers: "detail", sheet: "S-03", label: "3/S-03" }, source: "E-fixture §3.5 (`SEE DETAIL 3/S-03`): a detail bubble and the sheet it calls" },
+  { input: "A1", kind: "reference", parsed: { refers: "bubble", sheet: null, label: "A1" }, source: "a drawing-list bubble on the key sheet — A is not a member class" },
   // — level ranges ————————————————————————————————————————————————————————————————————
   { input: "GF TO 3RD", kind: "level_range", parsed: { levels: ["GF", "1ST", "2ND", "3RD"] }, source: "schedule column head: a band counted out" },
   { input: "3RD & 4TH", kind: "level_range", parsed: { levels: ["3RD", "4TH"] }, source: "census habit: a sheet title naming two floors" },
