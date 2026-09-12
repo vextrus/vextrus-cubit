@@ -1,5 +1,8 @@
 # Founder seed — inc-000 Foundation owns and extends this (C-06).
-node_modules/
+# A DIRECTORY pattern (`node_modules/`) does not match a SYMLINK of that name, and every agent
+# worktree of this repo links node_modules at a sibling install rather than paying pnpm for a second
+# copy of 400 MB on a shared box — so `git add -A` staged the link (v22 fault 274's shape, here).
+node_modules
 .next*/
 dist/
 coverage/
