@@ -35,7 +35,7 @@ GRAMMAR: dict[str, re.Pattern[str]] = {
     "range": re.compile(
         r"^(?:\(?(?:GF|G\.F\.|1ST|2ND|3RD|4TH|5TH|6TH|ROOF|SRR|FDN)\s*(?:TO|-|&)\s*(?:GF|1ST|2ND|3RD|4TH|5TH|6TH|ROOF|SRR)(?:\s*(?:FLOOR|FLR\.?))?\)?|GF|G\.F\.|ROOF|ROOF-SRR|(?:1ST|2ND|3RD|4TH|5TH|6TH)\s*(?:FLOOR|FLR\.?))$"
     ),
-    "mark": re.compile(r"^(?:[A-Z]{1,4}-?\s?\d{1,2}[a-z']?|\d[A-Z]{1,3}\d{1,2}|[A-Z]{1,4}\d?-[A-Z]{1,2}\d?|P\d{1,3}|S\d{1,2}|R\d{1,2}|SB-R\d|REB\d|OHWT-[BTW]|UGWR-[BTW]|ST-[BTW]|FL\d?|ML\d|SOG|RAMP|PIT|LPS|SRR|MRR|PP\d|BW\d{3}|LS\d|L\d)$"),
+    "mark": re.compile(r"^(?:[A-Z]{1,4}-?\s?\d{1,2}[a-z']?|\d[A-Z]{1,3}\d{1,2}|[A-Z]{1,4}\d?-[A-Z]{1,2}\d?|P\d{0,3}|S\d{1,2}|R\d{1,2}|SB-R\d|REB\d|OHWT-[BTW]|UGWR-[BTW]|ST-[BTW]|FL\d?|ML\d|SOG|RAMP|PIT|LPS|SRR|MRR|PP\d|BW\d{3}|LS\d|L\d)$"),
     "grade": re.compile(r"^(?:f'c|fc'|fy|f_y)\s*=\s*[\d,]+\s*(?:psi|MPa|N/mm²).*$|^B500DWR$|^C\d{4}PSI$"),
     "cover": re.compile(rf"^(?:{NUM}\s*mm|\d+\")\s*(?:clear\s*)?cover.*$", re.I),
     "grid": re.compile(r"^(?:[A-E]'?|\d'?|1a)$"),
