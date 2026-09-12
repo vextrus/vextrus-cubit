@@ -23,10 +23,10 @@ export class STakeoffPage {
     await this.page.goto(S_TAKEOFF.takeoff(tenantId, projectId));
     await this.page.waitForURL(new RegExp(`${S_TAKEOFF.register(tenantId, projectId)}$`));
     await expect(this.root, "the register workspace renders for a project the workspace holds").toBeVisible();
-    await expect(this.root, "and the frame holds exactly one of it — a screen stands in `shell-main` once").toHaveCount(1);
+    await expect(this.root, "and the frame holds exactly one of it — a screen stands in `TESTIDS.shell.main` once").toHaveCount(1);
   }
 
-  /** The workspace itself, where the frame puts it: one screen inside `shell-main` (R-UI-030). */
+  /** The workspace itself, where the frame puts it: one screen inside `TESTIDS.shell.main` (R-UI-030). */
   get root(): Locator {
     return screenInFrame(this.page, TESTIDS.register.workspace);
   }

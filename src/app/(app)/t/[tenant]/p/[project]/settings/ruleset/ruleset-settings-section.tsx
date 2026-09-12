@@ -129,7 +129,7 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
     return (
       <div className="cx-ruleset">
         <SettingsHeader title={rulesetStrings.ruleset_heading} about={rulesetStrings.ruleset_caption} />
-        <div data-testid="ruleset-unpinned">
+        <div data-testid={TESTIDS.ruleset.unpinned}>
           <ShellEmptyState heading={rulesetStrings.ruleset_unpinned_heading} body={rulesetStrings.ruleset_unpinned_body}>
             {/* A move inside the frame, so it travels through the router like every other one. */}
             <Link className="cx-shell-link cx-reticle" href={shellHref(view.tenantId, "projects")}>
@@ -151,7 +151,7 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
           neither stands for the other (L-MEA-01). */}
       <section className="cx-settings-section" aria-label={rulesetStrings.ruleset_edition_heading}>
         <p className="cx-ruleset-pin">
-          <span className="cx-ruleset-identity" data-testid="ruleset-edition-identity">
+          <span className="cx-ruleset-identity" data-testid={TESTIDS.ruleset.editionIdentity}>
             <span className="cx-ruleset-scope" data-scope={view.identity.scope}>
               {view.identity.scope}
             </span>
@@ -170,7 +170,7 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
           </h2>
           <SettingsAbout body={rulesetStrings.ruleset_lineage_hint} label={rulesetStrings.ruleset_lineage_heading} />
         </div>
-        <div className="cx-ruleset-table" data-testid="ruleset-lineage">
+        <div className="cx-ruleset-table" data-testid={TESTIDS.ruleset.lineage}>
           <DataTable
             tableId={LINEAGE_TABLE_ID}
             aria-labelledby={LINEAGE_HEADING_ID}
@@ -189,7 +189,7 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
             {rulesetStrings.ruleset_parameters_heading}
           </h2>
         </div>
-        <div className="cx-ruleset-table cx-settings-surface" data-testid="ruleset-parameter-table">
+        <div className="cx-ruleset-table cx-settings-surface" data-testid={TESTIDS.ruleset.parameterTable}>
           <DataTable
             tableId={PARAMETER_TABLE_ID}
             aria-labelledby={PARAMETERS_HEADING_ID}

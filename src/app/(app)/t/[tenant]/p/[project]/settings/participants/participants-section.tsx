@@ -268,7 +268,7 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
           <span className="cx-settings-count">{roster.length}</span>
         </div>
         {/* §3.6: the screen's primary region is a 28 px grid, and the roles in force are it. */}
-        <div className="cx-participants-table" data-testid="participants-list">
+        <div className="cx-participants-table" data-testid={TESTIDS.participants.list}>
           <DataTable
             tableId={ROSTER_TABLE_ID}
             aria-labelledby={headingIds.current}
@@ -356,7 +356,7 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
           <span className="cx-settings-count">{history.length}</span>
           <SettingsAbout body={strings.spine_participants_history_hint} label={strings.spine_participants_history_heading} />
         </div>
-        <div className="cx-participants-table" data-testid="participants-history">
+        <div className="cx-participants-table" data-testid={TESTIDS.participants.history}>
           <DataTable
             tableId={HISTORY_TABLE_ID}
             aria-labelledby={headingIds.history}

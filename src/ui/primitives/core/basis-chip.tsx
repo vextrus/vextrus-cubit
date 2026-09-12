@@ -22,6 +22,7 @@ import type { ComponentPropsWithRef } from "react";
 import { BASIS_GLYPHS, type Basis } from "./basis";
 import { cx } from "./class-names";
 import { EnumLabel } from "./enum-label";
+import { TESTIDS } from "@/ui/testids";
 
 export interface BasisChipProps extends ComponentPropsWithRef<"span"> {
   basis: Basis;

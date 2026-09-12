@@ -127,7 +127,7 @@ export function InvitationsPanel({
               type="button"
               variant="ghost"
               className="cx-invitations-act"
-              data-testid="invitations-resend"
+              data-testid={TESTIDS.invitations.resend}
               aria-label={fill(invitationsStrings.invitations_resend_label, { invitee: row.original.label })}
               onClick={() => submit("resend", () => resend({ tenantId, invitationId: row.original.invitationId }))}
             >
@@ -139,7 +139,7 @@ export function InvitationsPanel({
               type="button"
               variant="ghost"
               className="cx-invitations-act"
-              data-testid="invitations-revoke"
+              data-testid={TESTIDS.invitations.revoke}
               aria-label={fill(invitationsStrings.invitations_revoke_label, { invitee: row.original.label })}
               onClick={() => submit("revoke", () => revoke({ tenantId, invitationId: row.original.invitationId }))}
             >
@@ -168,7 +168,7 @@ export function InvitationsPanel({
 
         <form
           className="cx-invitations-form cx-settings-section-end"
-          data-testid="members-invite-form"
+          data-testid={TESTIDS.members.inviteForm}
           aria-labelledby={ids.heading}
           onSubmit={(event) => {
             event.preventDefault();
@@ -195,11 +195,11 @@ export function InvitationsPanel({
         </form>
       </div>
 
-      <section className="cx-invitations-pending" aria-labelledby={ids.heading} data-testid="members-pending-invitations">
+      <section className="cx-invitations-pending" aria-labelledby={ids.heading} data-testid={TESTIDS.members.pendingInvitations}>
         {rows.length === 0 ? (
           // R-UI-020: a workspace nobody has invited anyone to says so, in the line where the rows
           // would be, rather than showing an empty box with a header over it.
-          <p className="cx-invitations-none" data-testid="invitations-none">
+          <p className="cx-invitations-none" data-testid={TESTIDS.invitations.none}>
             {invitationsStrings.invitations_none}
           </p>
         ) : (

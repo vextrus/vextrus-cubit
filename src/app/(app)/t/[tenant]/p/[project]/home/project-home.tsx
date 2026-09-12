@@ -100,7 +100,7 @@ export function ProjectHome({ data }: { data: ProjectHomeData }) {
   const roster = "refusal" in participants ? null : participants.roster;
 
   return (
-    <div className="cx-project" data-testid="project-home" data-project={projectId}>
+    <div className="cx-project" data-testid={TESTIDS.project.home} data-project={projectId}>
       <ProjectTitle tenantId={tenantId} projectId={projectId} project={project} zones={zones} />
       <ProjectTabs tenantId={tenantId} projectId={projectId} />
 
@@ -108,20 +108,20 @@ export function ProjectHome({ data }: { data: ProjectHomeData }) {
         <Stat value={formatUserFigure(String(project.quickStats.sheets))} label={strings.home_stat_sheets} />
         <Stat value={formatUserFigure(String(project.quickStats.campaigns))} label={strings.home_stat_campaigns} />
         <Stat
-          data-testid="project-home-ai-spend"
+          data-testid={TESTIDS.project.homeAiSpend}
           label={copy.project_home_ai_heading}
           value={
             spend.calls === 0 ? (
               // I-145: nothing spent is an absence, and the line below says so in words.
-              <span data-testid="project-home-ai-cost">
+              <span data-testid={TESTIDS.project.homeAiCost}>
                 <Absent />
               </span>
             ) : (
-              <span className="cx-project-figure" data-testid="project-home-ai-cost">
+              <span className="cx-project-figure" data-testid={TESTIDS.project.homeAiCost}>
                 {formatUserFigure(spend.attributedCost)}
                 {/* I-134: the shipped badge fixes its own test id, so the contract's id rides a
                     `display: contents` wrapper rather than a second badge drawn to carry it. */}
-                <span className="cx-project-unit" data-testid="project-home-ai-cost-unit">
+                <span className="cx-project-unit" data-testid={TESTIDS.project.homeAiCostUnit}>
                   <UnitBadge unit={copy.project_home_ai_cost_unit} />
                 </span>
               </span>
@@ -154,9 +154,9 @@ function ProjectTitle({ tenantId, projectId, project, zones }: { tenantId: strin
   const [primary] = QUICK_ACTIONS;
 
   return (
-    <header className="cx-project-title" data-testid="project-home-header">
+    <header className="cx-project-title" data-testid={TESTIDS.project.homeHeader}>
       <div className="cx-project-title-row">
-        <h1 className="cx-project-name" data-testid="project-home-name">
+        <h1 className="cx-project-name" data-testid={TESTIDS.project.homeName}>
           {project.name}
         </h1>
         {/* A project that has been put away says so where it is named — the flag S-Home's own row
@@ -169,13 +169,13 @@ function ProjectTitle({ tenantId, projectId, project, zones }: { tenantId: strin
             secondary Button worn as a link (the `sheet-card-open` precedent, B-17). The heading
             that used to name a "Quick actions" section is gone with the section: a row of doors in
             the title row needs no label to say that it is one (§7 C7). */}
-        <div className="cx-project-title-controls" data-testid="project-quick-actions">
+        <div className="cx-project-title-controls" data-testid={TESTIDS.project.quickActions}>
           {QUICK_ACTIONS.map((action) => (
             <Link
               key={action.key}
               className="cx-btn cx-reticle"
               data-variant={action === primary ? "primary" : "secondary"}
-              data-testid="project-quick-action"
+              data-testid={TESTIDS.project.quickAction}
               data-action={action.key}
               href={action.route(tenantId, projectId)}
             >
@@ -231,11 +231,11 @@ function ProjectTitle({ tenantId, projectId, project, zones }: { tenantId: strin
               // A target stated once, in the two units it is read in: the m² figure the store holds
               // and the seam's own conversion of it. The factor is the seam's (L-FMT-02).
               <>
-                <span className="cx-project-figure" data-testid="project-home-gfa">
+                <span className="cx-project-figure" data-testid={TESTIDS.project.homeGfa}>
                   {formatUserFigure(project.targetGfaM2)}
                   <UnitBadge unit={copy.project_home_unit_m2} />
                 </span>
-                <span className="cx-project-figure cx-project-figure-converted" data-testid="project-home-gfa-sft">
+                <span className="cx-project-figure cx-project-figure-converted" data-testid={TESTIDS.project.homeGfaSft}>
                   {formatSquareFeet(project.targetGfaM2)}
                   <UnitBadge unit={copy.project_home_unit_sft} />
                 </span>
@@ -264,7 +264,7 @@ function ProjectTabs({ tenantId, projectId }: { tenantId: string; projectId: str
           <Tooltip key={area.key} content={copy.project_home_tab_unavailable}>
             {/* Focusable on purpose: a condition only a pointer can read is a condition half the
                 readers never learn (R-UI-012). `aria-disabled`, never `disabled`. */}
-            <span className="cx-project-tab" data-testid="project-tab" data-area={area.key} data-available="false" role="link" aria-disabled="true" tabIndex={0}>
+            <span className="cx-project-tab" data-testid={TESTIDS.project.tab} data-area={area.key} data-available="false" role="link" aria-disabled="true" tabIndex={0}>
               {copy[area.label]}
             </span>
           </Tooltip>
@@ -296,16 +296,16 @@ function AiLine({ tenantId, projectId, spend }: { tenantId: string; projectId: s
   return (
     <p className="cx-project-line">
       {spend.calls === 0 ? (
-        <span data-testid="project-home-ai-none">{copy.project_home_ai_none}</span>
+        <span data-testid={TESTIDS.project.homeAiNone}>{copy.project_home_ai_none}</span>
       ) : (
         <>
-          <span className="cx-project-figure" data-testid="project-home-ai-calls">
+          <span className="cx-project-figure" data-testid={TESTIDS.project.homeAiCalls}>
             {formatUserFigure(String(spend.calls))}
           </span>{" "}
           {copy.project_home_ai_calls_caption}
           <span className="cx-project-pause">, </span>
           <span aria-hidden="true"> · </span>
-          <span data-testid="project-home-ai-outcomes">
+          <span data-testid={TESTIDS.project.homeAiOutcomes}>
             {fill(copy.project_home_ai_outcomes, {
               proposed: formatUserFigure(String(spend.proposed)),
               refused: formatUserFigure(String(spend.refused)),
@@ -315,7 +315,7 @@ function AiLine({ tenantId, projectId, spend }: { tenantId: string; projectId: s
       )}
       <span className="cx-project-pause">, </span>
       <span aria-hidden="true"> · </span>
-      <Link className="cx-project-evidence cx-reticle" data-testid="project-home-ai-ledger" href={auditRoute(tenantId, projectId)}>
+      <Link className="cx-project-evidence cx-reticle" data-testid={TESTIDS.project.homeAiLedger} href={auditRoute(tenantId, projectId)}>
         {copy.project_home_ai_ledger}
       </Link>
     </p>
@@ -374,19 +374,19 @@ function RecentActivity({ tenantId, projectId, acts }: { tenantId: string; proje
         <h2 className="cx-project-region-heading" id={HEADING_ID.activity}>
           {copy.project_home_activity_heading}
         </h2>
-        <Link className="cx-project-evidence cx-reticle" data-testid="project-home-activity-all" href={auditRoute(tenantId, projectId)}>
+        <Link className="cx-project-evidence cx-reticle" data-testid={TESTIDS.project.homeActivityAll} href={auditRoute(tenantId, projectId)}>
           {copy.project_home_activity_all}
         </Link>
       </div>
 
       {shown.length === 0 ? (
         <EmptyState
-          data-testid="project-home-activity-empty"
+          data-testid={TESTIDS.project.homeActivityEmpty}
           heading={strings.state_empty_project_home_heading}
           body={copy.project_home_activity_empty}
         />
       ) : (
-        <div className="cx-project-table" data-testid="project-home-activity">
+        <div className="cx-project-table" data-testid={TESTIDS.project.homeActivity}>
           <DataTable
             tableId={TABLE_ID.activity}
             aria-labelledby={HEADING_ID.activity}
@@ -426,7 +426,7 @@ function Participants({ tenantId, projectId, participants }: { tenantId: string;
       cell: ({ row }) => (
         <span className="cx-project-roles">
           {row.original.roles.map((role) => (
-            <EnumLabel key={role} value={role} data-testid="project-home-participant-role" className="cx-project-role" />
+            <EnumLabel key={role} value={role} data-testid={TESTIDS.project.homeParticipantRole} className="cx-project-role" />
           ))}
         </span>
       ),
@@ -441,7 +441,7 @@ function Participants({ tenantId, projectId, participants }: { tenantId: string;
         </h2>
       </div>
 
-      <div className="cx-project-table" data-testid="project-home-participants">
+      <div className="cx-project-table" data-testid={TESTIDS.project.homeParticipants}>
         {"refusal" in participants ? (
           <RefusalState
             refusal={refusalOf(participants.refusal)}

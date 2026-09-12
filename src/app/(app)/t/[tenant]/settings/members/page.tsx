@@ -91,7 +91,7 @@ function MembersDenied({ tenantId }: { tenantId: string }) {
   return (
     <SettingsPane items={workspaceSettingsNav(tenantId)} active="members">
       <SettingsHeader title={membersStrings.members_heading} about={membersStrings.members_caption} />
-      <div className="cx-members-answer" data-testid="members-refusal">
+      <div className="cx-members-answer" data-testid={TESTIDS.members.refusal}>
         <RefusalState
           refusal={refusalOf("WORKSPACE_PERMISSION_NOT_HELD")}
           evidence={{ href: shellHref(tenantId, "projects"), label: strings.home_evidence_projects }}

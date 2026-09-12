@@ -37,6 +37,7 @@ import { ProjectsOnboarding } from "../projects-onboarding";
 import { ProjectForm } from "./project-form";
 import { ProjectRowMenu } from "./project-row";
 import { homeScreenStrings } from "./strings";
+import { TESTIDS } from "@/ui/testids";
 
 /**
  * The document's conventions, handed to the figure primitives (I-139). `money` answers WITHOUT the
@@ -136,7 +137,7 @@ export function ProjectsHome({ tenantId, projects }: ProjectsHomeProps) {
           const project = row.original;
           return (
             <span className="cx-home-name">
-              <Link className="cx-home-name-link cx-reticle" data-testid="s-home-project-open" href={projectHomeRoute(tenantId, project.projectId)}>
+              <Link className="cx-home-name-link cx-reticle" data-testid={TESTIDS.sHome.projectOpen} href={projectHomeRoute(tenantId, project.projectId)}>
                 {project.name}
               </Link>
               {/* The pause the eye takes between two facts, stated for the ear as well: a name and
@@ -145,8 +146,8 @@ export function ProjectsHome({ tenantId, projects }: ProjectsHomeProps) {
               {project.code === null ? null : <span className="cx-home-code">{project.code}</span>}
               {/* The status hook is on the row whatever the status is; the WORD is said once, by
                   the Badge, and only where there is a word to say (I-35). */}
-              <span data-testid="s-home-project-status" data-status={project.status}>
-                {project.status === "archived" ? <Badge data-testid="s-home-project-archived-badge">{strings.home_status_archived}</Badge> : null}
+              <span data-testid={TESTIDS.sHome.projectStatus} data-status={project.status}>
+                {project.status === "archived" ? <Badge data-testid={TESTIDS.sHome.projectArchivedBadge}>{strings.home_status_archived}</Badge> : null}
               </span>
             </span>
           );
@@ -201,7 +202,7 @@ export function ProjectsHome({ tenantId, projects }: ProjectsHomeProps) {
         enableSorting: true,
         accessorFn: (project: Project) => project.updatedAt.getTime(),
         cell: ({ row }) => (
-          <RelativeTime className="cx-home-when" data-testid="s-home-project-last-activity" at={new Date(row.original.updatedAt)} format={FIGURES} />
+          <RelativeTime className="cx-home-when" data-testid={TESTIDS.sHome.projectLastActivity} at={new Date(row.original.updatedAt)} format={FIGURES} />
         ),
       },
       {
@@ -236,7 +237,7 @@ export function ProjectsHome({ tenantId, projects }: ProjectsHomeProps) {
           )}
           {/* The one primary of the screen, on both branches: a workspace with no projects still
               needs the way to make one beside the state that teaches the first step (R-UI-033). */}
-          <Button data-testid="s-home-create-project" onClick={() => setTarget({ project: null })}>
+          <Button data-testid={TESTIDS.sHome.createProject} onClick={() => setTarget({ project: null })}>
             {strings.home_create_project}
           </Button>
         </div>
@@ -246,18 +247,18 @@ export function ProjectsHome({ tenantId, projects }: ProjectsHomeProps) {
         <ProjectsOnboarding />
       ) : (
         <>
-          <div className="cx-home-tiles" data-testid="s-home-quick-stats">
+          <div className="cx-home-tiles" data-testid={TESTIDS.sHome.quickStats}>
             <Stat value={formatUserFigure(String(projects.length))} label={strings.shell_nav_projects} />
-            <Stat data-testid="s-home-stat-sheets" value={totalOf(projects, (project) => project.quickStats.sheets)} label={strings.home_stat_sheets} />
-            <Stat data-testid="s-home-stat-campaigns" value={totalOf(projects, (project) => project.quickStats.campaigns)} label={strings.home_stat_campaigns} />
+            <Stat data-testid={TESTIDS.sHome.statSheets} value={totalOf(projects, (project) => project.quickStats.sheets)} label={strings.home_stat_sheets} />
+            <Stat data-testid={TESTIDS.sHome.statCampaigns} value={totalOf(projects, (project) => project.quickStats.campaigns)} label={strings.home_stat_campaigns} />
             <Stat
-              data-testid="s-home-stat-estimates"
+              data-testid={TESTIDS.sHome.statEstimates}
               value={estimated === null ? <Absent /> : <MoneyText amount={estimated} format={FIGURES} />}
               label={homeScreenStrings.home_stat_value}
             />
           </div>
 
-          <div className="cx-home-table" data-testid="s-home-grid">
+          <div className="cx-home-table" data-testid={TESTIDS.sHome.grid}>
             {shown.length === 0 ? (
               <EmptyState heading={strings.primitive_combobox_no_matches} />
             ) : (

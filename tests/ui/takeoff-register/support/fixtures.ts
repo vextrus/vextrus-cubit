@@ -778,7 +778,17 @@ export async function mountRegister(view: RegisterViewLike, over: MountOptions =
     density: over.density ?? "comfortable",
     permitted: over.permitted ?? true,
     offline: over.offline ?? false,
-    chrome: bound,
+    chrome: {
+      ...bound,
+      // The four ids ARCH-01 bars the module from looking up arrive as chrome, off the registry —
+      // the same hand-down the shipped screen makes (AM-09 §1).
+      testIds: {
+        inspector: TESTIDS.register.inspector,
+        objectKey: TESTIDS.register.objectKey,
+        sourceKey: TESTIDS.register.sourceKey,
+        technical: TESTIDS.register.technical,
+      },
+    },
     doors,
   };
   const { container } = render(createElement(component as unknown as FunctionComponent<typeof props>, props));

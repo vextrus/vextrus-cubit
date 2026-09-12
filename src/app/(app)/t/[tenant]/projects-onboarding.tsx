@@ -41,8 +41,8 @@ export function ProjectsOnboarding() {
 
   return (
     <div className="cx-home-onboarding">
-      <EmptyState data-testid="shell-empty" heading={strings.shell_projects_empty_heading} body={strings.shell_projects_empty_body}>
-        <Button data-testid="shell-sample-offer" loading={pending} onClick={offer}>
+      <EmptyState data-testid={TESTIDS.shell.empty} heading={strings.shell_projects_empty_heading} body={strings.shell_projects_empty_body}>
+        <Button data-testid={TESTIDS.shell.sampleOffer} loading={pending} onClick={offer}>
           {strings.shell_sample_offer}
         </Button>
       </EmptyState>
@@ -57,7 +57,7 @@ export function ProjectsOnboarding() {
           nested polite region risks at worst being read twice. */}
       <div className="cx-shell-live" aria-live="polite">
         {unavailable ? (
-          <div className="cx-shell-outcome cx-shell-notice" data-testid="shell-sample-outcome" role="status">
+          <div className="cx-shell-outcome cx-shell-notice" data-testid={TESTIDS.shell.sampleOutcome} role="status">
             {strings.shell_sample_unavailable}
           </div>
         ) : null}

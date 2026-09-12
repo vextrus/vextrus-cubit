@@ -147,7 +147,7 @@ export function MembersSection({
               {/* I-57: one answer slot, in the row that asked — §5 rule 8's partial row, so the row
                   stands with its ⚠ and the refusal reads beneath it. */}
               {answered ? (
-                <span className="cx-members-answer" data-testid="members-refusal" data-user={member.userId}>
+                <span className="cx-members-answer" data-testid={TESTIDS.members.refusal} data-user={member.userId}>
                   <RefusalState refusal={refusalOf(refused.code)} evidence={evidenceFor(tenantId, refused.code)} />
                 </span>
               ) : null}
@@ -169,7 +169,7 @@ export function MembersSection({
           return (
             <form
               className="cx-members-form"
-              data-testid="members-role-form"
+              data-testid={TESTIDS.members.roleForm}
               onSubmit={(event) => {
                 event.preventDefault();
                 void submit(member, "role", () => changeRole({ tenantId, subjectUserId: member.userId, role: standing }));
@@ -180,7 +180,7 @@ export function MembersSection({
                   the value the form carries is the store's own. */}
               <Select
                 className="cx-members-select"
-                data-testid="members-role-select"
+                data-testid={TESTIDS.members.roleSelect}
                 name="role"
                 aria-label={fill(membersStrings.members_role_label, { member: spokenName(member) })}
                 options={offered(member).map((role) => ({ value: role, label: humaniseEnum(role) }))}
@@ -189,7 +189,7 @@ export function MembersSection({
               />
               {/* The store's own word, in the technical channel: what a screen SAYS is "Owner", and
                   what it HOLDS is `OWNER` (§6, I-55). */}
-              <span className="cx-members-role-raw" data-testid="members-row-role" data-technical="">
+              <span className="cx-members-role-raw" data-testid={TESTIDS.members.rowRole} data-technical="">
                 {member.role}
               </span>
               {/* A row at rest is ONE control: a move is never carried out by a stray click on a
@@ -199,7 +199,7 @@ export function MembersSection({
                   type="submit"
                   variant="secondary"
                   className="cx-members-role-submit"
-                  data-testid="members-role-submit"
+                  data-testid={TESTIDS.members.roleSubmit}
                   aria-label={fill(membersStrings.members_role_submit_label, { member: spokenName(member) })}
                   loading={busy(member, "role")}
                 >
@@ -261,8 +261,8 @@ export function MembersSection({
         />
       </SettingsHeader>
 
-      <section className="cx-members-roster" data-testid="members-section" aria-label={membersStrings.members_roster_heading}>
-        <div className="cx-members-table cx-settings-surface" data-testid="members-list">
+      <section className="cx-members-roster" data-testid={TESTIDS.members.section} aria-label={membersStrings.members_roster_heading}>
+        <div className="cx-members-table cx-settings-surface" data-testid={TESTIDS.members.list}>
           <DataTable
             tableId={ROSTER_TABLE_ID}
             aria-label={membersStrings.members_roster_heading}
@@ -302,7 +302,7 @@ function RemoveMenu({ member, busy, onRemove }: { member: MembersRow; busy: bool
   return (
     <form
       className="cx-members-menu-form"
-      data-testid="members-remove-form"
+      data-testid={TESTIDS.members.removeForm}
       ref={form}
       onSubmit={(event) => {
         event.preventDefault();
@@ -313,7 +313,7 @@ function RemoveMenu({ member, busy, onRemove }: { member: MembersRow; busy: bool
       <DropdownMenu>
         <DropdownMenuTrigger
           className="cx-members-menu"
-          data-testid="members-remove-submit"
+          data-testid={TESTIDS.members.removeSubmit}
           aria-label={fill(membersStrings.members_remove_submit_label, { member: spokenName(member) })}
           aria-busy={busy || undefined}
         >
@@ -370,7 +370,7 @@ function MemberHistory({ history }: { history: readonly MembersHistoryEntry[] })
           has an empty record, not an absent one, and the honest line stands in the list's place. It
           carries no name of its own: the column header names it once for the whole grid, and a name
           repeated on every row is N identical names to a reader travelling the roster. */}
-      <ol className="cx-members-history" data-testid="members-role-history">
+      <ol className="cx-members-history" data-testid={TESTIDS.members.roleHistory}>
         {history.map((entry, index) => (
           <li
             className="cx-members-history-row"

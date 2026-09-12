@@ -158,7 +158,7 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
             </span>
           ))}
           {card.proposal.cited.length > CITED_SHOWN ? (
-            <span className="cx-drawings-enum" data-testid="sheet-card-cited-more">
+            <span className="cx-drawings-enum" data-testid={TESTIDS.sheet.cardCitedMore}>
               {fill(drawings.drawings_cited_more, { count: formatUserFigure(String(card.proposal.cited.length - CITED_SHOWN)) })}
             </span>
           ) : null}

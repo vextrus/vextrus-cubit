@@ -75,7 +75,7 @@ function ShellTracks({ toolbar, status, children }: { toolbar: ReactNode | undef
   const tools = mounted.toolbar ?? toolbar ?? null;
   return (
     <>
-      <div className="cx-shell-toolbar-slot" data-testid="shell-toolbar-slot">
+      <div className="cx-shell-toolbar-slot" data-testid={TESTIDS.shell.toolbarSlot}>
         {tools}
       </div>
       <ShellMain>{children}</ShellMain>
@@ -118,7 +118,7 @@ export function AppShell({
     <ScreenStateProvider>
       <InspectorProvider>
         <ShellSlotsProvider>
-        <div className="cx-shell" data-testid="shell-root" data-density={density}>
+        <div className="cx-shell" data-testid={TESTIDS.shell.root} data-density={density}>
           <ShellRail workspace={workspace} workspaces={workspaces} area={area} atAreaHome={atAreaHome} />
           <ShellBody toolbar={toolbar}>
             <ShellTopBar

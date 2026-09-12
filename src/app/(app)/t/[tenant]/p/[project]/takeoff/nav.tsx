@@ -69,7 +69,7 @@ export function TakeoffTabs({ entries, children }: { entries: readonly TakeoffNa
   const row = useMemo(
     () => (
       <div className="cx-takeoff-tabs">
-        <nav className="cx-takeoff-nav" data-testid="takeoff-nav" aria-label={strings.takeoff_nav_label}>
+        <nav className="cx-takeoff-nav" data-testid={TESTIDS.takeoff.nav} aria-label={strings.takeoff_nav_label}>
           {entries.map((entry) => (
             <Link
               key={entry.testId}

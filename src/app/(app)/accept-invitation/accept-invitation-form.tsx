@@ -166,7 +166,7 @@ export function AcceptInvitationForm({ token, offer, accept = acceptInvitationAc
 
         {/* One act button: accepting mints a membership, which is a consequence, and the copper dot
             is what says so on this product (§1, R-UI-040). It is the only copper on the screen. */}
-        <Button className="cx-accept-submit" type="submit" variant="act" data-testid="accept-invitation-submit" loading={inFlight}>
+        <Button className="cx-accept-submit" type="submit" variant="act" data-testid={TESTIDS.accept.invitationSubmit} loading={inFlight}>
           {acceptInvitationStrings.accept_submit}
         </Button>
       </form>

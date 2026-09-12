@@ -81,7 +81,7 @@ function ParticipantsDenied({ tenantId, projectId }: { tenantId: string; project
           title={strings.spine_participants_heading}
           about={[strings.spine_participants_denied_permission, strings.spine_participants_denied_holder]}
         />
-        <div className="cx-participants-denied" data-testid="participants-refusal">
+        <div className="cx-participants-denied" data-testid={TESTIDS.participants.refusal}>
           <RefusalState refusal={refusalOf(code)} evidence={{ href: shellHref(tenantId, "projects"), label: strings.home_evidence_projects }} />
         </div>
       </div>

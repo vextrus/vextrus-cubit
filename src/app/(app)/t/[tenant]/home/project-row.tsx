@@ -18,6 +18,7 @@ import { strings } from "@/ui/strings";
 import { rulesetRoute } from "../p/[project]/home/areas";
 import { archiveProjectAction, restoreProjectAction, type LifecycleAnswer } from "../actions";
 import { homeScreenStrings } from "./strings";
+import { TESTIDS } from "@/ui/testids";
 
 export interface ProjectRowMenuProps {
   tenantId: string;
@@ -48,22 +49,22 @@ export function ProjectRowMenu({ tenantId, project, onEdit, onAnswer }: ProjectR
         <IconMoreHorizontal size="md" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem data-testid="project-edit" onSelect={() => onEdit(project)}>
+        <DropdownMenuItem data-testid={TESTIDS.project.edit} onSelect={() => onEdit(project)}>
           {strings.home_project_edit}
         </DropdownMenuItem>
         {/* The doors stay enabled — a retry is never disarmed (§1). */}
         {archived ? (
-          <DropdownMenuItem data-testid="project-restore" onSelect={() => move(restoreProjectAction)}>
+          <DropdownMenuItem data-testid={TESTIDS.project.restore} onSelect={() => move(restoreProjectAction)}>
             {strings.home_project_restore}
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem data-testid="project-archive" onSelect={() => move(archiveProjectAction)}>
+          <DropdownMenuItem data-testid={TESTIDS.project.archive} onSelect={() => move(archiveProjectAction)}>
             {strings.home_project_archive}
           </DropdownMenuItem>
         )}
         {/* L-REG-07 made visible: every project shows the edition it pinned, one press away
             (R-UI-031). A frame-internal move, so it travels through the router. */}
-        <DropdownMenuItem asChild data-testid="s-home-project-ruleset">
+        <DropdownMenuItem asChild data-testid={TESTIDS.sHome.projectRuleset}>
           <Link href={rulesetRoute(tenantId, project.projectId)}>{strings.home_project_ruleset}</Link>
         </DropdownMenuItem>
       </DropdownMenuContent>

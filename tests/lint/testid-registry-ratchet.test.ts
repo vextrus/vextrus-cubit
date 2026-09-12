@@ -32,7 +32,7 @@ function literalsUnder(dir: string): { file: string; count: number }[] {
  * THE FROZEN COUNT. Lower it when a site migrates; it is never raised. Raising it is the change
  * this test exists to refuse, and a reviewer who sees this number go up is seeing the debt grow.
  */
-const FROZEN = 75;
+const FROZEN = 71;
 
 describe("AM-09 §1: the test-id registry's ratchet over the sites ARCH-01 blocks", () => {
   it(`src/modules carries no more than ${FROZEN} literal test ids, and the number only falls`, () => {

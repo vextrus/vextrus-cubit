@@ -81,7 +81,24 @@ type Evidence = { href: string; label: string };
  * screen hands it, so the shipped component itself is assignable and no adapter stands between what
  * a reader sees and what a test mounts.
  */
+/**
+ * THE FOUR IDS THIS SCREEN PUBLISHES THAT IT MAY NOT SPELL (AM-09 §1, ARCH-01).
+ *
+ * `src/ui/testids.ts` is the one declaration of every test id, and ARCH-01 bars a module from
+ * importing `src/ui` — so these arrive as chrome, exactly as `BasisChip` and `DataTable` do. The
+ * caller reads the registry key; the module publishes what it is handed. Every string is
+ * byte-identical to the id that was already in the DOM.
+ */
+export interface RegisterTestIds {
+  readonly inspector: string;
+  readonly objectKey: string;
+  readonly sourceKey: string;
+  readonly technical: string;
+}
+
 export interface RegisterChrome {
+  /** The ids the screen publishes that ARCH-01 forbids it to look up (AM-09 §1). */
+  readonly testIds: RegisterTestIds;
   readonly Tree: ComponentType<{
     items: TreeNode[];
     onSelect?: (id: string) => void;
@@ -817,7 +834,7 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
     if (selectedLine !== null) {
       const mark = marks.get(selectedLine.objectKey) ?? null;
       return (
-        <div className="cx-register-inspector" data-testid="register-inspector" data-object={selectedLine.objectKey} data-line={selectedLine.lineId}>
+        <div className="cx-register-inspector" data-testid={chrome.testIds.inspector} data-object={selectedLine.objectKey} data-line={selectedLine.lineId}>
           <p className="cx-register-inspector-title">{selectedLine.kind}</p>
           <dl className="cx-register-facts">
             <dt>{REGISTER_COPY.takeoff_register_col_value}</dt>
@@ -865,15 +882,15 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
               object key moved inside it when §7's C6 put the machine's own names behind one
               (I-234), so the summary carries a stable id rather than being addressed by its words. */}
           <details className="cx-register-technical">
-            <summary className="cx-reticle" data-testid="register-technical">
+            <summary className="cx-reticle" data-testid={chrome.testIds.technical}>
               {REGISTER_COPY.takeoff_register_object_key_label}
             </summary>
-            <p className="cx-register-object-key" data-testid="register-object-key" data-technical="">
+            <p className="cx-register-object-key" data-testid={chrome.testIds.objectKey} data-technical="">
               {selectedLine.objectKey}
             </p>
             <dl className="cx-register-facts">
               <dt>{REGISTER_COPY.takeoff_register_source_label}</dt>
-              <dd className="cx-register-source" data-testid="register-source-key" data-technical="">
+              <dd className="cx-register-source" data-testid={chrome.testIds.sourceKey} data-technical="">
                 {selectedLine.sourceKey}
               </dd>
             </dl>
@@ -883,7 +900,7 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
     }
     if (selected === null) return null;
     return (
-      <div className="cx-register-inspector" data-testid="register-inspector" data-object={selected.objectKey}>
+      <div className="cx-register-inspector" data-testid={chrome.testIds.inspector} data-object={selected.objectKey}>
         <p className="cx-register-inspector-title">{selected.mark}</p>
         <dl className="cx-register-facts">
           <dt>{REGISTER_COPY.takeoff_register_basis_label}</dt>
@@ -903,15 +920,15 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
             — are not what a person is shown, and they are not hidden either: they stand one press
             away, inside the disclosure the rubric names (C6's `[data-technical]`). */}
         <details className="cx-register-technical">
-          <summary className="cx-reticle" data-testid="register-technical">
+          <summary className="cx-reticle" data-testid={chrome.testIds.technical}>
             {REGISTER_COPY.takeoff_register_object_key_label}
           </summary>
-          <p className="cx-register-object-key" data-testid="register-object-key" data-technical="">
+          <p className="cx-register-object-key" data-testid={chrome.testIds.objectKey} data-technical="">
             {selected.objectKey}
           </p>
           <dl className="cx-register-facts">
             <dt>{REGISTER_COPY.takeoff_register_source_label}</dt>
-            <dd className="cx-register-source" data-testid="register-source-key" data-technical="">
+            <dd className="cx-register-source" data-testid={chrome.testIds.sourceKey} data-technical="">
               {selected.sourceKey}
             </dd>
           </dl>

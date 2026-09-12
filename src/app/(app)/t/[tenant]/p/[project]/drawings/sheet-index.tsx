@@ -387,7 +387,7 @@ export function SheetIndex({
           }}
         />
         {offered.length > OFFERED_SHOWN ? (
-          <p className="cx-drawings-count" data-testid="sheet-offered-more">
+          <p className="cx-drawings-count" data-testid={TESTIDS.sheet.offeredMore}>
             {fill(drawings.drawings_group_count, { count: formatUserFigure(String(offered.length - OFFERED_SHOWN)) })}
           </p>
         ) : null}

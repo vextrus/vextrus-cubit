@@ -25,7 +25,6 @@ import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
 import { stageSyntheticSheet } from "../viewer/viewer-stage";
 import { settled } from "../support/settled";
 import { steadyText } from "../support/retrying-read";
-import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** A sheet with room for a rectangle to cross and layers to pick from, and small enough to list. */
 const ENTITIES = 600;

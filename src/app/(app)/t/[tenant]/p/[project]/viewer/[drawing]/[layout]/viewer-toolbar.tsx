@@ -23,6 +23,7 @@ import { IconButton } from "@/ui/primitives/core";
 import { ShellToolbarGroup } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import type { ReactNode } from "react";
+import { TESTIDS } from "@/ui/testids";
 
 export type ViewerToolbarProps = {
   /** The pointer's mode: what a drag on the sheet does. */
@@ -48,28 +49,28 @@ export function ViewerToolbar({ tool, onTool, snapTools, views, onFit, onZoomIn,
   return (
     <>
       <ShellToolbarGroup label={strings.viewer_tools_pointer}>
-        <IconButton icon={<IconSelect />} label={strings.viewer_tool_select} kbd="V" pressed={tool === "select"} data-testid="viewer-tool-select" onClick={() => onTool("select")} />
-        <IconButton icon={<IconPan />} label={strings.viewer_tool_pan} kbd="H" pressed={tool === "pan"} data-testid="viewer-tool-pan" onClick={() => onTool("pan")} />
+        <IconButton icon={<IconSelect />} label={strings.viewer_tool_select} kbd="V" pressed={tool === "select"} data-testid={TESTIDS.viewer.toolSelect} onClick={() => onTool("select")} />
+        <IconButton icon={<IconPan />} label={strings.viewer_tool_pan} kbd="H" pressed={tool === "pan"} data-testid={TESTIDS.viewer.toolPan} onClick={() => onTool("pan")} />
       </ShellToolbarGroup>
       {/* Disabled with the reason, never absent: "Measurement tools arrive with S-Measure" (§3.1).
           A tool row that grows silently between milestones teaches a reader nothing about where the
           product is going; one that says so teaches them exactly that (R-UI-050's partial voice). */}
       <ShellToolbarGroup label={strings.viewer_tools_measure}>
-        <IconButton icon={<IconLinear />} label={strings.viewer_tool_linear} kbd="L" disabled title={strings.viewer_tools_measure_absent} data-testid="viewer-tool-linear" />
-        <IconButton icon={<IconArea />} label={strings.viewer_tool_area} kbd="A" disabled title={strings.viewer_tools_measure_absent} data-testid="viewer-tool-area" />
-        <IconButton icon={<IconCount />} label={strings.viewer_tool_count} kbd="C" disabled title={strings.viewer_tools_measure_absent} data-testid="viewer-tool-count" />
+        <IconButton icon={<IconLinear />} label={strings.viewer_tool_linear} kbd="L" disabled title={strings.viewer_tools_measure_absent} data-testid={TESTIDS.viewer.toolLinear} />
+        <IconButton icon={<IconArea />} label={strings.viewer_tool_area} kbd="A" disabled title={strings.viewer_tools_measure_absent} data-testid={TESTIDS.viewer.toolArea} />
+        <IconButton icon={<IconCount />} label={strings.viewer_tool_count} kbd="C" disabled title={strings.viewer_tools_measure_absent} data-testid={TESTIDS.viewer.toolCount} />
       </ShellToolbarGroup>
       <ShellToolbarGroup label={strings.viewer_snap_tools_label}>{snapTools}</ShellToolbarGroup>
       {views === undefined ? null : <ShellToolbarGroup label={strings.viewer_tools_views}>{views}</ShellToolbarGroup>}
       <ShellToolbarGroup label={strings.viewer_tools_camera}>
-        <IconButton icon={<IconFit />} label={strings.viewer_fit} kbd="F" data-testid="viewer-fit" onClick={onFit} />
-        <IconButton icon={<IconZoomIn />} label={strings.viewer_zoom_in} kbd="+" data-testid="viewer-zoom-in" onClick={onZoomIn} />
-        <IconButton icon={<IconZoomOut />} label={strings.viewer_zoom_out} kbd="−" data-testid="viewer-zoom-out" onClick={onZoomOut} />
+        <IconButton icon={<IconFit />} label={strings.viewer_fit} kbd="F" data-testid={TESTIDS.viewer.fit} onClick={onFit} />
+        <IconButton icon={<IconZoomIn />} label={strings.viewer_zoom_in} kbd="+" data-testid={TESTIDS.viewer.zoomIn} onClick={onZoomIn} />
+        <IconButton icon={<IconZoomOut />} label={strings.viewer_zoom_out} kbd="−" data-testid={TESTIDS.viewer.zoomOut} onClick={onZoomOut} />
       </ShellToolbarGroup>
       {/* The two panel toggles are right-aligned by the row's own last group (§3.1's `L≡ V≡`). */}
       <ShellToolbarGroup label={strings.viewer_tools_panels}>
-        <IconButton icon={<IconLayers />} label={strings.viewer_tool_layers} pressed={layersOpen} data-testid="viewer-layers-toggle" onClick={onLayers} />
-        <IconButton icon={<IconInspector />} label={strings.viewer_tool_inspector} pressed={inspectorPinned} data-testid="viewer-inspector-pin" onClick={onInspector} />
+        <IconButton icon={<IconLayers />} label={strings.viewer_tool_layers} pressed={layersOpen} data-testid={TESTIDS.viewer.layersToggle} onClick={onLayers} />
+        <IconButton icon={<IconInspector />} label={strings.viewer_tool_inspector} pressed={inspectorPinned} data-testid={TESTIDS.viewer.inspectorPin} onClick={onInspector} />
       </ShellToolbarGroup>
     </>
   );

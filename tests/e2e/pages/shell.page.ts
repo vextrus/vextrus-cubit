@@ -31,7 +31,7 @@ export type ShellArea = (typeof SHELL_AREAS)[number];
 const FRAME_REGIONS = [TESTIDS.shell.rail, TESTIDS.shell.topbar, TESTIDS.shell.main] as const;
 
 /**
- * A screen's own root, addressed WHERE THE FRAME PUTS IT — inside `shell-main` (R-UI-030, Design
+ * A screen's own root, addressed WHERE THE FRAME PUTS IT — inside `TESTIDS.shell.main` (R-UI-030, Design
  * Direction 00 §3.2). One home, so no page object spells the containment twice.
  *
  * This is stricter than a page-wide `getByTestId`, and it has to be. A route of this product is an
@@ -39,7 +39,7 @@ const FRAME_REGIONS = [TESTIDS.shell.rail, TESTIDS.shell.topbar, TESTIDS.shell.m
  * arrives in a `<div hidden id="S:n">` parked at the end of `<body>` and is moved into the boundary
  * by an inline `$RS`/`$RC` script that React 19.2 defers to a later frame (its reveal throttle —
  * `requestAnimationFrame`, or up to 300 ms). The client's own hydration renders the same screen into
- * `shell-main` meanwhile, so for that window the DOCUMENT truly holds the screen's test id twice:
+ * `TESTIDS.shell.main` meanwhile, so for that window the DOCUMENT truly holds the screen's test id twice:
  * once standing in the frame, once still in the hidden parcel on its way in. Both nodes are real and
  * identical — this is not a screen mounted twice, and there is nothing in the product to unmount.
  *

@@ -53,6 +53,14 @@ function InspectorMount({ children }: { children?: ReactNode }) {
 
 /** The shipped renderers, bound once (I-170): what a test mounts is what this route renders. */
 const CHROME: RegisterChrome = {
+  // AM-09 §1: the module may not import the registry (ARCH-01), so the four ids it publishes are
+  // read HERE, where the registry is lawfully reachable, and handed down with the rest of its chrome.
+  testIds: {
+    inspector: TESTIDS.register.inspector,
+    objectKey: TESTIDS.register.objectKey,
+    sourceKey: TESTIDS.register.sourceKey,
+    technical: TESTIDS.register.technical,
+  },
   Tree,
   DataTable,
   RefusalState,
@@ -172,8 +180,8 @@ export function RegisterScreen({ view, tenantId, projectId, permitted, reportId 
   // R-UI-082 exists for.
   if (held === null) {
     return (
-      <div className="cx-register" data-testid="register-workspace" data-state="error">
-        <div className="cx-register-fault" data-testid="register-empty" role="alert">
+      <div className="cx-register" data-testid={TESTIDS.register.workspace} data-state="error">
+        <div className="cx-register-fault" data-testid={TESTIDS.register.empty} role="alert">
           <h1 className="cx-register-fault-heading">{strings.takeoff_register_error_heading}</h1>
           <p className="cx-register-fault-body">{strings.takeoff_register_error_body}</p>
           <p className="cx-register-report">

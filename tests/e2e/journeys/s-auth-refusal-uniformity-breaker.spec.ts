@@ -263,6 +263,9 @@ test.beforeAll(async ({ browser }) => {
         columnPx: probe.columnPx,
         cardPaddingToken: probe.cardPaddingToken,
         hairlinePx: HAIRLINE_PX,
+        // `codeChipSelector` is resolved HERE, in node, because the registry is a node-side
+        // declaration: nothing named TESTIDS or testIdSelector exists inside the page.
+        codeChipSelector: testIdSelector(TESTIDS.refusal.code),
       },
     );
 
