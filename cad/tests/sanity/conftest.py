@@ -136,7 +136,18 @@ def corpus() -> Corpus:
 #: drawing stay on `corpus` and the golden checks run over both through `golden_corpus`.
 GOLDEN_CORPORA = ("rcc6", "rcc6-bnbc")
 
+#: F-RCC6-BNBC's drawing corpus (Wave B: rcc6-bnbc.dxf/.model.dxf/.dwg, both PDFs, rasters,
+#: sanity.json). Its generator is the package `fixtures/gen/rcc6_bnbc` (`python -m`), so the
+#: bare-copy run does not apply; test_rcc6_bnbc_*.py read it through this fixture.
+BNBC_CORPUS_REL = "fixtures/rcc6-bnbc"
+BNBC_GENERATOR_MODULE = "fixtures.gen.rcc6_bnbc"
+
 
 @pytest.fixture(scope="session", params=GOLDEN_CORPORA, ids=GOLDEN_CORPORA)
 def golden_corpus(request: pytest.FixtureRequest) -> Corpus:
     return Corpus(REPO_ROOT / "fixtures" / str(request.param))
+
+
+@pytest.fixture(scope="session")
+def bnbc_corpus() -> Corpus:
+    return Corpus(REPO_ROOT / BNBC_CORPUS_REL)

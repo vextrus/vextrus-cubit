@@ -179,3 +179,53 @@ column width instead of the real face — 3238fb1; floor landings and the SRR/MR
 column/wall or beam-soffit deductions and had no bars — e8604d1; SB-R5/SB-R6 sat on the core's own wall
 legs and one carried a *negative* clear span — a04db54 (selfcheck now refuses any beam clear ≤ 0 or
 cutting length ≤ 0); the septic baffle ran across the wrong dimension — e8604d1.
+
+## Wave B (N2/N3) — the drawings: rulings of the Fixture Engineer
+
+**W-01 F-RCC6 v1.1's R-7 (column formwork OVER) — the shape of v1.2.** R-7 keeps `2(b + d) × storey`
+for column formwork, an OVER figure AM-02 forbids, kept only because AM-01 freezes the M2 column rows.
+Ruling: v1.2 applies AM-02 to column formwork alone — `2(b + d) × (storey − t_slab)` less each beam-end
+contact `b_beam × (D_beam − t_slab)` above 500 cm² — and moves **only the COLUMN/FORMWORK rows** (≈ −8.6 m²
+per level, ≈ −60 m² over seven levels on F-RCC6); COLUMN/RCC_CONCRETE stays floor-to-floor and the M2
+proof (which pins concrete, not formwork) is untouched. v1.2 lands as one commit on `fixtures/gen/rcc6.py`
++ the golden + `manifest.repairs[R-7].state = REPAIRED, side = EXACT`, with the sample-seed hashes. Not
+done in this wave (the founder's grant covers the ruling; `fixtures/rcc6/**` stays byte-frozen).
+
+**W-02 Raster budget (Founder's Law 4).** `emit/plan.RASTER`: PNG only for the six-sheet subset S-01,
+S-10, S-11, S-17, S-20, S-26 (an A2, four A1, an A3) at R1 300 dpi; R2/R3/R4 as JPEG for the subset;
+one full-set DCT raster PDF only for R2 (the F-SCAN seed). Caps: corpus ≤ 45 MB, rasters ≤ 25 MB, no
+file > 8 MB; the size test pins them. A variant that will not fit at its planned dpi drops dpi, never
+sheets, and the manifest records the dpi actually used.
+
+**W-03 Fonts and Bengali.** The TrueType PDF embeds Vera (shipped inside the pinned reportlab 4.4.9
+wheel, so it is identical on every machine); the stroked PDF uses the public-domain Hershey simplex
+table embedded in `emit/hershey.py`. reportlab does not shape Bengali and no Bengali TTF is pinned, so
+the Bengali title (T-BENGALI) lives in the DXF/DWG only; both PDFs print the English line and the
+manifest names `BENGALI_TEXT_DXF_ONLY` as a PDF-variant loss. No system font is ever read.
+
+**W-04 DWG profile.** `emit/dwg.py` mints every `scene.feature_scenes()` entry alone (plus a one-viewport
+layout), converts back with `dwg2dxf`, and compares the census. A feature LibreDWG loses or corrupts is
+excluded from the DWG source — the DXF keeps it — and named in `sanity.json["dwg"][*]["losses"]` per
+(space, type) with the reason; `expected` is `drawn − losses`, which is the census the cad DWG lane must
+read. The DWG is judged by that census, never by bytes (§3.9).
+
+**W-05 Model-space frames.** `rcc6-bnbc.model.dxf`: each sheet's paper scene × 100 planted in model
+space (an A1 frame is 84.1 × 59.4 m), 1:100 views at 1:1 inside it, 1:S details at ×(100/S) with
+`DIMLFAC = S/100` (S-12 at 1:20: ×5, 0.2). One layout "SHEET" with a single VIEWPORT over S-00. The
+sanity tally for this file has two spaces: `model` and `SHEET`.
+
+**W-06 Trap handles.** After the paper-layout DXF is written, `__main__` fills every `handle` in
+`fixtures/gen/rcc6_bnbc/traps.json` with the live entity handle (the trap's own entity; for a
+document-level trap, the S-00 title TEXT or the entity `plan.DOCUMENT_TRAPS` names) and copies the file
+to the corpus. ezdxf assigns handles deterministically for a fixed placing order, so a second build
+reproduces them; validate/traps.py refuses a handle that does not open.
+
+**W-07 The malformed DXF.** `rcc6-bnbc.libredwg-r2000.dxf` is authored by the generator (never taken
+from `dwg2dxf`, whose bytes are not stable): the paper set saved as R2000 with one DIMENSION's
+tag stream broken by a single mis-paired line and one MTEXT carrying an "Embedded Object" column block,
+so `vextrus_cad.resync` refuses it by name (`DXF_TAG_STREAM_DESYNC`) until its resync drops the lines.
+
+**W-08 Dimension habit.** Plans dimension in feet-inches (the office habit; `Inches Dimension` layer);
+details and schedules in millimetres. Dimension text is always horizontal (LibreDWG, E-fixture §4.3).
+The only dimension that disagrees with its geometry is T-DIM-OVERRIDE (4,267.2 drawn, `14'-2"` printed),
+under the S-02 "DO NOT SCALE" note.
