@@ -4,13 +4,18 @@
 // tell the caller WHICH journey was red, and the engine schedules on exactly that. So the journeys
 // the run was asked for are named to this reporter (CUBIT_E2E_JOURNEYS), and it prints
 //
-//   JOURNEY J-001 green
-//   JOURNEY J-003 red
+//   JOURNEY J-001 green workers=2
+//   JOURNEY J-003 red workers=2
+//
+// The worker count is part of the verdict because it is part of what was measured (P4b §6): two
+// workers walk two journeys at once, against one served product and one database, and a red found
+// at two is not reproducible from a verdict that did not say so. It is read from the config the run
+// actually ran with, never from a number this file restates.
 //
 // once per asked-for journey, whatever the reporters above it printed. A journey no test matched is
 // RED, never green: a grep that selected nothing has proved nothing, and silence must not read as a
 // pass (V-E2E — a journey the gate does not run is green by omission).
-import type { Reporter, TestCase, TestResult } from "@playwright/test/reporter";
+import type { FullConfig, Reporter, TestCase, TestResult } from "@playwright/test/reporter";
 
 /** The journeys an invocation was asked for, in the order the caller named them. */
 function askedFor(): string[] {
@@ -41,6 +46,13 @@ export default class JourneyReporter implements Reporter {
   /** Read per instance, not per module: a reporter answers for the run it was made for. */
   private readonly asked: string[] = askedFor();
 
+  /** How many workers this run walked with, as the runner resolved it (scripts/e2e.mjs). */
+  private workers = Math.max(1, Number(process.env["CUBIT_E2E_WORKERS"] ?? "1") || 1);
+
+  onBegin(config: FullConfig): void {
+    this.workers = config.workers;
+  }
+
   onTestEnd(test: TestCase, result: TestResult): void {
     // A journey is named by its tag and by the file that walks it; both spellings are matched, so a
     // journey recognises its own tests whether the id sits in the title or only in the filename.
@@ -54,7 +66,7 @@ export default class JourneyReporter implements Reporter {
 
   onEnd(): void {
     for (const journey of this.asked) {
-      process.stdout.write(`JOURNEY ${journey} ${this.verdicts.get(journey) === true ? "green" : "red"}\n`);
+      process.stdout.write(`JOURNEY ${journey} ${this.verdicts.get(journey) === true ? "green" : "red"} workers=${this.workers}\n`);
     }
   }
 }

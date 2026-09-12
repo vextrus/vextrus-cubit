@@ -10,7 +10,7 @@
 // by the digit: the grep decides what Playwright would collect, and the reporter is given exactly
 // what that grep selected.
 import { describe, expect, test } from "vitest";
-import { grepFor } from "../../scripts/e2e.mjs";
+import { grepFor, readWorkers } from "../../scripts/e2e.mjs";
 import JourneyReporter from "../../tests/e2e/support/journey-reporter";
 
 /** The two journeys a bare substring cannot tell apart. */
@@ -66,12 +66,12 @@ describe("a journey id is a whole token, at both ends of the run", () => {
     // `pnpm test:perf` is `--journey PERF-`: every performance journey, not one called exactly PERF-.
     const selects = new RegExp(String(grepFor(["PERF-"])));
     expect(selects.test("PERF-J-000 the shell renders inside budget"), "the prefix ask stopped selecting the journeys it names").toBe(true);
-    expect(verdictsFor(["PERF-"], [{ title: "PERF-J-000 the shell renders inside budget", file: "tests/e2e/journeys/perf-j-000.spec.ts", status: "passed" }])).toEqual(["JOURNEY PERF- green"]);
+    expect(verdictsFor(["PERF-"], [{ title: "PERF-J-000 the shell renders inside budget", file: "tests/e2e/journeys/perf-j-000.spec.ts", status: "passed" }])).toEqual(["JOURNEY PERF- green workers=1"]);
   });
 
   test("a sibling's red is not J-001's red", () => {
     // What the fixed grep would have collected: only the journey asked for.
-    expect(verdictsFor(["J-001"], [{ title: TITLES[0], file: "tests/e2e/journeys/j-001-auth.spec.ts", status: "passed" }])).toEqual(["JOURNEY J-001 green"]);
+    expect(verdictsFor(["J-001"], [{ title: TITLES[0], file: "tests/e2e/journeys/j-001-auth.spec.ts", status: "passed" }])).toEqual(["JOURNEY J-001 green workers=1"]);
 
     // And even handed the sibling's failure — a stray selection, a shared file — the reporter does
     // not record it against the journey whose id is a prefix of it.
@@ -79,12 +79,38 @@ describe("a journey id is a whole token, at both ends of the run", () => {
       { title: TITLES[0], file: "tests/e2e/journeys/j-001-auth.spec.ts", status: "passed" },
       { title: TITLES[1], file: "tests/e2e/journeys/j-0010-later.spec.ts", status: "failed" },
     ]);
-    expect(bothRan, "J-0010's red was attributed to J-001 by a substring match").toEqual(["JOURNEY J-001 green"]);
+    expect(bothRan, "J-0010's red was attributed to J-001 by a substring match").toEqual(["JOURNEY J-001 green workers=1"]);
   });
 
   test("a journey still recognises its own tests by the file that walks them", () => {
-    expect(verdictsFor(["J-001"], [{ title: "the sign-in page refuses a bad password", file: "tests/e2e/journeys/j-001-auth.spec.ts", status: "failed" }])).toEqual(["JOURNEY J-001 red"]);
+    expect(verdictsFor(["J-001"], [{ title: "the sign-in page refuses a bad password", file: "tests/e2e/journeys/j-001-auth.spec.ts", status: "failed" }])).toEqual(["JOURNEY J-001 red workers=1"]);
     // And a sibling's GREEN is not a pass for a journey nothing ran: silence stays red (V-E2E).
-    expect(verdictsFor(["J-001"], [{ title: "a much later journey", file: "tests/e2e/journeys/j-0010-later.spec.ts", status: "passed" }])).toEqual(["JOURNEY J-001 red"]);
+    expect(verdictsFor(["J-001"], [{ title: "a much later journey", file: "tests/e2e/journeys/j-0010-later.spec.ts", status: "passed" }])).toEqual(["JOURNEY J-001 red workers=1"]);
+  });
+});
+
+describe("the worker count is part of the verdict, and the two spellings of it agree (P4b §6)", () => {
+  test("`--workers 2` with nothing stated sets the env the config reads", () => {
+    expect(readWorkers(["--workers", "2"], {})).toMatchObject({ workers: 2, refusal: null });
+    expect(readWorkers(["--workers=3"], {})).toMatchObject({ workers: 3, refusal: null });
+  });
+
+  test("CUBIT_E2E_WORKERS alone is the count, exactly as before", () => {
+    expect(readWorkers([], { CUBIT_E2E_WORKERS: "2" })).toMatchObject({ workers: 2, refusal: null });
+  });
+
+  test("neither spelling is one worker — a plain `pnpm e2e` is what it was", () => {
+    expect(readWorkers([], {})).toMatchObject({ workers: 1, refusal: null });
+  });
+
+  test("the two agreeing is lawful; the two disagreeing is refused by name", () => {
+    expect(readWorkers(["--workers", "2"], { CUBIT_E2E_WORKERS: "2" })).toMatchObject({ workers: 2, refusal: null });
+    const refused = readWorkers(["--workers", "4"], { CUBIT_E2E_WORKERS: "2" });
+    expect(refused.refusal, "a run walks with one worker count, and the verdict records it").toContain("disagrees with CUBIT_E2E_WORKERS=2");
+  });
+
+  test("a worker count that is not one is refused rather than rounded", () => {
+    expect(readWorkers(["--workers", "0"], {}).refusal).toContain("not a worker count");
+    expect(readWorkers(["--workers", "two"], {}).refusal).toContain("not a worker count");
   });
 });
