@@ -7,21 +7,33 @@
 // an RSC payload would be paid for before anything could be drawn (PB-2).
 //
 // Three unhappy answers, told apart (ARCH-03, B-21): no live session is SIGNED_OUT at 401, a person
-// who does not hold the drawing's workspace is WORKSPACE_PERMISSION_NOT_HELD at 403 — existence and
-// membership are one answer, so a stranger learns nothing about somebody else's drawings (Q-12) —
-// and a failure of ours is recorded at the fault seam and answered with its id.
+// the guard does not admit to the drawing's own project is WORKSPACE_PERMISSION_NOT_HELD at 403 —
+// existence, membership and standing are one answer, so a stranger learns nothing about somebody
+// else's drawings (Q-12) — and a failure of ours is recorded at the fault seam and answered with
+// its id.
+//
+// The admission is `authorize()`'s and no longer this file's (B-17, ARCH-02). It used to stop at
+// `holdsWorkspace`, which is the half-question: every member of a workspace was served every sheet
+// of every project in it, whatever they held on the project the sheet belongs to. The door names
+// the drawing's own project and the permission this feed stands on, and the guard answers.
 import { z } from "zod";
 import { REFUSALS } from "@/core/errors";
 import { appStorage } from "@/core/storage/app";
-import { renderManifestOf, workspaceOfDrawing } from "@/modules/takeoff/viewer";
+import { drawingAddress, renderManifestOf } from "@/modules/takeoff/viewer";
 import { partitionOverlayOfSheet } from "@/modules/takeoff/viewer-partition-overlay/server";
 import { snapCalibrationsOfSheet } from "@/modules/takeoff/viewer-snap/server";
 import type { RenderLayer, ViewerHead } from "@/modules/takeoff/viewer";
+import { authorize } from "@/server/authorize";
 import { json, routeHandler } from "@/server/call";
-import { holdsWorkspace } from "@/server/shell/workspace";
 
 /** A sheet is served from live state; nothing about this route may be built or cached. */
 export const dynamic = "force-dynamic";
+
+/**
+ * The permission reading a project's measurements stands on (L-ACT-03's read side) — the same one
+ * the Trace's two read doors name, because this feed is what those readings are taken off.
+ */
+const MEASURE = "MEASURE" as const;
 
 /** The route the fault seam records this handler's failures under (ARCH-03). */
 const ROUTE = "GET /api/viewer/[drawing]/[layout]";
@@ -138,15 +150,25 @@ export const GET = routeHandler({ route: ROUTE, actor: "viewer", schema: ASKED, 
   const { drawing, layout, part, index, tenant } = input.address;
   if (context.session === null) return refusalAnswer("SIGNED_OUT");
 
-  // The workspace the address is inside, as the screen asking knows it. A caller who holds that
-  // workspace is told the truth about a drawing it does not hold — an absence, which is the empty
-  // cell that teaches — while everybody else is told only that they do not hold the workspace, so
-  // a stranger still learns nothing about somebody else's drawings (Q-12).
-  const owner = await workspaceOfDrawing(drawing);
-  const tenantId = owner ?? tenant;
-  if (tenantId === null || tenantId === undefined || (tenant !== undefined && tenant !== tenantId))
-    return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
-  if (!(await holdsWorkspace(context.session.userId, tenantId))) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
+  // Where the drawing really stands, read as the system before any tenant handle is opened: a
+  // `?tenant=` that disagrees with it is a caller naming somebody else's workspace and names none.
+  // A caller the guard admits is told the truth about a sheet it does not hold — an absence, which
+  // is the empty cell that teaches — and everybody else gets the one refusal above (Q-12).
+  const address = await drawingAddress(drawing);
+  if (address === null || (tenant !== undefined && tenant !== address.tenantId)) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
+  const tenantId = address.tenantId;
+  // The guard is asked about the drawing's own project and the permission this feed stands on. Its
+  // refusal is carried as this door's own closed answer: the register's codes are unchanged, and a
+  // caller still cannot tell "not yours" from "not there" (Q-12).
+  const answer = await authorize({
+    userId: context.session.userId,
+    tenantId,
+    projectId: address.projectId,
+    drawingId: drawing,
+    permission: MEASURE,
+    actType: null,
+  });
+  if (!answer.authorized) return refusalAnswer("WORKSPACE_PERMISSION_NOT_HELD");
 
   // The stored partition of this sheet, for the overlay drawn over it. A drawing nothing has
   // partitioned yet answers `null` at 200: an absence is an answer, not a refusal and not a fault,
