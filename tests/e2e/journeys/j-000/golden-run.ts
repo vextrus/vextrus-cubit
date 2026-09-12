@@ -169,11 +169,15 @@ async function establish(page: Page): Promise<GoldenRun> {
     timeout: READING_BUDGET_MS,
   });
 
-  await drawings.open(tenantId, projectId);
-  // NOT the job timeline: X-1 scopes that reading to the screen session that STARTED the jobs, and
-  // this leg came back to the screen after pinning the set, so it reads "idle" for ever and says
-  // nothing about the queue. The honest evidence that the reading finished is the reading itself —
-  // the sheet the golden path stands on, fanned out as a card of its own.
+  // STAY ON THE SCREEN THAT TOOK THE FILE. X-1 puts a job's progress where the work was started, and
+  // that is not a figure of speech: the reading is asked for by THIS page session, and navigating
+  // away in the same breath as the upload took the ask with it — a sheet index that stayed empty for
+  // 240 s, twice, with the worker idle behind it. So the timeline is watched here, on the screen
+  // that started the jobs, exactly as m1-upload-and-open watches it, and the sheet card is the
+  // answer that follows.
+  await expect(drawings.timeline, "the jobs the upload asked for finish where the work was started (X-1)").toHaveAttribute("data-state", "done", {
+    timeout: READING_BUDGET_MS,
+  });
   await expect(drawings.cardForLayout(SHEET), `the sheet "${SHEET}" fanned out as a card of its own`).toHaveCount(1, { timeout: READING_BUDGET_MS });
 
   /* --- the set, created and PINNED through its own screen: a real act, and the campaign it opens --- */
