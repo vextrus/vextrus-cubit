@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 // The one reader of "what does this stylesheet declare" (B-17): the shell's work-surface arithmetic
 // reads the same way, and a second spelling of it would be the drift this suite exists to catch.
-import { pixelsIn } from "../../support/stylesheet";
+import { customPropertyValues, evaluateLengthFunctions, pixelsIn } from "../../support/stylesheet";
 // The declaration reader is a real tokenizer (comments, strings, nested parens, multi-line values,
 // one-line rules), not a line regex. Every check below reads DECLARATIONS; the reader it replaced
 // read LINES, and a value that wrapped, a rule written on one line and a `;` inside a `url()` each
@@ -41,6 +41,17 @@ const SHORTHAND_TOKENS: readonly string[] = [
   ),
 ].filter((name) => name !== "");
 
+/**
+ * The token table every `var()` in a shipped sheet is resolved through. Without it this suite reads
+ * only the numbers a stylesheet spells OUT LOUD, and this tree spells almost none of them: 245 of
+ * the 245 `font-size` declarations under the old scan were `var(--text-*)`, so the type-scale check
+ * ran over an empty array and passed by having nothing to judge.
+ */
+const VARS = customPropertyValues(
+  readFileSync(join(REPO_ROOT, "src/ui/tokens.css"), "utf8"),
+  readFileSync(join(REPO_ROOT, "src/ui/theme/globals.css"), "utf8"),
+);
+
 /** Every stylesheet a screen is drawn by: the app routes' own, one file per screen. */
 function screenSheets(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -50,6 +61,9 @@ function screenSheets(dir: string, out: string[] = []): string[] {
   }
   return out;
 }
+
+/** The numbers a declaration spells itself, with the token chain left unfollowed. */
+const literalsIn = (value: string): number[] => pixelsIn(value.replace(/var\([^()]*(?:\([^()]*\))?[^()]*\)/g, " "));
 
 const SPACING = /^(padding|margin|gap|row-gap|column-gap|inset|top|right|bottom|left)(-|$)/;
 /** R-UI-003's scale. A size off it is a size nobody chose. */
@@ -79,6 +93,16 @@ const NOT_A_CONTROL: Readonly<Record<string, string>> = {
   '.cx-separator[data-orientation="horizontal"]': "a 1 px rule — the separator IS the hairline, and a hairline is not a control",
   ".cx-tree-spacer": "one level of a tree's indent, which is a measure of depth and not a control",
   '.cx-scrollarea-bar[data-orientation="horizontal"]': "a scrollbar's thickness, which the platform's own scrollbars are also drawn at",
+  // The rest of the tree joined this scan on 2026-09-12 — patterns, the shell, the jobs tray, the
+  // icons and `src/modules` had never been read by it. Nine literal heights came with it; four were
+  // FIXED (three skeleton bones now state `--text-body`, the partition swatch `--space-3`), and
+  // these five are what remains, each a mark, a region or the visually-hidden idiom.
+  ".cx-jobs-tray-dot": "an 8 px job-state dot in the tray's header — a mark beside a word, like `.cx-act-dot`",
+  ".cx-job-timeline-marker": "the 8 px dot a timeline step hangs on; the rule that joins two of them is drawn from its centre",
+  ".cx-dropzone-zone": "a drop TARGET — a region a file is dragged into, sized to be a place rather than a control (§4.2 fixes control heights, not regions)",
+  ".cx-dropzone-door-input": "the visually-hidden idiom (1 px clipped): the real `<input type=file]` the zone forwards its click to",
+  '.cx-shell-rail[data-collapsed="true"] .cx-shell-switcher-name, .cx-shell-rail[data-collapsed="true"] .cx-shell-rail-chevron, .cx-shell-rail[data-collapsed="true"] .cx-shell-nav-label':
+    "the visually-hidden idiom again: a collapsed rail keeps its labels in the accessibility tree at 1 px rather than dropping them from the DOM",
 };
 
 /**
@@ -93,6 +117,14 @@ const NOT_A_SPACING: Readonly<Record<string, string>> = {
   ".cx-switch-thumb": "the thumb's 2 px inset inside its track, which is the track's own rule doubled",
   ".cx-tabs-trigger": "the active tab is pulled 1 px down to sit ON the tab strip's rule rather than above it",
   ".cx-scrollarea-bar": "1 px of padding around a scrollbar's thumb, so the thumb does not touch the rail's edge",
+  // The five that came with the widened scan. Each is a CENTRING offset — half of the mark's own
+  // size, or half of a hairline — and half of an odd number of pixels is not a layout step. The
+  // grid governs where things are PLACED; it cannot govern the arithmetic that puts a 12 px glyph's
+  // centre on the point it marks.
+  ".cx-viewer-snap-glyph, .cx-viewer-snap-pick": "a 12 px snap glyph is pulled back by half its own size so its centre sits on the snap point, not its corner",
+  '.cx-viewer-snap-glyph[data-kind="midpoint"]': "the same centring, restated for the midpoint glyph, which is drawn at a different inline offset",
+  ".cx-job-timeline-step:not(:last-child)::after": "the rule between two 8 px markers is centred on them: (8 − 1) ÷ 2, the marker's radius less half the rule's own width",
+  ".cx-shell-inspector-handle": "the resize handle straddles the inspector's 1 px seam, so it is pulled back by the seam's width doubled",
 };
 
 /** 5 with nothing to say, one point off per finding, floored at 0 — the rubric's own anchors (§7). */
@@ -111,27 +143,38 @@ interface Screen {
   colour: string[];
   /** Declarations that re-spell what a shorthand token already carries — invalid, so unpainted. */
   compound: string[];
+  /** How many lengths the readers actually returned, so an empty check cannot look like a pass. */
+  measured: number;
 }
 
 function measure(file: string): Screen {
   const css = readFileSync(file, "utf8");
   const name = relative(REPO_ROOT, file);
-  const screen: Screen = { name, c8Grid: [], c8Type: [], c4Heights: [], excused: [], colour: [], compound: [], excusedSpacing: [] };
+  const screen: Screen = { name, c8Grid: [], c8Type: [], c4Heights: [], excused: [], colour: [], compound: [], excusedSpacing: [], measured: 0 };
   for (const decl of readDeclarations(css)) {
     const under = decl.scope.at(-1) ?? "";
     const where = `${name}:${decl.line} ${under} { ${decl.prop}: ${decl.value} }`;
+    if (SPACING.test(decl.prop) || decl.prop === "font-size" || decl.prop === "height" || decl.prop === "min-height") {
+      screen.measured += pixelsIn(decl.value, VARS).length;
+    }
     if (SPACING.test(decl.prop)) {
-      for (const px of pixelsIn(decl.value)) {
+      for (const px of pixelsIn(decl.value, VARS)) {
         if (Math.abs(px) % 4 === 0) continue;
         if (NOT_A_SPACING[under] !== undefined) screen.excusedSpacing.push(under);
         else screen.c8Grid.push(where);
       }
     }
     if (decl.prop === "font-size") {
-      for (const px of pixelsIn(decl.value)) if (!TYPE_SCALE.has(px)) screen.c8Type.push(where);
+      for (const px of pixelsIn(decl.value, VARS)) if (!TYPE_SCALE.has(px)) screen.c8Type.push(`${where} — ${px}px`);
     }
     if (decl.prop === "height" || decl.prop === "min-height") {
-      for (const px of pixelsIn(decl.value)) {
+      // A height stated ENTIRELY in tokens is a height somebody chose: `var(--icon-md)` is the icon
+      // scale, `var(--stat-h)` is §4.2's stat tile, `var(--space-5)` is a chip on the 4-pt grid.
+      // C4 is about the other kind — `height: 10px` — where a number was picked in a stylesheet and
+      // belongs to no scale at all. So the check reads the LITERALS a declaration spells, after the
+      // token chain and `calc()` are folded, and an all-token height is lawful by construction.
+      const chosenByTheTokenLayer = literalsIn(decl.value).length === 0;
+      for (const px of chosenByTheTokenLayer ? [] : pixelsIn(decl.value, VARS)) {
         if (HEIGHTS.has(px)) continue;
         if (NOT_A_CONTROL[under] !== undefined) screen.excused.push(under);
         else screen.c4Heights.push(where);
@@ -153,10 +196,36 @@ describe("Design Direction 00 §7: the rubric's mechanical checks, at the source
   // BOTH homes of the product's CSS. Until 2026-09-12 this suite read `src/app` only, so C8 was
   // blind to the primitives every screen is BUILT from — and ten invalid `border` declarations sat
   // in `src/ui/primitives/data/data.css` unseen while the rubric scored C8 = 5.
-  const screens = [...screenSheets(join(REPO_ROOT, "src/app")), ...screenSheets(join(REPO_ROOT, "src/ui/primitives"))].map(measure);
+  // EVERY sheet the product ships. Until 2026-09-12 this read `src/app` and `src/ui/primitives`
+  // only, and thirteen shipped stylesheets — all of `src/ui/patterns/**`, the shell, the jobs tray,
+  // the icons, `src/modules/**` — were scanned by nothing at all. Four `font-size: 10px`
+  // declarations sat in the command palette and the consequence dialog while C8 scored 5.
+  // The token source and the theme root are excluded: they DECLARE the scale this suite judges
+  // against, so a scale value in them is the law rather than an offence.
+  const DECLARES_THE_SCALE = new Set([join(REPO_ROOT, "src/ui/tokens.css"), join(REPO_ROOT, "src/ui/theme/globals.css")]);
+  const screens = [
+    ...screenSheets(join(REPO_ROOT, "src/app")),
+    ...screenSheets(join(REPO_ROOT, "src/ui")),
+    ...screenSheets(join(REPO_ROOT, "src/modules")),
+  ]
+    .filter((file) => !DECLARES_THE_SCALE.has(file))
+    .sort()
+    .map(measure);
 
   test("§7: the per-screen mechanical scores", () => {
     expect(screens.length, "the app draws its screens from stylesheets this check can read").toBeGreaterThan(8);
+    // The scan is asserted to COVER the tree, not merely to run: a sheet added under any of the
+    // three homes joins by existing, and a sheet that stops being scanned fails here by name.
+    const shipped = new Set(
+      [join(REPO_ROOT, "src/app"), join(REPO_ROOT, "src/ui"), join(REPO_ROOT, "src/modules")]
+        .flatMap((dir) => screenSheets(dir))
+        .filter((file) => !DECLARES_THE_SCALE.has(file)),
+    );
+    expect(new Set(screens.map((s) => join(REPO_ROOT, s.name))), "every shipped stylesheet is scanned").toEqual(shipped);
+    // …and that the readers actually read. A check whose input is empty cannot fail, which is how
+    // four 10 px font sizes shipped under a green C8 (see `pixelsIn`).
+    const counted = screens.reduce((total, s) => total + s.measured, 0);
+    expect(counted, "the px readers return numbers — an assertion over an empty array is not a check").toBeGreaterThan(400);
     const rows = screens
       .map((s) => {
         const c8 = scoreOf(s.c8Grid.length + s.c8Type.length + s.colour.length);
