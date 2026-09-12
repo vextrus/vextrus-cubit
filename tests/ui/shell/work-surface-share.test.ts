@@ -84,7 +84,12 @@ describe("R-UI-080: the work surface, measured from the shell's own grid", () =>
   test("§3.1: with a selection the inspector column is the remembered width, bounded by the Direction's min and max", () => {
     const columns = shellColumns(".cx-shell:has(.cx-shell-inspector)");
     expect(columns.length, "the selected frame lays the same three columns").toBe(3);
-    expect(columns[2], "the third track sizes to the slot, which carries the remembered width").toBe("auto");
+    // `minmax(0, auto)` and not a bare `auto`: the track sizes to the SLOT, and the slot carries the
+    // remembered width between the two bounds below — but an `auto` track's floor is its content's
+    // min-content, so one unbreakable string inside the inspector (a 70-character source key, which
+    // is what the register put there) widened the column past the token and took the width out of
+    // the work surface beside it. The floor is 0; the width is still the slot's.
+    expect(columns[2], "the third track sizes to the slot, which carries the remembered width — and never to what the slot holds").toBe("minmax(0, auto)");
     // The bounds are the slot's own, and they are the Direction's: a remembered width outside them
     // is not a width a person can reach (R-UI-005).
     expect(declaredValue(SHELL, ".cx-shell-inspector", "min-width")).toBe("var(--inspector-w-min)");
