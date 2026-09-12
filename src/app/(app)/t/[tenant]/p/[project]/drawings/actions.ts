@@ -130,12 +130,11 @@ export async function commitConfirmDiscipline(request: ConfirmRequest & { conseq
  * neither stands. It is never taken from the caller: a tenant id on a form field is a value the
  * caller wrote.
  *
- * The question is the guard's and no longer this file's (B-17, ARCH-02). It used to stop at
- * `holdsWorkspace`, which is the half-question: any member of the workspace could set a sibling
- * project's drawings to be read and drawn, whatever they held on that project. Reading a drawing is
- * what a person does before they may measure it (L-REG-03's reason for CONFIRM_DISCIPLINE moving
- * MEASURE), so MEASURE is what these two machine requests name — the same permission the two act
- * doors below already name through `projectActorFor`.
+ * The question is the guard's and no longer this file's (B-17, ARCH-02). It used to look the
+ * workspace up for itself and stop at `holdsWorkspace`, so a tenant id could be scoped by a value
+ * that had not been checked against the project's real owner. What it asks — membership of the
+ * project's OWN workspace, plus the binding of any drawing it names — is what the upload door asks,
+ * because this is the same flow.
  */
 async function workspaceFor(projectId: string, drawingId?: string): Promise<{ tenantId: string; userId: string } | { refusal: RefusalCode }> {
   const session = await sessionOf(await presentedSessionToken());
@@ -143,11 +142,16 @@ async function workspaceFor(projectId: string, drawingId?: string): Promise<{ te
   const answer = await authorize({
     userId: session.userId,
     projectId,
-    permission: MEASURE,
-    actType: null,
-    // A drawing a door NAMES is bound to the project that named it, never merely to the workspace:
-    // the row policy is a tenant boundary and cannot tell one project's sheet from its sibling's
-    // (R-SPINE-004).
+    // No permission, and deliberately: these two are the UPLOAD flow's own continuation — the queue
+    // calls the first as each row reaches `stored` — and the upload door admits a workspace member
+    // (docs/decisions/upload-permission.md). A door that demanded MEASURE here left a drawing a
+    // member had lawfully uploaded sitting `stored` and never read: two doors of one flow
+    // disagreeing, which is the adversary's finding 3. Whatever the founder settles for the upload
+    // door settles for these; until then they ask the same question it asks.
+    //
+    // A drawing a door NAMES is bound to the project that named it all the same, never merely to the
+    // workspace: the row policy is a tenant boundary and cannot tell one project's sheet from its
+    // sibling's (R-SPINE-004).
     ...(drawingId === undefined ? {} : { drawingId }),
   });
   if (!answer.authorized) return { refusal: answer.refusal };

@@ -4,8 +4,9 @@
  * `workspaceFor` (src/app/(app)/t/[tenant]/p/[project]/drawings/actions.ts) stopped at
  * `holdsWorkspace`: any member of a workspace could set a sibling project's drawings to be read and
  * to be drawn, whatever they held on that project. Reading a drawing is what a person does before
- * they may measure it — L-REG-03's reason for CONFIRM_DISCIPLINE moving MEASURE — so MEASURE is
- * what these doors name, the same permission the two act doors beside them already name.
+ * they may measure it, and the upload door that put it there admits a workspace member — so these
+ * two ask what the upload asks, and never MEASURE: a drawing lawfully uploaded would otherwise sit
+ * `stored` and never be read (the adversary's finding 3).
  *
  * A drawing a door NAMES travels with the question, so the guard binds it to the project rather
  * than merely to the workspace (R-SPINE-004).
@@ -40,17 +41,26 @@ beforeEach(() => {
 });
 
 describe("the drawings actions ask the one guard for the permission a reading moves", () => {
-  test("asking for every stored drawing to be read names the project and MEASURE", async () => {
+  test("asking for every stored drawing to be read names the project, and no permission", async () => {
     await actions.requestSheetsFor({ projectId: PROJECT, drawingIds: [DRAWING] });
-    expect(guard.authorize, "membership is no longer what admits a machine request").toHaveBeenCalledWith({
+    expect(guard.authorize, "the project's OWN workspace, never a tenant id from a form field").toHaveBeenCalledWith({
       userId: "user-1",
       projectId: PROJECT,
-      permission: "MEASURE",
-      actType: null,
     });
   });
 
-  test("a member without MEASURE is refused, and nothing is enqueued for any drawing", async () => {
+  test("a member who may upload gets the drawing ingested: the two doors of one flow agree", async () => {
+    // The queue calls this as each row reaches `stored`. The upload door admits a workspace member
+    // and names no permission, so a door that demanded MEASURE here left a lawfully uploaded drawing
+    // stored and never read (the adversary's finding 3).
+    seams.requestIngest.mockImplementation(async () => ({ jobId: "job-9", deduplicated: false }));
+    const asked = await actions.requestSheetsFor({ projectId: PROJECT, drawingIds: [DRAWING] });
+    expect(asked[0]?.refusal, "nothing about MEASURE stands between an upload and its reading").toBeNull();
+    expect(asked[0]?.jobId, "the drawing is enqueued to be read").toBe("job-9");
+    expect(guard.authorize.mock.calls.every((call) => !Object.hasOwn(call[0] as object, "permission")), "no permission is named at either door of this flow").toBe(true);
+  });
+
+  test("a caller the guard refuses is refused, and nothing is enqueued for any drawing", async () => {
     guard.authorize.mockImplementation(async () => ({ authorized: false, refusal: "PERMISSION_NOT_HELD" }) as never);
     const asked = await actions.requestSheetsFor({ projectId: PROJECT, drawingIds: [DRAWING, "drawing-2"] });
     expect(asked.map((row) => row.refusal), "the guard's own registered code, carried back per drawing").toEqual([
@@ -65,13 +75,11 @@ describe("the drawings actions ask the one guard for the permission a reading mo
     expect(guard.authorize, "the row policy is a tenant boundary and cannot tell a sibling project's sheet from this one's").toHaveBeenCalledWith({
       userId: "user-1",
       projectId: PROJECT,
-      permission: "MEASURE",
-      actType: null,
       drawingId: DRAWING,
     });
   });
 
-  test("a member without MEASURE is refused at the thumbnails door too", async () => {
+  test("a caller the guard refuses is refused at the thumbnails door too", async () => {
     guard.authorize.mockImplementation(async () => ({ authorized: false, refusal: "PERMISSION_NOT_HELD" }) as never);
     expect(await actions.requestThumbnailsFor({ projectId: PROJECT, drawingId: DRAWING })).toEqual({
       jobId: null,
