@@ -10,7 +10,7 @@ import { inflateSync } from "node:zlib";
 // journey that needs the screen point of a world point inverts the shipped mapping rather than
 // re-deriving one of its own, so no acceptance carries a second opinion about where a sheet is.
 import { worldAt } from "../../../src/modules/takeoff/viewer/client";
-import { appears, everyRow, heldAttribute, nextFrame } from "../support/retrying-read";
+import { appears, everyAttribute, heldAttribute, nextFrame } from "../support/retrying-read";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import { afterSettled } from "../support/settled";
 
@@ -323,9 +323,9 @@ export class SViewerPage {
 
   /** The selected keys, in the order the panel lists them. */
   async selectedKeys(): Promise<string[]> {
-    const keys: string[] = [];
-    for (const row of await everyRow(this.entities, "the inspector's selected entity rows")) keys.push((await heldAttribute(row, "data-key")) ?? "");
-    return keys;
+    // ONE reading of the whole list, under the panel's own rendered contract — never one read per
+    // row. A rectangle over this sheet takes 600 of them, and a read per row was 330 s (v22 speed).
+    return await everyAttribute(this.entities, "data-key", "the inspector's selected entity rows");
   }
 
   /** The selection the address carries, or null where it carries none. */
@@ -342,7 +342,7 @@ export class SViewerPage {
 
   /** The centre of the union of every selected row's box — where a reveal must leave the camera. */
   async selectionCentre(): Promise<[number, number]> {
-    const boxes = await Promise.all((await everyRow(this.entities, "the inspector's selected entity rows")).map(async (row) => SViewerPage.boxOf((await heldAttribute(row, "data-bbox")) ?? "")));
+    const boxes = (await everyAttribute(this.entities, "data-bbox", "the inspector's selected entity rows")).map((bbox) => SViewerPage.boxOf(bbox));
     expect(boxes.length, "a centre is taken of a selection, so something is selected").toBeGreaterThan(0);
     const union = boxes.reduce((held, box) => ({
       minX: Math.min(held.minX, box.minX),

@@ -13,7 +13,7 @@
  * reader that has no page under it rather than throwing at one.
  */
 import { describe, expect, test } from "vitest";
-import { AGREEING_READS, steadyAttribute, steadyCount, steadyText } from "../e2e/support/retrying-read";
+import { AGREEING_READS, everyAttribute, steadyAttribute, steadyCount, steadyText } from "../e2e/support/retrying-read";
 
 /** A locator whose count is 0 until the table starts painting, then climbs to 7. */
 function slowLocator(values: number[]): never {
@@ -59,6 +59,24 @@ describe("P4b §3: the reads that answer a question wait for the answer", () => 
 
   test("steadyAttribute waits for the attribute to exist and hold still — a branch is not taken on a hydrating frame", async () => {
     expect(await steadyAttribute(stalingAttribute([null, null, "STRUCT", "STRUCT"]), "data-discipline", "the group's discipline")).toBe("STRUCT");
+  });
+
+  test("everyAttribute reads the WHOLE list in one call, and a list still growing is not a settled list", async () => {
+    // The shape it replaces read each row on its own, so a list that grew between row 3 and row 400
+    // was never noticed. Here the readings are compared as lists: the first two disagree in length.
+    const readings = [["a"], ["a", "b"], ["a", "b", "c"], ["a", "b", "c"], ["a", "b", "c"]];
+    let at = 0;
+    // `evaluateAll` serves both the contract read and the list read; this double publishes no
+    // contract (the reader then falls back to agreeing readings, which is what is under test here).
+    const rows = { evaluateAll: async (_fn: unknown, arg: unknown) => (typeof arg === "string" ? readings[Math.min(at++, readings.length - 1)] ?? [] : { published: false, by: null, value: null }) } as never;
+    expect(await everyAttribute(rows, "data-key", "the selected rows"), "the answer is the list that held still").toEqual(["a", "b", "c"]);
+    expect(at, `one call per reading, never one per row — it took ${at}`).toBeLessThanOrEqual(readings.length);
+  });
+
+  test("everyAttribute refuses a list that never holds still, naming the attribute it was reading", async () => {
+    let at = 0;
+    const churning = { evaluateAll: async (_fn: unknown, arg: unknown) => (typeof arg === "string" ? [String(at++)] : { published: false, by: null, value: null }) } as never;
+    await expect(everyAttribute(churning, "data-key", "the selected rows", { timeout: 1_000 })).rejects.toThrow(/data-key/);
   });
 
   test("three readings, stated once, are what the two helpers agree on", () => {

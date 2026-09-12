@@ -285,14 +285,56 @@ export async function heldAttribute(locator: Locator, attribute: string, what?: 
 }
 
 /**
- * The attribute of every one of these rows, read the retrying way — the shape five call sites in the
- * lane spell by hand as `everyRow(...)` and then `getAttribute` on each, which is one reading per row.
+ * The attribute of every one of these rows — ONE reading of the whole list, not one per row.
+ *
+ * WHY THIS IS A SINGLE ROUND TRIP (v22 speed-j011). The shape it replaces was `everyRow(...)` and
+ * then a retrying read on each row, and it is quadratic in the worst way a lane can be: J-011's
+ * rectangle takes 600 entities, so the read cost 600 contract reads plus 1800 `getAttribute`s —
+ * 330 s of that journey's 366. `evaluateAll` hands the browser ONE expression over the whole matched
+ * set, so the answer costs one call however many rows there are.
+ *
+ * It is not weaker for being one call; it is stricter. The old shape compared each row against
+ * itself across readings, so a list that GREW between row 3 and row 400 was never noticed. The
+ * fallback here compares the WHOLE list — its length and every value, in order — across
+ * `AGREEING_READS` readings, so a list still arriving cannot be read as a settled one. And where the
+ * region publishes a rendered contract (`data-rendered-region` + a settled `data-state`, or
+ * `data-rows-rendered`), one reading after that statement is the answer, exactly as everywhere else
+ * in this module.
+ *
+ * An absent attribute reads as the empty string, because the caller of a LIST is asking what each
+ * row publishes and "nothing" is an answer a list may hold.
  */
 export async function everyAttribute(locator: Locator, attribute: string, what: string, options: SteadyCountOptions = {}): Promise<string[]> {
-  const rows = await everyRow(locator, what, options);
-  const held: string[] = [];
-  for (const row of rows) held.push(await steadyAttribute(row, attribute, `${what}: \`${attribute}\``));
-  return held;
+  const timeout = options.timeout ?? READ_TIMEOUT_MS;
+  const min = options.min ?? 0;
+  const readAll = async (): Promise<string[]> => await locator.evaluateAll((elements, name) => elements.map((element) => element.getAttribute(name) ?? ""), attribute);
+
+  if (await renderedContract(locator, what, timeout)) {
+    const once = await readAll();
+    if (once.length >= min) return once;
+    process.stdout.write(`read: ${what} published that it rendered and held ${once.length} row(s), below the caller's floor of ${min} — ${AGREEING_READS} readings\n`);
+  }
+
+  let seen: string[][] = [];
+  await expect
+    .poll(
+      async () => {
+        seen = [...seen, await readAll()].slice(-AGREEING_READS);
+        const held = seen[0];
+        return (
+          seen.length === AGREEING_READS &&
+          held !== undefined &&
+          held.length >= min &&
+          seen.every((reading) => reading.length === held.length && reading.every((value, at) => value === held[at]))
+        );
+      },
+      {
+        timeout,
+        message: `${what}: no ${AGREEING_READS} readings agreed on one list of \`${attribute}\` holding at least ${min} row(s) — the region is still painting`,
+      },
+    )
+    .toBe(true);
+  return seen[0] ?? [];
 }
 
 /**
