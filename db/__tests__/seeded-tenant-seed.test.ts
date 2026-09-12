@@ -75,7 +75,7 @@ describe("one tenant per worker, and no two the same", () => {
 });
 
 describe("the SQL converges rather than accumulates", () => {
-  const sql = seededTenantSql(seededTenant(2), CONTENT);
+  const sql = seededTenantSql(seededTenant(2), CONTENT, { drawing: true });
 
   test("every insert names what happens on conflict — a second run rewrites or keeps, never adds", () => {
     const inserts = [...sql.matchAll(/insert into (\w+)/g)].map((match) => match[1] ?? "");
@@ -118,6 +118,17 @@ describe("the SQL converges rather than accumulates", () => {
   });
 });
 
+describe("the drawing is OPT-IN, and the default seed is the three facts a spec needed", () => {
+  test("by default the seed lands the account, the workspace, the membership and the project — and no drawing", () => {
+    const plain = seededTenantSql(seededTenant(0), CONTENT);
+    expect([...plain.matchAll(/insert into (\w+)/g)].map((match) => match[1]).sort()).toEqual(["memberships", "projects", "tenants", "users"]);
+    // Measured, not assumed: a FIXTURE ingest made the served product read a DXF as JSON, and a
+    // seeded content row made a journey's first upload a duplicate. Both are in this file's header.
+    expect(plain).not.toContain("insert into ingests");
+    expect(plain).not.toContain("insert into files");
+  });
+});
+
 describe("the drawing is F-RCC6, named by the SAMPLE seed rather than by a second digest", () => {
   test("the sha and the byte length are the manifest's and the committed file's", () => {
     const manifest = JSON.parse(readFileSync(join(REPO_ROOT, SEEDED_FIXTURE.manifest), "utf8")) as { files: { path: string; sha256: string }[] };
@@ -127,7 +138,7 @@ describe("the drawing is F-RCC6, named by the SAMPLE seed rather than by a secon
   });
 
   test("the rows name that sha, so the bytes the seed copies are the bytes the rows point at", () => {
-    const sql = seededTenantSql(seededTenant(0), CONTENT);
+    const sql = seededTenantSql(seededTenant(0), CONTENT, { drawing: true });
     expect(sql).toContain(CONTENT.sha256);
     expect(sql, "one sheet, named the way every sheet-facing spec asks for it").toContain(SEEDED_FIXTURE.sheetName);
     for (const tier of ["thumb", "preview", "full"]) expect(sql).toContain(`'${tier}'`);

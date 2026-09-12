@@ -39,13 +39,14 @@ export default async function globalSetup(): Promise<void> {
 
   // THE WORKER TENANTS (v22 speed, the founder's second decision). One per Playwright worker, seeded
   // the way the picture tenant is — SQL through the harness's own `run`, ids that are literals of
-  // the index — so a journey that needs a signed-in owner with a project and an ingested drawing
-  // signs in (a second) instead of walking the sign-up, verification and upload doors (minutes).
-  // J-000 still walks every one of them: the golden path IS the prologue.
+  // the index — so a journey that needs a signed-in owner with a workspace and a project signs in
+  // (a second) instead of walking nine screens for it. The DRAWING is opt-in and nothing asks for
+  // it: seeded-tenant.ts's header records the two journeys that refuted a fixture ingest.
+  // J-000 still walks every one of those screens: the golden path IS the prologue.
   const workers = workerCount();
   seedWorkerTenants(migrateUrlForPictureTenant(), { root: process.cwd(), storageRoot: journeyStorageRoot(), count: workers });
   process.stdout.write(
-    `SEEDED TENANTS ${workers} (${seededTenant(0).email} … ${seededTenant(workers - 1).email}), each with ${SEEDED_FIXTURE.path} ingested at ${journeyStorageRoot()}\n`,
+    `SEEDED TENANTS ${workers} (${seededTenant(0).email} … ${seededTenant(workers - 1).email}), each owning a workspace and a project (no drawing — ${SEEDED_FIXTURE.path} is opt-in)\n`,
   );
 
   if (!pictureLane()) return;

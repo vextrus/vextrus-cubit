@@ -10,19 +10,10 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
-import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
-import { SHomePage } from "../pages/s-home.page";
-import { ShellPage, SHELL } from "../pages/shell.page";
 import { UploadPage } from "../pages/upload.page";
+import { signInAsSeededTenant } from "../support/seeded-session";
 import { checkpoint } from "../support/checkpoint";
-import { newestMail } from "../support/outbox";
-import { heldAttribute } from "../support/retrying-read";
 
-const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
-const EMAIL = `j010-${RUN}@cubit.test`;
-const PASSWORD = `upload-journey-${RUN}`;
-const WORKSPACE = "Sattva Drawings";
-const PROJECT = "Sattva Court Drawings";
 
 /** The corpus sheet this journey uploads, and the digest a browser would have declared for it. */
 const FIXTURE = join(process.cwd(), "fixtures", "rcc6", "rcc6.dxf");
@@ -32,10 +23,6 @@ test.use({ viewport: { width: 1440, height: 900 } });
 test.describe("J-010 — a drawing is uploaded, interrupted, resumed and stored", () => {
   test("J-010: a member opens an upload, resumes it after an interruption, and the last byte stores one drawing", async ({ page, baseURL }, testInfo) => {
     expect(baseURL, "the journeys are driven against the served product").toBeTruthy();
-    const origin = baseURL ?? "";
-    const auth = new SAuthPage(page);
-    const shell = new ShellPage(page);
-    const home = new SHomePage(page);
     const uploads = new UploadPage(page);
 
     const bytes = readFileSync(FIXTURE);
@@ -44,26 +31,14 @@ test.describe("J-010 — a drawing is uploaded, interrupted, resumed and stored"
     const first = bytes.subarray(0, half);
     const rest = bytes.subarray(half);
 
-    /* --- this journey's own identity, so its drawings never land in another spec's workspace --- */
-    await auth.open(S_AUTH.signUp);
-    await auth.signUpWith(EMAIL, PASSWORD, WORKSPACE);
-    await auth.expectNotice();
-    const verifyMail = await newestMail(EMAIL, "verify-email");
-    await auth.openWithToken(S_AUTH.verify, verifyMail.token);
-    await auth.expectNotice();
-    await auth.open(S_AUTH.signIn);
-    await auth.signInWith(EMAIL, PASSWORD);
-    await expect(page).toHaveURL(`${origin}${SHELL.home}`);
-
-    await shell.workspaceDoor.click();
-    await expect(page).toHaveURL(new RegExp(`^${origin}/t/[0-9a-f-]{36}$`));
-
-    /* --- a project of this workspace, made through the shipped screen --- */
-    await home.createWith({ name: PROJECT, code: "SCD-001", client: "Sattva Holdings", district: "Dhaka", buildingType: 1, storeys: "12" });
-    const card = home.cardNamed(PROJECT);
-    await expect(card, "the created project stands on S-Home").toBeVisible();
-    const projectId = (await heldAttribute(card, "data-project")) ?? "";
-    expect(projectId, "the card names the project it is for").not.toBe("");
+    /* --- THIS WORKER'S SEEDED TENANT (v22 speed, decision 2). The nine acts that used to stand here
+       — sign up, the notice, the outbox, the verification link, sign in, the nameplate, the
+       workspace door, create a project, read its id off the card — are a walk of screens this
+       journey is not about, and the lane installs their result before the first journey runs
+       (tests/e2e/support/seeded-tenant.ts). What is left is the one act that must be the product's:
+       the sign-in door minting a real session. J-000 still walks every one of them. --- */
+    const { tenant } = await signInAsSeededTenant(page, testInfo.parallelIndex);
+    const projectId = tenant.projectId;
 
     /* --- j-010-upload-created: the session, opened by the signed-in member --- */
     const created = await uploads.create({ projectId, name: "rcc6.dxf", size: bytes.length, sha256: digest });

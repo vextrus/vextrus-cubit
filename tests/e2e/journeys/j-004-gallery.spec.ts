@@ -15,10 +15,8 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
 import { SDesignPage, S_DESIGN_ROUTE } from "../pages/s-design.page";
-import { newestMail } from "../support/outbox";
-import { appears } from "../support/retrying-read";
+import { signInAsSeededTenant } from "../support/seeded-session";
 
 /** axe runs from the copy already in the checkout; the journey adds no package (Q-11). */
 const AXE_SOURCE = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
@@ -71,37 +69,23 @@ async function galleryCheckpoint(page: Page, theme: "light" | "dark", checkpoint
  * in before it walks. The lane's database outlives a run, so the enrolment is idempotent: a second
  * run meets the registered `ACCOUNT_ALREADY_EXISTS` answer rather than a failure.
  */
-const EMAIL = "j004-gallery@cubit.test";
-const PASSWORD = "gallery-journey-password";
-const WORKSPACE = "Datum Gallery";
-
-async function signIn(page: Page): Promise<void> {
-  const auth = new SAuthPage(page);
-
-  await auth.open(S_AUTH.signUp);
-  await auth.signUpWith(EMAIL, PASSWORD, WORKSPACE);
-  await expect(auth.notice.or(auth.refusal), "the sign-up door answers — a notice or a registered refusal, never nothing").toBeVisible();
-  // Idempotent enrolment: which of the door's two lawful answers came back is a fact, not a defect.
-  if (await appears(auth.notice)) {
-    const verifyMail = await newestMail(EMAIL, "verify-email");
-    await auth.openWithToken(S_AUTH.verify, verifyMail.token);
-    await auth.expectNotice();
-  } else {
-    await auth.refusedWith("ACCOUNT_ALREADY_EXISTS");
-  }
-
-  await auth.open(S_AUTH.signIn);
-  await auth.signInWith(EMAIL, PASSWORD);
-  // The door answers by navigating, so the walk waits for the address to leave it rather than for a
-  // moment to pass; a refusal is read out loud here, where it is still legible.
-  await expect(auth.refusal, "the sign-in door admits the journey's own account").toHaveCount(0);
-  await page.waitForURL((url) => url.pathname !== S_AUTH.signIn);
+/**
+ * THE GALLERY IS BEHIND THE SESSION WALL, AND THAT IS THE WHOLE OF ITS INTEREST IN AN IDENTITY.
+ *
+ * The eleven acts that used to stand here — sign up, read whichever of the door's two lawful answers
+ * came back, the outbox, the verification link, sign in, wait for the address to leave the door —
+ * bought exactly one thing: a session. `/design` shows the component gallery and no workspace, so
+ * nothing this journey captures is a picture of who is looking at it. It signs in as this worker's
+ * seeded tenant instead (v22 speed, decision 2; tests/e2e/support/seeded-tenant.ts).
+ */
+async function signIn(page: Page, parallelIndex: number): Promise<void> {
+  await signInAsSeededTenant(page, parallelIndex);
 }
 
 test.describe("J-004 Design gallery", () => {
   test("J-004 gallery: /design renders every entry in both themes, clean", async ({ page }, testInfo) => {
     await page.emulateMedia({ colorScheme: "light" });
-    await signIn(page);
+    await signIn(page, testInfo.parallelIndex);
     await page.goto(S_DESIGN_ROUTE);
     await galleryCheckpoint(page, "light", "j-004-gallery-light", testInfo);
 

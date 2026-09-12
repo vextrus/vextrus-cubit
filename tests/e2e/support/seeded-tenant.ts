@@ -26,6 +26,28 @@
 // and nobody's customer — which is what makes the seed idempotent: a second run converges on the
 // same rows rather than adding a second set.
 //
+// WHAT THE SEED LANDS BY DEFAULT, AND WHY THE DRAWING IS NOT IN IT (measured 2026-09-13).
+//
+// The first cut seeded F-RCC6 too — the content row, the drawing, an ingest record and three raster
+// tiers — because "each with the F-RCC6 drawing ingested" is what the node was asked for. Two
+// journeys refuted it on the first run against a live server, and both refutations are about the
+// same thing: a FIXTURE ingest is not an ingest.
+//
+//   · S-Drawings threw. `ingests.artifact_sha256` is a promise that JSON describing the extraction
+//     lives at that digest, and the fixture pointed it at the DXF's own sha — so the served product
+//     read `  0\nSECTION` as JSON and answered `SyntaxError: Unexpected non-whitespace character
+//     after JSON at position 4`. The screen never stood (j-012).
+//   · A real upload became a DUPLICATE. The content row already named that sha under that tenant,
+//     which is correct product behaviour and fatal to a journey whose claim is a FIRST upload
+//     (j-010-upload-seam: "the first upload of a content is not a duplicate").
+//
+// So the drawing is behind `{ drawing: true }` and nothing asks for it yet: an ingest a fixture can
+// honestly seed needs an artifact a fixture can honestly write, and that is a node with the
+// extractor's schema in hand. What the seed lands is the three facts every migrated spec actually
+// needed — a verified account, the workspace it owns, and a project in it — which is the whole of
+// what those specs were walking nine screens to reach. The SQL for the drawing stays here, proved,
+// for the node that can supply the artifact.
+//
 // Playwright-free, exactly as `picture-tenant.ts` is and for the same reason: the facts and the SQL
 // are wanted by the journeys' global setup AND by a vitest that can prove the seed without a browser.
 import { scryptSync } from "node:crypto";
@@ -177,9 +199,9 @@ export function seedStorageObjects(root: string, storageRoot: string, count: num
  * with 42501 — "a row written is immutable"), so convergence there is the row already being what
  * the fixture says.
  */
-export function seededTenantSql(tenant: SeededTenant, content: { sha256: string; byteLength: number }): string {
+export function seededTenantSql(tenant: SeededTenant, content: { sha256: string; byteLength: number }, options: { drawing?: boolean } = {}): string {
   const at = lit(SEEDED_CLOCK);
-  return [
+  const base = [
     `insert into tenants (tenant_id, name, created_at) values (${lit(tenant.tenantId)}, ${lit(tenant.workspaceName)}, ${at})`,
     `  on conflict (tenant_id) do update set name = excluded.name, created_at = excluded.created_at;`,
     `insert into users (user_id, email, password_hash, email_verified_at, created_at)`,
@@ -191,6 +213,10 @@ export function seededTenantSql(tenant: SeededTenant, content: { sha256: string;
     `insert into projects (tenant_id, project_id, name, code, client, site_address, district, created_at)`,
     `  values (${lit(tenant.tenantId)}, ${lit(tenant.projectId)}, ${lit(tenant.projectName)}, ${lit(tenant.projectCode)}, ${lit("Meghna Holdings")}, ${lit("Plot 14, Gulshan Avenue")}, ${lit("Dhaka")}, ${at})`,
     `  on conflict (project_id) do update set name = excluded.name, code = excluded.code, client = excluded.client, site_address = excluded.site_address, district = excluded.district, created_at = excluded.created_at;`,
+  ];
+  if (options.drawing !== true) return base.join("\n");
+  return [
+    ...base,
     `insert into files (tenant_id, sha256, byte_length, format, scan_verdict, created_at)`,
     `  values (${lit(tenant.tenantId)}, ${lit(content.sha256)}, ${content.byteLength}, ${lit(SEEDED_FIXTURE.format)}, 'clean', ${at})`,
     `  on conflict (tenant_id, sha256) do nothing;`,
@@ -218,9 +244,9 @@ const RASTER_SIZE = Object.freeze({ thumb: [320, 226] as const, preview: [1280, 
  * seed is a lane cost paid before the first journey, and paying it N times over would put the
  * prologue back one level down.
  */
-export function seedWorkerTenants(url: string, options: { root: string; storageRoot: string; count: number }): void {
+export function seedWorkerTenants(url: string, options: { root: string; storageRoot: string; count: number; drawing?: boolean }): void {
   const content = seededContent(options.root);
   const tenants = Array.from({ length: options.count }, (_, index) => seededTenant(index));
-  run(url, withSession({ [GUC_SYSTEM_REASON]: SEEDED_SEED_REASON }, tenants.map((tenant) => seededTenantSql(tenant, content)).join("\n")));
-  seedStorageObjects(options.root, options.storageRoot, options.count);
+  run(url, withSession({ [GUC_SYSTEM_REASON]: SEEDED_SEED_REASON }, tenants.map((tenant) => seededTenantSql(tenant, content, options)).join("\n")));
+  if (options.drawing === true) seedStorageObjects(options.root, options.storageRoot, options.count);
 }
