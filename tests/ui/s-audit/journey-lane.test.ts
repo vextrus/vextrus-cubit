@@ -29,7 +29,7 @@ const BIBLE = "docs/specs/cubit.bible.xml";
 const CHECKPOINT_SEGMENTS = ["s-audit", "explorer.png"] as const;
 
 /** Where that picture lives — asked of the lane's one declaration, never respelled here (Q-06). */
-const BASELINE = baselinePath("light", ...CHECKPOINT_SEGMENTS);
+const BASELINE = baselinePath("dark", ...CHECKPOINT_SEGMENTS);
 
 /** The journey this increment opens S-Audit on, and the one whose collection must not change. */
 const OWN_JOURNEY = "J-003";
@@ -108,7 +108,7 @@ describe("AC-4 — the checkpoint stands: axe and a committed Linux baseline", (
     // so the template is read from there — and resolved HERE, by hand, rather than through
     // `baselinePath()`, because a second reading of the template is the whole point of this test.
     expect(sourceOf(PLAYWRIGHT_CONFIG), `${PLAYWRIGHT_CONFIG} must state snapshotPathTemplate — it is where a journey's baseline lives`).toContain("snapshotPathTemplate");
-    const resolved = SNAPSHOT_PATH_TEMPLATE.replace("{projectName}", "light")
+    const resolved = SNAPSHOT_PATH_TEMPLATE.replace("{projectName}", "dark")
       .replace("{arg}", CHECKPOINT_SEGMENTS.join("/").replace(/\.png$/, ""))
       .replace("{ext}", ".png");
     expect(resolved, `the committed baseline must be the file the template resolves the checkpoint to`).toBe(BASELINE);

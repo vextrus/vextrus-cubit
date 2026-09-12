@@ -324,7 +324,7 @@ function gradedBy(segment: Segment, token: string, inSpec = false): Grading[] {
  * v22 U2 lease added is why reading it by regex could no longer work: a template that carries three
  * placeholders and a reader that substitutes two answers a path no picture has ever been written to.
  */
-const shotAt = (directory: string, checkpoint: string): string => baselinePath("light", directory, checkpoint);
+const shotAt = (directory: string, checkpoint: string): string => baselinePath("dark", directory, checkpoint);
 
 describe("AC-4: the journeys are collected, checkpointed and baselined", () => {
   for (const journey of JOURNEYS) {

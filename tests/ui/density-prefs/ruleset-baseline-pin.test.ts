@@ -27,7 +27,7 @@ import { baselinePath } from "../../e2e/support/capture-geometry";
 const BEFORE_SHA256 = "fc67f01abb56170aa64fc032786c030cc3e46554aa5bf8e9af7c74aa00502dee";
 // WHERE that picture lives is `snapshotPathTemplate`'s one fact (Q-06): asked for, never respelled,
 // so this proof followed the directory when the v22 U2 lease gave each lane its own.
-const BASELINE = baselinePath("light", "j-003", "ruleset-pin-visible.png");
+const BASELINE = baselinePath("dark", "j-003", "ruleset-pin-visible.png");
 
 test("J-003's ruleset-pin baseline was regenerated for the masked checkpoint — its bytes changed (B-20)", () => {
   const bytes = readFileSync(join(process.cwd(), BASELINE));
