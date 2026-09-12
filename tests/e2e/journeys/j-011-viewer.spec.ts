@@ -17,6 +17,7 @@
  * copy is read from the product's own string registry by key, and every count is compared against
  * what the screen itself publishes (B-19).
  */
+import { FONT_RENDER_FLAGS } from "../support/capture-geometry";
 import { expect, test } from "@playwright/test";
 import { strings } from "../../../src/ui/strings";
 import { syntheticKey } from "../../takeoff/viewer/support/synthetic-graph";
@@ -67,7 +68,15 @@ test.use({
   // rather than the lane's ground being bent for it.
   reducedMotion: "no-preference",
   permissions: ["clipboard-read", "clipboard-write"],
-  launchOptions: { args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] },
+  // EXTENDED, never replaced: `test.use({ launchOptions })` overwrites the lane's whole object, and
+  // until 2026-09-12 this line did exactly that — §9.3's three font flags never reached this
+  // journey's browser, so its heights and any picture it took were rastered differently from every
+  // other spec's, by an override nothing documented. The three come from their one home
+  // (`capture-geometry.ts`). `--force-prefers-reduced-motion` is the ONE flag deliberately left out:
+  // it is Chromium forcing the preference the `reducedMotion: "no-preference"` above asks against,
+  // and this journey's clause IS the pulse. That omission is the whole reason this spec has a
+  // `launchOptions` of its own, and it is now written down rather than implied.
+  launchOptions: { args: [...FONT_RENDER_FLAGS, "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] },
 });
 
 test.describe("J-011 — the inspector: hover, select, copy, reveal, and the address that carries it", () => {

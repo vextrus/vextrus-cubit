@@ -38,6 +38,28 @@ import type { PlaywrightTestConfig } from "@playwright/test";
  */
 export const pictureLane = (): boolean => process.env["CUBIT_E2E_PICTURE"] !== "0";
 
+/**
+ * The three font flags §9.3 names: hinting, subpixel positioning and LCD filtering are the three
+ * things that make the same glyph raster differently on two machines. Off on all three, a baseline
+ * taken on Linux is a baseline a reviewer's browser can be held to.
+ *
+ * Exported because a spec that needs a launch flag of its own must EXTEND this list rather than
+ * replace it: `test.use({ launchOptions })` overwrites the lane's whole object, and a journey that
+ * silently dropped these three would be taking its pictures — and its heights — through a different
+ * rasteriser than every other spec (B-17).
+ */
+export const FONT_RENDER_FLAGS = ["--font-render-hinting=none", "--disable-font-subpixel-positioning", "--disable-lcd-text"] as const;
+
+/**
+ * Chromium's own compositor honouring reduced motion, which is the other half of `reducedMotion:
+ * "reduce"` above. A spec that asks for motion BY NAME drops this one flag and keeps the three
+ * above — and says in its own file that it is doing so (`j-011-viewer.spec.ts`).
+ */
+export const REDUCED_MOTION_FLAG = "--force-prefers-reduced-motion";
+
+/** What the lane launches with: reduced motion, and the three font flags. */
+export const CAPTURE_BROWSER_FLAGS = [REDUCED_MOTION_FLAG, ...FONT_RENDER_FLAGS] as const;
+
 export function captureGeometry(picture: boolean): PlaywrightTestConfig["use"] {
   if (!picture) return {};
   return {
@@ -52,17 +74,7 @@ export function captureGeometry(picture: boolean): PlaywrightTestConfig["use"] {
     // that has stopped moving, and settled() is the wait that proves it did. `reducedMotion` is a
     // context option in this version's `use` type, so it is spelled where the type puts it.
     contextOptions: { reducedMotion: "reduce" },
-    launchOptions: {
-      args: [
-        "--force-prefers-reduced-motion",
-        // The three font flags §9.3 names: hinting, subpixel positioning and LCD filtering are the
-        // three things that make the same glyph raster differently on two machines. Off on all
-        // three, a baseline taken on Linux is a baseline a reviewer's browser can be held to.
-        "--font-render-hinting=none",
-        "--disable-font-subpixel-positioning",
-        "--disable-lcd-text",
-      ],
-    },
+    launchOptions: { args: [...CAPTURE_BROWSER_FLAGS] },
   };
 }
 

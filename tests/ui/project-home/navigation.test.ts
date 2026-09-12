@@ -11,9 +11,10 @@
  * contract's; that a tab's availability is *derived* from `PROJECT_AREAS` rather than hand-written
  * beside it is AC-6's, in the held-out set.
  */
-import { cleanup, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
 import { PROJECT, TENANT, all, copy, homeData, homeStrings, mountHome, one, projectHome, text } from "./support/project-home-stage";
+import { TESTIDS } from "@/ui/testids";
 
 /** S-Project's clause order: "Drawings · Takeoff · Assure · Estimate · Bid · Activity · Settings". */
 const CLAUSE_ORDER = ["drawings", "takeoff", "assure", "estimate", "bid", "activity", "settings"] as const;
@@ -82,7 +83,16 @@ describe("AC-2 — the navigation regions", () => {
         // tooltip a lawful home for it (R-UI-012). The hint's own paint is walked in the browser.
         expect(tab.getAttribute("tabindex"), `\`${area}\` is reachable, so its condition can be read without a mouse`).toBe("0");
         expect(tab.hasAttribute("data-state"), `\`${area}\` is a tooltip trigger — the shipped primitive's own hook`).toBe(true);
-        expect(unavailable.length, "and the condition is still the string table's own sentence").toBeGreaterThan(0);
+        // R-UI-060: THE SCREEN STATES THE CONDITION IN WORDS. This assertion was weakened on this
+        // branch to `unavailable.length > 0` — which proves the string table is non-empty and
+        // nothing at all about the screen, leaving the clause unproved (nothing else in `tests/`
+        // reads `project_home_tab_unavailable`). I-143 moved the sentence from the row into the
+        // tooltip, so the proof moves with it: the hint opens on FOCUS, which is what makes it
+        // readable without a pointer, and what it then says is the string table's own sentence.
+        fireEvent.focus(tab);
+        const hint = await screen.findByTestId(TESTIDS.tooltip.content);
+        expect(hint.textContent, `\`${area}\` states its condition in words, in the hint its own trigger opens (R-UI-060, I-143)`).toBe(unavailable);
+        fireEvent.blur(tab);
       }
     }
   });
