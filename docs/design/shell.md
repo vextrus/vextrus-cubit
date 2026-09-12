@@ -455,7 +455,7 @@ increment's ownership), so this is recorded rather than repaired — and it is n
 from here even with the file in hand, for two standing reasons. `docs/design/root-document.md`
 settles the resolver's code verbatim and puts the behaviour out of scope by name: it "registers
 no change listener — a user-facing theme setting, persistence, and live reaction to OS changes
-after first paint are out of scope by name". And `tests/e2e/j-000-golden-path.e2e.ts` asserts
+after first paint are out of scope by name". And `tests/e2e/journeys/j-000/m0-root-entry.spec.ts` asserts
 the resolver's own source contains no `addEventListener` (with `DOMContentLoaded`, `onload`,
 `setTimeout`, `requestAnimationFrame`, `requestIdleCallback`) — the guarantee that it runs
 inline rather than from a deferred callback — so putting the subscription inside the resolver

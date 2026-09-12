@@ -731,7 +731,7 @@ supplied selection, rendering the same ids and strings with `navigator.clipboard
 — it takes `window.location` and never `useRouter`, so it mounts bare. Journeys:
 `tests/e2e/journeys/j-011-viewer.spec.ts` at checkpoints `j-011-inspector-hover`,
 `-selected`, `j-011-multi-select`, `j-011-deep-link-selection`, `j-011-inspector-dark`, and
-`tests/e2e/journeys/j-000-viewer.spec.ts` at `j-000/sheet-open` and `j-000/entity-selected`; axe
+`tests/e2e/journeys/j-000/m1-upload-and-open.spec.ts` at `j-000/sheet-open` and `j-000/entity-selected`; axe
 serious/critical = 0 at every one, never widened. `tests/e2e/viewer/s-viewer.page.ts` grows the
 inspector's locators and the fixed procedures (deep-link-to-key, rectangle-select, layer-select,
 copy-key, reveal, theme-flip); `tests/e2e/pages/s-drawings.page.ts` gains `open: "sheet-card-open"`

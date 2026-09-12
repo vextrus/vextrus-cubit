@@ -1,18 +1,18 @@
 // J-000 — the Golden Path's first real segment (AC-5): sign up → name the workspace through the
 // shipped door → create the first project, and see it on S-Home. Everything past create-project is
-// a later milestone's leg; the smoke in `j-000-smoke.spec.ts` keeps proving the lane itself.
+// a later milestone's leg; the smoke in `j-000/m0-smoke.spec.ts` keeps proving the lane itself.
 //
 // The identity is per-run unique (a fresh email every run) because `cubit_e2e` is additive and never
 // fresh: two runs sharing an address would meet the account the first one made, and the second one's
 // workspace would not be projectless. The workspace and project NAMES are fixed, because they are
 // painted into the frame a baseline compares; the address and the dates are masked (V-E2E).
 import { expect, test } from "@playwright/test";
-import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
-import { ShellPage, SHELL } from "../pages/shell.page";
-import { QUICK_STATS, SHomePage, S_HOME } from "../pages/s-home.page";
-import { checkpoint } from "../support/checkpoint";
-import { newestMail } from "../support/outbox";
-import { steadyText } from "../support/retrying-read";
+import { SAuthPage, S_AUTH } from "../../pages/s-auth.page";
+import { ShellPage, SHELL } from "../../pages/shell.page";
+import { QUICK_STATS, SHomePage, S_HOME } from "../../pages/s-home.page";
+import { checkpoint } from "../../support/checkpoint";
+import { newestMail } from "../../support/outbox";
+import { steadyText } from "../../support/retrying-read";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j000-${RUN}@cubit.test`;

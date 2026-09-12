@@ -3,7 +3,7 @@
  * Public acceptance for the root document — AC-2 (the Datum theme resolves on the document) and
  * AC-4 (`pnpm e2e --journey J-000` runs a journey instead of recording the missing-roster skip).
  *
- * What only a browser can answer is answered in a browser: tests/e2e/j-000-golden-path.e2e.ts
+ * What only a browser can answer is answered in a browser: tests/e2e/journeys/j-000/m0-root-entry.spec.ts
  * loads `/`, compares the light and dark captures and runs axe. What this lane can judge without
  * one is judged here — the element the root layout returns, the pre-paint theme resolver it ships
  * (executed against both OS preferences), the journey runner's derived roster, and the journey
@@ -23,7 +23,10 @@ import playwrightConfig from "../../playwright.config";
 
 const LAYOUT_MODULE = "src/app/layout.tsx";
 const JOURNEY_DIR = "tests/e2e/";
-const JOURNEY_SPEC = `${JOURNEY_DIR}j-000-golden-path.e2e.ts`;
+// AM-09 §2: the golden path is a DIRECTORY of per-milestone leg files, so the root-entry leg now
+// stands at tests/e2e/journeys/j-000/m0-root-entry.spec.ts. The assertion is unchanged — this is
+// where the leg lives, not a weakening of what it must prove.
+const JOURNEY_SPEC = `${JOURNEY_DIR}journeys/j-000/m0-root-entry.spec.ts`;
 const JOURNEY_ID = "J-000";
 
 /**

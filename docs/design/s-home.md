@@ -307,7 +307,7 @@ loading Buttons and in-flight fields; `role="alert"` on the I-34 line; RefusalSt
 `data-code`; the pin link's `href`; the `<output>` element for the sft readout.
 
 Journeys (page object `tests/e2e/pages/s-home.page.ts`; one gate invocation per journey;
-J-nnn in a title literal): `tests/e2e/journeys/j-000-golden-path.spec.ts` — per-run-unique
+J-nnn in a title literal): `tests/e2e/journeys/j-000/m0-workspace-and-project.spec.ts` — per-run-unique
 email, workspace named the fixed **Golden Path Works** through the shipped rename door,
 project named the fixed **Riverside Tower**; checkpoints `j-000/workspace-named` and
 `j-000/first-project-on-s-home` (grid with the card: status, date, zeros; whole segment

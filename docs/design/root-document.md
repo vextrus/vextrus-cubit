@@ -277,7 +277,7 @@ Behavioural hooks without new ids:
   source read, not that attribute, is what binds AC-2's "before first paint".
 - axe (injected from `node_modules/axe-core`) at `/`: violations with impact `serious` or
   `critical` number exactly 0 — never widened to any-impact (Q-11).
-- The J-000 spec (`tests/e2e/j-000-golden-path.e2e.ts`, title containing "J-000") compares
+- The J-000 spec (`tests/e2e/journeys/j-000/m0-root-entry.spec.ts`, title containing "J-000") compares
   its light and dark full-page captures at runtime with `Buffer.equals` and asserts
   inequality; no baseline file is committed (the full V-E2E lane is out of scope).
 - The capture comparison does not stand alone, and may not: `color-scheme: light|dark` on

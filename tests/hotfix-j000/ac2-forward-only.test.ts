@@ -41,11 +41,16 @@ import {
 /**
  * The three J-000 tests `pnpm e2e --journey J-000` runs, as this increment's interfaces line spells
  * them. A floor on the derived freeze below, never a ceiling on what J-000 may hold.
+ *
+ * AM-09 §2 (2026-09-12) moved the golden path into a DIRECTORY of per-milestone leg files, so the
+ * three stand at their leg names now. The freeze this file exists for is untouched: the byte and
+ * member readings below run over a CLOSED history interval (PRE_FIX..FIX_END), which the move
+ * cannot reach. This roster is the "still collected" floor, and it names where the legs live today.
  */
 const NAMED_J000_TESTS = [
-  "tests/e2e/journeys/j-000-golden-path.spec.ts",
-  "tests/e2e/journeys/j-000-smoke.spec.ts",
-  "tests/e2e/j-000-golden-path.e2e.ts",
+  "tests/e2e/journeys/j-000/m0-workspace-and-project.spec.ts",
+  "tests/e2e/journeys/j-000/m0-smoke.spec.ts",
+  "tests/e2e/journeys/j-000/m0-root-entry.spec.ts",
 ] as const;
 
 /** How the journey runner selects a journey: Playwright's title grep, on the journey's own id. */

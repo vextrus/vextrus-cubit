@@ -45,6 +45,11 @@ export default defineConfig({
   globalSetup: "./tests/e2e/support/global-setup.ts",
   // V-E2E: the visual comparisons stand against baselines committed for Linux, in one directory
   // rather than beside each spec — a journey names its baseline and the lane says where it lives.
+  //
+  // AM-09 §2 moved the golden path's legs into tests/e2e/journeys/j-000/. The template carries no
+  // {testFilePath} and no {testFileDir}, and every J-000 capture names its baseline as an explicit
+  // arg array (["j-000", "workspace-named.png"]), so a leg's FILE may move without moving one byte
+  // of a committed baseline — the mapping from a capture to its PNG is the arg, not the spec's home.
   snapshotPathTemplate: "tests/e2e/baselines/design/{arg}{ext}",
   expect: {
     // V-E2E fixes the tolerance for every visual comparison in the lane.

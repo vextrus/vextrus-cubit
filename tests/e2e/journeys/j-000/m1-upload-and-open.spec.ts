@@ -4,7 +4,7 @@
  * navigation, paying s-viewer I-77), selects one entity in the viewer, copies its source key and
  * reloads the deep link to find the same selection standing.
  *
- * A NEW file rather than an edit of `j-000-golden-path.spec.ts`: the merged `tests/hotfix-j000`
+ * A NEW file rather than an edit of `j-000/m0-workspace-and-project.spec.ts`: the merged `tests/hotfix-j000`
  * suite byte-freezes every J-000 asset the pre-fix merge tracked, and its own words make an addition
  * under its own name no trespass. The titles name J-000, which is what `pnpm e2e --journey J-000`
  * greps on, so the Golden Path collects this leg beside the three it already runs.
@@ -19,14 +19,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
-import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
-import { SDrawingsPage, S_DRAWINGS } from "../pages/s-drawings.page";
-import { SHomePage, S_HOME } from "../pages/s-home.page";
-import { ShellPage, SHELL } from "../pages/shell.page";
-import { checkpoint } from "../support/checkpoint";
-import { newestMail } from "../support/outbox";
-import { startJourneyWorker } from "../support/worker";
-import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
+import { SAuthPage, S_AUTH } from "../../pages/s-auth.page";
+import { SDrawingsPage, S_DRAWINGS } from "../../pages/s-drawings.page";
+import { SHomePage, S_HOME } from "../../pages/s-home.page";
+import { ShellPage, SHELL } from "../../pages/shell.page";
+import { checkpoint } from "../../support/checkpoint";
+import { newestMail } from "../../support/outbox";
+import { startJourneyWorker } from "../../support/worker";
+import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../../viewer/s-viewer.page";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j000v-${RUN}@cubit.test`;

@@ -181,7 +181,7 @@ function mentions(text: string, name: string): boolean {
  * The names whose value flows from an axe run inside the page. The seed is the statement that runs
  * axe in the browser — `evaluate` around a `.run(` on axe — and taint spreads to anything declared
  * from a statement that reads a tainted name, so `blockingViolations` → `violations` → the array an
- * assertion counts is one traceable chain (the shape tests/e2e/j-000-golden-path.e2e.ts already
+ * assertion counts is one traceable chain (the shape tests/e2e/journeys/j-000/m0-root-entry.spec.ts already
  * uses). A hardcoded empty array is bound to nothing and never joins the set.
  */
 function axeResultNames(code: string): { runsInPage: boolean; tainted: Set<string> } {
@@ -425,7 +425,7 @@ describe("AC-3 — axe runs from the checkout, and gates exactly at serious and 
     for (const impact of BLOCKING_IMPACTS) {
       expect(spells(impact), `the journey names ${impact} as an impact it blocks on (Q-11)`).toBe(true);
     }
-    // However the roster is spelled — an array as tests/e2e/j-000-golden-path.e2e.ts spells it, or a
+    // However the roster is spelled — an array as tests/e2e/journeys/j-000/m0-root-entry.spec.ts spells it, or a
     // comparison — an array that names one blocking impact names both and nothing else.
     for (const roster of stringArrays(code).filter((array) => array.some((item) => BLOCKING_IMPACTS.includes(item)))) {
       expect([...roster].sort(), "the blocking-impact roster is serious and critical — no more, no fewer (Q-11)").toEqual(BLOCKING_IMPACTS);
@@ -452,11 +452,11 @@ describe("AC-3 — axe runs from the checkout, and gates exactly at serious and 
     const { runsInPage, tainted } = axeResultNames(code);
     expect(
       runsInPage,
-      `the journey must RUN axe in the browser — a page.evaluate whose body calls axe's own run(), as tests/e2e/j-000-golden-path.e2e.ts does. Injecting the bundle and never running it leaves Q-11 unenforced, and the run exits 0 either way`,
+      `the journey must RUN axe in the browser — a page.evaluate whose body calls axe's own run(), as tests/e2e/journeys/j-000/m0-root-entry.spec.ts does. Injecting the bundle and never running it leaves Q-11 unenforced, and the run exits 0 either way`,
     ).toBe(true);
 
     // Either idiom binds the same law: a count compared to zero, or the selected violations
-    // compared to the empty array as tests/e2e/j-000-golden-path.e2e.ts does — but the value
+    // compared to the empty array as tests/e2e/journeys/j-000/m0-root-entry.spec.ts does — but the value
     // compared must be the one axe answered, traced through whatever filtered it.
     const zeroes = expectations(code, ["toHaveLength", "toBe", "toEqual", "toStrictEqual"]).filter((expectation) =>
       /^\s*(?:0|\[\s*\])\s*$/.test(expectation.args.split(",")[0] ?? ""),
