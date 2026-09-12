@@ -96,7 +96,8 @@ describe("archive, restore and save ask the one guard for the permission lifecyc
     guard.authorize.mockImplementation(async () => ({ authorized: false, refusal: "PERMISSION_NOT_HELD" }) as never);
     const answer = await actions.saveProjectAction(null, draft());
     expect(answer).toEqual({ saved: false, refusal: "PERMISSION_NOT_HELD" });
-    expect(guard.authorize.mock.calls[0]?.[0], "the edited project is named, so the grant can be read").toMatchObject({
+    const asked = guard.authorize.mock.calls.at(0) as unknown[] | undefined;
+    expect(asked?.[0], "the edited project is named, so the grant can be read").toMatchObject({
       projectId: PROJECT,
       permission: "ADMINISTER_PROJECT",
     });

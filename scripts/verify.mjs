@@ -31,11 +31,6 @@ export const GOLDEN_PYTEST = Object.freeze([
 ]);
 
 /**
- * What each lane runs when it is armed. Keyed by the lane ids deriveLanes yields; the roster still
- * decides which of these ever run.
- * @type {Readonly<Record<string, string[][]>>}
- */
-/**
  * What the unit lane is invoked as. The engine reads the lane's verdict from a STRUCTURED report and
  * not from the terminal: without one it can only know that the lane was green, never WHICH test
  * files it executed, so its acceptance dedup — "this claim is already proved by a test that ran" —
@@ -58,6 +53,11 @@ export function unitLaneCommand(env) {
   return [...command, "--reporter=default", "--reporter=json", `--outputFile=${report}`];
 }
 
+/**
+ * What each lane runs when it is armed. Keyed by the lane ids deriveLanes yields; the roster still
+ * decides which of these ever run.
+ * @type {Readonly<Record<string, string[][]>>}
+ */
 export const LANE_COMMANDS = Object.freeze({
   typegen: [["node", "node_modules/next/dist/bin/next", "typegen"]],
   types: [["node", "node_modules/typescript/bin/tsc", "--noEmit"]],
