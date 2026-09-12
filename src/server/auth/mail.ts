@@ -76,6 +76,16 @@ export function resetOutboxSweep(): void {
  */
 const PARTIAL_SUFFIX = ".tmp";
 
+/**
+ * How many mails this process has sent. A mail's name carries the millisecond it was written at, and
+ * a resend arrives inside the SAME millisecond as the send it supersedes — so the instant alone
+ * cannot order them, and a reader taking "the newest mail for this address" would take whichever of
+ * the two the random uuid happened to sort above. The count breaks that tie in the order the
+ * deliveries were actually made. `mtime` cannot: this tree's filesystems hand back the same
+ * nanosecond for both writes.
+ */
+let sent = 0;
+
 /** Drop every mail whose credential can no longer be spent. `force` so a concurrent send racing us is not an error. */
 function dropSpentMail(directory: string, now: number): void {
   for (const name of readdirSync(directory)) {
@@ -89,8 +99,9 @@ function dropSpentMail(directory: string, now: number): void {
 }
 
 /**
- * Send a mail: one file, named so that two mails sent in the same millisecond cannot collide and so
- * that a reader can take the newest by modification time.
+ * Send a mail: one file, named `<instant>-<nth>-<uuid>.json` so that two mails sent in the same
+ * millisecond can neither collide nor be read out of order — the name sorts chronologically, which
+ * is how the outbox's reader answers "the newest mail for this address".
  *
  * The mail arrives ATOMICALLY: the bytes are put down under `<name>.json.tmp`, which no reader
  * looks at, and `rename`d into place — a rename within a directory either happened or did not, so
@@ -111,7 +122,7 @@ export function deliver(mail: OutboxMail): void {
   chmodSync(directory, OUTBOX_MODE);
   const now = Date.now();
   if (sweep.due(now)) dropSpentMail(directory, now);
-  const path = join(directory, `${Date.now().toString(36)}-${randomUUID()}.json`);
+  const path = join(directory, `${Date.now().toString(36)}-${(sent++).toString(36).padStart(8, "0")}-${randomUUID()}.json`);
   const partial = `${path}${PARTIAL_SUFFIX}`;
   writeFileSync(partial, `${JSON.stringify(mail, null, 2)}\n`, { encoding: "utf8", mode: MAIL_MODE });
   renameSync(partial, path);

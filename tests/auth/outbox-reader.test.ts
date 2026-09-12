@@ -35,6 +35,8 @@ const mailTo = (to: string) => ({ to, kind: "magic-link", url: `https://example.
 describe("the outbox reader", () => {
   test("two good mails beside a zero-byte file and a half-written one: the mails are read, the two bad files are named", () => {
     deliver(mailTo("first@example.test"));
+    // Two mails sent in the same MILLISECOND are ordered by their write time, not by the uuid in
+    // their names — a resend arrives that close, and the newest link is the one that must be spent.
     deliver(mailTo("second@example.test"));
 
     // The two shapes a killed writer leaves: nothing at all, and a document cut off mid-token.
@@ -51,6 +53,18 @@ describe("the outbox reader", () => {
     ]);
     expect(reading.skipped.slice().sort(), "the files that are not mails are reported BY NAME, so the accident can be found on disk").toEqual([empty, torn].sort());
     expect(reading.notes.slice().sort(), "and each is reported as what it is, in words that name the cause").toEqual([skippedNote(empty), skippedNote(torn)].sort());
+  });
+
+  test("two mails sent in the same millisecond are still answered newest first", () => {
+    const at = Date.now();
+    deliver(mailTo("older@example.test"));
+    deliver(mailTo("newer@example.test"));
+    expect(Date.now() - at, "the two deliveries landed inside one millisecond, which is how close a resend is").toBeLessThan(2);
+
+    expect(readOutbox().mails.map((mail) => mail.to), "the newest is the one a person is told to spend — the name, not the clock, orders them").toEqual([
+      "newer@example.test",
+      "older@example.test",
+    ]);
   });
 
   test("an outbox nothing has been sent through is empty, not an error", () => {

@@ -42,25 +42,30 @@ export function skippedNote(name: string): string {
  * Read the outbox. A directory that does not exist is an outbox nothing has been sent through yet,
  * not an error: the first delivery creates it.
  *
- * Newest first by name, because the writer names a mail with the base-36 instant it was written at
- * followed by a uuid — so the lexical order is the chronological one, and two mails sent in the same
- * millisecond still cannot collide.
+ * Newest first BY NAME, which the writer makes chronological: `<instant>-<nth>-<uuid>.json`, the
+ * millisecond and then the count of mails that process has sent. Sorting by `mtime` instead would
+ * be sorting by nothing — this tree's filesystems hand back the same nanosecond for two writes made
+ * in the same millisecond, which is exactly how close a resend arrives to the send it supersedes.
  */
 export function readOutbox(directory: string = outboxDir()): OutboxReading {
   const reading: OutboxReading = { mails: [], skipped: [], notes: [] };
   if (!existsSync(directory)) return reading;
 
+  const files: { name: string; size: number }[] = [];
   for (const name of readdirSync(directory).sort().reverse()) {
     // `.json.tmp` is a mail still being written: not a file this reader has an opinion about, and
     // not one worth reporting either — the writer is mid-delivery, which is the normal case.
     if (!name.endsWith(".json")) continue;
-    const path = join(directory, name);
-    const size = statSync(path, { throwIfNoEntry: false })?.size;
-    if (size === undefined) continue; // Swept out from under us by a concurrent delivery.
+    const found = statSync(join(directory, name), { throwIfNoEntry: false });
+    if (found === undefined) continue; // Swept out from under us by a concurrent delivery.
+    files.push({ name, size: found.size });
+  }
+
+  for (const { name, size } of files) {
     let mail: OutboxMail | undefined;
     if (size > 0) {
       try {
-        mail = JSON.parse(readFileSync(path, "utf8")) as OutboxMail;
+        mail = JSON.parse(readFileSync(join(directory, name), "utf8")) as OutboxMail;
       } catch {
         mail = undefined;
       }
