@@ -237,10 +237,10 @@ def run(world: dict[str, Any] | None = None) -> dict[str, Any]:
     traps = json.loads((HERE / "traps.json").read_text())
     for t in traps["traps"]:
         if t["id"] == "T-BBS-TOTAL":
-            assert D(t["printed"]) != D(bbs["grand_total_kg"]) and D(t["true"]) == D(
-                bbs["grand_total_kg"]
-            ), t
-            assert abs(D(t["printed"]) / D(t["true"]) - 1) < D("0.02")
+            sample_total = golden.bbs_sample(bbs)[1]
+            assert D(t["true"]) == sample_total and D(t["printed"]) != sample_total, t
+            assert D(t["printed"]) != D(bbs["grand_total_kg"]), "S-26 must never print the golden"
+            assert abs(D(t["printed"]) / D(t["true"]) - D("1.017")) < D("0.0005")
     assert len({t["id"] for t in traps["traps"]}) == len(traps["traps"])
 
     # 6. BBS reconciles with the REBAR rows exactly (raw sums) and per row to 0.001

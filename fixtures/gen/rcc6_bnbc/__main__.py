@@ -75,10 +75,11 @@ def dump(path: Path, data: Any) -> str:
 
 
 def reseed_bbs_trap(bbs: dict[str, Any]) -> None:
-    """T-BBS-TOTAL is registered as true row sum vs a printed total 1.7 % high; keep it current."""
+    """T-BBS-TOTAL is registered as the S-26 sample's own row sum vs a printed total 1.7 % high
+    (F2-1: never the project's grand_total_kg); keep it current."""
     path = HERE / "traps.json"
     traps = json.loads(path.read_text(encoding="utf-8"))
-    true = Decimal(bbs["grand_total_kg"])
+    true = golden.bbs_sample(bbs)[1]
     for t in traps["traps"]:
         if t["id"] == "T-BBS-TOTAL":
             t["true"], t["printed"] = (

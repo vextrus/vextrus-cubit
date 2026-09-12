@@ -722,3 +722,27 @@ def compute(
     world: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     return Golden(world or M.build()).compute()
+
+
+#: S-26 prints a SAMPLE of the BBS — three members — and its grand total is that sample's own
+#: row sum (never the project's `grand_total_kg`: a drawing must not carry the golden it is
+#: graded against). The sheet composer and the trap reseed both read this one selection.
+BBS_SAMPLE = (
+    ("PC3", lambda r: r["mark"] == "PC3"),
+    ("2B7", lambda r: r["member"] == "B7@2F"),
+    ("S3", lambda r: r["mark"] == "S3" and r["level"] == "1F"),
+)
+
+
+def bbs_sample(bbs: dict[str, Any]) -> tuple[list[tuple[str, dict[str, Any]]], Decimal]:
+    """(label, row) for every distinct bar mark of the sampled members, in sheet order, and the
+    sample's own mass: Σ kg of exactly those rows."""
+    rows: list[tuple[str, dict[str, Any]]] = []
+    for label, pick in BBS_SAMPLE:
+        seen: set[str] = set()
+        for r in bbs["rows"]:
+            if pick(r) and r["bar_mark"] not in seen:
+                seen.add(r["bar_mark"])
+                rows.append((label, r))
+    total = sum((Decimal(str(r["kg"])) for _, r in rows), Decimal(0))
+    return rows, total

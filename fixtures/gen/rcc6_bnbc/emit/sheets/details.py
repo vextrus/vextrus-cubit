@@ -1,7 +1,7 @@
 """S-22 to S-26 — stairs, the lift core and shear walls, the tanks, the lintel schedule with the
 building section, and the sample bar bending schedule.
 
-S-26 reads `fixtures/rcc6-bnbc/bbs.golden.json` and prints its rows verbatim: the schedule on the
+S-26 prints the `golden.bbs_sample` rows verbatim: the schedule on the
 sheet is the golden's own arithmetic, and only the grand total disagrees — by the 1.7 % the trap
 registers (T-BBS-TOTAL).
 """
@@ -11,6 +11,7 @@ from __future__ import annotations
 from itertools import pairwise
 from typing import Any
 
+from ... import golden
 from ... import model as M
 from ..scene import Scene
 from ..scene import Sheet as _Sheet
@@ -228,45 +229,40 @@ def s25(ctx: Ctx) -> _Sheet:
 
 
 def s26(ctx: Ctx) -> _Sheet:
-    """The sample bar bending schedule: three members' rows, read from `bbs.golden.json`."""
+    """The sample bar bending schedule: three members' rows from `golden.bbs_sample`; its printed
+    grand total is the SAMPLE's row sum × 1.017 (T-BBS-TOTAL), never the project total (F2-1)."""
     p = new_paper(ctx, "S-26")
     bbs = ctx.bbs()
-    wanted = [("PC3", lambda r: r["mark"] == "PC3"),
-              ("2B7", lambda r: r["member"] == "B7@2F"),
-              ("S3", lambda r: r["mark"] == "S3" and r["level"] == "1F")]
+    sample, sample_total = golden.bbs_sample(bbs)
     sc = Scene()
     rows: list[list[Any]] = []
-    for label, pick in wanted:
-        picked = [r for r in bbs["rows"] if pick(r)]
-        member = picked[0]["member"] if picked else ""
-        seen: set[str] = set()
-        for r in picked:
-            if r["bar_mark"] in seen:
-                continue
-            seen.add(r["bar_mark"])
-            dims = r["dims_mm"]
-            rows.append([
-                (label, "mark"),
-                (r["bar_mark"], "plain"),
-                (r["shape"], "plain"),
-                (f"{r['dia_mm']}%%C", "diameter", authored(r["dia_mm"])),
-                ("/".join(f"{k}={dims[k]}" for k in sorted(dims)), "plain"),
-                (r["cutting_rounded_mm"], "number", authored(r["cutting_rounded_mm"])),
-                (r["bars"], "number"),
-                (r["kg"], "number", authored(r["kg"])),
-            ])
-        rows.append([("", "plain")] * 8)
-        del member
+    last_label = None
+    for label, r in sample:
+        if last_label is not None and label != last_label:
+            rows.append([("", "plain")] * 8)
+        last_label = label
+        dims = r["dims_mm"]
+        rows.append([
+            (label, "mark"),
+            (r["bar_mark"], "plain"),
+            (r["shape"], "plain"),
+            (f"{r['dia_mm']}%%C", "diameter", authored(r["dia_mm"])),
+            ("/".join(f"{k}={dims[k]}" for k in sorted(dims)), "plain"),
+            (r["cutting_rounded_mm"], "number", authored(r["cutting_rounded_mm"])),
+            (r["bars"], "number"),
+            (r["kg"], "number", authored(r["kg"])),
+        ])
+    rows.append([("", "plain")] * 8)
     table(sc, 0.0, 0.0,
           ["MEMBER", "BAR MARK", "SHAPE", "DIA", "A / B / C (mm)", "CUT LENGTH", "NOS", "MASS (kg)"],
           rows, [1600.0, 2200.0, 1400.0, 1400.0, 3600.0, 2400.0, 1400.0, 2000.0],
           row_h=500.0, h=180.0)
     sc.text("BAR BENDING SCHEDULE (SAMPLE)", (0.0, 1400.0), 380.0, "S-SHEET")
-    sc.text("BS 8666 CUTTING LENGTHS; SEE bbs.golden.json", (0.0, 800.0), 200.0, "S-TEXT")
+    sc.text("BS 8666 CUTTING LENGTHS; LAPS AND HOOKS PER THE S-02 TABLE", (0.0, 800.0), 200.0, "S-TEXT")
     bottom = -500.0 * (len(rows) + 1) - 600.0
     sc.text("GRAND TOTAL (KG)", (0.0, bottom), 260.0, "S-TEXT")
     total = sc.text(ctx.trap["T-BBS-TOTAL"]["printed"], (5200.0, bottom), 260.0, "S-TEXT",
-                    family="number", fact=authored(bbs["grand_total_kg"]), trap="T-BBS-TOTAL")
+                    family="number", fact=authored(str(sample_total)), trap="T-BBS-TOTAL")
     total["role"] = "bbs-total"
     sc.text("(THE ROW SUMS ARE THE TRUTH; THIS TOTAL IS THE TYPIST'S)", (0.0, bottom - 500.0),
             190.0, "S-TEXT2")
