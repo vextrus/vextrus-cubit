@@ -13,8 +13,8 @@ from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
+from ... import golden, selfcheck
 from ... import model as M
-from ... import selfcheck
 from .. import blocks as B
 from .. import plan
 from ..scene import PAPER_MM, Scene, Sheet, View, ft_in
@@ -71,8 +71,11 @@ class Ctx:
 
     def bbs(self) -> dict[str, Any]:
         if self._bbs is None:
-            path = HERE.parents[2] / "fixtures" / "rcc6-bnbc" / "bbs.golden.json"
-            self._bbs = json.loads(path.read_text(encoding="utf-8"))
+            # From the golden path, never from the committed corpus (B-23: a generator that reads
+            # its own output cannot tell a stale corpus from a fresh one). JSON round trip so the
+            # sheet sees exactly the shapes bbs.golden.json carries.
+            world = getattr(self, "world", None) or M.build()
+            self._bbs = json.loads(json.dumps(golden.compute(world)[1]))
         return self._bbs
 
 
