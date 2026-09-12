@@ -50,9 +50,10 @@ def spacing(bar: dict[str, Any]) -> int:
     return 150
 
 
-STRIP_COLS = 5
-STRIP_PITCH_X = 7600.0
-STRIP_PITCH_Y = 3000.0
+STRIP_COLS = 6
+STRIP_PITCH_X = 5800.0
+STRIP_PITCH_Y = 2600.0
+STRIP_LENGTH = 5200.0
 
 
 def _beams(ctx: Ctx, level: str) -> list[dict[str, Any]]:
@@ -180,7 +181,7 @@ def s15(ctx: Ctx) -> _Sheet:
 
 def _strip(sc: Scene, ctx: Ctx, m: dict[str, Any], ox: float, oy: float) -> dict[str, Any]:
     """One beam's long section: the outline, the top and bottom bars, the stirrup zones."""
-    length = min(f(m["length"]), 6800.0)
+    length = min(f(m["length"]), STRIP_LENGTH)
     depth = f(m["depth"])
     b = f(m["b"])
     sc.rect(ox, oy, length, depth, "S-BEAM")
@@ -190,7 +191,7 @@ def _strip(sc: Scene, ctx: Ctx, m: dict[str, Any], ox: float, oy: float) -> dict
         x = ox + 150.0 + k * (length - 300.0) / 5
         sc.line((x, oy + 60.0), (x, oy + depth - 60.0), "S-STIR")
     mk = sc.text(m["mark"], (ox, oy + depth + 460.0), 260.0, "S-TEXT", family="mark")
-    sc.text(f"{int(b)}x{int(depth)}", (ox + 1800.0, oy + depth + 460.0), 220.0, "S-TEXT",
+    sc.text(f"{int(b)}x{int(depth)}", (ox + 1500.0, oy + depth + 460.0), 220.0, "S-TEXT",
             family="section", fact=fact(m, "b"))
     top, bot, st = bar_set(ctx, m)
     if top is not None:
@@ -200,7 +201,7 @@ def _strip(sc: Scene, ctx: Ctx, m: dict[str, Any], ox: float, oy: float) -> dict
         sc.text(f"{bot['n']}-{bot['dia']}%%C BOT.", (ox + 200.0, oy - 320.0), 200.0, "S-TEXT2",
                 family="diameter", fact=authored(bot["dia"]))
     if st is not None:
-        sc.text(f"{st['dia']}%%C @ {spacing(st)} c/c", (ox + 3600.0, oy - 320.0),
+        sc.text(f"{st['dia']}%%C @ {spacing(st)} c/c", (ox + 2600.0, oy - 320.0),
                 200.0, "S-TEXT2", family="diameter", fact=authored(st["dia"]))
     sc.text("L/4", (ox + length / 4, oy + depth + 760.0), 200.0, "S-TEXT2", family="length")
     return mk
@@ -228,15 +229,13 @@ def s16(ctx: Ctx) -> _Sheet:
     sc.text("1ST FLOOR BEAM LONG SECTIONS - TOP, BOTTOM AND EXTRA BARS", (0.0, 2000.0), 300.0,
             "S-SHEET", fact=None)
     # a leader that reaches across the sheet to the strip it annotates (T-LEADER-FAR)
-    rows = (len(marks) - 1) // STRIP_COLS
-    far_y = -(rows // 2) * STRIP_PITCH_Y
-    ld = sc.leader([(3.0 * STRIP_PITCH_X, far_y + 600.0), (1.0 * STRIP_PITCH_X, 1200.0),
-                    (0.4 * STRIP_PITCH_X, 1200.0)], "S-DIMS")
+    # 300 mm on the paper at 1:50 is 15 m in the scene: the mark and the strip it annotates
+    ld = sc.leader([(15000.0, -2600.0), (15000.0, 1200.0), (2400.0, 1200.0)], "S-DIMS")
     ld["trap"] = "T-LEADER-FAR"
     sc.text("EXTRA TOP BARS, SEE THE STRIP ARROWED", (0.0, 1000.0), 220.0, "S-TEXT2")
     sc.text(f"TG1 CARRIES {tg.get('carries', 'B4')} AND THE FLOATING COLUMN", (0.0, 600.0), 220.0,
             "S-TEXT2")
-    p.view("1ST FLOOR BEAM DETAILS", sc, 50, (p.x0 + 14.0, p.y0 + 26.0), (720.0, 520.0), "mm")
+    p.view("1ST FLOOR BEAM DETAILS", sc, 50, (p.x0 + 20.0, p.y0 + 26.0), (700.0, 524.0), "mm")
     p.scale_bar((p.x0 + 600.0, p.y0 + 12.0), "m")
     return p.sheet()
 
@@ -256,7 +255,7 @@ def s17(ctx: Ctx) -> _Sheet:
         oy = -(i // STRIP_COLS) * STRIP_PITCH_Y
         contd = sc.text("CONTD. ON S-18", (ox + 3600.0, oy + 1200.0), 240.0, "S-TEXT2")
         contd["trap"] = "T-SCHED-CONTD"
-    p.view("TYPICAL FLOOR BEAM DETAILS", sc, 50, (p.x0 + 14.0, p.y0 + 26.0), (720.0, 520.0), "mm")
+    p.view("TYPICAL FLOOR BEAM DETAILS", sc, 50, (p.x0 + 20.0, p.y0 + 26.0), (700.0, 524.0), "mm")
     p.scale_bar((p.x0 + 600.0, p.y0 + 12.0), "m")
     return p.sheet()
 
@@ -277,23 +276,29 @@ def s18(ctx: Ctx) -> _Sheet:
             (f"{bot['n']}-{bot['dia']}%%C" if bot else "-", "diameter" if bot else "plain"),
             (f"{st['dia']}%%C@{spacing(st)}" if st else "-", "diameter" if st else "plain"),
         ])
-    table(sc, 0.0, 0.0, ["MARK", "SIZE", "SPAN (mm)", "TOP", "BOTTOM", "STIRRUPS"], rows,
-          [2000.0, 2600.0, 2600.0, 3200.0, 3200.0, 3000.0], row_h=760.0, h=250.0)
-    sc.text("ROOF BEAM SCHEDULE", (0.0, 900.0), 400.0, "S-SHEET")
+    header = ["MARK", "SIZE", "SPAN (mm)", "TOP", "BOTTOM", "STIRRUPS"]
+    widths = [1800.0, 2400.0, 2400.0, 2800.0, 2800.0, 2600.0]
+    half = (len(rows) + 1) // 2
+    table(sc, 0.0, 0.0, header, rows[:half], widths, row_h=700.0, h=240.0)
+    sc.text("ROOF BEAM SCHEDULE (1 OF 2)", (0.0, 900.0), 340.0, "S-SHEET")
     # the British letters the second draughtsman used on one line (T-NOT-TY)
     sc.text("3T16 + 2Y16", (9000.0, 900.0), 280.0, "S-TEXT2", family="diameter",
             fact=authored(16), trap="T-NOT-TY")
     sc.text("(T AND Y BOTH MEAN A DEFORMED BAR - SEE NOTE 8 ON S-01)", (12000.0, 900.0), 240.0,
             "S-TEXT2")
+    second = Scene()
+    table(second, 0.0, 0.0, header, rows[half:], widths, row_h=700.0, h=240.0)
+    second.text("ROOF BEAM SCHEDULE (2 OF 2)", (0.0, 900.0), 340.0, "S-SHEET")
     # the general note beside the specific cell it loses to (T-NOTE-VS-SCHED)
-    bottom = -760.0 * (len(rows) + 1) - 700.0
-    note = sc.text("ALL ROOF BEAM STIRRUPS 10%%C@150 U.N.O.", (0.0, bottom), 280.0, "S-TEXT",
-                   family="diameter", fact=authored(150))
+    bottom = -700.0 * (len(rows) - half + 1) - 700.0
+    note = second.text("ALL ROOF BEAM STIRRUPS 10%%C@150 U.N.O.", (0.0, bottom), 260.0, "S-TEXT",
+                       family="diameter", fact=authored(150))
     note["trap"] = "T-NOTE-VS-SCHED"
-    sc.text("10%%C@100 (ends)", (9000.0, bottom), 280.0, "S-TEXT2", family="diameter",
-            fact=authored(100))
+    second.text("10%%C@100 (ends)", (0.0, bottom - 500.0), 260.0, "S-TEXT2", family="diameter",
+                fact=authored(100))
     if "RB9" in marks or "B9" in ctx.marks:
-        sc.text("B9 (CONTD. FROM S-17)", (12000.0, bottom), 260.0, "S-TEXT2")
-    p.view("ROOF BEAM SCHEDULE", sc, 50, (p.x0 + 14.0, p.y0 + 26.0), (720.0, 520.0), "mm")
+        second.text("B9 (CONTD. FROM S-17)", (0.0, bottom - 1000.0), 240.0, "S-TEXT2")
+    p.view("ROOF BEAM SCHEDULE 1", sc, 50, (p.x0 + 20.0, p.y0 + 30.0), (340.0, 516.0), "mm")
+    p.view("ROOF BEAM SCHEDULE 2", second, 50, (p.x0 + 380.0, p.y0 + 30.0), (340.0, 516.0), "mm")
     p.scale_bar((p.x0 + 600.0, p.y0 + 12.0), "m")
     return p.sheet()

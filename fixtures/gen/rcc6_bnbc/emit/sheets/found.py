@@ -161,7 +161,7 @@ def s06(ctx: Ctx) -> _Sheet:
         y -= 700.0
     sch.mtext(r"COUNTS ARE TAKEN FROM THE LAYOUT ABOVE\PTHIS OFFICE PRINTS NO NOS COLUMN",
               (0.0, y - 300.0), 220.0, 16000.0, "S-TEXT")
-    p.view("PILE CAP SCHEDULE", sch, 50, (p.x0 + 330.0, p.y0 + 260.0), (250.0, 190.0), "mm")
+    p.view("PILE CAP SCHEDULE", sch, 50, (p.x0 + 330.0, p.y0 + 250.0), (300.0, 200.0), "mm")
     p.scale_bar((p.x0 + 12.0, p.y0 + 30.0), "m")
     return p.sheet()
 
@@ -193,8 +193,8 @@ def s07(ctx: Ctx) -> _Sheet:
                     150.0, "S-TEXT2", family="diameter", fact=authored(spec["mesh"][1]))
         sc.dim((-width / 2, -depth), (width / 2, -depth), (0.0, -depth - 600.0), 0.0, 150.0, "S-DIMS")
         col, row = i % 3, i // 3
-        p.view(f"{mark} SECTION", sc, 25, (x0 + 10.0 + col * 160.0, y0 + h - 130.0 - row * 150.0),
-               (140.0, 120.0), "mm")
+        p.view(f"{mark} SECTION", sc, 25, (x0 + 10.0 + col * 160.0, y0 + h - 178.0 - row * 190.0),
+               (140.0, 170.0), "mm")
     foot = ctx.by_id["F1"]
     fs = Scene()
     fl, fd = f(foot["l"]), f(foot["depth"])
@@ -204,7 +204,7 @@ def s07(ctx: Ctx) -> _Sheet:
     fs.text(f"{M.FOOTING_F1['mesh'][0]}%%C @ {M.FOOTING_F1['mesh'][1]} B/W", (-fl / 2, -fd - 500.0),
             150.0, "S-TEXT2", family="diameter", fact=authored(M.FOOTING_F1["mesh"][1]))
     fs.dim((-fl / 2, -fd), (fl / 2, -fd), (0.0, -fd - 900.0), 0.0, 150.0, "S-DIMS")
-    p.view("F1 ISOLATED FOOTING (RAMP WALL)", fs, 25, (x0 + 330.0, y0 + h - 280.0), (140.0, 120.0), "mm")
+    p.view("F1 ISOLATED FOOTING (RAMP WALL)", fs, 25, (x0 + 330.0, y0 + h - 368.0), (140.0, 170.0), "mm")
     p.scale_bar((x0 + 10.0, y0 + 20.0), "m")
     return p.sheet()
 

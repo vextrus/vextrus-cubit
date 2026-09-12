@@ -186,8 +186,8 @@ def s25(ctx: Ctx) -> _Sheet:
                      family="plain", fact=fact(m, "t"))
             sch.text(mark, (7000.0, y), 240.0, "S-TEXT", family="mark")
             y -= 600.0
-    p.view("LINTEL & SUNSHADE SCHEDULE", sch, 50, (p.x0 + 20.0, p.y0 + p.win_h - 240.0),
-           (240.0, 220.0), "mm")
+    p.view("LINTEL & SUNSHADE SCHEDULE", sch, 50, (p.x0 + 10.0, p.y0 + p.win_h - 240.0),
+           (280.0, 220.0), "mm")
 
     # the building section, with the level stack written in both habits (T-NOT-LEVEL)
     sec = Scene()
@@ -255,18 +255,17 @@ def s26(ctx: Ctx) -> _Sheet:
         del member
     table(sc, 0.0, 0.0,
           ["MEMBER", "BAR MARK", "SHAPE", "DIA", "A / B / C (mm)", "CUT LENGTH", "NOS", "MASS (kg)"],
-          rows, [1800.0, 2400.0, 1600.0, 1600.0, 6000.0, 2600.0, 1600.0, 2200.0],
-          row_h=560.0, h=200.0)
+          rows, [1600.0, 2200.0, 1400.0, 1400.0, 3600.0, 2400.0, 1400.0, 2000.0],
+          row_h=500.0, h=180.0)
     sc.text("BAR BENDING SCHEDULE (SAMPLE)", (0.0, 1400.0), 380.0, "S-SHEET")
-    sc.text("BS 8666 CUTTING LENGTHS; THE IS ADDITIVE FIGURE IS PRINTED IN bbs.golden.json",
-            (0.0, 800.0), 220.0, "S-TEXT")
-    bottom = -560.0 * (len(rows) + 1) - 700.0
-    sc.text("GRAND TOTAL (KG)", (0.0, bottom), 280.0, "S-TEXT")
-    total = sc.text(ctx.trap["T-BBS-TOTAL"]["printed"], (6000.0, bottom), 280.0, "S-TEXT",
+    sc.text("BS 8666 CUTTING LENGTHS; SEE bbs.golden.json", (0.0, 800.0), 200.0, "S-TEXT")
+    bottom = -500.0 * (len(rows) + 1) - 600.0
+    sc.text("GRAND TOTAL (KG)", (0.0, bottom), 260.0, "S-TEXT")
+    total = sc.text(ctx.trap["T-BBS-TOTAL"]["printed"], (5200.0, bottom), 260.0, "S-TEXT",
                     family="number", fact=authored(bbs["grand_total_kg"]), trap="T-BBS-TOTAL")
     total["role"] = "bbs-total"
-    sc.text("(THE ROW SUMS ARE THE TRUTH; THIS TOTAL IS THE TYPIST'S)", (9000.0, bottom), 200.0,
-            "S-TEXT2")
-    p.view("BAR BENDING SCHEDULE", sc, 50, (p.x0 + 10.0, p.y0 + 14.0), (320.0, 250.0), "mm")
+    sc.text("(THE ROW SUMS ARE THE TRUTH; THIS TOTAL IS THE TYPIST'S)", (0.0, bottom - 500.0),
+            190.0, "S-TEXT2")
+    p.view("BAR BENDING SCHEDULE", sc, 50, (p.x0 + 4.0, p.y0 + 6.0), (332.0, 262.0), "mm")
     p.scale_bar((p.x0 + 10.0, p.y0 + 4.0), "m")
     return p.sheet()

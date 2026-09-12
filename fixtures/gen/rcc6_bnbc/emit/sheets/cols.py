@@ -93,14 +93,14 @@ def s11(ctx: Ctx) -> _Sheet:
     sc.line((x_mark, top + 900.0), (x_mark, top), "S-LINE")
     for i, (_band, header, _storey) in enumerate(BAND_HEADERS):
         x = w_mark + i * col_w
-        sc.line((x, top + 900.0), (x, top - row_h * (len(marks) + 1)), "S-LINE")
+        sc.line((x, top + 900.0), (x, top - row_h * len(marks)), "S-LINE")
         t = sc.text(header, (x + col_w / 2, top + 300.0), 260.0, "S-TEXT", align="CENTER",
                     family="range", trap="T-NOT-RANGE-GF3" if i == 0 else None)
         if i == 0:
             t["role"] = "band-header"
-    sc.line((w_mark + 4 * col_w, top + 900.0), (w_mark + 4 * col_w, top - row_h * (len(marks) + 1)),
+    sc.line((w_mark + 4 * col_w, top + 900.0), (w_mark + 4 * col_w, top - row_h * len(marks)),
             "S-LINE")
-    sc.line((x_mark, top), (x_mark, top - row_h * (len(marks) + 1)), "S-LINE")
+    sc.line((x_mark, top), (x_mark, top - row_h * len(marks)), "S-LINE")
     sc.text("MARK", (400.0, top + 300.0), 260.0, "S-TEXT")
 
     for r, mark in enumerate(marks):
@@ -144,7 +144,7 @@ def s11(ctx: Ctx) -> _Sheet:
                 sc.text("REV B", (x + col_w - 700.0, y - row_h + 250.0), 220.0, "S-REV")
 
     # the same section, restated in inches beside the millimetre cell (T-NOT-SIZE-IN)
-    note_y = top - row_h * (len(marks) + 1) - 900.0
+    note_y = top - row_h * len(marks) - 900.0
     c2 = _band_spec("C2", "GF")
     sc.text("C2 GF TO 2ND:", (0.0, note_y), 260.0, "S-TEXT")
     a = sc.text('12"X24"', (3000.0, note_y), 260.0, "S-TEXT", family="section",
@@ -158,7 +158,7 @@ def s11(ctx: Ctx) -> _Sheet:
             (0.0, note_y - 600.0), 240.0, "S-TEXT")
     sc.text("ALL COLUMNS f'c = 3500 psi, fy = 500 MPa, 40 mm CLEAR COVER",
             (0.0, note_y - 1200.0), 240.0, "S-TEXT")
-    p.view("COLUMN SCHEDULE", sc, 50, (p.x0 + 20.0, p.y0 + 40.0), (420.0, 470.0), "mm",
+    p.view("COLUMN SCHEDULE", sc, 50, (p.x0 + 20.0, p.y0 + 34.0), (440.0, 522.0), "mm",
            caption="COLUMN SCHEDULE  (SECTIONS N.T.S.)")
     p.scale_bar((p.x0 + 470.0, p.y0 + 30.0), "m")
     return p.sheet()
