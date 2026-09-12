@@ -194,7 +194,25 @@ def test_every_trap_opens_where_it_was_drawn(bnbc_corpus) -> None:
     for trap in traps:
         handle = trap.get("handle")
         if not handle:
-            unresolved.append((trap["id"], "no handle"))
+            # a document-level trap whose evidence is not an entity carries `handle: null` and an
+            # anchor that must verify against the corpus bytes (F2-7): a header variable, a file,
+            # or the mis-paired line of the malformed twin
+            anchor = trap.get("anchor") or {}
+            if trap["sheet"] != "*" or not anchor:
+                unresolved.append((trap["id"], "no handle"))
+            elif "header" in anchor:
+                doc = _read(bnbc_corpus, trap["file"])
+                if doc.header.get(anchor["header"]) != anchor["value"]:
+                    unresolved.append((trap["id"], anchor["header"], doc.header.get(anchor["header"])))
+            elif "line" in anchor:
+                lines = bnbc_corpus.require(anchor["file"]).read_bytes().splitlines()
+                if lines[anchor["line"] - 1].strip() != b"AcDbAlignedDimension":
+                    unresolved.append((trap["id"], "anchored line is not the mis-paired line"))
+            elif "file" in anchor:
+                if not bnbc_corpus.path(anchor["file"]).exists():
+                    unresolved.append((trap["id"], "anchored file missing", anchor["file"]))
+            else:
+                unresolved.append((trap["id"], "anchor names nothing verifiable"))
             continue
         file = trap.get("file", PAPER_REL)
         if file not in readable:

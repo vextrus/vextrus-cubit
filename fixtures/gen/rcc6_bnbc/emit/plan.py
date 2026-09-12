@@ -13,8 +13,8 @@ FIXTURE = "F-RCC6-BNBC"
 #: The Dhaka title block (fictional consultant, client, project, RAJUK reference).
 IDENTITY = {
     "consultant": "MEGHNA STRUCTURAL CONSULTANTS LTD.",
-    "consultant_address": "HOUSE 12, ROAD 5, BLOCK B, BANANI, DHAKA-1213",
-    "consultant_phone": "+880 2 5555 0000",
+    "consultant_address": "FLAT 4B, HOUSE 27, ROAD 9, SECTOR 6, UTTARA MODEL TOWN, DHAKA-1230",
+    "consultant_phone": "+880 1XXX 000 000 / +880 2 4890 0000",
     "client": "M/S. PADMA HOMES LTD.",
     "project": "PROPOSED G+6 STORIED RESIDENTIAL BUILDING",
     "project_bn": "প্রস্তাবিত ৬ তলা আবাসিক ভবন",  # T-BENGALI (DXF only; PDFs carry the English line)
@@ -102,14 +102,22 @@ SHEETS: list[tuple[str, str, str, str, str, list[str]]] = [
     ("S-26", "BAR BENDING SCHEDULE (SAMPLE: PC3, 2B7, SLAB S3)", "A3", "N.T.S.", "bbs", ["T-BBS-TOTAL"]),
 ]
 
-#: Document-level traps ("sheet": "*") and the file + representative entity each resolves to.
-#: The handle is the S-00 title text in the paper-layout DXF unless the trap names a sheet entity.
+#: Document-level traps ("sheet": "*"): the file that is the evidence and the anchor that IS the
+#: trap (F2-7). A trap whose evidence is an entity carries that entity's live handle; one whose
+#: evidence is a header variable, a file or a line carries `handle: null` and the anchor names it
+#: (validate/traps.py verifies each anchor against the written bytes).
 DOCUMENT_TRAPS = {
-    "T-INSUNITS-0": {"file": "rcc6-bnbc.dxf", "anchor": "S-00"},
-    "T-FRAMES-MODELSPACE": {"file": "rcc6-bnbc.model.dxf", "anchor": "S-00"},
-    "T-PDF-SHX": {"file": "rcc6-bnbc.shx.pdf", "anchor": "S-00"},
-    "T-RASTER": {"file": "raster/", "anchor": "S-00"},
-    "T-DXF-MALFORMED": {"file": "rcc6-bnbc.libredwg-r2000.dxf", "anchor": "S-10"},
+    "T-INSUNITS-0": {"file": "rcc6-bnbc.dxf", "anchor": {"header": "$INSUNITS", "value": 0}},
+    "T-FRAMES-MODELSPACE": {
+        "file": "rcc6-bnbc.model.dxf",
+        "anchor": {"layout": "SHEET", "entity": "the frames set's caption TEXT (the one TEXT the twin has over the paper set)"},
+    },
+    "T-PDF-SHX": {"file": "rcc6-bnbc.shx.pdf", "anchor": {"file": "rcc6-bnbc.shx.pdf", "evidence": "0 text objects on every page"}},
+    "T-RASTER": {"file": "raster/", "anchor": {"file": "raster/", "evidence": "r1..r4 subsets and rcc6-bnbc.r2.pdf"}},
+    "T-DXF-MALFORMED": {
+        "file": "rcc6-bnbc.libredwg-r2000.dxf",
+        "anchor": {"file": "rcc6-bnbc.libredwg-r2000.dxf", "line": "MALFORMED_LINE", "dropped_lines": "MALFORMED_DROPPED"},
+    },
 }
 
 #: Output roster (relative to fixtures/rcc6-bnbc/). Wave A's six JSON files stay as they are.

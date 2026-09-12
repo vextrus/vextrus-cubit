@@ -57,6 +57,9 @@ TITLE_FONT = "Swis721 Cn BT"
 LAST_HANDLES: dict[int, str] = {}
 LAST_TRAP_HANDLES: dict[str, str] = {}
 MODEL_HANDLES: dict[int, str] = {}
+FRAMES_CAPTION: dict[str, Any] | None = None
+#: The 1-based line of the first injected (mis-paired) line in the malformed twin (F2-7).
+MALFORMED_LINE: int | None = None
 MODEL_TRAP_HANDLES: dict[str, str] = {}
 
 NOT_CONTENT = frozenset({"ATTRIB", "ATTDEF", "SEQEND", "VERTEX", "VIEWPORT"})
@@ -439,6 +442,8 @@ def write_model_frames(
     note.text(f"{plan.FIXTURE}  MODEL-SPACE FRAMES  -  ONE VIEWPORT OVER {sheets[0].number}",
               (20.0, 8.0), 3.0, "S-SHEET")
     placer.place(layout, note, "SHEET")
+    global FRAMES_CAPTION
+    FRAMES_CAPTION = note.items[0]  # T-FRAMES-MODELSPACE's own entity (F2-7)
     w, h = PAPER_MM[sheets[0].size]
     fx, fy = frames[sheets[0].number]
     layout.add_viewport(center=(w / 2, h / 2), size=(w - 20.0, h - 20.0),
@@ -554,6 +559,8 @@ def write_malformed(paper_dxf_path: Path, scratch: Path,
         out.append(line)
         value = line.strip()
         if not hurt_dimension and value == "DIMENSION":
+            global MALFORMED_LINE
+            MALFORMED_LINE = len(out) + 1
             out.extend(_DIMENSION_STRAY)
             hurt_dimension = True
         elif hurt_dimension and not hurt_mtext and value == "MTEXT":
@@ -604,27 +611,37 @@ def fill_trap_handles(
     sheets: list[Sheet],
     tally: dict[str, dict[str, int]] | None = None,
 ) -> dict[str, Any]:
-    """Every trap's `handle` becomes the live handle of its own entity; a document-level trap takes
-    the handle of the title TEXT on the sheet `plan.DOCUMENT_TRAPS` anchors it to, and names its
-    file. The filled document is written back to `fixtures/gen/rcc6_bnbc/traps.json` (W-06)."""
+    """Every sheet trap's `handle` becomes the live handle of its own entity. A document-level trap
+    names its file and its anchor (`plan.DOCUMENT_TRAPS`): the handle of the entity that IS the
+    evidence where there is one (the frames caption), else `null` beside a header variable, a
+    file or a line number (F2-7). Written back to `fixtures/gen/rcc6_bnbc/traps.json` (W-06)."""
     del tally
     anchors: dict[str, dict[str, Any]] = {}
     for sheet in sheets:
         for item in sheet.paper.items:
             if item.get("role") == "sheet-title":
                 anchors[sheet.number] = item
+    del anchors
     unresolved = []
     for trap in traps_doc["traps"]:
+        trap.pop("anchor", None)
         if trap["sheet"] != "*":
             handle = LAST_TRAP_HANDLES.get(trap["id"])
         else:
-            document = plan.DOCUMENT_TRAPS.get(trap["id"], {})
-            anchor = anchors.get(document.get("anchor", "S-00"))
-            source = MODEL_HANDLES if document.get("file", "").endswith(".model.dxf") else LAST_HANDLES
-            handle = source.get(id(anchor)) if anchor is not None else None
-            if document.get("file"):
-                trap["file"] = document["file"]
-        if handle is None:
+            document = plan.DOCUMENT_TRAPS[trap["id"]]
+            trap["file"] = document["file"]
+            anchor = dict(document["anchor"])
+            if anchor.get("line") == "MALFORMED_LINE":
+                anchor["line"] = MALFORMED_LINE
+                anchor["dropped_lines"] = MALFORMED_DROPPED
+            trap["anchor"] = anchor
+            if "layout" in anchor and FRAMES_CAPTION is not None:
+                handle = MODEL_HANDLES.get(id(FRAMES_CAPTION))
+            else:
+                handle = None  # the evidence is a header variable, a file or a line, not an entity
+                if not ({"header", "file"} & set(anchor)):
+                    unresolved.append(trap["id"])
+        if handle is None and trap["sheet"] != "*":
             unresolved.append(trap["id"])
         trap["handle"] = handle
     assert not unresolved, f"traps with no live entity: {unresolved}"
