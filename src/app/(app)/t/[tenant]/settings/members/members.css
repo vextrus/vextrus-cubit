@@ -159,9 +159,14 @@
   color: var(--ink-muted);
 }
 
+/* Secondary rather than muted, and the reason is the ROW it sits in. `--ink-muted` is graphite-600
+   and clears 4.5:1 only on a surface no darker than L* ≈ .776; a row's hover has to be a visible
+   step, and the two cannot both be true (see the comment beside the caption pairings in
+   src/ui/contrast.test.ts). axe called this exact cell SERIOUS at 3.19:1 in dark on 2026-09-12.
+   `--ink-secondary` measures 6.04:1 on the hovered row in light and 5.96:1 in dark. */
 .cx-members-history-none {
   font-size: var(--text-12);
-  color: var(--ink-muted);
+  color: var(--ink-secondary);
 }
 
 /* --- the count, and the row's one menu --- */

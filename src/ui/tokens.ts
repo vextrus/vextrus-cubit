@@ -265,21 +265,28 @@ const semanticAlias: Group = {
     // it sits above. In LIGHT the app ground is already the lightest step the ramp has, so every
     // other surface is a darkening of it and the elevation is carried by `--shadow-*` and
     // `--line-raised`; in DARK the ground is the darkest step and elevation reads as lightness.
-    ["--surface-raised", "var(--graphite-50)", "var(--graphite-100)"],
-    ["--surface-overlay", "var(--graphite-100)", "var(--graphite-150)"],
+    ["--surface-raised", "var(--graphite-0)", "var(--graphite-100)"],
+    ["--surface-overlay", "var(--graphite-0)", "var(--graphite-150)"],
     // Sunken WAS invariant, and the note that stood here said the dark index belonged to "the
     // increment that re-takes the dark baselines it moves". This is that increment (B-20): a well is
     // now darker than the panel it is cut into in BOTH themes, which in dark means the app ground
     // itself — the ramp has nothing below it, and a well showing the ground through a panel is the
     // depth model rather than a collision. Light is untouched, so no light baseline moves for it.
-    ["--surface-sunken", "var(--graphite-150)", "var(--graphite-0)"],
+    ["--surface-sunken", "var(--graphite-100)", "var(--graphite-0)"],
     // Hover and active had to move with them. Hover was graphite-100 in both themes — the same value
     // the overlay painted — so every menu, combobox popover, dropdown and breadcrumb menu in the
     // product gave 1.00:1 of feedback in dark and 1.06:1 in light. It now measures 1.34:1 against the
     // overlay in light and 1.60:1 in dark, and active is one step beyond it, because a pressed row
     // that is LIGHTER than the hovered row it was pressed from says the wrong thing.
-    invariant("--surface-hover", "var(--graphite-300)"),
-    invariant("--surface-active", "var(--graphite-400)"),
+    invariant("--surface-hover", "var(--graphite-200)"),
+    // The hover of an item inside a FLOATING surface, which is the one the adversary measured at
+    // 1.00:1. It cannot be `--surface-hover`: a row hover sits on a panel and carries the row's
+    // own captions, and the first run under this change proved what the band allows — at
+    // graphite-300 a muted cell inside a hovered members row measured 3.19:1 in dark and axe
+    // called it SERIOUS. A menu item carries `--ink` and nothing else, so its hover can be the
+    // loud one: 1.46:1 against the overlay in light and in dark.
+    invariant("--surface-overlay-hover", "var(--graphite-300)"),
+    invariant("--surface-active", "var(--graphite-300)"),
     invariant("--surface-selected", "var(--beam-100)"),
     invariant("--surface-canvas", "var(--canvas-paper)"),
     invariant("--surface-inverse", "var(--graphite-900)"),

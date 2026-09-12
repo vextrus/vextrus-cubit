@@ -129,11 +129,12 @@
   /* semantic-alias */
   --surface-app: var(--graphite-0);
   --surface-panel: var(--graphite-50);
-  --surface-raised: var(--graphite-50);
-  --surface-overlay: var(--graphite-100);
-  --surface-sunken: var(--graphite-150);
-  --surface-hover: var(--graphite-300);
-  --surface-active: var(--graphite-400);
+  --surface-raised: var(--graphite-0);
+  --surface-overlay: var(--graphite-0);
+  --surface-sunken: var(--graphite-100);
+  --surface-hover: var(--graphite-200);
+  --surface-overlay-hover: var(--graphite-300);
+  --surface-active: var(--graphite-300);
   --surface-selected: var(--beam-100);
   --surface-canvas: var(--canvas-paper);
   --surface-inverse: var(--graphite-900);
@@ -309,8 +310,9 @@
   --surface-raised: var(--graphite-100);
   --surface-overlay: var(--graphite-150);
   --surface-sunken: var(--graphite-0);
-  --surface-hover: var(--graphite-300);
-  --surface-active: var(--graphite-400);
+  --surface-hover: var(--graphite-200);
+  --surface-overlay-hover: var(--graphite-300);
+  --surface-active: var(--graphite-300);
   --surface-selected: var(--beam-100);
   --surface-canvas: var(--canvas-paper);
   --surface-inverse: var(--graphite-900);

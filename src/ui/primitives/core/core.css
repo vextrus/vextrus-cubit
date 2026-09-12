@@ -520,7 +520,7 @@ button.cx-chip:hover:not(:disabled) {
 /* The cursor inside the list is not DOM focus — it travels as `aria-activedescendant` — so it is
    drawn here rather than by the reticle, which belongs to the control that actually holds focus. */
 .cx-listbox-option[data-active="true"] {
-  background-color: var(--surface-hover);
+  background-color: var(--surface-overlay-hover);
 }
 
 .cx-listbox-option[aria-selected="true"] {
@@ -898,7 +898,7 @@ button.cx-chip:hover:not(:disabled) {
 }
 
 .cx-breadcrumb-menu-link:hover {
-  background-color: var(--surface-hover);
+  background-color: var(--surface-overlay-hover);
 }
 
 /* ------------------------------------------------------------------ EmptyState · ErrorState */

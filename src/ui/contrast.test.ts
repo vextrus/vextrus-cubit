@@ -78,7 +78,18 @@ const PAIRINGS: readonly Pairing[] = [
   // pressed row carries `--ink` and `--ink-secondary` (both asserted above and below), and a cell
   // that must stay muted is not put inside a hover target.
   ...(["--surface-hover", "--surface-active"] as const).map(
-    (ground): Pairing => ({ ground, ink: "--ink-secondary", kind: "ui", promise: "a secondary cell inside a hovered or pressed row" }),
+    (ground): Pairing => ({ ground, ink: "--ink-secondary", kind: "text", promise: "a secondary cell inside a hovered or pressed row" }),
+  ),
+  // A menu item's own hover, and the ink it carries. This is the pairing the 1.3:1 step is FOR.
+  { ground: "--surface-overlay-hover", ink: "--ink", kind: "text", promise: "a hovered item in a menu or popover" },
+  // Every ground a state SENTENCE can stand on, not just the app ground. The light ramp is the
+  // binding constraint and it is why `--surface-raised`/`--surface-overlay` keep the app ground's
+  // fill in light: `--state-success` measures 4.90 on graphite-0, 4.68 on graphite-50 and 4.47 on
+  // graphite-100 — axe called the jobs tray's "Done" at 4.46 the first time the overlay moved.
+  ...(["--surface-panel", "--surface-raised", "--surface-overlay"] as const).flatMap((ground) =>
+    (["--state-danger", "--state-warn", "--state-success", "--state-info"] as const).map(
+      (ink): Pairing => ({ ground, ink, kind: "text", promise: "a state sentence on a product surface" }),
+    ),
   ),
   ...(["--surface-app", "--surface-sunken"] as const).map(
     (ground): Pairing => ({ ground, ink: "--ink-code", kind: "text", promise: "a mono value in a table" }),
