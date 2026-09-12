@@ -28,7 +28,7 @@
  * is what keeps the legs parallelisable at all (P9) and what stops two workers of one lane from
  * acting on one tenant.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { expect, test, type Cookie, type Page } from "@playwright/test";
 import { SAuthPage, S_AUTH } from "../../pages/s-auth.page";
@@ -131,14 +131,44 @@ async function adopt(page: Page, run: GoldenRun): Promise<void> {
 }
 
 /**
+ * WHY A MISS IS ANNOUNCED. Every path out of `restore` that is not "the run is still good" costs the
+ * caller four minutes of prologue, and a cost nobody prints is a cost nobody can attribute: a run
+ * that walked the prologue three times because a leg file raced the writer looks exactly like a slow
+ * box. So each miss names itself, in one line, on the lane's own stdout (B-19 — a flake is a defect
+ * with a cause, and the cause has to be printed to be a cause).
+ */
+function walkedAgain(reason: string): null {
+  process.stdout.write(`J-000 golden run: walking the prologue again — ${reason}\n`);
+  return null;
+}
+
+/**
  * The run the leg before this one left, if it is still there. The check is the product's own answer:
  * the session is adopted and the drawings screen asked for the sheet the golden path stands on — a
  * run whose account, project or reading is gone simply answers "no" and the prologue runs again.
+ *
+ * NOTHING HERE MAY THROW (P4b §2). The file is shared state between processes: a worker of this lane
+ * writing its run while another reads it handed the reader zero bytes, and the `SyntaxError` out of
+ * an unguarded `JSON.parse` came out of `goldenRun()` — every leg in that file red, with a message
+ * that named neither the file nor the race. A run file is a CACHE. A torn one, an absent one and one
+ * whose shape is not a run are all the same lawful answer — "walk it again" — and each says which.
  */
 async function restore(page: Page): Promise<GoldenRun | null> {
   const file = stateFile();
-  if (!existsSync(file)) return null;
-  const saved = JSON.parse(readFileSync(file, "utf8")) as GoldenRun;
+  if (!existsSync(file)) return walkedAgain(`no run is written down at ${file}`);
+
+  let saved: GoldenRun;
+  try {
+    const written = readFileSync(file, "utf8");
+    if (written.trim() === "") return walkedAgain(`the run file ${file} is empty — a writer was in the middle of it`);
+    saved = JSON.parse(written) as GoldenRun;
+  } catch (torn) {
+    return walkedAgain(`the run file ${file} did not parse (${torn instanceof Error ? torn.message : String(torn)}) — a torn read of a file another process was writing`);
+  }
+  if (typeof saved?.tenantId !== "string" || typeof saved.projectId !== "string" || !Array.isArray(saved.cookies)) {
+    return walkedAgain(`the run file ${file} parsed but names no workspace, project and session — it is not a run`);
+  }
+
   await page.context().addCookies(saved.cookies);
   const drawings = new SDrawingsPage(page);
   await drawings.open(saved.tenantId, saved.projectId).catch(() => undefined);
@@ -147,14 +177,23 @@ async function restore(page: Page): Promise<GoldenRun | null> {
     .waitFor({ state: "visible", timeout: 30_000 })
     .then(() => true)
     .catch(() => false);
-  return standing ? saved : null;
+  return standing ? saved : walkedAgain(`the product no longer stands the run written at ${file}: "${SHEET}" is not on the drawings screen of project ${saved.projectId}`);
 }
 
-/** Write the run down for the next leg file. */
+/**
+ * Write the run down for the next leg file — ATOMICALLY (P4b §2).
+ *
+ * `writeFileSync` truncates the target and then fills it, so for as long as the fill takes there is
+ * a file of zero bytes at the name another worker is reading. The bytes are laid down under a name
+ * only this process uses — the pid is in it, so two writers never share the temporary either — and
+ * `rename` publishes them in one step: a reader sees the old run or the new one, never half of one.
+ */
 function remember(run: GoldenRun): void {
   const file = stateFile();
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify(run), "utf8");
+  const partial = `${file}.${process.pid}.tmp`;
+  writeFileSync(partial, JSON.stringify(run), "utf8");
+  renameSync(partial, file);
 }
 
 /** Sign up, make the project, upload F-RCC6, pin a set over it, then let the queue run. */
