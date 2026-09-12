@@ -109,6 +109,12 @@ test.describe("J-004 — the signed-in application shell", () => {
     // posture the enrolment above takes with ACCOUNT_ALREADY_EXISTS, before the first observation
     // that depends on the name and therefore before both pixel baselines: a fixed identity at every
     // checkpoint cannot be restored by a remedy that runs after the checkpoints.
+    // READ AFTER THE CRUMB HAS SETTLED, NOT AT THE FIRST NON-EMPTY FRAME (P4b §3). This read decides
+    // whether the remedy runs at all, and `steadyText` used to hand back the first non-empty text it
+    // saw — which on a hydrating shell is the label of the frame before. It now agrees across three
+    // readings, taken after the screen root has published a settled `data-state`. No `not:` is passed
+    // here on purpose: BOTH names are lawful answers — WORKSPACE_RENAMED is exactly what a run killed
+    // between the two renames leaves behind, and that is the case this branch exists to repair.
     if (!(await steadyText(shell.breadcrumb, "the shell breadcrumb")).includes(WORKSPACE)) {
       await shell.open(SHELL.settings(tenantId));
       await renameWorkspaceTo(WORKSPACE);

@@ -62,6 +62,23 @@ export interface SettleReading {
 export function settleFault(reading: SettleReading): string | null {
   if (reading.fontsStatus !== "loaded") return `document.fonts.status is "${reading.fontsStatus}", not "loaded"`;
   if (reading.busy > 0) return `${reading.busy} element(s) still wear ${SETTLE_CONTRACT.busy}`;
+  const unrendered = renderedFault(reading);
+  if (unrendered !== null) return unrendered;
+  if (reading.running > 0) return `${reading.running} animation(s)/transition(s) still running`;
+  return null;
+}
+
+/**
+ * Has the screen PUBLISHED what it is showing — or what is still unpublished?
+ *
+ * The half of `settleFault` that is about CONTENT rather than about motion: every screen root states
+ * a settled `data-state`, and every virtualised table states the row count it actually drew. It is
+ * split out because a RETRYING READ owes this much and no more (tests/e2e/support/retrying-read.ts):
+ * counting the rows of a table that has not said it painted is counting the paint, not the table —
+ * two agreeing readings of zero are what a table that has not begun looks like — while waiting on
+ * fonts and animations for a count would make every read of a number pay a capture's price.
+ */
+export function renderedFault(reading: SettleReading): string | null {
   const blank = reading.screenRoots.filter((state) => state === null || UNSETTLED_STATES.includes(state));
   if (blank.length > 0) {
     return `${blank.length} of ${reading.screenRoots.length} screen root(s) publish no settled ${SETTLE_CONTRACT.screenState} (saw ${blank.map((state) => (state === null ? "absent" : `"${state}"`)).join(", ")})`;
@@ -70,7 +87,6 @@ export function settleFault(reading: SettleReading): string | null {
   if (unpainted.length > 0) {
     return `${unpainted.length} of ${reading.tables.length} virtualised table(s) publish no ${SETTLE_CONTRACT.rowsRendered} count (saw ${unpainted.map((rows) => (rows === null ? "absent" : `"${rows}"`)).join(", ")})`;
   }
-  if (reading.running > 0) return `${reading.running} animation(s)/transition(s) still running`;
   return null;
 }
 

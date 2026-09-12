@@ -134,7 +134,11 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
     expect(await partition.count("data-axes"), "one axis drawn per stored axis").toBe(staged.axes.length);
     // A hatch is a fill of an OUTLINE, so what is counted is the untyped views that stand on this
     // sheet — a view whose members are elsewhere paints nothing to hatch (Decision §2's partial).
-    const hatchable = await steadyCount(page.locator(`${testIdSelector(TESTIDS.viewer.partitionView)}[data-untyped="true"][data-on-sheet="true"]`), "the untyped views standing on this sheet");
+    const hatchable = await steadyCount(page.locator(`${testIdSelector(TESTIDS.viewer.partitionView)}[data-untyped="true"][data-on-sheet="true"]`), "the untyped views standing on this sheet", {
+      // A sheet whose every view is typed has none of these, and that is an answer: the assertion
+      // below is that the hatches are exactly them, zero included (P4b §3).
+      min: 0,
+    });
     expect(await partition.count("data-hatched"), "and the untyped views standing on this sheet are the hatched ones").toBe(hatchable);
     const bubbles = await partition.count("data-bubbles");
     expect(bubbles, "the bubbles drawn are the axes whose ring the store carries").toBeGreaterThan(0);

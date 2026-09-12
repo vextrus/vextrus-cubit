@@ -155,7 +155,12 @@ test.describe("J-010 — the project home", () => {
     // `project-home-ai-calls` element on the screen at all. Asking that absent element for its text
     // first is a 15 s wait on something the screen is right never to draw — which is how this
     // journey was reading it, and why it was red.
-    const none = await steadyCount(project.aiNone, "the no-model-calls line");
+    // ZERO IS A LAWFUL ANSWER HERE, WHICH IS WHY THE FLOOR IS SAID OUT LOUD (P4b §3). This read
+    // BRANCHES — a screen with no none line is a screen that has spent — and `steadyCount` used to
+    // answer 0 as soon as two readings agreed, so a region that had not begun painting picked the
+    // branch and satisfied the at-most below unconditionally. `{ min: 0 }` keeps zero an answer and
+    // leaves the honesty to the rendered contract: the screen root has published a settled state.
+    const none = await steadyCount(project.aiNone, "the no-model-calls line", { min: 0 });
     expect(none, "the none line is one element or none — never two").toBeLessThanOrEqual(1);
     const spent = none === 0;
     if (spent) {
@@ -176,7 +181,9 @@ test.describe("J-010 — the project home", () => {
     await expect(project.aiLedger, "the ledger itself is one link away").toHaveAttribute("href", S_PROJECT.audit(tenantId, projectId));
 
     /* --- recent activity: the newest five, or the reason there are none --- */
-    const rows = await steadyCount(project.activityRows, "the recent-activity rows");
+    // The same shape: a project with no act recorded shows none of these rows and says why instead,
+    // so zero is an answer — but only once the region says it rendered (P4b §3).
+    const rows = await steadyCount(project.activityRows, "the recent-activity rows", { min: 0 });
     expect(rows, "the region shows at most the five newest acts").toBeLessThanOrEqual(RECENT_ACTIVITY_LIMIT);
     await expect(project.activityEmpty, rows === 0 ? "with no act recorded the region says why" : "with acts listed there is no empty line").toHaveCount(rows === 0 ? 1 : 0);
     await expect(project.activityAll, "and the whole log is one link away").toHaveAttribute("href", S_PROJECT.audit(tenantId, projectId));

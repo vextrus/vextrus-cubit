@@ -165,6 +165,12 @@ export class STakeoffPage {
     // these anchors in the journeys retries (`toBeVisible`, `toHaveCount`); this one now does too.
     // The count the screen states is server-rendered and settles first, and R-UI-022 says every line
     // the table SHOWS offers a Trace — so that count is exactly how many anchors to wait for.
+    //
+    // P4b §3: "settles first" was an assumption, and `steadyText` was not checking it — it answered
+    // with the first non-empty text, which on a register that has not painted is the count line of
+    // the state before. A `stated` of 0 then skipped the `toHaveCount` below altogether and this
+    // page object answered with an empty roster of Trace anchors, silently. The read now waits for
+    // the region to publish `data-rows-rendered` and for three readings to agree.
     const stated = Number((/(\d[\d,.\s]*)/.exec(await steadyText(this.linesCount, "the register's count line"))?.[1] ?? "0").replace(/\D/g, ""));
     if (stated > 0) await expect(this.evidenceLinks, "the lines table offers a Trace from every line it shows (R-UI-022), once its virtualised body has painted them").toHaveCount(stated);
     const held: string[] = [];

@@ -46,7 +46,7 @@ export class SDesignPage {
       const barrelId = await section.getAttribute("data-barrel");
       expect(barrelId, `${checkpoint}: a barrel section names the barrel it renders`).not.toBeNull();
       expect(
-        await steadyCount(section.getByTestId(TESTIDS.gallery.entry), `${checkpoint}: the ${String(barrelId)} section's entries`),
+        await steadyCount(section.getByTestId(TESTIDS.gallery.entry), `${checkpoint}: the ${String(barrelId)} section's entries`, { min: 0 }),
         `${checkpoint}: the ${String(barrelId)} section holds at least one gallery-entry`,
       ).toBeGreaterThan(0);
     }
