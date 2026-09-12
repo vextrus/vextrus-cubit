@@ -238,6 +238,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       {slots.framedToolbar ? null : slots.toolbar}
       <div className="cx-viewer-work">{workArea()}</div>
       {slots.framedStatus ? null : slots.readout}
+      {slots.framedInspector ? null : slots.inspector}
       {partition.dialog}
       {scale.dialog}
     </div>

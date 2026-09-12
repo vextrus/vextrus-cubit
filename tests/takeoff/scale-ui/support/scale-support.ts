@@ -59,6 +59,7 @@ export const TESTID = Object.freeze({
   tabs: "viewer-inspector-tabs",
   tabSelection: "viewer-inspector-tab-selection",
   tabScale: "viewer-inspector-tab-scale",
+  inspectorPin: "viewer-inspector-pin",
   inspector: "viewer-inspector",
   scale: "viewer-scale",
   view: "viewer-scale-view",
@@ -482,6 +483,16 @@ export async function mountScaleScreen(o: { scale: SuppliedScale; overlay?: Over
   const status = screen.querySelector<HTMLElement>(`[data-testid="${TESTID.status}"]`) as HTMLElement;
   expect(canvas, "the mounted sheet carries its canvas").not.toBeNull();
   expect(status, "and its status line").not.toBeNull();
+
+  // v22 §3.1: the inspector "appears on selection… absent — width 0, not a placeholder sentence —
+  // when nothing is selected", and `V≡` in the tool row is the one lawful way to hold it open at
+  // rest. The scale tab is a door onto every view's scale and is NOT a fact about a selection
+  // (I-152), so a harness that wants it presses the pin exactly as a person would.
+  const pin = screen.querySelector<HTMLElement>(`[data-testid="${TESTID.inspectorPin}"]`);
+  expect(pin, "the tool row carries the inspector pin (Design Direction 00 §3.1)").not.toBeNull();
+  await act(async () => {
+    (pin as HTMLElement).click();
+  });
 
   const camera = client.fitCamera({ min: [...SNAP_EXTENTS.min] as Point, max: [...SNAP_EXTENTS.max] as Point }, { width: STAGE_PX.width, height: STAGE_PX.height });
   await waitFor(() => {

@@ -90,7 +90,7 @@ export function InspectorProvider({ children }: { children: ReactNode }) {
  * slot renders exactly what it is given and nothing of its own — the shell owns the region, the
  * screen owns the words (Direction §3.1).
  */
-export function useInspector(content: ReactNode | null): void {
+export function useInspector(content: ReactNode | null): boolean {
   const slot = useContext(InspectorContext);
   const set = slot?.setContent;
   useEffect(() => {
@@ -100,6 +100,11 @@ export function useInspector(content: ReactNode | null): void {
     // be a right column belonging to a screen nobody is on.
     return () => set(null);
   }, [set, content]);
+  // Whether a frame took it. Outside one — a jsdom mount of a screen, the gallery's evidence
+  // renderer — the answer is `false` and the detail is the SCREEN's to place, because R-UI-080 is a
+  // law about the frame's columns and a screen with no frame has no columns to break. A screen that
+  // ignores this answer behaves exactly as it did before it existed.
+  return set !== undefined;
 }
 
 /** The slot as the frame reads it: what to render, and how wide. Absent means no column at all. */

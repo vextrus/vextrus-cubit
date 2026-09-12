@@ -79,6 +79,9 @@ export interface ViewerSlots {
   /** Did a frame take the region? `false` means the screen renders it where it stands. */
   framedToolbar: boolean;
   framedStatus: boolean;
+  /** The selected thing's detail, and whether the frame's one slot took it. */
+  inspector: ReactNode | null;
+  framedInspector: boolean;
 }
 
 export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
@@ -131,8 +134,7 @@ export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
   // selected". The pin is the one lawful way to hold it open at rest, because the scale tab is a
   // door onto every view's scale and is not a fact about a selection (I-152, R-TO-020).
   const selected = held.selected.length > 0 || initialLine !== null || inspectorPinned;
-  useInspector(
-    useMemo(
+  const inspector = useMemo(
       () =>
         drawable && selected ? (
           <InspectorTabs
@@ -143,9 +145,9 @@ export function useViewerSlots(input: ViewerSlotsInput): ViewerSlots {
           />
         ) : null,
       [drawable, selected, pointer.hovered, held.selected, held.missing, held.selection, held.hold, line.block, cited, trace, scale, snap, partition.views],
-    ),
   );
+  const framedInspector = useInspector(inspector);
 
 
-  return { toolbar, readout, framedToolbar, framedStatus };
+  return { toolbar, readout, framedToolbar, framedStatus, inspector, framedInspector };
 }

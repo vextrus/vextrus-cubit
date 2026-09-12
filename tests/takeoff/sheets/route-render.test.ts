@@ -164,7 +164,7 @@ describe("AC-4: the drawings route renders the index server-side", () => {
     }
   }, BUDGET_MS);
 
-  test("AC-4: the Dropzone stands above the index, with search, discipline chips, the offered groups and the timeline", async () => {
+  test("AC-4: the Dropzone stands above the index, with search, discipline chips and the offered groups — and no timeline until a job runs", async () => {
     const stage = await staged();
     const document_ = await documentAt(drawingsPath(stage.person.tenantId, stage.projectId));
 
@@ -188,7 +188,12 @@ describe("AC-4: the drawings route renders the index server-side", () => {
     expect(all(document_, "offered-groups").length, "the one OfferedGroups pattern stands on the screen (L-ACT-02: bulk is offered, never assembled)").toBe(1);
     const offered = all(document_, "offered-group");
     expect(offered.length, "every group the module offers is rendered").toBe(stage.groups.length);
-    expect(all(document_, "job-timeline").length, "the job timeline stands where the work was started (R-UI-024, X-1)").toBe(1);
+    // v22 §3.4 (amended in place, B-20): "the job timeline appears inline above the grid ONLY WHILE
+    // A JOB RUNS, then collapses to the jobs tray". A freshly-rendered route has started no work, so
+    // the strip is absent — a region with nothing in it is absent, not a placeholder (R-UI-080). The
+    // claim that S-Drawings renders the ONE timeline is carried where it is actually driven:
+    // tests/ui/job-timeline/timeline-render.test.ts pushes a real job through the real hook.
+    expect(all(document_, "job-timeline").length, "§3.4: no job has been started on a freshly-served route, so no strip stands").toBe(0);
   }, BUDGET_MS);
 
   test("AC-4: a project holding no drawings renders sheets-empty naming that cause", async () => {
