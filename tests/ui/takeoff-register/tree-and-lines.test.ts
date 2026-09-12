@@ -19,6 +19,7 @@ import {
   all,
   cellsOf,
   copy,
+  enumWords,
   kinds,
   lineHeaders,
   lineRows,
@@ -39,27 +40,36 @@ afterEach(() => {
   cleanup();
 });
 
-/** The columns of the lines table, in the order the Decision fixes, by their copy keys. */
+/**
+ * The columns of the lines table, in the order the Decision fixes, by their copy keys — Design
+ * Direction 00 §3.2's own order since v22: what a thing is, how much of it, in what, on what basis,
+ * how covered, and only then how it was worked out and where it was read.
+ */
 const COLUMN_KEYS: readonly string[] = [
   "takeoff_register_col_kind",
   "takeoff_register_col_value",
   "takeoff_register_col_unit",
-  "takeoff_register_col_formula",
-  "takeoff_register_col_variables",
   "takeoff_register_col_bases",
   "takeoff_register_col_coverage",
+  "takeoff_register_col_formula",
+  "takeoff_register_col_variables",
   "takeoff_register_col_calibration",
   "takeoff_register_col_engine",
   "takeoff_register_col_source",
 ];
 
-/** The sentences a ready register states, each one a line of the screen's own table (Decision §3). */
+/**
+ * The sentences a ready register states, each one a line of the screen's own table (Decision §3).
+ *
+ * Two that stood here are no longer text a reader meets on the face of the screen, and neither is
+ * spelled by this screen any more: the caption (§6's copy diet — one helper line in main, and this
+ * screen spends it on the count) and the Measure hint, which is the door's own tooltip and exists in
+ * the DOM only while a pointer or the focus is on it (Direction §6, §7 C7).
+ */
 const READY_COPY_KEYS: readonly string[] = [
   "takeoff_register_heading",
-  "takeoff_register_caption",
   "takeoff_register_campaign_label",
   "takeoff_register_measure",
-  "takeoff_register_measure_hint",
   "takeoff_register_tree_label",
   "takeoff_register_basis_label",
   "takeoff_register_role_label",
@@ -126,7 +136,9 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
     const tree = one(root, "register-tree");
     expect(tree.querySelector('[role="tree"]'), "`register-tree` names the shipped Tree's own root, one element deeper (I-171)").not.toBeNull();
 
-    const discipline = treeItem(root, DISCIPLINE);
+    // §6: people see labels, never machine identifiers — the tree says a discipline in words, by the
+    // one rule EnumLabel says one by, and the SCREAMING form stays where the model holds it.
+    const discipline = treeItem(root, await enumWords(DISCIPLINE));
     const level = treeItem(root, LEVEL_GF);
     const cls = treeItem(root, CLASS_COLUMN);
     expect(discipline.contains(level), `the level \`${LEVEL_GF}\` is nested under the discipline \`${DISCIPLINE}\``).toBe(true);
@@ -222,9 +234,14 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
     for (const line of view.lines) {
       const row = rowOf(root, line);
       expect(cellUnder(row, "takeoff_register_col_kind"), `the line's kind stands verbatim`).toContain(line.kind);
+      // The figure is WRITTEN as the document writes one (§5 rule 5's lakh/crore grouping), so what
+      // is asserted verbatim is the value the cell carries, which is the exact decimal the line was
+      // published at (B-07); a line kept with no quantity states none — never a zero, never the word
+      // null (L-QTY-02), and then there is no figure element at all.
+      const figure = row.querySelector('[data-testid="quantity-text"]');
       expect(
-        cellUnder(row, "takeoff_register_col_value"),
-        `the SI value stands verbatim, never re-rounded (I-25); a line kept with no quantity states none — never a zero, never the word null (L-QTY-02)`,
+        figure === null ? "" : (figure.getAttribute("data-value") ?? ""),
+        `the SI value stands verbatim, never re-rounded (I-25)`,
       ).toBe(line.value ?? "");
       expect(cellUnder(row, "takeoff_register_col_unit"), `the unit stands beside it`).toContain(line.unit);
       expect(cellUnder(row, "takeoff_register_col_formula"), `the formula stands verbatim`).toBe(line.formula);
@@ -234,17 +251,31 @@ describe("AC-2 — discipline → level → class → object, and the lines bene
         expect(variables, `the variable \`${name}\` reads as \`name=value unit\` from the line's bindings`).toContain(`${name}=${binding.value} ${binding.unit}`);
       }
 
-      expect(cellUnder(row, "takeoff_register_col_bases"), "the two bases read `quantityBasis/selectionBasis`").toContain(`${line.quantityBasis}/${line.selectionBasis}`);
+      // §6: the basis that determines the figure wears R-UI-002's chip, and the selecting basis is
+      // the same model value said in words — with its SCREAMING form kept inside the label's own
+      // technical disclosure, which is where a suite and an engineer still find it.
+      const bases = cellUnder(row, "takeoff_register_col_bases");
+      expect(bases, "the quantity basis stands as R-UI-002's chip").toContain(line.quantityBasis);
+      expect(bases, "and the selecting basis beside it, whose SCREAMING form the label keeps").toContain(line.selectionBasis);
       expect(cellUnder(row, "takeoff_register_col_coverage"), "the coverage states its own word").toContain(line.coverage);
       for (const key of line.calibrationKeys) expect(cellUnder(row, "takeoff_register_col_calibration"), "every calibration key is stated, whole").toContain(key);
       expect(cellUnder(row, "takeoff_register_col_engine"), "the engine states its own word").toContain(line.engine);
-      expect(cellUnder(row, "takeoff_register_col_source"), "the cited source key renders as text").toContain(line.sourceKey);
+      // §6: a source key renders as the chips a person reads — the sheet it stands on, the mark it
+      // was read for, and the extractor's handle. A key of no known grammar is not abbreviated into
+      // one: it stands whole (I-26).
+      const source = cellUnder(row, "takeoff_register_col_source");
+      expect(source, "the sheet the line was read on").toContain(line.layoutName ?? "");
+      expect(source, "and the key itself, whole, where its grammar names no handle").toContain(line.sourceKey);
     }
   });
 
   test("AC-2: every sentence a ready register states is a line of the screen's own string table", async () => {
     const view = await corpus();
     const root = await mountRegister(view);
+    // The inspector's own words are read with something selected, because the frame's one right
+    // column is ABSENT until then (R-UI-080, Direction §3.1) — an idle sentence standing in it is
+    // exactly the placeholder v22 removed.
+    await userEvent.setup().click(treeItem(root, (view.objects[0] as { mark: string }).mark));
     const said = text(root);
 
     for (const key of READY_COPY_KEYS) {

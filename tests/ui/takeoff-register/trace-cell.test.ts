@@ -77,7 +77,11 @@ describe("AC-3: the source cell is the link", () => {
       expect(lines.contains(anchor), "every `evidence-link` under the workspace stands inside `register-lines` (Decision §7)").toBe(true);
     }
 
-    const rows = [...lines.querySelectorAll('[role="row"]')].filter((row) => row.querySelector('[role="columnheader"]') === null);
+    // The body's own rows, which are the ones a line stands on: the header, the group headers
+    // (§5 rule 4) and the totals footer (§5 rule 1) are rows of the table and not rows of a line.
+    const rows = [...lines.querySelectorAll('[role="row"]')].filter(
+      (row) => row.querySelector('[role="columnheader"]') === null && row.getAttribute("data-line") !== null,
+    );
     for (const row of rows) {
       expect(row.querySelectorAll(testIdSelector(TESTIDS.evidence.link)).length, "exactly one `evidence-link` per rendered row").toBe(1);
     }

@@ -26,6 +26,7 @@ import {
   takeoffStrings,
   text,
   textNodesUnder,
+  treeItems,
 } from "./support/fixtures";
 
 afterEach(() => {
@@ -74,6 +75,9 @@ describe("AC-4 — a sighting that produced no line says why, in place", () => {
     const root = await mountRegister(view, { doors: staged.doors });
     const user = userEvent.setup();
 
+    // The attribute rows stand in the frame's one inspector, which is absent until something is
+    // selected (R-UI-080): the reader chooses the object whose reading they are about to record.
+    await user.click(treeItems(root)[3] as HTMLElement);
     const attribute = all(root, "register-attribute")[0] as HTMLElement;
     await user.click(within(attribute).getByRole("button", { name: copy(strings, "takeoff_register_corroborate") }));
     await user.click(within(attribute).getByRole("button", { name: copy(strings, "takeoff_register_corroborate_preview") }));

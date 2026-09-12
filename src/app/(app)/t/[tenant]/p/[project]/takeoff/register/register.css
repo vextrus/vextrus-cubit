@@ -1,85 +1,47 @@
 /*
- * S-Takeoff's register workspace (R-TO-050, docs/design/s-takeoff.md §§ 1, 4, 5, 6). Every colour,
- * size, weight and duration is a read into the committed Datum token source (R-UI-001, R-UI-003,
- * R-UI-004): the rules are identical in light and dark, and the themes differ only in what the
- * tokens are worth. No `[data-theme]` selector appears here.
+ * S-Takeoff's register workspace — THE GRID WORKSPACE TEMPLATE (Design Direction 00 §3.2, §5;
+ * docs/design/s-takeoff.md §§ 1, 4, 5, 6). Every colour, size, weight and duration is a read into the
+ * committed Datum token source (R-UI-001, R-UI-003, R-UI-004): the rules are identical in light and
+ * dark, and the themes differ only in what the tokens are worth. No `[data-theme]` selector appears
+ * here.
  *
- * The px literals are the closed set the Decision § 5 fixes: the body's two side columns, the
- * filter's minimum, and the md media-query value. Any other literal is a defect.
+ * THE GEOMETRY, IN ONE PLACE. The workspace is a column that fills `shell-main`: a 36 px bar of
+ * filter chips, then the body, which is the index rail beside the grid and takes every remaining
+ * pixel. Nothing else stands above the grid — the tabs row is the frame's tool track (takeoff.css)
+ * and the inspector is the frame's one right column — so the grid's first row is 88 px below the top
+ * of main at both viewports (§3.2's hard rule, §7 C2) and the grid is over 60 % of main (C1).
+ *
+ * The px literals are the closed set the Decision § 5 fixes: the index rail's 240, its two bounds,
+ * and the md media-query value. Any other literal is a defect.
  *
  * Nothing here eases in (Decision § 4): filtering, selecting and a row's arrival are instant, and
  * every transition on this screen is inherited from a single home. Focus is not styled here either —
- * every select, button and link wears the reticle from its one home (B-17, R-UI-012). The tree, the
+ * every chip, button and link wears the reticle from its one home (B-17, R-UI-012). The tree, the
  * table, the refusal, the offer, the dialog and the timeline are painted by their own stylesheets.
  */
 
 .cx-register {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--gap-section);
+  /* The workspace is the whole field: `shell-main` is a grid track of definite height, so the body
+     below can take what the bar above it leaves rather than growing the page. */
+  height: 100%;
+  min-height: 0;
   max-width: none;
   font-family: var(--font-ui);
   line-height: var(--leading-ui);
 }
 
-/* --- the header, and the one door that starts work here --- */
-
-.cx-register-header {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-}
-
-.cx-register-heading {
-  font-size: var(--text-20);
-  font-weight: var(--weight-heading);
-  color: var(--ink);
-}
-
-.cx-register-caption {
-  font-size: var(--text-13);
-  color: var(--ink-muted);
-}
-
-.cx-register-actions {
-  margin-left: auto;
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-3);
-}
-
-.cx-register-campaign {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.cx-register-campaign-label {
-  font-size: var(--text-12);
-  color: var(--ink-muted);
-  /* Two words that name one thing: the label breaks after the pair, never inside it. */
+/* The screen names itself once for heading navigation and nowhere for the eye: the breadcrumb and
+   the current tab both say it where a reader can see it (§1, §6). Out of flow and clipped to nothing
+   — no width, height or negative margin is stated, because a hiding idiom that spells 1 px and
+   −1 px would be a geometry off the grid this screen is measured on (§7 C4, C8). */
+.cx-register-title {
+  position: absolute;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
-}
-
-.cx-register-campaign-id {
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  color: var(--ink-secondary);
-  user-select: all;
-}
-
-.cx-register-measure {
-  display: flex;
-  flex-direction: column;
-  /* The button is sized by its label, never by the hint under it: a primary action stretched to a
-     sentence's measure reads as a banner and outweighs the heading it sits beside. */
-  align-items: flex-start;
-  gap: var(--space-1);
-}
-
-.cx-register-measure-hint {
-  font-size: var(--text-12);
-  color: var(--ink-muted);
 }
 
 /* --- the answer slot, the offline banner and the denial (R-UI-020, R-UI-050) --- */
@@ -91,106 +53,93 @@
 .cx-register-offline {
   padding: var(--space-2) var(--space-3);
   border: var(--hairline);
-  border-color: var(--info);
+  border-color: var(--state-info);
   border-radius: var(--radius-4);
-  background: var(--info-surface);
-  font-size: var(--text-13);
+  background: var(--state-info-surface);
+  font-size: var(--text-body);
   color: var(--ink);
 }
 
 .cx-register-denied {
-  font-size: var(--text-13);
+  font-size: var(--text-body);
   color: var(--ink-secondary);
 }
 
-/* --- the five filters and the count line (I-172) --- */
+/* --- the 36 px filter bar (§3.2) --- */
 
+/* One line, never two: the chips are `Label · Value ▾` controls at `--control-h`, the count sits at
+   the far end, and a bar that wrapped would be a second row of chrome above the grid. */
 .cx-register-filters {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-3);
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .cx-register-filter {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  min-width: 0;
 }
 
-.cx-register-filter-label {
-  font-size: var(--text-13);
-  font-weight: var(--weight-body-medium);
-  color: var(--ink-secondary);
-}
-
-.cx-register-select {
-  min-width: 160px;
-}
-
-/* I-25: a chosen model value renders in mono; the all-option is the control's own chrome. */
-.cx-register-select[data-chosen] {
-  font-family: var(--font-mono);
-}
-
+/* §6's one helper line: what is shown, of what there is. */
 .cx-register-count {
   margin-left: auto;
-  font-size: var(--text-12);
+  white-space: nowrap;
+  font-size: var(--text-caption);
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
 }
 
-/* --- the three regions --- */
+/* --- the body: the index rail beside the grid --- */
 
-/*
- * The tree and the inspector share the first row; the lines take the whole of the second.
- *
- * The Decision's centre lane was 280px and 340px of panel away from a workspace the frame's two
- * rails already narrow to about 870px at the 1440 reference width — about 200px for a table of ten
- * columns, which renders as one column and no affordance (R-TO-050 names all ten, and the
- * checkpoint's own words are "formula and variables visible"). Full width is what lets the centre
- * dominate, which is what the Decision asks for.
- */
 .cx-register-body {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  gap: var(--space-4);
+  display: flex;
+  flex: 1;
   align-items: stretch;
+  gap: var(--gap-section);
+  min-height: 0;
+  min-width: 0;
 }
 
-.cx-register-tree-panel {
-  grid-column: 1;
-  grid-row: 1;
+/* §3.2's `tree` region, holding everything about the campaign that is not a line: the objects, what
+   was struck, what produced no line and what the machine offers. It stands BESIDE the grid, so none
+   of it is height the grid pays for, and it scrolls on its own. */
+.cx-register-index {
+  flex: 0 0 240px;
+  min-width: 160px;
+  max-width: 320px;
+  overflow: auto;
 }
 
-.cx-register-inspector {
-  grid-column: 2;
-  grid-row: 1;
+/* I-171: the screen's id rides a wrapper that adds no box and no line of layout, so the primitive
+   inside it is the flex item — the table takes the field, and the tree takes what the rail's other
+   sections leave. */
+.cx-register-mount {
+  display: contents;
 }
 
-/* The mount adds no box (I-171), so the table itself is the grid item that takes the row. */
 .cx-register-lines > * {
-  grid-column: 1 / -1;
-  grid-row: 2;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
 }
 
 @media (max-width: 960px) {
   .cx-register-body {
-    grid-template-columns: minmax(0, 1fr);
+    flex-direction: column;
   }
 
-  .cx-register-tree-panel,
-  .cx-register-inspector,
-  .cx-register-lines > * {
-    grid-column: 1;
-    grid-row: auto;
+  .cx-register-index {
+    flex: none;
+    max-width: none;
   }
 }
 
 .cx-register-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
   background: var(--surface-panel);
   border: var(--hairline);
   border-radius: var(--radius-8);
@@ -198,66 +147,140 @@
 
 .cx-register-panel-heading {
   padding: var(--space-2) var(--space-3);
-  border-bottom: var(--hairline);
-  font-size: var(--text-13);
+  border-block-end: var(--hairline);
+  font-size: var(--text-body);
   font-weight: var(--weight-heading);
   color: var(--ink);
 }
 
-/* I-171: the screen's id rides a wrapper that adds no box and no line of layout. */
-.cx-register-mount {
-  display: contents;
-}
-
-.cx-register-lines {
-  background: var(--surface-app);
-}
-
-.cx-register-lines-none {
-  padding: var(--space-4);
-  font-size: var(--text-13);
-  color: var(--ink-muted);
+.cx-register-tree > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .cx-register-repudiated {
   padding: var(--space-2) var(--space-3);
   font-family: var(--font-mono);
-  font-size: var(--text-12);
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- what produced no line, and what the machine offers (R-UI-020, R-UI-023) --- */
+
+.cx-register-refusals,
+.cx-register-level-stack {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  border-block-start: var(--hairline);
+  overflow: auto;
+}
+
+.cx-register-refusals > :not(.cx-register-panel-heading),
+.cx-register-level-stack > :not(.cx-register-panel-heading) {
+  padding-inline: var(--space-3);
+}
+
+.cx-register-refusals > :empty,
+.cx-register-level-stack > :empty {
+  display: none;
+}
+
+.cx-register-refusal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block: var(--space-2);
+  border-block-start: var(--hairline);
+}
+
+.cx-register-refusal-fact {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  min-width: 0;
+}
+
+.cx-register-refusal-label {
+  font-size: var(--text-caption);
   color: var(--ink-muted);
 }
 
-/* --- the inspector --- */
+/* --- the inspector, in the frame's one right column (R-UI-080) --- */
 
 .cx-register-inspector {
-  padding-bottom: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block-end: var(--space-3);
+  font-family: var(--font-ui);
+  line-height: var(--leading-ui);
 }
 
-.cx-register-object-key {
+.cx-register-inspector-title {
   padding-inline: var(--space-3);
-  font-family: var(--font-mono);
-  font-size: var(--text-13);
+  padding-block-start: var(--space-3);
+  font-size: var(--text-body);
+  font-weight: var(--weight-heading);
   color: var(--ink);
-  overflow-wrap: anywhere;
-  user-select: all;
 }
 
 .cx-register-facts {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: var(--space-1) var(--space-3);
+  align-items: baseline;
   padding-inline: var(--space-3);
 }
 
 .cx-register-facts dt {
-  font-size: var(--text-12);
+  font-size: var(--text-caption);
   color: var(--ink-muted);
+}
+
+.cx-register-facts dd {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* §6: the machine's own names stand one press away, never on the face of the screen. */
+.cx-register-technical {
+  padding-inline: var(--space-3);
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
+}
+
+.cx-register-technical summary {
+  cursor: default;
+}
+
+.cx-register-technical .cx-register-object-key,
+.cx-register-technical .cx-register-source {
+  font-family: var(--font-mono);
+  color: var(--ink-secondary);
+  overflow-wrap: anywhere;
+  user-select: all;
 }
 
 .cx-register-attributes-heading {
   padding-inline: var(--space-3);
-  font-size: var(--text-13);
+  font-size: var(--text-body);
   font-weight: var(--weight-heading);
   color: var(--ink);
+}
+
+/* §5 rule 2's expand affordance: the formula the cell could show only one line of, whole. */
+.cx-register-formula-full {
+  padding-inline: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  color: var(--ink);
+  overflow-wrap: anywhere;
 }
 
 .cx-register-attribute {
@@ -266,11 +289,11 @@
   gap: var(--space-1);
   padding-inline: var(--space-3);
   padding-block: var(--space-2);
-  border-top: var(--hairline);
+  border-block-start: var(--hairline);
 }
 
 .cx-register-attribute-name {
-  font-size: var(--text-13);
+  font-size: var(--text-body);
   font-weight: var(--weight-body-medium);
   color: var(--ink);
 }
@@ -279,7 +302,7 @@
 .cx-register-suspended,
 .cx-register-no-readings,
 .cx-register-hint {
-  font-size: var(--text-12);
+  font-size: var(--text-caption);
   color: var(--ink-muted);
 }
 
@@ -288,7 +311,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--text-12);
+  font-size: var(--text-caption);
   color: var(--ink-secondary);
 }
 
@@ -301,33 +324,66 @@
 }
 
 .cx-register-field span {
-  font-size: var(--text-12);
+  font-size: var(--text-caption);
   color: var(--ink-muted);
 }
 
-.cx-register-idle-body {
-  padding-inline: var(--space-3);
-  font-size: var(--text-13);
+/* I-173: a struck object states what its repudiation did. */
+.cx-register-repudiated-note {
+  margin-inline: var(--space-3);
+  padding: var(--space-2);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: var(--surface-sunken);
+  font-size: var(--text-caption);
+  line-height: var(--leading-ui);
   color: var(--ink-muted);
 }
 
-/* --- the cells of the lines table --- */
+/* --- the cells of the lines table (§5) --- */
+
+/* §5 rule 2: no wrapping cell anywhere. The table clips and ellipsises its own cell text and states
+   the whole of a clipped one in its Tooltip; these rules keep the SPANS inside a cell on one line
+   too, so nothing a cell holds can make the row taller than `--row-h`. */
+.cx-register-cell-mono,
+.cx-register-formula,
+.cx-register-source,
+.cx-register-figure,
+.cx-register-enum {
+  white-space: nowrap;
+  min-width: 0;
+}
 
 .cx-register-cell-mono,
 .cx-register-formula,
 .cx-register-source {
   font-family: var(--font-mono);
-  font-size: var(--text-12);
-  color: var(--ink);
+  font-size: var(--text-caption);
+  color: var(--ink-code);
 }
 
-.cx-register-formula {
-  overflow-wrap: anywhere;
-  white-space: normal;
+.cx-register-bases,
+.cx-register-coverage,
+.cx-register-totals {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  white-space: nowrap;
 }
 
-.cx-register-source {
-  user-select: all;
+/* The campaign's pinned revision, in the tabs row: a label and the surrogate it names. */
+.cx-register-campaign {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cx-register-campaign-label {
+  white-space: nowrap;
+  font-size: var(--text-caption);
+  color: var(--ink-muted);
 }
 
 /* A cell that IS the link selects by following rather than by dragging: select-all here would fight
@@ -348,28 +404,28 @@
   box-shadow: inset 2px 0 0 0 var(--line-accent);
 }
 
-.cx-register-bases,
-.cx-register-coverage {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
+/* The row a reader POINTED at. The grid paints the selection it took itself; a row taken with the
+   pointer publishes `data-line-selected` and is painted in the same idiom, from the same alias, so
+   both selections read as one thing (§5 rule 8, and the IOU in the Decision § 8). */
+.cx-register-lines [data-line-selected="true"] {
+  background: var(--surface-selected);
 }
 
-/* I-173: a struck object keeps its place and says what its repudiation did. */
-.cx-register-repudiated-note {
-  margin-inline: var(--space-3);
-  padding: var(--space-2);
-  border: var(--hairline);
-  border-radius: var(--radius-4);
-  background: var(--surface-sunken);
-  font-size: var(--text-12);
-  line-height: var(--leading-ui);
-  color: var(--ink-muted);
-}
-
-/* --- the empty and error cells, and the two regions beneath the body --- */
+/* --- the empty cell, and the fault the read left behind (R-UI-050) --- */
 
 .cx-register-empty {
+  flex: 1;
+  min-height: 0;
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  background: var(--surface-panel);
+}
+
+.cx-register-empty-action {
+  text-decoration: none;
+}
+
+.cx-register-fault {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -380,88 +436,32 @@
   background: var(--surface-panel);
 }
 
-.cx-register-empty-heading {
+.cx-register-fault-heading {
   font-size: var(--text-20);
   font-weight: var(--weight-heading);
   color: var(--ink);
 }
 
-.cx-register-empty-body,
-.cx-register-refusals-hint,
-.cx-register-level-stack-hint {
-  font-size: var(--text-13);
+.cx-register-fault-body {
+  font-size: var(--text-body);
   color: var(--ink-muted);
-}
-
-.cx-register-empty-action {
-  text-decoration: none;
 }
 
 .cx-register-report {
   display: flex;
+  align-items: center;
   gap: var(--space-2);
-  font-size: var(--text-12);
+  font-size: var(--text-caption);
   color: var(--ink-muted);
 }
 
-.cx-register-report-id {
-  font-family: var(--font-mono);
-  color: var(--ink);
-  user-select: all;
-}
+/* --- the job strip, which exists only while a run does (R-UI-080, R-UI-024) --- */
 
-.cx-register-refusals,
-.cx-register-level-stack,
 .cx-register-timeline {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: var(--space-2);
-}
-
-/* The panel closes under its last child rather than against it. */
-.cx-register-refusals,
-.cx-register-level-stack {
-  padding-block-end: var(--space-3);
-}
-
-/* One rhythm for every section of this screen. Every other region of this workspace — the tree, the
-   inspector, and the empty state that stands in the whole body's place — is a panel: a graphite-50
-   ground inside a hairline, its heading ruled off the top. These two carried the heading and the
-   rule alone, so a section with nothing in it read as a full-width line with an orphan sentence
-   hanging off its left, and the three sections at rest read as three unrelated blocks instead of one
-   register. They take the same panel (in the markup, so the frame has one home — B-17), and what
-   stands under a heading stands at that heading's own inset. A child a section has nothing to put in
-   takes no room at all, so no gap is left to be read as a missing thing (R-UI-005, R-UI-050's
-   empty: a section at rest states its own emptiness and places nothing). */
-.cx-register-refusals > :not(.cx-register-panel-heading),
-.cx-register-level-stack > :not(.cx-register-panel-heading),
-.cx-register-timeline > :not(.cx-register-panel-heading) {
-  padding-inline: var(--space-3);
-}
-
-.cx-register-refusals > :empty,
-.cx-register-level-stack > :empty,
-.cx-register-timeline > :empty {
-  display: none;
-}
-
-.cx-register-refusal {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-block: var(--space-3);
-  border-top: var(--hairline);
-}
-
-.cx-register-refusal-fact {
-  display: flex;
-  gap: var(--space-2);
-  align-items: baseline;
-}
-
-.cx-register-refusal-label {
-  font-size: var(--text-12);
-  color: var(--ink-muted);
 }
 
 /* --- the loading leg's bones keep the same shape (R-UI-004) --- */

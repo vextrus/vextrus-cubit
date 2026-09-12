@@ -1,24 +1,45 @@
 /*
- * The takeoff lane's navigation (docs/design/s-takeoff.md § 1). Every colour, size, weight and
- * duration is a read into the committed Datum token source (R-UI-001, R-UI-003, R-UI-004): the rules
- * are identical in light and dark, and the themes differ only in what the tokens are worth. No
- * `[data-theme]` selector appears here.
+ * The takeoff lane's tabs row (docs/design/s-takeoff.md § 1, Design Direction 00 §3.2). Every
+ * colour, size, weight and duration is a read into the committed Datum token source (R-UI-001,
+ * R-UI-003, R-UI-004): the rules are identical in light and dark, and the themes differ only in what
+ * the tokens are worth. No `[data-theme]` selector appears here.
  *
- * The one px literal is the Decision § 5's current-underline. Focus is not styled here: the link
+ * The one px literal is the Decision § 5's current-underline; the row's height is the frame's tool
+ * track (`--toolbar-h`), which it fills rather than restates. Focus is not styled here: the link
  * wears the reticle from its one home (B-17, R-UI-012).
  */
+
+/* The row fills the frame's tool track, whose height it takes rather than states again. */
+.cx-takeoff-tabs {
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+  gap: var(--space-3);
+  min-width: 0;
+  padding-inline: var(--space-4);
+  background: var(--surface-app);
+  border-block-end: var(--hairline);
+}
 
 .cx-takeoff-nav {
   display: flex;
   align-items: stretch;
   gap: var(--space-1);
-  border-bottom: var(--hairline);
+}
+
+/* The row's own half: the surface's facts and its one primary, right-aligned, vertically centred.
+   With nothing mounted it is an empty box of no width — a region holding nothing is absent, not a
+   placeholder (R-UI-080). */
+.cx-takeoff-tabs-aside {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
 }
 
 .cx-takeoff-nav-link {
   display: inline-flex;
   align-items: center;
-  height: var(--space-8);
   padding-inline: var(--space-3);
   font-family: var(--font-ui);
   font-size: var(--text-13);

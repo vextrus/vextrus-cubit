@@ -1,12 +1,19 @@
 "use client";
 // The register workspace, bound (docs/design/s-takeoff.md I-170). This is the one file that may
-// reach both `src/ui` and `src/modules`: it hands the presentational workspace the nine SHIPPED
-// renderers and the lane's own doors, and adds nothing of its own to either.
+// reach both `src/ui` and `src/modules`: it hands the presentational workspace the SHIPPED renderers
+// and the lane's own doors, and adds nothing of its own to either.
+//
+// Since v22 it hands it two MOUNTS as well. The lane's tabs row and the frame's ONE inspector are
+// filled through hooks — `useTakeoffTabsAside`, `useInspector` — and a hook belongs to the layer
+// that may call it: a module may not import `src/ui` (ARCH-01), and a screen may not draw its own
+// right column or its own strip inside `shell-main` without spending the grid's own share (Direction
+// §1, §3.2; R-UI-080). So the mounts are chrome like everything else, and the workspace hands each
+// of them what to show — or nothing, which is a region that is absent rather than empty.
 //
 // It also holds the two cells the workspace cannot hold, because both are about the read rather than
 // about the register: the fault the read left behind, with the report id and the retry R-UI-050 asks
 // for, and the reading itself once a retry has answered.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Consequence, CorroborateInput, InsertLevelInput, RepudiateInput } from "@/core/acts";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { RegisterWorkspace, type RegisterChrome, type RegisterDoors, type PreviewAnswer } from "@/modules/takeoff/register-ui";
@@ -16,11 +23,33 @@ import { EvidenceLink } from "@/ui/patterns/evidence-link";
 import { JobTimeline } from "@/ui/patterns/job-timeline";
 import { OfferedGroups } from "@/ui/patterns/offered-group";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { BasisChip, Button, Combobox, CoverageChip, Skeleton } from "@/ui/primitives/core";
+import { BasisChip, Button, Combobox, CoverageChip, EmptyState, EnumLabel, IdChip, Input, QuantityText, Skeleton, Tooltip, UnitBadge } from "@/ui/primitives/core";
+// `humaniseEnum` is the one rule EnumLabel says a SCREAMING value in words by, and the Tree takes a
+// STRING label — so the rule is handed down rather than written a second time beside the tree
+// (B-17). It is the component's own file because a rule is not a component and the barrel publishes
+// components.
+import { humaniseEnum } from "@/ui/primitives/core/enum-label";
 import { DataTable, Tree } from "@/ui/primitives/data";
+// The exact per-unit addition the grid's own group subtotals are taken with (B-07): the register's
+// sticky footer adds the same way, in the same home, or the two would disagree about a total.
+import { subtotalsByUnit } from "@/ui/primitives/data/data-table";
+import { useInspector } from "@/ui/shell";
 import { strings } from "@/ui/strings";
+import { useTakeoffTabsAside } from "../nav";
 import { commitCorroborate, commitInsertLevel, commitRepudiate, previewCorroborate, previewInsertLevel, previewRepudiate, readRegister, requestMeasure, type DoorAnswer } from "./actions";
 import { TESTIDS } from "@/ui/testids";
+
+/** The lane's tabs row, filled by the surface standing in it (Direction §3.2). */
+function TabsAside({ children }: { children?: ReactNode }) {
+  useTakeoffTabsAside(children ?? null);
+  return null;
+}
+
+/** The frame's ONE right column, filled on selection and absent — width 0 — otherwise (R-UI-080). */
+function InspectorMount({ children }: { children?: ReactNode }) {
+  useInspector(children ?? null);
+  return null;
+}
 
 /** The shipped renderers, bound once (I-170): what a test mounts is what this route renders. */
 const CHROME: RegisterChrome = {
@@ -35,6 +64,18 @@ const CHROME: RegisterChrome = {
   CoverageChip,
   Combobox,
   EvidenceLink,
+  IdChip,
+  EnumLabel,
+  QuantityText,
+  UnitBadge,
+  Tooltip,
+  EmptyState,
+  Button,
+  Input,
+  subtotalsByUnit,
+  humaniseEnum,
+  TabsAside,
+  InspectorMount,
 };
 
 /** A door's answer, as the workspace reads one: the value, or the refusal it re-raises in place. */
@@ -102,31 +143,42 @@ export function RegisterScreen({ view, tenantId, projectId, permitted, reportId 
       .catch((thrown: unknown) => setFault(() => thrown));
   }, [projectId]);
 
+  /**
+   * The doors, held steady across renders. The workspace hands both slot regions a node memoised on
+   * what it shows, and a `doors` object rebuilt on every render would change that node's identity on
+   * every render — which, since setting a slot re-renders the frame that holds it, is a loop rather
+   * than an inspector (Direction §3.1's slot law, and the viewer's own `useMemo` precedent).
+   */
+  const doors = useMemo<RegisterDoors>(
+    () => ({
+      previewCorroborate: async ({ input }: { input: CorroborateInput }) => previewed(carried(await previewCorroborate(input))),
+      commitCorroborate: async ({ input, consequenceDigest }: { input: CorroborateInput; consequenceDigest: string }) => carried(await commitCorroborate(input, consequenceDigest)),
+      previewRepudiate: async ({ input }: { input: RepudiateInput }) => previewed(carried(await previewRepudiate(input))),
+      commitRepudiate: async ({ input, consequenceDigest }: { input: RepudiateInput; consequenceDigest: string }) => carried(await commitRepudiate(input, consequenceDigest)),
+      previewInsertLevel: async ({ input }: { input: InsertLevelInput }) => previewed(carried(await previewInsertLevel(input))),
+      commitInsertLevel: async ({ input, consequenceDigest }: { input: InsertLevelInput; consequenceDigest: string }) => carried(await commitInsertLevel(input, consequenceDigest)),
+      requestMeasure: async ({ projectId: asked, campaignId }: { projectId: string; campaignId: string }) => carried(await requestMeasure(asked, campaignId)),
+      refusalOf,
+    }),
+    [],
+  );
+
   // Thrown in render, where React's own boundary is: a rejected promise reaches no boundary at all.
   if (fault !== null) throw fault;
 
-  const doors: RegisterDoors = {
-    previewCorroborate: async ({ input }: { input: CorroborateInput }) => previewed(carried(await previewCorroborate(input))),
-    commitCorroborate: async ({ input, consequenceDigest }: { input: CorroborateInput; consequenceDigest: string }) => carried(await commitCorroborate(input, consequenceDigest)),
-    previewRepudiate: async ({ input }: { input: RepudiateInput }) => previewed(carried(await previewRepudiate(input))),
-    commitRepudiate: async ({ input, consequenceDigest }: { input: RepudiateInput; consequenceDigest: string }) => carried(await commitRepudiate(input, consequenceDigest)),
-    previewInsertLevel: async ({ input }: { input: InsertLevelInput }) => previewed(carried(await previewInsertLevel(input))),
-    commitInsertLevel: async ({ input, consequenceDigest }: { input: InsertLevelInput; consequenceDigest: string }) => carried(await commitInsertLevel(input, consequenceDigest)),
-    requestMeasure: async ({ projectId: asked, campaignId }: { projectId: string; campaignId: string }) => carried(await requestMeasure(asked, campaignId)),
-    refusalOf,
-  };
-
   // R-UI-050's error cell: the read failed, nothing was changed, and the report id a person quotes
-  // stands beside the one door that can clear it.
+  // stands beside the one door that can clear it. The id is an `IdChip` — short on screen, whole in
+  // the DOM, one press from the clipboard — because a fault id read aloud to support is exactly what
+  // R-UI-082 exists for.
   if (held === null) {
     return (
-      <div className="cx-register" data-testid={TESTIDS.register.workspace} data-state="error">
-        <div className="cx-register-empty" data-testid={TESTIDS.register.empty}>
-          <h1 className="cx-register-empty-heading">{strings.takeoff_register_error_heading}</h1>
-          <p className="cx-register-empty-body">{strings.takeoff_register_error_body}</p>
+      <div className="cx-register" data-testid="register-workspace" data-state="error">
+        <div className="cx-register-fault" data-testid="register-empty" role="alert">
+          <h1 className="cx-register-fault-heading">{strings.takeoff_register_error_heading}</h1>
+          <p className="cx-register-fault-body">{strings.takeoff_register_error_body}</p>
           <p className="cx-register-report">
             <span className="cx-register-report-label">{strings.takeoff_register_report_label}</span>
-            <span className="cx-register-report-id">{reportId ?? ""}</span>
+            {reportId === null ? null : <IdChip value={reportId} />}
           </p>
           <Button variant="secondary" data-testid={TESTIDS.register.retry} onClick={retry}>
             {strings.takeoff_register_retry}

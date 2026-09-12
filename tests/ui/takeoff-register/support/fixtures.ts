@@ -71,10 +71,46 @@ export const CHROME_BARRELS: readonly string[] = [
   // inc-215-trace: the `source` cell's link is the shipped pattern, injected like every other
   // renderer — the workspace is a module and may not import `src/ui` (I-170, B-17).
   "src/ui/patterns/evidence-link/index.ts",
+  // v22: two RULES travel with the renderers, because a rule is not a component and the barrels
+  // publish components — the humanising EnumLabel says a SCREAMING value by (the Tree takes a
+  // string label), and the exact per-unit addition the grid's own subtotals are taken with (B-07).
+  "src/ui/primitives/core/enum-label.tsx",
+  "src/ui/primitives/data/data-table.tsx",
 ];
 
-/** The renderers the workspace is handed (Decision I-170; `EvidenceLink` joins them in inc-215). */
-export const CHROME_NAMES: readonly string[] = ["Tree", "DataTable", "RefusalState", "OfferedGroups", "ConsequenceDialog", "JobTimeline", "Skeleton", "BasisChip", "CoverageChip", "Combobox", "EvidenceLink"];
+/** The renderers and rules the workspace is handed (Decision I-170, as v22's §3.2 rebuild widens it). */
+export const CHROME_NAMES: readonly string[] = [
+  "Tree",
+  "DataTable",
+  "RefusalState",
+  "OfferedGroups",
+  "ConsequenceDialog",
+  "JobTimeline",
+  "Skeleton",
+  "BasisChip",
+  "CoverageChip",
+  "Combobox",
+  "EvidenceLink",
+  "IdChip",
+  "EnumLabel",
+  "QuantityText",
+  "UnitBadge",
+  "Tooltip",
+  "EmptyState",
+  "Button",
+  "Input",
+  "subtotalsByUnit",
+  "humaniseEnum",
+];
+
+/**
+ * The two MOUNTS (Design Direction 00 §3.2): the lane's tabs row and the frame's ONE inspector are
+ * filled through hooks the app layer calls, so the workspace is handed a component for each. The
+ * route's own render them into the frame; this stage renders them IN PLACE, because a jsdom mount has
+ * no frame around it — what the suites then read under `register-workspace` is exactly the node the
+ * route hands the frame.
+ */
+export const MOUNT_NAMES: readonly string[] = ["TabsAside", "InspectorMount"];
 
 /* --------------------------------------------------------------------- the fixture identities */
 
@@ -556,7 +592,18 @@ export async function registerWorkspace(): Promise<Mountable> {
   return module["RegisterWorkspace"] as Mountable;
 }
 
-/** The nine shipped renderers the app layer injects, loaded from the barrels that publish them. */
+/**
+ * The one rule a SCREAMING model value is said in words by (`humaniseEnum`, §6), loaded from the
+ * product rather than transcribed: the tree labels a discipline with it, so a suite that spelled
+ * "Structural" beside it would be asserting its own spelling and not the screen's (B-19).
+ */
+export async function enumWords(value: string): Promise<string> {
+  const module = await productModule<{ humaniseEnum?: (value: string) => string }>("src/ui/primitives/core/enum-label.tsx");
+  expect(typeof module.humaniseEnum, "src/ui/primitives/core/enum-label.tsx publishes `humaniseEnum` — the one rule a SCREAMING value is read by").toBe("function");
+  return (module.humaniseEnum as (value: string) => string)(value);
+}
+
+/** The shipped renderers and rules the app layer injects, loaded from the modules that publish them. */
 export async function chrome(): Promise<Record<string, unknown>> {
   const held: Record<string, unknown> = {};
   for (const barrel of CHROME_BARRELS) {
@@ -567,6 +614,11 @@ export async function chrome(): Promise<Record<string, unknown>> {
   for (const name of CHROME_NAMES) {
     expect(typeof held[name], `the shipped \`${name}\` is published by one of ${CHROME_BARRELS.join(", ")} — the workspace is handed it, never a copy (B-17, I-170)`).toBe("function");
     bound[name] = held[name];
+  }
+  // The frame is not here, so each mount stands where the workspace places it. It renders exactly
+  // what it is given and nothing of its own, which is what the route's own mounts do too.
+  for (const name of MOUNT_NAMES) {
+    bound[name] = ({ children }: { children?: unknown }) => children ?? null;
   }
   return bound;
 }
@@ -755,12 +807,16 @@ export function text(node: Element | null): string {
 }
 
 /**
- * The rows of the lines table: a `role="row"` that carries cells rather than column headers. The
- * primitive's own roles are read (I-171), never a class of this screen's.
+ * The rows of the lines table that a LINE stands on: a `role="row"` carrying the `data-line` the
+ * screen publishes for each of its rows. The table's other rows are its own — the column headers, the
+ * group headers §5 rule 4 puts before each run of rows, and the totals footer of §5 rule 1 — and
+ * none of them is a line. The primitive's own roles are read (I-171), never a class of this screen's.
  */
 export function lineRows(root: HTMLElement): HTMLElement[] {
   const lines = one(root, "register-lines");
-  return ([...lines.querySelectorAll('[role="row"]')] as HTMLElement[]).filter((row) => row.querySelector('[role="columnheader"]') === null);
+  return ([...lines.querySelectorAll('[role="row"]')] as HTMLElement[]).filter(
+    (row) => row.querySelector('[role="columnheader"]') === null && row.getAttribute("data-line") !== null,
+  );
 }
 
 /** The column headers of the lines table, in the order the reader meets them. */

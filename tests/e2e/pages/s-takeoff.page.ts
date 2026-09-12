@@ -49,6 +49,11 @@ export class STakeoffPage {
     return this.tree.getByRole("treeitem", { name: label, exact: false });
   }
 
+  /**
+   * The frame's ONE right column, as this screen fills it (Direction §3.1, R-UI-080): it is mounted
+   * into the shell's inspector slot, so it is found on the PAGE rather than under the workspace — and
+   * it is absent entirely until a row or an object is selected.
+   */
   get inspector(): Locator {
     return this.page.getByTestId(TESTIDS.register.inspector);
   }
@@ -65,7 +70,11 @@ export class STakeoffPage {
     return this.page.getByTestId(TESTIDS.register.linesCount);
   }
 
-  /** One of the five filters, by the field it narrows on (`class`, `kind`, `level`, `basis`, `coverage`). */
+  /**
+   * One of the five filters, by the field it narrows on (`class`, `kind`, `level`, `basis`,
+   * `coverage`). Since v22 each is a `Label · Value ▾` filter chip in the 36 px bar rather than a
+   * labelled row with a native popup (Direction §3.2), under the same id.
+   */
   filter(name: string): Locator {
     return this.page.getByTestId(`register-filter-${name}`);
   }
@@ -86,6 +95,7 @@ export class STakeoffPage {
 
   /* --- the doors --- */
 
+  /** The one primary, which stands in the lane's tabs row — the frame's tool track (§3.2). */
   get measure(): Locator {
     return this.page.getByTestId(TESTIDS.register.measure);
   }
@@ -165,12 +175,17 @@ export class STakeoffPage {
       this.page.getByTestId(TESTIDS.shell.user),
       // The staged workspace's own label — a name the run minted, beside the person who signed in.
       this.page.getByTestId(TESTIDS.shell.tenantSwitcher),
+      // The job strip, which stands only while a run does (R-UI-080) — and carries the run's own id
+      // when it does. A locator that resolves to nothing masks nothing, which is the right answer
+      // for a region that is absent at rest.
       this.page.getByTestId(TESTIDS.register.timeline),
-      this.page.getByTestId(TESTIDS.register.sourceKey),
-      // The pinned revision the campaign stands on: a surrogate id, one per staged set revision.
+      // The pinned revision the campaign stands on: a surrogate id, one per staged set revision,
+      // now the short form an `IdChip` shows (R-UI-082) — still per-run ink, still masked.
       this.page.getByTestId(TESTIDS.register.campaign),
-      // The object key in the inspector, and the same key repeated on each refusal row.
-      this.page.getByTestId(TESTIDS.register.objectKey),
+      // The object key repeated on each refusal row, which is the one place a surrogate is still
+      // painted. The inspector's own object key and source key are NOT here any more: since v22 they
+      // stand inside the Technical disclosure (§6), which is closed at rest, so they are not text the
+      // picture can freeze — and the inspector itself is absent until something is selected.
       this.page.getByTestId(TESTIDS.register.refusalObject),
     ];
   }

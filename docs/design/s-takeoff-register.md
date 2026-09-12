@@ -1,5 +1,52 @@
 # Design Decision — S-Takeoff register: the `source` cell and the origin row
 
+## The workspace this cell stands in, as it is built (Design Direction 00 §3.2)
+
+The `source` cell this Decision rules is the grid's last column (`Src` below), and the Trace it
+carries is also the inspector's last line. The workspace around it is the one s-takeoff.md rules and
+the one Design Direction §3.2 fixes — reproduced here whole, because a Decision that amends a cell
+must open on the composition that cell lives in. Grid first: inside `shell-main` exactly two things
+stand above the lines table, the 36 px filter bar and nothing else, because the tabs row is the
+frame's own tool track and the inspector is the frame's one right column.
+
+```
+┌R─┬──────────────────────────────────────────────────────────────┬─ I ─────┐
+│  │ ws › Trace Survey ▾ › Takeoff › Register             ⌘K ⟳ ✉ ◉ │(on sel) │
+│  ├──────────────────────────────────────────────────────────────┤ rcc.co… │
+│  │ Register · Coverage                    rev a3f9c2 ⎘  ● Measure │ 0.405 m³│
+│  ├───────────────────────────────────────────────────────────────┤ ▣ T / D │
+│  │ Class·All ▾ Kind·All ▾ Level·All ▾ Basis·All ▾ Cov·All ▾  3 of 3 │ ■ 100 %│
+│  ├──────┬────────────────────────────────────────────────────────┤ Formula │
+│  │ tree │ Kind ▸ │ Value ▸│Unit│ Bases │ Cov │Formula│Var│Cal│Eng│Src│ live   │
+│  │ ▾STR │ ▾ GF · column (4)                          1.620 m³    │ vars     │
+│  │  ▾GF │ rcc.concrete  0.405  m³  ▣ T ■100 % H×(…) S-101·C1·#1F │ ─────── │
+│  │   col│ rcc.concrete  0.405  m³  ▣ T ■100 % H×(…) S-101·C2·#2A │ Trace ↗ │
+│  │   C1 │ …                                                      │ ▸Technical│
+│  │──────│ 28 px rows · 13 px · frozen Kind · sticky header        │         │
+│  │ 0 rep│                                                        │         │
+│  │──────│                                                        │         │
+│  │ refus│                                                        │         │
+│  │ offers├───────────────────────────────────────────────────────┤         │
+│  │      │ (sticky footer)                            1.620 m³    │         │
+└──┴──────┴────────────────────────────────────────────────────────┴─────────┘
+```
+
+| Region | Purpose | Size | Empty | Error | Loading |
+|---|---|---|---|---|---|
+| tabs row (frame's tool track) | Register · Coverage area tabs + right: pinned revision `IdChip` + the ONE primary (Measure) | 100 % × `--toolbar-h` 32, **above `shell-main`** | the revision pair is absent with no campaign; the primary stands | — | — |
+| filter bar | five chips, each `Label · Value ▾` (Combobox), then the live count | 100 % × 36 | a chip whose column produced nothing offers its all-option alone | — | five 28 px chip bones |
+| index rail | the object tree (discipline › level › class › object), the struck count, every sighting that produced no line, and the level-stack offers | 240 (min 160, max 320), scrolls on its own | the tree is empty and the two sections state their own zero | `RefusalState` per sighting | one rail bone |
+| grid (primary) | the shipped `DataTable`: 28 px rows, sticky header, frozen Kind, group rows with per-unit subtotals, sticky totals footer | flex; ≥ 60 % of `shell-main` at both viewports | `EmptyState` in the grid's own place — no campaign, nothing registered, or nothing matching the filters | the read's fault is the screen's error cell (`register-empty`, with the report id and the retry) | the header is real, the body is bones |
+| footer | the visible set's totals, exactly and per unit (B-07) | 100 % × 28, sticky | no footer cell where the set adds to nothing | — | — |
+| job strip | the shipped `JobTimeline`, **present only while a run is being watched** (R-UI-080) | 100 % × the pattern's own | absent — never an empty "Measure runs" block | the step carries its own refusal | the pattern's own |
+| inspector (frame's one slot) | the selected LINE (kind, value, bases, coverage, source chips, the formula expanded with its live variables, the Trace, the Technical disclosure) or the selected OBJECT (basis, role, corroboration, Technical, Repudiate, the attributes and their two doors) | `--inspector-w` 320 (280–480) | **absent — width 0**, never a sentence saying nothing is selected | `RefusalState` in the answer slot | — |
+
+Above the fold at 1440×900 and at 1280×800: the grid's first row is 88 px below the top of main
+(24 px of the frame's padding, the 36 px bar, the 28 px header) — inside §3.2's hard rule of 240 and
+inside §7 C2's own 120.
+
+---
+
 The origin half of the Trace (R-UI-022, R-TO-011, X-2), on the register workspace of inc-214.
 Route (unchanged path, widened query) `/t/{tenant}/p/{project}/takeoff/register?line={lineId}`.
 Increment inc-215-trace. This Decision amends `docs/design/s-takeoff.md` for exactly two things —
@@ -18,8 +65,17 @@ route-address.ts,actions.ts,register.css}`. Law: R-UI-022, R-TO-011, X-2, J-021,
 ## 0. Interpretations (numbering continues evidence-link.md's I-178)
 
 - **I-179 — the cell is the link, and only this cell.** The `source` column's whole content becomes
-  one `EvidenceLink` whose visible label is the cited source key verbatim and whole — not a key
-  followed by a Trace icon, not a row action, not a second column. A number's evidence is the key it
+  one `EvidenceLink` — not a key followed by a Trace icon, not a row action, not a second column.
+  **Amended by v22 (Direction §6, s-takeoff.md I-234):** its visible label is no longer the raw key
+  but the chips a person reads it as — `S-101 · C1 · #…`, the sheet the line stands on, the mark it
+  was read for and the extractor's handle, composed by `sourceChips`. The key itself is not
+  abbreviated away: it is whole in the `href` the link carries (`s=`), whole in the inspector's
+  Technical disclosure, and whole in the chips themselves wherever `parseSourceKey` (L-CAD-02) finds
+  no scheme to read a handle out of, because a key of an unknown grammar is data and is never
+  shortened into a shape the product invented (I-26). What §6 forbids is a MACHINE NAME on the face
+  of a screen — `DXF_HANDLE:1F` is one, `#1F` beside the sheet and the mark is the same fact said to
+  a quantity surveyor. The accessible name of the anchor is that same label, so nothing a reader
+  hears differs from what they see. A number's evidence is the key it
   was read at, so the key is the affordance; anything beside it would be a second control saying the
   same thing. Scope holds exactly here: no other cell, no queue item, no refusal row, no inspector
   reading and no attribute row grows a link in this increment (R-UI-022's other surfaces belong to
@@ -57,23 +113,31 @@ route-address.ts,actions.ts,register.css}`. Law: R-UI-022, R-TO-011, X-2, J-021,
 
 ## 1. Layout and hierarchy — what moves
 
-Nothing about the workspace's regions, widths, order or density moves: header, answer slot, filter
-bar, the `280px minmax(0,1fr)` body, the tree, the inspector, the refusals and the level stack are
-exactly as s-takeoff.md §1 rules them. Two things change inside the lines table.
+Nothing about the workspace's regions, widths, order or density is decided HERE: the tabs row, the
+answer slot, the filter bar, the index rail beside the grid, the grid, its footer and the frame's one
+inspector are exactly as s-takeoff.md §1 rules them — as v22's rebuild rewrote it under Design
+Direction §3.2, whose region table opens this file. Two things change inside the lines table.
 
-**The `source` cell.** Still the tenth column, still `enableSorting` on `sourceKey` (the sort control
-is also the keyboard way into a virtualised scroll box). Its `size` grows **120 → 180** so a key of
-the `DXF_HANDLE:` grammar and its glyph share one line at both densities; beyond that it wraps and is
-never ellipsised (I-26). The cell renders:
+**The `source` cell.** Still the last column, still `enableSorting` on `sourceKey` (the sort control
+is also the keyboard way into a virtualised scroll box), still `size` **180**. **Amended by v22:** it
+no longer wraps — §5 rule 2 says no cell in the one grid wraps, so the cell is one line, clipped with
+an ellipsis, and the shipped table states the whole of it in its own Tooltip when it is in fact
+clipped. The cell renders:
 
 ```
 <span class="cx-register-source cx-register-trace">
   <EvidenceLink href={traceAddress(tenantId, projectId, line)} basis={line.quantityBasis}
-                label={line.sourceKey} data-line={line.lineId}
+                label={sourceChips(line, markOf(line.objectKey))} data-line={line.lineId}
                 data-origin={isOrigin ? "true" : "false"}
                 aria-current={isOrigin ? "true" : undefined} onClick={stampOrigin} ref={originRef} />
 </span>
 ```
+
+The same link stands once more, and in one more place only: the shell inspector's line panel, under
+the formula it expands, because the inspector IS the selected row said at length and a Trace from a
+row a reader has selected is the same affordance, not a second one (R-UI-022's four surfaces, §8).
+The Decision's asserted absence — "no `evidence-link` outside `register-lines`" — is amended to
+"none outside `register-lines` and the frame's inspector slot", and every other absence stands.
 
 `EvidenceLink` arrives through `chrome` like every other shipped component (I-170: `RegisterWorkspace`
 is a module and may not import `src/ui`), and the jsdom acceptance binds the shipped one, so what a
@@ -84,6 +148,11 @@ test mounts is what the route renders. The address is composed by `traceAddress`
 viewer fly (s-viewer-inspector I-85). `originAddress(tenantId, projectId, lineId)` in the same module
 is the one spelling of this screen's own address, and `route-address.ts`'s `registerRoute` becomes
 `originAddress(tenantId, projectId, null)` so the register path keeps one home.
+
+`sourceChips` is the module's own, spelled once: the layout name the reading resolved, the mark of
+the object the line was measured from (read off the view's own objects, never looked up), and either
+`#` and the key part of a key `parseSourceKey` accepts or the whole key where it accepts none, joined
+by ` · `. It composes no address and shortens no datum.
 
 `ViewLine` gains three readings the cell needs, filled server-side: `drawingId` and `layoutName`
 (the ingest's recorded sheet, `sheetOfView`) and `sourceKeys` — the line's own `sourceKey` followed
@@ -101,21 +170,16 @@ workspace it is spent. Exactly one such element exists at a time. The mark is ne
 consumer that repainted its rows would be the B-17 defect; the cell the reader left from is the cell
 the reader returns to.
 
-**Restoring focus.** One effect, at most one attempt per address: if the anchor carrying
-`data-origin="true"` has mounted, focus it and let the browser bring it into view; if it has not,
-set the table viewport's `scrollTop` to `index × rowHeight` — `index` the row's position in the rows
-the workspace itself handed the table (I-172 filters before the table is given `data`), `rowHeight`
-the distance between two rows the table has **already drawn**, read off the `translateY` offsets it
-placed them at — then tell the box it scrolled, because a scroll box that is set rather than dragged
-notifies nobody and a virtualiser that has not heard still holds the old window. The row is focused
-by its own ref as it mounts. The height is measured from the table's work rather than from
-`--row-comfortable` / `--row-compact`, because those tokens are the frame's and the virtualiser's
-two homes for R-UI-005's densities and this screen may hold no third (B-17) — and because a fact the
-product placed in the DOM is readable wherever the screen runs, while a computed token is only
-readable where a stylesheet has been loaded. Where the viewport cannot be read, fewer than two rows
-are drawn, or the row is not there at all, nothing is focused and nothing is scrolled (I-182).
-Reaching the primitive's `datatable-viewport` and its `datatable-row`s for these reads is a
-deliberate, recorded intrusion (§8).
+**Restoring focus.** The row is NAMED, not hunted for: the workspace hands the shipped table
+`scrollToRowId={originLine}` and the table answers with that row scrolled to and drawn, whatever its
+virtualiser's window had reached (DataTable v2, §8's paid IOU). The reticle is then taken by the
+anchor itself as it mounts, through a ref callback and at most once per address: if the browser
+refuses the focus — the row is still being laid out under a viewport that is scrolling — nothing is
+claimed that did not happen and the next paint of that row takes it; if the row re-mounts while it
+held the reticle, the restoration is owed again, because a reticle that stood on the element the row
+left behind is a reader standing on the document body answering no key. A row the table does not
+show mounts no anchor, so nothing is focused and nothing is said (I-182). The workspace reads
+nothing of the primitive's insides to do this.
 
 ## 2. States (R-UI-050) — this Decision's cells only
 
@@ -124,23 +188,24 @@ over; no second matrix is declared, and `register-workspace[data-state]`'s prece
 (`loading · denied · offline · error · refused · empty · partial · ready`). What the Trace changes,
 cell by cell:
 
-- **Loading** — unchanged: `loading.tsx`'s skeleton bones keep the layout (24 × 240 heading, five
-  32 × 160 filters, 480 × 280 / 480 × min(100 %, 1080) / 480 × 340), never a spinner on the table.
-  No link, no origin mark and no focus is attempted while the route is loading — `?line=` is honoured
-  after the table's first paint, once.
+- **Loading** — unchanged in substance; the bones themselves are s-takeoff.md §2's, which v22 re-cut
+  to the regions this screen in fact has (five 28 × 128 chips and a count bone over a rail bone and a
+  grid bone). Never a spinner on the table. No link, no origin mark and no focus is attempted while
+  the route is loading — `?line=` is honoured after the table's first paint, once.
 - **Empty** — unchanged copy and unchanged single action. A `?line=` on an empty register focuses
   nothing (I-182); the empty state teaches the same next step it always did.
-- **Error** — unchanged: `takeoff_register_error_heading` / `_body`, the report id verbatim in mono
-  under `takeoff_register_report_label`, and `register-retry`. A Trace address is not retried here;
+- **Error** — unchanged but for the report id, which s-takeoff.md §2 now renders through an `IdChip`:
+  `takeoff_register_error_heading` / `_body`, the id under `takeoff_register_report_label`, and
+  `register-retry`. A Trace address is not retried here;
   the viewer at the other end owns its own read (`viewer-inspector-trace-retry`).
 - **Refusal** — unchanged: the one RefusalState in `register-answer` and in each `register-refusal`
   row. The Trace introduces no code: a line the project does not hold is a fact, answered at the
   viewer end as `missing` (I-88's idiom), never a registry entry.
 - **Partial** — widened by I-181 and rendered, never hidden: a line whose sheet cannot be resolved,
-  and a DEFAULTED line, keep their key as plain text in the same cell beside rows that carry links.
+  and a DEFAULTED line, keep their chips as plain text in the same cell beside rows that carry links.
   The difference is visible (a rule and a glyph, or neither) and it is honest — those figures did not
-  come from a place this register can open. Repudiated lines stay withheld and counted at the tree
-  panel's foot (I-173), and no `evidence-link` exists for them anywhere.
+  come from a place this register can open. Repudiated lines stay withheld and counted at the index
+  rail's foot (I-173), and no `evidence-link` exists for them anywhere.
 - **Offline** — unchanged banner (`takeoff_register_offline`, `role="status"`, info chrome) and
   unchanged disabling of the three act doors and the group confirm. The link is **not** disabled:
   following it is a read, the address is the state, and the viewer answers for its own connection.
@@ -151,9 +216,9 @@ cell by cell:
 
 ## 3. Copy, verbatim
 
-No new visible sentence enters this screen. The cell's words are model data — the source key,
-verbatim, whole, in mono (I-25, I-26) — and the column keeps `takeoff_register_col_source` **Source**
-as its header, which is what names the link for a reader and for a screen reader. The one string the
+No new visible sentence enters this screen. The cell's words are model data — the sheet, the mark and
+the handle, each verbatim, in mono (I-25, I-26), the whole key one disclosure away — and the column
+keeps `takeoff_register_col_source` **Source** as its header, which is what names the link for a reader and for a screen reader. The one string the
 cell shows beyond data is the pattern's own, on hover: `evidence_link_title` **Trace to the sheet**
 (`src/ui/strings/evidence-link.ts`, quoted here as it renders, owned there). `src/ui/strings/
 takeoff.ts` and the module's mirrored `copy.ts` are untouched, so
@@ -224,9 +289,10 @@ Journey: `tests/e2e/journeys/j-021-column-slice.spec.ts` through
 `tests/e2e/takeoff/register-stage.ts` with `stageRegister(page, { cite })` citing real
 `DXF_HANDLE:` keys read off the layer feed (j-020's idiom), so the Trace lands on entities the
 served sheet in fact holds. Checkpoints `j-021-column-slice/traced` and `/cited`, axe
-serious/critical = 0 at each, never widened; `masks()` keeps s-takeoff.md §7's per-run texts
-(`register-source-key`, `register-campaign`, `register-refusal-object`, the shell breadcrumb,
-`shell-user`, `shell-tenant-switcher`). Re-baselined under B-20 only where bytes move:
+serious/critical = 0 at each, never widened; `masks()` keeps s-takeoff.md §7's per-run texts, which
+v22 narrows to the ones still painted (`register-campaign`, `register-refusal-object`,
+`register-timeline`, the shell breadcrumb, `shell-user`, `shell-tenant-switcher`) — the inspector's
+`register-source-key` and `register-object-key` now stand inside a disclosure that is closed at rest. Re-baselined under B-20 only where bytes move:
 `tests/e2e/baselines/design/j-021-column-slice/**` and the gallery shell pair.
 
 ## 8. Recorded IOUs (owner named, never a comment in `src/`)
@@ -234,12 +300,13 @@ serious/critical = 0 at each, never widened; `masks()` keeps s-takeoff.md §7's 
 s-takeoff.md §8's Trace IOU is **paid** by this Decision and is struck in the same commit that lands
 it. New and carried: EvidenceLinks on queue items, certificate cells, BOQ lines and the register
 inspector's readings — owner: those surfaces' own leaves (R-UI-022 names four; this is one).
-`scrollToRow` on the shipped DataTable, so a consumer need not read `datatable-viewport`, measure
-its `datatable-row`s or announce a scroll it made itself in order to restore a row — owner: the node
-that owns `src/ui/primitives/data`; until it ships, §1's reads stand and are the only place this
-workspace touches a primitive's insides. An origin that survives a reload beyond
+`scrollToRow` on the shipped DataTable is **paid**: v2 takes `scrollToRowId` and draws the row it is
+named, so §1's restoration no longer reads `datatable-viewport`, measures `datatable-row`s or
+announces a scroll it made itself — the screen names the row and the table answers with it drawn
+(B-17). An origin that survives a reload beyond
 the `?line=` address, and pushState history for the register — deliberately absent: the address is
 the state. A `layout` column on partition views, so a line names its sheet without `sheetOfView`
 falling back to the ingest's single recorded layout — owner: recorded in s-viewer-inspector.md §8,
-no migration here. Column pin, resize and sort persistence, and remembered panel widths — owner: the
-prefs seam's node, unchanged.
+no migration here. Column pin, resize and sort persistence are **paid** by DataTable v2's own
+per-user furniture (`cubit.datatable.v1:takeoff-register-lines`); the index rail's remembered width
+is not — owner: the prefs seam's node, unchanged. The inspector's width IS remembered, by the frame.
