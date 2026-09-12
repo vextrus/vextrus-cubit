@@ -171,11 +171,19 @@ export async function runChainInWaves(lanes, io = {}) {
   for (const wave of planWaves(lanes)) {
     const armed = wave.filter((lane) => report(lane));
     const verdicts = await atMostAtOnce(armed, waveParallelism(armed.length), async (lane) => {
+      // Every lane says what it COST, green or red. A gate whose wall-time is the only number it
+      // prints can be measured but not aimed: "verify is 178 s" names no lane to make faster, and
+      // the lane that grew is invisible until someone runs the chain by hand. One line per lane,
+      // in the same stdout contract the verdicts use (ARCH-02), and the wave's concurrency means
+      // these seconds overlap — they are each lane's own wall, never a sum of the chain's.
+      const startedAt = performance.now();
+      let answer = 0;
       for (const argv of /** @type {string[][]} */ (LANE_COMMANDS[lane.id])) {
-        const answer = await exec(argv, LANE_ENV[lane.id], lane.id);
-        if (answer !== 0) return { lane, code: answer };
+        answer = await exec(argv, LANE_ENV[lane.id], lane.id);
+        if (answer !== 0) break;
       }
-      return { lane, code: 0 };
+      write(`LANE ${lane.id} ${wallTime(startedAt)}\n`);
+      return { lane, code: answer };
     });
     for (const verdict of verdicts) {
       if (verdict.code === 0) continue;

@@ -67,6 +67,16 @@ describe("verify gates its independent lanes at once, and answers for every one 
     }
   });
 
+  test("every lane prints what it cost, green or red", async () => {
+    const { trace } = await drive(fullyArmed(), { cad: 4 });
+    const timed = trace.lines.filter((line) => line.startsWith("LANE ")).map((line) => line.split(" ")[1]);
+    // Sorted, not in roster order: a wave's lanes finish in whatever order the box lets them.
+    expect([...timed].sort(), "a lane gated without saying what it cost").toEqual(VERIFY_ORDER.filter((id) => id !== "build").sort());
+    for (const line of trace.lines.filter((line) => line.startsWith("LANE "))) {
+      expect(line, `${line} is not a lane's seconds`).toMatch(/^LANE [\w-]+ \d+\.\d\ds$/);
+    }
+  });
+
   test("a red lane does not silence its siblings — every verdict of the wave is reported", async () => {
     const { code, trace } = await drive(fullyArmed(), { lint: 3, cad: 4 });
     expect(code, "the first failure in roster order is the chain's code").toBe(3);
