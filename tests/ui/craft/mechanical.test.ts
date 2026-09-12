@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 // The one reader of "what does this stylesheet declare" (B-17): the shell's work-surface arithmetic
 // reads the same way, and a second spelling of it would be the drift this suite exists to catch.
-import { customPropertyValues, evaluateLengthFunctions, pixelsIn } from "../../support/stylesheet";
+import { customPropertyValues, pixelsIn } from "../../support/stylesheet";
 // The declaration reader is a real tokenizer (comments, strings, nested parens, multi-line values,
 // one-line rules), not a line regex. Every check below reads DECLARATIONS; the reader it replaced
 // read LINES, and a value that wrapped, a rule written on one line and a `;` inside a `url()` each

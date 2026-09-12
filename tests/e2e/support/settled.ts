@@ -38,6 +38,8 @@ export interface SettleReading {
   readonly fontsStatus: string;
   /** How many elements wear `aria-busy="true"`. */
   readonly busy: number;
+  /** `<img>` elements that have not finished loading. A decoded one is not counted. */
+  readonly imagesLoading: number;
   /** Every screen root that EXISTS, and the `data-state` it publishes (null when it has none). */
   readonly screenRoots: readonly (string | null)[];
   /** Every virtualised table that EXISTS, and the row count it publishes (null when it has none). */
@@ -64,6 +66,12 @@ export function settleFault(reading: SettleReading): string | null {
   if (reading.busy > 0) return `${reading.busy} element(s) still wear ${SETTLE_CONTRACT.busy}`;
   const unrendered = renderedFault(reading);
   if (unrendered !== null) return unrendered;
+  // The images sit on the CAPTURE path, not on the rendered-state one: a retrying read of a row
+  // count owes the table's own publication and no more (see `renderedFault` below), while a picture
+  // owes every pixel it is about to photograph. `sheet-card.tsx` and `auth-frame.tsx` render raw
+  // `<img>` and nothing read their `complete` flag or awaited `decode()`, so a capture could be
+  // taken of a thumbnail that had arrived but had not been painted.
+  if (reading.imagesLoading > 0) return `${reading.imagesLoading} <img> element(s) have not finished loading (a capture of a half-decoded sheet thumbnail is a capture of nothing)`;
   if (reading.running > 0) return `${reading.running} animation(s)/transition(s) still running`;
   return null;
 }
@@ -76,7 +84,7 @@ export function settleFault(reading: SettleReading): string | null {
  * split out because a RETRYING READ owes this much and no more (tests/e2e/support/retrying-read.ts):
  * counting the rows of a table that has not said it painted is counting the paint, not the table —
  * two agreeing readings of zero are what a table that has not begun looks like — while waiting on
- * fonts and animations for a count would make every read of a number pay a capture's price.
+ * fonts, images and animations for a count would make every read of a number pay a capture's price.
  */
 export function renderedFault(reading: SettleReading): string | null {
   const blank = reading.screenRoots.filter((state) => state === null || UNSETTLED_STATES.includes(state));
@@ -96,14 +104,31 @@ export const SETTLE_TIMEOUT_MS = 15_000;
 /**
  * Wait until the screen has stopped arriving. Retrying only: one `expect.poll` over one `evaluate`,
  * no sleeps, and a failure message that names what was still moving (B-19 — a flake is a defect
- * with a cause).
+ * with a cause). Each reading crosses two animation frames first, so a transition fired by the
+ * action immediately before this call is already registered when the reading is taken.
+ *
+ * WHAT IT STILL CANNOT SEE, stated so the next reader does not have to find out the hard way:
+ *   · Animations inside a SHADOW ROOT or an IFRAME. `document.getAnimations()` returns this
+ *     document's animations only; a shadow root's are reachable from the root's own
+ *     `getAnimations()` and an iframe's are in another document entirely. Nothing in the product
+ *     mounts either today, which is why this is a note rather than a wait.
+ *   · Images that are not `<img>`: a CSS `background-image`, an `<svg><image>`, a `<video>` poster,
+ *     anything drawn into a `<canvas>`. The viewer's sheet is a canvas and publishes its readiness
+ *     through `data-state` instead — which is the contract this file asks a screen to keep.
+ *   · A BROKEN `<img>`: it reports `complete` and rejects `decode()`, and this settles rather than
+ *     hanging. The broken picture is what the capture exists to show.
+ *   · An animation that starts AFTER the reading returns — a hover the test itself triggers, a
+ *     delayed `animation-delay`. The poll re-reads, so a long one is caught on the next pass; a
+ *     transition whose delay exceeds the settle timeout is not.
+ *   · `prefers-reduced-motion` is NOT set by `playwright.config.ts`, so motion is live in the lane
+ *     and every one of these waits is load-bearing rather than a formality.
  */
-export async function settled(page: Page, timeout: number = SETTLE_TIMEOUT_MS): Promise<void> {
+export async function settled(page: Page, timeout: number = SETTLE_TIMEOUT_MS, within?: string): Promise<void> {
   // The face load is a promise the browser already holds, so it is awaited once rather than polled.
   // Everything after it is a reading that can change under us, so everything after it is polled.
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   await expect
-    .poll(async () => settleFault(await readSettle(page)), {
+    .poll(async () => settleFault(await readSettle(page, within)), {
       timeout,
       message: `settled(): the screen never stopped arriving within ${timeout} ms`,
     })
@@ -111,8 +136,28 @@ export async function settled(page: Page, timeout: number = SETTLE_TIMEOUT_MS): 
 }
 
 /** One reading, taken in the page. Exported so a diagnosis can print what settled() was looking at. */
-export async function readSettle(page: Page): Promise<SettleReading> {
-  return await page.evaluate((contract) => {
+export async function readSettle(page: Page, within?: string): Promise<SettleReading> {
+  return await page.evaluate(async ({ contract, within: scope }) => {
+    const root: ParentNode = (scope === undefined ? null : document.querySelector(scope)) ?? document;
+    // THE rAF BARRIER, and why the reading cannot be taken without it.
+    //
+    // `expect.poll` evaluates its first reading IMMEDIATELY. A CSS transition fired by the click
+    // just before — a rail widening over `--motion-panel` 240 ms, a reticle ring over
+    // `--motion-reticle` 120 ms — is not in `document.getAnimations()` until the style change has
+    // been recalculated, which happens at the next frame. So the first reading saw `running: 0`,
+    // `busy: 0` and a `data-state` that was already settled before the click, and settled() returned
+    // at t ≈ 0 with the screen mid-transition. Two frames, because one only guarantees that the
+    // style recalculation has been SCHEDULED; the second guarantees it has happened and that the
+    // animations it started are registered.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    // THE IMAGES. `sheet-card.tsx` and `auth-frame.tsx` render raw `<img>`; nothing here read their
+    // `complete` flag or awaited `decode()`, so a capture could be taken of a thumbnail that had
+    // arrived but had not been painted. A BROKEN image reports `complete` and rejects `decode()`:
+    // it settles, deliberately, because a wait that never ends is not a check — the broken picture
+    // is what the capture is for.
+    const images = [...root.querySelectorAll("img")];
+    const loading = images.filter((image) => !image.complete);
+    await Promise.all(images.filter((image) => image.complete).map(async (image) => image.decode().catch(() => undefined)));
     const animations = document.getAnimations();
     const live = animations.filter((animation) => animation.playState === "running");
     const endless = live.filter((animation) => {
@@ -122,12 +167,13 @@ export async function readSettle(page: Page): Promise<SettleReading> {
     return {
       fontsStatus: document.fonts.status as string,
       busy: document.querySelectorAll(contract.busy).length,
-      screenRoots: [...document.querySelectorAll(contract.screenRoot)].map((element) => element.getAttribute(contract.screenState)),
-      tables: [...document.querySelectorAll(contract.virtualTable)].map((element) => element.getAttribute(contract.rowsRendered)),
+      imagesLoading: loading.length,
+      screenRoots: [...root.querySelectorAll(contract.screenRoot)].map((element) => element.getAttribute(contract.screenState)),
+      tables: [...root.querySelectorAll(contract.virtualTable)].map((element) => element.getAttribute(contract.rowsRendered)),
       running: live.length - endless.length,
       endless: endless.length,
     };
-  }, SETTLE_CONTRACT);
+  }, { contract: SETTLE_CONTRACT, within });
 }
 
 /**

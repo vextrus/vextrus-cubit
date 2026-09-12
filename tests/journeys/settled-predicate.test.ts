@@ -14,7 +14,7 @@ import { describe, expect, test } from "vitest";
 import { SETTLE_CONTRACT, settleFault, UNSETTLED_STATES, type SettleReading } from "../e2e/support/settled";
 
 /** A screen that has arrived: fonts in, nothing busy, nothing moving, nothing published. */
-const SETTLED: SettleReading = { fontsStatus: "loaded", busy: 0, screenRoots: [], tables: [], running: 0, endless: 0 };
+const SETTLED: SettleReading = { fontsStatus: "loaded", busy: 0, imagesLoading: 0, screenRoots: [], tables: [], running: 0, endless: 0 };
 
 /** @returns that same screen with one thing changed. */
 function reading(patch: Partial<SettleReading>): SettleReading {
@@ -63,6 +63,10 @@ describe("settleFault: the predicate settled() polls", () => {
 
   test("a row count that is not a number is not a count", () => {
     expect(settleFault(reading({ tables: ["", "many"] }))).toContain(SETTLE_CONTRACT.rowsRendered);
+  });
+
+  test("an <img> that has not finished loading holds the screen — a capture of a half-decoded thumbnail is a capture of nothing", () => {
+    expect(settleFault(reading({ imagesLoading: 2 }))).toContain("<img>");
   });
 
   test("a running animation holds the screen", () => {
