@@ -192,6 +192,23 @@ describe("AC-1: the panel renders the state it is handed, by the ids and the cop
   });
 });
 
+describe("the rendered contract: this panel's `data-state` is what a reader may read once (v22 speed)", () => {
+  test("the panel publishes `data-rendered-region`, and its state and its rows arrive in the same commit", async () => {
+    await prepare();
+    const { rerender } = render(<InspectorPanel {...props()} />);
+
+    expect(panel().hasAttribute("data-rendered-region"), "the panel says its `data-state` IS the rendered contract the lane reads").toBe(true);
+    expect(panel().getAttribute("data-state"), "and an empty panel publishes a settled state, not a blank one").toBe("idle");
+
+    rerender(<InspectorPanel {...props({ selection: SELECTED })} />);
+    // The whole point of the contract: a reader that has seen "selected" may take ONE reading of
+    // the rows, because the state and the rows are the same render of the same selection.
+    expect(panel().getAttribute("data-state")).toBe("selected");
+    expect(panel().getAttribute("data-count")).toBe(String(SELECTED.length));
+    expect(rows().length, "the rows are in the DOM at the moment the state says they are").toBe(SELECTED.length);
+  });
+});
+
 describe("AC-3: every listed key is copyable, one at a time", () => {
   test("AC-3: pressing a row's copy writes exactly that key, and says so where a reader hears it", async () => {
     await prepare();

@@ -147,7 +147,21 @@ export function InspectorPanel({ hover, selection, missing, chrome, trace, cited
   const state = selection.length > 0 ? "selected" : hover === null ? "idle" : "hover";
 
   return (
-    <aside className="cx-viewer-inspector" data-testid="viewer-inspector" aria-labelledby={TITLE_ID} data-state={state} data-count={selection.length}>
+    // `data-rendered-region` is this panel SAYING that its `data-state` is the rendered contract
+    // the journey lane reads (tests/e2e/support/settled.ts). It is truthful here and it is not a
+    // decoration: `state`, `data-count` and the `<ol>` below are all derived from the same
+    // `selection` in the same commit, so a reader that has seen `data-state="selected"` is looking
+    // at a DOM that already holds every row of that selection. Without it, every read inside this
+    // panel fell back to three agreeing readings per element — 600 rows × 3 round trips was 330 s
+    // of J-011's 366 (v22 speed-j011).
+    <aside
+      className="cx-viewer-inspector"
+      data-testid="viewer-inspector"
+      aria-labelledby={TITLE_ID}
+      data-rendered-region
+      data-state={state}
+      data-count={selection.length}
+    >
       <h2 className="cx-viewer-inspector-heading" id={TITLE_ID}>
         {INSPECTOR_COPY.viewer_inspector_heading}
       </h2>
