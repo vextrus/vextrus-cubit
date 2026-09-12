@@ -289,9 +289,7 @@ class Scene:
         for item in self.items:
             if item["kind"] in ("TEXT", "MTEXT", "MLEADER") or (
                 item["kind"] == "DIMENSION" and item.get("text")
-            ):
-                out.append(item)
-            elif item["kind"] == "INSERT" and item.get("attribs"):
+            ) or item["kind"] == "INSERT" and item.get("attribs"):
                 out.append(item)
         return out
 
@@ -501,10 +499,16 @@ class Sheet:
 
     @property
     def layout_name(self) -> str:
-        return f"{self.number} {self.title}"[:60]
+        """The paper layout's own name. A DXF table name may not carry `" * / : ; < = > ? \\ ``,
+        and three sheet titles do (S-02's LAP/DEVELOPMENT, S-24's UGWR / SEPTIC, S-26's SAMPLE:),
+        so those characters become a hyphen — the name a reader sees is otherwise the title."""
+        return f"{self.number} {self.title}"[:60].translate(_LAYOUT_NAME)
 
 
 PAPER_MM: dict[str, tuple[float, float]] = {"A1": (841.0, 594.0), "A2": (594.0, 420.0), "A3": (420.0, 297.0)}
+
+#: The characters a DXF table name (a layout is one) may not carry.
+_LAYOUT_NAME = str.maketrans({c: "-" for c in '"*/:;<=>?\\`'})
 
 
 # ---------------------------------------------------------------------------------------------
