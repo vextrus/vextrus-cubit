@@ -16,20 +16,28 @@
 
 /** checkpoint name -> the capture height that screen is allowed, taller than §9.3's own cap. */
 export const SCREEN_HEIGHT_BUDGET: Readonly<Record<string, number>> = Object.freeze({
-  // EMPTY, and that is the point: "a budget is a CEILING TO LOWER, never a target: the redesign that
-  // brings a screen under §9.3's own cap takes its entry away in the same commit."
-  //
-  // SIX entries stood here and all six were ONE SCREEN — S-Drawings, seen from two journeys:
-  // j-010-timeline-done, j-010-jobs-tray-open, j-010-sheets-fanned-out and j-010-sheets-uploaded at
-  // 3 168 px, j-010-discipline-confirmed at 2 764, and j-000/disciplines-confirmed at 2 674, which
-  // main's own note called "the same debt seen from J-000 … it goes away with it". This is where it
-  // goes away.
-  //
-  // The screen was a column that grew with its data: five helper sentences, a job strip that kept
-  // every step of the session, an offered strip that stacked every group there was, and a sheet card
-  // whose height was the length of its cited list. v22 U2's rebuild caps all four (Design Direction
-  // 00 §3.4, §8's "Drawings (1.8)"), so the screen keeps §9.3's own cap — twice the viewport — like
-  // every other screen in the product.
+  /**
+   * S-Drawings, seen from J-010's timeline — 2 989 px against §9.3's 1 800 (twice the lease's 900 px
+   * viewport), measured by `cubit-u2b`'s walk of 2026-09-12 and by nothing since.
+   *
+   * This entry is RESTORED, and restoring it is the lesser of two wrongs. Commit 5f2ad06 emptied
+   * this file on the strength of U2's §3.4 rebuild without a browser ever having measured the
+   * rebuilt screen; the first walk measured it at 2 989 px, so the rebuild took 3 168 → 2 989 and
+   * left 1 189 px of the debt standing. A budget is taken away by the redesign that EARNS it. This
+   * one was not earned, and a wall that is green because the ledger was emptied is the one thing
+   * this file exists to prevent.
+   *
+   * OWED BY: the node that finishes S-Drawings under Design Direction 00 §9.3 — density, collapse,
+   * virtualise, or two columns. 1 189 px, one screen.
+   *
+   * The sister checkpoints of the same screen (`j-010-jobs-tray-open`, `j-010-sheets-fanned-out`,
+   * `j-010-sheets-uploaded`, `j-010-discipline-confirmed`, `j-000/disciplines-confirmed`) are NOT
+   * written here: this session's J-010 run was red before their checkpoints and NOTHING HAS
+   * MEASURED THEM ON THE REBUILT SCREEN. A budget entry is a measurement, never a guess, so each
+   * returns at its own measured height on the first walk that reaches it — or does not return at
+   * all, which is what the rebuild is trying to earn.
+   */
+  "j-010-timeline-done": 2989,
 });
 
 /** The recorded height for a checkpoint, or `null` where §9.3's cap stands unaltered. */
