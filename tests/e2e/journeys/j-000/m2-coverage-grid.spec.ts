@@ -11,11 +11,15 @@ import { SCoveragePage } from "../../pages/s-coverage.page";
 import { STakeoffPage } from "../../pages/s-takeoff.page";
 import { checkpoint } from "../../support/checkpoint";
 import { settled } from "../../support/settled";
-import { goldenRun } from "./golden-run";
+import { goldenRun, releaseGoldenWorker } from "./golden-run";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
 test.describe.serial("J-000 — Golden Path: what the campaign did and did not establish", () => {
+  test.afterAll(async () => {
+    await releaseGoldenWorker();
+  });
+
   test("J-000 m2-coverage-grid: the grid states every cell's coverage, and the certificate preview says it in sentences", async ({ page }, testInfo) => {
     test.setTimeout(900_000);
     const run = await goldenRun(page);

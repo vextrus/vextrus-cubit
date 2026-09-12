@@ -10,11 +10,15 @@ import { expect, test } from "@playwright/test";
 import { SDrawingsPage } from "../../pages/s-drawings.page";
 import { checkpoint } from "../../support/checkpoint";
 import { settled } from "../../support/settled";
-import { DISCIPLINE, goldenRun } from "./golden-run";
+import { DISCIPLINE, goldenRun, releaseGoldenWorker } from "./golden-run";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
 test.describe.serial("J-000 — Golden Path: the sheets are given their discipline", () => {
+  test.afterAll(async () => {
+    await releaseGoldenWorker();
+  });
+
   test("J-000 m1-confirm-disciplines: the offered discipline is confirmed, and the sheets wear it", async ({ page }, testInfo) => {
     test.setTimeout(900_000);
     const run = await goldenRun(page);

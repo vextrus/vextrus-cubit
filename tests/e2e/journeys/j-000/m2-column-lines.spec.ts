@@ -10,7 +10,7 @@ import { expect, test } from "@playwright/test";
 import { STakeoffPage } from "../../pages/s-takeoff.page";
 import { checkpoint } from "../../support/checkpoint";
 import { settled } from "../../support/settled";
-import { goldenRun } from "./golden-run";
+import { goldenRun, releaseGoldenWorker } from "./golden-run";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -18,6 +18,10 @@ test.use({ viewport: { width: 1440, height: 900 } });
 const MEASURE_BUDGET_MS = 300_000;
 
 test.describe.serial("J-000 — Golden Path: the column lines of the measured campaign", () => {
+  test.afterAll(async () => {
+    await releaseGoldenWorker();
+  });
+
   test("J-000 m2-column-lines: a level is inserted, the campaign is measured, and its column lines stand in the register", async ({ page }, testInfo) => {
     test.setTimeout(900_000);
     const run = await goldenRun(page);

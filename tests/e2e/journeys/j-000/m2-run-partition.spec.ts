@@ -11,7 +11,7 @@ import { SViewerPartitionPage } from "../../pages/s-viewer-partition.page";
 import { checkpoint } from "../../support/checkpoint";
 import { settled } from "../../support/settled";
 import { SViewerPage, VIEWER_BUDGETS } from "../../viewer/s-viewer.page";
-import { SHEET, goldenRun } from "./golden-run";
+import { SHEET, goldenRun, releaseGoldenWorker } from "./golden-run";
 
 test.use({
   viewport: { width: 1440, height: 900 },
@@ -19,6 +19,10 @@ test.use({
 });
 
 test.describe.serial("J-000 — Golden Path: the partition of the uploaded sheet", () => {
+  test.afterAll(async () => {
+    await releaseGoldenWorker();
+  });
+
   test("J-000 m2-run-partition: the sheet's views and grid stand on the partition the upload's own job laid", async ({ page }, testInfo) => {
     test.setTimeout(900_000);
     const run = await goldenRun(page);

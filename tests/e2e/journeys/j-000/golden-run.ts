@@ -22,14 +22,14 @@
  * cookies and walks straight to its own screen. A second Playwright worker holds its own account and
  * its own project, which is what keeps the legs parallelisable at all (P9).
  */
-import { join } from "node:path";
-import { expect, type Page } from "@playwright/test";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { expect, type Cookie, type Page } from "@playwright/test";
 import { SAuthPage, S_AUTH } from "../../pages/s-auth.page";
 import { SDrawingsPage } from "../../pages/s-drawings.page";
 import { SHomePage, S_HOME } from "../../pages/s-home.page";
 import { ShellPage, SHELL } from "../../pages/shell.page";
 import { newestMail } from "../../support/outbox";
-import { settled } from "../../support/settled";
 import { startJourneyWorker, type JourneyWorker } from "../../support/worker";
 
 /** The corpus the golden path uploads, and the sheet its later legs stand on. */
@@ -48,25 +48,74 @@ export interface GoldenRun {
   readonly tenantId: string;
   readonly projectId: string;
   readonly email: string;
-  /** The shipped worker, running for as long as this process's legs need jobs run. */
-  readonly worker: JourneyWorker;
+  /** The signed-in session, carried so a later leg file walks as the same person. */
+  readonly cookies: Cookie[];
 }
 
-let established: Promise<GoldenRun> | null = null;
+/**
+ * WHERE THE RUN IS WRITTEN DOWN, AND WHY IT HAS TO BE. Playwright gives each test FILE its own
+ * module registry, so a module-level memo does not survive from one leg file to the next — and the
+ * prologue costs an upload and a real `cad/` reading of F-RCC6, about four minutes. Paid once per
+ * leg that would be twenty minutes of golden path per run, five times over in a regression sweep.
+ * So the run is written to a file the next leg reads: the workspace, the project and the SESSION.
+ * It is not staged state — every row behind it was made by a click, and a leg that finds the file
+ * stale simply walks the prologue again.
+ */
+const STATE_FILE = join(process.cwd(), "test-results", "j-000-golden-run.json");
 
-/** The golden run this worker walks: established once, restored on every later ask. */
+let established: Promise<GoldenRun> | null = null;
+let worker: JourneyWorker | null = null;
+
+/** The golden run this leg walks: restored from the run before it, or established from nothing. */
 export async function goldenRun(page: Page): Promise<GoldenRun> {
-  established ??= establish(page);
+  established ??= (async (): Promise<GoldenRun> => (await restore(page)) ?? (await establish(page)))();
   const run = await established;
-  await restore(page, run);
+  await adopt(page, run);
   return run;
 }
 
-/** Put a leg's own page inside the golden run's session and on its workspace. */
-async function restore(page: Page, run: GoldenRun): Promise<void> {
-  if (page.url().includes(`/t/${run.tenantId}/`)) return;
-  await page.goto(S_HOME.workspace(run.tenantId));
-  await settled(page);
+/** The shipped worker, started once per process and stopped when the leg file is done. */
+export async function goldenWorker(): Promise<JourneyWorker> {
+  worker ??= await startJourneyWorker();
+  return worker;
+}
+
+/** Give the worker back. A leg file calls this in `test.afterAll` — a stray consumer outlives runs. */
+export async function releaseGoldenWorker(): Promise<void> {
+  const held = worker;
+  worker = null;
+  if (held !== null) await held.stop();
+}
+
+/** Put a leg's own page inside the golden run's session. */
+async function adopt(page: Page, run: GoldenRun): Promise<void> {
+  const held = await page.context().cookies();
+  if (held.length === 0) await page.context().addCookies(run.cookies);
+}
+
+/**
+ * The run the leg before this one left, if it is still there. The check is the product's own answer:
+ * the session is adopted and the drawings screen asked for the sheet the golden path stands on — a
+ * run whose account, project or reading is gone simply answers "no" and the prologue runs again.
+ */
+async function restore(page: Page): Promise<GoldenRun | null> {
+  if (!existsSync(STATE_FILE)) return null;
+  const saved = JSON.parse(readFileSync(STATE_FILE, "utf8")) as GoldenRun;
+  await page.context().addCookies(saved.cookies);
+  const drawings = new SDrawingsPage(page);
+  await drawings.open(saved.tenantId, saved.projectId).catch(() => undefined);
+  const standing = await drawings
+    .cardForLayout(SHEET)
+    .waitFor({ state: "visible", timeout: 30_000 })
+    .then(() => true)
+    .catch(() => false);
+  return standing ? saved : null;
+}
+
+/** Write the run down for the next leg file. */
+function remember(run: GoldenRun): void {
+  mkdirSync(dirname(STATE_FILE), { recursive: true });
+  writeFileSync(STATE_FILE, JSON.stringify(run), "utf8");
 }
 
 /** Sign up, make the project, upload F-RCC6, pin a set over it, then let the queue run. */
@@ -114,14 +163,17 @@ async function establish(page: Page): Promise<GoldenRun> {
   await pinASetOverTheDrawing(page, tenantId, projectId);
 
   /* --- now the shipped worker drains the queue: ingest, and the partition ingest chains --- */
-  const worker = await startJourneyWorker();
+  await goldenWorker();
   await drawings.open(tenantId, projectId);
-  await expect(drawings.timeline, "the jobs the upload asked for finish where the work was started (X-1)").toHaveAttribute("data-state", "done", {
-    timeout: READING_BUDGET_MS,
-  });
+  // NOT the job timeline: X-1 scopes that reading to the screen session that STARTED the jobs, and
+  // this leg came back to the screen after pinning the set, so it reads "idle" for ever and says
+  // nothing about the queue. The honest evidence that the reading finished is the reading itself —
+  // the sheet the golden path stands on, fanned out as a card of its own.
   await expect(drawings.cardForLayout(SHEET), `the sheet "${SHEET}" fanned out as a card of its own`).toHaveCount(1, { timeout: READING_BUDGET_MS });
 
-  return { tenantId, projectId, email, worker };
+  const run: GoldenRun = { tenantId, projectId, email, cookies: await page.context().cookies() };
+  remember(run);
+  return run;
 }
 
 /** The sets index, as J-012 addresses it — one home for the route (ARCH-02). */
