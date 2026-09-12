@@ -61,6 +61,16 @@ export type SqlResult = { ok: boolean; rows: string[][]; stderr: string; sqlstat
 const SCRIPT_TIMEOUT_MS = 120_000;
 
 /**
+ * The same, as this run measures it. A deadline shorter than the spawned path's would red a slow
+ * test that was never wrong, so the lane keeps the full two minutes; an override exists so the
+ * deadline itself can be proven in a test rather than in two minutes (psql-pool.test.ts).
+ */
+function deadlineMs(): number {
+  const named = Number(process.env["CUBIT_PSQL_TIMEOUT_MS"]);
+  return Number.isFinite(named) && named > 0 ? named : SCRIPT_TIMEOUT_MS;
+}
+
+/**
  * What every psql this module starts calls itself on the cluster, pooled or spawned.
  *
  * A pooled session outlives the script it answered, so a suite that counts the backends on its own
@@ -345,7 +355,7 @@ function sendReset(session: Session): void {
 function collectReset(session: Session): boolean {
   if (session.pendingReset === null) return true;
   const marker = `${session.token}-R-${session.pendingReset}`;
-  const done = awaitMarker(session, marker, Date.now() + SCRIPT_TIMEOUT_MS);
+  const done = awaitMarker(session, marker, Date.now() + deadlineMs());
   session.pendingReset = null;
   rewind(session);
   // `discard all` refusing is a session this pool can no longer promise anything about.
@@ -380,8 +390,10 @@ function upToMarker(text: string, marker: string): string {
 /** What the caller is told when the process running its script went away under it. */
 const DIED_MID_SCRIPT = "the pooled psql died mid-script — the script's effects are unknown, nothing was re-run (v22 R3)";
 
-/** What the caller is told when the script never ended. */
-const DID_NOT_END = `the script did not end in ${SCRIPT_TIMEOUT_MS / 1000} s — an unclosed comment, string, dollar-quote or \\if? nothing re-run`;
+/** What the caller is told when the script never ended. Its process is killed and never re-used. */
+function didNotEnd(): string {
+  return `the script did not end in ${deadlineMs() / 1000} s — an unclosed comment, string, dollar-quote or \\if? nothing re-run`;
+}
 
 /** Say, in the stderr the caller reads, that this answer came from a fresh process after all. */
 function noteFallback(result: SqlResult, why: string): SqlResult {
@@ -555,7 +567,7 @@ export function pooledPsql(url: string, script: string): SqlResult {
     return { ok: false, rows: [], stderr: `[psql-pool] ${DIED_MID_SCRIPT} (${String(error)})\n`, sqlstate: null };
   }
 
-  const done = awaitMarker(session, marker, Date.now() + SCRIPT_TIMEOUT_MS);
+  const done = awaitMarker(session, marker, Date.now() + deadlineMs());
   if (done.how === "marked") {
     const answer = shape(true, upToMarker(done.stdout, marker), upToMarker(done.stderr, marker));
     // The answer is already in hand: a reset this process will not take costs it its place in the
@@ -576,7 +588,7 @@ export function pooledPsql(url: string, script: string): SqlResult {
     return shape(false, upToMarker(done.stdout, `${session.token}-EXIT-`), done.stderr);
   }
   if (done.how === "timeout") {
-    return { ok: false, rows: [], stderr: `${done.stderr}\n[psql-pool] ${DID_NOT_END}\n`, sqlstate: null };
+    return { ok: false, rows: [], stderr: `${done.stderr}\n[psql-pool] ${didNotEnd()}\n`, sqlstate: null };
   }
   // The process vanished. What the script did before it went is UNKNOWABLE from here: psql is -q, so
   // an insert, an update, a create — everything this lane writes — prints nothing, and a script

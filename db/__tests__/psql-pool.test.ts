@@ -7,10 +7,11 @@
 // which drives psql. No harness, no template, no scratch-database provisioning — the one database
 // this file needs it makes and takes away itself through the spawned path, so the cases judge the
 // pool and nothing else.
+import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BOOTSTRAP_URL } from "./support/fixtures";
-import { SEP, closePsqlPool, pooledPsql, psqlPoolStats, spawnPsql } from "./support/psql-pool";
+import { PSQL_APP_NAME, SEP, closePsqlPool, pooledPsql, psqlPoolStats, spawnPsql } from "./support/psql-pool";
 
 /** A database of this file's own, named by the process that made it. */
 const DATABASE = `cubit_psqlpool_${process.pid.toString(36)}_${Date.now().toString(36)}`;
@@ -175,6 +176,43 @@ describe("ON_ERROR_STOP holds for each script on its own", () => {
     expect(after.ok).toBe(true);
     expect(after.rows).toEqual([["alive"]]);
   });
+
+  it("gives a script that never ends back at the deadline, re-runs nothing, and keeps working after", () => {
+    // The lane keeps the spawned path's two minutes; the deadline itself is proven in two seconds.
+    process.env["CUBIT_PSQL_TIMEOUT_MS"] = "2000";
+    try {
+      const at = Date.now();
+      const never = pooledPsql(url(), "select pg_sleep(30);");
+      expect(never.ok, "a script that outran the deadline is not a script that succeeded").toBe(false);
+      expect(never.sqlstate, "an unfinished script has no SQLSTATE to give").toBe(null);
+      expect(never.stderr).toContain("the script did not end in 2 s");
+      expect(never.stderr).toContain("nothing re-run");
+      expect(Date.now() - at, "the deadline was not kept").toBeLessThan(20_000);
+    } finally {
+      delete process.env["CUBIT_PSQL_TIMEOUT_MS"];
+    }
+    expect(pooledPsql(url(), "select 'alive';").rows, "the script after a deadline got no working process").toEqual([["alive"]]);
+  }, 200_000);
+
+  it("tells the caller it does not know when its process dies mid-script, and re-runs nothing", () => {
+    pooledPsql(url(), "drop table if exists deaths; create table deaths (n int);");
+    pooledPsql(url(), "select 'warm';");
+    // Kill the pooled psql from another session while a script of ours is in flight: the write has
+    // landed, the answer never will.
+    const scripted = `insert into deaths values (1); select pg_sleep(3);`;
+    const killer = spawnSync("bash", [
+      "-c",
+      `sleep 1; psql "$1" -X -q -A -t -c "select pg_terminate_backend(pid) from pg_stat_activity where datname = current_database() and application_name = '${PSQL_APP_NAME}' and pid <> pg_backend_pid();" >/dev/null 2>&1 &`,
+      "kill-the-pool",
+      url(),
+    ]);
+    expect(killer.status).toBe(0);
+    const answered = pooledPsql(url(), scripted);
+    expect(answered.ok, "a script whose process went away is not a script that succeeded").toBe(false);
+    expect(answered.stderr, "the caller must be told the effects are unknown").toMatch(/died mid-script|terminating connection|server closed the connection/);
+    expect(answered.stderr, "nothing may be re-run: psql is -q, so a committed write looks like one that never happened").not.toContain("this script was run in a fresh psql process instead");
+    expect(pooledPsql(url(), "select count(*) from deaths;").rows, "the script was run a second time").toEqual([["1"]]);
+  }, 200_000);
 
   it("survives a session the server itself ends under it", () => {
     const killed = pooledPsql(url(), "select pg_terminate_backend(pg_backend_pid());");
