@@ -474,6 +474,22 @@
    is drawn by the pseudo-element: the grid still measures 4 px at the seam, and a hand still has
    somewhere to land. Inside the cell, never outside it — `.cx-table-cell` clips its overflow, so a
    handle that reached into its neighbour would simply be cut off. */
+/* A CONTROL WELL (`meta.control`). The one control in this cell is the cell: no padding between
+   them, and the control takes the cell's whole box. A gridcell is a pointer target in its own right
+   (R-UI-012), so a control that leaves a strip of cell around itself leaves a strip that is
+   clickable and smaller than 24 px — SC 2.5.8's "partially obscured", which axe reports as serious.
+   Covered edge to edge there is no strip, and cell and control are one target the size of the
+   cell. */
+.cx-table-cell[data-control] {
+  padding-inline: 0;
+  padding-block: 0;
+}
+
+.cx-table-cell[data-control] > * {
+  inline-size: 100%;
+  block-size: 100%;
+}
+
 .cx-table-resize {
   position: absolute;
   top: 0;

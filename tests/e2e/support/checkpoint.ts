@@ -45,11 +45,34 @@ const HEIGHT_CAP_FACTOR = 2;
  */
 const CAPTURE_ROOTS = ["[data-capture-root]", testIdSelector(TESTIDS.shell.main), "main", "body"] as const;
 
+interface AxeRelatedNode {
+  target: string[];
+}
+
+interface AxeCheckResult {
+  id: string;
+  relatedNodes?: AxeRelatedNode[];
+}
+
 interface AxeViolation {
   id: string;
   impact: string | null;
   help: string;
-  nodes: { target: string[]; failureSummary?: string }[];
+  nodes: { target: string[]; failureSummary?: string; any?: AxeCheckResult[]; all?: AxeCheckResult[]; none?: AxeCheckResult[] }[];
+}
+
+/**
+ * WHO is painted over an obscured target. `failureSummary` says a target is "partially obscured" and
+ * by how much, and stops there — so a reader who knows the layout is wrong still has to open the
+ * trace to learn which element is on top of it. axe already knows: every check it ran carries the
+ * elements it blamed in `relatedNodes`. Naming them here is the difference between "something covers
+ * this cell" and a selector to go and fix.
+ */
+function relatedOf(node: AxeViolation["nodes"][number]): string {
+  const checks = [...(node.any ?? []), ...(node.all ?? []), ...(node.none ?? [])];
+  const related = checks.flatMap((check) => (check.relatedNodes ?? []).map((relatedNode) => relatedNode.target.join(" ")));
+  const unique = [...new Set(related)];
+  return unique.length === 0 ? "" : ` — obscured/crowded by: ${unique.join(", ")}`;
 }
 
 /** What the capture measured, so a failure can say which screen was how tall. */
@@ -69,7 +92,7 @@ interface Capture {
  * one of them guessed instead.
  */
 function describe(violation: AxeViolation): string {
-  const nodes = violation.nodes.map((node) => `${node.target.join(" ")}${node.failureSummary === undefined ? "" : ` — ${node.failureSummary.replace(/\s+/g, " ").trim()}`}`);
+  const nodes = violation.nodes.map((node) => `${node.target.join(" ")}${node.failureSummary === undefined ? "" : ` — ${node.failureSummary.replace(/\s+/g, " ").trim()}`}${relatedOf(node)}`);
   return `${violation.impact} ${violation.id}: ${violation.help} at ${nodes.join(" | ")}`;
 }
 

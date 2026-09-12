@@ -134,6 +134,39 @@ describe("§5 rule 1: the row height is the ROOT's density token, and padding ne
   });
 });
 
+describe("R-UI-012 + SC 2.5.8: a control column's cell is the control's well, edge to edge", () => {
+  test("the cell of a `control` column says so, and every other cell does not", () => {
+    mount(
+      <DataTable
+        tableId="test-control-well"
+        columns={[
+          { id: "item", accessorKey: "item", header: "Item", size: 160 },
+          { id: "act", header: "", size: 56, meta: { control: true }, cell: () => <button type="button">⋯</button> },
+        ]}
+        data={[...LINES]}
+        getRowId={rowIdOf}
+        storage={null}
+      />,
+    );
+    const cells = allTestId(rows()[0] as HTMLElement, "datatable-cell");
+    const wells = cells.filter((cell) => cell.getAttribute("data-control") === "true");
+    expect(wells.length, "exactly the one column that declared `control` publishes the well").toBe(1);
+    expect(
+      (wells[0] as HTMLElement).querySelector("button"),
+      "the well holds the column's one control",
+    ).not.toBeNull();
+  });
+
+  test("data.css takes the padding off a well and gives the control the whole cell", () => {
+    const well = block(".cx-table-cell[data-control]");
+    expect(well, "SC 2.5.8: no strip of cell is left beside the control horizontally").toContain("padding-inline: 0;");
+    expect(well, "SC 2.5.8: no strip of cell is left above or below the control").toContain("padding-block: 0;");
+    const child = block(".cx-table-cell[data-control] > *");
+    expect(child, "the control spans the cell's width, so the cell's rect is inside the control's").toContain("inline-size: 100%;");
+    expect(child, "the control spans the cell's height, so the cell's rect is inside the control's").toContain("block-size: 100%;");
+  });
+});
+
 describe("§5 rule 2: no wrapping cell, and a Tooltip only where one is actually clipped", () => {
   test("the cell's text box truncates rather than wrapping", () => {
     const text = block(".cx-table-cell-text");

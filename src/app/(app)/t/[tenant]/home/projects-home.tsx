@@ -208,6 +208,9 @@ export function ProjectsHome({ tenantId, projects }: ProjectsHomeProps) {
         id: "actions",
         header: "",
         size: 56,
+        // One control, no text: the cell is its well and it fills it, so the row's `⋯` and the cell
+        // the grid puts the cursor on are one target of the cell's size (R-UI-012, SC 2.5.8).
+        meta: { control: true },
         cell: ({ row }) => <ProjectRowMenu tenantId={tenantId} project={row.original} onEdit={(open) => setTarget({ project: open })} onAnswer={answered} />,
       },
     ],

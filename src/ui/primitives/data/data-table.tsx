@@ -75,6 +75,19 @@ export interface DataTableColumnMeta {
   align?: "right";
   filterable?: boolean;
   /**
+   * A CONTROL WELL: this column's cell holds one control and nothing else, so the control IS the
+   * cell — it fills it edge to edge instead of floating inside it with the cell's padding around it.
+   *
+   * WHY THIS IS A LAYOUT FACT AND NOT A COSMETIC ONE. A gridcell is the focusable unit of an aria
+   * grid (R-UI-012), so it is itself a pointer target, and WCAG 2.2 SC 2.5.8 measures the part of a
+   * target nothing else is painted over. A 32 px control centred in a 56 px cell leaves two 12 px
+   * strips of cell that are clickable and too small to hit — axe reports a serious `target-size`
+   * ("partially obscured, smallest space is 12px by 36px") and it is right: the strips are real. A
+   * control that covers the whole cell leaves no strip at all, so the cell and the control are one
+   * target of the cell's full size, which is the thing the reader's hand was aiming at anyway.
+   */
+  control?: boolean;
+  /**
    * §5 rule 7's act law, as a per-column predicate: only a column that says so may be edited in
    * place. A measured or derived column says nothing and is read-only, with its Trace.
    */
@@ -1189,6 +1202,7 @@ function BodyCell<TRow>({
       tabIndex={isCursor ? 0 : -1}
       data-cursor={isCursor ? "true" : undefined}
       data-align={meta.align}
+      data-control={meta.control ? "true" : undefined}
       data-pinned={column.getIsPinned() || undefined}
       data-basis={entered ? "ENTERED" : undefined}
       data-editable={editable ? "true" : undefined}
