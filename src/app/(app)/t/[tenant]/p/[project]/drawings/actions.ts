@@ -102,7 +102,7 @@ export async function previewConfirmDiscipline(request: ConfirmRequest): Promise
   const session = await sessionOf(await presentedSessionToken());
   if (session === null) return { previewed: false, refusal: "SIGNED_OUT" };
   try {
-    const actor = await projectActorFor(session.userId, request.projectId, CONFIRM_DISCIPLINE, MEASURE);
+    const actor = await projectActorFor(session.userId, request.projectId, CONFIRM_DISCIPLINE, MEASURE, drawingNamedBy(request.group));
     const consequence = await preview(actor, actInput(request));
     return { previewed: true, consequence, consequenceDigest: consequenceDigest(consequence) };
   } catch (thrown) {
@@ -114,7 +114,7 @@ export async function commitConfirmDiscipline(request: ConfirmRequest & { conseq
   const session = await sessionOf(await presentedSessionToken());
   if (session === null) return { committed: false, refusal: "SIGNED_OUT" };
   try {
-    const actor = await projectActorFor(session.userId, request.projectId, CONFIRM_DISCIPLINE, MEASURE);
+    const actor = await projectActorFor(session.userId, request.projectId, CONFIRM_DISCIPLINE, MEASURE, drawingNamedBy(request.group));
     const written = await commit(actor, actInput(request), request.consequenceDigest);
     // The committed act IS the answer, and the screen shows it by re-reading: the confirmed cards and
     // the emptied group are both server-rendered from the ledger the act just appended to.
@@ -152,6 +152,19 @@ async function workspaceFor(projectId: string, drawingId?: string): Promise<{ te
   });
   if (!answer.authorized) return { refusal: answer.refusal };
   return { tenantId: answer.tenantId, userId: answer.userId };
+}
+
+/**
+ * The drawing a group key NAMES, where it names one — so the guard binds it to the project that
+ * named it rather than merely to the workspace (R-SPINE-004). A `PROPOSED_DISCIPLINE` key carries a
+ * drawing id a caller wrote, and the tenant scope alone would admit a sibling project's drawing.
+ *
+ * A `SHEET` key names an ingest RECORD and a layout inside it, not a drawing, so there is nothing
+ * here for the guard to bind: its membership is resolved by the act seam from the project-scoped
+ * read (`membersOf`), which is where a record of another project falls out as an empty group.
+ */
+function drawingNamedBy(group: OfferedGroupKey): string | undefined {
+  return group.kind === "PROPOSED_DISCIPLINE" ? group.drawingId : undefined;
 }
 
 /**

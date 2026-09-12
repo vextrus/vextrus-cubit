@@ -59,7 +59,11 @@ const evidence = serverCall(
 const citing = serverCall(
   CITING,
   async (request, session): Promise<CitingAnswer> => {
-    const actor = await projectActorFor(session.userId, request.projectId, null, MEASURE);
+    // The sheet this read is about is a value the screen stated, so it is BOUND to the project at
+    // the guard rather than merely scoped to the workspace: the row policy is a tenant boundary, and
+    // every project of one workspace reads under it, so a drawing id from one project's screen
+    // reached a sibling project's sheet and the policy handed it over (R-SPINE-004).
+    const actor = await projectActorFor(session.userId, request.projectId, null, MEASURE, request.drawingId);
     const lines = await linesCiting({ tenantId: actor.tenantId, projectId: request.projectId }, { drawingId: request.drawingId, sourceKeys: request.sourceKeys });
     return { read: true, lines };
   },
