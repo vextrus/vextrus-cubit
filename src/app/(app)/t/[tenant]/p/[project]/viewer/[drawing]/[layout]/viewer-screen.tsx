@@ -34,7 +34,6 @@ import { usePointer } from "@/modules/takeoff/viewer/hooks/use-pointer";
 import { useReveal } from "@/modules/takeoff/viewer/hooks/use-reveal";
 import { useSelection } from "@/modules/takeoff/viewer/hooks/use-selection";
 import type { SnapCalibration } from "@/modules/takeoff/viewer-snap/snap";
-import { useInspector, useShellStatus, useShellToolbar } from "@/ui/shell";
 import { fill, strings } from "@/ui/strings";
 import { publishViewport } from "./address";
 import { readLineEvidence, readLinesCiting } from "./trace-actions";
@@ -42,13 +41,9 @@ import { useScaleRegion, type ScaleDoors } from "./scale-region";
 import { useSnapRegion } from "./snap-region";
 import { usePartitionRegion } from "./partition-region";
 import { SheetAbsence } from "./viewer-bones";
-import { ViewerToolbar } from "./viewer-toolbar";
-import { SnapTools } from "./snap-region";
-import { ZOOM_STEP } from "@/modules/takeoff/viewer/hooks/use-camera";
+import { useViewerSlots, type ViewerTool } from "./viewer-slots";
 import { layoutNameOf } from "./route-address";
-import { StatusLine } from "./status-line";
-import { AbsentSheetWork, InspectorTabs, ViewerStage } from "./viewer-stage";
-import { useMemo } from "react";
+import { AbsentSheetWork, ViewerStage } from "./viewer-stage";
 
 /** What the route hands the screen. `head` is supplied only where a mount is judged without a server. */
 export type ViewerScreenProps = {
@@ -82,7 +77,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       not data: it belongs to the screen, which is the one thing that knows both regions stand. */
   const [layersOpen, setLayersOpen] = useState(true);
   const [inspectorPinned, setInspectorPinned] = useState(false);
-  const [tool, setTool] = useState<"select" | "pan">("select");
+  const [tool, setTool] = useState<ViewerTool>("select");
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -185,79 +180,16 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   });
   const paint = usePainter({ head: sheet.head, refused: denied !== null, canvasRef, stageRef, statusRef, painterRef, stateRef: layers.stateRef, cameraRef, layers: arrived, facts, loadedLayers: sheet.loadedLayers, drawnLayers: layers.drawnLayers, selection: held.selection, hovered: pointer.hovered });
 
-  const drawable = denied === null && sheet.head !== null && sheet.head.kind === "manifest";
-
   /**
    * THE FRAME'S THREE SLOTS (Direction §1, §3.1; R-UI-080). The tool row, the readout and the ONE
-   * inspector are the shell's regions, and this screen fills them — it does not draw them, because
-   * a screen that drew its own would spend the canvas's own width and height on chrome and the
-   * work-surface law would read as kept while the canvas shrank (§8's first fix for this screen).
-   *
-   * Each is memoised on what it actually shows: a slot re-set on every render would re-render the
-   * frame sixty times a second while a camera settles, which is the one thing PB-3 forbids.
+   * inspector are the shell's regions and this screen fills them — one hook of its own, like every
+   * other effect the sheet runs (`./viewer-slots.tsx`). It answers what to render where no frame
+   * claimed a region, which is a jsdom mount of this screen and the gallery's evidence renderer.
    */
-  useShellToolbar(
-    useMemo(
-      () =>
-        drawable ? (
-          <ViewerToolbar
-            tool={tool}
-            onTool={setTool}
-            snapTools={<SnapTools snap={snap} />}
-            onFit={camera.fitSheet}
-            onZoomIn={() => camera.zoomBy(ZOOM_STEP)}
-            onZoomOut={() => camera.zoomBy(1 / ZOOM_STEP)}
-            layersOpen={layersOpen}
-            onLayers={() => setLayersOpen((open) => !open)}
-            inspectorPinned={inspectorPinned}
-            onInspector={() => setInspectorPinned((pinned) => !pinned)}
-          />
-        ) : null,
-      [drawable, tool, snap, camera.fitSheet, camera.zoomBy, layersOpen, inspectorPinned],
-    ),
-  );
-
-  useShellStatus(
-    useMemo(
-      () => (
-        <StatusLine
-          statusRef={statusRef}
-          layoutName={sheetName}
-          sheet={camera.camera !== null && sheet.head?.kind === "manifest"}
-          scale={camera.camera?.scale ?? 0}
-          loadedLayers={sheet.loadedLayers}
-          totalLayers={sheet.head?.kind === "manifest" ? sheet.head.manifest.layers.length : 0}
-          drawnEntities={layers.state.drawnEntityCount()}
-          entityCount={layers.state.entityCount()}
-          selectionCount={held.selected.length}
-          firstPaint={paint.firstPaint}
-          renderer={paint.renderer}
-          partial={layers.rows.some((row) => row.failed)}
-          snap={snap}
-        />
-      ),
-      [sheetName, camera.camera, sheet.head, sheet.loadedLayers, layers.state, layers.rows, held.selected.length, paint.firstPaint, paint.renderer, snap],
-    ),
-  );
-
-  // §3.1: "appears on selection… absent — width 0, not a placeholder sentence — when nothing is
-  // selected". The pin is the one lawful way to hold it open at rest, because the scale tab is a
-  // door onto every view's scale and is not a fact about a selection (I-152, R-TO-020).
-  const selected = held.selected.length > 0 || initialLine !== null || inspectorPinned;
-  useInspector(
-    useMemo(
-      () =>
-        drawable && selected ? (
-          <InspectorTabs
-            inspector={{ hover: pointer.hovered, selection: held.selected, missing: held.missing, trace: line.block, cited, onCopy: (key: string) => navigator.clipboard.writeText(key), onReveal: () => trace.reveal(held.selection), onClear: () => held.hold([]) }}
-            scale={scale}
-            snap={snap}
-            views={partition.views}
-          />
-        ) : null,
-      [drawable, selected, pointer.hovered, held.selected, held.missing, held.selection, held.hold, line.block, cited, trace, scale, snap, partition.views],
-    ),
-  );
+  const slots = useViewerSlots({
+    denied, head: sheet.head, tool, setTool, snap, camera, layersOpen, setLayersOpen, inspectorPinned, setInspectorPinned,
+    sheetName, loadedLayers: sheet.loadedLayers, layers, held, paint, statusRef, initialLine, pointer, line, cited, trace, scale, partition,
+  });
 
   // A head that cannot be read at all is the error state and nothing else: it is raised into the
   // render, where the root error boundary — the tree's one home for a fault — takes it (I-81).
@@ -300,7 +232,12 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
       {/* The sheet names itself once, as the house style has every screen do: heading navigation
           lands on the sheet a reader opened rather than nowhere (R-UI-050's siblings, axe). */}
       <h1 className="cx-viewer-hidden">{fill(strings.viewer_canvas_label, { layout: sheetName })}</h1>
+      {/* The frame's tool row and readout are the frame's WHERE THERE IS A FRAME. Mounted without
+          one — a jsdom mount of this screen, the gallery's evidence renderer — the two regions stand
+          here, where they would stand anyway, rather than vanishing into a no-op (`slots.tsx`). */}
+      {slots.framedToolbar ? null : slots.toolbar}
       <div className="cx-viewer-work">{workArea()}</div>
+      {slots.framedStatus ? null : slots.readout}
       {partition.dialog}
       {scale.dialog}
     </div>

@@ -17,6 +17,14 @@
  * The prop on `AppShell` stays what it was: a frame mounted without a screen (the gallery's
  * evidence renderer) still states a readout, and a screen that mounts through the hook overrides it
  * for as long as that screen is on. Leaving the screen puts the frame's own back.
+ *
+ * BOTH HOOKS ANSWER WHETHER THE FRAME TOOK THE REGION, and that answer is the whole of their
+ * contract with a screen rendered outside one. A screen mounted without the frame — a jsdom test of
+ * the viewer, the gallery's evidence renderer — handed its readout to a no-op and lost it: the
+ * region simply did not exist, and the first thing that noticed was an assertion looking for a
+ * readout that a person would also have looked for and not found. `useInspector` may answer nothing
+ * because an inspector with no frame has nowhere to be; a READOUT and a TOOL ROW are the screen's own
+ * content and always have somewhere to be, which is where they stand when no frame claims them.
  */
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
@@ -42,23 +50,28 @@ export function ShellSlotsProvider({ children }: { children: ReactNode }) {
  * A screen rendered outside the frame finds no provider and this is a no-op, so no component is
  * ever made to know whether it is inside the shell.
  */
-export function useShellToolbar(toolbar: ReactNode | null): void {
+export function useShellToolbar(toolbar: ReactNode | null): boolean {
   const set = useContext(SlotsContext)?.setToolbar;
   useEffect(() => {
     if (set === undefined) return;
     set(toolbar);
     return () => set(null);
   }, [set, toolbar]);
+  return set !== undefined;
 }
 
-/** The same, for the readout: the screen owns the cells, the frame owns the line (§3.1). */
-export function useShellStatus(status: ReactNode | null): void {
+/**
+ * The same, for the readout: the screen owns the cells, the frame owns the line (§3.1).
+ * Answers whether a frame took it; `false` means the screen renders it where it stands.
+ */
+export function useShellStatus(status: ReactNode | null): boolean {
   const set = useContext(SlotsContext)?.setStatus;
   useEffect(() => {
     if (set === undefined) return;
     set(status);
     return () => set(null);
   }, [set, status]);
+  return set !== undefined;
 }
 
 /** The slots as the frame reads them. Absent provider = both empty, which is the frame's default. */

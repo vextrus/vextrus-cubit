@@ -24,7 +24,6 @@ import {
   ROUTE_LOCAL_TIMELINE,
   SHEET_INDEX_MODULE,
   TESTIDS,
-  drawingsStrings,
   errorsModule,
   expectNoEventSource,
   kindNames,
@@ -194,21 +193,30 @@ const SCREEN_PROPS = {
   awaitingIngest: 0,
 };
 
-test("AC-1: S-Drawings' timeline IS the pattern — the screen renders the one home", async () => {
+/**
+ * AC-1, AMENDED IN PLACE (B-20) by v22 U2's rebuild of §3.4.
+ *
+ * This test used to mount S-Drawings at rest and assert that the timeline stood there IDLE, showing
+ * the pattern's own "nothing is being read" sentence. Design Direction 00 §3.4 retires exactly that:
+ * "the job timeline appears inline above the grid ONLY WHILE A JOB RUNS, then collapses to the jobs
+ * tray". An idle strip on a screen where nothing is happening is a region that costs the sheet grid
+ * 40 px to say nothing — and on this screen it was one of the four regions whose height was the
+ * length of its data, which is why S-Drawings needed a height budget of 3 168 px at all.
+ *
+ * The SENTENCE AC-1 makes is untouched: S-Drawings renders the pattern and not a copy of it. That
+ * claim was never really carried by this mount — markup of an idle region is cheap to hand-roll,
+ * which the comment below says in as many words — and it is proved by the DRIVEN test that follows,
+ * where a real job goes through the real hook, the real register and the real watch. So the at-rest
+ * half now asserts the law that replaced it: at rest there is no strip at all.
+ */
+test("AC-1: at rest S-Drawings shows no timeline — the strip exists only while a job runs (§3.4)", async () => {
   const { JobsProvider } = await pattern();
-  const table = await stringsTable();
-  const drawings = await drawingsStrings();
   const errors = await errorsModule();
   const { SheetIndex } = await productModule<{ SheetIndex: FunctionComponent<Record<string, unknown>> }>(SHEET_INDEX_MODULE);
 
   render(createElement(JobsProvider, { format: testFormat(errors) }, createElement(SheetIndex, { ...SCREEN_PROPS })));
 
-  const region = screen.getByTestId(TESTIDS.timeline);
-  expect(region.getAttribute("data-state"), "AC-1: no drawing is being read on a fresh index").toBe("idle");
-  // The pattern's own idle sentence, from the shared table — the route-local copy had its own key,
-  // so reading this one here is what "the same component" means observably.
-  expect(textOf(within(region).getByTestId(TESTIDS.idle))).toBe(stringOf(table, "job_timeline_idle"));
-  expect(textOf(region), "AC-1: the heading stays the screen's own copy").toContain(stringOf(drawings, "drawings_timeline_heading"));
+  expect(screen.queryByTestId(TESTIDS.timeline), "§3.4: a region with nothing in it is absent, not a placeholder (R-UI-080)").toBeNull();
 });
 
 /* ------------------------------------------------------------------ *
