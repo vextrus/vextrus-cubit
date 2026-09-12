@@ -57,13 +57,53 @@ function specs(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** The stubs the tree actually holds: `<file>` → the titles it declares. */
+/**
+ * EVERY WAY A LEG IS TAKEN OUT OF THE RUN, NOT ONLY `test.fixme` (P4b §5).
+ *
+ * This file read `\btest\.fixme\(` and nothing else, so a sixth stub could hide in plain sight as a
+ * SKIP: `test.skip("…")` declares a test nobody runs, `test.describe.skip` takes a whole file out at
+ * once, and an imperative `test.skip(condition)` in a body takes the leg out for some runs and not
+ * others — the worst of the three, because the run that skips it is the run that would have caught
+ * the defect. j-000-roster.test.ts even counted a `test.skip` title as "declares at least one test".
+ *
+ * All four spellings are read here, and all four are governed the same way: listed with the defect
+ * that owes them, or red. A conditional skip has no title to be keyed by, so it is keyed by the
+ * condition it is taken on — `test.skip(<condition>)` — which is the thing a reader needs to find it.
+ */
+const SPELLINGS: readonly { readonly what: string; readonly pattern: RegExp }[] = [
+  { what: "test.fixme", pattern: /\btest\.fixme\(\s*/g },
+  { what: "test.skip", pattern: /\btest\.skip\(\s*/g },
+  { what: "test.describe.skip", pattern: /\btest\.describe\.skip\(\s*/g },
+  { what: "describe.skip", pattern: /(?<!test\.)\bdescribe\.skip\(\s*/g },
+];
+
+/**
+ * What one file takes out of the run: a title where the spelling declares one, and the condition
+ * where it does not. Exported so the extractor is proved on payloads rather than only on the tree.
+ */
+export function stubsIn(source: string): string[] {
+  const held: string[] = [];
+  for (const { what, pattern } of SPELLINGS) {
+    for (const match of source.matchAll(pattern)) {
+      const rest = source.slice(match.index + match[0].length);
+      const quoted = /^(?:"([^"]*)"|'([^']*)'|`([^`]*)`)/.exec(rest);
+      if (quoted !== null) {
+        held.push(quoted[1] ?? quoted[2] ?? quoted[3] ?? "");
+        continue;
+      }
+      // An imperative skip: `test.skip(process.env.CI !== undefined, "…")`. The condition is the key.
+      const condition = /^([^,)]*)/.exec(rest)?.[1]?.trim() ?? "";
+      held.push(`${what}(${condition})`);
+    }
+  }
+  return held;
+}
+
+/** The stubs the tree actually holds: `<file>` → the titles and conditions it declares. */
 function declared(): Map<string, string[]> {
   const found = new Map<string, string[]>();
   for (const file of specs(LANE)) {
-    const titles = [...readFileSync(file, "utf8").matchAll(/\btest\.fixme\(\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`)?/g)].map(
-      (match) => match[1] ?? match[2] ?? match[3] ?? "",
-    );
+    const titles = stubsIn(readFileSync(file, "utf8"));
     if (titles.length > 0) found.set(relative(REPO_ROOT, file), titles);
   }
   return found;
@@ -75,7 +115,7 @@ describe("every declared stub in the journey lane is governed (Q-08, C-06, B-19)
   it("names the defect it waits on — an anonymous fixme is a deletion nobody can audit", () => {
     for (const [file, titles] of found) {
       for (const title of titles) {
-        expect(title, `${file}: a \`test.fixme\` with no title is an assertion that vanished silently`).not.toBe("");
+        expect(title, `${file}: a declared stub with no title is an assertion that vanished silently`).not.toBe("");
         expect(title.length, `${file}: "${title}" says too little to be found again`).toBeGreaterThan(20);
       }
     }
@@ -99,5 +139,29 @@ describe("every declared stub in the journey lane is governed (Q-08, C-06, B-19)
       Object.keys(entries).filter((title) => !(found.get(file) ?? []).includes(title)).map((title) => `${file} — ${title}`),
     );
     expect(dead, "this fixme is no longer in the tree (restored, renamed or deleted) — delete its line (B-19)").toEqual([]);
+  });
+});
+
+describe("the roster reads every spelling that takes a leg out of the run (P4b §5)", () => {
+  it("sees a skipped test, a skipped describe and a conditional skip, not only a fixme", () => {
+    const source = [
+      'test.fixme("the pulse is repainted after the fly-to settles", async () => {});',
+      'test.skip("the sixth stub, hiding as a skip", async () => {});',
+      'test.describe.skip("a whole file taken out at once", () => {});',
+      "test(\"one that runs\", async () => {",
+      "  test.skip(process.env.CI !== undefined, \"not on CI\");",
+      "});",
+      "",
+    ].join("\n");
+    expect(stubsIn(source)).toEqual([
+      "the pulse is repainted after the fly-to settles",
+      "the sixth stub, hiding as a skip",
+      "test.skip(process.env.CI !== undefined)",
+      "a whole file taken out at once",
+    ]);
+  });
+
+  it("finds nothing in a file that takes nothing out", () => {
+    expect(stubsIn('test("J-000 m0: the door answers", async () => {\n  await expect(page).toHaveURL("/");\n});\n')).toEqual([]);
   });
 });

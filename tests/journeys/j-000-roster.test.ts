@@ -143,6 +143,38 @@ function runsATest(source: string): boolean {
   return /(^|\s)test\s*\(/m.test(source);
 }
 
+/** One runnable leg in a file: the title it declares and how much of the product it judges. */
+export interface LegTest {
+  readonly title: string;
+  /** How many `expect(` calls stand in this test's body. Zero is a leg that walks and judges nothing. */
+  readonly assertions: number;
+}
+
+/**
+ * THE ASSERTIONS EACH RUNNABLE TEST MAKES (P4b §5).
+ *
+ * `runsATest` only proves the text `test(` occurs, so a leg gutted to `test("J-000 m1: …", async ()
+ * => {})` is a shipped milestone's leg in good standing: collected, green, and judging nothing. The
+ * roster therefore counts what the leg ASSERTS, per test rather than per file — a file whose first
+ * leg asserts twenty and whose second asserts nothing is exactly the case a file-wide count hides.
+ *
+ * The body of a test runs to the next test declaration in the file, which is what a `test(` at the
+ * top level means: they do not nest. `expect(` is counted wherever it stands in that span, including
+ * inside a helper the leg declares for itself — a helper is where a leg's assertions often live.
+ */
+export function assertionsPerLeg(source: string): LegTest[] {
+  const declaration = /\btest(?:\.fixme|\.skip|\.only)?\s*\(\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`)/g;
+  const found = [...source.matchAll(declaration)];
+  return found
+    .map((match, at) => {
+      const title = match[1] ?? match[2] ?? match[3] ?? "";
+      const runnable = /\btest\s*\($/.test(source.slice(Math.max(0, match.index - 2), match.index + match[0].indexOf("(") + 1));
+      const body = source.slice(match.index, found[at + 1]?.index ?? source.length);
+      return { title, assertions: runnable ? (body.match(/\bexpect\s*\(/g) ?? []).length : -1 };
+    })
+    .filter((leg) => leg.assertions >= 0);
+}
+
 describe("AM-09 §2: the golden path is a directory, and its legs are derived from the Bible", () => {
   it("every leg file names a milestone and is collected under the journey's own id", () => {
     const found = legs();
@@ -248,6 +280,20 @@ describe("AM-09 §2: the golden path is a directory, and its legs are derived fr
     }
   });
 
+  it("a leg that runs makes assertions — a gutted body is a shipped leg judging nothing (P4b §5)", () => {
+    for (const leg of legs()) {
+      if (!(SHIPPED as readonly string[]).includes(leg.milestone)) continue;
+      if (/MISSING DOOR:/.test(leg.source)) continue;
+      const running = assertionsPerLeg(leg.source);
+      expect(running.length, `${leg.file} is a shipped milestone's leg, so it holds at least one test that runs`).toBeGreaterThan(0);
+      const silent = running.filter((one) => one.assertions === 0).map((one) => `${leg.file} — "${one.title}"`);
+      expect(
+        silent,
+        `these legs walk the golden path and judge nothing: a \`test\` with no \`expect(\` in it is green by construction, and AM-09 §2's promise that the path "must stay green forever" is worth exactly what it asserts:\n  ${silent.join("\n  ")}`,
+      ).toEqual([]);
+    }
+  });
+
   it("no leg is hand-staged: a leg file installs no product state outside the browser (AM-09 §2)", () => {
     for (const leg of legs()) {
       const imports = [...leg.source.matchAll(/from\s+"([^"]+)"/g)].map((match) => match[1] ?? "");
@@ -261,5 +307,28 @@ describe("AM-09 §2: the golden path is a directory, and its legs are derived fr
         `${leg.file} reaches for product modules or a stage instead of clicking what a customer clicks — "a leg that cannot be reached through the UI is a missing screen, not a licence to stage" (AM-09 §2):\n  ${staged.join("\n  ")}`,
       ).toEqual([]);
     }
+  });
+});
+
+describe("the roster's own counter, proved on payloads rather than on the tree (P4b §5)", () => {
+  it("reads an emptied body as zero assertions, and a walked one as what it judges", () => {
+    const source = [
+      'test("J-000 m1: the discipline is confirmed", async () => {',
+      "  await page.goto('/');",
+      "});",
+      'test("J-000 m1: and the offer is gone", async ({ page }) => {',
+      '  await expect(page.getByTestId("offer")).toHaveCount(0);',
+      '  expect(await steadyCount(rows, "rows")).toBe(3);',
+      "});",
+      "",
+    ].join("\n");
+    expect(assertionsPerLeg(source)).toEqual([
+      { title: "J-000 m1: the discipline is confirmed", assertions: 0 },
+      { title: "J-000 m1: and the offer is gone", assertions: 2 },
+    ]);
+  });
+
+  it("does not count a declared stub's body — a fixme asserts nothing on purpose", () => {
+    expect(assertionsPerLeg('test.fixme("J-000 m3: the bill is emitted", async () => {\n  await nothing();\n});\n')).toEqual([]);
   });
 });
