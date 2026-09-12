@@ -11,15 +11,28 @@ throws away every committed picture at once, so nothing in the tree can testify 
 lawful. It is therefore taken **once**, by **one** node, under **one** named lease — the sentence
 above, which is written in the commit message and here, and nowhere else.
 
-**STATUS, 2026-09-12: THE LEASE IS WRITTEN AND UNEXERCISED.** The four edits it authorises are
-prepared, reviewed and staged as `the-lease.patch` beside this file; they are deliberately NOT
-committed, because flipping the geometry without re-taking the pictures in the same commit turns
-every journey in the wall red against baselines of another world — which is the one thing a
-whole-tree re-baseline must never do. The run that takes them needs the two heavy slots for the
-length of eleven journeys in two themes, and on 2026-09-12 both were held by other nodes for the
-whole of this session. The lease does not expire and it has not been spent: the next node applies
-`the-lease.patch`, runs the one `--update-snapshots` walk, and commits the result as the single
-commit named below.
+**STATUS, 2026-09-12: THE LEASE IS WRITTEN, VERIFIED AND UNEXERCISED.** The five edits it authorises
+are in `the-lease.patch` beside this file. They have been APPLIED ONCE, type-checked and run against
+the unit lane, and the one contract they broke was fixed inside the patch rather than worked around —
+`tests/journeys/j-004-gallery-contract.test.ts` holds the lane to exactly ONE `snapshotPathTemplate`
+(Q-06), so the two lanes are routed by `{projectName}` from a single declaration instead of by a
+per-project override. The patch then applies cleanly to a green tree; `git apply --check` passes.
+
+It is NOT committed, for two reasons, and the second is the one that stopped this session.
+
+1. Flipping the geometry without re-taking the pictures IN THE SAME COMMIT turns every journey in
+   the wall red against baselines of another world — the one thing a whole-tree re-baseline must
+   never do. So the flip and the `--update-snapshots` walk are lawfully one commit or neither.
+2. **The walk begins by deleting every committed baseline PNG in the tree, and that is a destructive,
+   irreversible change to a shared resource that no agent may authorise for another.** This node was
+   handed the lease sentence by the integrator; a sentence in a brief is not the founder's consent to
+   `git rm` the product's entire visual evidence. The harness refused the deletion, and refusing it
+   was correct. THE LEASE NEEDS A HUMAN TO SPEND IT.
+
+To spend it: apply `the-lease.patch`, delete `tests/e2e/baselines/design*/`, run ONE walk with
+`--update-snapshots` across both projects, and commit the whole of it as the single commit named
+below. Nothing else in this directory depends on it except the stills, which are pictures OF the
+re-baselined world.
 
 What the lease buys, in one commit
 (`baseline: v22 U2 — every design baseline re-taken in both themes at the §9.3 geometry (the one lease)`):
@@ -30,8 +43,13 @@ What the lease buys, in one commit
    hidden, the whole screen captured and **capped at twice the viewport height**. U1b wired it and
    left it dark; flipping it is this node's act, not that one's.
 2. **The dark project becomes the default lane.** Dark is the product's ground (Direction §1), so it
-   is the lane's ground. Its baselines live in `tests/e2e/baselines/design-dark/`, the light lane's
-   stay in `tests/e2e/baselines/design/`, and a checkpoint's two pictures differ only by that folder.
+   is the lane's ground. Its baselines live in `tests/e2e/baselines/design-dark/` and the light
+   lane's in `tests/e2e/baselines/design-light/`, so a checkpoint's two pictures differ only by that
+   folder. Both come from ONE `snapshotPathTemplate` carrying `{projectName}`: Q-06 and
+   `tests/journeys/j-004-gallery-contract.test.ts` hold the lane to a single declaration of where a
+   baseline lives, and a per-project override would be two homes for one fact. The light lane's
+   pictures therefore move from `design/` to `design-light/` — every one of them is re-taken here
+   anyway, so no picture in the tree predates the lease.
 3. **Every old baseline PNG is deleted and re-taken** — both themes, one run,
    `--update-snapshots`. No picture in the tree may predate the lease.
 4. **`tests/e2e/support/height-budget.ts` is empty** — this part IS landed, in the S-Drawings
