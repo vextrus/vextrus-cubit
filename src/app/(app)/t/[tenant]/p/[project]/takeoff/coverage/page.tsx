@@ -12,10 +12,7 @@ import { CELL_PARAM } from "@/modules/takeoff/coverage";
 import { coverageViewOf } from "@/modules/takeoff/coverage/server";
 import { COVERAGE_COPY } from "@/modules/takeoff/coverage/copy";
 import type { CoverageView } from "@/modules/takeoff/coverage/view";
-import { projectHeld } from "@/modules/spine/projects";
-import { sessionOf } from "@/server/shell/resolve";
-import { presentedSessionToken } from "@/server/shell/session";
-import { notFound, redirect } from "next/navigation";
+import { authorizePage } from "@/server/authorize-page";
 import { CoverageScreen } from "./coverage-screen";
 
 export const metadata = { title: COVERAGE_COPY.takeoff_coverage_heading };
@@ -46,25 +43,26 @@ export default async function ProjectCoverage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { tenant, project } = await params;
-  const session = await sessionOf(await presentedSessionToken());
-  // The frame's own layout redirects a sessionless request; reaching here without one at all is a
-  // race with a session that ended, and the way back in is the same door.
-  if (session === null) redirect("/sign-in");
-
-  // An address naming no project of this workspace is an absence, not an empty grid and not a
+  // The choke point, asked by this page for itself (B-17, ARCH-02): session, then the workspace the
+  // PROJECT is really in — never the segment, which is a value the caller wrote — then the read.
+  // `projectHeld` answered a different question: "is that project in that workspace", which is true
+  // of a workspace the caller has never been a member of, and it armed the row policy with the
+  // segment on the way. The reads below are scoped by what the guard answered, and the permission
+  // this screen discloses is read for the account the guard resolved.
+  // An address naming no project this session may have is an absence, not an empty grid and not a
   // permission short of SET_BILL_BOUNDARY (R-UI-050 asks each state to say the true thing).
-  if (!(await projectHeld({ tenantId: tenant }, project))) notFound();
+  const { tenantId, userId } = await authorizePage({ tenant, project });
 
-  const permitted = await holdsBoundary(tenant, project, session.userId);
+  const permitted = await holdsBoundary(tenantId, project, userId);
 
   // A read that fails is a fault, not an empty residue: it is recorded once, at the one seam that
   // mints a report id, and the screen quotes that id beside its retry (ARCH-03, B-21).
   let view: CoverageView | null = null;
   let reportId: string | null = null;
   try {
-    view = await coverageViewOf({ tenantId: tenant, projectId: project });
+    view = await coverageViewOf({ tenantId, projectId: project });
   } catch (cause) {
-    reportId = reportFault({ requestId: crypto.randomUUID(), actor: session.userId, route: "/t/[tenant]/p/[project]/takeoff/coverage", cause }).faultId;
+    reportId = reportFault({ requestId: crypto.randomUUID(), actor: userId, route: "/t/[tenant]/p/[project]/takeoff/coverage", cause }).faultId;
   }
 
   return <CoverageScreen view={view} projectId={project} permitted={permitted} reportId={reportId} initialCell={cellNamed(await searchParams)} />;

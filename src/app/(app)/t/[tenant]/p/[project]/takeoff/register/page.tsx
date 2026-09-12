@@ -10,11 +10,8 @@ import { forTenant } from "@/core/db";
 import { reportFault } from "@/core/faults/report";
 import { registerViewOf } from "@/modules/takeoff/register-ui/server";
 import type { RegisterView } from "@/modules/takeoff/register-ui/view";
-import { projectHeld } from "@/modules/spine/projects";
-import { sessionOf } from "@/server/shell/resolve";
-import { presentedSessionToken } from "@/server/shell/session";
+import { authorizePage } from "@/server/authorize-page";
 import { strings } from "@/ui/strings";
-import { notFound, redirect } from "next/navigation";
 import { RegisterScreen } from "./register-screen";
 
 export const metadata = { title: strings.takeoff_register_heading };
@@ -33,26 +30,27 @@ async function holdsMeasure(tenantId: string, projectId: string, userId: string)
 
 export default async function ProjectRegister({ params }: { params: Promise<{ tenant: string; project: string }> }) {
   const { tenant, project } = await params;
-  const session = await sessionOf(await presentedSessionToken());
-  // The frame's own layout redirects a sessionless request; reaching here without one at all is a
-  // race with a session that ended, and the way back in is the same door.
-  if (session === null) redirect("/sign-in");
+  // The choke point, asked by this page for itself (B-17, ARCH-02): session, then the workspace the
+  // PROJECT is really in — never the segment, which is a value the caller wrote — then the read.
+  // `projectHeld` answered a different question: "is that project in that workspace", which is true
+  // of a workspace the caller has never been a member of, and it armed the row policy with the
+  // segment on the way. The reads below are scoped by what the guard answered, and the permission
+  // this screen discloses is read for the account the guard resolved.
+  // An address naming no project this session may have is an absence, not an empty register and not
+  // a permission short of MEASURE (R-UI-050 asks each state to say the true thing).
+  const { tenantId, userId } = await authorizePage({ tenant, project });
 
-  // An address naming no project of this workspace is an absence, not an empty register and not a
-  // permission short of MEASURE (R-UI-050 asks each state to say the true thing).
-  if (!(await projectHeld({ tenantId: tenant }, project))) notFound();
-
-  const permitted = await holdsMeasure(tenant, project, session.userId);
+  const permitted = await holdsMeasure(tenantId, project, userId);
 
   // A read that fails is a fault, not an empty register: it is recorded once, at the one seam that
   // mints a report id, and the screen quotes that id beside its retry (ARCH-03, B-21).
   let view: RegisterView | null = null;
   let reportId: string | null = null;
   try {
-    view = await registerViewOf({ tenantId: tenant, projectId: project });
+    view = await registerViewOf({ tenantId, projectId: project });
   } catch (cause) {
-    reportId = reportFault({ requestId: crypto.randomUUID(), actor: session.userId, route: "/t/[tenant]/p/[project]/takeoff/register", cause }).faultId;
+    reportId = reportFault({ requestId: crypto.randomUUID(), actor: userId, route: "/t/[tenant]/p/[project]/takeoff/register", cause }).faultId;
   }
 
-  return <RegisterScreen view={view} tenantId={tenant} projectId={project} permitted={permitted} reportId={reportId} />;
+  return <RegisterScreen view={view} tenantId={tenantId} projectId={project} permitted={permitted} reportId={reportId} />;
 }
