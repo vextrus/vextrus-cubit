@@ -69,6 +69,7 @@ export function changedPaths(root, git) {
       const result = spawnSync("git", argv, { cwd: root, encoding: "utf8" });
       return { status: result.error === undefined ? result.status : 1, stdout: result.stdout ?? "" };
     });
+  /** @param {string} text @returns {string[]} */
   const lines = (text) => text.split("\n").map((line) => line.trim()).filter((line) => line !== "");
 
   const head = run(["rev-parse", "--abbrev-ref", "HEAD"]);

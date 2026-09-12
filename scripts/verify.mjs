@@ -62,7 +62,7 @@ const CAD_LANE = cadLane(ROOT);
  * nobody can audit, so the cad lane names the regeneration it deselected and why (V-VERIFY).
  * @type {Readonly<Record<string, string>>}
  */
-export const LANE_NOTES = Object.freeze(CAD_LANE.note === null ? {} : { cad: CAD_LANE.note });
+export const LANE_NOTES = Object.freeze(/** @type {Record<string, string>} */ (CAD_LANE.note === null ? {} : { cad: CAD_LANE.note }));
 
 /**
  * What each lane runs when it is armed. Keyed by the lane ids deriveLanes yields; the roster still
