@@ -38,6 +38,22 @@ export const SCREEN_HEIGHT_BUDGET: Readonly<Record<string, number>> = Object.fre
    * all, which is what the rebuild is trying to earn.
    */
   "j-010-timeline-done": 2989,
+
+  /**
+   * The same screen, at a sister checkpoint the walk has now reached — S-Drawings with the offered
+   * discipline confirmed, measured at 2 417 px by `cubit-u2e`'s light-lane run of
+   * `tests/e2e/journeys/j-000/m1-confirm-disciplines.spec.ts` on 2026-09-12 and by nothing else.
+   * It is written for the reason the entry above is: a walk measured it, so it is a MEASUREMENT and
+   * no longer a guess, and the debt goes on the books rather than into a red nobody owns.
+   *
+   * It stands 572 px shorter than `j-010-timeline-done` because there the jobs timeline is open
+   * over the same list; the screen and the debt are the same node's. OWED BY: the node that
+   * finishes S-Drawings under Design Direction 00 §9.3 — 617 px on this reading of the screen.
+   *
+   * The three remaining sisters (`j-010-jobs-tray-open`, `j-010-sheets-fanned-out`,
+   * `j-010-sheets-uploaded`) stay absent on the same rule: nothing has measured them.
+   */
+  "j-000/disciplines-confirmed": 2417,
 });
 
 /** The recorded height for a checkpoint, or `null` where §9.3's cap stands unaltered. */

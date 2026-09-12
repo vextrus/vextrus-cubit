@@ -49,7 +49,7 @@ interface AxeViolation {
   id: string;
   impact: string | null;
   help: string;
-  nodes: { target: string[] }[];
+  nodes: { target: string[]; failureSummary?: string }[];
 }
 
 /** What the capture measured, so a failure can say which screen was how tall. */
@@ -60,9 +60,17 @@ interface Capture {
   readonly body: Buffer;
 }
 
-/** The one-line summary of a violation, as a failure message prints it. */
+/**
+ * The summary of a violation, as a failure message prints it — INCLUDING axe's own reason for each
+ * node. The selector and the rule's help name WHAT failed; `failureSummary` is the only place axe
+ * says WHY, and the distinction it draws is the whole of the fix: a `target-size` node is either too
+ * small (a measure) or obscured by something painted over it (a layout), and the two have nothing in
+ * common. Without it, every reader of this message has had to open the trace to learn which — and
+ * one of them guessed instead.
+ */
 function describe(violation: AxeViolation): string {
-  return `${violation.impact} ${violation.id}: ${violation.help} at ${violation.nodes.map((node) => node.target.join(" ")).join(" | ")}`;
+  const nodes = violation.nodes.map((node) => `${node.target.join(" ")}${node.failureSummary === undefined ? "" : ` — ${node.failureSummary.replace(/\s+/g, " ").trim()}`}`);
+  return `${violation.impact} ${violation.id}: ${violation.help} at ${nodes.join(" | ")}`;
 }
 
 /**

@@ -145,6 +145,12 @@ test.describe("J-000 — Golden Path: the uploaded drawing's sheet opens, and on
           return total > 0 && (await viewer.statusNumber("data-loaded-layers")) === total;
         }, { timeout: 120_000, message: "every layer of the sheet arrives" })
         .toBe(true);
+      // ACT FIRST, because the screen now asks for the act: Direction §3.1 makes the shell's one
+      // right slot "absent — width 0, not a placeholder sentence — when nothing is selected", so an
+      // idle inspector is READ by doing what a person does — pressing `V≡`, the pin that holds the
+      // panel open at rest (I-152). The clause below is untouched and still the point: the panel a
+      // reader opens on a freshly painted sheet holds NOTHING.
+      await viewer.pinInspector();
       await expect(viewer.inspector, "the inspector stands, holding nothing yet").toHaveAttribute("data-count", "0");
       await checkpoint(page, testInfo, "j-000/sheet-open");
 

@@ -114,7 +114,16 @@ test.describe("J-000 — Golden Path: sign up, name the workspace, create the fi
      *     been issued, which is exactly the copy §6 takes off the screen, and R-UI-080's rule is
      *     that a region with nothing in it is absent rather than a placeholder.
      */
-    await expect(card.getByTestId("s-home-project-status"), "each entry carries its status").toBeVisible();
+    // The status is read WHERE § 7's table puts it: the span "holding the archived `Badge` … and
+    // nothing at all when the project is active" (I-35; § 8 retires `home_status_active` in as many
+    // words — "an active project wears no word"). The span is therefore an empty box on an active
+    // row, and a visibility read of it asks the screen for the placeholder word R-UI-080 takes off
+    // it. What the row carries is the status itself, published on the hook every status is
+    // published on — and this NAMES the state the row must be in rather than asking whether a box
+    // was painted, so it is stricter than the read it replaces, not looser.
+    const status = card.getByTestId("s-home-project-status");
+    await expect(status, "each entry carries its status").toHaveAttribute("data-status", "active");
+    await expect(status.getByTestId("s-home-project-archived-badge"), "and an active project wears no word for that one (I-35)").toHaveCount(0);
     await expect(card.getByTestId("s-home-project-last-activity"), "each entry carries its last activity").toBeVisible();
 
     const rowMenu = await home.openRowMenu(projectId);
