@@ -6,7 +6,7 @@
 // A mail is a fact about what was sent, not a template: it carries the address, what the link is
 // for, the link itself and the token inside it. Rendering a message is a later concern with a real
 // provider behind it; nothing here pretends to be one.
-import { chmodSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { isAbsolute, join, resolve } from "node:path";
 import { oncePerWindow } from "./once-per-window";
@@ -69,10 +69,19 @@ export function resetOutboxSweep(): void {
   sweep.reset();
 }
 
+/**
+ * The suffix a mail wears while it is still only half of one. No reader looks at it (`readOutbox`
+ * and the sweep both want `.json`), so a mail is invisible until it is whole — and a writer killed
+ * mid-write leaves its litter here rather than in the readers' way.
+ */
+const PARTIAL_SUFFIX = ".tmp";
+
 /** Drop every mail whose credential can no longer be spent. `force` so a concurrent send racing us is not an error. */
 function dropSpentMail(directory: string, now: number): void {
   for (const name of readdirSync(directory)) {
-    if (!name.endsWith(".json")) continue;
+    // The sweep is also what ends the litter of a killed writer: a `.json.tmp` past the retention is
+    // nobody's half-written mail any more, and nothing else would ever remove it.
+    if (!name.endsWith(".json") && !name.endsWith(`.json${PARTIAL_SUFFIX}`)) continue;
     const path = join(directory, name);
     const at = statSync(path, { throwIfNoEntry: false })?.mtimeMs;
     if (at !== undefined && now - at > OUTBOX_RETENTION_MS) rmSync(path, { force: true });
@@ -81,8 +90,15 @@ function dropSpentMail(directory: string, now: number): void {
 
 /**
  * Send a mail: one file, named so that two mails sent in the same millisecond cannot collide and so
- * that a reader can take the newest by modification time. Written whole rather than appended — a
- * half-written JSON file is a mail nobody can read.
+ * that a reader can take the newest by modification time.
+ *
+ * The mail arrives ATOMICALLY: the bytes are put down under `<name>.json.tmp`, which no reader
+ * looks at, and `rename`d into place — a rename within a directory either happened or did not, so
+ * the mail's own name never denotes half a mail. Written whole was not enough: every reader of this
+ * outbox parses every file it finds, so between the `open` and the last byte the file is already
+ * visible and already unparseable, and a writer that dies in that window (a power cut, an OOM kill)
+ * leaves a torn file behind for good — which every reader then throws on, reporting an environment's
+ * accident as the product's verdict.
  *
  * The spent mail is dropped before the new one is written, so a delivery that fails is a delivery
  * that failed rather than one that also left the outbox unswept.
@@ -95,8 +111,8 @@ export function deliver(mail: OutboxMail): void {
   chmodSync(directory, OUTBOX_MODE);
   const now = Date.now();
   if (sweep.due(now)) dropSpentMail(directory, now);
-  writeFileSync(join(directory, `${Date.now().toString(36)}-${randomUUID()}.json`), `${JSON.stringify(mail, null, 2)}\n`, {
-    encoding: "utf8",
-    mode: MAIL_MODE,
-  });
+  const path = join(directory, `${Date.now().toString(36)}-${randomUUID()}.json`);
+  const partial = `${path}${PARTIAL_SUFFIX}`;
+  writeFileSync(partial, `${JSON.stringify(mail, null, 2)}\n`, { encoding: "utf8", mode: MAIL_MODE });
+  renameSync(partial, path);
 }
