@@ -22,7 +22,7 @@
 // The answer is a closed refusal in both of the shapes the tree already carries one in — a returned
 // `RefusalCode` for the action doors that answer with a union, and the settled refusal marker for
 // the tRPC doors that throw. Nothing here throws a raw Error at a caller (ARCH-03, B-21).
-import { permissionNotHeld, permissionsHeld, type ActType, type ActorCtx, type Permission } from "../core/acts";
+import { participatesIn, permissionNotHeld, permissionsHeld, type ActType, type ActorCtx, type Permission } from "../core/acts";
 import { and, drawings, eq, forTenant, isUuid, projects, runAsSystem } from "../core/db";
 import { REFUSALS, type RefusalCode } from "../core/errors";
 import { refusal } from "../core/faults/refusal-marker";
@@ -44,6 +44,17 @@ export type AuthorizeRequest = {
   readonly projectId?: string;
   readonly drawingId?: string;
   readonly permission?: Permission;
+  /**
+   * L-ACT-03's OTHER question, which a permission cannot ask: is this person ON the project at all?
+   * The clause admits a door "tenant OWNER/ADMIN or participation on the project", and every read of
+   * what a project holds is a participant's daily work — a door that asked MEASURE for a READ locked
+   * out four of the six shipped roles (REVIEWER, LEAD, ESTIMATOR, BID_MANAGER hold no MEASURE).
+   *
+   * At M0 the clause reduces to participation: `memberships` carries no role column and the tree
+   * declares no tenant OWNER/ADMIN anywhere, exactly as the lifecycle seam records. When workspace
+   * roles land, this is where the OR widens.
+   */
+  readonly participation?: boolean;
   /** The act the permission is moving, or null on a read path — it words the refusal (L-ACT-03). */
   readonly actType?: ActType | null;
 };
@@ -85,6 +96,15 @@ export async function authorize(request: AuthorizeRequest): Promise<AuthorizeAns
     if (request.projectId === undefined) return { authorized: false, refusal: PERMISSION_NOT_HELD };
     const held = await forTenant({ tenantId }).transaction(async (tx) => permissionsHeld(tx, request.projectId as string, request.userId));
     if (!held.has(request.permission)) return { authorized: false, refusal: PERMISSION_NOT_HELD };
+  }
+
+  // Participation, where the door asks for it. Asked after membership and beside the permission,
+  // because it is the same shape of question about the same project: a door may name either, or
+  // both. The refusal is the one a project door already answers with (R-SPINE-062, B-06).
+  if (request.participation === true) {
+    if (request.projectId === undefined) return { authorized: false, refusal: PERMISSION_NOT_HELD };
+    const onIt = await forTenant({ tenantId }).transaction(async (tx) => participatesIn(tx, request.projectId as string, request.userId));
+    if (!onIt) return { authorized: false, refusal: PERMISSION_NOT_HELD };
   }
 
   // The drawing is bound to the project that named it, not merely to the workspace. The row policy

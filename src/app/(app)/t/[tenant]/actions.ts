@@ -97,9 +97,6 @@ export async function renameWorkspaceAction(_shown: RenameFormState, form: FormD
   return renaming(Object.fromEntries(form));
 }
 
-/** What L-ACT-03 makes project lifecycle move: the PRINCIPAL-only bundle the seam refuses by name. */
-const LIFECYCLE_PERMISSION = "ADMINISTER_PROJECT" as const;
-
 /** What the project form is showing: nothing yet, or the answer the last submission produced. */
 export type ProjectFormState =
   | { saved: true; projectId: string }
@@ -219,9 +216,15 @@ export async function restoreProjectAction(tenantId: string, projectId: string):
  *
  * The question is the guard's and no longer this file's (B-17, ARCH-02). It used to stop at
  * `holdsWorkspace`, which is the half-question: ANY member of the workspace could archive, restore
- * or rewrite the fields of ANY project in it, whatever they held on that project. L-ACT-03 names
- * what lifecycle moves — ADMINISTER_PROJECT, the PRINCIPAL-only bundle — and the seam behind these
- * three doors refuses by that very name, so the door now asks for it before the seam is called.
+ * or rewrite the fields of ANY project in it, whatever they stood in relation to that project.
+ *
+ * What it asks is the clause verbatim: "Project lifecycle and identity (archive, restore, field
+ * edits) require tenant OWNER/ADMIN or participation on the project" (L-ACT-03). NOT
+ * ADMINISTER_PROJECT — the seam behind these doors (`lifecycle.ts requireLifecycle`) tests
+ * PARTICIPATION and only WORDS its refusal with that permission's name, because a read-path refusal
+ * carries a name and has no act type to carry. A door that read the wording as the requirement would
+ * refuse every LEAD, MEASURER, REVIEWER, ESTIMATOR and BID_MANAGER participant the law admits, since
+ * ADMINISTER_PROJECT is deliberately PRINCIPAL-only.
  *
  * The workspace still travels: a presented tenant that disagrees with the project's real owner is
  * refused by the guard rather than believed, and the scope handed on carries the guard's answer.
@@ -230,11 +233,11 @@ async function actorIn(tenantId: string, session: AuthSession, projectId?: strin
   const answer = await authorize({
     userId: session.userId,
     tenantId,
-    // A door that names an existing project names the permission that project's lifecycle moves, and
-    // the guard tests it against the grants the ledger holds. A creation names neither: there is no
-    // project yet to hold a grant on, so membership is what admits it — which is all this door ever
-    // asked, and all it may ask until the project exists.
-    ...(projectId === undefined ? {} : { projectId, permission: LIFECYCLE_PERMISSION, actType: null }),
+    // A door that names an existing project asks L-ACT-03's own lifecycle question — "tenant
+    // OWNER/ADMIN or PARTICIPATION on the project" — and not a permission. A creation names no
+    // project: there is nothing yet to participate in, so membership is what admits it, which is all
+    // this door ever asked and all it may ask until the project exists.
+    ...(projectId === undefined ? {} : { projectId, participation: true }),
   });
   if (!answer.authorized) return "PERMISSION_NOT_HELD";
   return { tenantId: answer.tenantId, userId: answer.userId, actorKind: "human" };

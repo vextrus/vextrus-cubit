@@ -1,7 +1,7 @@
 // L-ACT-03: "Participation is a composite FK from the act log; the permission check lives in the
 // act seam." This is that check — one guard, read from the grants the database holds minus the
 // withdrawals that countermand them, used by every door the seam has (ARCH-02).
-import { and, eq, inArray, inCurrentScope, participantRoleWithdrawals, participantRoles, type TenantTx } from "../db";
+import { and, eq, inArray, inCurrentScope, participantRoleWithdrawals, participantRoles, participants, type TenantTx } from "../db";
 import { ACT_PERMISSION, isRole, permissionsOf, type ActType, type Permission } from "./law";
 import { permissionNotHeld } from "./refusals";
 import type { ActorCtx } from "./rendering";
@@ -50,6 +50,29 @@ export async function effectiveGrants(tx: TenantTx, projectId: string, userId: s
     );
   const countermanded = new Set(withdrawn.map((row) => row.grantId));
   return granted.filter((grant) => !countermanded.has(grant.grantId)).sort((left, right) => (left.role < right.role ? -1 : left.role > right.role ? 1 : 0));
+}
+
+/**
+ * Is this person a participant of this project? L-ACT-03 cuts two different questions and the tree
+ * had only ever asked one of them: what somebody may MOVE is a permission, and whether they are ON
+ * the project at all is participation — "participants attach to (project, user), append-only,
+ * mandatory". The clause that needs the second is the lifecycle one: "Project lifecycle and identity
+ * (archive, restore, field edits) require tenant OWNER/ADMIN or participation on the project", and
+ * so does every READ of what a project holds, which is what a participant does all day.
+ *
+ * A participant with no role yet holds no permission, and a person with a role is a participant by
+ * the composite FK — so this is not `permissionsHeld(...).size > 0` and must not be written as it.
+ *
+ * Read through the tenant's own handle (the policy has cut the rows), with the tenant predicate
+ * stated as well for the reason `effectiveGrants` states it (SEAM-TENANT, R-SPINE-004).
+ */
+export async function participatesIn(tx: TenantTx, projectId: string, userId: string): Promise<boolean> {
+  const held = await tx
+    .select({ userId: participants.userId })
+    .from(participants)
+    .where(and(inCurrentScope(participants.tenantId), eq(participants.projectId, projectId), eq(participants.userId, userId)))
+    .limit(1);
+  return held[0] !== undefined;
 }
 
 /**

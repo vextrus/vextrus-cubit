@@ -2,9 +2,11 @@
  * The three project lifecycle doors ask the one guard (B-17, ARCH-02).
  *
  * `actorIn` (src/app/(app)/t/[tenant]/actions.ts) stopped at `holdsWorkspace`: ANY member of a
- * workspace could archive, restore or rewrite the fields of ANY project in it, whatever they held
- * on that project. L-ACT-03 names what lifecycle moves — ADMINISTER_PROJECT, the PRINCIPAL-only
- * bundle — and the seam behind these doors refuses by that very name, so the door asks for it.
+ * workspace could archive, restore or rewrite the fields of ANY project in it, whatever they stood
+ * in relation to that project. What it asks now is L-ACT-03's clause verbatim — "tenant OWNER/ADMIN
+ * or participation on the project" — and NOT ADMINISTER_PROJECT: the seam behind these doors tests
+ * participation and merely WORDS its refusal with that permission's name, so a door that read the
+ * wording as the requirement locked out every participant but a PRINCIPAL (the adversary's F4).
  *
  * A creation names no project: there is no project yet to hold a grant on, so membership is what
  * admits it, and the door asks the guard the workspace question alone.
@@ -68,19 +70,18 @@ beforeEach(() => {
   seams.session.mockImplementation(async () => ({ sessionId: "s", userId: "user-1" }));
 });
 
-describe("archive, restore and save ask the one guard for the permission lifecycle moves", () => {
+describe("archive, restore and save ask the one guard the clause's own question", () => {
   for (const [name, call] of [
     ["archive", () => actions.archiveProjectAction(TENANT, PROJECT)],
     ["restore", () => actions.restoreProjectAction(TENANT, PROJECT)],
   ] as const) {
-    test(`${name} names the project and ADMINISTER_PROJECT at the guard`, async () => {
+    test(`${name} names the project and its participation at the guard`, async () => {
       await call();
-      expect(guard.authorize, "L-ACT-03's PRINCIPAL-only bundle is what lifecycle moves").toHaveBeenCalledWith({
+      expect(guard.authorize, "the clause's own question: participation on the project, not a permission").toHaveBeenCalledWith({
         userId: "user-1",
         tenantId: TENANT,
         projectId: PROJECT,
-        permission: "ADMINISTER_PROJECT",
-        actType: null,
+        participation: true,
       });
     });
 
@@ -97,9 +98,9 @@ describe("archive, restore and save ask the one guard for the permission lifecyc
     const answer = await actions.saveProjectAction(null, draft());
     expect(answer).toEqual({ saved: false, refusal: "PERMISSION_NOT_HELD" });
     const asked = guard.authorize.mock.calls.at(0) as unknown[] | undefined;
-    expect(asked?.[0], "the edited project is named, so the grant can be read").toMatchObject({
+    expect(asked?.[0], "the edited project is named, so participation can be read").toMatchObject({
       projectId: PROJECT,
-      permission: "ADMINISTER_PROJECT",
+      participation: true,
     });
     expect(seams.updateProject).not.toHaveBeenCalled();
   });

@@ -26,7 +26,7 @@ const SIGN_IN = "/sign-in";
  * workspace the caller merely typed, because a presented tenant that disagrees with the project's
  * owner is refused by the guard rather than believed.
  */
-export async function authorizePage(named: { tenant: string; project?: string; permission?: Permission }): Promise<Authorized> {
+export async function authorizePage(named: { tenant: string; project?: string; permission?: Permission; participation?: boolean }): Promise<Authorized> {
   const session = await sessionOf(await presentedSessionToken());
   if (session === null) redirect(SIGN_IN);
 
@@ -35,6 +35,7 @@ export async function authorizePage(named: { tenant: string; project?: string; p
     tenantId: named.tenant,
     ...(named.project === undefined ? {} : { projectId: named.project }),
     ...(named.permission === undefined ? {} : { permission: named.permission, actType: null }),
+    ...(named.participation === true ? { participation: true } : {}),
   });
   // A project this session may not have and a project that is not there are the same answer, which
   // is the answer these pages already give for the second (notFound): a screen that distinguished
