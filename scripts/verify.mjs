@@ -18,6 +18,7 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { UNIT_LANE_KNEE, VERIFY_WAVE_SIBLINGS, laneWorkers, waveParallelism } from "./lib/box.mjs";
+import { cadLane } from "./lib/cad-lane.mjs";
 import { deriveLanes } from "./lib/lanes.mjs";
 import { announce, run, runAsync, wallTime } from "./lib/report.mjs";
 
@@ -53,6 +54,16 @@ export function unitLaneCommand(env) {
   return [...command, "--reporter=default", "--reporter=json", `--outputFile=${report}`];
 }
 
+const CAD_LANE = cadLane(ROOT);
+
+/**
+ * What a lane owes the reader beyond RUN and its verdict: one line, printed on the lane's own
+ * announcement, for a decision the lane made about ITSELF. Work a gate silently did not do is work
+ * nobody can audit, so the cad lane names the regeneration it deselected and why (V-VERIFY).
+ * @type {Readonly<Record<string, string>>}
+ */
+export const LANE_NOTES = Object.freeze(CAD_LANE.note === null ? {} : { cad: CAD_LANE.note });
+
 /**
  * What each lane runs when it is armed. Keyed by the lane ids deriveLanes yields; the roster still
  * decides which of these ever run.
@@ -78,9 +89,12 @@ export const LANE_COMMANDS = Object.freeze({
     ["node", "node_modules/vitest/vitest.mjs", "run", "--config", "tests/golden/vitest.config.ts"],
     ["uv", "run", "--project", "cad", "pytest", "-q", ...GOLDEN_PYTEST],
   ],
+  // The fixture-regeneration tests are the lane's whole wall (~80 s of ~100), and they can only
+  // break when something they read has moved; scripts/lib/cad-lane.mjs asks git whether anything
+  // did, and says so in LANE_NOTES when the answer is no.
   cad: [
     ["ruff", "check", "cad"],
-    ["pytest", "cad"],
+    CAD_LANE.argv,
   ],
   build: [["node", "node_modules/next/dist/bin/next", "build"]],
 });
@@ -170,6 +184,10 @@ export async function runChainInWaves(lanes, io = {}) {
   let code = 0;
   for (const wave of planWaves(lanes)) {
     const armed = wave.filter((lane) => report(lane));
+    for (const lane of armed) {
+      const note = LANE_NOTES[lane.id];
+      if (note !== undefined) write(`${note}\n`);
+    }
     const verdicts = await atMostAtOnce(armed, waveParallelism(armed.length), async (lane) => {
       // Every lane says what it COST, green or red. A gate whose wall-time is the only number it
       // prints can be measured but not aimed: "verify is 178 s" names no lane to make faster, and
