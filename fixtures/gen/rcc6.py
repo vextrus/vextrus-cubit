@@ -46,6 +46,9 @@ GENERATOR_REL = "fixtures/gen/rcc6.py"
 #: published figure falls on. AM-02 lets a deferral stand only where the figure is then UNDER; the
 #: one OVER-side entry is declared, not hidden, because repairing it would move the COLUMN rows
 #: AM-01 freezes for M2.
+#: The one repair v1.1 leaves OVER, and the only one whose figure the manifest states as data.
+R7_ID = "R-7-column-formwork-junction"
+
 REPAIRS = [
     {
         "id": "R-1-b5-spans",
@@ -112,10 +115,14 @@ REPAIRS = [
         "state": "DEFERRED",
         "side": "OVER",
         "what": "Column formwork keeps 2(b + d) x storey. AM-02 would take perimeter x (storey - "
-        "t_slab) less the beam-end contacts above memberEndNoDeductMaxCm2, which is about 8.6 m2 "
-        "per level less. It is not applied here because it moves the COLUMN rows AM-01 freezes "
-        "for the M2 proof, and this is the one figure v1.1 knowingly leaves over. It is the first "
-        "item of v1.2, landed with the M2 proof's own re-pin.",
+        "t_slab) less the beam-end contacts above memberEndNoDeductMaxCm2, which is two terms, not "
+        "one: the slab band each floor drives through the column under it, AND the end of every "
+        "beam framing into a column top (each B1-B4 end is 750-875 cm2, well over the 500 cm2 "
+        "threshold). Both are measured from the drawn geometry into `overage` below, per level and "
+        "in total; no prose figure stands in for them. It is not applied here because it moves the "
+        "COLUMN rows AM-01 freezes for the M2 proof, and this is the one figure v1.1 knowingly "
+        "leaves over. It is the first item of v1.2 (ruled in fixtures/gen/rcc6_bnbc/DECISIONS.md "
+        "W-01), landed with the M2 proof's own re-pin.",
     },
 ]
 
@@ -1440,6 +1447,90 @@ def golden_rows() -> list[dict[str, str]]:
     return rows
 
 
+#: The rule-set parameter AM-02 spends on member ends (docs/specs/cubit.bible.xml, L-MEA-01's seed
+#: edition: memberEndNoDeductMaxCm2 500) and the marks the plan draws between columns.
+MEMBER_END_NO_DEDUCT_MAX_CM2 = Decimal(500)
+CM2_PER_M2 = Decimal(10000)
+COLUMN_SUPPORTED_MARKS = ("B1", "B2", "B3", "B4")
+
+
+def r7_overage() -> dict[str, Any]:
+    """How much COLUMN FORMWORK R-7 knowingly leaves OVER, measured rather than estimated.
+
+    The golden keeps v1.0's 2(b + d) x storey because AM-01 freezes the COLUMN rows. AM-02 would
+    take perimeter x (storey - t_slab) less every member-end contact above the threshold, so the
+    published figure is over by exactly two terms, both measured here from the drawn geometry:
+
+      * the slab band -- perimeter x t_slab for every column with a slab above it, and
+      * the beam ends -- b x (D - t) for every beam end framing into a column top, counted only
+        where the contact is bigger than memberEndNoDeductMaxCm2.
+
+    The manifest carries what this returns; cad/tests/sanity/test_rcc6_golden.py recomputes both
+    terms by its own path from `inputs.json` and holds the manifest to them.
+    """
+    order = [level["name"] for level in INPUTS["levels"]]
+    slabs = {slab["level"]: slab for slab in INPUTS["slab"]}
+    beams = by_mark("beams")
+    column_formwork = sum(
+        (
+            dec(row["quantity"])
+            for row in golden_rows()
+            if row["class"] == "COLUMN" and row["kind"] == "FORMWORK"
+        ),
+        Decimal(0),
+    )
+    band = Decimal(0)
+    ends = Decimal(0)
+    contacts = 0
+    per_level: dict[str, dict[str, str]] = {}
+    for index, level in enumerate(order):
+        above = order[index + 1] if index + 1 < len(order) else None
+        if above not in slabs:
+            continue
+        thickness = dec(slabs[above]["thickness_mm"]) / MM
+        level_band = sum(
+            (
+                dec(column["count"]) * 2 * (dec(column["b_mm"]) / MM + dec(column["d_mm"]) / MM) * thickness
+                for column in INPUTS["columns"]
+                if level in column["levels"]
+            ),
+            Decimal(0),
+        )
+        level_ends = Decimal(0)
+        level_contacts = 0
+        for run in beam_runs(above):
+            if run.mark not in COLUMN_SUPPORTED_MARKS:
+                continue
+            contact = dec(beams[run.mark]["b_mm"]) / MM * (dec(beams[run.mark]["d_mm"]) / MM - thickness)
+            for _ in range(2):  # a run of these marks lands on a column at either end
+                if contact * CM2_PER_M2 > MEMBER_END_NO_DEDUCT_MAX_CM2:
+                    level_ends += contact
+                    level_contacts += 1
+        if not (level_band or level_ends):
+            continue
+        per_level[level] = {
+            "slab_band_m2": spelled(level_band),
+            "beam_end_contacts_m2": spelled(level_ends),
+            "beam_ends": str(level_contacts),
+        }
+        band += level_band
+        ends += level_ends
+        contacts += level_contacts
+    total = band + ends
+    return {
+        "slab_band_m2": spelled(band),
+        "beam_end_contacts_m2": spelled(ends),
+        "beam_end_contacts": contacts,
+        "member_end_no_deduct_max_cm2": str(MEMBER_END_NO_DEDUCT_MAX_CM2),
+        "total_m2": spelled(total),
+        "column_formwork_m2": spelled(column_formwork),
+        "share_pct": format(
+            (total / column_formwork * 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_EVEN), "f"
+        ),
+        "per_level": per_level,
+    }
+
+
 # ---------------------------------------------------------------------------------------------
 # The corpus, assembled in memory and written only once every file exists.
 # ---------------------------------------------------------------------------------------------
@@ -1457,10 +1548,14 @@ def build(scratch: Path) -> list[tuple[str, bytes]]:
     pngs, raster_pdf = rasterise(vector_pdf, sheets)
     png_paths = [f"raster/{sheet.slug}.png" for sheet in sheets]
 
+    overage = r7_overage()
+    repairs = [
+        {**repair, "overage": overage} if repair["id"] == R7_ID else repair for repair in REPAIRS
+    ]
     manifest = {
         "fixture": FIXTURE,
         "version": FIXTURE_VERSION,
-        "repairs": REPAIRS,
+        "repairs": repairs,
         "generator": {
             "path": GENERATOR_REL,
             "sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),

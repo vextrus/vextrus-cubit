@@ -186,7 +186,13 @@ cutting length ≤ 0); the septic baffle ran across the wrong dimension — e860
 for column formwork, an OVER figure AM-02 forbids, kept only because AM-01 freezes the M2 column rows.
 Ruling: v1.2 applies AM-02 to column formwork alone — `2(b + d) × (storey − t_slab)` less each beam-end
 contact `b_beam × (D_beam − t_slab)` above 500 cm² — and moves **only the COLUMN/FORMWORK rows** (≈ −8.6 m²
-per level, ≈ −60 m² over seven levels on F-RCC6); COLUMN/RCC_CONCRETE stays floor-to-floor and the M2
+per level, ≈ −60 m² over seven levels on F-RCC6 — both figures were estimates, and only the first
+term: measured off the drawn geometry the overage is **18.580 m²/level over six levels = 111.480 m²,
+10.63 % of COLUMN FORMWORK 1048.800**, being 8.580 m² of slab band + 10.000 m² of beam-end contacts
+(120 ends/level at 750–875 cm², all above the 500 cm² threshold). The figure is carried as data in
+`fixtures/rcc6/manifest.json` R-7 `overage`, computed by `fixtures/gen/rcc6.py r7_overage()` and
+checked against a second path in `cad/tests/sanity/test_rcc6_golden.py`; v1.2 moves the rows by it);
+COLUMN/RCC_CONCRETE stays floor-to-floor and the M2
 proof (which pins concrete, not formwork) is untouched. v1.2 lands as one commit on `fixtures/gen/rcc6.py`
 + the golden + `manifest.repairs[R-7].state = REPAIRED, side = EXACT`, with the sample-seed hashes. Not
 done in this wave (the founder's grant covers the ruling; `fixtures/rcc6/**` stays byte-frozen).

@@ -18,7 +18,7 @@ rebuilds the drawn structure from the grid, the column families, the beam marks,
 slab panels, and bills every BEAM and SLAB row from the geometry alone. A clear span edited into
 `measured` and carried into the golden by the same formula passes the first path and reds the
 second. The COLUMN rows AM-01 freezes are not rebilled by either (that would move what the M2
-proof pins).
+proof pins); for them the second path measures the AM-02 delta the manifest declares as R-7.
 
 The recomputation is scoped to the two kinds this increment's formulas define. The golden is a
 ledger keyed (class, kind, level); a kind a later increment adds (rebar, per R-TO-035) extends it
@@ -277,7 +277,8 @@ def test_ac7_each_quantity_recomputes_from_the_inputs(corpus, key: Key) -> None:
 # SLAB row of the golden from them.
 #
 # The COLUMN rows are NOT billed here: AM-01 freezes them byte for byte across v1.1 and
-# tests/golden/rcc6-column-rows-frozen.test.ts proves it.
+# tests/golden/rcc6-column-rows-frozen.test.ts proves it. For them this path measures the AM-02
+# delta the manifest declares as R-7 instead (test_ac7_r7_* below).
 # ---------------------------------------------------------------------------------------------
 
 #: What the second path may not read: the generator's pre-digested measurement of its own drawing.
@@ -286,6 +287,16 @@ MEASURED_FIELDS = ("measured",)
 #: The fixture's arrangement, as the plan draws it — the two facts the section families alone do
 #: not carry. Both are checked against the authored counts before anything is billed from them.
 CORNER_FAMILY_RANK, CORE_FAMILY_RANK = 0, -1
+
+#: The threshold L-MEA-01 seeds and AM-02 spends: a member-end contact bigger than this is deducted
+#: from the vertical member's formwork (docs/specs/cubit.bible.xml, memberEndNoDeductMaxCm2).
+MEMBER_END_NO_DEDUCT_MAX_CM2 = Decimal(500)
+CM2_PER_M2 = Decimal(10000)
+
+#: The published COLUMN FORMWORK the R-7 overage is a share of, and where it is declared.
+MANIFEST_REL = "manifest.json"
+R7_ID = "R-7-column-formwork-junction"
+
 
 @dataclass(frozen=True)
 class Drawn:
@@ -564,6 +575,70 @@ class Plan:
         )
         return metres(perimeter - trimmed)
 
+    # -- what R-7 declares ---------------------------------------------------------------------
+
+    def r7_overage(self, column_formwork_m2: Decimal) -> dict[str, Any]:
+        """The COLUMN FORMWORK the golden knowingly over-bills: AM-02's two terms, from the plan.
+
+        AM-02 takes a vertical member's formwork as perimeter x (storey - t_slab), less each
+        member-end contact above `memberEndNoDeductMaxCm2`. The golden keeps v1.0's
+        2(b + d) x storey (AM-01 freezes those rows), so it is over by exactly those two terms:
+
+        * the band each slab drives through the column it sits on - perimeter x t_slab, for every
+          column with a slab above it; and
+        * the end of every beam that frames into a column top - b x (D - t) each, counted only
+          where it is bigger than the threshold.
+        """
+        band = Decimal(0)
+        ends = Decimal(0)
+        contacts = 0
+        per_level: dict[str, dict[str, str]] = {}
+        for index, level in enumerate(self.levels):
+            above = self.levels[index + 1] if index + 1 < len(self.levels) else None
+            thickness = (
+                Decimal(self.slabs[above]["thickness_mm"]) / MM if above in self.slabs else Decimal(0)
+            )
+            level_band = Decimal(0)
+            for column in self.inputs["columns"]:
+                if level in [str(name) for name in column["levels"]]:
+                    perimeter = 2 * (column["b_mm"] / MM + column["d_mm"] / MM)
+                    level_band += Decimal(column["count"]) * perimeter * thickness
+            level_ends = Decimal(0)
+            level_contacts = 0
+            if above in self.slabs:
+                for run in self.runs(above):
+                    if not run.supports:
+                        continue
+                    b = self.beams[run.mark]["b_mm"] / MM
+                    d = self.beams[run.mark]["d_mm"] / MM
+                    contact = b * (d - thickness)
+                    for _ in run.supports:
+                        if contact * CM2_PER_M2 > MEMBER_END_NO_DEDUCT_MAX_CM2:
+                            level_ends += contact
+                            level_contacts += 1
+            if level_band or level_ends:
+                per_level[level] = {
+                    "slab_band_m2": spelled(level_band),
+                    "beam_end_contacts_m2": spelled(level_ends),
+                    "beam_ends": str(level_contacts),
+                }
+            band += level_band
+            ends += level_ends
+            contacts += level_contacts
+        total = band + ends
+        return {
+            "slab_band_m2": spelled(band),
+            "beam_end_contacts_m2": spelled(ends),
+            "beam_end_contacts": contacts,
+            "member_end_no_deduct_max_cm2": str(MEMBER_END_NO_DEDUCT_MAX_CM2),
+            "total_m2": spelled(total),
+            "column_formwork_m2": spelled(column_formwork_m2),
+            "share_pct": format(
+                (total / column_formwork_m2 * 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_EVEN), "f"
+            ),
+            "per_level": per_level,
+        }
+
 
 DRAWN_CLASSES = frozenset({"BEAM", "SLAB"})
 DRAWN_KEYS = [key for key in GOLDEN_KEYS if key[0] in DRAWN_CLASSES]
@@ -575,6 +650,10 @@ def _plan(corpus) -> Plan:
 
 def _drawn(corpus) -> dict[Key, Decimal]:
     return corpus.once("drawn-quantities", lambda: _plan(corpus).quantities())
+
+
+def _manifest(corpus) -> dict[str, Any]:
+    return corpus.read_json(MANIFEST_REL)
 
 
 def test_ac7_the_second_path_reads_the_drawing_and_not_the_generators_digest() -> None:
@@ -715,3 +794,44 @@ def test_ac7_the_measured_digest_states_what_the_drawing_measures(corpus) -> Non
                     f"SLAB {level}: measured.{field} says {stated[field]}, the plan draws {drawn_value}"
                 )
     assert offences == [], "\n".join(offences)
+
+
+def _column_formwork_m2(corpus) -> Decimal:
+    return sum(
+        (
+            Decimal(row["quantity"])
+            for row in _golden(corpus)["rows"]
+            if row["class"] == "COLUMN" and row["kind"] == FORMWORK
+        ),
+        Decimal(0),
+    )
+
+
+def test_ac7_r7_is_declared_at_the_overage_the_drawing_computes(corpus) -> None:
+    """R-7 is the one figure v1.1 leaves OVER, and the manifest must state how much, not guess.
+
+    AM-01 freezes the COLUMN rows, so this path does not recompute them (v1.2 is ruled in
+    fixtures/gen/rcc6_bnbc/DECISIONS.md W-01 and stays a desk item). What it does is measure the
+    two terms AM-02 would take off them, from the drawing, and hold the manifest to the figures.
+    """
+    plan = _plan(corpus)
+    overage = plan.r7_overage(_column_formwork_m2(corpus))
+    print(
+        f"\nR-7 (COLUMN FORMWORK, declared OVER): slab band {overage['slab_band_m2']} m2"
+        f" + beam-end contacts {overage['beam_end_contacts_m2']} m2"
+        f" ({overage['beam_end_contacts']} ends above {overage['member_end_no_deduct_max_cm2']} cm2)"
+        f" = {overage['total_m2']} m2 of {overage['column_formwork_m2']} m2 COLUMN FORMWORK"
+        f" ({overage['share_pct']} %)"
+    )
+    for level, terms in overage["per_level"].items():
+        print(
+            f"  {level}: band {terms['slab_band_m2']} m2"
+            f" + ends {terms['beam_end_contacts_m2']} m2 ({terms['beam_ends']} ends)"
+        )
+    repairs = {str(repair["id"]): repair for repair in _manifest(corpus)["repairs"]}
+    assert R7_ID in repairs, f"the manifest declares no {R7_ID}"
+    declared = repairs[R7_ID].get("overage")
+    assert declared == overage, (
+        f"{R7_ID} declares {declared}\nthe drawing computes {overage}\n"
+        "— the manifest must state the figure the geometry gives, not a prose estimate"
+    )

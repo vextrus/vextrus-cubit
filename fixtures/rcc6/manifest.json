@@ -52,12 +52,53 @@
       "law": "AM-02 vs AM-01",
       "state": "DEFERRED",
       "side": "OVER",
-      "what": "Column formwork keeps 2(b + d) x storey. AM-02 would take perimeter x (storey - t_slab) less the beam-end contacts above memberEndNoDeductMaxCm2, which is about 8.6 m2 per level less. It is not applied here because it moves the COLUMN rows AM-01 freezes for the M2 proof, and this is the one figure v1.1 knowingly leaves over. It is the first item of v1.2, landed with the M2 proof's own re-pin."
+      "what": "Column formwork keeps 2(b + d) x storey. AM-02 would take perimeter x (storey - t_slab) less the beam-end contacts above memberEndNoDeductMaxCm2, which is two terms, not one: the slab band each floor drives through the column under it, AND the end of every beam framing into a column top (each B1-B4 end is 750-875 cm2, well over the 500 cm2 threshold). Both are measured from the drawn geometry into `overage` below, per level and in total; no prose figure stands in for them. It is not applied here because it moves the COLUMN rows AM-01 freezes for the M2 proof, and this is the one figure v1.1 knowingly leaves over. It is the first item of v1.2 (ruled in fixtures/gen/rcc6_bnbc/DECISIONS.md W-01), landed with the M2 proof's own re-pin.",
+      "overage": {
+        "slab_band_m2": "51.480",
+        "beam_end_contacts_m2": "60.000",
+        "beam_end_contacts": 720,
+        "member_end_no_deduct_max_cm2": "500",
+        "total_m2": "111.480",
+        "column_formwork_m2": "1048.800",
+        "share_pct": "10.63",
+        "per_level": {
+          "GF": {
+            "slab_band_m2": "8.580",
+            "beam_end_contacts_m2": "10.000",
+            "beam_ends": "120"
+          },
+          "1F": {
+            "slab_band_m2": "8.580",
+            "beam_end_contacts_m2": "10.000",
+            "beam_ends": "120"
+          },
+          "2F": {
+            "slab_band_m2": "8.580",
+            "beam_end_contacts_m2": "10.000",
+            "beam_ends": "120"
+          },
+          "3F": {
+            "slab_band_m2": "8.580",
+            "beam_end_contacts_m2": "10.000",
+            "beam_ends": "120"
+          },
+          "4F": {
+            "slab_band_m2": "8.580",
+            "beam_end_contacts_m2": "10.000",
+            "beam_ends": "120"
+          },
+          "5F": {
+            "slab_band_m2": "8.580",
+            "beam_end_contacts_m2": "10.000",
+            "beam_ends": "120"
+          }
+        }
+      }
     }
   ],
   "generator": {
     "path": "fixtures/gen/rcc6.py",
-    "sha256": "8d91721c650a290ad0591c5861a2757987e4eab55a109e2c3c544e9947465745"
+    "sha256": "7ed0dd411b9ca3c12b6e9faae628e1f3e3d9131e17e85c70ebefd8018bc8696d"
   },
   "sheets": [
     {
