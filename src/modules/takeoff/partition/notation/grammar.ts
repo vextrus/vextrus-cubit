@@ -303,24 +303,48 @@ function readBarGroup(said: string): BarGroup | null {
 
 const CENTRES_TAIL = new RegExp(`\\s*(?:${alternation(CENTRES_WORDS)})\\s*$`);
 
-/** A spacing: which bar (where the cell named one), at what centres, and how many legs. */
+/** The two pitches a tie call states at once, and what each is the pitch OF. `@100/150` is the
+ * confinement rule of every column on a BNBC set: closed at the ends of the member, open at mid. */
+const TWO_ZONE = /^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/;
+const ZONE_NAMES = Object.freeze(["end", "mid"] as const);
+
+/** One zone of a spacing: where along the member it rules, and the pitch it rules at. */
+export type SpacingZone = { readonly zone: string; readonly spacingMm: number };
+
+/** A spacing: which bar (where the cell named one), at what centres, how many legs, and — where the
+ * cell states a pitch per zone — every zone it stated. */
 export type Spacing = {
   readonly bar: BarDiameter | null;
   readonly spacingMm: number;
+  readonly zones: readonly SpacingZone[] | null;
   readonly legs: number | null;
 };
+
+/** The zones a `100/150` states, in the order the cell wrote them: the end zone's pitch first. */
+function zonesOf(said: string): readonly SpacingZone[] | null {
+  const pair = TWO_ZONE.exec(said);
+  if (pair === null) return null;
+  return Object.freeze([
+    { zone: ZONE_NAMES[0], spacingMm: Number(pair[1]) },
+    { zone: ZONE_NAMES[1], spacingMm: Number(pair[2]) },
+  ]);
+}
 
 function readSpacing(said: string): Spacing | null {
   const at = said.indexOf("@");
   if (at < 0) return null;
   const tail = said.slice(at + 1).replace(CENTRES_TAIL, "").trim();
+  const first = tail.split(/[\s(]/)[0] ?? "";
   // Only the first length after the "@" is the centres: `@ 75MM C/C (TOP 3.0 M)` states one pitch.
-  const centres = lengthMm(tail) ?? lengthMm(tail.split(/[\s(]/)[0] ?? "");
+  // A cell may state two: `@100/150 (TIES)` is the end pitch and the mid pitch of ONE call, and
+  // refusing the whole string for want of a form took the diameter down with it (L-QTY-04).
+  const zones = zonesOf(tail) ?? zonesOf(first);
+  const centres = zones === null ? (lengthMm(tail) ?? lengthMm(first)) : (zones[0] as SpacingZone).spacingMm;
   if (centres === null) return null;
   const head = said.slice(0, at);
   const bars = [...head.matchAll(DIA_ANYWHERE)].map((one) => barOf(one)).filter((one): one is BarDiameter => one !== null);
   const legs = /(\d+)\s*L(?:EG)?S?\b/.exec(head);
-  return { bar: bars[bars.length - 1] ?? null, spacingMm: centres, legs: legs === null ? null : Number(legs[1]) };
+  return { bar: bars[bars.length - 1] ?? null, spacingMm: centres, zones, legs: legs === null ? null : Number(legs[1]) };
 }
 
 /** The three shapes a mark is written in, each over the roster — never over a bare letter-and-digit
@@ -578,12 +602,15 @@ export const GRAMMAR: readonly GrammarRow[] = Object.freeze([
   { input: "12Ø", kind: "bar_diameter", parsed: { diameterMm: 12, designation: "12Ø" }, source: "T-NOT-UNICODE" },
   { input: "16 MM DIA.", kind: "bar_diameter", parsed: { diameterMm: 16, designation: "16MMDIA" }, source: "schedule habit: the word DIA instead of the sign" },
   // — spacings ————————————————————————————————————————————————————————————————————————
-  { input: "Ø16@150 c/c", kind: "spacing", parsed: { bar: { diameterMm: 16, designation: "Ø16" }, spacingMm: 150, legs: null }, source: "T-NOT-UNICODE (sign first, no space at the @)" },
-  { input: "2L-10%%c @ 100 c/c", kind: "spacing", parsed: { bar: { diameterMm: 10, designation: "10Ø" }, spacingMm: 100, legs: 2 }, source: "T-NOT-PCTC-LOWER (two-legged stirrup)" },
-  { input: "5.0mm%%C MS Wire @ 75mm c/c", kind: "spacing", parsed: { bar: { diameterMm: 5, designation: "5.0MMØ" }, spacingMm: 75, legs: null }, source: "T-NOT-MSWIRE (spiral pitch; no MS-wire product item)" },
-  { input: "#5 @ 6\" c/c B.W.", kind: "spacing", parsed: { bar: { diameterMm: 15.9, designation: "#5" }, spacingMm: 152.4, legs: null }, source: "T-NOT-HASH (imperial centres: 6 in = 152.4 mm)" },
-  { input: "10mm âˆ… @ 150 C/C", kind: "spacing", parsed: { bar: { diameterMm: 10, designation: "10MMØ" }, spacingMm: 150, legs: null }, source: "T-NOT-MOJIBAKE with upper-case centres" },
-  { input: "Ø12 @ 200 o.c.", kind: "spacing", parsed: { bar: { diameterMm: 12, designation: "Ø12" }, spacingMm: 200, legs: null }, source: "American habit: on centre" },
+  { input: "Ø16@150 c/c", kind: "spacing", parsed: { bar: { diameterMm: 16, designation: "Ø16" }, spacingMm: 150, zones: null, legs: null }, source: "T-NOT-UNICODE (sign first, no space at the @)" },
+  { input: "2L-10%%c @ 100 c/c", kind: "spacing", parsed: { bar: { diameterMm: 10, designation: "10Ø" }, spacingMm: 100, zones: null, legs: 2 }, source: "T-NOT-PCTC-LOWER (two-legged stirrup)" },
+  { input: "5.0mm%%C MS Wire @ 75mm c/c", kind: "spacing", parsed: { bar: { diameterMm: 5, designation: "5.0MMØ" }, spacingMm: 75, zones: null, legs: null }, source: "T-NOT-MSWIRE (spiral pitch; no MS-wire product item)" },
+  { input: "#5 @ 6\" c/c B.W.", kind: "spacing", parsed: { bar: { diameterMm: 15.9, designation: "#5" }, spacingMm: 152.4, zones: null, legs: null }, source: "T-NOT-HASH (imperial centres: 6 in = 152.4 mm)" },
+  { input: "10mm âˆ… @ 150 C/C", kind: "spacing", parsed: { bar: { diameterMm: 10, designation: "10MMØ" }, spacingMm: 150, zones: null, legs: null }, source: "T-NOT-MOJIBAKE with upper-case centres" },
+  { input: "Ø12 @ 200 o.c.", kind: "spacing", parsed: { bar: { diameterMm: 12, designation: "Ø12" }, spacingMm: 200, zones: null, legs: null }, source: "American habit: on centre" },
+  { input: "10%%C@100/150 (TIES)", kind: "spacing", parsed: { bar: { diameterMm: 10, designation: "10Ø" }, spacingMm: 100, zones: [{ zone: "end", spacingMm: 100 }, { zone: "mid", spacingMm: 150 }], legs: null }, source: "the column tie call of a BNBC set: closed at the ends, open at mid" },
+  { input: "10%%C @ 75/150", kind: "spacing", parsed: { bar: { diameterMm: 10, designation: "10Ø" }, spacingMm: 75, zones: [{ zone: "end", spacingMm: 75 }, { zone: "mid", spacingMm: 150 }], legs: null }, source: "the same call with the draughtsman's spaces" },
+  { input: "TIES 10%%C@100/150", kind: "spacing", parsed: { bar: { diameterMm: 10, designation: "10Ø" }, spacingMm: 100, zones: [{ zone: "end", spacingMm: 100 }, { zone: "mid", spacingMm: 150 }], legs: null }, source: "T-SCHED-TWO-TEXTS: the role word the schedule cell puts in front" },
   // — marks ———————————————————————————————————————————————————————————————————————————
   { input: "C-1", kind: "mark", parsed: { family: "C", number: 1, level: null, variant: null, part: null }, source: "column mark" },
   { input: "GB-1", kind: "mark", parsed: { family: "GB", number: 1, level: null, variant: null, part: null }, source: "grade beam mark" },

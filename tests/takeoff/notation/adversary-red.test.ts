@@ -55,3 +55,21 @@ describe("N7 — an ambiguous designator is settled by evidence, not by the orde
     expect(read.ok && read.kind, "TG is a mark class and TG1 is a transfer girder, not a 1 mm bar").toBe("mark");
   });
 });
+
+describe("N2 — a two-zone tie spacing (33 corpus strings: every column tie call)", () => {
+  test("both pitches are read, and the diameter is not lost with them", () => {
+    const read = readNotation("10%%C@100/150 (TIES)");
+    expect(read.ok, "the whole string was refused for want of a form for `100/150`, and the 10Ø went with it").toBe(true);
+    expect(read.ok && read.parsed).toStrictEqual({
+      bar: { diameterMm: 10, designation: "10Ø" },
+      spacingMm: 100,
+      zones: [{ zone: "end", spacingMm: 100 }, { zone: "mid", spacingMm: 150 }],
+      legs: null,
+    });
+  });
+
+  test("a one-pitch call still states no zones — the reading says what the cell said", () => {
+    const read = readNotation("Ø16@150 c/c");
+    expect(read.ok && (read.parsed as { zones: unknown }).zones).toBe(null);
+  });
+});
