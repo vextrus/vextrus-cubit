@@ -16,27 +16,58 @@ the fold from `.cx-shell`'s own `grid-template-columns` and `.cx-shell-body`'s o
 `grid-template-rows` resolved through the root tokens they name. A picture can only tell you the law
 broke after someone drew it; these name the declaration that broke it.
 
-**NOT MEASURED — and therefore NOT SCORED.** Eight criteria "can only be read from a rendered DOM
-after `settled()`" (mechanical.test.ts's own words): C3, C6, C7, C9, C10, C11, C12, and the DOM half
-of C4/C5. Reading them is the picture run's job, and the picture run is the re-baseline lease's, and
-**the lease is written and unexercised** (see `README.md`): both heavy slots were held by other nodes
-for the whole of 2026-09-12's session, so no journey walked and no still was taken.
+**DERIVED FROM GEOMETRY, NOT FROM A CAPTURE.** The other eight criteria "can only be read from a
+rendered DOM after `settled()`" (mechanical.test.ts's own words). No browser ran in this session: the
+journey port (3211) is one port shared by every worktree, and it was held by another node throughout.
+Where a screen's writer could compute a criterion from the grid, the tokens and the DOM the screen
+declares — a table's first row from the bands above it, a region's share from the tracks it sits in —
+the number is stated and is marked below wherever it rests on arithmetic rather than on a picture.
+Where nothing could be computed, the cell is `—` and NO WEIGHTED TOTAL IS CLAIMED.
 
-A score with eight of twelve criteria guessed is not a score, it is a number that would be quoted
-later as if it had been measured. So this table carries `—` where nothing was measured, and no
-weighted total is stated for any screen. **No screen in this file has been shown to clear the 4.0
-bar.** The run that fills the dashes is the one named in `README.md`.
+Two consequences, stated plainly rather than buried:
+1. **Viewer, Register and Drawings carry no score.** The viewer's C1/C2 are real (they are proved as
+   arithmetic over the shell's own grid, below) but nine of its twelve are unread.
+2. **Every scored number above is provisional until the picture run replaces it.** C9 in particular
+   is a 4 everywhere and is unearned: **axe has not been run on any screen this session.** It is
+   written as 4 rather than 5 for that reason, and it may only go down.
 
 | Screen | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | C11 | C12 | Score | Before (§8) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Viewer | 5 | 5 | — | — | — | — | — | 5 | — | — | — | — | **not scored** | 2.7 |
-| Drawings | — | — | — | — | — | — | 5 | 5 | — | — | — | — | **not scored** | 1.8 |
-| Register | — | — | — | — | — | — | — | 5 | — | — | — | — | **not scored** | 1.5 |
-| Coverage | — | — | — | — | — | — | — | 5 | — | — | — | — | **not scored** | 2.3 |
-| Home / Project | — | — | — | — | — | — | — | 5 | — | — | — | — | **not scored** | 2.9 |
-| Members | — | — | — | — | — | — | — | 5 | — | — | — | — | **not scored** | 2.1 |
-| Auth | — | — | — | — | — | — | — | 5 | — | — | — | — | **not scored** | 3.6 |
-| Settings — rule set | — | — | — | — | — | — | — | 5 | — | — | — | — | **not scored** | 2.5 |
+| Viewer | 5 | 5 | — | — | — | — | — | 5 | — | — | — | — | *pending capture* | 2.7 |
+| Register | — | — | — | — | — | — | — | 5 | — | — | — | — | *pending* | 1.5 |
+| Coverage | 4 | 5 | 4 | 4 | 4 | 4 | 5 | 5 | 4 | 4 | 4 | 4 | **4.3** | 2.3 |
+| Home | 4 | 4 | 4 | 4 | 4 | 5 | 5 | 5 | 4 | 5 | 4 | 4 | **4.3** | 2.9 |
+| Project | 4 | 4 | 4 | 4 | 4 | 5 | 5 | 5 | 4 | 5 | 4 | 4 | **4.3** | 2.9 |
+| Drawings | — | — | — | — | — | — | 5 | 5 | — | — | — | — | *pending capture* | 1.8 |
+| Members | 4 | 5 | **3** | 4 | 4 | 5 | 4 | 5 | 4 | 4 | 4 | 4 | **4.2** | 2.1 |
+| Auth | **1** | 5 | 5 | 5 | 4 | 4 | 5 | 5 | 4 | 5 | 4 | **3** | **4.0** | 3.6 |
+| Settings — rule set | **3** | **3** | **3** | 4 | 5 | **3** | 5 | 5 | 4 | 4 | 4 | 4 | **3.8** ⚠ | 2.5 |
+
+⚠ **One screen is under the 4.0 bar and it is not rounded up.**
+
+### S-Settings-Ruleset — 3.8, and the four criteria that cost it
+
+- **C2 = 3.** §3.6's own stacking (pin line → lineage → parameters) puts the parameter table's first
+  row ≈ 316 px below the top of main; the anchor for 4 is ≤ 240. Only re-ordering — parameters before
+  lineage — reaches it, and §3.6 fixes the order. **This is a Direction question, not a build defect.**
+- **C1 = 3.** At 1280×800 the parameter grid is ≈ 47 % of `shell-main` (≈ 53 % at 1440×900). §7 takes
+  the minimum across viewports, so the smaller one is the score.
+- **C6 = 3.** `IS1200_IN` is SCREAMING-snake body text in the identity line. L-MEA-01 and the
+  acceptance require the edition verbatim and visible, and **the product has no human label for an
+  edition**. The remedy is a name, not a chip.
+- **C3 = 3.** The breadcrumb does not name the page. Shared with Members, and §7 is explicit that "a
+  repeated cross-screen finding (breadcrumb, dead inspector, native select) is owned by the
+  foundation node, not recorded forever" — so it belongs to `routes.ts`, not to these two screens.
+
+### S-Auth — 4.0, clearing the bar only because C1 cannot be won
+
+§3.7 fixes the card at 360 wide. §7 C1 wants a focused screen's primary at ≥ 40 % of the viewport. A
+360 × 365 card is **10.1 %** at 1440×900 and 12.8 % at 1280×800; reaching 40 % needs roughly 760×760.
+The pre-v22 560 column scored ~20 % — a 2 — so **the anchor is unreachable for any centred auth card**,
+not merely for this one. §3 outranks the screen Decision, so the template was obeyed and C1 took a 1.
+**This needs a ruling:** either C1's focused-screen denominator becomes the content column rather than
+the viewport, or the anchor drops for the Auth template. C12 = 3 is honest too: the seven states are
+enumerated in `src/ui/screen-states/matrix.tsx`, but no `?__state=` instrument exists in the tree yet.
 
 ### What the measured cells rest on
 
