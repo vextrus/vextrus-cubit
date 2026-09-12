@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { BOOTSTRAP_URL, ROLE_APP, ROLE_MIGRATE, SCRATCH_DB_PREFIX, TEMPLATE_DB_PREFIX, TENANT_COLUMN } from "./support/fixtures";
-import { ident, isTrue, lit, psql, run } from "./support/live-sql";
+import { closePsqlPool, ident, isTrue, lit, psql, run } from "./support/live-sql";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..");
 const MIGRATIONS_DIR = join(REPO_ROOT, "db", "migrations");
@@ -294,6 +294,11 @@ export async function ensureTemplateNamed(name: string, options: { sweepStale?: 
         throw error;
       } finally {
         clearInterval(beating);
+        // The heartbeat's own psql is kept alive by the pool (support/psql-pool.ts), and a live
+        // connection is a database Postgres will not clone from or drop: `create database … template`
+        // wants the source to itself, and the sweep's `drop database` is deliberately unforced. So the
+        // builder gives the template back before anyone is asked to copy it.
+        closePsqlPool(urlAs(ROLE_MIGRATE, name));
       }
       run(BOOTSTRAP_URL, `update pg_database set datistemplate = true where datname = ${lit(name)};`);
       if (options.sweepStale === true) dropStaleTemplates(name);
@@ -364,6 +369,11 @@ export async function provisionScratchDb(): Promise<ScratchDb> {
     urlMigrate: urlAs(ROLE_MIGRATE, database),
     urlApp: urlAs(ROLE_APP, database),
     drop: async () => {
+      // This file's own pooled psql processes hold sessions onto the database being taken away;
+      // FORCE would end them anyway, but a session closed by its owner leaves no terminated backend
+      // in the log and no psql waiting on a socket that died under it.
+      closePsqlPool(urlAs(ROLE_MIGRATE, database));
+      closePsqlPool(urlAs(ROLE_APP, database));
       run(BOOTSTRAP_URL, `drop database if exists ${ident(database)} with (force);`);
       for (const role of borrowed) revokeMembership(role);
     },

@@ -1,0 +1,431 @@
+// One psql PROCESS per connection string, kept alive and fed script after script — the cure for a
+// lane that spent its wall time starting processes rather than running SQL (62 files, thousands of
+// `spawnSync("psql", …)`, each one a fork, an exec, a TCP connect and an auth handshake before the
+// first statement is parsed).
+//
+// SEAM-TENANT is untouched by this. The law says raw SQL is spoken through psql and never through a
+// driver import, and every statement here still leaves the process through psql's own stdin: the
+// pool changes HOW MANY psql processes a file starts, not what speaks to the server. Nothing in this
+// module imports a driver, an ORM or the schema (cubit/no-db-outside-seam binds this file like the
+// rest of the tree), and `db/__tests__/support/live-sql.ts` keeps `psql()` as the one public door.
+//
+// The contract the pool has to keep, because 62 files already lean on it:
+//   · ONE SCRIPT IS ONE SESSION. A GUC set by a script is visible to the rest of THAT script and to
+//     nothing after it (`withSession()` puts GUCs "on the session it runs in"). `discard all`
+//     between scripts is what a fresh process used to give for free: RESET ALL, session
+//     authorisation back to default, temp objects, prepared statements, advisory locks and cursors
+//     all gone.
+//   · ON_ERROR_STOP HOLDS PER SCRIPT. psql non-interactive exits on the first error when
+//     ON_ERROR_STOP is on, and that is kept literally: the process dies with the script, its exit
+//     status is read from a marker its wrapper prints, and the next script gets a new process. So a
+//     refused script leaves exactly what it left before — the statements ahead of the error
+//     committed, the rest never run.
+//   · THE SAME SqlResult. `ok`, `rows`, `stderr`, `sqlstate` are built by the same code for the
+//     pooled path and the spawned one, from the same psql flags.
+//
+// The one place `discard all` is not a new connection, and why it is admissible: RESET ALL gives a
+// custom GUC back its EMPTY default rather than making the parameter unrecognised again, so a
+// script that follows one which set `cubit.tenant_id` reads '' where a never-scoped process reads
+// NULL. Every policy this tree writes reads those GUCs as `nullif(current_setting(guc, true), '')`
+// (db/migrations/*.sql), which cannot tell '' from NULL — an unscoped session is unscoped either
+// way — and psql-pool.test.ts holds that reading to both paths so a migration that ever stopped
+// spelling it that way fails here.
+//
+// How a script's output is delimited, given one stdout for many scripts: psql prints `\echo` to
+// stdout and `\warn` to stderr, so each script is followed by a marker on BOTH streams, carrying a
+// 128-bit random token minted per process. Nothing a test can put in a row can be mistaken for it —
+// and if the process dies first, the wrapper's `…-EXIT-<status>` line on stdout says so instead.
+//
+// A pool that cannot answer is never an answer: a process that dies before it has spoken, a stdin
+// that will not take the script, a wrapper that will not start — each falls back to a fresh
+// `spawnSync` psql for that one script and says so in `stderr`. Set CUBIT_PSQL_POOL=0 to run every
+// script the old way.
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import { closeSync, constants as FS, mkdtempSync, openSync, readSync, rmSync, writeSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+/** A column separator no catalogue value can contain. */
+export const SEP = "\u0001";
+
+/** What one psql script answered. One script is one session, so GUCs set in it hold for it alone. */
+export type SqlResult = { ok: boolean; rows: string[][]; stderr: string; sqlstate: string | null };
+
+/** How long one script may take before the process running it is abandoned — the spawned path's own. */
+const SCRIPT_TIMEOUT_MS = 120_000;
+
+/** How many connection strings this process keeps a live psql for. A file speaks to two or three. */
+const MAX_SESSIONS = 4;
+
+/** The wrapper: psql reads the script stream from the fifo, and its exit status is printed after it. */
+const WRAPPER = 'psql "$1" -X -q -A -t -F "$2" -v ON_ERROR_STOP=1 -f - < "$4"; printf "\\n%s-EXIT-%d\\n" "$3" "$?"';
+
+/** A stream being read a piece at a time, by offset, out of the file the wrapper writes it to. */
+type Reader = { fd: number; offset: number; seen: Buffer };
+
+type Session = {
+  url: string;
+  child: ChildProcess;
+  dir: string;
+  stdin: number;
+  out: Reader;
+  err: Reader;
+  token: string;
+  /** The serial of a reset already sent and not yet collected, so the wait for it costs nothing. */
+  pendingReset: number | null;
+  scripts: number;
+};
+
+/** Live psql processes, keyed by the connection string each one is connected with. */
+const sessions = new Map<string, Session>();
+
+/** Sleeping without turning the event loop: every caller of this module is synchronous. */
+const SLEEPER = new Int32Array(new SharedArrayBuffer(4));
+function nap(ms: number): void {
+  if (ms > 0) Atomics.wait(SLEEPER, 0, 0, ms);
+}
+
+/** Is the pool armed at all? */
+function pooling(): boolean {
+  return process.env["CUBIT_PSQL_POOL"] !== "0";
+}
+
+/** The one shape both paths answer with. */
+function shape(ok: boolean, stdout: string, stderr: string): SqlResult {
+  const rows = stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "")
+    .map((line) => line.split(SEP));
+  // psql prefixes each diagnostic with its source position, so the state is matched in the line
+  // rather than at the start of it.
+  return { ok, rows, stderr, sqlstate: /\bERROR:\s+([0-9A-Z]{5}):/.exec(stderr)?.[1] ?? null };
+}
+
+/** A fresh psql process for exactly one script — the path this tree ran on before the pool. */
+export function spawnPsql(url: string, script: string): SqlResult {
+  const result = spawnSync("psql", [url, "-X", "-q", "-A", "-t", "-F", SEP, "-v", "ON_ERROR_STOP=1", "-f", "-"], {
+    input: `\\set VERBOSITY verbose\n${script}\n`,
+    encoding: "utf8",
+    timeout: SCRIPT_TIMEOUT_MS,
+  });
+  const stderr = `${result.stderr ?? ""}${result.error === undefined ? "" : `\n${String(result.error)}`}`;
+  return shape(result.status === 0, result.stdout ?? "", stderr);
+}
+
+/** Everything written to this stream since it was last read. */
+function pull(reader: Reader): void {
+  const buffer = Buffer.allocUnsafe(1 << 16);
+  for (;;) {
+    const read = readSync(reader.fd, buffer, 0, buffer.length, reader.offset);
+    if (read <= 0) break;
+    reader.offset += read;
+    reader.seen = reader.seen.length === 0 ? Buffer.from(buffer.subarray(0, read)) : Buffer.concat([reader.seen, buffer.subarray(0, read)]);
+  }
+}
+
+/** Is this process gone, or a corpse nobody has reaped? The event loop is not turning to tell us. */
+function departed(child: ChildProcess): boolean {
+  const pid = child.pid;
+  if (pid === undefined) return true;
+  try {
+    const fd = openSync(`/proc/${pid}/stat`, "r");
+    const buffer = Buffer.allocUnsafe(512);
+    const read = readSync(fd, buffer, 0, buffer.length, 0);
+    closeSync(fd);
+    // "<pid> (<comm>) <state> …" — a Z is a process that has exited and not yet been waited for.
+    const line = buffer.toString("utf8", 0, read);
+    const state = line.slice(line.lastIndexOf(")") + 2, line.lastIndexOf(")") + 3);
+    return state === "Z" || state === "X";
+  } catch {
+    return true;
+  }
+}
+
+/** Write the whole script into the fifo, however small the pipe's window happens to be. */
+function writeAll(fd: number, text: string): void {
+  const buffer = Buffer.from(text, "utf8");
+  const deadline = Date.now() + 30_000;
+  for (let written = 0; written < buffer.length; ) {
+    try {
+      written += writeSync(fd, buffer, written, buffer.length - written);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EAGAIN" || Date.now() > deadline) throw error;
+      nap(0.5);
+    }
+  }
+}
+
+/** What ended the wait for a marker. */
+type Awaited = { how: "marked" | "exited" | "timeout" | "died"; stdout: string; stderr: string; status: number | null };
+
+/**
+ * Wait for this script's two markers — one on each stream — or for the wrapper's exit line, which is
+ * what ON_ERROR_STOP leaves behind. Polled rather than awaited: the callers of `psql()` are
+ * synchronous, so the event loop is not turning and no 'exit' event can arrive.
+ */
+function awaitMarker(session: Session, marker: string, deadline: number): Awaited {
+  const exit = `${session.token}-EXIT-`;
+  const answer = (how: Awaited["how"], status: number | null): Awaited => ({
+    how,
+    status,
+    stdout: session.out.seen.toString("utf8"),
+    stderr: session.err.seen.toString("utf8"),
+  });
+  for (let poll = 0; ; poll += 1) {
+    pull(session.out);
+    pull(session.err);
+    const stdout = session.out.seen.toString("utf8");
+    if (stdout.includes(marker) && session.err.seen.toString("utf8").includes(marker)) return answer("marked", 0);
+    const died = stdout.indexOf(exit);
+    if (died >= 0) {
+      // psql is gone; its stderr is unbuffered and was written before the wrapper's line, so one
+      // more read collects all of it.
+      pull(session.err);
+      return answer("exited", Number.parseInt(stdout.slice(died + exit.length), 10));
+    }
+    if (Date.now() > deadline) return answer("timeout", null);
+    if (poll % 64 === 63 && departed(session.child)) {
+      pull(session.out);
+      pull(session.err);
+      return session.out.seen.toString("utf8").includes(exit) ? answer("exited", null) : answer("died", null);
+    }
+    nap(poll < 16 ? 0 : poll < 256 ? 0.2 : poll < 4096 ? 2 : 10);
+  }
+}
+
+/** Forget everything read so far: each script reads its own stream from an empty slate. */
+function rewind(session: Session): void {
+  session.out.seen = Buffer.alloc(0);
+  session.err.seen = Buffer.alloc(0);
+}
+
+/** Start a psql for this connection string, with its two output files and its script fifo. */
+function open(url: string): Session {
+  const dir = mkdtempSync(join(tmpdir(), "cubit-psql-pool-"));
+  const fifo = join(dir, "in");
+  const madeFifo = spawnSync("mkfifo", [fifo]);
+  if (madeFifo.status !== 0) {
+    rmSync(dir, { recursive: true, force: true });
+    throw new Error(`the pool could not make its script fifo: ${String(madeFifo.stderr ?? madeFifo.error ?? "")}`);
+  }
+  const outPath = join(dir, "out");
+  const errPath = join(dir, "err");
+  const outWrite = openSync(outPath, "w");
+  const errWrite = openSync(errPath, "w");
+  const token = randomBytes(16).toString("hex");
+  const child = spawn("bash", ["-c", WRAPPER, "cubit-psql-pool", url, SEP, token, fifo], { stdio: ["ignore", outWrite, errWrite] });
+  closeSync(outWrite);
+  closeSync(errWrite);
+
+  // The fifo's write end cannot be opened until the wrapper has opened the read end; O_NONBLOCK
+  // turns "nobody is reading yet" into ENXIO to try again rather than a block with no way out.
+  let stdin: number | undefined;
+  const deadline = Date.now() + 20_000;
+  for (;;) {
+    try {
+      stdin = openSync(fifo, FS.O_WRONLY | FS.O_NONBLOCK);
+      break;
+    } catch (error) {
+      if (Date.now() > deadline) {
+        child.kill("SIGKILL");
+        rmSync(dir, { recursive: true, force: true });
+        throw error;
+      }
+      nap(1);
+    }
+  }
+  return {
+    url,
+    child,
+    dir,
+    stdin,
+    out: { fd: openSync(outPath, "r"), offset: 0, seen: Buffer.alloc(0) },
+    err: { fd: openSync(errPath, "r"), offset: 0, seen: Buffer.alloc(0) },
+    token,
+    pendingReset: null,
+    scripts: 0,
+  };
+}
+
+/** Take a live psql away: the fifo closing is psql's EOF, which is how it is asked to leave. */
+function close(session: Session): void {
+  sessions.delete(session.url);
+  try {
+    closeSync(session.stdin);
+  } catch {
+    /* already gone */
+  }
+  try {
+    session.child.kill("SIGKILL");
+  } catch {
+    /* already gone */
+  }
+  for (const reader of [session.out, session.err]) {
+    try {
+      closeSync(reader.fd);
+    } catch {
+      /* already gone */
+    }
+  }
+  rmSync(session.dir, { recursive: true, force: true });
+}
+
+/**
+ * Take away the psql this process keeps for a connection string — or for all of them.
+ *
+ * A live connection is a reason Postgres refuses to drop a database or to clone a template
+ * (`drop database` without FORCE, `create database … template …`), so the harness closes the
+ * sessions it opened onto a database before taking that database away.
+ */
+export function closePsqlPool(url?: string): void {
+  for (const session of [...sessions.values()]) {
+    if (url === undefined || session.url === url) close(session);
+  }
+}
+
+let bound = false;
+/** However a worker leaves, it leaves no psql behind. */
+function bindExit(): void {
+  if (bound) return;
+  bound = true;
+  process.on("exit", () => closePsqlPool());
+}
+
+/** The oldest sessions go when a file has spoken to more connection strings than the pool keeps. */
+function evict(): void {
+  while (sessions.size > MAX_SESSIONS) {
+    const oldest = sessions.values().next().value;
+    if (oldest === undefined) return;
+    close(oldest);
+  }
+}
+
+/** The reset that makes the next script's session look freshly connected. */
+function sendReset(session: Session): void {
+  const serial = session.scripts + 1;
+  writeAll(
+    session.stdin,
+    [
+      "\\set ON_ERROR_STOP 0",
+      // A script that opened a transaction and never closed it used to be rolled back by psql
+      // exiting; outside one, this is a warning and nothing else.
+      "rollback;",
+      "discard all;",
+      `\\echo ${session.token}-R-${serial}`,
+      `\\warn ${session.token}-R-${serial}`,
+      "",
+    ].join("\n"),
+  );
+  session.pendingReset = serial;
+}
+
+/** Collect the reset sent after the last script. Anything but a clean one retires the process. */
+function collectReset(session: Session): boolean {
+  if (session.pendingReset === null) return true;
+  const marker = `${session.token}-R-${session.pendingReset}`;
+  const done = awaitMarker(session, marker, Date.now() + SCRIPT_TIMEOUT_MS);
+  session.pendingReset = null;
+  rewind(session);
+  // `discard all` refusing is a session this pool can no longer promise anything about.
+  return done.how === "marked" && !done.stderr.includes("ERROR:");
+}
+
+/** The script as psql is told it: verbose diagnostics, stop at the first error, then say you are done. */
+function scriptBlock(session: Session, script: string, serial: number): string {
+  return [
+    "\\set VERBOSITY verbose",
+    "\\set ON_ERROR_STOP 1",
+    script,
+    `\\echo ${session.token}-S-${serial}`,
+    `\\warn ${session.token}-S-${serial}`,
+    "",
+  ].join("\n");
+}
+
+/** Everything the script printed, up to but not including its own marker. */
+function upToMarker(text: string, marker: string): string {
+  const at = text.indexOf(marker);
+  return at < 0 ? text : text.slice(0, at);
+}
+
+/** Say, in the stderr the caller reads, that this answer came from a fresh process after all. */
+function noteFallback(result: SqlResult, why: string): SqlResult {
+  return { ...result, stderr: `${result.stderr}\n[psql-pool] ${why}; this script was run in a fresh psql process instead.\n` };
+}
+
+/**
+ * Run one script through the process this connection string already has — starting one if it has
+ * none — and answer exactly what a fresh psql would have answered.
+ */
+export function pooledPsql(url: string, script: string): SqlResult {
+  if (!pooling()) return spawnPsql(url, script);
+  bindExit();
+
+  let session = sessions.get(url);
+  if (session !== undefined && !collectReset(session)) {
+    close(session);
+    session = undefined;
+  }
+  if (session === undefined) {
+    try {
+      session = open(url);
+    } catch (error) {
+      return noteFallback(spawnPsql(url, script), `no pooled psql could be started (${String(error)})`);
+    }
+    // Most recently opened last: `evict()` takes the oldest.
+    sessions.set(url, session);
+    evict();
+  } else {
+    // Keep the map ordered by use, so the session a file is working through is never the one evicted.
+    sessions.delete(url);
+    sessions.set(url, session);
+  }
+
+  session.scripts += 1;
+  const serial = session.scripts;
+  const marker = `${session.token}-S-${serial}`;
+  rewind(session);
+  const spoken = session.out.offset + session.err.offset;
+  try {
+    writeAll(session.stdin, scriptBlock(session, script, serial));
+  } catch (error) {
+    close(session);
+    return noteFallback(spawnPsql(url, script), `the pooled psql would not take the script (${String(error)})`);
+  }
+
+  const done = awaitMarker(session, marker, Date.now() + SCRIPT_TIMEOUT_MS);
+  if (done.how === "marked") {
+    sendReset(session);
+    return shape(true, upToMarker(done.stdout, marker), upToMarker(done.stderr, marker));
+  }
+
+  // Anything else ends this process: ON_ERROR_STOP means psql has already exited, and a process that
+  // stopped answering cannot be trusted with the next script either.
+  close(session);
+  if (done.how === "exited") {
+    // The refusal a fresh psql would have given, with the wrapper's own line kept out of the rows.
+    return shape(false, upToMarker(done.stdout, `${session.token}-EXIT-`), done.stderr);
+  }
+  if (done.how === "timeout") {
+    return {
+      ok: false,
+      rows: [],
+      stderr: `${done.stderr}\n[psql-pool] this script did not finish in ${SCRIPT_TIMEOUT_MS} ms and its psql was taken away.\n`,
+      sqlstate: null,
+    };
+  }
+  // The process vanished without saying anything at all. Nothing of the script was answered, so it
+  // is safe to run it again — in a fresh process, the way every script used to run.
+  const untouched = session.out.offset + session.err.offset === spoken;
+  const result = spawnPsql(url, script);
+  return noteFallback(result, untouched ? "the pooled psql vanished before it spoke" : "the pooled psql vanished mid-script");
+}
+
+/** What the pool is holding right now — how a test proves one process served many scripts. */
+export function psqlPoolStats(): { sessions: number; scripts: number } {
+  let scripts = 0;
+  for (const session of sessions.values()) scripts += session.scripts;
+  return { sessions: sessions.size, scripts };
+}

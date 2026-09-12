@@ -2,14 +2,25 @@
 // driver import: SEAM-TENANT bans driver and schema imports everywhere outside src/core/db.ts and
 // the suite is bound by that ban like the rest of the tree (cubit/no-db-outside-seam). Everything
 // here derives from the migrated database — nothing is transcribed from the tree (B-19).
-import { spawnSync } from "node:child_process";
+//
+// `psql()` is still the one door every raw statement leaves through, and it still speaks psql — but
+// it no longer STARTS one. A fresh process per statement cost this lane more than the statements
+// did (62 files, thousands of spawns, a fork and an exec and a connect and an auth handshake each),
+// so the process is now kept alive per connection string and fed script after script through its
+// own stdin (./psql-pool.ts). SEAM-TENANT admits this without amendment: the law names psql as the
+// way raw SQL is spoken and bans the driver import, and a pooled psql is psql — the same binary,
+// the same flags, the same session semantics — held open rather than restarted. Nothing here or
+// there imports a driver, an ORM or the schema, and what the pool returns is the same `SqlResult`
+// built by the same code as the spawned path, which every script still falls back to when the
+// pooled process cannot answer.
 import { AUDIT_REASON, GUC_SYSTEM_REASON, ROLE_APP, SEEDED_TENANTS, SEED_REASON, TENANT_COLUMN, TENANTS_TABLE } from "./fixtures";
+import { pooledPsql, type SqlResult } from "./psql-pool";
 
-/** A column separator no catalogue value can contain. */
-const SEP = "\u0001";
+/** What one psql script answered. One script is one session, so GUCs set in it hold for it alone. */
+export type { SqlResult } from "./psql-pool";
 
-/** What one psql invocation answered. One invocation is one session, so GUCs set in it hold. */
-export type SqlResult = { ok: boolean; rows: string[][]; stderr: string; sqlstate: string | null };
+/** The pool's own door, so a caller that must let a database go can close the sessions onto it. */
+export { closePsqlPool } from "./psql-pool";
 
 /** A base table of the migrated database, already spelled for interpolation. */
 export type TableRef = { schema: string; table: string; sql: string };
@@ -35,23 +46,14 @@ export function withSession(gucs: Record<string, string>, script: string): strin
 
 /**
  * Run a script as one session. VERBOSITY verbose puts the SQLSTATE in front of every error message,
- * which is how a refusal is told apart from a mistake.
+ * which is how a refusal is told apart from a mistake; ON_ERROR_STOP means the first error ends the
+ * script, with everything ahead of it committed and nothing behind it run.
+ *
+ * The session is the pool's (./psql-pool.ts) — one live psql per connection string, reset between
+ * scripts — and a fresh process when the pooled one cannot answer.
  */
 export function psql(url: string, script: string): SqlResult {
-  const result = spawnSync("psql", [url, "-X", "-q", "-A", "-t", "-F", SEP, "-v", "ON_ERROR_STOP=1", "-f", "-"], {
-    input: `\\set VERBOSITY verbose\n${script}\n`,
-    encoding: "utf8",
-    timeout: 120_000,
-  });
-  const stderr = `${result.stderr ?? ""}${result.error === undefined ? "" : `\n${String(result.error)}`}`;
-  const rows = (result.stdout ?? "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line !== "")
-    .map((line) => line.split(SEP));
-  // psql prefixes each diagnostic with its source position, so the state is matched in the line
-  // rather than at the start of it.
-  return { ok: result.status === 0, rows, stderr, sqlstate: /\bERROR:\s+([0-9A-Z]{5}):/.exec(stderr)?.[1] ?? null };
+  return pooledPsql(url, script);
 }
 
 /** The same, refusing to continue when the script did not run — a broken probe is not a finding. */
