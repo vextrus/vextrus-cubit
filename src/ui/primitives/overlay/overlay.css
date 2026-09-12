@@ -33,7 +33,7 @@
   max-height: calc(100dvh - var(--space-12));
   overflow: auto;
   padding: var(--space-5);
-  border: 1px solid var(--hairline);
+  border: var(--hairline);
   border-radius: var(--radius-8);
   background-color: var(--surface-app);
   box-shadow: var(--shadow-3);
@@ -99,13 +99,13 @@
 
 .cx-sheet[data-side="right"] {
   right: 0;
-  border-left: 1px solid var(--hairline);
+  border-left: var(--hairline);
   animation: cx-sheet-enter-right var(--motion-panel) var(--ease) both;
 }
 
 .cx-sheet[data-side="left"] {
   left: 0;
-  border-right: 1px solid var(--hairline);
+  border-right: var(--hairline);
   animation: cx-sheet-enter-left var(--motion-panel) var(--ease) both;
 }
 
@@ -115,7 +115,7 @@
   z-index: var(--z-overlay);
   max-width: 280px;
   padding: var(--space-4);
-  border: 1px solid var(--hairline);
+  border: var(--hairline);
   border-radius: var(--radius-8);
   background-color: var(--surface-app);
   box-shadow: var(--shadow-2);
@@ -132,7 +132,7 @@
   z-index: var(--z-overlay);
   min-width: 180px;
   padding: var(--space-1);
-  border: 1px solid var(--hairline);
+  border: var(--hairline);
   border-radius: var(--radius-8);
   background-color: var(--surface-app);
   box-shadow: var(--shadow-2);
@@ -191,7 +191,7 @@
 
 .cx-toast {
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--hairline);
+  border: var(--hairline);
   border-radius: var(--radius-8);
   background-color: var(--surface-app);
   box-shadow: var(--shadow-3);

@@ -20,7 +20,7 @@
 .cx-tabs-list {
   display: flex;
   gap: var(--space-1);
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: var(--hairline);
 }
 
 .cx-tabs-trigger {
@@ -247,7 +247,7 @@
   top: 0;
   z-index: calc(var(--z-sticky) + 1);
   background-color: var(--surface-app);
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: var(--hairline);
 }
 
 /* §5 rule 1: the footer is sticky only when there are totals to keep — there is no element here
@@ -257,14 +257,14 @@
   bottom: 0;
   z-index: calc(var(--z-sticky) + 1);
   background-color: var(--surface-app);
-  border-top: 1px solid var(--hairline);
+  border-top: var(--hairline);
 }
 
 .cx-table-row {
   display: flex;
   width: 100%;
   height: var(--row-h);
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: var(--hairline);
 }
 
 .cx-table-header .cx-table-row,
@@ -335,11 +335,11 @@
 }
 
 .cx-table-cell[data-pinned="left"] {
-  border-right: 1px solid var(--hairline);
+  border-right: var(--hairline);
 }
 
 .cx-table-cell[data-pinned="right"] {
-  border-left: 1px solid var(--hairline);
+  border-left: var(--hairline);
 }
 
 /* The corner cell: a pinned HEADER cell is above both the header band and the frozen column. */
@@ -365,7 +365,7 @@
 
 .cx-table-refusal {
   padding: var(--cell-py) var(--cell-px);
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: var(--hairline);
   background-color: var(--surface-sunken);
 }
 

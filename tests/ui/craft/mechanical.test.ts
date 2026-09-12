@@ -28,6 +28,19 @@ import { readDeclarations } from "../../support/css-tokens";
 
 const REPO_ROOT = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 
+/**
+ * The tokens that are a WHOLE shorthand — `--hairline` is `1px solid` a line colour — read out of
+ * the token source rather than listed here, so a second such token joins this check by being
+ * declared (B-17). A declaration that spells a width or a style beside one of these expands to
+ * nonsense (`border-bottom: 1px solid 1px solid …`), which the browser drops on
+ * the floor: the rule is simply not painted. `src/ui/primitives/data/data.css` shipped ten of them.
+ */
+const SHORTHAND_TOKENS: readonly string[] = [
+  ...new Set(
+    [...readFileSync(join(REPO_ROOT, "src/ui/tokens.css"), "utf8").matchAll(/--([a-z0-9-]+)\s*:\s*(\d+(?:\.\d+)?px\s+(?:solid|dashed|dotted)\b[^;]*);/g)].map((match) => match[1] ?? ""),
+  ),
+].filter((name) => name !== "");
+
 /** Every stylesheet a screen is drawn by: the app routes' own, one file per screen. */
 function screenSheets(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -58,6 +71,28 @@ const NOT_A_CONTROL: Readonly<Record<string, string>> = {
   ".cx-home-pause": "the visually-hidden idiom (1 px clipped) — a live-region pause a reader hears and nobody sees",
   ".cx-viewer-hidden": "the visually-hidden idiom again, in the viewer's own sheet",
   ".cx-viewer-layer-swatch": "a colour swatch glyph beside a layer name — a mark, not a control height",
+  // The primitives joined this scan on 2026-09-12 (see `screens` below). A primitive's own furniture
+  // is not a control height: these five are a status dot, a switch's travelling thumb, a hairline
+  // rule, a tree's indent and a scrollbar — none of them anything a finger is asked to hit.
+  ".cx-act-dot": "a 7 px status dot inside an act row — a mark, not a control",
+  ".cx-switch-thumb": "the switch's thumb, sized from the switch it travels inside (`--icon-lg` less its inset)",
+  '.cx-separator[data-orientation="horizontal"]': "a 1 px rule — the separator IS the hairline, and a hairline is not a control",
+  ".cx-tree-spacer": "one level of a tree's indent, which is a measure of depth and not a control",
+  '.cx-scrollarea-bar[data-orientation="horizontal"]': "a scrollbar's thickness, which the platform's own scrollbars are also drawn at",
+};
+
+/**
+ * The spacings that are lawfully off the 4-pt grid, each with its reason — the same roster shape as
+ * `NOT_A_CONTROL`, asserted from both sides. Every entry is a HAIRLINE-scale nudge: 1 px is the rule
+ * the product draws its borders with, and a control that must sit flush against one is offset by the
+ * rule's own width, not by a grid step. The grid governs layout, and a layout step of 1 px is what
+ * this check exists to catch.
+ */
+const NOT_A_SPACING: Readonly<Record<string, string>> = {
+  '.cx-btn[data-variant="ghost"]': "a ghost button carries no border, so it is padded by the 1 px its bordered siblings spend on one — the two line up",
+  ".cx-switch-thumb": "the thumb's 2 px inset inside its track, which is the track's own rule doubled",
+  ".cx-tabs-trigger": "the active tab is pulled 1 px down to sit ON the tab strip's rule rather than above it",
+  ".cx-scrollarea-bar": "1 px of padding around a scrollbar's thumb, so the thumb does not touch the rail's edge",
 };
 
 /** 5 with nothing to say, one point off per finding, floored at 0 — the rubric's own anchors (§7). */
@@ -71,18 +106,26 @@ interface Screen {
   c4Heights: string[];
   /** Which exceptions this sheet actually used, so a dead one can be found. */
   excused: string[];
+  /** The same, for the 4-pt grid's own roster. */
+  excusedSpacing: string[];
   colour: string[];
+  /** Declarations that re-spell what a shorthand token already carries — invalid, so unpainted. */
+  compound: string[];
 }
 
 function measure(file: string): Screen {
   const css = readFileSync(file, "utf8");
-  const name = relative(join(REPO_ROOT, "src/app"), file);
-  const screen: Screen = { name, c8Grid: [], c8Type: [], c4Heights: [], excused: [], colour: [] };
+  const name = relative(REPO_ROOT, file);
+  const screen: Screen = { name, c8Grid: [], c8Type: [], c4Heights: [], excused: [], colour: [], compound: [], excusedSpacing: [] };
   for (const decl of readDeclarations(css)) {
     const under = decl.scope.at(-1) ?? "";
     const where = `${name}:${decl.line} ${under} { ${decl.prop}: ${decl.value} }`;
     if (SPACING.test(decl.prop)) {
-      for (const px of pixelsIn(decl.value)) if (Math.abs(px) % 4 !== 0) screen.c8Grid.push(where);
+      for (const px of pixelsIn(decl.value)) {
+        if (Math.abs(px) % 4 === 0) continue;
+        if (NOT_A_SPACING[under] !== undefined) screen.excusedSpacing.push(under);
+        else screen.c8Grid.push(where);
+      }
     }
     if (decl.prop === "font-size") {
       for (const px of pixelsIn(decl.value)) if (!TYPE_SCALE.has(px)) screen.c8Type.push(where);
@@ -98,12 +141,19 @@ function measure(file: string): Screen {
     // reads the same property from the file so the score prints beside the others.
     if (/#[0-9a-fA-F]{3,8}\b|\brgba?\s*\(|\bhsla?\s*\(/.test(decl.value)) screen.colour.push(where);
     if (/var\(\s*--(?:graphite|beam)-[0-9]+\s*\)/.test(decl.value)) screen.colour.push(where);
+    for (const token of SHORTHAND_TOKENS) {
+      const used = new RegExp(`var\\(\\s*--${token}\\s*[,)]`).test(decl.value);
+      if (used && decl.value.trim().replace(/\s+/g, " ") !== `var(--${token})`) screen.compound.push(`${where} — --${token} already carries its width and style`);
+    }
   }
   return screen;
 }
 
 describe("Design Direction 00 §7: the rubric's mechanical checks, at the source", () => {
-  const screens = screenSheets(join(REPO_ROOT, "src/app")).map(measure);
+  // BOTH homes of the product's CSS. Until 2026-09-12 this suite read `src/app` only, so C8 was
+  // blind to the primitives every screen is BUILT from — and ten invalid `border` declarations sat
+  // in `src/ui/primitives/data/data.css` unseen while the rubric scored C8 = 5.
+  const screens = [...screenSheets(join(REPO_ROOT, "src/app")), ...screenSheets(join(REPO_ROOT, "src/ui/primitives"))].map(measure);
 
   test("§7: the per-screen mechanical scores", () => {
     expect(screens.length, "the app draws its screens from stylesheets this check can read").toBeGreaterThan(8);
@@ -128,15 +178,24 @@ describe("Design Direction 00 §7: the rubric's mechanical checks, at the source
     expect(offences, `a height off the C4 set {${[...HEIGHTS].join(", ")}} — add the control to the scale, or name it in NOT_A_CONTROL with its reason (§1, §4.2)`).toEqual([]);
   });
 
-  test("C4: every declared exception is still earning its place", () => {
+  test("C4/C8: every declared exception is still earning its place", () => {
     const used = new Set(screens.flatMap((s) => s.excused));
     const dead = Object.keys(NOT_A_CONTROL).filter((selector) => !used.has(selector));
     expect(dead, "an exception that no longer fires is a licence nobody needs — delete it (B-19)").toEqual([]);
+    const usedSpacing = new Set(screens.flatMap((s) => s.excusedSpacing));
+    const deadSpacing = Object.keys(NOT_A_SPACING).filter((selector) => !usedSpacing.has(selector));
+    expect(deadSpacing, "the same, for the grid's own roster").toEqual([]);
   });
 
   test("C8: no screen spells a colour, and no screen spells a position on a primitive ramp", () => {
     const offences = screens.flatMap((s) => s.colour);
     expect(offences, "colour lives in the token source; a screen reads a semantic alias (R-UI-001, §4)").toEqual([]);
+  });
+
+  test("C8: no declaration re-spells what a shorthand token already carries (the rule would not paint)", () => {
+    expect(SHORTHAND_TOKENS, "the token source declares at least one whole-shorthand token for this check to read").toContain("hairline");
+    const offences = screens.flatMap((s) => s.compound);
+    expect(offences, "`1px solid var(--hairline)` expands to `1px solid 1px solid …` — invalid, so the border is never drawn (R-UI-001, §4)").toEqual([]);
   });
 
   test("C8: every spacing a screen states outright is on the 4-pt grid", () => {
