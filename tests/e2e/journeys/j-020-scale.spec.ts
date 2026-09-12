@@ -164,11 +164,13 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     );
 
     await checkpoint(page, testInfo, "j-020-scale/panel-open");
-    // The LIGHT ground, asked for by name before the capture that states it: until 2026-09-12 this
-    // pair was taken on the lane's ground and then set back to a SPELLED "light", so in the dark
-    // project `panel-light.png` held the DARK panel and every later capture was light too.
-    // …and the page is given back to the LANE, not to a literal (`support/lane-theme.ts`).
-    await scale.setTheme(laneTheme(testInfo));
+    // The LIGHT ground, asked for BY NAME, in both lanes. The line below read the LANE's ground
+    // until 2026-09-12, so in the dark project `panel-light.png` was a picture of the dark panel —
+    // byte-identical to `panel-dark.png` beside it (mean luma 26.9 both, measured on the committed
+    // files) and the two-theme comparison in that lane was vacuous. The theme does reach this panel;
+    // what did not reach it was the lane (`support/lane-theme.ts`: a capture named `-light` or
+    // `-dark` states its own ground and is taken on it in every lane).
+    await scale.setTheme("light");
     await expect(scale.panel, "panel-light.png pictures the region a reader reads a sheet's scale in").toHaveScreenshot(["j-020-scale", "panel-light.png"], {
       animations: "disabled",
       maxDiffPixelRatio: 0.002,
@@ -178,7 +180,9 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
       animations: "disabled",
       maxDiffPixelRatio: 0.002,
     });
-    await scale.setTheme("light");
+    // …and the page is given back to the LANE, not to a literal: every capture after this one is
+    // named without a theme, so it belongs to the project walking it.
+    await scale.setTheme(laneTheme(testInfo));
 
     /* --- j-020-scale/observation: two cited picks, an entered distance, one observation --- */
     const records = await scale.sheetRecords(staged, layers);

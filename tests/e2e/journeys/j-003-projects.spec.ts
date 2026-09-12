@@ -15,6 +15,7 @@ import { SHomePage, S_HOME } from "../pages/s-home.page";
 import { SParticipantsPage } from "../pages/s-participants.page";
 import { baselinePath, laneProject } from "../support/capture-geometry";
 import { checkpoint } from "../support/checkpoint";
+import { emulateTheme, restoreLaneTheme } from "../support/lane-theme";
 import { newestMail } from "../support/outbox";
 import { appears, steadyText } from "../support/retrying-read";
 
@@ -201,7 +202,7 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
    * where an open menu is portalled is the implementation's business and a shell-root crop can miss
    * it; the two frame states are compared at shell-root, which is the crop those baselines hold.
    */
-  test("J-003: the regenerated shell baselines picture the screen that now stands (B-20, V-E2E)", async ({ page, baseURL }) => {
+  test("J-003: the regenerated shell baselines picture the screen that now stands (B-20, V-E2E)", async ({ page, baseURL }, testInfo) => {
     expect(baseURL, "the journeys are driven against the served product").toBeTruthy();
     const origin = baseURL ?? "";
     const auth = new SAuthPage(page);
@@ -246,18 +247,26 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     await expect(shell.empty, "…and the zero-project home AC-3 preserves is what they picture (R-UI-033)").toBeVisible();
     await expect(shell.sampleOffer, "the SAMPLE offer stands beside the create door, unclicked, as those pixels hold it").toBeVisible();
 
-    /* --- shell-light: the frame the create door now stands in --- */
+    /* --- shell-light: the frame the create door now stands in, on the LIGHT ground asked for by
+       name. These four files are `tests/e2e/shell.spec.ts`'s as much as this journey's, and that
+       spec asks for each ground by name; this one took the lane's, so in the dark project the two
+       specs wrote one file from two grounds and the second to run was always red (1 287 920 px,
+       ratio 1.00 — the whole frame). One file, one ground, in every lane. --- */
+    await emulateTheme(page, "light");
+    await shell.expectFrame();
+    await expect(page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", "light");
     await expect(shell.root, "shell-light.png pictures the screen that now stands").toHaveScreenshot("shell-light.png", { maxDiffPixelRatio: 0.002 });
 
     /* --- shell-dark: the same frame, the other theme, resolved once at load (Decision § 6) --- */
-    await page.emulateMedia({ colorScheme: "dark" });
-    await page.reload();
+    await emulateTheme(page, "dark");
     await shell.expectFrame();
     await expect(page.locator("html"), "the document states the theme it is painting in").toHaveAttribute("data-theme", "dark");
     await expect(shell.root, "shell-dark.png pictures the screen that now stands").toHaveScreenshot("shell-dark.png", { maxDiffPixelRatio: 0.002 });
 
-    await page.emulateMedia({ colorScheme: "light" });
-    await page.reload();
+    // The two overlay captures below are named without a theme, so they belong to the LANE — not to
+    // the "light" this line used to spell, which made `design-dark/shell-tenant-switcher-open.png`
+    // a picture of the light product (lane-theme.ts's own worked example).
+    await restoreLaneTheme(page, testInfo);
     await shell.expectFrame();
 
     /* --- shell-tenant-switcher-open: the rail's overlay, portalled outside the frame --- */

@@ -141,11 +141,11 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
     expect(bubbles, "and never more axes than there are").toBeLessThanOrEqual(staged.axes.length);
 
     await checkpoint(page, testInfo, "j-021/partition-open");
-    // The LIGHT ground, asked for by name before the capture that states it: until 2026-09-12 this
-    // pair was taken on the lane's ground and then set back to a SPELLED "light", so in the dark
-    // project `panel-light.png` held the DARK panel and every later capture was light too.
-    // …and the page is given back to the LANE, not to a literal (`support/lane-theme.ts`).
-    await partition.setTheme(laneTheme(testInfo));
+    // The LIGHT ground, asked for BY NAME, in both lanes — the clause `support/lane-theme.ts`
+    // states. This line read the LANE's ground until 2026-09-12, so in the dark project
+    // `panel-light.png` was the dark panel, byte-identical to `panel-dark.png` (mean luma 28.3
+    // both, measured on the committed files). The theme reaches this panel; the lane did not.
+    await partition.setTheme("light");
     await expect(partition.panel, "panel-light.png pictures the region a reader reads the partition in").toHaveScreenshot(["viewer-partition", "panel-light.png"], {
       mask: [partition.offeredGroups.getByTestId("offered-group-count")],
       animations: "disabled",
@@ -155,7 +155,9 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
       mask: [partition.offeredGroups.getByTestId("offered-group-count")],
       animations: "disabled",
     });
-    await partition.setTheme("light");
+    // …and the page goes back to the LANE's ground: every capture after this one is named without
+    // a theme and belongs to the project walking it.
+    await partition.setTheme(laneTheme(testInfo));
 
     /* --- AC-5: the region is walked on the keyboard, in DOM order, every stop wearing the reticle --- */
     await partition.heading.focus();

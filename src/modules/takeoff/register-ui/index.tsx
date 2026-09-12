@@ -696,7 +696,11 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
     {
       id: "bases",
       header: REGISTER_COPY.takeoff_register_col_bases,
-      size: 160,
+      // 184, not 160: the cell is a chip AND the selecting basis in words, and at 160 the longest
+      // registered word was sliced mid-letter in both committed stills ("Defa…" with no ellipsis to
+      // say so). The width is the content's: chip 94 + gap 4 + the longest selection basis + the
+      // cell's own padding (§5 rule 3's "the width it is read at").
+      size: 184,
       // I-25's pair, said the way each half is said: the basis that determines the figure wears
       // R-UI-002's chip — the glyph and the palette travel with it — and the selecting basis is a
       // model value in words, with its SCREAMING form kept inside the label's own disclosure (§6).
@@ -712,7 +716,10 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
       header: REGISTER_COPY.takeoff_register_col_coverage,
       accessorFn: (line) => line.coverage,
       enableSorting: true,
-      size: 128,
+      // 152 for the same reason as `bases` above: the coverage chip and the word beside it are two
+      // boxes, not one text cell, so the table's ellipsis never reached them and "Complete" stood
+      // cut at the cell's edge.
+      size: 152,
       cell: ({ row }) => (
         <span className="cx-register-coverage">
           <CoverageChip value={row.original.coverage === COMPLETE ? 1 : 0} />

@@ -106,11 +106,20 @@
 /* §3.2's `tree` region, holding everything about the campaign that is not a line: the objects, what
    was struck, what produced no line and what the machine offers. It stands BESIDE the grid, so none
    of it is height the grid pays for, and it scrolls on its own. */
+/* ONE scroll region, not four. Each of the rail's sections used to scroll inside a panel of the
+   body's own height, so the tree, the refusals and the offers each shrank to a share of it and every
+   card was cut mid-sentence: `design-light/s-takeoff/register.png` shows the second "Deferred and
+   refused" card sliced through and the "Level stacks" heading standing on the cut. A card is the
+   unit a reader reads, so the rail carries its cards whole and the RAIL scrolls — which is what the
+   Decision's region table says it does ("scrolls on its own"), read as one region. */
 .cx-register-index {
   flex: 0 0 240px;
   min-width: 160px;
   max-width: 320px;
   overflow: auto;
+  /* The panel above it is the flex item; this is the scroll box, so it may not be shrunk by the
+     sections inside it — they are laid out at their own height and this box scrolls past them. */
+  overscroll-behavior: contain;
 }
 
 /* I-171: the screen's id rides a wrapper that adds no box and no line of layout, so the primitive
@@ -153,10 +162,11 @@
   color: var(--ink);
 }
 
+/* The tree stands at its own height inside the rail's one scroll box (above): a second scroll box
+   here would cut the tree at a share of the rail and put two scrollbars on one 240 px column. */
 .cx-register-tree > * {
-  flex: 1 1 auto;
+  flex: none;
   min-height: 0;
-  overflow: auto;
 }
 
 .cx-register-repudiated {
@@ -169,14 +179,17 @@
 
 /* --- what produced no line, and what the machine offers (R-UI-020, R-UI-023) --- */
 
+/* The same clause for the two sections below the tree: they stand at the height of the cards they
+   hold and are scrolled to, never scrolled inside. `flex: 0 1 auto` let the panel's fixed height
+   shrink them below their content, which is how a refusal card came to be overrun by the heading of
+   the section after it. */
 .cx-register-refusals,
 .cx-register-level-stack {
   display: flex;
   flex-direction: column;
-  flex: 0 1 auto;
+  flex: none;
   min-height: 0;
   border-block-start: var(--hairline);
-  overflow: auto;
 }
 
 .cx-register-refusals > :not(.cx-register-panel-heading),
@@ -259,10 +272,16 @@
   cursor: default;
 }
 
+/* A CELL may not wrap (§5 rule 2) and the inspector is not a cell: `.cx-register-source` carries
+   `white-space: nowrap` for the table, and the SAME class on the "Read from" row of the Technical
+   disclosure sent a 70-character key straight out of the 320 px slot and off the right edge of the
+   screen — `overflow-wrap: anywhere` beneath a `nowrap` does nothing at all. The key is a fact a
+   reader must be able to read whole, so here, and only here, it wraps. */
 .cx-register-technical .cx-register-object-key,
 .cx-register-technical .cx-register-source {
   font-family: var(--font-mono);
   color: var(--ink-secondary);
+  white-space: normal;
   overflow-wrap: anywhere;
   user-select: all;
 }
@@ -370,6 +389,18 @@
   gap: var(--space-1);
   min-width: 0;
   white-space: nowrap;
+  /* A composed cell is a chip and a word, and neither is `.cx-table-cell-text`, so the table's own
+     ellipsis never reached them: "Defaulted" and "Complete" were sliced mid-word by the cell's
+     `overflow: hidden` in both committed register stills. The word shrinks and ellipsises; the chip
+     keeps its size, because a truncated chip is unreadable rather than merely shortened. */
+  overflow: hidden;
+}
+
+.cx-register-bases > :last-child,
+.cx-register-coverage > :last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The campaign's pinned revision, in the tabs row: a label and the surrogate it names. */

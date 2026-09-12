@@ -33,13 +33,17 @@
 }
 
 /* With a selection the slot mounts and the third track takes the remembered width, which the slot
-   itself carries as an inline measure inside `--inspector-w-min`…`--inspector-w-max`. */
+   itself carries as an inline measure inside `--inspector-w-min`…`--inspector-w-max`.
+   `minmax(0, auto)` and not `auto`: an `auto` track's floor is its content's MIN-CONTENT, so one
+   unbreakable string inside the slot — a 70-character source key — could widen the column past the
+   token's own measure and take the width out of the work surface beside it. The slot's width is the
+   token's (and the person's, between the two bounds); nothing the slot holds may set it. */
 .cx-shell:has(.cx-shell-inspector) {
-  grid-template-columns: var(--rail-w) minmax(0, 1fr) auto;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr) minmax(0, auto);
 }
 
 .cx-shell:has(.cx-shell-rail[data-collapsed="false"]):has(.cx-shell-inspector) {
-  grid-template-columns: var(--rail-w-expanded) minmax(0, 1fr) auto;
+  grid-template-columns: var(--rail-w-expanded) minmax(0, 1fr) minmax(0, auto);
 }
 
 /* --- the rail ------------------------------------------------------------------------

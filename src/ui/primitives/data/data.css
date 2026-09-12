@@ -260,9 +260,16 @@
   border-top: var(--hairline);
 }
 
+/* The row is the width of the columns when they are wider than the viewport, and the width of the
+   viewport when they are not. Without the `min-width` the row box stopped at the viewport's edge
+   while its cells overflowed past it, so a table scrolled sideways into rows whose fill, hairline
+   and hover stopped short — the register at 1440 with the inspector open is that table. The
+   viewport (`.cx-table-viewport`) is what scrolls; §7 C10 admits exactly that ("grids may scroll
+   inside their own container"). */
 .cx-table-row {
   display: flex;
   width: 100%;
+  min-width: max-content;
   height: var(--row-h);
   border-bottom: var(--hairline);
 }
