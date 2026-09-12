@@ -1,4 +1,5 @@
 /**
+ * J-000 SEGMENTS: upload F-RCC6 (DXF)
  * J-000 — the Golden Path reaches a sheet (AC-5). A new account uploads F-RCC6, waits for the
  * reading, opens FOUNDATION PLAN through the card's own door on S-Drawings (R-UI-031: visible
  * navigation, paying s-viewer I-77), selects one entity in the viewer, copies its source key and

@@ -31,10 +31,22 @@ export default defineConfig({
   // carries both spellings a journey has been written in, so neither convention is collected by
   // nothing (V-E2E: a journey the gate does not run is green by omission).
   testMatch: ["**/*.e2e.ts", "**/*.spec.ts"],
+  // A journey is serial INSIDE its file — a leg starts from the state the leg before it left — so
+  // parallelism is by FILE and never inside one (AM-09 §2).
   fullyParallel: false,
   forbidOnly: true,
   retries: 0,
-  workers: 1,
+  // P9: how many journeys the lane walks at once. One unless the engine asks for more, so a plain
+  // `pnpm e2e` is exactly what it was; `CUBIT_E2E_WORKERS=2` is the gate's regression-union lever.
+  //
+  // What makes two workers lawful here: every journey brings its OWN identity. The accounts are
+  // per-run unique (`j000-<run>@cubit.test`), the workspace and the project are made by the journey
+  // that walks them, and the outbox is read by address — so two journeys in flight at once meet
+  // none of each other's rows. The two things they DO share are read-only or keyed: the picture
+  // tenant is a fixture the lane installs before the first journey and no leg writes, and the
+  // served build is one process answering both. The database is shared for the same reason it can
+  // be: nothing in it is addressed by a name two journeys both hold.
+  workers: Math.max(1, Number(process.env["CUBIT_E2E_WORKERS"] ?? "1") || 1),
   // `list` for a human, one `JOURNEY <id> green|red` line per journey the caller asked for, and —
   // only when the run is being filmed — the showreel's table of contents. The reel reporter is
   // registered by name rather than always, because a reporter that writes a file every run writes a

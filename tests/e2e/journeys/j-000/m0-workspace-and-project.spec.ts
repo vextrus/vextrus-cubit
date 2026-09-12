@@ -1,3 +1,4 @@
+// J-000 SEGMENTS: Sign up; create tenant; create project
 // J-000 — the Golden Path's first real segment (AC-5): sign up → name the workspace through the
 // shipped door → create the first project, and see it on S-Home. Everything past create-project is
 // a later milestone's leg; the smoke in `j-000/m0-smoke.spec.ts` keeps proving the lane itself.
