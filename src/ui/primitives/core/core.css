@@ -252,7 +252,11 @@ button.cx-chip:hover:not(:disabled) {
   border-radius: var(--radius-4);
   background: none;
   color: var(--ink-secondary);
-  font-family: var(--font-mono);
+  /* NOT mono (Design Direction 00 §1): "Mono is for numbers, codes, keys, formulas, coordinates —
+     and nothing else … A mono word is a rubric defect (§7 C11)." The chip read `TRANSCRIBED` in
+     mono, which was two defects in one chip: a machine identifier on the face of the screen, set in
+     the face reserved for machine values. It says "Transcribed" now, in the body face, and the raw
+     enum keeps the mono treatment inside the technical disclosure where it belongs. */
   font-size: var(--text-12);
   line-height: var(--leading-ui);
   font-variant-numeric: tabular-nums slashed-zero;

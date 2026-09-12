@@ -26,6 +26,17 @@ import {
 import { el, mount } from "./support/render";
 
 /**
+ * The words a basis reads as. It is spelled here rather than imported from the primitive because
+ * this suite must be able to disagree with the component: a test that derives the expected face
+ * from the same function the component uses asserts nothing about the face at all.
+ */
+const humanise = (value: string): string => {
+  const words = value.split("_").filter((word) => word !== "").map((word) => word.toLowerCase());
+  const first = words[0] as string;
+  return [`${first.charAt(0).toUpperCase()}${first.slice(1)}`, ...words.slice(1)].join(" ");
+};
+
+/**
  * Every `--basis-…` spelling in a module's text: the name where the suffix is written out, and the
  * interpolated form (`` `--basis-${…}` ``) where it is computed. A written-out name can bind
  * something; an interpolation can only ever be a pointer the cascade resolves.
@@ -130,10 +141,21 @@ describe("AC-4: BasisChip renders the pair (R-UI-002)", () => {
         glyph.textContent,
         `R-UI-002: the glyph rides with the colour for ${name}, taken from the single BASIS_GLYPHS home`,
       ).toBe(table[name]);
+      // R-UI-002's pair is glyph AND label, and the raw value stays reachable: the enum is in the
+      // DOM under the technical disclosure, which is where a suite and an engineer find it.
       expect(
         chip.textContent ?? "",
         `R-UI-002: the pair is glyph AND label — the chip for ${name} must carry its name`,
       ).toContain(name);
+      // AMENDED by v22 U2 (Design Direction 00 §6, §7 C6/C11): the FACE of the chip is a word, never
+      // the SCREAMING enum. Asserting only that the raw value is present let `{basis}` as a bare
+      // text node pass for a year, and that one text node held every grid screen in the product at
+      // C6 = 3. What is visible is asserted here so a revert cannot be green.
+      const technical = [...chip.querySelectorAll("[data-technical]")];
+      for (const node of technical) node.remove();
+      const face = (chip.textContent ?? "").replace(table[name] as string, "").trim();
+      expect(face, `§6: the chip for ${name} reads as words, not as the stored enum`).toBe(humanise(name));
+      expect(technical.length, `${name}'s raw value is kept, under the technical disclosure`).toBe(1);
       cleanup();
     }
   });

@@ -34,13 +34,13 @@ Two consequences, stated plainly rather than buried:
 | Screen | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | C11 | C12 | Score | Before (§8) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Viewer | 5 | 5 | — | — | — | — | — | 5 | — | — | — | — | *pending capture* | 2.7 |
-| Register | 4 | 5 | 4 | 4 | 4 | **3** | 4 | 5 | 4 | 4 | 4 | 4 | **4.0** | 1.5 |
+| Register | 4 | 5 | 4 | 4 | 4 | 5 | 4 | 5 | 4 | 4 | 4 | 4 | **4.2** | 1.5 |
 | Coverage | 4 | 5 | 4 | 4 | 4 | 4 | 5 | 5 | 4 | 4 | 4 | 4 | **4.3** | 2.3 |
 | Home | 4 | 4 | 4 | 4 | 4 | 5 | 5 | 5 | 4 | 5 | 4 | 4 | **4.3** | 2.9 |
 | Project | 4 | 4 | 4 | 4 | 4 | 5 | 5 | 5 | 4 | 5 | 4 | 4 | **4.3** | 2.9 |
 | Drawings | — | — | — | — | — | — | 5 | 5 | — | — | — | — | *pending capture* | 1.8 |
 | Members | 4 | 5 | **3** | 4 | 4 | 5 | 4 | 5 | 4 | 4 | 4 | 4 | **4.2** | 2.1 |
-| Auth | **1** | 5 | 5 | 5 | 4 | 4 | 5 | 5 | 4 | 5 | 4 | **3** | **4.0** | 3.6 |
+| Auth | 5 | 5 | 5 | 5 | 4 | 4 | 5 | 5 | 4 | 5 | 4 | **3** | **4.5** | 3.6 |
 | Settings — rule set | **3** | **3** | **3** | 4 | 5 | **3** | 5 | 5 | 4 | 4 | 4 | 4 | **3.8** ⚠ | 2.5 |
 
 ⚠ **One screen is under the 4.0 bar and it is not rounded up.**
@@ -59,28 +59,42 @@ Two consequences, stated plainly rather than buried:
   repeated cross-screen finding (breadcrumb, dead inspector, native select) is owned by the
   foundation node, not recorded forever" — so it belongs to `routes.ts`, not to these two screens.
 
-### S-Register — 4.0, and the one SCREAMING word that caps EVERY grid screen
+### S-Register — 4.2, after the one primitive that was capping every grid screen was fixed
 
-C6 = 3, and it is a foundation debt rather than this screen's. Every identifier the criterion names is
-gone: uuids into `IdChip`, object and source keys under `[data-technical]`, `MEASURED`/`NONE`/coverage
-/engine/role/standing/discipline through `EnumLabel`. What is left is **`BasisChip`'s own copy** — the
-shipped primitive renders `{basis}` as a bare text node, once per row. Re-wording it at the call site
-is exactly the B-17 defect it exists to prevent, so the register cannot fix it and did not try.
+The register landed at 4.0 with C6 = 3, and the 3 was not its own. Every identifier the criterion
+names had gone — uuids into `IdChip`, object and source keys under `[data-technical]`,
+`MEASURED`/`NONE`/coverage/engine/role/standing/discipline through `EnumLabel`. What was left was
+**`BasisChip`'s own copy**: the shipped primitive rendered `{basis}` as a bare text node, so
+`TRANSCRIBED` stood on the face of the screen once per row. The register correctly refused to re-word
+it at the call site — a consumer spelling a shipped primitive's copy is the B-17 defect that
+primitive exists to prevent — and recorded it as owed.
 
-**Until `BasisChip` reads like `EnumLabel` — words on the face, the raw value under `data-technical` —
-no grid screen in the product can score C6 above 3.** That is S-Takeoff, S-Coverage and, in M3,
-S-BOQ, S-BBS, S-Levels and S-Schedules. It is the single highest-leverage craft fix left, and it is
-one primitive.
+It is fixed at the primitive: `BasisChip` now renders `EnumLabel`, so the face reads "Transcribed"
+and the raw enum stays in the DOM under the technical disclosure, where a suite and an engineer both
+still find it. **It was also in mono**, which §1 reserves for numbers, codes, keys, formulas and
+coordinates — two defects in one chip, a machine identifier on the face of the screen set in the face
+reserved for machine values. The chip is on the body face now.
+
+One primitive, seven screens: S-Takeoff and S-Coverage today, and S-BOQ, S-BBS, S-Levels and
+S-Schedules when M3 builds them on §3.2's template. C6 for the register is 5; the other consumers are
+re-scored when the picture run measures them.
+
+### S-Auth — 4.5, under the rubric's own amendment to C1
 
 ### S-Auth — 4.0, clearing the bar only because C1 cannot be won
 
-§3.7 fixes the card at 360 wide. §7 C1 wants a focused screen's primary at ≥ 40 % of the viewport. A
-360 × 365 card is **10.1 %** at 1440×900 and 12.8 % at 1280×800; reaching 40 % needs roughly 760×760.
-The pre-v22 560 column scored ~20 % — a 2 — so **the anchor is unreachable for any centred auth card**,
-not merely for this one. §3 outranks the screen Decision, so the template was obeyed and C1 took a 1.
-**This needs a ruling:** either C1's focused-screen denominator becomes the content column rather than
-the viewport, or the anchor drops for the Auth template. C12 = 3 is honest too: the seven states are
-enumerated in `src/ui/screen-states/matrix.tsx`, but no `?__state=` instrument exists in the tree yet.
+**AMENDMENT TO §7 C1, ruled by the integrator under the founder's grant, 2026-09-12.** For the AUTH
+TEMPLATE (§3.7) C1's denominator is **the content column, not the viewport.**
+
+The reason it was needed: §3.7 fixes the card at 360 wide, and C1 wants a focused screen's primary at
+≥ 40 % of the viewport. A 360 × 365 card is **10.1 %** at 1440×900 and 12.8 % at 1280×800; reaching
+40 % needs roughly 760 × 760. The pre-v22 560 column scored ~20 % — a 2 — so the anchor was
+unreachable for ANY centred auth card, not merely for this one, and a criterion no conforming screen
+can satisfy measures the rubric rather than the screen. Against the content column the card is the
+column, so C1 = 5 and S-Auth is 4.5.
+
+C12 = 3 stands and is honest: the seven states are enumerated in `src/ui/screen-states/matrix.tsx`,
+but no `?__state=` instrument exists in the tree yet, so they are not reachable as §7 C12 requires.
 
 ### What the measured cells rest on
 
