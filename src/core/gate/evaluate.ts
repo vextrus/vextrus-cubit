@@ -277,6 +277,12 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
   if (calibrationKeys.length === 0) return refuse(offer, REFUSALS.OFFER_NOT_TO_CONTRACT.code);
 
   const bound = normalised as NormalisedBindings;
+  // The figure, asked for the way a batch can carry the answer: a formula whose divisor the readings
+  // make zero HAS no figure, and an exception here would take every other offer of the batch with it.
+  // The offer is refused by name instead (ARCH-03, L-QTY-02) — the refused arm is what a person reads.
+  const figure = offer.omitted.length === 0 ? method.attempt(bound) : null;
+  if (figure !== null && !figure.ok) return refuse(offer, figure.code);
+
   const deductions: RecordedDeduction[] = [
     ...partition.deducted.map((candidate) => ({ channel: candidate.channel, measure: candidate.measure, side: "deducted" as const })),
     ...partition.kept.map((candidate) => ({ channel: candidate.channel, measure: candidate.measure, side: "kept" as const })),
@@ -301,7 +307,7 @@ export function judgeOffer(offer: Offer, under: MeasuredUnder, edition: PinnedEd
       coverage: offer.coverage,
       // "A row kept with no quantity carries no quantity" — never a zero, never a guess (L-QTY-02).
       // The unit stands even so: it is what this rule measures in, not a property of the figure.
-      value: offer.omitted.length === 0 ? method.evaluate(bound) : null,
+      value: figure === null || !figure.ok ? null : figure.value,
       unit: CANONICAL_UNIT[method.dimension],
       formula: renderFormula(method, bound, offer.omitted),
       bindings: recorded,

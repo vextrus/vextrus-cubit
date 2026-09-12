@@ -11,6 +11,7 @@
 //
 // The arithmetic is the canon's exact decimal, so a figure is exact from the drawing to the page
 // (B-07). Nothing here reaches a store, a clock or a model.
+import type { RefusalCode } from "@/core/errors";
 import { exact } from "@/core/units/canon";
 
 /**
@@ -37,8 +38,22 @@ export type Expr =
 /** A whole formula as a method states one: what it names the answer, and the tree that answers it. */
 export type Statement = { readonly result: string; readonly expr: Expr };
 
+/**
+ * The names a variable may carry: exactly what `parse` reads back as ONE name. A name the printer
+ * prints and the reader cannot read back as itself is the drift this file exists to close — `L-clear`
+ * prints as `L-clear` and re-reads as `L − clear`, a DIFFERENT tree that does not throw, so the proof
+ * passes while the line prints a subtraction the method never wrote. The name is refused where it is
+ * written, at construction, because that is where a person can still choose another (ARCH-03, B-06).
+ */
+const NAMEABLE = /^[A-Za-z_][A-Za-z0-9_.]*$/;
+
 /** The builders, so a method states its algebra and never a string. */
-export const V = (name: string): Expr => Object.freeze({ node: "var" as const, name });
+export const V = (name: string): Expr => {
+  if (!NAMEABLE.test(name)) {
+    throw new Error(`"${name}" is not a variable name a printed formula can be read back from — a name is a letter or _ followed by letters, digits, _ or . (L-QTY-03)`);
+  }
+  return Object.freeze({ node: "var" as const, name });
+};
 export const K = (value: string): Expr => Object.freeze({ node: "const" as const, value });
 export const times = (...factors: readonly Expr[]): Expr => Object.freeze({ node: "product" as const, factors: Object.freeze([...factors]) });
 export const plus = (...terms: readonly Expr[]): Expr => Object.freeze({ node: "sum" as const, terms: Object.freeze([...terms]) });
@@ -125,26 +140,77 @@ export function variablesOf(expr: Expr): readonly string[] {
  * declaration and the offer disagree (ARCH-03).
  */
 export function evaluate(expr: Expr, bindings: BoundValues, ruleId: string): ReturnType<typeof exact> {
+  const answer = attempt(expr, bindings, ruleId);
+  // The throw is for the caller who asked for a figure where there is none and has nowhere to put a
+  // refusal — a test, a tool. The gate does not ask this way: it asks `attempt` and answers by name.
+  if (!answer.ok) throw new Error(answer.detail);
+  return answer.value;
+}
+
+/** The code a formula answers with where the arithmetic itself has no figure. Registered in core's
+ * closed taxonomy, so the gate can hand it to a person unchanged (ARCH-03). */
+export const FORMULA_DIVISOR_ZERO = "FORMULA_DIVISOR_ZERO" as const satisfies RefusalCode;
+
+/** What evaluating a tree answers: the figure, or the registered refusal and the sentence a person
+ * reads — never an exception, because an exception in one offer takes a whole batch with it. */
+export type Attempt =
+  | { readonly ok: true; readonly value: ReturnType<typeof exact> }
+  | { readonly ok: false; readonly code: typeof FORMULA_DIVISOR_ZERO; readonly detail: string };
+
+/**
+ * The tree's value, or the refusal the arithmetic answers with. A zero divisor is not a defect in the
+ * caller — a count read as zero is a reading a drawing can carry — so it is an ANSWER: the offer is
+ * refused by name and the batch's other offers still land (L-QTY-02, L-MEA-08).
+ */
+export function attempt(expr: Expr, bindings: BoundValues, ruleId: string): Attempt {
   switch (expr.node) {
     case "var": {
       const bound = bindings[expr.name];
       if (bound === undefined) {
         throw new Error(`${ruleId} names ${expr.name} and was evaluated without it — a formula cannot state what it was not given (L-MEA-08)`);
       }
-      return exact(bound.value);
+      return { ok: true, value: exact(bound.value) };
     }
     case "const":
-      return exact(expr.value);
-    case "product":
-      return expr.factors.reduce((product, factor) => product.mul(evaluate(factor, bindings, ruleId)), exact("1"));
-    case "sum":
-      return expr.terms.reduce((total, term) => total.add(evaluate(term, bindings, ruleId)), exact("0"));
-    case "difference":
-      return evaluate(expr.minuend, bindings, ruleId).sub(evaluate(expr.subtrahend, bindings, ruleId));
+      return { ok: true, value: exact(expr.value) };
+    case "product": {
+      let product = exact("1");
+      for (const factor of expr.factors) {
+        const one = attempt(factor, bindings, ruleId);
+        if (!one.ok) return one;
+        product = product.mul(one.value);
+      }
+      return { ok: true, value: product };
+    }
+    case "sum": {
+      let total = exact("0");
+      for (const term of expr.terms) {
+        const one = attempt(term, bindings, ruleId);
+        if (!one.ok) return one;
+        total = total.add(one.value);
+      }
+      return { ok: true, value: total };
+    }
+    case "difference": {
+      const minuend = attempt(expr.minuend, bindings, ruleId);
+      if (!minuend.ok) return minuend;
+      const subtrahend = attempt(expr.subtrahend, bindings, ruleId);
+      if (!subtrahend.ok) return subtrahend;
+      return { ok: true, value: minuend.value.sub(subtrahend.value) };
+    }
     case "quotient": {
-      const divisor = evaluate(expr.divisor, bindings, ruleId);
-      if (divisor.isZero()) throw new Error(`${ruleId} divides by ${spell(expr.divisor)}, which the bindings make zero — there is no figure to publish (L-QTY-02)`);
-      return evaluate(expr.dividend, bindings, ruleId).div(divisor);
+      const divisor = attempt(expr.divisor, bindings, ruleId);
+      if (!divisor.ok) return divisor;
+      if (divisor.value.isZero()) {
+        return {
+          ok: false,
+          code: FORMULA_DIVISOR_ZERO,
+          detail: `${ruleId} divides by ${spell(expr.divisor)}, which the bindings make zero — there is no figure to publish (L-QTY-02)`,
+        };
+      }
+      const dividend = attempt(expr.dividend, bindings, ruleId);
+      if (!dividend.ok) return dividend;
+      return { ok: true, value: dividend.value.div(divisor.value) };
     }
   }
 }
@@ -169,6 +235,10 @@ export function parse(text: string): Statement {
   };
   const atom = (): Expr => {
     const token = take();
+    // A term may be a SIGNED constant: `A × -1` is a product of two, not a subtraction with a factor
+    // missing. Only a constant takes the sign — `× -A` is not a form anything prints, and reading one
+    // would read a shape no printer of this file's writes (B-19).
+    if ((token === "-" || token === "−") && /^[0-9]/.test(String(peek() ?? ""))) return K(`-${take()}`);
     if (token === "(") {
       const inner = sum();
       if (take() !== ")") throw new Error(`"${text}" opens a parenthesis it does not close`);
@@ -229,9 +299,16 @@ export function parse(text: string): Statement {
 export function formulaFrom(statement: Statement, ruleId: string): {
   readonly template: string;
   readonly evaluate: (bindings: BoundValues) => string;
+  readonly attempt: (bindings: BoundValues) => { readonly ok: true; readonly value: string } | { readonly ok: false; readonly code: typeof FORMULA_DIVISOR_ZERO };
 } {
   return Object.freeze({
     template: print(statement),
     evaluate: (bindings: BoundValues): string => evaluate(statement.expr, bindings, ruleId).toString(),
+    // What the GATE asks with: a figure or a registered refusal, never an exception thrown through a
+    // batch (ARCH-03). `evaluate` above stays for the caller who has nowhere to put a refusal.
+    attempt: (bindings: BoundValues) => {
+      const answer = attempt(statement.expr, bindings, ruleId);
+      return answer.ok ? { ok: true as const, value: answer.value.toString() } : { ok: false as const, code: answer.code };
+    },
   });
 }

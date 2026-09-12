@@ -47,4 +47,5 @@ export const COLUMN_CONCRETE_FORMULA: FormulaMethod = Object.freeze({
   tree: TREE,
   template: FORMULA.template,
   evaluate: FORMULA.evaluate,
+  attempt: FORMULA.attempt,
 });

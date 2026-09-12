@@ -6,6 +6,7 @@
 // close a cycle (ARCH-01), and a second copy of the shape beside each method would be a second home
 // for the contract (B-17, ARCH-02). This file reaches the catalogue, the canon's types and the
 // contract's channel roster, and nothing that reaches back.
+import type { RefusalCode } from "../../errors";
 import type { Kind } from "../../catalogue/kinds";
 import type { DeductionChannel } from "../../offers/law";
 import type { Dimension, Unit } from "../../units/canon";
@@ -44,6 +45,12 @@ export type FormulaMethod = {
   readonly tree: Statement;
   readonly template: string;
   readonly evaluate: (bindings: NormalisedBindings) => string;
+  /**
+   * The same figure, asked for the way the GATE asks: an answer or a registered refusal. A formula
+   * whose divisor the readings make zero has no figure, and a thrown Error would take every other
+   * offer of the batch with it (ARCH-03, L-QTY-02).
+   */
+  readonly attempt: (bindings: NormalisedBindings) => { readonly ok: true; readonly value: string } | { readonly ok: false; readonly code: RefusalCode };
 };
 
 /**

@@ -11,6 +11,7 @@ export type GateRefusalCode =
   | "METHOD_IMPLEMENTATION_MISSING"
   | "OFFER_NOT_TO_CONTRACT"
   | "INTERPRETED_UNCORROBORATED"
+  | "FORMULA_DIVISOR_ZERO"
   | "PIN_STALE"
   | "CAMPAIGN_NOT_FOUND";
 
@@ -52,6 +53,16 @@ export const GATE_REFUSALS: RefusalGroup<GateRefusalCode> = Object.freeze({
     message: "This outline was interpreted rather than read, and nothing corroborates it, so it is excluded rather than measured.",
     remedy: "Corroborate the outline against the drawing and agree it, or measure the scope from geometry the drawing states.",
     severity: "warning",
+    surface: "inline",
+  }),
+  // L-QTY-02: "a row kept with no quantity carries no quantity" — and a formula whose divisor the
+  // bindings make zero HAS no figure. A thrown Error would take the whole batch's other offers with
+  // it; the gate answers the offer by name instead, and the batch goes on (ARCH-03, L-MEA-08).
+  FORMULA_DIVISOR_ZERO: Object.freeze({
+    code: "FORMULA_DIVISOR_ZERO",
+    message: "This measurement divides by something the readings make zero, so there is no figure to publish.",
+    remedy: "Correct the reading the formula divides by, or measure this object under a rule that does not divide by it.",
+    severity: "error",
     surface: "inline",
   }),
   // L-REG-07: a campaign's snapshot diverged from what is in force is stale, and stale blocks
