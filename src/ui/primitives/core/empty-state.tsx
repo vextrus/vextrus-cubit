@@ -24,14 +24,25 @@ export interface EmptyStateProps {
 }
 
 export function EmptyState({ heading, body, glyph, children, className, "data-testid": testId }: EmptyStateProps): ReactNode {
+  // The region's id, and its action slot's, in one derivation. The slot IS addressed — shell.md § 2
+  // fixes the Projects home's as "the action slot, a `<div data-testid="shell-empty-action">`
+  // holding this screen's one action", and s-home.md I-141 kept that screen's ids byte-identical
+  // when the teaching state became this primitive. It draws the slot without publishing its id, so
+  // the id vanished from the screen while every Decision still named it. One rule restores it for
+  // every empty region rather than for that one: an empty state's action slot is its own id + `-action`.
+  const region = testId ?? "empty-state";
   return (
-    <div className={cx("cx-empty-state", className)} data-testid={testId ?? "empty-state"}>
+    <div className={cx("cx-empty-state", className)} data-testid={region}>
       <span className="cx-empty-state-glyph" aria-hidden="true">
         {glyph ?? <IconInbox size="lg" />}
       </span>
       <h2 className="cx-empty-state-heading">{heading}</h2>
       {body === undefined ? null : <p className="cx-empty-state-body">{body}</p>}
-      {children === undefined ? null : <div className="cx-empty-state-action">{children}</div>}
+      {children === undefined ? null : (
+        <div className="cx-empty-state-action" data-testid={`${region}-action`}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }

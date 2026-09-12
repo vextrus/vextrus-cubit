@@ -8,7 +8,7 @@
 // for, and the reading itself once a retry has answered.
 //
 // AND IT IS WHERE THE FRAME'S SLOTS ARE FILLED (Direction §1, §3.1). `useInspector` and
-// `useShellToolbar` are hooks of `@/ui/shell`, and ARCH-01 bars a module from reaching them — so the
+// `useTakeoffTabsAside` are hooks of the frame and of the lane, and ARCH-01 bars a module from reaching either — so the
 // workspace hands its inspector and its tool row to two MOUNTS declared as ordinary renderers
 // (I-209), and the two components below are those mounts: each takes the nodes the module wrote and
 // puts them in the frame's own region. Neither adds a word or a box of its own.
@@ -20,8 +20,9 @@ import type { CoverageView } from "@/modules/takeoff/coverage/view";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button, EmptyState, EnumLabel, ErrorState, IdChip, Tooltip } from "@/ui/primitives/core";
-import { ShellToolbar, useInspector, useShellToolbar } from "@/ui/shell";
+import { ShellToolbar, useInspector } from "@/ui/shell";
 import { COVERAGE_COPY } from "@/modules/takeoff/coverage/copy";
+import { useTakeoffTabsAside } from "../nav";
 import {
   commitDeclareNotInProjectScope,
   commitHoldOutOfBill,
@@ -44,11 +45,23 @@ function InspectorMount({ children }: { children: ReactNode }) {
 }
 
 /**
- * The same, for the 32 px tool row. The STRIP is the frame's — `ShellToolbar` is its one home and
- * draws the row, its height and its name — and what stands in it is the screen's (§3.1, B-17).
+ * The same, for the tool row — mounted in THE LANE'S OWN ROW, not straight into the frame's slot.
+ *
+ * The frame publishes ONE toolbar slot and the last writer holds it (`src/ui/shell/slots.tsx`).
+ * The takeoff lane mounts its 40 px tabs row there (`../nav`), and this screen mounted its tools
+ * over the top of it: arriving on coverage through the nav, the surface's effect ran after the
+ * layout's and the tabs row vanished — the reader lost the way back to the Register and the entry
+ * for where they stood lost its `aria-current` (J-022 read exactly that).
+ *
+ * Direction §3.2's template draws one row for this lane — "Register · Coverage … + right: the
+ * pinned revision and the one primary" — and s-coverage.md § 7 lists `takeoff-nav` and
+ * `takeoff-nav-register` among the ids this screen shows. So the tools go where the register's go,
+ * through the row's own slot (`useTakeoffTabsAside`), and the STRIP is still the shipped
+ * `ShellToolbar`: its `role="toolbar"`, its name and its height are unchanged, and the lane draws
+ * one row rather than two screens taking turns at one.
  */
 function ToolbarMount({ children }: { children: ReactNode }) {
-  useShellToolbar(<ShellToolbar label={COVERAGE_COPY.takeoff_coverage_tools_label}>{children}</ShellToolbar>);
+  useTakeoffTabsAside(<ShellToolbar label={COVERAGE_COPY.takeoff_coverage_tools_label}>{children}</ShellToolbar>);
   return null;
 }
 
