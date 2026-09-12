@@ -25,7 +25,7 @@
 import { join } from "node:path";
 import { expect, type Page } from "@playwright/test";
 import { SAuthPage, S_AUTH } from "../../pages/s-auth.page";
-import { SDrawingsPage, S_DRAWINGS } from "../../pages/s-drawings.page";
+import { SDrawingsPage } from "../../pages/s-drawings.page";
 import { SHomePage, S_HOME } from "../../pages/s-home.page";
 import { ShellPage, SHELL } from "../../pages/shell.page";
 import { newestMail } from "../../support/outbox";
@@ -124,25 +124,34 @@ async function establish(page: Page): Promise<GoldenRun> {
   return { tenantId, projectId, email, worker };
 }
 
-/** The sets screen, walked: a set is made, the drawing joined to it, and the revision pinned. */
-async function pinASetOverTheDrawing(page: Page, tenantId: string, projectId: string): Promise<void> {
-  await page.goto(`${S_DRAWINGS.route(tenantId, projectId)}/sets`);
-  await settled(page);
-  await page.getByTestId("set-create").click();
-  const form = page.getByTestId("set-create-form");
-  await expect(form, "the create door opens the set's own form").toBeVisible();
-  await form.getByRole("textbox").first().fill(SET_NAME);
-  await form.getByRole("button", { name: /create|save|make/i }).first().click();
+/** The sets index, as J-012 addresses it — one home for the route (ARCH-02). */
+const setsRoute = (tenantId: string, projectId: string): string => `/t/${tenantId}/p/${projectId}/drawings/sets`;
 
-  const browser = page.getByTestId("set-browser");
-  await expect(browser, "the new set opens its browser").toBeVisible({ timeout: 30_000 });
-  const member = page.getByTestId("set-member-toggle").first();
-  await expect(member, "the uploaded drawing is offered to the set").toBeVisible({ timeout: 30_000 });
-  await member.click();
+/**
+ * The sets screen, walked exactly as J-012 walks it: a set is NAMED (which opens it at its own
+ * address), the uploaded drawing is toggled into its draft, and the draft is PINNED through the one
+ * ConsequenceDialog. Every locator here is the screen's own test id, and every step is a click.
+ */
+async function pinASetOverTheDrawing(page: Page, tenantId: string, projectId: string): Promise<void> {
+  await page.goto(setsRoute(tenantId, projectId));
+  await expect(page.getByTestId("set-create-form"), "the sets index stands, with the door that names a set").toBeVisible({ timeout: 60_000 });
+  await page.getByTestId("set-name-input").fill(SET_NAME);
+  await page.getByTestId("set-create").click();
+  await expect(page, "the named set stands open at its own address").toHaveURL(new RegExp(`/t/${tenantId}/p/${projectId}/drawings/sets/[0-9a-f-]{36}$`), {
+    timeout: 60_000,
+  });
+
+  const row = page.getByTestId("set-drawing").first();
+  await expect(row, "the uploaded drawing is offered to the set").toBeVisible({ timeout: 60_000 });
+  await row.getByTestId("set-member-toggle").click();
+  await expect(row, "a toggle writes the draft at once (I-96)").toHaveAttribute("data-member", "true");
 
   await page.getByTestId("set-pin").click();
   const dialog = page.getByTestId("consequence-dialog");
   await expect(dialog, "pinning is an act, and an act is previewed in the one ConsequenceDialog").toBeVisible();
   await page.getByTestId("consequence-confirm").click();
-  await expect(dialog, "the pinned revision closes the dialog").toHaveCount(0, { timeout: 30_000 });
+  await expect(dialog, "the pinned revision closes the dialog").toHaveCount(0, { timeout: 60_000 });
+  await expect(page.getByTestId("set-revision"), "the pin recorded one set revision — the campaign the register measures is now open").toHaveCount(1, {
+    timeout: 60_000,
+  });
 }
