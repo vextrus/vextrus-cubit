@@ -28,6 +28,10 @@ REPO_ROOT = CAD_ROOT.parent
 GENERATOR_REL = "fixtures/gen/rcc6.py"
 CORPUS_REL = "fixtures/rcc6"
 
+#: What a corpus manifest is called, and the golden takeoff a graded corpus promises in it.
+MANIFEST_REL = "manifest.json"
+GOLDEN_REL = "takeoff.golden.json"
+
 #: The dependency group the spec adds for fixture generation (reportlab, pillow, pypdfium2).
 FIXTURES_GROUP = "fixtures"
 
@@ -38,6 +42,18 @@ SUBPROCESS_TIMEOUT_SECONDS = 900.0
 
 def sha256_of(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def declared_files(manifest: dict[str, Any]) -> frozenset[str]:
+    """Every file a corpus manifest promises: v1.1 spells them as a list, schema 2 as a digest map."""
+    names: set[str] = set()
+    files = manifest.get("files")
+    if isinstance(files, list):
+        names |= {str(name) for name in files}
+    outputs = manifest.get("outputs")
+    if isinstance(outputs, dict):
+        names |= {str(name) for name in outputs}
+    return frozenset(names)
 
 
 @dataclass(frozen=True)
@@ -57,9 +73,17 @@ class Corpus:
     def require(self, relative: str) -> Path:
         target = self.path(relative)
         assert target.is_file(), (
-            f"{CORPUS_REL}/{relative} is not committed — the F-RCC6 corpus does not provide it yet"
+            f"fixtures/{self.root.name}/{relative} is not committed — the corpus does not provide it yet"
         )
         return target
+
+    def manifest(self) -> dict[str, Any]:
+        """What the corpus says of itself. A graded corpus owes one; a missing one fails by name."""
+        return self.once(f"manifest:{self.root.name}", lambda: self.read_json(MANIFEST_REL))
+
+    def declares(self, relative: str) -> bool:
+        """Whether the manifest promises `relative` — what arms a check, in place of the file itself."""
+        return relative in declared_files(self.manifest())
 
     def read_json(self, relative: str, **kwargs: Any) -> Any:
         return json.loads(self.require(relative).read_text(encoding="utf-8"), **kwargs)
@@ -130,11 +154,28 @@ def corpus() -> Corpus:
     return Corpus(REPO_ROOT / CORPUS_REL)
 
 
-#: Every fixture that publishes a golden takeoff (AM-01: two fixtures, never a replacement).
-#: F-RCC6 is the frozen J-000 corpus with its drawings; F-RCC6-BNBC is the M3/M4 yardstick, which
-#: has no DXF yet — its sanity is the golden's own self-consistency, so the checks that read a
-#: drawing stay on `corpus` and the golden checks run over both through `golden_corpus`.
-GOLDEN_CORPORA = ("rcc6", "rcc6-bnbc")
+def _golden_corpora() -> tuple[str, ...]:
+    """Every fixture whose own manifest declares a golden takeoff (AM-01: two fixtures today).
+
+    The list is read off `fixtures/*/manifest.json` rather than authored here, so a third corpus is
+    graded from the day its manifest lands and not from the day someone remembers to edit a tuple.
+    F-RCC6 is the frozen J-000 corpus with its drawings; F-RCC6-BNBC is the M3/M4 yardstick, which
+    has no DXF yet — its sanity is the golden's own self-consistency, so the checks that read a
+    drawing stay on `corpus` and the golden checks run over every declared corpus through
+    `golden_corpus`.
+    """
+    declared = [
+        path.parent.name
+        for path in sorted((REPO_ROOT / "fixtures").glob(f"*/{MANIFEST_REL}"))
+        if GOLDEN_REL in declared_files(json.loads(path.read_text(encoding="utf-8")))
+    ]
+    assert declared, (
+        f"no fixtures/*/{MANIFEST_REL} declares a {GOLDEN_REL} — the golden lane would grade nothing"
+    )
+    return tuple(declared)
+
+
+GOLDEN_CORPORA = _golden_corpora()
 
 #: F-RCC6-BNBC's drawing corpus (Wave B: rcc6-bnbc.dxf/.model.dxf/.dwg, both PDFs, rasters,
 #: sanity.json). Its generator is the package `fixtures/gen/rcc6_bnbc` (`python -m`), so the

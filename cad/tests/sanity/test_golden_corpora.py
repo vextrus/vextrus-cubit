@@ -11,10 +11,17 @@ non-negative decimals on a unique key, the 36 M3 gate cells of `cells.json` all 
 `bbs.golden.json` beside the schema-2 golden, and the generator's two independent paths still
 agreeing — re-run here, since `python -m fixtures.gen.rcc6_bnbc` offers no `--check` flag, by
 importing its `selfcheck` and running it.
+
+Every check here is armed by the corpus's own `manifest.json`, never by the presence of the file it
+grades (P4a §2): what a manifest promises must be on the tree, and a corpus that does not carry it
+fails by name. Nothing here skips — `cad/tests/conftest.py` reds the session for a skip no
+manifest explains, so the lane's skip count is a number the manifests account for.
 """
 
 from __future__ import annotations
 
+import hashlib
+import importlib
 import re
 import sys
 from collections import Counter
@@ -22,12 +29,21 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-import pytest
-
 GOLDEN_REL = "takeoff.golden.json"
 DECIMAL = re.compile(r"^-?\d+(\.\d+)?$")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+
+CELLS_REL = "cells.json"
+BBS_REL = "bbs.golden.json"
+SELFCHECK_REL = "selfcheck.py"
+
+#: The matrix M3's exit is read against (AM-01).
+M3_CELLS = 36
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _golden(corpus) -> dict[str, Any]:
@@ -75,9 +91,27 @@ def test_no_row_is_recorded_twice(golden_corpus) -> None:
 
 
 def test_a_schema_2_golden_carries_the_evidence_schema_2_promises(golden_corpus) -> None:
-    golden = _golden(golden_corpus)
-    if golden.get("schema") != 2:
-        pytest.skip(f"{golden_corpus.root.name} is a schema 1 golden")
+    """The manifest says which schema the corpus publishes; the golden must be that schema.
+
+    Before, the evidence checks were armed by the golden's own `schema` field, so a golden that
+    stopped calling itself schema 2 stopped being graded and the lane only said `1 skipped`.
+    """
+    golden, name = _golden(golden_corpus), golden_corpus.root.name
+    declared = int(golden_corpus.manifest().get("schema", 1))
+    carried = int(golden.get("schema", 1))
+    assert carried == declared, (
+        f"fixtures/{name}/manifest.json declares schema {declared}; {GOLDEN_REL} calls itself "
+        f"schema {carried} — a golden may not leave the grade its manifest promises"
+    )
+    if declared != 2:
+        assert not golden_corpus.declares(BBS_REL), (
+            f"fixtures/{name}/manifest.json promises {BBS_REL} beside a schema-{declared} golden"
+        )
+        assert not golden_corpus.path(BBS_REL).is_file(), (
+            f"fixtures/{name}/{BBS_REL} sits beside a schema-{declared} golden its manifest does "
+            "not declare"
+        )
+        return
     kinds = {row["kind"] for row in golden["rows"]}
     assert {"RCC_CONCRETE", "FORMWORK", "REBAR", "PILE_LENGTH", "PILE_COUNT"} <= kinds, (
         f"schema 2 promises the kinds R-TO-035 grades; this golden carries {sorted(kinds)}"
@@ -86,16 +120,28 @@ def test_a_schema_2_golden_carries_the_evidence_schema_2_promises(golden_corpus)
     assert components <= {"NET", "LAP"} and components, (
         f"REBAR rows must be billed as NET and LAP components (AM-03 a); got {sorted(map(str, components))}"
     )
-    assert golden_corpus.path("bbs.golden.json").is_file(), (
-        "a schema-2 golden owes bbs.golden.json beside it (AM-01)"
+    assert golden_corpus.declares(BBS_REL), (
+        f"a schema-2 golden owes {BBS_REL} beside it (AM-01); fixtures/{name}/manifest.json "
+        "promises no such file"
     )
+    golden_corpus.require(BBS_REL)
 
 
 def test_the_m3_gate_cells_are_all_filled_by_rows(golden_corpus) -> None:
-    cells_path = golden_corpus.path("cells.json")
-    if not cells_path.is_file():
-        pytest.skip(f"{golden_corpus.root.name} publishes no cell matrix")
-    cells = golden_corpus.read_json("cells.json")["cells"]
+    """A corpus that promises a cell matrix is graded on it — deleting the file is not an excuse.
+
+    P4a deleted `fixtures/rcc6-bnbc/cells.json` and the lane went green with one more skip. The
+    manifest still promised it, so that is now a failure naming the file.
+    """
+    name = golden_corpus.root.name
+    if not golden_corpus.declares(CELLS_REL):
+        assert not golden_corpus.path(CELLS_REL).is_file(), (
+            f"fixtures/{name}/{CELLS_REL} is on the tree and its manifest does not declare it — "
+            "the M3 gate is graded off the manifest, so an undeclared matrix is graded by nothing"
+        )
+        return
+    golden_corpus.require(CELLS_REL)
+    cells = golden_corpus.read_json(CELLS_REL)["cells"]
     rows = _golden(golden_corpus)["rows"]
     empty = [
         entry["cell"]
@@ -103,18 +149,49 @@ def test_the_m3_gate_cells_are_all_filled_by_rows(golden_corpus) -> None:
         if not any(all(row.get(k) == v for k, v in entry["cell"].items()) for row in rows)
     ]
     assert empty == [], f"cells the golden leaves empty: {empty}"
-    assert len(cells) == 36, f"the M3 matrix is 36 cells; cells.json carries {len(cells)}"
+    assert len(cells) == M3_CELLS, (
+        f"the M3 matrix is {M3_CELLS} cells; fixtures/{name}/{CELLS_REL} carries {len(cells)}"
+    )
 
 
-def test_the_generators_two_paths_still_agree(golden_corpus) -> None:
-    """The fixture's own selfcheck, re-run: the golden is only evidence while both paths agree."""
-    module = REPO_ROOT / "fixtures" / "gen" / golden_corpus.root.name.replace("-", "_")
-    if not (module / "selfcheck.py").is_file():
-        pytest.skip(f"{golden_corpus.root.name} has no selfcheck of its own")
+def test_the_generator_the_manifest_pins_is_on_the_tree_and_its_paths_agree(golden_corpus) -> None:
+    """The golden is evidence only while the generator that minted it is the generator on the tree.
+
+    The manifest says which generator that is, and in which of the two shapes the tree carries: a
+    package (`modules`), whose two independent paths are re-run here through its `selfcheck` since
+    `python -m fixtures.gen.<name>` offers no `--check` flag; or a single file (`path`) pinned by
+    digest, whose second path is the drawn-geometry recomputation in test_rcc6_golden.py. Neither
+    arm skips: a manifest that names a generator the tree does not carry fails by name.
+    """
+    name = golden_corpus.root.name
+    generator = golden_corpus.manifest().get("generator")
+    assert isinstance(generator, dict) and generator, (
+        f"fixtures/{name}/manifest.json names no generator — the corpus claims no author"
+    )
+    modules = generator.get("modules")
+    if not isinstance(modules, dict):
+        relative = str(generator["path"])
+        path = REPO_ROOT / relative
+        assert path.is_file(), (
+            f"{relative}, the generator fixtures/{name}/manifest.json pins, is not on the tree"
+        )
+        assert _sha256(path) == generator["sha256"], (
+            f"{relative} is not the generator that minted fixtures/{name}/: it hashes to "
+            f"{_sha256(path)}, the manifest pins {generator['sha256']}"
+        )
+        return
+    package = REPO_ROOT / "fixtures" / "gen" / name.replace("-", "_")
+    relative = f"fixtures/gen/{package.name}/{SELFCHECK_REL}"
+    assert (package / SELFCHECK_REL).is_file(), (
+        f"{relative} is not on the tree, and fixtures/{name}/manifest.json declares a generator "
+        "package whose two paths this lane re-runs"
+    )
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
-    from fixtures.gen.rcc6_bnbc import selfcheck
+    selfcheck = importlib.import_module(f"fixtures.gen.{package.name}.{SELFCHECK_REL.removesuffix('.py')}")
 
     report = selfcheck.run()
-    assert report["cells"] == "36/36", f"the selfcheck fills {report['cells']} of the M3 cells"
+    assert report["cells"] == f"{M3_CELLS}/{M3_CELLS}", (
+        f"the selfcheck fills {report['cells']} of the M3 cells"
+    )
     assert report["rows_per_kind"]["REBAR"] > 0, "the selfcheck sees no REBAR rows"
