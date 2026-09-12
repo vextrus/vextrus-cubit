@@ -35,6 +35,29 @@ export const GOLDEN_PYTEST = Object.freeze([
  * decides which of these ever run.
  * @type {Readonly<Record<string, string[][]>>}
  */
+/**
+ * What the unit lane is invoked as. The engine reads the lane's verdict from a STRUCTURED report and
+ * not from the terminal: without one it can only know that the lane was green, never WHICH test
+ * files it executed, so its acceptance dedup — "this claim is already proved by a test that ran" —
+ * claims nothing. `--outputFile` is the report's address, stated by the caller through
+ * `CUBIT_VERIFY_REPORT_JSON`; with the variable unset the lane is exactly what it always was, so a
+ * human running `pnpm verify` pays nothing for the engine's instrument.
+ *
+ * The default reporter is kept BESIDE the json one: vitest takes several `--reporter` flags, and a
+ * lane that swapped its terminal output for a file would take the failure list away from the person
+ * watching it.
+ *
+ * @param {Record<string, string | undefined>} env
+ * @returns {string[]}
+ */
+export function unitLaneCommand(env) {
+  const workers = `--maxWorkers=${laneWorkers(UNIT_LANE_KNEE, { siblings: VERIFY_WAVE_SIBLINGS })}`;
+  const command = ["node", "node_modules/vitest/vitest.mjs", "run", workers];
+  const report = env["CUBIT_VERIFY_REPORT_JSON"];
+  if (report === undefined || report === "") return command;
+  return [...command, "--reporter=default", "--reporter=json", `--outputFile=${report}`];
+}
+
 export const LANE_COMMANDS = Object.freeze({
   typegen: [["node", "node_modules/next/dist/bin/next", "typegen"]],
   types: [["node", "node_modules/typescript/bin/tsc", "--noEmit"]],
@@ -43,7 +66,7 @@ export const LANE_COMMANDS = Object.freeze({
   // the box to itself — six other lanes gate beside it (runChainInWaves), and the engine may be
   // running a second gate on the same machine. The number is derived from the box and from
   // CUBIT_VERIFY_SLOTS rather than written down (scripts/lib/box.mjs).
-  unit: [["node", "node_modules/vitest/vitest.mjs", "run", `--maxWorkers=${laneWorkers(UNIT_LANE_KNEE, { siblings: VERIFY_WAVE_SIBLINGS })}`]],
+  unit: [unitLaneCommand(process.env)],
   "schema-drift": [["node", "scripts/db-drift.mjs", "--scratch"]],
   "method-hash": [["node", "scripts/method-hashes.mjs", "--in-chain"]],
   "catalogue-drift": [["node", "scripts/catalogue-drift.mjs", "--in-chain"]],

@@ -23,6 +23,7 @@ import { DEFAULT_DIST_DIR, holdDistDir } from "./lib/dist.mjs";
 // When the build read its inputs — its START, never its end (scripts/lib/build-stamp.mjs). Stamping
 // the end let every edit made DURING a build be older than the marker, so it was never rebuilt.
 import { buildReadInputsAtMs, inputIsStale, writeBuildStamp } from "./lib/build-stamp.mjs";
+import { inputFilesOf } from "./lib/build-inputs.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const DIST = DEFAULT_DIST_DIR;
@@ -34,7 +35,8 @@ const policy = args.includes("build") ? "build" : args.includes("build-if-stale"
 if (args.includes("dev")) { process.stderr.write("e2e-server: the journeys never drive a dev server (V-E2E)\n"); process.exit(2); }
 
 const INPUT_ROOTS = ["src", "public"];
-const INPUT_FILES = ["next.config.ts", "package.json", "pnpm-lock.yaml", "tsconfig.json", "postcss.config.mjs", "tailwind.config.ts", "middleware.ts"];
+
+
 
 /** The newest mtime under the input roots and files (a skipped directory is the build's own or dependencies). */
 function newestInputMs() {
@@ -52,13 +54,13 @@ function newestInputMs() {
     }
   };
   for (const root of INPUT_ROOTS) if (existsSync(join(ROOT, root))) walk(join(ROOT, root));
-  for (const file of INPUT_FILES) if (existsSync(join(ROOT, file))) newest = Math.max(newest, statSync(join(ROOT, file)).mtimeMs);
+  for (const file of inputFilesOf(ROOT)) if (existsSync(join(ROOT, file))) newest = Math.max(newest, statSync(join(ROOT, file)).mtimeMs);
   return newest;
 }
 
 /** A tracked input deleted since the last commit leaves no mtime behind: `git status` names it. */
 function inputDeleted() {
-  const r = spawnSync("git", ["status", "--porcelain", "--", ...INPUT_ROOTS, ...INPUT_FILES], { cwd: ROOT, encoding: "utf8" });
+  const r = spawnSync("git", ["status", "--porcelain", "--", ...INPUT_ROOTS, ...inputFilesOf(ROOT)], { cwd: ROOT, encoding: "utf8" });
   return r.status === 0 && /^\s?D\s/m.test(r.stdout);
 }
 
