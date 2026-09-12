@@ -89,6 +89,13 @@ if (isEntryPoint()) {
   if (announce(stage)) {
     const argv = ["node", "node_modules/@playwright/test/cli.js", "test", ...passthrough];
     if (grep !== null) argv.push("--grep", grep);
+    // AM-10 §3-§4: a PB budget is asserted only in a PERF- spec, and V-PERF's verdict is RECORDED
+    // and read, never re-measured beside other work. The regression sweep — `pnpm e2e` with no
+    // journey named — therefore does not collect the perf specs: run beside ten journeys and two
+    // other heavy lanes they measure the box's load, not the product (PERF-011's median came in at
+    // 16.7999 ms against a 16.75 ms ceiling on one sweep of five and was green on the other four).
+    // The perf lane is asked for by name, `pnpm test:perf`, which is `--journey PERF-`.
+    else argv.push("--grep-invert", "PERF-");
     // The journeys asked for are named to the reporter, which answers for each of them by name —
     // one exit code cannot say WHICH journey was red (tests/e2e/support/journey-reporter.ts).
     failed = run(argv, { cwd: ROOT, env: { ...process.env, CUBIT_E2E_JOURNEYS: journeys.join(",") } });

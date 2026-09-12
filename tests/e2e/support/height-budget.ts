@@ -23,6 +23,10 @@ export const SCREEN_HEIGHT_BUDGET: Readonly<Record<string, number>> = Object.fre
   "j-010-timeline-done": 3168,
   "j-010-jobs-tray-open": 3168,
   "j-010-sheets-fanned-out": 3168,
+  // The same screen one checkpoint earlier. It was left out of the seed and so reds whenever the
+  // fan-out has finished painting by the time the capture is taken — a race, which is a defect with
+  // a cause (B-19), not a flake to retry. Recorded at the height j-010's own fan-out stands at.
+  "j-010-sheets-uploaded": 3168,
   "j-010-discipline-confirmed": 2764,
   // # U2 — the same screen, reached by the golden path's own M1 leg (AM-09 §2). The composition and
   // the owner are j-010's; this entry is the same debt seen from J-000 and it goes away with it.
