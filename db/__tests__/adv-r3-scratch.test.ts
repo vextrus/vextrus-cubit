@@ -70,7 +70,7 @@ describe("A1 psql client state survives `rollback; discard all;`", () => {
 describe("A2 closePsqlPool returns before the psql it killed has let the database go", () => {
   it("A2a the template a pool session was closed off can be cloned immediately", () => {
     const clone = `${DATABASE}_c`;
-    let failures: string[] = [];
+    const failures: string[] = [];
     for (let i = 0; i < 12; i += 1) {
       closePsqlPool();
       expect(pooledPsql(url(), "select 1;").ok).toBe(true);
