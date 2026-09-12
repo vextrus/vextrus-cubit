@@ -18,7 +18,7 @@
  * case can pass or fail on another's rows.
  */
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, test } from "vitest";
@@ -27,6 +27,7 @@ import { refusalCodeOf } from "../../src/core/faults/refusal-marker";
 import { provisionScratchDb } from "./harness";
 import { BOOTSTRAP_URL } from "./support/fixtures";
 import { ident, lit, run, scalar } from "./support/live-sql";
+import { readOutbox } from "../../tests/support/outbox";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -128,8 +129,8 @@ async function build(): Promise<Staged> {
   const sessionCookie = String(session["SESSION_COOKIE"] ?? "");
   expect(sessionCookie, `${SESSION_MODULE} exports SESSION_COOKIE = "${SESSION_COOKIE_NAME}" (increment interfaces)`).toBe(SESSION_COOKIE_NAME);
 
-  const outbox = String(mail["MAIL_OUTBOX_DIR"] ?? "");
-  expect(outbox, `${MAIL_MODULE} exports MAIL_OUTBOX_DIR = "${OUTBOX_DIR}" (increment interfaces)`).toBe(OUTBOX_DIR);
+  const outboxHome = String(mail["MAIL_OUTBOX_DIR"] ?? "");
+  expect(outboxHome, `${MAIL_MODULE} exports MAIL_OUTBOX_DIR = "${OUTBOX_DIR}" (increment interfaces)`).toBe(OUTBOX_DIR);
 
   const db = await provisionScratchDb();
   scratch = db;
@@ -153,7 +154,7 @@ async function build(): Promise<Staged> {
 
   return {
     admin,
-    outboxDir: isAbsolute(outbox) ? outbox : join(REPO_ROOT, outbox),
+    outboxDir: isAbsolute(outboxHome) ? outboxHome : join(REPO_ROOT, outboxHome),
     sessionCookie,
     auth: async (options: { token?: string; headers?: Record<string, string> } = {}): Promise<AuthCaller> => {
       const headers = new Headers(options.headers ?? {});
@@ -270,30 +271,23 @@ interface Mail {
   kind: string;
   url: string;
   token: string;
-  at: number;
 }
 
+/**
+ * The newest mail of a kind sent to an address. The outbox is read through the tree's ONE reader
+ * (`tests/support/outbox.ts`): a zero-byte or torn file left by a killed writer is skipped
+ * and named, never parsed — this file used to `JSON.parse` every file it found, so a power cut at
+ * 10:38 turned eight cases here red with `SyntaxError: Unexpected end of JSON input` and named
+ * nothing. The reader answers newest-first, so the first match is the newest.
+ */
 function newestMail(s: Staged, to: string, kind: string, why: string): Mail {
-  const mails = existsSync(s.outboxDir)
-    ? readdirSync(s.outboxDir)
-        .filter((name) => name.endsWith(".json"))
-        .map((name) => join(s.outboxDir, name))
-        .filter((file) => statSync(file).isFile())
-        .map((file) => {
-          const bag = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
-          return {
-            to: String(bag["to"] ?? ""),
-            kind: String(bag["kind"] ?? ""),
-            url: String(bag["url"] ?? ""),
-            token: String(bag["token"] ?? ""),
-            at: statSync(file).mtimeMs,
-          };
-        })
-        .filter((mail) => mail.to === to && mail.kind === kind)
-        .sort((a, b) => b.at - a.at)
-    : [];
+  const reading = readOutbox(s.outboxDir);
+  const mails = reading.mails
+    .map((bag) => ({ to: String(bag.to ?? ""), kind: String(bag.kind ?? ""), url: String(bag.url ?? ""), token: String(bag.token ?? "") }))
+    .filter((mail) => mail.to === to && mail.kind === kind);
+  const skipped = reading.notes.length === 0 ? "" : `\n${reading.notes.join("\n")}`;
   const newest = mails[0];
-  expect(newest, `${why} — no "${kind}" mail for ${to} in ${s.outboxDir}`).toBeTruthy();
+  expect(newest, `${why} — no "${kind}" mail for ${to} in ${s.outboxDir}${skipped}`).toBeTruthy();
   const mail = newest as Mail;
   expect(mail.token.length, `${why} — the "${kind}" mail carries a token`).toBeGreaterThan(0);
   return mail;

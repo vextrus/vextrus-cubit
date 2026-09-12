@@ -4,9 +4,9 @@
 // The newest mail for an address and a kind wins: the directory outlives a single run, and a person
 // who asks for a second link is meant to use the newest email — the same rule the product's own
 // copy states.
-import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { MAIL_OUTBOX_DIR, type OutboxMail } from "../../../src/server/auth/mail";
+import { readOutbox } from "../../support/outbox";
 
 /** How long a journey waits for a mail the server writes after it has already answered. */
 const WAIT_MS = 10_000;
@@ -16,24 +16,28 @@ function outboxDir(): string {
   return join(process.cwd(), MAIL_OUTBOX_DIR);
 }
 
-/** Every mail on disk, newest first — the file names carry the instant they were written at. */
-function delivered(): OutboxMail[] {
-  const directory = outboxDir();
-  if (!existsSync(directory)) return [];
-  return readdirSync(directory)
-    .filter((name) => name.endsWith(".json"))
-    .sort()
-    .reverse()
-    .map((name) => JSON.parse(readFileSync(join(directory, name), "utf8")) as OutboxMail);
+/**
+ * Every mail on disk, newest first, read through the product's ONE reader — which skips a zero-byte
+ * or torn file (a writer the machine killed) and names it, rather than throwing on it. This reader
+ * used to parse every file it found, so five zero-byte files left by a power cut took J-000 red in
+ * both lanes with `SyntaxError: Unexpected end of JSON input`, naming nothing.
+ */
+function delivered(): { mails: OutboxMail[]; notes: string[] } {
+  const reading = readOutbox(outboxDir());
+  return { mails: reading.mails, notes: reading.notes };
 }
 
 /** The newest mail of this kind sent to this address, waited for rather than assumed. */
 export async function newestMail(to: string, kind: OutboxMail["kind"]): Promise<OutboxMail> {
   const deadline = Date.now() + WAIT_MS;
   for (;;) {
-    const found = delivered().find((mail) => mail.to === to.toLowerCase() && mail.kind === kind);
+    const reading = delivered();
+    const found = reading.mails.find((mail) => mail.to === to.toLowerCase() && mail.kind === kind);
     if (found !== undefined) return found;
-    if (Date.now() > deadline) throw new Error(`no ${kind} mail for ${to} reached ${outboxDir()} within ${WAIT_MS}ms`);
+    if (Date.now() > deadline) {
+      const skipped = reading.notes.length === 0 ? "" : `\n${reading.notes.join("\n")}`;
+      throw new Error(`no ${kind} mail for ${to} reached ${outboxDir()} within ${WAIT_MS}ms${skipped}`);
+    }
     await new Promise((wake) => setTimeout(wake, POLL_MS));
   }
 }

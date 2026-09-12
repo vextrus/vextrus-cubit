@@ -12,9 +12,9 @@
  */
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { strict as assert } from "node:assert";
-import { readFileSync, readdirSync } from "node:fs";
 import { newestMail } from "../../e2e/support/outbox";
 import { outboxDir } from "../../../src/server/auth/mail";
+import { readOutbox } from "../../support/outbox";
 
 /** One mail as the outbox spells it, without the closed kind union this increment appends to. */
 export interface Mail {
@@ -45,20 +45,14 @@ export async function newestInvitation(to: string): Promise<Mail> {
   return mail;
 }
 
-/** Every invitation the outbox holds for an address — how a resend is told from a first send. */
+/**
+ * Every invitation the outbox holds for an address — how a resend is told from a first send. Read
+ * through the product's ONE reader: an outbox nothing has been sent through yet is empty rather than
+ * an error, and a zero-byte or torn file left by a killed writer is skipped and named rather than
+ * thrown on.
+ */
 export function invitationsMailed(to: string): Mail[] {
-  const directory = outboxDir();
-  let names: string[];
-  try {
-    names = readdirSync(directory).filter((name) => name.endsWith(".json"));
-  } catch {
-    // Nothing has been mailed at all yet: the outbox directory is written on the first delivery.
-    return [];
-  }
-  return names
-    .sort()
-    .map((name) => JSON.parse(readFileSync(`${directory}/${name}`, "utf8")) as Mail)
-    .filter((mail) => mail.to === to.toLowerCase() && mail.kind === INVITATION_KIND);
+  return (readOutbox(outboxDir()).mails as unknown as Mail[]).filter((mail) => mail.to === to.toLowerCase() && mail.kind === INVITATION_KIND);
 }
 
 /* --------------------------------------------------------------------------- the browser */
