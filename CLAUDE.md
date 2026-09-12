@@ -105,8 +105,9 @@ your prompt. The engine rewrites the lessons block after merges; nothing here is
   regenerable output by RELATIVE path (`.next*/`, `dist/`, `coverage/`, `.turbo/`, `.vite/`,
   `*.tsbuildinfo`); an absolute path is refused. Heredoc and `python - <<` writes are opaque and denied.
 - Runs are by name in the lane the suite belongs to (`pnpm vitest run <files>`); the gate's lanes go
-  through `mcp__builder__check` (`unit` → `types` → `lint` → `journeys`, `{ "full": true }` once) — a
-  raw `pnpm verify`, `pnpm test:db` or `pnpm e2e` by shell is denied.
+  through `mcp__builder__check` (`unit` → `types` → the bare call for eslint on your changed files →
+  `journeys`; `db` when db/** moved, `checkup` when the toolchain moved; `{ "full": true }` once) — a
+  raw `pnpm verify`, `pnpm test:db` or `pnpm checkup` by shell is denied.
 - A Bash output over 6,000 chars arrives compacted (head, tail, every verdict line, the scratch file
   holding the whole) — read the file, don't re-run.
 - A failed Edit means your copy is stale: re-Read the region and edit from it; a whole-file Write to
