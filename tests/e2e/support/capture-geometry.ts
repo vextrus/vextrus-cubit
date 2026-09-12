@@ -24,6 +24,20 @@ import type { PlaywrightTestConfig } from "@playwright/test";
  * capture already hides the text caret by default — so "cursor hidden" is true by construction and
  * needs no flag. It is named here so a reader looking for it finds the answer rather than a gap.
  */
+/**
+ * IS THIS A PICTURE RUN? The one reading of the switch (B-17).
+ *
+ * Since the v22 U2 re-baseline lease (2026-09-12) the answer is YES by default: every committed
+ * baseline was taken at §9.3's geometry against the picture tenant, so a run that is not a picture
+ * run is comparing this world against pictures of another one. `CUBIT_E2E_PICTURE=0` is the bisect
+ * escape and nothing a green run uses.
+ *
+ * It matters that this is ONE function and not three readings of one variable: the geometry
+ * (`playwright.config.ts`), the frozen tenant (`picture-tenant.ts`) and the frozen clock must be on
+ * together or the picture is of a frame that half-moved.
+ */
+export const pictureLane = (): boolean => process.env["CUBIT_E2E_PICTURE"] !== "0";
+
 export function captureGeometry(picture: boolean): PlaywrightTestConfig["use"] {
   if (!picture) return {};
   return {

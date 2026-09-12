@@ -21,7 +21,8 @@
 import { expect } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { PICTURE_ROUTES, PICTURE_TENANT, pictureTest as test } from "./support/picture-tenant";
+import { PICTURE_ROUTES, PICTURE_TENANT } from "./support/picture-tenant";
+import { pictureTest as test } from "./support/picture-test";
 import { settled } from "./support/settled";
 import { TESTIDS } from "../../src/ui/testids";
 

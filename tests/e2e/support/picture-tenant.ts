@@ -11,10 +11,12 @@
 // derivation changes, and then the pictures change with it. The UUIDs are in the `f1c7u2e0` family
 // so a row found in a database by hand is recognisable as this fixture's and nobody's customer.
 //
-// THIS TENANT IS OFF BY DEFAULT. It is provisioned only under `CUBIT_E2E_PICTURE=1`, so a journey
-// run that did not ask for pictures meets exactly the database it met before (the gate the brief
-// asks for: no behaviour change to an existing journey).
-import { test as baseTest, type Page } from "@playwright/test";
+// THIS TENANT IS ON BY DEFAULT since the v22 U2 re-baseline lease (2026-09-12): every committed
+// baseline is a picture of it, so a run that did not provision it would compare this world against
+// pictures of another one. `CUBIT_E2E_PICTURE=0` is the bisect escape (`pictureLane()`, B-17).
+import { scryptSync } from "node:crypto";
+import { GUC_SYSTEM_REASON } from "../../../db/__tests__/support/fixtures";
+import { lit, run, withSession } from "../../../db/__tests__/support/live-sql";
 
 /** The frozen instant every picture is taken at: 2026-03-01 10:00 Asia/Dhaka, stated in UTC. */
 export const PICTURE_CLOCK = "2026-03-01T04:00:00.000Z";
@@ -47,28 +49,68 @@ export const PICTURE_ROUTES = Object.freeze({
   project: `/t/${PICTURE_TENANT.tenantId}/p/${PICTURE_TENANT.projectId}`,
 });
 
+
 /**
- * The frozen clock, injected into the BROWSER CONTEXT rather than into the product: a picture is a
- * picture of what a reader sees, and what a reader sees is what `new Date()` answered in their tab.
- * `page.clock.setFixedTime` pins that answer without stopping timers, so a screen that polls still
- * polls and only its idea of "now" is fixed — which is what keeps "2 minutes ago" from moving
- * between two runs of the same still.
- *
- * Off unless the run asked for pictures, so an existing journey's clock is untouched.
+ * scrypt's cost and format as `src/server/auth/secrets.ts` states them — the door verifies what is
+ * in the column, so the fixture must write what that door reads. The salt is a literal rather than
+ * random for the reason everything in this tenant is: a hash that changes per run is a row that
+ * changes per run.
  */
-export async function freezeClock(page: Page): Promise<void> {
-  if (process.env["CUBIT_E2E_PICTURE"] !== "1") return;
-  await page.clock.setFixedTime(PICTURE_CLOCK);
+const SCRYPT = { N: 32_768, r: 8, p: 1, keyLength: 64 } as const;
+const PICTURE_SALT = "cubitpicturesalt";
+
+/** The picture account's stored credential, derived the way the sign-in door derives it. */
+export function pictureHash(): string {
+  const salt = Buffer.from(PICTURE_SALT, "utf8");
+  const key = scryptSync(PICTURE_TENANT.password, salt, SCRYPT.keyLength, { N: SCRYPT.N, r: SCRYPT.r, p: SCRYPT.p, maxmem: 256 * SCRYPT.N * SCRYPT.r });
+  return ["scrypt", SCRYPT.N, SCRYPT.r, SCRYPT.p, salt.toString("base64url"), key.toString("base64url")].join("$");
 }
 
 /**
- * The journeys' `test`, with the picture clock installed before the first navigation. A picture spec
- * imports `test` from here; every other journey imports it from `@playwright/test` and meets the
- * lane it always met.
+ * WHY THIS SEED NAMES A REASON (SEAM-TENANT, db/migrations/0000_tenancy-base.sql).
+ *
+ * Every tenant-scoped table is `ENABLE ROW LEVEL SECURITY` **and `FORCE ROW LEVEL SECURITY`**, and
+ * the migration says why in as many words: "without it the table's owner reads and writes past its
+ * own policies, and a guarantee the owner escapes is not a guarantee". So connecting as the owner
+ * buys NOTHING here — `cubit_migrate` is refused `insert into tenants` with 42501 exactly as
+ * `cubit_app` is. The role was never the missing piece.
+ *
+ * What the policies actually arm on is a NON-EMPTY REASON:
+ *
+ *     CREATE POLICY "tenants_system_scope" ON "tenants" FOR ALL
+ *       USING (nullif(current_setting('cubit.system_reason', true), '') IS NOT NULL)
+ *
+ * — "System scope is armed by a non-empty reason and by nothing else: the reason IS the attribution,
+ * so a session that names none sees no row at all." That is the same door `runAsSystem(reason)` opens
+ * in the product and the same one the live seam suite opens with `SEED_REASON`; this fixture is not
+ * a special case, it just has its own reason to give.
  */
-export const pictureTest = baseTest.extend({
-  page: async ({ page }, use: (page: Page) => Promise<void>) => {
-    await freezeClock(page);
-    await use(page);
-  },
-});
+export const PICTURE_SEED_REASON = "fixture: install the picture tenant for §9.3's evidence stills";
+
+/**
+ * The picture tenant, written idempotently. Every insert is `on conflict do update`, so a second run
+ * over the same cluster converges on the same rows rather than refusing or doubling — the fixture is
+ * a STATE the lane arrives at, not an event it performs.
+ *
+ * The URL is a parameter and not a call to `migrateUrlForPictureTenant()` inside, so the seed can be
+ * pointed at a scratch database and proved to land rows.
+ */
+export function seedPictureTenant(url: string): void {
+  const at = lit(PICTURE_CLOCK);
+  run(
+    url,
+    withSession({ [GUC_SYSTEM_REASON]: PICTURE_SEED_REASON }, [
+      `insert into tenants (tenant_id, name, created_at) values (${lit(PICTURE_TENANT.tenantId)}, ${lit(PICTURE_TENANT.workspaceName)}, ${at})`,
+      `  on conflict (tenant_id) do update set name = excluded.name, created_at = excluded.created_at;`,
+      `insert into users (user_id, email, password_hash, email_verified_at, created_at)`,
+      `  values (${lit(PICTURE_TENANT.userId)}, ${lit(PICTURE_TENANT.email)}, ${lit(pictureHash())}, ${at}, ${at})`,
+      `  on conflict (user_id) do update set email = excluded.email, password_hash = excluded.password_hash, email_verified_at = excluded.email_verified_at, created_at = excluded.created_at;`,
+      `insert into memberships (tenant_id, user_id, workspace_role, created_at)`,
+      `  values (${lit(PICTURE_TENANT.tenantId)}, ${lit(PICTURE_TENANT.userId)}, 'OWNER', ${at})`,
+      `  on conflict (tenant_id, user_id) do update set workspace_role = excluded.workspace_role, created_at = excluded.created_at;`,
+      `insert into projects (tenant_id, project_id, name, code, client, site_address, district, created_at)`,
+      `  values (${lit(PICTURE_TENANT.tenantId)}, ${lit(PICTURE_TENANT.projectId)}, ${lit(PICTURE_TENANT.projectName)}, ${lit(PICTURE_TENANT.projectCode)}, ${lit(PICTURE_TENANT.client)}, ${lit(PICTURE_TENANT.siteAddress)}, ${lit(PICTURE_TENANT.district)}, ${at})`,
+      `  on conflict (project_id) do update set name = excluded.name, code = excluded.code, client = excluded.client, site_address = excluded.site_address, district = excluded.district, created_at = excluded.created_at;`,
+    ].join("\n")),
+  );
+}
