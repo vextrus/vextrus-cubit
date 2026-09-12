@@ -142,7 +142,7 @@ const BAR_FACES: Readonly<Record<string, string>> = Object.freeze({
 const MARK_FAMILIES: readonly string[] = Object.freeze([
   "B", "RB", "CB", "EB", "LB", "PB", "REB", "SB-R", "GB", "TG", // beams: floor, roof, cantilever, edge, lintel, plinth, stair
   "C", "CS", "SW", // columns, column strips, shear walls
-  "S", "FL", "ML", "LS", "SS", "PS", "PP", // slabs: panel, flat, mat, landing, sunshade, pile slab
+  "S", "FL", "ML", "LS", "SS", "PS", "PP", "L", // slabs: panel, flat, mat, landing, sunshade, pile slab; lintels
   "F", "PC", "P", "R", // footings, pile caps, piles, risers
   "BW", "LPS", // brick walls by thickness, lift pit slab
   "OHWT", "UGWR", "ST", // overhead tank, underground reservoir, stair — parted marks
@@ -175,8 +175,10 @@ const NAMED_LEVELS: Readonly<Record<string, string>> = Object.freeze({
   BASEMENT: "BSMT", BSMT: "BSMT", MEZZANINE: "MEZZ", MEZZ: "MEZZ", ROOF: "ROOF", RF: "ROOF",
 });
 
-/** The words that say "floor" and nothing about WHICH floor. */
-const STOREY_WORDS: ReadonlySet<string> = new Set(["FLOOR", "FLOORS", "FLR", "FLRS", "LEVEL", "LEVELS", "LVL", "STOREY", "STORY", "SLAB", "PLAN", "LAYOUT", "BEAM", "COLUMN"]);
+/** The words that say "floor" and nothing about WHICH floor. SLAB, PLAN, LAYOUT, BEAM and COLUMN are
+ * NOT among them: they say what is DRAWN, and dropping them turned every sheet title on the set
+ * ("1ST FLOOR BEAM LAYOUT") into a level range — a band of floors minted out of a caption. */
+const STOREY_WORDS: ReadonlySet<string> = new Set(["FLOOR", "FLOORS", "FLR", "FLRS", "LEVEL", "LEVELS", "LVL", "STOREY", "STORY"]);
 
 /** What a set writes between the two ends of a band, and what it writes between two named floors. */
 const RANGE_WORDS = /\s*(?:\bTO\b|\bTHRU\b|\bTHROUGH\b|[-–—~])\s*/;

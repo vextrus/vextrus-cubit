@@ -1,0 +1,96 @@
+{
+ "note": "The notation strings of fixtures/rcc6-bnbc/notation.corpus.json the grammar does NOT read as their declared family, each with the reason. This file is a DEBT and a ratchet: tests/takeoff/notation/corpus.test.ts freezes `frozen` at the number of entries, so an allowance can be retired and none can be added without lowering the freeze by hand and saying why in the commit. An entry nothing uses fails the suite — a form that learns to read a string does not keep its excuse. A string the fixture registers in traps.json belongs there, never here.",
+ "frozen": 18,
+ "strings": [
+  {
+   "raw": "300",
+   "family": "length",
+   "why": "a bare integer states no unit. It is a dimension text on the fixture and a count in the next cell, and the grammar reads no unit into a number nobody wrote one on (L-MEA-01): reading it would mint a length out of every schedule count on the set. The unit belongs to the DIMSTYLE the cad seam carries, not to this string."
+  },
+  {
+   "raw": "400",
+   "family": "length",
+   "why": "as `300`: a bare integer whose unit the string does not state; the dimension's unit is the DIMSTYLE's, and the grammar refuses rather than assume millimetres."
+  },
+  {
+   "raw": "450",
+   "family": "length",
+   "why": "as `300`: a bare integer whose unit the string does not state."
+  },
+  {
+   "raw": "500",
+   "family": "length",
+   "why": "as `300`: a bare integer whose unit the string does not state."
+  },
+  {
+   "raw": "600",
+   "family": "length",
+   "why": "as `300`: a bare integer whose unit the string does not state."
+  },
+  {
+   "raw": "1067",
+   "family": "length",
+   "why": "as `300`: a bare integer whose unit the string does not state (and whose authored figure is 1066.8 — the drawn text is the rounded one)."
+  },
+  {
+   "raw": "B500DWR",
+   "family": "grade",
+   "why": "a steel DESIGNATION, not a stated strength. The 500 in it is read by the notes sheet that maps the designation (`fy = 72,500 psi (500 MPa) BDS ISO 6935-2 B500DWR`), and a grammar that minted 500 MPa from a product name would grade steel the drawing never graded (L-CAD-08)."
+  },
+  {
+   "raw": "ROOF-SRR",
+   "family": "range",
+   "why": "a band whose upper end is a roof-structure MARK (the stair roof room), not a level on the ladder a range is counted along. Where the roof's own storey sits is the level stack's to say and not a cell's (L-CAD-07), so the range is refused rather than counted out wrongly."
+  },
+  {
+   "raw": "EL +3.353",
+   "family": "level",
+   "why": "reads as +3353 mm, which is the metre level the drawing PRINTS; the fixture authored 3352.8 (11'-0\" exactly). The 0.2 mm is the draughtsman's rounding of an imperial datum into metres, not a parse defect — kept here until the fixture registers it as a trap of its own."
+  },
+  {
+   "raw": "+3.353",
+   "family": "level",
+   "why": "as `EL +3.353`: the printed metre level is 3353 mm and the authored figure is 3352.8 mm — the set's own rounding of 11'-0\"."
+  },
+  {
+   "raw": "E.G.L (-1'-6\")",
+   "family": "level",
+   "why": "reads as -457.2 mm, which is exactly -1'-6\"; the fixture authored -152.4 mm (-0'-6\"). The drawn text and the authored figure disagree by a foot — a fixture disagreement to settle with the fixture's author, not a reading to bend."
+  },
+  {
+   "raw": "EL -1.829",
+   "family": "plain",
+   "why": "reads as a level (-1829 mm), which is what the string says; the fixture files the section's level marks under `plain`. The reading mints no member, so it is kept and the family is what disagrees."
+  },
+  {
+   "raw": "EL -1.524",
+   "family": "plain",
+   "why": "as `EL -1.829`: a level mark the fixture files under `plain`."
+  },
+  {
+   "raw": "EL -2.743",
+   "family": "plain",
+   "why": "as `EL -1.829`: a level mark the fixture files under `plain`."
+  },
+  {
+   "raw": " TO 6TH FLOOR)",
+   "family": "plain",
+   "why": "a fragment of an overlapping text (T-TEXT-OVERLAP's neighbourhood) that ends in a floor word, so the range form counts a band of one out of half a caption. Refusing a range with no lower end is the fix; it waits on the view law telling this reader that the string is a fragment."
+  },
+  {
+   "raw": "2-16%%C ext.",
+   "family": "plain",
+   "why": "reads as a bar group, which is exactly what the cell says; the fixture files this schedule cell under `plain`. The reading is true and mints no member on its own."
+  },
+  {
+   "raw": "BALCONY TOP BARS 12%%C @ 125 c/c, L/3 INTO THE SLAB",
+   "family": "plain",
+   "why": "reads as a spacing of 12Ø at 125 — true — but the tail `L/3 INTO THE SLAB` (the curtailment) is not in the reading. The spacing form has always tolerated a tail; a note that states a spacing AND a curtailment wants a form that keeps both, as F-COMPOUND keeps a `+`."
+  },
+  {
+   "raw": "2-12%%C T&B + 8%%C @ 150",
+   "family": "plain",
+   "why": "reads as a compound of both groups — the reading this pass added — and the fixture files the cell under `plain`. Kept as an allowance because the family, not the reading, is what disagrees."
+  }
+ ]
+}
