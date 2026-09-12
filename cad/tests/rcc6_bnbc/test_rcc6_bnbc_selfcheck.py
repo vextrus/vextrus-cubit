@@ -63,9 +63,10 @@ def test_manifest_pins_the_generator_and_its_outputs() -> None:
         if not (OUT / name).is_file() or hashlib.sha256((OUT / name).read_bytes()).hexdigest() != digest
     ]
     assert stale == [], f"outputs that are not the bytes the manifest pins: {stale}"
+    # The manifest is written last and cannot hash itself, so it names every file but its own.
     committed = {
         path.relative_to(OUT).as_posix() for path in OUT.rglob("*") if path.is_file()
-    }
+    } - {"manifest.json"}
     assert committed == set(manifest["outputs"]), (
         f"the corpus and the manifest disagree — unlisted {sorted(committed - set(manifest['outputs']))}, "
         f"listed but absent {sorted(set(manifest['outputs']) - committed)}"
