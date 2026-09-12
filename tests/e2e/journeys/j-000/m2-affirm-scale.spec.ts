@@ -12,6 +12,7 @@ import { checkpoint } from "../../support/checkpoint";
 import { settled } from "../../support/settled";
 import { SViewerPage, VIEWER_BUDGETS } from "../../viewer/s-viewer.page";
 import { SHEET, goldenRun, releaseGoldenWorker } from "./golden-run";
+import { TESTIDS, testIdSelector } from "../../../../src/ui/testids";
 
 test.use({
   viewport: { width: 1440, height: 900 },
@@ -49,7 +50,7 @@ test.describe.serial("J-000 — Golden Path: a scale of record for the sheet", (
     // A proposal is affirmed FOR A VIEW, so the view is named first: the affirm door stays disabled
     // until the panel knows which member the scale would be of record for (L-MEA-05).
     await page.getByTestId("viewer-scale-member").first().click();
-    const door = page.locator('[data-testid="viewer-scale-affirm"]:not([disabled])').first();
+    const door = page.locator(`${testIdSelector(TESTIDS.viewer.scaleAffirm)}:not([disabled])`).first();
     await expect(door, `the panel opens its affirm door once a view and a proposal stand together (the proposal is rank ${rank})`).toBeVisible({
       timeout: 120_000,
     });
@@ -61,7 +62,7 @@ test.describe.serial("J-000 — Golden Path: a scale of record for the sheet", (
     await scale.confirm.click();
 
     await expect(scale.dialog, "the committed act closes the dialog").toHaveCount(0, { timeout: 60_000 });
-    await expect(scale.rows.filter({ has: page.locator('[data-state="affirmed"]') }).or(page.locator('[data-testid="viewer-scale-view"][data-state="affirmed"]')).first(),
+    await expect(scale.rows.filter({ has: page.locator('[data-state="affirmed"]') }).or(page.locator(`${testIdSelector(TESTIDS.viewer.scaleView)}[data-state="affirmed"]`)).first(),
       "a view now carries a scale of record").toBeVisible({ timeout: 60_000 });
 
     await settled(page);

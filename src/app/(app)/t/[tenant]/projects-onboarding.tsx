@@ -8,6 +8,7 @@ import { Button } from "@/ui/primitives/core";
 import { ShellEmptyState, useFailureHandOff } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import { offerSampleAction } from "./actions";
+import { TESTIDS } from "@/ui/testids";
 
 export function ProjectsOnboarding() {
   const router = useRouter();
@@ -48,14 +49,14 @@ export function ProjectsOnboarding() {
         // nested polite region risks at worst being read twice.
         <div className="cx-shell-live" aria-live="polite">
           {unavailable ? (
-            <div className="cx-shell-outcome cx-shell-notice" data-testid="shell-sample-outcome" role="status">
+            <div className="cx-shell-outcome cx-shell-notice" data-testid={TESTIDS.shell.sampleOutcome} role="status">
               {strings.shell_sample_unavailable}
             </div>
           ) : null}
         </div>
       }
     >
-      <Button data-testid="shell-sample-offer" loading={pending} onClick={offer}>
+      <Button data-testid={TESTIDS.shell.sampleOffer} loading={pending} onClick={offer}>
         {strings.shell_sample_offer}
       </Button>
     </ShellEmptyState>

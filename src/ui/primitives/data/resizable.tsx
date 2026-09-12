@@ -9,6 +9,7 @@
 import type { ComponentProps } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { cx } from "../core/class-names";
+import { TESTIDS } from "@/ui/testids";
 
 export type ResizablePanelGroupProps = ComponentProps<typeof PanelGroup>;
 
@@ -39,7 +40,7 @@ export function ResizableHandle({ className, children, ...rest }: ResizableHandl
       aria-valuemin={rest["aria-valuemin"] ?? NEUTRAL_SPLIT.min}
       aria-valuemax={rest["aria-valuemax"] ?? NEUTRAL_SPLIT.max}
       aria-valuenow={rest["aria-valuenow"] ?? NEUTRAL_SPLIT.now}
-      data-testid="resizable-handle"
+      data-testid={TESTIDS.resizable.handle}
       className={cx("cx-resizable-handle", "cx-reticle", className)}
     >
       {children ?? <span className="cx-resizable-line" aria-hidden="true" />}

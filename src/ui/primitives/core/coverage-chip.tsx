@@ -9,6 +9,7 @@
  */
 import type { ComponentPropsWithRef } from "react";
 import { cx } from "./class-names";
+import { TESTIDS } from "@/ui/testids";
 
 export interface CoverageChipProps extends ComponentPropsWithRef<"span"> {
   value: number;
@@ -38,7 +39,7 @@ export function CoverageChip({ value, className, ...rest }: CoverageChipProps) {
     <span
       {...rest}
       className={cx("cx-coverage-chip", className)}
-      data-testid="coverage-chip"
+      data-testid={TESTIDS.coverage.chip}
       data-band={bandOf(coverage)}
     >
       {formatCoverage(coverage)}

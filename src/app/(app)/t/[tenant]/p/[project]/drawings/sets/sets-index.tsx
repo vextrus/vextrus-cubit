@@ -19,6 +19,7 @@ import { drawingsRoute } from "../route-address";
 import { createSet as createSetAction } from "./actions";
 import { setRoute, setsRoute } from "./route-address";
 import { sets } from "./strings";
+import { TESTIDS } from "@/ui/testids";
 
 export interface SetsIndexProps {
   tenantId: string;
@@ -73,7 +74,7 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
       <header className="cx-sets-header">
         <h1 className="cx-sets-heading">{sets.sets_heading}</h1>
         <p className="cx-sets-caption">{sets.sets_caption}</p>
-        <Link className="cx-sets-link cx-reticle" data-testid="set-drawings-link" href={drawingsRoute(tenantId, projectId)}>
+        <Link className="cx-sets-link cx-reticle" data-testid={TESTIDS.set.drawingsLink} href={drawingsRoute(tenantId, projectId)}>
           {sets.sets_drawings_link}
         </Link>
       </header>
@@ -97,7 +98,7 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
           <p className="cx-sets-hint">{sets.sets_create_hint}</p>
           <form
             className="cx-sets-form"
-            data-testid="set-create-form"
+            data-testid={TESTIDS.set.createForm}
             onSubmit={(event) => {
               event.preventDefault();
               void submit();
@@ -107,9 +108,9 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
               <label className="cx-sets-field-label" htmlFor={nameId}>
                 {sets.sets_name_label}
               </label>
-              <Input className="cx-sets-name" data-testid="set-name-input" id={nameId} ref={nameRef} value={name} onChange={(event) => setName(event.target.value)} />
+              <Input className="cx-sets-name" data-testid={TESTIDS.set.nameInput} id={nameId} ref={nameRef} value={name} onChange={(event) => setName(event.target.value)} />
             </span>
-            <Button data-testid="set-create" loading={pending} type="submit">
+            <Button data-testid={TESTIDS.set.create} loading={pending} type="submit">
               {sets.sets_create_submit}
             </Button>
           </form>
@@ -129,7 +130,7 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
         <p className="cx-sets-hint">{sets.sets_list_hint}</p>
 
         {held.length === 0 ? (
-          <div data-testid="sets-empty">
+          <div data-testid={TESTIDS.sets.empty}>
             <ShellEmptyState heading={sets.sets_empty_heading} body={sets.sets_empty_body}>
               {canPin ? (
                 <Button variant="secondary" onClick={() => nameRef.current?.focus()}>
@@ -143,7 +144,7 @@ export function SetsIndex({ tenantId, projectId, sets: held, canPin, createSet =
             </ShellEmptyState>
           </div>
         ) : (
-          <ul className="cx-sets-list" data-testid="sets-index">
+          <ul className="cx-sets-list" data-testid={TESTIDS.sets.index}>
             {held.map((set) => (
               <SetRow key={set.setId} projectId={projectId} set={set} tenantId={tenantId} />
             ))}
@@ -169,9 +170,9 @@ function standAt(href: string): void {
  */
 function SetRow({ set, tenantId, projectId }: { set: DrawingSetSummary; tenantId: string; projectId: string }) {
   return (
-    <li className="cx-sets-row" data-testid="set-row" data-set={set.setId} data-name={set.name}>
+    <li className="cx-sets-row" data-testid={TESTIDS.set.row} data-set={set.setId} data-name={set.name}>
       <div className="cx-sets-row-facts">
-        <p className="cx-sets-row-name" data-testid="set-row-name">
+        <p className="cx-sets-row-name" data-testid={TESTIDS.set.rowName}>
           {set.name}
         </p>
         <p className="cx-sets-row-counts">
@@ -181,17 +182,17 @@ function SetRow({ set, tenantId, projectId }: { set: DrawingSetSummary; tenantId
         <p className="cx-sets-row-digest-line">
           <span className="cx-sets-row-digest-label">{sets.sets_row_digest_label}</span>
           {set.currentDigest === null ? (
-            <span className="cx-sets-row-unpinned" data-testid="set-row-digest" data-digest="">
+            <span className="cx-sets-row-unpinned" data-testid={TESTIDS.set.rowDigest} data-digest="">
               {sets.sets_row_digest_none}
             </span>
           ) : (
-            <span className="cx-sets-digest" data-testid="set-row-digest" data-digest={set.currentDigest}>
+            <span className="cx-sets-digest" data-testid={TESTIDS.set.rowDigest} data-digest={set.currentDigest}>
               {set.currentDigest}
             </span>
           )}
         </p>
       </div>
-      <Link className="cx-sets-link cx-sets-open cx-reticle" data-testid="set-open" href={setRoute(tenantId, projectId, set.setId)}>
+      <Link className="cx-sets-link cx-sets-open cx-reticle" data-testid={TESTIDS.set.open} href={setRoute(tenantId, projectId, set.setId)}>
         {sets.sets_open}
       </Link>
     </li>

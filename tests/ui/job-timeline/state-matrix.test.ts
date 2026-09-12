@@ -183,10 +183,32 @@ function codeOf(source: string): string {
   return out;
 }
 
-/** A hook spelled as the string literal it is, in whichever quote the source used. */
+/**
+ * A hook spelled where the source spells it. Since AM-09 §1 an id is DECLARED in the registry and
+ * read by its key, so a component spells `data-testid={TESTIDS.jobs.timeline}` and not the string:
+ * the registry is asked which key declares the id, and the key is what the source is searched for.
+ */
 function spells(source: string, testId: string): boolean {
   const escaped = testId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`["'\`]${escaped}["'\`]`).test(source);
+  if (new RegExp(`["'\`]${escaped}["'\`]`).test(source)) return true;
+  const key = registryKeyOf(testId);
+  return key !== null && source.includes(key);
+}
+
+/** `TESTIDS.<group>.<key>` for an id the registry declares, or null. */
+function registryKeyOf(testId: string): string | null {
+  const registry = readFileSync(join(REPO_ROOT, "src", "ui", "testids.ts"), "utf8");
+  let group: string | null = null;
+  for (const line of registry.split("\n")) {
+    const opens = /^\s{2}([A-Za-z0-9_]+):\s*\{\s*$/.exec(line);
+    if (opens) {
+      group = opens[1] ?? null;
+      continue;
+    }
+    const entry = /^\s{4}([A-Za-z0-9_]+):\s*"([^"]+)",\s*$/.exec(line);
+    if (entry && group !== null && entry[2] === testId) return `TESTIDS.${group}.${entry[1] ?? ""}`;
+  }
+  return null;
 }
 
 describe("R-UI-050: the job pattern's state matrix is enumerable, and every cell is declared", () => {

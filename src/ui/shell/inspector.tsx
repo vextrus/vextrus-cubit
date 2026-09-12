@@ -17,6 +17,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { strings } from "../strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** The Direction's own three numbers (§4.2), read once here so nothing restates them in JS. */
 export const INSPECTOR_WIDTH = 320;
@@ -147,7 +148,7 @@ export function ShellInspectorSlot() {
     <aside
       ref={aside}
       className="cx-shell-inspector"
-      data-testid="shell-inspector"
+      data-testid={TESTIDS.shell.inspector}
       aria-label={strings.shell_inspector_label}
       style={{ inlineSize: `${width}px` }}
     >
@@ -155,7 +156,7 @@ export function ShellInspectorSlot() {
           grid's own step, so the width is reachable without a pointer (R-UI-012). */}
       <div
         className="cx-shell-inspector-handle cx-reticle"
-        data-testid="shell-inspector-resize"
+        data-testid={TESTIDS.shell.inspectorResize}
         role="separator"
         tabIndex={0}
         aria-label={strings.shell_inspector_resize_label}

@@ -18,6 +18,7 @@ import { LayersPanel, type LayersPanelProps } from "./layers-panel";
 import { ScalePanel, type ScaleRegion, type ScaleViewBox } from "./scale-region";
 import { SnapAnnouncer, SnapOverlay, SnapTools } from "./snap-region";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from "react";
+import { TESTIDS } from "@/ui/testids";
 
 /**
  * The two shipped renderers the inspector panel is handed (I-170). The panel lives in `src/modules`,
@@ -85,7 +86,7 @@ export function ViewerStage({ panel, partition, scale, pointer, snap, inspector,
           </p>
           <canvas
             className="cx-viewer-canvas cx-reticle"
-            data-testid="viewer-canvas"
+            data-testid={TESTIDS.viewer.canvas}
             ref={canvasRef}
             // The sheet is driven from the keyboard, so it is not announced as a picture: the keys
             // it answers are named beside it and pointed at from here (R-TO-010, A-11Y).
@@ -107,7 +108,7 @@ export function ViewerStage({ panel, partition, scale, pointer, snap, inspector,
           {pointer.marqueeOn ? (
             <div
               className="cx-viewer-marquee"
-              data-testid="viewer-marquee"
+              data-testid={TESTIDS.viewer.marquee}
               aria-hidden="true"
               ref={pointer.marqueeRef}
               style={{
@@ -122,13 +123,13 @@ export function ViewerStage({ panel, partition, scale, pointer, snap, inspector,
           <SnapTools snap={snap} />
           <SnapAnnouncer snap={snap} />
           <div className="cx-viewer-controls">
-            <Button variant="secondary" data-testid="viewer-fit" onClick={onFit}>
+            <Button variant="secondary" data-testid={TESTIDS.viewer.fit} onClick={onFit}>
               {strings.viewer_fit}
             </Button>
-            <Button variant="secondary" data-testid="viewer-zoom-in" onClick={() => onZoom(ZOOM_STEP)}>
+            <Button variant="secondary" data-testid={TESTIDS.viewer.zoomIn} onClick={() => onZoom(ZOOM_STEP)}>
               {strings.viewer_zoom_in}
             </Button>
-            <Button variant="secondary" data-testid="viewer-zoom-out" onClick={() => onZoom(1 / ZOOM_STEP)}>
+            <Button variant="secondary" data-testid={TESTIDS.viewer.zoomOut} onClick={() => onZoom(1 / ZOOM_STEP)}>
               {strings.viewer_zoom_out}
             </Button>
           </div>
@@ -199,11 +200,11 @@ function InspectorTabs({ inspector, scale, snap, views }: { inspector: Omit<Insp
   const [tab, setTab] = useState(SELECTION_TAB);
   return (
     <Tabs className="cx-viewer-inspector-tabs" value={tab} onValueChange={setTab}>
-      <TabsList data-testid="viewer-inspector-tabs" aria-label={SCALE_COPY.viewer_scale_tabs_label}>
-        <TabsTrigger value={SELECTION_TAB} data-testid="viewer-inspector-tab-selection" onClick={() => setTab(SELECTION_TAB)}>
+      <TabsList data-testid={TESTIDS.viewer.inspectorTabs} aria-label={SCALE_COPY.viewer_scale_tabs_label}>
+        <TabsTrigger value={SELECTION_TAB} data-testid={TESTIDS.viewer.inspectorTabSelection} onClick={() => setTab(SELECTION_TAB)}>
           {SCALE_COPY.viewer_scale_tab_selection}
         </TabsTrigger>
-        <TabsTrigger value={SCALE_TAB} data-testid="viewer-inspector-tab-scale" onClick={() => setTab(SCALE_TAB)}>
+        <TabsTrigger value={SCALE_TAB} data-testid={TESTIDS.viewer.inspectorTabScale} onClick={() => setTab(SCALE_TAB)}>
           {SCALE_COPY.viewer_scale_tab_scale}
         </TabsTrigger>
       </TabsList>

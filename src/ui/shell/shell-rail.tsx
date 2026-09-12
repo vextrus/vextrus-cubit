@@ -18,6 +18,7 @@ import { Tooltip } from "../primitives/core";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../primitives/overlay";
 import { strings } from "../strings";
 import { SHELL_AREAS, areaLabel, shellHref, workspaceLabel, type ShellArea, type ShellWorkspace } from "./routes";
+import { TESTIDS } from "@/ui/testids";
 
 export interface ShellRailProps {
   workspace: ShellWorkspace;
@@ -165,7 +166,7 @@ export function ShellRail({ workspace, workspaces, area, atAreaHome }: ShellRail
     // frame's other complementary region, and the two carry different names.
     <aside
       className="cx-shell-rail"
-      data-testid="shell-rail"
+      data-testid={TESTIDS.shell.rail}
       // The attribute the frame has always published, with the meaning it has always had: `true` is
       // the narrow rail. It is the 48 px one now rather than an emptied 48 px one.
       data-collapsed={expanded ? "false" : "true"}
@@ -179,7 +180,7 @@ export function ShellRail({ workspace, workspaces, area, atAreaHome }: ShellRail
     >
       <div className="cx-shell-rail-top">
         {/* Decorative (R-UI-070, I-16): the mark names the product, and the document already does. */}
-        <span className="cx-shell-rail-mark" data-testid="shell-rail-mark" aria-hidden="true">
+        <span className="cx-shell-rail-mark" data-testid={TESTIDS.shell.railMark} aria-hidden="true">
           <QuietMark />
         </span>
         {/* The pin. One name in both states, so a speech-input user says the same words either way
@@ -194,7 +195,7 @@ export function ShellRail({ workspace, workspaces, area, atAreaHome }: ShellRail
         <button
           type="button"
           className="cx-shell-rail-toggle cx-reticle"
-          data-testid="shell-rail-collapse"
+          data-testid={TESTIDS.shell.railCollapse}
           aria-label={strings.shell_rail_pin_label}
           aria-expanded={pinned}
           aria-controls={bodyId}
@@ -215,7 +216,7 @@ export function ShellRail({ workspace, workspaces, area, atAreaHome }: ShellRail
           {/* No `aria-label` here: the workspace name is the trigger's only text, so an override
               would leave a speech-input user saying a name the control does not answer to (WCAG
               2.5.3, label-in-name). The purpose is carried by the menu it opens. */}
-          <DropdownMenuTrigger className="cx-shell-switcher" data-testid="shell-tenant-switcher">
+          <DropdownMenuTrigger className="cx-shell-switcher" data-testid={TESTIDS.shell.tenantSwitcher}>
             {/* The workspace's own initial is what stands at 48 px: an identity, not a decoration. */}
             <span className="cx-shell-switcher-initial" aria-hidden="true">
               {[...workspaceLabel(workspace)][0] ?? ""}

@@ -20,6 +20,7 @@ import { BasisChip, Button, Combobox, CoverageChip, Skeleton } from "@/ui/primit
 import { DataTable, Tree } from "@/ui/primitives/data";
 import { strings } from "@/ui/strings";
 import { commitCorroborate, commitInsertLevel, commitRepudiate, previewCorroborate, previewInsertLevel, previewRepudiate, readRegister, requestMeasure, type DoorAnswer } from "./actions";
+import { TESTIDS } from "@/ui/testids";
 
 /** The shipped renderers, bound once (I-170): what a test mounts is what this route renders. */
 const CHROME: RegisterChrome = {
@@ -119,15 +120,15 @@ export function RegisterScreen({ view, tenantId, projectId, permitted, reportId 
   // stands beside the one door that can clear it.
   if (held === null) {
     return (
-      <div className="cx-register" data-testid="register-workspace" data-state="error">
-        <div className="cx-register-empty" data-testid="register-empty">
+      <div className="cx-register" data-testid={TESTIDS.register.workspace} data-state="error">
+        <div className="cx-register-empty" data-testid={TESTIDS.register.empty}>
           <h1 className="cx-register-empty-heading">{strings.takeoff_register_error_heading}</h1>
           <p className="cx-register-empty-body">{strings.takeoff_register_error_body}</p>
           <p className="cx-register-report">
             <span className="cx-register-report-label">{strings.takeoff_register_report_label}</span>
             <span className="cx-register-report-id">{reportId ?? ""}</span>
           </p>
-          <Button variant="secondary" data-testid="register-retry" onClick={retry}>
+          <Button variant="secondary" data-testid={TESTIDS.register.retry} onClick={retry}>
             {strings.takeoff_register_retry}
           </Button>
           {refused === null ? null : (

@@ -11,6 +11,7 @@ import { useCommandPalette } from "../patterns/command-palette/command-palette-p
 import { Button, Tooltip } from "../primitives/core";
 import { fill, strings } from "../strings";
 import { chordOf, shortcutById } from "./shortcuts/roster";
+import { TESTIDS } from "@/ui/testids";
 
 export function CommandPaletteTrigger() {
   const palette = useCommandPalette();
@@ -22,7 +23,7 @@ export function CommandPaletteTrigger() {
       <Button
         variant="ghost"
         className="cx-palette-trigger"
-        data-testid="shell-command-palette"
+        data-testid={TESTIDS.shell.commandPalette}
         aria-haspopup="dialog"
         aria-keyshortcuts="Meta+K Control+K"
         onClick={palette.openPalette}

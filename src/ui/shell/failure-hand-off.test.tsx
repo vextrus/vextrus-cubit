@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { useFailureHandOff } from "./failure-hand-off";
+import { TESTIDS } from "@/ui/testids";
 
 /** The value a rejection carries when it carries none — the case the box exists for. */
 const NOTHING: unknown = null;
@@ -25,7 +26,7 @@ class Boundary extends Component<{ onFailure: (cause: unknown) => void; children
   }
 
   override render(): ReactNode {
-    return this.state.failed ? <p data-testid="boundary-reached">caught</p> : this.props.children;
+    return this.state.failed ? <p data-testid={TESTIDS.boundary.reached}>caught</p> : this.props.children;
   }
 }
 
@@ -34,7 +35,7 @@ function Acting({ work }: { work: () => Promise<void> }) {
   useEffect(() => {
     void handing(work);
   }, [handing, work]);
-  return <p data-testid="acting">ready</p>;
+  return <p data-testid={TESTIDS.acting.root}>ready</p>;
 }
 
 async function actOn(work: () => Promise<void>): Promise<unknown[]> {

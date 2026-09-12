@@ -17,6 +17,7 @@ import type { AuditAct } from "@/modules/spine/audit";
 import { Button, Input, Select, type SelectOption } from "@/ui/primitives/core";
 import { fill } from "@/ui/strings";
 import { auditStrings } from "./strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** The value a filter carries when it is filtering nothing — its own first option (I-31). */
 const ANY = "";
@@ -105,7 +106,7 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
               reads in. */}
           <Select
             className={actType === ANY ? "cx-audit-select" : "cx-audit-select cx-audit-select-mono"}
-            data-testid="audit-filter-type"
+            data-testid={TESTIDS.audit.filterType}
             id="audit-filter-type-field"
             onChange={setActType}
             options={typeOptions}
@@ -120,7 +121,7 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
           </label>
           <Select
             className="cx-audit-select"
-            data-testid="audit-filter-actor"
+            data-testid={TESTIDS.audit.filterActor}
             id="audit-filter-actor-field"
             onChange={setActorId}
             options={actorOptions}
@@ -134,7 +135,7 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
           </label>
           <Input
             className="cx-audit-subject"
-            data-testid="audit-filter-subject"
+            data-testid={TESTIDS.audit.filterSubject}
             id="audit-filter-subject-field"
             onChange={(event) => setSubject(event.target.value)}
             value={subject}
@@ -147,7 +148,7 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
       </div>
 
       {shown.length === 0 ? (
-        <div className="cx-audit-empty" data-testid="audit-acts-empty">
+        <div className="cx-audit-empty" data-testid={TESTIDS.audit.actsEmpty}>
           <p className="cx-audit-empty-heading">{acts.length === 0 ? auditStrings.audit_empty_none_heading : auditStrings.audit_empty_filtered_heading}</p>
           <p className="cx-audit-empty-body">{acts.length === 0 ? auditStrings.audit_empty_none_body : auditStrings.audit_empty_filtered_body}</p>
           {acts.length === 0 ? null : (
@@ -157,9 +158,9 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
           )}
         </div>
       ) : (
-        <ol className="cx-audit-acts" data-testid="audit-acts">
+        <ol className="cx-audit-acts" data-testid={TESTIDS.audit.acts}>
           {shown.map((given) => (
-            <li className="cx-audit-act" data-act-type={given.actType} data-actor-id={given.actorId} data-testid="audit-act-row" key={given.actId}>
+            <li className="cx-audit-act" data-act-type={given.actType} data-actor-id={given.actorId} data-testid={TESTIDS.audit.actRow} key={given.actId}>
               <div className="cx-audit-act-meta">
                 <span className="cx-audit-act-type">{given.actType}</span>
                 <span className="cx-audit-act-actor">{given.actorLabel}</span>
@@ -167,13 +168,13 @@ export function ActLogExplorer({ acts }: { acts: readonly AuditAct[] }) {
               </div>
               <div className="cx-audit-act-line">
                 <span className="cx-audit-act-label">{auditStrings.audit_consequence_label}</span>
-                <span className="cx-audit-act-value" data-testid="audit-act-consequence">
+                <span className="cx-audit-act-value" data-testid={TESTIDS.audit.actConsequence}>
                   {given.consequenceDigest}
                 </span>
               </div>
               <div className="cx-audit-act-line">
                 <span className="cx-audit-act-label">{auditStrings.audit_evidence_label}</span>
-                <span className="cx-audit-act-evidence" data-testid="audit-act-evidence">
+                <span className="cx-audit-act-evidence" data-testid={TESTIDS.audit.actEvidence}>
                   {given.subjects.map((each) => (
                     <span className="cx-audit-act-value" key={each}>
                       {each}

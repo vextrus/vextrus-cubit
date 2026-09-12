@@ -11,6 +11,7 @@
 import { cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test } from "vitest";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import {
   READING_NOT_NUMERIC,
   all,
@@ -48,7 +49,7 @@ describe("AC-4 — a sighting that produced no line says why, in place", () => {
 
     for (const [at, row] of rows.entries()) {
       const refusal = view.refusals[at] as (typeof view.refusals)[number];
-      const states = [...row.querySelectorAll('[data-testid="refusal-state"]')] as HTMLElement[];
+      const states = [...row.querySelectorAll(testIdSelector(TESTIDS.refusal.state))] as HTMLElement[];
       expect(states.length, `the row for ${refusal.code} renders exactly one RefusalState — a screen-local refusal block is a defect (B-17)`).toBe(1);
 
       const state = states[0] as HTMLElement;
@@ -80,10 +81,10 @@ describe("AC-4 — a sighting that produced no line says why, in place", () => {
     expect(staged.calls.map((call) => call.door), "the reading was previewed at the door before anything was shown").toContain("previewCorroborate");
 
     const answer = one(root, "register-answer");
-    const states = [...answer.querySelectorAll('[data-testid="refusal-state"]')] as HTMLElement[];
+    const states = [...answer.querySelectorAll(testIdSelector(TESTIDS.refusal.state))] as HTMLElement[];
     expect(states.length, "the rejection renders the one RefusalState in the answer slot — never a toast (R-UI-020)").toBe(1);
     expect((states[0] as HTMLElement).getAttribute("data-code"), "carrying the code the door answered").toBe(READING_NOT_NUMERIC);
-    expect(document.querySelectorAll('[data-testid="consequence-dialog"]').length, "a dialog that opens on nothing is a consequence of nothing (Decision §1)").toBe(0);
+    expect(document.querySelectorAll(testIdSelector(TESTIDS.consequence.dialog)).length, "a dialog that opens on nothing is a consequence of nothing (Decision §1)").toBe(0);
   });
 
   test("AC-4: no text node outside a RefusalState spells a registered code", async () => {

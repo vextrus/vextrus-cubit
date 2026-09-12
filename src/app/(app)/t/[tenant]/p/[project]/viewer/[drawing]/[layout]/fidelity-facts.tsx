@@ -11,6 +11,7 @@
 import { formatUserFigure } from "@/core/format";
 import type { IngestFacts } from "@/modules/takeoff/ingest";
 import { fill, strings } from "@/ui/strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** A figure as this screen renders one. */
 const figure = (value: number): string => formatUserFigure(String(value));
@@ -51,11 +52,11 @@ export function FidelityFacts({ facts }: { facts: IngestFacts }) {
   return (
     <section className="cx-viewer-facts-block">
       <h2 className="cx-viewer-facts-heading">{strings.viewer_fidelity_heading}</h2>
-      <dl className="cx-viewer-facts" data-testid="viewer-fidelity-facts">
+      <dl className="cx-viewer-facts" data-testid={TESTIDS.viewer.fidelityFacts}>
         {names.map((name) => {
           const fact = FACT_ROWS[name](facts);
           return (
-            <div className="cx-viewer-fact" data-testid="viewer-fidelity-fact" data-fact={name} key={name}>
+            <div className="cx-viewer-fact" data-testid={TESTIDS.viewer.fidelityFact} data-fact={name} key={name}>
               <dt className="cx-viewer-fact-label">{fact.label}</dt>
               <dd className="cx-viewer-fact-value">
                 {fact.value}

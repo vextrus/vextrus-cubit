@@ -6,6 +6,7 @@
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import type { ComponentProps } from "react";
 import { cx } from "../core/class-names";
+import { TESTIDS } from "@/ui/testids";
 
 export type PopoverProps = ComponentProps<typeof PopoverPrimitive.Root>;
 
@@ -41,7 +42,7 @@ export function PopoverContent({ className, side = "bottom", sideOffset = 6, ...
         role={named ? "dialog" : undefined}
         side={side}
         sideOffset={sideOffset}
-        data-testid="popover-content"
+        data-testid={TESTIDS.popover.content}
         className={cx("cx-popover", className)}
       />
     </PopoverPrimitive.Portal>

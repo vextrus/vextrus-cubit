@@ -7,6 +7,7 @@
 import type { ComponentPropsWithRef } from "react";
 import { BASIS_GLYPHS, type Basis } from "./basis";
 import { cx } from "./class-names";
+import { TESTIDS } from "@/ui/testids";
 
 export interface BasisChipProps extends ComponentPropsWithRef<"span"> {
   basis: Basis;
@@ -14,8 +15,8 @@ export interface BasisChipProps extends ComponentPropsWithRef<"span"> {
 
 export function BasisChip({ basis, className, ...rest }: BasisChipProps) {
   return (
-    <span {...rest} className={cx("cx-basis-chip", className)} data-testid="basis-chip" data-basis={basis}>
-      <span className="cx-basis-glyph" data-testid="basis-glyph" aria-hidden="true">
+    <span {...rest} className={cx("cx-basis-chip", className)} data-testid={TESTIDS.basis.chip} data-basis={basis}>
+      <span className="cx-basis-glyph" data-testid={TESTIDS.basis.glyph} aria-hidden="true">
         {BASIS_GLYPHS[basis]}
       </span>
       {basis}

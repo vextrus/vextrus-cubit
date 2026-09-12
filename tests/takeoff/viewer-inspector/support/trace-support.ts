@@ -21,6 +21,7 @@ import { render } from "@testing-library/react";
 import { createElement, type FunctionComponent } from "react";
 import { expect } from "vitest";
 import { INSPECTOR_PANEL_MODULE, productModule } from "./inspector-support";
+import { TESTIDS, testIdSelector } from "../../../../src/ui/testids";
 
 /** The shipped chrome the panel is handed (test contract: `basis-chip`, `evidence-link`). */
 export const CHROME_BARRELS: readonly string[] = ["src/ui/primitives/core/index.ts", "src/ui/patterns/evidence-link/index.ts"];
@@ -130,7 +131,7 @@ export async function mountInspector(over: MountOptions = {}): Promise<HTMLEleme
     onClear: (): void => undefined,
   };
   const { container } = render(createElement(module["InspectorPanel"] as unknown as FunctionComponent<typeof props>, props));
-  const root = container.querySelector('[data-testid="viewer-inspector"]');
+  const root = container.querySelector(testIdSelector(TESTIDS.viewer.inspector));
   expect(root, "InspectorPanel renders its root `viewer-inspector` (test contract)").not.toBeNull();
   return root as HTMLElement;
 }

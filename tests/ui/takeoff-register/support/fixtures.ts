@@ -31,6 +31,7 @@ import { productModule } from "../../../server/support/wire";
 // container is given a measurable box. The stubs are the shipped DataTable's own (inc-005's support,
 // keyed on `datatable-viewport`) — installed here, never written a second time beside them (B-17).
 import { installDomStubs } from "../../primitives-overlay-data/support/render";
+import { TESTIDS, testIdSelector } from "../../../../src/ui/testids";
 
 // Re-exported so a suite that loads this stage by absolute path — the held-out set does — reaches
 // the same mount, the same cleanup and the same driver without resolving a package of its own.
@@ -729,7 +730,7 @@ export async function mountRegister(view: RegisterViewLike, over: MountOptions =
     doors,
   };
   const { container } = render(createElement(component as unknown as FunctionComponent<typeof props>, props));
-  const root = container.querySelector('[data-testid="register-workspace"]');
+  const root = container.querySelector(testIdSelector(TESTIDS.register.workspace));
   expect(root, "RegisterWorkspace renders its root `register-workspace` (test contract)").not.toBeNull();
   return root as HTMLElement;
 }

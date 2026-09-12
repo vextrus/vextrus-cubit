@@ -9,6 +9,7 @@
  */
 import { cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import {
   PROJECT,
   TENANT,
@@ -50,7 +51,7 @@ describe("AC-3 — the AI cost so far", () => {
     );
 
     const unit = one(root, "project-home-ai-cost-unit");
-    const badges = unit.matches('[data-testid="unit-badge"]') ? [unit] : all(unit, "unit-badge");
+    const badges = unit.matches(testIdSelector(TESTIDS.unit.badge)) ? [unit] : all(unit, "unit-badge");
     expect(badges, "the unit is the shipped badge, worn once (B-17, I-134)").toHaveLength(1);
     expect(text(badges[0] as HTMLElement), "and it reads the string table's USD").toBe(copy(strings, "project_home_ai_cost_unit"));
     expect(copy(strings, "project_home_ai_cost_unit"), "which is the currency the ledger records in").toBe("USD");

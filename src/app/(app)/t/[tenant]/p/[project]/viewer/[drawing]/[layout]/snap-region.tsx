@@ -19,6 +19,7 @@ import type { UseSnap, UseSnapCalibrationOptions, UseSnapOptions } from "@/modul
 import { Button } from "@/ui/primitives/core";
 import { isTextField, matchesStep, shortcutById } from "@/ui/shell/shortcuts/roster";
 import { fill, strings, type StringKey } from "@/ui/strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** The binding R-UI-032 gives this region, read from the one roster and never spelled a second time. */
 export const SNAP_SHORTCUT_ID = "viewer-snap";
@@ -103,7 +104,7 @@ export function SnapOverlay({ snap }: SnapRegionProps) {
         <div
           key={pick.index}
           className="cx-viewer-snap-pick"
-          data-testid="viewer-snap-pick"
+          data-testid={TESTIDS.viewer.snapPick}
           data-index={String(pick.index)}
           data-source={pick.sourceKeys.join(" ")}
           data-key-x={pick.keyPoint[0]}
@@ -124,7 +125,7 @@ export function SnapOverlay({ snap }: SnapRegionProps) {
         <div
           ref={snap.glyphRef}
           className="cx-viewer-snap-glyph"
-          data-testid="viewer-snap-glyph"
+          data-testid={TESTIDS.viewer.snapGlyph}
           data-kind={glyph.kind}
           data-source={glyph.sourceKeys.join(" ")}
           data-motion={snap.motion}

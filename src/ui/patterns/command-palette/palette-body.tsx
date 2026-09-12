@@ -10,6 +10,7 @@ import { chordOf, shortcutById } from "../../shell/shortcuts/roster";
 import { fill, strings, type StringKey } from "../../strings";
 import { RefusalState } from "../refusal-state";
 import { isAvailable, optionId, type PaletteFault, type PaletteGroupId, type PaletteRefusal, type PaletteRow, type PaletteStatus } from "./types";
+import { TESTIDS } from "@/ui/testids";
 
 /** One group of the list: the rows it holds, under the words that name it. */
 export interface PaletteGroup {
@@ -148,11 +149,11 @@ export function PaletteBody({
           </Button>
         </div>
       ) : cell === "refusal" && refusal !== null ? (
-        <div data-testid="command-palette-refusal" data-code={refusal.entry.code} className="cx-palette-refusal">
+        <div data-testid={TESTIDS.command.paletteRefusal} data-code={refusal.entry.code} className="cx-palette-refusal">
           <RefusalState refusal={refusal.entry} evidence={refusal.evidence} />
         </div>
       ) : cell === "loading" ? (
-        <div data-testid="command-palette-loading" aria-busy="true" className="cx-palette-wait">
+        <div data-testid={TESTIDS.command.paletteLoading} aria-busy="true" className="cx-palette-wait">
           {WAIT_BONES.map((bone) => (
             <div key={bone} className="cx-palette-wait-row">
               <Skeleton className="cx-palette-bone" />
@@ -160,7 +161,7 @@ export function PaletteBody({
           ))}
         </div>
       ) : cell === "empty" ? (
-        <div data-testid="command-palette-empty" className="cx-palette-empty">
+        <div data-testid={TESTIDS.command.paletteEmpty} className="cx-palette-empty">
           <p className="cx-palette-empty-line">{fill(strings.command_palette_empty, { query })}</p>
           <Button variant="secondary" onClick={onClear}>
             {strings.command_palette_empty_action}
@@ -168,13 +169,13 @@ export function PaletteBody({
         </div>
       ) : (
         <>
-          <div id={listId} data-testid="command-palette-list" role="listbox" aria-label={strings.command_palette_list_label} className="cx-palette-list">
+          <div id={listId} data-testid={TESTIDS.command.paletteList} role="listbox" aria-label={strings.command_palette_list_label} className="cx-palette-list">
             {groups.map((group) => (
               <Group key={group.id} group={group} activeId={activeId} onChoose={onChoose} onHover={onHover} />
             ))}
           </div>
           {refusal === null ? null : (
-            <div data-testid="command-palette-refusal" data-code={refusal.entry.code} className="cx-palette-refusal">
+            <div data-testid={TESTIDS.command.paletteRefusal} data-code={refusal.entry.code} className="cx-palette-refusal">
               <RefusalState refusal={refusal.entry} evidence={refusal.evidence} />
             </div>
           )}
@@ -209,7 +210,7 @@ function Group({
 }) {
   const labelId = `cx-palette-group-${group.id}`;
   return (
-    <div role="group" data-testid="command-palette-group" data-group={group.id} aria-labelledby={labelId} className="cx-palette-group">
+    <div role="group" data-testid={TESTIDS.command.paletteGroup} data-group={group.id} aria-labelledby={labelId} className="cx-palette-group">
       <p id={labelId} className="cx-palette-group-label">
         {strings[GROUP_LABEL[group.id]]}
       </p>
@@ -240,7 +241,7 @@ function Option({
     <div
       role="option"
       id={optionId(row)}
-      data-testid="command-palette-item"
+      data-testid={TESTIDS.command.paletteItem}
       data-kind={row.kind}
       data-available={available ? "true" : "false"}
       data-shortcut={row.shortcutId ?? undefined}
@@ -255,7 +256,7 @@ function Option({
       {available ? (
         <span className="cx-palette-item-meta">{row.meta ?? ""}</span>
       ) : (
-        <span data-testid="command-palette-item-reason" className="cx-palette-item-reason">
+        <span data-testid={TESTIDS.command.paletteItemReason} className="cx-palette-item-reason">
           {row.reason ?? ""}
         </span>
       )}

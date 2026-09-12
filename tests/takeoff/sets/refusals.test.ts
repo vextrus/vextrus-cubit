@@ -12,6 +12,7 @@
 import { createElement, Fragment, type ReactNode } from "react";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import {
   PIN_SET,
   REFUSAL_ENTRIES_MODULE,
@@ -56,7 +57,7 @@ function mountCell(cell: StateCell): HTMLElement {
 }
 
 function refusalCodesIn(container: HTMLElement): string[] {
-  return [...container.querySelectorAll<HTMLElement>('[data-testid="refusal-state"]')].map((state) => state.getAttribute("data-code") ?? "");
+  return [...container.querySelectorAll<HTMLElement>(testIdSelector(TESTIDS.refusal.state))].map((state) => state.getAttribute("data-code") ?? "");
 }
 
 describe("AC-5: the three codes this increment registers", () => {

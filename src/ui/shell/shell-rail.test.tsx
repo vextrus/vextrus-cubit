@@ -12,6 +12,7 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { ShellRail } from "./shell-rail";
 import type { ShellWorkspace } from "./routes";
+import { TESTIDS, testIdSelector } from "@/ui/testids";
 
 const WORKSPACE: ShellWorkspace = { tenantId: "A", name: "Acme Holdings" };
 
@@ -25,7 +26,7 @@ afterEach(() => {
 });
 
 function toggle(container: HTMLElement): HTMLButtonElement {
-  const node = container.querySelector<HTMLButtonElement>('[data-testid="shell-rail-collapse"]');
+  const node = container.querySelector<HTMLButtonElement>(testIdSelector(TESTIDS.shell.railCollapse));
   if (node === null) throw new Error("the rail publishes no pin control");
   return node;
 }
@@ -53,6 +54,6 @@ describe("the rail's pin states what it opens", () => {
   test("the rail keeps its navigation at 48 px — a rail with nothing in it is not navigation", () => {
     const { container } = render(<ShellRail workspace={WORKSPACE} area="projects" atAreaHome />);
     expect(container.querySelector('[data-testid="shell-nav-projects"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="shell-rail"]')?.getAttribute("data-collapsed")).toBe("true");
+    expect(container.querySelector(testIdSelector(TESTIDS.shell.rail))?.getAttribute("data-collapsed")).toBe("true");
   });
 });

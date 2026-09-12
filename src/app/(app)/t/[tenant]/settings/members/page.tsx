@@ -27,6 +27,7 @@ import { InvitationsPanel, type InvitationsRow } from "./invitations/invitations
 import { invitationsStrings } from "./invitations/strings";
 import { MembersSection, type MembersRow } from "./members-section";
 import { membersStrings } from "./strings";
+import { TESTIDS } from "@/ui/testids";
 
 export const metadata = { title: membersStrings.members_heading };
 
@@ -92,7 +93,7 @@ function MembersDenied({ tenantId }: { tenantId: string }) {
         <h1 className="cx-members-heading">{membersStrings.members_heading}</h1>
         <p className="cx-members-caption">{membersStrings.members_caption}</p>
       </header>
-      <div className="cx-members-answer" data-testid="members-refusal">
+      <div className="cx-members-answer" data-testid={TESTIDS.members.refusal}>
         <RefusalState
           refusal={refusalOf("WORKSPACE_PERMISSION_NOT_HELD")}
           evidence={{ href: shellHref(tenantId, "projects"), label: strings.home_evidence_projects }}

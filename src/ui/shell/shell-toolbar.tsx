@@ -5,6 +5,7 @@
 // that has them, and the icon button is the shipped core Button wearing the toolbar's own size —
 // a second button chrome here would be the copy B-17 blocks.
 import type { ReactNode } from "react";
+import { TESTIDS } from "@/ui/testids";
 
 export interface ShellToolbarProps {
   /** The groups, in the order the screen places them; the hairline seam stands between them. */
@@ -16,7 +17,7 @@ export interface ShellToolbarProps {
 
 export function ShellToolbar({ children, label, className }: ShellToolbarProps) {
   return (
-    <div className={className === undefined ? "cx-shell-toolbar" : `cx-shell-toolbar ${className}`} data-testid="shell-toolbar" role="toolbar" aria-label={label}>
+    <div className={className === undefined ? "cx-shell-toolbar" : `cx-shell-toolbar ${className}`} data-testid={TESTIDS.shell.toolbar} role="toolbar" aria-label={label}>
       {children}
     </div>
   );

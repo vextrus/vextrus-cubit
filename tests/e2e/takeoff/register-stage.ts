@@ -22,6 +22,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, type Page } from "@playwright/test";
 import { stagePartitionedSheet } from "../viewer/viewer-partition-stage";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** The checkout these journeys run against. */
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -159,7 +160,7 @@ type RegisterUiSeam = {
 
 /** The user the browser is signed in as, read from the session the partition stage established. */
 async function userIdOf(page: Page): Promise<string> {
-  const held = await page.evaluate(() => document.querySelector('[data-testid="shell-user"]')?.getAttribute("data-user-id") ?? null);
+  const held = await page.evaluate(() => document.querySelector(testIdSelector(TESTIDS.shell.user))?.getAttribute("data-user-id") ?? null);
   expect(held, "the shell states which account is signed in — the actor every act below is performed by").toBeTruthy();
   return held as string;
 }

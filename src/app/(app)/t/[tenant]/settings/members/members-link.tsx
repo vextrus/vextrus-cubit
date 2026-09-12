@@ -10,13 +10,14 @@ import "./members.css";
 import Link from "next/link";
 import { membersRoute } from "./route-address";
 import { membersStrings } from "./strings";
+import { TESTIDS } from "@/ui/testids";
 
 export function SettingsMembersLink({ tenantId }: { tenantId: string }) {
   return (
     <section className="cx-members-link">
       <span className="cx-shell-field-label">{membersStrings.members_link_label}</span>
       <p className="cx-shell-field-hint">{membersStrings.members_link_hint}</p>
-      <Link className="cx-members-link-action cx-reticle" data-testid="settings-members-link" href={membersRoute(tenantId)}>
+      <Link className="cx-members-link-action cx-reticle" data-testid={TESTIDS.settings.membersLink} href={membersRoute(tenantId)}>
         {membersStrings.members_link_action}
       </Link>
     </section>

@@ -16,6 +16,7 @@ import type { RefusalEntry } from "@/core/errors";
 import { Button } from "../../primitives/core";
 import { RefusalState } from "../refusal-state";
 import { strings } from "../../strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** Where a row stands. Five states, and a row is always in exactly one of them (Decision § 2). */
 export type DropzoneItemState = "queued" | "uploading" | "stored" | "duplicate" | "refused";
@@ -112,7 +113,7 @@ export function Dropzone({ onFiles, items, accept }: DropzoneProps) {
   return (
     <section
       className="cx-dropzone"
-      data-testid="dropzone"
+      data-testid={TESTIDS.dropzone.root}
       data-state={dragDepth > 0 ? "dragging" : "idle"}
       onDragEnter={onDragEnter}
       onDragOver={onDragOver}
@@ -122,7 +123,7 @@ export function Dropzone({ onFiles, items, accept }: DropzoneProps) {
       <div className="cx-dropzone-zone">
         <p className="cx-dropzone-prompt">{strings.dropzone_prompt}</p>
         <div className="cx-dropzone-doors">
-          <Button variant="secondary" data-testid="dropzone-browse" onClick={() => fileDoor.current?.click()}>
+          <Button variant="secondary" data-testid={TESTIDS.dropzone.browse} onClick={() => fileDoor.current?.click()}>
             {strings.dropzone_browse}
           </Button>
           <Button variant="ghost" onClick={() => folderDoor.current?.click()}>
@@ -137,7 +138,7 @@ export function Dropzone({ onFiles, items, accept }: DropzoneProps) {
         <input
           ref={fileDoor}
           className="cx-dropzone-door-input"
-          data-testid="dropzone-input"
+          data-testid={TESTIDS.dropzone.input}
           type="file"
           multiple
           accept={accept}
@@ -148,7 +149,7 @@ export function Dropzone({ onFiles, items, accept }: DropzoneProps) {
         <input
           ref={folderDoor}
           className="cx-dropzone-door-input"
-          data-testid="dropzone-folder-input"
+          data-testid={TESTIDS.dropzone.folderInput}
           type="file"
           multiple
           accept={accept}
@@ -161,7 +162,7 @@ export function Dropzone({ onFiles, items, accept }: DropzoneProps) {
       {items.length > 0 ? (
         <ul className="cx-dropzone-queue">
           {items.map((item, index) => (
-            <li className="cx-dropzone-item" data-testid="dropzone-item" data-name={item.name} data-state={item.state} key={`${item.name}:${index}`}>
+            <li className="cx-dropzone-item" data-testid={TESTIDS.dropzone.item} data-name={item.name} data-state={item.state} key={`${item.name}:${index}`}>
               <p className="cx-dropzone-item-name" dir="ltr">
                 {item.name}
               </p>{" "}
@@ -170,7 +171,7 @@ export function Dropzone({ onFiles, items, accept }: DropzoneProps) {
               <span className="cx-dropzone-item-state" aria-live="polite">
                 {STATE_WORDS[item.state]}
               </span>{" "}
-              <span className="cx-dropzone-item-progress" data-testid="dropzone-item-progress">
+              <span className="cx-dropzone-item-progress" data-testid={TESTIDS.dropzone.itemProgress}>
                 {item.progress}
               </span>
               {item.state === "refused" && item.refusal !== undefined ? (

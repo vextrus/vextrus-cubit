@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { strings } from "@/ui/strings";
+import { TESTIDS } from "@/ui/testids";
 
 export interface TakeoffNavEntry {
   readonly testId: string;
@@ -19,7 +20,7 @@ export interface TakeoffNavEntry {
 export function TakeoffNav({ entries }: { entries: readonly TakeoffNavEntry[] }) {
   const here = usePathname();
   return (
-    <nav className="cx-takeoff-nav" data-testid="takeoff-nav" aria-label={strings.takeoff_nav_label}>
+    <nav className="cx-takeoff-nav" data-testid={TESTIDS.takeoff.nav} aria-label={strings.takeoff_nav_label}>
       {entries.map((entry) => (
         <Link
           key={entry.testId}

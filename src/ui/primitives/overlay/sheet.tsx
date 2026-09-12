@@ -9,6 +9,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import type { ComponentProps } from "react";
 import { cx } from "../core/class-names";
+import { TESTIDS } from "@/ui/testids";
 
 export type SheetSide = "right" | "left";
 
@@ -54,7 +55,7 @@ export function SheetContent({
         aria-describedby={describedBy}
         // A modal says so: the panel traps focus and hides the rest of the page (R-UI-012).
         aria-modal="true"
-        data-testid="sheet-content"
+        data-testid={TESTIDS.sheet.content}
         data-side={side}
         className={cx("cx-sheet", className)}
       >

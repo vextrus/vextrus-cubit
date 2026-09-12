@@ -6,6 +6,7 @@
 // error internals are shown: a fault's cause belongs on the fault sink, not on a screen.
 import { useEffect, useState } from "react";
 import { strings } from "../ui/strings";
+import { TESTIDS } from "@/ui/testids";
 
 // ARCH-02/B-17: the error state's markup has exactly one home. `global-error.tsx` — the boundary
 // Next reaches for when the root layout itself throws — renders this same element inside its own
@@ -26,15 +27,15 @@ export function ErrorState({ reset }: { reset: () => void }) {
   }, []);
 
   return (
-    <main data-testid="error-state">
+    <main data-testid={TESTIDS.error.state}>
       <section role="alert" aria-labelledby="error-state-title">
         {reached ? (
           <>
-            <h1 id="error-state-title" data-testid="error-state-title">
+            <h1 id="error-state-title" data-testid={TESTIDS.error.stateTitle}>
               {strings.error_title}
             </h1>
-            <p data-testid="error-state-message">{strings.error_body}</p>
-            <button type="button" data-testid="error-retry" onClick={() => reset()}>
+            <p data-testid={TESTIDS.error.stateMessage}>{strings.error_body}</p>
+            <button type="button" data-testid={TESTIDS.error.retry} onClick={() => reset()}>
               {strings.error_retry}
             </button>
           </>

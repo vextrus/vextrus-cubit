@@ -66,6 +66,7 @@ import {
   type DataTableColumnState,
   type DataTableStorage,
 } from "./table-state";
+import { TESTIDS } from "@/ui/testids";
 
 export type DataTableDensity = "comfortable" | "compact";
 
@@ -684,7 +685,7 @@ export function DataTable<TRow>({
       <div
         className="cx-table"
         ref={rootRef}
-        data-testid="datatable"
+        data-testid={TESTIDS.datatable.root}
         data-table-id={tableId}
         data-density={density}
         data-virtualised={virtualised ? "true" : undefined}
@@ -702,8 +703,8 @@ export function DataTable<TRow>({
         {/* The scroll box is chrome, not structure: an unroled element between `grid` and its
             `rowgroup`s breaks the ownership chain the roles declare, so it presents nothing of its
             own (R-UI-012, Q-11). */}
-        <div className="cx-table-viewport" data-testid="datatable-viewport" role="presentation" ref={viewportRef}>
-          <div className="cx-table-header" data-testid="datatable-header" role="rowgroup">
+        <div className="cx-table-viewport" data-testid={TESTIDS.datatable.viewport} role="presentation" ref={viewportRef}>
+          <div className="cx-table-header" data-testid={TESTIDS.datatable.header} role="rowgroup">
             {headerGroups.map((group_, groupIndex) => (
               <div key={group_.id} className="cx-table-row" role="row" aria-rowindex={groupIndex + 1}>
                 {group_.headers.map((header, index) => (
@@ -737,7 +738,7 @@ export function DataTable<TRow>({
                   <div
                     key={`skeleton-${index}`}
                     className="cx-table-row cx-table-row-skeleton"
-                    data-testid="datatable-skeleton-row"
+                    data-testid={TESTIDS.datatable.skeletonRow}
                     role="row"
                     aria-rowindex={headerRowCount + index + 1}
                   >
@@ -807,7 +808,7 @@ export function DataTable<TRow>({
                         ))}
                       </div>
                       {refused && renderRefusal !== undefined ? (
-                        <div className="cx-table-refusal" data-testid="datatable-row-refusal" role="presentation">
+                        <div className="cx-table-refusal" data-testid={TESTIDS.datatable.rowRefusal} role="presentation">
                           {renderRefusal(item.row.original, item.row.id)}
                         </div>
                       ) : null}
@@ -817,13 +818,13 @@ export function DataTable<TRow>({
           </div>
 
           {footerCells === null ? null : (
-            <div className="cx-table-footer" data-testid="datatable-footer" role="rowgroup">
+            <div className="cx-table-footer" data-testid={TESTIDS.datatable.footer} role="rowgroup">
               <div className="cx-table-row" role="row" aria-rowindex={headerRowCount + items.length + 1}>
                 {footerCells.map((column, index) => (
                   <div
                     key={column.id}
                     className="cx-table-cell cx-table-footercell"
-                    data-testid="datatable-total"
+                    data-testid={TESTIDS.datatable.total}
                     role="gridcell"
                     aria-colindex={index + 1}
                     data-align={metaOf(column).align}
@@ -846,7 +847,7 @@ export function DataTable<TRow>({
       <button
         type="button"
         className="cx-table-tools cx-reticle"
-        data-testid="datatable-columns-toggle"
+        data-testid={TESTIDS.datatable.columnsToggle}
         aria-expanded={chooserOpen}
         aria-label={COLUMNS_LABEL}
         onClick={() => setChooserOpen((open) => !open)}
@@ -854,7 +855,7 @@ export function DataTable<TRow>({
         {CHOOSER_GLYPH}
       </button>
       {chooserOpen ? (
-        <div className="cx-table-chooser" data-testid="datatable-columns" role="group" aria-label={COLUMNS_LABEL}>
+        <div className="cx-table-chooser" data-testid={TESTIDS.datatable.columns} role="group" aria-label={COLUMNS_LABEL}>
           {leafColumns.map((column) => (
             <div className="cx-table-chooser-row" key={column.id}>
               <label className="cx-table-chooser-label">
@@ -1008,7 +1009,7 @@ function GroupRow<TRow>({ item, rowIndex, colSpan, collapsed, onToggle }: GroupR
   return (
     <div
       className="cx-table-row cx-table-group"
-      data-testid="datatable-group-row"
+      data-testid={TESTIDS.datatable.groupRow}
       data-group={item.id}
       role="row"
       aria-rowindex={rowIndex}
@@ -1027,7 +1028,7 @@ function GroupRow<TRow>({ item, rowIndex, colSpan, collapsed, onToggle }: GroupR
           <span className="cx-table-group-label">{item.label}</span>
           <span className="cx-table-group-count">{`(${item.count})`}</span>
         </button>
-        <span className="cx-table-group-subtotals" data-testid="datatable-group-subtotal">
+        <span className="cx-table-group-subtotals" data-testid={TESTIDS.datatable.groupSubtotal}>
           {item.subtotals.map((subtotal) => (
             <span className="cx-table-group-subtotal" key={subtotal.unit}>
               <span className="cx-table-number">{subtotal.value}</span>
@@ -1182,7 +1183,7 @@ function BodyCell<TRow>({
     <div
       ref={cellRef}
       className={cx("cx-table-cell", "cx-reticle")}
-      data-testid="datatable-cell"
+      data-testid={TESTIDS.datatable.cell}
       role={rowHeader ? "rowheader" : "gridcell"}
       aria-colindex={colIndex}
       tabIndex={isCursor ? 0 : -1}
@@ -1201,13 +1202,13 @@ function BodyCell<TRow>({
       onClick={takeCursor}
     >
       {refused ? (
-        <span className="cx-table-refused-mark" data-testid="datatable-row-refused" aria-hidden="true">
+        <span className="cx-table-refused-mark" data-testid={TESTIDS.datatable.rowRefused} aria-hidden="true">
           {REFUSED_GLYPH}
         </span>
       ) : null}
       {editable && editing ? (
         <Input
-          data-testid="datatable-cell-editor"
+          data-testid={TESTIDS.datatable.cellEditor}
           className="cx-table-editor"
           aria-label={headerText(column)}
           // Not an autofocus: this editor exists only because the person just asked to edit this
@@ -1224,7 +1225,7 @@ function BodyCell<TRow>({
       ) : (
         <>
           {entered ? (
-            <span className="cx-table-basis" data-testid="datatable-cell-entered" aria-hidden="true">
+            <span className="cx-table-basis" data-testid={TESTIDS.datatable.cellEntered} aria-hidden="true">
               {BASIS_GLYPHS.ENTERED}
             </span>
           ) : null}

@@ -25,6 +25,7 @@ import { UnitBadge } from "@/ui/primitives/core";
 import { DataTable } from "@/ui/primitives/data";
 import { ShellEmptyState, shellHref } from "@/ui/shell";
 import { rulesetParameterLabel, rulesetStrings } from "./strings";
+import { TESTIDS } from "@/ui/testids";
 
 /**
  * The parameter table is the shipped DataTable (Design Direction 00 §5): 28 px rows from the root's
@@ -96,7 +97,7 @@ function RulesetHeader() {
 /** One step of the fork chain: its own (scope, name, version), and the digest that step carries. */
 function LineageStep({ step }: { step: EditionLineageStep }) {
   return (
-    <li className="cx-ruleset-lineage-step" data-testid="ruleset-lineage-step" data-scope={step.scope}>
+    <li className="cx-ruleset-lineage-step" data-testid={TESTIDS.ruleset.lineageStep} data-scope={step.scope}>
       <div className="cx-ruleset-lineage-identity">
         <span className="cx-ruleset-lineage-scope">{step.scope}</span>
         <span className="cx-ruleset-lineage-edition">{editionLabel(step)}</span>
@@ -113,7 +114,7 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
     return (
       <div className="cx-ruleset">
         <RulesetHeader />
-        <div data-testid="ruleset-unpinned">
+        <div data-testid={TESTIDS.ruleset.unpinned}>
           <ShellEmptyState heading={rulesetStrings.ruleset_unpinned_heading} body={rulesetStrings.ruleset_unpinned_body}>
             {/* A move inside the frame, so it travels through the router like every other one. */}
             <Link className="cx-shell-link cx-reticle" href={shellHref(view.tenantId, "projects")}>
@@ -137,7 +138,7 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
         <dl className="cx-ruleset-facts">
           <div className="cx-ruleset-fact">
             <dt className="cx-ruleset-fact-label">{rulesetStrings.ruleset_identity_label}</dt>
-            <dd className="cx-ruleset-identity" data-testid="ruleset-edition-identity">
+            <dd className="cx-ruleset-identity" data-testid={TESTIDS.ruleset.editionIdentity}>
               <span className="cx-ruleset-scope" data-scope={view.identity.scope}>
                 {view.identity.scope}
               </span>
@@ -146,7 +147,7 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
           </div>
           <div className="cx-ruleset-fact">
             <dt className="cx-ruleset-fact-label">{rulesetStrings.ruleset_digest_label}</dt>
-            <dd className="cx-ruleset-digest" data-testid="ruleset-edition-digest">
+            <dd className="cx-ruleset-digest" data-testid={TESTIDS.ruleset.editionDigest}>
               {view.digest}
             </dd>
           </div>
@@ -158,7 +159,7 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
           {rulesetStrings.ruleset_lineage_heading}
         </h2>
         <p className="cx-ruleset-hint">{rulesetStrings.ruleset_lineage_hint}</p>
-        <ol className="cx-ruleset-lineage" data-testid="ruleset-lineage">
+        <ol className="cx-ruleset-lineage" data-testid={TESTIDS.ruleset.lineage}>
           {view.lineage.map((step) => (
             <LineageStep key={`${step.scope}-${step.name}-${step.version}`} step={step} />
           ))}
@@ -169,7 +170,7 @@ export function RulesetSettingsSection({ view }: { view: ProjectRulesetView }) {
         <h2 className="cx-ruleset-section-heading" id={PARAMETERS_HEADING_ID}>
           {rulesetStrings.ruleset_parameters_heading}
         </h2>
-        <div className="cx-ruleset-table" data-testid="ruleset-parameter-table">
+        <div className="cx-ruleset-table" data-testid={TESTIDS.ruleset.parameterTable}>
           <DataTable
             tableId={PARAMETER_TABLE_ID}
             aria-labelledby={PARAMETERS_HEADING_ID}

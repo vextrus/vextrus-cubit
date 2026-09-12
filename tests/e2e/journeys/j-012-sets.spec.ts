@@ -22,6 +22,7 @@ import { SHomePage } from "../pages/s-home.page";
 import { ShellPage, SHELL } from "../pages/shell.page";
 import { checkpoint } from "../support/checkpoint";
 import { newestMail } from "../support/outbox";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j012sets-${RUN}@cubit.test`;
@@ -171,7 +172,7 @@ test.describe("J-012 — a set, pinned, and a changed file that revises it", () 
     // A machine identifier renders in the mono face the tokens name (I-25, I-26) — read out of the
     // page's own token value rather than spelled here.
     const mono = await page.evaluate(() => {
-      const digest = document.querySelector('[data-testid="set-revision-digest"]');
+      const digest = document.querySelector(testIdSelector(TESTIDS.set.revisionDigest));
       const wanted = getComputedStyle(document.documentElement).getPropertyValue("--font-mono");
       const flat = (value: string): string => value.replace(/["']/g, "").replace(/\s+/g, " ").trim().toLowerCase();
       return { shown: flat(digest === null ? "" : getComputedStyle(digest).fontFamily), wanted: flat(wanted) };

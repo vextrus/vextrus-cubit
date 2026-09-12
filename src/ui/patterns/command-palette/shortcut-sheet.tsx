@@ -7,6 +7,7 @@ import { Dialog, DialogContent } from "../../primitives/overlay";
 import { SCOPE_LABEL, SHORTCUTS, SHORTCUT_SCOPES, keyWords } from "../../shell/shortcuts/roster";
 import { strings } from "../../strings";
 import { useCommandPalette } from "./command-palette-provider";
+import { TESTIDS } from "@/ui/testids";
 
 /** The sheet's contents, free of the overlay around them, so every state can mount them (B-19). */
 export function ShortcutSheetBody() {
@@ -21,9 +22,9 @@ export function ShortcutSheetBody() {
             <h3 className="cx-shortcut-sheet-scope-name">{strings[SCOPE_LABEL[scope]]}</h3>
             <ul className="cx-shortcut-sheet-rows">
               {bound.map((entry) => (
-                <li key={entry.id} data-testid="shortcut-sheet-row" data-shortcut={entry.id} className="cx-shortcut-sheet-row">
+                <li key={entry.id} data-testid={TESTIDS.shortcut.sheetRow} data-shortcut={entry.id} className="cx-shortcut-sheet-row">
                   <span className="cx-shortcut-sheet-name">{strings[entry.label]}</span>
-                  <span data-testid="shortcut-sheet-keys" className="cx-shortcut-sheet-keys">
+                  <span data-testid={TESTIDS.shortcut.sheetKeys} className="cx-shortcut-sheet-keys">
                     {keyWords(entry).map((word) => (
                       <Kbd key={`${entry.id}:${word}`}>{word}</Kbd>
                     ))}
@@ -54,7 +55,7 @@ export function ShortcutSheet() {
     >
       {palette.sheetOpen ? <div className="cx-scrim" aria-hidden="true" /> : null}
       <DialogContent asChild aria-label={strings.shortcut_sheet_label}>
-        <div data-testid="shortcut-sheet" className="cx-shortcut-sheet">
+        <div data-testid={TESTIDS.shortcut.sheet} className="cx-shortcut-sheet">
           {/* The roster is taller than a short window, so it is bounded here and the Dialog's own
               overflow never engages (I-136, as the palette's list is bounded). A region that scrolls
               is reached by the keyboard as well as by the wheel — the sheet holds nothing focusable

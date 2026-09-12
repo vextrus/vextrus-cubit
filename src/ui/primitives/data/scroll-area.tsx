@@ -6,6 +6,7 @@
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import type { ComponentProps } from "react";
 import { cx } from "../core/class-names";
+import { TESTIDS } from "@/ui/testids";
 
 export interface ScrollAreaProps extends ComponentProps<typeof ScrollAreaPrimitive.Root> {
   /** Which axis shows a bar; both is the default a text column and a wide table both need. */
@@ -16,7 +17,7 @@ export function ScrollArea({ className, children, orientation = "vertical", ...r
   return (
     <ScrollAreaPrimitive.Root type="hover" {...rest} className={cx("cx-scrollarea", className)}>
       <ScrollAreaPrimitive.Viewport
-        data-testid="scrollarea-viewport"
+        data-testid={TESTIDS.scrollarea.viewport}
         // A region that scrolls must be reachable and scrollable from the keyboard, and it wears the
         // reticle like anything else that takes focus (R-UI-012).
         tabIndex={0}

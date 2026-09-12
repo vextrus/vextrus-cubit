@@ -13,6 +13,7 @@ import { formatUserFigure } from "@/core/format";
 import type { UseSnap } from "@/modules/takeoff/viewer-snap/use-snap";
 import { fill, strings } from "@/ui/strings";
 import { snapKindCopy } from "./snap-region";
+import { TESTIDS } from "@/ui/testids";
 
 /** How many decimals the camera's pixels-per-unit is published at. */
 const SCALE_DECIMALS = 3;
@@ -47,7 +48,7 @@ function SnapCell({ snap }: { snap: UseSnap }) {
   return (
     <span
       className="cx-viewer-readout-cell"
-      data-testid="viewer-status-snap"
+      data-testid={TESTIDS.viewer.statusSnap}
       aria-live="off"
       data-enabled={String(snap.enabled)}
       data-kind={kind}
@@ -83,7 +84,7 @@ function DistanceCell({ snap }: { snap: UseSnap }) {
   return (
     <span
       className="cx-viewer-readout-cell"
-      data-testid="viewer-status-distance"
+      data-testid={TESTIDS.viewer.statusDistance}
       aria-live="off"
       data-picks={String(picks)}
       data-dx={String(dx)}
@@ -123,7 +124,7 @@ export function StatusLine({
     <div
       ref={statusRef}
       className="cx-viewer-readout"
-      data-testid="viewer-status"
+      data-testid={TESTIDS.viewer.status}
       role="status"
       aria-live="polite"
       data-first-paint={String(firstPaint)}
@@ -167,7 +168,7 @@ export function StatusLine({
             </span>
           </span>
           {/* The zero form reads "0 selected": a counted empty set, never a hidden cell (§ 1). */}
-          <span className="cx-viewer-readout-cell" data-testid="viewer-status-selection">
+          <span className="cx-viewer-readout-cell" data-testid={TESTIDS.viewer.statusSelection}>
             <span className="cx-viewer-readout-label">{strings.viewer_status_selection}</span>
             <span className="cx-viewer-readout-value">
               {fill(strings.viewer_inspector_selected_count, {

@@ -11,6 +11,7 @@
 import { cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test } from "vitest";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import {
   CAMPAIGN_NOT_FOUND,
   all,
@@ -69,7 +70,7 @@ describe("AC-8 — the level stack is offered whole, and nothing is picked row b
 
     const first = view.levelStacks[0] as (typeof view.levelStacks)[number];
     expect(
-      text(offered[0]?.querySelector('[data-testid="offered-group-count"]') ?? null),
+      text(offered[0]?.querySelector(testIdSelector(TESTIDS.offered.groupCount)) ?? null),
       "the live membership count reads the screen's own line, filled through the figure seam",
     ).toBe(fill(copy(strings, "takeoff_register_level_stack_count"), { count: await formatted(first.count) }));
   });
@@ -90,7 +91,7 @@ describe("AC-8 — the level stack is offered whole, and nothing is picked row b
 
     await user.click(one(root, "offered-group-confirm"));
 
-    const dialogs = [...document.querySelectorAll('[data-testid="consequence-dialog"]')] as HTMLElement[];
+    const dialogs = [...document.querySelectorAll(testIdSelector(TESTIDS.consequence.dialog))] as HTMLElement[];
     expect(dialogs.length, "confirming opens the one shipped ConsequenceDialog (B-17)").toBe(1);
     expect((dialogs[0] as HTMLElement).getAttribute("data-act-type"), "on the act the offer confirms as").toBe("INSERT_LEVEL");
 
@@ -120,7 +121,7 @@ describe("AC-8 — the level stack is offered whole, and nothing is picked row b
     const second = await mountRegister({ ...view, campaign: null }, { doors: refusing.doors });
     await userEvent.setup().click(one(second, "register-measure"));
     const answer = one(second, "register-answer");
-    const states = [...answer.querySelectorAll('[data-testid="refusal-state"]')] as HTMLElement[];
+    const states = [...answer.querySelectorAll(testIdSelector(TESTIDS.refusal.state))] as HTMLElement[];
     expect(states.length, "a campaign the project does not hold is answered in place, through the one RefusalState").toBe(1);
     expect((states[0] as HTMLElement).getAttribute("data-code"), "by the code the door answered").toBe(CAMPAIGN_NOT_FOUND);
   });

@@ -44,6 +44,7 @@ import { SheetAbsence } from "./viewer-bones";
 import { layoutNameOf } from "./route-address";
 import { StatusLine } from "./status-line";
 import { AbsentSheetWork, ViewerStage } from "./viewer-stage";
+import { TESTIDS } from "@/ui/testids";
 
 /** What the route hands the screen. `head` is supplied only where a mount is judged without a server. */
 export type ViewerScreenProps = {
@@ -218,7 +219,7 @@ export function ViewerScreen({ tenantId, projectId, drawingId, layoutName, initi
   };
 
   return (
-    <div className="cx-viewer" ref={setScreenRoot} data-testid="viewer-screen" data-project={projectId} data-flyto={trace.flyto ?? undefined} data-trace-basis={line.basis}>
+    <div className="cx-viewer" ref={setScreenRoot} data-testid={TESTIDS.viewer.screen} data-project={projectId} data-flyto={trace.flyto ?? undefined} data-trace-basis={line.basis}>
       {/* The sheet names itself once, as the house style has every screen do: heading navigation
           lands on the sheet a reader opened rather than nowhere (R-UI-050's siblings, axe). */}
       <h1 className="cx-viewer-hidden">{fill(strings.viewer_canvas_label, { layout: sheetName })}</h1>

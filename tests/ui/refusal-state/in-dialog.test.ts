@@ -14,6 +14,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { refusalOf } from "../../../src/core/errors";
 import { Dialog, DialogContent, DialogTitle } from "../../../src/ui/primitives/overlay";
 import { RefusalState } from "../../../src/ui/patterns/refusal-state";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 const EVIDENCE = { href: "/settings/documents", label: "Open document settings" } as const;
 
@@ -35,7 +36,7 @@ function openDialogWithRefusal(code: Parameters<typeof refusalOf>[0]): HTMLEleme
       ),
     ),
   );
-  const content = document.body.querySelector('[data-testid="dialog-content"]');
+  const content = document.body.querySelector(testIdSelector(TESTIDS.dialog.content));
   expect(content, "the dialog's content is on the page").toBeTruthy();
   return content as HTMLElement;
 }

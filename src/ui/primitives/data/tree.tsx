@@ -23,6 +23,7 @@ import {
   type ReactNode,
 } from "react";
 import { cx } from "../core/class-names";
+import { TESTIDS } from "@/ui/testids";
 
 export interface TreeItem {
   id: string;
@@ -174,7 +175,7 @@ export function Tree({
         <div
           key={item.id}
           role="treeitem"
-          data-testid="tree-item"
+          data-testid={TESTIDS.tree.item}
           data-tree-id={item.id}
           aria-level={depth + 1}
           aria-expanded={hasChildren ? isExpanded : undefined}
@@ -210,7 +211,7 @@ export function Tree({
     });
 
   return (
-    <div {...rest} ref={rootRef} role="tree" data-testid="tree" className={cx("cx-tree", className)}>
+    <div {...rest} ref={rootRef} role="tree" data-testid={TESTIDS.tree.root} className={cx("cx-tree", className)}>
       {branch(items, 0)}
     </div>
   );

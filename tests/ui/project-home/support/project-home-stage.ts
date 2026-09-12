@@ -20,6 +20,7 @@ import { render } from "@testing-library/react";
 import { createElement, type FunctionComponent } from "react";
 import { expect } from "vitest";
 import { productModule } from "../../../server/support/wire";
+import { TESTIDS, testIdSelector } from "../../../../src/ui/testids";
 
 export { productModule };
 
@@ -295,7 +296,7 @@ export async function refusalRegister(): Promise<Readonly<Record<string, Refusal
 /** Mount the screen over one answer and hand back its own root (`project-home`). */
 export function mountHome(component: Mountable, data: ProjectHomeDataLike): HTMLElement {
   const { container } = render(createElement(component as unknown as FunctionComponent<{ data: ProjectHomeDataLike }>, { data }));
-  const root = container.querySelector('[data-testid="project-home"]');
+  const root = container.querySelector(testIdSelector(TESTIDS.project.home));
   expect(root, "ProjectHome renders its root `project-home` (test contract)").not.toBeNull();
   return root as HTMLElement;
 }

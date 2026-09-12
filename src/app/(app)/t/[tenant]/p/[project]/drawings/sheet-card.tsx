@@ -17,6 +17,7 @@ import { fill } from "@/ui/strings";
 import type { ReactNode } from "react";
 import { viewerSheetRoute } from "../viewer/[drawing]/[layout]/route-address";
 import { drawings } from "./strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** One card, as the page hands it down — the module's own answer, carried whole. */
 export interface SheetCardData {
@@ -83,7 +84,7 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
   return (
     <article
       className="cx-drawings-card"
-      data-testid="sheet-card"
+      data-testid={TESTIDS.sheet.card}
       data-sheet={card.sheetId}
       data-discipline={effective}
       data-confirmed={card.confirmed === null ? "false" : "true"}
@@ -93,7 +94,7 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
     >
       {/* I-87: the box is the same either way, so the grid does not reflow as rasters arrive. */}
       {card.thumbnail === null ? (
-        <div className="cx-drawings-thumb" data-testid="sheet-card-thumbnail" data-pending="true">
+        <div className="cx-drawings-thumb" data-testid={TESTIDS.sheet.cardThumbnail} data-pending="true">
           {drawings.drawings_thumbnail_pending}
         </div>
       ) : (
@@ -101,7 +102,7 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
            rewrite: the link stands for fifteen minutes and names one workspace's bytes (Q-12). */
         <img
           className="cx-drawings-thumb"
-          data-testid="sheet-card-thumbnail"
+          data-testid={TESTIDS.sheet.cardThumbnail}
           data-pending="false"
           src={card.thumbnail.url}
           width={card.thumbnail.width}
@@ -110,30 +111,30 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
         />
       )}
 
-      <h3 className="cx-drawings-card-title" data-testid="sheet-card-title" id={titleId}>
+      <h3 className="cx-drawings-card-title" data-testid={TESTIDS.sheet.cardTitle} id={titleId}>
         {card.proposal.title}
       </h3>
 
       {card.proposal.number === null ? (
-        <p className="cx-drawings-card-none" data-testid="sheet-card-number">
+        <p className="cx-drawings-card-none" data-testid={TESTIDS.sheet.cardNumber}>
           {drawings.drawings_number_none}
         </p>
       ) : (
-        <p className="cx-drawings-card-number" data-testid="sheet-card-number">
+        <p className="cx-drawings-card-number" data-testid={TESTIDS.sheet.cardNumber}>
           {card.proposal.number}
         </p>
       )}
 
       <p className="cx-drawings-badges">
-        <Badge className="cx-drawings-enum" data-testid="sheet-card-format" aria-label={fill(drawings.drawings_format_label, { value: card.format })}>
+        <Badge className="cx-drawings-enum" data-testid={TESTIDS.sheet.cardFormat} aria-label={fill(drawings.drawings_format_label, { value: card.format })}>
           {card.format}
         </Badge>
-        <Badge className="cx-drawings-enum" data-testid="sheet-card-scheme" aria-label={fill(drawings.drawings_scheme_label, { value: card.scheme })}>
+        <Badge className="cx-drawings-enum" data-testid={TESTIDS.sheet.cardScheme} aria-label={fill(drawings.drawings_scheme_label, { value: card.scheme })}>
           {card.scheme}
         </Badge>
       </p>
 
-      <p className="cx-drawings-discipline" data-testid="sheet-card-discipline" data-basis={basis}>
+      <p className="cx-drawings-discipline" data-testid={TESTIDS.sheet.cardDiscipline} data-basis={basis}>
         <span className="cx-drawings-enum">{effective}</span>
         <span className="cx-drawings-basis">{BASIS_WORDS[basis]}</span>
       </p>
@@ -157,13 +158,13 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
 
       <p
         className="cx-drawings-line"
-        data-testid="sheet-card-scale"
+        data-testid={TESTIDS.sheet.cardScale}
         data-scale={card.scaleState}
         data-unplaceable={card.unplaceableViews === null ? "" : String(card.unplaceableViews)}
       >
         {scaleLine(card)}
       </p>
-      <p className="cx-drawings-line" data-testid="sheet-card-views" data-views={card.viewCount === null ? "" : String(card.viewCount)}>
+      <p className="cx-drawings-line" data-testid={TESTIDS.sheet.cardViews} data-views={card.viewCount === null ? "" : String(card.viewCount)}>
         {card.viewCount === null ? drawings.drawings_views_unclassified : fill(drawings.drawings_views_count, { count: formatUserFigure(String(card.viewCount)) })}
       </p>
 
@@ -172,7 +173,7 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
           const value = card.facts[name] ?? 0;
           const notable = typeof value === "boolean" ? value : value > 0;
           return (
-            <span className="cx-drawings-fact" data-testid="sheet-fact" data-fact={name} data-value={String(value)} data-notable={notable ? "true" : "false"} key={name}>
+            <span className="cx-drawings-fact" data-testid={TESTIDS.sheet.fact} data-fact={name} data-value={String(value)} data-notable={notable ? "true" : "false"} key={name}>
               <span className="cx-drawings-fact-label">{FACT_WORDS[name]}</span>
               <span className="cx-drawings-fact-value">{factValue(value)}</span>
             </span>
@@ -189,13 +190,13 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
             <legend className="cx-drawings-field-label">{drawings.drawings_confirm_legend}</legend>
             <span className="cx-drawings-choices">
               {DISCIPLINES.map((offered) => (
-                <Chip className="cx-drawings-enum" key={offered} data-testid="sheet-discipline-option" data-value={offered} selected={chosen === offered} onClick={() => setChosen(offered)}>
+                <Chip className="cx-drawings-enum" key={offered} data-testid={TESTIDS.sheet.disciplineOption} data-value={offered} selected={chosen === offered} onClick={() => setChosen(offered)}>
                   {offered}
                 </Chip>
               ))}
             </span>
           </fieldset>
-          <Button className="cx-drawings-card-confirm" variant="secondary" data-testid="sheet-confirm" onClick={() => onConfirm(card.sheetId, chosen)}>
+          <Button className="cx-drawings-card-confirm" variant="secondary" data-testid={TESTIDS.sheet.confirm} onClick={() => onConfirm(card.sheetId, chosen)}>
             {drawings.drawings_sheet_confirm}
           </Button>
         </>
@@ -206,7 +207,7 @@ export function SheetCard({ card, tenantId, projectId, canConfirm, onConfirm, an
       {/* R-UI-031: a screen reachable only by a typed address is a failing criterion, so every card
           carries the door onto its own sheet. A link and not a button — it is navigation a browser
           can follow, open in a new tab and copy. */}
-      <a className="cx-btn cx-reticle cx-drawings-card-open" data-variant="secondary" data-testid="sheet-card-open" href={viewerSheetRoute(tenantId, projectId, card.drawingId, card.layoutName)}>
+      <a className="cx-btn cx-reticle cx-drawings-card-open" data-variant="secondary" data-testid={TESTIDS.sheet.cardOpen} href={viewerSheetRoute(tenantId, projectId, card.drawingId, card.layoutName)}>
         <span className="cx-btn-label">{drawings.drawings_open_sheet}</span>
       </a>
     </article>

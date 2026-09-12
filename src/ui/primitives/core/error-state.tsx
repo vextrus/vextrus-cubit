@@ -15,6 +15,7 @@ import { Button } from "./button";
 import { IconAlert } from "../../icons";
 import { IdChip } from "./id-chip";
 import { strings } from "../../strings";
+import { TESTIDS } from "@/ui/testids";
 
 export interface ErrorStateProps {
   heading: string;
@@ -47,14 +48,14 @@ export function ErrorState({
       {body === undefined ? null : <p className="cx-error-state-body">{body}</p>}
       <div className="cx-error-state-foot">
         {onRetry === undefined ? null : (
-          <Button variant="secondary" data-testid="error-state-retry" onClick={onRetry}>
+          <Button variant="secondary" data-testid={TESTIDS.error.stateRetry} onClick={onRetry}>
             {retryLabel ?? strings.primitive_error_retry}
           </Button>
         )}
         {reportId === undefined ? null : (
           <span className="cx-error-state-report">
             <span className="cx-error-state-report-label">{strings.primitive_error_report}</span>
-            <IdChip value={reportId} data-testid="error-state-report" />
+            <IdChip value={reportId} data-testid={TESTIDS.error.stateReport} />
           </span>
         )}
       </div>

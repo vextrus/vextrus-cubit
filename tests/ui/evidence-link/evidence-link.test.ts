@@ -10,6 +10,7 @@
  */
 import { cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import {
   EVIDENCE_LINK_BARREL,
   SAMPLE_HREF,
@@ -42,7 +43,7 @@ describe("AC-1: the link", () => {
       expect(anchor.getAttribute("data-basis"), `${basis}: the anchor carries \`data-basis\` (test contract)`).toBe(basis);
       expect([...anchor.classList].sort(), `${basis}: the anchor carries exactly \`cx-evidence-link cx-reticle\` — the focus ring from the reticle's one home (B-17)`).toEqual(["cx-evidence-link", "cx-reticle"]);
 
-      const glyph = anchor.querySelector('[data-testid="evidence-link-glyph"]');
+      const glyph = anchor.querySelector(testIdSelector(TESTIDS.evidence.linkGlyph));
       expect(glyph, `${basis}: the anchor holds \`evidence-link-glyph\` (test contract)`).not.toBeNull();
       expect((glyph as HTMLElement).getAttribute("aria-hidden"), `${basis}: the glyph is the colour's greyscale twin, not a second announcement`).toBe("true");
       expect(text(glyph), `${basis}: the glyph is BASIS_GLYPHS[${basis}], read from its single home`).toBe(glyphs[basis]);
@@ -83,7 +84,7 @@ describe("AC-1: the link", () => {
       for (const basis of Object.keys(glyphs)) {
         const anchor = await mountLink({ href: SAMPLE_HREF, basis, label: SAMPLE_LABEL }, theme);
         expect(anchor.getAttribute("data-basis"), `${theme}/${basis}: the basis is carried by data, so the theme changes no markup (Decision §6)`).toBe(basis);
-        expect(text(anchor.querySelector('[data-testid="evidence-link-glyph"]')), `${theme}/${basis}: the glyph survives greyscale in both themes (R-UI-002)`).toBe(glyphs[basis]);
+        expect(text(anchor.querySelector(testIdSelector(TESTIDS.evidence.linkGlyph))), `${theme}/${basis}: the glyph survives greyscale in both themes (R-UI-002)`).toBe(glyphs[basis]);
         cleanup();
         document.body.replaceChildren();
       }

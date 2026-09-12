@@ -13,6 +13,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test } from "vitest";
 import { syntheticEntityGraph } from "./support/synthetic-graph";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import {
   ERRORS_MODULE,
   FORMAT_MODULE,
@@ -184,7 +185,7 @@ describe("AC-3: a damaged reading renders in place, with the facts and the evide
     expect(screen.getByTestId("refusal-remedy").textContent, "and its remedy").toBe(entry.remedy);
     expect(screen.getByTestId("refusal-evidence-link").getAttribute("href") ?? "", "and a link to where it is resolved").not.toBe("");
 
-    const cells = screen.getByTestId("viewer-fidelity-facts").querySelectorAll<HTMLElement>('[data-testid="viewer-fidelity-fact"]');
+    const cells = screen.getByTestId("viewer-fidelity-facts").querySelectorAll<HTMLElement>(testIdSelector(TESTIDS.viewer.fidelityFact));
     expect(
       [...cells].map((cell) => cell.getAttribute("data-fact")).sort(),
       "one row per fact the ingest record carries — a reader learns what the reading did recover",

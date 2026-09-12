@@ -112,6 +112,7 @@ import {
 } from "../shell";
 import { fill, strings } from "../strings";
 import type { GalleryEntries, GalleryState } from "./types";
+import { TESTIDS, testIdSelector } from "@/ui/testids";
 
 /* ------------------------------------------------------------------ sample copy (Decision I-17) */
 
@@ -783,7 +784,7 @@ const dropzoneQueue: DropzoneItem[] = [
  * here draws the state: the pattern decides what a drag looks like, and this only starts one.
  */
 const startDrag = (node: HTMLElement | null): void => {
-  node?.querySelector('[data-testid="dropzone"]')?.dispatchEvent(new Event("dragenter", { bubbles: true }));
+  node?.querySelector(testIdSelector(TESTIDS.dropzone.root))?.dispatchEvent(new Event("dragenter", { bubbles: true }));
 };
 
 const dropzoneStates: readonly GalleryState[] = [

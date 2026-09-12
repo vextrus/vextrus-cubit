@@ -19,6 +19,7 @@
 import type { ComponentPropsWithRef } from "react";
 import { BASIS_GLYPHS, type Basis } from "../../primitives/core/basis";
 import { strings } from "../../strings";
+import { TESTIDS } from "@/ui/testids";
 
 export type EvidenceLinkProps = {
   /** Where the evidence stands. The address is the consumer's — this layer composes none (I-178). */
@@ -38,12 +39,12 @@ export function EvidenceLink({ href, basis, label, ...rest }: EvidenceLinkProps)
     <a
       {...rest}
       className="cx-evidence-link cx-reticle"
-      data-testid="evidence-link"
+      data-testid={TESTIDS.evidence.link}
       data-basis={basis}
       href={href}
       title={strings.evidence_link_title}
     >
-      <span className="cx-evidence-link-glyph" data-testid="evidence-link-glyph" aria-hidden="true">
+      <span className="cx-evidence-link-glyph" data-testid={TESTIDS.evidence.linkGlyph} aria-hidden="true">
         {BASIS_GLYPHS[basis]}
       </span>
       <span className="cx-evidence-link-label">{label}</span>

@@ -12,6 +12,7 @@ import { RefusalState } from "@/ui/patterns/refusal-state";
 import { Button, Input } from "@/ui/primitives/core";
 import { strings } from "@/ui/strings";
 import { renameWorkspaceAction, type RenameFormState } from "../actions";
+import { TESTIDS } from "@/ui/testids";
 
 export interface RenameFormProps {
   tenantId: string;
@@ -50,7 +51,7 @@ export function RenameForm({ tenantId, name }: RenameFormProps) {
 
   return (
     <form action={submit}>
-      <section className="cx-shell-section" data-testid="shell-settings-name" aria-labelledby={labelId}>
+      <section className="cx-shell-section" data-testid={TESTIDS.shell.settingsName} aria-labelledby={labelId}>
         <input type="hidden" name="tenantId" value={tenantId} />
         <label className="cx-shell-field-label" id={labelId} htmlFor={inputId}>
           {strings.shell_settings_name_label}
@@ -68,7 +69,7 @@ export function RenameForm({ tenantId, name }: RenameFormProps) {
           key={seed.key}
           id={inputId}
           name="name"
-          data-testid="shell-rename-input"
+          data-testid={TESTIDS.shell.renameInput}
           defaultValue={name}
           aria-describedby={hintId}
           readOnly={pending}
@@ -97,7 +98,7 @@ export function RenameForm({ tenantId, name }: RenameFormProps) {
           ) : null}
         </div>
         {!pending && current !== null && !current.renamed ? (
-          <div className="cx-shell-outcome" data-testid="shell-rename-refusal">
+          <div className="cx-shell-outcome" data-testid={TESTIDS.shell.renameRefusal}>
             {"blankName" in current ? (
               // An alert is not a notice: a rejected save may not wear the chrome a completed one
               // wears, or the only channel telling them apart is the sentence itself.
@@ -109,7 +110,7 @@ export function RenameForm({ tenantId, name }: RenameFormProps) {
             )}
           </div>
         ) : null}
-        <Button className="cx-shell-submit" type="submit" data-testid="shell-rename-submit" loading={pending}>
+        <Button className="cx-shell-submit" type="submit" data-testid={TESTIDS.shell.renameSubmit} loading={pending}>
           {strings.shell_rename_submit}
         </Button>
       </section>

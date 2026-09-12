@@ -11,6 +11,7 @@ import { inflateSync } from "node:zlib";
 // re-deriving one of its own, so no acceptance carries a second opinion about where a sheet is.
 import { worldAt } from "../../../src/modules/takeoff/viewer/client";
 import { appears, everyRow, nextFrame } from "../support/retrying-read";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** The addresses S-Viewer answers at (test contract). */
 /** How long one probe of a hover sweep waits for the readout before the sweep moves on. */
@@ -179,7 +180,7 @@ export class SViewerPage {
 
   /** One layer's row, by the layer it names — a row carries its layer as a data attribute. */
   row(layerName: string): Locator {
-    return this.page.locator(`[data-testid="viewer-layer-row"][data-layer="${layerName}"]`);
+    return this.page.locator(`${testIdSelector(TESTIDS.viewer.layerRow)}[data-layer="${layerName}"]`);
   }
 
   /** A `data-` hook off the status line, as a number. */

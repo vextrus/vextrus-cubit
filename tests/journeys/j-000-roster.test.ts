@@ -251,7 +251,11 @@ describe("AM-09 §2: the golden path is a directory, and its legs are derived fr
   it("no leg is hand-staged: a leg file installs no product state outside the browser (AM-09 §2)", () => {
     for (const leg of legs()) {
       const imports = [...leg.source.matchAll(/from\s+"([^"]+)"/g)].map((match) => match[1] ?? "");
-      const staged = imports.filter((specifier) => /(^|\/)src\//.test(specifier) || /-stage(\.|$)/.test(specifier) || /db\/__tests__/.test(specifier));
+      // The test-id REGISTRY is not product state: it declares the names a leg clicks, and AM-09 §1
+      // requires a page object to read it rather than invent an id. Importing it stages nothing.
+      const staged = imports
+        .filter((specifier) => !/(^|\/)src\/ui\/testids$/.test(specifier))
+        .filter((specifier) => /(^|\/)src\//.test(specifier) || /-stage(\.|$)/.test(specifier) || /db\/__tests__/.test(specifier));
       expect(
         staged,
         `${leg.file} reaches for product modules or a stage instead of clicking what a customer clicks — "a leg that cannot be reached through the UI is a missing screen, not a licence to stage" (AM-09 §2):\n  ${staged.join("\n  ")}`,

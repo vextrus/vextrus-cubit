@@ -25,6 +25,7 @@ import { STakeoffPage } from "../pages/s-takeoff.page";
 import { SViewerTracePage } from "../pages/s-viewer-trace.page";
 import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
 import { CITE_KEYS, stageRegister } from "../takeoff/register-stage";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** A source key of the served sheet's own grammar (L-CAD-03). */
 const HANDLE = /^DXF_HANDLE:[0-9A-F]+$/;
@@ -156,7 +157,7 @@ test.describe("J-021 — the column slice: a line traced to its entities, back t
     expect(citing, "the staged column concrete line cites this entity, so it is listed").toContain(staged.line.lineId);
     await expect(trace.cited, "and the block counts exactly the rows it holds").toHaveAttribute("data-count", String(citing.length));
 
-    const back = page.locator(`[data-testid="viewer-inspector-cited-line"][data-line="${staged.line.lineId}"]`).getByTestId("evidence-link").first();
+    const back = page.locator(`${testIdSelector(TESTIDS.viewer.inspectorCitedLine)}[data-line="${staged.line.lineId}"]`).getByTestId("evidence-link").first();
     await expect(back, "each cited line offers a way back to its own register row").toHaveAttribute("href", new RegExp(`takeoff/register\\?line=${staged.line.lineId}$`));
 
     await checkpoint(page, testInfo, "j-021-column-slice/cited");

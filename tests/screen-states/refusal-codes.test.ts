@@ -12,6 +12,7 @@ import { REFUSALS } from "../../src/core/errors";
 import { screenStates } from "../../src/ui/screen-states";
 import { routesOnDisk } from "../../src/ui/screen-states/route-scan";
 import { SCREEN_STATE_TESTID, mountState, unmountAll, visibleText } from "./support/matrix-contract";
+import { TESTIDS, testIdSelector } from "../../src/ui/testids";
 
 /** Every code the register publishes — the only codes a screen may show. */
 const REGISTERED_CODES = Object.keys(REFUSALS);
@@ -38,7 +39,7 @@ describe("R-UI-050: every screen's refusal state carries a registered code and i
       const shown = carriers.filter((code) => REGISTERED_CODES.includes(code));
       expect(shown.length, `${route}/refusal shows a code the register owns (saw ${JSON.stringify(carriers)})`).toBeGreaterThan(0);
 
-      const remedy = element.querySelector('[data-testid="refusal-remedy"]');
+      const remedy = element.querySelector(testIdSelector(TESTIDS.refusal.remedy));
       expect(remedy, `${route}/refusal renders the code's remedy`).not.toBeNull();
       expect(visibleText(remedy as Element).length, `${route}/refusal's remedy is not empty`).toBeGreaterThan(0);
       unmountAll();

@@ -13,6 +13,7 @@ import { Skeleton } from "../../primitives/core";
 import { RefusalState } from "../refusal-state";
 import { strings } from "../../strings";
 import { kindWord, statusWord, timelineState, type TimelineStep } from "./reading";
+import { TESTIDS } from "@/ui/testids";
 
 export interface JobTimelineProps {
   /** The region's own name, in the consumer's words (I-107). */
@@ -32,12 +33,12 @@ export function JobTimeline({ heading, steps, lost = false, awaiting = false }: 
   );
 
   return (
-    <section className="cx-job-timeline" data-testid="job-timeline" data-state={state} aria-labelledby={headingId}>
+    <section className="cx-job-timeline" data-testid={TESTIDS.job.timeline} data-state={state} aria-labelledby={headingId}>
       <h2 className="cx-job-timeline-heading" id={headingId}>
         {heading}
       </h2>
       {steps.length === 0 ? (
-        <p className="cx-job-timeline-idle" data-testid="job-timeline-idle">
+        <p className="cx-job-timeline-idle" data-testid={TESTIDS.job.timelineIdle}>
           {strings.job_timeline_idle}
         </p>
       ) : (
@@ -49,7 +50,7 @@ export function JobTimeline({ heading, steps, lost = false, awaiting = false }: 
       )}
       {/* The last known statuses stand beside this line, never in place of them (I-111). */}
       {lost ? (
-        <p className="cx-job-timeline-lost" data-testid="job-timeline-transport-lost" role="status">
+        <p className="cx-job-timeline-lost" data-testid={TESTIDS.job.timelineTransportLost} role="status">
           {strings.job_timeline_transport_lost}
         </p>
       ) : null}
@@ -61,7 +62,7 @@ function Step({ step }: { step: TimelineStep }) {
   return (
     <li
       className="cx-job-timeline-step"
-      data-testid="job-timeline-step"
+      data-testid={TESTIDS.job.timelineStep}
       // A machine hook never spells an empty identity: a job with no id carries no attribute (I-112).
       data-job={step.jobId ?? undefined}
       data-kind={step.kind}
@@ -70,14 +71,14 @@ function Step({ step }: { step: TimelineStep }) {
       {/* The status word carries the meaning; the marker only repeats it (R-UI-060). */}
       <span className="cx-job-timeline-marker" aria-hidden="true" />
       <span className="cx-job-timeline-step-name">{kindWord(step.kind)}</span>
-      <span className="cx-job-timeline-step-status" data-testid="job-timeline-step-status" aria-live="polite">
+      <span className="cx-job-timeline-step-status" data-testid={TESTIDS.job.timelineStepStatus} aria-live="polite">
         {statusWord(step.status)}
       </span>
       {/* R-UI-004: a bone rather than a spinner, and no digits invented while none exist. */}
       {step.status === "running" && step.timing === null ? (
         <Skeleton className="cx-job-timeline-step-bone" />
       ) : (
-        <span className="cx-job-timeline-step-timing" data-testid="job-timeline-step-timing">
+        <span className="cx-job-timeline-step-timing" data-testid={TESTIDS.job.timelineStepTiming}>
           {step.timing ?? ""}
         </span>
       )}
@@ -113,7 +114,7 @@ function Cause({ step }: { step: TimelineStep }) {
         <p className="cx-job-timeline-fault-line">
           <span className="cx-job-timeline-fault-term">{strings.job_timeline_fault_term}</span>{" "}
           {/* The id and nothing else: it is echoed exactly as it was handed over (AC-2, I-110). */}
-          <span className="cx-job-timeline-fault" data-testid="job-timeline-step-fault">
+          <span className="cx-job-timeline-fault" data-testid={TESTIDS.job.timelineStepFault}>
             {step.faultId}
           </span>
         </p>

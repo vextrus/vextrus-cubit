@@ -11,6 +11,7 @@
 import { galleryBarrels, galleryEntries } from "@/ui/gallery-derivation";
 import { strings } from "@/ui/strings";
 import "./design.css";
+import { TESTIDS } from "@/ui/testids";
 
 /** The barrel an entry key belongs to: the key is `"<barrelId>/<ExportName>"` and names carry no slash. */
 function barrelOf(key: string): string {
@@ -44,7 +45,7 @@ export default function DesignGalleryPage() {
     // landmark wrapped around the samples would nest theirs inside it, which is the worse reading
     // of the same document. The chrome stays a `header`, the one landmark this page authors.
     <div className="cx-gallery">
-      <header className="cx-gallery-shell" data-testid="gallery-shell">
+      <header className="cx-gallery-shell" data-testid={TESTIDS.gallery.shell}>
         {/* The screen's own two sentences come from the string table every screen reads, not from
             the derivation's internal module beside it (R-SPINE-060, B-17). */}
         <h1 className="cx-gallery-title">{strings.design_gallery_heading}</h1>
@@ -52,20 +53,20 @@ export default function DesignGalleryPage() {
       </header>
 
       {barrelIds.map((barrelId) => (
-        <section className="cx-gallery-barrel" data-testid="gallery-barrel" data-barrel={barrelId} key={barrelId}>
+        <section className="cx-gallery-barrel" data-testid={TESTIDS.gallery.barrel} data-barrel={barrelId} key={barrelId}>
           <h2 className="cx-gallery-barrel-name">{barrelId}</h2>
 
           {entryKeys
             .filter((key) => barrelOf(key) === barrelId)
             .map((key) => (
-              <section aria-labelledby={headingIdOf(key)} className="cx-gallery-entry" data-testid="gallery-entry" data-entry={key} key={key}>
+              <section aria-labelledby={headingIdOf(key)} className="cx-gallery-entry" data-testid={TESTIDS.gallery.entry} data-entry={key} key={key}>
                 <h3 className="cx-gallery-entry-name" id={headingIdOf(key)}>
                   {exportNameOf(key)}
                 </h3>
 
                 <div className="cx-gallery-states">
                   {(galleryEntries[key]?.states ?? []).map((state) => (
-                    <div className="cx-gallery-state" data-testid="gallery-state" data-state={state.name} key={state.name}>
+                    <div className="cx-gallery-state" data-testid={TESTIDS.gallery.state} data-state={state.name} key={state.name}>
                       <p className="cx-gallery-state-label">{state.name}</p>
                       {state.render()}
                     </div>

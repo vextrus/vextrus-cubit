@@ -9,6 +9,7 @@
  * @vitest-environment jsdom
  */
 import { afterEach, describe, expect, test } from "vitest";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import {
   DERIVED,
   LINE_PARAM,
@@ -78,7 +79,7 @@ describe("AC-3: the source cell is the link", () => {
 
     const rows = [...lines.querySelectorAll('[role="row"]')].filter((row) => row.querySelector('[role="columnheader"]') === null);
     for (const row of rows) {
-      expect(row.querySelectorAll('[data-testid="evidence-link"]').length, "exactly one `evidence-link` per rendered row").toBe(1);
+      expect(row.querySelectorAll(testIdSelector(TESTIDS.evidence.link)).length, "exactly one `evidence-link` per rendered row").toBe(1);
     }
   });
 });

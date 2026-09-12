@@ -20,6 +20,7 @@ import { expect, type Locator, type Page, type TestInfo } from "@playwright/test
 import { moderateBudgetFor } from "./axe-budget";
 import { heightBudgetFor } from "./height-budget";
 import { settled } from "./settled";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** What a checkpoint refuses to pass with. Anything milder is held to its budget or reported. */
 const BLOCKING = new Set(["serious", "critical"]);
@@ -42,7 +43,7 @@ const HEIGHT_CAP_FACTOR = 2;
  * a lie". The container is found in this order, and the capture is of that container expanded to
  * its own content.
  */
-const CAPTURE_ROOTS = ["[data-capture-root]", '[data-testid="shell-main"]', "main", "body"] as const;
+const CAPTURE_ROOTS = ["[data-capture-root]", testIdSelector(TESTIDS.shell.main), "main", "body"] as const;
 
 interface AxeViolation {
   id: string;

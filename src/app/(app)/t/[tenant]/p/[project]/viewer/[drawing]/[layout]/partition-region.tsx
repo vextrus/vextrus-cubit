@@ -32,6 +32,7 @@ import { strings } from "@/ui/strings";
 import { participantsRoute } from "@/app/(app)/t/[tenant]/p/[project]/settings/participants/route-address";
 import { commitConfirmViewType, previewConfirmViewType, type CommitAnswer, type PreviewAnswer } from "./partition-actions";
 import { viewerSheetRoute } from "./route-address";
+import { TESTIDS } from "@/ui/testids";
 
 /** The act the views/grid panel renders — a machine identifier the dialog shows and never translates. */
 const CONFIRM_VIEW_TYPE = "CONFIRM_VIEW_TYPE";
@@ -247,7 +248,7 @@ export function usePartitionRegion({ tenantId, projectId, drawingId, sheetName, 
     partition.overlay === null || overlayCounts === null ? null : (
       <canvas
         className="cx-viewer-partition-canvas"
-        data-testid="viewer-partition-canvas"
+        data-testid={TESTIDS.viewer.partitionCanvas}
         aria-hidden="true"
         ref={overlayRef}
         data-outlines={String(overlayCounts.outlines)}

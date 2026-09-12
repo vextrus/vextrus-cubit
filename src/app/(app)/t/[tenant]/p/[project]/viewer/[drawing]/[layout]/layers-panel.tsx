@@ -14,6 +14,7 @@ import { cssColour, type LayerRow } from "@/modules/takeoff/viewer/client";
 import { formatUserFigure } from "@/core/format";
 import { Button } from "@/ui/primitives/core";
 import { fill, strings } from "@/ui/strings";
+import { TESTIDS } from "@/ui/testids";
 
 export type LayersPanelProps = {
   rows: LayerRow[];
@@ -31,14 +32,14 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry, onSel
   const [active, setActive] = useState<string | null>(null);
 
   return (
-    <section className="cx-viewer-layers" data-testid="viewer-layers" aria-label={strings.viewer_layers_heading}>
+    <section className="cx-viewer-layers" data-testid={TESTIDS.viewer.layers} aria-label={strings.viewer_layers_heading}>
       <h2 className="cx-viewer-layers-heading">{strings.viewer_layers_heading}</h2>
       <ol className="cx-viewer-layer-list">
         {rows.map((row) => (
           <li
             key={row.name}
             className="cx-viewer-layer-row"
-            data-testid="viewer-layer-row"
+            data-testid={TESTIDS.viewer.layerRow}
             data-layer={row.name}
             data-visible={String(row.visible)}
             data-drawn={String(row.drawn)}
@@ -54,7 +55,7 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry, onSel
               role="switch"
               aria-checked={row.visible}
               className="cx-viewer-layer-switch cx-reticle"
-              data-testid="viewer-layer-visible"
+              data-testid={TESTIDS.viewer.layerVisible}
               aria-label={fill(strings.viewer_layer_visible_label, {
                 layer: row.name,
               })}
@@ -62,7 +63,7 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry, onSel
             >
               <span
                 className="cx-viewer-layer-swatch"
-                data-testid="viewer-layer-swatch"
+                data-testid={TESTIDS.viewer.layerSwatch}
                 aria-hidden="true"
                 style={{
                   background: row.visible ? cssColour(row.rgb) : "none",
@@ -77,7 +78,7 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry, onSel
                 shows what is missing, and hiding the figure would hide the fact (R-UI-050). */}
             <span
               className="cx-viewer-layer-count"
-              data-testid="viewer-layer-count"
+              data-testid={TESTIDS.viewer.layerCount}
               aria-label={fill(strings.viewer_layer_count_label, {
                 count: formatUserFigure(String(row.entityCount)),
                 layer: row.name,
@@ -97,7 +98,7 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry, onSel
               type="button"
               aria-pressed={row.isolated}
               className="cx-viewer-layer-control cx-reticle"
-              data-testid="viewer-layer-isolate"
+              data-testid={TESTIDS.viewer.layerIsolate}
               aria-label={fill(strings.viewer_layer_isolate_label, {
                 layer: row.name,
               })}
@@ -109,7 +110,7 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry, onSel
               type="button"
               aria-pressed={row.locked}
               className="cx-viewer-layer-control cx-reticle"
-              data-testid="viewer-layer-lock"
+              data-testid={TESTIDS.viewer.layerLock}
               aria-label={fill(strings.viewer_layer_lock_label, {
                 layer: row.name,
               })}
@@ -122,7 +123,7 @@ export function LayersPanel({ rows, onVisible, onIsolate, onLock, onRetry, onSel
             <button
               type="button"
               className="cx-viewer-layer-control cx-reticle"
-              data-testid="viewer-layer-select"
+              data-testid={TESTIDS.viewer.layerSelect}
               disabled={!row.drawn || row.locked}
               aria-label={fill(strings.viewer_layer_select_label, {
                 layer: row.name,

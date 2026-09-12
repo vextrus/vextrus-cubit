@@ -19,6 +19,7 @@ import { Fragment, useEffect, useRef, useState, type JSX } from "react";
 import { cx } from "./class-names";
 import { IconChevronDown, IconChevronRight } from "../../icons";
 import { strings } from "../../strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** One place in the trail: what it is called, where it is, and what else sits at its level. */
 export interface BreadcrumbCrumb {
@@ -53,7 +54,7 @@ export function Breadcrumb(props: { crumbs: BreadcrumbCrumb[]; className?: strin
   };
 
   return (
-    <nav ref={root} className={cx("cx-breadcrumb", className)} aria-label={strings.primitive_breadcrumb_label} data-testid="breadcrumb">
+    <nav ref={root} className={cx("cx-breadcrumb", className)} aria-label={strings.primitive_breadcrumb_label} data-testid={TESTIDS.breadcrumb.root}>
       <ol className="cx-breadcrumb-list">
         {crumbs.map((crumb, at) => (
           <Fragment key={crumb.id}>
@@ -83,7 +84,7 @@ export function Breadcrumb(props: { crumbs: BreadcrumbCrumb[]; className?: strin
                 <button
                   type="button"
                   className="cx-breadcrumb-disclosure cx-reticle"
-                  data-testid="breadcrumb-menu"
+                  data-testid={TESTIDS.breadcrumb.menu}
                   data-crumb={crumb.id}
                   aria-label={strings.primitive_breadcrumb_menu}
                   aria-expanded={open === crumb.id}
@@ -93,7 +94,7 @@ export function Breadcrumb(props: { crumbs: BreadcrumbCrumb[]; className?: strin
                   <IconChevronDown size="sm" />
                 </button>
                 {open === crumb.id ? (
-                  <ul className="cx-breadcrumb-menu" data-testid="breadcrumb-menu-list">
+                  <ul className="cx-breadcrumb-menu" data-testid={TESTIDS.breadcrumb.menuList}>
                     {crumb.menu.map((entry) => (
                       <li className="cx-breadcrumb-menu-item" key={entry.id}>
                         <a className="cx-breadcrumb-menu-link cx-reticle" href={entry.href} onKeyDown={escapes}>

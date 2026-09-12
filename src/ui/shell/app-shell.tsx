@@ -13,6 +13,7 @@ import { ShellRail } from "./shell-rail";
 import { ShellTopBar } from "./shell-top-bar";
 import { StatusBar, type StatusBarProps } from "./status-bar";
 import type { ShellArea, ShellProject, ShellWorkspace } from "./routes";
+import { TESTIDS } from "@/ui/testids";
 
 export interface AppShellProps {
   workspace: ShellWorkspace;
@@ -56,7 +57,7 @@ export interface AppShellProps {
  */
 function ShellMain({ children }: { children: ReactNode }) {
   return (
-    <main className="cx-shell-main" data-testid="shell-main" data-state={useScreenState()}>
+    <main className="cx-shell-main" data-testid={TESTIDS.shell.main} data-state={useScreenState()}>
       {children}
     </main>
   );
@@ -84,7 +85,7 @@ export function AppShell({
     // the root tokens and nothing per-screen (R-UI-086).
     <ScreenStateProvider>
       <InspectorProvider>
-        <div className="cx-shell" data-testid="shell-root" data-density={density}>
+        <div className="cx-shell" data-testid={TESTIDS.shell.root} data-density={density}>
           <ShellRail workspace={workspace} workspaces={workspaces} area={area} atAreaHome={atAreaHome} />
           <div className="cx-shell-body" data-toolbar={toolbar === undefined ? "false" : "true"}>
             <ShellTopBar

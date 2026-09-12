@@ -7,6 +7,7 @@ import importDepth from "./rules/import-depth.mjs";
 import noColourLiteral from "./rules/no-colour-literal.mjs";
 import noCycle from "./rules/no-cycle.mjs";
 import noDbOutsideSeam from "./rules/no-db-outside-seam.mjs";
+import noLiteralTestid from "./rules/no-literal-testid.mjs";
 import noModelOutsideSeam from "./rules/no-model-outside-seam.mjs";
 import noPrimitiveToken from "./rules/no-primitive-token.mjs";
 import noRawIntl from "./rules/no-raw-intl.mjs";
@@ -21,6 +22,7 @@ export const cubit = {
     "import-depth": importDepth,
     "no-colour-literal": noColourLiteral,
     "no-db-outside-seam": noDbOutsideSeam,
+    "no-literal-testid": noLiteralTestid,
     "no-model-outside-seam": noModelOutsideSeam,
     "no-primitive-token": noPrimitiveToken,
     "no-raw-intl": noRawIntl,

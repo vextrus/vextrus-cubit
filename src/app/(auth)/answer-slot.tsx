@@ -8,6 +8,7 @@ import { RefusalState } from "../../ui/patterns/refusal-state";
 import { strings } from "../../ui/strings";
 import { evidenceFor, type Answer } from "./answers";
 import type { AuthRoute } from "./routes";
+import { TESTIDS } from "@/ui/testids";
 
 /**
  * A registered refusal, in place, with the link to where it is resolved. `search` is the query the
@@ -16,7 +17,7 @@ import type { AuthRoute } from "./routes";
  */
 export function RefusalSlot({ answer, route, search }: { answer: Extract<Answer, { kind: "refusal" }>; route: AuthRoute; search?: string }) {
   return (
-    <div className="cx-auth-answer" data-testid="s-auth-refusal">
+    <div className="cx-auth-answer" data-testid={TESTIDS.sAuth.refusal}>
       <RefusalState refusal={answer.refusal} evidence={evidenceFor(answer.refusal.code, route, search)} />
     </div>
   );
@@ -34,7 +35,7 @@ export function RefusalSlot({ answer, route, search }: { answer: Extract<Answer,
  */
 export function FaultSlot({ faultId, reached }: { faultId: string | null; reached: boolean }) {
   return (
-    <div className="cx-auth-fault" data-testid="s-auth-fault" role="alert">
+    <div className="cx-auth-fault" data-testid={TESTIDS.sAuth.fault} role="alert">
       <p className="cx-auth-fault-title">{strings.auth_fault_title}</p>
       <p className="cx-auth-fault-body">{reached ? strings.auth_fault_body : strings.auth_fault_unreachable_body}</p>
       {faultId === null ? null : (
@@ -50,7 +51,7 @@ export function FaultSlot({ faultId, reached }: { faultId: string | null; reache
 /** The outcome notice: what happened, said once, where the answer was expected. */
 export function NoticeSlot({ message }: { message: string }) {
   return (
-    <div className="cx-auth-notice" data-testid="s-auth-notice" role="status">
+    <div className="cx-auth-notice" data-testid={TESTIDS.sAuth.notice} role="status">
       {message}
     </div>
   );

@@ -30,6 +30,7 @@ import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
 import { SViewerSnapPage } from "../viewer/s-viewer-snap.page";
 import { HEADER_UNIT, stageScaleSheet } from "../viewer/viewer-scale-stage";
 import { everyRow, steadyCount, steadyText } from "../support/retrying-read";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** The rank a header-unit proposal stands at, and the act this panel commits (L-MEA-05, L-ACT-01). */
 const FILE_UNITS = "FILE_UNITS";
@@ -111,8 +112,8 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     await expect(scale.selectionTab, "and it opens on Selection at every mount").toHaveAttribute("aria-selected", "true");
     expect(
       await page.evaluate(() => {
-        const aside = document.querySelector('[data-testid="viewer-inspector"]');
-        const strip = document.querySelector('[data-testid="viewer-inspector-tabs"]');
+        const aside = document.querySelector(testIdSelector(TESTIDS.viewer.inspector));
+        const strip = document.querySelector(testIdSelector(TESTIDS.viewer.inspectorTabs));
         return aside !== null && strip !== null && aside.contains(strip);
       }),
       "the strip stands OUTSIDE the inspector aside, so the aside a journey pictured before this increment is untouched (I-152)",
@@ -265,7 +266,7 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     const sheets = new SDrawingsPage(page);
     await sheets.open(staged.tenantId, staged.projectId);
     const card = sheets.cards.filter({
-      has: page.locator(`[data-testid="sheet-card-open"][href="${S_VIEWER.route(staged.tenantId, staged.projectId, staged.drawingId, staged.layoutName)}"]`),
+      has: page.locator(`${testIdSelector(TESTIDS.sheet.cardOpen)}[href="${S_VIEWER.route(staged.tenantId, staged.projectId, staged.drawingId, staged.layoutName)}"]`),
     });
     await expect(card, "exactly one card of the index stands for the staged sheet").toHaveCount(1);
     const line = card.getByTestId("sheet-card-scale");

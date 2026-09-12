@@ -85,7 +85,23 @@ export default [
       "cubit/no-db-outside-seam": "error",
       "cubit/no-model-outside-seam": "error",
       "cubit/no-raw-intl": "error",
+      // AM-09 §1: the test-id registry is the single source of every id the product publishes, and
+      // a literal anywhere else is a defect. Bound to the whole tree for the reason the bans above
+      // are: a page object, a script or a test that may spell one makes "one source" false.
+      "cubit/no-literal-testid": "error",
     },
+  },
+  {
+    // ARCH-01 forbids `src/modules/*` importing `src/ui`, and the registry lives at
+    // `src/ui/testids.ts` — so these four takeoff screens CANNOT read the key they should read, and
+    // the rule is a warning there rather than a lie in either direction. It is not a licence: the
+    // count is frozen by tests/lint/testid-registry-ratchet.test.ts, which fails on any increase.
+    // The repair is not a suppression but a home: the registry (or the ids these screens publish)
+    // belongs where a module may lawfully reach it. Named, not done — M3's UI-foundation increment
+    // (AM-08) is where the screens and their ids land together.
+    files: ["src/modules/**/*.ts", "src/modules/**/*.tsx"],
+    plugins: { cubit },
+    rules: { "cubit/no-literal-testid": "warn" },
   },
   {
     // Two laws about components that no test of ours states, because the ecosystem states them

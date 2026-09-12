@@ -34,6 +34,7 @@ import {
 import { drawingsRoute } from "./route-address";
 import { SheetCard, type SheetCardData } from "./sheet-card";
 import { drawings } from "./strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** The act this screen renders (L-ACT-02's pair opens the one dialog under this name). */
 const ACT_TYPE = "CONFIRM_DISCIPLINE";
@@ -346,17 +347,17 @@ export function SheetIndex({
             <label className="cx-drawings-field-label" htmlFor={searchId}>
               {drawings.drawings_search_label}
             </label>
-            <Input id={searchId} className="cx-drawings-search" data-testid="sheet-search" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <Input id={searchId} className="cx-drawings-search" data-testid={TESTIDS.sheet.search} value={search} onChange={(event) => setSearch(event.target.value)} />
           </span>
 
           <fieldset className="cx-drawings-field">
             <legend className="cx-drawings-field-label">{drawings.drawings_filter_legend}</legend>
             <span className="cx-drawings-choices">
-              <Chip data-testid="sheet-filter-option" data-value={ALL} selected={filter === ALL} onClick={() => setFilter(ALL)}>
+              <Chip data-testid={TESTIDS.sheet.filterOption} data-value={ALL} selected={filter === ALL} onClick={() => setFilter(ALL)}>
                 {drawings.drawings_filter_all}
               </Chip>
               {DISCIPLINES.map((discipline) => (
-                <Chip className="cx-drawings-enum" key={discipline} data-testid="sheet-filter-option" data-value={discipline} selected={filter === discipline} onClick={() => setFilter(discipline)}>
+                <Chip className="cx-drawings-enum" key={discipline} data-testid={TESTIDS.sheet.filterOption} data-value={discipline} selected={filter === discipline} onClick={() => setFilter(discipline)}>
                   {discipline}
                 </Chip>
               ))}
@@ -391,7 +392,7 @@ export function SheetIndex({
             }}
           />
         ) : (
-          <div className="cx-drawings-grid" data-testid="sheet-index">
+          <div className="cx-drawings-grid" data-testid={TESTIDS.sheet.index}>
             {shown.map((card) => (
               <SheetCard
                 key={card.sheetId}
@@ -455,7 +456,7 @@ function Empty({ cause, search, discipline, onClear }: EmptyProps) {
   const named = cause === "no-match" ? namedFilter(search, discipline) : null;
 
   return (
-    <div className="cx-drawings-empty" data-testid="sheets-empty" data-cause={cause}>
+    <div className="cx-drawings-empty" data-testid={TESTIDS.sheets.empty} data-cause={cause}>
       <p className="cx-drawings-empty-heading">{words.heading}</p>
       {named === null ? null : <p className="cx-drawings-empty-filter">{named}</p>}
       <p className="cx-drawings-empty-body">{words.body}</p>

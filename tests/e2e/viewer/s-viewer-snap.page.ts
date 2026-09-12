@@ -8,6 +8,7 @@
  * anchors are the drawing's own points rather than numbers typed into a spec (B-19).
  */
 import { expect, type Locator, type Page } from "@playwright/test";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** One drawn record of the served sheet, as the feed answers one. */
 export type SheetRecord = { key: string; type: string; points: [number, number][] };
@@ -185,7 +186,7 @@ export class SViewerSnapPage {
   /** The properties one glyph's shape is drawn from, as one comparable string. */
   async shapeSignature(): Promise<string> {
     return this.page.evaluate((properties) => {
-      const element = document.querySelector('[data-testid="viewer-snap-glyph"]');
+      const element = document.querySelector(testIdSelector(TESTIDS.viewer.snapGlyph));
       if (element === null) return "";
       const read = (on: Element, pseudo: string | null): string => properties.map((name) => window.getComputedStyle(on, pseudo).getPropertyValue(name)).join("|");
       return [read(element, null), read(element, "::before"), read(element, "::after")].join("//");
@@ -196,7 +197,7 @@ export class SViewerSnapPage {
   async glyphStyle(property: string): Promise<string> {
     return this.page.evaluate(
       ([name]) => {
-        const element = document.querySelector('[data-testid="viewer-snap-glyph"]');
+        const element = document.querySelector(testIdSelector(TESTIDS.viewer.snapGlyph));
         return element === null ? "" : window.getComputedStyle(element).getPropertyValue(String(name));
       },
       [property] as const,

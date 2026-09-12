@@ -18,6 +18,7 @@ import type { LifecycleAnswer } from "../actions";
 import { ProjectsOnboarding } from "../projects-onboarding";
 import { ProjectCard } from "./project-card";
 import { ProjectForm } from "./project-form";
+import { TESTIDS } from "@/ui/testids";
 
 /** Which project the form is open on, or null when it is open on none — a creation. */
 type FormTarget = { readonly project: Project | null };
@@ -47,7 +48,7 @@ export function ProjectsHome({ tenantId, projects }: ProjectsHomeProps) {
     <div className="cx-home">
       <div className="cx-home-header">
         <h1 className="cx-shell-heading">{strings.shell_projects_heading}</h1>
-        <Button data-testid="s-home-create-project" onClick={() => setTarget({ project: null })}>
+        <Button data-testid={TESTIDS.sHome.createProject} onClick={() => setTarget({ project: null })}>
           {strings.home_create_project}
         </Button>
       </div>
@@ -56,7 +57,7 @@ export function ProjectsHome({ tenantId, projects }: ProjectsHomeProps) {
         <ProjectsOnboarding />
       ) : (
         <>
-          <ul className="cx-home-grid" data-testid="s-home-grid">
+          <ul className="cx-home-grid" data-testid={TESTIDS.sHome.grid}>
             {projects.map((project) => (
               <ProjectCard
                 key={project.projectId}
@@ -71,7 +72,7 @@ export function ProjectsHome({ tenantId, projects }: ProjectsHomeProps) {
 
           {/* The honest M0 region: it says why it is empty and promises no action, because none
               exists yet — no project has produced a document to list (R-UI-020). */}
-          <section className="cx-home-documents" data-testid="s-home-recent-documents" aria-labelledby={documentsId}>
+          <section className="cx-home-documents" data-testid={TESTIDS.sHome.recentDocuments} aria-labelledby={documentsId}>
             <h2 className="cx-home-documents-heading" id={documentsId}>
               {strings.home_documents_heading}
             </h2>

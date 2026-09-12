@@ -25,6 +25,7 @@ import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
 import { stageSyntheticSheet } from "../viewer/viewer-stage";
 import { settled } from "../support/settled";
 import { steadyText } from "../support/retrying-read";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** A sheet with room for a rectangle to cross and layers to pick from, and small enough to list. */
 const ENTITIES = 600;
@@ -190,7 +191,7 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     /* --- AC-3: Reveal in sheet — the Trace's target, flown and settled --- */
     await viewer.zoomIn.click();
     await viewer.zoomIn.click();
-    const flying = page.waitForSelector('[data-testid="viewer-screen"][data-flyto="flying"]', { timeout: FLYTO_BUDGET_MS });
+    const flying = page.waitForSelector(`${testIdSelector(TESTIDS.viewer.screen)}[data-flyto="flying"]`, { timeout: FLYTO_BUDGET_MS });
     await viewer.reveal.click();
     await flying;
     await expect(viewer.screen, "and it settles by itself, inside a second").toHaveAttribute("data-flyto", "settled", { timeout: FLYTO_BUDGET_MS });

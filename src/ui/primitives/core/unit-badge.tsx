@@ -5,6 +5,7 @@
  */
 import type { ComponentPropsWithRef } from "react";
 import { cx } from "./class-names";
+import { TESTIDS } from "@/ui/testids";
 
 export interface UnitBadgeProps extends ComponentPropsWithRef<"span"> {
   unit: string;
@@ -12,7 +13,7 @@ export interface UnitBadgeProps extends ComponentPropsWithRef<"span"> {
 
 export function UnitBadge({ unit, className, ...rest }: UnitBadgeProps) {
   return (
-    <span {...rest} className={cx("cx-unit-badge", className)} data-testid="unit-badge">
+    <span {...rest} className={cx("cx-unit-badge", className)} data-testid={TESTIDS.unit.badge}>
       {unit}
     </span>
   );

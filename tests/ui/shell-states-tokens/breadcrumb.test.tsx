@@ -5,7 +5,7 @@
  *
  * Both halves are graded through the frame's own contract: the label is read back from
  * `areaLabel` for every area the roster holds (never from a list re-typed here), and the crumbs are
- * read out of `[data-testid="shell-breadcrumb"]` as a reader meets them — position, link, and the
+ * read out of TESTIDS.shell.breadcrumb as a reader meets them — position, link, and the
  * one `aria-current` claim docs/design/shell.md §top bar allows.
  */
 import { readFileSync } from "node:fs";

@@ -22,6 +22,7 @@ import { settle, type Answer } from "./answers";
 import { FooterLines, type FooterLine } from "./footer";
 import type { AuthRoute } from "./routes";
 import { useDoneTitle } from "./title";
+import { TESTIDS } from "@/ui/testids";
 
 /** One field of a door: what it is called, what it is for, and what the browser should offer. */
 export interface AuthField {
@@ -118,7 +119,7 @@ export function AuthForm({ route, fields, submit, perform, success }: AuthFormPr
         </div>
       ))}
       <AnswerSlot answer={answer} route={route} />
-      <Button className="cx-auth-submit" type="submit" data-testid="s-auth-submit" variant="primary" loading={busy}>
+      <Button className="cx-auth-submit" type="submit" data-testid={TESTIDS.sAuth.submit} variant="primary" loading={busy}>
         {strings[submit]}
       </Button>
     </form>

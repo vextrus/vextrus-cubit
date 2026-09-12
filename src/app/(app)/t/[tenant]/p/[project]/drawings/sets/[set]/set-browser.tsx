@@ -24,6 +24,7 @@ import { drawingsRoute } from "../../route-address";
 import { commitPin as commitPinAction, previewPin as previewPinAction, toggleMember as toggleMemberAction } from "../actions";
 import { setRoute, setsRoute } from "../route-address";
 import { sets } from "../strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** The act this screen renders (L-ACT-02's pair opens the one dialog under this name). */
 const ACT_TYPE = "PIN_DRAWING_SET";
@@ -125,14 +126,14 @@ export function SetBrowser({
   const emptiness = cause === null ? null : <Empty cause={cause} tenantId={tenantId} projectId={projectId} />;
 
   return (
-    <div className="cx-set" data-testid="set-browser" data-set={set.setId}>
+    <div className="cx-set" data-testid={TESTIDS.set.browser} data-set={set.setId}>
       <header className="cx-sets-header">
-        <h1 className="cx-sets-heading" data-testid="set-heading">
+        <h1 className="cx-sets-heading" data-testid={TESTIDS.set.heading}>
           {set.name}
         </h1>
         <p className="cx-sets-caption">{sets.sets_set_caption}</p>
         <p className="cx-set-links">
-          <Link className="cx-sets-link cx-reticle" data-testid="set-drawings-link" href={drawingsRoute(tenantId, projectId)}>
+          <Link className="cx-sets-link cx-reticle" data-testid={TESTIDS.set.drawingsLink} href={drawingsRoute(tenantId, projectId)}>
             {sets.sets_drawings_link}
           </Link>
           <Link className="cx-sets-link cx-reticle" href={setsRoute(tenantId, projectId)}>
@@ -156,7 +157,7 @@ export function SetBrowser({
           {sets.sets_members_heading}
         </h2>
         <p className="cx-sets-hint">{sets.sets_members_hint}</p>
-        <ul className="cx-sets-list" data-testid="set-drawings">
+        <ul className="cx-sets-list" data-testid={TESTIDS.set.drawings}>
           {lineages.map((lineage) => (
             <DrawingRow
               canPin={canPin}
@@ -185,7 +186,7 @@ export function SetBrowser({
           <p className="cx-sets-hint">{sets.sets_pin_hint}</p>
           <Button
             className="cx-set-pin"
-            data-testid="set-pin"
+            data-testid={TESTIDS.set.pin}
             loading={pending}
             onClick={() => {
               void press();
@@ -218,7 +219,7 @@ export function SetBrowser({
         {set.revisions.length === 0 ? (
           <p className="cx-sets-silence">{sets.sets_revisions_none}</p>
         ) : (
-          <ol className="cx-sets-revisions" data-testid="set-revisions">
+          <ol className="cx-sets-revisions" data-testid={TESTIDS.set.revisions}>
             {set.revisions.map((revision) => (
               <PinnedRevision key={revision.setRevisionId} revision={revision} />
             ))}
@@ -265,7 +266,7 @@ function Empty({ cause, tenantId, projectId }: { cause: EmptyCause; tenantId: st
   }[cause];
 
   return (
-    <div data-testid="set-empty" data-cause={cause}>
+    <div data-testid={TESTIDS.set.empty} data-cause={cause}>
       <ShellEmptyState heading={words.heading} body={words.body}>
         {cause === "no-drawings" ? (
           <Link className="cx-sets-link cx-reticle" href={drawingsRoute(tenantId, projectId)}>
@@ -288,12 +289,12 @@ function Empty({ cause, tenantId, projectId }: { cause: EmptyCause; tenantId: st
  */
 function DrawingRow({ lineage, member, canPin, onToggle }: { lineage: DrawingLineage; member: boolean; canPin: boolean; onToggle: () => void }) {
   return (
-    <li className="cx-sets-row" data-testid="set-drawing" data-drawing={lineage.drawingId} data-member={member ? "true" : "false"} data-current-sha256={lineage.current.sha256}>
+    <li className="cx-sets-row" data-testid={TESTIDS.set.drawing} data-drawing={lineage.drawingId} data-member={member ? "true" : "false"} data-current-sha256={lineage.current.sha256}>
       <div className="cx-sets-row-facts">
-        <p className="cx-sets-row-name" data-testid="set-drawing-name">
+        <p className="cx-sets-row-name" data-testid={TESTIDS.set.drawingName}>
           {lineage.name}
         </p>
-        <p className="cx-sets-row-counts" data-testid="set-drawing-revision-count">
+        <p className="cx-sets-row-counts" data-testid={TESTIDS.set.drawingRevisionCount}>
           {fill(sets.sets_revision_count, { count: formatUserFigure(String(lineage.revisions.length)) })}
         </p>
         <ol className="cx-sets-revision-list">
@@ -306,7 +307,7 @@ function DrawingRow({ lineage, member, canPin, onToggle }: { lineage: DrawingLin
                 data-ordinal={String(revision.ordinal)}
                 data-revision={revision.revisionId}
                 data-sha256={revision.sha256}
-                data-testid="set-drawing-revision"
+                data-testid={TESTIDS.set.drawingRevision}
                 key={revision.revisionId}
               >
                 <span className="cx-sets-ordinal">{formatUserFigure(String(revision.ordinal))}</span>
@@ -322,7 +323,7 @@ function DrawingRow({ lineage, member, canPin, onToggle }: { lineage: DrawingLin
           aria-label={fill(member ? sets.sets_member_remove_label : sets.sets_member_add_label, { drawing: lineage.name })}
           aria-pressed={member}
           data-drawing={lineage.drawingId}
-          data-testid="set-member-toggle"
+          data-testid={TESTIDS.set.memberToggle}
           onClick={onToggle}
           variant={member ? "secondary" : "ghost"}
         >
@@ -340,17 +341,17 @@ function DrawingRow({ lineage, member, canPin, onToggle }: { lineage: DrawingLin
  */
 function PinnedRevision({ revision }: { revision: SetRevision }) {
   return (
-    <li className="cx-set-revision" data-testid="set-revision" data-set-revision={revision.setRevisionId} data-digest={revision.digest} data-current={revision.current ? "true" : "false"}>
+    <li className="cx-set-revision" data-testid={TESTIDS.set.revision} data-set-revision={revision.setRevisionId} data-digest={revision.digest} data-current={revision.current ? "true" : "false"}>
       <p className="cx-set-revision-head">
         <span className="cx-sets-standing">{revision.current ? sets.sets_revision_current : sets.sets_revision_superseded}</span>
         <span className="cx-sets-row-digest-label">{sets.sets_revision_digest_label}</span>
-        <span className="cx-sets-digest" data-testid="set-revision-digest">
+        <span className="cx-sets-digest" data-testid={TESTIDS.set.revisionDigest}>
           {revision.digest}
         </span>
       </p>
       <ul className="cx-set-citations">
         {revision.manifest.map((member) => (
-          <li className="cx-set-citation" data-testid="set-revision-member" data-drawing={member.drawingId} data-revision={member.revisionId} data-sha256={member.sha256} key={member.revisionId}>
+          <li className="cx-set-citation" data-testid={TESTIDS.set.revisionMember} data-drawing={member.drawingId} data-revision={member.revisionId} data-sha256={member.sha256} key={member.revisionId}>
             <span className="cx-set-citation-name">{member.name}</span>
             <span className="cx-sets-digest">{member.sha256}</span>
           </li>

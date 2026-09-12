@@ -20,6 +20,7 @@ import { fill, strings } from "@/ui/strings";
 import { changeMemberRoleAction, removeMemberAction, type MembersAnswer } from "./actions";
 import { membersRoute } from "./route-address";
 import { membersStrings } from "./strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** One movement on a member's record, with the project it happened on (I-59). */
 export interface MembersHistoryEntry {
@@ -113,7 +114,7 @@ export function MembersSection({
         <p className="cx-members-caption">{membersStrings.members_caption}</p>
       </header>
 
-      <section className="cx-members-roster" aria-labelledby={headingIds.roster} data-testid="members-section">
+      <section className="cx-members-roster" aria-labelledby={headingIds.roster} data-testid={TESTIDS.members.section}>
         <h2 className="cx-members-section-heading" id={headingIds.roster}>
           {membersStrings.members_roster_heading}
         </h2>
@@ -121,13 +122,13 @@ export function MembersSection({
             discovered by a reader who wonders what is missing. */}
         <p className="cx-members-hint">{membersStrings.members_roster_hint}</p>
 
-        <ul className="cx-members-list" data-testid="members-list">
+        <ul className="cx-members-list" data-testid={TESTIDS.members.list}>
           {rows.map((row) => (
-            <li className="cx-members-row" data-testid="members-row" data-user={row.userId} key={row.userId}>
+            <li className="cx-members-row" data-testid={TESTIDS.members.row} data-user={row.userId} key={row.userId}>
               <p className="cx-members-identity">
                 <span className="cx-members-member">{row.label ?? membersStrings.members_member_unnamed}</span>
                 {/* I-55: the store's own word, verbatim and mono — never title-cased into prose. */}
-                <span className="cx-members-role" data-testid="members-row-role">
+                <span className="cx-members-role" data-testid={TESTIDS.members.rowRole}>
                   {row.role}
                 </span>
               </p>
@@ -135,7 +136,7 @@ export function MembersSection({
               <div className="cx-members-controls">
                 <form
                   className="cx-members-form"
-                  data-testid="members-role-form"
+                  data-testid={TESTIDS.members.roleForm}
                   onSubmit={(event) => {
                     event.preventDefault();
                     void submit(row, "role", () => changeRole({ tenantId, subjectUserId: row.userId, role: chosen[row.userId] ?? row.role }));
@@ -148,7 +149,7 @@ export function MembersSection({
                       rides the form under the name it always did. */}
                   <Select
                     className="cx-members-select"
-                    data-testid="members-role-select"
+                    data-testid={TESTIDS.members.roleSelect}
                     name="role"
                     aria-label={fill(membersStrings.members_role_label, { member: spokenName(row) })}
                     options={offered(row).map((role) => ({ value: role, label: role }))}
@@ -160,7 +161,7 @@ export function MembersSection({
                   <Button
                     type="submit"
                     variant="secondary"
-                    data-testid="members-role-submit"
+                    data-testid={TESTIDS.members.roleSubmit}
                     aria-label={fill(membersStrings.members_role_submit_label, { member: spokenName(row) })}
                     loading={busy(row, "role")}
                   >
@@ -170,7 +171,7 @@ export function MembersSection({
 
                 <form
                   className="cx-members-form"
-                  data-testid="members-remove-form"
+                  data-testid={TESTIDS.members.removeForm}
                   onSubmit={(event) => {
                     event.preventDefault();
                     void submit(row, "removal", () => remove({ tenantId, subjectUserId: row.userId }));
@@ -180,7 +181,7 @@ export function MembersSection({
                   <Button
                     type="submit"
                     variant="danger"
-                    data-testid="members-remove-submit"
+                    data-testid={TESTIDS.members.removeSubmit}
                     aria-label={fill(membersStrings.members_remove_submit_label, { member: spokenName(row) })}
                     loading={busy(row, "removal")}
                   >
@@ -191,7 +192,7 @@ export function MembersSection({
 
               {/* I-57: one answer slot, in the row that asked, mounted only while a refusal stands. */}
               {refused !== null && refused.userId === row.userId && inFlight === null ? (
-                <div className="cx-members-answer" data-testid="members-refusal">
+                <div className="cx-members-answer" data-testid={TESTIDS.members.refusal}>
                   <RefusalState refusal={refusalOf(refused.code)} evidence={evidenceFor(tenantId, refused.code)} />
                 </div>
               ) : null}
@@ -238,11 +239,11 @@ function MemberHistory({ history }: { history: readonly MembersHistoryEntry[] })
       </span>
       {/* The record is one list per member whether or not it holds a movement — a member with none
           has an empty record, not an absent one, and the honest line stands in the list's place. */}
-      <ol className="cx-members-history" data-testid="members-role-history" aria-labelledby={labelId}>
+      <ol className="cx-members-history" data-testid={TESTIDS.members.roleHistory} aria-labelledby={labelId}>
         {history.map((entry, index) => (
           <li
             className="cx-members-history-row"
-            data-testid="members-history-entry"
+            data-testid={TESTIDS.members.historyEntry}
             data-project={entry.projectId}
             data-direction={entry.direction}
             data-role={entry.role}

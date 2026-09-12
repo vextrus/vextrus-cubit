@@ -45,6 +45,7 @@ import {
   type ReadAnswer,
 } from "./scale-actions";
 import { viewerSheetRoute } from "./route-address";
+import { TESTIDS } from "@/ui/testids";
 
 /** The act this panel commits — a machine identifier the dialog shows and never translates. */
 const AFFIRM_SCALE = "AFFIRM_SCALE";
@@ -472,13 +473,13 @@ export function ScalePanel({ scale, picks, views, onSpent }: ScalePanelProps) {
   const loading = scale.state === "loading";
   const denied = scale.state === "denied";
   const answerSlot = (
-    <div className="cx-viewer-scale-answer" data-testid="viewer-scale-answer">
+    <div className="cx-viewer-scale-answer" data-testid={TESTIDS.viewer.scaleAnswer}>
       {scale.answer}
     </div>
   );
 
   return (
-    <section className="cx-viewer-scale" data-testid="viewer-scale" data-state={scale.state} aria-labelledby="cx-viewer-scale-title" aria-busy={loading || undefined}>
+    <section className="cx-viewer-scale" data-testid={TESTIDS.viewer.scale} data-state={scale.state} aria-labelledby="cx-viewer-scale-title" aria-busy={loading || undefined}>
       <header className="cx-viewer-scale-head">
         <h2 className="cx-viewer-scale-heading" id="cx-viewer-scale-title" tabIndex={-1}>
           {SCALE_COPY.viewer_scale_heading}
@@ -502,7 +503,7 @@ export function ScalePanel({ scale, picks, views, onSpent }: ScalePanelProps) {
       ) : scale.state === "failed" ? (
         <div className="cx-viewer-scale-failed">
           <p className="cx-viewer-scale-failed-line">{SCALE_COPY.viewer_scale_failed}</p>
-          <Button variant="secondary" data-testid="viewer-scale-retry" onClick={scale.retry}>
+          <Button variant="secondary" data-testid={TESTIDS.viewer.scaleRetry} onClick={scale.retry}>
             {SCALE_COPY.viewer_scale_retry}
           </Button>
           {scale.faultId === null ? null : <p className="cx-viewer-scale-report">{fillCopy(SCALE_COPY.viewer_scale_report_id, { id: scale.faultId })}</p>}
@@ -527,7 +528,7 @@ export function ScalePanel({ scale, picks, views, onSpent }: ScalePanelProps) {
                 <Button
                   key={door.rank}
                   variant="secondary"
-                  data-testid="viewer-scale-affirm"
+                  data-testid={TESTIDS.viewer.scaleAffirm}
                   data-rank={door.rank}
                   // The door stands; what it wants is what disables it (I-169).
                   disabled={!door.ready}
@@ -553,7 +554,7 @@ function ScaleViewRow({ view, scale, denied }: { view: ViewScale; scale: ScaleRe
   return (
     <li
       className="cx-viewer-scale-view"
-      data-testid="viewer-scale-view"
+      data-testid={TESTIDS.viewer.scaleView}
       data-view-key={view.viewKey}
       data-state={affirmed === null ? (view.refusal as string) : "affirmed"}
       {...(affirmed === null
@@ -580,7 +581,7 @@ function ScaleViewRow({ view, scale, denied }: { view: ViewScale; scale: ScaleRe
               className="cx-input cx-reticle cx-viewer-scale-member"
               type="checkbox"
               id={labelId}
-              data-testid="viewer-scale-member"
+              data-testid={TESTIDS.viewer.scaleMember}
               data-view-key={view.viewKey}
               checked={scale.members.has(view.viewKey)}
               onChange={() => scale.toggleMember(view.viewKey)}
@@ -619,7 +620,7 @@ function ScaleViewRow({ view, scale, denied }: { view: ViewScale; scale: ScaleRe
           {view.proposals.map((proposal) => (
             <li
               className="cx-viewer-scale-proposal"
-              data-testid="viewer-scale-proposal"
+              data-testid={TESTIDS.viewer.scaleProposal}
               key={proposal.rank}
               data-rank={proposal.rank}
               data-factor-x={proposal.factorX}
@@ -696,21 +697,21 @@ function TwoPointTool({ scale, picks, views, onSpent }: ScalePanelProps) {
             Direction 00 §1 requires in place of the platform's own control. The distance is carried
             as a STRING throughout, so a figure a person entered never passes through a float
             (B-07), and the unit is still one of `SCALE_UNITS` and nothing else. */}
-        <NumberInput id={distanceId} data-testid="viewer-scale-distance" value={scale.distance} onChange={(entered) => scale.setDistance(entered)} />
+        <NumberInput id={distanceId} data-testid={TESTIDS.viewer.scaleDistance} value={scale.distance} onChange={(entered) => scale.setDistance(entered)} />
         <label className="cx-viewer-scale-field-label" htmlFor={unitId}>
           {SCALE_COPY.viewer_scale_unit_label}
         </label>
         <Select
           className="cx-viewer-scale-unit"
           id={unitId}
-          data-testid="viewer-scale-unit"
+          data-testid={TESTIDS.viewer.scaleUnit}
           options={SCALE_UNITS.map((spelling) => ({ value: spelling, label: spelling }))}
           value={scale.unit}
           onChange={(chosen) => scale.setUnit(chosen as ScaleUnit)}
         />
       </div>
 
-      <Button variant="secondary" data-testid="viewer-scale-observe" disabled={picks.length < 2} onClick={() => scale.observe({ picks, views, onSpent })}>
+      <Button variant="secondary" data-testid={TESTIDS.viewer.scaleObserve} disabled={picks.length < 2} onClick={() => scale.observe({ picks, views, onSpent })}>
         {SCALE_COPY.viewer_scale_observe}
       </Button>
 
@@ -726,7 +727,7 @@ function TwoPointTool({ scale, picks, views, onSpent }: ScalePanelProps) {
         {scale.observations.map((row) => (
           <li
             className="cx-viewer-scale-observation"
-            data-testid="viewer-scale-observation"
+            data-testid={TESTIDS.viewer.scaleObservation}
             key={row.id}
             data-axis={row.axis}
             data-drawn={row.drawn}

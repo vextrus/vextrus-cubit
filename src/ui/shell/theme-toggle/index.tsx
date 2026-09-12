@@ -10,6 +10,7 @@
 import { useEffect, useId, useState } from "react";
 import { cx } from "../../primitives/core/class-names";
 import { strings } from "../../strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** The three answers the control offers; `system` is "no stored answer", not a stored third one. */
 export type ThemeChoice = "system" | "light" | "dark";
@@ -115,7 +116,7 @@ export function ThemeToggle({ initial = "system" }: ThemeToggleProps) {
       <p className="cx-pref-hint" id={hintId}>
         {strings.shell_theme_hint}
       </p>
-      <div className="cx-pref-options" role="radiogroup" data-testid="theme-toggle" aria-labelledby={labelId} aria-describedby={hintId}>
+      <div className="cx-pref-options" role="radiogroup" data-testid={TESTIDS.theme.toggle} aria-labelledby={labelId} aria-describedby={hintId}>
         {CHOICES.map((choice) => {
           const option = OPTION[choice];
           const checked = choice === chosen;

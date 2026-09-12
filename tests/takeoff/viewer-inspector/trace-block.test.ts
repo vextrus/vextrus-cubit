@@ -13,6 +13,7 @@ import { cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test } from "vitest";
 import { productModule, registered, stringTable, type IndexBox } from "./support/inspector-support";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import {
   aTrace,
   all,
@@ -79,7 +80,7 @@ describe("AC-4: the Trace block, ready", () => {
     const root = await mountInspector({ selection: SELECTION, trace: aTrace({ evidence }) });
     const block = one(root, "viewer-inspector-trace");
 
-    const chips = [...block.querySelectorAll('[data-testid="basis-chip"]')] as HTMLElement[];
+    const chips = [...block.querySelectorAll(testIdSelector(TESTIDS.basis.chip))] as HTMLElement[];
     expect(chips.length, "the block shows the line's basis through the shipped BasisChip, injected (I-170, B-17)").toBe(1);
     expect(text(chips[0] as HTMLElement), "the chip carries the glyph, so the basis survives greyscale (R-UI-002)").toContain(table[evidence.quantityBasis]);
     expect(text(chips[0] as HTMLElement), "and the word beside it").toContain(evidence.quantityBasis);

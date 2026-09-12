@@ -11,6 +11,7 @@ import { useId, useRef, useState } from "react";
 import { cx } from "../../primitives/core/class-names";
 import { strings } from "../../strings";
 import type { Density } from "@/core/prefs";
+import { TESTIDS } from "@/ui/testids";
 
 /**
  * What each mode is called and found by. Total over `Density`, so a mode the seam gains and this
@@ -107,7 +108,7 @@ export function DensityToggle({ density, action }: DensityToggleProps) {
       <div
         className="cx-density-group"
         role="radiogroup"
-        data-testid="density-toggle"
+        data-testid={TESTIDS.density.toggle}
         aria-labelledby={labelId}
         aria-describedby={hintId}
         aria-busy={pending}

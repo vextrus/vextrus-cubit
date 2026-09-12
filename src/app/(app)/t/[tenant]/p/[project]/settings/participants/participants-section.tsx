@@ -22,6 +22,7 @@ import { shellHref } from "@/ui/shell";
 import { fill, strings, type StringKey } from "@/ui/strings";
 import { commitAssignRole, previewAssignRole, type CommitAnswer, type PreviewAnswer } from "./actions";
 import { participantsRoute } from "./route-address";
+import { TESTIDS } from "@/ui/testids";
 
 /** The act this screen renders, and the two ways it moves a role (L-ACT-03, AC-1). */
 const ACT_TYPE = "ASSIGN_PARTICIPANT_ROLE";
@@ -192,9 +193,9 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
         <h2 className="cx-participants-section-heading" id={headingIds.current}>
           {strings.spine_participants_current_heading}
         </h2>
-        <ul className="cx-participants-list" data-testid="participants-list">
+        <ul className="cx-participants-list" data-testid={TESTIDS.participants.list}>
           {roster.map((row) => (
-            <li className="cx-participants-row" data-testid="participants-row" data-user={row.userId} key={row.userId}>
+            <li className="cx-participants-row" data-testid={TESTIDS.participants.row} data-user={row.userId} key={row.userId}>
               <span className="cx-participants-member">{row.label}</span>
               <span className="cx-participants-roles">
                 {row.roles.map((held) => (
@@ -215,7 +216,7 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
         <p className="cx-participants-hint">{strings.spine_participants_assign_hint}</p>
         <form
           className="cx-participants-form"
-          data-testid="participants-assign-form"
+          data-testid={TESTIDS.participants.assignForm}
           ref={formRef}
           onSubmit={(event) => {
             event.preventDefault();
@@ -250,7 +251,7 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
 
           {/* The answer slot, before the submit: exactly one of the judged sentence and a settled
               refusal stands in it, and in flight neither does. */}
-          <div data-testid="participants-refusal">
+          <div data-testid={TESTIDS.participants.refusal}>
             {judged !== null && !pending ? (
               <p className="cx-participants-alert" role="alert" id={alertId}>
                 {strings.spine_participants_assign_refusal}
@@ -277,11 +278,11 @@ export function ParticipantsSection({ tenantId, projectId, roster, history, subj
           {strings.spine_participants_history_heading}
         </h2>
         <p className="cx-participants-hint">{strings.spine_participants_history_hint}</p>
-        <ol className="cx-participants-history" data-testid="participants-history">
+        <ol className="cx-participants-history" data-testid={TESTIDS.participants.history}>
           {history.map((entry, index) => (
             <li
               className="cx-participants-history-row"
-              data-testid="participants-history-row"
+              data-testid={TESTIDS.participants.historyRow}
               data-direction={entry.direction}
               data-role={entry.role}
               key={`${entry.occurredAt}-${entry.direction}-${entry.role}-${entry.subject.userId}-${index}`}

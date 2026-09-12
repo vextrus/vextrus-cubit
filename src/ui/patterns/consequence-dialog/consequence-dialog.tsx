@@ -24,6 +24,7 @@ import { RefusalState } from "../refusal-state";
 import { strings } from "../../strings";
 
 import "./consequence-dialog.css";
+import { TESTIDS } from "@/ui/testids";
 
 /** What a preview answers: the typed Consequence the server computed, and the digest that binds it. */
 export interface ConsequencePreview {
@@ -196,7 +197,7 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
           first.focus();
         }}
       >
-        <div className="cx-consequence" data-testid="consequence-dialog" data-act-type={actType} aria-busy={pending || undefined}>
+        <div className="cx-consequence" data-testid={TESTIDS.consequence.dialog} data-act-type={actType} aria-busy={pending || undefined}>
           {/* The enum value verbatim: a machine identifier, and the title is what names the dialog. */}
           <p className="cx-consequence-acttype" aria-hidden="true">
             {actType}
@@ -207,7 +208,7 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
           </p>
 
           {stale ? (
-            <div className="cx-consequence-stale" data-testid="consequence-stale-notice" role="alert">
+            <div className="cx-consequence-stale" data-testid={TESTIDS.consequence.staleNotice} role="alert">
               {strings.consequence_dialog_stale}
             </div>
           ) : null}
@@ -225,7 +226,7 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
               <ConsequenceEffects effects={shown.consequence.effects} />
               <p className="cx-consequence-digest">
                 <span className="cx-consequence-digest-label">{strings.consequence_dialog_digest_label}</span>
-                <span data-testid="consequence-digest-line">{shown.digest}</span>
+                <span data-testid={TESTIDS.consequence.digestLine}>{shown.digest}</span>
               </p>
             </>
           )}
@@ -242,7 +243,7 @@ export function ConsequenceDialog({ open, actType, preview, commit, onOpenChange
               <Button
                 variant="act"
                 loading={committing}
-                data-testid="consequence-confirm"
+                data-testid={TESTIDS.consequence.confirm}
                 data-digest={shown.digest}
                 onClick={() => {
                   void confirm(shown.digest);
@@ -304,11 +305,11 @@ function ConsequenceEffects({ effects }: { effects: Consequence["effects"] }) {
       <h3 className="cx-consequence-effects-heading">{strings.consequence_dialog_effects_heading}</h3>
       <dl className="cx-consequence-effects">
         <dt className="cx-consequence-effects-label">{strings.consequence_dialog_effects_lines}</dt>
-        <dd className="cx-consequence-effects-value" data-testid="consequence-effect-lines">
+        <dd className="cx-consequence-effects-value" data-testid={TESTIDS.consequence.effectLines}>
           <EffectList named={effects.linesRederiving} />
         </dd>
         <dt className="cx-consequence-effects-label">{strings.consequence_dialog_effects_signatures}</dt>
-        <dd className="cx-consequence-effects-value" data-testid="consequence-effect-signatures">
+        <dd className="cx-consequence-effects-value" data-testid={TESTIDS.consequence.effectSignatures}>
           <EffectList named={effects.signaturesVoiding} />
         </dd>
       </dl>
@@ -334,7 +335,7 @@ function EffectList({ named }: { named: readonly string[] }) {
  */
 function SubjectRow({ subject }: { subject: ConsequenceSubject }) {
   return (
-    <li className="cx-consequence-subject" data-testid="consequence-subject-row" data-subject={subject.subjectId}>
+    <li className="cx-consequence-subject" data-testid={TESTIDS.consequence.subjectRow} data-subject={subject.subjectId}>
       <p className="cx-consequence-subject-label">{subject.subjectLabel ?? subject.subjectId}</p>
       <div className="cx-consequence-roles">
         <div className="cx-consequence-column">

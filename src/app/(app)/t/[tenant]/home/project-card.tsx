@@ -16,6 +16,7 @@ import { Badge, Button } from "@/ui/primitives/core";
 import { shellHref, useFailureHandOff } from "@/ui/shell";
 import { fill, strings, type StringKey } from "@/ui/strings";
 import { archiveProjectAction, restoreProjectAction, type LifecycleAnswer } from "../actions";
+import { TESTIDS } from "@/ui/testids";
 
 /** I-33's labels, read here for the meta line: the enum is stored, the prose is shown. */
 const BUILDING_TYPE_LABEL: Readonly<Record<BuildingType, StringKey>> = {
@@ -57,23 +58,23 @@ export function ProjectCard({ tenantId, project, onEdit, refusal, onAnswer }: Pr
   };
 
   return (
-    <li className="cx-home-card" data-testid="s-home-project-card" data-project={project.projectId} data-archived={archived ? "true" : "false"}>
+    <li className="cx-home-card" data-testid={TESTIDS.sHome.projectCard} data-project={project.projectId} data-archived={archived ? "true" : "false"}>
       <div className="cx-home-card-name-row">
         {/* I-131 amends I-32: the project home exists now, so the name is the door to it — the one
             piece of navigation R-UI-031 asks every card for (S-Project's Decision). */}
-        <Link className="cx-home-card-name cx-reticle" data-testid="s-home-project-open" href={projectHomeRoute(tenantId, project.projectId)}>
+        <Link className="cx-home-card-name cx-reticle" data-testid={TESTIDS.sHome.projectOpen} href={projectHomeRoute(tenantId, project.projectId)}>
           {project.name}
         </Link>
         {project.code === null ? null : <span className="cx-home-card-code">{project.code}</span>}
         {/* The scan-level flag, its meaning carried by the word and never by colour alone (Q-11). */}
-        {archived ? <Badge data-testid="s-home-project-archived-badge">{strings.home_status_archived}</Badge> : null}
+        {archived ? <Badge data-testid={TESTIDS.sHome.projectArchivedBadge}>{strings.home_status_archived}</Badge> : null}
       </div>
 
       <p className="cx-home-meta">
         {/* The status hook is on the card whatever the status is. The WORD, on an archived card, is
             not stated twice: the Badge two lines up is the scan-level flag, and repeating it 25 px
             away says nothing a reader did not just read (I-35). */}
-        <span data-testid="s-home-project-status" data-status={project.status}>
+        <span data-testid={TESTIDS.sHome.projectStatus} data-status={project.status}>
           {archived ? null : strings.home_status_active}
         </span>
         {meta(project).map((term, index) => (
@@ -87,11 +88,11 @@ export function ProjectCard({ tenantId, project, onEdit, refusal, onAnswer }: Pr
 
       {/* L-REG-07 made visible: every project shows the edition it pinned, and the link is how a
           reader reaches it (R-UI-031). A frame-internal move, so it travels through the router. */}
-      <Link className="cx-home-pin cx-reticle" data-testid="s-home-project-ruleset" href={`${shellHref(tenantId, "projects")}/p/${project.projectId}/settings/ruleset`}>
+      <Link className="cx-home-pin cx-reticle" data-testid={TESTIDS.sHome.projectRuleset} href={`${shellHref(tenantId, "projects")}/p/${project.projectId}/settings/ruleset`}>
         {strings.home_project_ruleset}
       </Link>
 
-      <div className="cx-home-stats" data-testid="s-home-quick-stats">
+      <div className="cx-home-stats" data-testid={TESTIDS.sHome.quickStats}>
         {QUICK_STATS.map((stat) => (
           <span key={stat.testId} data-testid={stat.testId}>
             <span className="cx-home-stat-count">{stat.of(project)}</span> <span className="cx-home-stat-label">{strings[stat.label]}</span>
@@ -100,16 +101,16 @@ export function ProjectCard({ tenantId, project, onEdit, refusal, onAnswer }: Pr
       </div>
 
       <div className="cx-home-doors">
-        <Button variant="ghost" data-testid="project-edit" onClick={() => onEdit(project)}>
+        <Button variant="ghost" data-testid={TESTIDS.project.edit} onClick={() => onEdit(project)}>
           {strings.home_project_edit}
         </Button>
         {/* The doors stay enabled — a retry is never disarmed (§1). */}
         {archived ? (
-          <Button variant="ghost" data-testid="project-restore" loading={pending} onClick={() => move(restoreProjectAction)}>
+          <Button variant="ghost" data-testid={TESTIDS.project.restore} loading={pending} onClick={() => move(restoreProjectAction)}>
             {strings.home_project_restore}
           </Button>
         ) : (
-          <Button variant="ghost" data-testid="project-archive" loading={pending} onClick={() => move(archiveProjectAction)}>
+          <Button variant="ghost" data-testid={TESTIDS.project.archive} loading={pending} onClick={() => move(archiveProjectAction)}>
             {strings.home_project_archive}
           </Button>
         )}
@@ -130,7 +131,7 @@ function meta(project: Project): readonly { readonly key: string; readonly said:
   terms.push({
     key: "updated",
     said: (
-      <span className="cx-home-meta-date" data-testid="s-home-project-last-activity">
+      <span className="cx-home-meta-date" data-testid={TESTIDS.sHome.projectLastActivity}>
         {fill(strings.home_project_updated, { date: lastActivity(project.updatedAt) })}
       </span>
     ),

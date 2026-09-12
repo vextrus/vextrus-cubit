@@ -23,6 +23,7 @@ import { RefusalState } from "@/ui/patterns/refusal-state";
 import { shellHref } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import { ParticipantsSection, type ParticipantsMember } from "./participants-section";
+import { TESTIDS } from "@/ui/testids";
 
 export const metadata = { title: strings.spine_participants_heading };
 
@@ -72,7 +73,7 @@ function ParticipantsDenied({ tenantId }: { tenantId: string }) {
         <h1 className="cx-participants-heading">{strings.spine_participants_heading}</h1>
         <p className="cx-participants-caption">{strings.spine_participants_caption}</p>
       </header>
-      <div className="cx-participants-denied" data-testid="participants-refusal">
+      <div className="cx-participants-denied" data-testid={TESTIDS.participants.refusal}>
         <p className="cx-participants-denied-line">{strings.spine_participants_denied_permission}</p>
         <p className="cx-participants-denied-line">{strings.spine_participants_denied_holder}</p>
         <RefusalState refusal={refusalOf(code)} evidence={{ href: shellHref(tenantId, "projects"), label: strings.home_evidence_projects }} />

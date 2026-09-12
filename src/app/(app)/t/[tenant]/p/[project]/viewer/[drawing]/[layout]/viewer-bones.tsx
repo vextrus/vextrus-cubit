@@ -17,6 +17,7 @@ import { strings } from "@/ui/strings";
 import { projectHomeRoute } from "@/app/(app)/t/[tenant]/p/[project]/home/areas";
 import { FidelityFacts } from "./fidelity-facts";
 import { feedRefusalCode } from "./partition-region";
+import { TESTIDS } from "@/ui/testids";
 
 /** The rows the panel's bones stand for, before the roster says how many there really are. */
 const PANEL_ROWS = 6;
@@ -73,7 +74,7 @@ export function SheetAbsence({ head, denied, tenantId, projectId }: { head: View
   }
   if (head === null) {
     return (
-      <div className="cx-viewer-loading" data-testid="viewer-loading">
+      <div className="cx-viewer-loading" data-testid={TESTIDS.viewer.loading}>
         <span className="cx-viewer-hidden">{strings.viewer_loading_label}</span>
         <SheetBones />
       </div>
@@ -99,7 +100,7 @@ export function SheetAbsence({ head, denied, tenantId, projectId }: { head: View
         ? { heading: strings.trace_drawing_unknown_heading, body: strings.trace_drawing_unknown_body }
         : { heading: strings.viewer_empty_sheet_heading, body: strings.viewer_empty_sheet_body };
   return (
-    <div className="cx-viewer-empty" data-testid="viewer-empty" data-reason={reason}>
+    <div className="cx-viewer-empty" data-testid={TESTIDS.viewer.empty} data-reason={reason}>
       <h2 className="cx-viewer-empty-heading">{empty.heading}</h2>
       <p className="cx-viewer-empty-body">{empty.body}</p>
       <a className="cx-btn cx-reticle cx-viewer-empty-action" data-variant="secondary" href={projectEvidence.href}>

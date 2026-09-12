@@ -5,6 +5,7 @@ import "../ui/primitives/core/reticle.css";
 import { presentedSessionToken } from "../server/shell/session";
 import { workspaceFor } from "../server/shell/workspace";
 import { strings } from "../ui/strings";
+import { TESTIDS } from "@/ui/testids";
 
 // R-UI-031: the sign-in and sign-up screens are reachable by a visible control, never by a typed
 // URL alone. The nameplate carries exactly those two — the landmark owes a state for anything more.
@@ -30,7 +31,7 @@ export default async function HomePage() {
     workspace === null ? DOORS : [{ href: `/t/${workspace.tenantId}`, label: strings.shell_home_workspace_door, testId: "root-home-workspace-door" }];
   return (
     <main
-      data-testid="root-home-main"
+      data-testid={TESTIDS.root.homeMain}
       style={{
         minHeight: "100dvh",
         display: "flex",
@@ -42,10 +43,10 @@ export default async function HomePage() {
         textAlign: "center",
       }}
     >
-      <h1 data-testid="root-home-heading" style={{ fontSize: "var(--text-32)", margin: 0 }}>
+      <h1 data-testid={TESTIDS.root.homeHeading} style={{ fontSize: "var(--text-32)", margin: 0 }}>
         {strings.app_title}
       </h1>
-      <p data-testid="root-home-tagline" style={{ fontSize: "var(--text-16)", color: "var(--ink-secondary)", margin: 0 }}>
+      <p data-testid={TESTIDS.root.homeTagline} style={{ fontSize: "var(--text-16)", color: "var(--ink-secondary)", margin: 0 }}>
         {strings.home_tagline}
       </p>
       <div style={{ display: "flex", gap: "var(--space-4)", marginTop: "var(--space-3)" }}>

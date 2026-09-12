@@ -8,6 +8,7 @@ import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import type { ComponentProps } from "react";
 import { cx } from "../core/class-names";
 import type { MenuItemVariant } from "./menu-item";
+import { TESTIDS } from "@/ui/testids";
 
 export type DropdownMenuProps = ComponentProps<typeof DropdownMenuPrimitive.Root>;
 
@@ -37,7 +38,7 @@ export function DropdownMenuContent({ className, side = "bottom", sideOffset = 6
         {...rest}
         side={side}
         sideOffset={sideOffset}
-        data-testid="dropdown-content"
+        data-testid={TESTIDS.dropdown.content}
         className={cx("cx-menu", className)}
       />
     </DropdownMenuPrimitive.Portal>

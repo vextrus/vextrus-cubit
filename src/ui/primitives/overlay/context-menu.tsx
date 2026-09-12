@@ -8,6 +8,7 @@ import * as ContextMenuPrimitive from "@radix-ui/react-context-menu";
 import type { ComponentProps } from "react";
 import { cx } from "../core/class-names";
 import type { MenuItemVariant } from "./menu-item";
+import { TESTIDS } from "@/ui/testids";
 
 export type ContextMenuProps = ComponentProps<typeof ContextMenuPrimitive.Root>;
 
@@ -28,7 +29,7 @@ export function ContextMenuContent({ className, ...rest }: ContextMenuContentPro
     <ContextMenuPrimitive.Portal>
       <ContextMenuPrimitive.Content
         {...rest}
-        data-testid="contextmenu-content"
+        data-testid={TESTIDS.contextmenu.content}
         className={cx("cx-menu", className)}
       />
     </ContextMenuPrimitive.Portal>

@@ -10,6 +10,7 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { expect, test, type Browser, type Page, type TestInfo } from "@playwright/test";
+import { TESTIDS } from "../../../../src/ui/testids";
 
 /** axe runs from the copy already in the checkout; the journey adds no package (Q-11). */
 const AXE_SOURCE = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
@@ -103,7 +104,7 @@ async function assertResolverRunsBeforeFirstPaint(page: Page, checkpoint: string
     .trim();
   expect(ahead, `nothing paintable precedes the theme resolver in <body> (${checkpoint})`).toBe("");
 
-  const landmark = body.indexOf('data-testid="root-home-main"');
+  const landmark = body.indexOf(`data-testid="${TESTIDS.root.homeMain}"`);
   expect(landmark, "the landmark is in the served document").toBeGreaterThan(-1);
   expect(index, `the resolver is emitted before {children} (${checkpoint})`).toBeLessThan(landmark);
 }

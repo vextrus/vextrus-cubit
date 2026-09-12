@@ -2,6 +2,7 @@
 // offers the next action — exactly one, so there is no doubt which it is. The action is the
 // caller's, because only the screen knows what its next step is; the teaching frame is here.
 import type { ReactNode } from "react";
+import { TESTIDS } from "@/ui/testids";
 
 export interface ShellEmptyStateProps {
   heading: string;
@@ -14,10 +15,10 @@ export interface ShellEmptyStateProps {
 
 export function ShellEmptyState({ heading, body, children, answer }: ShellEmptyStateProps) {
   return (
-    <div className="cx-shell-empty" data-testid="shell-empty">
+    <div className="cx-shell-empty" data-testid={TESTIDS.shell.empty}>
       <h2 className="cx-shell-empty-heading">{heading}</h2>
       <p className="cx-shell-empty-body">{body}</p>
-      <div className="cx-shell-empty-action" data-testid="shell-empty-action">
+      <div className="cx-shell-empty-action" data-testid={TESTIDS.shell.emptyAction}>
         {children}
       </div>
       {answer}

@@ -16,6 +16,7 @@ import { SProjectPage } from "./pages/s-project.page";
 import { CLASS_COLUMN, DISCIPLINE, DUPLICATE_IDENTITY, INTERPRETED_UNCORROBORATED, LEVEL_LABEL, MARKS, stageRegister } from "./takeoff/register-stage";
 import { checkpoint } from "./support/checkpoint";
 import { steadyCount } from "./support/retrying-read";
+import { TESTIDS, testIdSelector } from "../../src/ui/testids";
 
 /** The width the frame paints all three regions of the body at (R-UI-030, lg and up). */
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -68,7 +69,7 @@ test.describe("J-021 — the register workspace", () => {
     /* --- what produced no line is shown beside them, not hidden (R-UI-050's partial cell) --- */
     await expect(takeoff.refusals, "both sightings that produced no line are counted, never quietly dropped").toHaveAttribute("data-count", "2");
     for (const code of [INTERPRETED_UNCORROBORATED, DUPLICATE_IDENTITY]) {
-      const refusal = page.locator(`[data-testid="register-refusal"][data-code="${code}"]`);
+      const refusal = page.locator(`${testIdSelector(TESTIDS.register.refusal)}[data-code="${code}"]`);
       await expect(refusal, `the sighting the campaign answered ${code} renders in place, by its own code`).toHaveCount(1);
       await expect(refusal.getByTestId("refusal-state"), "through the one shipped RefusalState, exactly once (B-17)").toHaveCount(1);
       await expect(refusal.getByTestId("refusal-evidence-link"), "carrying the link to the evidence that resolves it").toHaveAttribute(

@@ -37,6 +37,7 @@ import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { REFUSALS, type RefusalCode, type RefusalSeverity, type RefusalSurface } from "../../../src/core/errors";
 import { S_AUTH } from "../pages/s-auth.page";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** The pattern's one home (the RefusalState Decision § 1): one component file, one stylesheet. */
 const PATTERN_DIR = join("src", "ui", "patterns", "refusal-state");
@@ -223,7 +224,7 @@ test.beforeAll(async ({ browser }) => {
           // announced inside `role="alert"`, yet `innerText` omits it. `textContent` is a
           // superset of the rendered text nodes, so absence from it entails the clause with no
           // false passes — and it is the same strict reading the jsdom sibling already encodes.
-          codeChips: document.querySelectorAll('[data-testid="refusal-code"]').length,
+          codeChips: document.querySelectorAll(testIdSelector(TESTIDS.refusal.code)).length,
           pageText: document.body.innerText,
           allText: document.body.textContent ?? "",
           expectedEdge: colourOf(given.edge),

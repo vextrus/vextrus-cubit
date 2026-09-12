@@ -9,6 +9,7 @@ import { Dialog, DialogContent } from "../../primitives/overlay";
 import { strings } from "../../strings";
 import { useCommandPalette } from "./command-palette-provider";
 import { PaletteBody, paletteCell } from "./palette-body";
+import { TESTIDS } from "@/ui/testids";
 
 export function CommandPalette() {
   const palette = useCommandPalette();
@@ -67,10 +68,10 @@ export function CommandPalette() {
         }}
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
-        <div data-testid="command-palette" className="cx-palette">
+        <div data-testid={TESTIDS.command.palette} className="cx-palette">
           <Input
             ref={input}
-            data-testid="command-palette-input"
+            data-testid={TESTIDS.command.paletteInput}
             className="cx-palette-input"
             role="combobox"
             aria-expanded={listed ? "true" : "false"}

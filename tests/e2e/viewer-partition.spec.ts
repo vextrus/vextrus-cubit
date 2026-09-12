@@ -96,7 +96,7 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
 
     await expect(partition.axisRows, "one row per stored grid axis").toHaveCount(staged.axes.length);
     for (const axis of staged.axes) {
-      const row = page.locator(`[data-testid="viewer-partition-axis"][data-label="${axis.label}"][data-view-key="${axis.viewKey}"]`);
+      const row = page.locator(`${testIdSelector(TESTIDS.viewer.partitionAxis)}[data-label="${axis.label}"][data-view-key="${axis.viewKey}"]`);
       await expect(row, `the axis ${axis.label} of ${axis.viewKey} is listed`).toHaveCount(1);
       await expect(row, "in the family the grid stage read it as").toHaveAttribute("data-family", axis.family);
       await expect(row, "along the axis it runs").toHaveAttribute("data-axis", axis.axis);
@@ -104,7 +104,7 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
 
     await expect(partition.deferralRows, "one row per layout plan that georeferenced as deferred — shown, not hidden (R-UI-050)").toHaveCount(deferrals.length);
     for (const deferral of deferrals) {
-      const row = page.locator(`[data-testid="viewer-partition-grid-deferral"][data-view-key="${deferral.viewKey}"]`);
+      const row = page.locator(`${testIdSelector(TESTIDS.viewer.partitionGridDeferral)}[data-view-key="${deferral.viewKey}"]`);
       await expect(row, `the deferral of ${deferral.viewKey} stands`).toHaveCount(1);
       await expect(row, "naming the closed reason the store holds").toHaveAttribute("data-reason", deferral.reason);
     }

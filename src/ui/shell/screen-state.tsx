@@ -1,7 +1,8 @@
 "use client";
 /**
  * What the screen root publishes about itself, and what makes the whole journey suite deterministic:
- * `settled()` waits for `[data-testid="shell-main"]` to carry a `data-state` that is not `loading`,
+ * `settled()` waits for the shell-main node (TESTIDS.shell.main) to carry a `data-state` that is
+ * not `loading`,
  * so a capture is never taken of a frame mid-flight (V-E2E, AM-09 §4).
  *
  * The five values are R-UI-050's own states as a screen root can report them: `loading` while the

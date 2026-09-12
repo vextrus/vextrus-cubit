@@ -8,6 +8,7 @@ import { RefusalState } from "../patterns/refusal-state";
 // type is read from the module that declares it rather than spelled a second time here (B-17).
 import type { RefusalEvidence } from "../patterns/refusal-state/refusal-state";
 import { strings } from "../strings";
+import { TESTIDS } from "@/ui/testids";
 
 export interface ShellDeniedProps {
   refusal: RefusalEntry;
@@ -17,12 +18,12 @@ export interface ShellDeniedProps {
 
 export function ShellDenied({ refusal, evidence }: ShellDeniedProps) {
   return (
-    <main className="cx-shell-denied" data-testid="shell-permission-denied">
+    <main className="cx-shell-denied" data-testid={TESTIDS.shell.permissionDenied}>
       <h1 className="cx-shell-denied-heading">{strings.shell_denied_heading}</h1>
-      <p className="cx-shell-denied-line" data-testid="shell-denied-permission">
+      <p className="cx-shell-denied-line" data-testid={TESTIDS.shell.deniedPermission}>
         {strings.shell_denied_permission}
       </p>
-      <p className="cx-shell-denied-line" data-testid="shell-denied-holder">
+      <p className="cx-shell-denied-line" data-testid={TESTIDS.shell.deniedHolder}>
         {strings.shell_denied_holder}
       </p>
       <RefusalState refusal={refusal} evidence={evidence} />

@@ -16,6 +16,7 @@ import { render } from "@testing-library/react";
 import { createElement, type FunctionComponent } from "react";
 import { expect } from "vitest";
 import { REPO_ROOT, productModule } from "../../../server/support/wire";
+import { TESTIDS, testIdSelector } from "../../../../src/ui/testids";
 
 /** The pattern's barrel — the one home of `EvidenceLink` (interfaces, Decision §0). */
 export const EVIDENCE_LINK_MODULE = "src/ui/patterns/evidence-link/index.ts";
@@ -90,7 +91,7 @@ export async function mountLink(props: Record<string, unknown>, theme: string | 
   if (theme !== null) host.setAttribute("data-theme", theme);
   document.body.append(host);
   const { container } = render(createElement(component as unknown as FunctionComponent<typeof props>, props), { container: host });
-  const anchor = container.querySelector('[data-testid="evidence-link"]');
+  const anchor = container.querySelector(testIdSelector(TESTIDS.evidence.link));
   expect(anchor, "EvidenceLink renders its anchor `evidence-link` (test contract)").not.toBeNull();
   return anchor as HTMLElement;
 }

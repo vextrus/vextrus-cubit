@@ -9,6 +9,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import type { ComponentProps, ReactNode } from "react";
 import { cx } from "../core/class-names";
+import { TESTIDS } from "@/ui/testids";
 
 export type DialogProps = ComponentProps<typeof DialogPrimitive.Root>;
 
@@ -58,7 +59,7 @@ export function DialogContent({
         // A modal says so: Radix traps focus and hides the rest of the page, and the modality has
         // to reach assistive technology too (R-UI-012).
         aria-modal="true"
-        data-testid="dialog-content"
+        data-testid={TESTIDS.dialog.content}
         className={cx("cx-dialog", className)}
       >
         {children}

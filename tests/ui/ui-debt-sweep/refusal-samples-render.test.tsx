@@ -12,6 +12,7 @@ import { cleanup, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, test } from "vitest";
 import { productModule } from "./support/sources";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 const REFUSAL_ENTRY_KEY = "patterns/refusal-state/RefusalState";
 const DENIED_ENTRY_KEY = "shell/ShellDenied";
@@ -38,7 +39,7 @@ const samples = (): Promise<SampleRefusals> =>
 /** The one refusal cell a sample renders, and the attributes it publishes. */
 function refusalCellOf(state: GalleryState): HTMLElement {
   const { container } = render(<>{state.render()}</>);
-  const cells = container.querySelectorAll<HTMLElement>('[data-testid="refusal-state"]');
+  const cells = container.querySelectorAll<HTMLElement>(testIdSelector(TESTIDS.refusal.state));
   expect(cells.length, `the ${state.name} sample renders exactly one refusal`).toBe(1);
   return cells[0] as HTMLElement;
 }

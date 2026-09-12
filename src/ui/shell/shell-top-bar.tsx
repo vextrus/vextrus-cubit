@@ -15,6 +15,7 @@ import { CommandPaletteTrigger } from "./command-palette-trigger";
 import { useFailureHandOff } from "./failure-hand-off";
 import { JobsTray } from "./jobs-tray";
 import { shellCrumbs, type ShellArea, type ShellProject, type ShellWorkspace } from "./routes";
+import { TESTIDS } from "@/ui/testids";
 
 export interface ShellTopBarProps {
   workspace: ShellWorkspace;
@@ -61,10 +62,10 @@ export function ShellTopBar({ workspace, project, projects, area, atAreaHome, pa
   };
 
   return (
-    <header className="cx-shell-topbar" data-testid="shell-topbar">
+    <header className="cx-shell-topbar" data-testid={TESTIDS.shell.topbar}>
       {/* The id the frame has always published for the trail, kept byte-identical; the `<nav>`, its
           label and the crumbs' own markup are the primitive's, which is where they belong (B-17). */}
-      <div className="cx-shell-breadcrumb" data-testid="shell-breadcrumb">
+      <div className="cx-shell-breadcrumb" data-testid={TESTIDS.shell.breadcrumb}>
         <Breadcrumb crumbs={shellCrumbs({ workspace, project, projects, area, atAreaHome, page })} className="cx-shell-crumbs" />
       </div>
 
@@ -82,7 +83,7 @@ export function ShellTopBar({ workspace, project, projects, area, atAreaHome, pa
             reports as a serious `aria-hidden-focus` — and Q-11 admits none at a checkpoint. */}
         <DropdownMenu modal={false}>
           {/* The visible address is the accessible name: a person reads the account they are in. */}
-          <DropdownMenuTrigger className="cx-shell-user-trigger" data-testid="shell-user" data-user-id={userId ?? undefined}>
+          <DropdownMenuTrigger className="cx-shell-user-trigger" data-testid={TESTIDS.shell.user} data-user-id={userId ?? undefined}>
             {email ?? strings.shell_user_account}
           </DropdownMenuTrigger>
           {/* Portalled where the shipped DropdownMenu portals every menu in the tree, and styled by
@@ -92,12 +93,12 @@ export function ShellTopBar({ workspace, project, projects, area, atAreaHome, pa
           <DropdownMenuContent align="end">
             {/* Both items are peers of one menu, so both wear the menu's idiom: an item that happens
                 to be a link may not arrive underlined beside one that is not. */}
-            <DropdownMenuItem asChild data-testid="shell-user-sessions">
+            <DropdownMenuItem asChild data-testid={TESTIDS.shell.userSessions}>
               <a className="cx-shell-menu-item" href="/sessions">
                 {strings.shell_user_sessions}
               </a>
             </DropdownMenuItem>
-            <DropdownMenuItem data-testid="shell-user-signout" data-pending={signingOut ? "true" : undefined} onSelect={askToSignOut}>
+            <DropdownMenuItem data-testid={TESTIDS.shell.userSignout} data-pending={signingOut ? "true" : undefined} onSelect={askToSignOut}>
               {strings.shell_user_signout}
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -13,6 +13,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { STakeoffPage } from "../pages/s-takeoff.page";
 import { checkpoint } from "../support/checkpoint";
+import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** The width the frame paints the grid and the inspector side by side at (R-UI-030, lg and up). */
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -80,10 +81,10 @@ test.describe("J-022 — the coverage grid", () => {
     await expect(coverage.grid, "the residue reads as a grid").toBeVisible();
 
     /* --- the cell the campaign did not measure, beside the one it did (AC-8) --- */
-    const measured = page.locator(`[data-testid="coverage-cell"][data-kind="${KIND}"][data-class="${CLASS}"][data-measurement="${QUANTITY_BEARING}"]`);
+    const measured = page.locator(`${testIdSelector(TESTIDS.coverage.cell)}[data-kind="${KIND}"][data-class="${CLASS}"][data-measurement="${QUANTITY_BEARING}"]`);
     await expect(measured, `the ground floor bears published quantity for ${KIND}`).toHaveCount(1);
 
-    const unmeasured = page.locator(`[data-testid="coverage-cell"][data-kind="${KIND}"][data-class="${CLASS}"][data-measurement="${NOT_ESTABLISHED}"]`);
+    const unmeasured = page.locator(`${testIdSelector(TESTIDS.coverage.cell)}[data-kind="${KIND}"][data-class="${CLASS}"][data-measurement="${NOT_ESTABLISHED}"]`);
     await expect(unmeasured, `${stage.UNMEASURED_LEVEL} was sighted and never measured, so exactly one cell stands unestablished for ${KIND} on ${CLASS}`).toHaveCount(1);
     await expect(unmeasured, "and it names the level it stands on").toHaveAttribute("data-level", /.+/);
     await expect(unmeasured.getByTestId("coverage-cell-glyph"), "carrying the mark its cause is read by — colour never alone (R-UI-060)").toHaveAttribute(
@@ -97,7 +98,7 @@ test.describe("J-022 — the coverage grid", () => {
     await expect(coverage.inspectorCause, "which states the cause the cell is read under").toHaveAttribute("data-code", NOT_ESTABLISHED);
     await expect(coverage.inspectorRemedy, "and the remedy that resolves it — every cause a remedy (X-3)").not.toBeEmpty();
     await expect(
-      page.locator(`[data-testid="coverage-inspector-sighting"][data-channel="${REGISTER}"]`),
+      page.locator(`${testIdSelector(TESTIDS.coverage.inspectorSighting)}[data-channel="${REGISTER}"]`),
       "the register's own sighting of this class on this level is shown as the evidence the cell stands on",
     ).toHaveCount(1);
     await expect(page.getByTestId("coverage-legend"), "and the legend beneath names every mark the grid draws").toBeVisible();
@@ -118,7 +119,7 @@ test.describe("J-022 — the coverage grid", () => {
     await expect(coverage.inspectorCause, "the inspector reads the cause the person gave it").toHaveAttribute("data-code", NOT_IN_THIS_BILL);
     await expect(coverage.inspectorCause, "naming the act that declared it — a declaration without its act is a flag").toHaveAttribute("data-act", /.+/);
     await expect(
-      page.locator(`[data-testid="coverage-inspector-sighting"][data-channel="${DECLARATION}"]`),
+      page.locator(`${testIdSelector(TESTIDS.coverage.inspectorSighting)}[data-channel="${DECLARATION}"]`),
       "and the declaration stands among the evidence, beside what the channels sighted",
     ).toHaveCount(1);
     await expect(coverage.holdOut, "both doors still stand — nothing was withdrawn").toBeVisible();

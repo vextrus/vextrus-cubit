@@ -21,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../../primitives/overla
 import { RefusalState } from "../../patterns/refusal-state";
 import { kindWord, statusWord, useJobs, type TrackedJobReading } from "../../patterns/job-timeline";
 import { strings } from "../../strings";
+import { TESTIDS } from "@/ui/testids";
 
 export function JobsTray() {
   const countId = useId();
@@ -37,7 +38,7 @@ export function JobsTray() {
           home (R-UI-012). The words themselves reach a reader when the panel opens. */}
       <PopoverTrigger
         className="cx-jobs-tray-trigger"
-        data-testid="shell-jobs-tray"
+        data-testid={TESTIDS.shell.jobsTray}
         aria-haspopup="dialog"
         aria-label={strings.jobs_tray_label}
         aria-describedby={countId}
@@ -53,10 +54,10 @@ export function JobsTray() {
           marks the rest of the frame `aria-hidden` while its links stay focusable, the serious
           `aria-hidden-focus` finding the bar's menus already refuse (I-118). */}
       <PopoverContent align="end">
-        <div className="cx-jobs-tray-body" data-testid="shell-jobs-tray-panel">
+        <div className="cx-jobs-tray-body" data-testid={TESTIDS.shell.jobsTrayPanel}>
           <h2 className="cx-jobs-tray-heading">{strings.jobs_tray_heading}</h2>
           {jobs.length === 0 ? (
-            <p className="cx-jobs-tray-empty" data-testid="shell-jobs-tray-empty">
+            <p className="cx-jobs-tray-empty" data-testid={TESTIDS.shell.jobsTrayEmpty}>
               {strings.jobs_tray_empty}
             </p>
           ) : (
@@ -76,7 +77,7 @@ function TrayItem({ job }: { job: TrackedJobReading }) {
   return (
     <li
       className="cx-jobs-tray-item"
-      data-testid="shell-jobs-tray-item"
+      data-testid={TESTIDS.shell.jobsTrayItem}
       // A job with no id carries no attribute: a machine hook never spells an empty identity (I-112).
       data-job={job.jobId ?? undefined}
       data-kind={job.kind}
@@ -89,7 +90,7 @@ function TrayItem({ job }: { job: TrackedJobReading }) {
         {/* The elapsed cell stands in every state, holding the bone while no number exists rather
             than standing in its place: it is the cell a baseline masks, and a mask that matches
             nothing bakes real elapsed time into the picture instead of failing. */}
-        <span className="cx-jobs-tray-item-timing" data-testid="shell-jobs-tray-item-timing">
+        <span className="cx-jobs-tray-item-timing" data-testid={TESTIDS.shell.jobsTrayItemTiming}>
           {job.status === "running" && job.timing === null ? <Skeleton className="cx-jobs-tray-item-bone" /> : job.timing}
         </span>
       </span>

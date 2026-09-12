@@ -8,6 +8,7 @@
  */
 import type { ComponentPropsWithRef, MouseEvent } from "react";
 import { cx } from "./class-names";
+import { TESTIDS } from "@/ui/testids";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "act";
 
@@ -44,7 +45,7 @@ export function Button({
       aria-disabled={loading || undefined}
       onClick={handleClick}
     >
-      {variant === "act" ? <span className="cx-act-dot" data-testid="act-dot" aria-hidden="true" /> : null}
+      {variant === "act" ? <span className="cx-act-dot" data-testid={TESTIDS.act.dot} aria-hidden="true" /> : null}
       <span className="cx-btn-label">{children}</span>
     </button>
   );

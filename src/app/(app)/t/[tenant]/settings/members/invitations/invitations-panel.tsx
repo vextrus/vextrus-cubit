@@ -20,6 +20,7 @@ import { inviteMemberAction, resendInvitationAction, revokeInvitationAction, typ
 import { invitationsStrings } from "./strings";
 import { membersRoute } from "../route-address";
 import { membersStrings } from "../strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** One standing offer, as the page composed it from the module's answer. */
 export interface InvitationsRow {
@@ -105,7 +106,7 @@ export function InvitationsPanel({
 
       <form
         className="cx-invitations-form"
-        data-testid="members-invite-form"
+        data-testid={TESTIDS.members.inviteForm}
         aria-labelledby={ids.heading}
         onSubmit={(event) => {
           event.preventDefault();
@@ -121,7 +122,7 @@ export function InvitationsPanel({
         <div className="cx-invitations-field">
           <Input
             className="cx-invitations-email"
-            data-testid="invitations-email"
+            data-testid={TESTIDS.invitations.email}
             id={ids.email}
             aria-describedby={ids.emailHint}
             type="email"
@@ -132,20 +133,20 @@ export function InvitationsPanel({
           {/* No loading state on any control here: core's Button swallows its own activation while
               it is loading, and a submission swallowed on this side is an attempt the server's
               allowance never counts (R-SPINE-006). The status line below says a move is in flight. */}
-          <Button type="submit" variant="primary" data-testid="invitations-submit">
+          <Button type="submit" variant="primary" data-testid={TESTIDS.invitations.submit}>
             {invitationsStrings.invitations_submit}
           </Button>
         </div>
       </form>
 
-      <section className="cx-invitations-pending" aria-labelledby={ids.pending} data-testid="members-pending-invitations">
+      <section className="cx-invitations-pending" aria-labelledby={ids.pending} data-testid={TESTIDS.members.pendingInvitations}>
         <h3 className="cx-invitations-pending-heading" id={ids.pending}>
           {invitationsStrings.invitations_pending_heading}
         </h3>
 
         <ul className="cx-invitations-list">
           {rows.map((row) => (
-            <li className="cx-invitations-row" data-testid="invitations-row" data-invitation={row.invitationId} key={row.invitationId}>
+            <li className="cx-invitations-row" data-testid={TESTIDS.invitations.row} data-invitation={row.invitationId} key={row.invitationId}>
               <p className="cx-invitations-identity">
                 <span className="cx-invitations-invitee">{row.label}</span>
                 {/* I-55: the store's own word, verbatim and mono — never title-cased into prose. */}
@@ -155,7 +156,7 @@ export function InvitationsPanel({
                 <Button
                   type="button"
                   variant="secondary"
-                  data-testid="invitations-resend"
+                  data-testid={TESTIDS.invitations.resend}
                   aria-label={fill(invitationsStrings.invitations_resend_label, { invitee: row.label })}
                   onClick={() => submit("resend", () => resend({ tenantId, invitationId: row.invitationId }))}
                 >
@@ -164,7 +165,7 @@ export function InvitationsPanel({
                 <Button
                   type="button"
                   variant="danger"
-                  data-testid="invitations-revoke"
+                  data-testid={TESTIDS.invitations.revoke}
                   aria-label={fill(invitationsStrings.invitations_revoke_label, { invitee: row.label })}
                   onClick={() => submit("revoke", () => revoke({ tenantId, invitationId: row.invitationId }))}
                 >
@@ -178,7 +179,7 @@ export function InvitationsPanel({
         {/* R-UI-020: a workspace nobody has invited anyone to says so, rather than showing an empty
             box where a list would be. */}
         {rows.length === 0 ? (
-          <p className="cx-invitations-none" data-testid="invitations-none">
+          <p className="cx-invitations-none" data-testid={TESTIDS.invitations.none}>
             {invitationsStrings.invitations_none}
           </p>
         ) : null}
@@ -187,7 +188,7 @@ export function InvitationsPanel({
       {/* I-57: one answer slot for the panel, mounted only while a refusal stands. The controls above
           stay armed — a retry is never disarmed (R-SPINE-006). */}
       {refused !== null ? (
-        <div className="cx-invitations-answer" data-testid="invitations-refusal">
+        <div className="cx-invitations-answer" data-testid={TESTIDS.invitations.refusal}>
           <RefusalState
             refusal={refusalOf(refused.code)}
             evidence={{ href: membersRoute(tenantId), label: membersStrings.members_evidence_roster }}

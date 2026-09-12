@@ -17,6 +17,7 @@ import { useId } from "react";
 import type { LevelStackGroupKey, OfferedGroupKey, ViewGroupKey } from "@/core/acts";
 import { Button } from "../../primitives/core";
 import { strings } from "../../strings";
+import { TESTIDS } from "@/ui/testids";
 
 /**
  * Every typed grouping key the seam offers a group on. L-ACT-02 makes the KIND a closed enum and the
@@ -50,7 +51,7 @@ export function OfferedGroups<K extends OfferedKey>({ groups, onConfirm }: Offer
   return (
     // `data-count` reflects the offer's size, so a journey waits on a group's disappearance rather
     // than on a count of nodes. The heading belongs to the consuming screen's hierarchy (I-82).
-    <section className="cx-offered" data-testid="offered-groups" data-count={groups.length}>
+    <section className="cx-offered" data-testid={TESTIDS.offered.groups} data-count={groups.length}>
       {groups.length === 0 ? (
         <p className="cx-offered-empty">{strings.offered_group_empty}</p>
       ) : (
@@ -72,7 +73,7 @@ function OfferedGroupRow<K extends OfferedKey>({ group, onConfirm, region, at }:
   return (
     <li
       className="cx-offered-group"
-      data-testid="offered-group"
+      data-testid={TESTIDS.offered.group}
       data-kind={key.kind}
       // Each attribute is derived from the key's OWN fields, asked for by presence: a kind joining
       // the union states the facts it judges on and the rest stay absent, rather than the pattern
@@ -87,7 +88,7 @@ function OfferedGroupRow<K extends OfferedKey>({ group, onConfirm, region, at }:
       </p>
       {/* I-80: the count is the only thing that moves while the row stands, so it is the live region
           — a polite region over the whole row would re-announce the sentence with every change. */}
-      <span className="cx-offered-count" data-testid="offered-group-count" aria-live="polite">
+      <span className="cx-offered-count" data-testid={TESTIDS.offered.groupCount} aria-live="polite">
         {group.count}
       </span>
       {/* I-81: secondary, never the act variant — this door opens the consumer's dialog, and the act
@@ -96,7 +97,7 @@ function OfferedGroupRow<K extends OfferedKey>({ group, onConfirm, region, at }:
         variant="secondary"
         id={buttonId}
         aria-labelledby={`${buttonId} ${labelId}`}
-        data-testid="offered-group-confirm"
+        data-testid={TESTIDS.offered.groupConfirm}
         onClick={() => onConfirm(key)}
       >
         {strings.offered_group_confirm}

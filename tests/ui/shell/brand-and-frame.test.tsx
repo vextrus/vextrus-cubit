@@ -7,7 +7,7 @@
  * What is NOT here, deliberately: the painted frame. "shell-root contains shell-rail…", the 3 px
  * inset beam bar and the beam-100 row fill are claims about layout and paint, and jsdom lays
  * nothing out and resolves no `var()`. Those are graded in a browser, against a signed-in member's
- * real workspace: containment is asserted region by region inside `[data-testid="shell-root"]`, and
+ * real workspace: containment is asserted region by region inside TESTIDS.shell.root, and
  * the selection's paint is resolved through an in-page token probe and compared with an unselected
  * row. Asserting them here against a hand-built mount would be a second, weaker idea of the same
  * guarantee (ARCH-02).

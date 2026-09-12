@@ -10,6 +10,7 @@
 import { formatUserFigure } from "@/core/format";
 import type { AuditPanel } from "@/modules/spine/audit";
 import { auditStrings } from "./strings";
+import { TESTIDS } from "@/ui/testids";
 
 interface PanelBodyProps {
   readonly heading: string;
@@ -46,7 +47,7 @@ function armed(panel: AuditPanel): "true" | "false" {
 export function AuditPanels({ jobs, modelLedger }: { modelLedger: AuditPanel; jobs: AuditPanel }) {
   return (
     <div className="cx-audit-panels">
-      <section aria-labelledby="audit-panel-model-ledger-heading" className="cx-audit-panel" data-armed={armed(modelLedger)} data-testid="audit-panel-model-ledger">
+      <section aria-labelledby="audit-panel-model-ledger-heading" className="cx-audit-panel" data-armed={armed(modelLedger)} data-testid={TESTIDS.audit.panelModelLedger}>
         <PanelBody
           countCaption={auditStrings.audit_ledger_count_caption}
           disarmed={auditStrings.audit_ledger_disarmed}
@@ -55,7 +56,7 @@ export function AuditPanels({ jobs, modelLedger }: { modelLedger: AuditPanel; jo
           panel={modelLedger}
         />
       </section>
-      <section aria-labelledby="audit-panel-jobs-heading" className="cx-audit-panel" data-armed={armed(jobs)} data-testid="audit-panel-jobs">
+      <section aria-labelledby="audit-panel-jobs-heading" className="cx-audit-panel" data-armed={armed(jobs)} data-testid={TESTIDS.audit.panelJobs}>
         <PanelBody
           countCaption={auditStrings.audit_jobs_count_caption}
           disarmed={auditStrings.audit_jobs_disarmed}

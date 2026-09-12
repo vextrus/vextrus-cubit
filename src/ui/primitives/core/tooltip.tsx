@@ -10,6 +10,7 @@
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { cx } from "./class-names";
+import { TESTIDS } from "@/ui/testids";
 
 const RETICLE = "cx-reticle";
 
@@ -39,7 +40,7 @@ export function Tooltip({ content, children }: TooltipProps) {
             `overflow: hidden` and out-ranked by the first that opens a stacking context, so its
             z-index is inert exactly where a table cell, sheet or scroll area needs it. */}
         <TooltipPrimitive.Portal>
-          <TooltipPrimitive.Content className="cx-tooltip" data-testid="tooltip-content" side="top" sideOffset={6}>
+          <TooltipPrimitive.Content className="cx-tooltip" data-testid={TESTIDS.tooltip.content} side="top" sideOffset={6}>
             {content}
           </TooltipPrimitive.Content>
         </TooltipPrimitive.Portal>

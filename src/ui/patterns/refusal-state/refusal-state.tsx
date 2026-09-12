@@ -19,6 +19,7 @@
  * string comes from the registry entry or from the caller's evidence.
  */
 import type { RefusalEntry } from "@/core/errors";
+import { TESTIDS } from "@/ui/testids";
 
 /** Where the refusal is resolved: a place, named in the button voice — verb first (Decision § 3). */
 export type RefusalEvidence = {
@@ -39,19 +40,19 @@ export function RefusalState({ refusal, evidence }: RefusalStateProps) {
     <div
       className="cx-refusal"
       role="alert"
-      data-testid="refusal-state"
+      data-testid={TESTIDS.refusal.state}
       data-code={refusal.code}
       data-severity={refusal.severity}
       data-surface={refusal.surface}
     >
-      <p className="cx-refusal-message" data-testid="refusal-message">
+      <p className="cx-refusal-message" data-testid={TESTIDS.refusal.message}>
         {refusal.message}
       </p>
-      <p className="cx-refusal-remedy" data-testid="refusal-remedy">
+      <p className="cx-refusal-remedy" data-testid={TESTIDS.refusal.remedy}>
         {refusal.remedy}
       </p>
       {/* Evidence is a place, so the affordance is an anchor — never a button (R-UI-022). */}
-      <a className="cx-refusal-link cx-reticle" data-testid="refusal-evidence-link" href={evidence.href}>
+      <a className="cx-refusal-link cx-reticle" data-testid={TESTIDS.refusal.evidenceLink} href={evidence.href}>
         {evidence.label}
       </a>
     </div>

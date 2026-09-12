@@ -15,6 +15,7 @@ import { Button } from "@/ui/primitives/core";
 import { strings } from "@/ui/strings";
 import { acceptInvitationAction, type AcceptAnswer } from "./actions";
 import { acceptInvitationStrings } from "./strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** What the screen is asking the invitee to decide about, as the page read it off the token. */
 export interface AcceptInvitationOffer {
@@ -35,7 +36,7 @@ export interface AcceptInvitationFormProps {
  */
 export function AcceptInvitationRefusal({ refusal }: { refusal: RefusalEntry }) {
   return (
-    <div className="cx-accept-answer" data-testid="accept-invitation-refusal">
+    <div className="cx-accept-answer" data-testid={TESTIDS.accept.invitationRefusal}>
       <RefusalState refusal={refusal} evidence={{ href: "/", label: acceptInvitationStrings.accept_evidence_workspaces }} />
     </div>
   );
@@ -93,7 +94,7 @@ export function AcceptInvitationForm({ token, offer, accept = acceptInvitationAc
 
       <form
         className="cx-accept-form"
-        data-testid="accept-invitation-form"
+        data-testid={TESTIDS.accept.invitationForm}
         onSubmit={(event) => {
           event.preventDefault();
           void submit();
@@ -102,14 +103,14 @@ export function AcceptInvitationForm({ token, offer, accept = acceptInvitationAc
         <dl className="cx-accept-facts">
           <dt className="cx-accept-term">{acceptInvitationStrings.accept_workspace_label}</dt>
           {/* I-55: the workspace's own name, verbatim as data — never woven into a sentence. */}
-          <dd className="cx-accept-value" data-testid="accept-invitation-workspace">
+          <dd className="cx-accept-value" data-testid={TESTIDS.accept.invitationWorkspace}>
             {offer.workspaceName}
           </dd>
           <dt className="cx-accept-term">{acceptInvitationStrings.accept_role_label}</dt>
           <dd className="cx-accept-value cx-accept-role">{offer.workspaceRole}</dd>
         </dl>
 
-        <Button type="submit" variant="primary" data-testid="accept-invitation-submit" loading={inFlight}>
+        <Button type="submit" variant="primary" data-testid={TESTIDS.accept.invitationSubmit} loading={inFlight}>
           {acceptInvitationStrings.accept_submit}
         </Button>
       </form>

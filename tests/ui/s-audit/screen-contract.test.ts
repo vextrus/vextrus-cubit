@@ -17,7 +17,7 @@
  * The expected copy is derived from the committed Decision, never transcribed here — see
  * ./support/decision.ts.
  */
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
 import { describe, expect, test } from "vitest";
 import { DESIGN_DECISION, EXPLORER_MODULE, PAGE_MODULE, REPO_ROOT, ROUTE_DIR, STATES_MODULE, STRINGS_MODULE, TESTID, decisionCopy, productModule, sourceOf, stringsTable } from "./support/decision";
@@ -60,6 +60,17 @@ function code(source: string): string {
 }
 
 /* ------------------------------------------------------------------------------------ the cases */
+
+/** The id a `TESTIDS.<group>.<key>` reference declares, read from the registry (AM-09 §1). */
+function idOfKey(key: string): string | null {
+  const parts = key.split(".");
+  if (parts.length !== 3) return null;
+  const registry = readFileSync(join(REPO_ROOT, "src", "ui", "testids.ts"), "utf8");
+  const group = new RegExp(`^  ${parts[1]}: \\{$([\\s\\S]*?)^  \\},$`, "m").exec(registry);
+  if (group === null) return null;
+  const entry = new RegExp(`^    ${parts[2]}: "([^"]+)",$`, "m").exec(group[1] ?? "");
+  return entry === null ? null : (entry[1] ?? null);
+}
 
 describe("AC-1 — S-Audit stands at its address, with the files its Design Decision rules", () => {
   test("AC-1: the route directory holds the page, the explorer, its strings and its states", () => {
@@ -104,7 +115,14 @@ describe("AC-1 — S-Audit stands at its address, with the files its Design Deci
     const contract = new Set<string>(Object.values(TESTID));
     const used = new Set<string>();
     for (const relative of routeFiles().filter((file) => /\.tsx?$/.test(file))) {
+      // Since AM-09 §1 the id is read from the registry, so the screen spells the KEY
+      // (`data-testid={TESTIDS.audit.acts}`) and not the string. Both spellings are read here: the
+      // literal, and the registry key resolved back to the id it declares.
       for (const match of code(sourceOf(relative)).matchAll(/data-testid\s*=\s*["'{]?\s*["']?(audit-[a-z0-9-]+)/g)) used.add(match[1] ?? "");
+      for (const match of code(sourceOf(relative)).matchAll(/data-testid\s*=\s*\{\s*(TESTIDS\.[A-Za-z0-9_.]+)\s*\}/g)) {
+        const id = idOfKey(match[1] ?? "");
+        if (id !== null) used.add(id);
+      }
     }
     for (const id of contract) {
       expect(used.has(id), `[data-testid="${id}"] is in the increment's closed test-hook contract and appears nowhere in ${ROUTE_DIR}`).toBe(true);

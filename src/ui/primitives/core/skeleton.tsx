@@ -6,9 +6,10 @@
  */
 import type { ComponentPropsWithRef } from "react";
 import { cx } from "./class-names";
+import { TESTIDS } from "@/ui/testids";
 
 export type SkeletonProps = ComponentPropsWithRef<"div">;
 
 export function Skeleton({ className, ...rest }: SkeletonProps) {
-  return <div {...rest} className={cx("cx-skeleton", className)} data-testid="skeleton" aria-hidden="true" />;
+  return <div {...rest} className={cx("cx-skeleton", className)} data-testid={TESTIDS.skeleton.root} aria-hidden="true" />;
 }

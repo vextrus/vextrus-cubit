@@ -7,6 +7,7 @@
 // eighth cell that pushes the line into a second row. A screen with no value for a cell says so with
 // the em dash the Direction names — a blank cell reads as a broken line, not as an absence.
 import { strings } from "../strings";
+import { TESTIDS } from "@/ui/testids";
 
 /** The seven cells §3.1 names, in the order it names them. */
 export const STATUS_CELLS = ["sheet", "scale", "coords", "snap", "selection", "layers", "jobs"] as const;
@@ -40,10 +41,10 @@ export interface StatusBarProps {
 
 export function StatusBar({ cells, jobs = "idle" }: StatusBarProps) {
   return (
-    <div className="cx-shell-status" data-testid="shell-status" role="status" aria-label={strings.shell_status_label}>
+    <div className="cx-shell-status" data-testid={TESTIDS.shell.status} role="status" aria-label={strings.shell_status_label}>
       {STATUS_CELLS.map((id) =>
         id === "jobs" ? (
-          <span className="cx-shell-status-cell cx-shell-status-jobs" data-cell={id} data-testid="shell-status-jobs" key={id}>
+          <span className="cx-shell-status-cell cx-shell-status-jobs" data-cell={id} data-testid={TESTIDS.shell.statusJobs} key={id}>
             <span className="cx-shell-status-cell-label">{CELL_LABEL[id]}</span>
             {/* Meaning never rides on colour alone (R-UI-060): the dot carries the state as data, and
                 the state's own word is the cell's accessible text beside it. */}

@@ -18,6 +18,7 @@ import { shellHref } from "@/ui/shell";
 import { strings, type StringKey } from "@/ui/strings";
 import { saveProjectAction, type ProjectFormState } from "../actions";
 import { isPlainDecimal, judgeProject, presentedProject, type ProjectJudgement } from "./judgement";
+import { TESTIDS } from "@/ui/testids";
 
 /** The unit the readout is stated in — a source key, carried verbatim by the shipped badge. */
 const SFT = "sft";
@@ -111,7 +112,7 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
       <form
         ref={formRef}
         className="cx-home-form"
-        data-testid="project-form"
+        data-testid={TESTIDS.project.form}
         action={(data: FormData) => {
           // I-34: the form judges before the seam is called, so a blank name or an unchosen type is
           // answered here and nothing is sent. The taxonomy stays closed (R-SPINE-062).
@@ -137,7 +138,7 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
             about the choice, so it is stated on the thing that holds the five. */}
         <fieldset
           className="cx-home-types"
-          data-testid="project-building-type"
+          data-testid={TESTIDS.project.buildingType}
           aria-invalid={typeUnanswered ? true : undefined}
           aria-describedby={typeUnanswered ? alertId : undefined}
         >
@@ -184,7 +185,7 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
           <Input
             id={`${sftId}-gfa`}
             name="gfaM2"
-            data-testid="project-gfa-m2"
+            data-testid={TESTIDS.project.gfaM2}
             inputMode="decimal"
             value={gfaM2}
             aria-describedby={invalidBy("project-gfa-m2") === null ? gfaHintId : `${gfaHintId} ${alertId}`}
@@ -195,7 +196,7 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
           />
           {/* I-39: the sft figure is a conversion, not a second field — and it renders nothing at
               all while the m² input holds no value the seam would read as an area. */}
-          <output className="cx-home-sft" data-testid="project-gfa-sft" htmlFor={`${sftId}-gfa`}>
+          <output className="cx-home-sft" data-testid={TESTIDS.project.gfaSft} htmlFor={`${sftId}-gfa`}>
             {isPlainDecimal(gfaM2) ? (
               <>
                 {formatSquareFeet(gfaM2)}
@@ -209,7 +210,7 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
           <label className="cx-home-field-label" htmlFor={`${sftId}-notes`}>
             {strings.home_field_notes}
           </label>
-          <Textarea id={`${sftId}-notes`} name="notes" data-testid="project-notes" rows={3} defaultValue={project?.notes ?? ""} readOnly={pending} aria-busy={pending || undefined} />
+          <Textarea id={`${sftId}-notes`} name="notes" data-testid={TESTIDS.project.notes} rows={3} defaultValue={project?.notes ?? ""} readOnly={pending} aria-busy={pending || undefined} />
         </div>
 
         {/* The answer and the doors are one bar, and the bar keeps the sheet's floor: an alert
@@ -219,7 +220,7 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
         <div className="cx-home-form-close">
           {/* The answer slot, before the submit: exactly one of the judged sentence and a settled
               refusal stands in it, and in flight neither does. */}
-          <div data-testid="project-form-refusal">
+          <div data-testid={TESTIDS.project.formRefusal}>
             {judgement !== null ? (
               <p className="cx-home-alert" role="alert" id={alertId}>
                 {strings[JUDGEMENT_COPY[judgement]]}
@@ -229,7 +230,7 @@ export function ProjectForm({ tenantId, project = null, onClose, perform }: Proj
           </div>
 
           <div className="cx-home-form-footer">
-            <Button type="submit" data-testid="project-form-submit" loading={pending}>
+            <Button type="submit" data-testid={TESTIDS.project.formSubmit} loading={pending}>
               {project === null ? strings.home_form_submit_create : strings.home_form_submit_save}
             </Button>
             <Button variant="secondary" onClick={() => onClose?.()}>
