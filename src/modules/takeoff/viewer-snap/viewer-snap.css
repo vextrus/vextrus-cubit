@@ -9,19 +9,22 @@
    The SHAPE names the kind, never the colour alone (R-UI-060): every kind below is selected by its
    own `[data-kind]` and drawn from the box and its two pseudo-elements. */
 
+/* THE SNAP GROUP STANDS IN THE TOOL ROW, NOT ON THE STAGE (Design Direction 00 §1; I-152).
+   It was a card floating over the canvas — `position: absolute` against the stage — until the
+   region moved into the shell's 32 px tool row, where `SnapTools` is handed to `ViewerToolbar`.
+   The absolute positioning came with it and found no positioned ancestor, so the card was laid out
+   against the VIEWPORT: it painted over the frame's top bar and covered all but 9.5 px of the
+   breadcrumb, which is exactly what axe reported as a SERIOUS `target-size` violation on every
+   viewer checkpoint ("Target has insufficient size because it is partially obscured"). A control
+   that covers the frame's own trail is a defect of the frame, not of the trail.
+
+   In the row it is a plain group: the row already carries the surface, the hairline and the
+   padding a card was drawing for itself, and a second card inside one is two boxes for one region. */
 .cx-viewer-snap-tools {
-  position: absolute;
-  inset-block-start: var(--space-3);
-  inset-inline-start: var(--space-3);
-  z-index: var(--z-base);
   display: flex;
   flex-direction: row;
+  align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1);
-  border: var(--hairline);
-  border-radius: var(--radius-4);
-  background: var(--surface-app);
-  box-shadow: var(--shadow-1);
 }
 
 /* The second, non-colour channel a pressed toggle carries: hollow when released, filled when pressed
