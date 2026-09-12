@@ -86,6 +86,18 @@ describe("the pooled psql answers what a fresh process answered", () => {
     expect(pooled.rows).not.toContainEqual(["never"]);
   });
 
+  it("runs a last statement that carries no semicolon, as EOF used to make it", () => {
+    // 62 files write `run(url, "select 1")` with no terminator and were answered by psql's EOF.
+    const { pooled, spawned } = both("select 'unterminated'");
+    expect(pooled.rows, "a script with no trailing semicolon answered nothing").toEqual([["unterminated"]]);
+    expect(pooled.rows).toEqual(spawned.rows);
+    const made = pooledPsql(url(), "create table if not exists no_semicolon (n int)");
+    expect(made.ok).toBe(true);
+    expect(pooledPsql(url(), "select count(*) from no_semicolon").rows, "a statement with no terminator never reached the server").toEqual([["0"]]);
+    // And a script that already ends in one is not given a second statement by it.
+    expect(pooledPsql(url(), "select 'terminated';").rows).toEqual([["terminated"]]);
+  });
+
   it("keeps a NOTICE on stderr and still calls the script good", () => {
     const script = "do $$ begin raise notice 'a notice from the script'; end $$; select 'done';";
     const { pooled, spawned } = both(script);

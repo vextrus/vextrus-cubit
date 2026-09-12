@@ -343,6 +343,13 @@ function scriptBlock(session: Session, script: string, serial: number): string {
     "\\set VERBOSITY verbose",
     "\\set ON_ERROR_STOP 1",
     script,
+    // What a fresh process got from EOF and a pooled one never will. psql sends its query buffer
+    // when a semicolon closes it or when the input ENDS — and 62 files write `run(url, "select 1")`
+    // with no terminator, trusting the second. A backslash command does not flush that buffer: it
+    // runs and leaves the statement sitting there unsent, so the script would answer no rows and
+    // call itself good (`create table` that never ran, `count(*)` that came back empty). A lone
+    // semicolon closes whatever is open and is an empty query when nothing is.
+    ";",
     `\\echo ${session.token}-S-${serial}`,
     `\\warn ${session.token}-S-${serial}`,
     "",
