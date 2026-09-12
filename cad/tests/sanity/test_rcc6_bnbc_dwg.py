@@ -75,7 +75,12 @@ def test_the_census_is_what_sanity_expects(bnbc_corpus, dwg_name: str, tmp_path:
     """The drawing is judged by its census, never by its bytes (E-fixture 3.9)."""
     spec = _sanity(bnbc_corpus)["dwg"][dwg_name]
     conversion = _conversion(bnbc_corpus, dwg_name, tmp_path)
-    census = {space: dict(sorted(types.items())) for space, types in conversion.census.items()}
+    not_counted = set(spec.get("not_counted", ["VIEWPORT"]))  # counted on neither side (F2-5)
+    census = {
+        space: dict(sorted((t, n) for t, n in types.items() if t not in not_counted))
+        for space, types in conversion.census.items()
+    }
+    census = {space: types for space, types in census.items() if types}
     expected = {space: dict(sorted(types.items())) for space, types in spec["expected"].items()}
     assert census == expected, (
         f"{dwg_name}: the census is not what sanity.json expects "

@@ -49,6 +49,13 @@ def check(scratch: Path, written: dict[str, bytes]) -> dict[str, Any]:
             for t, n in types.items():
                 lost = losses.get(space, {}).get(t, 0)
                 assert expected.get(space, {}).get(t, 0) == n - lost, (dwg_name, space, t, n, lost)
+        extra = [
+            (space, t)
+            for space, types in expected.items()
+            for t in types
+            if t not in drawn.get(space, {})
+        ]
+        assert not extra, f"check 6 (tally) {dwg_name}: expected holds pairs nothing drew: {extra[:8]}"
     return report
 
 

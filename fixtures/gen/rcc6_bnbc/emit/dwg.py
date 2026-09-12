@@ -304,7 +304,13 @@ def mint(
         read_room = room / f"read-{name}"
         read_room.mkdir(parents=True, exist_ok=True)
         conversion = convert_dwg(dwg, read_room)
-        census = {space: dict(sorted(types.items())) for space, types in sorted(conversion.census.items())}
+        # One convention for both tallies (F2-5): VIEWPORT frames paint and is content on neither
+        # side, so it is stripped from the census before it becomes `expected`.
+        census = {
+            space: dict(sorted((t, n) for t, n in types.items() if t not in CENSUS_ONLY))
+            for space, types in sorted(conversion.census.items())
+        }
+        census = {space: types for space, types in census.items() if types}
         losses: dict[str, dict[str, int]] = {}
         for space, types in drawn[dxf_name].items():
             for dxftype, n in types.items():
@@ -321,6 +327,8 @@ def mint(
             "named_losses": named,
             "tool": f"{conversion.tool} {conversion.tool_version}",
             "refused": [r.dxftype for r in conversion.refused],
+            "not_counted": sorted(CENSUS_ONLY),
+            "convention": "VIEWPORT frames paint and is counted on neither side; expected == drawn - losses type for type",
         }
     return out
 
