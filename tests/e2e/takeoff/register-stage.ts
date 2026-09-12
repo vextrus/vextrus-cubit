@@ -160,7 +160,8 @@ type RegisterUiSeam = {
 
 /** The user the browser is signed in as, read from the session the partition stage established. */
 async function userIdOf(page: Page): Promise<string> {
-  const held = await page.evaluate(() => document.querySelector(testIdSelector(TESTIDS.shell.user))?.getAttribute("data-user-id") ?? null);
+  // Resolved in node and handed in — the registry is a node-side declaration, not a page global.
+  const held = await page.evaluate((selector) => document.querySelector(selector)?.getAttribute("data-user-id") ?? null, testIdSelector(TESTIDS.shell.user));
   expect(held, "the shell states which account is signed in — the actor every act below is performed by").toBeTruthy();
   return held as string;
 }

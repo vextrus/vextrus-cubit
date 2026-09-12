@@ -224,7 +224,7 @@ test.beforeAll(async ({ browser }) => {
           // announced inside `role="alert"`, yet `innerText` omits it. `textContent` is a
           // superset of the rendered text nodes, so absence from it entails the clause with no
           // false passes — and it is the same strict reading the jsdom sibling already encodes.
-          codeChips: document.querySelectorAll(testIdSelector(TESTIDS.refusal.code)).length,
+          codeChips: document.querySelectorAll(given.codeChipSelector).length,
           pageText: document.body.innerText,
           allText: document.body.textContent ?? "",
           expectedEdge: colourOf(given.edge),
@@ -240,7 +240,9 @@ test.beforeAll(async ({ browser }) => {
         probeElement.remove();
         return out;
       },
-      { edge: paint.edge, fill: paint.fill, radius: chrome.radius, paddingInline: chrome.paddingInline, columnPx: probe.columnPx },
+      // `codeChipSelector` is resolved HERE, in node, because the registry is a node-side
+      // declaration: nothing named TESTIDS or testIdSelector exists inside the page.
+      { edge: paint.edge, fill: paint.fill, radius: chrome.radius, paddingInline: chrome.paddingInline, columnPx: probe.columnPx, codeChipSelector: testIdSelector(TESTIDS.refusal.code) },
     );
 
     const box = await card.boundingBox();

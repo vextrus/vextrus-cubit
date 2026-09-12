@@ -111,11 +111,15 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     await expect(scale.tabs, "the right inspector is a two-tab panel now").toBeVisible();
     await expect(scale.selectionTab, "and it opens on Selection at every mount").toHaveAttribute("aria-selected", "true");
     expect(
-      await page.evaluate(() => {
-        const aside = document.querySelector(testIdSelector(TESTIDS.viewer.inspector));
-        const strip = document.querySelector(testIdSelector(TESTIDS.viewer.inspectorTabs));
-        return aside !== null && strip !== null && aside.contains(strip);
-      }),
+      // Both selectors are resolved in node and handed in: the registry does not exist in the page.
+      await page.evaluate(
+        ([asideSelector, stripSelector]) => {
+          const aside = document.querySelector(String(asideSelector));
+          const strip = document.querySelector(String(stripSelector));
+          return aside !== null && strip !== null && aside.contains(strip);
+        },
+        [testIdSelector(TESTIDS.viewer.inspector), testIdSelector(TESTIDS.viewer.inspectorTabs)] as const,
+      ),
       "the strip stands OUTSIDE the inspector aside, so the aside a journey pictured before this increment is untouched (I-152)",
     ).toBe(false);
 

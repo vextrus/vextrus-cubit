@@ -171,12 +171,13 @@ test.describe("J-012 — a set, pinned, and a changed file that revises it", () 
 
     // A machine identifier renders in the mono face the tokens name (I-25, I-26) — read out of the
     // page's own token value rather than spelled here.
-    const mono = await page.evaluate(() => {
-      const digest = document.querySelector(testIdSelector(TESTIDS.set.revisionDigest));
+    // The selector is resolved in node and handed in: the registry does not exist in the page.
+    const mono = await page.evaluate((selector) => {
+      const digest = document.querySelector(selector);
       const wanted = getComputedStyle(document.documentElement).getPropertyValue("--font-mono");
       const flat = (value: string): string => value.replace(/["']/g, "").replace(/\s+/g, " ").trim().toLowerCase();
       return { shown: flat(digest === null ? "" : getComputedStyle(digest).fontFamily), wanted: flat(wanted) };
-    });
+    }, testIdSelector(TESTIDS.set.revisionDigest));
     expect(mono.shown, "the digest renders in the mono face the design tokens name").toBe(mono.wanted);
     await checkpoint(page, testInfo, "j-012-set-pinned");
 

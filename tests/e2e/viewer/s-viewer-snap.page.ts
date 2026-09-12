@@ -185,22 +185,28 @@ export class SViewerSnapPage {
 
   /** The properties one glyph's shape is drawn from, as one comparable string. */
   async shapeSignature(): Promise<string> {
-    return this.page.evaluate((properties) => {
-      const element = document.querySelector(testIdSelector(TESTIDS.viewer.snapGlyph));
-      if (element === null) return "";
-      const read = (on: Element, pseudo: string | null): string => properties.map((name) => window.getComputedStyle(on, pseudo).getPropertyValue(name)).join("|");
-      return [read(element, null), read(element, "::before"), read(element, "::after")].join("//");
-    }, [...SHAPE_PROPERTIES]);
+    // The registry is a NODE-side declaration: `testIdSelector` and `TESTIDS` do not exist in the
+    // page, so the selector is resolved here and handed in as the argument (AM-09 §1 asks that the
+    // id be read from the registry, not that the browser be able to read it).
+    return this.page.evaluate(
+      ({ selector, properties }) => {
+        const element = document.querySelector(selector);
+        if (element === null) return "";
+        const read = (on: Element, pseudo: string | null): string => properties.map((name) => window.getComputedStyle(on, pseudo).getPropertyValue(name)).join("|");
+        return [read(element, null), read(element, "::before"), read(element, "::after")].join("//");
+      },
+      { selector: testIdSelector(TESTIDS.viewer.snapGlyph), properties: [...SHAPE_PROPERTIES] },
+    );
   }
 
   /** One computed property of the live glyph. */
   async glyphStyle(property: string): Promise<string> {
     return this.page.evaluate(
-      ([name]) => {
-        const element = document.querySelector(testIdSelector(TESTIDS.viewer.snapGlyph));
+      ([selector, name]) => {
+        const element = document.querySelector(String(selector));
         return element === null ? "" : window.getComputedStyle(element).getPropertyValue(String(name));
       },
-      [property] as const,
+      [testIdSelector(TESTIDS.viewer.snapGlyph), property] as const,
     );
   }
 
