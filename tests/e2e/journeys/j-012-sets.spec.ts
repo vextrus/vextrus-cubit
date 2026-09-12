@@ -16,13 +16,21 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
 import { SDrawingsPage } from "../pages/s-drawings.page";
-import { signInAsSeededTenant } from "../support/seeded-session";
+import { SHomePage } from "../pages/s-home.page";
+import { ShellPage, SHELL } from "../pages/shell.page";
 import { checkpoint } from "../support/checkpoint";
+import { newestMail } from "../support/outbox";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import { heldAttribute } from "../support/retrying-read";
 import { afterSettled } from "../support/settled";
 
+const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+const EMAIL = `j012sets-${RUN}@cubit.test`;
+const PASSWORD = `sets-and-revisions-journey-${RUN}`;
+const WORKSPACE = "Sattva Sets";
+const PROJECT = "Sattva Court Sets";
 const SET_NAME = "Tender set";
 
 /** The corpus this journey drops, and the name both uploads present it under. */
@@ -88,17 +96,32 @@ test.describe("J-012 — a set, pinned, and a changed file that revises it", () 
   test("J-012: a lead names a set, pins it, uploads a changed drawing and re-pins it to a new digest", async ({ page, baseURL }, testInfo) => {
     expect(baseURL, "the journeys are driven against the served product").toBeTruthy();
     const origin = baseURL ?? "";
+    const auth = new SAuthPage(page);
+    const shell = new ShellPage(page);
+    const home = new SHomePage(page);
     const drawings = new SDrawingsPage(page);
 
-    /* --- THIS WORKER'S SEEDED TENANT (v22 speed, decision 2). The nine acts that used to stand here
-       — sign up, the notice, the outbox, the verification link, sign in, the nameplate, the
-       workspace door, create a project, read its id off the card — are a walk of screens this
-       journey is not about, and the lane installs their result before the first journey runs
-       (tests/e2e/support/seeded-tenant.ts). What is left is the one act that must be the product's:
-       the sign-in door minting a real session. J-000 still walks every one of them. --- */
-    const { tenant } = await signInAsSeededTenant(page, testInfo.parallelIndex);
-    const tenantId = tenant.tenantId;
-    const projectId = tenant.projectId;
+    /* --- this journey's own identity --- */
+    await auth.open(S_AUTH.signUp);
+    await auth.signUpWith(EMAIL, PASSWORD, WORKSPACE);
+    await auth.expectNotice();
+    const verifyMail = await newestMail(EMAIL, "verify-email");
+    await auth.openWithToken(S_AUTH.verify, verifyMail.token);
+    await auth.expectNotice();
+    await auth.open(S_AUTH.signIn);
+    await auth.signInWith(EMAIL, PASSWORD);
+    await expect(page).toHaveURL(`${origin}${SHELL.home}`);
+
+    await shell.workspaceDoor.click();
+    await expect(page).toHaveURL(new RegExp(`^${origin}/t/[0-9a-f-]{36}$`));
+    const tenantId = (page.url().split("/t/")[1] ?? "").trim();
+    expect(tenantId, "the workspace names itself in its own address").not.toBe("");
+
+    await home.createWith({ name: PROJECT, code: "SCT-012", client: "Sattva Holdings", district: "Dhaka", buildingType: 1, storeys: "12" });
+    const card = home.cardNamed(PROJECT);
+    await expect(card, "the created project stands on S-Home").toBeVisible();
+    const projectId = (await heldAttribute(card, "data-project")) ?? "";
+    expect(projectId, "the card names the project it is for").not.toBe("");
 
     /* --- the drawing this set will name, dropped through the screen's own Dropzone --- */
     await drawings.open(tenantId, projectId);
