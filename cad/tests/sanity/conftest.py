@@ -6,12 +6,23 @@ generator is driven exactly as the increment spec spells its CLI, and judged by 
 
 Every read asserts from inside the test that asks for it (a corpus that is not there fails the
 test by name rather than erroring its fixture), and expensive reads are memoised per session.
+
+The lane's skip accounting lives here too (`pytest_sessionfinish` below): a skip is a claim about
+this machine, never about the evidence. P4a's second finding was a lane armed by the presence of
+the file it grades — delete `fixtures/rcc6-bnbc/cells.json` and the M3 gate check skipped, the run
+stayed green, and the skip COUNT no test asserted. The corpora checks are armed by their manifests
+now (test_golden_corpora.py), and the hook holds the run to the arithmetic: every skip the session
+prints must be one the list below explains, and anything else fails the session with the node
+named — so `N skipped` can never again mean `N unproved`. (It sits in this conftest and not in
+`cad/tests/conftest.py`, which tests/cad/dwg/dwg-lane.test.ts AC-6 forbids; the hooks are
+session-wide once this conftest is loaded, and the golden lane always loads it.)
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass, field
@@ -192,3 +203,55 @@ def golden_corpus(request: pytest.FixtureRequest) -> Corpus:
 @pytest.fixture(scope="session")
 def bnbc_corpus() -> Corpus:
     return Corpus(REPO_ROOT / BNBC_CORPUS_REL)
+
+
+# ---------------------------------------------------------------------------------------------
+# The lane's skip accounting: what the manifests do not explain is not allowed to pass in silence.
+# ---------------------------------------------------------------------------------------------
+
+#: A skip reason this lane admits, with what owns the fact instead. The only skips admitted are
+#: facts about the machine (a converter that is not installed), which `pnpm checkup`'s probes own.
+#: A corpus that declares a file in `fixtures/*/manifest.json` and does not carry it is a failure
+#: by name, not a skip.
+EXPLAINED_SKIPS: dict[str, str] = {
+    r"is not on PATH": "a converter this machine does not have; checkup's probe owns that",
+}
+
+_PATTERNS = {re.compile(pattern): why for pattern, why in EXPLAINED_SKIPS.items()}
+
+#: (nodeid, reason) for every skip the session printed.
+_SKIPPED: list[tuple[str, str]] = []
+
+
+def _skip_reason(report: pytest.TestReport) -> str:
+    longrepr: Any = report.longrepr
+    if isinstance(longrepr, tuple) and len(longrepr) == 3:
+        return str(longrepr[2]).removeprefix("Skipped: ")
+    return str(longrepr)
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    if report.skipped:
+        _SKIPPED.append((report.nodeid, _skip_reason(report)))
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    explained = [(node, why) for node, why in _SKIPPED if any(p.search(why) for p in _PATTERNS)]
+    unexplained = [entry for entry in _SKIPPED if entry not in explained]
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    if reporter is None:
+        return
+    reporter.write_line(
+        f"skip accounting: {len(_SKIPPED)} skipped, {len(explained)} explained, "
+        f"{len(unexplained)} unexplained"
+    )
+    for node, why in explained:
+        reporter.write_line(f"  skip (explained): {node} - {why}")
+    for node, why in unexplained:
+        reporter.write_line(f"  skip (UNEXPLAINED): {node} - {why}")
+    if unexplained:
+        reporter.write_line(
+            "a skip this lane does not explain is a check that did not run: either the corpus "
+            "carries what its manifest promises, or the manifest stops promising it"
+        )
+        session.exitstatus = pytest.ExitCode.TESTS_FAILED
