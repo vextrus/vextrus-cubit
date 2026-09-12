@@ -134,6 +134,19 @@ _EXTRA: dict[str, tuple[str, str, str]] = {
     "\u2264": ("E", "_", "[NIR[V RIZ[Z"),
     "\u2212": ("E", "_", "IR[R"),
     "\u00b5": ("H", "[", "LMLb RLWMZO[R[TZWW RWMW["),
+    # the notation a general-notes sheet writes its formulae in
+    "\u03c0": ("H", "\\", "LMXM RNMM[ RVMV["),
+    "\u221a": ("F", "^", "ITLXPHZH"),
+    "\u03a3": ("H", "\\", "XFLFRPL[X["),
+    "\u2192": ("E", "_", "IR[R RVN[R RVV[R"),
+    "\u230a": ("K", "Y", "NFN[V["),
+    "\u230b": ("K", "Y", "VFV[N["),
+    "\u2308": ("K", "Y", "VFNFN["),
+    "\u2309": ("K", "Y", "NFVFV["),
+    "\u2026": ("F", "^", "LYKZL[MZLY RRYQZR[SZRY RXYWZX[YZXY"),
+    # and the mojibake a Windows-1252 round trip leaves behind (T-NOT-MOJIBAKE)
+    "\u00e2": ("I", "[", "XMX[ RXPVNTMQMONMPLSLUMXOZQ[T[VZXX RNJRGVJ"),
+    "\u02c6": ("K", "Y", "NJRGVJ"),
 }
 
 #: Fractions and superscripts are composed from the digits above rather than restated: a fraction

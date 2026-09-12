@@ -36,7 +36,7 @@ from .scene import PAPER_MM, Sheet
 MB = 1024 * 1024
 
 #: Each variant's share of `plan.RASTER["budget_mb"]["rasters_total"]` (25 MB), in megabytes.
-SHARE_MB = {"r1": 6.0, "r2": 6.0, "r2pdf": 8.0, "r3": 2.5, "r4": 2.5}
+SHARE_MB = {"r1": 5.0, "r2": 6.0, "r2pdf": 8.0, "r3": 3.0, "r4": 3.0}
 
 #: The bound set is 26 pages, not six, so it is scanned more gently and at its own dpi (W-02:
 #: a variant that will not fit drops dpi, and the manifest records the dpi actually used).
