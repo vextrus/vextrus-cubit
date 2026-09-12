@@ -9,7 +9,6 @@ import type { ReactNode } from "react";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { useFailureHandOff } from "./failure-hand-off";
-import { TESTIDS } from "@/ui/testids";
 
 /** The value a rejection carries when it carries none — the case the box exists for. */
 const NOTHING: unknown = null;
@@ -26,16 +25,25 @@ class Boundary extends Component<{ onFailure: (cause: unknown) => void; children
   }
 
   override render(): ReactNode {
-    return this.state.failed ? <p data-testid={TESTIDS.boundary.reached}>caught</p> : this.props.children;
+    return this.state.failed ? <p data-testid={FIXTURE_IDS.boundaryReached}>caught</p> : this.props.children;
   }
 }
+
+/**
+ * The two ids this FIXTURE publishes. They are not in `src/ui/testids.ts` and must not be: the
+ * registry's law binds what the product SHIPS, and a boundary a suite renders to prove a hand-off is
+ * a fixture naming its own scaffolding, not a screen publishing a handle a journey can address
+ * (AM-09 §1, and the reading in src/ui/testids.test.ts). They were registry ids until 2026-09-12,
+ * which made them look published while nothing in the product published them.
+ */
+const FIXTURE_IDS = { boundaryReached: "fixture-boundary-reached", acting: "fixture-acting" } as const;
 
 function Acting({ work }: { work: () => Promise<void> }) {
   const handing = useFailureHandOff();
   useEffect(() => {
     void handing(work);
   }, [handing, work]);
-  return <p data-testid={TESTIDS.acting.root}>ready</p>;
+  return <p data-testid={FIXTURE_IDS.acting}>ready</p>;
 }
 
 async function actOn(work: () => Promise<void>): Promise<unknown[]> {
@@ -62,7 +70,7 @@ describe("useFailureHandOff", () => {
     const caught = await actOn(async () => {
       throw cause;
     });
-    expect(screen.getByTestId("boundary-reached")).toBeDefined();
+    expect(screen.getByTestId(FIXTURE_IDS.boundaryReached)).toBeDefined();
     expect(caught).toEqual([cause]);
   });
 
@@ -71,13 +79,13 @@ describe("useFailureHandOff", () => {
     // A transport may reject with any value at all; the discipline under test is that a nullish
     // one is not read as "nothing failed", so the rejection is made the way one really arrives.
     const caught = await actOn(async () => await Promise.reject(NOTHING));
-    expect(screen.getByTestId("boundary-reached")).toBeDefined();
+    expect(screen.getByTestId(FIXTURE_IDS.boundaryReached)).toBeDefined();
     expect(caught).toEqual([null]);
   });
 
   test("an action that keeps its promise leaves the screen standing", async () => {
     const caught = await actOn(async () => {});
-    expect(screen.getByTestId("acting")).toBeDefined();
+    expect(screen.getByTestId(FIXTURE_IDS.acting)).toBeDefined();
     expect(caught).toEqual([]);
   });
 });

@@ -44,7 +44,6 @@ const GOLDEN: readonly string[] = [
   "accept-invitation-submit",
   "accept-invitation-workspace",
   "act-dot",
-  "acting",
   "audit-act-consequence",
   "audit-act-evidence",
   "audit-act-row",
@@ -57,7 +56,6 @@ const GOLDEN: readonly string[] = [
   "audit-panel-model-ledger",
   "basis-chip",
   "basis-glyph",
-  "boundary-reached",
   "breadcrumb",
   "breadcrumb-crumb",
   "breadcrumb-menu",
@@ -287,7 +285,6 @@ const GOLDEN: readonly string[] = [
   "s-home-project-status",
   "s-home-quick-stats",
   "s-home-recent-documents",
-  "s-home-stat-bids",
   "s-home-stat-campaigns",
   "s-home-stat-estimates",
   "s-home-stat-sheets",
@@ -508,6 +505,51 @@ describe("AM-09 §1: the test-id registry", () => {
       }
     }
     expect(spelled, "a page object spells a test id instead of importing it from src/ui/testids.ts (AM-09 §1)").toEqual([]);
+  });
+
+  test("every id the registry declares is published by src/** or addressed by tests/**", () => {
+    // The reading this suite was missing. It asserted src → registry and nothing asserted the way
+    // back, so an id could be declared, frozen into the golden list, cited by a Decision and read by
+    // NOBODY: a name with a declaration and no referent, which is the mirror of the literal this
+    // file exists to forbid. Three were found on 2026-09-12 (`acting`, `boundary-reached`,
+    // `s-home-stat-bids`) and deleted with their golden entries.
+    //
+    // A component publishes an id by READING it — `testId(TESTIDS.sHome.grid)` — so the reference
+    // this scan looks for is the registry path, not the string: the string appearing in src/ would
+    // itself be the literal the test above forbids.
+    const declared = new Map<string, string>();
+    for (const [group, ids] of Object.entries(TESTIDS)) {
+      for (const [key, id] of Object.entries(ids as Record<string, string>)) declared.set(`${group}.${key}`, id);
+    }
+    expect(declared.size, "the registry declares ids at all").toBe(ALL_TESTIDS.length);
+    const read = (paths: string[]): string =>
+      paths
+        .filter((path) => !path.endsWith(join("src", "ui", "testids.ts")))
+        .map((path) => readFileSync(path, "utf8"))
+        .join("\n");
+    // white-box again, and for the same reason as the two readings above: whether a name has a
+    // referent is a property of the TEXT of the tree, and no run of anything can observe it.
+    const source = read(filesUnder(SRC, [".ts", ".tsx"]).filter((path) => !/\.test\.tsx?$/.test(path)));
+    const suites = read(filesUnder(join(REPO_ROOT, "tests"), [".ts", ".tsx"]));
+    const orphans: string[] = [];
+    const journeyOnly: string[] = [];
+    for (const [path, id] of declared) {
+      const inSource = source.includes(`TESTIDS.${path}`) || source.includes(`"${id}"`);
+      const inSuites = suites.includes(`TESTIDS.${path}`) || suites.includes(`"${id}"`) || suites.includes(`'${id}'`);
+      if (!inSource && !inSuites) orphans.push(`${path} = "${id}"`);
+      else if (!inSource) journeyOnly.push(`${path} = "${id}"`);
+    }
+    expect(
+      orphans,
+      "an id nothing publishes and nothing addresses — delete it from src/ui/testids.ts and from the golden list above, in one commit (AM-09 §1)",
+    ).toEqual([]);
+    // The tier below an orphan: a page object holds a locator for an id no component publishes, so
+    // the locator can only ever time out. It is not a failure today — a screen may be mid-build and
+    // the handle named first, which C-05's freeze actually asks for — but it may not GROW.
+    expect(
+      journeyOnly.length,
+      `a journey addresses an id src/** publishes nowhere, so its locator can only time out: ${journeyOnly.join(", ")}`,
+    ).toBeLessThanOrEqual(2);
   });
 
   test("every id src/** publishes is in the registry", () => {

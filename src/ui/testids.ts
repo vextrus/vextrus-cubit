@@ -31,9 +31,6 @@ export const TESTIDS = {
   act: {
     dot: "act-dot",
   },
-  acting: {
-    root: "acting",
-  },
   audit: {
     actConsequence: "audit-act-consequence",
     actEvidence: "audit-act-evidence",
@@ -49,9 +46,6 @@ export const TESTIDS = {
   basis: {
     chip: "basis-chip",
     glyph: "basis-glyph",
-  },
-  boundary: {
-    reached: "boundary-reached",
   },
   breadcrumb: {
     crumb: "breadcrumb-crumb",
@@ -335,7 +329,6 @@ export const TESTIDS = {
     projectStatus: "s-home-project-status",
     quickStats: "s-home-quick-stats",
     recentDocuments: "s-home-recent-documents",
-    statBids: "s-home-stat-bids",
     statCampaigns: "s-home-stat-campaigns",
     statEstimates: "s-home-stat-estimates",
     statSheets: "s-home-stat-sheets",
