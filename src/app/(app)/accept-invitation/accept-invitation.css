@@ -104,7 +104,9 @@
   justify-content: center;
   margin-block-start: var(--space-4);
   min-height: var(--space-5);
-  color: var(--ink-disabled);
+  /* The same clause as the auth foot, for the same reason: `.cx-accept-foot-where` is running text
+     and `--ink-disabled` fails 1.4.3 in both themes. `--ink-muted` clears 4.5:1 in both. */
+  color: var(--ink-muted);
 }
 
 .cx-accept-foot-where {

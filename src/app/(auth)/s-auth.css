@@ -234,7 +234,12 @@
   font-family: var(--font-mono);
   font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
-  color: var(--ink-disabled);
+  /* `--ink-disabled` read 3.2:1 on the app surface in light and 3.7:1 in dark — axe SERIOUS
+     `color-contrast`, in both themes, on the one cell of this line that carries words. Disabled ink
+     is exempt from 1.4.3 where it paints a DISABLED CONTROL; this is running text, and it is not.
+     `--ink-muted` is the next alias up and the quietest one that clears 4.5:1 both ways (5.0:1 light,
+     5.2:1 dark) — still furniture, and now legible. No primitive is touched and no size moves. */
+  color: var(--ink-muted);
 }
 
 /*

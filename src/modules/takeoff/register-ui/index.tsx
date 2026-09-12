@@ -1195,7 +1195,15 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
           {/* R-UI-020: a sighting that produced no line says why, in place, with the evidence that
               resolves it — and the count is stated even when it is zero (silence never happens). The
               sentence that used to stand under this heading is now the heading's own hint (§6). */}
-          <section className="cx-register-refusals" data-testid="register-refusals" data-count={view.refusals.length}>
+          {/* The same clause, for the same reason: this region scrolls too, and a campaign that
+              refused nothing leaves it with no focusable child (R-UI-012). */}
+          <section
+            className="cx-register-refusals cx-reticle cx-reticle-scroll"
+            data-testid="register-refusals"
+            data-count={view.refusals.length}
+            tabIndex={0}
+            aria-label={REGISTER_COPY.takeoff_register_refusals_heading}
+          >
             <Tooltip content={REGISTER_COPY.takeoff_register_refusals_hint}>
               <h2 className="cx-register-panel-heading">{REGISTER_COPY.takeoff_register_refusals_heading}</h2>
             </Tooltip>
@@ -1237,7 +1245,17 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
           {/* R-UI-023: the one bulk door on this screen. There is no checkbox, no row selection and
               no select-all anywhere under this workspace — the offer is confirmed as it is named. */}
           {permitted ? (
-            <section className="cx-register-level-stack" data-testid="register-level-stack">
+            // R-UI-012, in the words `ScrollArea` already settled it with: "a region that scrolls
+            // must be reachable and scrollable from the keyboard, and it wears the reticle like
+            // anything else that takes focus". This one scrolls (register.css) and holds nothing
+            // focusable at all while the machine offers no stack, so without this it was a region a
+            // pointer could read and a keyboard could not — axe SERIOUS `scrollable-region-focusable`.
+            <section
+              className="cx-register-level-stack cx-reticle cx-reticle-scroll"
+              data-testid="register-level-stack"
+              tabIndex={0}
+              aria-label={REGISTER_COPY.takeoff_register_level_stack_heading}
+            >
               <Tooltip content={REGISTER_COPY.takeoff_register_level_stack_hint}>
                 <h2 className="cx-register-panel-heading">{REGISTER_COPY.takeoff_register_level_stack_heading}</h2>
               </Tooltip>
