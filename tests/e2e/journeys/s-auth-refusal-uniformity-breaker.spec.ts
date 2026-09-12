@@ -39,6 +39,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { REFUSALS, type RefusalCode, type RefusalSeverity, type RefusalSurface } from "../../../src/core/errors";
 import { S_AUTH } from "../pages/s-auth.page";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { heldAttribute } from "../support/retrying-read";
+import { afterSettled } from "../support/settled";
 
 /** The pattern's one home (the RefusalState Decision § 1): one component file, one stylesheet. */
 const PATTERN_DIR = join("src", "ui", "patterns", "refusal-state");
@@ -199,12 +201,12 @@ test.beforeAll(async ({ browser }) => {
     const card = wrapper.getByTestId("refusal-state");
     await expect(card, `${probe.what} — the wrapper holds exactly one RefusalState, the single renderer (ARCH-02, B-17)`).toHaveCount(1);
 
-    const code = (await card.getAttribute("data-code")) ?? "";
+    const code = (await heldAttribute(card, "data-code")) ?? "";
     const entry = registered(code, probe.what);
     const paint = SEVERITY_PAINT[entry.severity];
     const chrome = SURFACE_CHROME[entry.surface];
 
-    const measured = await card.evaluate(
+    const measured = await afterSettled(card, () => card.evaluate(
       (element, given) => {
         const probeElement = document.createElement("div");
         probeElement.style.position = "absolute";
@@ -279,7 +281,7 @@ test.beforeAll(async ({ browser }) => {
         // declaration: nothing named TESTIDS or testIdSelector exists inside the page.
         codeChipSelector: testIdSelector(TESTIDS.refusal.code),
       },
-    );
+    ));
 
     const box = await card.boundingBox();
     expect(box, `${probe.what} — the card is laid out, so it can be measured`).not.toBeNull();
@@ -296,8 +298,8 @@ test.beforeAll(async ({ browser }) => {
       route: probe.route,
       columnPx: probe.columnPx,
       code,
-      severity: (await card.getAttribute("data-severity")) ?? "",
-      surface: (await card.getAttribute("data-surface")) ?? "",
+      severity: (await heldAttribute(card, "data-severity")) ?? "",
+      surface: (await heldAttribute(card, "data-surface")) ?? "",
       invariant: measured.invariant,
       radiusPx: measured.radiusPx,
       // The expectations are resolved in the document that painted the card, so the assertions

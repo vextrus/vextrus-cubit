@@ -46,7 +46,7 @@ import { SHomePage } from "./pages/s-home.page";
 import { baselinePath, laneProject } from "./support/capture-geometry";
 import { checkpoint } from "./support/checkpoint";
 import { newestMail } from "./support/outbox";
-import { everyRow, steadyCount, steadyText } from "./support/retrying-read";
+import { everyRow, heldAttribute, steadyCount, steadyText } from "./support/retrying-read";
 
 /** This spec's own identity, so its project never lands in another spec's workspace. */
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
@@ -111,7 +111,7 @@ function chip(page: Page, fieldset: string, label: string): Locator {
  */
 async function choose(chosen: Locator, what: string): Promise<void> {
   await expect(chosen, `${what} stands in its group`).toHaveCount(1);
-  if ((await chosen.getAttribute("aria-pressed")) !== "true") await chosen.click();
+  if ((await heldAttribute(chosen, "aria-pressed")) !== "true") await chosen.click();
   await expect(chosen, `${what} is the group's selection`).toHaveAttribute("aria-pressed", "true");
 }
 
@@ -122,7 +122,7 @@ async function historyRows(page: Page): Promise<{ direction: string | null; role
   const read: { direction: string | null; role: string | null }[] = [];
   for (let index = 0; index < total; index += 1) {
     const row = rows.nth(index);
-    read.push({ direction: await row.getAttribute("data-direction"), role: await row.getAttribute("data-role") });
+    read.push({ direction: await heldAttribute(row, "data-direction"), role: await heldAttribute(row, "data-role") });
   }
   return read;
 }
@@ -171,7 +171,7 @@ test.describe("J-003 — participants: the roles a project holds, moved by act",
     });
     const card = home.cardNamed(PROJECT);
     await expect(card, "the created project stands on S-Home").toBeVisible();
-    const projectId = (await card.getAttribute("data-project")) ?? "";
+    const projectId = (await heldAttribute(card, "data-project")) ?? "";
     expect(projectId, "the card names the project it is for").not.toBe("");
 
     /* --- the screen itself: list, history and the assign form (I-53: reached by URL) --- */
@@ -189,7 +189,7 @@ test.describe("J-003 — participants: the roles a project holds, moved by act",
     await shell.expectFrame();
     const crumb = shell.breadcrumb;
     for (const area of SHELL_AREAS) {
-      const current = await shell.nav(area).getAttribute("aria-current");
+      const current = await heldAttribute(shell.nav(area), "aria-current");
       // Both spellings the two Decisions use for "this row is the one" are accepted: the shell's
       // own § 1 says `page`, the participants Decision § 1 paraphrases it as `true`, and ARIA holds
       // them equivalent. Grading the meaning rather than one document's spelling keeps this off a
@@ -208,7 +208,7 @@ test.describe("J-003 — participants: the roles a project holds, moved by act",
     const areaCrumb = shell.crumbLink("area");
     await expect(areaCrumb, "the area crumb links back, because a reader this deep in the area is not at its home").toHaveCount(1);
     expect(
-      new URL((await areaCrumb.getAttribute("href")) ?? "", origin).pathname.replace(/\/+$/, ""),
+      new URL((await heldAttribute(areaCrumb, "href")) ?? "", origin).pathname.replace(/\/+$/, ""),
       "back to the projects area's home, which is the workspace root",
     ).toBe(SHELL.workspace(tenantId));
 
@@ -223,7 +223,7 @@ test.describe("J-003 — participants: the roles a project holds, moved by act",
     const roleRows = await everyRow(rows, "the project's participant rows");
     expect(roleRows.length, "a project holds at least one participant at every moment (R-SPINE-011)").toBeGreaterThan(0);
     for (let index = 0; index < roleRows.length; index += 1) {
-      expect(((await rows.nth(index).getAttribute("data-user")) ?? "").trim(), "each row names the member it is for (Decision § 7)").not.toBe("");
+      expect(((await heldAttribute(rows.nth(index), "data-user")) ?? "").trim(), "each row names the member it is for (Decision § 7)").not.toBe("");
     }
     await expect(list, "the creator holds PRINCIPAL, and the list shows the roles that are in effect").toContainText(PRINCIPAL);
 

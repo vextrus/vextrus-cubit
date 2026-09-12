@@ -19,7 +19,7 @@ import axe from "axe-core";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { moderateBudgetFor } from "./axe-budget";
 import { heightBudgetFor } from "./height-budget";
-import { settled } from "./settled";
+import { afterSettled, settled } from "./settled";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 
 /** What a checkpoint refuses to pass with. Anything milder is held to its budget or reported. */
@@ -88,7 +88,7 @@ function selectorsOf(violations: readonly AxeViolation[]): string[] {
 
 /** `selector -> "48×36 at (1092, 401)"`, read in ONE page evaluation for every selector at once. */
 async function rectsOf(page: Page, violations: readonly AxeViolation[]): Promise<Record<string, string>> {
-  return page.evaluate((selectors) => {
+  return afterSettled(page, () => page.evaluate((selectors) => {
     const out: Record<string, string> = {};
     for (const selector of selectors) {
       let element: Element | null;
@@ -102,7 +102,7 @@ async function rectsOf(page: Page, violations: readonly AxeViolation[]): Promise
       out[selector] = `[${Math.round(box.width)}×${Math.round(box.height)} at ${Math.round(box.x)},${Math.round(box.y)}]`;
     }
     return out;
-  }, selectorsOf(violations));
+  }, selectorsOf(violations)));
 }
 
 /** What the capture measured, so a failure can say which screen was how tall. */
@@ -136,7 +136,7 @@ function describe(violation: AxeViolation, rects: Readonly<Record<string, string
  * four one-shot reads of a screen, which is the thing this lane bans.
  */
 async function captureRoot(page: Page): Promise<{ selector: string; locator: Locator }> {
-  const selector = await page.evaluate((candidates) => candidates.find((one) => document.querySelector(one) !== null) ?? "body", CAPTURE_ROOTS);
+  const selector = await afterSettled(page, () => page.evaluate((candidates) => candidates.find((one) => document.querySelector(one) !== null) ?? "body", CAPTURE_ROOTS));
   return { selector, locator: page.locator(selector).first() };
 }
 
@@ -148,12 +148,12 @@ async function captureRoot(page: Page): Promise<{ selector: string; locator: Loc
 async function captureScreen(page: Page, root: { selector: string; locator: Locator }, recorded: number | null): Promise<Capture> {
   const viewport = page.viewportSize();
   const cap = recorded ?? (viewport?.height ?? 900) * HEIGHT_CAP_FACTOR;
-  const measured = await root.locator.evaluate((element, capPx) => {
+  const measured = await afterSettled(root.locator, () => root.locator.evaluate((element, capPx) => {
     const before = element.getAttribute("style");
     const content = Math.max(element.scrollHeight, element.clientHeight);
     element.setAttribute("style", `${before === null ? "" : `${before};`}height:${Math.min(content, capPx)}px !important;max-height:none !important;overflow:visible !important;`);
     return { before, content };
-  }, cap);
+  }, cap));
   try {
     // An element screenshot captures the WHOLE element, scrolling and stitching as it needs to —
     // which is the point: what is photographed is the expanded container, not the viewport over it.
@@ -224,11 +224,11 @@ export async function checkpoint(page: Page, testInfo: TestInfo, name: string): 
   // by CSP — so the page axe judges is the page under the real policy. The tag set rides through
   // the same door as the source, as the run options.
   await page.evaluate(axe.source);
-  const violations = (await page.evaluate(async (tags) => {
+  const violations = (await afterSettled(page, () => page.evaluate(async (tags) => {
     const runner = (globalThis as unknown as { axe: { run: (context: Document, options: { runOnly: { type: "tag"; values: readonly string[] } }) => Promise<{ violations: AxeViolation[] }> } }).axe;
     const results = await runner.run(document, { runOnly: { type: "tag", values: tags } });
     return results.violations;
-  }, TAGS)) as AxeViolation[];
+  }, TAGS))) as AxeViolation[];
 
   const root = await captureRoot(page);
   // A screen that carries a recorded height budget is photographed and judged at THAT height: the

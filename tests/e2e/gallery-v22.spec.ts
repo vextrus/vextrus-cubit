@@ -23,7 +23,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { PICTURE_ROUTES, PICTURE_TENANT } from "./support/picture-tenant";
 import { pictureTest as test } from "./support/picture-test";
-import { settled } from "./support/settled";
+import { afterSettled, settled } from "./support/settled";
 import { TESTIDS } from "../../src/ui/testids";
 
 /** Where the gallery lives, beside the scores and the lease that took its pictures. */
@@ -105,9 +105,9 @@ if (TAKING) {
               "the document states the theme it is painting in",
             ).toHaveAttribute("data-theme", theme);
 
-            const height = await page.evaluate(
+            const height = await afterSettled(page, () => page.evaluate(
               () => document.documentElement.scrollHeight,
-            );
+            ));
             expect(
               height,
               `${screen.name}.${theme}.${viewport.width}x${viewport.height}: §9.3 caps a still at twice the viewport; a taller one is a picture of a scroll, not of a screen`,

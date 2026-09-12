@@ -28,6 +28,7 @@ import { checkpoint } from "../../support/checkpoint";
 import { newestMail } from "../../support/outbox";
 import { startJourneyWorker } from "../../support/worker";
 import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../../viewer/s-viewer.page";
+import { heldAttribute } from "../../support/retrying-read";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j000v-${RUN}@cubit.test`;
@@ -114,7 +115,7 @@ test.describe("J-000 — Golden Path: the uploaded drawing's sheet opens, and on
       await home.createWith({ name: PROJECT, buildingType: 0 });
       const card = home.cardNamed(PROJECT);
       await expect(card, "the created project stands on S-Home").toBeVisible();
-      const projectId = (await card.getAttribute("data-project")) ?? "";
+      const projectId = (await heldAttribute(card, "data-project")) ?? "";
       expect(projectId, "the card names the project it is for").not.toBe("");
 
       /* --- upload F-RCC6 through the shipped Dropzone, and wait for the reading --- */
@@ -132,7 +133,7 @@ test.describe("J-000 — Golden Path: the uploaded drawing's sheet opens, and on
       await expect(sheetCard, `the sheet "${SHEET}" fanned out as a card of its own`).toHaveCount(1, { timeout: FAN_OUT_BUDGET_MS });
       const door = drawings.cell(sheetCard, S_DRAWINGS.open);
       await expect(door, "the card carries a visible door onto its sheet — a screen reachable only by a typed URL is a failing criterion (R-UI-031)").toBeVisible();
-      const href = (await door.getAttribute("href")) ?? "";
+      const href = (await heldAttribute(door, "href")) ?? "";
       await door.click();
 
       await expect(page, "the door lands on the sheet it named").toHaveURL(`${origin}${href}`);
@@ -177,7 +178,7 @@ test.describe("J-000 — Golden Path: the uploaded drawing's sheet opens, and on
           : `the flown-to entity is a block instance, so its own box is where it paints, and ${record.key} reads out on it`,
       ).not.toBeNull();
       await expect(viewer.hover, "the pointer stands on it, and the panel is reading").toBeVisible();
-      expect(await viewer.hover.getAttribute("data-key"), "type, layer and handle are read out for the entity the link named (R-TO-011)").toBe(record.key);
+      expect(await heldAttribute(viewer.hover, "data-key"), "type, layer and handle are read out for the entity the link named (R-TO-011)").toBe(record.key);
       await expect(page.getByTestId("viewer-inspector-hover-handle"), "the handle cell is that key's own handle, verbatim").toHaveText(record.key.slice(SCHEME.length));
       await expect(page.getByTestId("viewer-inspector-hover-layer"), "and its layer is named beside it").not.toBeEmpty();
 

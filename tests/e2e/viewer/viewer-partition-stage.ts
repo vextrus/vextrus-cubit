@@ -34,6 +34,7 @@ import { ShellPage } from "../pages/shell.page";
 import { UploadPage } from "../pages/upload.page";
 import { newestMail } from "../support/outbox";
 import { e2eDatabaseUrl } from "../support/scratch-db";
+import { heldAttribute } from "../support/retrying-read";
 
 /** The journeys' own database, stated before a product module opens a pool. */
 process.env["DATABASE_URL"] = e2eDatabaseUrl();
@@ -371,7 +372,7 @@ export async function stagePartitionedSheet(page: Page, options: { label?: strin
   await home.createWith({ name: project, code: `SPC-${RUN.slice(0, 4)}`, client: "Sattva Holdings", district: "Dhaka", buildingType: 1, storeys: "12" });
   const card = home.cardNamed(project);
   await expect(card, "the created project stands on S-Home").toBeVisible();
-  const projectId = (await card.getAttribute("data-project")) ?? "";
+  const projectId = (await heldAttribute(card, "data-project")) ?? "";
   expect(projectId, "the card names the project it is for").not.toBe("");
 
   /* --- a drawing, through the shipped upload door, in the browser's own session --- */

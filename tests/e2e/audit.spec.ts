@@ -19,7 +19,7 @@ import { SHomePage } from "./pages/s-home.page";
 import { ShellPage, SHELL } from "./pages/shell.page";
 import { checkpoint } from "./support/checkpoint";
 import { newestMail } from "./support/outbox";
-import { appears } from "./support/retrying-read";
+import { appears, heldAttribute } from "./support/retrying-read";
 
 const EMAIL = "j003-audit@cubit.test";
 const PASSWORD = "audit-journey-password";
@@ -92,7 +92,7 @@ test.describe("J-003 — the project's audit surfaces", () => {
       await home.createWith({ name: PROJECT, code: "AT-001", client: "Ashuganj Holdings", district: "Brahmanbaria", buildingType: 0, storeys: "6" });
     }
     await expect(card, "the project this journey reads the audit of stands on S-Home").toBeVisible();
-    const projectId = (await card.getAttribute("data-project")) ?? "";
+    const projectId = (await heldAttribute(card, "data-project")) ?? "";
     expect(projectId.length, "the card names the project it is for").toBe(36);
 
     /* --- the audit address, reached by URL: visible navigation to it is the shell's own debt --- */

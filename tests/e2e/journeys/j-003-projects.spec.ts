@@ -17,7 +17,7 @@ import { baselinePath, laneProject } from "../support/capture-geometry";
 import { checkpoint } from "../support/checkpoint";
 import { emulateTheme, restoreLaneTheme } from "../support/lane-theme";
 import { newestMail } from "../support/outbox";
-import { appears, steadyText } from "../support/retrying-read";
+import { appears, heldAttribute, steadyText } from "../support/retrying-read";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j003-${RUN}@cubit.test`;
@@ -83,7 +83,7 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
 
     const created = home.cardNamed(PROJECT);
     await expect(created, "the created project stands on S-Home").toBeVisible();
-    const projectId = (await created.getAttribute("data-project")) ?? "";
+    const projectId = (await heldAttribute(created, "data-project")) ?? "";
     expect(projectId, "the card names the project it is for (docs/design/s-home.md § 7)").not.toBe("");
 
     /* --- edit a field, and see the change on S-Home --- */
@@ -337,7 +337,7 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     await home.createWith({ name: `Consequence ${run}`, code: "CD-001", buildingType: 1, storeys: "4" });
     const card = home.cardNamed(`Consequence ${run}`);
     await expect(card, "the created project stands on S-Home").toBeVisible();
-    const projectId = (await card.getAttribute("data-project")) ?? "";
+    const projectId = (await heldAttribute(card, "data-project")) ?? "";
     expect(projectId, "the card names the project it is for").not.toBe("");
 
     await participants.open(tenantId, projectId);

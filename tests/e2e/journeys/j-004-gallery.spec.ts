@@ -19,6 +19,7 @@ import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
 import { SDesignPage, S_DESIGN_ROUTE } from "../pages/s-design.page";
 import { newestMail } from "../support/outbox";
 import { appears } from "../support/retrying-read";
+import { afterSettled } from "../support/settled";
 
 /** axe runs from the copy already in the checkout; the journey adds no package (Q-11). */
 const AXE_SOURCE = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
@@ -44,11 +45,11 @@ async function galleryCheckpoint(page: Page, theme: "light" | "dark", checkpoint
   await design.assertPopulated(checkpoint);
 
   await page.evaluate(AXE_SOURCE);
-  const runViolations = await page.evaluate(async () => {
+  const runViolations = await afterSettled(page, () => page.evaluate(async () => {
     const runner = (window as unknown as { axe: { run: (context: Document) => Promise<{ violations: Violation[] }> } }).axe;
     const results = await runner.run(document);
     return results.violations.map((violation) => ({ id: violation.id, impact: violation.impact, help: violation.help }));
-  });
+  }));
   const violations = runViolations.filter((entry) => BLOCKING_IMPACTS.includes(String(entry.impact)));
   expect(violations, `${checkpoint}: axe reports no serious or critical violation — ${JSON.stringify(violations)}`).toStrictEqual([]);
 

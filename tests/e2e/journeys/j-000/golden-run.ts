@@ -37,6 +37,7 @@ import { SHomePage, S_HOME } from "../../pages/s-home.page";
 import { ShellPage, SHELL } from "../../pages/shell.page";
 import { newestMail } from "../../support/outbox";
 import { startJourneyWorker, type JourneyWorker } from "../../support/worker";
+import { heldAttribute } from "../../support/retrying-read";
 
 /** The corpus the golden path uploads, and the sheet its later legs stand on. */
 export const FIXTURE = join(process.cwd(), "fixtures", "rcc6", "rcc6.dxf");
@@ -227,7 +228,7 @@ async function establish(page: Page): Promise<GoldenRun> {
   await home.createWith({ name: "Riverside Tower", buildingType: 0 });
   const card = home.cardNamed("Riverside Tower");
   await expect(card, "the first project stands on S-Home").toBeVisible();
-  const projectId = (await card.getAttribute("data-project")) ?? "";
+  const projectId = (await heldAttribute(card, "data-project")) ?? "";
   expect(projectId, "the card names the project it is for").not.toBe("");
 
   /* --- the shipped worker first: the reading S-Drawings asks for on upload is asked for ONCE, by

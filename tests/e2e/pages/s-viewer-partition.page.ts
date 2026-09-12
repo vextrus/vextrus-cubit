@@ -6,6 +6,8 @@
 // `tests/e2e/viewer/s-viewer.page.ts`'s, and a journey that reads both opens both.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { heldAttribute } from "../support/retrying-read";
+import { afterSettled } from "../support/settled";
 
 /** S-Viewer's views/grid panel and the overlay canvas over the sheet. */
 export class SViewerPartitionPage {
@@ -88,17 +90,17 @@ export class SViewerPartitionPage {
 
   /** A `data-` hook off the overlay canvas, as a number — what the machine says it drew. */
   async count(name: string): Promise<number> {
-    const raw = await this.overlayCanvas.getAttribute(name);
+    const raw = await heldAttribute(this.overlayCanvas, name);
     expect(raw, `the overlay canvas publishes ${name} (Decision §1)`).not.toBeNull();
     return Number(raw);
   }
 
   /** The test id the focused element carries, and the classes it wears — the keyboard walk's reading. */
   async focused(): Promise<{ testId: string; classes: string }> {
-    return this.page.evaluate(() => {
+    return afterSettled(this.page, () => this.page.evaluate(() => {
       const active = document.activeElement;
       return { testId: active?.getAttribute("data-testid") ?? "", classes: active?.className ?? "" };
-    });
+    }));
   }
 
   /** Flip the document's theme the way the shell does, and wait for the root to say so. */
@@ -109,6 +111,6 @@ export class SViewerPartitionPage {
 
   /** One computed style of an element, read in the page (no colour is ever spelled here). */
   computed(on: Locator, property: string): Promise<string> {
-    return on.evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property);
+    return afterSettled(on, () => on.evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property));
   }
 }

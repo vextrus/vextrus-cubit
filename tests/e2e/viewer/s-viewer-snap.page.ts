@@ -9,6 +9,8 @@
  */
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { heldAttribute } from "../support/retrying-read";
+import { afterSettled } from "../support/settled";
 
 /** One drawn record of the served sheet, as the feed answers one. */
 export type SheetRecord = { key: string; type: string; points: [number, number][] };
@@ -60,14 +62,14 @@ export class SViewerSnapPage {
 
   /** Whether a toggle reads as pressed — the one channel WCAG gives a toggle (4.1.2). */
   async isPressed(toggle: Locator): Promise<boolean> {
-    const stated = await toggle.getAttribute("aria-pressed");
+    const stated = await heldAttribute(toggle, "aria-pressed");
     expect(stated, "a toolbar toggle states whether it is pressed").not.toBeNull();
     return stated === "true";
   }
 
   /** A `data-` hook of one element, refused where it carries none. */
   async hook(on: Locator, name: string): Promise<string> {
-    const raw = await on.getAttribute(name);
+    const raw = await heldAttribute(on, name);
     expect(raw, `the element publishes ${name} (Decision §7)`).not.toBeNull();
     return raw as string;
   }
@@ -77,7 +79,7 @@ export class SViewerSnapPage {
    * so a journey's anchors are the served drawing's own points (R-UI-043).
    */
   async sheetRecords(sheet: { tenantId: string; drawingId: string; layoutName: string }, layers: number): Promise<SheetRecord[]> {
-    const answered = await this.page.evaluate(
+    const answered = await afterSettled(this.page, () => this.page.evaluate(
       async ([tenantId, drawingId, layoutName, count]) => {
         const held: { key: string; type: string; points: [number, number][] }[] = [];
         for (let index = 0; index < Number(count); index += 1) {
@@ -93,7 +95,7 @@ export class SViewerSnapPage {
         return held;
       },
       [sheet.tenantId, sheet.drawingId, sheet.layoutName, String(layers)] as const,
-    );
+    ));
     expect(answered.length, "the served sheet carries drawn records to snap to").toBeGreaterThan(0);
     return answered;
   }
@@ -188,7 +190,7 @@ export class SViewerSnapPage {
     // The registry is a NODE-side declaration: `testIdSelector` and `TESTIDS` do not exist in the
     // page, so the selector is resolved here and handed in as the argument (AM-09 §1 asks that the
     // id be read from the registry, not that the browser be able to read it).
-    return this.page.evaluate(
+    return afterSettled(this.page, () => this.page.evaluate(
       ({ selector, properties }) => {
         const element = document.querySelector(selector);
         if (element === null) return "";
@@ -196,23 +198,23 @@ export class SViewerSnapPage {
         return [read(element, null), read(element, "::before"), read(element, "::after")].join("//");
       },
       { selector: testIdSelector(TESTIDS.viewer.snapGlyph), properties: [...SHAPE_PROPERTIES] },
-    );
+    ));
   }
 
   /** One computed property of the live glyph. */
   async glyphStyle(property: string): Promise<string> {
-    return this.page.evaluate(
+    return afterSettled(this.page, () => this.page.evaluate(
       ([selector, name]) => {
         const element = document.querySelector(String(selector));
         return element === null ? "" : window.getComputedStyle(element).getPropertyValue(String(name));
       },
       [testIdSelector(TESTIDS.viewer.snapGlyph), property] as const,
-    );
+    ));
   }
 
   /** A design token's value as the document resolves it right now (R-UI-001). */
   async token(name: string): Promise<string> {
-    return this.page.evaluate(([held]) => window.getComputedStyle(document.documentElement).getPropertyValue(String(held)).trim(), [name] as const);
+    return afterSettled(this.page, () => this.page.evaluate(([held]) => window.getComputedStyle(document.documentElement).getPropertyValue(String(held)).trim(), [name] as const));
   }
 
   /**
@@ -221,13 +223,13 @@ export class SViewerSnapPage {
    * rather than against a value typed into a spec (R-UI-001).
    */
   async resolvedColour(token: string): Promise<string> {
-    return this.page.evaluate(([name]) => {
+    return afterSettled(this.page, () => this.page.evaluate(([name]) => {
       const probe = document.createElement("span");
       probe.style.color = `var(${String(name)})`;
       document.body.appendChild(probe);
       const value = window.getComputedStyle(probe).color;
       probe.remove();
       return value;
-    }, [token] as const);
+    }, [token] as const));
   }
 }

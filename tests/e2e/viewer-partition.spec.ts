@@ -25,7 +25,8 @@ import { SViewerPartitionPage } from "./pages/s-viewer-partition.page";
 import { S_VIEWER, SViewerPage } from "./viewer/s-viewer.page";
 import { UNTYPED, confirmationsOf, stagePartitionedSheet, storedDeferrals } from "./viewer/viewer-partition-stage";
 import { TESTIDS, testIdSelector } from "../../src/ui/testids";
-import { everyRow, steadyCount, steadyText } from "./support/retrying-read";
+import { everyRow, heldAttribute, steadyCount, steadyText } from "./support/retrying-read";
+import { afterSettled } from "./support/settled";
 
 /** The stored reason a caption no grammar rule reads leaves on its view (L-CAD-06, AC-3). */
 const CAPTION_UNCLASSIFIABLE = "CAPTION_UNCLASSIFIABLE";
@@ -165,7 +166,7 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
 
     /* --- AC-5: the region is walked on the keyboard, in DOM order, every stop wearing the reticle --- */
     await partition.heading.focus();
-    expect(await partition.heading.evaluate((element) => element === document.activeElement), "the region takes focus at its own heading (I-110)").toBe(true);
+    expect(await afterSettled(partition.heading, () => partition.heading.evaluate((element) => element === document.activeElement)), "the region takes focus at its own heading (I-110)").toBe(true);
     const walk: string[] = ["viewer-partition-views-toggle", "viewer-partition-grid-toggle", ...members.map(() => "offered-group-confirm")];
     for (const expected of walk) {
       await page.keyboard.press("Tab");
@@ -176,7 +177,7 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
 
     /* --- j-021/partition-toggled: Views off from the keyboard, and nothing else moves --- */
     const scaleBefore = await viewer.scale();
-    const selectionBefore = await viewer.status.getAttribute("data-selection");
+    const selectionBefore = await heldAttribute(viewer.status, "data-selection");
     const viewportBefore = await viewer.viewportParam();
     const selectionParamBefore = await viewer.selectionParam();
 
@@ -191,7 +192,7 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
     await expect(partition.viewRows, "every stored view keeps its row: a switch gates the PAINT and nothing else").toHaveCount(staged.views.length);
 
     expect(await viewer.scale(), "the camera did not move").toBe(scaleBefore);
-    expect(await viewer.status.getAttribute("data-selection"), "nothing was selected or let go").toBe(selectionBefore);
+    expect(await heldAttribute(viewer.status, "data-selection"), "nothing was selected or let go").toBe(selectionBefore);
     expect(await viewer.viewportParam(), "and the address carries the same camera").toBe(viewportBefore);
     expect(await viewer.selectionParam(), "and the same selection").toBe(selectionParamBefore);
     await checkpoint(page, testInfo, "j-021/partition-toggled");
@@ -218,7 +219,7 @@ test.describe("J-021 — views and grid on the sheet: what the machine saw, and 
     await expect(partition.dialog, "over the act it is for").toHaveAttribute("data-act-type", CONFIRM_VIEW_TYPE);
     await expect(partition.subjectRows, "with one row per member of the group the machine named").toHaveCount(members.length);
     const subjects: string[] = [];
-    for (const row of await everyRow(partition.subjectRows, "the Consequence subject rows")) subjects.push((await row.getAttribute("data-subject")) ?? "");
+    for (const row of await everyRow(partition.subjectRows, "the Consequence subject rows")) subjects.push((await heldAttribute(row, "data-subject")) ?? "");
     expect(subjects.sort(), "and those rows are exactly that group's members — nobody widened them").toEqual(members);
     await expect(partition.digestLine, "the digest the server computed is shown, because the confirm carries it").not.toBeEmpty();
     const digest = await steadyText(partition.digestLine, "the Consequence digest line");

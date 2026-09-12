@@ -4,7 +4,7 @@
 // would be reading the styling, not the screen.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
-import { appears, steadyText } from "../support/retrying-read";
+import { appears, everyRow, heldAttribute, steadyText } from "../support/retrying-read";
 
 /** The addresses this screen is reached at, spelled once so a journey never writes a path twice. */
 export const S_MEMBERS = Object.freeze({
@@ -78,7 +78,7 @@ export class SMembersPage {
   async refusalCode(userId: string): Promise<string> {
     const slot = this.refusal(userId).locator("[data-code]").first();
     await slot.waitFor({ state: "visible", timeout: 30_000 });
-    return (await slot.getAttribute("data-code")) ?? "";
+    return (await heldAttribute(slot, "data-code")) ?? "";
   }
 
   /* --- the invitations panel (§ 1, I-61's two slots) --- */
@@ -133,7 +133,15 @@ export class SMembersPage {
  */
 export async function switcherWorkspaces(page: Page): Promise<string[]> {
   const menu = await openSwitcher(page);
-  const offered = (await menu.getByRole("menuitem").allTextContents()).map((text) => text.replace(/\s+/g, " ").trim());
+  // `allTextContents()` reads every item once, at the instant the menu was asked — a switcher that
+  // is still painting its list answers with the items it has so far, and the caller then asserts
+  // over a roster that was never the roster (AM-09 §4, P4b §4). The items are addressed one at a
+  // time through the retrying reads instead: the count settles first, then each row's text.
+  const items = menu.getByRole("menuitem");
+  const offered: string[] = [];
+  for (const item of await everyRow(items, "the workspace switcher's items")) {
+    offered.push((await steadyText(item, "a workspace the switcher offers")).replace(/\s+/g, " ").trim());
+  }
   return offered.filter((text) => text.length > 0);
 }
 

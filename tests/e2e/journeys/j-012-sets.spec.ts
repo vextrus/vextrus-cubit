@@ -23,6 +23,8 @@ import { ShellPage, SHELL } from "../pages/shell.page";
 import { checkpoint } from "../support/checkpoint";
 import { newestMail } from "../support/outbox";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { heldAttribute } from "../support/retrying-read";
+import { afterSettled } from "../support/settled";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j012sets-${RUN}@cubit.test`;
@@ -118,7 +120,7 @@ test.describe("J-012 — a set, pinned, and a changed file that revises it", () 
     await home.createWith({ name: PROJECT, code: "SCT-012", client: "Sattva Holdings", district: "Dhaka", buildingType: 1, storeys: "12" });
     const card = home.cardNamed(PROJECT);
     await expect(card, "the created project stands on S-Home").toBeVisible();
-    const projectId = (await card.getAttribute("data-project")) ?? "";
+    const projectId = (await heldAttribute(card, "data-project")) ?? "";
     expect(projectId, "the card names the project it is for").not.toBe("");
 
     /* --- the drawing this set will name, dropped through the screen's own Dropzone --- */
@@ -149,7 +151,7 @@ test.describe("J-012 — a set, pinned, and a changed file that revises it", () 
     await row.locator(`[data-testid="${S_SETS.toggle}"]`).click();
     await expect(row, "a toggle writes the draft at once (I-96)").toHaveAttribute("data-member", "true");
     await expect(row.locator(`[data-testid="${S_SETS.drawingRevision}"]`), "one upload of a name is one revision of that drawing").toHaveCount(1);
-    const firstSha = (await row.getAttribute("data-current-sha256")) ?? "";
+    const firstSha = (await heldAttribute(row, "data-current-sha256")) ?? "";
     expect(firstSha, "the row publishes the content the drawing stands at").toMatch(DIGEST);
 
     await at(page, S_SETS.pin).click();
@@ -162,7 +164,7 @@ test.describe("J-012 — a set, pinned, and a changed file that revises it", () 
     await expect(pinnedRevisions, "the pin recorded one set revision").toHaveCount(1);
     const firstPin = pinnedRevisions.first();
     await expect(firstPin, "which is the one the set stands at").toHaveAttribute("data-current", "true");
-    const firstDigest = (await firstPin.getAttribute("data-digest")) ?? "";
+    const firstDigest = (await heldAttribute(firstPin, "data-digest")) ?? "";
     expect(firstDigest, "a manifest digest is a lowercase 64-hex sha256").toMatch(DIGEST);
     await expect(firstPin.locator(`[data-testid="${S_SETS.revisionDigest}"]`), "and it is shown whole, character for character (I-99)").toHaveText(firstDigest);
     const firstCitation = firstPin.locator(`[data-testid="${S_SETS.revisionMember}"]`);
@@ -172,12 +174,12 @@ test.describe("J-012 — a set, pinned, and a changed file that revises it", () 
     // A machine identifier renders in the mono face the tokens name (I-25, I-26) — read out of the
     // page's own token value rather than spelled here.
     // The selector is resolved in node and handed in: the registry does not exist in the page.
-    const mono = await page.evaluate((selector) => {
+    const mono = await afterSettled(page, () => page.evaluate((selector) => {
       const digest = document.querySelector(selector);
       const wanted = getComputedStyle(document.documentElement).getPropertyValue("--font-mono");
       const flat = (value: string): string => value.replace(/["']/g, "").replace(/\s+/g, " ").trim().toLowerCase();
       return { shown: flat(digest === null ? "" : getComputedStyle(digest).fontFamily), wanted: flat(wanted) };
-    }, testIdSelector(TESTIDS.set.revisionDigest));
+    }, testIdSelector(TESTIDS.set.revisionDigest)));
     expect(mono.shown, "the digest renders in the mono face the design tokens name").toBe(mono.wanted);
     await checkpoint(page, testInfo, "j-012-set-pinned");
 
@@ -197,7 +199,7 @@ test.describe("J-012 — a set, pinned, and a changed file that revises it", () 
     const current = revvedRow.locator(`[data-testid="${S_SETS.drawingRevision}"][data-current="true"]`);
     await expect(current, "exactly one revision is the one the drawing stands at").toHaveCount(1);
     await expect(current, "and it is the second one").toHaveAttribute("data-ordinal", "2");
-    const secondSha = (await current.getAttribute("data-sha256")) ?? "";
+    const secondSha = (await heldAttribute(current, "data-sha256")) ?? "";
     expect(secondSha, "whose content address is a 64-hex sha256").toMatch(DIGEST);
     expect(secondSha, "different bytes have a different address — that is what makes it a revision").not.toBe(firstSha);
 
@@ -221,7 +223,7 @@ test.describe("J-012 — a set, pinned, and a changed file that revises it", () 
     await expect(newest, "the newest pinned revision stands first and is the current one").toHaveAttribute("data-current", "true");
     await expect(older, "the one before it is superseded, never rewritten").toHaveAttribute("data-current", "false");
     await expect(older, "and carries the digest it always carried").toHaveAttribute("data-digest", firstDigest);
-    const secondDigest = (await newest.getAttribute("data-digest")) ?? "";
+    const secondDigest = (await heldAttribute(newest, "data-digest")) ?? "";
     expect(secondDigest, "the new manifest has an address of its own").toMatch(DIGEST);
     expect(secondDigest, "and it is not the old one: the content decided the address (L-REG-06)").not.toBe(firstDigest);
     await expect(newest.locator(`[data-testid="${S_SETS.revisionDigest}"]`), "shown whole").toHaveText(secondDigest);

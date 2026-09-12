@@ -6,7 +6,7 @@
  */
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
-import { everyRow } from "../support/retrying-read";
+import { everyRow, heldAttribute } from "../support/retrying-read";
 
 /** The Trace address, spelled once (C-05): the cited keys, the origin line, and no `v`. */
 export const S_VIEWER_TRACE = Object.freeze({
@@ -72,7 +72,7 @@ export class SViewerTracePage {
   /** The keys the panel holds, in the order it lists them. */
   async selectedKeys(): Promise<string[]> {
     const keys: string[] = [];
-    for (const row of await everyRow(this.entities, "the inspector's selected entity rows")) keys.push((await row.getAttribute("data-key")) ?? "");
+    for (const row of await everyRow(this.entities, "the inspector's selected entity rows")) keys.push((await heldAttribute(row, "data-key")) ?? "");
     return keys;
   }
 
@@ -94,7 +94,7 @@ export class SViewerTracePage {
 
   /** The basis the Trace is held in, as the screen publishes it while it holds one. */
   traceBasis(): Promise<string | null> {
-    return this.screen.getAttribute("data-trace-basis");
+    return heldAttribute(this.screen, "data-trace-basis");
   }
 
   /** One variable row's whole reading, by the name it was bound under. */
@@ -102,24 +102,24 @@ export class SViewerTracePage {
     const row = this.page.locator(`${testIdSelector(TESTIDS.viewer.inspectorTraceVariable)}[data-name="${name}"]`);
     await expect(row, `the Trace block states the variable ${name}`).toBeVisible();
     return {
-      value: (await row.getAttribute("data-value")) ?? "",
-      unit: (await row.getAttribute("data-unit")) ?? "",
-      basis: (await row.getAttribute("data-basis")) ?? "",
-      source: (await row.getAttribute("data-source")) ?? "",
+      value: (await heldAttribute(row, "data-value")) ?? "",
+      unit: (await heldAttribute(row, "data-unit")) ?? "",
+      basis: (await heldAttribute(row, "data-basis")) ?? "",
+      source: (await heldAttribute(row, "data-source")) ?? "",
     };
   }
 
   /** The names the Trace block states, in binding order. */
   async variableNames(): Promise<string[]> {
     const names: string[] = [];
-    for (const row of await everyRow(this.variables, "the Trace's variable rows")) names.push((await row.getAttribute("data-name")) ?? "");
+    for (const row of await everyRow(this.variables, "the Trace's variable rows")) names.push((await heldAttribute(row, "data-name")) ?? "");
     return names;
   }
 
   /** The lines the Cited-by block lists, in the order it lists them. */
   async citedLineIds(): Promise<string[]> {
     const held: string[] = [];
-    for (const row of await everyRow(this.citedLines, "the inspector's cited-line rows")) held.push((await row.getAttribute("data-line")) ?? "");
+    for (const row of await everyRow(this.citedLines, "the inspector's cited-line rows")) held.push((await heldAttribute(row, "data-line")) ?? "");
     return held;
   }
 

@@ -11,6 +11,7 @@ import { SDrawingsPage } from "../../pages/s-drawings.page";
 import { checkpoint } from "../../support/checkpoint";
 import { settled } from "../../support/settled";
 import { goldenRun, releaseGoldenWorker } from "./golden-run";
+import { heldAttribute } from "../../support/retrying-read";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -31,7 +32,7 @@ test.describe.serial("J-000 — Golden Path: the sheets are given their discipli
     // a person meets, and transcribing a guess here would test the fixture rather than the product.
     const offer = drawings.groups.first();
     await expect(offer, "the reading offers its sheets as a group to confirm").toBeVisible({ timeout: 120_000 });
-    const offered = (await offer.getAttribute("data-discipline")) ?? "";
+    const offered = (await heldAttribute(offer, "data-discipline")) ?? "";
     expect(offered, "an offered group names the discipline it proposes").not.toBe("");
 
     await drawings.confirmGroup(offered);

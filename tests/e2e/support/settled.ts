@@ -13,7 +13,7 @@
 // exist and never on the ones that do not, so this file lands green against today's tree and gets
 // stricter for free as the publishing side arrives. A screen that publishes nothing is settled the
 // moment its fonts, its busy flags and its animations are — which is exactly today's behaviour.
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 /** The selectors and attributes the product publishes for this lane. One home (ARCH-02). */
 export const SETTLE_CONTRACT = Object.freeze({
@@ -128,4 +128,22 @@ export async function readSettle(page: Page): Promise<SettleReading> {
       endless: endless.length,
     };
   }, SETTLE_CONTRACT);
+}
+
+/**
+ * READ ONCE, AFTER THE SCREEN HAS SAID IT STOPPED ARRIVING (AM-09 §4, P4b §4).
+ *
+ * Some answers a journey needs have no retrying verb and cannot be polled for: `history.length`
+ * either grew or it did not, an axe run costs a second and must not be paid three times, a computed
+ * custom property is whatever the cascade says. Those are single readings, and what makes a single
+ * reading lawful is not that it is retried — it is that the screen has already PUBLISHED that it is
+ * done arriving. That is what this states, at the site, in one call: `settled(page)` first, then the
+ * one reading. `cubit/no-unretried-read` knows this wrapper by name, exactly as it knows the poll.
+ *
+ * It takes the page or any locator on it, so a page object that holds only a locator can use it.
+ */
+export async function afterSettled<T>(on: Page | Locator, read: () => Promise<T>, timeout: number = SETTLE_TIMEOUT_MS): Promise<T> {
+  const page = "goto" in on ? on : on.page();
+  await settled(page, timeout);
+  return await read();
 }

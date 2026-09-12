@@ -23,6 +23,7 @@ import { fileURLToPath } from "node:url";
 import { expect, type Page } from "@playwright/test";
 import { stagePartitionedSheet } from "../viewer/viewer-partition-stage";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { afterSettled } from "../support/settled";
 
 /** The checkout these journeys run against. */
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -161,7 +162,7 @@ type RegisterUiSeam = {
 /** The user the browser is signed in as, read from the session the partition stage established. */
 async function userIdOf(page: Page): Promise<string> {
   // Resolved in node and handed in — the registry is a node-side declaration, not a page global.
-  const held = await page.evaluate((selector) => document.querySelector(selector)?.getAttribute("data-user-id") ?? null, testIdSelector(TESTIDS.shell.user));
+  const held = await afterSettled(page, () => page.evaluate((selector) => document.querySelector(selector)?.getAttribute("data-user-id") ?? null, testIdSelector(TESTIDS.shell.user)));
   expect(held, "the shell states which account is signed in — the actor every act below is performed by").toBeTruthy();
   return held as string;
 }

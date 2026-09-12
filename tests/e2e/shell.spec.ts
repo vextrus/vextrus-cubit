@@ -17,6 +17,7 @@ import { checkpoint } from "./support/checkpoint";
 import { emulateTheme, restoreLaneTheme } from "./support/lane-theme";
 import { newestMail } from "./support/outbox";
 import { appears, steadyText } from "./support/retrying-read";
+import { afterSettled } from "./support/settled";
 
 /**
  * The journey's identity is fixed, not per-run: the workspace name and the address both appear in
@@ -285,7 +286,7 @@ test.describe("J-004 — the signed-in application shell", () => {
 
     /* --- the rail collapses from the keyboard, and says so semantically (Q-11) --- */
     await page.keyboard.press("Tab");
-    for (let step = 0; step < 12 && (await shell.railCollapse.evaluate((node) => node !== document.activeElement)); step += 1) {
+    for (let step = 0; step < 12 && (await afterSettled(shell.railCollapse, () => shell.railCollapse.evaluate((node) => node !== document.activeElement))); step += 1) {
       await page.keyboard.press("Tab");
     }
     await expect(shell.railCollapse, "Tab travel reaches the pin control").toBeFocused();

@@ -7,7 +7,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
 import { screenInFrame } from "./shell.page";
-import { everyRow, steadyText } from "../support/retrying-read";
+import { everyRow, heldAttribute, steadyText } from "../support/retrying-read";
 
 /** The two addresses this screen answers at (test contract: routes). */
 export const S_TAKEOFF = Object.freeze({
@@ -174,7 +174,7 @@ export class STakeoffPage {
     const stated = Number((/(\d[\d,.\s]*)/.exec(await steadyText(this.linesCount, "the register's count line"))?.[1] ?? "0").replace(/\D/g, ""));
     if (stated > 0) await expect(this.evidenceLinks, "the lines table offers a Trace from every line it shows (R-UI-022), once its virtualised body has painted them").toHaveCount(stated);
     const held: string[] = [];
-    for (const anchor of await everyRow(this.evidenceLinks, "the lines table's Trace anchors")) held.push((await anchor.getAttribute("data-line")) ?? "");
+    for (const anchor of await everyRow(this.evidenceLinks, "the lines table's Trace anchors")) held.push((await heldAttribute(anchor, "data-line")) ?? "");
     return held;
   }
 

@@ -24,8 +24,8 @@ import { syntheticKey } from "../../takeoff/viewer/support/synthetic-graph";
 import { checkpoint } from "../support/checkpoint";
 import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
 import { stageSyntheticSheet } from "../viewer/viewer-stage";
-import { settled } from "../support/settled";
-import { steadyText } from "../support/retrying-read";
+import { afterSettled, settled } from "../support/settled";
+import { heldAttribute, steadyText } from "../support/retrying-read";
 
 /** A sheet with room for a rectangle to cross and layers to pick from, and small enough to list. */
 const ENTITIES = 600;
@@ -177,7 +177,7 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     await page.mouse.move(centre.x, centre.y);
     await expect(viewer.hover, "the entity under the pointer is still read out").toBeVisible();
     await expect(viewer.inspector, "and with nothing held, reading is what the panel is reporting").toHaveAttribute("data-state", "hover");
-    const hovered = (await viewer.hover.getAttribute("data-key")) ?? "";
+    const hovered = (await heldAttribute(viewer.hover, "data-key")) ?? "";
     expect(hovered, "letting a selection go does not move the sheet under the pointer").toBe(first.key);
     expect(hovered, `the hover names a source key of this reading: it reads "${hovered}"`).toMatch(/^DXF_HANDLE:[0-9A-F]+$/);
     await expect(page.getByTestId("viewer-inspector-hover-handle"), "the handle cell is the key's own handle, verbatim").toHaveText(hovered.slice(SCHEME.length));
@@ -192,7 +192,7 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     await checkpoint(page, testInfo, "j-011-inspector-hover");
 
     /* --- j-011-inspector-selected: a click selects, and the address says so --- */
-    const historyBefore = await page.evaluate(() => history.length);
+    const historyBefore = await afterSettled(page, () => page.evaluate(() => history.length));
     await viewer.clickAt(centre);
     await expect(viewer.inspector, "a click selects the entity under it").toHaveAttribute("data-state", "selected");
     await expect(viewer.inspector).toHaveAttribute("data-count", "1");
@@ -202,7 +202,7 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     await expect(viewer.status, "the readout publishes the size of the selection").toHaveAttribute("data-selection", "1");
     await expect(viewer.statusSelection).toContainText(fill(copy("viewer_inspector_selected_count"), { count: "1" }));
     expect(await viewer.selectionParam(), "the address is the whole state (R-UI-031)").toBe(hovered);
-    expect(await page.evaluate(() => history.length), "the selection is replaced onto the address, never pushed — Back leaves the sheet").toBe(historyBefore);
+    expect(await afterSettled(page, () => page.evaluate(() => history.length)), "the selection is replaced onto the address, never pushed — Back leaves the sheet").toBe(historyBefore);
     await checkpoint(page, testInfo, "j-011-inspector-selected");
 
     /* --- AC-3: the key is copyable, exactly as it stands --- */
@@ -219,7 +219,7 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     // `data-flyto-flight` ordinal counts every fly-to as it begins, so "the Reveal flew this sheet"
     // is a fact that can be read after the fact — and it is asserted as an INCREMENT over what the
     // address's own arrival already flew, so nothing else on the screen can satisfy it.
-    const flewBefore = Number((await viewer.screen.getAttribute("data-flyto-flight")) ?? "0");
+    const flewBefore = Number((await heldAttribute(viewer.screen, "data-flyto-flight")) ?? "0");
     await viewer.reveal.click();
     await expect(viewer.screen, "the Reveal flies the sheet: one more fly-to has run than before the press").toHaveAttribute(
       "data-flyto-flight",
@@ -276,18 +276,18 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     const bare = { x: corner.x + 6, y: corner.y + 6 };
     await page.mouse.move(bare.x, bare.y);
     await expect(viewer.hover, "the pointer over bare paper reads nothing, rather than the last thing it read").toHaveCount(0);
-    const beforeBare = await page.evaluate(() => history.length);
+    const beforeBare = await afterSettled(page, () => page.evaluate(() => history.length));
     await viewer.clickAt(bare);
     await expect(viewer.inspector, "a click on bare paper lets the selection go (AC-1)").toHaveAttribute("data-state", "idle");
     await expect(viewer.inspector).toHaveAttribute("data-count", "0");
     await expect(viewer.inspector, "and the idle cell teaches the gestures again").toContainText(copy("viewer_inspector_idle_body"));
     expect(await viewer.selectionParam(), "the address carries no selection, because none is held (R-UI-031)").toBeNull();
-    expect(await page.evaluate(() => history.length), "and letting go was replaced onto the address, never pushed").toBe(beforeBare);
+    expect(await afterSettled(page, () => page.evaluate(() => history.length)), "and letting go was replaced onto the address, never pushed").toBe(beforeBare);
 
     const again = await viewer.hoverNear(await viewer.canvasCentre(), HOVER_REACH_PX);
     await viewer.clickAt(again.at);
     await expect(viewer.inspector, "an entity is held again").toHaveAttribute("data-count", "1");
-    const beforeEscape = await page.evaluate(() => history.length);
+    const beforeEscape = await afterSettled(page, () => page.evaluate(() => history.length));
     // The pointer comes off the sheet first, so what the panel reports afterwards is what is HELD
     // and not what is merely under a mouse that never moved.
     await page.mouse.move(1, 1);
@@ -296,16 +296,16 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     await expect(viewer.inspector, "Escape with the canvas focused lets it go (AC-1)").toHaveAttribute("data-state", "idle");
     await expect(viewer.inspector).toHaveAttribute("data-count", "0");
     expect(await viewer.selectionParam(), "and the address stops carrying it").toBeNull();
-    expect(await page.evaluate(() => history.length), "with no entry pushed for the letting go").toBe(beforeEscape);
+    expect(await afterSettled(page, () => page.evaluate(() => history.length)), "with no entry pushed for the letting go").toBe(beforeEscape);
 
     await viewer.clickAt(again.at);
     await expect(viewer.inspector, "and once more, to press the door this time").toHaveAttribute("data-count", "1");
     const painted = await viewer.canvas.screenshot();
-    const beforeClear = await page.evaluate(() => history.length);
+    const beforeClear = await afterSettled(page, () => page.evaluate(() => history.length));
     await viewer.clear.click();
     await expect(viewer.inspector, "Clear selection lets it go").toHaveAttribute("data-count", "0");
     expect(await viewer.selectionParam(), "and `s` is absent at count 0 — the address is the whole state (AC-4)").toBeNull();
-    expect(await page.evaluate(() => history.length), "unchanged across the clear, exactly as across the select").toBe(beforeClear);
+    expect(await afterSettled(page, () => page.evaluate(() => history.length)), "unchanged across the clear, exactly as across the select").toBe(beforeClear);
     // The repaint is waited FOR, not slept through: the sheet is re-read until it differs from the
     // frame that carried the selection, and a sheet that never repaints fails with that sentence.
     await expect
@@ -363,28 +363,28 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     /* --- j-011-inspector-dark: the same selection on the other paper --- */
     await viewer.setTheme("light");
     const light = await viewer.cornerLuminance();
-    const heldInLight = await viewer.inspector.getAttribute("data-count");
+    const heldInLight = await heldAttribute(viewer.inspector, "data-count");
     const lightPanel = await viewer.computed(viewer.inspector, "background-color");
     expect(lightPanel, "the panel resolves a fill of its own in light").not.toBe("");
 
     await viewer.setTheme("dark");
     const dark = await viewer.cornerLuminance();
     expect(light, `the canvas paper is lighter in light than in dark (${light} vs ${dark})`).toBeGreaterThan(dark);
-    expect(await viewer.inspector.getAttribute("data-count"), "the selection survives the theme — a repaint is not a change of what is held").toBe(heldInLight);
+    expect(await heldAttribute(viewer.inspector, "data-count"), "the selection survives the theme — a repaint is not a change of what is held").toBe(heldInLight);
     await expect(viewer.entities, "and the rows still stand").toHaveCount(held);
 
     // The panel sits on the layers panel's own fill in both themes: the value is read from the
     // document, never spelled here (R-UI-001 — no acceptance names a colour).
     const graphite50 = await viewer.token("--graphite-50", page.locator("html"));
     expect(graphite50, "the token set resolves the panel's fill in this theme").not.toBe("");
-    const asColour = await page.evaluate((value) => {
+    const asColour = await afterSettled(page, () => page.evaluate((value) => {
       const probe = document.createElement("div");
       probe.style.backgroundColor = value;
       document.body.append(probe);
       const computed = getComputedStyle(probe).backgroundColor;
       probe.remove();
       return computed;
-    }, graphite50);
+    }, graphite50));
     expect(await viewer.computed(viewer.inspector, "background-color"), "the inspector stands on --graphite-50 as the dark theme resolves it (§6)").toBe(asColour);
     expect(asColour, "and that is not the fill it stood on in light — the difference arrives through token values alone").not.toBe(lightPanel);
     await checkpoint(page, testInfo, "j-011-inspector-dark");

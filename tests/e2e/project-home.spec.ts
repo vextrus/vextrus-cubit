@@ -22,7 +22,7 @@ import { SProjectPage, PROJECT_AREA_KEYS, PROJECT_QUICK_ACTIONS, S_PROJECT } fro
 import { ShellPage, SHELL } from "./pages/shell.page";
 import { checkpoint } from "./support/checkpoint";
 import { newestMail } from "./support/outbox";
-import { appears, everyRow, steadyCount, steadyText } from "./support/retrying-read";
+import { appears, everyRow, heldAttribute, steadyCount, steadyText } from "./support/retrying-read";
 
 const EMAIL = "j010-project-home@cubit.test";
 const PASSWORD = "project-home-journey-password";
@@ -93,14 +93,14 @@ test.describe("J-010 — the project home", () => {
       await home.createWith({ name: PROJECT, code: "KD-001", client: CLIENT, district: DISTRICT, buildingType: 0, storeys: "8", gfaM2: GFA_M2 });
     }
     await expect(card, "the project this journey opens stands on S-Home").toBeVisible();
-    const projectId = (await card.getAttribute("data-project")) ?? "";
+    const projectId = (await heldAttribute(card, "data-project")) ?? "";
     expect(projectId.length, "the card names the project it is for").toBe(36);
 
     /* --- AC-1: every card's name is the door to that project's home (R-UI-031, I-131) --- */
     const cards = await everyRow(home.cards, "the S-Home grid's cards");
     expect(cards.length, "the grid holds at least the project this journey made").toBeGreaterThan(0);
     for (const entry of cards) {
-      const id = (await entry.getAttribute("data-project")) ?? "";
+      const id = (await heldAttribute(entry, "data-project")) ?? "";
       const door = entry.getByTestId("s-home-project-open");
       await expect(door, `the card for ${id} opens its project's home`).toHaveAttribute("href", S_PROJECT.home(tenantId, id));
     }
@@ -130,7 +130,7 @@ test.describe("J-010 — the project home", () => {
       if (live === undefined) {
         await expect(project.tab(area), `\`${area}\` has no screen yet, and the tab says so`).toHaveAttribute("data-available", "false");
         await expect(project.tab(area), `\`${area}\` announces itself as no control`).toHaveAttribute("aria-disabled", "true");
-        expect(await project.tab(area).getAttribute("href"), `\`${area}\` is not a link to anywhere`).toBeNull();
+        expect(await heldAttribute(project.tab(area), "href"), `\`${area}\` is not a link to anywhere`).toBeNull();
       } else {
         await expect(project.tab(area), `\`${area}\` has a screen`).toHaveAttribute("data-available", "true");
         await expect(project.tab(area), `\`${area}\` leads to it`).toHaveAttribute("href", live[1](tenantId, projectId));

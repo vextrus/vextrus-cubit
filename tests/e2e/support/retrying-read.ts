@@ -213,6 +213,35 @@ export async function steadyAttribute(locator: Locator, attribute: string, what:
 }
 
 /**
+ * The attribute this element HOLDS STILL at — the drop-in for `locator.getAttribute()` (P4b §4).
+ *
+ * `getAttribute` is one reading, and the lane took it in eighty-four places: the discipline a group
+ * carries, the project a card names, the id a row was drawn for. A screen that is still hydrating
+ * carries the attribute it was server-rendered with, or none at all, so a branch taken on one
+ * reading is a branch taken on the frame the runner happened to arrive in.
+ *
+ * ABSENCE IS AN ANSWER HERE, which is what separates this from `steadyAttribute`: a journey asserts
+ * that a disabled tab is `href`-less as readily as it reads the href of one that is not, so this
+ * answers `null` when the element holds no such attribute — it only insists that the answer was the
+ * same across `AGREEING_READS` readings. `steadyAttribute` is the stricter spelling for a caller
+ * that is waiting for a value to ARRIVE.
+ */
+export async function heldAttribute(locator: Locator, attribute: string, what?: string): Promise<string | null> {
+  const named = what ?? `\`${attribute}\``;
+  let seen: (string | null)[] = [];
+  await expect
+    .poll(
+      async () => {
+        seen = [...seen, await locator.getAttribute(attribute)].slice(-AGREEING_READS);
+        return seen.length === AGREEING_READS && seen.every((value) => value === seen[0]);
+      },
+      { timeout: READ_TIMEOUT_MS, message: `${named}: the attribute never held one value across ${AGREEING_READS} readings (last read ${JSON.stringify(seen)})` },
+    )
+    .toBe(true);
+  return seen[0] ?? null;
+}
+
+/**
  * The attribute of every one of these rows, read the retrying way — the shape five call sites in the
  * lane spell by hand as `everyRow(...)` and then `getAttribute` on each, which is one reading per row.
  */

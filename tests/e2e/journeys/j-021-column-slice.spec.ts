@@ -26,6 +26,8 @@ import { SViewerTracePage } from "../pages/s-viewer-trace.page";
 import { S_VIEWER, SViewerPage, VIEWER_BUDGETS } from "../viewer/s-viewer.page";
 import { CITE_KEYS, stageRegister } from "../takeoff/register-stage";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { heldAttribute } from "../support/retrying-read";
+import { afterSettled } from "../support/settled";
 
 /** A source key of the served sheet's own grammar (L-CAD-03). */
 const HANDLE = /^DXF_HANDLE:[0-9A-F]+$/;
@@ -82,7 +84,7 @@ test.describe("J-021 — the column slice: a line traced to its entities, back t
 
     const link = takeoff.evidenceLink(staged.line.lineId);
     await expect(link, "the source cell's whole content is the link").toBeVisible();
-    const href = (await link.getAttribute("href")) ?? "";
+    const href = (await heldAttribute(link, "href")) ?? "";
     expect(href, "the address names the entities the line cites").toContain("s=");
     expect(href, "and the row it was followed from").toContain(`line=${encodeURIComponent(staged.line.lineId)}`);
     expect(/[?&]v=/.test(href), "and states no camera, which is what makes the viewer fly (s-viewer-inspector I-85)").toBe(false);
@@ -139,7 +141,7 @@ test.describe("J-021 — the column slice: a line traced to its entities, back t
     await expect(takeoff.originLink, "and it is the row the Trace was followed from").toHaveAttribute("data-line", staged.line.lineId);
     await expect(takeoff.originLink, "which is announced as well as painted (R-UI-060)").toHaveAttribute("aria-current", "true");
     expect(
-      await takeoff.originLink.evaluate((node) => node === document.activeElement),
+      await afterSettled(takeoff.originLink, () => takeoff.originLink.evaluate((node) => node === document.activeElement)),
       "the focus reticle stands on it, so a reader arrives where they left (I-182)",
     ).toBe(true);
 

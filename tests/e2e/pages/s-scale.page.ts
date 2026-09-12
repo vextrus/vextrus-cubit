@@ -7,7 +7,8 @@
 // `s-viewer-partition.page.ts`'s. A journey that reads several opens several.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS } from "../../../src/ui/testids";
-import { everyRow } from "../support/retrying-read";
+import { everyRow, heldAttribute } from "../support/retrying-read";
+import { afterSettled } from "../support/settled";
 
 /** The test ids this region publishes (Decision §7, C-05). */
 export const S_SCALE = Object.freeze({
@@ -155,7 +156,7 @@ export class SScalePage {
     // is right not to be showing, and the wait was the spec's whole timeout.
     // Idempotent: a page load starts with the pin released, and a leg that returns here presses
     // nothing it has already pressed.
-    if ((await this.inspectorPin.getAttribute("aria-pressed")) !== "true") await this.inspectorPin.click();
+    if ((await heldAttribute(this.inspectorPin, "aria-pressed")) !== "true") await this.inspectorPin.click();
     await expect(this.inspectorPin, "the inspector pin is held down, so the panel stands at rest (§3.1)").toHaveAttribute("aria-pressed", "true");
     await this.scaleTab.click();
     await expect(this.panel, "the scale tab shows the scale panel").toBeVisible();
@@ -166,7 +167,7 @@ export class SScalePage {
 
   /** A `data-` hook of an element, refused loudly where it is not published. */
   async hook(on: Locator, name: string): Promise<string> {
-    const raw = await on.getAttribute(name);
+    const raw = await heldAttribute(on, name);
     expect(raw, `the element publishes ${name} (Decision §7)`).not.toBeNull();
     return raw as string;
   }
@@ -188,7 +189,7 @@ export class SScalePage {
 
   /** Every drawn record of one sheet, read off the served layer feed. */
   async sheetRecords(sheet: { tenantId: string; drawingId: string; layoutName: string }, layers: number): Promise<SheetRecord[]> {
-    return this.page.evaluate(
+    return afterSettled(this.page, () => this.page.evaluate(
       async ([tenantId, drawingId, layoutName, count]) => {
         const held: { key: string; type: string; points: [number, number][] }[] = [];
         for (let index = 0; index < Number(count); index += 1) {
@@ -204,7 +205,7 @@ export class SScalePage {
         return held;
       },
       [sheet.tenantId, sheet.drawingId, sheet.layoutName, String(layers)] as const,
-    );
+    ));
   }
 
   /**

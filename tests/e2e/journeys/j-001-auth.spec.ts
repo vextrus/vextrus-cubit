@@ -11,6 +11,7 @@ import { SAuthPage, S_AUTH } from "../pages/s-auth.page";
 import { SMembersPage, S_MEMBERS, switchTo, switcherWorkspaces } from "../pages/s-members.page";
 import { checkpoint } from "../support/checkpoint";
 import { newestMail } from "../support/outbox";
+import { heldAttribute } from "../support/retrying-read";
 
 /** One run's identities: a journey brings its own accounts rather than leaning on the last run's. */
 const RUN = Date.now().toString(36);
@@ -47,7 +48,7 @@ async function enrol(screen: SAuthPage, email: string, workspace: string): Promi
 /** The workspace sign-up minted for this account, as the entry's own door addresses it. */
 async function ownWorkspaceId(page: Page): Promise<string> {
   await page.goto(S_AUTH.home);
-  const href = await page.getByTestId("root-home-workspace-door").getAttribute("href");
+  const href = await heldAttribute(page.getByTestId("root-home-workspace-door"), "href");
   return (href ?? "").replace("/t/", "");
 }
 

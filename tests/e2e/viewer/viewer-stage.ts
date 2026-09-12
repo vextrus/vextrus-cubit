@@ -28,6 +28,7 @@ import { UploadPage } from "../pages/upload.page";
 import { newestMail } from "../support/outbox";
 import { e2eDatabaseUrl } from "../support/scratch-db";
 import { SYNTHETIC_LAYOUT, syntheticArtifact, syntheticEntityGraph, syntheticLayerNames } from "../../takeoff/viewer/support/synthetic-graph";
+import { heldAttribute } from "../support/retrying-read";
 
 /** The journeys' own database, stated before a product module opens a pool. */
 process.env["DATABASE_URL"] = e2eDatabaseUrl();
@@ -168,7 +169,7 @@ export async function stageSyntheticSheet(page: Page, options: { entities: numbe
   await home.createWith({ name: project, code: `SVC-${RUN.slice(0, 4)}`, client: "Sattva Holdings", district: "Dhaka", buildingType: 1, storeys: "12" });
   const card = home.cardNamed(project);
   await expect(card, "the created project stands on S-Home").toBeVisible();
-  const projectId = (await card.getAttribute("data-project")) ?? "";
+  const projectId = (await heldAttribute(card, "data-project")) ?? "";
   expect(projectId, "the card names the project it is for").not.toBe("");
 
   /* --- a drawing, through the shipped upload door, in the browser's own session --- */

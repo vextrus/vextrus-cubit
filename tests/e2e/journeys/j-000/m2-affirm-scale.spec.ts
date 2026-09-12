@@ -13,6 +13,7 @@ import { settled } from "../../support/settled";
 import { SViewerPage, VIEWER_BUDGETS } from "../../viewer/s-viewer.page";
 import { SHEET, goldenRun, releaseGoldenWorker } from "./golden-run";
 import { TESTIDS, testIdSelector } from "../../../../src/ui/testids";
+import { heldAttribute } from "../../support/retrying-read";
 
 test.use({
   viewport: { width: 1440, height: 900 },
@@ -43,7 +44,7 @@ test.describe.serial("J-000 — Golden Path: a scale of record for the sheet", (
     /* --- the proposal the panel itself published, affirmed through the act door --- */
     const proposal = scale.proposals.first();
     await expect(proposal, "the panel proposes a scale for at least one view — the file's own units, at worst").toBeVisible({ timeout: 120_000 });
-    const rank = (await proposal.getAttribute("data-rank")) ?? "";
+    const rank = (await heldAttribute(proposal, "data-rank")) ?? "";
     expect(rank, "a proposal states the rank it stands at (L-MEA-05)").not.toBe("");
     await proposal.click();
 

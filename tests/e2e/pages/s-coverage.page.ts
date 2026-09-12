@@ -7,6 +7,7 @@
  */
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { heldAttribute } from "../support/retrying-read";
 
 /** The address this screen answers at, and the parameter one cell widens it by (Decision §7). */
 export const S_COVERAGE = Object.freeze({
@@ -170,9 +171,9 @@ export class SCoveragePage {
   /** The three coordinates one cell carries, read off the element rather than assumed. */
   async coordinatesOf(cell: Locator): Promise<{ kind: string; class: string; levelId: string }> {
     return {
-      kind: (await cell.getAttribute("data-kind")) ?? "",
-      class: (await cell.getAttribute("data-class")) ?? "",
-      levelId: (await cell.getAttribute("data-level")) ?? "",
+      kind: (await heldAttribute(cell, "data-kind")) ?? "",
+      class: (await heldAttribute(cell, "data-class")) ?? "",
+      levelId: (await heldAttribute(cell, "data-level")) ?? "",
     };
   }
 

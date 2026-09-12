@@ -11,6 +11,8 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { expect, test, type Browser, type Page, type TestInfo } from "@playwright/test";
 import { TESTIDS } from "../../../../src/ui/testids";
+import { heldAttribute } from "../../support/retrying-read";
+import { afterSettled } from "../../support/settled";
 
 /** axe runs from the copy already in the checkout; the journey adds no package (Q-11). */
 const AXE_SOURCE = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
@@ -40,7 +42,7 @@ interface Ground {
  * assertion binds `html`'s painted background to the *value* `--graphite-0` resolves to.
  */
 async function groundOf(page: Page): Promise<Ground> {
-  return page.evaluate(() => {
+  return afterSettled(page, () => page.evaluate(() => {
     const root = document.documentElement;
     const computed = getComputedStyle(root);
     const token = computed.getPropertyValue("--graphite-0").trim();
@@ -50,7 +52,7 @@ async function groundOf(page: Page): Promise<Ground> {
     const expected = getComputedStyle(probe).backgroundColor;
     probe.remove();
     return { token, painted: computed.backgroundColor, expected };
-  });
+  }));
 }
 
 /**
@@ -112,11 +114,11 @@ async function assertResolverRunsBeforeFirstPaint(page: Page, checkpoint: string
 /** Run axe over the whole document and answer only the violations the law counts. */
 async function blockingViolations(page: Page): Promise<Violation[]> {
   await page.evaluate(AXE_SOURCE);
-  const violations = await page.evaluate(async () => {
+  const violations = await afterSettled(page, () => page.evaluate(async () => {
     const runner = (window as unknown as { axe: { run: (context: unknown) => Promise<{ violations: Violation[] }> } }).axe;
     const results = await runner.run(document);
     return results.violations.map((violation) => ({ id: violation.id, impact: violation.impact }));
-  });
+  }));
   return violations.filter((violation) => BLOCKING_IMPACTS.includes(String(violation.impact)));
 }
 
@@ -143,7 +145,7 @@ async function rootEntry(
     await expect(page.getByTestId("root-home-heading")).toBeVisible();
     await expect(page.getByTestId("root-home-tagline")).toBeVisible();
 
-    const theme = await page.locator("html").getAttribute("data-theme");
+    const theme = await heldAttribute(page.locator("html"), "data-theme");
     expect(theme, `the document resolves the ${colorScheme} theme (R-UI-001)`).toBe(colorScheme);
     await assertResolverRunsBeforeFirstPaint(page, checkpoint);
 

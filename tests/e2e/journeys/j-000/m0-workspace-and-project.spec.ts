@@ -13,7 +13,7 @@ import { ShellPage, SHELL } from "../../pages/shell.page";
 import { ESTIMATED_VALUE_STAT, QUICK_STATS, SHomePage, S_HOME } from "../../pages/s-home.page";
 import { checkpoint } from "../../support/checkpoint";
 import { newestMail } from "../../support/outbox";
-import { steadyText } from "../../support/retrying-read";
+import { heldAttribute, steadyText } from "../../support/retrying-read";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j000-${RUN}@cubit.test`;
@@ -97,7 +97,7 @@ test.describe("J-000 — Golden Path: sign up, name the workspace, create the fi
     await expect(card, "the new project is the visible answer: its card stands in the grid").toBeVisible();
     await expect(home.grid).toBeVisible();
     // The row names the project it is for, which is how its own `⋯` is addressed (s-home.md § 7).
-    const projectId = (await card.getAttribute("data-project")) ?? "";
+    const projectId = (await heldAttribute(card, "data-project")) ?? "";
     expect(projectId, "the row names the project it is for").not.toBe("");
 
     /* --- AC-3: what a row carries, and where the workspace's own totals stand ---

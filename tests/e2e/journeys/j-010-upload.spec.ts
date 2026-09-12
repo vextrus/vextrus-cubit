@@ -21,7 +21,7 @@ import { ShellPage, SHELL } from "../pages/shell.page";
 import { checkpoint } from "../support/checkpoint";
 import { newestMail } from "../support/outbox";
 import { startJourneyWorker } from "../support/worker";
-import { steadyCount, steadyText } from "../support/retrying-read";
+import { heldAttribute, steadyCount, steadyText } from "../support/retrying-read";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j010sheets-${RUN}@cubit.test`;
@@ -80,7 +80,7 @@ test.describe("J-010 — a dropped drawing fans out into confirmed sheets", () =
       await home.createWith({ name: PROJECT, code: "SCS-001", client: "Sattva Holdings", district: "Dhaka", buildingType: 1, storeys: "12" });
       const card = home.cardNamed(PROJECT);
       await expect(card, "the created project stands on S-Home").toBeVisible();
-      const projectId = (await card.getAttribute("data-project")) ?? "";
+      const projectId = (await heldAttribute(card, "data-project")) ?? "";
       expect(projectId, "the card names the project it is for").not.toBe("");
 
       /* --- j-010-sheets-uploaded: the drawing, dropped through the screen's own Dropzone --- */

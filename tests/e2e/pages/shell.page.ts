@@ -3,6 +3,8 @@
 // copy string would be reading the styling, not the screen.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS } from "../../../src/ui/testids";
+import { heldAttribute } from "../support/retrying-read";
+import { afterSettled } from "../support/settled";
 
 /** The addresses R-UI-031 pins, spelled once so a journey never writes a path twice. */
 export const SHELL = Object.freeze({
@@ -188,7 +190,7 @@ export class ShellPage {
   async selectedArea(): Promise<ShellArea[]> {
     const areas: ShellArea[] = [];
     for (const area of SHELL_AREAS) {
-      if ((await this.nav(area).getAttribute("aria-current")) === "page") areas.push(area);
+      if ((await heldAttribute(this.nav(area), "aria-current")) === "page") areas.push(area);
     }
     return areas;
   }
@@ -222,7 +224,7 @@ export class ShellPage {
    * Both sides of a paint comparison come back in the same serialized form, under the same theme.
    */
   async tokenPalette(): Promise<{ name: string; colour: string }[]> {
-    return this.page.evaluate(() => {
+    return afterSettled(this.page, () => this.page.evaluate(() => {
       const probe = document.createElement("div");
       probe.setAttribute("aria-hidden", "true");
       probe.style.position = "fixed";
@@ -244,12 +246,12 @@ export class ShellPage {
       }
       probe.remove();
       return painted;
-    });
+    }));
   }
 
   /** The colour a rail entry is actually filled with, as the browser serializes it. */
   async paintedFill(area: ShellArea): Promise<string> {
-    return this.nav(area).evaluate((element: Element) => getComputedStyle(element).backgroundColor);
+    return afterSettled(this.nav(area), () => this.nav(area).evaluate((element: Element) => getComputedStyle(element).backgroundColor));
   }
 
   /**
@@ -260,7 +262,7 @@ export class ShellPage {
    * the same bar, and R-UI-030 is about the bar, not the technique.
    */
   async insetStrips(area: ShellArea, width: string): Promise<{ where: string; colour: string }[]> {
-    return this.nav(area).evaluate((element: Element, bar: string) => {
+    return afterSettled(this.nav(area), () => this.nav(area).evaluate((element: Element, bar: string) => {
       const strips: { where: string; colour: string }[] = [];
       const consider = (where: string, size: string, colour: string): void => {
         if (size.trim() === bar) strips.push({ where, colour });
@@ -287,7 +289,7 @@ export class ShellPage {
       const geometry = (split >= 0 ? shadow.slice(split + 1) : shadow).trim();
       if (colour !== "" && geometry.includes("inset") && geometry.split(/\s+/).includes(bar)) strips.push({ where: "inset box-shadow", colour });
       return strips;
-    }, width);
+    }, width));
   }
 
   /** Open the user menu and wait for its two doors, so a click lands on a settled overlay. */

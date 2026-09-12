@@ -10,8 +10,9 @@ import { inflateSync } from "node:zlib";
 // journey that needs the screen point of a world point inverts the shipped mapping rather than
 // re-deriving one of its own, so no acceptance carries a second opinion about where a sheet is.
 import { worldAt } from "../../../src/modules/takeoff/viewer/client";
-import { appears, everyRow, nextFrame } from "../support/retrying-read";
+import { appears, everyRow, heldAttribute, nextFrame } from "../support/retrying-read";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { afterSettled } from "../support/settled";
 
 /** The addresses S-Viewer answers at (test contract). */
 /** How long one probe of a hover sweep waits for the readout before the sweep moves on. */
@@ -185,7 +186,7 @@ export class SViewerPage {
 
   /** A `data-` hook off the status line, as a number. */
   async statusNumber(name: string): Promise<number> {
-    const raw = await this.status.getAttribute(name);
+    const raw = await heldAttribute(this.status, name);
     expect(raw, `the status line publishes ${name} (Decision §7)`).not.toBeNull();
     return Number(raw);
   }
@@ -255,7 +256,7 @@ export class SViewerPage {
   async pinInspector(): Promise<void> {
     // Idempotent, because a page load starts with the pin released: a leg that returns to the
     // screen asks for the same state rather than toggling whatever it finds.
-    if ((await this.inspectorPin.getAttribute("aria-pressed")) !== "true") await this.inspectorPin.click();
+    if ((await heldAttribute(this.inspectorPin, "aria-pressed")) !== "true") await this.inspectorPin.click();
     await expect(this.inspectorPin, "the inspector pin is held down, so the panel stands at rest (§3.1)").toHaveAttribute("aria-pressed", "true");
     await this.stageSteady();
   }
@@ -323,7 +324,7 @@ export class SViewerPage {
   /** The selected keys, in the order the panel lists them. */
   async selectedKeys(): Promise<string[]> {
     const keys: string[] = [];
-    for (const row of await everyRow(this.entities, "the inspector's selected entity rows")) keys.push((await row.getAttribute("data-key")) ?? "");
+    for (const row of await everyRow(this.entities, "the inspector's selected entity rows")) keys.push((await heldAttribute(row, "data-key")) ?? "");
     return keys;
   }
 
@@ -341,7 +342,7 @@ export class SViewerPage {
 
   /** The centre of the union of every selected row's box — where a reveal must leave the camera. */
   async selectionCentre(): Promise<[number, number]> {
-    const boxes = await Promise.all((await everyRow(this.entities, "the inspector's selected entity rows")).map(async (row) => SViewerPage.boxOf((await row.getAttribute("data-bbox")) ?? "")));
+    const boxes = await Promise.all((await everyRow(this.entities, "the inspector's selected entity rows")).map(async (row) => SViewerPage.boxOf((await heldAttribute(row, "data-bbox")) ?? "")));
     expect(boxes.length, "a centre is taken of a selection, so something is selected").toBeGreaterThan(0);
     const union = boxes.reduce((held, box) => ({
       minX: Math.min(held.minX, box.minX),
@@ -417,7 +418,7 @@ export class SViewerPage {
           // readout to arrive under this probe and answers whether it did. A probe that met nothing
           // is the sweep's own answer, not a defect — the next probe is tried (AM-09 §4).
           if (await appears(this.hover, HOVER_REACH_MS)) {
-            const key = (await this.hover.getAttribute("data-key")) ?? "";
+            const key = (await heldAttribute(this.hover, "data-key")) ?? "";
             if (key !== "" && (wanted === undefined || key === wanted)) return { at, key };
           }
         }
@@ -433,7 +434,7 @@ export class SViewerPage {
    * one is bare paper. Answers where the panel read that key out, or null where it never did.
    */
   async hoverForRowKey(row: Locator, key: string, reachPx = 24): Promise<{ x: number; y: number } | null> {
-    const box = SViewerPage.boxOf((await row.getAttribute("data-bbox")) ?? "");
+    const box = SViewerPage.boxOf((await heldAttribute(row, "data-bbox")) ?? "");
     const midX = (box.minX + box.maxX) / 2;
     const midY = (box.minY + box.maxY) / 2;
     const world: [number, number][] = [
@@ -456,7 +457,7 @@ export class SViewerPage {
 
   /** The centre of one selected row's world box — where that entity stands on the drawing. */
   async rowCentre(row: Locator): Promise<[number, number]> {
-    const bbox = (await row.getAttribute("data-bbox")) ?? "";
+    const bbox = (await heldAttribute(row, "data-bbox")) ?? "";
     const box = SViewerPage.boxOf(bbox);
     return [(box.minX + box.maxX) / 2, (box.minY + box.maxY) / 2];
   }
@@ -498,7 +499,7 @@ export class SViewerPage {
 
   /** Press one row's copy door and answer the key that row names. */
   async copyKey(row: Locator): Promise<string> {
-    const key = (await row.getAttribute("data-key")) ?? "";
+    const key = (await heldAttribute(row, "data-key")) ?? "";
     await row.getByTestId("viewer-inspector-copy").click();
     await expect(row.getByTestId("viewer-inspector-copy"), "the row says it has been copied").toHaveAttribute("data-copied", "true");
     return key;
@@ -506,7 +507,7 @@ export class SViewerPage {
 
   /** What the browser's clipboard holds — the permissions are granted on the context (test contract). */
   clipboardText(): Promise<string> {
-    return this.page.evaluate(() => navigator.clipboard.readText());
+    return afterSettled(this.page, () => this.page.evaluate(() => navigator.clipboard.readText()));
   }
 
   /** Flip the document's theme the way the shell does, and wait for the root to say so. */
@@ -517,12 +518,12 @@ export class SViewerPage {
 
   /** A CSS custom property as the page itself resolves it, inside the element that carries it. */
   async token(name: string, on: Locator): Promise<string> {
-    return on.evaluate((element, property) => getComputedStyle(element).getPropertyValue(property).trim(), name);
+    return afterSettled(on, () => on.evaluate((element, property) => getComputedStyle(element).getPropertyValue(property).trim(), name));
   }
 
   /** One computed style of an element, read in the page (no colour or font is ever spelled here). */
   async computed(on: Locator, property: string): Promise<string> {
-    return on.evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property);
+    return afterSettled(on, () => on.evaluate((element, name) => getComputedStyle(element).getPropertyValue(name), property));
   }
 
   /**

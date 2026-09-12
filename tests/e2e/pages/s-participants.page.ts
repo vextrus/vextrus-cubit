@@ -7,7 +7,7 @@
 // per-run values, and the baseline of the open dialog is a picture of chrome, not of one run's data.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS } from "../../../src/ui/testids";
-import { steadyCount } from "../support/retrying-read";
+import { heldAttribute, steadyCount } from "../support/retrying-read";
 
 /** The address the test contract names, spelled once so a journey never writes a path twice. */
 export const S_PARTICIPANTS = Object.freeze({
@@ -69,7 +69,7 @@ export class SParticipantsPage {
   async choose(group: "subject" | "role" | "direction", label: string): Promise<void> {
     const chosen = this.chip(group, label);
     await expect(chosen, `${label} stands in the ${group} group`).toHaveCount(1);
-    if ((await chosen.getAttribute("aria-pressed")) !== "true") await chosen.click();
+    if ((await heldAttribute(chosen, "aria-pressed")) !== "true") await chosen.click();
     await expect(chosen, `${label} is the ${group} group's selection`).toHaveAttribute("aria-pressed", "true");
   }
 
@@ -112,7 +112,7 @@ export class SParticipantsPage {
     const read: { direction: string | null; role: string | null }[] = [];
     for (let index = 0; index < total; index += 1) {
       const row = this.historyRows.nth(index);
-      read.push({ direction: await row.getAttribute("data-direction"), role: await row.getAttribute("data-role") });
+      read.push({ direction: await heldAttribute(row, "data-direction"), role: await heldAttribute(row, "data-role") });
     }
     return read;
   }

@@ -32,6 +32,7 @@ import { SViewerSnapPage } from "../viewer/s-viewer-snap.page";
 import { HEADER_UNIT, stageScaleSheet } from "../viewer/viewer-scale-stage";
 import { everyRow, steadyCount, steadyText } from "../support/retrying-read";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { afterSettled } from "../support/settled";
 
 /** The rank a header-unit proposal stands at, and the act this panel commits (L-MEA-05, L-ACT-01). */
 const FILE_UNITS = "FILE_UNITS";
@@ -118,14 +119,14 @@ test.describe("J-020 — scale: proposals, a two-point calibration, the affirmat
     await expect(scale.selectionTab, "and it opens on Selection at every mount").toHaveAttribute("aria-selected", "true");
     expect(
       // Both selectors are resolved in node and handed in: the registry does not exist in the page.
-      await page.evaluate(
+      await afterSettled(page, () => page.evaluate(
         ([asideSelector, stripSelector]) => {
           const aside = document.querySelector(String(asideSelector));
           const strip = document.querySelector(String(stripSelector));
           return aside !== null && strip !== null && aside.contains(strip);
         },
         [testIdSelector(TESTIDS.viewer.inspector), testIdSelector(TESTIDS.viewer.inspectorTabs)] as const,
-      ),
+      )),
       "the strip stands OUTSIDE the inspector aside, so the aside a journey pictured before this increment is untouched (I-152)",
     ).toBe(false);
 

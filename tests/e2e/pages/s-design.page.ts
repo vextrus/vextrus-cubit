@@ -3,7 +3,7 @@
 // judges is the correspondence between the page and the derivation, not the styling.
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS } from "../../../src/ui/testids";
-import { steadyCount } from "../support/retrying-read";
+import { heldAttribute, steadyCount } from "../support/retrying-read";
 
 /** The route the gallery introduces. */
 export const S_DESIGN_ROUTE = "/design";
@@ -28,7 +28,7 @@ export class SDesignPage {
 
   /** The theme the document resolved, read off the root element rather than from what was emulated. */
   async theme(): Promise<string | null> {
-    return this.page.locator("html").getAttribute("data-theme");
+    return heldAttribute(this.page.locator("html"), "data-theme");
   }
 
   /**
@@ -43,7 +43,7 @@ export class SDesignPage {
 
     for (let index = 0; index < barrelCount; index += 1) {
       const section = this.barrels.nth(index);
-      const barrelId = await section.getAttribute("data-barrel");
+      const barrelId = await heldAttribute(section, "data-barrel");
       expect(barrelId, `${checkpoint}: a barrel section names the barrel it renders`).not.toBeNull();
       expect(
         await steadyCount(section.getByTestId(TESTIDS.gallery.entry), `${checkpoint}: the ${String(barrelId)} section's entries`, { min: 0 }),
@@ -56,7 +56,7 @@ export class SDesignPage {
 
     for (let index = 0; index < entryCount; index += 1) {
       const entry = this.entries.nth(index);
-      const key = await entry.getAttribute("data-entry");
+      const key = await heldAttribute(entry, "data-entry");
       expect(
         await steadyCount(entry.getByTestId(TESTIDS.gallery.state), `${checkpoint}: the ${String(key)} entry's state cells`),
         `${checkpoint}: the ${String(key)} entry holds at least one gallery-state cell`,

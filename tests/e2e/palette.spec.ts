@@ -17,7 +17,8 @@ import { ShellPage, SHELL } from "./pages/shell.page";
 import { checkpoint } from "./support/checkpoint";
 import { emulateTheme, restoreLaneTheme } from "./support/lane-theme";
 import { newestMail } from "./support/outbox";
-import { steadyCount } from "./support/retrying-read";
+import { heldAttribute, steadyCount } from "./support/retrying-read";
+import { afterSettled } from "./support/settled";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j021-${RUN}@cubit.test`;
@@ -59,7 +60,7 @@ test.describe("J-021 — the command palette, from the chord to the sheet", () =
     await home.createWith({ name: PROJECT, code: "MBA-001", buildingType: 1, storeys: "4" });
     const card = home.cardNamed(PROJECT);
     await expect(card, "the created project stands on the workspace home").toBeVisible();
-    const projectId = (await card.getAttribute("data-project")) ?? "";
+    const projectId = (await heldAttribute(card, "data-project")) ?? "";
     expect(projectId, "the card names the project it is for").not.toBe("");
 
     /* --- the bar carries the trigger, and the chord opens the palette (AC-1) --- */
@@ -120,7 +121,7 @@ test.describe("J-021 — the command palette, from the chord to the sheet", () =
     await expect(rows.first(), "the sheet lists the roster").toBeVisible();
     const listed = await steadyCount(rows, "the shortcut sheet's rows");
     expect(listed, "every binding R-UI-032 names is documented — the roster is longer than the two global chords").toBeGreaterThan(2);
-    const bound = await rows.evaluateAll((nodes: Element[]) => nodes.map((node) => node.getAttribute("data-shortcut") ?? ""));
+    const bound = await afterSettled(rows, () => rows.evaluateAll((nodes: Element[]) => nodes.map((node) => node.getAttribute("data-shortcut") ?? "")));
     expect(bound.filter((id) => id === "").length, "every row names the roster entry it documents").toBe(0);
     expect(new Set(bound).size, "…and no binding is listed twice").toBe(bound.length);
     await expect(palette.sheetKeys("palette").locator("kbd").first(), "…each row drawing its own keycaps").toBeVisible();

@@ -63,7 +63,60 @@ describe("cubit/no-unretried-read fires on the reads that pass by timing", () =>
   });
 });
 
+describe("cubit/no-unretried-read names every one-shot reader, at the arity its own name is read at (P4b §4)", () => {
+  test.each(["textContent", "innerText"])("an OPTIONS argument does not make .%s() read twice", async (method) => {
+    // The set was four names and any argument at all opened the door: a timeout buys the element's
+    // existence, never its settledness, so this is still ONE reading.
+    expect(await firesAt(`const t = await page.getByTestId("x").${method}({ timeout: 1000 });\n`)).toEqual([1]);
+  });
+
+  test("the zero-argument readers the set never named", async () => {
+    const source = [
+      "const a = await loc.allTextContents();",
+      "const b = await loc.isVisible();",
+      "const c = await loc.inputValue();",
+      "const d = await loc.allInnerTexts();",
+      "const e = await loc.isChecked();",
+      "const f = await loc.isEnabled();",
+      "",
+    ].join("\n");
+    expect(await firesAt(source)).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  test.each([1, 2])("`.getAttribute()` reads once with %i argument(s) — five call sites BRANCH on one", async (count) => {
+    const args = count === 1 ? '"data-discipline"' : '"data-discipline", { timeout: 1000 }';
+    expect(await firesAt(`const v = await loc.getAttribute(${args});\n`)).toEqual([1]);
+  });
+
+  test("`page.evaluate` reads the DOM once, where its answer is kept", async () => {
+    expect(await firesAt('const n = await page.evaluate(() => document.querySelectorAll("tr").length);\n')).toEqual([1]);
+    expect(await firesAt('expect(await page.evaluate(() => history.length)).toBe(2);\n')).toEqual([1]);
+    expect(await firesAt("const all = await rows.evaluateAll((nodes) => nodes.length);\n")).toEqual([1]);
+  });
+
+  test("an `evaluate` whose answer nobody keeps is an ACT, and an act is not a read", async () => {
+    // `await page.evaluate(() => window.scrollTo(0, 0))` asserts nothing and changes the world:
+    // re-running it would be wrong, not safer.
+    expect(await firesAt("await page.evaluate(() => window.scrollTo(0, 0));\n")).toEqual([]);
+  });
+});
+
 describe("cubit/no-unretried-read admits the one place a single reading is lawful", () => {
+  test("a read inside a retrying wrapper's own body is that wrapper's, and is allowed", async () => {
+    const source = [
+      "async function steadyCount(locator) {",
+      "  return await locator.count();",
+      "}",
+      "",
+    ].join("\n");
+    expect(await firesAt(source)).toEqual([]);
+  });
+
+  test("a read handed to `afterSettled` is lawful — the screen has published that it stopped arriving", async () => {
+    expect(await firesAt("const n = await afterSettled(page, () => page.evaluate(() => history.length));\n")).toEqual([]);
+    expect(await firesAt('const v = await heldAttribute(row, "data-line");\n')).toEqual([]);
+  });
+
   test("a one-shot read inside an expect.poll callback is the poll's, and is allowed", async () => {
     expect(await firesAt("await expect.poll(async () => await rows.count()).toBe(3);\n")).toEqual([]);
   });

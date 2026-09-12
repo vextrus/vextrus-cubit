@@ -18,6 +18,7 @@ import { expect, type Page } from "@playwright/test";
 import { join } from "node:path";
 import { CLASS_COLUMN, DISCIPLINE, RCC_CONCRETE, stageRegister, type StagedRegister } from "./register-stage";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { heldAttribute } from "../support/retrying-read";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..", "..");
 
@@ -60,7 +61,7 @@ type RegisterSeam = {
 
 /** The signed-in person, as the shell states them — the same read `stageRegister` makes. */
 async function userIdOf(page: Page): Promise<string> {
-  const userId = await page.locator(testIdSelector(TESTIDS.shell.user)).getAttribute("data-user-id");
+  const userId = await heldAttribute(page.locator(testIdSelector(TESTIDS.shell.user)), "data-user-id");
   expect(userId, "the journey is signed in, so the shell names the person acting").toBeTruthy();
   return userId as string;
 }

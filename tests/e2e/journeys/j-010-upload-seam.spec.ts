@@ -16,6 +16,7 @@ import { ShellPage, SHELL } from "../pages/shell.page";
 import { UploadPage } from "../pages/upload.page";
 import { checkpoint } from "../support/checkpoint";
 import { newestMail } from "../support/outbox";
+import { heldAttribute } from "../support/retrying-read";
 
 const RUN = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 const EMAIL = `j010-${RUN}@cubit.test`;
@@ -61,7 +62,7 @@ test.describe("J-010 — a drawing is uploaded, interrupted, resumed and stored"
     await home.createWith({ name: PROJECT, code: "SCD-001", client: "Sattva Holdings", district: "Dhaka", buildingType: 1, storeys: "12" });
     const card = home.cardNamed(PROJECT);
     await expect(card, "the created project stands on S-Home").toBeVisible();
-    const projectId = (await card.getAttribute("data-project")) ?? "";
+    const projectId = (await heldAttribute(card, "data-project")) ?? "";
     expect(projectId, "the card names the project it is for").not.toBe("");
 
     /* --- j-010-upload-created: the session, opened by the signed-in member --- */
