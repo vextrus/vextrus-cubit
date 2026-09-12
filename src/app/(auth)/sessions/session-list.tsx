@@ -12,6 +12,7 @@ import { formatDate } from "@/core/format";
 import { fill, strings } from "@/ui/strings";
 import { AnswerSlot } from "../answer-slot";
 import { settle, type Answer } from "../answers";
+import { useAuthStatus } from "../live";
 import { AUTH_ROUTES } from "../routes";
 import { mutate, query } from "../transport";
 import { TESTIDS } from "@/ui/testids";
@@ -51,6 +52,9 @@ function rowsOf(value: unknown): SessionRow[] {
 
 export function SessionList() {
   const router = useRouter();
+  // The foot's readout follows the list's own attempts, so the instrument's status cell never says
+  // something the page is not (Design Direction 00 §3.7).
+  const setStatus = useAuthStatus();
   const [rows, setRows] = useState<SessionRow[] | null>(null);
   const [loadAnswer, setLoadAnswer] = useState<Answer | null>(null);
   const [attemptAnswer, setAttemptAnswer] = useState<Answer | null>(null);
@@ -59,26 +63,41 @@ export function SessionList() {
   useEffect(() => {
     void settle(query("listSessions")).then((settled) => {
       if (settled.ok) setRows(rowsOf(settled.value));
-      else setLoadAnswer(settled.answer);
+      else {
+        setLoadAnswer(settled.answer);
+        setStatus("refused");
+      }
     });
-  }, []);
+  }, [setStatus]);
 
   const revoke = (id: string): void => {
     setEnding(id);
     setAttemptAnswer(null);
+    setStatus("working");
     void settle(mutate("revokeSession", { id })).then((settled) => {
       setEnding(null);
-      if (settled.ok) setRows((live) => (live ?? []).filter((row) => row.id !== id));
-      else setAttemptAnswer(settled.answer);
+      if (settled.ok) {
+        setRows((live) => (live ?? []).filter((row) => row.id !== id));
+        setStatus("settled");
+      } else {
+        setAttemptAnswer(settled.answer);
+        setStatus("refused");
+      }
     });
   };
 
   const signOut = (): void => {
     setEnding(null);
     setAttemptAnswer(null);
+    setStatus("working");
     void settle(mutate("signOut", {})).then((settled) => {
-      if (settled.ok) router.push(AUTH_ROUTES.signIn);
-      else setAttemptAnswer(settled.answer);
+      if (settled.ok) {
+        setStatus("settled");
+        router.push(AUTH_ROUTES.signIn);
+      } else {
+        setAttemptAnswer(settled.answer);
+        setStatus("refused");
+      }
     });
   };
 

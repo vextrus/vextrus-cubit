@@ -1,10 +1,16 @@
 /**
  * AC-4(a) and AC-4(b) — S-Auth's stylesheet, beside the sheet.
  *
- * The auth column is glued to the top of a tall empty viewport: the page is a flex row that centres
- * on the inline axis only, so on a 1400 px screen the card sits under the padding floor with the
- * rest of the page empty beneath it. The cure is a block-axis centring that cannot lift the column
- * above the floor the Decision fixes — `safe center` — and the Decision's §1 is amended to rule it.
+ * AC-4(a), re-baselined to Design Direction 00 §3.7 (B-20; §3 outranks a screen Decision's geometry
+ * and this Decision is amended in place). The criterion was written against a block-axis centring —
+ * `align-items: safe center` — which cured a column glued to the top of a tall empty viewport by
+ * putting it in the middle of the spare height. §3.7 rules the auth column onto a DATUM instead:
+ * the mark on the padding floor, the card 48 px under it, the readout at the foot, the same three
+ * lines on every auth route at every viewport, which is what makes the stills of the set lay side
+ * by side as one instrument (§9.3) and what keeps the card above the fold C2 measures. The fault
+ * the old rule repaired cannot return under the new one from the other side either: a column that
+ * never rises above the padding cannot be lifted out of reach on a short viewport, and the page
+ * scrolls under it.
  *
  * The second criterion is the theme's: this sheet holds exactly one `[data-theme]` rule (the I-10
  * mark swap, which cannot travel through token values because the brand colours are founder-fixed
@@ -77,44 +83,72 @@ const decision = (): string => {
   return readFileSync(DECISION, "utf8");
 };
 
-test("AC-4(a): the auth page centres its column on the block axis, safely", () => {
+test("AC-4(a): the auth page stands its column on the datum, on the block axis", () => {
   const page = rulesFor(".cx-auth-page").filter((rule) => rule.condition === "");
   expect(page.length, "the page ground is declared unconditionally").toBeGreaterThan(0);
 
   const declared = new Map<string, string>();
   for (const rule of page) for (const [property, value] of rule.declarations) declared.set(property, norm(value));
 
-  expect(declared.get("align-items"), "`safe center` centres the column in the spare height and refuses to lift it out of view on a short viewport").toBe("safe center");
-  expect(declared.get("display"), "centring on the block axis needs the flex context the page already is").toBe("flex");
-  expect(declared.get("justify-content"), "the inline-axis centring the column already had stands").toBe("center");
+  expect(declared.get("display"), "the column is laid on the block axis, so the page is a flex context").toBe("flex");
+  expect(declared.get("flex-direction"), "mark over card over readout: one column, in that order (§3.7)").toBe("column");
+  expect(declared.get("align-items"), "and it is centred on the inline axis, which is what `centred` means here").toBe("center");
+  expect(declared.get("justify-content"), "the block axis is the datum's: the column starts at the padding and stays there").toBeUndefined();
 });
 
-test("AC-4(a): the spare height it centres in is the viewport's, and the padding floor stands", () => {
+test("AC-4(a): the datum is the padding, and the page is at least the viewport tall", () => {
   const page = rulesFor(".cx-auth-page").filter((rule) => rule.condition === "");
   const declared = new Map<string, string>();
   for (const rule of page) for (const [property, value] of rule.declarations) declared.set(property, norm(value));
 
-  expect(declared.get("min-height"), "there is spare height to centre in only because the page is at least the viewport tall").toBe("100vh");
-  expect(declared.get("padding"), "the padding the Decision fixes is unchanged — the column never rises above it").toBe("var(--space-8) var(--space-4)");
+  expect(declared.get("min-height"), "the ground fills the viewport, whatever the column's height").toBe("100vh");
+  expect(
+    declared.get("padding"),
+    "the block padding IS the resting place under §3.7: 24 above the mark puts the card's top at 112 px, inside C2's 120 px fold at both viewports",
+  ).toBe("var(--space-6) var(--space-4)");
 
-  const further = rulesFor(".cx-auth-page").filter((rule) => rule.condition !== "");
-  expect(further.length, "the wider viewport's floor is still a rule of its own").toBeGreaterThan(0);
-  const floors = further.flatMap((rule) => [...rule.declarations].filter(([property]) => property === "padding-block-start").map(([, value]) => norm(value)));
-  expect(floors, "the ≥ sm floor is the doubled space-12 the Decision fixes").toContain("calc(var(--space-12) * 2)");
-  for (const rule of further) {
-    expect(rule.condition, "the floor is the wider-viewport rule, keyed on a min-width").toContain("min-width");
-  }
+  const conditional = rulesFor(".cx-auth-page").filter((rule) => rule.condition !== "");
+  expect(
+    conditional,
+    "the datum does not move with the viewport — a wider-viewport floor would drop the card below the fold it is fixed above",
+  ).toEqual([]);
 });
 
-test("AC-4(a): the Decision's §1 rules the centring it is built against", () => {
+test("AC-4(a): the card and the mark are the geometry §3.7 rules", () => {
+  const card = new Map<string, string>();
+  for (const rule of rulesFor(".cx-auth-card")) for (const [property, value] of rule.declarations) card.set(property, norm(value));
+  expect(card.get("background-color"), "the card stands on the panel surface, not on the page ground (§3.7)").toBe("var(--surface-panel)");
+  expect(card.get("border"), "with the instrument's own hairline").toBe("var(--hairline)");
+  expect(card.get("border-radius"), "and radius 8").toBe("var(--radius-8)");
+
+  const column = new Map<string, string>();
+  for (const rule of rulesFor(".cx-auth-column").filter((rule) => !rule.selector.includes("data-width"))) {
+    for (const [property, value] of rule.declarations) column.set(property, norm(value));
+  }
+  expect(column.get("width"), "360 wide, and never wider than the viewport less its gutters").toBe("min(360px, calc(100vw - var(--space-8)))");
+
+  const mark = new Map<string, string>();
+  for (const rule of rulesFor(".cx-auth-mark img")) for (const [property, value] of rule.declarations) mark.set(property, norm(value));
+  expect(mark.get("height"), "the full spark mark at 40 px — above R-UI-070's 32 px floor for the spark").toBe("40px");
+
+  const wrapper = new Map<string, string>();
+  for (const rule of rulesFor(".cx-auth-mark").filter((rule) => rule.selector.trim() === ".cx-auth-mark")) {
+    for (const [property, value] of rule.declarations) wrapper.set(property, norm(value));
+  }
+  expect(wrapper.get("align-self"), "centred over the card").toBe("center");
+  expect(wrapper.get("margin-block-end"), "48 px above the card (§3.7's region table)").toBe("var(--space-12)");
+});
+
+test("AC-4(a): the Decision's §1 rules the datum it is built against", () => {
   const text = decision();
   const from = text.indexOf("## 1.");
   const to = text.indexOf("## 2.");
   expect(from >= 0 && to > from, "the Decision lays the frame out in a section of its own (C-13)").toBe(true);
   const section = norm(text.slice(from, to));
 
-  expect(section, "§1 rules the block-axis centring the stylesheet is built against — the Decision is the contract, not the commit message").toContain("safe center");
-  expect(section, "and it still fixes the padding as the floor the column never rises above").toContain("var(--space-8)");
+  expect(section, "§1 rules the datum the stylesheet is built against — the Decision is the contract, not the commit message").toContain("datum");
+  expect(section, "and it fixes the card's measure at §3.7's 360").toContain("360px");
+  expect(section, "and the padding that is the datum itself").toContain("var(--space-6)");
 });
 
 test("AC-4(b): the sheet holds exactly one [data-theme] rule", () => {

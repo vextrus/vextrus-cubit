@@ -1,6 +1,7 @@
 // /sessions (Decision § 2): the signed-in page of the set, so it carries no mark (R-UI-070, I-10)
 // and takes the wider column the list needs.
 import { AuthFrame } from "../auth-frame";
+import { AUTH_ROUTES } from "../routes";
 import { strings } from "@/ui/strings";
 import { SessionList } from "./session-list";
 
@@ -13,7 +14,7 @@ export const metadata = { title: strings.auth_sessions_title };
 // contradicting itself in two adjacent lines. `SessionList` renders it with the legs it is true of.
 export default function SessionsPage() {
   return (
-    <AuthFrame title="auth_sessions_title" surface="product">
+    <AuthFrame title="auth_sessions_title" surface="product" route={AUTH_ROUTES.sessions}>
       <SessionList />
     </AuthFrame>
   );

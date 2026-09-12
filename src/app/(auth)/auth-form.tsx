@@ -21,8 +21,7 @@ import { AnswerSlot, NoticeSlot } from "./answer-slot";
 import { settle, type Answer } from "./answers";
 import { FooterLines, type FooterLine } from "./footer";
 import type { AuthRoute } from "./routes";
-import { useDoneTitle } from "./title";
-import { TESTIDS } from "@/ui/testids";
+import { useAuthStatus, useDoneTitle } from "./live";
 
 /** One field of a door: what it is called, what it is for, and what the browser should offer. */
 export interface AuthField {
@@ -58,6 +57,7 @@ export interface AuthFormProps {
 export function AuthForm({ route, fields, submit, perform, success }: AuthFormProps) {
   const router = useRouter();
   const setDoneTitle = useDoneTitle();
+  const setStatus = useAuthStatus();
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [done, setDone] = useState(false);
@@ -72,12 +72,17 @@ export function AuthForm({ route, fields, submit, perform, success }: AuthFormPr
 
     setBusy(true);
     setAnswer(null);
+    // The foot's readout follows the same three moments the card does, so the instrument's status
+    // cell is never saying something the card is not (§3.7).
+    setStatus("working");
     void settle(perform(values)).then((settled) => {
       setBusy(false);
       if (!settled.ok) {
         setAnswer(settled.answer);
+        setStatus("refused");
         return;
       }
+      setStatus("settled");
       if ("goTo" in success) router.push(success.goTo);
       else {
         setSubmitted(values);

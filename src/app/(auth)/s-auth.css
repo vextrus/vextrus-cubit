@@ -1,7 +1,8 @@
 /*
- * S-Auth's stylesheet (docs/design/s-auth.md). The page is the card: one centred column on the bare
- * page ground, no border and no shadow. Every value is a token read (R-UI-001) and every duration is
- * a motion token, so reduced motion is honoured at source rather than re-stated here.
+ * S-Auth's stylesheet (docs/design/s-auth.md, rebuilt to Design Direction 00 §3.7). The screen is
+ * the instrument's front door: the spark mark on the datum line, one card under it, and one line of
+ * mono readout at the foot. Every value is a token read (R-UI-001) and every duration is a motion
+ * token, so reduced motion is honoured at source rather than re-stated here.
  *
  * Exactly one `[data-theme]` rule lives in this file — the I-10 mark swap. It cannot travel through
  * token values: the brand colours are founder-fixed sRGB inside the vendored assets, so the light
@@ -9,51 +10,48 @@
  */
 
 /*
- * The column sits in the middle of the page's spare height rather than under the padding floor: on a
- * tall viewport the floor alone leaves the card at the top with the rest of the ground empty beneath
- * it. `safe center` is the centring that cannot make it worse — on a viewport shorter than the
- * column, centring would push the top of it out of reach, and `safe` falls back to the start edge,
- * so the padding above stays the floor the column never rises above (Decision § 1).
+ * The page ground. §3.7 fixes the column on a DATUM rather than in the middle of whatever height is
+ * spare: the mark starts at the padding floor on every route and at every viewport, so the eight
+ * auth stills lay side by side with the mark, the card and the readout on the same three lines —
+ * that sameness is the instrument (§9.3). The block padding is therefore the resting place and not
+ * only the floor, and the column is never lifted out of reach on a short viewport, because it never
+ * rises above the padding at all and the page scrolls under it (the fault AC-4(a) repaired stays
+ * repaired by construction, from the other side).
  */
 .cx-auth-page {
   display: flex;
-  align-items: safe center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   min-height: 100vh;
-  padding: var(--space-8) var(--space-4);
+  padding: var(--space-6) var(--space-4);
   background-color: var(--surface-app);
 }
 
-@media (min-width: 640px) {
-  .cx-auth-page {
-    padding-block-start: calc(var(--space-12) * 2);
-  }
-}
-
+/* The column is the card's measure: 360 for a door, 560 for the signed-in list (§3.7, I-10). */
 .cx-auth-column {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  width: min(380px, calc(100vw - var(--space-8)));
+  width: min(360px, calc(100vw - var(--space-8)));
 }
 
 .cx-auth-column[data-width="wide"] {
   width: min(560px, calc(100vw - var(--space-8)));
 }
 
-/* The mark: 48 px, decoration beside the heading that names the product (I-10). */
+/* The mark: the full spark at 40 px (R-UI-070's floor is 32), centred, 48 px above the card. */
 .cx-auth-mark {
   --cx-auth-mark-light: block;
   --cx-auth-mark-dark: none;
 
   display: block;
-  align-self: start;
-  margin-block-end: var(--space-6);
+  align-self: center;
+  margin-block-end: var(--space-12);
 }
 
 .cx-auth-mark img {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
 }
 
 .cx-auth-mark-light {
@@ -69,15 +67,31 @@
   --cx-auth-mark-dark: block;
 }
 
+/*
+ * The card: one panel with a hairline and radius 8, holding the whole of what is being asked. The
+ * gap is the only vertical rhythm inside it — no part sets a margin of its own, so a screen that
+ * drops its caption or its ways closes up rather than leaving a hole where they were.
+ */
+.cx-auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  background-color: var(--surface-panel);
+}
+
 .cx-auth-title {
-  margin: 0 0 var(--space-5);
+  margin: 0;
   font-size: var(--text-20);
   font-weight: var(--weight-heading);
   color: var(--ink);
 }
 
+/* The one line of helper copy a screen is allowed (§6), when it has one. */
 .cx-auth-caption {
-  margin: calc(var(--space-5) * -1 + var(--space-2)) 0 var(--space-5);
+  margin: 0;
   font-size: var(--text-13);
   color: var(--ink-muted);
 }
@@ -88,11 +102,15 @@
   gap: var(--space-4);
 }
 
+/*
+ * The ways on from this door: links, not prose, under the hairline that separates them from the one
+ * primary above. They are not paragraphs — a `<p>` here would read as helper copy to a person and
+ * to the copy-diet check alike (§7 C7), and what they are is navigation.
+ */
 .cx-auth-footer {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  margin-block-start: var(--space-4);
 }
 
 .cx-auth-footer-line {
@@ -144,7 +162,7 @@
   width: 100%;
 }
 
-/* The answer slot: exactly one of a refusal, a fault or a notice sits here. */
+/* The answer slot: exactly one of a refusal, a fault or a notice sits here, inside the card. */
 .cx-auth-answer {
   display: block;
 }
@@ -156,7 +174,7 @@
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-4);
-  background-color: var(--surface-panel);
+  background-color: var(--surface-raised);
 }
 
 .cx-auth-fault-title {
@@ -172,6 +190,12 @@
   color: var(--ink-secondary);
 }
 
+/*
+ * The one machine identifier this surface ever shows, and it shows it only in the fault leg, where
+ * the whole point is that a person can read the string back to an operator. It is marked technical,
+ * which is what keeps it out of the identifier-exposure count (§7 C6) without abbreviating the id
+ * an operator's record is filed under.
+ */
 .cx-auth-fault-id {
   display: flex;
   gap: var(--space-2);
@@ -194,6 +218,48 @@
 /* The token panels' loading leg: layout kept, no spinner (R-UI-050). */
 .cx-auth-panel-skeleton {
   height: 48px;
+}
+
+/*
+ * The foot readout (§3.7): one line of mono cells under the card, quiet enough to be furniture and
+ * legible enough to be read out. 12 px, not 10: R-UI-003's scale has no 10, and a size off the
+ * scale is a size nobody chose (§7 C8, tests/ui/craft/mechanical.test.ts).
+ */
+.cx-auth-foot {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  margin-block-start: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--ink-disabled);
+}
+
+/*
+ * The status cell. It repeats what the card already says in words — idle, working, settled,
+ * refused — so no meaning rides on this colour alone (R-UI-060); it is the instrument's echo of an
+ * answer, hidden from the accessibility tree because the answer announces itself.
+ */
+.cx-auth-foot-dot {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+  background-color: var(--ink-disabled);
+  transition: background-color var(--motion-state) var(--ease);
+}
+
+.cx-auth-foot-dot[data-status="working"] {
+  background-color: var(--accent);
+}
+
+.cx-auth-foot-dot[data-status="settled"] {
+  background-color: var(--state-success);
+}
+
+.cx-auth-foot-dot[data-status="refused"] {
+  background-color: var(--state-danger);
 }
 
 /* /sessions — the device list. */
@@ -266,5 +332,4 @@
 
 .cx-auth-signout {
   align-self: start;
-  margin-block-start: var(--space-5);
 }

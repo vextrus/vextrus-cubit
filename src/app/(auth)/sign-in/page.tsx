@@ -17,7 +17,7 @@ const FOOTER: readonly FooterLine[] = [
 
 export default function SignInPage() {
   return (
-    <AuthFrame title="auth_sign_in_title" footer={FOOTER}>
+    <AuthFrame title="auth_sign_in_title" footer={FOOTER} route={AUTH_ROUTES.signIn}>
       <SignInForm />
     </AuthFrame>
   );

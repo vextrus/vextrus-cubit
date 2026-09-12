@@ -1,6 +1,10 @@
 // The auth frame's footer lines (Decision § 1): a link in the evidence-link idiom, optionally
 // preceded by the prose that introduces it. One home for the idiom, so every S-Auth screen's footer
 // focuses, colours and underlines alike (B-17, R-UI-012).
+//
+// The lines are a `<nav>` of spans, not a stack of paragraphs. What they are is navigation — the
+// other ways through this door — and a `<p>` would say "helper copy" to a person skimming the card
+// and to the copy-diet check that counts them alike (Design Direction 00 §6, §7 C7).
 import Link from "next/link";
 import { strings, type StringKey } from "../../ui/strings";
 
@@ -14,9 +18,9 @@ export interface FooterLine {
 export function FooterLines({ lines }: { lines: readonly FooterLine[] }) {
   if (lines.length === 0) return null;
   return (
-    <div className="cx-auth-footer">
+    <nav className="cx-auth-footer">
       {lines.map((line) => (
-        <p className="cx-auth-footer-line" key={line.href + line.label}>
+        <span className="cx-auth-footer-line" key={line.href + line.label}>
           {line.prose === undefined ? null : <span>{strings[line.prose]}</span>}
           {/* Every hop between S-Auth screens travels through the router: a bare anchor fetches a
               fresh document and re-mounts the frame around it, so a person moving between sign-in
@@ -25,8 +29,8 @@ export function FooterLines({ lines }: { lines: readonly FooterLine[] }) {
           <Link className="cx-auth-link cx-reticle" href={line.href}>
             {strings[line.label]}
           </Link>
-        </p>
+        </span>
       ))}
-    </div>
+    </nav>
   );
 }

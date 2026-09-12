@@ -6,7 +6,6 @@
 // never woven into a sentence here (I-55).
 export const acceptInvitationStrings = {
   accept_heading: "Join a workspace",
-  accept_caption: "Somebody has invited the address you are signed in with to work in their workspace. Accepting adds it to the workspaces you can switch between; the one you already have is untouched.",
 
   accept_workspace_label: "Workspace",
   accept_role_label: "Role you would hold",

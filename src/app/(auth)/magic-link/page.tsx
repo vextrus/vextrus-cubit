@@ -15,7 +15,7 @@ const FOOTER: readonly FooterLine[] = [{ label: "auth_magic_link_footer_link", h
 export default async function MagicLinkPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const token = tokenFrom(await searchParams);
   return (
-    <AuthFrame title="auth_magic_link_title" footer={FOOTER}>
+    <AuthFrame title="auth_magic_link_title" footer={FOOTER} route={AUTH_ROUTES.magicLink}>
       {token === null ? (
         <MagicLinkForm />
       ) : (

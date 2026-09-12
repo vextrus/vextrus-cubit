@@ -53,6 +53,19 @@ function mountFrame(): HTMLElement {
   return container;
 }
 
+/** The frame as a door mounts it: with its route, and with one way on from it. */
+function mountDoor(): HTMLElement {
+  const { container } = render(
+    createElement(AuthFrame, {
+      title: "auth_sign_in_title",
+      route: "/sign-in",
+      footer: [{ href: "/reset", label: "auth_sign_in_forgot" }],
+      children: createElement("p", null, "the body"),
+    }),
+  );
+  return container;
+}
+
 test("the mark is decoration: nothing in the frame is an image with a name", () => {
   mountFrame();
 
@@ -95,4 +108,56 @@ test("a revoke that comes back faulted announces once, inside no second live reg
   expect(fault.closest("[aria-live]"), "and no live region stands over it: a polite region around an alert is two politenesses for one insertion").toBeNull();
   expect(container.querySelectorAll("[aria-live]").length, "the list authors no live region of its own at all").toBe(0);
   expect(screen.getByTestId("s-auth-signout"), "and the surface stays: a settled attempt is not a failed load").toBeDefined();
+});
+
+/* ------------------------------------------------------------------ *
+ * The §3.7 rebuild, on the rendered document: one card, one readout.
+ * ------------------------------------------------------------------ */
+
+test("the column is the mark, the card and the readout, in that order", () => {
+  const container = mountDoor();
+
+  const column = container.querySelector(".cx-auth-column");
+  expect(column, "the frame lays one column").not.toBeNull();
+  const parts = [...(column?.children ?? [])].map((child) => child.className);
+  expect(parts, "mark over card over readout (Design Direction 00 §3.7)").toEqual(["cx-auth-mark", "cx-auth-card", "cx-auth-foot"]);
+});
+
+test("the card is a region named by the page's own heading, and it holds the body and the ways", () => {
+  const container = mountDoor();
+
+  const card = container.querySelector(".cx-auth-card");
+  expect(card?.tagName, "the card is a section, so the region a person sees is a region every reader meets").toBe("SECTION");
+  expect(card?.getAttribute("aria-labelledby"), "named by the `<h1>` it opens with — not by a second spelling of it").toBe("s-auth-title");
+  expect(card?.querySelector("h1"), "the heading is inside the card").not.toBeNull();
+  expect(card?.querySelector(".cx-auth-footer"), "and so are the ways on from this door").not.toBeNull();
+  expect(card?.querySelector('[role="separator"]'), "under the hairline that separates them from the one primary above").not.toBeNull();
+  expect(card?.querySelectorAll("p").length, "the ways are links, not paragraphs — the only `<p>` here is the body this case handed in (§7 C7)").toBe(1);
+});
+
+test("the mark is the full spark at 40 px", () => {
+  const container = mountFrame();
+
+  const marks = [...container.querySelectorAll(".cx-auth-mark img")];
+  expect(marks.length, "the light mark and the dark one, the stylesheet choosing between them (I-10)").toBe(2);
+  for (const mark of marks) {
+    expect(mark.getAttribute("width"), "40 px, which is above R-UI-070's 32 px floor for the spark").toBe("40");
+    expect(mark.getAttribute("height"), "and square, so the column never reflows as it loads").toBe("40");
+  }
+});
+
+test("the foot readout says where you are, and its dot is idle until something is asked", () => {
+  const container = mountDoor();
+
+  const foot = container.querySelector(".cx-auth-foot");
+  expect(foot?.textContent, "the first cell is the route the person is standing on (§1's recorded IOU: the build cell is owed)").toBe("/sign-in");
+  const dot = foot?.querySelector(".cx-auth-foot-dot");
+  expect(dot?.getAttribute("data-status"), "nothing has been asked, so the cell says so").toBe("idle");
+  expect(dot?.getAttribute("aria-hidden"), "the dot echoes an answer that announces itself; it is not a second announcement").toBe("true");
+});
+
+test("a door with no route to name says the absent mark rather than nothing", () => {
+  const container = mountFrame();
+
+  expect(container.querySelector(".cx-auth-foot")?.textContent, "the readout's cells are never silent (the shell's own absent mark)").toBe(strings.shell_status_absent);
 });

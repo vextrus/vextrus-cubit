@@ -12,7 +12,7 @@ import { strings, type StringKey } from "../../ui/strings";
 import { AnswerSlot, NoticeSlot } from "./answer-slot";
 import { settle, type Answer } from "./answers";
 import type { AuthRoute } from "./routes";
-import { useDoneTitle } from "./title";
+import { useAuthStatus, useDoneTitle } from "./live";
 import { mutate, type AuthProcedure } from "./transport";
 
 /** What spending the token achieved: a stated outcome, or the session it just started. */
@@ -28,6 +28,7 @@ export interface TokenPanelProps {
 export function TokenPanel({ route, token, procedure, outcome }: TokenPanelProps) {
   const router = useRouter();
   const setDoneTitle = useDoneTitle();
+  const setStatus = useAuthStatus();
   const spent = useRef<string | null>(null);
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [done, setDone] = useState(false);
@@ -35,18 +36,21 @@ export function TokenPanel({ route, token, procedure, outcome }: TokenPanelProps
   useEffect(() => {
     if (spent.current === token) return;
     spent.current = token;
+    setStatus("working");
     void settle(mutate(procedure, { token })).then((settled) => {
       if (!settled.ok) {
         setAnswer(settled.answer);
+        setStatus("refused");
         return;
       }
+      setStatus("settled");
       if ("goTo" in outcome) router.push(outcome.goTo);
       else {
         setDone(true);
         setDoneTitle(outcome.title);
       }
     });
-  }, [outcome, procedure, router, setDoneTitle, token]);
+  }, [outcome, procedure, router, setDoneTitle, setStatus, token]);
 
   // This screen is reached by a mailed link and reads the token it carries; it cannot issue one. So
   // a refusal whose way onward is "try again here" has to lead back to the address the person

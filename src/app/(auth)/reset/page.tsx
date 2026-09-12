@@ -14,7 +14,7 @@ const FOOTER: readonly FooterLine[] = [{ label: "auth_back_to_sign_in", href: AU
 export default async function ResetPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const token = tokenFrom(await searchParams);
   return (
-    <AuthFrame title="auth_reset_title" footer={FOOTER}>
+    <AuthFrame title="auth_reset_title" footer={FOOTER} route={AUTH_ROUTES.reset}>
       {token === null ? <ResetRequestForm /> : <ResetPasswordForm token={token} />}
     </AuthFrame>
   );

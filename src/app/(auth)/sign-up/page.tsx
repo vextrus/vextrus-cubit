@@ -13,7 +13,7 @@ const FOOTER: readonly FooterLine[] = [{ prose: "auth_sign_up_footer_prose", lab
 
 export default function SignUpPage() {
   return (
-    <AuthFrame title="auth_sign_up_title" footer={FOOTER}>
+    <AuthFrame title="auth_sign_up_title" footer={FOOTER} route={AUTH_ROUTES.signUp}>
       <SignUpForm />
     </AuthFrame>
   );

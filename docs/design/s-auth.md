@@ -1,5 +1,42 @@
 # Design Decision — S-Auth (sign-up, sign-in, verify, magic-link, reset, sessions)
 
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                                                                            │  24 px  ← the datum
+│                                  ✦                                         │  40 px  spark mark
+│                                                                            │  48 px
+│                     ┌────────────────────────────────┐                     │
+│                     │ Sign in to Vextrus             │   360 wide          │
+│                     │ Email                          │   --surface-panel   │
+│                     │ ┌────────────────────────────┐ │   hairline, r8      │
+│                     │ └────────────────────────────┘ │   card top 112 px   │
+│                     │ Password                       │                     │
+│                     │ ┌────────────────────────────┐ │                     │
+│                     │ └────────────────────────────┘ │                     │
+│                     │ ‹answer slot: refusal | fault› │                     │
+│                     │ ┌────────────────────────────┐ │                     │
+│                     │ │          Sign in           │ │   one primary       │
+│                     │ └────────────────────────────┘ │                     │
+│                     │ ────────────────────────────── │   Separator         │
+│                     │ Email me a sign-in link        │   the ways on,      │
+│                     │ Forgot your password           │   links not prose   │
+│                     │ New to Vextrus? Create account │                     │
+│                     └────────────────────────────────┘                     │
+│                            /sign-in   ●                                    │  12 px mono readout
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+| Region | Purpose | Size | Empty | Error | Loading |
+|---|---|---|---|---|---|
+| mark | the full spark mark (R-UI-070: sign-in is one of its two homes; I-10 reads the five unauthenticated routes as one sign-in surface) | 40 px, centred, 48 px above the card; absent on `/sessions` | — | — | — |
+| card (primary) | one form, one primary, ≤ 1 line of helper copy, the ways on under a hairline | 360 × auto (560 on `/sessions`), top edge at 112 px from the top of `main` at every viewport | the pristine form — it teaches by asking (R-UI-033) | `RefusalState` or the fault card in the answer slot, inside the card | the submit's `aria-busy` leg; the 48 px Skeleton in a token panel; three row bones on `/sessions` |
+| foot | the readout: where you are, and what the last attempt came to | one line, 12 px mono, centred, 16 px under the card | the route cell with an idle dot | the dot at `--state-danger`, echoing the card | the dot at `--accent` while a call is in flight |
+
+Geometry adjusted from Design Direction 00 §3.7 in two places, both recorded: the readout is **12 px,
+not 10** — R-UI-003's scale has no 10 and a size off the scale is a size nobody chose (§7 C8, which
+fails a 10 px literal by name in `tests/ui/craft/mechanical.test.ts`) — and its first cell is the
+**route, not a build reference**, because this installation stamps none (the IOU in `live.tsx`).
+
 Routes: `/sign-up`, `/sign-in`, `/verify`, `/magic-link`, `/reset`, `/sessions` under
 `src/app/(auth)/`. Law: R-SPINE-001/002/007/062, R-UI-001/003/004/012/020/030/033/050/060/070,
 B-17, Q-07, Q-11. The accept-invitation panel is out of scope (the J-001b leaf owns it).
@@ -17,8 +54,9 @@ Skeleton, and the one `RefusalState` renderer — a screen-local refusal block i
   is an asset swap.** R-UI-070 allows the full spark mark "only on sign-in and on
   certificates"; S-Auth's five unauthenticated routes are one sign-in surface (a user who
   lands on /reset is signing in the long way). Ruling: `/sign-up`, `/sign-in`, `/verify`,
-  `/magic-link`, `/reset` render the full mark at 48 px; `/sessions` (a signed-in product
-  page) renders no mark. Brand colours are founder-fixed sRGB per LOGO-SPEC.md, not tokens,
+  `/magic-link`, `/reset` render the full mark at 40 px (Design Direction 00 §3.7's size, above
+  R-UI-070's 32 px floor for the spark; it was 48 before the §3.7 rebuild); `/sessions` (a
+  signed-in product page) renders no mark. Brand colours are founder-fixed sRGB per LOGO-SPEC.md, not tokens,
   and the geometry is never redrawn — so the light/dark difference cannot travel through
   token values. The one lawful `[data-theme]` rule in `s-auth.css` display-toggles the
   vendored pair `vextrus-mark.svg` / `vextrus-mark-dark.svg`; both `<img>`s render with
@@ -77,57 +115,103 @@ is unchanged by inc-020.
 
 ## 1. Layout and hierarchy — the auth frame
 
-The five unauthenticated routes share one frame: a single centred column, width
-`min(380px, calc(100vw - var(--space-8)))`, on the bare `var(--graphite-0)` page ground —
-no card, no border, no shadow (minimal, branded, fast: the page is the card). Block padding
-top `var(--space-12)` doubled (96 px) on ≥ sm, `var(--space-8)` below sm — and that padding is
-the **floor**, not the resting place. The page ground is `display: flex`,
-`justify-content: center`, `align-items: safe center`, `min-height: 100vh`,
-`padding: var(--space-8) var(--space-4)`, with the ≥ 640px rule adding
-`padding-block-start: calc(var(--space-12) * 2)`: the column sits in the middle of whatever
-height is spare rather than glued to the top of a tall empty viewport. `safe` is the ruling and
-plain `center` is refused — on a viewport shorter than the column, plain centring overflows both
-ways and the top of the card (the mark, the heading, the first field) goes out of reach above
-the scroll origin, whereas `safe` falls back to the start edge and the floor above stands.
-Vertical order,
-gaps in `var(--space-…)`: mark (48 px, per I-10) · 6 · `<h1>` title `var(--text-20)`
-`var(--weight-heading)` `var(--graphite-900)` · 5 · the body (form or token panel) · 4 ·
-footer links. Fields stack at gap `var(--space-4)`; a field is label over input at gap
-`var(--space-1)` — label `<label for…>` `var(--text-13)` `var(--weight-body-medium)`
-`var(--graphite-700)`, then the core Input, full width. The submit is a full-width core
-Button, `data-variant="primary"`, submitting the native `<form>` (Enter submits).
+The five unauthenticated routes share one frame, rebuilt on Design Direction 00 §3.7's Auth
+template (§3 outranks this Decision's geometry, and this section is the amendment it asks for):
+**the mark on the datum, one card under it, the readout at the foot**, in one centred column.
 
-**The answer slot** sits between the last field and the submit — the answer to the previous
-attempt reads before the retry (the RefusalState in-dialog ruling, transposed). Exactly one
-of three things may occupy it:
+The page ground `.cx-auth-page` is `display: flex`, `flex-direction: column`,
+`align-items: center`, `min-height: 100vh`, `padding: var(--space-6) var(--space-4)`, on
+`var(--surface-app)`. That block padding is the **datum**, not only a floor: the mark starts at
+24 px on every route at every viewport, the card's top edge lands at 112 px (24 + the 40 px mark +
+the 48 px lead), and nothing moves with the viewport's height. This replaces the earlier
+`align-items: safe center` ruling, which put the column in the middle of whatever height was spare:
+that cured a column glued to the top of a tall empty viewport, and §3.7 answers the same complaint
+the other way, by fixing where the column stands. Two things are bought with it — the eight auth
+stills lay side by side with the mark, the card and the readout on the same three lines (§9.3's
+"that sameness is the instrument"), and the card stays inside the 120 px fold C2 scores 5 at, at
+1440×900 and at 1280×800 alike. The fault the old rule repaired cannot return from the other side
+either: a column that never rises above its padding cannot be pushed out of reach above the scroll
+origin on a short viewport, and the page simply scrolls under it.
+
+The column `.cx-auth-column` is `min(360px, calc(100vw - var(--space-8)))` — 360 is §3.7's measure
+— and `min(560px, …)` on the one `product` surface (`/sessions`, `data-width="wide"`), whose list
+needs the width and which carries no mark (I-10).
+
+Vertical order: **mark** (40 px, I-10 and R-UI-070's 32 px spark floor; `align-self: center`,
+`margin-block-end: var(--space-12)`) · **card** · **foot readout**
+(`margin-block-start: var(--space-4)`).
+
+**The card** `.cx-auth-card` is the screen's one object: `var(--surface-panel)`, `var(--hairline)`,
+`var(--radius-8)`, `padding: var(--space-5)`, a column at `gap: var(--space-4)`. It is a
+`<section aria-labelledby="s-auth-title">`, so the card is a region named by the page's own
+heading. Nothing inside it sets a margin — the gap is the only rhythm, so a screen without a
+caption or without ways closes up rather than leaving a hole. Inside, in order: the `<h1>` title
+`var(--text-20)` `var(--weight-heading)` `var(--ink)` · at most one line of helper copy
+(`var(--text-13)` `var(--ink-muted)`) · the body (form or token panel) · a `Separator` · the ways
+on. Fields stack at `gap: var(--space-4)`; a field is label over input at `gap: var(--space-1)` —
+`<label for…>` `var(--text-13)` `var(--weight-body-medium)` `var(--ink-secondary)`, then the core
+Input, full width, at `var(--control-h)`. The submit is a full-width core Button,
+`data-variant="primary"`, submitting the native `<form>` (Enter submits), and it is the **one**
+primary on the surface.
+
+**The foot readout** `.cx-auth-foot` is one line of mono cells, centred, `var(--text-12)`
+`var(--ink-disabled)`, tabular figures: the route the person is standing on, then the status dot.
+§3.7 rules this line "build + status at 10 px"; both halves are adjusted and the adjustments are
+recorded where they are made — 12 px because R-UI-003's scale has no 10 (§7 C8 fails a 10 px
+literal by name), and the route in place of the build reference because no build reference exists
+to state: `ENV_NAMES` is the closed roster of seven names (`src/core/env.ts`), none of them a build
+stamp, and an invented hash on the screen whose subject is trust is worse than none. The IOU is
+recorded in `live.tsx`: the day a build reference is stamped, it renders first in this line. The
+dot takes `--ink-disabled` idle, `--accent` in flight, `--state-success` settled and
+`--state-danger` refused or faulted; it is `aria-hidden`, because it repeats what the card already
+says in words — no meaning rides on that colour alone (R-UI-060), and the answer it echoes
+announces itself where it stands (R-UI-012).
+
+**The ways on** (what the footer links were) are a `<nav class="cx-auth-footer">` of `<span>` lines
+under the Separator, inside the card. They are links, not prose: a `<p>` would read as helper copy
+to a person skimming and to §7 C7's copy-diet count alike, and what they are is navigation. Each
+line is a real `<a>` in the evidence-link idiom — `var(--text-13)` `var(--weight-body-medium)`
+`var(--ink-link)`, underlined at rest, hover `var(--accent)` over `var(--motion-state)`
+`var(--ease)`, reticle on focus — rendered through `next/link`, so a hop between doors is a route
+change and not a fresh document. A line that pairs prose with a link sets the prose in
+`var(--ink-muted)` weight 400.
+
+**The answer slot** sits between the last field and the submit, inside the card — the answer to the
+previous attempt reads before the retry (the RefusalState in-dialog ruling, transposed). Exactly
+one of three things may occupy it:
 
 - `<div data-testid="s-auth-refusal">` wrapping exactly one `RefusalState` (the component's
   own ids live inside; the wrapper adds none). Surface and severity come from the registry
   entry (I-8); evidence per §3.
 - `<div data-testid="s-auth-fault" role="alert">` — the fault card, the *distinct* answer
-  R-SPINE-007 demands: fill `var(--graphite-50)`, border 1 px solid `var(--graphite-300)`,
+  R-SPINE-007 demands: fill `var(--surface-raised)`, border 1 px solid `var(--line-strong)`,
   radius `var(--radius-4)`, padding `var(--space-3)` `var(--space-4)`. Content: title
-  `var(--text-13)` `var(--weight-body-medium)` `var(--graphite-900)`, body `var(--text-13)`
-  `var(--graphite-700)`, and — server-fault variant only — the fault id line in
-  `var(--font-mono)` `var(--text-12)` `var(--graphite-700)` `tabular-nums slashed-zero`,
-  reading the label `auth_fault_id_label` then the id. Graphite chrome on purpose: semantic
-  tints belong to refusals; a fault is the machine's failure, not an answer, and it dresses
-  in no meaning colour.
+  `var(--text-13)` `var(--weight-body-medium)` `var(--ink)`, body `var(--text-13)`
+  `var(--ink-secondary)`, and — server-fault variant only — the fault id line in
+  `var(--font-mono)` `var(--text-12)` `var(--ink-secondary)` `tabular-nums slashed-zero`,
+  reading the label `auth_fault_id_label` then the id, on a `<p data-technical="">`. The
+  technical marker is what keeps the one machine identifier this surface ever shows out of §7 C6's
+  exposure count without shortening it: the whole point of the line is that a person can read the
+  string back to an operator, and the breaker reads it from this card verbatim — so `IdChip`'s
+  seven-character short form is refused here, deliberately. Graphite chrome on purpose: semantic
+  tints belong to refusals; a fault is the machine's failure, not an answer, and it dresses in no
+  meaning colour.
 - `<div data-testid="s-auth-notice" role="status">` — the outcome notice: fill
   `var(--info-surface)`, border 1 px solid `var(--info)`, radius `var(--radius-4)`, padding
-  `var(--space-3)` `var(--space-4)`, text `var(--text-13)` `var(--graphite-900)`. In "sent"
+  `var(--space-3)` `var(--space-4)`, text `var(--text-13)` `var(--ink)`. In "sent"
   and "done" states the notice **replaces** the form (nothing is left to submit;
-  re-submission only invites RATE_LIMITED) and the footer links remain.
-
-Footer links are real `<a>`s in the evidence-link idiom: `var(--text-13)`
-`var(--weight-body-medium)` `var(--beam-600)` underlined at rest, hover `var(--beam-500)`
-over `var(--motion-state)` `var(--ease)`, reticle on focus. A footer line that pairs prose
-with a link sets the prose in `var(--graphite-600)` weight 400.
+  re-submission only invites RATE_LIMITED) and the ways on remain.
 
 While a submit is in flight the Button takes core's `loading` state (`aria-busy`, no
-spinner) and the fields set `disabled`; the answer slot clears. On a refusal or fault the
-form re-enables with values intact — RATE_LIMITED included; the remedy says when to retry
-and the screen never disarms the retry.
+spinner), the fields set `disabled`, the answer slot clears and the foot's dot takes `--accent`. On
+a refusal or fault the form re-enables with values intact — RATE_LIMITED included; the remedy says
+when to retry and the screen never disarms the retry — and the dot takes `--state-danger`.
+
+**Where the live parts live.** `live.tsx` is the one home of the two things the column learns from
+the form inside it: what the screen is called now (`useDoneTitle`) and what its last attempt came
+to (`useAuthStatus`). The card is server-rendered and the form is a client island under it, so the
+join is the one thing that crosses that boundary downward — a context, whose setters are no-ops
+outside a provider, which is exactly what the jsdom acceptance renders.
 
 ## 2. The routes — flow and copy, verbatim
 
@@ -161,8 +245,12 @@ the settlement identically: a registered refusal → the refusal slot; anything 
 fault card, with the id line when the fault envelope carries one. Fields: **Email**
 (`autocomplete="email"`) · **Password** (`autocomplete="current-password"`). Submit
 **Sign in**. Success navigates to `/`. Refusals: CREDENTIALS_NOT_VALID, RATE_LIMITED.
-Footer links, in order: **Email me a sign-in link** → `/magic-link` · **Forgot your
-password** → `/reset` · the pair **New to Vextrus?** **Create account** → `/sign-up`.
+The ways on, under the card's separator, in order: **Email me a sign-in link** → `/magic-link` ·
+**Forgot your password** → `/reset` · the pair **New to Vextrus?** **Create account** →
+`/sign-up`. §3.7's wireframe puts a magic-link button above an "or" rule and the password below it;
+the separator and the alternative are kept, the *order* is not — making the mailed link the primary
+would change which credential this door asks for first, which is a product decision and not a
+composition one, and the journeys drive this door with a password.
 
 ### /verify — title **Verify your email**
 No form. With `?token=`: on mount call `verifyEmail(token)`; while pending, one Skeleton
@@ -249,6 +337,10 @@ try again.** (I-12) · `auth_fault_id_label` **Fault id**. The root-boundary voi
 
 ## 4. The R-UI-050 matrix, ruled
 
+Every leg below is also a leg of the foot readout's status cell (§1): idle before anything is
+asked, `--accent` in flight, `--state-success` on a settled answer, `--state-danger` on a refusal
+or a fault. The cell states nothing the card does not state in words.
+
 Form routes (sign-up, sign-in, magic-link request, reset request): loading = the submit's
 `aria-busy` leg (§1; nothing loads before input, so no page skeleton) · empty = the pristine
 form itself (it teaches by asking; R-UI-033's next action) · error = the fault card, both
@@ -265,15 +357,18 @@ by signing in) · partial = impossible (one query, own rows) · offline = I-12.
 
 Route transitions, none. Refusal, fault and notice appear with no entrance (the RefusalState
 ruling: theatre in front of an answer reads as apology). The only motion: link and Button
-colour over `var(--motion-state)` `var(--ease)`, the reticle draw in its single home, and
-the Skeleton pulse — every duration a token zeroed at source under reduced motion, with the
+colour over `var(--motion-state)` `var(--ease)`, the foot dot's background over the same pair, the
+reticle draw in its single home, and the Skeleton pulse — every duration a token zeroed at source under reduced motion, with the
 reticle's and Skeleton's explicit reduce branches already in core.
 
 ## 6. Themes
 
 `s-auth.css` carries exactly one `[data-theme]` rule — the I-10 mark swap. Everything else
-flips through token values: page ground, graphite text roles, the fault card's graphite
-chrome, `info-surface`/`info` on the notice, beam links, danger Revoke. Contrast holds on
+flips through token values: the page ground `--surface-app`, the card's `--surface-panel` and
+`--hairline`, the ink roles, the fault card's `--surface-raised` chrome, `info-surface`/`info` on
+the notice, beam links, danger Revoke, and the foot dot's four states. Dark is the default the
+product now renders (the root document's `data-theme="dark"`), so the first impression of the
+instrument is the dark card with the copper spark above it. Contrast holds on
 the founder values in both themes: `graphite-600` captions ≥ 4.5:1 on `graphite-0`,
 `graphite-700` labels likewise, `beam-600` on `graphite-0` and on `info-surface` ≥ 4.5:1,
 the semantic pairs per the refusal-state ruling.
@@ -285,10 +380,13 @@ Test ids, exactly the eleven: `s-auth-email` · `s-auth-password` · `s-auth-ten
 `s-auth-submit` (each on the core Input / Button element itself) · `s-auth-refusal` (wrapper
 of one RefusalState; the component's five ids nest inside) · `s-auth-fault` · `s-auth-notice`
 · `s-auth-session-row` · `s-auth-session-current` (the Badge) · `s-auth-session-revoke`
-(each non-current row's Button) · `s-auth-signout`. Behavioural hooks without new ids:
+(each non-current row's Button) · `s-auth-signout`. The §3.7 rebuild adds **no id**: the card, the
+ways, the foot readout and its status cell are all found by structure, role or attribute.
+Behavioural hooks without new ids:
 `role="alert"` on the fault card, `role="status"` on the notice, `aria-busy` on the loading
 submit, `data-code`/`data-surface` on the nested RefusalState, the `<h1>` per route as
-titled in §2. jsdom acceptance renders `SignInForm` with an injected `perform`: a settled
+titled in §2, `aria-labelledby` from the card region to that `<h1>`, `data-technical` on the
+fault-id line, and `data-status` on the foot's dot (`idle` · `working` · `settled` · `refused`). jsdom acceptance renders `SignInForm` with an injected `perform`: a settled
 CREDENTIALS_NOT_VALID appears inside `s-auth-refusal` with the §3 message and remedy; a
 rejected `perform` renders `s-auth-fault` with the fault-id line — two different answers,
 never one (R-SPINE-007). Journey checkpoints (axe serious/critical = 0 at each):

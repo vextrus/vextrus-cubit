@@ -3,8 +3,9 @@
 // reticle's single home so a link or a field focuses lawfully wherever it sits (R-UI-012, B-17), and
 // the screen's own stylesheet.
 //
-// The page itself is the landmark: one centred column on the bare page ground, no card and no
-// chrome (Decision § 1).
+// The page itself is the landmark: one centred column standing on the datum — the mark, one card,
+// and the mono readout at the foot — on the bare page ground, with no chrome around it
+// (Decision § 1, Design Direction 00 §3.7).
 import type { ReactNode } from "react";
 import "../../ui/tokens.css";
 import "../../ui/theme/globals.css";

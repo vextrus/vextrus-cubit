@@ -38,8 +38,12 @@ export function FaultSlot({ faultId, reached }: { faultId: string | null; reache
     <div className="cx-auth-fault" data-testid={TESTIDS.sAuth.fault} role="alert">
       <p className="cx-auth-fault-title">{strings.auth_fault_title}</p>
       <p className="cx-auth-fault-body">{reached ? strings.auth_fault_body : strings.auth_fault_unreachable_body}</p>
+      {/* The id is a machine identifier and is marked as one: `data-technical` is what keeps it
+          out of the identifier-exposure count (Design Direction 00 §6, §7 C6) without shortening
+          the string an operator's record is filed under — quoting it whole is the whole point of
+          the line, and the breaker reads it from this card verbatim. */}
       {faultId === null ? null : (
-        <p className="cx-auth-fault-id">
+        <p className="cx-auth-fault-id" data-technical="">
           <span>{strings.auth_fault_id_label}</span>
           <span>{faultId}</span>
         </p>

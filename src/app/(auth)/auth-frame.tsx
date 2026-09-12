@@ -1,5 +1,6 @@
-// The frame the S-Auth screens share (Decision § 1): the mark, the title, the body and the footer,
-// in that order, in one centred column.
+// The frame the S-Auth screens share (Decision § 1, Design Direction 00 §3.7): the spark mark on
+// the datum line, one card under it, and one line of mono readout at the foot — in that order, in
+// one centred column, on the dark ground the product is now grounded in.
 //
 // R-UI-070 and Decision I-10: the full spark mark belongs to the unauthenticated surface and to
 // nothing else, so a signed-in screen asks for the `product` surface and renders no mark. The brand
@@ -9,14 +10,16 @@
 // own heading says the product's name twice to a reader moving by landmark and heading, once as an
 // image and once as the `<h1>` it borrowed the words from. The heading alone names the page (I-10).
 import type { ReactNode } from "react";
+import { Separator } from "../../ui/primitives/core";
 import markDark from "../../ui/brand/vextrus-mark-dark.svg";
 import markLight from "../../ui/brand/vextrus-mark.svg";
-import type { StringKey } from "../../ui/strings";
+import { strings, type StringKey } from "../../ui/strings";
 import { FooterLines, type FooterLine } from "./footer";
-import { AuthHeading } from "./title";
+import { AuthHeading, AuthLive, StatusOverline } from "./live";
+import type { AuthRoute } from "./routes";
 
 /** The mark's size in CSS pixels, stated on the elements so the column never reflows as it loads. */
-const MARK_PX = 48;
+const MARK_PX = 40;
 
 /** The heading the mark's wrapper is named by — one per page, so one id is enough. */
 const TITLE_ID = "s-auth-title";
@@ -29,22 +32,31 @@ export interface AuthFrameProps {
   caption?: StringKey;
   surface?: AuthSurface;
   footer?: readonly FooterLine[];
+  /** Where the person is standing, for the foot readout's first cell. */
+  route?: AuthRoute;
   children: ReactNode;
 }
 
-export function AuthFrame({ title, caption, surface = "unauthenticated", footer = [], children }: AuthFrameProps) {
+export function AuthFrame({ title, caption, surface = "unauthenticated", footer = [], route, children }: AuthFrameProps) {
   return (
-    <div className="cx-auth-column" data-width={surface === "product" ? "wide" : undefined}>
+    <AuthLive wide={surface === "product"}>
       {surface === "unauthenticated" ? (
         <span className="cx-auth-mark" aria-hidden="true">
           <img className="cx-auth-mark-light" src={markLight.src} alt="" aria-hidden="true" width={MARK_PX} height={MARK_PX} />
           <img className="cx-auth-mark-dark" src={markDark.src} alt="" aria-hidden="true" width={MARK_PX} height={MARK_PX} />
         </span>
       ) : null}
-      <AuthHeading title={title} caption={caption} titleId={TITLE_ID}>
+      {/* The card: everything being asked, inside one hairline. The ways on from this door sit under
+          a separator rather than loose under the card — one primary above the line, navigation
+          below it (§3.7). */}
+      <section className="cx-auth-card" aria-labelledby={TITLE_ID}>
+        <AuthHeading title={title} titleId={TITLE_ID} />
+        {caption === undefined ? null : <p className="cx-auth-caption">{strings[caption]}</p>}
         {children}
-      </AuthHeading>
-      <FooterLines lines={footer} />
-    </div>
+        {footer.length === 0 ? null : <Separator />}
+        <FooterLines lines={footer} />
+      </section>
+      <StatusOverline route={route} />
+    </AuthLive>
   );
 }

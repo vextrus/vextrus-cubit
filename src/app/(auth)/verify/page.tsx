@@ -16,7 +16,7 @@ const FOOTER: readonly FooterLine[] = [{ label: "auth_evidence_go_to_sign_in", h
 export default async function VerifyPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const token = tokenFrom(await searchParams);
   return (
-    <AuthFrame title="auth_verify_title" footer={FOOTER}>
+    <AuthFrame title="auth_verify_title" footer={FOOTER} route={AUTH_ROUTES.verify}>
       {token === null ? (
         <NoticeSlot message={strings.auth_verify_no_token} />
       ) : (

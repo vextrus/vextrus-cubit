@@ -1,33 +1,47 @@
-/* The accept screen (docs/design/s-accept-invitation.md §1, §5): one narrow column — what is being
-   offered, and the single control that takes it. Colour, spacing, type and motion are tokens only —
-   no literal value and no [data-theme] selector, so both themes are the same rules read against
-   different token values. */
+/* The accept screen (docs/design/s-accept-invitation.md §1, §5), built on the Auth template
+   (Design Direction 00 §3.7): one card on the page ground, one decision inside it, one line of mono
+   readout at the foot. Colour, spacing, type and motion are tokens only — no literal value and no
+   [data-theme] selector, so both themes are the same rules read against different token values.
 
-/* The column IS the frame here (§1): the route sits outside `/t/{tenant}`, so there is no shell
-   above it to be laid inside, and the surface carries its own `<main>` and its own measure — the
-   idiom `cx-shell-denied` already keeps for the other signed-in screen that stands without a rail. */
+   The rules below are this route's own and are not borrowed from `s-auth.css`: that stylesheet
+   belongs to the `(auth)` group and this route never loads it, which is the same reason the loading
+   bones do not borrow the shell's skeleton rule. */
+
+/* The page IS the frame here (§1): the route sits outside `/t/{tenant}`, so there is no shell above
+   it to be laid inside, and the surface carries its own `<main>` — the idiom `cx-shell-denied`
+   already keeps for the other signed-in screen that stands without a rail. */
 .cx-accept {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  width: min(560px, calc(100vw - var(--space-8)));
-  margin-inline: auto;
-  padding-block: var(--space-12);
+  align-items: center;
+  min-height: 100vh;
+  padding: var(--space-6) var(--space-4);
+  background-color: var(--surface-app);
 }
 
-/* The loading leg's bones, in the screen's own column (§2). The shell's skeleton rule is the
-   shell's: this route never loads that stylesheet, so borrowing the class would leave the bones
-   stacked with no gap at all. */
+/* The column: the card's measure, and the readout's (§3.7). */
+.cx-accept-column {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: min(360px, calc(100vw - var(--space-8)));
+}
+
+.cx-accept-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: var(--hairline);
+  border-radius: var(--radius-8);
+  background-color: var(--surface-panel);
+}
+
+/* The loading leg's bones, in the screen's own card (§2). */
 .cx-accept-skeletons {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-.cx-accept-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
 }
 
 .cx-accept-heading {
@@ -37,6 +51,7 @@
   color: var(--ink);
 }
 
+/* The one line of helper copy the screen is allowed, in the one state that needs it (§6). */
 .cx-accept-caption {
   margin: 0;
   font-size: var(--text-13);
@@ -46,8 +61,7 @@
 .cx-accept-form {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .cx-accept-facts {
@@ -58,7 +72,6 @@
   padding-block: var(--space-3);
   border-top: var(--hairline);
   border-bottom: var(--hairline);
-  width: 100%;
 }
 
 .cx-accept-term {
@@ -73,20 +86,61 @@
   color: var(--ink);
 }
 
-.cx-accept-role {
-  font-family: var(--font-mono);
-  font-size: var(--text-13);
-  color: var(--ink-secondary);
+/* The one act on the screen, full width in the card: one primary per region (§1). */
+.cx-accept-submit {
+  width: 100%;
 }
 
-.cx-accept-status {
-  margin: 0;
-  min-height: var(--text-13);
+/*
+ * The foot readout: where you are, what the last attempt came to, and — while it is happening —
+ * what that is, in words. The address is mono because it is an address; the sentence beside it is
+ * the interface face, because English words in the mono face read as a leaked debug style
+ * (R-UI-004, §1's "mono is for numbers, codes, keys").
+ */
+.cx-accept-foot {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: center;
+  margin-block-start: var(--space-4);
+  min-height: var(--space-5);
+  color: var(--ink-disabled);
+}
+
+.cx-accept-foot-where {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+.cx-accept-foot-said {
   font-size: var(--text-12);
   color: var(--ink-muted);
 }
 
+.cx-accept-foot-dot {
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+  background-color: var(--ink-disabled);
+  transition: background-color var(--motion-state) var(--ease);
+}
+
+.cx-accept-foot-dot[data-status="working"] {
+  background-color: var(--accent);
+}
+
+.cx-accept-foot-dot[data-status="settled"] {
+  background-color: var(--state-success);
+}
+
+.cx-accept-foot-dot[data-status="refused"] {
+  background-color: var(--state-danger);
+}
+
 .cx-accept-evidence {
+  align-self: flex-start;
   font-size: var(--text-13);
   font-weight: var(--weight-body-medium);
   color: var(--ink-link);
