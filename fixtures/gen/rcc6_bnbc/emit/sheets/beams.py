@@ -233,6 +233,9 @@ def s16(ctx: Ctx) -> _Sheet:
     ld = sc.leader([(15000.0, -2600.0), (15000.0, 1200.0), (2400.0, 1200.0)], "S-DIMS")
     ld["trap"] = "T-LEADER-FAR"
     sc.text("EXTRA TOP BARS, SEE THE STRIP ARROWED", (0.0, 1000.0), 220.0, "S-TEXT2")
+    # one MLEADER, the entity LibreDWG loses: the DXF keeps it, the DWG profile names the loss
+    ml = sc.mleader([(8000.0, -1400.0), (9600.0, 400.0)], "2-16%%C ext.", 220.0, "S-DIMS")
+    ml["role"] = "mleader"
     sc.text(f"TG1 CARRIES {tg.get('carries', 'B4')} AND THE FLOATING COLUMN", (0.0, 600.0), 220.0,
             "S-TEXT2")
     p.view("1ST FLOOR BEAM DETAILS", sc, 50, (p.x0 + 20.0, p.y0 + 26.0), (700.0, 524.0), "mm")

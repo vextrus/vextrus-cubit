@@ -30,6 +30,8 @@ from typing import Any
 
 import ezdxf
 from ezdxf.enums import MTextEntityAlignment, TextEntityAlignment
+from ezdxf.math import Vec2
+from ezdxf.render.mleader import ConnectionSide
 
 from ..validate import notation as _notation
 from . import plan
@@ -201,8 +203,9 @@ class Placer:
                                                dxfattribs=self._attribs(item))
         builder.set_content(item["s"], char_height=item["h"])
         points = at["points"]
-        builder.add_leader_line(0, [points[-1], points[0]])
-        builder.build(insert=points[-1])
+        builder.add_leader_line(ConnectionSide.left,
+                                [Vec2(points[0]), Vec2(points[len(points) // 2])])
+        builder.build(insert=Vec2(points[-1]))
         return builder.multileader
 
     def _insert(self, layout: Any, item: dict[str, Any], at: dict[str, Any]) -> Any:
