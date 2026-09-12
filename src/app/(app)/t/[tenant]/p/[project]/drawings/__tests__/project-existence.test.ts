@@ -27,6 +27,13 @@ const seam = vi.hoisted(() => ({
     throw new Error("NEXT_REDIRECT");
   }),
   projectHeld: vi.fn(async (_scope: { tenantId: string }, projectId: string) => projectId === HELD),
+  // The set screen asks the project choke point for itself now (session → the project's real
+  // workspace → the read), so ITS existence answer is the guard's: an address naming no project this
+  // session may have is the absent address `notFound()` answers, exactly as `projectHeld` was.
+  authorizePage: vi.fn(async (named: { tenant: string; project?: string }) => {
+    if (named.project !== HELD) seam.notFound();
+    return { authorized: true as const, actor: {}, tenantId: named.tenant, userId: "user-1" };
+  }),
   projectsForHome: vi.fn(async () => [{ projectId: HELD }]),
   sessionOf: vi.fn(async () => ({ userId: "user-1" }) as { userId: string } | null),
   setOf: vi.fn(async () => ({ setId: SET, name: "Tender issue" }) as { setId: string; name: string } | null),
@@ -45,10 +52,16 @@ vi.mock("../../../../../../../../modules/takeoff/sheets", () => ({
   offeredGroupsOf: seam.offeredGroupsOf,
   drawingsAwaitingIngestOf: seam.drawingsAwaitingIngestOf,
 }));
+vi.mock("../../../../../../../../server/authorize-page", () => ({ authorizePage: seam.authorizePage }));
 vi.mock("../../../../../../../../server/shell/resolve", () => ({ sessionOf: seam.sessionOf }));
 vi.mock("../../../../../../../../server/shell/session", () => ({ presentedSessionToken: async () => "token" }));
 vi.mock("../../../../../../../../core/acts", () => ({ permissionsHeld: async () => new Set(["MEASURE"]) }));
-vi.mock("../../../../../../../../core/db", () => ({ forTenant: () => ({ transaction: async (work: (tx: unknown) => unknown) => work({}) }) }));
+// Passthrough beside the stand-in: the set page's choke point reaches the server tier, whose module
+// graph names more of the db barrel than this one read does.
+vi.mock("../../../../../../../../core/db", async (original) => ({
+  ...(await original<Record<string, unknown>>()),
+  forTenant: () => ({ transaction: async (work: (tx: unknown) => unknown) => work({}) }),
+}));
 // The two screens themselves are other criteria's; these criteria are about which reads answer the
 // address, so the bodies stand in and nothing here depends on their internals.
 vi.mock("../sheet-index", () => ({ SheetIndex: () => null }));
@@ -59,6 +72,9 @@ const setPage = await import("../sets/[set]/page");
 
 /** The calls the existence door received, whatever else the screen asked for. */
 const existenceCalls = (): readonly unknown[][] => seam.projectHeld.mock.calls;
+
+/** The same, for a screen whose existence answer is the choke point's. */
+const guardCalls = (): readonly unknown[][] => seam.authorizePage.mock.calls;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -90,11 +106,12 @@ describe("AC-2(b): the drawings index answers existence through the one door", (
 });
 
 describe("AC-2(b): the set screen answers existence through the one door", () => {
-  test("AC-2(b): a held project is answered by exactly one projectHeld call", async () => {
+  test("AC-2(b): a held project is answered by exactly one choke-point call", async () => {
     await setPage.default({ params: Promise.resolve({ tenant: TENANT, project: HELD, set: SET }) });
 
-    expect(existenceCalls().length, "one question, asked once").toBe(1);
-    expect(existenceCalls()[0], "the door is asked about the address's own two segments").toEqual([{ tenantId: TENANT }, HELD]);
+    expect(guardCalls().length, "one question, asked once").toBe(1);
+    expect(guardCalls()[0], "the door is asked about the address's own two segments").toEqual([{ tenant: TENANT, project: HELD }]);
+    expect(existenceCalls(), "and the old half-question is not asked beside it").toEqual([]);
     expect(seam.projectsForHome, "the roster is not what answers an existence question").not.toHaveBeenCalled();
   });
 
@@ -112,7 +129,7 @@ describe("AC-2(c): the set tab names itself from the set alone", () => {
 
     expect(titled.title, "a person with several sets open tells them apart by the only thing that distinguishes them").toBe("Tender issue");
     expect(seam.projectsForHome, "naming a tab is not a reason to read the workspace's projects").not.toHaveBeenCalled();
-    expect(seam.projectHeld, "the set read is already scoped to the address; asking existence twice per request is the read this row is about").not.toHaveBeenCalled();
+    expect(seam.authorizePage, "the set read is already scoped to the address; asking existence twice per request is the read this row is about").not.toHaveBeenCalled();
     expect(seam.setOf.mock.calls.length, "one set read names the tab").toBe(1);
   });
 
@@ -123,7 +140,7 @@ describe("AC-2(c): the set tab names itself from the set alone", () => {
 
     expect(titled.title, "a name is not published to a request carrying no session").toBe(setsStrings.sets_heading);
     expect(seam.setOf, "and nothing is read for it").not.toHaveBeenCalled();
-    expect(seam.projectHeld, "nor is existence asked").not.toHaveBeenCalled();
+    expect(seam.authorizePage, "nor is existence asked").not.toHaveBeenCalled();
   });
 
   test("AC-2(c): a set the address does not name falls back to the screen's own name", async () => {
@@ -133,6 +150,6 @@ describe("AC-2(c): the set tab names itself from the set alone", () => {
 
     expect(titled.title, "an address naming no set the reader holds falls back to the screen's own name").toBe(setsStrings.sets_heading);
     expect(seam.projectsForHome, "still no roster read").not.toHaveBeenCalled();
-    expect(seam.projectHeld, "still no second existence read").not.toHaveBeenCalled();
+    expect(seam.authorizePage, "still no second existence read").not.toHaveBeenCalled();
   });
 });
