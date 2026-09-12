@@ -2,10 +2,16 @@
 // R-UI-033's first screen: a workspace with no projects teaches the next action and offers the
 // SAMPLE set on one click. The offer stays enabled after an answer — a retry is never disarmed —
 // and an absence is stated as a notice, deliberately not as a refusal: nothing was denied.
+//
+// I-141 (the v22 rebuild) — the teaching state is the SHIPPED `EmptyState` primitive (Design
+// Direction 00 §1: one glyph, one sentence, one primary). It was the shell's own `ShellEmptyState`,
+// which draws the same three things without the glyph and outside the primitive set every other
+// empty region on the product now uses; the id it published (`shell-empty`) is kept byte-identical,
+// so the state matrix, the journeys and the baselines still find the region they always found.
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Button } from "@/ui/primitives/core";
-import { ShellEmptyState, useFailureHandOff } from "@/ui/shell";
+import { Button, EmptyState } from "@/ui/primitives/core";
+import { useFailureHandOff } from "@/ui/shell";
 import { strings } from "@/ui/strings";
 import { offerSampleAction } from "./actions";
 import { TESTIDS } from "@/ui/testids";
@@ -34,31 +40,28 @@ export function ProjectsOnboarding() {
   };
 
   return (
-    <ShellEmptyState
-      heading={strings.shell_projects_empty_heading}
-      body={strings.shell_projects_empty_body}
-      answer={
-        // The live region is mounted from the first paint and observed empty, so the answer is an
-        // insertion into a region assistive technology is already watching (Q-11). A region that
-        // arrives with its text already in it is unreliably announced — and it is the wrapper that
-        // waits, never the notice, so nothing is painted until there is something to read. The
-        // notice keeps `role="status"` and overrides nothing: the live-region algorithm resolves a
-        // changed node against the nearest `aria-live` walking up FROM THE NODE ITSELF, so an
-        // `aria-live="off"` here would classify the insertion as belonging to an off region and
-        // announce nothing at all — which is the failure the wrapper exists to prevent, where a
-        // nested polite region risks at worst being read twice.
-        <div className="cx-shell-live" aria-live="polite">
-          {unavailable ? (
-            <div className="cx-shell-outcome cx-shell-notice" data-testid={TESTIDS.shell.sampleOutcome} role="status">
-              {strings.shell_sample_unavailable}
-            </div>
-          ) : null}
-        </div>
-      }
-    >
-      <Button data-testid={TESTIDS.shell.sampleOffer} loading={pending} onClick={offer}>
-        {strings.shell_sample_offer}
-      </Button>
-    </ShellEmptyState>
+    <div className="cx-home-onboarding">
+      <EmptyState data-testid="shell-empty" heading={strings.shell_projects_empty_heading} body={strings.shell_projects_empty_body}>
+        <Button data-testid="shell-sample-offer" loading={pending} onClick={offer}>
+          {strings.shell_sample_offer}
+        </Button>
+      </EmptyState>
+      {/* The live region is mounted from the first paint and observed empty, so the answer is an
+          insertion into a region assistive technology is already watching (Q-11). A region that
+          arrives with its text already in it is unreliably announced — and it is the wrapper that
+          waits, never the notice, so nothing is painted until there is something to read. The
+          notice keeps `role="status"` and overrides nothing: the live-region algorithm resolves a
+          changed node against the nearest `aria-live` walking up FROM THE NODE ITSELF, so an
+          `aria-live="off"` here would classify the insertion as belonging to an off region and
+          announce nothing at all — which is the failure the wrapper exists to prevent, where a
+          nested polite region risks at worst being read twice. */}
+      <div className="cx-shell-live" aria-live="polite">
+        {unavailable ? (
+          <div className="cx-shell-outcome cx-shell-notice" data-testid="shell-sample-outcome" role="status">
+            {strings.shell_sample_unavailable}
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }

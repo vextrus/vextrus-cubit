@@ -73,10 +73,16 @@ describe("AC-2 — the navigation regions", () => {
         expect(text(tab), `\`${area}\` is named by its own line of the string table`).toBe(label);
       } else {
         expect(tab.getAttribute("data-available"), `\`${area}\` has no screen yet, so the tab says so`).toBe("false");
-        expect(tab.getAttribute("aria-disabled"), `\`${area}\` announces itself as no control (I-126)`).toBe("true");
+        expect(tab.getAttribute("aria-disabled"), `\`${area}\` announces itself as disabled rather than being a disabled control (I-143)`).toBe("true");
         expect(tab.hasAttribute("href"), `\`${area}\` is a door that answers nothing, so it is not a link at all`).toBe(false);
-        expect(text(tab).startsWith(label), `\`${area}\` still carries its label`).toBe(true);
-        expect(text(tab).endsWith(unavailable), `\`${area}\` states its condition in words, never in colour alone (R-UI-060)`).toBe(true);
+        // I-143 amends I-126: the condition is a TOOLTIP on a disabled control, not four sentences
+        // printed down a 32 px row. The tab says its own label and nothing else …
+        expect(text(tab), `\`${area}\` says its label, and only its label (§8's Home/Project fix 2)`).toBe(label);
+        // … and the hint is reachable by the keyboard as well as the pointer, which is what makes a
+        // tooltip a lawful home for it (R-UI-012). The hint's own paint is walked in the browser.
+        expect(tab.getAttribute("tabindex"), `\`${area}\` is reachable, so its condition can be read without a mouse`).toBe("0");
+        expect(tab.hasAttribute("data-state"), `\`${area}\` is a tooltip trigger — the shipped primitive's own hook`).toBe(true);
+        expect(unavailable.length, "and the condition is still the string table's own sentence").toBeGreaterThan(0);
       }
     }
   });

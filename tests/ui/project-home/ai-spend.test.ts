@@ -78,23 +78,24 @@ describe("AC-3 — the AI cost so far", () => {
     expect(text(ledger), "named in the table's words").toBe(copy(strings, "project_home_ai_ledger"));
   });
 
-  test("AC-3: with no call made the figures still state their zeros, and the region says why", async () => {
+  /**
+   * I-145 amends I-128 for the v22 rebuild. Design Direction 00 §8's Home/Project fix 3 rules that
+   * `0 USD` becomes either a real figure in ৳ or "the honest one-line" — and converting the ledger's
+   * USD is out of scope by name (I-128), so this screen takes the second: at zero calls the tile
+   * states the readout's absent mark and the screen's one helper line says why it is absent. A
+   * `0 USD` beside a `USD` badge reads as a measured nothing; an absence reads as what it is.
+   */
+  test("AC-3: with no call made the tile states an absence and the one line says why", async () => {
     const strings = await homeStrings();
-    const format = await formatSeam();
-    const fill = await filler();
     const spend = aSpend();
     expect(spend.calls, "the fixture this branch is about is a project no model has been called for").toBe(0);
     const root = mountHome(await projectHome(), homeData({ spend }));
 
-    expect(text(one(root, "project-home-ai-cost")), "nothing spent is a stated zero, not an absence").toContain(format.formatUserFigure(spend.attributedCost));
-    expect(text(one(root, "project-home-ai-calls")), "and so is no call").toContain(format.formatUserFigure(String(spend.calls)));
-    expect(text(one(root, "project-home-ai-outcomes")), "and so are no outcomes").toBe(
-      fill(copy(strings, "project_home_ai_outcomes"), {
-        proposed: format.formatUserFigure(String(spend.proposed)),
-        refused: format.formatUserFigure(String(spend.refused)),
-      }),
-    );
-    expect(text(one(root, "project-home-ai-none")), "silence never happens: the zeros are explained (R-UI-020)").toBe(copy(strings, "project_home_ai_none"));
+    expect(text(one(root, "project-home-ai-cost")), "nothing spent is an absence, and it wears the readout's own mark").toBe("—");
+    expect(all(root, "project-home-ai-cost-unit"), "a currency badge on an absence would name the units of nothing").toHaveLength(0);
+    expect(all(root, "project-home-ai-calls"), "no call is not a count of calls: the line below states it in words").toHaveLength(0);
+    expect(all(root, "project-home-ai-outcomes"), "and no call has no outcomes to enumerate").toHaveLength(0);
+    expect(text(one(root, "project-home-ai-none")), "silence never happens: the absence is explained (R-UI-020)").toBe(copy(strings, "project_home_ai_none"));
   });
 
   test("AC-3: above zero the none line is absent — it explains zeros and nothing else", async () => {

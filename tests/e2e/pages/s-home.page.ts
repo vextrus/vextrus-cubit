@@ -64,6 +64,45 @@ export class SHomePage {
     return this.page.getByTestId(TESTIDS.sHome.projectOpen);
   }
 
+  /**
+   * The row's `⋯`, which is the only button a row carries: the v22 rebuild put Edit, Archive /
+   * Restore and the rule-set pin behind one trigger (docs/design/s-home.md I-140), and the menu it
+   * opens is portalled to the document, so the three doors are addressed at the page and not
+   * inside the row.
+   */
+  rowMenu(projectId: string): Locator {
+    return this.card(projectId).getByRole("button");
+  }
+
+  /** Open one row's menu, and hand back the menu itself — the three doors stand in it. */
+  async openRowMenu(projectId: string): Promise<Locator> {
+    await this.rowMenu(projectId).click();
+    const menu = this.page.getByRole("menu");
+    await expect(menu, "the row's `⋯` opens on the doors the project has").toBeVisible();
+    return menu;
+  }
+
+  /**
+   * The four stat tiles of the title block (Design Direction 00 §3.3). They are the WORKSPACE's
+   * totals now, not a card's own counts: the rebuild moved the four quick stats up here, where a
+   * dashboard states them once instead of on every project (I-136).
+   */
+  get quickStats(): Locator {
+    return this.page.getByTestId(TESTIDS.sHome.quickStats);
+  }
+
+  /** The filter over the list, in the title row beside the one primary (I-138). */
+  get search(): Locator {
+    return this.page.getByLabel("Search projects");
+  }
+
+  /**
+   * NOTE (v22 rebuild): the recent-documents region was deleted with the card grid — §3.3's
+   * Dashboard template is a title row, four tiles and one table, and a heading over a sentence
+   * saying nothing has been issued is exactly the copy §6 moves off the screen. The handle is kept
+   * so the journeys that name it still compile; it resolves to nothing, and the assertion in
+   * `j-000-golden-path.spec.ts` that reads it is the journey owner's to retire.
+   */
   get recentDocuments(): Locator {
     return this.page.getByTestId(TESTIDS.sHome.recentDocuments);
   }

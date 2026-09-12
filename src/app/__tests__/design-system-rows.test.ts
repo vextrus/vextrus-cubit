@@ -3,10 +3,17 @@
  * tree, judged in one file because one of them is a rule about a stylesheet and the other is a rule
  * about a rationale.
  *
- * AC-4(c): a project card's quick stats are its figures. A count set smaller and fainter than the
- * word beside it reads as the label's footnote, and a card of four zeros reads as a card with
- * nothing on it. The rule is comparative — the count is never the smallest or faintest text on the
- * card — so both sides are read off the sheet and compared, never transcribed (B-19).
+ * AC-4(c): a quick stat is a figure. A count set smaller and fainter than the word beside it reads
+ * as the label's footnote, and a row of four zeros reads as a region with nothing on it. The rule is
+ * comparative — the count is never the smallest or faintest text of the tile — so both sides are
+ * read off the sheet and compared, never transcribed (B-19).
+ *
+ * WHERE THE TILE LIVES NOW (the v22 rebuild of S-Home, Design Direction 00 §3.3). The quick stats
+ * were four spans on a project card, drawn by `.cx-home-stat-count` / `.cx-home-stat-label` in the
+ * screen's own sheet. S-Home is a table of projects under four `Stat` tiles now, so the figure and
+ * its word are the shipped primitive's — `.cx-stat-value` / `.cx-stat-label` in `core.css` — and
+ * the criterion is read where the declarations went. The rule is unchanged and so is this file's
+ * arithmetic: only the sheet and the two class names moved (B-17).
  *
  * AC-4(d): the theme resolver's `catch` is empty on purpose, and an empty catch nobody explains is
  * indistinguishable from one somebody forgot. The Decision's theme-resolution section states the
@@ -22,7 +29,7 @@ import { join } from "node:path";
 import { expect, test } from "vitest";
 
 const REPO_ROOT = process.cwd();
-const HOME_CSS = join(REPO_ROOT, "src/app/(app)/t/[tenant]/home/home.css");
+const STAT_CSS = join(REPO_ROOT, "src/ui/primitives/core/core.css");
 const RESOLVER = join(REPO_ROOT, "src/app/theme-resolver.ts");
 const DECISION = join(REPO_ROOT, "docs/design/root-document.md");
 
@@ -89,19 +96,19 @@ function themeResolutionSection(payload: string): string {
 const says = (text: string, word: string): boolean => new RegExp(`\\b${word}\\b`, "i").test(text);
 
 test("AC-4(c): the quick-stat count is never set smaller than the label beside it", () => {
-  const count = declarationsFor(HOME_CSS, ".cx-home-stat-count");
-  const label = declarationsFor(HOME_CSS, ".cx-home-stat-label");
+  const count = declarationsFor(STAT_CSS, ".cx-stat-value");
+  const label = declarationsFor(STAT_CSS, ".cx-stat-label");
 
   const countStep = typeStep(count.get("font-size"), "the quick-stat count");
   const labelStep = typeStep(label.get("font-size"), "the quick-stat label");
 
-  expect(countStep, `the figure is the card's data and the word beside it is its caption: ${countStep} may not be smaller than ${labelStep}`).toBeGreaterThanOrEqual(labelStep);
+  expect(countStep, `the figure is the tile's data and the word beside it is its caption: ${countStep} may not be smaller than ${labelStep}`).toBeGreaterThanOrEqual(labelStep);
 });
 
-test("AC-4(c): the quick-stat count is never the faintest text on the card", () => {
-  const count = declarationsFor(HOME_CSS, ".cx-home-stat-count");
+test("AC-4(c): the quick-stat count is never the faintest text of the tile", () => {
+  const count = declarationsFor(STAT_CSS, ".cx-stat-value");
 
-  expect(count.get("color"), "the count carries the card\u2019s primary ink, so a row of zeros is not the palest thing on it").toBe("var(--ink)");
+  expect(count.get("color"), "the count carries the tile\u2019s primary ink, so a row of zeros is not the palest thing on it").toBe("var(--ink)");
 });
 
 test("AC-4(d): the Decision states why the resolver's catch is empty", async () => {

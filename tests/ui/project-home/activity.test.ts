@@ -73,7 +73,10 @@ describe("AC-4 — recent activity", () => {
     const root = mountHome(await projectHome(), homeData({ recentActs: [] }));
 
     expect(all(root, "project-home-activity-row"), "nothing has happened, so nothing is listed").toHaveLength(0);
-    expect(text(one(root, "project-home-activity-empty")), "and the empty region teaches the next action rather than standing silent (R-UI-050)").toBe(
+    // The region is the shipped `EmptyState` now (Design Direction 00 §1: one glyph, a title of
+    // five words or fewer, one sentence), so the cell says its title AND the screen's own committed
+    // sentence — which is the one this table owns and the matrix mirrors.
+    expect(text(one(root, "project-home-activity-empty")), "and the empty region teaches the next action rather than standing silent (R-UI-050)").toContain(
       copy(strings, "project_home_activity_empty"),
     );
   });

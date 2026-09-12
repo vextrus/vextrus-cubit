@@ -10,7 +10,9 @@ export const projectHomeStrings = {
   project_home_zones_label: "Zones",
   project_home_gfa_label: "Target GFA",
   project_home_unstated: "Not stated",
-  project_home_zones_none: "No book is pinned to this project yet, so no zone is derived from its district.",
+  // One line of facts has room for a fact, not for a paragraph: the reason a district derives no
+  // zone is that no book is pinned, and that is the whole of it (Design Direction 00 §6).
+  project_home_zones_none: "No book pinned",
   project_home_zone_label: "Zone {zone} under {book}",
   project_home_unit_m2: "m²",
   project_home_unit_sft: "sft",
@@ -35,7 +37,9 @@ export const projectHomeStrings = {
   project_home_ai_cost_caption: "attributed to this project",
   project_home_ai_calls_caption: "model calls",
   project_home_ai_outcomes: "{proposed} proposals, {refused} refused",
-  project_home_ai_none: "No model has been called on this project yet, so nothing has been spent.",
+  // §8's reading of `0 USD`: a spend of nothing is not a figure, it is an absence, and the honest
+  // one line says so. The tile states the readout's absent mark beside it.
+  project_home_ai_none: "No model calls yet",
   project_home_ai_ledger: "Open the model ledger",
 
   project_home_activity_heading: "Recent activity",
@@ -45,6 +49,13 @@ export const projectHomeStrings = {
   project_home_activity_all: "All activity",
 
   project_home_participants_heading: "Participants",
+  // The four columns of the recent-activity table and the two of the roster (§3.3: "Recent activity
+  // as a 28 px table (act, who, when, subject)"). The roster's two are the shared table's
+  // `spine_participants_field_member` / `_role`, read by key and not respelled here (B-17).
+  project_home_col_act: "Act",
+  project_home_col_who: "Who",
+  project_home_col_when: "When",
+  project_home_col_subject: "Subject",
   project_home_participants_hint: "Who holds which role on this project.",
   project_home_evidence_participants: "Open the project's participants",
 } as const;

@@ -1,54 +1,37 @@
 "use client";
-// One project on S-Home: what it is called, where it stands, what it has produced so far, and the
-// three doors R-SPINE-010 gives it. I-32 — the card is not a door: no route for a project's own home
-// exists yet, so the name is text, and the card's only navigation is the pin link L-REG-07 makes
-// visible. I-35 — archive is reversible, so it and restore are plain ghost doors that answer in
-// place: neither is destructive, and neither is an act.
+// One project as a ROW of S-Home's table (Design Direction 00 §3.3: "the project dashboard as four
+// stat tiles above a table, not cards with prose"). The card this file used to draw is gone; what
+// stays is the part the card was the only home of — the three doors R-SPINE-010 gives a project.
+//
+// I-140 (this rebuild) — the three doors live in the row's `⋯` menu. Edit, Archive/Restore and the
+// rule-set pin were three differently-weighted controls on a card: two ghost buttons and a link.
+// §1's "≤ 1 primary button per region" and §8's "one button style for Edit/Archive (⋯ menu)" make
+// them one menu behind one 28 px trigger, which is also what gives the table its last column.
+// I-35 stands: archive is reversible, so neither door is danger and neither is an act.
 import Link from "next/link";
-import { Fragment, useTransition, type ReactNode } from "react";
-import { refusalOf, type RefusalCode } from "@/core/errors";
-import { formatDate } from "@/core/format";
-import type { BuildingType } from "@/core/projects";
+import { useTransition } from "react";
 import type { Project } from "@/modules/spine/projects";
-import { projectHomeRoute } from "../p/[project]/home/areas";
-import { RefusalState } from "@/ui/patterns/refusal-state";
-import { Badge, Button } from "@/ui/primitives/core";
-import { shellHref, useFailureHandOff } from "@/ui/shell";
-import { fill, strings, type StringKey } from "@/ui/strings";
+import { IconMoreHorizontal } from "@/ui/icons";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/ui/primitives/overlay";
+import { useFailureHandOff } from "@/ui/shell";
+import { strings } from "@/ui/strings";
+import { rulesetRoute } from "../p/[project]/home/areas";
 import { archiveProjectAction, restoreProjectAction, type LifecycleAnswer } from "../actions";
-import { TESTIDS } from "@/ui/testids";
+import { homeScreenStrings } from "./strings";
 
-/** I-33's labels, read here for the meta line: the enum is stored, the prose is shown. */
-const BUILDING_TYPE_LABEL: Readonly<Record<BuildingType, StringKey>> = {
-  residential: "home_building_type_residential",
-  commercial: "home_building_type_commercial",
-  mixed: "home_building_type_mixed",
-  industrial: "home_building_type_industrial",
-  infrastructure: "home_building_type_infrastructure",
-};
-
-/** I-36: the four counts, each with the label it is read under. */
-const QUICK_STATS: readonly { readonly testId: string; readonly label: StringKey; readonly of: (project: Project) => number }[] = [
-  { testId: "s-home-stat-sheets", label: "home_stat_sheets", of: (project) => project.quickStats.sheets },
-  { testId: "s-home-stat-campaigns", label: "home_stat_campaigns", of: (project) => project.quickStats.campaigns },
-  { testId: "s-home-stat-estimates", label: "home_stat_estimates", of: (project) => project.quickStats.estimates },
-  { testId: "s-home-stat-bids", label: "home_stat_bids", of: (project) => project.quickStats.bids },
-];
-
-export interface ProjectCardProps {
+export interface ProjectRowMenuProps {
   tenantId: string;
   project: Project;
-  /** Opens the shared form on this project — the card holds no form of its own. */
+  /** Opens the shared form on this project — the row holds no form of its own. */
   onEdit: (project: Project) => void;
-  /** What a lifecycle door answered, held by the grid so one refusal stands at a time. */
-  refusal: RefusalCode | null;
+  /** What a lifecycle door answered, held by the screen so one refusal stands per row. */
   onAnswer: (projectId: string, answer: LifecycleAnswer) => void;
 }
 
-export function ProjectCard({ tenantId, project, onEdit, refusal, onAnswer }: ProjectCardProps) {
+export function ProjectRowMenu({ tenantId, project, onEdit, onAnswer }: ProjectRowMenuProps) {
   const [pending, start] = useTransition();
   // A failed door is a failure, not a silence: closing over a discarded promise would leave the
-  // button simply stopping being busy with nothing said (ARCH-03, B-21).
+  // control simply stopping being busy with nothing said (ARCH-03, B-21).
   const handing = useFailureHandOff();
   const archived = project.status === "archived";
 
@@ -58,111 +41,32 @@ export function ProjectCard({ tenantId, project, onEdit, refusal, onAnswer }: Pr
   };
 
   return (
-    <li className="cx-home-card" data-testid={TESTIDS.sHome.projectCard} data-project={project.projectId} data-archived={archived ? "true" : "false"}>
-      <div className="cx-home-card-name-row">
-        {/* I-131 amends I-32: the project home exists now, so the name is the door to it — the one
-            piece of navigation R-UI-031 asks every card for (S-Project's Decision). */}
-        <Link className="cx-home-card-name cx-reticle" data-testid={TESTIDS.sHome.projectOpen} href={projectHomeRoute(tenantId, project.projectId)}>
-          {project.name}
-        </Link>
-        {project.code === null ? null : <span className="cx-home-card-code">{project.code}</span>}
-        {/* The scan-level flag, its meaning carried by the word and never by colour alone (Q-11). */}
-        {archived ? <Badge data-testid={TESTIDS.sHome.projectArchivedBadge}>{strings.home_status_archived}</Badge> : null}
-      </div>
-
-      <p className="cx-home-meta">
-        {/* The status hook is on the card whatever the status is. The WORD, on an archived card, is
-            not stated twice: the Badge two lines up is the scan-level flag, and repeating it 25 px
-            away says nothing a reader did not just read (I-35). */}
-        <span data-testid={TESTIDS.sHome.projectStatus} data-status={project.status}>
-          {archived ? null : strings.home_status_active}
-        </span>
-        {meta(project).map((term, index) => (
-          <Fragment key={term.key}>
-            {/* Nothing to divide from, on a card whose status term is the Badge's instead. */}
-            {archived && index === 0 ? null : <Separator />}
-            {term.said}
-          </Fragment>
-        ))}
-      </p>
-
-      {/* L-REG-07 made visible: every project shows the edition it pinned, and the link is how a
-          reader reaches it (R-UI-031). A frame-internal move, so it travels through the router. */}
-      <Link className="cx-home-pin cx-reticle" data-testid={TESTIDS.sHome.projectRuleset} href={`${shellHref(tenantId, "projects")}/p/${project.projectId}/settings/ruleset`}>
-        {strings.home_project_ruleset}
-      </Link>
-
-      <div className="cx-home-stats" data-testid={TESTIDS.sHome.quickStats}>
-        {QUICK_STATS.map((stat) => (
-          <span key={stat.testId} data-testid={stat.testId}>
-            <span className="cx-home-stat-count">{stat.of(project)}</span> <span className="cx-home-stat-label">{strings[stat.label]}</span>
-          </span>
-        ))}
-      </div>
-
-      <div className="cx-home-doors">
-        <Button variant="ghost" data-testid={TESTIDS.project.edit} onClick={() => onEdit(project)}>
+    <DropdownMenu>
+      {/* The shipped ghost Button worn as a square icon trigger: its height is `--control-h` like
+          every other control on the screen, and its name is a word, never the glyph (R-UI-012). */}
+      <DropdownMenuTrigger className="cx-home-row-menu" aria-label={homeScreenStrings.home_row_actions} aria-busy={pending || undefined}>
+        <IconMoreHorizontal size="md" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem data-testid="project-edit" onSelect={() => onEdit(project)}>
           {strings.home_project_edit}
-        </Button>
+        </DropdownMenuItem>
         {/* The doors stay enabled — a retry is never disarmed (§1). */}
         {archived ? (
-          <Button variant="ghost" data-testid={TESTIDS.project.restore} loading={pending} onClick={() => move(restoreProjectAction)}>
+          <DropdownMenuItem data-testid="project-restore" onSelect={() => move(restoreProjectAction)}>
             {strings.home_project_restore}
-          </Button>
+          </DropdownMenuItem>
         ) : (
-          <Button variant="ghost" data-testid={TESTIDS.project.archive} loading={pending} onClick={() => move(archiveProjectAction)}>
+          <DropdownMenuItem data-testid="project-archive" onSelect={() => move(archiveProjectAction)}>
             {strings.home_project_archive}
-          </Button>
+          </DropdownMenuItem>
         )}
-      </div>
-
-      {refusal === null ? null : <RefusalState refusal={refusalOf(refusal)} evidence={{ href: shellHref(tenantId, "projects"), label: strings.home_evidence_projects }} />}
-    </li>
+        {/* L-REG-07 made visible: every project shows the edition it pinned, one press away
+            (R-UI-031). A frame-internal move, so it travels through the router. */}
+        <DropdownMenuItem asChild data-testid="s-home-project-ruleset">
+          <Link href={rulesetRoute(tenantId, project.projectId)}>{strings.home_project_ruleset}</Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
-}
-
-/**
- * The meta line's terms after the status, in the order the Decision § 1 sets them: what kind of
- * building it is, when it was last touched. A term the project states nothing for is not a term.
- */
-function meta(project: Project): readonly { readonly key: string; readonly said: ReactNode }[] {
-  const terms: { key: string; said: ReactNode }[] = [];
-  if (project.buildingType !== null) terms.push({ key: "type", said: strings[BUILDING_TYPE_LABEL[project.buildingType]] });
-  terms.push({
-    key: "updated",
-    said: (
-      <span className="cx-home-meta-date" data-testid={TESTIDS.sHome.projectLastActivity}>
-        {fill(strings.home_project_updated, { date: lastActivity(project.updatedAt) })}
-      </span>
-    ),
-  });
-  return terms;
-}
-
-/**
- * The meta line's divider. The `·` is punctuation and stays out of the accessibility tree
- * (R-UI-012) — but a divider that is only punctuation leaves the terms it divides announced as one
- * run-on word ("ActiveCommercialUpdated 30 Aug 2026"), which is three facts read as none. So the
- * pause the eye takes from the dot is stated for the ear as well, in the one place both are drawn:
- * a comma, present in the tree and absent from the paint.
- */
-function Separator(): ReactNode {
-  return (
-    <>
-      <span aria-hidden="true">
-        {" "}
-        ·{" "}
-      </span>
-      <span className="cx-home-pause">, </span>
-    </>
-  );
-}
-
-/**
- * I-37: last activity is an absolute date through the format seam, never a ticking relative one —
- * a "3 minutes ago" is text no baseline can hold and no reader can act on.
- */
-function lastActivity(updatedAt: Date): string {
-  const at = new Date(updatedAt);
-  return formatDate({ year: at.getFullYear(), month: at.getMonth() + 1, day: at.getDate() });
 }
