@@ -20,7 +20,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, test } from "vitest";
 import { provisionScratchDb, type ScratchDb } from "../../../../db/__tests__/harness";
-import { count, run } from "../../../../db/__tests__/support/live-sql";
+import { PSQL_APP_NAME, count, lit, run } from "../../../../db/__tests__/support/live-sql";
 import { REPO_ROOT, codeOf } from "../../__tests__/support/read-source";
 import { jobsStore } from "../../db";
 import { refusalCodeOf } from "../../faults/refusal-marker";
@@ -155,8 +155,16 @@ async function waitForTerminal(jobId: string): Promise<jobs.JobEvent[]> {
 
 const claimsFor = (url: string, key: string): number => count(url, `select count(*) from ${JOBS_SCHEMA}.job_claims where kind = '${PROBE}' and key = '${key.replaceAll("'", "''")}';`);
 
-/** Backends on this database other than the session asking. */
-const otherBackends = (url: string): number => count(url, "select count(*) from pg_stat_activity where datname = current_database() and pid <> pg_backend_pid();");
+/**
+ * Backends on this database other than the session asking — the STORE's, which is what these cases
+ * count. The lane speaks its own SQL through psql and keeps that process alive between scripts
+ * (db/__tests__/support/live-sql.ts), so a psql of the lane's own is standing on this database too;
+ * it is named for exactly this, and a connection the lane holds is not a connection the store
+ * failed to give back.
+ */
+const LANE_TOOLING = `and application_name <> ${lit(PSQL_APP_NAME)}`;
+const otherBackends = (url: string): number =>
+  count(url, `select count(*) from pg_stat_activity where datname = current_database() and pid <> pg_backend_pid() ${LANE_TOOLING};`);
 
 /** Occurrences of a needle in a haystack. */
 const occurrences = (haystack: string, needle: string): number => haystack.split(needle).length - 1;
@@ -339,7 +347,9 @@ describe("AC-6: tiers and rollback", () => {
 
     const rejection = await rejectionOf(
       store.withKeyLock(PROBE, uniqueKey("rollback"), randomUUID(), async () => {
-        run(own.urlMigrate, "select pg_terminate_backend(pid) from pg_stat_activity where datname = current_database() and pid <> pg_backend_pid();");
+        // The store's backends, not the lane's own psql — which this session could not terminate
+        // anyway, and whose refusal would answer this case in place of the guarded failure.
+        run(own.urlMigrate, `select pg_terminate_backend(pid) from pg_stat_activity where datname = current_database() and pid <> pg_backend_pid() ${LANE_TOOLING};`);
         throw marker;
       }),
     );

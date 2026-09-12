@@ -60,6 +60,17 @@ export type SqlResult = { ok: boolean; rows: string[][]; stderr: string; sqlstat
 /** How long one script may take before the process running it is abandoned — the spawned path's own. */
 const SCRIPT_TIMEOUT_MS = 120_000;
 
+/**
+ * What every psql this module starts calls itself on the cluster, pooled or spawned.
+ *
+ * A pooled session outlives the script it answered, so a suite that counts the backends on its own
+ * database — or terminates them — now finds the lane's own tooling sitting there where a spawned
+ * psql used to be gone before the next statement asked. The name is how such a suite tells the
+ * store's connections from the lane's (src/core/jobs/__tests__/jobs-edges.acceptance.test.ts): the
+ * lane's psql is not the thing under test, and it never was.
+ */
+export const PSQL_APP_NAME = "cubit-psql-pool";
+
 /** How many connection strings this process keeps a live psql for. A file speaks to two or three. */
 const MAX_SESSIONS = 4;
 
@@ -114,6 +125,7 @@ export function spawnPsql(url: string, script: string): SqlResult {
     input: `\\set VERBOSITY verbose\n${script}\n`,
     encoding: "utf8",
     timeout: SCRIPT_TIMEOUT_MS,
+    env: { ...process.env, PGAPPNAME: PSQL_APP_NAME },
   });
   const stderr = `${result.stderr ?? ""}${result.error === undefined ? "" : `\n${String(result.error)}`}`;
   return shape(result.status === 0, result.stdout ?? "", stderr);
@@ -220,7 +232,10 @@ function open(url: string): Session {
   const outWrite = openSync(outPath, "w");
   const errWrite = openSync(errPath, "w");
   const token = randomBytes(16).toString("hex");
-  const child = spawn("bash", ["-c", WRAPPER, "cubit-psql-pool", url, SEP, token, fifo], { stdio: ["ignore", outWrite, errWrite] });
+  const child = spawn("bash", ["-c", WRAPPER, PSQL_APP_NAME, url, SEP, token, fifo], {
+    stdio: ["ignore", outWrite, errWrite],
+    env: { ...process.env, PGAPPNAME: PSQL_APP_NAME },
+  });
   closeSync(outWrite);
   closeSync(errWrite);
 

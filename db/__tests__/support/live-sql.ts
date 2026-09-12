@@ -22,6 +22,10 @@ export type { SqlResult } from "./psql-pool";
 /** The pool's own door, so a caller that must let a database go can close the sessions onto it. */
 export { closePsqlPool } from "./psql-pool";
 
+/** What every psql this suite speaks through calls itself — how a suite counting backends on its
+ * own database tells the store's connections from the lane's own tooling. */
+export { PSQL_APP_NAME } from "./psql-pool";
+
 /** A base table of the migrated database, already spelled for interpolation. */
 export type TableRef = { schema: string; table: string; sql: string };
 
