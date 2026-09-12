@@ -80,8 +80,8 @@
 /* The swatch is the second, non-colour channel: filled when the switch is on, hollow when it is
    off, so the state survives greyscale as well as colour (R-UI-060). */
 .cx-viewer-partition-swatch {
-  width: 10px;
-  height: 10px;
+  width: var(--space-3);
+  height: var(--space-3);
   border: 1px solid var(--canvas-ink);
   border-radius: var(--radius-2);
   transition: background var(--motion-state) var(--ease);
@@ -212,7 +212,7 @@
 }
 
 .cx-viewer-partition-bone {
-  height: 12px;
+  height: var(--text-body);
   width: min(180px, 100%);
   margin: var(--space-2) var(--space-3);
 }

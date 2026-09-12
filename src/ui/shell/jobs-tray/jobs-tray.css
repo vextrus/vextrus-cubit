@@ -152,5 +152,5 @@
 
 .cx-jobs-tray-item-bone {
   width: 64px;
-  height: 12px;
+  height: var(--text-body);
 }

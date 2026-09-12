@@ -152,7 +152,7 @@
 .cx-job-timeline-step-bone {
   justify-self: end;
   width: 64px;
-  height: 12px;
+  height: var(--text-body);
 }
 
 /* The terminal cause, beneath the row it belongs to and spanning its three columns. */

@@ -16,7 +16,7 @@
 .cx-consequence-acttype {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-12);
   letter-spacing: 0.12em;
   color: var(--ink-muted);
 }
@@ -171,7 +171,7 @@
 /* I-43: the digest renders whole, wrapping, select-all — it exists to be compared. */
 .cx-consequence-digest > [data-testid="consequence-digest-line"] {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-12);
   font-variant-numeric: tabular-nums slashed-zero;
   color: var(--ink-secondary);
   overflow-wrap: anywhere;
