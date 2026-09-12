@@ -261,7 +261,14 @@ export async function checkpoint(page: Page, testInfo: TestInfo, name: string): 
   const measured = blocking.length === 0 ? {} : await rectsOf(page, blocking);
   expect(blocking.map((violation) => describe(violation, measured)), `checkpoint ${name}: axe reports no serious or critical violation`).toEqual([]);
 
-  if (budget !== null) {
-    expect(moderate.length, `checkpoint ${name}: ${moderate.length} moderate violation(s) against a budget of ${budget} — ${moderate.map((violation) => describe(violation)).join(" | ")}`).toBeLessThanOrEqual(budget);
-  }
+  // An UNNAMED checkpoint fails here rather than passing silently: a budget nobody recorded is the
+  // hole this registry was built to close (tests/e2e/support/axe-budget.ts).
+  expect(
+    budget,
+    `checkpoint ${name}: no moderate budget is recorded for it — add "${name}" to AXE_MODERATE_BUDGET in tests/e2e/support/axe-budget.ts, at the count this run observed, in the commit that adds the checkpoint`,
+  ).toBeDefined();
+  expect(
+    moderate.length,
+    `checkpoint ${name}: ${moderate.length} moderate violation(s) against a budget of ${String(budget)} — ${moderate.map((violation) => describe(violation)).join(" | ")}`,
+  ).toBeLessThanOrEqual(budget ?? 0);
 }
