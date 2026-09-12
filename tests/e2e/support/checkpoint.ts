@@ -91,7 +91,7 @@ async function rectsOf(page: Page, violations: readonly AxeViolation[]): Promise
   return page.evaluate((selectors) => {
     const out: Record<string, string> = {};
     for (const selector of selectors) {
-      let element: Element | null = null;
+      let element: Element | null;
       try {
         element = document.querySelector(selector);
       } catch {
