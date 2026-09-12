@@ -257,6 +257,12 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     // nothing else; what is held is untouched by a camera move.
     await viewer.fit.click();
     await settled(page);
+    // The reduced-motion arrival above was a fresh load, and a fresh load starts with the pin
+    // released (§3.1) — so the panel is held open again before a leg that reads it with NOTHING
+    // selected, exactly as the two legs before it do and exactly as a person who wanted to keep
+    // watching it would. Not one assertion below is loosened by it; the screen simply now needs the
+    // act performed before they can be made (I-152).
+    await viewer.pinInspector();
     await expect(viewer.inspector, "fitting the sheet is not letting go of it").toHaveAttribute("data-count", "1");
     const corner = await viewer.canvasBox();
     const bare = { x: corner.x + 6, y: corner.y + 6 };
