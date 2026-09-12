@@ -9,7 +9,7 @@
 // it: a gate uses at most `cores / SLOTS - 2` workers in total, and each lane's measured knee is
 // divided by the number of gates sharing the machine.
 import { describe, expect, test } from "vitest";
-import { DB_LANE_KNEE, UNIT_LANE_KNEE, VERIFY_WAVE_SIBLINGS, gateBudget, laneWorkers, verifySlots, waveParallelism } from "../../scripts/lib/box.mjs";
+import { DB_LANE_KNEE, JOURNEY_LANE_CAP, UNIT_LANE_KNEE, VERIFY_WAVE_SIBLINGS, gateBudget, journeyKnee, journeyWorkers, laneWorkers, verifySlots, waveParallelism } from "../../scripts/lib/box.mjs";
 
 const BOX = 24;
 
@@ -58,5 +58,26 @@ describe("CUBIT_VERIFY_SLOTS sizes every cap the gate sets", () => {
       if (named === undefined) delete process.env["CUBIT_VERIFY_SLOTS"];
       else process.env["CUBIT_VERIFY_SLOTS"] = named;
     }
+  });
+});
+
+describe("the journey lane's share of the box (v22 speed)", () => {
+  test("six cores buy one journey worker, and the knee is capped at six", () => {
+    expect(journeyKnee(1)).toBe(1);
+    expect(journeyKnee(6)).toBe(1);
+    expect(journeyKnee(12)).toBe(2);
+    // The box the engine builds on: twenty-four cores, four journey workers — the lane's default.
+    expect(journeyKnee(24)).toBe(4);
+    expect(journeyKnee(36)).toBe(JOURNEY_LANE_CAP);
+    // Past the cap the workers queue on the ONE served product, not on the box, so more is slower.
+    expect(journeyKnee(256)).toBe(JOURNEY_LANE_CAP);
+  });
+
+  test("a journey worker is never free of the gates beside it", () => {
+    // Two gates on one box: the knee is halved like every other lane's, never merely clamped.
+    expect(journeyWorkers({ cores: 24, slots: 1 })).toBe(4);
+    expect(journeyWorkers({ cores: 24, slots: 2 })).toBe(2);
+    // And never below one, whatever the box or the company.
+    expect(journeyWorkers({ cores: 2, slots: 4, siblings: 10 })).toBe(1);
   });
 });

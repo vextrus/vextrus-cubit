@@ -6,6 +6,7 @@
 // connection until a journey asks it to, and by then the schema is applied.
 import { defineConfig } from "@playwright/test";
 // The port set has one home (ARCH-02); this config reads it rather than restating a number.
+import { journeyWorkers } from "./scripts/lib/box.mjs";
 import { portFor } from "./scripts/lib/ports.mjs";
 import { SNAPSHOT_PATH_TEMPLATE, detectGpu, journeyUse, pictureLane } from "./tests/e2e/support/capture-geometry";
 import { e2eDatabaseUrl } from "./tests/e2e/support/scratch-db";
@@ -55,7 +56,14 @@ export default defineConfig({
   // tenant is a fixture the lane installs before the first journey and no leg writes, and the
   // served build is one process answering both. The database is shared for the same reason it can
   // be: nothing in it is addressed by a name two journeys both hold.
-  workers: Math.max(1, Number(process.env["CUBIT_E2E_WORKERS"] ?? "1") || 1),
+  //
+  // THE DEFAULT IS THE BOX'S, NOT ONE (v22 speed, 2026-09-12). It was one, and `pnpm e2e` therefore
+  // walked eleven journeys in series on a 24-core machine because nobody had spelled a number. The
+  // count now comes from `scripts/lib/box.mjs` — six cores to a journey worker, capped at six, and
+  // divided by the gates sharing the box exactly as the unit and database lanes are — which is FOUR
+  // here. `CUBIT_E2E_WORKERS` still overrides it, and `scripts/e2e.mjs` makes `--workers N` and the
+  // variable agree before Playwright starts, so the verdict records what the run was measured at.
+  workers: Math.max(1, Number(process.env["CUBIT_E2E_WORKERS"] ?? String(journeyWorkers())) || journeyWorkers()),
   // `list` for a human, one `JOURNEY <id> green|red` line per journey the caller asked for, and —
   // only when the run is being filmed — the showreel's table of contents. The reel reporter is
   // registered by name rather than always, because a reporter that writes a file every run writes a

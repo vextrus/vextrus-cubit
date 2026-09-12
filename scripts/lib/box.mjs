@@ -77,3 +77,37 @@ export const DB_LANE_KNEE = 8;
  * lanes and cad. One process each, and they are the reason the unit lane never had the box.
  */
 export const VERIFY_WAVE_SIBLINGS = 6;
+
+/**
+ * THE JOURNEY LANE'S CAP (v22 speed, 2026-09-12).
+ *
+ * A journey worker is not a vitest worker: it is a browser, a browser context and a share of ONE
+ * served product, so the knee is lower than the unit lane's and it is bounded at both ends. Six is
+ * the ceiling — past it the workers queue on the single `next start` rather than on the box — and
+ * the floor is one, because a two-core machine still has to be able to run the lane.
+ */
+export const JOURNEY_LANE_CAP = 6;
+
+/**
+ * The journey lane's knee ON THIS BOX. Six cores buy one journey worker: a worker drives a browser
+ * (several processes of its own) and the server has to answer all of them out of one process, so
+ * the share is deliberately coarse. On the 24-core box the engine builds on this is FOUR, which is
+ * the lane's stated default — a number derived from the machine rather than pinned to it (B-17).
+ * @param {number} [cores]
+ * @returns {number}
+ */
+export function journeyKnee(cores = availableParallelism()) {
+  return Math.max(1, Math.min(JOURNEY_LANE_CAP, Math.floor(cores / 6)));
+}
+
+/**
+ * How many journeys this lane walks at once when nobody has said: the knee above, divided by the
+ * gates on the box and clamped to what is left of this gate's budget, exactly as every other forking
+ * lane is (`laneWorkers`). `CUBIT_E2E_WORKERS` and `--workers` both override it, and whichever
+ * number wins is printed in the runner's summary and in every JOURNEY verdict (P4b §6).
+ * @param {{siblings?: number, cores?: number, slots?: number}} [box]
+ * @returns {number}
+ */
+export function journeyWorkers(box = {}) {
+  return laneWorkers(journeyKnee(box.cores ?? availableParallelism()), box);
+}

@@ -4,6 +4,7 @@
 // and honest; the moment tests/e2e exists the skip is gone and Playwright runs (C-06, B-22, B-23).
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { journeyWorkers } from "./lib/box.mjs";
 import { deriveStage } from "./lib/lanes.mjs";
 import { announce, run, wallTime } from "./lib/report.mjs";
 
@@ -86,6 +87,9 @@ export function grepFor(journeys) {
  * environment the config reads, and where BOTH are stated and differ the run is refused rather than
  * silently taking one of them. The count then goes in the runner's own summary line and in every
  * JOURNEY verdict (tests/e2e/support/journey-reporter.ts), so a verdict says what it was measured at.
+ * Unstated in either spelling, the count is the BOX's (`journeyWorkers()`, scripts/lib/box.mjs) —
+ * four on the 24-core machine the engine builds on. It was 1, so a `pnpm e2e` that named no number
+ * walked eleven journeys in series and the runner said `workers=1` about a box with twenty-four.
  * @param {readonly string[]} passthrough the args this runner did not recognise
  * @param {Record<string, string|undefined>} env
  * @returns {{workers: number, asked: number|null, stated: number|null, refusal: string|null}}
@@ -112,7 +116,9 @@ export function readWorkers(passthrough, env) {
       refusal: `--workers ${asked} disagrees with CUBIT_E2E_WORKERS=${stated}. One run walks with one worker count, and the verdict records it: state it once, in either spelling.`,
     };
   }
-  const workers = asked ?? stated ?? 1;
+  // Nothing stated: the box decides, exactly as playwright.config.ts's own default does — the two
+  // spellings of "how many" must agree whichever of them is the one that answers (v22 speed).
+  const workers = asked ?? stated ?? journeyWorkers();
   return { workers: Number.isInteger(workers) && workers >= 1 ? workers : 1, asked, stated, refusal: null };
 }
 

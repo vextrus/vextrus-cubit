@@ -10,6 +10,7 @@
 // by the digit: the grep decides what Playwright would collect, and the reporter is given exactly
 // what that grep selected.
 import { describe, expect, test } from "vitest";
+import { journeyWorkers } from "../../scripts/lib/box.mjs";
 import { grepFor, readWorkers } from "../../scripts/e2e.mjs";
 import JourneyReporter from "../../tests/e2e/support/journey-reporter";
 
@@ -99,8 +100,13 @@ describe("the worker count is part of the verdict, and the two spellings of it a
     expect(readWorkers([], { CUBIT_E2E_WORKERS: "2" })).toMatchObject({ workers: 2, refusal: null });
   });
 
-  test("neither spelling is one worker — a plain `pnpm e2e` is what it was", () => {
-    expect(readWorkers([], {})).toMatchObject({ workers: 1, refusal: null });
+  test("neither spelling is THE BOX's count — never one on a machine with twenty-four cores", () => {
+    // v22 speed: the default was 1, so `pnpm e2e` with no number walked eleven journeys in series
+    // and then said `workers=1` about a 24-core box. It is now `journeyWorkers()` — one worker per
+    // six cores, capped at six, divided by the gates sharing the box — which is what the config
+    // defaults to as well, so the two spellings agree when NEITHER is stated too.
+    expect(readWorkers([], {})).toMatchObject({ workers: journeyWorkers(), refusal: null });
+    expect(journeyWorkers()).toBeGreaterThanOrEqual(1);
   });
 
   test("the two agreeing is lawful; the two disagreeing is refused by name", () => {
