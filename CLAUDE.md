@@ -58,6 +58,32 @@ pnpm verify · pnpm test (unit lane, opens no database) · pnpm test:db · pnpm 
 - History is append-only: a landed migration is superseded, never edited; a regenerated snapshot or baseline goes in its own commit whose subject starts `baseline:` and names the proof. A design picture your lawful change moved is the gate's to re-take — don't spend a turn on `--update-snapshots`.
 - Toolchain churn (`next build` appends a dist dir to tsconfig.json): never hand-edit it; `git checkout main -- tsconfig.json` is always allowed (chained too), or leave the dirt — the engine restores it to main's form at the gate and at merge. A deliberate config change is lawful only where the increment is tagged `toolchain` or its approved spec names the path; otherwise it belongs to the increment that owns it. `next-env.d.ts` is untracked build output (`pnpm typecheck` regenerates it); never commit or restore it.
 
+### The journey lane (v22)
+- The journey lane is DARK: `CUBIT_E2E_LIGHT=1` is the light run and only the gallery walk asks for
+  it. `CUBIT_E2E_WORKERS` and `CUBIT_VERIFY_SLOTS` are the engine's sizing, never a test's.
+- A journey signs in with `signInAsSeededTenant` (`tests/e2e/support/seeded-session.ts`). J-000 is
+  the exception: it walks the story a customer walks and stages nothing.
+- A read asserts a RENDERED contract — `data-state`, `data-rows-rendered`, `data-rendered-region`,
+  through `tests/e2e/support/retrying-read.ts` after `settled()`. `.count()`/`.all()` on a
+  virtualised table is not an assertion; `waitForTimeout` is unlawful (`cubit/no-unretried-read`).
+- Every test id is declared in `src/ui/testids.ts` (`cubit/no-literal-testid`); under `src/modules/**`
+  the rule is a warning with a frozen count that may only FALL
+  (`tests/lint/testid-registry-ratchet.test.ts`), and `RegisterChrome.testIds` is how a module screen
+  publishes its own.
+- `test.skip` never; a `test.fixme` is lawful only on the J-000 roster
+  (`tests/journeys/fixme-roster.test.ts`) opening with a `MISSING DOOR:` line. A screen's entry in
+  `tests/e2e/support/height-budget.ts` may only FALL; `--update-snapshots` is the gate's, never a
+  session's.
+- `pnpm verify` prints `LANE <id> <seconds>` per lane — quote that line, don't time a lane by hand.
+- Every read door resolves participation through `authorize()` before it reads, and proves it with a
+  live-database test that a caller without the permission is refused by name.
+- The notation corpus test is a ratchet: the corpus it parses may grow, never shrink. The golden lane
+  is armed by the fixtures' own manifests (`fixtures/rcc6/manifest.json`,
+  `scripts-data/sample-seed/manifest.json`) — a lane with no manifest proves nothing.
+- The outbox has exactly one reader; a second consumer is a defect, not a parallelisation.
+- The db lane copies one migrated template per test file over a pooled connection — never a psql of
+  your own beside it, and never `pnpm test:db` while an e2e server is up.
+
 <!-- builder:lessons:start -->
 ## Standing lessons (engine-maintained)
 ### Locked ground & lawful paths
