@@ -7,6 +7,9 @@
 // module imports nothing but a type, and `tests/journeys/playwright-capture-geometry.test.ts`
 // asserts BOTH branches of it: the flag off is today's block key for key, the flag on is §9.3.
 import type { PlaywrightTestConfig } from "@playwright/test";
+// The one reading of the world in this module: does the WSL2 GPU device exist? Everything the lane
+// decides from it is the pure `gpuChoice()` below, which a unit test drives from a fake.
+import { existsSync } from "node:fs";
 
 /**
  * THE §9.3 CAPTURE GEOMETRY, BEHIND ONE SWITCH.
@@ -78,6 +81,131 @@ export function captureGeometry(picture: boolean): PlaywrightTestConfig["use"] {
   };
 }
 
+
+/* ------------------------------------------------------ WHAT PAINTS THE CANVAS (v22 speed-gpu) */
+
+/**
+ * THE WSL2 GPU DEVICE. Its presence is the one fact that separates "this box has a card to reach"
+ * from "it does not", and `gpuChoice()` below is a function of it — so the choice can be asserted
+ * from a fake rather than from whatever machine the unit lane happens to run on.
+ */
+export const DXG_DEVICE = "/dev/dxg";
+
+/**
+ * THE HARDWARE SPELLING, and why each flag is in it.
+ *
+ * `--ozone-platform=x11` is the load-bearing one. This box has NO /dev/dri render node — WSL2
+ * exposes the GPU as /dev/dxg and nothing else — so the surfaceless EGL display that headless
+ * Chromium asks for has no device behind it and ANGLE falls back to SwiftShader, whatever GL flags
+ * it was given. Mesa's d3d12 Gallium driver DOES reach the card (`eglinfo` answers `D3D12 (NVIDIA
+ * GeForce RTX 3060 Ti)`), but only through a winsys with a display: X11 or Wayland, not GBM and not
+ * surfaceless. WSLg serves an X server at :0, so naming it is what gives EGL a device.
+ *
+ * `--use-gl=angle --use-angle=gl` then puts ANGLE on top of that desktop GL rather than on top of
+ * its own bundled SwiftShader. The blocklist is ignored because Chromium has no entry for a D3D12
+ * adapter seen through Mesa and refuses it by default.
+ *
+ * And a window: the headless shell has no winsys at all, and `--headless=new` still asks for the
+ * surfaceless display — `scripts/gpu-probe.mjs` candidate `h` is that fact, measured. So the
+ * hardware lane runs the FULL chromium binary headed, on WSLg's X server.
+ */
+export const HARDWARE_GL_FLAGS = ["--ozone-platform=x11", "--use-gl=angle", "--use-angle=gl", "--ignore-gpu-blocklist", "--enable-gpu-rasterization"] as const;
+
+/**
+ * The environment Mesa needs to pick the d3d12 driver and, within it, the discrete adapter. Without
+ * it the same window and the same flags land on llvmpipe — a CPU rasteriser wearing a GL renderer
+ * string (`scripts/gpu-probe.mjs` candidate `g` is that fact, measured). `LIBGL_ALWAYS_SOFTWARE` is
+ * not set here but is DELETED where this is applied: its presence anywhere in the environment
+ * forces llvmpipe and would silently undo all of the above.
+ */
+export const MESA_D3D12_ENV = {
+  MESA_D3D12_DEFAULT_ADAPTER_NAME: "NVIDIA",
+  GALLIUM_DRIVER: "d3d12",
+  MESA_LOADER_DRIVER_OVERRIDE: "d3d12",
+} as const;
+
+/**
+ * THE SOFTWARE SPELLING — what `j-011-viewer.spec.ts` carried inline until now, moved to the one
+ * home every other launch flag already lives in. `--enable-unsafe-swiftshader` is required: since
+ * Chromium 119 a WebGL context that would fall back to SwiftShader is refused outright unless the
+ * caller says it accepts one, and a refused context is `data-renderer="unavailable"` — the journey
+ * failing honestly rather than the lane painting slowly.
+ */
+export const SOFTWARE_GL_FLAGS = ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] as const;
+
+/** What the lane decided to paint with, and the sentence that says why. */
+export interface GpuChoice {
+  /** Did it land on silicon? Only this makes the lane headed and the env non-empty. */
+  readonly hardware: boolean;
+  /** The GL args, appended to the capture flags rather than replacing them (B-17). */
+  readonly args: readonly string[];
+  /** The environment OVERLAY — merged over `process.env` at launch, never replacing it. */
+  readonly env: Readonly<Record<string, string>>;
+  /** A headless shell has no winsys, so the hardware path needs a window. */
+  readonly headless: boolean;
+  /** The line the lane prints, so a reader of a log knows which of the two ran. */
+  readonly why: string;
+}
+
+/** The inputs the choice is a function of — all three read from the world by `detectGpu()` alone. */
+export interface GpuFacts {
+  /** Does /dev/dxg exist? No device, no hardware path, whatever else is true. */
+  readonly dxg: boolean;
+  /** `DISPLAY` — the X server the d3d12 winsys needs. WSLg sets it to `:0`. */
+  readonly display: string | undefined;
+  /** `CUBIT_E2E_GPU`: `0` forces software (the bisect escape), `1` asks for hardware by name. */
+  readonly forced: string | undefined;
+}
+
+/**
+ * THE ONE READING OF "WHAT SHOULD THIS RUN PAINT WITH". A pure function of three facts, so
+ * `tests/journeys/playwright-capture-geometry.test.ts` asserts both branches from a FAKE /dev/dxg
+ * rather than from the machine under it — the same shape the picture switch above is tested in.
+ *
+ * Software is the floor and never an error: a box without the device, or without a display to hang
+ * the d3d12 winsys off, gets exactly the flags the lane has always run and says so in one line.
+ */
+export function gpuChoice(facts: GpuFacts): GpuChoice {
+  const software = (why: string): GpuChoice => ({ hardware: false, args: [...SOFTWARE_GL_FLAGS], env: {}, headless: true, why });
+  if (facts.forced === "0") return software("software (CUBIT_E2E_GPU=0)");
+  if (!facts.dxg) return software(`software (no ${DXG_DEVICE})`);
+  if (!facts.display) return software("software (no DISPLAY — the d3d12 winsys needs an X server)");
+  return {
+    hardware: true,
+    args: [...HARDWARE_GL_FLAGS],
+    env: { ...MESA_D3D12_ENV },
+    headless: false,
+    why: `hardware (${DXG_DEVICE} on DISPLAY=${facts.display})`,
+  };
+}
+
+/**
+ * The choice for THIS process, read from the world once at config load. `existsSync` is the whole
+ * of the world-reading; everything downstream is the pure function above.
+ */
+export function detectGpu(): GpuChoice {
+  return gpuChoice({
+    dxg: existsSync(DXG_DEVICE),
+    display: process.env["DISPLAY"],
+    forced: process.env["CUBIT_E2E_GPU"],
+  });
+}
+
+/**
+ * The launch environment a hardware run needs: this process's, plus Mesa's overlay, MINUS
+ * `LIBGL_ALWAYS_SOFTWARE`. Playwright's `launchOptions.env` REPLACES the browser's environment
+ * rather than extending it, so a run that passed the overlay alone would start a browser with no
+ * PATH, no HOME and no DISPLAY — and no display is exactly the condition that sends it back to
+ * SwiftShader. A software run contributes no `env` key at all, so it inherits as it always has.
+ */
+export function launchEnvFor(gpu: GpuChoice): Record<string, string> | undefined {
+  if (!gpu.hardware) return undefined;
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) if (value !== undefined) env[key] = value;
+  delete env["LIBGL_ALWAYS_SOFTWARE"];
+  return { ...env, ...gpu.env };
+}
+
 /** The switches the journey lane reads, gathered so the block below is a function of its inputs. */
 export interface LaneSwitches {
   /** The address the journeys drive and the served product states about itself. */
@@ -90,6 +218,12 @@ export interface LaneSwitches {
   readonly video: boolean;
   /** CUBIT_E2E_TRACE=on — likewise. */
   readonly trace: boolean;
+  /**
+   * What paints the canvas. Passed IN rather than read here for the same reason every other switch
+   * is: `journeyUse` stays a function of its inputs, so the unit test asserts both of its GL
+   * branches without the answer depending on whether the machine running the unit lane has a card.
+   */
+  readonly gpu: GpuChoice;
 }
 
 /**
@@ -119,6 +253,16 @@ export function journeyUse(switches: LaneSwitches): PlaywrightTestConfig["use"] 
     // alone. A run therefore carries one screenshot per journey test at minimum, always.
     screenshot: "on",
     ...captureGeometry(switches.picture),
+    // THE GL CHOICE, LAST — and last on purpose. `captureGeometry` owns `launchOptions` under the
+    // picture switch, so the GL args are merged onto whatever it returned rather than beside it:
+    // `test.use({ launchOptions })` and a second `launchOptions` key are the same trap, and §9.3's
+    // three font flags being dropped by an override nothing documented is a fault this lane has
+    // already had once (j-011-viewer.spec.ts). One key, built once, carrying both.
+    headless: switches.gpu.headless,
+    launchOptions: {
+      args: [...(switches.picture ? CAPTURE_BROWSER_FLAGS : []), ...switches.gpu.args],
+      ...(launchEnvFor(switches.gpu) ? { env: launchEnvFor(switches.gpu) } : {}),
+    },
   };
 }
 

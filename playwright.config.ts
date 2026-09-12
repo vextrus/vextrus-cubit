@@ -7,7 +7,7 @@
 import { defineConfig } from "@playwright/test";
 // The port set has one home (ARCH-02); this config reads it rather than restating a number.
 import { portFor } from "./scripts/lib/ports.mjs";
-import { SNAPSHOT_PATH_TEMPLATE, journeyUse, pictureLane } from "./tests/e2e/support/capture-geometry";
+import { SNAPSHOT_PATH_TEMPLATE, detectGpu, journeyUse, pictureLane } from "./tests/e2e/support/capture-geometry";
 import { e2eDatabaseUrl } from "./tests/e2e/support/scratch-db";
 
 const port = portFor("e2e");
@@ -24,6 +24,15 @@ const picture = pictureLane();
 
 /** Is this run being filmed? A showreel needs a film and a trace, so asking for one turns both on. */
 const showreel = process.env["CUBIT_SHOWREEL"] === "1";
+
+/**
+ * WHAT PAINTS THE VIEWER'S CANVAS, decided once at config load (v22 speed-gpu). Read here rather
+ * than inside the `use` block so that `globalSetup` — which runs after this module is evaluated —
+ * can name the same choice in the one line it prints, and so a journey with `launchOptions` of its
+ * own (`j-011-viewer.spec.ts`) extends THIS list rather than guessing at it.
+ */
+const gpu = detectGpu();
+process.env["CUBIT_E2E_GPU_WHY"] = gpu.why;
 
 export default defineConfig({
   testDir: "tests/e2e",
@@ -97,6 +106,7 @@ export default defineConfig({
     picture,
     video: process.env["CUBIT_E2E_VIDEO"] === "on",
     trace: process.env["CUBIT_E2E_TRACE"] === "on",
+    gpu,
   }),
   // V-E2E: the journeys drive the built product, never a dev server — what CI ships is what they
   // walk. One home for the port (ARCH-02): `portFor("e2e")` above, and one home for the database

@@ -17,7 +17,7 @@
  * copy is read from the product's own string registry by key, and every count is compared against
  * what the screen itself publishes (B-19).
  */
-import { FONT_RENDER_FLAGS } from "../support/capture-geometry";
+import { FONT_RENDER_FLAGS, detectGpu, launchEnvFor } from "../support/capture-geometry";
 import { expect, test } from "@playwright/test";
 import { strings } from "../../../src/ui/strings";
 import { syntheticKey } from "../../takeoff/viewer/support/synthetic-graph";
@@ -76,7 +76,11 @@ test.use({
   // it is Chromium forcing the preference the `reducedMotion: "no-preference"` above asks against,
   // and this journey's clause IS the pulse. That omission is the whole reason this spec has a
   // `launchOptions` of its own, and it is now written down rather than implied.
-  launchOptions: { args: [...FONT_RENDER_FLAGS, "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] },
+  // The GL spelling is the LANE'S now, not this file's. It carried `--use-angle=swiftshader` inline
+  // until 2026-09-12, which pinned this journey — the one journey whose whole subject is a WebGL
+  // canvas — to a CPU rasteriser even on a box with a card, and made it the only spec whose
+  // rasteriser could not be changed from one place. `detectGpu()` is that one place (B-19, ARCH-02).
+  launchOptions: { args: [...FONT_RENDER_FLAGS, ...detectGpu().args], ...(launchEnvFor(detectGpu()) ? { env: launchEnvFor(detectGpu()) } : {}) },
 });
 
 test.describe("J-011 — the inspector: hover, select, copy, reveal, and the address that carries it", () => {

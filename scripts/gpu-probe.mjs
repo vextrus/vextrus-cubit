@@ -145,14 +145,56 @@ window.__probe = (async () => {
 })();
 </script></body></html>`;
 
+/**
+ * WHAT DOES THIS BROWSER SAY IT IS? — the one home for the question (ARCH-02).
+ *
+ * The flags are a REQUEST; this string is the answer, and the two part company silently — a missing
+ * DISPLAY, an `LIBGL_ALWAYS_SOFTWARE` inherited from a shell, a Mesa upgrade. When they part, the
+ * only symptom is a viewer journey that got slower, which reads as flake rather than as a fact. So
+ * both callers ask rather than claim: this script's table, and the journey lane's global setup,
+ * which prints one `gpu:` line per run from exactly the options every journey will launch under.
+ *
+ * It never throws. A probe that cannot answer says so in the string it returns; the lane's GL choice
+ * is already a floor (software), and a run that would otherwise walk is not stopped by a diagnostic.
+ *
+ * @param {{ channel?: string, headless?: boolean, args?: readonly string[], env?: Record<string, string> }} options
+ * @returns {Promise<string>} the unmasked WebGL renderer, or a parenthesised reason it is unknown
+ */
+export async function readRenderer(options) {
+  let browser;
+  try {
+    browser = await chromium.launch({
+      channel: /** @type {any} */ (options.channel),
+      headless: options.headless ?? true,
+      args: [...(options.args ?? [])],
+      ...(options.env ? { env: /** @type {any} */ (options.env) } : {}),
+      timeout: 60_000,
+    });
+    const page = await browser.newPage();
+    await page.setContent("<canvas id=c></canvas>");
+    return await page.evaluate(() => {
+      const canvas = /** @type {HTMLCanvasElement} */ (/** @type {any} */ (globalThis).document.getElementById("c"));
+      const gl = canvas.getContext("webgl2");
+      if (!gl) return "(no webgl2 context)";
+      const debug = gl.getExtension("WEBGL_debug_renderer_info");
+      return String(debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    });
+  } catch (error) {
+    return `(unreadable: ${(String(error).split("\n")[0] ?? "").slice(0, 120)})`;
+  } finally {
+    await browser?.close().catch(() => {});
+  }
+}
+
 /** chrome://gpu's own verdict, read through CDP — the browser's answer about itself. */
+/** @param {import("@playwright/test").Browser} browser */
 async function gpuFeatureStatus(browser) {
   try {
     const session = await browser.newBrowserCDPSession();
-    const info = await session.send("SystemInfo.getInfo");
+    const info = /** @type {any} */ (await session.send(/** @type {any} */ ("SystemInfo.getInfo")));
     await session.detach();
     const gpu = info?.gpu ?? {};
-    const device = (gpu.devices ?? []).map((d) => d.deviceString || `${d.vendorId}:${d.deviceId}`).join(", ");
+    const device = (gpu.devices ?? []).map((/** @type {any} */ d) => d.deviceString || `${d.vendorId}:${d.deviceId}`).join(", ");
     const status = gpu.auxAttributes?.glRenderer ?? "";
     return { device, glRenderer: status, driver: (gpu.devices ?? [])[0]?.driverVersion ?? "" };
   } catch (err) {
@@ -161,6 +203,7 @@ async function gpuFeatureStatus(browser) {
 }
 
 /** The environment a candidate launches under: this process's, plus its own, minus the unset ones. */
+/** @param {{ env: Record<string, string | undefined> }} candidate */
 export function launchEnv(candidate) {
   const env = { ...process.env };
   for (const [key, value] of Object.entries(candidate.env)) {
@@ -171,9 +214,11 @@ export function launchEnv(candidate) {
 }
 
 /** Is this renderer string a CPU rasteriser? The one reading of the question the whole lane turns on. */
+/** @param {string} renderer */
 export const isSoftwareRenderer = (renderer) =>
   !renderer || /swiftshader|llvmpipe|software|softwarerasterizer/i.test(renderer);
 
+/** @param {any} candidate @param {any} binary */
 async function probe(candidate, binary) {
   const row = { candidate: candidate.id, binary: binary.id, note: candidate.note };
   let browser;
@@ -182,16 +227,16 @@ async function probe(candidate, binary) {
       channel: candidate.headed ? "chromium" : binary.channel,
       headless: !candidate.headed,
       args: candidate.args,
-      env: launchEnv(candidate),
+      env: /** @type {any} */ (launchEnv(candidate)),
       timeout: 60_000,
     });
     const sys = await gpuFeatureStatus(browser);
     const page = await browser.newPage();
     await page.setContent(HARNESS);
-    const result = await page.evaluate(() => window.__probe);
+    const result = /** @type {any} */ (await page.evaluate(() => /** @type {any} */ (globalThis)["__probe"]));
     return { ...row, ...result, ...sys, ok: true };
   } catch (err) {
-    return { ...row, ok: false, renderer: `LAUNCH FAILED: ${String(err).split("\n")[0].slice(0, 90)}`, vendor: "", webgl2: false, fps: 0 };
+    return { ...row, ok: false, renderer: `LAUNCH FAILED: ${(String(err).split("\n")[0] ?? "").slice(0, 90)}`, vendor: "", webgl2: false, fps: 0 };
   } finally {
     await browser?.close().catch(() => {});
   }
