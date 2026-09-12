@@ -27,16 +27,25 @@ Corrections landed since, each its own commit:
 - **thirteen invalid `border` rules** in `src/ui/primitives` fixed, and the mechanical suite now reads
   the primitives it had never opened.
 
-## THE STILLS
+## THE STILLS — thirty-six, at both viewports
 
-Eighteen: nine screens × two themes, taken by `tests/e2e/gallery-v22.spec.ts` (`CUBIT_GALLERY=1`),
-6.0 s in the light project and 5.9 s in the dark. Mean luma says each is a picture of the theme it
-names (home 15.9 / 243.0, register 21.2 / 237.7, auth 15.8 / 242.3).
+Nine screens × two themes × **two viewports**, named the way §9.3 asks —
+`<screen>.<theme>.<w>x<h>.png` — and taken by `tests/e2e/gallery-v22.spec.ts` (`CUBIT_GALLERY=1`) in
+8.6 s. The 1280×800 half is new in `cubit-u2j`: until 2026-09-12 **no 1280×800 capture existed
+anywhere in the tree** while §9.3 and `SCORES.md` both required one, and §7 scores a screen at the
+MINIMUM over the two measures. Every capture is exactly its viewport, which is the C10 reading:
+nothing scrolls the document sideways or downwards at either measure.
 
-**`viewer-dark.png` and `viewer-light.png` are black (luma 0.2) and are owed.** The picture tenant's
-sheet has its raster ROWS but no artifact in the store — the server answers "the store holds no
-artifact at f1c7c0de… (SEAM-STORAGE)". Seeding bytes into the object store is the next node's, and
-until then this pair is an honest picture of the fixture rather than of the viewer.
+**Four of the nine addresses do not answer with the screen they name**, and `SCORES.md` records each
+as what it is rather than scoring it: `drawings.*` is the ROOT ERROR BOUNDARY (a product defect, owed
+— the thrown fault is in `src/modules/takeoff/sheets`), `viewer.*` is Next's 404 (the sheet has its
+raster rows but no artifact bytes under `storage/<tenant>/<sha256>`; the stills were black before
+this session and are white now, and neither is the viewer), `ruleset.*` answers "this address does
+not name a project in this workspace", and `register.*`/`coverage.*` are the picture tenant's refusal
+and empty states — the composed register is scored from its journey baseline instead.
+
+Mean luma says each remaining pair is a picture of the theme it names (home 243.0 / 15.9, register
+237.7 / 21.1, auth 242.3 / 15.8, and the 1280×800 twin of each within 1.5).
 
 ## THE HEIGHT BUDGET — five entries, all ceilings
 
@@ -77,10 +86,11 @@ fixture that makes them unnecessary — is imported by `gallery-v22.spec.ts` ALO
 still makes its own per-run tenant. `capture-geometry.ts`'s claim that "every committed baseline was
 taken against the picture tenant" is therefore false and should be read as an aspiration.
 
-## THE FOLD CAPTURE — owed
+## THE FOLD CAPTURE — taken
 
-There is **no 1280×800 capture anywhere** (`grep 1280 tests/e2e playwright.config.ts` finds nothing)
-though §9.3 and `SCORES.md` both require one. Nothing on this branch takes it.
+`gallery-v22.spec.ts` takes every screen at 1280×800 as well as at 1440×900 (`page.setViewportSize`
+per pass, the height cap re-read from the viewport it is on: 1 600 px there, 1 800 px here). The 36
+files above are the evidence, and `SCORES.md` takes the minimum of the two, as §7 says.
 
 ## THE FLAGS ACTUALLY SHIPPED
 
@@ -95,6 +105,25 @@ name and with its reason, because its clause is the pulse.
 
 ## SCORES.md
 
-Not touched by this session, and not to be read as current: the adversary's finding that C9 = 4 is
-written on seven rows while four real axe SERIOUS findings stand on this branch is unanswered here.
-The next node writes that file from real captures.
+Rewritten by `cubit-u2j` from the 36 captures beside it and from the tests that exist. Every cell
+names the picture or the test it rests on; C8 and C4's geometry come from
+`tests/ui/craft/mechanical.test.ts` (5 on all 22 screen stylesheets), C10 from the captures' own
+dimensions, C9 from the full walk's axe results — **0 serious, 0 critical at every checkpoint**, and
+the moderate tier attached, printed and enforced against nothing (every entry in `axe-budget.ts` is
+still `null`). Nothing is rounded up. The adversary's finding is answered: C9 is 4 and not 5, and it
+is 4 on a reading rather than on a hope.
+
+## THE LAST TWO LAYOUT FAULTS THIS BRANCH SHIPPED WITH
+
+Both fixed in `cubit-u2j`, both re-photographed:
+
+- **the Register was clipped at x=1440.** The rail's cards were cut mid-sentence (four nested scroll
+  boxes in one 240 px column, each shrunk to a share of the panel's height — now ONE scroll region);
+  "Default" and "Complete" were sliced mid-word (a composed cell is a chip and a word, neither of
+  them the table's `.cx-table-cell-text`, so its ellipsis never reached them); the inspector's "Read
+  from" key ran off the right edge of the screen (`.cx-register-source` carries `white-space: nowrap`
+  for the TABLE, and `overflow-wrap: anywhere` beneath a `nowrap` does nothing).
+- **the two panels' "missing theme" was the LANE, not the product.** `j-020-scale/panel-light.png`
+  and `viewer-partition/panel-light.png` were taken on the lane's own ground, so in the dark project a
+  file named `-light` held the dark panel and was byte-identical to its `-dark` twin. Each is now
+  asked for by name in both lanes: j-020 232.4 / 27.0, partition 230.0 / 28.3, in BOTH lanes.
