@@ -94,11 +94,14 @@ describe("settleFault: the predicate settled() polls", () => {
     expect(settleFault({ ...everything, fontsStatus: "loaded" })).toContain(SETTLE_CONTRACT.busy);
   });
 
-  test("the contract names the four selectors src/ui has to publish", () => {
+  test("the contract names the selectors src/ui has to publish — five since v22's speed pass", () => {
     expect(SETTLE_CONTRACT).toEqual({
       busy: '[aria-busy="true"]',
       screenRoot: "[data-screen-root]",
       screenState: "data-state",
+      // A region that says its own `data-state` IS the rendered contract, so a retrying read can
+      // take ONE reading of it. It is a marker of its own because `data-state` is Radix's word too.
+      region: "[data-rendered-region]",
       virtualTable: "[data-virtualised]",
       rowsRendered: "data-rows-rendered",
     });

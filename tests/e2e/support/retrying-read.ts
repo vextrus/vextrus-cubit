@@ -11,7 +11,7 @@
 // waiting for — a timeout that reads "the screen never settled" costs a session to diagnose, and
 // B-19's "a flake is a defect with a cause" is only enforceable if the cause is printed.
 import { expect, type Locator, type Page } from "@playwright/test";
-import { readSettle, renderedFault } from "./settled";
+import { contractFault, readContract, type ContractReading } from "./settled";
 
 /** How long a retrying read waits before it is a failure with a named cause. */
 export const READ_TIMEOUT_MS = 15_000;
@@ -67,29 +67,53 @@ export async function appears(locator: Locator, timeout = 2_000): Promise<boolea
  */
 export const AGREEING_READS = 3;
 
-/** The page this locator belongs to, or null for a double that carries none (a unit probe's). */
-function pageOf(locator: Locator): Page | null {
-  const held = (locator as unknown as { page?: () => Page }).page;
-  return typeof held === "function" ? held.call(locator) : null;
+/**
+ * WAIT FOR THE REGION'S OWN STATEMENT THAT IT RENDERED — then the caller reads ONCE.
+ *
+ * The founder's third decision for v22's speed pass: "one read when the screen says it's rendered".
+ * `AGREEING_READS` readings are three round trips to the browser per answer and they are a PROXY for
+ * a statement the product can make and, on a virtualised table, already makes. So this waits for
+ * the contract (`data-rows-rendered="<n>"`, or a settled `data-state` on a region or its screen
+ * root) and answers TRUE — the caller then takes one reading and that reading is the answer.
+ *
+ * Where nothing on the path publishes anything it answers FALSE and SAYS SO, once, naming the
+ * selector: the three-agreeing loop is still correct there, and the line is how the missing contract
+ * gets added rather than assumed (B-19 — the cause is printed to be a cause).
+ */
+async function renderedContract(locator: Locator, what: string, timeout: number): Promise<boolean> {
+  let reading: ContractReading;
+  try {
+    reading = await readContract(locator);
+  } catch {
+    // A double, a detached frame, a page that navigated under the read: the loop is the safe answer.
+    return announceMissing(locator, what);
+  }
+  if (!reading.published) return announceMissing(locator, what);
+  await expect
+    .poll(
+      async () => {
+        reading = await readContract(locator);
+        // A region that STOPS publishing mid-read (it unmounted, the screen navigated) is not a
+        // held contract; the poll keeps asking, and the caller's own timeout is what ends it.
+        return reading.published ? contractFault(reading) : `it no longer publishes a rendered contract`;
+      },
+      { timeout, message: `${what}: the region published a rendered contract and it never held — a reading taken now is a reading of the paint` },
+    )
+    .toBeNull();
+  return true;
 }
 
-/**
- * Wait until the region this read is about has PUBLISHED that it rendered.
- *
- * `settled()`'s contract, minus fonts and motion: every screen root states a settled `data-state`
- * and every virtualised table states the `data-rows-rendered` it drew (src/ui/primitives/data/data-table.tsx
- * publishes the pair). This is the contract `steadyCount`'s comment has owed since it was written —
- * "agreement is the honest proxy until the tables publish it". They publish it; this reads it.
- */
-async function rendered(locator: Locator, what: string, timeout: number): Promise<void> {
-  const page = pageOf(locator);
-  if (page === null) return;
-  await expect
-    .poll(async () => renderedFault(await readSettle(page)), {
-      timeout,
-      message: `${what}: the region never published that it had rendered — a count taken now is a count of the paint`,
-    })
-    .toBeNull();
+/** The regions that have already said, in this process, that they publish nothing. Said once each. */
+const announced = new Set<string>();
+
+/** Name the region that owes a rendered contract — once per selector per process, never per read. */
+function announceMissing(locator: Locator, what: string): false {
+  const selector = String(locator);
+  if (!announced.has(selector)) {
+    announced.add(selector);
+    process.stdout.write(`read: no rendered contract on ${selector} — ${AGREEING_READS} readings (${what})\n`);
+  }
+  return false;
 }
 
 /** What a caller expects of a count, beyond that it has stopped moving. */
@@ -111,7 +135,14 @@ export interface SteadyCountOptions {
 export async function steadyCount(locator: Locator, what: string, options: SteadyCountOptions = {}): Promise<number> {
   const timeout = options.timeout ?? READ_TIMEOUT_MS;
   const min = options.min ?? 1;
-  await rendered(locator, what, timeout);
+  // ONE READING, when the region has said it rendered. The contract is the statement the loop below
+  // was estimating; a first reading that already meets the caller's floor is the answer, and there
+  // is nothing three more round trips could add to it.
+  if (await renderedContract(locator, what, timeout)) {
+    const once = await locator.count();
+    if (once >= min) return once;
+    process.stdout.write(`read: ${what} published that it rendered and held ${once}, below the caller's floor of ${min} — ${AGREEING_READS} readings\n`);
+  }
 
   let seen: number[] = [];
   await expect
@@ -165,7 +196,11 @@ export interface SteadyTextOptions {
 export async function steadyText(locator: Locator, what: string, options: SteadyTextOptions = {}): Promise<string> {
   const timeout = options.timeout ?? READ_TIMEOUT_MS;
   const stale = options.not;
-  await rendered(locator, what, timeout);
+  if (await renderedContract(locator, what, timeout)) {
+    const once = ((await locator.textContent()) ?? "").trim();
+    if (once !== "" && (stale === undefined || once !== stale)) return once;
+    process.stdout.write(`read: ${what} published that it rendered and held ${once === "" ? "nothing" : `"${once}"`} — ${AGREEING_READS} readings\n`);
+  }
 
   let seen: string[] = [];
   await expect
@@ -195,6 +230,11 @@ export async function steadyText(locator: Locator, what: string, options: Steady
 export async function steadyAttribute(locator: Locator, attribute: string, what: string, options: SteadyTextOptions = {}): Promise<string> {
   const timeout = options.timeout ?? READ_TIMEOUT_MS;
   const stale = options.not;
+  if (await renderedContract(locator, what, timeout)) {
+    const once = await locator.getAttribute(attribute);
+    if (typeof once === "string" && once !== "" && (stale === undefined || once !== stale)) return once;
+    process.stdout.write(`read: ${what} published that it rendered and \`${attribute}\` held ${once === null ? "nothing" : `"${once}"`} — ${AGREEING_READS} readings\n`);
+  }
   let seen: (string | null)[] = [];
   await expect
     .poll(
@@ -228,6 +268,9 @@ export async function steadyAttribute(locator: Locator, attribute: string, what:
  */
 export async function heldAttribute(locator: Locator, attribute: string, what?: string): Promise<string | null> {
   const named = what ?? `\`${attribute}\``;
+  // Absence IS an answer here, so the contract holding is the whole of what this read was waiting
+  // for: one reading after it, and no loop can make that answer truer.
+  if (await renderedContract(locator, named, READ_TIMEOUT_MS)) return await locator.getAttribute(attribute);
   let seen: (string | null)[] = [];
   await expect
     .poll(

@@ -52,8 +52,18 @@ export default function DesignGalleryPage() {
         <p className="cx-gallery-caption">{strings.design_gallery_caption}</p>
       </header>
 
+      {/* `data-rendered-region` + `data-state` on each barrel: it is rendered whole, in one pass,
+          from a derivation this page already holds — so a journey counting its entries reads ONCE
+          rather than three agreeing times (tests/e2e/support/settled.ts, v22 speed). */}
       {barrelIds.map((barrelId) => (
-        <section className="cx-gallery-barrel" data-testid={TESTIDS.gallery.barrel} data-barrel={barrelId} key={barrelId}>
+        <section
+          className="cx-gallery-barrel"
+          data-testid={TESTIDS.gallery.barrel}
+          data-barrel={barrelId}
+          data-rendered-region
+          data-state="settled"
+          key={barrelId}
+        >
           <h2 className="cx-gallery-barrel-name">{barrelId}</h2>
 
           {entryKeys

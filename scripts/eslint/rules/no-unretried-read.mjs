@@ -93,7 +93,12 @@ const RETRYING_WRAPPERS = new Set([
   "afterSettled",
   "afterPopulated",
   "appears",
-  "rendered",
+  // The rendered contract (v22 speed): `renderedContract` polls `readContract` until the region has
+  // published that it drew, and `contractIn` is the page side it ships to the browser — its
+  // `getAttribute` calls are the DOM's, taken inside that poll, never a journey reading a screen.
+  "renderedContract",
+  "readContract",
+  "contractIn",
   "steadyCount",
   "steadyText",
   "steadyAttribute",

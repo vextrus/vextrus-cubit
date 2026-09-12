@@ -23,6 +23,15 @@ export const SETTLE_CONTRACT = Object.freeze({
   screenRoot: "[data-screen-root]",
   /** What a screen root is showing (R-UI-050's vocabulary). Empty or "loading" is not settled. */
   screenState: "data-state",
+  /**
+   * A REGION that publishes its own rendered state the way a screen root does — a list, a panel, a
+   * grid that a journey reads a count or a label out of (v22 speed, decision 3). It is a marker of
+   * its own rather than a bare `data-state`, because `data-state` is Radix's word too: a menu wears
+   * `data-state="open"`, and a read that climbed to the nearest `data-state` would take a popover's
+   * openness for a list's having rendered. Wearing this attribute is a region SAYING that its
+   * `data-state` is the rendered contract.
+   */
+  region: "[data-rendered-region]",
   /** A table that renders a window over its rows rather than all of them. */
   virtualTable: "[data-virtualised]",
   /** How many rows that table has actually put in the DOM. Absent means it has not painted yet. */
@@ -192,4 +201,119 @@ export async function afterSettled<T>(on: Page | Locator, read: () => Promise<T>
   const page = "goto" in on ? on : on.page();
   await settled(page, timeout);
   return await read();
+}
+
+
+/* ---------------------------------------------- THE RENDERED CONTRACT, READ AT ONE REGION (v22) */
+
+/**
+ * What a region — or the screen root above it — published about having rendered.
+ *
+ * The founder's third decision for v22's speed pass: "one read when the screen says it's rendered".
+ * A three-agreeing loop is three round trips to the browser per answer and it is a PROXY; a region
+ * that publishes `data-state="settled"` or `data-rows-rendered="<n>"` has stated the thing the proxy
+ * was estimating, and one reading after that statement is the answer. Where nothing publishes, the
+ * loop stays — and says so, by name, so the contract gets added rather than assumed.
+ */
+export interface ContractReading {
+  /** Did anything from this region up to the document publish a rendered contract? */
+  readonly published: boolean;
+  /** Which attribute published it — for the message, and for the line that names what is missing. */
+  readonly by: string | null;
+  /** The value it published, or null when it published none. */
+  readonly value: string | null;
+}
+
+/** Nothing published anything: the caller falls back to agreeing readings, and says so. */
+export const NO_CONTRACT: ContractReading = Object.freeze({ published: false, by: null, value: null });
+
+/**
+ * Does this reading say the region has RENDERED — or what is it still saying instead?
+ *
+ * `null` means "rendered, read it once". A string is the reason it is not, for the poll's message.
+ * A reading that published nothing is not a fault: it is the caller's cue to fall back, and
+ * `contractFault` answers `null` for it so a caller never polls on a contract that does not exist.
+ */
+export function contractFault(reading: ContractReading): string | null {
+  if (!reading.published) return null;
+  if (reading.by === SETTLE_CONTRACT.rowsRendered) {
+    return /^\d+$/.test(reading.value ?? "") ? null : `it publishes ${SETTLE_CONTRACT.rowsRendered}="${reading.value ?? ""}", which is not a row count`;
+  }
+  const state = reading.value;
+  if (state === null || UNSETTLED_STATES.includes(state)) {
+    return `it publishes ${SETTLE_CONTRACT.screenState}=${state === null ? "nothing" : `"${state}"`}, which is a screen still arriving`;
+  }
+  return null;
+}
+
+/**
+ * ONE reading of the rendered contract that governs this locator.
+ *
+ * The search climbs from the region's own first element to the document: a virtualised table's
+ * `data-rows-rendered`, a region that wears `data-rendered-region`, or the screen root it sits in —
+ * whichever is met FIRST, because the nearest publisher is the one that is about these elements.
+ * A locator that matches nothing yet falls back to the document's screen roots, so a read taken
+ * before the region exists is still governed by the screen that will hold it.
+ *
+ * `evaluateAll` rather than `evaluate`, deliberately: it runs with an empty array where `evaluate`
+ * throws, and "the region is not there yet" is the exact state this has to be able to report.
+ */
+/**
+ * THE PAGE SIDE OF THE SEARCH, as a function of its arguments alone.
+ *
+ * It is a top-level, self-contained function on purpose: Playwright ships the SOURCE of an
+ * `evaluateAll` callback to the browser, so a callback that closed over a module's scope would
+ * arrive with nothing in it — and a callback written inline could not be unit-tested at all. This
+ * one takes the elements it matched and the contract, reads `document` only where there are no
+ * elements to climb from, and answers a plain object. `tests/journeys/rendered-contract.test.ts`
+ * runs it over a jsdom tree.
+ */
+export function contractIn(elements: Element[], contract: typeof SETTLE_CONTRACT): ContractReading {
+  const publisherOn = (element: Element): ContractReading | null => {
+    if (element.hasAttribute(contract.rowsRendered) || element.matches(contract.virtualTable)) {
+      return { published: true, by: contract.rowsRendered, value: element.getAttribute(contract.rowsRendered) };
+    }
+    if (element.matches(contract.region) || element.matches(contract.screenRoot)) {
+      return { published: true, by: contract.screenState, value: element.getAttribute(contract.screenState) };
+    }
+    return null;
+  };
+  const first = elements[0];
+  if (first !== undefined) {
+    for (let element: Element | null = first; element !== null; element = element.parentElement) {
+      const found = publisherOn(element);
+      if (found !== null) return found;
+    }
+    return { published: false, by: null, value: null };
+  }
+  // The region has not arrived. The screen that will hold it is the contract that governs it — and
+  // the LEAST settled of them, because a read is of the whole screen the region is coming into.
+  const roots = [...document.querySelectorAll(contract.screenRoot)];
+  const root = roots[0];
+  if (root === undefined) return { published: false, by: null, value: null };
+  const unsettled = roots.find((each) => {
+    const state = each.getAttribute(contract.screenState);
+    return state === null || state === "" || state === "loading" || state === "pending";
+  });
+  return { published: true, by: contract.screenState, value: (unsettled ?? root).getAttribute(contract.screenState) };
+}
+
+/**
+ * ONE reading of the rendered contract that governs this locator.
+ *
+ * The search climbs from the region's own first element to the document: a virtualised table's
+ * `data-rows-rendered`, a region that wears `data-rendered-region`, or the screen root it sits in —
+ * whichever is met FIRST, because the nearest publisher is the one that is about these elements.
+ * A locator that matches nothing yet falls back to the document's screen roots, so a read taken
+ * before the region exists is still governed by the screen that will hold it.
+ *
+ * `evaluateAll` rather than `evaluate`, deliberately: it runs with an empty array where `evaluate`
+ * throws, and "the region is not there yet" is the exact state this has to be able to report.
+ */
+export async function readContract(locator: Locator): Promise<ContractReading> {
+  const held = (locator as unknown as { evaluateAll?: unknown }).evaluateAll;
+  // A unit double carries no `evaluateAll`: it publishes nothing, and the caller falls back to the
+  // agreeing loop — which is what every reader did before a contract existed.
+  if (typeof held !== "function") return NO_CONTRACT;
+  return await locator.evaluateAll(contractIn, SETTLE_CONTRACT);
 }

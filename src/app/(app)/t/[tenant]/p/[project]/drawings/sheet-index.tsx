@@ -407,7 +407,12 @@ export function SheetIndex({
             }}
           />
         ) : (
-          <div className="cx-drawings-grid" data-testid={TESTIDS.sheet.index}>
+          <div className="cx-drawings-grid" data-testid={TESTIDS.sheet.index} data-rendered-region data-state="settled">
+            {/* THE RENDERED CONTRACT (v22 speed, tests/e2e/support/settled.ts): the grid renders
+                every card it was handed in ONE pass, so by the time this element exists the list is
+                whole — and a retrying read that knows it takes one reading, not three agreeing
+                ones. `data-rendered-region` is what says this element's `data-state` IS that
+                contract; a bare `data-state` is Radix's word for a popover being open. */}
             {shown.map((card) => (
               <SheetCard
                 key={card.sheetId}
