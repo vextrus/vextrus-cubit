@@ -21,10 +21,12 @@
  * AM-09 §2 prescribes: "A leg that cannot be reached through the UI is a missing screen, not a
  * licence to stage." The set is still pinned here, by clicks, because the pin itself is a customer act.
  *
- * ONE PROLOGUE PER PROCESS. Establishing it costs an upload and a real `cad/` extraction, so it is
- * memoised: the first leg that asks pays, every later leg in the same worker restores the session's
- * cookies and walks straight to its own screen. A second Playwright worker holds its own account and
- * its own project, which is what keeps the legs parallelisable at all (P9).
+ * ONE PROLOGUE PER WORKER, PER LANE. Establishing it costs an upload and a real `cad/` extraction, so
+ * it is memoised: the first leg that asks pays, every later leg in the same worker restores the
+ * session's cookies and walks straight to its own screen. A second Playwright worker holds its own
+ * account and its own project — the run file is keyed on `parallelIndex` as well as the lane, which
+ * is what keeps the legs parallelisable at all (P9) and what stops two workers of one lane from
+ * acting on one tenant.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -81,11 +83,22 @@ const STATE_DIR = join(process.cwd(), "test-results");
  * scale already of record, stayed open on the answer). Both were red in the light lane alone, in a
  * run of ONE spec file — so it was never a leg order and never the picture tenant.
  *
- * The lane's name is therefore part of the run's name. Two workers of the SAME lane still share
- * their lane's run, which is what this file is for; two lanes never share one, which is what makes
- * the legs independent of the order the projects happen to run in.
+ * The lane's name is therefore part of the run's name — AND SO IS THE WORKER'S (P4b §1). The same
+ * argument that separates the two lanes separates two workers of one lane: a leg is an ACT, and with
+ * `CUBIT_E2E_WORKERS=2` a free worker re-hashes onto the other lane's tail, so dark/m1-confirm-disciplines
+ * and dark/m2-affirm-scale ran CONCURRENTLY against one tenant — m1's "a confirmed group is no longer
+ * an offer" was satisfied by the OTHER worker's confirmation, which is a green nobody earned. Keyed
+ * on `parallelIndex` too, each worker walks its own prologue and holds its own workspace, project,
+ * session and storage prefix (`<STORAGE_ROOT>/<tenantId>/…`) — which is the isolation this lane can
+ * actually have, one served product being handed one DATABASE_URL (tests/e2e/support/worker.ts's
+ * header states why a per-worker database is not one this server can serve).
+ *
+ * THE PRICE, STATED. A second worker of a lane pays the prologue again — one upload and one real
+ * `cad/` reading, about four minutes — rather than restoring the first's. That is the cost of two
+ * workers being two independent walks; sharing the run made them one walk read twice, and the
+ * saving was the defect.
  */
-const stateFile = (): string => join(STATE_DIR, `j-000-golden-run.${test.info().project.name}.json`);
+const stateFile = (): string => join(STATE_DIR, `j-000-golden-run.${test.info().project.name}.w${test.info().parallelIndex}.json`);
 
 let established: Promise<GoldenRun> | null = null;
 let worker: JourneyWorker | null = null;

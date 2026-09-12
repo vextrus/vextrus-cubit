@@ -3,15 +3,62 @@
 // spawns the shipped worker itself, against the same database and the same storage root the served
 // product uses, and stops it when it is done.
 //
-// STORAGE_ROOT is deliberately left unset: both processes then default to `<cwd>/storage`, which is
-// what makes a raster the worker drew readable by the page that serves it.
+// WHAT ISOLATES ONE PLAYWRIGHT WORKER FROM ANOTHER, AND WHY IT IS NOT A DATABASE (P4b §1)
+// ---------------------------------------------------------------------------------------
+// The obvious design — one database per Playwright worker, `cubit_e2e_<project>_w<parallelIndex>`,
+// made from the migrated template and dropped at teardown — is not one THIS server can serve, and
+// the reason is structural rather than a preference:
+//
+//   * There is exactly ONE served product for the whole run. `playwright.config.ts`'s `webServer` is
+//     a single `next start` on a single port, started once, before the first worker exists — and it
+//     is handed ONE `DATABASE_URL`, evaluated at config load (`e2eDatabaseUrl()`), long before any
+//     `parallelIndex` has a value.
+//   * Nothing in the product routes a request to a database: `DATABASE_URL` is read once, by the
+//     jobs runtime and by `src/core/db.ts`, out of the process environment (src/core/jobs/runtime.ts).
+//     There is no per-request, per-header or per-cookie connection choice to key on, and inventing
+//     one would be a production seam grown for the benefit of a test lane (ARCH-02, B-19).
+//   * One database per LANE is the same problem one step up: two lanes (`dark`, `light`) share the
+//     one server too, so a per-lane database would need a second `next start` on a second port — and
+//     the lane holds ONE port by construction (`portFor("e2e")`, ARCH-02).
+//
+// So the honest unit of isolation here is the TENANT, and it is a real one, not a euphemism:
+//
+//   * Every row the product writes is tenant-scoped and policed by RLS (SEAM-TENANT), and the
+//     journeys reach it as the app role, under those policies — the same grants production runs.
+//   * Every stored object lives at `<STORAGE_ROOT>/<tenantId>/<sha256>` (src/core/storage/index.ts),
+//     so one storage root holds N workers' rasters without either worker being able to address the
+//     other's: the tenant id IS the directory. A per-worker STORAGE_ROOT would isolate nothing that
+//     the tenant prefix does not, and would break the one thing this file exists for — the raster
+//     this worker draws has to be readable by the SERVER that serves the page, and the server's root
+//     was fixed before the worker existed.
+//   * A Playwright worker gets its own tenant because it walks its own prologue: `golden-run.ts`
+//     signs up a fresh account per LANE AND per `parallelIndex`, so two workers of one lane never
+//     share a workspace, a project, a session or a storage prefix. That keying is the fix for P4b §1
+//     ("dark/m1-confirm-disciplines and dark/m2-affirm-scale ran concurrently on one tenant and one
+//     worker's act satisfied the other's assertion"), and it is asserted in
+//     tests/journeys/j-000-worker-isolation.test.ts.
+//
+// STORAGE_ROOT is therefore passed EXPLICITLY, and to the server's own root rather than to a root of
+// this process's choosing: it was previously left unset so that both processes would default to
+// `<cwd>/storage`, which was true and invisible. Stating it is what makes the sharing a decision
+// somebody can read, and what makes a run under a repointed STORAGE_ROOT still agree with its server.
 //
 // The shipped worker entry is run directly, with no package-script process interposed: a package
 // manager standing between this harness and the worker does not forward SIGTERM to the child, so the
 // worker would never hear the stop and never say it had drained. `pnpm worker` is that same entry
 // (`tsx src/worker/main.ts`), so nothing about what runs changes — only who receives the signal.
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { join } from "node:path";
 import { e2eDatabaseUrl } from "./scratch-db";
+
+/**
+ * Where the SERVED product keeps its objects, which is the only root a worker of this lane may
+ * write to: `src/core/storage/app.ts` reads `STORAGE_ROOT` or falls back to `<cwd>/storage`, and the
+ * server read it before this process existed. Stated here so the two agree by declaration.
+ */
+export function journeyStorageRoot(): string {
+  return process.env["STORAGE_ROOT"] ?? join(process.cwd(), "storage");
+}
 
 /** The lines the worker prints at either end of its life (src/worker/main.ts's own contract). */
 const READY = "worker: ready";
@@ -36,7 +83,7 @@ export async function startJourneyWorker(): Promise<JourneyWorker> {
   const said: string[] = [];
   const child: ChildProcessWithoutNullStreams = spawn(process.execPath, ["--import", "tsx", "src/worker/main.ts"], {
     cwd: process.cwd(),
-    env: { ...process.env, DATABASE_URL: e2eDatabaseUrl(), WORKER_HEALTH_PORT: "0" },
+    env: { ...process.env, DATABASE_URL: e2eDatabaseUrl(), STORAGE_ROOT: journeyStorageRoot(), WORKER_HEALTH_PORT: "0" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.setEncoding("utf8");
