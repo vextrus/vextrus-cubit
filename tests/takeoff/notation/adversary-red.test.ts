@@ -143,3 +143,21 @@ describe("N6 — a compound cell keeps every call it states, or refuses the cell
     expect(read.ok, "a shape-code formula is not two bar groups").toBe(false);
   });
 })
+
+describe("the ASTM designation and the bar a Dhaka bill buys are two different facts", () => {
+  test("`#5` reads as the 15.9 mm the standard names, and keeps the designation it was written with", () => {
+    const read = readNotation("#5");
+    expect(read.ok && read.parsed).toStrictEqual({ diameterMm: 15.9, designation: "#5" });
+  });
+
+  test("a spacing written in `#5` states the same diameter — the substitution to 16 mm stock is nobody's to make here", () => {
+    const read = readNotation('#5 @ 6" c/c');
+    expect(read.ok && (read.parsed as { bar: { diameterMm: number; designation: string } }).bar).toStrictEqual({ diameterMm: 15.9, designation: "#5" });
+    expect(read.ok && (read.parsed as { spacingMm: number }).spacingMm, "6 in is 152.4 mm, exactly ×25.4").toBe(152.4);
+  });
+
+  test("the designation survives the reading, so a schedule can substitute the stock bar BY NAME", () => {
+    const read = readNotation("2-#5 T&B");
+    expect(read.ok && (read.parsed as { designation: string }).designation).toContain("#5");
+  });
+});

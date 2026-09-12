@@ -100,8 +100,23 @@ const MTEXT_CODES: readonly (readonly [RegExp, string])[] = Object.freeze([
   [/[{}]/g, ""],
 ] as const);
 
-/** ASTM A615 bar designations and the nominal diameter each names, in millimetres (L-MEA-01: the
- * mapping is the standard's, not this file's guess — a `#5` is 0.625 in = 15.875 mm nominal). */
+/**
+ * ASTM A615 bar designations and the nominal diameter each names, in millimetres (L-MEA-01: the
+ * mapping is the standard's, not this file's guess).
+ *
+ * 15.9 and not 16, and not 15.875: a `#5` is 0.625 in = 15.875 mm exactly, and ASTM A615/A615M
+ * publishes that bar's nominal diameter in SI as **15.9 mm** (the #16M designation). 15.9 is the
+ * standard's own figure, so it is what the reading states.
+ *
+ * The Dhaka question this settles (P3 finding 11). A BD set that carries one legacy note in `#5`
+ * is billed off 16 mm stock — the mills roll 16, the BNBC/BDS rate is per 16, and the unit-weight
+ * lookup L-FRM-05 is keyed 16 → 1.579 kg/m. Reading `#5` as 16 here would make the parser perform
+ * that substitution silently, and 15.9 → 16 is 1.3 % of the steel weight of every bar it touches,
+ * appearing in no note and no deduction. So the GRAMMAR states what the DESIGNATION names (15.9)
+ * and carries the designation itself (`#5`) in the reading, and the substitution to a stock bar
+ * stays where it can be seen and priced: the schedule's own step, against the drawing's notes
+ * sheet, which is the sheet that maps one draughtsman's designators to another's (L-CAD-08).
+ */
 const ASTM_BAR_MM: Readonly<Record<string, number>> = Object.freeze({
   "3": 9.5, "4": 12.7, "5": 15.9, "6": 19.1, "7": 22.2, "8": 25.4, "9": 28.7, "10": 32.3, "11": 35.8,
 });
@@ -696,7 +711,7 @@ export const GRAMMAR: readonly GrammarRow[] = Object.freeze([
     { kind: "bar_group", form: "F-BAR-GROUP", parsed: { n: 1, diameterMm: 20, designation: "20Ø", role: "extra", face: null } },
   ] }, source: "T-NOT-ST-EXT: the straight-through call and the extra bar at the section" },
   // — bar diameters ——————————————————————————————————————————————————————————————————
-  { input: "#5", kind: "bar_diameter", parsed: { diameterMm: 15.9, designation: "#5" }, source: "T-NOT-HASH (ASTM A615 designation)" },
+  { input: "#5", kind: "bar_diameter", parsed: { diameterMm: 15.9, designation: "#5" }, source: "T-NOT-HASH (ASTM A615/A615M: #5 = #16M = 15.9 mm nominal; the 16 mm stock bar a BD bill substitutes is the schedule's named step, not this reading's — see ASTM_BAR_MM)" },
   { input: "#3", kind: "bar_diameter", parsed: { diameterMm: 9.5, designation: "#3" }, source: "ASTM A615 — the smallest stirrup size" },
   { input: "#11", kind: "bar_diameter", parsed: { diameterMm: 35.8, designation: "#11" }, source: "ASTM A615 — the largest of the plain series" },
   { input: "20%%c", kind: "bar_diameter", parsed: { diameterMm: 20, designation: "20Ø" }, source: "T-NOT-PCTC-LOWER (lower-case control code)" },
