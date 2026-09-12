@@ -73,6 +73,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
   "FILE_TOO_LARGE",
   "FIXTURE_MISSING",
   "FORMAT_NOT_ACCEPTED",
+  "FORMULA_DIVISOR_ZERO",
   "GRID_NO_BUBBLE_EVIDENCE",
   "GROUP_NOT_OFFERED",
   "INGESTION_TRUNCATED",
@@ -138,6 +139,14 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * The sha-256 over every entry's own five fields, in code-point order of the key — the copy half of
  * the same baseline. Re-baselined with CODES_BEFORE, and never on its own.
  *
+ * Re-baselined for ONE ADDED entry and nothing else: `FORMULA_DIVISOR_ZERO` (./gate.ts), the code
+ * the gate answers an offer with whose formula the readings make a divisor of zero. It threw before,
+ * and a throw inside `evaluateOffers` takes every other offer of that batch down with it; a
+ * registered refusal is an answer the batch can carry (ARCH-03, L-QTY-02). The roster grew by that
+ * one key — 76 codes to 77 — and not one existing entry's code, message, remedy, severity or
+ * surface moved with it; the previous digest was
+ * 34384c64873975d63d66571200e81882ed48188e035a4865482c2d5a69d4bf86.
+ *
  * Re-baselined a second time for ONE ADDED entry and nothing else: `NOTATION_UNREAD`
  * (./takeoff-schedules.ts), the code R-TO-031's notation grammar answers a cell no form of it reads
  * with — naming the token, because a person shown the glyphs can add the form and a person shown
@@ -158,7 +167,7 @@ const CODES_BEFORE: readonly string[] = Object.freeze([
  * dc764ce9b86989de722c1bcc304aab1f0a2e8204ef92dc00071bb0a1cd683628, and the value below differs
  * from it by the one added entry.
  */
-const ENTRIES_DIGEST_BEFORE = "34384c64873975d63d66571200e81882ed48188e035a4865482c2d5a69d4bf86";
+const ENTRIES_DIGEST_BEFORE = "5dd4c6123c2799b2ce03adf26b6c7620e8976b0c69ce77be5ad3dc7be42eb46f";
 
 /** The canonical text a digest is taken over: nothing about layout, only what each entry says. */
 function canonical(entries: Readonly<Record<string, Entry>>): string {
