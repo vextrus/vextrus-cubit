@@ -229,3 +229,35 @@ so `vextrus_cad.resync` refuses it by name (`DXF_TAG_STREAM_DESYNC`) until its r
 details and schedules in millimetres. Dimension text is always horizontal (LibreDWG, E-fixture §4.3).
 The only dimension that disagrees with its geometry is T-DIM-OVERRIDE (4,267.2 drawn, `14'-2"` printed),
 under the S-02 "DO NOT SCALE" note.
+
+**W-09 Twenty-seven sheets.** E-fixture §3.4 says "26 sheets" and lists S-00…S-26, which is 27; the
+roster follows the list (the cover sheet S-00 is the 27th). Tests assert one layout per roster entry
+with unique S-numbers, never the literal 26.
+
+**W-10 The raster ladder, as measured.** Planned vs used (manifest `raster.*.dpi`): R1 300 dpi PNG
+(2.2 MB, 6 sheets); R2 200 dpi JPEG q70 (4.9 MB, 6 sheets); the full-set R2 DCT PDF 120 dpi q34
+(7.2 MB — dropped from 150 dpi to sit under the 8 MB single-file cap); R3 120 dpi q55 (2.8 MB); R4
+150 dpi q60 (2.4 MB). The ladder lowers quality first, then dpi, never the sheet count. Rasters are a
+pure function of the TrueType PDF, which the in-process second build does rebuild and compare; the
+rasters themselves are exempt from that second pass (> 60 s) and are proved instead by the regenerate
+test's byte identity against the committed set. Corpus 33.6 MB (cap 45), raster/ 12.3 MB (cap 25).
+
+**W-11 The PDF's feet-inch dimensions are authored, not measured.** ezdxf renders decimal dimension
+text only, so a plan dimension's `15'-0"` is the composer's `ft_in()` of the authored span with
+`fact=` attached (check 5 proves it equals the span); millimetre dimensions with no override stay
+measured. In the DXF a reader still sees a DIMENSION whose measurement and text agree, except
+T-DIM-OVERRIDE. Four Vera-less glyphs (⌊⌋⌈⌉ Σ →) are spelled out in the PDF (counted in the manifest);
+no trap string is dropped.
+
+**W-12 The BBS sheet reads the golden path, not the corpus.** `emit/sheets/common.py::Ctx.bbs()` first
+read the committed `bbs.golden.json`, so a generator run with the corpus deleted failed and a stale
+corpus could feed its own sheet (B-23). It now calls `golden.compute(world)` — emit importing golden is
+the lawful direction; the import-lint forbids only the reverse.
+
+**Named DWG losses (W-04, measured).** Of 21 feature canaries + a one-VIEWPORT layout, 19 round-trip
+exact through `dxf2dwg`/`dwg2dxf` 0.13.3 (bulged polylines, simple/complex/solid hatches, linetypes,
+rotated TEXT, MTEXT codes, dimensions with overrides and DIMLFAC, LEADER, POLYLINE, ATTRIB blocks,
+3-deep nested/mirrored/scaled INSERTs, the xref INSERT, POINT/SOLID, the revision cloud, VIEWPORT). Lost:
+IMAGE (2 on the paper set: S-00 logo, S-03 scan), MULTILEADER (1), Bengali TEXT (1, S-00). The DWG
+source omits exactly those; `sanity.json["dwg"][*].expected = drawn − losses`, and the cad DWG lane reads
+that census. Nothing was refused by `convert_dwg`.
