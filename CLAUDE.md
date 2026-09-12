@@ -53,7 +53,7 @@ your prompt. The engine rewrites the lessons block after merges; nothing here is
 ## Doors, registries, errors
 - Every entry point (tRPC procedure, server action, route handler, event stream) resolves actor,
   tenant, project, participation and permission through the one `authorize()` in
-  `src/server/authorize.ts` (`authorizePage()` for pages) before it reads or writes, and carries a
+  `src/server/authorize.ts` (`authorizePage()` in `src/server/authorize-page.ts` for pages) before it reads or writes, and carries a
   live-database test that a caller without the permission is refused by name.
 - Input is parsed by one zod schema through `serverCall`/`routeHandler` (`src/server/call.ts`): a
   malformed statement is a refusal (`REQUEST_MALFORMED`; `MALFORMED` keeps L-AI-01's copy), never a 500.
@@ -93,8 +93,9 @@ your prompt. The engine rewrites the lessons block after merges; nothing here is
   through `tests/e2e/support/retrying-read.ts` after `settled()`; one page object per screen under
   `tests/e2e/pages/`; `.count()`/`.all()` on a virtualised table is not an assertion;
   `waitForTimeout` is unlawful (`cubit/no-unretried-read`). A flake is a defect with a cause.
-- `test.skip` never; `test.fixme` only on the J-000 roster (`tests/journeys/fixme-roster.test.ts`),
-  opening with `MISSING DOOR:`, deleted by the door's own increment.
+- `test.skip` never; `test.fixme` only where `tests/journeys/fixme-roster.test.ts` admits it, on the
+  J-000 roster (`tests/journeys/j-000-roster.test.ts`), opening with `MISSING DOOR:`, deleted by the
+  door's own increment. `pnpm e2e:clean` takes away the lane's leavings.
 - Ceilings are law: V-VERIFY ≤ 60 s, V-E2E ≤ 12 min, V-GOLDEN ≤ 3 min, ≤ 90 s a journey (J-000 carries
   its own budget). Performance assertions live only in PERF- specs (`pnpm test:perf`).
 - The toolchain is pinned save-exact (Typst 0.15.1, exceljs 4.4.0; `pnpm checkup` refuses drift). No
@@ -114,7 +115,7 @@ your prompt. The engine rewrites the lessons block after merges; nothing here is
   get around it is SCOPE_CREEP.
 - A restore names explicit files (`git checkout main -- <file>`, chained if several); `.`, a
   directory or a glob is refused. `next build` appends a dist dir to `tsconfig.json`: restore it or
-  leave it, never hand-edit; `next-env.d.ts` is untracked output. A config change is lawful only
+  leave it, never hand-edit; `next-env.d.ts` is untracked build output — never commit or restore it. A config change is lawful only
   under a `toolchain` tag or an approved spec naming the path.
 - The cad lane: `uv run --project cad pytest cad`, `ruff check cad`, `dwgread <f.dwg>` and
   `dwg2dxf -m -o <scratch>/x.dxf <f.dwg>` are read-only; plain `dwg2dxf` writes beside its input.
