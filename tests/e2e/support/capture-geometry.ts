@@ -109,7 +109,22 @@ export const DXG_DEVICE = "/dev/dxg";
  * surfaceless display — `scripts/gpu-probe.mjs` candidate `h` is that fact, measured. So the
  * hardware lane runs the FULL chromium binary headed, on WSLg's X server.
  */
-export const HARDWARE_GL_FLAGS = ["--ozone-platform=x11", "--use-gl=angle", "--use-angle=gl", "--ignore-gpu-blocklist", "--enable-gpu-rasterization"] as const;
+export const HARDWARE_GL_FLAGS = [
+  "--ozone-platform=x11",
+  "--use-gl=angle",
+  "--use-angle=gl",
+  "--ignore-gpu-blocklist",
+  "--enable-gpu-rasterization",
+  // THE FLAG THAT KEEPS EVERY COMMITTED PICTURE VALID, and it has nothing to do with GL.
+  //
+  // Headless Chromium passes `--hide-scrollbars` ITSELF, by default; a headed one does not. So the
+  // first hardware run of `j-020-scale` reported its scale panel as 270px wide against a 285px
+  // baseline — 15px, which is a classic Chromium scrollbar, taken out of the content box of every
+  // scrollable region in the tree. That would have read as "the GPU moved the pixels" and cost a
+  // re-baseline of the world to answer. It is a window's furniture, not a rasteriser's output, and
+  // naming it here makes the headed lane lay out exactly as the headless one it replaces.
+  "--hide-scrollbars",
+] as const;
 
 /**
  * The environment Mesa needs to pick the d3d12 driver and, within it, the discrete adapter. Without
