@@ -288,6 +288,7 @@ export const TESTIDS = {
     repudiatedCount: "register-repudiated-count",
     retry: "register-retry",
     sourceKey: "register-source-key",
+    technical: "register-technical",
     timeline: "register-timeline",
     tree: "register-tree",
     workspace: "register-workspace",

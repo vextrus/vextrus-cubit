@@ -92,6 +92,11 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
       }, { timeout: 120_000, message: "every layer of the sheet arrives before it is asked about" })
       .toBe(true);
 
+    // §3.1: the shell's right slot is ABSENT — width 0 — until something is selected, so the idle
+    // inspector this leg reads is held open by the pin a person would press for it (I-152). Every
+    // assertion below is the one that stood here; what changed is that the journey performs the act
+    // the screen now needs before making them.
+    await viewer.pinInspector();
     await expect(viewer.inspector, "the inspector stands to the right of the sheet (R-UI-030)").toBeVisible();
     await expect(viewer.inspector, "holding nothing, and saying so").toHaveAttribute("data-state", "idle");
     await expect(viewer.inspector).toHaveAttribute("data-count", "0");
@@ -140,6 +145,10 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     /* --- j-011-inspector-hover: the pointer reads an entity, and bare paper reads nothing --- */
     await page.goto(S_VIEWER.selecting(staged.tenantId, staged.projectId, staged.drawingId, staged.layoutName, [first.key]), { waitUntil: "commit" });
     await expect(viewer.screen, "the sheet flies to the one key the address names").toHaveAttribute("data-flyto", "settled", { timeout: 120_000 });
+    // A fresh load starts with the pin released (§3.1), and everything below this line reads the
+    // inspector AFTER letting a selection go — so the panel is held open again, exactly as a person
+    // who wanted to keep watching it would. Not one assertion below is loosened by it.
+    await viewer.pinInspector();
     // The sheet was flown to that one entity, so it is what stands in the middle of the stage (the
     // test contract's deep-link-to-key procedure); a few pixels around it are tried because a
     // drawing is painted to a fraction of one. The reading is taken while it is still held, because

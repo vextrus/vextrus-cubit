@@ -62,6 +62,15 @@ export class STakeoffPage {
     return this.page.getByTestId(TESTIDS.register.objectCorroboration);
   }
 
+  /**
+   * The Technical disclosure's own door (§7 C6, I-234). The machine's names — the object key and the
+   * key it was read at — stand one press away rather than on the face of the screen, so a journey
+   * that reads one presses it exactly as a person does.
+   */
+  get technical(): Locator {
+    return this.page.getByTestId(TESTIDS.register.technical);
+  }
+
   get lines(): Locator {
     return this.page.getByTestId(TESTIDS.register.lines);
   }

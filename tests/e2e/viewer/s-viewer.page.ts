@@ -237,6 +237,28 @@ export class SViewerPage {
     return this.page.getByTestId("viewer-inspector");
   }
 
+  /** `V≡` in the tool row — the pin that holds the inspector open at rest (§3.1, I-152). */
+  get inspectorPin(): Locator {
+    return this.page.getByTestId("viewer-inspector-pin");
+  }
+
+  /**
+   * HOLD THE INSPECTOR OPEN WITH NOTHING SELECTED — the act the screen now asks for.
+   *
+   * Design Direction 00 §3.1: the shell's one right slot "is absent — width 0, not a placeholder
+   * sentence — when nothing is selected". A journey that wants to read the idle inspector therefore
+   * does what a person does: it presses `V≡`, which is the one lawful way to hold the panel open at
+   * rest, because the scale tab behind it is a door onto every view's scale and is not a fact about
+   * a selection (I-152). The pressed state is asserted, so a pin that silently did nothing is a red
+   * here rather than a mystery five assertions later.
+   */
+  async pinInspector(): Promise<void> {
+    // Idempotent, because a page load starts with the pin released: a leg that returns to the
+    // screen asks for the same state rather than toggling whatever it finds.
+    if ((await this.inspectorPin.getAttribute("aria-pressed")) !== "true") await this.inspectorPin.click();
+    await expect(this.inspectorPin, "the inspector pin is held down, so the panel stands at rest (§3.1)").toHaveAttribute("aria-pressed", "true");
+  }
+
   get hover(): Locator {
     return this.page.getByTestId("viewer-inspector-hover");
   }

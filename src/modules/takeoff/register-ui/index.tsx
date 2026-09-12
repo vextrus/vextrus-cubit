@@ -861,8 +861,13 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
               onAuxClick={() => stampOrigin(selectedLine.lineId)}
             />
           ) : null}
+          {/* The disclosure is a door, and a door a journey must open is a door with a name: the
+              object key moved inside it when §7's C6 put the machine's own names behind one
+              (I-234), so the summary carries a stable id rather than being addressed by its words. */}
           <details className="cx-register-technical">
-            <summary className="cx-reticle">{REGISTER_COPY.takeoff_register_object_key_label}</summary>
+            <summary className="cx-reticle" data-testid="register-technical">
+              {REGISTER_COPY.takeoff_register_object_key_label}
+            </summary>
             <p className="cx-register-object-key" data-testid="register-object-key" data-technical="">
               {selectedLine.objectKey}
             </p>
@@ -898,7 +903,9 @@ export function RegisterWorkspace({ view, permitted, offline, chrome, doors }: R
             — are not what a person is shown, and they are not hidden either: they stand one press
             away, inside the disclosure the rubric names (C6's `[data-technical]`). */}
         <details className="cx-register-technical">
-          <summary className="cx-reticle">{REGISTER_COPY.takeoff_register_object_key_label}</summary>
+          <summary className="cx-reticle" data-testid="register-technical">
+            {REGISTER_COPY.takeoff_register_object_key_label}
+          </summary>
           <p className="cx-register-object-key" data-testid="register-object-key" data-technical="">
             {selected.objectKey}
           </p>

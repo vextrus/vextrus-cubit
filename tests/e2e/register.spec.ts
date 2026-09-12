@@ -47,6 +47,10 @@ test.describe("J-021 — the register workspace", () => {
     /* --- the inspector, filled from the object the reader chose --- */
     await takeoff.treeItem(MARKS[0] as string).click();
     await expect(takeoff.inspector).toBeVisible();
+    // §7's C6 put the machine's own names one press away, inside the Technical disclosure (I-234),
+    // so the journey opens the door a person opens before reading what is behind it. The assertion
+    // is the one that stood here: the key, whole, on the screen.
+    await takeoff.technical.click();
     await expect(page.getByTestId("register-object-key"), "the object key, whole").toBeVisible();
     await expect(page.getByTestId("register-object-basis")).toBeVisible();
     await expect(page.getByTestId("register-object-role")).toBeVisible();

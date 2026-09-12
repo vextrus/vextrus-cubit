@@ -250,6 +250,7 @@ const GOLDEN: readonly string[] = [
   "register-repudiated-count",
   "register-retry",
   "register-source-key",
+  "register-technical",
   "register-timeline",
   "register-tree",
   "register-workspace",
