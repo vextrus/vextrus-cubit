@@ -8,6 +8,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
+import { cadPytestArgv } from "../../scripts/lib/cad-lane.mjs";
 import { REPO_ROOT, requireCadPackage, runInCadProject } from "./support/artifact";
 import {
   declaredPythonRequirements,
@@ -95,7 +96,11 @@ describe("AC-7: the AGPL PDF-library ban", () => {
     requireCadPackage();
     const lint = runInCadProject(["ruff", "check", "cad"]);
     expect(lint.status, `ruff check cad exited ${lint.status}\n${lint.stdout}\n${lint.stderr}`).toBe(0);
-    const suite = runInCadProject(["pytest", "cad", "-q"]);
+    // The lane's own command (scripts/lib/cad-lane.mjs), without the fixture regeneration: that
+    // recomputation belongs to the cad lane of the same gate, which runs it whenever a fixture
+    // could have moved. Paying its ~80 s again here proved nothing twice — what this criterion
+    // asks is that the licence suite is green inside the lane's whole collection, and it is.
+    const suite = runInCadProject([...cadPytestArgv({ regenerate: false }), "-q"]);
     expect(suite.status, `pytest cad exited ${suite.status}\n${suite.stdout}\n${suite.stderr}`).toBe(0);
   }, 900_000);
 });

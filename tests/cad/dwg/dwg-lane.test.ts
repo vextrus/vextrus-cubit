@@ -10,6 +10,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { basename, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
+import { cadPytestArgv } from "../../../scripts/lib/cad-lane.mjs";
 import {
   CAD_TEST_DIR,
   committedDwgFixtures,
@@ -91,10 +92,19 @@ describe("AC-6: the cad lane with the DWG suite in it", () => {
     expect(dwgNodes.length, `pytest collects nothing under cad/tests/dwg\n${collected.stdout.slice(-2000)}`).toBeGreaterThan(0);
   }, LANE_BUDGET_MS);
 
+  // The lane's own command, minus the `pytest` this helper supplies, and minus the fixture
+  // regeneration: that ~80 s recomputation is the CAD LANE's claim, made once per gate by the lane
+  // that owns it (scripts/lib/cad-lane.mjs). This suite ran it a second time in the unit lane and a
+  // third in tests/cad/licence.test.ts — three generator runs to prove one corpus — and it was the
+  // unit lane's whole wall. What this criterion is about is the lane's COMPOSITION: the DWG suite
+  // collected beside the DXF corpus without either breaking the other, which the run below proves
+  // exactly as it did before.
+  const CAD_SUITE = cadPytestArgv({ regenerate: false }).slice(1);
+
   it("AC-6: verify's cad lane — ruff check cad, then pytest cad — is green with the DWG suite in it", () => {
     requireDwgLane();
     const lint = runInCadProject(["ruff", "check", "cad"]);
     expect(lint.status, `ruff check cad exited ${lint.status}\n${lint.stdout}\n${lint.stderr}`).toBe(0);
-    expectPytestGreen(runPytest(["cad", "-q"]), "AC-6", 1);
+    expectPytestGreen(runPytest([...CAD_SUITE, "-q"]), "AC-6", 1);
   }, LANE_BUDGET_MS);
 });
