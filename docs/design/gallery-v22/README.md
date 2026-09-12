@@ -51,11 +51,20 @@ past, never an exemption, and `checkpoint.ts` still fails any checkpoint over it
 | `j-010-discipline-confirmed` | 2585 | a walk whose log is NOT in this tree — unfalsifiable here |
 | `j-000/disciplines-confirmed` | 2417 | the same: not corroborated from this branch |
 
-Two things are still owed on this file and neither was reached this session: (a) no test says an
-entry may only FALL, so a number can be raised in one byte; (b) `CUBIT_HEIGHT_BUDGET_SEED=1` — the
-switch at `checkpoint.ts:258` that turns the cap off — was in force for the re-baseline walk, so the
-committed pictures were blessed in a run where §9.3's cap was not enforced. Until a full walk runs
-WITHOUT it, every entry above is a claim about a screen and not a measurement of this tree.
+Both things this file owed are paid, in `cubit-u2j`'s first commit:
+
+- **the numbers may only fall.** `tests/ui/height-budget-only-falls.test.ts` reads
+  `tests/ui/height-budget.frozen.json` — a copy of the five numbers as they stood — and fails if any
+  live entry rises against it. An entry may fall, or disappear (the redesign earning the debt away);
+  a new checkpoint must be written into the frozen copy in the same commit, so it can be raised only
+  by a diff that says so in one line. The same suite fails an entry at or under §9.3's own 1 800 px.
+- **the cap has no off-switch.** `CUBIT_HEIGHT_BUDGET_SEED=1` is DELETED from `checkpoint.ts`: the
+  assertion runs on every checkpoint, in every run, and it prints the measured px in its own failure
+  message — which is all the first measurement of a new screen ever needed. The suite above reads the
+  source and fails on any `process.env[...HEIGHT...]` read, so the flag cannot come back quietly.
+
+Every entry above was re-run without the flag by this node's full walk; the measured column below is
+what that walk read.
 
 ## MASKS — still on eight specs, contrary to §9.3
 

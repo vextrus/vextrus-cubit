@@ -172,21 +172,17 @@ const seed = new Map<string, number>();
 
 /** Write the seed file after each checkpoint, so a run killed part-way still leaves what it read. */
 /**
- * The height half of the same recipe (tests/e2e/support/height-budget.ts): with
- * `CUBIT_HEIGHT_BUDGET_SEED=1` every checkpoint writes the height it was photographed at and the cap
- * stops failing the run, so ONE run reads every screen on a walk rather than one per attempt. The
- * numbers are pasted into the budget file in a commit that names the run they came from; nothing is
- * enforced from this file.
+ * THE HEIGHT CAP HAS NO OFF-SWITCH. It had one until 2026-09-12 — `CUBIT_HEIGHT_BUDGET_SEED=1` wrote
+ * every checkpoint's measured height to `test-results/height-budget.seed.json` and made the cap stop
+ * failing the run, so one walk could read every screen at once. That switch blessed the whole v22
+ * re-baseline: 43 committed pictures were taken in a run where Design Direction 00 §9.3's cap was not
+ * enforced, which is exactly the wall the cap exists to be. The switch is deleted.
+ *
+ * The first-ever measurement of a NEW screen needs no switch either: the assertion below PRINTS the
+ * measured px in its own failure message, so a new screen over the cap reds once, says how tall it
+ * is, and that number is what goes into `tests/e2e/support/height-budget.ts` with its owner and date.
+ * A red is the measurement.
  */
-const heightSeed = new Map<string, number>();
-
-function recordHeightSeed(name: string, height: number): void {
-  if (process.env["CUBIT_HEIGHT_BUDGET_SEED"] !== "1") return;
-  heightSeed.set(name, height);
-  const path = resolve(process.cwd(), "test-results", "height-budget.seed.json");
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${JSON.stringify(Object.fromEntries([...heightSeed].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))), null, 1)}\n`, "utf8");
-}
 
 function recordSeed(name: string, moderate: number): void {
   if (process.env["CUBIT_AXE_BUDGET_SEED"] !== "1") return;
@@ -250,13 +246,11 @@ export async function checkpoint(page: Page, testInfo: TestInfo, name: string): 
     contentType: "application/json",
   });
   recordSeed(name, moderate.length);
-  recordHeightSeed(name, capture.contentHeight);
 
-  // §9.3: a taller capture fails the run. The picture is attached FIRST so the failure ships with
-  // the evidence of what was too tall.
-  if (process.env["CUBIT_HEIGHT_BUDGET_SEED"] !== "1") {
-    expect(capture.contentHeight, `checkpoint ${name}: the screen's scroll container (${capture.selector}) is ${capture.contentHeight} px against a cap of ${capture.cap} px${recorded === null ? "" : " (its recorded per-screen budget — tests/e2e/support/height-budget.ts)"} — a capture taller than twice the viewport is a picture of a scroll, not of a screen (Design Direction 00 §9.3)`).toBeLessThanOrEqual(capture.cap);
-  }
+  // §9.3: a taller capture fails the run, always and with no flag that can turn it off. The picture
+  // is attached FIRST so the failure ships with the evidence of what was too tall, and the message
+  // carries the measured px — that number IS the first measurement of a new screen.
+  expect(capture.contentHeight, `checkpoint ${name}: the screen's scroll container (${capture.selector}) is ${capture.contentHeight} px against a cap of ${capture.cap} px${recorded === null ? "" : " (its recorded per-screen budget — tests/e2e/support/height-budget.ts)"} — a capture taller than twice the viewport is a picture of a scroll, not of a screen (Design Direction 00 §9.3)`).toBeLessThanOrEqual(capture.cap);
 
   const blocking = violations.filter((violation) => BLOCKING.has(violation.impact ?? ""));
   // THE RECTS, WITH THE SELECTORS. "partially obscured (smallest space is 48px by 4px)" says a

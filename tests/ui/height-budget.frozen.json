@@ -1,0 +1,8 @@
+{
+ "_": "FROZEN 2026-09-12 by cubit-u2j. The per-screen height budgets as they stood when the cap's off-switch was deleted. tests/ui/height-budget-only-falls.test.ts reads this file: a live entry may FALL or DISAPPEAR against it and may never RISE. Editing a number here upward is the one move the ratchet forbids, and it is visible in one line of diff.",
+ "j-000/disciplines-confirmed": 2417,
+ "j-010-discipline-confirmed": 2585,
+ "j-010-jobs-tray-open": 2989,
+ "j-010-sheets-fanned-out": 2989,
+ "j-010-timeline-done": 2989
+}
