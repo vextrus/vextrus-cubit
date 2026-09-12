@@ -27,8 +27,15 @@ const SPEC = "tests/e2e/journeys/j-004-gallery.spec.ts";
 /** The journey's own page object — where its locators and helpers may live (test contract). */
 const PAGE_OBJECT = "tests/e2e/pages/s-design.page.ts";
 const CONFIG = "playwright.config.ts";
-const BASELINES = ["tests/e2e/baselines/design/gallery-shell-light.png", "tests/e2e/baselines/design/gallery-shell-dark.png"];
-const SNAPSHOT_TEMPLATE = "tests/e2e/baselines/design/{arg}{ext}";
+// AMENDED IN PLACE by v22 U2's re-baseline lease (2026-09-12; docs/design/gallery-v22/README.md).
+// The lane has TWO projects now — dark is the product's ground, so it is the lane's — and a second
+// project writing to one directory would have both lanes fighting over one filename. `{projectName}`
+// routes each to its own folder while keeping the path declared in exactly ONE place, which is the
+// property this suite actually holds (Q-06). The light lane's pictures move from `design/` to
+// `design-light/`; every one of them was deleted and re-taken under the lease, so nothing in the
+// tree is a picture of the world before it.
+const BASELINES = ["tests/e2e/baselines/design-light/gallery-shell-light.png", "tests/e2e/baselines/design-light/gallery-shell-dark.png"];
+const SNAPSHOT_TEMPLATE = "tests/e2e/baselines/design-{projectName}/{arg}{ext}";
 
 /**
  * The tag the gate's other invocation greps for. Which FILES carry it is J-000's own surface to

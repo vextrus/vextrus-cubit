@@ -7,7 +7,7 @@
 import { defineConfig } from "@playwright/test";
 // The port set has one home (ARCH-02); this config reads it rather than restating a number.
 import { portFor } from "./scripts/lib/ports.mjs";
-import { journeyUse } from "./tests/e2e/support/capture-geometry";
+import { journeyUse, pictureLane } from "./tests/e2e/support/capture-geometry";
 import { e2eDatabaseUrl } from "./tests/e2e/support/scratch-db";
 
 const port = portFor("e2e");
@@ -20,7 +20,7 @@ const port = portFor("e2e");
 const baseURL = `http://127.0.0.1:${port}`;
 
 /** Is the whole of §9.3 in force for this run? U2 flips this one switch (Design Direction 00 §9.3). */
-const picture = process.env["CUBIT_E2E_PICTURE"] === "1";
+const picture = pictureLane();
 
 /** Is this run being filmed? A showreel needs a film and a trace, so asking for one turns both on. */
 const showreel = process.env["CUBIT_SHOWREEL"] === "1";
@@ -62,35 +62,35 @@ export default defineConfig({
   // {testFilePath} and no {testFileDir}, and every J-000 capture names its baseline as an explicit
   // arg array (["j-000", "workspace-named.png"]), so a leg's FILE may move without moving one byte
   // of a committed baseline — the mapping from a capture to its PNG is the arg, not the spec's home.
-  snapshotPathTemplate: "tests/e2e/baselines/design/{arg}{ext}",
+  // ONE key, two directories (Q-06, and tests/journeys/j-004-gallery-contract.test.ts holds the lane
+  // to exactly one): `{projectName}` routes each lane's pictures to its own folder — `design-light/`
+  // and `design-dark/` — so a checkpoint's two pictures differ only by their folder, and where a
+  // baseline lives is still declared in exactly one place. A per-project override would be two homes
+  // for one fact, which is the drift that contract exists to catch.
+  snapshotPathTemplate: "tests/e2e/baselines/design-{projectName}/{arg}{ext}",
   expect: {
     // V-E2E fixes the tolerance for every visual comparison in the lane.
     toHaveScreenshot: { maxDiffPixelRatio: 0.002 },
   },
   timeout: 120_000,
-  // The lanes. The light one is the product's baselined ground and is always present; the dark one
-  // is registered by name (CUBIT_E2E_DARK=1) rather than always, because a second project doubles
-  // every journey in the wall — and until the node that owns those captures has taken them, it
-  // compares against nothing.
+  // THE TWO LANES, both present by default since the v22 U2 re-baseline lease (2026-09-12). The dark
+  // project was registered by name until now and ignored its snapshots, "because a second project
+  // doubles every journey in the wall — and until the node that owns those captures has taken them,
+  // it compares against nothing". U2 has taken them. Dark is the product's ground (Direction §1's
+  // table), so it is the lane's default too, and each lane's baselines live in their own directory.
+  //
+  // `CUBIT_E2E_DARK=0` runs the light lane alone — for a bisect, and for nothing a green run does.
   projects:
-    process.env["CUBIT_E2E_DARK"] === "1"
-      ? [
+    process.env["CUBIT_E2E_DARK"] === "0"
+      ? [{ name: "light", use: { colorScheme: "light" as const } }]
+      : [
+          { name: "dark", use: { colorScheme: "dark" as const } },
           { name: "light", use: { colorScheme: "light" as const } },
-          {
-            name: "dark",
-            use: { colorScheme: "dark" as const },
-            // It compares against nothing today, so it needs no baseline directory: where the dark
-            // pictures live is the decision of the node that stops ignoring them, and until then
-            // one key above is the whole answer to "where does a baseline live".
-            ignoreSnapshots: true,
-          },
-        ]
-      : [{ name: "light", use: { colorScheme: "light" as const } }],
+        ],
   // The lane's `use` block has one home, and it is not this file: `tests/e2e/support/capture-geometry.ts`
   // builds it from the switches below, and a unit test asserts both of its branches — §9.3's capture
-  // geometry is armed by name (CUBIT_E2E_PICTURE=1) and with the switch off the block is what it
-  // always was, key for key. Re-baselining the world is one lease held by one node (U2), and wiring
-  // the geometry is not the same act as flipping it.
+  // geometry is the lane's DEFAULT since the lease was spent (`pictureLane()`, B-17); the switch
+  // survives inverted, `CUBIT_E2E_PICTURE=0`, as the bisect escape and as nothing a green run uses.
   use: journeyUse({
     baseURL,
     showreel,
