@@ -78,8 +78,9 @@ export class SCoveragePage {
   get legend(): Locator {
     return this.page.getByTestId(TESTIDS.coverage.legend);
   }
+  /** One key of the 28 px key line, by the reading it stands for (Decision §7: `data-code`). */
   legendEntry(cause: string): Locator {
-    return this.legend.locator(`${testIdSelector(TESTIDS.coverage.legendEntry)}[data-cause="${cause}"]`);
+    return this.legend.locator(`${testIdSelector(TESTIDS.coverage.legendEntry)}[data-code="${cause}"]`);
   }
 
   /* --- the inspector, and the two doors it carries --- */
@@ -116,8 +117,14 @@ export class SCoveragePage {
   get empty(): Locator {
     return this.page.getByTestId(TESTIDS.coverage.empty);
   }
+  /** The fault cell's retry — the shipped ErrorState's own, since the error cell is that pattern. */
   get retry(): Locator {
-    return this.page.getByTestId(TESTIDS.coverage.retry);
+    return this.page.getByTestId(TESTIDS.error.stateRetry);
+  }
+
+  /** The 28 px footer: the counts by mark. Found by its class — the id contract is closed (§7). */
+  get tally(): Locator {
+    return this.root.locator(".cx-coverage-tally");
   }
 
   /* --- the certificate preview --- */
@@ -180,6 +187,7 @@ export class SCoveragePage {
       this.page.getByTestId(TESTIDS.shell.breadcrumb),
       this.page.getByTestId(TESTIDS.shell.user),
       this.page.getByTestId(TESTIDS.shell.tenantSwitcher),
+      // Each is rendered through the shipped IdChip and keeps the screen's own class for the mask.
       this.page.locator(".cx-coverage-revision"),
       this.page.locator(".cx-coverage-act-id"),
       this.page.locator(".cx-coverage-source-key"),

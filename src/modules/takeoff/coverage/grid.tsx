@@ -1,81 +1,47 @@
 "use client";
-// The heat grid (Decision § 1): kind × class × level, drawn.
+// THE HEAT GRID (Design Direction 00 §3.5, Decision § 1): kinds × (class · level), as a real matrix.
 //
-// It is drawn rather than tabled because a cell of this grid carries two orthogonal readings at once
-// (I-189) and a focus mark the one CSS home cannot paint (I-190) — a table cell can hold neither
-// without a second dialect of both. The geometry is stated here, in the units an SVG viewBox is
-// measured in, because a module may not reach the token table (ARCH-01): each number below is the
-// Decision § 1's own, and the two cell sides are the row heights R-UI-005 fixes.
+// It was drawn in SVG, for two reasons that have both been answered. The first was that a cell
+// carries two orthogonal readings at once (I-189) — it still does, and it still states both, on
+// `data-measurement` and `data-bill`. The second was the focus mark (I-190): an SVG `<g>` hosts no
+// pseudo-element, so `cx-reticle` could not reach a cell and the grid drew its own corner ticks. A
+// DOM cell hosts one, so the grid wears the tree's ONE focus ring from its one home (B-17, R-UI-012)
+// and the second dialect retires with the drawing.
 //
-// Colour is temperature and the mark is the cause (I-188). Nothing here is carried by colour alone:
-// every cell states its whole reading in its accessible name, in words, and again in its mark.
+// What the DOM buys, and what SVG could not: `position: sticky`. §3.5 fixes the kind column frozen
+// and the class/level header frozen while the matrix scrolls horizontally INSIDE the grid and never
+// the page (§7 C10) — three properties of a scroll container, none of them expressible in a viewBox.
+// The hatch patterns of §4.3 are the same story: they are CSS gradients painted in `currentColor`
+// (`--pattern-*`), so a cell that is a box can wear one and a cell that is a `<g>` cannot.
+//
+// Every measure below is the reader's own row height (`--row-h`, 28 compact / 36 comfortable) read
+// in the stylesheet beside this file; a module may not reach the token table (ARCH-01), so this file
+// states no size at all. Colour is the mark's (`data-mark`) and the fill is the ramp step
+// (`data-cov`); the words are the registry's. Nothing on this grid is carried by colour alone.
 import { useRef } from "react";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
-import { cellRef, type CellGrain, type ResidueCell, type ResidueLevel } from "@/core/residue/law";
+import { cellRef, type CellGrain, type ResidueCell, type ResidueLevel, type TruncatedSheet } from "@/core/residue/law";
 import { compareCanonical } from "@/core/identity";
 import { fillCoverageCopy, COVERAGE_COPY } from "./copy";
 import { CauseGlyph, type GlyphReading } from "./glyphs";
-import { CoverageReticle } from "./coverage-reticle";
+import { MARK_OF, rampStep, rowShare, sharePublished, type Mark } from "./heat";
 
-/** The kind gutter's width and the bill mark's side — the Decision § 5's closed literal set. */
-const GUTTER = 200;
-const BILL_GLYPH = 8;
-const SEAM = 1;
-const HATCH_PITCH = 4;
-const SELECTION_STROKE = 2;
-const CONTRADICTION_STROKE = 1.5;
-/** The centred mark fills half the cell, so it reads at either density (R-UI-005). */
-const HALF = 2;
-
-/** The hatch's one id: a `<defs>` pattern is referenced by name, so the name has one home (B-17). */
-const HATCH_ID = "cx-coverage-hatch";
-
-/** The heading the grid is labelled by, spelled once here and once where the heading is rendered. */
-export const GRID_LABEL_ID = "cx-coverage-grid-label";
-
-/** The density a reader set on the frame, which moves the grid itself rather than a padding. */
+/** The density a reader set on the frame. It moves `--row-h`, which is the cell's whole geometry. */
 export type CoverageDensity = "comfortable" | "compact";
 
-/**
- * The cell's side at each density: `--row-comfortable` and `--row-compact`'s own values (R-UI-005,
- * Decision § 1). Stated as numbers because a viewBox is measured in numbers and a custom property
- * cannot be one; the CSS beside this file paints nothing that depends on them.
- */
-const CELL_SIDE: Readonly<Record<CoverageDensity, number>> = Object.freeze({ comfortable: 36, compact: 28 });
-
-/** The break between two class bands — `var(--space-2)`'s own value (Decision § 1). */
-const CLASS_GAP = 8;
-
 /** One column of the grid: a class, and one level it was sighted on. */
-type Column = { readonly klass: string; readonly levelId: string | null; readonly label: string; readonly x: number };
+type Column = { readonly klass: string; readonly levelId: string | null; readonly label: string };
 
 /** One band of columns: every column of one class, so the class is named once above them. */
-type Band = { readonly klass: string; readonly x: number; readonly width: number };
-
-/** The severity tint a cell is painted in — the registry's own reading of the cause (I-188). */
-const SURFACES: Readonly<Record<RefusalEntry["severity"], string>> = Object.freeze({
-  error: "var(--danger-surface)",
-  warning: "var(--warn-surface)",
-  info: "var(--info-surface)",
-});
-
-/** What a cell that bears published quantity is painted in — not a cause, so not in the map above. */
-const MEASURED_SURFACE = "var(--success-surface)";
+type Band = { readonly klass: string; readonly span: number };
 
 /**
  * The registry read by a code that may not be one of its own — the two idle axis readings are
  * refusal-SHAPED and are not refusals (L-QTY-05), so the lookup answers `undefined` for them rather
  * than throwing the way the register's own total reader does. One home for that reading (B-17): the
- * grid, the legend and the inspector all take a cause's words through this function.
+ * grid, the key line and the inspector all take a cause's words through this function.
  */
 export const causeWords = (code: string): RefusalEntry | undefined => (REFUSALS as Readonly<Record<string, RefusalEntry | undefined>>)[code];
-
-/** The tint one measurement reading paints its cell in. */
-function surfaceOf(measurement: string): string {
-  if (measurement === "QUANTITY_BEARING") return MEASURED_SURFACE;
-  const held = causeWords(measurement);
-  return held === undefined ? MEASURED_SURFACE : SURFACES[held.severity];
-}
 
 /**
  * The cause a cell is READ under, which is not always the cause it stands at (I-198). The two axes
@@ -86,6 +52,11 @@ function surfaceOf(measurement: string): string {
  */
 export function causeRead(cell: ResidueCell): string {
   return cell.bill === "NOT_IN_THIS_BILL" ? cell.bill : cell.measurement;
+}
+
+/** The mark one cell wears — the mark of the cause it is READ under (§4.3, I-198). */
+export function markOf(cell: ResidueCell): Mark {
+  return MARK_OF[causeRead(cell) as GlyphReading];
 }
 
 /**
@@ -106,10 +77,9 @@ export function cellLabel(cell: ResidueCell): string {
 
 /**
  * The grid's columns and bands, derived from the cells themselves: a class holds a column for each
- * level it was sighted on, in the stack's own order, and the classes stand in canonical order with a
- * break between them (Decision § 1).
+ * level it was sighted on, in the stack's own order, and the classes stand in canonical order.
  */
-function columnsOf(cells: readonly ResidueCell[], levels: readonly ResidueLevel[], side: number): { columns: Column[]; bands: Band[]; width: number } {
+function columnsOf(cells: readonly ResidueCell[], levels: readonly ResidueLevel[]): { columns: Column[]; bands: Band[] } {
   const ordinalOf = new Map(levels.map((level) => [level.levelId, level.ordinal]));
   const labelOf = new Map(levels.map((level) => [level.levelId, level.label]));
   const byClass = new Map<string, (string | null)[]>();
@@ -122,19 +92,16 @@ function columnsOf(cells: readonly ResidueCell[], levels: readonly ResidueLevel[
 
   const columns: Column[] = [];
   const bands: Band[] = [];
-  let x = GUTTER;
   for (const klass of [...byClass.keys()].sort(compareCanonical)) {
     const levelIds = [...(byClass.get(klass) ?? [])].sort(
       (left, right) => (ordinalOf.get(left ?? "") ?? 0) - (ordinalOf.get(right ?? "") ?? 0) || compareCanonical(left ?? "", right ?? ""),
     );
-    bands.push({ klass, x, width: levelIds.length * side });
-    for (const levelId of levelIds) {
-      columns.push({ klass, levelId, label: labelOf.get(levelId ?? "") ?? "", x });
-      x += side;
-    }
-    x += CLASS_GAP;
+    bands.push({ klass, span: levelIds.length });
+    // A level the stack does not name — the two channels that sight a placement on a sheet answer
+    // none — is a column all the same, and the cell's own label is what says so in words.
+    for (const levelId of levelIds) columns.push({ klass, levelId, label: labelOf.get(levelId ?? "") ?? "" });
   }
-  return { columns, bands, width: Math.max(x - CLASS_GAP, GUTTER) };
+  return { columns, bands };
 }
 
 /** One row of the grid: a kind, at one grain, and every cell it bears at that grain. */
@@ -159,24 +126,20 @@ function rowsOf(cells: readonly ResidueCell[]): Row[] {
 export type CoverageGridProps = {
   readonly cells: readonly ResidueCell[];
   readonly levels: readonly ResidueLevel[];
+  /** The sheets read only in part, which is what makes a partial cell partial (§4.3). */
+  readonly truncated: readonly TruncatedSheet[];
   readonly density: CoverageDensity;
   readonly selected: string | null;
   readonly onSelect: (address: string) => void;
 };
 
 /**
- * The grid itself. One `<g role="row">` per kind — the kind-grain rows first, because a kind that
- * bears no cell is shown rather than dropped (I-196) — and one `<g role="gridcell">` per cell of it.
+ * The grid itself: two sticky header rows, one sticky kind column, and one cell per cell of the
+ * residue. The box scrolls; the page never does (§7 C10).
  */
-export function CoverageGrid({ cells, levels, density, selected, onSelect }: CoverageGridProps) {
-  const side = CELL_SIDE[density];
-  const { columns, bands, width } = columnsOf(cells, levels, side);
-  const bandY = 0;
-  const levelY = side;
-  const bodyY = side * 2;
-
+export function CoverageGrid({ cells, levels, truncated, density, selected, onSelect }: CoverageGridProps) {
+  const { columns, bands } = columnsOf(cells, levels);
   const rows = rowsOf(cells);
-  const height = bodyY + rows.length * side;
 
   // One tab stop, on the selected cell or on the first the grid holds (Decision § 1, R-UI-032).
   const tabStop = cells.find((cell) => cellRef(cell) === selected) ?? cells[0];
@@ -184,9 +147,9 @@ export function CoverageGrid({ cells, levels, density, selected, onSelect }: Cov
 
   // Arrowing moves FOCUS and never selection (Decision § 1), so the cells are held by address and
   // focused directly rather than found by a query the grid would have to spell a second selector for.
-  const focusable = useRef(new Map<string, SVGGElement>());
+  const focusable = useRef(new Map<string, HTMLDivElement>());
 
-  const move = (event: React.KeyboardEvent<SVGGElement>, cell: ResidueCell, at: number): void => {
+  const move = (event: React.KeyboardEvent<HTMLDivElement>, cell: ResidueCell, at: number): void => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       onSelect(cellRef(cell));
@@ -210,69 +173,84 @@ export function CoverageGrid({ cells, levels, density, selected, onSelect }: Cov
     }
   };
 
+  // The one number the stylesheet cannot derive: how many level columns the matrix holds. It rides
+  // as a custom property rather than as a width, so the CSS still owns every measure (ARCH-01).
+  //
+  // Floored at one: `repeat(0, …)` is invalid, and an invalid track list would take the whole grid
+  // template down with it. A reading that bears only kind-grain rows — nothing sighted yet, which is
+  // the `partial` state's own shape — then draws one empty track that its spanning row fills (I-196).
+  const track = { "--cx-coverage-columns": String(Math.max(columns.length, 1)) } as React.CSSProperties;
+
   return (
-    <svg
+    <div
       className="cx-coverage-grid"
       data-testid="coverage-grid"
       role="grid"
-      aria-labelledby={GRID_LABEL_ID}
-      viewBox={`0 0 ${width} ${height}`}
-      width={width}
-      height={height}
+      // The matrix names itself. The `<h2>` it used to be labelled by existed only to BE that label —
+      // a heading nobody wanted to read, and §1's "never a heading with a sentence under it" (I-190).
+      aria-label={COVERAGE_COPY.takeoff_coverage_grid_label}
+      aria-colcount={columns.length + 1}
+      aria-rowcount={rows.length + 2}
+      data-density={density}
+      style={track}
     >
-      <defs>
-        {/* I-189: the bill axis is a hatch over the whole cell, so the axes never displace each other. */}
-        <pattern id={HATCH_ID} width={HATCH_PITCH} height={HATCH_PITCH} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <line x1={0} y1={0} x2={0} y2={HATCH_PITCH} stroke="var(--ink-disabled)" strokeWidth={SEAM} />
-        </pattern>
-      </defs>
+      <div className="cx-coverage-headers" role="rowgroup">
+        <div className="cx-coverage-row cx-coverage-band" role="row">
+          <div className="cx-coverage-corner" role="columnheader">
+            {COVERAGE_COPY.takeoff_coverage_kind_column}
+          </div>
+          {bands.map((band) => (
+            <div key={band.klass} className="cx-coverage-class" role="columnheader" data-class={band.klass} style={{ gridColumn: `span ${band.span}` }}>
+              {band.klass}
+            </div>
+          ))}
+        </div>
+        <div className="cx-coverage-row cx-coverage-levels" role="row">
+          <div className="cx-coverage-corner cx-coverage-corner-foot" role="columnheader" aria-label={COVERAGE_COPY.takeoff_coverage_level_label} />
+          {columns.map((column) => (
+            <div
+              key={`${column.klass}:${column.levelId ?? ""}`}
+              className="cx-coverage-level"
+              role="columnheader"
+              data-class={column.klass}
+              data-level={column.levelId ?? ""}
+              aria-label={fillCoverageCopy("takeoff_coverage_column_label", { class: column.klass, level: column.label })}
+            >
+              {column.label}
+            </div>
+          ))}
+        </div>
+      </div>
 
-      <g role="row" className="cx-coverage-band">
-        {bands.map((band) => (
-          <text key={band.klass} role="columnheader" className="cx-coverage-class" x={band.x} y={bandY + side / HALF} dominantBaseline="middle">
-            {band.klass}
-          </text>
-        ))}
-      </g>
-      <g role="row" className="cx-coverage-levels">
-        {columns.map((column) => (
-          <text
-            key={`${column.klass}:${column.levelId ?? ""}`}
-            role="columnheader"
-            className="cx-coverage-level"
-            x={column.x + side / HALF}
-            y={levelY + side / HALF}
-            textAnchor="middle"
-            dominantBaseline="middle"
-          >
-            {column.label}
-          </text>
-        ))}
-      </g>
-
-      {rows.map((row, at) => {
-        const y = bodyY + at * side;
-        return (
-          <g key={row.key} data-testid="coverage-kind-row" role="row" data-kind={row.kind}>
-            <text className="cx-coverage-kind" x={0} y={y + side / HALF} dominantBaseline="middle">
-              {row.kind}
-            </text>
-            {row.cells
-              .map((cell) => {
+      <div className="cx-coverage-body-rows" role="rowgroup">
+        {rows.map((row, at) => {
+          const heat = rowShare(row.cells);
+          return (
+            <div key={row.key} className="cx-coverage-row" data-testid="coverage-kind-row" role="row" data-kind={row.kind}>
+              <div
+                className="cx-coverage-kind"
+                role="rowheader"
+                data-cov={rampStep(heat.share)}
+                aria-label={`${row.kind} ${fillCoverageCopy("takeoff_coverage_kind_share", { count: String(heat.published), total: String(heat.total) })}`}
+              >
+                <span className="cx-coverage-kind-name">{row.kind}</span>
+              </div>
+              {row.cells.map((cell) => {
                 const address = cellRef(cell);
                 const read = causeRead(cell);
-                const column = columns.find((held) => held.klass === cell.class && held.levelId === cell.levelId);
-                const x = cell.grain === "KIND" ? GUTTER : (column?.x ?? GUTTER);
-                const span = cell.grain === "KIND" ? Math.max(width - GUTTER, side) : side;
-                const active = address === selected;
-                const glyph = side / HALF;
+                const column = columns.findIndex((held) => held.klass === cell.class && held.levelId === cell.levelId);
+                // A kind-grain row names no class and no level, so its one cell spans the matrix
+                // (I-196); a cell whose column the header does not hold is placed by the flow.
+                const placement =
+                  cell.grain === "KIND" ? { gridColumn: "2 / -1" } : column < 0 ? undefined : { gridColumn: String(column + 2) };
                 return (
-                  <g
+                  <div
                     key={address}
                     ref={(node) => {
                       if (node === null) focusable.current.delete(address);
                       else focusable.current.set(address, node);
                     }}
+                    className="cx-coverage-cell cx-reticle"
                     data-testid="coverage-cell"
                     role="gridcell"
                     data-kind={cell.kind}
@@ -284,41 +262,27 @@ export function CoverageGrid({ cells, levels, density, selected, onSelect }: Cov
                     data-contradicted={cell.contradicted ? "true" : "false"}
                     // I-198: the axes are orthogonal, but a reader is answered under ONE of them.
                     data-code={read}
+                    // §4.3: a mark is a glyph AND a pattern AND a colour. The stylesheet reads this
+                    // one attribute for the last two, and spells no colour of its own.
+                    data-mark={markOf(cell)}
+                    // …and the fill is the share published, on the ramp's own five steps.
+                    data-cov={rampStep(sharePublished(cell, truncated))}
                     tabIndex={address === tabStopRef ? 0 : -1}
-                    aria-selected={active}
+                    aria-selected={address === selected}
                     aria-label={cellLabel(cell)}
+                    style={placement}
                     onClick={() => onSelect(address)}
                     onKeyDown={(event) => move(event, cell, at)}
                   >
-                    <rect x={x} y={y} width={span} height={side} fill={surfaceOf(cell.measurement)} stroke="var(--line)" strokeWidth={SEAM} />
-                    {cell.bill === "NOT_IN_THIS_BILL" ? <rect x={x} y={y} width={span} height={side} fill={`url(#${HATCH_ID})`} /> : null}
-                    {cell.contradicted ? (
-                      <rect x={x} y={y} width={span} height={side} fill="none" stroke="var(--danger)" strokeWidth={CONTRADICTION_STROKE} />
-                    ) : null}
-                    {active ? <rect x={x} y={y} width={span} height={side} fill="none" stroke="var(--line-accent)" strokeWidth={SELECTION_STROKE} /> : null}
-                    <CauseGlyph
-                      reading={cell.measurement as GlyphReading}
-                      read={read === cell.measurement}
-                      x={x + span / HALF - glyph / HALF}
-                      y={y + side / HALF - glyph / HALF}
-                      size={glyph}
-                    />
-                    {cell.bill === "NOT_IN_THIS_BILL" ? (
-                      <CauseGlyph
-                        reading="NOT_IN_THIS_BILL"
-                        read={read === cell.bill}
-                        x={x + span - BILL_GLYPH - HATCH_PITCH}
-                        y={y + side - BILL_GLYPH - HATCH_PITCH}
-                        size={BILL_GLYPH}
-                      />
-                    ) : null}
-                    {active ? <CoverageReticle x={x} y={y} side={side} /> : null}
-                  </g>
+                    <CauseGlyph reading={cell.measurement as GlyphReading} read={read === cell.measurement} />
+                    {cell.bill === "NOT_IN_THIS_BILL" ? <CauseGlyph reading="NOT_IN_THIS_BILL" read={read === cell.bill} corner /> : null}
+                  </div>
                 );
               })}
-          </g>
-        );
-      })}
-    </svg>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

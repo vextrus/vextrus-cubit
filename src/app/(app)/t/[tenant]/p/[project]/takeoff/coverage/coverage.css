@@ -1,12 +1,23 @@
 /*
- * S-Coverage, the heat grid (R-TO-052, docs/design/s-coverage.md §§ 1, 4, 5, 6). Every colour, size,
- * weight and duration is a read into the committed Datum token source (R-UI-001, R-UI-003,
- * R-UI-004): the rules are identical in light and dark, and the themes differ only in what the
- * tokens are worth. No `[data-theme]` selector appears here.
+ * S-Coverage, the heat grid (Design Direction 00 §3.5, §4.3; docs/design/s-coverage.md §§ 1, 4, 5,
+ * 6). Every colour, size, weight and duration is a read into the committed Datum token source
+ * (R-UI-001, R-UI-003, R-UI-004): the rules are identical in light and dark, and the themes differ
+ * only in what the tokens are worth. No `[data-theme]` selector appears here.
  *
- * The px literals are the closed set the Decision § 5 fixes: the kind gutter's 200, the inspector's
- * 340, the cell seam's 1, the strokes' 1.5 and 2, and the md media-query value 960. Any other literal
- * is a defect. The glyph geometry is the grid component's own, stated in a viewBox's units.
+ * THE THREE THINGS THIS SHEET OWNS THAT THE DRAWN GRID COULD NOT.
+ * 1. `position: sticky` — the kind column freezes and the class/level header freezes while the
+ *    matrix scrolls INSIDE its own box; the page never scrolls sideways (§7 C10).
+ * 2. The hatches of §4.3 — `--pattern-solid|dots|hatch|cross`, painted in `currentColor` on a
+ *    pseudo-element, so a mark is a glyph AND a pattern AND a colour and meaning never rides on
+ *    colour alone (R-UI-060). The geometry is the token's; this sheet only says which cell wears
+ *    which, off `data-mark`.
+ * 3. The ramp of §4.3 — `--cov-0..4` by share published, off `data-cov`. The share is the module's
+ *    arithmetic (`heat.ts`); the step is a number, and the number chooses a token here.
+ *
+ * The px literals are the closed set the Decision § 5 fixes: the kind column's 200 and the
+ * certificate's 192, both stated once as a custom property at the top, and the 1 px of an inset
+ * hairline. Every other measure is a token — the cell is the reader's own row height (`--row-h`),
+ * which is what makes the grid 28 px compact and 36 px comfortable without a second rule (R-UI-005).
  *
  * `--hairline` is a whole border shorthand (`1px solid var(--line)`), so a surface wears it as
  * `border: var(--hairline)` and a notice recolours it with `border-color` afterwards — the lane's own
@@ -14,17 +25,52 @@
  * surface loses its frame entirely (R-UI-001, B-17).
  *
  * Nothing here eases in (Decision § 4): the grid paints at once and the inspector swaps instantly.
- * Focus is not styled here either — every button and link wears the reticle from its one home
- * (B-17, R-UI-012), and the grid's own drawn reticle is the component's (I-190). The refusal, the
- * dialog and the skeleton are painted by their own stylesheets.
+ * Focus is not styled here either — every control, and every cell of the grid, wears the reticle from
+ * its one home (B-17, R-UI-012). The refusal, the dialog, the empty state, the error state, the
+ * IdChip and the skeleton are painted by their own stylesheets.
  */
 
 .cx-coverage {
+  /* The screen fills main and hands its height to the grid: the work surface is what a reader came
+     for, and every other region on this screen is one row of chrome (§1, §7 C1). */
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-2);
+  height: 100%;
+  min-height: 0;
   font-family: var(--font-ui);
   line-height: var(--leading-ui);
+  /* The two measures this screen states outright (Decision § 5). */
+  --cx-coverage-kind-w: 200px;
+  --cx-coverage-doc-h: 192px;
+}
+
+/* --- the 32 px tool row, which stands in the FRAME's strip (§3.1) --- */
+
+.cx-coverage-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* §1 fixes the tool row at 32 px in both densities, so a control inside it is the row less one step
+   of the 4-pt grid — the same arithmetic the shell already applies to its icon buttons. */
+.cx-coverage-tools .cx-btn {
+  height: calc(var(--toolbar-h) - var(--space-1));
+}
+
+.cx-coverage-revision-block {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cx-coverage-revision-label {
+  font-size: var(--text-12);
+  color: var(--ink-muted);
+  white-space: nowrap;
 }
 
 /* --- the offline banner, house notice chrome (Decision § 2) --- */
@@ -37,51 +83,6 @@
   background: var(--info-surface);
   font-size: var(--text-13);
   color: var(--ink);
-}
-
-/* --- the header, and the revision this reading was taken against --- */
-
-.cx-coverage-header {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-}
-
-.cx-coverage-title {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.cx-coverage-heading {
-  font-size: var(--text-20);
-  font-weight: var(--weight-heading);
-  color: var(--ink);
-}
-
-.cx-coverage-caption {
-  font-size: var(--text-13);
-  color: var(--ink-muted);
-}
-
-.cx-coverage-revision-block {
-  margin-left: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.cx-coverage-revision-label {
-  font-size: var(--text-12);
-  color: var(--ink-muted);
-  white-space: nowrap;
-}
-
-.cx-coverage-revision {
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  color: var(--ink-secondary);
-  user-select: all;
 }
 
 /* --- the answer slot: one renderer, one place, nothing around it (R-UI-020) --- */
@@ -102,134 +103,335 @@
   color: var(--ink);
 }
 
-.cx-coverage-denied-holder {
-  font-size: var(--text-13);
-  color: var(--ink-secondary);
-}
+/* --- the work surface: one key line, the matrix, one tally --- */
 
-/* --- the body: the grid, and the inspector beside it --- */
-
-.cx-coverage-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: var(--space-4);
-  align-items: start;
-}
-
-@media (max-width: 960px) {
-  .cx-coverage-body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.cx-coverage-grid-region {
+.cx-coverage-work {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  flex: 1 1 auto;
+  min-height: 0;
   min-width: 0;
 }
 
-.cx-coverage-grid-heading {
-  font-size: var(--text-13);
-  font-weight: var(--weight-body-medium);
-  color: var(--ink);
-}
-
-.cx-coverage-partial-note {
-  font-size: var(--text-13);
-  color: var(--ink-muted);
-}
-
-/* The box scrolls, never the page: a project wider than the viewport keeps its heading in place. */
-.cx-coverage-scroll {
-  overflow-x: auto;
-  max-width: 100%;
-}
-
-.cx-coverage-grid {
-  display: block;
-}
-
-.cx-coverage-class {
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  fill: var(--ink-secondary);
-}
-
-.cx-coverage-level {
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  fill: var(--ink-muted);
-}
-
-.cx-coverage-kind {
-  font-family: var(--font-mono);
-  font-size: var(--text-13);
-  fill: var(--ink);
-}
-
-/* Hover states the cell under the pointer; selection and focus are the component's own marks. */
-.cx-coverage-grid [data-testid="coverage-cell"] {
-  cursor: pointer;
-  color: var(--ink);
-}
-
-.cx-coverage-grid [data-testid="coverage-cell"] > rect:first-of-type {
-  transition: stroke var(--motion-state) var(--ease);
-}
-
-.cx-coverage-grid [data-testid="coverage-cell"]:hover > rect:first-of-type {
-  stroke: var(--accent);
-  stroke-width: 1.5;
-}
-
-/* --- the legend: every mark, in words (R-UI-060) --- */
-
+/* §8's second fix: the legend was a 540 px column. It is one line, the height of a row. */
 .cx-coverage-legend {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--row-h);
+  padding-inline: var(--space-2);
   border: var(--hairline);
-  border-radius: var(--radius-8);
+  border-radius: var(--radius-4);
+  background: var(--surface-panel);
+  overflow: hidden;
+}
+
+.cx-coverage-legend-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-12);
+  color: var(--ink-secondary);
+  white-space: nowrap;
+}
+
+.cx-coverage-legend-mark {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  flex: none;
+}
+
+/* The key's own mark is coloured exactly as the grid colours the cell that wears it (§4.3). */
+.cx-coverage-legend-entry[data-mark="published"] .cx-coverage-legend-mark {
+  color: var(--cov-4);
+}
+
+.cx-coverage-legend-entry[data-mark="partial"] .cx-coverage-legend-mark {
+  color: var(--cov-3);
+}
+
+.cx-coverage-legend-entry[data-mark="absent"] .cx-coverage-legend-mark {
+  color: var(--state-danger);
+}
+
+.cx-coverage-legend-entry[data-mark="held"] .cx-coverage-legend-mark {
+  color: var(--state-warn);
+}
+
+.cx-coverage-legend-entry[data-mark="out-of-scope"] .cx-coverage-legend-mark,
+.cx-coverage-legend-entry[data-mark="no-class"] .cx-coverage-legend-mark,
+.cx-coverage-legend-entry[data-mark="catalogue"] .cx-coverage-legend-mark {
+  color: var(--ink-disabled);
+}
+
+/* --- the matrix itself --- */
+
+.cx-coverage-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  /* The BOX scrolls, never the page (§7 C10, §3.5). */
+  overflow: auto;
+  border: var(--hairline);
+  border-radius: var(--radius-4);
   background: var(--surface-app);
 }
 
-.cx-coverage-legend-heading {
-  font-size: var(--text-13);
+/* Every row is the same track set: the frozen kind column, then one column per (class · level). The
+   count is the only number the component states, and it rides as a custom property (ARCH-01). */
+.cx-coverage-row {
+  display: grid;
+  grid-template-columns: var(--cx-coverage-kind-w) repeat(var(--cx-coverage-columns), var(--row-h));
+  width: max-content;
+  min-width: 100%;
+}
+
+.cx-coverage-headers {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  background: var(--surface-panel);
+  border-block-end: var(--hairline);
+}
+
+/* The two header rows: the class named once over its levels, the level under it. */
+.cx-coverage-class,
+.cx-coverage-level,
+.cx-coverage-corner {
+  display: flex;
+  align-items: center;
+  height: var(--row-h);
+  font-size: var(--text-12);
+  color: var(--ink-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cx-coverage-class {
+  padding-inline: var(--space-2);
+  border-inline-start: var(--hairline);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-coverage-level {
+  justify-content: center;
+  font-family: var(--font-mono);
+  color: var(--ink-muted);
+}
+
+.cx-coverage-corner,
+.cx-coverage-kind {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface-panel);
+  border-inline-end: var(--hairline);
+}
+
+.cx-coverage-corner {
+  z-index: 2;
+  padding-inline: var(--space-2);
   font-weight: var(--weight-body-medium);
   color: var(--ink);
 }
 
-.cx-coverage-measured,
-.cx-coverage-legend-entry {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-1) var(--space-2);
-  align-items: baseline;
-  font-size: var(--text-13);
+/* --- the kind column: the name, and the row's own heat as a 4 px bar --- */
+
+.cx-coverage-kind {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--row-h);
+  padding-inline: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
   color: var(--ink);
 }
 
-.cx-coverage-legend-name {
+/* The row's share published, on the ramp — a bar, never a tint under the name: a name is text, and
+   text keeps its contrast (§4.3, R-UI-002). */
+.cx-coverage-kind::before {
+  content: "";
+  flex: none;
+  width: var(--space-1);
+  height: var(--row-h);
+  background: var(--cov-0);
+}
+
+.cx-coverage-kind[data-cov="1"]::before {
+  background: var(--cov-1);
+}
+
+.cx-coverage-kind[data-cov="2"]::before {
+  background: var(--cov-2);
+}
+
+.cx-coverage-kind[data-cov="3"]::before {
+  background: var(--cov-3);
+}
+
+.cx-coverage-kind[data-cov="4"]::before {
+  background: var(--cov-4);
+}
+
+.cx-coverage-kind-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- the cell: a glyph, a ramp step, a hatch --- */
+
+.cx-coverage-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--row-h);
+  min-width: 0;
+  border-inline-end: var(--hairline);
+  border-block-end: var(--hairline);
+  background: var(--cov-0);
   color: var(--ink);
+  cursor: pointer;
 }
 
-.cx-coverage-legend-remedy {
-  grid-column: 2;
-  color: var(--ink-secondary);
+.cx-coverage-cell[data-cov="1"] {
+  background: var(--cov-1);
 }
 
-/* --- the inspector: the register panel's chrome, exactly (Decision § 1) --- */
+.cx-coverage-cell[data-cov="2"] {
+  background: var(--cov-2);
+}
+
+.cx-coverage-cell[data-cov="3"] {
+  background: var(--cov-3);
+}
+
+.cx-coverage-cell[data-cov="4"] {
+  background: var(--cov-4);
+}
+
+/* §4.3's colour column, one rule per mark. */
+.cx-coverage-cell[data-mark="absent"] {
+  color: var(--state-danger);
+  box-shadow: inset 0 0 0 1px var(--state-danger);
+}
+
+.cx-coverage-cell[data-mark="held"] {
+  color: var(--state-warn);
+}
+
+.cx-coverage-cell[data-mark="out-of-scope"],
+.cx-coverage-cell[data-mark="catalogue"] {
+  color: var(--ink-disabled);
+}
+
+/* §4.3 asks this mark for a DOTTED hairline. It is drawn as the cell's own border, never as an
+   `outline`: `outline` is how R-UI-012's reticle states focus, and a second stylesheet declaring one
+   is a second focus indicator whatever it meant (B-17, tests/ui/primitives-core/reticle.test.ts). */
+.cx-coverage-cell[data-mark="no-class"] {
+  color: var(--ink-disabled);
+  border: 1px dotted var(--ink-disabled);
+}
+
+/* The two dark steps of the ramp carry the inverse ink whatever the mark asked for: a mark nobody
+   can see is not a mark (R-UI-002, and the contrast half of §7 C9). */
+.cx-coverage-cell[data-cov="3"],
+.cx-coverage-cell[data-cov="4"] {
+  color: var(--ink-inverse);
+}
+
+/* §4.3's pattern column. The geometry is the token's and the colour is the cell's `currentColor`,
+   so the hatch prints in the certificate's greyscale exactly as it renders (R-UI-060). */
+.cx-coverage-cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--pattern-none);
+  background-size: var(--pattern-pitch);
+  pointer-events: none;
+}
+
+.cx-coverage-cell[data-mark="published"]::after {
+  background-image: var(--pattern-solid);
+}
+
+.cx-coverage-cell[data-mark="partial"]::after {
+  background-image: var(--pattern-dots);
+}
+
+.cx-coverage-cell[data-mark="held"]::after {
+  background-image: var(--pattern-hatch);
+}
+
+.cx-coverage-cell[data-mark="out-of-scope"]::after {
+  background-image: var(--pattern-cross);
+}
+
+/* A declaration the published lines have beaten keeps its mark and says so at its edge (I-192). */
+.cx-coverage-cell[data-contradicted="true"] {
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+
+.cx-coverage-cell[aria-selected="true"] {
+  box-shadow: inset 0 0 0 2px var(--line-accent);
+}
+
+.cx-coverage-cell:hover {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* The mark fills half the cell at either density, and the bill axis' own mark stands in the corner
+   beside it — a cell states one cause, and shows the second axis rather than hiding it (I-189). */
+.cx-coverage-mark {
+  position: relative;
+  z-index: 1;
+  width: calc(var(--row-h) / 2);
+  height: calc(var(--row-h) / 2);
+}
+
+.cx-coverage-mark-corner {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: calc(var(--row-h) / 4);
+  height: calc(var(--row-h) / 4);
+}
+
+/* --- the 28 px tally (§3.5's footer) --- */
+
+.cx-coverage-tally {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--row-h);
+  padding-inline: var(--space-2);
+  border: var(--hairline);
+  border-radius: var(--radius-4);
+  background: var(--surface-panel);
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.cx-coverage-tally-total {
+  color: var(--ink);
+  font-weight: var(--weight-body-medium);
+}
+
+/* --- the inspector, in the shell's ONE right column (§3.1) --- */
 
 .cx-coverage-inspector {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3);
-  border: var(--hairline);
-  border-radius: var(--radius-8);
-  background: var(--surface-panel);
+  min-width: 0;
 }
 
 .cx-coverage-inspector-heading {
@@ -238,18 +440,24 @@
   color: var(--ink);
 }
 
-.cx-coverage-inspector-body,
 .cx-coverage-hint,
 .cx-coverage-none {
   font-size: var(--text-13);
   color: var(--ink-muted);
 }
 
-.cx-coverage-facts {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-1) var(--space-2);
-  font-size: var(--text-13);
+/* Where the cell stands, as one line: kind · class · level. */
+.cx-coverage-where {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-12);
+}
+
+.cx-coverage-where .cx-coverage-value + .cx-coverage-value::before {
+  content: "·";
+  padding-inline-end: var(--space-1);
   color: var(--ink-muted);
 }
 
@@ -260,36 +468,73 @@
 }
 
 .cx-coverage-grain {
-  font-size: var(--text-13);
+  font-size: var(--text-12);
   color: var(--ink-secondary);
 }
 
-.cx-coverage-cause,
-.cx-coverage-remedy {
+.cx-coverage-cause {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   font-size: var(--text-13);
   color: var(--ink);
 }
 
-.cx-coverage-remedy {
+/* The mark, said twice over: the very glyph the grid drew, and the word it is read by (§4.3). */
+.cx-coverage-cause-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: var(--weight-body-medium);
+}
+
+.cx-coverage-cause-mark[data-mark="published"] {
+  color: var(--cov-4);
+}
+
+.cx-coverage-cause-mark[data-mark="absent"] {
+  color: var(--state-danger);
+}
+
+.cx-coverage-cause-mark[data-mark="held"] {
+  color: var(--state-warn);
+}
+
+.cx-coverage-cause-mark[data-mark="out-of-scope"],
+.cx-coverage-cause-mark[data-mark="no-class"],
+.cx-coverage-cause-mark[data-mark="catalogue"] {
   color: var(--ink-secondary);
 }
 
-.cx-coverage-remedy-link {
-  color: var(--accent);
-  transition: color var(--motion-state) var(--ease);
+.cx-coverage-cause-mark .cx-coverage-legend-mark {
+  width: var(--icon-md);
+  height: var(--icon-md);
 }
 
-.cx-coverage-declared-label {
-  display: block;
+.cx-coverage-declared {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* R-UI-020: the remedy is a sentence AND a way out. */
+.cx-coverage-remedy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.cx-coverage-remedy-sentence {
+  font-size: var(--text-13);
+  color: var(--ink-secondary);
+}
+
+.cx-coverage-label {
   font-size: var(--text-12);
   color: var(--ink-muted);
-}
-
-.cx-coverage-act-id {
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
-  color: var(--ink-secondary);
-  user-select: all;
+  white-space: nowrap;
 }
 
 .cx-coverage-contradicted {
@@ -297,33 +542,48 @@
   color: var(--danger);
 }
 
-.cx-coverage-sighting,
-.cx-coverage-observation {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: var(--space-1) var(--space-2);
-  padding: var(--space-2);
-  border: var(--hairline);
-  border-radius: var(--radius-4);
-  background: var(--surface-app);
+/* The Sighted-in table: one row per sighting, no wrapping cell, the source key as a chip (§5). */
+.cx-coverage-sightings {
+  width: 100%;
+  border-collapse: collapse;
   font-size: var(--text-12);
+  table-layout: fixed;
 }
 
-.cx-coverage-label {
-  font-size: var(--text-12);
+.cx-coverage-sightings th,
+.cx-coverage-sightings td {
+  height: var(--row-h);
+  padding-inline-end: var(--space-2);
+  text-align: start;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-block-end: var(--hairline);
+}
+
+.cx-coverage-sightings th {
+  font-weight: var(--weight-body-medium);
   color: var(--ink-muted);
 }
 
-.cx-coverage-source-key {
-  font-family: var(--font-mono);
-  font-size: var(--text-12);
+.cx-coverage-view-name {
   color: var(--ink-secondary);
-  overflow-wrap: anywhere;
-  user-select: all;
+}
+
+.cx-coverage-source-key,
+.cx-coverage-act-id {
+  min-width: 0;
+}
+
+.cx-coverage-observation {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-12);
 }
 
 .cx-coverage-reason {
-  font-size: var(--text-13);
   color: var(--ink-secondary);
 }
 
@@ -331,10 +591,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  align-items: flex-start;
+  align-items: stretch;
 }
 
-/* --- the empty and error cells, which stand in the body's place --- */
+/* --- the empty and error cells, which stand in the work surface's place --- */
 
 .cx-coverage-empty {
   display: flex;
@@ -376,24 +636,32 @@
   user-select: all;
 }
 
-/* --- the certificate preview: document text, previewed as document text --- */
+/* --- the certificate preview: a document, and a document is not the work surface --- */
 
 .cx-coverage-certificate {
   display: flex;
+  flex: none;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: var(--space-2);
+  max-height: var(--cx-coverage-doc-h);
+  overflow: auto;
+  padding: var(--space-3);
   border: var(--hairline);
-  border-radius: var(--radius-8);
-  background: var(--surface-app);
+  border-radius: var(--radius-4);
+  background: var(--surface-panel);
   font-family: var(--font-doc);
   font-size: var(--text-13);
   color: var(--ink);
-  max-width: 72ch;
+}
+
+/* Shut from the tool row, it is out of the way and still in the document — the statements are law
+   and are never unmounted, so a reader who opens it reads the same two boundaries (L-QTY-07). */
+.cx-coverage-certificate[data-open="false"] {
+  display: none;
 }
 
 .cx-coverage-certificate-heading {
-  font-size: var(--text-20);
+  font-size: var(--text-13);
   font-weight: var(--weight-heading);
   color: var(--ink);
 }
@@ -401,7 +669,7 @@
 .cx-coverage-statement {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .cx-coverage-statement-title {
@@ -413,7 +681,6 @@
 .cx-coverage-statement-rows {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
 }
 
 .cx-coverage-statement-row {
@@ -421,14 +688,21 @@
   grid-template-columns: auto auto auto minmax(0, 1fr);
   gap: var(--space-2);
   align-items: baseline;
+  height: var(--row-h);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .cx-coverage-statement-cause {
   color: var(--ink-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* --- the bones, which keep this layout while the route resolves (R-UI-004) --- */
 
-.cx-coverage-loading .cx-coverage-body {
-  align-items: stretch;
+.cx-coverage-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }

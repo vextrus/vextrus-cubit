@@ -135,23 +135,42 @@ describe("AC-6: the grid states every cell of the residue, twice over — a mark
     ).toEqual(expected);
   }, 120_000);
 
-  test("AC-6: the legend names every code the law admits, with its mark and the registry's words", async () => {
+  /**
+   * The key line, as Design Direction 00 §3.5 and §8's second fix rebuilt it: the legend was a 540 px
+   * column of sentences and is now ONE 28 px row of glyph+word pairs, with the registry's sentence
+   * carried on `data-meaning` and rendered by the shipped Tooltip on hover and on focus.
+   *
+   * So what is judged moved with it, and nothing was dropped: the vocabulary is still the whole
+   * closed set in the law's own order, each entry still carries the very mark the grid draws — and
+   * the registry's message is still BOUND to that mark, verbatim, where the tooltip reads it. What
+   * is new is the discipline the fix bought: the visible half of an entry is a WORD, never a
+   * sentence, which is what makes one line out of twenty-seven (I-195, §6, R-SPINE-062).
+   */
+  test("AC-6: the key line names every code the law admits, with its mark, one word, and the registry's sentence", async () => {
     await ready();
     const mounted = await mountCoverage({ view });
     const legend = hook(mounted.root, TESTID.legend);
     const entries = hooks(legend, TESTID.legendEntry);
     expect(
       entries.map((entry) => attr(entry, "data-code")),
-      "the legend is the whole vocabulary — one measured reading and every cause, in the law's own order",
+      "the key line is the whole vocabulary — one measured reading and every cause, in the law's own order",
     ).toEqual(codes);
 
     for (const entry of entries) {
       const code = attr(entry, "data-code");
-      expect(attr(hook(entry, TESTID.glyph), "data-code"), `the legend entry for ${code} carries the very mark the grid draws for it`).toBe(code);
+      expect(attr(hook(entry, TESTID.glyph), "data-code"), `the key entry for ${code} carries the very mark the grid draws for it`).toBe(code);
       const words = wordsFor(code);
       if (words !== undefined) {
-        expect(textOf(entry), `and states the registry's message for ${code} verbatim (I-195)`).toContain(words.message);
+        expect(attr(entry, "data-meaning"), `and carries the registry's message for ${code} verbatim, which is what its tooltip states (I-195)`).toBe(
+          words.message,
+        );
       }
+      const visible = textOf(entry);
+      expect(visible.length, `every key entry says what its mark means in words: "${code}"`).toBeGreaterThan(0);
+      expect(
+        visible.split(" ").length,
+        `and says it in a WORD, never a sentence — seven of these stand on one 28 px line (§3.5, §8): "${visible}"`,
+      ).toBeLessThanOrEqual(3);
     }
   }, 120_000);
 });

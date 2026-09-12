@@ -1,19 +1,27 @@
 "use client";
 // The coverage grid, bound (docs/design/s-coverage.md I-170). This is the one file that may reach
-// both `src/ui` and `src/modules`: it hands the presentational workspace the three SHIPPED renderers
-// and the lane's own four doors, and adds nothing of its own to either.
+// both `src/ui` and `src/modules`: it hands the presentational workspace the SHIPPED renderers and
+// the lane's own four doors, and adds nothing of its own to either.
 //
 // It also holds the two cells the workspace cannot hold, because both are about the READ rather than
 // about the residue: the fault the read left behind, with the report id and the retry R-UI-050 asks
 // for, and the reading itself once a retry has answered.
-import { useCallback, useEffect, useState } from "react";
+//
+// AND IT IS WHERE THE FRAME'S SLOTS ARE FILLED (Direction §1, §3.1). `useInspector` and
+// `useShellToolbar` are hooks of `@/ui/shell`, and ARCH-01 bars a module from reaching them — so the
+// workspace hands its inspector and its tool row to two MOUNTS declared as ordinary renderers
+// (I-209), and the two components below are those mounts: each takes the nodes the module wrote and
+// puts them in the frame's own region. Neither adds a word or a box of its own.
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { Consequence } from "@/core/acts";
 import { REFUSALS, type RefusalEntry } from "@/core/errors";
 import { CoverageWorkspace, type BoundaryCell, type CoverageChrome, type CoverageDensity, type CoverageDoors, type CoveragePreviewAnswer } from "@/modules/takeoff/coverage";
 import type { CoverageView } from "@/modules/takeoff/coverage/view";
 import { ConsequenceDialog } from "@/ui/patterns/consequence-dialog";
 import { RefusalState } from "@/ui/patterns/refusal-state";
-import { Button } from "@/ui/primitives/core";
+import { Button, EmptyState, EnumLabel, ErrorState, IdChip, Tooltip } from "@/ui/primitives/core";
+import { ShellToolbar, useInspector, useShellToolbar } from "@/ui/shell";
+import { COVERAGE_COPY } from "@/modules/takeoff/coverage/copy";
 import {
   commitDeclareNotInProjectScope,
   commitHoldOutOfBill,
@@ -25,8 +33,38 @@ import {
   type Previewed,
 } from "./actions";
 
+/**
+ * The shell's ONE right column, filled with what the module wrote (§3.1, R-UI-080). It renders
+ * nothing where it stands: the nodes go to the frame's region, and with nothing selected the
+ * workspace mounts none of this at all, so the column is absent rather than empty.
+ */
+function InspectorMount({ children }: { children: ReactNode }) {
+  useInspector(children);
+  return null;
+}
+
+/**
+ * The same, for the 32 px tool row. The STRIP is the frame's — `ShellToolbar` is its one home and
+ * draws the row, its height and its name — and what stands in it is the screen's (§3.1, B-17).
+ */
+function ToolbarMount({ children }: { children: ReactNode }) {
+  useShellToolbar(<ShellToolbar label={COVERAGE_COPY.takeoff_coverage_tools_label}>{children}</ShellToolbar>);
+  return null;
+}
+
 /** The shipped renderers, bound once (I-170): what a test mounts is what this route renders. */
-const CHROME: CoverageChrome = { Button, RefusalState, ConsequenceDialog };
+const CHROME: CoverageChrome = {
+  Button,
+  RefusalState,
+  ConsequenceDialog,
+  IdChip,
+  EnumLabel,
+  Tooltip,
+  EmptyState,
+  ErrorState,
+  InspectorMount,
+  ToolbarMount,
+};
 
 /** The two act types the doors confirm as (L-ACT-03), named where the ask is shaped and nowhere else. */
 const HOLD_OUT_OF_BILL = "HOLD_OUT_OF_BILL";

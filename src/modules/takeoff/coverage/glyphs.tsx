@@ -73,38 +73,28 @@ export const CAUSE_GLYPHS: Readonly<Record<GlyphReading, Mark>> = Object.freeze(
 });
 
 /**
- * One mark, drawn at a size and placed. The placement and the scale ride on the group the mark is
- * named by, so the geometry inside it is the mark itself and nothing else: one cause is drawn the
- * same way wherever it stands, at either density and at either of the two sizes a cell carries
- * (I-189, R-UI-005).
+ * One mark, drawn inside a cell. The SIZE is the stylesheet's — a mark fills half the reader's own
+ * row height, at either density (`--row-h`, R-UI-005) — so this file states geometry only inside the
+ * viewBox and never a pixel outside it (I-189, ARCH-01).
  */
-export function CauseGlyph({ reading, x, y, size, read = false }: { reading: GlyphReading; x: number; y: number; size: number; read?: boolean }) {
+export function CauseGlyph({ reading, read = false, corner = false }: { reading: GlyphReading; read?: boolean; corner?: boolean }) {
   const Mark = CAUSE_GLYPHS[reading];
   // I-189 draws a cell's two axes as two marks, and I-198 names exactly ONE of them as the reading a
   // person is answered with. So the mark of the read axis is the cell's mark and carries the hook and
   // the code; the other axis is drawn beside it, unnamed — a cell states one cause, not two.
   const named = read ? { "data-testid": "coverage-cell-glyph", "data-code": reading } : {};
   return (
-    <g {...named} transform={`translate(${x} ${y}) scale(${size / VIEW_BOX_SIDE})`} aria-hidden="true" focusable="false">
+    <svg {...named} className={corner ? "cx-coverage-mark cx-coverage-mark-corner" : "cx-coverage-mark"} viewBox={VIEW_BOX} aria-hidden="true" focusable="false">
       <Mark />
-    </g>
+    </svg>
   );
 }
 
-/** The same mark, standing on its own in the legend beside the words it means (I-195). */
-export function LegendGlyph({ reading, size }: { reading: GlyphReading; size: number }) {
+/** The same mark, standing on its own in the key line beside the word it means (I-195). */
+export function LegendGlyph({ reading }: { reading: GlyphReading }) {
   const Mark = CAUSE_GLYPHS[reading];
   return (
-    <svg
-      className="cx-coverage-legend-mark"
-      data-testid="coverage-cell-glyph"
-      data-code={reading}
-      width={size}
-      height={size}
-      viewBox={VIEW_BOX}
-      aria-hidden="true"
-      focusable="false"
-    >
+    <svg className="cx-coverage-legend-mark" data-testid="coverage-cell-glyph" data-code={reading} viewBox={VIEW_BOX} aria-hidden="true" focusable="false">
       <Mark />
     </svg>
   );

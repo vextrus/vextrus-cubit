@@ -14,15 +14,40 @@ export type CoverageCopyKey = keyof typeof COVERAGE_COPY;
 export const COVERAGE_COPY = Object.freeze({
   takeoff_nav_coverage: "Coverage",
   takeoff_coverage_heading: "Coverage",
-  takeoff_coverage_caption:
-    "What this campaign measured, what it did not, and why — one cell for every kind a sighted class bears, on every level it was sighted.",
   takeoff_coverage_revision_label: "Pinned revision",
   takeoff_coverage_grid_label: "Kinds by class and level",
   takeoff_coverage_measured_note: "A filled mark is a cell with published quantity.",
   takeoff_coverage_legend_heading: "What each mark means",
-  takeoff_coverage_partial_note: "Some work items bear no cell in this grid. They stand at the head of it, each with the reason it bears none.",
-  takeoff_coverage_kind_label: "Kind",
-  takeoff_coverage_class_label: "Class",
+  // §3.5's one 28 px key line: the WORD a mark is read by stands beside its glyph, and the
+  // registry's whole sentence arrives on hover. Seven words, one per mark (§4.3's table).
+  takeoff_coverage_mark_published: "Published",
+  takeoff_coverage_mark_partial: "Partial",
+  takeoff_coverage_mark_absent: "Absent",
+  takeoff_coverage_mark_out_of_scope: "Out of scope",
+  takeoff_coverage_mark_held: "Held",
+  takeoff_coverage_mark_no_class: "No class",
+  takeoff_coverage_mark_catalogue: "Catalogue only",
+  // The same seven, as the footer tallies them: "31 published", not "31 Published" (§6).
+  takeoff_coverage_tally_published: "published",
+  takeoff_coverage_tally_partial: "partial",
+  takeoff_coverage_tally_absent: "absent",
+  takeoff_coverage_tally_out_of_scope: "out of scope",
+  takeoff_coverage_tally_held: "held",
+  takeoff_coverage_tally_no_class: "no class",
+  takeoff_coverage_tally_catalogue: "catalogue only",
+  // The 28 px footer: the count of cells, then one tally per mark that stands in this reading.
+  takeoff_coverage_footer_cells_one: "{count} cell",
+  takeoff_coverage_footer_cells_other: "{count} cells",
+  takeoff_coverage_footer_tally: "{count} {mark}",
+  takeoff_coverage_footer_label: "Counts by mark",
+  // The 32 px tool row (§3.5): what a reader does to the screen, never inside the work surface.
+  takeoff_coverage_tools_label: "Coverage tools",
+  takeoff_coverage_certificate_show: "Preview certificate",
+  takeoff_coverage_certificate_hide: "Hide certificate",
+  // The grid's own two headers, named so a reader who cannot see the matrix still meets its axes.
+  takeoff_coverage_kind_column: "Kind",
+  takeoff_coverage_column_label: "{class} · {level}",
+  takeoff_coverage_kind_share: "{count} of {total} measured",
   takeoff_coverage_level_label: "Level",
   takeoff_coverage_kind_grain_label: "Every class and level",
   takeoff_coverage_cause_heading: "Why this cell reads as it does",
@@ -31,27 +56,19 @@ export const COVERAGE_COPY = Object.freeze({
     "Lines have been published for this cell since this declaration was made, so the published quantity stands and the declaration is not printed on the certificate.",
   takeoff_coverage_sightings_heading: "Sighted in",
   takeoff_coverage_channel_label: "Channel",
-  takeoff_coverage_drawing_label: "Drawing",
   takeoff_coverage_view_label: "View",
   takeoff_coverage_source_label: "Read at",
   takeoff_coverage_sightings_none: "No channel sighted this class on this level.",
+  // R-UI-020: a remedy carries a link. One cause names the rule set; every other names the register.
+  takeoff_coverage_remedy_ruleset: "Open the rule set",
   takeoff_coverage_observations_heading: "What the rails observed",
-  takeoff_coverage_observations_hint: "An observation is evidence for the reader, never the cause on the certificate.",
   takeoff_coverage_observations_none: "Nothing was observed for this cell.",
-  takeoff_coverage_doors_hint: "Each door opens a preview of exactly what it changes. Nothing is committed until you confirm.",
   takeoff_coverage_hold_out: "Hold out of this bill",
   takeoff_coverage_declare_out_of_scope: "Declare out of project scope",
-  takeoff_coverage_inspector_idle_heading: "No cell selected",
-  takeoff_coverage_inspector_idle_body:
-    "Choose a cell in the grid to read what was sighted for it, what the rails observed, and why it stands as it does.",
   takeoff_coverage_certificate_heading: "Certificate preview",
-  takeoff_coverage_certificate_hint:
-    "The two boundary statements as they will print: each an enumeration, in the certificate's own order, without counts.",
   takeoff_coverage_statement_measurement_title: "Statement of the measurement boundary",
-  takeoff_coverage_statement_measurement_hint: "Every kind, class and level this campaign did not measure, and the reason each stands unmeasured.",
   takeoff_coverage_statement_measurement_none: "This campaign measured every kind borne by every class it sighted, on every level.",
   takeoff_coverage_statement_bill_title: "Statement of the bill boundary",
-  takeoff_coverage_statement_bill_hint: "Every kind, class and level a person held out of this bill.",
   takeoff_coverage_statement_bill_none: "Nothing has been held out of this bill.",
   // A statement empty because there is no campaign to state one over says THAT, and never that a
   // campaign nobody pinned measured everything: the boundary is unstated, not settled (X-3, L-QTY-07).
@@ -90,4 +107,14 @@ const SLOT = /\{(\w+)\}/gu;
  */
 export function fillCoverageCopy(key: CoverageCopyKey, values: Readonly<Record<string, string>>): string {
   return COVERAGE_COPY[key].replace(SLOT, (slot, name: string) => values[name] ?? slot);
+}
+
+/**
+ * One sentence in the form its count takes. The "1 sheets" bug ends by asking the count, not by
+ * hoping (§6): a key's singular form is the key with `_one`, its plural the key with `_other`, and
+ * the count fills the slot in either.
+ */
+export function countCoverageCopy(key: "takeoff_coverage_footer_cells", count: number, values: Readonly<Record<string, string>> = {}): string {
+  const form = (count === 1 ? `${key}_one` : `${key}_other`) as CoverageCopyKey;
+  return fillCoverageCopy(form, { count: String(count), ...values });
 }
