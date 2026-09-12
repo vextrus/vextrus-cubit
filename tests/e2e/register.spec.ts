@@ -11,6 +11,7 @@
  * re-take (v16.2 §1).
  */
 import { expect, test } from "@playwright/test";
+import { TESTIDS } from "../../src/ui/testids";
 import { STakeoffPage } from "./pages/s-takeoff.page";
 import { SProjectPage } from "./pages/s-project.page";
 import { CLASS_COLUMN, DISCIPLINE, DUPLICATE_IDENTITY, INTERPRETED_UNCORROBORATED, LEVEL_LABEL, MARKS, stageRegister } from "./takeoff/register-stage";
@@ -57,7 +58,12 @@ test.describe("J-021 — the register workspace", () => {
     await expect(takeoff.objectCorroboration, "and the corroboration state a reader judges it by").toBeVisible();
 
     /* --- the lines: the terminus of the column slice, with the formula and its variables visible --- */
-    const rows = takeoff.lines.locator('[role="row"]:not(:has([role="columnheader"]))');
+    // The PUBLISHED LINES, and only them. Since v22 the grid draws §5 rule 4's group header over
+    // each group and a totals row under the body — both are `role="row"` and neither is a line, so a
+    // count of every non-header row counted five where the register published three and the count
+    // line said so. A line row is the one the table publishes under `datatable-row` carrying the
+    // register's own `data-line`, which is the same row `originLink` and `takeRowAt` address.
+    const rows = takeoff.lines.getByTestId(TESTIDS.datatable.row);
     await expect(rows, "the campaign's published lines stand in the table — a register of a measured campaign is not an empty one (J-021)").not.toHaveCount(0);
     const shown = await steadyCount(rows, "the register's published lines");
     await expect(takeoff.linesCount, "and the count line says how many of how many stand, over a total that is not none").toContainText(String(shown));

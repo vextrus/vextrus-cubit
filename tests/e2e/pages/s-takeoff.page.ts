@@ -6,6 +6,7 @@
  */
 import { expect, type Locator, type Page } from "@playwright/test";
 import { TESTIDS, testIdSelector } from "../../../src/ui/testids";
+import { screenInFrame } from "./shell.page";
 import { everyRow, steadyText } from "../support/retrying-read";
 
 /** The two addresses this screen answers at (test contract: routes). */
@@ -22,10 +23,12 @@ export class STakeoffPage {
     await this.page.goto(S_TAKEOFF.takeoff(tenantId, projectId));
     await this.page.waitForURL(new RegExp(`${S_TAKEOFF.register(tenantId, projectId)}$`));
     await expect(this.root, "the register workspace renders for a project the workspace holds").toBeVisible();
+    await expect(this.root, "and the frame holds exactly one of it — a screen stands in `shell-main` once").toHaveCount(1);
   }
 
+  /** The workspace itself, where the frame puts it: one screen inside `shell-main` (R-UI-030). */
   get root(): Locator {
-    return this.page.getByTestId(TESTIDS.register.workspace);
+    return screenInFrame(this.page, TESTIDS.register.workspace);
   }
 
   /* --- the lane's own navigation (Decision §1) --- */
