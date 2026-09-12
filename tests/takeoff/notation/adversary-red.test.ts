@@ -73,3 +73,20 @@ describe("N2 — a two-zone tie spacing (33 corpus strings: every column tie cal
     expect(read.ok && (read.parsed as { zones: unknown }).zones).toBe(null);
   });
 });
+
+describe("N3 — a cover note names what it covers (all four notes on the fixture do)", () => {
+  test.each([
+    ["25mm clear cover (beams)", 25, "BEAMS"],
+    ["40mm clear cover (columns)", 40, "COLUMNS"],
+    ["20mm clear cover (slabs)", 20, "SLABS"],
+    ['2" clear cover (pile caps)', 50.8, "PILE CAPS"],
+  ])("%s is a cover of that scope", (said, mm, scope) => {
+    const read = readNotation(String(said));
+    expect(read.ok, "the COVER form was anchored at the end, so every scoped note — which is every real one — was refused").toBe(true);
+    expect(read.ok && read.parsed).toStrictEqual({ mm, scope });
+  });
+
+  test("a note that states no scope states none, rather than borrowing one", () => {
+    expect(readNotation("CLEAR COVER = 40 MM").ok && (readNotation("CLEAR COVER = 40 MM") as { parsed: { scope: unknown } }).parsed.scope).toBe(null);
+  });
+});

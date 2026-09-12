@@ -489,15 +489,24 @@ function readGrade(said: string): { readonly parsed: Grade; readonly kind: Notat
 }
 
 const COVER = /^(?:CLEAR\s+COVER|COVER)\s*[=:]?\s*(.+)$|^(.+?)\s+(?:CLEAR\s+)?COVER$/;
+/** What a note says the cover is OF. Every real cover note on the fixture names its scope, because a
+ * set states four covers and a bill that applies one of them to everything is wrong four ways. */
+const SCOPED = /^(.*?)\s*\(([^()]*)\)\s*$/;
 
-/** A cover as a note states it, in millimetres whichever unit it was written in. */
-export type Cover = { readonly mm: number };
+/** A cover as a note states it, in millimetres whichever unit it was written in, and what it covers
+ * where the note said so — never the cover alone, which would be four numbers for one question. */
+export type Cover = { readonly mm: number; readonly scope: string | null };
 
 function readCover(said: string): Cover | null {
-  const match = COVER.exec(said);
+  // The scope is lifted off first: the COVER form is anchored at both ends, so `25MM CLEAR COVER
+  // (BEAMS)` matched nothing at all and every cover note the set states was refused.
+  const scoped = SCOPED.exec(said);
+  const stated = scoped === null ? said : String(scoped[1]);
+  const scope = scoped === null ? null : String(scoped[2]).trim();
+  const match = COVER.exec(stated);
   if (match === null) return null;
   const mm = lengthMm(String(match[1] ?? match[2] ?? "").trim());
-  return mm === null ? null : { mm };
+  return mm === null ? null : { mm, scope: scope === null || scope === "" ? null : scope };
 }
 
 const LABELLED = /^(?:[A-Z][A-Z\s]{0,11}?)\s*[=:]\s*(.+)$/;
@@ -642,9 +651,11 @@ export const GRAMMAR: readonly GrammarRow[] = Object.freeze([
   { input: "fy = 72,500 psi ASTM 615", kind: "grade_fy", parsed: { valueAsWritten: 72500, unitAsWritten: "PSI", valueMpa: 499.869882, standard: "ASTM 615" }, source: "general note: steel grade with its standard and a thousands comma" },
   { input: "fy 415 MPa", kind: "grade_fy", parsed: { valueAsWritten: 415, unitAsWritten: "MPA", valueMpa: 415, standard: null }, source: "the metric half of the same set" },
   // — covers ———————————————————————————————————————————————————————————————————————————
-  { input: "2\" clear cover", kind: "cover", parsed: { mm: 50.8 }, source: "general note: imperial cover" },
-  { input: "15mm clear cover", kind: "cover", parsed: { mm: 15 }, source: "the metric cover written on the same set" },
-  { input: "CLEAR COVER = 40 MM", kind: "cover", parsed: { mm: 40 }, source: "general note: cover stated the other way round" },
+  { input: "2\" clear cover", kind: "cover", parsed: { mm: 50.8, scope: null }, source: "general note: imperial cover" },
+  { input: "15mm clear cover", kind: "cover", parsed: { mm: 15, scope: null }, source: "the metric cover written on the same set" },
+  { input: "CLEAR COVER = 40 MM", kind: "cover", parsed: { mm: 40, scope: null }, source: "general note: cover stated the other way round" },
+  { input: "25mm clear cover (beams)", kind: "cover", parsed: { mm: 25, scope: "BEAMS" }, source: "the shape EVERY cover note of a real set is written in: the cover and what it covers" },
+  { input: "2\" clear cover (pile caps)", kind: "cover", parsed: { mm: 50.8, scope: "PILE CAPS" }, source: "T-NOT-COVER: the imperial half of the same note block" },
   // — dimensions ————————————————————————————————————————————————————————————————————————
   { input: "P.L= +2'-6\"", kind: "dimension_ft_in", parsed: { mm: 762, sign: "+" }, source: "census habit: a plinth level mark in feet and inches" },
   { input: "15'-0\"", kind: "dimension_ft_in", parsed: { mm: 4572, sign: "" }, source: "T-NOT-FTIN (exact ×25.4)" },
