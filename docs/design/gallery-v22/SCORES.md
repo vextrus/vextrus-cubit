@@ -25,8 +25,8 @@ the number is stated and is marked below wherever it rests on arithmetic rather 
 Where nothing could be computed, the cell is `—` and NO WEIGHTED TOTAL IS CLAIMED.
 
 Two consequences, stated plainly rather than buried:
-1. **Viewer, Register and Drawings carry no score.** The viewer's C1/C2 are real (they are proved as
-   arithmetic over the shell's own grid, below) but nine of its twelve are unread.
+1. **Viewer and Drawings carry no score.** The viewer's C1/C2 are real (they are proved as arithmetic
+   over the shell's own grid, below) but nine of its twelve are unread.
 2. **Every scored number above is provisional until the picture run replaces it.** C9 in particular
    is a 4 everywhere and is unearned: **axe has not been run on any screen this session.** It is
    written as 4 rather than 5 for that reason, and it may only go down.
@@ -34,7 +34,7 @@ Two consequences, stated plainly rather than buried:
 | Screen | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | C11 | C12 | Score | Before (§8) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Viewer | 5 | 5 | — | — | — | — | — | 5 | — | — | — | — | *pending capture* | 2.7 |
-| Register | — | — | — | — | — | — | — | 5 | — | — | — | — | *pending* | 1.5 |
+| Register | 4 | 5 | 4 | 4 | 4 | **3** | 4 | 5 | 4 | 4 | 4 | 4 | **4.0** | 1.5 |
 | Coverage | 4 | 5 | 4 | 4 | 4 | 4 | 5 | 5 | 4 | 4 | 4 | 4 | **4.3** | 2.3 |
 | Home | 4 | 4 | 4 | 4 | 4 | 5 | 5 | 5 | 4 | 5 | 4 | 4 | **4.3** | 2.9 |
 | Project | 4 | 4 | 4 | 4 | 4 | 5 | 5 | 5 | 4 | 5 | 4 | 4 | **4.3** | 2.9 |
@@ -58,6 +58,19 @@ Two consequences, stated plainly rather than buried:
 - **C3 = 3.** The breadcrumb does not name the page. Shared with Members, and §7 is explicit that "a
   repeated cross-screen finding (breadcrumb, dead inspector, native select) is owned by the
   foundation node, not recorded forever" — so it belongs to `routes.ts`, not to these two screens.
+
+### S-Register — 4.0, and the one SCREAMING word that caps EVERY grid screen
+
+C6 = 3, and it is a foundation debt rather than this screen's. Every identifier the criterion names is
+gone: uuids into `IdChip`, object and source keys under `[data-technical]`, `MEASURED`/`NONE`/coverage
+/engine/role/standing/discipline through `EnumLabel`. What is left is **`BasisChip`'s own copy** — the
+shipped primitive renders `{basis}` as a bare text node, once per row. Re-wording it at the call site
+is exactly the B-17 defect it exists to prevent, so the register cannot fix it and did not try.
+
+**Until `BasisChip` reads like `EnumLabel` — words on the face, the raw value under `data-technical` —
+no grid screen in the product can score C6 above 3.** That is S-Takeoff, S-Coverage and, in M3,
+S-BOQ, S-BBS, S-Levels and S-Schedules. It is the single highest-leverage craft fix left, and it is
+one primitive.
 
 ### S-Auth — 4.0, clearing the bar only because C1 cannot be won
 
