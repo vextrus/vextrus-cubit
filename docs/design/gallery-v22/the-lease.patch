@@ -1,0 +1,152 @@
+diff --git a/playwright.config.ts b/playwright.config.ts
+index 83f0b2d..4e7bb58 100644
+--- a/playwright.config.ts
++++ b/playwright.config.ts
+@@ -19,8 +19,21 @@ const port = portFor("e2e");
+  */
+ const baseURL = `http://127.0.0.1:${port}`;
+ 
+-/** Is the whole of §9.3 in force for this run? U2 flips this one switch (Design Direction 00 §9.3). */
+-const picture = process.env["CUBIT_E2E_PICTURE"] === "1";
++/**
++ * §9.3's capture geometry — 1440×900 at device scale 1, `en-GB`, `Asia/Dhaka`, reduced motion, the
++ * three Chromium font flags, the cursor hidden — is now the LANE'S DEFAULT, not an opt-in.
++ *
++ * U1b wired it and left it dark, because "re-baselining the world is one lease held by one node
++ * (U2), and wiring the geometry is not the same act as flipping it". This is that act, taken under
++ * the v22 U2 re-baseline lease, sanctioned by the integrator under the founder's Bible authority,
++ * 2026-09-12: every design baseline in the tree was deleted and re-taken in both themes at this
++ * geometry, in one run, whole-screen and height-capped (docs/design/gallery-v22/README.md).
++ *
++ * The switch survives, inverted: `CUBIT_E2E_PICTURE=0` puts the lane back on the pre-v22 geometry
++ * for a bisect. It is not a thing any green run may use — the committed baselines were taken at the
++ * geometry below, so a run that turns it off compares this world against pictures of another one.
++ */
++const picture = process.env["CUBIT_E2E_PICTURE"] !== "0";
+ 
+ /** Is this run being filmed? A showreel needs a film and a trace, so asking for one turns both on. */
+ const showreel = process.env["CUBIT_SHOWREEL"] === "1";
+@@ -45,6 +58,9 @@ export default defineConfig({
+   globalSetup: "./tests/e2e/support/global-setup.ts",
+   // V-E2E: the visual comparisons stand against baselines committed for Linux, in one directory
+   // rather than beside each spec — a journey names its baseline and the lane says where it lives.
++  // One directory per theme rather than one per spec: a journey names its baseline and the lane says
++  // where it lives — and after the one lease, a journey names it TWICE, once per theme, so the two
++  // pictures of the same checkpoint sit side by side under names that differ only by their folder.
+   snapshotPathTemplate: "tests/e2e/baselines/design/{arg}{ext}",
+   expect: {
+     // V-E2E fixes the tolerance for every visual comparison in the lane.
+@@ -55,20 +71,24 @@ export default defineConfig({
+   // is registered by name (CUBIT_E2E_DARK=1) rather than always, because a second project doubles
+   // every journey in the wall — and until the node that owns those captures has taken them, it
+   // compares against nothing.
++  // THE TWO LANES, both always present (the one lease, 2026-09-12). The dark project was registered
++  // by name until now and ignored its snapshots, "because a second project doubles every journey in
++  // the wall — and until the node that owns those captures has taken them, it compares against
++  // nothing". U2 has taken them: dark is the product's default ground (Direction §1's table), so it
++  // is the lane's default too, and its baselines live in their own directory beside the light ones.
++  //
++  // `CUBIT_E2E_DARK=0` runs the light lane alone — for a bisect, and for nothing a green run does.
+   projects:
+-    process.env["CUBIT_E2E_DARK"] === "1"
+-      ? [
+-          { name: "light", use: { colorScheme: "light" as const } },
++    process.env["CUBIT_E2E_DARK"] === "0"
++      ? [{ name: "light", use: { colorScheme: "light" as const } }]
++      : [
+           {
+             name: "dark",
+             use: { colorScheme: "dark" as const },
+-            // It compares against nothing today, so it needs no baseline directory: where the dark
+-            // pictures live is the decision of the node that stops ignoring them, and until then
+-            // one key above is the whole answer to "where does a baseline live".
+-            ignoreSnapshots: true,
++            snapshotPathTemplate: "tests/e2e/baselines/design-dark/{arg}{ext}",
+           },
+-        ]
+-      : [{ name: "light", use: { colorScheme: "light" as const } }],
++          { name: "light", use: { colorScheme: "light" as const } },
++        ],
+   // The lane's `use` block has one home, and it is not this file: `tests/e2e/support/capture-geometry.ts`
+   // builds it from the switches below, and a unit test asserts both of its branches — §9.3's capture
+   // geometry is armed by name (CUBIT_E2E_PICTURE=1) and with the switch off the block is what it
+diff --git a/tests/e2e/support/capture-geometry.ts b/tests/e2e/support/capture-geometry.ts
+index 7fc8957..8fd1a63 100644
+--- a/tests/e2e/support/capture-geometry.ts
++++ b/tests/e2e/support/capture-geometry.ts
+@@ -24,6 +24,20 @@ import type { PlaywrightTestConfig } from "@playwright/test";
+  * capture already hides the text caret by default — so "cursor hidden" is true by construction and
+  * needs no flag. It is named here so a reader looking for it finds the answer rather than a gap.
+  */
++/**
++ * IS THIS A PICTURE RUN? The one reading of the switch (B-17).
++ *
++ * Since the v22 U2 re-baseline lease (2026-09-12) the answer is YES by default: every committed
++ * baseline was taken at §9.3's geometry against the picture tenant, so a run that is not a picture
++ * run is comparing this world against pictures of another one. `CUBIT_E2E_PICTURE=0` is the bisect
++ * escape and nothing a green run uses.
++ *
++ * It matters that this is ONE function and not three readings of one variable: the geometry
++ * (`playwright.config.ts`), the frozen tenant (`picture-tenant.ts`) and the frozen clock must be on
++ * together or the picture is of a frame that half-moved.
++ */
++export const pictureLane = (): boolean => process.env["CUBIT_E2E_PICTURE"] !== "0";
++
+ export function captureGeometry(picture: boolean): PlaywrightTestConfig["use"] {
+   if (!picture) return {};
+   return {
+diff --git a/tests/e2e/support/global-setup.ts b/tests/e2e/support/global-setup.ts
+index a5a6642..c92191e 100644
+--- a/tests/e2e/support/global-setup.ts
++++ b/tests/e2e/support/global-setup.ts
+@@ -2,11 +2,12 @@
+ // journey runs. The web server is started by the config's `webServer` and reads the same URL; it
+ // opens no connection until a journey asks it to, which is what lets the two agree by name.
+ //
+-// Under `CUBIT_E2E_PICTURE=1` it also installs the PICTURE TENANT — a workspace, a project and an
++// Under the picture lane (the default since the re-baseline lease) it also installs the PICTURE TENANT — a workspace, a project and an
+ // account whose ids, names and clock are literals, so a still taken of them needs no magenta mask
+ // (AM-09 §4, Design Direction 00 §9.3). Installed only under that flag: with the flag off this file
+ // does exactly what it did, and no existing journey meets a row it did not meet before.
+ import { scryptSync } from "node:crypto";
++import { pictureLane } from "./capture-geometry";
+ import { ROLE_MIGRATE } from "../../../db/__tests__/support/fixtures";
+ import { lit, run } from "../../../db/__tests__/support/live-sql";
+ import { PICTURE_CLOCK, PICTURE_TENANT } from "./picture-tenant";
+@@ -56,7 +57,7 @@ function provisionPictureTenant(): void {
+ 
+ export default function globalSetup(): void {
+   provisionE2eDatabase();
+-  if (process.env["CUBIT_E2E_PICTURE"] !== "1") return;
++  if (!pictureLane()) return;
+   provisionPictureTenant();
+   process.stdout.write(`PICTURE TENANT ${PICTURE_TENANT.tenantId} at ${PICTURE_CLOCK} (${ROLE_MIGRATE} on ${new URL(e2eDatabaseUrl()).pathname.slice(1)})\n`);
+ }
+diff --git a/tests/e2e/support/picture-tenant.ts b/tests/e2e/support/picture-tenant.ts
+index eae9bf1..519758e 100644
+--- a/tests/e2e/support/picture-tenant.ts
++++ b/tests/e2e/support/picture-tenant.ts
+@@ -11,10 +11,11 @@
+ // derivation changes, and then the pictures change with it. The UUIDs are in the `f1c7u2e0` family
+ // so a row found in a database by hand is recognisable as this fixture's and nobody's customer.
+ //
+-// THIS TENANT IS OFF BY DEFAULT. It is provisioned only under `CUBIT_E2E_PICTURE=1`, so a journey
+-// run that did not ask for pictures meets exactly the database it met before (the gate the brief
+-// asks for: no behaviour change to an existing journey).
++// THIS TENANT IS ON BY DEFAULT since the v22 U2 re-baseline lease (2026-09-12): every committed
++// baseline is a picture of it, so a run that did not provision it would compare this world against
++// pictures of another one. `CUBIT_E2E_PICTURE=0` is the bisect escape (`pictureLane()`, B-17).
+ import { test as baseTest, type Page } from "@playwright/test";
++import { pictureLane } from "./capture-geometry";
+ 
+ /** The frozen instant every picture is taken at: 2026-03-01 10:00 Asia/Dhaka, stated in UTC. */
+ export const PICTURE_CLOCK = "2026-03-01T04:00:00.000Z";
+@@ -57,7 +58,7 @@ export const PICTURE_ROUTES = Object.freeze({
+  * Off unless the run asked for pictures, so an existing journey's clock is untouched.
+  */
+ export async function freezeClock(page: Page): Promise<void> {
+-  if (process.env["CUBIT_E2E_PICTURE"] !== "1") return;
++  if (!pictureLane()) return;
+   await page.clock.setFixedTime(PICTURE_CLOCK);
+ }
+ 
