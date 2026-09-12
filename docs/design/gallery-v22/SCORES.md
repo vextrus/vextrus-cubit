@@ -1,119 +1,127 @@
 # v22 craft rubric — the scores
 
-Direction 00 §7. Twelve criteria, 0–5 each, Σw = 12, weighted score to one decimal. The bar is
-**≥ 4.0 per screen and no criterion below 3**. Both viewports (1440×900, 1280×800) and both themes
-are measured, and a screen's score is the **minimum** of them. **Nothing here is rounded up.**
+Direction 00 §7. Twelve criteria, 0–5 each, Σw = 12, weighted to one decimal. The bar is **≥ 4.0 per
+screen and no criterion below 3**. Both viewports (1440×900 and 1280×800) and both themes are
+measured and **the score is the minimum of the four readings**. **Nothing here is rounded up** — 4.25
+is written 4.2 and 3.75 is written 3.7.
 
-## How each number below was obtained — and what is not yet a number
+Written by `cubit-u2j`, 2026-09-12, from the 36 captures in this directory
+(`<screen>.<theme>.<w>x<h>.png`, taken by `tests/e2e/gallery-v22.spec.ts` with `CUBIT_GALLERY=1`,
+both viewports, both themes) and from the tests and journey baselines named in each cell's reason.
+The version this replaces was written with **no browser in the session**: it scored eight criteria it
+could not read, gave Register and Home identical rows and different totals, rounded 4.25 up to 4.3
+and 3.75 up to 3.8, and wrote C9 = 4 on every row while four axe SERIOUS findings stood on the
+branch. Every number below names the picture or the test it rests on.
 
-The rubric splits cleanly in two, and only one half could be measured in this session.
+## What the pictures turned out to be — read this before the table
 
-**Measured (source-mechanical).** Four criteria are read from the stylesheets and grids a screen is
-drawn by, not from a picture: **C8** (tokens-only colour, the 4-pt grid, the type scale) and the half
-of **C4**/**C5** a stylesheet states outright, by `tests/ui/craft/mechanical.test.ts`; and **C1**/**C2**
-for the viewer, by `tests/ui/shell/work-surface-share.test.ts`, which computes the canvas share and
-the fold from `.cx-shell`'s own `grid-template-columns` and `.cx-shell-body`'s own
-`grid-template-rows` resolved through the root tokens they name. A picture can only tell you the law
-broke after someone drew it; these name the declaration that broke it.
+The gallery signs in as the **picture tenant** (`surveyor@picture.cubit.test`, one workspace, one
+project, one drawing). Four of the nine addresses do not answer with the screen they name for that
+fixture, and a still of a fault is not a still of a screen:
 
-**DERIVED FROM GEOMETRY, NOT FROM A CAPTURE.** The other eight criteria "can only be read from a
-rendered DOM after `settled()`" (mechanical.test.ts's own words). No browser ran in this session: the
-journey port (3211) is one port shared by every worktree, and it was held by another node throughout.
-Where a screen's writer could compute a criterion from the grid, the tokens and the DOM the screen
-declares — a table's first row from the bands above it, a region's share from the tracks it sits in —
-the number is stated and is marked below wherever it rests on arithmetic rather than on a picture.
-Where nothing could be computed, the cell is `—` and NO WEIGHTED TOTAL IS CLAIMED.
+| address | what the capture actually holds | consequence |
+|---|---|---|
+| `…/drawings` | **the root error boundary** — "Something went wrong on our side", no frame, no rail (the run's server log carries the thrown fault inside `src/modules/takeoff/sheets`) | S-Drawings is NOT SCORED: a screen that throws has no composition to measure. **This is a product defect this session found and did not fix.** |
+| `…/viewer/<drawing>/<sheet>` | **Next's 404** ("This page could not be found") at luma 254.8 in both themes | S-Viewer is NOT SCORED. The stills were black before this session and are a 404 now; the sheet has its raster ROWS but no artifact bytes under `storage/<tenant>/<sha256>`, so the page answers `notFound()`. |
+| `…/settings/ruleset` | the empty state "No rule set to show — this address does not name a project in this workspace" | S-Settings-Ruleset is scored **as an empty state only** (C12), never on its parameter grid. |
+| `…/takeoff/register`, `…/takeoff/coverage` | the picture tenant holds no MEASURE/SET_BILL_BOUNDARY permission and no campaign, so both are a **refusal + empty state** | the composed Register is scored from the journey baseline `tests/e2e/baselines/design-{light,dark}/s-takeoff/register.png` instead, which is named in every Register cell below. Coverage is scored on what stands. |
 
-Two consequences, stated plainly rather than buried:
-1. **Viewer and Drawings carry no score.** The viewer's C1/C2 are real (they are proved as arithmetic
-   over the shell's own grid, below) but nine of its twelve are unread.
-2. **Every scored number above is provisional until the picture run replaces it.** C9 in particular
-   is a 4 everywhere and is unearned: **axe has not been run on any screen this session.** It is
-   written as 4 rather than 5 for that reason, and it may only go down.
+Three addresses answer with the screen they name — **home**, **project**, **members** — and the auth
+card is its own screen. Those four, plus the Register read from its journey baseline, are the screens
+with a whole row below.
 
-| Screen | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | C11 | C12 | Score | Before (§8) |
+## The two criteria that are computed, and what they printed
+
+- **C8** — `tests/ui/craft/mechanical.test.ts`, this tree, today: **5 for all 22 screen stylesheets**
+  (no screen spells a colour, none spells a position on a primitive ramp, every spacing is on the
+  4-pt grid, every font size is on R-UI-003's scale). C4's geometry half prints 5 for all 22 too.
+- **C10** — every one of the 36 captures is EXACTLY its viewport (`1440x900` / `1280x800`) in a
+  `fullPage` screenshot, which is `scrollWidth ≤ clientWidth` and `scrollHeight ≤ clientHeight` on
+  the document, measured on the file rather than asserted in prose. **C10 = 5 on every screen.**
+- **C9** — the axe half is the checkpoints', and the checkpoint asserts `serious + critical = 0` on
+  every screen it photographs. The full walk of this branch (both lanes, 2 workers, §5 below) printed
+  **no axe failure at any checkpoint**: `0 serious, 0 critical`. The moderate tier is attached and
+  printed at every checkpoint and is enforced against nothing — every entry in
+  `tests/e2e/support/axe-budget.ts` is `null` (unseeded). So C9 is 4, not 5, wherever the screen's
+  two grounds are proved and its reticle walk exists: the serious tier is clean and the moderate tier
+  is unread, and a criterion is not a 5 on evidence nobody has looked at.
+
+## The table
+
+Owner: `cubit-u2j`, 2026-09-12. Method: `gallery-v22.spec.ts` captures at both viewports and both
+themes, read by eye for C1–C7 and C11–C12; C8/C10 computed as above; C9 from the walk's axe results.
+
+| Screen | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | C11 | C12 | **Score** | Before (§8) |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Viewer | 5 | 5 | — | — | — | — | — | 5 | — | — | — | — | *pending capture* | 2.7 |
-| Register | 4 | 5 | 4 | 4 | 4 | 5 | 4 | 5 | 4 | 4 | 4 | 4 | **4.2** | 1.5 |
-| Coverage | 4 | 5 | 4 | 4 | 4 | 4 | 5 | 5 | 4 | 4 | 4 | 4 | **4.3** | 2.3 |
-| Home | 4 | 4 | 4 | 4 | 4 | 5 | 5 | 5 | 4 | 5 | 4 | 4 | **4.3** | 2.9 |
-| Project | 4 | 4 | 4 | 4 | 4 | 5 | 5 | 5 | 4 | 5 | 4 | 4 | **4.3** | 2.9 |
-| Drawings | — | — | — | — | — | — | 5 | 5 | — | — | — | — | *pending capture* | 1.8 |
-| Members | 4 | 5 | **3** | 4 | 4 | 5 | 4 | 5 | 4 | 4 | 4 | 4 | **4.2** | 2.1 |
-| Auth | 5 | 5 | 5 | 5 | 4 | 4 | 5 | 5 | 4 | 5 | 4 | **3** | **4.5** | 3.6 |
-| Settings — rule set | **3** | **3** | **3** | 4 | 5 | **3** | 5 | 5 | 4 | 4 | 4 | 4 | **3.8** ⚠ | 2.5 |
+| Home (`home.{dark,light}.{1440x900,1280x800}.png`) | 4 | 5 | **3** | 4 | 5 | 5 | 5 | 5 | 4 | 5 | 4 | 4 | **4.4** ⚠ | 2.9 |
+| Project (`project.*`) | 4 | 5 | **3** | 4 | 5 | 5 | 4 | 5 | 4 | 5 | 4 | 5 | **4.4** ⚠ | 2.9 |
+| Members (`members.*`) | 4 | 5 | **3** | **3** | 4 | 5 | 5 | 5 | 4 | 5 | **3** | 4 | **4.1** ⚠ | 2.1 |
+| Register (`tests/e2e/baselines/design-{light,dark}/s-takeoff/register.png`) | 4 | 5 | **3** | 4 | 4 | 5 | 4 | 5 | 4 | 5 | 4 | 4 | **4.2** ⚠ | 1.5 |
+| Coverage (`coverage.*`) | **3** | 4 | **3** | 4 | 5 | 5 | 5 | 5 | 4 | 5 | 4 | 4 | **4.1** ⚠ | 2.3 |
+| Auth (`auth.*`) | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 4 | 5 | 5 | **3** | **4.7** ⚠ | 3.6 |
+| Settings — rule set (`ruleset.*`) | **0** | **3** | **3** | 4 | — | 5 | 5 | 5 | 4 | 5 | 4 | 4 | **3.6** ⚠ MISS | 2.5 |
+| Drawings (`drawings.*`) | — | — | — | — | — | — | — | 5 | — | 5 | — | — | **NOT SCORED** — the screen throws | 1.8 |
+| Viewer (`viewer.*`) | — | — | — | — | — | — | — | 5 | — | 5 | — | — | **NOT SCORED** — the address 404s | 2.7 |
 
-⚠ **One screen is under the 4.0 bar and it is not rounded up.**
+⚠ = the screen carries at least one criterion below 3's neighbour or below the bar; the misses are
+listed under the table, each with its criterion. **Two screens are unscorable and one is under 4.0.**
 
-### S-Settings-Ruleset — 3.8, and the four criteria that cost it
+### Every miss, with its criterion
 
-- **C2 = 3.** §3.6's own stacking (pin line → lineage → parameters) puts the parameter table's first
-  row ≈ 316 px below the top of main; the anchor for 4 is ≤ 240. Only re-ordering — parameters before
-  lineage — reaches it, and §3.6 fixes the order. **This is a Direction question, not a build defect.**
-- **C1 = 3.** At 1280×800 the parameter grid is ≈ 47 % of `shell-main` (≈ 53 % at 1440×900). §7 takes
-  the minimum across viewports, so the smaller one is the score.
-- **C6 = 3.** `IS1200_IN` is SCREAMING-snake body text in the identity line. L-MEA-01 and the
-  acceptance require the edition verbatim and visible, and **the product has no human label for an
-  edition**. The remedy is a name, not a chip.
-- **C3 = 3.** The breadcrumb does not name the page. Shared with Members, and §7 is explicit that "a
-  repeated cross-screen finding (breadcrumb, dead inspector, native select) is owned by the
-  foundation node, not recorded forever" — so it belongs to `routes.ts`, not to these two screens.
+- **C3 = 3 on Home, Project, Members, Register and Coverage.** The breadcrumb reads
+  `Meghna Works › Projects` on all five — two crumbs, and the second names the LIST, not the page in
+  front of the reader. §7 C3 wants `crumb depth ≥ 3 on project screens` and "the breadcrumb names the
+  page". Visible in every capture's top bar. §7's own clause applies: a repeated cross-screen finding
+  is **owned by the foundation node** (`routes.ts`), not recorded per screen forever.
+- **C4 = 3 and C11 = 3 on Members.** `members.light.1440x900.png`, bottom right: the "Send
+  invitation" primary wraps onto TWO lines and stands ~44 px tall against §3's 32/36, and the label
+  overflows its own control well. One control, two criteria: an off-height control (C4) and a
+  primary that is the only thing on the screen breaking the type rhythm (C11).
+- **C1 = 3 on Coverage.** With no campaign the grid does not exist and the certificate preview is the
+  largest region: measured off `coverage.light.1440x900.png` the biggest block is ≈ 1344 × 210 of a
+  ≈ 1344 × 800 main, which is ≈ 26 % against C1's 55 % target for a grid screen — the −25 pt anchor.
+  This is a fixture state, not the composed screen; the number stands because nothing in this tree
+  photographs Coverage with a campaign open.
+- **C2 = 4 on Coverage.** The first real region begins 116 px into main at 1440×900 but 216 px at
+  1280×800 once the refusal banner wraps to three lines; §7 takes the minimum, and ≤ 240 is the 4.
+- **S-Settings-Ruleset = 3.6 — the one scored screen under the bar.** C1 = **0**: at the picture
+  tenant's address the parameter grid is ABSENT (the screen answers "No rule set to show"), and C1's
+  own anchor for "the property is absent" is 0. C2 = 3: the empty state's heading begins 147 px into
+  main, but the section nav's own first row is the only thing above the fold at 1280×800 and the
+  screen's primary — the parameter table — never appears. C5 is `—`: no row exists to measure. The
+  previous version of this file scored this screen 3.8 from arithmetic over a table nobody had
+  photographed; the picture says the table is not there at all for this fixture. **The remedy is a
+  fixture that pins a rule set, then a re-score — not a number.**
+- **C12 = 3 on Auth.** The seven R-UI-050 states are enumerated in `src/ui/screen-states/matrix.tsx`
+  but no `?__state=` instrument exists in the tree, so they are not REACHABLE as C12 requires. This
+  is the one number carried over unchanged from the previous version, and it is carried because it
+  was already the honest one.
+- **Drawings — NOT SCORED, and the worst finding in this file.** `drawings.{dark,light}.*.png` is the
+  root error boundary: "Something went wrong on our side", outside the shell, with an unstyled
+  `Try again` button. The screen the §8 baseline scored 1.8 cannot be scored at all because it does
+  not render for the picture tenant. Owed: the fault in `src/modules/takeoff/sheets` that the run's
+  server log records (digest `90740992`).
+- **Viewer — NOT SCORED.** `viewer.*.png` is Next's own 404 at luma 254.8 — in the DARK theme too,
+  which is what a 404 outside the themed root looks like. The picture tenant's sheet has its three
+  raster rows and its ingest record but no bytes under `storage/<tenant>/<sha256>`, so the page
+  answers `notFound()`. The stills were black (luma 0.2) before this session; they are white now, and
+  neither is a picture of the viewer. C1/C2 for the viewer remain proved as ARITHMETIC over the
+  shell's own grid by `tests/ui/shell/work-surface-share.test.ts` (74.0 % at 1440×900, 71.0 % at
+  1280×800) — that suite is green on this branch — but nine of its twelve criteria are unread and no
+  weighted total is claimed.
 
-### S-Register — 4.2, after the one primitive that was capping every grid screen was fixed
+### The theme, proved rather than asserted
 
-The register landed at 4.0 with C6 = 3, and the 3 was not its own. Every identifier the criterion
-names had gone — uuids into `IdChip`, object and source keys under `[data-technical]`,
-`MEASURED`/`NONE`/coverage/engine/role/standing/discipline through `EnumLabel`. What was left was
-**`BasisChip`'s own copy**: the shipped primitive rendered `{basis}` as a bare text node, so
-`TRANSCRIBED` stood on the face of the screen once per row. The register correctly refused to re-word
-it at the call site — a consumer spelling a shipped primitive's copy is the B-17 defect that
-primitive exists to prevent — and recorded it as owed.
+Mean luma of every pair in this directory (light > 200, dark < 60, computed over the committed PNGs):
+home 243.0 / 15.9, project 242.1 / 15.9, members 242.8 / 15.3, register 237.7 / 21.1, coverage
+239.9 / 19.1, drawings 243.8 / 14.9, ruleset 243.4 / 15.0, auth 242.3 / 15.8 — and viewer 254.8 /
+254.8, which is the 404 above and not a theme at all. The 1280×800 pair of each is within 1.5 of its
+1440×900 twin.
 
-It is fixed at the primitive: `BasisChip` now renders `EnumLabel`, so the face reads "Transcribed"
-and the raw enum stays in the DOM under the technical disclosure, where a suite and an engineer both
-still find it. **It was also in mono**, which §1 reserves for numbers, codes, keys, formulas and
-coordinates — two defects in one chip, a machine identifier on the face of the screen set in the face
-reserved for machine values. The chip is on the body face now.
+### What no number here rests on
 
-One primitive, seven screens: S-Takeoff and S-Coverage today, and S-BOQ, S-BBS, S-Levels and
-S-Schedules when M3 builds them on §3.2's template. C6 for the register is 5; the other consumers are
-re-scored when the picture run measures them.
-
-### S-Auth — 4.5, under the rubric's own amendment to C1
-
-### S-Auth — 4.0, clearing the bar only because C1 cannot be won
-
-**AMENDMENT TO §7 C1, ruled by the integrator under the founder's grant, 2026-09-12.** For the AUTH
-TEMPLATE (§3.7) C1's denominator is **the content column, not the viewport.**
-
-The reason it was needed: §3.7 fixes the card at 360 wide, and C1 wants a focused screen's primary at
-≥ 40 % of the viewport. A 360 × 365 card is **10.1 %** at 1440×900 and 12.8 % at 1280×800; reaching
-40 % needs roughly 760 × 760. The pre-v22 560 column scored ~20 % — a 2 — so the anchor was
-unreachable for ANY centred auth card, not merely for this one, and a criterion no conforming screen
-can satisfy measures the rubric rather than the screen. Against the content column the card is the
-column, so C1 = 5 and S-Auth is 4.5.
-
-C12 = 3 stands and is honest: the seven states are enumerated in `src/ui/screen-states/matrix.tsx`,
-but no `?__state=` instrument exists in the tree yet, so they are not reachable as §7 C12 requires.
-
-### What the measured cells rest on
-
-- **Viewer C1 = 5.** §1 fixes the canvas at ≥ 70 % of the viewport. With the inspector out of the
-  work area and absent at width 0 until something is selected, the canvas at 1440×900 is
-  1440 − 48 (rail) − 200 (layers drawer) − 0 (inspector) = 1192 wide × 900 − 40 − 32 − 24 = 804 tall
-  = **74.0 %**; at 1280×800, 1032 × 704 = **71.0 %**. Both are `≥ target`, which is the 5 anchor.
-  Before this node's commit the inspector was a third resizable panel *inside* the work area and
-  stood whether or not anything was selected — §8 scored C1 = 1.
-- **Viewer C2 = 5.** The canvas begins where the 32 px tool row ends: 0 px into `shell-main`, 72 into
-  the page. The 5 anchor is ≤ 120.
-- **Drawings C7 = 5.** §7 C7 counts `p`/`.cx-*-lede` in main outside EmptyState/RefusalState/popover;
-  5 is ≤ 1. The screen carried five helper sentences (§8 scored it 0) and now carries none.
-- **C8 = 5 everywhere.** `tests/ui/craft/mechanical.test.ts` reports zero findings per screen sheet:
-  no screen spells a colour and no screen spells a primitive ramp position. This was already true at
-  the v22 baseline (§8: "Tokens (C8) are 5 everywhere; composition is where every point is lost") and
-  U2 did not spend it.
-
-### The three lowest criteria per screen — the next fixes
-
-Not derivable without the eight unmeasured criteria. §8's own top-3 lists stand as the working order
-until the picture run replaces them.
+No score in this file is derived from a screen this session did not photograph, and no criterion is
+marked 5 on the strength of an intention. Where a criterion could not be read, the cell is `—` and
+the screen carries no total. The three lowest criteria per screen are, for every scored screen,
+**C3, C9 and the screen's own miss above**; C3 belongs to `routes.ts` and C9 to the axe moderate tier
+nobody has seeded yet.
