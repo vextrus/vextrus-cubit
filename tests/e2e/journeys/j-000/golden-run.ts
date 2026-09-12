@@ -21,6 +21,20 @@
  * AM-09 §2 prescribes: "A leg that cannot be reached through the UI is a missing screen, not a
  * licence to stage." The set is still pinned here, by clicks, because the pin itself is a customer act.
  *
+ * J-000 IS THE ONLY JOURNEY THAT STILL WALKS THIS (v22 speed, the founder's second decision).
+ *
+ * Every other journey that needs a signed-in owner with a workspace, a project and an ingested
+ * drawing now SIGNS IN as this worker's seeded tenant — `signInAsSeededTenant` over the fixture the
+ * lane installs in its global setup (tests/e2e/support/seeded-tenant.ts): one form post instead of
+ * sign-up, refusal-or-notice, outbox, verification link, sign-in, workspace door, find-or-create
+ * project, upload, wait for the reading. J-000 keeps every one of those clicks because J-000 IS the
+ * story — the prologue is not its setup, it is its subject.
+ *
+ * FINDING, stated where it will be read: at the time this was written `goldenRun()` had exactly
+ * three callers and all three were J-000's own legs (m1-confirm-disciplines, m2-run-partition,
+ * m2-affirm-scale). The other journeys never shared this prologue; they each walked one of their
+ * OWN, against a fixed address, idempotently. Those are what the seeded tenant is for.
+ *
  * ONE PROLOGUE PER WORKER, PER LANE. Establishing it costs an upload and a real `cad/` extraction, so
  * it is memoised: the first leg that asks pays, every later leg in the same worker restores the
  * session's cookies and walks straight to its own screen. A second Playwright worker holds its own
