@@ -27,6 +27,24 @@ Corrections landed since, each its own commit:
 - **thirteen invalid `border` rules** in `src/ui/primitives` fixed, and the mechanical suite now reads
   the primitives it had never opened.
 
+## THE LANE POLICY — one project, both themes (v22 speed, 2026-09-12)
+
+The journey lane runs **one Playwright project: `dark`**. The light project is opted into by name,
+`CUBIT_E2E_LIGHT=1`, and is in no gate; `tests/e2e/baselines/design-light/` was deleted with its 22
+pictures. The product's ground is dark (Direction §1), and a second project was a second walk of
+every journey for a second reading of the same acts — half of 88 tests and half of 636 s.
+
+**Both themes are still scored, and from these stills.** The gallery does not depend on the project
+it runs in: it sets the theme per navigation through the instrument's own capability
+(`?__theme=light|dark`, `src/app/theme-resolver.ts`) and asserts `html[data-theme]` before it
+captures — so the 36 stills below, and every score in `SCORES.md` derived from them, are unchanged
+by the lane holding one project. `scripts/capture-gallery.mjs` runs it as `--project=dark`.
+
+The specs that owe a light PICTURE do the same inside the dark lane (`emulateTheme`,
+`tests/e2e/support/lane-theme.ts`): `shell`, `palette`, `j-020-scale`, `viewer-partition`, `j-003`.
+Their `-light` files live in `design-dark/` with the rest of the lane's pictures — a capture named
+for a ground states its own, and everything else belongs to the lane it was taken in.
+
 ## THE STILLS — thirty-six, at both viewports
 
 Nine screens × two themes × **two viewports**, named the way §9.3 asks —

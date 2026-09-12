@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process";
 
 const result = spawnSync(
   "node",
-  ["node_modules/@playwright/test/cli.js", "test", "tests/e2e/gallery-v22.spec.ts", "--project=light", "--reporter=list"],
+  ["node_modules/@playwright/test/cli.js", "test", "tests/e2e/gallery-v22.spec.ts", "--project=dark", "--reporter=list"],
   {
     stdio: "inherit",
     env: {
@@ -23,9 +23,10 @@ const result = spawnSync(
       // clock are what make two runs of the same still the same file.
       CUBIT_E2E_PICTURE: "1",
       CUBIT_GALLERY: "1",
-      // One project, both themes: the theme is set per navigation by the instrument, so a second
-      // Playwright project would take every still twice and throw one of each pair away.
-      CUBIT_E2E_DARK: "0",
+      // One project, both themes: the theme is set per navigation by the instrument (`?__theme=`),
+      // so a second Playwright project would take every still twice and throw one of each pair
+      // away. Since v22's speed pass the lane HAS one project — dark — and this runs in it; the
+      // light ground is still scored, from the emulated captures this very spec takes.
     },
   },
 );

@@ -1,5 +1,13 @@
 # v22 craft rubric — the scores
 
+> **LANE POLICY (v22 speed, 2026-09-12).** The journey lane runs one Playwright project, `dark`;
+> `CUBIT_E2E_LIGHT=1` opts the light project in by name and no gate does. **Both themes are still
+> scored here** — every cell below reads the gallery's own captures, and the gallery emulates each
+> theme per navigation (`?__theme=`) rather than inheriting a project's, so the light column is a
+> measurement of the light product taken inside the dark lane. `tests/e2e/baselines/design-light/`
+> (22 pictures) was deleted; the `-light` pictures a spec takes by emulation live in `design-dark/`.
+
+
 Direction 00 §7. Twelve criteria, 0–5 each, Σw = 12, weighted to one decimal. The bar is **≥ 4.0 per
 screen and no criterion below 3**. Both viewports (1440×900 and 1280×800) and both themes are
 measured and **the score is the minimum of the four readings**. **Nothing here is rounded up** — 4.25

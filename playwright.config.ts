@@ -82,20 +82,31 @@ export default defineConfig({
     toHaveScreenshot: { maxDiffPixelRatio: 0.002 },
   },
   timeout: 120_000,
-  // THE TWO LANES, both present by default since the v22 U2 re-baseline lease (2026-09-12). The dark
-  // project was registered by name until now and ignored its snapshots, "because a second project
-  // doubles every journey in the wall — and until the node that owns those captures has taken them,
-  // it compares against nothing". U2 has taken them. Dark is the product's ground (Direction §1's
-  // table), so it is the lane's default too, and each lane's baselines live in their own directory.
+  // ONE LANE BY DEFAULT: DARK (v22 speed, the founder's decision, 2026-09-12).
   //
-  // `CUBIT_E2E_DARK=0` runs the light lane alone — for a bisect, and for nothing a green run does.
+  // The two lanes stood side by side from the U2 re-baseline lease until now, and the second lane
+  // doubled every journey in the wall for a second reading of the same walk: 88 tests, 636 s at two
+  // workers, of which exactly half were a light-ground copy of a dark-ground journey. The product's
+  // ground is dark (Direction §1's table), so dark is the lane, and it is the ONLY lane a gate runs.
+  //
+  // THE LIGHT GROUND IS STILL JUDGED, and by a stronger instrument than a second project: the specs
+  // that owe a light picture take it INSIDE the dark lane by emulation (`emulateTheme` from
+  // tests/e2e/support/lane-theme.ts — shell, palette, j-020-scale, viewer-partition, j-003), and the
+  // gallery walks both themes in one lane the same way. Those `-light` pictures live in `design-dark/`
+  // with every other picture of this lane, because the lane is where they were taken. A capture named
+  // for a ground states its own; everything else belongs to the lane.
+  //
+  // `CUBIT_E2E_LIGHT=1` adds the light project back — for the gallery and the design contract when
+  // somebody wants the whole world walked twice, and for a bisect. It is opted into by name and is
+  // in no gate: `tests/e2e/baselines/design-light/` was deleted with this change (22 pictures), so a
+  // light project compares against nothing until a lease takes them again.
   projects:
-    process.env["CUBIT_E2E_DARK"] === "0"
-      ? [{ name: "light", use: { colorScheme: "light" as const } }]
-      : [
+    process.env["CUBIT_E2E_LIGHT"] === "1"
+      ? [
           { name: "dark", use: { colorScheme: "dark" as const } },
           { name: "light", use: { colorScheme: "light" as const } },
-        ],
+        ]
+      : [{ name: "dark", use: { colorScheme: "dark" as const } }],
   // The lane's `use` block has one home, and it is not this file: `tests/e2e/support/capture-geometry.ts`
   // builds it from the switches below, and a unit test asserts both of its branches — §9.3's capture
   // geometry is the lane's DEFAULT since the lease was spent (`pictureLane()`, B-17); the switch

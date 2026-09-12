@@ -28,7 +28,9 @@ const PLAYWRIGHT_CONFIG = "playwright.config.ts";
 // WHERE the committed pictures live is `snapshotPathTemplate`'s one fact (Q-06) and this suite asks
 // for it rather than spelling it: the v22 U2 lease moved `design/` to one directory per lane and
 // every spelling of the old name went on naming a directory that no longer existed.
-const BASELINE_DIR = baselineDir("light");
+// v22 speed: the lane has ONE project (dark), and every committed picture — including the ones a
+// spec takes by emulating light — lives in its directory. `design-light/` is deleted.
+const BASELINE_DIR = baselineDir("dark");
 const CHECKPOINT_HELPER = "tests/e2e/support/checkpoint.ts";
 const E2E_DIR = "tests/e2e";
 

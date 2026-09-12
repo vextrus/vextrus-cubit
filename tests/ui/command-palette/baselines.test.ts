@@ -22,7 +22,9 @@ import { baselineDir } from "../../e2e/support/capture-geometry";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 /** Where the committed pictures live — the lane's one declaration, never respelled here (Q-06). */
-const BASELINE_DIR = baselineDir("light");
+// v22 speed: the lane has ONE project (dark), and every committed picture — including the ones a
+// spec takes by emulating light — lives in its directory. `design-light/` is deleted.
+const BASELINE_DIR = baselineDir("dark");
 const BASELINES = join(REPO_ROOT, BASELINE_DIR);
 
 /**

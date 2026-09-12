@@ -311,7 +311,14 @@ export function journeyUse(switches: LaneSwitches): PlaywrightTestConfig["use"] 
  */
 export const SNAPSHOT_PATH_TEMPLATE = "tests/e2e/baselines/design-{projectName}/{arg}{ext}";
 
-/** The lane's two projects, named once: a caller asks for a baseline of one of these and no other. */
+/**
+ * The lane's projects, named once: a caller asks for a baseline of one of these and no other.
+ *
+ * SINCE v22's SPEED PASS THERE IS ONE LANE — `dark`, the product's ground — and one committed
+ * directory, `design-dark/`. `light` survives in this type because `CUBIT_E2E_LIGHT=1` still adds
+ * the light project by name (the gallery, the design contract, a bisect); it simply has no
+ * committed pictures to compare against, `design-light/` having been deleted with its 22.
+ */
 export type LaneProject = "dark" | "light";
 
 /**
@@ -319,7 +326,7 @@ export type LaneProject = "dark" | "light";
  * disk (the B-20 proofs) asks for the picture of the lane IT is walking, never of the other one:
  * `baselinePath(laneProject(test.info().project.name), …)`.
  */
-export const laneProject = (projectName: string): LaneProject => (projectName === "dark" ? "dark" : "light");
+export const laneProject = (projectName: string): LaneProject => (projectName === "light" ? "light" : "dark");
 
 /**
  * The directory one lane's pictures live in, derived from the template rather than restated —

@@ -36,6 +36,12 @@ const CONFIG = "playwright.config.ts";
 // `design-light/`; every one of them was deleted and re-taken under the lease, so nothing in the
 // tree is a picture of the world before it.
 //
+// AMENDED AGAIN by v22's speed pass (2026-09-12): the lane has ONE project — dark, the product's
+// ground — and `design-light/` was deleted with its 22 pictures. J-004's two shell captures are
+// still a LIGHT one and a DARK one, because this journey takes both by emulation inside its lane;
+// they simply live where the lane's pictures live. The property below is unchanged: two committed
+// baselines, both PNGs, and not byte-identical.
+//
 // AMENDED AGAIN by cubit-u2c: the template itself moved to `tests/e2e/support/capture-geometry.ts`,
 // which is now the ONE place the fact is declared — the config binds the key to it and every B-20
 // proof in the tree asks `baselinePath()` for a picture instead of respelling the directory. So this
@@ -43,7 +49,7 @@ const CONFIG = "playwright.config.ts";
 // and the config states the key exactly once and states it by NAME rather than by a second literal.
 const SNAPSHOT_TEMPLATE = "tests/e2e/baselines/design-{projectName}/{arg}{ext}";
 const TEMPLATE_HOME = "tests/e2e/support/capture-geometry.ts";
-const BASELINES = [baselinePath("light", "gallery-shell-light.png"), baselinePath("light", "gallery-shell-dark.png")];
+const BASELINES = [baselinePath("dark", "gallery-shell-light.png"), baselinePath("dark", "gallery-shell-dark.png")];
 
 /**
  * The tag the gate's other invocation greps for. Which FILES carry it is J-000's own surface to
