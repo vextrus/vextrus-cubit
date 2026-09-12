@@ -122,7 +122,7 @@ export async function steadyCount(locator: Locator, what: string, options: Stead
       },
       {
         timeout,
-        message: `${what}: no ${AGREEING_READS} readings agreed on a count of at least ${min} — it is still painting (last read ${JSON.stringify(seen)})`,
+        message: `${what}: no ${AGREEING_READS} readings agreed on a count of at least ${min} — the region is still painting, or it holds fewer than the caller expects (a caller for which zero is an answer passes { min: 0 })`,
       },
     )
     .toBe(true);
@@ -177,7 +177,7 @@ export async function steadyText(locator: Locator, what: string, options: Steady
       },
       {
         timeout,
-        message: `${what}: no ${AGREEING_READS} readings agreed on a text${stale === undefined ? "" : ` other than "${stale}"`} — it is still arriving (last read ${JSON.stringify(seen)})`,
+        message: `${what}: no ${AGREEING_READS} readings agreed on one non-empty text${stale === undefined ? "" : ` other than "${stale}"`} — it is still arriving`,
       },
     )
     .toBe(true);
@@ -205,7 +205,7 @@ export async function steadyAttribute(locator: Locator, attribute: string, what:
       },
       {
         timeout,
-        message: `${what}: \`${attribute}\` never held one non-empty value across ${AGREEING_READS} readings (last read ${JSON.stringify(seen)})`,
+        message: `${what}: \`${attribute}\` never held one non-empty value across ${AGREEING_READS} readings`,
       },
     )
     .toBe(true);
@@ -235,7 +235,7 @@ export async function heldAttribute(locator: Locator, attribute: string, what?: 
         seen = [...seen, await locator.getAttribute(attribute)].slice(-AGREEING_READS);
         return seen.length === AGREEING_READS && seen.every((value) => value === seen[0]);
       },
-      { timeout: READ_TIMEOUT_MS, message: `${named}: the attribute never held one value across ${AGREEING_READS} readings (last read ${JSON.stringify(seen)})` },
+      { timeout: READ_TIMEOUT_MS, message: `${named}: the attribute never held one value across ${AGREEING_READS} readings — it is still hydrating` },
     )
     .toBe(true);
   return seen[0] ?? null;

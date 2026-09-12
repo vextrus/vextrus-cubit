@@ -116,7 +116,9 @@ test.describe("J-010 — the project home", () => {
     await expect(project.client).toHaveText(CLIENT);
     await expect(project.district).toHaveText(DISTRICT);
     // No book is pinned to a project on this tree, so the derived zone roster is empty and says so.
-    const zoneCount = await steadyCount(project.zoneBadges, "the project's derived zone badges");
+    // A project whose zones the derivation found none of shows no badges, and the assertion under
+    // this read is that the cell's own count agrees with what stands — zero included (P4b §3).
+    const zoneCount = await steadyCount(project.zoneBadges, "the project's derived zone badges", { min: 0 });
     await expect(project.zones, "the zone cell counts exactly the badges it holds").toHaveAttribute("data-count", String(zoneCount));
     await expect(project.gfa, "the target GFA is stated as a figure").toHaveText(/\d/);
     await expect(project.header.getByTestId("unit-badge"), "beside the two units of the one quantity it states, m² before sft").toHaveText(["m²", "sft"]);
