@@ -5,7 +5,7 @@
     {
       "id": "T-NOT-PCTC",
       "sheet": "S-11",
-      "handle": null,
+      "handle": "A21",
       "family": "diameter",
       "sample": "8-20%%C",
       "expected": "%%C decodes to Ø; count 8, dia 20"
@@ -13,7 +13,7 @@
     {
       "id": "T-NOT-PCTC-LOWER",
       "sheet": "S-17",
-      "handle": null,
+      "handle": "1717",
       "family": "diameter",
       "sample": "2L-10%%c @ 100 c/c",
       "expected": "lower-case %%c decodes; two-legged stirrup, spacing 100"
@@ -21,7 +21,7 @@
     {
       "id": "T-NOT-MOJIBAKE",
       "sheet": "S-20",
-      "handle": null,
+      "handle": "1B05",
       "family": "diameter",
       "sample": "10mm âˆ… @ 150 c/c ALT. CRANKED",
       "expected": "the UTF-8/CP1252 mojibake of ∅ (U+2205) is recognised as Ø; no parse failure"
@@ -29,7 +29,7 @@
     {
       "id": "T-NOT-UNICODE",
       "sheet": "S-19",
-      "handle": null,
+      "handle": "19C6",
       "family": "diameter",
       "sample": "12Ø @ 150 c/c B/W",
       "expected": "Ø parses; B/W = both ways"
@@ -37,7 +37,7 @@
     {
       "id": "T-NOT-TY",
       "sheet": "S-18",
-      "handle": null,
+      "handle": "17E0",
       "family": "diameter",
       "sample": "3T16 + 2Y16 (second draftsman)",
       "expected": "British T/Y map to deformed 16 via the S-01 note; no separate grade minted"
@@ -45,7 +45,7 @@
     {
       "id": "T-NOT-HASH",
       "sheet": "S-07",
-      "handle": null,
+      "handle": "68E",
       "family": "diameter",
       "sample": "#5 @ 6\" c/c B.W.",
       "expected": "#5 → 16 mm (15.9) via the S-01 legacy-note mapping; spacing 152.4 mm"
@@ -53,7 +53,7 @@
     {
       "id": "T-NOT-ST-EXT",
       "sheet": "S-16",
-      "handle": null,
+      "handle": "13F6",
       "family": "bar_call",
       "sample": "2-20%%C st. + 1-20%%C ext.",
       "expected": "'st.' straight through and 'ext.' extra are distinct roles; total 3 bars at the section"
@@ -61,7 +61,7 @@
     {
       "id": "T-NOT-MSWIRE",
       "sheet": "S-05",
-      "handle": null,
+      "handle": "4D8",
       "family": "spiral",
       "sample": "10%%C spiral @ 75mm c/c (top 3.0 m) then @ 150",
       "expected": "two pitch zones; turns by the counting rule; no MS-wire product item"
@@ -69,7 +69,7 @@
     {
       "id": "T-NOT-FTIN",
       "sheet": "S-10",
-      "handle": null,
+      "handle": "8F9",
       "family": "length",
       "sample": "15'-0\"  14'-0\"  9'-0\"",
       "expected": "exact ×25.4 (4572, 4267.2, 2743.2); grid spacings irregular"
@@ -77,7 +77,7 @@
     {
       "id": "T-NOT-FTIN-STACK",
       "sheet": "S-22",
-      "handle": null,
+      "handle": "1C9C",
       "family": "length",
       "sample": "3'-6\\S1/2;\"  (MTEXT stacked fraction)",
       "expected": "\\S1/2; reads as ½ → 3'-6½\" = 1079.5 mm"
@@ -85,7 +85,7 @@
     {
       "id": "T-NOT-SIZE-IN",
       "sheet": "S-11",
-      "handle": null,
+      "handle": "AC7",
       "family": "section",
       "sample": "12\"X24\"  and  12\" x 24\"  and  300x600",
       "expected": "one section 300 × 609.6 vs 300 × 600 — the schedule cell (mm) governs; the inch caption is a rounded restatement (registered, not a disagreement)"
@@ -93,7 +93,7 @@
     {
       "id": "T-NOT-LEVEL",
       "sheet": "S-25",
-      "handle": null,
+      "handle": "1D90",
       "family": "level",
       "sample": "P.L= +0'-0\"  E.G.L (-1'-6\")  EL +11'-0\"  +3.353",
       "expected": "levels in both notations resolve to one level stack; EGL −457.2 is the SITE fact"
@@ -101,7 +101,7 @@
     {
       "id": "T-NOT-RANGE",
       "sheet": "S-14",
-      "handle": null,
+      "handle": "F30",
       "family": "range",
       "sample": "TYPICAL FLOOR BEAM LAYOUT (2ND TO 6TH FLOOR)",
       "expected": "one plan expands to five levels 2F..6F"
@@ -109,7 +109,7 @@
     {
       "id": "T-NOT-RANGE-GF3",
       "sheet": "S-11",
-      "handle": null,
+      "handle": "9CB",
       "family": "range",
       "sample": "GF TO 2ND  /  3RD & 4TH  /  5TH TO 6TH  /  ROOF-SRR",
       "expected": "column bands map to storeys; the FDN neck belongs to band GF TO 2ND"
@@ -117,7 +117,7 @@
     {
       "id": "T-NOT-RANGE-UNSTATED",
       "sheet": "S-20",
-      "handle": null,
+      "handle": "1B04",
       "family": "range",
       "sample": "TYPICAL SLAB REINFORCEMENT PLAN (no floor range in the caption; index says 2ND TO 6TH)",
       "expected": "range taken from the S-00 index; disclosed as INFERRED_RANGE"
@@ -125,7 +125,7 @@
     {
       "id": "T-NOT-FC-PSI",
       "sheet": "S-01",
-      "handle": null,
+      "handle": "1F41",
       "family": "grade",
       "sample": "f'c = 3500 psi (24 MPa) cylinder; piles 3000 psi",
       "expected": "one grade per member class; rows carry grade; L-FRM-05 clamps 3500 to its own row"
@@ -133,7 +133,7 @@
     {
       "id": "T-NOT-FY",
       "sheet": "S-01",
-      "handle": null,
+      "handle": "1F43",
       "family": "grade",
       "sample": "fy = 72,500 psi (500 MPa) BDS ISO 6935-2 B500DWR",
       "expected": "fy 500W; the S-02 ℓd/lap table (50d/65d/40d) governs — no DETAILING_ROW_NOT_IN_EDITION deferral (AM-03d)"
@@ -141,7 +141,7 @@
     {
       "id": "T-NOT-COVER",
       "sheet": "S-01",
-      "handle": null,
+      "handle": "1F46",
       "family": "cover",
       "sample": "2\" clear cover (pile caps)  beside  25mm clear cover (beams)",
       "expected": "both units read; footing/cap cover 50.8 ≠ Bible 75 — the drawing's value bills"
@@ -149,7 +149,7 @@
     {
       "id": "T-MTEXT-CODES",
       "sheet": "S-01",
-      "handle": null,
+      "handle": "1F3E",
       "family": "mtext",
       "sample": "{\\fSwis721 Cn BT|b1|i0|c0|p34;\\LGENERAL NOTES}\\P1. ...\\A1;",
       "expected": "font/underline/alignment codes stripped; \\P is a paragraph break; text preserved"
@@ -157,7 +157,7 @@
     {
       "id": "T-TEXT-ROTATED",
       "sheet": "S-13",
-      "handle": null,
+      "handle": "D75",
       "family": "text",
       "sample": "beam mark at 90° and a level at 180°",
       "expected": "orientation does not change the string or its anchor"
@@ -165,7 +165,7 @@
     {
       "id": "T-TEXT-OVERLAP",
       "sheet": "S-10",
-      "handle": null,
+      "handle": "9C1",
       "family": "text",
       "sample": "column tag over a grid line and a dimension",
       "expected": "placement by anchor, not by nearest line"
@@ -173,7 +173,7 @@
     {
       "id": "T-LEADER-FAR",
       "sheet": "S-16",
-      "handle": null,
+      "handle": "13F8",
       "family": "leader",
       "sample": "leader from a mark to a strip 300 mm away",
       "expected": "leader end wins over proximity"
@@ -181,7 +181,7 @@
     {
       "id": "T-XREF-BOUND",
       "sheet": "S-13",
-      "handle": null,
+      "handle": "D7F",
       "family": "cad",
       "sample": "layers ARCH-PLAN$0$WALL, ARCH-PLAN$0$DOOR",
       "expected": "bound-xref layers are architectural context, not structural members"
@@ -189,7 +189,7 @@
     {
       "id": "T-XREF-UNRESOLVED",
       "sheet": "S-19",
-      "handle": null,
+      "handle": "19DE",
       "family": "cad",
       "sample": "xref 'arch-plan.dwg' not found",
       "expected": "named loss XREF_UNRESOLVED; nothing else refused"
@@ -197,7 +197,7 @@
     {
       "id": "T-BLOCK-ATTRIB",
       "sheet": "S-10",
-      "handle": null,
+      "handle": "9BE",
       "family": "cad",
       "sample": "column tag block with ATTRIB MARK=C-4",
       "expected": "ATTRIB value is the mark; 'C-4' == 'C4'"
@@ -205,7 +205,7 @@
     {
       "id": "T-BLOCK-NESTED",
       "sheet": "S-07",
-      "handle": null,
+      "handle": "68F",
       "family": "cad",
       "sample": "PC3 detail = 3-deep nested INSERT, one mirrored, one scaled (2, 1)",
       "expected": "flattened with the full transform; no double count"
@@ -213,7 +213,7 @@
     {
       "id": "T-DUP-COLUMN",
       "sheet": "S-10",
-      "handle": null,
+      "handle": "9BD",
       "family": "cad",
       "sample": "C4 at D-5 drawn twice (identical overlapping LWPOLYLINE)",
       "expected": "L-REG-03 double-count guard: one column, one observation"
@@ -221,7 +221,7 @@
     {
       "id": "T-GAP-OUTLINE",
       "sheet": "S-20",
-      "handle": null,
+      "handle": "1B06",
       "family": "cad",
       "sample": "S3 outline with a 1 mm gap and a stray Z = 0.001",
       "expected": "closed within tolerance; Z dropped"
@@ -229,7 +229,7 @@
     {
       "id": "T-LAYER-FROZEN",
       "sheet": "S-14",
-      "handle": null,
+      "handle": "F32",
       "family": "cad",
       "sample": "frozen layer OLD-SCHEME-REV0 with an obsolete beam layout",
       "expected": "frozen content never measured; listed as a named skip"
@@ -237,7 +237,7 @@
     {
       "id": "T-LINETYPE-HIDDEN",
       "sheet": "S-13",
-      "handle": null,
+      "handle": "D78",
       "family": "cad",
       "sample": "beams on HIDDEN linetype, hatch on columns",
       "expected": "linetype does not change class; hatch is not a member"
@@ -245,15 +245,16 @@
     {
       "id": "T-INSUNITS-0",
       "sheet": "*",
-      "handle": null,
+      "handle": "1E57",
       "family": "cad",
       "sample": "$INSUNITS = 0, $LUNITS = 4 (architectural), model in mm",
-      "expected": "units inferred from the dimension texts and the scale bar (AFFIRM_SCALE), disclosed"
+      "expected": "units inferred from the dimension texts and the scale bar (AFFIRM_SCALE), disclosed",
+      "file": "rcc6-bnbc.dxf"
     },
     {
       "id": "T-DIMLFAC",
       "sheet": "S-12",
-      "handle": null,
+      "handle": "AD9",
       "family": "dimension",
       "sample": "1:20 detail drawn ×5 with DIMLFAC 0.2",
       "expected": "dimension text is the truth; the measured length ×DIMLFAC equals it"
@@ -261,7 +262,7 @@
     {
       "id": "T-DIM-SUFFIX",
       "sheet": "S-09",
-      "handle": null,
+      "handle": "846",
       "family": "dimension",
       "sample": "override text <>\" (measured value plus a unit suffix)",
       "expected": "<> substitutes the measured value; the suffix is decoration"
@@ -269,7 +270,7 @@
     {
       "id": "T-DIM-OVERRIDE",
       "sheet": "S-10",
-      "handle": null,
+      "handle": "926",
       "family": "dimension",
       "sample": "grid 4→5 dimension overridden to 14'-2\" while the geometry is 14'-0\" under DO NOT SCALE",
       "expected": "the printed text wins (DO NOT SCALE); a DIMENSION_OVERRIDE observation is recorded; the golden uses the authored 14'-0\" for the model and the schedule (the overridden text disagrees by 50.8 mm)",
@@ -279,7 +280,7 @@
     {
       "id": "T-BENGALI",
       "sheet": "S-00",
-      "handle": null,
+      "handle": "1E5E",
       "family": "text",
       "sample": "প্রস্তাবিত ৬ তলা আবাসিক ভবন (title in Bengali beside English)",
       "expected": "non-Latin text preserved, not a parse failure"
@@ -287,7 +288,7 @@
     {
       "id": "T-IMAGE-LOGO",
       "sheet": "S-00",
-      "handle": null,
+      "handle": "1E5B",
       "family": "raster",
       "sample": "IMAGE entity: consultant logo; a pasted scanned detail on S-03 (F-SCAN seed)",
       "expected": "images listed, never measured"
@@ -295,7 +296,7 @@
     {
       "id": "T-KEYPLAN",
       "sheet": "S-13",
-      "handle": null,
+      "handle": "2113",
       "family": "document",
       "sample": "key plan with mini grid bubbles 1–6 / A–E at 1:1000",
       "expected": "must not georeference: the small bubbles are not a second grid"
@@ -303,7 +304,7 @@
     {
       "id": "T-SCHED-NORULES",
       "sheet": "S-06",
-      "handle": null,
+      "handle": "639",
       "family": "schedule",
       "sample": "pile cap schedule as un-ruled MTEXT columns, no NOS column",
       "expected": "columns by x-alignment; counts come from the plan, never from a NOS column (there is none anywhere)"
@@ -311,7 +312,7 @@
     {
       "id": "T-SCHED-MERGED",
       "sheet": "S-11",
-      "handle": null,
+      "handle": "9C7",
       "family": "schedule",
       "sample": "column schedule with merged band headers and section sketches in cells",
       "expected": "sketches inside cells are not placements; band header spans map to storeys"
@@ -319,7 +320,7 @@
     {
       "id": "T-SCHED-TWO-TEXTS",
       "sheet": "S-11",
-      "handle": null,
+      "handle": "A22",
       "family": "schedule",
       "sample": "one cell holds '8-20Ø' and 'TIES 10Ø@100/150' as two TEXT entities",
       "expected": "cell text is the union in reading order"
@@ -327,7 +328,7 @@
     {
       "id": "T-SCHED-CONTD",
       "sheet": "S-17",
-      "handle": null,
+      "handle": "1719",
       "family": "schedule",
       "sample": "beam strip B9 'CONTD. ON S-18'",
       "expected": "one member across two sheets, counted once"
@@ -335,7 +336,7 @@
     {
       "id": "T-SCHED-ATTRIB",
       "sheet": "S-25",
-      "handle": null,
+      "handle": "1D2D",
       "family": "schedule",
       "sample": "lintel schedule as an ATTRIB-block table",
       "expected": "attributes are the cells"
@@ -343,7 +344,7 @@
     {
       "id": "T-REV-CLOUD",
       "sheet": "S-11",
-      "handle": null,
+      "handle": "A4D",
       "family": "revision",
       "sample": "revision cloud REV B around C4 3F–4F bars: 10-25Ø → 10-25Ø + note '2-20Ø EXTRA'",
       "expected": "the revision-table entry and the cloud agree; the clouded value bills; the golden authors 10-25Ø (the note adds no bars; see DECISIONS D-04)"
@@ -351,7 +352,7 @@
     {
       "id": "T-NOTE-OVERRIDE",
       "sheet": "S-02",
-      "handle": null,
+      "handle": "1F76",
       "family": "note",
       "sample": "LAP 50d TENSION / 40d COMPRESSION U.N.O.",
       "expected": "J-032: the note overrides the BNBC ℓd-based lap; presented as applied values, no edition minted (AM-03e)"
@@ -359,7 +360,7 @@
     {
       "id": "T-NOTE-VS-SCHED",
       "sheet": "S-18",
-      "handle": null,
+      "handle": "18A1",
       "family": "note",
       "sample": "note 'ALL ROOF BEAM STIRRUPS 10Ø@150 U.N.O.' beside a schedule cell '10Ø@100 (ends)'",
       "expected": "the cell (specific) beats the note (general)"
@@ -367,7 +368,7 @@
     {
       "id": "T-BBS-TOTAL",
       "sheet": "S-26",
-      "handle": null,
+      "handle": "1E40",
       "family": "document",
       "sample": "printed BBS grand total 1.7 % above the row sum",
       "expected": "row sums win; the printed total is an observation BBS_TOTAL_MISMATCH",
@@ -377,39 +378,43 @@
     {
       "id": "T-FRAMES-MODELSPACE",
       "sheet": "*",
-      "handle": null,
+      "handle": "173",
       "family": "document",
       "sample": "rcc6-bnbc.model.dxf: 26 sheets as model-space frames (×100 blocks) with ×5 details, one paper layout with a single viewport",
-      "expected": "frames partitioned by title-block detection; scale per frame from its scale bar"
+      "expected": "frames partitioned by title-block detection; scale per frame from its scale bar",
+      "file": "rcc6-bnbc.model.dxf"
     },
     {
       "id": "T-PDF-SHX",
       "sheet": "*",
-      "handle": null,
+      "handle": "1E57",
       "family": "document",
       "sample": "rcc6-bnbc.shx.pdf: stroked (Hershey) text, no text layer",
-      "expected": "OCR lane; the TrueType twin is the control"
+      "expected": "OCR lane; the TrueType twin is the control",
+      "file": "rcc6-bnbc.shx.pdf"
     },
     {
       "id": "T-RASTER",
       "sheet": "*",
-      "handle": null,
+      "handle": "1E57",
       "family": "document",
       "sample": "R1 clean 300 dpi / R2 scan skew+stamp / R3 photocopy / R4 phone photo",
-      "expected": "F-SCAN seeds; expected per-variant loss lists in sanity.json"
+      "expected": "F-SCAN seeds; expected per-variant loss lists in sanity.json",
+      "file": "raster/"
     },
     {
       "id": "T-DXF-MALFORMED",
       "sheet": "*",
-      "handle": null,
+      "handle": "20B0",
       "family": "refusal",
       "sample": "rcc6-bnbc.libredwg-r2000.dxf: a LibreDWG-shaped DXF with an 'Embedded Object' MTEXT column block and one mis-paired tag line in a DIMENSION",
-      "expected": "named refusal DXF_TAG_STREAM_DESYNC with the line number; ezdxf recover mode refuses until a tag-stream resync drops the 13 offending lines — the product must report, never guess"
+      "expected": "named refusal DXF_TAG_STREAM_DESYNC with the line number; ezdxf recover mode refuses until a tag-stream resync drops the 13 offending lines — the product must report, never guess",
+      "file": "rcc6-bnbc.libredwg-r2000.dxf"
     },
     {
       "id": "T-RISER-ROUNDED",
       "sheet": "S-22",
-      "handle": null,
+      "handle": "1C7D",
       "family": "number",
       "sample": "18 R @ 169.33",
       "expected": "3048/18 is not 169.33; the count × storey height is the truth (selfcheck: risers × rise == storey height)",
@@ -419,7 +424,7 @@
     {
       "id": "T-SLEEVE-BELOW",
       "sheet": "S-19",
-      "handle": null,
+      "handle": "19C9",
       "family": "opening",
       "sample": "4 sleeves 150×150 (0.0225 m²) beside 2 ducts 600×1200 (0.72 m²)",
       "expected": "sleeves below 0.1 m² are not deducted; ducts are"

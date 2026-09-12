@@ -1,0 +1,835 @@
+{
+  "fixture": "F-RCC6-BNBC",
+  "generator": "fixtures/gen/rcc6_bnbc/",
+  "drawn": {
+    "rcc6-bnbc.dxf": {
+      "S-00 COVER, DRAWING INDEX & KEY PLAN": {
+        "HATCH": 1,
+        "IMAGE": 1,
+        "INSERT": 4,
+        "LINE": 42,
+        "LWPOLYLINE": 3,
+        "TEXT": 158
+      },
+      "S-01 GENERAL NOTES (1 OF 2)": {
+        "INSERT": 1,
+        "LWPOLYLINE": 1,
+        "MTEXT": 21,
+        "TEXT": 19
+      },
+      "S-02 GENERAL NOTES (2 OF 2) & LAP-DEVELOPMENT TABLE": {
+        "INSERT": 1,
+        "LINE": 14,
+        "LWPOLYLINE": 1,
+        "MTEXT": 1,
+        "TEXT": 47
+      },
+      "S-03 TYPICAL REINFORCEMENT DETAILS": {
+        "IMAGE": 1,
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 12
+      },
+      "S-04 PILE LAYOUT PLAN": {
+        "HATCH": 1,
+        "INSERT": 4,
+        "LWPOLYLINE": 1,
+        "TEXT": 9
+      },
+      "S-05 PILE DETAILS & PILE SCHEDULE": {
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 10
+      },
+      "S-06 PILE CAP LAYOUT & SCHEDULE": {
+        "HATCH": 1,
+        "INSERT": 4,
+        "LWPOLYLINE": 1,
+        "TEXT": 9
+      },
+      "S-07 PILE CAP DETAILS": {
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 13
+      },
+      "S-08 GRADE BEAM LAYOUT & GF SLAB-ON-GRADE": {
+        "HATCH": 1,
+        "INSERT": 4,
+        "LWPOLYLINE": 1,
+        "TEXT": 8
+      },
+      "S-09 GRADE BEAM DETAILS (LONG SECTIONS)": {
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 12
+      },
+      "S-10 COLUMN LAYOUT PLAN": {
+        "HATCH": 1,
+        "INSERT": 4,
+        "LWPOLYLINE": 1,
+        "TEXT": 8
+      },
+      "S-11 COLUMN SCHEDULE": {
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 8
+      },
+      "S-12 COLUMN DETAILS": {
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 13
+      },
+      "S-13 1ST FLOOR BEAM LAYOUT": {
+        "HATCH": 1,
+        "INSERT": 4,
+        "LWPOLYLINE": 1,
+        "TEXT": 8
+      },
+      "S-14 TYPICAL FLOOR BEAM LAYOUT (2ND TO 6TH FLOOR)": {
+        "HATCH": 1,
+        "INSERT": 4,
+        "LWPOLYLINE": 1,
+        "TEXT": 8
+      },
+      "S-15 ROOF & STAIR ROOF BEAM LAYOUT": {
+        "HATCH": 1,
+        "INSERT": 4,
+        "LWPOLYLINE": 1,
+        "TEXT": 9
+      },
+      "S-16 BEAM DETAILS (1 OF 3) - 1ST FLOOR": {
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 8
+      },
+      "S-17 BEAM DETAILS (2 OF 3) - TYPICAL": {
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 8
+      },
+      "S-18 BEAM DETAILS (3 OF 3) - ROOF & SCHEDULE": {
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 9
+      },
+      "S-19 1ST FLOOR SLAB REINFORCEMENT PLAN": {
+        "HATCH": 1,
+        "INSERT": 4,
+        "LWPOLYLINE": 1,
+        "TEXT": 8
+      },
+      "S-20 TYPICAL SLAB REINFORCEMENT PLAN": {
+        "HATCH": 1,
+        "INSERT": 4,
+        "LWPOLYLINE": 1,
+        "TEXT": 8
+      },
+      "S-21 ROOF, STAIR ROOF & PARAPET": {
+        "HATCH": 1,
+        "INSERT": 4,
+        "LWPOLYLINE": 1,
+        "TEXT": 9
+      },
+      "S-22 STAIR DETAILS": {
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 10
+      },
+      "S-23 LIFT CORE & SHEAR WALL DETAILS": {
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 9
+      },
+      "S-24 OVERHEAD WATER TANK & UGWR - SEPTIC TANK": {
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 10
+      },
+      "S-25 LINTEL & SUNSHADE SCHEDULE, BUILDING SECTION": {
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 9
+      },
+      "S-26 BAR BENDING SCHEDULE (SAMPLE- PC3, 2B7, SLAB S3)": {
+        "INSERT": 2,
+        "LWPOLYLINE": 1,
+        "TEXT": 8
+      },
+      "model": {
+        "ARC": 4,
+        "CIRCLE": 354,
+        "DIMENSION": 125,
+        "HATCH": 79,
+        "INSERT": 123,
+        "LEADER": 1,
+        "LINE": 1822,
+        "LWPOLYLINE": 638,
+        "MTEXT": 3,
+        "MULTILEADER": 1,
+        "POINT": 1,
+        "POLYLINE": 1,
+        "SOLID": 2,
+        "TEXT": 2180
+      }
+    },
+    "rcc6-bnbc.model.dxf": {
+      "SHEET": {
+        "TEXT": 1
+      },
+      "model": {
+        "ARC": 4,
+        "CIRCLE": 354,
+        "DIMENSION": 125,
+        "HATCH": 90,
+        "IMAGE": 2,
+        "INSERT": 197,
+        "LEADER": 1,
+        "LINE": 1878,
+        "LWPOLYLINE": 667,
+        "MTEXT": 25,
+        "MULTILEADER": 1,
+        "POINT": 1,
+        "POLYLINE": 1,
+        "SOLID": 2,
+        "TEXT": 2627
+      }
+    }
+  },
+  "malformed": {
+    "file": "rcc6-bnbc.libredwg-r2000.dxf",
+    "dropped_lines": 13
+  },
+  "dwg": {
+    "rcc6-bnbc.dwg": {
+      "source": "rcc6-bnbc.dxf",
+      "expected": {
+        "S-00 COVER, DRAWING INDEX & KEY PLAN": {
+          "HATCH": 1,
+          "INSERT": 4,
+          "LINE": 42,
+          "LWPOLYLINE": 3,
+          "TEXT": 157
+        },
+        "S-01 GENERAL NOTES (1 OF 2)": {
+          "INSERT": 1,
+          "LWPOLYLINE": 1,
+          "MTEXT": 21,
+          "TEXT": 19
+        },
+        "S-02 GENERAL NOTES (2 OF 2) & LAP-DEVELOPMENT TABLE": {
+          "INSERT": 1,
+          "LINE": 14,
+          "LWPOLYLINE": 1,
+          "MTEXT": 1,
+          "TEXT": 47
+        },
+        "S-03 TYPICAL REINFORCEMENT DETAILS": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 12,
+          "VIEWPORT": 3
+        },
+        "S-04 PILE LAYOUT PLAN": {
+          "HATCH": 1,
+          "INSERT": 4,
+          "LWPOLYLINE": 1,
+          "TEXT": 9,
+          "VIEWPORT": 2
+        },
+        "S-05 PILE DETAILS & PILE SCHEDULE": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 10,
+          "VIEWPORT": 3
+        },
+        "S-06 PILE CAP LAYOUT & SCHEDULE": {
+          "HATCH": 1,
+          "INSERT": 4,
+          "LWPOLYLINE": 1,
+          "TEXT": 9,
+          "VIEWPORT": 2
+        },
+        "S-07 PILE CAP DETAILS": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 13,
+          "VIEWPORT": 6
+        },
+        "S-08 GRADE BEAM LAYOUT & GF SLAB-ON-GRADE": {
+          "HATCH": 1,
+          "INSERT": 4,
+          "LWPOLYLINE": 1,
+          "TEXT": 8,
+          "VIEWPORT": 1
+        },
+        "S-09 GRADE BEAM DETAILS (LONG SECTIONS)": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 12,
+          "VIEWPORT": 5
+        },
+        "S-10 COLUMN LAYOUT PLAN": {
+          "HATCH": 1,
+          "INSERT": 4,
+          "LWPOLYLINE": 1,
+          "TEXT": 8,
+          "VIEWPORT": 1
+        },
+        "S-11 COLUMN SCHEDULE": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 8,
+          "VIEWPORT": 1
+        },
+        "S-12 COLUMN DETAILS": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 13,
+          "VIEWPORT": 6
+        },
+        "S-13 1ST FLOOR BEAM LAYOUT": {
+          "HATCH": 1,
+          "INSERT": 4,
+          "LWPOLYLINE": 1,
+          "TEXT": 8,
+          "VIEWPORT": 1
+        },
+        "S-14 TYPICAL FLOOR BEAM LAYOUT (2ND TO 6TH FLOOR)": {
+          "HATCH": 1,
+          "INSERT": 4,
+          "LWPOLYLINE": 1,
+          "TEXT": 8,
+          "VIEWPORT": 1
+        },
+        "S-15 ROOF & STAIR ROOF BEAM LAYOUT": {
+          "HATCH": 1,
+          "INSERT": 4,
+          "LWPOLYLINE": 1,
+          "TEXT": 9,
+          "VIEWPORT": 2
+        },
+        "S-16 BEAM DETAILS (1 OF 3) - 1ST FLOOR": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 8,
+          "VIEWPORT": 1
+        },
+        "S-17 BEAM DETAILS (2 OF 3) - TYPICAL": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 8,
+          "VIEWPORT": 1
+        },
+        "S-18 BEAM DETAILS (3 OF 3) - ROOF & SCHEDULE": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 9,
+          "VIEWPORT": 2
+        },
+        "S-19 1ST FLOOR SLAB REINFORCEMENT PLAN": {
+          "HATCH": 1,
+          "INSERT": 4,
+          "LWPOLYLINE": 1,
+          "TEXT": 8,
+          "VIEWPORT": 1
+        },
+        "S-20 TYPICAL SLAB REINFORCEMENT PLAN": {
+          "HATCH": 1,
+          "INSERT": 4,
+          "LWPOLYLINE": 1,
+          "TEXT": 8,
+          "VIEWPORT": 1
+        },
+        "S-21 ROOF, STAIR ROOF & PARAPET": {
+          "HATCH": 1,
+          "INSERT": 4,
+          "LWPOLYLINE": 1,
+          "TEXT": 9,
+          "VIEWPORT": 2
+        },
+        "S-22 STAIR DETAILS": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 10,
+          "VIEWPORT": 3
+        },
+        "S-23 LIFT CORE & SHEAR WALL DETAILS": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 9,
+          "VIEWPORT": 2
+        },
+        "S-24 OVERHEAD WATER TANK & UGWR - SEPTIC TANK": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 10,
+          "VIEWPORT": 3
+        },
+        "S-25 LINTEL & SUNSHADE SCHEDULE, BUILDING SECTION": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 9,
+          "VIEWPORT": 2
+        },
+        "S-26 BAR BENDING SCHEDULE (SAMPLE- PC3, 2B7, SLAB S3)": {
+          "INSERT": 2,
+          "LWPOLYLINE": 1,
+          "TEXT": 8,
+          "VIEWPORT": 1
+        },
+        "model": {
+          "ARC": 4,
+          "CIRCLE": 354,
+          "DIMENSION": 125,
+          "HATCH": 79,
+          "INSERT": 123,
+          "LEADER": 1,
+          "LINE": 1822,
+          "LWPOLYLINE": 638,
+          "MTEXT": 3,
+          "POINT": 1,
+          "POLYLINE": 1,
+          "SOLID": 2,
+          "TEXT": 2180
+        }
+      },
+      "losses": {
+        "S-00 COVER, DRAWING INDEX & KEY PLAN": {
+          "IMAGE": 1,
+          "TEXT": 1
+        },
+        "S-03 TYPICAL REINFORCEMENT DETAILS": {
+          "IMAGE": 1
+        },
+        "model": {
+          "MULTILEADER": 1
+        }
+      },
+      "named_losses": [
+        {
+          "feature": "bengali",
+          "type": "TEXT",
+          "count": 1,
+          "reason": "the string did not survive the round trip"
+        },
+        {
+          "feature": "image",
+          "type": "IMAGE",
+          "count": 2,
+          "reason": "IMAGE: drew 1, read back 0"
+        },
+        {
+          "feature": "mleader",
+          "type": "MULTILEADER",
+          "count": 1,
+          "reason": "MULTILEADER: drew 1, read back 0"
+        }
+      ],
+      "tool": "libredwg dwgread 0.13.3",
+      "refused": []
+    },
+    "rcc6-bnbc.model.dwg": {
+      "source": "rcc6-bnbc.model.dxf",
+      "expected": {
+        "SHEET": {
+          "TEXT": 1,
+          "VIEWPORT": 1
+        },
+        "model": {
+          "ARC": 4,
+          "CIRCLE": 354,
+          "DIMENSION": 125,
+          "HATCH": 90,
+          "INSERT": 197,
+          "LEADER": 1,
+          "LINE": 1878,
+          "LWPOLYLINE": 667,
+          "MTEXT": 25,
+          "POINT": 1,
+          "POLYLINE": 1,
+          "SOLID": 2,
+          "TEXT": 2626
+        }
+      },
+      "losses": {
+        "model": {
+          "IMAGE": 2,
+          "MULTILEADER": 1,
+          "TEXT": 1
+        }
+      },
+      "named_losses": [
+        {
+          "feature": "bengali",
+          "type": "TEXT",
+          "count": 1,
+          "reason": "the string did not survive the round trip"
+        },
+        {
+          "feature": "image",
+          "type": "IMAGE",
+          "count": 2,
+          "reason": "IMAGE: drew 1, read back 0"
+        },
+        {
+          "feature": "mleader",
+          "type": "MULTILEADER",
+          "count": 1,
+          "reason": "MULTILEADER: drew 1, read back 0"
+        }
+      ],
+      "tool": "libredwg dwgread 0.13.3",
+      "refused": []
+    }
+  },
+  "pdf": {
+    "rcc6-bnbc.pdf": {
+      "mode": "ttf",
+      "pages": 27,
+      "page_sizes_pt": [
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          1190.551,
+          841.89
+        ]
+      ],
+      "text_pages": 27,
+      "image_pages": [
+        "S-00",
+        "S-03"
+      ],
+      "text_objects": 4336,
+      "losses": [
+        "BENGALI_TEXT_DXF_ONLY"
+      ],
+      "loss_counts": {
+        "BENGALI_TEXT_DXF_ONLY": 1
+      },
+      "substituted_glyphs": 4,
+      "font": "Vera + VeraBd (reportlab wheel)"
+    },
+    "rcc6-bnbc.shx.pdf": {
+      "mode": "shx",
+      "pages": 27,
+      "page_sizes_pt": [
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          1683.78,
+          1190.551
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          2383.937,
+          1683.78
+        ],
+        [
+          1190.551,
+          841.89
+        ]
+      ],
+      "text_pages": 0,
+      "image_pages": [
+        "S-00",
+        "S-03"
+      ],
+      "text_objects": 0,
+      "losses": [
+        "BENGALI_TEXT_DXF_ONLY",
+        "NO_TEXT_LAYER"
+      ],
+      "loss_counts": {
+        "BENGALI_TEXT_DXF_ONLY": 1
+      },
+      "substituted_glyphs": 0,
+      "font": "Hershey simplex strokes"
+    }
+  },
+  "raster": {
+    "r1": {
+      "dpi": 300,
+      "planned_dpi": 300,
+      "format": "PNG",
+      "bytes": 2310186,
+      "files": [
+        "raster/r1/s-01.png",
+        "raster/r1/s-10.png",
+        "raster/r1/s-11.png",
+        "raster/r1/s-17.png",
+        "raster/r1/s-20.png",
+        "raster/r1/s-26.png"
+      ],
+      "losses": []
+    },
+    "r2": {
+      "dpi": 200,
+      "planned_dpi": 200,
+      "format": "JPEG q70",
+      "bytes": 5155683,
+      "files": [
+        "raster/r2/s-01.jpg",
+        "raster/r2/s-10.jpg",
+        "raster/r2/s-11.jpg",
+        "raster/r2/s-17.jpg",
+        "raster/r2/s-20.jpg",
+        "raster/r2/s-26.jpg"
+      ],
+      "losses": [
+        "SKEW_1_2_TO_1_8_DEG",
+        "STAMP_OVER_SCHEDULE_CELLS",
+        "SIGNATURE_OVER_TITLE_BLOCK",
+        "PUNCH_HOLES_OVER_BINDING_MARGIN",
+        "FOLD_CREASE_BAND"
+      ]
+    },
+    "r2pdf": {
+      "dpi": 120,
+      "planned_dpi": 150,
+      "format": "JPEG q34 in PDF",
+      "pages": 27,
+      "bytes": 7571335,
+      "losses": [
+        "NO_TEXT_LAYER",
+        "DCT_ARTEFACTS_ON_HAIRLINES",
+        "WHOLE_SET_AT_ONE_DPI"
+      ]
+    },
+    "r3": {
+      "dpi": 120,
+      "planned_dpi": 150,
+      "format": "JPEG q55",
+      "bytes": 2935973,
+      "files": [
+        "raster/r3/s-01.jpg",
+        "raster/r3/s-10.jpg",
+        "raster/r3/s-11.jpg",
+        "raster/r3/s-17.jpg",
+        "raster/r3/s-20.jpg",
+        "raster/r3/s-26.jpg"
+      ],
+      "losses": [
+        "THIN_HATCH_MERGED",
+        "HAIRLINE_TEXT_BROKEN",
+        "TITLE_BLOCK_EDGE_CROPPED",
+        "GREY_FILL_BINARISED"
+      ]
+    },
+    "r4": {
+      "dpi": 150,
+      "planned_dpi": 150,
+      "format": "JPEG q60",
+      "bytes": 2540935,
+      "files": [
+        "raster/r4/s-01.jpg",
+        "raster/r4/s-10.jpg",
+        "raster/r4/s-11.jpg",
+        "raster/r4/s-17.jpg",
+        "raster/r4/s-20.jpg",
+        "raster/r4/s-26.jpg"
+      ],
+      "losses": [
+        "KEYSTONE_PERSPECTIVE",
+        "VIGNETTED_CORNERS",
+        "WARM_COLOUR_CAST",
+        "STAMP_AREA_BLURRED",
+        "SHEET_EDGES_CLIPPED"
+      ]
+    }
+  }
+}
