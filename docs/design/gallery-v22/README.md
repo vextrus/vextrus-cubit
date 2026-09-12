@@ -1,172 +1,91 @@
-# The v22 gallery — one frame, eight screens, two themes
+# THE v22 GALLERY — what is in this directory, and what it is evidence of
 
-## The lease
+Rewritten 2026-09-12 against the branch as it stands (`v22/u2-lease-unspent`). The version this
+replaced described a branch that no longer existed: it said the lease was unwritten and unspent, that
+`height-budget.ts` was empty, and that nothing in `tests/e2e/baselines/` had been re-taken — all four
+untrue of the tree it sat in. A README that contradicts its own directory is not documentation, it is
+a second, wrong source of truth, so this one states only what can be read off the tree beside it.
 
-> **"v22 U2 re-baseline lease, sanctioned by the integrator under the founder's Bible authority,
-> 2026-09-12."**
+## THE LEASE IS SPENT
 
-History is append-only, and a regenerated baseline goes in its own commit whose subject starts
-`baseline:` and names the proof (CLAUDE.md). A *whole-tree* re-baseline is a larger act than that: it
-throws away every committed picture at once, so nothing in the tree can testify that a change was
-lawful. It is therefore taken **once**, by **one** node, under **one** named lease — the sentence
-above, which is written in the commit message and here, and nowhere else.
+`6428b01` (later `70e0b5a`) is the `baseline:` commit: every design baseline re-taken in both themes
+at §9.3's geometry, 70 PNGs in `tests/e2e/baselines/design-{dark,light}/`. `the-lease.patch` is
+DELETED — it was applied, and a patch file sitting beside the tree it has already been applied to is
+a trap for the next reader.
 
-**STATUS, 2026-09-12: THE LEASE IS WRITTEN, VERIFIED AND UNEXERCISED.** The five edits it authorises
-are in `the-lease.patch` beside this file. They have been APPLIED ONCE, type-checked and run against
-the unit lane, and the one contract they broke was fixed inside the patch rather than worked around —
-`tests/journeys/j-004-gallery-contract.test.ts` holds the lane to exactly ONE `snapshotPathTemplate`
-(Q-06), so the two lanes are routed by `{projectName}` from a single declaration instead of by a
-per-project override. The patch then applies cleanly to a green tree; `git apply --check` passes.
+Corrections landed since, each its own commit:
 
-It is NOT committed, for two reasons, and the second is the one that stopped this session.
+- **the picture tenant can sign in.** The fixture seeded `users.email` as the address is typed; every
+  door reads it FOLDED (`storedAddress` → `foldedKey`, `src/server/auth/folded-key.ts`), so the
+  gallery spec spent 600 s photographing the sign-in card it was refused at. The seed now calls the
+  door's own key function, and the live suite that asserted the bug asserts the door instead.
+- **the drawing exists.** The seed stopped at the project, so the drawings, viewer and takeoff stills
+  were pictures of empty states. It now lands the content, the drawing at `PICTURE_TENANT.drawingId`,
+  its ingest record and the sheet `A-101 — Foundation Plan` at three raster tiers.
+- **the dark lane pictures the dark product.** Six dark-lane baselines re-taken and one renamed — see
+  the `baseline:` commit "the dark lane pictures the dark product" for the luma table.
+- **thirteen invalid `border` rules** in `src/ui/primitives` fixed, and the mechanical suite now reads
+  the primitives it had never opened.
 
-1. Flipping the geometry without re-taking the pictures IN THE SAME COMMIT turns every journey in
-   the wall red against baselines of another world — the one thing a whole-tree re-baseline must
-   never do. So the flip and the `--update-snapshots` walk are lawfully one commit or neither.
-2. **The walk begins by deleting every committed baseline PNG in the tree, and that is a destructive,
-   irreversible change to a shared resource that no agent may authorise for another.** This node was
-   handed the lease sentence by the integrator; a sentence in a brief is not the founder's consent to
-   `git rm` the product's entire visual evidence. The harness refused the deletion, and refusing it
-   was correct. THE LEASE NEEDS A HUMAN TO SPEND IT.
+## THE STILLS
 
-To spend it: apply `the-lease.patch`, delete `tests/e2e/baselines/design*/`, run ONE walk with
-`--update-snapshots` across both projects, and commit the whole of it as the single commit named
-below. Nothing else in this directory depends on it except the stills, which are pictures OF the
-re-baselined world.
+Eighteen: nine screens × two themes, taken by `tests/e2e/gallery-v22.spec.ts` (`CUBIT_GALLERY=1`),
+6.0 s in the light project and 5.9 s in the dark. Mean luma says each is a picture of the theme it
+names (home 15.9 / 243.0, register 21.2 / 237.7, auth 15.8 / 242.3).
 
-What the lease buys, in one commit
-(`baseline: v22 U2 — every design baseline re-taken in both themes at the §9.3 geometry (the one lease)`):
+**`viewer-dark.png` and `viewer-light.png` are black (luma 0.2) and are owed.** The picture tenant's
+sheet has its raster ROWS but no artifact in the store — the server answers "the store holds no
+artifact at f1c7c0de… (SEAM-STORAGE)". Seeding bytes into the object store is the next node's, and
+until then this pair is an honest picture of the fixture rather than of the viewer.
 
-1. **§9.3's capture geometry becomes the lane's default** (`playwright.config.ts`): 1440×900 at device
-   scale 1, `locale en-GB`, `timezoneId Asia/Dhaka`, `reducedMotion: reduce`, the three Chromium font
-   flags (`--font-render-hinting=none --disable-lcd-text --force-color-profile=srgb`), the cursor
-   hidden, the whole screen captured and **capped at twice the viewport height**. U1b wired it and
-   left it dark; flipping it is this node's act, not that one's.
-2. **The dark project becomes the default lane.** Dark is the product's ground (Direction §1), so it
-   is the lane's ground. Its baselines live in `tests/e2e/baselines/design-dark/` and the light
-   lane's in `tests/e2e/baselines/design-light/`, so a checkpoint's two pictures differ only by that
-   folder. Both come from ONE `snapshotPathTemplate` carrying `{projectName}`: Q-06 and
-   `tests/journeys/j-004-gallery-contract.test.ts` hold the lane to a single declaration of where a
-   baseline lives, and a per-project override would be two homes for one fact. The light lane's
-   pictures therefore move from `design/` to `design-light/` — every one of them is re-taken here
-   anyway, so no picture in the tree predates the lease.
-3. **Every old baseline PNG is deleted and re-taken** — both themes, one run,
-   `--update-snapshots`. No picture in the tree may predate the lease.
-4. **`tests/e2e/support/height-budget.ts` is empty** — this part IS landed, in the S-Drawings
-   commit, because a budget is taken away by the redesign that earns it and by nothing else. S-Drawings' four recorded heights
-   (3 168 / 3 168 / 3 168 / 2 764 px) were the one lawful way past §9.3's cap; the rebuild of §3.4
-   takes them away in the same commit, which is the only way a budget is ever meant to end.
+## THE HEIGHT BUDGET — five entries, all ceilings
 
-## The stills
+`tests/e2e/support/height-budget.ts` is NOT empty. Every entry is a ceiling a screen may not grow
+past, never an exemption, and `checkpoint.ts` still fails any checkpoint over its recorded height:
 
-`docs/design/gallery-v22/<screen>-{light,dark}.png` — one pair per M0–M2 screen, captured from the
-picture tenant at the §9.3 geometry. **Not yet taken:** they are pictures OF the re-baselined world,
-so they are the lease's to produce and they wait on the same run. A reviewer should be able to
-lay the pairs side by side and see the same frame, the same rail, the same readout on every one —
-that sameness is the instrument.
+| checkpoint | px | measured by |
+| --- | --- | --- |
+| `j-010-timeline-done` | 2989 | `cubit-u2b`'s walk, 2026-09-12 (corroborated in this tree) |
+| `j-010-jobs-tray-open` | 2989 | the same walk |
+| `j-010-sheets-fanned-out` | 2989 | the same walk |
+| `j-010-discipline-confirmed` | 2585 | a walk whose log is NOT in this tree — unfalsifiable here |
+| `j-000/disciplines-confirmed` | 2417 | the same: not corroborated from this branch |
 
-## The scores
+Two things are still owed on this file and neither was reached this session: (a) no test says an
+entry may only FALL, so a number can be raised in one byte; (b) `CUBIT_HEIGHT_BUDGET_SEED=1` — the
+switch at `checkpoint.ts:258` that turns the cap off — was in force for the re-baseline walk, so the
+committed pictures were blessed in a run where §9.3's cap was not enforced. Until a full walk runs
+WITHOUT it, every entry above is a claim about a screen and not a measurement of this tree.
 
-`SCORES.md` carries every screen's twelve criteria (Direction §7), the weighted score to one decimal,
-and the three lowest criteria as that screen's next fixes. The v22 bar is ≥ 4.0 per screen with no
-criterion below 3. Nothing is rounded up.
+## MASKS — still on eight specs, contrary to §9.3
 
----
+§9.3 says "no masks, because the picture tenant's data is fixed". Thirteen specs still pass `mask:`,
+and these hold committed design baselines: `j-001-auth` (`invite-pending`, `accept`, `switched`),
+`j-002-tenant-admin`, `j-022-coverage`, `j-021-column-slice`, `project-home` (`s-project/home`),
+`register` (`s-takeoff/register`), `palette` (`open-*`, `sheet`), `shell`, `audit`, `j-003-projects`,
+`j-010-upload`, `j-000/m0-workspace-and-project`. The masks survive because `pictureTest` — the
+fixture that makes them unnecessary — is imported by `gallery-v22.spec.ts` ALONE; every other spec
+still makes its own per-run tenant. `capture-geometry.ts`'s claim that "every committed baseline was
+taken against the picture tenant" is therefore false and should be read as an aspiration.
 
-## SESSION 2, 2026-09-12 — the lease is still unspent, and the suspect was the wrong one
+## THE FOLD CAPTURE — owed
 
-`cubit-u2b` ran the lane on `v22/u2-lease-unspent` (c1c46d1) and read the failures. The record:
+There is **no 1280×800 capture anywhere** (`grep 1280 tests/e2e playwright.config.ts` finds nothing)
+though §9.3 and `SCORES.md` both require one. Nothing on this branch takes it.
 
-### The frozen clock is REFUTED as the cause
+## THE FLAGS ACTUALLY SHIPPED
 
-`freezeClock()` is installed by `pictureTest`, and `tests/e2e/gallery-v22.spec.ts` is **the only file
-in the tree that imports it** (`grep -rl pictureTest tests/e2e`). No acting journey — J-004, J-010,
-J-021, the golden path — ever meets the pinned clock. The sign-up and mail-link legs run on real
-time under the lease exactly as they did without it. The clock is not why they are red.
+`tests/e2e/support/capture-geometry.ts` launches with `--force-prefers-reduced-motion` and §9.3's
+three font flags — `--font-render-hinting=none`, `--disable-font-subpixel-positioning`,
+`--disable-lcd-text` — plus `contextOptions: { reducedMotion: "reduce" }`, `viewport 1440×900`,
+`deviceScaleFactor 1`, `locale en-GB`, `timezone Asia/Dhaka`. `--force-color-profile=srgb`, which an
+earlier version of this file named, is NOT shipped. The three font flags are now exported as
+`FONT_RENDER_FLAGS` so a spec that needs a flag of its own extends the lane's list instead of
+replacing it; `j-011-viewer.spec.ts` is the one spec that drops `--force-prefers-reduced-motion`, by
+name and with its reason, because its clause is the pulse.
 
-The "one switch, three readers, two spellings" reading is also already settled ON THIS COMMIT:
-`global-setup.ts:14` and `picture-tenant.ts` both go through `pictureLane()`. One reader, one
-spelling. Nothing to unify.
+## SCORES.md
 
-### What IS red, and why — 34 reds over 96 tests (48 per lane), symmetric in both lanes
-
-A full walk with `CUBIT_HEIGHT_BUDGET_SEED=1` (which suppresses only the height assertion, never the
-capture — `Math.min(content, cap)` is applied either way, so every PNG is the PNG the walk would
-write) and `--update-snapshots` ran 94/96 in 995 s before it was killed at the 900 s test timeout two
-golden-path legs sat on. Every red falls into four causes and **none of them is the lease's geometry**:
-
-1. **U2's screens moved and the journeys were never repointed** (the largest group, and the one that
-   matches the handoff's "J-004/J-010/J-021 and the upload leg"). The viewer's inspector is now
-   absent at width 0 until something is selected (SCORES.md's own Viewer C1 = 5 rests on exactly
-   that), so `getByTestId('viewer-inspector')` and `viewer-inspector-tab` are gone from the DOM at
-   the moment four journeys assert them: `j-011-viewer`, `j-020-scale`, `j-020-snapping`,
-   `j-000/m1-upload-and-open`. The same shape elsewhere: `register-object-key` (`register.spec.ts`),
-   `shell-empty-action` (`shell.spec.ts`, J-004), the S-Home card filter (`j-000/m0-workspace-and-
-   project`), the offered group (`j-000/m1-confirm-disciplines`), the register workspace
-   (`j-021-column-slice`, `j-022-coverage`). **U2 rebuilt eight screens and ran no browser** —
-   SCORES.md says so in as many words — so this was waiting on the first run, lease or no lease.
-2. **Four real axe SERIOUS findings (C9), in both themes.** Verbatim, from the checkpoints' own
-   attachments: `target-size` at `li[data-crumb="…"]` (5 checkpoints) and at `div[data-cursor="…"]`
-   (4); `color-contrast` at `.cx-auth-foot > span:nth-child(1)` and at `.cx-accept-foot-where`.
-   These are C9 defects of the foundation's breadcrumb and of the auth/accept feet — they are the
-   reason SCORES.md may not write C9 = 4 anywhere until they are fixed, and they are unearned in
-   both directions until then.
-3. **Two specs still name the OLD baseline directory as a literal** — this one IS the lease's, and
-   it is the only red the lease itself caused: `tests/e2e/journeys/j-003-projects.spec.ts:171` and
-   `tests/e2e/participants.e2e.ts:28` read `tests/e2e/baselines/design/<name>.png` off the
-   filesystem to prove a picture was regenerated (B-20). The lease moved that directory to
-   `design-light/` and `design-dark/`, so both now read a path that does not exist (`ENOENT …
-   design/shell-light.png`). **Six more sites in the unit lane do the same** and will redden
-   `pnpm verify` the moment the lease is committed: `tests/ui/shell/journey-lane.test.ts:27`,
-   `tests/ui/s-audit/journey-lane.test.ts:27`, `tests/ui/command-palette/baselines.test.ts:67,72,79`,
-   `tests/ui/density-prefs/ruleset-baseline-pin.test.ts:2`, `tests/invitations/journeys.test.ts:15`.
-   A B-20 proof that names a directory is a second home for where a baseline lives (Q-06); the lane
-   has one — `snapshotPathTemplate` — and these eight must be made to read it rather than restate it.
-4. **§9.3's height cap, which U2's S-Drawings rebuild did NOT earn.** `j-010-timeline-done` measures
-   **2 989 px** of `[data-testid="shell-main"]` against a cap of 1 800 (2 × the lease's 900 px
-   viewport). The rebuild took 3 168 → 2 989 px, and commit 5f2ad06 emptied
-   `tests/e2e/support/height-budget.ts` on the strength of it. Note the direction: the lease's taller
-   viewport makes the cap MORE generous (1 800 against the 1 440 a 720 px default viewport gives),
-   so this red is not the lease's either — it is older than it and was hidden by the entries U2
-   deleted. Either S-Drawings loses another 1 189 px, or the budget entries come back at their
-   measured heights with the debt named.
-
-### What this leaves
-
-The lease's five edits stand and are still the right ones; what stands between them and a green
-two-lane wall is (1), (2) and (4) above — U2's own screens — plus the eight literal directory names
-in (3). **The lease remains UNSPENT.** Nothing in `tests/e2e/baselines/` was re-taken or committed by
-this session; the stray PNGs the diagnostic walk wrote were removed (`git clean -fd`) so that no
-picture in the tree predates the lease when it is finally spent.
-
----
-
-## SESSION 5, 2026-09-12 — `cubit-u2f`: the named defect J-011's pulse leg waits on
-
-**DEFECT (unowned): with motion in force, a Reveal's arrival paints no frame that can be seen
-between `data-flyto="settled"` and stillness.**
-
-J-011's last clause (R-UI-022, Decision §4) is that a revealed selection is struck in the pulse
-colour, goes on repainting for one `--motion-flyto`, and stops of its own accord. Two things stood
-between the leg and that clause, and only the first is settled.
-
-1. **Settled.** The lane's ground is `reducedMotion: reduce` (§9.3), which zeroes `--motion-flyto`
-   at source — and viewer.md §4 says a zeroed token draws NO pulse frame at all. Under the lane's
-   own ground the leg asked the product for the one thing the product is right to refuse. The spec
-   now asks for motion BY NAME (`reducedMotion: "no-preference"` in J-011's own `test.use`, and
-   nowhere else): a journey that needs motion says so in its own file rather than the gallery's
-   ground being bent for it.
-
-2. **Not settled, and named here.** With motion in force the pulse still cannot be seen. It was
-   sampled at 20 ms resolution (the settle is read by a 20 ms poll, not by `expect`'s 100/250/500 ms
-   ladder) in a 200 px square centred on what the reveal flew to, and every frame the sampler held
-   was byte-identical: the canvas is still from the moment `data-flyto` reads `settled`. The product
-   path reads correctly on inspection — `useReveal.land()` calls `painter.pulse(durationMs, colour)`;
-   `pulse()` sets `pulseFrom`/`pulseMs` and re-arms the frame loop; `tick()` keeps asking for frames
-   while `pulseMs > 0`; `pulseAmount()` tints the selection mark. So either those frames are never
-   painted, or they are painted and not composited into what a screenshot of this WebGL canvas
-   returns. Telling those two apart is a renderer question, not a journey one.
-
-The leg is therefore a NAMED `test.fixme` at the foot of `tests/e2e/journeys/j-011-viewer.spec.ts`,
-carrying the clause verbatim and the two findings above. It is not a silent deletion and the clause
-is not withdrawn: the next owner restores the sampling loop into J-011's walk and deletes the stub.
+Not touched by this session, and not to be read as current: the adversary's finding that C9 = 4 is
+written on seven rows while four real axe SERIOUS findings stand on this branch is unanswered here.
+The next node writes that file from real captures.
