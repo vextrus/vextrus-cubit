@@ -148,20 +148,31 @@ test.describe("J-010 — the project home", () => {
     // line only". A project that has called no model states an em dash and carries no unit badge —
     // a confident `0 USD` is a figure nobody measured. Where a call HAS been made the figure and its
     // unit stand as before, so the assertion is on the branch rather than on the zero.
-    const spent = (await steadyText(project.aiCalls, "the model-call readout")).replace(/\D/g, "") !== "0";
+    //
+    // THE BRANCH IS READ FROM THE SENTENCE, NEVER FROM THE FIGURE. `AiLine` renders the none line
+    // INSTEAD OF the calls figure and the outcomes clause, not beside them (project-home.tsx's
+    // `spend.calls === 0 ? <…ai-none/> : <…ai-calls/>…`), so at zero calls there is no
+    // `project-home-ai-calls` element on the screen at all. Asking that absent element for its text
+    // first is a 15 s wait on something the screen is right never to draw — which is how this
+    // journey was reading it, and why it was red.
+    const none = await steadyCount(project.aiNone, "the no-model-calls line");
+    expect(none, "the none line is one element or none — never two").toBeLessThanOrEqual(1);
+    const spent = none === 0;
     if (spent) {
       await expect(project.aiCost, "what this project has spent on model calls").toHaveText(/\d/);
       await expect(project.aiCostUnit, "in the currency the ledger records").toHaveText("USD");
+      await expect(project.aiCalls, "how many calls were made").toHaveText(/\d/);
+      await expect(project.aiOutcomes, "and what came of them").toBeVisible();
+      // The none line explains zeros and nothing else: where it is absent, a call was made.
+      const calls = (await steadyText(project.aiCalls, "the model-call readout")).replace(/\D/g, "");
+      expect(calls, "a screen that states a count rather than the none line has a call to count").not.toBe("0");
     } else {
       await expect(project.aiCost, "with no call made the spend is an em dash, not a confident zero").toHaveText("—");
       await expect(project.aiCostUnit, "and no unit badge stands beside an absence").toHaveCount(0);
+      await expect(project.aiCalls, "and no count stands beside it — the sentence is the whole line").toHaveCount(0);
+      await expect(project.aiOutcomes, "nor an outcomes clause about calls that were never made").toHaveCount(0);
     }
     await expect(project.aiSpend, "and never in taka: converting the ledger is out of scope").not.toContainText("৳");
-    await expect(project.aiCalls, "how many calls were made").toHaveText(/\d/);
-    await expect(project.aiOutcomes, "and what came of them").toBeVisible();
-    // The none line explains zeros and nothing else: it stands exactly when no call has been made.
-    const calls = (await steadyText(project.aiCalls, "the model-call readout")).replace(/\D/g, "");
-    await expect(project.aiNone, `no model has been called on this project (calls read "${calls}")`).toHaveCount(calls === "0" ? 1 : 0);
     await expect(project.aiLedger, "the ledger itself is one link away").toHaveAttribute("href", S_PROJECT.audit(tenantId, projectId));
 
     /* --- recent activity: the newest five, or the reason there are none --- */
