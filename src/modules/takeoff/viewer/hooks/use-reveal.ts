@@ -74,10 +74,23 @@ export type UseReveal = {
   reveal: (keys: readonly string[], basis?: string) => void;
   /** Absent until the first fly-to ever runs, and never written when the address states `v` (I-85). */
   flyto: "flying" | "settled" | null;
+  /**
+   * How many fly-tos this screen has run, counted up as each one BEGINS — 0 until the first.
+   *
+   * `flyto` is a state, and two of its three values are transient: with motion at full the screen
+   * is "flying" for one `--motion-flyto` and then "settled" for ever, and with motion reduced §4
+   * zeroes the token at source so the travel is one frame and "flying" is never written at all. A
+   * reader — or a journey — asking "did the Reveal fly this sheet?" cannot answer it from a state
+   * that the answer YES may never have visibly occupied. The ordinal can be read at any time after
+   * the fact, and it is the same number under both motion settings: a fly-to RAN.
+   */
+  flight: number;
 };
 
 export function useReveal({ head, stageRef, facts, cameraRef, moveCamera, jumpTo, pulse }: UseRevealOptions): UseReveal {
   const [flyto, setFlyto] = useState<"flying" | "settled" | null>(null);
+  /** The ordinal of the last fly-to that RAN — published, so "it flew" is readable after the fact. */
+  const [flight, setFlight] = useState(0);
   /** The fly-to in flight, so a second reveal or a leaving screen cancels the first. */
   const flightRef = useRef(0);
   const stageOf = useHandedRef(stageRef, null);
@@ -100,6 +113,9 @@ export function useReveal({ head, stageRef, facts, cameraRef, moveCamera, jumpTo
       const colour = basisColour(stage, basis);
       const flight = flightRef.current + 1;
       flightRef.current = flight;
+      // Counted where the travel is decided on, not where it lands: a reveal that was cancelled by
+      // the next one still happened, and a screen that left mid-flight still flew.
+      setFlight(flight);
 
       const land = (): void => {
         if (cameraAt.current === null) jumpTo?.(to);
@@ -132,5 +148,5 @@ export function useReveal({ head, stageRef, facts, cameraRef, moveCamera, jumpTo
     [cameraAt, facts, head, jumpTo, moveCamera, pulse, stageOf],
   );
 
-  return { reveal, flyto };
+  return { reveal, flyto, flight };
 }

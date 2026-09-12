@@ -149,11 +149,15 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     // inspector AFTER letting a selection go — so the panel is held open again, exactly as a person
     // who wanted to keep watching it would. Not one assertion below is loosened by it.
     await viewer.pinInspector();
-    // The sheet was flown to that one entity, so it is what stands in the middle of the stage (the
-    // test contract's deep-link-to-key procedure); a few pixels around it are tried because a
-    // drawing is painted to a fraction of one. The reading is taken while it is still held, because
-    // a hover renders above a selection and never displaces it (Decision §1).
-    const met = await viewer.hoverNear(await viewer.canvasCentre(), HOVER_REACH_PX);
+    // Where that entity stands on screen NOW, by inverting the shipped projection at the camera the
+    // address states — not "the middle of the stage". The two were the same thing until §3.1 gave
+    // the inspector a pin: holding the panel open takes its width off the stage, and the entity the
+    // sheet flew to is no longer over the canvas's new centre. The projection is the honest anchor
+    // either way, and it is the page object's own (`screenPointOf`, and `selectionCentre` for the
+    // world point). A few pixels around it are tried because a drawing is painted to a fraction of
+    // one. The reading is taken while the entity is still held, because a hover renders above a
+    // selection and never displaces it (Decision §1).
+    const met = await viewer.hoverNear(await viewer.screenPointOf(await viewer.selectionCentre()), HOVER_REACH_PX);
     const centre = met.at;
     expect(met.key, "the sheet was flown to that key, so that is the entity the pointer meets there").toBe(first.key);
 
@@ -200,9 +204,18 @@ test.describe("J-011 — the inspector: hover, select, copy, reveal, and the add
     /* --- AC-3: Reveal in sheet — the Trace's target, flown and settled --- */
     await viewer.zoomIn.click();
     await viewer.zoomIn.click();
-    const flying = page.waitForSelector(`${testIdSelector(TESTIDS.viewer.screen)}[data-flyto="flying"]`, { timeout: FLYTO_BUDGET_MS });
+    // Read the fly-to that RAN, not the state it was in while it ran. `data-flyto="flying"` is a
+    // transient a poll can miss and that §4 never writes at all when motion is reduced; the screen's
+    // `data-flyto-flight` ordinal counts every fly-to as it begins, so "the Reveal flew this sheet"
+    // is a fact that can be read after the fact — and it is asserted as an INCREMENT over what the
+    // address's own arrival already flew, so nothing else on the screen can satisfy it.
+    const flewBefore = Number((await viewer.screen.getAttribute("data-flyto-flight")) ?? "0");
     await viewer.reveal.click();
-    await flying;
+    await expect(viewer.screen, "the Reveal flies the sheet: one more fly-to has run than before the press").toHaveAttribute(
+      "data-flyto-flight",
+      String(flewBefore + 1),
+      { timeout: FLYTO_BUDGET_MS },
+    );
     await expect(viewer.screen, "and it settles by itself, inside a second").toHaveAttribute("data-flyto", "settled", { timeout: FLYTO_BUDGET_MS });
 
     // The pulse (§4): once the travel has landed the sheet goes on repainting for a moment and then

@@ -66,6 +66,7 @@ describe("useReveal: one travel, to the frame that holds what was named", () => 
     expect(jumpTo, "the camera lands where the frame that holds the key is").toHaveBeenCalledWith(landing());
     expect(pulse, "and the arrival is struck once, over the travel's own duration").toHaveBeenCalledTimes(1);
     expect(pulse.mock.calls[0]?.[0], "which is a duration, not a guess").toBeGreaterThan(0);
+    expect(result.current.flight, "and the screen can say a fly-to RAN, after the fact and whatever the motion setting").toBe(1);
   });
 
   test("a reveal of keys this sheet does not hold has nowhere to go and does not pretend to travel", () => {
@@ -75,6 +76,7 @@ describe("useReveal: one travel, to the frame that holds what was named", () => 
     result.current.reveal([]);
 
     expect(result.current.flyto, "nothing selected is not a journey, so `data-flyto` is never written").toBeNull();
+    expect(result.current.flight, "and nothing flew, so the ordinal stands at none").toBe(0);
     expect(jumpTo, "and no camera is moved on its behalf").not.toHaveBeenCalled();
   });
 

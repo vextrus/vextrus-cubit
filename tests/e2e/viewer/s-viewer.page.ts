@@ -257,6 +257,34 @@ export class SViewerPage {
     // screen asks for the same state rather than toggling whatever it finds.
     if ((await this.inspectorPin.getAttribute("aria-pressed")) !== "true") await this.inspectorPin.click();
     await expect(this.inspectorPin, "the inspector pin is held down, so the panel stands at rest (§3.1)").toHaveAttribute("aria-pressed", "true");
+    await this.stageSteady();
+  }
+
+  /**
+   * Wait until the canvas has stopped changing size.
+   *
+   * Holding the panel open takes its width off the stage, and where the product has motion the panel
+   * takes `--motion-*` to get there: the press returns at once and the stage goes on narrowing for a
+   * frame or two after it. Every reading taken against the sheet — a hover, a pick, a screen point —
+   * is taken through the camera, and the camera follows the box it is drawn into (`useCamera`'s own
+   * ResizeObserver), so a pointer put on the sheet while that box is still moving is put at a world
+   * point that has moved by the time it is asked about. This waits for two identical boxes rather
+   * than sleeping: the condition is the thing the reading needs (AM-09 §4).
+   */
+  async stageSteady(): Promise<void> {
+    let last = "";
+    await expect
+      .poll(
+        async () => {
+          const box = await this.canvasBox();
+          const now = `${Math.round(box.x)},${Math.round(box.y)},${Math.round(box.width)},${Math.round(box.height)}`;
+          const same = now === last;
+          last = now;
+          return same;
+        },
+        { message: "the stage never stopped resizing, so no reading could be taken through its camera" },
+      )
+      .toBe(true);
   }
 
   get hover(): Locator {
