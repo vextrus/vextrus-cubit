@@ -8,10 +8,10 @@
     "node": ">=24.19.0"
   },
   "cubit": {
-    "comment": "C-06 pins Node, pnpm, uv and typst. Node is pinned by .nvmrc and pnpm by packageManager; uv and typst are system tools, so their pins live here and `pnpm checkup` refuses a machine whose version differs. The Bible pins typst by version AND sha256; `checkup` compares the version it can ask the binary for, and the sha256 of the release asset that version came from is recorded beside its install recipe in docs/toolchain/typst.md. The CI workflow installs the pinned uv version and nothing else.",
+    "comment": "C-06 pins Node, pnpm, uv and typst. Node is pinned by .nvmrc and pnpm by packageManager; uv and typst are system tools, so their pins live here and `pnpm checkup` refuses a machine whose version differs. The Bible pins typst by version AND sha256 (AM-08), so BOTH halves live here and `pnpm checkup` refuses drift in either: it compares the version the binary reports and the sha256 of the bytes `which typst` resolves to. The release asset the binary came from, and the recipe that installs it, are recorded beside this digest in docs/toolchain/typst.md. The CI workflow installs the pinned uv version and nothing else.",
     "tools": {
       "uv": "0.12.5",
-      "typst": "0.15.1"
+      "typst": { "version": "0.15.1", "sha256": "29273eaa04f6d00edd0c2bec578f565fc9c65be856bfbffc894567c68ed0b237" }
     }
   },
   "scripts": {

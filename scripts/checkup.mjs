@@ -11,6 +11,7 @@ import { accessSync, constants, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deriveMachineChecks } from "./lib/lanes.mjs";
+import { fileDigest, toolPath, toolPin, toolVerdict } from "./lib/tools.mjs";
 import { portFor } from "./lib/ports.mjs";
 import { announce, wallTime } from "./lib/report.mjs";
 
@@ -87,28 +88,21 @@ function bindable(port) {
 }
 
 /**
- * The system tool pins C-06 orders, from package.json — the same file that pins pnpm.
- * @param {string} tool
- * @returns {string}
- */
-function toolPin(tool) {
-  const manifest = /** @type {{cubit?: {tools?: Record<string, string>}}} */ (JSON.parse(readRoot("package.json")));
-  const pin = manifest.cubit?.tools?.[tool];
-  if (pin === undefined) throw new Error(`package.json states no pin for ${tool} — C-06 pins Node, pnpm, uv and typst`);
-  return pin;
-}
-
-/**
- * A pinned tool: present is not enough, it must be the version the tree pins (C-06).
+ * A pinned tool: present is not enough, it must be the version the tree pins — and, where C-06
+ * pins the bytes too, it must BE those bytes. A version string is what a different build of the
+ * same version keeps, and R-SPINE-040's byte-identical documents are a promise about the build
+ * (AM-08: "pinned by version + sha256 … and refused by pnpm checkup on drift").
  * @param {string} tool
  * @param {string[]} args
  * @returns {Result}
  */
 function pinnedTool(tool, args) {
-  const pin = toolPin(tool);
+  const pin = toolPin(JSON.parse(readRoot("package.json")), tool);
   const reported = toolVersion(tool, args);
-  const actual = reported === null ? null : (/\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?/.exec(reported)?.[0] ?? reported);
-  return { ok: actual === pin, detail: `${tool} ${actual ?? "absent"} (pin ${pin})` };
+  const version = reported === null ? null : (/\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?/.exec(reported)?.[0] ?? reported);
+  if (pin.sha256 === null) return toolVerdict({ tool, pin, version });
+  const path = toolPath(tool);
+  return toolVerdict({ tool, pin, version, path, digest: path === null ? null : fileDigest(path) });
 }
 
 /**
