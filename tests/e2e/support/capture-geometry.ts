@@ -183,6 +183,18 @@ export interface GpuFacts {
 export function gpuChoice(facts: GpuFacts): GpuChoice {
   const software = (why: string): GpuChoice => ({ hardware: false, args: [...SOFTWARE_GL_FLAGS], env: {}, headless: true, why });
   if (facts.forced === "0") return software("software (CUBIT_E2E_GPU=0)");
+  // HARDWARE IS ASKED FOR BY NAME, and that is a measured decision rather than caution.
+  //
+  // The path works — `gpu: ANGLE (Microsoft Corporation, D3D12 (NVIDIA GeForce RTX 3060 Ti))` — but
+  // it can only be reached HEADED, and a headed Chromium does not lay out identically to the
+  // headless shell every committed baseline was taken under: `j-020-scale`'s panel comes out 270px
+  // against a 285px baseline and `viewer-partition`'s 301px against 304px, on content-sized panels,
+  // and `j-011`'s rectangle selection stops settling. None of those are the rasteriser — the same
+  // pictures pass on the same hardware flags in the software lane — so they are a headed-window
+  // difference still to be found, and until it is, a default of hardware would turn a green lane red
+  // on exactly the box that has the card. The floor is what every baseline was taken under; the card
+  // is `CUBIT_E2E_GPU=1`, and `scripts/gpu-probe.mjs` is the evidence it is worth asking for.
+  if (facts.forced !== "1") return software("software (the lane's floor — CUBIT_E2E_GPU=1 asks for the card)");
   if (!facts.dxg) return software(`software (no ${DXG_DEVICE})`);
   if (!facts.display) return software("software (no DISPLAY — the d3d12 winsys needs an X server)");
   return {

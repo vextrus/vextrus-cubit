@@ -26,10 +26,10 @@ import {
 } from "../e2e/support/capture-geometry";
 
 /** A box with no card: what every machine that is not this one looks like to `gpuChoice()`. */
-const NO_CARD: GpuFacts = { dxg: false, display: ":0", forced: undefined };
+const NO_CARD: GpuFacts = { dxg: false, display: ":0", forced: "1" };
 
 /** A box with the WSL2 device and WSLg's X server — this one, faked so the assertion is portable. */
-const CARD: GpuFacts = { dxg: true, display: ":0", forced: undefined };
+const CARD: GpuFacts = { dxg: true, display: ":0", forced: "1" };
 
 /** The switches a plain run carries: no film, no trace, no pictures. */
 const PLAIN: LaneSwitches = {
@@ -161,6 +161,13 @@ describe("the GL choice: a fake /dev/dxg decides it, and nothing else does", () 
     const choice = gpuChoice({ ...CARD, forced: "0" });
     expect(choice.hardware).toBe(false);
     expect(choice.why).toBe("software (CUBIT_E2E_GPU=0)");
+  });
+
+  test("a card nobody asked for is not used: hardware is opt-in until the headed lane lays out the same", () => {
+    const choice = gpuChoice({ ...CARD, forced: undefined });
+    expect(choice.hardware).toBe(false);
+    expect(choice.args).toEqual([...SOFTWARE_GL_FLAGS]);
+    expect(choice.why).toContain("the lane's floor");
   });
 
   test("the lane's use block carries the hardware choice when the choice is hardware", () => {
