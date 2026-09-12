@@ -84,15 +84,54 @@ export function evaluateLengthFunctions(value: string): string {
 
 /** The arithmetic of one `calc()` body, in px, or null where it is not plain arithmetic. */
 function foldCalc(body: string): number | null {
-  const arithmetic = body.replace(/(-?\d+(?:\.\d+)?)px/g, "$1").replace(/\bcalc\b/g, "");
-  if (!/^[\s\d.+\-*/()]+$/.test(arithmetic)) return null;
-  try {
-    // eslint-disable-next-line no-new-func -- the guard above admits digits and the five operators only
-    const value: unknown = new Function(`"use strict"; return (${arithmetic});`)();
-    return typeof value === "number" && Number.isFinite(value) ? value : null;
-  } catch {
-    return null;
-  }
+  const tokens = body.replace(/(-?\d+(?:\.\d+)?)px/g, "$1").match(/\d+(?:\.\d+)?|[+\-*/()]/g);
+  if (tokens === null || tokens.join("") !== body.replace(/(-?\d+(?:\.\d+)?)px/g, "$1").replace(/\s+/g, "")) return null;
+  let at = 0;
+  // A recursive-descent reader rather than `new Function`: a guardrail is never turned off in a
+  // change (Q-08), and an evaluator that cannot be handed anything but digits and five operators is
+  // shorter than the argument for suppressing the rule that says so.
+  const sum = (): number | null => {
+    let left = product();
+    while (left !== null && (tokens[at] === "+" || tokens[at] === "-")) {
+      const operator = tokens[at] as string;
+      at += 1;
+      const right = product();
+      if (right === null) return null;
+      left = operator === "+" ? left + right : left - right;
+    }
+    return left;
+  };
+  const product = (): number | null => {
+    let left = unary();
+    while (left !== null && (tokens[at] === "*" || tokens[at] === "/")) {
+      const operator = tokens[at] as string;
+      at += 1;
+      const right = unary();
+      if (right === null || (operator === "/" && right === 0)) return null;
+      left = operator === "*" ? left * right : left / right;
+    }
+    return left;
+  };
+  const unary = (): number | null => {
+    if (tokens[at] === "-") {
+      at += 1;
+      const value = unary();
+      return value === null ? null : -value;
+    }
+    if (tokens[at] === "(") {
+      at += 1;
+      const value = sum();
+      if (value === null || tokens[at] !== ")") return null;
+      at += 1;
+      return value;
+    }
+    const literal = tokens[at];
+    if (literal === undefined || !/^\d/.test(literal)) return null;
+    at += 1;
+    return Number(literal);
+  };
+  const value = sum();
+  return at === tokens.length && value !== null && Number.isFinite(value) ? value : null;
 }
 
 /**

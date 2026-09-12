@@ -223,7 +223,7 @@ describe("R-UI-012: the contrast floor holds on the token source, in both themes
     ...Object.fromEntries(
       (["--surface-app", "--surface-panel", "--surface-raised"] as const).map((ground) => [
         `light --element-opening on ${ground}`,
-        "the element palette paints GEOMETRY on the sheet — a filled region with a 1.5 px stroke, a hatch and a class glyph in the layer list — so §4.3's law that meaning never rides on colour alone is what makes a 2.76–2.89:1 teal lawful where a bare mark would not be. R-UI-001 forbids revaluing #21A0A8, and the palette has no consumer in `src/` today: the day one appears it draws a stroked shape, not a dot.",
+        "the element palette paints GEOMETRY on the sheet — a filled region with a 1.5 px stroke, a hatch and a class glyph in the layer list — so §4.3's law that meaning never rides on colour alone is what makes a 2.76–2.89:1 teal lawful where a bare mark would not be. R-UI-001 forbids revaluing it, and the palette has no consumer in `src/` today: the day one appears it draws a stroked shape, not a dot.",
       ]),
     ),
   } as Readonly<Record<string, string>>;
@@ -253,7 +253,7 @@ describe("R-UI-012: the contrast floor holds on the token source, in both themes
   test("R-UI-012: a basis colour is a MARK, never a label — `--basis-defaulted` is 4.42:1 and cannot be one", () => {
     // The one basis colour that does not clear the TEXT floor on the light app ground, and the
     // reason the chip's own stylesheet must keep spelling `--ink-secondary` for its label. This is
-    // not a preference: R-UI-001 forbids revaluing #6B7280, and no surface the chip sits on rescues
+    // not a preference: R-UI-001 forbids revaluing it, and no surface the chip sits on rescues
     // it — `--surface-raised` measures 4.66:1 and `--surface-app` 4.42:1, so a chip that moved
     // between the two would pass on one screen and fail on the next.
     const onApp = ratio(lightTokens, "--surface-app", "--basis-defaulted");
