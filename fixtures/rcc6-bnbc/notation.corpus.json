@@ -2779,9 +2779,9 @@
       "sheet": "S-01",
       "view": "paper",
       "kind": "MTEXT",
-      "raw": "CURVED BALCONY: the R 1524 corner is authored analytically (rect − r² + πr²/4) in both golden paths; the outline polygon keeps the corner point",
+      "raw": "CURVED BALCONY: the R 1524 curved balcony corner is measured as the true quarter-circle, not as the drawn polygon's corner point",
       "plain": [
-        "CURVED BALCONY: the R 1524 corner is authored analytically (rect − r² + πr²/4) in both golden paths; the outline polygon keeps the corner point"
+        "CURVED BALCONY: the R 1524 curved balcony corner is measured as the true quarter-circle, not as the drawn polygon's corner point"
       ],
       "family": "plain",
       "fact": null,
@@ -46977,9 +46977,9 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "BS 8666 CUTTING LENGTHS; SEE bbs.golden.json",
+      "raw": "BS 8666 CUTTING LENGTHS; LAPS AND HOOKS PER THE S-02 TABLE",
       "plain": [
-        "BS 8666 CUTTING LENGTHS; SEE bbs.golden.json"
+        "BS 8666 CUTTING LENGTHS; LAPS AND HOOKS PER THE S-02 TABLE"
       ],
       "family": "plain",
       "fact": null,
@@ -47005,13 +47005,13 @@
       "sheet": "S-26",
       "view": "BAR BENDING SCHEDULE",
       "kind": "TEXT",
-      "raw": "169458.751",
+      "raw": "490.081",
       "plain": [
-        "169458.751"
+        "490.081"
       ],
       "family": "number",
       "fact": {
-        "authored": "166626.107"
+        "authored": "481.889"
       },
       "trap": "T-BBS-TOTAL",
       "layer": "S-TEXT",

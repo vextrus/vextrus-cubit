@@ -7977,7 +7977,7 @@ AcDbText
  40
 1.5
   1
-HOUSE 12, ROAD 5, BLOCK B, BANANI, DHAKA-1213
+FLAT 4B, HOUSE 27, ROAD 9, SECTOR 6, UTTARA MODEL TOWN, DHAKA-1230
  11
 2.0
  21
@@ -8007,7 +8007,7 @@ AcDbText
  40
 1.5
   1
-TEL +880 2 5555 0000
+TEL +880 1XXX 000 000 / +880 2 4890 0000
  11
 2.0
  21
@@ -44809,7 +44809,7 @@ AcDbMText
  71
 1
   1
-CURVED BALCONY: the R 1524 corner is authored analytically (rect \U+2212 r² + \U+03c0r²/4) in both golden paths; the outline polygon keeps the corner point
+CURVED BALCONY: the R 1524 curved balcony corner is measured as the true quarter-circle, not as the drawn polygon's corner point
   0
 MTEXT
   5
@@ -239040,7 +239040,7 @@ AcDbText
  40
 200.0
   1
-BS 8666 CUTTING LENGTHS; SEE bbs.golden.json
+BS 8666 CUTTING LENGTHS; LAPS AND HOOKS PER THE S-02 TABLE
  11
 800000.0
  21
@@ -239100,7 +239100,7 @@ AcDbText
  40
 260.0
   1
-169458.751
+490.081
  11
 805200.0
  21

@@ -136812,6 +136812,6 @@
     "rebar_unit": "kg = cutting length (raw, unrounded) × table kg/m",
     "sunken_slab": "drop 300: slab 125 + drop walls 125 × 175 on the cut-out perimeter; formwork soffit + both drop faces",
     "ramp": "sloped area × thickness (plan × √(run² + rise²)/run)",
-    "curved_balcony": "the R 1524 corner is authored analytically (rect − r² + πr²/4) in both golden paths; the outline polygon keeps the corner point"
+    "curved_balcony": "the R 1524 curved balcony corner is measured as the true quarter-circle, not as the drawn polygon's corner point"
   }
 }

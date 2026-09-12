@@ -245,11 +245,15 @@
     {
       "id": "T-INSUNITS-0",
       "sheet": "*",
-      "handle": "1E57",
+      "handle": null,
       "family": "cad",
       "sample": "$INSUNITS = 0, $LUNITS = 4 (architectural), model in mm",
       "expected": "units inferred from the dimension texts and the scale bar (AFFIRM_SCALE), disclosed",
-      "file": "rcc6-bnbc.dxf"
+      "file": "rcc6-bnbc.dxf",
+      "anchor": {
+        "header": "$INSUNITS",
+        "value": 0
+      }
     },
     {
       "id": "T-DIMLFAC",
@@ -372,44 +376,61 @@
       "family": "document",
       "sample": "printed BBS grand total 1.7 % above the row sum",
       "expected": "row sums win; the printed total is an observation BBS_TOTAL_MISMATCH",
-      "true": "166626.107",
-      "printed": "169458.751"
+      "true": "481.889",
+      "printed": "490.081"
     },
     {
       "id": "T-FRAMES-MODELSPACE",
       "sheet": "*",
-      "handle": "173",
+      "handle": "21EE",
       "family": "document",
       "sample": "rcc6-bnbc.model.dxf: 26 sheets as model-space frames (×100 blocks) with ×5 details, one paper layout with a single viewport",
       "expected": "frames partitioned by title-block detection; scale per frame from its scale bar",
-      "file": "rcc6-bnbc.model.dxf"
+      "file": "rcc6-bnbc.model.dxf",
+      "anchor": {
+        "layout": "SHEET",
+        "entity": "the frames set's caption TEXT (the one TEXT the twin has over the paper set)"
+      }
     },
     {
       "id": "T-PDF-SHX",
       "sheet": "*",
-      "handle": "1E57",
+      "handle": null,
       "family": "document",
       "sample": "rcc6-bnbc.shx.pdf: stroked (Hershey) text, no text layer",
       "expected": "OCR lane; the TrueType twin is the control",
-      "file": "rcc6-bnbc.shx.pdf"
+      "file": "rcc6-bnbc.shx.pdf",
+      "anchor": {
+        "file": "rcc6-bnbc.shx.pdf",
+        "evidence": "0 text objects on every page"
+      }
     },
     {
       "id": "T-RASTER",
       "sheet": "*",
-      "handle": "1E57",
+      "handle": null,
       "family": "document",
       "sample": "R1 clean 300 dpi / R2 scan skew+stamp / R3 photocopy / R4 phone photo",
       "expected": "F-SCAN seeds; expected per-variant loss lists in sanity.json",
-      "file": "raster/"
+      "file": "raster/",
+      "anchor": {
+        "file": "raster/",
+        "evidence": "r1..r4 subsets and rcc6-bnbc.r2.pdf"
+      }
     },
     {
       "id": "T-DXF-MALFORMED",
       "sheet": "*",
-      "handle": "20B0",
+      "handle": null,
       "family": "refusal",
       "sample": "rcc6-bnbc.libredwg-r2000.dxf: a LibreDWG-shaped DXF with an 'Embedded Object' MTEXT column block and one mis-paired tag line in a DIMENSION",
       "expected": "named refusal DXF_TAG_STREAM_DESYNC with the line number; ezdxf recover mode refuses until a tag-stream resync drops the 13 offending lines — the product must report, never guess",
-      "file": "rcc6-bnbc.libredwg-r2000.dxf"
+      "file": "rcc6-bnbc.libredwg-r2000.dxf",
+      "anchor": {
+        "file": "rcc6-bnbc.libredwg-r2000.dxf",
+        "line": 72137,
+        "dropped_lines": 13
+      }
     },
     {
       "id": "T-RISER-ROUNDED",

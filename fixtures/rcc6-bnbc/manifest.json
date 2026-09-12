@@ -4,38 +4,39 @@
   "generator": {
     "path": "fixtures/gen/rcc6_bnbc/",
     "modules": {
-      "__main__.py": "112e5f19a35dd3efe5cbcf900e82d7958128bc360bb14f24c8f9590cb04f8839",
+      "__main__.py": "cda8aa424e158ca03f3654d24b8c9e62b55a956435fc1ac48c720cc3eec62b86",
       "cells.json": "caf5af457d4659ea15a7fbdcea92e9fa08848f103439a06af800336b30c80e28",
       "emit/__init__.py": "4d3f67c73e685ca8c5ae3ea3ac48cb6726fcb32b4d28202057cf1a166f60214f",
       "emit/blocks.py": "833539d149df8b87d6dd63d215b8eae90c16c3e1ac6fd627c6f73006f2c6ad7c",
-      "emit/dwg.py": "72b70a13303ad0dcc062d50af92aa18a9fac0d85b872256b6e2bb7e805b4afde",
-      "emit/dxf.py": "7e76e0124c1205eeb2005caab5eb520f8817799d076cf2b85ed3c42eb8f0a521",
+      "emit/dwg.py": "6add3b8c476a645a36e653c7578593eb9c9f1210ddc87a6e1da8d9de595a96ae",
+      "emit/dxf.py": "962e469914eb371b51721d7f7581c8438a5cc2d138632257efd55b7736526494",
       "emit/hershey.py": "526d7acffbd4e54f8ad476da93546cfa3a0f6d3de1a8f0a36ca3f3ce6e72b45b",
       "emit/images.py": "672eafc5da03f32f18055ffb05ac2aeef80443354ef06f7ce55eae7c62849e2b",
       "emit/manifest.py": "f5fdd4779926cc14ae6a7a25540c04cc2e0ef2f2c81e2845bd5e58a69873e6ef",
       "emit/pdf.py": "1cfd94190aec05879d9bdb2c5d5f66c8a7e62bf0c359a4f9ac0fd81ce01de936",
-      "emit/plan.py": "45d862654bb2a63d94a971e9fb1c9223368f73a4a59cd833e76e5e88a3726e92",
-      "emit/raster.py": "342a905f22b9f92b9126b8015fc30b0b2c23d970c02f8d6709e148b11158bd98",
+      "emit/plan.py": "decb6c7ff3f76a59057ca4db5f6d79a289e653ad5a3442d0219e50ef4435f227",
+      "emit/raster.py": "62d5ed793131ffc194e8af59d929cb996792bac452fe6ff8209fba54d3b5503f",
       "emit/scene.py": "3772b00062f1c39fb80fdb1fcfb08719577e0945070dc4d0fb1fde12d1528ee8",
       "emit/sheets/__init__.py": "8f81fef07feda1e98e2fbe9b0bd477deff27f50c4900ef92f73cf2a764246aef",
       "emit/sheets/beams.py": "218e2a1d61b7174c91da91caf222d6fb036b1f0933507e5765fa6809bd75d966",
       "emit/sheets/cols.py": "178be1a7bf6907668ebfaa11f8c2285cafdabfd6f37cc664e121d73726f08baf",
       "emit/sheets/common.py": "b17f3ddb1089c07f5cf56b9745c850f22c5543504dde2995d9bde72762e619af",
-      "emit/sheets/details.py": "483524c2b7e290905ff74e0cc372fe2d2bfcdcb6b4e763a58f181363d36b416c",
+      "emit/sheets/details.py": "09f16bcdb5238faf0944910ca8a8058f1c0c9a9a0d7b0377f399c8d978fdf522",
       "emit/sheets/found.py": "2a784a0e287e6551b8f0bc5401a309f641baefae3ec5d8f09cbe098649619d54",
       "emit/sheets/front.py": "7040a5d5ab5b5d703694869accc16135919a63263a11c2832d967633d4c4b285",
       "emit/sheets/slabs.py": "a957a6a362e304ff8407d7df1f0809b99aaa7cdc0fc5d98127f9ac51c6d5e2ff",
-      "golden.py": "82095fbd173d4468789bb0aa6926e3852ad76481d5505e30b731eb5949782a92",
+      "golden.py": "42bfb877411d8f859ae86eb34f63cb574765a729f31316960543cd9d178c4e88",
       "golden_check.py": "49ac0b1b96bd7becbab4abdb70f85a1b58a8fc342e4b92cdc4696fbcad237c4b",
-      "model.py": "769507bb9c22cbb318d525ada5e04e94a6226f06e2331d7018707b59c34ff408",
-      "selfcheck.py": "f334224746afb5fba47d026660021cd532cbedd4d5c104919657214d4673bdf7",
-      "traps.json": "fe8ad0a42e6275af4a701a2f5c86c31160b582790597bb84828257c7560b85f2",
-      "validate/__init__.py": "7aada1a6e0c74af3f1567771ffdea75a3ad629da8a4ec1010347d08f6c25004c",
+      "model.py": "8547128547171e9055ab31ff56edb7a79ad04d2cce5bd849c69be942e73eed8e",
+      "selfcheck.py": "2eb02e58bf21a374692f4f2462d622effa08dd4f48af4a8b1d77cb02d0a29d95",
+      "traps.json": "ab74379640896b0d0f3c74c892044007be06631018a0980f78285008e1ca3abe",
+      "validate/__init__.py": "f29a39d2c9f520d1c3be79c5aca08f794676b16448ccc63b6ef745f5270c73d8",
       "validate/facts.py": "0330290597aef549a25da6c4788dbd5ef3dd2f0b9423698f271afaeffab7d084",
       "validate/fit.py": "0a1fb59ca48464bb4719740cbd537e91a7480c54fd3c4e1d486c5eab962ce5b6",
       "validate/notation.py": "61ef2dde3d7118c02c5b7f2a0e5f770c15ad3442417079973b9fee8d5808c10c",
-      "validate/tally.py": "a78764496b21344327bb46a4a782db10735b57c471aaa1a2e5bf2554b3668d69",
-      "validate/traps.py": "23fae2b0cfa90661bcda42488a0ed3e0facfddfffe87640d11ce2547532fa0fb"
+      "validate/tally.py": "eeea85e8f0ae700731aeafac73f14815d606248f7c3573475fe981721a2663e7",
+      "validate/traps.py": "79f62a14bcaf247d61c5965989ae54af65ec08b000def76de3214050769e3c57",
+      "validate/wall.py": "bd478d0e660f3f2e5d4abb5f7c6155a469c66b2484e3a78bb7392757bd184a83"
     }
   },
   "conventions": {
@@ -59,12 +60,12 @@
     "rebar_unit": "kg = cutting length (raw, unrounded) × table kg/m",
     "sunken_slab": "drop 300: slab 125 + drop walls 125 × 175 on the cut-out perimeter; formwork soffit + both drop faces",
     "ramp": "sloped area × thickness (plan × √(run² + rise²)/run)",
-    "curved_balcony": "the R 1524 corner is authored analytically (rect − r² + πr²/4) in both golden paths; the outline polygon keeps the corner point"
+    "curved_balcony": "the R 1524 curved balcony corner is measured as the true quarter-circle, not as the drawn polygon's corner point"
   },
   "identity": {
     "consultant": "MEGHNA STRUCTURAL CONSULTANTS LTD.",
-    "consultant_address": "HOUSE 12, ROAD 5, BLOCK B, BANANI, DHAKA-1213",
-    "consultant_phone": "+880 2 5555 0000",
+    "consultant_address": "FLAT 4B, HOUSE 27, ROAD 9, SECTOR 6, UTTARA MODEL TOWN, DHAKA-1230",
+    "consultant_phone": "+880 1XXX 000 000 / +880 2 4890 0000",
     "client": "M/S. PADMA HOMES LTD.",
     "project": "PROPOSED G+6 STORIED RESIDENTIAL BUILDING",
     "project_bn": "প্রস্তাবিত ৬ তলা আবাসিক ভবন",
@@ -1100,156 +1101,132 @@
           "S-03 TYPICAL REINFORCEMENT DETAILS": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 12,
-            "VIEWPORT": 3
+            "TEXT": 12
           },
           "S-04 PILE LAYOUT PLAN": {
             "HATCH": 1,
             "INSERT": 4,
             "LWPOLYLINE": 1,
-            "TEXT": 9,
-            "VIEWPORT": 2
+            "TEXT": 9
           },
           "S-05 PILE DETAILS & PILE SCHEDULE": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 10,
-            "VIEWPORT": 3
+            "TEXT": 10
           },
           "S-06 PILE CAP LAYOUT & SCHEDULE": {
             "HATCH": 1,
             "INSERT": 4,
             "LWPOLYLINE": 1,
-            "TEXT": 9,
-            "VIEWPORT": 2
+            "TEXT": 9
           },
           "S-07 PILE CAP DETAILS": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 13,
-            "VIEWPORT": 6
+            "TEXT": 13
           },
           "S-08 GRADE BEAM LAYOUT & GF SLAB-ON-GRADE": {
             "HATCH": 1,
             "INSERT": 4,
             "LWPOLYLINE": 1,
-            "TEXT": 8,
-            "VIEWPORT": 1
+            "TEXT": 8
           },
           "S-09 GRADE BEAM DETAILS (LONG SECTIONS)": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 12,
-            "VIEWPORT": 5
+            "TEXT": 12
           },
           "S-10 COLUMN LAYOUT PLAN": {
             "HATCH": 1,
             "INSERT": 4,
             "LWPOLYLINE": 1,
-            "TEXT": 8,
-            "VIEWPORT": 1
+            "TEXT": 8
           },
           "S-11 COLUMN SCHEDULE": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 8,
-            "VIEWPORT": 1
+            "TEXT": 8
           },
           "S-12 COLUMN DETAILS": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 13,
-            "VIEWPORT": 6
+            "TEXT": 13
           },
           "S-13 1ST FLOOR BEAM LAYOUT": {
             "HATCH": 1,
             "INSERT": 4,
             "LWPOLYLINE": 1,
-            "TEXT": 8,
-            "VIEWPORT": 1
+            "TEXT": 8
           },
           "S-14 TYPICAL FLOOR BEAM LAYOUT (2ND TO 6TH FLOOR)": {
             "HATCH": 1,
             "INSERT": 4,
             "LWPOLYLINE": 1,
-            "TEXT": 8,
-            "VIEWPORT": 1
+            "TEXT": 8
           },
           "S-15 ROOF & STAIR ROOF BEAM LAYOUT": {
             "HATCH": 1,
             "INSERT": 4,
             "LWPOLYLINE": 1,
-            "TEXT": 9,
-            "VIEWPORT": 2
+            "TEXT": 9
           },
           "S-16 BEAM DETAILS (1 OF 3) - 1ST FLOOR": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 8,
-            "VIEWPORT": 1
+            "TEXT": 8
           },
           "S-17 BEAM DETAILS (2 OF 3) - TYPICAL": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 8,
-            "VIEWPORT": 1
+            "TEXT": 8
           },
           "S-18 BEAM DETAILS (3 OF 3) - ROOF & SCHEDULE": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 9,
-            "VIEWPORT": 2
+            "TEXT": 9
           },
           "S-19 1ST FLOOR SLAB REINFORCEMENT PLAN": {
             "HATCH": 1,
             "INSERT": 4,
             "LWPOLYLINE": 1,
-            "TEXT": 8,
-            "VIEWPORT": 1
+            "TEXT": 8
           },
           "S-20 TYPICAL SLAB REINFORCEMENT PLAN": {
             "HATCH": 1,
             "INSERT": 4,
             "LWPOLYLINE": 1,
-            "TEXT": 8,
-            "VIEWPORT": 1
+            "TEXT": 8
           },
           "S-21 ROOF, STAIR ROOF & PARAPET": {
             "HATCH": 1,
             "INSERT": 4,
             "LWPOLYLINE": 1,
-            "TEXT": 9,
-            "VIEWPORT": 2
+            "TEXT": 9
           },
           "S-22 STAIR DETAILS": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 10,
-            "VIEWPORT": 3
+            "TEXT": 10
           },
           "S-23 LIFT CORE & SHEAR WALL DETAILS": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 9,
-            "VIEWPORT": 2
+            "TEXT": 9
           },
           "S-24 OVERHEAD WATER TANK & UGWR - SEPTIC TANK": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 10,
-            "VIEWPORT": 3
+            "TEXT": 10
           },
           "S-25 LINTEL & SUNSHADE SCHEDULE, BUILDING SECTION": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 9,
-            "VIEWPORT": 2
+            "TEXT": 9
           },
           "S-26 BAR BENDING SCHEDULE (SAMPLE- PC3, 2B7, SLAB S3)": {
             "INSERT": 2,
             "LWPOLYLINE": 1,
-            "TEXT": 8,
-            "VIEWPORT": 1
+            "TEXT": 8
           },
           "model": {
             "ARC": 4,
@@ -1300,14 +1277,17 @@
           }
         ],
         "tool": "libredwg dwgread 0.13.3",
-        "refused": []
+        "refused": [],
+        "not_counted": [
+          "VIEWPORT"
+        ],
+        "convention": "VIEWPORT frames paint and is counted on neither side; expected == drawn - losses type for type"
       },
       "rcc6-bnbc.model.dwg": {
         "source": "rcc6-bnbc.model.dxf",
         "expected": {
           "SHEET": {
-            "TEXT": 1,
-            "VIEWPORT": 1
+            "TEXT": 1
           },
           "model": {
             "ARC": 4,
@@ -1353,7 +1333,11 @@
           }
         ],
         "tool": "libredwg dwgread 0.13.3",
-        "refused": []
+        "refused": [],
+        "not_counted": [
+          "VIEWPORT"
+        ],
+        "convention": "VIEWPORT frames paint and is counted on neither side; expected == drawn - losses type for type"
       }
     },
     "named_losses": {
@@ -1438,7 +1422,7 @@
       "dpi": 300,
       "planned_dpi": 300,
       "format": "PNG",
-      "bytes": 2310186,
+      "bytes": 2320823,
       "files": [
         "raster/r1/s-01.png",
         "raster/r1/s-10.png",
@@ -1453,7 +1437,7 @@
       "dpi": 200,
       "planned_dpi": 200,
       "format": "JPEG q70",
-      "bytes": 5155683,
+      "bytes": 5165292,
       "files": [
         "raster/r2/s-01.jpg",
         "raster/r2/s-10.jpg",
@@ -1474,7 +1458,7 @@
       "dpi": 120,
       "planned_dpi": 150,
       "format": "JPEG q55",
-      "bytes": 2935973,
+      "bytes": 2939452,
       "files": [
         "raster/r3/s-01.jpg",
         "raster/r3/s-10.jpg",
@@ -1494,7 +1478,7 @@
       "dpi": 150,
       "planned_dpi": 150,
       "format": "JPEG q60",
-      "bytes": 2540935,
+      "bytes": 2454461,
       "files": [
         "raster/r4/s-01.jpg",
         "raster/r4/s-10.jpg",
@@ -1516,14 +1500,14 @@
       "planned_dpi": 150,
       "format": "JPEG q34 in PDF",
       "pages": 27,
-      "bytes": 7571335,
+      "bytes": 7586686,
       "losses": [
         "NO_TEXT_LAYER",
         "DCT_ARTEFACTS_ON_HAIRLINES",
         "WHOLE_SET_AT_ONE_DPI"
       ]
     },
-    "total_bytes": 20514112,
+    "total_bytes": 20466714,
     "budget_mb": {
       "corpus_total": 45,
       "rasters_total": 25,
@@ -1543,44 +1527,44 @@
     "cells.json": "caf5af457d4659ea15a7fbdcea92e9fa08848f103439a06af800336b30c80e28",
     "images/consultant-logo.png": "c9dd25119a99b2cfa762fe8949fea4120d7b4af21b7b27059b96005f60be3488",
     "images/hook-detail-scan.png": "47be89718a96d76579d056551d3a8965c905e2703d18c873fe44c2970f8818fd",
-    "model.json": "98c7701a2d31a74fd0bd02cae352b1cac093ae7d5276a9d40ef42d755ee5ce78",
-    "notation.corpus.json": "bfa9bdfe9fbbb158895fe994c8cf3379bd121d04f0863e940b667379c57fb4c0",
-    "raster/r1/s-01.png": "397619514041030c32122387dc35356e86a2943d877f7c4f8809b916ed27e19c",
-    "raster/r1/s-10.png": "11cafc2b85ebb407d1629467be4e8207d88373aec8ed417ce8126a99d2be7f84",
-    "raster/r1/s-11.png": "b193d1012afd1b8aac962da4e7fb8974f6563a1d7b8274975b6498928211da2d",
-    "raster/r1/s-17.png": "4f11d1330bf8434b248c1b5d7a3284b4183a1f9cb778a157768f3ec377dd3a18",
-    "raster/r1/s-20.png": "845886e1586481520d1b20cb000f6fff2b9d71f01afe5880462d632762755328",
-    "raster/r1/s-26.png": "9f31f12a1dcf7dc637212935955e93f97d33724d00e62f4884406e4b22f599e7",
-    "raster/r2/s-01.jpg": "9a0aa85d762d38d655a44edcab1adf22ae6528fce3c5214f74a77482e3d9b636",
-    "raster/r2/s-10.jpg": "2345b7c641ef8944b0b02396fb82e05032fe45d4af20d219d64586f7a0ccd62e",
-    "raster/r2/s-11.jpg": "d60a82ab5b09348c17bb0fe23f5c4f14614da5dd965913b8b58143510e064d0c",
-    "raster/r2/s-17.jpg": "3ef806ecbee755297641b1106d8abe7eb5a73e84daeca0207865c2422fc35bb1",
-    "raster/r2/s-20.jpg": "9e99b2e6afad1a6ab38f88db0dd51cba997b1eb4430560b091430c909e5929f6",
-    "raster/r2/s-26.jpg": "8a090d3308a38be8dd4683180fb87999356ac80150ca9a6f78f4ba05108ea190",
-    "raster/r3/s-01.jpg": "2f8f411a6d2808a0fb15c8312f0d58a5a1bcd66a02ee5d1f7c4e59d0bf55db3e",
-    "raster/r3/s-10.jpg": "c74f8d303e4532342a0d67fd336d6c7124da4e5f3fc46510d66985b788bedc3d",
-    "raster/r3/s-11.jpg": "4fad97346f25d8bd6495ef04e330a0332fd4af4ed41ab8e3b20a4b3b8b82e404",
-    "raster/r3/s-17.jpg": "acb2d06709d38cf201af9663be3eca5e8964c4d012aea1d22b8a87f963807e0a",
-    "raster/r3/s-20.jpg": "a6b1c4bc103cd11ad770f6e6636fd69f9fab174e3d31967b7560ea16178ca64d",
-    "raster/r3/s-26.jpg": "14e0c5ad7611ca89a79fb7a85ae61d7924079ecda4d71db8e253f3d76ff3ab18",
-    "raster/r4/s-01.jpg": "162551c0e5b5475368e4a092f858d16528f0989bc0efad1f7de894093f174459",
-    "raster/r4/s-10.jpg": "d548edfef9284172490f7e98d19e88e32584b5036c7a2fbb3ce67944ae5e681b",
-    "raster/r4/s-11.jpg": "0f0e73a7bed85204822465f62f045a86b1969b5f8a58e7a2d56ecb16f95ea0a8",
-    "raster/r4/s-17.jpg": "43b137d16ed4c7ff791d2ccb0e51feaf8e09addc6dfff7eb29e0c4f79de95238",
-    "raster/r4/s-20.jpg": "63bb2795f59ffc67915eac6c0baec596801ee9d96897f1659d7df65c19577fb0",
-    "raster/r4/s-26.jpg": "6ff1cbb17ce41472c9bd66e694f3907a603f82c9d10c572119869f90d5cfcdb1",
-    "rcc6-bnbc.dwg": "34575aa54f0ae7bad9dcad6ae78d12dfb083f586ab38bf73f0f2461bf3d0876e",
-    "rcc6-bnbc.dxf": "fb2317f38aed7cb3dc41a0455a365a465c4c625e758fbecc8fb080c5c709e645",
-    "rcc6-bnbc.libredwg-r2000.dxf": "297a27773d036b2713f69b5db5cbb396260c16bd569301569f000f32b34aa532",
-    "rcc6-bnbc.model.dwg": "74ce17e6a130bf28350b233f9860e7f0efb790fd18c2452cececd23a54e08f30",
-    "rcc6-bnbc.model.dxf": "8b6164a2bda212e78fed2915bcf7d989d0cbc04d83c7903f78235e477782b087",
-    "rcc6-bnbc.pdf": "09272e5f8f0f7f8cff76255cc7bb72e673acbd87aebdf5c7243617c36fe6e603",
-    "rcc6-bnbc.r2.pdf": "0724f45e21bab084a839b6266cdce7be7db8bf55fa9a3cb246483d12f42a734e",
-    "rcc6-bnbc.shx.pdf": "3c4416231ded982363a2e434939825062e7023bc0acdc2364ee4cf3b2fbfce29",
-    "sanity.json": "2a622f714d60e3c915adf04b5d783793aa51c9cbb111ea1ce0fbca372b543072",
+    "model.json": "6fa690ddf28b76c5baefb0e9fd6f7862f2ef3b605c79370b6ebb9d6206847cea",
+    "notation.corpus.json": "29920a883b1532a9ed94f7aafd7d0a413b5b81ae2874382deb1c78076f6971fc",
+    "raster/r1/s-01.png": "69285a13d75c7161019e5a98a19240c0c4c5445a34ef1258b132b4b945dffa22",
+    "raster/r1/s-10.png": "1aa145b540b460c3388e310a4dc6790bf472150aed87e1a9e154f72ade4790ad",
+    "raster/r1/s-11.png": "3727150edd919220333e2ac3553398c142d20188503d69a632b35084c359d304",
+    "raster/r1/s-17.png": "7d765f7ceb9ac873e3cb2f340de3a997f56c0e91662ec8be8954694b273e7788",
+    "raster/r1/s-20.png": "cb519ffff198a2e8ba742a8555222b40e8e8672fb56bb3ae19aa2ab578cfeaaf",
+    "raster/r1/s-26.png": "319ab02c24a52ac30452ebb8f4673f8ebe64fcbf33a38f896fb7fb22594a3a8f",
+    "raster/r2/s-01.jpg": "9135764655a94c0e3636ad652ab41567e77480e8d793f9d5a47e414ad2d4bab7",
+    "raster/r2/s-10.jpg": "b13be37d3477525f4a937db37d88c020e3f02e4f173b2a53b0d3d2cf07e206fa",
+    "raster/r2/s-11.jpg": "20a467ed942b5d9d11e65e25b329daacedaadd268e8c21ea2889d348816fa15c",
+    "raster/r2/s-17.jpg": "d04b8f679761e12a617dd30c84d2fc50e9d876d16eb6d2ea50a626dc7f82bed9",
+    "raster/r2/s-20.jpg": "a1d75e9ddd887f842c84f93121e0df1097796dfb5c1988343519647faee3caf4",
+    "raster/r2/s-26.jpg": "2e8f26d5e45686a3147731fa9043a0628619fbb9e76ff30e95f8569ab0ab0f35",
+    "raster/r3/s-01.jpg": "9fda4d749be46608654392552c6729787f8892f97999a8b827dfb13d41ed6443",
+    "raster/r3/s-10.jpg": "da0a1568591829f7d18c12f2e869ccf079bde238bdcc28eeef884c41f0a2d2aa",
+    "raster/r3/s-11.jpg": "0d6e3f93668fdd543322b3fed72c71069d709c9002f34bd80d871ad1e9522c5c",
+    "raster/r3/s-17.jpg": "3ea52250fe42729a44efa474742126d289bcb4d71564a2206e67b7f5ea4ba91b",
+    "raster/r3/s-20.jpg": "8eec43e2a683368541397351923062c4b8612f8d0b688ccd0b3427a0f95dc893",
+    "raster/r3/s-26.jpg": "a61da0fa354658e3af6a851abf0648770efddf2158b9b72d0b06b6454bc2bdb1",
+    "raster/r4/s-01.jpg": "92543befc7df4b0a65f823231243de54914688e887bef3d71aa43d546ca6d231",
+    "raster/r4/s-10.jpg": "1a313789bef91d1b2926794852ce29aaab5c5eec889ae975cc7429b9fbd867a2",
+    "raster/r4/s-11.jpg": "3609aed436055e809d9cd3a9b5e2e077cd91b1a37fb9c5e61339e1db8a561ce3",
+    "raster/r4/s-17.jpg": "34da82080bdb5f76ca7bec81352db7af5b7384ec8bf89635507adf6ac26fa1a8",
+    "raster/r4/s-20.jpg": "d1475ecda33dc0abeb773b6e5f1e44581727067fba8d6f1f28d10ff74ac30281",
+    "raster/r4/s-26.jpg": "7a35b02c349acd81055c75ac661a08617ff6c86770f886ca9828fcd5bb35add9",
+    "rcc6-bnbc.dwg": "3593d6fef91e33c15b7d6af86384232932526c7c2d3d603fd5f34050a6410866",
+    "rcc6-bnbc.dxf": "a70f3603fa31d08b6888a5dd37677e93ddc2d6d40dbfee8532a6deac1a4055a7",
+    "rcc6-bnbc.libredwg-r2000.dxf": "5bac8f05c28f6e7168b1de841f710bf8b4f18071616bebb53edb47d2196a92c0",
+    "rcc6-bnbc.model.dwg": "8632e2936f58123fa04ccdfa105a462f0da06c84bccd146cd52701cb6f86f2eb",
+    "rcc6-bnbc.model.dxf": "b6240d3a2459d528f8ac7d74bde08b0953d8f1486ed910540c6642d4e7ecd065",
+    "rcc6-bnbc.pdf": "22881f69094ec2ecae52ac219b9abfb0c1117b519789dec33827f449b30a96b5",
+    "rcc6-bnbc.r2.pdf": "b6c387fdc928e83b55fdeb7a1fc90dec3e07f731e8353ae50ccbae557f388bee",
+    "rcc6-bnbc.shx.pdf": "1ad8f1b40175c2afea7e4e3df269123be6a51a64e2bc668ad782679442b2b4a7",
+    "sanity.json": "d1511754cc5468210d3bd731e25d54d2d6536b7f10f13eff085f37f15279d75c",
     "site.json": "f2b1fe46b7391f40afd0fae34bcaf35779f73eb06f072a60907e0828f2a31e99",
-    "takeoff.golden.json": "0b49ede60d16c4d82e67e9f0ccf44ebbe4bb219862ce51ffc4df30ab9097fd1e",
-    "traps.json": "fe8ad0a42e6275af4a701a2f5c86c31160b582790597bb84828257c7560b85f2"
+    "takeoff.golden.json": "8fdaf688d7923e060c182bb198fb078b5e61b46fac96b475541af560586aa9bf",
+    "traps.json": "ab74379640896b0d0f3c74c892044007be06631018a0980f78285008e1ca3abe"
   },
   "selfcheck": {
     "two_path_agreement": "379 rows identical (member-by-member vs mark × placements)",
@@ -1623,6 +1607,10 @@
     "fit": {
       "views": 53
     },
+    "wall": {
+      "forbidden_spellings": 567,
+      "bbs_total_ratio": "1.0170"
+    },
     "tally": {
       "rcc6-bnbc.dxf": {
         "spaces": 28,
@@ -1634,7 +1622,9 @@
       }
     },
     "traps": {
-      "resolved": "52/52"
+      "resolved": "52/52",
+      "with_handle": 48,
+      "anchored": 5
     },
     "determinism": {
       "rebuilt": [
@@ -1663,11 +1653,11 @@
       "rasters_total": 25,
       "single_file": 8
     },
-    "corpus_mb": 33.547,
-    "rasters_mb": 12.343,
+    "corpus_mb": 33.556,
+    "rasters_mb": 12.283,
     "largest_file": {
       "name": "rcc6-bnbc.r2.pdf",
-      "mb": 7.221
+      "mb": 7.235
     },
     "files": 43,
     "test": "cad/tests/rcc6_bnbc/test_rcc6_bnbc_size.py"

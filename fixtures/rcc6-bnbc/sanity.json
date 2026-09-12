@@ -226,156 +226,132 @@
         "S-03 TYPICAL REINFORCEMENT DETAILS": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 12,
-          "VIEWPORT": 3
+          "TEXT": 12
         },
         "S-04 PILE LAYOUT PLAN": {
           "HATCH": 1,
           "INSERT": 4,
           "LWPOLYLINE": 1,
-          "TEXT": 9,
-          "VIEWPORT": 2
+          "TEXT": 9
         },
         "S-05 PILE DETAILS & PILE SCHEDULE": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 10,
-          "VIEWPORT": 3
+          "TEXT": 10
         },
         "S-06 PILE CAP LAYOUT & SCHEDULE": {
           "HATCH": 1,
           "INSERT": 4,
           "LWPOLYLINE": 1,
-          "TEXT": 9,
-          "VIEWPORT": 2
+          "TEXT": 9
         },
         "S-07 PILE CAP DETAILS": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 13,
-          "VIEWPORT": 6
+          "TEXT": 13
         },
         "S-08 GRADE BEAM LAYOUT & GF SLAB-ON-GRADE": {
           "HATCH": 1,
           "INSERT": 4,
           "LWPOLYLINE": 1,
-          "TEXT": 8,
-          "VIEWPORT": 1
+          "TEXT": 8
         },
         "S-09 GRADE BEAM DETAILS (LONG SECTIONS)": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 12,
-          "VIEWPORT": 5
+          "TEXT": 12
         },
         "S-10 COLUMN LAYOUT PLAN": {
           "HATCH": 1,
           "INSERT": 4,
           "LWPOLYLINE": 1,
-          "TEXT": 8,
-          "VIEWPORT": 1
+          "TEXT": 8
         },
         "S-11 COLUMN SCHEDULE": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 8,
-          "VIEWPORT": 1
+          "TEXT": 8
         },
         "S-12 COLUMN DETAILS": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 13,
-          "VIEWPORT": 6
+          "TEXT": 13
         },
         "S-13 1ST FLOOR BEAM LAYOUT": {
           "HATCH": 1,
           "INSERT": 4,
           "LWPOLYLINE": 1,
-          "TEXT": 8,
-          "VIEWPORT": 1
+          "TEXT": 8
         },
         "S-14 TYPICAL FLOOR BEAM LAYOUT (2ND TO 6TH FLOOR)": {
           "HATCH": 1,
           "INSERT": 4,
           "LWPOLYLINE": 1,
-          "TEXT": 8,
-          "VIEWPORT": 1
+          "TEXT": 8
         },
         "S-15 ROOF & STAIR ROOF BEAM LAYOUT": {
           "HATCH": 1,
           "INSERT": 4,
           "LWPOLYLINE": 1,
-          "TEXT": 9,
-          "VIEWPORT": 2
+          "TEXT": 9
         },
         "S-16 BEAM DETAILS (1 OF 3) - 1ST FLOOR": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 8,
-          "VIEWPORT": 1
+          "TEXT": 8
         },
         "S-17 BEAM DETAILS (2 OF 3) - TYPICAL": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 8,
-          "VIEWPORT": 1
+          "TEXT": 8
         },
         "S-18 BEAM DETAILS (3 OF 3) - ROOF & SCHEDULE": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 9,
-          "VIEWPORT": 2
+          "TEXT": 9
         },
         "S-19 1ST FLOOR SLAB REINFORCEMENT PLAN": {
           "HATCH": 1,
           "INSERT": 4,
           "LWPOLYLINE": 1,
-          "TEXT": 8,
-          "VIEWPORT": 1
+          "TEXT": 8
         },
         "S-20 TYPICAL SLAB REINFORCEMENT PLAN": {
           "HATCH": 1,
           "INSERT": 4,
           "LWPOLYLINE": 1,
-          "TEXT": 8,
-          "VIEWPORT": 1
+          "TEXT": 8
         },
         "S-21 ROOF, STAIR ROOF & PARAPET": {
           "HATCH": 1,
           "INSERT": 4,
           "LWPOLYLINE": 1,
-          "TEXT": 9,
-          "VIEWPORT": 2
+          "TEXT": 9
         },
         "S-22 STAIR DETAILS": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 10,
-          "VIEWPORT": 3
+          "TEXT": 10
         },
         "S-23 LIFT CORE & SHEAR WALL DETAILS": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 9,
-          "VIEWPORT": 2
+          "TEXT": 9
         },
         "S-24 OVERHEAD WATER TANK & UGWR - SEPTIC TANK": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 10,
-          "VIEWPORT": 3
+          "TEXT": 10
         },
         "S-25 LINTEL & SUNSHADE SCHEDULE, BUILDING SECTION": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 9,
-          "VIEWPORT": 2
+          "TEXT": 9
         },
         "S-26 BAR BENDING SCHEDULE (SAMPLE- PC3, 2B7, SLAB S3)": {
           "INSERT": 2,
           "LWPOLYLINE": 1,
-          "TEXT": 8,
-          "VIEWPORT": 1
+          "TEXT": 8
         },
         "model": {
           "ARC": 4,
@@ -426,14 +402,17 @@
         }
       ],
       "tool": "libredwg dwgread 0.13.3",
-      "refused": []
+      "refused": [],
+      "not_counted": [
+        "VIEWPORT"
+      ],
+      "convention": "VIEWPORT frames paint and is counted on neither side; expected == drawn - losses type for type"
     },
     "rcc6-bnbc.model.dwg": {
       "source": "rcc6-bnbc.model.dxf",
       "expected": {
         "SHEET": {
-          "TEXT": 1,
-          "VIEWPORT": 1
+          "TEXT": 1
         },
         "model": {
           "ARC": 4,
@@ -479,7 +458,11 @@
         }
       ],
       "tool": "libredwg dwgread 0.13.3",
-      "refused": []
+      "refused": [],
+      "not_counted": [
+        "VIEWPORT"
+      ],
+      "convention": "VIEWPORT frames paint and is counted on neither side; expected == drawn - losses type for type"
     }
   },
   "pdf": {
@@ -746,7 +729,7 @@
       "dpi": 300,
       "planned_dpi": 300,
       "format": "PNG",
-      "bytes": 2310186,
+      "bytes": 2320823,
       "files": [
         "raster/r1/s-01.png",
         "raster/r1/s-10.png",
@@ -761,7 +744,7 @@
       "dpi": 200,
       "planned_dpi": 200,
       "format": "JPEG q70",
-      "bytes": 5155683,
+      "bytes": 5165292,
       "files": [
         "raster/r2/s-01.jpg",
         "raster/r2/s-10.jpg",
@@ -783,7 +766,7 @@
       "planned_dpi": 150,
       "format": "JPEG q34 in PDF",
       "pages": 27,
-      "bytes": 7571335,
+      "bytes": 7586686,
       "losses": [
         "NO_TEXT_LAYER",
         "DCT_ARTEFACTS_ON_HAIRLINES",
@@ -794,7 +777,7 @@
       "dpi": 120,
       "planned_dpi": 150,
       "format": "JPEG q55",
-      "bytes": 2935973,
+      "bytes": 2939452,
       "files": [
         "raster/r3/s-01.jpg",
         "raster/r3/s-10.jpg",
@@ -814,7 +797,7 @@
       "dpi": 150,
       "planned_dpi": 150,
       "format": "JPEG q60",
-      "bytes": 2540935,
+      "bytes": 2454461,
       "files": [
         "raster/r4/s-01.jpg",
         "raster/r4/s-10.jpg",

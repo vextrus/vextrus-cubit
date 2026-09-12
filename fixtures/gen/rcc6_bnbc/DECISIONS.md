@@ -261,3 +261,43 @@ rotated TEXT, MTEXT codes, dimensions with overrides and DIMLFAC, LEADER, POLYLI
 IMAGE (2 on the paper set: S-00 logo, S-03 scan), MULTILEADER (1), Bengali TEXT (1, S-00). The DWG
 source omits exactly those; `sanity.json["dwg"][*].expected = drawn − losses`, and the cad DWG lane reads
 that census. Nothing was refused by `convert_dwg`.
+
+## F2 adversary round — fix-forward on v22/f2
+
+**W-13 The title block's address.** F2-6: the address line's shape ("HOUSE n, ROAD n, BLOCK x,
+BANANI, DHAKA-1213") survived from the reference set's block with the numbers changed. Ruling: no line
+of the reference block survives — the fictional consultant now sits in Uttara Model Town (Sector 6,
+Dhaka-1230) with a different line shape; names, phone, client, project, RAJUK reference stay invented.
+The founder's law reads "notation habits only", and an address template is not a notation habit.
+
+**W-14 The BBS sample total (F2-1, F2-2) and the quantity wall.** S-26 printed `grand_total_kg × 1.017`
+— the project's golden steel mass on a sample sheet of three members whose own rows sum to 481.889 kg
+— so the trap was unreachable and the drawing carried the answer. Ruling: `golden.bbs_sample()` is the
+one selection (PC3, B7@2F, S3@1F, distinct bar marks); S-26 prints exactly those rows and a grand
+total of **their sum × 1.017**; `traps.json` T-BBS-TOTAL `true` is that sum and `printed` the ×1.017
+figure; selfcheck 5 and `validate/wall.py` assert `printed / true = 1.017 ± 0.0005` and that the
+printed value is not `grand_total_kg`. `validate/wall.py` is the permanent quantity wall: every takeoff
+row quantity, every kind total and the BBS grand total, in 3- and 2-decimal and thousands-separated
+spellings (integers only above 1,000), must match no numeric token of any drawn string.
+
+**W-15 A note states the convention, never the golden's method (F2-3).** `CONVENTIONS["curved_balcony"]`
+now reads "measured as the true quarter-circle, not as the drawn polygon's corner point". The same rule
+governs every note: what a QS needs to reproduce the measurement, never how the golden computed it, and
+never the name of a golden file (F2-4: S-26 cites the S-02 table, not `bbs.golden.json`).
+
+**W-16 VIEWPORT is content on neither side (F2-5).** `sanity.json["drawn"]` never counted VIEWPORT (the
+product's ingest treats it as a frame, not paint); the DWG `expected` did. One convention now: the DWG
+census is stripped of VIEWPORT before it becomes `expected`, `expected == drawn − losses` holds type for
+type in both directions (validate/tally.py checks the reverse too), and `sanity.json["dwg"][*]` states
+`not_counted` and the reason. The cad DWG test strips the same class before comparing.
+
+**W-17 Document traps carry their own evidence (F2-7; amends W-06).** T-FRAMES-MODELSPACE's handle is
+the frames set's caption TEXT in its `SHEET` layout — which is also the one TEXT the model twin has over
+the paper set (F2-8's 2,628 vs 2,627: named, not equalised). T-INSUNITS-0 has `handle: null` and anchors
+`$INSUNITS = 0` (a header variable has no handle); T-PDF-SHX and T-RASTER anchor their files; T-DXF-
+MALFORMED anchors the twin and the 1-based line of the mis-paired `AcDbAlignedDimension` plus the 13
+lines the resync drops. `validate/traps.py` and the cad sanity test verify each anchor against the bytes.
+
+**W-18 R4 is a real keystone (F2-8; amends W-10).** The page now lands on the photo as a trapezoid — top
+edge inset 7–11 % per corner, bottom 0.5–2 %, plus a ±1.5 % lean — so the page-quad width grows
+monotonically top to bottom; the earlier transform zoomed into the page and left only an in-plane lean.
