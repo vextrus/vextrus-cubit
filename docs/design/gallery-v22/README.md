@@ -70,3 +70,71 @@ that sameness is the instrument.
 `SCORES.md` carries every screen's twelve criteria (Direction §7), the weighted score to one decimal,
 and the three lowest criteria as that screen's next fixes. The v22 bar is ≥ 4.0 per screen with no
 criterion below 3. Nothing is rounded up.
+
+---
+
+## SESSION 2, 2026-09-12 — the lease is still unspent, and the suspect was the wrong one
+
+`cubit-u2b` ran the lane on `v22/u2-lease-unspent` (c1c46d1) and read the failures. The record:
+
+### The frozen clock is REFUTED as the cause
+
+`freezeClock()` is installed by `pictureTest`, and `tests/e2e/gallery-v22.spec.ts` is **the only file
+in the tree that imports it** (`grep -rl pictureTest tests/e2e`). No acting journey — J-004, J-010,
+J-021, the golden path — ever meets the pinned clock. The sign-up and mail-link legs run on real
+time under the lease exactly as they did without it. The clock is not why they are red.
+
+The "one switch, three readers, two spellings" reading is also already settled ON THIS COMMIT:
+`global-setup.ts:14` and `picture-tenant.ts` both go through `pictureLane()`. One reader, one
+spelling. Nothing to unify.
+
+### What IS red, and why — 34 reds over 96 tests (48 per lane), symmetric in both lanes
+
+A full walk with `CUBIT_HEIGHT_BUDGET_SEED=1` (which suppresses only the height assertion, never the
+capture — `Math.min(content, cap)` is applied either way, so every PNG is the PNG the walk would
+write) and `--update-snapshots` ran 94/96 in 995 s before it was killed at the 900 s test timeout two
+golden-path legs sat on. Every red falls into four causes and **none of them is the lease's geometry**:
+
+1. **U2's screens moved and the journeys were never repointed** (the largest group, and the one that
+   matches the handoff's "J-004/J-010/J-021 and the upload leg"). The viewer's inspector is now
+   absent at width 0 until something is selected (SCORES.md's own Viewer C1 = 5 rests on exactly
+   that), so `getByTestId('viewer-inspector')` and `viewer-inspector-tab` are gone from the DOM at
+   the moment four journeys assert them: `j-011-viewer`, `j-020-scale`, `j-020-snapping`,
+   `j-000/m1-upload-and-open`. The same shape elsewhere: `register-object-key` (`register.spec.ts`),
+   `shell-empty-action` (`shell.spec.ts`, J-004), the S-Home card filter (`j-000/m0-workspace-and-
+   project`), the offered group (`j-000/m1-confirm-disciplines`), the register workspace
+   (`j-021-column-slice`, `j-022-coverage`). **U2 rebuilt eight screens and ran no browser** —
+   SCORES.md says so in as many words — so this was waiting on the first run, lease or no lease.
+2. **Four real axe SERIOUS findings (C9), in both themes.** Verbatim, from the checkpoints' own
+   attachments: `target-size` at `li[data-crumb="…"]` (5 checkpoints) and at `div[data-cursor="…"]`
+   (4); `color-contrast` at `.cx-auth-foot > span:nth-child(1)` and at `.cx-accept-foot-where`.
+   These are C9 defects of the foundation's breadcrumb and of the auth/accept feet — they are the
+   reason SCORES.md may not write C9 = 4 anywhere until they are fixed, and they are unearned in
+   both directions until then.
+3. **Two specs still name the OLD baseline directory as a literal** — this one IS the lease's, and
+   it is the only red the lease itself caused: `tests/e2e/journeys/j-003-projects.spec.ts:171` and
+   `tests/e2e/participants.e2e.ts:28` read `tests/e2e/baselines/design/<name>.png` off the
+   filesystem to prove a picture was regenerated (B-20). The lease moved that directory to
+   `design-light/` and `design-dark/`, so both now read a path that does not exist (`ENOENT …
+   design/shell-light.png`). **Six more sites in the unit lane do the same** and will redden
+   `pnpm verify` the moment the lease is committed: `tests/ui/shell/journey-lane.test.ts:27`,
+   `tests/ui/s-audit/journey-lane.test.ts:27`, `tests/ui/command-palette/baselines.test.ts:67,72,79`,
+   `tests/ui/density-prefs/ruleset-baseline-pin.test.ts:2`, `tests/invitations/journeys.test.ts:15`.
+   A B-20 proof that names a directory is a second home for where a baseline lives (Q-06); the lane
+   has one — `snapshotPathTemplate` — and these eight must be made to read it rather than restate it.
+4. **§9.3's height cap, which U2's S-Drawings rebuild did NOT earn.** `j-010-timeline-done` measures
+   **2 989 px** of `[data-testid="shell-main"]` against a cap of 1 800 (2 × the lease's 900 px
+   viewport). The rebuild took 3 168 → 2 989 px, and commit 5f2ad06 emptied
+   `tests/e2e/support/height-budget.ts` on the strength of it. Note the direction: the lease's taller
+   viewport makes the cap MORE generous (1 800 against the 1 440 a 720 px default viewport gives),
+   so this red is not the lease's either — it is older than it and was hidden by the entries U2
+   deleted. Either S-Drawings loses another 1 189 px, or the budget entries come back at their
+   measured heights with the debt named.
+
+### What this leaves
+
+The lease's five edits stand and are still the right ones; what stands between them and a green
+two-lane wall is (1), (2) and (4) above — U2's own screens — plus the eight literal directory names
+in (3). **The lease remains UNSPENT.** Nothing in `tests/e2e/baselines/` was re-taken or committed by
+this session; the stray PNGs the diagnostic walk wrote were removed (`git clean -fd`) so that no
+picture in the tree predates the lease when it is finally spent.
