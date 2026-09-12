@@ -78,12 +78,23 @@ const HAIRLINE_PX = 1;
  * calc(100vw - var(--space-8)))`, so the expectation is computed against the live viewport rather
  * than pinned to a number that only holds at one window size.
  */
-const COLUMN_PX = Object.freeze({ auth: 380, sessions: 560 });
+const COLUMN_PX = Object.freeze({ auth: 360, sessions: 560 });
 
 type Probe = {
   what: string;
   route: string;
   columnPx: number;
+  /**
+   * What the screen puts between its column and the refusal, as the Decision's own token.
+   *
+   * §1's table places the card screens' refusal "in the answer slot, INSIDE the card", so the
+   * measure those screens give it is the card's content box — the column less the card's inline
+   * padding and its hairline on each side. `/sessions` renders the banner "in place of the list,
+   * full region width", so there is nothing between it and the column. Read this way the clause is
+   * the Decision's, not the DOM's: change the card's padding and this expectation moves with it,
+   * change the refusal's box and it does not.
+   */
+  cardPaddingToken: string | null;
   reach: (page: Page) => Promise<void>;
 };
 
@@ -96,6 +107,7 @@ const PROBES: readonly Probe[] = Object.freeze([
     what: "a credential that names no account, on /sign-in",
     route: S_AUTH.signIn,
     columnPx: COLUMN_PX.auth,
+    cardPaddingToken: "--space-5",
     reach: async (page) => {
       await page.getByTestId("s-auth-email").fill(NO_SUCH_ACCOUNT);
       await page.getByTestId("s-auth-password").fill(SOME_PASSWORD);
@@ -108,6 +120,7 @@ const PROBES: readonly Probe[] = Object.freeze([
     what: "no session at all, on /sessions",
     route: S_AUTH.sessions,
     columnPx: COLUMN_PX.sessions,
+    cardPaddingToken: null,
     reach: async () => {
       /* arriving is the whole act: the browser holds no session cookie */
     },
@@ -233,16 +246,24 @@ test.beforeAll(async ({ browser }) => {
           expectedPaddingInlinePx: lengthOf(given.paddingInline),
           blockPaddingPx: lengthOf("--space-3"),
           gapPx: lengthOf("--space-1"),
-          expectedWidthPx: Math.min(given.columnPx, viewport - spaceEight),
+          expectedWidthPx:
+            Math.min(given.columnPx, viewport - spaceEight) -
+            (given.cardPaddingToken === null ? 0 : 2 * (lengthOf(given.cardPaddingToken) + given.hairlinePx)),
           inlineStyle: element.getAttribute("style"),
           classes: element.getAttribute("class") ?? "",
         };
         probeElement.remove();
         return out;
       },
-      // `codeChipSelector` is resolved HERE, in node, because the registry is a node-side
-      // declaration: nothing named TESTIDS or testIdSelector exists inside the page.
-      { edge: paint.edge, fill: paint.fill, radius: chrome.radius, paddingInline: chrome.paddingInline, columnPx: probe.columnPx, codeChipSelector: testIdSelector(TESTIDS.refusal.code) },
+      {
+        edge: paint.edge,
+        fill: paint.fill,
+        radius: chrome.radius,
+        paddingInline: chrome.paddingInline,
+        columnPx: probe.columnPx,
+        cardPaddingToken: probe.cardPaddingToken,
+        hairlinePx: HAIRLINE_PX,
+      },
     );
 
     const box = await card.boundingBox();
