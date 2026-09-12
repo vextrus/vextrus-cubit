@@ -430,7 +430,7 @@ def ft_in(mm: float) -> str:
     feet = int(inches_total // 12)
     rem = inches_total - feet * 12
     whole = int(round(rem * 8) // 8)
-    eighths = int(round(rem * 8)) - whole * 8
+    eighths = round(rem * 8) - whole * 8
     if eighths == 8:
         whole, eighths = whole + 1, 0
     if whole == 12:

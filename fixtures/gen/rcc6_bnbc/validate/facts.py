@@ -7,7 +7,7 @@ trap's registered `printed` value."""
 
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from ..emit.scene import ft_in, plain_text
@@ -17,17 +17,15 @@ def spellings(value: str) -> set[str]:
     out = {value}
     try:
         d = Decimal(value)
-    except Exception:
+    except InvalidOperation:
         return out
     out.add(format(d.normalize(), "f"))
     out.add(f"{d:.0f}")
     if d == d.to_integral_value():
         out.add(str(int(d)))
-    try:
+    if abs(d) < Decimal(10**9):  # ft_in is defined for any finite mm figure
         out.add(ft_in(float(d)))
         out.add(" ".join(plain_text(ft_in(float(d)))))
-    except Exception:
-        pass
     out.add(f"{(d / 1000):.3f}")  # mm → m
     return out
 
@@ -61,9 +59,8 @@ def check(world: dict[str, Any], sheets: list[Any], traps_doc: dict[str, Any]) -
                 if trap:
                     t = traps[trap]
                     want = t.get("printed")
-                    if want is not None and want not in printed and not (spellings(want) & set(printed.split())):
-                        if not any(sp in printed for sp in spellings(want)):
-                            bad.append(("trap prints another value", sheet.number, trap, printed, want))
+                    if want is not None and not any(sp in printed for sp in spellings(want)):
+                        bad.append(("trap prints another value", sheet.number, trap, printed, want))
                     continue
                 if not any(sp in printed for sp in spellings(authored)):
                     bad.append((sheet.number, printed, authored))

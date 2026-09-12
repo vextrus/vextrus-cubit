@@ -25,9 +25,9 @@ GRAMMAR: dict[str, re.Pattern[str]] = {
         rf"(?:\s*\+\s*\d+\s*-\s*{NUM}\s*(?:mm)?\s*(?:Ø|%%[cC])\s*(?:st\.|ext\.|T&B|TOP|BOT\.?|EXTRA)?)*"
         rf"(?:\s*\(.*\))?$"
     ),
-    "spiral": re.compile(rf"^{NUM}\s*(?:mm)?\s*(?:Ø|%%[cC])\s*spiral\s*@\s*{NUM}\s*(?:mm)?\s*c/c.*$", re.I),
+    "spiral": re.compile(rf"^{NUM}\s*(?:mm)?\s*(?:Ø|%%[cC])\s*spiral\s*@\s*{NUM}\s*(?:mm)?\s*c/c.*$", re.IGNORECASE),
     "section": re.compile(rf"^(?:{NUM}\s*[xX×]\s*{NUM}(?:\s*mm)?|\d+\"\s*[xX×]\s*\d+\")$"),
-    "thickness": re.compile(rf"^(?:{NUM}\s*(?:mm)?|\d+\")\s*(?:THK\.?|THICK)$", re.I),
+    "thickness": re.compile(rf"^(?:{NUM}\s*(?:mm)?|\d+\")\s*(?:THK\.?|THICK)$", re.IGNORECASE),
     "length": re.compile(rf"^(?:{FTIN}|{NUM}(?:\s*mm)?|L/\d|Ln/\d|0\.\d+\s*L|{NUM}\s*m)$"),
     "level": re.compile(
         rf"^(?:(?:EL|FFL|PL|P\.L\.?=?|E\.G\.L\.?|COL|SFL|GL)\s*)?(?:\(\s*)?[±+-]?(?:{FTIN}|{NUM})(?:\s*\))?$"
@@ -37,9 +37,9 @@ GRAMMAR: dict[str, re.Pattern[str]] = {
     ),
     "mark": re.compile(r"^(?:[A-Z]{1,4}-?\s?\d{1,2}[a-z']?|\d[A-Z]{1,3}\d{1,2}|[A-Z]{1,4}\d?-[A-Z]{1,2}\d?|P\d{0,3}|S\d{1,2}|R\d{1,2}|SB-R\d|REB\d|OHWT-[BTW]|UGWR-[BTW]|ST-[BTW]|FL\d?|ML\d|SOG|RAMP|PIT|LPS|SRR|MRR|PP\d|BW\d{3}|LS\d|L\d)$"),
     "grade": re.compile(r"^(?:f'c|fc'|fy|f_y)\s*=\s*[\d,]+\s*(?:psi|MPa|N/mm²).*$|^B500DWR$|^C\d{4}PSI$"),
-    "cover": re.compile(rf"^(?:{NUM}\s*mm|\d+\")\s*(?:clear\s*)?cover.*$", re.I),
+    "cover": re.compile(rf"^(?:{NUM}\s*mm|\d+\")\s*(?:clear\s*)?cover.*$", re.IGNORECASE),
     "grid": re.compile(r"^(?:[A-E]'?|\d'?|1a)$"),
-    "count": re.compile(rf"^\d+\s*(?:R|NOS\.?|RISERS?|TREADS?)\s*(?:@\s*{NUM})?$", re.I),
+    "count": re.compile(rf"^\d+\s*(?:R|NOS\.?|RISERS?|TREADS?)\s*(?:@\s*{NUM})?$", re.IGNORECASE),
     "number": re.compile(rf"^[+-]?(?:{NUM}|[\d,]+\.\d+|{FTIN})$"),
 }
 
