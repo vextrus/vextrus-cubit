@@ -340,12 +340,20 @@ const semanticAlias: Group = {
     invariant("--state-danger-surface", "var(--danger-surface)"),
     invariant("--state-info", "var(--info)"),
     invariant("--state-info-surface", "var(--info-surface)"),
-    // the coverage ramp: one hue, lightness steps, so share-published reads without colour (§4.3)
+    // The coverage ramp: one hue, lightness STEPS, so share-published reads without colour (§4.3).
+    // It did not read without colour. beam-100 is lighter than graphite-200 in light and darker in
+    // dark, so the ramp rose at cov-0 → cov-1 in light and fell in dark — non-monotonic, and
+    // INVERTED between the themes — and the two steps measured 1.08:1 light / 1.14:1 dark, which is
+    // no step at all: a cell at 0 % and a cell at 1–25 % were the same cell in greyscale, and
+    // greyscale is where the certificate prints (R-UI-060, SC 1.4.1). The ramp now starts at
+    // graphite-200 and walks beam 300 → 500 → 600 → 700, dropping the collapsed beam-100 step: five
+    // values that fall monotonically in light, rise monotonically in dark, and no adjacent pair
+    // closer than 1.29:1 light / 1.37:1 dark.
     invariant("--cov-0", "var(--graphite-200)"),
-    invariant("--cov-1", "var(--beam-100)"),
-    invariant("--cov-2", "var(--beam-300)"),
-    invariant("--cov-3", "var(--beam-500)"),
-    invariant("--cov-4", "var(--beam-600)"),
+    invariant("--cov-1", "var(--beam-300)"),
+    invariant("--cov-2", "var(--beam-500)"),
+    invariant("--cov-3", "var(--beam-600)"),
+    invariant("--cov-4", "var(--beam-700)"),
     // glass is a z-overlay privilege; it never appears in a docked region (§1)
     ["--glass-alpha", "0.92", "0.88"],
     invariant("--glass-blur", "12px"),

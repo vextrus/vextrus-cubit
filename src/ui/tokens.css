@@ -169,10 +169,10 @@
   --state-info: var(--info);
   --state-info-surface: var(--info-surface);
   --cov-0: var(--graphite-200);
-  --cov-1: var(--beam-100);
-  --cov-2: var(--beam-300);
-  --cov-3: var(--beam-500);
-  --cov-4: var(--beam-600);
+  --cov-1: var(--beam-300);
+  --cov-2: var(--beam-500);
+  --cov-3: var(--beam-600);
+  --cov-4: var(--beam-700);
   --glass-alpha: 0.92;
   --glass-blur: 12px;
 }
@@ -346,10 +346,10 @@
   --state-info: var(--info);
   --state-info-surface: var(--info-surface);
   --cov-0: var(--graphite-200);
-  --cov-1: var(--beam-100);
-  --cov-2: var(--beam-300);
-  --cov-3: var(--beam-500);
-  --cov-4: var(--beam-600);
+  --cov-1: var(--beam-300);
+  --cov-2: var(--beam-500);
+  --cov-3: var(--beam-600);
+  --cov-4: var(--beam-700);
   --glass-alpha: 0.88;
   --glass-blur: 12px;
 }

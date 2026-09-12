@@ -337,8 +337,11 @@
   border: 1px dotted var(--ink-disabled);
 }
 
-/* The two dark steps of the ramp carry the inverse ink whatever the mark asked for: a mark nobody
-   can see is not a mark (R-UI-002, and the contrast half of §7 C9). */
+/* The THREE loud steps of the ramp carry the inverse ink whatever the mark asked for: a mark nobody
+   can see is not a mark (R-UI-002, and the contrast half of §7 C9). cov-2 joined them on 2026-09-12,
+   when §4.3's ramp was re-pointed a step darker to make its five values tell apart in greyscale —
+   `--ink` on the new cov-2 measures 2.15:1 in light and the inverse ink measures 6.04:1. */
+.cx-coverage-cell[data-cov="2"],
 .cx-coverage-cell[data-cov="3"],
 .cx-coverage-cell[data-cov="4"] {
   color: var(--ink-inverse);

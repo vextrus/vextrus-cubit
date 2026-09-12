@@ -17,10 +17,15 @@
  * No colour literal is spelled here and none may be (R-UI-001): the values come from the token
  * tables, and a `var()` chain is followed to whatever it lands on.
  */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { darkTokens, lightTokens } from "./tokens";
 
 /** The two floors, by what the pairing is for. */
+const REPO_ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
+
 const FLOOR = { text: 4.5, ui: 3 } as const;
 
 type Surface = keyof typeof FLOOR;
@@ -196,6 +201,42 @@ describe("R-UI-012: the contrast floor holds on the token source, in both themes
       }
     }
     expect(failures, failures.join("\n")).toEqual([]);
+  });
+
+  test("SC 1.4.1 + §4.3: the coverage ramp is five STEPS — monotonic, and no two alike in greyscale", () => {
+    // Read from the generated stylesheet rather than from the TS table, because the stylesheet is
+    // what a browser and a greyscale printer are handed. (tokens.test.ts holds the two byte-for-byte
+    // identical, so this cannot drift into a second source of truth.)
+    const css = readFileSync(resolve(REPO_ROOT, "src/ui/tokens.css"), "utf8");
+    const block = (selector: string): Record<string, string> => {
+      const at = css.indexOf(`${selector} {`);
+      expect(at, `tokens.css carries a ${selector} block`).toBeGreaterThan(-1);
+      const body = css.slice(at, css.indexOf("\n}", at));
+      return Object.fromEntries([...body.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1] as string, (m[2] as string).trim()]));
+    };
+    const ramp = ["--cov-0", "--cov-1", "--cov-2", "--cov-3", "--cov-4"] as const;
+    for (const [theme, selector] of [["light", ":root"], ["dark", '[data-theme="dark"]']] as const) {
+      const table = block(selector);
+      const steps = ramp.map((name) => ({ name, value: resolved(table, name), light: luminance(resolved(table, name)) }));
+      // Monotonic, in whichever direction the theme runs: 0 % is the quietest against the ground and
+      // 100 % the loudest, so light descends and dark rises. A ramp that turns round mid-way says
+      // 26–50 % is less covered than 1–25 %.
+      const direction = Math.sign((steps.at(-1) as { light: number }).light - (steps[0] as { light: number }).light);
+      expect(direction, `${theme}: the ramp's ends are the same luminance`).not.toBe(0);
+      for (const [lower, upper] of steps.slice(0, -1).map((step, at) => [step, steps[at + 1] as typeof step] as const)) {
+        expect(
+          Math.sign(upper.light - lower.light),
+          `${theme}: ${lower.name} (${lower.value}, L ${lower.light.toFixed(4)}) → ${upper.name} (${upper.value}, L ${upper.light.toFixed(4)}) turns the ramp round`,
+        ).toBe(direction);
+        // SC 1.4.1: the cell's share must survive the colour being taken away, and luminance
+        // contrast IS what survives. 1.2:1 is the bar §4.3's "lightness steps ≥ 12 L*" states.
+        const measured = ((Math.max(lower.light, upper.light) + 0.05) / (Math.min(lower.light, upper.light) + 0.05));
+        expect(
+          measured,
+          `${theme}: ${lower.name} and ${upper.name} measure ${measured.toFixed(3)}:1 in greyscale — two shares a reader cannot tell apart, and the certificate prints in greyscale (R-UI-060)`,
+        ).toBeGreaterThanOrEqual(1.2);
+      }
+    }
   });
 
   test("the two beams are not one token: the fill a label sits on clears 4.5 where the mark alone does not", () => {
