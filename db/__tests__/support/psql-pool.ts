@@ -36,6 +36,11 @@
 // 128-bit random token minted per process. Nothing a test can put in a row can be mistaken for it —
 // and if the process dies first, the wrapper's `…-EXIT-<status>` line on stdout says so instead.
 //
+// Measured 2026-09-12 against a local scratch database (PostgreSQL 16.15, 127.0.0.1:5544), 200
+// scripts each way, one after another: a trivial `select n` cost 25.4 ms a script spawned and
+// 0.77 ms pooled (33x); a catalogue read shaped like the suite's own seeding cost 28.5 ms spawned
+// and 1.70 ms pooled (17x). About 25 ms of every script the lane ran was a process it started.
+//
 // A pool that cannot answer is never an answer: a process that dies before it has spoken, a stdin
 // that will not take the script, a wrapper that will not start — each falls back to a fresh
 // `spawnSync` psql for that one script and says so in `stderr`. Set CUBIT_PSQL_POOL=0 to run every
