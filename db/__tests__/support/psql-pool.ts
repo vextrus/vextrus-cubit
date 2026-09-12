@@ -402,8 +402,15 @@ export function pooledPsql(url: string, script: string): SqlResult {
 
   const done = awaitMarker(session, marker, Date.now() + SCRIPT_TIMEOUT_MS);
   if (done.how === "marked") {
-    sendReset(session);
-    return shape(true, upToMarker(done.stdout, marker), upToMarker(done.stderr, marker));
+    const answer = shape(true, upToMarker(done.stdout, marker), upToMarker(done.stderr, marker));
+    // The answer is already in hand: a reset this process will not take costs it its place in the
+    // pool and nothing else.
+    try {
+      sendReset(session);
+    } catch {
+      close(session);
+    }
+    return answer;
   }
 
   // Anything else ends this process: ON_ERROR_STOP means psql has already exited, and a process that
