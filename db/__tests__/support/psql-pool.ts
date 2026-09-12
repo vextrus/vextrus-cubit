@@ -377,6 +377,12 @@ function upToMarker(text: string, marker: string): string {
   return at < 0 ? text : text.slice(0, at);
 }
 
+/** What the caller is told when the process running its script went away under it. */
+const DIED_MID_SCRIPT = "the pooled psql died mid-script — the script's effects are unknown, nothing was re-run (v22 R3)";
+
+/** What the caller is told when the script never ended. */
+const DID_NOT_END = `the script did not end in ${SCRIPT_TIMEOUT_MS / 1000} s — an unclosed comment, string, dollar-quote or \\if? nothing re-run`;
+
 /** Say, in the stderr the caller reads, that this answer came from a fresh process after all. */
 function noteFallback(result: SqlResult, why: string): SqlResult {
   return { ...result, stderr: `${result.stderr}\n[psql-pool] ${why}; this script was run in a fresh psql process instead.\n` };
@@ -414,12 +420,12 @@ export function pooledPsql(url: string, script: string): SqlResult {
   const serial = session.scripts;
   const marker = `${session.token}-S-${serial}`;
   rewind(session);
-  const spoken = session.out.offset + session.err.offset;
   try {
     writeAll(session.stdin, scriptBlock(session, script, serial));
   } catch (error) {
+    // Part of the script may already have gone down the fifo and run. Same law as a death: no re-run.
     close(session);
-    return noteFallback(spawnPsql(url, script), `the pooled psql would not take the script (${String(error)})`);
+    return { ok: false, rows: [], stderr: `[psql-pool] ${DIED_MID_SCRIPT} (${String(error)})\n`, sqlstate: null };
   }
 
   const done = awaitMarker(session, marker, Date.now() + SCRIPT_TIMEOUT_MS);
@@ -443,18 +449,15 @@ export function pooledPsql(url: string, script: string): SqlResult {
     return shape(false, upToMarker(done.stdout, `${session.token}-EXIT-`), done.stderr);
   }
   if (done.how === "timeout") {
-    return {
-      ok: false,
-      rows: [],
-      stderr: `${done.stderr}\n[psql-pool] this script did not finish in ${SCRIPT_TIMEOUT_MS} ms and its psql was taken away.\n`,
-      sqlstate: null,
-    };
+    return { ok: false, rows: [], stderr: `${done.stderr}\n[psql-pool] ${DID_NOT_END}\n`, sqlstate: null };
   }
-  // The process vanished without saying anything at all. Nothing of the script was answered, so it
-  // is safe to run it again — in a fresh process, the way every script used to run.
-  const untouched = session.out.offset + session.err.offset === spoken;
-  const result = spawnPsql(url, script);
-  return noteFallback(result, untouched ? "the pooled psql vanished before it spoke" : "the pooled psql vanished mid-script");
+  // The process vanished. What the script did before it went is UNKNOWABLE from here: psql is -q, so
+  // an insert, an update, a create — everything this lane writes — prints nothing, and a script
+  // that committed and then lost its process looks exactly like one that never started. The old
+  // spelling re-ran it through a fresh psql and wrote the row twice (v22 R3 adversary C1/C2). A
+  // second write is a worse answer than no answer, so nothing is re-run and the caller is told
+  // plainly that the pool does not know; a test reading this reds honestly.
+  return { ok: false, rows: [], stderr: `${done.stderr}\n[psql-pool] ${DIED_MID_SCRIPT}\n`, sqlstate: null };
 }
 
 /** What the pool is holding right now — how a test proves one process served many scripts. */
