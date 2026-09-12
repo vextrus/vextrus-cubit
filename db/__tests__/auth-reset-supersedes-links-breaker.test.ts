@@ -25,13 +25,14 @@
  * Product modules are loaded by absolute path and the database is the same self-provisioned scratch
  * every live suite uses, so this file judges the shipped seam and adds no second idea of the schema.
  */
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, test } from "vitest";
 import { REFUSALS } from "../../src/core/errors";
 import { refusalCodeOf } from "../../src/core/faults/refusal-marker";
 import { provisionScratchDb } from "./harness";
+import { readOutbox } from "../../tests/support/outbox";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -64,13 +65,6 @@ interface ContextModule {
 
 interface MailModule {
   outboxDir: () => string;
-}
-
-/** One mail, as `src/server/auth/mail.ts` writes it. */
-interface OutboxMail {
-  to?: unknown;
-  kind?: unknown;
-  token?: unknown;
 }
 
 interface Staged {
@@ -147,28 +141,20 @@ async function accountWith(email: string, label: string): Promise<string> {
   return String(answer.sessionToken);
 }
 
-/** Every token the outbox holds for this address and kind, oldest first. */
+/**
+ * Every token the outbox holds for this address and kind, oldest first. Read through the tree's ONE
+ * reader (tests/support/outbox.ts), which answers newest-first and which SKIPS AND NAMES a zero-byte
+ * or torn file rather than throwing on it — this file used to carry its own tolerant parse, and a
+ * private tolerance is one the next reader does not inherit (tests/auth/outbox-one-reader.test.ts).
+ */
 function mailedTokens(directory: string, to: string, kind: string): string[] {
   if (!existsSync(directory)) return [];
-  return readdirSync(directory)
-    .filter((name) => name.endsWith(".json"))
-    .map((name) => join(directory, name))
-    .map((path) => ({ path, at: statSync(path, { throwIfNoEntry: false })?.mtimeMs ?? 0 }))
-    .sort((one, two) => one.at - two.at)
-    .map(({ path }) => readMail(path))
-    .filter((mail): mail is OutboxMail => mail !== null)
+  return readOutbox(directory)
+    .mails.slice()
+    .reverse()
     .filter((mail) => mail.to === to && mail.kind === kind)
     .map((mail) => String(mail.token ?? ""))
     .filter((token) => token !== "");
-}
-
-function readMail(path: string): OutboxMail | null {
-  try {
-    return JSON.parse(readFileSync(path, "utf8")) as OutboxMail;
-  } catch {
-    // A mail being written as this reads it is not a mail this test is about.
-    return null;
-  }
 }
 
 /** The one token this door just mailed to this address — the door writes exactly one per call. */
