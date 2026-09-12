@@ -144,8 +144,18 @@ test.describe("J-010 — the project home", () => {
     }
 
     /* --- AI cost so far: the ledger's USD, never a ৳ (R-AI-005, I-128) --- */
-    await expect(project.aiCost, "what this project has spent on model calls").toHaveText(/\d/);
-    await expect(project.aiCostUnit, "in the currency the ledger records").toHaveText("USD");
+    // v22 §8's fix for this screen: "`0 USD` → MoneyText in ৳ or the honest 'No model calls yet'
+    // line only". A project that has called no model states an em dash and carries no unit badge —
+    // a confident `0 USD` is a figure nobody measured. Where a call HAS been made the figure and its
+    // unit stand as before, so the assertion is on the branch rather than on the zero.
+    const spent = (await steadyText(project.aiCalls, "the model-call readout")).replace(/\D/g, "") !== "0";
+    if (spent) {
+      await expect(project.aiCost, "what this project has spent on model calls").toHaveText(/\d/);
+      await expect(project.aiCostUnit, "in the currency the ledger records").toHaveText("USD");
+    } else {
+      await expect(project.aiCost, "with no call made the spend is an em dash, not a confident zero").toHaveText("—");
+      await expect(project.aiCostUnit, "and no unit badge stands beside an absence").toHaveCount(0);
+    }
     await expect(project.aiSpend, "and never in taka: converting the ledger is out of scope").not.toContainText("৳");
     await expect(project.aiCalls, "how many calls were made").toHaveText(/\d/);
     await expect(project.aiOutcomes, "and what came of them").toBeVisible();
@@ -163,7 +173,9 @@ test.describe("J-010 — the project home", () => {
     /* --- participants: the creator holds the project as its principal (C-SPINE-PROJECT, L-ACT-03) --- */
     await expect(project.refusal, "this member holds the project, so nothing here is refused").toHaveCount(0);
     await expect(project.participantRows, "the roster names who holds the project").not.toHaveCount(0);
-    await expect(project.participantRoles.filter({ hasText: "PRINCIPAL" }).first(), "and the creator holds it as its principal").toBeVisible();
+    // v22 §6: "People see labels, never machine identifiers." The role renders through EnumLabel as
+    // "Principal"; the SCREAMING form is kept in `data-role` and in the technical disclosure.
+    await expect(project.participantRoles.filter({ hasText: "Principal" }).first(), "and the creator holds it as its principal").toBeVisible();
 
     /* --- s-project/home: axe over the page, then the committed Linux baseline --- */
     await checkpoint(page, testInfo, "s-project-home");

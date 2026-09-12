@@ -85,7 +85,10 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     expect(projectId, "the card names the project it is for (docs/design/s-home.md § 7)").not.toBe("");
 
     /* --- edit a field, and see the change on S-Home --- */
-    await created.getByTestId("project-edit").click();
+    // v22 §3.3: the row's three doors moved behind one `⋯` (docs/design/s-home.md I-140) — a row in a
+    // 28 px table carries one trigger, not three buttons. The menu is portalled, so it is addressed
+    // at the page and the page object opens it.
+    await (await home.openRowMenu(projectId)).getByTestId("project-edit").click();
     await expect(home.form, "the edit door opens the same form, prefilled").toBeVisible();
     await expect(home.field("project-code"), "an edit opens on what is stored, never on an empty form").toHaveValue("SC-001");
     await home.fill({ name: PROJECT_EDITED });
@@ -99,17 +102,17 @@ test.describe("J-003 — projects: create, edit, archive, restore, and the pin t
     await expect(page).toHaveScreenshot(["j-003", "project-edited.png"], { mask: home.masks(), animations: "disabled" });
 
     /* --- archive, then restore: reversible, and nothing is deleted (AC-4) --- */
-    await edited.getByTestId("project-archive").click();
+    await (await home.openRowMenu(projectId)).getByTestId("project-archive").click();
     await expect(edited.getByTestId("s-home-project-archived-badge"), "an archived project is flagged on the card, by a word and never by colour alone").toBeVisible();
     await expect(edited.getByTestId("s-home-project-status"), "the status says so too").toHaveAttribute("data-status", "archived");
     await expect(edited, "an archived project is shown, never hidden").toBeVisible();
 
-    await edited.getByTestId("project-restore").click();
+    await (await home.openRowMenu(projectId)).getByTestId("project-restore").click();
     await expect(edited.getByTestId("s-home-project-archived-badge"), "restoring takes the flag away").toHaveCount(0);
     await expect(edited.getByTestId("s-home-project-status")).toHaveAttribute("data-status", "active");
 
     /* --- the pin, on the shipped settings screen (R-SPINE-012, L-REG-07) --- */
-    await edited.getByTestId("s-home-project-ruleset").click();
+    await (await home.openRowMenu(projectId)).getByTestId("s-home-project-ruleset").click();
     await expect(page).toHaveURL(`${origin}${S_HOME.ruleset(tenantId, projectId)}`);
 
     const identity = page.getByTestId(RULESET_IDENTITY);
