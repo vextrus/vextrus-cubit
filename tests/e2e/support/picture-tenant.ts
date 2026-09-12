@@ -17,6 +17,8 @@
 import { scryptSync } from "node:crypto";
 import { GUC_SYSTEM_REASON } from "../../../db/__tests__/support/fixtures";
 import { lit, run, withSession } from "../../../db/__tests__/support/live-sql";
+import { INGEST_SCHEME } from "../../../src/core/entitygraph/schema";
+import { storedAddressKey } from "../../../src/server/auth/session";
 
 /** The frozen instant every picture is taken at: 2026-03-01 10:00 Asia/Dhaka, stated in UTC. */
 export const PICTURE_CLOCK = "2026-03-01T04:00:00.000Z";
@@ -38,9 +40,26 @@ export const PICTURE_TENANT = Object.freeze({
   client: "Meghna Holdings",
   siteAddress: "Plot 14, Gulshan Avenue",
   district: "Dhaka",
+  /** The drawing the gallery's viewer still is taken of, as the drawings list names it. */
+  drawingName: "RT-01 — Foundation Package.dxf",
   /** The sheet and the lines the register and the viewer paint in a still. */
   sheetName: "A-101 — Foundation Plan",
   lineNames: Object.freeze(["Substructure — Excavation", "Substructure — Blinding", "Substructure — Pile cap"]),
+});
+
+/**
+ * The content the drawing is made of, and the record taken out of it. Literals for the same reason
+ * the ids are: a sha computed per run is a row that changes per run, and the drawings list prints it.
+ * `f1c7…` again, so a row found by hand is recognisably this fixture's.
+ */
+export const PICTURE_CONTENT = Object.freeze({
+  sha256: "f1c7c0de00000000000000000000000000000000000000000000000000000000",
+  byteLength: 262_144,
+  format: "dxf",
+  ingestId: "f1c70000-0000-4000-8000-000000000006",
+  /** The three tiers the sheet index and the viewer read, one raster id each (`sheetId` is the full one). */
+  rasterIds: Object.freeze({ thumb: "f1c70000-0000-4000-8000-000000000007", preview: "f1c70000-0000-4000-8000-000000000008", full: PICTURE_TENANT.sheetId }),
+  rasterSize: Object.freeze({ thumb: [320, 226] as const, preview: [1280, 905] as const, full: [3370, 2384] as const }),
 });
 
 /** The picture tenant's own address, for a journey that navigates to it without a sign-in leg. */
@@ -64,6 +83,21 @@ export function pictureHash(): string {
   const salt = Buffer.from(PICTURE_SALT, "utf8");
   const key = scryptSync(PICTURE_TENANT.password, salt, SCRYPT.keyLength, { N: SCRYPT.N, r: SCRYPT.r, p: SCRYPT.p, maxmem: 256 * SCRYPT.N * SCRYPT.r });
   return ["scrypt", SCRYPT.N, SCRYPT.r, SCRYPT.p, salt.toString("base64url"), key.toString("base64url")].join("$");
+}
+
+/**
+ * THE KEY THE ACCOUNT IS STORED UNDER — the door's own fold, never a second spelling of it.
+ *
+ * `users.email` does not hold the address as typed: every door writes and reads it through
+ * `storedAddress` (`src/server/auth/session.ts`), which folds it with `foldedKey` — the fold's one
+ * home (B-17). A fixture that wrote the raw address wrote a row the sign-in door cannot find:
+ * `where(eq(users.email, "as presented surveyor@picture.cubit.test"))` matched nothing, so the
+ * picture tenant was answered CREDENTIALS_NOT_VALID and every gallery still was a picture of the
+ * sign-in card. Calling the exported key function rather than re-spelling `as presented ` here is
+ * the whole point: if the fold ever changes, this fixture changes with it and cannot drift.
+ */
+export function pictureStoredEmail(): string {
+  return storedAddressKey(PICTURE_TENANT.email);
 }
 
 /**
@@ -103,7 +137,7 @@ export function seedPictureTenant(url: string): void {
       `insert into tenants (tenant_id, name, created_at) values (${lit(PICTURE_TENANT.tenantId)}, ${lit(PICTURE_TENANT.workspaceName)}, ${at})`,
       `  on conflict (tenant_id) do update set name = excluded.name, created_at = excluded.created_at;`,
       `insert into users (user_id, email, password_hash, email_verified_at, created_at)`,
-      `  values (${lit(PICTURE_TENANT.userId)}, ${lit(PICTURE_TENANT.email)}, ${lit(pictureHash())}, ${at}, ${at})`,
+      `  values (${lit(PICTURE_TENANT.userId)}, ${lit(pictureStoredEmail())}, ${lit(pictureHash())}, ${at}, ${at})`,
       `  on conflict (user_id) do update set email = excluded.email, password_hash = excluded.password_hash, email_verified_at = excluded.email_verified_at, created_at = excluded.created_at;`,
       `insert into memberships (tenant_id, user_id, workspace_role, created_at)`,
       `  values (${lit(PICTURE_TENANT.tenantId)}, ${lit(PICTURE_TENANT.userId)}, 'OWNER', ${at})`,
@@ -111,6 +145,33 @@ export function seedPictureTenant(url: string): void {
       `insert into projects (tenant_id, project_id, name, code, client, site_address, district, created_at)`,
       `  values (${lit(PICTURE_TENANT.tenantId)}, ${lit(PICTURE_TENANT.projectId)}, ${lit(PICTURE_TENANT.projectName)}, ${lit(PICTURE_TENANT.projectCode)}, ${lit(PICTURE_TENANT.client)}, ${lit(PICTURE_TENANT.siteAddress)}, ${lit(PICTURE_TENANT.district)}, ${at})`,
       `  on conflict (project_id) do update set name = excluded.name, code = excluded.code, client = excluded.client, site_address = excluded.site_address, district = excluded.district, created_at = excluded.created_at;`,
+      // THE DRAWING THE PICTURES ARE TAKEN OF. Until 2026-09-12 the seed stopped at the project, so
+      // `gallery-v22.spec.ts` navigated to a `drawingId` no row answered for and the drawings, viewer
+      // and takeoff stills were pictures of an empty state. The content row comes first because
+      // `drawings_content` is a composite foreign key onto it: a drawing is a name pointing at bytes.
+      `insert into files (tenant_id, sha256, byte_length, format, scan_verdict, created_at)`,
+      `  values (${lit(PICTURE_TENANT.tenantId)}, ${lit(PICTURE_CONTENT.sha256)}, ${PICTURE_CONTENT.byteLength}, ${lit(PICTURE_CONTENT.format)}, 'clean', ${at})`,
+      // DO NOTHING, not DO UPDATE: these four are APPEND-ONLY ledgers (`cubit_append_only()` refuses
+      // an UPDATE with 42501 — "a row written is immutable"). Convergence here is therefore the row
+      // already being what the fixture says, which is the same state a second run arrives at.
+      `  on conflict (tenant_id, sha256) do nothing;`,
+      `insert into drawings (tenant_id, drawing_id, project_id, sha256, name, format, uploaded_by, created_at)`,
+      `  values (${lit(PICTURE_TENANT.tenantId)}, ${lit(PICTURE_TENANT.drawingId)}, ${lit(PICTURE_TENANT.projectId)}, ${lit(PICTURE_CONTENT.sha256)}, ${lit(PICTURE_TENANT.drawingName)}, ${lit(PICTURE_CONTENT.format)}, ${lit(PICTURE_TENANT.userId)}, ${at})`,
+      `  on conflict (drawing_id) do nothing;`,
+      // The record the sheet was read out of. `facts` is the extractor's own counters; one sheet was
+      // read, which is what the fixture holds — a made-up count would be a number a screen prints.
+      `insert into ingests (tenant_id, ingest_id, drawing_id, sha256, job_id, artifact_sha256, extractor_scheme, extractor_tool, extractor_tool_version, extractor_parameter_set_hash, facts, created_at)`,
+      `  values (${lit(PICTURE_TENANT.tenantId)}, ${lit(PICTURE_CONTENT.ingestId)}, ${lit(PICTURE_TENANT.drawingId)}, ${lit(PICTURE_CONTENT.sha256)}, ${lit("fixture-picture-ingest")}, ${lit(PICTURE_CONTENT.sha256)}, ${lit(INGEST_SCHEME)}, 'fixture', '1.0.0', ${lit(PICTURE_CONTENT.sha256.slice(0, 16))}, ${lit(JSON.stringify({ layouts: 1, entities: 0 }))}::json, ${at})`,
+      `  on conflict (ingest_id) do nothing;`,
+      // The sheet itself: a layout is a row per tier, and the layout NAME is what the viewer's
+      // address carries (`PICTURE_TENANT.sheetName`), so the three rows are what make that URL resolve.
+      ...(["thumb", "preview", "full"] as const).map((tier) =>
+        [
+          `insert into sheet_rasters (tenant_id, raster_id, ingest_id, drawing_id, job_id, layout_name, tier, width, height, sha256, created_at)`,
+          `  values (${lit(PICTURE_TENANT.tenantId)}, ${lit(PICTURE_CONTENT.rasterIds[tier])}, ${lit(PICTURE_CONTENT.ingestId)}, ${lit(PICTURE_TENANT.drawingId)}, ${lit(`fixture-picture-raster-${tier}`)}, ${lit(PICTURE_TENANT.sheetName)}, ${lit(tier)}, ${PICTURE_CONTENT.rasterSize[tier][0]}, ${PICTURE_CONTENT.rasterSize[tier][1]}, ${lit(PICTURE_CONTENT.sha256)}, ${at})`,
+          `  on conflict (raster_id) do nothing;`,
+        ].join("\n"),
+      ),
     ].join("\n")),
   );
 }
