@@ -3,7 +3,8 @@ lands under fixtures/rcc6-bnbc/ (failure writes nothing). Wave A's selfcheck.run
 1, 3, 4, 6-golden, 7; this package adds the drawing side:
 
   2. every drawn string parses in its declared family or names a registered trap (notation);
-  5. every printed fact equals its authored value unless a registered trap (facts);
+  5. every printed fact equals its authored value unless a registered trap (facts), and every
+     view's content fits its window on the paper (fit);
   6. the sanity tally re-read with ezdxf before writing equals the tally taken while placing,
      per (space, type), and the DWG expected census = tally − named losses (tally);
   8. two in-process builds are byte-identical except the DWG; every trap resolves to a live
@@ -18,9 +19,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from . import facts, notation, tally, traps
+from . import facts, fit, notation, tally, traps
 
-__all__ = ["facts", "notation", "run", "tally", "traps"]
+__all__ = ["facts", "fit", "notation", "run", "tally", "traps"]
 
 
 def run(
@@ -34,6 +35,7 @@ def run(
     report: dict[str, Any] = {}
     report["notation"] = notation.check(sheets, traps_doc)
     report["facts"] = facts.check(world, sheets, traps_doc)
+    report["fit"] = fit.check(sheets)
     report["tally"] = tally.check(scratch, written)
     report["traps"] = traps.check(scratch, traps_doc)
     return report
