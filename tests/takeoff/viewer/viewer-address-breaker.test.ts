@@ -15,8 +15,15 @@
  *    5e-5 pixels per drawing unit the spelling rounds the scale to `0`, and `parseViewport` refuses
  *    its own notation — so the address in the bar is not the address that reopens the sheet.
  */
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { VIEWER_CLIENT_MODULE, productModule } from "./support/viewer-support";
+
+// The page asks the project choke point for itself now (session → the project's real workspace →
+// the read). These cases judge the ADDRESS, so the guard answers and hands back the workspace it
+// was asked about; what a caller who is NOT on the project meets is tests/app's to state.
+vi.mock("@/server/authorize-page", () => ({
+  authorizePage: async (named: { tenant: string }) => ({ authorized: true, actor: {}, tenantId: named.tenant, userId: "user-1" }),
+}));
 
 /** The screen's module graph reaches the store; no scope is asked for here. */
 process.env["DATABASE_URL"] ??= "postgresql://cubit_app:cubit_app@127.0.0.1:5544/postgres";

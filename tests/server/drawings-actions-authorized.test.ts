@@ -57,7 +57,8 @@ describe("the drawings actions ask the one guard for the permission a reading mo
     const asked = await actions.requestSheetsFor({ projectId: PROJECT, drawingIds: [DRAWING] });
     expect(asked[0]?.refusal, "nothing about MEASURE stands between an upload and its reading").toBeNull();
     expect(asked[0]?.jobId, "the drawing is enqueued to be read").toBe("job-9");
-    expect(guard.authorize.mock.calls.every((call) => !Object.hasOwn(call[0] as object, "permission")), "no permission is named at either door of this flow").toBe(true);
+    const asks = guard.authorize.mock.calls.map((call) => (call as unknown[])[0] as Record<string, unknown>);
+    expect(asks.every((ask) => !Object.hasOwn(ask, "permission")), "no permission is named at either door of this flow").toBe(true);
   });
 
   test("a caller the guard refuses is refused, and nothing is enqueued for any drawing", async () => {

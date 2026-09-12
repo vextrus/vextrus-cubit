@@ -95,7 +95,7 @@ describe("GET /api/viewer/{drawing}/{layout} asks the one guard", () => {
       expect(response.status, `a REVIEWER reviews the measurements taken off this sheet (${query})`).not.toBe(403);
     }
     for (const call of guard.authorize.mock.calls) {
-      expect(call[0], "no permission is named at a read door").not.toHaveProperty("permission");
+      expect((call as unknown[])[0], "no permission is named at a read door").not.toHaveProperty("permission");
     }
   });
 
