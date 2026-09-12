@@ -29,8 +29,8 @@ describe("CUBIT_VERIFY_SLOTS sizes every cap the gate sets", () => {
 
     process.stdout.write(`box-budget unit ${unitAlone}->${unitShared} db ${dbAlone}->${dbShared} budget ${gateBudget(BOX, 1)}->${gateBudget(BOX, 2)}\n`);
 
-    expect(unitAlone, "the unit lane's measured cap moved when nothing else shares the box").toBe(6);
-    expect(unitShared, "a second gate on the box did not halve the unit lane's workers").toBe(3);
+    expect(unitAlone, "the unit lane's measured cap moved when nothing else shares the box").toBe(12);
+    expect(unitShared, "a second gate on the box did not halve the unit lane's workers").toBe(4);
     expect(dbAlone, "the database lane's measured knee moved when nothing else shares the box").toBe(8);
     expect(dbShared, "a second gate on the box did not halve the database lane's workers").toBe(4);
   });

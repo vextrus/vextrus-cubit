@@ -68,8 +68,18 @@ export function waveParallelism(lanes, box = {}) {
  * The unit lane's measured cap on a box it shares with the gate's other lanes (scripts/verify.mjs),
  * and the database lane's measured knee (db/__tests__/vitest.config.ts: 162 s in series → 87 s at
  * four workers, 71 s at eight, 113 s at twelve). Both are the value for ONE gate on the box.
+ *
+ * THE UNIT KNEE MOVED (v22 speed, 2026-09-13). Six was measured when two files in the lane each ran
+ * the whole cad suite in a subprocess for about 110 s: the lane's wall was ONE file's wall, and no
+ * number of workers could touch it — 106 s at six, 112 s at eight, 114 s at twelve. Those two
+ * duplicated runs are gone (tests/cad/licence.test.ts, tests/cad/dwg/dwg-lane.test.ts), and with the
+ * tail cut the lane is worker-bound again: on this 24-thread box, 350 files and ~200 s of work
+ * measured 57 s at six, 39 s at ten, 35 s at twelve, 33 s at fourteen, 33 s at sixteen, 33 s at
+ * twenty. Twelve is the knee — past it the curve is flat, because the lane's floor is now its own
+ * slowest FILE (tests/takeoff/ingest/extractor-process.test.ts, 30 s), and the six lanes gating
+ * beside it want cores too.
  */
-export const UNIT_LANE_KNEE = 6;
+export const UNIT_LANE_KNEE = 12;
 export const DB_LANE_KNEE = 8;
 
 /**
