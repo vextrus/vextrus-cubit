@@ -56,12 +56,13 @@ export const LINEAGE_SCOPES: readonly ["platform", "tenant", "project"] = ["plat
 
 /**
  * The seed edition's identity. Re-baselined under B-20 by inc-213: the platform edition is re-minted
- * as `IS1200_IN @ 2026.09` citing every method the shards enumerate, inserted beside the immutable
+ * as `IS1200_IN @ 2026.10` citing every method the shards enumerate — re-baselined again by the
+ * frame leaf, whose six methods the edition in force has to cite — inserted beside the immutable
  * 2026.08 row rather than over it — so the SEED the product ships, and every fork of it, is the new
  * one, while the old row stands untouched as the campaigns opened under it measured against.
  */
 export const SEED_NAME = "IS1200_IN";
-export const SEED_VERSION = "2026.09";
+export const SEED_VERSION = "2026.10";
 
 /** The edition 0004 seeded and this product never edits — kept as the row a migration test reads. */
 export const SUPERSEDED_SEED_VERSION = "2026.08";
