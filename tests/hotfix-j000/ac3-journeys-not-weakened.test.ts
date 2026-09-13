@@ -37,6 +37,11 @@ const OWNED_JOURNEY_IDS = ["J-001", "J-002"] as const;
 /** The working-tree text of a repo-relative path, or null where the tree has not got it. */
 function currentText(path: string): string | null {
   const absolute = join(REPO_ROOT, path);
+  // white-box: AC-3 — the criterion is a property of the two journey SPECS' own text: that each
+  // still makes at least as many assertions, declares at least as many cases and names every
+  // screenshot and checkpoint it named at the pre-fix merge. What the journeys DO is the journey
+  // lane's reading, made against the built product; "they have not been weakened to get there" can
+  // only be read off the text, compared with the same text at `PRE_FIX`.
   return existsSync(absolute) ? readFileSync(absolute, "utf8") : null;
 }
 
@@ -76,6 +81,15 @@ function isRegeneratedBaseline(path: string): boolean {
  * entries", which is B-20's own discipline. The frozen expectation happens to live beside the
  * register it freezes rather than under `tests/`, and where a declared re-baseline lives is not what
  * makes it one.
+ *
+ * That third entry and this note are the ARBITRATION's, not a Builder's: the ruling on inc-301
+ * (DECLARED_REBASELINED) ratifies them as an arbiter-ordered amendment, so no reviewer reads them as
+ * scope drift. The same ruling's wider cure — scoping the stray reading to STATE, by reading the
+ * declaration out of the increment specs on the branch and deleting this list — waits on a source a
+ * test can read: no increment spec is committed to this tree (`docs/specs/` holds the Bible, the
+ * perf specs and the design decisions, and nothing increment-shaped), so a read of it today would
+ * admit nothing and turn a lawful `baseline:` commit into a red no actor may clear. Until a spec
+ * lands in the tree, the ruling's second limb governs and the list stands.
  */
 const DECLARED_REBASELINED: readonly string[] = [
   "tests/rulesets/support/editions.ts",
