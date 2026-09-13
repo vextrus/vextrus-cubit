@@ -55,7 +55,12 @@ describe("AC-1: the export seam writes the workbook and the CSV the spec describ
     expect(bytes, "buildWorkbook answers the .xlsx bytes").toBeInstanceOf(Uint8Array);
 
     const read = new Workbook();
-    await read.xlsx.load(Buffer.from(bytes).buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+    // The bytes are handed to the reader as the buffer they are. Copying them into Node's pool and
+    // then slicing that pool at the ORIGINAL view's offset reads an unrelated window of the pool —
+    // green or red by where the allocator happened to land, which pins nothing (ruling, count 1).
+    // The cast is the library's own `Buffer` against this tree's newer, generic one — the value is
+    // exactly the buffer the reader asks for.
+    await read.xlsx.load(Buffer.from(bytes) as unknown as Parameters<typeof read.xlsx.load>[0]);
 
     expect(read.worksheets.map((sheet) => sheet.name), "the workbook carries exactly the sheets the spec named").toEqual([SAMPLE.name]);
     const bill = read.getWorksheet(SAMPLE.name);
@@ -80,12 +85,26 @@ describe("AC-1: the export seam writes the workbook and the CSV the spec describ
     // The number formats: the quantity column at its own precision, money at the document's.
     expect(lakhCroreNumberFormat(2), "the two-digit lakh/crore format is the one Excel spelling AC-1 publishes").toBe(LAKH_CRORE_TWO);
     const quantityFormat = lakhCroreNumberFormat(SAMPLE.columns[1].fractionDigits);
-    expect(bill.getCell("B2").numFmt).toBe(quantityFormat);
-    expect(bill.getCell("B3").numFmt).toBe(quantityFormat);
     const money = lakhCroreNumberFormat(await moneyDigits());
+
+    // Which cell carries which format is read back through exceljs, whose reader strips the escapes
+    // it wrote verbatim (numfmt-xform.js:40 against :32), so the read-back is compared to the same
+    // code unescaped. What EXCEL opens is graded below, off the artefact itself (ruling, count 2).
+    const asRead = (code: string): string => code.replace(/\\(.)/gu, "$1");
+    expect(bill.getCell("B2").numFmt).toBe(asRead(quantityFormat));
+    expect(bill.getCell("B3").numFmt).toBe(asRead(quantityFormat));
     for (const cell of ["C2", "C3", "D2", "D3"]) {
-      expect(bill.getCell(cell).numFmt, `${cell} is money, formatted by the document convention's own precision`).toBe(money);
+      expect(bill.getCell(cell).numFmt, `${cell} is money, formatted by the document convention's own precision`).toBe(asRead(money));
     }
+
+    // The artefact's own styles part: the number formats Excel will read are the seam's published
+    // codes, escapes and all — the .xlsx is a zip, and this is what is inside it.
+    const { default: JSZip } = await import("jszip");
+    const styles = await (await JSZip.loadAsync(Buffer.from(bytes))).file("xl/styles.xml")?.async("string");
+    const unentitied = (styles ?? "").replace(/&gt;/gu, ">").replace(/&lt;/gu, "<").replace(/&amp;/gu, "&");
+    expect(styles, "an .xlsx carries its number formats in xl/styles.xml").toBeDefined();
+    expect(unentitied, "the money format Excel opens is the published lakh/crore code, verbatim").toContain(money);
+    expect(unentitied, "and the quantity column's own precision likewise").toContain(quantityFormat);
 
     // freezeHeader: the header row stays put.
     expect(bill.views[0], "freezeHeader freezes exactly the header row").toMatchObject({ state: "frozen", ySplit: 1 });
