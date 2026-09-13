@@ -143,5 +143,12 @@ export async function railSetupOf(scope: RailSetupScope): Promise<RailSetup> {
     // A seam, empty until a general-notes reader lands: no grade is stated, so nothing is selected
     // by, and the selection basis rolls up to DEFAULTED at the gate (L-QTY-01, riskNotes (5)).
     grades: {},
+    // TODO(next session): fill from `runsOf` — the partition's stored run per placement, its
+    // `source` the first of the run's `sourceKeys`.
+    runs: {},
+    // A seam like `grades`, empty until the opening-schedule reader lands: with no scheduled opening
+    // behind it a lintel is reported rather than measured, because "a lintel is never inferred from
+    // the wall it spans" (R-TO-032).
+    lintels: {},
   };
 }

@@ -13,7 +13,7 @@
 // quantity and enumerated on the row (L-QTY-01/02).
 import type { ElementType } from "@/core/catalogue/classes";
 import type { Kind } from "@/core/catalogue/kinds";
-import type { Measure, Offer, Rail, RailInput, RailObservation, RailSetup, ReadingSetup, RegisterObjectRow, RunSetup } from "@/core/offers/contract";
+import type { Measure, Offer, Rail, RailInput, RailObservation, RailSetup, ReadingSetup, RunSetup } from "@/core/offers/contract";
 import { exact } from "@/core/units/canon";
 import { CANONICAL_UNIT } from "@/core/units/canon";
 import { measureOf, observe, ONE, PRISM_RECT, readMember, rowsOfClass, selectorsOf, type MemberRead } from "./member";
