@@ -440,6 +440,18 @@ export function textOf(element: Element): string {
 }
 
 /**
+ * The text a person HEARS the screen say: the shipped primitives keep machine-readable spellings in
+ * the DOM inside a technical disclosure (`[data-technical]`, hidden by CSS — see
+ * src/ui/primitives/core/enum-label.tsx), and `textContent` cannot see that CSS. Reading the spoken
+ * voice means dropping those subtrees, never asserting the raw value is absent from the row.
+ */
+export function spokenText(element: Element): string {
+  const copy = element.cloneNode(true) as Element;
+  for (const technical of [...copy.querySelectorAll("[data-technical]")]) technical.remove();
+  return textOf(copy);
+}
+
+/**
  * The options a Select offers, whatever the primitive renders them as: the shipped Select is not a
  * native `select` (R-UI-083), so an option is read as a `listbox` option wherever it stands — in the
  * control's own subtree or in the portal the overlay primitive mounts it in.

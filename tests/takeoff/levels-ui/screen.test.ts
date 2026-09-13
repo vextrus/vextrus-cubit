@@ -38,6 +38,7 @@ import {
   optionsOf,
   productModule,
   rollup,
+  spokenText,
   textOf,
   viewFixture,
   type LevelShape,
@@ -173,10 +174,21 @@ describe("AC-1: the stack renders as the grid-workspace template", () => {
         chips.some((chip) => chip.length > 0 && level.levelId.includes(chip.replace(/[^0-9a-f-]/giu, ""))),
         `${level.label}'s surrogate renders through IdChip, never woven into a sentence (R-UI-082): ${JSON.stringify(chips)}`,
       ).toBe(true);
+      const said = [...row.querySelectorAll<HTMLElement>("[data-value]")].find(
+        (element) => attr(element, "data-value") === level.standing,
+      );
       expect(
-        textOf(row),
-        `and its standing renders as a WORD through EnumLabel — the raw value is machine-readable only (§3's voice)`,
+        said,
+        `${level.label}'s standing goes through the shipped EnumLabel, which publishes the model value it is saying (data-value="${level.standing}")`,
+      ).toBeTruthy();
+      expect(
+        spokenText(said as HTMLElement),
+        `and what it says OUT LOUD is a word, not the enum — the raw value stays machine-readable inside the technical disclosure (§3's voice)`,
       ).not.toContain(level.standing);
+      expect(
+        spokenText(said as HTMLElement).length,
+        `${level.label}'s standing is spoken, never left as an empty cell`,
+      ).toBeGreaterThan(0);
     }
   });
 

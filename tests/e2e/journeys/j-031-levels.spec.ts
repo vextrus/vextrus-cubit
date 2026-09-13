@@ -46,12 +46,14 @@ interface LevelsPage {
   readonly navRegister: Locator;
   readonly navCoverage: Locator;
   openThroughNav(): Promise<void>;
+  open(tenantId: string, projectId: string): Promise<void>;
   readonly screen: Locator;
   readonly grid: Locator;
   readonly rows: Locator;
   readonly ranges: Locator;
   readonly inspector: Locator;
   readonly readings: Locator;
+  readonly supersededReadings: Locator;
   readonly dialog: Locator;
   readonly dialogSubjects: Locator;
   readonly dialogLines: Locator;
@@ -160,7 +162,9 @@ test.describe("J-031 — the level stack editor", () => {
     /* --- the lines, published through the gate AFTER the contest: the roll-up reads them (AC-4) --- */
     const published = await stage.publishLines(staged);
     expect(published.length, `the campaign published its ${RCC_CONCRETE} lines: ${JSON.stringify(published)}`).toBeGreaterThan(0);
-    await page.reload();
+    // The read after the gate is a fresh read of THIS increment's own address — never a bare reload,
+    // whose target no assertion here names (the root is another increment's screen).
+    await levels.open(staged.tenantId, staged.projectId);
     await expect(levels.screen, "the stack reads again once the campaign has measured").toBeVisible();
 
     const rollup = levels.rollup(levels.row(staged.groundLevelId), RCC_CONCRETE);
