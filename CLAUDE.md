@@ -124,6 +124,13 @@ your prompt. The engine rewrites the lessons block after merges; nothing here is
   (the Verifier's), the toolchain scripts and CI unless owned. A debt sweep's worklist is
   `mcp__builder__debt_rows`; fix each row where it lives, test beside it.
 
+## Compact instructions
+When this session's context is compacted, the summary must carry, verbatim where it can: the
+increment id and every acceptance criterion id with its current verdict (green, red, untouched);
+every file changed so far and why, one line each; the lanes asked through `mcp__builder__check` and
+their last verdicts; the open questions and objections; the exact next step. Never a narrative of
+the work. The session continues after the summary — the Handoff is for the end of the work only.
+
 <!-- builder:lessons:start -->
 ## Standing lessons (engine-maintained)
 ### Locked ground & lawful paths
