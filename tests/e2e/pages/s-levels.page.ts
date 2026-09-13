@@ -16,34 +16,13 @@ export const S_LEVELS = Object.freeze({
 } as const);
 
 /**
- * The ids this screen carries, exactly as the closed test contract spells them. They are spelled
- * ONCE for the journey lane here, because `src/ui/testids.ts` — the product's one home for them —
- * does not publish this screen's group until the Builder lands it.
+ * The ids this screen carries, read from `src/ui/testids.ts` — the product's one home for them, now
+ * that the screen publishes its group there (AM-09 §1). The shape is kept so every locator below
+ * reads as the closed test contract spells it.
  */
 export const LEVELS_IDS = Object.freeze({
-  screen: "levels-screen",
-  grid: "levels-grid",
-  row: "levels-row",
-  rollup: "levels-rollup",
-  empty: "levels-empty",
-  insert: "levels-insert",
-  insertLabel: "levels-insert-label",
-  insertOrdinal: "levels-insert-ordinal",
-  insertConfirm: "levels-insert-confirm",
-  inspector: "levels-inspector",
-  reading: "levels-reading",
-  heightValue: "levels-height-value",
-  heightUnit: "levels-height-unit",
-  heightBasis: "levels-height-basis",
-  heightSource: "levels-height-source",
-  authorHeight: "levels-author-height",
-  repudiate: "levels-repudiate",
-  ranges: "levels-ranges",
-  rangeRow: "levels-range-row",
-  rangeFrom: "levels-range-from",
-  rangeTo: "levels-range-to",
-  authorRange: "levels-author-range",
-  navLevels: "takeoff-nav-levels",
+  ...TESTIDS.levels,
+  navLevels: TESTIDS.takeoff.navLevels,
 } as const);
 
 /** The three standings, and the two codes a level's height is read under (L-MEA-07). */

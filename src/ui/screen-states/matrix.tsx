@@ -434,6 +434,28 @@ export const screenStates: ScreenStatesMatrix = {
     ),
   }),
 
+  // The level stack editor (s-levels § 2): one grid over the project's live levels, with the views
+  // whose typical range nobody stated standing beside it. Its partial cell is exactly that deferred
+  // half — shown in the rail, never hidden — and its denial names AUTHOR_LEVEL_STACK, the permission
+  // the insert and the repudiation both move; the other two doors name their own where they stand.
+  "/t/[tenant]/p/[project]/takeoff/levels": declare({
+    loading: bones(2),
+    empty: (): ReactNode => <EmptyTeaching heading={strings.levels_empty_heading} body={strings.levels_empty_body} action={strings.levels_insert} />,
+    error: fault(strings.levels_error_body),
+    refusal: refusal(REFUSAL_ENTRIES.PERMISSION_NOT_HELD, PARTICIPANTS_EVIDENCE),
+    partial: (): ReactNode => <InlineAnswer text={strings.levels_ranges_hint} />,
+    offline: (): ReactNode => <InlineAnswer text={strings.levels_offline} />,
+    "permission-denied": (): ReactNode => (
+      <PermissionDenied
+        heading={strings.state_denied_project_heading}
+        permission={strings.levels_denied_stack}
+        holder={strings.levels_denied_holder}
+        refusal={REFUSAL_ENTRIES.PERMISSION_NOT_HELD}
+        evidence={PARTICIPANTS_EVIDENCE}
+      />
+    ),
+  }),
+
   // The takeoff address itself (s-takeoff § 1): a redirect that renders nothing, so every one of its
   // seven cells is the register's own, taken from the surface a reader is carried to and named as
   // handed over — a route that shows nothing has no state of its own to invent (Decision § 2).
