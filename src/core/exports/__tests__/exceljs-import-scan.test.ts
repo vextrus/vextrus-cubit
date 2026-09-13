@@ -32,12 +32,18 @@ const CORPUS = "tests/lint-fixtures/export-seam";
 
 /**
  * How a corpus payload declares its own status: the basename says whether the payload is one the scan
- * owes findings at (`bad.*`) or one it must be silent over (`good.*`), and the recorded reason on a
- * line says that line is owed. The expectation is read out of those declarations, never recomputed
- * from the import grammar — which would only ask the scanner whether it agrees with itself (B-19).
+ * owes findings at (`bad.*`) or one it must be silent over (`good.*`), and a line is owed when its
+ * CODE names the library as a module specifier — `from "exceljs"`, a bare `import "exceljs"`,
+ * `import("exceljs")` or `require("exceljs")`. The recorded reason Q-08 asks a banned line to carry
+ * plays no part in the expectation: the corpus crosses the two (a marker with no import beside it, an
+ * import under no marker), so a scanner that merely greps for the marker answers a different set than
+ * this one, and the prover would be asking the marker rather than the grammar (B-19).
  */
 const BAD_PAYLOAD = "bad.";
-const RECORDED_REASON = "// RECORDED REASON R-SPINE-041";
+const SPECIFIER = /(?:\bfrom\s*|\b(?:import|require)\s*\(?\s*)(["'])exceljs\1/u;
+
+/** The code half of a source line — a mention inside a comment is not code (Q-17). */
+const codeOf = (text: string): string => text.split("//")[0] ?? "";
 
 /** The corpus's files, found by walking it — a payload list would go stale as the corpus grows. */
 function corpusFiles(directory: string): string[] {
@@ -65,7 +71,7 @@ describe("R-SPINE-041: exceljs is named by the export seam and by nothing else",
     // off its own text. No product source is read here, and nothing is asserted about the scanner.
     const owed = readFileSync(file, "utf8")
       .split("\n")
-      .flatMap((text, index) => (basename.startsWith(BAD_PAYLOAD) && text.includes(RECORDED_REASON) ? [index + 1] : []));
+      .flatMap((text, index) => (SPECIFIER.test(codeOf(text)) ? [index + 1] : []));
     if (basename.startsWith(BAD_PAYLOAD)) expect(owed.length, `${basename} declares the shapes the scan is proved on`).toBeGreaterThan(0);
 
     const reported = findings.filter((finding) => basenameOf(finding.file) === basename);

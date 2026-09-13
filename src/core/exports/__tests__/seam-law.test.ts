@@ -13,8 +13,18 @@ const REPO_ROOT = process.cwd();
 /** The corpus this increment declares, and the two halves lint-law asks every corpus for. */
 const CORPUS = "tests/lint-fixtures/export-seam";
 
-/** What a lint fixture's payload line carries so Q-08's ban on banned constructs is recorded, not broken. */
-const RECORDED_REASON = "// RECORDED REASON R-SPINE-041";
+/**
+ * The oracle, stated independently of the corpus's recorded-reason markers: a line owes a finding
+ * when its CODE names the spreadsheet library as a module specifier, in any of the shapes a
+ * specifier arrives in — `from "exceljs"`, a bare `import "exceljs"`, `import("exceljs")` and
+ * `require("exceljs")`. A mention inside a comment is not code (Q-17), so the comment is cut off
+ * the line before it is judged; and the marker text plays no part in this at all, so a scan that
+ * merely greps for the marker answers a different set than the one derived here.
+ */
+const SPECIFIER = /(?:\bfrom\s*|\b(?:import|require)\s*\(?\s*)(["'])exceljs\1/u;
+
+/** The code half of a source line — everything before a line comment begins. */
+const codeOf = (text: string): string => text.split("//")[0] ?? "";
 
 /** The scan's surface, structurally — nothing here needs the Builder's module to typecheck. */
 type Scan = { scanExceljsImports: (root: string) => { file: string; line: number; text: string }[] };
@@ -81,13 +91,34 @@ describe("AC-2: exceljs lives in the seam and nowhere else", () => {
     expect(files.filter((file) => !isPayload(file)).length, "and the lawful counterpart lint-law asks every corpus for").toBeGreaterThan(0);
 
     for (const file of files) {
-      // white-box: AC-2 — the same corpus read as above, line by line: the payload's own recorded
-      // reasons are what the scan owes a finding for, so the expectation is derived from the input
-      // rather than pinned as a list a later shape would have to be added to (B-19).
-      const owed = readFileSync(file, "utf8")
-        .split("\n")
-        .flatMap((text, index) => (isPayload(file) && text.includes(RECORDED_REASON) ? [index + 1] : []));
-      if (isPayload(file)) expect(owed.length, `${file} carries the shapes the scan is proved on`).toBeGreaterThan(0);
+      // white-box: AC-2 — the same corpus read as above, line by line: the lines whose CODE names
+      // the library are what the scan owes a finding for, so the expectation is derived from the
+      // input rather than pinned as a list a later shape would have to be added to (B-19). The
+      // derivation is independent of the corpus's recorded-reason markers, so a scanner that greps
+      // for the marker answers a different set than this one.
+      const lines = readFileSync(file, "utf8").split("\n");
+      const owed = lines.flatMap((text, index) => (SPECIFIER.test(codeOf(text)) ? [index + 1] : []));
+      if (isPayload(file)) {
+        expect(owed.length, `${file} carries the shapes the scan is proved on`).toBeGreaterThan(0);
+        // The payload holds both crossings of marker and import, so neither one stands in for the
+        // other: a line that carries the recorded reason and imports nothing owes no finding, and a
+        // line that imports the library under no marker at all owes one.
+        const marked = (text: string): boolean => text.includes("RECORDED REASON");
+        expect(
+          // white-box: AC-2 — the CORPUS's own text, under tests/lint-fixtures/, is the scan's INPUT
+          // and nothing under src/, scripts/ or db/ is read: the two crossings are what make the
+          // input discriminating, and a payload that lost either would let a marker-grepping scanner
+          // pass the case above. This asserts a property of the fixture, never of product source.
+          lines.some((text) => marked(text) && !SPECIFIER.test(codeOf(text))),
+          `${file} carries a recorded reason with no import beside it, which the scan owes nothing for`,
+        ).toBe(true);
+        expect(
+          // white-box: AC-2 — the same fixture read, from the other side: the corpus must also carry
+          // an import under no marker, or "the scan fires on the import" is never put to the test.
+          lines.some((text) => !marked(text) && SPECIFIER.test(codeOf(text))),
+          `${file} carries an import of the library under no marker, which the scan owes a finding for`,
+        ).toBe(true);
+      }
 
       const reported = findings.filter((finding) => finding.file.endsWith(file.slice(file.lastIndexOf("/") + 1)));
       expect(

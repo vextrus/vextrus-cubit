@@ -17,4 +17,16 @@ export const lazily = await import("exceljs"); // RECORDED REASON R-SPINE-041
 
 export const required = require("exceljs"); // RECORDED REASON R-SPINE-041
 
+// A recorded reason standing alone, with no import beside it. The scan is a scan of IMPORTS, not of
+// this comment: a scanner keyed on the marker string would report this line, and it owes nothing
+// here. // RECORDED REASON R-SPINE-041
+export const unmarkedPayload = "nothing is imported on the line above";
+
+// And the converse: the specifier reached for on a line that carries no recorded reason at all. The
+// marker records a banned CONSTRUCT for Q-08; it is not what makes an import of the spreadsheet
+// library a finding, so the scan owes this line a finding exactly as it owes the four above.
+import * as unmarkedExcel from "exceljs";
+
+export const reachedTwice = unmarkedExcel;
+
 export const reached = ExcelJS;

@@ -50,6 +50,25 @@ const SAMPLE = {
   ],
 } as const;
 
+/**
+ * A second artefact, of a different shape and of content nothing else in this suite produces: it is
+ * what makes "serves a STORED artefact" a claim about storage. Two addresses stand in this scene at
+ * once, and each has to be answered with its own bytes — a door that ignores storage and answers
+ * with the one well-known artefact it could have been written against serves the wrong one here.
+ */
+const LEDGER = {
+  name: "Ledger",
+  freezeHeader: false,
+  columns: [
+    { key: "note", header: "Note", kind: "text" },
+    { key: "amount", header: "Amount", kind: "money" },
+  ],
+  rows: [
+    [`Advance against ${randomUUID()}`, "250000.00"],
+    ["Retention released", "12500.00"],
+  ],
+} as const;
+
 type Seam = {
   buildWorkbook: (spec: { sheets: readonly unknown[] }) => Promise<Uint8Array>;
   writeCsv: (sheet: unknown) => Uint8Array;
@@ -68,7 +87,17 @@ let route: Route;
 let storage: unknown;
 let sessionCookie: string;
 
-const scene = { tenantId: "", member: { userId: "", token: "" } as Person, outsider: { userId: "", token: "" } as Person, csv: "", xlsx: "", csvBytes: new Uint8Array() as Uint8Array<ArrayBufferLike> };
+const scene = {
+  tenantId: "",
+  member: { userId: "", token: "" } as Person,
+  outsider: { userId: "", token: "" } as Person,
+  csv: "",
+  xlsx: "",
+  ledger: "",
+  csvBytes: new Uint8Array() as Uint8Array<ArrayBufferLike>,
+  xlsxBytes: new Uint8Array() as Uint8Array<ArrayBufferLike>,
+  ledgerBytes: new Uint8Array() as Uint8Array<ArrayBufferLike>,
+};
 
 /** A staging read, spoken under the system reason the seam's own writes record (SEAM-TENANT). */
 const sysScalar = (sql: string): string => scalar(scratch?.urlMigrate ?? "", `set ${GUC_SYSTEM_REASON} = ${lit(SEED_REASON)};\n${sql}`);
@@ -130,7 +159,10 @@ async function stage(): Promise<void> {
 
   scene.csvBytes = seam.writeCsv(SAMPLE);
   ({ sha256: scene.csv } = await seam.storeExport(storage, scene.tenantId, scene.csvBytes));
-  ({ sha256: scene.xlsx } = await seam.storeExport(storage, scene.tenantId, await seam.buildWorkbook({ sheets: [SAMPLE] })));
+  scene.xlsxBytes = await seam.buildWorkbook({ sheets: [SAMPLE] });
+  ({ sha256: scene.xlsx } = await seam.storeExport(storage, scene.tenantId, scene.xlsxBytes));
+  scene.ledgerBytes = seam.writeCsv(LEDGER);
+  ({ sha256: scene.ledger } = await seam.storeExport(storage, scene.tenantId, scene.ledgerBytes));
 
   route = (await import("../../src/app/api/exports/[id]/route")) as unknown as Route;
 }
@@ -209,5 +241,27 @@ describe("AC-3: a stored export is served to a member of the workspace that stor
     expect(answer.status).toBe(200);
     expect(answer.headers.get("content-type")).toBe(seam.MIME_OF_KIND["xlsx"]);
     expect(answer.headers.get("content-disposition")).toBe(`attachment; filename="${scene.xlsx}.xlsx"`);
+    expect(new Uint8Array(await answer.arrayBuffer()), "the workbook comes back whole, byte for byte as it was stored").toEqual(scene.xlsxBytes);
+  });
+
+  it("AC-3: each address is answered with the bytes stored AT it, not with a well-known artefact", async () => {
+    await staged();
+    // Two artefacts of the same workspace, of different content and therefore different addresses:
+    // whichever is asked for, the answer is its own bytes. A door that never reaches storage — one
+    // that answers every csv address with the artefact it was written against — serves one of these
+    // twice, and cannot serve both.
+    expect(scene.ledger, "content addressing gives two different artefacts two different addresses").not.toBe(scene.csv);
+    expect(Buffer.from(scene.ledgerBytes).equals(Buffer.from(scene.csvBytes)), "and the two artefacts really are different bytes").toBe(false);
+
+    for (const [sha256, bytes] of [
+      [scene.csv, scene.csvBytes],
+      [scene.ledger, scene.ledgerBytes],
+    ] as const) {
+      const url = seam.exportDownloadUrl(storage, { tenantId: scene.tenantId, sha256, kind: "csv", expiresInSeconds: 900 });
+      const answer = await ask(url, scene.member.token);
+      expect(answer.status, `${sha256} is stored in this workspace`).toBe(200);
+      expect(answer.headers.get("content-disposition")).toBe(`attachment; filename="${sha256}.csv"`);
+      expect(new Uint8Array(await answer.arrayBuffer()), `${sha256} is answered with the bytes stored at that address`).toEqual(bytes);
+    }
   });
 });
