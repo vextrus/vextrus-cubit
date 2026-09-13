@@ -11,9 +11,20 @@ import { LINTEL_CONCRETE_FORMULA, LINTEL_CONCRETE_METHOD, LINTEL_FORMWORK_FORMUL
 import { TIE_BEAM_CONCRETE_FORMULA, TIE_BEAM_CONCRETE_METHOD, TIE_BEAM_FORMWORK_FORMULA, TIE_BEAM_FORMWORK_METHOD } from "../frame/tie-beam";
 import { methodKey, type MethodArea } from "./area";
 
+/**
+ * The shard records its methods as a LIST — one row per pair, each naming its own rule id — and the
+ * registry reads a shard as a map keyed by the pair (L-MEA-01: "methods … keyed (rule id, version)").
+ * The two are one statement in two shapes, so the key is derived from the row it keys rather than
+ * written beside it, and a row landed in the list joins the roster without a second edit (B-19).
+ */
+const shardAsMap = Object.freeze({
+  digest: frameShard.digest,
+  methods: Object.freeze(Object.fromEntries(frameShard.methods.map((row) => [methodKey(row), row]))),
+});
+
 /** This area's shards and the implementations for the pairs they record. */
 export const FRAME_METHODS: MethodArea = Object.freeze({
-  shards: Object.freeze([frameShard]),
+  shards: Object.freeze([shardAsMap]),
   implementations: Object.freeze({
     [methodKey(BEAM_CONCRETE_METHOD)]: BEAM_CONCRETE_FORMULA,
     [methodKey(BEAM_FORMWORK_METHOD)]: BEAM_FORMWORK_FORMULA,

@@ -1,41 +1,41 @@
 {
-  "methods": {
-    "rcc.beam.concrete@1": {
+  "methods": [
+    {
       "ruleId": "rcc.beam.concrete",
       "version": "1",
       "law": "L-MEA-09",
       "module": "src/core/rulesets/methods/frame/beam.ts"
     },
-    "rcc.beam.formwork@1": {
+    {
       "ruleId": "rcc.beam.formwork",
       "version": "1",
       "law": "L-MEA-09",
       "module": "src/core/rulesets/methods/frame/beam.ts"
     },
-    "rcc.tie_beam.concrete@1": {
+    {
       "ruleId": "rcc.tie_beam.concrete",
       "version": "1",
       "law": "L-MEA-09",
       "module": "src/core/rulesets/methods/frame/tie-beam.ts"
     },
-    "rcc.tie_beam.formwork@1": {
+    {
       "ruleId": "rcc.tie_beam.formwork",
       "version": "1",
       "law": "L-MEA-09",
       "module": "src/core/rulesets/methods/frame/tie-beam.ts"
     },
-    "rcc.lintel.concrete@1": {
+    {
       "ruleId": "rcc.lintel.concrete",
       "version": "1",
       "law": "L-MEA-09",
       "module": "src/core/rulesets/methods/frame/lintel.ts"
     },
-    "rcc.lintel.formwork@1": {
+    {
       "ruleId": "rcc.lintel.formwork",
       "version": "1",
       "law": "L-MEA-09",
       "module": "src/core/rulesets/methods/frame/lintel.ts"
     }
-  },
-  "digest": "f1aad786c8a0e9829f1a1177d67735759b127f5425b5c66927d257c318e65aa5"
+  ],
+  "digest": "278ebb19966e8f1693382243d3c5aecaca1c95d3924cd51d4817d8e7c7a7145b"
 }
